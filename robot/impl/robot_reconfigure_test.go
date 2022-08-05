@@ -39,9 +39,9 @@ import (
 )
 
 var serviceNames = []resource.Name{
-	sensors.Name,
-	datamanager.Name,
-	vision.Name,
+	sensors.Named("builtin"),
+	datamanager.Named("builtin"),
+	vision.Named("builtin"),
 }
 
 func TestRobotReconfigure(t *testing.T) {
@@ -2191,7 +2191,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		svc, err := sensors.FromRobot(robot)
+		svc, err := sensors.FromRobot(robot, "builtin")
 		test.That(t, err, test.ShouldBeNil)
 
 		foundSensors, err := svc.GetSensors(context.Background())
@@ -2212,7 +2212,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		svc, err := sensors.FromRobot(robot)
+		svc, err := sensors.FromRobot(robot, "builtin")
 		test.That(t, err, test.ShouldBeNil)
 
 		foundSensors, err := svc.GetSensors(context.Background())
@@ -2233,7 +2233,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		svc, err := sensors.FromRobot(robot)
+		svc, err := sensors.FromRobot(robot, "builtin")
 		test.That(t, err, test.ShouldBeNil)
 
 		foundSensors, err := svc.GetSensors(context.Background())
@@ -2393,16 +2393,16 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Name, sensors.Name, datamanager.Name,
+			vision.Named("builtin"), sensors.Named("builtin"), datamanager.Named("builtin"),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
 			gps.Named("foo:gps1"),
 			gps.Named("foo:gps2"),
 			gripper.Named("foo:pieceGripper"),
-			vision.Named("foo:"),
-			sensors.Named("foo:"),
-			datamanager.Named("foo:"),
+			vision.Named("foo:builtin"),
+			sensors.Named("foo:builtin"),
+			datamanager.Named("foo:builtin"),
 		),
 	)
 	err = remote2.StartWeb(ctx, options)
@@ -2420,24 +2420,24 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Name, sensors.Name, datamanager.Name,
+			vision.Named("builtin"), sensors.Named("builtin"), datamanager.Named("builtin"),
 			arm.Named("arm1"), arm.Named("arm2"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
 			gps.Named("foo:gps1"),
 			gps.Named("foo:gps2"),
 			gripper.Named("foo:pieceGripper"),
-			vision.Named("foo:"),
-			sensors.Named("foo:"),
-			datamanager.Named("foo:"),
+			vision.Named("foo:builtin"),
+			sensors.Named("foo:builtin"),
+			datamanager.Named("foo:builtin"),
 			arm.Named("bar:pieceArm"),
 			camera.Named("bar:cameraOver"),
 			gps.Named("bar:gps1"),
 			gps.Named("bar:gps2"),
 			gripper.Named("bar:pieceGripper"),
-			vision.Named("bar:"),
-			sensors.Named("bar:"),
-			datamanager.Named("bar:"),
+			vision.Named("bar:builtin"),
+			sensors.Named("bar:builtin"),
+			datamanager.Named("bar:builtin"),
 		),
 	)
 
@@ -2451,16 +2451,16 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Name, sensors.Name, datamanager.Name,
+			vision.Named("builtin"), sensors.Named("builtin"), datamanager.Named("builtin"),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
 			gps.Named("foo:gps1"),
 			gps.Named("foo:gps2"),
 			gripper.Named("foo:pieceGripper"),
-			vision.Named("foo:"),
-			sensors.Named("foo:"),
-			datamanager.Named("foo:"),
+			vision.Named("foo:builtin"),
+			sensors.Named("foo:builtin"),
+			datamanager.Named("foo:builtin"),
 		),
 	)
 
@@ -2493,24 +2493,24 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Name, sensors.Name, datamanager.Name,
+			vision.Named("builtin"), sensors.Named("builtin"), datamanager.Named("builtin"),
 			arm.Named("arm1"), arm.Named("arm2"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
 			gps.Named("foo:gps1"),
 			gps.Named("foo:gps2"),
 			gripper.Named("foo:pieceGripper"),
-			vision.Named("foo:"),
-			sensors.Named("foo:"),
-			datamanager.Named("foo:"),
+			vision.Named("foo:builtin"),
+			sensors.Named("foo:builtin"),
+			datamanager.Named("foo:builtin"),
 			arm.Named("bar:pieceArm"),
 			camera.Named("bar:cameraOver"),
 			gps.Named("bar:gps1"),
 			gps.Named("bar:gps2"),
 			gripper.Named("bar:pieceGripper"),
-			vision.Named("bar:"),
-			sensors.Named("bar:"),
-			datamanager.Named("bar:"),
+			vision.Named("bar:builtin"),
+			sensors.Named("bar:builtin"),
+			datamanager.Named("bar:builtin"),
 		),
 	)
 }

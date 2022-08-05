@@ -104,16 +104,10 @@ type Name struct {
 
 // NewName creates a new Name based on parameters passed in.
 func NewName(namespace Namespace, rType TypeName, subtype SubtypeName, name string) Name {
-	isService := rType == ResourceTypeService
 	resourceSubtype := NewSubtype(namespace, rType, subtype)
 	r := strings.Split(name, ":")
 	remote := RemoteName(strings.Join(r[0:len(r)-1], ":"))
 	nameIdent := r[len(r)-1]
-	// These services are default services and will always use the name builtin
-	isSubtype := subtype == SubtypeName("data_manager") || subtype == SubtypeName("vision") || subtype == SubtypeName("sensors")
-	if isService && isSubtype {
-		nameIdent = "builtin"
-	}
 	return Name{
 		Subtype: resourceSubtype,
 		Name:    nameIdent,

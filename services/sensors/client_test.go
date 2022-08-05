@@ -33,7 +33,7 @@ func TestClient(t *testing.T) {
 
 	injectSensors := &inject.SensorsService{}
 	omMap := map[resource.Name]interface{}{
-		sensors.Name: injectSensors,
+		sensors.Named(testSvcName1): injectSensors,
 	}
 	svc, err := subtype.New(omMap)
 	test.That(t, err, test.ShouldBeNil)
@@ -56,7 +56,7 @@ func TestClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		client := sensors.NewClientFromConn(context.Background(), conn, "", logger)
+		client := sensors.NewClientFromConn(context.Background(), conn, testSvcName1, logger)
 
 		names := []resource.Name{gps.Named("gps"), imu.Named("imu")}
 		injectSensors.GetSensorsFunc = func(ctx context.Context) ([]resource.Name, error) {
@@ -95,7 +95,7 @@ func TestClient(t *testing.T) {
 	t.Run("sensors client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := resourceSubtype.RPCClient(context.Background(), conn, "", logger)
+		client := resourceSubtype.RPCClient(context.Background(), conn, testSvcName1, logger)
 		client2, ok := client.(sensors.Service)
 		test.That(t, ok, test.ShouldBeTrue)
 
@@ -127,7 +127,7 @@ func TestClientDialerOption(t *testing.T) {
 
 	injectSensors := &inject.SensorsService{}
 	omMap := map[resource.Name]interface{}{
-		sensors.Name: injectSensors,
+		sensors.Named(testSvcName1): injectSensors,
 	}
 	server, err := newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
@@ -140,11 +140,11 @@ func TestClientDialerOption(t *testing.T) {
 	ctx := rpc.ContextWithDialer(context.Background(), td)
 	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client1 := sensors.NewClientFromConn(ctx, conn1, "", logger)
+	client1 := sensors.NewClientFromConn(ctx, conn1, testSvcName1, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client2 := sensors.NewClientFromConn(ctx, conn2, "", logger)
+	client2 := sensors.NewClientFromConn(ctx, conn2, testSvcName1, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)

@@ -26,7 +26,7 @@ func TestGetDetectorNames(t *testing.T) {
 
 func TestGetDetections(t *testing.T) {
 	r := buildRobotWithFakeCamera(t)
-	srv, err := vision.FromRobot(r)
+	srv, err := vision.FromRobot(r, vision.FindVisionName(r))
 	test.That(t, err, test.ShouldBeNil)
 	dets, err := srv.GetDetections(context.Background(), "fake_cam", "detect_red")
 	test.That(t, err, test.ShouldBeNil)

@@ -15,15 +15,17 @@ import (
 
 // client is a client implements the SensorsServiceClient.
 type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.SensorsServiceClient
 	logger golog.Logger
 }
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
+func newSvcClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) *client {
 	grpcClient := pb.NewSensorsServiceClient(conn)
 	sc := &client{
+		name:   name,
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
@@ -33,11 +35,11 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
 
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
-	return newSvcClientFromConn(conn, logger)
+	return newSvcClientFromConn(conn, name, logger)
 }
 
 func (c *client) GetSensors(ctx context.Context) ([]resource.Name, error) {
-	resp, err := c.client.GetSensors(ctx, &pb.GetSensorsRequest{})
+	resp, err := c.client.GetSensors(ctx, &pb.GetSensorsRequest{Name: c.name})
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +56,7 @@ func (c *client) GetReadings(ctx context.Context, sensorNames []resource.Name) (
 		names = append(names, protoutils.ResourceNameToProto(name))
 	}
 
-	resp, err := c.client.GetReadings(ctx, &pb.GetReadingsRequest{SensorNames: names})
+	resp, err := c.client.GetReadings(ctx, &pb.GetReadingsRequest{Name: c.name, SensorNames: names})
 	if err != nil {
 		return nil, err
 	}

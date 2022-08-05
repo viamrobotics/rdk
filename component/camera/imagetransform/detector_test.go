@@ -105,7 +105,8 @@ func TestColorDetectionSource(t *testing.T) {
 	}()
 
 	// add the detector
-	srv, err := vision.FromRobot(r)
+
+	srv, err := vision.FromRobot(r, vision.FindVisionName(r))
 	test.That(t, err, test.ShouldBeNil)
 	detConf := vision.DetectorConfig{
 		Name: "detector_color",

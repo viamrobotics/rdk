@@ -28,6 +28,10 @@ import (
 	"go.viam.com/rdk/vision/segmentation"
 )
 
+const (
+	testVisionServiceName = "vision1"
+)
+
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
@@ -36,10 +40,11 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	r := buildRobotWithFakeCamera(t)
-	srv, err := vision.FromRobot(r)
+	visName := vision.FindVisionName(r)
+	srv, err := vision.FromRobot(r, visName)
 	test.That(t, err, test.ShouldBeNil)
 	m := map[resource.Name]interface{}{
-		vision.Name: srv,
+		vision.Named(visName): srv,
 	}
 	svc, err := subtype.New(m)
 	test.That(t, err, test.ShouldBeNil)
@@ -61,7 +66,7 @@ func TestClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		client := vision.NewClientFromConn(context.Background(), conn, "", logger)
+		client := vision.NewClientFromConn(context.Background(), conn, visName, logger)
 
 		names, err := client.GetDetectorNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -79,7 +84,7 @@ func TestClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		client := vision.NewClientFromConn(context.Background(), conn, "", logger)
+		client := vision.NewClientFromConn(context.Background(), conn, visName, logger)
 
 		cfg := vision.DetectorConfig{
 			Name: "new_detector",
@@ -114,7 +119,7 @@ func TestClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		client := vision.NewClientFromConn(context.Background(), conn, "", logger)
+		client := vision.NewClientFromConn(context.Background(), conn, visName, logger)
 
 		dets, err := client.GetDetections(context.Background(), "fake_cam", "detect_red")
 		test.That(t, err, test.ShouldBeNil)
@@ -144,7 +149,7 @@ func TestInjectedServiceClient(t *testing.T) {
 
 	injectVision := &inject.VisionService{}
 	osMap := map[resource.Name]interface{}{
-		vision.Name: injectVision,
+		vision.Named(testVisionServiceName): injectVision,
 	}
 	svc, err := subtype.New(osMap)
 	test.That(t, err, test.ShouldBeNil)
@@ -161,7 +166,7 @@ func TestInjectedServiceClient(t *testing.T) {
 
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		workingDialedClient := vision.NewClientFromConn(context.Background(), conn, "", logger)
+		workingDialedClient := vision.NewClientFromConn(context.Background(), conn, testVisionServiceName, logger)
 		segmenterNames, err := workingDialedClient.GetSegmenterNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, segmenterNames, test.ShouldHaveLength, 1)
@@ -171,7 +176,7 @@ func TestInjectedServiceClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		client := vision.NewClientFromConn(context.Background(), conn, "", logger)
+		client := vision.NewClientFromConn(context.Background(), conn, testVisionServiceName, logger)
 
 		injCam := &cloudSource{}
 
@@ -247,7 +252,7 @@ func TestClientDialerOption(t *testing.T) {
 
 	injectODS := &inject.VisionService{}
 	m := map[resource.Name]interface{}{
-		vision.Name: injectODS,
+		vision.Named(testVisionServiceName): injectODS,
 	}
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
@@ -260,11 +265,11 @@ func TestClientDialerOption(t *testing.T) {
 	ctx := rpc.ContextWithDialer(context.Background(), td)
 	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client1 := vision.NewClientFromConn(ctx, conn1, "", logger)
+	client1 := vision.NewClientFromConn(ctx, conn1, testVisionServiceName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client2 := vision.NewClientFromConn(ctx, conn2, "", logger)
+	client2 := vision.NewClientFromConn(ctx, conn2, testVisionServiceName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)

@@ -48,9 +48,9 @@ var (
 
 	// defaultSvc is a list of default robot services.
 	defaultSvc = []resource.Name{
-		sensors.Name,
-		datamanager.Name,
-		vision.Name,
+		sensors.Named("builtin"),
+		datamanager.Named("builtin"),
+		vision.Named("builtin"),
 	}
 )
 
@@ -381,18 +381,31 @@ func newWithResources(
 	if err := r.manager.processManager.Start(ctx); err != nil {
 		return nil, err
 	}
-	// default services
+	// See if default service already exists in the config
+	m := make(map[resource.Subtype]bool)
 	for _, name := range defaultSvc {
-		cfg := config.Service{
-			Namespace: name.Namespace,
-			Type:      config.ServiceType(name.ResourceSubtype),
+		m[name.Subtype] = false
+	}
+	// Mark default service subtypes in the map as true
+	for _, val := range cfg.Services {
+		if _, ok := m[val.ResourceName().Subtype]; ok {
+			m[val.ResourceName().Subtype] = true
 		}
-		svc, err := r.newService(ctx, cfg)
-		if err != nil {
-			logger.Errorw("failed to add default service", "error", err, "service", name)
-			continue
+	}
+	// default services added if they are not already defined in the config
+	for _, name := range defaultSvc {
+		if m[name.Subtype] == false {
+			cfg := config.Service{
+				Namespace: name.Namespace,
+				Type:      config.ServiceType(name.ResourceSubtype),
+			}
+			svc, err := r.newService(ctx, cfg)
+			if err != nil {
+				logger.Errorw("failed to add default service", "error", err, "service", name)
+				continue
+			}
+			r.manager.addResource(name, svc)
 		}
-		r.manager.addResource(name, svc)
 	}
 
 	r.activeBackgroundWorkers.Add(1)
