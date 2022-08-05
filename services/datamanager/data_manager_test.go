@@ -239,10 +239,10 @@ func TestRecoversAfterKilled(t *testing.T) {
 		err := rpcServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
 	}()
-	conn, err := getLocalServerConn(rpcServer, logger)
-	test.That(t, err, test.ShouldBeNil)
 
 	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
+		conn, err := getLocalServerConn(rpcServer, logger)
+		test.That(t, err, test.ShouldBeNil)
 		client := datasync.NewClient(conn)
 		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client, conn)
 	}
@@ -460,10 +460,10 @@ func TestScheduledSync(t *testing.T) {
 		err := rpcServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
 	}()
-	conn, err := getLocalServerConn(rpcServer, logger)
-	test.That(t, err, test.ShouldBeNil)
 
 	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
+		conn, err := getLocalServerConn(rpcServer, logger)
+		test.That(t, err, test.ShouldBeNil)
 		client := datasync.NewClient(conn)
 		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client, conn)
 	}
@@ -520,10 +520,10 @@ func TestManualAndScheduledSync(t *testing.T) {
 		err := rpcServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
 	}()
-	conn, err := getLocalServerConn(rpcServer, logger)
-	test.That(t, err, test.ShouldBeNil)
 
 	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
+		conn, err := getLocalServerConn(rpcServer, logger)
+		test.That(t, err, test.ShouldBeNil)
 		client := datasync.NewClient(conn)
 		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client, conn)
 	}
@@ -637,10 +637,10 @@ func TestSyncDisabled(t *testing.T) {
 		err := rpcServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
 	}()
-	conn, err := getLocalServerConn(rpcServer, logger)
-	test.That(t, err, test.ShouldBeNil)
 
 	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
+		conn, err := getLocalServerConn(rpcServer, logger)
+		test.That(t, err, test.ShouldBeNil)
 		client := datasync.NewClient(conn)
 		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client, conn)
 	}
