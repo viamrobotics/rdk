@@ -2179,7 +2179,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	sensorNames := []resource.Name{gps.Named("gps1"), gps.Named("gps2")}
+	sensorNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
 
 	t.Run("empty to two sensors", func(t *testing.T) {
 		robot, err := New(context.Background(), emptyCfg, logger)
@@ -2253,10 +2253,10 @@ func TestStatusServiceUpdate(t *testing.T) {
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	resourceNames := []resource.Name{gps.Named("gps1"), gps.Named("gps2")}
+	resourceNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
 	expected := map[resource.Name]interface{}{
-		gps.Named("gps1"): map[string]interface{}{},
-		gps.Named("gps2"): map[string]interface{}{},
+		movementsensor.Named("movement_sensor1"): map[string]interface{}{},
+		movementsensor.Named("movement_sensor2"): map[string]interface{}{},
 	}
 
 	t.Run("empty to not empty", func(t *testing.T) {
@@ -2394,8 +2394,8 @@ func TestRemoteRobotsGold(t *testing.T) {
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
-			gps.Named("foo:gps1"),
-			gps.Named("foo:gps2"),
+			movementsensor.Named("foo:movement_sensor1"),
+			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
 			vision.Named("foo:"),
 			sensors.Named("foo:"),
@@ -2421,16 +2421,16 @@ func TestRemoteRobotsGold(t *testing.T) {
 			arm.Named("arm1"), arm.Named("arm2"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
-			gps.Named("foo:gps1"),
-			gps.Named("foo:gps2"),
+			movementsensor.Named("foo:movement_sensor1"),
+			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
 			vision.Named("foo:"),
 			sensors.Named("foo:"),
 			datamanager.Named("foo:"),
 			arm.Named("bar:pieceArm"),
 			camera.Named("bar:cameraOver"),
-			gps.Named("bar:gps1"),
-			gps.Named("bar:gps2"),
+			movementsensor.Named("bar:movement_sensor1"),
+			movementsensor.Named("bar:movement_sensor2"),
 			gripper.Named("bar:pieceGripper"),
 			vision.Named("bar:"),
 			sensors.Named("bar:"),
@@ -2452,8 +2452,8 @@ func TestRemoteRobotsGold(t *testing.T) {
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
-			gps.Named("foo:gps1"),
-			gps.Named("foo:gps2"),
+			movementsensor.Named("foo:movement_sensor1"),
+			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
 			vision.Named("foo:"),
 			sensors.Named("foo:"),
@@ -2494,16 +2494,16 @@ func TestRemoteRobotsGold(t *testing.T) {
 			arm.Named("arm1"), arm.Named("arm2"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
-			gps.Named("foo:gps1"),
-			gps.Named("foo:gps2"),
+			movementsensor.Named("foo:movement_sensor1"),
+			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
 			vision.Named("foo:"),
 			sensors.Named("foo:"),
 			datamanager.Named("foo:"),
 			arm.Named("bar:pieceArm"),
 			camera.Named("bar:cameraOver"),
-			gps.Named("bar:gps1"),
-			gps.Named("bar:gps2"),
+			movementsensor.Named("bar:movement_sensor1"),
+			movementsensor.Named("bar:movement_sensor2"),
 			gripper.Named("bar:pieceGripper"),
 			vision.Named("bar:"),
 			sensors.Named("bar:"),

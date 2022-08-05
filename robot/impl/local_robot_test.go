@@ -174,12 +174,12 @@ func TestConfigRemote(t *testing.T) {
 		camera.Named("squee:cameraOver"),
 		camera.Named("foo:cameraOver"),
 		camera.Named("bar:cameraOver"),
-		gps.Named("squee:gps1"),
-		gps.Named("foo:gps1"),
-		gps.Named("bar:gps1"),
-		gps.Named("squee:gps2"),
-		gps.Named("foo:gps2"),
-		gps.Named("bar:gps2"),
+		movementsensor.Named("squee:movement_sensor1"),
+		movementsensor.Named("foo:movement_sensor1"),
+		movementsensor.Named("bar:movement_sensor1"),
+		movementsensor.Named("squee:movement_sensor2"),
+		movementsensor.Named("foo:movement_sensor2"),
+		movementsensor.Named("bar:movement_sensor2"),
 		gripper.Named("squee:pieceGripper"),
 		gripper.Named("foo:pieceGripper"),
 		gripper.Named("bar:pieceGripper"),
@@ -224,7 +224,7 @@ func TestConfigRemote(t *testing.T) {
 
 	statuses, err := r2.GetStatus(
 		context.Background(),
-		[]resource.Name{gps.Named("squee:gps1"), gps.Named("foo:gps1"), gps.Named("bar:gps1")},
+		[]resource.Name{movementsensor.Named("squee:movement_sensor1"), movementsensor.Named("foo:movement_sensor1"), movementsensor.Named("bar:movement_sensor1")},
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -440,10 +440,10 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				arm.Named("foo:pieceArm"),
 				camera.Named("bar:cameraOver"),
 				camera.Named("foo:cameraOver"),
-				gps.Named("bar:gps1"),
-				gps.Named("foo:gps1"),
-				gps.Named("bar:gps2"),
-				gps.Named("foo:gps2"),
+				movementsensor.Named("bar:movement_sensor1"),
+				movementsensor.Named("foo:movement_sensor1"),
+				movementsensor.Named("bar:movement_sensor2"),
+				movementsensor.Named("foo:movement_sensor2"),
 				gripper.Named("bar:pieceGripper"),
 				gripper.Named("foo:pieceGripper"),
 				vision.Named("foo:"),
@@ -473,7 +473,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			)
 
 			statuses, err := r2.GetStatus(
-				context.Background(), []resource.Name{gps.Named("bar:gps1"), gps.Named("foo:gps1")},
+				context.Background(), []resource.Name{movementsensor.Named("bar:movement_sensor1"), movementsensor.Named("foo:movement_sensor1")},
 			)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(statuses), test.ShouldEqual, 2)
@@ -641,8 +641,8 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		datamanager.Name,
 		arm.Named("foo:pieceArm"),
 		camera.Named("foo:cameraOver"),
-		gps.Named("foo:gps1"),
-		gps.Named("foo:gps2"),
+		movementsensor.Named("foo:movement_sensor1"),
+		movementsensor.Named("foo:movement_sensor2"),
 		gripper.Named("foo:pieceGripper"),
 		vision.Named("foo:"),
 		sensors.Named("foo:"),
@@ -667,7 +667,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		utils.NewStringSet(expectedRemotes...),
 	)
 
-	statuses, err := r2.GetStatus(context.Background(), []resource.Name{gps.Named("foo:gps1")})
+	statuses, err := r2.GetStatus(context.Background(), []resource.Name{movementsensor.Named("foo:movement_sensor1")})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 1)
 	test.That(t, statuses[0].Status, test.ShouldResemble, map[string]interface{}{})
@@ -934,8 +934,8 @@ func TestMetadataUpdate(t *testing.T) {
 		arm.Named("pieceArm"),
 		camera.Named("cameraOver"),
 		gripper.Named("pieceGripper"),
-		gps.Named("gps1"),
-		gps.Named("gps2"),
+		movementsensor.Named("movement_sensor1"),
+		movementsensor.Named("movement_sensor2"),
 		vision.Name,
 		sensors.Name,
 		datamanager.Name,
@@ -958,29 +958,20 @@ func TestSensorsService(t *testing.T) {
 	svc, err := sensors.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 
-	sensorNames := []resource.Name{gps.Named("gps1"), gps.Named("gps2")}
+	sensorNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
 	foundSensors, err := svc.GetSensors(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rtestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rtestutils.NewResourceNameSet(sensorNames...))
 
-	readings1 := []interface{}{0.0, 0.0, 0.0, 0.0, 0, 0, 0.0, 0.0, false}
-	expected := map[resource.Name]interface{}{
-		gps.Named("gps1"): readings1,
-		gps.Named("gps2"): readings1,
-	}
-
-	readings, err := svc.GetReadings(context.Background(), []resource.Name{gps.Named("gps1")})
+	readings, err := svc.GetReadings(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(readings), test.ShouldEqual, 1)
-	test.That(t, readings[0].Name, test.ShouldResemble, gps.Named("gps1"))
-	test.That(t, readings[0].Readings, test.ShouldResemble, expected[readings[0].Name])
+	test.That(t, readings[0].Name, test.ShouldResemble, movementsensor.Named("movement_sensor1"))
+	test.That(t, len(readings[0].Readings), test.ShouldBeGreaterThan, 3)
 
 	readings, err = svc.GetReadings(context.Background(), sensorNames)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(readings), test.ShouldEqual, 2)
-
-	test.That(t, readings[0].Readings, test.ShouldResemble, expected[readings[0].Name])
-	test.That(t, readings[1].Readings, test.ShouldResemble, expected[readings[1].Name])
 
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
@@ -993,20 +984,20 @@ func TestStatusService(t *testing.T) {
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	resourceNames := []resource.Name{arm.Named("pieceArm"), gps.Named("gps1")}
+	resourceNames := []resource.Name{arm.Named("pieceArm"), movementsensor.Named("movement_sensor1")}
 	rArm, err := arm.FromRobot(r, "pieceArm")
 	test.That(t, err, test.ShouldBeNil)
 	armStatus, err := arm.CreateStatus(context.Background(), rArm)
 	test.That(t, err, test.ShouldBeNil)
 	expected := map[resource.Name]interface{}{
 		arm.Named("pieceArm"): armStatus,
-		gps.Named("gps1"):     map[string]interface{}{},
+		movementsensor.Named("movement_sensor1"):     map[string]interface{}{},
 	}
 
-	statuses, err := r.GetStatus(context.Background(), []resource.Name{gps.Named("gps1")})
+	statuses, err := r.GetStatus(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 1)
-	test.That(t, statuses[0].Name, test.ShouldResemble, gps.Named("gps1"))
+	test.That(t, statuses[0].Name, test.ShouldResemble, movementsensor.Named("movement_sensor1"))
 	test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
 
 	statuses, err = r.GetStatus(context.Background(), resourceNames)
@@ -1354,8 +1345,8 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 			arm.Named("remote:pieceArm"),
 			arm.Named("remote:foo:pieceArm"),
 			camera.Named("remote:cameraOver"),
-			gps.Named("remote:gps1"),
-			gps.Named("remote:gps2"),
+			movementsensor.Named("remote:movement_sensor1"),
+			movementsensor.Named("remote:movement_sensor2"),
 			gripper.Named("remote:pieceGripper"),
 			vision.Named("remote:"),
 			sensors.Named("remote:"),
