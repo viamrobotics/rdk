@@ -1,4 +1,4 @@
-package datamanager
+package datasync
 
 import (
 	"context"
