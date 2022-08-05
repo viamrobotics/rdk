@@ -34,10 +34,10 @@ var Subtype = resource.NewSubtype(
 // A Encoder represents a physical motor connected to a board.
 type Encoder interface {
 	// GetTicksCount returns number of ticks since last zeroing
-	GetTicksCount(ctx context.Context) (int64, error)
+	GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error)
 
 	// ResetZeroPosition resets the counted ticks to 0
-	ResetZeroPosition(ctx context.Context, offset int64) error
+	ResetZeroPosition(ctx context.Context, offset int64, extra map[string]interface{}) error
 
 	// TicksPerRotation returns the number of ticks needed for a full rotation
 	TicksPerRotation(ctx context.Context) (int64, error)
@@ -105,16 +105,16 @@ func (r *reconfigurableEncoder) Do(ctx context.Context, cmd map[string]interface
 	return r.actual.Do(ctx, cmd)
 }
 
-func (r *reconfigurableEncoder) GetTicksCount(ctx context.Context) (int64, error) {
+func (r *reconfigurableEncoder) GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetTicksCount(ctx)
+	return r.actual.GetTicksCount(ctx, extra)
 }
 
-func (r *reconfigurableEncoder) ResetZeroPosition(ctx context.Context, offset int64) error {
+func (r *reconfigurableEncoder) ResetZeroPosition(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.ResetZeroPosition(ctx, offset)
+	return r.actual.ResetZeroPosition(ctx, offset, extra)
 }
 
 func (r *reconfigurableEncoder) TicksPerRotation(ctx context.Context) (int64, error) {

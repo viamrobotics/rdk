@@ -196,12 +196,12 @@ func (e *HallEncoder) Start(ctx context.Context, onStart func()) {
 }
 
 // GetTicksCount returns number of ticks since last zeroing.
-func (e *HallEncoder) GetTicksCount(ctx context.Context) (int64, error) {
+func (e *HallEncoder) GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 
 // ResetZeroPosition resets the counted ticks to 0.
-func (e *HallEncoder) ResetZeroPosition(ctx context.Context, offset int64) error {
+func (e *HallEncoder) ResetZeroPosition(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	atomic.StoreInt64(&e.position, offset)
 	atomic.StoreInt64(&e.pRaw, (offset<<1)|atomic.LoadInt64(&e.pRaw)&0x1)
 	return nil

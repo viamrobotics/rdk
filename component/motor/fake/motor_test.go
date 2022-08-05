@@ -8,48 +8,17 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/motor"
+	fakeencoder "go.viam.com/rdk/component/encoder/fake"
 )
-
-func TestEncoder(t *testing.T) {
-	ctx := context.Background()
-
-	e := Encoder{}
-
-	// Get and set position
-	pos, err := e.GetPosition(ctx)
-	test.That(t, pos, test.ShouldEqual, 0)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = e.SetPosition(ctx, 1)
-	test.That(t, err, test.ShouldBeNil)
-
-	pos, err = e.GetPosition(ctx)
-	test.That(t, pos, test.ShouldEqual, 1)
-	test.That(t, err, test.ShouldBeNil)
-
-	// ResetZeroPosition
-	err = e.ResetZeroPosition(ctx, 0)
-	test.That(t, err, test.ShouldBeNil)
-
-	pos, err = e.GetPosition(ctx)
-	test.That(t, pos, test.ShouldEqual, 0)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Set Speed
-	err = e.SetSpeed(ctx, 1)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, e.speed, test.ShouldEqual, 1)
-}
 
 func TestMotorInit(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
 	m := &Motor{
-		Encoder:           &Encoder{},
+		Encoder:           &fakeencoder.Encoder{Tpr: 1},
 		Logger:            logger,
 		PositionReporting: true,
-		TicksPerRotation:  1,
 		MaxRPM:            60,
 	}
 
@@ -67,10 +36,9 @@ func TestGoFor(t *testing.T) {
 	ctx := context.Background()
 
 	m := &Motor{
-		Encoder:           &Encoder{},
+		Encoder:           &fakeencoder.Encoder{Tpr: 1},
 		Logger:            logger,
 		PositionReporting: true,
-		TicksPerRotation:  1,
 		MaxRPM:            60,
 	}
 
@@ -84,10 +52,9 @@ func TestGoTo(t *testing.T) {
 	ctx := context.Background()
 
 	m := &Motor{
-		Encoder:           &Encoder{},
+		Encoder:           &fakeencoder.Encoder{Tpr: 1},
 		Logger:            logger,
 		PositionReporting: true,
-		TicksPerRotation:  1,
 		MaxRPM:            60,
 	}
 
@@ -101,10 +68,9 @@ func TestGoTillStop(t *testing.T) {
 	ctx := context.Background()
 
 	m := &Motor{
-		Encoder:           &Encoder{},
+		Encoder:           &fakeencoder.Encoder{Tpr: 1},
 		Logger:            logger,
 		PositionReporting: true,
-		TicksPerRotation:  1,
 		MaxRPM:            60,
 	}
 
@@ -117,10 +83,9 @@ func TestResetZeroPosition(t *testing.T) {
 	ctx := context.Background()
 
 	m := &Motor{
-		Encoder:           &Encoder{},
+		Encoder:           &fakeencoder.Encoder{Tpr: 1},
 		Logger:            logger,
 		PositionReporting: true,
-		TicksPerRotation:  1,
 		MaxRPM:            60,
 	}
 
@@ -137,10 +102,9 @@ func TestPower(t *testing.T) {
 	ctx := context.Background()
 
 	m := &Motor{
-		Encoder:           &Encoder{},
+		Encoder:           &fakeencoder.Encoder{Tpr: 1},
 		Logger:            logger,
 		PositionReporting: true,
-		TicksPerRotation:  1,
 		MaxRPM:            60,
 	}
 
