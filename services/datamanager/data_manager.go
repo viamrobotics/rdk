@@ -59,6 +59,8 @@ func init() {
 		}
 		return &conf, nil
 	}, &Config{})
+
+	resource.AddDefaultService(Name)
 }
 
 // Service defines what a Data Manager Service should expose to the users.
@@ -69,6 +71,7 @@ type Service interface {
 var (
 	_ = Service(&reconfigurableDataManager{})
 	_ = resource.Reconfigurable(&reconfigurableDataManager{})
+	_ = goutils.ContextCloser(&reconfigurableDataManager{})
 )
 
 // SubtypeName is the name of the type of service.
@@ -193,8 +196,8 @@ func (svc *dataManagerService) closeCollectors() {
 		currCollector := collector
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			currCollector.Collector.Close()
-			wg.Done()
 		}()
 		delete(svc.collectors, md)
 	}
@@ -322,11 +325,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	svc.lock.Unlock()
 
 	// TODO: Handle errors more gracefully.
-	go func() {
-		if err := collector.Collect(); err != nil {
-			svc.logger.Error(err.Error())
-		}
-	}()
+	collector.Collect()
 
 	return &componentMetadata, nil
 }

@@ -38,13 +38,10 @@ import (
 	rdktestutils "go.viam.com/rdk/testutils"
 )
 
-var serviceNames = []resource.Name{
-	sensors.Named("builtin"),
-	datamanager.Named("builtin"),
-	vision.Named("builtin"),
-}
+var serviceNames = resource.DefaultServices
 
 func TestRobotReconfigure(t *testing.T) {
+	test.That(t, len(resource.DefaultServices), test.ShouldEqual, 3)
 	ConfigFromFile := func(t *testing.T, filePath string) *config.Config {
 		t.Helper()
 		logger := golog.NewTestLogger(t)
