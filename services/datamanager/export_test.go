@@ -2,16 +2,17 @@
 package datamanager
 
 import (
-	"context"
-
-	v1 "go.viam.com/api/proto/viam/datasync/v1"
+	"go.viam.com/rdk/services/datamanager/datasync"
 )
 
 // SetUploadFunc sets the upload function for the syncer to use when initialized/changed in Service.Update.
-func (svc *dataManagerService) SetUploadFunc(fn func(ctx context.Context, client v1.DataSyncService_UploadClient,
-	path string, partID string) error,
-) {
+func (svc *dataManagerService) SetUploadFunc(fn datasync.UploadFunc) {
 	svc.uploadFunc = fn
+}
+
+// SetSyncerConstructor sets the syncer constructor for the data manager to use when creating its syncer.
+func (svc *dataManagerService) SetSyncerConstructor(fn datasync.ManagerConstructor) {
+	svc.syncerConstructor = fn
 }
 
 // SetWaitAfterLastModifiedSecs sets the wait time for the syncer to use when initialized/changed in Service.Update.

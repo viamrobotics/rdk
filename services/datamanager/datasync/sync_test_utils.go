@@ -61,10 +61,11 @@ func (m *mockClient) Context() context.Context {
 //nolint:thelper
 func newTestSyncer(t *testing.T, mc *mockClient, uploadFunc UploadFunc) *syncer {
 	l := golog.NewTestLogger(t)
-	manager, err := NewSyncer(l, uploadFunc, partID)
+	manager, err := NewManager(l, uploadFunc, partID, nil)
 	test.That(t, err, test.ShouldBeNil)
 	syncer := manager.(*syncer)
-	syncer.client = mc
+	// TODO: actually assign
+	syncer.client = nil
 	return syncer
 }
 

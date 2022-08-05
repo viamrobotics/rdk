@@ -14,6 +14,9 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+// TODO: make ticket for below
+// TODO: Reorganize this into a more standard interface/package, and add tests.
+
 // FileExt defines the file extension for Viam data capture files.
 const FileExt = ".capture"
 
