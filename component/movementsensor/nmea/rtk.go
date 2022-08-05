@@ -132,7 +132,7 @@ func newRTKMovementSensor(ctx context.Context, deps registry.Dependencies, confi
 	switch g.ntripInputProtocol {
 	case "serial":
 		var err error
-		g.nmeamovementsensor, err = newserialNMEAMovementSensor(ctx, config, logger)
+		g.nmeamovementsensor, err = newSerialNMEAMovementSensor(ctx, config, logger)
 		if err != nil {
 			return nil, err
 		}

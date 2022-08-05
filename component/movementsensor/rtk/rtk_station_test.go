@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
@@ -178,39 +177,6 @@ func TestClose(t *testing.T) {
 
 	err = g.Close()
 	test.That(t, err, test.ShouldBeNil)
-}
-
-func TestReadings(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	ctx := context.Background()
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
-
-	loc1, err := g.ReadLocation(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, loc1, test.ShouldResemble, &geo.Point{})
-
-	alt1, err := g.ReadAltitude(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, alt1, test.ShouldEqual, 0)
-
-	speed1, err := g.ReadSpeed(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, speed1, test.ShouldEqual, 0)
-
-	inUse, inView, err := g.ReadSatellites(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, inUse, test.ShouldEqual, 0)
-	test.That(t, inView, test.ShouldEqual, 0)
-
-	acc1, acc2, err := g.ReadAccuracy(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, acc1, test.ShouldEqual, 0)
-	test.That(t, acc2, test.ShouldEqual, 0)
-
-	valid1, err := g.ReadValid(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, valid1, test.ShouldEqual, false)
 }
 
 func TestConnect(t *testing.T) {

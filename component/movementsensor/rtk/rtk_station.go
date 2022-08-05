@@ -11,6 +11,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
@@ -23,7 +24,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// AttrConfig is used for converting RTK GPS config attributes.
+// AttrConfig is used for converting RTK MovementSensor config attributes.
 type AttrConfig struct {
 	CorrectionSource string `json:"correction_source"`
 	// ntrip
@@ -78,7 +79,7 @@ func (config *AttrConfig) Validate(path string) error {
 
 func init() {
 	registry.RegisterComponent(
-		gps.Subtype,
+		movementsensor.Subtype,
 		"rtk-station",
 		registry.Component{Constructor: func(
 			ctx context.Context,
@@ -98,7 +99,7 @@ type rtkStation struct {
 	i2cPaths       []i2cBusAddr
 	serialPorts    []io.Writer
 	serialWriter   io.Writer
-	gpsNames       []string
+	movementsensorNames       []string
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -124,7 +125,7 @@ const (
 	ntripStr             = "ntrip"
 )
 
-func newRTKStation(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
+func newRTKStation(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (movementsensor.MovementSensor, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	r := &rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
@@ -154,21 +155,21 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 		return nil, fmt.Errorf("%s is not a valid correction source", r.correctionType)
 	}
 
-	r.gpsNames = config.Attributes.StringSlice(childrenName)
+	r.movementsensorNames = config.Attributes.StringSlice(childrenName)
 
-	// Init gps correction input addresses
-	r.logger.Debug("Init gps")
+	// Init movementsensor correction input addresses
+	r.logger.Debug("Init movementsensor")
 	r.serialPorts = make([]io.Writer, 0)
 
-	for _, gpsName := range r.gpsNames {
-		gps, err := gps.FromDependencies(deps, gpsName)
-		localgps := rdkutils.UnwrapProxy(gps)
+	for _, movementsensorName := range r.movementsensorNames {
+		movementsensor, err := movementsensor.FromDependencies(deps, movementsensorName)
+		localmovementsensor := rdkutils.UnwrapProxy(movementsensor)
 		if err != nil {
 			return nil, err
 		}
 
-		switch t := localgps.(type) {
-		case *nmea.SerialNMEAGPS:
+		switch t := localmovementsensor.(type) {
+		case *nmea.SerialNMEAMovementSensor:
 			path, br := t.GetCorrectionInfo()
 
 			options := serial.OpenOptions{
@@ -185,13 +186,13 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 			}
 
 			r.serialPorts = append(r.serialPorts, port)
-		case *nmea.PmtkI2CNMEAGPS:
+		case *nmea.PmtkI2CNMEAMovementSensor:
 			bus, addr := t.GetBusAddr()
 			busAddr := i2cBusAddr{bus: bus, addr: addr}
 
 			r.i2cPaths = append(r.i2cPaths, busAddr)
 		default:
-			return nil, errors.New("child is not valid nmeaGPS type")
+			return nil, errors.New("child is not valid nmeaMovementSensor type")
 		}
 	}
 
@@ -203,7 +204,7 @@ func newRTKStation(ctx context.Context, deps registry.Dependencies, config confi
 	return r, nil
 }
 
-// Start starts reading from the correction source and sends corrections to the child gps's.
+// Start starts reading from the correction source and sends corrections to the child movementsensor's.
 func (r *rtkStation) Start(ctx context.Context) {
 	r.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -249,7 +250,7 @@ func (r *rtkStation) Start(ctx context.Context) {
 				// open handle
 				handle, err := busAddr.bus.OpenHandle(busAddr.addr)
 				if err != nil {
-					r.logger.Fatalf("can't open gps i2c handle: %s", err)
+					r.logger.Fatalf("can't open movementsensor i2c handle: %s", err)
 					return
 				}
 				// write to i2c handle
@@ -293,37 +294,27 @@ func (r *rtkStation) Close() error {
 	return nil
 }
 
-// ReadLocation implements a LocalGPS function, but returns nil since the rtkStation does not have GPS data.
-func (r *rtkStation) ReadLocation(ctx context.Context) (*geo.Point, error) {
-	r.logger.Info("Reading location of station")
-	return &geo.Point{}, nil
+func (r *rtkStation) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
+	return &geo.Point{}, 0, 0, nil
 }
 
-// ReadAltitude implements a LocalGPS function, but returns 0 since the rtkStation does not have GPS data.
-func (r *rtkStation) ReadAltitude(ctx context.Context) (float64, error) {
-	r.logger.Info("Reading altitude of station")
+func (r *rtkStation) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+	return r3.Vector{}, nil
+}
+
+func (r *rtkStation) GetAngularVelocity(ctx context.Context) (r3.Vector, error) {
+	return r3.Vector{}, nil
+}
+	
+func (r *rtkStation) GetOrientation(ctx context.Context) (r3.Vector, error) {
+	return r3.Vector{}, nil
+}
+	
+func (r *rtkStation) GetCompassHeading(ctx context.Context) (float64, error) {
 	return 0, nil
 }
 
-// ReadSpeed implements a LocalGPS function, but returns 0 since the rtkStation does not have GPS data.
-func (r *rtkStation) ReadSpeed(ctx context.Context) (float64, error) {
-	r.logger.Info("Reading speed of station")
-	return 0, nil
+func (r *rtkStation) GetReadings(ctx context.Context) ([]interface{}, error) {
+	return nil, nil
 }
 
-// ReadSatellites implements a LocalGPS function, but returns 0, 0 since the rtkStation does not have GPS data.
-func (r *rtkStation) ReadSatellites(ctx context.Context) (int, int, error) {
-	r.logger.Info("Reading number of satellites visible of station")
-	return 0, 0, nil
-}
-
-// ReadAccuracy implements a LocalGPS function, but returns 0, 0 since the rtkStation does not have GPS data.
-func (r *rtkStation) ReadAccuracy(ctx context.Context) (float64, float64, error) {
-	r.logger.Info("Reading accuracy of station")
-	return 0, 0, nil
-}
-
-// ReadValid implements a LocalGPS function, but returns false since the rtkStation does not have GPS data.
-func (r *rtkStation) ReadValid(ctx context.Context) (bool, error) {
-	return false, nil
-}
