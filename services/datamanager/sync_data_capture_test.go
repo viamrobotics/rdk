@@ -2,6 +2,7 @@ package datamanager
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -342,34 +343,63 @@ type mockDataSyncServiceServer struct {
 	v1.UnimplementedDataSyncServiceServer
 }
 
-func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
+func (m *mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
+	count := 0
+	if debug {
+		fmt.Println("SERVER POINT: Starting upload loop.")
+	}
 	for {
-		_, err := stream.Recv()
-		if err == io.EOF {
-			break
+		count++
+		if debug {
+			fmt.Println("SERVER POINT: Begin loop iteration #", fmt.Sprint(count), ".")
+		}
+		req, err := stream.Recv()
+		if debug {
+			fmt.Println("SERVER POINT: Received upload request from client with following message: ", string(req.GetSensorContents().GetBinary()))
+		}
+		if err == io.EOF || req == nil {
+			m.shouldSendEOF = true
 		}
 		if err != nil {
+			if debug {
+				fmt.Println("SERVER POINT: There was an error receiving an upload request from client.")
+			}
 			return err
 		}
-		var retUploadResponse *v1.UploadResponse
+		retUploadResponse := &v1.UploadResponse{}
 		var retErr error
 		if m.shouldSendACK {
 			m.shouldSendACK = false
 			retUploadResponse, retErr = &v1.UploadResponse{RequestsWritten: int32(m.messagesSent)}, nil
+			m.messagesSent = 0
 		}
 		if m.shouldSendEOF {
 			m.shouldSendEOF = false
-			retUploadResponse, retErr = nil, io.EOF
+			retUploadResponse, retErr = &v1.UploadResponse{}, io.EOF
 		}
 		if m.shouldSendCancelCtx {
 			m.shouldSendCancelCtx = false
-			retUploadResponse, retErr = nil, context.Canceled
+			retUploadResponse, retErr = &v1.UploadResponse{}, context.Canceled
 		}
 		if retErr != nil {
 			return retErr
 		}
 		stream.Send(retUploadResponse)
+		if debug {
+			fmt.Println("SERVER POINT: Sent an upload response to client. Persisted ",
+				fmt.Sprint(retUploadResponse.GetRequestsWritten()), " upload request(s). The req contained the",
+				"following message: ", string(req.GetSensorContents().GetBinary()))
+		}
+		if m.shouldSendEOF {
+			break
+		}
 		m.messagesSent++
+		if m.messagesSent == m.cancelStreamAfterNMessages {
+			m.shouldSendCancelCtx = true
+		}
+		if m.messagesSent == m.sendAckEveryNMessages {
+			m.shouldSendACK = true
+		}
 	}
 	return nil
 }
@@ -382,23 +412,68 @@ type mockServerBehavior struct {
 	shouldSendCancelCtx        bool
 }
 
+type dataCaptureUploadTestcase struct {
+	name    string
+	toSend  []*v1.SensorData
+	expData []*v1.SensorData
+	msb     *mockServerBehavior
+}
+
 func TestDataCaptureUpload(t *testing.T) {
 	msgBin1 := []byte("Robots are really cool.")
 	msgBin2 := []byte("This work is helping develop the robotics space.")
 	msgBin3 := []byte("This message is used for testing.")
-	tests := []struct {
-		name    string
-		toSend  [][]byte
-		expData [][]byte
-		msb     *mockServerBehavior
-	}{
+	msgBin4 := []byte("The datamanager service is great!")
+	msgBin5 := []byte("This service uses bidirectional streaming.")
+	msgBin6 := []byte("These tests validate that our code works.")
+	msgTab1 := toProto(anyStruct{})
+	msgTab2 := toProto(anyStruct{Field1: false})
+	msgTab3 := toProto(anyStruct{Field1: true, Field2: 2020, Field3: "viam"})
+	tests := []dataCaptureUploadTestcase{
 		{
-			name:    "stream of binary sensor data readings",
-			toSend:  [][]byte{msgBin1, msgBin2, msgBin3, msgBin1, msgBin2, msgBin3},
-			expData: [][]byte{msgBin1, msgBin2, msgBin3, msgBin1, msgBin2, msgBin3},
+			name:    "Stream of binary sensor data readings should...(TODO maxhorowitz)",
+			toSend:  createBinarySensorData([][]byte{msgBin1, msgBin2, msgBin3, msgBin4, msgBin5, msgBin6}),
+			expData: createBinarySensorData([][]byte{msgBin1, msgBin2, msgBin3, msgBin4, msgBin5, msgBin6}),
 			msb: &mockServerBehavior{
-				sendAckEveryNMessages:      2,
+				sendAckEveryNMessages:      1,
 				cancelStreamAfterNMessages: -1,
+				shouldSendEOF:              false,
+				shouldSendAck:              false,
+				shouldSendCancelCtx:        false,
+			},
+		},
+		{
+			name:    "Stream of tabular sensor data readings should...(TODO maxhorowitz)",
+			toSend:  createTabularSensorData([]*structpb.Struct{msgTab1, msgTab2, msgTab3}),
+			expData: createTabularSensorData([]*structpb.Struct{msgTab1, msgTab2, msgTab3}),
+			msb: &mockServerBehavior{
+				sendAckEveryNMessages:      1,
+				cancelStreamAfterNMessages: -1,
+				shouldSendEOF:              false,
+				shouldSendAck:              false,
+				shouldSendCancelCtx:        false,
+			},
+		},
+		{
+			name:    "Empty stream.",
+			toSend:  createBinarySensorData([][]byte{}),
+			expData: createBinarySensorData([][]byte{}),
+			msb: &mockServerBehavior{
+				sendAckEveryNMessages:      0,
+				cancelStreamAfterNMessages: -1,
+				shouldSendEOF:              false,
+				shouldSendAck:              false,
+				shouldSendCancelCtx:        false,
+			},
+		},
+		{
+			name:    "Stream that cancels before completing should...(TODO maxhorowitz)",
+			toSend:  createBinarySensorData([][]byte{msgBin1, msgBin2, msgBin3, msgBin4, msgBin5, msgBin6}),
+			expData: createBinarySensorData([][]byte{msgBin1, msgBin2, msgBin3}),
+			msb: &mockServerBehavior{
+				sendAckEveryNMessages: 0,
+				// Here we cancel after 4 messages because we need to account for metadata message.
+				cancelStreamAfterNMessages: 4,
 				shouldSendEOF:              false,
 				shouldSendAck:              false,
 				shouldSendCancelCtx:        false,
@@ -474,7 +549,7 @@ func TestDataCaptureUpload(t *testing.T) {
 			}
 
 			// Write the data from the test cases into the files to prepare them for reading by the sensorUpload function.
-			if err := writeBinarySensorData(tf, tc.toSend); err != nil {
+			if err := writeSensorData(tf, tc.toSend); err != nil {
 				t.Errorf("%s cannot write byte slice to temporary file as part of setup for "+
 					"sensorUpload/fileUpload testing: %v", tc.name, err)
 			}
@@ -488,6 +563,7 @@ func TestDataCaptureUpload(t *testing.T) {
 			// Create and initialize the syncer to begin upload process.
 			sut := newTestSyncerRealClient(t, uploadClient, nil)
 			sut.Sync([]string{tf.Name()})
+			time.Sleep(time.Second)
 			sut.Close()
 
 		})
