@@ -30,6 +30,8 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+const numThreadsImagesource = 8 // This should be a param
+
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
@@ -308,7 +310,7 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 		}
 
 		registeredPointCloud, info, err := pointcloud.RegisterPointCloudICP(pcSrc, finalPointCloud,
-			theTransform.(*referenceframe.PoseInFrame).Pose(), jpcs.debug)
+			theTransform.(*referenceframe.PoseInFrame).Pose(), jpcs.debug, numThreadsImagesource)
 		if err != nil {
 			return nil, err
 		}
