@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/motor"
@@ -16,10 +17,14 @@ import (
 
 func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
 	t.Helper()
+	logger := golog.NewTestLogger(t)
 
 	result := make(registry.Dependencies)
 	for _, dep := range deps {
-		result[motor.Named(dep)] = &fake.Motor{}
+		result[motor.Named(dep)] = &fake.Motor{
+			MaxRPM: 60,
+			Logger: logger,
+		}
 	}
 	return result
 }

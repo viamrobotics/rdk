@@ -30,6 +30,8 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+const numThreadsImagesource = 8 // This should be a param
+
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
@@ -308,7 +310,7 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 		}
 
 		registeredPointCloud, info, err := pointcloud.RegisterPointCloudICP(pcSrc, finalPointCloud,
-			theTransform.(*referenceframe.PoseInFrame).Pose(), jpcs.debug)
+			theTransform.(*referenceframe.PoseInFrame).Pose(), jpcs.debug, numThreadsImagesource)
 		if err != nil {
 			return nil, err
 		}
@@ -322,7 +324,6 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 			jpcs.logger.Warnf(`Transform is %f away from transform defined in frame system. 
 			This may indicate an incorrect frame system.`, transformDist)
 		}
-		// TODO(aidanglickman) this loop is highly parallelizable, not yet making use
 		registeredPointCloud.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
 			nearest, _, _, _ := finalPointCloud.NearestNeighbor(p)
 			distance := math.Sqrt(math.Pow(p.X-nearest.X, 2) + math.Pow(p.Y-nearest.Y, 2) + math.Pow(p.Z-nearest.Z, 2))
