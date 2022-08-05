@@ -22,8 +22,8 @@ func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
 	result := make(registry.Dependencies)
 	for _, dep := range deps {
 		result[motor.Named(dep)] = &fake.Motor{
-			MaxRPM:            60,
-			Logger:            logger,
+			MaxRPM: 60,
+			Logger: logger,
 		}
 	}
 	return result
