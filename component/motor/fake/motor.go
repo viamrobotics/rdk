@@ -262,7 +262,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64, ext
 	if err != nil {
 		return err
 	}
-	
+
 	if revolutions == 0 {
 		return nil
 	}
