@@ -104,7 +104,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 		case plan := <-solutionChan:
 			finalSteps := make([][]referenceframe.Input, 0, len(plan.steps))
 			for _, step := range plan.steps {
-				finalSteps = append(finalSteps, step.inputs)
+				finalSteps = append(finalSteps, step.q)
 			}
 			return finalSteps, plan.err
 		}
@@ -139,7 +139,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
 	opt *PlannerOptions,
-	endpointPreview chan *configuration,
+	endpointPreview chan *node,
 	solutionChan chan *planReturn,
 ) {
 	defer close(solutionChan)
@@ -166,18 +166,18 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 
 	// publish endpoint of plan if it is known
 	if opt.maxSolutions == 1 && endpointPreview != nil {
-		endpointPreview <- &configuration{inputs: solutions[0]}
+		endpointPreview <- &node{q: solutions[0]}
 		endpointPreview = nil
 	}
 
 	// initialize maps
-	goalMap := make(map[*configuration]*configuration, len(solutions))
+	goalMap := make(map[*node]*node, len(solutions))
 	for _, solution := range solutions {
-		goalMap[&configuration{inputs: solution}] = nil
+		goalMap[&node{q: solution}] = nil
 	}
-	corners := map[*configuration]bool{}
-	seedMap := make(map[*configuration]*configuration)
-	seedMap[&configuration{inputs: seed}] = nil
+	corners := map[*node]bool{}
+	seedMap := make(map[*node]*node)
+	seedMap[&node{q: seed}] = nil
 
 	// Create a reference to the two maps so that we can alternate which one is grown
 	map1, map2 := seedMap, goalMap
@@ -188,7 +188,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	defer cancel()
 
 	// main sampling loop - for the first sample we try the 0.5 interpolation between seed and goal[0]
-	target := &configuration{inputs: referenceframe.InterpolateInputs(seed, solutions[0], 0.5)}
+	target := &node{q: referenceframe.InterpolateInputs(seed, solutions[0], 0.5)}
 	for i := 0; i < mp.iter; i++ {
 		select {
 		case <-ctx.Done():
@@ -208,7 +208,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		corners[map1reached] = true
 		corners[map2reached] = true
 
-		if inputDist(map1reached.inputs, map2reached.inputs) < mp.solDist {
+		if inputDist(map1reached.q, map2reached.q) < mp.solDist {
 			cancel()
 			path := extractPath(seedMap, goalMap, map1reached, map2reached)
 			if endpointPreview != nil {
@@ -227,18 +227,18 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	solutionChan <- &planReturn{err: errors.New("could not solve path")}
 }
 
-func (mp *cBiRRTMotionPlanner) sample(rSeed *configuration, sampleNum int) *configuration {
+func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) *node {
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
 	if sampleNum >= iterBeforeRand && sampleNum%4 >= 2 {
-		return &configuration{inputs: referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
+		return &node{q: referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
 	}
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
-	q := &configuration{inputs: referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)}
-	for j, v := range rSeed.inputs {
-		q.inputs[j].Value += v.Value
+	node := &node{q: referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)}
+	for j, v := range rSeed.q {
+		node.q[j].Value += v.Value
 	}
-	return q
+	return node
 }
 
 // constrainedExtend will try to extend the map towards the target while meeting constraints along the way. It will
@@ -246,31 +246,31 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed *configuration, sampleNum int) *conf
 func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	ctx context.Context,
 	opt *PlannerOptions,
-	rrtMap map[*configuration]*configuration,
-	near, target *configuration,
-) *configuration {
+	rrtMap map[*node]*node,
+	near, target *node,
+) *node {
 	oldNear := near
 	for i := 0; true; i++ {
 		switch {
-		case inputDist(near.inputs, target.inputs) < mp.solDist:
+		case inputDist(near.q, target.q) < mp.solDist:
 			return near
-		case inputDist(near.inputs, target.inputs) > inputDist(oldNear.inputs, target.inputs):
+		case inputDist(near.q, target.q) > inputDist(oldNear.q, target.q):
 			return oldNear
-		case i > 2 && inputDist(near.inputs, oldNear.inputs) < math.Pow(mp.solDist, 3):
+		case i > 2 && inputDist(near.q, oldNear.q) < math.Pow(mp.solDist, 3):
 			// not moving enough to make meaningful progress. Do not trigger on first iteration.
 			return oldNear
 		}
 
 		oldNear = near
 
-		newNear := make([]referenceframe.Input, 0, len(near.inputs))
+		newNear := make([]referenceframe.Input, 0, len(near.q))
 
 		// alter near to be closer to target
-		for j, nearInput := range near.inputs {
-			if nearInput.Value == target.inputs[j].Value {
+		for j, nearInput := range near.q {
+			if nearInput.Value == target.q[j].Value {
 				newNear = append(newNear, nearInput)
 			} else {
-				v1, v2 := nearInput.Value, target.inputs[j].Value
+				v1, v2 := nearInput.Value, target.q[j].Value
 				newVal := math.Min(mp.qstep[j], math.Abs(v2-v1))
 				// get correct sign
 				newVal *= (v2 - v1) / math.Abs(v2-v1)
@@ -278,11 +278,11 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 			}
 		}
 		// if we are not meeting a constraint, gradient descend to the constraint
-		newNear = mp.constrainNear(ctx, opt, oldNear.inputs, newNear)
+		newNear = mp.constrainNear(ctx, opt, oldNear.q, newNear)
 
 		if newNear != nil {
 			// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
-			near = &configuration{inputs: newNear}
+			near = &node{q: newNear}
 			rrtMap[near] = oldNear
 		} else {
 			break
@@ -349,9 +349,9 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 func (mp *cBiRRTMotionPlanner) SmoothPath(
 	ctx context.Context,
 	opt *PlannerOptions,
-	inputSteps []*configuration,
-	corners map[*configuration]bool,
-) []*configuration {
+	inputSteps []*node,
+	corners map[*node]bool,
+) []*node {
 	toIter := int(math.Min(float64(len(inputSteps)*len(inputSteps)), smoothIter))
 
 	for iter := 0; iter < toIter && len(inputSteps) > 4; iter++ {
@@ -371,7 +371,7 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 			continue
 		}
 
-		shortcutGoal := make(map[*configuration]*configuration)
+		shortcutGoal := make(map[*node]*node)
 
 		iSol := inputSteps[i]
 		jSol := inputSteps[j]
@@ -383,13 +383,13 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 		// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
 		// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
 		// so we allow elongation here.
-		if inputDist(inputSteps[i].inputs, reached.inputs) < mp.solDist && len(reached.inputs) < j-i {
+		if inputDist(inputSteps[i].q, reached.q) < mp.solDist && len(reached.q) < j-i {
 			corners[iSol] = true
 			corners[jSol] = true
 			for _, hitCorner := range hitCorners {
 				corners[hitCorner] = false
 			}
-			newInputSteps := append([]*configuration{}, inputSteps[:i]...)
+			newInputSteps := append([]*node{}, inputSteps[:i]...)
 			for reached != nil {
 				newInputSteps = append(newInputSteps, reached)
 				reached = shortcutGoal[reached]
@@ -403,12 +403,12 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 }
 
 // Check if there is more than one joint direction change. If not, then not a good candidate for smoothing.
-func smoothable(inputSteps []*configuration, i, j int, corners map[*configuration]bool) (bool, []*configuration) {
+func smoothable(inputSteps []*node, i, j int, corners map[*node]bool) (bool, []*node) {
 	startPos := inputSteps[i]
 	nextPos := inputSteps[i+1]
 	// Whether joints are increasing
-	incDir := make([]int, 0, len(startPos.inputs))
-	hitCorners := []*configuration{}
+	incDir := make([]int, 0, len(startPos.q))
+	hitCorners := []*node{}
 
 	if corners[startPos] {
 		hitCorners = append(hitCorners, startPos)
@@ -427,16 +427,16 @@ func smoothable(inputSteps []*configuration, i, j int, corners map[*configuratio
 	}
 
 	// Get initial directionality
-	for h, v := range startPos.inputs {
-		incDir = append(incDir, check(v.Value, nextPos.inputs[h].Value))
+	for h, v := range startPos.q {
+		incDir = append(incDir, check(v.Value, nextPos.q[h].Value))
 	}
 
 	// Check for any direction changes
 	changes := 0
 	for k := i + 2; k < j; k++ {
-		for h, v := range nextPos.inputs {
+		for h, v := range nextPos.q {
 			// Get 1, 0, or -1 depending on directionality
-			newV := check(v.Value, inputSteps[k].inputs[h].Value)
+			newV := check(v.Value, inputSteps[k].q[h].Value)
 			if incDir[h] == 0 {
 				incDir[h] = newV
 			} else if incDir[h] == newV*-1 {
@@ -476,9 +476,9 @@ func getFrameSteps(f referenceframe.Frame, by float64) []float64 {
 	return pos
 }
 
-func extractPath(startMap, goalMap map[*configuration]*configuration, q1, q2 *configuration) []*configuration {
-	// need to figure out which of the two configurations is in the start map
-	var startReached, goalReached *configuration
+func extractPath(startMap, goalMap map[*node]*node, q1, q2 *node) []*node {
+	// need to figure out which of the two nodes is in the start map
+	var startReached, goalReached *node
 	if _, ok := startMap[q1]; ok {
 		startReached, goalReached = q1, q2
 	} else {
@@ -486,7 +486,7 @@ func extractPath(startMap, goalMap map[*configuration]*configuration, q1, q2 *co
 	}
 
 	// extract the path to the seed
-	path := []*configuration{}
+	path := []*node{}
 	for startReached != nil {
 		path = append(path, startReached)
 		startReached = startMap[startReached]
@@ -497,7 +497,7 @@ func extractPath(startMap, goalMap map[*configuration]*configuration, q1, q2 *co
 		path[i], path[j] = path[j], path[i]
 	}
 
-	// skip goalReached configuration and go directly to its parent in order to not repeat this node
+	// skip goalReached node and go directly to its parent in order to not repeat this node
 	goalReached = goalMap[goalReached]
 
 	// extract the path to the goal

@@ -12,20 +12,20 @@ import (
 const neighborsBeforeParallelization = 1000
 
 type neighborManager struct {
-	nnKeys    chan *configuration
+	nnKeys    chan *node
 	neighbors chan *neighbor
 	nnLock    sync.RWMutex
-	seedPos   *configuration
+	seedPos   *node
 	ready     bool
 	nCPU      int
 }
 
 type neighbor struct {
 	dist float64
-	q    *configuration
+	node *node
 }
 
-func kNearestNeighbors(rrtMap map[*configuration]*configuration, target *configuration) []*neighbor {
+func kNearestNeighbors(rrtMap map[*node]*node, target *node) []*neighbor {
 	kNeighbors := neighborhoodSize
 	if neighborhoodSize > len(rrtMap) {
 		kNeighbors = len(rrtMap)
@@ -33,7 +33,7 @@ func kNearestNeighbors(rrtMap map[*configuration]*configuration, target *configu
 
 	allCosts := make([]*neighbor, 0)
 	for node, _ := range rrtMap {
-		allCosts = append(allCosts, &neighbor{dist: inputDist(node.inputs, target.inputs), q: node})
+		allCosts = append(allCosts, &neighbor{dist: inputDist(node.q, target.q), node: node})
 	}
 	sort.Slice(allCosts, func(i, j int) bool {
 		return allCosts[i].dist < allCosts[j].dist
@@ -43,17 +43,17 @@ func kNearestNeighbors(rrtMap map[*configuration]*configuration, target *configu
 
 func (nm *neighborManager) nearestNeighbor(
 	ctx context.Context,
-	seed *configuration,
-	rrtMap map[*configuration]*configuration,
-) *configuration {
+	seed *node,
+	rrtMap map[*node]*node,
+) *node {
 	if len(rrtMap) > neighborsBeforeParallelization {
 		// If the map is large, calculate distances in parallel
 		return nm.parallelNearestNeighbor(ctx, seed, rrtMap)
 	}
 	bestDist := math.Inf(1)
-	var best *configuration
+	var best *node
 	for k := range rrtMap {
-		dist := inputDist(seed.inputs, k.inputs)
+		dist := inputDist(seed.q, k.q)
 		if dist < bestDist {
 			bestDist = dist
 			best = k
@@ -64,9 +64,9 @@ func (nm *neighborManager) nearestNeighbor(
 
 func (nm *neighborManager) parallelNearestNeighbor(
 	ctx context.Context,
-	seed *configuration,
-	rrtMap map[*configuration]*configuration,
-) *configuration {
+	seed *node,
+	rrtMap map[*node]*node,
+) *node {
 	nm.ready = false
 	nm.startNNworkers(ctx)
 	defer close(nm.nnKeys)
@@ -81,7 +81,7 @@ func (nm *neighborManager) parallelNearestNeighbor(
 	nm.nnLock.Lock()
 	nm.ready = true
 	nm.nnLock.Unlock()
-	var best *configuration
+	var best *node
 	bestDist := math.Inf(1)
 	returned := 0
 	for returned < nm.nCPU {
@@ -96,7 +96,7 @@ func (nm *neighborManager) parallelNearestNeighbor(
 			returned++
 			if nn.dist < bestDist {
 				bestDist = nn.dist
-				best = nn.q
+				best = nn.node
 			}
 		default:
 		}
@@ -106,7 +106,7 @@ func (nm *neighborManager) parallelNearestNeighbor(
 
 func (nm *neighborManager) startNNworkers(ctx context.Context) {
 	nm.neighbors = make(chan *neighbor, nm.nCPU)
-	nm.nnKeys = make(chan *configuration, nm.nCPU)
+	nm.nnKeys = make(chan *node, nm.nCPU)
 	for i := 0; i < nm.nCPU; i++ {
 		utils.PanicCapturingGo(func() {
 			nm.nnWorker(ctx)
@@ -115,7 +115,7 @@ func (nm *neighborManager) startNNworkers(ctx context.Context) {
 }
 
 func (nm *neighborManager) nnWorker(ctx context.Context) {
-	var best *configuration
+	var best *node
 	bestDist := math.Inf(1)
 
 	for {
@@ -129,7 +129,7 @@ func (nm *neighborManager) nnWorker(ctx context.Context) {
 		case k := <-nm.nnKeys:
 			if k != nil {
 				nm.nnLock.RLock()
-				dist := inputDist(nm.seedPos.inputs, k.inputs)
+				dist := inputDist(nm.seedPos.q, k.q)
 				nm.nnLock.RUnlock()
 				if dist < bestDist {
 					bestDist = dist

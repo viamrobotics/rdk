@@ -26,7 +26,7 @@ var interp = referenceframe.FloatsToInputs([]float64{
 // This should test a simple linear motion.
 func TestSimpleLinearMotion(t *testing.T) {
 	nSolutions := 5
-	inputSteps := []*configuration{}
+	inputSteps := []*node{}
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm7_kinematics.json"), "")
@@ -54,24 +54,24 @@ func TestSimpleLinearMotion(t *testing.T) {
 		Z:  120.5,
 		OY: -1,
 	}
-	corners := map[*configuration]bool{}
+	corners := map[*node]bool{}
 
 	solutions, err := getSolutions(ctx, opt, mp.solver, pos, home7, mp.Frame())
 	test.That(t, err, test.ShouldBeNil)
 
-	near1 := &configuration{inputs: home7}
-	seedMap := make(map[*configuration]*configuration)
+	near1 := &node{q: home7}
+	seedMap := make(map[*node]*node)
 	seedMap[near1] = nil
-	target := &configuration{inputs: interp}
+	target := &node{q: interp}
 
-	goalMap := make(map[*configuration]*configuration)
+	goalMap := make(map[*node]*node)
 
 	if len(solutions) < nSolutions {
 		nSolutions = len(solutions)
 	}
 
 	for _, solution := range solutions[:nSolutions] {
-		goalMap[&configuration{inputs: solution}] = nil
+		goalMap[&node{q: solution}] = nil
 	}
 	nn := &neighborManager{nCPU: nCPU}
 
@@ -82,7 +82,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	// extend goalMap towards the point in seedMap
 	goalReached := mp.constrainedExtend(ctx, opt, goalMap, near2, seedReached)
 
-	test.That(t, inputDist(seedReached.inputs, goalReached.inputs) < mp.solDist, test.ShouldBeTrue)
+	test.That(t, inputDist(seedReached.q, goalReached.q) < mp.solDist, test.ShouldBeTrue)
 
 	corners[seedReached] = true
 	corners[goalReached] = true

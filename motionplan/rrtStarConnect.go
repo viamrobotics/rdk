@@ -3,6 +3,7 @@ package motionplan
 import (
 	"context"
 	"errors"
+	"math"
 	"math/rand"
 
 	"github.com/edaniels/golog"
@@ -73,7 +74,7 @@ func (mp *rrtStarConnectMotionPlanner) Plan(ctx context.Context,
 	case plan := <-solutionChan:
 		finalSteps := make([][]referenceframe.Input, 0, len(plan.steps))
 		for _, step := range plan.steps {
-			finalSteps = append(finalSteps, step.inputs)
+			finalSteps = append(finalSteps, step.q)
 		}
 		return finalSteps, plan.err
 	}
@@ -85,7 +86,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
 	opt *PlannerOptions,
-	endpointPreview chan *configuration,
+	endpointPreview chan *node,
 	solutionChan chan *planReturn,
 ) {
 	defer close(solutionChan)
@@ -112,28 +113,24 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 
 	// publish endpoint of plan if it is known
 	if opt.maxSolutions == 1 && endpointPreview != nil {
-		endpointPreview <- &configuration{inputs: solutions[0]}
+		endpointPreview <- &node{q: solutions[0]}
 	}
 
 	// initialize maps
-	goalMap := make(map[*configuration]*configuration, len(solutions))
+	goalMap := make(map[*node]*node, len(solutions))
 	for _, solution := range solutions {
-		goalMap[&configuration{inputs: solution}] = nil
+		goalMap[&node{q: solution}] = nil
 	}
-	startMap := make(map[*configuration]*configuration)
-	startMap[&configuration{inputs: seed}] = nil
-
-	// TODO(rb) package neighborManager better
-	nm := &neighborManager{nCPU: mp.nCPU}
-	nmContext, cancel := context.WithCancel(ctx)
-	defer cancel()
+	startMap := make(map[*node]*node)
+	startMap[&node{q: seed}] = nil
 
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
-	target := &configuration{inputs: referenceframe.InterpolateInputs(seed, solutions[0], 0.5)}
+	target := &node{q: referenceframe.InterpolateInputs(seed, solutions[0], 0.5)}
 
 	// Create a reference to the two maps so that we can alternate which one is grown
 	map1, map2 := startMap, goalMap
 
+	// sample until the max number of iterations is reached
 	for i := 0; i < mp.iter; i++ {
 		select {
 		case <-ctx.Done():
@@ -142,12 +139,8 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 		default:
 		}
 
-		nearest1 := nm.nearestNeighbor(nmContext, target, map1)
+		if mp.extend(opt, map1, target) && mp.extend(opt, map2, target) {
 
-		// TODO(rb): potentially either add a steer() function or get the closest valid point from constraint checker
-		map1reached := mp.checkPath(opt, nearest1.inputs, target.inputs)
-		if map1reached {
-			mp.extend(map1, nm, nearest1, target)
 		}
 
 		target = mp.sample()
@@ -158,23 +151,50 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	solutionChan <- &planReturn{err: errors.New("could not solve path")}
 }
 
-func (mp *rrtStarConnectMotionPlanner) sample() *configuration {
-	return &configuration{inputs: referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
+func (mp *rrtStarConnectMotionPlanner) sample() *node {
+	return &node{q: referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
 }
 
-func (mp *rrtStarConnectMotionPlanner) extend(
-	tree map[*configuration]*configuration,
-	nm *neighborManager,
-	nearest, new *configuration,
-) *configuration {
-	min := nearest
-	// TODO get k nearest neighbors
+func (mp *rrtStarConnectMotionPlanner) extend(opt *PlannerOptions, tree map[*node]*node, target *node) bool {
+	neighbors := kNearestNeighbors(tree, target)
 
-	minCost := nearest.cost + inputDist(nearest.inputs, new.inputs)
-}
+	// TODO(rb): potentially either add a steer() function or get the closest valid point from constraint checker
+	map1reached := mp.checkPath(opt, neighbors[0].node.q, target.q)
+	if !map1reached {
+		return false
+	}
 
-func (mp *rrtStarConnectMotionPlanner) connect() *configuration {
-	return nil
+	minIndex := 0
+	minCost := math.Inf(1)
+
+	// iterate over neighbors and find the minimum cost to connect the target node to the tree
+	for i := 0; i < len(neighbors); i++ {
+		cost := neighbors[i].node.cost + neighbors[i].dist
+		if mp.checkPath(opt, neighbors[i].node.q, target.q) && cost < minCost {
+			minIndex = i
+			minCost = cost
+		}
+	}
+
+	// add new node to tree as a child of the minimum cost neighbor node
+	targetNode := &node{q: target.q, cost: minCost}
+	tree[targetNode] = neighbors[minIndex].node
+
+	// rewire the tree
+	for i := 0; i < len(neighbors); i++ {
+		// dont need to try to rewire minIndex, so skip it
+		if i == minIndex {
+			continue
+		}
+
+		cost := targetNode.cost + inputDist(target.q, neighbors[i].node.q)
+		if mp.checkPath(opt, target.q, neighbors[i].node.q) && cost < neighbors[i].node.cost {
+			// shortcut possible, rewire the node
+			neighbors[i].node.cost = cost
+			tree[neighbors[i].node] = targetNode
+		}
+	}
+	return true
 }
 
 func (mp *rrtStarConnectMotionPlanner) checkPath(opt *PlannerOptions, seedInputs, target []referenceframe.Input) bool {
@@ -198,22 +218,4 @@ func (mp *rrtStarConnectMotionPlanner) checkPath(opt *PlannerOptions, seedInputs
 		mp.Resolution(),
 	)
 	return ok
-}
-
-// TODO(rb): bring this into the neighbor manager class
-func kNearestNeighbors(tree map[*configuration][*configuration], target *configuration) []*configuration {
-	kNeighbors := neighborhoodSize
-	if neighborhoodSize > len(tree) {
-		kNeighbors = len(tree)
-	}
-
-	neighbors := make([]*configuration, kNeighbors)
-	for q, _ := range tree {
-		if len(nm.neighbors) < kNeighbors || q.cost < neighbors[kNeighbors - 1] {
-			// insert into queue
-			for i, n := range neighbors {
-				if q.cost < neighbor.q.cost
-			}
-		}
-	}
 }
