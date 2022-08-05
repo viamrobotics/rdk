@@ -3,6 +3,7 @@ package datamanager
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -391,9 +392,11 @@ func (svc *dataManagerService) Sync(_ context.Context) error {
 }
 
 func (svc *dataManagerService) syncDataCaptureFiles() {
+	fmt.Println("starting to sync data capture files")
 	svc.lock.Lock()
 	oldFiles := make([]string, 0, len(svc.collectors))
 	for _, collector := range svc.collectors {
+		fmt.Println(collector.Collector.GetTarget().Name())
 		// Create new target and set it.
 		attributes := collector.Attributes
 		syncMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
@@ -407,6 +410,7 @@ func (svc *dataManagerService) syncDataCaptureFiles() {
 		collector.Collector.SetTarget(nextTarget)
 	}
 	svc.lock.Unlock()
+	fmt.Println(oldFiles)
 	svc.syncer.Sync(oldFiles)
 }
 
@@ -448,6 +452,7 @@ func (svc *dataManagerService) buildAdditionalSyncPaths() []string {
 
 // Syncs files under svc.additionalSyncPaths. If any of the directories do not exist, creates them.
 func (svc *dataManagerService) syncAdditionalSyncPaths() {
+	fmt.Println("what in the actyal fuck")
 	svc.syncer.Sync(svc.buildAdditionalSyncPaths())
 }
 
@@ -558,6 +563,7 @@ func (svc *dataManagerService) uploadData(cancelCtx context.Context, intervalMin
 			case <-cancelCtx.Done():
 				return
 			case <-ticker.C:
+				fmt.Println("tickie tickie")
 				svc.syncDataCaptureFiles()
 				svc.syncAdditionalSyncPaths()
 			}
