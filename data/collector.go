@@ -96,7 +96,6 @@ func (c *collector) Collect() {
 	_, span := trace.StartSpan(c.cancelCtx, "data::collector::Collect")
 	defer span.End()
 
-	fmt.Println(c.interval.String())
 	c.backgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer c.backgroundWorkers.Done()
@@ -159,7 +158,6 @@ func (c *collector) tickerBasedCapture() {
 	defer ticker.Stop()
 	captureWorkers := sync.WaitGroup{}
 
-	fmt.Println("starting to capture")
 	for {
 		if err := c.cancelCtx.Err(); err != nil {
 			if !errors.Is(err, context.Canceled) {
