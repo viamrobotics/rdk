@@ -74,7 +74,7 @@ func TestFromDependencies(t *testing.T) {
 
 	p, err := res.(board.LocalBoard).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
-	result, err := p.Get(context.Background())
+	result, err := p.Get(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, mockGPIO)
 
@@ -96,7 +96,7 @@ func TestFromRobot(t *testing.T) {
 
 	p, err := res.(board.LocalBoard).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
-	result, err := p.Get(context.Background())
+	result, err := p.Get(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, mockGPIO)
 
@@ -248,7 +248,7 @@ func TestReconfigurableLocalBoard(t *testing.T) {
 
 		p, err := reconfBoard1.(board.Board).GPIOPinByName("1")
 		test.That(t, err, test.ShouldBeNil)
-		result, err := p.Get(context.Background())
+		result, err := p.Get(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldResemble, mockGPIO)
 		test.That(t, actualBoard1.gpioPin.getCount, test.ShouldEqual, 0)
@@ -267,7 +267,7 @@ func TestSetGPIO(t *testing.T) {
 	test.That(t, actualBoard.gpioPin.setCount, test.ShouldEqual, 0)
 	p, err := reconfBoard.(board.Board).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
-	err = p.Set(context.Background(), false)
+	err = p.Set(context.Background(), false, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualBoard.gpioPin.setCount, test.ShouldEqual, 1)
 }
@@ -279,7 +279,7 @@ func TestGetGPIO(t *testing.T) {
 	test.That(t, actualBoard.gpioPin.getCount, test.ShouldEqual, 0)
 	p, err := reconfBoard.(board.Board).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
-	result, err := p.Get(context.Background())
+	result, err := p.Get(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, mockGPIO)
 	test.That(t, actualBoard.gpioPin.getCount, test.ShouldEqual, 1)
@@ -292,7 +292,7 @@ func TestSetPWM(t *testing.T) {
 	test.That(t, actualBoard.gpioPin.setPWMCount, test.ShouldEqual, 0)
 	p, err := reconfBoard.(board.Board).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
-	err = p.SetPWM(context.Background(), 0)
+	err = p.SetPWM(context.Background(), 0, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualBoard.gpioPin.setPWMCount, test.ShouldEqual, 1)
 }
@@ -304,7 +304,7 @@ func TestSetPWMFreq(t *testing.T) {
 	test.That(t, actualBoard.gpioPin.setPWMFreqCount, test.ShouldEqual, 0)
 	p, err := reconfBoard.(board.Board).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
-	err = p.SetPWMFreq(context.Background(), 0)
+	err = p.SetPWMFreq(context.Background(), 0, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualBoard.gpioPin.setPWMFreqCount, test.ShouldEqual, 1)
 }
@@ -314,7 +314,7 @@ func TestStatus(t *testing.T) {
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
 
 	test.That(t, actualBoard.statusCount, test.ShouldEqual, 0)
-	status, err := reconfBoard.(board.LocalBoard).Status(context.Background())
+	status, err := reconfBoard.(board.LocalBoard).Status(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, status, test.ShouldResemble, mockStatus)
 	test.That(t, actualBoard.statusCount, test.ShouldEqual, 1)
@@ -357,7 +357,7 @@ func TestAnalogReaders(t *testing.T) {
 
 	reconfAnalogReader, ok := reconfBoard.(board.LocalBoard).AnalogReaderByName("analog1")
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err := reconfAnalogReader.Read(context.Background())
+	_, err := reconfAnalogReader.Read(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualBoard.analog.readCount, test.ShouldEqual, 1)
 }
@@ -371,7 +371,7 @@ func TestDigitalInterrupts(t *testing.T) {
 
 	reconfDigitalInterrupt, ok := reconfBoard.(board.LocalBoard).DigitalInterruptByName("digital1")
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err := reconfDigitalInterrupt.Value(context.Background())
+	_, err := reconfDigitalInterrupt.Value(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualBoard.digital.valueCount, test.ShouldEqual, 1)
 }
@@ -552,7 +552,7 @@ func (m *mockLocal) Do(ctx context.Context, cmd map[string]interface{}) (map[str
 	return cmd, nil
 }
 
-func (m *mockLocal) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
+func (m *mockLocal) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	m.statusCount++
 	return mockStatus, nil
 }
@@ -563,32 +563,32 @@ type mockGPIOPin struct {
 	setCount, getCount, pwmCount, setPWMCount, pwmFreqCount, setPWMFreqCount int
 }
 
-func (gp *mockGPIOPin) Set(ctx context.Context, high bool) error {
+func (gp *mockGPIOPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
 	gp.setCount++
 	return nil
 }
 
-func (gp *mockGPIOPin) Get(ctx context.Context) (bool, error) {
+func (gp *mockGPIOPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	gp.getCount++
 	return mockGPIO, nil
 }
 
-func (gp *mockGPIOPin) PWM(ctx context.Context) (float64, error) {
+func (gp *mockGPIOPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	gp.pwmCount++
 	return 23, nil
 }
 
-func (gp *mockGPIOPin) SetPWM(ctx context.Context, dutyCyclePct float64) error {
+func (gp *mockGPIOPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
 	gp.setPWMCount++
 	return nil
 }
 
-func (gp *mockGPIOPin) PWMFreq(ctx context.Context) (uint, error) {
+func (gp *mockGPIOPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
 	gp.pwmFreqCount++
 	return 42, nil
 }
 
-func (gp *mockGPIOPin) SetPWMFreq(ctx context.Context, freqHz uint) error {
+func (gp *mockGPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
 	gp.setPWMFreqCount++
 	return nil
 }
@@ -650,7 +650,7 @@ func (m *mockI2CHandle) Close() error { return nil }
 
 type mockAnalogReader struct{ readCount int }
 
-func (m *mockAnalogReader) Read(ctx context.Context) (int, error) {
+func (m *mockAnalogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	m.readCount++
 	return 0, nil
 }
@@ -659,7 +659,7 @@ func (m *mockAnalogReader) Read(ctx context.Context) (int, error) {
 
 type mockDigitalInterrupt struct{ valueCount int }
 
-func (m *mockDigitalInterrupt) Value(ctx context.Context) (int64, error) {
+func (m *mockDigitalInterrupt) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	m.valueCount++
 	return 0, nil
 }

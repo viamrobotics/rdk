@@ -272,7 +272,7 @@ func (r *reconfigurableBoard) Status(ctx context.Context, extra map[string]inter
 	if r.actual.ModelAttributes().Remote {
 		return r.actual.Status(ctx, extra)
 	}
-	return CreateStatus(ctx, r)
+	return CreateStatus(ctx, r, extra)
 }
 
 func (r *reconfigurableBoard) Reconfigure(ctx context.Context, newBoard resource.Reconfigurable) error {
