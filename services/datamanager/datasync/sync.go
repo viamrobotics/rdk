@@ -50,9 +50,9 @@ type syncer struct {
 type UploadFunc func(ctx context.Context, client v1.DataSyncServiceClient, path string,
 	partID string) error
 
-type ManagerConstructor func(logger golog.Logger, uploadFunc UploadFunc, cfg *config.Config) (Manager, error)
+type ManagerConstructor func(logger golog.Logger, cfg *config.Config) (Manager, error)
 
-func NewDefaultManager(logger golog.Logger, uploadFunc UploadFunc, cfg *config.Config) (Manager, error) {
+func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error) {
 	tlsConfig := config.NewTLSConfig(cfg).Config
 	cloudConfig := cfg.Cloud
 	rpcOpts := []rpc.DialOption{
@@ -71,7 +71,7 @@ func NewDefaultManager(logger golog.Logger, uploadFunc UploadFunc, cfg *config.C
 		return nil, err
 	}
 	client := NewClient(conn)
-	return NewManager(logger, uploadFunc, cfg.Cloud.ID, client, conn)
+	return NewManager(logger, nil, cfg.Cloud.ID, client, conn)
 }
 
 // NewManager returns a new syncer. If a nil UploadFunc is passed, the default viamUpload is used.
