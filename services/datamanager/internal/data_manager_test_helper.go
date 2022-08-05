@@ -4,6 +4,7 @@ package internal
 
 import (
 	"context"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/services/datamanager/datasync"
 )
