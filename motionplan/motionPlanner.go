@@ -38,13 +38,13 @@ type MotionPlanner interface {
 }
 
 // needed to wrap slices so we can use them as map keys.
-type configuration struct {
-	inputs []frame.Input
-	cost   float64
+type node struct {
+	q    []frame.Input
+	cost float64
 }
 
 type planReturn struct {
-	steps []*configuration
+	steps []*node
 	err   error
 }
 
@@ -150,7 +150,7 @@ func RunPlannerWithWaypoints(ctx context.Context,
 	remainingSteps := [][]frame.Input{}
 	if cbert, ok := planner.(*cBiRRTMotionPlanner); ok {
 		// cBiRRT supports solution look-ahead for parallel waypoint solving
-		endpointPreview := make(chan *configuration, 1)
+		endpointPreview := make(chan *node, 1)
 		solutionChan := make(chan *planReturn, 1)
 		utils.PanicCapturingGo(func() {
 			// TODO(rb) fix me
@@ -175,7 +175,7 @@ func RunPlannerWithWaypoints(ctx context.Context,
 				if iter+1 < len(goals) {
 					// In this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it.
-					remainingSteps, err = RunPlannerWithWaypoints(ctx, planner, goals, nextSeed.inputs, opts, iter+1)
+					remainingSteps, err = RunPlannerWithWaypoints(ctx, planner, goals, nextSeed.q, opts, iter+1)
 					if err != nil {
 						return nil, err
 					}
@@ -195,7 +195,7 @@ func RunPlannerWithWaypoints(ctx context.Context,
 						}
 						results := make([][]frame.Input, 0, len(finalSteps.steps)+len(remainingSteps))
 						for _, step := range finalSteps.steps {
-							results = append(results, step.inputs)
+							results = append(results, step.q)
 						}
 						results = append(results, remainingSteps...)
 						return results, nil
@@ -210,14 +210,21 @@ func RunPlannerWithWaypoints(ctx context.Context,
 				if iter+1 < len(goals) {
 					// in this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it
-					remainingSteps, err = RunPlannerWithWaypoints(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps)-1].inputs, opts, iter+1)
+					remainingSteps, err = RunPlannerWithWaypoints(
+						ctx,
+						planner,
+						goals,
+						finalSteps.steps[len(finalSteps.steps)-1].q,
+						opts,
+						iter+1,
+					)
 					if err != nil {
 						return nil, err
 					}
 				}
 				results := make([][]frame.Input, 0, len(finalSteps.steps)+len(remainingSteps))
 				for _, step := range finalSteps.steps {
-					results = append(results, step.inputs)
+					results = append(results, step.q)
 				}
 				results = append(results, remainingSteps...)
 				return results, nil

@@ -69,7 +69,7 @@ func (mp *rrtConnectMotionPlanner) Plan(ctx context.Context,
 	case plan := <-solutionChan:
 		finalSteps := make([][]referenceframe.Input, 0, len(plan.steps))
 		for _, step := range plan.steps {
-			finalSteps = append(finalSteps, step.inputs)
+			finalSteps = append(finalSteps, step.q)
 		}
 		return finalSteps, plan.err
 	}
@@ -81,7 +81,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
 	opt *PlannerOptions,
-	endpointPreview chan *configuration,
+	endpointPreview chan *node,
 	solutionChan chan *planReturn,
 ) {
 	defer close(solutionChan)
@@ -108,16 +108,16 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 
 	// publish endpoint of plan if it is known
 	if opt.maxSolutions == 1 && endpointPreview != nil {
-		endpointPreview <- &configuration{inputs: solutions[0]}
+		endpointPreview <- &node{q: solutions[0]}
 	}
 
 	// initialize maps
-	goalMap := make(map[*configuration]*configuration, len(solutions))
+	goalMap := make(map[*node]*node, len(solutions))
 	for _, solution := range solutions {
-		goalMap[&configuration{inputs: solution}] = nil
+		goalMap[&node{q: solution}] = nil
 	}
-	startMap := make(map[*configuration]*configuration)
-	startMap[&configuration{inputs: seed}] = nil
+	startMap := make(map[*node]*node)
+	startMap[&node{q: seed}] = nil
 
 	// TODO(rb) package neighborManager better
 	nm := &neighborManager{nCPU: mp.nCPU}
@@ -125,7 +125,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	defer cancel()
 
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
-	target := &configuration{inputs: referenceframe.InterpolateInputs(seed, solutions[0], 0.5)}
+	target := &node{q: referenceframe.InterpolateInputs(seed, solutions[0], 0.5)}
 
 	// Create a reference to the two maps so that we can alternate which one is grown
 	map1, map2 := startMap, goalMap
@@ -143,11 +143,11 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 		nearest2 := nm.nearestNeighbor(nmContext, target, map2)
 
 		// attempt to extend the map to connect the target to map 1, then try to connect the maps together
-		map1reached := mp.checkPath(ctx, opt, nearest1.inputs, target.inputs)
+		map1reached := mp.checkPath(ctx, opt, nearest1.q, target.q)
 		if map1reached {
 			map1[target] = nearest1
 		}
-		map2reached := mp.checkPath(ctx, opt, nearest2.inputs, target.inputs)
+		map2reached := mp.checkPath(ctx, opt, nearest2.q, target.q)
 		if map2reached {
 			map2[target] = nearest2
 		}
@@ -166,8 +166,8 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	solutionChan <- &planReturn{err: errors.New("could not solve path")}
 }
 
-func (mp *rrtConnectMotionPlanner) sample() *configuration {
-	return &configuration{inputs: referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
+func (mp *rrtConnectMotionPlanner) sample() *node {
+	return &node{q: referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
 }
 
 func (mp *rrtConnectMotionPlanner) checkPath(ctx context.Context, opt *PlannerOptions, seedInputs, target []referenceframe.Input) bool {
