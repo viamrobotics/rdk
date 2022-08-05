@@ -12,7 +12,7 @@ import (
 // CreateStatus constructs a new up to date status from the given board.
 // The operation can take time and be expensive, so it can be cancelled by the
 // given context.
-func CreateStatus(ctx context.Context, b Board) (*commonpb.BoardStatus, error) {
+func CreateStatus(ctx context.Context, b Board, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	var status commonpb.BoardStatus
 
 	if names := b.AnalogReaderNames(); len(names) != 0 {
@@ -22,7 +22,7 @@ func CreateStatus(ctx context.Context, b Board) (*commonpb.BoardStatus, error) {
 			if !ok {
 				return nil, fmt.Errorf("analog %q not found", name)
 			}
-			val, err := x.Read(ctx)
+			val, err := x.Read(ctx, extra)
 			if err != nil {
 				return nil, errors.Wrap(err, "couldn't read analog (%s)")
 			}
@@ -37,7 +37,7 @@ func CreateStatus(ctx context.Context, b Board) (*commonpb.BoardStatus, error) {
 			if !ok {
 				return nil, fmt.Errorf("digital interrupt %q not found", name)
 			}
-			intVal, err := x.Value(ctx)
+			intVal, err := x.Value(ctx, extra)
 			if err != nil {
 				return nil, err
 			}

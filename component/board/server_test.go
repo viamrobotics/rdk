@@ -91,7 +91,7 @@ func TestServerStatus(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
 
-			injectBoard.StatusFunc = func(ctx context.Context) (*commonpb.BoardStatus, error) {
+			injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 				return tc.injectResult, tc.injectErr
 			}
 
@@ -154,7 +154,7 @@ func TestServerSetGPIO(t *testing.T) {
 				return injectGPIOPin, nil
 			}
 
-			injectGPIOPin.SetFunc = func(ctx context.Context, high bool) error {
+			injectGPIOPin.SetFunc = func(ctx context.Context, high bool, extra map[string]interface{}) error {
 				return tc.injectErr
 			}
 
@@ -227,7 +227,7 @@ func TestServerGetGPIO(t *testing.T) {
 				return injectGPIOPin, nil
 			}
 
-			injectGPIOPin.GetFunc = func(ctx context.Context) (bool, error) {
+			injectGPIOPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 				return tc.injectResult, tc.injectErr
 			}
 
@@ -301,7 +301,7 @@ func TestServerPWM(t *testing.T) {
 				return injectGPIOPin, nil
 			}
 
-			injectGPIOPin.PWMFunc = func(ctx context.Context) (float64, error) {
+			injectGPIOPin.PWMFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 				return tc.injectResult, tc.injectErr
 			}
 
@@ -364,7 +364,7 @@ func TestServerSetPWM(t *testing.T) {
 				return injectGPIOPin, nil
 			}
 
-			injectGPIOPin.SetPWMFunc = func(ctx context.Context, dutyCyclePct float64) error {
+			injectGPIOPin.SetPWMFunc = func(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
 				return tc.injectErr
 			}
 
@@ -437,7 +437,7 @@ func TestServerPWMFrequency(t *testing.T) {
 				return injectGPIOPin, nil
 			}
 
-			injectGPIOPin.PWMFreqFunc = func(ctx context.Context) (uint, error) {
+			injectGPIOPin.PWMFreqFunc = func(ctx context.Context, extra map[string]interface{}) (uint, error) {
 				return tc.injectResult, tc.injectErr
 			}
 
@@ -500,7 +500,7 @@ func TestServerSetPWMFrequency(t *testing.T) {
 				return injectGPIOPin, nil
 			}
 
-			injectGPIOPin.SetPWMFreqFunc = func(ctx context.Context, freqHz uint) error {
+			injectGPIOPin.SetPWMFreqFunc = func(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
 				return tc.injectErr
 			}
 
@@ -599,7 +599,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 			}
 
 			if tc.injectAnalogReader != nil {
-				tc.injectAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
+				tc.injectAnalogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
 					return tc.injectResult, tc.injectErr
 				}
 			}
@@ -701,7 +701,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			}
 
 			if tc.injectDigitalInterrupt != nil {
-				tc.injectDigitalInterrupt.ValueFunc = func(ctx context.Context) (int64, error) {
+				tc.injectDigitalInterrupt.ValueFunc = func(ctx context.Context, extra map[string]interface{}) (int64, error) {
 					return tc.injectResult, tc.injectErr
 				}
 			}
