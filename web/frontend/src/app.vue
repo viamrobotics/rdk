@@ -2160,12 +2160,6 @@ function setBoundingBox(box, centerPoint) {
       @update-slam-pcd-refresh-frequency="updateSLAMPCDRefreshFrequency"
     />
 
-    <div style="width: 100%; height: 200px; border: 1px solid black; margin-top: 1rem;">
-      <v-code-editor
-        language="json"
-        :value="testJson"
-      />
-    </div>
     <!-- ******* DO ******* -->
     <Do :resources="filterResourcesWithNames(resources)" />
   </div>
