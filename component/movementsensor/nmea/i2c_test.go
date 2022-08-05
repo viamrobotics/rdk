@@ -47,13 +47,13 @@ func TestValidateI2C(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestNewI2CGPS(t *testing.T) {
+func TestNewI2CMovementSensor(t *testing.T) {
 	deps := setupDependencies(t)
 
 	cfig := config.Component{
-		Name:  "gps1",
+		Name:  "movementsensor1",
 		Model: "nmea-pmtkI2C",
-		Type:  gps.SubtypeName,
+		Type:  movementsensor.SubtypeName,
 		Attributes: config.AttributeMap{
 			"board":    "",
 			"bus":      "",
@@ -64,21 +64,21 @@ func TestNewI2CGPS(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
-	g, err := newPmtkI2CNMEAGPS(ctx, deps, cfig, logger)
+	g, err := newPmtkI2CNMEAMovementSensor(ctx, deps, cfig, logger)
 	test.That(t, g, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	cfig = config.Component{
-		Name:  "gps1",
+		Name:  "movementsensor1",
 		Model: "nmea-serial",
-		Type:  gps.SubtypeName,
+		Type:  movementsensor.SubtypeName,
 		Attributes: config.AttributeMap{
 			"board":    testBoardName,
 			"bus":      testBusName,
 			"i2c_addr": "",
 		},
 	}
-	g, err = newPmtkI2CNMEAGPS(ctx, deps, cfig, logger)
+	g, err = newPmtkI2CNMEAMovementSensor(ctx, deps, cfig, logger)
 	passErr := "board " + cfig.Attributes.String("board") + " is not local"
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
@@ -90,7 +90,7 @@ func TestReadingsI2C(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := &PmtkI2CNMEAGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := &PmtkI2CNMEAMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	g.data = gpsData{
 		location:   loc,
 		alt:        alt,
@@ -110,47 +110,25 @@ func TestReadingsI2C(t *testing.T) {
 	test.That(t, bus, test.ShouldBeNil)
 	test.That(t, addr, test.ShouldEqual, 66)
 
-	loc1, err := g.ReadLocation(ctx)
+	loc1, alt1, _, err := g.GetPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, loc1, test.ShouldEqual, loc)
-
-	alt1, err := g.ReadAltitude(ctx)
-	test.That(t, err, test.ShouldBeNil)
 	test.That(t, alt1, test.ShouldEqual, alt)
 
-	speed1, err := g.ReadSpeed(ctx)
+	speed1, err := g.GetLinearVelocity(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, speed1, test.ShouldEqual, speed)
-
-	inUse, inView, err := g.ReadSatellites(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, inUse, test.ShouldEqual, activeSats)
-	test.That(t, inView, test.ShouldEqual, totalSats)
-
-	acc1, acc2, err := g.ReadAccuracy(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, acc1, test.ShouldEqual, hAcc)
-	test.That(t, acc2, test.ShouldEqual, vAcc)
-
-	valid1, err := g.ReadValid(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, valid1, test.ShouldEqual, valid)
+	test.That(t, speed1.Y, test.ShouldEqual, speed)
 
 	fix1, err := g.ReadFix(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fix1, test.ShouldEqual, fix)
-
-	readings, err := g.GetReadings(ctx)
-	correctReadings := []interface{}{loc.Lat(), loc.Lng(), alt, speed, activeSats, totalSats, hAcc, vAcc, valid, fix}
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings, test.ShouldResemble, correctReadings)
 }
 
 func TestCloseI2C(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := &PmtkI2CNMEAGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := &PmtkI2CNMEAMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 
 	err := g.Close()
 	test.That(t, err, test.ShouldBeNil)
