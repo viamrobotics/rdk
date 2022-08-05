@@ -128,19 +128,19 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 	return nil
 }
 
-// differentialDrive takes up and left direction inputs from a first person perspective
-// on a 2D plane and converts them to left and right motor powers. negative up means down
-// and negative left means right.
-func (base *wheeledBase) differentialDrive(up, left float64) (float64, float64) {
-	if up < 0 {
+// differentialDrive takes forward and left direction inputs from a first person
+// perspective on a 2D plane and converts them to left and right motor powers. negative
+// forward means backward and negative left means right.
+func (base *wheeledBase) differentialDrive(forward, left float64) (float64, float64) {
+	if forward < 0 {
 		// Mirror the forward turning arc if we go in reverse
-		leftMotor, rightMotor := base.differentialDrive(-up, left)
+		leftMotor, rightMotor := base.differentialDrive(-forward, left)
 		return -leftMotor, -rightMotor
 	}
 
 	// convert to polar coordinates
-	r := math.Hypot(up, left)
-	t := math.Atan2(left, up)
+	r := math.Hypot(forward, left)
+	t := math.Atan2(left, forward)
 
 	// rotate by 45 degrees
 	t += math.Pi / 4
