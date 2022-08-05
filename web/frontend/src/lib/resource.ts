@@ -49,7 +49,7 @@ export const filterResources = (resources: Resource[], namespace: string, type: 
     .sort(sortByName);
 };
 
-export const filterRdkComponentsWithStatus = (resources: Resource[], status: never, subtype: string) => {
+export const filterRdkComponentsWithStatus = (resources: Resource[], status: any, subtype: string) => {
   return resources
     .filter((resource) =>
       resource.namespace === 'rdk' &&
