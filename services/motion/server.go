@@ -36,7 +36,7 @@ func (server *subtypeServer) service() (Service, error) {
 	return svc, nil
 }
 
-func (server *subtypeServer) PlanAndMove(ctx context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {
+func (server *subtypeServer) PlanAndMove(ctx context.Context, req *pb.PlanAndMoveRequest) (*pb.PlanAndMoveResponse, error) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
@@ -50,10 +50,10 @@ func (server *subtypeServer) PlanAndMove(ctx context.Context, req *pb.MoveReques
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MoveResponse{Success: success}, nil
+	return &pb.PlanAndMoveResponse{Success: success}, nil
 }
 
-func (server *subtypeServer) MoveSingleComponent(ctx context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {
+func (server *subtypeServer) MoveSingleComponent(ctx context.Context, req *pb.MoveSingleComponentRequest) (*pb.MoveSingleComponentResponse, error) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func (server *subtypeServer) MoveSingleComponent(ctx context.Context, req *pb.Mo
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MoveResponse{Success: success}, nil
+	return &pb.MoveSingleComponentResponse{Success: success}, nil
 }
 
 func (server *subtypeServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {
