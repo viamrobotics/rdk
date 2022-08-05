@@ -1,4 +1,4 @@
-package datamanager
+package datasync
 
 import (
 	"context"
@@ -17,6 +17,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 var (
@@ -65,22 +66,24 @@ func (m *mockClient) Context() context.Context {
 	return context.TODO()
 }
 
-func newTestSyncerRealClient(t *testing.T, client v1.DataSyncService_UploadClient, uploadFunc uploadFunc) *syncer {
+func newTestSyncerRealClient(t *testing.T, client v1.DataSyncService_UploadClient, uploadFunc UploadFunc) *syncer {
 	l := golog.NewTestLogger(t)
-	ret, err := newSyncer(l, uploadFunc, partID)
+	manager, err := NewSyncer(l, uploadFunc, partID)
 	test.That(t, err, test.ShouldBeNil)
-	ret.client = client
-	return ret
+	syncer := manager.(*syncer)
+	syncer.client = client
+	return syncer
 }
 
 // Builds syncer used in partial upload tests.
 //nolint:thelper
-func newTestSyncer(t *testing.T, mc *mockClient, uploadFunc uploadFunc) *syncer {
+func newTestSyncer(t *testing.T, mc *mockClient, uploadFunc UploadFunc) *syncer {
 	l := golog.NewTestLogger(t)
-	ret, err := newSyncer(l, uploadFunc, partID)
+	manager, err := NewSyncer(l, uploadFunc, partID)
 	test.That(t, err, test.ShouldBeNil)
-	ret.client = mc
-	return ret
+	syncer := manager.(*syncer)
+	syncer.client = mc
+	return syncer
 }
 
 // Compares UploadRequests containing either binary or tabular sensor data.
@@ -225,10 +228,10 @@ func createTmpDataCaptureFile() (file *os.File, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = os.Rename(tf.Name(), tf.Name()+dataCaptureFileExt); err != nil {
+	if err = os.Rename(tf.Name(), tf.Name()+datacapture.FileExt); err != nil {
 		return nil, err
 	}
-	ret, err := os.OpenFile(tf.Name()+dataCaptureFileExt, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+	ret, err := os.OpenFile(tf.Name()+datacapture.FileExt, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +284,7 @@ type partialUploadTestcase struct {
 	dataType                  v1.DataType
 }
 
-func initMockClient(lenMsgsToSend int) *mockClient {
+func initmockClient(lenMsgsToSend int) *mockClient {
 	// cancelIndex gives mock client capacity to "send" metadata message in addition to succeeding sensordata
 	// messages.
 	cancelIndex := 0
@@ -311,7 +314,7 @@ func writeCaptureMetadataToFile(t *testing.T, dt v1.DataType, tf *os.File) {
 }
 
 // nolint:thelper
-func compareUploadRequestsMockClient(t *testing.T, isTabular bool, mc *mockClient, expMsgs []*v1.UploadRequest) {
+func compareUploadRequestsmockClient(t *testing.T, isTabular bool, mc *mockClient, expMsgs []*v1.UploadRequest) {
 	mc.lock.Lock()
 	compareUploadRequests(t, false, mc.sent, expMsgs)
 	mc.lock.Unlock()

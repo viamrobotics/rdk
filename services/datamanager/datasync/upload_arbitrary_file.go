@@ -1,4 +1,4 @@
-package datamanager
+package datasync
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
+
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 func uploadArbitraryFile(ctx context.Context, s *syncer, client v1.DataSyncService_UploadClient, md *v1.UploadMetadata,
@@ -31,7 +33,7 @@ func uploadArbitraryFile(ctx context.Context, s *syncer, client v1.DataSyncServi
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		if errors.Is(err, emptyReadingErr(filepath.Base(f.Name()))) {
+		if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
 			continue
 		}
 		// If there is any other error, return it.

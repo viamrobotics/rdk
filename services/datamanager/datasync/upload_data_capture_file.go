@@ -1,4 +1,4 @@
-package datamanager
+package datasync
 
 import (
 	"context"
@@ -11,6 +11,8 @@ import (
 
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
+
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 var debug = true
@@ -140,7 +142,7 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 				eof = true
 				break
 			}
-			if errors.Is(err, emptyReadingErr(filepath.Base(f.Name()))) {
+			if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
 				continue
 			}
 			// If there is any other error, return it.
@@ -221,9 +223,8 @@ func getNextSensorUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequ
 	case <-ctx.Done():
 		return nil, context.Canceled
 	default:
-
 		// Get the next sensor data reading from file, check for an error.
-		next, err := readNextSensorData(f)
+		next, err := datacapture.ReadNextSensorData(f)
 		if err != nil {
 			return nil, err
 		}

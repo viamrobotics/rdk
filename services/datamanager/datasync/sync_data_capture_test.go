@@ -1,4 +1,4 @@
-package datamanager
+package datasync
 
 import (
 	"context"
@@ -303,15 +303,15 @@ func TestPartialUpload(t *testing.T) {
 			}
 
 			// Sync using mock client.
-			mc := initMockClient(len(tc.expDataBeforeCanceled))
+			mc := initmockClient(len(tc.expDataBeforeCanceled))
 			sut := newTestSyncer(t, mc, nil)
 			sut.Sync([]string{tf.Name()})
 			time.Sleep(time.Millisecond * 100)
-			compareUploadRequestsMockClient(t, false, mc, getUploadRequests(tc.expDataBeforeCanceled, tc.dataType,
+			compareUploadRequestsmockClient(t, false, mc, getUploadRequests(tc.expDataBeforeCanceled, tc.dataType,
 				filepath.Base(tf.Name())))
 
 			// Only verify progress file existence and content if the upload has expected messages after being canceled.
-			path := filepath.Join(progressDir, filepath.Base(tf.Name()))
+			path := filepath.Join(viamProgressDotDir, filepath.Base(tf.Name()))
 			if len(tc.expDataAfterCanceled) > 0 {
 				test.That(t, fileExists(path), test.ShouldBeTrue)
 				progressIndex, err := sut.progressTracker.getProgressFileIndex(path)
@@ -321,12 +321,12 @@ func TestPartialUpload(t *testing.T) {
 			sut.Close()
 
 			// Reset mock client to be empty (simulates a full reboot of client). Then sync using mock client.
-			mc = initMockClient(len(tc.expDataAfterCanceled))
+			mc = initmockClient(len(tc.expDataAfterCanceled))
 			sut = newTestSyncer(t, mc, nil)
 			sut.Sync([]string{tf.Name()})
 			time.Sleep(time.Millisecond * 100)
 			sut.Close()
-			compareUploadRequestsMockClient(t, false, mc, getUploadRequests(tc.expDataAfterCanceled, tc.dataType,
+			compareUploadRequestsmockClient(t, false, mc, getUploadRequests(tc.expDataAfterCanceled, tc.dataType,
 				filepath.Base(tf.Name())))
 			test.That(t, fileExists(path), test.ShouldBeFalse)
 		})
