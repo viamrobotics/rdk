@@ -7,7 +7,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
@@ -144,17 +144,17 @@ func TestComponentResourceName(t *testing.T) {
 			"sensor with subtype",
 			config.Component{
 				Namespace: resource.ResourceNamespaceRDK,
-				Type:      "gps",
+				Type:      "movement_sensor",
 				Name:      "foo",
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-				ResourceSubtype: gps.SubtypeName,
+				ResourceSubtype: movementsensor.SubtypeName,
 			},
 			resource.Name{
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: gps.SubtypeName,
+					ResourceSubtype: movementsensor.SubtypeName,
 				},
 				Name: "foo",
 			},
@@ -163,17 +163,17 @@ func TestComponentResourceName(t *testing.T) {
 			"sensor missing name",
 			config.Component{
 				Namespace: resource.ResourceNamespaceRDK,
-				Type:      "gps",
+				Type:      "movement_sensor",
 				Name:      "",
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-				ResourceSubtype: gps.SubtypeName,
+				ResourceSubtype: movementsensor.SubtypeName,
 			},
 			resource.Name{
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: gps.SubtypeName,
+					ResourceSubtype: movementsensor.SubtypeName,
 				},
 				Name: "",
 			},
