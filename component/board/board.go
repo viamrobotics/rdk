@@ -32,7 +32,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnimplementedInterfaceError("Board", resource)
 			}
-			return board.Status(ctx)
+			return board.Status(ctx, nil)
 		},
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
@@ -94,7 +94,7 @@ type Board interface {
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
 	// this.
-	Status(ctx context.Context) (*commonpb.BoardStatus, error)
+	Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error)
 
 	// ModelAttributes returns attributes related to the model of this board.
 	ModelAttributes() ModelAttributes
@@ -149,7 +149,7 @@ type SPIHandle interface {
 // An AnalogReader represents an analog pin reader that resides on a board.
 type AnalogReader interface {
 	// Read reads off the current value.
-	Read(ctx context.Context) (int, error)
+	Read(ctx context.Context, extra map[string]interface{}) (int, error)
 }
 
 // A PostProcessor takes a raw input and transforms it into a new value.
@@ -266,11 +266,11 @@ func (r *reconfigurableBoard) GPIOPinNames() []string {
 	return r.actual.GPIOPinNames()
 }
 
-func (r *reconfigurableBoard) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
+func (r *reconfigurableBoard) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	if r.actual.ModelAttributes().Remote {
-		return r.actual.Status(ctx)
+		return r.actual.Status(ctx, extra)
 	}
 	return CreateStatus(ctx, r)
 }
@@ -575,10 +575,10 @@ func (r *reconfigurableAnalogReader) reconfigure(ctx context.Context, newAnalogR
 	r.actual = actual.actual
 }
 
-func (r *reconfigurableAnalogReader) Read(ctx context.Context) (int, error) {
+func (r *reconfigurableAnalogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Read(ctx)
+	return r.actual.Read(ctx, extra)
 }
 
 func (r *reconfigurableAnalogReader) ProxyFor() interface{} {
@@ -615,10 +615,10 @@ func (r *reconfigurableDigitalInterrupt) reconfigure(ctx context.Context, newDig
 	r.actual = actual.actual
 }
 
-func (r *reconfigurableDigitalInterrupt) Value(ctx context.Context) (int64, error) {
+func (r *reconfigurableDigitalInterrupt) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Value(ctx)
+	return r.actual.Value(ctx, extra)
 }
 
 func (r *reconfigurableDigitalInterrupt) Tick(ctx context.Context, high bool, nanos uint64) error {
