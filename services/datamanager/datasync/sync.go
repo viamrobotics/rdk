@@ -125,8 +125,10 @@ func (s *syncer) upload(ctx context.Context, path string) {
 			s.logger,
 		)
 		if uploadErr != nil {
+			s.logger.Error(uploadErr)
 			return
 		}
+		fmt.Println("done exponential retrying")
 
 		// Delete the file and indicate that the upload is done.
 		if err := os.Remove(path); err != nil {

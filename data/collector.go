@@ -96,7 +96,6 @@ func (c *collector) Collect() {
 	_, span := trace.StartSpan(c.cancelCtx, "data::collector::Collect")
 	defer span.End()
 
-	fmt.Println("starting to collect")
 	fmt.Println(c.interval.String())
 	c.backgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -160,6 +159,7 @@ func (c *collector) tickerBasedCapture() {
 	defer ticker.Stop()
 	captureWorkers := sync.WaitGroup{}
 
+	fmt.Println("starting to capture")
 	for {
 		if err := c.cancelCtx.Err(); err != nil {
 			if !errors.Is(err, context.Canceled) {
@@ -176,7 +176,6 @@ func (c *collector) tickerBasedCapture() {
 			close(c.queue)
 			return
 		case <-ticker.C:
-			fmt.Println("collector tick")
 			captureWorkers.Add(1)
 			utils.PanicCapturingGo(func() {
 				defer captureWorkers.Done()
@@ -187,7 +186,6 @@ func (c *collector) tickerBasedCapture() {
 }
 
 func (c *collector) getAndPushNextReading() {
-	fmt.Println("pushing reading")
 	timeRequested := timestamppb.New(time.Now().UTC())
 	reading, err := c.capturer.Capture(c.cancelCtx, c.params)
 	timeReceived := timestamppb.New(time.Now().UTC())
@@ -274,14 +272,12 @@ func (c *collector) write() error {
 }
 
 func (c *collector) appendMessage(msg *v1.SensorData) error {
-	fmt.Println("starting to append message to " + c.target.Name())
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	_, err := pbutil.WriteDelimited(c.writer, msg)
 	if err != nil {
 		return err
 	}
-	fmt.Println("appended message to " + c.target.Name())
 	return nil
 }
 
