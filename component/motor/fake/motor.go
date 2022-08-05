@@ -9,11 +9,12 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/encoder"
+	fakeencoder "go.viam.com/rdk/component/encoder/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
@@ -42,15 +43,25 @@ func init() {
 				}
 				m.MaxRPM = mcfg.MaxRPM
 
-				if mcfg.EncoderA != "" || mcfg.EncoderB != "" {
-					m.TicksPerRotation = mcfg.TicksPerRotation
-					if m.TicksPerRotation <= 0 {
-						return nil, errors.Errorf("need a TicksPerRotation for motor (%s)", config.Name)
+				if mcfg.Encoder != "" {
+					e, err := encoder.FromDependencies(deps, mcfg.Encoder)
+					if err != nil {
+						return nil, err
+					}
+					m.Encoder = e.(*fakeencoder.Encoder)
+
+					tpr, err := m.Encoder.TicksPerRotation(ctx)
+					if err != nil {
+						return 0, err
+					}
+
+					if tpr <= 0 {
+						return nil, errors.Errorf("need a TicksPerRotation for encoder (%s)", mcfg.Encoder)
 					}
 
 					m.PositionReporting = true
 
-					m.Encoder = &Encoder{}
+					m.Encoder = &fakeencoder.Encoder{}
 					m.Encoder.Start(ctx, &m.activeBackgroundWorkers)
 				} else {
 					m.PositionReporting = false
@@ -66,67 +77,6 @@ func init() {
 
 var _ motor.LocalMotor = &Motor{}
 
-// Encoder keeps track of a fake motor position.
-type Encoder struct {
-	mu         sync.Mutex
-	position   float64
-	speed      float64 // ticks per minute
-	updateRate int64   // update position in start every updateRate ms
-}
-
-// GetPosition returns the current position in terms of ticks.
-func (e *Encoder) GetPosition(ctx context.Context) (float64, error) {
-	return e.position, nil
-}
-
-// Start starts a background thread to run the encoder.
-func (e *Encoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync.WaitGroup) {
-	activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
-		if e.updateRate == 0 {
-			e.updateRate = 100
-		}
-		for {
-			select {
-			case <-cancelCtx.Done():
-				return
-			default:
-			}
-
-			if !utils.SelectContextOrWait(cancelCtx, time.Duration(e.updateRate)*time.Millisecond) {
-				return
-			}
-
-			e.mu.Lock()
-			e.position += e.speed / float64(60*1000/e.updateRate)
-			e.mu.Unlock()
-		}
-	}, activeBackgroundWorkers.Done)
-}
-
-// ResetZeroPosition resets the zero position.
-func (e *Encoder) ResetZeroPosition(ctx context.Context, offset float64) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.position = offset
-	return nil
-}
-
-// SetSpeed sets the speed of the fake motor the encoder is measuring.
-func (e *Encoder) SetSpeed(ctx context.Context, speed float64) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.speed = speed
-	return nil
-}
-
-// SetPosition sets the position of the encoder.
-func (e *Encoder) SetPosition(ctx context.Context, position float64) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.position = position
-	return nil
-}
 
 // A Motor allows setting and reading a set power percentage and
 // direction.
@@ -138,9 +88,8 @@ type Motor struct {
 	PWM                     board.GPIOPin
 	PositionReporting       bool
 	Logger                  golog.Logger
-	Encoder                 *Encoder
+	Encoder                 *fakeencoder.Encoder
 	MaxRPM                  float64
-	TicksPerRotation        int
 	activeBackgroundWorkers sync.WaitGroup
 	opMgr                   operation.SingleOperationManager
 	generic.Echo
@@ -155,11 +104,20 @@ func (m *Motor) GetPosition(ctx context.Context, extra map[string]interface{}) (
 		return 0, errors.New("encoder is not defined")
 	}
 
-	ticks, err := m.Encoder.GetPosition(ctx)
+	ticks, err := m.Encoder.GetTicksCount(ctx, extra)
 	if err != nil {
 		return 0, err
 	}
-	return ticks / float64(m.TicksPerRotation), nil
+
+	tpr, err := m.Encoder.TicksPerRotation(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if tpr == 0 {
+		return 0, errors.New("need nonzero Tpr (ticks per rotation) for encoder")
+	}
+
+	return float64(ticks) / float64(tpr), nil
 }
 
 // GetFeatures returns the status of whether the motor supports certain optional features.
@@ -182,9 +140,17 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 		if m.MaxRPM == 0 {
 			return errors.New("not supported, define max_rpm attribute != 0")
 		}
+		
+		tpr, err := m.Encoder.TicksPerRotation(ctx)
+		if err != nil {
+			return err
+		}
+		if tpr == 0 {
+			return errors.New("need nonzero Tpr (ticks per rotation) for encoder")
+		}
 
-		newSpeed := (m.MaxRPM * m.powerPct) * float64(m.TicksPerRotation)
-		err := m.Encoder.SetSpeed(ctx, newSpeed)
+		newSpeed := (m.MaxRPM * m.powerPct) * float64(tpr)
+		err = m.Encoder.SetSpeed(ctx, newSpeed)
 		if err != nil {
 			return err
 		}
@@ -274,7 +240,16 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64, ext
 		}
 
 		if m.Encoder != nil {
-			return m.Encoder.SetPosition(ctx, finalPos*float64(m.TicksPerRotation))
+			tpr, err := m.Encoder.TicksPerRotation(ctx)
+			if err != nil {
+				return err
+			}
+
+			if tpr == 0 {
+				return errors.New("need nonzero Tpr (ticks per rotation) for encoder")
+			}
+
+			return m.Encoder.SetPosition(ctx, int64(finalPos*float64(tpr)))
 		}
 	}
 	return nil
@@ -316,8 +291,17 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64, extra map[st
 		if err != nil {
 			return err
 		}
+		
+		tpr, err := m.Encoder.TicksPerRotation(ctx)
+		if err != nil {
+			return err
+		}
 
-		return m.Encoder.SetPosition(ctx, pos*float64(m.TicksPerRotation))
+		if tpr == 0 {
+			return errors.New("need nonzero Tpr (ticks per rotation) for encoder")
+		}
+
+		return m.Encoder.SetPosition(ctx, int64(pos*float64(tpr)))
 	}
 
 	return nil
@@ -334,7 +318,16 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 		return errors.New("encoder is not defined")
 	}
 
-	err := m.Encoder.ResetZeroPosition(ctx, offset*float64(m.TicksPerRotation))
+	tpr, err := m.Encoder.TicksPerRotation(ctx)
+	if err != nil {
+		return err
+	}
+
+	if tpr == 0 {
+		return errors.New("need nonzero Tpr (ticks per rotation) for encoder")
+	}
+
+	err = m.Encoder.ResetZeroPosition(ctx, int64(offset*float64(tpr)), extra)
 	if err != nil {
 		return err
 	}

@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/component/encoder"
 	"go.viam.com/rdk/component/motor"
 	fakemotor "go.viam.com/rdk/component/motor/fake"
+	fakeencoder "go.viam.com/rdk/component/encoder/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rlog"
 )
@@ -30,9 +31,8 @@ func TestMotorEncoder1(t *testing.T) {
 
 	cfg := motor.Config{TicksPerRotation: 100, MaxRPM: 100}
 	fakeMotor := &fakemotor.Motor{
-		Encoder:           &fakemotor.Encoder{},
+		Encoder:           &fakeencoder.Encoder{Tpr: 100},
 		PositionReporting: true,
-		TicksPerRotation:  100,
 		MaxRPM:            100,
 		Logger:            logger,
 	}
@@ -250,9 +250,8 @@ func TestMotorEncoderHall(t *testing.T) {
 		t.Helper()
 		cfg := motor.Config{TicksPerRotation: 100, MaxRPM: 100}
 		fakeMotor := &fakemotor.Motor{
-			Encoder:           &fakemotor.Encoder{},
+			Encoder:           &fakeencoder.Encoder{Tpr: 100},
 			PositionReporting: true,
-			TicksPerRotation:  100,
 			MaxRPM:            100,
 			Logger:            logger,
 		}
@@ -318,7 +317,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 1)
-			pos, err := encoder.GetTicksCount(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 0)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -328,7 +327,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 2)
-			pos, err := encoder.GetTicksCount(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 1)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -338,7 +337,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 3)
-			pos, err := encoder.GetTicksCount(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 1)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -348,7 +347,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 4)
-			pos, err := encoder.GetTicksCount(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 2)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -374,7 +373,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 1)
-			pos, err := encoder.GetTicksCount(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 0)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -384,7 +383,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 2)
-			pos, err := encoder.GetTicksCount(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 1)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -394,7 +393,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 3)
-			pos, err := encoder.GetTicksCount(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 1)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -404,7 +403,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 4)
-			pos, err := encoder.GetTicksCount(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 2)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -414,7 +413,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 3)
-			pos, err := encoder.GetTicksCount(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 1)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -424,7 +423,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 2)
-			pos, err := encoder.GetTicksCount(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 1)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -434,7 +433,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 1)
-			pos, err := encoder.GetTicksCount(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 0)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -444,7 +443,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 0)
-			pos, err := encoder.GetTicksCount(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 0)
 			test.That(tb, err, test.ShouldBeNil)
 		})

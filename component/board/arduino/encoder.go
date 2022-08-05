@@ -91,7 +91,7 @@ type EncoderConfig struct {
 }
 
 // GetTicksCount returns number of ticks since last zeroing
-func (e *Encoder) GetTicksCount(ctx context.Context) (int64, error) {
+func (e *Encoder) GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	res, err := e.board.runCommand("motor-position " + e.name)
 	if err != nil {
 		return 0, err
@@ -106,7 +106,7 @@ func (e *Encoder) GetTicksCount(ctx context.Context) (int64, error) {
 }
 
 // ResetZeroPosition resets the counted ticks to 0
-func (e *Encoder) ResetZeroPosition(ctx context.Context, offset int64) error {
+func (e *Encoder) ResetZeroPosition(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	_, err := e.board.runCommand(fmt.Sprintf("motor-zero %s %d", e.name, offset))
 	return err
 }
