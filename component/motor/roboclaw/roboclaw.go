@@ -111,7 +111,7 @@ type roboclawMotor struct {
 	generic.Unimplemented
 }
 
-func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64) error {
+func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
 
 	switch m.conf.Number {
@@ -124,7 +124,7 @@ func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64) error {
 	}
 }
 
-func (m *roboclawMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
+func (m *roboclawMotor) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -147,15 +147,15 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm float64, revolutions floa
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m)
 }
 
-func (m *roboclawMotor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
-	pos, err := m.GetPosition(ctx)
+func (m *roboclawMotor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64, extra map[string]interface{}) error {
+	pos, err := m.GetPosition(ctx, extra)
 	if err != nil {
 		return err
 	}
-	return m.GoFor(ctx, rpm, positionRevolutions-pos)
+	return m.GoFor(ctx, rpm, positionRevolutions-pos, extra)
 }
 
-func (m *roboclawMotor) ResetZeroPosition(ctx context.Context, offset float64) error {
+func (m *roboclawMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	newTicks := int32(offset * float64(m.conf.TicksPerRotation))
 	switch m.conf.Number {
 	case 1:
@@ -167,7 +167,7 @@ func (m *roboclawMotor) ResetZeroPosition(ctx context.Context, offset float64) e
 	}
 }
 
-func (m *roboclawMotor) GetPosition(ctx context.Context) (float64, error) {
+func (m *roboclawMotor) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	var ticks uint32
 	var err error
 
@@ -185,21 +185,21 @@ func (m *roboclawMotor) GetPosition(ctx context.Context) (float64, error) {
 	return float64(ticks) / float64(m.conf.TicksPerRotation), nil
 }
 
-func (m *roboclawMotor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
+func (m *roboclawMotor) GetFeatures(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: true,
 	}, nil
 }
 
-func (m *roboclawMotor) Stop(ctx context.Context) error {
-	return m.SetPower(ctx, 0)
+func (m *roboclawMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
+	return m.SetPower(ctx, 0, extra)
 }
 
 func (m *roboclawMotor) IsMoving(ctx context.Context) (bool, error) {
-	return m.IsPowered(ctx)
+	return m.IsPowered(ctx, nil)
 }
 
-func (m *roboclawMotor) IsPowered(ctx context.Context) (bool, error) {
+func (m *roboclawMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	pow1, pow2, err := m.conn.ReadPWMs(m.addr)
 	if err != nil {
 		return false, err

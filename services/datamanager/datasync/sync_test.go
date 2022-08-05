@@ -1,4 +1,4 @@
-package datamanager
+package datasync
 
 import (
 	"context"
@@ -323,7 +323,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 	// Set retry related global vars to faster values for test.
 	initialWaitTime = time.Millisecond * 50
 	maxRetryInterval = time.Millisecond * 150
-	// Define an uploadFunc that fails 3 times then succeeds on its 4th attempt.
+	// Define an UploadFunc that fails 3 times then succeeds on its 4th attempt.
 	failureCount := 0
 	successCount := 0
 	callTimes := make(map[int]time.Time)
@@ -460,7 +460,7 @@ func TestPartialUpload(t *testing.T) {
 				filepath.Base(tf.Name())))
 
 			// Only verify progress file existence and content if the upload has expected messages after being canceled.
-			path := filepath.Join(progressDir, filepath.Base(tf.Name()))
+			path := filepath.Join(viamProgressDotDir, filepath.Base(tf.Name()))
 			if len(tc.expDataAfterCanceled) > 0 {
 				test.That(t, fileExists(path), test.ShouldBeTrue)
 				progressIndex, err := sut.progressTracker.getProgressFileIndex(path)

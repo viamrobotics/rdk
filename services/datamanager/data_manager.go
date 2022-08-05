@@ -22,6 +22,8 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/datamanager/datacapture"
+	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -71,6 +73,7 @@ type Service interface {
 var (
 	_ = Service(&reconfigurableDataManager{})
 	_ = resource.Reconfigurable(&reconfigurableDataManager{})
+	_ = goutils.ContextCloser(&reconfigurableDataManager{})
 )
 
 // SubtypeName is the name of the type of service.
@@ -136,11 +139,11 @@ type dataManagerService struct {
 	captureDisabled           bool
 	syncDisabled              bool
 	collectors                map[componentMethodMetadata]collectorAndConfig
-	syncer                    syncManager
+	syncer                    datasync.Manager
 	syncIntervalMins          float64
 	lock                      sync.Mutex
 	backgroundWorkers         sync.WaitGroup
-	uploadFunc                uploadFunc
+	uploadFunc                datasync.UploadFunc
 	updateCollectorsCancelFn  func()
 	additionalSyncPaths       []string
 	partID                    string
@@ -210,7 +213,10 @@ type componentMethodMetadata struct {
 
 // Get time.Duration from hz.
 func getDurationFromHz(captureFrequencyHz float32) time.Duration {
-	return time.Second / time.Duration(captureFrequencyHz)
+	if captureFrequencyHz == 0 {
+		return time.Duration(0)
+	}
+	return time.Duration((float32(time.Second) / captureFrequencyHz))
 }
 
 // Initialize a collector for the component/method or update it if it has previously been created.
@@ -229,7 +235,8 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		MethodMetadata: metadata,
 	}
 	// Build metadata.
-	syncMetadata := buildSyncMetadata(attributes)
+	syncMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
+		attributes.Method, attributes.AdditionalParams)
 
 	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
 		collector := storedCollectorParams.Collector
@@ -238,7 +245,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		// If the attributes have not changed, keep the current collector and update the target capture file if needed.
 		if reflect.DeepEqual(previousAttributes, attributes) {
 			if updateCaptureDir {
-				targetFile, err := createDataCaptureFile(svc.captureDir, syncMetadata)
+				targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, syncMetadata)
 				if err != nil {
 					return nil, err
 				}
@@ -282,7 +289,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
-	targetFile, err := createDataCaptureFile(svc.captureDir, syncMetadata)
+	targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, syncMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -328,11 +335,12 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 	if svc.syncer != nil {
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
 		svc.syncer.Close()
+		svc.syncer = nil
 	}
 
 	svc.cancelSyncBackgroundRoutine()
 
-	syncer, err := newSyncer(svc.logger, svc.uploadFunc, svc.partID)
+	syncer, err := datasync.NewSyncer(svc.logger, svc.uploadFunc, svc.partID)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}
@@ -379,10 +387,11 @@ func (svc *dataManagerService) syncDataCaptureFiles() {
 	oldFiles := make([]string, 0, len(svc.collectors))
 	for _, collector := range svc.collectors {
 		// Create new target and set it.
-		// Build metadata.
-		syncMetadata := buildSyncMetadata(collector.Attributes)
+		attributes := collector.Attributes
+		syncMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
+			attributes.Method, attributes.AdditionalParams)
 
-		nextTarget, err := createDataCaptureFile(svc.captureDir, syncMetadata)
+		nextTarget, err := datacapture.CreateDataCaptureFile(svc.captureDir, syncMetadata)
 		if err != nil {
 			svc.logger.Errorw("failed to create new data capture file", "error", err)
 		}

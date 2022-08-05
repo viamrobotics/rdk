@@ -25,7 +25,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*transformConfig)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
@@ -34,12 +34,12 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "depth_edges",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf camera.AttrConfig
+			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &camera.AttrConfig{})
+		}, &transformConfig{})
 }
 
-// depthEdgesSource applies a Canny Edge Detector to the depth map of the ImageWithDepth.
+// depthEdgesSource applies a Canny Edge Detector to the depth map.
 type depthEdgesSource struct {
 	source     gostream.ImageSource
 	detector   *rimage.CannyEdgeDetector
@@ -64,13 +64,13 @@ func (os *depthEdgesSource) Next(ctx context.Context) (image.Image, func(), erro
 	return edges, func() {}, nil
 }
 
-func newDepthEdgesSource(ctx context.Context, deps registry.Dependencies, attrs *camera.AttrConfig) (camera.Camera, error) {
+func newDepthEdgesSource(ctx context.Context, deps registry.Dependencies, attrs *transformConfig) (camera.Camera, error) {
 	source, err := camera.FromDependencies(deps, attrs.Source)
 	if err != nil {
 		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
 	}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
 	imgSrc := &depthEdgesSource{source, canny, 3.0}
-	proj, _ := camera.GetProjector(ctx, attrs, source)
+	proj, _ := camera.GetProjector(ctx, nil, source)
 	return camera.New(imgSrc, proj)
 }
