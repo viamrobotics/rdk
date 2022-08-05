@@ -51,7 +51,7 @@ func TestNewSerialMovementSensor(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
-	g, err := newserialNMEAMovementSensor(ctx, cfig, logger)
+	g, err := newSerialNMEAMovementSensor(ctx, cfig, logger)
 	test.That(t, g, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -64,7 +64,7 @@ func TestNewSerialMovementSensor(t *testing.T) {
 			"correction_path": "",
 		},
 	}
-	g, err = newserialNMEAMovementSensor(ctx, cfig, logger)
+	g, err = newSerialNMEAMovementSensor(ctx, cfig, logger)
 	passErr := "open " + path + ": no such file or directory"
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
@@ -76,7 +76,7 @@ func TestReadingsSerial(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := &serialNMEAMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := &SerialNMEAMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	g.data = gpsData{
 		location:   loc,
 		alt:        alt,
@@ -115,7 +115,7 @@ func TestCloseSerial(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := &serialNMEAMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := &SerialNMEAMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 
 	err := g.Close()
 	test.That(t, err, test.ShouldBeNil)
