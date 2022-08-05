@@ -3,6 +3,7 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"go.viam.com/rdk/config"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/utils/rpc"
@@ -112,6 +113,7 @@ func (s *syncer) upload(ctx context.Context, path string) {
 	if s.progressTracker.inProgress(path) {
 		return
 	}
+	fmt.Printf("trying to upload %s\n", path)
 
 	s.progressTracker.mark(path)
 	s.backgroundWorkers.Add(1)
