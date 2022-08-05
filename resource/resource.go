@@ -227,15 +227,15 @@ func (n Name) String() string {
 }
 
 // NewReservedCharacterUsedError is used when a reserved character is wrongly used in a name.
-func NewReservedCharacterUsedError(val string) error {
-	return errors.Errorf("reserved character : used in name:%q", val)
+func NewReservedCharacterUsedError(val string, reservedChar string) error {
+	return errors.Errorf("reserved character %s used in name:%q", reservedChar, val)
 }
 
 // ContainsReservedCharacter returns error if string contains a reserved character.
 func ContainsReservedCharacter(val string) error {
 	for _, char := range reservedCharSet {
 		if strings.Contains(val, char) {
-			return NewReservedCharacterUsedError(val)
+			return NewReservedCharacterUsedError(val, char)
 		}
 	}
 	return nil
