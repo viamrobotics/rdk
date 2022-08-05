@@ -3,9 +3,6 @@ package datasync
 
 import (
 	"context"
-	"go.viam.com/rdk/config"
-	rdkutils "go.viam.com/rdk/utils"
-	"go.viam.com/utils/rpc"
 	"os"
 	"path/filepath"
 	"sync"
@@ -15,8 +12,11 @@ import (
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	goutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/services/datamanager/datacapture"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -50,8 +50,10 @@ type syncer struct {
 type UploadFunc func(ctx context.Context, client v1.DataSyncServiceClient, path string,
 	partID string) error
 
+// ManagerConstructor is a function for building a Manager.
 type ManagerConstructor func(logger golog.Logger, cfg *config.Config) (Manager, error)
 
+// NewDefaultManager returns the default Manager that syncs data to app.viam.com.
 func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error) {
 	tlsConfig := config.NewTLSConfig(cfg).Config
 	cloudConfig := cfg.Cloud
@@ -77,8 +79,8 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 // NewManager returns a new syncer. If a nil UploadFunc is passed, the default viamUpload is used.
 // TODO DATA-206: instantiate a client.
 func NewManager(logger golog.Logger, uploadFunc UploadFunc, partID string,
-	client v1.DataSyncServiceClient, conn rpc.ClientConn) (Manager, error) {
-
+	client v1.DataSyncServiceClient, conn rpc.ClientConn,
+) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
 		conn:   conn,
@@ -109,7 +111,9 @@ func (s *syncer) Close() {
 	s.cancelFunc()
 	s.backgroundWorkers.Wait()
 	// TODO: log
-	_ = s.conn.Close()
+	if err := s.conn.Close(); err != nil {
+		s.logger.Errorw("error closing datasync server connection", "error", err)
+	}
 }
 
 func (s *syncer) upload(ctx context.Context, path string) {
