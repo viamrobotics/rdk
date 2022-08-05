@@ -15,7 +15,7 @@ import (
 )
 
 func TestDetectorMap(t *testing.T) {
-	fn := func(image.Image) ([]objdet.Detection, error) {
+	fn := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
 	}
 	registeredFn := registeredDetector{detector: fn, closer: nil}
@@ -51,10 +51,10 @@ func TestDetectorMap(t *testing.T) {
 }
 
 func TestDetectorCloser(t *testing.T) {
-	fakeDetectFn := func(image.Image) ([]objdet.Detection, error) {
+	fakeDetectFn := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
 	}
-	closer := inf.TFLiteStruct{Info: &inf.TFLiteInfo{100, 100, 3, "uint8", 1, 4, []string{}}}
+	closer := inf.TFLiteStruct{Info: &inf.TFLiteInfo{100, 100, 3, []int{1, 100, 100, 3}, "uint8", 1, 4, []string{}}}
 
 	d := registeredDetector{detector: fakeDetectFn, closer: &closer}
 	reg := make(detectorMap)
@@ -65,7 +65,7 @@ func TestDetectorCloser(t *testing.T) {
 }
 
 func TestDetectorRemoval(t *testing.T) {
-	fakeDetectFn := func(image.Image) ([]objdet.Detection, error) {
+	fakeDetectFn := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
 	}
 	ctx := context.Background()

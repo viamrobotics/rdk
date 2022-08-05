@@ -18,6 +18,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -35,6 +36,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -47,6 +49,9 @@ const (
 	cameraValidationMaxTimeoutSec = 30
 	cameraValidationIntervalSec   = 1
 	dialMaxTimeoutSec             = 5
+	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
+	// time format for the slam service.
+	slamTimeFormat = "2006-01-02T15_04_05.0000"
 )
 
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
@@ -64,6 +69,7 @@ func init() {
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
+		Reconfigurable: WrapWithReconfigurable,
 	})
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
@@ -191,9 +197,15 @@ func runtimeServiceValidation(ctx context.Context, cam camera.Camera, slamSvc *s
 		if time.Since(startTime) >= cameraValidationMaxTimeoutSec*time.Second {
 			return errors.Wrap(err, "error getting data in desired mode")
 		}
-
 		if !goutils.SelectContextOrWait(ctx, cameraValidationIntervalSec*time.Second) {
 			return ctx.Err()
+		}
+	}
+
+	// For ORBSLAM, generate a new yaml file based off the camera configuration and presence of maps
+	if strings.Contains(slamSvc.slamLib.AlgoName, "orbslamv3") {
+		if err = slamSvc.orbGenYAML(ctx, cam); err != nil {
+			return errors.Wrap(err, "error generating .yaml config")
 		}
 	}
 
@@ -215,6 +227,11 @@ type AttrConfig struct {
 	InputFilePattern string            `json:"input_file_pattern"`
 	Port             string            `json:"port"`
 }
+
+var (
+	_ = Service(&reconfigurableSlam{})
+	_ = resource.Reconfigurable(&reconfigurableSlam{})
+)
 
 // Service describes the functions that are available to the service.
 type Service interface {
@@ -246,7 +263,7 @@ type slamService struct {
 
 // configureCamera will check the config to see if a camera is desired and if so, grab the camera from
 // the robot as well as get the intrinsic associated with it.
-func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) (string, camera.Camera, error) {
+func configureCamera(ctx context.Context, svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) (string, camera.Camera, error) {
 	var cam camera.Camera
 	var cameraName string
 	var err error
@@ -258,11 +275,19 @@ func configureCamera(svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) 
 			return "", nil, errors.Wrap(err, "error getting camera for slam service")
 		}
 
-		proj := camera.Projector(cam) // will be nil if no intrinsics
-		if proj != nil {
-			_, ok := proj.(*transform.PinholeCameraIntrinsics)
+		proj, err := cam.GetProperties(ctx)
+		if err != nil {
+			// LiDAR do not have intrinsic parameters and only send point clouds,
+			// so no error should occur here, just inform the user
+			logger.Debug("No camera features found, user possibly using LiDAR")
+		} else {
+			intrinsics, ok := proj.(*transform.PinholeCameraIntrinsics)
 			if !ok {
-				return "", nil, errors.New("error camera intrinsics were not defined properly")
+				return "", nil, transform.NewNoIntrinsicsError("Intrinsics do not exist")
+			}
+			err = intrinsics.CheckValid()
+			if err != nil {
+				return "", nil, err
 			}
 		}
 	} else {
@@ -371,7 +396,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
 
-	cameraName, cam, err := configureCamera(svcConfig, r, logger)
+	cameraName, cam, err := configureCamera(ctx, svcConfig, r, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "configuring camera error")
 	}
@@ -662,10 +687,68 @@ func (slamSvc *slamService) getAndSaveDataDense(ctx context.Context, cam camera.
 	return filename, f.Close()
 }
 
+type reconfigurableSlam struct {
+	mu     sync.RWMutex
+	actual Service
+}
+
+func (svc *reconfigurableSlam) GetPosition(ctx context.Context, val string) (*referenceframe.PoseInFrame, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetPosition(ctx, val)
+}
+
+func (svc *reconfigurableSlam) GetMap(ctx context.Context,
+	name string,
+	mimeType string,
+	cp *referenceframe.PoseInFrame,
+	include bool,
+) (string, image.Image, *vision.Object, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetMap(ctx, name, mimeType, cp, include)
+}
+
+func (svc *reconfigurableSlam) Close(ctx context.Context, id primitive.ObjectID) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return goutils.TryClose(ctx, svc.actual)
+}
+
+// Reconfigure replaces the old slam service with a new slam.
+func (svc *reconfigurableSlam) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	rSvc, ok := newSvc.(*reconfigurableSlam)
+	if !ok {
+		return utils.NewUnexpectedTypeError(svc, newSvc)
+	}
+	if err := goutils.TryClose(ctx, svc.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	svc.actual = rSvc.actual
+	return nil
+}
+
+// WrapWithReconfigurable wraps a slam service as a Reconfigurable.
+func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+	svc, ok := s.(Service)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("slam.Service", s)
+	}
+
+	if reconfigurable, ok := s.(*reconfigurableSlam); ok {
+		return reconfigurable, nil
+	}
+
+	return &reconfigurableSlam{actual: svc}, nil
+}
+
 // Creates a file for camera data with the specified sensor name and timestamp written into the filename.
 func createTimestampFilename(cameraName, dataDirectory, fileType string) string {
+	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	timeStamp := time.Now()
-	filename := filepath.Join(dataDirectory, "data", cameraName+"_data_"+timeStamp.UTC().Format("2006-01-02T15_04_05.0000")+fileType)
+	filename := filepath.Join(dataDirectory, "data", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
 
 	return filename
 }

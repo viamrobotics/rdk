@@ -35,7 +35,7 @@ func TestClientWorkingService(t *testing.T) {
 	workingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	pose := spatial.NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
+	pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 	pSucc := referenceframe.NewPoseInFrame("frame", pose)
 
 	pcSucc := &vision.Object{}
@@ -148,7 +148,7 @@ func TestClientFailingService(t *testing.T) {
 	failingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	pose := spatial.NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
+	pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 	pFail := referenceframe.NewPoseInFrame("frame", pose)
 	pcFail := &vision.Object{}
 	pcFail.PointCloud = pointcloud.New()

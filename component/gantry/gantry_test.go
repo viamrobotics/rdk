@@ -76,7 +76,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	lengths1, err := res.GetLengths(context.Background())
+	lengths1, err := res.GetLengths(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths1, test.ShouldResemble, lengths)
 
@@ -96,7 +96,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	lengths1, err := res.GetLengths(context.Background())
+	lengths1, err := res.GetLengths(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths1, test.ShouldResemble, lengths)
 
@@ -156,10 +156,10 @@ func TestCreateStatus(t *testing.T) {
 	}
 
 	injectGantry := &inject.Gantry{}
-	injectGantry.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
+	injectGantry.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return status.PositionsMm, nil
 	}
-	injectGantry.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
+	injectGantry.GetLengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return status.LengthsMm, nil
 	}
 	injectGantry.IsMovingFunc = func(context.Context) (bool, error) {
@@ -194,7 +194,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on GetLengths", func(t *testing.T) {
 		errFail := errors.New("can't get lengths")
-		injectGantry.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
+		injectGantry.GetLengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 			return nil, errFail
 		}
 		_, err = gantry.CreateStatus(context.Background(), injectGantry)
@@ -203,7 +203,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on GetPositions", func(t *testing.T) {
 		errFail := errors.New("can't get positions")
-		injectGantry.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
+		injectGantry.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 			return nil, errFail
 		}
 		_, err = gantry.CreateStatus(context.Background(), injectGantry)
@@ -288,7 +288,7 @@ func TestReconfigurableGantry(t *testing.T) {
 
 	test.That(t, actualGantry1.lengthsCount, test.ShouldEqual, 0)
 	test.That(t, actualGantry2.lengthsCount, test.ShouldEqual, 0)
-	lengths1, err := reconfGantry1.(gantry.Gantry).GetLengths(context.Background())
+	lengths1, err := reconfGantry1.(gantry.Gantry).GetLengths(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths1, test.ShouldResemble, lengths)
 	test.That(t, actualGantry1.lengthsCount, test.ShouldEqual, 0)
@@ -328,8 +328,9 @@ func TestStop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualGantry1.stopCount, test.ShouldEqual, 0)
-	test.That(t, reconfGantry1.(gantry.Gantry).Stop(context.Background()), test.ShouldBeNil)
+	test.That(t, reconfGantry1.(gantry.Gantry).Stop(context.Background(), map[string]interface{}{"foo": 123}), test.ShouldBeNil)
 	test.That(t, actualGantry1.stopCount, test.ShouldEqual, 1)
+	test.That(t, actualGantry1.extra, test.ShouldResemble, map[string]interface{}{"foo": 123})
 }
 
 func TestClose(t *testing.T) {
@@ -358,15 +359,18 @@ type mockLocal struct {
 	lengthsCount int
 	stopCount    int
 	reconfCount  int
+	extra        map[string]interface{}
 }
 
-func (m *mockLocal) GetLengths(context.Context) ([]float64, error) {
+func (m *mockLocal) GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	m.lengthsCount++
+	m.extra = extra
 	return lengths, nil
 }
 
-func (m *mockLocal) Stop(ctx context.Context) error {
+func (m *mockLocal) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.stopCount++
+	m.extra = extra
 	return nil
 }
 
