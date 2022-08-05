@@ -1,4 +1,5 @@
-package datamanager
+// Package datasync contains interfaces for syncing data from robots to the app.viam.com cloud.
+package datasync
 
 import (
 	"context"
@@ -11,6 +12,8 @@ import (
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	goutils "go.viam.com/utils"
+
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 var (
@@ -21,12 +24,8 @@ var (
 	uploadChunkSize = 32768
 )
 
-func emptyReadingErr(fileName string) error {
-	return errors.Errorf("%s contains SensorData containing no data", fileName)
-}
-
-// syncer is responsible for enqueuing files in captureDir and uploading them to the cloud.
-type syncManager interface {
+// Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
+type Manager interface {
 	Sync(paths []string)
 	Close()
 }
@@ -37,25 +36,26 @@ type syncer struct {
 	client            v1.DataSyncService_UploadClient
 	logger            golog.Logger
 	progressTracker   progressTracker
-	uploadFunc        uploadFunc
+	uploadFunc        UploadFunc
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancelFunc        func()
 }
 
-type uploadFunc func(ctx context.Context, client v1.DataSyncService_UploadClient, path string,
+// UploadFunc defines a function for uploading a file to the Viam data sync service backend.
+type UploadFunc func(ctx context.Context, client v1.DataSyncService_UploadClient, path string,
 	partID string) error
 
-// TODO DATA-206: instantiate a client
-// newSyncer returns a new syncer. If a nil uploadFunc is passed, the default viamUpload is used.
-func newSyncer(logger golog.Logger, uploadFunc uploadFunc, partID string) (*syncer, error) {
+// NewSyncer returns a new syncer. If a nil UploadFunc is passed, the default viamUpload is used.
+// TODO DATA-206: instantiate a client.
+func NewSyncer(logger golog.Logger, uploadFunc UploadFunc, partID string) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
 		logger: logger,
 		progressTracker: progressTracker{
 			lock:        &sync.Mutex{},
 			m:           make(map[string]struct{}),
-			progressDir: filepath.Join(viamCaptureDotDir, ".progress/"),
+			progressDir: viamProgressDotDir,
 		},
 		backgroundWorkers: sync.WaitGroup{},
 		cancelCtx:         cancelCtx,
@@ -168,8 +168,8 @@ func getNextWait(lastWait time.Duration) time.Duration {
 
 func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
 	var md *v1.UploadMetadata
-	if isDataCaptureFile(f) {
-		captureMD, err := readDataCaptureMetadata(f)
+	if datacapture.IsDataCaptureFile(f) {
+		captureMD, err := datacapture.ReadDataCaptureMetadata(f)
 		if err != nil {
 			return nil, err
 		}
