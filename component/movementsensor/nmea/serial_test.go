@@ -35,13 +35,13 @@ func TestValidateSerial(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestNewSerialGPS(t *testing.T) {
+func TestNewSerialMovementSensor(t *testing.T) {
 	path := "somepath"
 
 	cfig := config.Component{
-		Name:  "gps1",
+		Name:  "movementsensor1",
 		Model: "nmea-serial",
-		Type:  gps.SubtypeName,
+		Type:  movementsensor.SubtypeName,
 		Attributes: config.AttributeMap{
 			"path":            "",
 			"correction_path": "",
@@ -51,20 +51,20 @@ func TestNewSerialGPS(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
-	g, err := newSerialNMEAGPS(ctx, cfig, logger)
+	g, err := newserialNMEAMovementSensor(ctx, cfig, logger)
 	test.That(t, g, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	cfig = config.Component{
-		Name:  "gps1",
+		Name:  "movementsensor1",
 		Model: "nmea-serial",
-		Type:  gps.SubtypeName,
+		Type:  movementsensor.SubtypeName,
 		Attributes: config.AttributeMap{
 			"path":            path,
 			"correction_path": "",
 		},
 	}
-	g, err = newSerialNMEAGPS(ctx, cfig, logger)
+	g, err = newserialNMEAMovementSensor(ctx, cfig, logger)
 	passErr := "open " + path + ": no such file or directory"
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
@@ -76,7 +76,7 @@ func TestReadingsSerial(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := &SerialNMEAGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := &serialNMEAMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	g.data = gpsData{
 		location:   loc,
 		alt:        alt,
@@ -97,47 +97,25 @@ func TestReadingsSerial(t *testing.T) {
 	test.That(t, correctionPath, test.ShouldEqual, path)
 	test.That(t, correctionBaudRate, test.ShouldEqual, 9600)
 
-	loc1, err := g.ReadLocation(ctx)
+	loc1, alt1, _, err := g.GetPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, loc1, test.ShouldEqual, loc)
-
-	alt1, err := g.ReadAltitude(ctx)
-	test.That(t, err, test.ShouldBeNil)
 	test.That(t, alt1, test.ShouldEqual, alt)
 
-	speed1, err := g.ReadSpeed(ctx)
+	speed1, err := g.GetLinearVelocity(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, speed1, test.ShouldEqual, speed)
-
-	inUse, inView, err := g.ReadSatellites(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, inUse, test.ShouldEqual, activeSats)
-	test.That(t, inView, test.ShouldEqual, totalSats)
-
-	acc1, acc2, err := g.ReadAccuracy(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, acc1, test.ShouldEqual, hAcc)
-	test.That(t, acc2, test.ShouldEqual, vAcc)
-
-	valid1, err := g.ReadValid(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, valid1, test.ShouldEqual, valid)
+	test.That(t, speed1.Y, test.ShouldEqual, speed)
 
 	fix1, err := g.ReadFix(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fix1, test.ShouldEqual, fix)
-
-	readings, err := g.GetReadings(ctx)
-	correctReadings := []interface{}{loc.Lat(), loc.Lng(), alt, speed, activeSats, totalSats, hAcc, vAcc, valid, fix}
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings, test.ShouldResemble, correctReadings)
 }
 
 func TestCloseSerial(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := &SerialNMEAGPS{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := &serialNMEAMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 
 	err := g.Close()
 	test.That(t, err, test.ShouldBeNil)

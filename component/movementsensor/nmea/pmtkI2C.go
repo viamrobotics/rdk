@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
 
@@ -17,7 +18,7 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
-// I2CAttrConfig is used for converting Serial NMEA GPS config attributes.
+// I2CAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
 type I2CAttrConfig struct {
 	// I2C
 	Board   string `json:"board"`
@@ -42,7 +43,7 @@ func (config *I2CAttrConfig) ValidateI2C(path string) error {
 
 func init() {
 	registry.RegisterComponent(
-		gps.Subtype,
+		movementsensor.Subtype,
 		"nmea-pmtkI2C",
 		registry.Component{Constructor: func(
 			ctx context.Context,
@@ -50,12 +51,12 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newPmtkI2CNMEAGPS(ctx, deps, config, logger)
+			return newPmtkI2CNMEAMovementSensor(ctx, deps, config, logger)
 		}})
 }
 
-// PmtkI2CNMEAGPS allows the use of any GPS chip that communicates over I2C using the PMTK protocol.
-type PmtkI2CNMEAGPS struct {
+// PmtkI2CNMEAMovementSensor allows the use of any MovementSensor chip that communicates over I2C using the PMTK protocol.
+type PmtkI2CNMEAMovementSensor struct {
 	generic.Unimplemented
 	mu          sync.RWMutex
 	bus         board.I2C
@@ -71,7 +72,7 @@ type PmtkI2CNMEAGPS struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func newPmtkI2CNMEAGPS(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (nmeaGPS, error) {
+func newPmtkI2CNMEAMovementSensor(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (nmeaMovementSensor, error) {
 	b, err := board.FromDependencies(deps, config.Attributes.String("board"))
 	if err != nil {
 		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
@@ -91,12 +92,12 @@ func newPmtkI2CNMEAGPS(ctx context.Context, deps registry.Dependencies, config c
 	wbaud := config.Attributes.Int("ntrip_baud", 38400)
 	disableNmea := config.Attributes.Bool(disableNmeaName, false)
 	if disableNmea {
-		logger.Info("SerialNMEAGPS: NMEA reading disabled")
+		logger.Info("SerialNMEAMovementSensor: NMEA reading disabled")
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
-	g := &PmtkI2CNMEAGPS{
+	g := &PmtkI2CNMEAMovementSensor{
 		bus: i2cbus, addr: byte(addr), wbaud: wbaud, cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, disableNmea: disableNmea,
 	}
 	g.Start(ctx)
@@ -105,7 +106,7 @@ func newPmtkI2CNMEAGPS(ctx context.Context, deps registry.Dependencies, config c
 }
 
 // Start begins reading nmea messages from module and updates gps data.
-func (g *PmtkI2CNMEAGPS) Start(ctx context.Context) {
+func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) {
 	handle, err := g.bus.OpenHandle(g.addr)
 	if err != nil {
 		g.logger.Fatalf("can't open gps i2c %s", err)
@@ -189,62 +190,54 @@ func (g *PmtkI2CNMEAGPS) Start(ctx context.Context) {
 }
 
 // GetBusAddr returns the bus and address that takes in rtcm corrections.
-func (g *PmtkI2CNMEAGPS) GetBusAddr() (board.I2C, byte) {
+func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (board.I2C, byte) {
 	return g.bus, g.addr
 }
 
-// ReadLocation returns the current geographic location of the GPS.
-func (g *PmtkI2CNMEAGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
+// ReadLocation returns the current geographic location of the MOVEMENTSENSOR.
+func (g *PmtkI2CNMEAMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.location, nil
+	return g.data.location, g.data.alt, (g.data.hDOP + g.data.vDOP) / 2, nil
 }
 
-// ReadAltitude returns the current altitude of the GPS.
-func (g *PmtkI2CNMEAGPS) ReadAltitude(ctx context.Context) (float64, error) {
+// GetLinearVelocity returns the current speed of the MOVEMENTSENSOR.
+func (g *PmtkI2CNMEAMovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.alt, nil
+	return r3.Vector{0, g.data.speed, 0}, nil
 }
 
-// ReadSpeed returns the current speed of the GPS.
-func (g *PmtkI2CNMEAGPS) ReadSpeed(ctx context.Context) (float64, error) {
+// GetAngularVelocity not supported
+func (g *PmtkI2CNMEAMovementSensor) GetAngularVelocity(ctx context.Context) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.speed, nil
+	return r3.Vector{}, nil
 }
 
-// ReadSatellites returns the number of satellites that are currently visible to the GPS.
-func (g *PmtkI2CNMEAGPS) ReadSatellites(ctx context.Context) (int, int, error) {
+// GetCompassHeading not supported
+func (g *PmtkI2CNMEAMovementSensor) GetCompassHeading(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.satsInUse, g.data.satsInView, nil
+	return 0, nil
 }
 
-// ReadAccuracy returns how accurate the lat/long readings are.
-func (g *PmtkI2CNMEAGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
+// GetOrientation not supporter
+func (g *PmtkI2CNMEAMovementSensor) GetOrientation(ctx context.Context) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.hDOP, g.data.vDOP, nil
+	return r3.Vector{}, nil
 }
 
-// ReadValid returns whether or not the GPS is currently reading valid measurements.
-func (g *PmtkI2CNMEAGPS) ReadValid(ctx context.Context) (bool, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return g.data.valid, nil
-}
-
-// ReadFix returns Fix quality of GPS measurements.
-func (g *PmtkI2CNMEAGPS) ReadFix(ctx context.Context) (int, error) {
+func (g *PmtkI2CNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.fixQuality, nil
 }
 
-// GetReadings will use return all of the GPS Readings.
-func (g *PmtkI2CNMEAGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
-	readings, err := gps.GetReadings(ctx, g)
+// GetReadings will use return all of the MovementSensor Readings.
+func (g *PmtkI2CNMEAMovementSensor) GetReadings(ctx context.Context) ([]interface{}, error) {
+	readings, err := movementsensor.GetReadings(ctx, g)
 	if err != nil {
 		return nil, err
 	}
@@ -259,8 +252,8 @@ func (g *PmtkI2CNMEAGPS) GetReadings(ctx context.Context) ([]interface{}, error)
 	return readings, nil
 }
 
-// Close shuts down the SerialNMEAGPS.
-func (g *PmtkI2CNMEAGPS) Close() error {
+// Close shuts down the SerialNMEAMOVEMENTSENSOR.
+func (g *PmtkI2CNMEAMovementSensor) Close() error {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
 	return nil
