@@ -1092,7 +1092,7 @@ func TestClientStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		iStatus := robot.Status{Name: imu.Named("imu"), Status: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}}}
-		gStatus := robot.Status{Name: gps.Named("gps"), Status: map[string]interface{}{"efg": []string{"hello"}}}
+		gStatus := robot.Status{Name: movementsensor.Named("gps"), Status: map[string]interface{}{"efg": []string{"hello"}}}
 		aStatus := robot.Status{Name: arm.Named("arm"), Status: struct{}{}}
 		statusMap := map[resource.Name]robot.Status{
 			iStatus.Name: iStatus,
