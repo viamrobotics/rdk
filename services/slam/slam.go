@@ -18,7 +18,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -233,6 +232,7 @@ type AttrConfig struct {
 var (
 	_ = Service(&reconfigurableSlam{})
 	_ = resource.Reconfigurable(&reconfigurableSlam{})
+	_ = goutils.ContextCloser(&reconfigurableSlam{})
 )
 
 // Service describes the functions that are available to the service.
@@ -711,7 +711,7 @@ func (svc *reconfigurableSlam) GetMap(ctx context.Context,
 	return svc.actual.GetMap(ctx, name, mimeType, cp, include)
 }
 
-func (svc *reconfigurableSlam) Close(ctx context.Context, id primitive.ObjectID) error {
+func (svc *reconfigurableSlam) Close(ctx context.Context) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return goutils.TryClose(ctx, svc.actual)
