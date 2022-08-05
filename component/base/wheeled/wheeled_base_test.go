@@ -228,14 +228,14 @@ func TestFourWheelBase1(t *testing.T) {
 		// Go forward-left (↰)
 		t.Logf("Go forward-left (↰)")
 		fwdL, fwdR = base.differentialDrive(1, 1)
-		test.That(t, fwdL, test.ShouldBeGreaterThanOrEqualTo, 0)
+		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
 		test.That(t, fwdR, test.ShouldBeGreaterThan, 0)
 		test.That(t, math.Abs(fwdL), test.ShouldBeLessThan, math.Abs(fwdR))
 
 		// Go reverse-left (↲)
 		t.Logf("Go reverse-left (↲)")
 		revL, revR = base.differentialDrive(-1, 1)
-		test.That(t, revL, test.ShouldBeLessThanOrEqualTo, 0)
+		test.That(t, revL, test.ShouldBeLessThan, 0)
 		test.That(t, revR, test.ShouldBeLessThan, 0)
 		test.That(t, math.Abs(revL), test.ShouldBeLessThan, math.Abs(revR))
 
@@ -243,14 +243,14 @@ func TestFourWheelBase1(t *testing.T) {
 		t.Logf("Go forward-right (↱)")
 		fwdL, fwdR = base.differentialDrive(1, -1)
 		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
-		test.That(t, fwdR, test.ShouldBeGreaterThanOrEqualTo, 0)
+		test.That(t, fwdR, test.ShouldBeGreaterThan, 0)
 		test.That(t, math.Abs(fwdL), test.ShouldBeGreaterThan, math.Abs(revL))
 
 		// Go reverse-right (↳)
 		t.Logf("Go reverse-right (↳)")
 		revL, revR = base.differentialDrive(-1, -1)
 		test.That(t, revL, test.ShouldBeLessThan, 0)
-		test.That(t, revR, test.ShouldBeLessThanOrEqualTo, 0)
+		test.That(t, revR, test.ShouldBeLessThan, 0)
 		test.That(t, math.Abs(revL), test.ShouldBeGreaterThan, math.Abs(revR))
 
 		// Test spin left (↺)
