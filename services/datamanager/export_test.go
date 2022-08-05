@@ -5,11 +5,6 @@ import (
 	"go.viam.com/rdk/services/datamanager/datasync"
 )
 
-// SetUploadFunc sets the upload function for the syncer to use when initialized/changed in Service.Update.
-func (svc *dataManagerService) SetUploadFunc(fn datasync.UploadFunc) {
-	svc.uploadFunc = fn
-}
-
 // SetSyncerConstructor sets the syncer constructor for the data manager to use when creating its syncer.
 func (svc *dataManagerService) SetSyncerConstructor(fn datasync.ManagerConstructor) {
 	svc.syncerConstructor = fn

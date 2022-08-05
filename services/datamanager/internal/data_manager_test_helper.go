@@ -16,7 +16,6 @@ type DMService interface {
 	Sync(ctx context.Context) error
 	Update(ctx context.Context, cfg *config.Config) error
 	Close(ctx context.Context) error
-	SetUploadFunc(uploadFunc datasync.UploadFunc)
 	SetSyncerConstructor(fn datasync.ManagerConstructor)
 	SetWaitAfterLastModifiedSecs(s int)
 }
