@@ -26,9 +26,9 @@ func pointCloudFromArtifact(t *testing.T, artifactPath string) (PointCloud, erro
 }
 
 func TestICPRegistration(t *testing.T) {
-	if os.Getenv("VIAM_DEBUG") == "" {
-		t.Skip("Test is too large for now.")
-	}
+	// if os.Getenv("VIAM_DEBUG") == "" {
+	// 	t.Skip("Test is too large for now.")
+	// }
 
 	targetCloud, err := pointCloudFromArtifact(t, "pointcloud/bun000.pcd")
 	targetKD := ToKDTree(targetCloud)
@@ -44,7 +44,7 @@ func TestICPRegistration(t *testing.T) {
 			Pitch: 0.6,
 			Yaw:   0,
 		})
-	registered, info, err := RegisterPointCloudICP(sourceCloud, targetKD, guess, true)
+	registered, info, err := RegisterPointCloudICP(sourceCloud, targetKD, guess, true, numThreadsPointCloud)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, registered, test.ShouldNotBeNil)
 	test.That(t, info, test.ShouldNotBeNil)
