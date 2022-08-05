@@ -37,7 +37,7 @@ func TestFromRobot(t *testing.T) {
 	r, svc1 := setupInjectRobot()
 
 	t.Run("found sensors service", func(t *testing.T) {
-		svc, err := sensors.FromRobot(r)
+		svc, err := sensors.FromRobot(r, testSvcName1)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, svc, test.ShouldNotBeNil)
 
@@ -53,7 +53,7 @@ func TestFromRobot(t *testing.T) {
 			return "not sensor", nil
 		}
 
-		svc, err := sensors.FromRobot(r)
+		svc, err := sensors.FromRobot(r, testSvcName1)
 		test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("sensors.Service", "string"))
 		test.That(t, svc, test.ShouldBeNil)
 	})
@@ -63,8 +63,8 @@ func TestFromRobot(t *testing.T) {
 			return nil, rutils.NewResourceNotFoundError(name)
 		}
 
-		svc, err := sensors.FromRobot(r)
-		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(sensors.Name))
+		svc, err := sensors.FromRobot(r, testSvcName1)
+		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(sensors.Named(testSvcName1)))
 		test.That(t, svc, test.ShouldBeNil)
 	})
 }

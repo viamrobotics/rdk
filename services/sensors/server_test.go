@@ -39,17 +39,17 @@ func TestServerGetSensors(t *testing.T) {
 	})
 
 	t.Run("not sensors service", func(t *testing.T) {
-		sMap := map[resource.Name]interface{}{sensors.Name: "not sensors"}
+		sMap := map[resource.Name]interface{}{sensors.Named(testSvcName1): "not sensors"}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
-		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{})
+		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{Name: testSvcName1})
 		test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("sensors.Service", "string"))
 	})
 
 	t.Run("failed GetSensors", func(t *testing.T) {
 		injectSensors := &inject.SensorsService{}
 		sMap := map[resource.Name]interface{}{
-			sensors.Name: injectSensors,
+			sensors.Named(testSvcName1): injectSensors,
 		}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
@@ -57,14 +57,14 @@ func TestServerGetSensors(t *testing.T) {
 		injectSensors.GetSensorsFunc = func(ctx context.Context) ([]resource.Name, error) {
 			return nil, passedErr
 		}
-		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{})
+		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{Name: testSvcName1})
 		test.That(t, err, test.ShouldBeError, passedErr)
 	})
 
 	t.Run("working GetSensors", func(t *testing.T) {
 		injectSensors := &inject.SensorsService{}
 		sMap := map[resource.Name]interface{}{
-			sensors.Name: injectSensors,
+			sensors.Named(testSvcName1): injectSensors,
 		}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
@@ -73,7 +73,7 @@ func TestServerGetSensors(t *testing.T) {
 			return names, nil
 		}
 
-		resp, err := server.GetSensors(context.Background(), &pb.GetSensorsRequest{})
+		resp, err := server.GetSensors(context.Background(), &pb.GetSensorsRequest{Name: testSvcName1})
 		test.That(t, err, test.ShouldBeNil)
 
 		convertedNames := make([]resource.Name, 0, len(resp.SensorNames))
@@ -94,17 +94,17 @@ func TestServerGetReadings(t *testing.T) {
 	})
 
 	t.Run("not sensors service", func(t *testing.T) {
-		sMap := map[resource.Name]interface{}{sensors.Name: "not sensors"}
+		sMap := map[resource.Name]interface{}{sensors.Named(testSvcName1): "not sensors"}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
-		_, err = server.GetReadings(context.Background(), &pb.GetReadingsRequest{})
+		_, err = server.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: testSvcName1})
 		test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("sensors.Service", "string"))
 	})
 
 	t.Run("failed GetReadings", func(t *testing.T) {
 		injectSensors := &inject.SensorsService{}
 		sMap := map[resource.Name]interface{}{
-			sensors.Name: injectSensors,
+			sensors.Named(testSvcName1): injectSensors,
 		}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
@@ -113,6 +113,7 @@ func TestServerGetReadings(t *testing.T) {
 			return nil, passedErr
 		}
 		req := &pb.GetReadingsRequest{
+			Name:        testSvcName1,
 			SensorNames: []*commonpb.ResourceName{},
 		}
 		_, err = server.GetReadings(context.Background(), req)
@@ -122,7 +123,7 @@ func TestServerGetReadings(t *testing.T) {
 	t.Run("working GetReadings", func(t *testing.T) {
 		injectSensors := &inject.SensorsService{}
 		sMap := map[resource.Name]interface{}{
-			sensors.Name: injectSensors,
+			sensors.Named(testSvcName1): injectSensors,
 		}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
@@ -137,6 +138,7 @@ func TestServerGetReadings(t *testing.T) {
 			return readings, nil
 		}
 		req := &pb.GetReadingsRequest{
+			Name:        testSvcName1,
 			SensorNames: []*commonpb.ResourceName{},
 		}
 

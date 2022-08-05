@@ -77,6 +77,34 @@
     "services": [
         {
             "type": "vision"
+        },
+        {
+            "type": "sensors"
+        },
+        {
+            "type":"data_manager"
+        },
+        {
+            "name":"loco",
+            "Attributes":{},
+            "type":"motion"
+        },
+        {
+            "name": "ahoy",
+            "type":"navigation"
+        },
+        {
+            "name":"hulk",
+            "Attributes":{
+                "Algorithm": "test"
+            },
+            "type":"slam"
+        },
+        {
+            "name":"shelly",
+            "Attributes":{},
+            "type":"shell"
         }
+
     ]
 }

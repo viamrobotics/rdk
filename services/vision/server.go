@@ -27,10 +27,10 @@ func NewServer(s subtype.Service) pb.VisionServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }
 
-func (server *subtypeServer) service() (Service, error) {
-	resource := server.subtypeSvc.Resource(Name.Name)
+func (server *subtypeServer) service(serviceName string) (Service, error) {
+	resource := server.subtypeSvc.Resource(serviceName)
 	if resource == nil {
-		return nil, utils.NewResourceNotFoundError(Name)
+		return nil, utils.NewResourceNotFoundError(Named(serviceName))
 	}
 	svc, ok := resource.(Service)
 	if !ok {
@@ -45,7 +45,7 @@ func (server *subtypeServer) GetDetectorNames(
 ) (*pb.GetDetectorNamesResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetDetectorNames")
 	defer span.End()
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (server *subtypeServer) AddDetector(
 ) (*pb.AddDetectorResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::AddDetector")
 	defer span.End()
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (server *subtypeServer) GetDetections(
 ) (*pb.GetDetectionsResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetDetections")
 	defer span.End()
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (server *subtypeServer) GetSegmenterNames(
 	ctx context.Context,
 	req *pb.GetSegmenterNamesRequest,
 ) (*pb.GetSegmenterNamesResponse, error) {
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func (server *subtypeServer) GetSegmenterParameters(
 	ctx context.Context,
 	req *pb.GetSegmenterParametersRequest,
 ) (*pb.GetSegmenterParametersResponse, error) {
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func (server *subtypeServer) GetObjectPointClouds(
 	ctx context.Context,
 	req *pb.GetObjectPointCloudsRequest,
 ) (*pb.GetObjectPointCloudsResponse, error) {
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}

@@ -12,15 +12,17 @@ import (
 
 // client is a client that satisfies the data_manager.proto contract.
 type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.DataManagerServiceClient
 	logger golog.Logger
 }
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
+func newSvcClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) *client {
 	grpcClient := pb.NewDataManagerServiceClient(conn)
 	sc := &client{
+		name:   name,
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
@@ -30,11 +32,11 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
 
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
-	return newSvcClientFromConn(conn, logger)
+	return newSvcClientFromConn(conn, name, logger)
 }
 
 func (c *client) Sync(ctx context.Context) error {
-	_, err := c.client.Sync(ctx, &pb.SyncRequest{})
+	_, err := c.client.Sync(ctx, &pb.SyncRequest{Name: c.name})
 	if err != nil {
 		return err
 	}

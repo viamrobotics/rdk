@@ -85,7 +85,7 @@ type detectorSource struct {
 // Next returns the image overlaid with the detection bounding boxes.
 func (ds *detectorSource) Next(ctx context.Context) (image.Image, func(), error) {
 	// get the bounding boxes from the service
-	srv, err := vision.FromRobot(ds.r)
+	srv, err := vision.FromRobot(ds.r, vision.FindVisionName(ds.r))
 	if err != nil {
 		return nil, nil, fmt.Errorf("source_detector cant find vision service: %w", err)
 	}

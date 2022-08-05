@@ -34,8 +34,8 @@ func TestObjectSegmentationFailures(t *testing.T) {
 		return nil, rdkutils.NewResourceNotFoundError(n)
 	}
 	// fails on not finding the service
-	_, err := vision.FromRobot(r)
-	test.That(t, err, test.ShouldBeError, rdkutils.NewResourceNotFoundError(vision.Name))
+	_, err := vision.FromRobot(r, testVisionServiceName)
+	test.That(t, err, test.ShouldBeError, rdkutils.NewResourceNotFoundError(vision.Named(testVisionServiceName)))
 
 	// fails on not finding camera
 	obs, err := vision.New(context.Background(), r, cfgService, logger)
@@ -146,7 +146,7 @@ func setupInjectRobot() (*inject.Robot, *mock) {
 func TestFromRobot(t *testing.T) {
 	r, svc1 := setupInjectRobot()
 
-	svc, err := vision.FromRobot(r)
+	svc, err := vision.FromRobot(r, testVisionServiceName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc, test.ShouldNotBeNil)
 
@@ -159,7 +159,7 @@ func TestFromRobot(t *testing.T) {
 		return "not object segmentation", nil
 	}
 
-	svc, err = vision.FromRobot(r)
+	svc, err = vision.FromRobot(r, testVisionServiceName)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of vision.Service")
 	test.That(t, svc, test.ShouldBeNil)
@@ -168,7 +168,7 @@ func TestFromRobot(t *testing.T) {
 		return nil, rdkutils.NewResourceNotFoundError(name)
 	}
 
-	svc, err = vision.FromRobot(r)
+	svc, err = vision.FromRobot(r, testVisionServiceName)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	test.That(t, svc, test.ShouldBeNil)
@@ -217,7 +217,7 @@ func TestFullClientServerLoop(t *testing.T) {
 	oss, err := vision.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 	osMap := map[resource.Name]interface{}{
-		vision.Name: oss,
+		vision.Named(testVisionServiceName): oss,
 	}
 	svc, err := subtype.New(osMap)
 	test.That(t, err, test.ShouldBeNil)
@@ -231,7 +231,7 @@ func TestFullClientServerLoop(t *testing.T) {
 	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	client := vision.NewClientFromConn(context.Background(), conn, "", logger)
+	client := vision.NewClientFromConn(context.Background(), conn, testVisionServiceName, logger)
 
 	test.That(t, err, test.ShouldBeNil)
 	paramNames, err := client.GetSegmenterParameters(context.Background(), vision.RadiusClusteringSegmenter)

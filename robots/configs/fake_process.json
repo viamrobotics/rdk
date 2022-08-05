@@ -16,6 +16,11 @@
             "type": "base"
         },
         {
+            "model": "fake",
+            "name": "base2_int",
+            "type": "base"
+        },
+        {
             "model": "intercept_gps",
             "name": "base1",
             "type": "base",
@@ -136,6 +141,29 @@
     "services":
     [
         {
+            "name": "ahoy",
+            "type": "navigation",
+            "attributes": {
+                "store": {
+                    "type": "memory"
+                },
+                "gps": "gps1",
+                "base": "base1"
+            }
+        },
+        {
+            "name": "ahoy2 boogaloo",
+            "type": "navigation",
+            "attributes": {
+                "store": {
+                    "type": "memory"
+                },
+                "gps": "gps1",
+                "base": "base1"
+            }
+        },
+        {
+            "name": "ahoy3 tokyo drift",
             "type": "navigation",
             "attributes": {
                 "store": {
@@ -149,6 +177,7 @@
             "type": "vision"
         },
         {
+            "name": "loco",
             "type": "motion"
         }
     ]

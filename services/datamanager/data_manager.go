@@ -74,15 +74,22 @@ var (
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("data_manager")
 
+const dataManagerName = "data_manager"
+
+// Returns name of first data_manager service found
+func FindDataManagerName(r robot.Robot) string {
+	for _, val := range robot.NamesBySubtype(r, Subtype) {
+		return val
+	}
+	return ""
+}
+
 // Subtype is a constant that identifies the data manager service resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeService,
 	SubtypeName,
 )
-
-// Name is the DataManager's typed resource name.
-var Name = resource.NameFromSubtype(Subtype, "")
 
 // Named is a helper for getting the named datamanager's typed resource name.
 // RSDK-347 Implements datamanager's Named.
@@ -621,7 +628,7 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 func getServiceConfig(cfg *config.Config) (*Config, bool, error) {
 	for _, c := range cfg.Services {
 		// Compare service type and name.
-		if c.ResourceName() == Name {
+		if c.Type == dataManagerName {
 			svcConfig, ok := c.ConvertedAttributes.(*Config)
 			// Incorrect configuration is an error.
 			if !ok {
@@ -654,7 +661,7 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	for _, c := range cfg.Components {
 		// Iterate over all component-level service configs of type data_manager.
 		for _, componentSvcConfig := range c.ServiceConfig {
-			if componentSvcConfig.ResourceName() == Name {
+			if componentSvcConfig.Type == dataManagerName {
 				attrs, err := getAttrsFromServiceConfig(componentSvcConfig)
 				if err != nil {
 					return componentDataCaptureConfigs, err
@@ -672,7 +679,7 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	for _, r := range cfg.Remotes {
 		// Iterate over all remote-level service configs of type data_manager.
 		for _, resourceSvcConfig := range r.ServiceConfig {
-			if resourceSvcConfig.ResourceName() == Name {
+			if resourceSvcConfig.Type == dataManagerName {
 				attrs, err := getAttrsFromServiceConfig(resourceSvcConfig)
 				if err != nil {
 					return componentDataCaptureConfigs, err
