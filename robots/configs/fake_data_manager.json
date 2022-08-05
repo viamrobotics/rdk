@@ -15,7 +15,7 @@
                         "capture_methods": [
                             {
                                 "method": "GetEndPosition",
-                                "capture_frequency_hz": 10
+                                "capture_frequency_hz": 100
                             }
                         ]
                     }

@@ -292,7 +292,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// Validate that the previously captured file was uploaded at startup.
-	time.Sleep(time.Millisecond * 450)
+	time.Sleep(time.Millisecond * 100)
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
 	uploaded := mockService.getUploadedFiles()
@@ -429,7 +429,7 @@ func TestManualSync(t *testing.T) {
 		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
 	}
 	testCfg := setupConfig(t, configPath)
-	dmCfg, err := getDataManagerConfig((testCfg))
+	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
 	dmCfg.AdditionalSyncPaths = dirs
@@ -438,11 +438,12 @@ func TestManualSync(t *testing.T) {
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetSyncerConstructor(syncerConstructor)
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
-	dmsvc.Update(context.TODO(), testCfg)
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Run and upload files.
 	dmsvc.Sync(context.Background())
-	time.Sleep(time.Millisecond * 100)
+	time.Sleep(time.Millisecond * 50)
 
 	// Verify that one data capture file was uploaded, two additional_sync_paths files were uploaded,
 	// and that no two uploaded files are the same.
@@ -452,7 +453,7 @@ func TestManualSync(t *testing.T) {
 	// Sync again and verify it synced the second data capture file, but also validate that it didn't attempt to resync
 	// any files that were previously synced.
 	dmsvc.Sync(context.Background())
-	time.Sleep(time.Millisecond * 100)
+	time.Sleep(time.Millisecond * 50)
 	_ = dmsvc.Close(context.TODO())
 	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, numArbitraryFilesToSync+2)
 	test.That(t, noRepeatedElements(mockService.getUploadedFiles()), test.ShouldBeTrue)
@@ -460,6 +461,25 @@ func TestManualSync(t *testing.T) {
 
 // Validates that scheduled syncing works for a datamanager.
 func TestScheduledSync(t *testing.T) {
+	// Register mock datasync service with a mock server.
+	logger, _ := golog.NewObservedTestLogger(t)
+	rpcServer, mockService := buildAndStartLocalServer(t, logger)
+	defer func() {
+		err := rpcServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+	conn, err := getLocalServerConn(rpcServer, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		err := conn.Close()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
+		client := datasync.NewClient(conn)
+		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client)
+	}
+
 	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
 	defer func() {
 		for _, dir := range dirs {
@@ -479,17 +499,6 @@ func TestScheduledSync(t *testing.T) {
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
 	dmCfg.AdditionalSyncPaths = dirs
 
-	uploaded := []string{}
-	lock := sync.Mutex{}
-	uploadFunc := func(ctx context.Context, client v1.DataSyncServiceClient,
-		path string, partID string,
-	) error {
-		lock.Lock()
-		uploaded = append(uploaded, path)
-		lock.Unlock()
-		return nil
-	}
-
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
 	armDir := captureDir + "/arm/arm1/GetEndPosition"
@@ -499,7 +508,7 @@ func TestScheduledSync(t *testing.T) {
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetUploadFunc(uploadFunc)
+	dmsvc.SetSyncerConstructor(syncerConstructor)
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -509,15 +518,32 @@ func TestScheduledSync(t *testing.T) {
 	_ = dmsvc.Close(context.TODO())
 
 	// Verify that the additional_sync_paths files AND the TWO data capture files were uploaded.
-	lock.Lock()
-	test.That(t, len(uploaded), test.ShouldEqual, (numArbitraryFilesToSync + 2))
-	test.That(t, noRepeatedElements(uploaded), test.ShouldBeTrue)
-	lock.Unlock()
+	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, (numArbitraryFilesToSync + 2))
+	test.That(t, noRepeatedElements(mockService.getUploadedFiles()), test.ShouldBeTrue)
 }
 
 // Validates that we can attempt a scheduled and manual syncDataCaptureFiles at the same time without duplicating files
 // or running into errors.
 func TestManualAndScheduledSync(t *testing.T) {
+	// Register mock datasync service with a mock server.
+	logger, _ := golog.NewObservedTestLogger(t)
+	rpcServer, mockService := buildAndStartLocalServer(t, logger)
+	defer func() {
+		err := rpcServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+	conn, err := getLocalServerConn(rpcServer, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		err := conn.Close()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
+		client := datasync.NewClient(conn)
+		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client)
+	}
+
 	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
 	defer func() {
 		for _, dir := range dirs {
@@ -536,17 +562,6 @@ func TestManualAndScheduledSync(t *testing.T) {
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
 	dmCfg.AdditionalSyncPaths = dirs
 
-	uploaded := []string{}
-	lock := sync.Mutex{}
-	uploadFunc := func(ctx context.Context, client v1.DataSyncServiceClient,
-		path string, partID string,
-	) error {
-		lock.Lock()
-		uploaded = append(uploaded, path)
-		lock.Unlock()
-		return nil
-	}
-
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
 	armDir := captureDir + "/arm/arm1/GetEndPosition"
@@ -554,7 +569,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetUploadFunc(uploadFunc)
+	dmsvc.SetSyncerConstructor(syncerConstructor)
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -566,10 +581,8 @@ func TestManualAndScheduledSync(t *testing.T) {
 
 	// Verify that two data capture files were uploaded, two additional_sync_paths files were uploaded,
 	// and that no two uploaded files are the same.
-	lock.Lock()
-	test.That(t, len(uploaded), test.ShouldEqual, (numArbitraryFilesToSync + 2))
-	test.That(t, noRepeatedElements(uploaded), test.ShouldBeTrue)
-	lock.Unlock()
+	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, numArbitraryFilesToSync+2)
+	test.That(t, noRepeatedElements(mockService.getUploadedFiles()), test.ShouldBeTrue)
 
 	// We've uploaded (and thus deleted) the first two files and should now be collecting a single new one.
 	filesInArmDir, err := readDir(t, armDir)
@@ -633,14 +646,25 @@ func (m *mock) Close(ctx context.Context) error {
 }
 
 func TestSyncDisabled(t *testing.T) {
-	uploaded := []string{}
-	lock := sync.Mutex{}
-	uploadFunc := func(ctx context.Context, client v1.DataSyncServiceClient, path string, partID string) error {
-		lock.Lock()
-		uploaded = append(uploaded, path)
-		lock.Unlock()
-		return nil
+	// Register mock datasync service with a mock server.
+	logger, _ := golog.NewObservedTestLogger(t)
+	rpcServer, mockService := buildAndStartLocalServer(t, logger)
+	defer func() {
+		err := rpcServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+	conn, err := getLocalServerConn(rpcServer, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		err := conn.Close()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
+		client := datasync.NewClient(conn)
+		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client)
 	}
+
 	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig((testCfg))
@@ -654,7 +678,7 @@ func TestSyncDisabled(t *testing.T) {
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetUploadFunc(uploadFunc)
+	dmsvc.SetSyncerConstructor(syncerConstructor)
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not synced.
@@ -666,7 +690,7 @@ func TestSyncDisabled(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Validate nothing has been synced yet.
-	test.That(t, len(uploaded), test.ShouldEqual, 0)
+	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 0)
 
 	// Re-enable sync.
 	dmCfg.ScheduledSyncDisabled = false
@@ -677,7 +701,7 @@ func TestSyncDisabled(t *testing.T) {
 	time.Sleep(time.Millisecond * 600)
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(uploaded), test.ShouldEqual, 3)
+	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 3)
 }
 
 func TestGetDurationFromHz(t *testing.T) {
@@ -699,10 +723,6 @@ func getDataManagerConfig(config *config.Config) (*datamanager.Config, error) {
 	return svcConfig, nil
 }
 
-// TODO: define test sync constructor
-
-// TODO: add function for standing up a test datasync server
-
 type mockDataSyncServiceServer struct {
 	uploadedFiles *[]string
 	lock          *sync.Mutex
@@ -712,10 +732,12 @@ type mockDataSyncServiceServer struct {
 func (m mockDataSyncServiceServer) getUploadedFiles() []string {
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
+	fmt.Println(*m.uploadedFiles)
 	return *m.uploadedFiles
 }
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
+	var fileName string
 	for {
 		ur, err := stream.Recv()
 		if err == io.EOF {
@@ -725,12 +747,13 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 			return err
 		}
 		if ur.GetMetadata() != nil {
-			(*m.lock).Lock()
-			newUploadedFiles := append(*m.uploadedFiles, ur.GetMetadata().GetFileName())
-			*m.uploadedFiles = newUploadedFiles
-			(*m.lock).Unlock()
+			fileName = ur.GetMetadata().GetFileName()
 		}
 	}
+	(*m.lock).Lock()
+	newUploadedFiles := append(*m.uploadedFiles, fileName)
+	*m.uploadedFiles = newUploadedFiles
+	(*m.lock).Unlock()
 	return nil
 }
 

@@ -74,11 +74,11 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	}
 
 	// Close stream and receive response.
-	if _, err := stream.CloseAndRecv(); err != nil {
-		return errors.Wrap(err, "error when closing the stream and receiving the response from "+
-			"sync service backend")
+	if err := stream.CloseSend(); err != nil {
+		return err
 	}
 
+	fmt.Println("done uploading data capture file")
 	return nil
 }
 
@@ -100,6 +100,7 @@ func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, 
 			fmt.Println("error creating progress file " + err.Error())
 			return err
 		}
+		return nil
 	}
 
 	// Sets the next file pointer to the next sensordata message that needs to be uploaded.
