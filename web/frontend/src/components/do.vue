@@ -5,6 +5,7 @@ import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import type { GenericServiceClient } from '../gen/proto/api/component/generic/v1/generic_pb_service.esm';
 import type { Resource } from '../lib/resource';
 import genericApi from '../gen/proto/api/component/generic/v1/generic_pb.esm';
+import { toast } from '../lib/toast.js';
 
 interface Props {
   resources: Resource[]
@@ -29,13 +30,13 @@ const doCommand = (name: string, command: string) => {
 
   ((window as any).genericService as GenericServiceClient).do(request, (error, response) => {
     if (error) {
-      console.error(`Error executing command on ${name}`, error);
+      toast.error(`Error executing command on ${name}: ${error}`);
       executing.value = false;
       return;
     }
 
     if (!response) {
-      console.error(`Invalid response when executing command on ${name}`, response);
+      toast.error(`Invalid response when executing command on ${name}`);
       executing.value = false;
       return;
     }
