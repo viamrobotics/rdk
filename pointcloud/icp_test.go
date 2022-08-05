@@ -26,7 +26,10 @@ func pointCloudFromArtifact(t *testing.T, artifactPath string) (PointCloud, erro
 }
 
 func TestICPRegistration(t *testing.T) {
-	t.Skip("Test too large for now")
+	if os.Getenv("VIAM_DEBUG") == "" {
+		t.Skip("Test is too large for now.")
+	}
+
 	targetCloud, err := pointCloudFromArtifact(t, "pointcloud/bun000.pcd")
 	targetKD := ToKDTree(targetCloud)
 	test.That(t, err, test.ShouldBeNil)
