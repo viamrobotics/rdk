@@ -36,6 +36,7 @@ type Manager interface {
 // syncer is responsible for uploading files in captureDir to the cloud.
 type syncer struct {
 	partID            string
+	conn              rpc.ClientConn
 	client            v1.DataSyncServiceClient
 	logger            golog.Logger
 	progressTracker   progressTracker
@@ -70,16 +71,17 @@ func NewDefaultManager(logger golog.Logger, uploadFunc UploadFunc, cfg *config.C
 		return nil, err
 	}
 	client := NewClient(conn)
-	return NewManager(logger, uploadFunc, cfg.Cloud.ID, client)
+	return NewManager(logger, uploadFunc, cfg.Cloud.ID, client, conn)
 }
 
 // NewManager returns a new syncer. If a nil UploadFunc is passed, the default viamUpload is used.
 // TODO DATA-206: instantiate a client.
 func NewManager(logger golog.Logger, uploadFunc UploadFunc, partID string,
-	client v1.DataSyncServiceClient) (Manager, error) {
+	client v1.DataSyncServiceClient, conn rpc.ClientConn) (Manager, error) {
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
+		conn:   conn,
 		client: client,
 		logger: logger,
 		progressTracker: progressTracker{
@@ -106,6 +108,8 @@ func NewManager(logger golog.Logger, uploadFunc UploadFunc, partID string,
 func (s *syncer) Close() {
 	s.cancelFunc()
 	s.backgroundWorkers.Wait()
+	// TODO: log
+	_ = s.conn.Close()
 }
 
 func (s *syncer) upload(ctx context.Context, path string) {
