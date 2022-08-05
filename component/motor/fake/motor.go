@@ -327,7 +327,7 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 		return errors.New("need nonzero Tpr (ticks per rotation) for encoder")
 	}
 
-	err = m.Encoder.ResetZeroPosition(ctx, int64(offset*float64(tpr)), extra)
+	err = m.Encoder.ResetToZero(ctx, int64(offset*float64(tpr)), extra)
 	if err != nil {
 		return err
 	}

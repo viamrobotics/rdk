@@ -105,8 +105,8 @@ func (e *Encoder) GetTicksCount(ctx context.Context, extra map[string]interface{
 	return ticks, nil
 }
 
-// ResetZeroPosition resets the counted ticks to 0
-func (e *Encoder) ResetZeroPosition(ctx context.Context, offset int64, extra map[string]interface{}) error {
+// ResetToZero resets the counted ticks to 0
+func (e *Encoder) ResetToZero(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	_, err := e.board.runCommand(fmt.Sprintf("motor-zero %s %d", e.name, offset))
 	return err
 }

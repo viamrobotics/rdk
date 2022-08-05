@@ -25,8 +25,8 @@ func TestEncoder(t *testing.T) {
 	test.That(t, pos, test.ShouldEqual, 1)
 	test.That(t, err, test.ShouldBeNil)
 
-	// ResetZeroPosition
-	err = e.ResetZeroPosition(ctx, 0, nil)
+	// ResetToZero
+	err = e.ResetToZero(ctx, 0, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	pos, err = e.GetTicksCount(ctx, nil)

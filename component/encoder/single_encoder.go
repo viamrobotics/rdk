@@ -127,9 +127,9 @@ func (e *SingleEncoder) GetTicksCount(ctx context.Context, extra map[string]inte
 	return atomic.LoadInt64(&e.position), nil
 }
 
-// ResetZeroPosition sets the current position of the motor (adjusted by a given offset)
+// ResetToZero sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
-func (e *SingleEncoder) ResetZeroPosition(ctx context.Context, offset int64, extra map[string]interface{}) error {
+func (e *SingleEncoder) ResetToZero(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	atomic.StoreInt64(&e.position, offset)
 	return nil
 }
