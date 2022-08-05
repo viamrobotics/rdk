@@ -43,7 +43,7 @@ func (c *client) PlanAndMove(
 	destination *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
 ) (bool, error) {
-	resp, err := c.client.PlanAndMove(ctx, &pb.MoveRequest{
+	resp, err := c.client.PlanAndMove(ctx, &pb.PlanAndMoveRequest{
 		ComponentName: protoutils.ResourceNameToProto(componentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
 		WorldState:    worldState,
@@ -60,7 +60,7 @@ func (c *client) MoveSingleComponent(
 	destination *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
 ) (bool, error) {
-	resp, err := c.client.MoveSingleComponent(ctx, &pb.MoveRequest{
+	resp, err := c.client.MoveSingleComponent(ctx, &pb.MoveSingleComponentRequest{
 		ComponentName: protoutils.ResourceNameToProto(componentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
 		WorldState:    worldState,
