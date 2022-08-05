@@ -4,9 +4,8 @@ package internal
 
 import (
 	"context"
-	"go.viam.com/rdk/services/datamanager/datasync"
-
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/services/datamanager/datasync"
 )
 
 // DMService in the internal package includes additional exported functions relating to the syncing and

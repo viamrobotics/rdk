@@ -2,8 +2,6 @@ package datamanager_test
 
 import (
 	"context"
-	"go.viam.com/rdk/services/datamanager/datasync"
-	"go.viam.com/utils/rpc"
 	"io"
 	"io/fs"
 	"io/ioutil"
@@ -16,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
@@ -24,6 +23,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
+	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -649,6 +649,7 @@ func TestSyncDisabled(t *testing.T) {
 	// Re-enable sync.
 	dmCfg.ScheduledSyncDisabled = false
 	err = dmsvc.Update(context.Background(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 600ms and ensure three files were uploaded:
 	// one from file immediately uploaded when sync was re-enabled and two after.
@@ -693,7 +694,7 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 	var fileName string
 	for {
 		ur, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -710,6 +711,7 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 	return nil
 }
 
+//nolint:thelper
 func buildAndStartLocalServer(t *testing.T, logger golog.Logger) (rpc.Server, mockDataSyncServiceServer) {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
@@ -743,6 +745,7 @@ func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientCo
 	)
 }
 
+//nolint:thelper
 func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerConstructor {
 	return func(logger golog.Logger, cfg *config.Config) (datasync.Manager, error) {
 		conn, err := getLocalServerConn(server, logger)
