@@ -44,7 +44,7 @@ func (s *subtypeServer) GetPosition(
 	if err != nil {
 		return nil, err
 	}
-	pos, err := gantry.GetPosition(ctx)
+	pos, err := gantry.GetPosition(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (s *subtypeServer) GetLengths(
 	if err != nil {
 		return nil, err
 	}
-	lengthsMm, err := gantry.GetLengths(ctx)
+	lengthsMm, err := gantry.GetLengths(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (s *subtypeServer) MoveToPosition(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.PositionsMm, req.GetWorldState())
+	return &pb.MoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.PositionsMm, req.GetWorldState(), req.Extra.AsMap())
 }
 
 // Stop stops the gantry specified.
@@ -87,5 +87,5 @@ func (s *subtypeServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb.Stop
 	if err != nil {
 		return nil, err
 	}
-	return &pb.StopResponse{}, gantry.Stop(ctx)
+	return &pb.StopResponse{}, gantry.Stop(ctx, req.Extra.AsMap())
 }

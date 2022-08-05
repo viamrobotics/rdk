@@ -2669,6 +2669,16 @@
       }
     }
   },
+  "component": {
+    "camera": {
+      "ffmpeg": {
+        "testsrc.mpg": {
+          "hash": "3db8bb7ff7845790c0a770dc19b7dd46",
+          "size": 13914
+        }
+      }
+    }
+  },
   "compression_artifacts": {
     "chess_blur_0.png": {
       "hash": "24b19b768e75fc1a019f82b8c3722a92",
@@ -3406,9 +3416,57 @@
     }
   },
   "pointcloud": {
+    "bun0.pcd": {
+      "hash": "2a8eeb771a594acc62d68b2032b62349",
+      "size": 483200
+    },
+    "bun000.pcd": {
+      "hash": "75a0485b81b8685cabcda2af8effa42f",
+      "size": 483244
+    },
+    "bun045.pcd": {
+      "hash": "1b376351f70c8cc39e249945617eb98d",
+      "size": 481336
+    },
+    "bun090.pcd": {
+      "hash": "dfebe03896ca235803cce73cbaf9c367",
+      "size": 364720
+    },
+    "bun180.pcd": {
+      "hash": "f633b4fa1bed5309800f2d68519fd617",
+      "size": 483184
+    },
+    "bun270.pcd": {
+      "hash": "6be9480a347566262d1ba9a76413d35b",
+      "size": 380584
+    },
+    "bun315.pcd": {
+      "hash": "e61cfbcd3b837a738920659e3f34b5ca",
+      "size": 424204
+    },
+    "bun45.pcd": {
+      "hash": "fe232f8768a4a5c90fb20a7a54e4b453",
+      "size": 481292
+    },
+    "bun90.pcd": {
+      "hash": "dfebe03896ca235803cce73cbaf9c367",
+      "size": 364720
+    },
+    "pc1.pcd": {
+      "hash": "a6ff18af1d34d3a0627ead6cd02b0e12",
+      "size": 4704236
+    },
+    "pc2.pcd": {
+      "hash": "7f773479aaef8bc17ad60a9a22d0a93d",
+      "size": 4752604
+    },
     "test.las": {
       "hash": "4d23d5d99191210d6a312fd138bb5f08",
       "size": 218973
+    },
+    "test.pcd": {
+      "hash": "6eb977c07e0b40d9535318d94ba6db2e",
+      "size": 4693948
     }
   },
   "preprocessing": {
@@ -3457,6 +3515,10 @@
     "board1.png": {
       "hash": "31e840fe79ed74ccb1f3359ef6d7e969",
       "size": 1302105
+    },
+    "board1_gray.png": {
+      "hash": "25993f4c19eec20d5acb8b10b6d3ef66",
+      "size": 96058
     },
     "board2.dat.gz": {
       "hash": "e5ba35b11cc8bf0c25cd997751b00b51",
@@ -50246,6 +50308,14 @@
       "fakelabels.txt": {
         "hash": "9b9d5e11ece4e6fe52246a2851636145",
         "size": 50
+      },
+      "mobilenet.tflite": {
+        "hash": "66ee95e3edbaa9b3de5138cf1cbb127d",
+        "size": 1866640
+      },
+      "ssdmobilenet.tflite": {
+        "hash": "4c421353bf0a105c5ffba593ffee4099",
+        "size": 27523960
       }
     },
     "white1.png": {

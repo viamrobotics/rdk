@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"math"
-	"net"
 	"os"
 	"strings"
 	"testing"
@@ -15,11 +14,15 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
@@ -30,6 +33,7 @@ import (
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
+	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/grpc/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
@@ -95,11 +99,11 @@ func TestConfigRemote(t *testing.T) {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	addr := fmt.Sprintf("localhost:%d", port)
 	options := weboptions.New()
-	options.Network.BindAddress = addr
+	options.Network.BindAddress = ""
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
+	options.Network.Listener = listener
 	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -297,11 +301,11 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 			}()
 
-			port, err := utils.TryReserveRandomPort()
-			test.That(t, err, test.ShouldBeNil)
 			options := weboptions.New()
-			addr := fmt.Sprintf("localhost:%d", port)
-			options.Network.BindAddress = addr
+			options.Network.BindAddress = ""
+			listener := testutils.ReserveRandomListener(t)
+			addr := listener.Addr().String()
+			options.Network.Listener = listener
 			options.Managed = tc.Managed
 			options.FQDN = tc.EntityName
 			options.LocalFQDN = primitive.NewObjectID().Hex()
@@ -526,11 +530,11 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	leaf, err := x509.ParseCertificate(cert.Certificate[0])
 	test.That(t, err, test.ShouldBeNil)
 
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
 	options := weboptions.New()
-	addr := fmt.Sprintf("localhost:%d", port)
-	options.Network.BindAddress = addr
+	options.Network.BindAddress = ""
+	options.Network.Listener = listener
 	options.Network.TLSConfig = &tls.Config{
 		RootCAs:      certPool,
 		ClientCAs:    certPool,
@@ -685,6 +689,143 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+}
+
+type dummyArm struct {
+	arm.LocalArm
+	stopCount int
+	extra     map[string]interface{}
+	channel   chan struct{}
+}
+
+func (da *dummyArm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	return nil, errors.New("fake error")
+}
+
+func (da *dummyArm) MoveToPosition(
+	ctx context.Context,
+	pose *commonpb.Pose,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
+	return nil
+}
+
+func (da *dummyArm) MoveToJointPositions(ctx context.Context, positionDegs *armpb.JointPositions, extra map[string]interface{}) error {
+	return nil
+}
+
+func (da *dummyArm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*armpb.JointPositions, error) {
+	return nil, errors.New("fake error")
+}
+
+func (da *dummyArm) Stop(ctx context.Context, extra map[string]interface{}) error {
+	da.stopCount++
+	da.extra = extra
+	return nil
+}
+
+func (da *dummyArm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	close(da.channel)
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func TestStopAll(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	channel := make(chan struct{})
+
+	modelName := utils.RandomAlphaString(8)
+	dummyArm1 := dummyArm{channel: channel}
+	dummyArm2 := dummyArm{channel: channel}
+	registry.RegisterComponent(
+		arm.Subtype,
+		modelName,
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			deps registry.Dependencies,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			if config.Name == "arm1" {
+				return &dummyArm1, nil
+			}
+			return &dummyArm2, nil
+		}})
+
+	armConfig := fmt.Sprintf(`{
+		"components": [
+			{
+				"model": "%[1]s",
+				"name": "arm1",
+				"type": "arm"
+			},
+			{
+				"model": "%[1]s",
+				"name": "arm2",
+				"type": "arm"
+			}
+		]
+	}
+	`, modelName)
+
+	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(armConfig), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	ctx := context.Background()
+	r, err := robotimpl.New(ctx, cfg, logger)
+	defer func() {
+		test.That(t, r.Close(ctx), test.ShouldBeNil)
+	}()
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, dummyArm1.stopCount, test.ShouldEqual, 0)
+	test.That(t, dummyArm2.stopCount, test.ShouldEqual, 0)
+
+	test.That(t, dummyArm1.extra, test.ShouldBeNil)
+	test.That(t, dummyArm2.extra, test.ShouldBeNil)
+
+	err = r.StopAll(ctx, map[resource.Name]map[string]interface{}{arm.Named("arm2"): {"foo": "bar"}})
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, dummyArm1.stopCount, test.ShouldEqual, 1)
+	test.That(t, dummyArm2.stopCount, test.ShouldEqual, 1)
+
+	test.That(t, dummyArm1.extra, test.ShouldBeNil)
+	test.That(t, dummyArm2.extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
+
+	// Test OPID cancellation
+	options := weboptions.New()
+	options.Network.BindAddress = ""
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
+	options.Network.Listener = listener
+	err = r.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	conn, err := rgrpc.Dial(ctx, addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+	arm1 := arm.NewClientFromConn(ctx, conn, "arm1", logger)
+
+	foundOPID := false
+	stopAllErrCh := make(chan error, 1)
+	go func() {
+		<-channel
+		for _, opid := range r.OperationManager().All() {
+			if opid.Method == "/proto.api.component.generic.v1.GenericService/Do" {
+				foundOPID = true
+				stopAllErrCh <- r.StopAll(ctx, nil)
+			}
+		}
+	}()
+	_, err = arm1.Do(ctx, map[string]interface{}{})
+	s, isGRPCErr := status.FromError(err)
+	test.That(t, isGRPCErr, test.ShouldBeTrue)
+	test.That(t, s.Code(), test.ShouldEqual, codes.Canceled)
+
+	stopAllErr := <-stopAllErrCh
+	test.That(t, foundOPID, test.ShouldBeTrue)
+	test.That(t, stopAllErr, test.ShouldBeNil)
 }
 
 type dummyBoard struct {
@@ -1021,16 +1162,12 @@ func TestGetStatus(t *testing.T) {
 
 func TestGetStatusRemote(t *testing.T) {
 	// set up remotes
-	port1, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	addr1 := fmt.Sprintf("localhost:%d", port1)
-	listener1, err := net.Listen("tcp", addr1)
-	test.That(t, err, test.ShouldBeNil)
-	port2, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	addr2 := fmt.Sprintf("localhost:%d", port2)
-	listener2, err := net.Listen("tcp", addr2)
-	test.That(t, err, test.ShouldBeNil)
+	listener1 := testutils.ReserveRandomListener(t)
+	addr1 := listener1.Addr().String()
+
+	listener2 := testutils.ReserveRandomListener(t)
+	addr2 := listener2.Addr().String()
+
 	gServer1 := grpc.NewServer()
 	gServer2 := grpc.NewServer()
 	resourcesFunc := func() []resource.Name { return []resource.Name{arm.Named("arm1"), arm.Named("arm2")} }
@@ -1121,13 +1258,10 @@ func TestGetStatusRemote(t *testing.T) {
 
 func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	// set up remotes
-	port1, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	addr1 := fmt.Sprintf("localhost:%d", port1)
-	test.That(t, err, test.ShouldBeNil)
-	port2, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	addr2 := fmt.Sprintf("localhost:%d", port2)
+	listener1 := testutils.ReserveRandomListener(t)
+	addr1 := listener1.Addr().String()
+	listener2 := testutils.ReserveRandomListener(t)
+	addr2 := listener2.Addr().String()
 
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
@@ -1146,6 +1280,12 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 				Type:      arm.SubtypeName,
 				Model:     "fake",
 			},
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "pieceArm",
+				Type:      arm.SubtypeName,
+				Model:     "fake",
+			},
 		},
 		Services: []config.Service{},
 		Remotes:  []config.Remote{},
@@ -1157,7 +1297,8 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		test.That(t, r0.Close(context.Background()), test.ShouldBeNil)
 	}()
 	options := weboptions.New()
-	options.Network.BindAddress = addr1
+	options.Network.BindAddress = ""
+	options.Network.Listener = listener1
 	err = r0.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1192,7 +1333,8 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		test.That(t, r1.Close(context.Background()), test.ShouldBeNil)
 	}()
 	options = weboptions.New()
-	options.Network.BindAddress = addr2
+	options.Network.BindAddress = ""
+	options.Network.Listener = listener2
 	err = r1.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1210,6 +1352,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 			vision.Name, sensors.Name, datamanager.Name,
 			arm.Named("remote:foo:arm1"), arm.Named("remote:foo:arm2"),
 			arm.Named("remote:pieceArm"),
+			arm.Named("remote:foo:pieceArm"),
 			camera.Named("remote:cameraOver"),
 			gps.Named("remote:gps1"),
 			gps.Named("remote:gps2"),
@@ -1229,6 +1372,21 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	pos, err := rrArm1.GetJointPositions(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.Values, test.ShouldResemble, p0Arm1.Values)
+
+	arm1, err = r.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	rrArm1, ok = arm1.(arm.Arm)
+	test.That(t, ok, test.ShouldBeTrue)
+	pos, err = rrArm1.GetJointPositions(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos.Values, test.ShouldResemble, p0Arm1.Values)
+
+	_, err = r.ResourceByName(arm.Named("remote:foo:pieceArm"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(arm.Named("remote:pieceArm"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(arm.Named("pieceArm"))
+	test.That(t, err, test.ShouldBeError, "more that one remote resources with name \"pieceArm\" exists")
 }
 
 func TestResourceStartsOnReconfigure(t *testing.T) {
@@ -1284,8 +1442,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldResemble, rutils.NewResourceNotFoundError(base.Named("fake0")).Error())
 	test.That(t, noBase, test.ShouldBeNil)
 
-	err = r.Reconfigure(ctx, goodConfig)
-	test.That(t, err, test.ShouldBeNil)
+	r.Reconfigure(ctx, goodConfig)
 
 	yesBase, err := r.ResourceByName(base.Named("fake0"))
 	test.That(t, err, test.ShouldBeNil)
@@ -1294,4 +1451,23 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 	yesSvc, err := r.ResourceByName(datamanager.Name)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, yesSvc, test.ShouldNotBeNil)
+}
+
+func TestConfigProcess(t *testing.T) {
+	logger, logs := golog.NewObservedTestLogger(t)
+
+	r, err := robotimpl.New(context.Background(), &config.Config{
+		Processes: []pexec.ProcessConfig{
+			{
+				ID:      "1",
+				Name:    "bash",
+				Args:    []string{"-c", "echo heythere"},
+				Log:     true,
+				OneShot: true,
+			},
+		},
+	}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, logs.FilterField(zap.String("output", "heythere\n")).Len(), test.ShouldEqual, 1)
 }

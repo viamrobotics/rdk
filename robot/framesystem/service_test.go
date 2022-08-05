@@ -2,7 +2,6 @@ package framesystem_test
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"testing"
 
@@ -10,7 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/gripper"
@@ -43,10 +42,9 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	defer r.Close(context.Background())
 
 	// use fake registrations to have a FrameSystem return
-	testPose := spatialmath.NewPoseFromAxisAngle(
+	testPose := spatialmath.NewPoseFromOrientation(
 		r3.Vector{X: 1., Y: 2., Z: 3.},
-		r3.Vector{X: 0., Y: 1., Z: 0.},
-		math.Pi/2,
+		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
 
 	transformMsgs := []*commonpb.Transform{
@@ -232,10 +230,9 @@ func TestWrongFrameSystems(t *testing.T) {
 	err = serviceUpdateable.Update(ctx, resources)
 	test.That(t, err, test.ShouldBeError, errors.New("parent field in frame config for part \"cameraOver\" is empty"))
 
-	testPose := spatialmath.NewPoseFromAxisAngle(
+	testPose := spatialmath.NewPoseFromOrientation(
 		r3.Vector{X: 1., Y: 2., Z: 3.},
-		r3.Vector{X: 0., Y: 1., Z: 0.},
-		math.Pi/2,
+		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
 
 	transformMsgs := []*commonpb.Transform{
@@ -289,13 +286,13 @@ func TestServiceWithRemote(t *testing.T) {
 	defer func() {
 		test.That(t, remoteRobot.Close(context.Background()), test.ShouldBeNil)
 	}()
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
 	options := weboptions.New()
-	options.Network.BindAddress = fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = ""
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
+	options.Network.Listener = listener
 	err = remoteRobot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
-	addr := fmt.Sprintf("localhost:%d", port)
 
 	// make the local robot
 	localConfig := &config.Config{
@@ -349,10 +346,9 @@ func TestServiceWithRemote(t *testing.T) {
 	}
 
 	// make local robot
-	testPose := spatialmath.NewPoseFromAxisAngle(
+	testPose := spatialmath.NewPoseFromOrientation(
 		r3.Vector{X: 1., Y: 2., Z: 3.},
-		r3.Vector{X: 0., Y: 1., Z: 0.},
-		math.Pi/2,
+		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
 
 	transformMsgs := []*commonpb.Transform{

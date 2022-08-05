@@ -38,11 +38,11 @@ func NewSource(src gostream.ImageSource, det Detector) (*Source, error) {
 	if src == nil {
 		return nil, errors.New("object detection source must include an image source to pull from")
 	}
+	cancelCtx, cancel := context.WithCancel(context.Background())
 	if det == nil {
-		det = func(img image.Image) ([]Detection, error) { return nil, nil }
+		det = func(ctx context.Context, img image.Image) ([]Detection, error) { return nil, nil }
 	}
 
-	cancelCtx, cancel := context.WithCancel(context.Background())
 	s := &Source{
 		pipelineOutput: make(chan *Result),
 		cancelCtx:      cancelCtx,
@@ -63,7 +63,7 @@ func (s *Source) backgroundWorker(src gostream.ImageSource, det Detector) {
 				return
 			}
 			clone := rimage.CloneImage(original)
-			detections, err := det(clone)
+			detections, err := det(s.cancelCtx, clone)
 
 			r := &Result{
 				OriginalImage: clone,

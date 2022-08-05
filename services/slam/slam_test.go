@@ -27,8 +27,10 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -82,6 +84,28 @@ func setupTestGRPCServer(port string) *grpc.Server {
 
 func setupInjectRobot() *inject.Robot {
 	r := &inject.Robot{}
+	var projA rimage.Projector
+	intrinsicsA := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
+		Width:  1280,
+		Height: 720,
+		Fx:     200,
+		Fy:     200,
+		Ppx:    100,
+		Ppy:    100,
+	}
+	projA = intrinsicsA
+
+	var projB rimage.Projector
+	intrinsicsB := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
+		Width:  0,
+		Height: 0,
+		Fx:     0,
+		Fy:     0,
+		Ppx:    0,
+		Ppy:    0,
+	}
+	projB = intrinsicsB
+
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case camera.Named("good_lidar"):
@@ -91,6 +115,9 @@ func setupInjectRobot() *inject.Robot {
 			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 				return nil, nil, errors.New("lidar not camera")
 			}
+			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+				return nil, transform.NewNoIntrinsicsError("")
+			}
 			return cam, nil
 		case camera.Named("bad_lidar"):
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -99,6 +126,9 @@ func setupInjectRobot() *inject.Robot {
 			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 				return nil, nil, errors.New("lidar not camera")
 			}
+			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+				return nil, transform.NewNoIntrinsicsError("")
+			}
 			return cam, nil
 		case camera.Named("good_camera"):
 			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
@@ -106,6 +136,9 @@ func setupInjectRobot() *inject.Robot {
 			}
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
+			}
+			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+				return projA, nil
 			}
 			return cam, nil
 		case camera.Named("good_depth_camera"):
@@ -117,6 +150,9 @@ func setupInjectRobot() *inject.Robot {
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
+			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+				return projA, nil
+			}
 			return cam, nil
 		case camera.Named("bad_camera"):
 			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
@@ -124,6 +160,20 @@ func setupInjectRobot() *inject.Robot {
 			}
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
+			}
+			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+				return nil, transform.NewNoIntrinsicsError("")
+			}
+			return cam, nil
+		case camera.Named("bad_camera_intrinsics"):
+			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
+				return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
+			}
+			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+				return nil, errors.New("camera not lidar")
+			}
+			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+				return projB, nil
 			}
 			return cam, nil
 		default:
@@ -373,6 +423,23 @@ func TestORBSLAMNew(t *testing.T) {
 				"error getting data in desired mode: %v", attrCfg.Sensors[0]))
 	})
 
+	t.Run("New orbslamv3 service with camera that errors from bad intrinsics", func(t *testing.T) {
+		attrCfg := &slam.AttrConfig{
+			Algorithm:     "fake_orbslamv3",
+			Sensors:       []string{"bad_camera_intrinsics"},
+			ConfigParams:  map[string]string{"mode": "mono"},
+			DataDirectory: name,
+			DataRateMs:    100,
+		}
+
+		// Create slam service
+		logger := golog.NewTestLogger(t)
+		_, err := createSLAMService(t, attrCfg, logger, false)
+
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			transform.NewNoIntrinsicsError(fmt.Sprintf("Invalid size (%#v, %#v)", 0, 0)).Error())
+	})
+
 	t.Run("New orbslamv3 service with lidar without Next implementation", func(t *testing.T) {
 		attrCfg := &slam.AttrConfig{
 			Algorithm:     "fake_orbslamv3",
@@ -554,7 +621,7 @@ func TestGetMapAndPosition(t *testing.T) {
 	test.That(t, p, test.ShouldBeNil)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM position")
 
-	pose := spatial.NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
+	pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 	cp := referenceframe.NewPoseInFrame("frame", pose)
 
 	mimeType, im, pc, err := svc.GetMap(context.Background(), "hi", rdkutils.MimeTypePCD, cp, true)
@@ -714,6 +781,64 @@ func createTempFolderArchitecture(validArch bool) (string, error) {
 		}
 	}
 	return name, nil
+}
+
+var (
+	testSvcName1 = "svc1"
+	testSvcName2 = "svc2"
+)
+
+func TestRegisteredReconfigurable(t *testing.T) {
+	s := registry.ResourceSubtypeLookup(slam.Subtype)
+	test.That(t, s, test.ShouldNotBeNil)
+	r := s.Reconfigurable
+	test.That(t, r, test.ShouldNotBeNil)
+}
+
+func TestWrapWithReconfigurable(t *testing.T) {
+	svc := &mock{name: testSvcName1}
+	reconfSvc1, err := slam.WrapWithReconfigurable(svc)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = slam.WrapWithReconfigurable(nil)
+	test.That(t, err, test.ShouldBeError, rdkutils.NewUnimplementedInterfaceError("slam.Service", nil))
+
+	reconfSvc2, err := slam.WrapWithReconfigurable(reconfSvc1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfSvc2, test.ShouldEqual, reconfSvc1)
+}
+
+func TestReconfigurable(t *testing.T) {
+	actualSvc1 := &mock{name: testSvcName1}
+	reconfSvc1, err := slam.WrapWithReconfigurable(actualSvc1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfSvc1, test.ShouldNotBeNil)
+
+	actualArm2 := &mock{name: testSvcName2}
+	reconfSvc2, err := slam.WrapWithReconfigurable(actualArm2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfSvc2, test.ShouldNotBeNil)
+	test.That(t, actualSvc1.reconfCount, test.ShouldEqual, 0)
+
+	err = reconfSvc1.Reconfigure(context.Background(), reconfSvc2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfSvc1, test.ShouldResemble, reconfSvc2)
+	test.That(t, actualSvc1.reconfCount, test.ShouldEqual, 1)
+
+	err = reconfSvc1.Reconfigure(context.Background(), nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, rdkutils.NewUnexpectedTypeError(reconfSvc1, nil))
+}
+
+type mock struct {
+	slam.Service
+	name        string
+	reconfCount int
+}
+
+func (m *mock) Close(ctx context.Context) error {
+	m.reconfCount++
+	return nil
 }
 
 func resetFolder(path string) error {
