@@ -3,6 +3,9 @@ package datasync
 
 import (
 	"context"
+	"go.viam.com/rdk/config"
+	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/utils/rpc"
 	"os"
 	"path/filepath"
 	"sync"
@@ -33,7 +36,7 @@ type Manager interface {
 // syncer is responsible for uploading files in captureDir to the cloud.
 type syncer struct {
 	partID            string
-	client            v1.DataSyncService_UploadClient
+	client            v1.DataSyncServiceClient
 	logger            golog.Logger
 	progressTracker   progressTracker
 	uploadFunc        UploadFunc
@@ -43,14 +46,41 @@ type syncer struct {
 }
 
 // UploadFunc defines a function for uploading a file to the Viam data sync service backend.
-type UploadFunc func(ctx context.Context, client v1.DataSyncService_UploadClient, path string,
+type UploadFunc func(ctx context.Context, client v1.DataSyncServiceClient, path string,
 	partID string) error
 
-// NewSyncer returns a new syncer. If a nil UploadFunc is passed, the default viamUpload is used.
+type ManagerConstructor func(logger golog.Logger, uploadFunc UploadFunc, cfg *config.Config) (Manager, error)
+
+func NewDefaultManager(logger golog.Logger, uploadFunc UploadFunc, cfg *config.Config) (Manager, error) {
+	tlsConfig := config.NewTLSConfig(cfg).Config
+	cloudConfig := cfg.Cloud
+	rpcOpts := []rpc.DialOption{
+		rpc.WithTLSConfig(tlsConfig),
+		rpc.WithEntityCredentials(
+			cloudConfig.ID,
+			rpc.Credentials{
+				Type:    rdkutils.CredentialsTypeRobotLocationSecret,
+				Payload: cloudConfig.LocationSecret,
+			}),
+	}
+	appURL := "app.viam.com:443" // TODO: don't hardcode
+
+	conn, err := NewConnection(logger, appURL, rpcOpts)
+	if err != nil {
+		return nil, err
+	}
+	client := NewClient(conn)
+	return NewManager(logger, uploadFunc, cfg.Cloud.ID, client)
+}
+
+// NewManager returns a new syncer. If a nil UploadFunc is passed, the default viamUpload is used.
 // TODO DATA-206: instantiate a client.
-func NewSyncer(logger golog.Logger, uploadFunc UploadFunc, partID string) (Manager, error) {
+func NewManager(logger golog.Logger, uploadFunc UploadFunc, partID string,
+	client v1.DataSyncServiceClient) (Manager, error) {
+
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
+		client: client,
 		logger: logger,
 		progressTracker: progressTracker{
 			lock:        &sync.Mutex{},
@@ -192,7 +222,7 @@ func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
 	return md, nil
 }
 
-func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
+func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncServiceClient, path string, partID string) error {
 	//nolint:gosec
 	f, err := os.Open(path)
 	if err != nil {
@@ -211,9 +241,9 @@ func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_Uploa
 
 	switch md.GetType() {
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR, v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		return uploadDataCaptureFile(ctx, s, client, md, f)
+		return uploadDataCaptureFile(ctx, s.progressTracker, client, md, f)
 	case v1.DataType_DATA_TYPE_FILE:
-		return uploadArbitraryFile(ctx, s, client, md, f)
+		return uploadArbitraryFile(ctx, client, md, f)
 	case v1.DataType_DATA_TYPE_UNSPECIFIED:
 		return errors.New("no data type specified in upload metadata")
 	default:

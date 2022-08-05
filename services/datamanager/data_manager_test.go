@@ -2,6 +2,9 @@ package datamanager_test
 
 import (
 	"context"
+	"go.viam.com/rdk/services/datamanager/datasync"
+	"go.viam.com/utils/rpc"
+	"io"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -40,6 +43,8 @@ var (
 	testSvcName1       = "svc1"
 	testSvcName2       = "svc2"
 )
+
+// TODO in all tests: stand up local sync service server, pass in client connecting to it
 
 // readDir filters out folders from a slice of FileInfos.
 func readDir(t *testing.T, dir string) ([]fs.FileInfo, error) {
@@ -226,6 +231,41 @@ func TestNewRemoteDataManager(t *testing.T) {
 // Validates that if the datamanager/robot die unexpectedly, that previously captured but not synced files are still
 // synced at start up.
 func TestRecoversAfterKilled(t *testing.T) {
+	// Register mock datamanager service with a mock server.
+	logger, _ := golog.NewObservedTestLogger(t)
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+	rpcServer.RegisterServiceServer(
+		context.Background(),
+		&v1.DataSyncService_ServiceDesc,
+		mockDataSyncServiceServer{},
+		v1.RegisterDataSyncServiceHandlerFromEndpoint,
+	)
+
+	// Stand up the server. Defer stopping the server.
+	go func() {
+		err := rpcServer.Start()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+	defer func() {
+		err := rpcServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	conn, err := rpc.DialDirectGRPC(
+		context.Background(),
+		rpcServer.InternalAddr().String(),
+		logger,
+		rpc.WithInsecure(),
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Defer closing the connection.
+	defer func() {
+		err := conn.Close()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
 	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
 	defer func() {
 		for _, dir := range dirs {
@@ -246,7 +286,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient,
+	uploadFunc := func(ctx context.Context, client v1.DataSyncServiceClient,
 		path string, partId string,
 	) error {
 		lock.Lock()
@@ -254,10 +294,15 @@ func TestRecoversAfterKilled(t *testing.T) {
 		lock.Unlock()
 		return nil
 	}
+	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
+		client := datasync.NewClient(conn)
+		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client)
+	}
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFunc(uploadFunc)
+	dmsvc.SetSyncerConstructor(syncerConstructor)
 	dmsvc.SetWaitAfterLastModifiedSecs(10)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -290,7 +335,7 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	td := "additional_sync_path_dir"
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient,
+	uploadFunc := func(ctx context.Context, client v1.DataSyncServiceClient,
 		path string, partID string,
 	) error {
 		lock.Lock()
@@ -399,7 +444,7 @@ func TestManualSync(t *testing.T) {
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient,
+	uploadFunc := func(ctx context.Context, client v1.DataSyncServiceClient,
 		path string, partId string,
 	) error {
 		lock.Lock()
@@ -457,7 +502,7 @@ func TestScheduledSync(t *testing.T) {
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient,
+	uploadFunc := func(ctx context.Context, client v1.DataSyncServiceClient,
 		path string, partID string,
 	) error {
 		lock.Lock()
@@ -514,7 +559,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient,
+	uploadFunc := func(ctx context.Context, client v1.DataSyncServiceClient,
 		path string, partID string,
 	) error {
 		lock.Lock()
@@ -611,7 +656,7 @@ func (m *mock) Close(ctx context.Context) error {
 func TestSyncDisabled(t *testing.T) {
 	uploaded := []string{}
 	lock := sync.Mutex{}
-	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
+	uploadFunc := func(ctx context.Context, client v1.DataSyncServiceClient, path string, partID string) error {
 		lock.Lock()
 		uploaded = append(uploaded, path)
 		lock.Unlock()
@@ -673,4 +718,25 @@ func getDataManagerConfig(config *config.Config) (*datamanager.Config, error) {
 		return nil, errors.New("failed to get service config")
 	}
 	return svcConfig, nil
+}
+
+// TODO: define test sync constructor
+
+// TODO: add function for standing up a test datasync server
+
+type mockDataSyncServiceServer struct {
+	v1.UnimplementedDataSyncServiceServer
+}
+
+func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

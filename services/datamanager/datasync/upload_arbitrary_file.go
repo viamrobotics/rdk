@@ -12,16 +12,20 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
-func uploadArbitraryFile(ctx context.Context, s *syncer, client v1.DataSyncService_UploadClient, md *v1.UploadMetadata,
+func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, md *v1.UploadMetadata,
 	f *os.File,
 ) error {
+	stream, err := client.Upload(ctx)
+	if err != nil {
+		return err
+	}
 	// Send metadata upload request.
 	req := &v1.UploadRequest{
 		UploadPacket: &v1.UploadRequest_Metadata{
 			Metadata: md,
 		},
 	}
-	if err := client.Send(req); err != nil {
+	if err := stream.Send(req); err != nil {
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
 
@@ -41,7 +45,7 @@ func uploadArbitraryFile(ctx context.Context, s *syncer, client v1.DataSyncServi
 			return err
 		}
 
-		if err = client.Send(uploadReq); err != nil {
+		if err = stream.Send(uploadReq); err != nil {
 			return errors.Wrap(err, "error while sending uploadRequest")
 		}
 	}
@@ -51,7 +55,7 @@ func uploadArbitraryFile(ctx context.Context, s *syncer, client v1.DataSyncServi
 	}
 
 	// Close stream and receive response.
-	if _, err := client.CloseAndRecv(); err != nil {
+	if _, err := stream.CloseAndRecv(); err != nil {
 		return errors.Wrap(err, "error when closing the stream and receiving the response from "+
 			"sync service backend")
 	}

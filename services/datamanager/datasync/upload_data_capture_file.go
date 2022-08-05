@@ -12,10 +12,14 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
-func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncService_UploadClient,
+func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.DataSyncServiceClient,
 	md *v1.UploadMetadata, f *os.File,
 ) error {
-	err := initDataCaptureUpload(ctx, f, s.progressTracker, f.Name(), md)
+	stream, err := client.Upload(ctx)
+	if err != nil {
+		return err
+	}
+	err = initDataCaptureUpload(ctx, f, pt, f.Name())
 	if errors.Is(err, io.EOF) {
 		return nil
 	}
@@ -29,7 +33,7 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 			Metadata: md,
 		},
 	}
-	if err := client.Send(req); err != nil {
+	if err := stream.Send(req); err != nil {
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
 
@@ -49,10 +53,10 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 			return err
 		}
 
-		if err = client.Send(uploadReq); err != nil {
+		if err = stream.Send(uploadReq); err != nil {
 			return errors.Wrap(err, "error while sending uploadRequest")
 		}
-		if err := s.progressTracker.incrementProgressFileIndex(filepath.Join(s.progressTracker.progressDir, filepath.
+		if err := pt.incrementProgressFileIndex(filepath.Join(pt.progressDir, filepath.
 			Base(f.Name()))); err != nil {
 			return err
 		}
@@ -63,7 +67,7 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 	}
 
 	// Close stream and receive response.
-	if _, err := client.CloseAndRecv(); err != nil {
+	if _, err := stream.CloseAndRecv(); err != nil {
 		return errors.Wrap(err, "error when closing the stream and receiving the response from "+
 			"sync service backend")
 	}
@@ -71,7 +75,7 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 	return nil
 }
 
-func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, dcFileName string, md *v1.UploadMetadata) error {
+func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, dcFileName string) error {
 	finfo, err := f.Stat()
 	if err != nil {
 		return err
