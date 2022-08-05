@@ -299,20 +299,18 @@ func TestRecoversAfterKilled(t *testing.T) {
 // that directory is created (and can be synced on subsequent iterations of syncing).
 func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	td := "additional_sync_path_dir"
-	var uploaded []string
-	lock := sync.Mutex{}
-	uploadFunc := func(ctx context.Context, client v1.DataSyncServiceClient,
-		path string, partID string,
-	) error {
-		lock.Lock()
-		uploaded = append(uploaded, path)
-		lock.Unlock()
-		return nil
-	}
 	// Once testing is complete, remove contents from data capture dirs.
 	defer resetFolder(t, captureDir)
 	defer resetFolder(t, armDir)
 	defer resetFolder(t, td)
+
+	// Register mock datasync service with a mock server.
+	logger, _ := golog.NewObservedTestLogger(t)
+	rpcServer, _ := buildAndStartLocalServer(t, logger)
+	defer func() {
+		err := rpcServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+	}()
 
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig(testCfg)
@@ -323,7 +321,7 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	// Initialize the data manager and update it with our config. The call to Update(ctx, conf) should create the
 	// arbitrary sync paths directory it in the file system.
 	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetUploadFunc(uploadFunc)
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	err = dmsvc.Update(context.TODO(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
