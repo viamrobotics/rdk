@@ -2,6 +2,7 @@ package datamanager
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -12,15 +13,23 @@ import (
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 )
 
+var debug = true
+
 func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncService_UploadClient,
 	md *v1.UploadMetadata, f *os.File,
 ) error {
+	if debug {
+		fmt.Println("POINT: Begin.")
+	}
 	err := initDataCaptureUpload(ctx, f, s.progressTracker, f.Name(), md)
 	if errors.Is(err, io.EOF) {
 		return nil
 	}
 	if err != nil {
 		return err
+	}
+	if debug {
+		fmt.Println("POINT: Initialized upload.")
 	}
 
 	// Send metadata upload request.
@@ -32,6 +41,9 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 	if err := client.Send(req); err != nil {
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
+	if debug {
+		fmt.Println("POINT: Sent Request.")
+	}
 
 	// Create channel between goroutine that's waiting for UploadResponse and the main goroutine which is persisting
 	// file upload progress to disk.
@@ -42,17 +54,32 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 
 	activeBackgroundWorkers.Add(1)
 	go func() {
+		if debug {
+			fmt.Println("POINT: Started goroutine to wait for server's response.")
+		}
 		defer activeBackgroundWorkers.Done()
 		for {
+			if debug {
+				fmt.Println("POINT: Starting loop while waiting for response.")
+			}
 			ur, err := client.Recv()
 			if err == io.EOF {
+				if debug {
+					fmt.Println("POINT: End of file error from client.")
+				}
 				close(progress)
 				break
 			} else {
 				if err != nil {
 					log.Fatalf("Unable to receive UploadResponse from server %v", err)
 				} else {
+					if debug {
+						fmt.Println("POINT: Sending progress on channel.")
+					}
 					progress <- *ur
+					if debug {
+						fmt.Println("POINT: Successfully sent progress on channel.")
+					}
 				}
 			}
 
@@ -62,18 +89,30 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 	eof := false
 	// Loop until there is no more content to be read from file.
 	for {
+		if debug {
+			fmt.Println("POINT: Loop with select statement. Options are sending upload requests, receiving progress from channel, and cancelling context.")
+		}
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 		select {
 		case <-ctx.Done():
+			if debug {
+				fmt.Println("POINT: Cancelled context.")
+			}
 			return context.Canceled
 		case uploadResponse := <-progress:
+			if debug {
+				fmt.Println("POINT: Received progress from channel.")
+			}
 			if err := s.progressTracker.updateProgressFileIndex(filepath.Join(s.progressTracker.progressDir, filepath.
 				Base(f.Name())), int(uploadResponse.GetRequestsWritten())); err != nil {
 				return err
 			}
 		default:
+			if debug {
+				fmt.Println("POINT: Getting next upload request to send to server.")
+			}
 			// Get the next UploadRequest from the file.
 			uploadReq, err := getNextSensorUploadRequest(ctx, f)
 			// If the error is EOF, break from loop.
@@ -91,6 +130,10 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 
 			if err = client.Send(uploadReq); err != nil {
 				return errors.Wrap(err, "error while sending uploadRequest")
+			}
+
+			if debug {
+				fmt.Println("POINT: Sent upload request to server.")
 			}
 		}
 		if eof {
