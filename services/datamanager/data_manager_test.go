@@ -126,11 +126,12 @@ func TestNewDataManager(t *testing.T) {
 	// Empty config at initialization.
 	captureDir := "/tmp/capture"
 	defer resetFolder(t, captureDir)
-	dmsvc.Update(context.Background(), testCfg)
+	err := dmsvc.Update(context.Background(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
 	captureTime := time.Millisecond * 100
 	time.Sleep(captureTime)
 
-	err := dmsvc.Close(context.Background())
+	err = dmsvc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	flushWritersTime := time.Millisecond * 10
 	time.Sleep(flushWritersTime)
@@ -159,17 +160,19 @@ func TestCaptureDisabled(t *testing.T) {
 	dmsvc := newTestDataManager(t, "arm1", "")
 	// Set capture parameters in Update.
 	testCfg := setupConfig(t, "robots/configs/fake_robot_with_data_manager.json")
-	dmCfg, err := getDataManagerConfig((testCfg))
+	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	defer resetFolder(t, captureDir)
-	dmsvc.Update(context.Background(), testCfg)
+	err = dmsvc.Update(context.Background(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
 	captureTime := time.Millisecond * 500
 	time.Sleep(captureTime)
 
 	// Call Update with a disabled capture and give the collector time to write to file.
 	dmCfg.CaptureDisabled = true
-	dmsvc.Update(context.Background(), testCfg)
+	err = dmsvc.Update(context.Background(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
 	flushWritersTime := time.Millisecond * 10
 	time.Sleep(flushWritersTime)
 
@@ -182,11 +185,13 @@ func TestCaptureDisabled(t *testing.T) {
 
 	// Re-enable capture.
 	dmCfg.CaptureDisabled = false
-	dmsvc.Update(context.Background(), testCfg)
+	err = dmsvc.Update(context.Background(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(captureTime)
 
 	// Close service.
-	dmsvc.Close(context.Background())
+	err = dmsvc.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(flushWritersTime)
 
 	// Verify that started collection began in a new file when it was re-enabled.
@@ -207,12 +212,13 @@ func TestNewRemoteDataManager(t *testing.T) {
 	// Set capture parameters in Update.
 	conf := setupConfig(t, "robots/configs/fake_robot_with_remote_and_data_manager.json")
 	defer resetFolder(t, captureDir)
-	dmsvc.Update(context.Background(), conf)
+	err := dmsvc.Update(context.Background(), conf)
+	test.That(t, err, test.ShouldBeNil)
 	sleepTime := time.Millisecond * 100
 	time.Sleep(sleepTime)
 
 	// Verify that after close is called, the collector is no longer writing.
-	err := dmsvc.Close(context.Background())
+	err = dmsvc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
 	// Verify that the local and remote collectors wrote to their files.
@@ -262,7 +268,8 @@ func TestRecoversAfterKilled(t *testing.T) {
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(10)
-	dmsvc.Update(context.TODO(), testCfg)
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not synced.
 	time.Sleep(time.Millisecond * 150)
@@ -278,7 +285,8 @@ func TestRecoversAfterKilled(t *testing.T) {
 	dmsvc = newTestDataManager(t, "arm1", "")
 	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
-	dmsvc.Update(context.TODO(), testCfg)
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Validate that the previously captured file was uploaded at startup.
 	time.Sleep(time.Millisecond * 100)
@@ -293,7 +301,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 // that directory is created (and can be synced on subsequent iterations of syncing).
 func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	td := "additional_sync_path_dir"
-	uploaded := []string{}
+	var uploaded []string
 	lock := sync.Mutex{}
 	uploadFunc := func(ctx context.Context, client v1.DataSyncServiceClient,
 		path string, partID string,
@@ -309,7 +317,7 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	defer resetFolder(t, td)
 
 	testCfg := setupConfig(t, configPath)
-	dmCfg, err := getDataManagerConfig((testCfg))
+	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = syncIntervalMins
 	dmCfg.AdditionalSyncPaths = []string{td}
@@ -319,7 +327,8 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetUploadFunc(uploadFunc)
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
-	dmsvc.Update(context.TODO(), testCfg)
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Validate the "additional_sync_path_dir" was created. Wait some time to ensure it would have been created.
 	time.Sleep(time.Millisecond * 100)
@@ -332,7 +341,7 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 // syncing of data in the service's additional_sync_paths.
 //nolint
 func populateAdditionalSyncPaths() ([]string, int, error) {
-	additionalSyncPaths := []string{}
+	var additionalSyncPaths []string
 	numArbitraryFilesToSync := 0
 
 	// Generate additional_sync_paths "dummy" dirs & files.
@@ -420,7 +429,8 @@ func TestManualSync(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Run and upload files.
-	dmsvc.Sync(context.Background())
+	err = dmsvc.Sync(context.Background())
+	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(time.Millisecond * 50)
 
 	// Verify that one data capture file was uploaded, two additional_sync_paths files were uploaded,
@@ -430,7 +440,8 @@ func TestManualSync(t *testing.T) {
 
 	// Sync again and verify it synced the second data capture file, but also validate that it didn't attempt to resync
 	// any files that were previously synced.
-	dmsvc.Sync(context.Background())
+	err = dmsvc.Sync(context.Background())
+	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(time.Millisecond * 50)
 	_ = dmsvc.Close(context.TODO())
 	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, numArbitraryFilesToSync+2)
@@ -450,7 +461,7 @@ func TestScheduledSync(t *testing.T) {
 	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
 	defer func() {
 		for _, dir := range dirs {
-			os.RemoveAll(dir)
+			_ = os.RemoveAll(dir)
 		}
 	}()
 	defer resetFolder(t, captureDir)
@@ -461,7 +472,7 @@ func TestScheduledSync(t *testing.T) {
 	// Use config with 250ms sync interval.
 	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
-	dmCfg, err := getDataManagerConfig((testCfg))
+	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
 	dmCfg.AdditionalSyncPaths = dirs
@@ -477,7 +488,8 @@ func TestScheduledSync(t *testing.T) {
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
-	dmsvc.Update(context.TODO(), testCfg)
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 600ms (more than two iterations of syncing)
 	// for the additional_sync_paths files to sync AND for TWO data capture files to sync.
@@ -485,7 +497,7 @@ func TestScheduledSync(t *testing.T) {
 	_ = dmsvc.Close(context.TODO())
 
 	// Verify that the additional_sync_paths files AND the TWO data capture files were uploaded.
-	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, (numArbitraryFilesToSync + 2))
+	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, numArbitraryFilesToSync+2)
 	test.That(t, noRepeatedElements(mockService.getUploadedFiles()), test.ShouldBeTrue)
 }
 
@@ -527,11 +539,13 @@ func TestManualAndScheduledSync(t *testing.T) {
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
-	dmsvc.Update(context.TODO(), testCfg)
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Perform a manual and scheduled syncDataCaptureFiles at approximately the same time, then close the svc.
 	time.Sleep(time.Millisecond * 250)
-	dmsvc.Sync(context.TODO())
+	err = dmsvc.Sync(context.TODO())
+	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(time.Millisecond * 100)
 	_ = dmsvc.Close(context.TODO())
 
@@ -596,7 +610,7 @@ type mock struct {
 	reconfCount int
 }
 
-func (m *mock) Close(ctx context.Context) error {
+func (m *mock) Close(_ context.Context) error {
 	m.reconfCount++
 	return nil
 }
@@ -612,7 +626,7 @@ func TestSyncDisabled(t *testing.T) {
 
 	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
-	dmCfg, err := getDataManagerConfig((testCfg))
+	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = syncIntervalMins
 
@@ -624,14 +638,15 @@ func TestSyncDisabled(t *testing.T) {
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
-	dmsvc.Update(context.TODO(), testCfg)
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not synced.
 	time.Sleep(time.Millisecond * 150)
 
 	// Simulate disabling sync.
 	dmCfg.ScheduledSyncDisabled = true
-	dmsvc.Update(context.Background(), testCfg)
+	err = dmsvc.Update(context.Background(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Validate nothing has been synced yet.
@@ -639,7 +654,7 @@ func TestSyncDisabled(t *testing.T) {
 
 	// Re-enable sync.
 	dmCfg.ScheduledSyncDisabled = false
-	dmsvc.Update(context.Background(), testCfg)
+	err = dmsvc.Update(context.Background(), testCfg)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 600ms and ensure three files were uploaded:
 	// one from file immediately uploaded when sync was re-enabled and two after.
@@ -710,12 +725,13 @@ func buildAndStartLocalServer(t *testing.T, logger golog.Logger) (rpc.Server, mo
 		lock:                               &sync.Mutex{},
 		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
 	}
-	rpcServer.RegisterServiceServer(
+	err = rpcServer.RegisterServiceServer(
 		context.Background(),
 		&v1.DataSyncService_ServiceDesc,
 		mockService,
 		v1.RegisterDataSyncServiceHandlerFromEndpoint,
 	)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Stand up the server. Defer stopping the server.
 	go func() {
