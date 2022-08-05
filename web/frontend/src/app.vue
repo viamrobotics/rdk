@@ -186,12 +186,6 @@ export default {
       pwm: '',
       pwmFrequency: '',
       imageMapTemp: '',
-      testJson: JSON.stringify({
-        foo: 'bar',
-        some: 'thing',
-        yes: true,
-        count: 10,
-      })
     };
   },
   async mounted() {
