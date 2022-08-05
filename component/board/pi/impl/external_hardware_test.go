@@ -178,14 +178,14 @@ func TestPiHardware(t *testing.T) {
 	motor1 := motorInt.(motor.Motor)
 
 	t.Run("motor forward", func(t *testing.T) {
-		pos, err := motor1.GetPosition(ctx)
+		pos, err := motor1.GetPosition(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldAlmostEqual, .0, 0o1)
 
 		// 15 rpm is about what we can get from 5v. 2 rotations should take 8 seconds
-		err = motor1.GoFor(ctx, 15, 2)
+		err = motor1.GoFor(ctx, 15, 2, nil)
 		test.That(t, err, test.ShouldBeNil)
-		on, err := motor1.IsPowered(ctx)
+		on, err := motor1.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
 
@@ -196,7 +196,7 @@ func TestPiHardware(t *testing.T) {
 
 		loops := 0
 		for {
-			on, err := motor1.IsPowered(ctx)
+			on, err := motor1.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			if !on {
 				break
@@ -206,7 +206,7 @@ func TestPiHardware(t *testing.T) {
 
 			loops++
 			if loops > 100 {
-				pos, err = motor1.GetPosition(ctx)
+				pos, err = motor1.GetPosition(ctx, nil)
 				test.That(t, err, test.ShouldBeNil)
 				aVal, err := hallA.Value(context.Background())
 				test.That(t, err, test.ShouldBeNil)
@@ -223,10 +223,10 @@ func TestPiHardware(t *testing.T) {
 
 	t.Run("motor backward", func(t *testing.T) {
 		// 15 rpm is about what we can get from 5v. 2 rotations should take 8 seconds
-		err := motor1.GoFor(ctx, -15, 2)
+		err := motor1.GoFor(ctx, -15, 2, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := motor1.IsPowered(ctx)
+		on, err := motor1.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
 
@@ -237,7 +237,7 @@ func TestPiHardware(t *testing.T) {
 
 		loops := 0
 		for {
-			on, err := motor1.IsPowered(ctx)
+			on, err := motor1.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			if !on {
 				break
