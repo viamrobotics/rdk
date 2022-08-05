@@ -2,7 +2,6 @@ package datamanager_test
 
 import (
 	"context"
-	"fmt"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/utils/rpc"
 	"io"
@@ -293,7 +292,6 @@ func TestRecoversAfterKilled(t *testing.T) {
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
 	uploaded := mockService.getUploadedFiles()
-	fmt.Println(uploaded)
 	test.That(t, len(uploaded), test.ShouldEqual, 1+numArbitraryFilesToSync)
 }
 
@@ -375,8 +373,6 @@ func populateAdditionalSyncPaths() ([]string, int, error) {
 
 				// Increment number of files to be synced.
 				numArbitraryFilesToSync++
-
-				fmt.Println(tf.Name())
 			}
 		}
 	}
@@ -692,7 +688,6 @@ type mockDataSyncServiceServer struct {
 func (m mockDataSyncServiceServer) getUploadedFiles() []string {
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
-	fmt.Println(*m.uploadedFiles)
 	return *m.uploadedFiles
 }
 
