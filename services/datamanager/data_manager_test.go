@@ -241,14 +241,10 @@ func TestRecoversAfterKilled(t *testing.T) {
 	}()
 	conn, err := getLocalServerConn(rpcServer, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		err := conn.Close()
-		test.That(t, err, test.ShouldBeNil)
-	}()
 
 	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
 		client := datasync.NewClient(conn)
-		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client)
+		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client, conn)
 	}
 
 	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
@@ -407,14 +403,10 @@ func TestManualSync(t *testing.T) {
 	}()
 	conn, err := getLocalServerConn(rpcServer, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		err := conn.Close()
-		test.That(t, err, test.ShouldBeNil)
-	}()
 
 	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
 		client := datasync.NewClient(conn)
-		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client)
+		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client, conn)
 	}
 
 	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
@@ -470,14 +462,10 @@ func TestScheduledSync(t *testing.T) {
 	}()
 	conn, err := getLocalServerConn(rpcServer, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		err := conn.Close()
-		test.That(t, err, test.ShouldBeNil)
-	}()
 
 	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
 		client := datasync.NewClient(conn)
-		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client)
+		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client, conn)
 	}
 
 	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
@@ -534,14 +522,10 @@ func TestManualAndScheduledSync(t *testing.T) {
 	}()
 	conn, err := getLocalServerConn(rpcServer, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		err := conn.Close()
-		test.That(t, err, test.ShouldBeNil)
-	}()
 
 	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
 		client := datasync.NewClient(conn)
-		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client)
+		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client, conn)
 	}
 
 	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
@@ -655,14 +639,10 @@ func TestSyncDisabled(t *testing.T) {
 	}()
 	conn, err := getLocalServerConn(rpcServer, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		err := conn.Close()
-		test.That(t, err, test.ShouldBeNil)
-	}()
 
 	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
 		client := datasync.NewClient(conn)
-		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client)
+		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client, conn)
 	}
 
 	configPath := "robots/configs/fake_data_manager.json"

@@ -69,7 +69,7 @@ func (m mockSyncClient) Upload(ctx context.Context, opts ...grpc.CallOption) (v1
 //nolint:thelper
 func newTestSyncer(t *testing.T, mc *mockClient, uploadFunc UploadFunc) *syncer {
 	l := golog.NewTestLogger(t)
-	manager, err := NewManager(l, uploadFunc, partID, nil)
+	manager, err := NewManager(l, uploadFunc, partID, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	syncer := manager.(*syncer)
 	syncer.client = mockSyncClient{mc: mc}
