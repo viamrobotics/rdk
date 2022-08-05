@@ -36,8 +36,8 @@ type Encoder interface {
 	// GetTicksCount returns number of ticks since last zeroing
 	GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error)
 
-	// ResetZeroPosition resets the counted ticks to 0
-	ResetZeroPosition(ctx context.Context, offset int64, extra map[string]interface{}) error
+	// ResetToZero resets the counted ticks to 0
+	ResetToZero(ctx context.Context, offset int64, extra map[string]interface{}) error
 
 	// TicksPerRotation returns the number of ticks needed for a full rotation
 	TicksPerRotation(ctx context.Context) (int64, error)
@@ -111,10 +111,10 @@ func (r *reconfigurableEncoder) GetTicksCount(ctx context.Context, extra map[str
 	return r.actual.GetTicksCount(ctx, extra)
 }
 
-func (r *reconfigurableEncoder) ResetZeroPosition(ctx context.Context, offset int64, extra map[string]interface{}) error {
+func (r *reconfigurableEncoder) ResetToZero(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.ResetZeroPosition(ctx, offset, extra)
+	return r.actual.ResetToZero(ctx, offset, extra)
 }
 
 func (r *reconfigurableEncoder) TicksPerRotation(ctx context.Context) (int64, error) {

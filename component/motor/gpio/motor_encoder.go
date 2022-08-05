@@ -648,5 +648,5 @@ func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, ex
 	if err != nil {
 		return err
 	}
-	return m.encoder.ResetZeroPosition(ctx, int64(offset*float64(tpr)), extra)
+	return m.encoder.ResetToZero(ctx, int64(offset*float64(tpr)), extra)
 }

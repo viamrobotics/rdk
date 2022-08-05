@@ -51,8 +51,8 @@ func (e *Encoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync
 	}, activeBackgroundWorkers.Done)
 }
 
-// ResetZeroPosition resets the zero position.
-func (e *Encoder) ResetZeroPosition(ctx context.Context, offset int64, extra map[string]interface{}) error {
+// ResetToZero resets the zero position.
+func (e *Encoder) ResetToZero(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.position = offset
