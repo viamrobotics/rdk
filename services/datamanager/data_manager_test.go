@@ -240,13 +240,6 @@ func TestRecoversAfterKilled(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	}()
 
-	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
-		conn, err := getLocalServerConn(rpcServer, logger)
-		test.That(t, err, test.ShouldBeNil)
-		client := datasync.NewClient(conn)
-		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client, conn)
-	}
-
 	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
 	defer func() {
 		for _, dir := range dirs {
@@ -267,7 +260,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetSyncerConstructor(syncerConstructor)
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(10)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -283,7 +276,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 
 	// Turn the service back on.
 	dmsvc = newTestDataManager(t, "arm1", "")
-	dmsvc.SetSyncerConstructor(syncerConstructor)
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -401,13 +394,6 @@ func TestManualSync(t *testing.T) {
 		err := rpcServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
 	}()
-	conn, err := getLocalServerConn(rpcServer, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
-		client := datasync.NewClient(conn)
-		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client, conn)
-	}
 
 	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
 	defer func() {
@@ -428,7 +414,7 @@ func TestManualSync(t *testing.T) {
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetSyncerConstructor(syncerConstructor)
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	err = dmsvc.Update(context.TODO(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
@@ -461,13 +447,6 @@ func TestScheduledSync(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	}()
 
-	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
-		conn, err := getLocalServerConn(rpcServer, logger)
-		test.That(t, err, test.ShouldBeNil)
-		client := datasync.NewClient(conn)
-		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client, conn)
-	}
-
 	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
 	defer func() {
 		for _, dir := range dirs {
@@ -496,7 +475,7 @@ func TestScheduledSync(t *testing.T) {
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetSyncerConstructor(syncerConstructor)
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -521,13 +500,6 @@ func TestManualAndScheduledSync(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	}()
 
-	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
-		conn, err := getLocalServerConn(rpcServer, logger)
-		test.That(t, err, test.ShouldBeNil)
-		client := datasync.NewClient(conn)
-		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client, conn)
-	}
-
 	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
 	defer func() {
 		for _, dir := range dirs {
@@ -541,7 +513,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 	}
 	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
-	dmCfg, err := getDataManagerConfig((testCfg))
+	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
 	dmCfg.AdditionalSyncPaths = dirs
@@ -553,7 +525,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetSyncerConstructor(syncerConstructor)
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	dmsvc.Update(context.TODO(), testCfg)
 
@@ -638,13 +610,6 @@ func TestSyncDisabled(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	}()
 
-	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
-		conn, err := getLocalServerConn(rpcServer, logger)
-		test.That(t, err, test.ShouldBeNil)
-		client := datasync.NewClient(conn)
-		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client, conn)
-	}
-
 	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig((testCfg))
@@ -658,7 +623,7 @@ func TestSyncDisabled(t *testing.T) {
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetSyncerConstructor(syncerConstructor)
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	dmsvc.Update(context.TODO(), testCfg)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not synced.
@@ -767,4 +732,13 @@ func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientCo
 		logger,
 		rpc.WithInsecure(),
 	)
+}
+
+func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerConstructor {
+	return func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
+		conn, err := getLocalServerConn(server, logger)
+		test.That(t, err, test.ShouldBeNil)
+		client := datasync.NewClient(conn)
+		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client, conn)
+	}
 }
