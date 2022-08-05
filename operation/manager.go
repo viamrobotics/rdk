@@ -82,7 +82,7 @@ func (sm *SingleOperationManager) NewTimedWaitOp(ctx context.Context, dur time.D
 
 // IsPoweredInterface is a utility so can wait on IsPowered easily.
 type IsPoweredInterface interface {
-	IsPowered(ctx context.Context) (bool, error)
+	IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error)
 }
 
 // WaitTillNotPowered waits until IsPowered returns false.
@@ -91,7 +91,7 @@ func (sm *SingleOperationManager) WaitTillNotPowered(ctx context.Context, pollTi
 		ctx,
 		pollTime,
 		func(ctx context.Context) (bool, error) {
-			res, err := powered.IsPowered(ctx)
+			res, err := powered.IsPowered(ctx, nil)
 			return !res, err
 		},
 	)
@@ -141,4 +141,3 @@ type anOp struct {
 	waitCh     chan bool
 	closed     bool
 }
-

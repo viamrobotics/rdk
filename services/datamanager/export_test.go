@@ -21,3 +21,6 @@ func (svc *dataManagerService) SetWaitAfterLastModifiedSecs(s int) {
 
 // Make getServiceConfig global for tests.
 var GetServiceConfig = getServiceConfig
+
+// Make getDurationFromHz global for tests.
+var GetDurationFromHz = getDurationFromHz
