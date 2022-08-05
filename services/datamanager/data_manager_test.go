@@ -2,7 +2,7 @@ package datamanager_test
 
 import (
 	"context"
-	"fmt"
+	"go.uber.org/atomic"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/utils/rpc"
 	"io"
@@ -232,42 +232,27 @@ func TestNewRemoteDataManager(t *testing.T) {
 // Validates that if the datamanager/robot die unexpectedly, that previously captured but not synced files are still
 // synced at start up.
 func TestRecoversAfterKilled(t *testing.T) {
-	// Register mock datamanager service with a mock server.
+	// Register mock datasync service with a mock server.
 	logger, _ := golog.NewObservedTestLogger(t)
-	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
-	test.That(t, err, test.ShouldBeNil)
-	rpcServer.RegisterServiceServer(
-		context.Background(),
-		&v1.DataSyncService_ServiceDesc,
-		mockDataSyncServiceServer{},
-		v1.RegisterDataSyncServiceHandlerFromEndpoint,
-	)
-
-	// Stand up the server. Defer stopping the server.
-	go func() {
-		err := rpcServer.Start()
-		test.That(t, err, test.ShouldBeNil)
-	}()
+	uploaded := atomic.NewInt32(0)
+	rpcServer := buildAndStartLocalServer(t, logger, uploaded)
 	defer func() {
 		err := rpcServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
 	}()
-
-	conn, err := rpc.DialDirectGRPC(
-		context.Background(),
-		rpcServer.InternalAddr().String(),
-		logger,
-		rpc.WithInsecure(),
-	)
+	conn, err := getLocalServerConn(rpcServer, logger)
 	test.That(t, err, test.ShouldBeNil)
-
-	// Defer closing the connection.
 	defer func() {
 		err := conn.Close()
 		test.That(t, err, test.ShouldBeNil)
 	}()
 
-	dirs, _, err := populateAdditionalSyncPaths()
+	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
+		client := datasync.NewClient(conn)
+		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client)
+	}
+
+	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
 	defer func() {
 		for _, dir := range dirs {
 			resetFolder(t, dir)
@@ -285,25 +270,8 @@ func TestRecoversAfterKilled(t *testing.T) {
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
 	dmCfg.AdditionalSyncPaths = dirs
 
-	// TODO: use some other way to verify
-	//uploaded := []string{}
-	//lock := sync.Mutex{}
-	//uploadFunc := func(ctx context.Context, client v1.DataSyncServiceClient,
-	//	path string, partId string,
-	//) error {
-	//	lock.Lock()
-	//	uploaded = append(uploaded, path)
-	//	lock.Unlock()
-	//	return nil
-	//}
-	syncerConstructor := func(logger golog.Logger, uploadFunc datasync.UploadFunc, cfg *config.Config) (datasync.Manager, error) {
-		client := datasync.NewClient(conn)
-		return datasync.NewManager(logger, uploadFunc, cfg.Cloud.ID, client)
-	}
-
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
-	//dmsvc.SetUploadFunc(uploadFunc)
 	dmsvc.SetSyncerConstructor(syncerConstructor)
 	dmsvc.SetWaitAfterLastModifiedSecs(10)
 	dmsvc.Update(context.TODO(), testCfg)
@@ -316,11 +284,10 @@ func TestRecoversAfterKilled(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Validate nothing has been synced yet.
-	//test.That(t, len(uploaded), test.ShouldEqual, 0)
+	test.That(t, uploaded.Load(), test.ShouldEqual, 0)
 
 	// Turn the service back on.
 	dmsvc = newTestDataManager(t, "arm1", "")
-	//dmsvc.SetUploadFunc(uploadFunc)
 	dmsvc.SetSyncerConstructor(syncerConstructor)
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	dmsvc.Update(context.TODO(), testCfg)
@@ -329,8 +296,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 	time.Sleep(time.Millisecond * 50)
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
-	//test.That(t, len(uploaded), test.ShouldEqual, 1+numArbitraryFilesToSync)
-	fmt.Println("reached end of test")
+	test.That(t, uploaded.Load(), test.ShouldEqual, 1+numArbitraryFilesToSync)
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
@@ -729,10 +695,12 @@ func getDataManagerConfig(config *config.Config) (*datamanager.Config, error) {
 // TODO: add function for standing up a test datasync server
 
 type mockDataSyncServiceServer struct {
+	uploaded *atomic.Int32
 	v1.UnimplementedDataSyncServiceServer
 }
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
+	m.uploaded = atomic.NewInt32(m.uploaded.Add(1))
 	for {
 		_, err := stream.Recv()
 		if err == io.EOF {
@@ -743,4 +711,31 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 		}
 	}
 	return nil
+}
+
+func buildAndStartLocalServer(t *testing.T, logger golog.Logger, uploaded *atomic.Int32) rpc.Server {
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+	rpcServer.RegisterServiceServer(
+		context.Background(),
+		&v1.DataSyncService_ServiceDesc,
+		mockDataSyncServiceServer{uploaded: uploaded},
+		v1.RegisterDataSyncServiceHandlerFromEndpoint,
+	)
+
+	// Stand up the server. Defer stopping the server.
+	go func() {
+		err := rpcServer.Start()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+	return rpcServer
+}
+
+func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientConn, error) {
+	return rpc.DialDirectGRPC(
+		context.Background(),
+		rpcServer.InternalAddr().String(),
+		logger,
+		rpc.WithInsecure(),
+	)
 }
