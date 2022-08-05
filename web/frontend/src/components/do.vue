@@ -95,6 +95,3 @@ const doCommand = (name: string, command: string) => {
     </div>
   </v-collapse>
 </template>
-
-<style scoped>
-</style>
