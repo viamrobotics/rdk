@@ -1,4 +1,4 @@
-package datamanager
+package datasync
 
 import (
 	"io/ioutil"
@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var progressDir = filepath.Join(viamCaptureDotDir, ".progress/")
+var viamProgressDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "progress")
 
 type progressTracker struct {
 	lock        *sync.Mutex
