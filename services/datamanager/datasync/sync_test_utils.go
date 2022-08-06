@@ -317,6 +317,7 @@ func compareUploadRequestsMockClient(t *testing.T, isTabular bool, mc *mockClien
 	mc.lock.Unlock()
 }
 
+// TODO: break service construction into its own function, add service as param here
 //nolint:thelper
 func buildAndStartLocalServer(t *testing.T, logger golog.Logger, failIndex int32) (rpc.Server, mockDataSyncServiceServer) {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
@@ -367,6 +368,7 @@ type mockDataSyncServiceServer struct {
 	uploadRequests *[]*v1.UploadRequest
 	callCount      *atomic.Int32
 	failUntilIndex int32
+	failAtIndex    int32
 
 	lock *sync.Mutex
 	v1.UnimplementedDataSyncServiceServer
