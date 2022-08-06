@@ -3,7 +3,6 @@ package datasync
 import (
 	"context"
 	"go.uber.org/atomic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -271,51 +270,6 @@ func buildBinarySensorMsgs(data [][]byte, fileName string) []*v1.UploadRequest {
 	return expMsgs
 }
 
-type partialUploadTestcase struct {
-	name                      string
-	toSend                    []*v1.SensorData
-	progressIndexWhenCanceled int
-	expDataBeforeCanceled     []*v1.SensorData
-	expDataAfterCanceled      []*v1.SensorData
-	dataType                  v1.DataType
-}
-
-func initMockClient(lenMsgsToSend int) *mockClient {
-	// cancelIndex gives mock client capacity to "send" metadata message in addition to succeeding sensordata
-	// messages.
-	cancelIndex := 0
-	if lenMsgsToSend != 0 {
-		cancelIndex = lenMsgsToSend + 1
-	}
-	return &mockClient{
-		sent:        []*v1.UploadRequest{},
-		lock:        sync.Mutex{},
-		cancelIndex: cancelIndex,
-	}
-}
-
-// nolint:thelper
-func writeCaptureMetadataToFile(t *testing.T, dt v1.DataType, tf *os.File) {
-	// First write metadata to file.
-	captureMetadata := v1.DataCaptureMetadata{
-		ComponentType:    componentType,
-		ComponentName:    componentName,
-		MethodName:       methodName,
-		Type:             dt,
-		MethodParameters: nil,
-	}
-	if _, err := pbutil.WriteDelimited(tf, &captureMetadata); err != nil {
-		t.Errorf("cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v", err)
-	}
-}
-
-// nolint:thelper
-func compareUploadRequestsMockClient(t *testing.T, isTabular bool, mc *mockClient, expMsgs []*v1.UploadRequest) {
-	mc.lock.Lock()
-	compareUploadRequests(t, false, mc.sent, expMsgs)
-	mc.lock.Unlock()
-}
-
 // TODO: break service construction into its own function, add service as param here
 //nolint:thelper
 func buildAndStartLocalServer(t *testing.T, logger golog.Logger, failIndex int32) (rpc.Server, mockDataSyncServiceServer) {
@@ -351,16 +305,6 @@ func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientCo
 		logger,
 		rpc.WithInsecure(),
 	)
-}
-
-//nolint:thelper
-func getTestSyncerConstructor(t *testing.T, server rpc.Server) ManagerConstructor {
-	return func(logger golog.Logger, cfg *config.Config) (Manager, error) {
-		conn, err := getLocalServerConn(server, logger)
-		test.That(t, err, test.ShouldBeNil)
-		client := NewClient(conn)
-		return NewManager(logger, nil, cfg.Cloud.ID, client, conn)
-	}
 }
 
 type mockDataSyncServiceServer struct {
