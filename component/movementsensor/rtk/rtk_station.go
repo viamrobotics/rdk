@@ -125,7 +125,12 @@ const (
 	ntripStr             = "ntrip"
 )
 
-func newRTKStation(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (movementsensor.MovementSensor, error) {
+func newRTKStation(
+	ctx context.Context,
+	deps registry.Dependencies,
+	config config.Component,
+	logger golog.Logger,
+) (movementsensor.MovementSensor, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	r := &rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}

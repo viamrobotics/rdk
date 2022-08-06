@@ -72,7 +72,12 @@ type PmtkI2CNMEAMovementSensor struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func newPmtkI2CNMEAMovementSensor(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (nmeaMovementSensor, error) {
+func newPmtkI2CNMEAMovementSensor(
+	ctx context.Context,
+	deps registry.Dependencies,
+	config config.Component,
+	logger golog.Logger,
+) (nmeaMovementSensor, error) {
 	b, err := board.FromDependencies(deps, config.Attributes.String("board"))
 	if err != nil {
 		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
@@ -194,14 +199,14 @@ func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (board.I2C, byte) {
 	return g.bus, g.addr
 }
 
-// ReadLocation returns the current geographic location of the MOVEMENTSENSOR.
+// GetPosition returns the current geographic location of the MovementSensor.
 func (g *PmtkI2CNMEAMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.location, g.data.alt, (g.data.hDOP + g.data.vDOP) / 2, nil
 }
 
-// GetLinearVelocity returns the current speed of the MOVEMENTSENSOR.
+// GetLinearVelocity returns the current speed of the MovementSensor.
 func (g *PmtkI2CNMEAMovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -229,6 +234,7 @@ func (g *PmtkI2CNMEAMovementSensor) GetOrientation(ctx context.Context) (r3.Vect
 	return r3.Vector{}, nil
 }
 
+// ReadFix returns quality.
 func (g *PmtkI2CNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()

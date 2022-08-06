@@ -224,7 +224,11 @@ func TestConfigRemote(t *testing.T) {
 
 	statuses, err := r2.GetStatus(
 		context.Background(),
-		[]resource.Name{movementsensor.Named("squee:movement_sensor1"), movementsensor.Named("foo:movement_sensor1"), movementsensor.Named("bar:movement_sensor1")},
+		[]resource.Name{
+			movementsensor.Named("squee:movement_sensor1"),
+			movementsensor.Named("foo:movement_sensor1"),
+			movementsensor.Named("bar:movement_sensor1"),
+		},
 	)
 	test.That(t, err, test.ShouldBeNil)
 

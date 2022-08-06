@@ -223,7 +223,8 @@ func (r *reconfigurableMovementSensor) reconfigure(ctx context.Context, newMovem
 	return nil
 }
 
-// If MovementSensor is already a reconfigurableMovementSensor, then nothing is done.
+// WrapWithReconfigurable - if MovementSensor is already a reconfigurableMovementSensor, then nothing is done.
+// Otherwise wraps in a Reconfigurable.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	ms, ok := r.(MovementSensor)
 	if !ok {

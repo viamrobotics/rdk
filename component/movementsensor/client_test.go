@@ -58,10 +58,17 @@ func TestClient(t *testing.T) {
 	injectMovementSensor2.GetAngularVelocityFunc = func(ctx context.Context) (r3.Vector, error) {
 		return r3.Vector{}, errors.New("can't get angular velocity")
 	}
-	injectMovementSensor2.GetOrientationFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{}, errors.New("can't get orientation") }
-	injectMovementSensor2.GetCompassHeadingFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get compass heading") }
+	injectMovementSensor2.GetOrientationFunc = func(ctx context.Context) (r3.Vector, error) {
+		return r3.Vector{}, errors.New("can't get orientation")
+	}
+	injectMovementSensor2.GetCompassHeadingFunc = func(ctx context.Context) (float64, error) {
+		return 0, errors.New("can't get compass heading")
+	}
 
-	gpsSvc, err := subtype.New(map[resource.Name]interface{}{movementsensor.Named(testMovementSensorName): injectMovementSensor, movementsensor.Named(failMovementSensorName): injectMovementSensor2})
+	gpsSvc, err := subtype.New(map[resource.Name]interface{}{
+		movementsensor.Named(testMovementSensorName): injectMovementSensor,
+		movementsensor.Named(failMovementSensorName): injectMovementSensor2,
+	})
 	test.That(t, err, test.ShouldBeNil)
 	resourceSubtype := registry.ResourceSubtypeLookup(movementsensor.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gpsSvc)
