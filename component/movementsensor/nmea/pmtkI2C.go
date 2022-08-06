@@ -208,21 +208,21 @@ func (g *PmtkI2CNMEAMovementSensor) GetLinearVelocity(ctx context.Context) (r3.V
 	return r3.Vector{0, g.data.speed, 0}, nil
 }
 
-// GetAngularVelocity not supported
+// GetAngularVelocity not supported.
 func (g *PmtkI2CNMEAMovementSensor) GetAngularVelocity(ctx context.Context) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return r3.Vector{}, nil
 }
 
-// GetCompassHeading not supported
+// GetCompassHeading not supported.
 func (g *PmtkI2CNMEAMovementSensor) GetCompassHeading(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return 0, nil
 }
 
-// GetOrientation not supporter
+// GetOrientation not supporter.
 func (g *PmtkI2CNMEAMovementSensor) GetOrientation(ctx context.Context) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()

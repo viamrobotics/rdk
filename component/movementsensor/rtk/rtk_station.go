@@ -9,9 +9,9 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
@@ -93,13 +93,13 @@ func init() {
 
 type rtkStation struct {
 	generic.Unimplemented
-	logger         golog.Logger
-	correction     correctionSource
-	correctionType string
-	i2cPaths       []i2cBusAddr
-	serialPorts    []io.Writer
-	serialWriter   io.Writer
-	movementsensorNames       []string
+	logger              golog.Logger
+	correction          correctionSource
+	correctionType      string
+	i2cPaths            []i2cBusAddr
+	serialPorts         []io.Writer
+	serialWriter        io.Writer
+	movementsensorNames []string
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -305,11 +305,11 @@ func (r *rtkStation) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
 func (r *rtkStation) GetAngularVelocity(ctx context.Context) (r3.Vector, error) {
 	return r3.Vector{}, nil
 }
-	
+
 func (r *rtkStation) GetOrientation(ctx context.Context) (r3.Vector, error) {
 	return r3.Vector{}, nil
 }
-	
+
 func (r *rtkStation) GetCompassHeading(ctx context.Context) (float64, error) {
 	return 0, nil
 }

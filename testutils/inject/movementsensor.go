@@ -3,24 +3,24 @@ package inject
 import (
 	"context"
 
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
-	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/component/movementsensor"
 )
 
-// MovementSensor is an injected MovementSensor
+// MovementSensor is an injected MovementSensor.
 type MovementSensor struct {
 	movementsensor.MovementSensor
-	GetPositionFunc    func(ctx context.Context) (*geo.Point, float64, float64, error)
-	GetLinearVelocityFunc    func(ctx context.Context) (r3.Vector, error)
+	GetPositionFunc        func(ctx context.Context) (*geo.Point, float64, float64, error)
+	GetLinearVelocityFunc  func(ctx context.Context) (r3.Vector, error)
 	GetAngularVelocityFunc func(ctx context.Context) (r3.Vector, error)
-	GetCompassHeadingFunc func(ctx context.Context) (float64, error)
-	GetOrientationFunc func(ctx context.Context)  (r3.Vector, error)
+	GetCompassHeadingFunc  func(ctx context.Context) (float64, error)
+	GetOrientationFunc     func(ctx context.Context) (r3.Vector, error)
 
-	DoFunc             func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	CloseFunc          func(ctx context.Context) error
+	DoFunc    func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	CloseFunc func(ctx context.Context) error
 }
 
 // Close calls the injected Close or the real version.

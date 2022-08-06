@@ -174,7 +174,7 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 func (g *SerialNMEAMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.location, g.data.alt, (g.data.hDOP + g.data.vDOP) / 2,  nil
+	return g.data.location, g.data.alt, (g.data.hDOP + g.data.vDOP) / 2, nil
 }
 
 func (g *SerialNMEAMovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {

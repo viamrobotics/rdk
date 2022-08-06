@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
-	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/component/movementsensor"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -43,7 +43,9 @@ func TestServer(t *testing.T) {
 	injectMovementSensor.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, float64, error) { return loc, alt, 0, nil }
 	injectMovementSensor.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{0, speed, 0}, nil }
 
-	injectMovementSensor2.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, float64, error) { return nil, 0, 0, errors.New("can't get location") }
+	injectMovementSensor2.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, float64, error) {
+		return nil, 0, 0, errors.New("can't get location")
+	}
 	injectMovementSensor2.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{}, errors.New("can't get speed") }
 
 	t.Run("GetPosition", func(t *testing.T) {
@@ -65,7 +67,6 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no MovementSensor")
 	})
 
-	//nolint:dupl
 	t.Run("GetLinearVelocity", func(t *testing.T) {
 		resp, err := gpsServer.GetLinearVelocity(context.Background(), &pb.GetLinearVelocityRequest{Name: testMovementSensorName})
 		test.That(t, err, test.ShouldBeNil)

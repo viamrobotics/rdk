@@ -7,8 +7,8 @@ import (
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/movementsensor/v1"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/subtype"
 )
 
 type subtypeServer struct {
@@ -119,5 +119,4 @@ func (s *subtypeServer) GetOrientation(
 		Orientation: protoutils.ConvertVectorR3ToProto(vel),
 	}, nil
 }
-
 

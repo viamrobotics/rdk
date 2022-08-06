@@ -8,8 +8,8 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/component/imu"
+	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -171,7 +171,7 @@ func TestGetReadings(t *testing.T) {
 			return nil, passedErr
 		}
 		expected := map[resource.Name]interface{}{
-			imu.Named("imu"): readings1,
+			imu.Named("imu"):            readings1,
 			movementsensor.Named("gps"): readings2,
 		}
 		resourceMap := map[resource.Name]interface{}{

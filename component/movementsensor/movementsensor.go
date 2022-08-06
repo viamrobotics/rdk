@@ -1,4 +1,4 @@
-// Package movementsensor defines the interfaces of a MovementSensor 
+// Package movementsensor defines the interfaces of a MovementSensor
 package movementsensor
 
 import (
@@ -10,7 +10,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	
+
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/sensor"
 	pb "go.viam.com/rdk/proto/api/component/movementsensor/v1"
@@ -39,7 +39,7 @@ func init() {
 		},
 	})
 
-	registerCollector("GetPosition", func(ctx context.Context, ms MovementSensor) (interface{}, error){
+	registerCollector("GetPosition", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
 		p, _, _, err := ms.GetPosition(ctx)
 		return p, err
 	})
@@ -66,8 +66,8 @@ type MovementSensor interface {
 	GetLinearVelocity(ctx context.Context) (r3.Vector, error)
 	GetAngularVelocity(ctx context.Context) (r3.Vector, error)
 	GetCompassHeading(ctx context.Context) (float64, error)
-	GetOrientation(ctx context.Context)  (r3.Vector, error)
-	
+	GetOrientation(ctx context.Context) (r3.Vector, error)
+
 	generic.Generic
 	sensor.Sensor
 }

@@ -51,11 +51,13 @@ buf-web: tool-install
 	PATH=$(PATH_WITH_TOOLS) buf generate --timeout 5m --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
 	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
 
-lint: lint-go
+lint: lint-buf lint-go
 
-lint-go: tool-install
+lint-buf: tool-install
 	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s lint
 	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s format -w
+
+lint-go: tool-install
 	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs go vet -vettool=$(TOOL_BIN)/combined
 	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 

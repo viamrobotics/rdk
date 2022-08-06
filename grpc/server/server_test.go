@@ -14,8 +14,8 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/component/imu"
+	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc/server"
