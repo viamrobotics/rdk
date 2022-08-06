@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
+// TODO: should have receive running in a goroutine ready to cancel this if we receive an error
 func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.DataSyncServiceClient,
 	md *v1.UploadMetadata, f *os.File,
 ) error {
@@ -54,7 +55,7 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		}
 
 		if err = stream.Send(uploadReq); err != nil {
-			return errors.Wrap(err, "error while sending uploadRequest")
+			return err
 		}
 		if err := pt.incrementProgressFileIndex(filepath.Join(pt.progressDir, filepath.
 			Base(f.Name()))); err != nil {
@@ -67,7 +68,7 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	}
 
 	// Close stream and receive response.
-	if err := stream.CloseSend(); err != nil {
+	if _, err := stream.CloseAndRecv(); err != nil {
 		return err
 	}
 

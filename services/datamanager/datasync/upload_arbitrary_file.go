@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
+// TODO: should have receive running in a goroutine ready to cancel this if we receive an error
 func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, md *v1.UploadMetadata,
 	f *os.File,
 ) error {
@@ -27,7 +28,7 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 		},
 	}
 	if err := stream.Send(req); err != nil {
-		return errors.Wrap(err, "error while sending upload metadata")
+		return err
 	}
 
 	// Loop until there is no more content to be read from file.
@@ -47,7 +48,7 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 		}
 
 		if err = stream.Send(uploadReq); err != nil {
-			return errors.Wrap(err, "error while sending uploadRequest")
+			return err
 		}
 	}
 
@@ -56,9 +57,8 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 	}
 
 	// Close stream and receive response.
-	if err := stream.CloseSend(); err != nil {
-		return errors.Wrap(err, "error when closing the stream and receiving the response from "+
-			"sync service backend")
+	if _, err := stream.CloseAndRecv(); err != nil {
+		return err
 	}
 
 	fmt.Println("done syncing")

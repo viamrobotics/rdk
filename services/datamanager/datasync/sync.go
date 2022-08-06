@@ -98,6 +98,7 @@ func NewManager(logger golog.Logger, uploadFunc UploadFunc, partID string,
 		partID:            partID,
 	}
 	if uploadFunc == nil {
+		fmt.Println("using default upload func")
 		uploadFunc = ret.uploadFile
 	}
 	ret.uploadFunc = uploadFunc
@@ -139,6 +140,7 @@ func (s *syncer) upload(ctx context.Context, path string) {
 			s.logger.Error(uploadErr)
 			return
 		}
+		fmt.Println("dont uploading")
 
 		// Delete the file and indicate that the upload is done.
 		if err := os.Remove(path); err != nil {
@@ -165,8 +167,10 @@ func (s *syncer) Sync(paths []string) {
 func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Context) error, log golog.Logger) error {
 	// Only create a ticker and enter the retry loop if we actually need to retry.
 	if err := fn(cancelCtx); err == nil {
+		fmt.Println("no need to retry")
 		return nil
 	}
+	fmt.Println("we needed to retry...")
 
 	// First call failed, so begin exponentialRetry with a factor of retryExponentialFactor
 	nextWait := initialWaitTime
@@ -240,6 +244,8 @@ func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
 // TODO: data manager test isn't actually using real uploadFile... which is where the progress stuff
 //       (except deletion... which should probably also happen here) happens
 func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncServiceClient, path string, partID string) error {
+	fmt.Println("entered uploadFile")
+	defer fmt.Println("exited upload file")
 	//nolint:gosec
 	f, err := os.Open(path)
 	if err != nil {

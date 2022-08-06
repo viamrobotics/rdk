@@ -6,6 +6,8 @@ import (
 	"go.uber.org/atomic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"io"
 	"io/ioutil"
 	"os"
@@ -316,12 +318,13 @@ func compareUploadRequestsMockClient(t *testing.T, isTabular bool, mc *mockClien
 }
 
 //nolint:thelper
-func buildAndStartLocalServer(t *testing.T, logger golog.Logger) (rpc.Server, mockDataSyncServiceServer) {
+func buildAndStartLocalServer(t *testing.T, logger golog.Logger, failIndex int32) (rpc.Server, mockDataSyncServiceServer) {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	mockService := mockDataSyncServiceServer{
 		uploadRequests:                     &[]*v1.UploadRequest{},
 		callCount:                          &atomic.Int32{},
+		failUntilIndex:                     failIndex,
 		lock:                               &sync.Mutex{},
 		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
 	}
@@ -382,9 +385,12 @@ func (m mockDataSyncServiceServer) getUploadCallCount() int32 {
 }
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
-	m.callCount.Add(1)
+	defer m.callCount.Add(1)
+	fmt.Println(m.callCount.Load())
+	fmt.Println(m.failUntilIndex)
 	if m.callCount.Load() < m.failUntilIndex {
-		return errors.New("again, i failed :(")
+		fmt.Println("again i failed")
+		return status.Error(codes.Aborted, "failed on purpose")
 	}
 	for {
 		ur, err := stream.Recv()
