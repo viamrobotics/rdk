@@ -2,6 +2,11 @@ package datasync
 
 import (
 	"context"
+	"fmt"
+	"go.uber.org/atomic"
+	"go.viam.com/rdk/config"
+	"go.viam.com/utils/rpc"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -308,4 +313,92 @@ func compareUploadRequestsMockClient(t *testing.T, isTabular bool, mc *mockClien
 	mc.lock.Lock()
 	compareUploadRequests(t, false, mc.sent, expMsgs)
 	mc.lock.Unlock()
+}
+
+//nolint:thelper
+func buildAndStartLocalServer(t *testing.T, logger golog.Logger) (rpc.Server, mockDataSyncServiceServer) {
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+	mockService := mockDataSyncServiceServer{
+		uploadRequests:                     &[]*v1.UploadRequest{},
+		callCount:                          &atomic.Int32{},
+		lock:                               &sync.Mutex{},
+		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
+	}
+	err = rpcServer.RegisterServiceServer(
+		context.Background(),
+		&v1.DataSyncService_ServiceDesc,
+		mockService,
+		v1.RegisterDataSyncServiceHandlerFromEndpoint,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Stand up the server. Defer stopping the server.
+	go func() {
+		err := rpcServer.Start()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+	return rpcServer, mockService
+}
+
+func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientConn, error) {
+	return rpc.DialDirectGRPC(
+		context.Background(),
+		rpcServer.InternalAddr().String(),
+		logger,
+		rpc.WithInsecure(),
+	)
+}
+
+//nolint:thelper
+func getTestSyncerConstructor(t *testing.T, server rpc.Server) ManagerConstructor {
+	return func(logger golog.Logger, cfg *config.Config) (Manager, error) {
+		conn, err := getLocalServerConn(server, logger)
+		test.That(t, err, test.ShouldBeNil)
+		client := NewClient(conn)
+		return NewManager(logger, nil, cfg.Cloud.ID, client, conn)
+	}
+}
+
+type mockDataSyncServiceServer struct {
+	uploadRequests *[]*v1.UploadRequest
+	callCount      *atomic.Int32
+	failUntilIndex int32
+
+	lock *sync.Mutex
+	v1.UnimplementedDataSyncServiceServer
+}
+
+func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
+	(*m.lock).Lock()
+	fmt.Println("got uploaded data lock")
+	defer fmt.Println("released uploaded data lock")
+	defer (*m.lock).Unlock()
+	return *m.uploadRequests
+}
+
+func (m mockDataSyncServiceServer) getUploadCallCount() int32 {
+	return m.callCount.Load()
+}
+
+func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
+	m.callCount.Add(1)
+	if m.callCount.Load() < m.failUntilIndex {
+		return errors.New("again, i failed :(")
+	}
+	for {
+		ur, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		(*m.lock).Lock()
+		newData := append(*m.uploadRequests, ur)
+		*m.uploadRequests = newData
+		(*m.lock).Unlock()
+	}
+	_ = stream.SendAndClose(&v1.UploadResponse{})
+	return nil
 }

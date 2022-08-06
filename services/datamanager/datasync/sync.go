@@ -3,6 +3,7 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -108,12 +109,16 @@ func NewManager(logger golog.Logger, uploadFunc UploadFunc, partID string,
 
 // Close closes all resources (goroutines) associated with s.
 func (s *syncer) Close() {
+	fmt.Println("closing")
 	s.cancelFunc()
 	s.backgroundWorkers.Wait()
 	// TODO: log
-	if err := s.conn.Close(); err != nil {
-		s.logger.Errorw("error closing datasync server connection", "error", err)
+	if s.conn != nil {
+		if err := s.conn.Close(); err != nil {
+			s.logger.Errorw("error closing datasync server connection", "error", err)
+		}
 	}
+	fmt.Println("done closing")
 }
 
 func (s *syncer) upload(ctx context.Context, path string) {
