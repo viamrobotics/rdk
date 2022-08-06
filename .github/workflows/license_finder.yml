@@ -40,5 +40,5 @@ jobs:
           export GOPRIVATE='github.com/viamrobotics/*,go.viam.com/*'
           echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc
           # audit licenses
-          license_finder
+          license_finder --npm-options='--prefix web/frontend'
           EOF
