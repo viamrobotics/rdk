@@ -171,30 +171,35 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 	return g.correctionPath, g.correctionBaudRate
 }
 
+// GetPosition position, altitide, accuracy.
 func (g *SerialNMEAMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.location, g.data.alt, (g.data.hDOP + g.data.vDOP) / 2, nil
 }
 
+// GetLinearVelocity linear velocity.
 func (g *SerialNMEAMovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return r3.Vector{0, g.data.speed, 0}, nil
 }
 
+// GetAngularVelocity angularvelocity.
 func (g *SerialNMEAMovementSensor) GetAngularVelocity(ctx context.Context) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return r3.Vector{0, 0, 0}, nil
 }
 
+// GetOrientation orientation.
 func (g *SerialNMEAMovementSensor) GetOrientation(ctx context.Context) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return r3.Vector{0, 0, 0}, nil
 }
 
+// GetCompassHeading 0->360.
 func (g *SerialNMEAMovementSensor) GetCompassHeading(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()

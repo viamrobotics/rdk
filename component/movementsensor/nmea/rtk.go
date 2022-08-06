@@ -121,7 +121,12 @@ const (
 	ntripConnectAttemptsName   = "ntrip_connect_attempts"
 )
 
-func newRTKMovementSensor(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (nmeaMovementSensor, error) {
+func newRTKMovementSensor(
+	ctx context.Context,
+	deps registry.Dependencies,
+	config config.Component,
+	logger golog.Logger,
+) (nmeaMovementSensor, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	g := &RTKMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
@@ -466,27 +471,27 @@ func (g *RTKMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float6
 	return g.nmeamovementsensor.GetPosition(ctx)
 }
 
-// GetLinearVelocity.
+// GetLinearVelocity passthrough.
 func (g *RTKMovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
 	return g.nmeamovementsensor.GetLinearVelocity(ctx)
 }
 
-// GetAngularVelocity.
+// GetAngularVelocity passthrough.
 func (g *RTKMovementSensor) GetAngularVelocity(ctx context.Context) (r3.Vector, error) {
 	return g.nmeamovementsensor.GetAngularVelocity(ctx)
 }
 
-// GetCompassHeading.
+// GetCompassHeading passthrough.
 func (g *RTKMovementSensor) GetCompassHeading(ctx context.Context) (float64, error) {
 	return g.nmeamovementsensor.GetCompassHeading(ctx)
 }
 
-// GetOrientation.
+// GetOrientation passthrough.
 func (g *RTKMovementSensor) GetOrientation(ctx context.Context) (r3.Vector, error) {
 	return g.nmeamovementsensor.GetOrientation(ctx)
 }
 
-// ReadFix.
+// ReadFix passthrough.
 func (g *RTKMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	return g.nmeamovementsensor.ReadFix(ctx)
 }
