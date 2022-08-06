@@ -52,7 +52,7 @@ func TestFileUpload(t *testing.T) {
 
 		// Register mock datasync service with a mock server.
 		logger, _ := golog.NewObservedTestLogger(t)
-		rpcServer, mockService := buildAndStartLocalServer(t, logger)
+		rpcServer, mockService := buildAndStartLocalServer(t, logger, 0)
 		defer func() {
 			err := rpcServer.Stop()
 			test.That(t, err, test.ShouldBeNil)
@@ -186,7 +186,7 @@ func TestSensorUploadTabular(t *testing.T) {
 
 		// Register mock datasync service with a mock server.
 		logger, _ := golog.NewObservedTestLogger(t)
-		rpcServer, mockService := buildAndStartLocalServer(t, logger)
+		rpcServer, mockService := buildAndStartLocalServer(t, logger, 0)
 		defer func() {
 			err := rpcServer.Stop()
 			test.That(t, err, test.ShouldBeNil)
@@ -296,7 +296,7 @@ func TestSensorUploadBinary(t *testing.T) {
 		// Upload the contents from the created file.
 		// Register mock datasync service with a mock server.
 		logger, _ := golog.NewObservedTestLogger(t)
-		rpcServer, mockService := buildAndStartLocalServer(t, logger)
+		rpcServer, mockService := buildAndStartLocalServer(t, logger, 0)
 		defer func() {
 			err := rpcServer.Stop()
 			test.That(t, err, test.ShouldBeNil)
@@ -323,7 +323,7 @@ func TestSensorUploadBinary(t *testing.T) {
 func TestUploadsOnce(t *testing.T) {
 	// Register mock datasync service with a mock server.
 	logger, _ := golog.NewObservedTestLogger(t)
-	rpcServer, mockService := buildAndStartLocalServer(t, logger)
+	rpcServer, mockService := buildAndStartLocalServer(t, logger, 0)
 	defer func() {
 		err := rpcServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
@@ -365,8 +365,8 @@ func TestUploadExponentialRetry(t *testing.T) {
 	// Define an UploadFunc that fails 3 times then succeeds on its 4th attempt.
 	// Register mock datasync service with a mock server.
 	logger, _ := golog.NewObservedTestLogger(t)
-	rpcServer, mockService := buildAndStartLocalServer(t, logger)
-	mockService.failUntilIndex = 2
+	rpcServer, mockService := buildAndStartLocalServer(t, logger, 3)
+	uploadChunkSize = 10
 	defer func() {
 		err := rpcServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
@@ -381,13 +381,14 @@ func TestUploadExponentialRetry(t *testing.T) {
 	// Sync file.
 	file1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(file1.Name())
+	_, _ = file1.Write([]byte("this is some amount of content greater than 10"))
 	sut.Sync([]string{file1.Name()})
 
 	// Let it run.
-	time.Sleep(time.Second)
+	time.Sleep(time.Second * 1)
 	sut.Close()
 
-	test.That(t, mockService.getUploadCallCount(), test.ShouldEqual, int32(4))
+	test.That(t, mockService.getUploadCallCount(), test.ShouldEqual, 4)
 }
 
 func TestPartialUpload(t *testing.T) {
