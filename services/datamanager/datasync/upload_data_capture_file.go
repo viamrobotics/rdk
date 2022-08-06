@@ -69,6 +69,9 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 
 	// Close stream and receive response.
 	if _, err := stream.CloseAndRecv(); err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
 		return err
 	}
 

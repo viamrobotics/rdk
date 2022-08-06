@@ -62,6 +62,9 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 
 	// Close stream and receive response.
 	if _, err := stream.CloseAndRecv(); err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
 		return err
 	}
 
