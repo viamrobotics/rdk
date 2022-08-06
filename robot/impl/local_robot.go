@@ -131,6 +131,7 @@ func (r *localRobot) OperationManager() *operation.Manager {
 
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
+	fmt.Println("Close local robot")
 	for _, svc := range r.internalServices {
 		if err := goutils.TryClose(ctx, svc); err != nil {
 			return err
