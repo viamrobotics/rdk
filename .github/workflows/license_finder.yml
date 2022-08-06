@@ -16,7 +16,10 @@ env:
 jobs:
   build_and_test:
     name: Audit 3rd-Party Licenses
-    runs-on: ubuntu-latest
+    runs-on: [x64, qemu-host] 
+    container: 
+      image: ghcr.io/viamrobotics/canon:amd64-cache 
+      options: --platform linux/amd64
     timeout-minutes: 30
 
     steps:
