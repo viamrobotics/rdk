@@ -2,6 +2,7 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -59,6 +60,8 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 		return errors.Wrap(err, "error when closing the stream and receiving the response from "+
 			"sync service backend")
 	}
+
+	fmt.Println("done syncing")
 
 	return nil
 }
