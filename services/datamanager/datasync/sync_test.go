@@ -44,7 +44,8 @@ func TestFileUpload(t *testing.T) {
 
 		// Register mock datasync service with a mock server.
 		logger, _ := golog.NewObservedTestLogger(t)
-		rpcServer, mockService := buildAndStartLocalServer(t, logger, 0)
+		mockService := getMockService(0)
+		rpcServer := buildAndStartLocalServer(t, logger, mockService)
 		defer func() {
 			err := rpcServer.Stop()
 			test.That(t, err, test.ShouldBeNil)
@@ -178,7 +179,8 @@ func TestSensorUploadTabular(t *testing.T) {
 
 		// Register mock datasync service with a mock server.
 		logger, _ := golog.NewObservedTestLogger(t)
-		rpcServer, mockService := buildAndStartLocalServer(t, logger, 0)
+		mockService := getMockService(0)
+		rpcServer := buildAndStartLocalServer(t, logger, mockService)
 		defer func() {
 			err := rpcServer.Stop()
 			test.That(t, err, test.ShouldBeNil)
@@ -288,7 +290,8 @@ func TestSensorUploadBinary(t *testing.T) {
 		// Upload the contents from the created file.
 		// Register mock datasync service with a mock server.
 		logger, _ := golog.NewObservedTestLogger(t)
-		rpcServer, mockService := buildAndStartLocalServer(t, logger, 0)
+		mockService := getMockService(0)
+		rpcServer := buildAndStartLocalServer(t, logger, mockService)
 		defer func() {
 			err := rpcServer.Stop()
 			test.That(t, err, test.ShouldBeNil)
@@ -315,7 +318,8 @@ func TestSensorUploadBinary(t *testing.T) {
 func TestUploadsOnce(t *testing.T) {
 	// Register mock datasync service with a mock server.
 	logger, _ := golog.NewObservedTestLogger(t)
-	rpcServer, mockService := buildAndStartLocalServer(t, logger, 0)
+	mockService := getMockService(0)
+	rpcServer := buildAndStartLocalServer(t, logger, mockService)
 	defer func() {
 		err := rpcServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
@@ -357,7 +361,8 @@ func TestUploadExponentialRetry(t *testing.T) {
 	// Define an UploadFunc that fails 3 times then succeeds on its 4th attempt.
 	// Register mock datasync service with a mock server.
 	logger, _ := golog.NewObservedTestLogger(t)
-	rpcServer, mockService := buildAndStartLocalServer(t, logger, 3)
+	mockService := getMockService(3)
+	rpcServer := buildAndStartLocalServer(t, logger, mockService)
 	uploadChunkSize = 10
 	defer func() {
 		err := rpcServer.Stop()
