@@ -353,7 +353,6 @@ func TestUploadsOnce(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
-// TODO: how to test this?
 func TestUploadExponentialRetry(t *testing.T) {
 	// Set retry related global vars to faster values for test.
 	initialWaitTime = time.Millisecond * 50
