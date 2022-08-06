@@ -2,7 +2,6 @@ package datasync
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -21,6 +20,11 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 	if err != nil {
 		return err
 	}
+
+	// TODO: start up goroutine here waiting on stream.Recvmessage
+	//       When recv message, throw in channel
+	//       Have below for loop select between that channel and (Default) current loop
+	//           If error, stop sending
 	// Send metadata upload request.
 	req := &v1.UploadRequest{
 		UploadPacket: &v1.UploadRequest_Metadata{
@@ -60,8 +64,6 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 	if _, err := stream.CloseAndRecv(); err != nil {
 		return err
 	}
-
-	fmt.Println("done syncing")
 
 	return nil
 }

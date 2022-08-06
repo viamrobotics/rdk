@@ -2,7 +2,6 @@ package datasync
 
 import (
 	"context"
-	"fmt"
 	"go.uber.org/atomic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/utils/rpc"
@@ -376,8 +375,6 @@ type mockDataSyncServiceServer struct {
 
 func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
 	(*m.lock).Lock()
-	fmt.Println("got uploaded data lock")
-	defer fmt.Println("released uploaded data lock")
 	defer (*m.lock).Unlock()
 	return *m.uploadRequests
 }
@@ -388,10 +385,7 @@ func (m mockDataSyncServiceServer) getUploadCallCount() int32 {
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
 	defer m.callCount.Add(1)
-	fmt.Println(m.callCount.Load())
-	fmt.Println(m.failUntilIndex)
 	if m.callCount.Load() < m.failUntilIndex {
-		fmt.Println("again i failed")
 		return status.Error(codes.Aborted, "failed on purpose")
 	}
 	for {
