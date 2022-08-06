@@ -2,10 +2,6 @@ package datasync
 
 import (
 	"context"
-	"go.uber.org/atomic"
-	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"io"
 	"io/ioutil"
 	"os"
@@ -16,9 +12,12 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
+	"go.uber.org/atomic"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
-	"google.golang.org/grpc"
+	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/protoutils"
@@ -31,55 +30,6 @@ var (
 	componentName = "componentname"
 	methodName    = "methodname"
 )
-
-// mockClient implements DataSyncService_UploadClient and maintains a list of all UploadRequests sent with its
-// send method. The mockClient shuts down after a maximum of 'cancelIndex+1' sent UploadRequests. The '+1' gives
-// capacity for the metadata message to precede other messages. This simulates partial uploads (cases where client is
-// shut down during upload).
-type mockClient struct {
-	sent        []*v1.UploadRequest
-	cancelIndex int
-	lock        sync.Mutex
-	grpc.ClientStream
-}
-
-func (m *mockClient) Send(req *v1.UploadRequest) error {
-	m.lock.Lock()
-	if m.cancelIndex != len(m.sent) {
-		m.sent = append(m.sent, req)
-		m.lock.Unlock()
-		return nil
-	}
-	m.lock.Unlock()
-	return errors.New("cancel sending of upload request")
-}
-
-func (m *mockClient) CloseAndRecv() (*v1.UploadResponse, error) {
-	return &v1.UploadResponse{}, nil
-}
-
-func (m *mockClient) Context() context.Context {
-	return context.TODO()
-}
-
-type mockSyncClient struct {
-	mc v1.DataSyncService_UploadClient
-}
-
-func (m mockSyncClient) Upload(ctx context.Context, opts ...grpc.CallOption) (v1.DataSyncService_UploadClient, error) {
-	return m.mc, nil
-}
-
-// Builds syncer used in partial upload tests.
-//nolint:thelper
-func newTestSyncer(t *testing.T, mc *mockClient, uploadFunc UploadFunc) *syncer {
-	l := golog.NewTestLogger(t)
-	manager, err := NewManager(l, uploadFunc, partID, nil, nil)
-	test.That(t, err, test.ShouldBeNil)
-	syncer := manager.(*syncer)
-	syncer.client = mockSyncClient{mc: mc}
-	return syncer
-}
 
 // Compares UploadRequests containing either binary or tabular sensor data.
 // nolint:thelper
@@ -155,67 +105,6 @@ func writeBinarySensorData(f *os.File, toWrite [][]byte) error {
 	return nil
 }
 
-func writeSensorData(f *os.File, sds []*v1.SensorData) error {
-	for _, sd := range sds {
-		_, err := pbutil.WriteDelimited(f, sd)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func createBinarySensorData(toWrite [][]byte) []*v1.SensorData {
-	sds := []*v1.SensorData{}
-	for _, bytes := range toWrite {
-		sd := &v1.SensorData{
-			Data: &v1.SensorData_Binary{
-				Binary: bytes,
-			},
-		}
-		sds = append(sds, sd)
-	}
-	return sds
-}
-
-func createTabularSensorData(toWrite []*structpb.Struct) []*v1.SensorData {
-	sds := []*v1.SensorData{}
-	for _, contents := range toWrite {
-		sd := &v1.SensorData{
-			Data: &v1.SensorData_Struct{
-				Struct: contents,
-			},
-		}
-		sds = append(sds, sd)
-	}
-	return sds
-}
-
-func getUploadRequests(sds []*v1.SensorData, dt v1.DataType, fileName string) []*v1.UploadRequest {
-	urs := []*v1.UploadRequest{}
-	if len(sds) == 0 {
-		return []*v1.UploadRequest{}
-	}
-	urs = append(urs, &v1.UploadRequest{
-		UploadPacket: &v1.UploadRequest_Metadata{
-			Metadata: &v1.UploadMetadata{
-				PartId:        partID,
-				Type:          dt,
-				FileName:      fileName,
-				ComponentType: componentType,
-				ComponentName: componentName,
-				MethodName:    methodName,
-			},
-		},
-	})
-	for _, sd := range sds {
-		urs = append(urs, &v1.UploadRequest{
-			UploadPacket: &v1.UploadRequest_SensorContents{SensorContents: sd},
-		})
-	}
-	return urs
-}
-
 // createTmpDataCaptureFile creates a data capture file, which is defined as a file with the dataCaptureFileExt as its
 // file extension.
 func createTmpDataCaptureFile() (file *os.File, err error) {
@@ -231,11 +120,6 @@ func createTmpDataCaptureFile() (file *os.File, err error) {
 		return nil, err
 	}
 	return ret, nil
-}
-
-func fileExists(fileName string) bool {
-	_, err := os.Stat(fileName)
-	return !errors.Is(err, os.ErrNotExist)
 }
 
 func buildBinarySensorMsgs(data [][]byte, fileName string) []*v1.UploadRequest {
@@ -313,7 +197,6 @@ type mockDataSyncServiceServer struct {
 	uploadRequests *[]*v1.UploadRequest
 	callCount      *atomic.Int32
 	failUntilIndex int32
-	failAtIndex    int32
 
 	lock *sync.Mutex
 	v1.UnimplementedDataSyncServiceServer
@@ -347,6 +230,8 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 		*m.uploadRequests = newData
 		(*m.lock).Unlock()
 	}
-	_ = stream.SendAndClose(&v1.UploadResponse{})
+	if err := stream.SendAndClose(&v1.UploadResponse{}); err != nil {
+		return err
+	}
 	return nil
 }
