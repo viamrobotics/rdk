@@ -444,16 +444,20 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options w
 // runWeb takes the given robot and options and runs the web server. This function will
 // block until the context is done.
 func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (err error) {
+	fmt.Println("webservice runWeb")
 	if options.Network.BindAddress != "" && options.Network.Listener != nil {
 		return errors.New("may only set one of network bind address or listener")
 	}
 	listener := options.Network.Listener
+
 	if listener == nil {
+		fmt.Printf("listener set up at address: %v \n", options.Network.BindAddress)
 		listener, err = net.Listen("tcp", options.Network.BindAddress)
 		if err != nil {
 			return err
 		}
 	}
+	fmt.Printf("listener addy: %s \n", listener.Addr().String())
 
 	listenerTCPAddr, ok := listener.Addr().(*net.TCPAddr)
 	if !ok {

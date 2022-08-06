@@ -3,10 +3,13 @@ package client_test
 import (
 	"context"
 	"fmt"
+	"net"
 	"testing"
 	"time"
 
 	"github.com/edaniels/golog"
+	"go.uber.org/zap"
+	"go.viam.com/rdk/robot"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -19,16 +22,33 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 )
 
-func TestReconfigurableClient(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	ctx := context.Background()
-	ctx1 := context.Background()
+func startBaseRobot(t *testing.T, logger *zap.SugaredLogger, ctx context.Context) (robot.LocalRobot, net.Listener) {
 	cfg, err := config.Read(ctx, "data/robot0.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	options := weboptions.New()
 	options.Network.BindAddress = ""
-	listener := testutils.ReserveRandomListener(t)
+	var listener net.Listener = testutils.ReserveRandomListener(t)
+	options.Network.Listener = listener
+
+	// start robot
+	robot, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, robot, test.ShouldNotBeNil)
+	return robot, listener
+}
+
+func TestReconfigurableClient(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+	ctx1 := context.Background()
+	// startBaseRobot(t, logger, ctx)
+	cfg, err := config.Read(ctx, "data/robot0.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	options := weboptions.New()
+	options.Network.BindAddress = ""
+	var listener net.Listener = testutils.ReserveRandomListener(t)
 	addr := listener.Addr().String()
 	options.Network.Listener = listener
 	cfg.Network.BindAddress = addr
@@ -40,11 +60,10 @@ func TestReconfigurableClient(t *testing.T) {
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
 	}()
-
 	err = robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	dur := 100 * time.Millisecond
+	dur := time.Second
 	// start robot client
 	robotClient, err := client.New(
 		ctx1,
@@ -68,18 +87,23 @@ func TestReconfigurableClient(t *testing.T) {
 	// close/disconnect the robot
 	// err = robot.StopWeb()
 	test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
-	test.That(t, err, test.ShouldBeNil)
+	// test.That(t, err, test.ShouldBeNil)
 	test.That(t, <-robotClient.Changed(), test.ShouldBeTrue)
 	test.That(t, len(robotClient.ResourceNames()), test.ShouldEqual, 0)
 	_, err = robotClient.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeError)
 
 	// reconnect the robot
-	robot, err = robotimpl.New(ctx, cfg, logger)
+	ctx2 := context.Background()
+	robot, err = robotimpl.New(ctx2, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robot, test.ShouldNotBeNil)
 
-	ctx2 := context.Background()
+	// listener reestablished
+	listener, err = net.Listen("tcp", listener.Addr().String())
+	test.That(t, err, test.ShouldBeNil)
+	options.Network.Listener = listener
+
 	err = robot.StartWeb(ctx2, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -90,6 +114,33 @@ func TestReconfigurableClient(t *testing.T) {
 	_, err = robotClient.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = res.GetEndPosition(context.Background(), map[string]interface{}{})
+	test.That(t, err, test.ShouldBeNil)
+
+}
+
+func TestReconnectRemote(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx := context.Background()
+	cfg, err := config.Read(ctx, "data/robot0.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	options := weboptions.New()
+	options.Network.BindAddress = ""
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
+	options.Network.Listener = listener
+	cfg.Network.BindAddress = addr
+	// gServer := grpc.NewServer()
+
+	// start robot
+	robot, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, robot, test.ShouldNotBeNil)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
+	}()
+
+	err = robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 }

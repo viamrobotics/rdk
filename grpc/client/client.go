@@ -155,6 +155,7 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	fmt.Println("call connect")
 	if rc.conn != nil {
 		if err := rc.conn.Close(); err != nil {
+			fmt.Println("close connection")
 			return err
 		}
 	}
@@ -177,7 +178,6 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	rc.connected = true
 	fmt.Println("just reconnected")
 	if rc.connectedBefore {
-
 		fmt.Println("check resources")
 		// refresh first to get the new resources
 		err = rc.updateResources(ctx)
@@ -459,6 +459,7 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 }
 
 func (rc *RobotClient) updateResources(ctx context.Context) error {
+	fmt.Println("update resources")
 	// call metadata service.
 	names, rpcSubtypes, err := rc.resources(ctx)
 	// only return if it is not unimplemented - means a bigger error came up
