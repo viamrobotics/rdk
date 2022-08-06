@@ -28,8 +28,8 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/movementsensor"
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
@@ -990,8 +990,8 @@ func TestStatusService(t *testing.T) {
 	armStatus, err := arm.CreateStatus(context.Background(), rArm)
 	test.That(t, err, test.ShouldBeNil)
 	expected := map[resource.Name]interface{}{
-		arm.Named("pieceArm"): armStatus,
-		movementsensor.Named("movement_sensor1"):     map[string]interface{}{},
+		arm.Named("pieceArm"):                    armStatus,
+		movementsensor.Named("movement_sensor1"): map[string]interface{}{},
 	}
 
 	statuses, err := r.GetStatus(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")})

@@ -7,12 +7,12 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
-	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/movementsensor"
@@ -39,19 +39,25 @@ func TestClient(t *testing.T) {
 	ang := 1.1
 	ori := 2.2
 	heading := 202.
-	rs := []interface{}{loc, alt, 0, r3.Vector{0,speed,0}, r3.Vector{0, 0, ang}, heading, r3.Vector{ori, 0, 0}}
+	rs := []interface{}{loc, alt, 0, r3.Vector{0, speed, 0}, r3.Vector{0, 0, ang}, heading, r3.Vector{ori, 0, 0}}
 
 	injectMovementSensor := &inject.MovementSensor{}
 	injectMovementSensor.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, float64, error) { return loc, alt, 0, nil }
 	injectMovementSensor.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{0, speed, 0}, nil }
 	injectMovementSensor.GetAngularVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{0, 0, ang}, nil }
 	injectMovementSensor.GetOrientationFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{ori, 0, 0}, nil }
-	injectMovementSensor.GetCompassHeadingFunc = func(ctx context.Context) (float64, error) { return heading, nil }	
+	injectMovementSensor.GetCompassHeadingFunc = func(ctx context.Context) (float64, error) { return heading, nil }
 
 	injectMovementSensor2 := &inject.MovementSensor{}
-	injectMovementSensor2.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, float64, error) { return nil, 0, 0, errors.New("can't get location") }
-	injectMovementSensor2.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{}, errors.New("can't get linear velocity") }
-	injectMovementSensor2.GetAngularVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{}, errors.New("can't get angular velocity") }
+	injectMovementSensor2.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, float64, error) {
+		return nil, 0, 0, errors.New("can't get location")
+	}
+	injectMovementSensor2.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) {
+		return r3.Vector{}, errors.New("can't get linear velocity")
+	}
+	injectMovementSensor2.GetAngularVelocityFunc = func(ctx context.Context) (r3.Vector, error) {
+		return r3.Vector{}, errors.New("can't get angular velocity")
+	}
 	injectMovementSensor2.GetOrientationFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{}, errors.New("can't get orientation") }
 	injectMovementSensor2.GetCompassHeadingFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get compass heading") }
 

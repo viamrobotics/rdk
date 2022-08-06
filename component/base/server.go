@@ -92,7 +92,12 @@ func (s *subtypeServer) SetPower(
 		return nil, err
 	}
 
-	err = base.SetPower(ctx, protoutils.ConvertVectorProtoToR3(req.GetLinear()), protoutils.ConvertVectorProtoToR3(req.GetAngular()), req.Extra.AsMap())
+	err = base.SetPower(
+		ctx,
+		protoutils.ConvertVectorProtoToR3(req.GetLinear()),
+		protoutils.ConvertVectorProtoToR3(req.GetAngular()),
+		req.Extra.AsMap(),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +114,12 @@ func (s *subtypeServer) SetVelocity(
 		return nil, err
 	}
 
-	err = base.SetVelocity(ctx, protoutils.ConvertVectorProtoToR3(req.GetLinear()), protoutils.ConvertVectorProtoToR3(req.GetAngular()), req.Extra.AsMap())
+	err = base.SetVelocity(
+		ctx,
+		protoutils.ConvertVectorProtoToR3(req.GetLinear()),
+		protoutils.ConvertVectorProtoToR3(req.GetAngular()),
+		req.Extra.AsMap(),
+	)
 	if err != nil {
 		return nil, err
 	}

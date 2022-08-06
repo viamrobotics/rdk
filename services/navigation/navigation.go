@@ -107,9 +107,9 @@ var Name = resource.NameFromSubtype(Subtype, "")
 
 // Config describes how to configure the service.
 type Config struct {
-	Store    StoreConfig `json:"store"`
-	BaseName string      `json:"base"`
-	MovementSensorName  string      `json:"movement_sensor"`
+	Store              StoreConfig `json:"store"`
+	BaseName           string      `json:"base"`
+	MovementSensorName string      `json:"movement_sensor"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -157,13 +157,13 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	navSvc := &navService{
-		r:          r,
-		store:      store,
-		base:       base1,
-		movementSensor:  movementSensor,
-		logger:     logger,
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
+		r:              r,
+		store:          store,
+		base:           base1,
+		movementSensor: movementSensor,
+		logger:         logger,
+		cancelCtx:      cancelCtx,
+		cancelFunc:     cancelFunc,
 	}
 	return navSvc, nil
 }
@@ -174,7 +174,7 @@ type navService struct {
 	store navStore
 	mode  Mode
 
-	base      base.Base
+	base           base.Base
 	movementSensor movementsensor.MovementSensor
 
 	logger                  golog.Logger

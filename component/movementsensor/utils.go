@@ -2,7 +2,7 @@ package movementsensor
 
 import (
 	"math"
-	
+
 	geo "github.com/kellydunn/golang-geo"
 
 	"go.viam.com/rdk/utils"

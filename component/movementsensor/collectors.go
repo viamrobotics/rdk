@@ -42,12 +42,12 @@ func registerCollector(name string, f lowLevelCollector) {
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    SubtypeName,
 		MethodName: name,
-	}, func (resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	}, func(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 		ms, err := assertMovementSensor(resource)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 			v, err := f(ctx, ms)
 			if err != nil {

@@ -3,11 +3,9 @@ package movementsensor
 import (
 	"testing"
 
-	"go.viam.com/test"
-	
 	geo "github.com/kellydunn/golang-geo"
+	"go.viam.com/test"
 )
-
 
 func TestGetHeading(t *testing.T) {
 	// test case 1, standard bearing = 0, heading = 270

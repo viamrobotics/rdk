@@ -11,8 +11,8 @@ import (
 
 	"github.com/de-bkg/gognss/pkg/ntrip"
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
 	"github.com/go-gnss/rtcm/rtcm3"
+	"github.com/golang/geo/r3"
 	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
 
@@ -83,7 +83,7 @@ type nmeaMovementSensor interface {
 // A RTKMovementSensor is an NMEA MovementSensor model that can intake RTK correction data.
 type RTKMovementSensor struct {
 	generic.Unimplemented
-	nmeamovementsensor            nmeaMovementSensor
+	nmeamovementsensor nmeaMovementSensor
 	ntripInputProtocol string
 	ntripClient        ntripInfo
 	logger             golog.Logger
@@ -466,27 +466,27 @@ func (g *RTKMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float6
 	return g.nmeamovementsensor.GetPosition(ctx)
 }
 
-// GetLinearVelocity 
+// GetLinearVelocity.
 func (g *RTKMovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
 	return g.nmeamovementsensor.GetLinearVelocity(ctx)
 }
 
-// GetAngularVelocity
+// GetAngularVelocity.
 func (g *RTKMovementSensor) GetAngularVelocity(ctx context.Context) (r3.Vector, error) {
 	return g.nmeamovementsensor.GetAngularVelocity(ctx)
 }
 
-// GetCompassHeading
+// GetCompassHeading.
 func (g *RTKMovementSensor) GetCompassHeading(ctx context.Context) (float64, error) {
 	return g.nmeamovementsensor.GetCompassHeading(ctx)
 }
 
-// GetOrientation
+// GetOrientation.
 func (g *RTKMovementSensor) GetOrientation(ctx context.Context) (r3.Vector, error) {
 	return g.nmeamovementsensor.GetOrientation(ctx)
 }
 
-// ReadFix
+// ReadFix.
 func (g *RTKMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	return g.nmeamovementsensor.ReadFix(ctx)
 }

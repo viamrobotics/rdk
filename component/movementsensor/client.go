@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils/rpc"
-	"github.com/golang/geo/r3"
-	
+
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/sensor"
 	pb "go.viam.com/rdk/proto/api/component/movementsensor/v1"

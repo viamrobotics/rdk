@@ -12,8 +12,8 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
-	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/component/imu"
+	"go.viam.com/rdk/component/movementsensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/service/sensors/v1"
 	"go.viam.com/rdk/registry"

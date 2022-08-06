@@ -242,19 +242,19 @@ func TestClose(t *testing.T) {
 }
 
 var (
-	loc        = geo.NewPoint(90, 1)
-	alt        = 50.5
-	acc        = 1.1
-	speed      = r3.Vector{5.4, 1.1, 2.2}
-	ang      =   r3.Vector{5.5, 1.2, 2.3}
-	orie      =   r3.Vector{5.6, 1.3, 2.4}
+	loc     = geo.NewPoint(90, 1)
+	alt     = 50.5
+	acc     = 1.1
+	speed   = r3.Vector{5.4, 1.1, 2.2}
+	ang     = r3.Vector{5.5, 1.2, 2.3}
+	orie    = r3.Vector{5.6, 1.3, 2.4}
 	compass = 123.
 )
 
 type mock struct {
 	movementsensor.MovementSensor
-	Name        string
-	reconfCount int
+	Name          string
+	reconfCount   int
 	positionCount int
 	velocityCount int
 }
