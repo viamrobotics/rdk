@@ -270,18 +270,20 @@ func buildBinarySensorMsgs(data [][]byte, fileName string) []*v1.UploadRequest {
 	return expMsgs
 }
 
-// TODO: break service construction into its own function, add service as param here
-//nolint:thelper
-func buildAndStartLocalServer(t *testing.T, logger golog.Logger, failIndex int32) (rpc.Server, mockDataSyncServiceServer) {
-	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
-	test.That(t, err, test.ShouldBeNil)
-	mockService := mockDataSyncServiceServer{
+func getMockService(failUntilIndex int32) mockDataSyncServiceServer {
+	return mockDataSyncServiceServer{
 		uploadRequests:                     &[]*v1.UploadRequest{},
 		callCount:                          &atomic.Int32{},
-		failUntilIndex:                     failIndex,
+		failUntilIndex:                     failUntilIndex,
 		lock:                               &sync.Mutex{},
 		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
 	}
+}
+
+//nolint:thelper
+func buildAndStartLocalServer(t *testing.T, logger golog.Logger, mockService mockDataSyncServiceServer) rpc.Server {
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
 	err = rpcServer.RegisterServiceServer(
 		context.Background(),
 		&v1.DataSyncService_ServiceDesc,
@@ -295,7 +297,7 @@ func buildAndStartLocalServer(t *testing.T, logger golog.Logger, failIndex int32
 		err := rpcServer.Start()
 		test.That(t, err, test.ShouldBeNil)
 	}()
-	return rpcServer, mockService
+	return rpcServer
 }
 
 func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientConn, error) {
