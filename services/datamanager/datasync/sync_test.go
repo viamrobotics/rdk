@@ -1,13 +1,13 @@
 package datasync
 
 import (
-	"github.com/edaniels/golog"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"

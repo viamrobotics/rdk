@@ -12,7 +12,7 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
-// TODO: should have receive running in a goroutine ready to cancel this if we receive an error
+// TODO: should have receive running in a goroutine ready to cancel this if we receive an error.
 func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.DataSyncServiceClient,
 	md *v1.UploadMetadata, f *os.File,
 ) error {
