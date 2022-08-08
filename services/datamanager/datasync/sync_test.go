@@ -1,7 +1,6 @@
 package datasync
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -344,7 +343,7 @@ func TestUploadsOnce(t *testing.T) {
 	// Verify upload was only called twice.
 	time.Sleep(time.Millisecond * 100)
 	sut.Close()
-	test.That(t, mockService.getUploadCallCount(), test.ShouldEqual, 2)
+	test.That(t, mockService.callCount.Load(), test.ShouldEqual, 2)
 	// TODO how to test different now?
 
 	// Verify that the files were deleted after upload.
@@ -361,6 +360,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 	// Define an UploadFunc that fails 3 times then succeeds on its 4th attempt.
 	// Register mock datasync service with a mock server.
 	logger, _ := golog.NewObservedTestLogger(t)
+	// Build a mock service that fails 3 times before succeeding.
 	mockService := getMockService(3, -1)
 	rpcServer := buildAndStartLocalServer(t, logger, mockService)
 	uploadChunkSize = 10
@@ -385,7 +385,8 @@ func TestUploadExponentialRetry(t *testing.T) {
 	time.Sleep(time.Second * 1)
 	sut.Close()
 
-	test.That(t, mockService.getUploadCallCount(), test.ShouldEqual, 4)
+	// Validate that the client called Upload repeatedly.
+	test.That(t, mockService.callCount.Load(), test.ShouldEqual, 4)
 }
 
 func TestPartialUpload(t *testing.T) {
@@ -491,7 +492,8 @@ func TestPartialUpload(t *testing.T) {
 			sut, err := NewManager(logger, nil, partID, client, conn)
 			test.That(t, err, test.ShouldBeNil)
 			sut.Sync([]string{f.Name()})
-			time.Sleep(time.Millisecond * 100)
+			// time.Sleep(time.Millisecond * 100)
+			sut.Close()
 
 			// TODO: validate mockService.getUploadRequests for indexes 0:tc.cancelIndex
 
@@ -508,13 +510,8 @@ func TestPartialUpload(t *testing.T) {
 			sut, err = NewManager(logger, nil, partID, client, conn)
 			test.That(t, err, test.ShouldBeNil)
 			sut.Sync([]string{f.Name()})
-			time.Sleep(time.Millisecond * 100)
+			// time.Sleep(time.Millisecond * 100)
 			sut.Close()
-			fmt.Println("are prints working at all?")
-			for _, ur := range mockService.getUploadRequests() {
-				fmt.Println(ur.String())
-			}
-			test.That(t, len(mockService.getUploadRequests()), test.ShouldEqual, (len(tc.toSend)-int(tc.cancelIndex))+2)
 
 			// TODO: validate mockService.getUploadRequests for indexes tc.cancelIndex:
 
