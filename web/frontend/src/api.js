@@ -116,10 +116,6 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
     transportFactory = await dialDirect(impliedURL, opts);
   }
 
-  if (!window.webrtcHost) {
-    throw new Error('window.webrtcHost is not set! Cannot connect to RDK services.');
-  }
-
   window.streamService = new StreamServiceClient(window.webrtcHost, { transport: transportFactory });
   window.robotService = new RobotServiceClient(window.webrtcHost, { transport: transportFactory });
   // TODO(RSDK-144): these should be created as needed
