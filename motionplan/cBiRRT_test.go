@@ -62,7 +62,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	near1 := &node{q: home7}
 	seedMap := make(map[*node]*node)
 	seedMap[near1] = nil
-	target := &node{q: interp}
+	target := interp
 
 	goalMap := make(map[*node]*node)
 
@@ -78,9 +78,9 @@ func TestSimpleLinearMotion(t *testing.T) {
 	// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
 	seedReached := mp.constrainedExtend(ctx, opt, seedMap, near1, target)
 	// Find the nearest point in goalMap to the furthest point reached in seedMap
-	near2 := nn.nearestNeighbor(ctx, seedReached, goalMap)
+	near2 := nn.nearestNeighbor(ctx, seedReached.q, goalMap)
 	// extend goalMap towards the point in seedMap
-	goalReached := mp.constrainedExtend(ctx, opt, goalMap, near2, seedReached)
+	goalReached := mp.constrainedExtend(ctx, opt, goalMap, near2, seedReached.q)
 
 	test.That(t, inputDist(seedReached.q, goalReached.q) < mp.solDist, test.ShouldBeTrue)
 

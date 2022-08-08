@@ -6,6 +6,7 @@ import (
 	"sort"
 	"sync"
 
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/utils"
 )
 
@@ -15,7 +16,7 @@ type neighborManager struct {
 	nnKeys    chan *node
 	neighbors chan *neighbor
 	nnLock    sync.RWMutex
-	seedPos   *node
+	seedPos   []referenceframe.Input
 	ready     bool
 	nCPU      int
 }
@@ -25,7 +26,7 @@ type neighbor struct {
 	node *node
 }
 
-func kNearestNeighbors(rrtMap map[*node]*node, target *node) []*neighbor {
+func kNearestNeighbors(rrtMap map[*node]*node, target []referenceframe.Input) []*neighbor {
 	kNeighbors := neighborhoodSize
 	if neighborhoodSize > len(rrtMap) {
 		kNeighbors = len(rrtMap)
@@ -33,7 +34,7 @@ func kNearestNeighbors(rrtMap map[*node]*node, target *node) []*neighbor {
 
 	allCosts := make([]*neighbor, 0)
 	for node, _ := range rrtMap {
-		allCosts = append(allCosts, &neighbor{dist: inputDist(node.q, target.q), node: node})
+		allCosts = append(allCosts, &neighbor{dist: inputDist(node.q, target), node: node})
 	}
 	sort.Slice(allCosts, func(i, j int) bool {
 		return allCosts[i].dist < allCosts[j].dist
@@ -43,7 +44,7 @@ func kNearestNeighbors(rrtMap map[*node]*node, target *node) []*neighbor {
 
 func (nm *neighborManager) nearestNeighbor(
 	ctx context.Context,
-	seed *node,
+	seed []referenceframe.Input,
 	rrtMap map[*node]*node,
 ) *node {
 	if len(rrtMap) > neighborsBeforeParallelization {
@@ -53,7 +54,7 @@ func (nm *neighborManager) nearestNeighbor(
 	bestDist := math.Inf(1)
 	var best *node
 	for k := range rrtMap {
-		dist := inputDist(seed.q, k.q)
+		dist := inputDist(seed, k.q)
 		if dist < bestDist {
 			bestDist = dist
 			best = k
@@ -64,7 +65,7 @@ func (nm *neighborManager) nearestNeighbor(
 
 func (nm *neighborManager) parallelNearestNeighbor(
 	ctx context.Context,
-	seed *node,
+	seed []referenceframe.Input,
 	rrtMap map[*node]*node,
 ) *node {
 	nm.ready = false

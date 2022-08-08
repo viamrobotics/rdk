@@ -125,7 +125,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	startMap[&node{q: seed}] = nil
 
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
-	target := &node{q: referenceframe.InterpolateInputs(seed, solutions[0], 0.5)}
+	target := referenceframe.InterpolateInputs(seed, solutions[0], 0.5)
 
 	// Create a reference to the two maps so that we can alternate which one is grown
 	map1, map2 := startMap, goalMap
@@ -151,15 +151,15 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	solutionChan <- &planReturn{err: errors.New("could not solve path")}
 }
 
-func (mp *rrtStarConnectMotionPlanner) sample() *node {
-	return &node{q: referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
+func (mp *rrtStarConnectMotionPlanner) sample() []referenceframe.Input {
+	return referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
 }
 
-func (mp *rrtStarConnectMotionPlanner) extend(opt *PlannerOptions, tree map[*node]*node, target *node) bool {
+func (mp *rrtStarConnectMotionPlanner) extend(opt *PlannerOptions, tree map[*node]*node, target []referenceframe.Input) bool {
 	neighbors := kNearestNeighbors(tree, target)
 
 	// TODO(rb): potentially either add a steer() function or get the closest valid point from constraint checker
-	map1reached := mp.checkPath(opt, neighbors[0].node.q, target.q)
+	map1reached := mp.checkPath(opt, neighbors[0].node.q, target)
 	if !map1reached {
 		return false
 	}
@@ -170,14 +170,14 @@ func (mp *rrtStarConnectMotionPlanner) extend(opt *PlannerOptions, tree map[*nod
 	// iterate over neighbors and find the minimum cost to connect the target node to the tree
 	for i := 0; i < len(neighbors); i++ {
 		cost := neighbors[i].node.cost + neighbors[i].dist
-		if mp.checkPath(opt, neighbors[i].node.q, target.q) && cost < minCost {
+		if mp.checkPath(opt, neighbors[i].node.q, target) && cost < minCost {
 			minIndex = i
 			minCost = cost
 		}
 	}
 
 	// add new node to tree as a child of the minimum cost neighbor node
-	targetNode := &node{q: target.q, cost: minCost}
+	targetNode := &node{q: target, cost: minCost}
 	tree[targetNode] = neighbors[minIndex].node
 
 	// rewire the tree
@@ -187,8 +187,8 @@ func (mp *rrtStarConnectMotionPlanner) extend(opt *PlannerOptions, tree map[*nod
 			continue
 		}
 
-		cost := targetNode.cost + inputDist(target.q, neighbors[i].node.q)
-		if mp.checkPath(opt, target.q, neighbors[i].node.q) && cost < neighbors[i].node.cost {
+		cost := targetNode.cost + inputDist(target, neighbors[i].node.q)
+		if mp.checkPath(opt, target, neighbors[i].node.q) && cost < neighbors[i].node.cost {
 			// shortcut possible, rewire the node
 			neighbors[i].node.cost = cost
 			tree[neighbors[i].node] = targetNode
