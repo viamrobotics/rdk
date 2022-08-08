@@ -39,7 +39,7 @@ func main() {
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	withAgile := false
-	collectData := true
+	collectData := false
 
 	if collectData {
 		robot, err := client.New(
@@ -174,7 +174,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 func savePath(d motionplan.Dubins, waypoints [][]frame.Input) error {
 	withAgile := false
 
-	csvFile, err := os.Create("/home/skarpoor12/data/motion/path.csv")
+	csvFile, err := os.Create("/home/evelyn-fu/data/motion/path.csv")
 	if err != nil {
 		return err
 	}

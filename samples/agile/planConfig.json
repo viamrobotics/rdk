@@ -7,7 +7,5 @@
     "radius": 0.6,
     "point-sep": 4,
     "obstacles":
-        [
-            {"center": [1.5, 0], "dims": [0.2, 0.5]}
-        ]
+        []
 }
