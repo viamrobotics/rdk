@@ -3,6 +3,7 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -237,18 +238,23 @@ func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
 // TODO: data manager test isn't actually using real uploadFile... which is where the progress stuff
 //       (except deletion... which should probably also happen here) happens
 func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncServiceClient, path string, partID string) error {
+	fmt.Println("called uploadFile")
 	//nolint:gosec
 	f, err := os.Open(path)
 	if err != nil {
+		fmt.Println("Error opening file")
+		fmt.Println(err)
 		return errors.Wrapf(err, "error while opening file %s", path)
 	}
 
 	// Resets file pointer to ensure we are reading from beginning of file.
 	if _, err = f.Seek(0, 0); err != nil {
+		fmt.Println("error seeking file")
 		return err
 	}
 
 	md, err := getMetadata(f, partID)
+	fmt.Println("got metadata")
 	if err != nil {
 		return err
 	}

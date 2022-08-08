@@ -1,6 +1,7 @@
 package datasync
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -44,7 +45,7 @@ func TestFileUpload(t *testing.T) {
 
 		// Register mock datasync service with a mock server.
 		logger, _ := golog.NewObservedTestLogger(t)
-		mockService := getMockService(0)
+		mockService := getMockService(0, -1)
 		rpcServer := buildAndStartLocalServer(t, logger, mockService)
 		defer func() {
 			err := rpcServer.Stop()
@@ -179,7 +180,7 @@ func TestSensorUploadTabular(t *testing.T) {
 
 		// Register mock datasync service with a mock server.
 		logger, _ := golog.NewObservedTestLogger(t)
-		mockService := getMockService(0)
+		mockService := getMockService(0, -1)
 		rpcServer := buildAndStartLocalServer(t, logger, mockService)
 		defer func() {
 			err := rpcServer.Stop()
@@ -290,7 +291,7 @@ func TestSensorUploadBinary(t *testing.T) {
 		// Upload the contents from the created file.
 		// Register mock datasync service with a mock server.
 		logger, _ := golog.NewObservedTestLogger(t)
-		mockService := getMockService(0)
+		mockService := getMockService(0, -1)
 		rpcServer := buildAndStartLocalServer(t, logger, mockService)
 		defer func() {
 			err := rpcServer.Stop()
@@ -318,7 +319,7 @@ func TestSensorUploadBinary(t *testing.T) {
 func TestUploadsOnce(t *testing.T) {
 	// Register mock datasync service with a mock server.
 	logger, _ := golog.NewObservedTestLogger(t)
-	mockService := getMockService(0)
+	mockService := getMockService(0, -1)
 	rpcServer := buildAndStartLocalServer(t, logger, mockService)
 	defer func() {
 		err := rpcServer.Stop()
@@ -360,7 +361,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 	// Define an UploadFunc that fails 3 times then succeeds on its 4th attempt.
 	// Register mock datasync service with a mock server.
 	logger, _ := golog.NewObservedTestLogger(t)
-	mockService := getMockService(3)
+	mockService := getMockService(3, -1)
 	rpcServer := buildAndStartLocalServer(t, logger, mockService)
 	uploadChunkSize = 10
 	defer func() {
@@ -385,4 +386,175 @@ func TestUploadExponentialRetry(t *testing.T) {
 	sut.Close()
 
 	test.That(t, mockService.getUploadCallCount(), test.ShouldEqual, 4)
+}
+
+func TestPartialUpload(t *testing.T) {
+	initialWaitTime = time.Minute
+	msg1 := []byte("viam")
+	msg2 := []byte("robotics")
+	msg3 := []byte("builds cool software")
+	msg4 := toProto(anyStruct{})
+	msg5 := toProto(anyStruct{Field1: false})
+	msg6 := toProto(anyStruct{Field1: true, Field2: 2020, Field3: "viam"})
+
+	tests := []struct {
+		name        string
+		cancelIndex int32
+		toSend      []*v1.SensorData
+		expUR       []*v1.UploadRequest
+		dataType    v1.DataType
+	}{
+		{
+			// TODO: add expected upload requests
+			name: "Binary upload of non-empty file should resume from last point if it is " +
+				"canceled.",
+			toSend:      createBinarySensorData([][]byte{msg1, msg2, msg3}),
+			cancelIndex: 2,
+			dataType:    v1.DataType_DATA_TYPE_BINARY_SENSOR,
+		},
+		{
+			name: "Binary upload of empty file should not upload anything when it is started nor if it " +
+				"is resumed.",
+			toSend:      []*v1.SensorData{},
+			cancelIndex: 0,
+			dataType:    v1.DataType_DATA_TYPE_BINARY_SENSOR,
+		},
+		{
+			name: "Binary upload with no more messages to send after it's canceled should not upload " +
+				"anything after resuming.",
+			toSend:      createBinarySensorData([][]byte{msg1, msg2}),
+			cancelIndex: 2,
+			dataType:    v1.DataType_DATA_TYPE_BINARY_SENSOR,
+		},
+		{
+			name: "Binary upload that is interrupted before sending a single message should resume and send all" +
+				"messages.",
+			toSend:      createBinarySensorData([][]byte{msg1, msg2}),
+			cancelIndex: 0,
+			dataType:    v1.DataType_DATA_TYPE_BINARY_SENSOR,
+		},
+		{
+			name: "Tabular upload of non-empty file should resume from last point if it is" +
+				"canceled.",
+			toSend:      createTabularSensorData([]*structpb.Struct{msg4, msg5, msg6}),
+			cancelIndex: 2,
+			dataType:    v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+		},
+		{
+			name: "Tabular upload of empty file should not upload anything when it is started nor if it " +
+				"is resumed.",
+			toSend:      createTabularSensorData([]*structpb.Struct{}),
+			cancelIndex: 0,
+			dataType:    v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// TODO in test:
+			//      - build mock server that cancels after receiving cancelIndex messages
+			//      - verify expected messages before + after cancel
+
+			// Create temp data capture file.
+			f, err := createTmpDataCaptureFile()
+			test.That(t, err, test.ShouldBeNil)
+			// First write metadata to file.
+			captureMetadata := v1.DataCaptureMetadata{
+				ComponentType:    componentType,
+				ComponentName:    componentName,
+				MethodName:       methodName,
+				Type:             tc.dataType,
+				MethodParameters: nil,
+			}
+			if _, err := pbutil.WriteDelimited(f, &captureMetadata); err != nil {
+				t.Errorf("cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v", err)
+			}
+
+			// Next write sensor data to file.
+			if err := writeSensorData(f, tc.toSend); err != nil {
+				t.Errorf("%s: cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing: %v", tc.name, err)
+			}
+
+			// Stand up mock server.
+			// Register mock datasync service with a mock server.
+			logger, _ := golog.NewObservedTestLogger(t)
+			mockService := getMockService(0, tc.cancelIndex)
+			rpcServer := buildAndStartLocalServer(t, logger, mockService)
+			defer func() {
+				err := rpcServer.Stop()
+				test.That(t, err, test.ShouldBeNil)
+			}()
+
+			conn, err := getLocalServerConn(rpcServer, logger)
+			test.That(t, err, test.ShouldBeNil)
+			client := NewClient(conn)
+			sut, err := NewManager(logger, nil, partID, client, conn)
+			test.That(t, err, test.ShouldBeNil)
+			sut.Sync([]string{f.Name()})
+			time.Sleep(time.Millisecond * 100)
+
+			// TODO: validate mockService.getUploadRequests for indexes 0:tc.cancelIndex
+
+			// Restart.
+			mockService = getMockService(0, -1)
+			rpcServer = buildAndStartLocalServer(t, logger, mockService)
+			defer func() {
+				err := rpcServer.Stop()
+				test.That(t, err, test.ShouldBeNil)
+			}()
+			conn, err = getLocalServerConn(rpcServer, logger)
+			test.That(t, err, test.ShouldBeNil)
+			client = NewClient(conn)
+			sut, err = NewManager(logger, nil, partID, client, conn)
+			test.That(t, err, test.ShouldBeNil)
+			sut.Sync([]string{f.Name()})
+			time.Sleep(time.Millisecond * 100)
+			sut.Close()
+			fmt.Println("are prints working at all?")
+			for _, ur := range mockService.getUploadRequests() {
+				fmt.Println(ur.String())
+			}
+			test.That(t, len(mockService.getUploadRequests()), test.ShouldEqual, (len(tc.toSend)-int(tc.cancelIndex))+2)
+
+			// TODO: validate mockService.getUploadRequests for indexes tc.cancelIndex:
+
+			// TODO: Validate progress files do not exist.
+		})
+	}
+}
+
+func writeSensorData(f *os.File, sds []*v1.SensorData) error {
+	for _, sd := range sds {
+		_, err := pbutil.WriteDelimited(f, sd)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func createBinarySensorData(toWrite [][]byte) []*v1.SensorData {
+	sds := []*v1.SensorData{}
+	for _, bytes := range toWrite {
+		sd := &v1.SensorData{
+			Data: &v1.SensorData_Binary{
+				Binary: bytes,
+			},
+		}
+		sds = append(sds, sd)
+	}
+	return sds
+}
+
+func createTabularSensorData(toWrite []*structpb.Struct) []*v1.SensorData {
+	var sds []*v1.SensorData
+	for _, contents := range toWrite {
+		sd := &v1.SensorData{
+			Data: &v1.SensorData_Struct{
+				Struct: contents,
+			},
+		}
+		sds = append(sds, sd)
+	}
+	return sds
 }

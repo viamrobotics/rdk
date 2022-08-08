@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
-// TODO: should have receive running in a goroutine ready to cancel this if we receive an error.
 func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, md *v1.UploadMetadata,
 	f *os.File,
 ) error {
@@ -21,10 +20,6 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 		return err
 	}
 
-	// TODO: start up goroutine here waiting on stream.Recvmessage
-	//       When recv message, throw in channel
-	//       Have below for loop select between that channel and (Default) current loop
-	//           If error, stop sending
 	// Send metadata upload request.
 	req := &v1.UploadRequest{
 		UploadPacket: &v1.UploadRequest_Metadata{
