@@ -12,7 +12,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	slib "github.com/jacobsa/go-serial/serial"
-	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
 

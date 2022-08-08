@@ -10,7 +10,6 @@ import (
 	_ "go.viam.com/rdk/component/gantry/register"
 	_ "go.viam.com/rdk/component/generic/register"
 	_ "go.viam.com/rdk/component/gripper/register"
-	_ "go.viam.com/rdk/component/imu/register"
 	_ "go.viam.com/rdk/component/input/register"
 	_ "go.viam.com/rdk/component/motor/register"
 	_ "go.viam.com/rdk/component/movementsensor/register"
