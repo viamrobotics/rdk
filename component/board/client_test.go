@@ -2,7 +2,6 @@ package board_test
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"testing"
 
@@ -81,7 +80,6 @@ func TestWorkingClient(t *testing.T) {
 		// Status
 		injectStatus := &commonpb.BoardStatus{}
 		injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-			fmt.Println("STATUS FUNC")
 			actualExtra = extra
 			return injectStatus, nil
 		}
