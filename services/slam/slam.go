@@ -501,7 +501,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, errors.Wrap(err, "runtime slam service error")
 	}
 
-	slamSvc.StartDataProcess(cancelCtx, cams)
+	// slamSvc.StartDataProcess(cancelCtx, cams)
 
 	if err := slamSvc.StartSLAMProcess(ctx); err != nil {
 		return nil, errors.Wrap(err, "error with slam service slam process")
