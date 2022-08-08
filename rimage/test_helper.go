@@ -71,11 +71,11 @@ func (to *testOutput) getFile(testFile string) *oneTestOutput {
 
 // MultipleImageTestDebugger TODO.
 type MultipleImageTestDebugger struct {
-	name          string
-	glob          string
-	inroot        string
-	out           string
-	imagesAligned bool
+	name            string
+	glob            string
+	inrootPrimary   string
+	inrootSecondary string
+	out             string
 
 	output testOutput
 
@@ -159,28 +159,29 @@ type MultipleImageTestDebuggerProcessor interface {
 		pCtx *ProcessorContext,
 		fn string,
 		img image.Image,
+		img2 image.Image,
 		logger golog.Logger,
 	) error
 }
 
 // NewMultipleImageTestDebugger TODO.
-func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string, imagesAligned bool) *MultipleImageTestDebugger {
+func NewMultipleImageTestDebugger(t *testing.T, prefixOne, glob, prefixTwo string) *MultipleImageTestDebugger {
 	t.Helper()
 	d := MultipleImageTestDebugger{logger: golog.NewTestLogger(t)}
-	d.imagesAligned = imagesAligned
 	d.glob = glob
-	d.inroot = artifact.MustPath(prefix)
-	d.name = prefix + "-" + t.Name()
+	d.inrootPrimary = artifact.MustPath(prefixOne)
+	d.inrootSecondary = artifact.MustPath(prefixTwo)
+	d.name = prefixOne + "-" + t.Name()
 	d.name = strings.Replace(d.name, "/", "-", 100)
 	d.name = strings.Replace(d.name, " ", "-", 100)
-	d.out = testutils.TempDirT(t, "", strings.ReplaceAll(prefix, "/", "_"))
+	d.out = testutils.TempDirT(t, "", strings.ReplaceAll(prefixOne, "/", "_"))
 	return &d
 }
 
 // Process TODO.
 func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDebuggerProcessor) (err error) {
 	t.Helper()
-	files, err := filepath.Glob(filepath.Join(d.inroot, d.glob))
+	files, err := filepath.Glob(filepath.Join(d.inrootPrimary, d.glob))
 	if err != nil {
 		return err
 	}
@@ -211,13 +212,20 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 			numFiles++
 
 			currentFile := f
-
+			fileName := filepath.Base(f)
+			// check if there is a secondary file of the same name
+			fileSecondary := filepath.Join(d.inrootSecondary, fileName)
 			t.Run(filepath.Base(f), func(t *testing.T) {
 				t.Helper()
 				t.Parallel()
 				d.logger.Debug(currentFile)
-				img, err := newImageWithDepthFromFile(currentFile, d.imagesAligned)
+				img, err := readImageFromFile(currentFile, false)
 				test.That(t, err, test.ShouldBeNil)
+				var img2 image.Image
+				if _, err := os.Stat(fileSecondary); err == nil {
+					img2, err = readImageFromFile(fileSecondary, false)
+					test.That(t, err, test.ShouldBeNil)
+				}
 
 				pCtx := &ProcessorContext{
 					d:           d,
@@ -226,9 +234,12 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 				}
 
 				pCtx.GotDebugImage(img, "raw")
+				if img2 != nil {
+					pCtx.GotDebugImage(img2, "raw_second")
+				}
 
 				logger := golog.NewTestLogger(t)
-				err = x.Process(t, pCtx, currentFile, img, logger)
+				err = x.Process(t, pCtx, currentFile, img, img2, logger)
 				test.That(t, err, test.ShouldBeNil)
 			})
 		}

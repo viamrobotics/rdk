@@ -30,10 +30,9 @@ func debugImageSourceOrSkip(t *testing.T) {
 
 func TestAlignTypeError(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	// TODO(DATA-237) remove .both files
-	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs.both.gz"))
+	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs_color.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.both.gz"))
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.png"))
 	test.That(t, err, test.ShouldBeNil)
 	colorSrc := &StaticSource{ColorImg: im}
 	colorCam, err := camera.New(colorSrc, nil)
@@ -67,6 +66,30 @@ func TestAlignTypeError(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+func applyAlignment(
+	t *testing.T,
+	img *rimage.Image,
+	dm *rimage.DepthMap,
+	attrs *alignAttrs,
+	logger golog.Logger,
+) (pointcloud.PointCloud, rimage.Projector) {
+	t.Helper()
+	colorSrc := &StaticSource{ColorImg: img}
+	colorCam, err := camera.New(colorSrc, nil)
+	test.That(t, err, test.ShouldBeNil)
+	depthSrc := &StaticSource{DepthImg: dm}
+	depthCam, err := camera.New(depthSrc, nil)
+	test.That(t, err, test.ShouldBeNil)
+	is, err := newAlignColorDepth(context.Background(), colorCam, depthCam, attrs, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	alignedPointCloud, err := is.NextPointCloud(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	proj, err := is.GetProperties(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	return alignedPointCloud, proj
+}
+
 // nolint:dupl
 func TestAlignIntrinsics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -82,10 +105,9 @@ func TestAlignIntrinsics(t *testing.T) {
 	attrs.Height = 720
 	attrs.Width = 1280
 
-	// TODO(DATA-237) remove .both files
-	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs.both.gz"))
+	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs_color.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.both.gz"))
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.png"))
 	test.That(t, err, test.ShouldBeNil)
 	aligned, _ := applyAlignment(t, im, dm, attrs, logger)
 	test.That(t, aligned, test.ShouldNotBeNil)
@@ -112,10 +134,9 @@ func TestAlignWarp(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	attrs.CameraParameters = warpParams
 
-	// TODO(DATA-237) remove .both files
-	im, err := rimage.NewImageFromFile(artifact.MustPath("align/gripper1/chess1.both.gz"))
+	im, err := rimage.NewImageFromFile(artifact.MustPath("align/gripper1/chess1_color.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/gripper1/chess1.both.gz"))
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/gripper1/chess1.png"))
 	test.That(t, err, test.ShouldBeNil)
 	aligned, _ := applyAlignment(t, im, dm, attrs, logger)
 	test.That(t, aligned, test.ShouldNotBeNil)
@@ -136,37 +157,12 @@ func TestAlignHomography(t *testing.T) {
 	attrs.Warp = nil
 	attrs.Height = 768
 	attrs.Width = 1024
-	// TODO(DATA-237) remove .both files
-	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs.both.gz"))
+	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs_color.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.both.gz"))
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.png"))
 	test.That(t, err, test.ShouldBeNil)
 	aligned, _ := applyAlignment(t, im, dm, attrs, logger)
 	test.That(t, aligned, test.ShouldNotBeNil)
-}
-
-func applyAlignment(
-	t *testing.T,
-	img *rimage.Image,
-	dm *rimage.DepthMap,
-	attrs *alignAttrs,
-	logger golog.Logger,
-) (pointcloud.PointCloud, rimage.Projector) {
-	t.Helper()
-	colorSrc := &StaticSource{ColorImg: img}
-	colorCam, err := camera.New(colorSrc, nil)
-	test.That(t, err, test.ShouldBeNil)
-	depthSrc := &StaticSource{DepthImg: dm}
-	depthCam, err := camera.New(depthSrc, nil)
-	test.That(t, err, test.ShouldBeNil)
-	is, err := newAlignColorDepth(context.Background(), colorCam, depthCam, attrs, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	alignedPointCloud, err := is.NextPointCloud(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	proj, err := is.GetProperties(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	return alignedPointCloud, proj
 }
 
 type alignTestHelper struct {
@@ -179,13 +175,13 @@ func (h *alignTestHelper) Process(
 	pCtx *rimage.ProcessorContext,
 	fn string,
 	img image.Image,
+	img2 image.Image,
 	logger golog.Logger,
 ) error {
 	t.Helper()
 	var err error
-	// TODO(DATA-237) remove .both files
 	im := rimage.ConvertImage(img)
-	dm, err := rimage.ConvertImageToDepthMap(img)
+	dm, err := rimage.ConvertImageToDepthMap(img2)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "depth_"+h.name)
 
@@ -218,8 +214,7 @@ func TestAlignIntelIntrinsics(t *testing.T) {
 
 	c.Warp = nil
 	c.Homography = nil
-	// TODO(DATA-237) remove .both files
-	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz", false)
+	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515/color", "*.png", "align/intel515/depth")
 	err = d.Process(t, &alignTestHelper{c, "intrinsics"})
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -240,8 +235,7 @@ func TestAlignGripperWarp(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	c.CameraParameters = warpParams
-	// TODO(DATA-237) remove .both files
-	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
+	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1/color", "*.png", "align/gripper1/depth")
 	d.Process(t, &alignTestHelper{c, "warp"})
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -257,8 +251,7 @@ func TestAlignGripperHomography(t *testing.T) {
 
 	c.IntrinsicExtrinsic = nil
 	c.Warp = nil
-	// TODO(DATA-237) remove .both files
-	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
+	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1/color", "*.png", "align/gripper1/depth")
 	err = d.Process(t, &alignTestHelper{c, "homography"})
 	test.That(t, err, test.ShouldBeNil)
 }
