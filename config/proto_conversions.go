@@ -73,7 +73,7 @@ func ComponentConfigFromProto(proto *pb.ComponentConfig) (*Component, error) {
 	return &component, nil
 }
 
-func ServiceConfigToProto(service Service) (*pb.ServiceConfig, error) {
+func ServiceConfigToProto(service *Service) (*pb.ServiceConfig, error) {
 	attributes, err := protoutils.StructToStructPb(service.Attributes)
 	if err != nil {
 		return nil, err
@@ -100,26 +100,26 @@ func ServiceConfigFromProto(proto *pb.ServiceConfig) (*Service, error) {
 	return &service, nil
 }
 
-func ProcessConfigToProto(process pexec.ProcessConfig) pb.ProcessConfig {
-	return pb.ProcessConfig{
+func ProcessConfigToProto(process *pexec.ProcessConfig) (*pb.ProcessConfig, error) {
+	return &pb.ProcessConfig{
 		Id:      process.ID,
 		Name:    process.Name,
 		Args:    process.Args,
 		Cwd:     process.CWD,
 		OneShot: process.OneShot,
 		Log:     process.Log,
-	}
+	}, nil
 }
 
-func ProcessConfigFromProto(proto *pb.ProcessConfig) pexec.ProcessConfig {
-	return pexec.ProcessConfig{
+func ProcessConfigFromProto(proto *pb.ProcessConfig) (*pexec.ProcessConfig, error) {
+	return &pexec.ProcessConfig{
 		ID:      proto.Id,
 		Name:    proto.Name,
 		Args:    proto.Args,
 		CWD:     proto.Cwd,
 		OneShot: proto.OneShot,
 		Log:     proto.Log,
-	}
+	}, nil
 }
 
 func ResourceLevelServiceConfigToProto(service ResourceLevelServiceConfig) (*pb.ResourceLevelServiceConfig, error) {
@@ -349,7 +349,7 @@ func RemoteConfigFromProto(proto *pb.RemoteConfig) (*Remote, error) {
 	return &remote, nil
 }
 
-func NetworkConfigToProto(network NetworkConfig) *pb.NetworkConfig {
+func NetworkConfigToProto(network *NetworkConfig) (*pb.NetworkConfig, error) {
 	proto := pb.NetworkConfig{
 		Fqdn:        network.FQDN,
 		BindAddress: network.BindAddress,
@@ -357,10 +357,10 @@ func NetworkConfigToProto(network NetworkConfig) *pb.NetworkConfig {
 		TlsKeyFile:  network.TLSKeyFile,
 	}
 
-	return &proto
+	return &proto, nil
 }
 
-func NetworkConfigFromProto(proto *pb.NetworkConfig) *NetworkConfig {
+func NetworkConfigFromProto(proto *pb.NetworkConfig) (*NetworkConfig, error) {
 	network := NetworkConfig{
 		NetworkConfigData: NetworkConfigData{
 			FQDN:        proto.GetFqdn(),
@@ -370,10 +370,10 @@ func NetworkConfigFromProto(proto *pb.NetworkConfig) *NetworkConfig {
 		},
 	}
 
-	return &network
+	return &network, nil
 }
 
-func AuthConfigToProto(auth AuthConfig) (*pb.AuthConfig, error) {
+func AuthConfigToProto(auth *AuthConfig) (*pb.AuthConfig, error) {
 	handlers, err := mapSliceWithErrors(auth.Handlers, authHandlerConfigToProto)
 	if err != nil {
 		return nil, err
@@ -499,8 +499,8 @@ func RemoteAuthFromProto(proto *pb.RemoteAuth) (*RemoteAuth, error) {
 	return &auth, nil
 }
 
-func CloudConfigToProto(cloud *Cloud) pb.CloudConfig {
-	return pb.CloudConfig{
+func CloudConfigToProto(cloud *Cloud) (*pb.CloudConfig, error) {
+	return &pb.CloudConfig{
 		Id:                cloud.ID,
 		Secret:            cloud.Secret,
 		LocationSecret:    cloud.LocationSecret,
@@ -509,11 +509,11 @@ func CloudConfigToProto(cloud *Cloud) pb.CloudConfig {
 		LocalFqdn:         cloud.LocalFQDN,
 		SignalingAddress:  cloud.SignalingAddress,
 		SignalingInsecure: cloud.SignalingInsecure,
-	}
+	}, nil
 }
 
-func CloudConfigFromProto(proto *pb.CloudConfig) Cloud {
-	return Cloud{
+func CloudConfigFromProto(proto *pb.CloudConfig) (*Cloud, error) {
+	return &Cloud{
 		ID:                proto.GetId(),
 		Secret:            proto.GetSecret(),
 		LocationSecret:    proto.GetLocationSecret(),
@@ -522,7 +522,7 @@ func CloudConfigFromProto(proto *pb.CloudConfig) Cloud {
 		LocalFQDN:         proto.GetLocalFqdn(),
 		SignalingAddress:  proto.GetSignalingAddress(),
 		SignalingInsecure: proto.GetSignalingInsecure(),
-	}
+	}, nil
 }
 
 func mapSliceWithErrors[T any, M any](a []T, f func(T) (M, error)) ([]M, error) {

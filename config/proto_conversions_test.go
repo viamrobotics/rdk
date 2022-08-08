@@ -146,7 +146,7 @@ func TestServiceConfigToProto(t *testing.T) {
 		},
 	}
 
-	proto, err := ServiceConfigToProto(service)
+	proto, err := ServiceConfigToProto(&service)
 	test.That(t, err, test.ShouldBeNil)
 
 	serviceOut, err := ServiceConfigFromProto(proto)
@@ -168,10 +168,12 @@ func TestProcessConfigToProto(t *testing.T) {
 		Log:     true,
 	}
 
-	proto := ProcessConfigToProto(service)
-	out := ProcessConfigFromProto(&proto)
+	proto, err := ProcessConfigToProto(&service)
+	test.That(t, err, test.ShouldBeNil)
+	out, err := ProcessConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, out, test.ShouldResemble, service)
+	test.That(t, *out, test.ShouldResemble, service)
 }
 
 func TestNetworkConfigToProto(t *testing.T) {
@@ -184,8 +186,10 @@ func TestNetworkConfigToProto(t *testing.T) {
 		},
 	}
 
-	proto := NetworkConfigToProto(in)
-	out := NetworkConfigFromProto(proto)
+	proto, err := NetworkConfigToProto(&in)
+	test.That(t, err, test.ShouldBeNil)
+	out, err := NetworkConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, *out, test.ShouldResemble, in)
 }
@@ -209,7 +213,7 @@ func TestAuthConfigToProto(t *testing.T) {
 		TLSAuthEntities: []string{"tls1", "tls2"},
 	}
 
-	proto, err := AuthConfigToProto(in)
+	proto, err := AuthConfigToProto(&in)
 	test.That(t, err, test.ShouldBeNil)
 	out, err := AuthConfigFromProto(proto)
 	test.That(t, err, test.ShouldBeNil)
@@ -234,8 +238,10 @@ func TestCloudConfigToProto(t *testing.T) {
 		SignalingInsecure: true,
 	}
 
-	proto := CloudConfigToProto(&in)
-	out := CloudConfigFromProto(&proto)
+	proto, err := CloudConfigToProto(&in)
+	test.That(t, err, test.ShouldBeNil)
+	out, err := CloudConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, out, test.ShouldResemble, in)
+	test.That(t, *out, test.ShouldResemble, in)
 }
