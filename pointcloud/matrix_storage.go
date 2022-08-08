@@ -43,8 +43,12 @@ func (ms *matrixStorage) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d
 	lowerBound := 0
 	upperBound := ms.Size()
 	if numBatches > 0 {
-		lowerBound = myBatch * ms.Size() / numBatches
-		upperBound = (myBatch + 1) * ms.Size() / numBatches
+		batchSize := (ms.Size() + numBatches - 1) / numBatches
+		lowerBound = myBatch * batchSize
+		upperBound = (myBatch + 1) * batchSize
+	}
+	if upperBound > ms.Size() {
+		upperBound = ms.Size()
 	}
 	for i := lowerBound; i < upperBound; i++ {
 		if cont := fn(ms.points[i].P, ms.points[i].D); !cont {
