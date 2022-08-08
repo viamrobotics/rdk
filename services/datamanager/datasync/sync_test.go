@@ -100,8 +100,8 @@ func TestFileUpload(t *testing.T) {
 		sut.Close()
 		// The mc.sent value should be the same as the expectedMsgs value.
 		compareMetadata(t, mockService.getUploadRequests()[0].GetMetadata(), expectedMsgs[0].GetMetadata())
+		test.That(t, len(mockService.getUploadRequests()), test.ShouldEqual, len(expectedMsgs))
 		actual := mockService.getUploadRequests()[1:]
-		test.That(t, len(actual), test.ShouldEqual, len(expectedMsgs))
 		if len(expectedMsgs) > 1 {
 			for i, exp := range expectedMsgs[1:] {
 				test.That(t, string(actual[i].GetFileContents().GetData()),
@@ -387,7 +387,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 	sut.Sync([]string{file1.Name()})
 
 	// Let it run.
-	time.Sleep(syncWaitTime)
+	time.Sleep(time.Second)
 	sut.Close()
 
 	// Validate that the client called Upload repeatedly.
