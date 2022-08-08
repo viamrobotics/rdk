@@ -233,8 +233,6 @@ func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
 	return md, nil
 }
 
-// TODO: data manager test isn't actually using real uploadFile... which is where the progress stuff
-//       (except deletion... which should probably also happen here) happens
 func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncServiceClient, f *os.File, partID string) error {
 	// Resets file pointer to ensure we are reading from beginning of file.
 	if _, err := f.Seek(0, 0); err != nil {
