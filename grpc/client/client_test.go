@@ -782,10 +782,6 @@ func TestClientReconnect(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestRemoteClientReconnect(t *testing.T) {
-
-}
-
 func TestClientDialerOption(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
