@@ -170,7 +170,9 @@ func NewMultipleImageTestDebugger(t *testing.T, prefixOne, glob, prefixTwo strin
 	d := MultipleImageTestDebugger{logger: golog.NewTestLogger(t)}
 	d.glob = glob
 	d.inrootPrimary = artifact.MustPath(prefixOne)
-	d.inrootSecondary = artifact.MustPath(prefixTwo)
+	if prefixTwo != "" {
+		d.inrootSecondary = artifact.MustPath(prefixTwo)
+	}
 	d.name = prefixOne + "-" + t.Name()
 	d.name = strings.Replace(d.name, "/", "-", 100)
 	d.name = strings.Replace(d.name, " ", "-", 100)

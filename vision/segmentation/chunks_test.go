@@ -25,7 +25,7 @@ func (cid *chunkImageDebug) Process(
 	t *testing.T,
 	pCtx *rimage.ProcessorContext,
 	fn string,
-	imgraw image.Image,
+	imgraw, img2 image.Image,
 	logger golog.Logger,
 ) error {
 	t.Helper()
@@ -146,7 +146,7 @@ func TestChunk1(t *testing.T) {
 	if chunkTest == "" {
 		t.Skipf("set environmental variable %q to run this test", debugChunks)
 	}
-	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/test1", "*", true)
+	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/test1", "*", "")
 	err := d.Process(t, &chunkImageDebug{})
 	test.That(t, err, test.ShouldBeNil)
 }
