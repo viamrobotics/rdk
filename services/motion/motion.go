@@ -278,12 +278,13 @@ func (ms *motionService) MoveSingleComponent(
 		logger.Debugf("frame system inputs: %v", input)
 
 		// re-evaluate goalPose to be in the frame we're going to move in
-		tf, err := frameSys.Transform(input, destination, componentName.Name)
+		tf, err := frameSys.Transform(input, destination, componentName.Name + "_offset")
 		if err != nil {
 			return false, err
 		}
 		goalPoseInFrame, _ := tf.(*referenceframe.PoseInFrame)
 		goalPose = goalPoseInFrame.Pose()
+		logger.Debugf("converted goal pose %q", spatialmath.PoseToProtobuf(goalPose))
 	}
 	
 	err := movableArm.MoveToPosition(ctx, spatialmath.PoseToProtobuf(goalPose), worldState, nil)
