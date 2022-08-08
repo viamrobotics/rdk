@@ -3,6 +3,7 @@ package wrapper
 
 import (
 	"context"
+	"errors"
 
 	"github.com/edaniels/golog"
 
@@ -16,13 +17,8 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/utils"
 )
-
-// AttrConfig is used for converting config attributes.
-type AttrConfig struct {
-	ModelPath string `json:"model-path"`
-	ArmName   string `json:"arm-name"`
-}
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, "wrapper_arm", registry.Component{
@@ -33,11 +29,25 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, "wrapper_arm",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
+			var conf WrapperArmConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&AttrConfig{},
+		&WrapperArmConfig{},
 	)
+}
+
+// WrapperArmConfig is used for converting config attributes.
+type WrapperArmConfig struct {
+	ModelPath string `json:"model-path"`
+	ArmName   string `json:"arm-name"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *WrapperArmConfig) Validate(path string) ([]string, error) {
+	if len(config.ArmName) == 0 {
+		return nil, utils.NewConfigValidationError(path, errors.New("need a dependent arm for a wrapper arm"))
+	}
+	return []string{config.ArmName}, nil
 }
 
 // Arm wraps a partial implementation of another arm.
@@ -53,11 +63,11 @@ type Arm struct {
 
 // NewWrapperArm returns a wrapper component for another arm.
 func NewWrapperArm(cfg config.Component, r robot.Robot, logger golog.Logger) (arm.LocalArm, error) {
-	model, err := referenceframe.ParseModelJSONFile(cfg.ConvertedAttributes.(*AttrConfig).ModelPath, cfg.Name)
+	model, err := referenceframe.ParseModelJSONFile(cfg.ConvertedAttributes.(*WrapperArmConfig).ModelPath, cfg.Name)
 	if err != nil {
 		return nil, err
 	}
-	wrappedArm, err := arm.FromRobot(r, cfg.ConvertedAttributes.(*AttrConfig).ArmName)
+	wrappedArm, err := arm.FromRobot(r, cfg.ConvertedAttributes.(*WrapperArmConfig).ArmName)
 	if err != nil {
 		return nil, err
 	}
