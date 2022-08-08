@@ -14,8 +14,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// TODO: make ticket for below
-// TODO: Reorganize this into a more standard interface/package, and add tests.
+// TODO Data-343: Reorganize this into a more standard interface/package, and add tests.
 
 // FileExt defines the file extension for Viam data capture files.
 const FileExt = ".capture"
@@ -106,8 +105,7 @@ func getFileTimestampName() string {
 }
 
 // TODO DATA-246: Implement this in some more robust, programmatic way.
-
-func getDataType(componentType string, methodName string) v1.DataType {
+func getDataType(_ string, methodName string) v1.DataType {
 	if methodName == "NextPointCloud" {
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
 	}
