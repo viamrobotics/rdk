@@ -450,13 +450,11 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	listener := options.Network.Listener
 
 	if listener == nil {
-		fmt.Printf("listener set up at address: %v \n", options.Network.BindAddress)
 		listener, err = net.Listen("tcp", options.Network.BindAddress)
 		if err != nil {
 			return err
 		}
 	}
-	fmt.Printf("listener addy: %s \n", listener.Addr().String())
 
 	listenerTCPAddr, ok := listener.Addr().(*net.TCPAddr)
 	if !ok {

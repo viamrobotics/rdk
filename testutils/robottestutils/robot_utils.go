@@ -1,3 +1,4 @@
+// Package robottestutils provides helper functions in testing
 package robottestutils
 
 import (
@@ -7,18 +8,23 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"go.viam.com/rdk/robot"
-	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/test"
 
-	_ "go.viam.com/rdk/component/arm/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	weboptions "go.viam.com/rdk/robot/web/options"
 )
 
-// StartBaseRobot creates a new local robot with a listener attached
-func StartBaseRobot(t *testing.T, logger *zap.SugaredLogger, ctx context.Context, listener net.Listener, cfg *config.Config) (robot.LocalRobot, weboptions.Options) {
+// StartBaseRobot creates a new local robot with a listener attached.
+func StartBaseRobot(ctx context.Context,
+	t *testing.T,
+	logger *zap.SugaredLogger,
+	listener net.Listener,
+	cfg *config.Config,
+) (robot.LocalRobot, weboptions.Options) {
+	t.Helper()
 	options := weboptions.New()
 	options.Network.BindAddress = ""
 	options.Network.Listener = listener
@@ -30,8 +36,9 @@ func StartBaseRobot(t *testing.T, logger *zap.SugaredLogger, ctx context.Context
 	return robot, options
 }
 
-// NewRobotClient creates a new robot client with a certain address
+// NewRobotClient creates a new robot client with a certain address.
 func NewRobotClient(t *testing.T, logger *zap.SugaredLogger, addr string) *client.RobotClient {
+	t.Helper()
 	dur := 100 * time.Millisecond
 
 	// start robot client
