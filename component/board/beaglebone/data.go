@@ -7,39 +7,46 @@ const bbAi = "bb_Ai64"
 var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 	bbAi: {
 		PinDefinitions: []commonsysfs.PinDefinition{
-			// {GPIOChipRelativeIDs: map[int]int{128: 1},
+			// GPIOChipRelativeIDs: map[int]int{NGPIO: LINENUM},
 			// GPIONames: map[int]string{emptyforbeagle} ,
-			// GPIOChipSysFSDir: "600000.gpio",
+			// GPIOChipSysFSDir: "600000.gpio"/"601000.gpio",
 			// PinNumberBoard: 3, PinNumberBCM: 0-emptyfor beagle,
-			//PinNameCVM: "P9_11", can be anything, used as keys for our board mappings.
-			//PinNameTegraSOC: ""-emptyforbeagle,
-			//PWMChipSysFSDir: ""300000.pwm,
-			//PWMID: -1 for nopwm, 1 for yes, 0 for yes and matching line to 1},
-			// 600000.gpio dir 128 lines
+			// PinNameCVM: "P9_11", can be anything, used as keys for our board mappings.
+			// PinNameTegraSOC: "" - emptyforbeagle,
+			// PWMChipSysFSDir: "3000000.pwm"/"3010000.pwm"/"3020000.pwm"/"3030000.pwm"/"304000.pwm",
+			// PWMID: -1 for nopwm, 1 for yes, 0 for yes and matching line to 1},
 
-			// TODO: Which pwm dirs are which:
-			// lrwxrwxrwx 1 root root 0 Jan  1  1970 /sys/class/pwm/pwmchip0/device -> ../../../3000000.pwm  --> timer0?
-			// lrwxrwxrwx 1 root root 0 Jan  1  1970 /sys/class/pwm/pwmchip10/device -> ../../../3050000.pwm --> timer5?
-			// lrwxrwxrwx 1 root root 0 Jan  1  1970 /sys/class/pwm/pwmchip2/device -> ../../../3010000.pwm --> timer1?
-			// lrwxrwxrwx 1 root root 0 Jan  1  1970 /sys/class/pwm/pwmchip4/device -> ../../../3020000.pwm --> timer2?
-			// lrwxrwxrwx 1 root root 0 Jan  1  1970 /sys/class/pwm/pwmchip6/device -> ../../../3030000.pwm --> timer3?
-			// lrwxrwxrwx 1 root root 0 Jan  1  1970 /sys/class/pwm/pwmchip8/device -> ../../../3040000.pwm --> timer4?
-			{map[int]int{128: 88}, map[int]string{}, "600000.gpio", 819, 0, "P8_19", "", "3000000.pwm ", 1},             // pwm timer0? EHR
-			{map[int]int{128: 89}, map[int]string{}, "600000.gpio", 813, 0, "P8_13", "", "3000000.pwm ", 0},             // pwm timer0? EHR
-			{map[int]int{128: 93}, map[int]string{}, "600000.gpio", 914, 0, "P9_14", "", "3030000.pwm", 1},              // pwm timer3? EHR
-			{map[int]int{128: 94}, map[int]string{}, "600000.gpio", 916, 0, "P9_16", "3030000.pwm", "", 0},              // pwm timer3? EHR
-			{map[int]int{128: 90}, map[int]string{}, "600000.gpio", 921, 0, "P9_21B", "", "3020000.pwm", 1},             // pwm timer2?
-			{map[int]int{128: 91}, map[int]string{}, "600000.gpio", 922, 0, "P9_22B", "", "3020000.pwm", 0},             // pwm timer1?
-			{map[int]int{128: 38}, map[int]string{}, "600000.gpio", 922, 0, "P9_22A (BOOTMODE1)", "", "3020000.pwm", 0}, // pwm timer1?
-			{map[int]int{128: 39}, map[int]string{}, "600000.gpio", 921, 0, "P9_21A", "", "3020000.pwm", 1},             // pwm timer1?
-			{map[int]int{128: 104}, map[int]string{}, "600000.gpio", 925, 0, "P9_25B", "", "3040000.pwm", 1},            // pwm timer4
-			{map[int]int{128: 127}, map[int]string{}, "600000.gpio", 925, 0, "P9_25A", "", "3040000.pwm", 1},            // pwm timer4
-			{map[int]int{128: 11}, map[int]string{}, "600000.gpio", 837, 0, "P8_37B", "", "3050000.pwm", 1},             // pwm timer5?
-			{map[int]int{128: 106}, map[int]string{}, "600000.gpio", 837, 0, "P8_37A", "", "3050000.pwm", 1},            // pwm timer5?
-			{map[int]int{128: 14}, map[int]string{}, "600000.gpio", 808, 0, "P8_08", "", "", 1},                         // pwm?
-			{map[int]int{128: 15}, map[int]string{}, "600000.gpio", 807, 0, "P8_07", "", "", 1},                         // pwm?
-			{map[int]int{128: 16}, map[int]string{}, "600000.gpio", 810, 0, "P8_10", "", "", 1},                         // pwm?
-			{map[int]int{128: 17}, map[int]string{}, "600000.gpio", 809, 0, "P8_09", "", "", 1},                         // pwm?
+			// ******** GPIO CHIPS *********************************
+			// From /sys/class/gpio/
+			// cat gpiochip300/label -> 600000.gpio : /sys/devices/platform/bus@100000/600000.gpio/ contains gpiochip 1
+			// cat gpiochip264/label -> 601000.gpio	: /sys/devices/platform/bus@100000/601000.gpio/ contains gpiochip 2
+
+			// ******** PWM CHIPS **********************************
+			// output of /sys/class/pwm$ ls -ls
+			// 0 lrwxrwxrwx 1 root root 0 Aug 17 15:50 pwmchip0 -> ../../devices/platform/bus@100000/3000000.pwm/pwm/pwmchip0
+			// 0 lrwxrwxrwx 1 root root 0 Aug 17 15:50 pwmchip10 -> ../../devices/platform/bus@100000/3050000.pwm/pwm/pwmchip10
+			// 0 lrwxrwxrwx 1 root root 0 Aug 17 15:50 pwmchip2 -> ../../devices/platform/bus@100000/3010000.pwm/pwm/pwmchip2
+			// 0 lrwxrwxrwx 1 root root 0 Aug 17 15:50 pwmchip4 -> ../../devices/platform/bus@100000/3020000.pwm/pwm/pwmchip4
+			// 0 lrwxrwxrwx 1 root root 0 Aug 17 15:50 pwmchip6 -> ../../devices/platform/bus@100000/3030000.pwm/pwm/pwmchip6
+			// 0 lrwxrwxrwx 1 root root 0 Aug 17 15:50 pwmchip8 -> ../../devices/platform/bus@100000/3040000.pwm/pwm/pwmchip8
+
+			// ******** DATA MAPPING ********************************
+			{map[int]int{128: 88}, map[int]string{}, "600000.gpio", 819, 0, "P8_19", "", "3000000.pwm ", 1}, // pwm timer0 V29 EHR
+			{map[int]int{128: 89}, map[int]string{}, "600000.gpio", 813, 0, "P8_13", "", "3000000.pwm ", 0}, // pwm timer0 V27 EHR
+			{map[int]int{128: 93}, map[int]string{}, "600000.gpio", 914, 0, "P9_14", "", "3030000.pwm", 1},  // pwm timer3 EHR
+			{map[int]int{128: 94}, map[int]string{}, "600000.gpio", 916, 0, "P9_16", "3030000.pwm", "", 0},  // pwm timer3 EHR
+			// {map[int]int{128: 90}, map[int]string{}, "600000.gpio", 921, 0, "P9_21B", "", "3020000.pwm", 1},
+			// {map[int]int{128: 91}, map[int]string{}, "600000.gpio", 922, 0, "P9_22B", "", "3020000.pwm", 0},
+			{map[int]int{128: 38}, map[int]string{}, "600000.gpio", 922, 0, "P9_22A (BOOTMODE1)", "", "3020000.pwm", 0},
+			{map[int]int{128: 39}, map[int]string{}, "600000.gpio", 921, 0, "P9_21A", "", "3020000.pwm", 1},
+			// {map[int]int{128: 104}, map[int]string{}, "600000.gpio", 925, 0, "P9_25B", "", "3040000.pwm", 1},
+			// {map[int]int{128: 127}, map[int]string{}, "600000.gpio", 925, 0, "P9_25A", "", "3040000.pwm", 1},
+			// {map[int]int{128: 11}, map[int]string{}, "600000.gpio", 837, 0, "P8_37B", "", "3050000.pwm", 1},
+			{map[int]int{128: 11}, map[int]string{}, "600000.gpio", 837, 0, "P8_37A", "", "3050000.pwm", 1},
+			{map[int]int{128: 14}, map[int]string{}, "600000.gpio", 808, 0, "P8_08", "", "", -1},
+			{map[int]int{128: 15}, map[int]string{}, "600000.gpio", 807, 0, "P8_07", "", "", -1},
+			{map[int]int{128: 16}, map[int]string{}, "600000.gpio", 810, 0, "P8_10", "", "", -1},
+			{map[int]int{128: 17}, map[int]string{}, "600000.gpio", 809, 0, "P8_09", "", "", -1},
 			{map[int]int{128: 1}, map[int]string{}, "600000.gpio", 911, 0, "P9_11", "", "", -1},
 			{map[int]int{128: 2}, map[int]string{}, "600000.gpio", 913, 0, "P9_13", "", "", -1},
 			{map[int]int{128: 3}, map[int]string{}, "600000.gpio", 817, 0, "P8_17", "", "", -1},
@@ -65,7 +72,7 @@ var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 			{map[int]int{128: 34}, map[int]string{}, "600000.gpio", 806, 0, "P8_06", "", "", -1},
 			{map[int]int{128: 35}, map[int]string{}, "600000.gpio", 825, 0, "P8_25", "", "", -1},
 			{map[int]int{128: 40}, map[int]string{}, "600000.gpio", 918, 0, "P9_18A", "", "", -1},
-			{map[int]int{128: 43}, map[int]string{}, "600000.gpio", 928, 0, "P9_28B", "", "", -1},
+			// {map[int]int{128: 43}, map[int]string{}, "600000.gpio", 928, 0, "P9_28B", "", "", -1},
 			{map[int]int{128: 44}, map[int]string{}, "600000.gpio", 930, 0, "P9_30B", "", "", -1},
 			{map[int]int{128: 45}, map[int]string{}, "600000.gpio", 912, 0, "P9_12", "", "", -1},
 			{map[int]int{128: 46}, map[int]string{}, "600000.gpio", 927, 0, "P9_27A", "", "", -1},
@@ -102,23 +109,23 @@ var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 			{map[int]int{128: 80}, map[int]string{}, "600000.gpio", 846, 0, "P8_46 (BOOTMODE3)", "", "", -1},
 			{map[int]int{128: 81}, map[int]string{}, "600000.gpio", 940, 0, "P9_40B", "", "", -1},
 			{map[int]int{128: 105}, map[int]string{}, "600000.gpio", 838, 0, "P8_38B", "", "", -1},
-			{map[int]int{128: 111}, map[int]string{}, "600000.gpio", 833, 0, "P8_33B", "", "", -1},
-			{map[int]int{128: 115}, map[int]string{}, "600000.gpio", 917, 0, "P9_17B", "", "", -1},
-			{map[int]int{128: 116}, map[int]string{}, "600000.gpio", 835, 0, "P8_35B", "", "", -1},
-			{map[int]int{128: 118}, map[int]string{}, "600000.gpio", 926, 0, "P9_26A", "", "", -1},
-			{map[int]int{128: 119}, map[int]string{}, "600000.gpio", 924, 0, "P9_24A", "", "", -1},
-			{map[int]int{128: 120}, map[int]string{}, "600000.gpio", 918, 0, "P9_18B", "", "", -1},
+			// {map[int]int{128: 111}, map[int]string{}, "600000.gpio", 833, 0, "P8_33B", "", "", -1},
+			// {map[int]int{128: 115}, map[int]string{}, "600000.gpio", 917, 0, "P9_17B", "", "", -1},
+			// {map[int]int{128: 116}, map[int]string{}, "600000.gpio", 835, 0, "P8_35B", "", "", -1},
+			// {map[int]int{128: 118}, map[int]string{}, "600000.gpio", 926, 0, "P9_26A", "", "", -1},
+			// {map[int]int{128: 119}, map[int]string{}, "600000.gpio", 924, 0, "P9_24A", "", "", -1},
+			// {map[int]int{128: 120}, map[int]string{}, "600000.gpio", 918, 0, "P9_18B", "", "", -1},
 			{map[int]int{128: 123}, map[int]string{}, "600000.gpio", 942, 0, "P9_42A", "", "", -1},
-			{map[int]int{128: 124}, map[int]string{}, "600000.gpio", 927, 0, "P9_27B", "", "", -1},
+			// {map[int]int{128: 124}, map[int]string{}, "600000.gpio", 927, 0, "P9_27B", "", "", -1},
 			/// 601000.gpio dir 36 lines
 			{map[int]int{36: 0}, map[int]string{}, "601000.gpio", 0, 0, "P9_41", "", "", -1},
-			{map[int]int{36: 1}, map[int]string{}, "601000.gpio", 0, 0, "P9_19A", "", "", -1},
-			{map[int]int{36: 2}, map[int]string{}, "601000.gpio", 0, 0, "P9_20A", "", "", -1},
+			// {map[int]int{36: 1}, map[int]string{}, "601000.gpio", 0, 0, "P9_19A", "", "", -1},
+			// {map[int]int{36: 2}, map[int]string{}, "601000.gpio", 0, 0, "P9_20A", "", "", -1},
 			{map[int]int{36: 11}, map[int]string{}, "601000.gpio", 0, 0, "P9_28A", "", "", -1},
-			{map[int]int{36: 12}, map[int]string{}, "601000.gpio", 0, 0, "P9_31A", "", "", -1},
-			{map[int]int{36: 13}, map[int]string{}, "601000.gpio", 0, 0, "P9_30A", "", "", -1},
-			{map[int]int{36: 14}, map[int]string{}, "601000.gpio", 0, 0, "P9_29A", "", "", -1},
+			// {map[int]int{36: 12}, map[int]string{}, "601000.gpio", 0, 0, "P9_31A", "", "", -1},
+			// {map[int]int{36: 13}, map[int]string{}, "601000.gpio", 0, 0, "P9_30A", "", "", -1},
+			// {map[int]int{36: 14}, map[int]string{}, "601000.gpio", 0, 0, "P9_29A", "", "", -1},
 		},
-		Compats: []string{"bb,Ai64"},
+		Compats: []string{"beagle,j721e-beagleboneai64ti,j721e"},
 	},
 }

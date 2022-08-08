@@ -184,5 +184,6 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 		}
 	}
 
+	utils.Logger.Info(data)
 	return data, nil
 }
