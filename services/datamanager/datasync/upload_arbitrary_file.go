@@ -12,50 +12,54 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
-func uploadArbitraryFile(ctx context.Context, s *syncer, client v1.DataSyncService_UploadClient, md *v1.UploadMetadata,
+func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, md *v1.UploadMetadata,
 	f *os.File,
 ) error {
+	stream, err := client.Upload(ctx)
+	if err != nil {
+		return err
+	}
+
 	// Send metadata upload request.
 	req := &v1.UploadRequest{
 		UploadPacket: &v1.UploadRequest_Metadata{
 			Metadata: md,
 		},
 	}
-	if err := client.Send(req); err != nil {
-		return errors.Wrap(err, "error while sending upload metadata")
+	if err := stream.Send(req); err != nil {
+		return err
 	}
 
 	// Loop until there is no more content to be read from file.
 	for {
-		// Get the next UploadRequest from the file.
-		uploadReq, err := getNextFileUploadRequest(ctx, f)
-		// If the error is EOF, break from loop.
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
-			continue
-		}
-		// If there is any other error, return it.
-		if err != nil {
-			return err
-		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			// Get the next UploadRequest from the file.
+			uploadReq, err := getNextFileUploadRequest(ctx, f)
+			// EOF means we've completed successfully..
+			if errors.Is(err, io.EOF) {
+				if _, err := stream.CloseAndRecv(); err != nil {
+					if !errors.Is(err, io.EOF) {
+						return err
+					}
+				}
+				return nil
+			}
+			if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
+				continue
+			}
 
-		if err = client.Send(uploadReq); err != nil {
-			return errors.Wrap(err, "error while sending uploadRequest")
+			if err != nil {
+				return err
+			}
+
+			if err = stream.Send(uploadReq); err != nil {
+				return err
+			}
 		}
 	}
-
-	if err := f.Close(); err != nil {
-		return err
-	}
-
-	// Close stream and receive response.
-	if err := client.CloseSend(); err != nil {
-		return errors.Wrap(err, "error when closing the stream")
-	}
-
-	return nil
 }
 
 func getNextFileUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequest, error) {

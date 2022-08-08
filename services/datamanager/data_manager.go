@@ -137,23 +137,24 @@ type dataManagerService struct {
 	logger                    golog.Logger
 	captureDir                string
 	captureDisabled           bool
-	syncDisabled              bool
 	collectors                map[componentMethodMetadata]collectorAndConfig
-	syncer                    datasync.Manager
-	syncIntervalMins          float64
 	lock                      sync.Mutex
 	backgroundWorkers         sync.WaitGroup
-	uploadFunc                datasync.UploadFunc
 	updateCollectorsCancelFn  func()
-	additionalSyncPaths       []string
 	partID                    string
 	waitAfterLastModifiedSecs int
+
+	additionalSyncPaths []string
+	syncDisabled        bool
+	syncIntervalMins    float64
+	syncer              datasync.Manager
+	syncerConstructor   datasync.ManagerConstructor
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
 // New returns a new data manager service for the given robot.
-func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
+func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger) (Service, error) {
 	// Set syncIntervalMins = -1 as we rely on initOrUpdateSyncer to instantiate a syncer
 	// on first call to Update, even if syncIntervalMins value is 0, and the default value for int64 is 0.
 	dataManagerSvc := &dataManagerService{
@@ -172,7 +173,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 }
 
 // Close releases all resources managed by data_manager.
-func (svc *dataManagerService) Close(ctx context.Context) error {
+func (svc *dataManagerService) Close(_ context.Context) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	svc.closeCollectors()
@@ -216,7 +217,7 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 	if captureFrequencyHz == 0 {
 		return time.Duration(0)
 	}
-	return time.Duration((float32(time.Second) / captureFrequencyHz))
+	return time.Duration(float32(time.Second) / captureFrequencyHz)
 }
 
 // Initialize a collector for the component/method or update it if it has previously been created.
@@ -329,7 +330,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	return &componentMetadata, nil
 }
 
-func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMins float64) error {
+func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMins float64, cfg *config.Config) error {
 	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
 	// TODO DATA-235: fix that
 	if svc.syncer != nil {
@@ -340,14 +341,14 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 
 	svc.cancelSyncBackgroundRoutine()
 
-	syncer, err := datasync.NewSyncer(svc.logger, svc.uploadFunc, svc.partID)
-	if err != nil {
-		return errors.Wrap(err, "failed to initialize new syncer")
-	}
-	svc.syncer = syncer
-
 	// Kick off syncer if we're running it.
 	if intervalMins > 0 {
+		syncer, err := svc.syncerConstructor(svc.logger, cfg)
+		if err != nil {
+			return errors.Wrap(err, "failed to initialize new syncer")
+		}
+		svc.syncer = syncer
+
 		// Sync existing files in captureDir.
 		var previouslyCaptured []string
 		//nolint
@@ -373,7 +374,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 }
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
-func (svc *dataManagerService) Sync(ctx context.Context) error {
+func (svc *dataManagerService) Sync(_ context.Context) error {
 	if svc.syncer == nil {
 		return errors.New("called Sync on data manager service with nil syncer")
 	}
@@ -456,6 +457,10 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		svc.partID = cfg.Cloud.ID
 	}
 
+	if svc.syncerConstructor == nil {
+		svc.syncerConstructor = datasync.NewDefaultManager
+	}
+
 	toggledCaptureOff := (svc.captureDisabled != svcConfig.CaptureDisabled) && svcConfig.CaptureDisabled
 	svc.captureDisabled = svcConfig.CaptureDisabled
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
@@ -486,7 +491,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 
 	// Stop syncing if newly disabled in the config.
 	if toggledSyncOff {
-		if err := svc.initOrUpdateSyncer(ctx, 0); err != nil {
+		if err := svc.initOrUpdateSyncer(ctx, 0, cfg); err != nil {
 			return err
 		}
 	} else if toggledSyncOn || (svcConfig.SyncIntervalMins != svc.syncIntervalMins) ||
@@ -496,7 +501,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 		svc.lock.Unlock()
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
-		if err := svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins); err != nil {
+		if err := svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins, cfg); err != nil {
 			return err
 		}
 	}

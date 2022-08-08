@@ -58,12 +58,12 @@ func (pt *progressTracker) deleteProgressFile(path string) error {
 }
 
 // Increment progress index in progress file.
-func (pt *progressTracker) updateProgressFileIndex(path string, requestsWritten int) error {
+func (pt *progressTracker) incrementProgressFileIndex(path string) error {
 	i, err := pt.getProgressFileIndex(path)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(path, []byte(strconv.Itoa(i+requestsWritten)), os.FileMode((0o777)))
+	err = ioutil.WriteFile(path, []byte(strconv.Itoa(i+1)), os.FileMode((0o777)))
 	if err != nil {
 		return err
 	}
