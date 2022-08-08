@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/data"
 	pb "go.viam.com/rdk/proto/api/component/gps/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -39,6 +40,19 @@ func init() {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
+
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: readLocation.String(),
+	}, newReadLocationCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: readAltitude.String(),
+	}, newReadAltitudeCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: readSpeed.String(),
+	}, newReadSpeedCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "gps".
@@ -61,6 +75,8 @@ type GPS interface {
 	ReadLocation(ctx context.Context) (*geo.Point, error) // The current latitude and longitude
 	ReadAltitude(ctx context.Context) (float64, error)    // The current altitude in meters
 	ReadSpeed(ctx context.Context) (float64, error)       // Current ground speed in mm per sec
+
+	sensor.Sensor
 	generic.Generic
 }
 
@@ -240,15 +256,10 @@ func (r *reconfigurableGPS) ReadSpeed(ctx context.Context) (float64, error) {
 	return r.actual.ReadSpeed(ctx)
 }
 
-// GetReadings will use the default GPS GetReadings if not provided.
 func (r *reconfigurableGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-
-	if sensor, ok := r.actual.(sensor.Sensor); ok {
-		return sensor.GetReadings(ctx)
-	}
-	return GetReadings(ctx, r.actual)
+	return r.actual.GetReadings(ctx)
 }
 
 func (r *reconfigurableGPS) Reconfigure(ctx context.Context, newGPS resource.Reconfigurable) error {

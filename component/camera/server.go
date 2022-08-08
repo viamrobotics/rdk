@@ -65,13 +65,7 @@ func (s *subtypeServer) GetFrame(
 	}()
 	// choose the best/fastest representation
 	if req.MimeType == "" || req.MimeType == utils.MimeTypeViamBest {
-		switch img.(type) {
-		case *rimage.ImageWithDepth:
-			// TODO(DATA-237) remove this data type
-			req.MimeType = utils.MimeTypeRawIWD
-		default:
-			req.MimeType = utils.MimeTypeRawRGBA
-		}
+		req.MimeType = utils.MimeTypeRawRGBA
 	}
 
 	bounds := img.Bounds()

@@ -28,7 +28,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*transformConfig)
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
@@ -42,10 +42,10 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "undistort",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf camera.AttrConfig
+			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&camera.AttrConfig{})
+		&transformConfig{})
 }
 
 // undistortSource will undistort the original image according to the Distortion parameters
@@ -56,8 +56,8 @@ type undistortSource struct {
 	cameraParams *transform.PinholeCameraIntrinsics
 }
 
-func newUndistortSource(ctx context.Context, source camera.Camera, attrs *camera.AttrConfig) (camera.Camera, error) {
-	proj, _ := camera.GetProjector(ctx, attrs, source)
+func newUndistortSource(ctx context.Context, source camera.Camera, attrs *transformConfig) (camera.Camera, error) {
+	proj, _ := camera.GetProjector(ctx, nil, source)
 	intrinsics, ok := proj.(*transform.PinholeCameraIntrinsics)
 	if !ok {
 		return nil, transform.NewNoIntrinsicsError("")
@@ -72,15 +72,14 @@ func (us *undistortSource) Next(ctx context.Context) (image.Image, func(), error
 	if err != nil {
 		return nil, nil, err
 	}
-	defer release()
 	switch us.stream {
-	case camera.ColorStream, camera.UnspecifiedStream:
+	case camera.ColorStream, camera.UnspecifiedStream, camera.BothStream:
 		color := rimage.ConvertImage(orig)
 		color, err = us.cameraParams.UndistortImage(color)
 		if err != nil {
 			return nil, nil, err
 		}
-		return color, func() {}, nil
+		return color, release, nil
 	case camera.DepthStream:
 		depth, err := rimage.ConvertImageToDepthMap(orig)
 		if err != nil {
@@ -90,18 +89,7 @@ func (us *undistortSource) Next(ctx context.Context) (image.Image, func(), error
 		if err != nil {
 			return nil, nil, err
 		}
-		return rimage.MakeImageWithDepth(rimage.ConvertImage(depth.ToGray16Picture()), depth, true), func() {}, nil
-	case camera.BothStream:
-		both := rimage.ConvertToImageWithDepth(orig)
-		color, err := us.cameraParams.UndistortImage(both.Color)
-		if err != nil {
-			return nil, nil, err
-		}
-		depth, err := us.cameraParams.UndistortDepthMap(both.Depth)
-		if err != nil {
-			return nil, nil, err
-		}
-		return rimage.MakeImageWithDepth(color, depth, both.IsAligned()), func() {}, nil
+		return depth, release, nil
 	default:
 		return nil, nil, errors.Errorf("do not know how to decode stream type %q", string(us.stream))
 	}
