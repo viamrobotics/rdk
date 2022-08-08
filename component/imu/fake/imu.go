@@ -84,3 +84,8 @@ func (i *IMU) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
 	defer i.mu.Unlock()
 	return i.magnetometer, nil
 }
+
+// GetReadings returns the set readings.
+func (i *IMU) GetReadings(ctx context.Context) ([]interface{}, error) {
+	return imu.GetReadings(ctx, i)
+}
