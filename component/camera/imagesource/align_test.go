@@ -41,10 +41,9 @@ func TestAlignTypeError(t *testing.T) {
 	depthCam, err := camera.New(depthSrc, nil)
 	test.That(t, err, test.ShouldBeNil)
 	attrs := &alignAttrs{
-		AttrConfig: &camera.AttrConfig{
-			Width:  100,
-			Height: 200,
-		},
+		AttrConfig: &camera.AttrConfig{},
+		Width:      100,
+		Height:     200,
 	}
 	// test Warp error
 	attrs.Warp = []float64{4.5, 6.}

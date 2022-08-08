@@ -199,11 +199,6 @@ func (i *imageWithDepth) Overlay() *image.NRGBA {
 	return Overlay(i.Color, i.Depth)
 }
 
-// WriteTo writes both the color and depth data to the given file.
-func (i *imageWithDepth) WriteTo(fn string) error {
-	return WriteBothToFile(i, fn)
-}
-
 // newImageWithDepthFromImages returns a new image from the given two color and image files.
 func newImageWithDepthFromImages(colorFN, depthFN string, isAligned bool) (*imageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
