@@ -70,6 +70,8 @@ type BodyToPoseInFrame map[string]*referenceframe.PoseInFrame
 // given in the context of the PoseTracker's frame of reference.
 type PoseTracker interface {
 	GetPoses(ctx context.Context, bodyNames []string) (BodyToPoseInFrame, error)
+
+	sensor.Sensor
 	generic.Generic
 }
 
@@ -132,6 +134,13 @@ func (r *reconfigurablePoseTracker) GetPoses(
 	return r.actual.GetPoses(ctx, bodyNames)
 }
 
+// GetReadings returns the PoseTrack readings.
+func (r *reconfigurablePoseTracker) GetReadings(ctx context.Context) ([]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.GetReadings(ctx)
+}
+
 func (r *reconfigurablePoseTracker) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -152,17 +161,6 @@ func (r *reconfigurablePoseTracker) Reconfigure(
 	}
 	r.actual = actual.actual
 	return nil
-}
-
-// GetReadings will use the default PoseTracker GetReadings if not provided.
-func (r *reconfigurablePoseTracker) GetReadings(ctx context.Context) ([]interface{}, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	if sensor, ok := r.actual.(sensor.Sensor); ok {
-		return sensor.GetReadings(ctx)
-	}
-	return GetReadings(ctx, r.actual)
 }
 
 // WrapWithReconfigurable converts a regular PoseTracker implementation to a reconfigurablePoseTracker.
