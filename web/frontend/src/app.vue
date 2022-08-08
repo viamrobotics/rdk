@@ -307,6 +307,11 @@ export default {
       req.setPositionsMmList(pos);
       gantryService.moveToPosition(req, {}, this.grpcCallback);
     },
+    gantryStop(name) {
+      const request = new gantryApi.StopRequest();
+      request.setName(name);
+      gantryService.stop(request, {}, this.grpcCallback);
+    },
     armEndPositionInc(name, getterSetter, amount) {
       const adjustedAmount = getterSetter[0] === 'o' || getterSetter[0] === 'O' ? amount / 100 : amount;
       const arm = this.rawResourceStatusByName(name);
@@ -413,7 +418,11 @@ export default {
       armService.moveToJointPositions(req, {}, this.grpcCallback);
       delete this.armToggle[name.name];
     },
-
+    armStop(name) {
+      const request = new armApi.StopRequest();
+      request.setName(name);
+      armService.stop(request, {}, this.grpcCallback);
+    },
     gripperAction(name, action) {
       let req;
       switch (action) {
@@ -428,6 +437,11 @@ export default {
         gripperService.grab(req, {}, this.grpcCallback);
         break;
       }
+    },
+    gripperStop(name) {
+      const request = new gripperApi.StopRequest();
+      request.setName(name);
+      gripperService.stop(request, {}, this.grpcCallback);
     },
     servoMove(name, amount) {
       const servo = this.rawResourceStatusByName(name);
@@ -1459,6 +1473,17 @@ function setBoundingBox(box, centerPoint) {
       :key="gantry.name"
       :title="`Gantry ${gantry.name}`"
     >
+      <div
+        slot="header"
+        class="flex items-center justify-between gap-2"
+      >
+        <v-button
+          variant="danger"
+          icon="stop-circle"
+          label="STOP"
+          @click.stop="gantryStop(gantry.name)"
+        />
+      </div>
       <div class="border border-t-0 border-black p-4">
         <table class="border border-t-0 border-black p-4">
           <thead>
@@ -1660,7 +1685,18 @@ function setBoundingBox(box, centerPoint) {
       :key="arm.name"
       :title="`Arm ${arm.name}`"
     >
-      <div class="mb-2 flex">
+      <div
+        slot="header"
+        class="flex items-center justify-between gap-2"
+      >
+        <v-button
+          variant="danger"
+          icon="stop-circle"
+          label="STOP"
+          @click.stop="armStop(arm.name)"
+        />
+      </div>
+      <div class="mt-2 flex">
         <div
           v-if="armToggle[arm.name]"
           class="mr-4 w-1/2 border border-black p-4"
@@ -1838,6 +1874,17 @@ function setBoundingBox(box, centerPoint) {
       :key="gripper.name"
       :title="`Gripper ${gripper.name}`"
     >
+      <div
+        slot="header"
+        class="flex items-center justify-between gap-2"
+      >
+        <v-button
+          variant="danger"
+          icon="stop-circle"
+          label="STOP"
+          @click.stop="gripperStop(gripper.name)"
+        />
+      </div>
       <div class="flex gap-2 border border-t-0 border-black p-4">
         <v-button
           label="Open"
