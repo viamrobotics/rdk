@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // I2CAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
@@ -214,10 +215,10 @@ func (g *PmtkI2CNMEAMovementSensor) GetLinearVelocity(ctx context.Context) (r3.V
 }
 
 // GetAngularVelocity not supported.
-func (g *PmtkI2CNMEAMovementSensor) GetAngularVelocity(ctx context.Context) (r3.Vector, error) {
+func (g *PmtkI2CNMEAMovementSensor) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return r3.Vector{}, nil
+	return spatialmath.AngularVelocity{}, nil
 }
 
 // GetCompassHeading not supported.
@@ -228,10 +229,10 @@ func (g *PmtkI2CNMEAMovementSensor) GetCompassHeading(ctx context.Context) (floa
 }
 
 // GetOrientation not supporter.
-func (g *PmtkI2CNMEAMovementSensor) GetOrientation(ctx context.Context) (r3.Vector, error) {
+func (g *PmtkI2CNMEAMovementSensor) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return r3.Vector{}, nil
+	return spatialmath.NewZeroOrientation(), nil
 }
 
 // ReadFix returns quality.

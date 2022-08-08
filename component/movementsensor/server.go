@@ -3,7 +3,7 @@ package movementsensor
 import (
 	"context"
 
-	"github.com/pkg/errors"
+	"github.com/golang/geo/r3"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/movementsensor/v1"
@@ -82,7 +82,7 @@ func (s *subtypeServer) GetAngularVelocity(
 		return nil, err
 	}
 	return &pb.GetAngularVelocityResponse{
-		AngularVelocity: protoutils.ConvertVectorR3ToProto(vel),
+		AngularVelocity: protoutils.ConvertVectorR3ToProto(r3.Vector(vel)),
 	}, nil
 }
 
@@ -116,7 +116,7 @@ func (s *subtypeServer) GetOrientation(
 		return nil, err
 	}
 	return &pb.GetOrientationResponse{
-		Orientation: protoutils.ConvertVectorR3ToProto(vel),
+		Orientation: protoutils.ConvertOrientationToProto(vel),
 	}, nil
 }
 

@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/sensor"
 	pb "go.viam.com/rdk/proto/api/component/movementsensor/v1"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // serviceClient is a client satisfies the gps.proto contract.
@@ -70,24 +71,24 @@ func (c *client) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
 	return protoutils.ConvertVectorProtoToR3(resp.LinearVelocity), nil
 }
 
-func (c *client) GetAngularVelocity(ctx context.Context) (r3.Vector, error) {
+func (c *client) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	resp, err := c.client.GetAngularVelocity(ctx, &pb.GetAngularVelocityRequest{
 		Name: c.name,
 	})
 	if err != nil {
-		return r3.Vector{}, err
+		return spatialmath.AngularVelocity{}, err
 	}
-	return protoutils.ConvertVectorProtoToR3(resp.AngularVelocity), nil
+	return spatialmath.AngularVelocity(protoutils.ConvertVectorProtoToR3(resp.AngularVelocity)), nil
 }
 
-func (c *client) GetOrientation(ctx context.Context) (r3.Vector, error) {
+func (c *client) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	resp, err := c.client.GetOrientation(ctx, &pb.GetOrientationRequest{
 		Name: c.name,
 	})
 	if err != nil {
-		return r3.Vector{}, err
+		return spatialmath.NewZeroOrientation(), err
 	}
-	return protoutils.ConvertVectorProtoToR3(resp.Orientation), nil
+	return protoutils.ConvertProtoToOrientation(resp.Orientation), nil
 }
 
 func (c *client) GetCompassHeading(ctx context.Context) (float64, error) {

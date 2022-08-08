@@ -8,6 +8,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/movementsensor"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // MovementSensor is an injected MovementSensor.
@@ -15,9 +16,9 @@ type MovementSensor struct {
 	movementsensor.MovementSensor
 	GetPositionFunc        func(ctx context.Context) (*geo.Point, float64, float64, error)
 	GetLinearVelocityFunc  func(ctx context.Context) (r3.Vector, error)
-	GetAngularVelocityFunc func(ctx context.Context) (r3.Vector, error)
+	GetAngularVelocityFunc func(ctx context.Context) (spatialmath.AngularVelocity, error)
 	GetCompassHeadingFunc  func(ctx context.Context) (float64, error)
-	GetOrientationFunc     func(ctx context.Context) (r3.Vector, error)
+	GetOrientationFunc     func(ctx context.Context) (spatialmath.Orientation, error)
 
 	DoFunc    func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc func(ctx context.Context) error
@@ -56,7 +57,7 @@ func (i *MovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, erro
 }
 
 // GetAngularVelocity func or passthrough.
-func (i *MovementSensor) GetAngularVelocity(ctx context.Context) (r3.Vector, error) {
+func (i *MovementSensor) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	if i.GetPositionFunc == nil {
 		return i.MovementSensor.GetAngularVelocity(ctx)
 	}
@@ -64,7 +65,7 @@ func (i *MovementSensor) GetAngularVelocity(ctx context.Context) (r3.Vector, err
 }
 
 // GetOrientation func or passthrough.
-func (i *MovementSensor) GetOrientation(ctx context.Context) (r3.Vector, error) {
+func (i *MovementSensor) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	if i.GetPositionFunc == nil {
 		return i.MovementSensor.GetOrientation(ctx)
 	}

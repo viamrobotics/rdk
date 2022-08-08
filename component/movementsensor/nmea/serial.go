@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // SerialAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
@@ -186,17 +187,15 @@ func (g *SerialNMEAMovementSensor) GetLinearVelocity(ctx context.Context) (r3.Ve
 }
 
 // GetAngularVelocity angularvelocity.
-func (g *SerialNMEAMovementSensor) GetAngularVelocity(ctx context.Context) (r3.Vector, error) {
+func (g *SerialNMEAMovementSensor) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return r3.Vector{0, 0, 0}, nil
+	return spatialmath.AngularVelocity{}, nil
 }
 
 // GetOrientation orientation.
-func (g *SerialNMEAMovementSensor) GetOrientation(ctx context.Context) (r3.Vector, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	return r3.Vector{0, 0, 0}, nil
+func (g *SerialNMEAMovementSensor) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+	return spatialmath.NewZeroOrientation(), nil
 }
 
 // GetCompassHeading 0->360.

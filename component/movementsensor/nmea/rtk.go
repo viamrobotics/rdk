@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // RTKAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
@@ -477,7 +478,7 @@ func (g *RTKMovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, e
 }
 
 // GetAngularVelocity passthrough.
-func (g *RTKMovementSensor) GetAngularVelocity(ctx context.Context) (r3.Vector, error) {
+func (g *RTKMovementSensor) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	return g.nmeamovementsensor.GetAngularVelocity(ctx)
 }
 
@@ -487,7 +488,7 @@ func (g *RTKMovementSensor) GetCompassHeading(ctx context.Context) (float64, err
 }
 
 // GetOrientation passthrough.
-func (g *RTKMovementSensor) GetOrientation(ctx context.Context) (r3.Vector, error) {
+func (g *RTKMovementSensor) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	return g.nmeamovementsensor.GetOrientation(ctx)
 }
 
