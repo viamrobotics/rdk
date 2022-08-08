@@ -108,7 +108,7 @@ func (b *boat) StartRC(ctx context.Context) {
 				return
 			}
 
-			mode, err := b.mode.Value(ctx)
+			mode, err := b.mode.Value(ctx, nil)
 			if err != nil {
 				log.Print(err)
 				continue
@@ -121,18 +121,18 @@ func (b *boat) StartRC(ctx context.Context) {
 
 			direction := 0.0
 
-			aSwitchVal, err := b.aSwitch.Value(ctx)
+			aSwitchVal, err := b.aSwitch.Value(ctx, nil)
 			if err != nil {
 				log.Print(err)
 				continue
 			}
 			if aSwitchVal >= 1600 {
-				rightVerticalVal, err := b.rightVertical.Value(ctx)
+				rightVerticalVal, err := b.rightVertical.Value(ctx, nil)
 				if err != nil {
 					log.Print(err)
 					continue
 				}
-				rightHorizontalVal, err := b.rightHorizontal.Value(ctx)
+				rightHorizontalVal, err := b.rightHorizontal.Value(ctx, nil)
 				if err != nil {
 					log.Print(err)
 					continue
@@ -156,12 +156,12 @@ func (b *boat) StartRC(ctx context.Context) {
 					starboard *= -1
 				}
 
-				throttleVal, err := b.throttle.Value(ctx)
+				throttleVal, err := b.throttle.Value(ctx, nil)
 				if err != nil {
 					log.Print(err)
 					continue
 				}
-				directionVal, err := b.direction.Value(ctx)
+				directionVal, err := b.direction.Value(ctx, nil)
 				if err != nil {
 					log.Print(err)
 					continue
