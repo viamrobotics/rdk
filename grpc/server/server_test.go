@@ -14,7 +14,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
@@ -318,12 +317,10 @@ func TestServerGetStatus(t *testing.T) {
 	t.Run("working many statuses", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		server := server.New(injectRobot)
-		iStatus := robot.Status{Name: imu.Named("imu"), Status: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}}}
 		gStatus := robot.Status{Name: movementsensor.Named("gps"), Status: map[string]interface{}{"efg": []string{"hello"}}}
 		aStatus := robot.Status{Name: arm.Named("arm"), Status: struct{}{}}
-		statuses := []robot.Status{iStatus, gStatus, aStatus}
+		statuses := []robot.Status{gStatus, aStatus}
 		expected := map[resource.Name]interface{}{
-			iStatus.Name: map[string]interface{}{"abc": []interface{}{1.2, 2.3, 3.4}},
 			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
 			aStatus.Name: map[string]interface{}{},
 		}
@@ -332,13 +329,12 @@ func TestServerGetStatus(t *testing.T) {
 				t,
 				testutils.NewResourceNameSet(resourceNames...),
 				test.ShouldResemble,
-				testutils.NewResourceNameSet(iStatus.Name, gStatus.Name, aStatus.Name),
+				testutils.NewResourceNameSet(gStatus.Name, aStatus.Name),
 			)
 			return statuses, nil
 		}
 		req := &pb.GetStatusRequest{
 			ResourceNames: []*commonpb.ResourceName{
-				protoutils.ResourceNameToProto(iStatus.Name),
 				protoutils.ResourceNameToProto(gStatus.Name),
 				protoutils.ResourceNameToProto(aStatus.Name),
 			},
@@ -346,12 +342,11 @@ func TestServerGetStatus(t *testing.T) {
 
 		resp, err := server.GetStatus(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp.Status), test.ShouldEqual, 3)
+		test.That(t, len(resp.Status), test.ShouldEqual, 2)
 
 		observed := map[resource.Name]interface{}{
 			protoutils.ResourceNameFromProto(resp.Status[0].Name): resp.Status[0].Status.AsMap(),
 			protoutils.ResourceNameFromProto(resp.Status[1].Name): resp.Status[1].Status.AsMap(),
-			protoutils.ResourceNameFromProto(resp.Status[2].Name): resp.Status[2].Status.AsMap(),
 		}
 		test.That(t, observed, test.ShouldResemble, expected)
 	})

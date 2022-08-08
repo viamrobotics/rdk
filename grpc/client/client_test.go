@@ -29,7 +29,6 @@ import (
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
-	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/movementsensor"
@@ -866,7 +865,7 @@ func TestClientDiscovery(t *testing.T) {
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return finalResources
 	}
-	q := discovery.Query{imu.Named("imu").ResourceSubtype, "some imu"}
+	q := discovery.Query{movementsensor.Named("foo").ResourceSubtype, "something"}
 	injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
 		return []discovery.Discovery{{
 			Query:   q,
@@ -1091,11 +1090,9 @@ func TestClientStatus(t *testing.T) {
 		client, err := New(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		iStatus := robot.Status{Name: imu.Named("imu"), Status: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}}}
 		gStatus := robot.Status{Name: movementsensor.Named("gps"), Status: map[string]interface{}{"efg": []string{"hello"}}}
 		aStatus := robot.Status{Name: arm.Named("arm"), Status: struct{}{}}
 		statusMap := map[resource.Name]robot.Status{
-			iStatus.Name: iStatus,
 			gStatus.Name: gStatus,
 			aStatus.Name: aStatus,
 		}
@@ -1107,7 +1104,6 @@ func TestClientStatus(t *testing.T) {
 			return statuses, nil
 		}
 		expected := map[resource.Name]interface{}{
-			iStatus.Name: map[string]interface{}{"abc": []interface{}{1.2, 2.3, 3.4}},
 			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
 			aStatus.Name: map[string]interface{}{},
 		}
@@ -1123,14 +1119,13 @@ func TestClientStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldResemble, aStatus.Status)
 
-		resp, err = client.GetStatus(context.Background(), []resource.Name{iStatus.Name, gStatus.Name, aStatus.Name})
+		resp, err = client.GetStatus(context.Background(), []resource.Name{gStatus.Name, aStatus.Name})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, 3)
+		test.That(t, len(resp), test.ShouldEqual, 2)
 
 		observed := map[resource.Name]interface{}{
 			resp[0].Name: resp[0].Status,
 			resp[1].Name: resp[1].Status,
-			resp[2].Name: resp[2].Status,
 		}
 		test.That(t, observed, test.ShouldResemble, expected)
 
