@@ -89,6 +89,7 @@ func fromRemoteNameToRemoteNodeName(name string) resource.Name {
 
 // addRemote adds a remote to the manager.
 func (manager *resourceManager) addRemote(ctx context.Context, rr robot.Robot, c config.Remote, r *localRobot) {
+	fmt.Println("add remote to manager")
 	rName := fromRemoteNameToRemoteNodeName(c.Name)
 	manager.addResource(rName, rr)
 	manager.updateRemoteResourceNames(ctx, rName, rr, r)
@@ -379,6 +380,7 @@ func (manager *resourceManager) completeConfig(
 				case <-robot.closeContext.Done():
 					return
 				case robot.remotesChanged <- rName:
+					fmt.Printf("%s has been connected \n", rName)
 				}
 			})
 		}
