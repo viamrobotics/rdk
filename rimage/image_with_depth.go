@@ -199,21 +199,6 @@ func (i *imageWithDepth) Overlay() *image.NRGBA {
 	return Overlay(i.Color, i.Depth)
 }
 
-// newImageWithDepthFromImages returns a new image from the given two color and image files.
-func newImageWithDepthFromImages(colorFN, depthFN string, isAligned bool) (*imageWithDepth, error) {
-	img, err := NewImageFromFile(colorFN)
-	if err != nil {
-		return nil, errors.Wrapf(err, "cannot read color file (%s)", colorFN)
-	}
-
-	dm, err := NewDepthMapFromFile(depthFN)
-	if err != nil {
-		return nil, errors.Wrapf(err, "cannot read depth file (%s)", depthFN)
-	}
-
-	return &imageWithDepth{img, dm, isAligned}, nil
-}
-
 // newImageWithDepth returns a new image from the given color image and depth data files.
 func newImageWithDepth(colorFN, depthFN string, isAligned bool) (*imageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
@@ -309,33 +294,6 @@ func (i *imageWithDepth) RawBytesWrite(buf *bytes.Buffer) error {
 	}
 
 	return nil
-}
-
-// imageWithDepthFromRawBytes returns a new image interpreted from the internal representation
-// of color and depth.
-func imageWithDepthFromRawBytes(width, height int, b []byte) (*imageWithDepth, error) {
-	iwd := &imageWithDepth{}
-
-	// depth
-	iwd.Depth = NewEmptyDepthMap(width, height)
-	dst := utils.RawBytesFromSlice(iwd.Depth.data)
-	read := copy(dst, b)
-	if read != width*height*2 {
-		return nil, errors.Errorf("invalid copy of depth data read: %d x: %d y: %d", read, width, height)
-	}
-	b = b[read:]
-
-	iwd.Color = NewImage(width, height)
-	dst = utils.RawBytesFromSlice(iwd.Color.data)
-	read = copy(dst, b)
-	if read != width*height*8 {
-		return nil, errors.Errorf("invalid copy of color data read: %d x: %d y: %d", read, width, height)
-	}
-	b = b[read:]
-
-	iwd.aligned = b[0] == 0x1
-
-	return iwd, nil
 }
 
 // WarpColorDepth adapts the image to a new size.

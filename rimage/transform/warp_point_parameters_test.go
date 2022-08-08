@@ -48,8 +48,6 @@ func TestRGBDToPointCloud(t *testing.T) {
 	// image with depth with depth missing should return error
 	img, err = rimage.NewImageFromFile(artifact.MustPath("transform/align-test-1615761793_color.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err = rimage.NewDepthMapFromFile(artifact.MustPath("transform/align-test-1615761793.png"))
-	test.That(t, err, test.ShouldBeNil)
 
 	pcBad, err := dct.RGBDToPointCloud(img, nil)
 	test.That(t, err, test.ShouldNotBeNil)
