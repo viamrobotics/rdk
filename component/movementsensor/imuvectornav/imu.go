@@ -84,7 +84,12 @@ const (
 // NewVectorNav connect and set up a vectornav IMU over SPI.
 // Will also compensate for acceleration and delta velocity bias over one second so be
 // sure the IMU is still when calling this function.
-func NewVectorNav(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (movementsensor.MovementSensor, error) {
+func NewVectorNav(
+	ctx context.Context,
+	deps registry.Dependencies,
+	config config.Component,
+	logger golog.Logger,
+) (movementsensor.MovementSensor, error) {
 	boardName := config.Attributes.String("board")
 	b, err := board.FromDependencies(deps, boardName)
 	if err != nil {
