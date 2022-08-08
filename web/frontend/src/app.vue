@@ -26,7 +26,9 @@ import {
   resourceNameToString,
   filterResources,
   filterRdkComponentsWithStatus,
+  filterResourcesWithNames,
 } from './lib/resource';
+
 import {
   BaseControlHelper,
   MotorControlHelper,
@@ -37,6 +39,7 @@ import {
 
 import BaseComponent from './components/base.vue';
 import Camera from './components/camera.vue';
+import Do from './components/do.vue';
 import Gamepad from './components/gamepad.vue';
 import InputController from './components/input-controller.vue';
 import MotorDetail from './components/motor-detail.vue';
@@ -145,6 +148,7 @@ export default {
   components: {
     BaseComponent,
     Camera,
+    Do,
     Gamepad,
     InputController,
     MotorDetail,
@@ -199,6 +203,7 @@ export default {
     filterResources,
     filterRdkComponentsWithStatus,
     resourceNameToString,
+    filterResourcesWithNames,
     
     fixRawStatus(name, status) {
       switch (resourceNameToSubtypeString(name)) {
@@ -301,6 +306,11 @@ export default {
       req.setName(name.name);
       req.setPositionsMmList(pos);
       gantryService.moveToPosition(req, {}, this.grpcCallback);
+    },
+    gantryStop(name) {
+      const request = new gantryApi.StopRequest();
+      request.setName(name);
+      gantryService.stop(request, {}, this.grpcCallback);
     },
     armEndPositionInc(name, getterSetter, amount) {
       const adjustedAmount = getterSetter[0] === 'o' || getterSetter[0] === 'O' ? amount / 100 : amount;
@@ -408,7 +418,11 @@ export default {
       armService.moveToJointPositions(req, {}, this.grpcCallback);
       delete this.armToggle[name.name];
     },
-
+    armStop(name) {
+      const request = new armApi.StopRequest();
+      request.setName(name);
+      armService.stop(request, {}, this.grpcCallback);
+    },
     gripperAction(name, action) {
       let req;
       switch (action) {
@@ -423,6 +437,11 @@ export default {
         gripperService.grab(req, {}, this.grpcCallback);
         break;
       }
+    },
+    gripperStop(name) {
+      const request = new gripperApi.StopRequest();
+      request.setName(name);
+      gripperService.stop(request, {}, this.grpcCallback);
     },
     servoMove(name, amount) {
       const servo = this.rawResourceStatusByName(name);
@@ -584,7 +603,7 @@ export default {
           if (err) {
             return;
           }
-          const streamName = normalizeRemoteName(cameraName)
+          const streamName = normalizeRemoteName(cameraName);
           const streamContainer = document.querySelector(`#stream-${streamName}`);
           if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
             streamContainer.querySelectorAll('video')[0].remove();
@@ -1469,6 +1488,17 @@ function setBoundingBox(box, centerPoint) {
       :key="gantry.name"
       :title="`Gantry ${gantry.name}`"
     >
+      <div
+        slot="header"
+        class="flex items-center justify-between gap-2"
+      >
+        <v-button
+          variant="danger"
+          icon="stop-circle"
+          label="STOP"
+          @click.stop="gantryStop(gantry.name)"
+        />
+      </div>
       <div class="border border-t-0 border-black p-4">
         <table class="border border-t-0 border-black p-4">
           <thead>
@@ -1695,7 +1725,18 @@ function setBoundingBox(box, centerPoint) {
       :key="arm.name"
       :title="`Arm ${arm.name}`"
     >
-      <div class="mb-2 flex">
+      <div
+        slot="header"
+        class="flex items-center justify-between gap-2"
+      >
+        <v-button
+          variant="danger"
+          icon="stop-circle"
+          label="STOP"
+          @click.stop="armStop(arm.name)"
+        />
+      </div>
+      <div class="mt-2 flex">
         <div
           v-if="armToggle[arm.name]"
           class="mr-4 w-1/2 border border-black p-4"
@@ -1873,6 +1914,17 @@ function setBoundingBox(box, centerPoint) {
       :key="gripper.name"
       :title="`Gripper ${gripper.name}`"
     >
+      <div
+        slot="header"
+        class="flex items-center justify-between gap-2"
+      >
+        <v-button
+          variant="danger"
+          icon="stop-circle"
+          label="STOP"
+          @click.stop="gripperStop(gripper.name)"
+        />
+      </div>
       <div class="flex gap-2 border border-t-0 border-black p-4">
         <v-button
           label="Open"
@@ -2188,6 +2240,9 @@ function setBoundingBox(box, centerPoint) {
       @update-slam-image-refresh-frequency="updateSLAMImageRefreshFrequency"
       @update-slam-pcd-refresh-frequency="updateSLAMPCDRefreshFrequency"
     />
+
+    <!-- ******* DO ******* -->
+    <Do :resources="filterResourcesWithNames(resources)" />
   </div>
 </template>
 

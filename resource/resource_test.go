@@ -32,6 +32,21 @@ func TestResourceType(t *testing.T) {
 			resource.Type{Namespace: resource.ResourceNamespaceRDK},
 			"type field for resource missing or invalid",
 		},
+
+		{
+			"reserved character in resource type",
+			"rd:k",
+			resource.ResourceTypeComponent,
+			resource.Type{Namespace: "rd:k", ResourceType: resource.ResourceTypeComponent},
+			"reserved character : used",
+		},
+		{
+			"reserved charater in namespace",
+			resource.ResourceNamespaceRDK,
+			"compon:ent",
+			resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: "compon:ent"},
+			"reserved character : used",
+		},
 		{
 			"all fields included",
 			resource.ResourceNamespaceRDK,
@@ -101,6 +116,20 @@ func TestResourceSubtype(t *testing.T) {
 				},
 			},
 			"subtype field for resource missing or invalid",
+		},
+		{
+			"reserved character in subtype name",
+			resource.ResourceNamespaceRDK,
+			resource.ResourceTypeComponent,
+			"sub:type",
+			resource.Subtype{
+				Type: resource.Type{
+					Namespace:    resource.ResourceNamespaceRDK,
+					ResourceType: resource.ResourceTypeComponent,
+				},
+				ResourceSubtype: "sub:type",
+			},
+			"reserved character : used",
 		},
 		{
 			"all fields included",

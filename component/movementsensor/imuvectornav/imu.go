@@ -481,11 +481,12 @@ func (vn *vectornav) compensateDVBias(ctx context.Context, smpSize uint) error {
 		s := 1.0 / float64(vn.polling)
 		dt = time.Duration(s * float64(time.Second))
 	}
-	for i := uint(0); i < smpSize; i++ {
+	for j := uint(0); j < smpSize; j++ {
 		if !rdkutils.SelectContextOrWait(ctx, dt) {
 			return errors.New("error in context during Dv compensation")
 		}
 		dv, err := vn.readRegisterSPI(ctx, deltaVDeltaTheta, 28)
+
 		if err != nil {
 			return errors.Wrap(err, "error reading dV register during bias compensation")
 		}
@@ -507,3 +508,4 @@ func (vn *vectornav) Close() {
 	vn.busClosed = true
 	vn.activeBackgroundWorkers.Wait()
 }
+

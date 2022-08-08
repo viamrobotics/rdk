@@ -5,14 +5,14 @@
  * es modules and get rid of this.
  */
 
- import commonjs from '@rollup/plugin-commonjs';
- import { nodeResolve } from '@rollup/plugin-node-resolve';
- import copy from 'rollup-plugin-copy';
- import alias from '@rollup/plugin-alias';
+import commonjs from '@rollup/plugin-commonjs';
+import { nodeResolve } from '@rollup/plugin-node-resolve';
+import copy from 'rollup-plugin-copy';
+import alias from '@rollup/plugin-alias';
  
- const dir = './src/gen/proto';
- const format = 'es';
- const files = [
+const dir = './src/gen/proto';
+const format = 'es';
+const files = [
   'api/common/v1/common_pb',
   'api/component/arm/v1/arm_pb',
   'api/component/arm/v1/arm_pb_service',
@@ -24,6 +24,8 @@
   'api/component/camera/v1/camera_pb_service',
   'api/component/gantry/v1/gantry_pb',
   'api/component/gantry/v1/gantry_pb_service',
+  'api/component/generic/v1/generic_pb',
+  'api/component/generic/v1/generic_pb_service',
   'api/component/gripper/v1/gripper_pb',
   'api/component/gripper/v1/gripper_pb_service',
   'api/component/movementsensor/v1/movementsensor_pb',
@@ -48,35 +50,35 @@
   'api/service/vision/v1/vision_pb_service',
   'stream/v1/stream_pb',
   'stream/v1/stream_pb_service',
- ];
+];
  
- const plugins = [
-   nodeResolve(),
-   commonjs(),
-   alias({
-     entries: [
-       {
-         find: '@improbable-eng/grpc-web',
-         replacement: './node_modules/@improbable-eng/grpc-web/dist/grpc-web-client.js',
-       },
-     ],
-   }),
- ];
+const plugins = [
+  nodeResolve(),
+  commonjs(),
+  alias({
+    entries: [
+      {
+        find: '@improbable-eng/grpc-web',
+        replacement: './node_modules/@improbable-eng/grpc-web/dist/grpc-web-client.js',
+      },
+    ],
+  }),
+];
  
- export default files.map((file) => ({
-   input: `${dir}/${file}.js`,
-   output: {
-     file: `${dir}/${file}.esm.js`,
-     format,
-   },
-   plugins: [
-     ...plugins,
-     copy({
-       targets: [{
-         src: `${dir}/${file}.d.ts`,
-         dest: dir,
-         rename: () => `${file}.esm.d.ts`,
-       }],
-     }),
-   ],
- }));
+export default files.map((file) => ({
+  input: `${dir}/${file}.js`,
+  output: {
+    file: `${dir}/${file}.esm.js`,
+    format,
+  },
+  plugins: [
+    ...plugins,
+    copy({
+      targets: [{
+        src: `${dir}/${file}.d.ts`,
+        dest: dir,
+        rename: () => `${file}.esm.d.ts`,
+      }],
+    }),
+  ],
+}));

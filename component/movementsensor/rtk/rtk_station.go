@@ -321,6 +321,6 @@ func (r *rtkStation) GetCompassHeading(ctx context.Context) (float64, error) {
 }
 
 func (r *rtkStation) GetReadings(ctx context.Context) ([]interface{}, error) {
-	return nil, nil
+	return []interface{}{}, nil
 }
 
