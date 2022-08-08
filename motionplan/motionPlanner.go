@@ -321,7 +321,8 @@ func getSolutions(ctx context.Context,
 	seed []frame.Input,
 	f frame.Frame,
 ) ([][]frame.Input, error) {
-	// Linter doesn't properly handle loop labels
+	// Linter doesn't properly handle loop labels. The empty line below this is needed or the linter removes the nolint
+
 	// nolint:ifshort
 	nSolutions := opt.maxSolutions
 	if nSolutions == 0 {
