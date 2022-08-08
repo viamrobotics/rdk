@@ -11,17 +11,14 @@ import (
 func TestCommonCameraAttributes(t *testing.T) {
 	testConfWrong := config.AttributeMap{
 		"source": "TestSource",
-		"width":  5,
-		"height": "7",
+		"stream": 5,
 	}
 	_, err := CommonCameraAttributes(testConfWrong)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "'height' expected type 'int', got unconvertible type")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "'stream' expected type 'string', got unconvertible type")
 	testConf := config.AttributeMap{
-		"width":  5,
-		"height": 7,
+		"stream": "color",
 	}
 	res, err := CommonCameraAttributes(testConf)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, res.Width, test.ShouldEqual, 5)
-	test.That(t, res.Height, test.ShouldEqual, 7)
+	test.That(t, res.Stream, test.ShouldEqual, "color")
 }
