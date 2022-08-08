@@ -119,8 +119,14 @@ func (config *Component) Validate(path string) ([]string, error) {
 		// default namespace.
 		config.Namespace = resource.ResourceNamespaceRDK
 	}
+	if err := resource.ContainsReservedCharacter(string(config.Namespace)); err != nil {
+		return nil, err
+	}
 	if config.Name == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	if err := resource.ContainsReservedCharacter(config.Name); err != nil {
+		return nil, err
 	}
 	for key, value := range config.Attributes {
 		fieldPath := fmt.Sprintf("%s.%s", path, key)
@@ -323,6 +329,12 @@ func (config *Service) Validate(path string) error {
 		// NOTE: This should never be removed in order to ensure RDK is the
 		// default namespace.
 		config.Namespace = resource.ResourceNamespaceRDK
+	}
+	if err := resource.ContainsReservedCharacter(string(config.Namespace)); err != nil {
+		return err
+	}
+	if err := resource.ContainsReservedCharacter(config.Name); err != nil {
+		return err
 	}
 	for key, value := range config.Attributes {
 		v, ok := value.(validator)

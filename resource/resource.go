@@ -32,7 +32,10 @@ const (
 	ResourceTypeService   = TypeName("service")
 )
 
-var resRegexValidator = regexp.MustCompile(`^(rdk:\w+:(?:\w+))\/?(\w+:(?:\w+:)*)?(.+)?$`)
+var (
+	reservedChars     = [...]string{":"}
+	resRegexValidator = regexp.MustCompile(`^(rdk:\w+:(?:\w+))\/?(\w+:(?:\w+:)*)?(.+)?$`)
+)
 
 // Type represents a known component/service type of a robot.
 type Type struct {
@@ -52,6 +55,12 @@ func (t Type) Validate() error {
 	}
 	if t.ResourceType == "" {
 		return errors.New("type field for resource missing or invalid")
+	}
+	if err := ContainsReservedCharacter(string(t.Namespace)); err != nil {
+		return err
+	}
+	if err := ContainsReservedCharacter(string(t.ResourceType)); err != nil {
+		return err
 	}
 	return nil
 }
@@ -86,6 +95,9 @@ func (s Subtype) Validate() error {
 	}
 	if s.ResourceSubtype == "" {
 		return errors.New("subtype field for resource missing or invalid")
+	}
+	if err := ContainsReservedCharacter(string(s.ResourceSubtype)); err != nil {
+		return err
 	}
 	return nil
 }
@@ -185,7 +197,13 @@ func (n Name) ShortName() string {
 
 // Validate ensures that important fields exist and are valid.
 func (n Name) Validate() error {
-	return n.Subtype.Validate()
+	if err := n.Subtype.Validate(); err != nil {
+		return err
+	}
+	if err := ContainsReservedCharacter(n.Name); err != nil {
+		return err
+	}
+	return nil
 }
 
 // String returns the fully qualified name for the resource.
@@ -198,6 +216,21 @@ func (n Name) String() string {
 		name = fmt.Sprintf("%s/%s", name, n.Name)
 	}
 	return name
+}
+
+// NewReservedCharacterUsedError is used when a reserved character is wrongly used in a name.
+func NewReservedCharacterUsedError(val string, reservedChar string) error {
+	return errors.Errorf("reserved character %s used in name:%q", reservedChar, val)
+}
+
+// ContainsReservedCharacter returns error if string contains a reserved character.
+func ContainsReservedCharacter(val string) error {
+	for _, char := range reservedChars {
+		if strings.Contains(val, char) {
+			return NewReservedCharacterUsedError(val, char)
+		}
+	}
+	return nil
 }
 
 // Reconfigurable is implemented when component/service of a robot is reconfigurable.
