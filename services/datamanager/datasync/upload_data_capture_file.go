@@ -159,7 +159,7 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		return errors.Errorf("Error when trying to recv UploadResponse from server: %v", err)
 	}
 	if err := <-retSendingUploadReqs; err != nil {
-		return errors.Errorf("Error when trying to recv UploadResponse from server: %v", err)
+		return errors.Errorf("Error when trying to send UploadRequest to server: %v", err)
 	}
 
 	// Upload is complete, delete the corresponding progress file on disk.
