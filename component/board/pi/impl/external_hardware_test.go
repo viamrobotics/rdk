@@ -65,7 +65,7 @@ func TestPiHardware(t *testing.T) {
 		err = p.SetGPIOBcom(26, false)
 		test.That(t, err, test.ShouldBeNil)
 
-		v, err := reader.Read(ctx)
+		v, err := reader.Read(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, v, test.ShouldAlmostEqual, 0, 150)
 
