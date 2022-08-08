@@ -110,7 +110,7 @@ const motorStop = () => {
         variant="danger"
         icon="stop-circle"
         label="STOP"
-        @click="motorStop"
+        @click.stop="motorStop"
       />
     </div>
 
