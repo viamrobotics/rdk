@@ -299,6 +299,10 @@ func (m *mock) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
 	return mg, nil
 }
 
+func (m *mock) GetReadings(ctx context.Context) ([]interface{}, error) {
+	return imu.GetReadings(ctx, m)
+}
+
 func (m *mock) Close() { m.reconfCount++ }
 
 func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

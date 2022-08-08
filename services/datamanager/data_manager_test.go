@@ -29,6 +29,11 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+const (
+	captureWaitTime = time.Millisecond * 25
+	syncWaitTime    = time.Millisecond * 100
+)
+
 var (
 	// Robot config which specifies data manager service.
 	configPath = "robots/configs/fake_data_manager.json"
@@ -132,8 +137,6 @@ func TestNewDataManager(t *testing.T) {
 
 	err = dmsvc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	flushWritersTime := time.Millisecond * 10
-	time.Sleep(flushWritersTime)
 
 	// Check that a collector wrote to file.
 	armDir := captureDir + "/arm/arm1/GetEndPosition"
@@ -165,15 +168,13 @@ func TestCaptureDisabled(t *testing.T) {
 	defer resetFolder(t, captureDir)
 	err = dmsvc.Update(context.Background(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
-	captureTime := time.Millisecond * 500
-	time.Sleep(captureTime)
+	time.Sleep(captureWaitTime)
 
 	// Call Update with a disabled capture and give the collector time to write to file.
 	dmCfg.CaptureDisabled = true
 	err = dmsvc.Update(context.Background(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
-	flushWritersTime := time.Millisecond * 10
-	time.Sleep(flushWritersTime)
+	time.Sleep(captureWaitTime)
 
 	// Verify that the collector wrote to its file.
 	armDir := captureDir + "/arm/arm1/GetEndPosition"
@@ -186,12 +187,11 @@ func TestCaptureDisabled(t *testing.T) {
 	dmCfg.CaptureDisabled = false
 	err = dmsvc.Update(context.Background(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
-	time.Sleep(captureTime)
+	time.Sleep(captureWaitTime)
 
 	// Close service.
 	err = dmsvc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	time.Sleep(flushWritersTime)
 
 	// Verify that started collection began in a new file when it was re-enabled.
 	filesInArmDir, err = readDir(t, armDir)
@@ -213,8 +213,7 @@ func TestNewRemoteDataManager(t *testing.T) {
 	defer resetFolder(t, captureDir)
 	err := dmsvc.Update(context.Background(), conf)
 	test.That(t, err, test.ShouldBeNil)
-	sleepTime := time.Millisecond * 100
-	time.Sleep(sleepTime)
+	time.Sleep(captureWaitTime)
 
 	// Verify that after close is called, the collector is no longer writing.
 	err = dmsvc.Close(context.Background())
@@ -238,8 +237,7 @@ func TestNewRemoteDataManager(t *testing.T) {
 // synced at start up.
 func TestRecoversAfterKilled(t *testing.T) {
 	// Register mock datasync service with a mock server.
-	logger, _ := golog.NewObservedTestLogger(t)
-	rpcServer, mockService := buildAndStartLocalServer(t, logger)
+	rpcServer, mockService := buildAndStartLocalServer(t)
 	defer func() {
 		err := rpcServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
@@ -288,11 +286,10 @@ func TestRecoversAfterKilled(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Validate that the previously captured file was uploaded at startup.
-	time.Sleep(time.Millisecond * 100)
+	time.Sleep(syncWaitTime)
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
-	uploaded := mockService.getUploadedFiles()
-	test.That(t, len(uploaded), test.ShouldEqual, 1+numArbitraryFilesToSync)
+	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 1+numArbitraryFilesToSync)
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
@@ -305,8 +302,7 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	defer resetFolder(t, td)
 
 	// Register mock datasync service with a mock server.
-	logger, _ := golog.NewObservedTestLogger(t)
-	rpcServer, _ := buildAndStartLocalServer(t, logger)
+	rpcServer, _ := buildAndStartLocalServer(t)
 	defer func() {
 		err := rpcServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
@@ -327,7 +323,7 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Validate the "additional_sync_path_dir" was created. Wait some time to ensure it would have been created.
-	time.Sleep(time.Millisecond * 100)
+	time.Sleep(syncWaitTime)
 	_ = dmsvc.Close(context.TODO())
 	_, err = os.Stat(td)
 	test.That(t, errors.Is(err, nil), test.ShouldBeTrue)
@@ -391,8 +387,7 @@ func noRepeatedElements(slice []string) bool {
 // Validates that manual syncing works for a datamanager.
 func TestManualSync(t *testing.T) {
 	// Register mock datasync service with a mock server.
-	logger, _ := golog.NewObservedTestLogger(t)
-	rpcServer, mockService := buildAndStartLocalServer(t, logger)
+	rpcServer, mockService := buildAndStartLocalServer(t)
 	defer func() {
 		err := rpcServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
@@ -425,7 +420,7 @@ func TestManualSync(t *testing.T) {
 	// Run and upload files.
 	err = dmsvc.Sync(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	time.Sleep(time.Millisecond * 50)
+	time.Sleep(syncWaitTime)
 
 	// Verify that one data capture file was uploaded, two additional_sync_paths files were uploaded,
 	// and that no two uploaded files are the same.
@@ -436,7 +431,7 @@ func TestManualSync(t *testing.T) {
 	// any files that were previously synced.
 	err = dmsvc.Sync(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	time.Sleep(time.Millisecond * 50)
+	time.Sleep(syncWaitTime)
 	_ = dmsvc.Close(context.TODO())
 	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, numArbitraryFilesToSync+2)
 	test.That(t, noRepeatedElements(mockService.getUploadedFiles()), test.ShouldBeTrue)
@@ -445,8 +440,7 @@ func TestManualSync(t *testing.T) {
 // Validates that scheduled syncing works for a datamanager.
 func TestScheduledSync(t *testing.T) {
 	// Register mock datasync service with a mock server.
-	logger, _ := golog.NewObservedTestLogger(t)
-	rpcServer, mockService := buildAndStartLocalServer(t, logger)
+	rpcServer, mockService := buildAndStartLocalServer(t)
 	defer func() {
 		err := rpcServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
@@ -499,8 +493,7 @@ func TestScheduledSync(t *testing.T) {
 // or running into errors.
 func TestManualAndScheduledSync(t *testing.T) {
 	// Register mock datasync service with a mock server.
-	logger, _ := golog.NewObservedTestLogger(t)
-	rpcServer, mockService := buildAndStartLocalServer(t, logger)
+	rpcServer, mockService := buildAndStartLocalServer(t)
 	defer func() {
 		err := rpcServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
@@ -540,7 +533,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 	time.Sleep(time.Millisecond * 250)
 	err = dmsvc.Sync(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
-	time.Sleep(time.Millisecond * 100)
+	time.Sleep(syncWaitTime)
 	_ = dmsvc.Close(context.TODO())
 
 	// Verify that two data capture files were uploaded, two additional_sync_paths files were uploaded,
@@ -611,8 +604,7 @@ func (m *mock) Close(_ context.Context) error {
 
 func TestSyncDisabled(t *testing.T) {
 	// Register mock datasync service with a mock server.
-	logger, _ := golog.NewObservedTestLogger(t)
-	rpcServer, mockService := buildAndStartLocalServer(t, logger)
+	rpcServer, mockService := buildAndStartLocalServer(t)
 	defer func() {
 		err := rpcServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
@@ -705,14 +697,14 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 		}
 	}
 	(*m.lock).Lock()
-	newUploadedFiles := append(*m.uploadedFiles, fileName)
-	*m.uploadedFiles = newUploadedFiles
+	*m.uploadedFiles = append(*m.uploadedFiles, fileName)
 	(*m.lock).Unlock()
 	return nil
 }
 
 //nolint:thelper
-func buildAndStartLocalServer(t *testing.T, logger golog.Logger) (rpc.Server, mockDataSyncServiceServer) {
+func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServer) {
+	logger, _ := golog.NewObservedTestLogger(t)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	mockService := mockDataSyncServiceServer{

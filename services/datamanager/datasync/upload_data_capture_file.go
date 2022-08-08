@@ -150,6 +150,7 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 					_ = stream.CloseSend()
 					return
 				}
+
 			}
 		}
 	}()
