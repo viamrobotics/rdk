@@ -57,8 +57,7 @@ func (pt *progressTracker) deleteProgressFile(path string) error {
 	return os.Remove(path)
 }
 
-// Increment progress index in progress file.
-func (pt *progressTracker) incrementProgressFileIndex(path string) error {
+func (pt *progressTracker) updateProgressFileIndex(path string, requestsWritten int) error {
 	i, err := pt.getProgressFileIndex(path)
 	if err != nil {
 		return err

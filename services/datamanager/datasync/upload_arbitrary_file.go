@@ -45,6 +45,9 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 						return err
 					}
 				}
+				if err := stream.CloseSend(); err != nil {
+					return errors.Wrap(err, "error when closing the stream")
+				}
 				return nil
 			}
 			if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
