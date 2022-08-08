@@ -105,6 +105,42 @@ func writeBinarySensorData(f *os.File, toWrite [][]byte) error {
 	return nil
 }
 
+func writeSensorData(f *os.File, sds []*v1.SensorData) error {
+	for _, sd := range sds {
+		_, err := pbutil.WriteDelimited(f, sd)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func createBinarySensorData(toWrite [][]byte) []*v1.SensorData {
+	var sds []*v1.SensorData
+	for _, bytes := range toWrite {
+		sd := &v1.SensorData{
+			Data: &v1.SensorData_Binary{
+				Binary: bytes,
+			},
+		}
+		sds = append(sds, sd)
+	}
+	return sds
+}
+
+func createTabularSensorData(toWrite []*structpb.Struct) []*v1.SensorData {
+	var sds []*v1.SensorData
+	for _, contents := range toWrite {
+		sd := &v1.SensorData{
+			Data: &v1.SensorData_Struct{
+				Struct: contents,
+			},
+		}
+		sds = append(sds, sd)
+	}
+	return sds
+}
+
 // createTmpDataCaptureFile creates a data capture file, which is defined as a file with the dataCaptureFileExt as its
 // file extension.
 func createTmpDataCaptureFile() (file *os.File, err error) {
@@ -122,7 +158,7 @@ func createTmpDataCaptureFile() (file *os.File, err error) {
 	return ret, nil
 }
 
-func buildBinarySensorMsgs(data [][]byte, fileName string) []*v1.UploadRequest {
+func buildBinaryUploadRequests(data [][]byte, fileName string) []*v1.UploadRequest {
 	var expMsgs []*v1.UploadRequest
 	if len(data) == 0 {
 		return expMsgs
