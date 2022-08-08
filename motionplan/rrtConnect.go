@@ -125,7 +125,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	defer cancel()
 
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
-	target := &node{q: referenceframe.InterpolateInputs(seed, solutions[0], 0.5)}
+	target := referenceframe.InterpolateInputs(seed, solutions[0], 0.5)
 
 	// Create a reference to the two maps so that we can alternate which one is grown
 	map1, map2 := startMap, goalMap
@@ -143,18 +143,19 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 		nearest2 := nm.nearestNeighbor(nmContext, target, map2)
 
 		// attempt to extend the map to connect the target to map 1, then try to connect the maps together
-		map1reached := mp.checkPath(ctx, opt, nearest1.q, target.q)
+		map1reached := mp.checkPath(ctx, opt, nearest1.q, target)
+		targetNode := &node{q: target}
 		if map1reached {
-			map1[target] = nearest1
+			map1[targetNode] = nearest1
 		}
-		map2reached := mp.checkPath(ctx, opt, nearest2.q, target.q)
+		map2reached := mp.checkPath(ctx, opt, nearest2.q, target)
 		if map2reached {
-			map2[target] = nearest2
+			map2[targetNode] = nearest2
 		}
 
 		if map1reached && map2reached {
 			cancel()
-			solutionChan <- &planReturn{steps: extractPath(startMap, goalMap, target, target)}
+			solutionChan <- &planReturn{steps: extractPath(startMap, goalMap, targetNode, targetNode)}
 			return
 		}
 
@@ -166,8 +167,8 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	solutionChan <- &planReturn{err: errors.New("could not solve path")}
 }
 
-func (mp *rrtConnectMotionPlanner) sample() *node {
-	return &node{q: referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
+func (mp *rrtConnectMotionPlanner) sample() []referenceframe.Input {
+	return referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
 }
 
 func (mp *rrtConnectMotionPlanner) checkPath(ctx context.Context, opt *PlannerOptions, seedInputs, target []referenceframe.Input) bool {

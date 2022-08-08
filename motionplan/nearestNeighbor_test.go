@@ -21,7 +21,7 @@ func TestNearestNeighbor(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	seed := &node{q: []referenceframe.Input{{23.1}}}
+	seed := []referenceframe.Input{{23.1}}
 	// test serial NN
 	nn := nm.nearestNeighbor(ctx, seed, rrtMap)
 	test.That(t, nn.q[0].Value, test.ShouldAlmostEqual, 23.0)
@@ -31,7 +31,7 @@ func TestNearestNeighbor(t *testing.T) {
 		rrtMap[iSol] = j
 		j = iSol
 	}
-	seed = &node{q: []referenceframe.Input{{723.6}}}
+	seed = []referenceframe.Input{{723.6}}
 	// test parallel NN
 	nn = nm.nearestNeighbor(ctx, seed, rrtMap)
 	test.That(t, nn.q[0].Value, test.ShouldAlmostEqual, 724.0)

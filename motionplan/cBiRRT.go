@@ -188,7 +188,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	defer cancel()
 
 	// main sampling loop - for the first sample we try the 0.5 interpolation between seed and goal[0]
-	target := &node{q: referenceframe.InterpolateInputs(seed, solutions[0], 0.5)}
+	target := referenceframe.InterpolateInputs(seed, solutions[0], 0.5)
 	for i := 0; i < mp.iter; i++ {
 		select {
 		case <-ctx.Done():
@@ -202,8 +202,8 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		map1reached := mp.constrainedExtend(ctx, opt, map1, nearest1, target)
 
 		// then attempt to extend map2 towards map 1
-		nearest2 := nm.nearestNeighbor(nmContext, map1reached, map2)
-		map2reached := mp.constrainedExtend(ctx, opt, map2, nearest2, map1reached)
+		nearest2 := nm.nearestNeighbor(nmContext, map1reached.q, map2)
+		map2reached := mp.constrainedExtend(ctx, opt, map2, nearest2, map1reached.q)
 
 		corners[map1reached] = true
 		corners[map2reached] = true
@@ -227,18 +227,18 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	solutionChan <- &planReturn{err: errors.New("could not solve path")}
 }
 
-func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) *node {
+func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) []referenceframe.Input {
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
 	if sampleNum >= iterBeforeRand && sampleNum%4 >= 2 {
-		return &node{q: referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
+		return referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
 	}
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
-	node := &node{q: referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)}
+	q := referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)
 	for j, v := range rSeed.q {
-		node.q[j].Value += v.Value
+		q[j].Value += v.Value
 	}
-	return node
+	return q
 }
 
 // constrainedExtend will try to extend the map towards the target while meeting constraints along the way. It will
@@ -247,14 +247,15 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	ctx context.Context,
 	opt *PlannerOptions,
 	rrtMap map[*node]*node,
-	near, target *node,
+	near *node,
+	target []referenceframe.Input,
 ) *node {
 	oldNear := near
 	for i := 0; true; i++ {
 		switch {
-		case inputDist(near.q, target.q) < mp.solDist:
+		case inputDist(near.q, target) < mp.solDist:
 			return near
-		case inputDist(near.q, target.q) > inputDist(oldNear.q, target.q):
+		case inputDist(near.q, target) > inputDist(oldNear.q, target):
 			return oldNear
 		case i > 2 && inputDist(near.q, oldNear.q) < math.Pow(mp.solDist, 3):
 			// not moving enough to make meaningful progress. Do not trigger on first iteration.
@@ -267,10 +268,10 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 
 		// alter near to be closer to target
 		for j, nearInput := range near.q {
-			if nearInput.Value == target.q[j].Value {
+			if nearInput.Value == target[j].Value {
 				newNear = append(newNear, nearInput)
 			} else {
-				v1, v2 := nearInput.Value, target.q[j].Value
+				v1, v2 := nearInput.Value, target[j].Value
 				newVal := math.Min(mp.qstep[j], math.Abs(v2-v1))
 				// get correct sign
 				newVal *= (v2 - v1) / math.Abs(v2-v1)
@@ -378,7 +379,7 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 		shortcutGoal[jSol] = nil
 
 		// extend backwards for convenience later. Should work equally well in both directions
-		reached := mp.constrainedExtend(ctx, opt, shortcutGoal, jSol, iSol)
+		reached := mp.constrainedExtend(ctx, opt, shortcutGoal, jSol, iSol.q)
 
 		// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
 		// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
