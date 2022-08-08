@@ -29,9 +29,8 @@ func (cid *chunkImageDebug) Process(
 	logger golog.Logger,
 ) error {
 	t.Helper()
-	// TODO(DATA-237): .both will be removed
 	img := rimage.ConvertImage(imgraw)
-	dm, _ := rimage.ConvertImageToDepthMap(imgraw) // DepthMap is optional, ok if nil.
+	dm, _ := rimage.ConvertImageToDepthMap(img2) // DepthMap is optional, ok if nil.
 
 	type AShape struct {
 		Start      image.Point
@@ -146,7 +145,7 @@ func TestChunk1(t *testing.T) {
 	if chunkTest == "" {
 		t.Skipf("set environmental variable %q to run this test", debugChunks)
 	}
-	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/test1", "*", "")
+	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/test1/color", "*.png", "segmentation/test1/depth")
 	err := d.Process(t, &chunkImageDebug{})
 	test.That(t, err, test.ShouldBeNil)
 }

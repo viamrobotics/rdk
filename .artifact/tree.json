@@ -50383,6 +50383,56 @@
         "hash": "388a1fc918d3cabf3cdd2594e73d608a",
         "size": 138
       },
+      "color": {
+        "20210111.1459.32.json": {
+          "hash": "46f16caefdd3419aed39d51116515bf0",
+          "size": 147
+        },
+        "20210111.1459.32.png": {
+          "hash": "dfc920591696a29e07f0ae55222f0229",
+          "size": 1606174
+        },
+        "data_00126.json": {
+          "hash": "a2df7a5f126616de8e218d04bc09f258",
+          "size": 192
+        },
+        "data_00126.png": {
+          "hash": "ad6085d93651aab8daf99c519b320533",
+          "size": 1580411
+        },
+        "gripper1.json": {
+          "hash": "b3506c1258945912a393fee68c117557",
+          "size": 707
+        },
+        "gripper1.png": {
+          "hash": "fa2005215eadab3fb184c8404be3669c",
+          "size": 221280
+        },
+        "rover_backwards.json": {
+          "hash": "395d5e2e1248ea72f76f860f3ff68e7b",
+          "size": 131
+        },
+        "rover_backwards.png": {
+          "hash": "84735ff41300d221d9baa02657ede58e",
+          "size": 1521701
+        },
+        "rover_stuff.json": {
+          "hash": "a68d90c7f78b5822836dbc798b0b8205",
+          "size": 3
+        },
+        "rover_stuff.png": {
+          "hash": "c7be3e21fbed168b24775c2e2e7c6bbe",
+          "size": 1546333
+        },
+        "warped-board2.json": {
+          "hash": "bcb99b0ea0f053c0f4e8fd25504736bc",
+          "size": 133
+        },
+        "warped-board2.png": {
+          "hash": "56cc1c5199291c7756524c18f04313dc",
+          "size": 852949
+        }
+      },
       "data_00126.both.gz": {
         "hash": "8ed9495fccda83b4369bea95fd6d4b83",
         "size": 2034964
@@ -50390,6 +50440,32 @@
       "data_00126.both.json": {
         "hash": "a2df7a5f126616de8e218d04bc09f258",
         "size": 192
+      },
+      "depth": {
+        "20210111.1459.32.png": {
+          "hash": "f511e63741cac253bebda3c8a37af371",
+          "size": 155689
+        },
+        "data_00126.png": {
+          "hash": "12b4955eb69ac8c214aadad55e05dcb6",
+          "size": 80919
+        },
+        "gripper1.png": {
+          "hash": "be73cf3a6fc54bfb30f754339aa0eb30",
+          "size": 47362
+        },
+        "rover_backwards.png": {
+          "hash": "1574946d040cfa8b79209e1aca909ef3",
+          "size": 55166
+        },
+        "rover_stuff.png": {
+          "hash": "0823cb87289c612e81dd595ece92930b",
+          "size": 146848
+        },
+        "warped-board2.png": {
+          "hash": "b80ce3e9810951fa81c8a8a5dfdd2052",
+          "size": 114146
+        }
       },
       "gripper1.both.gz": {
         "hash": "c2b2f06c0c8482d192d4eb621e7e7a61",
