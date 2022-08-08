@@ -167,6 +167,7 @@ func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger
 		syncIntervalMins:          -1,
 		additionalSyncPaths:       []string{},
 		waitAfterLastModifiedSecs: 10,
+		syncerConstructor:         datasync.NewDefaultManager,
 	}
 
 	return dataManagerSvc, nil
@@ -456,8 +457,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	if cfg.Cloud != nil {
 		svc.partID = cfg.Cloud.ID
 	}
-
-	svc.syncerConstructor = datasync.NewDefaultManager
 
 	toggledCaptureOff := (svc.captureDisabled != svcConfig.CaptureDisabled) && svcConfig.CaptureDisabled
 	svc.captureDisabled = svcConfig.CaptureDisabled
