@@ -61,38 +61,29 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		default:
 			// Get the next UploadRequest from the file.
 			uploadReq, err := getNextSensorUploadRequest(ctx, f)
+
 			// If the error is EOF, we completed successfully.
 			if errors.Is(err, io.EOF) {
-				if err := f.Close(); err != nil {
-					return err
-				}
-
-				// Close stream and receive response.
 				if _, err := stream.CloseAndRecv(); err != nil {
-					if errors.Is(err, io.EOF) {
-						return nil
+					if !errors.Is(err, io.EOF) {
+						return err
 					}
-					return err
 				}
 
+				if err := pt.deleteProgressFile(filepath.Join(pt.progressDir,
+					filepath.Base(filepath.Base(f.Name())))); err != nil {
+					return err
+				}
 				return nil
 			}
 			if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
 				continue
 			}
-			// If there is any other error, return it.
 			if err != nil {
 				return err
 			}
 
 			if err = stream.Send(uploadReq); err != nil {
-				// EOF on send mean server has closed stream.
-				if errors.Is(err, io.EOF) {
-					if err := f.Close(); err != nil {
-						return err
-					}
-					return nil
-				}
 				return err
 			}
 			if err := pt.incrementProgressFileIndex(filepath.Join(pt.progressDir, filepath.

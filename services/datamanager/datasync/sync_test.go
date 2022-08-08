@@ -67,7 +67,7 @@ func TestFileUpload(t *testing.T) {
 		conn, err := getLocalServerConn(rpcServer, logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := NewClient(conn)
-		sut, err := NewManager(logger, nil, partID, client, conn)
+		sut, err := NewManager(logger, partID, client, conn)
 		test.That(t, err, test.ShouldBeNil)
 		sut.Sync([]string{tf.Name()})
 
@@ -189,7 +189,7 @@ func TestSensorUploadTabular(t *testing.T) {
 		conn, err := getLocalServerConn(rpcServer, logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := NewClient(conn)
-		sut, err := NewManager(logger, nil, partID, client, conn)
+		sut, err := NewManager(logger, partID, client, conn)
 		test.That(t, err, test.ShouldBeNil)
 		sut.Sync([]string{tf.Name()})
 
@@ -300,7 +300,7 @@ func TestSensorUploadBinary(t *testing.T) {
 		conn, err := getLocalServerConn(rpcServer, logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := NewClient(conn)
-		sut, err := NewManager(logger, nil, partID, client, conn)
+		sut, err := NewManager(logger, partID, client, conn)
 		test.That(t, err, test.ShouldBeNil)
 		sut.Sync([]string{tf.Name()})
 
@@ -328,7 +328,7 @@ func TestUploadsOnce(t *testing.T) {
 	conn, err := getLocalServerConn(rpcServer, logger)
 	test.That(t, err, test.ShouldBeNil)
 	client := NewClient(conn)
-	sut, err := NewManager(logger, nil, partID, client, conn)
+	sut, err := NewManager(logger, partID, client, conn)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Put a couple files in captureDir.
@@ -357,7 +357,6 @@ func TestUploadExponentialRetry(t *testing.T) {
 	// Set retry related global vars to faster values for test.
 	initialWaitTime = time.Millisecond * 50
 	maxRetryInterval = time.Millisecond * 150
-	// Define an UploadFunc that fails 3 times then succeeds on its 4th attempt.
 	// Register mock datasync service with a mock server.
 	logger, _ := golog.NewObservedTestLogger(t)
 	// Build a mock service that fails 3 times before succeeding.
@@ -372,7 +371,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 	conn, err := getLocalServerConn(rpcServer, logger)
 	test.That(t, err, test.ShouldBeNil)
 	client := NewClient(conn)
-	sut, err := NewManager(logger, nil, partID, client, conn)
+	sut, err := NewManager(logger, partID, client, conn)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Sync file.
@@ -489,7 +488,7 @@ func TestPartialUpload(t *testing.T) {
 			conn, err := getLocalServerConn(rpcServer, logger)
 			test.That(t, err, test.ShouldBeNil)
 			client := NewClient(conn)
-			sut, err := NewManager(logger, nil, partID, client, conn)
+			sut, err := NewManager(logger, partID, client, conn)
 			test.That(t, err, test.ShouldBeNil)
 			sut.Sync([]string{f.Name()})
 			// time.Sleep(time.Millisecond * 100)
@@ -507,7 +506,7 @@ func TestPartialUpload(t *testing.T) {
 			conn, err = getLocalServerConn(rpcServer, logger)
 			test.That(t, err, test.ShouldBeNil)
 			client = NewClient(conn)
-			sut, err = NewManager(logger, nil, partID, client, conn)
+			sut, err = NewManager(logger, partID, client, conn)
 			test.That(t, err, test.ShouldBeNil)
 			sut.Sync([]string{f.Name()})
 			// time.Sleep(time.Millisecond * 100)

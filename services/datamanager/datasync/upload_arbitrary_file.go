@@ -32,38 +32,34 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 
 	// Loop until there is no more content to be read from file.
 	for {
-		// Get the next UploadRequest from the file.
-		uploadReq, err := getNextFileUploadRequest(ctx, f)
-		// If the error is EOF, break from loop.
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
-			continue
-		}
-		// If there is any other error, return it.
-		if err != nil {
-			return err
-		}
+		select {
+		case <-stream.Context().Done():
+			return stream.Context().Err()
+		default:
+			// Get the next UploadRequest from the file.
+			uploadReq, err := getNextFileUploadRequest(ctx, f)
+			// EOF means we've completed successfully..
+			if errors.Is(err, io.EOF) {
+				if _, err := stream.CloseAndRecv(); err != nil {
+					if !errors.Is(err, io.EOF) {
+						return err
+					}
+				}
+				return nil
+			}
+			if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
+				continue
+			}
 
-		if err = stream.Send(uploadReq); err != nil {
-			return err
+			if err != nil {
+				return err
+			}
+
+			if err = stream.Send(uploadReq); err != nil {
+				return err
+			}
 		}
 	}
-
-	if err := f.Close(); err != nil {
-		return err
-	}
-
-	// Close stream and receive response.
-	if _, err := stream.CloseAndRecv(); err != nil {
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		return err
-	}
-
-	return nil
 }
 
 func getNextFileUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequest, error) {
