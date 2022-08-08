@@ -63,6 +63,10 @@ func (c *client) GetPoses(
 	return result, nil
 }
 
+func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
+	return GetReadings(ctx, c)
+}
+
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }
