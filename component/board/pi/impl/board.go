@@ -394,7 +394,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 		if err != nil {
 			return nil, err
 		}
-		err = chipPin.Set(ctx, false)
+		err = chipPin.Set(ctx, false, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -407,7 +407,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 		if err != nil {
 			return nil, err
 		}
-		err = chipPin.Set(ctx, true)
+		err = chipPin.Set(ctx, true, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -534,7 +534,7 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 }
 
 func (pi *piPigpio) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-	return board.CreateStatus(ctx, pi)
+	return board.CreateStatus(ctx, pi, extra)
 }
 
 var (
