@@ -219,16 +219,6 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 		imgCopy := image.NewRGBA(bounds)
 		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
 		buf.Write(imgCopy.Pix)
-	case ut.MimeTypeRawDepth:
-		// TODO(DATA-237) remove this data type
-		dm, ok := img.(*DepthMap)
-		if !ok {
-			return nil, ut.NewUnexpectedTypeError(dm, img)
-		}
-		_, err := dm.WriteTo(&buf)
-		if err != nil {
-			return nil, err
-		}
 	case ut.MimeTypePNG:
 		if err := png.Encode(&buf, img); err != nil {
 			return nil, err

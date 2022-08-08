@@ -5,37 +5,13 @@
         "hash": "a4b99c91c6bc68b734499799c05367e7",
         "size": 909570
       },
-      "align-test-1615760748.png": {
-        "hash": "f18e2ab2c345f70ea15ce323209ac644",
-        "size": 22434
-      },
-      "align-test-1615760748_color.png": {
-        "hash": "43c8402d847ca92a38e3442e80f686e0",
-        "size": 872289
-      },
       "align-test-1615761783.both.gz": {
         "hash": "4d68902ed4ee155b4abcc0ff9ae3a800",
         "size": 1036966
       },
-      "align-test-1615761783.png": {
-        "hash": "4737e4e0f6427a2a085a0283a04a3ac4",
-        "size": 21475
-      },
-      "align-test-1615761783_color.png": {
-        "hash": "c93588682e4027397f94da7732076464",
-        "size": 999930
-      },
       "align-test-1615761793.both.gz": {
         "hash": "d4a8814121f88435e12e678f54377797",
         "size": 1025703
-      },
-      "align-test-1615761793.png": {
-        "hash": "64d2f7a2dd5e27e860c369ceded374c5",
-        "size": 22268
-      },
-      "align-test-1615761793_color.png": {
-        "hash": "83771100a4bf3302a9de5feb2897be6a",
-        "size": 986607
       },
       "chess1.both.gz": {
         "hash": "68685fe5b1899a5874df4092de0be4e1",
@@ -161,37 +137,13 @@
         "hash": "f41441e697fc09065c7d0e3ce4cae611",
         "size": 2189273
       },
-      "align-test-1615172036.png": {
-        "hash": "1e30ef0759200c38fae44b043bdbd887",
-        "size": 364236
-      },
-      "align-test-1615172036_color.png": {
-        "hash": "0b8a9eabade62763602bdd4ca8575693",
-        "size": 1450621
-      },
       "align-test-1615174158.both.gz": {
         "hash": "18dccda7ad9c56d25e6a61d78b23376e",
         "size": 2178319
       },
-      "align-test-1615174158.png": {
-        "hash": "0a17ba98209ff58980beb36279c236c8",
-        "size": 351058
-      },
-      "align-test-1615174158_color.png": {
-        "hash": "5719a1d3c9df007d7cf32b16b1afd24a",
-        "size": 1477232
-      },
       "align-test-1615473489.both.gz": {
         "hash": "3796226d21137c904e3ee7933e3c915f",
         "size": 1872554
-      },
-      "align-test-1615473489.png": {
-        "hash": "b4a4bead4638d04d584c834ce4e1c1b2",
-        "size": 204714
-      },
-      "align-test-1615473489_color.png": {
-        "hash": "74faeb674fb7dee997aafa7eeb6f9ec7",
-        "size": 1368668
       },
       "chairs.both.gz": {
         "hash": "c5d43ec2e5c15540a3c3b2ddbb39f529",
@@ -538,6 +490,50 @@
       "board5a.both.gz": {
         "hash": "23ecd71cc2bdd35ae85df2807dcd9326",
         "size": 1647279
+      },
+      "color": {
+        "board-1610063549.png": {
+          "hash": "86e7bcac0ff71ab95c531a0d6db1d5e8",
+          "size": 1586626
+        },
+        "board1a.png": {
+          "hash": "95a413e55f0a71a0dcdcc1ed98fef46d",
+          "size": 1577438
+        },
+        "board2a.png": {
+          "hash": "33a8878fd09cb31bd33c139928cacb6f",
+          "size": 1552550
+        },
+        "board3a.png": {
+          "hash": "233d7f12b0d68ffe99ecd9d7a1a6f7fa",
+          "size": 1578016
+        },
+        "board5a.png": {
+          "hash": "2da959b324c2592c9b008057ab13c635",
+          "size": 1572759
+        }
+      },
+      "depth": {
+        "board-1610063549.png": {
+          "hash": "401ac84a1b5712c6df5639adaf6c38d0",
+          "size": 107175
+        },
+        "board1a.png": {
+          "hash": "25993f4c19eec20d5acb8b10b6d3ef66",
+          "size": 96058
+        },
+        "board2a.png": {
+          "hash": "3e62dc2c62bbd4f5e198fb1c4e82f9a9",
+          "size": 92327
+        },
+        "board3a.png": {
+          "hash": "c7d952ca66449138e011c3e5bb07bb82",
+          "size": 94412
+        },
+        "board5a.png": {
+          "hash": "39ffc024daa6ff4ff5f3222c5e5fed5d",
+          "size": 43539
+        }
       },
       "img-1605537751.png": {
         "hash": "b38fe6b761623a59b4ffc79c0afc06e1",
@@ -2998,6 +2994,26 @@
     }
   },
   "depthpreprocess": {
+    "color": {
+      "dogtest.png": {
+        "hash": "4bf7788ee57b042a1873baf481c0b49d",
+        "size": 1466380
+      },
+      "dogwithwaterbottle.png": {
+        "hash": "4c072f42b5577f80724364bc4eb66c69",
+        "size": 1565807
+      }
+    },
+    "depth": {
+      "dogtest.png": {
+        "hash": "b62cfe02f2346d75ce5caf5bbf514d14",
+        "size": 118271
+      },
+      "dogwithwaterbottle.png": {
+        "hash": "5212c7e1dafbeb7cf86b4379843487d4",
+        "size": 131367
+      }
+    },
     "dogdesk.both": {
       "hash": "3cb71b257355555a0924529b4e687bf0",
       "size": 8839196
@@ -50055,6 +50071,26 @@
   },
   "segmentation": {
     "aligned_intel": {
+      "color": {
+        "desktop2.png": {
+          "hash": "11a8cacd5525e7907acaf35552fc6bf2",
+          "size": 1511084
+        },
+        "pieces.png": {
+          "hash": "3883b1175e2acbf9d4de73f13fa8b582",
+          "size": 1362459
+        }
+      },
+      "depth": {
+        "desktop2.png": {
+          "hash": "5da60e152aad41f45004bf8b4a80d8e0",
+          "size": 211495
+        },
+        "pieces.png": {
+          "hash": "121caae55df1603867741f6cba37a50a",
+          "size": 108294
+        }
+      },
       "desktop2.both.gz": {
         "hash": "be4c6b88b213fc6a6eb085edaaee5cbd",
         "size": 1830798
@@ -50062,14 +50098,6 @@
       "desktop2.both.gz.las": {
         "hash": "44688a30d468b19d97770c3232a55210",
         "size": 20322381
-      },
-      "desktop2.png": {
-        "hash": "5da60e152aad41f45004bf8b4a80d8e0",
-        "size": 211495
-      },
-      "desktop2_color.png": {
-        "hash": "11a8cacd5525e7907acaf35552fc6bf2",
-        "size": 1511084
       },
       "pieces.both.gz": {
         "hash": "665b8a19180ddf9612a77c2ac10d5b49",
@@ -50079,129 +50107,101 @@
         "hash": "dd7d7b511909fb4fca7335755d3ddad4",
         "size": 21512401
       },
-      "pieces.png": {
-        "hash": "121caae55df1603867741f6cba37a50a",
-        "size": 108294
-      },
-      "pieces_color.png": {
-        "hash": "3883b1175e2acbf9d4de73f13fa8b582",
-        "size": 1362459
-      },
       "pointcloud-pieces.pcd": {
         "hash": "c2da914018b887359d9f8576377c22d2",
         "size": 30580199
       }
     },
     "gripper": {
-      "full_chess.both.gz": {
-        "hash": "36486342e42c45bee1d5734f862af696",
-        "size": 426443
+      "color": {
+        "full_chess.png": {
+          "hash": "53a90d5a299f40d973652908f9cd85b8",
+          "size": 315190
+        },
+        "full_game.png": {
+          "hash": "ac594548111c7629637fc20c14ca62f4",
+          "size": 340577
+        },
+        "full_game2.png": {
+          "hash": "35d69f2266273cc1b8540501150b61ed",
+          "size": 336332
+        },
+        "gripper_chessgame2.png": {
+          "hash": "bdce417331c751765fc05ec3984f00f6",
+          "size": 328494
+        },
+        "gripper_chessgame3.png": {
+          "hash": "ec28454b1fe76335606c8a054d37e3d8",
+          "size": 308569
+        },
+        "gripper_chesspiece2.png": {
+          "hash": "8a8d1b495a4ef869c9f1a9485e1f227a",
+          "size": 250309
+        },
+        "marker1.png": {
+          "hash": "84f0b7c5c25fbac1963d49e236beaa5c",
+          "size": 255120
+        }
       },
-      "full_chess.png": {
-        "hash": "dcbd279d8f92e2c1041f2f9fe841f715",
-        "size": 54219
-      },
-      "full_chess_color.png": {
-        "hash": "53a90d5a299f40d973652908f9cd85b8",
-        "size": 315190
-      },
-      "full_game.both.gz": {
-        "hash": "9db95d2d7d366f2a09456395a042900f",
-        "size": 454815
-      },
-      "full_game.png": {
-        "hash": "405b61efaf4aef51886472aa73a5cb45",
-        "size": 53091
-      },
-      "full_game2.both.gz": {
-        "hash": "96f087cec5be0eb7d7281dd6bd1e90aa",
-        "size": 450288
-      },
-      "full_game2.png": {
-        "hash": "2ab977345c19eddd5aeb051a10a16255",
-        "size": 53157
-      },
-      "full_game2_color.png": {
-        "hash": "35d69f2266273cc1b8540501150b61ed",
-        "size": 336332
-      },
-      "full_game_color.png": {
-        "hash": "ac594548111c7629637fc20c14ca62f4",
-        "size": 340577
-      },
-      "gripper_chessgame2.both.gz": {
-        "hash": "044dc968a5a1872f1d5a289bef816dfe",
-        "size": 434788
-      },
-      "gripper_chessgame2.png": {
-        "hash": "a6d21bc81497cb8b9cd38a098edc3142",
-        "size": 49973
-      },
-      "gripper_chessgame2_color.png": {
-        "hash": "bdce417331c751765fc05ec3984f00f6",
-        "size": 328494
-      },
-      "gripper_chessgame3.both.gz": {
-        "hash": "45943bf49b315882cea99ec74111566f",
-        "size": 416431
-      },
-      "gripper_chessgame3.png": {
-        "hash": "4118d2bec7991c05ebf6eede90b68d5d",
-        "size": 50568
-      },
-      "gripper_chessgame3_color.png": {
-        "hash": "ec28454b1fe76335606c8a054d37e3d8",
-        "size": 308569
-      },
-      "gripper_chesspiece2.both.gz": {
-        "hash": "136968c341f204169e91bb1cf0b34d8a",
-        "size": 342709
-      },
-      "gripper_chesspiece2.png": {
-        "hash": "42b97c5514b77c7cd6456a0324c85f4c",
-        "size": 44001
-      },
-      "gripper_chesspiece2_color.png": {
-        "hash": "8a8d1b495a4ef869c9f1a9485e1f227a",
-        "size": 250309
-      },
-      "marker1.both.gz": {
-        "hash": "d84df9b723e4d0ce49b2136cb01773c6",
-        "size": 340808
-      },
-      "marker1.png": {
-        "hash": "a9352e1045cc5eccfd3e4d6964475c70",
-        "size": 47041
-      },
-      "marker1_color.png": {
-        "hash": "84f0b7c5c25fbac1963d49e236beaa5c",
-        "size": 255120
+      "depth": {
+        "full_chess.png": {
+          "hash": "dcbd279d8f92e2c1041f2f9fe841f715",
+          "size": 54219
+        },
+        "full_game.png": {
+          "hash": "405b61efaf4aef51886472aa73a5cb45",
+          "size": 53091
+        },
+        "full_game2.png": {
+          "hash": "2ab977345c19eddd5aeb051a10a16255",
+          "size": 53157
+        },
+        "gripper_chessgame2.png": {
+          "hash": "a6d21bc81497cb8b9cd38a098edc3142",
+          "size": 49973
+        },
+        "gripper_chessgame3.png": {
+          "hash": "4118d2bec7991c05ebf6eede90b68d5d",
+          "size": 50568
+        },
+        "gripper_chesspiece2.png": {
+          "hash": "42b97c5514b77c7cd6456a0324c85f4c",
+          "size": 44001
+        },
+        "marker1.png": {
+          "hash": "a9352e1045cc5eccfd3e4d6964475c70",
+          "size": 47041
+        }
       }
     },
     "planes": {
-      "align-test-1615473489.both.gz": {
-        "hash": "3796226d21137c904e3ee7933e3c915f",
-        "size": 1872554
+      "color": {
+        "align-test-1615473489.png": {
+          "hash": "74faeb674fb7dee997aafa7eeb6f9ec7",
+          "size": 1368668
+        },
+        "chairs.png": {
+          "hash": "e793d3d57684d9665497aed82daaefc7",
+          "size": 1499552
+        },
+        "shelf.png": {
+          "hash": "b0ecca9d27adbe39082b476d10cbe83e",
+          "size": 1505290
+        }
       },
-      "align-test-1615473489.png": {
-        "hash": "b4a4bead4638d04d584c834ce4e1c1b2",
-        "size": 204714
-      },
-      "align-test-1615473489_color.png": {
-        "hash": "74faeb674fb7dee997aafa7eeb6f9ec7",
-        "size": 1368668
-      },
-      "chairs.both.gz": {
-        "hash": "c5d43ec2e5c15540a3c3b2ddbb39f529",
-        "size": 2142121
-      },
-      "chairs.png": {
-        "hash": "5baa3605020179d9459c3940153ddb6d",
-        "size": 363157
-      },
-      "chairs_color.png": {
-        "hash": "e793d3d57684d9665497aed82daaefc7",
-        "size": 1499552
+      "depth": {
+        "align-test-1615473489.png": {
+          "hash": "b4a4bead4638d04d584c834ce4e1c1b2",
+          "size": 204714
+        },
+        "chairs.png": {
+          "hash": "5baa3605020179d9459c3940153ddb6d",
+          "size": 363157
+        },
+        "shelf.png": {
+          "hash": "e169adac6e12783397b5b26083673970",
+          "size": 247805
+        }
       },
       "shelf.both.gz": {
         "hash": "be0cb012e8d1a8c28e2725b241d5f776",
@@ -50534,6 +50534,66 @@
       "chess3_color.png": {
         "hash": "53a291eb87636550b5506dc20d1d025f",
         "size": 1027037
+      },
+      "color": {
+        "align-test-1615760748.png": {
+          "hash": "43c8402d847ca92a38e3442e80f686e0",
+          "size": 872289
+        },
+        "align-test-1615761783.png": {
+          "hash": "c93588682e4027397f94da7732076464",
+          "size": 999930
+        },
+        "align-test-1615761793.png": {
+          "hash": "83771100a4bf3302a9de5feb2897be6a",
+          "size": 986607
+        },
+        "chess1.png": {
+          "hash": "b8f3871c7d915af63cf9142c6c5df911",
+          "size": 970509
+        },
+        "chess2.png": {
+          "hash": "4c13d444058497a70e29d48a4cd848c1",
+          "size": 969104
+        },
+        "chess3.png": {
+          "hash": "53a291eb87636550b5506dc20d1d025f",
+          "size": 1027037
+        },
+        "gripper-big1.png": {
+          "hash": "19ea3e7664b389ef144a9336afc82c15",
+          "size": 1190997
+        }
+      },
+      "depth": {
+        "align-test-1615760748.png": {
+          "hash": "f18e2ab2c345f70ea15ce323209ac644",
+          "size": 22434
+        },
+        "align-test-1615761783.png": {
+          "hash": "4737e4e0f6427a2a085a0283a04a3ac4",
+          "size": 21475
+        },
+        "align-test-1615761793.png": {
+          "hash": "64d2f7a2dd5e27e860c369ceded374c5",
+          "size": 22268
+        },
+        "chess1.png": {
+          "hash": "81aa4280c36bd716e66252e79ae78ca0",
+          "size": 8977
+        },
+        "chess2.png": {
+          "hash": "9f97bb5717c2cc8ec29d530120e99235",
+          "size": 7594
+        },
+        "chess3.png": {
+          "hash": "d7b854fb9465238bf90f44e72df7955a",
+          "size": 7755
+        },
+        "gripper-big1.png": {
+          "hash": "2e246b016fa0e363fd4de00d6b233313",
+          "size": 35333
+        }
       },
       "gripper-big1.both.gz": {
         "hash": "e09120e237eb6010ec4f9c9248abbbc0",
