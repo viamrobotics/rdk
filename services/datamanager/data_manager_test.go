@@ -695,8 +695,7 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 		}
 	}
 	(*m.lock).Lock()
-	newUploadedFiles := append(*m.uploadedFiles, fileName)
-	*m.uploadedFiles = newUploadedFiles
+	*m.uploadedFiles = append(*m.uploadedFiles, fileName)
 	(*m.lock).Unlock()
 	return nil
 }
