@@ -33,8 +33,8 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 	// Loop until there is no more content to be read from file.
 	for {
 		select {
-		case <-stream.Context().Done():
-			return stream.Context().Err()
+		case <-ctx.Done():
+			return ctx.Err()
 		default:
 			// Get the next UploadRequest from the file.
 			uploadReq, err := getNextFileUploadRequest(ctx, f)
