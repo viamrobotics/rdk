@@ -31,7 +31,6 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
-
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
@@ -1484,7 +1483,7 @@ func TestReconnectRemote(t *testing.T) {
 	var listener net.Listener = testutils.ReserveRandomListener(t)
 	cfg, err := config.Read(ctx, "data/robot0.json", logger)
 	test.That(t, err, test.ShouldBeNil)
-	robot, options := robottestutils.StartBaseRobot(t, logger, ctx, listener, cfg)
+	robot, options := robottestutils.StartBaseRobot(ctx, t, logger, listener, cfg)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
 	}()
@@ -1504,7 +1503,7 @@ func TestReconnectRemote(t *testing.T) {
 		Remotes: []config.Remote{remoteConf},
 	}
 
-	robot1, options1 := robottestutils.StartBaseRobot(t, logger, ctx, listener1, &cfg1)
+	robot1, options1 := robottestutils.StartBaseRobot(ctx, t, logger, listener1, &cfg1)
 	addr1 := listener1.Addr().String()
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), robot1), test.ShouldBeNil)
@@ -1518,7 +1517,6 @@ func TestReconnectRemote(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), robotClient), test.ShouldBeNil)
 	}()
 
-	fmt.Println(robot1.ResourceNames())
 	a1, err := arm.FromRobot(robot1, "arm1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, a1, test.ShouldNotBeNil)
@@ -1573,5 +1571,4 @@ func TestReconnectRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = anArm.GetEndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-
 }

@@ -143,10 +143,6 @@ func (rc *RobotClient) Changed() <-chan bool {
 	return rc.changeChan
 }
 
-func (rc *RobotClient) GetChildren() map[resource.Name]interface{} {
-	return rc.children
-}
-
 func (rc *RobotClient) connect(ctx context.Context) error {
 	if rc.conn != nil {
 		if err := rc.conn.Close(); err != nil {
@@ -205,12 +201,13 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 		for childName, checked := range rc.checkedChildren {
 			if !checked {
 				child := rc.children[childName]
-				utils.TryClose(ctx, child)
+				if err := utils.TryClose(ctx, child); err != nil {
+					return err
+				}
 				rc.children[childName] = nil
 				rc.checkedChildren[childName] = false
 			}
 		}
-
 	} else {
 		rc.connectedBefore = true
 	}
@@ -374,7 +371,6 @@ func (rc *RobotClient) createClient(name resource.Name) (interface{}, error) {
 		return resourceClient, nil
 	}
 	return c.Reconfigurable(resourceClient)
-
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCSubtype, error) {
@@ -434,7 +430,6 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 		return err
 	}
 	return rc.updateResources(ctx)
-
 }
 
 func (rc *RobotClient) updateResources(ctx context.Context) error {

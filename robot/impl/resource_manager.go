@@ -3,7 +3,6 @@ package robotimpl
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -378,7 +377,6 @@ func (manager *resourceManager) completeConfig(
 				case <-robot.closeContext.Done():
 					return
 				case robot.remotesChanged <- rName:
-					fmt.Printf("%s has been connected \n", rName)
 				}
 			})
 		}
