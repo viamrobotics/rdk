@@ -202,7 +202,7 @@ func (h *alignTestHelper) Process(
 	pc, err := h.attrs.CameraParameters.RGBDToPointCloud(fixedColor, fixedDepth)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(pc, "aligned-pointcloud_"+h.name)
-	test.That(t, pc, test.ShouldResemble, aligned)
+	test.That(t, pc.Size(), test.ShouldEqual, aligned.Size())
 
 	return nil
 }

@@ -2,6 +2,7 @@ package pointcloud
 
 import (
 	"image/color"
+	"math/rand"
 	"sync"
 	"testing"
 
@@ -65,6 +66,13 @@ func testPointCloudStorage(t *testing.T, ms storage) {
 
 	// Batches greater than the number of points
 	testPointCloudIterate(t, ms, ms.Size()*2, expectedCentroid)
+
+	// Batches that don't divide evenly
+	ms.Set(r3.Vector{1, 1, 7}, NewColoredData(color.NRGBA{22, 1, 78, 255}))
+	ms.Set(r3.Vector{5, 1, 7}, NewColoredData(color.NRGBA{22, 1, 78, 255}))
+	ms.Set(r3.Vector{9, 1, 7}, NewColoredData(color.NRGBA{22, 1, 78, 255}))
+	expectedCentroid = r3.Vector{23 / 6.0, 8 / 6.0, 34 / 6.0}
+	testPointCloudIterate(t, ms, 4, expectedCentroid)
 }
 
 func testPointCloudIterate(t *testing.T, ms storage, numBatches int, expectedCentroid r3.Vector) {
@@ -135,6 +143,37 @@ func testPointCloudIterate(t *testing.T, ms storage, numBatches int, expectedCen
 			test.That(t, totalX/float64(count), test.ShouldAlmostEqual, expectedCentroid.X)
 			test.That(t, totalY/float64(count), test.ShouldAlmostEqual, expectedCentroid.Y)
 			test.That(t, totalZ/float64(count), test.ShouldAlmostEqual, expectedCentroid.Z)
+		}
+	}
+}
+
+func benchPointCloudStorage(b *testing.B, ms storage) {
+	b.Helper()
+
+	pcMax := 10_000.
+	for i := 0; i < b.N; i++ {
+		rand.Seed(0)
+		pointList := make([]PointAndData, 0, 10_000)
+		for j := 0; j < cap(pointList); j++ {
+			pointList = append(pointList, PointAndData{
+				r3.Vector{rand.Float64() * pcMax, rand.Float64() * pcMax, rand.Float64() * pcMax},
+				NewColoredData(color.NRGBA{uint8(rand.Intn(256)), uint8(rand.Intn(256)), uint8(rand.Intn(256)), 255}),
+			})
+		}
+		// Set all points
+		for _, p := range pointList {
+			ms.Set(p.P, p.D)
+		}
+		// Retrieve all points
+		for _, p := range pointList {
+			_, found := ms.At(p.P.X, p.P.Y, p.P.Z)
+			if !found {
+				b.Errorf("Point %v not found", p.P)
+			}
+		}
+		// Overwrite all points
+		for _, p := range pointList {
+			ms.Set(p.P, p.D)
 		}
 	}
 }
