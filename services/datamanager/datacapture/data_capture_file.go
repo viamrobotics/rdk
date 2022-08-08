@@ -27,7 +27,7 @@ func EmptyReadingErr(fileName string) error {
 // CreateDataCaptureFile creates a timestamped file within the given capture directory.
 func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.File, error) {
 	// First create directories and the file in it.
-	fileDir := filepath.Join(captureDir, md.GetComponentType(), md.GetComponentName(), md.GetComponentModel(), md.GetMethodName())
+	fileDir := filepath.Join(captureDir, md.GetComponentType(), md.GetComponentName(), md.GetMethodName())
 	if err := os.MkdirAll(fileDir, 0o700); err != nil {
 		return nil, err
 	}
