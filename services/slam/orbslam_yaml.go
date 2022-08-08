@@ -19,10 +19,8 @@ import (
 const (
 	// defines if images are RGB or BGR.
 	rgbFlag = 1
-	// stereo baseline in meters.
-	stereoB = 0
 	// stereo baselines used to classify a point as close or far.
-	stereoThDepth = 30.0
+	stereoThDepth = 40.0
 	// factor to transform depth map to meters.
 	depthMapFactor = 1000.0
 	// file version needed by ORBSLAM.
@@ -47,7 +45,6 @@ func (slamSvc *slamService) orbCamMaker(intrinsics *transform.PinholeCameraIntri
 		TangentialP1:   intrinsics.Distortion.TangentialP1,
 		TangentialP2:   intrinsics.Distortion.TangentialP2,
 		RGBflag:        rgbFlag,
-		Stereob:        stereoB,
 		StereoThDepth:  stereoThDepth,
 		DepthMapFactor: depthMapFactor,
 		FPSCamera:      int16(slamSvc.dataRateMs),
@@ -66,6 +63,9 @@ func (slamSvc *slamService) orbCamMaker(intrinsics *transform.PinholeCameraIntri
 		return nil, err
 	}
 	if orbslam.MinThFAST, err = slamSvc.orbConfigToInt("orb_n_min_th_fast", 7); err != nil {
+		return nil, err
+	}
+	if orbslam.Stereob, err = slamSvc.orbConfigToFloat("stereo_b", 0.0745); err != nil {
 		return nil, err
 	}
 
@@ -93,7 +93,7 @@ type ORBsettings struct {
 	TangentialP1   float64 `yaml:"Camera1.p1"`
 	TangentialP2   float64 `yaml:"Camera1.p2"`
 	RGBflag        int8    `yaml:"Camera.RGB"`
-	Stereob        float32 `yaml:"Stereo.b"`
+	Stereob        float64 `yaml:"Stereo.b"`
 	StereoThDepth  float32 `yaml:"Stereo.ThDepth"`
 	DepthMapFactor float32 `yaml:"RGBD.DepthMapFactor"`
 	FPSCamera      int16   `yaml:"Camera.fps"`
