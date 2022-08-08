@@ -89,7 +89,6 @@ func fromRemoteNameToRemoteNodeName(name string) resource.Name {
 
 // addRemote adds a remote to the manager.
 func (manager *resourceManager) addRemote(ctx context.Context, rr robot.Robot, c config.Remote, r *localRobot) {
-	fmt.Println("add remote to manager")
 	rName := fromRemoteNameToRemoteNodeName(c.Name)
 	manager.addResource(rName, rr)
 	manager.updateRemoteResourceNames(ctx, rName, rr, r)
@@ -116,7 +115,6 @@ func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []
 // 2) A remote resource is being deleted but a local resource depends on it.
 // It will be renamed as unknown and its local children are going to be destroyed.
 func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, remoteName resource.Name, rr robot.Robot, lr *localRobot) {
-	fmt.Println("update remote resource names called")
 	visited := map[resource.Name]bool{}
 	rc, ok := rr.(*client.RobotClient)
 	if !ok {

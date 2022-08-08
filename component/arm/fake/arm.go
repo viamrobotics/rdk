@@ -3,7 +3,6 @@ package fake
 
 import (
 	"context"
-	"fmt"
 
 	// used to import model referenceframe.
 	_ "embed"
@@ -24,7 +23,6 @@ import (
 var armModelJSON []byte
 
 func init() {
-	fmt.Println("fake is registered")
 	registry.RegisterComponent(arm.Subtype, "fake", registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			if config.Attributes.Bool("fail_new", false) {
@@ -67,7 +65,6 @@ func (a *Arm) ModelFrame() referenceframe.Model {
 
 // GetEndPosition returns the set position.
 func (a *Arm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-	fmt.Println("calling EndPosition in fake")
 	return a.position, nil
 }
 

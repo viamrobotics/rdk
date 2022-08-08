@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -131,7 +130,6 @@ func (r *localRobot) OperationManager() *operation.Manager {
 
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
-	fmt.Println("Close local robot")
 	for _, svc := range r.internalServices {
 		if err := goutils.TryClose(ctx, svc); err != nil {
 			return err
@@ -207,7 +205,6 @@ func (r *localRobot) Logger() golog.Logger {
 
 // StartWeb starts the web server, will return an error if server is already up.
 func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err error) {
-	fmt.Println("start web was called")
 	webSvc, err := r.webService()
 	if err != nil {
 		return err
@@ -408,7 +405,6 @@ func newWithResources(
 					return
 				}
 				if rr, ok := r.manager.RemoteByName(n); ok {
-					fmt.Println("remote has changed, update remote stuff")
 					rn := fromRemoteNameToRemoteNodeName(n)
 					r.manager.updateRemoteResourceNames(ctx, rn, rr, r)
 					r.updateDefaultServices(ctx)
@@ -460,7 +456,6 @@ func newWithResources(
 
 // New returns a new robot with parts sourced from the given config.
 func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...Option) (robot.LocalRobot, error) {
-	fmt.Println("new robot created")
 	return newWithResources(ctx, cfg, nil, logger, opts...)
 }
 
@@ -499,10 +494,8 @@ func (r *localRobot) getDependencies(rName resource.Name) (registry.Dependencies
 
 func (r *localRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
 	rName := config.ResourceName()
-	fmt.Println("got resource name")
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
 	if f == nil {
-		fmt.Println("failed at component lookup")
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
 	}
 

@@ -118,7 +118,6 @@ var wx250smodeljson []byte
 var vx300smodeljson []byte
 
 func init() {
-	fmt.Println("another arm type is being registered")
 	registry.RegisterComponent(arm.Subtype, "wx250s", registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewArm(r, config.Attributes, logger, wx250smodeljson)

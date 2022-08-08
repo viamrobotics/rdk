@@ -2,7 +2,6 @@ package client_test
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -71,7 +70,6 @@ func TestReconfigurableClient(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), robotClient), test.ShouldBeNil)
 	}()
 
-	fmt.Println(robotClient.ResourceNames())
 	test.That(t, len(robotClient.ResourceNames()), test.ShouldEqual, 4)
 	res, err := arm.FromRobot(robotClient, "arm1")
 	test.That(t, err, test.ShouldBeNil)
@@ -135,7 +133,6 @@ func TestReconnectRemote(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), robotClient), test.ShouldBeNil)
 	}()
 
-	fmt.Println(robotClient.ResourceNames())
 	a, err := robotClient.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, a, test.ShouldNotBeNil)
@@ -160,9 +157,6 @@ func TestReconnectRemote(t *testing.T) {
 	err = robot.StartWeb(ctx2, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	// how do i check if the remote's been connected again?
-	// some how check the remotesChanged variable in local_robot's struct
-
 	// check if the original arm can still be called
 	test.That(t, <-robotClient.Changed(), test.ShouldBeTrue)
 	test.That(t, robotClient.Connected(), test.ShouldBeTrue)
@@ -173,70 +167,3 @@ func TestReconnectRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 }
-
-// func TestRobotReconnectReconfigurable(t *testing.T) {
-// 	logger := golog.NewTestLogger(t)
-
-// 	// start the first robot
-// 	ctx := context.Background()
-// 	var listener net.Listener = testutils.ReserveRandomListener(t)
-// 	robot0, options := startBaseRobot(t, logger, ctx, listener, "data/robot0.json")
-// 	// addr := listener.Addr().String()
-// 	defer func() {
-// 		test.That(t, utils.TryClose(context.Background(), robot0), test.ShouldBeNil)
-// 	}()
-// 	err := robot.StartWeb(ctx, options)
-// 	test.That(t, err, test.ShouldBeNil)
-
-// 	var tests = []struct {
-//         robotToRemove robot.LocalRobot,
-// 		addr string,
-//     }{
-// 		{robot0, listener.Addr().String()}
-// 	}
-
-// 	for _, tt := range tests {
-// 		// start the robot client that uses the first robot as a remote
-// 		robotClient := newRobotClient(t, logger, addr1)
-// 		defer func() {
-// 			test.That(t, utils.TryClose(context.Background(), robotClient), test.ShouldBeNil)
-// 		}()
-
-// 		fmt.Println(robotClient.ResourceNames())
-// 		a, err := robotClient.ResourceByName(arm.Named("arm1"))
-// 		test.That(t, err, test.ShouldBeNil)
-// 		test.That(t, a, test.ShouldNotBeNil)
-// 		anArm, ok := a.(arm.Arm)
-// 		test.That(t, ok, test.ShouldBeTrue)
-// 		_, err = anArm.GetEndPosition(context.Background(), map[string]interface{}{})
-// 		test.That(t, err, test.ShouldBeNil)
-
-// 		// close/disconnect the robot
-// 		test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
-// 		test.That(t, <-robotClient.Changed(), test.ShouldBeTrue)
-// 		test.That(t, len(robotClient.ResourceNames()), test.ShouldEqual, 0)
-// 		_, err = robotClient.ResourceByName(arm.Named("arm1"))
-// 		test.That(t, err, test.ShouldBeError)
-
-// 		// reconnect the first robot
-// 		ctx2 := context.Background()
-// 		listener, err = net.Listen("tcp", listener.Addr().String())
-// 		test.That(t, err, test.ShouldBeNil)
-// 		robot, options = startBaseRobot(t, logger, ctx2, listener, "data/robot0.json")
-
-// 		err = robot.StartWeb(ctx2, options)
-// 		test.That(t, err, test.ShouldBeNil)
-
-// 		// how do i check if the remote's been connected again?
-// 		// some how check the remotesChanged variable in local_robot's struct
-
-// 		// check if the original arm can still be called
-// 		test.That(t, <-robotClient.Changed(), test.ShouldBeTrue)
-// 		test.That(t, robotClient.Connected(), test.ShouldBeTrue)
-// 		test.That(t, len(robotClient.ResourceNames()), test.ShouldEqual, 4)
-// 		_, err = robotClient.ResourceByName(arm.Named("arm1"))
-// 		test.That(t, err, test.ShouldBeNil)
-// 		_, err = anArm.GetEndPosition(context.Background(), map[string]interface{}{})
-// 		test.That(t, err, test.ShouldBeNil)
-// 	}
-// }

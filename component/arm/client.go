@@ -4,7 +4,6 @@ package arm
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
@@ -62,7 +61,6 @@ func (c *client) GetEndPosition(ctx context.Context, extra map[string]interface{
 		Extra: ext,
 	})
 	if err != nil {
-		fmt.Println("erroring in GetEndPosition")
 		return nil, err
 	}
 	return resp.Pose, nil
