@@ -77,6 +77,8 @@ type IMU interface {
 	ReadOrientation(ctx context.Context) (spatialmath.Orientation, error)
 	ReadAcceleration(ctx context.Context) (r3.Vector, error)
 	ReadMagnetometer(ctx context.Context) (r3.Vector, error)
+
+	sensor.Sensor
 	generic.Generic
 }
 
@@ -84,6 +86,7 @@ var (
 	_ = IMU(&reconfigurableIMU{})
 	_ = sensor.Sensor(&reconfigurableIMU{})
 	_ = resource.Reconfigurable(&reconfigurableIMU{})
+	_ = viamutils.ContextCloser(&reconfigurableIMU{})
 )
 
 // FromDependencies is a helper for getting the named imu from a collection of
@@ -191,22 +194,18 @@ func (r *reconfigurableIMU) ReadAcceleration(ctx context.Context) (r3.Vector, er
 	return r.actual.ReadAcceleration(ctx)
 }
 
-// ReadMagnetometer returns megnetif field data in gauss.
+// ReadMagnetometer returns magnetic field data in gauss.
 func (r *reconfigurableIMU) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.ReadMagnetometer(ctx)
 }
 
-// GetReadings will use the default IMU GetReadings if not provided.
+// GetReadings returns the IMU readings.
 func (r *reconfigurableIMU) GetReadings(ctx context.Context) ([]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-
-	if sensor, ok := r.actual.(sensor.Sensor); ok {
-		return sensor.GetReadings(ctx)
-	}
-	return GetReadings(ctx, r.actual)
+	return r.actual.GetReadings(ctx)
 }
 
 func (r *reconfigurableIMU) Reconfigure(ctx context.Context, newIMU resource.Reconfigurable) error {

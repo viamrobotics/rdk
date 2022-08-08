@@ -52,6 +52,8 @@
                 "debug": false,
                 "color": "color",
                 "depth": "depth",
+                "height": 768,
+                "width": 1024,
                 "camera_parameters": {
                     "height": 768,
                     "width": 1024,

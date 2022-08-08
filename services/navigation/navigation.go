@@ -89,6 +89,7 @@ type Service interface {
 var (
 	_ = Service(&reconfigurableNavigation{})
 	_ = resource.Reconfigurable(&reconfigurableNavigation{})
+	_ = utils.ContextCloser(&reconfigurableNavigation{})
 )
 
 // SubtypeName is the name of the type of service.
@@ -383,7 +384,7 @@ func (svc *reconfigurableNavigation) RemoveWaypoint(ctx context.Context, id prim
 	return svc.actual.RemoveWaypoint(ctx, id)
 }
 
-func (svc *reconfigurableNavigation) Close(ctx context.Context, id primitive.ObjectID) error {
+func (svc *reconfigurableNavigation) Close(ctx context.Context) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return utils.TryClose(ctx, svc.actual)

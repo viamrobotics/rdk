@@ -44,7 +44,7 @@ func (server *subtypeServer) SetPower(
 	if err != nil {
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
-	return &pb.SetPowerResponse{}, motor.SetPower(ctx, req.GetPowerPct())
+	return &pb.SetPowerResponse{}, motor.SetPower(ctx, req.GetPowerPct(), req.Extra.AsMap())
 }
 
 // GoFor requests the motor of the underlying robot to go for a certain amount based off
@@ -68,7 +68,7 @@ func (server *subtypeServer) GoFor(
 		rVal = revolutions
 	}
 
-	return &pb.GoForResponse{}, motor.GoFor(ctx, req.GetRpm(), rVal)
+	return &pb.GoForResponse{}, motor.GoFor(ctx, req.GetRpm(), rVal, req.Extra.AsMap())
 }
 
 // GetPosition reports the position of the motor of the underlying robot
@@ -85,7 +85,7 @@ func (server *subtypeServer) GetPosition(
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
 
-	pos, err := motor.GetPosition(ctx)
+	pos, err := motor.GetPosition(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (server *subtypeServer) GetFeatures(
 	if err != nil {
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
-	features, err := motor.GetFeatures(ctx)
+	features, err := motor.GetFeatures(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +120,7 @@ func (server *subtypeServer) Stop(
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
 
-	return &pb.StopResponse{}, motor.Stop(ctx)
+	return &pb.StopResponse{}, motor.Stop(ctx, req.Extra.AsMap())
 }
 
 // IsPowered returns whether or not the motor of the underlying robot is currently on.
@@ -134,7 +134,7 @@ func (server *subtypeServer) IsPowered(
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
 
-	isOn, err := motor.IsPowered(ctx)
+	isOn, err := motor.IsPowered(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +153,7 @@ func (server *subtypeServer) GoTo(
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
 
-	return &pb.GoToResponse{}, motor.GoTo(ctx, req.GetRpm(), req.GetPositionRevolutions())
+	return &pb.GoToResponse{}, motor.GoTo(ctx, req.GetRpm(), req.GetPositionRevolutions(), req.Extra.AsMap())
 }
 
 // ResetZeroPosition sets the current position of the motor specified by the request
@@ -168,5 +168,5 @@ func (server *subtypeServer) ResetZeroPosition(
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
 
-	return &pb.ResetZeroPositionResponse{}, motor.ResetZeroPosition(ctx, req.GetOffset())
+	return &pb.ResetZeroPositionResponse{}, motor.ResetZeroPosition(ctx, req.GetOffset(), req.Extra.AsMap())
 }
