@@ -118,7 +118,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		start := make([]float64, 3)
 		next := make([]float64, 3)
 
-		savePath(d, waypoints)
+		savePath(d, waypoints, config)
 
 		for i, wp := range waypoints {
 			if i == 0 {
@@ -164,17 +164,17 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			logger.Fatal(err.Error())
 		}
 
-		savePath(d, waypoints)
+		savePath(d, waypoints, config)
 	}
 
 	return nil
 
 }
 
-func savePath(d motionplan.Dubins, waypoints [][]frame.Input) error {
+func savePath(d motionplan.Dubins, waypoints [][]frame.Input, config *mobileRobotPlanConfig) error {
 	withAgile := false
 
-	csvFile, err := os.Create("/home/evelyn-fu/data/motion/path.csv")
+	csvFile, err := os.Create("/home/skarpoor12/data/motion/path.csv")
 	if err != nil {
 		return err
 	}
@@ -217,9 +217,27 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input) error {
 	//last point
 	writeData := []string{fmt.Sprintf("%f", start[0]), fmt.Sprintf("%f", start[1]), fmt.Sprintf("%f", start[2]), fmt.Sprintf("%d", 0), fmt.Sprintf("%d", 0), fmt.Sprintf("%d", 0), fmt.Sprintf("%d", 0)}
 	_ = csvwriter.Write(writeData)
+	fmt.Println("WRITING: ", writeData)
 
 	csvwriter.Flush()
 	csvFile.Close()
+
+	//now write obstacles if there are obstacles
+	csvFile, err = os.Create("/home/skarpoor12/data/motion/obstacles.csv")
+	if err != nil {
+		return err
+	}
+	csvwriter = csv.NewWriter(csvFile)
+
+	for _, o := range config.Obstacles {
+		writeData := []string{fmt.Sprintf("%f", o.Center[0]), fmt.Sprintf("%f", o.Center[1]), fmt.Sprintf("%f", o.Dims[0]), fmt.Sprintf("%f", o.Dims[1])}
+		_ = csvwriter.Write(writeData)
+		fmt.Println("OBSTACLE: ", writeData)
+	}
+
+	csvwriter.Flush()
+	csvFile.Close()
+
 	return nil
 }
 
