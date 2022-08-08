@@ -56,8 +56,8 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	// Loop until there is no more content to be read from file.
 	for {
 		select {
-		case <-stream.Context().Done():
-			return stream.Context().Err()
+		case <-ctx.Done():
+			return ctx.Err()
 		default:
 			// Get the next UploadRequest from the file.
 			uploadReq, err := getNextSensorUploadRequest(ctx, f)
