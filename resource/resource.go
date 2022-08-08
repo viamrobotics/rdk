@@ -33,7 +33,7 @@ const (
 )
 
 var (
-	reservedCharSet   = [...]string{":"}
+	reservedChars     = [...]string{":"}
 	resRegexValidator = regexp.MustCompile(`^(rdk:\w+:(?:\w+))\/?(\w+:(?:\w+:)*)?(.+)?$`)
 )
 
@@ -233,7 +233,7 @@ func NewReservedCharacterUsedError(val string, reservedChar string) error {
 
 // ContainsReservedCharacter returns error if string contains a reserved character.
 func ContainsReservedCharacter(val string) error {
-	for _, char := range reservedCharSet {
+	for _, char := range reservedChars {
 		if strings.Contains(val, char) {
 			return NewReservedCharacterUsedError(val, char)
 		}
