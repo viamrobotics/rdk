@@ -108,6 +108,7 @@ const defaultCaptureBufferSize = 4096
 // Attributes to initialize the collector for a component or remote.
 type dataCaptureConfig struct {
 	Name               string               `json:"name"`
+	Model              string               `json:"model"`
 	Type               resource.SubtypeName `json:"type"`
 	Method             string               `json:"method"`
 	CaptureFrequencyHz float32              `json:"capture_frequency_hz"`
@@ -207,9 +208,11 @@ type collectorAndConfig struct {
 	Attributes dataCaptureConfig
 }
 
-// Identifier for a particular collector: component name, component type, and method name.
+// Identifier for a particular collector: component name,
+// component model, component type, and method name.
 type componentMethodMetadata struct {
 	ComponentName  string
+	ComponentModel string
 	MethodMetadata data.MethodMetadata
 }
 
@@ -234,6 +237,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	}
 	componentMetadata := componentMethodMetadata{
 		ComponentName:  attributes.Name,
+		ComponentModel: attributes.Model,
 		MethodMetadata: metadata,
 	}
 	// Build metadata.
@@ -309,13 +313,14 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 
 	// Create a collector for this resource and method.
 	params := data.CollectorParams{
-		ComponentName: attributes.Name,
-		Interval:      interval,
-		MethodParams:  attributes.AdditionalParams,
-		Target:        targetFile,
-		QueueSize:     captureQueueSize,
-		BufferSize:    captureBufferSize,
-		Logger:        svc.logger,
+		ComponentName:  attributes.Name,
+		ComponentModel: attributes.Model,
+		Interval:       interval,
+		MethodParams:   attributes.AdditionalParams,
+		Target:         targetFile,
+		QueueSize:      captureQueueSize,
+		BufferSize:     captureBufferSize,
+		Logger:         svc.logger,
 	}
 	collector, err := (*collectorConstructor)(res, params)
 	if err != nil {

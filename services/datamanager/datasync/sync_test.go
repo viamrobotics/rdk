@@ -279,6 +279,7 @@ func TestSensorUploadBinary(t *testing.T) {
 		syncMetadata := v1.DataCaptureMetadata{
 			ComponentType:    componentType,
 			ComponentName:    componentName,
+			ComponentModel:   componentModel,
 			MethodName:       methodName,
 			Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			MethodParameters: nil,
