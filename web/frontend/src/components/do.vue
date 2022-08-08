@@ -41,7 +41,7 @@ const doCommand = (name: string, command: string) => {
       return;
     }
 
-    output.value = JSON.stringify(response?.toObject(), null, '\t');
+    output.value = JSON.stringify(response?.getResult().toObject(), null, '\t');
     executing.value = false;
   });
 };
