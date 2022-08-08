@@ -167,14 +167,14 @@ func scalemag(a, b byte, r float64) float64 {
 	return x
 }
 
-func (i *wit) parseWIT(line string) error {
+func (imu *wit) parseWIT(line string) error {
 	if line[0] == 0x52 {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu angularVelocity %d %v", len(line), line)
 		}
-		i.angularVelocity.X = scale(line[1], line[2], 2000)
-		i.angularVelocity.Y = scale(line[3], line[4], 2000)
-		i.angularVelocity.Z = scale(line[5], line[6], 2000)
+		imu.angularVelocity.X = scale(line[1], line[2], 2000)
+		imu.angularVelocity.Y = scale(line[3], line[4], 2000)
+		imu.angularVelocity.Z = scale(line[5], line[6], 2000)
 	}
 
 	if line[0] == 0x53 {
@@ -182,33 +182,33 @@ func (i *wit) parseWIT(line string) error {
 			return fmt.Errorf("line is wrong for imu orientation %d %v", len(line), line)
 		}
 
-		i.orientation.Roll = rutils.DegToRad(scale(line[1], line[2], 180))
-		i.orientation.Pitch = rutils.DegToRad(scale(line[3], line[4], 180))
-		i.orientation.Yaw = rutils.DegToRad(scale(line[5], line[6], 180))
+		imu.orientation.Roll = rutils.DegToRad(scale(line[1], line[2], 180))
+		imu.orientation.Pitch = rutils.DegToRad(scale(line[3], line[4], 180))
+		imu.orientation.Yaw = rutils.DegToRad(scale(line[5], line[6], 180))
 	}
 
 	if line[0] == 0x51 {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu acceleration %d %v", len(line), line)
 		}
-		i.acceleration.X = scale(line[1], line[2], 16) * 9806.65 // converts of mm_per_sec_per_sec in NYC
-		i.acceleration.Y = scale(line[3], line[4], 16) * 9806.65
-		i.acceleration.Z = scale(line[5], line[6], 16) * 9806.65
+		imu.acceleration.X = scale(line[1], line[2], 16) * 9806.65 // converts of mm_per_sec_per_sec in NYC
+		imu.acceleration.Y = scale(line[3], line[4], 16) * 9806.65
+		imu.acceleration.Z = scale(line[5], line[6], 16) * 9806.65
 	}
 
 	if line[0] == 0x54 {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu magnetometer %d %v", len(line), line)
 		}
-		i.magnetometer.X = scalemag(line[1], line[2], 1) * 0.01 // converts to gauss
-		i.magnetometer.Y = scalemag(line[3], line[4], 1) * 0.01
-		i.magnetometer.Z = scalemag(line[5], line[6], 1) * 0.01
+		imu.magnetometer.X = scalemag(line[1], line[2], 1) * 0.01 // converts to gauss
+		imu.magnetometer.Y = scalemag(line[3], line[4], 1) * 0.01
+		imu.magnetometer.Z = scalemag(line[5], line[6], 1) * 0.01
 	}
 
 	return nil
 }
 
-func (i *wit) Close() {
-	i.cancelFunc()
-	i.activeBackgroundWorkers.Wait()
+func (imu *wit) Close() {
+	imu.cancelFunc()
+	imu.activeBackgroundWorkers.Wait()
 }

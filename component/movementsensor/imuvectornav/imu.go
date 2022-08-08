@@ -486,7 +486,6 @@ func (vn *vectornav) compensateDVBias(ctx context.Context, smpSize uint) error {
 			return errors.New("error in context during Dv compensation")
 		}
 		dv, err := vn.readRegisterSPI(ctx, deltaVDeltaTheta, 28)
-
 		if err != nil {
 			return errors.Wrap(err, "error reading dV register during bias compensation")
 		}
