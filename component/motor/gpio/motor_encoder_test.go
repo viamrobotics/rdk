@@ -28,7 +28,13 @@ func TestMotorEncoder1(t *testing.T) {
 	defer undo()
 
 	cfg := motor.Config{TicksPerRotation: 100, MaxRPM: 100}
-	fakeMotor := &fakemotor.Motor{}
+	fakeMotor := &fakemotor.Motor{
+		Encoder:           &fakemotor.Encoder{},
+		PositionReporting: true,
+		TicksPerRotation:  100,
+		MaxRPM:            100,
+		Logger:            logger,
+	}
 	interrupt := &board.BasicDigitalInterrupt{}
 
 	motorIfc, err := NewEncodedMotor(config.Component{}, cfg, fakeMotor, nil, logger)
@@ -242,7 +248,13 @@ func TestMotorEncoderHall(t *testing.T) {
 	setup := func(t *testing.T) testHarness {
 		t.Helper()
 		cfg := motor.Config{TicksPerRotation: 100, MaxRPM: 100}
-		fakeMotor := &fakemotor.Motor{}
+		fakeMotor := &fakemotor.Motor{
+			Encoder:           &fakemotor.Encoder{},
+			PositionReporting: true,
+			TicksPerRotation:  100,
+			MaxRPM:            100,
+			Logger:            logger,
+		}
 		encoderA := &board.BasicDigitalInterrupt{}
 		encoderB := &board.BasicDigitalInterrupt{}
 		encoder := board.NewHallEncoder(encoderA, encoderB)
