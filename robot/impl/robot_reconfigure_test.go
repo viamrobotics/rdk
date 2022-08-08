@@ -1403,7 +1403,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err := motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err := m.GetPosition(context.Background())
+		c, err := m.GetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
@@ -1413,7 +1413,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background())
+			c, err = m.GetPosition(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 1)
 		})
@@ -1530,7 +1530,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err = motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err = m.GetPosition(context.Background())
+		c, err = m.GetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
@@ -1540,7 +1540,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background())
+			c, err = m.GetPosition(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 1)
 		})
@@ -1645,7 +1645,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err := motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err := m.GetPosition(context.Background())
+		c, err := m.GetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
@@ -1655,7 +1655,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background())
+			c, err = m.GetPosition(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 1)
 		})
@@ -1761,7 +1761,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err = motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err = m.GetPosition(context.Background())
+		c, err = m.GetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
@@ -1771,7 +1771,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background())
+			c, err = m.GetPosition(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 1)
 		})
@@ -1864,7 +1864,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err = motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err = m.GetPosition(context.Background())
+		c, err = m.GetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 1)
 
@@ -1874,7 +1874,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background())
+			c, err = m.GetPosition(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 2)
 		})
