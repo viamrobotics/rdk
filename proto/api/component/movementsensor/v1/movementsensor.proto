@@ -77,8 +77,7 @@ message GetOrientationRequest {
 }
 
 message GetOrientationResponse {
-  // A vector representing an OX, OY, OZ
-  common.v1.Vector3 orientation = 1;
+  common.v1.Orientation orientation = 1;
 }
 
 message GetPositionRequest {

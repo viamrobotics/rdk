@@ -1,4 +1,4 @@
-// Package wit implements a wit IMU.
+// Package imuwit implements a wit IMU.
 package imuwit
 
 import (
@@ -12,6 +12,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	slib "github.com/jacobsa/go-serial/serial"
+	slib "github.com/jacobsa/go-serial/serial"
+	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/generic"
@@ -51,32 +53,49 @@ type wit struct {
 	generic.Unimplemented
 }
 
-// GetAngularVelocity returns Angular velocity from the gyroscope in deg_per_sec.
 func (imu *wit) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return imu.angularVelocity, imu.lastError
 }
 
-// GetOrientation returns gyroscope orientation in degrees.
+func (imu *wit) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+	imu.mu.Lock()
+	defer imu.mu.Unlock()
+	return r3.Vector{}, imu.lastError
+}
+
 func (imu *wit) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return &imu.orientation, imu.lastError
 }
 
-// ReadAcceleration returns accelerometer acceleration in mm_per_sec_per_sec.
-func (imu *wit) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
+// GetAcceleration returns accelerometer acceleration in mm_per_sec_per_sec.
+func (imu *wit) GetAcceleration(ctx context.Context) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return imu.acceleration, imu.lastError
 }
 
-// ReadMagnetometer returns magnetic field in gauss.
-func (imu *wit) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
+// GetMagnetometer returns magnetic field in gauss.
+func (imu *wit) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return imu.magnetometer, imu.lastError
+}
+
+func (imu *wit) GetCompassHeading(ctx context.Context) (float64, error) {
+	// TODO(erh): is this right? I don't think so
+	return imu.magnetometer.Z, imu.lastError
+}
+
+func (imu *wit) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
+	return nil, 0, 0, nil
+}
+
+func (imu *wit) GetReadings(ctx context.Context) ([]interface{}, error) {
+	return movementsensor.GetReadings(ctx, imu)
 }
 
 // NewWit creates a new Wit IMU.

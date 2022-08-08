@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // ResourceNameToProto converts a resource.Name to its proto counterpart.
@@ -240,4 +241,27 @@ func ConvertVectorProtoToR3(v *commonpb.Vector3) r3.Vector {
 // ConvertVectorR3ToProto
 func ConvertVectorR3ToProto(v r3.Vector) *commonpb.Vector3 {
 	return &commonpb.Vector3{X: v.X, Y: v.Y, Z: v.Z}
+}
+
+// ConvertOrientationToProto
+func ConvertOrientationToProto(o spatialmath.Orientation) *commonpb.Orientation {
+	oo := &commonpb.Orientation{}
+	if o != nil {
+		ov := o.OrientationVectorRadians()
+		oo.OX = ov.OX
+		oo.OY = ov.OY
+		oo.OZ = ov.OZ
+		oo.Theta = ov.Theta
+	}
+	return oo
+}
+
+// ConvertProtoToOrientation
+func ConvertProtoToOrientation(o *commonpb.Orientation) spatialmath.Orientation {
+	return &spatialmath.OrientationVector{
+		OX : o.OX,
+		OY : o.OY,
+		OZ : o.OZ,
+		Theta : o.Theta	,
+	}
 }

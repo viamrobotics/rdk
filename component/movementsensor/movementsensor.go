@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -64,9 +65,9 @@ func Named(name string) resource.Name {
 type MovementSensor interface {
 	GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) // (lat, long), altitide, accuracy
 	GetLinearVelocity(ctx context.Context) (r3.Vector, error)
-	GetAngularVelocity(ctx context.Context) (r3.Vector, error)
+	GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error)
 	GetCompassHeading(ctx context.Context) (float64, error)
-	GetOrientation(ctx context.Context) (r3.Vector, error)
+	GetOrientation(ctx context.Context) (spatialmath.Orientation, error)
 
 	generic.Generic
 	sensor.Sensor
@@ -125,11 +126,11 @@ func GetReadings(ctx context.Context, g MovementSensor) ([]interface{}, error) {
 	}
 	readings = append(readings, vel)
 
-	vel, err = g.GetAngularVelocity(ctx)
+	avel, err := g.GetAngularVelocity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	readings = append(readings, vel)
+	readings = append(readings, avel)
 
 	compass, err := g.GetCompassHeading(ctx)
 	if err != nil {
@@ -175,7 +176,7 @@ func (r *reconfigurableMovementSensor) GetPosition(ctx context.Context) (*geo.Po
 	return r.actual.GetPosition(ctx)
 }
 
-func (r *reconfigurableMovementSensor) GetAngularVelocity(ctx context.Context) (r3.Vector, error) {
+func (r *reconfigurableMovementSensor) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetAngularVelocity(ctx)
@@ -187,7 +188,7 @@ func (r *reconfigurableMovementSensor) GetLinearVelocity(ctx context.Context) (r
 	return r.actual.GetLinearVelocity(ctx)
 }
 
-func (r *reconfigurableMovementSensor) GetOrientation(ctx context.Context) (r3.Vector, error) {
+func (r *reconfigurableMovementSensor) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetOrientation(ctx)

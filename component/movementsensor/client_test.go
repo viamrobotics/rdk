@@ -21,6 +21,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/movementsensor/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -37,15 +38,20 @@ func TestClient(t *testing.T) {
 	alt := 50.5
 	speed := 5.4
 	ang := 1.1
-	ori := 2.2
+	ori := spatialmath.NewEulerAngles()
+	ori.Roll = 1.1
 	heading := 202.
-	rs := []interface{}{loc, alt, 0, r3.Vector{0, speed, 0}, r3.Vector{0, 0, ang}, heading, r3.Vector{ori, 0, 0}}
+	rs := []interface{}{loc, alt, 0, r3.Vector{0, speed, 0}, r3.Vector{0, 0, ang}, heading, ori}
 
 	injectMovementSensor := &inject.MovementSensor{}
 	injectMovementSensor.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, float64, error) { return loc, alt, 0, nil }
 	injectMovementSensor.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{0, speed, 0}, nil }
-	injectMovementSensor.GetAngularVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{0, 0, ang}, nil }
-	injectMovementSensor.GetOrientationFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{ori, 0, 0}, nil }
+	injectMovementSensor.GetAngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
+		return spatialmath.AngularVelocity{0, 0, ang}, nil
+	}
+	injectMovementSensor.GetOrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
+		return ori, nil
+	}
 	injectMovementSensor.GetCompassHeadingFunc = func(ctx context.Context) (float64, error) { return heading, nil }
 
 	injectMovementSensor2 := &inject.MovementSensor{}
@@ -55,11 +61,11 @@ func TestClient(t *testing.T) {
 	injectMovementSensor2.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) {
 		return r3.Vector{}, errors.New("can't get linear velocity")
 	}
-	injectMovementSensor2.GetAngularVelocityFunc = func(ctx context.Context) (r3.Vector, error) {
-		return r3.Vector{}, errors.New("can't get angular velocity")
+	injectMovementSensor2.GetAngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
+		return spatialmath.AngularVelocity{}, errors.New("can't get angular velocity")
 	}
-	injectMovementSensor2.GetOrientationFunc = func(ctx context.Context) (r3.Vector, error) {
-		return r3.Vector{}, errors.New("can't get orientation")
+	injectMovementSensor2.GetOrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
+		return nil, errors.New("can't get orientation")
 	}
 	injectMovementSensor2.GetCompassHeadingFunc = func(ctx context.Context) (float64, error) {
 		return 0, errors.New("can't get compass heading")

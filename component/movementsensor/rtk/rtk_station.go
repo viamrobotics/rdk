@@ -21,6 +21,8 @@ import (
 	"go.viam.com/rdk/component/movementsensor/nmea"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -307,12 +309,12 @@ func (r *rtkStation) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
 	return r3.Vector{}, nil
 }
 
-func (r *rtkStation) GetAngularVelocity(ctx context.Context) (r3.Vector, error) {
-	return r3.Vector{}, nil
+func (r *rtkStation) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+	return spatialmath.AngularVelocity{}, nil
 }
 
-func (r *rtkStation) GetOrientation(ctx context.Context) (r3.Vector, error) {
-	return r3.Vector{}, nil
+func (r *rtkStation) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+	return spatialmath.NewZeroOrientation(), nil
 }
 
 func (r *rtkStation) GetCompassHeading(ctx context.Context) (float64, error) {

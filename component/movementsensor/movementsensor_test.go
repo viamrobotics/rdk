@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -246,8 +247,8 @@ var (
 	alt     = 50.5
 	acc     = 1.1
 	speed   = r3.Vector{5.4, 1.1, 2.2}
-	ang     = r3.Vector{5.5, 1.2, 2.3}
-	orie    = r3.Vector{5.6, 1.3, 2.4}
+	ang     = spatialmath.AngularVelocity{5.5, 1.2, 2.3}
+	orie    = &spatialmath.EulerAngles{5.6, 1.3, 2.4}
 	compass = 123.
 )
 
@@ -273,11 +274,11 @@ func (m *mock) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
 	return speed, nil
 }
 
-func (m *mock) GetAngularVelocity(ctx context.Context) (r3.Vector, error) {
+func (m *mock) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	return ang, nil
 }
 
-func (m *mock) GetOrientation(ctx context.Context) (r3.Vector, error) {
+func (m *mock) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	return orie, nil
 }
 

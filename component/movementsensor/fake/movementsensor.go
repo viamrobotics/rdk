@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/spatialmath"
 )
 
 func init() {
@@ -38,16 +39,16 @@ func (f *fakeMovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, 
 	return r3.Vector{}, nil
 }
 
-func (f *fakeMovementSensor) GetAngularVelocity(ctx context.Context) (r3.Vector, error) {
-	return r3.Vector{}, nil
+func (f *fakeMovementSensor) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+	return spatialmath.AngularVelocity{}, nil
 }
 
 func (f *fakeMovementSensor) GetCompassHeading(ctx context.Context) (float64, error) {
 	return 0, nil
 }
 
-func (f *fakeMovementSensor) GetOrientation(ctx context.Context) (r3.Vector, error) {
-	return r3.Vector{}, nil
+func (f *fakeMovementSensor) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+	return spatialmath.NewZeroOrientation(), nil
 }
 
 func (f *fakeMovementSensor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
