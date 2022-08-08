@@ -74,7 +74,7 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 	return NewManager(logger, cfg.Cloud.ID, client, conn)
 }
 
-// NewManager returns a new syncer. If a nil UploadFunc is passed, the default viamUpload is used.
+// NewManager returns a new syncer.
 func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceClient,
 	conn rpc.ClientConn,
 ) (Manager, error) {

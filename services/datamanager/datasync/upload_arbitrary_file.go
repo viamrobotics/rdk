@@ -38,7 +38,7 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 		default:
 			// Get the next UploadRequest from the file.
 			uploadReq, err := getNextFileUploadRequest(ctx, f)
-			// EOF means we've completed successfully..
+			// EOF means we've completed successfully.
 			if errors.Is(err, io.EOF) {
 				if _, err := stream.CloseAndRecv(); err != nil {
 					if !errors.Is(err, io.EOF) {
