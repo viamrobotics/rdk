@@ -1,26 +1,42 @@
-package datasync
+// Package datamanager contains a gRPC based datamanager service server
+package datamanager
 
 import (
 	"context"
 
-	"go.uber.org/zap"
-	v1 "go.viam.com/api/proto/viam/datasync/v1"
+	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
+
+	pb "go.viam.com/rdk/proto/api/service/datamanager/v1"
 )
 
-// NewClient constructs a new v1.DataSyncServiceClient using the passed in connection.
-func NewClient(conn rpc.ClientConn) v1.DataSyncServiceClient {
-	return v1.NewDataSyncServiceClient(conn)
+// client is a client that satisfies the data_manager.proto contract.
+type client struct {
+	conn   rpc.ClientConn
+	client pb.DataManagerServiceClient
+	logger golog.Logger
 }
 
-// NewConnection builds a connection to the passed address with the passed rpcOpts.
-func NewConnection(logger *zap.SugaredLogger, address string, rpcOpts []rpc.DialOption) (rpc.ClientConn, error) {
-	ctx := context.Background()
-	conn, err := rpc.DialDirectGRPC(
-		ctx,
-		address,
-		logger,
-		rpcOpts...,
-	)
-	return conn, err
+// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
+func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
+	grpcClient := pb.NewDataManagerServiceClient(conn)
+	sc := &client{
+		conn:   conn,
+		client: grpcClient,
+		logger: logger,
+	}
+	return sc
+}
+
+// NewClientFromConn constructs a new Client from connection passed in.
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
+	return newSvcClientFromConn(conn, logger)
+}
+
+func (c *client) Sync(ctx context.Context) error {
+	_, err := c.client.Sync(ctx, &pb.SyncRequest{})
+	if err != nil {
+		return err
+	}
+	return nil
 }
