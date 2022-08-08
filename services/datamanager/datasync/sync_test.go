@@ -349,7 +349,16 @@ func TestUploadsOnce(t *testing.T) {
 	time.Sleep(syncWaitTime)
 	sut.Close()
 	test.That(t, mockService.callCount.Load(), test.ShouldEqual, 2)
-	// TODO how to test different now?
+
+	// Verify the two upload calls were made on different files.
+	var metadatas []*v1.UploadMetadata
+	for _, ur := range mockService.getUploadRequests() {
+		if ur.GetMetadata() != nil {
+			metadatas = append(metadatas, ur.GetMetadata())
+		}
+	}
+	test.That(t, len(metadatas), test.ShouldEqual, 2)
+	test.That(t, metadatas[0].GetFileName(), test.ShouldNotEqual, metadatas[1].GetFileName())
 
 	// Verify that the files were deleted after upload.
 	_, err = os.Stat(file1.Name())

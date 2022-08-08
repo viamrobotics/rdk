@@ -262,8 +262,7 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 			return err
 		}
 		(*m.lock).Lock()
-		newData := append(*m.uploadRequests, ur)
-		*m.uploadRequests = newData
+		*m.uploadRequests = append(*m.uploadRequests, ur)
 		(*m.lock).Unlock()
 	}
 	if err := stream.SendAndClose(&v1.UploadResponse{}); err != nil {
