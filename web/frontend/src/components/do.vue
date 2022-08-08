@@ -24,7 +24,7 @@ const doCommand = (name: string, command: string) => {
   const request = new genericApi.DoRequest();
 
   request.setName(name);
-  request.setCommand(new Struct(JSON.parse(command)));
+  request.setCommand(Struct.fromJavaScript(JSON.parse(command)));
 
   executing.value = true;
 
