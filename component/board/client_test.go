@@ -2,6 +2,7 @@ package board_test
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
 
@@ -21,16 +22,6 @@ import (
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
-
-func newBoardWithStatus(injectStatus *commonpb.BoardStatus) *inject.Board {
-	injectBoard := &inject.Board{}
-
-	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
-		return injectStatus, nil
-	}
-
-	return injectBoard
-}
 
 func setupService(t *testing.T, injectBoard *inject.Board) (net.Listener, func()) {
 	t.Helper()
@@ -53,7 +44,8 @@ func setupService(t *testing.T, injectBoard *inject.Board) (net.Listener, func()
 
 func TestFailingClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	injectBoard := newBoardWithStatus(&commonpb.BoardStatus{})
+
+	injectBoard := &inject.Board{}
 
 	listener, cleanup := setupService(t, injectBoard)
 	defer cleanup()
@@ -68,13 +60,16 @@ func TestFailingClient(t *testing.T) {
 
 func TestWorkingClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	injectBoard := newBoardWithStatus(&commonpb.BoardStatus{})
+	injectBoard := &inject.Board{}
 
 	listener, cleanup := setupService(t, injectBoard)
 	defer cleanup()
 
 	testWorkingClient := func(t *testing.T, client board.Board) {
 		t.Helper()
+
+		expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+		var actualExtra map[string]interface{}
 
 		// Do
 		injectBoard.DoFunc = generic.EchoFunc
@@ -86,12 +81,16 @@ func TestWorkingClient(t *testing.T) {
 		// Status
 		injectStatus := &commonpb.BoardStatus{}
 		injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+			fmt.Println("STATUS FUNC")
+			actualExtra = extra
 			return injectStatus, nil
 		}
-		respStatus, err := client.Status(context.Background(), nil)
+		respStatus, err := client.Status(context.Background(), expectedExtra)
 		test.That(t, respStatus, test.ShouldResemble, injectStatus)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
+		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
+		actualExtra = nil
 
 		injectGPIOPin := &inject.GPIOPin{}
 		injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
@@ -100,38 +99,50 @@ func TestWorkingClient(t *testing.T) {
 
 		// Set
 		injectGPIOPin.SetFunc = func(ctx context.Context, high bool, extra map[string]interface{}) error {
+			actualExtra = extra
 			return nil
 		}
 		onePin, err := client.GPIOPinByName("one")
 		test.That(t, err, test.ShouldBeNil)
-		err = onePin.Set(context.Background(), true, nil)
+		err = onePin.Set(context.Background(), true, expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectGPIOPin.SetCap()[1:], test.ShouldResemble, []interface{}{true})
+		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
+		actualExtra = nil
 
 		// Get
 		injectGPIOPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+			actualExtra = extra
 			return true, nil
 		}
-		isHigh, err := onePin.Get(context.Background(), nil)
+		isHigh, err := onePin.Get(context.Background(), expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isHigh, test.ShouldBeTrue)
 		test.That(t, injectGPIOPin.GetCap()[1:], test.ShouldResemble, []interface{}{})
+		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
+		actualExtra = nil
 
 		// SetPWM
 		injectGPIOPin.SetPWMFunc = func(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+			actualExtra = extra
 			return nil
 		}
-		err = onePin.SetPWM(context.Background(), 0.03, nil)
+		err = onePin.SetPWM(context.Background(), 0.03, expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectGPIOPin.SetPWMCap()[1:], test.ShouldResemble, []interface{}{0.03})
+		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
+		actualExtra = nil
 
 		// SetPWMFreq
 		injectGPIOPin.SetPWMFreqFunc = func(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+			actualExtra = extra
 			return nil
 		}
-		err = onePin.SetPWMFreq(context.Background(), 11233, nil)
+		err = onePin.SetPWMFreq(context.Background(), 11233, expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectGPIOPin.SetPWMFreqCap()[1:], test.ShouldResemble, []interface{}{uint(11233)})
+		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
+		actualExtra = nil
 
 		// Analog
 		injectAnalogReader := &inject.AnalogReader{}
@@ -144,11 +155,14 @@ func TestWorkingClient(t *testing.T) {
 
 		// Analog:Read
 		injectAnalogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+			actualExtra = extra
 			return 6, nil
 		}
-		readVal, err := analog1.Read(context.Background(), nil)
+		readVal, err := analog1.Read(context.Background(), expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readVal, test.ShouldEqual, 6)
+		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
+		actualExtra = nil
 
 		// Digital Interrupt
 		injectDigitalInterrupt := &inject.DigitalInterrupt{}
@@ -161,11 +175,14 @@ func TestWorkingClient(t *testing.T) {
 
 		// Digital Interrupt:Value
 		injectDigitalInterrupt.ValueFunc = func(ctx context.Context, extra map[string]interface{}) (int64, error) {
+			actualExtra = extra
 			return 287, nil
 		}
-		digital1Val, err := digital1.Value(context.Background(), nil)
+		digital1Val, err := digital1.Value(context.Background(), expectedExtra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, digital1Val, test.ShouldEqual, 287)
+		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
+		actualExtra = nil
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	}
@@ -193,7 +210,11 @@ func TestClientWithStatus(t *testing.T) {
 			"digital1": {},
 		},
 	}
-	injectBoard := newBoardWithStatus(injectStatus)
+
+	injectBoard := &inject.Board{}
+	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+		return injectStatus, nil
+	}
 
 	listener, cleanup := setupService(t, injectBoard)
 	defer cleanup()
@@ -262,7 +283,7 @@ func TestClientWithoutStatus(t *testing.T) {
 
 func TestClientDialerOption(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	injectBoard := newBoardWithStatus(&commonpb.BoardStatus{})
+	injectBoard := &inject.Board{}
 
 	listener, cleanup := setupService(t, injectBoard)
 	defer cleanup()
