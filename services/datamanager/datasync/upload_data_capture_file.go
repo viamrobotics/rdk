@@ -2,27 +2,32 @@ package datasync
 
 import (
 	"context"
-	"github.com/pkg/errors"
-	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/pkg/errors"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
 
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 // TODO for bidi partial uploads:
-//      - Have goroutine waiting on Recv on stream. On recv:
-//        - update progress index
-//        - on error:
-//          - if EOF: Return nil. we know all messages were sent and received becuse errors are a response type, so
+//      - Have goroutine waiting on Recv on stream (select with cancel context). On recv:
+//        - Update progress index
+//        - If EOF: Return nil. we know all messages were sent and received becuse errors are a response type, so
 //                       are sent serially with other responses
-//          - if other: We actually returned an error from our server. Determine how to handle individually. For now,
+//        - If other error: We actually returned an error from our server. Determine how to handle individually. For now
 //                      a blanket "return err" (triggering restarts) is probably fine
 //      - Have sends happening in goroutine
-//          - On EOF, send EOF and Close (not recv!) to server. This will trigger server to send final ack then EOF.
-//          - On other error, return error
+//          - If EOF, send EOF and Close (not recv!) to server. This will trigger server to send final ack then EOF.
+//          - If other error, return error
 //      Wait for both goroutines. If error, return error. If none, return nil.
+//
+// TODO
+//      Some principles to keep in mind:
+//        - The thread/goroutine sending on a channel/grpc connection should be the one closing it
+//        - If some thing is blocking or long running, it should probably be passed a context so it can be cancelled
 func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.DataSyncServiceClient,
 	md *v1.UploadMetadata, f *os.File,
 ) error {

@@ -210,14 +210,9 @@ func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
 	return *m.uploadRequests
 }
 
-func (m mockDataSyncServiceServer) getUploadCallCount() int32 {
-	return m.callCount.Load()
-}
-
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
 	defer m.callCount.Add(1)
 	if m.callCount.Load() < m.failUntilIndex {
-		m.callCount.Add(1)
 		return status.Error(codes.Aborted, "fail until reach failUntilIndex")
 	}
 	for {
