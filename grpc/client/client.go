@@ -212,8 +212,6 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 		rc.connectedBefore = true
 	}
 
-	// now that connected is true, we should call resourceByName and do something to reconnect
-
 	if rc.changeChan != nil {
 		rc.changeChan <- true
 	}
