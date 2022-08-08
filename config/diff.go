@@ -34,15 +34,15 @@ type ModifiedConfigDiff struct {
 
 // DiffConfigs returns the difference between the two given configs
 // from left to right.
-func DiffConfigs(left, right *Config) (*Diff, error) {
+func DiffConfigs(left, right Config) (*Diff, error) {
 	PrettyDiff, err := prettyDiff(left, right)
 	if err != nil {
 		return nil, err
 	}
 
 	diff := Diff{
-		Left:       left,
-		Right:      right,
+		Left:       &left,
+		Right:      &right,
 		Added:      &Config{},
 		Modified:   &ModifiedConfigDiff{},
 		Removed:    &Config{},
@@ -69,24 +69,83 @@ func DiffConfigs(left, right *Config) (*Diff, error) {
 	different = diffProcesses(left.Processes, right.Processes, &diff) || different
 	diff.ResourcesEqual = !different
 
-	networkDifferent := diffNetworkingCfg(left, right)
+	networkDifferent := diffNetworkingCfg(&left, &right)
 	diff.NetworkEqual = !networkDifferent
 
 	return &diff, nil
 }
 
-func prettyDiff(left, right *Config) (string, error) {
-	leftMd, err := json.MarshalIndent(left, "", " ")
+func prettyDiff(left, right Config) (string, error) {
+	leftMd, err := json.Marshal(left)
 	if err != nil {
 		return "", err
 	}
-	rightMd, err := json.MarshalIndent(right, "", " ")
+	rightMd, err := json.Marshal(right)
+	if err != nil {
+		return "", err
+	}
+	var leftClone, rightClone Config
+	if err := json.Unmarshal(leftMd, &leftClone); err != nil {
+		return "", err
+	}
+	if err := json.Unmarshal(rightMd, &rightClone); err != nil {
+		return "", err
+	}
+	left = leftClone
+	right = rightClone
+
+	mask := "******"
+	sanitizeConfig := func(conf *Config) {
+		// Note(erd): keep in mind this will destroy the actual pretty diffing of these which
+		// is fine because we aren't considering pretty diff changes to these fields at this level
+		// of the stack.
+		if conf.Cloud != nil {
+			if conf.Cloud.Secret != "" {
+				conf.Cloud.Secret = mask
+			}
+			if conf.Cloud.LocationSecret != "" {
+				conf.Cloud.LocationSecret = mask
+			}
+			// Not really a secret but annoying to diff
+			if conf.Cloud.TLSCertificate != "" {
+				conf.Cloud.TLSCertificate = mask
+			}
+			if conf.Cloud.TLSPrivateKey != "" {
+				conf.Cloud.TLSPrivateKey = mask
+			}
+		}
+		for _, hdlr := range conf.Auth.Handlers {
+			for key := range hdlr.Config {
+				hdlr.Config[key] = mask
+			}
+		}
+		for i := range conf.Remotes {
+			rem := &conf.Remotes[i]
+			if rem.Secret != "" {
+				rem.Secret = mask
+			}
+			if rem.Auth.Credentials != nil {
+				rem.Auth.Credentials.Payload = mask
+			}
+			if rem.Auth.SignalingCreds != nil {
+				rem.Auth.SignalingCreds.Payload = mask
+			}
+		}
+	}
+	sanitizeConfig(&left)
+	sanitizeConfig(&right)
+
+	leftMd, err = json.MarshalIndent(left, "", " ")
+	if err != nil {
+		return "", err
+	}
+	rightMd, err = json.MarshalIndent(right, "", " ")
 	if err != nil {
 		return "", err
 	}
 
 	dmp := diffmatchpatch.New()
-	diffs := dmp.DiffMain(string(leftMd), string(rightMd), false)
+	diffs := dmp.DiffMain(string(leftMd), string(rightMd), true)
 	filteredDiffs := make([]diffmatchpatch.Diff, 0, len(diffs))
 	for _, d := range diffs {
 		if d.Type == diffmatchpatch.DiffEqual {
