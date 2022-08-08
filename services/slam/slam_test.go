@@ -47,8 +47,6 @@ const (
 	testSlamServiceName2 = "slam2"
 )
 
-var cam = &inject.Camera{}
-
 func createFakeSLAMLibraries() {
 	for _, s := range slam.SLAMLibraries {
 		slam.SLAMLibraries["fake_"+s.AlgoName] = slam.LibraryMetadata{

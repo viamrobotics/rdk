@@ -30,7 +30,7 @@ func TestServerSync(t *testing.T) {
 	}{
 		"missing datamanager": {
 			resourceMap:   map[resource.Name]interface{}{},
-			expectedError: errors.New("resource \"rdk:service:data_manager\" not found"),
+			expectedError: errors.New("resource \"rdk:service:data_manager/DataManager1\" not found"),
 		},
 		"not datamanager": {
 			resourceMap: map[resource.Name]interface{}{

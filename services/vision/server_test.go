@@ -42,7 +42,7 @@ func TestVisionServerFailures(t *testing.T) {
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.GetDetectorNames(context.Background(), nameRequest)
-	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:vision\" not found"))
+	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:vision/vision1\" not found"))
 
 	// set up the robot with something that is not a vision service
 	m = map[resource.Name]interface{}{vision.Named(testVisionServiceName): "not what you want"}

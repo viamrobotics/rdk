@@ -346,6 +346,6 @@ func TestServer(t *testing.T) {
 		req = &pb.GetModeRequest{Name: testSvcName2}
 		resp, err = navServer.GetMode(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(navigation.Named(testSvcName1)))
+		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(navigation.Named(testSvcName2)))
 	})
 }
