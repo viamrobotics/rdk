@@ -53,7 +53,10 @@ func (server *subtypeServer) PlanAndMove(ctx context.Context, req *pb.PlanAndMov
 	return &pb.PlanAndMoveResponse{Success: success}, nil
 }
 
-func (server *subtypeServer) MoveSingleComponent(ctx context.Context, req *pb.MoveSingleComponentRequest) (*pb.MoveSingleComponentResponse, error) {
+func (server *subtypeServer) MoveSingleComponent(
+	ctx context.Context,
+	req *pb.MoveSingleComponentRequest,
+) (*pb.MoveSingleComponentResponse, error) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err

@@ -27,7 +27,7 @@ type MotionService struct {
 	) (*referenceframe.PoseInFrame, error)
 }
 
-// Move calls the injected Move or the real variant.
+// PlanAndMove calls the injected Move or the real variant.
 func (mgs *MotionService) PlanAndMove(
 	ctx context.Context,
 	componentName resource.Name,
@@ -40,7 +40,7 @@ func (mgs *MotionService) PlanAndMove(
 	return mgs.MoveFunc(ctx, componentName, grabPose, worldState)
 }
 
-// Move calls the injected Move or the real variant.
+// MoveSingleComponent calls the injected MoveSingleComponent or the real variant. It uses the same function as PlanAndMove.
 func (mgs *MotionService) MoveSingleComponent(
 	ctx context.Context,
 	componentName resource.Name,
