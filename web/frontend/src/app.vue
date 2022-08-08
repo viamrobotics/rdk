@@ -26,7 +26,9 @@ import {
   resourceNameToString,
   filterResources,
   filterRdkComponentsWithStatus,
+  filterResourcesWithNames,
 } from './lib/resource';
+
 import {
   BaseControlHelper,
   MotorControlHelper,
@@ -37,6 +39,7 @@ import {
 
 import BaseComponent from './components/base.vue';
 import Camera from './components/camera.vue';
+import Do from './components/do.vue';
 import Gamepad from './components/gamepad.vue';
 import InputController from './components/input-controller.vue';
 import MotorDetail from './components/motor-detail.vue';
@@ -145,6 +148,7 @@ export default {
   components: {
     BaseComponent,
     Camera,
+    Do,
     Gamepad,
     InputController,
     MotorDetail,
@@ -199,6 +203,7 @@ export default {
     filterResources,
     filterRdkComponentsWithStatus,
     resourceNameToString,
+    filterResourcesWithNames,
     
     fixRawStatus(name, status) {
       switch (resourceNameToSubtypeString(name)) {
@@ -584,7 +589,7 @@ export default {
           if (err) {
             return;
           }
-          const streamName = normalizeRemoteName(cameraName)
+          const streamName = normalizeRemoteName(cameraName);
           const streamContainer = document.querySelector(`#stream-${streamName}`);
           if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
             streamContainer.querySelectorAll('video')[0].remove();
@@ -2148,6 +2153,9 @@ function setBoundingBox(box, centerPoint) {
       @update-slam-image-refresh-frequency="updateSLAMImageRefreshFrequency"
       @update-slam-pcd-refresh-frequency="updateSLAMPCDRefreshFrequency"
     />
+
+    <!-- ******* DO ******* -->
+    <Do :resources="filterResourcesWithNames(resources)" />
   </div>
 </template>
 
