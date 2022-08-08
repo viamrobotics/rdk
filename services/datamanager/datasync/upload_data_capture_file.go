@@ -2,12 +2,9 @@ package datasync
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
@@ -15,24 +12,35 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
-var debug = true
-
-func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncService_UploadClient,
+// TODO for bidi partial uploads:
+//      - Have goroutine waiting on Recv on stream (select with cancel context). On recv:
+//        - Update progress index
+//        - If EOF: Return nil. we know all messages were sent and received becuse errors are a response type, so
+//                       are sent serially with other responses
+//        - If other error: We actually returned an error from our server. Determine how to handle individually. For now
+//                      a blanket "return err" (triggering restarts) is probably fine
+//      - Have sends happening in goroutine
+//          - If EOF, send EOF and Close (not recv!) to server. This will trigger server to send final ack then EOF.
+//          - If other error, return error
+//      Wait for both goroutines. If error, return error. If none, return nil.
+//
+// TODO
+//      Some principles to keep in mind:
+//        - The thread/goroutine sending on a channel/grpc connection should be the one closing it
+//        - If some thing is blocking or long running, it should probably be passed a context so it can be cancelled
+func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.DataSyncServiceClient,
 	md *v1.UploadMetadata, f *os.File,
 ) error {
-	count := 0
-	if debug {
-		fmt.Println("CLIENT POINT: Begin.")
+	stream, err := client.Upload(ctx)
+	if err != nil {
+		return err
 	}
-	err := initDataCaptureUpload(ctx, f, s.progressTracker, f.Name(), md)
+	err = initDataCaptureUpload(ctx, f, pt, f.Name())
 	if errors.Is(err, io.EOF) {
 		return nil
 	}
 	if err != nil {
 		return err
-	}
-	if debug {
-		fmt.Println("CLIENT POINT: Initialized upload.")
 	}
 
 	// Send metadata upload request.
@@ -41,148 +49,52 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 			Metadata: md,
 		},
 	}
-	if err := client.Send(req); err != nil {
+	if err := stream.Send(req); err != nil {
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
-	count++
-	if debug {
-		fmt.Println("CLIENT POINT: Sent Request #", fmt.Sprint(count), ".")
-	}
 
-	// Create channel between goroutine that's waiting for UploadResponse and the main goroutine which is persisting
-	// file upload progress to disk.
-	progress := make(chan v1.UploadResponse, 1)
-
-	// activeBackgroundWorkers ensures upload func waits for forked goroutines to terminate before exiting.
-	var activeBackgroundWorkers sync.WaitGroup
-
-	activeBackgroundWorkers.Add(1)
-	go func() {
-		if debug {
-			fmt.Println("CLIENT POINT: Started goroutine to wait for server's response.")
-		}
-		shouldBreak := false
-		defer activeBackgroundWorkers.Done()
-		for {
-			if debug {
-				fmt.Println("CLIENT POINT: Starting 'select-loop' while waiting for response.")
-			}
-			if shouldBreak {
-				shouldBreak = false
-				break
-			}
-			select {
-			case <-ctx.Done():
-				if debug {
-					fmt.Println("CLIENT POINT: Cancelled context while waiting on upload response from server.")
-				}
-				shouldBreak = true
-			default:
-				ur, err := client.Recv()
-				if err == io.EOF {
-					if debug {
-						fmt.Println("CLIENT POINT: End of file error from client.")
-					}
-					close(progress)
-					shouldBreak = true
-				} else {
-					if err != nil {
-						log.Fatalf("Unable to receive UploadResponse from server %v", err)
-					} else {
-						if debug {
-							fmt.Println("CLIENT POINT: Received progress (" + fmt.Sprint(ur.GetRequestsWritten()) +
-								" messages written) from server.")
-						}
-						progress <- *ur
-						if debug {
-							fmt.Println("CLIENT POINT: Successfully sent progress on channel.")
-						}
-					}
-				}
-			}
-		}
-	}()
-
-	eof := false
 	// Loop until there is no more content to be read from file.
 	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
 		select {
 		case <-ctx.Done():
-			if debug {
-				fmt.Println("CLIENT POINT: Cancelled context.")
-			}
-			return context.Canceled
-		case uploadResponse := <-progress:
-			if debug {
-				fmt.Println("CLIENT POINT: Received progress from channel.")
-			}
-			if err := s.progressTracker.updateProgressFileIndex(filepath.Join(s.progressTracker.progressDir, filepath.
-				Base(f.Name())), int(uploadResponse.GetRequestsWritten())); err != nil {
-				return err
-			}
-			if debug {
-				fmt.Println("CLIENT POINT: Updated progress file.")
-			}
+			return ctx.Err()
 		default:
-			if debug {
-				fmt.Println("CLIENT POINT: Getting next upload request to send to server.")
-			}
 			// Get the next UploadRequest from the file.
 			uploadReq, err := getNextSensorUploadRequest(ctx, f)
-			if uploadReq == nil {
-				if debug {
-					fmt.Println("CLIENT POINT: Upload request is nil.")
+
+			// If the error is EOF, we completed successfully.
+			if errors.Is(err, io.EOF) {
+				if _, err := stream.Recv(); err != nil {
+					if !errors.Is(err, io.EOF) {
+						return err
+					}
 				}
-			}
-			// If the error is EOF, break from loop.
-			if errors.Is(err, io.EOF) || uploadReq == nil {
-				eof = true
-				break
+
+				if err := pt.deleteProgressFile(filepath.Join(pt.progressDir,
+					filepath.Base(filepath.Base(f.Name())))); err != nil {
+					return err
+				}
+				return nil
 			}
 			if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
 				continue
 			}
-			// If there is any other error, return it.
 			if err != nil {
 				return err
 			}
 
-			if err = client.Send(uploadReq); err != nil {
-				return errors.Wrap(err, "error while sending uploadRequest")
+			if err = stream.Send(uploadReq); err != nil {
+				return err
 			}
-			count++
-
-			if debug {
-				fmt.Println("CLIENT POINT: Sent upload request #", fmt.Sprint(count), " to server: ",
-					string(uploadReq.GetSensorContents().GetBinary()))
+			if err := pt.incrementProgressFileIndex(filepath.Join(pt.progressDir, filepath.
+				Base(f.Name()))); err != nil {
+				return err
 			}
 		}
-		if eof {
-			eof = false
-			break
-		}
 	}
-	activeBackgroundWorkers.Wait()
-
-	if err := f.Close(); err != nil {
-		return err
-	}
-
-	// Close stream and receive response.
-	if err := client.CloseSend(); err != nil {
-		return errors.Wrap(err, "error when closing the stream")
-	}
-	if debug {
-		fmt.Println("CLIENT POINT: Successfully closed the client stream.")
-	}
-
-	return nil
 }
 
-func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, dcFileName string, md *v1.UploadMetadata) error {
+func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, dcFileName string) error {
 	finfo, err := f.Stat()
 	if err != nil {
 		return err
@@ -198,6 +110,7 @@ func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, 
 		if err := pt.createProgressFile(progressFilePath); err != nil {
 			return err
 		}
+		return nil
 	}
 
 	// Sets the next file pointer to the next sensordata message that needs to be uploaded.
