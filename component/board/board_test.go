@@ -363,6 +363,7 @@ func TestI2Cs(t *testing.T) {
 	test.That(t, actualBoard.i2c.handleCount, test.ShouldEqual, 1)
 }
 
+//nolint:dupl
 func TestAnalogReaders(t *testing.T) {
 	actualBoard := newLocalBoard(testBoardName)
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
@@ -380,6 +381,7 @@ func TestAnalogReaders(t *testing.T) {
 	test.That(t, actualBoard.analog.extra, test.ShouldResemble, extra)
 }
 
+//nolint:dupl
 func TestDigitalInterrupts(t *testing.T) {
 	actualBoard := newLocalBoard(testBoardName)
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
