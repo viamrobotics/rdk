@@ -3,10 +3,11 @@ package config
 import (
 	"testing"
 
-	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
+
+	spatial "go.viam.com/rdk/spatialmath"
 )
 
 func TestComponentConfigToProto(t *testing.T) {
@@ -49,27 +50,27 @@ func TestComponentConfigToProto(t *testing.T) {
 	proto, err := ComponentConfigToProto(&component)
 	test.That(t, err, test.ShouldBeNil)
 
-	componentOut, err := ComponentConfigFromProto(proto)
+	out, err := ComponentConfigFromProto(proto)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, componentOut, test.ShouldNotBeNil)
+	test.That(t, out, test.ShouldNotBeNil)
 
-	test.That(t, componentOut.Name, test.ShouldEqual, component.Name)
-	test.That(t, componentOut.Type, test.ShouldEqual, component.Type)
-	test.That(t, componentOut.Namespace, test.ShouldEqual, component.Namespace)
-	test.That(t, componentOut.SubType, test.ShouldEqual, component.SubType)
-	test.That(t, componentOut.Model, test.ShouldEqual, component.Model)
-	test.That(t, componentOut.DependsOn, test.ShouldResemble, component.DependsOn)
-	test.That(t, componentOut.Attributes.Int("attr1", 0), test.ShouldEqual, component.Attributes.Int("attr1", -1))
-	test.That(t, componentOut.Attributes.String("attr2"), test.ShouldEqual, component.Attributes.String("attr2"))
+	test.That(t, out.Name, test.ShouldEqual, component.Name)
+	test.That(t, out.Type, test.ShouldEqual, component.Type)
+	test.That(t, out.Namespace, test.ShouldEqual, component.Namespace)
+	test.That(t, out.SubType, test.ShouldEqual, component.SubType)
+	test.That(t, out.Model, test.ShouldEqual, component.Model)
+	test.That(t, out.DependsOn, test.ShouldResemble, component.DependsOn)
+	test.That(t, out.Attributes.Int("attr1", 0), test.ShouldEqual, component.Attributes.Int("attr1", -1))
+	test.That(t, out.Attributes.String("attr2"), test.ShouldEqual, component.Attributes.String("attr2"))
 
-	test.That(t, componentOut.ServiceConfig, test.ShouldHaveLength, 2)
-	test.That(t, componentOut.ServiceConfig[0].Type, test.ShouldEqual, component.ServiceConfig[0].Type)
-	test.That(t, componentOut.ServiceConfig[0].Attributes.Int("attr1", 0), test.ShouldEqual, component.ServiceConfig[0].Attributes.Int("attr1", -1))
-	test.That(t, componentOut.ServiceConfig[1].Type, test.ShouldEqual, component.ServiceConfig[1].Type)
-	test.That(t, componentOut.ServiceConfig[1].Attributes.Int("attr1", 0), test.ShouldEqual, component.ServiceConfig[1].Attributes.Int("attr1", -1))
+	test.That(t, out.ServiceConfig, test.ShouldHaveLength, 2)
+	test.That(t, out.ServiceConfig[0].Type, test.ShouldEqual, component.ServiceConfig[0].Type)
+	test.That(t, out.ServiceConfig[0].Attributes.Int("attr1", 0), test.ShouldEqual, component.ServiceConfig[0].Attributes.Int("attr1", -1))
+	test.That(t, out.ServiceConfig[1].Type, test.ShouldEqual, component.ServiceConfig[1].Type)
+	test.That(t, out.ServiceConfig[1].Attributes.Int("attr1", 0), test.ShouldEqual, component.ServiceConfig[1].Attributes.Int("attr1", -1))
 
-	test.That(t, componentOut.Frame, test.ShouldResemble, component.Frame)
-	test.That(t, componentOut.Frame, test.ShouldResemble, component.Frame)
+	test.That(t, out.Frame, test.ShouldResemble, component.Frame)
+	test.That(t, out.Frame, test.ShouldResemble, component.Frame)
 }
 
 func TestRemoteConfigToProto(t *testing.T) {
@@ -116,24 +117,24 @@ func TestRemoteConfigToProto(t *testing.T) {
 	proto, err := RemoteConfigToProto(&remote)
 	test.That(t, err, test.ShouldBeNil)
 
-	remoteOut, err := RemoteConfigFromProto(proto)
+	out, err := RemoteConfigFromProto(proto)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, remoteOut.Name, test.ShouldEqual, remote.Name)
-	test.That(t, remoteOut.Address, test.ShouldEqual, remote.Address)
-	test.That(t, remoteOut.Prefix, test.ShouldEqual, remote.Prefix)
-	test.That(t, remoteOut.ManagedBy, test.ShouldEqual, remote.ManagedBy)
-	test.That(t, remoteOut.Insecure, test.ShouldEqual, remote.Insecure)
-	test.That(t, remoteOut.ReconnectInterval, test.ShouldEqual, remote.ReconnectInterval)
-	test.That(t, remoteOut.ConnectionCheckInterval, test.ShouldEqual, remote.ConnectionCheckInterval)
-	test.That(t, remoteOut.Auth, test.ShouldResemble, remote.Auth)
-	test.That(t, remoteOut.Frame, test.ShouldResemble, remote.Frame)
+	test.That(t, out.Name, test.ShouldEqual, remote.Name)
+	test.That(t, out.Address, test.ShouldEqual, remote.Address)
+	test.That(t, out.Prefix, test.ShouldEqual, remote.Prefix)
+	test.That(t, out.ManagedBy, test.ShouldEqual, remote.ManagedBy)
+	test.That(t, out.Insecure, test.ShouldEqual, remote.Insecure)
+	test.That(t, out.ReconnectInterval, test.ShouldEqual, remote.ReconnectInterval)
+	test.That(t, out.ConnectionCheckInterval, test.ShouldEqual, remote.ConnectionCheckInterval)
+	test.That(t, out.Auth, test.ShouldResemble, remote.Auth)
+	test.That(t, out.Frame, test.ShouldResemble, remote.Frame)
 
-	test.That(t, remoteOut.ServiceConfig, test.ShouldHaveLength, 2)
-	test.That(t, remoteOut.ServiceConfig[0].Type, test.ShouldEqual, remote.ServiceConfig[0].Type)
-	test.That(t, remoteOut.ServiceConfig[0].Attributes.Int("attr1", 0), test.ShouldEqual, remote.ServiceConfig[0].Attributes.Int("attr1", -1))
-	test.That(t, remoteOut.ServiceConfig[1].Type, test.ShouldEqual, remote.ServiceConfig[1].Type)
-	test.That(t, remoteOut.ServiceConfig[1].Attributes.Int("attr1", 0), test.ShouldEqual, remote.ServiceConfig[1].Attributes.Int("attr1", -1))
+	test.That(t, out.ServiceConfig, test.ShouldHaveLength, 2)
+	test.That(t, out.ServiceConfig[0].Type, test.ShouldEqual, remote.ServiceConfig[0].Type)
+	test.That(t, out.ServiceConfig[0].Attributes.Int("attr1", 0), test.ShouldEqual, remote.ServiceConfig[0].Attributes.Int("attr1", -1))
+	test.That(t, out.ServiceConfig[1].Type, test.ShouldEqual, remote.ServiceConfig[1].Type)
+	test.That(t, out.ServiceConfig[1].Attributes.Int("attr1", 0), test.ShouldEqual, remote.ServiceConfig[1].Attributes.Int("attr1", -1))
 }
 
 func TestServiceConfigToProto(t *testing.T) {
@@ -149,13 +150,13 @@ func TestServiceConfigToProto(t *testing.T) {
 	proto, err := ServiceConfigToProto(&service)
 	test.That(t, err, test.ShouldBeNil)
 
-	serviceOut, err := ServiceConfigFromProto(proto)
+	out, err := ServiceConfigFromProto(proto)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, serviceOut.Name, test.ShouldEqual, service.Name)
-	test.That(t, serviceOut.Namespace, test.ShouldEqual, service.Namespace)
-	test.That(t, serviceOut.Type, test.ShouldEqual, service.Type)
-	test.That(t, serviceOut.Attributes.Int("attr1", 0), test.ShouldEqual, service.Attributes.Int("attr1", -1))
+	test.That(t, out.Name, test.ShouldEqual, service.Name)
+	test.That(t, out.Namespace, test.ShouldEqual, service.Namespace)
+	test.That(t, out.Type, test.ShouldEqual, service.Type)
+	test.That(t, out.Attributes.Int("attr1", 0), test.ShouldEqual, service.Attributes.Int("attr1", -1))
 }
 
 func TestProcessConfigToProto(t *testing.T) {
