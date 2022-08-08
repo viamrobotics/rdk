@@ -62,7 +62,8 @@ func createFakeBoard() *inject.Board {
 	return fakeBoard
 }
 
-func createFakeDepsForTestNewOneAxis() registry.Dependencies {
+func createFakeDepsForTestNewOneAxis(t *testing.T) registry.Dependencies {
+	t.Helper()
 	injectGPIOPin := &inject.GPIOPin{}
 	injectGPIOPin.SetFunc = func(ctx context.Context, high bool) error {
 		return nil
@@ -74,7 +75,15 @@ func createFakeDepsForTestNewOneAxis() registry.Dependencies {
 		return injectGPIOPin, nil
 	}}
 
-	fakeMotor := &fake.Motor{}
+	logger := golog.NewTestLogger(t)
+
+	fakeMotor := &fake.Motor{
+		Encoder:           &fake.Encoder{},
+		PositionReporting: true,
+		TicksPerRotation:  1,
+		MaxRPM:            60,
+		Logger:            logger,
+	}
 	deps := make(registry.Dependencies)
 	deps[board.Named("board")] = fakeBoard
 	deps[motor.Named(motorName)] = fakeMotor
@@ -160,7 +169,7 @@ func TestValidate(t *testing.T) {
 func TestNewOneAxis(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	deps := createFakeDepsForTestNewOneAxis()
+	deps := createFakeDepsForTestNewOneAxis(t)
 	fakecfg := config.Component{Name: "gantry"}
 	_, err := newOneAxis(ctx, deps, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *oneaxis.AttrConfig but got <nil>")
