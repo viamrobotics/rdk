@@ -170,7 +170,7 @@ func TestGetReadings(t *testing.T) {
 			return nil, passedErr
 		}
 		expected := map[resource.Name]interface{}{
-			movementsensor.Named("imu"):            readings1,
+			movementsensor.Named("imu"): readings1,
 			movementsensor.Named("gps"): readings2,
 		}
 		resourceMap := map[resource.Name]interface{}{
@@ -191,7 +191,10 @@ func TestGetReadings(t *testing.T) {
 		test.That(t, reading.Name, test.ShouldResemble, movementsensor.Named("imu"))
 		test.That(t, reading.Readings, test.ShouldResemble, readings1)
 
-		readings, err = svc.GetReadings(context.Background(), []resource.Name{movementsensor.Named("imu"), movementsensor.Named("imu"), movementsensor.Named("imu")})
+		readings, err = svc.GetReadings(
+			context.Background(),
+			[]resource.Name{movementsensor.Named("imu"), movementsensor.Named("imu"), movementsensor.Named("imu")},
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(readings), test.ShouldEqual, 1)
 		reading = readings[0]
