@@ -6,7 +6,7 @@ import { BoardServiceClient } from './gen/proto/api/component/board/v1/board_pb_
 import { CameraServiceClient } from './gen/proto/api/component/camera/v1/camera_pb_service.esm';
 import { GantryServiceClient } from './gen/proto/api/component/gantry/v1/gantry_pb_service.esm';
 import { GripperServiceClient } from './gen/proto/api/component/gripper/v1/gripper_pb_service.esm';
-import { IMUServiceClient } from './gen/proto/api/component/imu/v1/imu_pb_service.esm';
+import { MovementSensorServiceClient } from './gen/proto/api/component/movementsensor/v1/movementsensor_pb_service.esm';
 import { InputControllerServiceClient } from './gen/proto/api/component/inputcontroller/v1/input_controller_pb_service.esm';
 import { MotorServiceClient } from './gen/proto/api/component/motor/v1/motor_pb_service.esm';
 import { NavigationServiceClient } from './gen/proto/api/service/navigation/v1/navigation_pb_service.esm';
@@ -116,10 +116,6 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
     transportFactory = await dialDirect(impliedURL, opts);
   }
 
-  if (!window.webrtcHost) {
-    throw new Error('window.webrtcHost is not set! Cannot connect to RDK services.');
-  }
-
   window.streamService = new StreamServiceClient(window.webrtcHost, { transport: transportFactory });
   window.robotService = new RobotServiceClient(window.webrtcHost, { transport: transportFactory });
   // TODO(RSDK-144): these should be created as needed
@@ -129,7 +125,7 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
   window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: transportFactory });
   window.gantryService = new GantryServiceClient(window.webrtcHost, { transport: transportFactory });
   window.gripperService = new GripperServiceClient(window.webrtcHost, { transport: transportFactory });
-  window.imuService = new IMUServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.movementsensorService = new MovementSensorServiceClient(window.webrtcHost, { transport: transportFactory });
   window.inputControllerService = new InputControllerServiceClient(window.webrtcHost, { transport: transportFactory });
   window.motorService = new MotorServiceClient(window.webrtcHost, { transport: transportFactory });
   window.navigationService = new NavigationServiceClient(window.webrtcHost, { transport: transportFactory });

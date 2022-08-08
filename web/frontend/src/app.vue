@@ -12,7 +12,7 @@ import baseApi from './gen/proto/api/component/base/v1/base_pb.esm';
 import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
 import gantryApi from './gen/proto/api/component/gantry/v1/gantry_pb.esm';
 import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
-import imuApi from './gen/proto/api/component/imu/v1/imu_pb.esm';
+import movementsensorApi from './gen/proto/api/component/movementsensor/v1/movementsensor_pb.esm';
 import motionApi from './gen/proto/api/service/motion/v1/motion_pb.esm';
 import visionApi from './gen/proto/api/service/vision/v1/vision_pb.esm';
 import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
@@ -175,7 +175,7 @@ export default {
       objects: null,
       armToggle: {},
       value: 0,
-      imuData: {},
+      movementsensorData: {},
       currentOps: [],
       setPin: '',
       getPin: '',
@@ -192,7 +192,7 @@ export default {
       this.queryStreams();
     }
 
-    this.imuRefresh();
+    this.movementsensorRefresh();
     await this.queryMetadata();
   },
   methods: {
@@ -1168,68 +1168,83 @@ export default {
       this.pcdClick.z = r(point.z);
       pcdGlobal.sphere.position.copy(point);
     },
-    imuRefresh() {
-      for (const x of filterResources(this.resources, 'rdk', 'component', 'imu')) {
+    movementsensorRefresh() {
+      for (const x of filterResources(this.resources, 'rdk', 'component', 'movement_sensor')) {
         const name = x.name;
 
-        if (!this.imuData[name]) {
-          this.imuData[name] = {};
+        if (!this.movementsensorData[name]) {
+          this.movementsensorData[name] = {};
         }
 
         {
-          const req = new imuApi.ReadOrientationRequest();
+          const req = new movementsensorApi.GetOrientationRequest();
           req.setName(name);
 
-          imuService.readOrientation(req, {}, (err, resp) => {
+          movementsensorService.getOrientation(req, {}, (err, resp) => {
             if (err) {
               console.log(err);
               return;
             }
-            this.imuData[name].orientation = resp.toObject().orientation;
+              this.movementsensorData[name].orientation = resp.toObject().orientation;
           });
         }
 
         {
-          const req = new imuApi.ReadAngularVelocityRequest();
+          const req = new movementsensorApi.GetAngularVelocityRequest();
           req.setName(name);
 
-          imuService.readAngularVelocity(req, {}, (err, resp) => {
+          movementsensorService.getAngularVelocity(req, {}, (err, resp) => {
+            if (err) {
+              console.log(err);
+              return;
+              }
+            this.movementsensorData[name].angularVelocity = resp.toObject().angularVelocity;
+          });
+          }
+        {
+          const req = new movementsensorApi.GetLinearVelocityRequest();
+          req.setName(name);
+
+          movementsensorService.getLinearVelocity(req, {}, (err, resp) => {
             if (err) {
               console.log(err);
               return;
             }
-            this.imuData[name].angularVelocity = resp.toObject().angularVelocity;
+            this.movementsensorData[name].linearVelocity = resp.toObject().linearVelocity;
           });
         }
 
         {
-          const req = new imuApi.ReadAccelerationRequest();
+          const req = new movementsensorApi.GetCompassHeadingRequest();
           req.setName(name);
 
-          imuService.readAcceleration(req, {}, (err, resp) => {
+          movementsensorService.getCompassHeading(req, {}, (err, resp) => {
             if (err) {
               console.log(err);
               return;
             }
-            this.imuData[name].acceleration = resp.toObject().acceleration;
+            this.movementsensorData[name].compassHeading = resp.toObject().value;
           });
         }
 
-        {
-          const req = new imuApi.ReadMagnetometerRequest();
+          {
+          const req = new movementsensorApi.GetPositionRequest();
           req.setName(name);
 
-          imuService.readMagnetometer(req, {}, (err, resp) => {
+          movementsensorService.getPosition(req, {}, (err, resp) => {
             if (err) {
               console.log(err);
               return;
             }
-            this.imuData[name].magnetometer = resp.toObject().magnetometer;
+              var temp = resp.toObject();
+              console.log(temp);
+              this.movementsensorData[name].coordinate = temp.coordinate;
+              this.movementsensorData[name].altitudeMm = temp.altitudeMm;
           });
-        }
+          }
       }
 
-      setTimeout(this.imuRefresh, 500);
+      setTimeout(this.movementsensorRefresh, 500);
     },
     updateStatus(grpcStatuses) {
       const rawStatus = {};
@@ -1509,15 +1524,47 @@ function setBoundingBox(box, centerPoint) {
         </table>
       </div>
     </v-collapse>
-
-    <!-- ******* IMU *******  -->
+    <!-- ******* MovementSensor *******  -->
     <v-collapse
-      v-for="imu in filterResources(resources, 'rdk', 'component', 'imu')"
-      :key="imu.name"
-      :title="`IMU: ${imu.name}`"
+      v-for="movementsensor in filterResources(resources, 'rdk', 'component', 'movement_sensor')"
+      :key="movementsensor.name"
+      :title="`MovementSensor: ${movementsensor.name}`"
     >
       <div class="flex items-end border border-t-0 border-black p-4">
-        <template v-if="imuData[imu.name] && imuData[imu.name].angularVelocity">
+        <template v-if="movementsensorData[movementsensor.name] && movementsensorData[movementsensor.name].orientation">
+
+          <div class="mr-4 w-1/4">
+            <h3 class="mb-1">
+              Position
+            </h3>
+            <table class="w-full border border-t-0 border-black p-4">
+              <tr>
+                <th class="border border-black p-2">
+                  Latitude
+                </th>
+                <td class="border border-black p-2">
+                  {{ movementsensorData[movementsensor.name].coordinate?.latitude.toFixed(6)}}
+                </td>
+              </tr>
+              <tr>
+                <th class="border border-black p-2">
+                  Longitude
+                </th>
+                <td class="border border-black p-2">
+                  {{ movementsensorData[movementsensor.name].coordinate?.longitude.toFixed(6)}}
+                </td>
+              </tr>
+              <tr>
+                <th class="border border-black p-2">
+                  Altitide
+                </th>
+                <td class="border border-black p-2">
+                  {{ movementsensorData[movementsensor.name].altitudeMm?.toFixed(2) }}
+                </td>
+              </tr>
+            </table>
+          </div>
+
           <div class="mr-4 w-1/4">
             <h3 class="mb-1">
               Orientation (degrees)
@@ -1525,26 +1572,34 @@ function setBoundingBox(box, centerPoint) {
             <table class="w-full border border-t-0 border-black p-4">
               <tr>
                 <th class="border border-black p-2">
-                  Roll
+                  OX
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].orientation?.rollDeg.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].orientation?.oX.toFixed(2) }}
                 </td>
               </tr>
               <tr>
                 <th class="border border-black p-2">
-                  Pitch
+                  OY
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].orientation?.pitchDeg.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].orientation?.oY.toFixed(2) }}
                 </td>
               </tr>
               <tr>
                 <th class="border border-black p-2">
-                  Yaw
+                  OZ
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].orientation?.yawDeg.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].orientation?.oZ.toFixed(2) }}
+                </td>
+              </tr>
+              <tr>
+                <th class="border border-black p-2">
+                  Theta
+                </th>
+                <td class="border border-black p-2">
+                  {{ movementsensorData[movementsensor.name].orientation?.theta.toFixed(2) }}
                 </td>
               </tr>
             </table>
@@ -1560,7 +1615,7 @@ function setBoundingBox(box, centerPoint) {
                   X
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].angularVelocity?.xDegsPerSec.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].angularVelocity?.x.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1568,7 +1623,7 @@ function setBoundingBox(box, centerPoint) {
                   Y
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].angularVelocity?.yDegsPerSec.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].angularVelocity?.y.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1576,15 +1631,15 @@ function setBoundingBox(box, centerPoint) {
                   Z
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].angularVelocity?.zDegsPerSec.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].angularVelocity?.z.toFixed(2) }}
                 </td>
               </tr>
             </table>
           </div>
-                
+
           <div class="mr-4 w-1/4">
             <h3 class="mb-1">
-              Acceleration (mm/second/second)
+              Linear Velocity
             </h3>
             <table class="w-full border border-t-0 border-black p-4">
               <tr>
@@ -1592,7 +1647,7 @@ function setBoundingBox(box, centerPoint) {
                   X
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].acceleration?.xMmPerSecPerSec.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].linearVelocity?.x.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1600,7 +1655,7 @@ function setBoundingBox(box, centerPoint) {
                   Y
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].acceleration?.yMmPerSecPerSec.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].linearVelocity?.y.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1608,43 +1663,28 @@ function setBoundingBox(box, centerPoint) {
                   Z
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].acceleration?.zMmPerSecPerSec.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].linearVelocity?.z.toFixed(2) }}
                 </td>
               </tr>
             </table>
           </div>
-                
-          <div class="w-1/4">
+
+          <div class="mr-4 w-1/4">
             <h3 class="mb-1">
-              Magnetometer (gauss)
+              Compass Heading
             </h3>
             <table class="w-full border border-t-0 border-black p-4">
               <tr>
                 <th class="border border-black p-2">
-                  X
+                  Compass
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].magnetometer?.xGauss.toFixed(2) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Y
-                </th>
-                <td class="border border-black p-2">
-                  {{ imuData[imu.name].magnetometer?.yGauss.toFixed(2) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Z
-                </th>
-                <td class="border border-black p-2">
-                  {{ imuData[imu.name].magnetometer?.zGauss.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].compassHeading?.toFixed(2) }}
                 </td>
               </tr>
             </table>
           </div>
+          
         </template>
       </div>
     </v-collapse>
