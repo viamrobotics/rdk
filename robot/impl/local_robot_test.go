@@ -31,6 +31,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
+
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
@@ -1544,8 +1545,6 @@ func TestReconnectRemote(t *testing.T) {
 		tb.Helper()
 		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 3)
 	})
-	_, err = robotClient.ResourceByName(arm.Named("arm1"))
-	test.That(t, err, test.ShouldBeError)
 
 	// reconnect the first robot
 	ctx2 := context.Background()
