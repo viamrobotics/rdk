@@ -154,11 +154,12 @@ func buildBinarySensorMsgs(data [][]byte, fileName string) []*v1.UploadRequest {
 	return expMsgs
 }
 
-func getMockService(failUntilIndex int32) mockDataSyncServiceServer {
+func getMockService(failUntilIndex int32, failAtIndex int32) mockDataSyncServiceServer {
 	return mockDataSyncServiceServer{
 		uploadRequests:                     &[]*v1.UploadRequest{},
 		callCount:                          &atomic.Int32{},
 		failUntilIndex:                     failUntilIndex,
+		failAtIndex:                        failAtIndex,
 		lock:                               &sync.Mutex{},
 		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
 	}
@@ -197,6 +198,7 @@ type mockDataSyncServiceServer struct {
 	uploadRequests *[]*v1.UploadRequest
 	callCount      *atomic.Int32
 	failUntilIndex int32
+	failAtIndex    int32
 
 	lock *sync.Mutex
 	v1.UnimplementedDataSyncServiceServer
@@ -215,9 +217,13 @@ func (m mockDataSyncServiceServer) getUploadCallCount() int32 {
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
 	defer m.callCount.Add(1)
 	if m.callCount.Load() < m.failUntilIndex {
-		return status.Error(codes.Aborted, "failed on purpose")
+		m.callCount.Add(1)
+		return status.Error(codes.Aborted, "fail until reach failUntilIndex")
 	}
 	for {
+		if m.callCount.Load() == m.failAtIndex {
+			return status.Error(codes.Aborted, "failed at failAtIndex")
+		}
 		ur, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
 			break
