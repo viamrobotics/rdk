@@ -3,7 +3,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -290,10 +289,10 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Dura
 					rc.changeChan <- true
 				}
 				rc.Logger().Debugf("connection was lost for remote %q", rc.address)
-				// if rc.notifyParent != nil {
-				// 	rc.Logger().Debugf("connection was lost for remote %q", rc.address)
-				// 	rc.notifyParent()
-				// }
+				if rc.notifyParent != nil {
+					rc.Logger().Debugf("connection was lost for remote %q", rc.address)
+					rc.notifyParent()
+				}
 				rc.mu.Unlock()
 			}
 		}
@@ -486,8 +485,6 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 			names,
 			rName.PrependRemote(v.Remote),
 		)
-		fmt.Printf("old name %s \n", v)
-		fmt.Printf("new name %s \n", rName)
 	}
 	return names
 }
