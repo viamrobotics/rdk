@@ -260,6 +260,7 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 	if m.callCount.Load() < m.failUntilIndex {
 		return status.Error(codes.Aborted, "fail until reach failUntilIndex")
 	}
+
 	m.reqsStagedForResponse = 0
 	for {
 		// If server.Upload(stream) has been called too many times, abort.
@@ -302,6 +303,5 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 			m.reqsStagedForResponse = 0
 		}
 	}
-
 	return nil
 }

@@ -14,6 +14,10 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
+const (
+	syncWaitTime = 100 * time.Millisecond
+)
+
 func TestFileUpload(t *testing.T) {
 	uploadChunkSize = 10
 	msgEmpty := []byte("")
@@ -91,11 +95,12 @@ func TestFileUpload(t *testing.T) {
 				},
 			})
 		}
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(syncWaitTime)
 
 		sut.Close()
 		// The mc.sent value should be the same as the expectedMsgs value.
 		compareMetadata(t, mockService.getUploadRequests()[0].GetMetadata(), expectedMsgs[0].GetMetadata())
+		test.That(t, len(mockService.getUploadRequests()), test.ShouldEqual, len(expectedMsgs))
 		actual := mockService.getUploadRequests()[1:]
 		if len(expectedMsgs) > 1 {
 			for i, exp := range expectedMsgs[1:] {
@@ -221,7 +226,7 @@ func TestSensorUploadTabular(t *testing.T) {
 		}
 
 		// The mc.sent value should be the same as the expectedMsgs value.
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(syncWaitTime)
 		sut.Close()
 		compareUploadRequests(t, true, mockService.getUploadRequests(), expectedMsgs)
 	}
@@ -308,7 +313,7 @@ func TestSensorUploadBinary(t *testing.T) {
 		expectedMsgs := buildBinaryUploadRequests(tc.expData, filepath.Base(tf.Name()))
 
 		// The mc.sent value should be the same as the expectedMsgs value.
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(syncWaitTime)
 		sut.Close()
 		compareUploadRequests(t, true, mockService.getUploadRequests(), expectedMsgs)
 	}
@@ -341,10 +346,19 @@ func TestUploadsOnce(t *testing.T) {
 	}
 
 	// Verify upload was only called twice.
-	time.Sleep(time.Millisecond * 100)
+	time.Sleep(syncWaitTime)
 	sut.Close()
 	test.That(t, mockService.callCount.Load(), test.ShouldEqual, 2)
-	// TODO how to test different now?
+
+	// Verify the two upload calls were made on different files.
+	var metadatas []*v1.UploadMetadata
+	for _, ur := range mockService.getUploadRequests() {
+		if ur.GetMetadata() != nil {
+			metadatas = append(metadatas, ur.GetMetadata())
+		}
+	}
+	test.That(t, len(metadatas), test.ShouldEqual, 2)
+	test.That(t, metadatas[0].GetFileName(), test.ShouldNotEqual, metadatas[1].GetFileName())
 
 	// Verify that the files were deleted after upload.
 	_, err = os.Stat(file1.Name())
@@ -493,7 +507,7 @@ func TestPartialUpload(t *testing.T) {
 			sut, err := NewManager(logger, partID, client, conn)
 			test.That(t, err, test.ShouldBeNil)
 			sut.Sync([]string{f.Name()})
-			// time.Sleep(time.Millisecond * 100)
+			time.Sleep(syncWaitTime)
 			sut.Close()
 
 			// TODO: validate mockService.getUploadRequests for indexes 0:tc.cancelIndex
@@ -511,7 +525,7 @@ func TestPartialUpload(t *testing.T) {
 			sut, err = NewManager(logger, partID, client, conn)
 			test.That(t, err, test.ShouldBeNil)
 			sut.Sync([]string{f.Name()})
-			// time.Sleep(time.Millisecond * 100)
+			time.Sleep(syncWaitTime)
 			sut.Close()
 
 			// TODO: validate mockService.getUploadRequests for indexes tc.cancelIndex:

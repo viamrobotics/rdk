@@ -167,6 +167,7 @@ func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger
 		syncIntervalMins:          -1,
 		additionalSyncPaths:       []string{},
 		waitAfterLastModifiedSecs: 10,
+		syncerConstructor:         datasync.NewDefaultManager,
 	}
 
 	return dataManagerSvc, nil
