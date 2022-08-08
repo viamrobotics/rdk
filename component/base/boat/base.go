@@ -248,7 +248,7 @@ func (b *boat) setPowerInternal(ctx context.Context, linear, angular r3.Vector) 
 	// b.logger.Debugf("setPowerInternal %0.2f %0.2f %0.2f computePower: %v", linear.X, linear.Y, angular.Z, power)
 
 	for idx, p := range power {
-		err := b.motors[idx].SetPower(ctx, p)
+		err := b.motors[idx].SetPower(ctx, p, nil)
 		if err != nil {
 			return multierr.Combine(b.Stop(ctx, nil), err)
 		}
@@ -275,7 +275,7 @@ func (b *boat) Stop(ctx context.Context, extra map[string]interface{}) error {
 	b.opMgr.CancelRunning(ctx)
 	var err error
 	for _, m := range b.motors {
-		err = multierr.Combine(m.Stop(ctx), err)
+		err = multierr.Combine(m.Stop(ctx, nil), err)
 	}
 	return err
 }
@@ -286,7 +286,7 @@ func (b *boat) GetWidth(ctx context.Context) (int, error) {
 
 func (b *boat) IsMoving(ctx context.Context) (bool, error) {
 	for _, m := range b.motors {
-		isMoving, err := m.IsPowered(ctx)
+		isMoving, err := m.IsPowered(ctx, nil)
 		if err != nil {
 			return false, err
 		}
