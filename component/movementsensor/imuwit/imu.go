@@ -1,5 +1,5 @@
 // Package wit implements a wit IMU.
-package wit
+package imuwit
 
 import (
 	"bufio"
@@ -15,17 +15,17 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/generic"
-	"go.viam.com/rdk/component/imu"
+	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
-const model = "wit"
+const model = "imu_wit"
 
 func init() {
-	registry.RegisterComponent(imu.Subtype, model, registry.Component{
+	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{
 		Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -51,15 +51,15 @@ type wit struct {
 	generic.Unimplemented
 }
 
-// ReadAngularVelocity returns Angular velocity from the gyroscope in deg_per_sec.
-func (imu *wit) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+// GetAngularVelocity returns Angular velocity from the gyroscope in deg_per_sec.
+func (imu *wit) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return imu.angularVelocity, imu.lastError
 }
 
-// Read Orientatijn returns gyroscope orientation in degrees.
-func (imu *wit) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+// GetOrientation returns gyroscope orientation in degrees.
+func (imu *wit) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return &imu.orientation, imu.lastError
@@ -80,7 +80,7 @@ func (imu *wit) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
 }
 
 // NewWit creates a new Wit IMU.
-func NewWit(deps registry.Dependencies, config config.Component, logger golog.Logger) (imu.IMU, error) {
+func NewWit(deps registry.Dependencies, config config.Component, logger golog.Logger) (movementsensor.MovementSensor, error) {
 	options := slib.OpenOptions{
 		BaudRate:        9600,
 		DataBits:        8,
