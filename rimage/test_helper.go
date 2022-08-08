@@ -221,11 +221,11 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 				t.Helper()
 				t.Parallel()
 				d.logger.Debug(currentFile)
-				img, err := readImageFromFile(currentFile, false)
+				img, err := readImageFromFile(currentFile)
 				test.That(t, err, test.ShouldBeNil)
 				var img2 image.Image
 				if _, err := os.Stat(fileSecondary); err == nil {
-					img2, err = readImageFromFile(fileSecondary, false)
+					img2, err = readImageFromFile(fileSecondary)
 					test.That(t, err, test.ShouldBeNil)
 				}
 

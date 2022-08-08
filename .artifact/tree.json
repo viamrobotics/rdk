@@ -50091,10 +50091,6 @@
           "size": 108294
         }
       },
-      "desktop2.both.gz": {
-        "hash": "be4c6b88b213fc6a6eb085edaaee5cbd",
-        "size": 1830798
-      },
       "desktop2.both.gz.las": {
         "hash": "44688a30d468b19d97770c3232a55210",
         "size": 20322381
@@ -50526,10 +50522,6 @@
     }
   },
   "transform": {
-    "align-test-1615761793.both.gz": {
-      "hash": "d4a8814121f88435e12e678f54377797",
-      "size": 1025703
-    },
     "align-test-1615761793.png": {
       "hash": "64d2f7a2dd5e27e860c369ceded374c5",
       "size": 22268
@@ -50798,10 +50790,6 @@
     },
     "segmentation": {
       "pointcloudsegmentation": {
-        "align-test-1615172036.both.gz": {
-          "hash": "f41441e697fc09065c7d0e3ce4cae611",
-          "size": 2189273
-        },
         "align-test-1615172036.png": {
           "hash": "1e30ef0759200c38fae44b043bdbd887",
           "size": 364236
