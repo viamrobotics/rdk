@@ -305,7 +305,7 @@ func TestSensorUploadBinary(t *testing.T) {
 		sut.Sync([]string{tf.Name()})
 
 		// Create []v1.UploadRequest object from test case input 'expData []*structpb.Struct'.
-		expectedMsgs := buildBinarySensorMsgs(tc.expData, filepath.Base(tf.Name()))
+		expectedMsgs := buildBinaryUploadRequests(tc.expData, filepath.Base(tf.Name()))
 
 		// The mc.sent value should be the same as the expectedMsgs value.
 		time.Sleep(100 * time.Millisecond)
@@ -518,40 +518,4 @@ func TestPartialUpload(t *testing.T) {
 			// TODO: Validate progress files do not exist.
 		})
 	}
-}
-
-func writeSensorData(f *os.File, sds []*v1.SensorData) error {
-	for _, sd := range sds {
-		_, err := pbutil.WriteDelimited(f, sd)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func createBinarySensorData(toWrite [][]byte) []*v1.SensorData {
-	sds := []*v1.SensorData{}
-	for _, bytes := range toWrite {
-		sd := &v1.SensorData{
-			Data: &v1.SensorData_Binary{
-				Binary: bytes,
-			},
-		}
-		sds = append(sds, sd)
-	}
-	return sds
-}
-
-func createTabularSensorData(toWrite []*structpb.Struct) []*v1.SensorData {
-	var sds []*v1.SensorData
-	for _, contents := range toWrite {
-		sd := &v1.SensorData{
-			Data: &v1.SensorData_Struct{
-				Struct: contents,
-			},
-		}
-		sds = append(sds, sd)
-	}
-	return sds
 }
