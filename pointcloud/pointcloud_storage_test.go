@@ -66,6 +66,13 @@ func testPointCloudStorage(t *testing.T, ms storage) {
 
 	// Batches greater than the number of points
 	testPointCloudIterate(t, ms, ms.Size()*2, expectedCentroid)
+
+	// Batches that don't divide evenly
+	ms.Set(r3.Vector{1, 1, 7}, NewColoredData(color.NRGBA{22, 1, 78, 255}))
+	ms.Set(r3.Vector{5, 1, 7}, NewColoredData(color.NRGBA{22, 1, 78, 255}))
+	ms.Set(r3.Vector{9, 1, 7}, NewColoredData(color.NRGBA{22, 1, 78, 255}))
+	expectedCentroid = r3.Vector{23 / 6.0, 8 / 6.0, 34 / 6.0}
+	testPointCloudIterate(t, ms, 4, expectedCentroid)
 }
 
 func testPointCloudIterate(t *testing.T, ms storage, numBatches int, expectedCentroid r3.Vector) {
