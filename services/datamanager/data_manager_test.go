@@ -751,6 +751,6 @@ func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerC
 		conn, err := getLocalServerConn(server, logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := datasync.NewClient(conn)
-		return datasync.NewManager(logger, nil, cfg.Cloud.ID, client, conn)
+		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn)
 	}
 }

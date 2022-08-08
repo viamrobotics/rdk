@@ -40,15 +40,10 @@ type syncer struct {
 	client            v1.DataSyncServiceClient
 	logger            golog.Logger
 	progressTracker   progressTracker
-	uploadFunc        UploadFunc
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancelFunc        func()
 }
-
-// UploadFunc defines a function for uploading a file to the Viam data sync service backend.
-type UploadFunc func(ctx context.Context, client v1.DataSyncServiceClient, path string,
-	partID string) error
 
 // ManagerConstructor is a function for building a Manager.
 type ManagerConstructor func(logger golog.Logger, cfg *config.Config) (Manager, error)
@@ -73,13 +68,13 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 		return nil, err
 	}
 	client := NewClient(conn)
-	return NewManager(logger, nil, cfg.Cloud.ID, client, conn)
+	return NewManager(logger, cfg.Cloud.ID, client, conn)
 }
 
 // NewManager returns a new syncer. If a nil UploadFunc is passed, the default viamUpload is used.
 // TODO DATA-206: instantiate a client.
-func NewManager(logger golog.Logger, uploadFunc UploadFunc, partID string,
-	client v1.DataSyncServiceClient, conn rpc.ClientConn,
+func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceClient,
+	conn rpc.ClientConn,
 ) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
@@ -96,10 +91,6 @@ func NewManager(logger golog.Logger, uploadFunc UploadFunc, partID string,
 		cancelFunc:        cancelFunc,
 		partID:            partID,
 	}
-	if uploadFunc == nil {
-		uploadFunc = ret.uploadFile
-	}
-	ret.uploadFunc = uploadFunc
 	if err := ret.progressTracker.initProgressDir(); err != nil {
 		return nil, errors.Wrap(err, "couldn't initialize progress tracking directory")
 	}
@@ -127,9 +118,22 @@ func (s *syncer) upload(ctx context.Context, path string) {
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer s.backgroundWorkers.Done()
+		//nolint:gosec
+		f, err := os.Open(path)
+		if err != nil {
+			s.logger.Errorw("error opening file", "error", err)
+			return
+		}
+		defer func(f *os.File) {
+			err := f.Close()
+			if err != nil {
+				s.logger.Errorw("error closing file", "error", err)
+			}
+		}(f)
+
 		uploadErr := exponentialRetry(
 			ctx,
-			func(ctx context.Context) error { return s.uploadFunc(ctx, s.client, path, s.partID) },
+			func(ctx context.Context) error { return s.uploadFile(ctx, s.client, f, s.partID) },
 			s.logger,
 		)
 		if uploadErr != nil {
@@ -142,11 +146,6 @@ func (s *syncer) upload(ctx context.Context, path string) {
 			s.logger.Errorw("error while deleting file", "error", err)
 		} else {
 			s.progressTracker.unmark(path)
-			if err := s.progressTracker.deleteProgressFile(filepath.Join(s.progressTracker.progressDir,
-				filepath.Base(path))); err != nil {
-				// TODO: this is erroring on every run because it says the progress file doesn't exist
-				s.logger.Errorw("error while removing progress file from disk", "error", err)
-			}
 		}
 	})
 }
@@ -236,15 +235,9 @@ func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
 
 // TODO: data manager test isn't actually using real uploadFile... which is where the progress stuff
 //       (except deletion... which should probably also happen here) happens
-func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncServiceClient, path string, partID string) error {
-	//nolint:gosec
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-
+func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncServiceClient, f *os.File, partID string) error {
 	// Resets file pointer to ensure we are reading from beginning of file.
-	if _, err = f.Seek(0, 0); err != nil {
+	if _, err := f.Seek(0, 0); err != nil {
 		return err
 	}
 
