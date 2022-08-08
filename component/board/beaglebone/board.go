@@ -9,7 +9,7 @@ import (
 	"go.viam.com/rdk/rlog"
 )
 
-const modelName = "bb"
+const modelName = "beaglebone"
 
 func init() {
 	if _, err := host.Init(); err != nil {
@@ -19,7 +19,7 @@ func init() {
 	gpioMappings, err := commonsysfs.GetGPIOBoardMappings(modelName, boardInfoMappings)
 	var noBoardErr commonsysfs.NoBoardFoundError
 	if errors.As(err, &noBoardErr) {
-		rlog.Logger.Debugw("error getting ti GPIO board mapping", "error", err)
+		rlog.Logger.Debugw("error getting beaglebone GPIO board mapping", "error", err)
 	}
 
 	commonsysfs.RegisterBoard(modelName, gpioMappings)
