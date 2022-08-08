@@ -150,6 +150,10 @@ func (m *mock) GetPoses(ctx context.Context, bodyNames []string) (posetracker.Bo
 	}, nil
 }
 
+func (m *mock) GetReadings(ctx context.Context) ([]interface{}, error) {
+	return posetracker.GetReadings(ctx, m)
+}
+
 func (m *mock) Close() { m.reconfCount++ }
 
 func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
