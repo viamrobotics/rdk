@@ -3,8 +3,10 @@ package datasync
 import (
 	"context"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
@@ -53,45 +55,110 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
 
-	// Loop until there is no more content to be read from file.
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			// Get the next UploadRequest from the file.
-			uploadReq, err := getNextSensorUploadRequest(ctx, f)
+	// Create channel between goroutine that's waiting for UploadResponse and goroutine which reading from file and
+	// sending UploadRequest to ther server.
+	progress := make(chan v1.UploadResponse, 1)
 
-			// If the error is EOF, we completed successfully.
-			if errors.Is(err, io.EOF) {
-				if _, err := stream.Recv(); err != nil {
-					if !errors.Is(err, io.EOF) {
-						return err
+	// activeBackgroundWorkers ensures stream.Recv() goroutine & stream.Send() goroutine terminate before we return
+	// from the enclosing uploadDataCaptureFile function.
+	var activeBackgroundWorkers sync.WaitGroup
+
+	// Wait for uploadResponse from server, if we
+	activeBackgroundWorkers.Add(1)
+	go func() {
+		done := false
+		defer activeBackgroundWorkers.Done()
+		for {
+			if done || ctx.Err() != nil {
+				done = false
+				break
+			}
+			select {
+			case <-ctx.Done():
+				done = true
+			default:
+				ur, err := stream.Recv()
+				if errors.Is(err, io.EOF) || err == context.Canceled {
+					close(progress)
+					done = true
+				} else {
+					if err != nil {
+						log.Fatalf("Unable to receive UploadResponse from server: %v", err)
+					} else {
+						progress <- *ur
 					}
 				}
-
-				if err := pt.deleteProgressFile(filepath.Join(pt.progressDir,
-					filepath.Base(filepath.Base(f.Name())))); err != nil {
-					return err
-				}
-				return nil
-			}
-			if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
-				continue
-			}
-			if err != nil {
-				return err
-			}
-
-			if err = stream.Send(uploadReq); err != nil {
-				return err
-			}
-			if err := pt.incrementProgressFileIndex(filepath.Join(pt.progressDir, filepath.
-				Base(f.Name()))); err != nil {
-				return err
 			}
 		}
-	}
+	}()
+
+	ret := make(chan error)
+
+	activeBackgroundWorkers.Add(1)
+	go func() {
+		// Loop until there is no more content to be read from file.
+		defer activeBackgroundWorkers.Done()
+		for {
+			if err := ctx.Err(); err != nil {
+				ret <- err
+				return
+			}
+			select {
+			case <-ctx.Done():
+				ret <- ctx.Err()
+			case uploadResponse := <-progress:
+				if err := pt.updateProgressFileIndex(filepath.Join(pt.progressDir, filepath.
+					Base(f.Name())), int(uploadResponse.GetRequestsWritten())); err != nil {
+					ret <- err
+					return
+				}
+			default:
+				// Get the next UploadRequest from the file.
+				uploadReq, err := getNextSensorUploadRequest(ctx, f)
+
+				// If the error is EOF, we completed successfully.
+				if errors.Is(err, io.EOF) || uploadReq == nil {
+					if _, err := stream.Recv(); err != nil {
+						if !errors.Is(err, io.EOF) {
+							ret <- err
+							return
+						}
+					}
+
+					if err := pt.deleteProgressFile(filepath.Join(pt.progressDir,
+						filepath.Base(filepath.Base(f.Name())))); err != nil {
+						ret <- err
+						return
+					}
+
+					// We completed successfully so close the stream to server.
+					if err = stream.CloseSend(); err != nil {
+						ret <- errors.Errorf("error when closing the stream: %v", err)
+						return
+					}
+
+					ret <- nil
+					return
+				}
+				if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
+					continue
+				}
+				if err != nil {
+					ret <- err
+					return
+				}
+
+				if err = stream.Send(uploadReq); err != nil {
+					ret <- err
+					return
+				}
+			}
+		}
+	}()
+
+	activeBackgroundWorkers.Wait()
+
+	return <-ret
 }
 
 func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, dcFileName string) error {
