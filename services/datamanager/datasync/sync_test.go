@@ -44,7 +44,7 @@ func TestFileUpload(t *testing.T) {
 
 		// Register mock datasync service with a mock server.
 		logger, _ := golog.NewObservedTestLogger(t)
-		mockService := getMockService(0, -1)
+		mockService := getMockService()
 		rpcServer := buildAndStartLocalServer(t, logger, mockService)
 		defer func() {
 			err := rpcServer.Stop()
@@ -179,7 +179,7 @@ func TestSensorUploadTabular(t *testing.T) {
 
 		// Register mock datasync service with a mock server.
 		logger, _ := golog.NewObservedTestLogger(t)
-		mockService := getMockService(0, -1)
+		mockService := getMockService()
 		rpcServer := buildAndStartLocalServer(t, logger, mockService)
 		defer func() {
 			err := rpcServer.Stop()
@@ -290,7 +290,7 @@ func TestSensorUploadBinary(t *testing.T) {
 		// Upload the contents from the created file.
 		// Register mock datasync service with a mock server.
 		logger, _ := golog.NewObservedTestLogger(t)
-		mockService := getMockService(0, -1)
+		mockService := getMockService()
 		rpcServer := buildAndStartLocalServer(t, logger, mockService)
 		defer func() {
 			err := rpcServer.Stop()
@@ -318,7 +318,7 @@ func TestSensorUploadBinary(t *testing.T) {
 func TestUploadsOnce(t *testing.T) {
 	// Register mock datasync service with a mock server.
 	logger, _ := golog.NewObservedTestLogger(t)
-	mockService := getMockService(0, -1)
+	mockService := getMockService()
 	rpcServer := buildAndStartLocalServer(t, logger, mockService)
 	defer func() {
 		err := rpcServer.Stop()
@@ -360,7 +360,8 @@ func TestUploadExponentialRetry(t *testing.T) {
 	// Register mock datasync service with a mock server.
 	logger, _ := golog.NewObservedTestLogger(t)
 	// Build a mock service that fails 3 times before succeeding.
-	mockService := getMockService(3, -1)
+	mockService := getMockService()
+	mockService.failUntilIndex = 3
 	rpcServer := buildAndStartLocalServer(t, logger, mockService)
 	uploadChunkSize = 10
 	defer func() {
@@ -478,7 +479,8 @@ func TestPartialUpload(t *testing.T) {
 			// Stand up mock server.
 			// Register mock datasync service with a mock server.
 			logger, _ := golog.NewObservedTestLogger(t)
-			mockService := getMockService(0, tc.cancelIndex)
+			mockService := getMockService()
+			mockService.failAtIndex = tc.cancelIndex
 			rpcServer := buildAndStartLocalServer(t, logger, mockService)
 			defer func() {
 				err := rpcServer.Stop()
@@ -497,7 +499,7 @@ func TestPartialUpload(t *testing.T) {
 			// TODO: validate mockService.getUploadRequests for indexes 0:tc.cancelIndex
 
 			// Restart.
-			mockService = getMockService(0, -1)
+			mockService = getMockService()
 			rpcServer = buildAndStartLocalServer(t, logger, mockService)
 			defer func() {
 				err := rpcServer.Stop()

@@ -190,12 +190,11 @@ func buildBinaryUploadRequests(data [][]byte, fileName string) []*v1.UploadReque
 	return expMsgs
 }
 
-func getMockService(failUntilIndex int32, failAtIndex int32) mockDataSyncServiceServer {
+func getMockService() mockDataSyncServiceServer {
 	return mockDataSyncServiceServer{
 		uploadRequests:                     &[]*v1.UploadRequest{},
 		callCount:                          &atomic.Int32{},
-		failUntilIndex:                     failUntilIndex,
-		failAtIndex:                        failAtIndex,
+		failAtIndex:                        -1,
 		lock:                               &sync.Mutex{},
 		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
 	}
