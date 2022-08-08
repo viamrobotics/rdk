@@ -12,7 +12,6 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
-	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/component/movementsensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/service/sensors/v1"
@@ -58,7 +57,7 @@ func TestClient(t *testing.T) {
 
 		client := sensors.NewClientFromConn(context.Background(), conn, "", logger)
 
-		names := []resource.Name{movementsensor.Named("gps"), imu.Named("imu")}
+		names := []resource.Name{movementsensor.Named("gps"), movementsensor.Named("imu")}
 		injectSensors.GetSensorsFunc = func(ctx context.Context) ([]resource.Name, error) {
 			return names, nil
 		}
@@ -66,11 +65,9 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sensorNames, test.ShouldResemble, names)
 
-		iReading := sensors.Readings{Name: imu.Named("imu"), Readings: []interface{}{1.2, 2.3, 3.4}}
 		gReading := sensors.Readings{Name: movementsensor.Named("gps"), Readings: []interface{}{4.5, 5.6, 6.7}}
-		readings := []sensors.Readings{iReading, gReading}
+		readings := []sensors.Readings{gReading}
 		expected := map[resource.Name]interface{}{
-			iReading.Name: iReading.Readings,
 			gReading.Name: gReading.Readings,
 		}
 
@@ -80,10 +77,9 @@ func TestClient(t *testing.T) {
 
 		readings, err = client.GetReadings(context.Background(), []resource.Name{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(readings), test.ShouldEqual, 2)
+		test.That(t, len(readings), test.ShouldEqual, 1)
 		observed := map[resource.Name]interface{}{
 			readings[0].Name: readings[0].Readings,
-			readings[1].Name: readings[1].Readings,
 		}
 		test.That(t, observed, test.ShouldResemble, expected)
 
