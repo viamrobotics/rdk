@@ -13,6 +13,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapio"
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
@@ -109,7 +111,8 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 	ffCam.inClose = in.Close
 	ffCam.outClose = out.Close
 
-	var ffmpegErr atomic.Value
+	writer := &zapio.Writer{Log: logger.Desugar(), Level: zap.DebugLevel}
+
 	ffCam.activeBackgroundWorkers.Add(1)
 	viamutils.ManagedGo(func() {
 		stream := ffmpeg.Input(attrs.VideoPath, attrs.InputKWArgs)
@@ -118,10 +121,18 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 		}
 		stream = stream.Output("pipe:", outArgs)
 		stream.Context = cancelableCtx
-		if err := stream.WithOutput(out).Run(); err != nil {
-			ffmpegErr.Store(err)
+		cmd := stream.WithOutput(out).WithErrorOutput(writer).Compile()
+		if err := cmd.Run(); err != nil {
+			if viamutils.FilterOutError(err, context.Canceled) == nil ||
+				viamutils.FilterOutError(err, context.DeadlineExceeded) == nil {
+				return
+			}
+			if cmd.ProcessState.ExitCode() != 0 {
+				panic(err)
+			}
 		}
 	}, func() {
+		viamutils.UncheckedErrorFunc(writer.Close)
 		cancel()
 		ffCam.activeBackgroundWorkers.Done()
 	})
@@ -134,9 +145,6 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 	viamutils.ManagedGo(func() {
 		for {
 			if cancelableCtx.Err() != nil {
-				return
-			}
-			if ffmpegErr.Load() != nil {
 				return
 			}
 			img, err := jpeg.Decode(in)
@@ -153,14 +161,8 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 
 	// when next image is requested simply load the image from where it is stored in shared memory
 	ffCam.ImageSource = gostream.ImageSourceFunc(func(ctx context.Context) (image.Image, func(), error) {
-		if ffmpegErr.Load() != nil {
-			return nil, nil, ffmpegErr.Load().(error)
-		}
 		select {
 		case <-cancelableCtx.Done():
-			if ffmpegErr.Load() != nil {
-				return nil, nil, ffmpegErr.Load().(error)
-			}
 			return nil, nil, cancelableCtx.Err()
 		case <-ctx.Done():
 			return nil, nil, ctx.Err()
