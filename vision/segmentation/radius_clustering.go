@@ -115,7 +115,7 @@ func segmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]
 func radiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.PointCloud, error) {
 	kdt, ok := cloud.(*pc.KDTree)
 	if !ok {
-		kdt = pc.NewKDTree(cloud)
+		kdt = pc.ToKDTree(cloud)
 	}
 	var err error
 	clusters := NewSegments()

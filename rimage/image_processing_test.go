@@ -94,7 +94,7 @@ func TestCloneImage(t *testing.T) {
 	test.That(t, ii.GetXY(0, 0), test.ShouldNotResemble, i.GetXY(0, 0))
 
 	// ImageWithDepth path
-	j := ConvertToImageWithDepth(img)
+	j := convertToImageWithDepth(img)
 	ii = CloneImage(j)
 	for y := 0; y < ii.Height(); y++ {
 		for x := 0; x < ii.Width(); x++ {

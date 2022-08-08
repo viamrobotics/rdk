@@ -10,78 +10,78 @@ import (
 type Motor struct {
 	motor.Motor
 	DoFunc                func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	SetPowerFunc          func(ctx context.Context, powerPct float64) error
-	GoForFunc             func(ctx context.Context, rpm float64, rotations float64) error
-	GoToFunc              func(ctx context.Context, rpm float64, position float64) error
-	ResetZeroPositionFunc func(ctx context.Context, offset float64) error
-	GetPositionFunc       func(ctx context.Context) (float64, error)
-	GetFeaturesFunc       func(ctx context.Context) (map[motor.Feature]bool, error)
-	StopFunc              func(ctx context.Context) error
-	IsPoweredFunc         func(ctx context.Context) (bool, error)
+	SetPowerFunc          func(ctx context.Context, powerPct float64, extra map[string]interface{}) error
+	GoForFunc             func(ctx context.Context, rpm float64, rotations float64, extra map[string]interface{}) error
+	GoToFunc              func(ctx context.Context, rpm float64, position float64, extra map[string]interface{}) error
+	ResetZeroPositionFunc func(ctx context.Context, offset float64, extra map[string]interface{}) error
+	GetPositionFunc       func(ctx context.Context, extra map[string]interface{}) (float64, error)
+	GetFeaturesFunc       func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error)
+	StopFunc              func(ctx context.Context, extra map[string]interface{}) error
+	IsPoweredFunc         func(ctx context.Context, extra map[string]interface{}) (bool, error)
 }
 
 // SetPower calls the injected Power or the real version.
-func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
+func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	if m.SetPowerFunc == nil {
-		return m.Motor.SetPower(ctx, powerPct)
+		return m.Motor.SetPower(ctx, powerPct, extra)
 	}
-	return m.SetPowerFunc(ctx, powerPct)
+	return m.SetPowerFunc(ctx, powerPct, extra)
 }
 
 // GoFor calls the injected GoFor or the real version.
-func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
+func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
 	if m.GoForFunc == nil {
-		return m.Motor.GoFor(ctx, rpm, revolutions)
+		return m.Motor.GoFor(ctx, rpm, revolutions, extra)
 	}
-	return m.GoForFunc(ctx, rpm, revolutions)
+	return m.GoForFunc(ctx, rpm, revolutions, extra)
 }
 
 // GoTo calls the injected GoTo or the real version.
-func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
+func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64, extra map[string]interface{}) error {
 	if m.GoToFunc == nil {
-		return m.Motor.GoTo(ctx, rpm, positionRevolutions)
+		return m.Motor.GoTo(ctx, rpm, positionRevolutions, extra)
 	}
-	return m.GoToFunc(ctx, rpm, positionRevolutions)
+	return m.GoToFunc(ctx, rpm, positionRevolutions, extra)
 }
 
 // ResetZeroPosition calls the injected Zero or the real version.
-func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
+func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	if m.ResetZeroPositionFunc == nil {
-		return m.Motor.ResetZeroPosition(ctx, offset)
+		return m.Motor.ResetZeroPosition(ctx, offset, extra)
 	}
-	return m.ResetZeroPositionFunc(ctx, offset)
+	return m.ResetZeroPositionFunc(ctx, offset, extra)
 }
 
 // GetPosition calls the injected Position or the real version.
-func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
+func (m *Motor) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	if m.GetPositionFunc == nil {
-		return m.Motor.GetPosition(ctx)
+		return m.Motor.GetPosition(ctx, extra)
 	}
-	return m.GetPositionFunc(ctx)
+	return m.GetPositionFunc(ctx, extra)
 }
 
 // GetFeatures calls the injected GetFeatures or the real version.
-func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
+func (m *Motor) GetFeatures(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	if m.GetFeaturesFunc == nil {
-		return m.Motor.GetFeatures(ctx)
+		return m.Motor.GetFeatures(ctx, extra)
 	}
-	return m.GetFeaturesFunc(ctx)
+	return m.GetFeaturesFunc(ctx, extra)
 }
 
 // Stop calls the injected Off or the real version.
-func (m *Motor) Stop(ctx context.Context) error {
+func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	if m.StopFunc == nil {
-		return m.Motor.Stop(ctx)
+		return m.Motor.Stop(ctx, extra)
 	}
-	return m.StopFunc(ctx)
+	return m.StopFunc(ctx, extra)
 }
 
 // IsPowered calls the injected IsPowered or the real version.
-func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
+func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	if m.IsPoweredFunc == nil {
-		return m.Motor.IsPowered(ctx)
+		return m.Motor.IsPowered(ctx, extra)
 	}
-	return m.IsPoweredFunc(ctx)
+	return m.IsPoweredFunc(ctx, extra)
 }
 
 // Do calls the injected Do or the real version.
