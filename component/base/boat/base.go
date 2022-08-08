@@ -15,8 +15,8 @@ import (
 
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/generic"
-	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
@@ -64,7 +64,7 @@ func createBoat(deps registry.Dependencies, config *boatConfig, logger golog.Log
 
 	if config.IMU != "" {
 		var err error
-		theBoat.imu, err = imu.FromDependencies(deps, config.IMU)
+		theBoat.imu, err = movementsensor.FromDependencies(deps, config.IMU)
 		if err != nil {
 			return nil, err
 		}
@@ -86,7 +86,7 @@ type boat struct {
 
 	cfg    *boatConfig
 	motors []motor.Motor
-	imu    imu.IMU
+	imu    movementsensor.MovementSensor
 
 	opMgr operation.SingleOperationManager
 
@@ -151,7 +151,7 @@ func (b *boat) startVelocityThread() error {
 }
 
 func (b *boat) velocityThreadLoop(ctx context.Context) error {
-	av, err := b.imu.ReadAngularVelocity(ctx)
+	av, err := b.imu.GetAngularVelocity(ctx)
 	if err != nil {
 		return err
 	}

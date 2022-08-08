@@ -4,7 +4,8 @@ import (
 	"context"
 
 	"github.com/golang/geo/r3"
-
+	"github.com/pkg/errors"
+	
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/movementsensor/v1"
 	"go.viam.com/rdk/protoutils"
