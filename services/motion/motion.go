@@ -12,6 +12,7 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
@@ -22,7 +23,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
@@ -213,10 +213,9 @@ func (ms *motionService) PlanAndMove(
 }
 
 // MoveSingleComponent will pass through a move command to a component with a MoveToPosition method that takes a pose. Arms are the only
-// component that supports this. This method will transform the destination pose, given in an arbitray frame, into the pose of the arm.
+// component that supports this. This method will transform the destination pose, given in an arbitrary frame, into the pose of the arm.
 // The arm will then move its most distal link to that pose. If you instead wish to move any other component than the arm end to that pose,
-// then you must manually adjust the given destination by the transform from the arm end to the intended component, as the decision was
-// made not to support that natively.
+// then you must manually adjust the given destination by the transform from the arm end to the intended component.
 func (ms *motionService) MoveSingleComponent(
 	ctx context.Context,
 	componentName resource.Name,
@@ -225,7 +224,7 @@ func (ms *motionService) MoveSingleComponent(
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")
 	logger := ms.r.Logger()
-	
+
 	components := robot.AllResourcesByName(ms.r, componentName.Name)
 	if len(components) != 1 {
 		return false, fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), componentName.Name)
@@ -278,7 +277,7 @@ func (ms *motionService) MoveSingleComponent(
 		logger.Debugf("frame system inputs: %v", input)
 
 		// re-evaluate goalPose to be in the frame we're going to move in
-		tf, err := frameSys.Transform(input, destination, componentName.Name + "_offset")
+		tf, err := frameSys.Transform(input, destination, componentName.Name+"_offset")
 		if err != nil {
 			return false, err
 		}
@@ -286,7 +285,7 @@ func (ms *motionService) MoveSingleComponent(
 		goalPose = goalPoseInFrame.Pose()
 		logger.Debugf("converted goal pose %q", spatialmath.PoseToProtobuf(goalPose))
 	}
-	
+
 	err := movableArm.MoveToPosition(ctx, spatialmath.PoseToProtobuf(goalPose), worldState, nil)
 	if err == nil {
 		return true, nil

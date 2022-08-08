@@ -122,20 +122,20 @@ func TestMoveSingleComponent(t *testing.T) {
 	var err error
 	ms := setupMotionServiceFromConfig(t, "data/moving_arm.json")
 
-	//~ t.Run("succeeds when all frame info in config", func(t *testing.T) {
-		//~ grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-25, 30, -200}))
-		//~ _, err = ms.MoveSingleComponent(context.Background(), arm.Named("pieceArm"), grabPose, &commonpb.WorldState{})
-		//~ // Gripper is not an arm and cannot move
-		//~ test.That(t, err, test.ShouldBeNil)
-	//~ })
-	//~ t.Run("fails due to gripper not being an arm", func(t *testing.T) {
-		//~ grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
-		//~ _, err = ms.MoveSingleComponent(context.Background(), gripper.Named("pieceGripper"), grabPose, &commonpb.WorldState{})
-		//~ // Gripper is not an arm and cannot move
-		//~ test.That(t, err, test.ShouldNotBeNil)
-	//~ })
-	
-	//~ ms = setupMotionServiceFromConfig(t, "data/moving_arm.json")
+	t.Run("succeeds when all frame info in config", func(t *testing.T) {
+		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-25, 30, -200}))
+		_, err = ms.MoveSingleComponent(context.Background(), arm.Named("pieceArm"), grabPose, &commonpb.WorldState{})
+		// Gripper is not an arm and cannot move
+		test.That(t, err, test.ShouldBeNil)
+	})
+	t.Run("fails due to gripper not being an arm", func(t *testing.T) {
+		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
+		_, err = ms.MoveSingleComponent(context.Background(), gripper.Named("pieceGripper"), grabPose, &commonpb.WorldState{})
+		// Gripper is not an arm and cannot move
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	ms = setupMotionServiceFromConfig(t, "data/moving_arm.json")
 
 	t.Run("succeeds with supplemental info in world state", func(t *testing.T) {
 		testPose := spatialmath.NewPoseFromOrientation(
@@ -155,12 +155,12 @@ func TestMoveSingleComponent(t *testing.T) {
 		worldState := &commonpb.WorldState{
 			Transforms: transformMsgs,
 		}
-		
+
 		poseToGrab := spatialmath.NewPoseFromOrientation(
 			r3.Vector{X: -20., Y: 0., Z: -800.},
 			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 1., RY: 0., RZ: 0.},
 		)
-		
+
 		grabPose := referenceframe.NewPoseInFrame("testFrame2", poseToGrab)
 		_, err = ms.MoveSingleComponent(context.Background(), arm.Named("pieceArm"), grabPose, worldState)
 		test.That(t, err, test.ShouldBeNil)
