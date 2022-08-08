@@ -39,7 +39,7 @@ func TestServerMove(t *testing.T) {
 	server, err := newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Move(context.Background(), grabRequest)
-	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion\" not found"))
+	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/motion1\" not found"))
 
 	// set up the robot with something that is not an motion service
 	omMap = map[resource.Name]interface{}{motion.Named(testMotionServiceName): "not motion"}

@@ -191,16 +191,11 @@ func (n Name) Validate() error {
 // String returns the fully qualified name for the resource.
 func (n Name) String() string {
 	name := n.Subtype.String()
+
 	if n.Remote != "" {
-		name = fmt.Sprintf("%s/%s:", name, n.Remote)
-	}
-	// Can remove when default services are handled
-	if n.Name != "" && (n.ResourceType != ResourceTypeService) {
-		if n.Remote != "" {
-			name = fmt.Sprintf("%s%s", name, n.Name)
-		} else {
-			name = fmt.Sprintf("%s/%s", name, n.Name)
-		}
+		name = fmt.Sprintf("%s/%s:%s", name, n.Remote, n.Name)
+	} else {
+		name = fmt.Sprintf("%s/%s", name, n.Name)
 	}
 	return name
 }

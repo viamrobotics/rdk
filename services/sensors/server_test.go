@@ -35,7 +35,7 @@ func TestServerGetSensors(t *testing.T) {
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{})
-		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:sensors\" not found"))
+		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:sensors/\" not found"))
 	})
 
 	t.Run("not sensors service", func(t *testing.T) {
@@ -90,7 +90,7 @@ func TestServerGetReadings(t *testing.T) {
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = server.GetReadings(context.Background(), &pb.GetReadingsRequest{})
-		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:sensors\" not found"))
+		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:sensors/\" not found"))
 	})
 
 	t.Run("not sensors service", func(t *testing.T) {

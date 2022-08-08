@@ -55,6 +55,7 @@ func (c *client) Shell(ctx context.Context) (chan<- string, <-chan Output, error
 			case dataIn, ok := <-input:
 				if ok {
 					if err := client.Send(&pb.ShellRequest{
+						Name:   c.name,
 						DataIn: dataIn,
 					}); err != nil {
 						c.logger.Errorw("error sending data", "error", err)
