@@ -235,7 +235,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		Subtype:    attributes.Type,
 		MethodName: attributes.Method,
 	}
-	componentMetadata := componentMethodMetadata{
+	captureMetadata := componentMethodMetadata{
 		ComponentName:  attributes.Name,
 		ComponentModel: attributes.Model,
 		MethodMetadata: metadata,
@@ -244,7 +244,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	syncMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
 		attributes.Model, attributes.Method, attributes.AdditionalParams)
 
-	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
+	if storedCollectorParams, ok := svc.collectors[captureMetadata]; ok {
 		collector := storedCollectorParams.Collector
 		previousAttributes := storedCollectorParams.Attributes
 
@@ -257,7 +257,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 				}
 				collector.SetTarget(targetFile)
 			}
-			return &componentMetadata, nil
+			return &captureMetadata, nil
 		}
 
 		// Otherwise, close the current collector and instantiate a new one below.
@@ -313,27 +313,26 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 
 	// Create a collector for this resource and method.
 	params := data.CollectorParams{
-		ComponentName:  attributes.Name,
-		ComponentModel: attributes.Model,
-		Interval:       interval,
-		MethodParams:   attributes.AdditionalParams,
-		Target:         targetFile,
-		QueueSize:      captureQueueSize,
-		BufferSize:     captureBufferSize,
-		Logger:         svc.logger,
+		ComponentName: attributes.Name,
+		Interval:      interval,
+		MethodParams:  attributes.AdditionalParams,
+		Target:        targetFile,
+		QueueSize:     captureQueueSize,
+		BufferSize:    captureBufferSize,
+		Logger:        svc.logger,
 	}
 	collector, err := (*collectorConstructor)(res, params)
 	if err != nil {
 		return nil, err
 	}
 	svc.lock.Lock()
-	svc.collectors[componentMetadata] = collectorAndConfig{collector, attributes}
+	svc.collectors[captureMetadata] = collectorAndConfig{collector, attributes}
 	svc.lock.Unlock()
 
 	// TODO: Handle errors more gracefully.
 	collector.Collect()
 
-	return &componentMetadata, nil
+	return &captureMetadata, nil
 }
 
 func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMins float64, cfg *config.Config) error {
@@ -472,7 +471,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		return nil
 	}
 
-	allComponentAttributes, err := getAllDataCaptureConfigs(cfg)
+	allComponentAttributes, err := buildDataCaptureConfigs(cfg)
 	if err != nil {
 		return err
 	}
@@ -512,21 +511,21 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
 	for _, attributes := range allComponentAttributes {
 		if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 {
-			componentMetadata, err := svc.initializeOrUpdateCollector(
+			captureMetadata, err := svc.initializeOrUpdateCollector(
 				attributes, updateCaptureDir)
 			if err != nil {
 				svc.logger.Errorw("failed to initialize or update collector", "error", err)
 			} else {
-				newCollectorMetadata[*componentMetadata] = true
+				newCollectorMetadata[*captureMetadata] = true
 			}
 		}
 	}
 
 	// If a component/method has been removed from the config, close the collector and remove it from the map.
-	for componentMetadata, params := range svc.collectors {
-		if _, present := newCollectorMetadata[componentMetadata]; !present {
+	for captureMetadata, params := range svc.collectors {
+		if _, present := newCollectorMetadata[captureMetadata]; !present {
 			params.Collector.Close()
-			delete(svc.collectors, componentMetadata)
+			delete(svc.collectors, captureMetadata)
 		}
 	}
 
@@ -662,8 +661,8 @@ func getAttrsFromServiceConfig(resourceSvcConfig config.ResourceLevelServiceConf
 	return *convertedConfigs, nil
 }
 
-// Get the component configs associated with the data manager service.
-func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
+// Build the component configs associated with the data manager service.
+func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	var componentDataCaptureConfigs []dataCaptureConfig
 	for _, c := range cfg.Components {
 		// Iterate over all component-level service configs of type data_manager.
@@ -676,6 +675,7 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 
 				for _, attrs := range attrs.Attributes {
 					attrs.Name = c.Name
+					attrs.Model = c.Model
 					attrs.Type = c.Type
 					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
 				}

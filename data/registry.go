@@ -16,14 +16,13 @@ type CollectorConstructor func(resource interface{}, params CollectorParams) (Co
 
 // CollectorParams contain the parameters needed to construct a Collector.
 type CollectorParams struct {
-	ComponentName  string
-	ComponentModel string
-	Interval       time.Duration
-	MethodParams   map[string]string
-	Target         *os.File
-	QueueSize      int
-	BufferSize     int
-	Logger         golog.Logger
+	ComponentName string
+	Interval      time.Duration
+	MethodParams  map[string]string
+	Target        *os.File
+	QueueSize     int
+	BufferSize    int
+	Logger        golog.Logger
 }
 
 // Validate validates that p contains all required parameters.
