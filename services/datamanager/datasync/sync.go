@@ -19,6 +19,10 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+const (
+	appAddress = "app.viam.com:443"
+)
+
 var (
 	initialWaitTime        = time.Second
 	retryExponentialFactor = 2
@@ -61,9 +65,8 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 				Payload: cloudConfig.LocationSecret,
 			}),
 	}
-	appURL := "app.viam.com:443" // TODO: don't hardcode
 
-	conn, err := NewConnection(logger, appURL, rpcOpts)
+	conn, err := NewConnection(logger, appAddress, rpcOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +75,6 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 }
 
 // NewManager returns a new syncer. If a nil UploadFunc is passed, the default viamUpload is used.
-// TODO DATA-206: instantiate a client.
 func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceClient,
 	conn rpc.ClientConn,
 ) (Manager, error) {
