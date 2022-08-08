@@ -3,7 +3,6 @@ package datasync
 import (
 	"context"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -33,6 +32,12 @@ import (
 func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.DataSyncServiceClient,
 	md *v1.UploadMetadata, f *os.File,
 ) error {
+	// TODO: make cancel context (child of ctx), cancelCtx, cancelFn := context.WithCancel(ctx)
+	// Add ctx.Done to all select statements
+	//  In both goroutines, if error, cancel other goroutine by calling cancelCtx
+
+	//TODO: another maybe-performance-optimal blah TODO: see if you can defer some of the close stuff, because repeated a lot. not sure if can. Find out
+
 	stream, err := client.Upload(ctx)
 	if err != nil {
 		return err
@@ -55,110 +60,115 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
 
-	// Create channel between goroutine that's waiting for UploadResponse and goroutine which reading from file and
-	// sending UploadRequest to ther server.
-	progress := make(chan v1.UploadResponse, 1)
-
 	// activeBackgroundWorkers ensures stream.Recv() goroutine & stream.Send() goroutine terminate before we return
 	// from the enclosing uploadDataCaptureFile function.
 	var activeBackgroundWorkers sync.WaitGroup
 
-	// Wait for uploadResponse from server, if we
+	retRecvUploadResponse := make(chan error, 1)
 	activeBackgroundWorkers.Add(1)
 	go func() {
-		done := false
 		defer activeBackgroundWorkers.Done()
 		for {
-			if done || ctx.Err() != nil {
-				done = false
-				break
+			if ctx.Err() != nil {
+				retRecvUploadResponse <- ctx.Err()
+				close(retRecvUploadResponse)
+				return
 			}
 			select {
 			case <-ctx.Done():
-				done = true
+				retRecvUploadResponse <- ctx.Err()
+				close(retRecvUploadResponse)
+				return
 			default:
 				ur, err := stream.Recv()
-				if errors.Is(err, io.EOF) || err == context.Canceled {
-					close(progress)
-					done = true
+				if errors.Is(err, context.Canceled) || errors.Is(err, io.EOF) {
+					retRecvUploadResponse <- err
+					close(retRecvUploadResponse)
+					return
+				}
+				if err != nil {
+					retRecvUploadResponse <- errors.Errorf("Unable to receive UploadResponse from server: %v", err)
+					close(retRecvUploadResponse)
+					return
 				} else {
-					if err != nil {
-						log.Fatalf("Unable to receive UploadResponse from server: %v", err)
-					} else {
-						progress <- *ur
+					if err := pt.updateProgressFileIndex(filepath.Join(pt.progressDir, filepath.
+						Base(f.Name())), int(ur.GetRequestsWritten())); err != nil {
+						retRecvUploadResponse <- err
+						close(retRecvUploadResponse)
+						return
 					}
 				}
+
 			}
 		}
 	}()
 
-	ret := make(chan error)
-
+	retSendingUploadReqs := make(chan error, 1)
 	activeBackgroundWorkers.Add(1)
 	go func() {
 		// Loop until there is no more content to be read from file.
 		defer activeBackgroundWorkers.Done()
 		for {
 			if err := ctx.Err(); err != nil {
-				ret <- err
+				retSendingUploadReqs <- err
+				close(retSendingUploadReqs)
+				_ = stream.CloseSend()
 				return
 			}
 			select {
 			case <-ctx.Done():
-				ret <- ctx.Err()
-			case uploadResponse := <-progress:
-				if err := pt.updateProgressFileIndex(filepath.Join(pt.progressDir, filepath.
-					Base(f.Name())), int(uploadResponse.GetRequestsWritten())); err != nil {
-					ret <- err
-					return
-				}
+				retSendingUploadReqs <- ctx.Err()
+				close(retSendingUploadReqs)
+				_ = stream.CloseSend()
+				return
 			default:
 				// Get the next UploadRequest from the file.
 				uploadReq, err := getNextSensorUploadRequest(ctx, f)
 
 				// If the error is EOF, we completed successfully.
-				if errors.Is(err, io.EOF) || uploadReq == nil {
-					if _, err := stream.Recv(); err != nil {
-						if !errors.Is(err, io.EOF) {
-							ret <- err
-							return
-						}
-					}
-
-					if err := pt.deleteProgressFile(filepath.Join(pt.progressDir,
-						filepath.Base(filepath.Base(f.Name())))); err != nil {
-						ret <- err
-						return
-					}
-
-					// We completed successfully so close the stream to server.
+				if errors.Is(err, io.EOF) {
+					// Close the stream to server.
 					if err = stream.CloseSend(); err != nil {
-						ret <- errors.Errorf("error when closing the stream: %v", err)
-						return
+						retSendingUploadReqs <- errors.Errorf("error when closing the stream: %v", err)
 					}
-
-					ret <- nil
+					close(retSendingUploadReqs)
 					return
 				}
 				if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
 					continue
 				}
 				if err != nil {
-					ret <- err
+					retSendingUploadReqs <- err
+					close(retSendingUploadReqs)
+					_ = stream.CloseSend()
 					return
 				}
 
 				if err = stream.Send(uploadReq); err != nil {
-					ret <- err
+					retSendingUploadReqs <- err
+					close(retSendingUploadReqs)
+					_ = stream.CloseSend()
 					return
 				}
 			}
 		}
 	}()
-
 	activeBackgroundWorkers.Wait()
 
-	return <-ret
+	if err := <-retRecvUploadResponse; err != nil {
+		return errors.Errorf("Error when trying to recv UploadResponse from server: %v", err)
+	}
+	if err := <-retSendingUploadReqs; err != nil {
+		return errors.Errorf("Error when trying to recv UploadResponse from server: %v", err)
+	}
+
+	// Upload is complete, delete the corresponding progress file on disk.
+	if err := pt.deleteProgressFile(filepath.Join(pt.progressDir,
+		filepath.Base(filepath.Base(f.Name())))); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, dcFileName string) error {
