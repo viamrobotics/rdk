@@ -94,7 +94,7 @@ message GetPositionRequest {
 message GetPositionResponse {
   common.v1.GeoPoint coordinate = 1;
   float altitude_mm = 2;
-  float accuracy_mm = 3;
+  common.v1.GeoPoint accuracy = 3;
 }
 
 message GetPropertiesRequest {

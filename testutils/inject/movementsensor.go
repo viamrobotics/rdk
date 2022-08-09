@@ -14,7 +14,7 @@ import (
 // MovementSensor is an injected MovementSensor.
 type MovementSensor struct {
 	movementsensor.MovementSensor
-	GetPositionFunc        func(ctx context.Context) (*geo.Point, float64, float64, error)
+	GetPositionFunc        func(ctx context.Context) (*geo.Point, float64, *geo.Point, error)
 	GetLinearVelocityFunc  func(ctx context.Context) (r3.Vector, error)
 	GetAngularVelocityFunc func(ctx context.Context) (spatialmath.AngularVelocity, error)
 	GetCompassHeadingFunc  func(ctx context.Context) (float64, error)
@@ -41,7 +41,7 @@ func (i *MovementSensor) Do(ctx context.Context, cmd map[string]interface{}) (ma
 }
 
 // GetPosition func or passthrough.
-func (i *MovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
+func (i *MovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, *geo.Point, error) {
 	if i.GetPositionFunc == nil {
 		return i.MovementSensor.GetPosition(ctx)
 	}

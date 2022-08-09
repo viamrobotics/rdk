@@ -40,11 +40,11 @@ func TestServer(t *testing.T) {
 	alt := 50.5
 	speed := 5.4
 
-	injectMovementSensor.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, float64, error) { return loc, alt, 0, nil }
+	injectMovementSensor.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, *geo.Point, error) { return loc, alt, nil, nil }
 	injectMovementSensor.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{0, speed, 0}, nil }
 
-	injectMovementSensor2.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, float64, error) {
-		return nil, 0, 0, errors.New("can't get location")
+	injectMovementSensor2.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, *geo.Point, error) {
+		return nil, 0, nil, errors.New("can't get location")
 	}
 	injectMovementSensor2.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) {
 		return r3.Vector{}, errors.New("can't get speed")

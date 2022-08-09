@@ -66,7 +66,7 @@ func Named(name string) resource.Name {
 
 // A MovementSensor reports information about the robot's direction, position and speed.
 type MovementSensor interface {
-	GetPosition(ctx context.Context) (*geo.Point, float64, float64, error)       // (lat, long), altitide (mm), accuracy (mm)
+	GetPosition(ctx context.Context) (*geo.Point, float64, *geo.Point, error)    // (lat, long), altitide (mm), accuracy (mm)
 	GetLinearVelocity(ctx context.Context) (r3.Vector, error)                    // mm / sec
 	GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) // radians / sec
 	GetCompassHeading(ctx context.Context) (float64, error)                      // [0->360)
@@ -173,7 +173,7 @@ func (r *reconfigurableMovementSensor) Do(ctx context.Context, cmd map[string]in
 	return r.actual.Do(ctx, cmd)
 }
 
-func (r *reconfigurableMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
+func (r *reconfigurableMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, *geo.Point, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetPosition(ctx)
