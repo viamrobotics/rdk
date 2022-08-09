@@ -23,11 +23,10 @@ import (
 )
 
 var (
-	partID         = "partid"
-	componentType  = "componenttype"
-	componentName  = "componentname"
-	componentModel = "componentmodel"
-	methodName     = "methodname"
+	partID        = "partid"
+	componentType = "componenttype"
+	componentName = "componentname"
+	methodName    = "methodname"
 )
 
 // Compares UploadRequests containing either binary or tabular sensor data.
@@ -67,7 +66,6 @@ func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 	test.That(t, filepath.Base(actualMetadata.FileName), test.ShouldEqual, filepath.Base(expectedMetadata.FileName))
 	test.That(t, actualMetadata.PartId, test.ShouldEqual, expectedMetadata.PartId)
 	test.That(t, actualMetadata.ComponentName, test.ShouldEqual, expectedMetadata.ComponentName)
-	test.That(t, actualMetadata.ComponentModel, test.ShouldEqual, expectedMetadata.ComponentModel)
 	test.That(t, actualMetadata.ComponentType, test.ShouldEqual, expectedMetadata.ComponentType)
 	test.That(t, actualMetadata.MethodName, test.ShouldEqual, expectedMetadata.MethodName)
 	test.That(t, actualMetadata.Type, test.ShouldEqual, expectedMetadata.Type)
@@ -141,35 +139,6 @@ func createTabularSensorData(toWrite []*structpb.Struct) []*v1.SensorData {
 	return sds
 }
 
-<<<<<<< HEAD
-=======
-func getUploadRequests(sds []*v1.SensorData, dt v1.DataType, fileName string) []*v1.UploadRequest {
-	urs := []*v1.UploadRequest{}
-	if len(sds) == 0 {
-		return []*v1.UploadRequest{}
-	}
-	urs = append(urs, &v1.UploadRequest{
-		UploadPacket: &v1.UploadRequest_Metadata{
-			Metadata: &v1.UploadMetadata{
-				PartId:         partID,
-				Type:           dt,
-				FileName:       fileName,
-				ComponentType:  componentType,
-				ComponentName:  componentName,
-				ComponentModel: componentModel,
-				MethodName:     methodName,
-			},
-		},
-	})
-	for _, sd := range sds {
-		urs = append(urs, &v1.UploadRequest{
-			UploadPacket: &v1.UploadRequest_SensorContents{SensorContents: sd},
-		})
-	}
-	return urs
-}
-
->>>>>>> 9663a2af (updated tests)
 // createTmpDataCaptureFile creates a data capture file, which is defined as a file with the dataCaptureFileExt as its
 // file extension.
 func createTmpDataCaptureFile() (file *os.File, err error) {
@@ -196,13 +165,12 @@ func buildBinaryUploadRequests(data [][]byte, fileName string) []*v1.UploadReque
 	expMsgs = append(expMsgs, &v1.UploadRequest{
 		UploadPacket: &v1.UploadRequest_Metadata{
 			Metadata: &v1.UploadMetadata{
-				PartId:         partID,
-				Type:           v1.DataType_DATA_TYPE_BINARY_SENSOR,
-				FileName:       fileName,
-				ComponentType:  componentType,
-				ComponentName:  componentName,
-				ComponentModel: componentModel,
-				MethodName:     methodName,
+				PartId:        partID,
+				Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
+				FileName:      fileName,
+				ComponentType: componentType,
+				ComponentName: componentName,
+				MethodName:    methodName,
 			},
 		},
 	})
@@ -251,7 +219,6 @@ func buildAndStartLocalServer(t *testing.T, logger golog.Logger, mockService moc
 	return rpcServer
 }
 
-<<<<<<< HEAD
 func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientConn, error) {
 	return rpc.DialDirectGRPC(
 		context.Background(),
@@ -259,22 +226,6 @@ func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientCo
 		logger,
 		rpc.WithInsecure(),
 	)
-=======
-// nolint:thelper
-func writeCaptureMetadataToFile(t *testing.T, dt v1.DataType, tf *os.File) {
-	// First write metadata to file.
-	captureMetadata := v1.BuildCaptureMetadata{
-		ComponentType:    componentType,
-		ComponentName:    componentName,
-		ComponentModel:   componentModel,
-		MethodName:       methodName,
-		Type:             dt,
-		MethodParameters: nil,
-	}
-	if _, err := pbutil.WriteDelimited(tf, &captureMetadata); err != nil {
-		t.Errorf("cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v", err)
-	}
->>>>>>> 28179812 (fixed test)
 }
 
 type mockDataSyncServiceServer struct {
