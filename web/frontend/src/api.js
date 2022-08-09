@@ -76,8 +76,6 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
   };
   const impliedURL = `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`;
 
-  console.log('connect', { authEntity, creds, savedAuthEntity, savedCreds, baked: window.bakedAuth, impliedURL, rtcConfig, signalingAddress: window.webrtcSignalingAddress });
-
   // save authEntity, creds
   savedAuthEntity = authEntity;
   savedCreds = creds;
