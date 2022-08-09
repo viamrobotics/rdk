@@ -303,6 +303,7 @@ func buttonControlEvent(event input.Event, buttons map[input.Control]bool) (floa
 	var speed float64
 	var angle float64
 
+	//nolint:exhaustive
 	switch event.Event {
 	case input.ButtonPress:
 		buttons[event.Control] = true
@@ -345,7 +346,7 @@ func arrowEvent(event input.Event, arrows map[input.Control]float64) (float64, f
 
 // oneJoyStickEvent (default) takes inputs from the gamepad allowing the left joystick to control speed and angle.
 func oneJoyStickEvent(event input.Event, y float64, x float64) (float64, float64) {
-
+	//nolint:exhaustive
 	switch event.Control {
 	case input.AbsoluteY:
 		y = -1.0 * event.Value
@@ -359,7 +360,7 @@ func oneJoyStickEvent(event input.Event, y float64, x float64) (float64, float64
 // right joystick is forward/back, strafe right/left
 // left joystick is spin right/left & up/down.
 func droneEvent(event input.Event, linear, angular r3.Vector) (r3.Vector, r3.Vector) {
-
+	//nolint:exhaustive
 	switch event.Control {
 	case input.AbsoluteX:
 		angular.Z = scaleThrottle(-1.0 * event.Value)
