@@ -48,7 +48,10 @@ func (c *client) PlanAndMove(
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
 		WorldState:    worldState,
 	})
-	return resp.Success, err
+	if err != nil {
+		return false, err
+	}
+	return resp.Success, nil
 }
 
 func (c *client) MoveSingleComponent(
@@ -62,7 +65,10 @@ func (c *client) MoveSingleComponent(
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
 		WorldState:    worldState,
 	})
-	return resp.Success, err
+	if err != nil {
+		return false, err
+	}
+	return resp.Success, nil
 }
 
 func (c *client) GetPose(
