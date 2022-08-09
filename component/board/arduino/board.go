@@ -283,7 +283,7 @@ func (b *arduinoBoard) DigitalInterruptNames() []string {
 // Status returns the current status of the board. Usually you
 // should use the CreateStatus helper instead of directly calling
 // this.
-func (b *arduinoBoard) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
+func (b *arduinoBoard) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	return nil, errors.New("finish me")
 }
 
@@ -307,7 +307,7 @@ type analogReader struct {
 }
 
 // Read reads off the current value.
-func (ar *analogReader) Read(ctx context.Context) (int, error) {
+func (ar *analogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	res, err := ar.b.runCommand("analog-read " + ar.pin)
 	if err != nil {
 		return 0, err
