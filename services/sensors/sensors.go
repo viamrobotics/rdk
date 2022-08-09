@@ -43,7 +43,7 @@ func init() {
 		},
 	})
 
-	resource.AddDefaultService(Named("builtin"))
+	resource.AddDefaultService(Named(resource.DefaultServiceName))
 }
 
 // A Readings ties both the sensor name and its reading together.

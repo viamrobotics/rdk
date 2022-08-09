@@ -508,7 +508,7 @@ func TestManagerAdd(t *testing.T) {
 	) ([]*viz.Object, error) {
 		return []*viz.Object{viz.NewEmptyObject()}, nil
 	}
-	objectSegResName := vision.Named("builtin")
+	objectSegResName := vision.Named(resource.DefaultServiceName)
 	manager.addResource(objectSegResName, injectVisionService)
 	objectSegmentationService, err := manager.ResourceByName(objectSegResName)
 	test.That(t, err, test.ShouldBeNil)

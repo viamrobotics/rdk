@@ -2188,7 +2188,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		svc, err := sensors.FromRobot(robot, "builtin")
+		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		foundSensors, err := svc.GetSensors(context.Background())
@@ -2209,7 +2209,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		svc, err := sensors.FromRobot(robot, "builtin")
+		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		foundSensors, err := svc.GetSensors(context.Background())
@@ -2230,7 +2230,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		svc, err := sensors.FromRobot(robot, "builtin")
+		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		foundSensors, err := svc.GetSensors(context.Background())
@@ -2390,7 +2390,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Named("builtin"), sensors.Named("builtin"), datamanager.Named("builtin"),
+			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
@@ -2417,7 +2417,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Named("builtin"), sensors.Named("builtin"), datamanager.Named("builtin"),
+			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"), arm.Named("arm2"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
@@ -2448,7 +2448,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Named("builtin"), sensors.Named("builtin"), datamanager.Named("builtin"),
+			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
@@ -2490,7 +2490,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Named("builtin"), sensors.Named("builtin"), datamanager.Named("builtin"),
+			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"), arm.Named("arm2"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),

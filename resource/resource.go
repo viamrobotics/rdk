@@ -30,6 +30,7 @@ const (
 	ResourceNamespaceRDK  = Namespace("rdk")
 	ResourceTypeComponent = TypeName("component")
 	ResourceTypeService   = TypeName("service")
+	DefaultServiceName    = "builtin"
 )
 
 var (

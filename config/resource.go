@@ -320,7 +320,7 @@ func (config *Service) Validate(path string) error {
 	// Validate that all serviice have name
 	if config.Name == "" {
 		if config.Type == "data_manager" || config.Type == "vision" || config.Type == "sensors" {
-			config.Name = "builtin"
+			config.Name = resource.DefaultServiceName
 		} else {
 			return utils.NewConfigValidationFieldRequiredError(path, "name")
 		}

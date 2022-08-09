@@ -30,6 +30,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
+
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
@@ -163,9 +164,9 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
-		vision.Named("builtin"),
-		sensors.Named("builtin"),
-		datamanager.Named("builtin"),
+		vision.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("squee:pieceArm"),
 		arm.Named("foo:pieceArm"),
 		arm.Named("bar:pieceArm"),
@@ -433,9 +434,9 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, r2, test.ShouldNotBeNil)
 
 			expected := []resource.Name{
-				vision.Named("builtin"),
-				sensors.Named("builtin"),
-				datamanager.Named("builtin"),
+				vision.Named(resource.DefaultServiceName),
+				sensors.Named(resource.DefaultServiceName),
+				datamanager.Named(resource.DefaultServiceName),
 				arm.Named("bar:pieceArm"),
 				arm.Named("foo:pieceArm"),
 				camera.Named("bar:cameraOver"),
@@ -636,9 +637,9 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
-		vision.Named("builtin"),
-		sensors.Named("builtin"),
-		datamanager.Named("builtin"),
+		vision.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
 		camera.Named("foo:cameraOver"),
 		gps.Named("foo:gps1"),
@@ -936,9 +937,9 @@ func TestMetadataUpdate(t *testing.T) {
 		gripper.Named("pieceGripper"),
 		gps.Named("gps1"),
 		gps.Named("gps2"),
-		vision.Named("builtin"),
-		sensors.Named("builtin"),
-		datamanager.Named("builtin"),
+		vision.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		datamanager.Named(resource.DefaultServiceName),
 	}
 
 	resources = r.ResourceNames()
@@ -955,7 +956,7 @@ func TestSensorsService(t *testing.T) {
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	svc, err := sensors.FromRobot(r, "builtin")
+	svc, err := sensors.FromRobot(r, resource.DefaultServiceName)
 	test.That(t, err, test.ShouldBeNil)
 
 	sensorNames := []resource.Name{gps.Named("gps1"), gps.Named("gps2")}
@@ -1235,7 +1236,7 @@ func TestGetStatusRemote(t *testing.T) {
 		rtestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(
-			vision.Named("builtin"), sensors.Named("builtin"), datamanager.Named("builtin"),
+			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("foo:arm1"), arm.Named("foo:arm2"), arm.Named("bar:arm1"), arm.Named("bar:arm2"),
 		),
 	)
@@ -1349,7 +1350,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		rtestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(
-			vision.Named("builtin"), sensors.Named("builtin"), datamanager.Named("builtin"),
+			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("remote:foo:arm1"), arm.Named("remote:foo:arm2"),
 			arm.Named("remote:pieceArm"),
 			arm.Named("remote:foo:pieceArm"),
@@ -1448,7 +1449,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, yesBase, test.ShouldNotBeNil)
 
-	yesSvc, err := r.ResourceByName(datamanager.Named("builtin"))
+	yesSvc, err := r.ResourceByName(datamanager.Named(resource.DefaultServiceName))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, yesSvc, test.ShouldNotBeNil)
 }
