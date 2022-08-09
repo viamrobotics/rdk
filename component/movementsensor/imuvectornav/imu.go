@@ -255,8 +255,8 @@ func (vn *vectornav) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
 	return r3.Vector{}, nil
 }
 
-func (vn *vectornav) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
-	return nil, 0, 0, nil
+func (vn *vectornav) GetPosition(ctx context.Context) (*geo.Point, float64, *geo.Point, error) {
+	return nil, 0, nil, nil
 }
 
 func (vn *vectornav) GetMagnetometer(ctx context.Context) (r3.Vector, error) {

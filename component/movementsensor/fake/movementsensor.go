@@ -30,9 +30,9 @@ func init() {
 
 type fakeMovementSensor struct{}
 
-func (f *fakeMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
-	p := &geo.Point{}
-	return p, 0, 0, nil
+func (f *fakeMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, *geo.Point, error) {
+	p := geo.NewPoint(40.7, -73.98)
+	return p, 0, nil, nil
 }
 
 func (f *fakeMovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {

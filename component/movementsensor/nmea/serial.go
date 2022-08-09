@@ -173,10 +173,10 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 }
 
 // GetPosition position, altitide, accuracy.
-func (g *SerialNMEAMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
+func (g *SerialNMEAMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, *geo.Point, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.location, g.data.alt, (g.data.hDOP + g.data.vDOP) / 2, nil
+	return g.data.location, g.data.alt, geo.NewPoint(g.data.hDOP, g.data.vDOP), nil
 }
 
 // GetLinearVelocity linear velocity.

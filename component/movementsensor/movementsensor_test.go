@@ -245,7 +245,7 @@ func TestClose(t *testing.T) {
 var (
 	loc     = geo.NewPoint(90, 1)
 	alt     = 50.5
-	acc     = 1.1
+	acc     = geo.NewPoint(1.1, 1.1)
 	speed   = r3.Vector{5.4, 1.1, 2.2}
 	ang     = spatialmath.AngularVelocity{5.5, 1.2, 2.3}
 	orie    = &spatialmath.EulerAngles{5.6, 1.3, 2.4}
@@ -264,7 +264,7 @@ func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]i
 	return cmd, nil
 }
 
-func (m *mock) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
+func (m *mock) GetPosition(ctx context.Context) (*geo.Point, float64, *geo.Point, error) {
 	m.positionCount++
 	return loc, alt, acc, nil
 }

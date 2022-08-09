@@ -300,8 +300,8 @@ func (r *rtkStation) Close() error {
 	return nil
 }
 
-func (r *rtkStation) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
-	return &geo.Point{}, 0, 0, nil
+func (r *rtkStation) GetPosition(ctx context.Context) (*geo.Point, float64, *geo.Point, error) {
+	return &geo.Point{}, 0, nil, nil
 }
 
 func (r *rtkStation) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {

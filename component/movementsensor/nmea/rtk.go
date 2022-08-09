@@ -468,7 +468,7 @@ func (g *RTKMovementSensor) NtripStatus() (bool, error) {
 }
 
 // GetPosition returns the current geographic location of the MOVEMENTSENSOR.
-func (g *RTKMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
+func (g *RTKMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, *geo.Point, error) {
 	return g.nmeamovementsensor.GetPosition(ctx)
 }
 

@@ -51,14 +51,17 @@ func clientFromSvcClient(sc *serviceClient, name string) MovementSensor {
 	return &client{sc, name}
 }
 
-func (c *client) GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) {
+func (c *client) GetPosition(ctx context.Context) (*geo.Point, float64, *geo.Point, error) {
 	resp, err := c.client.GetPosition(ctx, &pb.GetPositionRequest{
 		Name: c.name,
 	})
 	if err != nil {
-		return nil, 0, 0, err
+		return nil, 0, nil, err
 	}
-	return geo.NewPoint(resp.Coordinate.Latitude, resp.Coordinate.Longitude), float64(resp.AltitudeMm), float64(resp.AccuracyMm), nil
+	return geo.NewPoint(resp.Coordinate.Latitude, resp.Coordinate.Longitude),
+		float64(resp.AltitudeMm),
+		geo.NewPoint(resp.Accuracy.Latitude, resp.Accuracy.Longitude),
+		nil
 }
 
 func (c *client) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {

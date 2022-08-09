@@ -44,7 +44,7 @@ func TestClient(t *testing.T) {
 	rs := []interface{}{loc, alt, 0, r3.Vector{0, speed, 0}, r3.Vector{0, 0, ang}, heading, ori}
 
 	injectMovementSensor := &inject.MovementSensor{}
-	injectMovementSensor.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, float64, error) { return loc, alt, 0, nil }
+	injectMovementSensor.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, *geo.Point, error) { return loc, alt, nil, nil }
 	injectMovementSensor.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{0, speed, 0}, nil }
 	injectMovementSensor.GetAngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
 		return spatialmath.AngularVelocity{0, 0, ang}, nil
@@ -55,8 +55,8 @@ func TestClient(t *testing.T) {
 	injectMovementSensor.GetCompassHeadingFunc = func(ctx context.Context) (float64, error) { return heading, nil }
 
 	injectMovementSensor2 := &inject.MovementSensor{}
-	injectMovementSensor2.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, float64, error) {
-		return nil, 0, 0, errors.New("can't get location")
+	injectMovementSensor2.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, *geo.Point, error) {
+		return nil, 0, nil, errors.New("can't get location")
 	}
 	injectMovementSensor2.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) {
 		return r3.Vector{}, errors.New("can't get linear velocity")
