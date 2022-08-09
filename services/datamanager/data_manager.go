@@ -18,10 +18,10 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	modelpb "go.viam.com/api/proto/viam/model/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	modelpb "go.viam.com/api/proto/viam/model/v1"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	servicepb "go.viam.com/rdk/proto/api/service/datamanager/v1"
