@@ -23,14 +23,9 @@ import (
 	ut "go.viam.com/rdk/utils"
 )
 
-// readImageFromFile extracts the RGB, Z16, or "both" data from an image file.
-// Aligned matters if you are reading a .both.gz file and both the rgb and d image are already aligned.
-// Otherwise, if you are just reading an image, aligned is a moot parameter and should be false.
-func readImageFromFile(path string, aligned bool) (image.Image, error) {
+// readImageFromFile extracts the RGB, Z16, or raw depth data from an image file.
+func readImageFromFile(path string) (image.Image, error) {
 	switch {
-	case strings.HasSuffix(path, ".both.gz"):
-		img, _, err := ReadBothFromFile(path)
-		return img, err
 	case strings.HasSuffix(path, ".dat.gz"):
 		return ParseDepthMap(path)
 	default:
@@ -49,37 +44,18 @@ func readImageFromFile(path string, aligned bool) (image.Image, error) {
 	}
 }
 
-// Temporary function to create an imageWithDepth from both for rimage package. Will be removed soon.
-func newImageWithDepthFromFile(fn string, aligned bool) (image.Image, error) {
-	if strings.HasSuffix(fn, ".both.gz") {
-		img, dm, err := ReadBothFromFile(fn)
-		if err != nil {
-			return nil, err
-		}
-		return &imageWithDepth{img, dm, aligned}, nil
-	}
-	return readImageFromFile(fn, aligned)
-}
-
 // NewImageFromFile returns an image read in from the given file.
 func NewImageFromFile(fn string) (*Image, error) {
-	img, err := readImageFromFile(fn, false) // extracting rgb, alignment doesn't matter
+	img, err := readImageFromFile(fn)
 	if err != nil {
 		return nil, err
 	}
-
 	return ConvertImage(img), nil
 }
 
-// NewDepthMapFromFile extract the depth map from a Z16 image file or a .both.gz image file.
+// NewDepthMapFromFile extract the depth map from a Z16 image file or a .dat image file.
 func NewDepthMapFromFile(fn string) (*DepthMap, error) {
-	var img image.Image
-	var err error
-	if strings.HasSuffix(fn, ".both.gz") { // temporary fix since .both will be removed
-		_, img, err = ReadBothFromFile(fn)
-	} else {
-		img, err = readImageFromFile(fn, false) // extracting depth, alignment doesn't matter
-	}
+	img, err := readImageFromFile(fn)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +196,7 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
 		buf.Write(imgCopy.Pix)
 	case ut.MimeTypeRawDepth:
-		// TODO(DATA-237) remove this data type
+		// TODO(bijan) remove this data type
 		dm, ok := img.(*DepthMap)
 		if !ok {
 			return nil, ut.NewUnexpectedTypeError(dm, img)
@@ -297,7 +273,7 @@ func fastConvertYcbcr(dst *Image, src *image.YCbCr) {
 // IsImageFile returns if the given file is an image file based on what
 // we support.
 func IsImageFile(fn string) bool {
-	extensions := []string{".both.gz", "ppm", "png", "jpg", "jpeg", "gif"}
+	extensions := []string{"ppm", "png", "jpg", "jpeg", "gif"}
 	for _, suffix := range extensions {
 		if strings.HasSuffix(fn, suffix) {
 			return true
