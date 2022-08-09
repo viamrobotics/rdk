@@ -67,6 +67,7 @@ message Sphere {
   double radius_mm = 1;
 }
 
+// RectangularPrism contains a Vector3 field corresponding to the X, Y, Z dimensions of the prism in mms
 message RectangularPrism {
   Vector3 dims_mm = 1;
 }
