@@ -111,6 +111,8 @@ jobs:
       uses: google-github-actions/auth@v0.4.3
       with:
         credentials_json: '${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}'
+        create_credentials_file: true
+        export_environment_variables: true
 
     - name: Print GCP Credentials
       run: |
