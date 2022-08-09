@@ -2,6 +2,7 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -190,6 +191,34 @@ func buildBinaryUploadRequests(data [][]byte, fileName string) []*v1.UploadReque
 	return expMsgs
 }
 
+func buildUploadRequests(sds []*v1.SensorData, dataType v1.DataType, fileName string) []*v1.UploadRequest {
+	var expMsgs []*v1.UploadRequest
+	if len(sds) == 0 {
+		return expMsgs
+	}
+	// Metadata message precedes sensor data messages.
+	expMsgs = append(expMsgs, &v1.UploadRequest{
+		UploadPacket: &v1.UploadRequest_Metadata{
+			Metadata: &v1.UploadMetadata{
+				PartId:        partID,
+				Type:          dataType,
+				FileName:      fileName,
+				ComponentType: componentType,
+				ComponentName: componentName,
+				MethodName:    methodName,
+			},
+		},
+	})
+	for _, expMsg := range sds {
+		expMsgs = append(expMsgs, &v1.UploadRequest{
+			UploadPacket: &v1.UploadRequest_SensorContents{
+				SensorContents: expMsg,
+			},
+		})
+	}
+	return expMsgs
+}
+
 func getMockService() mockDataSyncServiceServer {
 	return mockDataSyncServiceServer{
 		uploadRequests:                     &[]*v1.UploadRequest{},
@@ -199,7 +228,7 @@ func getMockService() mockDataSyncServiceServer {
 		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
 
 		// Fields below this line added by maxhorowitz
-		sendAckEveryNMessages:       3,
+		sendAckEveryNMessages:       0,
 		reqsStagedForResponse:       0,
 		sendCancelCtxAfterNMessages: -1,
 	}
@@ -258,6 +287,7 @@ func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
 	defer m.callCount.Add(1)
 	if m.callCount.Load() < m.failUntilIndex {
+		fmt.Println("Fail, (until index) - current: # ", m.callCount.Load())
 		return status.Error(codes.Aborted, "fail until reach failUntilIndex")
 	}
 
@@ -265,6 +295,7 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 	for {
 		// If server.Upload(stream) has been called too many times, abort.
 		if m.callCount.Load() == m.failAtIndex {
+			fmt.Println("Fail, (at index) - current: # ", m.callCount.Load())
 			return status.Error(codes.Aborted, "failed at failAtIndex")
 		}
 
@@ -276,6 +307,7 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 			if err := stream.Send(&v1.UploadResponse{RequestsWritten: int32(m.reqsStagedForResponse)}); err != nil {
 				return err
 			}
+			fmt.Println("Got cancelled here.")
 			return context.Canceled
 		}
 

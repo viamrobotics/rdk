@@ -71,32 +71,29 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	activeBackgroundWorkers.Add(1)
 	go func() {
 		defer activeBackgroundWorkers.Done()
+		defer close(retRecvUploadResponse)
 		for {
-			if ctx.Err() != nil {
-				retRecvUploadResponse <- ctx.Err()
-				close(retRecvUploadResponse)
-				return
-			}
+			// if ctx.Err() != nil {
+			// 	retRecvUploadResponse <- ctx.Err()
+			// 	close(retRecvUploadResponse)
+			// 	return
+			// }
 			select {
 			case <-ctx.Done():
 				retRecvUploadResponse <- ctx.Err()
-				close(retRecvUploadResponse)
 				return
 			default:
 				ur, err := stream.Recv()
 				if errors.Is(err, context.Canceled) || errors.Is(err, io.EOF) {
 					retRecvUploadResponse <- err
-					close(retRecvUploadResponse)
 					return
 				}
 				if err != nil {
 					retRecvUploadResponse <- errors.Errorf("Unable to receive UploadResponse from server: %v", err)
-					close(retRecvUploadResponse)
 					return
 				} else {
 					if err := pt.updateProgressFileIndex(progressFileName, int(ur.GetRequestsWritten())); err != nil {
 						retRecvUploadResponse <- err
-						close(retRecvUploadResponse)
 						return
 					}
 				}
@@ -110,18 +107,18 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	go func() {
 		// Loop until there is no more content to be read from file.
 		defer activeBackgroundWorkers.Done()
+		defer close(retSendingUploadReqs)
+		defer stream.CloseSend()
 		for {
-			if err := ctx.Err(); err != nil {
-				retSendingUploadReqs <- err
-				close(retSendingUploadReqs)
-				_ = stream.CloseSend()
-				return
-			}
+			// if err := ctx.Err(); err != nil {
+			// 	retSendingUploadReqs <- err
+			// 	close(retSendingUploadReqs)
+			// 	_ = stream.CloseSend()
+			// 	return
+			// }
 			select {
 			case <-ctx.Done():
 				retSendingUploadReqs <- ctx.Err()
-				close(retSendingUploadReqs)
-				_ = stream.CloseSend()
 				return
 			default:
 				// Get the next UploadRequest from the file.
@@ -133,7 +130,6 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 					if err = stream.CloseSend(); err != nil {
 						retSendingUploadReqs <- errors.Errorf("error when closing the stream: %v", err)
 					}
-					close(retSendingUploadReqs)
 					return
 				}
 				if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
@@ -141,15 +137,11 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 				}
 				if err != nil {
 					retSendingUploadReqs <- err
-					close(retSendingUploadReqs)
-					_ = stream.CloseSend()
 					return
 				}
 
 				if err = stream.Send(uploadReq); err != nil {
 					retSendingUploadReqs <- err
-					close(retSendingUploadReqs)
-					_ = stream.CloseSend()
 					return
 				}
 
