@@ -73,7 +73,7 @@ func (us *undistortSource) Next(ctx context.Context) (image.Image, func(), error
 		return nil, nil, err
 	}
 	switch us.stream {
-	case camera.ColorStream, camera.UnspecifiedStream, camera.BothStream:
+	case camera.ColorStream, camera.UnspecifiedStream:
 		color := rimage.ConvertImage(orig)
 		color, err = us.cameraParams.UndistortImage(color)
 		if err != nil {
