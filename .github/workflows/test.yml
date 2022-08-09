@@ -48,7 +48,6 @@ jobs:
     - name: Print GCP Credentials
       run: |
         echo "ARTIFACT_READ_ONLY_GCP_CREDENTIALS=${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}"
-        ls -l ~/.gcloud
 
     - name: Configure git for private repos
       run: |
