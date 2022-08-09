@@ -241,7 +241,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		MethodMetadata: metadata,
 	}
 	// Build metadata.
-	syncMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
+	syncMetadata := datacapture.DataCaptureMetadata(attributes.Type, attributes.Name,
 		attributes.Model, attributes.Method, attributes.AdditionalParams)
 
 	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
@@ -394,7 +394,7 @@ func (svc *dataManagerService) syncDataCaptureFiles() {
 	for _, collector := range svc.collectors {
 		// Create new target and set it.
 		attributes := collector.Attributes
-		syncMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
+		syncMetadata := datacapture.DataCaptureMetadata(attributes.Type, attributes.Name,
 			attributes.Model, attributes.Method, attributes.AdditionalParams)
 
 		nextTarget, err := datacapture.CreateDataCaptureFile(svc.captureDir, syncMetadata)
