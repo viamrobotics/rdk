@@ -68,9 +68,7 @@ message Sphere {
 }
 
 message RectangularPrism {
-  double width_mm = 1;
-  double length_mm = 2;
-  double depth_mm = 3;
+  Vector3 dims_mm = 1;
 }
 
 // Geometry contains the dimensions of a given geometry and the pose of its center. The geometry is one of either a sphere or a box.
