@@ -53,20 +53,19 @@ jobs:
       run: |
         sudo -u testbot bash -lc 'echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc'
 
-    # - name: Verify no uncommitted changes from "${{ matrix.build_lint }}"
-    #   run: |
-    #     git init
-    #     git add .
-    #     chown -R testbot .
-    #     sudo -u testbot bash -lc '${{ matrix.build_lint }}'
-    #     GEN_DIFF=$(git status -s)
+    - name: Verify no uncommitted changes from "${{ matrix.build_lint }}"
+      run: |
+        git init
+        git add .
+        chown -R testbot .
+        sudo -u testbot bash -lc '${{ matrix.build_lint }}'
+        GEN_DIFF=$(git status -s)
 
-    #     if [ -n "$GEN_DIFF" ]; then
-    #         echo '"make build lint" resulted in changes not in git' 1>&2
-    #         git status
-    #         exit 1
-    #     fi
-    # Test
+        if [ -n "$GEN_DIFF" ]; then
+            echo '"make build lint" resulted in changes not in git' 1>&2
+            git status
+#            exit 1
+        fi
 
     - name: Test
       if: matrix.platform == 'linux/amd64'
