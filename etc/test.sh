@@ -18,6 +18,8 @@ else
 	TIMEOUT="-timeout 40m"
 fi
 
+echo "FROM Test: ${GOOGLE_APPLICATION_CREDENTIALS}"
+
 go test -tags=no_skip $RACE $COVER1 `go list ./... | grep -Ev "go.viam.com/rdk/(vision|rimage)"` &
 PID1=$!
 go test -tags=no_skip $TIMEOUT $COVER2 go.viam.com/rdk/vision/... go.viam.com/rdk/rimage/...&
