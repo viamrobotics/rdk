@@ -139,6 +139,8 @@ type alignAttrs struct {
 	*camera.AttrConfig
 	Color              string      `json:"color"`
 	Depth              string      `json:"depth"`
+	Height             int         `json:"height"`
+	Width              int         `json:"width"`
 	IntrinsicExtrinsic interface{} `json:"intrinsic_extrinsic"`
 	Homography         interface{} `json:"homography"`
 	Warp               interface{} `json:"warp"`
@@ -170,7 +172,7 @@ func newAlignColorDepth(ctx context.Context, color, depth camera.Camera, attrs *
 	stream := camera.StreamType(attrs.Stream)
 	var proj rimage.Projector
 	switch stream {
-	case camera.ColorStream, camera.UnspecifiedStream, camera.BothStream:
+	case camera.ColorStream, camera.UnspecifiedStream:
 		proj, _ = camera.GetProjector(ctx, attrs.AttrConfig, color)
 	case camera.DepthStream:
 		proj, _ = camera.GetProjector(ctx, attrs.AttrConfig, depth)
@@ -198,7 +200,7 @@ func (acd *alignColorDepth) Next(ctx context.Context) (image.Image, func(), erro
 	ctx, span := trace.StartSpan(ctx, "imagesource::alignColorDepth::Next")
 	defer span.End()
 	switch acd.stream {
-	case camera.ColorStream, camera.UnspecifiedStream, camera.BothStream:
+	case camera.ColorStream, camera.UnspecifiedStream:
 		// things are being aligned to the color image, so just return the color image.
 		return acd.color.Next(ctx)
 	case camera.DepthStream:
