@@ -263,7 +263,7 @@ func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientCo
 // nolint:thelper
 func writeCaptureMetadataToFile(t *testing.T, dt v1.DataType, tf *os.File) {
 	// First write metadata to file.
-	captureMetadata := v1.DataCaptureMetadata{
+	captureMetadata := v1.BuildCaptureMetadata{
 		ComponentType:    componentType,
 		ComponentName:    componentName,
 		ComponentModel:   componentModel,
