@@ -434,66 +434,6 @@ func TestUploadExponentialRetry(t *testing.T) {
 			test.That(t, exists, test.ShouldEqual, tc.shouldStillExist)
 		})
 	}
-
-	// Build a mock service that fails 3 times before succeeding.
-	mockService := getMockService()
-	mockService.failUntilIndex = 3
-	rpcServer := buildAndStartLocalServer(t, logger, mockService)
-	uploadChunkSize = 10
-	defer func() {
-		err := rpcServer.Stop()
-		test.That(t, err, test.ShouldBeNil)
-	}()
-
-	conn, err := getLocalServerConn(rpcServer, logger)
-	test.That(t, err, test.ShouldBeNil)
-	client := NewClient(conn)
-	sut, err := NewManager(logger, partID, client, conn)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Sync file.
-	file1, _ := ioutil.TempFile("", "whatever")
-	defer os.Remove(file1.Name())
-	_, _ = file1.Write([]byte("this is some amount of content greater than 10"))
-	sut.Sync([]string{file1.Name()})
-
-	// Let it run.
-	time.Sleep(time.Second)
-	sut.Close()
-
-	// Validate that the client called Upload repeatedly.
-	test.That(t, mockService.callCount.Load(), test.ShouldEqual, 4)
-	_ = conn.Close()
-	_ = rpcServer.Stop()
-
-	// Test that non-retryable errors are not retried.
-	mockService = getMockService()
-	mockService.failUntilIndex = 3
-	mockService.errorToReturn = datasync.ErrEmptyStream
-	rpcServer = buildAndStartLocalServer(t, logger, mockService)
-	uploadChunkSize = 10
-	defer func() {
-		err := rpcServer.Stop()
-		test.That(t, err, test.ShouldBeNil)
-	}()
-	conn, err = getLocalServerConn(rpcServer, logger)
-	test.That(t, err, test.ShouldBeNil)
-	client = NewClient(conn)
-	sut, err = NewManager(logger, partID, client, conn)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Sync file.
-	file2, _ := ioutil.TempFile("", "whatever2")
-	defer os.Remove(file2.Name())
-	_, _ = file1.Write([]byte("this is some amount of content greater than 10"))
-	sut.Sync([]string{file2.Name()})
-
-	// Let it run.
-	time.Sleep(time.Second)
-	sut.Close()
-
-	// Validate that the client called Upload repeatedly.
-	test.That(t, mockService.callCount.Load(), test.ShouldEqual, 1)
 }
 
 func TestPartialUpload(t *testing.T) {
