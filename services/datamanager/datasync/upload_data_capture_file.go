@@ -12,10 +12,30 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
-func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncService_UploadClient,
+// TODO for bidi partial uploads:
+//      - Have goroutine waiting on Recv on stream (select with cancel context). On recv:
+//        - Update progress index
+//        - If EOF: Return nil. we know all messages were sent and received becuse errors are a response type, so
+//                       are sent serially with other responses
+//        - If other error: We actually returned an error from our server. Determine how to handle individually. For now
+//                      a blanket "return err" (triggering restarts) is probably fine
+//      - Have sends happening in goroutine
+//          - If EOF, send EOF and Close (not recv!) to server. This will trigger server to send final ack then EOF.
+//          - If other error, return error
+//      Wait for both goroutines. If error, return error. If none, return nil.
+//
+// TODO
+//      Some principles to keep in mind:
+//        - The thread/goroutine sending on a channel/grpc connection should be the one closing it
+//        - If some thing is blocking or long running, it should probably be passed a context so it can be cancelled
+func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.DataSyncServiceClient,
 	md *v1.UploadMetadata, f *os.File,
 ) error {
-	err := initDataCaptureUpload(ctx, f, s.progressTracker, f.Name(), md)
+	stream, err := client.Upload(ctx)
+	if err != nil {
+		return err
+	}
+	err = initDataCaptureUpload(ctx, f, pt, f.Name())
 	if errors.Is(err, io.EOF) {
 		return nil
 	}
@@ -29,49 +49,52 @@ func uploadDataCaptureFile(ctx context.Context, s *syncer, client v1.DataSyncSer
 			Metadata: md,
 		},
 	}
-	if err := client.Send(req); err != nil {
+	if err := stream.Send(req); err != nil {
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
 
 	// Loop until there is no more content to be read from file.
 	for {
-		// Get the next UploadRequest from the file.
-		uploadReq, err := getNextSensorUploadRequest(ctx, f)
-		// If the error is EOF, break from loop.
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
-			continue
-		}
-		// If there is any other error, return it.
-		if err != nil {
-			return err
-		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			// Get the next UploadRequest from the file.
+			uploadReq, err := getNextSensorUploadRequest(ctx, f)
 
-		if err = client.Send(uploadReq); err != nil {
-			return errors.Wrap(err, "error while sending uploadRequest")
-		}
-		if err := s.progressTracker.incrementProgressFileIndex(filepath.Join(s.progressTracker.progressDir, filepath.
-			Base(f.Name()))); err != nil {
-			return err
+			// If the error is EOF, we completed successfully.
+			if errors.Is(err, io.EOF) {
+				if _, err := stream.CloseAndRecv(); err != nil {
+					if !errors.Is(err, io.EOF) {
+						return err
+					}
+				}
+
+				if err := pt.deleteProgressFile(filepath.Join(pt.progressDir,
+					filepath.Base(filepath.Base(f.Name())))); err != nil {
+					return err
+				}
+				return nil
+			}
+			if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+
+			if err = stream.Send(uploadReq); err != nil {
+				return err
+			}
+			if err := pt.incrementProgressFileIndex(filepath.Join(pt.progressDir, filepath.
+				Base(f.Name()))); err != nil {
+				return err
+			}
 		}
 	}
-
-	if err := f.Close(); err != nil {
-		return err
-	}
-
-	// Close stream and receive response.
-	if _, err := client.CloseAndRecv(); err != nil {
-		return errors.Wrap(err, "error when closing the stream and receiving the response from "+
-			"sync service backend")
-	}
-
-	return nil
 }
 
-func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, dcFileName string, md *v1.UploadMetadata) error {
+func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, dcFileName string) error {
 	finfo, err := f.Stat()
 	if err != nil {
 		return err
@@ -87,6 +110,7 @@ func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, 
 		if err := pt.createProgressFile(progressFilePath); err != nil {
 			return err
 		}
+		return nil
 	}
 
 	// Sets the next file pointer to the next sensordata message that needs to be uploaded.

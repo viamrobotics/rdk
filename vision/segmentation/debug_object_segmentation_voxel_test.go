@@ -27,14 +27,13 @@ func (h *gripperVoxelSegmentTestHelper) Process(
 	t *testing.T,
 	pCtx *rimage.ProcessorContext,
 	fn string,
-	img image.Image,
+	img, img2 image.Image,
 	logger golog.Logger,
 ) error {
 	t.Helper()
 	var err error
-	// TODO(DATA-237): .both will be removed
 	im := rimage.ConvertImage(img)
-	dm, err := rimage.ConvertImageToDepthMap(img)
+	dm, err := rimage.ConvertImageToDepthMap(img2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)
 
@@ -91,7 +90,7 @@ func TestGripperVoxelObjectSegmentation(t *testing.T) {
 	if objSegTest == "" {
 		t.Skipf("set environmental variable %q to run this test", debugObjSeg)
 	}
-	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/gripper", "*.both.gz", true)
+	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/gripper/color", "*.png", "segmentation/gripper/depth")
 	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/gripper_combo_parameters.json"))
 	test.That(t, err, test.ShouldBeNil)
 
