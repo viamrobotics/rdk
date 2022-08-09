@@ -232,7 +232,15 @@ func (g *PmtkI2CNMEAMovementSensor) GetCompassHeading(ctx context.Context) (floa
 func (g *PmtkI2CNMEAMovementSensor) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return spatialmath.NewZeroOrientation(), nil
+	return nil, nil
+}
+
+// GetProperties what can I do!
+func (g *PmtkI2CNMEAMovementSensor) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+	return &movementsensor.Properties{
+		LinearVelocitySupported: true,
+		PositionSupported:       true,
+	}, nil
 }
 
 // ReadFix returns quality.

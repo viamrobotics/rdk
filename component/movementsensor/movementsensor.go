@@ -23,6 +23,9 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// Properties tells you what a MovementSensor supports.
+type Properties pb.GetPropertiesResponse
+
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
@@ -61,14 +64,14 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// A MovementSensor reports information about the robot's direction, position and speed
+// A MovementSensor reports information about the robot's direction, position and speed.
 type MovementSensor interface {
-	GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) // (lat, long), altitide (mm), accuracy (mm)
-	GetLinearVelocity(ctx context.Context) (r3.Vector, error) // mm / sec
+	GetPosition(ctx context.Context) (*geo.Point, float64, float64, error)       // (lat, long), altitide (mm), accuracy (mm)
+	GetLinearVelocity(ctx context.Context) (r3.Vector, error)                    // mm / sec
 	GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) // radians / sec
-	GetCompassHeading(ctx context.Context) (float64, error) // [0->360)
+	GetCompassHeading(ctx context.Context) (float64, error)                      // [0->360)
 	GetOrientation(ctx context.Context) (spatialmath.Orientation, error)
-
+	GetProperties(ctx context.Context) (*Properties, error)
 	generic.Generic
 	sensor.Sensor
 }
@@ -198,6 +201,12 @@ func (r *reconfigurableMovementSensor) GetCompassHeading(ctx context.Context) (f
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetCompassHeading(ctx)
+}
+
+func (r *reconfigurableMovementSensor) GetProperties(ctx context.Context) (*Properties, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.GetProperties(ctx)
 }
 
 func (r *reconfigurableMovementSensor) GetReadings(ctx context.Context) ([]interface{}, error) {

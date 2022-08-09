@@ -195,7 +195,7 @@ func (g *SerialNMEAMovementSensor) GetAngularVelocity(ctx context.Context) (spat
 
 // GetOrientation orientation.
 func (g *SerialNMEAMovementSensor) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
-	return spatialmath.NewZeroOrientation(), nil
+	return nil, nil
 }
 
 // GetCompassHeading 0->360.
@@ -227,6 +227,14 @@ func (g *SerialNMEAMovementSensor) GetReadings(ctx context.Context) ([]interface
 	readings = append(readings, fix)
 
 	return readings, nil
+}
+
+// GetProperties what do I do!
+func (g *SerialNMEAMovementSensor) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+	return &movementsensor.Properties{
+		LinearVelocitySupported: true,
+		PositionSupported:       true,
+	}, nil
 }
 
 // Close shuts down the SerialNMEAMovementSensor.

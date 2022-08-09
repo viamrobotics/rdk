@@ -121,3 +121,14 @@ func (s *subtypeServer) GetOrientation(
 	}, nil
 }
 
+func (s *subtypeServer) GetProperties(
+	ctx context.Context,
+	req *pb.GetPropertiesRequest,
+) (*pb.GetPropertiesResponse, error) {
+	msDevice, err := s.getMovementSensor(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	prop, err := msDevice.GetProperties(ctx)
+	return (*pb.GetPropertiesResponse)(prop), err
+}
