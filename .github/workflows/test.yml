@@ -74,7 +74,7 @@ jobs:
     - name: Test
       if: matrix.platform == 'linux/amd64'
       run: |
-        sudo -u testbot bash -lc 'make cover test-web'
+        sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS -u testbot bash -lc 'make cover test-web'
 
     - name: Code Coverage Summary Report
       if: matrix.platform == 'linux/amd64'
