@@ -145,6 +145,8 @@ type WebcamAttrs struct {
 	Format      string `json:"format"`
 	Path        string `json:"path"`
 	PathPattern string `json:"path_pattern"`
+	Width       int    `json:"width"`
+	Height      int    `json:"height"`
 }
 
 func makeConstraints(attrs *WebcamAttrs, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
