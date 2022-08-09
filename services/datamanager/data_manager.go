@@ -62,7 +62,7 @@ func init() {
 		return &conf, nil
 	}, &Config{})
 
-	resource.AddDefaultService(Named("builtin"))
+	resource.AddDefaultService(Named(resource.DefaultServiceName)
 }
 
 // Service defines what a Data Manager Service should expose to the users.
