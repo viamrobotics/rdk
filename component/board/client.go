@@ -100,35 +100,40 @@ func (c *client) GPIOPinByName(name string) (GPIOPin, error) {
 
 func (c *client) SPINames() []string {
 	if c.getCachedStatus() == nil {
-		panic("no status")
+		c.logger.Debugw("no cached status")
+		return nil
 	}
 	return copyStringSlice(c.info.spiNames)
 }
 
 func (c *client) I2CNames() []string {
 	if c.getCachedStatus() == nil {
-		panic("no status")
+		c.logger.Debugw("no cached status")
+		return nil
 	}
 	return copyStringSlice(c.info.i2cNames)
 }
 
 func (c *client) AnalogReaderNames() []string {
 	if c.getCachedStatus() == nil {
-		panic("no status")
+		c.logger.Debugw("no cached status")
+		return nil
 	}
 	return copyStringSlice(c.info.analogReaderNames)
 }
 
 func (c *client) DigitalInterruptNames() []string {
 	if c.getCachedStatus() == nil {
-		panic("no status")
+		c.logger.Debugw("no cached status")
+		return nil
 	}
 	return copyStringSlice(c.info.digitalInterruptNames)
 }
 
 func (c *client) GPIOPinNames() []string {
 	if c.getCachedStatus() == nil {
-		panic("no status")
+		c.logger.Debugw("no cached status")
+		return nil
 	}
 	return copyStringSlice(c.info.gpioPinNames)
 }
