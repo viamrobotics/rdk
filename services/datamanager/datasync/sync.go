@@ -14,6 +14,7 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"github.com/viamrobotics/app/datasync"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	rdkutils "go.viam.com/rdk/utils"
@@ -163,6 +164,11 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 	// Only create a ticker and enter the retry loop if we actually need to retry.
 	if err := fn(cancelCtx); err == nil {
 		return nil
+	} else {
+		// Don't retry non-retryable errors.
+		if errors.Is(err, datasync.ErrEmptyStream) || errors.Is(err, datasync.ErrInvalidRequest) {
+			return err
+		}
 	}
 
 	// First call failed, so begin exponentialRetry with a factor of retryExponentialFactor
