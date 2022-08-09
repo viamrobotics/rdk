@@ -220,6 +220,7 @@ func buildAndStartLocalServer(t *testing.T, logger golog.Logger, mockService moc
 	return rpcServer
 }
 
+<<<<<<< HEAD
 func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientConn, error) {
 	return rpc.DialDirectGRPC(
 		context.Background(),
@@ -227,6 +228,22 @@ func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientCo
 		logger,
 		rpc.WithInsecure(),
 	)
+=======
+// nolint:thelper
+func writeCaptureMetadataToFile(t *testing.T, dt v1.DataType, tf *os.File) {
+	// First write metadata to file.
+	captureMetadata := v1.DataCaptureMetadata{
+		ComponentType:    componentType,
+		ComponentName:    componentName,
+		ComponentModel:   componentModel,
+		MethodName:       methodName,
+		Type:             dt,
+		MethodParameters: nil,
+	}
+	if _, err := pbutil.WriteDelimited(tf, &captureMetadata); err != nil {
+		t.Errorf("cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v", err)
+	}
+>>>>>>> 28179812 (fixed test)
 }
 
 type mockDataSyncServiceServer struct {

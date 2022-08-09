@@ -52,6 +52,7 @@ func BuildCaptureMetadata(compType resource.SubtypeName, compName string, method
 	return &v1.DataCaptureMetadata{
 		ComponentType:    string(compType),
 		ComponentName:    compName,
+		ComponentModel:   compModel,
 		MethodName:       method,
 		Type:             getDataType(string(compType), method),
 		MethodParameters: additionalParams,

@@ -167,6 +167,7 @@ func TestSensorUploadTabular(t *testing.T) {
 		captureMetadata := v1.DataCaptureMetadata{
 			ComponentType:    componentType,
 			ComponentName:    componentName,
+			ComponentModel:   componentModel,
 			MethodName:       methodName,
 			Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			MethodParameters: nil,
