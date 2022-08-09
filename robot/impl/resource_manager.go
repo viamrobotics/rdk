@@ -115,13 +115,7 @@ func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []
 // It will be renamed as unknown and its local children are going to be destroyed.
 func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, remoteName resource.Name, rr robot.Robot, lr *localRobot) {
 	visited := map[resource.Name]bool{}
-	rc, ok := rr.(*client.RobotClient)
-	if !ok {
-		manager.logger.Error("not a robot client")
-		return
-	}
-
-	newResources := rc.ResourceNames()
+	newResources := rr.ResourceNames()
 	oldResources := manager.remoteResourceNames(remoteName)
 	for _, res := range oldResources {
 		visited[res] = false
