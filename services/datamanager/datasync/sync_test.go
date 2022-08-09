@@ -378,10 +378,11 @@ func TestUploadExponentialRetry(t *testing.T) {
 	logger, _ := golog.NewObservedTestLogger(t)
 
 	tests := []struct {
-		name         string
-		err          error
-		waitTime     time.Duration
-		expCallCount int32
+		name             string
+		err              error
+		waitTime         time.Duration
+		expCallCount     int32
+		shouldStillExist bool
 	}{
 		{
 			name:         "Retryable errors should be retried",
@@ -390,10 +391,11 @@ func TestUploadExponentialRetry(t *testing.T) {
 			expCallCount: 4,
 		},
 		{
-			name:         "Non-retryable errors should not be retried",
-			err:          datasync.ErrInvalidRequest,
-			waitTime:     time.Millisecond * 300,
-			expCallCount: 1,
+			name:             "Non-retryable errors should not be retried",
+			err:              datasync.ErrInvalidRequest,
+			waitTime:         time.Millisecond * 300,
+			expCallCount:     1,
+			shouldStillExist: true,
 		},
 	}
 
@@ -425,8 +427,11 @@ func TestUploadExponentialRetry(t *testing.T) {
 			time.Sleep(tc.waitTime)
 			sut.Close()
 
-			// Validate that the client called Upload the correct number of times.
+			// Validate that the client called Upload the correct number of times, and that the file was not deleted.
 			test.That(t, mockService.callCount.Load(), test.ShouldEqual, tc.expCallCount)
+			_, err = os.Stat(file1.Name())
+			exists := !errors.Is(err, os.ErrNotExist)
+			test.That(t, exists, test.ShouldEqual, tc.shouldStillExist)
 		})
 	}
 
