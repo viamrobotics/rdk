@@ -1,16 +1,31 @@
 package vision
 
 import (
+	"context"
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+	"golang.org/x/oauth2/google"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/spatialmath"
 )
 
 func TestObjectCreation(t *testing.T) {
+	const envVar = "GOOGLE_APPLICATION_CREDENTIALS"
+	filename := os.Getenv(envVar)
+	b, err := ioutil.ReadFile(filename)
+	if err != nil {
+		test.That(t, err, test.ShouldBeNil)
+	}
+
+	creds, err := google.CredentialsFromJSON(context.Background(), b)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, creds, test.ShouldNotBeNil)
+
 	// test empty objects
 	obj, err := NewObject(nil)
 	test.That(t, err, test.ShouldBeNil)
