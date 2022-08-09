@@ -68,6 +68,7 @@ message Sphere {
 }
 
 // RectangularPrism contains a Vector3 field corresponding to the X, Y, Z dimensions of the prism in mms
+// These dimensions are with respect to the referenceframe in which the RectangularPrism is defined
 message RectangularPrism {
   Vector3 dims_mm = 1;
 }
