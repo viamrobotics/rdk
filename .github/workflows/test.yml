@@ -50,6 +50,9 @@ jobs:
     - name: Print GCP Credentials
       run: |
         echo "ARTIFACT_READ_ONLY_GCP_CREDENTIALS=${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}"
+        echo "CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE=${CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE}
+        echo "GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
+        echo "GOOGLE_GHA_CREDS_PATH=${GOOGLE_GHA_CREDS_PATH}
 
     - name: Configure git for private repos
       run: |
@@ -107,6 +110,11 @@ jobs:
         sudo chown -R `whoami` ./
         rm -rf ./*
 
+    - name: Check out code in rdk directory
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 2
+
     - name: Authorize GCP
       uses: google-github-actions/auth@v0.4.3
       with:
@@ -117,11 +125,9 @@ jobs:
     - name: Print GCP Credentials
       run: |
         echo "ARTIFACT_READ_ONLY_GCP_CREDENTIALS=${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}"
-
-    - name: Check out code in rdk directory
-      uses: actions/checkout@v2
-      with:
-        fetch-depth: 2
+        echo "CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE=${CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE}
+        echo "GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
+        echo "GOOGLE_GHA_CREDS_PATH=${GOOGLE_GHA_CREDS_PATH}
 
     - name: Clean
       run: make clean-all
