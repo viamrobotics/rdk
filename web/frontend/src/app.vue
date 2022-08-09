@@ -37,6 +37,8 @@ import {
   computeKeyboardBaseControls,
 } from './rc/control_helpers';
 
+import { addResizeListeners } from './lib/resize';
+
 import BaseComponent from './components/base.vue';
 import Camera from './components/camera.vue';
 import Do from './components/do.vue';
@@ -198,6 +200,8 @@ export default {
 
     this.imuRefresh();
     await this.queryMetadata();
+
+    addResizeListeners();
   },
   methods: {
     filterResources,
