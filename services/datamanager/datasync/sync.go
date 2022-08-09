@@ -219,7 +219,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
 	var md *v1.UploadMetadata
 	if datacapture.IsDataCaptureFile(f) {
-		captureMD, err := datacapture.ReadBuildCaptureMetadata(f)
+		captureMD, err := datacapture.ReadDataCaptureMetadata(f)
 		if err != nil {
 			return nil, err
 		}
