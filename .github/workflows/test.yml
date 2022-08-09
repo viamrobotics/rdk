@@ -8,9 +8,12 @@ on:
         required: true
       GIT_ACCESS_TOKEN:
         required: true
+      ARTIFACT_READ_ONLY_GCP_CREDENTIALS:
+        required: true
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
+  GOOGLE_APPLICATION_CREDENTIALS_FILENAME: "google-credentials.json"
 
 jobs:
   build_and_test:
@@ -38,6 +41,21 @@ jobs:
       with:
         fetch-depth: 2
 
+    - name: Authorize GCP
+      uses: google-github-actions/auth@v0.4.3
+      with:
+        credentials_json: '${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}'
+        create_credentials_file: true
+        export_environment_variables: true
+
+    - name: Move GCP Credential to a known file
+      run: |
+        NEW_GOOGLE_APPLICATION_CREDENTIALS=`dirname ${GOOGLE_APPLICATION_CREDENTIALS}`/${GOOGLE_APPLICATION_CREDENTIALS_FILENAME}
+        mv ${GOOGLE_APPLICATION_CREDENTIALS} ${NEW_GOOGLE_APPLICATION_CREDENTIALS}
+        echo "GOOGLE_APPLICATION_CREDENTIALS=${NEW_GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
+        echo "GOOGLE_GHA_CREDS_PATH=${NEW_GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
+        echo "CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE=${NEW_GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
+
     - name: Configure git for private repos
       run: |
         sudo -u testbot bash -lc 'echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc'
@@ -59,7 +77,7 @@ jobs:
     - name: Test
       if: matrix.platform == 'linux/amd64'
       run: |
-        sudo -u testbot bash -lc 'make cover test-web'
+        sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS -u testbot bash -lc 'make cover test-web'
 
     - name: Code Coverage Summary Report
       if: matrix.platform == 'linux/amd64'
@@ -99,6 +117,21 @@ jobs:
       uses: actions/checkout@v2
       with:
         fetch-depth: 2
+
+    - name: Authorize GCP
+      uses: google-github-actions/auth@v0.4.3
+      with:
+        credentials_json: '${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}'
+        create_credentials_file: true
+        export_environment_variables: true
+
+    - name: Move GCP Credential to a known file
+      run: |
+        NEW_GOOGLE_APPLICATION_CREDENTIALS=`dirname ${GOOGLE_APPLICATION_CREDENTIALS}`/${GOOGLE_APPLICATION_CREDENTIALS_FILENAME}
+        mv ${GOOGLE_APPLICATION_CREDENTIALS} ${NEW_GOOGLE_APPLICATION_CREDENTIALS}
+        echo "GOOGLE_APPLICATION_CREDENTIALS=${NEW_GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
+        echo "GOOGLE_GHA_CREDS_PATH=${NEW_GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
+        echo "CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE=${NEW_GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
 
     - name: Clean
       run: make clean-all
