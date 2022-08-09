@@ -45,8 +45,8 @@ func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.F
 	return f, nil
 }
 
-// DataCaptureMetadata builds a DataCaptureMetadata object.
-func DataCaptureMetadata(compType resource.SubtypeName, compName string, compModel string, method string,
+// BuildCaptureMetadata builds a BuildCaptureMetadata object.
+func BuildCaptureMetadata(compType resource.SubtypeName, compName string, compModel string, method string,
 	additionalParams map[string]string,
 ) *v1.DataCaptureMetadata {
 	return &v1.DataCaptureMetadata{
@@ -59,7 +59,7 @@ func DataCaptureMetadata(compType resource.SubtypeName, compName string, compMod
 	}
 }
 
-// ReadBuildCaptureMetadata reads the SyncMetadata message from the beginning of the capture file.
+// ReadDataCaptureMetadata reads the SyncMetadata message from the beginning of the capture file.
 func ReadDataCaptureMetadata(f *os.File) (*v1.DataCaptureMetadata, error) {
 	if _, err := f.Seek(0, 0); err != nil {
 		return nil, err
@@ -84,7 +84,7 @@ func IsDataCaptureFile(f *os.File) bool {
 
 // ReadNextSensorData reads sensorData sequentially from a data capture file. It assumes the file offset is already
 // pointing at the beginning of series of SensorData in the file. This is accomplished by first calling
-// ReadBuildCaptureMetadata.
+// ReadDataCaptureMetadata.
 func ReadNextSensorData(f *os.File) (*v1.SensorData, error) {
 	r := &v1.SensorData{}
 	if _, err := pbutil.ReadDelimited(f, r); err != nil {
