@@ -1,19 +1,21 @@
 package datasync
 
 import (
-	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
-	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
+)
+
+const (
+	syncWaitTime = 100 * time.Millisecond
 )
 
 func TestFileUpload(t *testing.T) {
@@ -43,11 +45,15 @@ func TestFileUpload(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Log(tc.name)
-		mc := &mockClient{
-			sent:        []*v1.UploadRequest{},
-			lock:        sync.Mutex{},
-			cancelIndex: -1,
-		}
+
+		// Register mock datasync service with a mock server.
+		logger, _ := golog.NewObservedTestLogger(t)
+		mockService := getMockService()
+		rpcServer := buildAndStartLocalServer(t, logger, mockService)
+		defer func() {
+			err := rpcServer.Stop()
+			test.That(t, err, test.ShouldBeNil)
+		}()
 
 		// Create temp file to be used as examples of reading data from the files into buffers
 		// (and finally to have that data be uploaded) to the cloud.
@@ -62,7 +68,11 @@ func TestFileUpload(t *testing.T) {
 			t.Errorf("%s: cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing: %v", tc.name, err)
 		}
 
-		sut := newTestSyncer(t, mc, nil)
+		conn, err := getLocalServerConn(rpcServer, logger)
+		test.That(t, err, test.ShouldBeNil)
+		client := NewClient(conn)
+		sut, err := NewManager(logger, partID, client, conn)
+		test.That(t, err, test.ShouldBeNil)
 		sut.Sync([]string{tf.Name()})
 
 		// Create []v1.UploadRequest object from test case input 'expData [][]byte'.
@@ -85,13 +95,18 @@ func TestFileUpload(t *testing.T) {
 				},
 			})
 		}
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(syncWaitTime)
 
 		sut.Close()
 		// The mc.sent value should be the same as the expectedMsgs value.
-		compareMetadata(t, mc.sent[0].GetMetadata(), expectedMsgs[0].GetMetadata())
-		if len(mc.sent) > 1 {
-			test.That(t, mc.sent[1:], test.ShouldResemble, expectedMsgs[1:])
+		compareMetadata(t, mockService.getUploadRequests()[0].GetMetadata(), expectedMsgs[0].GetMetadata())
+		test.That(t, len(mockService.getUploadRequests()), test.ShouldEqual, len(expectedMsgs))
+		actual := mockService.getUploadRequests()[1:]
+		if len(expectedMsgs) > 1 {
+			for i, exp := range expectedMsgs[1:] {
+				test.That(t, string(actual[i].GetFileContents().GetData()),
+					test.ShouldEqual, string(exp.GetFileContents().GetData()))
+			}
 		}
 	}
 }
@@ -138,11 +153,6 @@ func TestSensorUploadTabular(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Log(tc.name)
-		mc := &mockClient{
-			sent:        []*v1.UploadRequest{},
-			lock:        sync.Mutex{},
-			cancelIndex: -1,
-		}
 
 		// Create temp data capture file.
 		tf, err := createTmpDataCaptureFile()
@@ -172,7 +182,20 @@ func TestSensorUploadTabular(t *testing.T) {
 			}
 		}
 
-		sut := newTestSyncer(t, mc, nil)
+		// Register mock datasync service with a mock server.
+		logger, _ := golog.NewObservedTestLogger(t)
+		mockService := getMockService()
+		rpcServer := buildAndStartLocalServer(t, logger, mockService)
+		defer func() {
+			err := rpcServer.Stop()
+			test.That(t, err, test.ShouldBeNil)
+		}()
+
+		conn, err := getLocalServerConn(rpcServer, logger)
+		test.That(t, err, test.ShouldBeNil)
+		client := NewClient(conn)
+		sut, err := NewManager(logger, partID, client, conn)
+		test.That(t, err, test.ShouldBeNil)
 		sut.Sync([]string{tf.Name()})
 
 		// Create []v1.UploadRequest object from test case input 'expData []*structpb.Struct'.
@@ -203,9 +226,9 @@ func TestSensorUploadTabular(t *testing.T) {
 		}
 
 		// The mc.sent value should be the same as the expectedMsgs value.
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(syncWaitTime)
 		sut.Close()
-		compareUploadRequests(t, true, mc.sent, expectedMsgs)
+		compareUploadRequests(t, true, mockService.getUploadRequests(), expectedMsgs)
 	}
 }
 
@@ -240,11 +263,6 @@ func TestSensorUploadBinary(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Log(tc.name)
-		mc := &mockClient{
-			sent:        []*v1.UploadRequest{},
-			lock:        sync.Mutex{},
-			cancelIndex: -1,
-		}
 
 		// Create temp file to be used as examples of reading data from the files into buffers and finally to have
 		// that data be uploaded to the cloud
@@ -275,27 +293,48 @@ func TestSensorUploadBinary(t *testing.T) {
 		}
 
 		// Upload the contents from the created file.
-		sut := newTestSyncer(t, mc, nil)
+		// Register mock datasync service with a mock server.
+		logger, _ := golog.NewObservedTestLogger(t)
+		mockService := getMockService()
+		rpcServer := buildAndStartLocalServer(t, logger, mockService)
+		defer func() {
+			err := rpcServer.Stop()
+			test.That(t, err, test.ShouldBeNil)
+		}()
+
+		conn, err := getLocalServerConn(rpcServer, logger)
+		test.That(t, err, test.ShouldBeNil)
+		client := NewClient(conn)
+		sut, err := NewManager(logger, partID, client, conn)
+		test.That(t, err, test.ShouldBeNil)
 		sut.Sync([]string{tf.Name()})
 
 		// Create []v1.UploadRequest object from test case input 'expData []*structpb.Struct'.
-		expectedMsgs := buildBinarySensorMsgs(tc.expData, filepath.Base(tf.Name()))
+		expectedMsgs := buildBinaryUploadRequests(tc.expData, filepath.Base(tf.Name()))
 
 		// The mc.sent value should be the same as the expectedMsgs value.
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(syncWaitTime)
 		sut.Close()
-		compareUploadRequests(t, true, mc.sent, expectedMsgs)
+		compareUploadRequests(t, true, mockService.getUploadRequests(), expectedMsgs)
 	}
 }
 
 // Validates that for some captureDir, files are uploaded exactly once.
 func TestUploadsOnce(t *testing.T) {
-	mc := &mockClient{
-		sent:        []*v1.UploadRequest{},
-		lock:        sync.Mutex{},
-		cancelIndex: -1,
-	}
-	sut := newTestSyncer(t, mc, nil)
+	// Register mock datasync service with a mock server.
+	logger, _ := golog.NewObservedTestLogger(t)
+	mockService := getMockService()
+	rpcServer := buildAndStartLocalServer(t, logger, mockService)
+	defer func() {
+		err := rpcServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	conn, err := getLocalServerConn(rpcServer, logger)
+	test.That(t, err, test.ShouldBeNil)
+	client := NewClient(conn)
+	sut, err := NewManager(logger, partID, client, conn)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Put a couple files in captureDir.
 	file1, _ := ioutil.TempFile("", "whatever")
@@ -307,13 +346,22 @@ func TestUploadsOnce(t *testing.T) {
 	}
 
 	// Verify upload was only called twice.
-	time.Sleep(time.Millisecond * 100)
+	time.Sleep(syncWaitTime)
 	sut.Close()
-	test.That(t, len(mc.sent), test.ShouldEqual, 2)
-	test.That(t, mc.sent[0], test.ShouldNotEqual, mc.sent[1])
+	test.That(t, mockService.callCount.Load(), test.ShouldEqual, 2)
+
+	// Verify the two upload calls were made on different files.
+	var metadatas []*v1.UploadMetadata
+	for _, ur := range mockService.getUploadRequests() {
+		if ur.GetMetadata() != nil {
+			metadatas = append(metadatas, ur.GetMetadata())
+		}
+	}
+	test.That(t, len(metadatas), test.ShouldEqual, 2)
+	test.That(t, metadatas[0].GetFileName(), test.ShouldNotEqual, metadatas[1].GetFileName())
 
 	// Verify that the files were deleted after upload.
-	_, err := os.Stat(file1.Name())
+	_, err = os.Stat(file1.Name())
 	test.That(t, err, test.ShouldNotBeNil)
 	_, err = os.Stat(file2.Name())
 	test.That(t, err, test.ShouldNotBeNil)
@@ -323,54 +371,40 @@ func TestUploadExponentialRetry(t *testing.T) {
 	// Set retry related global vars to faster values for test.
 	initialWaitTime = time.Millisecond * 50
 	maxRetryInterval = time.Millisecond * 150
-	// Define an UploadFunc that fails 3 times then succeeds on its 4th attempt.
-	failureCount := 0
-	successCount := 0
-	callTimes := make(map[int]time.Time)
-	uploadFunc := func(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
-		callTimes[failureCount+successCount] = time.Now()
-		if failureCount >= 3 {
-			successCount++
-			return nil
-		}
-		failureCount++
-		return errors.New("fail for the first 3 tries, then succeed")
-	}
-	mc := &mockClient{
-		sent:        []*v1.UploadRequest{},
-		lock:        sync.Mutex{},
-		cancelIndex: -1,
-	}
-	sut := newTestSyncer(t, mc, uploadFunc)
+	// Register mock datasync service with a mock server.
+	logger, _ := golog.NewObservedTestLogger(t)
+	// Build a mock service that fails 3 times before succeeding.
+	mockService := getMockService()
+	mockService.failUntilIndex = 3
+	rpcServer := buildAndStartLocalServer(t, logger, mockService)
+	uploadChunkSize = 10
+	defer func() {
+		err := rpcServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	conn, err := getLocalServerConn(rpcServer, logger)
+	test.That(t, err, test.ShouldBeNil)
+	client := NewClient(conn)
+	sut, err := NewManager(logger, partID, client, conn)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Sync file.
 	file1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(file1.Name())
+	_, _ = file1.Write([]byte("this is some amount of content greater than 10"))
 	sut.Sync([]string{file1.Name()})
 
 	// Let it run.
 	time.Sleep(time.Second)
 	sut.Close()
 
-	// Test that upload failed 4 times then succeeded once.
-	test.That(t, failureCount, test.ShouldEqual, 3)
-	test.That(t, successCount, test.ShouldEqual, 1)
-
-	// Test that exponential increase happens.
-	// First retry should wait initialWaitTime
-	// Give some leeway so small variations in timing don't cause test failures.
-	marginOfError := time.Millisecond * 40
-	test.That(t, callTimes[1].Sub(callTimes[0]), test.ShouldAlmostEqual, initialWaitTime, marginOfError)
-
-	// Then increase by a factor of retryExponentialFactor each time
-	test.That(t, callTimes[2].Sub(callTimes[1]), test.ShouldAlmostEqual,
-		initialWaitTime*time.Duration(retryExponentialFactor), marginOfError)
-
-	// ... but not increase past maxRetryInterval.
-	test.That(t, callTimes[3].Sub(callTimes[2]), test.ShouldAlmostEqual, maxRetryInterval, marginOfError)
+	// Validate that the client called Upload repeatedly.
+	test.That(t, mockService.callCount.Load(), test.ShouldEqual, 4)
 }
 
 func TestPartialUpload(t *testing.T) {
+	initialWaitTime = time.Minute
 	msg1 := []byte("viam")
 	msg2 := []byte("robotics")
 	msg3 := []byte("builds cool software")
@@ -378,106 +412,125 @@ func TestPartialUpload(t *testing.T) {
 	msg5 := toProto(anyStruct{Field1: false})
 	msg6 := toProto(anyStruct{Field1: true, Field2: 2020, Field3: "viam"})
 
-	tests := []*partialUploadTestcase{
+	tests := []struct {
+		name        string
+		cancelIndex int32
+		toSend      []*v1.SensorData
+		expUR       []*v1.UploadRequest
+		dataType    v1.DataType
+	}{
 		{
+			// TODO: add expected upload requests
 			name: "Binary upload of non-empty file should resume from last point if it is " +
 				"canceled.",
-			toSend:                    createBinarySensorData([][]byte{msg1, msg2, msg3}),
-			progressIndexWhenCanceled: 2,
-			expDataBeforeCanceled:     createBinarySensorData([][]byte{msg1, msg2}),
-			expDataAfterCanceled:      createBinarySensorData([][]byte{msg3}),
-			dataType:                  v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			toSend:      createBinarySensorData([][]byte{msg1, msg2, msg3}),
+			cancelIndex: 2,
+			dataType:    v1.DataType_DATA_TYPE_BINARY_SENSOR,
 		},
 		{
 			name: "Binary upload of empty file should not upload anything when it is started nor if it " +
 				"is resumed.",
-			toSend:                    createBinarySensorData([][]byte{}),
-			progressIndexWhenCanceled: 0,
-			expDataBeforeCanceled:     createBinarySensorData([][]byte{}),
-			expDataAfterCanceled:      createBinarySensorData([][]byte{}),
-			dataType:                  v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			toSend:      []*v1.SensorData{},
+			cancelIndex: 0,
+			dataType:    v1.DataType_DATA_TYPE_BINARY_SENSOR,
 		},
 		{
 			name: "Binary upload with no more messages to send after it's canceled should not upload " +
 				"anything after resuming.",
-			toSend:                    createBinarySensorData([][]byte{msg1, msg2}),
-			progressIndexWhenCanceled: 2,
-			expDataBeforeCanceled:     createBinarySensorData([][]byte{msg1, msg2}),
-			expDataAfterCanceled:      createBinarySensorData([][]byte{}),
-			dataType:                  v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			toSend:      createBinarySensorData([][]byte{msg1, msg2}),
+			cancelIndex: 2,
+			dataType:    v1.DataType_DATA_TYPE_BINARY_SENSOR,
 		},
 		{
 			name: "Binary upload that is interrupted before sending a single message should resume and send all" +
 				"messages.",
-			toSend:                    createBinarySensorData([][]byte{msg1, msg2}),
-			progressIndexWhenCanceled: 0,
-			expDataBeforeCanceled:     createBinarySensorData([][]byte{}),
-			expDataAfterCanceled:      createBinarySensorData([][]byte{msg1, msg2}),
-			dataType:                  v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			toSend:      createBinarySensorData([][]byte{msg1, msg2}),
+			cancelIndex: 0,
+			dataType:    v1.DataType_DATA_TYPE_BINARY_SENSOR,
 		},
 		{
 			name: "Tabular upload of non-empty file should resume from last point if it is" +
 				"canceled.",
-			toSend:                    createTabularSensorData([]*structpb.Struct{msg4, msg5, msg6}),
-			progressIndexWhenCanceled: 2,
-			expDataBeforeCanceled:     createTabularSensorData([]*structpb.Struct{msg4, msg5}),
-			expDataAfterCanceled:      createTabularSensorData([]*structpb.Struct{msg6}),
-			dataType:                  v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			toSend:      createTabularSensorData([]*structpb.Struct{msg4, msg5, msg6}),
+			cancelIndex: 2,
+			dataType:    v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 		},
 		{
 			name: "Tabular upload of empty file should not upload anything when it is started nor if it " +
 				"is resumed.",
-			toSend:                    createTabularSensorData([]*structpb.Struct{}),
-			progressIndexWhenCanceled: 0,
-			expDataBeforeCanceled:     createTabularSensorData([]*structpb.Struct{}),
-			expDataAfterCanceled:      createTabularSensorData([]*structpb.Struct{}),
-			dataType:                  v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			toSend:      createTabularSensorData([]*structpb.Struct{}),
+			cancelIndex: 0,
+			dataType:    v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			// Create temp data capture file.
-			tf, err := createTmpDataCaptureFile()
-			if err != nil {
-				t.Errorf("%s cannot create temporary data capture file for testing: %v", tc.name, err)
-			}
-			defer os.Remove(tf.Name())
+			// TODO in test:
+			//      - build mock server that cancels after receiving cancelIndex messages
+			//      - verify expected messages before + after cancel
 
-			writeCaptureMetadataToFile(t, tc.dataType, tf)
+			// Create temp data capture file.
+			f, err := createTmpDataCaptureFile()
+			test.That(t, err, test.ShouldBeNil)
+			// First write metadata to file.
+			captureMetadata := v1.DataCaptureMetadata{
+				ComponentType:    componentType,
+				ComponentName:    componentName,
+				MethodName:       methodName,
+				Type:             tc.dataType,
+				MethodParameters: nil,
+			}
+			if _, err := pbutil.WriteDelimited(f, &captureMetadata); err != nil {
+				t.Errorf("cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v", err)
+			}
 
 			// Next write sensor data to file.
-			if err := writeSensorData(tf, tc.toSend); err != nil {
+			if err := writeSensorData(f, tc.toSend); err != nil {
 				t.Errorf("%s: cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing: %v", tc.name, err)
 			}
 
-			// Sync using mock client.
-			mc := initMockClient(len(tc.expDataBeforeCanceled))
-			sut := newTestSyncer(t, mc, nil)
-			sut.Sync([]string{tf.Name()})
-			time.Sleep(time.Millisecond * 100)
-			compareUploadRequestsMockClient(t, false, mc, getUploadRequests(tc.expDataBeforeCanceled, tc.dataType,
-				filepath.Base(tf.Name())))
-
-			// Only verify progress file existence and content if the upload has expected messages after being canceled.
-			path := filepath.Join(viamProgressDotDir, filepath.Base(tf.Name()))
-			if len(tc.expDataAfterCanceled) > 0 {
-				test.That(t, fileExists(path), test.ShouldBeTrue)
-				progressIndex, err := sut.progressTracker.getProgressFileIndex(path)
+			// Stand up mock server.
+			// Register mock datasync service with a mock server.
+			logger, _ := golog.NewObservedTestLogger(t)
+			mockService := getMockService()
+			mockService.failAtIndex = tc.cancelIndex
+			rpcServer := buildAndStartLocalServer(t, logger, mockService)
+			defer func() {
+				err := rpcServer.Stop()
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, progressIndex, test.ShouldEqual, tc.progressIndexWhenCanceled)
-			}
+			}()
+
+			conn, err := getLocalServerConn(rpcServer, logger)
+			test.That(t, err, test.ShouldBeNil)
+			client := NewClient(conn)
+			sut, err := NewManager(logger, partID, client, conn)
+			test.That(t, err, test.ShouldBeNil)
+			sut.Sync([]string{f.Name()})
+			time.Sleep(syncWaitTime)
 			sut.Close()
 
-			// Reset mock client to be empty (simulates a full reboot of client). Then sync using mock client.
-			mc = initMockClient(len(tc.expDataAfterCanceled))
-			sut = newTestSyncer(t, mc, nil)
-			sut.Sync([]string{tf.Name()})
-			time.Sleep(time.Millisecond * 100)
+			// TODO: validate mockService.getUploadRequests for indexes 0:tc.cancelIndex
+
+			// Restart.
+			mockService = getMockService()
+			rpcServer = buildAndStartLocalServer(t, logger, mockService)
+			defer func() {
+				err := rpcServer.Stop()
+				test.That(t, err, test.ShouldBeNil)
+			}()
+			conn, err = getLocalServerConn(rpcServer, logger)
+			test.That(t, err, test.ShouldBeNil)
+			client = NewClient(conn)
+			sut, err = NewManager(logger, partID, client, conn)
+			test.That(t, err, test.ShouldBeNil)
+			sut.Sync([]string{f.Name()})
+			time.Sleep(syncWaitTime)
 			sut.Close()
-			compareUploadRequestsMockClient(t, false, mc, getUploadRequests(tc.expDataAfterCanceled, tc.dataType,
-				filepath.Base(tf.Name())))
-			test.That(t, fileExists(path), test.ShouldBeFalse)
+
+			// TODO: validate mockService.getUploadRequests for indexes tc.cancelIndex:
+
+			// TODO: Validate progress files do not exist.
 		})
 	}
 }
