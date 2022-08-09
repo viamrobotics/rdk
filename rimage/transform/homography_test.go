@@ -20,14 +20,13 @@ func (h *homographyTestHelper) Process(
 	t *testing.T,
 	pCtx *rimage.ProcessorContext,
 	fn string,
-	img image.Image,
+	img, img2 image.Image,
 	logger golog.Logger,
 ) error {
 	t.Helper()
 	var err error
-	// TODO(DATA-237) remove .both files
 	im := rimage.ConvertImage(img)
-	dm, err := rimage.ConvertImageToDepthMap(img)
+	dm, err := rimage.ConvertImageToDepthMap(img2)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "depth_homography")
 
@@ -100,7 +99,7 @@ func TestDepthColorHomography(t *testing.T) {
 
 	dch, err := NewDepthColorHomography(conf)
 	test.That(t, err, test.ShouldBeNil)
-	d := rimage.NewMultipleImageTestDebugger(t, "transform/homography", "*.both.gz", false)
+	d := rimage.NewMultipleImageTestDebugger(t, "transform/homography/color", "*.png", "transform/homography/depth")
 	err = d.Process(t, &homographyTestHelper{dch, intrinsics})
 	test.That(t, err, test.ShouldBeNil)
 }
