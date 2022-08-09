@@ -67,6 +67,7 @@ func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 	test.That(t, filepath.Base(actualMetadata.FileName), test.ShouldEqual, filepath.Base(expectedMetadata.FileName))
 	test.That(t, actualMetadata.PartId, test.ShouldEqual, expectedMetadata.PartId)
 	test.That(t, actualMetadata.ComponentName, test.ShouldEqual, expectedMetadata.ComponentName)
+	test.That(t, actualMetadata.ComponentModel, test.ShouldEqual, expectedMetadata.ComponentModel)
 	test.That(t, actualMetadata.ComponentType, test.ShouldEqual, expectedMetadata.ComponentType)
 	test.That(t, actualMetadata.MethodName, test.ShouldEqual, expectedMetadata.MethodName)
 	test.That(t, actualMetadata.Type, test.ShouldEqual, expectedMetadata.Type)
@@ -140,6 +141,35 @@ func createTabularSensorData(toWrite []*structpb.Struct) []*v1.SensorData {
 	return sds
 }
 
+<<<<<<< HEAD
+=======
+func getUploadRequests(sds []*v1.SensorData, dt v1.DataType, fileName string) []*v1.UploadRequest {
+	urs := []*v1.UploadRequest{}
+	if len(sds) == 0 {
+		return []*v1.UploadRequest{}
+	}
+	urs = append(urs, &v1.UploadRequest{
+		UploadPacket: &v1.UploadRequest_Metadata{
+			Metadata: &v1.UploadMetadata{
+				PartId:         partID,
+				Type:           dt,
+				FileName:       fileName,
+				ComponentType:  componentType,
+				ComponentName:  componentName,
+				ComponentModel: componentModel,
+				MethodName:     methodName,
+			},
+		},
+	})
+	for _, sd := range sds {
+		urs = append(urs, &v1.UploadRequest{
+			UploadPacket: &v1.UploadRequest_SensorContents{SensorContents: sd},
+		})
+	}
+	return urs
+}
+
+>>>>>>> 9663a2af (updated tests)
 // createTmpDataCaptureFile creates a data capture file, which is defined as a file with the dataCaptureFileExt as its
 // file extension.
 func createTmpDataCaptureFile() (file *os.File, err error) {
@@ -166,12 +196,13 @@ func buildBinaryUploadRequests(data [][]byte, fileName string) []*v1.UploadReque
 	expMsgs = append(expMsgs, &v1.UploadRequest{
 		UploadPacket: &v1.UploadRequest_Metadata{
 			Metadata: &v1.UploadMetadata{
-				PartId:        partID,
-				Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
-				FileName:      fileName,
-				ComponentType: componentType,
-				ComponentName: componentName,
-				MethodName:    methodName,
+				PartId:         partID,
+				Type:           v1.DataType_DATA_TYPE_BINARY_SENSOR,
+				FileName:       fileName,
+				ComponentType:  componentType,
+				ComponentName:  componentName,
+				ComponentModel: componentModel,
+				MethodName:     methodName,
 			},
 		},
 	})
