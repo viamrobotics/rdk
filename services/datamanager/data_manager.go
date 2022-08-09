@@ -34,7 +34,6 @@ import (
 	modelclient "go.viam.com/rdk/services/datamanager/model"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -787,7 +786,7 @@ func createClientConnection(logger *zap.SugaredLogger, cfg *config.Config) (rpc.
 		rpc.WithEntityCredentials(
 			cloudConfig.ID,
 			rpc.Credentials{
-				Type:    rdkutils.CredentialsTypeRobotLocationSecret,
+				Type:    utils.CredentialsTypeRobotLocationSecret,
 				Payload: cloudConfig.LocationSecret,
 			}),
 	}
