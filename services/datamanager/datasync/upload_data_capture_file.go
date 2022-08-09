@@ -50,6 +50,9 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		return err
 	}
 
+	progressFileName := filepath.Join(pt.progressDir,
+		filepath.Base(f.Name()))
+
 	// Send metadata upload request.
 	req := &v1.UploadRequest{
 		UploadPacket: &v1.UploadRequest_Metadata{
@@ -91,8 +94,7 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 					close(retRecvUploadResponse)
 					return
 				} else {
-					if err := pt.updateProgressFileIndex(filepath.Join(pt.progressDir, filepath.
-						Base(f.Name())), int(ur.GetRequestsWritten())); err != nil {
+					if err := pt.updateProgressFileIndex(progressFileName, int(ur.GetRequestsWritten())); err != nil {
 						retRecvUploadResponse <- err
 						close(retRecvUploadResponse)
 						return
@@ -164,8 +166,7 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	}
 
 	// Upload is complete, delete the corresponding progress file on disk.
-	if err := pt.deleteProgressFile(filepath.Join(pt.progressDir,
-		filepath.Base(filepath.Base(f.Name())))); err != nil {
+	if err := pt.deleteProgressFile(progressFileName); err != nil {
 		return err
 	}
 
