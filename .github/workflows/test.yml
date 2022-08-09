@@ -53,11 +53,8 @@ jobs:
         NEW_GOOGLE_APPLICATION_CREDENTIALS=`dirname ${GOOGLE_APPLICATION_CREDENTIALS}`/${GOOGLE_APPLICATION_CREDENTIALS_FILENAME}
         mv ${GOOGLE_APPLICATION_CREDENTIALS} ${NEW_GOOGLE_APPLICATION_CREDENTIALS}
         echo "GOOGLE_APPLICATION_CREDENTIALS=${NEW_GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
-
-    - name: Test GCP Creds
-      run: |
-        echo "${GOOGLE_APPLICATION_CREDENTIALS}
-        cat "${GOOGLE_APPLICATION_CREDENTIALS}
+        echo "GOOGLE_GHA_CREDS_PATH=${NEW_GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
+        echo "CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE=${NEW_GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
 
     - name: Configure git for private repos
       run: |
@@ -74,12 +71,13 @@ jobs:
         if [ -n "$GEN_DIFF" ]; then
             echo '"make build lint" resulted in changes not in git' 1>&2
             git status
+            exit 1
         fi
 
     - name: Test
       if: matrix.platform == 'linux/amd64'
       run: |
-        sudo GOOGLE_APPLICATION_CREDENTIALS=${NEW_GOOGLE_APPLICATION_CREDENTIALS} -u testbot bash -lc 'make cover test-web'
+        sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS -u testbot bash -lc 'make cover test-web'
 
     - name: Code Coverage Summary Report
       if: matrix.platform == 'linux/amd64'
