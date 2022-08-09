@@ -13,6 +13,7 @@ on:
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
+  GOOGLE_APPLICATION_CREDENTIALS_FILENAME: "google-credentials.json"
 
 jobs:
   build_and_test:
@@ -47,12 +48,12 @@ jobs:
         create_credentials_file: true
         export_environment_variables: true
 
-    - name: Print GCP Credentials
+    - name: Move GCP Credential to a known file 
       run: |
-        echo "ARTIFACT_READ_ONLY_GCP_CREDENTIALS=${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}"
-        echo CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE=${CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE}
-        echo GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}
-        echo GOOGLE_GHA_CREDS_PATH=${GOOGLE_GHA_CREDS_PATH}
+        NEW_GOOGLE_APPLICATION_CREDENTIALS=`dirname ${GOOGLE_APPLICATION_CREDENTIALS}`/${GOOGLE_APPLICATION_CREDENTIALS_FILENAME}
+        echo $NEW_GOOGLE_APPLICATION_CREDENTIALS
+        mv ${GOOGLE_APPLICATION_CREDENTIALS} ${NEW_GOOGLE_APPLICATION_CREDENTIALS}
+        GOOGLE_APPLICATION_CREDENTIALS=${NEW_GOOGLE_APPLICATION_CREDENTIALS}
 
     - name: Configure git for private repos
       run: |
