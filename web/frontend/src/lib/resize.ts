@@ -2,7 +2,7 @@ export const addResizeListeners = () => {
   const container = document.querySelector('#app')!;
 
   const observer = new ResizeObserver(() => {
-    window.postMessage(JSON.stringify({
+    window.parent.postMessage(JSON.stringify({
       event: 'scroll-height',
       height: container.scrollHeight,
     }));
