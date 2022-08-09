@@ -37,13 +37,30 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) Move(
+func (c *client) PlanAndMove(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
 ) (bool, error) {
-	resp, err := c.client.Move(ctx, &pb.MoveRequest{
+	resp, err := c.client.PlanAndMove(ctx, &pb.PlanAndMoveRequest{
+		ComponentName: protoutils.ResourceNameToProto(componentName),
+		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
+		WorldState:    worldState,
+	})
+	if err != nil {
+		return false, err
+	}
+	return resp.Success, nil
+}
+
+func (c *client) MoveSingleComponent(
+	ctx context.Context,
+	componentName resource.Name,
+	destination *referenceframe.PoseInFrame,
+	worldState *commonpb.WorldState,
+) (bool, error) {
+	resp, err := c.client.MoveSingleComponent(ctx, &pb.MoveSingleComponentRequest{
 		ComponentName: protoutils.ResourceNameToProto(componentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
 		WorldState:    worldState,
