@@ -60,7 +60,7 @@ require (
 	github.com/tonyOreglia/glee v0.0.0-20210610071128-503a6e4b07d7
 	github.com/u2takey/ffmpeg-go v0.4.1
 	github.com/urfave/cli/v2 v2.10.3
-	github.com/viamrobotics/app v0.0.0-20220809194536-8fe0b934efcd
+	github.com/viamrobotics/app v0.0.0-20220809205622-19d400d91d84
 	github.com/viamrobotics/evdev v0.1.3
 	github.com/xfmoulet/qoi v0.2.0
 	go-hep.org/x/hep v0.31.1

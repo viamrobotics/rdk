@@ -1459,8 +1459,8 @@ github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyC
 github.com/valyala/fasthttp v1.16.0/go.mod h1:YOKImeEosDdBPnxc0gy7INqi3m1zK6A+xl6TwOBhHCA=
 github.com/valyala/quicktemplate v1.6.3/go.mod h1:fwPzK2fHuYEODzJ9pkw0ipCPNHZ2tD5KW4lOuSdPKzY=
 github.com/valyala/tcplisten v0.0.0-20161114210144-ceec8f93295a/go.mod h1:v3UYOV9WzVtRmSR+PDvWpU/qWl4Wa5LApYYX4ZtKbio=
-github.com/viamrobotics/app v0.0.0-20220809194536-8fe0b934efcd h1:Thav3UFSbmUlzr4x+MQyts/3QKG2jKB1sXb6f1aApyM=
-github.com/viamrobotics/app v0.0.0-20220809194536-8fe0b934efcd/go.mod h1:ri2ac9Lqwwc3gQTOaE6HKgIOig/F+GbEte6lX1qaako=
+github.com/viamrobotics/app v0.0.0-20220809205622-19d400d91d84 h1:nn6MLHHl11b8WpX5VOW2ZkI9OokNiGK76ZBzgwEzOro=
+github.com/viamrobotics/app v0.0.0-20220809205622-19d400d91d84/go.mod h1:ri2ac9Lqwwc3gQTOaE6HKgIOig/F+GbEte6lX1qaako=
 github.com/viamrobotics/evdev v0.1.3 h1:mR4HFafvbc5Wx4Vp1AUJp6/aITfVx9AKyXWx+rWjpfc=
 github.com/viamrobotics/evdev v0.1.3/go.mod h1:N6nuZmPz7HEIpM7esNWwLxbYzqWqLSZkfI/1Sccckqk=
 github.com/viamrobotics/mongo-go-driver-protobuf v0.0.0-20211111212038-97235f6106ee h1:zlOLskkebvC0Dg8zJwVGiKi10v01Z+MU0pw3t7ksPbQ=
