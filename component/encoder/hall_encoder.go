@@ -47,22 +47,34 @@ type HallEncoder struct {
 
 // HallPins defines the format the pin config should be in for HallEncoder.
 type HallPins struct {
-	A, B string
+	A             string `json:"a"`
+	B             string `json:"b"`
+}
+
+type HallConfig struct {
+	Pins      			HallPins 	`json:"pins"`
+	BoardName 			string   	`json:"board"`
+
+	TicksPerRotation 	int 		`json:"ticks_per_rotation"`
 }
 
 // NewHallEncoder creates a new HallEncoder.
 func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (*HallEncoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	e := &HallEncoder{logger: logger, cancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0, pRaw: 0, pState: 0}
-	if cfg, ok := config.ConvertedAttributes.(*Config); ok {
+	logger.Debug("NewHallEncoder")
+	if cfg, ok := config.ConvertedAttributes.(*HallConfig); ok {
+		logger.Debug("config ok")
 		if cfg.BoardName == "" {
 			return nil, errors.New("HallEncoder expected non-empty string for board")
 		}
-		if pins, ok := cfg.Pins.(*HallPins); ok {
+		pins := cfg.Pins
 			board, err := board.FromDependencies(deps, cfg.BoardName)
 			if err != nil {
 				return nil, err
 			}
+
+			logger.Debugf("EncoderA: %s, EncoderB: %s", pins.A, pins.B)
 
 			e.A, ok = board.DigitalInterruptByName(pins.A)
 			if !ok {
@@ -73,15 +85,20 @@ func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config conf
 			if !ok {
 				return nil, errors.Errorf("cannot find pin (%s) for HallEncoder", pins.B)
 			}
-		} else {
-			return nil, errors.New("Pin configuration not valid for HallEncoder")
-		}
+		// } else {
+		// 	return nil, errors.New("Pin configuration not valid for HallEncoder")
+		// }
 		e.ticksPerRotation = int64(cfg.TicksPerRotation)
+
+		e.Start(ctx, func() {})
+	
+		return e, nil
+	} else {
+		logger.Debugf("Board: %s", config.Attributes.String("board"))
+		logger.Debugf("TicksPerRotation: %d", config.Attributes.Int("ticks_per_rotation", 0))
+		return nil, errors.New("encoder config is not valid")
 	}
 
-	e.Start(ctx, func() {})
-
-	return e, nil
 }
 
 // Start starts the HallEncoder background thread.

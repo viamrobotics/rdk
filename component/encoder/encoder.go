@@ -165,5 +165,5 @@ type Config struct {
 	Pins      interface{} `json:"pins"`
 	BoardName string      `json:"board"`
 
-	TicksPerRotation int `json:"ticks_per_rotation,omitempty"`
+	TicksPerRotation int `json:"ticks_per_rotation"`
 }
