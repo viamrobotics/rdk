@@ -22,7 +22,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-const model = "vectornav"
+const model = "imu_vectornav"
 
 func init() {
 	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{

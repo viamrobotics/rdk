@@ -78,12 +78,12 @@ func (s *subtypeServer) GetAngularVelocity(
 	if err != nil {
 		return nil, err
 	}
-	vel, err := msDevice.GetAngularVelocity(ctx)
+	av, err := msDevice.GetAngularVelocity(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.GetAngularVelocityResponse{
-		AngularVelocity: protoutils.ConvertVectorR3ToProto(r3.Vector(vel)),
+		AngularVelocity: protoutils.ConvertVectorR3ToProto(r3.Vector(av)),
 	}, nil
 }
 
@@ -95,12 +95,12 @@ func (s *subtypeServer) GetCompassHeading(
 	if err != nil {
 		return nil, err
 	}
-	vel, err := msDevice.GetCompassHeading(ctx)
+	ch, err := msDevice.GetCompassHeading(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.GetCompassHeadingResponse{
-		Value: vel,
+		Value: ch,
 	}, nil
 }
 
@@ -112,12 +112,12 @@ func (s *subtypeServer) GetOrientation(
 	if err != nil {
 		return nil, err
 	}
-	vel, err := msDevice.GetOrientation(ctx)
+	ori, err := msDevice.GetOrientation(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.GetOrientationResponse{
-		Orientation: protoutils.ConvertOrientationToProto(vel),
+		Orientation: protoutils.ConvertOrientationToProto(ori),
 	}, nil
 }
 

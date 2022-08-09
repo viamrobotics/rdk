@@ -61,12 +61,12 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// A MovementSensor represents a MovementSensor that can report lat/long measurements.
+// A MovementSensor reports information about the robot's direction, position and speed
 type MovementSensor interface {
-	GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) // (lat, long), altitide, accuracy
-	GetLinearVelocity(ctx context.Context) (r3.Vector, error)
-	GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error)
-	GetCompassHeading(ctx context.Context) (float64, error)
+	GetPosition(ctx context.Context) (*geo.Point, float64, float64, error) // (lat, long), altitide (mm), accuracy (mm)
+	GetLinearVelocity(ctx context.Context) (r3.Vector, error) // mm / sec
+	GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) // radians / sec
+	GetCompassHeading(ctx context.Context) (float64, error) // [0->360)
 	GetOrientation(ctx context.Context) (spatialmath.Orientation, error)
 
 	generic.Generic
