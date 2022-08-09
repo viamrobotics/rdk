@@ -53,19 +53,19 @@ jobs:
       run: |
         sudo -u testbot bash -lc 'echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc'
 
-    - name: Verify no uncommitted changes from "${{ matrix.build_lint }}"
-      run: |
-        git init
-        git add .
-        chown -R testbot .
-        sudo -u testbot bash -lc '${{ matrix.build_lint }}'
-        GEN_DIFF=$(git status -s)
+    # - name: Verify no uncommitted changes from "${{ matrix.build_lint }}"
+    #   run: |
+    #     git init
+    #     git add .
+    #     chown -R testbot .
+    #     sudo -u testbot bash -lc '${{ matrix.build_lint }}'
+    #     GEN_DIFF=$(git status -s)
 
-        if [ -n "$GEN_DIFF" ]; then
-            echo '"make build lint" resulted in changes not in git' 1>&2
-            git status
-            exit 1
-        fi
+    #     if [ -n "$GEN_DIFF" ]; then
+    #         echo '"make build lint" resulted in changes not in git' 1>&2
+    #         git status
+    #         exit 1
+    #     fi
 
     - name: Test
       if: matrix.platform == 'linux/amd64'
@@ -105,6 +105,15 @@ jobs:
         shopt -s dotglob
         sudo chown -R `whoami` ./
         rm -rf ./*
+
+    - name: Authorize GCP
+      uses: google-github-actions/auth@v0.4.3
+      with:
+        credentials_json: '${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}'
+
+    - name: Print GCP Credentials
+      run: |
+        echo "ARTIFACT_READ_ONLY_GCP_CREDENTIALS=${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}"
 
     - name: Check out code in rdk directory
       uses: actions/checkout@v2
