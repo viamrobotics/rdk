@@ -16,7 +16,7 @@ on:
 
 jobs:
   test:
-    uses: viamrobotics/rdk/.github/workflows/test.yml@support-credentials
+    uses: viamrobotics/rdk/.github/workflows/test.yml@main
     secrets:
       REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
       GIT_ACCESS_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
