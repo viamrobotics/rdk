@@ -74,10 +74,11 @@ test-web: build-web
 	cd web/frontend && npm run test:unit
 
 # test.short skips tests requiring external hardware (motors/servos)
+# pass GOOGLE_APPLICATION_CREDENTIALS for CI. Without it cloud apis
+# try to access metadata api for GCE which causes goleak to fail.
 test-pi:
-	echo "Test Pi: ${GOOGLE_APPLICATION_CREDENTIALS}"
 	go test -c -o $(BIN_OUTPUT_PATH)/test-pi go.viam.com/rdk/component/board/pi/impl
-	sudo $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
+	sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
 
 server:
 	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
