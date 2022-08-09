@@ -21,15 +21,15 @@ func TestBasicDigitalInterrupt1(t *testing.T) {
 	i, err := CreateDigitalInterrupt(config)
 	test.That(t, err, test.ShouldBeNil)
 
-	intVal, err := i.Value(context.Background())
+	intVal, err := i.Value(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, intVal, test.ShouldEqual, int64(1))
 	test.That(t, i.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
-	intVal, err = i.Value(context.Background())
+	intVal, err = i.Value(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, intVal, test.ShouldEqual, int64(2))
 	test.That(t, i.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
-	intVal, err = i.Value(context.Background())
+	intVal, err = i.Value(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, intVal, test.ShouldEqual, int64(2))
 
@@ -62,7 +62,7 @@ func TestServoInterrupt(t *testing.T) {
 		now += 1000 * 1000 * 1000 // this is between measurements
 	}
 
-	intVal, err := s.Value(context.Background())
+	intVal, err := s.Value(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, intVal, test.ShouldEqual, int64(1500))
 }
@@ -85,7 +85,7 @@ func TestServoInterruptWithPP(t *testing.T) {
 		now += 1000 * 1000 * 1000 // this is between measurements
 	}
 
-	intVal, err := s.Value(context.Background())
+	intVal, err := s.Value(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, intVal, test.ShouldEqual, int64(1501))
 }
