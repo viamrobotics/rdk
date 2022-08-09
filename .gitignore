@@ -66,3 +66,6 @@ bin/
 
 # exclude files from `ag` search
 .ignore
+
+# exclude credential created during CI
+google-credentials.json
