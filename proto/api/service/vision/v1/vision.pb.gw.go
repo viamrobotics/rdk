@@ -31,19 +31,25 @@ var _ = runtime.String
 var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
-var (
-	filter_VisionService_GetDetectorNames_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
-)
-
 func request_VisionService_GetDetectorNames_0(ctx context.Context, marshaler runtime.Marshaler, client VisionServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq GetDetectorNamesRequest
 	var metadata runtime.ServerMetadata
 
-	if err := req.ParseForm(); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_VisionService_GetDetectorNames_0); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
 	msg, err := client.GetDetectorNames(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
@@ -55,11 +61,21 @@ func local_request_VisionService_GetDetectorNames_0(ctx context.Context, marshal
 	var protoReq GetDetectorNamesRequest
 	var metadata runtime.ServerMetadata
 
-	if err := req.ParseForm(); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_VisionService_GetDetectorNames_0); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
 	msg, err := server.GetDetectorNames(ctx, &protoReq)
@@ -68,12 +84,29 @@ func local_request_VisionService_GetDetectorNames_0(ctx context.Context, marshal
 }
 
 var (
-	filter_VisionService_AddDetector_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+	filter_VisionService_AddDetector_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
 )
 
 func request_VisionService_AddDetector_0(ctx context.Context, marshaler runtime.Marshaler, client VisionServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq AddDetectorRequest
 	var metadata runtime.ServerMetadata
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
 
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
@@ -91,6 +124,23 @@ func local_request_VisionService_AddDetector_0(ctx context.Context, marshaler ru
 	var protoReq AddDetectorRequest
 	var metadata runtime.ServerMetadata
 
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
+
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
@@ -104,12 +154,29 @@ func local_request_VisionService_AddDetector_0(ctx context.Context, marshaler ru
 }
 
 var (
-	filter_VisionService_GetDetectionsFromCamera_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+	filter_VisionService_GetDetectionsFromCamera_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
 )
 
 func request_VisionService_GetDetectionsFromCamera_0(ctx context.Context, marshaler runtime.Marshaler, client VisionServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq GetDetectionsFromCameraRequest
 	var metadata runtime.ServerMetadata
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
 
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
@@ -127,6 +194,23 @@ func local_request_VisionService_GetDetectionsFromCamera_0(ctx context.Context, 
 	var protoReq GetDetectionsFromCameraRequest
 	var metadata runtime.ServerMetadata
 
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
+
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
@@ -140,12 +224,29 @@ func local_request_VisionService_GetDetectionsFromCamera_0(ctx context.Context, 
 }
 
 var (
-	filter_VisionService_GetDetections_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+	filter_VisionService_GetDetections_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
 )
 
 func request_VisionService_GetDetections_0(ctx context.Context, marshaler runtime.Marshaler, client VisionServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq GetDetectionsRequest
 	var metadata runtime.ServerMetadata
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
 
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
@@ -163,6 +264,23 @@ func local_request_VisionService_GetDetections_0(ctx context.Context, marshaler 
 	var protoReq GetDetectionsRequest
 	var metadata runtime.ServerMetadata
 
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
+
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
@@ -175,19 +293,25 @@ func local_request_VisionService_GetDetections_0(ctx context.Context, marshaler 
 
 }
 
-var (
-	filter_VisionService_GetSegmenterNames_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
-)
-
 func request_VisionService_GetSegmenterNames_0(ctx context.Context, marshaler runtime.Marshaler, client VisionServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq GetSegmenterNamesRequest
 	var metadata runtime.ServerMetadata
 
-	if err := req.ParseForm(); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_VisionService_GetSegmenterNames_0); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
 	msg, err := client.GetSegmenterNames(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
@@ -199,11 +323,21 @@ func local_request_VisionService_GetSegmenterNames_0(ctx context.Context, marsha
 	var protoReq GetSegmenterNamesRequest
 	var metadata runtime.ServerMetadata
 
-	if err := req.ParseForm(); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_VisionService_GetSegmenterNames_0); err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
 	msg, err := server.GetSegmenterNames(ctx, &protoReq)
@@ -212,12 +346,29 @@ func local_request_VisionService_GetSegmenterNames_0(ctx context.Context, marsha
 }
 
 var (
-	filter_VisionService_GetSegmenterParameters_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+	filter_VisionService_GetSegmenterParameters_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
 )
 
 func request_VisionService_GetSegmenterParameters_0(ctx context.Context, marshaler runtime.Marshaler, client VisionServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq GetSegmenterParametersRequest
 	var metadata runtime.ServerMetadata
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
 
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
@@ -235,6 +386,23 @@ func local_request_VisionService_GetSegmenterParameters_0(ctx context.Context, m
 	var protoReq GetSegmenterParametersRequest
 	var metadata runtime.ServerMetadata
 
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
+
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
@@ -248,12 +416,29 @@ func local_request_VisionService_GetSegmenterParameters_0(ctx context.Context, m
 }
 
 var (
-	filter_VisionService_GetObjectPointClouds_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+	filter_VisionService_GetObjectPointClouds_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
 )
 
 func request_VisionService_GetObjectPointClouds_0(ctx context.Context, marshaler runtime.Marshaler, client VisionServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq GetObjectPointCloudsRequest
 	var metadata runtime.ServerMetadata
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
 
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
@@ -270,6 +455,23 @@ func request_VisionService_GetObjectPointClouds_0(ctx context.Context, marshaler
 func local_request_VisionService_GetObjectPointClouds_0(ctx context.Context, marshaler runtime.Marshaler, server VisionServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq GetObjectPointCloudsRequest
 	var metadata runtime.ServerMetadata
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
 
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
@@ -296,7 +498,7 @@ func RegisterVisionServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetDetectorNames", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/detector_names"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetDetectorNames", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/{name}/detector_names"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -320,7 +522,7 @@ func RegisterVisionServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/AddDetector", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/add_detector"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/AddDetector", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/{name}/add_detector"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -344,7 +546,7 @@ func RegisterVisionServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetDetectionsFromCamera", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/camera_detections"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetDetectionsFromCamera", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/{name}/camera_detections"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -368,7 +570,7 @@ func RegisterVisionServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetDetections", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/detections"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetDetections", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/{name}/detections"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -392,7 +594,7 @@ func RegisterVisionServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetSegmenterNames", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/segmenter_names"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetSegmenterNames", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/{name}/segmenter_names"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -416,7 +618,7 @@ func RegisterVisionServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetSegmenterParameters", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/segmenter_parameters"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetSegmenterParameters", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/{name}/segmenter_parameters"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -440,7 +642,7 @@ func RegisterVisionServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetObjectPointClouds", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/object_point_clouds"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetObjectPointClouds", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/{name}/object_point_clouds"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -503,7 +705,7 @@ func RegisterVisionServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetDetectorNames", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/detector_names"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetDetectorNames", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/{name}/detector_names"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -524,7 +726,7 @@ func RegisterVisionServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/AddDetector", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/add_detector"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/AddDetector", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/{name}/add_detector"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -545,7 +747,7 @@ func RegisterVisionServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetDetectionsFromCamera", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/camera_detections"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetDetectionsFromCamera", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/{name}/camera_detections"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -566,7 +768,7 @@ func RegisterVisionServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetDetections", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/detections"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetDetections", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/{name}/detections"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -587,7 +789,7 @@ func RegisterVisionServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetSegmenterNames", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/segmenter_names"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetSegmenterNames", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/{name}/segmenter_names"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -608,7 +810,7 @@ func RegisterVisionServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetSegmenterParameters", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/segmenter_parameters"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetSegmenterParameters", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/{name}/segmenter_parameters"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -629,7 +831,7 @@ func RegisterVisionServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetObjectPointClouds", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/object_point_clouds"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.vision.v1.VisionService/GetObjectPointClouds", runtime.WithHTTPPathPattern("/viam/api/v1/service/vision/{name}/object_point_clouds"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -649,19 +851,19 @@ func RegisterVisionServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 }
 
 var (
-	pattern_VisionService_GetDetectorNames_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "vision", "detector_names"}, ""))
+	pattern_VisionService_GetDetectorNames_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "service", "vision", "name", "detector_names"}, ""))
 
-	pattern_VisionService_AddDetector_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "vision", "add_detector"}, ""))
+	pattern_VisionService_AddDetector_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "service", "vision", "name", "add_detector"}, ""))
 
-	pattern_VisionService_GetDetectionsFromCamera_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "vision", "camera_detections"}, ""))
+	pattern_VisionService_GetDetectionsFromCamera_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "service", "vision", "name", "camera_detections"}, ""))
 
-	pattern_VisionService_GetDetections_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "vision", "detections"}, ""))
+	pattern_VisionService_GetDetections_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "service", "vision", "name", "detections"}, ""))
 
-	pattern_VisionService_GetSegmenterNames_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "vision", "segmenter_names"}, ""))
+	pattern_VisionService_GetSegmenterNames_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "service", "vision", "name", "segmenter_names"}, ""))
 
-	pattern_VisionService_GetSegmenterParameters_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "vision", "segmenter_parameters"}, ""))
+	pattern_VisionService_GetSegmenterParameters_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "service", "vision", "name", "segmenter_parameters"}, ""))
 
-	pattern_VisionService_GetObjectPointClouds_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "vision", "object_point_clouds"}, ""))
+	pattern_VisionService_GetObjectPointClouds_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "service", "vision", "name", "object_point_clouds"}, ""))
 )
 
 var (

@@ -16,27 +16,27 @@ service VisionService {
   // GetDetectorNames returns the list of detectors in the registry.
   rpc GetDetectorNames(GetDetectorNamesRequest) returns (GetDetectorNamesResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/service/vision/detector_names"
+      get: "/viam/api/v1/service/vision/{name}/detector_names"
     };
   }
   // AddDetector adds a new detector to the registry.
   rpc AddDetector(AddDetectorRequest) returns (AddDetectorResponse) {
     option (google.api.http) = {
-      post: "/viam/api/v1/service/vision/add_detector"
+      post: "/viam/api/v1/service/vision/{name}/add_detector"
     };
   }
 
   // GetDetectionsFromCamera will return a list of detections in the next image given a camera and a detector
   rpc GetDetectionsFromCamera(GetDetectionsFromCameraRequest) returns (GetDetectionsFromCameraResponse) {
     option (google.api.http) = {
-      post: "/viam/api/v1/service/vision/camera_detections"
+      post: "/viam/api/v1/service/vision/{name}/camera_detections"
     };
   }
 
   // GetDetections will return a list of detections in the next image given a camera and a detector
   rpc GetDetections(GetDetectionsRequest) returns (GetDetectionsResponse) {
     option (google.api.http) = {
-      post: "/viam/api/v1/service/vision/detections"
+      post: "/viam/api/v1/service/vision/{name}/detections"
     };
   }
 
@@ -45,13 +45,13 @@ service VisionService {
   // GetSegmenterNames returns the list of segmenters in the registry.
   rpc GetSegmenterNames(GetSegmenterNamesRequest) returns (GetSegmenterNamesResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/service/vision/segmenter_names"
+      get: "/viam/api/v1/service/vision/{name}/segmenter_names"
     };
   }
   // GetSegmenterParameters returns the parameter fields needed for the given segmenter.
   rpc GetSegmenterParameters(GetSegmenterParametersRequest) returns (GetSegmenterParametersResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/service/vision/segmenter_parameters"
+      get: "/viam/api/v1/service/vision/{name}/segmenter_parameters"
     };
   }
   // GetObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
@@ -59,7 +59,7 @@ service VisionService {
   // A specific MIME type can be requested but may not necessarily be the same one returned.
   rpc GetObjectPointClouds(GetObjectPointCloudsRequest) returns (GetObjectPointCloudsResponse) {
     option (google.api.http) = {
-      post: "/viam/api/v1/service/vision/object_point_clouds"
+      post: "/viam/api/v1/service/vision/{name}/object_point_clouds"
     };
   }
 }
