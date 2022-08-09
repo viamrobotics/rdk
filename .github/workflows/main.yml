@@ -19,14 +19,15 @@ on:
 
 jobs:
   test:
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    uses: viamrobotics/rdk/.github/workflows/test.yml@adammagaluk-test
     secrets:
       REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
       GIT_ACCESS_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   appimage:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@adammagaluk-test
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
       REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
