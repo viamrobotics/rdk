@@ -209,6 +209,7 @@ func TestSensorUploadTabular(t *testing.T) {
 					PartId:           partID,
 					ComponentType:    componentType,
 					ComponentName:    componentName,
+					ComponentModel:   componentModel,
 					MethodName:       methodName,
 					Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 					FileName:         filepath.Base(tf.Name()),
