@@ -63,7 +63,9 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 		for {
 			select {
 			case <-ctx.Done():
-				retSend <- ctx.Err()
+				if ctx.Err() != nil {
+					retSend <- ctx.Err()
+				}
 				return
 			default:
 				// Get the next UploadRequest from the file.

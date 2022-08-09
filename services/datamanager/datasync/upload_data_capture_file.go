@@ -118,7 +118,9 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 			// }
 			select {
 			case <-ctx.Done():
-				retSendingUploadReqs <- ctx.Err()
+				if ctx.Err() != nil {
+					retSendingUploadReqs <- ctx.Err()
+				}
 				return
 			default:
 				// Get the next UploadRequest from the file.
