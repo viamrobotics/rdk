@@ -188,7 +188,7 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 		case <-cancelCtx.Done():
 			ticker.Stop()
 			return cancelCtx.Err()
-			// Otherwise, try again after nextWait.
+		// Otherwise, try again after nextWait.
 		case <-ticker.C:
 			if err := fn(cancelCtx); err != nil {
 				// If error, retry with a new nextWait.
