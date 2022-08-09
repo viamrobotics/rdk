@@ -8,7 +8,7 @@ on:
         required: true
       GIT_ACCESS_TOKEN:
         required: true
-      GCP_CREDENTIALS:
+      ARTIFACT_READ_ONLY_GCP_CREDENTIALS:
         required: true
 
 env:
@@ -40,9 +40,15 @@ jobs:
       with:
         fetch-depth: 2
 
+    - name: Authorize GCP
+      uses: google-github-actions/auth@v0.4.3
+      with:
+        credentials_json: '${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}'
+
     - name: Print GCP Credentials
       run: |
-        echo "GCP_CREDENTIALS=${{ secrets.GCP_CREDENTIALS }}"
+        echo "ARTIFACT_READ_ONLY_GCP_CREDENTIALS=${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}"
+        ls -l ~/.gcloud
 
     - name: Configure git for private repos
       run: |
