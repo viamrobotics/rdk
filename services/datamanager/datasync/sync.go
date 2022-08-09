@@ -1,4 +1,5 @@
-package datamanager
+// Package datasync contains interfaces for syncing data from robots to the app.viam.com cloud.
+package datasync
 
 import (
 	"context"
@@ -11,6 +12,15 @@ import (
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	goutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/services/datamanager/datacapture"
+	rdkutils "go.viam.com/rdk/utils"
+)
+
+const (
+	appAddress = "app.viam.com:443"
 )
 
 var (
@@ -21,12 +31,8 @@ var (
 	uploadChunkSize = 32768
 )
 
-func emptyReadingErr(fileName string) error {
-	return errors.Errorf("%s contains SensorData containing no data", fileName)
-}
-
-// syncer is responsible for enqueuing files in captureDir and uploading them to the cloud.
-type syncManager interface {
+// Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
+type Manager interface {
 	Sync(paths []string)
 	Close()
 }
@@ -34,38 +40,59 @@ type syncManager interface {
 // syncer is responsible for uploading files in captureDir to the cloud.
 type syncer struct {
 	partID            string
-	client            v1.DataSyncService_UploadClient
+	conn              rpc.ClientConn
+	client            v1.DataSyncServiceClient
 	logger            golog.Logger
 	progressTracker   progressTracker
-	uploadFunc        uploadFunc
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancelFunc        func()
 }
 
-type uploadFunc func(ctx context.Context, client v1.DataSyncService_UploadClient, path string,
-	partID string) error
+// ManagerConstructor is a function for building a Manager.
+type ManagerConstructor func(logger golog.Logger, cfg *config.Config) (Manager, error)
 
-// TODO DATA-206: instantiate a client
-// newSyncer returns a new syncer. If a nil uploadFunc is passed, the default viamUpload is used.
-func newSyncer(logger golog.Logger, uploadFunc uploadFunc, partID string) (*syncer, error) {
+// NewDefaultManager returns the default Manager that syncs data to app.viam.com.
+func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error) {
+	tlsConfig := config.NewTLSConfig(cfg).Config
+	cloudConfig := cfg.Cloud
+	rpcOpts := []rpc.DialOption{
+		rpc.WithTLSConfig(tlsConfig),
+		rpc.WithEntityCredentials(
+			cloudConfig.ID,
+			rpc.Credentials{
+				Type:    rdkutils.CredentialsTypeRobotSecret,
+				Payload: cloudConfig.Secret,
+			}),
+	}
+
+	conn, err := NewConnection(logger, appAddress, rpcOpts)
+	if err != nil {
+		return nil, err
+	}
+	client := NewClient(conn)
+	return NewManager(logger, cfg.Cloud.ID, client, conn)
+}
+
+// NewManager returns a new syncer.
+func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceClient,
+	conn rpc.ClientConn,
+) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
+		conn:   conn,
+		client: client,
 		logger: logger,
 		progressTracker: progressTracker{
 			lock:        &sync.Mutex{},
 			m:           make(map[string]struct{}),
-			progressDir: filepath.Join(viamCaptureDotDir, ".progress/"),
+			progressDir: viamProgressDotDir,
 		},
 		backgroundWorkers: sync.WaitGroup{},
 		cancelCtx:         cancelCtx,
 		cancelFunc:        cancelFunc,
 		partID:            partID,
 	}
-	if uploadFunc == nil {
-		uploadFunc = ret.uploadFile
-	}
-	ret.uploadFunc = uploadFunc
 	if err := ret.progressTracker.initProgressDir(); err != nil {
 		return nil, errors.Wrap(err, "couldn't initialize progress tracking directory")
 	}
@@ -76,6 +103,11 @@ func newSyncer(logger golog.Logger, uploadFunc uploadFunc, partID string) (*sync
 func (s *syncer) Close() {
 	s.cancelFunc()
 	s.backgroundWorkers.Wait()
+	if s.conn != nil {
+		if err := s.conn.Close(); err != nil {
+			s.logger.Errorw("error closing datasync server connection", "error", err)
+		}
+	}
 }
 
 func (s *syncer) upload(ctx context.Context, path string) {
@@ -87,12 +119,26 @@ func (s *syncer) upload(ctx context.Context, path string) {
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer s.backgroundWorkers.Done()
+		//nolint:gosec
+		f, err := os.Open(path)
+		if err != nil {
+			s.logger.Errorw("error opening file", "error", err)
+			return
+		}
+		defer func(f *os.File) {
+			err := f.Close()
+			if err != nil {
+				s.logger.Errorw("error closing file", "error", err)
+			}
+		}(f)
+
 		uploadErr := exponentialRetry(
 			ctx,
-			func(ctx context.Context) error { return s.uploadFunc(ctx, s.client, path, s.partID) },
+			func(ctx context.Context) error { return s.uploadFile(ctx, s.client, f, s.partID) },
 			s.logger,
 		)
 		if uploadErr != nil {
+			s.logger.Error(uploadErr)
 			return
 		}
 
@@ -101,10 +147,6 @@ func (s *syncer) upload(ctx context.Context, path string) {
 			s.logger.Errorw("error while deleting file", "error", err)
 		} else {
 			s.progressTracker.unmark(path)
-			if err := s.progressTracker.deleteProgressFile(filepath.Join(s.progressTracker.progressDir,
-				filepath.Base(path))); err != nil {
-				s.logger.Errorw("error while removing progress file from disk", "error", err)
-			}
 		}
 	})
 }
@@ -168,8 +210,8 @@ func getNextWait(lastWait time.Duration) time.Duration {
 
 func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
 	var md *v1.UploadMetadata
-	if isDataCaptureFile(f) {
-		captureMD, err := readDataCaptureMetadata(f)
+	if datacapture.IsDataCaptureFile(f) {
+		captureMD, err := datacapture.ReadDataCaptureMetadata(f)
 		if err != nil {
 			return nil, err
 		}
@@ -192,15 +234,9 @@ func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
 	return md, nil
 }
 
-func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_UploadClient, path string, partID string) error {
-	//nolint:gosec
-	f, err := os.Open(path)
-	if err != nil {
-		return errors.Wrapf(err, "error while opening file %s", path)
-	}
-
+func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncServiceClient, f *os.File, partID string) error {
 	// Resets file pointer to ensure we are reading from beginning of file.
-	if _, err = f.Seek(0, 0); err != nil {
+	if _, err := f.Seek(0, 0); err != nil {
 		return err
 	}
 
@@ -211,9 +247,9 @@ func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncService_Uploa
 
 	switch md.GetType() {
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR, v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		return uploadDataCaptureFile(ctx, s, client, md, f)
+		return uploadDataCaptureFile(ctx, s.progressTracker, client, md, f)
 	case v1.DataType_DATA_TYPE_FILE:
-		return uploadArbitraryFile(ctx, s, client, md, f)
+		return uploadArbitraryFile(ctx, client, md, f)
 	case v1.DataType_DATA_TYPE_UNSPECIFIED:
 		return errors.New("no data type specified in upload metadata")
 	default:

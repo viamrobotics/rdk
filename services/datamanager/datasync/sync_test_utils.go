@@ -1,7 +1,8 @@
-package datamanager
+package datasync
 
 import (
 	"context"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -11,12 +12,16 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
+	"go.uber.org/atomic"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
-	"google.golang.org/grpc"
+	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 var (
@@ -25,46 +30,6 @@ var (
 	componentName = "componentname"
 	methodName    = "methodname"
 )
-
-// mockClient implements DataSyncService_UploadClient and maintains a list of all UploadRequests sent with its
-// send method. The mockClient shuts down after a maximum of 'cancelIndex+1' sent UploadRequests. The '+1' gives
-// capacity for the metadata message to precede other messages. This simulates partial uploads (cases where client is
-// shut down during upload).
-type mockClient struct {
-	sent        []*v1.UploadRequest
-	cancelIndex int
-	lock        sync.Mutex
-	grpc.ClientStream
-}
-
-func (m *mockClient) Send(req *v1.UploadRequest) error {
-	m.lock.Lock()
-	if m.cancelIndex != len(m.sent) {
-		m.sent = append(m.sent, req)
-		m.lock.Unlock()
-		return nil
-	}
-	m.lock.Unlock()
-	return errors.New("cancel sending of upload request")
-}
-
-func (m *mockClient) CloseAndRecv() (*v1.UploadResponse, error) {
-	return &v1.UploadResponse{}, nil
-}
-
-func (m *mockClient) Context() context.Context {
-	return context.TODO()
-}
-
-// Builds syncer used in partial upload tests.
-//nolint:thelper
-func newTestSyncer(t *testing.T, mc *mockClient, uploadFunc uploadFunc) *syncer {
-	l := golog.NewTestLogger(t)
-	ret, err := newSyncer(l, uploadFunc, partID)
-	test.That(t, err, test.ShouldBeNil)
-	ret.client = mc
-	return ret
-}
 
 // Compares UploadRequests containing either binary or tabular sensor data.
 // nolint:thelper
@@ -151,7 +116,7 @@ func writeSensorData(f *os.File, sds []*v1.SensorData) error {
 }
 
 func createBinarySensorData(toWrite [][]byte) []*v1.SensorData {
-	sds := []*v1.SensorData{}
+	var sds []*v1.SensorData
 	for _, bytes := range toWrite {
 		sd := &v1.SensorData{
 			Data: &v1.SensorData_Binary{
@@ -164,7 +129,7 @@ func createBinarySensorData(toWrite [][]byte) []*v1.SensorData {
 }
 
 func createTabularSensorData(toWrite []*structpb.Struct) []*v1.SensorData {
-	sds := []*v1.SensorData{}
+	var sds []*v1.SensorData
 	for _, contents := range toWrite {
 		sd := &v1.SensorData{
 			Data: &v1.SensorData_Struct{
@@ -176,31 +141,6 @@ func createTabularSensorData(toWrite []*structpb.Struct) []*v1.SensorData {
 	return sds
 }
 
-func getUploadRequests(sds []*v1.SensorData, dt v1.DataType, fileName string) []*v1.UploadRequest {
-	urs := []*v1.UploadRequest{}
-	if len(sds) == 0 {
-		return []*v1.UploadRequest{}
-	}
-	urs = append(urs, &v1.UploadRequest{
-		UploadPacket: &v1.UploadRequest_Metadata{
-			Metadata: &v1.UploadMetadata{
-				PartId:        partID,
-				Type:          dt,
-				FileName:      fileName,
-				ComponentType: componentType,
-				ComponentName: componentName,
-				MethodName:    methodName,
-			},
-		},
-	})
-	for _, sd := range sds {
-		urs = append(urs, &v1.UploadRequest{
-			UploadPacket: &v1.UploadRequest_SensorContents{SensorContents: sd},
-		})
-	}
-	return urs
-}
-
 // createTmpDataCaptureFile creates a data capture file, which is defined as a file with the dataCaptureFileExt as its
 // file extension.
 func createTmpDataCaptureFile() (file *os.File, err error) {
@@ -208,22 +148,17 @@ func createTmpDataCaptureFile() (file *os.File, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = os.Rename(tf.Name(), tf.Name()+dataCaptureFileExt); err != nil {
+	if err = os.Rename(tf.Name(), tf.Name()+datacapture.FileExt); err != nil {
 		return nil, err
 	}
-	ret, err := os.OpenFile(tf.Name()+dataCaptureFileExt, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+	ret, err := os.OpenFile(tf.Name()+datacapture.FileExt, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 	if err != nil {
 		return nil, err
 	}
 	return ret, nil
 }
 
-func fileExists(fileName string) bool {
-	_, err := os.Stat(fileName)
-	return !errors.Is(err, os.ErrNotExist)
-}
-
-func buildBinarySensorMsgs(data [][]byte, fileName string) []*v1.UploadRequest {
+func buildBinaryUploadRequests(data [][]byte, fileName string) []*v1.UploadRequest {
 	var expMsgs []*v1.UploadRequest
 	if len(data) == 0 {
 		return expMsgs
@@ -255,47 +190,83 @@ func buildBinarySensorMsgs(data [][]byte, fileName string) []*v1.UploadRequest {
 	return expMsgs
 }
 
-type partialUploadTestcase struct {
-	name                      string
-	toSend                    []*v1.SensorData
-	progressIndexWhenCanceled int
-	expDataBeforeCanceled     []*v1.SensorData
-	expDataAfterCanceled      []*v1.SensorData
-	dataType                  v1.DataType
-}
-
-func initMockClient(lenMsgsToSend int) *mockClient {
-	// cancelIndex gives mock client capacity to "send" metadata message in addition to succeeding sensordata
-	// messages.
-	cancelIndex := 0
-	if lenMsgsToSend != 0 {
-		cancelIndex = lenMsgsToSend + 1
-	}
-	return &mockClient{
-		sent:        []*v1.UploadRequest{},
-		lock:        sync.Mutex{},
-		cancelIndex: cancelIndex,
+func getMockService() mockDataSyncServiceServer {
+	return mockDataSyncServiceServer{
+		uploadRequests:                     &[]*v1.UploadRequest{},
+		callCount:                          &atomic.Int32{},
+		failAtIndex:                        -1,
+		lock:                               &sync.Mutex{},
+		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
 	}
 }
 
-// nolint:thelper
-func writeCaptureMetadataToFile(t *testing.T, dt v1.DataType, tf *os.File) {
-	// First write metadata to file.
-	captureMetadata := v1.DataCaptureMetadata{
-		ComponentType:    componentType,
-		ComponentName:    componentName,
-		MethodName:       methodName,
-		Type:             dt,
-		MethodParameters: nil,
-	}
-	if _, err := pbutil.WriteDelimited(tf, &captureMetadata); err != nil {
-		t.Errorf("cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v", err)
-	}
+//nolint:thelper
+func buildAndStartLocalServer(t *testing.T, logger golog.Logger, mockService mockDataSyncServiceServer) rpc.Server {
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+	err = rpcServer.RegisterServiceServer(
+		context.Background(),
+		&v1.DataSyncService_ServiceDesc,
+		mockService,
+		v1.RegisterDataSyncServiceHandlerFromEndpoint,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Stand up the server. Defer stopping the server.
+	go func() {
+		err := rpcServer.Start()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+	return rpcServer
 }
 
-// nolint:thelper
-func compareUploadRequestsMockClient(t *testing.T, isTabular bool, mc *mockClient, expMsgs []*v1.UploadRequest) {
-	mc.lock.Lock()
-	compareUploadRequests(t, false, mc.sent, expMsgs)
-	mc.lock.Unlock()
+func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientConn, error) {
+	return rpc.DialDirectGRPC(
+		context.Background(),
+		rpcServer.InternalAddr().String(),
+		logger,
+		rpc.WithInsecure(),
+	)
+}
+
+type mockDataSyncServiceServer struct {
+	uploadRequests *[]*v1.UploadRequest
+	callCount      *atomic.Int32
+	failUntilIndex int32
+	failAtIndex    int32
+
+	lock *sync.Mutex
+	v1.UnimplementedDataSyncServiceServer
+}
+
+func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
+	(*m.lock).Lock()
+	defer (*m.lock).Unlock()
+	return *m.uploadRequests
+}
+
+func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
+	defer m.callCount.Add(1)
+	if m.callCount.Load() < m.failUntilIndex {
+		return status.Error(codes.Aborted, "fail until reach failUntilIndex")
+	}
+	for {
+		if m.callCount.Load() == m.failAtIndex {
+			return status.Error(codes.Aborted, "failed at failAtIndex")
+		}
+		ur, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		(*m.lock).Lock()
+		*m.uploadRequests = append(*m.uploadRequests, ur)
+		(*m.lock).Unlock()
+	}
+	if err := stream.SendAndClose(&v1.UploadResponse{}); err != nil {
+		return err
+	}
+	return nil
 }
