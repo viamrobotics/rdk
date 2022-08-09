@@ -47,10 +47,7 @@ func (server *subtypeServer) PlanAndMove(ctx context.Context, req *pb.PlanAndMov
 		referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
 		req.GetWorldState(),
 	)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.PlanAndMoveResponse{Success: success}, nil
+	return &pb.PlanAndMoveResponse{Success: success}, err
 }
 
 func (server *subtypeServer) MoveSingleComponent(
@@ -67,10 +64,7 @@ func (server *subtypeServer) MoveSingleComponent(
 		referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
 		req.GetWorldState(),
 	)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.MoveSingleComponentResponse{Success: success}, nil
+	return &pb.MoveSingleComponentResponse{Success: success}, err
 }
 
 func (server *subtypeServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {
