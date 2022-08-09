@@ -8,6 +8,8 @@ on:
         required: true
       GIT_ACCESS_TOKEN:
         required: true
+      GCP_CREDENTIALS:
+        required: true
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
@@ -37,6 +39,10 @@ jobs:
       uses: actions/checkout@v2
       with:
         fetch-depth: 2
+
+    - name: Print GCP Credentials
+      run: |
+        echo "GCP_CREDENTIALS=${{ secrets.GCP_CREDENTIALS }}"
 
     - name: Configure git for private repos
       run: |
