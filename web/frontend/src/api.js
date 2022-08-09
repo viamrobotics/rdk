@@ -5,6 +5,7 @@ import { BaseServiceClient } from './gen/proto/api/component/base/v1/base_pb_ser
 import { BoardServiceClient } from './gen/proto/api/component/board/v1/board_pb_service.esm';
 import { CameraServiceClient } from './gen/proto/api/component/camera/v1/camera_pb_service.esm';
 import { GantryServiceClient } from './gen/proto/api/component/gantry/v1/gantry_pb_service.esm';
+import { GenericServiceClient } from './gen/proto/api/component/generic/v1/generic_pb_service.esm';
 import { GripperServiceClient } from './gen/proto/api/component/gripper/v1/gripper_pb_service.esm';
 import { IMUServiceClient } from './gen/proto/api/component/imu/v1/imu_pb_service.esm';
 import { InputControllerServiceClient } from './gen/proto/api/component/inputcontroller/v1/input_controller_pb_service.esm';
@@ -22,6 +23,7 @@ import commonApi from './gen/proto/api/common/v1/common_pb.esm';
 import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
 import baseApi from './gen/proto/api/component/base/v1/base_pb.esm';
 import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
+import genericApi from './gen/proto/api/component/generic/v1/generic_pb.esm';
 import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
 import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
 import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
@@ -37,6 +39,7 @@ window.commonApi = commonApi;
 window.armApi = armApi;
 window.baseApi = baseApi;
 window.cameraApi = cameraApi;
+window.genericApi = genericApi;
 window.gripperApi = gripperApi;
 window.sensorsApi = sensorsApi;
 window.servoApi = servoApi;
@@ -116,10 +119,6 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
     transportFactory = await dialDirect(impliedURL, opts);
   }
 
-  if (!window.webrtcHost) {
-    throw new Error('window.webrtcHost is not set! Cannot connect to RDK services.');
-  }
-
   window.streamService = new StreamServiceClient(window.webrtcHost, { transport: transportFactory });
   window.robotService = new RobotServiceClient(window.webrtcHost, { transport: transportFactory });
   // TODO(RSDK-144): these should be created as needed
@@ -128,6 +127,7 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
   window.boardService = new BoardServiceClient(window.webrtcHost, { transport: transportFactory });
   window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: transportFactory });
   window.gantryService = new GantryServiceClient(window.webrtcHost, { transport: transportFactory });
+  window.genericService = new GenericServiceClient(window.webrtcHost, { transport: transportFactory });
   window.gripperService = new GripperServiceClient(window.webrtcHost, { transport: transportFactory });
   window.imuService = new IMUServiceClient(window.webrtcHost, { transport: transportFactory });
   window.inputControllerService = new InputControllerServiceClient(window.webrtcHost, { transport: transportFactory });

@@ -13,7 +13,9 @@ import (
 
 func TestRGBDToPointCloud(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	img, dm, err := rimage.ReadBothFromFile(artifact.MustPath("transform/align-test-1615761793.both.gz"))
+	img, err := rimage.NewImageFromFile(artifact.MustPath("transform/align-test-1615761793_color.png"))
+	test.That(t, err, test.ShouldBeNil)
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("transform/align-test-1615761793.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// from robots/config/gripper-cam.json
@@ -44,7 +46,7 @@ func TestRGBDToPointCloud(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "more than one cropping rectangle")
 
 	// image with depth with depth missing should return error
-	img, err = rimage.NewImageFromFile(artifact.MustPath("transform/align-test-1615761793.both.gz"))
+	img, err = rimage.NewImageFromFile(artifact.MustPath("transform/align-test-1615761793_color.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	pcBad, err := dct.RGBDToPointCloud(img, nil)
@@ -54,7 +56,9 @@ func TestRGBDToPointCloud(t *testing.T) {
 
 func TestWarpPointsTo3D(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	img, dm, err := rimage.ReadBothFromFile(artifact.MustPath("transform/align-test-1615761793.both.gz"))
+	img, err := rimage.NewImageFromFile(artifact.MustPath("transform/align-test-1615761793_color.png"))
+	test.That(t, err, test.ShouldBeNil)
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("transform/align-test-1615761793.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// from robots/config/gripper-cam.json
