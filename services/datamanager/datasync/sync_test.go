@@ -1,8 +1,6 @@
 package datasync
 
 import (
-	"github.com/pkg/errors"
-	"github.com/viamrobotics/app/datasync"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -11,6 +9,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
+	"github.com/pkg/errors"
+	"github.com/viamrobotics/app/datasync"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -489,7 +489,6 @@ func TestUploadExponentialRetry(t *testing.T) {
 
 	// Validate that the client called Upload repeatedly.
 	test.That(t, mockService.callCount.Load(), test.ShouldEqual, 1)
-
 }
 
 func TestPartialUpload(t *testing.T) {
