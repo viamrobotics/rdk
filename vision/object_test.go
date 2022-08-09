@@ -17,6 +17,8 @@ import (
 func TestObjectCreation(t *testing.T) {
 	const envVar = "GOOGLE_APPLICATION_CREDENTIALS"
 	filename := os.Getenv(envVar)
+	test.That(t, filename, test.ShouldNotBeEmpty)
+
 	b, err := ioutil.ReadFile(filename)
 	if err != nil {
 		test.That(t, err, test.ShouldBeNil)
