@@ -201,27 +201,27 @@ type gpioPin struct {
 	bcom int
 }
 
-func (gp gpioPin) Set(ctx context.Context, high bool) error {
+func (gp gpioPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
 	return gp.pi.SetGPIOBcom(gp.bcom, high)
 }
 
-func (gp gpioPin) Get(ctx context.Context) (bool, error) {
+func (gp gpioPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	return gp.pi.GetGPIOBcom(gp.bcom)
 }
 
-func (gp gpioPin) PWM(ctx context.Context) (float64, error) {
+func (gp gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	return gp.pi.pwmBcom(gp.bcom)
 }
 
-func (gp gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64) error {
+func (gp gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
 	return gp.pi.SetPWMBcom(gp.bcom, dutyCyclePct)
 }
 
-func (gp gpioPin) PWMFreq(ctx context.Context) (uint, error) {
+func (gp gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
 	return gp.pi.pwmFreqBcom(gp.bcom)
 }
 
-func (gp gpioPin) SetPWMFreq(ctx context.Context, freqHz uint) error {
+func (gp gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
 	return gp.pi.SetPWMFreqBcom(gp.bcom, freqHz)
 }
 
@@ -394,7 +394,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 		if err != nil {
 			return nil, err
 		}
-		err = chipPin.Set(ctx, false)
+		err = chipPin.Set(ctx, false, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -407,7 +407,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 		if err != nil {
 			return nil, err
 		}
-		err = chipPin.Set(ctx, true)
+		err = chipPin.Set(ctx, true, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -533,8 +533,8 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	return err
 }
 
-func (pi *piPigpio) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
-	return board.CreateStatus(ctx, pi)
+func (pi *piPigpio) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+	return board.CreateStatus(ctx, pi, extra)
 }
 
 var (

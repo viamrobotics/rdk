@@ -79,11 +79,11 @@ func (e *HallEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *
 	e.a.AddCallback(chanA)
 	e.b.AddCallback(chanB)
 
-	aLevel, err := e.a.Value(cancelCtx)
+	aLevel, err := e.a.Value(cancelCtx, nil)
 	if err != nil {
 		utils.Logger.Errorw("error reading a level", "error", err)
 	}
-	bLevel, err := e.b.Value(cancelCtx)
+	bLevel, err := e.b.Value(cancelCtx, nil)
 	if err != nil {
 		utils.Logger.Errorw("error reading b level", "error", err)
 	}
