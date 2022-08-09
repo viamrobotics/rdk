@@ -1260,11 +1260,25 @@ export default {
               return;
             }
               var temp = resp.toObject();
-              console.log(temp);
               this.movementsensorData[name].coordinate = temp.coordinate;
               this.movementsensorData[name].altitudeMm = temp.altitudeMm;
           });
           }
+
+          {
+          const req = new movementsensorApi.GetPropertiesRequest();
+          req.setName(name);
+
+          movementsensorService.getProperties(req, {}, (err, resp) => {
+            if (err) {
+              console.log(err);
+              return;
+            }
+              var temp = resp.toObject();
+              this.movementsensorData[name].properties = temp;
+          });
+          }
+
       }
 
       setTimeout(this.movementsensorRefresh, 500);
@@ -1565,9 +1579,9 @@ function setBoundingBox(box, centerPoint) {
       :title="`MovementSensor: ${movementsensor.name}`"
     >
       <div class="flex items-end border border-t-0 border-black p-4">
-        <template v-if="movementsensorData[movementsensor.name] && movementsensorData[movementsensor.name].orientation">
+        <template v-if="movementsensorData[movementsensor.name] && movementsensorData[movementsensor.name].properties">
 
-          <div class="mr-4 w-1/4">
+          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.positionSupported">
             <h3 class="mb-1">
               Position
             </h3>
@@ -1599,7 +1613,7 @@ function setBoundingBox(box, centerPoint) {
             </table>
           </div>
 
-          <div class="mr-4 w-1/4">
+          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.orientationSupported">
             <h3 class="mb-1">
               Orientation (degrees)
             </h3>
@@ -1639,7 +1653,7 @@ function setBoundingBox(box, centerPoint) {
             </table>
           </div>
                 
-          <div class="mr-4 w-1/4">
+          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.angularVelocitySupported">
             <h3 class="mb-1">
               Angular Velocity (degrees/second)
             </h3>
@@ -1671,7 +1685,7 @@ function setBoundingBox(box, centerPoint) {
             </table>
           </div>
 
-          <div class="mr-4 w-1/4">
+          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.linearVelocitySupported">
             <h3 class="mb-1">
               Linear Velocity
             </h3>
@@ -1703,7 +1717,7 @@ function setBoundingBox(box, centerPoint) {
             </table>
           </div>
 
-          <div class="mr-4 w-1/4">
+          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.compassHeadingSupported">
             <h3 class="mb-1">
               Compass Heading
             </h3>
