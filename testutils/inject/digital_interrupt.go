@@ -9,7 +9,7 @@ import (
 // DigitalInterrupt is an injected digital interrupt.
 type DigitalInterrupt struct {
 	board.DigitalInterrupt
-	ValueFunc            func(ctx context.Context) (int64, error)
+	ValueFunc            func(ctx context.Context, extra map[string]interface{}) (int64, error)
 	valueCap             []interface{}
 	TickFunc             func(ctx context.Context, high bool, nanos uint64) error
 	tickCap              []interface{}
@@ -18,12 +18,12 @@ type DigitalInterrupt struct {
 }
 
 // Value calls the injected Value or the real version.
-func (d *DigitalInterrupt) Value(ctx context.Context) (int64, error) {
+func (d *DigitalInterrupt) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	d.valueCap = []interface{}{ctx}
 	if d.ValueFunc == nil {
-		return d.DigitalInterrupt.Value(ctx)
+		return d.DigitalInterrupt.Value(ctx, extra)
 	}
-	return d.ValueFunc(ctx)
+	return d.ValueFunc(ctx, extra)
 }
 
 // ValueCap returns the last parameters received by Value, and then clears them.
