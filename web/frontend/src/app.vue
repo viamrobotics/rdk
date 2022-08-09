@@ -224,12 +224,100 @@ export default {
 
     createConnectionManager() {
       const statuses = {
-        resources: false,
-        ops: false,
-        streams: false,
+        resources: true,
+        ops: true,
+        streams: true,
       };
 
       let interval = null;
+      let connectionRestablished = false;
+
+      const handleCallErrors = (errors) => {
+        const errorsList = document.createElement('ul');
+        errorsList.classList.add('list-disc', 'pl-4');
+
+        for (const key of Object.keys(statuses)) {
+          switch (key) {
+          case 'resources': {
+            errorsList.innerHTML += '<li>Robot Resources</li>';
+            break;
+          }
+          case 'ops': {
+            errorsList.innerHTML += '<li>Current Operations</li>';
+            break;
+          }
+          case 'streams': {
+            errorsList.innerHTML += '<li>Streams</li>';
+            break;
+          }
+          }
+        }
+
+        this.handleError(
+          `Error fetching the following: ${errorsList.outerHTML}`,
+          errors,
+          'connection'
+        );
+      };
+
+      const makeCalls = async () => {
+        const errors = [];
+
+        try {
+          await this.queryMetadata();
+
+          if (!statuses.resources) {
+            connectionRestablished = true;
+          }
+
+          statuses.resources = true;
+        } catch (error) {
+          statuses.resources = false;
+          errors.push[error];
+        }
+
+        try {
+          await this.loadCurrentOps();
+
+          if (!statuses.ops) {
+            connectionRestablished = true;
+          }
+
+          statuses.ops = true;
+        } catch (error) {
+          statuses.ops = false;
+          errors.push[error];
+        }
+
+        if (window.streamService) {
+          try {
+            await this.queryStreams();
+
+            if (!statuses.streams) {
+              connectionRestablished = true;
+            }
+
+            statuses.streams = true;
+          } catch (error) {
+            statuses.streams = false;
+            errors.push[error];
+          }
+        }
+
+        if (isConnected()) {
+          if (connectionRestablished) {
+            toast.success('Connection established');
+            connectionRestablished = false;
+            this.errors.connection = false;
+          }
+          
+          this.error = null;
+          return;
+        }
+
+        handleCallErrors(errors);
+        this.error = 'Connection error, attempting to reconnect ...';
+      };
 
       const isConnected = () => {
         return (
@@ -245,53 +333,7 @@ export default {
 
       const start = () => {
         stop();
-        interval = window.setInterval(async () => {
-          try {
-            await this.queryMetadata();
-
-            if (!statuses.resources) {
-              this.errors.resources = false;
-            }
-
-            statuses.resources = true;
-
-          } catch (error) {
-            statuses.resources = false;
-            this.handleError('Error getting robot resources', error, 'resources');
-          }
-
-          try {
-            await this.loadCurrentOps();
-
-            if (!statuses.ops) {
-              this.errors.ops = false;
-            }
-
-            statuses.ops = true;
-          } catch (error) {
-            statuses.ops = false;
-            this.handleError('Error getting current operations', error, 'ops');
-          }
-
-          if (window.streamService) {
-            try {
-              await this.queryStreams();
-
-              if (!statuses.streams) {
-                this.errors.streams = false;
-              }
-
-              statuses.streams = true;
-            } catch (error) {
-              statuses.streams = false;
-              this.handleError('Error getting streams', error, 'streams');
-            }
-          }
-
-          this.error = isConnected() 
-            ? null 
-            : 'Connection error, attempting to reconnect ...';
-        }, 500);
+        interval = window.setInterval(makeCalls, 500);
       };
 
       return {
