@@ -97,6 +97,14 @@ func (imu *wit) GetReadings(ctx context.Context) ([]interface{}, error) {
 	return movementsensor.GetReadings(ctx, imu)
 }
 
+func (imu *wit) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+	return &movementsensor.Properties{
+		AngularVelocitySupported: true,
+		OrientationSupported:     true,
+		CompassHeadingSupported:  true,
+	}, nil
+}
+
 // NewWit creates a new Wit IMU.
 func NewWit(deps registry.Dependencies, config config.Component, logger golog.Logger) (movementsensor.MovementSensor, error) {
 	options := slib.OpenOptions{

@@ -106,6 +106,16 @@ func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
 	return GetReadings(ctx, c)
 }
 
+func (c *client) GetProperties(ctx context.Context) (*Properties, error) {
+	resp, err := c.client.GetProperties(ctx, &pb.GetPropertiesRequest{
+		Name: c.name,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return (*Properties)(resp), nil
+}
+
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }

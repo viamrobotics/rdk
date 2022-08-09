@@ -497,6 +497,11 @@ func (g *RTKMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	return g.nmeamovementsensor.ReadFix(ctx)
 }
 
+// GetProperties passthrough.
+func (g *RTKMovementSensor) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+	return g.nmeamovementsensor.GetProperties(ctx)
+}
+
 // GetReadings will use the default MovementSensor GetReadings if not provided.
 func (g *RTKMovementSensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 	readings, err := movementsensor.GetReadings(ctx, g)

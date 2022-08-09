@@ -58,3 +58,13 @@ func (f *fakeMovementSensor) Do(ctx context.Context, cmd map[string]interface{})
 func (f *fakeMovementSensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 	return movementsensor.GetReadings(ctx, f)
 }
+
+func (f *fakeMovementSensor) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+	return &movementsensor.Properties{
+		LinearVelocitySupported:  true,
+		AngularVelocitySupported: true,
+		OrientationSupported:     true,
+		PositionSupported:        true,
+		CompassHeadingSupported:  true,
+	}, nil
+}

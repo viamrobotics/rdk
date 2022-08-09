@@ -324,3 +324,7 @@ func (r *rtkStation) GetReadings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{}, nil
 }
 
+func (r *rtkStation) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+	return &movementsensor.Properties{}, nil
+}
+

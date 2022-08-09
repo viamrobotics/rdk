@@ -27,6 +27,7 @@ type MovementSensorServiceClient interface {
 	GetCompassHeading(ctx context.Context, in *GetCompassHeadingRequest, opts ...grpc.CallOption) (*GetCompassHeadingResponse, error)
 	GetOrientation(ctx context.Context, in *GetOrientationRequest, opts ...grpc.CallOption) (*GetOrientationResponse, error)
 	GetPosition(ctx context.Context, in *GetPositionRequest, opts ...grpc.CallOption) (*GetPositionResponse, error)
+	GetProperties(ctx context.Context, in *GetPropertiesRequest, opts ...grpc.CallOption) (*GetPropertiesResponse, error)
 }
 
 type movementSensorServiceClient struct {
@@ -82,6 +83,15 @@ func (c *movementSensorServiceClient) GetPosition(ctx context.Context, in *GetPo
 	return out, nil
 }
 
+func (c *movementSensorServiceClient) GetProperties(ctx context.Context, in *GetPropertiesRequest, opts ...grpc.CallOption) (*GetPropertiesResponse, error) {
+	out := new(GetPropertiesResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.movementsensor.v1.MovementSensorService/GetProperties", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MovementSensorServiceServer is the server API for MovementSensorService service.
 // All implementations must embed UnimplementedMovementSensorServiceServer
 // for forward compatibility
@@ -91,6 +101,7 @@ type MovementSensorServiceServer interface {
 	GetCompassHeading(context.Context, *GetCompassHeadingRequest) (*GetCompassHeadingResponse, error)
 	GetOrientation(context.Context, *GetOrientationRequest) (*GetOrientationResponse, error)
 	GetPosition(context.Context, *GetPositionRequest) (*GetPositionResponse, error)
+	GetProperties(context.Context, *GetPropertiesRequest) (*GetPropertiesResponse, error)
 	mustEmbedUnimplementedMovementSensorServiceServer()
 }
 
@@ -112,6 +123,9 @@ func (UnimplementedMovementSensorServiceServer) GetOrientation(context.Context, 
 }
 func (UnimplementedMovementSensorServiceServer) GetPosition(context.Context, *GetPositionRequest) (*GetPositionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPosition not implemented")
+}
+func (UnimplementedMovementSensorServiceServer) GetProperties(context.Context, *GetPropertiesRequest) (*GetPropertiesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetProperties not implemented")
 }
 func (UnimplementedMovementSensorServiceServer) mustEmbedUnimplementedMovementSensorServiceServer() {}
 
@@ -216,6 +230,24 @@ func _MovementSensorService_GetPosition_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MovementSensorService_GetProperties_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPropertiesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MovementSensorServiceServer).GetProperties(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.component.movementsensor.v1.MovementSensorService/GetProperties",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MovementSensorServiceServer).GetProperties(ctx, req.(*GetPropertiesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MovementSensorService_ServiceDesc is the grpc.ServiceDesc for MovementSensorService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -242,6 +274,10 @@ var MovementSensorService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPosition",
 			Handler:    _MovementSensorService_GetPosition_Handler,
+		},
+		{
+			MethodName: "GetProperties",
+			Handler:    _MovementSensorService_GetProperties_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

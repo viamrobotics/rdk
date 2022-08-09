@@ -265,6 +265,13 @@ func (vn *vectornav) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
 	return vn.magnetometer, nil
 }
 
+func (vn *vectornav) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+	return &movementsensor.Properties{
+		AngularVelocitySupported: true,
+		OrientationSupported:     true,
+	}, nil
+}
+
 func (vn *vectornav) GetReadings(ctx context.Context) ([]interface{}, error) {
 	return movementsensor.GetReadings(ctx, vn)
 }
