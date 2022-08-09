@@ -75,6 +75,7 @@ test-web: build-web
 
 # test.short skips tests requiring external hardware (motors/servos)
 test-pi:
+	echo "Test Pi: ${GOOGLE_APPLICATION_CREDENTIALS}"
 	go test -c -o $(BIN_OUTPUT_PATH)/test-pi go.viam.com/rdk/component/board/pi/impl
 	sudo $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
 
