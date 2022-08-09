@@ -136,7 +136,6 @@
     "services":
     [
         {
-            "name": "ahoy",
             "type": "navigation",
             "attributes": {
                 "store": {
@@ -150,13 +149,7 @@
             "type": "vision"
         },
         {
-            "name":"loco",
             "type": "motion"
-        },
-        {
-            "name":"shelly",
-            "Attributes":{},
-            "type":"shell"
         }
     ]
 }
