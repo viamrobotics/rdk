@@ -15,10 +15,10 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/grpc/client"
 
-	"go.viam.com/rdk/resource"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/resource"
 	utilsrdk "go.viam.com/rdk/utils"
 	"go.viam.com/utils/rpc"
 
@@ -30,7 +30,7 @@ import (
 var logger = golog.NewDevelopmentLogger("agile")
 
 const (
-	gridConversion = 500 // mm per grid square
+	gridConversion = 1000 // mm per grid square
 )
 
 func main() {
@@ -38,47 +38,11 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
-	withAgile := false
-	collectData := false
-
-	if collectData {
-		robot, err := client.New(
-			context.Background(),
-			"agilex-limo-main.60758fe0f6.viam.cloud",
-			logger,
-			client.WithDialOptions(rpc.WithCredentials(rpc.Credentials{
-				Type:    utilsrdk.CredentialsTypeRobotLocationSecret,
-				Payload: "pem1epjv07fq2cz2z5723gq6ntuyhue5t30boohkiz3iqht4",
-			})),
-		)
-		if err != nil {
-			logger.Fatal(err)
-		}
-		defer robot.Close(context.Background())
-		logger.Info("Resources:")
-		logger.Info(robot.ResourceNames())
-
-		// limo, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
-		// limo1 := limo.(base.Base)
-
-		// limo1.Spin(ctx, 360, 20)
-		// time.Sleep(time.Millisecond * 2000)
-
-		// limo1.Spin(ctx, -360, 20)
-		// time.Sleep(time.Millisecond * 2000)
-
-		// limo1.Spin(ctx, 360, 20)
-		// time.Sleep(time.Millisecond * 2000)
-
-		// limo1.Spin(ctx, -360, 20)
-		// time.Sleep(time.Millisecond * 2000)
-
-		return nil
-	}
+	withAgile := true
 
 	if withAgile {
 		robot, err := client.New(
-			ctx,
+			context.Background(),
 			"agilex-limo-main.60758fe0f6.viam.cloud",
 			logger,
 			client.WithDialOptions(rpc.WithCredentials(rpc.Credentials{
@@ -134,9 +98,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 				dubinsPath := pathOptions.DubinsPath
 				straight := pathOptions.Straight
-
-				fmt.Println("start: ", start)
-				fmt.Println("next: ", next)
 
 				MoveToWaypointDubins(ctx, limo1, dubinsPath, straight)
 
@@ -196,7 +157,6 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input, config *mobileRobo
 			pathOptions := d.AllOptions(start, next, true)[0]
 
 			dubinsPath := pathOptions.DubinsPath
-			fmt.Println("FINALPATH: ", dubinsPath)
 
 			sstra := "0"
 			last := fixAngle(dubinsPath[2], withAgile)
@@ -207,7 +167,6 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input, config *mobileRobo
 
 			writeData := []string{fmt.Sprintf("%f", fixAngle(start[0], withAgile)), fmt.Sprintf("%f", fixAngle(start[1], withAgile)), fmt.Sprintf("%f", fixAngle(start[2], withAgile)), fmt.Sprintf("%f", fixAngle(dubinsPath[0], withAgile)), fmt.Sprintf("%f", fixAngle(dubinsPath[1], withAgile)), fmt.Sprintf("%f", last), sstra}
 			_ = csvwriter.Write(writeData)
-			fmt.Println("WRITING: ", writeData)
 
 			for j := 0; j < 3; j++ {
 				start[j] = next[j]
@@ -217,7 +176,6 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input, config *mobileRobo
 	//last point
 	writeData := []string{fmt.Sprintf("%f", start[0]), fmt.Sprintf("%f", start[1]), fmt.Sprintf("%f", start[2]), fmt.Sprintf("%d", 0), fmt.Sprintf("%d", 0), fmt.Sprintf("%d", 0), fmt.Sprintf("%d", 0)}
 	_ = csvwriter.Write(writeData)
-	fmt.Println("WRITING: ", writeData)
 
 	csvwriter.Flush()
 	csvFile.Close()
@@ -232,7 +190,6 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input, config *mobileRobo
 	for _, o := range config.Obstacles {
 		writeData := []string{fmt.Sprintf("%f", o.Center[0]), fmt.Sprintf("%f", o.Center[1]), fmt.Sprintf("%f", o.Dims[0]), fmt.Sprintf("%f", o.Dims[1])}
 		_ = csvwriter.Write(writeData)
-		fmt.Println("OBSTACLE: ", writeData)
 	}
 
 	csvwriter.Flush()
@@ -257,7 +214,7 @@ func MoveToWaypointDubins(ctx context.Context, limo base.Base, path []float64, s
 
 	//second turn/straight
 	if straight {
-		limo.MoveStraight(ctx, int(path[2]*gridConversion), 100)
+		limo.MoveStraight(ctx, int(path[2]*gridConversion), 150)
 	} else {
 		limo.Spin(ctx, -fixAngle(path[2], true), 20)
 	}
@@ -333,8 +290,7 @@ func plan(ctx context.Context, config *mobileRobotPlanConfig) (motionplan.Dubins
 	}
 
 	// setup planner
-	radius := config.Radius * 1000.0 / gridConversion
-	fmt.Println("Radius", radius)
+	radius := config.Radius * 1000. / gridConversion
 	d := motionplan.Dubins{Radius: radius, PointSeparation: config.PointSep}
 	dubins, err := motionplan.NewDubinsRRTMotionPlanner(model, 1, logger, d)
 	if err != nil {

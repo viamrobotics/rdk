@@ -1,15 +1,13 @@
 {
     "start": [0, 0, 0],
-    "goal": [8, 8, 0],
-    "robot-dims": [1, 1],
-    "xlim": [0, 8],
-    "ylim": [0, 8],
+    "goal": [0, 5.08, 1.57],
+    "robot-dims": [0.3048, 0.381],
+    "xlim": [0, 2.3622],
+    "ylim": [0, 6],
     "radius": 0.6,
-    "point-sep": 2,
+    "point-sep": 1,
     "obstacles":
         [
-            {"center": [2, 8], "dims": [1.5, 0.5]},
-            {"center": [7, 3], "dims": [0.5, 0.5]},
-            {"center": [5, 5], "dims": [0.5, 0.5]}
+            {"center": [0.0254, 3.3782], "dims": [1.4192, 1.2192]}
         ]
 }
