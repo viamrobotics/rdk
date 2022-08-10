@@ -46,12 +46,13 @@ func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.F
 }
 
 // BuildCaptureMetadata builds a DataCaptureMetadata object.
-func BuildCaptureMetadata(compType resource.SubtypeName, compName string, method string,
+func BuildCaptureMetadata(compType resource.SubtypeName, compName string, compModel string, method string,
 	additionalParams map[string]string,
 ) *v1.DataCaptureMetadata {
 	return &v1.DataCaptureMetadata{
 		ComponentType:    string(compType),
 		ComponentName:    compName,
+		ComponentModel:   compModel,
 		MethodName:       method,
 		Type:             getDataType(string(compType), method),
 		MethodParameters: additionalParams,
