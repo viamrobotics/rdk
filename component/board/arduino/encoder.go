@@ -47,12 +47,8 @@ func NewEncoder(ctx context.Context, deps registry.Dependencies, config config.C
 			return nil, errors.New("expected board to be an arduino board")
 		}
 
-		if pins, ok := cfg.Pins.(*EncoderPins); ok {
-			e.A = pins.A
-			e.B = pins.B
-		} else {
-			return nil, errors.New("Pin configuration not valid for Encoder")
-		}
+		e.A = cfg.Pins.A
+		e.B = cfg.Pins.B
 		e.ticksPerRotation = int64(cfg.TicksPerRotation)
 		if e.ticksPerRotation <= 0 {
 			return nil, errors.New("expected nonzero positive int for ticksPerRotation")
@@ -78,16 +74,17 @@ type Encoder struct {
 
 // EncoderPins defines the format the pin config should be in for Encoder.
 type EncoderPins struct {
-	A, B string
+	A string	`json:"a"`
+	B string	`json:"b"`
 }
 
 // EncoderConfig describes the config of an arduino Encoder.
 type EncoderConfig struct {
-	Pins      interface{} `json:"pins"`
+	Pins      EncoderPins `json:"pins"`
 	BoardName string      `json:"board"`
 	MotorName string      `json:"motor_name"`
 
-	TicksPerRotation int `json:"ticks_per_rotation,omitempty"`
+	TicksPerRotation int `json:"ticks_per_rotation"`
 }
 
 // GetTicksCount returns number of ticks since last zeroing

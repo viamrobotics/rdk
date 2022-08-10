@@ -145,8 +145,8 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 		if err != nil {
 			return err
 		}
-		if tpr == 0 {
-			return errors.New("need nonzero Tpr (ticks per rotation) for encoder")
+		if tpr <= 0 {
+			return errors.New("need positive nonzero Tpr (ticks per rotation) for encoder")
 		}
 
 		newSpeed := (m.MaxRPM * m.powerPct) * float64(tpr)
@@ -244,11 +244,6 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64, ext
 			if err != nil {
 				return err
 			}
-
-			if tpr == 0 {
-				return errors.New("need nonzero Tpr (ticks per rotation) for encoder")
-			}
-
 			return m.Encoder.SetPosition(ctx, int64(finalPos*float64(tpr)))
 		}
 	}
@@ -295,10 +290,6 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64, extra map[st
 		tpr, err := m.Encoder.TicksPerRotation(ctx)
 		if err != nil {
 			return err
-		}
-
-		if tpr == 0 {
-			return errors.New("need nonzero Tpr (ticks per rotation) for encoder")
 		}
 
 		return m.Encoder.SetPosition(ctx, int64(pos*float64(tpr)))
