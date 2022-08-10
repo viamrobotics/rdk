@@ -138,7 +138,7 @@ func (rs *rotateSource) Next(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, err
 	}
 	switch rs.stream {
-	case camera.ColorStream, camera.UnspecifiedStream, camera.BothStream:
+	case camera.ColorStream, camera.UnspecifiedStream:
 		return imaging.Rotate(orig, 180, color.Black), release, nil
 	case camera.DepthStream:
 		dm, err := rimage.ConvertImageToDepthMap(orig)
