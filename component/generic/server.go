@@ -5,9 +5,9 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	pb "go.viam.com/rdk/proto/api/component/generic/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -45,7 +45,7 @@ func (s *subtypeServer) Do(ctx context.Context, req *pb.DoRequest) (*pb.DoRespon
 	if err != nil {
 		return nil, err
 	}
-	res, err := structpb.NewStruct(result)
+	res, err := protoutils.StructToStructPb(result)
 	if err != nil {
 		return nil, err
 	}

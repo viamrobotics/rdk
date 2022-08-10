@@ -81,12 +81,12 @@ func convertInterfaceToStruct(i interface{}) (*structpb.Struct, error) {
 	if i == nil {
 		return &structpb.Struct{}, nil
 	}
-	m, err := protoutils.InterfaceToMap(i)
+	returnVal, err := protoutils.StructToStructPb(i)
 	if err != nil {
 		return nil, err
 	}
 
-	return structpb.NewStruct(m)
+	return returnVal, nil
 }
 
 // CancelOperation kills an operations.
@@ -220,15 +220,9 @@ func (s *Server) GetStatus(ctx context.Context, req *pb.GetStatusRequest) (*pb.G
 
 	statusesP := make([]*pb.Status, 0, len(statuses))
 	for _, status := range statuses {
-		// InterfaceToMap necessary because structpb.NewStruct only accepts []interface{} for slices and mapstructure does not do the
-		// conversion necessary.
-		encoded, err := protoutils.InterfaceToMap(status.Status)
+		statusP, err := protoutils.StructToStructPb(status.Status)
 		if err != nil {
-			return nil, errors.Wrapf(err, "unable to convert status for %q to a form acceptable to structpb.NewStruct", status.Name)
-		}
-		statusP, err := structpb.NewStruct(encoded)
-		if err != nil {
-			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from status for %q", status.Name)
+			return nil, err
 		}
 		statusesP = append(
 			statusesP,

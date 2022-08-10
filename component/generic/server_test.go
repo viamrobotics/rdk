@@ -9,11 +9,10 @@ import (
 
 	"go.viam.com/rdk/component/generic"
 	pb "go.viam.com/rdk/proto/api/component/generic/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
-
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func newServer() (pb.GenericServiceServer, *inject.Generic, *inject.Generic, error) {
@@ -54,7 +53,7 @@ func TestGenericDo(t *testing.T) {
 		return nil, errors.New("do failed")
 	}
 
-	commandStruct, err := structpb.NewStruct(generic.TestCommand)
+	commandStruct, err := protoutils.StructToStructPb(generic.TestCommand)
 	test.That(t, err, test.ShouldBeNil)
 
 	req := pb.DoRequest{Name: testGenericName, Command: commandStruct}
