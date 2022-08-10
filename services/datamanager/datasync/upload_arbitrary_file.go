@@ -97,7 +97,7 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 
 	activeBackgroundWorkers.Wait()
 
-	if err := <-retRecv; err != nil {
+	if err := <-retRecv; err != nil && err != io.EOF {
 		return errors.Errorf("Error when trying to recv from server: %v", err)
 	}
 	if err := <-retSend; err != nil {
