@@ -67,9 +67,6 @@ func newNextCollector(resource interface{}, params data.CollectorParams) (data.C
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::NextPointCloud")
-		defer span.End()
-
 		img, release, err := camera.Next(ctx)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, next.String(), err)
