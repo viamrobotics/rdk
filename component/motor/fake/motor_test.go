@@ -42,7 +42,7 @@ func TestGoFor(t *testing.T) {
 		MaxRPM:            60,
 	}
 
-	m.Encoder.Start(ctx, &m.activeBackgroundWorkers)
+	m.Encoder.Start(ctx, func(){})
 	err := m.GoFor(ctx, 60, 1, nil)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -58,7 +58,7 @@ func TestGoTo(t *testing.T) {
 		MaxRPM:            60,
 	}
 
-	m.Encoder.Start(ctx, &m.activeBackgroundWorkers)
+	m.Encoder.Start(ctx, func() {})
 	err := m.GoTo(ctx, 60, 1, nil)
 	test.That(t, err, test.ShouldBeNil)
 }

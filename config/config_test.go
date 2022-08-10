@@ -93,9 +93,9 @@ func TestConfig3(t *testing.T) {
 		MaxPowerPct:      0.5,
 	})
 	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &encoder.Config{
-		Pins: encoder.HallPins{
-			A: "encoder-steering-b",
-			B: "encoder-steering-a",
+		Pins: map[string]interface {}{
+			"a": "encoder-steering-b",
+			"b": "encoder-steering-a",
 		},
 		TicksPerRotation: 10000,
 		BoardName:        "board1",

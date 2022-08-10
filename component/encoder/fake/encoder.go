@@ -17,6 +17,7 @@ type Encoder struct {
 	speed      			float64 // ticks per minute
 	updateRate 			int64   // update position in start every updateRate ms
 	Tpr					int64	// ticks per rotation
+	activeBackgroundWorkers *sync.WaitGroup
 
 	generic.Unimplemented
 }
@@ -27,8 +28,8 @@ func (e *Encoder) GetTicksCount(ctx context.Context, extra map[string]interface{
 }
 
 // Start starts a background thread to run the encoder.
-func (e *Encoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync.WaitGroup) {
-	activeBackgroundWorkers.Add(1)
+func (e *Encoder) Start(cancelCtx context.Context, onStart func()) {
+	e.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		if e.updateRate == 0 {
 			e.updateRate = 100
@@ -48,7 +49,7 @@ func (e *Encoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync
 			e.position += int64(e.speed / float64(60*1000/e.updateRate))
 			e.mu.Unlock()
 		}
-	}, activeBackgroundWorkers.Done)
+	}, e.activeBackgroundWorkers.Done)
 }
 
 // ResetToZero resets the zero position.
