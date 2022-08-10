@@ -14,6 +14,8 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+// TODO Data-343: Reorganize this into a more standard interface/package, and add tests.
+
 // FileExt defines the file extension for Viam data capture files.
 const FileExt = ".capture"
 
@@ -44,12 +46,13 @@ func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.F
 }
 
 // BuildCaptureMetadata builds a DataCaptureMetadata object.
-func BuildCaptureMetadata(compType resource.SubtypeName, compName string, method string,
+func BuildCaptureMetadata(compType resource.SubtypeName, compName string, compModel string, method string,
 	additionalParams map[string]string,
 ) *v1.DataCaptureMetadata {
 	return &v1.DataCaptureMetadata{
 		ComponentType:    string(compType),
 		ComponentName:    compName,
+		ComponentModel:   compModel,
 		MethodName:       method,
 		Type:             getDataType(string(compType), method),
 		MethodParameters: additionalParams,
@@ -103,8 +106,7 @@ func getFileTimestampName() string {
 }
 
 // TODO DATA-246: Implement this in some more robust, programmatic way.
-
-func getDataType(componentType string, methodName string) v1.DataType {
+func getDataType(_ string, methodName string) v1.DataType {
 	if methodName == "NextPointCloud" {
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
 	}

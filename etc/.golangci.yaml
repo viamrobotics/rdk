@@ -27,6 +27,7 @@ linters:
     - goimports
     - golint
     - gomnd
+    - ifshort
     - interfacer
     - ireturn
     - maintidx

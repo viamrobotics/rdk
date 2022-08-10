@@ -683,7 +683,7 @@ func dialRobotClient(ctx context.Context,
 // possibly leak resources.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
 	var allErrs error
-	diff, err := config.DiffConfigs(r.config, newConfig)
+	diff, err := config.DiffConfigs(*r.config, *newConfig)
 	if err != nil {
 		r.logger.Errorw("error diffing the configs", "error", err)
 		return
