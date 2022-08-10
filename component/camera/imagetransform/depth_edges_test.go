@@ -27,7 +27,7 @@ func debugImageTransformOrSkip(t *testing.T) {
 }
 
 func TestDepthSource(t *testing.T) {
-	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1.dat.gz"))
+	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := &imagesource.StaticSource{DepthImg: img}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
@@ -46,6 +46,7 @@ func (h *depthSourceTestHelper) Process(
 	pCtx *rimage.ProcessorContext,
 	fn string,
 	img image.Image,
+	img2 image.Image,
 	logger golog.Logger,
 ) error {
 	t.Helper()
@@ -97,7 +98,7 @@ func TestDepthSourceGripper(t *testing.T) {
 	proj, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/gripper_parameters.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
+	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1/depth", "*.png", "")
 	err = d.Process(t, &depthSourceTestHelper{proj})
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -107,7 +108,7 @@ func TestDepthSourceIntel(t *testing.T) {
 	proj, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz", false)
+	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515/depth", "*.png", "")
 	err = d.Process(t, &depthSourceTestHelper{proj})
 	test.That(t, err, test.ShouldBeNil)
 }

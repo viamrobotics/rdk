@@ -327,3 +327,7 @@ func (r *rtkStation) ReadAccuracy(ctx context.Context) (float64, float64, error)
 func (r *rtkStation) ReadValid(ctx context.Context) (bool, error) {
 	return false, nil
 }
+
+func (r *rtkStation) GetReadings(ctx context.Context) ([]interface{}, error) {
+	return []interface{}{}, nil
+}

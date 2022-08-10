@@ -10,9 +10,15 @@ option java_package = "com.viam.rdk.proto.api.service.motion.v1";
 
 // A MotionService declares the gRPC contract for a motion service
 service MotionService {
-  rpc Move(MoveRequest) returns (MoveResponse) {
+  rpc PlanAndMove(PlanAndMoveRequest) returns (PlanAndMoveResponse) {
     option (google.api.http) = {
-      post: "/viam/api/v1/service/motion/{name}/move"
+      post: "/viam/api/v1/service/motion/{name}/planandmove"
+    };
+  }
+
+  rpc MoveSingleComponent(MoveSingleComponentRequest) returns (MoveSingleComponentResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/service/motion/movesinglecomponent"
     };
   }
 
@@ -23,14 +29,25 @@ service MotionService {
   }
 }
 
-message MoveRequest {
+message PlanAndMoveRequest {
   string name = 1;
   common.v1.PoseInFrame destination = 2;
   common.v1.ResourceName component_name = 3;
   optional common.v1.WorldState world_state = 4;
 }
 
-message MoveResponse {
+message PlanAndMoveResponse {
+  bool success = 1;
+}
+
+message MoveSingleComponentRequest {
+  string name = 1;
+  common.v1.PoseInFrame destination = 2;
+  common.v1.ResourceName component_name = 3;
+  optional common.v1.WorldState world_state = 4;
+}
+
+message MoveSingleComponentResponse {
   bool success = 1;
 }
 
