@@ -22,6 +22,8 @@ const (
 )
 
 // orbCamMaker takes in the camera intrinsics and config params for orbslam and constructs a ORBsettings struct to use with yaml.Marshal.
+// TODO[DATA-347]: Re-enable yaml
+//nolint:all
 func (slamSvc *slamService) orbCamMaker(intrinsics *transform.PinholeCameraIntrinsics) (*ORBsettings, error) {
 	var err error
 
@@ -104,6 +106,8 @@ type ORBsettings struct {
 }
 
 // generate a .yaml file to be used with orbslam.
+// TODO[DATA-347]: Re-enable yaml
+//nolint:all
 func (slamSvc *slamService) orbGenYAML(ctx context.Context, cam camera.Camera) error {
 	// Get the camera and check if the properties are valid
 	proj, err := cam.GetProperties(ctx)
@@ -165,6 +169,8 @@ func (slamSvc *slamService) orbGenYAML(ctx context.Context, cam camera.Camera) e
 	return outfile.Close()
 }
 
+// TODO[DATA-347]: Re-enable yaml
+//nolint:all
 func (slamSvc *slamService) orbConfigToInt(key string, def int) (int, error) {
 	valStr, ok := slamSvc.configParams[key]
 	if !ok {
@@ -180,6 +186,8 @@ func (slamSvc *slamService) orbConfigToInt(key string, def int) (int, error) {
 	return val, nil
 }
 
+// TODO[DATA-347]: Re-enable yaml
+//nolint:all
 func (slamSvc *slamService) orbConfigToFloat(key string, def float64) (float64, error) {
 	valStr, ok := slamSvc.configParams[key]
 	if !ok {
@@ -196,6 +204,8 @@ func (slamSvc *slamService) orbConfigToFloat(key string, def float64) (float64, 
 
 // Checks the map folder within the data directory for an existing map.
 // Will grab the most recently generated map, if one exists.
+// TODO[DATA-347]: Re-enable yaml
+//nolint:all
 func (slamSvc *slamService) checkMaps() (string, string, error) {
 	root := filepath.Join(slamSvc.dataDirectory, "map")
 	mapExt := ".osa"

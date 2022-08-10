@@ -108,6 +108,9 @@ var Name = resource.NameFromSubtype(Subtype, "")
 // not valid, this function will throw a warning, but not close out/shut down the server. The required parameters that are checked here
 // are: 'algorithm', 'data_dir', and 'config_param' (required due to the 'mode' parameter internal to it).
 // Returns the slam mode.
+
+// TODO[DATA-347]: Re-enable runtime config validation
+//nolint:all
 func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) (mode, error) {
 	slamLib, ok := SLAMLibraries[svcConfig.Algorithm]
 	if !ok {
@@ -181,6 +184,9 @@ func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) (mode, 
 
 // runtimeServiceValidation ensures the service's data processing and saving is valid for the mode and
 // cameras given.
+
+// TODO[DATA-347]: Re-enable runtime service validation
+//nolint:all
 func runtimeServiceValidation(ctx context.Context, cams []camera.Camera, slamSvc *slamService) error {
 	if len(cams) == 0 {
 		return nil
