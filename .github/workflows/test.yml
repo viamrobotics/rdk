@@ -109,9 +109,6 @@ jobs:
       with:
         fetch-depth: 2
 
-    - name: Clean
-      run: make clean-all
-
     - name: Create GCP Credential File from secret
       run: |
         GOOGLE_APPLICATION_CREDENTIALS=`pwd`/${GOOGLE_APPLICATION_CREDENTIALS_FILENAME}
