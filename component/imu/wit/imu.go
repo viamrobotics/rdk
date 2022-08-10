@@ -5,12 +5,10 @@ import (
 	"bufio"
 	"context"
 
-	"encoding/csv"
 	"errors"
 	"fmt"
 	"math"
 
-	"os"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -110,10 +108,6 @@ func NewWit(deps registry.Dependencies, config config.Component, logger golog.Lo
 	ctx, i.cancelFunc = context.WithCancel(context.Background())
 	i.activeBackgroundWorkers.Add(1)
 
-	// logging
-	csvFile, _ := os.Create("/home/skarpoor12/data/motion/imu2.csv")
-	csvwriter := csv.NewWriter(csvFile)
-
 	utils.PanicCapturingGo(func() {
 		defer utils.UncheckedErrorFunc(port.Close)
 		defer i.activeBackgroundWorkers.Done()
@@ -133,14 +127,6 @@ func NewWit(deps registry.Dependencies, config config.Component, logger golog.Lo
 					i.lastError = err
 				} else {
 					i.lastError = i.parseWIT(line)
-
-					// logging
-					data := []string{fmt.Sprintf("%f", i.orientation.Roll), fmt.Sprintf("%f", i.orientation.Pitch), fmt.Sprintf("%f", i.orientation.Yaw), fmt.Sprintf("%f", i.acceleration.X), fmt.Sprintf("%f", i.acceleration.Y), fmt.Sprintf("%f", i.acceleration.Z)}
-					err = csvwriter.Write(data)
-					if err != nil {
-						fmt.Println("ERROR: ", err)
-					}
-					fmt.Println("WRITING: ", data)
 				}
 			}()
 		}
