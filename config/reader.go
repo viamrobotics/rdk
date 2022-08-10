@@ -356,7 +356,7 @@ func getFromCloud(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool
 // The argument `cloudConfigFromDisk` represents the Cloud config from disk and only the Path parameters are used to
 // generate the url. This is different from the Cloud config returned from the HTTP or gRPC API which do not have it.
 //
-// TOOD(adam): The TLS certificate data should not be part of the Cloud portion of the config.
+// TODO(adam): The TLS certificate data should not be part of the Cloud portion of the config.
 func readCertificateDataFromCloud(ctx context.Context, signalingInsecure bool, cloudConfigFromDisk *Cloud) (*Cloud, error) {
 	certReq, err := createCloudCertificateRequest(ctx, cloudConfigFromDisk)
 	if err != nil {
@@ -446,7 +446,7 @@ func readFromCloud(
 
 	if checkForNewCert || tlsCertificate == "" || tlsPrivateKey == "" {
 		logger.Debug("Reading tlsCertificate from the cloud")
-		// Use the SignalingInsecure from the Cloud config returned from the app not the intial config.
+		// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
 		certData, err := readCertificateDataFromCloud(ctx, cfg.Cloud.SignalingInsecure, cloudCfg)
 		if err != nil {
 			var urlErr *url.Error
@@ -528,9 +528,9 @@ func FromReader(
 	if cfgFromDisk.Cloud != nil {
 		cfg, _, err := readFromCloud(ctx, cfgFromDisk, true /* shouldReadFromCache */, true /* checkForCert*/, logger)
 		return cfg, err
-	} else {
-		return cfgFromDisk, err
 	}
+
+	return cfgFromDisk, err
 }
 
 // processConfigFromCloud returns a copy of the current config with all attributes parsed
