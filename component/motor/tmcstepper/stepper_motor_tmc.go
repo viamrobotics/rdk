@@ -489,7 +489,7 @@ func (m *Motor) Enable(ctx context.Context, turnOn bool) error {
 	if m.enLowPin == nil {
 		return errors.New("no enable pin configured")
 	}
-	return m.enLowPin.Set(ctx, !turnOn)
+	return m.enLowPin.Set(ctx, !turnOn, nil)
 }
 
 // Stop stops the motor.
