@@ -11,7 +11,6 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gps"
@@ -278,7 +277,7 @@ func TestServerGetStatus(t *testing.T) {
 			err,
 			test.ShouldBeError,
 			errors.New(
-				"unable to convert status for \"rdk:component:arm/arm\" to a form acceptable to structpb.NewStruct: "+
+				"unable to convert interface 1 to a form acceptable to structpb.NewStruct:"+
 					"data of type int and kind int not a struct or a map-like object",
 			),
 		)
@@ -438,7 +437,7 @@ func TestServerGetStatus(t *testing.T) {
 			streamErr = server.StreamStatus(&pb.StreamStatusRequest{Every: durationpb.New(dur)}, streamServer)
 			close(done)
 		}()
-		expectedStatus, err := structpb.NewStruct(map[string]interface{}{})
+		expectedStatus, err := protoutils.StructToStructPb(map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 		var messages []*pb.StreamStatusResponse
 		messages = append(messages, <-messageCh)
