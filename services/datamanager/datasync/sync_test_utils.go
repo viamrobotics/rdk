@@ -48,8 +48,7 @@ func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequ
 			for i, uploadRequest := range actual[1:] {
 				a := uploadRequest.GetSensorContents().GetStruct()
 				e := expected[i+1].GetSensorContents().GetStruct()
-				test.That(t, a, test.ShouldResemble, e)
-				panic("SHIT")
+				test.That(t, fmt.Sprint(a), test.ShouldResemble, fmt.Sprint(e))
 			}
 		} else {
 			// Compare sensor data upload request (stream).
