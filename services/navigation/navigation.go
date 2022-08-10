@@ -224,7 +224,7 @@ func (svc *navService) startWaypoint() error {
 				return
 			}
 
-			currentLoc, _, _, err := svc.movementSensor.GetPosition(svc.cancelCtx)
+			currentLoc, _, err := svc.movementSensor.GetPosition(svc.cancelCtx)
 			if err != nil {
 				svc.logger.Errorw("failed to get gps location", "error", err)
 				continue
@@ -302,7 +302,7 @@ func (svc *navService) GetLocation(ctx context.Context) (*geo.Point, error) {
 	if svc.movementSensor == nil {
 		return nil, errors.New("no way to get location")
 	}
-	loc, _, _, err := svc.movementSensor.GetPosition(ctx)
+	loc, _, err := svc.movementSensor.GetPosition(ctx)
 	return loc, err
 }
 

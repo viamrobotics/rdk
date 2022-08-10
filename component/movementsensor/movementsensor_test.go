@@ -75,7 +75,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
 
-	result, _, _, err := s.GetPosition(context.Background())
+	result, _, err := s.GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, loc)
 
@@ -95,7 +95,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
 
-	result, _, _, err := s.GetPosition(context.Background())
+	result, _, err := s.GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, loc)
 
@@ -181,7 +181,7 @@ func TestReconfigurableMovementSensor(t *testing.T) {
 
 	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 0)
 	test.That(t, actualMovementSensor2.positionCount, test.ShouldEqual, 0)
-	result, _, _, err := reconfMovementSensor1.(movementsensor.MovementSensor).GetPosition(context.Background())
+	result, _, err := reconfMovementSensor1.(movementsensor.MovementSensor).GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, loc)
 	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 0)
@@ -202,7 +202,7 @@ func TestGetPosition(t *testing.T) {
 	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
 
 	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 0)
-	loc1, _, _, err := reconfMovementSensor1.(movementsensor.MovementSensor).GetPosition(context.Background())
+	loc1, _, err := reconfMovementSensor1.(movementsensor.MovementSensor).GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, loc1, test.ShouldResemble, geo.NewPoint(90, 1))
 	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 1)
@@ -224,7 +224,7 @@ func TestGetReadings(t *testing.T) {
 	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
 
 	readings1, err := movementsensor.GetReadings(context.Background(), actualMovementSensor1)
-	allReadings := []interface{}{loc, alt, acc, speed, ang, compass, orie}
+	allReadings := []interface{}{loc, alt, speed, ang, compass, orie}
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings1, test.ShouldResemble, allReadings)
 
@@ -245,7 +245,6 @@ func TestClose(t *testing.T) {
 var (
 	loc     = geo.NewPoint(90, 1)
 	alt     = 50.5
-	acc     = geo.NewPoint(1.1, 1.1)
 	speed   = r3.Vector{5.4, 1.1, 2.2}
 	ang     = spatialmath.AngularVelocity{5.5, 1.2, 2.3}
 	orie    = &spatialmath.EulerAngles{5.6, 1.3, 2.4}
@@ -264,9 +263,9 @@ func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]i
 	return cmd, nil
 }
 
-func (m *mock) GetPosition(ctx context.Context) (*geo.Point, float64, *geo.Point, error) {
+func (m *mock) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
 	m.positionCount++
-	return loc, alt, acc, nil
+	return loc, alt, nil
 }
 
 func (m *mock) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {

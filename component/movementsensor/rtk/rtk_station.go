@@ -300,8 +300,8 @@ func (r *rtkStation) Close() error {
 	return nil
 }
 
-func (r *rtkStation) GetPosition(ctx context.Context) (*geo.Point, float64, *geo.Point, error) {
-	return &geo.Point{}, 0, nil, nil
+func (r *rtkStation) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+	return &geo.Point{}, 0, nil
 }
 
 func (r *rtkStation) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
@@ -322,6 +322,10 @@ func (r *rtkStation) GetCompassHeading(ctx context.Context) (float64, error) {
 
 func (r *rtkStation) GetReadings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{}, nil
+}
+
+func (r *rtkStation) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+	return map[string]float32{}, nil
 }
 
 func (r *rtkStation) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {

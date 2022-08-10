@@ -468,7 +468,7 @@ func (g *RTKMovementSensor) NtripStatus() (bool, error) {
 }
 
 // GetPosition returns the current geographic location of the MOVEMENTSENSOR.
-func (g *RTKMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, *geo.Point, error) {
+func (g *RTKMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
 	return g.nmeamovementsensor.GetPosition(ctx)
 }
 
@@ -500,6 +500,11 @@ func (g *RTKMovementSensor) ReadFix(ctx context.Context) (int, error) {
 // GetProperties passthrough.
 func (g *RTKMovementSensor) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
 	return g.nmeamovementsensor.GetProperties(ctx)
+}
+
+// GetAccuracy passthrough.
+func (g *RTKMovementSensor) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+	return g.nmeamovementsensor.GetAccuracy(ctx)
 }
 
 // GetReadings will use the default MovementSensor GetReadings if not provided.

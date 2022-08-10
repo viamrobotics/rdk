@@ -172,11 +172,18 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 	return g.correctionPath, g.correctionBaudRate
 }
 
-// GetPosition position, altitide, accuracy.
-func (g *SerialNMEAMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, *geo.Point, error) {
+// GetPosition position, altitide.
+func (g *SerialNMEAMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.location, g.data.alt, geo.NewPoint(g.data.hDOP, g.data.vDOP), nil
+	return g.data.location, g.data.alt, nil
+}
+
+// GetAccuracy returns the accuracy, hDOP and vDOP.
+func (g *SerialNMEAMovementSensor) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return map[string]float32{"hDOP": float32(g.data.hDOP), "vDOP": float32(g.data.vDOP)}, nil
 }
 
 // GetLinearVelocity linear velocity.

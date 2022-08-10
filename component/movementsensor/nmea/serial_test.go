@@ -97,7 +97,7 @@ func TestReadingsSerial(t *testing.T) {
 	test.That(t, correctionPath, test.ShouldEqual, path)
 	test.That(t, correctionBaudRate, test.ShouldEqual, 9600)
 
-	loc1, alt1, _, err := g.GetPosition(ctx)
+	loc1, alt1, err := g.GetPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, loc1, test.ShouldEqual, loc)
 	test.That(t, alt1, test.ShouldEqual, alt)
