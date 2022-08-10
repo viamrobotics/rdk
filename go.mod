@@ -352,4 +352,4 @@ require (
 )
 
 // Disallow all usages of viamrobotics/app in rdk.
-replace  github.com/viamrobotics/app =>  github.com/viamrobotics/project-does-not-exist v0.0.0
+replace github.com/viamrobotics/app => github.com/viamrobotics/project-does-not-exist v0.0.0
