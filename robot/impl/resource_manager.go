@@ -153,9 +153,6 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 		}
 	}
 	for res, visit := range visited {
-		// this loops through all of visited to see which ones are FALSE, meaning they are
-		// NOT a part of the new resources in current robot. If remote is disconnected
-		// then none of the nodes in this graph will have been visited
 		if !visit {
 			manager.logger.Debugf("deleting res %q", res)
 			err := manager.markChildrenForUpdate(ctx, res, lr)

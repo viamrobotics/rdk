@@ -37,10 +37,8 @@ func StartBaseRobot(ctx context.Context,
 }
 
 // NewRobotClient creates a new robot client with a certain address.
-func NewRobotClient(t *testing.T, logger *zap.SugaredLogger, addr string) *client.RobotClient {
+func NewRobotClient(t *testing.T, logger *zap.SugaredLogger, addr string, dur time.Duration) *client.RobotClient {
 	t.Helper()
-	dur := 100 * time.Millisecond
-
 	// start robot client
 	robotClient, err := client.New(
 		context.Background(),
