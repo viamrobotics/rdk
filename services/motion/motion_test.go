@@ -82,7 +82,7 @@ func TestMove(t *testing.T) {
 	ms := setupMotionServiceFromConfig(t, "data/moving_arm.json")
 
 	t.Run("succeeds when all frame info in config", func(t *testing.T) {
-		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
+		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
 		_, err = ms.PlanAndMove(context.Background(), gripper.Named("pieceGripper"), grabPose, &commonpb.WorldState{})
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -112,9 +112,57 @@ func TestMove(t *testing.T) {
 		worldState := &commonpb.WorldState{
 			Transforms: transformMsgs,
 		}
-		grabPose := referenceframe.NewPoseInFrame("testFrame2", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
+		grabPose := referenceframe.NewPoseInFrame("testFrame2", spatialmath.NewPoseFromPoint(r3.Vector{-20, -130, -40}))
 		_, err = ms.PlanAndMove(context.Background(), gripper.Named("pieceGripper"), grabPose, worldState)
 		test.That(t, err, test.ShouldBeNil)
+	})
+}
+
+func TestMoveWithObstacles(t *testing.T) {
+	var err error
+	ms := setupMotionServiceFromConfig(t, "data/moving_arm.json")
+
+	t.Run("check a movement that should not succeed due to obstacles", func(t *testing.T) {
+		testPose1 := spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 370})
+		testPose2 := spatialmath.NewPoseFromPoint(r3.Vector{300, 300, -3500})
+		_ = testPose2
+		grabPose := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{-600, -400, 460}))
+		obsMsgs := []*commonpb.GeometriesInFrame{
+			{
+				ReferenceFrame: "world",
+				Geometries: []*commonpb.Geometry{
+					{
+						Center: spatialmath.PoseToProtobuf(testPose2),
+						GeometryType: &commonpb.Geometry_Box{
+							Box: &commonpb.RectangularPrism{
+								WidthMm:  20,
+								LengthMm: 40,
+								DepthMm:  40,
+							},
+						},
+					},
+				},
+			},
+			{
+				ReferenceFrame: "world",
+				Geometries: []*commonpb.Geometry{
+					{
+						Center: spatialmath.PoseToProtobuf(testPose1),
+						GeometryType: &commonpb.Geometry_Box{
+							Box: &commonpb.RectangularPrism{
+								WidthMm:  2000,
+								LengthMm: 2000,
+								DepthMm:  20,
+							},
+						},
+					},
+				},
+			},
+		}
+		_ = obsMsgs
+		_, err = ms.PlanAndMove(context.Background(), gripper.Named("pieceArm"), grabPose, &commonpb.WorldState{Obstacles: obsMsgs})
+		// This fails due to a large obstacle being in the way
+		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
 
@@ -170,7 +218,7 @@ func TestMoveSingleComponent(t *testing.T) {
 func TestMultiplePieces(t *testing.T) {
 	var err error
 	ms := setupMotionServiceFromConfig(t, "data/fake_tomato.json")
-	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
+	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-0, -30, -50}))
 	_, err = ms.PlanAndMove(context.Background(), gripper.Named("gr"), grabPose, &commonpb.WorldState{})
 	test.That(t, err, test.ShouldBeNil)
 }
