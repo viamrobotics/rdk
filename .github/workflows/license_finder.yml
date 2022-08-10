@@ -7,7 +7,7 @@ on:
       REPO_READ_TOKEN:
         required: true
   pull_request:
-    branches: [ 'main' ]
+    branches: ['main']
   push:
 
 env:
@@ -16,9 +16,9 @@ env:
 jobs:
   build_and_test:
     name: Audit 3rd-Party Licenses
-    runs-on: [x64, qemu-host] 
-    container: 
-      image: ghcr.io/viamrobotics/canon:amd64-cache 
+    runs-on: [x64, qemu-host]
+    container:
+      image: ghcr.io/viamrobotics/canon:amd64-cache
       options: --platform linux/amd64
     timeout-minutes: 30
 
@@ -28,5 +28,10 @@ jobs:
         with:
           fetch-depth: 2
 
+      - name: Configure git for private repos
+        run: |
+          sudo -u testbot bash -lc 'echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc'
+
       - name: Run license finder
-        run: license_finder --npm-options='--prefix web/frontend'
+        run: |
+          sudo -u testbot bash -lc 'license_finder --npm-options="--prefix web/frontend"'
