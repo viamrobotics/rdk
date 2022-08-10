@@ -168,11 +168,9 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 		return nil
 	}
 	// Don't retry non-retryable errors.
-	if err != nil {
-		s := status.Convert(err)
-		if s.Code() == codes.InvalidArgument {
-			return err
-		}
+	s := status.Convert(err)
+	if s.Code() == codes.InvalidArgument {
+		return err
 	}
 
 	// First call failed, so begin exponentialRetry with a factor of retryExponentialFactor
@@ -245,7 +243,7 @@ func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
 }
 
 func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncServiceClient, f *os.File, partID string) error {
-	// Resets file pointer to ensure we https://app.viam.com/robot?id=3aa9b5dc-38db-4efd-90f9-ddd95e069c01&tab=configare reading from beginning of file.
+	// Resets file pointer to ensure we are reading from beginning of file.
 	if _, err := f.Seek(0, 0); err != nil {
 		return err
 	}
