@@ -3,6 +3,7 @@ package motor
 import (
 	"context"
 	"sync"
+
 	"github.com/edaniels/golog"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
