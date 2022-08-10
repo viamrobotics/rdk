@@ -1,9 +1,9 @@
 package slam
 
-const (
-	// file version needed by ORBSLAM.
-	fileVersion = "1.0"
-)
+// const (
+// 	// file version needed by ORBSLAM.
+// 	fileVersion = "1.0"
+// )
 
 // orbCamMaker takes in the camera intrinsics and config params for orbslam and constructs a ORBsettings struct to use with yaml.Marshal.
 // TODO[DATA-347]: Re-enable yaml
