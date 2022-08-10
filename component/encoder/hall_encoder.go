@@ -70,15 +70,9 @@ func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config conf
 			return nil, err
 		}
 
-		e.A, ok = board.DigitalInterruptByName(a)
-		if !ok {
-			return nil, errors.Errorf("cannot find pin (%s) for HallEncoder", a)
-		}
+		e.A, _ = board.DigitalInterruptByName(a)
+		e.B, _ = board.DigitalInterruptByName(b)
 
-		e.B, ok = board.DigitalInterruptByName(b)
-		if !ok {
-			return nil, errors.Errorf("cannot find pin (%s) for HallEncoder", b)
-		}
 		e.ticksPerRotation = int64(cfg.TicksPerRotation)
 	
 		return e, nil

@@ -27,6 +27,7 @@ func init() {
 		) (interface{}, error) {
 			return NewSingleEncoder(ctx, deps, config, logger)
 		}})
+	RegisterConfigAttributeConverter("single-encoder")
 }
 
 // DirectionAware lets you ask what direction something is moving. Only used for SingleEncoder for now, unclear future.
