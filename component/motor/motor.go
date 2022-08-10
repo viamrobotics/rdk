@@ -2,6 +2,7 @@ package motor
 
 import (
 	"context"
+	"go.viam.com/rdk/data"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -39,6 +40,14 @@ func init() {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: getPosition.String(),
+	}, newGetPositionCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: isPowered.String(),
+	}, newIsPoweredCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "motor".
