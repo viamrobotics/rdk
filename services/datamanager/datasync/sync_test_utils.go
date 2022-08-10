@@ -16,8 +16,6 @@ import (
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/protoutils"
@@ -197,6 +195,7 @@ func getMockService() mockDataSyncServiceServer {
 		failAtIndex:                        -1,
 		lock:                               &sync.Mutex{},
 		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
+		errorToReturn:                      errors.New("oh no error :("),
 	}
 }
 
@@ -234,6 +233,7 @@ type mockDataSyncServiceServer struct {
 	callCount      *atomic.Int32
 	failUntilIndex int32
 	failAtIndex    int32
+	errorToReturn  error
 
 	lock *sync.Mutex
 	v1.UnimplementedDataSyncServiceServer
@@ -248,11 +248,11 @@ func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
 	defer m.callCount.Add(1)
 	if m.callCount.Load() < m.failUntilIndex {
-		return status.Error(codes.Aborted, "fail until reach failUntilIndex")
+		return m.errorToReturn
 	}
 	for {
 		if m.callCount.Load() == m.failAtIndex {
-			return status.Error(codes.Aborted, "failed at failAtIndex")
+			return m.errorToReturn
 		}
 		ur, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
