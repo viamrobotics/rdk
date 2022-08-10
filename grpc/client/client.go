@@ -42,21 +42,19 @@ var errUnimplemented = errors.New("unimplemented")
 // RobotClient satisfies the robot.Robot interface through a gRPC based
 // client conforming to the robot.proto contract.
 type RobotClient struct {
-	address         string
-	conn            rpc.ClientConn
-	client          pb.RobotServiceClient
-	refClient       *grpcreflect.Client
-	dialOptions     []rpc.DialOption
-	children        map[resource.Name]interface{}
-	checkedChildren map[resource.Name]bool
+	address     string
+	conn        rpc.ClientConn
+	client      pb.RobotServiceClient
+	refClient   *grpcreflect.Client
+	dialOptions []rpc.DialOption
+	children    map[resource.Name]interface{}
 
 	mu                  *sync.RWMutex
 	resourceNames       []resource.Name
 	resourceRPCSubtypes []resource.RPCSubtype
 
-	connected       bool
-	changeChan      chan bool
-	connectedBefore bool
+	connected  bool
+	changeChan chan bool
 
 	activeBackgroundWorkers *sync.WaitGroup
 	cancelBackgroundWorkers func()
@@ -165,51 +163,10 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	rc.client = client
 	rc.refClient = refClient
 	rc.connected = true
-	if rc.connectedBefore {
-		// refresh first to get the new resources
-		err = rc.updateResources(ctx)
-		if err != nil {
+	if len(rc.children) != 0 {
+		if err := rc.updateResources(ctx); err != nil {
 			return err
 		}
-		// 1. get new resourceNames that are actually in the config now
-		// 2. check those against the clients that were previously created
-		// 3. remove the remaining clients that were not touched/no longer exist
-		for _, name := range rc.resourceNames {
-			if client := rc.children[name]; client != nil {
-				// that means this client was previously initiated and called
-				newClient, err := rc.createClient(name)
-				if err != nil {
-					return err
-				}
-				reconfigurableNewClient, ok := newClient.(resource.Reconfigurable)
-				if !ok {
-					rc.logger.Errorw("new client is not reconfigurable")
-					continue
-				}
-				reconfigurableClient, ok := client.(resource.Reconfigurable)
-				if !ok {
-					rc.logger.Errorw("original client is not reconfigurable")
-					continue
-				}
-				err = reconfigurableClient.Reconfigure(ctx, reconfigurableNewClient)
-				if err != nil {
-					return err
-				}
-			}
-		}
-
-		for childName, checked := range rc.checkedChildren {
-			if !checked {
-				child := rc.children[childName]
-				if err := utils.TryClose(ctx, child); err != nil {
-					return err
-				}
-				rc.children[childName] = nil
-				rc.checkedChildren[childName] = false
-			}
-		}
-	} else {
-		rc.connectedBefore = true
 	}
 
 	if rc.changeChan != nil {
@@ -218,6 +175,49 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	if rc.notifyParent != nil {
 		rc.notifyParent()
 	}
+	return nil
+}
+
+func (rc *RobotClient) reconfigureChildren(ctx context.Context) error {
+	checkedChildren := make(map[resource.Name]bool)
+
+	// 1. get new resourceNames that are actually in the remote now
+	// 2. check those against the clients that were previously created
+	// 3. remove the remaining clients that were not touched/no longer exist
+	for _, name := range rc.resourceNames {
+		if client := rc.children[name]; client != nil {
+			// that means this client was previously initiated and called
+			newClient, err := rc.createClient(name)
+			if err != nil {
+				return err
+			}
+			reconfigurableNewClient, ok := newClient.(resource.Reconfigurable)
+			if !ok {
+				rc.logger.Errorw("new client is not reconfigurable")
+				continue
+			}
+			reconfigurableClient, ok := client.(resource.Reconfigurable)
+			if !ok {
+				rc.logger.Errorw("original client is not reconfigurable")
+				continue
+			}
+			if err = reconfigurableClient.Reconfigure(ctx, reconfigurableNewClient); err != nil {
+				return err
+			}
+			checkedChildren[name] = true
+		}
+	}
+
+	for childName, child := range rc.children {
+		if !checkedChildren[childName] {
+			if err := utils.TryClose(ctx, child); err != nil {
+				return err
+			}
+			delete(rc.children, childName)
+			delete(checkedChildren, childName)
+		}
+	}
+
 	return nil
 }
 
@@ -283,7 +283,6 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Dura
 				if rc.changeChan != nil {
 					rc.changeChan <- true
 				}
-				rc.Logger().Debugf("connection was lost for remote %q", rc.address)
 				if rc.notifyParent != nil {
 					rc.Logger().Debugf("connection was lost for remote %q", rc.address)
 					rc.notifyParent()
@@ -441,6 +440,12 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 		rc.resourceNames = make([]resource.Name, 0, len(names))
 		rc.resourceNames = append(rc.resourceNames, names...)
 		rc.resourceRPCSubtypes = rpcSubtypes
+	}
+
+	if rc.connected {
+		if err = rc.reconfigureChildren(ctx); err != nil {
+			return err
+		}
 	}
 
 	return nil
