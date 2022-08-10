@@ -10,9 +10,6 @@ on:
     branches: ['main']
   push:
 
-env:
-  GOPRIVATE: 'github.com/viamrobotics/*,go.viam.com/*'
-
 jobs:
   build_and_test:
     name: Audit 3rd-Party Licenses
