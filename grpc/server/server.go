@@ -81,12 +81,7 @@ func convertInterfaceToStruct(i interface{}) (*structpb.Struct, error) {
 	if i == nil {
 		return &structpb.Struct{}, nil
 	}
-	returnVal, err := protoutils.StructToStructPb(i)
-	if err != nil {
-		return nil, err
-	}
-
-	return returnVal, nil
+	return protoutils.StructToStructPb(i)
 }
 
 // CancelOperation kills an operations.
