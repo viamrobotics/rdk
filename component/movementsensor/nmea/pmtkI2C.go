@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/resource"
 )
 
 // I2CAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
@@ -45,7 +46,7 @@ func (config *I2CAttrConfig) ValidateI2C(path string) error {
 func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
-		"nmea-pmtkI2C",
+		resource.Model{Name: "nmea-pmtkI2C"},
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,

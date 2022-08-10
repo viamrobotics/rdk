@@ -141,7 +141,11 @@ func (s *Server) ResourceRPCSubtypes(ctx context.Context, _ *pb.ResourceRPCSubty
 func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverComponentsRequest) (*pb.DiscoverComponentsResponse, error) {
 	queries := make([]discovery.Query, 0, len(req.Queries))
 	for _, q := range req.Queries {
-		queries = append(queries, discovery.Query{resource.SubtypeName(q.Subtype), q.Model})
+		m, err := resource.NewModelFromString(q.Model)
+		if err != nil {
+			return nil, err
+		}
+		queries = append(queries, discovery.Query{SubtypeName: resource.SubtypeName(q.Subtype), Model: m})
 	}
 
 	discoveries, err := s.r.DiscoverComponents(ctx, queries)
@@ -155,7 +159,7 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Query)
 		}
-		pbQuery := &pb.DiscoveryQuery{Subtype: string(discovery.Query.SubtypeName), Model: discovery.Query.Model}
+		pbQuery := &pb.DiscoveryQuery{Subtype: string(discovery.Query.SubtypeName), Model: discovery.Query.Model.String()}
 		pbDiscoveries = append(
 			pbDiscoveries,
 			&pb.Discovery{

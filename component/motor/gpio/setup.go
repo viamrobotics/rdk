@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
@@ -49,12 +50,8 @@ func init() {
 		},
 	}
 
-	registry.RegisterComponent(motor.Subtype, "gpio", comp)
+	registry.RegisterComponent(motor.Subtype, resource.Model{Name: "gpio"}, comp)
 	motor.RegisterConfigAttributeConverter("gpio")
-
-	// for backwards compatibility?
-	registry.RegisterComponent(motor.Subtype, "pi", comp)
-	motor.RegisterConfigAttributeConverter("pi")
 }
 
 func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component) (board.Board, *motor.Config, error) {

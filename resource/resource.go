@@ -112,6 +112,7 @@ func (s Subtype) String() string {
 // Name represents a known component/service representation of a robot.
 type Name struct {
 	Subtype
+	Model  Model
 	Remote RemoteName
 	Name   string
 }
@@ -206,6 +207,9 @@ func (n Name) Validate() error {
 		return err
 	}
 	if err := ContainsReservedCharacter(n.Name); err != nil {
+		return err
+	}
+	if err := n.Model.Validate(); err != nil {
 		return err
 	}
 	return nil

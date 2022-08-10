@@ -13,13 +13,14 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 )
 
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
-		"fake",
+		resource.Model{Name: "fake"},
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			_ registry.Dependencies,

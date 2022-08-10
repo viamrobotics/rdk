@@ -16,10 +16,12 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const modelname = "multiaxis"
+var modelname = resource.Model{Name: "multiaxis"}
+
 
 // AttrConfig is used for converting multiAxis config attributes.
 type AttrConfig struct {

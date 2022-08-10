@@ -11,14 +11,17 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 )
 
+var modelDE = resource.Model{Name: "depth_edges"}
+
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
-		"depth_edges",
+		modelDE,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -32,7 +35,7 @@ func init() {
 			return newDepthEdgesSource(ctx, deps, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "depth_edges",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelDE,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
@@ -33,7 +34,7 @@ var _ = board.LocalBoard(&sysfsBoard{})
 func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
 	registry.RegisterComponent(
 		board.Subtype,
-		modelName,
+		resource.Model{Name: resource.ModelName(modelName)},
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			_ registry.Dependencies,

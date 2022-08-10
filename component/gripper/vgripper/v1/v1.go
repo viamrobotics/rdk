@@ -20,13 +20,14 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 //go:embed vgripper_model.json
 var vgripperv1json []byte
 
 // modelName is used to register the gripper to a model name.
-const modelName = "viam-v1"
+var modelName = resource.Model{Name: "viam-v1"}
 
 func init() {
 	registry.RegisterComponent(gripper.Subtype, modelName, registry.Component{

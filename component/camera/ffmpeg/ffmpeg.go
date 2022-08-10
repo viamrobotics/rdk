@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
@@ -39,7 +40,7 @@ type FilterAttrs struct {
 	KWArgs map[string]interface{} `json:"kw_args"`
 }
 
-const model = "ffmpeg"
+var model = resource.Model{Name: "ffmpeg"}
 
 func init() {
 	registry.RegisterComponent(camera.Subtype, model, registry.Component{

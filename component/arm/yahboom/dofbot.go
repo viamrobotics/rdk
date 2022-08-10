@@ -25,6 +25,7 @@ import (
 	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
@@ -67,7 +68,7 @@ func (jc jointConfig) toHw(degrees float64) int {
 }
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, "yahboom-dofbot", registry.Component{
+	registry.RegisterComponent(arm.Subtype, resource.Model{Name: "yahboom-dofbot"}, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newDofBot(ctx, r, config, logger)
 		},

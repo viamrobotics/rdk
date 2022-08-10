@@ -500,7 +500,7 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Qu
 	for _, q := range qs {
 		pbQueries = append(
 			pbQueries,
-			&pb.DiscoveryQuery{Subtype: string(q.SubtypeName), Model: q.Model},
+			&pb.DiscoveryQuery{Subtype: string(q.SubtypeName), Model: q.Model.String()},
 		)
 	}
 
@@ -511,9 +511,13 @@ func (rc *RobotClient) DiscoverComponents(ctx context.Context, qs []discovery.Qu
 
 	discoveries := make([]discovery.Discovery, 0, len(resp.Discovery))
 	for _, disc := range resp.Discovery {
+		m, err := resource.NewModelFromString(disc.Query.Model)
+		if err != nil {
+			return nil, err
+		}
 		q := discovery.Query{
 			SubtypeName: resource.SubtypeName(disc.Query.Subtype),
-			Model:       disc.Query.Model,
+			Model:       m,
 		}
 		discoveries = append(
 			discoveries, discovery.Discovery{

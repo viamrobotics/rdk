@@ -18,11 +18,12 @@ import (
 	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
-const model = "imu_vectornav"
+var model = resource.Model{Name: "imu_vectornav"}
 
 func init() {
 	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{
@@ -520,4 +521,3 @@ func (vn *vectornav) Close() {
 	vn.busClosed = true
 	vn.activeBackgroundWorkers.Wait()
 }
-

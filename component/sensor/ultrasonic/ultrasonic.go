@@ -14,12 +14,11 @@ import (
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 )
 
-const (
-	modelname = "ultrasonic"
-)
+var modelname = resource.Model{Name: "ultrasonic"}
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {

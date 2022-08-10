@@ -13,15 +13,19 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+var modelUndistort = resource.Model{Name: "undistort"}
+
+
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
-		"undistort",
+		modelUndistort,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -40,7 +44,7 @@ func init() {
 			return newUndistortSource(ctx, source, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "undistort",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelUndistort,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

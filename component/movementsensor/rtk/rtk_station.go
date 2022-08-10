@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -95,7 +96,7 @@ func (config *AttrConfig) Validate(path string) error {
 func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
-		"rtk-station",
+		resource.Model{Name: "rtk-station"},
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,

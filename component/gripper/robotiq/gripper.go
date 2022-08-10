@@ -19,11 +19,10 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
-const (
-	modelname = "robotiq"
-)
+var modelname = resource.Model{Name: "robotiq"}
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {

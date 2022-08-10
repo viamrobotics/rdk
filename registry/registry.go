@@ -136,7 +136,7 @@ var (
 )
 
 // RegisterComponent register a creator to its corresponding component and model.
-func RegisterComponent(subtype resource.Subtype, model string, creator Component) {
+func RegisterComponent(subtype resource.Subtype, model resource.Model, creator Component) {
 	creator.RegistrarLoc = getCallerName()
 	qName := fmt.Sprintf("%s/%s", subtype, model)
 	_, old := componentRegistry[qName]
@@ -151,7 +151,7 @@ func RegisterComponent(subtype resource.Subtype, model string, creator Component
 
 // ComponentLookup looks up a creator by the given subtype and model. nil is returned if
 // there is no creator registered.
-func ComponentLookup(subtype resource.Subtype, model string) *Component {
+func ComponentLookup(subtype resource.Subtype, model resource.Model) *Component {
 	qName := fmt.Sprintf("%s/%s", subtype, model)
 	if registration, ok := RegisteredComponents()[qName]; ok {
 		return &registration

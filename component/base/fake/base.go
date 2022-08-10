@@ -11,12 +11,13 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 func init() {
 	registry.RegisterComponent(
 		base.Subtype,
-		"fake",
+		resource.Model{Name: "fake"},
 		registry.Component{
 			Constructor: func(
 				ctx context.Context,

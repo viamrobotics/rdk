@@ -26,10 +26,11 @@ import (
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const modelName = "numato"
+var modelName = resource.Model{Name: "numato"}
 
 var errNoBoard = errors.New("no numato boards found")
 
@@ -60,7 +61,7 @@ func init() {
 
 			return connect(ctx, conf, logger)
 		}})
-	board.RegisterConfigAttributeConverter(modelName)
+	board.RegisterConfigAttributeConverter(string(modelName.Name))
 }
 
 type mask []byte

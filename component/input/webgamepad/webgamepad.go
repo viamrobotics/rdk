@@ -12,13 +12,12 @@ import (
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
-const (
-	modelname = "webgamepad"
-	// NOTE: Component NAME (in config file) must also be set to "WebGamepad" exactly
-	// This is because there's no way to get a component's model from a robot.Robot.
-)
+// NOTE: Component NAME (in config file) must also be set to "WebGamepad" exactly
+// This is because there's no way to get a component's model from a robot.Robot.
+var modelname = resource.Model{Name: "WebGamepad"}
 
 func init() {
 	registry.RegisterComponent(input.Subtype, modelname, registry.Component{Constructor: NewController})

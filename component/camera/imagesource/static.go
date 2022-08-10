@@ -11,13 +11,16 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
 
+var modelFile = resource.Model{Name: "file"}
+
 func init() {
-	registry.RegisterComponent(camera.Subtype, "file",
+	registry.RegisterComponent(camera.Subtype, modelFile,
 		registry.Component{Constructor: func(ctx context.Context, _ registry.Dependencies,
 			config config.Component, logger golog.Logger,
 		) (interface{}, error) {
@@ -30,7 +33,7 @@ func init() {
 			return camera.New(imgSrc, proj)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "file",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelFile,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
 			if err != nil {

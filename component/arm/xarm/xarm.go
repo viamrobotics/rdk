@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
@@ -57,26 +58,31 @@ var xArm6modeljson []byte
 //go:embed xarm7_kinematics.json
 var xArm7modeljson []byte
 
+var (
+	modelname6 = resource.Model{Name: "xArm6"}
+	modelname7 = resource.Model{Name: "xArm7"}
+)
+
 func init() {
-	registry.RegisterComponent(arm.Subtype, "xArm6", registry.Component{
+	registry.RegisterComponent(arm.Subtype, modelname6, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewxArm(ctx, r, config, logger, 6)
 		},
 	})
-	registry.RegisterComponent(arm.Subtype, "xArm7", registry.Component{
+	registry.RegisterComponent(arm.Subtype, modelname7, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewxArm(ctx, r, config, logger, 7)
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, "xArm6",
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, modelname6,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
 		&AttrConfig{})
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, "xArm7",
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, modelname7,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

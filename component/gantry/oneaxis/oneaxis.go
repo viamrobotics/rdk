@@ -21,11 +21,12 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const modelname = "oneaxis"
+var modelname = resource.Model{Name: "oneaxis"}
 
 // AttrConfig is used for converting oneAxis config attributes.
 type AttrConfig struct {

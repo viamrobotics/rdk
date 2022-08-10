@@ -22,12 +22,11 @@ import (
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
-const (
-	modelname      = "gamepad"
-	defaultMapping = "Microsoft X-Box 360 pad"
-)
+const defaultMapping = "Microsoft X-Box 360 pad"
+var modelname = resource.Model{Name: "gamepad"}
 
 // Config is used for converting config attributes.
 type Config struct {

@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -71,7 +72,7 @@ var allProductData map[vlp16.ProductID]productConfig = map[vlp16.ProductID]produ
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
-		"velodyne",
+		resource.Model{Name: "velodyne"},
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			_ registry.Dependencies,

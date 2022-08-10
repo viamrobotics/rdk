@@ -20,16 +20,22 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
+)
+
+var (
+	modelname250 = resource.Model{Name: "wx250s"}
+	modelname300 = resource.Model{Name: "vx300s"}
 )
 
 func init() {
-	registry.RegisterComponent(gripper.Subtype, "wx250s", registry.Component{
+	registry.RegisterComponent(gripper.Subtype, modelname250, registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newGripper(config.Attributes, logger)
 		},
 	})
 
-	registry.RegisterComponent(gripper.Subtype, "vx300s", registry.Component{
+	registry.RegisterComponent(gripper.Subtype, modelname300, registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newGripper(config.Attributes, logger)
 		},

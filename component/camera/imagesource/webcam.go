@@ -20,11 +20,12 @@ import (
 	"go.viam.com/rdk/discovery"
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/utils"
 )
 
-const model = "webcam"
+var model = resource.Model{Name: "webcam"}
 
 func init() {
 	registry.RegisterComponent(

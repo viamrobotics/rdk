@@ -18,11 +18,12 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
 func init() {
-	registry.RegisterComponent(gripper.Subtype, "yahboom-dofbot", registry.Component{
+	registry.RegisterComponent(gripper.Subtype, resource.Model{Name: "yahboom-dofbot"}, registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newGripper(deps, config)
 		},

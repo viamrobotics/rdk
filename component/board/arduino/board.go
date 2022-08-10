@@ -20,10 +20,11 @@ import (
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
-const modelName = "arduino"
+var modelName = resource.Model{Name: "arduino"}
 
 // init registers an arduino board.
 func init() {
@@ -42,7 +43,7 @@ func init() {
 			}
 			return newArduino(boardConfig, logger)
 		}})
-	board.RegisterConfigAttributeConverter(modelName)
+	board.RegisterConfigAttributeConverter(string(modelName.Name))
 }
 
 func getSerialConfig(cfg *board.Config) (slib.OpenOptions, error) {

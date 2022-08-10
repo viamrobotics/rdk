@@ -4,6 +4,7 @@ package eva
 import (
 	"bytes"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/json"
@@ -29,11 +30,12 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
-const (
-	modelname = "eva"
+var (
+	modelname = resource.Model{Name: "eva"}
 )
 
 // AttrConfig is used for converting config attributes.

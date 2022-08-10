@@ -16,13 +16,16 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 //go:embed static_arm_model.json
 var armModelJSON []byte
 
+var modelname = resource.Model{Name: "fake"}
+
 func init() {
-	registry.RegisterComponent(arm.Subtype, "fake", registry.Component{
+	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			if config.Attributes.Bool("fail_new", false) {
 				return nil, errors.New("whoops")

@@ -18,14 +18,23 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+
+var (
+	modelIdentity = resource.Model{Name: "identity"}
+	modelRotate = resource.Model{Name: "rotate"}
+	modelResize = resource.Model{Name: "resize"}
+)
+
+
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
-		"identity",
+		modelIdentity,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -45,7 +54,7 @@ func init() {
 			return camera.New(source, proj)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "identity",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelIdentity,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -54,7 +63,7 @@ func init() {
 
 	registry.RegisterComponent(
 		camera.Subtype,
-		"rotate",
+		modelRotate,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -75,7 +84,7 @@ func init() {
 			return camera.New(imgSrc, proj)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "rotate",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelRotate,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -84,7 +93,7 @@ func init() {
 
 	registry.RegisterComponent(
 		camera.Subtype,
-		"resize",
+		modelResize,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -115,7 +124,7 @@ func init() {
 			return camera.New(imgSrc, proj)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "resize",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelResize,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

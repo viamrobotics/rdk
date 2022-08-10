@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/resource"
 )
 
 // RTKAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
@@ -63,7 +64,7 @@ func (config *RTKAttrConfig) ValidateRTK(path string) error {
 func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
-		"rtk",
+		resource.Model{Name: "rtk"},
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,

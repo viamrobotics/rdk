@@ -6,13 +6,14 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 )
 
 // RegisterConfigAttributeConverter registers a board.Config converter.
 func RegisterConfigAttributeConverter(model string) {
 	config.RegisterComponentAttributeMapConverter(
 		SubtypeName,
-		model,
+		resource.Model{Name: resource.ModelName(model)},
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
 			return config.TransformAttributeMapToStruct(&conf, attributes)

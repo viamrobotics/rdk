@@ -14,9 +14,10 @@ import (
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
-const modelName = "fake"
+var modelName = resource.Model{Name: "fake"}
 
 func init() {
 	registry.RegisterComponent(input.Subtype, modelName, registry.Component{Constructor: NewInputController})

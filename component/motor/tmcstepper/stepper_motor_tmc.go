@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 // TMC5072Config extends motor.Config, mainly for RegisterComponentAttributeMapConverter.
@@ -33,9 +34,7 @@ type TMC5072Config struct {
 	HoldDelay   int32   `json:"hold_delay"`   // 0=instant powerdown, 1-15=delay * 2^18 clocks, 6 default
 }
 
-const (
-	modelname = "TMC5072"
-)
+var modelname = resource.Model{Name: "TMC5072"}
 
 func init() {
 	_motor := registry.Component{

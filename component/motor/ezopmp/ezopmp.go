@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 // Config is user config inputs for ezopmp.
@@ -30,7 +31,7 @@ type Config struct {
 	MaxReadBits int    `json:"max_read_bits"`
 }
 
-const modelName = "ezopmp"
+var modelName = resource.Model{Name: "ezopmp"}
 
 func init() {
 	_motor := registry.Component{

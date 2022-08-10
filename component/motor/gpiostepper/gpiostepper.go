@@ -19,10 +19,11 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const modelName = "gpiostepper"
+var modelName = resource.Model{Name: "gpiostepper"}
 
 func init() {
 	_motor := registry.Component{
@@ -36,7 +37,7 @@ func init() {
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
-	motor.RegisterConfigAttributeConverter(modelName)
+	motor.RegisterConfigAttributeConverter(string(modelName.Name))
 }
 
 func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component) (board.Board, *motor.Config, error) {

@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/resource"
 )
 
 // SerialAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
@@ -42,7 +43,7 @@ func (config *SerialAttrConfig) ValidateSerial(path string) error {
 func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
-		"nmea-serial",
+		resource.Model{Name: "nmea-serial"},
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			_ registry.Dependencies,

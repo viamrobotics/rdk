@@ -8,10 +8,11 @@ import (
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 )
 
 // ModelName is the name used refer to any implementation of a pi based component.
-const ModelName = "pi"
+var ModelName = resource.Model{Name: "pi"}
 
 // ServoConfig is the config for a pi servo.
 type ServoConfig struct {
@@ -33,7 +34,7 @@ func (config *ServoConfig) Validate(path string) error {
 }
 
 func init() {
-	board.RegisterConfigAttributeConverter(ModelName)
+	board.RegisterConfigAttributeConverter(string(ModelName.Name))
 
 	config.RegisterComponentAttributeMapConverter(
 		servo.SubtypeName,

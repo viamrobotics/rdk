@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/resource"
 )
 
 func init() {
@@ -64,7 +65,7 @@ func init() {
 			return m, nil
 		},
 	}
-	registry.RegisterComponent(motor.Subtype, "fake", _motor)
+	registry.RegisterComponent(motor.Subtype, resource.Model{Name: "fake"}, _motor)
 
 	motor.RegisterConfigAttributeConverter("fake")
 }

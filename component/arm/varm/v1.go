@@ -24,6 +24,7 @@ import (
 	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
@@ -48,7 +49,7 @@ const (
 var v1modeljson []byte
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, "varm1", registry.Component{
+	registry.RegisterComponent(arm.Subtype, resource.Model{Name: "varm1"}, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newArmV1(ctx, r, logger)
 		},

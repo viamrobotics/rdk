@@ -60,13 +60,13 @@ type ResourceLevelServiceConfig struct {
 type Component struct {
 	Name string `json:"name"`
 
-	Namespace     resource.Namespace           `json:"namespace"`
-	Type          resource.SubtypeName         `json:"type"`
-	SubType       string                       `json:"subtype"`
-	Model         string                       `json:"model"`
-	Frame         *Frame                       `json:"frame,omitempty"`
-	DependsOn     []string                     `json:"depends_on"`
-	ServiceConfig []ResourceLevelServiceConfig `json:"service_config"`
+	Namespace      resource.Namespace           `json:"namespace"`
+	Type           resource.SubtypeName         `json:"type"`
+	ModelStr       string                       `json:"model"`
+	Model          resource.Model               `json:"-"`
+	Frame          *Frame                       `json:"frame,omitempty"`
+	DependsOn      []string                     `json:"depends_on"`
+	ServiceConfig  []ResourceLevelServiceConfig `json:"service_config"`
 
 	Attributes          AttributeMap `json:"attributes"`
 	ConvertedAttributes interface{}  `json:"-"`
@@ -120,6 +120,11 @@ func (config *Component) Validate(path string) ([]string, error) {
 		// default namespace.
 		config.Namespace = resource.ResourceNamespaceRDK
 	}
+	if config.Model.Namespace == "" {
+		config.Model.Namespace = resource.ResourceNamespaceRDK
+		config.Model.ModelFamily = resource.ModelFamilyDefault
+	}
+
 	if err := resource.ContainsReservedCharacter(string(config.Namespace)); err != nil {
 		return nil, err
 	}
@@ -190,10 +195,12 @@ func ParseComponentFlag(flag string) (Component, error) {
 			cmp.Name = keyVal[1]
 		case "type":
 			cmp.Type = resource.SubtypeName(keyVal[1])
-		case "subtype":
-			cmp.SubType = keyVal[1]
 		case "model":
-			cmp.Model = keyVal[1]
+			m, err := resource.NewModelFromString(keyVal[1])
+			if err != nil {
+				return cmp, err
+			}
+			cmp.Model = m
 		case "depends_on":
 			split := strings.Split(keyVal[1], "|")
 

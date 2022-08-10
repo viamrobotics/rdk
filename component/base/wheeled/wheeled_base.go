@@ -19,7 +19,13 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
+)
+
+var (
+	modelname = resource.Model{Name: "wheeled"}
+	modelname4 = resource.Model{Name: "four-wheel"}
 )
 
 func init() {
@@ -31,10 +37,10 @@ func init() {
 		},
 	}
 
-	registry.RegisterComponent(base.Subtype, "four-wheel", fourWheelComp)
+	registry.RegisterComponent(base.Subtype, modelname4, fourWheelComp)
 	config.RegisterComponentAttributeMapConverter(
 		base.SubtypeName,
-		"four-wheel",
+		modelname4,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf FourWheelConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -49,10 +55,10 @@ func init() {
 		},
 	}
 
-	registry.RegisterComponent(base.Subtype, "wheeled", wheeledBaseComp)
+	registry.RegisterComponent(base.Subtype, modelname, wheeledBaseComp)
 	config.RegisterComponentAttributeMapConverter(
 		base.SubtypeName,
-		"wheeled",
+		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
 			return config.TransformAttributeMapToStruct(&conf, attributes)

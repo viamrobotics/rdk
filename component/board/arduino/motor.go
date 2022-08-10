@@ -62,9 +62,9 @@ func init() {
 		},
 	}
 
-	registry.RegisterComponent(motor.Subtype, "arduino", _motor)
+	registry.RegisterComponent(motor.Subtype, modelName, _motor)
 
-	motor.RegisterConfigAttributeConverter("arduino")
+	motor.RegisterConfigAttributeConverter(string(modelName.Name))
 }
 
 func configureMotorForBoard(

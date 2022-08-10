@@ -15,6 +15,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
@@ -24,14 +25,16 @@ type AttrConfig struct {
 	ArmName   string `json:"arm-name"`
 }
 
+var model = resource.Model{Name: "wrapper_arm"}
+
 func init() {
-	registry.RegisterComponent(arm.Subtype, "wrapper_arm", registry.Component{
+	registry.RegisterComponent(arm.Subtype, model, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewWrapperArm(config, r, logger)
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, "wrapper_arm",
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

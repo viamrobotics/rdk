@@ -28,8 +28,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
-	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
-	"go.viam.com/rdk/robot/modulesystem"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/utils"
@@ -40,7 +38,6 @@ type internalServiceName string
 const (
 	webName          internalServiceName = "web"
 	framesystemName  internalServiceName = "framesystem"
-	modulesystemName internalServiceName = "modulesystem"
 )
 
 var _ = robot.LocalRobot(&localRobot{})
@@ -94,6 +91,20 @@ func (r *localRobot) fsService() (framesystem.Service, error) {
 	}
 	return framesystemSvc, nil
 }
+
+// // moduleService returns the localRobot's module service. Raises if the service has not been initialized.
+// func (r *localRobot) moduleService() (modulesystem.Service, error) {
+// 	svc := r.internalServices[modulesystemName]
+// 	if svc == nil {
+// 		return nil, errors.New("module system service not initialized")
+// 	}
+
+// 	modulesystemSvc, ok := svc.(modulesystem.Service)
+// 	if !ok {
+// 		return nil, errors.New("unexpected service associated with module system internalServiceName")
+// 	}
+// 	return modulesystemSvc, nil
+// }
 
 // RemoteByName returns a remote robot by name. If it does not exist
 // nil is returned.
@@ -456,7 +467,6 @@ func newWithResources(
 	r.internalServices = make(map[internalServiceName]interface{})
 	r.internalServices[webName] = web.New(ctx, r, logger, rOpts.webOptions...)
 	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
-	r.internalServices[modulesystemName] = modulesystem.New(ctx, r, logger)
 
 	r.config = &config.Config{}
 
@@ -514,8 +524,15 @@ func (r *localRobot) getDependencies(rName resource.Name) (registry.Dependencies
 
 func (r *localRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
 	rName := config.ResourceName()
+
+	model, err := resource.NewModelFromString(config.ModelStr)
+	if err != nil {
+		return nil, err
+	}
+	config.Model = model
+
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
-	if f == nil {
+	if f == nil  && config.Model.Namespace != resource.ResourceNamespaceRDK {
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
 	}
 

@@ -375,7 +375,7 @@ type Config struct {
 func RegisterConfigAttributeConverter(model string) {
 	config.RegisterComponentAttributeMapConverter(
 		SubtypeName,
-		model,
+		resource.Model{Name: resource.ModelName(model)},
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
 			return config.TransformAttributeMapToStruct(&conf, attributes)

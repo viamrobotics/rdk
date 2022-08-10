@@ -15,13 +15,16 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+var modelAlign = resource.Model{Name: "align_color_depth"}
+
 func init() {
-	registry.RegisterComponent(camera.Subtype, "align_color_depth",
+	registry.RegisterComponent(camera.Subtype, modelAlign,
 		registry.Component{Constructor: func(ctx context.Context, deps registry.Dependencies,
 			config config.Component, logger golog.Logger,
 		) (interface{}, error) {
@@ -43,7 +46,7 @@ func init() {
 			return newAlignColorDepth(ctx, color, depth, attrs, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "align_color_depth",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelAlign,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
 			if err != nil {
@@ -62,7 +65,7 @@ func init() {
 			return result, nil
 		}, &alignAttrs{})
 
-	config.RegisterComponentAttributeConverter(camera.SubtypeName, "align_color_depth", "warp",
+	config.RegisterComponentAttributeConverter(camera.SubtypeName, modelAlign, "warp",
 		func(val interface{}) (interface{}, error) {
 			warp := &transform.AlignConfig{}
 			err := mapstructure.Decode(val, warp)
@@ -72,7 +75,7 @@ func init() {
 			return warp, err
 		})
 
-	config.RegisterComponentAttributeConverter(camera.SubtypeName, "align_color_depth", "intrinsic_extrinsic",
+	config.RegisterComponentAttributeConverter(camera.SubtypeName, modelAlign, "intrinsic_extrinsic",
 		func(val interface{}) (interface{}, error) {
 			matrices := &transform.DepthColorIntrinsicsExtrinsics{}
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: matrices})
@@ -86,7 +89,7 @@ func init() {
 			return matrices, err
 		})
 
-	config.RegisterComponentAttributeConverter(camera.SubtypeName, "align_color_depth", "homography",
+	config.RegisterComponentAttributeConverter(camera.SubtypeName, modelAlign, "homography",
 		func(val interface{}) (interface{}, error) {
 			homography := &transform.RawDepthColorHomography{}
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: homography})

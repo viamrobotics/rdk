@@ -10,16 +10,19 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
+var modelDetector = resource.Model{Name: "detector"}
+
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
-		"detector",
+		modelDetector,
 		registry.Component{RobotConstructor: func(
 			ctx context.Context,
 			r robot.Robot,
@@ -43,7 +46,7 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(
 		camera.SubtypeName,
-		"detector",
+		modelDetector,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			transformAttrs, err := extractAttributes(attributes)
 			if err != nil {

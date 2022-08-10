@@ -17,9 +17,10 @@ import (
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
-const modelName = "gpio"
+var modelName = resource.Model{Name: "gpio"}
 
 func init() {
 	registry.RegisterComponent(input.Subtype, modelName, registry.Component{Constructor: NewGPIOController})

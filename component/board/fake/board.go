@@ -15,11 +15,12 @@ import (
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 var _ = board.LocalBoard(&Board{})
 
-const modelName = "fake"
+var modelName = resource.Model{Name: "fake"}
 
 func init() {
 	registry.RegisterComponent(
@@ -36,7 +37,7 @@ func init() {
 			}
 			return NewBoard(ctx, config, logger)
 		}})
-	board.RegisterConfigAttributeConverter(modelName)
+	board.RegisterConfigAttributeConverter(string(modelName.Name))
 }
 
 // NewBoard returns a new fake board.

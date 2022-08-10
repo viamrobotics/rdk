@@ -14,10 +14,11 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
-const modelname = "roboclaw"
+var modelname = resource.Model{Name: "roboclaw"}
 
 type roboclawConfig struct {
 	SerialPort       string `json:"serial_port"`

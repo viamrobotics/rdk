@@ -12,15 +12,21 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
 
+var (
+	modelDtP = resource.Model{Name: "depth_to_pretty"}
+	modelOverlay = resource.Model{Name: "depth_to_pretty"}
+)
+
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
-		"depth_to_pretty",
+		modelDtP,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -34,7 +40,7 @@ func init() {
 			return newDepthToPretty(ctx, deps, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "depth_to_pretty",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelDtP,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -42,7 +48,7 @@ func init() {
 
 	registry.RegisterComponent(
 		camera.Subtype,
-		"overlay",
+		modelOverlay,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -56,7 +62,7 @@ func init() {
 			return newOverlay(ctx, deps, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "overlay",
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelOverlay,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

@@ -17,10 +17,11 @@ import (
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const modelName = "pca9685"
+var modelName = resource.Model{Name: "pca9685"}
 
 var (
 	_ = board.Board(&PCA9685{})
