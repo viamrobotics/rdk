@@ -86,7 +86,7 @@ func (imu *wit) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
 // NewWit creates a new Wit IMU.
 func NewWit(deps registry.Dependencies, config config.Component, logger golog.Logger) (imu.IMU, error) {
 	options := slib.OpenOptions{
-		BaudRate:        115200,
+		BaudRate:        9600,
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,
