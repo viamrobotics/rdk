@@ -15,7 +15,25 @@
             "capture_methods": [
               {
                 "method": "GetEndPosition",
-                "capture_frequency_hz": 100
+                "capture_frequency_hz": 0
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "model": "fake",
+      "name": "motor1",
+      "type": "motor",
+      "service_config": [
+        {
+          "type": "data_manager",
+          "attributes": {
+            "capture_methods": [
+              {
+                "method": "IsPowered",
+                "capture_frequency_hz": 10
               }
             ]
           }

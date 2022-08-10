@@ -25,7 +25,7 @@ func (m method) String() string {
 
 // Position wraps the returned position value.
 type Position struct {
-	Revolutions float64
+	Position float64
 }
 
 func newGetPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
@@ -39,14 +39,14 @@ func newGetPositionCollector(resource interface{}, params data.CollectorParams) 
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, getPosition.String(), err)
 		}
-		return Position{Revolutions: v}, nil
+		return Position{Position: v}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
 
 // Powered wraps the returned IsPowered value.
 type Powered struct {
-	Value bool
+	IsPowered bool
 }
 
 func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
@@ -60,7 +60,7 @@ func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (d
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, isPowered.String(), err)
 		}
-		return Powered{Value: v}, nil
+		return Powered{IsPowered: v}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }

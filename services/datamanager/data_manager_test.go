@@ -2,6 +2,8 @@ package datamanager_test
 
 import (
 	"context"
+	"fmt"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 	"io"
 	"io/fs"
 	"io/ioutil"
@@ -742,5 +744,18 @@ func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerC
 		test.That(t, err, test.ShouldBeNil)
 		client := datasync.NewClient(conn)
 		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn)
+	}
+}
+
+func TestLocal(t *testing.T) {
+	f, err := os.Open("/tmp/capture/motor/motor1/IsPowered/2022-08-10T11:18:31.619436-04:00.capture")
+	test.That(t, err, test.ShouldBeNil)
+	md, err := datacapture.ReadDataCaptureMetadata(f)
+	test.That(t, err, test.ShouldBeNil)
+	fmt.Println(md.String())
+	for i := 0; i < 100; i++ {
+		next, err := datacapture.ReadNextSensorData(f)
+		test.That(t, err, test.ShouldBeNil)
+		fmt.Println(next.String())
 	}
 }
