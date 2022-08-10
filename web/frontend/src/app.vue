@@ -12,7 +12,7 @@ import baseApi from './gen/proto/api/component/base/v1/base_pb.esm';
 import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
 import gantryApi from './gen/proto/api/component/gantry/v1/gantry_pb.esm';
 import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
-import imuApi from './gen/proto/api/component/imu/v1/imu_pb.esm';
+import movementsensorApi from './gen/proto/api/component/movementsensor/v1/movementsensor_pb.esm';
 import motionApi from './gen/proto/api/service/motion/v1/motion_pb.esm';
 import visionApi from './gen/proto/api/service/vision/v1/vision_pb.esm';
 import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
@@ -36,6 +36,8 @@ import {
   ServoControlHelper,
   computeKeyboardBaseControls,
 } from './rc/control_helpers';
+
+import { addResizeListeners } from './lib/resize';
 
 import BaseComponent from './components/base.vue';
 import Camera from './components/camera.vue';
@@ -179,31 +181,169 @@ export default {
       objects: null,
       armToggle: {},
       value: 0,
-      imuData: {},
+      movementsensorData: {},
       currentOps: [],
       setPin: '',
       getPin: '',
       pwm: '',
       pwmFrequency: '',
       imageMapTemp: '',
+      connectionManager: null,
+      errors: {},
     };
   },
   async mounted() {
     this.grpcCallback = this.grpcCallback.bind(this);
     await this.waitForClientAndStart();
 
-    if (window.streamService) {
-      this.queryStreams();
-    }
+    this.movementsensorRefresh();
 
-    this.imuRefresh();
-    await this.queryMetadata();
+    this.connectionManager = this.createConnectionManager();
+    this.connectionManager.start();
+
+    addResizeListeners();
   },
   methods: {
     filterResources,
     filterRdkComponentsWithStatus,
     resourceNameToString,
     filterResourcesWithNames,
+
+    handleError(message, error, onceKey) {
+      if (onceKey) {
+        if (this.errors[onceKey]) {
+          return;
+        }
+
+        this.errors[onceKey] = true;
+      }
+
+      toast.error(message);
+      console.error(message, { error });
+    },
+
+    createConnectionManager() {
+      const statuses = {
+        resources: true,
+        ops: true,
+        streams: true,
+      };
+
+      let interval = null;
+      let connectionRestablished = false;
+
+      const handleCallErrors = (errors) => {
+        const errorsList = document.createElement('ul');
+        errorsList.classList.add('list-disc', 'pl-4');
+
+        for (const key of Object.keys(statuses)) {
+          switch (key) {
+          case 'resources': {
+            errorsList.innerHTML += '<li>Robot Resources</li>';
+            break;
+          }
+          case 'ops': {
+            errorsList.innerHTML += '<li>Current Operations</li>';
+            break;
+          }
+          case 'streams': {
+            errorsList.innerHTML += '<li>Streams</li>';
+            break;
+          }
+          }
+        }
+
+        this.handleError(
+          `Error fetching the following: ${errorsList.outerHTML}`,
+          errors,
+          'connection'
+        );
+      };
+
+      const makeCalls = async () => {
+        const errors = [];
+
+        try {
+          await this.queryMetadata();
+
+          if (!statuses.resources) {
+            connectionRestablished = true;
+          }
+
+          statuses.resources = true;
+        } catch (error) {
+          statuses.resources = false;
+          errors.push[error];
+        }
+
+        try {
+          await this.loadCurrentOps();
+
+          if (!statuses.ops) {
+            connectionRestablished = true;
+          }
+
+          statuses.ops = true;
+        } catch (error) {
+          statuses.ops = false;
+          errors.push[error];
+        }
+
+        if (window.streamService) {
+          try {
+            await this.queryStreams();
+
+            if (!statuses.streams) {
+              connectionRestablished = true;
+            }
+
+            statuses.streams = true;
+          } catch (error) {
+            statuses.streams = false;
+            errors.push[error];
+          }
+        }
+
+        if (isConnected()) {
+          if (connectionRestablished) {
+            toast.success('Connection established');
+            connectionRestablished = false;
+            this.errors.connection = false;
+          }
+          
+          this.error = null;
+          return;
+        }
+
+        handleCallErrors(errors);
+        this.error = 'Connection error, attempting to reconnect ...';
+      };
+
+      const isConnected = () => {
+        return (
+          statuses.resources && 
+          statuses.ops && 
+          (window.streamService && statuses.streams)
+        );
+      };
+
+      const stop = () => {
+        window.clearInterval(interval);
+      };
+
+      const start = () => {
+        stop();
+        interval = window.setInterval(makeCalls, 500);
+      };
+
+      return {
+        statuses,
+        interval,
+        stop,
+        start,
+        isConnected,
+      };
+    },
     
     fixRawStatus(name, status) {
       switch (resourceNameToSubtypeString(name)) {
@@ -989,60 +1129,61 @@ export default {
       return window.webrtcEnabled;
     },
     // query metadata service every 0.5s
-    async queryMetadata () {
-      let pResolve;
-      let pReject;
-      const p = new Promise((resolve, reject) => {
-        pResolve = resolve;
-        pReject = reject;
-      });
-      let resourcesChanged = false;
-      let shouldRestartStatusStream = false;
+    queryMetadata() {
+      return new Promise((resolve, reject) => {
+        let resourcesChanged = false;
+        let shouldRestartStatusStream = false;
 
-      window.robotService.resourceNames(new robotApi.ResourceNamesRequest(), {}, (err, resp) => {
-        this.grpcCallback(err, resp, false);
-        if (err) {
-          pReject(err);
-          return;
-        }
-        const resources = resp.toObject().resourcesList;
-
-        // if resource list has changed, flag that
-        const differences = new Set(this.resources.map((name) => resourceNameToString(name)));
-        const resourceSet = new Set(resources.map((name) => resourceNameToString(name)));
-        for (const elem of resourceSet) {
-          if (differences.has(elem)) {
-            differences.delete(elem);
-          } else {
-            differences.add(elem);
+        window.robotService.resourceNames(new robotApi.ResourceNamesRequest(), {}, (err, resp) => {
+          if (err) {
+            reject(err);
+            return;
           }
-        }
-        if (differences.size > 0) {
-          resourcesChanged = true;
 
-          // restart status stream if resource difference includes a resource we care about
-          for (const elem of differences) {
-            const name = this.stringToResourceName(elem);
-            if (name.namespace === 'rdk' && name.type === 'component' && relevantSubtypesForStatus.includes(name.subtype)) {
-              shouldRestartStatusStream = true;
-              break;
+          if (!resp) {
+            reject(null);
+            return;
+          }
+
+          const resources = resp.toObject().resourcesList;
+
+          // if resource list has changed, flag that
+          const differences = new Set(this.resources.map((name) => resourceNameToString(name)));
+          const resourceSet = new Set(resources.map((name) => resourceNameToString(name)));
+
+          for (const elem of resourceSet) {
+            if (differences.has(elem)) {
+              differences.delete(elem);
+            } else {
+              differences.add(elem);
             }
           }
-        }
 
-        this.resources = resources;
-        pResolve(null);
+          if (differences.size > 0) {
+            resourcesChanged = true;
+
+            // restart status stream if resource difference includes a resource we care about
+            for (const elem of differences) {
+              const name = this.stringToResourceName(elem);
+              if (name.namespace === 'rdk' && name.type === 'component' && relevantSubtypesForStatus.includes(name.subtype)) {
+                shouldRestartStatusStream = true;
+                break;
+              }
+            }
+          }
+
+          if (resourcesChanged === true) {
+            this.querySensors();
+
+            if (shouldRestartStatusStream === true) {
+              this.restartStatusStream();
+            }
+          }
+
+          this.resources = resources;
+          resolve(this.resources);
+        });
       });
-      await p;
-
-      if (resourcesChanged === true) {
-        this.querySensors();
-
-        if (shouldRestartStatusStream === true) {
-          this.restartStatusStream();
-        }
-      }
-      setTimeout(() => this.queryMetadata(), 500);
     },
     querySensors() {
       sensorsService.getSensors(new sensorsApi.GetSensorsRequest(), {}, (err, resp) => {
@@ -1054,18 +1195,30 @@ export default {
       });
     },
     loadCurrentOps () {
-      window.clearTimeout(this.currentOpsTimerId);
-      const req = new robotApi.GetOperationsRequest();
-      window.robotService.getOperations(req, {}, (err, resp) => {
-        const lst = resp.toObject().operationsList;
-        this.currentOps = lst;
+      return new Promise((resolve, reject) => {  
+        const req = new robotApi.GetOperationsRequest();
 
-        const now = Date.now();
-        for (const op of this.currentOps) {
-          op.elapsed = now - (op.started.seconds * 1000);
-        }
+        window.robotService.getOperations(req, {}, (err, resp) => {
+          if (err) {
+            reject(err);
+            return;
+          }
 
-        this.currentOpsTimerId = window.setTimeout(this.loadCurrentOps, 1000);
+          if (!resp) {
+            reject(null);
+            return;
+          }
+
+          const lst = resp.toObject().operationsList;
+          this.currentOps = lst;
+
+          const now = Date.now();
+          for (const op of this.currentOps) {
+            op.elapsed = now - (op.started.seconds * 1000);
+          }
+
+          resolve(this.currentOps);
+        });
       });
     },
     async doConnect(authEntity, creds, onError) {
@@ -1073,7 +1226,6 @@ export default {
       document.querySelector('#connecting').classList.remove('hidden');
       try {
         await window.connect(authEntity, creds);
-        this.loadCurrentOps();
       } catch (error) {
         toast.error(`failed to connect: ${error}`);
         if (onError) {
@@ -1120,14 +1272,23 @@ export default {
         });
       }
     },
-    queryStreams () {
-      streamService.listStreams(new streamApi.ListStreamsRequest(), {}, (err, resp) => {
-        this.grpcCallback(err, resp, false);
-        if (!err) {
+    queryStreams() {
+      return new Promise((resolve, reject) => {
+        streamService.listStreams(new streamApi.ListStreamsRequest(), {}, (err, resp) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+
+          if (!resp) {
+            reject(null);
+            return;
+          }
+
           const streamNames = resp.toObject().namesList;
           this.streamNames = streamNames;
-        }
-        setTimeout(() => this.queryStreams(), 500);
+          resolve(this.streamNames);
+        });
       });
     },
     initPCDIfNeeded() {
@@ -1187,68 +1348,97 @@ export default {
       this.pcdClick.z = r(point.z);
       pcdGlobal.sphere.position.copy(point);
     },
-    imuRefresh() {
-      for (const x of filterResources(this.resources, 'rdk', 'component', 'imu')) {
+    movementsensorRefresh() {
+      for (const x of filterResources(this.resources, 'rdk', 'component', 'movement_sensor')) {
         const name = x.name;
 
-        if (!this.imuData[name]) {
-          this.imuData[name] = {};
+        if (!this.movementsensorData[name]) {
+          this.movementsensorData[name] = {};
         }
 
         {
-          const req = new imuApi.ReadOrientationRequest();
+          const req = new movementsensorApi.GetOrientationRequest();
           req.setName(name);
 
-          imuService.readOrientation(req, {}, (err, resp) => {
+          movementsensorService.getOrientation(req, {}, (err, resp) => {
             if (err) {
               console.log(err);
               return;
             }
-            this.imuData[name].orientation = resp.toObject().orientation;
+              this.movementsensorData[name].orientation = resp.toObject().orientation;
           });
         }
 
         {
-          const req = new imuApi.ReadAngularVelocityRequest();
+          const req = new movementsensorApi.GetAngularVelocityRequest();
           req.setName(name);
 
-          imuService.readAngularVelocity(req, {}, (err, resp) => {
+          movementsensorService.getAngularVelocity(req, {}, (err, resp) => {
+            if (err) {
+              console.log(err);
+              return;
+              }
+            this.movementsensorData[name].angularVelocity = resp.toObject().angularVelocity;
+          });
+          }
+        {
+          const req = new movementsensorApi.GetLinearVelocityRequest();
+          req.setName(name);
+
+          movementsensorService.getLinearVelocity(req, {}, (err, resp) => {
             if (err) {
               console.log(err);
               return;
             }
-            this.imuData[name].angularVelocity = resp.toObject().angularVelocity;
+            this.movementsensorData[name].linearVelocity = resp.toObject().linearVelocity;
           });
         }
 
         {
-          const req = new imuApi.ReadAccelerationRequest();
+          const req = new movementsensorApi.GetCompassHeadingRequest();
           req.setName(name);
 
-          imuService.readAcceleration(req, {}, (err, resp) => {
+          movementsensorService.getCompassHeading(req, {}, (err, resp) => {
             if (err) {
               console.log(err);
               return;
             }
-            this.imuData[name].acceleration = resp.toObject().acceleration;
+            this.movementsensorData[name].compassHeading = resp.toObject().value;
           });
         }
 
-        {
-          const req = new imuApi.ReadMagnetometerRequest();
+          {
+          const req = new movementsensorApi.GetPositionRequest();
           req.setName(name);
 
-          imuService.readMagnetometer(req, {}, (err, resp) => {
+          movementsensorService.getPosition(req, {}, (err, resp) => {
             if (err) {
               console.log(err);
               return;
             }
-            this.imuData[name].magnetometer = resp.toObject().magnetometer;
+              var temp = resp.toObject();
+              this.movementsensorData[name].coordinate = temp.coordinate;
+              this.movementsensorData[name].altitudeMm = temp.altitudeMm;
           });
-        }
+          }
+
+          {
+          const req = new movementsensorApi.GetPropertiesRequest();
+          req.setName(name);
+
+          movementsensorService.getProperties(req, {}, (err, resp) => {
+            if (err) {
+              console.log(err);
+              return;
+            }
+              var temp = resp.toObject();
+              this.movementsensorData[name].properties = temp;
+          });
+          }
+
       }
 
-      setTimeout(this.imuRefresh, 500);
+      setTimeout(this.movementsensorRefresh, 500);
     },
     updateStatus(grpcStatuses) {
       const rawStatus = {};
@@ -1421,7 +1611,7 @@ function setBoundingBox(box, centerPoint) {
   <div class="flex flex-col gap-4 p-3">
     <div
       v-if="error"
-      style="color: red;"
+      class="border-l-4 border-red-500 bg-gray-100 px-4 py-3"
     >
       {{ error }}
     </div>
@@ -1539,48 +1729,88 @@ function setBoundingBox(box, centerPoint) {
         </table>
       </div>
     </v-collapse>
-
-    <!-- ******* IMU *******  -->
+    <!-- ******* MovementSensor *******  -->
     <v-collapse
-      v-for="imu in filterResources(resources, 'rdk', 'component', 'imu')"
-      :key="imu.name"
-      :title="`IMU: ${imu.name}`"
+      v-for="movementsensor in filterResources(resources, 'rdk', 'component', 'movement_sensor')"
+      :key="movementsensor.name"
+      :title="`MovementSensor: ${movementsensor.name}`"
     >
       <div class="flex items-end border border-t-0 border-black p-4">
-        <template v-if="imuData[imu.name] && imuData[imu.name].angularVelocity">
-          <div class="mr-4 w-1/4">
+        <template v-if="movementsensorData[movementsensor.name] && movementsensorData[movementsensor.name].properties">
+
+          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.positionSupported">
+            <h3 class="mb-1">
+              Position
+            </h3>
+            <table class="w-full border border-t-0 border-black p-4">
+              <tr>
+                <th class="border border-black p-2">
+                  Latitude
+                </th>
+                <td class="border border-black p-2">
+                  {{ movementsensorData[movementsensor.name].coordinate?.latitude.toFixed(6)}}
+                </td>
+              </tr>
+              <tr>
+                <th class="border border-black p-2">
+                  Longitude
+                </th>
+                <td class="border border-black p-2">
+                  {{ movementsensorData[movementsensor.name].coordinate?.longitude.toFixed(6)}}
+                </td>
+              </tr>
+              <tr>
+                <th class="border border-black p-2">
+                  Altitide
+                </th>
+                <td class="border border-black p-2">
+                  {{ movementsensorData[movementsensor.name].altitudeMm?.toFixed(2) }}
+                </td>
+              </tr>
+            </table>
+          </div>
+
+          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.orientationSupported">
             <h3 class="mb-1">
               Orientation (degrees)
             </h3>
             <table class="w-full border border-t-0 border-black p-4">
               <tr>
                 <th class="border border-black p-2">
-                  Roll
+                  OX
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].orientation?.rollDeg.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].orientation?.oX.toFixed(2) }}
                 </td>
               </tr>
               <tr>
                 <th class="border border-black p-2">
-                  Pitch
+                  OY
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].orientation?.pitchDeg.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].orientation?.oY.toFixed(2) }}
                 </td>
               </tr>
               <tr>
                 <th class="border border-black p-2">
-                  Yaw
+                  OZ
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].orientation?.yawDeg.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].orientation?.oZ.toFixed(2) }}
+                </td>
+              </tr>
+              <tr>
+                <th class="border border-black p-2">
+                  Theta
+                </th>
+                <td class="border border-black p-2">
+                  {{ movementsensorData[movementsensor.name].orientation?.theta.toFixed(2) }}
                 </td>
               </tr>
             </table>
           </div>
                 
-          <div class="mr-4 w-1/4">
+          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.angularVelocitySupported">
             <h3 class="mb-1">
               Angular Velocity (degrees/second)
             </h3>
@@ -1590,7 +1820,7 @@ function setBoundingBox(box, centerPoint) {
                   X
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].angularVelocity?.xDegsPerSec.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].angularVelocity?.x.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1598,7 +1828,7 @@ function setBoundingBox(box, centerPoint) {
                   Y
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].angularVelocity?.yDegsPerSec.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].angularVelocity?.y.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1606,15 +1836,15 @@ function setBoundingBox(box, centerPoint) {
                   Z
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].angularVelocity?.zDegsPerSec.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].angularVelocity?.z.toFixed(2) }}
                 </td>
               </tr>
             </table>
           </div>
-                
-          <div class="mr-4 w-1/4">
+
+          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.linearVelocitySupported">
             <h3 class="mb-1">
-              Acceleration (mm/second/second)
+              Linear Velocity
             </h3>
             <table class="w-full border border-t-0 border-black p-4">
               <tr>
@@ -1622,7 +1852,7 @@ function setBoundingBox(box, centerPoint) {
                   X
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].acceleration?.xMmPerSecPerSec.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].linearVelocity?.x.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1630,7 +1860,7 @@ function setBoundingBox(box, centerPoint) {
                   Y
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].acceleration?.yMmPerSecPerSec.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].linearVelocity?.y.toFixed(2) }}
                 </td>
               </tr>
               <tr>
@@ -1638,43 +1868,28 @@ function setBoundingBox(box, centerPoint) {
                   Z
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].acceleration?.zMmPerSecPerSec.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].linearVelocity?.z.toFixed(2) }}
                 </td>
               </tr>
             </table>
           </div>
-                
-          <div class="w-1/4">
+
+          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.compassHeadingSupported">
             <h3 class="mb-1">
-              Magnetometer (gauss)
+              Compass Heading
             </h3>
             <table class="w-full border border-t-0 border-black p-4">
               <tr>
                 <th class="border border-black p-2">
-                  X
+                  Compass
                 </th>
                 <td class="border border-black p-2">
-                  {{ imuData[imu.name].magnetometer?.xGauss.toFixed(2) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Y
-                </th>
-                <td class="border border-black p-2">
-                  {{ imuData[imu.name].magnetometer?.yGauss.toFixed(2) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Z
-                </th>
-                <td class="border border-black p-2">
-                  {{ imuData[imu.name].magnetometer?.zGauss.toFixed(2) }}
+                  {{ movementsensorData[movementsensor.name].compassHeading?.toFixed(2) }}
                 </td>
               </tr>
             </table>
           </div>
+          
         </template>
       </div>
     </v-collapse>
