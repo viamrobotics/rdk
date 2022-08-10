@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/component/board"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/board/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -43,6 +44,10 @@ func TestServerStatus(t *testing.T) {
 			"encoder": {},
 		},
 	}
+
+	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
+	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
 		injectResult *commonpb.BoardStatus
@@ -79,7 +84,7 @@ func TestServerStatus(t *testing.T) {
 		{
 			injectResult: status,
 			injectErr:    nil,
-			req:          &request{Name: testBoardName},
+			req:          &request{Name: testBoardName, Extra: pbExpectedExtra},
 			expCapArgs:   []interface{}{ctx},
 			expResp:      &response{Status: status},
 			expRespErr:   nil,
@@ -91,7 +96,10 @@ func TestServerStatus(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
 
-			injectBoard.StatusFunc = func(ctx context.Context) (*commonpb.BoardStatus, error) {
+			var actualExtra map[string]interface{}
+
+			injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+				actualExtra = extra
 				return tc.injectResult, tc.injectErr
 			}
 
@@ -99,6 +107,7 @@ func TestServerStatus(t *testing.T) {
 			if tc.expRespErr == nil {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, resp, test.ShouldResemble, tc.expResp)
+				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
@@ -110,6 +119,10 @@ func TestServerStatus(t *testing.T) {
 func TestServerSetGPIO(t *testing.T) {
 	type request = pb.SetGPIORequest
 	ctx := context.Background()
+
+	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
+	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
 		injectErr  error
@@ -137,7 +150,7 @@ func TestServerSetGPIO(t *testing.T) {
 		},
 		{
 			injectErr:  nil,
-			req:        &request{Name: testBoardName, Pin: "one", High: true},
+			req:        &request{Name: testBoardName, Pin: "one", High: true, Extra: pbExpectedExtra},
 			expCapArgs: []interface{}{ctx, true},
 			expRespErr: nil,
 		},
@@ -148,19 +161,22 @@ func TestServerSetGPIO(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
+			var actualExtra map[string]interface{}
 
 			injectGPIOPin := &inject.GPIOPin{}
 			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
 				return injectGPIOPin, nil
 			}
 
-			injectGPIOPin.SetFunc = func(ctx context.Context, high bool) error {
+			injectGPIOPin.SetFunc = func(ctx context.Context, high bool, extra map[string]interface{}) error {
+				actualExtra = extra
 				return tc.injectErr
 			}
 
 			_, err = server.SetGPIO(ctx, tc.req)
 			if tc.expRespErr == nil {
 				test.That(t, err, test.ShouldBeNil)
+				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
@@ -173,6 +189,10 @@ func TestServerGetGPIO(t *testing.T) {
 	type request = pb.GetGPIORequest
 	type response = pb.GetGPIOResponse
 	ctx := context.Background()
+
+	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
+	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
 		injectResult bool
@@ -209,7 +229,7 @@ func TestServerGetGPIO(t *testing.T) {
 		{
 			injectResult: true,
 			injectErr:    nil,
-			req:          &request{Name: testBoardName, Pin: "one"},
+			req:          &request{Name: testBoardName, Pin: "one", Extra: pbExpectedExtra},
 			expCapArgs:   []interface{}{ctx},
 			expResp:      &response{High: true},
 			expRespErr:   nil,
@@ -221,13 +241,15 @@ func TestServerGetGPIO(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
+			var actualExtra map[string]interface{}
 
 			injectGPIOPin := &inject.GPIOPin{}
 			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
 				return injectGPIOPin, nil
 			}
 
-			injectGPIOPin.GetFunc = func(ctx context.Context) (bool, error) {
+			injectGPIOPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+				actualExtra = extra
 				return tc.injectResult, tc.injectErr
 			}
 
@@ -235,6 +257,7 @@ func TestServerGetGPIO(t *testing.T) {
 			if tc.expRespErr == nil {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, resp, test.ShouldResemble, tc.expResp)
+				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
@@ -248,6 +271,10 @@ func TestServerPWM(t *testing.T) {
 	type request = pb.PWMRequest
 	type response = pb.PWMResponse
 	ctx := context.Background()
+
+	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
+	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
 		injectResult float64
@@ -284,7 +311,7 @@ func TestServerPWM(t *testing.T) {
 		{
 			injectResult: 0.1,
 			injectErr:    nil,
-			req:          &request{Name: testBoardName, Pin: "one"},
+			req:          &request{Name: testBoardName, Pin: "one", Extra: pbExpectedExtra},
 			expCapArgs:   []interface{}{ctx},
 			expResp:      &response{DutyCyclePct: 0.1},
 			expRespErr:   nil,
@@ -295,13 +322,15 @@ func TestServerPWM(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
+			var actualExtra map[string]interface{}
 
 			injectGPIOPin := &inject.GPIOPin{}
 			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
 				return injectGPIOPin, nil
 			}
 
-			injectGPIOPin.PWMFunc = func(ctx context.Context) (float64, error) {
+			injectGPIOPin.PWMFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+				actualExtra = extra
 				return tc.injectResult, tc.injectErr
 			}
 
@@ -309,6 +338,7 @@ func TestServerPWM(t *testing.T) {
 			if tc.expRespErr == nil {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, resp, test.ShouldResemble, tc.expResp)
+				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
@@ -320,6 +350,10 @@ func TestServerPWM(t *testing.T) {
 func TestServerSetPWM(t *testing.T) {
 	type request = pb.SetPWMRequest
 	ctx := context.Background()
+
+	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
+	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
 		injectErr  error
@@ -347,7 +381,7 @@ func TestServerSetPWM(t *testing.T) {
 		},
 		{
 			injectErr:  nil,
-			req:        &request{Name: testBoardName, Pin: "one", DutyCyclePct: 0.03},
+			req:        &request{Name: testBoardName, Pin: "one", DutyCyclePct: 0.03, Extra: pbExpectedExtra},
 			expCapArgs: []interface{}{ctx, 0.03},
 			expRespErr: nil,
 		},
@@ -358,19 +392,22 @@ func TestServerSetPWM(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
+			var actualExtra map[string]interface{}
 
 			injectGPIOPin := &inject.GPIOPin{}
 			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
 				return injectGPIOPin, nil
 			}
 
-			injectGPIOPin.SetPWMFunc = func(ctx context.Context, dutyCyclePct float64) error {
+			injectGPIOPin.SetPWMFunc = func(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+				actualExtra = extra
 				return tc.injectErr
 			}
 
 			_, err = server.SetPWM(ctx, tc.req)
 			if tc.expRespErr == nil {
 				test.That(t, err, test.ShouldBeNil)
+				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
@@ -384,6 +421,10 @@ func TestServerPWMFrequency(t *testing.T) {
 	type request = pb.PWMFrequencyRequest
 	type response = pb.PWMFrequencyResponse
 	ctx := context.Background()
+
+	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
+	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
 		injectResult uint
@@ -420,7 +461,7 @@ func TestServerPWMFrequency(t *testing.T) {
 		{
 			injectResult: 1,
 			injectErr:    nil,
-			req:          &request{Name: testBoardName, Pin: "one"},
+			req:          &request{Name: testBoardName, Pin: "one", Extra: pbExpectedExtra},
 			expCapArgs:   []interface{}{ctx},
 			expResp:      &response{FrequencyHz: 1},
 			expRespErr:   nil,
@@ -431,13 +472,15 @@ func TestServerPWMFrequency(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
+			var actualExtra map[string]interface{}
 
 			injectGPIOPin := &inject.GPIOPin{}
 			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
 				return injectGPIOPin, nil
 			}
 
-			injectGPIOPin.PWMFreqFunc = func(ctx context.Context) (uint, error) {
+			injectGPIOPin.PWMFreqFunc = func(ctx context.Context, extra map[string]interface{}) (uint, error) {
+				actualExtra = extra
 				return tc.injectResult, tc.injectErr
 			}
 
@@ -445,6 +488,7 @@ func TestServerPWMFrequency(t *testing.T) {
 			if tc.expRespErr == nil {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, resp, test.ShouldResemble, tc.expResp)
+				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
@@ -456,6 +500,10 @@ func TestServerPWMFrequency(t *testing.T) {
 func TestServerSetPWMFrequency(t *testing.T) {
 	type request = pb.SetPWMFrequencyRequest
 	ctx := context.Background()
+
+	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
+	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
 		injectErr  error
@@ -483,7 +531,7 @@ func TestServerSetPWMFrequency(t *testing.T) {
 		},
 		{
 			injectErr:  nil,
-			req:        &request{Name: testBoardName, Pin: "one", FrequencyHz: 123123},
+			req:        &request{Name: testBoardName, Pin: "one", FrequencyHz: 123123, Extra: pbExpectedExtra},
 			expCapArgs: []interface{}{ctx, uint(123123)},
 			expRespErr: nil,
 		},
@@ -494,19 +542,22 @@ func TestServerSetPWMFrequency(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
+			var actualExtra map[string]interface{}
 
 			injectGPIOPin := &inject.GPIOPin{}
 			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
 				return injectGPIOPin, nil
 			}
 
-			injectGPIOPin.SetPWMFreqFunc = func(ctx context.Context, freqHz uint) error {
+			injectGPIOPin.SetPWMFreqFunc = func(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+				actualExtra = extra
 				return tc.injectErr
 			}
 
 			_, err = server.SetPWMFrequency(ctx, tc.req)
 			if tc.expRespErr == nil {
 				test.That(t, err, test.ShouldBeNil)
+				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
@@ -520,6 +571,10 @@ func TestServerReadAnalogReader(t *testing.T) {
 	type request = pb.ReadAnalogReaderRequest
 	type response = pb.ReadAnalogReaderResponse
 	ctx := context.Background()
+
+	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
+	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
 		injectAnalogReader     *inject.AnalogReader
@@ -581,7 +636,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 			injectAnalogReaderOk:   true,
 			injectResult:           8,
 			injectErr:              nil,
-			req:                    &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
+			req:                    &request{BoardName: testBoardName, AnalogReaderName: "analog1", Extra: pbExpectedExtra},
 			expCapAnalogReaderArgs: []interface{}{"analog1"},
 			expCapArgs:             []interface{}{ctx},
 			expResp:                &response{Value: 8},
@@ -593,13 +648,15 @@ func TestServerReadAnalogReader(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
+			var actualExtra map[string]interface{}
 
 			injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 				return tc.injectAnalogReader, tc.injectAnalogReaderOk
 			}
 
 			if tc.injectAnalogReader != nil {
-				tc.injectAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
+				tc.injectAnalogReader.ReadFunc = func(ctx context.Context, extra map[string]interface{}) (int, error) {
+					actualExtra = extra
 					return tc.injectResult, tc.injectErr
 				}
 			}
@@ -608,6 +665,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 			if tc.expRespErr == nil {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, resp, test.ShouldResemble, tc.expResp)
+				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
@@ -622,6 +680,10 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 	type request = pb.GetDigitalInterruptValueRequest
 	type response = pb.GetDigitalInterruptValueResponse
 	ctx := context.Background()
+
+	expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
+	pbExpectedExtra, err := protoutils.StructToStructPb(expectedExtra)
+	test.That(t, err, test.ShouldBeNil)
 
 	tests := []struct {
 		injectDigitalInterrupt     *inject.DigitalInterrupt
@@ -683,7 +745,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			injectDigitalInterruptOk:   true,
 			injectResult:               42,
 			injectErr:                  nil,
-			req:                        &request{BoardName: testBoardName, DigitalInterruptName: "digital1"},
+			req:                        &request{BoardName: testBoardName, DigitalInterruptName: "digital1", Extra: pbExpectedExtra},
 			expCapDigitalInterruptArgs: []interface{}{"digital1"},
 			expCapArgs:                 []interface{}{ctx},
 			expResp:                    &response{Value: 42},
@@ -695,13 +757,15 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
+			var actualExtra map[string]interface{}
 
 			injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
 				return tc.injectDigitalInterrupt, tc.injectDigitalInterruptOk
 			}
 
 			if tc.injectDigitalInterrupt != nil {
-				tc.injectDigitalInterrupt.ValueFunc = func(ctx context.Context) (int64, error) {
+				tc.injectDigitalInterrupt.ValueFunc = func(ctx context.Context, extra map[string]interface{}) (int64, error) {
+					actualExtra = extra
 					return tc.injectResult, tc.injectErr
 				}
 			}
@@ -710,6 +774,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			if tc.expRespErr == nil {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, resp, test.ShouldResemble, tc.expResp)
+				test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}

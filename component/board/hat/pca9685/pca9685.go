@@ -150,7 +150,7 @@ func (pca *PCA9685) ModelAttributes() board.ModelAttributes {
 }
 
 // Status returns the board status which is always empty.
-func (pca *PCA9685) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
+func (pca *PCA9685) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	return &commonpb.BoardStatus{}, nil
 }
 
@@ -291,24 +291,24 @@ type gpioPin struct {
 	startAddr byte
 }
 
-func (gp *gpioPin) Get(ctx context.Context) (bool, error) {
-	dutyCycle, err := gp.PWM(ctx)
+func (gp *gpioPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	dutyCycle, err := gp.PWM(ctx, extra)
 	if err != nil {
 		return false, err
 	}
 	return dutyCycle != 0, nil
 }
 
-func (gp *gpioPin) Set(ctx context.Context, high bool) error {
+func (gp *gpioPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
 	var dutyCyclePct float64
 	if high {
 		dutyCyclePct = 1
 	}
 
-	return gp.SetPWM(ctx, dutyCyclePct)
+	return gp.SetPWM(ctx, dutyCyclePct, extra)
 }
 
-func (gp *gpioPin) PWM(ctx context.Context) (float64, error) {
+func (gp *gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	handle, err := gp.pca.openHandle()
 	if err != nil {
 		return 0, err
@@ -348,7 +348,7 @@ func (gp *gpioPin) PWM(ctx context.Context) (float64, error) {
 	return float64(offVal<<4) / 0xffff, nil
 }
 
-func (gp *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64) error {
+func (gp *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
 	dutyCycle := uint16(dutyCyclePct * float64(0xffff))
 
 	handle, err := gp.pca.openHandle()
@@ -403,7 +403,7 @@ func (gp *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64) error {
 	return nil
 }
 
-func (gp *gpioPin) PWMFreq(ctx context.Context) (uint, error) {
+func (gp *gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
 	freqHz, err := gp.pca.frequency(ctx)
 	if err != nil {
 		return 0, err
@@ -411,6 +411,6 @@ func (gp *gpioPin) PWMFreq(ctx context.Context) (uint, error) {
 	return uint(freqHz), nil
 }
 
-func (gp *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint) error {
+func (gp *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
 	return gp.pca.SetFrequency(ctx, float64(freqHz))
 }
