@@ -199,8 +199,8 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 	err := multierr.Combine(
 		m.enable(ctx, true),
-		m.stepPin.Set(ctx, true),
-		m.dirPin.Set(ctx, forward),
+		m.stepPin.Set(ctx, true, nil),
+		m.dirPin.Set(ctx, forward, nil),
 	)
 	if err != nil {
 		return err
@@ -213,7 +213,7 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 	} else {
 		m.stepPosition--
 	}
-	return m.stepPin.Set(ctx, false)
+	return m.stepPin.Set(ctx, false, nil)
 }
 
 // GoFor instructs the motor to go in a specific direction for a specific amount of
@@ -360,11 +360,11 @@ func (m *gpioStepper) IsPowered(ctx context.Context, extra map[string]interface{
 
 func (m *gpioStepper) enable(ctx context.Context, on bool) error {
 	if m.enablePinHigh != nil {
-		return m.enablePinHigh.Set(ctx, on)
+		return m.enablePinHigh.Set(ctx, on, nil)
 	}
 
 	if m.enablePinLow != nil {
-		return m.enablePinLow.Set(ctx, !on)
+		return m.enablePinLow.Set(ctx, !on, nil)
 	}
 
 	return nil
