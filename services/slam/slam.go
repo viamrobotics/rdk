@@ -435,10 +435,11 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
 
-	cameraName, cams, err := configureCameras(ctx, svcConfig, r, logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "configuring camera error")
-	}
+	// TODO[DATA-347]: Re-enable camera configuration
+	// cameraName, cams, err := configureCameras(ctx, svcConfig, r, logger)
+	// if err != nil {
+	// 	return nil, errors.Wrap(err, "configuring camera error")
+	// }
 
 	slamMode, err := runtimeConfigValidation(svcConfig, logger)
 	if err != nil {
@@ -470,11 +471,11 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		mapRate = svcConfig.MapRateSec
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	_, cancelFunc := context.WithCancel(ctx)
 
 	// SLAM Service Object
 	slamSvc := &slamService{
-		cameraName:       cameraName,
+		cameraName:       "",
 		slamLib:          SLAMLibraries[svcConfig.Algorithm],
 		slamMode:         slamMode,
 		slamProcess:      pexec.NewProcessManager(logger),
@@ -497,10 +498,12 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		}
 	}()
 
-	if err := runtimeServiceValidation(cancelCtx, cams, slamSvc); err != nil {
-		return nil, errors.Wrap(err, "runtime slam service error")
-	}
+	// TODO[DATA-347]: Re-enable runtime service validation
+	// if err := runtimeServiceValidation(cancelCtx, cams, slamSvc); err != nil {
+	// 	return nil, errors.Wrap(err, "runtime slam service error")
+	// }
 
+	// TODO[DATA-345]: Re-enable data process
 	// slamSvc.StartDataProcess(cancelCtx, cams)
 
 	if err := slamSvc.StartSLAMProcess(ctx); err != nil {
