@@ -63,12 +63,13 @@ func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequ
 
 func compareUploadResponses(t *testing.T, actual []*v1.UploadResponse, expected []*v1.UploadResponse) {
 	test.That(t, len(actual), test.ShouldEqual, len(expected))
-	for i, uploadResponse := range actual[1:] {
-		a := uploadResponse.GetRequestsWritten()
-		e := expected[i+1].GetRequestsWritten()
-		test.That(t, a, test.ShouldEqual, e)
+	if len(actual) > 0 {
+		for i, uploadResponse := range actual[1:] {
+			a := uploadResponse.GetRequestsWritten()
+			e := expected[i+1].GetRequestsWritten()
+			test.That(t, a, test.ShouldEqual, e)
+		}
 	}
-
 }
 
 // nolint:thelper
@@ -241,6 +242,8 @@ func getMockService() mockDataSyncServiceServer {
 		sendAckEveryNMessages:       0,
 		reqsStagedForResponse:       0,
 		sendCancelCtxAfterNMessages: -1,
+		uploadResponses:             &[]*v1.UploadResponse{},
+		shouldNotRetryUpload:        false,
 	}
 }
 
@@ -287,6 +290,7 @@ type mockDataSyncServiceServer struct {
 	reqsStagedForResponse       int
 	sendCancelCtxAfterNMessages int
 	uploadResponses             *[]*v1.UploadResponse
+	shouldNotRetryUpload        bool
 }
 
 func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
@@ -295,24 +299,23 @@ func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
 	return *m.uploadRequests
 }
 
-// func (m mockDataSyncServiceServer) getUploadResponses() []*v1.UploadResponse {
-// 	(*m.lock).Lock()
-// 	defer (*m.lock).Unlock()
-// 	return *m.uploadResponses
-// }
+//nolint: unused
+func (m mockDataSyncServiceServer) getUploadResponses() []*v1.UploadResponse {
+	(*m.lock).Lock()
+	defer (*m.lock).Unlock()
+	return *m.uploadResponses
+}
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
 	defer m.callCount.Add(1)
-	if m.callCount.Load() < m.failUntilIndex {
-		fmt.Println(".\n\nCaught A\n\n.")
+	if m.callCount.Load() < m.failUntilIndex && !m.shouldNotRetryUpload {
 		return status.Error(codes.Aborted, "fail until reach failUntilIndex")
 	}
 
 	m.reqsStagedForResponse = 0
 	for {
 		// If server.Upload(stream) has been called too many times, abort.
-		if m.callCount.Load() == m.failAtIndex { //&& m.failAtIndex != 0 {
-			fmt.Println(".\n\nCaught B\n\n.")
+		if m.callCount.Load() == m.failAtIndex && !m.shouldNotRetryUpload {
 			return status.Error(codes.Aborted, "failed at failAtIndex")
 		}
 
@@ -327,10 +330,10 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 			}
 
 			// Append UploadResponse to list of recorded Responses.
-			// (*m.lock).Lock()
-			// newData := append(*m.uploadResponses, res)
-			// *m.uploadResponses = newData
-			// (*m.lock).Unlock()
+			(*m.lock).Lock()
+			newData := append(*m.uploadResponses, res)
+			*m.uploadResponses = newData
+			(*m.lock).Unlock()
 
 			return context.Canceled
 		}
@@ -338,7 +341,6 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 		// Recv UploadRequest (block until received).
 		ur, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
-			// panic(".\n\nCUT OFF HERE\n\n.")
 			break
 		}
 		if err != nil {
@@ -350,7 +352,6 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 		newData := append(*m.uploadRequests, ur)
 		*m.uploadRequests = newData
 		m.reqsStagedForResponse++
-		fmt.Println("appended: ", fmt.Sprint(string(ur.GetSensorContents().GetBinary())))
 		(*m.lock).Unlock()
 
 		// Send an ACK at intervals of N messages.
@@ -360,10 +361,10 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 				return err
 			}
 			// Append UploadResponse to list of recorded Responses.
-			// (*m.lock).Lock()
-			// newData := append(*m.uploadResponses, res)
-			// *m.uploadResponses = newData
-			// (*m.lock).Unlock()
+			(*m.lock).Lock()
+			newData := append(*m.uploadResponses, res)
+			*m.uploadResponses = newData
+			(*m.lock).Unlock()
 
 			m.reqsStagedForResponse = 0
 		}
