@@ -215,12 +215,10 @@ func NewVectorNav(
 				case <-cancelCtx.Done():
 					return
 				case <-timer.C:
-					v.mu.Lock()
 					err := v.getReadings(ctx)
 					if err != nil {
 						return
 					}
-					v.mu.Unlock()
 				}
 			}
 		})
@@ -248,7 +246,9 @@ func (vn *vectornav) GetOrientation(ctx context.Context) (spatialmath.Orientatio
 }
 
 func (vn *vectornav) GetCompassHeading(ctx context.Context) (float64, error) {
-	return 0, nil
+	vn.mu.Lock()
+	defer vn.mu.Unlock()
+	return vn.orientation.Yaw, nil
 }
 
 func (vn *vectornav) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
@@ -285,6 +285,8 @@ func (vn *vectornav) getReadings(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	vn.mu.Lock()
+	defer vn.mu.Unlock()
 	vn.orientation.Yaw = rutils.DegToRad(float64(rutils.Float32FromBytesLE(out[0:4])))
 	vn.orientation.Pitch = rutils.DegToRad(float64(rutils.Float32FromBytesLE(out[4:8])))
 	vn.orientation.Roll = rutils.DegToRad(float64(rutils.Float32FromBytesLE(out[8:12])))
