@@ -63,8 +63,6 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
 
-	// activeBackgroundWorkers ensures stream.Recv() goroutine & stream.Send() goroutine terminate before we return
-	// from the enclosing uploadDataCaptureFile function.
 	var activeBackgroundWorkers sync.WaitGroup
 
 	retRecvUploadResponse := make(chan error, 1)
@@ -73,11 +71,6 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		defer activeBackgroundWorkers.Done()
 		defer close(retRecvUploadResponse)
 		for {
-			// if ctx.Err() != nil {
-			// 	retRecvUploadResponse <- ctx.Err()
-			// 	close(retRecvUploadResponse)
-			// 	return
-			// }
 			select {
 			case <-ctx.Done():
 				retRecvUploadResponse <- ctx.Err()
@@ -110,12 +103,6 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		defer close(retSendingUploadReqs)
 		defer stream.CloseSend()
 		for {
-			// if err := ctx.Err(); err != nil {
-			// 	retSendingUploadReqs <- err
-			// 	close(retSendingUploadReqs)
-			// 	_ = stream.CloseSend()
-			// 	return
-			// }
 			select {
 			case <-ctx.Done():
 				if ctx.Err() != nil {
@@ -152,7 +139,7 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	}()
 	activeBackgroundWorkers.Wait()
 
-	if err := <-retRecvUploadResponse; err != nil {
+	if err := <-retRecvUploadResponse; err != nil && err != io.EOF {
 		return errors.Errorf("Error when trying to recv UploadResponse from server: %v", err)
 	}
 	if err := <-retSendingUploadReqs; err != nil {
