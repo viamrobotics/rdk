@@ -56,19 +56,23 @@ func NewMotion3DFromRotationTranslation(rotation, translation *mat.Dense) *Motio
 
 // EstimateMotionFrom2Frames estimates the 3D motion of the camera between frame img1 and frame img2.
 func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationConfig, logger golog.Logger, display bool,
-) (*Motion3D, error) {
+	imgSavePath string) (*Motion3D, error) {
 	var err error
 	tempDir := ""
 	if display {
-		tempDir, err = os.MkdirTemp("", "motion_keypoint_matching")
-		if err != nil {
-			return nil, err
+		if imgSavePath != "" {
+			tempDir = imgSavePath
+		} else {
+			tempDir, err = os.MkdirTemp("", "motion_keypoint_matching")
+			if err != nil {
+				return nil, err
+			}
+			defer func() {
+				if err := os.RemoveAll(tempDir); err != nil {
+					logger.Errorf("Error when closing %s: %v", tempDir, err)
+				}
+			}()
 		}
-		// defer func() {
-		// 	if err := os.RemoveAll(tempDir); err != nil {
-		// 		logger.Errorf("Error when closing %s: %v", tempDir, err)
-		// 	}
-		// }()
 	}
 	// Convert both images to gray
 	im1 := rimage.MakeGray(img1)

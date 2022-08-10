@@ -20,8 +20,7 @@ var (
 	logger        = golog.NewLogger("visual-odometry")
 	imageTemplate = `<!DOCTYPE html>
 <html lang="en"><head></head>
-<body><img src="data:image/jpg;base64,{{.Image1}}"></body>
-<body><img src="data:image/jpg;base64,{{.Image2}}"></body>
+<body><img src="data:image/jpg;base64,{{.img}}"></body>
 `
 )
 
@@ -29,13 +28,34 @@ func main() {
 	image1Path := os.Args[1]
 	image2Path := os.Args[2]
 	configPath := os.Args[3]
-	im1, im2, _, err := RunMotionEstimation(image1Path, image2Path, configPath)
+	imgSavePath := os.Getenv("HOME")
+	im1, im2, _, err := RunMotionEstimation(image1Path, image2Path, configPath, imgSavePath)
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
+	var im3 image.Image
+	var im4 image.Image
+	im1, err = rimage.NewImageFromFile(imgSavePath + "/img1.png")
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
+	im2, err = rimage.NewImageFromFile(imgSavePath + "/img2.png")
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
+	im3, err = rimage.NewImageFromFile(imgSavePath + "/img1_orb_points.png")
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
+	im4, err = rimage.NewImageFromFile(imgSavePath + "/img2_orb_points.png")
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
 	http.HandleFunc("/orb/", func(w http.ResponseWriter, r *http.Request) {
-		writeImageWithTemplate(w, &im1, "Image1")
-		writeImageWithTemplate(w, &im2, "Image2")
+		writeImageWithTemplate(w, &im1, "img")
+		writeImageWithTemplate(w, &im2, "img")
+		writeImageWithTemplate(w, &im3, "img")
+		writeImageWithTemplate(w, &im4, "img")
 	})
 	http.Handle("/", http.FileServer(http.Dir(".")))
 	//logger.Info("Listening on 8080...")
@@ -44,10 +64,11 @@ func main() {
 	if err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}
+
 }
 
 // RunMotionEstimation runs motion estimation between the two frames in artifacts.
-func RunMotionEstimation(imagePath1, imagePath2, configPath string) (image.Image, image.Image, *odometry.Motion3D, error) {
+func RunMotionEstimation(imagePath1, imagePath2, configPath, imgSavePath string) (image.Image, image.Image, *odometry.Motion3D, error) {
 	// load cfg
 	cfg := odometry.LoadMotionEstimationConfig(configPath)
 	// load images
@@ -60,12 +81,13 @@ func RunMotionEstimation(imagePath1, imagePath2, configPath string) (image.Image
 		return nil, nil, nil, err
 	}
 	// Estimate motion
-	motion, err := odometry.EstimateMotionFrom2Frames(im1, im2, cfg, logger, true)
+	motion, err := odometry.EstimateMotionFrom2Frames(im1, im2, cfg, logger, true, imgSavePath)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	logger.Info(motion.Rotation)
 	logger.Info(motion.Translation)
+
 	return im1, im2, motion, nil
 }
 

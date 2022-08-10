@@ -37,7 +37,7 @@ func TestEstimateMotionFrom2Frames(t *testing.T) {
 	im2, err := rimage.NewImageFromFile(artifact.MustPath("vision/odometry/000002.png"))
 	test.That(t, err, test.ShouldBeNil)
 	// Estimate motion
-	motion, err := EstimateMotionFrom2Frames(im1, im2, cfg, logger, true)
+	motion, err := EstimateMotionFrom2Frames(im1, im2, cfg, logger, true, "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, motion.Translation.At(2, 0), test.ShouldBeLessThan, -0.8)
 	test.That(t, motion.Translation.At(1, 0), test.ShouldBeLessThan, 0.2)
