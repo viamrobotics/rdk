@@ -2,16 +2,23 @@
 package datamanager
 
 import (
+	"archive/zip"
 	"context"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
+	modelpb "go.viam.com/api/proto/viam/model/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -24,6 +31,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
+	modelclient "go.viam.com/rdk/services/datamanager/model"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -129,6 +137,13 @@ type Config struct {
 	SyncIntervalMins      float64  `json:"sync_interval_mins"`
 	CaptureDisabled       bool     `json:"capture_disabled"`
 	ScheduledSyncDisabled bool     `json:"sync_disabled"`
+	ModelsToDeploy        []*Model `json:"models_on_robot"`
+}
+
+// Model describes an ML model we want to download to the robot.
+type Model struct {
+	Name        string `json:"source_model_name"`
+	Destination string `json:"destination"`
 }
 
 // dataManagerService initializes and orchestrates data capture collectors for registered component/methods.
@@ -149,25 +164,33 @@ type dataManagerService struct {
 	syncIntervalMins    float64
 	syncer              datasync.Manager
 	syncerConstructor   datasync.ManagerConstructor
+
+	deployModelsBackgroundWorkers sync.WaitGroup
+	deployModelsCancelFn          func()
+	clientConn                    *rpc.ClientConn
 }
 
-var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
+var (
+	viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
+	viamModelDotDir   = filepath.Join(os.Getenv("HOME"), "models", ".viam")
+)
 
 // New returns a new data manager service for the given robot.
 func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger) (Service, error) {
 	// Set syncIntervalMins = -1 as we rely on initOrUpdateSyncer to instantiate a syncer
 	// on first call to Update, even if syncIntervalMins value is 0, and the default value for int64 is 0.
 	dataManagerSvc := &dataManagerService{
-		r:                         r,
-		logger:                    logger,
-		captureDir:                viamCaptureDotDir,
-		collectors:                make(map[componentMethodMetadata]collectorAndConfig),
-		backgroundWorkers:         sync.WaitGroup{},
-		lock:                      sync.Mutex{},
-		syncIntervalMins:          -1,
-		additionalSyncPaths:       []string{},
-		waitAfterLastModifiedSecs: 10,
-		syncerConstructor:         datasync.NewDefaultManager,
+		r:                             r,
+		logger:                        logger,
+		captureDir:                    viamCaptureDotDir,
+		collectors:                    make(map[componentMethodMetadata]collectorAndConfig),
+		backgroundWorkers:             sync.WaitGroup{},
+		deployModelsBackgroundWorkers: sync.WaitGroup{},
+		lock:                          sync.Mutex{},
+		syncIntervalMins:              -1,
+		additionalSyncPaths:           []string{},
+		waitAfterLastModifiedSecs:     10,
+		syncerConstructor:             datasync.NewDefaultManager,
 	}
 
 	return dataManagerSvc, nil
@@ -181,9 +204,19 @@ func (svc *dataManagerService) Close(_ context.Context) error {
 	if svc.syncer != nil {
 		svc.syncer.Close()
 	}
+	if svc.deployModelsCancelFn != nil {
+		svc.deployModelsCancelFn()
+	}
+
+	if svc.clientConn != nil {
+		if err := (*svc.clientConn).Close(); err != nil {
+			svc.logger.Error(err)
+		}
+	}
 
 	svc.cancelSyncBackgroundRoutine()
 	svc.backgroundWorkers.Wait()
+	svc.deployModelsBackgroundWorkers.Wait()
 	return nil
 }
 
@@ -445,6 +478,9 @@ func (svc *dataManagerService) syncAdditionalSyncPaths() {
 	svc.syncer.Sync(svc.buildAdditionalSyncPaths())
 }
 
+// TODO: DATA-304, create a way for other services to check when their specified models
+// are ready to be used.
+
 // Update updates the data manager service when the config has changed.
 func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) error {
 	svcConfig, ok, err := getServiceConfig(cfg)
@@ -456,6 +492,13 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	}
 	if cfg.Cloud != nil {
 		svc.partID = cfg.Cloud.ID
+
+		// Download models from models_on_robot.
+		modelsToDeploy := svcConfig.ModelsToDeploy
+		err = svc.downloadModels(cfg, modelsToDeploy)
+		if err != nil {
+			svc.logger.Errorf("can't download models_on_robot in config", "error", err)
+		}
 	}
 
 	toggledCaptureOff := (svc.captureDisabled != svcConfig.CaptureDisabled) && svcConfig.CaptureDisabled
@@ -526,6 +569,236 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	}
 
 	return nil
+}
+
+func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy []*Model) error {
+	modelsToDownload := getModelsToDownload(modelsToDeploy)
+	// TODO: DATA-295, delete models in file system that are no longer in the config.
+
+	// If we have no models to download, exit.
+	if len(modelsToDownload) == 0 {
+		return nil
+	}
+	// Stop download of previous models if we're trying to
+	// download new ones.
+	if svc.deployModelsCancelFn != nil {
+		svc.deployModelsCancelFn()
+		svc.deployModelsBackgroundWorkers.Wait()
+	}
+
+	cancelCtx, cancelFn := context.WithCancel(context.Background())
+	svc.deployModelsCancelFn = cancelFn
+
+	// If we do have models to download, create the connection to app.viam.com.
+	// One connection can be reused over and over again, so store it and use it for subsequent
+	// downloads as well.
+	if svc.clientConn == nil {
+		conn, err := createClientConnection(svc.logger, cfg)
+		if err != nil {
+			return err
+		}
+		svc.clientConn = &conn
+	}
+
+	svc.deployModelsBackgroundWorkers.Add(len(modelsToDownload))
+	modelServiceClient := modelclient.NewClientFromConn(*svc.clientConn, svc.logger)
+	for _, model := range modelsToDownload {
+		go func(model *Model) {
+			// Change context to a timeout?
+			defer svc.deployModelsBackgroundWorkers.Done()
+			deployRequest := &modelpb.DeployRequest{
+				Metadata: &modelpb.DeployMetadata{
+					ModelName: model.Name,
+				},
+			}
+			deployResp, err := modelServiceClient.Deploy(cancelCtx, deployRequest)
+			if err != nil {
+				svc.logger.Error(err)
+			} else {
+				url := deployResp.Message
+				err := downloadFile(cancelCtx, model.Destination, url, svc.logger)
+				if err != nil {
+					svc.logger.Error(err)
+					return // Don't try to unzip the file if we can't download it.
+				}
+				// A download from a GCS signed URL only returns one file.
+				modelFileToUnzip := model.Name + ".zip" // TODO: For now, hardcode.
+				if err = unzipSource(cancelCtx, model.Destination, modelFileToUnzip, svc.logger); err != nil {
+					svc.logger.Error(err)
+				}
+			}
+		}(model)
+	}
+	return nil
+}
+
+// unzipSource unzips all files inside a zip file.
+func unzipSource(cancelCtx context.Context, destination, fileName string, logger golog.Logger) error {
+	zipReader, err := zip.OpenReader(filepath.Join(destination, fileName))
+	if err != nil {
+		return err
+	}
+	for _, f := range zipReader.File {
+		if err := unzipFile(cancelCtx, f, destination, logger); err != nil {
+			return err
+		}
+	}
+	if err = zipReader.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func unzipFile(cancelCtx context.Context, f *zip.File, destination string, logger golog.Logger) error {
+	// TODO: DATA-307, We should be passing in the context to any operations that can take several seconds,
+	// which includes unzipFile. As written, this can block .Close for an unbounded amount of time.
+	//nolint:gosec
+	filePath := filepath.Join(destination, f.Name)
+	// Ensure file paths aren't vulnerable to zip slip
+	if !strings.HasPrefix(filePath, filepath.Clean(destination)+string(os.PathSeparator)) {
+		return fmt.Errorf("invalid file path: %s", filePath)
+	}
+
+	if f.FileInfo().IsDir() {
+		if err := os.MkdirAll(filePath, os.ModePerm); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm); err != nil {
+		return err
+	}
+
+	// Create a destination file for unzipped content. We clean the
+	// file above, so gosec doesn't need to complain.
+	//nolint:gosec
+	destinationFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+	if err != nil {
+		// os.Remove returns a path error which likely means that we don't have write permissions
+		// or the file we're removing doesn't exist. In either case,
+		// the file was never written to so don't need to remove it.
+		//nolint:errcheck,gosec
+		os.Remove(destinationFile.Name())
+		return err
+	}
+
+	//nolint:gosec,errcheck
+	defer destinationFile.Close()
+
+	// Unzip the content of a file and copy it to the destination file
+	zippedFile, err := f.Open()
+	if err != nil {
+		return err
+	}
+	//nolint:errcheck
+	defer zippedFile.Close()
+
+	// Gosec is worried about a decompression bomb; we restrict the size of the
+	// files we upload to our data store, so should be OK.
+	//nolint:gosec
+	if _, err := io.Copy(destinationFile, zippedFile); err != nil {
+		// See above comment regarding os.Remove.
+		//nolint:errcheck
+		os.Remove(destinationFile.Name())
+		return err
+	}
+
+	// Double up trying to close zippedFile/destinationFile (defer above and explicitly below)
+	// to ensure the buffer is flushed and closed.
+	if err = zippedFile.Close(); err != nil {
+		return err
+	}
+
+	if err = destinationFile.Close(); err != nil {
+		logger.Error(err)
+	}
+
+	return nil
+}
+
+// downloadFile will download a url to a local file. It writes as it
+// downloads and doesn't load the whole file into memory.
+func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.Logger) error {
+	getReq, err := http.NewRequestWithContext(cancelCtx, "GET", url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := http.DefaultClient.Do(getReq)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Error(err)
+		}
+	}()
+
+	//nolint:gosec
+	out, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+
+	//nolint:gosec,errcheck
+	defer out.Close()
+
+	// Write body to file
+	_, err = io.Copy(out, resp.Body)
+
+	if closeErr := out.Close(); err != nil {
+		return closeErr
+	}
+
+	return err
+}
+
+func getModelsToDownload(models []*Model) []*Model {
+	// Right now, this may not act as expected. It currently checks
+	// if the model folder is empty. If it is, then we proceed to download the model.
+	// I can imagine a scenario where the user specifies a local folder to dump
+	// all their models in. In that case, this wouldn't work as expected.
+	// TODO: Fix.
+	modelsToDownload := make([]*Model, 0)
+	for _, model := range models {
+		if model.Destination == "" {
+			// Set the model destination to default if it's not specified in the config.
+			model.Destination = filepath.Join(viamModelDotDir, model.Name)
+		}
+		_, err := os.Stat(model.Destination)
+		// If we don't have a path to the specified destination,
+		// add the model to the names of models we need to download.
+		if errors.Is(err, os.ErrNotExist) {
+			modelsToDownload = append(modelsToDownload, model)
+		} else if err != nil {
+			panic("can't access files: " + err.Error()) // better thing to do?
+		}
+	}
+	return modelsToDownload
+}
+
+func createClientConnection(logger *zap.SugaredLogger, cfg *config.Config) (rpc.ClientConn, error) {
+	ctx := context.Background()
+	tlsConfig := config.NewTLSConfig(cfg).Config
+	cloudConfig := cfg.Cloud
+	rpcOpts := []rpc.DialOption{
+		rpc.WithTLSConfig(tlsConfig),
+		rpc.WithEntityCredentials(
+			cloudConfig.ID,
+			rpc.Credentials{
+				Type:    utils.CredentialsTypeRobotLocationSecret,
+				Payload: cloudConfig.LocationSecret,
+			}),
+	}
+	appURL := "app.viam.com:443" // TODO: Find way to not hardcode this. Maybe look in grpc/dial.go?
+
+	conn, err := rpc.DialDirectGRPC(
+		ctx,
+		appURL,
+		logger,
+		rpcOpts...,
+	)
+	return conn, err
 }
 
 func (svc *dataManagerService) uploadData(cancelCtx context.Context, intervalMins float64) {
