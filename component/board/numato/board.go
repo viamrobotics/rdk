@@ -272,7 +272,7 @@ type gpioPin struct {
 	pin string
 }
 
-func (gp *gpioPin) Set(ctx context.Context, high bool) error {
+func (gp *gpioPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
 	fixedPin := gp.b.fixPin(gp.pin)
 	if high {
 		return gp.b.doSend(ctx, fmt.Sprintf("gpio set %s", fixedPin))
@@ -280,7 +280,7 @@ func (gp *gpioPin) Set(ctx context.Context, high bool) error {
 	return gp.b.doSend(ctx, fmt.Sprintf("gpio clear %s", fixedPin))
 }
 
-func (gp *gpioPin) Get(ctx context.Context) (bool, error) {
+func (gp *gpioPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	fixedPin := gp.b.fixPin(gp.pin)
 	res, err := gp.b.doSendReceive(ctx, fmt.Sprintf("gpio read %s", fixedPin))
 	if err != nil {
@@ -289,25 +289,25 @@ func (gp *gpioPin) Get(ctx context.Context) (bool, error) {
 	return res[len(res)-1] == '1', nil
 }
 
-func (gp *gpioPin) PWM(ctx context.Context) (float64, error) {
+func (gp *gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	return math.NaN(), errors.New("numato doesn't support PWM")
 }
 
-func (gp *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64) error {
+func (gp *gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
 	if dutyCyclePct == 1.0 {
-		return gp.Set(ctx, true)
+		return gp.Set(ctx, true, extra)
 	}
 	if dutyCyclePct == 0.0 {
-		return gp.Set(ctx, false)
+		return gp.Set(ctx, false, extra)
 	}
 	return errors.New("numato doesn't support pwm")
 }
 
-func (gp *gpioPin) PWMFreq(ctx context.Context) (uint, error) {
+func (gp *gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
 	return 0, errors.New("numato doesn't support PWMFreq")
 }
 
-func (gp *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint) error {
+func (gp *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
 	if freqHz == 0 {
 		return nil
 	}
@@ -317,8 +317,8 @@ func (gp *gpioPin) SetPWMFreq(ctx context.Context, freqHz uint) error {
 // Status returns the current status of the board. Usually you
 // should use the CreateStatus helper instead of directly calling
 // this.
-func (b *numatoBoard) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
-	return board.CreateStatus(ctx, b)
+func (b *numatoBoard) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+	return board.CreateStatus(ctx, b, extra)
 }
 
 // ModelAttributes returns attributes related to the model of this board.
@@ -339,7 +339,7 @@ type analogReader struct {
 	pin string
 }
 
-func (ar *analogReader) Read(ctx context.Context) (int, error) {
+func (ar *analogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	res, err := ar.b.doSendReceive(ctx, fmt.Sprintf("adc read %s", ar.pin))
 	if err != nil {
 		return 0, err
