@@ -61,7 +61,6 @@ func WrapMotorWithEncoder(
 		return nil, err
 	}
 
-	logger.Debug("Starting RPMMonitor")
 	mm.RPMMonitorStart()
 
 	return mm, nil
@@ -287,8 +286,6 @@ func (m *EncodedMotor) rpmMonitor(onStart func()) {
 		panic("started rpmMonitor but have no encoder")
 	}
 
-	m.logger.Debug("Starting rpmMonitor")
-
 	m.startedRPMMonitorMu.Lock()
 	if m.startedRPMMonitor {
 		m.startedRPMMonitorMu.Unlock()
@@ -306,12 +303,10 @@ func (m *EncodedMotor) rpmMonitor(onStart func()) {
 	lastTime := time.Now().UnixNano()
 
 	rpmSleep, rpmDebug := getRPMSleepDebug()
-	m.logger.Debug("Starting rpmMonitor loop")
 	for {
 		timer := time.NewTimer(rpmSleep)
 		select {
 		case <-m.cancelCtx.Done():
-			m.logger.Debug("rpmMonitor cancelled")
 			timer.Stop()
 			return
 		case <-timer.C:
