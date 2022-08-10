@@ -58,6 +58,9 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 	go func() {
 		defer activeBackgroundWorkers.Done()
 		defer close(retSend)
+		// Do not check error of stream close send because it is always following the error check
+		// of the wider function execution.
+		//nolint: errcheck
 		defer stream.CloseSend()
 		// Loop until there is no more content to be read from file.
 		for {
@@ -97,7 +100,7 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 
 	activeBackgroundWorkers.Wait()
 
-	if err := <-retRecv; err != nil && err != io.EOF {
+	if err := <-retRecv; err != nil && !errors.Is(err, io.EOF) {
 		return errors.Errorf("Error when trying to recv from server: %v", err)
 	}
 	if err := <-retSend; err != nil {
@@ -105,7 +108,6 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 	}
 
 	return nil
-
 }
 
 func getNextFileUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequest, error) {

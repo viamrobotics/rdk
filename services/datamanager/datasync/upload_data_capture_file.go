@@ -36,7 +36,8 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	// Add ctx.Done to all select statements
 	//  In both goroutines, if error, cancel other goroutine by calling cancelCtx
 
-	//TODO: another maybe-performance-optimal blah TODO: see if you can defer some of the close stuff, because repeated a lot. not sure if can. Find out
+	// TODO: another maybe-performance-optimal blah TODO: see if you can defer some of the close stuff, because
+	// repeated a lot. not sure if can. Find out
 
 	stream, err := client.Upload(ctx)
 	if err != nil {
@@ -84,13 +85,11 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 				if err != nil {
 					retRecvUploadResponse <- errors.Errorf("Unable to receive UploadResponse from server: %v", err)
 					return
-				} else {
-					if err := pt.updateProgressFileIndex(progressFileName, int(ur.GetRequestsWritten())); err != nil {
-						retRecvUploadResponse <- err
-						return
-					}
 				}
-
+				if err := pt.updateProgressFileIndex(progressFileName, int(ur.GetRequestsWritten())); err != nil {
+					retRecvUploadResponse <- err
+					return
+				}
 			}
 		}
 	}()
@@ -101,6 +100,9 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		// Loop until there is no more content to be read from file.
 		defer activeBackgroundWorkers.Done()
 		defer close(retSendingUploadReqs)
+		// Do not check error of stream close send because it is always following the error check
+		// of the wider function execution.
+		//nolint: errcheck
 		defer stream.CloseSend()
 		for {
 			select {
@@ -133,13 +135,12 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 					retSendingUploadReqs <- err
 					return
 				}
-
 			}
 		}
 	}()
 	activeBackgroundWorkers.Wait()
 
-	if err := <-retRecvUploadResponse; err != nil && err != io.EOF {
+	if err := <-retRecvUploadResponse; err != nil && !errors.Is(err, io.EOF) {
 		return errors.Errorf("Error when trying to recv UploadResponse from server: %v", err)
 	}
 	if err := <-retSendingUploadReqs; err != nil {
