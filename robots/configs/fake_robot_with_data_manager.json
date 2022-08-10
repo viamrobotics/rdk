@@ -16,7 +16,28 @@
                     "capture_methods": [
                         {
                             "method": "GetEndPosition",
-                            "capture_frequency_hz": 100
+                            "capture_frequency_hz": 10
+                        }
+                    ]
+                  }
+                }
+            ]
+        },
+        {
+            "model": "fake",
+            "name": "cam1",
+            "type": "camera",
+            "service_config": [
+                {
+                  "type": "data_manager",
+                  "attributes": {
+                    "capture_methods": [
+                        {
+                            "method": "Next",
+                            "capture_frequency_hz": 10,
+                            "additional_params": {
+                                "mime_type": "image/jpeg"
+                            }
                         }
                     ]
                   }
