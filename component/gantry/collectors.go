@@ -23,10 +23,9 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// TODO: does this need to be exported?
-// PositionWrapper wraps the returned position values.
-type PositionWrapper struct {
-	Position []float64
+// Position wraps the returned position values.
+type Position struct {
+	Value []float64
 }
 
 func newGetPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
@@ -40,7 +39,7 @@ func newGetPositionCollector(resource interface{}, params data.CollectorParams) 
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, getPosition.String(), err)
 		}
-		return PositionWrapper{Position: v}, nil
+		return Position{Value: v}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
