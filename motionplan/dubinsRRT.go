@@ -43,6 +43,7 @@ type obstacle struct {
 type MobileRobotPlanConfig struct {
 	Name           string  `json: name`
 	GridConversion float64 `json: grid_conversion` // in mm
+	Type           string  `json: type`
 	// planning conditions
 	Start []float64 `json:"start"`
 	Goal  []float64 `json:"goal"`
@@ -176,7 +177,7 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 				break
 			}
 
-			if mp.CheckPath(node, target, opt, dm, o) {
+			if mp.checkPath(node, target, opt, dm, o) {
 				seedMap[target] = node
 				if o.TotalLen < 0 {
 					continue
@@ -266,7 +267,7 @@ func updateChildren(
 	}
 }
 
-func (mp *dubinsRRTMotionPlanner) CheckPath(
+func (mp *dubinsRRTMotionPlanner) checkPath(
 	from, to *configuration,
 	opt *PlannerOptions,
 	dm *dubinOptionManager,
@@ -274,7 +275,7 @@ func (mp *dubinsRRTMotionPlanner) CheckPath(
 ) bool {
 	start := configuration2slice(from)
 	end := configuration2slice(to)
-	path := dm.d.GeneratePoints(start, end, o.DubinsPath, o.Straight)
+	path := dm.d.generatePoints(start, end, o.DubinsPath, o.Straight)
 
 	fmt.Println(path)
 
