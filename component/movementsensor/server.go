@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/golang/geo/r3"
-	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -43,17 +42,13 @@ func (s *subtypeServer) GetPosition(
 	if err != nil {
 		return nil, err
 	}
-	loc, altitide, accuracy, err := msDevice.GetPosition(ctx)
+	loc, altitide, err := msDevice.GetPosition(ctx)
 	if err != nil {
 		return nil, err
-	}
-	if accuracy == nil {
-		accuracy = &geo.Point{}
 	}
 	return &pb.GetPositionResponse{
 		Coordinate: &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
 		AltitudeMm: float32(altitide),
-		Accuracy:   &commonpb.GeoPoint{Latitude: accuracy.Lat(), Longitude: accuracy.Lng()},
 	}, nil
 }
 

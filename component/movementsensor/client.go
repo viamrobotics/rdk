@@ -51,16 +51,15 @@ func clientFromSvcClient(sc *serviceClient, name string) MovementSensor {
 	return &client{sc, name}
 }
 
-func (c *client) GetPosition(ctx context.Context) (*geo.Point, float64, *geo.Point, error) {
+func (c *client) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
 	resp, err := c.client.GetPosition(ctx, &pb.GetPositionRequest{
 		Name: c.name,
 	})
 	if err != nil {
-		return nil, 0, nil, err
+		return nil, 0, err
 	}
 	return geo.NewPoint(resp.Coordinate.Latitude, resp.Coordinate.Longitude),
 		float64(resp.AltitudeMm),
-		geo.NewPoint(resp.Accuracy.Latitude, resp.Accuracy.Longitude),
 		nil
 }
 
@@ -107,6 +106,16 @@ func (c *client) GetCompassHeading(ctx context.Context) (float64, error) {
 func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
 	// TODO(erh): should this go over the network?
 	return GetReadings(ctx, c)
+}
+
+func (c *client) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+	resp, err := c.client.GetAccuracy(ctx, &pb.GetAccuracyRequest{
+		Name: c.name,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.AccuracyMm, nil
 }
 
 func (c *client) GetProperties(ctx context.Context) (*Properties, error) {

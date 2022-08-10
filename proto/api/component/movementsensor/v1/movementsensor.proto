@@ -44,6 +44,12 @@ service MovementSensorService {
       get: "/viam/api/v1/component/movementsensor/{name}/properties"
     };
   }
+
+  rpc GetAccuracy(GetAccuracyRequest) returns (GetAccuracyResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/component/movementsensor/{name}/accuracy"
+    };
+  }
 }
 
 message GetLinearVelocityRequest {
@@ -94,7 +100,6 @@ message GetPositionRequest {
 message GetPositionResponse {
   common.v1.GeoPoint coordinate = 1;
   float altitude_mm = 2;
-  common.v1.GeoPoint accuracy = 3;
 }
 
 message GetPropertiesRequest {
@@ -108,4 +113,13 @@ message GetPropertiesResponse {
   bool orientation_supported = 3;
   bool position_supported = 4;
   bool compass_heading_supported = 5;
+}
+
+message GetAccuracyRequest {
+  // Name of a movement sensor
+  string name = 1;
+}
+
+message GetAccuracyResponse {
+  map<string, float> accuracy_mm = 1;
 }

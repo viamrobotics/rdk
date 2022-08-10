@@ -44,7 +44,7 @@ func init() {
 	})
 
 	registerCollector("GetPosition", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
-		p, _, _, err := ms.GetPosition(ctx)
+		p, _, err := ms.GetPosition(ctx)
 		return p, err
 	})
 }
@@ -66,12 +66,13 @@ func Named(name string) resource.Name {
 
 // A MovementSensor reports information about the robot's direction, position and speed.
 type MovementSensor interface {
-	GetPosition(ctx context.Context) (*geo.Point, float64, *geo.Point, error)    // (lat, long), altitide (mm), accuracy (mm)
+	GetPosition(ctx context.Context) (*geo.Point, float64, error)                // (lat, long), altitide (mm)
 	GetLinearVelocity(ctx context.Context) (r3.Vector, error)                    // mm / sec
 	GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) // radians / sec
 	GetCompassHeading(ctx context.Context) (float64, error)                      // [0->360)
 	GetOrientation(ctx context.Context) (spatialmath.Orientation, error)
 	GetProperties(ctx context.Context) (*Properties, error)
+	GetAccuracy(ctx context.Context) (map[string]float32, error) // in mm
 	generic.Generic
 	sensor.Sensor
 }
@@ -117,11 +118,11 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // GetReadings is a helper for getting all readings from a MovementSensor.
 func GetReadings(ctx context.Context, g MovementSensor) ([]interface{}, error) {
-	pos, altitide, accuracy, err := g.GetPosition(ctx)
+	pos, altitide, err := g.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	readings := []interface{}{pos, altitide, accuracy}
+	readings := []interface{}{pos, altitide}
 
 	vel, err := g.GetLinearVelocity(ctx)
 	if err != nil {
@@ -173,7 +174,7 @@ func (r *reconfigurableMovementSensor) Do(ctx context.Context, cmd map[string]in
 	return r.actual.Do(ctx, cmd)
 }
 
-func (r *reconfigurableMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, *geo.Point, error) {
+func (r *reconfigurableMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetPosition(ctx)
@@ -207,6 +208,12 @@ func (r *reconfigurableMovementSensor) GetProperties(ctx context.Context) (*Prop
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetProperties(ctx)
+}
+
+func (r *reconfigurableMovementSensor) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.GetAccuracy(ctx)
 }
 
 func (r *reconfigurableMovementSensor) GetReadings(ctx context.Context) ([]interface{}, error) {

@@ -41,10 +41,10 @@ func TestClient(t *testing.T) {
 	ori := spatialmath.NewEulerAngles()
 	ori.Roll = 1.1
 	heading := 202.
-	rs := []interface{}{loc, alt, 0, r3.Vector{0, speed, 0}, r3.Vector{0, 0, ang}, heading, ori}
+	rs := []interface{}{loc, alt, r3.Vector{0, speed, 0}, r3.Vector{0, 0, ang}, heading, ori}
 
 	injectMovementSensor := &inject.MovementSensor{}
-	injectMovementSensor.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, *geo.Point, error) { return loc, alt, nil, nil }
+	injectMovementSensor.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, error) { return loc, alt, nil }
 	injectMovementSensor.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{0, speed, 0}, nil }
 	injectMovementSensor.GetAngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
 		return spatialmath.AngularVelocity{0, 0, ang}, nil
@@ -55,8 +55,8 @@ func TestClient(t *testing.T) {
 	injectMovementSensor.GetCompassHeadingFunc = func(ctx context.Context) (float64, error) { return heading, nil }
 
 	injectMovementSensor2 := &inject.MovementSensor{}
-	injectMovementSensor2.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, *geo.Point, error) {
-		return nil, 0, nil, errors.New("can't get location")
+	injectMovementSensor2.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, error) {
+		return nil, 0, errors.New("can't get location")
 	}
 	injectMovementSensor2.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) {
 		return r3.Vector{}, errors.New("can't get linear velocity")
@@ -106,7 +106,7 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
-		loc1, alt1, _, err := gps1Client.GetPosition(context.Background())
+		loc1, alt1, err := gps1Client.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, loc1, test.ShouldResemble, loc)
 		test.That(t, alt1, test.ShouldAlmostEqual, alt)
@@ -131,7 +131,7 @@ func TestClient(t *testing.T) {
 		gps2Client, ok := client.(movementsensor.MovementSensor)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		_, _, _, err = gps2Client.GetPosition(context.Background())
+		_, _, err = gps2Client.GetPosition(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get location")
 
