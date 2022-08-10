@@ -20,7 +20,7 @@ type testReader struct {
 	stop bool
 }
 
-func (t *testReader) Read(ctx context.Context) (int, error) {
+func (t *testReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.stop || t.n >= t.lim {
@@ -56,7 +56,7 @@ func TestAnalogSmoother1(t *testing.T) {
 	// Sleep far longer than needed. Want to hit the reader limit for deterministic behavior.
 	time.Sleep(500 * time.Millisecond)
 
-	v, err := as.Read(context.Background())
+	v, err := as.Read(context.Background(), nil)
 	test.That(t, testReader.n, test.ShouldEqual, testReader.lim)
 	test.That(t, err, test.ShouldEqual, errStopReading)
 	test.That(t, v, test.ShouldEqual, 52)

@@ -16,8 +16,6 @@ import (
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/protoutils"
@@ -25,10 +23,11 @@ import (
 )
 
 var (
-	partID        = "partid"
-	componentType = "componenttype"
-	componentName = "componentname"
-	methodName    = "methodname"
+	partID         = "partid"
+	componentType  = "componenttype"
+	componentName  = "componentname"
+	componentModel = "componentmodel"
+	methodName     = "methodname"
 )
 
 // Compares UploadRequests containing either binary or tabular sensor data.
@@ -68,6 +67,7 @@ func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 	test.That(t, filepath.Base(actualMetadata.FileName), test.ShouldEqual, filepath.Base(expectedMetadata.FileName))
 	test.That(t, actualMetadata.PartId, test.ShouldEqual, expectedMetadata.PartId)
 	test.That(t, actualMetadata.ComponentName, test.ShouldEqual, expectedMetadata.ComponentName)
+	test.That(t, actualMetadata.ComponentModel, test.ShouldEqual, expectedMetadata.ComponentModel)
 	test.That(t, actualMetadata.ComponentType, test.ShouldEqual, expectedMetadata.ComponentType)
 	test.That(t, actualMetadata.MethodName, test.ShouldEqual, expectedMetadata.MethodName)
 	test.That(t, actualMetadata.Type, test.ShouldEqual, expectedMetadata.Type)
@@ -167,12 +167,13 @@ func buildBinaryUploadRequests(data [][]byte, fileName string) []*v1.UploadReque
 	expMsgs = append(expMsgs, &v1.UploadRequest{
 		UploadPacket: &v1.UploadRequest_Metadata{
 			Metadata: &v1.UploadMetadata{
-				PartId:        partID,
-				Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
-				FileName:      fileName,
-				ComponentType: componentType,
-				ComponentName: componentName,
-				MethodName:    methodName,
+				PartId:         partID,
+				Type:           v1.DataType_DATA_TYPE_BINARY_SENSOR,
+				FileName:       fileName,
+				ComponentType:  componentType,
+				ComponentName:  componentName,
+				ComponentModel: componentModel,
+				MethodName:     methodName,
 			},
 		},
 	})
@@ -197,6 +198,7 @@ func getMockService() mockDataSyncServiceServer {
 		failAtIndex:                        -1,
 		lock:                               &sync.Mutex{},
 		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
+		errorToReturn:                      errors.New("oh no error :("),
 	}
 }
 
@@ -234,6 +236,7 @@ type mockDataSyncServiceServer struct {
 	callCount      *atomic.Int32
 	failUntilIndex int32
 	failAtIndex    int32
+	errorToReturn  error
 
 	lock *sync.Mutex
 	v1.UnimplementedDataSyncServiceServer
@@ -248,11 +251,11 @@ func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
 	defer m.callCount.Add(1)
 	if m.callCount.Load() < m.failUntilIndex {
-		return status.Error(codes.Aborted, "fail until reach failUntilIndex")
+		return m.errorToReturn
 	}
 	for {
 		if m.callCount.Load() == m.failAtIndex {
-			return status.Error(codes.Aborted, "failed at failAtIndex")
+			return m.errorToReturn
 		}
 		ur, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
