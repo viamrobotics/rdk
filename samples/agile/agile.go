@@ -135,7 +135,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 func savePath(d motionplan.Dubins, waypoints [][]frame.Input, config *mobileRobotPlanConfig) error {
 	withAgile := false
 
-	csvFile, err := os.Create("/home/skarpoor12/data/motion/path.csv")
+	csvFile, err := os.Create("path.csv")
 	if err != nil {
 		return err
 	}
@@ -181,7 +181,7 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input, config *mobileRobo
 	csvFile.Close()
 
 	//now write obstacles if there are obstacles
-	csvFile, err = os.Create("/home/skarpoor12/data/motion/obstacles.csv")
+	csvFile, err = os.Create("obstacles.csv")
 	if err != nil {
 		return err
 	}
