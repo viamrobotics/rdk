@@ -35,7 +35,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
@@ -44,11 +43,11 @@ import (
 )
 
 const (
-	defaultDataRateMs             = 200
-	defaultMapRateSec             = 60
-	cameraValidationMaxTimeoutSec = 30
-	cameraValidationIntervalSec   = 1
-	dialMaxTimeoutSec             = 5
+	defaultDataRateMs = 200
+	defaultMapRateSec = 60
+	// cameraValidationMaxTimeoutSec = 30
+	// cameraValidationIntervalSec   = 1
+	dialMaxTimeoutSec = 5
 	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	// time format for the slam service.
 	slamTimeFormat        = "2006-01-02T15_04_05.0000"
@@ -288,56 +287,57 @@ type slamService struct {
 // configureCameras will check the config to see if any cameras are desired and if so, grab the cameras from
 // the robot. We assume there are at most two cameras and that we only require intrinsics from the first one.
 // Returns the name of the first camera.
-func configureCameras(ctx context.Context, svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) (string, []camera.Camera, error) {
-	if len(svcConfig.Sensors) > 0 {
-		logger.Debug("Running in live mode")
-		cams := make([]camera.Camera, 0, len(svcConfig.Sensors))
+// TODO[DATA-247]: re-enable
+// func configureCameras(ctx context.Context, svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) (string, []camera.Camera, error) {
+// 	if len(svcConfig.Sensors) > 0 {
+// 		logger.Debug("Running in live mode")
+// 		cams := make([]camera.Camera, 0, len(svcConfig.Sensors))
 
-		// The first camera is expected to be RGB or LIDAR.
-		cameraName := svcConfig.Sensors[0]
-		cam, err := camera.FromRobot(r, cameraName)
-		if err != nil {
-			return "", nil, errors.Wrapf(err, "error getting camera %v for slam service", cameraName)
-		}
+// 		// The first camera is expected to be RGB or LIDAR.
+// 		cameraName := svcConfig.Sensors[0]
+// 		cam, err := camera.FromRobot(r, cameraName)
+// 		if err != nil {
+// 			return "", nil, errors.Wrapf(err, "error getting camera %v for slam service", cameraName)
+// 		}
 
-		proj, err := cam.GetProperties(ctx)
-		if err != nil {
-			if len(svcConfig.Sensors) == 1 {
-				// LiDAR do not have intrinsic parameters and only send point clouds,
-				// so no error should occur here, just inform the user
-				logger.Debug("No camera features found, user possibly using LiDAR")
-			} else {
-				return "", nil, errors.Wrap(err,
-					"Unable to get camera features for first camera, make sure the color camera is listed first")
-			}
-		} else {
-			intrinsics, ok := proj.(*transform.PinholeCameraIntrinsics)
-			if !ok {
-				return "", nil, transform.NewNoIntrinsicsError("Intrinsics do not exist")
-			}
-			err = intrinsics.CheckValid()
-			if err != nil {
-				return "", nil, err
-			}
-		}
-		cams = append(cams, cam)
+// 		proj, err := cam.GetProperties(ctx)
+// 		if err != nil {
+// 			if len(svcConfig.Sensors) == 1 {
+// 				// LiDAR do not have intrinsic parameters and only send point clouds,
+// 				// so no error should occur here, just inform the user
+// 				logger.Debug("No camera features found, user possibly using LiDAR")
+// 			} else {
+// 				return "", nil, errors.Wrap(err,
+// 					"Unable to get camera features for first camera, make sure the color camera is listed first")
+// 			}
+// 		} else {
+// 			intrinsics, ok := proj.(*transform.PinholeCameraIntrinsics)
+// 			if !ok {
+// 				return "", nil, transform.NewNoIntrinsicsError("Intrinsics do not exist")
+// 			}
+// 			err = intrinsics.CheckValid()
+// 			if err != nil {
+// 				return "", nil, err
+// 			}
+// 		}
+// 		cams = append(cams, cam)
 
-		// If there is a second camera, it is expected to be depth.
-		if len(svcConfig.Sensors) > 1 {
-			depthCameraName := svcConfig.Sensors[1]
-			logger.Debugf("Two cameras found for slam service, assuming %v is for color and %v is for depth",
-				cameraName, depthCameraName)
-			depthCam, err := camera.FromRobot(r, depthCameraName)
-			if err != nil {
-				return "", nil, errors.Wrapf(err, "error getting camera %v for slam service", depthCameraName)
-			}
-			cams = append(cams, depthCam)
-		}
+// 		// If there is a second camera, it is expected to be depth.
+// 		if len(svcConfig.Sensors) > 1 {
+// 			depthCameraName := svcConfig.Sensors[1]
+// 			logger.Debugf("Two cameras found for slam service, assuming %v is for color and %v is for depth",
+// 				cameraName, depthCameraName)
+// 			depthCam, err := camera.FromRobot(r, depthCameraName)
+// 			if err != nil {
+// 				return "", nil, errors.Wrapf(err, "error getting camera %v for slam service", depthCameraName)
+// 			}
+// 			cams = append(cams, depthCam)
+// 		}
 
-		return cameraName, cams, nil
-	}
-	return "", nil, nil
-}
+// 		return cameraName, cams, nil
+// 	}
+// 	return "", nil, nil
+// }
 
 // setupGRPCConnection uses the defined port to create a GRPC client for communicating with the SLAM algorithms.
 func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) (pb.SLAMServiceClient, func() error, error) {
