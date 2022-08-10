@@ -125,8 +125,7 @@ func connect(ctx context.Context, simulation bool) (robotClient robot.Robot, xAr
 			config.Component{
 				ConvertedAttributes: &wrapper.AttrConfig{
 					ModelPath: rdkutils.ResolveFile("component/arm/xarm/xarm6_kinematics.json"),
-					ArmName:   "fake",
-				},
+					ArmName:   "fake"},
 			},
 			robotClient,
 			logger,
