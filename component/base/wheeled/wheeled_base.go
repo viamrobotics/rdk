@@ -453,12 +453,14 @@ func CreateWheeledBase(
 
 func (base *wheeledBase) Move(
 	ctx context.Context,
-	config *motionplan.MobileRobotPlanConfig,
+	config *Config,
 	logger golog.Logger,
 ) error {
-	switch config.Type {
-	case "dubins":
-		return base.newDubinsPlanner(ctx, config, logger)
+	if config.MotionPlan != nil {
+		switch config.MotionPlan.Type {
+		case "dubins":
+			return base.newDubinsPlanner(ctx, config.MotionPlan, logger)
+		}
 	}
 	return nil
 }
