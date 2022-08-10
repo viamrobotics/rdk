@@ -35,6 +35,7 @@ func main() {
 	}
 	var im3 image.Image
 	var im4 image.Image
+	var im5 image.Image
 	im1, err = rimage.NewImageFromFile(imgSavePath + "/img1.png")
 	if err != nil {
 		logger.Fatal(err.Error())
@@ -48,6 +49,8 @@ func main() {
 		logger.Fatal(err.Error())
 	}
 	im4, err = rimage.NewImageFromFile(imgSavePath + "/img2_orb_points.png")
+	im5, err = rimage.NewImageFromFile(imgSavePath + "/img1_2_matched.png")
+
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
@@ -56,6 +59,7 @@ func main() {
 		writeImageWithTemplate(w, &im2, "img")
 		writeImageWithTemplate(w, &im3, "img")
 		writeImageWithTemplate(w, &im4, "img")
+		writeImageWithTemplate(w, &im5, "img")
 	})
 	http.Handle("/", http.FileServer(http.Dir(".")))
 	//logger.Info("Listening on 8080...")
