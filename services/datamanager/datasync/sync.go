@@ -13,6 +13,8 @@ import (
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/services/datamanager/datacapture"
@@ -161,8 +163,14 @@ func (s *syncer) Sync(paths []string) {
 // maximum of maxRetryInterval.
 func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Context) error, log golog.Logger) error {
 	// Only create a ticker and enter the retry loop if we actually need to retry.
-	if err := fn(cancelCtx); err == nil {
+	var err error
+	if err = fn(cancelCtx); err == nil {
 		return nil
+	}
+	// Don't retry non-retryable errors.
+	s := status.Convert(err)
+	if s.Code() == codes.InvalidArgument {
+		return err
 	}
 
 	// First call failed, so begin exponentialRetry with a factor of retryExponentialFactor
