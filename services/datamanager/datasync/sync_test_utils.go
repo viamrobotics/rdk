@@ -47,8 +47,9 @@ func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequ
 			// Compare tabular data upload request (stream).
 			for i, uploadRequest := range actual[1:] {
 				a := uploadRequest.GetSensorContents().GetStruct()
-				e := actual[i+1].GetSensorContents().GetStruct()
+				e := expected[i+1].GetSensorContents().GetStruct()
 				test.That(t, a, test.ShouldResemble, e)
+				panic("SHIT")
 			}
 		} else {
 			// Compare sensor data upload request (stream).
@@ -60,6 +61,8 @@ func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequ
 		}
 	}
 }
+
+// func compare
 
 // nolint:thelper
 func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
