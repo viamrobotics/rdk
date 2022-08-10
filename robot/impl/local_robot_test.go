@@ -32,6 +32,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
+
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
@@ -1702,4 +1703,6 @@ func TestReconnectRemote1(t *testing.T) {
 
 	err = aBase.Stop(ctx, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, len(robotClient.ResourceNames()), test.ShouldEqual, 7)
 }
