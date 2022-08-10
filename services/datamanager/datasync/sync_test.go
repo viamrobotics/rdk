@@ -167,6 +167,7 @@ func TestSensorUploadTabular(t *testing.T) {
 		captureMetadata := v1.DataCaptureMetadata{
 			ComponentType:    componentType,
 			ComponentName:    componentName,
+			ComponentModel:   componentModel,
 			MethodName:       methodName,
 			Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			MethodParameters: nil,
@@ -208,6 +209,7 @@ func TestSensorUploadTabular(t *testing.T) {
 					PartId:           partID,
 					ComponentType:    componentType,
 					ComponentName:    componentName,
+					ComponentModel:   componentModel,
 					MethodName:       methodName,
 					Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 					FileName:         filepath.Base(tf.Name()),
@@ -279,6 +281,7 @@ func TestSensorUploadBinary(t *testing.T) {
 		syncMetadata := v1.DataCaptureMetadata{
 			ComponentType:    componentType,
 			ComponentName:    componentName,
+			ComponentModel:   componentModel,
 			MethodName:       methodName,
 			Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			MethodParameters: nil,
