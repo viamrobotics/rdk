@@ -23,10 +23,11 @@ import (
 )
 
 var (
-	partID        = "partid"
-	componentType = "componenttype"
-	componentName = "componentname"
-	methodName    = "methodname"
+	partID         = "partid"
+	componentType  = "componenttype"
+	componentName  = "componentname"
+	componentModel = "componentmodel"
+	methodName     = "methodname"
 )
 
 // Compares UploadRequests containing either binary or tabular sensor data.
@@ -66,6 +67,7 @@ func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 	test.That(t, filepath.Base(actualMetadata.FileName), test.ShouldEqual, filepath.Base(expectedMetadata.FileName))
 	test.That(t, actualMetadata.PartId, test.ShouldEqual, expectedMetadata.PartId)
 	test.That(t, actualMetadata.ComponentName, test.ShouldEqual, expectedMetadata.ComponentName)
+	test.That(t, actualMetadata.ComponentModel, test.ShouldEqual, expectedMetadata.ComponentModel)
 	test.That(t, actualMetadata.ComponentType, test.ShouldEqual, expectedMetadata.ComponentType)
 	test.That(t, actualMetadata.MethodName, test.ShouldEqual, expectedMetadata.MethodName)
 	test.That(t, actualMetadata.Type, test.ShouldEqual, expectedMetadata.Type)
@@ -165,12 +167,13 @@ func buildBinaryUploadRequests(data [][]byte, fileName string) []*v1.UploadReque
 	expMsgs = append(expMsgs, &v1.UploadRequest{
 		UploadPacket: &v1.UploadRequest_Metadata{
 			Metadata: &v1.UploadMetadata{
-				PartId:        partID,
-				Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
-				FileName:      fileName,
-				ComponentType: componentType,
-				ComponentName: componentName,
-				MethodName:    methodName,
+				PartId:         partID,
+				Type:           v1.DataType_DATA_TYPE_BINARY_SENSOR,
+				FileName:       fileName,
+				ComponentType:  componentType,
+				ComponentName:  componentName,
+				ComponentModel: componentModel,
+				MethodName:     methodName,
 			},
 		},
 	})
