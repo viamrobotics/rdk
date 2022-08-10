@@ -286,6 +286,7 @@ type mockDataSyncServiceServer struct {
 	sendAckEveryNMessages       int
 	reqsStagedForResponse       int
 	sendCancelCtxAfterNMessages int
+	uploadResponses             *[]*v1.UploadResponse
 }
 
 func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
@@ -294,10 +295,15 @@ func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
 	return *m.uploadRequests
 }
 
+// func (m mockDataSyncServiceServer) getUploadResponses() []*v1.UploadResponse {
+// 	(*m.lock).Lock()
+// 	defer (*m.lock).Unlock()
+// 	return *m.uploadResponses
+// }
+
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
 	defer m.callCount.Add(1)
 	if m.callCount.Load() < m.failUntilIndex {
-		fmt.Println("Fail, (until index) - current: # ", m.callCount.Load())
 		return status.Error(codes.Aborted, "fail until reach failUntilIndex")
 	}
 
@@ -305,7 +311,6 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 	for {
 		// If server.Upload(stream) has been called too many times, abort.
 		if m.callCount.Load() == m.failAtIndex {
-			fmt.Println("Fail, (at index) - current: # ", m.callCount.Load())
 			return status.Error(codes.Aborted, "failed at failAtIndex")
 		}
 
@@ -313,11 +318,18 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 		reqsProcessed := len(m.getUploadRequests())
 
 		// If we should cancel ctx, cancel.
-		if m.sendCancelCtxAfterNMessages == reqsProcessed {
-			if err := stream.Send(&v1.UploadResponse{RequestsWritten: int32(m.reqsStagedForResponse)}); err != nil {
+		if m.sendCancelCtxAfterNMessages == reqsProcessed && m.sendCancelCtxAfterNMessages != -1 {
+			res := &v1.UploadResponse{RequestsWritten: int32(m.reqsStagedForResponse)}
+			if err := stream.Send(res); err != nil {
 				return err
 			}
-			fmt.Println("Got cancelled here.")
+
+			// Append UploadResponse to list of recorded Responses.
+			// (*m.lock).Lock()
+			// newData := append(*m.uploadResponses, res)
+			// *m.uploadResponses = newData
+			// (*m.lock).Unlock()
+
 			return context.Canceled
 		}
 
@@ -339,9 +351,16 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 
 		// Send an ACK at intervals of N messages.
 		if m.reqsStagedForResponse == m.sendAckEveryNMessages {
-			if err := stream.Send(&v1.UploadResponse{RequestsWritten: int32(m.reqsStagedForResponse)}); err != nil {
+			res := &v1.UploadResponse{RequestsWritten: int32(m.reqsStagedForResponse)}
+			if err := stream.Send(res); err != nil {
 				return err
 			}
+			// Append UploadResponse to list of recorded Responses.
+			// (*m.lock).Lock()
+			// newData := append(*m.uploadResponses, res)
+			// *m.uploadResponses = newData
+			// (*m.lock).Unlock()
+
 			m.reqsStagedForResponse = 0
 		}
 	}
