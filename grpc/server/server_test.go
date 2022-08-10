@@ -277,7 +277,7 @@ func TestServerGetStatus(t *testing.T) {
 			err,
 			test.ShouldBeError,
 			errors.New(
-				"unable to convert interface 1 to a form acceptable to structpb.NewStruct:"+
+				"unable to convert interface 1 to a form acceptable to structpb.NewStruct: "+
 					"data of type int and kind int not a struct or a map-like object",
 			),
 		)
