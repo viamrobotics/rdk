@@ -3,6 +3,7 @@ package motionplan
 import (
 	"errors"
 	"math"
+	"strconv"
 
 	"github.com/golang/geo/r3"
 
@@ -195,7 +196,7 @@ func NewCollisionConstraintFromWorldState(
 				return nil, err
 			}
 			for name2, g := range tf.(*referenceframe.GeometriesInFrame).Geometries() {
-				geomName := string(name1) + "_" + string(name2)
+				geomName := strconv.Itoa(name1) + "_" + name2
 				if _, present := allGeometries[geomName]; present {
 					return nil, errors.New("multiple geometries with the same name")
 				}
