@@ -62,7 +62,7 @@ func init() {
 					m.PositionReporting = true
 
 					m.Encoder = &fakeencoder.Encoder{}
-					m.Encoder.Start(ctx, &m.activeBackgroundWorkers)
+					m.Encoder.Start(ctx, func(){})
 				} else {
 					m.PositionReporting = false
 				}

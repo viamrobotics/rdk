@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/config"
 )
 
 func init() {
@@ -41,6 +42,9 @@ type Encoder interface {
 
 	// TicksPerRotation returns the number of ticks needed for a full rotation
 	TicksPerRotation(ctx context.Context) (int64, error)
+
+	// Start starts the encoder in a background thread
+	Start(ctx context.Context, onStart func())
 
 	generic.Generic
 }
@@ -123,6 +127,10 @@ func (r *reconfigurableEncoder) TicksPerRotation(ctx context.Context) (int64, er
 	return r.actual.TicksPerRotation(ctx)
 }
 
+func (r *reconfigurableEncoder) Start(ctx context.Context, onstart func()) {
+	r.actual.Start(ctx, onstart)
+}
+
 func (r *reconfigurableEncoder) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -162,8 +170,20 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 
 // Config describes the configuration of an encoder.
 type Config struct {
-	Pins      interface{} `json:"pins"`
-	BoardName string      `json:"board"`
+	Pins      map[string]interface {} 	  	`json:"pins"`
+	BoardName string      					`json:"board"`
 
-	TicksPerRotation int `json:"ticks_per_rotation"`
+	TicksPerRotation int 					`json:"ticks_per_rotation"`
+}
+
+// RegisterConfigAttributeConverter registers a Config converter.
+func RegisterConfigAttributeConverter(model string) {
+	config.RegisterComponentAttributeMapConverter(
+		SubtypeName,
+		model,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&Config{})
 }

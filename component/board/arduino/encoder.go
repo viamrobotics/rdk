@@ -115,3 +115,5 @@ func (e *Encoder) ResetToZero(ctx context.Context, offset int64, extra map[strin
 func (e *Encoder) TicksPerRotation(ctx context.Context) (int64, error) {
 	return e.ticksPerRotation, nil
 }
+
+func (e *Encoder) Start(ctx context.Context, onStart func()) {}

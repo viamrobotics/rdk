@@ -49,11 +49,6 @@ type SingleEncoder struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// SinglePin defines the format the pin config should be in for SingleEncoder.
-type SinglePin struct {
-	I string
-}
-
 // AttachDirectionalAwareness to pre-created encoder.
 func (e *SingleEncoder) AttachDirectionalAwareness(da DirectionAware) {
 	e.m = da
@@ -72,18 +67,21 @@ func NewSingleEncoder(
 		if cfg.BoardName == "" {
 			return nil, errors.New("SingleEncoder expected non-empty string for board")
 		}
-		if pins, ok := cfg.Pins.(*SinglePin); ok {
-			board, err := board.FromDependencies(deps, cfg.BoardName)
-			if err != nil {
-				return nil, err
-			}
 
-			e.I, ok = board.DigitalInterruptByName(pins.I)
-			if !ok {
-				return nil, errors.Errorf("cannot find pin (%s) for SingleEncoder", pins.I)
-			}
-		} else {
-			return nil, errors.New("Pin configuration not valid for SingleEncoder")
+		pin := cfg.Pins["i"]
+		i, ok := pin.(string)
+		if !ok{
+			return nil, errors.New("HallEncoder pin configuration expects non-empty string for a")
+		}
+
+		board, err := board.FromDependencies(deps, cfg.BoardName)
+		if err != nil {
+			return nil, err
+		}
+
+		e.I, ok = board.DigitalInterruptByName(i)
+		if !ok {
+			return nil, errors.Errorf("cannot find pin (%s) for SingleEncoder", i)
 		}
 		e.ticksPerRotation = int64(cfg.TicksPerRotation)
 	}

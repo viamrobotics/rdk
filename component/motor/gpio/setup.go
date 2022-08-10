@@ -29,17 +29,20 @@ func init() {
 			}
 
 			if motorConfig.Encoder != "" {
+				logger.Debug("Getting Encoder")
 				e, err := encoder.FromDependencies(deps, motorConfig.Encoder)
 				if err != nil {
 					return nil, err
 				}
 
+				logger.Debug("Wrapping with Encoder")
 				m, err = WrapMotorWithEncoder(ctx, e, config, *motorConfig, m, logger)
 				if err != nil {
 					return nil, err
 				}
 			}
 
+			logger.Debug("Done With Encoder Stuff")
 			err = m.Stop(ctx, nil)
 			if err != nil {
 				return nil, err

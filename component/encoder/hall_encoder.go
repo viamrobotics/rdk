@@ -27,6 +27,7 @@ func init() {
 		) (interface{}, error) {
 			return NewHallEncoder(ctx, deps, config, logger)
 		}})
+	RegisterConfigAttributeConverter("hall-encoder")
 }
 
 // HallEncoder keeps track of a motor position using a rotary hall encoder.
@@ -45,58 +46,44 @@ type HallEncoder struct {
 	generic.Unimplemented
 }
 
-// HallPins defines the format the pin config should be in for HallEncoder.
-type HallPins struct {
-	A             string `json:"a"`
-	B             string `json:"b"`
-}
-
-type HallConfig struct {
-	Pins      			HallPins 	`json:"pins"`
-	BoardName 			string   	`json:"board"`
-
-	TicksPerRotation 	int 		`json:"ticks_per_rotation"`
-}
-
 // NewHallEncoder creates a new HallEncoder.
 func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (*HallEncoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	e := &HallEncoder{logger: logger, cancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0, pRaw: 0, pState: 0}
-	logger.Debug("NewHallEncoder")
-	if cfg, ok := config.ConvertedAttributes.(*HallConfig); ok {
-		logger.Debug("config ok")
+	if cfg, ok := config.ConvertedAttributes.(*Config); ok {
 		if cfg.BoardName == "" {
 			return nil, errors.New("HallEncoder expected non-empty string for board")
 		}
-		pins := cfg.Pins
-			board, err := board.FromDependencies(deps, cfg.BoardName)
-			if err != nil {
-				return nil, err
-			}
+		pinA := cfg.Pins["a"]
+		a, ok := pinA.(string)
+		if !ok{
+			return nil, errors.New("HallEncoder pin configuration expects non-empty string for a")
+		}
+		pinB := cfg.Pins["b"]
+		b, ok := pinB.(string)
+		if !ok{
+			return nil, errors.New("HallEncoder pin configuration expects non-empty string for b")
+		}
 
-			logger.Debugf("EncoderA: %s, EncoderB: %s", pins.A, pins.B)
+		board, err := board.FromDependencies(deps, cfg.BoardName)
+		if err != nil {
+			return nil, err
+		}
 
-			e.A, ok = board.DigitalInterruptByName(pins.A)
-			if !ok {
-				return nil, errors.Errorf("cannot find pin (%s) for HallEncoder", pins.A)
-			}
+		e.A, ok = board.DigitalInterruptByName(a)
+		if !ok {
+			return nil, errors.Errorf("cannot find pin (%s) for HallEncoder", a)
+		}
 
-			e.B, ok = board.DigitalInterruptByName(pins.B)
-			if !ok {
-				return nil, errors.Errorf("cannot find pin (%s) for HallEncoder", pins.B)
-			}
-		// } else {
-		// 	return nil, errors.New("Pin configuration not valid for HallEncoder")
-		// }
+		e.B, ok = board.DigitalInterruptByName(b)
+		if !ok {
+			return nil, errors.Errorf("cannot find pin (%s) for HallEncoder", b)
+		}
 		e.ticksPerRotation = int64(cfg.TicksPerRotation)
-
-		e.Start(ctx, func() {})
 	
 		return e, nil
 	} else {
-		logger.Debugf("Board: %s", config.Attributes.String("board"))
-		logger.Debugf("TicksPerRotation: %d", config.Attributes.Int("ticks_per_rotation", 0))
-		return nil, errors.New("encoder config is not valid")
+		return nil, errors.New("encoder config for HallEncoder is not valid")
 	}
 
 }
