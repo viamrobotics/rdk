@@ -4,9 +4,11 @@ package wit
 import (
 	"bufio"
 	"context"
+
 	"errors"
 	"fmt"
 	"math"
+
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -52,35 +54,31 @@ type wit struct {
 }
 
 // ReadAngularVelocity returns Angular velocity from the gyroscope in deg_per_sec.
-func (i *wit) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	return i.angularVelocity, i.lastError
+func (imu *wit) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+	imu.mu.Lock()
+	defer imu.mu.Unlock()
+	return imu.angularVelocity, imu.lastError
 }
 
 // Read Orientatijn returns gyroscope orientation in degrees.
-func (i *wit) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	return &i.orientation, i.lastError
+func (imu *wit) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+	imu.mu.Lock()
+	defer imu.mu.Unlock()
+	return &imu.orientation, imu.lastError
 }
 
 // ReadAcceleration returns accelerometer acceleration in mm_per_sec_per_sec.
-func (i *wit) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	return i.acceleration, i.lastError
+func (imu *wit) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
+	imu.mu.Lock()
+	defer imu.mu.Unlock()
+	return imu.acceleration, imu.lastError
 }
 
 // ReadMagnetometer returns magnetic field in gauss.
-func (i *wit) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	return i.magnetometer, i.lastError
-}
-
-func (i *wit) GetReadings(ctx context.Context) ([]interface{}, error) {
-	return imu.GetReadings(ctx, i)
+func (imu *wit) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
+	imu.mu.Lock()
+	defer imu.mu.Unlock()
+	return imu.magnetometer, imu.lastError
 }
 
 // NewWit creates a new Wit IMU.
@@ -109,6 +107,7 @@ func NewWit(deps registry.Dependencies, config config.Component, logger golog.Lo
 	var ctx context.Context
 	ctx, i.cancelFunc = context.WithCancel(context.Background())
 	i.activeBackgroundWorkers.Add(1)
+
 	utils.PanicCapturingGo(func() {
 		defer utils.UncheckedErrorFunc(port.Close)
 		defer i.activeBackgroundWorkers.Done()
@@ -153,14 +152,14 @@ func scalemag(a, b byte, r float64) float64 {
 	return x
 }
 
-func (i *wit) parseWIT(line string) error {
+func (imu *wit) parseWIT(line string) error {
 	if line[0] == 0x52 {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu angularVelocity %d %v", len(line), line)
 		}
-		i.angularVelocity.X = scale(line[1], line[2], 2000)
-		i.angularVelocity.Y = scale(line[3], line[4], 2000)
-		i.angularVelocity.Z = scale(line[5], line[6], 2000)
+		imu.angularVelocity.X = scale(line[1], line[2], 2000)
+		imu.angularVelocity.Y = scale(line[3], line[4], 2000)
+		imu.angularVelocity.Z = scale(line[5], line[6], 2000)
 	}
 
 	if line[0] == 0x53 {
@@ -168,33 +167,33 @@ func (i *wit) parseWIT(line string) error {
 			return fmt.Errorf("line is wrong for imu orientation %d %v", len(line), line)
 		}
 
-		i.orientation.Roll = rutils.DegToRad(scale(line[1], line[2], 180))
-		i.orientation.Pitch = rutils.DegToRad(scale(line[3], line[4], 180))
-		i.orientation.Yaw = rutils.DegToRad(scale(line[5], line[6], 180))
+		imu.orientation.Roll = rutils.DegToRad(scale(line[1], line[2], 180))
+		imu.orientation.Pitch = rutils.DegToRad(scale(line[3], line[4], 180))
+		imu.orientation.Yaw = rutils.DegToRad(scale(line[5], line[6], 180))
 	}
 
 	if line[0] == 0x51 {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu acceleration %d %v", len(line), line)
 		}
-		i.acceleration.X = scale(line[1], line[2], 16) * 9806.65 // converts of mm_per_sec_per_sec in NYC
-		i.acceleration.Y = scale(line[3], line[4], 16) * 9806.65
-		i.acceleration.Z = scale(line[5], line[6], 16) * 9806.65
+		imu.acceleration.X = scale(line[1], line[2], 16) * 9806.65 // converts of mm_per_sec_per_sec in NYC
+		imu.acceleration.Y = scale(line[3], line[4], 16) * 9806.65
+		imu.acceleration.Z = scale(line[5], line[6], 16) * 9806.65
 	}
 
 	if line[0] == 0x54 {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu magnetometer %d %v", len(line), line)
 		}
-		i.magnetometer.X = scalemag(line[1], line[2], 1) * 0.01 // converts to gauss
-		i.magnetometer.Y = scalemag(line[3], line[4], 1) * 0.01
-		i.magnetometer.Z = scalemag(line[5], line[6], 1) * 0.01
+		imu.magnetometer.X = scalemag(line[1], line[2], 1) * 0.01 // converts to gauss
+		imu.magnetometer.Y = scalemag(line[3], line[4], 1) * 0.01
+		imu.magnetometer.Z = scalemag(line[5], line[6], 1) * 0.01
 	}
 
 	return nil
 }
 
-func (i *wit) Close() {
-	i.cancelFunc()
-	i.activeBackgroundWorkers.Wait()
+func (imu *wit) Close() {
+	imu.cancelFunc()
+	imu.activeBackgroundWorkers.Wait()
 }
