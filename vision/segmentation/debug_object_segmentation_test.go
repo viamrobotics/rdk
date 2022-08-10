@@ -30,14 +30,13 @@ func (h *segmentObjectTestHelper) Process(
 	t *testing.T,
 	pCtx *rimage.ProcessorContext,
 	fn string,
-	img image.Image,
+	img, img2 image.Image,
 	logger golog.Logger,
 ) error {
 	t.Helper()
 	var err error
-	// TODO(DATA-237): .both will be removed
 	im := rimage.ConvertImage(img)
-	dm, err := rimage.ConvertImageToDepthMap(img)
+	dm, err := rimage.ConvertImageToDepthMap(img2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)
 
@@ -84,7 +83,7 @@ func TestObjectSegmentationAlignedIntel(t *testing.T) {
 	if objSegTest == "" {
 		t.Skipf("set environmental variable %q to run this test", debugObjSeg)
 	}
-	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/aligned_intel", "*.both.gz", true)
+	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/aligned_intel/color", "*.png", "segmentation/aligned_intel/depth")
 	aligner, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -101,14 +100,13 @@ func (h *gripperSegmentTestHelper) Process(
 	t *testing.T,
 	pCtx *rimage.ProcessorContext,
 	fn string,
-	img image.Image,
+	img, img2 image.Image,
 	logger golog.Logger,
 ) error {
 	t.Helper()
 	var err error
-	// TODO(DATA-237): .both will be removed
 	im := rimage.ConvertImage(img)
-	dm, _ := rimage.ConvertImageToDepthMap(img) // optional depth map
+	dm, _ := rimage.ConvertImageToDepthMap(img2)
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)
 
 	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth")
@@ -161,7 +159,7 @@ func TestGripperObjectSegmentation(t *testing.T) {
 	if objSegTest == "" {
 		t.Skipf("set environmental variable %v to run this test", debugObjSeg)
 	}
-	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/gripper", "*.both.gz", true)
+	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/gripper/color", "*.png", "segmentation/gripper/depth")
 	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/gripper_combo_parameters.json"))
 	test.That(t, err, test.ShouldBeNil)
 

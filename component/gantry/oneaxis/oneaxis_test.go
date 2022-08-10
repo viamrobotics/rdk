@@ -56,7 +56,7 @@ func createFakeBoard() *inject.Board {
 	fakeBoard.GPIOPinByNameFunc = func(pin string) (board.GPIOPin, error) {
 		return injectGPIOPin, nil
 	}
-	injectGPIOPin.GetFunc = func(ctx context.Context) (bool, error) {
+	injectGPIOPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		return true, nil
 	}
 	return fakeBoard
@@ -65,10 +65,10 @@ func createFakeBoard() *inject.Board {
 func createFakeDepsForTestNewOneAxis(t *testing.T) registry.Dependencies {
 	t.Helper()
 	injectGPIOPin := &inject.GPIOPin{}
-	injectGPIOPin.SetFunc = func(ctx context.Context, high bool) error {
+	injectGPIOPin.SetFunc = func(ctx context.Context, high bool, extra map[string]interface{}) error {
 		return nil
 	}
-	injectGPIOPin.GetFunc = func(ctx context.Context) (bool, error) {
+	injectGPIOPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		return true, nil
 	}
 	fakeBoard := &inject.Board{GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) {
@@ -411,11 +411,11 @@ func TestHomeTwoLimitSwitch(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	injectGPIOPin := &inject.GPIOPin{}
-	injectGPIOPin.GetFunc = func(ctx context.Context) (bool, error) {
+	injectGPIOPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		return true, errors.New("not supported")
 	}
 	injectGPIOPinGood := &inject.GPIOPin{}
-	injectGPIOPinGood.GetFunc = func(ctx context.Context) (bool, error) {
+	injectGPIOPinGood.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		return true, nil
 	}
 
@@ -487,7 +487,7 @@ func TestHomeOneLimitSwitch(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	injectGPIOPin := &inject.GPIOPin{}
-	injectGPIOPin.GetFunc = func(ctx context.Context) (bool, error) {
+	injectGPIOPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		return true, errors.New("not supported")
 	}
 
@@ -596,11 +596,11 @@ func TestGetPosition(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	injectGPIOPin := &inject.GPIOPin{}
-	injectGPIOPin.GetFunc = func(ctx context.Context) (bool, error) {
+	injectGPIOPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		return true, errors.New("not supported")
 	}
 	injectGPIOPinGood := &inject.GPIOPin{}
-	injectGPIOPinGood.GetFunc = func(ctx context.Context) (bool, error) {
+	injectGPIOPinGood.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		return false, nil
 	}
 }
@@ -646,11 +646,11 @@ func TestMoveToPosition(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	injectGPIOPin := &inject.GPIOPin{}
-	injectGPIOPin.GetFunc = func(ctx context.Context) (bool, error) {
+	injectGPIOPin.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		return true, errors.New("err")
 	}
 	injectGPIOPinGood := &inject.GPIOPin{}
-	injectGPIOPinGood.GetFunc = func(ctx context.Context) (bool, error) {
+	injectGPIOPinGood.GetFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		return false, nil
 	}
 

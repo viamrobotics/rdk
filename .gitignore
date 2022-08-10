@@ -69,3 +69,6 @@ bin/
 
 # license finder
 lf_logs/
+
+# exclude credential created during CI
+google-credentials.json

@@ -52,7 +52,7 @@ func TestFakeBoard(t *testing.T) {
 	_, ok = b.DigitalInterruptByName("hall-b")
 	test.That(t, ok, test.ShouldBeTrue)
 
-	status, err := b.Status(context.Background())
+	status, err := b.Status(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, int(status.Analogs["blue"].Value), test.ShouldEqual, 0)

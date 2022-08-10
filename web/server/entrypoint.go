@@ -456,7 +456,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 				myRobot.Reconfigure(ctx, processedConfig)
 
 				// restart web service if necessary
-				diff, err := config.DiffConfigs(oldCfg, processedConfig)
+				diff, err := config.DiffConfigs(*oldCfg, *processedConfig)
 				if err != nil {
 					logger.Errorw("error diffing config", "error", err)
 					continue
