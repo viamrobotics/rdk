@@ -56,11 +56,11 @@ func (e *SingleEncoder) AttachDirectionalAwareness(da DirectionAware) {
 
 // NewSingleEncoder creates a new SingleEncoder.
 func NewSingleEncoder(
-		ctx context.Context, 
-		deps registry.Dependencies, 
-		config config.Component, 
-		logger golog.Logger,
-	) (*SingleEncoder, error) {
+	ctx context.Context,
+	deps registry.Dependencies,
+	config config.Component,
+	logger golog.Logger,
+) (*SingleEncoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	e := &SingleEncoder{logger: logger, cancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0}
 	if cfg, ok := config.ConvertedAttributes.(*Config); ok {
@@ -70,8 +70,12 @@ func NewSingleEncoder(
 
 		pin := cfg.Pins["i"]
 		i, ok := pin.(string)
-		if !ok{
+		if !ok {
 			return nil, errors.New("HallEncoder pin configuration expects non-empty string for a")
+		}
+
+		if cfg.Pins["dir"] == "" {
+			return nil, errors.New("single line encoder needgis motor direction pin")
 		}
 
 		board, err := board.FromDependencies(deps, cfg.BoardName)
