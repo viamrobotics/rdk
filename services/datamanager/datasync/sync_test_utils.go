@@ -61,6 +61,7 @@ func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequ
 	}
 }
 
+// nolint:thelper
 func compareUploadResponses(t *testing.T, actual []*v1.UploadResponse, expected []*v1.UploadResponse) {
 	test.That(t, len(actual), test.ShouldEqual, len(expected))
 	if len(actual) > 0 {
@@ -299,7 +300,6 @@ func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
 	return *m.uploadRequests
 }
 
-//nolint: unused
 func (m mockDataSyncServiceServer) getUploadResponses() []*v1.UploadResponse {
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
