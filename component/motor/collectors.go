@@ -2,6 +2,7 @@ package motor
 
 import (
 	"context"
+
 	"go.viam.com/rdk/data"
 )
 
