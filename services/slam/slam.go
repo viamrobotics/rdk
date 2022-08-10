@@ -10,6 +10,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -107,78 +108,76 @@ var Name = resource.NameFromSubtype(Subtype, "")
 // not valid, this function will throw a warning, but not close out/shut down the server. The required parameters that are checked here
 // are: 'algorithm', 'data_dir', and 'config_param' (required due to the 'mode' parameter internal to it).
 // Returns the slam mode.
+func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) (mode, error) {
+	slamLib, ok := SLAMLibraries[svcConfig.Algorithm]
+	if !ok {
+		return "", errors.Errorf("%v algorithm specified not in implemented list", svcConfig.Algorithm)
+	}
 
-// TODO[DATA-347]: Re-enable runtime config validation
-// func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) (mode, error) {
-// 	slamLib, ok := SLAMLibraries[svcConfig.Algorithm]
-// 	if !ok {
-// 		return "", errors.Errorf("%v algorithm specified not in implemented list", svcConfig.Algorithm)
-// 	}
+	slamMode, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
+	if !ok {
+		return "", errors.Errorf("getting data with specified algorithm %v, and desired mode %v",
+			svcConfig.Algorithm, svcConfig.ConfigParams["mode"])
+	}
 
-// 	slamMode, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
-// 	if !ok {
-// 		return "", errors.Errorf("getting data with specified algorithm %v, and desired mode %v",
-// 			svcConfig.Algorithm, svcConfig.ConfigParams["mode"])
-// 	}
+	for _, directoryName := range [4]string{"", "data", "map", "config"} {
+		directoryPath := filepath.Join(svcConfig.DataDirectory, directoryName)
+		if _, err := os.Stat(directoryPath); os.IsNotExist(err) {
+			logger.Warnf("%v directory does not exist", directoryPath)
+			if err := os.Mkdir(directoryPath, os.ModePerm); err != nil {
+				return "", errors.Errorf("issue creating directory at %v: %v", directoryPath, err)
+			}
+		}
+	}
+	if slamMode == rgbd {
+		for _, directoryName := range [2]string{"rgb", "depth"} {
+			directoryPath := filepath.Join(svcConfig.DataDirectory, "data", directoryName)
+			if _, err := os.Stat(directoryPath); os.IsNotExist(err) {
+				logger.Warnf("%v directory does not exist", directoryPath)
+				if err := os.Mkdir(directoryPath, os.ModePerm); err != nil {
+					return "", errors.Errorf("issue creating directory at %v: %v", directoryPath, err)
+				}
+			}
+		}
+	}
 
-// 	for _, directoryName := range [4]string{"", "data", "map", "config"} {
-// 		directoryPath := filepath.Join(svcConfig.DataDirectory, directoryName)
-// 		if _, err := os.Stat(directoryPath); os.IsNotExist(err) {
-// 			logger.Warnf("%v directory does not exist", directoryPath)
-// 			if err := os.Mkdir(directoryPath, os.ModePerm); err != nil {
-// 				return "", errors.Errorf("issue creating directory at %v: %v", directoryPath, err)
-// 			}
-// 		}
-// 	}
-// 	if slamMode == rgbd {
-// 		for _, directoryName := range [2]string{"rgb", "depth"} {
-// 			directoryPath := filepath.Join(svcConfig.DataDirectory, "data", directoryName)
-// 			if _, err := os.Stat(directoryPath); os.IsNotExist(err) {
-// 				logger.Warnf("%v directory does not exist", directoryPath)
-// 				if err := os.Mkdir(directoryPath, os.ModePerm); err != nil {
-// 					return "", errors.Errorf("issue creating directory at %v: %v", directoryPath, err)
-// 				}
-// 			}
-// 		}
-// 	}
+	// Confirms that input file pattern abides by the format n1:n2:n3 where n1, n2 and n3 are all positive integers and n1 <= n2
+	// and n3 must be non-zero
+	if svcConfig.InputFilePattern != "" {
+		pattern := `(\d+):(\d+):(\d+)`
+		re := regexp.MustCompile(pattern)
+		res := re.MatchString(svcConfig.InputFilePattern)
+		if !res {
+			return "", errors.Errorf("input_file_pattern (%v) does not match the regex pattern %v", svcConfig.InputFilePattern, pattern)
+		}
 
-// 	// Confirms that input file pattern abides by the format n1:n2:n3 where n1, n2 and n3 are all positive integers and n1 <= n2
-// 	// and n3 must be non-zero
-// 	if svcConfig.InputFilePattern != "" {
-// 		pattern := `(\d+):(\d+):(\d+)`
-// 		re := regexp.MustCompile(pattern)
-// 		res := re.MatchString(svcConfig.InputFilePattern)
-// 		if !res {
-// 			return "", errors.Errorf("input_file_pattern (%v) does not match the regex pattern %v", svcConfig.InputFilePattern, pattern)
-// 		}
+		re = regexp.MustCompile(`(\d+)`)
+		res2 := re.FindAllString(svcConfig.InputFilePattern, 3)
+		startFileIndex, err := strconv.Atoi(res2[0])
+		if err != nil {
+			return "", err
+		}
+		endFileIndex, err := strconv.Atoi(res2[1])
+		if err != nil {
+			return "", err
+		}
 
-// 		re = regexp.MustCompile(`(\d+)`)
-// 		res2 := re.FindAllString(svcConfig.InputFilePattern, 3)
-// 		startFileIndex, err := strconv.Atoi(res2[0])
-// 		if err != nil {
-// 			return "", err
-// 		}
-// 		endFileIndex, err := strconv.Atoi(res2[1])
-// 		if err != nil {
-// 			return "", err
-// 		}
+		interval, err := strconv.Atoi(res2[2])
+		if err != nil {
+			return "", err
+		}
 
-// 		interval, err := strconv.Atoi(res2[2])
-// 		if err != nil {
-// 			return "", err
-// 		}
+		if interval == 0 {
+			return "", errors.New("the file input pattern's interval must be greater than zero")
+		}
 
-// 		if interval == 0 {
-// 			return "", errors.New("the file input pattern's interval must be greater than zero")
-// 		}
+		if startFileIndex > endFileIndex {
+			return "", errors.Errorf("second value in input file pattern must be larger than the first [%v]", svcConfig.InputFilePattern)
+		}
+	}
 
-// 		if startFileIndex > endFileIndex {
-// 			return "", errors.Errorf("second value in input file pattern must be larger than the first [%v]", svcConfig.InputFilePattern)
-// 		}
-// 	}
-
-// 	return slamMode, nil
-// }
+	return slamMode, nil
+}
 
 // runtimeServiceValidation ensures the service's data processing and saving is valid for the mode and
 // cameras given.
