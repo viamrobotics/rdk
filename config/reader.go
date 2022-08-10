@@ -515,7 +515,9 @@ func FromReader(
 	logger golog.Logger,
 ) (*Config, error) {
 	// First read and processes config from disk
-	var unprocessedConfig Config
+	unprocessedConfig := Config{
+		ConfigFilePath: originalPath,
+	}
 	err := json.NewDecoder(r).Decode(&unprocessedConfig)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to decode Config from json")
