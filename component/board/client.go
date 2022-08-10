@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/component/generic"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/board/v1"
+	"go.viam.com/rdk/protoutils"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -135,11 +136,16 @@ func (c *client) GPIOPinNames() []string {
 
 // Status uses the cached status or a newly fetched board status to return the state
 // of the board.
-func (c *client) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
+func (c *client) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	if status := c.getCachedStatus(); status != nil {
 		return status, nil
 	}
-	resp, err := c.client.Status(ctx, &pb.StatusRequest{Name: c.info.name})
+
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.Status(ctx, &pb.StatusRequest{Name: c.info.name, Extra: ext})
 	if err != nil {
 		return nil, err
 	}
@@ -204,10 +210,15 @@ type analogReaderClient struct {
 	analogReaderName string
 }
 
-func (arc *analogReaderClient) Read(ctx context.Context) (int, error) {
+func (arc *analogReaderClient) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return 0, err
+	}
 	resp, err := arc.client.ReadAnalogReader(ctx, &pb.ReadAnalogReaderRequest{
 		BoardName:        arc.boardName,
 		AnalogReaderName: arc.analogReaderName,
+		Extra:            ext,
 	})
 	if err != nil {
 		return 0, err
@@ -223,10 +234,15 @@ type digitalInterruptClient struct {
 	digitalInterruptName string
 }
 
-func (dic *digitalInterruptClient) Value(ctx context.Context) (int64, error) {
+func (dic *digitalInterruptClient) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return 0, err
+	}
 	resp, err := dic.client.GetDigitalInterruptValue(ctx, &pb.GetDigitalInterruptValueRequest{
 		BoardName:            dic.boardName,
 		DigitalInterruptName: dic.digitalInterruptName,
+		Extra:                ext,
 	})
 	if err != nil {
 		return 0, err
@@ -254,19 +270,29 @@ type gpioPinClient struct {
 	pinName   string
 }
 
-func (gpc *gpioPinClient) Set(ctx context.Context, high bool) error {
-	_, err := gpc.client.SetGPIO(ctx, &pb.SetGPIORequest{
-		Name: gpc.boardName,
-		Pin:  gpc.pinName,
-		High: high,
+func (gpc *gpioPinClient) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = gpc.client.SetGPIO(ctx, &pb.SetGPIORequest{
+		Name:  gpc.boardName,
+		Pin:   gpc.pinName,
+		High:  high,
+		Extra: ext,
 	})
 	return err
 }
 
-func (gpc *gpioPinClient) Get(ctx context.Context) (bool, error) {
+func (gpc *gpioPinClient) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return false, err
+	}
 	resp, err := gpc.client.GetGPIO(ctx, &pb.GetGPIORequest{
-		Name: gpc.boardName,
-		Pin:  gpc.pinName,
+		Name:  gpc.boardName,
+		Pin:   gpc.pinName,
+		Extra: ext,
 	})
 	if err != nil {
 		return false, err
@@ -274,10 +300,15 @@ func (gpc *gpioPinClient) Get(ctx context.Context) (bool, error) {
 	return resp.High, nil
 }
 
-func (gpc *gpioPinClient) PWM(ctx context.Context) (float64, error) {
+func (gpc *gpioPinClient) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return math.NaN(), err
+	}
 	resp, err := gpc.client.PWM(ctx, &pb.PWMRequest{
-		Name: gpc.boardName,
-		Pin:  gpc.pinName,
+		Name:  gpc.boardName,
+		Pin:   gpc.pinName,
+		Extra: ext,
 	})
 	if err != nil {
 		return math.NaN(), err
@@ -285,19 +316,29 @@ func (gpc *gpioPinClient) PWM(ctx context.Context) (float64, error) {
 	return resp.DutyCyclePct, nil
 }
 
-func (gpc *gpioPinClient) SetPWM(ctx context.Context, dutyCyclePct float64) error {
-	_, err := gpc.client.SetPWM(ctx, &pb.SetPWMRequest{
+func (gpc *gpioPinClient) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = gpc.client.SetPWM(ctx, &pb.SetPWMRequest{
 		Name:         gpc.boardName,
 		Pin:          gpc.pinName,
 		DutyCyclePct: dutyCyclePct,
+		Extra:        ext,
 	})
 	return err
 }
 
-func (gpc *gpioPinClient) PWMFreq(ctx context.Context) (uint, error) {
+func (gpc *gpioPinClient) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return 0, err
+	}
 	resp, err := gpc.client.PWMFrequency(ctx, &pb.PWMFrequencyRequest{
-		Name: gpc.boardName,
-		Pin:  gpc.pinName,
+		Name:  gpc.boardName,
+		Pin:   gpc.pinName,
+		Extra: ext,
 	})
 	if err != nil {
 		return 0, err
@@ -305,11 +346,16 @@ func (gpc *gpioPinClient) PWMFreq(ctx context.Context) (uint, error) {
 	return uint(resp.FrequencyHz), nil
 }
 
-func (gpc *gpioPinClient) SetPWMFreq(ctx context.Context, freqHz uint) error {
-	_, err := gpc.client.SetPWMFrequency(ctx, &pb.SetPWMFrequencyRequest{
+func (gpc *gpioPinClient) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = gpc.client.SetPWMFrequency(ctx, &pb.SetPWMFrequencyRequest{
 		Name:        gpc.boardName,
 		Pin:         gpc.pinName,
 		FrequencyHz: uint64(freqHz),
+		Extra:       ext,
 	})
 	return err
 }
