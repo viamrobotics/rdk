@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -179,6 +180,20 @@ func (c Config) FindComponent(name string) *Component {
 		}
 	}
 	return nil
+}
+
+// Copy returns a deep-copy of the current config.
+func (c *Config) Copy() (*Config, error) {
+	cfgInterface, err := copystructure.Copy(*c)
+	if err != nil {
+		return nil, errors.Wrap(err, "error deep-copying config")
+	}
+
+	cfg, ok := cfgInterface.(Config)
+	if !ok {
+		return nil, errors.New("failed to copy Config")
+	}
+	return &cfg, nil
 }
 
 // A Remote describes a remote robot that should be integrated.

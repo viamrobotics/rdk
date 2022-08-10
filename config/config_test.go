@@ -285,6 +285,17 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
 }
 
+func TestCopy(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/robot.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	cfgCopy, err := cfg.Copy()
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, cfgCopy, test.ShouldResemble, cfg)
+}
+
 func TestConfigSortComponents(t *testing.T) {
 	c1 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c1"}
 	c2 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c2", DependsOn: []string{"c1"}}
