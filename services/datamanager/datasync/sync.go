@@ -61,8 +61,8 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 		rpc.WithEntityCredentials(
 			cloudConfig.ID,
 			rpc.Credentials{
-				Type:    rdkutils.CredentialsTypeRobotLocationSecret,
-				Payload: cloudConfig.LocationSecret,
+				Type:    rdkutils.CredentialsTypeRobotSecret,
+				Payload: cloudConfig.Secret,
 			}),
 	}
 
