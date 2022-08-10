@@ -341,6 +341,12 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 		// Recv UploadRequest (block until received).
 		ur, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
+			(*m.lock).Lock()
+			if len(*m.uploadRequests) == 1 {
+				var reset []*v1.UploadRequest
+				*m.uploadRequests = reset
+			}
+			(*m.lock).Unlock()
 			break
 		}
 		if err != nil {
