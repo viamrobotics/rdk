@@ -16,7 +16,6 @@ const (
 	UnspecifiedStream = StreamType("")
 	ColorStream       = StreamType("color")
 	DepthStream       = StreamType("depth")
-	BothStream        = StreamType("both")
 )
 
 // NewUnsupportedStreamError is when the stream type is unknown.
@@ -28,8 +27,6 @@ func NewUnsupportedStreamError(s StreamType) error {
 type AttrConfig struct {
 	CameraParameters *transform.PinholeCameraIntrinsics `json:"camera_parameters"`
 	Stream           string                             `json:"stream"`
-	Width            int                                `json:"width"`
-	Height           int                                `json:"height"`
 	Hide             bool                               `json:"hide"`
 	Debug            bool                               `json:"debug"`
 	Dump             bool                               `json:"dump"`

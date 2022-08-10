@@ -29,7 +29,7 @@ func newServer(omMap map[resource.Name]interface{}) (pb.MotionServiceServer, err
 }
 
 func TestServerMove(t *testing.T) {
-	grabRequest := &pb.MoveRequest{
+	grabRequest := &pb.PlanAndMoveRequest{
 		Name:          testMotionServiceName,
 		ComponentName: protoutils.ResourceNameToProto(gripper.Named("fake")),
 		Destination:   referenceframe.PoseInFrameToProtobuf(referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())),
@@ -38,14 +38,14 @@ func TestServerMove(t *testing.T) {
 	omMap := map[resource.Name]interface{}{}
 	server, err := newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = server.Move(context.Background(), grabRequest)
+	_, err = server.PlanAndMove(context.Background(), grabRequest)
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/motion1\" not found"))
 
 	// set up the robot with something that is not an motion service
 	omMap = map[resource.Name]interface{}{motion.Named(testMotionServiceName): "not motion"}
 	server, err = newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = server.Move(context.Background(), grabRequest)
+	_, err = server.PlanAndMove(context.Background(), grabRequest)
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("motion.Service", "string"))
 
 	// error
@@ -65,7 +65,7 @@ func TestServerMove(t *testing.T) {
 		return false, passedErr
 	}
 
-	_, err = server.Move(context.Background(), grabRequest)
+	_, err = server.PlanAndMove(context.Background(), grabRequest)
 	test.That(t, err, test.ShouldBeError, passedErr)
 
 	// returns response
@@ -77,7 +77,7 @@ func TestServerMove(t *testing.T) {
 	) (bool, error) {
 		return true, nil
 	}
-	resp, err := server.Move(context.Background(), grabRequest)
+	resp, err := server.PlanAndMove(context.Background(), grabRequest)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
 
@@ -96,15 +96,15 @@ func TestServerMove(t *testing.T) {
 	) (bool, error) {
 		return true, nil
 	}
-	resp, err = server.Move(context.Background(), grabRequest)
+	resp, err = server.PlanAndMove(context.Background(), grabRequest)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
-	grabRequest2 := &pb.MoveRequest{
+	grabRequest2 := &pb.PlanAndMoveRequest{
 		Name:          testMotionServiceName2,
 		ComponentName: protoutils.ResourceNameToProto(gripper.Named("fake")),
 		Destination:   referenceframe.PoseInFrameToProtobuf(referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())),
 	}
-	resp, err = server.Move(context.Background(), grabRequest2)
+	resp, err = server.PlanAndMove(context.Background(), grabRequest2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
 }

@@ -50,6 +50,7 @@ buf-web: tool-install
 	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml
 	PATH=$(PATH_WITH_TOOLS) buf generate --timeout 5m --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
 	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
+	cd web/frontend && npm ci --audit=false && npm run rollup
 
 lint: lint-go
 
@@ -76,7 +77,7 @@ test-web: build-web
 # test.short skips tests requiring external hardware (motors/servos)
 test-pi:
 	go test -c -o $(BIN_OUTPUT_PATH)/test-pi go.viam.com/rdk/component/board/pi/impl
-	sudo $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
+	sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
 
 server:
 	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go

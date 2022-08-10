@@ -123,7 +123,7 @@ func TestStatusClient(t *testing.T) {
 	}
 
 	injectBoard := &inject.Board{}
-	injectBoard.StatusFunc = func(ctx context.Context) (*commonpb.BoardStatus, error) {
+	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 		return nil, errors.New("no status")
 	}
 
@@ -297,7 +297,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, board1, test.ShouldNotBeNil)
 	test.That(t, board1.ModelAttributes(), test.ShouldResemble, board.ModelAttributes{Remote: true})
 
-	_, err = board1.Status(context.Background())
+	_, err = board1.Status(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
 

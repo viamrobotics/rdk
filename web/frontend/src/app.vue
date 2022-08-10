@@ -37,6 +37,8 @@ import {
   computeKeyboardBaseControls,
 } from './rc/control_helpers';
 
+import { addResizeListeners } from './lib/resize';
+
 import BaseComponent from './components/base.vue';
 import Camera from './components/camera.vue';
 import Do from './components/do.vue';
@@ -186,24 +188,162 @@ export default {
       pwm: '',
       pwmFrequency: '',
       imageMapTemp: '',
+      connectionManager: null,
+      errors: {},
     };
   },
   async mounted() {
     this.grpcCallback = this.grpcCallback.bind(this);
     await this.waitForClientAndStart();
 
-    if (window.streamService) {
-      this.queryStreams();
-    }
-
     this.imuRefresh();
-    await this.queryMetadata();
+
+    this.connectionManager = this.createConnectionManager();
+    this.connectionManager.start();
+
+    addResizeListeners();
   },
   methods: {
     filterResources,
     filterRdkComponentsWithStatus,
     resourceNameToString,
     filterResourcesWithNames,
+
+    handleError(message, error, onceKey) {
+      if (onceKey) {
+        if (this.errors[onceKey]) {
+          return;
+        }
+
+        this.errors[onceKey] = true;
+      }
+
+      toast.error(message);
+      console.error(message, { error });
+    },
+
+    createConnectionManager() {
+      const statuses = {
+        resources: true,
+        ops: true,
+        streams: true,
+      };
+
+      let interval = null;
+      let connectionRestablished = false;
+
+      const handleCallErrors = (errors) => {
+        const errorsList = document.createElement('ul');
+        errorsList.classList.add('list-disc', 'pl-4');
+
+        for (const key of Object.keys(statuses)) {
+          switch (key) {
+          case 'resources': {
+            errorsList.innerHTML += '<li>Robot Resources</li>';
+            break;
+          }
+          case 'ops': {
+            errorsList.innerHTML += '<li>Current Operations</li>';
+            break;
+          }
+          case 'streams': {
+            errorsList.innerHTML += '<li>Streams</li>';
+            break;
+          }
+          }
+        }
+
+        this.handleError(
+          `Error fetching the following: ${errorsList.outerHTML}`,
+          errors,
+          'connection'
+        );
+      };
+
+      const makeCalls = async () => {
+        const errors = [];
+
+        try {
+          await this.queryMetadata();
+
+          if (!statuses.resources) {
+            connectionRestablished = true;
+          }
+
+          statuses.resources = true;
+        } catch (error) {
+          statuses.resources = false;
+          errors.push[error];
+        }
+
+        try {
+          await this.loadCurrentOps();
+
+          if (!statuses.ops) {
+            connectionRestablished = true;
+          }
+
+          statuses.ops = true;
+        } catch (error) {
+          statuses.ops = false;
+          errors.push[error];
+        }
+
+        if (window.streamService) {
+          try {
+            await this.queryStreams();
+
+            if (!statuses.streams) {
+              connectionRestablished = true;
+            }
+
+            statuses.streams = true;
+          } catch (error) {
+            statuses.streams = false;
+            errors.push[error];
+          }
+        }
+
+        if (isConnected()) {
+          if (connectionRestablished) {
+            toast.success('Connection established');
+            connectionRestablished = false;
+            this.errors.connection = false;
+          }
+          
+          this.error = null;
+          return;
+        }
+
+        handleCallErrors(errors);
+        this.error = 'Connection error, attempting to reconnect ...';
+      };
+
+      const isConnected = () => {
+        return (
+          statuses.resources && 
+          statuses.ops && 
+          (window.streamService && statuses.streams)
+        );
+      };
+
+      const stop = () => {
+        window.clearInterval(interval);
+      };
+
+      const start = () => {
+        stop();
+        interval = window.setInterval(makeCalls, 500);
+      };
+
+      return {
+        statuses,
+        interval,
+        stop,
+        start,
+        isConnected,
+      };
+    },
     
     fixRawStatus(name, status) {
       switch (resourceNameToSubtypeString(name)) {
@@ -315,6 +455,11 @@ export default {
       req.setPositionsMmList(pos);
       gantryService.moveToPosition(req, {}, this.grpcCallback);
     },
+    gantryStop(name) {
+      const request = new gantryApi.StopRequest();
+      request.setName(name);
+      gantryService.stop(request, {}, this.grpcCallback);
+    },
     armEndPositionInc(name, getterSetter, amount) {
       const adjustedAmount = getterSetter[0] === 'o' || getterSetter[0] === 'O' ? amount / 100 : amount;
       const arm = this.rawResourceStatusByName(name);
@@ -421,7 +566,11 @@ export default {
       armService.moveToJointPositions(req, {}, this.grpcCallback);
       delete this.armToggle[name.name];
     },
-
+    armStop(name) {
+      const request = new armApi.StopRequest();
+      request.setName(name);
+      armService.stop(request, {}, this.grpcCallback);
+    },
     gripperAction(name, action) {
       let req;
       switch (action) {
@@ -436,6 +585,11 @@ export default {
         gripperService.grab(req, {}, this.grpcCallback);
         break;
       }
+    },
+    gripperStop(name) {
+      const request = new gripperApi.StopRequest();
+      request.setName(name);
+      gripperService.stop(request, {}, this.grpcCallback);
     },
     servoMove(name, amount) {
       const servo = this.rawResourceStatusByName(name);
@@ -993,60 +1147,61 @@ export default {
       return window.webrtcEnabled;
     },
     // query metadata service every 0.5s
-    async queryMetadata () {
-      let pResolve;
-      let pReject;
-      const p = new Promise((resolve, reject) => {
-        pResolve = resolve;
-        pReject = reject;
-      });
-      let resourcesChanged = false;
-      let shouldRestartStatusStream = false;
+    queryMetadata() {
+      return new Promise((resolve, reject) => {
+        let resourcesChanged = false;
+        let shouldRestartStatusStream = false;
 
-      window.robotService.resourceNames(new robotApi.ResourceNamesRequest(), {}, (err, resp) => {
-        this.grpcCallback(err, resp, false);
-        if (err) {
-          pReject(err);
-          return;
-        }
-        const resources = resp.toObject().resourcesList;
-
-        // if resource list has changed, flag that
-        const differences = new Set(this.resources.map((name) => resourceNameToString(name)));
-        const resourceSet = new Set(resources.map((name) => resourceNameToString(name)));
-        for (const elem of resourceSet) {
-          if (differences.has(elem)) {
-            differences.delete(elem);
-          } else {
-            differences.add(elem);
+        window.robotService.resourceNames(new robotApi.ResourceNamesRequest(), {}, (err, resp) => {
+          if (err) {
+            reject(err);
+            return;
           }
-        }
-        if (differences.size > 0) {
-          resourcesChanged = true;
 
-          // restart status stream if resource difference includes a resource we care about
-          for (const elem of differences) {
-            const name = this.stringToResourceName(elem);
-            if (name.namespace === 'rdk' && name.type === 'component' && relevantSubtypesForStatus.includes(name.subtype)) {
-              shouldRestartStatusStream = true;
-              break;
+          if (!resp) {
+            reject(null);
+            return;
+          }
+
+          const resources = resp.toObject().resourcesList;
+
+          // if resource list has changed, flag that
+          const differences = new Set(this.resources.map((name) => resourceNameToString(name)));
+          const resourceSet = new Set(resources.map((name) => resourceNameToString(name)));
+
+          for (const elem of resourceSet) {
+            if (differences.has(elem)) {
+              differences.delete(elem);
+            } else {
+              differences.add(elem);
             }
           }
-        }
 
-        this.resources = resources;
-        pResolve(null);
+          if (differences.size > 0) {
+            resourcesChanged = true;
+
+            // restart status stream if resource difference includes a resource we care about
+            for (const elem of differences) {
+              const name = this.stringToResourceName(elem);
+              if (name.namespace === 'rdk' && name.type === 'component' && relevantSubtypesForStatus.includes(name.subtype)) {
+                shouldRestartStatusStream = true;
+                break;
+              }
+            }
+          }
+
+          if (resourcesChanged === true) {
+            this.querySensors();
+
+            if (shouldRestartStatusStream === true) {
+              this.restartStatusStream();
+            }
+          }
+
+          this.resources = resources;
+          resolve(this.resources);
+        });
       });
-      await p;
-
-      if (resourcesChanged === true) {
-        this.querySensors();
-
-        if (shouldRestartStatusStream === true) {
-          this.restartStatusStream();
-        }
-      }
-      setTimeout(() => this.queryMetadata(), 500);
     },
     querySensors() {
       const sensorsName = filterResources(this.resources, 'rdk', 'service','sensors')[0];
@@ -1061,18 +1216,30 @@ export default {
       });
     },
     loadCurrentOps () {
-      window.clearTimeout(this.currentOpsTimerId);
-      const req = new robotApi.GetOperationsRequest();
-      window.robotService.getOperations(req, {}, (err, resp) => {
-        const lst = resp.toObject().operationsList;
-        this.currentOps = lst;
+      return new Promise((resolve, reject) => {  
+        const req = new robotApi.GetOperationsRequest();
 
-        const now = Date.now();
-        for (const op of this.currentOps) {
-          op.elapsed = now - (op.started.seconds * 1000);
-        }
+        window.robotService.getOperations(req, {}, (err, resp) => {
+          if (err) {
+            reject(err);
+            return;
+          }
 
-        this.currentOpsTimerId = window.setTimeout(this.loadCurrentOps, 1000);
+          if (!resp) {
+            reject(null);
+            return;
+          }
+
+          const lst = resp.toObject().operationsList;
+          this.currentOps = lst;
+
+          const now = Date.now();
+          for (const op of this.currentOps) {
+            op.elapsed = now - (op.started.seconds * 1000);
+          }
+
+          resolve(this.currentOps);
+        });
       });
     },
     async doConnect(authEntity, creds, onError) {
@@ -1080,7 +1247,6 @@ export default {
       document.querySelector('#connecting').classList.remove('hidden');
       try {
         await window.connect(authEntity, creds);
-        this.loadCurrentOps();
       } catch (error) {
         toast.error(`failed to connect: ${error}`);
         if (onError) {
@@ -1127,14 +1293,23 @@ export default {
         });
       }
     },
-    queryStreams () {
-      streamService.listStreams(new streamApi.ListStreamsRequest(), {}, (err, resp) => {
-        this.grpcCallback(err, resp, false);
-        if (!err) {
+    queryStreams() {
+      return new Promise((resolve, reject) => {
+        streamService.listStreams(new streamApi.ListStreamsRequest(), {}, (err, resp) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+
+          if (!resp) {
+            reject(null);
+            return;
+          }
+
           const streamNames = resp.toObject().namesList;
           this.streamNames = streamNames;
-        }
-        setTimeout(() => this.queryStreams(), 500);
+          resolve(this.streamNames);
+        });
       });
     },
     initPCDIfNeeded() {
@@ -1428,7 +1603,7 @@ function setBoundingBox(box, centerPoint) {
   <div class="flex flex-col gap-4 p-3">
     <div
       v-if="error"
-      style="color: red;"
+      class="border-l-4 border-red-500 bg-gray-100 px-4 py-3"
     >
       {{ error }}
     </div>
@@ -1480,6 +1655,17 @@ function setBoundingBox(box, centerPoint) {
       :key="gantry.name"
       :title="`Gantry ${gantry.name}`"
     >
+      <div
+        slot="header"
+        class="flex items-center justify-between gap-2"
+      >
+        <v-button
+          variant="danger"
+          icon="stop-circle"
+          label="STOP"
+          @click.stop="gantryStop(gantry.name)"
+        />
+      </div>
       <div class="border border-t-0 border-black p-4">
         <table class="border border-t-0 border-black p-4">
           <thead>
@@ -1681,7 +1867,18 @@ function setBoundingBox(box, centerPoint) {
       :key="arm.name"
       :title="`Arm ${arm.name}`"
     >
-      <div class="mb-2 flex">
+      <div
+        slot="header"
+        class="flex items-center justify-between gap-2"
+      >
+        <v-button
+          variant="danger"
+          icon="stop-circle"
+          label="STOP"
+          @click.stop="armStop(arm.name)"
+        />
+      </div>
+      <div class="mt-2 flex">
         <div
           v-if="armToggle[arm.name]"
           class="mr-4 w-1/2 border border-black p-4"
@@ -1859,6 +2056,17 @@ function setBoundingBox(box, centerPoint) {
       :key="gripper.name"
       :title="`Gripper ${gripper.name}`"
     >
+      <div
+        slot="header"
+        class="flex items-center justify-between gap-2"
+      >
+        <v-button
+          variant="danger"
+          icon="stop-circle"
+          label="STOP"
+          @click.stop="gripperStop(gripper.name)"
+        />
+      </div>
       <div class="flex gap-2 border border-t-0 border-black p-4">
         <v-button
           label="Open"

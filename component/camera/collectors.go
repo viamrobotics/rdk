@@ -42,12 +42,13 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 		}
 
 		var buf bytes.Buffer
-		buf.Grow(v.Size() * 4 * 4) // 4 numbers per point, each 4 bytes
+		headerSize := 200
+		buf.Grow(headerSize + v.Size()*4*4) // 4 numbers per point, each 4 bytes
 		err = pointcloud.ToPCD(v, &buf, pointcloud.PCDBinary)
 		if err != nil {
 			return nil, errors.Errorf("failed to convert returned point cloud to PCD: %v", err)
 		}
-		return buf, nil
+		return buf.Bytes(), nil
 	})
 	return data.NewCollector(cFunc, params)
 }
