@@ -304,13 +304,15 @@ func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
 	defer m.callCount.Add(1)
 	if m.callCount.Load() < m.failUntilIndex {
+		fmt.Println(".\n\nCaught A\n\n.")
 		return status.Error(codes.Aborted, "fail until reach failUntilIndex")
 	}
 
 	m.reqsStagedForResponse = 0
 	for {
 		// If server.Upload(stream) has been called too many times, abort.
-		if m.callCount.Load() == m.failAtIndex {
+		if m.callCount.Load() == m.failAtIndex { //&& m.failAtIndex != 0 {
+			fmt.Println(".\n\nCaught B\n\n.")
 			return status.Error(codes.Aborted, "failed at failAtIndex")
 		}
 
@@ -336,6 +338,7 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 		// Recv UploadRequest (block until received).
 		ur, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
+			// panic(".\n\nCUT OFF HERE\n\n.")
 			break
 		}
 		if err != nil {
@@ -347,6 +350,7 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 		newData := append(*m.uploadRequests, ur)
 		*m.uploadRequests = newData
 		m.reqsStagedForResponse++
+		fmt.Println("appended: ", fmt.Sprint(string(ur.GetSensorContents().GetBinary())))
 		(*m.lock).Unlock()
 
 		// Send an ACK at intervals of N messages.

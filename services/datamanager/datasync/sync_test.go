@@ -424,10 +424,12 @@ func TestPartialUpload(t *testing.T) {
 		{
 			// TODO: add expected upload requests
 			name: `Binary upload of non-empty file should proceed until point it is cancelled and receive 
-			intermittent upload responses from the server about its progress.`,
-			maxUploadRetryAttempts:      3,
+			intermittent upload responses from the server about its progress. When resumed, it should send a
+			new upload metadata message and proceed from the point at which it left off (determined by progress
+			file on disk.`,
+			maxUploadRetryAttempts:      0,
 			sendAckEveryNMessages:       -1,
-			sendCancelCtxAfterNMessages: 3,
+			sendCancelCtxAfterNMessages: 2,
 			dataType:                    v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			toSend:                      createBinarySensorData([][]byte{msg1, msg2, msg3}),
 			expUploadResponses: []*v1.UploadResponse{
@@ -511,6 +513,7 @@ func TestPartialUpload(t *testing.T) {
 			// Register mock datasync service with a mock server.
 			logger, _ := golog.NewObservedTestLogger(t)
 			mockService := getMockService()
+			mockService.failUntilIndex = 0
 			mockService.failAtIndex = tc.maxUploadRetryAttempts
 			mockService.sendAckEveryNMessages = tc.sendAckEveryNMessages
 			mockService.sendCancelCtxAfterNMessages = tc.sendCancelCtxAfterNMessages
@@ -541,36 +544,40 @@ func TestPartialUpload(t *testing.T) {
 			// compareUploadResponses(t, mockService.getUploadResponses(), tc.expUploadResponses)
 
 			// Restart (and get rid of cancel context)
-			// mockService = getMockService()
-			// mockService.failAtIndex = tc.maxUploadRetryAttempts
-			// mockService.sendAckEveryNMessages = tc.sendAckEveryNMessages
-			// mockService.sendCancelCtxAfterNMessages = -1
-			// rpcServer = buildAndStartLocalServer(t, logger, mockService)
-			// defer func() {
-			// 	err := rpcServer.Stop()
-			// 	test.That(t, err, test.ShouldBeNil)
-			// }()
-			// conn, err = getLocalServerConn(rpcServer, logger)
-			// test.That(t, err, test.ShouldBeNil)
-			// client = NewClient(conn)
-			// sut, err = NewManager(logger, partID, client, conn)
-			// test.That(t, err, test.ShouldBeNil)
-			// sut.Sync([]string{f.Name()})
-			// time.Sleep(syncWaitTime)
-			// sut.Close()
+			mockService = getMockService()
+			mockService.failUntilIndex = 0
+			mockService.failAtIndex = tc.maxUploadRetryAttempts
+			mockService.sendAckEveryNMessages = tc.sendAckEveryNMessages
+			mockService.sendCancelCtxAfterNMessages = -1
+			rpcServer = buildAndStartLocalServer(t, logger, mockService)
+			defer func() {
+				err := rpcServer.Stop()
+				test.That(t, err, test.ShouldBeNil)
+			}()
+			conn, err = getLocalServerConn(rpcServer, logger)
+			test.That(t, err, test.ShouldBeNil)
+			client = NewClient(conn)
+			sut, err = NewManager(logger, partID, client, conn)
+			test.That(t, err, test.ShouldBeNil)
+			sut.Sync([]string{f.Name()})
+			time.Sleep(syncWaitTime)
+			sut.Close()
 
-			// // TODO: validate mockService.getUploadRequests for indexes tc.maxUploadRetryAttempts:
+			// TODO: validate mockService.getUploadRequests for indexes tc.maxUploadRetryAttempts:
 			// if mockService.sendCancelCtxAfterNMessages != -1 {
 			// 	sensorDataExpectedToSend = tc.toSend[mockService.sendCancelCtxAfterNMessages:]
+			// 	// panic("len(sensorDataExpectedToSend) = " + fmt.Sprint(len(sensorDataExpectedToSend)) +
+			// 	// 	"\nlen(mockServiceUploadReqs) = " + fmt.Sprint(len(mockService.getUploadRequests())-1))
 			// } else {
 			// 	sensorDataExpectedToSend = tc.toSend
 			// }
-			// expMsgs = buildUploadRequests(sensorDataExpectedToSend, tc.dataType, f.Name())
-			// compareUploadRequests(t, true, mockService.getUploadRequests(), expMsgs)
+			sensorDataExpectedToSend = tc.toSend[tc.sendCancelCtxAfterNMessages:]
+			expMsgs = buildUploadRequests(sensorDataExpectedToSend, tc.dataType, f.Name())
+			compareUploadRequests(t, true, mockService.getUploadRequests(), expMsgs)
 
-			// // TODO: Validate progress files does not exist.
-			// _, err = os.Stat(f.Name())
-			// test.That(t, err, test.ShouldNotBeNil)
+			// TODO: Validate progress files does not exist.
+			_, err = os.Stat(f.Name())
+			test.That(t, err, test.ShouldNotBeNil)
 		})
 	}
 }
