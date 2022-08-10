@@ -61,7 +61,15 @@ func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequ
 	}
 }
 
-// func compare
+func compareUploadResponses(t *testing.T, actual []*v1.UploadResponse, expected []*v1.UploadResponse) {
+	test.That(t, len(actual), test.ShouldEqual, len(expected))
+	for i, uploadResponse := range actual[1:] {
+		a := uploadResponse.GetRequestsWritten()
+		e := expected[i+1].GetRequestsWritten()
+		test.That(t, a, test.ShouldEqual, e)
+	}
+
+}
 
 // nolint:thelper
 func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
