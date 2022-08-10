@@ -109,14 +109,14 @@ jobs:
       with:
         fetch-depth: 2
 
-    - name: Clean
-      run: make clean-all
-
     - name: Create GCP Credential File from secret
       run: |
         GOOGLE_APPLICATION_CREDENTIALS=`pwd`/${GOOGLE_APPLICATION_CREDENTIALS_FILENAME}
         echo "${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}" >> ${GOOGLE_APPLICATION_CREDENTIALS}
         echo "GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
+
+    - name: Clean
+      run: make clean-all
 
     - name: Test
       run: make test-pi
