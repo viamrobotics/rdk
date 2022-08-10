@@ -408,73 +408,77 @@ func TestPartialUpload(t *testing.T) {
 	msg1 := []byte("viam")
 	msg2 := []byte("robotics")
 	msg3 := []byte("builds cool software")
-	msg4 := toProto(anyStruct{})
-	msg5 := toProto(anyStruct{Field1: false})
-	msg6 := toProto(anyStruct{Field1: true, Field2: 2020, Field3: "viam"})
+	// msg4 := toProto(anyStruct{})
+	// msg5 := toProto(anyStruct{Field1: false})
+	// msg6 := toProto(anyStruct{Field1: true, Field2: 2020, Field3: "viam"})
 
 	tests := []struct {
 		name                        string
 		cancelIndex                 int32
 		sendAckEveryNMessages       int
 		sendCancelCtxAfterNMessages int
-		toSend                      []*v1.SensorData
 		dataType                    v1.DataType
+		toSend                      []*v1.SensorData
+		expUploadResponses          []*v1.UploadResponse
 	}{
 		{
 			// TODO: add expected upload requests
-			name: "Binary upload of non-empty file should resume from last point if it is " +
-				"canceled.",
+			name: `Binary upload of non-empty file should proceed until point it is cancelled and receive 
+			intermittent upload responses from the server about its progress.`,
+			cancelIndex:                 2,
+			sendAckEveryNMessages:       -1,
+			sendCancelCtxAfterNMessages: 2,
+			dataType:                    v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			toSend:                      createBinarySensorData([][]byte{msg1, msg2, msg3}),
-			cancelIndex:                 2,
-			sendAckEveryNMessages:       1,
-			sendCancelCtxAfterNMessages: -1,
-			dataType:                    v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			expUploadResponses: []*v1.UploadResponse{
+				{RequestsWritten: 3},
+			},
 		},
-		{
-			name: "Binary upload of empty file should not upload anything when it is started nor if it " +
-				"is resumed.",
-			toSend:                      []*v1.SensorData{},
-			cancelIndex:                 0,
-			sendAckEveryNMessages:       1,
-			sendCancelCtxAfterNMessages: -1,
-			dataType:                    v1.DataType_DATA_TYPE_BINARY_SENSOR,
-		},
-		{
-			name: "Binary upload with no more messages to send after it's canceled should not upload " +
-				"anything after resuming.",
-			toSend:                      createBinarySensorData([][]byte{msg1, msg2}),
-			cancelIndex:                 2,
-			sendAckEveryNMessages:       1,
-			sendCancelCtxAfterNMessages: -1,
-			dataType:                    v1.DataType_DATA_TYPE_BINARY_SENSOR,
-		},
-		{
-			name: "Binary upload that is interrupted before sending a single message should resume and send all" +
-				"messages.",
-			toSend:                      createBinarySensorData([][]byte{msg1, msg2}),
-			cancelIndex:                 0,
-			sendAckEveryNMessages:       1,
-			sendCancelCtxAfterNMessages: -1,
-			dataType:                    v1.DataType_DATA_TYPE_BINARY_SENSOR,
-		},
-		{
-			name: "Tabular upload of non-empty file should resume from last point if it is" +
-				"canceled.",
-			toSend:                      createTabularSensorData([]*structpb.Struct{msg4, msg5, msg6}),
-			cancelIndex:                 2,
-			sendAckEveryNMessages:       1,
-			sendCancelCtxAfterNMessages: -1,
-			dataType:                    v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-		},
-		{
-			name: "Tabular upload of empty file should not upload anything when it is started nor if it " +
-				"is resumed.",
-			toSend:                      createTabularSensorData([]*structpb.Struct{}),
-			cancelIndex:                 0,
-			sendAckEveryNMessages:       1,
-			sendCancelCtxAfterNMessages: -1,
-			dataType:                    v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-		},
+		// {
+		// 	name: "Binary upload of empty file should not upload anything when it is started nor if it " +
+		// 		"is resumed.",
+		// 	toSend:                      []*v1.SensorData{},
+		// 	cancelIndex:                 0,
+		// 	sendAckEveryNMessages:       1,
+		// 	sendCancelCtxAfterNMessages: -1,
+		// 	dataType:                    v1.DataType_DATA_TYPE_BINARY_SENSOR,
+		// },
+		// {
+		// 	name: "Binary upload with no more messages to send after it's canceled should not upload " +
+		// 		"anything after resuming.",
+		// 	toSend:                      createBinarySensorData([][]byte{msg1, msg2}),
+		// 	cancelIndex:                 2,
+		// 	sendAckEveryNMessages:       1,
+		// 	sendCancelCtxAfterNMessages: -1,
+		// 	dataType:                    v1.DataType_DATA_TYPE_BINARY_SENSOR,
+		// },
+		// {
+		// 	name: "Binary upload that is interrupted before sending a single message should resume and send all" +
+		// 		"messages.",
+		// 	toSend:                      createBinarySensorData([][]byte{msg1, msg2}),
+		// 	cancelIndex:                 0,
+		// 	sendAckEveryNMessages:       1,
+		// 	sendCancelCtxAfterNMessages: -1,
+		// 	dataType:                    v1.DataType_DATA_TYPE_BINARY_SENSOR,
+		// },
+		// {
+		// 	name: "Tabular upload of non-empty file should resume from last point if it is" +
+		// 		"canceled.",
+		// 	toSend:                      createTabularSensorData([]*structpb.Struct{msg4, msg5, msg6}),
+		// 	cancelIndex:                 2,
+		// 	sendAckEveryNMessages:       1,
+		// 	sendCancelCtxAfterNMessages: -1,
+		// 	dataType:                    v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+		// },
+		// {
+		// 	name: "Tabular upload of empty file should not upload anything when it is started nor if it " +
+		// 		"is resumed.",
+		// 	toSend:                      createTabularSensorData([]*structpb.Struct{}),
+		// 	cancelIndex:                 0,
+		// 	sendAckEveryNMessages:       1,
+		// 	sendCancelCtxAfterNMessages: -1,
+		// 	dataType:                    v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+		// },
 	}
 
 	for _, tc := range tests {
