@@ -427,7 +427,8 @@ func TestUploadExponentialRetry(t *testing.T) {
 			time.Sleep(tc.waitTime)
 			sut.Close()
 
-			// Validate that the client called Upload the correct number of times, and that the file was not deleted.
+			// Validate that the client called Upload the correct number of times, and whether or not the file was
+			// deleted.
 			test.That(t, mockService.callCount.Load(), test.ShouldEqual, tc.expCallCount)
 			_, err = os.Stat(file1.Name())
 			exists := !errors.Is(err, os.ErrNotExist)
