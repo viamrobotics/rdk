@@ -2,8 +2,8 @@ package motor
 
 import (
 	"context"
-	"go.viam.com/rdk/data"
 	"sync"
+
 
 	"github.com/edaniels/golog"
 	viamutils "go.viam.com/utils"
@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/control"
+	"go.viam.com/rdk/data"
 	pb "go.viam.com/rdk/proto/api/component/motor/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
