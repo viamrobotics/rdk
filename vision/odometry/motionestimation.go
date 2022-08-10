@@ -112,6 +112,20 @@ func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationCo
 		if err != nil {
 			logger.Warnf("%s/img2.png could not be saved", tempDir)
 		}
+		err = keypoints.PlotKeypoints(im2, matchedKps2, tempDir+"/img2.png")
+		if err != nil {
+			logger.Warnf("%s/img2.png could not be saved", tempDir)
+		}
+		//nolint:errcheck
+		var imPlot1, imPlot2 image.Image
+		imPlot1, err = rimage.NewImageFromFile(tempDir + "/img1.png")
+		//nolint:errcheck
+		imPlot2, err = rimage.NewImageFromFile(tempDir + "/img2.png")
+		err = keypoints.PlotMatchedLines(imPlot1, imPlot2, matchedKps1, matchedKps2, tempDir+"/img1_2_matched.png")
+		if err != nil {
+			logger.Warnf("%s/img1_2_matched.png could not be saved", tempDir)
+		}
+
 	}
 	if err != nil {
 		return nil, err

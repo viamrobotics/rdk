@@ -49,7 +49,7 @@ func PairwiseDistance(pts1, pts2 [][]float64, distType DistanceType) (*mat.Dense
 	return distances, nil
 }
 
-// DescriptorsHammingDistnace computes the pairwise distances between 2 descriptors.
+// DescriptorsHammingDistnace computes the pairwise distances between 2 descriptor arrays.
 func DescriptorsHammingDistance(descs1, descs2 []descriptors.Descriptor) ([][]int, error) {
 	var m int
 	var n int
