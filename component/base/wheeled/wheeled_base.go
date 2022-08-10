@@ -74,7 +74,8 @@ type wheeledBase struct {
 	right     []motor.Motor
 	allMotors []motor.Motor
 
-	opMgr operation.SingleOperationManager
+	opMgr     operation.SingleOperationManager
+	Waypoints [][]frame.Input
 }
 
 func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
@@ -377,11 +378,12 @@ func CreateFourWheelBase(
 
 // Config is how you configure a wheeled base.
 type Config struct {
-	WidthMM              int      `json:"width_mm"`
-	WheelCircumferenceMM int      `json:"wheel_circumference_mm"`
-	SpinSlipFactor       float64  `json:"spin_slip_factor,omitempty"`
-	Left                 []string `json:"left"`
-	Right                []string `json:"right"`
+	WidthMM              int                               `json:"width_mm"`
+	WheelCircumferenceMM int                               `json:"wheel_circumference_mm"`
+	SpinSlipFactor       float64                           `json:"spin_slip_factor,omitempty"`
+	Left                 []string                          `json:"left"`
+	Right                []string                          `json:"right"`
+	MotionPlan           *motionplan.MobileRobotPlanConfig `json:"motion-plan,omitempty`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -454,6 +456,14 @@ func (base *wheeledBase) Move(
 	config *motionplan.MobileRobotPlanConfig,
 	logger golog.Logger,
 ) error {
+	switch config.Type {
+	case "dubins":
+		return base.newDubinsPlanner(ctx, config, logger)
+	}
+	return nil
+}
+
+func (base *wheeledBase) newDubinsPlanner(ctx context.Context, config *motionplan.MobileRobotPlanConfig, logger golog.Logger) error {
 	// parse input
 	start := frame.FloatsToInputs(config.Start)
 	goal := spatial.PoseToProtobuf(spatial.NewPoseFromPoint(r3.Vector{X: config.Goal[0], Y: config.Goal[1], Z: 0}))
@@ -498,21 +508,21 @@ func (base *wheeledBase) Move(
 		return err
 	}
 
-	// move to waypoints
-	start_move := make([]float64, 3)
-	next_move := make([]float64, 3)
+	// dubins planner is the only option for now
+	current := make([]float64, 3)
+	next := make([]float64, 3)
 
 	for i, wp := range waypoints {
 		if i == 0 {
 			for j := 0; j < 3; j++ {
-				start_move[j] = wp[j].Value
+				current[j] = wp[j].Value
 			}
 		} else {
 			for j := 0; j < 3; j++ {
-				next_move[j] = wp[j].Value
+				next[j] = wp[j].Value
 			}
 
-			pathOptions := d.AllOptions(start_move, next_move, true)[0]
+			pathOptions := d.AllOptions(current, next, true)[0]
 
 			dubinsPath := pathOptions.DubinsPath
 			straight := pathOptions.Straight
@@ -520,7 +530,7 @@ func (base *wheeledBase) Move(
 			base.MoveToWaypointDubins(ctx, config, dubinsPath, straight)
 
 			for j := 0; j < 3; j++ {
-				start_move[j] = next_move[j]
+				current[j] = next[j]
 			}
 		}
 	}
@@ -528,27 +538,24 @@ func (base *wheeledBase) Move(
 	return nil
 }
 
-func fixAngle(ang float64, withAgile bool) float64 {
-	// angle should be between principle of values: -90 to 90 degrees
-	if !withAgile {
-		return ang
-	}
-	deg := ang * 180 / math.Pi
+func fixAngle(ang float64) float64 {
+	// currently positive angles move base clockwise, which is opposite of what is expected, so multiply by -1
+	deg := -ang * 180 / math.Pi
 	return deg
 
 }
 
 func (base *wheeledBase) MoveToWaypointDubins(ctx context.Context, config *motionplan.MobileRobotPlanConfig, path []float64, straight bool) {
 	//first turn
-	base.Spin(ctx, -fixAngle(path[0], true), 20) //base is currently configured backwards
+	base.Spin(ctx, fixAngle(path[0]), 20) //base is currently configured backwards
 
 	//second turn/straight
 	if straight {
 		base.MoveStraight(ctx, int(path[2]*config.GridConversion), 100) //constant speed right now
 	} else {
-		base.Spin(ctx, -fixAngle(path[2], true), 20)
+		base.Spin(ctx, fixAngle(path[2]), 20)
 	}
 
 	//last turn
-	base.Spin(ctx, -fixAngle(path[1], true), 40)
+	base.Spin(ctx, fixAngle(path[1]), 40)
 }
