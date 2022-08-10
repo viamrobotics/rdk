@@ -10,7 +10,6 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -110,138 +109,136 @@ var Name = resource.NameFromSubtype(Subtype, "")
 // Returns the slam mode.
 
 // TODO[DATA-347]: Re-enable runtime config validation
-//nolint:all
-func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) (mode, error) {
-	slamLib, ok := SLAMLibraries[svcConfig.Algorithm]
-	if !ok {
-		return "", errors.Errorf("%v algorithm specified not in implemented list", svcConfig.Algorithm)
-	}
+// func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) (mode, error) {
+// 	slamLib, ok := SLAMLibraries[svcConfig.Algorithm]
+// 	if !ok {
+// 		return "", errors.Errorf("%v algorithm specified not in implemented list", svcConfig.Algorithm)
+// 	}
 
-	slamMode, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
-	if !ok {
-		return "", errors.Errorf("getting data with specified algorithm %v, and desired mode %v",
-			svcConfig.Algorithm, svcConfig.ConfigParams["mode"])
-	}
+// 	slamMode, ok := slamLib.SlamMode[svcConfig.ConfigParams["mode"]]
+// 	if !ok {
+// 		return "", errors.Errorf("getting data with specified algorithm %v, and desired mode %v",
+// 			svcConfig.Algorithm, svcConfig.ConfigParams["mode"])
+// 	}
 
-	for _, directoryName := range [4]string{"", "data", "map", "config"} {
-		directoryPath := filepath.Join(svcConfig.DataDirectory, directoryName)
-		if _, err := os.Stat(directoryPath); os.IsNotExist(err) {
-			logger.Warnf("%v directory does not exist", directoryPath)
-			if err := os.Mkdir(directoryPath, os.ModePerm); err != nil {
-				return "", errors.Errorf("issue creating directory at %v: %v", directoryPath, err)
-			}
-		}
-	}
-	if slamMode == rgbd {
-		for _, directoryName := range [2]string{"rgb", "depth"} {
-			directoryPath := filepath.Join(svcConfig.DataDirectory, "data", directoryName)
-			if _, err := os.Stat(directoryPath); os.IsNotExist(err) {
-				logger.Warnf("%v directory does not exist", directoryPath)
-				if err := os.Mkdir(directoryPath, os.ModePerm); err != nil {
-					return "", errors.Errorf("issue creating directory at %v: %v", directoryPath, err)
-				}
-			}
-		}
-	}
+// 	for _, directoryName := range [4]string{"", "data", "map", "config"} {
+// 		directoryPath := filepath.Join(svcConfig.DataDirectory, directoryName)
+// 		if _, err := os.Stat(directoryPath); os.IsNotExist(err) {
+// 			logger.Warnf("%v directory does not exist", directoryPath)
+// 			if err := os.Mkdir(directoryPath, os.ModePerm); err != nil {
+// 				return "", errors.Errorf("issue creating directory at %v: %v", directoryPath, err)
+// 			}
+// 		}
+// 	}
+// 	if slamMode == rgbd {
+// 		for _, directoryName := range [2]string{"rgb", "depth"} {
+// 			directoryPath := filepath.Join(svcConfig.DataDirectory, "data", directoryName)
+// 			if _, err := os.Stat(directoryPath); os.IsNotExist(err) {
+// 				logger.Warnf("%v directory does not exist", directoryPath)
+// 				if err := os.Mkdir(directoryPath, os.ModePerm); err != nil {
+// 					return "", errors.Errorf("issue creating directory at %v: %v", directoryPath, err)
+// 				}
+// 			}
+// 		}
+// 	}
 
-	// Confirms that input file pattern abides by the format n1:n2:n3 where n1, n2 and n3 are all positive integers and n1 <= n2
-	// and n3 must be non-zero
-	if svcConfig.InputFilePattern != "" {
-		pattern := `(\d+):(\d+):(\d+)`
-		re := regexp.MustCompile(pattern)
-		res := re.MatchString(svcConfig.InputFilePattern)
-		if !res {
-			return "", errors.Errorf("input_file_pattern (%v) does not match the regex pattern %v", svcConfig.InputFilePattern, pattern)
-		}
+// 	// Confirms that input file pattern abides by the format n1:n2:n3 where n1, n2 and n3 are all positive integers and n1 <= n2
+// 	// and n3 must be non-zero
+// 	if svcConfig.InputFilePattern != "" {
+// 		pattern := `(\d+):(\d+):(\d+)`
+// 		re := regexp.MustCompile(pattern)
+// 		res := re.MatchString(svcConfig.InputFilePattern)
+// 		if !res {
+// 			return "", errors.Errorf("input_file_pattern (%v) does not match the regex pattern %v", svcConfig.InputFilePattern, pattern)
+// 		}
 
-		re = regexp.MustCompile(`(\d+)`)
-		res2 := re.FindAllString(svcConfig.InputFilePattern, 3)
-		startFileIndex, err := strconv.Atoi(res2[0])
-		if err != nil {
-			return "", err
-		}
-		endFileIndex, err := strconv.Atoi(res2[1])
-		if err != nil {
-			return "", err
-		}
+// 		re = regexp.MustCompile(`(\d+)`)
+// 		res2 := re.FindAllString(svcConfig.InputFilePattern, 3)
+// 		startFileIndex, err := strconv.Atoi(res2[0])
+// 		if err != nil {
+// 			return "", err
+// 		}
+// 		endFileIndex, err := strconv.Atoi(res2[1])
+// 		if err != nil {
+// 			return "", err
+// 		}
 
-		interval, err := strconv.Atoi(res2[2])
-		if err != nil {
-			return "", err
-		}
+// 		interval, err := strconv.Atoi(res2[2])
+// 		if err != nil {
+// 			return "", err
+// 		}
 
-		if interval == 0 {
-			return "", errors.New("the file input pattern's interval must be greater than zero")
-		}
+// 		if interval == 0 {
+// 			return "", errors.New("the file input pattern's interval must be greater than zero")
+// 		}
 
-		if startFileIndex > endFileIndex {
-			return "", errors.Errorf("second value in input file pattern must be larger than the first [%v]", svcConfig.InputFilePattern)
-		}
-	}
+// 		if startFileIndex > endFileIndex {
+// 			return "", errors.Errorf("second value in input file pattern must be larger than the first [%v]", svcConfig.InputFilePattern)
+// 		}
+// 	}
 
-	return slamMode, nil
-}
+// 	return slamMode, nil
+// }
 
 // runtimeServiceValidation ensures the service's data processing and saving is valid for the mode and
 // cameras given.
 
 // TODO[DATA-347]: Re-enable runtime service validation
-//nolint:all
-func runtimeServiceValidation(ctx context.Context, cams []camera.Camera, slamSvc *slamService) error {
-	if len(cams) == 0 {
-		return nil
-	}
+// func runtimeServiceValidation(ctx context.Context, cams []camera.Camera, slamSvc *slamService) error {
+// 	if len(cams) == 0 {
+// 		return nil
+// 	}
 
-	var err error
-	paths := make([]string, 0, 1)
-	startTime := time.Now()
+// 	var err error
+// 	paths := make([]string, 0, 1)
+// 	startTime := time.Now()
 
-	// TODO 05/05/2022: This will be removed once GRPC data transfer is available as the responsibility for
-	// calling the right algorithms (Next vs NextPointCloud) will be held by the slam libraries themselves
-	// Note: if GRPC data transfer is delayed to after other algorithms (or user custom algos) are being
-	// added this point will be revisited
-	for {
-		switch slamSvc.slamLib.AlgoType {
-		case sparse:
-			var currPaths []string
-			currPaths, err = slamSvc.getAndSaveDataSparse(ctx, cams)
-			paths = append(paths, currPaths...)
-		case dense:
-			var path string
-			path, err = slamSvc.getAndSaveDataDense(ctx, cams)
-			paths = append(paths, path)
-		default:
-			return errors.Errorf("invalid slam algorithm %q", slamSvc.slamLib.AlgoName)
-		}
+// 	// TODO 05/05/2022: This will be removed once GRPC data transfer is available as the responsibility for
+// 	// calling the right algorithms (Next vs NextPointCloud) will be held by the slam libraries themselves
+// 	// Note: if GRPC data transfer is delayed to after other algorithms (or user custom algos) are being
+// 	// added this point will be revisited
+// 	for {
+// 		switch slamSvc.slamLib.AlgoType {
+// 		case sparse:
+// 			var currPaths []string
+// 			currPaths, err = slamSvc.getAndSaveDataSparse(ctx, cams)
+// 			paths = append(paths, currPaths...)
+// 		case dense:
+// 			var path string
+// 			path, err = slamSvc.getAndSaveDataDense(ctx, cams)
+// 			paths = append(paths, path)
+// 		default:
+// 			return errors.Errorf("invalid slam algorithm %q", slamSvc.slamLib.AlgoName)
+// 		}
 
-		if err == nil {
-			break
-		}
+// 		if err == nil {
+// 			break
+// 		}
 
-		// This takes about 5 seconds, so the timeout should be sufficient.
-		if time.Since(startTime) >= cameraValidationMaxTimeoutSec*time.Second {
-			return errors.Wrap(err, "error getting data in desired mode")
-		}
-		if !goutils.SelectContextOrWait(ctx, cameraValidationIntervalSec*time.Second) {
-			return ctx.Err()
-		}
-	}
+// 		// This takes about 5 seconds, so the timeout should be sufficient.
+// 		if time.Since(startTime) >= cameraValidationMaxTimeoutSec*time.Second {
+// 			return errors.Wrap(err, "error getting data in desired mode")
+// 		}
+// 		if !goutils.SelectContextOrWait(ctx, cameraValidationIntervalSec*time.Second) {
+// 			return ctx.Err()
+// 		}
+// 	}
 
-	// For ORBSLAM, generate a new yaml file based off the camera configuration and presence of maps
-	if strings.Contains(slamSvc.slamLib.AlgoName, "orbslamv3") {
-		if err = slamSvc.orbGenYAML(ctx, cams[0]); err != nil {
-			return errors.Wrap(err, "error generating .yaml config")
-		}
-	}
+// 	// For ORBSLAM, generate a new yaml file based off the camera configuration and presence of maps
+// 	if strings.Contains(slamSvc.slamLib.AlgoName, "orbslamv3") {
+// 		if err = slamSvc.orbGenYAML(ctx, cams[0]); err != nil {
+// 			return errors.Wrap(err, "error generating .yaml config")
+// 		}
+// 	}
 
-	for _, path := range paths {
-		if err := os.RemoveAll(path); err != nil {
-			return errors.Wrap(err, "error removing generated file during validation")
-		}
-	}
+// 	for _, path := range paths {
+// 		if err := os.RemoveAll(path); err != nil {
+// 			return errors.Wrap(err, "error removing generated file during validation")
+// 		}
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 // AttrConfig describes how to configure the service.
 type AttrConfig struct {
