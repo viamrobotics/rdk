@@ -122,39 +122,39 @@ func (m *Motor) GetFeatures(ctx context.Context, extra map[string]interface{}) (
 }
 
 // setPWM sets the associated pins (as discovered) and sets PWM to the given power percentage.
-func (m *Motor) setPWM(ctx context.Context, powerPct float64) error {
+func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	var errs error
 	powerPct = math.Min(powerPct, m.maxPowerPct)
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
 
 	if math.Abs(powerPct) <= 0.001 {
 		if m.EnablePinLow != nil {
-			errs = m.EnablePinLow.Set(ctx, true)
+			errs = m.EnablePinLow.Set(ctx, true, extra)
 		}
 		if m.EnablePinHigh != nil {
-			errs = m.EnablePinHigh.Set(ctx, false)
+			errs = m.EnablePinHigh.Set(ctx, false, extra)
 		}
 
 		if m.A != nil && m.B != nil {
 			errs = multierr.Combine(
 				errs,
-				m.A.Set(ctx, false),
-				m.B.Set(ctx, false),
+				m.A.Set(ctx, false, extra),
+				m.B.Set(ctx, false, extra),
 			)
 		}
 
 		if m.PWM != nil {
-			errs = multierr.Combine(errs, m.PWM.Set(ctx, false))
+			errs = multierr.Combine(errs, m.PWM.Set(ctx, false, extra))
 		}
 		return errs
 	}
 
 	m.on = true
 	if m.EnablePinLow != nil {
-		errs = multierr.Combine(errs, m.EnablePinLow.Set(ctx, false))
+		errs = multierr.Combine(errs, m.EnablePinLow.Set(ctx, false, extra))
 	}
 	if m.EnablePinHigh != nil {
-		errs = multierr.Combine(errs, m.EnablePinHigh.Set(ctx, true))
+		errs = multierr.Combine(errs, m.EnablePinHigh.Set(ctx, true, extra))
 	}
 
 	var pwmPin board.GPIOPin
@@ -180,8 +180,8 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64) error {
 	powerPct = math.Max(math.Abs(powerPct), m.minPowerPct)
 	return multierr.Combine(
 		errs,
-		pwmPin.SetPWMFreq(ctx, m.pwmFreq),
-		pwmPin.SetPWM(ctx, powerPct),
+		pwmPin.SetPWMFreq(ctx, m.pwmFreq, extra),
+		pwmPin.SetPWM(ctx, powerPct, extra),
 	)
 }
 
@@ -200,8 +200,8 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 			x = !x
 		}
 		return multierr.Combine(
-			m.Direction.Set(ctx, x),
-			m.setPWM(ctx, powerPct),
+			m.Direction.Set(ctx, x, extra),
+			m.setPWM(ctx, powerPct, extra),
 		)
 	}
 	if m.A != nil && m.B != nil {
@@ -212,14 +212,14 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 			b = m.A
 		}
 		return multierr.Combine(
-			a.Set(ctx, !math.Signbit(powerPct)),
-			b.Set(ctx, math.Signbit(powerPct)),
-			m.setPWM(ctx, powerPct), // Must be last for A/B only drivers
+			a.Set(ctx, !math.Signbit(powerPct), extra),
+			b.Set(ctx, math.Signbit(powerPct), extra),
+			m.setPWM(ctx, powerPct, extra), // Must be last for A/B only drivers
 		)
 	}
 
 	if !math.Signbit(powerPct) {
-		return m.setPWM(ctx, powerPct)
+		return m.setPWM(ctx, powerPct, extra)
 	}
 
 	return errors.New("trying to go backwards but don't have dir or a&b pins")
@@ -279,7 +279,7 @@ func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bo
 func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
 	m.on = false
-	return m.setPWM(ctx, 0)
+	return m.setPWM(ctx, 0, extra)
 }
 
 // IsMoving returns if the motor is currently on or off.

@@ -87,9 +87,9 @@ func (g *softGripper) Stop(ctx context.Context) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 	return multierr.Combine(
-		g.pinOpen.Set(ctx, false),
-		g.pinClose.Set(ctx, false),
-		g.pinPower.Set(ctx, false),
+		g.pinOpen.Set(ctx, false, nil),
+		g.pinClose.Set(ctx, false, nil),
+		g.pinPower.Set(ctx, false, nil),
 	)
 }
 
@@ -99,8 +99,8 @@ func (g *softGripper) Open(ctx context.Context) error {
 	defer done()
 
 	err := multierr.Combine(
-		g.pinOpen.Set(ctx, true),
-		g.pinPower.Set(ctx, true),
+		g.pinOpen.Set(ctx, true, nil),
+		g.pinPower.Set(ctx, true, nil),
 	)
 	if err != nil {
 		return err
@@ -111,7 +111,7 @@ func (g *softGripper) Open(ctx context.Context) error {
 			return ctx.Err()
 		} // REMOVE
 
-		val, err := g.psi.Read(ctx)
+		val, err := g.psi.Read(ctx, nil)
 		if err != nil {
 			return multierr.Combine(err, g.Stop(ctx))
 		}
@@ -134,8 +134,8 @@ func (g *softGripper) Grab(ctx context.Context) (bool, error) {
 	defer done()
 
 	err := multierr.Combine(
-		g.pinClose.Set(ctx, true),
-		g.pinPower.Set(ctx, true),
+		g.pinClose.Set(ctx, true, nil),
+		g.pinPower.Set(ctx, true, nil),
 	)
 	if err != nil {
 		return false, err
@@ -146,7 +146,7 @@ func (g *softGripper) Grab(ctx context.Context) (bool, error) {
 			return false, ctx.Err()
 		} // REMOVE
 
-		val, err := g.psi.Read(ctx)
+		val, err := g.psi.Read(ctx, nil)
 		if err != nil {
 			return false, multierr.Combine(err, g.Stop(ctx))
 		}
