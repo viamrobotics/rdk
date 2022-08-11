@@ -126,7 +126,9 @@ func getFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR:
 		if methodName == "NextPointCloud" {
 			return ".pcd"
-		} else if methodName == "Next" {
+		}
+		if methodName == "Next" {
+			// TODO: Add explicit file extensions for all mime types.
 			switch parameters["mime_type"] {
 			case utils.MimeTypeJPEG:
 				return ".jpeg"
@@ -134,12 +136,7 @@ func getFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 				return ".png"
 			case utils.MimeTypePCD:
 				return ".pcd"
-			default:
-				// TODO: Add explicit file extensions for all mime types.
-				return defaultFileExt
 			}
-		} else {
-			return defaultFileExt
 		}
 	}
 	return defaultFileExt
