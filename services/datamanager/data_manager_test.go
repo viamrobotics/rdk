@@ -207,7 +207,7 @@ func TestNewRemoteDataManager(t *testing.T) {
 	dmsvc := newTestDataManager(t, "localArm", "remoteArm")
 
 	// Set capture parameters in Update.
-	conf := setupConfig(t, configPath)
+	conf := setupConfig(t, "robots/configs/fake_robot_with_remote_and_data_manager.json")
 	defer resetFolder(t, captureDir)
 	err := dmsvc.Update(context.Background(), conf)
 	test.That(t, err, test.ShouldBeNil)
