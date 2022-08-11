@@ -550,12 +550,12 @@ func remoteAuthFromProto(proto *pb.RemoteAuth) (*RemoteAuth, error) {
 
 func mapSliceWithErrors[T any, U any](a []T, f func(T) (U, error)) ([]U, error) {
 	n := make([]U, 0, len(a))
-	for i, e := range a {
+	for _, e := range a {
 		x, err := f(e)
 		if err != nil {
 			return nil, err
 		}
-		n[i] = x
+		n = append(n, x)
 	}
 	return n, nil
 }
