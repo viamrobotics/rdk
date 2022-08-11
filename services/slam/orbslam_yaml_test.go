@@ -61,6 +61,8 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	})
 
 	t.Run("New orbslamv3 service with camera that errors from bad intrinsics", func(t *testing.T) {
+		t.Skip("skipping, re-add after DATA-347")
+
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		_, err := createSLAMService(t, attrCfgBadCam, logger, false)
@@ -70,6 +72,8 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	})
 
 	t.Run("New orbslamv3 service with camera that errors from bad orbslam params", func(t *testing.T) {
+		t.Skip("skipping, re-add after DATA-347")
+
 		// check if a param is empty
 		attrCfgBadParam1 := &slam.AttrConfig{
 			Algorithm: "fake_orbslamv3",

@@ -1,0 +1,34 @@
+name: License Finder
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      REPO_READ_TOKEN:
+        required: true
+  pull_request:
+    branches: ['main']
+  push:
+
+jobs:
+  build_and_test:
+    name: Audit 3rd-Party Licenses
+    runs-on: [x64, qemu-host]
+    container:
+      image: ghcr.io/viamrobotics/canon:amd64-cache
+      options: --platform linux/amd64
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out code in rdk directory
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+
+      - name: Configure git for private repos
+        run: |
+          sudo -u testbot bash -lc 'echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc'
+
+      - name: Run license finder
+        run: |
+          sudo -u testbot bash -lc 'license_finder --npm-options="--prefix web/frontend"'
