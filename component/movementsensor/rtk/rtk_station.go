@@ -35,7 +35,7 @@ type AttrConfig struct {
 	NtripPass            string `json:"ntrip_password,omitempty"`
 	NtripUser            string `json:"ntrip_username,omitempty"`
 	// non ntrip
-	Svin             string  `json:"svin,omitempty"`
+	SurveyIn         string  `json:"svin,omitempty"`
 	RequiredAccuracy float64 `json:"required_accuracy,omitempty"`
 	RequiredTime     int     `json:"required_time,omitempty"`
 	// serial
@@ -62,7 +62,7 @@ func (config *AttrConfig) Validate(path string) error {
 	}
 
 	// not ntrip
-	if config.SurveyIn == Svin {
+	if config.SurveyIn == timeMode {
 		if config.RequiredAccuracy == 0 {
 			return errors.New("must specify required accuracy for base station fix")
 		}
@@ -145,7 +145,8 @@ const (
 	ntripStr               = "ntrip"
 	requiredAccuracyConfig = "loc_accuracy"
 	observationTimeConfig  = "time_accuracy"
-	surveyIn               = "svin"
+	timeMode               = "time"
+	svinConfig             = "svin"
 )
 
 func newRTKStation(
@@ -185,9 +186,11 @@ func newRTKStation(
 
 	r.movementsensorNames = config.Attributes.StringSlice(childrenName)
 
+	if len(config.Attributes.String(svinConfig)) != 0 {
+		r.surveyIn = config.Attributes.String(svinConfig)
+	}
 	// enable time fix for rtk base station if time mode specified
-	if config.Attributes.String(surveyIn) != nil {
-		r.surveyIn = config.Attributes.String(surveyIn)
+	if r.surveyIn == timeMode {
 		r.requiredAcc = config.Attributes.Float64(requiredAccuracyConfig, 10)
 		r.observationTime = config.Attributes.Int(observationTimeConfig, 60)
 		ConfigureBaseRTKStation(r.requiredAcc, r.observationTime)
