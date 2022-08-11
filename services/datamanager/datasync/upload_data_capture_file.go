@@ -13,32 +13,9 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
-// TODO for bidi partial uploads:
-//      - Have goroutine waiting on Recv on stream (select with cancel context). On recv:
-//        - Update progress index
-//        - If EOF: Return nil. we know all messages were sent and received becuse errors are a response type, so
-//                       are sent serially with other responses
-//        - If other error: We actually returned an error from our server. Determine how to handle individually. For now
-//                      a blanket "return err" (triggering restarts) is probably fine
-//      - Have sends happening in goroutine
-//          - If EOF, send EOF and Close (not recv!) to server. This will trigger server to send final ack then EOF.
-//          - If other error, return error
-//      Wait for both goroutines. If error, return error. If none, return nil.
-//
-// TODO
-//      Some principles to keep in mind:
-//        - The thread/goroutine sending on a channel/grpc connection should be the one closing it
-//        - If some thing is blocking or long running, it should probably be passed a context so it can be cancelled
 func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.DataSyncServiceClient,
 	md *v1.UploadMetadata, f *os.File,
 ) error {
-	// TODO: make cancel context (child of ctx), cancelCtx, cancelFn := context.WithCancel(ctx)
-	// Add ctx.Done to all select statements
-	//  In both goroutines, if error, cancel other goroutine by calling cancelCtx
-
-	// TODO: another maybe-performance-optimal blah TODO: see if you can defer some of the close stuff, because
-	// repeated a lot. not sure if can. Find out
-
 	stream, err := client.Upload(ctx)
 	if err != nil {
 		return err
@@ -64,6 +41,8 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
 
+	cancelCtx, cancelFn := context.WithCancel(ctx)
+
 	var activeBackgroundWorkers sync.WaitGroup
 
 	retRecvUploadResponse := make(chan error, 1)
@@ -73,6 +52,8 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		defer close(retRecvUploadResponse)
 		for {
 			select {
+			case <-cancelCtx.Done():
+				cancelFn()
 			case <-ctx.Done():
 				retRecvUploadResponse <- ctx.Err()
 				return
@@ -102,6 +83,8 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		defer stream.CloseSend()
 		for {
 			select {
+			case <-cancelCtx.Done():
+				cancelFn()
 			case <-ctx.Done():
 				if ctx.Err() != nil {
 					retSendingUploadReqs <- ctx.Err()
