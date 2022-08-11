@@ -4,11 +4,9 @@ package wit
 import (
 	"bufio"
 	"context"
-
 	"errors"
 	"fmt"
 	"math"
-
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -107,7 +105,6 @@ func NewWit(deps registry.Dependencies, config config.Component, logger golog.Lo
 	var ctx context.Context
 	ctx, i.cancelFunc = context.WithCancel(context.Background())
 	i.activeBackgroundWorkers.Add(1)
-
 	utils.PanicCapturingGo(func() {
 		defer utils.UncheckedErrorFunc(port.Close)
 		defer i.activeBackgroundWorkers.Done()
