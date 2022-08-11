@@ -104,8 +104,8 @@ func makeValidColorFunction(loValid, hiValid float64) validPixelFunc {
 		valid = func(v float64) bool { return v <= hiValid || v >= loValid }
 	}
 	// create the ValidPixel function
-	return func(img *rimage.ImageWithDepth, pt image.Point) bool {
-		c := img.Color.Get(pt)
+	return func(img image.Image, pt image.Point) bool {
+		c := rimage.NewColorFromColor(img.At(pt.X, pt.Y))
 		h, s, v := c.HsvNormal()
 		if s < 0.2 {
 			return false

@@ -10,12 +10,14 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
@@ -46,6 +48,9 @@ var Name = resource.NameFromSubtype(Subtype, "")
 func init() {
 	registry.RegisterService(Subtype, registry.Service{Constructor: New})
 	cType := config.ServiceType(SubtypeName)
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		Reconfigurable: WrapWithReconfigurable,
+	})
 
 	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
@@ -81,6 +86,11 @@ type remoteService struct {
 	config *Config
 	logger golog.Logger
 }
+
+var (
+	_ = resource.Reconfigurable(&reconfigurableBaseRemoteControl{})
+	_ = viamutils.ContextCloser(&reconfigurableBaseRemoteControl{})
+)
 
 // New returns a new remote control service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
@@ -196,10 +206,85 @@ func (svc *remoteService) controllerInputs() []input.Control {
 	return []input.Control{}
 }
 
+func (svc *remoteService) processEvent(ctx context.Context, state *throttleState, event input.Event) error {
+	newLinear, newAngular := parseEvent(svc.controlMode, state, event)
+
+	if similar(newLinear, state.linearThrottle, .05) && similar(newAngular, state.angularThrottle, .05) {
+		return nil
+	}
+
+	if svc.config.MaxAngularVelocity > 0 && svc.config.MaxLinearVelocity > 0 {
+		if err := svc.base.SetVelocity(
+			ctx,
+			r3.Vector{
+				X: svc.config.MaxLinearVelocity * newLinear.X,
+				Y: svc.config.MaxLinearVelocity * newLinear.Y,
+				Z: svc.config.MaxLinearVelocity * newLinear.Z,
+			},
+			r3.Vector{
+				X: svc.config.MaxAngularVelocity * newAngular.X,
+				Y: svc.config.MaxAngularVelocity * newAngular.Y,
+				Z: svc.config.MaxAngularVelocity * newAngular.Z,
+			},
+			nil,
+		); err != nil {
+			return err
+		}
+	} else {
+		if err := svc.base.SetPower(ctx, newLinear, newAngular, nil); err != nil {
+			return err
+		}
+	}
+
+	state.linearThrottle = newLinear
+	state.angularThrottle = newAngular
+	return nil
+}
+
+type reconfigurableBaseRemoteControl struct {
+	mu     sync.RWMutex
+	actual *remoteService
+}
+
+func (svc *reconfigurableBaseRemoteControl) Close(ctx context.Context) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return viamutils.TryClose(ctx, svc.actual)
+}
+
+func (svc *reconfigurableBaseRemoteControl) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	rSvc, ok := newSvc.(*reconfigurableBaseRemoteControl)
+	if !ok {
+		return utils.NewUnexpectedTypeError(svc, newSvc)
+	}
+	if err := viamutils.TryClose(ctx, &svc.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	svc.actual = rSvc.actual
+	return nil
+}
+
+// WrapWithReconfigurable wraps a BaseRemoteControl as a Reconfigurable.
+func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+	if reconfigurable, ok := s.(*reconfigurableBaseRemoteControl); ok {
+		return reconfigurable, nil
+	}
+
+	svc, ok := s.(remoteService)
+	if !ok {
+		return nil, utils.NewUnexpectedTypeError(&remoteService{}, s)
+	}
+
+	return &reconfigurableBaseRemoteControl{actual: &svc}, nil
+}
+
 // triggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left joystick to
 // control the angle.
 func triggerSpeedEvent(event input.Event, speed float64, angle float64) (float64, float64) {
-	switch event.Control { // nolint:exhaustive
+	// nolint:exhaustive
+	switch event.Control {
 	case input.AbsoluteZ:
 		speed -= 0.05
 		speed = math.Max(-1, speed)
@@ -218,7 +303,8 @@ func buttonControlEvent(event input.Event, buttons map[input.Control]bool) (floa
 	var speed float64
 	var angle float64
 
-	switch event.Event { // nolint:exhaustive
+	// nolint:exhaustive
+	switch event.Event {
 	case input.ButtonPress:
 		buttons[event.Control] = true
 	case input.ButtonRelease:
@@ -260,7 +346,8 @@ func arrowEvent(event input.Event, arrows map[input.Control]float64) (float64, f
 
 // oneJoyStickEvent (default) takes inputs from the gamepad allowing the left joystick to control speed and angle.
 func oneJoyStickEvent(event input.Event, y float64, x float64) (float64, float64) {
-	switch event.Control { // nolint:exhaustive
+	// nolint:exhaustive
+	switch event.Control {
 	case input.AbsoluteY:
 		y = -1.0 * event.Value
 	case input.AbsoluteX:
@@ -273,7 +360,8 @@ func oneJoyStickEvent(event input.Event, y float64, x float64) (float64, float64
 // right joystick is forward/back, strafe right/left
 // left joystick is spin right/left & up/down.
 func droneEvent(event input.Event, linear, angular r3.Vector) (r3.Vector, r3.Vector) {
-	switch event.Control { // nolint:exhaustive
+	// nolint:exhaustive
+	switch event.Control {
 	case input.AbsoluteX:
 		angular.Z = scaleThrottle(-1.0 * event.Value)
 	case input.AbsoluteY:
@@ -359,38 +447,4 @@ func parseEvent(mode controlMode, state *throttleState, event input.Event) (r3.V
 	}
 
 	return newLinear, newAngular
-}
-
-func (svc *remoteService) processEvent(ctx context.Context, state *throttleState, event input.Event) error {
-	newLinear, newAngular := parseEvent(svc.controlMode, state, event)
-
-	if similar(newLinear, state.linearThrottle, .05) && similar(newAngular, state.angularThrottle, .05) {
-		return nil
-	}
-
-	if svc.config.MaxAngularVelocity > 0 && svc.config.MaxLinearVelocity > 0 {
-		if err := svc.base.SetVelocity(
-			ctx,
-			r3.Vector{
-				X: svc.config.MaxLinearVelocity * newLinear.X,
-				Y: svc.config.MaxLinearVelocity * newLinear.Y,
-				Z: svc.config.MaxLinearVelocity * newLinear.Z,
-			},
-			r3.Vector{
-				X: svc.config.MaxAngularVelocity * newAngular.X,
-				Y: svc.config.MaxAngularVelocity * newAngular.Y,
-				Z: svc.config.MaxAngularVelocity * newAngular.Z,
-			},
-		); err != nil {
-			return err
-		}
-	} else {
-		if err := svc.base.SetPower(ctx, newLinear, newAngular); err != nil {
-			return err
-		}
-	}
-
-	state.linearThrottle = newLinear
-	state.angularThrottle = newAngular
-	return nil
 }

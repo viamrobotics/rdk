@@ -18,13 +18,16 @@ import (
 
 func TestColorObjects(t *testing.T) {
 	// create camera
-	img, err := rimage.ReadBothFromFile(artifact.MustPath("segmentation/aligned_intel/desktop2.both.gz"), true)
+	img, err := rimage.NewImageFromFile(artifact.MustPath("segmentation/aligned_intel/color/desktop2.png"))
 	test.That(t, err, test.ShouldBeNil)
-	c := &imagesource.StaticSource{img}
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("segmentation/aligned_intel/depth/desktop2.png"))
+	test.That(t, err, test.ShouldBeNil)
 	params, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "color")
 	test.That(t, err, test.ShouldBeNil)
 	cameraAttrs := &camera.AttrConfig{CameraParameters: params}
-	cam, err := camera.New(c, cameraAttrs, nil)
+	c := &imagesource.StaticSource{img, dm, params}
+	proj, _ := camera.GetProjector(context.Background(), cameraAttrs, nil)
+	cam, err := camera.New(c, proj)
 	test.That(t, err, test.ShouldBeNil)
 	// create config
 	cfg := config.AttributeMap{

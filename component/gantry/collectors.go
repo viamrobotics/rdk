@@ -23,8 +23,8 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-// PositionWrapper wraps the returned position values.
-type PositionWrapper struct {
+// Position wraps the returned position values.
+type Position struct {
 	Position []float64
 }
 
@@ -35,17 +35,17 @@ func newGetPositionCollector(resource interface{}, params data.CollectorParams) 
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		v, err := gantry.GetPosition(ctx)
+		v, err := gantry.GetPosition(ctx, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, getPosition.String(), err)
 		}
-		return PositionWrapper{Position: v}, nil
+		return Position{Position: v}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
 
-// LengthsWrapper wraps the returns lengths values.
-type LengthsWrapper struct {
+// Lengths wraps the returns lengths values.
+type Lengths struct {
 	Lengths []float64
 }
 
@@ -56,11 +56,11 @@ func newGetLengthsCollector(resource interface{}, params data.CollectorParams) (
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		v, err := gantry.GetLengths(ctx)
+		v, err := gantry.GetLengths(ctx, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, getLengths.String(), err)
 		}
-		return LengthsWrapper{Lengths: v}, nil
+		return Lengths{Lengths: v}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }

@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/codes"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
@@ -192,7 +193,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Dura
 				rc.Logger().Debugw("failed to reconnect remote", "error", err, "address", rc.address)
 				continue
 			}
-			rc.Logger().Debugf("successfully reconnected remote at address", "address", rc.address)
+			rc.Logger().Debugw("successfully reconnected remote at address", "address", rc.address)
 		} else {
 			check := func() error {
 				timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -232,6 +233,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Dura
 					rc.changeChan <- true
 				}
 				if rc.notifyParent != nil {
+					rc.Logger().Debugf("connection was lost for remote %q", rc.address)
 					rc.notifyParent()
 				}
 				rc.mu.Unlock()
@@ -298,7 +300,8 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 		return nil, errors.New("resource client registration doesn't exist")
 	}
 	// pass in conn
-	resourceClient := c.RPCClient(rc.closeContext, rc.conn, name.Name, rc.Logger())
+	nameR := name.ShortName()
+	resourceClient := c.RPCClient(rc.closeContext, rc.conn, nameR, rc.Logger())
 	return resourceClient, nil
 }
 
@@ -401,11 +404,10 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 	}
 	names := make([]resource.Name, 0, len(rc.resourceNames))
 	for _, v := range rc.resourceNames {
+		rName := resource.NewName(v.Namespace, v.ResourceType, v.ResourceSubtype, v.Name)
 		names = append(
 			names,
-			resource.NewName(
-				v.Namespace, v.ResourceType, v.ResourceSubtype, v.Name,
-			),
+			rName.PrependRemote(v.Remote),
 		)
 	}
 	return names
@@ -525,4 +527,23 @@ func (rc *RobotClient) GetStatus(ctx context.Context, resourceNames []resource.N
 			})
 	}
 	return statuses, nil
+}
+
+// StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
+func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
+	e := []*pb.StopExtraParameters{}
+	for name, params := range extra {
+		param, err := structpb.NewStruct(params)
+		if err != nil {
+			rc.Logger().Warnf("failed to convert extra params for resource %s with error: %s", name.Name, err)
+			continue
+		}
+		p := &pb.StopExtraParameters{
+			Name:   protoutils.ResourceNameToProto(name),
+			Params: param,
+		}
+		e = append(e, p)
+	}
+	_, err := rc.client.StopAll(ctx, &pb.StopAllRequest{Extra: e})
+	return err
 }

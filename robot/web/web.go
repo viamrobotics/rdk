@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -19,7 +20,6 @@ import (
 	"github.com/Masterminds/sprig"
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/edaniels/gostream/codec/x264"
 	streampb "github.com/edaniels/gostream/proto/stream/v1"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
@@ -46,6 +46,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	webstream "go.viam.com/rdk/robot/web/stream"
 	"go.viam.com/rdk/subtype"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web"
@@ -105,6 +106,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	type Temp struct {
 		External                   bool
 		WebRTCEnabled              bool
+		Env                        string
 		WebRTCHost                 string
 		WebRTCSignalingAddress     string
 		WebRTCAdditionalICEServers []map[string]interface{}
@@ -116,6 +118,12 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if err := r.ParseForm(); err != nil {
 		app.logger.Debugw("failed to parse form", "error", err)
+	}
+
+	if os.Getenv("ENV") == "development" {
+		temp.Env = "development"
+	} else {
+		temp.Env = "production"
 	}
 
 	if app.options.WebRTC && r.Form.Get("grpc") != "true" {
@@ -157,8 +165,6 @@ func allSourcesToDisplay(theRobot robot.Robot) map[string]gostream.ImageSource {
 	return sources
 }
 
-var defaultStreamConfig = x264.DefaultStreamConfig
-
 // A Service controls the web server for a robot.
 type Service interface {
 	// Start starts the web server
@@ -177,13 +183,18 @@ type StreamServer struct {
 }
 
 // New returns a new web service for the given robot.
-func New(ctx context.Context, r robot.Robot, logger golog.Logger) Service {
+func New(ctx context.Context, r robot.Robot, logger golog.Logger, opts ...Option) Service {
+	var wOpts options
+	for _, opt := range opts {
+		opt.apply(&wOpts)
+	}
 	webSvc := &webService{
 		r:            r,
 		logger:       logger,
 		rpcServer:    nil,
 		streamServer: nil,
 		services:     make(map[resource.Subtype]subtype.Service),
+		opts:         wOpts,
 	}
 	return webSvc
 }
@@ -194,6 +205,7 @@ type webService struct {
 	rpcServer    rpc.Server
 	streamServer *StreamServer
 	services     map[resource.Subtype]subtype.Service
+	opts         options
 
 	logger                  golog.Logger
 	cancelFunc              func()
@@ -210,7 +222,12 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	svc.cancelFunc = cancelFunc
 
-	return svc.runWeb(cancelCtx, o)
+	if err := svc.runWeb(cancelCtx, o); err != nil {
+		cancelFunc()
+		svc.cancelFunc = nil
+		return err
+	}
+	return nil
 }
 
 // RunWeb starts the web server on the robot with web options and blocks until we cancel the context.
@@ -309,10 +326,16 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		return nil
 	}
 	sources := allSourcesToDisplay(svc.r)
+	if svc.opts.streamConfig == nil {
+		if len(sources) != 0 {
+			svc.logger.Debug("not starting streams due to no stream config being set")
+		}
+		return nil
+	}
 
 	for name, source := range sources {
 		// Configure new stream
-		config := defaultStreamConfig
+		config := *svc.opts.streamConfig
 		config.Name = name
 		stream, err := svc.streamServer.Server.NewStream(config)
 
@@ -340,13 +363,16 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 	sources := allSourcesToDisplay(svc.r)
 	var streams []gostream.Stream
 
-	if len(sources) == 0 {
+	if svc.opts.streamConfig == nil || len(sources) == 0 {
+		if len(sources) != 0 {
+			svc.logger.Debug("not starting streams due to no stream config being set")
+		}
 		noopServer, err := gostream.NewStreamServer(streams...)
 		return &StreamServer{noopServer, false}, err
 	}
 
 	for name := range sources {
-		config := defaultStreamConfig
+		config := *svc.opts.streamConfig
 		config.Name = name
 		stream, err := gostream.NewStream(config)
 		if err != nil {
@@ -373,7 +399,11 @@ func (svc *webService) startStream(ctx context.Context, source gostream.ImageSou
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		close(waitCh)
-		gostream.StreamSource(ctx, source, stream)
+		opts := &webstream.BackoffTuningOptions{
+			BaseSleep: 50 * time.Microsecond,
+			MaxSleep:  2 * time.Second,
+		}
+		webstream.StreamSource(ctx, source, stream, opts)
 	})
 	<-waitCh
 }
@@ -414,9 +444,15 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options w
 // runWeb takes the given robot and options and runs the web server. This function will
 // block until the context is done.
 func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (err error) {
-	listener, err := net.Listen("tcp", options.Network.BindAddress)
-	if err != nil {
-		return err
+	if options.Network.BindAddress != "" && options.Network.Listener != nil {
+		return errors.New("may only set one of network bind address or listener")
+	}
+	listener := options.Network.Listener
+	if listener == nil {
+		listener, err = net.Listen("tcp", options.Network.BindAddress)
+		if err != nil {
+			return err
+		}
 	}
 
 	listenerTCPAddr, ok := listener.Addr().(*net.TCPAddr)
@@ -873,7 +909,7 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 
 	fqName := resource.Name{
 		Subtype: foundType.Subtype,
-		Remote:  resource.Remote{Remote: ""}, Name: name,
+		Remote:  "", Name: name,
 	}
 
 	resource, err := svc.r.ResourceByName(fqName)

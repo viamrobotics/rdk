@@ -130,7 +130,7 @@ func (q *dualQuaternion) Point() r3.Vector {
 
 // Orientation returns the rotation quaternion as an Orientation.
 func (q *dualQuaternion) Orientation() Orientation {
-	return (*quaternion)(&q.Real)
+	return (*Quaternion)(&q.Real)
 }
 
 // SetTranslation correctly sets the translation quaternion against the rotation.

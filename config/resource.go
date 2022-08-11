@@ -100,8 +100,14 @@ func (config *Component) String() string {
 }
 
 // ResourceName returns the  ResourceName for the component.
+// TODO(npmemard) Before merge should remove this also the service one.
 func (config *Component) ResourceName() resource.Name {
+	remotes := strings.Split(config.Name, ":")
 	cType := string(config.Type)
+	if len(remotes) > 1 {
+		rName := resource.NewName(config.Namespace, resource.ResourceTypeComponent, resource.SubtypeName(cType), remotes[len(remotes)-1])
+		return rName.PrependRemote(resource.RemoteName(strings.Join(remotes[:len(remotes)-1], ":")))
+	}
 	return resource.NewName(config.Namespace, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
 }
 
@@ -113,8 +119,14 @@ func (config *Component) Validate(path string) ([]string, error) {
 		// default namespace.
 		config.Namespace = resource.ResourceNamespaceRDK
 	}
+	if err := resource.ContainsReservedCharacter(string(config.Namespace)); err != nil {
+		return nil, err
+	}
 	if config.Name == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	if err := resource.ContainsReservedCharacter(config.Name); err != nil {
+		return nil, err
 	}
 	for key, value := range config.Attributes {
 		fieldPath := fmt.Sprintf("%s.%s", path, key)
@@ -230,13 +242,16 @@ func (config *Service) String() string {
 
 // ResourceName returns the  ResourceName for the component.
 func (config *Service) ResourceName() resource.Name {
+	remotes := strings.Split(config.Name, ":")
 	cType := string(config.Type)
-	return resource.NewName(
-		config.Namespace,
+	rName := resource.NewName(config.Namespace,
 		resource.ResourceTypeService,
 		resource.SubtypeName(cType),
-		cType,
-	)
+		cType)
+	if len(remotes) > 1 {
+		return rName.PrependRemote(resource.RemoteName(strings.Join(remotes[:len(remotes)-1], ":")))
+	}
+	return rName
 }
 
 // ResourceName returns the  ResourceName for the component within a service_config.
@@ -305,6 +320,12 @@ func (config *Service) Validate(path string) error {
 		// NOTE: This should never be removed in order to ensure RDK is the
 		// default namespace.
 		config.Namespace = resource.ResourceNamespaceRDK
+	}
+	if err := resource.ContainsReservedCharacter(string(config.Namespace)); err != nil {
+		return err
+	}
+	if err := resource.ContainsReservedCharacter(config.Name); err != nil {
+		return err
 	}
 	for key, value := range config.Attributes {
 		v, ok := value.(validator)

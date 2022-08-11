@@ -1,6 +1,7 @@
 package objectdetection
 
 import (
+	"context"
 	"image"
 	"testing"
 
@@ -15,6 +16,7 @@ func TestColorDetector(t *testing.T) {
 	// make the original source
 	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
+	ctx := context.Background()
 	// detector with error
 	cfg := &ColorDetectorConfig{
 		SegmentSize:       150000,
@@ -27,7 +29,7 @@ func TestColorDetector(t *testing.T) {
 	cfg.Tolerance = 1.
 	det, err := NewColorDetector(cfg)
 	test.That(t, err, test.ShouldBeNil)
-	result, err := det(img)
+	result, err := det(ctx, img)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldHaveLength, 1)
 	test.That(t, result[0].BoundingBox().Min, test.ShouldResemble, image.Point{0, 336})

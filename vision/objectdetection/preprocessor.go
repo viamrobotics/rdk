@@ -26,36 +26,36 @@ func RemoveColorChannel(col string) (Preprocessor, error) {
 	switch col {
 	case "R", "r":
 		return func(img image.Image) image.Image {
-			rimg := rimage.ConvertToImageWithDepth(img)
+			rimg := rimage.ConvertImage(img)
 			for y := 0; y < rimg.Height(); y++ {
 				for x := 0; x < rimg.Width(); x++ {
-					c := rimg.Color.GetXY(x, y)
+					c := rimg.GetXY(x, y)
 					_, g, b := c.RGB255()
-					rimg.Color.SetXY(x, y, rimage.NewColor(0, g, b))
+					rimg.SetXY(x, y, rimage.NewColor(0, g, b))
 				}
 			}
 			return rimg
 		}, nil
 	case "G", "g":
 		return func(img image.Image) image.Image {
-			rimg := rimage.ConvertToImageWithDepth(img)
+			rimg := rimage.ConvertImage(img)
 			for y := 0; y < rimg.Height(); y++ {
 				for x := 0; x < rimg.Width(); x++ {
-					c := rimg.Color.GetXY(x, y)
+					c := rimg.GetXY(x, y)
 					r, _, b := c.RGB255()
-					rimg.Color.SetXY(x, y, rimage.NewColor(r, 0, b))
+					rimg.SetXY(x, y, rimage.NewColor(r, 0, b))
 				}
 			}
 			return rimg
 		}, nil
 	case "B", "b":
 		return func(img image.Image) image.Image {
-			rimg := rimage.ConvertToImageWithDepth(img)
+			rimg := rimage.ConvertImage(img)
 			for y := 0; y < rimg.Height(); y++ {
 				for x := 0; x < rimg.Width(); x++ {
-					c := rimg.Color.GetXY(x, y)
+					c := rimg.GetXY(x, y)
 					r, g, _ := c.RGB255()
-					rimg.Color.SetXY(x, y, rimage.NewColor(r, g, 0))
+					rimg.SetXY(x, y, rimage.NewColor(r, g, 0))
 				}
 			}
 			return rimg

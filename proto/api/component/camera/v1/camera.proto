@@ -33,6 +33,13 @@ service CameraService {
       get: "/viam/api/v1/component/camera/{name}/point_cloud"
     };
   }
+
+  // GetProperties returns the camera intrinsic parameters and camera distortion parameters from a camera of the underlying robot, if available.
+  rpc GetProperties(GetPropertiesRequest) returns (GetPropertiesResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/component/camera/{name}/properties"
+    };
+  }
 }
 
 message GetFrameRequest {
@@ -74,6 +81,15 @@ message GetPointCloudResponse {
   bytes point_cloud = 2;
 }
 
+message GetPropertiesRequest {
+  // Name of a camera
+  string name = 1;
+}
+
+message GetPropertiesResponse {
+  IntrinsicParameters intrinsic_parameters = 1;
+}
+
 message Webcams {
   repeated Webcam webcams = 1;
 }
@@ -99,4 +115,13 @@ message Video {
   int32 height = 2;
   // Video frame format
   string frame_format = 3;
+}
+
+message IntrinsicParameters {
+  uint32 width_px = 1;
+  uint32 height_px = 2;
+  double focal_x_px = 3;
+  double focal_y_px = 4;
+  double center_x_px = 5;
+  double center_y_px = 6;
 }

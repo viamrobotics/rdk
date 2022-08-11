@@ -4,11 +4,13 @@ import (
 	"context"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream/media"
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/driver"
+	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
@@ -38,7 +40,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return NewWebcamSource(attrs, logger)
+			return NewWebcamSource(ctx, attrs, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, model,
@@ -86,15 +88,22 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webca
 
 		props, err := getProperties(d)
 		if len(props) == 0 {
-			rlog.Logger.Warnw("no properties detected for driver, skipping discovery...", "driver", d.Info().Label)
+			rlog.Logger.Debugw("no properties detected for driver, skipping discovery...", "driver", driverInfo.Label)
 			continue
 		} else if err != nil {
-			rlog.Logger.Warnw("cannot access driver properties, skipping discovery...", "driver", d.Info().Label, "error", err)
+			rlog.Logger.Debugw("cannot access driver properties, skipping discovery...", "driver", driverInfo.Label, "error", err)
 			continue
 		}
 
+		if d.Status() == driver.StateRunning {
+			rlog.Logger.Debugw("driver is in use, skipping discovery...", "driver", driverInfo.Label)
+			continue
+		}
+
+		labelParts := strings.Split(driverInfo.Label, mediadevicescamera.LabelSeparator)
+		label := labelParts[len(labelParts)-1]
 		wc := &pb.Webcam{
-			Label:      driverInfo.Label,
+			Label:      label,
 			Status:     string(d.Status()),
 			Properties: make([]*pb.Property, 0, len(d.Properties())),
 		}
@@ -136,6 +145,8 @@ type WebcamAttrs struct {
 	Format      string `json:"format"`
 	Path        string `json:"path"`
 	PathPattern string `json:"path_pattern"`
+	Width       int    `json:"width"`
+	Height      int    `json:"height"`
 }
 
 func makeConstraints(attrs *WebcamAttrs, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
@@ -187,7 +198,7 @@ func makeConstraints(attrs *WebcamAttrs, debug bool, logger golog.Logger) mediad
 }
 
 // NewWebcamSource returns a new source based on a webcam discovered from the given attributes.
-func NewWebcamSource(attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, error) {
+func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, error) {
 	var err error
 
 	debug := attrs.Debug
@@ -195,7 +206,7 @@ func NewWebcamSource(attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, er
 	constraints := makeConstraints(attrs, debug, logger)
 
 	if attrs.Path != "" {
-		return tryWebcamOpen(attrs, attrs.Path, constraints)
+		return tryWebcamOpen(ctx, attrs, attrs.Path, constraints)
 	}
 
 	var pattern *regexp.Regexp
@@ -219,7 +230,7 @@ func NewWebcamSource(attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, er
 			continue
 		}
 
-		s, err := tryWebcamOpen(attrs, label, constraints)
+		s, err := tryWebcamOpen(ctx, attrs, label, constraints)
 		if err == nil {
 			if debug {
 				logger.Debug("\t USING")
@@ -235,10 +246,15 @@ func NewWebcamSource(attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, er
 	return nil, errors.New("found no webcams")
 }
 
-func tryWebcamOpen(attrs *WebcamAttrs, path string, constraints mediadevices.MediaStreamConstraints) (camera.Camera, error) {
+func tryWebcamOpen(ctx context.Context,
+	attrs *WebcamAttrs,
+	path string,
+	constraints mediadevices.MediaStreamConstraints,
+) (camera.Camera, error) {
 	reader, err := media.GetNamedVideoReader(filepath.Base(path), constraints)
 	if err != nil {
 		return nil, err
 	}
-	return camera.New(reader, attrs.AttrConfig, nil)
+	proj, _ := camera.GetProjector(ctx, attrs.AttrConfig, nil)
+	return camera.New(reader, proj)
 }
