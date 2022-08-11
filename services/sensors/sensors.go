@@ -101,7 +101,7 @@ func FindFirstName(r robot.Robot) string {
 	return ""
 }
 
-// FirstFromRobot Returns the first service in this robot
+// FirstFromRobot Returns the first service in this robot.
 func FirstFromRobot(r robot.Robot) (Service, error) {
 	name := FindFirstName(r)
 	return FromRobot(r, name)
