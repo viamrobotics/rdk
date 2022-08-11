@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
+	"github.com/pkg/errors"
 )
 
 func init() {
@@ -170,10 +171,29 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 
 // Config describes the configuration of an encoder.
 type Config struct {
-	Pins      map[string]interface{} `json:"pins"`
-	BoardName string                 `json:"board"`
+	Pins      map[string]string 	`json:"pins"`
+	BoardName string                `json:"board"`
+	TicksPerRotation int 			`json:"ticks_per_rotation"`
+}
 
-	TicksPerRotation int `json:"ticks_per_rotation"`
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) ([]string, error) {
+	var deps []string
+
+	if config.Pins == nil {
+		return nil, errors.New("expected nonnil pins")
+	}
+
+	if len(config.BoardName) == 0 {
+		return nil, errors.New("expected nonempty board")
+	}
+	deps = append(deps, config.BoardName)
+
+	if config.TicksPerRotation <= 0 {
+		return nil, errors.New("expected nonzero positive ticks_per_rotation")
+	}
+
+	return deps, nil
 }
 
 // RegisterConfigAttributeConverter registers a Config converter.

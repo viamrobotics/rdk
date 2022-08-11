@@ -55,13 +55,11 @@ func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config conf
 			return nil, errors.New("HallEncoder expected non-empty string for board")
 		}
 		pinA := cfg.Pins["a"]
-		a, ok := pinA.(string)
-		if !ok {
+		if pinA == "" {
 			return nil, errors.New("HallEncoder pin configuration expects non-empty string for a")
 		}
 		pinB := cfg.Pins["b"]
-		b, ok := pinB.(string)
-		if !ok {
+		if pinB == "" {
 			return nil, errors.New("HallEncoder pin configuration expects non-empty string for b")
 		}
 
@@ -70,8 +68,8 @@ func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config conf
 			return nil, err
 		}
 
-		e.A, _ = board.DigitalInterruptByName(a)
-		e.B, _ = board.DigitalInterruptByName(b)
+		e.A, _ = board.DigitalInterruptByName(pinA)
+		e.B, _ = board.DigitalInterruptByName(pinB)
 
 		e.Tpr = int64(cfg.TicksPerRotation)
 
@@ -125,11 +123,11 @@ func (e *HallEncoder) Start(ctx context.Context, onStart func()) {
 	e.A.AddCallback(chanA)
 	e.B.AddCallback(chanB)
 
-	aLevel, err := e.A.Value(ctx)
+	aLevel, err := e.A.Value(ctx, nil)
 	if err != nil {
 		utils.Logger.Errorw("error reading a level", "error", err)
 	}
-	bLevel, err := e.B.Value(ctx)
+	bLevel, err := e.B.Value(ctx, nil)
 	if err != nil {
 		utils.Logger.Errorw("error reading b level", "error", err)
 	}

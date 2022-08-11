@@ -70,8 +70,7 @@ func NewSingleEncoder(
 		}
 
 		pin := cfg.Pins["i"]
-		i, ok := pin.(string)
-		if !ok {
+		if pin == "" {
 			return nil, errors.New("HallEncoder pin configuration expects non-empty string for a")
 		}
 
@@ -84,9 +83,9 @@ func NewSingleEncoder(
 			return nil, err
 		}
 
-		e.I, ok = board.DigitalInterruptByName(i)
+		e.I, ok = board.DigitalInterruptByName(pin)
 		if !ok {
-			return nil, errors.Errorf("cannot find pin (%s) for SingleEncoder", i)
+			return nil, errors.Errorf("cannot find pin (%s) for SingleEncoder", pin)
 		}
 		e.Tpr = int64(cfg.TicksPerRotation)
 	}
