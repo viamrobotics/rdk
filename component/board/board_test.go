@@ -28,13 +28,13 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 	t.Helper()
 
 	deps := make(registry.Dependencies)
-	deps[board.Named(testBoardName)] = newBoard(testBoardName)
+	deps[board.Named(testBoardName)] = newLocalBoard(testBoardName)
 	deps[board.Named(fakeBoardName)] = "not a board"
 	return deps
 }
 
 func setupInjectRobot() *inject.Robot {
-	board1 := newBoard(testBoardName)
+	board1 := newLocalBoard(testBoardName)
 	r := &inject.Robot{}
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
@@ -74,7 +74,7 @@ func TestFromDependencies(t *testing.T) {
 
 	p, err := res.(board.LocalBoard).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
-	result, err := p.Get(context.Background())
+	result, err := p.Get(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, mockGPIO)
 
@@ -96,7 +96,7 @@ func TestFromRobot(t *testing.T) {
 
 	p, err := res.(board.LocalBoard).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
-	result, err := p.Get(context.Background())
+	result, err := p.Get(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, mockGPIO)
 
@@ -158,17 +158,28 @@ var (
 )
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualBoard board.Board = newBoard(testBoardName)
+	var actualBoard board.Board = newLocalBoard(testBoardName)
 
 	reconfBoard1, err := board.WrapWithReconfigurable(actualBoard)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = board.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalBoard", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Board", nil))
 
 	reconfBoard2, err := board.WrapWithReconfigurable(reconfBoard1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfBoard2, test.ShouldEqual, reconfBoard1)
+
+	var actualBoard2 board.LocalBoard = &mockLocal{Name: testBoardName}
+	reconfBoard3, err := board.WrapWithReconfigurable(actualBoard2)
+	test.That(t, err, test.ShouldBeNil)
+
+	reconfBoard4, err := board.WrapWithReconfigurable(reconfBoard3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfBoard4, test.ShouldResemble, reconfBoard3)
+
+	_, ok := reconfBoard4.(board.LocalBoard)
+	test.That(t, ok, test.ShouldBeTrue)
 }
 
 func TestReconfigurableBoard(t *testing.T) {
@@ -191,12 +202,53 @@ func TestReconfigurableBoard(t *testing.T) {
 		test.That(t, reconfBoard1, test.ShouldResemble, reconfBoard2)
 		test.That(t, actualBoard1.reconfCount, test.ShouldEqual, 1)
 
+		actualBoard3 := newLocalBoard(testBoardName2)
+		reconfBoard3, err := board.WrapWithReconfigurable(actualBoard3)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, actualBoard3.reconfCount, test.ShouldEqual, 0)
+
+		err = reconfBoard3.Reconfigure(context.Background(), reconfBoard2)
+		test.That(t, err, test.ShouldBeError)
+		test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfBoard3, reconfBoard1))
+
+		actualBoard4 := &mock{Name: testBoardName2}
+		reconfBoard4, err := board.WrapWithReconfigurable(actualBoard4)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, reconfBoard4, test.ShouldNotBeNil)
+	}
+
+	actualBoard1 := &mock{Name: testBoardName}
+	reconfBoard1, err := board.WrapWithReconfigurable(actualBoard1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfBoard1, test.ShouldNotBeNil)
+}
+
+func TestReconfigurableLocalBoard(t *testing.T) {
+	actualBoards := []*mockLocal{
+		newLocalBoard(testBoardName),
+		newBareLocalBoard(testBoardName),
+	}
+
+	for _, actualBoard1 := range actualBoards {
+		reconfBoard1, err := board.WrapWithReconfigurable(actualBoard1)
+		test.That(t, err, test.ShouldBeNil)
+
+		actualBoard2 := newLocalBoard(testBoardName2)
+		reconfBoard2, err := board.WrapWithReconfigurable(actualBoard2)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, actualBoard1.reconfCount, test.ShouldEqual, 0)
+
+		err = reconfBoard1.Reconfigure(context.Background(), reconfBoard2)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, reconfBoard1, test.ShouldResemble, reconfBoard2)
+		test.That(t, actualBoard1.reconfCount, test.ShouldEqual, 2)
+
 		test.That(t, actualBoard1.gpioPin.getCount, test.ShouldEqual, 0)
 		test.That(t, actualBoard2.gpioPin.getCount, test.ShouldEqual, 0)
 
 		p, err := reconfBoard1.(board.Board).GPIOPinByName("1")
 		test.That(t, err, test.ShouldBeNil)
-		result, err := p.Get(context.Background())
+		result, err := p.Get(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldResemble, mockGPIO)
 		test.That(t, actualBoard1.gpioPin.getCount, test.ShouldEqual, 0)
@@ -204,72 +256,87 @@ func TestReconfigurableBoard(t *testing.T) {
 
 		err = reconfBoard1.Reconfigure(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "expected *board.reconfigurableBoard")
+		test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfBoard1, nil))
 	}
 }
 
 func TestSetGPIO(t *testing.T) {
-	actualBoard := newBoard(testBoardName)
+	actualBoard := newLocalBoard(testBoardName)
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
 
 	test.That(t, actualBoard.gpioPin.setCount, test.ShouldEqual, 0)
+	test.That(t, actualBoard.gpioPin.extra, test.ShouldBeNil)
 	p, err := reconfBoard.(board.Board).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
-	err = p.Set(context.Background(), false)
+	extra := map[string]interface{}{"foo": "bar", "baz": [3]int{1, 2, 3}}
+	err = p.Set(context.Background(), false, extra)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualBoard.gpioPin.setCount, test.ShouldEqual, 1)
+	test.That(t, actualBoard.gpioPin.extra, test.ShouldResemble, extra)
 }
 
 func TestGetGPIO(t *testing.T) {
-	actualBoard := newBoard(testBoardName)
+	actualBoard := newLocalBoard(testBoardName)
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
 
 	test.That(t, actualBoard.gpioPin.getCount, test.ShouldEqual, 0)
+	test.That(t, actualBoard.gpioPin.extra, test.ShouldBeNil)
 	p, err := reconfBoard.(board.Board).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
-	result, err := p.Get(context.Background())
+	extra := map[string]interface{}{"foo": "bar", "baz": [3]int{1, 2, 3}}
+	result, err := p.Get(context.Background(), extra)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, mockGPIO)
 	test.That(t, actualBoard.gpioPin.getCount, test.ShouldEqual, 1)
+	test.That(t, actualBoard.gpioPin.extra, test.ShouldResemble, extra)
 }
 
 func TestSetPWM(t *testing.T) {
-	actualBoard := newBoard(testBoardName)
+	actualBoard := newLocalBoard(testBoardName)
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
 
 	test.That(t, actualBoard.gpioPin.setPWMCount, test.ShouldEqual, 0)
+	test.That(t, actualBoard.gpioPin.extra, test.ShouldBeNil)
 	p, err := reconfBoard.(board.Board).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
-	err = p.SetPWM(context.Background(), 0)
+	extra := map[string]interface{}{"foo": "bar", "baz": [3]int{1, 2, 3}}
+	err = p.SetPWM(context.Background(), 0, extra)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualBoard.gpioPin.setPWMCount, test.ShouldEqual, 1)
+	test.That(t, actualBoard.gpioPin.extra, test.ShouldResemble, extra)
 }
 
 func TestSetPWMFreq(t *testing.T) {
-	actualBoard := newBoard(testBoardName)
+	actualBoard := newLocalBoard(testBoardName)
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
 
 	test.That(t, actualBoard.gpioPin.setPWMFreqCount, test.ShouldEqual, 0)
+	test.That(t, actualBoard.gpioPin.extra, test.ShouldBeNil)
 	p, err := reconfBoard.(board.Board).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
-	err = p.SetPWMFreq(context.Background(), 0)
+	extra := map[string]interface{}{"foo": "bar", "baz": [3]int{1, 2, 3}}
+	err = p.SetPWMFreq(context.Background(), 0, extra)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualBoard.gpioPin.setPWMFreqCount, test.ShouldEqual, 1)
+	test.That(t, actualBoard.gpioPin.extra, test.ShouldResemble, extra)
 }
 
 func TestStatus(t *testing.T) {
-	actualBoard := newBoard(testBoardName)
+	actualBoard := newLocalBoard(testBoardName)
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
 
 	test.That(t, actualBoard.statusCount, test.ShouldEqual, 0)
-	status, err := reconfBoard.(board.LocalBoard).Status(context.Background())
+	test.That(t, actualBoard.extra, test.ShouldBeNil)
+	extra := map[string]interface{}{"foo": "bar", "baz": [3]int{1, 2, 3}}
+	status, err := reconfBoard.(board.LocalBoard).Status(context.Background(), extra)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, status, test.ShouldResemble, mockStatus)
 	test.That(t, actualBoard.statusCount, test.ShouldEqual, 1)
+	test.That(t, actualBoard.extra, test.ShouldResemble, extra)
 }
 
 func TestSPIs(t *testing.T) {
-	actualBoard := newBoard(testBoardName)
+	actualBoard := newLocalBoard(testBoardName)
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
 
 	reconfSPINames := reconfBoard.(board.LocalBoard).SPINames()
@@ -283,7 +350,7 @@ func TestSPIs(t *testing.T) {
 }
 
 func TestI2Cs(t *testing.T) {
-	actualBoard := newBoard(testBoardName)
+	actualBoard := newLocalBoard(testBoardName)
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
 
 	reconfI2CNames := reconfBoard.(board.LocalBoard).I2CNames()
@@ -296,8 +363,9 @@ func TestI2Cs(t *testing.T) {
 	test.That(t, actualBoard.i2c.handleCount, test.ShouldEqual, 1)
 }
 
+//nolint:dupl
 func TestAnalogReaders(t *testing.T) {
-	actualBoard := newBoard(testBoardName)
+	actualBoard := newLocalBoard(testBoardName)
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
 
 	reconfAnalogReaderNames := reconfBoard.(board.LocalBoard).AnalogReaderNames()
@@ -305,13 +373,17 @@ func TestAnalogReaders(t *testing.T) {
 
 	reconfAnalogReader, ok := reconfBoard.(board.LocalBoard).AnalogReaderByName("analog1")
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err := reconfAnalogReader.Read(context.Background())
+	test.That(t, actualBoard.analog.extra, test.ShouldBeNil)
+	extra := map[string]interface{}{"foo": "bar", "baz": [3]int{1, 2, 3}}
+	_, err := reconfAnalogReader.Read(context.Background(), extra)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualBoard.analog.readCount, test.ShouldEqual, 1)
+	test.That(t, actualBoard.analog.extra, test.ShouldResemble, extra)
 }
 
+//nolint:dupl
 func TestDigitalInterrupts(t *testing.T) {
-	actualBoard := newBoard(testBoardName)
+	actualBoard := newLocalBoard(testBoardName)
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
 
 	reconfDigitalInterruptNames := reconfBoard.(board.LocalBoard).DigitalInterruptNames()
@@ -319,13 +391,16 @@ func TestDigitalInterrupts(t *testing.T) {
 
 	reconfDigitalInterrupt, ok := reconfBoard.(board.LocalBoard).DigitalInterruptByName("digital1")
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err := reconfDigitalInterrupt.Value(context.Background())
+	test.That(t, actualBoard.digital.extra, test.ShouldBeNil)
+	extra := map[string]interface{}{"foo": "bar", "baz": [3]int{1, 2, 3}}
+	_, err := reconfDigitalInterrupt.Value(context.Background(), extra)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualBoard.digital.valueCount, test.ShouldEqual, 1)
+	test.That(t, actualBoard.digital.extra, test.ShouldResemble, extra)
 }
 
 func TestClose(t *testing.T) {
-	actualBoard1 := &mock{Name: testBoardName}
+	actualBoard1 := &mockLocal{Name: testBoardName}
 	reconfBoard1, _ := board.WrapWithReconfigurable(actualBoard1)
 
 	test.That(t, actualBoard1.reconfCount, test.ShouldEqual, 0)
@@ -334,9 +409,8 @@ func TestClose(t *testing.T) {
 }
 
 type mock struct {
-	board.LocalBoard
-	Name string
-
+	board.Board
+	Name     string
 	spis     []string
 	i2cs     []string
 	analogs  []string
@@ -350,10 +424,7 @@ type mock struct {
 	gpioPin *mockGPIOPin
 
 	reconfCount int
-	statusCount int
 }
-
-// Helpers
 
 func newBoard(name string) *mock {
 	return &mock{
@@ -376,36 +447,28 @@ func newBareBoard(name string) *mock {
 	return &mock{Name: name, gpioPin: &mockGPIOPin{}}
 }
 
-// Interface methods
+func (m *mock) Close() error { m.reconfCount++; return nil }
 
-func (m *mock) SPINames() []string {
-	return m.spis
-}
+type mockLocal struct {
+	board.LocalBoard
+	Name string
 
-func (m *mock) I2CNames() []string {
-	return m.i2cs
-}
+	spis     []string
+	i2cs     []string
+	analogs  []string
+	digitals []string
+	gpioPins []string
 
-func (m *mock) AnalogReaderNames() []string {
-	return m.analogs
-}
+	spi     *mockSPI
+	i2c     *mockI2C
+	analog  *mockAnalogReader
+	digital *mockDigitalInterrupt
+	gpioPin *mockGPIOPin
 
-func (m *mock) DigitalInterruptNames() []string {
-	return m.digitals
-}
+	reconfCount int
+	statusCount int
 
-func (m *mock) SPIByName(name string) (board.SPI, bool) {
-	if len(m.spis) == 0 {
-		return nil, false
-	}
-	return m.spi, true
-}
-
-func (m *mock) I2CByName(name string) (board.I2C, bool) {
-	if len(m.i2cs) == 0 {
-		return nil, false
-	}
-	return m.i2c, true
+	extra map[string]interface{}
 }
 
 func (m *mock) AnalogReaderByName(name string) (board.AnalogReader, bool) {
@@ -422,61 +485,146 @@ func (m *mock) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool
 	return m.digital, true
 }
 
-func (m *mock) GPIOPinByName(name string) (board.GPIOPin, error) {
+func (m *mock) AnalogReaderNames() []string {
+	return m.analogs
+}
+
+func (m *mock) DigitalInterruptNames() []string {
+	return m.digitals
+}
+
+// Helpers
+
+func newLocalBoard(name string) *mockLocal {
+	return &mockLocal{
+		Name:     name,
+		i2cs:     []string{"i2c1"},
+		spis:     []string{"spi1"},
+		analogs:  []string{"analog1"},
+		digitals: []string{"digital1"},
+		gpioPins: []string{"1"},
+		i2c:      &mockI2C{},
+		spi:      &mockSPI{},
+		analog:   &mockAnalogReader{},
+		digital:  &mockDigitalInterrupt{},
+		gpioPin:  &mockGPIOPin{},
+	}
+}
+
+// A board without any subcomponents.
+func newBareLocalBoard(name string) *mockLocal {
+	return &mockLocal{Name: name, gpioPin: &mockGPIOPin{}}
+}
+
+// Interface methods
+
+func (m *mockLocal) SPINames() []string {
+	return m.spis
+}
+
+func (m *mockLocal) I2CNames() []string {
+	return m.i2cs
+}
+
+func (m *mockLocal) AnalogReaderNames() []string {
+	return m.analogs
+}
+
+func (m *mockLocal) DigitalInterruptNames() []string {
+	return m.digitals
+}
+
+func (m *mockLocal) SPIByName(name string) (board.SPI, bool) {
+	if len(m.spis) == 0 {
+		return nil, false
+	}
+	return m.spi, true
+}
+
+func (m *mockLocal) I2CByName(name string) (board.I2C, bool) {
+	if len(m.i2cs) == 0 {
+		return nil, false
+	}
+	return m.i2c, true
+}
+
+func (m *mockLocal) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+	if len(m.analogs) == 0 {
+		return nil, false
+	}
+	return m.analog, true
+}
+
+func (m *mockLocal) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+	if len(m.digitals) == 0 {
+		return nil, false
+	}
+	return m.digital, true
+}
+
+func (m *mockLocal) GPIOPinByName(name string) (board.GPIOPin, error) {
 	if len(m.gpioPins) == 0 {
 		return nil, errors.New("no pin")
 	}
 	return m.gpioPin, nil
 }
 
-func (m *mock) ModelAttributes() board.ModelAttributes {
+func (m *mockLocal) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{Remote: true}
 }
 
-func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (m *mockLocal) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }
 
-type mockGPIOPin struct {
-	setCount, getCount, pwmCount, setPWMCount, pwmFreqCount, setPWMFreqCount int
-}
-
-func (gp *mockGPIOPin) Set(ctx context.Context, high bool) error {
-	gp.setCount++
-	return nil
-}
-
-func (gp *mockGPIOPin) Get(ctx context.Context) (bool, error) {
-	gp.getCount++
-	return mockGPIO, nil
-}
-
-func (gp *mockGPIOPin) PWM(ctx context.Context) (float64, error) {
-	gp.pwmCount++
-	return 23, nil
-}
-
-func (gp *mockGPIOPin) SetPWM(ctx context.Context, dutyCyclePct float64) error {
-	gp.setPWMCount++
-	return nil
-}
-
-func (gp *mockGPIOPin) PWMFreq(ctx context.Context) (uint, error) {
-	gp.pwmFreqCount++
-	return 42, nil
-}
-
-func (gp *mockGPIOPin) SetPWMFreq(ctx context.Context, freqHz uint) error {
-	gp.setPWMFreqCount++
-	return nil
-}
-
-func (m *mock) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
+func (m *mockLocal) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	m.statusCount++
+	m.extra = extra
 	return mockStatus, nil
 }
 
-func (m *mock) Close() error { m.reconfCount++; return nil }
+func (m *mockLocal) Close() error { m.reconfCount++; return nil }
+
+type mockGPIOPin struct {
+	setCount, getCount, pwmCount, setPWMCount, pwmFreqCount, setPWMFreqCount int
+	extra                                                                    map[string]interface{}
+}
+
+func (gp *mockGPIOPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
+	gp.setCount++
+	gp.extra = extra
+	return nil
+}
+
+func (gp *mockGPIOPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	gp.getCount++
+	gp.extra = extra
+	return mockGPIO, nil
+}
+
+func (gp *mockGPIOPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	gp.pwmCount++
+	gp.extra = extra
+	return 23, nil
+}
+
+func (gp *mockGPIOPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
+	gp.setPWMCount++
+	gp.extra = extra
+	return nil
+}
+
+func (gp *mockGPIOPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
+	gp.pwmFreqCount++
+	gp.extra = extra
+	return 42, nil
+}
+
+func (gp *mockGPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
+	gp.setPWMFreqCount++
+	gp.extra = extra
+	return nil
+}
 
 // Mock SPI
 
@@ -533,19 +681,27 @@ func (m *mockI2CHandle) Close() error { return nil }
 
 // Mock AnalogReader
 
-type mockAnalogReader struct{ readCount int }
+type mockAnalogReader struct {
+	readCount int
+	extra     map[string]interface{}
+}
 
-func (m *mockAnalogReader) Read(ctx context.Context) (int, error) {
+func (m *mockAnalogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	m.readCount++
+	m.extra = extra
 	return 0, nil
 }
 
 // Mock DigitalInterrupt
 
-type mockDigitalInterrupt struct{ valueCount int }
+type mockDigitalInterrupt struct {
+	valueCount int
+	extra      map[string]interface{}
+}
 
-func (m *mockDigitalInterrupt) Value(ctx context.Context) (int64, error) {
+func (m *mockDigitalInterrupt) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	m.valueCount++
+	m.extra = extra
 	return 0, nil
 }
 

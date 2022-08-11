@@ -25,13 +25,16 @@ func (dct *DepthColorWarpTransforms) ImagePointTo3DPoint(point image.Point, d ri
 	return r3.Vector{i, j, float64(d)}, nil
 }
 
-// ImageWithDepthToPointCloud TODO.
-func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(
-	ii *rimage.ImageWithDepth,
+// RGBDToPointCloud transforms an already aligned Image and DepthMap into a PointCloud.
+func (dct *DepthColorWarpTransforms) RGBDToPointCloud(
+	img *rimage.Image, dm *rimage.DepthMap,
 	crop ...image.Rectangle,
 ) (pointcloud.PointCloud, error) {
-	if ii.Depth == nil {
-		return nil, errors.New("image with depth has no depth channel. Cannot project to Pointcloud")
+	if img == nil {
+		return nil, errors.New("no rgb image channel. Cannot project to Pointcloud")
+	}
+	if dm == nil {
+		return nil, errors.New("no depth channel. Cannot project to Pointcloud")
 	}
 	var rect *image.Rectangle
 	if len(crop) > 1 {
@@ -40,29 +43,19 @@ func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(
 	if len(crop) == 1 {
 		rect = &crop[0]
 	}
-	var iwd *rimage.ImageWithDepth
-	var err error
-	if ii.IsAligned() {
-		iwd = ii
-	} else {
-		iwd, err = dct.AlignColorAndDepthImage(ii.Color, ii.Depth)
-		if err != nil {
-			return nil, err
-		}
-	}
 	// Check dimensions, they should be equal between the color and depth frame
-	if iwd.Depth.Width() != iwd.Color.Width() || iwd.Depth.Height() != iwd.Color.Height() {
+	if img.Bounds() != dm.Bounds() {
 		return nil, errors.Errorf("depth map and color dimensions don't match Depth(%d,%d) != Color(%d,%d)",
-			iwd.Depth.Width(), iwd.Depth.Height(), iwd.Color.Width(), iwd.Color.Height())
+			dm.Width(), dm.Height(), img.Width(), img.Height())
 	}
 	// All points now in Common frame
 	pc := pointcloud.New()
 
 	startX, startY := 0, 0
-	endX, endY := iwd.Width(), iwd.Height()
+	endX, endY := img.Width(), img.Height()
 	// if optional crop rectangle is provided, use intersections of rectangle and image window and iterate through it
 	if rect != nil {
-		newBounds := rect.Intersect(iwd.Bounds())
+		newBounds := rect.Intersect(img.Bounds())
 		startX, startY = newBounds.Min.X, newBounds.Min.Y
 		endX, endY = newBounds.Max.X, newBounds.Max.Y
 	}
@@ -70,11 +63,11 @@ func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(
 	// Will need more than 2 points for warp points to create better projection
 	for y := startY; y < endY; y++ {
 		for x := startX; x < endX; x++ {
-			z := iwd.Depth.GetDepth(x, y)
+			z := dm.GetDepth(x, y)
 			if z == 0 {
 				continue
 			}
-			c := iwd.Color.GetXY(x, y)
+			c := img.GetXY(x, y)
 			r, g, b := c.RGB255()
 			i, j := float64(x-dct.OutputOrigin.X), float64(y-dct.OutputOrigin.Y)
 			err := pc.Set(pointcloud.NewVector(i, j, float64(z)), pointcloud.NewColoredData(color.NRGBA{r, g, b, 255}))
@@ -87,38 +80,39 @@ func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(
 }
 
 // AlignColorAndDepthImage will warp the color and depth map in order to have them aligned on top of each other.
-func (dct *DepthColorWarpTransforms) AlignColorAndDepthImage(col *rimage.Image, dep *rimage.DepthMap) (*rimage.ImageWithDepth, error) {
+func (dct *DepthColorWarpTransforms) AlignColorAndDepthImage(col *rimage.Image, dep *rimage.DepthMap,
+) (*rimage.Image, *rimage.DepthMap, error) {
 	if col == nil {
-		return nil, errors.New("no color image present to align")
+		return nil, nil, errors.New("no color image present to align")
 	}
 	if dep == nil {
-		return nil, errors.New("no depth image present to align")
+		return nil, nil, errors.New("no depth image present to align")
 	}
 	if col.Width() != dct.ColorInputSize.X ||
 		col.Height() != dct.ColorInputSize.Y ||
 		dep.Width() != dct.DepthInputSize.X ||
 		dep.Height() != dct.DepthInputSize.Y {
-		return nil, errors.Errorf("unexpected aligned dimensions c:(%d,%d) d:(%d,%d) config: %#v",
+		return nil, nil, errors.Errorf("unexpected aligned dimensions c:(%d,%d) d:(%d,%d) config: %#v",
 			col.Width(), col.Height(), dep.Width(), dep.Height(), dct.AlignConfig)
 	}
 
 	c2 := rimage.WarpImage(col, dct.ColorTransform, dct.OutputSize)
 	dm2 := dep.Warp(dct.DepthTransform, dct.OutputSize)
 
-	return rimage.MakeImageWithDepth(c2, dm2, true), nil
+	return c2, dm2, nil
 }
 
-// PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth from the
+// PointCloudToRGBD takes a PointCloud with color info and returns an Image and DepthMap from the
 // perspective of the color camera referenceframe.
-func (dct *DepthColorWarpTransforms) PointCloudToImageWithDepth(
+func (dct *DepthColorWarpTransforms) PointCloudToRGBD(
 	cloud pointcloud.PointCloud,
-) (*rimage.ImageWithDepth, error) {
+) (*rimage.Image, *rimage.DepthMap, error) {
 	meta := cloud.MetaData()
 	// Needs to be a pointcloud with color
 	if !meta.HasColor {
-		return nil, errors.New("pointcloud has no color information, cannot create an image with depth")
+		return nil, nil, errors.New("pointcloud has no color information, cannot create an image with depth")
 	}
-	// ImageWithDepth will be in the camera frame of the RGB camera.
+	// Image and Depthmap will be in the camera frame of the RGB camera.
 	// Points outside of the frame will be discarded.
 	// Assumption is that points in pointcloud are in mm.
 	width, height := dct.OutputSize.X, dct.OutputSize.Y
@@ -138,7 +132,7 @@ func (dct *DepthColorWarpTransforms) PointCloudToImageWithDepth(
 		}
 		return true
 	})
-	return rimage.MakeImageWithDepth(color, depth, true), nil
+	return color, depth, nil
 }
 
 // NewDepthColorWarpTransforms TODO.

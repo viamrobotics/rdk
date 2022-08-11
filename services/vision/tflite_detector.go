@@ -2,6 +2,7 @@ package vision
 
 import (
 	"bufio"
+	"context"
 	"image"
 	"os"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/config"
 	inf "go.viam.com/rdk/ml/inference"
@@ -30,7 +32,10 @@ type TFLiteDetectorConfig struct {
 // NewTFLiteDetector creates an RDK detector given a DetectorConfig. In other words, this
 // function returns a function from image-->[]objectdetection.Detection. It does this by making calls to
 // an inference package and wrapping the result.
-func NewTFLiteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetection.Detector, *inf.TFLiteStruct, error) {
+func NewTFLiteDetector(ctx context.Context, cfg *DetectorConfig, logger golog.Logger) (objectdetection.Detector, *inf.TFLiteStruct, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::NewTFLiteDetector")
+	defer span.End()
+
 	// Read those parameters into a TFLiteDetectorConfig
 	var t TFLiteDetectorConfig
 	tfParams, err := config.TransformAttributeMapToStruct(&t, cfg.Parameters)
@@ -44,12 +49,18 @@ func NewTFLiteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetectio
 	}
 
 	// Add the model
-	model, err := addTFLiteModel(params.ModelPath, params.NumThreads)
+	model, err := addTFLiteModel(ctx, params.ModelPath, params.NumThreads)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "something wrong with adding the model")
 	}
 
-	inHeight, inWidth := uint(model.Info.InputHeight), uint(model.Info.InputWidth)
+	var inHeight, inWidth uint
+
+	if shape := model.Info.InputShape; getIndex(shape, 3) == 1 {
+		inHeight, inWidth = uint(shape[2]), uint(shape[3])
+	} else {
+		inHeight, inWidth = uint(shape[1]), uint(shape[2])
+	}
 
 	if params.LabelPath == nil {
 		blank := ""
@@ -62,21 +73,23 @@ func NewTFLiteDetector(cfg *DetectorConfig, logger golog.Logger) (objectdetectio
 	}
 
 	// This function to be returned is the detector.
-	return func(img image.Image) ([]objectdetection.Detection, error) {
+	return func(ctx context.Context, img image.Image) ([]objectdetection.Detection, error) {
 		origW, origH := img.Bounds().Dx(), img.Bounds().Dy()
 		resizedImg := resize.Resize(inHeight, inWidth, img, resize.Bilinear)
-		outTensors, err := tfliteInfer(model, resizedImg)
+		outTensors, err := tfliteInfer(ctx, model, resizedImg)
 		if err != nil {
 			return nil, err
 		}
-		detections := unpackTensors(outTensors, model, labelMap, logger, origW, origH)
+		detections := unpackTensors(ctx, outTensors, model, labelMap, logger, origW, origH)
 		return detections, nil
 	}, model, nil
 }
 
 // addTFLiteModel uses the loader (default or otherwise) from the inference package
 // to register a tflite model. Default is chosen if there's no numThreads given.
-func addTFLiteModel(filepath string, numThreads *int) (*inf.TFLiteStruct, error) {
+func addTFLiteModel(ctx context.Context, filepath string, numThreads *int) (*inf.TFLiteStruct, error) {
+	_, span := trace.StartSpan(ctx, "service::vision::addTFLiteModel")
+	defer span.End()
 	var model *inf.TFLiteStruct
 	var loader *inf.TFLiteModelLoader
 	var err error
@@ -100,25 +113,55 @@ func addTFLiteModel(filepath string, numThreads *int) (*inf.TFLiteStruct, error)
 
 // tfliteInfer first converts an input image to a buffer using the imageToBuffer func
 // and then uses the Infer function form the inference package to return the output tensors from the model.
-func tfliteInfer(model *inf.TFLiteStruct, image image.Image) ([]interface{}, error) {
+func tfliteInfer(ctx context.Context, model *inf.TFLiteStruct, image image.Image) ([]interface{}, error) {
+	_, span := trace.StartSpan(ctx, "service::vision::tfliteInfer")
+	defer span.End()
+
 	// Converts the image to bytes before sending it off
-	imgBuff := imageToBuffer(image)
-	out, err := model.Infer(imgBuff)
-	if err != nil {
-		return nil, errors.Wrap(err, "couldn't infer from model")
+	switch model.Info.InputTensorType {
+	case inf.UInt8:
+		imgBuff := imageToUInt8Buffer(image)
+		out, err := model.Infer(imgBuff)
+		if err != nil {
+			return nil, errors.Wrap(err, "couldn't infer from model")
+		}
+		return out, nil
+	case inf.Float32:
+		imgBuff := imageToFloatBuffer(image)
+		out, err := model.Infer(imgBuff)
+		if err != nil {
+			return nil, errors.Wrap(err, "couldn't infer from model")
+		}
+		return out, nil
+	default:
+		return nil, errors.New("invalid input type. try uint8 or float32")
 	}
-	return out, nil
 }
 
-// imageToBuffer reads an image into a byte slice (buffer) the most common sense way.
-// Left to right like a book; R, then G, then B. No funny stuff.
-// This works!! (can be copied DIRECTLY onto the input tensor).
-func imageToBuffer(img image.Image) []byte {
+// imageToUInt8Buffer reads an image into a byte slice in the most common sense way.
+// Left to right like a book; R, then G, then B. No funny stuff. Assumes values should be between 0-255.
+func imageToUInt8Buffer(img image.Image) []byte {
 	output := make([]byte, img.Bounds().Dx()*img.Bounds().Dy()*3)
 	for y := 0; y < img.Bounds().Dy(); y++ {
 		for x := 0; x < img.Bounds().Dx(); x++ {
 			r, g, b, a := img.At(x, y).RGBA()
 			rr, gg, bb, _ := rgbaTo8Bit(r, g, b, a)
+			output[(y*img.Bounds().Dx()+x)*3+0] = rr
+			output[(y*img.Bounds().Dx()+x)*3+1] = gg
+			output[(y*img.Bounds().Dx()+x)*3+2] = bb
+		}
+	}
+	return output
+}
+
+// imageToFloatBuffer reads an image into a byte slice (buffer) the most common sense way.
+// Left to right like a book; R, then G, then B. No funny stuff. Assumes values between -1 and 1.
+func imageToFloatBuffer(img image.Image) []float32 {
+	output := make([]float32, img.Bounds().Dx()*img.Bounds().Dy()*3)
+	for y := 0; y < img.Bounds().Dy(); y++ {
+		for x := 0; x < img.Bounds().Dx(); x++ {
+			r, g, b, a := img.At(x, y).RGBA()
+			rr, gg, bb := float32(r)/float32(a)*2-1, float32(g)/float32(a)*2-1, float32(b)/float32(a)*2-1
 			output[(y*img.Bounds().Dx()+x)*3+0] = rr
 			output[(y*img.Bounds().Dx()+x)*3+1] = gg
 			output[(y*img.Bounds().Dx()+x)*3+2] = bb
@@ -141,9 +184,11 @@ func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb, aa uint8) {
 }
 
 // unpackTensors takes the model's output tensors as input and reshapes them into objdet.Detections.
-func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []string,
+func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLiteStruct, labelMap []string,
 	logger golog.Logger, origW, origH int,
 ) []objectdetection.Detection {
+	_, span := trace.StartSpan(ctx, "service::vision::unpackTensors")
+	defer span.End()
 	// Gather slices for the bboxes, scores, and labels, using TensorOrder
 	var labels []int
 	var bboxes []float64
@@ -170,6 +215,7 @@ func unpackTensors(tensors []interface{}, model *inf.TFLiteStruct, labelMap []st
 	bb := tensors[getIndex(tensorOrder, 0)]
 	ll := tensors[getIndex(tensorOrder, 1)]
 	ss := tensors[getIndex(tensorOrder, 2)]
+
 	for _, b := range bb.([]float32) {
 		bboxes = append(bboxes, float64(b))
 	}

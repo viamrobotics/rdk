@@ -30,20 +30,21 @@ func (h *segmentObjectTestHelper) Process(
 	t *testing.T,
 	pCtx *rimage.ProcessorContext,
 	fn string,
-	img image.Image,
+	img, img2 image.Image,
 	logger golog.Logger,
 ) error {
 	t.Helper()
 	var err error
-	ii := rimage.ConvertToImageWithDepth(img)
-	test.That(t, ii.IsAligned(), test.ShouldEqual, true)
+	im := rimage.ConvertImage(img)
+	dm, err := rimage.ConvertImageToDepthMap(img2)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)
 
-	pCtx.GotDebugImage(ii.Overlay(), "overlay")
+	pCtx.GotDebugImage(rimage.Overlay(im, dm), "overlay")
 
-	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
+	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
 
-	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii)
+	cloud, err := h.cameraParams.RGBDToPointCloud(im, dm)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "intel-full-pointcloud")
 	injectCamera := &inject.Camera{}
@@ -82,7 +83,7 @@ func TestObjectSegmentationAlignedIntel(t *testing.T) {
 	if objSegTest == "" {
 		t.Skipf("set environmental variable %q to run this test", debugObjSeg)
 	}
-	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/aligned_intel", "*.both.gz", true)
+	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/aligned_intel/color", "*.png", "segmentation/aligned_intel/depth")
 	aligner, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -99,24 +100,25 @@ func (h *gripperSegmentTestHelper) Process(
 	t *testing.T,
 	pCtx *rimage.ProcessorContext,
 	fn string,
-	img image.Image,
+	img, img2 image.Image,
 	logger golog.Logger,
 ) error {
 	t.Helper()
 	var err error
-	ii := rimage.ConvertToImageWithDepth(img)
+	im := rimage.ConvertImage(img)
+	dm, _ := rimage.ConvertImageToDepthMap(img2)
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)
 
-	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth")
+	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth")
 
 	// Pre-process the depth map to smooth the noise out and fill holes
-	ii, err = rimage.PreprocessDepthMap(ii)
+	dm, err = rimage.PreprocessDepthMap(dm, im)
 	test.That(t, err, test.ShouldBeNil)
 
-	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth-filled")
+	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth-filled")
 
 	// Get the point cloud
-	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii)
+	cloud, err := h.cameraParams.RGBDToPointCloud(im, dm)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 	injectCamera := &inject.Camera{}
@@ -157,7 +159,7 @@ func TestGripperObjectSegmentation(t *testing.T) {
 	if objSegTest == "" {
 		t.Skipf("set environmental variable %v to run this test", debugObjSeg)
 	}
-	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/gripper", "*.both.gz", true)
+	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/gripper/color", "*.png", "segmentation/gripper/depth")
 	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/gripper_combo_parameters.json"))
 	test.That(t, err, test.ShouldBeNil)
 

@@ -1,6 +1,7 @@
 package objectdetection
 
 import (
+	"context"
 	"image"
 	"testing"
 
@@ -15,20 +16,21 @@ func TestBuildFunc(t *testing.T) {
 	_, err := Build(nil, nil, nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "must have a Detector")
 	// detector that creates an error
-	det := func(image.Image) ([]Detection, error) {
+	det := func(context.Context, image.Image) ([]Detection, error) {
 		return nil, errors.New("detector error")
 	}
+	ctx := context.Background()
 	pipeline, err := Build(nil, det, nil)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = pipeline(img)
+	_, err = pipeline(ctx, img)
 	test.That(t, err.Error(), test.ShouldEqual, "detector error")
 	// make simple detector
-	det = func(image.Image) ([]Detection, error) {
+	det = func(context.Context, image.Image) ([]Detection, error) {
 		return []Detection{&detection2D{}}, nil
 	}
 	pipeline, err = Build(nil, det, nil)
 	test.That(t, err, test.ShouldBeNil)
-	res, err := pipeline(img)
+	res, err := pipeline(ctx, img)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldHaveLength, 1)
 	// make simple filter
@@ -37,7 +39,7 @@ func TestBuildFunc(t *testing.T) {
 	}
 	pipeline, err = Build(nil, det, filt)
 	test.That(t, err, test.ShouldBeNil)
-	res, err = pipeline(img)
+	res, err = pipeline(ctx, img)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldHaveLength, 0)
 }

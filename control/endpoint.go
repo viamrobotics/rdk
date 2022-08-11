@@ -29,7 +29,7 @@ func (e *endpoint) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 	if len(x) == 1 {
 		power := x[0].GetSignalValueAt(0)
 		if e.ctr != nil {
-			err := e.ctr.SetPower(ctx, power)
+			err := e.ctr.SetPower(ctx, power, nil)
 			if err != nil {
 				return []Signal{}, false
 			}
@@ -38,7 +38,7 @@ func (e *endpoint) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 	}
 	if len(x) == 0 {
 		if e.ctr != nil {
-			pos, err := e.ctr.GetPosition(ctx)
+			pos, err := e.ctr.GetPosition(ctx, nil)
 			if err != nil {
 				return []Signal{}, false
 			}

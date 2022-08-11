@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/vision/v1"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -91,7 +92,11 @@ func (server *subtypeServer) GetDetections(
 	if err != nil {
 		return nil, err
 	}
-	detections, err := svc.GetDetections(ctx, req.CameraName, req.DetectorName)
+	img, err := rimage.DecodeImage(ctx, req.Image, req.MimeType, int(req.Width), int(req.Height))
+	if err != nil {
+		return nil, err
+	}
+	detections, err := svc.GetDetections(ctx, img, req.DetectorName)
 	if err != nil {
 		return nil, err
 	}
@@ -116,6 +121,45 @@ func (server *subtypeServer) GetDetections(
 		protoDets = append(protoDets, d)
 	}
 	return &pb.GetDetectionsResponse{
+		Detections: protoDets,
+	}, nil
+}
+
+func (server *subtypeServer) GetDetectionsFromCamera(
+	ctx context.Context,
+	req *pb.GetDetectionsFromCameraRequest,
+) (*pb.GetDetectionsFromCameraResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetDetectionsFromCamera")
+	defer span.End()
+	svc, err := server.service()
+	if err != nil {
+		return nil, err
+	}
+	detections, err := svc.GetDetectionsFromCamera(ctx, req.CameraName, req.DetectorName)
+	if err != nil {
+		return nil, err
+	}
+	protoDets := make([]*pb.Detection, 0, len(detections))
+	for _, det := range detections {
+		box := det.BoundingBox()
+		if box == nil {
+			return nil, errors.New("detection has no bounding box, must return a bounding box")
+		}
+		xMin := int64(box.Min.X)
+		yMin := int64(box.Min.Y)
+		xMax := int64(box.Max.X)
+		yMax := int64(box.Max.Y)
+		d := &pb.Detection{
+			XMin:       &xMin,
+			YMin:       &yMin,
+			XMax:       &xMax,
+			YMax:       &yMax,
+			Confidence: det.Score(),
+			ClassName:  det.Label(),
+		}
+		protoDets = append(protoDets, d)
+	}
+	return &pb.GetDetectionsFromCameraResponse{
 		Detections: protoDets,
 	}, nil
 }

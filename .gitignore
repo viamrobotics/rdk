@@ -66,3 +66,9 @@ bin/
 
 # exclude files from `ag` search
 .ignore
+
+# license finder
+lf_logs/
+
+# exclude credential created during CI
+google-credentials.json

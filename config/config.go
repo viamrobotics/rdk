@@ -2,6 +2,7 @@
 package config
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -294,8 +295,13 @@ type NetworkConfigData struct {
 	// FQDN is the unique name of this server.
 	FQDN string `json:"fqdn"`
 
+	// Listener is the listener that the web server will use. This is mutually
+	// exclusive with BindAddress.
+	Listener net.Listener `json:"-"`
+
 	// BindAddress is the address that the web server will bind to.
-	// The default behavior is to bind to localhost:8080.
+	// The default behavior is to bind to localhost:8080. This is mutually
+	// exclusive with Listener.
 	BindAddress string `json:"bind_address"`
 
 	BindAddressDefaultSet bool `json:"-"`
@@ -329,6 +335,9 @@ const DefaultBindAddress = "localhost:8080"
 
 // Validate ensures all parts of the config are valid.
 func (nc *NetworkConfig) Validate(path string) error {
+	if nc.BindAddress != "" && nc.Listener != nil {
+		return utils.NewConfigValidationError(path, errors.New("may only set one of bind_address or listener"))
+	}
 	if nc.BindAddress == "" {
 		nc.BindAddress = DefaultBindAddress
 		nc.BindAddressDefaultSet = true
@@ -464,4 +473,10 @@ func ProcessConfig(in *Config, tlsCfg *TLSConfig) (*Config, error) {
 		out.Remotes[idx] = remoteCopy
 	}
 	return &out, nil
+}
+
+// Updateable is implemented when component/service of a robot should be updated with the config.
+type Updateable interface {
+	// Update updates the resource
+	Update(context.Context, *Config) error
 }

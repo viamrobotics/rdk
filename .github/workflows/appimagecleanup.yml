@@ -1,0 +1,33 @@
+name: AppImage Cleanup
+
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  schedule:
+    - cron: '0 7 15 * *' # once a month (15th) at 7AM UTC (2AM/EST, 3AM/EDT)
+  workflow_dispatch:
+
+jobs:
+  clean_appimages:
+    name: Clean Test AppImages
+    runs-on: [x64, qemu-host]
+    container:
+      image: ghcr.io/viamrobotics/canon:amd64-cache
+      options: --platform linux/amd64
+    timeout-minutes: 5
+
+    steps:
+    - name: Authorize GCP
+      uses: google-github-actions/auth@v0.4.3
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - name: Set up Cloud SDK
+      uses: 'google-github-actions/setup-gcloud@v0'
+
+    - name: Remove Failed Test AppImages
+      run: |
+        gsutil -m rm -r "gs://packages.viam.com/apps/viam-server/testing/`date +%Y-%m -d 'last month'`*"
+        true

@@ -59,6 +59,7 @@ type piPigpio struct {
 	generic.Unimplemented
 	mu            sync.Mutex
 	cfg           *board.Config
+	duty          int // added for mutex
 	gpioConfigSet map[int]bool
 	analogs       map[string]board.AnalogReader
 	i2cs          map[string]board.I2C
@@ -200,27 +201,27 @@ type gpioPin struct {
 	bcom int
 }
 
-func (gp gpioPin) Set(ctx context.Context, high bool) error {
+func (gp gpioPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
 	return gp.pi.SetGPIOBcom(gp.bcom, high)
 }
 
-func (gp gpioPin) Get(ctx context.Context) (bool, error) {
+func (gp gpioPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	return gp.pi.GetGPIOBcom(gp.bcom)
 }
 
-func (gp gpioPin) PWM(ctx context.Context) (float64, error) {
+func (gp gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	return gp.pi.pwmBcom(gp.bcom)
 }
 
-func (gp gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64) error {
+func (gp gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
 	return gp.pi.SetPWMBcom(gp.bcom, dutyCyclePct)
 }
 
-func (gp gpioPin) PWMFreq(ctx context.Context) (uint, error) {
+func (gp gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
 	return gp.pi.pwmFreqBcom(gp.bcom)
 }
 
-func (gp gpioPin) SetPWMFreq(ctx context.Context, freqHz uint) error {
+func (gp gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
 	return gp.pi.SetPWMFreqBcom(gp.bcom, freqHz)
 }
 
@@ -274,9 +275,11 @@ func (pi *piPigpio) pwmBcom(bcom int) (float64, error) {
 // SetPWMBcom sets the given broadcom pin to the given PWM duty cycle.
 func (pi *piPigpio) SetPWMBcom(bcom int, dutyCyclePct float64) error {
 	dutyCycle := rdkutils.ScaleByPct(255, dutyCyclePct)
-	res := C.gpioPWM(C.uint(bcom), C.uint(dutyCycle))
-	if res != 0 {
-		return errors.Errorf("pwm set fail %d", res)
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
+	pi.duty = int(C.gpioPWM(C.uint(bcom), C.uint(dutyCycle)))
+	if pi.duty != 0 {
+		return errors.Errorf("pwm set fail %d", pi.duty)
 	}
 	return nil
 }
@@ -293,8 +296,12 @@ func (pi *piPigpio) SetPWMFreqBcom(bcom int, freqHz uint) error {
 	}
 	newRes := C.gpioSetPWMfrequency(C.uint(bcom), C.uint(freqHz))
 
+	if newRes == C.PI_BAD_USER_GPIO {
+		return errors.New("pwm set freq failed")
+	}
+
 	if newRes != C.int(freqHz) {
-		return errors.Errorf("pwm set freq fail Tried: %d, got: %d", freqHz, newRes)
+		pi.logger.Infof("cannot set pwm freq to %d, setting to closest freq %d", freqHz, newRes)
 	}
 	return nil
 }
@@ -387,7 +394,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 		if err != nil {
 			return nil, err
 		}
-		err = chipPin.Set(ctx, false)
+		err = chipPin.Set(ctx, false, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -400,7 +407,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 		if err != nil {
 			return nil, err
 		}
-		err = chipPin.Set(ctx, true)
+		err = chipPin.Set(ctx, true, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -526,8 +533,8 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	return err
 }
 
-func (pi *piPigpio) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
-	return board.CreateStatus(ctx, pi)
+func (pi *piPigpio) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+	return board.CreateStatus(ctx, pi, extra)
 }
 
 var (

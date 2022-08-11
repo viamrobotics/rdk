@@ -17,7 +17,7 @@ func TestDetectionSource(t *testing.T) {
 	// make the original source
 	sourceImg, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
-	src := &imagesource.StaticSource{sourceImg}
+	src := &imagesource.StaticSource{ColorImg: sourceImg}
 	// make the preprocessing function
 	p, err := objectdetection.RemoveColorChannel("b")
 	test.That(t, err, test.ShouldBeNil)

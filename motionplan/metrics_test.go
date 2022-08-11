@@ -48,8 +48,8 @@ func TestBasicMetric(t *testing.T) {
 
 var (
 	ov     = &spatial.OrientationVector{math.Pi / 2, 0, 0, -1}
-	p1b    = spatial.NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, ov)
-	p2b    = spatial.NewPoseFromOrientationVector(r3.Vector{2, 3, 4}, ov)
+	p1b    = spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, ov)
+	p2b    = spatial.NewPoseFromOrientation(r3.Vector{2, 3, 4}, ov)
 	result float64
 )
 

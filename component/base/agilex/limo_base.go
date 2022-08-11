@@ -339,18 +339,18 @@ func (base *limoBase) setMotionCommand(linearVel float64,
 	return err
 }
 
-func (base *limoBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+func (base *limoBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
 	base.controller.logger.Debugf("Spin(%f, %f)", angleDeg, degsPerSec)
 	secsToRun := math.Abs(angleDeg / degsPerSec)
 	var err error
 	if base.driveMode == DIFFERENTIAL.String() || base.driveMode == OMNI.String() {
-		err = base.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: degsPerSec})
+		err = base.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: degsPerSec}, extra)
 	} else if base.driveMode == ACKERMANN.String() {
 		// TODO: this is not the correct math
 		linear := float64(base.maxLinearVelocity) * (degsPerSec / 360) * math.Pi
 		// max angular translates to max steering angle for ackermann+
 		angular := math.Copysign(float64(base.maxAngularVelocity), angleDeg)
-		err = base.SetVelocity(ctx, r3.Vector{Y: linear}, r3.Vector{Z: angular})
+		err = base.SetVelocity(ctx, r3.Vector{Y: linear}, r3.Vector{Z: angular}, extra)
 	}
 
 	if err != nil {
@@ -360,12 +360,12 @@ func (base *limoBase) Spin(ctx context.Context, angleDeg float64, degsPerSec flo
 	timeToRun := time.Millisecond * time.Duration(secsToRun*1000)
 	base.controller.logger.Debugf("Will run for duration %f", timeToRun)
 	utils.SelectContextOrWait(ctx, timeToRun)
-	return base.Stop(ctx)
+	return base.Stop(ctx, extra)
 }
 
-func (base *limoBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
+func (base *limoBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	base.controller.logger.Debugf("MoveStraight(%d, %f)", distanceMm, mmPerSec)
-	err := base.SetVelocity(ctx, r3.Vector{Y: mmPerSec}, r3.Vector{})
+	err := base.SetVelocity(ctx, r3.Vector{Y: mmPerSec}, r3.Vector{}, extra)
 	if err != nil {
 		return err
 	}
@@ -374,11 +374,11 @@ func (base *limoBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec
 	timeToRun := time.Millisecond * time.Duration(math.Abs(float64(distanceMm)/mmPerSec)*1000)
 	base.controller.logger.Debugf("Will run for duration %f", timeToRun)
 	utils.SelectContextOrWait(ctx, timeToRun)
-	return base.Stop(ctx)
+	return base.Stop(ctx, extra)
 }
 
 // linear is in mm/sec, angular in degrees/sec.
-func (base *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+func (base *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	base.controller.logger.Debugf("Will set linear velocity %f angular velocity %f", linear, angular)
 
 	_, done := base.opMgr.New(ctx)
@@ -395,20 +395,20 @@ func (base *limoBase) SetVelocity(ctx context.Context, linear, angular r3.Vector
 	return nil
 }
 
-func (base *limoBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+func (base *limoBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	base.controller.logger.Debugf("Will set power linear %f angular %f", linear, angular)
 	linY := linear.Y * float64(base.maxLinearVelocity)
 	angZ := angular.Z * float64(base.maxAngularVelocity)
-	err := base.SetVelocity(ctx, r3.Vector{Y: linY}, r3.Vector{Z: -angZ})
+	err := base.SetVelocity(ctx, r3.Vector{Y: linY}, r3.Vector{Z: -angZ}, extra)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (base *limoBase) Stop(ctx context.Context) error {
+func (base *limoBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	base.controller.logger.Debug("Stop()")
-	err := base.SetVelocity(ctx, r3.Vector{}, r3.Vector{})
+	err := base.SetVelocity(ctx, r3.Vector{}, r3.Vector{}, extra)
 	if err != nil {
 		return err
 	}
@@ -455,7 +455,7 @@ func (base *limoBase) Do(ctx context.Context, cmd map[string]interface{}) (map[s
 
 func (base *limoBase) Close(ctx context.Context) error {
 	base.controller.logger.Debug("Close()")
-	if err := base.Stop(ctx); err != nil {
+	if err := base.Stop(ctx, nil); err != nil {
 		return err
 	}
 	if base.cancel != nil {

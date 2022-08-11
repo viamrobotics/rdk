@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
@@ -324,7 +325,7 @@ func TestDiffConfigs(t *testing.T) {
 			right, err := config.Read(context.Background(), tc.RightFile, logger)
 			test.That(t, err, test.ShouldBeNil)
 
-			diff, err := config.DiffConfigs(left, right)
+			diff, err := config.DiffConfigs(*left, *right)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, diff.Left, test.ShouldResemble, left)
 			test.That(t, diff.Right, test.ShouldResemble, right)
@@ -375,7 +376,7 @@ func TestDiffConfigHeterogenousTypes(t *testing.T) {
 			right, err := config.Read(context.Background(), tc.RightFile, logger)
 			test.That(t, err, test.ShouldBeNil)
 
-			_, err = config.DiffConfigs(left, right)
+			_, err = config.DiffConfigs(*left, *right)
 			if tc.Expected == "" {
 				test.That(t, err, test.ShouldBeNil)
 				return
@@ -499,10 +500,99 @@ func TestDiffNetworkingCfg(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			diff, err := config.DiffConfigs(&tc.LeftCfg, &tc.RightCfg)
+			diff, err := config.DiffConfigs(tc.LeftCfg, tc.RightCfg)
 			test.That(t, err, test.ShouldBeNil)
 
 			test.That(t, diff.NetworkEqual, test.ShouldEqual, tc.NetworkEqual)
 		})
+	}
+}
+
+func TestDiffSanitize(t *testing.T) {
+	cloud1 := &config.Cloud{
+		ID:             "1",
+		Secret:         "hello",
+		LocationSecret: "world",
+		TLSCertificate: "foo",
+		TLSPrivateKey:  "bar",
+	}
+
+	// cloud
+	// remotes.remote.auth.creds
+	// remotes.remote.auth.signaling creds
+	// remote.secret
+	// .auth.handlers.config ***
+
+	auth1 := config.AuthConfig{
+		Handlers: []config.AuthHandlerConfig{
+			{Config: config.AttributeMap{"key1": "value1"}},
+			{Config: config.AttributeMap{"key2": "value2"}},
+		},
+	}
+	remotes1 := []config.Remote{
+		{
+			Secret: "remsecret1",
+			Auth: config.RemoteAuth{
+				Credentials: &rpc.Credentials{
+					Type:    "remauthtype1",
+					Payload: "payload1",
+				},
+				SignalingCreds: &rpc.Credentials{
+					Type:    "remauthtypesig1",
+					Payload: "payloadsig1",
+				},
+			},
+		},
+		{
+			Secret: "remsecret2",
+			Auth: config.RemoteAuth{
+				Credentials: &rpc.Credentials{
+					Type:    "remauthtype2",
+					Payload: "payload2",
+				},
+				SignalingCreds: &rpc.Credentials{
+					Type:    "remauthtypesig2",
+					Payload: "payloadsig2",
+				},
+			},
+		},
+	}
+
+	left := config.Config{}
+	leftOrig := config.Config{}
+	right := config.Config{
+		Cloud:   cloud1,
+		Auth:    auth1,
+		Remotes: remotes1,
+	}
+	rightOrig := config.Config{
+		Cloud:   cloud1,
+		Auth:    auth1,
+		Remotes: remotes1,
+	}
+
+	diff, err := config.DiffConfigs(left, right)
+	test.That(t, err, test.ShouldBeNil)
+
+	// verify secrets did not change
+	test.That(t, left, test.ShouldResemble, leftOrig)
+	test.That(t, right, test.ShouldResemble, rightOrig)
+
+	diffStr := diff.String()
+	test.That(t, diffStr, test.ShouldContainSubstring, cloud1.ID)
+	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.Secret)
+	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.LocationSecret)
+	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.TLSCertificate)
+	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.TLSPrivateKey)
+	for _, hdlr := range auth1.Handlers {
+		for _, value := range hdlr.Config {
+			test.That(t, diffStr, test.ShouldNotContainSubstring, value)
+		}
+	}
+	for _, rem := range remotes1 {
+		test.That(t, diffStr, test.ShouldContainSubstring, string(rem.Auth.Credentials.Type))
+		test.That(t, diffStr, test.ShouldNotContainSubstring, rem.Secret)
+		test.That(t, diffStr, test.ShouldNotContainSubstring, rem.Auth.Credentials.Payload)
+		test.That(t, diffStr, test.ShouldNotContainSubstring, rem.Auth.SignalingCreds.Payload)
 	}
 }

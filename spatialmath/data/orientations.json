@@ -50,5 +50,14 @@
                 "y": 0,
                 "z": 0
             }
+    },
+    "quaternion" : {
+        "type": "quaternion",
+        "value" : {
+            "w" : 0.4,
+            "x": 0.1,
+            "y": 0.2,
+            "z": 0.3
+        }
     }
 }

@@ -8,43 +8,55 @@ module.exports = {
   parser: 'vue-eslint-parser',
   parserOptions: {
     parser: '@typescript-eslint/parser',
-    ecmaVersion: 2020,
+    ecmaVersion: 'latest',
     sourceType: 'module',
+    ecmaFeatures: { jsx: true },
   },
   plugins: [
     'vue',
     '@typescript-eslint',
     'unicorn',
     'import',
+    'tailwindcss',
   ],
   extends: [
     'eslint:recommended',
+    'plugin:@typescript-eslint/recommended',
     'plugin:import/recommended',
     'plugin:import/typescript',
-    'plugin:vue/base',
-    'plugin:@typescript-eslint/recommended',
     'plugin:unicorn/recommended',
+    'plugin:tailwindcss/recommended',
     'plugin:vue/vue3-essential',
     'plugin:vue/vue3-strongly-recommended',
     'plugin:vue/vue3-recommended',
   ],
   rules: {
-    // Typescript catches these issues, and ESLint isn't smart enough to understand
-    // Vue's macros like "defineProps()", so we'll turn these off for now
-    'no-undef': 'off',
-    'no-unused-vars': 'off',
-    'prefer-template': 'error',
-    'quote-props': ['error', 'as-needed'],
-    'no-console': process.env.NODE_ENV === 'production' ? 'error' : 'off',
-    'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off',
+    // Spacing and code style
+    indent: ['error', 2],
+    'arrow-spacing': 'error',
+    'block-spacing': 'error',
+    'comma-spacing': 'error',
+    'computed-property-spacing': 'error',
+    'func-call-spacing': 'error',
+    'key-spacing': 'error',
+    'keyword-spacing': 'error',
+    'rest-spread-spacing': 'error',
+    'semi-spacing': 'error',
+    'array-bracket-spacing': 'error',
+    'space-before-blocks': 'error',
+    'space-in-parens': 'error',
+    'space-infix-ops': 'error',
+    'space-unary-ops': 'error',
+    'spaced-comment': 'error',
+    'template-curly-spacing': 'error',
+    'object-curly-spacing': ['error', 'always'],
+    'no-multiple-empty-lines': ['error', { max: 1 }],
+    'no-multi-spaces': 'error',
     'eol-last': 'error',
-    'one-var': [
-      'error',
-      {
-        let: 'never',
-        const: 'never',
-      },
-    ],
+    'brace-style': 'error',
+    'semi-style': 'error',
+    'dot-notation': 'error',
+    'nonblock-statement-body-position': 'error',
     quotes: ['error', 'single', { avoidEscape: true }],
     semi: ['error', 'always'],
     'comma-dangle': [
@@ -57,29 +69,49 @@ module.exports = {
         functions: 'never',
       },
     ],
+
+    // Typescript catches these issues, and ESLint isn't smart enough to understand
+    // Vue's macros like "defineProps()", so we'll turn these off for now
+    'no-undef': 'off',
+    'no-unused-vars': 'off',
+    'prefer-object-spread': 'error',
+    'prefer-template': 'error',
+    'quote-props': ['error', 'as-needed'],
+    'no-console': process.env.NODE_ENV === 'production' ? 'error' : 'off',
+    'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off',
+    'one-var': [
+      'error',
+      {
+        let: 'never',
+        const: 'never',
+      },
+    ],
+    curly: ['error', 'all'],
     eqeqeq: ['error', 'always', { null: 'always' }],
     'no-unreachable-loop': 'error',
     'no-unsafe-optional-chaining': 'error',
     'require-atomic-updates': 'error',
     'array-callback-return': 'error',
     'no-caller': 'error',
-    'no-multi-spaces': 'error',
     'no-param-reassign': 'error',
     'no-return-await': 'error',
     radix: 'error',
     'require-await': 'error',
     strict: 'error',
     yoda: 'error',
+    'no-implicit-coercion': 'error',
+    'no-unneeded-ternary': 'error',
+    'no-useless-return': 'error',
     'no-var': 'error',
     'object-shorthand': ['error', 'properties'],
     'prefer-arrow-callback': 'error',
     'prefer-const': 'error',
 
     // Vue
-    'vue/script-setup-uses-vars': 'error',
-    'vue/no-undef-components': ['error', {
-      ignorePatterns: [],
-    }],
+    'vue/multi-word-component-names': 'off',
+    'vue/no-deprecated-slot-attribute': 'off',
+    'vue/require-default-prop': 'off',
+    'vue/no-undef-components': ['error', { ignorePatterns: ['v-'] }],
 
     // Import
     'import/no-unresolved': 'error',
@@ -91,6 +123,7 @@ module.exports = {
     'import/no-self-import': 'error',
     'import/no-cycle': 'error',
     'import/no-useless-path-segments': 'error',
+    'import/order': 'error',
     'import/export': 'error',
     'import/first': 'error',
     'import/extensions': [
@@ -103,6 +136,7 @@ module.exports = {
     ],
 
     // Unicorn
+    'unicorn/no-empty-file': 'off',
     'unicorn/no-unsafe-regex': 'error',
     'unicorn/no-unused-properties': 'error',
     'unicorn/custom-error-definition': 'error',
@@ -118,11 +152,8 @@ module.exports = {
     'unicorn/no-null': 'off',
     'unicorn/consistent-destructuring': 'off',
 
-    // for control.js, until they're fixed
-    'unicorn/prefer-module': 'off',
-    'unicorn/prefer-query-selector': 'off',
-    'unicorn/prefer-spread': 'off',
-    '@typescript-eslint/no-var-requires': 'off',
+    // Tailwind
+    'tailwindcss/no-custom-classname': 'off',
 
     // Typescript
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
@@ -137,6 +168,5 @@ module.exports = {
       },
     },
   },
-  ignorePatterns: ['**/cypress/**'],
+  ignorePatterns: ['**/cypress/**', '**/node_modules/**', '*.json', '**/runtime-shared/**'],
 };
-

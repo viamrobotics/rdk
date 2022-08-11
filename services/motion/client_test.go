@@ -91,17 +91,16 @@ func TestClient(t *testing.T) {
 				destinationFrame+componentName.Name, spatialmath.NewPoseFromPoint(r3.Vector{1, 2, 3})), nil
 		}
 
-		result, err := client.Move(
+		result, err := client.PlanAndMove(
 			context.Background(), resourceName, grabPose,
 			&commonpb.WorldState{},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
 
-		testPose := spatialmath.NewPoseFromAxisAngle(
+		testPose := spatialmath.NewPoseFromOrientation(
 			r3.Vector{X: 1., Y: 2., Z: 3.},
-			r3.Vector{X: 0., Y: 1., Z: 0.},
-			math.Pi/2,
+			&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 		)
 		transformMsgs := []*commonpb.Transform{
 			{
@@ -177,7 +176,7 @@ func TestClient(t *testing.T) {
 			return nil, passedErr
 		}
 
-		resp, err := client2.Move(context.Background(), resourceName, grabPose, &commonpb.WorldState{})
+		resp, err := client2.PlanAndMove(context.Background(), resourceName, grabPose, &commonpb.WorldState{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)
 		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", nil)
