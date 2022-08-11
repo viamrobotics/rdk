@@ -1,5 +1,3 @@
-// Package rtk defines the rtk correction receiver
-// which sends rtcm data to child gps's
 package rtk
 
 import (
@@ -57,47 +55,61 @@ const (
 	UBX_NMEA_VLW = 0x0F // GxVLW (dual ground/water distance)
 	UBX_NMEA_VTG = 0x05 // GxVTG (course over ground and Ground speed)
 	UBX_NMEA_ZDA = 0x08 // GxZDA (Time and Date)
+
+	SVIN_MODE_ENABLE  = 0x01
+	SVIN_MODE_DISABLE = 0x00
 )
 
+// configure an RTKStation with time mode
+func ConfigureBaseRTKStation(requiredAccuracy float64, observationTime int) {
+	enableAllRTCM()
+	enableSVIN(requiredAccuracy, observationTime)
+}
+
+func ConfigureDefaultSettings() {
+	disableAllRTCM()
+	enableNMEA()
+}
+
 func disableAllRTCM() {
-	disableMsgCommand(UBX_RTCM_1005, COM_PORT_UART2)
-	disableMsgCommand(UBX_RTCM_1074, COM_PORT_UART2)
-	disableMsgCommand(UBX_RTCM_1084, COM_PORT_UART2)
-	disableMsgCommand(UBX_RTCM_1094, COM_PORT_UART2)
-	disableMsgCommand(UBX_RTCM_1124, COM_PORT_UART2)
-	disableMsgCommand(UBX_RTCM_1230, COM_PORT_UART2)
-	disableMsgCommand(UBX_RTCM_1001, COM_PORT_UART2)
-	disableMsgCommand(UBX_RTCM_1002, COM_PORT_UART2)
+	disableRTCMCommand(UBX_RTCM_1005, COM_PORT_UART2)
+	disableRTCMCommand(UBX_RTCM_1074, COM_PORT_UART2)
+	disableRTCMCommand(UBX_RTCM_1084, COM_PORT_UART2)
+	disableRTCMCommand(UBX_RTCM_1094, COM_PORT_UART2)
+	disableRTCMCommand(UBX_RTCM_1124, COM_PORT_UART2)
+	disableRTCMCommand(UBX_RTCM_1230, COM_PORT_UART2)
+	disableRTCMCommand(UBX_RTCM_1001, COM_PORT_UART2)
+	disableRTCMCommand(UBX_RTCM_1002, COM_PORT_UART2)
 	saveAllConfigs()
 }
 
 func enableAllRTCM() {
-	enableMsgCommand(UBX_RTCM_1005, COM_PORT_UART2, 1)
-	enableMsgCommand(UBX_RTCM_1074, COM_PORT_UART2, 1)
-	enableMsgCommand(UBX_RTCM_1084, COM_PORT_UART2, 1)
-	enableMsgCommand(UBX_RTCM_1094, COM_PORT_UART2, 1)
-	enableMsgCommand(UBX_RTCM_1124, COM_PORT_UART2, 1)
-	enableMsgCommand(UBX_RTCM_1230, COM_PORT_UART2, 5)
+	enableRTCMCommand(UBX_RTCM_1005, COM_PORT_UART2, 1)
+	enableRTCMCommand(UBX_RTCM_1074, COM_PORT_UART2, 1)
+	enableRTCMCommand(UBX_RTCM_1084, COM_PORT_UART2, 1)
+	enableRTCMCommand(UBX_RTCM_1094, COM_PORT_UART2, 1)
+	enableRTCMCommand(UBX_RTCM_1124, COM_PORT_UART2, 1)
+	enableRTCMCommand(UBX_RTCM_1230, COM_PORT_UART2, 5)
 	saveAllConfigs()
 }
 
 func enableNMEA() {
-	enableMsgCommand(UBX_NMEA_GLL, COM_PORT_UART2, 1)
-	enableMsgCommand(UBX_NMEA_GSA, COM_PORT_UART2, 1)
-	enableMsgCommand(UBX_NMEA_GSV, COM_PORT_UART2, 1)
-	enableMsgCommand(UBX_NMEA_RMC, COM_PORT_UART2, 1)
-	enableMsgCommand(UBX_NMEA_VTG, COM_PORT_UART2, 1)
-	enableMsgCommand(UBX_NMEA_GGA, COM_PORT_UART2, 1)
+	enableRTCMCommand(UBX_NMEA_GLL, COM_PORT_UART2, 1)
+	enableRTCMCommand(UBX_NMEA_GSA, COM_PORT_UART2, 1)
+	enableRTCMCommand(UBX_NMEA_GSV, COM_PORT_UART2, 1)
+	enableRTCMCommand(UBX_NMEA_RMC, COM_PORT_UART2, 1)
+	enableRTCMCommand(UBX_NMEA_VTG, COM_PORT_UART2, 1)
+	enableRTCMCommand(UBX_NMEA_GGA, COM_PORT_UART2, 1)
 	saveAllConfigs()
 }
 
 func disableNMEA() {
-	disableMsgCommand(UBX_NMEA_GLL, COM_PORT_UART2)
-	disableMsgCommand(UBX_NMEA_GSA, COM_PORT_UART2)
-	disableMsgCommand(UBX_NMEA_GSV, COM_PORT_UART2)
-	disableMsgCommand(UBX_NMEA_RMC, COM_PORT_UART2)
-	disableMsgCommand(UBX_NMEA_VTG, COM_PORT_UART2)
-	disableMsgCommand(UBX_NMEA_GGA, COM_PORT_UART2)
+	disableRTCMCommand(UBX_NMEA_GLL, COM_PORT_UART2) 
+	disableRTCMCommand(UBX_NMEA_GSA, COM_PORT_UART2)
+	disableRTCMCommand(UBX_NMEA_GSV, COM_PORT_UART2)
+	disableRTCMCommand(UBX_NMEA_RMC, COM_PORT_UART2)
+	disableRTCMCommand(UBX_NMEA_VTG, COM_PORT_UART2)
+	disableRTCMCommand(UBX_NMEA_GGA, COM_PORT_UART2)
 	saveAllConfigs()
 }
 
@@ -108,8 +120,19 @@ func getSurveyMode() []byte {
 	return sendCommand(cls, id, 0, payloadCfg) // set payloadcfg
 }
 
+func enableSVIN(requiredAccuracy float64, observationTime int) {
+	setSurveyMode(SVIN_MODE_ENABLE, requiredAccuracy, observationTime)
+	saveAllConfigs()
+}
+
+func disableSVIN(requiredAccuracy float64, observationTime int) {
+	setSurveyMode(SVIN_MODE_DISABLE, requiredAccuracy, observationTime)
+	saveAllConfigs()
+}
+
 func setSurveyMode(mode int, requiredAccuracy float64, observationTime int) bool {
-	payloadCfg := getSurveyMode() // get current configs
+	// payloadCfg := getSurveyMode() // get current configs
+	payloadCfg := make([]byte, 40)
 	if len(payloadCfg) == 0 {
 		return false
 	}
@@ -177,11 +200,11 @@ func setStaticPosition(ecefXOrLat int, ecefXOrLatHP int, ecefYOrLon int, ecefYOr
 	sendCommand(cls, id, msg_len, payloadCfg)
 }
 
-func disableMsgCommand(messageNumber int, portId int) {
-	enableMsgCommand(messageNumber, portId, 0)
+func disableRTCMCommand(messageNumber int, portId int) {
+	enableRTCMCommand(messageNumber, portId, 0)
 }
 
-func enableMsgCommand(messageNumber int, portId int, sendRate int) {
+func enableRTCMCommand(messageNumber int, portId int, sendRate int) {
 	//dont use current port settings actually
 	payloadCfg := make([]byte, 256)
 
@@ -237,6 +260,7 @@ func sendCommand(cls int, id int, msg_len int, payloadCfg []byte) []byte {
 	packet[len(packet)-1] = byte(checksumB)
 	packet[len(packet)-2] = byte(checksumA)
 
+	log.Print("Writing: %s", packet)
 	writePort.Write(packet)
 
 	//then wait to capture a byte
