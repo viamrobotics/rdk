@@ -553,10 +553,13 @@ func processConfig(unprocessedConfig *Config, fromCloud bool) (*Config, error) {
 		return nil, err
 	}
 
-	cfg, err := unprocessedConfig.Copy()
+	cfg, err := unprocessedConfig.CopyOnlyPublicFields()
 	if err != nil {
 		return nil, errors.Wrap(err, "error copying config")
 	}
+
+	// Copy does not presve ConfigFilePath and we need to pass it along manually
+	cfg.ConfigFilePath = unprocessedConfig.ConfigFilePath
 
 	for idx, c := range cfg.Components {
 		conv := findMapConverter(c.Type, c.Model)

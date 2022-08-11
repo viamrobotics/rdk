@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"io/ioutil"
 	"net"
 	"os"
 	"testing"
@@ -20,7 +21,6 @@ import (
 	// board attribute converters.
 	_ "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/motor"
-
 	// motor attribute converters.
 	_ "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
@@ -287,17 +287,17 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
 }
 
-func TestCopy(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-
+func TestCopyOnlyPublicFields(t *testing.T) {
 	t.Run("copy sample cofnig", func(t *testing.T) {
-		cfg, err := config.Read(context.Background(), "data/robot.json", logger)
+		content, err := ioutil.ReadFile("data/robot.json")
+		test.That(t, err, test.ShouldBeNil)
+		var cfg config.Config
+		json.Unmarshal(content, &cfg)
+
+		cfgCopy, err := cfg.CopyOnlyPublicFields()
 		test.That(t, err, test.ShouldBeNil)
 
-		cfgCopy, err := cfg.Copy()
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, cfgCopy, test.ShouldResemble, cfg)
+		test.That(t, *cfgCopy, test.ShouldResemble, cfg)
 	})
 
 	t.Run("should not copy unexported json fields", func(t *testing.T) {
@@ -314,7 +314,7 @@ func TestCopy(t *testing.T) {
 			},
 		}
 
-		cfgCopy, err := cfg.Copy()
+		cfgCopy, err := cfg.CopyOnlyPublicFields()
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, cfgCopy.Cloud.TLSCertificate, test.ShouldEqual, cfg.Cloud.TLSCertificate)

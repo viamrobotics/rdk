@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -182,17 +181,20 @@ func (c Config) FindComponent(name string) *Component {
 	return nil
 }
 
-// Copy returns a deep-copy of the current config.
-func (c *Config) Copy() (*Config, error) {
-	cfgInterface, err := copystructure.Copy(*c)
+// CopyOnlyPublicFields returns a deep-copy of the current config only preserving JSON exported fields.
+func (c *Config) CopyOnlyPublicFields() (*Config, error) {
+	// We're using JSON as an intermediary to ensure only the json exported fields are
+	// copied.
+	tmpJSON, err := json.Marshal(c)
 	if err != nil {
-		return nil, errors.Wrap(err, "error deep-copying config")
+		return nil, errors.Wrap(err, "error marshaling config")
+	}
+	var cfg Config
+	err = json.Unmarshal(tmpJSON, &cfg)
+	if err != nil {
+		return nil, errors.Wrap(err, "error unmarshaling config")
 	}
 
-	cfg, ok := cfgInterface.(Config)
-	if !ok {
-		return nil, errors.New("failed to copy Config")
-	}
 	return &cfg, nil
 }
 
