@@ -57,7 +57,7 @@ func (pt *progressTracker) deleteProgressFile(path string) error {
 	return os.Remove(path)
 }
 
-//nolint: gosec
+
 func (pt *progressTracker) updateProgressFileIndex(path string, requestsWritten int) error {
 	i, err := pt.getProgressFileIndex(path)
 	if err != nil {

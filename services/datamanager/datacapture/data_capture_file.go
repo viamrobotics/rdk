@@ -12,7 +12,6 @@ import (
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 // TODO Data-343: Reorganize this into a more standard interface/package, and add tests.
@@ -112,36 +111,4 @@ func getDataType(_ string, methodName string) v1.DataType {
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
 	}
 	return v1.DataType_DATA_TYPE_TABULAR_SENSOR
-}
-
-func getFileExt(dataType v1.DataType, methodName string, parameters map[string]string) string {
-	defaultFileExt := ""
-	switch dataType {
-	case v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		return ".csv"
-	case v1.DataType_DATA_TYPE_FILE:
-		return defaultFileExt
-	case v1.DataType_DATA_TYPE_BINARY_SENSOR:
-		if methodName == "NextPointCloud" {
-			return ".pcd"
-		}
-		if methodName == "Next" {
-			// TODO: Add explicit file extensions for all mime types.
-			switch parameters["mime_type"] {
-			case utils.MimeTypeJPEG:
-				return ".jpeg"
-			case utils.MimeTypePNG:
-				return ".png"
-			case utils.MimeTypePCD:
-				return ".pcd"
-			default:
-				return defaultFileExt
-			}
-		}
-	case v1.DataType_DATA_TYPE_UNSPECIFIED:
-		return defaultFileExt
-	default:
-		return defaultFileExt
-	}
-	return defaultFileExt
 }
