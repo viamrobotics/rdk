@@ -1216,6 +1216,7 @@ export default {
           for (const op of this.currentOps) {
             op.elapsed = now - (op.started.seconds * 1000);
           }
+
           resolve(this.currentOps);
         });
       });
