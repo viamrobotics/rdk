@@ -1,4 +1,4 @@
-package imagetransform
+package transformpipeline
 
 import (
 	"context"
