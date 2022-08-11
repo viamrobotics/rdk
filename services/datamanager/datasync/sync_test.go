@@ -389,6 +389,7 @@ func TestPartialUpload(t *testing.T) {
 			// Create temp data capture file.
 			f, err := createTmpDataCaptureFile()
 			test.That(t, err, test.ShouldBeNil)
+
 			// First write metadata to file.
 			captureMetadata := v1.DataCaptureMetadata{
 				ComponentType:    componentType,
@@ -406,11 +407,10 @@ func TestPartialUpload(t *testing.T) {
 				t.Errorf("%s: cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing: %v", tc.name, err)
 			}
 
-			// Progress file path
+			// Progress file path which corresponds to the file which will be uploaded.
 			progressFile := filepath.Join(viamProgressDotDir, filepath.Base(f.Name()))
 
-			// Stand up mock server.
-			// Register mock datasync service with a mock server.
+			// Stand up mock server. Register mock datasync service with a mock server.
 			cancelChannel := make(chan bool)
 			logger, _ := golog.NewObservedTestLogger(t)
 			mockService := getMockService()
@@ -436,22 +436,22 @@ func TestPartialUpload(t *testing.T) {
 			sut.Sync([]string{f.Name()})
 			time.Sleep(syncWaitTime)
 
-			// TODO: validate mockService.getUploadRequests for indexes 0:tc.maxUploadRetryAttempts
+			// Validate client sent mockService the upload requests we would expect before canceling the upload.
 			expMsgs := buildSensorDataUploadRequests(tc.expReceivedDataBeforeCancel, tc.dataType, f.Name())
 			compareUploadRequests(t, true, mockService.getUploadRequests(), expMsgs)
 
 			// For non-empty testcases, validate progress file & data capture file existences.
 			if len(tc.toSend) > 0 {
-				// TODO: Validate progress file exists for non-empty test cases.
+				// Validate progress file exists for non-empty test cases.
 				_, err = os.Stat(progressFile)
 				test.That(t, err, test.ShouldBeNil)
 
-				// TODO: Validate data capture file exists.
+				// Validate data capture file exists.
 				_, err = os.Stat(f.Name())
 				test.That(t, err, test.ShouldBeNil)
 			}
 
-			// Restart (and get rid of cancel context)
+			// Restart the server and register the service.
 			mockService = getMockService()
 			mockService.setMockServiceAfterCancel(tc)
 			rpcServer = buildAndStartLocalServer(t, logger, mockService)
@@ -468,15 +468,15 @@ func TestPartialUpload(t *testing.T) {
 			time.Sleep(syncWaitTime)
 			sut.Close()
 
-			// TODO: validate mockService.getUploadRequests for indexes tc.maxUploadRetryAttempts:
+			// Validate client sent mockService the upload requests we would expect after resuming upload.
 			expMsgs = buildSensorDataUploadRequests(tc.expReceivedDataAfterCancel, tc.dataType, f.Name())
 			compareUploadRequests(t, true, mockService.getUploadRequests(), expMsgs)
 
-			// TODO: Validate progress file does not exist.
-			_, err = os.Stat(filepath.Join(viamProgressDotDir, filepath.Base(f.Name())))
+			// Validate progress file does not exist.
+			_, err = os.Stat(progressFile)
 			test.That(t, err, test.ShouldNotBeNil)
 
-			// TODO: Validate data capture file does not exist.
+			// Validate data capture file does not exist.
 			_, err = os.Stat(f.Name())
 			test.That(t, err, test.ShouldNotBeNil)
 		})
