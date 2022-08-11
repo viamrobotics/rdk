@@ -67,8 +67,8 @@ func readDepthURL(ctx context.Context, client http.Client, url string) (*rimage.
 		return nil, errors.Wrap(err, "couldn't ready depth url")
 	}
 	// do this first and make sure ok before creating any mats
-	// both and dat.gz files are deprecated, will be able to remove these soon.
-	if strings.HasSuffix(url, "dat") || strings.HasSuffix(url, "dat.gz") || strings.HasSuffix(url, "both") {
+	// dat.gz files are deprecated, will be able to remove these soon.
+	if strings.HasSuffix(url, "dat") || strings.HasSuffix(url, "dat.gz") {
 		return decodeDepth(depthData)
 	}
 	img, err := decodeImage(depthData)

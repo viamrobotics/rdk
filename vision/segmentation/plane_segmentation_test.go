@@ -64,9 +64,7 @@ func TestSegmentPlane(t *testing.T) {
 	// Principal Point         : 542.078, 398.016
 	// Focal Length            : 734.938, 735.516
 	// get depth map
-	_, d, err := rimage.ReadBothFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"))
-	test.That(t, err, test.ShouldBeNil)
-
+	d, err := rimage.NewDepthMapFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Pixel to Meter
@@ -98,9 +96,7 @@ func TestSegmentPlane(t *testing.T) {
 }
 
 func TestDepthMapToPointCloud(t *testing.T) {
-	_, d, err := rimage.ReadBothFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"))
-	test.That(t, err, test.ShouldBeNil)
-
+	d, err := rimage.NewDepthMapFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
 	test.That(t, err, test.ShouldBeNil)
 	pixel2meter := 0.001
 	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
@@ -115,11 +111,11 @@ func TestDepthMapToPointCloud(t *testing.T) {
 }
 
 func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
-	rgb, d, err := rimage.ReadBothFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"))
+	rgb, err := rimage.NewImageFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036_color.png"))
+	test.That(t, err, test.ShouldBeNil)
+	d, err := rimage.NewDepthMapFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
 	test.That(t, err, test.ShouldBeNil)
 	h, w := rgb.Height(), rgb.Width()
-
-	test.That(t, err, test.ShouldBeNil)
 
 	// Pixel to Meter
 	pixel2meter := 0.001
@@ -163,7 +159,7 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 }
 
 func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
-	_, d, err := rimage.ReadBothFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"))
+	d, err := rimage.NewDepthMapFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
 	test.That(b, err, test.ShouldBeNil)
 
 	// Pixel to Meter
