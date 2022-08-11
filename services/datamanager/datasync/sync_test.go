@@ -414,42 +414,40 @@ func TestPartialUpload(t *testing.T) {
 	// msg6 := toProto(anyStruct{Field1: true, Field2: 2020, Field3: "viam"})
 
 	tests := []struct {
-		name                        string
-		sendAckEveryNMessages       int
-		sendCancelCtxAfterNMessages int
-		dataType                    v1.DataType
-		toSend                      []*v1.SensorData
-		expUploadResponsesBefore    []*v1.UploadResponse
-		expUploadResponsesAfter     []*v1.UploadResponse
+		name                             string
+		sendAckEveryNSensorDataMessages  int
+		sendCancelCtxAfterNTotalMessages int
+		dataType                         v1.DataType
+		toSend                           []*v1.SensorData
+		expReceivedDataBeforeCancel      [][]byte
+		expReceivedDataAfterCancel       [][]byte
 	}{
 		{
 			// TODO: add expected upload requests
 			name: `Binary upload of non-empty file should upload until it is cancelled and then resume on subsequent 
 			start up of the service. When resumed, it should proceed from the point at which it left off (determined by 
-			progress file on disk). This case uses cancel ctx and should not send ACKs at regular intervals.`,
-			sendAckEveryNMessages:       -1,
-			sendCancelCtxAfterNMessages: 2,
-			dataType:                    v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			toSend:                      createBinarySensorData([][]byte{msg1, msg2, msg3}),
-			expUploadResponsesBefore:    []*v1.UploadResponse{{RequestsWritten: 2}},
-			expUploadResponsesAfter:     []*v1.UploadResponse{},
+			progress file on disk).`,
+			sendAckEveryNSensorDataMessages:  2,
+			sendCancelCtxAfterNTotalMessages: 4,
+			dataType:                         v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			toSend:                           createBinarySensorData([][]byte{msg1, msg2, msg3, msg1, msg2}),
+			expReceivedDataBeforeCancel:      [][]byte{msg1, msg2},
+			expReceivedDataAfterCancel:       [][]byte{msg3, msg1, msg2},
 		},
-		{
-			name: "Binary upload of empty file should not upload anything when it is started nor if it " +
-				"is resumed.",
-			sendAckEveryNMessages:       -1,
-			sendCancelCtxAfterNMessages: -1,
-			dataType:                    v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			toSend:                      []*v1.SensorData{},
-			expUploadResponsesBefore:    []*v1.UploadResponse{},
-			expUploadResponsesAfter:     []*v1.UploadResponse{},
-		},
+		// {
+		// 	name: "Binary upload of empty file should not upload anything when it is started nor if it " +
+		// 		"is resumed.",
+		// 	sendAckEveryNSensorDataMessages:  -1,
+		// 	sendCancelCtxAfterNTotalMessages: -1,
+		// 	dataType:                         v1.DataType_DATA_TYPE_BINARY_SENSOR,
+		// 	toSend:                           []*v1.SensorData{},
+		// },
 		// {
 		// 	name: `Tabular upload of non-empty file should upload until it is cancelled and then resume on subsequent
 		// 	start up of the service. When resumed, it should proceed from the point at which it left off (determined by
 		// 	progress file on disk). This case uses cancel ctx and should send ACKs at regular intervals.`,
-		// 	sendAckEveryNMessages:       3,
-		// 	sendCancelCtxAfterNMessages: 5,
+		// 	sendAckEveryNSensorDataMessages:       3,
+		// 	sendCancelCtxAfterNTotalMessages: 5,
 		// 	dataType:                    v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 		// 	toSend: createTabularSensorData([]*structpb.Struct{msg4, msg5, msg6, msg4, msg5,
 		// 		msg6, msg4, msg5}),
@@ -460,8 +458,8 @@ func TestPartialUpload(t *testing.T) {
 		// 	name: "Tabular upload of empty file should not upload anything when it is started nor if it " +
 		// 		"is resumed.",
 		// 	toSend:                      createTabularSensorData([]*structpb.Struct{}),
-		// 	sendAckEveryNMessages:       1,
-		// 	sendCancelCtxAfterNMessages: -1,
+		// 	sendAckEveryNSensorDataMessages:       1,
+		// 	sendCancelCtxAfterNTotalMessages: -1,
 		// 	dataType:                    v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 		// },
 	}
@@ -494,11 +492,14 @@ func TestPartialUpload(t *testing.T) {
 
 			// Stand up mock server.
 			// Register mock datasync service with a mock server.
+			cancelChannel := make(chan bool)
 			logger, _ := golog.NewObservedTestLogger(t)
 			mockService := getMockService()
+			mockService.cancelChannel = cancelChannel
 			mockService.shouldNotRetryUpload = true
-			mockService.sendAckEveryNMessages = tc.sendAckEveryNMessages
-			mockService.sendCancelCtxAfterNMessages = tc.sendCancelCtxAfterNMessages
+			mockService.sendAckEveryNSensorDataMessages = tc.sendAckEveryNSensorDataMessages
+			mockService.sendCancelCtxAfterNTotalMessages = tc.sendCancelCtxAfterNTotalMessages
+			mockService.messagesPersisted = 0
 			rpcServer := buildAndStartLocalServer(t, logger, mockService)
 			defer func() {
 				err := rpcServer.Stop()
@@ -510,26 +511,36 @@ func TestPartialUpload(t *testing.T) {
 			client := NewClient(conn)
 			sut, err := NewManager(logger, partID, client, conn)
 			test.That(t, err, test.ShouldBeNil)
+			go func() {
+				<-cancelChannel
+				t.Log("Attempting to close sync manager.")
+				sut.Close()
+				t.Log("Closed sync manager.")
+			}()
 			sut.Sync([]string{f.Name()})
+			t.Log("Syncing started.")
 			time.Sleep(syncWaitTime)
-			sut.Close()
 
 			// TODO: validate mockService.getUploadRequests for indexes 0:tc.maxUploadRetryAttempts
-			var sensorDataExpectedToSend []*v1.SensorData
-			if mockService.sendCancelCtxAfterNMessages != -1 {
-				sensorDataExpectedToSend = tc.toSend[0 : mockService.sendCancelCtxAfterNMessages-1]
-			} else {
-				sensorDataExpectedToSend = tc.toSend
-			}
-			expMsgs := buildUploadRequests(sensorDataExpectedToSend, tc.dataType, f.Name())
+			expMsgs := buildBinaryUploadRequests(tc.expReceivedDataBeforeCancel, f.Name())
 			compareUploadRequests(t, true, mockService.getUploadRequests(), expMsgs)
-			compareUploadResponses(t, mockService.getUploadResponses(), tc.expUploadResponsesBefore)
+
+			// TODO: Validate progress file exists.
+			_, err = os.Stat(filepath.Join(viamProgressDotDir, filepath.Base(f.Name())))
+			test.That(t, err, test.ShouldBeNil)
+
+			// TODO: Validate data capture file exists.
+			_, err = os.Stat(f.Name())
+			test.That(t, err, test.ShouldBeNil)
+
+			t.Log("Made it through half of the test case!")
 
 			// Restart (and get rid of cancel context)
 			mockService = getMockService()
 			mockService.shouldNotRetryUpload = true
-			mockService.sendAckEveryNMessages = tc.sendAckEveryNMessages
-			mockService.sendCancelCtxAfterNMessages = math.MaxInt
+			mockService.sendAckEveryNSensorDataMessages = tc.sendAckEveryNSensorDataMessages
+			mockService.sendCancelCtxAfterNTotalMessages = math.MaxInt
+			mockService.messagesPersisted = 0
 			rpcServer = buildAndStartLocalServer(t, logger, mockService)
 			defer func() {
 				err := rpcServer.Stop()
@@ -545,16 +556,14 @@ func TestPartialUpload(t *testing.T) {
 			sut.Close()
 
 			// TODO: validate mockService.getUploadRequests for indexes tc.maxUploadRetryAttempts:
-			if tc.sendCancelCtxAfterNMessages != -1 {
-				sensorDataExpectedToSend = tc.toSend[tc.sendCancelCtxAfterNMessages-1:]
-				expMsgs = buildUploadRequests(sensorDataExpectedToSend, tc.dataType, f.Name())
-			} else {
-				expMsgs = buildUploadRequests(tc.toSend, tc.dataType, f.Name())
-			}
+			expMsgs = buildBinaryUploadRequests(tc.expReceivedDataAfterCancel, f.Name())
 			compareUploadRequests(t, true, mockService.getUploadRequests(), expMsgs)
-			compareUploadResponses(t, mockService.getUploadResponses(), tc.expUploadResponsesAfter)
 
-			// TODO: Validate progress files does not exist.
+			// TODO: Validate progress file does not exist.
+			_, err = os.Stat(filepath.Join(viamProgressDotDir, filepath.Base(f.Name())))
+			test.That(t, err, test.ShouldNotBeNil)
+
+			// TODO: Validate data capture file does not exist.
 			_, err = os.Stat(f.Name())
 			test.That(t, err, test.ShouldNotBeNil)
 		})
