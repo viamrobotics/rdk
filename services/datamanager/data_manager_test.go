@@ -36,7 +36,7 @@ const (
 
 var (
 	// Robot config which specifies data manager service.
-	configPath = "robots/configs/fake_data_manager.json"
+	configPath = "robots/configs/fake_robot_with_data_manager.json"
 
 	// 0.0041 mins is 246 milliseconds, this is the interval waiting time in the config file used for testing.
 	configSyncIntervalMins = 0.0041
@@ -125,7 +125,7 @@ func setupConfig(t *testing.T, relativePath string) *config.Config {
 
 func TestNewDataManager(t *testing.T) {
 	dmsvc := newTestDataManager(t, "arm1", "")
-	testCfg := setupConfig(t, "robots/configs/fake_robot_with_data_manager.json")
+	testCfg := setupConfig(t, configPath)
 
 	// Empty config at initialization.
 	captureDir := "/tmp/capture"
@@ -161,7 +161,7 @@ func TestCaptureDisabled(t *testing.T) {
 	captureDir := "/tmp/capture"
 	dmsvc := newTestDataManager(t, "arm1", "")
 	// Set capture parameters in Update.
-	testCfg := setupConfig(t, "robots/configs/fake_robot_with_data_manager.json")
+	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -458,7 +458,6 @@ func TestScheduledSync(t *testing.T) {
 		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
 	}
 	// Use config with 250ms sync interval.
-	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
@@ -510,7 +509,6 @@ func TestManualAndScheduledSync(t *testing.T) {
 	if err != nil {
 		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
 	}
-	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
@@ -610,7 +608,6 @@ func TestSyncDisabled(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	}()
 
-	configPath := "robots/configs/fake_data_manager.json"
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
