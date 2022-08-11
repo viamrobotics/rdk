@@ -171,7 +171,6 @@ type dataManagerService struct {
 	clientConn                    *rpc.ClientConn
 }
 
-//var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 var (
 	viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 	viamModelDotDir   = filepath.Join(os.Getenv("HOME"), "models", ".viam")
@@ -776,7 +775,16 @@ func getModelsToDownload(models []*Model) []*Model {
 			modelsToDownload = append(modelsToDownload, model)
 		} else if err != nil {
 			panic("can't access files: " + err.Error()) // better thing to do?
-		}
+		} // this is where the exrta logic needs to go
+		// need to instantiate dotdir here?
+		// the os.Mkdir command will have to be broken up into multiple commands
+		// one for each extra dir that is created
+		// os.Mkdir(model.Destination+"/"+model.Name+"/."+model.Name, os.ModePerm)
+		res := filepath.Join(model.Destination, model.Name)
+		os.Mkdir(res, os.ModePerm)
+		res = filepath.Join(res, "."+model.Name)
+		os.Mkdir(res, os.ModePerm)
+
 	}
 	return modelsToDownload
 }
