@@ -37,6 +37,14 @@ func TestFrame(t *testing.T) {
 	}
 	test.That(t, frame, test.ShouldResemble, exp)
 
+	// test going back to json and validating.
+	rd, err := json.Marshal(&frame)
+	test.That(t, err, test.ShouldBeNil)
+	frame2 := Frame{}
+	err = json.Unmarshal(rd, &frame2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, frame2, test.ShouldResemble, exp)
+
 	pose := frame.Pose()
 	expPose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, exp.Orientation)
 	test.That(t, pose, test.ShouldResemble, expPose)
