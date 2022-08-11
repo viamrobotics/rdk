@@ -140,6 +140,8 @@ func getFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 				return defaultFileExt
 			}
 		}
+	case v1.DataType_DATA_TYPE_UNSPECIFIED:
+		return defaultFileExt
 	default:
 		return defaultFileExt
 	}
