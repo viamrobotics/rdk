@@ -36,10 +36,10 @@ type HallEncoder struct {
 	position         int64
 	pRaw             int64
 	pState           int64
-	ticksPerRotation int64
+	Tpr				 int64
 
 	logger                  golog.Logger
-	cancelCtx               context.Context
+	CancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 
@@ -49,19 +49,19 @@ type HallEncoder struct {
 // NewHallEncoder creates a new HallEncoder.
 func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (*HallEncoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	e := &HallEncoder{logger: logger, cancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0, pRaw: 0, pState: 0}
+	e := &HallEncoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0, pRaw: 0, pState: 0}
 	if cfg, ok := config.ConvertedAttributes.(*Config); ok {
 		if cfg.BoardName == "" {
 			return nil, errors.New("HallEncoder expected non-empty string for board")
 		}
 		pinA := cfg.Pins["a"]
 		a, ok := pinA.(string)
-		if !ok{
+		if !ok {
 			return nil, errors.New("HallEncoder pin configuration expects non-empty string for a")
 		}
 		pinB := cfg.Pins["b"]
 		b, ok := pinB.(string)
-		if !ok{
+		if !ok {
 			return nil, errors.New("HallEncoder pin configuration expects non-empty string for b")
 		}
 
@@ -73,13 +73,12 @@ func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config conf
 		e.A, _ = board.DigitalInterruptByName(a)
 		e.B, _ = board.DigitalInterruptByName(b)
 
-		e.ticksPerRotation = int64(cfg.TicksPerRotation)
-	
+		e.Tpr = int64(cfg.TicksPerRotation)
+
 		return e, nil
-	} else {
-		return nil, errors.New("encoder config for HallEncoder is not valid")
 	}
 
+	return nil, errors.New("encoder config for HallEncoder is not valid")
 }
 
 // Start starts the HallEncoder background thread.
@@ -142,7 +141,7 @@ func (e *HallEncoder) Start(ctx context.Context, onStart func()) {
 		onStart()
 		for {
 			select {
-			case <-e.cancelCtx.Done():
+			case <-e.CancelCtx.Done():
 				return
 			default:
 			}
@@ -150,7 +149,7 @@ func (e *HallEncoder) Start(ctx context.Context, onStart func()) {
 			var level bool
 
 			select {
-			case <-e.cancelCtx.Done():
+			case <-e.CancelCtx.Done():
 				return
 			case level = <-chanA:
 				aLevel = 0
@@ -207,7 +206,7 @@ func (e *HallEncoder) ResetToZero(ctx context.Context, offset int64, extra map[s
 
 // TicksPerRotation returns the number of ticks needed for a full rotation.
 func (e *HallEncoder) TicksPerRotation(ctx context.Context) (int64, error) {
-	return atomic.LoadInt64(&e.ticksPerRotation), nil
+	return atomic.LoadInt64(&e.Tpr), nil
 }
 
 // RawPosition returns the raw position of the encoder.

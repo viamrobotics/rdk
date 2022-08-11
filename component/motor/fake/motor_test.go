@@ -7,8 +7,8 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/component/motor"
 	fakeencoder "go.viam.com/rdk/component/encoder/fake"
+	"go.viam.com/rdk/component/motor"
 )
 
 func TestMotorInit(t *testing.T) {
@@ -42,7 +42,7 @@ func TestGoFor(t *testing.T) {
 		MaxRPM:            60,
 	}
 
-	m.Encoder.Start(ctx, func(){})
+	m.Encoder.Start(ctx, func() {})
 	err := m.GoFor(ctx, 60, 1, nil)
 	test.That(t, err, test.ShouldBeNil)
 }

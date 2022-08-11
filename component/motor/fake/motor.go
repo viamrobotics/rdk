@@ -62,7 +62,7 @@ func init() {
 					m.PositionReporting = true
 
 					m.Encoder = &fakeencoder.Encoder{}
-					m.Encoder.Start(ctx, func(){})
+					m.Encoder.Start(ctx, func() {})
 				} else {
 					m.PositionReporting = false
 				}
@@ -77,21 +77,19 @@ func init() {
 
 var _ motor.LocalMotor = &Motor{}
 
-
 // A Motor allows setting and reading a set power percentage and
 // direction.
 type Motor struct {
-	Name                    string
-	mu                      sync.Mutex
-	powerPct                float64
-	Board                   string
-	PWM                     board.GPIOPin
-	PositionReporting       bool
-	Logger                  golog.Logger
-	Encoder                 *fakeencoder.Encoder
-	MaxRPM                  float64
-	activeBackgroundWorkers sync.WaitGroup
-	opMgr                   operation.SingleOperationManager
+	Name              string
+	mu                sync.Mutex
+	powerPct          float64
+	Board             string
+	PWM               board.GPIOPin
+	PositionReporting bool
+	Logger            golog.Logger
+	Encoder           *fakeencoder.Encoder
+	MaxRPM            float64
+	opMgr             operation.SingleOperationManager
 	generic.Echo
 }
 
@@ -140,7 +138,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 		if m.MaxRPM == 0 {
 			return errors.New("not supported, define max_rpm attribute != 0")
 		}
-		
+
 		tpr, err := m.Encoder.TicksPerRotation(ctx)
 		if err != nil {
 			return err
@@ -286,7 +284,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64, extra map[st
 		if err != nil {
 			return err
 		}
-		
+
 		tpr, err := m.Encoder.TicksPerRotation(ctx)
 		if err != nil {
 			return err

@@ -28,6 +28,7 @@ func init() {
 		) (interface{}, error) {
 			return NewEncoder(ctx, deps, config, logger)
 		}})
+	encoder.RegisterConfigAttributeConverter("arduino")
 }
 
 // NewEncoder creates a new HallEncoder.
@@ -74,8 +75,8 @@ type Encoder struct {
 
 // EncoderPins defines the format the pin config should be in for Encoder.
 type EncoderPins struct {
-	A string	`json:"a"`
-	B string	`json:"b"`
+	A string `json:"a"`
+	B string `json:"b"`
 }
 
 // EncoderConfig describes the config of an arduino Encoder.
@@ -87,7 +88,7 @@ type EncoderConfig struct {
 	TicksPerRotation int `json:"ticks_per_rotation"`
 }
 
-// GetTicksCount returns number of ticks since last zeroing
+// GetTicksCount returns number of ticks since last zeroing.
 func (e *Encoder) GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	res, err := e.board.runCommand("motor-position " + e.name)
 	if err != nil {
@@ -102,15 +103,16 @@ func (e *Encoder) GetTicksCount(ctx context.Context, extra map[string]interface{
 	return ticks, nil
 }
 
-// ResetToZero resets the counted ticks to 0
+// ResetToZero resets the counted ticks to 0.
 func (e *Encoder) ResetToZero(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	_, err := e.board.runCommand(fmt.Sprintf("motor-zero %s %d", e.name, offset))
 	return err
 }
 
-// TicksPerRotation returns the number of ticks needed for a full rotation
+// TicksPerRotation returns the number of ticks needed for a full rotation.
 func (e *Encoder) TicksPerRotation(ctx context.Context) (int64, error) {
 	return e.ticksPerRotation, nil
 }
 
+// Start doesn't do anything for arduino encoder.
 func (e *Encoder) Start(ctx context.Context, onStart func()) {}
