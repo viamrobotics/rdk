@@ -3,7 +3,6 @@ package camera
 
 import (
 	"context"
-	"fmt"
 	"image"
 	"sync"
 
@@ -50,14 +49,8 @@ func init() {
 		MethodName: nextPointCloud.String(),
 	}, newNextPointCloudCollector)
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:      SubtypeName,
-		ParamsString: fmt.Sprintf("map[mime_type:%s]", utils.MimeTypeJPEG),
-		MethodName:   next.String(),
-	}, newNextCollector)
-	data.RegisterCollector(data.MethodMetadata{
-		Subtype:      SubtypeName,
-		ParamsString: fmt.Sprintf("map[mime_type:%s]", utils.MimeTypePNG),
-		MethodName:   next.String(),
+		Subtype:    SubtypeName,
+		MethodName: next.String(),
 	}, newNextCollector)
 }
 

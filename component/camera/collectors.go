@@ -64,14 +64,17 @@ func newNextCollector(resource interface{}, params data.CollectorParams) (data.C
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO[DATA-311]: Support all mime types.
+	// choose the best/fastest representation
 	mimeType := params.MethodParams["mime_type"]
-	if mimeType != utils.MimeTypeJPEG && mimeType != utils.MimeTypePNG {
-		return nil, data.InvalidParametersErr(params.MethodParams)
+	if mimeType == "" || mimeType == utils.MimeTypeViamBest {
+		// TODO: Potentially log the actual mime type at collector instantiation or include in response.
+		mimeType = utils.MimeTypeRawRGBA
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
+		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::Next")
+		defer span.End()
+
 		img, release, err := camera.Next(ctx)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, next.String(), err)
