@@ -3,6 +3,7 @@ package datamanager
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -108,6 +109,7 @@ const defaultCaptureBufferSize = 4096
 // Attributes to initialize the collector for a component or remote.
 type dataCaptureConfig struct {
 	Name               string               `json:"name"`
+	Model              string               `json:"model"`
 	Type               resource.SubtypeName `json:"type"`
 	Method             string               `json:"method"`
 	CaptureFrequencyHz float32              `json:"capture_frequency_hz"`
@@ -207,9 +209,12 @@ type collectorAndConfig struct {
 	Attributes dataCaptureConfig
 }
 
-// Identifier for a particular collector: component name, component type, and method name.
+// Identifier for a particular collector: component name, component model, component type,
+// method parameters, and method name.
 type componentMethodMetadata struct {
 	ComponentName  string
+	ComponentModel string
+	MethodParams   string
 	MethodMetadata data.MethodMetadata
 }
 
@@ -232,13 +237,16 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		Subtype:    attributes.Type,
 		MethodName: attributes.Method,
 	}
+
 	componentMetadata := componentMethodMetadata{
 		ComponentName:  attributes.Name,
+		ComponentModel: attributes.Model,
+		MethodParams:   fmt.Sprintf("%v", attributes.AdditionalParams),
 		MethodMetadata: metadata,
 	}
 	// Build metadata.
-	syncMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
-		attributes.Method, attributes.AdditionalParams)
+	captureMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
+		attributes.Model, attributes.Method, attributes.AdditionalParams)
 
 	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
 		collector := storedCollectorParams.Collector
@@ -247,7 +255,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		// If the attributes have not changed, keep the current collector and update the target capture file if needed.
 		if reflect.DeepEqual(previousAttributes, attributes) {
 			if updateCaptureDir {
-				targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, syncMetadata)
+				targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
 				if err != nil {
 					return nil, err
 				}
@@ -291,7 +299,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
-	targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, syncMetadata)
+	targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -390,10 +398,10 @@ func (svc *dataManagerService) syncDataCaptureFiles() {
 	for _, collector := range svc.collectors {
 		// Create new target and set it.
 		attributes := collector.Attributes
-		syncMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
-			attributes.Method, attributes.AdditionalParams)
+		captureMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
+			attributes.Model, attributes.Method, attributes.AdditionalParams)
 
-		nextTarget, err := datacapture.CreateDataCaptureFile(svc.captureDir, syncMetadata)
+		nextTarget, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
 		if err != nil {
 			svc.logger.Errorw("failed to create new data capture file", "error", err)
 		}
@@ -471,7 +479,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		return nil
 	}
 
-	allComponentAttributes, err := getAllDataCaptureConfigs(cfg)
+	allComponentAttributes, err := buildDataCaptureConfigs(cfg)
 	if err != nil {
 		return err
 	}
@@ -661,8 +669,8 @@ func getAttrsFromServiceConfig(resourceSvcConfig config.ResourceLevelServiceConf
 	return *convertedConfigs, nil
 }
 
-// Get the component configs associated with the data manager service.
-func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
+// Build the component configs associated with the data manager service.
+func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	var componentDataCaptureConfigs []dataCaptureConfig
 	for _, c := range cfg.Components {
 		// Iterate over all component-level service configs of type data_manager.
@@ -675,6 +683,7 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 
 				for _, attrs := range attrs.Attributes {
 					attrs.Name = c.Name
+					attrs.Model = c.Model
 					attrs.Type = c.Type
 					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
 				}
