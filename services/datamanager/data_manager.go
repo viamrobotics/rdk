@@ -81,14 +81,6 @@ const SubtypeName = resource.SubtypeName("data_manager")
 
 const dataManagerName = "data_manager"
 
-// FindDataManagerName Returns name of first data_manager service found.
-func FindDataManagerName(r robot.Robot) string {
-	for _, val := range robot.NamesBySubtype(r, Subtype) {
-		return val
-	}
-	return ""
-}
-
 // Subtype is a constant that identifies the data manager service resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
@@ -179,6 +171,33 @@ func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger
 	}
 
 	return dataManagerSvc, nil
+}
+
+// FromRobot retrieves the sensor service of a robot.
+func FromRobot(r robot.Robot, name string) (Service, error) {
+	resource, err := r.ResourceByName(Named(name))
+	if err != nil {
+		return nil, err
+	}
+	svc, ok := resource.(Service)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("data_manager.Service", resource)
+	}
+	return svc, nil
+}
+
+// FindFirstName Returns name of first vision service found.
+func FindFirstName(r robot.Robot) string {
+	for _, val := range robot.NamesBySubtype(r, Subtype) {
+		return val
+	}
+	return ""
+}
+
+// FirstFromRobot Returns the first service in this robot
+func FirstFromRobot(r robot.Robot) (Service, error) {
+	name := FindFirstName(r)
+	return FromRobot(r, name)
 }
 
 // Close releases all resources managed by data_manager.
