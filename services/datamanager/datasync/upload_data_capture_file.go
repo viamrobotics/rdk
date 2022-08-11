@@ -42,7 +42,6 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	}
 
 	cancelCtx, cancelFn := context.WithCancel(ctx)
-
 	var activeBackgroundWorkers sync.WaitGroup
 
 	retRecvUploadResponse := make(chan error, 1)
@@ -53,18 +52,22 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		for {
 			select {
 			case <-cancelCtx.Done():
+				retRecvUploadResponse <- cancelCtx.Err()
 				cancelFn()
-			case <-ctx.Done():
-				retRecvUploadResponse <- ctx.Err()
 				return
 			default:
 				ur, err := stream.Recv()
+				if errors.Is(err, io.EOF) {
+					return
+				}
 				if err != nil {
 					retRecvUploadResponse <- err
+					cancelFn()
 					return
 				}
 				if err := pt.updateProgressFileIndex(progressFileName, int(ur.GetRequestsWritten())); err != nil {
 					retRecvUploadResponse <- err
+					cancelFn()
 					return
 				}
 			}
@@ -84,11 +87,10 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		for {
 			select {
 			case <-cancelCtx.Done():
-				cancelFn()
-			case <-ctx.Done():
-				if ctx.Err() != nil {
-					retSendingUploadReqs <- ctx.Err()
+				if cancelCtx.Err() != nil {
+					retSendingUploadReqs <- cancelCtx.Err()
 				}
+				cancelFn()
 				return
 			default:
 				// Get the next UploadRequest from the file.
@@ -107,11 +109,13 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 				}
 				if err != nil {
 					retSendingUploadReqs <- err
+					cancelFn()
 					return
 				}
 
 				if err = stream.Send(uploadReq); err != nil {
 					retSendingUploadReqs <- err
+					cancelFn()
 					return
 				}
 			}
@@ -119,7 +123,7 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	}()
 	activeBackgroundWorkers.Wait()
 
-	if err := <-retRecvUploadResponse; err != nil && !errors.Is(err, io.EOF) {
+	if err := <-retRecvUploadResponse; err != nil {
 		return errors.Errorf("Error when trying to recv UploadResponse from server: %v", err)
 	}
 	if err := <-retSendingUploadReqs; err != nil {
