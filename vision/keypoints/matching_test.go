@@ -127,7 +127,7 @@ func TestGetMatchingKeyPoints(t *testing.T) {
 	test.That(t, len(kps1), test.ShouldEqual, len(kps2))
 	for i, pt1 := range kps1 {
 		pt2 := kps2[i]
-		// test.That(t, pt1, test.ShouldResemble, pt2)
+		println(math.Abs(float64(pt1.X - pt2.X)))
 		test.That(t, math.Abs(float64(pt1.X-pt2.X)), test.ShouldBeLessThan, 1)
 		test.That(t, math.Abs(float64(pt1.Y-pt2.Y)), test.ShouldBeLessThan, 1)
 	}
