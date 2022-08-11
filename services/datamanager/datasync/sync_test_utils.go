@@ -336,7 +336,6 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 			(*m.lock).Unlock()
 			m.cancelChannel <- true
 		}
-
 	}
 	return nil
 }
