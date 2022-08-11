@@ -10,9 +10,10 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
-	"github.com/viamrobotics/app/datasync"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -395,7 +396,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 		},
 		{
 			name:             "Non-retryable errors should not be retried",
-			err:              datasync.ErrInvalidRequest,
+			err:              status.Error(codes.InvalidArgument, "bad"),
 			waitTime:         time.Millisecond * 300,
 			expCallCount:     1,
 			shouldStillExist: true,
