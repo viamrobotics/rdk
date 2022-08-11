@@ -285,6 +285,8 @@ func InvalidInterfaceErr(typeName resource.SubtypeName) error {
 	return errors.Errorf("passed interface does not conform to expected resource type %s", typeName)
 }
 
+// InvalidParametersErr is the error describing when parameters are passed to a CollectorConstructor
+// that are not supported for the component.
 func InvalidParametersErr(parameters map[string]string) error {
 	return errors.Errorf("passed parameters %v are not supported by collectors", parameters)
 }
