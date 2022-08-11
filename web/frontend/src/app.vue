@@ -635,9 +635,9 @@ export default {
       inputControllerService.triggerEvent(req, {}, this.grpcCallback);
     },
     killOp(id) {
-      const req = new robotApi.KillOperationRequest();
+      const req = new robotApi.CancelOperationRequest();
       req.setId(id);
-      window.robotService.killOperation(req, {}, this.grpcCallback);
+      window.robotService.cancelOperation(req, {}, this.grpcCallback);
     },
     baseKeyboardCtl(name, controls) {
       if (Object.values(controls).every((item) => item === false)) {
@@ -1216,7 +1216,6 @@ export default {
           for (const op of this.currentOps) {
             op.elapsed = now - (op.started.seconds * 1000);
           }
-
           resolve(this.currentOps);
         });
       });
