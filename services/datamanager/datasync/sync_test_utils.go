@@ -25,11 +25,10 @@ import (
 )
 
 var (
-	partID         = "partid"
-	componentType  = "componenttype"
-	componentName  = "componentname"
-	componentModel = "componentmodel"
-	methodName     = "methodname"
+	partID        = "partid"
+	componentType = "componenttype"
+	componentName = "componentname"
+	methodName    = "methodname"
 )
 
 // Compares UploadRequests containing either binary or tabular sensor data.
