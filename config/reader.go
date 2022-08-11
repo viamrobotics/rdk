@@ -262,15 +262,13 @@ func readFromCache(id string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer utils.UncheckedErrorFunc(r.Close)
 
 	unprocessedConfig := &Config{
 		ConfigFilePath: "",
 	}
-	bytes, err := ioutil.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-	if err := json.Unmarshal(bytes, unprocessedConfig); err != nil {
+
+	if err := json.NewDecoder(r).Decode(unprocessedConfig); err != nil {
 		return nil, errors.Wrap(err, "cannot parse cloud config")
 	}
 	return unprocessedConfig, nil
@@ -527,7 +525,7 @@ func FromReader(
 	}
 
 	if cfgFromDisk.Cloud != nil {
-		cfg, _, err := readFromCloud(ctx, cfgFromDisk, true /* shouldReadFromCache */, true /* checkForCert*/, logger)
+		cfg, _, err := readFromCloud(ctx, cfgFromDisk, true, true, logger)
 		return cfg, err
 	}
 
