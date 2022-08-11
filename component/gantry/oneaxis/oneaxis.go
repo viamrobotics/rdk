@@ -357,7 +357,7 @@ func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	high, err := pin.Get(ctx)
+	high, err := pin.Get(ctx, nil)
 
 	return high == g.limitHigh, err
 }
