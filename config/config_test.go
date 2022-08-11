@@ -18,9 +18,9 @@ import (
 	"go.viam.com/rdk/component/board"
 	// board attribute converters.
 	_ "go.viam.com/rdk/component/board/fake"
-	"go.viam.com/rdk/component/motor"
 	// motor attribute converters.
 	"go.viam.com/rdk/component/encoder"
+	"go.viam.com/rdk/component/motor"
 	_ "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
@@ -56,7 +56,7 @@ func TestConfig3(t *testing.T) {
 	cfg, err := config.Read(context.Background(), "data/config3.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(cfg.Components), test.ShouldEqual, 3)
+	test.That(t, len(cfg.Components), test.ShouldEqual, 4)
 	test.That(t, cfg.Components[0].Attributes.Int("foo", 0), test.ShouldEqual, 5)
 	test.That(t, cfg.Components[0].Attributes.Bool("foo2", false), test.ShouldEqual, true)
 	test.That(t, cfg.Components[0].Attributes.Bool("foo3", false), test.ShouldEqual, false)
@@ -93,7 +93,7 @@ func TestConfig3(t *testing.T) {
 		MaxPowerPct:      0.5,
 	})
 	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &encoder.Config{
-		Pins: map[string]interface {}{
+		Pins: map[string]interface{}{
 			"a": "encoder-steering-b",
 			"b": "encoder-steering-a",
 		},

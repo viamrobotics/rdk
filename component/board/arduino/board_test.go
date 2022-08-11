@@ -171,7 +171,7 @@ func TestArduinoPWM(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			ecfg := tc.conf.Components[1].ConvertedAttributes.(*EncoderConfig)
-			ePins := ecfg.Pins.(*EncoderPins)
+			ePins := ecfg.Pins
 
 			_, err = configureMotorForBoard(
 				ctx,
@@ -254,7 +254,7 @@ func TestArduinoMotorABPWM(t *testing.T) {
 	defer b.Close()
 
 	ecfg := cfg.Components[1].ConvertedAttributes.(*EncoderConfig)
-	ePins := ecfg.Pins.(*EncoderPins)
+	ePins := ecfg.Pins
 
 	m, err := configureMotorForBoard(
 		context.Background(),
@@ -313,7 +313,7 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 	defer b.Close()
 
 	ecfg := cfg.Components[1].ConvertedAttributes.(*EncoderConfig)
-	ePins := ecfg.Pins.(*EncoderPins)
+	ePins := ecfg.Pins
 
 	m, err := configureMotorForBoard(
 		context.Background(),
@@ -372,7 +372,7 @@ func TestArduinoMotorAB(t *testing.T) {
 	defer b.Close()
 
 	ecfg := cfg.Components[1].ConvertedAttributes.(*EncoderConfig)
-	ePins := ecfg.Pins.(*EncoderPins)
+	ePins := ecfg.Pins
 
 	m, err := configureMotorForBoard(
 		context.Background(),

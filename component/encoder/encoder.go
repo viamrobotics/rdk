@@ -1,4 +1,4 @@
-// package encoder implements the encoder component
+// Package encoder implements the encoder component
 package encoder
 
 import (
@@ -8,12 +8,12 @@ import (
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/generic"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/config"
 )
 
 func init() {
@@ -170,10 +170,10 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 
 // Config describes the configuration of an encoder.
 type Config struct {
-	Pins      map[string]interface {} 	  	`json:"pins"`
-	BoardName string      					`json:"board"`
+	Pins      map[string]interface{} `json:"pins"`
+	BoardName string                 `json:"board"`
 
-	TicksPerRotation int 					`json:"ticks_per_rotation"`
+	TicksPerRotation int `json:"ticks_per_rotation"`
 }
 
 // RegisterConfigAttributeConverter registers a Config converter.

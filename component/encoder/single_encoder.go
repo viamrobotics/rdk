@@ -42,10 +42,10 @@ type SingleEncoder struct {
 	I                board.DigitalInterrupt
 	position         int64
 	m                DirectionAware
-	ticksPerRotation int64
+	Tpr 			int64
 
 	logger                  golog.Logger
-	cancelCtx               context.Context
+	CancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 }
@@ -63,7 +63,7 @@ func NewSingleEncoder(
 	logger golog.Logger,
 ) (*SingleEncoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	e := &SingleEncoder{logger: logger, cancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0}
+	e := &SingleEncoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0}
 	if cfg, ok := config.ConvertedAttributes.(*Config); ok {
 		if cfg.BoardName == "" {
 			return nil, errors.New("SingleEncoder expected non-empty string for board")
@@ -76,7 +76,7 @@ func NewSingleEncoder(
 		}
 
 		if cfg.Pins["dir"] == "" {
-			return nil, errors.New("single line encoder needgis motor direction pin")
+			return nil, errors.New("single line encoder needs motor direction pin")
 		}
 
 		board, err := board.FromDependencies(deps, cfg.BoardName)
@@ -88,16 +88,13 @@ func NewSingleEncoder(
 		if !ok {
 			return nil, errors.Errorf("cannot find pin (%s) for SingleEncoder", i)
 		}
-		e.ticksPerRotation = int64(cfg.TicksPerRotation)
+		e.Tpr = int64(cfg.TicksPerRotation)
 	}
-
-	e.Start(ctx, func() {})
 
 	return e, nil
 }
 
 // Start starts the SingleEncoder background thread.
-// Note: unsure about whether we still need onStart.
 func (e *SingleEncoder) Start(ctx context.Context, onStart func()) {
 	encoderChannel := make(chan bool)
 	e.I.AddCallback(encoderChannel)
@@ -106,13 +103,13 @@ func (e *SingleEncoder) Start(ctx context.Context, onStart func()) {
 		onStart()
 		for {
 			select {
-			case <-e.cancelCtx.Done():
+			case <-e.CancelCtx.Done():
 				return
 			default:
 			}
 
 			select {
-			case <-e.cancelCtx.Done():
+			case <-e.CancelCtx.Done():
 				return
 			case <-encoderChannel:
 			}
@@ -139,7 +136,7 @@ func (e *SingleEncoder) ResetToZero(ctx context.Context, offset int64, extra map
 
 // TicksPerRotation returns the number of ticks needed for a full rotation.
 func (e *SingleEncoder) TicksPerRotation(ctx context.Context) (int64, error) {
-	return atomic.LoadInt64(&e.ticksPerRotation), nil
+	return atomic.LoadInt64(&e.Tpr), nil
 }
 
 // Close shuts down the SingleEncoder.

@@ -7,7 +7,6 @@ import (
 	"go.viam.com/test"
 )
 
-
 func TestEncoder(t *testing.T) {
 	ctx := context.Background()
 

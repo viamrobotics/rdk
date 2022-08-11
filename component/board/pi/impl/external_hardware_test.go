@@ -149,7 +149,7 @@ func TestPiHardware(t *testing.T) {
 	deps := make(registry.Dependencies)
 	_, err = encoderReg.Constructor(ctx, deps, config.Component{
 		Name: "encoder1", ConvertedAttributes: &encoder.Config{
-			Pins: map[string]interface {}{
+			Pins: map[string]interface{}{
 				"a": "hall-a",
 				"b": "hall-b",
 			},

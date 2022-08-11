@@ -52,7 +52,7 @@ func init() {
 					return nil, err
 				}
 
-				actualEncoder, ok := utils.UnwrapProxy(e).(*Encoder)
+				actualEncoder, ok = utils.UnwrapProxy(e).(*Encoder)
 				if !ok {
 					return nil, errors.New("expected board to be an arduino board")
 				}
@@ -130,7 +130,7 @@ func configureMotorForBoard(
 		m, err = gpio.NewEncodedMotor(
 			config,
 			*motorConfig,
-			&arduinoMotor{generic.Unimplemented{}, b, *motorConfig, config.Name, positionReporting: true},
+			&arduinoMotor{generic.Unimplemented{}, b, *motorConfig, config.Name, true},
 			e,
 			b.logger,
 		)
@@ -138,7 +138,7 @@ func configureMotorForBoard(
 			return nil, err
 		}
 	} else {
-		m = &arduinoMotor{generic.Unimplemented{}, b, *motorConfig, config.Name, positionReporting: false}
+		m = &arduinoMotor{generic.Unimplemented{}, b, *motorConfig, config.Name, false}
 	}
 
 	if motorConfig.Pins.PWM != "-1" && motorConfig.PWMFreq > 0 {
@@ -165,9 +165,9 @@ func configureMotorForBoard(
 
 type arduinoMotor struct {
 	generic.Unimplemented
-	b    *arduinoBoard
-	cfg  motor.Config
-	name string
+	b                 *arduinoBoard
+	cfg               motor.Config
+	name              string
 	positionReporting bool
 }
 
