@@ -1,5 +1,6 @@
 {
     "name": "fakee",
+    "kinematic_param_type": "SVA",
     "links": [
         {
             "id": "base_link",
@@ -8,6 +9,16 @@
                 "x": 0,
                 "y": 0,
                 "z": 162.5
+            },
+            "geometry": {
+                "x": 120,
+                "y": 120,
+                "z": 260,
+                "translation": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 130
+                }
             }
         },
         {
@@ -26,6 +37,16 @@
                 "x": -425,
                 "y": 0,
                 "z": 0
+            },
+            "geometry": {
+                "x": 550,
+                "y": 150,
+                "z": 120,
+                "translation": {
+                    "x": -215,
+                    "y": -130,
+                    "z": 0
+                }
             }
         },
         {
@@ -35,6 +56,16 @@
                 "x": -392.2,
                 "y": 0,
                 "z": 0
+            },
+            "geometry": {
+                "x": 480,
+                "y": 120,
+                "z": 100,
+                "translation": {
+                    "x": -190,
+                    "y": 0,
+                    "z": 0
+                }
             }
         },
         {
@@ -44,6 +75,16 @@
                 "x": 0,
                 "y": -133.3,
                 "z": 0
+            },
+            "geometry": {
+                "x": 90,
+                "y": 130,
+                "z": 130,
+                "translation": {
+                    "x": 0,
+                    "y": -110,
+                    "z": 0
+                }
             }
         },
         {
@@ -53,6 +94,16 @@
                 "x": 0,
                 "y": 0,
                 "z": -99.7
+            },            
+            "geometry": {
+                "x": 80,
+                "y": 150,
+                "z": 100,
+                "translation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": -100
+                }
             }
         },
         {
@@ -64,12 +115,12 @@
                 "z": 0
             },
             "orientation": {
-                "type": "ov_degrees",
-                "value": {
+                "type" : "ov_degrees",
+                "value" : {
                     "x": 0,
                     "y": -1,
                     "z": 0,
-                    "th": -90
+                    "th": 90
                 }
             }
         }
@@ -93,12 +144,11 @@
             "parent": "shoulder_link",
             "axis": {
                 "x": 0,
-                "y": 1,
+                "y": -1,
                 "z": 0
             },
             "max": 360,
-            "min": -360,
-            "direction": "cw"
+            "min": -360
         },
         {
             "id": "elbow_joint",
@@ -106,12 +156,11 @@
             "parent": "upper_arm_link",
             "axis": {
                 "x": 0,
-                "y": 1,
+                "y": -1,
                 "z": 0
             },
             "max": 180,
-            "min": -180,
-            "direction": "cw"
+            "min": -180
         },
         {
             "id": "wrist_1_joint",
@@ -119,12 +168,11 @@
             "parent": "forearm_link",
             "axis": {
                 "x": 0,
-                "y": 1,
+                "y": -1,
                 "z": 0
             },
             "max": 360,
-            "min": -360,
-            "direction": "cw"
+            "min": -360
         },
         {
             "id": "wrist_2_joint",
@@ -133,11 +181,10 @@
             "axis": {
                 "x": 0,
                 "y": 0,
-                "z": 1
+                "z": -1
             },
             "max": 360,
-            "min": -360,
-            "direction": "cw"
+            "min": -360
         },
         {
             "id": "wrist_3_joint",
@@ -145,12 +192,11 @@
             "parent": "wrist_2_link",
             "axis": {
                 "x": 0,
-                "y": 1,
+                "y": -1,
                 "z": 0
             },
             "max": 360,
-            "min": -360,
-            "direction": "cw"
+            "min": -360
         }
     ]
 }
