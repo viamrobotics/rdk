@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -48,7 +49,8 @@ func init() {
 					if err != nil {
 						return nil, err
 					}
-					m.Encoder = e.(*fakeencoder.Encoder)
+					realEncoder := rdkutils.UnwrapProxy(e)
+					m.Encoder = realEncoder.(*fakeencoder.Encoder)
 
 					tpr, err := m.Encoder.TicksPerRotation(ctx)
 					if err != nil {
@@ -61,7 +63,6 @@ func init() {
 
 					m.PositionReporting = true
 
-					m.Encoder = &fakeencoder.Encoder{}
 					m.Encoder.Start(ctx, func() {})
 				} else {
 					m.PositionReporting = false

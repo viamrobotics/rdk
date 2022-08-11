@@ -19,16 +19,12 @@ func init() {
 	_encoder:= registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			e := &Encoder{}
-			if ecfg, ok := config.ConvertedAttributes.(*EncoderConfig); ok {
-				e.Tpr = ecfg.TicksPerRotation
-				e.updateRate = ecfg.UpdateRate
-			}
+			e.Tpr = int64(config.Attributes.Int("ticks_per_rotation", 0))
+			e.updateRate = int64(config.Attributes.Int("update_rate", 0))
 			return e, nil
 		},
 	}
 	registry.RegisterComponent(encoder.Subtype, "fake", _encoder)
-
-	encoder.RegisterConfigAttributeConverter("fake")
 }
 
 // Encoder keeps track of a fake motor position.
@@ -41,12 +37,6 @@ type Encoder struct {
 	activeBackgroundWorkers sync.WaitGroup
 
 	generic.Unimplemented
-}
-
-// EncoderConfig describes the config of a fake Encoder.
-type EncoderConfig struct {
-	UpdateRate int64      `json:"update_rate"`
-	TicksPerRotation int64 `json:"ticks_per_rotation"`
 }
 
 // GetTicksCount returns the current position in terms of ticks.
