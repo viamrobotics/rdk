@@ -62,7 +62,7 @@ func (f *Frame) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// MarshalJSON will parse the Orientation field into a spatial.Orientation object from a json.rawMessage.
+// MarshalJSON will encode the Orientation field into a spatial.OrientationConfig object instead of spatial.Orientation.
 func (f *Frame) MarshalJSON() ([]byte, error) {
 	temp := struct {
 		Parent      string                    `json:"parent"`
