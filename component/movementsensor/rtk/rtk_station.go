@@ -185,8 +185,9 @@ func newRTKStation(
 
 	r.movementsensorNames = config.Attributes.StringSlice(childrenName)
 
-	// enable time fix for rtk base station
-	if config.Attributes.String(surveyIn) {
+	// enable time fix for rtk base station if time mode specified
+	if config.Attributes.String(surveyIn) != nil {
+		r.surveyIn = config.Attributes.String(surveyIn)
 		r.requiredAcc = config.Attributes.Float64(requiredAccuracyConfig, 10)
 		r.observationTime = config.Attributes.Int(observationTimeConfig, 60)
 		ConfigureBaseRTKStation(r.requiredAcc, r.observationTime)
