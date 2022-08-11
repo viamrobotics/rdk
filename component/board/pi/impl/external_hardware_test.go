@@ -65,7 +65,7 @@ func TestPiHardware(t *testing.T) {
 		err = p.SetGPIOBcom(26, false)
 		test.That(t, err, test.ShouldBeNil)
 
-		v, err := reader.Read(ctx)
+		v, err := reader.Read(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, v, test.ShouldAlmostEqual, 0, 150)
 
@@ -73,7 +73,7 @@ func TestPiHardware(t *testing.T) {
 		err = p.SetGPIOBcom(26, true)
 		test.That(t, err, test.ShouldBeNil)
 
-		v, err = reader.Read(ctx)
+		v, err = reader.Read(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, v, test.ShouldAlmostEqual, 1023, 150)
 
@@ -81,7 +81,7 @@ func TestPiHardware(t *testing.T) {
 		err = p.SetGPIOBcom(26, false)
 		test.That(t, err, test.ShouldBeNil)
 
-		v, err = reader.Read(ctx)
+		v, err = reader.Read(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, v, test.ShouldAlmostEqual, 0, 150)
 	})
@@ -94,7 +94,7 @@ func TestPiHardware(t *testing.T) {
 
 		i1, ok := p.DigitalInterruptByName("i1")
 		test.That(t, ok, test.ShouldBeTrue)
-		before, err := i1.Value(context.Background())
+		before, err := i1.Value(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = p.SetGPIOBcom(18, true)
@@ -102,7 +102,7 @@ func TestPiHardware(t *testing.T) {
 
 		time.Sleep(5 * time.Millisecond)
 
-		after, err := i1.Value(context.Background())
+		after, err := i1.Value(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, after-before, test.ShouldEqual, int64(1))
 	})
@@ -134,7 +134,7 @@ func TestPiHardware(t *testing.T) {
 
 		servoI, ok := p.DigitalInterruptByName("servo-i")
 		test.That(t, ok, test.ShouldBeTrue)
-		val, err := servoI.Value(context.Background())
+		val, err := servoI.Value(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, val, test.ShouldAlmostEqual, int64(1500), 500) // this is a tad noisy
 	})
@@ -190,9 +190,9 @@ func TestPiHardware(t *testing.T) {
 			if loops > 100 {
 				pos, err = motor1.GetPosition(ctx, nil)
 				test.That(t, err, test.ShouldBeNil)
-				aVal, err := hallA.Value(context.Background())
+				aVal, err := hallA.Value(context.Background(), nil)
 				test.That(t, err, test.ShouldBeNil)
-				bVal, err := hallB.Value(context.Background())
+				bVal, err := hallB.Value(context.Background(), nil)
 				test.That(t, err, test.ShouldBeNil)
 				t.Fatalf("motor didn't move enough, a: %v b: %v pos: %v",
 					aVal,
@@ -227,9 +227,9 @@ func TestPiHardware(t *testing.T) {
 
 			time.Sleep(100 * time.Millisecond)
 			loops++
-			aVal, err := hallA.Value(context.Background())
+			aVal, err := hallA.Value(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
-			bVal, err := hallB.Value(context.Background())
+			bVal, err := hallB.Value(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
 			if loops > 100 {
 				t.Fatalf("motor didn't move enough, a: %v b: %v",
