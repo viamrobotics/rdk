@@ -9,9 +9,9 @@ import (
 type transformConfig struct {
 	Source string `json:"source"`
 	Stream string `json:"stream"`
-	Width  int    `json:"width"`
-	Height int    `json:"height"`
 	Debug  bool   `json:"debug"`
+	Height int    `json:"height"`
+	Width  int    `json:"width"`
 }
 
 // extractAttributes extracts the common transform attributes.

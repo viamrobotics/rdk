@@ -3,6 +3,7 @@ package motionplan
 import (
 	"errors"
 	"math"
+	"strconv"
 
 	"github.com/golang/geo/r3"
 
@@ -180,10 +181,10 @@ func NewCollisionConstraintFromWorldState(
 	fs referenceframe.FrameSystem,
 	worldState *commonpb.WorldState,
 	observationInput map[string][]referenceframe.Input,
-) Constraint {
+) (Constraint, error) {
 	transformGeometriesToWorldFrame := func(gfs []*commonpb.GeometriesInFrame) (*referenceframe.GeometriesInFrame, error) {
 		allGeometries := make(map[string]spatial.Geometry)
-		for _, gf := range gfs {
+		for name1, gf := range gfs {
 			obstacles, err := referenceframe.ProtobufToGeometriesInFrame(gf)
 			if err != nil {
 				return nil, err
@@ -194,24 +195,25 @@ func NewCollisionConstraintFromWorldState(
 			if err != nil {
 				return nil, err
 			}
-			for name, g := range tf.(*referenceframe.GeometriesInFrame).Geometries() {
-				if _, present := allGeometries[name]; present {
+			for name2, g := range tf.(*referenceframe.GeometriesInFrame).Geometries() {
+				geomName := strconv.Itoa(name1) + "_" + name2
+				if _, present := allGeometries[geomName]; present {
 					return nil, errors.New("multiple geometries with the same name")
 				}
-				allGeometries[name] = g
+				allGeometries[geomName] = g
 			}
 		}
 		return referenceframe.NewGeometriesInFrame(referenceframe.World, allGeometries), nil
 	}
 	obstacles, err := transformGeometriesToWorldFrame(worldState.GetObstacles())
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	interactionSpaces, err := transformGeometriesToWorldFrame(worldState.GetInteractionSpaces())
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return NewCollisionConstraint(model, obstacles.Geometries(), interactionSpaces.Geometries())
+	return NewCollisionConstraint(model, obstacles.Geometries(), interactionSpaces.Geometries()), nil
 }
 
 // NewLinearInterpolatingConstraint creates a constraint function from an arbitrary function that will decide if a given pose is valid.

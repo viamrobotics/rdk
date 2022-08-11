@@ -50,13 +50,13 @@
         },
         {
           "model": "fake",
-          "name": "gps1",
-          "type": "gps"
+          "name": "movement_sensor1",
+          "type": "movement_sensor"
         },
         {
           "model": "fake",
-          "name": "gps2",
-          "type": "gps",
+          "name": "movement_sensor2",
+          "type": "movement_sensor",
           "frame": {
               "parent": "pieceArm"
           },

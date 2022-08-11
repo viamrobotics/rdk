@@ -30,10 +30,9 @@ func debugImageSourceOrSkip(t *testing.T) {
 
 func TestAlignTypeError(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	// TODO(DATA-237) remove .both files
-	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs.both.gz"))
+	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs_color.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.both.gz"))
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.png"))
 	test.That(t, err, test.ShouldBeNil)
 	colorSrc := &StaticSource{ColorImg: im}
 	colorCam, err := camera.New(colorSrc, nil)
@@ -42,10 +41,9 @@ func TestAlignTypeError(t *testing.T) {
 	depthCam, err := camera.New(depthSrc, nil)
 	test.That(t, err, test.ShouldBeNil)
 	attrs := &alignAttrs{
-		AttrConfig: &camera.AttrConfig{
-			Width:  100,
-			Height: 200,
-		},
+		AttrConfig: &camera.AttrConfig{},
+		Width:      100,
+		Height:     200,
 	}
 	// test Warp error
 	attrs.Warp = []float64{4.5, 6.}
@@ -65,84 +63,6 @@ func TestAlignTypeError(t *testing.T) {
 	attrs.IntrinsicExtrinsic = nil
 	_, err = newAlignColorDepth(context.Background(), colorCam, depthCam, attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
-}
-
-// nolint:dupl
-func TestAlignIntrinsics(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
-	test.That(t, err, test.ShouldBeNil)
-	c := conf.FindComponent("front")
-	test.That(t, c, test.ShouldNotBeNil)
-
-	attrs := c.ConvertedAttributes.(*alignAttrs)
-	test.That(t, attrs, test.ShouldNotBeNil)
-	attrs.Warp = nil
-	attrs.Homography = nil
-	attrs.Height = 720
-	attrs.Width = 1280
-
-	// TODO(DATA-237) remove .both files
-	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs.both.gz"))
-	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.both.gz"))
-	test.That(t, err, test.ShouldBeNil)
-	aligned, _ := applyAlignment(t, im, dm, attrs, logger)
-	test.That(t, aligned, test.ShouldNotBeNil)
-}
-
-func TestAlignWarp(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	c := conf.FindComponent("combined")
-	test.That(t, c, test.ShouldNotBeNil)
-
-	attrs := c.ConvertedAttributes.(*alignAttrs)
-	test.That(t, attrs, test.ShouldNotBeNil)
-	attrs.IntrinsicExtrinsic = nil
-	attrs.Homography = nil
-	attrs.Height = 342
-	attrs.Width = 448
-
-	warpParams, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
-		utils.ResolveFile("robots/configs/gripper_combo_parameters.json"), "color",
-	)
-	test.That(t, err, test.ShouldBeNil)
-	attrs.CameraParameters = warpParams
-
-	// TODO(DATA-237) remove .both files
-	im, err := rimage.NewImageFromFile(artifact.MustPath("align/gripper1/chess1.both.gz"))
-	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/gripper1/chess1.both.gz"))
-	test.That(t, err, test.ShouldBeNil)
-	aligned, _ := applyAlignment(t, im, dm, attrs, logger)
-	test.That(t, aligned, test.ShouldNotBeNil)
-}
-
-// nolint:dupl
-func TestAlignHomography(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	c := conf.FindComponent("combined")
-	test.That(t, c, test.ShouldNotBeNil)
-
-	attrs := c.ConvertedAttributes.(*alignAttrs)
-	test.That(t, attrs, test.ShouldNotBeNil)
-	attrs.IntrinsicExtrinsic = nil
-	attrs.Warp = nil
-	attrs.Height = 768
-	attrs.Width = 1024
-	// TODO(DATA-237) remove .both files
-	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs.both.gz"))
-	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.both.gz"))
-	test.That(t, err, test.ShouldBeNil)
-	aligned, _ := applyAlignment(t, im, dm, attrs, logger)
-	test.That(t, aligned, test.ShouldNotBeNil)
 }
 
 func applyAlignment(
@@ -169,6 +89,81 @@ func applyAlignment(
 	return alignedPointCloud, proj
 }
 
+// nolint:dupl
+func TestAlignIntrinsics(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
+	test.That(t, err, test.ShouldBeNil)
+	c := conf.FindComponent("front")
+	test.That(t, c, test.ShouldNotBeNil)
+
+	attrs := c.ConvertedAttributes.(*alignAttrs)
+	test.That(t, attrs, test.ShouldNotBeNil)
+	attrs.Warp = nil
+	attrs.Homography = nil
+	attrs.Height = 720
+	attrs.Width = 1280
+
+	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs_color.png"))
+	test.That(t, err, test.ShouldBeNil)
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.png"))
+	test.That(t, err, test.ShouldBeNil)
+	aligned, _ := applyAlignment(t, im, dm, attrs, logger)
+	test.That(t, aligned, test.ShouldNotBeNil)
+}
+
+func TestAlignWarp(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	c := conf.FindComponent("combined")
+	test.That(t, c, test.ShouldNotBeNil)
+
+	attrs := c.ConvertedAttributes.(*alignAttrs)
+	test.That(t, attrs, test.ShouldNotBeNil)
+	attrs.IntrinsicExtrinsic = nil
+	attrs.Homography = nil
+	attrs.Height = 342
+	attrs.Width = 448
+
+	warpParams, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
+		utils.ResolveFile("robots/configs/gripper_combo_parameters.json"), "color",
+	)
+	test.That(t, err, test.ShouldBeNil)
+	attrs.CameraParameters = warpParams
+
+	im, err := rimage.NewImageFromFile(artifact.MustPath("align/gripper1/chess1_color.png"))
+	test.That(t, err, test.ShouldBeNil)
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/gripper1/chess1.png"))
+	test.That(t, err, test.ShouldBeNil)
+	aligned, _ := applyAlignment(t, im, dm, attrs, logger)
+	test.That(t, aligned, test.ShouldNotBeNil)
+}
+
+// nolint:dupl
+func TestAlignHomography(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	c := conf.FindComponent("combined")
+	test.That(t, c, test.ShouldNotBeNil)
+
+	attrs := c.ConvertedAttributes.(*alignAttrs)
+	test.That(t, attrs, test.ShouldNotBeNil)
+	attrs.IntrinsicExtrinsic = nil
+	attrs.Warp = nil
+	attrs.Height = 768
+	attrs.Width = 1024
+	im, err := rimage.NewImageFromFile(artifact.MustPath("align/intel515/chairs_color.png"))
+	test.That(t, err, test.ShouldBeNil)
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.png"))
+	test.That(t, err, test.ShouldBeNil)
+	aligned, _ := applyAlignment(t, im, dm, attrs, logger)
+	test.That(t, aligned, test.ShouldNotBeNil)
+}
+
 type alignTestHelper struct {
 	attrs *alignAttrs
 	name  string
@@ -179,13 +174,13 @@ func (h *alignTestHelper) Process(
 	pCtx *rimage.ProcessorContext,
 	fn string,
 	img image.Image,
+	img2 image.Image,
 	logger golog.Logger,
 ) error {
 	t.Helper()
 	var err error
-	// TODO(DATA-237) remove .both files
 	im := rimage.ConvertImage(img)
-	dm, err := rimage.ConvertImageToDepthMap(img)
+	dm, err := rimage.ConvertImageToDepthMap(img2)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "depth_"+h.name)
 
@@ -218,8 +213,7 @@ func TestAlignIntelIntrinsics(t *testing.T) {
 
 	c.Warp = nil
 	c.Homography = nil
-	// TODO(DATA-237) remove .both files
-	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz", false)
+	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515/color", "*.png", "align/intel515/depth")
 	err = d.Process(t, &alignTestHelper{c, "intrinsics"})
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -240,8 +234,7 @@ func TestAlignGripperWarp(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	c.CameraParameters = warpParams
-	// TODO(DATA-237) remove .both files
-	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
+	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1/color", "*.png", "align/gripper1/depth")
 	d.Process(t, &alignTestHelper{c, "warp"})
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -257,8 +250,7 @@ func TestAlignGripperHomography(t *testing.T) {
 
 	c.IntrinsicExtrinsic = nil
 	c.Warp = nil
-	// TODO(DATA-237) remove .both files
-	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
+	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1/color", "*.png", "align/gripper1/depth")
 	err = d.Process(t, &alignTestHelper{c, "homography"})
 	test.That(t, err, test.ShouldBeNil)
 }

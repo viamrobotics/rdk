@@ -474,11 +474,11 @@ func (vg *gripperV1) IsMoving(ctx context.Context) (bool, error) {
 }
 
 func (vg *gripperV1) readCurrent(ctx context.Context) (int, error) {
-	return vg.current.Read(ctx)
+	return vg.current.Read(ctx, nil)
 }
 
 func (vg *gripperV1) readPressure(ctx context.Context) (int, error) {
-	return vg.pressure.Read(ctx)
+	return vg.pressure.Read(ctx, nil)
 }
 
 func (vg *gripperV1) hasPressure(ctx context.Context) (bool, int, error) {

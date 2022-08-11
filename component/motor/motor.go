@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/control"
+	"go.viam.com/rdk/data"
 	pb "go.viam.com/rdk/proto/api/component/motor/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -39,6 +40,14 @@ func init() {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: getPosition.String(),
+	}, newGetPositionCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: isPowered.String(),
+	}, newIsPoweredCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "motor".
