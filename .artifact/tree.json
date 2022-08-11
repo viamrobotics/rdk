@@ -157,6 +157,7 @@
         "hash": "e793d3d57684d9665497aed82daaefc7",
         "size": 1499552
       },
+<<<<<<< HEAD
       "color": {
         "align-test-1615172036.png": {
           "hash": "0b8a9eabade62763602bdd4ca8575693",
@@ -50552,6 +50553,14 @@
       "hash": "83771100a4bf3302a9de5feb2897be6a",
       "size": 986607
     },
+    "align-test-1615761793.png": {
+      "hash": "64d2f7a2dd5e27e860c369ceded374c5",
+      "size": 22268
+    },
+    "align-test-1615761793_color.png": {
+      "hash": "83771100a4bf3302a9de5feb2897be6a",
+      "size": 986607
+    },
     "homography": {
       "align-test-1615760748.both.gz": {
         "hash": "a4b99c91c6bc68b734499799c05367e7",
@@ -50806,12 +50815,20 @@
         "size": 274770
       },
       "vo_config.json": {
-        "hash": "c67d1b7d0afb14bd2690f7d0e2eadfa1",
+        "hash": "777aa60823d2c7937d900c2f90304b0e",
         "size": 749
       }
     },
     "segmentation": {
       "pointcloudsegmentation": {
+        "align-test-1615172036.png": {
+          "hash": "1e30ef0759200c38fae44b043bdbd887",
+          "size": 364236
+        },
+        "align-test-1615172036_color.png": {
+          "hash": "0b8a9eabade62763602bdd4ca8575693",
+          "size": 1450621
+        },
         "align-test-1615172036.png": {
           "hash": "1e30ef0759200c38fae44b043bdbd887",
           "size": 364236
