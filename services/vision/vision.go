@@ -106,12 +106,18 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 	return svc, nil
 }
 
-// FindVisionName Returns name of first vision service found.
-func FindVisionName(r robot.Robot) string {
+// FindFirstName Returns name of first vision service found.
+func FindFirstName(r robot.Robot) string {
 	for _, val := range robot.NamesBySubtype(r, Subtype) {
 		return val
 	}
-	return resource.DefaultServiceName
+	return ""
+}
+
+// FirstFromRobot Returns the first service in this robot
+func FirstFromRobot(r robot.Robot) (Service, error) {
+	name := FindFirstName(r)
+	return FromRobot(r, name)
 }
 
 // Attributes contains a list of the user-provided details necessary to register a new vision service.

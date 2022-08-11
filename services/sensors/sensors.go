@@ -80,14 +80,6 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// FindSensorsName Returns name of first vision service found. There should only be one.
-func FindSensorsName(r robot.Robot) string {
-	for _, val := range robot.NamesBySubtype(r, Subtype) {
-		return val
-	}
-	return ""
-}
-
 // FromRobot retrieves the sensor service of a robot.
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	resource, err := r.ResourceByName(Named(name))
@@ -99,6 +91,20 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 		return nil, utils.NewUnimplementedInterfaceError("sensors.Service", resource)
 	}
 	return svc, nil
+}
+
+// FindFirstName Returns name of first vision service found.
+func FindFirstName(r robot.Robot) string {
+	for _, val := range robot.NamesBySubtype(r, Subtype) {
+		return val
+	}
+	return ""
+}
+
+// FirstFromRobot Returns the first service in this robot
+func FirstFromRobot(r robot.Robot) (Service, error) {
+	name := FindFirstName(r)
+	return FromRobot(r, name)
 }
 
 // New returns a new sensor service for the given robot.

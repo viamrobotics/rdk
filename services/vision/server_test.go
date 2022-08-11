@@ -131,7 +131,7 @@ func TestServerAddDetector(t *testing.T) {
 
 func TestServerGetDetections(t *testing.T) {
 	r := buildRobotWithFakeCamera(t)
-	visName := vision.FindVisionName(r)
+	visName := vision.FindFirstName(r)
 	srv, err := vision.FromRobot(r, visName)
 	test.That(t, err, test.ShouldBeNil)
 	m := map[resource.Name]interface{}{
