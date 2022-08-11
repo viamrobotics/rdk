@@ -36,21 +36,35 @@ func (server *subtypeServer) service() (Service, error) {
 	return svc, nil
 }
 
-func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {
+func (server *subtypeServer) PlanAndMove(ctx context.Context, req *pb.PlanAndMoveRequest) (*pb.PlanAndMoveResponse, error) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}
-	success, err := svc.Move(
+	success, err := svc.PlanAndMove(
 		ctx,
 		protoutils.ResourceNameFromProto(req.GetComponentName()),
 		referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
 		req.GetWorldState(),
 	)
+	return &pb.PlanAndMoveResponse{Success: success}, err
+}
+
+func (server *subtypeServer) MoveSingleComponent(
+	ctx context.Context,
+	req *pb.MoveSingleComponentRequest,
+) (*pb.MoveSingleComponentResponse, error) {
+	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MoveResponse{Success: success}, nil
+	success, err := svc.MoveSingleComponent(
+		ctx,
+		protoutils.ResourceNameFromProto(req.GetComponentName()),
+		referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
+		req.GetWorldState(),
+	)
+	return &pb.MoveSingleComponentResponse{Success: success}, err
 }
 
 func (server *subtypeServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {

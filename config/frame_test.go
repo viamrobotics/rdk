@@ -69,7 +69,9 @@ func TestMergeFrameSystems(t *testing.T) {
 	err = fs2.AddFrame(frame3, fs2.World())
 	test.That(t, err, test.ShouldBeNil)
 	// frame4 - pure rotiation around y 90 degrees
-	frame4, err := referenceframe.NewStaticFrame("frame4", spatial.NewPoseFromAxisAngle(r3.Vector{}, r3.Vector{0., 1., 0.}, math.Pi/2))
+	frame4, err := referenceframe.NewStaticFrame(
+		"frame4",
+		spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.R4AA{math.Pi / 2, 0., 1., 0.}))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs2.AddFrame(frame4, fs2.GetFrame("frame3"))
 	test.That(t, err, test.ShouldBeNil)

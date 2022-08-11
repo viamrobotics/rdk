@@ -1,0 +1,136 @@
+{
+  "components":
+  [
+    {
+      "model": "fake",
+      "name": "board2",
+      "type": "board",
+      "attributes":
+      {
+      }
+    },
+    {
+      "model": "fake",
+      "name": "board1",
+      "type": "board",
+      "attributes":
+      {
+        "digital_interrupts":
+        [
+          {
+            "name": "encoder",
+            "pin": "16"
+          },
+          {
+            "name": "encoder-b",
+            "pin": "22"
+          }
+        ]
+      }
+    },
+    {
+      "model": "gpio",
+      "name": "m1",
+      "type": "motor",
+      "depends_on" : ["board1"],
+      "attributes" : {
+        "board" : "board1",
+        "pins" : {
+          "pwm" : "5"
+        },
+        "pwm_freq" : 4000,
+        "encoder": "encoder",
+        "encoder_b": "encoder-b",
+        "ticks_per_rotation" : 1
+      }
+    },
+    {
+      "model": "fake",
+      "name" : "armFake",
+      "type" : "arm",
+      "depends_on" : ["mock5", "mock6"]
+    },
+    {
+      "model": "${TEST_MODEL_NAME_1-fake}",
+      "name": "mock1",
+      "type": "mock",
+      "attributes":
+      {
+        "blah":10
+      },
+      "depends_on" : ["mock4"]
+    },
+    {
+      "model": "${TEST_MODEL_NAME_1-fake}",
+      "name": "mock2",
+      "type": "mock",
+      "attributes":
+      {
+        "blah":10
+      }
+    },
+    {
+      "model": "${TEST_MODEL_NAME_1-fake}",
+      "name": "mock3",
+      "type": "mock",
+      "depends_on" : ["mock2"],
+      "attributes":
+      {
+        "blah":10
+      }
+    },
+    {
+      "model": "${TEST_MODEL_NAME_1-fake}",
+      "name": "mock4",
+      "type": "mock",
+      "depends_on" : ["mock3"],
+      "attributes":
+      {
+      }
+    },
+    {
+      "model": "${TEST_MODEL_NAME_1-fake}",
+      "name": "mock5",
+      "type": "mock",
+      "depends_on" : ["mock1"],
+      "attributes":
+      {
+        "blo":10
+      }
+    },
+    {
+      "model": "${TEST_MODEL_NAME_2-fake2}",
+      "name": "mock6",
+      "type": "mock",
+      "depends_on" : ["mock2"],
+      "attributes":
+      {
+        "one": 6
+      }
+    }
+  ],
+  "processes":
+  [
+    {
+      "id": "1",
+      "name": "echo",
+      "args":
+      [
+        "hello",
+        "world"
+      ],
+      "one_shot": true
+    },
+    {
+      "id": "2",
+      "name": "echo",
+      "args":
+      [
+        "hello",
+        "world",
+        "again"
+      ],
+      "one_shot": true
+    }
+  ]
+}

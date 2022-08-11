@@ -19,12 +19,12 @@ func TestBasicPoseConstruction(t *testing.T) {
 	ov := &OrientationVector{math.Pi / 2, 0, 1, 0}
 	ov.Normalize()
 
-	p = NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, ov)
+	p = NewPoseFromOrientation(r3.Vector{1, 2, 3}, ov)
 	ovCompare(t, p.Orientation().OrientationVectorRadians(), ov)
 	ptCompare(t, p.Point(), r3.Vector{1, 2, 3})
 
 	aa := QuatToR4AA(ov.ToQuat())
-	p = NewPoseFromAxisAngle(r3.Vector{1, 2, 3}, r3.Vector{aa.RX, aa.RY, aa.RZ}, aa.Theta)
+	p = NewPoseFromOrientation(r3.Vector{1, 2, 3}, &R4AA{aa.Theta, aa.RX, aa.RY, aa.RZ})
 	ptCompare(t, p.Point(), r3.Vector{1, 2, 3})
 	ovCompare(t, p.Orientation().OrientationVectorRadians(), ov)
 
@@ -32,17 +32,17 @@ func TestBasicPoseConstruction(t *testing.T) {
 	ptCompare(t, p.Point(), r3.Vector{1, 2, 3})
 	test.That(t, p.Orientation().OrientationVectorRadians(), test.ShouldResemble, &OrientationVector{0, 0, 0, 1})
 
-	p1 := NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, ov)
+	p1 := NewPoseFromOrientation(r3.Vector{1, 2, 3}, ov)
 	p2 := NewPoseFromPoint(r3.Vector{1, 2, 3})
 	pComp := Compose(p1, p2)
 	ptCompare(t, pComp.Point(), r3.Vector{0, 5, 5})
 
-	p2 = NewPoseFromOrientationVector(r3.Vector{2, 3, 4}, ov)
+	p2 = NewPoseFromOrientation(r3.Vector{2, 3, 4}, ov)
 	delta := PoseDelta(p1, p2)
 	ptCompare(t, delta.Point(), r3.Vector{1.0, 1.0, 1.0})
 	ovCompare(t, delta.Orientation().OrientationVectorRadians(), NewOrientationVector())
 
-	p = NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{4, 5, 6}, 0)
+	p = NewPoseFromOrientation(r3.Vector{0, 0, 0}, &R4AA{0, 4, 5, 6})
 	test.That(t, p.Orientation().OrientationVectorRadians(), test.ShouldResemble, &OrientationVector{0, 0, 0, 1})
 }
 
@@ -59,7 +59,7 @@ func TestDualQuatTransform(t *testing.T) {
 	tr := &dualQuaternion{dualquat.Number{Real: quat.Number{Real: 0, Imag: 1}}}
 	tr.SetTranslation(r3.Vector{4., 2., 6.})
 
-	trAA := NewPoseFromAxisAngle(r3.Vector{4., 2., 6.}, r3.Vector{1, 0, 0}, math.Pi) // same transformation from axis angle
+	trAA := NewPoseFromOrientation(r3.Vector{4., 2., 6.}, &R4AA{math.Pi, 1, 0, 0}) // same transformation from axis angle
 	// ensure transformation is the same between both definitions
 	test.That(t, tr.Real.Real, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Real.Real)
 	test.That(t, tr.Real.Imag, test.ShouldAlmostEqual, newDualQuaternionFromPose(trAA).Real.Imag)
@@ -91,8 +91,8 @@ func TestPoseInterpolation(t *testing.T) {
 
 	ov := &OrientationVector{math.Pi / 2, 0, 0, -1}
 	ov.Normalize()
-	p1 = NewPoseFromOrientationVector(r3.Vector{100, 100, 200}, ov)
-	p2 = NewPoseFromOrientationVector(r3.Vector{100, 200, 200}, ov)
+	p1 = NewPoseFromOrientation(r3.Vector{100, 100, 200}, ov)
+	p2 = NewPoseFromOrientation(r3.Vector{100, 200, 200}, ov)
 	intP = Interpolate(p1, p2, 0.1)
 	ptCompare(t, intP.Point(), r3.Vector{100, 110, 200})
 }
@@ -129,8 +129,8 @@ func TestPoseAlmostEqual(t *testing.T) {
 
 var (
 	ov  = &OrientationVector{math.Pi / 2, 0, 0, -1}
-	p1b = NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, ov)
-	p2b = NewPoseFromOrientationVector(r3.Vector{2, 3, 4}, ov)
+	p1b = NewPoseFromOrientation(r3.Vector{1, 2, 3}, ov)
+	p2b = NewPoseFromOrientation(r3.Vector{2, 3, 4}, ov)
 )
 
 func BenchmarkDeltaPose(b *testing.B) {

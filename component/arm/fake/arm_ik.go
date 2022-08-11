@@ -32,15 +32,10 @@ func init() {
 	})
 }
 
-// fakeModel returns the kinematics model.
-func fakeModel() (referenceframe.Model, error) {
-	return referenceframe.UnmarshalModelJSON(armikModelJSON, "")
-}
-
 // NewArmIK returns a new fake arm.
 func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	name := cfg.Name
-	model, err := fakeModel()
+	model, err := referenceframe.UnmarshalModelJSON(armikModelJSON, "")
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +43,6 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 	if err != nil {
 		return nil, err
 	}
-
 	return &ArmIK{
 		Name:     name,
 		position: &commonpb.Pose{},

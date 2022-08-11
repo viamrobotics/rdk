@@ -33,7 +33,7 @@ func TestServer(t *testing.T) {
 	slamServer := slam.NewServer(injectSubtypeSvc)
 
 	t.Run("working get position functions", func(t *testing.T) {
-		pose := spatial.NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
+		pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 		pSucc := referenceframe.NewPoseInFrame("frame", pose)
 
 		injectSvc.GetPositionFunc = func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
@@ -49,7 +49,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("working get map function", func(t *testing.T) {
-		pose := spatial.NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
+		pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 		pSucc := referenceframe.NewPoseInFrame("frame", pose)
 		pcSucc := &vision.Object{}
 		pcSucc.PointCloud = pointcloud.New()
@@ -98,7 +98,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("failing get map function", func(t *testing.T) {
-		pose := spatial.NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
+		pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 
 		injectSvc.GetMapFunc = func(ctx context.Context, name string, mimeType string, cp *referenceframe.PoseInFrame,
 			include bool,

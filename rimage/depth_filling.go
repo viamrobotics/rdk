@@ -13,8 +13,9 @@ import (
 
 // FillDepthMap finds regions of connected missing data, and for those below a certain size, fills them in with
 // an average of the surrounding pixels by using 16-point ray-marching, taking care of regions that are on the
-// boundaries between objects.
-func FillDepthMap(iwd *ImageWithDepth) error {
+// boundaries between objects. Assumes rgb image and depth map are aligned.
+func FillDepthMap(dm *DepthMap, img *Image) (*DepthMap, error) {
+	iwd := &imageWithDepth{img, dm, true}
 	validData := MissingDepthData(iwd.Depth)
 	missingData := invertGrayImage(validData)
 	holeMap := segmentBinaryImage(missingData)
@@ -28,7 +29,7 @@ func FillDepthMap(iwd *ImageWithDepth) error {
 					rayPoints := pointsFromRayMarching(point.X, point.Y, 8, sixteenPoints, iwd)
 					clusterDepths, clusterColors, err := clusterEdgePoints(rayPoints, iwd)
 					if err != nil {
-						return err
+						return nil, err
 					}
 					val := matchDepthToClosestColor(iwd.Color.Get(point), clusterColors[0], clusterColors[1], clusterDepths[0], clusterDepths[1])
 					iwd.Depth.Set(point.X, point.Y, val)
@@ -41,7 +42,7 @@ func FillDepthMap(iwd *ImageWithDepth) error {
 			}
 		}
 	}
-	return nil
+	return iwd.Depth, nil
 }
 
 // directions for ray-marching.
@@ -151,7 +152,7 @@ func (sp colorDepthPoint) Distance(p clusters.Coordinates) float64 {
 
 // if the segment is multimodal in depth, cluster the colors and depths into 2 groups using kmeans clustering,
 // to distinguish between the points associated with the foreground and background object.
-func clusterEdgePoints(borderPoints map[image.Point]bool, iwd *ImageWithDepth) ([]float64, []Color, error) {
+func clusterEdgePoints(borderPoints map[image.Point]bool, iwd *imageWithDepth) ([]float64, []Color, error) {
 	var d clusters.Observations
 	for pt := range borderPoints {
 		sp := colorDepthPoint{pt, iwd.Color.Get(pt), iwd.Depth.Get(pt)}
@@ -202,13 +203,13 @@ func pointsMap2Slice(points map[image.Point]bool, dm *DepthMap) []float64 {
 // it encounters a pixel with data, and then averages the values of the non-zero pixels it finds to fill the missing value.
 // Uses color info to help. If the color changes "too much" between pixels (exponential weighing), the depth will contribute
 // less to the average.
-func depthRayMarching(x, y, iterations int, directions []image.Point, iwd *ImageWithDepth) Depth {
+func depthRayMarching(x, y, iterations int, directions []image.Point, iwd *imageWithDepth) Depth {
 	rayPoints := pointsFromRayMarching(x, y, iterations, directions, iwd)
 	imputedDepth := imputeMissingDepth(x, y, rayPoints, iwd)
 	return imputedDepth
 }
 
-func imputeMissingDepth(x, y int, points map[image.Point]bool, iwd *ImageWithDepth) Depth {
+func imputeMissingDepth(x, y int, points map[image.Point]bool, iwd *imageWithDepth) Depth {
 	colorGaus := gaussianFunction1D(0.1)
 	spatialGaus := gaussianFunction2D(2.0)
 	depthAvg := 0.0
@@ -228,7 +229,7 @@ func imputeMissingDepth(x, y int, points map[image.Point]bool, iwd *ImageWithDep
 
 // collects points used for imputation of a missing pixel by collecting  the surrounding filled-in points
 // 'iterations' times in the N directions given.
-func pointsFromRayMarching(x, y, iterations int, directions []image.Point, iwd *ImageWithDepth) map[image.Point]bool {
+func pointsFromRayMarching(x, y, iterations int, directions []image.Point, iwd *imageWithDepth) map[image.Point]bool {
 	rayMarchingPoints := make(map[image.Point]bool)
 	for _, dir := range directions {
 		i, j := x, y

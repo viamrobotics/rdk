@@ -52,7 +52,7 @@ func TestSobelFilter(t *testing.T) {
 	outDir := testutils.TempDirT(t, "", "rimage")
 	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
 	// circle.png is 300x200 canvas, circle is 150 pixels in diameter, centered at (150,100)
-	dm, err := NewDepthMapFromImageFile(artifact.MustPath("rimage/circle.png"))
+	dm, err := NewDepthMapFromFile(artifact.MustPath("rimage/circle.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	gradients := SobelDepthGradient(dm)
@@ -73,7 +73,7 @@ func TestSobelFilter(t *testing.T) {
 }
 
 func BenchmarkSobelFilter(b *testing.B) {
-	dm, err := NewDepthMapFromImageFile(artifact.MustPath("rimage/shelf_grayscale.png"))
+	dm, err := NewDepthMapFromFile(artifact.MustPath("rimage/shelf_grayscale.png"))
 	test.That(b, err, test.ShouldBeNil)
 	for i := 0; i < b.N; i++ {
 		_ = SobelDepthGradient(dm)
