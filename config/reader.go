@@ -355,7 +355,7 @@ func getFromCloud(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool
 // The argument `cloudConfigFromDisk` represents the Cloud config from disk and only the Path parameters are used to
 // generate the url. This is different from the Cloud config returned from the HTTP or gRPC API which do not have it.
 //
-// TODO(adam): The TLS certificate data should not be part of the Cloud portion of the config.
+// TODO(RSDK-539): The TLS certificate data should not be part of the Cloud portion of the config.
 func readCertificateDataFromCloud(ctx context.Context, signalingInsecure bool, cloudConfigFromDisk *Cloud) (*Cloud, error) {
 	certReq, err := createCloudCertificateRequest(ctx, cloudConfigFromDisk)
 	if err != nil {
@@ -385,7 +385,7 @@ func readCertificateDataFromCloud(ctx context.Context, signalingInsecure bool, c
 		}
 	}
 
-	// TODO(adam): we might want to use an internal type here. The gRPC api will not return a Cloud json struct.
+	// TODO(RSDK-539): we might want to use an internal type here. The gRPC api will not return a Cloud json struct.
 	return &Cloud{
 		TLSCertificate: certData.TLSCertificate,
 		TLSPrivateKey:  certData.TLSPrivateKey,
