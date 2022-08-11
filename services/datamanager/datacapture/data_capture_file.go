@@ -136,8 +136,12 @@ func getFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 				return ".png"
 			case utils.MimeTypePCD:
 				return ".pcd"
+			default:
+				return defaultFileExt
 			}
 		}
+	default:
+		return defaultFileExt
 	}
 	return defaultFileExt
 }
