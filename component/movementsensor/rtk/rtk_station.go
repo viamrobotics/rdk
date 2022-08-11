@@ -35,8 +35,8 @@ type AttrConfig struct {
 	NtripPass            string `json:"ntrip_password,omitempty"`
 	NtripUser            string `json:"ntrip_username,omitempty"`
 	// non ntrip
-	RequiredAccuracy string `json:"required_accuracy,omitempty"`
-	RequiredTime     string `json:"required_time,omitempty"`
+	RequiredAccuracy float64 `json:"required_accuracy,omitempty"`
+	RequiredTime     int     `json:"required_time,omitempty"`
 	// serial
 	CorrectionPath string `json:"correction_path"`
 	// I2C
@@ -64,10 +64,10 @@ func (config *AttrConfig) Validate(path string) error {
 		if len(config.CorrectionPath) == 0 {
 			return errors.New("must specify serial path")
 		}
-		if len(config.RequiredAccuracy) == 0 {
+		if config.RequiredAccuracy == 0 {
 			return errors.New("must specify required accuracy for base station fix")
 		}
-		if len(config.RequiredTime) == 0 {
+		if config.RequiredTime == 0 {
 			return errors.New("must specify required time for base station fix")
 		}
 	}
@@ -111,8 +111,8 @@ type rtkStation struct {
 	serialWriter        io.Writer
 	movementsensorNames []string
 
-	requiredAcc  float64
-	requiredTime float64
+	requiredAcc     float64
+	observationTime int
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -179,10 +179,9 @@ func newRTKStation(
 
 	// enable time fix for rtk base station
 	if r.correctionType != ntripStr {
-		r.requiredAcc = float64(config.Attributes.String(requiredAccuracyConfig))
-		r.requiredTime = float64(config.Attributes.String(requiredTimeConfig))
-
-		ConfigureBaseRTKStation(r.requiredAcc, r.requiredTime)
+		r.requiredAcc = config.Attributes.Float64(requiredAccuracyConfig, 10)
+		r.observationTime = config.Attributes.Int(observationTimeConfig, 60)
+		ConfigureBaseRTKStation(r.requiredAcc, r.observationTime)
 	}
 
 	// Init movementsensor correction input addresses
