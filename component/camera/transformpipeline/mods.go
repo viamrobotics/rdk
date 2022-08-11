@@ -1,7 +1,4 @@
-// Package imagetransform defines cameras that apply transforms for images in an image transformation pipeline.
-// They are not original generators of image, but require an image source in order to function.
-// They are typically registered as cameras in the API.
-package imagetransform
+package transformpipeline
 
 import (
 	"context"
@@ -131,7 +128,7 @@ type rotateSource struct {
 
 // Next rotates the 2D image depending on the stream type.
 func (rs *rotateSource) Next(ctx context.Context) (image.Image, func(), error) {
-	ctx, span := trace.StartSpan(ctx, "camera::imagetransform::rotate::Next")
+	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::rotate::Next")
 	defer span.End()
 	orig, release, err := rs.original.Next(ctx)
 	if err != nil {
