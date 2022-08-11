@@ -14,7 +14,7 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	"go.viam.com/api/proto/viam/datasync/v1"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -283,6 +283,10 @@ func (c *collector) appendMessage(msg *v1.SensorData) error {
 // passed into a CollectorConstructor.
 func InvalidInterfaceErr(typeName resource.SubtypeName) error {
 	return errors.Errorf("passed interface does not conform to expected resource type %s", typeName)
+}
+
+func InvalidParametersErr(parameters map[string]string) error {
+	return errors.Errorf("passed parameters %v are not supported by collectors", parameters)
 }
 
 // FailedToReadErr is the error describing when a Capturer was unable to get the reading of a method.
