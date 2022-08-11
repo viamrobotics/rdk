@@ -460,6 +460,9 @@ func (base *wheeledBase) Move(
 		switch config.MotionPlan.Type {
 		case "dubins":
 			return base.newDubinsPlanner(ctx, config.MotionPlan, logger)
+		default:
+			logger.Info("no motion plan type specified")
+			return nil
 		}
 	}
 	return nil
