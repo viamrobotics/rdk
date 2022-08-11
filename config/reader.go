@@ -402,7 +402,7 @@ func readFromCloud(
 	checkForNewCert bool,
 	logger golog.Logger,
 ) (*Config, *Config, error) {
-	logger.Debug("Reading configuration from the cloud")
+	logger.Debug("reading configuration from the cloud")
 	cloudCfg := originalCfg.Cloud
 	unprocessedConfig, cached, err := getFromCloud(ctx, cloudCfg, shouldReadFromCache, logger)
 	if err != nil {
@@ -445,7 +445,7 @@ func readFromCloud(
 	}
 
 	if checkForNewCert || tlsCertificate == "" || tlsPrivateKey == "" {
-		logger.Debug("Reading tlsCertificate from the cloud")
+		logger.Debug("reading tlsCertificate from the cloud")
 		// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
 		certData, err := readCertificateDataFromCloud(ctx, cfg.Cloud.SignalingInsecure, cloudCfg)
 		if err != nil {
@@ -539,14 +539,14 @@ func FromReader(
 // and config validated with the assumption the config came from the cloud.
 // Returns an error if the unprocessedConfig is non-valid.
 func processConfigFromCloud(unprocessedConfig *Config) (*Config, error) {
-	return processConfig(unprocessedConfig /* fromCloud=*/, true)
+	return processConfig(unprocessedConfig, true)
 }
 
 // processConfigLocalConfig returns a copy of the current config with all attributes parsed
 // and config validated with the assumption the config came from a local file.
 // Returns an error if the unprocessedConfig is non-valid.
 func processConfigLocalConfig(unprocessedConfig *Config) (*Config, error) {
-	return processConfig(unprocessedConfig /* fromCloud=*/, false)
+	return processConfig(unprocessedConfig, false)
 }
 
 func processConfig(unprocessedConfig *Config, fromCloud bool) (*Config, error) {
