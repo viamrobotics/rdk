@@ -109,7 +109,10 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 		return nil, err
 	}
 
-	collisionConstraint := NewCollisionConstraintFromWorldState(sf, fss, worldState, seedMap)
+	collisionConstraint, err := NewCollisionConstraintFromWorldState(sf, fss, worldState, seedMap)
+	if err != nil {
+		return nil, err
+	}
 
 	// setup opts
 	if len(opts) == 0 {
