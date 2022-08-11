@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -125,7 +126,16 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			}
 
 			// Create & display image
-			img, dm, err := rimage.ReadBothFromBytes(message.Data.Data)
+			img1, _, err := image.Decode(bytes.NewReader(message.ColorData.Data))
+			if err != nil {
+				return err
+			}
+			img2, _, err := image.Decode(bytes.NewReader(message.DepthData.Data))
+			if err != nil {
+				return err
+			}
+			img := rimage.ConvertImage(img1)
+			dm, err := rimage.ConvertImageToDepthMap(img2)
 			if err != nil {
 				return err
 			}

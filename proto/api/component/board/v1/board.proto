@@ -3,6 +3,7 @@ syntax = "proto3";
 package proto.api.component.board.v1;
 
 import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
 import "proto/api/common/v1/common.proto";
 
 option go_package = "go.viam.com/rdk/proto/api/component/board/v1";
@@ -78,6 +79,8 @@ service BoardService {
 
 message StatusRequest {
   string name = 1;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message StatusResponse {
@@ -88,6 +91,8 @@ message SetGPIORequest {
   string name = 1;
   string pin = 2;
   bool high = 3;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message SetGPIOResponse {}
@@ -95,6 +100,8 @@ message SetGPIOResponse {}
 message GetGPIORequest {
   string name = 1;
   string pin = 2;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message GetGPIOResponse {
@@ -104,6 +111,8 @@ message GetGPIOResponse {
 message PWMRequest {
   string name = 1;
   string pin = 2;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message PWMResponse {
@@ -114,6 +123,8 @@ message SetPWMRequest {
   string name = 1;
   string pin = 2;
   double duty_cycle_pct = 3; // 0-1
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message SetPWMResponse {}
@@ -121,6 +132,8 @@ message SetPWMResponse {}
 message PWMFrequencyRequest {
   string name = 1;
   string pin = 2;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message PWMFrequencyResponse {
@@ -131,6 +144,8 @@ message SetPWMFrequencyRequest {
   string name = 1;
   string pin = 2;
   uint64 frequency_hz = 3;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message SetPWMFrequencyResponse {}
@@ -140,6 +155,8 @@ message SetPWMFrequencyResponse {}
 message ReadAnalogReaderRequest {
   string board_name = 1;
   string analog_reader_name = 2;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message ReadAnalogReaderResponse {
@@ -151,6 +168,8 @@ message ReadAnalogReaderResponse {
 message GetDigitalInterruptValueRequest {
   string board_name = 1;
   string digital_interrupt_name = 2;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message GetDigitalInterruptValueResponse {

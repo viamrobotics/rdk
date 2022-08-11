@@ -59,7 +59,7 @@ func (as *AnalogSmoother) Close() {
 }
 
 // Read returns the smoothed out reading.
-func (as *AnalogSmoother) Read(ctx context.Context) (int, error) {
+func (as *AnalogSmoother) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	avg := as.data.Average()
 	lastErr := as.lastError.Load()
 	if lastErr == nil {
@@ -99,7 +99,7 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 	goutils.ManagedGo(func() {
 		for {
 			start := time.Now()
-			reading, err := as.Raw.Read(ctx)
+			reading, err := as.Raw.Read(ctx, nil)
 			as.lastError.Store(errValue{err != nil, err})
 			if err != nil {
 				if errors.Is(err, errStopReading) {

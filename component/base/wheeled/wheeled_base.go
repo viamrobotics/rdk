@@ -128,30 +128,43 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 	return nil
 }
 
-func (base *wheeledBase) setPowerMath(linear, angular r3.Vector) (float64, float64) {
-	x := linear.Y
-	y := angular.Z
+// differentialDrive takes forward and left direction inputs from a first person
+// perspective on a 2D plane and converts them to left and right motor powers. negative
+// forward means backward and negative left means right.
+func (base *wheeledBase) differentialDrive(forward, left float64) (float64, float64) {
+	if forward < 0 {
+		// Mirror the forward turning arc if we go in reverse
+		leftMotor, rightMotor := base.differentialDrive(-forward, left)
+		return -leftMotor, -rightMotor
+	}
 
 	// convert to polar coordinates
-	r := math.Hypot(x, y)
-	t := math.Atan2(y, x)
+	r := math.Hypot(forward, left)
+	t := math.Atan2(left, forward)
 
 	// rotate by 45 degrees
 	t += math.Pi / 4
+	if t == 0 {
+		// HACK: Fixes a weird ATAN2 corner case. Ensures that when motor that is on the
+		// same side as the turn has the same power when going left and right. Without
+		// this, the right motor has ZERO power when going forward/backward turning
+		// right, when it should have at least some very small value.
+		t += 1.224647e-16 / 2
+	}
 
-	// back to cartesian
-	left := r * math.Cos(t)
-	right := r * math.Sin(t)
+	// convert to cartesian
+	leftMotor := r * math.Cos(t)
+	rightMotor := r * math.Sin(t)
 
 	// rescale the new coords
-	left *= math.Sqrt(2)
-	right *= math.Sqrt(2)
+	leftMotor *= math.Sqrt(2)
+	rightMotor *= math.Sqrt(2)
 
 	// clamp to -1/+1
-	left = math.Max(-1, math.Min(left, 1))
-	right = math.Max(-1, math.Min(right, 1))
+	leftMotor = math.Max(-1, math.Min(leftMotor, 1))
+	rightMotor = math.Max(-1, math.Min(rightMotor, 1))
 
-	return left, right
+	return leftMotor, rightMotor
 }
 
 func (base *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
@@ -163,7 +176,7 @@ func (base *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vec
 func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	base.opMgr.CancelRunning(ctx)
 
-	lPower, rPower := base.setPowerMath(linear, angular)
+	lPower, rPower := base.differentialDrive(linear.Y, angular.Z)
 
 	// Send motor commands
 	var err error

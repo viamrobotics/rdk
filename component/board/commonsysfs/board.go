@@ -254,7 +254,7 @@ func (b *sysfsBoard) GPIOPinByName(pinName string) (board.GPIOPin, error) {
 	return gpioPin{b, pin, pinName, hwPWMSupported}, nil
 }
 
-func (gp gpioPin) Set(ctx context.Context, high bool) error {
+func (gp gpioPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
 	gp.b.mu.Lock()
 	defer gp.b.mu.Unlock()
 
@@ -271,11 +271,11 @@ func (gp gpioPin) set(high bool) error {
 	return gp.pin.Out(l)
 }
 
-func (gp gpioPin) Get(ctx context.Context) (bool, error) {
+func (gp gpioPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	return gp.pin.Read() == gpio.High, nil
 }
 
-func (gp gpioPin) PWM(ctx context.Context) (float64, error) {
+func (gp gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	gp.b.mu.RLock()
 	defer gp.b.mu.RUnlock()
 
@@ -324,7 +324,7 @@ func (b *sysfsBoard) softwarePWMLoop(ctx context.Context, gp gpioPin) {
 	}
 }
 
-func (gp gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64) error {
+func (gp gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
 	gp.b.mu.Lock()
 	defer gp.b.mu.Unlock()
 
@@ -348,14 +348,14 @@ func (gp gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64) error {
 	return nil
 }
 
-func (gp gpioPin) PWMFreq(ctx context.Context) (uint, error) {
+func (gp gpioPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
 	gp.b.mu.RLock()
 	defer gp.b.mu.RUnlock()
 
 	return uint(gp.b.pwms[gp.pinName].frequency / physic.Hertz), nil
 }
 
-func (gp gpioPin) SetPWMFreq(ctx context.Context, freqHz uint) error {
+func (gp gpioPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
 	gp.b.mu.Lock()
 	defer gp.b.mu.Unlock()
 
@@ -379,7 +379,7 @@ func (gp gpioPin) SetPWMFreq(ctx context.Context, freqHz uint) error {
 	return nil
 }
 
-func (b *sysfsBoard) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
+func (b *sysfsBoard) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	return &commonpb.BoardStatus{}, nil
 }
 

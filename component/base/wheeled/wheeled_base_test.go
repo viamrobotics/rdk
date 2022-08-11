@@ -2,10 +2,11 @@ package wheeled
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
-	"github.com/golang/geo/r3"
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/motor"
@@ -16,10 +17,14 @@ import (
 
 func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
 	t.Helper()
+	logger := golog.NewTestLogger(t)
 
 	result := make(registry.Dependencies)
 	for _, dep := range deps {
-		result[motor.Named(dep)] = &fake.Motor{}
+		result[motor.Named(dep)] = &fake.Motor{
+			MaxRPM: 60,
+			Logger: logger,
+		}
 	}
 	return result
 }
@@ -215,26 +220,63 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, r, test.ShouldEqual, -60.0)
 	})
 
-	t.Run("setPowerMath", func(t *testing.T) {
-		l, r := base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{})
-		test.That(t, l, test.ShouldEqual, 1)
-		test.That(t, r, test.ShouldEqual, 1)
+	t.Run("differentialDrive", func(t *testing.T) {
+		var fwdL, fwdR, revL, revR float64
 
-		l, r = base.setPowerMath(r3.Vector{Y: -1}, r3.Vector{})
-		test.That(t, l, test.ShouldEqual, -1)
-		test.That(t, r, test.ShouldEqual, -1)
+		// Go straight (↑)
+		t.Logf("Go straight (↑)")
+		fwdL, fwdR = base.differentialDrive(1, 0)
+		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
+		test.That(t, fwdR, test.ShouldBeGreaterThan, 0)
+		test.That(t, math.Abs(fwdL), test.ShouldEqual, math.Abs(fwdR))
 
-		l, r = base.setPowerMath(r3.Vector{}, r3.Vector{Z: 1})
-		test.That(t, l, test.ShouldEqual, -1)
-		test.That(t, r, test.ShouldEqual, 1)
+		// Go forward-left (↰)
+		t.Logf("Go forward-left (↰)")
+		fwdL, fwdR = base.differentialDrive(1, 1)
+		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
+		test.That(t, fwdR, test.ShouldBeGreaterThan, 0)
+		test.That(t, math.Abs(fwdL), test.ShouldBeLessThan, math.Abs(fwdR))
 
-		l, r = base.setPowerMath(r3.Vector{}, r3.Vector{Z: -1})
-		test.That(t, l, test.ShouldEqual, 1)
-		test.That(t, r, test.ShouldEqual, -1)
+		// Go reverse-left (↲)
+		t.Logf("Go reverse-left (↲)")
+		revL, revR = base.differentialDrive(-1, 1)
+		test.That(t, revL, test.ShouldBeLessThan, 0)
+		test.That(t, revR, test.ShouldBeLessThan, 0)
+		test.That(t, math.Abs(revL), test.ShouldBeLessThan, math.Abs(revR))
 
-		l, r = base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{Z: 1})
-		test.That(t, l, test.ShouldAlmostEqual, 0, .001)
-		test.That(t, r, test.ShouldEqual, 1)
+		// Ensure motor powers are mirrored going left.
+		test.That(t, math.Abs(fwdL), test.ShouldEqual, math.Abs(revL))
+		test.That(t, math.Abs(fwdR), test.ShouldEqual, math.Abs(revR))
+
+		// Go forward-right (↱)
+		t.Logf("Go forward-right (↱)")
+		fwdL, fwdR = base.differentialDrive(1, -1)
+		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
+		test.That(t, fwdR, test.ShouldBeGreaterThan, 0)
+		test.That(t, math.Abs(fwdL), test.ShouldBeGreaterThan, math.Abs(revL))
+
+		// Go reverse-right (↳)
+		t.Logf("Go reverse-right (↳)")
+		revL, revR = base.differentialDrive(-1, -1)
+		test.That(t, revL, test.ShouldBeLessThan, 0)
+		test.That(t, revR, test.ShouldBeLessThan, 0)
+		test.That(t, math.Abs(revL), test.ShouldBeGreaterThan, math.Abs(revR))
+
+		// Ensure motor powers are mirrored going right.
+		test.That(t, math.Abs(fwdL), test.ShouldEqual, math.Abs(revL))
+		test.That(t, math.Abs(fwdR), test.ShouldEqual, math.Abs(revR))
+
+		// Test spin left (↺)
+		t.Logf("Test spin left (↺)")
+		spinL, spinR := base.differentialDrive(0, 1)
+		test.That(t, spinL, test.ShouldBeLessThanOrEqualTo, 0)
+		test.That(t, spinR, test.ShouldBeGreaterThan, 0)
+
+		// Test spin right (↻)
+		t.Logf("Test spin right (↻)")
+		spinL, spinR = base.differentialDrive(0, -1)
+		test.That(t, spinL, test.ShouldBeGreaterThan, 0)
+		test.That(t, spinR, test.ShouldBeLessThanOrEqualTo, 0)
 	})
 }
 
