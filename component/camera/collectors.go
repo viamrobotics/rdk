@@ -9,7 +9,6 @@ import (
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
-	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 )
@@ -66,6 +65,12 @@ func newNextCollector(resource interface{}, params data.CollectorParams) (data.C
 		return nil, err
 	}
 
+	// TODO[DATA-311]: Support all mime types.
+	mimeType := params.MethodParams["mime_type"]
+	if mimeType != utils.MimeTypeJPEG && mimeType != utils.MimeTypePNG {
+		return nil, data.InvalidParametersErr(params.MethodParams)
+	}
+
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		img, release, err := camera.Next(ctx)
 		if err != nil {
@@ -77,24 +82,11 @@ func newNextCollector(resource interface{}, params data.CollectorParams) (data.C
 			}
 		}()
 
-		// choose the best/fastest representation
-		mimeType := params.MethodParams["mime_type"]
-		if mimeType == "" || mimeType == utils.MimeTypeViamBest {
-			mimeType = utils.MimeTypeRawRGBA
-		}
-
-		bounds := img.Bounds()
-		resp := pb.GetFrameResponse{
-			MimeType: mimeType,
-			WidthPx:  int64(bounds.Dx()),
-			HeightPx: int64(bounds.Dy()),
-		}
 		outBytes, err := rimage.EncodeImage(ctx, img, mimeType)
 		if err != nil {
 			return nil, err
 		}
-		resp.Image = outBytes
-		return &resp, nil
+		return outBytes, nil
 	})
 	return data.NewCollector(cFunc, params)
 }

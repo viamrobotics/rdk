@@ -3,6 +3,7 @@ package datamanager
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -232,8 +233,9 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 ) {
 	// Create component/method metadata to check if the collector exists.
 	metadata := data.MethodMetadata{
-		Subtype:    attributes.Type,
-		MethodName: attributes.Method,
+		Subtype:      attributes.Type,
+		ParamsString: fmt.Sprintf("%v", attributes.AdditionalParams),
+		MethodName:   attributes.Method,
 	}
 	componentMetadata := componentMethodMetadata{
 		ComponentName:  attributes.Name,
