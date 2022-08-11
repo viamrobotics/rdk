@@ -233,10 +233,13 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 ) {
 	// Create component/method metadata to check if the collector exists.
 	metadata := data.MethodMetadata{
-		Subtype:      attributes.Type,
-		ParamsString: fmt.Sprintf("%v", attributes.AdditionalParams),
-		MethodName:   attributes.Method,
+		Subtype:    attributes.Type,
+		MethodName: attributes.Method,
 	}
+	if len(attributes.AdditionalParams) > 0 {
+		metadata.ParamsString = fmt.Sprintf("%v", attributes.AdditionalParams)
+	}
+
 	componentMetadata := componentMethodMetadata{
 		ComponentName:  attributes.Name,
 		ComponentModel: attributes.Model,
