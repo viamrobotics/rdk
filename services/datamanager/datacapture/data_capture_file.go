@@ -12,6 +12,7 @@ import (
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
 
 // TODO Data-343: Reorganize this into a more standard interface/package, and add tests.
@@ -49,6 +50,7 @@ func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.F
 func BuildCaptureMetadata(compType resource.SubtypeName, compName string, compModel string, method string,
 	additionalParams map[string]string,
 ) *v1.DataCaptureMetadata {
+	dataType := getDataType(string(compType), method)
 	return &v1.DataCaptureMetadata{
 		ComponentType:    string(compType),
 		ComponentName:    compName,
@@ -56,6 +58,7 @@ func BuildCaptureMetadata(compType resource.SubtypeName, compName string, compMo
 		MethodName:       method,
 		Type:             getDataType(string(compType), method),
 		MethodParameters: additionalParams,
+		FileExtension:    getFileExt(method, additionalParams),
 	}
 }
 
@@ -111,4 +114,23 @@ func getDataType(_ string, methodName string) v1.DataType {
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
 	}
 	return v1.DataType_DATA_TYPE_TABULAR_SENSOR
+}
+
+func getFileExt(methodName string, parameters map[string]string) string {
+	if methodName == "NextPointCloud" {
+		return ".pcd"
+	} else if methodName == "Next" {
+		switch parameters["mime_type"] {
+		case utils.MimeTypeJPEG:
+			return ".jpeg"
+		case utils.MimeTypePNG:
+			return ".png"
+		case utils.MimeTypePCD:
+			return ".pcd"
+		default:
+			// TODO: Add explicit file extensions for all mime types.
+			return ""
+		}
+	}
+	return ""
 }
