@@ -2,6 +2,7 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -78,6 +79,7 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 				return
 			default:
 				ur, err := stream.Recv()
+				// TODO REMOVE, NOT ACTUALLY SPECIAL CASES
 				if errors.Is(err, context.Canceled) || errors.Is(err, io.EOF) {
 					retRecvUploadResponse <- err
 					return
@@ -86,6 +88,7 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 					retRecvUploadResponse <- errors.Errorf("Unable to receive UploadResponse from server: %v", err)
 					return
 				}
+				fmt.Println("ACK received by client. " + fmt.Sprint(ur.GetRequestsWritten()) + " messages were " + "persisted by GCS.")
 				if err := pt.updateProgressFileIndex(progressFileName, int(ur.GetRequestsWritten())); err != nil {
 					retRecvUploadResponse <- err
 					return
@@ -171,7 +174,10 @@ func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, 
 		if err := pt.createProgressFile(progressFilePath); err != nil {
 			return err
 		}
+		fmt.Println(".\n\n\nDid not get previous progress! " + fmt.Sprint(progressIndex) + " messages are already persisted.\n\n\n.")
 		return nil
+	} else {
+		fmt.Println(".\n\n\nGot previous progress! " + fmt.Sprint(progressIndex) + " messages are already persisted.\n\n\n.")
 	}
 
 	// Sets the next file pointer to the next sensordata message that needs to be uploaded.

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
@@ -35,6 +36,20 @@ var (
 // Compares UploadRequests containing either binary or tabular sensor data.
 // nolint:thelper
 func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequest, expected []*v1.UploadRequest) {
+
+	// t.Log("--------------------")
+	// t.Log("Actual:")
+	// for i, req := range actual {
+	// 	t.Log(fmt.Sprint(i) + ": " + string(req.GetSensorContents().GetBinary()))
+
+	// }
+	// t.Log("--------------------")
+	// t.Log("Expected:")
+	// for i, req := range expected {
+	// 	t.Log(fmt.Sprint(i) + ": " + string(req.GetSensorContents().GetBinary()))
+	// }
+	// t.Log("--------------------")
+
 	// Ensure length of slices is same before proceeding with rest of tests.
 	test.That(t, len(actual), test.ShouldEqual, len(expected))
 
@@ -46,8 +61,8 @@ func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequ
 		if isTabular {
 			// Compare tabular data upload request (stream).
 			for i, uploadRequest := range actual[1:] {
-				a := uploadRequest.GetSensorContents().GetStruct()
-				e := expected[i+1].GetSensorContents().GetStruct()
+				a := uploadRequest.GetSensorContents().GetStruct().String()
+				e := expected[i+1].GetSensorContents().GetStruct().String()
 				test.That(t, fmt.Sprint(a), test.ShouldResemble, fmt.Sprint(e))
 			}
 		} else {
@@ -57,18 +72,6 @@ func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequ
 				e := expected[i+1].GetSensorContents().GetBinary()
 				test.That(t, a, test.ShouldResemble, e)
 			}
-		}
-	}
-}
-
-// nolint:thelper
-func compareUploadResponses(t *testing.T, actual []*v1.UploadResponse, expected []*v1.UploadResponse) {
-	test.That(t, len(actual), test.ShouldEqual, len(expected))
-	if len(actual) > 0 {
-		for i, uploadResponse := range actual[1:] {
-			a := uploadResponse.GetRequestsWritten()
-			e := expected[i+1].GetRequestsWritten()
-			test.That(t, a, test.ShouldEqual, e)
 		}
 	}
 }
@@ -240,11 +243,11 @@ func getMockService() mockDataSyncServiceServer {
 		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
 
 		// Fields below this line added by maxhorowitz
-		sendAckEveryNMessages:       0,
-		reqsStagedForResponse:       0,
-		sendCancelCtxAfterNMessages: -1,
-		uploadResponses:             &[]*v1.UploadResponse{},
-		shouldNotRetryUpload:        false,
+		sendAckEveryNSensorDataMessages:  0,
+		reqsStagedForResponse:            0,
+		sendCancelCtxAfterNTotalMessages: -1,
+		uploadResponses:                  &[]*v1.UploadResponse{},
+		shouldNotRetryUpload:             false,
 	}
 }
 
@@ -287,11 +290,13 @@ type mockDataSyncServiceServer struct {
 	v1.UnimplementedDataSyncServiceServer
 
 	// Fields below this line added by maxhorowitz
-	sendAckEveryNMessages       int
-	reqsStagedForResponse       int
-	sendCancelCtxAfterNMessages int
-	uploadResponses             *[]*v1.UploadResponse
-	shouldNotRetryUpload        bool
+	sendAckEveryNSensorDataMessages  int
+	reqsStagedForResponse            int
+	messagesPersisted                int
+	sendCancelCtxAfterNTotalMessages int
+	uploadResponses                  *[]*v1.UploadResponse
+	shouldNotRetryUpload             bool
+	cancelChannel                    chan bool
 }
 
 func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
@@ -300,18 +305,17 @@ func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
 	return *m.uploadRequests
 }
 
-func (m mockDataSyncServiceServer) getUploadResponses() []*v1.UploadResponse {
-	(*m.lock).Lock()
-	defer (*m.lock).Unlock()
-	return *m.uploadResponses
-}
+// func (m mockDataSyncServiceServer) getUploadResponses() []*v1.UploadResponse {
+// 	(*m.lock).Lock()
+// 	defer (*m.lock).Unlock()
+// 	return *m.uploadResponses
+// }
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
 	defer m.callCount.Add(1)
 	if m.callCount.Load() < m.failUntilIndex && !m.shouldNotRetryUpload {
 		return status.Error(codes.Aborted, "fail until reach failUntilIndex")
 	}
-
 	m.reqsStagedForResponse = 0
 	for {
 		// If server.Upload(stream) has been called too many times, abort.
@@ -319,35 +323,11 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 			return status.Error(codes.Aborted, "failed at failAtIndex")
 		}
 
-		// Keeps track of total requests processed.
-		reqsProcessed := len(m.getUploadRequests())
-
-		// If we should cancel ctx, cancel.
-		if m.sendCancelCtxAfterNMessages == reqsProcessed && m.sendCancelCtxAfterNMessages != -1 {
-			res := &v1.UploadResponse{RequestsWritten: int32(m.reqsStagedForResponse)}
-			if err := stream.Send(res); err != nil {
-				return err
-			}
-
-			// Append UploadResponse to list of recorded Responses.
-			(*m.lock).Lock()
-			newData := append(*m.uploadResponses, res)
-			*m.uploadResponses = newData
-			(*m.lock).Unlock()
-
-			return context.Canceled
-		}
-
 		// Recv UploadRequest (block until received).
 		ur, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
-			(*m.lock).Lock()
-			if len(*m.uploadRequests) == 1 {
-				var reset []*v1.UploadRequest
-				*m.uploadRequests = reset
-			}
-			(*m.lock).Unlock()
 			break
+
 		}
 		if err != nil {
 			return err
@@ -360,20 +340,36 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 		m.reqsStagedForResponse++
 		(*m.lock).Unlock()
 
+		fmt.Println("--------------------")
+		fmt.Println("We now have", len(m.getUploadRequests()), "total upload requests received,"+
+			" including the metadata.")
+		fmt.Println("These are the upload requests: " + fmt.Sprint(m.getUploadRequests()))
 		// Send an ACK at intervals of N messages.
-		if m.reqsStagedForResponse == m.sendAckEveryNMessages {
-			res := &v1.UploadResponse{RequestsWritten: int32(m.reqsStagedForResponse)}
-			if err := stream.Send(res); err != nil {
+		if (m.reqsStagedForResponse - 1) == m.sendAckEveryNSensorDataMessages {
+			if err := stream.Send(&v1.UploadResponse{RequestsWritten: int32(m.reqsStagedForResponse - 1)}); err != nil {
 				return err
 			}
-			// Append UploadResponse to list of recorded Responses.
-			(*m.lock).Lock()
-			newData := append(*m.uploadResponses, res)
-			*m.uploadResponses = newData
-			(*m.lock).Unlock()
+			fmt.Println("Sent an ACK. " + fmt.Sprint(m.reqsStagedForResponse-1) + " upload request messages have been persisted in GCS (doesn't include metadata).")
+			fmt.Println("Last message persisted in GCS is '" + string(ur.GetSensorContents().GetBinary()) + ".'")
 
+			m.messagesPersisted += m.reqsStagedForResponse
 			m.reqsStagedForResponse = 0
 		}
+		fmt.Println("--------------------")
+
+		// If we want the client to cancel its own context, send signal through channel to the 'sut.'
+		if m.sendCancelCtxAfterNTotalMessages == len(m.getUploadRequests()) {
+			// fmt.Println(" ---------- MESSAGES TOTAL:     " + fmt.Sprint(m.getUploadRequests()) + " ---------- ")
+
+			// fmt.Println(" ---------- MESSAGES PERSISTED: " + fmt.Sprint(m.messagesPersisted) + " ---------- ")
+			(*m.lock).Lock()
+			*m.uploadRequests = (*m.uploadRequests)[0:(m.messagesPersisted)]
+			(*m.lock).Unlock()
+			// fmt.Println(" ---------- MESSAGES TOTAL:     " + fmt.Sprint(m.getUploadRequests()) + " ---------- ")
+			m.cancelChannel <- true
+			time.Sleep(10 * time.Millisecond)
+		}
+
 	}
 	return nil
 }

@@ -62,7 +62,7 @@ func (pt *progressTracker) updateProgressFileIndex(path string, requestsWritten 
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(path, []byte(strconv.Itoa(i+1)), os.FileMode((0o777)))
+	err = ioutil.WriteFile(path, []byte(strconv.Itoa(i+requestsWritten)), os.FileMode((0o777)))
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func (pt *progressTracker) updateProgressFileIndex(path string, requestsWritten 
 
 // Returns the index of next sensordata message to upload.
 func (pt *progressTracker) getProgressFileIndex(path string) (int, error) {
-	bs, err := ioutil.ReadFile(filepath.Clean(path))
+	bs, err := ioutil.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return 0, nil
 	}
