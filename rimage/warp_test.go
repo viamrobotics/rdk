@@ -135,7 +135,7 @@ func TestWarpInvert(t *testing.T) {
 func TestWarpSmall1(t *testing.T) {
 	// this is mostly making sure this test actually runs
 	// as it requires a non-standard matrix invert
-	img, err := readImageFromFile(artifact.MustPath("rimage/warpsmall1.jpg"), false)
+	img, err := readImageFromFile(artifact.MustPath("rimage/warpsmall1.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 
 	outputSize := image.Point{100, 100}
