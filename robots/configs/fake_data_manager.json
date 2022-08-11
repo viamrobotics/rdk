@@ -33,7 +33,7 @@
             "capture_methods": [
               {
                 "method": "IsPowered",
-                "capture_frequency_hz": 10
+                "capture_frequency_hz": 0
               }
             ]
           }
