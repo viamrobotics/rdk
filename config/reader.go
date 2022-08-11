@@ -338,7 +338,6 @@ func getFromCloud(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool
 		return nil, cached, err
 	}
 
-	// non 200 status
 	if resp.StatusCode != http.StatusOK {
 		if len(rd) != 0 {
 			return nil, cached, errors.Errorf("unexpected status %d: %s", resp.StatusCode, string(rd))
