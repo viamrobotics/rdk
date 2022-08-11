@@ -22,35 +22,7 @@
                   }
                 }
             ]
-        },
-        {
-            "model": "fake",
-            "name": "cam1",
-            "type": "camera",
-            "service_config": [
-                {
-                  "type": "data_manager",
-                  "attributes": {
-                    "capture_methods": [
-                        {
-                            "method": "Next",
-                            "capture_frequency_hz": 10,
-                            "additional_params": {
-                                "mime_type": "image/jpeg"
-                            }
-                        },
-                        {
-                            "method": "Next",
-                            "capture_frequency_hz": 10,
-                            "additional_params": {
-                                "mime_type": "image/png"
-                            }
-                        }
-                    ]
-                  }
-                }
-             ]
-            }
+        }
     ],
     "services":
     [
