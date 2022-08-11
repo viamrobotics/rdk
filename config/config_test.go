@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"io/ioutil"
 	"net"
 	"os"
 	"testing"
@@ -21,6 +20,7 @@ import (
 	// board attribute converters.
 	_ "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/motor"
+
 	// motor attribute converters.
 	_ "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
@@ -288,8 +288,8 @@ func TestConfigEnsure(t *testing.T) {
 }
 
 func TestCopyOnlyPublicFields(t *testing.T) {
-	t.Run("copy sample cofnig", func(t *testing.T) {
-		content, err := ioutil.ReadFile("data/robot.json")
+	t.Run("copy sample config", func(t *testing.T) {
+		content, err := os.ReadFile("data/robot.json")
 		test.That(t, err, test.ShouldBeNil)
 		var cfg config.Config
 		json.Unmarshal(content, &cfg)
