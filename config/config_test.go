@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
@@ -19,6 +20,7 @@ import (
 	// board attribute converters.
 	_ "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/motor"
+
 	// motor attribute converters.
 	_ "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
@@ -287,13 +289,37 @@ func TestConfigEnsure(t *testing.T) {
 
 func TestCopy(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/robot.json", logger)
-	test.That(t, err, test.ShouldBeNil)
 
-	cfgCopy, err := cfg.Copy()
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("copy sample cofnig", func(t *testing.T) {
+		cfg, err := config.Read(context.Background(), "data/robot.json", logger)
+		test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, cfgCopy, test.ShouldResemble, cfg)
+		cfgCopy, err := cfg.Copy()
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, cfgCopy, test.ShouldResemble, cfg)
+	})
+
+	t.Run("should not copy unexported json fields", func(t *testing.T) {
+		cfg := &config.Config{
+			Cloud: &config.Cloud{
+				TLSCertificate: "abc",
+			},
+			Network: config.NetworkConfig{
+				NetworkConfigData: config.NetworkConfigData{
+					TLSConfig: &tls.Config{
+						Time: time.Now().UTC,
+					},
+				},
+			},
+		}
+
+		cfgCopy, err := cfg.Copy()
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, cfgCopy.Cloud.TLSCertificate, test.ShouldEqual, cfg.Cloud.TLSCertificate)
+		test.That(t, cfgCopy.Network.TLSConfig, test.ShouldBeNil)
+	})
 }
 
 func TestConfigSortComponents(t *testing.T) {
