@@ -34,6 +34,9 @@ type AttrConfig struct {
 	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
 	NtripPass            string `json:"ntrip_password,omitempty"`
 	NtripUser            string `json:"ntrip_username,omitempty"`
+	// non ntrip
+	RequiredAccuracy string `json:"required_accuracy,omitempty"`
+	RequiredTime     string `json:"required_time,omitempty"`
 	// serial
 	CorrectionPath string `json:"correction_path"`
 	// I2C
@@ -60,6 +63,12 @@ func (config *AttrConfig) Validate(path string) error {
 	if config.CorrectionSource == serialStr {
 		if len(config.CorrectionPath) == 0 {
 			return errors.New("must specify serial path")
+		}
+		if len(config.RequiredAccuracy) == 0 {
+			return errors.New("must specify required accuracy for base station fix")
+		}
+		if len(config.RequiredTime) == 0 {
+			return errors.New("must specify required time for base station fix")
 		}
 	}
 
@@ -102,6 +111,9 @@ type rtkStation struct {
 	serialWriter        io.Writer
 	movementsensorNames []string
 
+	requiredAcc  float64
+	requiredTime float64
+
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
@@ -119,11 +131,13 @@ type i2cBusAddr struct {
 }
 
 const (
-	correctionSourceName = "correction_source"
-	childrenName         = "children"
-	i2cStr               = "I2C"
-	serialStr            = "serial"
-	ntripStr             = "ntrip"
+	correctionSourceName   = "correction_source"
+	childrenName           = "children"
+	i2cStr                 = "I2C"
+	serialStr              = "serial"
+	ntripStr               = "ntrip"
+	requiredAccuracyConfig = "loc_accuracy"
+	observationTimeConfig  = "time_accuracy"
 )
 
 func newRTKStation(
@@ -162,6 +176,14 @@ func newRTKStation(
 	}
 
 	r.movementsensorNames = config.Attributes.StringSlice(childrenName)
+
+	// enable time fix for rtk base station
+	if r.correctionType != ntripStr {
+		r.requiredAcc = float64(config.Attributes.String(requiredAccuracyConfig))
+		r.requiredTime = float64(config.Attributes.String(requiredTimeConfig))
+
+		ConfigureBaseRTKStation(r.requiredAcc, r.requiredTime)
+	}
 
 	// Init movementsensor correction input addresses
 	r.logger.Debug("Init movementsensor")
@@ -331,4 +353,3 @@ func (r *rtkStation) GetAccuracy(ctx context.Context) (map[string]float32, error
 func (r *rtkStation) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{}, nil
 }
-
