@@ -134,12 +134,13 @@ func buildSensorDataUploadRequests(sds []*v1.SensorData, dataType v1.DataType, f
 	expMsgs = append(expMsgs, &v1.UploadRequest{
 		UploadPacket: &v1.UploadRequest_Metadata{
 			Metadata: &v1.UploadMetadata{
-				PartId:        partID,
-				Type:          dataType,
-				FileName:      fileName,
-				ComponentType: componentType,
-				ComponentName: componentName,
-				MethodName:    methodName,
+				PartId:         partID,
+				Type:           dataType,
+				FileName:       fileName,
+				ComponentType:  componentType,
+				ComponentName:  componentName,
+				ComponentModel: componentModel,
+				MethodName:     methodName,
 			},
 		},
 	})

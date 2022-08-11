@@ -57,7 +57,6 @@ func (pt *progressTracker) deleteProgressFile(path string) error {
 	return os.Remove(path)
 }
 
-
 func (pt *progressTracker) updateProgressFileIndex(path string, requestsWritten int) error {
 	i, err := pt.getProgressFileIndex(path)
 	if err != nil {
@@ -72,6 +71,7 @@ func (pt *progressTracker) updateProgressFileIndex(path string, requestsWritten 
 
 // Returns the index of next sensordata message to upload.
 func (pt *progressTracker) getProgressFileIndex(path string) (int, error) {
+	//nolint:gosec
 	bs, err := ioutil.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return 0, nil
