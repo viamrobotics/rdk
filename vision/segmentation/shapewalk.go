@@ -395,21 +395,22 @@ func (ws *walkState) lookForWeirdShapes(clusterNumber int) int {
 }
 
 // ShapeWalk TODO.
-func ShapeWalk(img *rimage.ImageWithDepth, start image.Point, options ShapeWalkOptions, logger golog.Logger) (*SegmentedImage, error) {
-	return ShapeWalkMultiple(img, []image.Point{start}, options, logger)
+func ShapeWalk(img *rimage.Image, dm *rimage.DepthMap, start image.Point, options ShapeWalkOptions, logger golog.Logger,
+) (*SegmentedImage, error) {
+	return ShapeWalkMultiple(img, dm, []image.Point{start}, options, logger)
 }
 
 // ShapeWalkMultiple TODO.
 func ShapeWalkMultiple(
-	img *rimage.ImageWithDepth,
+	img *rimage.Image, dm *rimage.DepthMap,
 	starts []image.Point,
 	options ShapeWalkOptions,
 	logger golog.Logger,
 ) (*SegmentedImage, error) {
 	ws := walkState{
-		img:       img.Color,
-		depth:     img.Depth,
-		dots:      newSegmentedImage(img.Color),
+		img:       img,
+		depth:     dm,
+		dots:      newSegmentedImage(img),
 		options:   options,
 		threshold: DefaultColorThreshold + options.ThresholdMod,
 		logger:    logger,
@@ -435,12 +436,13 @@ func (e MyWalkError) Error() string {
 }
 
 // ShapeWalkEntireDebug TODO.
-func ShapeWalkEntireDebug(img *rimage.ImageWithDepth, options ShapeWalkOptions, logger golog.Logger) (*SegmentedImage, error) {
+func ShapeWalkEntireDebug(img *rimage.Image, dm *rimage.DepthMap, options ShapeWalkOptions, logger golog.Logger,
+) (*SegmentedImage, error) {
 	var si *SegmentedImage
 	var err error
 
 	for extra := 0.0; extra < .7; extra += .2 {
-		si, err = shapeWalkEntireDebugOnePass(img, options, extra, logger)
+		si, err = shapeWalkEntireDebugOnePass(img, dm, options, extra, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -459,15 +461,15 @@ func ShapeWalkEntireDebug(img *rimage.ImageWithDepth, options ShapeWalkOptions, 
 }
 
 func shapeWalkEntireDebugOnePass(
-	img *rimage.ImageWithDepth,
+	img *rimage.Image, dm *rimage.DepthMap,
 	options ShapeWalkOptions,
 	extraThreshold float64,
 	logger golog.Logger,
 ) (*SegmentedImage, error) {
 	ws := walkState{
-		img:       img.Color,
-		depth:     img.Depth,
-		dots:      newSegmentedImage(img.Color),
+		img:       img,
+		depth:     dm,
+		dots:      newSegmentedImage(img),
 		options:   options,
 		threshold: DefaultColorThreshold + options.ThresholdMod + extraThreshold,
 		logger:    logger,

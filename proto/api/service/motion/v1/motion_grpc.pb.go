@@ -22,7 +22,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MotionServiceClient interface {
-	Move(ctx context.Context, in *MoveRequest, opts ...grpc.CallOption) (*MoveResponse, error)
+	PlanAndMove(ctx context.Context, in *PlanAndMoveRequest, opts ...grpc.CallOption) (*PlanAndMoveResponse, error)
+	MoveSingleComponent(ctx context.Context, in *MoveSingleComponentRequest, opts ...grpc.CallOption) (*MoveSingleComponentResponse, error)
 	GetPose(ctx context.Context, in *GetPoseRequest, opts ...grpc.CallOption) (*GetPoseResponse, error)
 }
 
@@ -34,9 +35,18 @@ func NewMotionServiceClient(cc grpc.ClientConnInterface) MotionServiceClient {
 	return &motionServiceClient{cc}
 }
 
-func (c *motionServiceClient) Move(ctx context.Context, in *MoveRequest, opts ...grpc.CallOption) (*MoveResponse, error) {
-	out := new(MoveResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.service.motion.v1.MotionService/Move", in, out, opts...)
+func (c *motionServiceClient) PlanAndMove(ctx context.Context, in *PlanAndMoveRequest, opts ...grpc.CallOption) (*PlanAndMoveResponse, error) {
+	out := new(PlanAndMoveResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.motion.v1.MotionService/PlanAndMove", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *motionServiceClient) MoveSingleComponent(ctx context.Context, in *MoveSingleComponentRequest, opts ...grpc.CallOption) (*MoveSingleComponentResponse, error) {
+	out := new(MoveSingleComponentResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.motion.v1.MotionService/MoveSingleComponent", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +66,8 @@ func (c *motionServiceClient) GetPose(ctx context.Context, in *GetPoseRequest, o
 // All implementations must embed UnimplementedMotionServiceServer
 // for forward compatibility
 type MotionServiceServer interface {
-	Move(context.Context, *MoveRequest) (*MoveResponse, error)
+	PlanAndMove(context.Context, *PlanAndMoveRequest) (*PlanAndMoveResponse, error)
+	MoveSingleComponent(context.Context, *MoveSingleComponentRequest) (*MoveSingleComponentResponse, error)
 	GetPose(context.Context, *GetPoseRequest) (*GetPoseResponse, error)
 	mustEmbedUnimplementedMotionServiceServer()
 }
@@ -65,8 +76,11 @@ type MotionServiceServer interface {
 type UnimplementedMotionServiceServer struct {
 }
 
-func (UnimplementedMotionServiceServer) Move(context.Context, *MoveRequest) (*MoveResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Move not implemented")
+func (UnimplementedMotionServiceServer) PlanAndMove(context.Context, *PlanAndMoveRequest) (*PlanAndMoveResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PlanAndMove not implemented")
+}
+func (UnimplementedMotionServiceServer) MoveSingleComponent(context.Context, *MoveSingleComponentRequest) (*MoveSingleComponentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MoveSingleComponent not implemented")
 }
 func (UnimplementedMotionServiceServer) GetPose(context.Context, *GetPoseRequest) (*GetPoseResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPose not implemented")
@@ -84,20 +98,38 @@ func RegisterMotionServiceServer(s grpc.ServiceRegistrar, srv MotionServiceServe
 	s.RegisterService(&MotionService_ServiceDesc, srv)
 }
 
-func _MotionService_Move_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MoveRequest)
+func _MotionService_PlanAndMove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PlanAndMoveRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MotionServiceServer).Move(ctx, in)
+		return srv.(MotionServiceServer).PlanAndMove(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.service.motion.v1.MotionService/Move",
+		FullMethod: "/proto.api.service.motion.v1.MotionService/PlanAndMove",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MotionServiceServer).Move(ctx, req.(*MoveRequest))
+		return srv.(MotionServiceServer).PlanAndMove(ctx, req.(*PlanAndMoveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MotionService_MoveSingleComponent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MoveSingleComponentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MotionServiceServer).MoveSingleComponent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.service.motion.v1.MotionService/MoveSingleComponent",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MotionServiceServer).MoveSingleComponent(ctx, req.(*MoveSingleComponentRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -128,8 +160,12 @@ var MotionService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*MotionServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Move",
-			Handler:    _MotionService_Move_Handler,
+			MethodName: "PlanAndMove",
+			Handler:    _MotionService_PlanAndMove_Handler,
+		},
+		{
+			MethodName: "MoveSingleComponent",
+			Handler:    _MotionService_MoveSingleComponent_Handler,
 		},
 		{
 			MethodName: "GetPose",

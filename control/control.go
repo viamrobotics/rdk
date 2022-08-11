@@ -8,9 +8,9 @@ import (
 // Controllable controllable type for a DC motor.
 type Controllable interface {
 	// SetPower set the power and direction of the motor
-	SetPower(ctx context.Context, power float64) error
+	SetPower(ctx context.Context, power float64, extra map[string]interface{}) error
 	// GetPosition returns the current encoder count value
-	GetPosition(ctx context.Context) (float64, error)
+	GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error)
 }
 
 // ControlConfig configuration of the control loop

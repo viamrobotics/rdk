@@ -147,9 +147,9 @@ type arduinoMotor struct {
 }
 
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
-func (m *arduinoMotor) SetPower(ctx context.Context, powerPct float64) error {
+func (m *arduinoMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	if math.Abs(powerPct) <= SetPowerZeroThreshold {
-		return m.Stop(ctx)
+		return m.Stop(ctx, extra)
 	}
 
 	_, err := m.b.runCommand(fmt.Sprintf("motor-power %s %d", m.name, int(255.0*math.Abs(powerPct))))
@@ -158,7 +158,7 @@ func (m *arduinoMotor) SetPower(ctx context.Context, powerPct float64) error {
 
 // GoFor instructs the motor to go in a specific direction for a specific amount of
 // revolutions at a given speed in revolutions per minute.
-func (m *arduinoMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
+func (m *arduinoMotor) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
 	ticks := int(math.Abs(revolutions) * float64(m.cfg.TicksPerRotation))
 	ticksPerSecond := int(math.Abs(rpm) * float64(m.cfg.TicksPerRotation) / 60.0)
 
@@ -169,7 +169,7 @@ func (m *arduinoMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 		// ticksPerSecond *= 1
 	}
 
-	err := m.SetPower(ctx, powerPct)
+	err := m.SetPower(ctx, powerPct, extra)
 	if err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func (m *arduinoMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 // Position reports the position of the motor based on its encoder. If it's not supported, the returned
 // data is undefined. The unit returned is the number of revolutions which is intended to be fed
 // back into calls of GoFor.
-func (m *arduinoMotor) GetPosition(ctx context.Context) (float64, error) {
+func (m *arduinoMotor) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	res, err := m.b.runCommand("motor-position " + m.name)
 	if err != nil {
 		return 0, err
@@ -195,20 +195,20 @@ func (m *arduinoMotor) GetPosition(ctx context.Context) (float64, error) {
 }
 
 // GetFeatures returns the status of optional features supported by the motor.
-func (m *arduinoMotor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
+func (m *arduinoMotor) GetFeatures(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: true,
 	}, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
-func (m *arduinoMotor) Stop(ctx context.Context) error {
+func (m *arduinoMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	_, err := m.b.runCommand("motor-off " + m.name)
 	return err
 }
 
 // IsPowered returns whether or not the motor is currently on.
-func (m *arduinoMotor) IsPowered(ctx context.Context) (bool, error) {
+func (m *arduinoMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	return m.IsMoving(ctx)
 }
 
@@ -223,7 +223,7 @@ func (m *arduinoMotor) IsMoving(ctx context.Context) (bool, error) {
 
 // GoTo instructs motor to go to a given position at a given RPM. Regardless of the directionality of the RPM this function will move the
 // motor towards the specified target.
-func (m *arduinoMotor) GoTo(ctx context.Context, rpm float64, target float64) error {
+func (m *arduinoMotor) GoTo(ctx context.Context, rpm float64, target float64, extra map[string]interface{}) error {
 	ticks := int(target * float64(m.cfg.TicksPerRotation))
 	ticksPerSecond := int(math.Abs(rpm) * float64(m.cfg.TicksPerRotation) / 60.0)
 
@@ -237,14 +237,14 @@ func (m *arduinoMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 	return errors.New("not supported")
 }
 
-func (m *arduinoMotor) ResetZeroPosition(ctx context.Context, offset float64) error {
+func (m *arduinoMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	offsetTicks := int64(offset * float64(m.cfg.TicksPerRotation))
 	_, err := m.b.runCommand(fmt.Sprintf("motor-zero %s %d", m.name, offsetTicks))
 	return err
 }
 
 func (m *arduinoMotor) Close(ctx context.Context) error {
-	return m.Stop(ctx)
+	return m.Stop(ctx, nil)
 }
 
 type encoder struct {
@@ -254,7 +254,7 @@ type encoder struct {
 }
 
 // Position returns the current position in terms of ticks.
-func (e *encoder) GetPosition(ctx context.Context) (int64, error) {
+func (e *encoder) GetPosition(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	res, err := e.b.runCommand("motor-position " + e.name)
 	if err != nil {
 		return 0, err
@@ -274,7 +274,7 @@ func (e *encoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync
 	onStart()
 }
 
-func (e *encoder) ResetZeroPosition(ctx context.Context, offset int64) error {
+func (e *encoder) ResetZeroPosition(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	_, err := e.b.runCommand(fmt.Sprintf("motor-zero %s %d", e.name, offset))
 	return err
 }

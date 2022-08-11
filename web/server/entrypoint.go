@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream/codec/x264"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
@@ -413,7 +414,12 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		})
 	}
 
-	myRobot, err := robotimpl.New(ctx, processedConfig, logger)
+	myRobot, err := robotimpl.New(
+		ctx,
+		processedConfig,
+		logger,
+		robotimpl.WithWebOptions(web.WithStreamConfig(x264.DefaultStreamConfig)),
+	)
 	if err != nil {
 		return err
 	}
@@ -447,13 +453,10 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 					logger.Errorw("error processing config", "error", err)
 					continue
 				}
-				if err := myRobot.Reconfigure(ctx, processedConfig); err != nil {
-					logger.Fatalw("error reconfiguring robot", "error", err)
-					continue
-				}
+				myRobot.Reconfigure(ctx, processedConfig)
 
 				// restart web service if necessary
-				diff, err := config.DiffConfigs(oldCfg, processedConfig)
+				diff, err := config.DiffConfigs(*oldCfg, *processedConfig)
 				if err != nil {
 					logger.Errorw("error diffing config", "error", err)
 					continue
