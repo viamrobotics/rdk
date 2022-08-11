@@ -195,45 +195,6 @@ func createTmpDataCaptureFile() (file *os.File, err error) {
 	return ret, nil
 }
 
-func getMockService() mockDataSyncServiceServer {
-	return mockDataSyncServiceServer{
-		uploadRequests:                     &[]*v1.UploadRequest{},
-		callCount:                          &atomic.Int32{},
-		failAtIndex:                        -1,
-		lock:                               &sync.Mutex{},
-		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
-
-		// Fields below this line added by maxhorowitz
-		sendAckEveryNSensorDataMessages:  0,
-		reqsStagedForResponse:            0,
-		sendCancelCtxAfterNTotalMessages: -1,
-		uploadResponses:                  &[]*v1.UploadResponse{},
-		shouldNotRetryUpload:             false,
-	}
-}
-
-func (m *mockDataSyncServiceServer) setMockServiceBeforeCancel(tc partialUploadTestcase) {
-	m.shouldNotRetryUpload = true
-	m.sendAckEveryNSensorDataMessages = tc.sendAckEveryNSensorDataMessages
-	m.sendCancelCtxAfterNTotalMessages = tc.sendCancelCtxAfterNTotalMessages
-}
-
-func (m *mockDataSyncServiceServer) setMockServiceAfterCancel(tc partialUploadTestcase) {
-	m.shouldNotRetryUpload = true
-	m.sendAckEveryNSensorDataMessages = tc.sendAckEveryNSensorDataMessages
-	m.sendCancelCtxAfterNTotalMessages = math.MaxInt
-}
-
-type partialUploadTestcase struct {
-	name                             string
-	sendAckEveryNSensorDataMessages  int
-	sendCancelCtxAfterNTotalMessages int
-	dataType                         v1.DataType
-	toSend                           []*v1.SensorData
-	expReceivedDataBeforeCancel      []*v1.SensorData
-	expReceivedDataAfterCancel       []*v1.SensorData
-}
-
 //nolint:thelper
 func buildAndStartLocalServer(t *testing.T, logger golog.Logger, mockService mockDataSyncServiceServer) rpc.Server {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
@@ -263,6 +224,16 @@ func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientCo
 	)
 }
 
+type partialUploadTestcase struct {
+	name                             string
+	sendAckEveryNSensorDataMessages  int
+	sendCancelCtxAfterNTotalMessages int
+	dataType                         v1.DataType
+	toSend                           []*v1.SensorData
+	expReceivedDataBeforeCancel      []*v1.SensorData
+	expReceivedDataAfterCancel       []*v1.SensorData
+}
+
 type mockDataSyncServiceServer struct {
 	uploadRequests *[]*v1.UploadRequest
 	callCount      *atomic.Int32
@@ -280,6 +251,35 @@ type mockDataSyncServiceServer struct {
 	uploadResponses                  *[]*v1.UploadResponse
 	shouldNotRetryUpload             bool
 	cancelChannel                    chan bool
+}
+
+func getMockService() mockDataSyncServiceServer {
+	return mockDataSyncServiceServer{
+		uploadRequests:                     &[]*v1.UploadRequest{},
+		callCount:                          &atomic.Int32{},
+		failAtIndex:                        -1,
+		lock:                               &sync.Mutex{},
+		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
+
+		// Fields below this line added by maxhorowitz
+		sendAckEveryNSensorDataMessages:  0,
+		reqsStagedForResponse:            0,
+		sendCancelCtxAfterNTotalMessages: -1,
+		uploadResponses:                  &[]*v1.UploadResponse{},
+		shouldNotRetryUpload:             false,
+	}
+}
+
+func (m *mockDataSyncServiceServer) setMockServiceBeforeCancel(tc partialUploadTestcase) {
+	m.shouldNotRetryUpload = true
+	m.sendAckEveryNSensorDataMessages = tc.sendAckEveryNSensorDataMessages
+	m.sendCancelCtxAfterNTotalMessages = tc.sendCancelCtxAfterNTotalMessages
+}
+
+func (m *mockDataSyncServiceServer) setMockServiceAfterCancel(tc partialUploadTestcase) {
+	m.shouldNotRetryUpload = true
+	m.sendAckEveryNSensorDataMessages = tc.sendAckEveryNSensorDataMessages
+	m.sendCancelCtxAfterNTotalMessages = math.MaxInt
 }
 
 func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {

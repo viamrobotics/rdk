@@ -78,13 +78,8 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 				return
 			default:
 				ur, err := stream.Recv()
-				// TODO REMOVE, NOT ACTUALLY SPECIAL CASES
-				if errors.Is(err, context.Canceled) || errors.Is(err, io.EOF) {
-					retRecvUploadResponse <- err
-					return
-				}
 				if err != nil {
-					retRecvUploadResponse <- errors.Errorf("Unable to receive UploadResponse from server: %v", err)
+					retRecvUploadResponse <- err
 					return
 				}
 				if err := pt.updateProgressFileIndex(progressFileName, int(ur.GetRequestsWritten())); err != nil {
