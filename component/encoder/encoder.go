@@ -22,7 +22,7 @@ func init() {
 	})
 }
 
-// SubtypeName is a constant that identifies the component resource subtype string "motor".
+// SubtypeName is a constant that identifies the component resource subtype string "encoder".
 const SubtypeName = resource.SubtypeName("encoder")
 
 // Subtype is a constant that identifies the component resource subtype.
@@ -32,7 +32,7 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// A Encoder represents a physical motor connected to a board.
+// A Encoder turns a position into an electronic signal
 type Encoder interface {
 	// GetTicksCount returns number of ticks since last zeroing
 	GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error)
@@ -40,7 +40,7 @@ type Encoder interface {
 	// ResetToZero resets the counted ticks to 0
 	ResetToZero(ctx context.Context, offset int64, extra map[string]interface{}) error
 
-	// TicksPerRotation returns the number of ticks needed for a full rotation
+	// TicksPerRotation returns the number of ticks needed for a full encoder rotation
 	TicksPerRotation(ctx context.Context) (int64, error)
 
 	// Start starts the encoder in a background thread
