@@ -62,6 +62,28 @@ func (f *Frame) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// MarshalJSON will encode the Orientation field into a spatial.OrientationConfig object instead of spatial.Orientation.
+func (f *Frame) MarshalJSON() ([]byte, error) {
+	temp := struct {
+		Parent      string                    `json:"parent"`
+		Translation spatial.TranslationConfig `json:"translation"`
+		Orientation spatial.OrientationConfig `json:"orientation"`
+	}{
+		Parent:      f.Parent,
+		Translation: f.Translation,
+	}
+
+	if f.Orientation != nil {
+		orientationConfig, err := spatial.NewOrientationConfig(f.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		temp.Orientation = *orientationConfig
+	}
+
+	return json.Marshal(temp)
+}
+
 // MergeFrameSystems will merge fromFS into toFS with an offset frame given by cfg. If cfg is nil, fromFS
 // will be merged to the world frame of toFS with a 0 offset.
 func MergeFrameSystems(toFS, fromFS ref.FrameSystem, cfg *Frame) error {
