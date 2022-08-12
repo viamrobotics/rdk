@@ -66,7 +66,7 @@ func TestMyComponent(t *testing.T) {
 		test.That(t, pmgr.Stop(), test.ShouldBeNil)
 	}()
 	test.That(t, err, test.ShouldBeNil)
-	goutils.SelectContextOrWait(context.Background(), 10*time.Second)
+	goutils.SelectContextOrWait(context.Background(), 30*time.Second)
 
 	logger = golog.NewDevelopmentLogger("mycomponent.client")
 	remoteConfig := &config.Config{
