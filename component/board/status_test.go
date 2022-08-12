@@ -5,7 +5,6 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"go.viam.com/test"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/protoutils"
@@ -16,9 +15,7 @@ func TestStatusValid(t *testing.T) {
 		Analogs:           map[string]*commonpb.AnalogStatus{"analog1": {}},
 		DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{"encoder": {}},
 	}
-	map1, err := protoutils.InterfaceToMap(status)
-	test.That(t, err, test.ShouldBeNil)
-	newStruct, err := structpb.NewStruct(map1)
+	newStruct, err := protoutils.StructToStructPb(status)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(
 		t,

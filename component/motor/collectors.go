@@ -1,4 +1,4 @@
-package gantry
+package motor
 
 import (
 	"context"
@@ -10,32 +10,32 @@ type method int64
 
 const (
 	getPosition method = iota
-	getLengths
+	isPowered
 )
 
 func (m method) String() string {
 	switch m {
 	case getPosition:
 		return "GetPosition"
-	case getLengths:
-		return "GetLengths"
+	case isPowered:
+		return "IsPowered"
 	}
 	return "Unknown"
 }
 
-// Position wraps the returned position values.
+// Position wraps the returned position value.
 type Position struct {
-	Position []float64
+	Position float64
 }
 
 func newGetPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
-	gantry, err := assertGantry(resource)
+	motor, err := assertMotor(resource)
 	if err != nil {
 		return nil, err
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		v, err := gantry.GetPosition(ctx, nil)
+		v, err := motor.GetPosition(ctx, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, getPosition.String(), err)
 		}
@@ -44,31 +44,31 @@ func newGetPositionCollector(resource interface{}, params data.CollectorParams) 
 	return data.NewCollector(cFunc, params)
 }
 
-// Lengths wraps the returns lengths values.
-type Lengths struct {
-	Lengths []float64
+// Powered wraps the returned IsPowered value.
+type Powered struct {
+	IsPowered bool
 }
 
-func newGetLengthsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
-	gantry, err := assertGantry(resource)
+func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	motor, err := assertMotor(resource)
 	if err != nil {
 		return nil, err
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		v, err := gantry.GetLengths(ctx, nil)
+		v, err := motor.IsPowered(ctx, nil)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, getLengths.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, isPowered.String(), err)
 		}
-		return Lengths{Lengths: v}, nil
+		return Powered{IsPowered: v}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
 
-func assertGantry(resource interface{}) (Gantry, error) {
-	gantry, ok := resource.(Gantry)
+func assertMotor(resource interface{}) (Motor, error) {
+	motor, ok := resource.(Motor)
 	if !ok {
 		return nil, data.InvalidInterfaceErr(SubtypeName)
 	}
-	return gantry, nil
+	return motor, nil
 }

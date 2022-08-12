@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/motor"
@@ -118,9 +117,7 @@ func TestNamesFromRobot(t *testing.T) {
 
 func TestStatusValid(t *testing.T) {
 	status := &pb.Status{IsPowered: true, PositionReporting: true, Position: 7.7, IsMoving: true}
-	map1, err := protoutils.InterfaceToMap(status)
-	test.That(t, err, test.ShouldBeNil)
-	newStruct, err := structpb.NewStruct(map1)
+	newStruct, err := protoutils.StructToStructPb(status)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(
 		t,
@@ -137,9 +134,7 @@ func TestStatusValid(t *testing.T) {
 	test.That(t, convMap, test.ShouldResemble, status)
 
 	status = &pb.Status{Position: 7.7}
-	map1, err = protoutils.InterfaceToMap(status)
-	test.That(t, err, test.ShouldBeNil)
-	newStruct, err = structpb.NewStruct(map1)
+	newStruct, err = protoutils.StructToStructPb(status)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, newStruct.AsMap(), test.ShouldResemble, map[string]interface{}{"position": 7.7})
 
