@@ -37,6 +37,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 		logger: logger,
 	}
 }
+
 func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Next")
 	defer span.End()
