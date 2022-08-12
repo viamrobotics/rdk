@@ -91,7 +91,7 @@ func getMotor(ctx context.Context, r robot.Robot, name string) (motor.Motor, err
 		return nil, err
 	}
 
-	supportedFeatures, err := m.GetFeatures(ctx)
+	supportedFeatures, err := m.GetFeatures(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -104,12 +104,12 @@ func getMotor(ctx context.Context, r robot.Robot, name string) (motor.Motor, err
 }
 
 func motorOffError(ctx context.Context, m motor.Motor, other error) error {
-	return multierr.Combine(other, m.Stop(ctx))
+	return multierr.Combine(other, m.Stop(ctx, nil))
 }
 
 func testJointLimit(ctx context.Context, m motor.Motor, dir int64, logger golog.Logger) (float64, error) {
 	logger.Debugf("testJointLimit dir: %v", dir)
-	err := m.GoFor(ctx, float64(dir)*TestingRPM, 0)
+	err := m.GoFor(ctx, float64(dir)*TestingRPM, 0, nil)
 	if err != nil {
 		return 0.0, err
 	}
@@ -126,7 +126,7 @@ func testJointLimit(ctx context.Context, m motor.Motor, dir int64, logger golog.
 		if !utils.SelectContextOrWait(ctx, 25*time.Millisecond) {
 			return math.NaN(), ctx.Err()
 		}
-		pos, err := m.GetPosition(ctx)
+		pos, err := m.GetPosition(ctx, nil)
 		if err != nil {
 			return math.NaN(), motorOffError(ctx, m, err)
 		}
@@ -140,11 +140,11 @@ func testJointLimit(ctx context.Context, m motor.Motor, dir int64, logger golog.
 
 			if stdDev < .0001 {
 				if bigger {
-					return pos, m.Stop(ctx)
+					return pos, m.Stop(ctx, nil)
 				}
 				bigger = true
 				positions = []float64{}
-				err := m.SetPower(ctx, float64(dir)*TestingForce)
+				err := m.SetPower(ctx, float64(dir)*TestingForce, nil)
 				if err != nil {
 					return math.NaN(), motorOffError(ctx, m, err)
 				}
@@ -245,7 +245,7 @@ func (a *armV1) moveJointToValues(ctx context.Context, m motor.Motor, j joint, c
 		return nil
 	}
 
-	return m.GoFor(ctx, 10.0, delta)
+	return m.GoFor(ctx, 10.0, delta, nil)
 }
 
 // MoveToJointPositions TODO.
@@ -290,14 +290,14 @@ func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.Joint
 
 // IsOn TODO.
 func (a *armV1) IsOn(ctx context.Context) (bool, error) {
-	on0, err0 := a.j0Motor.IsPowered(ctx)
-	on1, err1 := a.j0Motor.IsPowered(ctx)
+	on0, err0 := a.j0Motor.IsPowered(ctx, nil)
+	on1, err1 := a.j0Motor.IsPowered(ctx, nil)
 
 	return on0 || on1, multierr.Combine(err0, err1)
 }
 
 func jointToValues(ctx context.Context, m motor.Motor, j joint) (float64, error) {
-	pos, err := m.GetPosition(ctx)
+	pos, err := m.GetPosition(ctx, nil)
 	if err != nil {
 		return 0, err
 	}

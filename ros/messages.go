@@ -52,8 +52,9 @@ type Vector3 struct {
 
 // L515Message reflects the JSON data format for rosbag Intel Realsense data.
 type L515Message struct {
-	Meta TimeStamp
-	Data ByteMultiArray
+	Meta      TimeStamp
+	ColorData ByteMultiArray
+	DepthData ByteMultiArray
 }
 
 // ImuData contains the IMU data.

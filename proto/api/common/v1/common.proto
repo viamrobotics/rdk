@@ -51,6 +51,18 @@ message Pose {
   // degrees
   double theta = 7;
 }
+
+message Orientation {
+  // x component of a vector defining axis of rotation
+  double o_x = 1;
+  // y component of a vector defining axis of rotation
+  double o_y = 2;
+  // z component of a vector defining axis of rotation
+  double o_z = 3;
+  // degrees
+  double theta = 4;
+}
+
 // PoseInFrame contains a pose and the and the reference frame in which it was observed
 message PoseInFrame {
   string reference_frame = 1;

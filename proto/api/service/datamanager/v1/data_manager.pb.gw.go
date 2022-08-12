@@ -62,7 +62,7 @@ func RegisterDataManagerServiceHandlerServer(ctx context.Context, mux *runtime.S
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.datamanager.v1.DataManagerService/Sync", runtime.WithHTTPPathPattern("/viam/api/v1/service/datamanager/sync"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.datamanager.v1.DataManagerService/Sync", runtime.WithHTTPPathPattern("/viam/api/v1/service/datamanager/datasync"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -125,7 +125,7 @@ func RegisterDataManagerServiceHandlerClient(ctx context.Context, mux *runtime.S
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.datamanager.v1.DataManagerService/Sync", runtime.WithHTTPPathPattern("/viam/api/v1/service/datamanager/sync"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.datamanager.v1.DataManagerService/Sync", runtime.WithHTTPPathPattern("/viam/api/v1/service/datamanager/datasync"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -145,7 +145,7 @@ func RegisterDataManagerServiceHandlerClient(ctx context.Context, mux *runtime.S
 }
 
 var (
-	pattern_DataManagerService_Sync_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "datamanager", "sync"}, ""))
+	pattern_DataManagerService_Sync_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "datamanager", "datasync"}, ""))
 )
 
 var (

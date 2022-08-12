@@ -34,7 +34,7 @@ func makePointCloud(t *testing.T) PointCloud {
 
 func TestNearestNeighor(t *testing.T) {
 	cloud := makePointCloud(t)
-	kd := NewKDTree(cloud)
+	kd := ToKDTree(cloud)
 
 	testPt := r3.Vector{3, 3, 3}
 	_, got := cloud.At(3, 3, 3)
@@ -52,7 +52,7 @@ func TestNearestNeighor(t *testing.T) {
 
 func TestKNearestNeighor(t *testing.T) {
 	cloud := makePointCloud(t)
-	kd := NewKDTree(cloud)
+	kd := ToKDTree(cloud)
 
 	testPt := r3.Vector{0, 0, 0}
 	nns := kd.KNearestNeighbors(testPt, 3, true)
@@ -99,7 +99,7 @@ func TestKNearestNeighor(t *testing.T) {
 
 func TestRadiusNearestNeighor(t *testing.T) {
 	cloud := makePointCloud(t)
-	kd := NewKDTree(cloud)
+	kd := ToKDTree(cloud)
 
 	testPt := r3.Vector{0, 0, 0}
 	nns := kd.RadiusNearestNeighbors(testPt, math.Sqrt(3), true)
@@ -152,7 +152,7 @@ func TestNewEmptyKDtree(t *testing.T) {
 	pt1 := r3.Vector{0, 0, 1}
 	// empty tree
 	pc := New()
-	kdt := NewKDTree(pc)
+	kdt := ToKDTree(pc)
 	_, _, d, got := kdt.NearestNeighbor(pt0)
 	test.That(t, got, test.ShouldBeFalse)
 	test.That(t, d, test.ShouldEqual, 0.)
@@ -183,7 +183,7 @@ func TestStatisticalOutlierFilter(t *testing.T) {
 	filter, err := StatisticalOutlierFilter(3, 1.5)
 	test.That(t, err, test.ShouldBeNil)
 	cloud := makePointCloud(t)
-	kd := NewKDTree(cloud)
+	kd := ToKDTree(cloud)
 
 	filtered, err := filter(kd)
 	test.That(t, err, test.ShouldBeNil)

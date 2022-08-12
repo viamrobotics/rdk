@@ -7,9 +7,14 @@ package pointcloud
 
 import (
 	"math"
+	"sync"
 
 	"github.com/golang/geo/r3"
+	"go.viam.com/utils"
+	"gonum.org/v1/gonum/mat"
 )
+
+const numThreadsPointCloud = 8
 
 // MetaData is data about what's stored in the point cloud.
 type MetaData struct {
@@ -118,4 +123,74 @@ func CloudCentroid(pc PointCloud) r3.Vector {
 		Y: pc.MetaData().totalY / float64(pc.Size()),
 		Z: pc.MetaData().totalZ / float64(pc.Size()),
 	}
+}
+
+// CloudMatrixCol is a type that represents the columns of a CloudMatrix.
+type CloudMatrixCol int
+
+const (
+	// CloudMatrixColX is the x column in the cloud matrix.
+	CloudMatrixColX CloudMatrixCol = 0
+	// CloudMatrixColY is the y column in the cloud matrix.
+	CloudMatrixColY CloudMatrixCol = 1
+	// CloudMatrixColZ is the z column in the cloud matrix.
+	CloudMatrixColZ CloudMatrixCol = 2
+	// CloudMatrixColR is the r column in the cloud matrix.
+	CloudMatrixColR CloudMatrixCol = 3
+	// CloudMatrixColG is the g column in the cloud matrix.
+	CloudMatrixColG CloudMatrixCol = 4
+	// CloudMatrixColB is the b column in the cloud matrix.
+	CloudMatrixColB CloudMatrixCol = 5
+	// CloudMatrixColV is the value column in the cloud matrix.
+	CloudMatrixColV CloudMatrixCol = 6
+)
+
+// CloudMatrix Returns a Matrix representation of a Cloud along with a Header list.
+// The Header list is a list of CloudMatrixCols that correspond to the columns in the matrix.
+// CloudMatrix is not guaranteed to return points in the same order as the cloud.
+func CloudMatrix(pc PointCloud) (*mat.Dense, []CloudMatrixCol) {
+	if pc.Size() == 0 {
+		return nil, nil
+	}
+	header := []CloudMatrixCol{CloudMatrixColX, CloudMatrixColY, CloudMatrixColZ}
+	pointSize := 3 // x, y, z
+	if pc.MetaData().HasColor {
+		pointSize += 3 // color
+		header = append(header, CloudMatrixColR, CloudMatrixColG, CloudMatrixColB)
+	}
+	if pc.MetaData().HasValue {
+		pointSize++ // value
+		header = append(header, CloudMatrixColV)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(numThreadsPointCloud)
+	matChan := make(chan []float64, numThreadsPointCloud)
+	for thread := 0; thread < numThreadsPointCloud; thread++ {
+		f := func(thread int) {
+			defer wg.Done()
+			batchSize := (pc.Size() + numThreadsPointCloud - 1) / numThreadsPointCloud
+			buf := make([]float64, 0, pointSize*batchSize)
+			pc.Iterate(numThreadsPointCloud, thread, func(p r3.Vector, d Data) bool {
+				buf = append(buf, p.X, p.Y, p.Z)
+				if pc.MetaData().HasColor {
+					r, g, b := d.RGB255()
+					buf = append(buf, float64(r), float64(g), float64(b))
+				}
+				if pc.MetaData().HasValue {
+					buf = append(buf, float64(d.Value()))
+				}
+				return true
+			})
+			matChan <- buf
+		}
+		threadCopy := thread
+		utils.PanicCapturingGo(func() { f(threadCopy) })
+	}
+	wg.Wait()
+	matData := make([]float64, 0, pc.Size()*pointSize)
+	for i := 0; i < numThreadsPointCloud; i++ {
+		matData = append(matData, <-matChan...)
+	}
+	return mat.NewDense(pc.Size(), pointSize, matData), header
 }

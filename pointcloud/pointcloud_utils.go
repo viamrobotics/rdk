@@ -107,7 +107,7 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 		// create data type that can do nearest neighbors
 		kd, ok := pc.(*KDTree)
 		if !ok {
-			kd = NewKDTree(pc)
+			kd = ToKDTree(pc)
 		}
 		// get the statistical information
 		avgDistances := make([]float64, 0, kd.Size())

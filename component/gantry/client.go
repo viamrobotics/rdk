@@ -6,11 +6,11 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/generic"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 )
 
@@ -49,7 +49,7 @@ func clientFromSvcClient(sc *serviceClient, name string) Gantry {
 }
 
 func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) 
 }
 
 func (c *client) GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (c *client) MoveToPosition(
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) error {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func (c *client) MoveToPosition(
 }
 
 func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
