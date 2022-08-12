@@ -181,6 +181,23 @@ func (c Config) FindComponent(name string) *Component {
 	return nil
 }
 
+// CopyOnlyPublicFields returns a deep-copy of the current config only preserving JSON exported fields.
+func (c *Config) CopyOnlyPublicFields() (*Config, error) {
+	// We're using JSON as an intermediary to ensure only the json exported fields are
+	// copied.
+	tmpJSON, err := json.Marshal(c)
+	if err != nil {
+		return nil, errors.Wrap(err, "error marshaling config")
+	}
+	var cfg Config
+	err = json.Unmarshal(tmpJSON, &cfg)
+	if err != nil {
+		return nil, errors.Wrap(err, "error unmarshaling config")
+	}
+
+	return &cfg, nil
+}
+
 // A Remote describes a remote robot that should be integrated.
 // The Frame field defines how the "world" node of the remote robot should be reconciled with the "world" node of the
 // the current robot. All components of the remote robot who have Parent as "world" will be attached to the parent defined
