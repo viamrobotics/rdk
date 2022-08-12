@@ -334,15 +334,19 @@ func readCertificateDataFromCloud(ctx context.Context, signalingInsecure bool, c
 	}, nil
 }
 
-func readCertificateDataFromCloudGRPC(ctx context.Context,
-	signalingInsecure bool,
-	cloudConfigFromDisk *Cloud,
-	logger golog.Logger,
-) (*Cloud, error) {
-	conn, err := createNewGRPCClient(ctx, cloudConfigFromDisk, logger)
+func readCertificateDataFromCloudGRPC(ctx context.Context, signalingInsecure bool, cloudConfigFromDisk *Cloud, logger golog.Logger) (*Cloud, error) {
+	conn, err := rpc.DialDirectGRPC(ctx, cloudConfigFromDisk.AppAddress, logger, rpc.WithInsecure(),
+		rpc.WithEntityCredentials(
+			cloudConfigFromDisk.ID,
+			rpc.Credentials{
+				Type:    rutils.CredentialsTypeRobotSecret,
+				Payload: cloudConfigFromDisk.Secret,
+			},
+		))
 	if err != nil {
 		return nil, err
 	}
+
 	defer utils.UncheckedErrorFunc(conn.Close)
 
 	service := apppb.NewRobotServiceClient(conn)
@@ -422,7 +426,7 @@ func readFromCloud(
 		// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
 
 		var certData *Cloud
-		if originalCfg.Cloud.AppAddress == "" {
+		if originalCfg.Cloud.AppAddress != "" {
 			certData, err = readCertificateDataFromCloud(ctx, cfg.Cloud.SignalingInsecure, cloudCfg)
 		} else {
 			certData, err = readCertificateDataFromCloudGRPC(ctx, cfg.Cloud.SignalingInsecure, cloudCfg, logger)
@@ -675,10 +679,18 @@ func getFromCloudHTTP(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger) (*Config, bool, error) {
 	shouldCheckCacheOnFailure := true
 
-	conn, err := createNewGRPCClient(ctx, cloudCfg, logger)
+	conn, err := rpc.DialDirectGRPC(ctx, cloudCfg.AppAddress, logger, rpc.WithInsecure(),
+		rpc.WithEntityCredentials(
+			cloudCfg.ID,
+			rpc.Credentials{
+				Type:    rutils.CredentialsTypeRobotSecret,
+				Payload: cloudCfg.Secret,
+			},
+		))
 	if err != nil {
 		return nil, shouldCheckCacheOnFailure, err
 	}
+
 	defer utils.UncheckedErrorFunc(conn.Close)
 
 	service := apppb.NewRobotServiceClient(conn)
@@ -744,25 +756,4 @@ func toRDKSlice[PT any, RT any](protoList []*PT, toRDK func(*PT) (*RT, error)) (
 		out[i] = *rdk
 	}
 	return out, nil
-}
-
-func createNewGRPCClient(ctx context.Context, cloudCfg *Cloud, logger golog.Logger) (rpc.ClientConn, error) {
-	u, err := url.Parse(cloudCfg.AppAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	dialOpts := make([]rpc.DialOption, 1, 2)
-	dialOpts[0] = rpc.WithEntityCredentials(cloudCfg.ID,
-		rpc.Credentials{
-			Type:    rutils.CredentialsTypeRobotSecret,
-			Payload: cloudCfg.Secret,
-		},
-	)
-
-	if u.Scheme == "http" {
-		dialOpts = append(dialOpts, rpc.WithInsecure())
-	}
-
-	return rpc.DialDirectGRPC(ctx, u.Host, logger, dialOpts...)
 }
