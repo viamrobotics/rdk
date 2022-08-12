@@ -134,11 +134,11 @@ func TestMoveWithObstacles(t *testing.T) {
 					{
 						Center: spatialmath.PoseToProtobuf(testPose2),
 						GeometryType: &commonpb.Geometry_Box{
-							Box: &commonpb.RectangularPrism{
-								WidthMm:  20,
-								LengthMm: 40,
-								DepthMm:  40,
-							},
+							Box: &commonpb.RectangularPrism{DimsMm: &commonpb.Vector3{
+								X: 20,
+								Y: 40,
+								Z: 40,
+							}},
 						},
 					},
 				},
@@ -149,11 +149,11 @@ func TestMoveWithObstacles(t *testing.T) {
 					{
 						Center: spatialmath.PoseToProtobuf(testPose1),
 						GeometryType: &commonpb.Geometry_Box{
-							Box: &commonpb.RectangularPrism{
-								WidthMm:  2000,
-								LengthMm: 2000,
-								DepthMm:  20,
-							},
+							Box: &commonpb.RectangularPrism{DimsMm: &commonpb.Vector3{
+								X: 2000,
+								Y: 2000,
+								Z: 20,
+							}},
 						},
 					},
 				},
