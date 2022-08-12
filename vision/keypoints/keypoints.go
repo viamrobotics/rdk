@@ -55,6 +55,7 @@ func PlotMatchedLines(im1 image.Image, im2 image.Image, kps1 []image.Point, kps2
 	// draw keypoint matches on image
 	dc.SetRGBA(0, 1, 0, 0.5)
 	for i, p1 := range kps1 {
+		// Plot every other dot so the lines are decipherable.
 		if i%2 == 0 {
 			continue
 		}
