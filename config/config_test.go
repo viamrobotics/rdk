@@ -90,7 +90,6 @@ func TestConfig3(t *testing.T) {
 			PWM:       "io18",
 		},
 		Encoder:          "encoder1",
-		TicksPerRotation: 10000,
 		MaxPowerPct:      0.5,
 	})
 	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &encoder.Config{
