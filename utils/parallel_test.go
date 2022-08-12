@@ -18,7 +18,7 @@ func TestRunInParallel(t *testing.T) {
 
 	elapsed, err := RunInParallel(context.Background(), []SimpleFunc{wait100ms, wait100ms})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, elapsed, test.ShouldBeLessThan, 110*time.Millisecond)
+	test.That(t, elapsed, test.ShouldBeLessThan, 120*time.Millisecond)
 	test.That(t, elapsed, test.ShouldBeGreaterThan, 90*time.Millisecond)
 
 	errFunc := func(ctx context.Context) error {

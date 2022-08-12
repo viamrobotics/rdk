@@ -64,11 +64,7 @@ func TestSegmentPlane(t *testing.T) {
 	// Principal Point         : 542.078, 398.016
 	// Focal Length            : 734.938, 735.516
 	// get depth map
-	rgbd, err := rimage.ReadBothFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
-	test.That(t, err, test.ShouldBeNil)
-	m := rgbd.Depth
-	// rgb := rgbd.Color
-
+	d, err := rimage.NewDepthMapFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Pixel to Meter
@@ -79,7 +75,7 @@ func TestSegmentPlane(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	depthMin, depthMax := rimage.Depth(100), rimage.Depth(2000)
-	cloud, err := transform.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
+	cloud, err := transform.DepthMapToPointCloud(d, pixel2meter, depthIntrinsics, depthMin, depthMax)
 	test.That(t, err, test.ShouldBeNil)
 	// Segment Plane
 	nIter := 3000
@@ -100,11 +96,7 @@ func TestSegmentPlane(t *testing.T) {
 }
 
 func TestDepthMapToPointCloud(t *testing.T) {
-	rgbd, err := rimage.ReadBothFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
-	test.That(t, err, test.ShouldBeNil)
-	m := rgbd.Depth
-	// rgb := rgbd.Color
-
+	d, err := rimage.NewDepthMapFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
 	test.That(t, err, test.ShouldBeNil)
 	pixel2meter := 0.001
 	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
@@ -113,19 +105,17 @@ func TestDepthMapToPointCloud(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	depthMin, depthMax := rimage.Depth(0), rimage.Depth(math.MaxUint16)
-	pc, err := transform.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
+	pc, err := transform.DepthMapToPointCloud(d, pixel2meter, depthIntrinsics, depthMin, depthMax)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 456371)
 }
 
 func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
-	rgbd, err := rimage.ReadBothFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
+	rgb, err := rimage.NewImageFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036_color.png"))
 	test.That(t, err, test.ShouldBeNil)
-	m := rgbd.Depth
-	rgb := rgbd.Color
+	d, err := rimage.NewDepthMapFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
+	test.That(t, err, test.ShouldBeNil)
 	h, w := rgb.Height(), rgb.Width()
-
-	test.That(t, err, test.ShouldBeNil)
 
 	// Pixel to Meter
 	pixel2meter := 0.001
@@ -137,7 +127,7 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	depthMin, depthMax := rimage.Depth(200), rimage.Depth(2000)
-	pts, err := transform.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
+	pts, err := transform.DepthMapToPointCloud(d, pixel2meter, depthIntrinsics, depthMin, depthMax)
 	test.That(t, err, test.ShouldBeNil)
 	// Get rigid body transform between Depth and RGB sensor
 	sensorParams, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
@@ -169,10 +159,8 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 }
 
 func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
-	rgbd, err := rimage.ReadBothFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
+	d, err := rimage.NewDepthMapFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
 	test.That(b, err, test.ShouldBeNil)
-	m := rgbd.Depth
-	// rgb := rgbd.Color
 
 	// Pixel to Meter
 	pixel2meter := 0.001
@@ -182,7 +170,7 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 	)
 	test.That(b, err, test.ShouldBeNil)
 	depthMin, depthMax := rimage.Depth(100), rimage.Depth(2000)
-	pts, err := transform.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
+	pts, err := transform.DepthMapToPointCloud(d, pixel2meter, depthIntrinsics, depthMin, depthMax)
 	test.That(b, err, test.ShouldBeNil)
 	for i := 0; i < b.N; i++ {
 		// Segment Plane

@@ -3,7 +3,10 @@ package robotimpl
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"fmt"
+	"io/ioutil"
+	"net"
 	"os"
 	"testing"
 	"time"
@@ -13,15 +16,16 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
@@ -34,13 +38,10 @@ import (
 	rdktestutils "go.viam.com/rdk/testutils"
 )
 
-var serviceNames = []resource.Name{
-	sensors.Name,
-	datamanager.Name,
-	vision.Name,
-}
+var serviceNames = resource.DefaultServices
 
 func TestRobotReconfigure(t *testing.T) {
+	test.That(t, len(resource.DefaultServices), test.ShouldEqual, 3)
 	ConfigFromFile := func(t *testing.T, filePath string) *config.Config {
 		t.Helper()
 		logger := golog.NewTestLogger(t)
@@ -487,7 +488,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		pin, err := b.GPIOPinByName("1")
 		test.That(t, err, test.ShouldBeNil)
-		pwmF, err := pin.PWMFreq(context.Background())
+		pwmF, err := pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 1000)
 
@@ -575,7 +576,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		pin, err := b.GPIOPinByName("5")
 		test.That(t, err, test.ShouldBeNil)
-		pwmF, err := pin.PWMFreq(context.Background())
+		pwmF, err := pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 4000)
 		_, ok := b.DigitalInterruptByName("encoder")
@@ -649,12 +650,12 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, err = b.GPIOPinByName("5")
 		test.That(t, err, test.ShouldBeNil)
-		pwmF, err = pin.PWMFreq(context.Background())
+		pwmF, err = pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 4000)
 		pin, err = b.GPIOPinByName("1")
 		test.That(t, err, test.ShouldBeNil)
-		pwmF, err = pin.PWMFreq(context.Background())
+		pwmF, err = pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 1000) // TODO double check this is the expected result
 		_, ok = b.DigitalInterruptByName("encoder")
@@ -875,7 +876,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		pin, err := b.GPIOPinByName("1")
 		test.That(t, err, test.ShouldBeNil)
-		pwmF, err := pin.PWMFreq(context.Background())
+		pwmF, err := pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 1000)
 		_, ok := b.DigitalInterruptByName("encoder")
@@ -955,7 +956,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		pin, err = b.GPIOPinByName("1")
 		test.That(t, err, test.ShouldBeNil)
-		pwmF, err = pin.PWMFreq(context.Background())
+		pwmF, err = pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 0)
 		_, ok = b.DigitalInterruptByName("encoder")
@@ -1098,7 +1099,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		pin, err := b.GPIOPinByName("1")
 		test.That(t, err, test.ShouldBeNil)
-		pwmF, err := pin.PWMFreq(context.Background())
+		pwmF, err := pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 0)
 		_, ok := b.DigitalInterruptByName("encoder")
@@ -1402,7 +1403,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err := motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err := m.GetPosition(context.Background())
+		c, err := m.GetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
@@ -1412,7 +1413,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background())
+			c, err = m.GetPosition(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 1)
 		})
@@ -1529,7 +1530,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err = motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err = m.GetPosition(context.Background())
+		c, err = m.GetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
@@ -1539,7 +1540,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background())
+			c, err = m.GetPosition(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 1)
 		})
@@ -1644,7 +1645,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err := motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err := m.GetPosition(context.Background())
+		c, err := m.GetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
@@ -1654,7 +1655,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background())
+			c, err = m.GetPosition(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 1)
 		})
@@ -1760,7 +1761,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err = motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err = m.GetPosition(context.Background())
+		c, err = m.GetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
@@ -1770,7 +1771,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background())
+			c, err = m.GetPosition(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 1)
 		})
@@ -1863,7 +1864,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err = motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err = m.GetPosition(context.Background())
+		c, err = m.GetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 1)
 
@@ -1873,7 +1874,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background())
+			c, err = m.GetPosition(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 2)
 		})
@@ -1999,6 +2000,175 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = robot.ResourceByName(mockNamed("mock1"))
 		test.That(t, err, test.ShouldBeNil)
 	})
+	t.Run("test processes", func(t *testing.T) {
+		logger := golog.NewTestLogger(t)
+		tempDir := testutils.TempDirT(t, ".", "")
+		robot, err := New(context.Background(), &config.Config{}, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
+		}()
+		// create a unexecutable file
+		noExecF, err := ioutil.TempFile(tempDir, "noexec*.sh")
+		test.That(t, err, test.ShouldBeNil)
+		err = noExecF.Close()
+		test.That(t, err, test.ShouldBeNil)
+		// create a origin file
+		originF, err := ioutil.TempFile(tempDir, "origin*")
+		test.That(t, err, test.ShouldBeNil)
+		token := make([]byte, 128)
+		_, err = rand.Read(token)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = originF.Write(token)
+		test.That(t, err, test.ShouldBeNil)
+		err = originF.Sync()
+		test.That(t, err, test.ShouldBeNil)
+		// create a target file
+		targetF, err := ioutil.TempFile(tempDir, "target*")
+		test.That(t, err, test.ShouldBeNil)
+
+		// create a second target file
+		target2F, err := ioutil.TempFile(tempDir, "target*")
+		test.That(t, err, test.ShouldBeNil)
+
+		// config1
+		config1 := &config.Config{
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "shouldfail", // this process won't be executed
+					Name:    "false",
+					OneShot: true,
+				},
+				{
+					ID:      "noexec", // file exist but exec bit not set
+					Name:    noExecF.Name(),
+					OneShot: true,
+				},
+				{
+					ID:   "shouldsuceed", // this keep succeeding
+					Name: "true",
+				},
+				{
+					ID:      "noexist", // file doesn't exists
+					Name:    fmt.Sprintf("%s/%s", tempDir, "noexistfile"),
+					OneShot: true,
+					Log:     true,
+				},
+				{
+					ID:   "filehandle", // this keep succeeding and will be changed
+					Name: "true",
+				},
+				{
+					ID:   "touch", // touch a file
+					Name: "sh",
+					CWD:  tempDir,
+					Args: []string{
+						"-c",
+						"sleep 0.4;touch afile",
+					},
+					OneShot: true,
+				},
+			},
+		}
+		robot.Reconfigure(context.Background(), config1)
+		_, ok := robot.ProcessManager().ProcessByID("shouldfail")
+		test.That(t, ok, test.ShouldBeFalse)
+		_, ok = robot.ProcessManager().ProcessByID("shouldsuceed")
+		test.That(t, ok, test.ShouldBeTrue)
+		_, ok = robot.ProcessManager().ProcessByID("noexist")
+		test.That(t, ok, test.ShouldBeFalse)
+		_, ok = robot.ProcessManager().ProcessByID("noexec")
+		test.That(t, ok, test.ShouldBeFalse)
+		_, ok = robot.ProcessManager().ProcessByID("filehandle")
+		test.That(t, ok, test.ShouldBeTrue)
+		_, ok = robot.ProcessManager().ProcessByID("touch")
+		test.That(t, ok, test.ShouldBeTrue)
+		utils.SelectContextOrWait(context.Background(), 1*time.Second)
+		_, err = os.Stat(fmt.Sprintf("%s/%s", tempDir, "afile"))
+		test.That(t, err, test.ShouldBeNil)
+		config2 := &config.Config{
+			Processes: []pexec.ProcessConfig{
+				{
+					ID:      "shouldfail", // now it succeeds
+					Name:    "true",
+					OneShot: true,
+				},
+				{
+					ID:      "shouldsuceed", // now it fails
+					Name:    "false",
+					OneShot: true,
+				},
+				{
+					ID:   "filehandle", // this transfer originF to targetF after 2s
+					Name: "sh",
+					Args: []string{
+						"-c",
+						fmt.Sprintf("sleep 2; cat %s >> %s", originF.Name(), targetF.Name()),
+					},
+					OneShot: true,
+				},
+				{
+					ID:   "filehandle2", // this transfer originF to targetF after 2s
+					Name: "sh",
+					Args: []string{
+						"-c",
+						fmt.Sprintf("sleep 0.4;cat %s >> %s", originF.Name(), target2F.Name()),
+					},
+				},
+				{
+					ID:   "remove", // remove the file
+					Name: "sh",
+					CWD:  tempDir,
+					Args: []string{
+						"-c",
+						"sleep 0.2;rm afile",
+					},
+					OneShot: true,
+					Log:     true,
+				},
+			},
+		}
+		robot.Reconfigure(context.Background(), config2)
+		_, ok = robot.ProcessManager().ProcessByID("shouldfail")
+		test.That(t, ok, test.ShouldBeTrue)
+		_, ok = robot.ProcessManager().ProcessByID("shouldsuceed")
+		test.That(t, ok, test.ShouldBeFalse)
+		_, ok = robot.ProcessManager().ProcessByID("noexist")
+		test.That(t, ok, test.ShouldBeFalse)
+		_, ok = robot.ProcessManager().ProcessByID("noexec")
+		test.That(t, ok, test.ShouldBeFalse)
+		_, ok = robot.ProcessManager().ProcessByID("filehandle")
+		test.That(t, ok, test.ShouldBeTrue)
+		_, ok = robot.ProcessManager().ProcessByID("touch")
+		test.That(t, ok, test.ShouldBeFalse)
+		_, ok = robot.ProcessManager().ProcessByID("remove")
+		test.That(t, ok, test.ShouldBeTrue)
+		r := make([]byte, 128)
+		n, err := targetF.Read(r)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, n, test.ShouldEqual, 128)
+		utils.SelectContextOrWait(context.Background(), 3*time.Second)
+		_, err = targetF.Seek(0, 0)
+		test.That(t, err, test.ShouldBeNil)
+		n, err = targetF.Read(r)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, n, test.ShouldEqual, 128)
+		test.That(t, r, test.ShouldResemble, token)
+		utils.SelectContextOrWait(context.Background(), 3*time.Second)
+		_, err = targetF.Read(r)
+		test.That(t, err, test.ShouldNotBeNil)
+		err = originF.Close()
+		test.That(t, err, test.ShouldBeNil)
+		err = targetF.Close()
+		test.That(t, err, test.ShouldBeNil)
+		stat, err := target2F.Stat()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, stat.Size(), test.ShouldBeGreaterThan, 128)
+		err = target2F.Close()
+		test.That(t, err, test.ShouldBeNil)
+		_, err = os.Stat(fmt.Sprintf("%s/%s", tempDir, "afile"))
+		test.That(t, err, test.ShouldNotBeNil)
+	})
 }
 
 func TestSensorsServiceUpdate(t *testing.T) {
@@ -2009,7 +2179,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	sensorNames := []resource.Name{gps.Named("gps1"), gps.Named("gps2")}
+	sensorNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
 
 	t.Run("empty to two sensors", func(t *testing.T) {
 		robot, err := New(context.Background(), emptyCfg, logger)
@@ -2083,10 +2253,10 @@ func TestStatusServiceUpdate(t *testing.T) {
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	resourceNames := []resource.Name{gps.Named("gps1"), gps.Named("gps2")}
+	resourceNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
 	expected := map[resource.Name]interface{}{
-		gps.Named("gps1"): map[string]interface{}{},
-		gps.Named("gps2"): map[string]interface{}{},
+		movementsensor.Named("movement_sensor1"): map[string]interface{}{},
+		movementsensor.Named("movement_sensor2"): map[string]interface{}{},
 	}
 
 	t.Run("empty to not empty", func(t *testing.T) {
@@ -2163,22 +2333,22 @@ func TestRemoteRobotsGold(t *testing.T) {
 		test.That(t, remote1.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	port1, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	addr1 := fmt.Sprintf("localhost:%d", port1)
 	options := weboptions.New()
-	options.Network.BindAddress = addr1
+	options.Network.BindAddress = ""
+	listener1 := testutils.ReserveRandomListener(t)
+	addr1 := listener1.Addr().String()
+	options.Network.Listener = listener1
 	err = remote1.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	remote2, err := New(ctx, cfg, loggerR)
 	test.That(t, err, test.ShouldBeNil)
 
-	port2, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	addr2 := fmt.Sprintf("localhost:%d", port2)
 	options = weboptions.New()
-	options.Network.BindAddress = addr2
+	options.Network.BindAddress = ""
+	var listener2 net.Listener = testutils.ReserveRandomListener(t)
+	addr2 := listener2.Addr().String()
+	options.Network.Listener = listener2
 
 	localConfig := &config.Config{
 		Components: []config.Component{
@@ -2224,8 +2394,8 @@ func TestRemoteRobotsGold(t *testing.T) {
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
-			gps.Named("foo:gps1"),
-			gps.Named("foo:gps2"),
+			movementsensor.Named("foo:movement_sensor1"),
+			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
 			vision.Named("foo:"),
 			sensors.Named("foo:"),
@@ -2251,16 +2421,16 @@ func TestRemoteRobotsGold(t *testing.T) {
 			arm.Named("arm1"), arm.Named("arm2"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
-			gps.Named("foo:gps1"),
-			gps.Named("foo:gps2"),
+			movementsensor.Named("foo:movement_sensor1"),
+			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
 			vision.Named("foo:"),
 			sensors.Named("foo:"),
 			datamanager.Named("foo:"),
 			arm.Named("bar:pieceArm"),
 			camera.Named("bar:cameraOver"),
-			gps.Named("bar:gps1"),
-			gps.Named("bar:gps2"),
+			movementsensor.Named("bar:movement_sensor1"),
+			movementsensor.Named("bar:movement_sensor2"),
 			gripper.Named("bar:pieceGripper"),
 			vision.Named("bar:"),
 			sensors.Named("bar:"),
@@ -2282,8 +2452,8 @@ func TestRemoteRobotsGold(t *testing.T) {
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
-			gps.Named("foo:gps1"),
-			gps.Named("foo:gps2"),
+			movementsensor.Named("foo:movement_sensor1"),
+			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
 			vision.Named("foo:"),
 			sensors.Named("foo:"),
@@ -2298,6 +2468,11 @@ func TestRemoteRobotsGold(t *testing.T) {
 		test.That(t, remote3.Close(context.Background()), test.ShouldBeNil)
 	}()
 
+	// Note: There's a slight chance this test can fail if someone else
+	// claims the port we just released by closing the server.
+	listener2, err = net.Listen("tcp", listener2.Addr().String())
+	test.That(t, err, test.ShouldBeNil)
+	options.Network.Listener = listener2
 	err = remote3.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -2319,16 +2494,16 @@ func TestRemoteRobotsGold(t *testing.T) {
 			arm.Named("arm1"), arm.Named("arm2"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
-			gps.Named("foo:gps1"),
-			gps.Named("foo:gps2"),
+			movementsensor.Named("foo:movement_sensor1"),
+			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
 			vision.Named("foo:"),
 			sensors.Named("foo:"),
 			datamanager.Named("foo:"),
 			arm.Named("bar:pieceArm"),
 			camera.Named("bar:cameraOver"),
-			gps.Named("bar:gps1"),
-			gps.Named("bar:gps2"),
+			movementsensor.Named("bar:movement_sensor1"),
+			movementsensor.Named("bar:movement_sensor2"),
 			gripper.Named("bar:pieceGripper"),
 			vision.Named("bar:"),
 			sensors.Named("bar:"),

@@ -2,7 +2,6 @@ package framesystem_test
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"testing"
 
@@ -10,7 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/gripper"
@@ -117,15 +116,15 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
-	t.Log("gps2")
-	test.That(t, fs.GetFrame("gps2"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("gps2").Transform(emptyIn)
+	t.Log("movement_sensor2")
+	test.That(t, fs.GetFrame("movement_sensor2"), test.ShouldNotBeNil)
+	pose, err = fs.GetFrame("movement_sensor2").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
-	t.Log("gps2_offset")
-	test.That(t, fs.GetFrame("gps2_offset"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("gps2_offset").Transform(emptyIn)
+	t.Log("movement_sensor2_offset")
+	test.That(t, fs.GetFrame("movement_sensor2_offset"), test.ShouldNotBeNil)
+	pose, err = fs.GetFrame("movement_sensor2_offset").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
@@ -141,8 +140,8 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{2000, 500, 1300})
 
-	t.Log("gps1")
-	test.That(t, fs.GetFrame("gps1"), test.ShouldBeNil) // gps1 is not registered
+	t.Log("movement_sensor1")
+	test.That(t, fs.GetFrame("movement_sensor1"), test.ShouldBeNil) // movement_sensor1 is not registered
 
 	// There is a point at (1500, 500, 1300) in the world referenceframe. See if it transforms correctly in each referenceframe.
 	worldPose := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{1500, 500, 1300}))
@@ -153,7 +152,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	pointAlmostEqual(t, transformPose.Pose().Point(), armPt)
 
 	sensorPt := r3.Vector{0, 0, 500}
-	tf, err = fs.Transform(blankPos, worldPose, "gps2")
+	tf, err = fs.Transform(blankPos, worldPose, "movement_sensor2")
 	test.That(t, err, test.ShouldBeNil)
 	transformPose, _ = tf.(*referenceframe.PoseInFrame)
 	pointAlmostEqual(t, transformPose.Pose().Point(), sensorPt)
@@ -287,13 +286,13 @@ func TestServiceWithRemote(t *testing.T) {
 	defer func() {
 		test.That(t, remoteRobot.Close(context.Background()), test.ShouldBeNil)
 	}()
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
 	options := weboptions.New()
-	options.Network.BindAddress = fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = ""
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
+	options.Network.Listener = listener
 	err = remoteRobot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
-	addr := fmt.Sprintf("localhost:%d", port)
 
 	// make the local robot
 	localConfig := &config.Config{

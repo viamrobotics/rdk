@@ -117,6 +117,7 @@ var (
 	_ = LocalArm(&reconfigurableLocalArm{})
 	_ = resource.Reconfigurable(&reconfigurableArm{})
 	_ = resource.Reconfigurable(&reconfigurableLocalArm{})
+	_ = viamutils.ContextCloser(&reconfigurableLocalArm{})
 
 	// ErrStopUnimplemented is used for when Stop() is unimplemented.
 	ErrStopUnimplemented = errors.New("Stop() unimplemented")
@@ -445,7 +446,10 @@ func Plan(
 	goals := make([]spatialmath.Pose, 0, numSteps)
 	opts := make([]*motionplan.PlannerOptions, 0, numSteps)
 
-	collisionConst := motionplan.NewCollisionConstraintFromWorldState(model, fs, worldState, inputs)
+	collisionConst, err := motionplan.NewCollisionConstraintFromWorldState(model, fs, worldState, inputs)
+	if err != nil {
+		return nil, err
+	}
 
 	from := seedPos
 	for i := 1; i < numSteps; i++ {

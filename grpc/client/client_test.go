@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"image"
 	"image/jpeg"
 	"math"
@@ -19,6 +18,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	gotestutils "go.viam.com/utils/testutils"
 	"gonum.org/v1/gonum/num/quat"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -28,11 +28,10 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
-	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
@@ -123,7 +122,7 @@ func TestStatusClient(t *testing.T) {
 	}
 
 	injectBoard := &inject.Board{}
-	injectBoard.StatusFunc = func(ctx context.Context) (*commonpb.BoardStatus, error) {
+	injectBoard.StatusFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 		return nil, errors.New("no status")
 	}
 
@@ -297,7 +296,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, board1, test.ShouldNotBeNil)
 	test.That(t, board1.ModelAttributes(), test.ShouldResemble, board.ModelAttributes{Remote: true})
 
-	_, err = board1.Status(context.Background())
+	_, err = board1.Status(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
 
@@ -318,10 +317,10 @@ func TestStatusClient(t *testing.T) {
 
 	motor1, err := motor.FromRobot(client, "motor1")
 	test.That(t, err, test.ShouldBeNil)
-	err = motor1.SetPower(context.Background(), 0)
+	err = motor1.SetPower(context.Background(), 0, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-	err = motor1.GoFor(context.Background(), 0, 0)
+	err = motor1.GoFor(context.Background(), 0, 0, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
 
@@ -716,12 +715,7 @@ func TestClientDisconnect(t *testing.T) {
 func TestClientReconnect(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	addr := fmt.Sprintf("localhost:%d", port)
-
-	listener, err := net.Listen("tcp", addr)
-	test.That(t, err, test.ShouldBeNil)
+	var listener net.Listener = gotestutils.ReserveRandomListener(t)
 	gServer := grpc.NewServer()
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
@@ -754,7 +748,9 @@ func TestClientReconnect(t *testing.T) {
 	gServer2 := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot))
 
-	listener, err = net.Listen("tcp", addr)
+	// Note: There's a slight chance this test can fail if someone else
+	// claims the port we just released by closing the server.
+	listener, err = net.Listen("tcp", listener.Addr().String())
 	test.That(t, err, test.ShouldBeNil)
 	go gServer2.Serve(listener)
 	defer gServer2.Stop()
@@ -869,7 +865,7 @@ func TestClientDiscovery(t *testing.T) {
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return finalResources
 	}
-	q := discovery.Query{imu.Named("imu").ResourceSubtype, "some imu"}
+	q := discovery.Query{movementsensor.Named("foo").ResourceSubtype, "something"}
 	injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
 		return []discovery.Discovery{{
 			Query:   q,
@@ -1094,11 +1090,9 @@ func TestClientStatus(t *testing.T) {
 		client, err := New(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		iStatus := robot.Status{Name: imu.Named("imu"), Status: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}}}
-		gStatus := robot.Status{Name: gps.Named("gps"), Status: map[string]interface{}{"efg": []string{"hello"}}}
+		gStatus := robot.Status{Name: movementsensor.Named("gps"), Status: map[string]interface{}{"efg": []string{"hello"}}}
 		aStatus := robot.Status{Name: arm.Named("arm"), Status: struct{}{}}
 		statusMap := map[resource.Name]robot.Status{
-			iStatus.Name: iStatus,
 			gStatus.Name: gStatus,
 			aStatus.Name: aStatus,
 		}
@@ -1110,7 +1104,6 @@ func TestClientStatus(t *testing.T) {
 			return statuses, nil
 		}
 		expected := map[resource.Name]interface{}{
-			iStatus.Name: map[string]interface{}{"abc": []interface{}{1.2, 2.3, 3.4}},
 			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
 			aStatus.Name: map[string]interface{}{},
 		}
@@ -1126,14 +1119,13 @@ func TestClientStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldResemble, aStatus.Status)
 
-		resp, err = client.GetStatus(context.Background(), []resource.Name{iStatus.Name, gStatus.Name, aStatus.Name})
+		resp, err = client.GetStatus(context.Background(), []resource.Name{gStatus.Name, aStatus.Name})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(resp), test.ShouldEqual, 3)
+		test.That(t, len(resp), test.ShouldEqual, 2)
 
 		observed := map[resource.Name]interface{}{
 			resp[0].Name: resp[0].Status,
 			resp[1].Name: resp[1].Status,
-			resp[2].Name: resp[2].Status,
 		}
 		test.That(t, observed, test.ShouldResemble, expected)
 
