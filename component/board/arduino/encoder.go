@@ -50,13 +50,10 @@ func NewEncoder(ctx context.Context, deps registry.Dependencies, config config.C
 
 		e.A = cfg.Pins.A
 		e.B = cfg.Pins.B
-		e.ticksPerRotation = int64(cfg.TicksPerRotation)
-		if e.ticksPerRotation <= 0 {
-			return nil, errors.New("expected nonzero positive int for ticksPerRotation")
-		}
+
 		e.name = cfg.MotorName
 		if e.name == "" {
-			return nil, errors.New("expected non-empty string for ticksPerRotation")
+			return nil, errors.New("expected non-empty string for motor_name")
 		}
 	}
 
@@ -68,7 +65,6 @@ type Encoder struct {
 	board            *arduinoBoard
 	A, B             string
 	name             string
-	ticksPerRotation int64
 
 	generic.Unimplemented
 }
@@ -84,8 +80,6 @@ type EncoderConfig struct {
 	Pins      EncoderPins `json:"pins"`
 	BoardName string      `json:"board"`
 	MotorName string      `json:"motor_name"`
-
-	TicksPerRotation int `json:"ticks_per_rotation"`
 }
 
 // GetTicksCount returns number of ticks since last zeroing.
@@ -107,11 +101,6 @@ func (e *Encoder) GetTicksCount(ctx context.Context, extra map[string]interface{
 func (e *Encoder) ResetToZero(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	_, err := e.board.runCommand(fmt.Sprintf("motor-zero %s %d", e.name, offset))
 	return err
-}
-
-// TicksPerRotation returns the number of ticks needed for a full rotation.
-func (e *Encoder) TicksPerRotation(ctx context.Context) (int64, error) {
-	return e.ticksPerRotation, nil
 }
 
 // Start doesn't do anything for arduino encoder.

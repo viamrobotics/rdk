@@ -19,7 +19,6 @@ func init() {
 	_encoder := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			e := &Encoder{}
-			e.Tpr = int64(config.Attributes.Int("ticks_per_rotation", 0))
 			e.updateRate = int64(config.Attributes.Int("update_rate", 0))
 			return e, nil
 		},
@@ -33,7 +32,6 @@ type Encoder struct {
 	position                int64
 	speed                   float64 // ticks per minute
 	updateRate              int64   // update position in start every updateRate ms
-	Tpr                     int64   // ticks per rotation
 	activeBackgroundWorkers sync.WaitGroup
 
 	generic.Unimplemented
@@ -94,11 +92,4 @@ func (e *Encoder) SetPosition(ctx context.Context, position int64) error {
 	defer e.mu.Unlock()
 	e.position = position
 	return nil
-}
-
-// TicksPerRotation returns the number of ticks needed for a full rotation.
-func (e *Encoder) TicksPerRotation(ctx context.Context) (int64, error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return e.Tpr, nil
 }

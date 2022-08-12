@@ -41,9 +41,6 @@ type Encoder interface {
 	// ResetToZero resets the counted ticks to 0
 	ResetToZero(ctx context.Context, offset int64, extra map[string]interface{}) error
 
-	// TicksPerRotation returns the number of ticks needed for a full encoder rotation
-	TicksPerRotation(ctx context.Context) (int64, error)
-
 	// Start starts the encoder in a background thread
 	Start(ctx context.Context, onStart func())
 
@@ -122,12 +119,6 @@ func (r *reconfigurableEncoder) ResetToZero(ctx context.Context, offset int64, e
 	return r.actual.ResetToZero(ctx, offset, extra)
 }
 
-func (r *reconfigurableEncoder) TicksPerRotation(ctx context.Context) (int64, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.TicksPerRotation(ctx)
-}
-
 func (r *reconfigurableEncoder) Start(ctx context.Context, onstart func()) {
 	r.actual.Start(ctx, onstart)
 }
@@ -173,7 +164,6 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 type Config struct {
 	Pins             map[string]string `json:"pins"`
 	BoardName        string            `json:"board"`
-	TicksPerRotation int               `json:"ticks_per_rotation"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -188,10 +178,6 @@ func (config *Config) Validate(path string) ([]string, error) {
 		return nil, errors.New("expected nonempty board")
 	}
 	deps = append(deps, config.BoardName)
-
-	if config.TicksPerRotation <= 0 {
-		return nil, errors.New("expected nonzero positive ticks_per_rotation")
-	}
 
 	return deps, nil
 }
