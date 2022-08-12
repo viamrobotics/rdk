@@ -2,8 +2,10 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -44,9 +46,9 @@ func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequ
 		if isTabular {
 			// Compare tabular data upload request (stream).
 			for i, uploadRequest := range actual[1:] {
-				a := uploadRequest.GetSensorContents().GetStruct()
-				e := actual[i+1].GetSensorContents().GetStruct()
-				test.That(t, a, test.ShouldResemble, e)
+				a := uploadRequest.GetSensorContents().GetStruct().String()
+				e := expected[i+1].GetSensorContents().GetStruct().String()
+				test.That(t, fmt.Sprint(a), test.ShouldResemble, fmt.Sprint(e))
 			}
 		} else {
 			// Compare sensor data upload request (stream).
@@ -87,24 +89,6 @@ func toProto(r interface{}) *structpb.Struct {
 	return msg
 }
 
-func writeBinarySensorData(f *os.File, toWrite [][]byte) error {
-	if _, err := f.Seek(0, 0); err != nil {
-		return err
-	}
-	for _, bytes := range toWrite {
-		sd := &v1.SensorData{
-			Data: &v1.SensorData_Binary{
-				Binary: bytes,
-			},
-		}
-		_, err := pbutil.WriteDelimited(f, sd)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func writeSensorData(f *os.File, sds []*v1.SensorData) error {
 	for _, sd := range sds {
 		_, err := pbutil.WriteDelimited(f, sd)
@@ -141,6 +125,60 @@ func createTabularSensorData(toWrite []*structpb.Struct) []*v1.SensorData {
 	return sds
 }
 
+func buildSensorDataUploadRequests(sds []*v1.SensorData, dataType v1.DataType, fileName string) []*v1.UploadRequest {
+	var expMsgs []*v1.UploadRequest
+	if len(sds) == 0 {
+		return expMsgs
+	}
+	// Metadata message precedes sensor data messages.
+	expMsgs = append(expMsgs, &v1.UploadRequest{
+		UploadPacket: &v1.UploadRequest_Metadata{
+			Metadata: &v1.UploadMetadata{
+				PartId:         partID,
+				Type:           dataType,
+				FileName:       fileName,
+				ComponentType:  componentType,
+				ComponentName:  componentName,
+				ComponentModel: componentModel,
+				MethodName:     methodName,
+			},
+		},
+	})
+	for _, expMsg := range sds {
+		expMsgs = append(expMsgs, &v1.UploadRequest{
+			UploadPacket: &v1.UploadRequest_SensorContents{
+				SensorContents: expMsg,
+			},
+		})
+	}
+	return expMsgs
+}
+
+func buildFileDataUploadRequests(bs [][]byte, fileName string) []*v1.UploadRequest {
+	var expMsgs []*v1.UploadRequest
+	if len(bs) == 0 {
+		return expMsgs
+	}
+	// Metadata message precedes sensor data messages.
+	expMsgs = append(expMsgs, &v1.UploadRequest{
+		UploadPacket: &v1.UploadRequest_Metadata{
+			Metadata: &v1.UploadMetadata{
+				PartId:   partID,
+				Type:     v1.DataType_DATA_TYPE_FILE,
+				FileName: fileName,
+			},
+		},
+	})
+	for _, b := range bs {
+		expMsgs = append(expMsgs, &v1.UploadRequest{
+			UploadPacket: &v1.UploadRequest_FileContents{
+				FileContents: &v1.FileData{Data: b},
+			},
+		})
+	}
+	return expMsgs
+}
+
 // createTmpDataCaptureFile creates a data capture file, which is defined as a file with the dataCaptureFileExt as its
 // file extension.
 func createTmpDataCaptureFile() (file *os.File, err error) {
@@ -156,50 +194,6 @@ func createTmpDataCaptureFile() (file *os.File, err error) {
 		return nil, err
 	}
 	return ret, nil
-}
-
-func buildBinaryUploadRequests(data [][]byte, fileName string) []*v1.UploadRequest {
-	var expMsgs []*v1.UploadRequest
-	if len(data) == 0 {
-		return expMsgs
-	}
-	// Metadata message precedes sensor data messages.
-	expMsgs = append(expMsgs, &v1.UploadRequest{
-		UploadPacket: &v1.UploadRequest_Metadata{
-			Metadata: &v1.UploadMetadata{
-				PartId:         partID,
-				Type:           v1.DataType_DATA_TYPE_BINARY_SENSOR,
-				FileName:       fileName,
-				ComponentType:  componentType,
-				ComponentName:  componentName,
-				ComponentModel: componentModel,
-				MethodName:     methodName,
-			},
-		},
-	})
-	for _, expMsg := range data {
-		expMsgs = append(expMsgs, &v1.UploadRequest{
-			UploadPacket: &v1.UploadRequest_SensorContents{
-				SensorContents: &v1.SensorData{
-					Data: &v1.SensorData_Binary{
-						Binary: expMsg,
-					},
-				},
-			},
-		})
-	}
-	return expMsgs
-}
-
-func getMockService() mockDataSyncServiceServer {
-	return mockDataSyncServiceServer{
-		uploadRequests:                     &[]*v1.UploadRequest{},
-		callCount:                          &atomic.Int32{},
-		failAtIndex:                        -1,
-		lock:                               &sync.Mutex{},
-		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
-		errorToReturn:                      errors.New("oh no error :("),
-	}
 }
 
 //nolint:thelper
@@ -231,6 +225,16 @@ func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientCo
 	)
 }
 
+type partialUploadTestcase struct {
+	name                             string
+	sendAckEveryNSensorDataMessages  int
+	sendCancelCtxAfterNTotalMessages int
+	dataType                         v1.DataType
+	toSend                           []*v1.SensorData
+	expReceivedDataBeforeCancel      []*v1.SensorData
+	expReceivedDataAfterCancel       []*v1.SensorData
+}
+
 type mockDataSyncServiceServer struct {
 	uploadRequests *[]*v1.UploadRequest
 	callCount      *atomic.Int32
@@ -240,6 +244,44 @@ type mockDataSyncServiceServer struct {
 
 	lock *sync.Mutex
 	v1.UnimplementedDataSyncServiceServer
+
+	// Fields below this line added by maxhorowitz
+	sendAckEveryNSensorDataMessages  int
+	reqsStagedForResponse            int
+	messagesPersisted                int
+	sendCancelCtxAfterNTotalMessages int
+	uploadResponses                  *[]*v1.UploadResponse
+	shouldNotRetryUpload             bool
+	cancelChannel                    chan bool
+}
+
+func getMockService() mockDataSyncServiceServer {
+	return mockDataSyncServiceServer{
+		uploadRequests:                     &[]*v1.UploadRequest{},
+		callCount:                          &atomic.Int32{},
+		failAtIndex:                        -1,
+		lock:                               &sync.Mutex{},
+		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
+
+		// Fields below this line added by maxhorowitz
+		sendAckEveryNSensorDataMessages:  0,
+		reqsStagedForResponse:            0,
+		sendCancelCtxAfterNTotalMessages: -1,
+		uploadResponses:                  &[]*v1.UploadResponse{},
+		shouldNotRetryUpload:             false,
+	}
+}
+
+func (m *mockDataSyncServiceServer) setMockServiceBeforeCancel(tc partialUploadTestcase) {
+	m.shouldNotRetryUpload = true
+	m.sendAckEveryNSensorDataMessages = tc.sendAckEveryNSensorDataMessages
+	m.sendCancelCtxAfterNTotalMessages = tc.sendCancelCtxAfterNTotalMessages
+}
+
+func (m *mockDataSyncServiceServer) setMockServiceAfterCancel(tc partialUploadTestcase) {
+	m.shouldNotRetryUpload = true
+	m.sendAckEveryNSensorDataMessages = tc.sendAckEveryNSensorDataMessages
+	m.sendCancelCtxAfterNTotalMessages = math.MaxInt
 }
 
 func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
@@ -250,26 +292,51 @@ func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
 	defer m.callCount.Add(1)
-	if m.callCount.Load() < m.failUntilIndex {
+	if m.callCount.Load() < m.failUntilIndex && !m.shouldNotRetryUpload {
 		return m.errorToReturn
 	}
+	m.reqsStagedForResponse = 0
 	for {
-		if m.callCount.Load() == m.failAtIndex {
+		if m.callCount.Load() == m.failAtIndex && !m.shouldNotRetryUpload {
 			return m.errorToReturn
 		}
+
+		// Recv UploadRequest (block until received).
 		ur, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
+			if len(m.getUploadRequests()) == 1 {
+				(*m.lock).Lock()
+				*m.uploadRequests = []*v1.UploadRequest{}
+				(*m.lock).Unlock()
+			}
 			break
 		}
 		if err != nil {
 			return err
 		}
+
+		// Append UploadRequest to list of recorded requests.
 		(*m.lock).Lock()
-		*m.uploadRequests = append(*m.uploadRequests, ur)
+		newData := append(*m.uploadRequests, ur)
+		*m.uploadRequests = newData
+		m.reqsStagedForResponse++
 		(*m.lock).Unlock()
-	}
-	if err := stream.SendAndClose(&v1.UploadResponse{}); err != nil {
-		return err
+
+		if (m.reqsStagedForResponse - 1) == m.sendAckEveryNSensorDataMessages {
+			if err := stream.Send(&v1.UploadResponse{RequestsWritten: int32(m.reqsStagedForResponse - 1)}); err != nil {
+				return err
+			}
+			m.messagesPersisted += m.reqsStagedForResponse
+			m.reqsStagedForResponse = 0
+		}
+
+		// If we want the client to cancel its own context, send signal through channel to the 'sut.'
+		if m.sendCancelCtxAfterNTotalMessages == len(m.getUploadRequests()) {
+			(*m.lock).Lock()
+			*m.uploadRequests = (*m.uploadRequests)[0:(m.messagesPersisted)]
+			(*m.lock).Unlock()
+			m.cancelChannel <- true
+		}
 	}
 	return nil
 }

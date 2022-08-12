@@ -49,6 +49,8 @@ var (
 	testSvcName2       = "svc2"
 )
 
+// TODO in all tests: stand up local sync service server, pass in client connecting to it
+
 // readDir filters out folders from a slice of FileInfos.
 func readDir(t *testing.T, dir string) ([]fs.FileInfo, error) {
 	t.Helper()
