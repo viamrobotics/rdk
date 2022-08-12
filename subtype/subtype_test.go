@@ -92,18 +92,22 @@ func TestSubtypeRemoteNames(t *testing.T) {
 	}
 	svc, err := subtype.New(resources)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, svc.Resource(name0), test.ShouldEqual, name0)
 	test.That(t, svc.Resource(name1), test.ShouldEqual, name1)
 	test.That(t, svc.Resource(name2), test.ShouldEqual, name2)
 	test.That(t, svc.Resource(name3), test.ShouldEqual, name3)
 	test.That(t, svc.Resource(name4), test.ShouldEqual, name4)
+	test.That(t, svc.Resource(name5), test.ShouldEqual, name5)
 
 	test.That(t, svc.Resource("name2"), test.ShouldEqual, name2)
 	test.That(t, svc.Resource("remote1:name2"), test.ShouldBeNil)
 	test.That(t, svc.Resource("remote2:name2"), test.ShouldEqual, name2)
 	test.That(t, svc.Resource("name1"), test.ShouldBeNil)
+	test.That(t, svc.Resource("remote1:name1"), test.ShouldEqual, name1)
 	test.That(t, svc.Resource("name4"), test.ShouldEqual, name4)
 	test.That(t, svc.Resource("remote1:name3"), test.ShouldBeNil)
 	test.That(t, svc.Resource("remote1:name3"), test.ShouldBeNil)
 	test.That(t, svc.Resource("name5"), test.ShouldBeNil)
 	test.That(t, svc.Resource("name6"), test.ShouldBeNil)
+	test.That(t, svc.Resource("name5name6"), test.ShouldEqual, name5)
 }
