@@ -2,9 +2,9 @@ package gpio
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
-	"math"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -24,9 +24,8 @@ func nowNanosTest() uint64 {
 	return uint64(time.Now().UnixNano())
 }
 
-
 type fakeDirectionAware struct {
-	m	*fakemotor.Motor
+	m *fakemotor.Motor
 }
 
 func (f *fakeDirectionAware) DirectionMoving() int64 {
@@ -40,8 +39,8 @@ func TestMotorEncoder1(t *testing.T) {
 
 	cfg := motor.Config{TicksPerRotation: 100, MaxRPM: 100}
 	fakeMotor := &fakemotor.Motor{
-		MaxRPM:            100,
-		Logger:            logger,
+		MaxRPM: 100,
+		Logger: logger,
 	}
 	interrupt := &board.BasicDigitalInterrupt{}
 
@@ -117,7 +116,7 @@ func TestMotorEncoder1(t *testing.T) {
 			tb.Helper()
 			pos, err := _motor.GetPosition(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, math.Abs(pos - 20.99), test.ShouldBeLessThan, 0.01)
+			test.That(tb, math.Abs(pos-20.99), test.ShouldBeLessThan, 0.01)
 		})
 	})
 
@@ -258,8 +257,8 @@ func TestMotorEncoderHall(t *testing.T) {
 		t.Helper()
 		cfg := motor.Config{TicksPerRotation: 100, MaxRPM: 100}
 		fakeMotor := &fakemotor.Motor{
-			MaxRPM:            100,
-			Logger:            logger,
+			MaxRPM: 100,
+			Logger: logger,
 		}
 		encoderA := &board.BasicDigitalInterrupt{}
 		encoderB := &board.BasicDigitalInterrupt{}

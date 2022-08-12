@@ -6,17 +6,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/component/encoder"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/component/encoder"
-	"github.com/edaniels/golog"
-
-	"go.viam.com/rdk/component/generic"
 )
 
 func init() {
-	_encoder:= registry.Component{
+	_encoder := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			e := &Encoder{}
 			e.Tpr = int64(config.Attributes.Int("ticks_per_rotation", 0))
@@ -51,7 +51,7 @@ func (e *Encoder) Start(cancelCtx context.Context, onStart func()) {
 		e.updateRate = 100
 		e.mu.Unlock()
 	}
-	
+
 	e.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		for {
@@ -64,7 +64,7 @@ func (e *Encoder) Start(cancelCtx context.Context, onStart func()) {
 			if !utils.SelectContextOrWait(cancelCtx, time.Duration(e.updateRate)*time.Millisecond) {
 				return
 			}
- 
+
 			e.mu.Lock()
 			e.position += int64(e.speed / float64(60*1000/e.updateRate))
 			e.mu.Unlock()

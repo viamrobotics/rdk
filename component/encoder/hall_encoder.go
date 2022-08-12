@@ -32,11 +32,11 @@ func init() {
 
 // HallEncoder keeps track of a motor position using a rotary hall encoder.
 type HallEncoder struct {
-	A, B             board.DigitalInterrupt
-	position         int64
-	pRaw             int64
-	pState           int64
-	Tpr				 int64
+	A, B     board.DigitalInterrupt
+	position int64
+	pRaw     int64
+	pState   int64
+	Tpr      int64
 
 	logger                  golog.Logger
 	CancelCtx               context.Context

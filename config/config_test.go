@@ -93,7 +93,7 @@ func TestConfig3(t *testing.T) {
 		MaxPowerPct:      0.5,
 	})
 	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &encoder.Config{
-		Pins: map[string]string {
+		Pins: map[string]string{
 			"a": "encoder-steering-b",
 			"b": "encoder-steering-a",
 		},

@@ -11,8 +11,6 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/generic"
-	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/encoder"
 	fakeencoder "go.viam.com/rdk/component/encoder/fake"
 	"go.viam.com/rdk/config"

@@ -39,10 +39,10 @@ type DirectionAware interface {
 // SingleEncoder keeps track of a motor position using a rotary hall encoder.
 type SingleEncoder struct {
 	generic.Unimplemented
-	I                board.DigitalInterrupt
-	position         int64
-	m                DirectionAware
-	Tpr 			int64
+	I        board.DigitalInterrupt
+	position int64
+	m        DirectionAware
+	Tpr      int64
 
 	logger                  golog.Logger
 	CancelCtx               context.Context
