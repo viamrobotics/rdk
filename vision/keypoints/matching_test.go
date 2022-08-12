@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/vision/keypoints/descriptors"
 )
 
 func TestRangeInt(t *testing.T) {
@@ -126,7 +127,6 @@ func TestGetMatchingKeyPoints(t *testing.T) {
 	test.That(t, len(kps1), test.ShouldEqual, len(kps2))
 	for i, pt1 := range kps1 {
 		pt2 := kps2[i]
-		// test.That(t, pt1, test.ShouldResemble, pt2)
 		test.That(t, math.Abs(float64(pt1.X-pt2.X)), test.ShouldBeLessThan, 1)
 		test.That(t, math.Abs(float64(pt1.Y-pt2.Y)), test.ShouldBeLessThan, 1)
 	}
@@ -176,14 +176,14 @@ func TestOrbMatching(t *testing.T) {
 	test.That(t, len(matches.Indices), test.ShouldBeLessThan, 350)
 }
 
-func sortDescriptorsByPoint(desc Descriptors, kps KeyPoints, logger golog.Logger) (Descriptors, KeyPoints, error) {
+func sortDescriptorsByPoint(desc descriptors.Descriptors, kps KeyPoints, logger golog.Logger) (descriptors.Descriptors, KeyPoints, error) {
 	if len(desc) != len(kps) {
 		return nil, nil, errors.Errorf("number of descriptors (%d) does not equal number of keypoints (%d)", len(desc), len(kps))
 	}
 	// sort by point order
 	type ptdesc struct {
 		Kp  image.Point
-		Des Descriptor
+		Des descriptors.Descriptor
 	}
 
 	sorted := make([]ptdesc, 0, len(kps))
@@ -196,7 +196,7 @@ func sortDescriptorsByPoint(desc Descriptors, kps KeyPoints, logger golog.Logger
 	sort.Slice(sorted, func(i, j int) bool {
 		return sorted[i].Kp.Y > sorted[j].Kp.Y
 	})
-	sortedDesc := make(Descriptors, 0, len(desc))
+	sortedDesc := make(descriptors.Descriptors, 0, len(desc))
 	sortedKps := make(KeyPoints, 0, len(kps))
 	for i := range sorted {
 		sortedDesc = append(sortedDesc, sorted[i].Des)

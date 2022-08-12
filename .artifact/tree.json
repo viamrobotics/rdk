@@ -33,28 +33,6 @@
         "hash": "9a5ba64331d22f7b454beb585b6bebf1",
         "size": 1036462
       },
-      "color": {
-        "align-test-1615760748.png": {
-          "hash": "43c8402d847ca92a38e3442e80f686e0",
-          "size": 872289
-        },
-        "align-test-1615761783.png": {
-          "hash": "c93588682e4027397f94da7732076464",
-          "size": 999930
-        },
-        "align-test-1615761793.png": {
-          "hash": "83771100a4bf3302a9de5feb2897be6a",
-          "size": 986607
-        },
-        "chess1.png": {
-          "hash": "b8f3871c7d915af63cf9142c6c5df911",
-          "size": 970509
-        },
-        "gripper-big1.png": {
-          "hash": "19ea3e7664b389ef144a9336afc82c15",
-          "size": 1190997
-        }
-      },
       "depth": {
         "align-test-1615760748.png": {
           "hash": "f18e2ab2c345f70ea15ce323209ac644",
@@ -156,50 +134,6 @@
       "chairs_color.png": {
         "hash": "e793d3d57684d9665497aed82daaefc7",
         "size": 1499552
-      },
-      "color": {
-        "align-test-1615172036.png": {
-          "hash": "0b8a9eabade62763602bdd4ca8575693",
-          "size": 1450621
-        },
-        "align-test-1615174158.png": {
-          "hash": "5719a1d3c9df007d7cf32b16b1afd24a",
-          "size": 1477232
-        },
-        "align-test-1615473489.png": {
-          "hash": "74faeb674fb7dee997aafa7eeb6f9ec7",
-          "size": 1368668
-        },
-        "chairs.png": {
-          "hash": "e793d3d57684d9665497aed82daaefc7",
-          "size": 1499552
-        },
-        "shelf.png": {
-          "hash": "b0ecca9d27adbe39082b476d10cbe83e",
-          "size": 1505290
-        }
-      },
-      "depth": {
-        "align-test-1615172036.png": {
-          "hash": "1e30ef0759200c38fae44b043bdbd887",
-          "size": 364236
-        },
-        "align-test-1615174158.png": {
-          "hash": "0a17ba98209ff58980beb36279c236c8",
-          "size": 351058
-        },
-        "align-test-1615473489.png": {
-          "hash": "b4a4bead4638d04d584c834ce4e1c1b2",
-          "size": 204714
-        },
-        "chairs.png": {
-          "hash": "5baa3605020179d9459c3940153ddb6d",
-          "size": 363157
-        },
-        "shelf.png": {
-          "hash": "e169adac6e12783397b5b26083673970",
-          "size": 247805
-        }
       },
       "shelf.both.gz": {
         "hash": "be0cb012e8d1a8c28e2725b241d5f776",
@@ -50075,21 +50009,17 @@
         "desktop2.png": {
           "hash": "11a8cacd5525e7907acaf35552fc6bf2",
           "size": 1511084
-        },
-        "pieces.png": {
-          "hash": "3883b1175e2acbf9d4de73f13fa8b582",
-          "size": 1362459
         }
       },
       "depth": {
         "desktop2.png": {
           "hash": "5da60e152aad41f45004bf8b4a80d8e0",
           "size": 211495
-        },
-        "pieces.png": {
-          "hash": "121caae55df1603867741f6cba37a50a",
-          "size": 108294
         }
+      },
+      "desktop2.both.gz": {
+        "hash": "be4c6b88b213fc6a6eb085edaaee5cbd",
+        "size": 1830798
       },
       "desktop2.both.gz.las": {
         "hash": "44688a30d468b19d97770c3232a55210",
@@ -50530,6 +50460,14 @@
       "hash": "83771100a4bf3302a9de5feb2897be6a",
       "size": 986607
     },
+    "align-test-1615761793.png": {
+      "hash": "64d2f7a2dd5e27e860c369ceded374c5",
+      "size": 22268
+    },
+    "align-test-1615761793_color.png": {
+      "hash": "83771100a4bf3302a9de5feb2897be6a",
+      "size": 986607
+    },
     "homography": {
       "align-test-1615760748.both.gz": {
         "hash": "a4b99c91c6bc68b734499799c05367e7",
@@ -50784,12 +50722,20 @@
         "size": 274770
       },
       "vo_config.json": {
-        "hash": "c67d1b7d0afb14bd2690f7d0e2eadfa1",
+        "hash": "777aa60823d2c7937d900c2f90304b0e",
         "size": 749
       }
     },
     "segmentation": {
       "pointcloudsegmentation": {
+        "align-test-1615172036.png": {
+          "hash": "1e30ef0759200c38fae44b043bdbd887",
+          "size": 364236
+        },
+        "align-test-1615172036_color.png": {
+          "hash": "0b8a9eabade62763602bdd4ca8575693",
+          "size": 1450621
+        },
         "align-test-1615172036.png": {
           "hash": "1e30ef0759200c38fae44b043bdbd887",
           "size": 364236
