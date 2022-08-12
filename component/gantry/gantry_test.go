@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/component/sensor"
@@ -122,9 +121,7 @@ func TestStatusValid(t *testing.T) {
 		LengthsMm:   []float64{4.4, 5.5, 6.6},
 		IsMoving:    true,
 	}
-	map1, err := protoutils.InterfaceToMap(status)
-	test.That(t, err, test.ShouldBeNil)
-	newStruct, err := structpb.NewStruct(map1)
+	newStruct, err := protoutils.StructToStructPb(status)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(
 		t,

@@ -247,7 +247,7 @@ func ConvertVectorR3ToProto(v r3.Vector) *commonpb.Vector3 {
 func ConvertOrientationToProto(o spatialmath.Orientation) *commonpb.Orientation {
 	oo := &commonpb.Orientation{}
 	if o != nil {
-		ov := o.OrientationVectorRadians()
+		ov := o.OrientationVectorDegrees()
 		oo.OX = ov.OX
 		oo.OY = ov.OY
 		oo.OZ = ov.OZ
@@ -258,7 +258,7 @@ func ConvertOrientationToProto(o spatialmath.Orientation) *commonpb.Orientation 
 
 // ConvertProtoToOrientation
 func ConvertProtoToOrientation(o *commonpb.Orientation) spatialmath.Orientation {
-	return &spatialmath.OrientationVector{
+	return &spatialmath.OrientationVectorDegrees{
 		OX : o.OX,
 		OY : o.OY,
 		OZ : o.OZ,
