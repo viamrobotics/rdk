@@ -19,7 +19,6 @@ import (
 	"google.golang.org/grpc/codes"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
@@ -533,7 +532,7 @@ func (rc *RobotClient) GetStatus(ctx context.Context, resourceNames []resource.N
 func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
 	e := []*pb.StopExtraParameters{}
 	for name, params := range extra {
-		param, err := structpb.NewStruct(params)
+		param, err := protoutils.StructToStructPb(params)
 		if err != nil {
 			rc.Logger().Warnf("failed to convert extra params for resource %s with error: %s", name.Name, err)
 			continue

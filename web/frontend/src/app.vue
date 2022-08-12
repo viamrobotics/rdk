@@ -403,6 +403,8 @@ export default {
     getSegmenterParameters(name) {
       this.segmentAlgo = name;
       const req = new visionApi.GetSegmenterParametersRequest();
+      // We are deliberately just getting the first vision service to ensure this will not break.
+      // May want to allow for more services in the future
       const visionName = filterResources(this.resources, 'rdk', 'services', 'vision')[0];
 
       req.setName(visionName)
@@ -805,6 +807,8 @@ export default {
     viewSLAMImageMap() {
       
       const req = new slamApi.GetMapRequest();
+      // We are deliberately just getting the first slam service to ensure this will not break.
+      // May want to allow for more services in the future
       const slamName = filterResources(this.resources, 'rdk', 'services', 'slam')[0];
       req.setName(slamName);
       req.setMimeType('image/jpeg');
@@ -945,6 +949,8 @@ export default {
 
       const req = new motionApi.MoveRequest();
       const cameraPoint = new commonApi.Pose();
+      // We are deliberately just getting the first motion service to ensure this will not break.
+      // May want to allow for more services in the future
       const motionName = filterResources(this.resources, 'rdk', 'services', 'motion')[0];
       cameraPoint.setX(cameraPointX);
       cameraPoint.setY(cameraPointY);
@@ -1204,6 +1210,8 @@ export default {
       });
     },
     querySensors() {
+      // We are deliberately just getting the first sensors service to ensure this will not break.
+      // May want to allow for more services in the future
       const sensorsName = filterResources(this.resources, 'rdk', 'service','sensors')[0];
       const req = new sensorsApi.GetSensorsRequest();
       req.setName(sensorsName.name)

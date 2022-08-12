@@ -80,8 +80,6 @@ var (
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("data_manager")
 
-const dataManagerName = "data_manager"
-
 // Subtype is a constant that identifies the data manager service resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
@@ -664,7 +662,7 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 func getServiceConfig(cfg *config.Config) (*Config, bool, error) {
 	for _, c := range cfg.Services {
 		// Compare service type and name.
-		if c.Type == dataManagerName {
+		if string(c.Type) == string(SubtypeName) {
 			svcConfig, ok := c.ConvertedAttributes.(*Config)
 			// Incorrect configuration is an error.
 			if !ok {
@@ -697,7 +695,7 @@ func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	for _, c := range cfg.Components {
 		// Iterate over all component-level service configs of type data_manager.
 		for _, componentSvcConfig := range c.ServiceConfig {
-			if componentSvcConfig.Type == dataManagerName {
+			if componentSvcConfig.Type == SubtypeName {
 				attrs, err := getAttrsFromServiceConfig(componentSvcConfig)
 				if err != nil {
 					return componentDataCaptureConfigs, err
@@ -716,7 +714,7 @@ func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	for _, r := range cfg.Remotes {
 		// Iterate over all remote-level service configs of type data_manager.
 		for _, resourceSvcConfig := range r.ServiceConfig {
-			if resourceSvcConfig.Type == dataManagerName {
+			if resourceSvcConfig.Type == SubtypeName {
 				attrs, err := getAttrsFromServiceConfig(resourceSvcConfig)
 				if err != nil {
 					return componentDataCaptureConfigs, err
