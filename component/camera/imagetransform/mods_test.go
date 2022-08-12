@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/camera/imagesource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rlog"
@@ -25,44 +26,80 @@ func init() {
 	rlog.Logger.Debugf("out dir: %q", outDir)
 }
 
-func TestRotateSource(t *testing.T) {
-	pc, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
+func TestRotateColorSource(t *testing.T) {
+	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
 	test.That(t, err, test.ShouldBeNil)
 
-	source := &imagesource.StaticSource{ColorImg: pc, DepthImg: pc}
-	rs := &rotateImageDepthSource{source}
+	source := &imagesource.StaticSource{ColorImg: img}
+	rs := &rotateSource{source, camera.ColorStream}
 
 	rawImage, _, err := rs.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
-	err = rimage.WriteImageToFile(outDir+"/test_rotate_source.png", rawImage)
+	err = rimage.WriteImageToFile(outDir+"/test_rotate_color_source.png", rawImage)
 	test.That(t, err, test.ShouldBeNil)
 
-	img := rimage.ConvertImage(rawImage)
+	img2 := rimage.ConvertImage(rawImage)
 
-	for x := 0; x < pc.Color.Width(); x++ {
+	for x := 0; x < img.Width(); x++ {
 		p1 := image.Point{x, 0}
-		p2 := image.Point{pc.Color.Width() - x - 1, pc.Color.Height() - 1}
+		p2 := image.Point{img.Width() - x - 1, img.Height() - 1}
 
-		a := pc.Color.Get(p1)
-		b := img.Get(p2)
+		a := img.Get(p1)
+		b := img2.Get(p2)
 
 		d := a.Distance(b)
 		test.That(t, d, test.ShouldEqual, 0)
+	}
+}
 
-		d1 := pc.Depth.Get(p1)
-		d2 := rawImage.(*rimage.ImageWithDepth).Depth.Get(p2)
+func TestRotateDepthSource(t *testing.T) {
+	pc, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1.dat.gz"))
+	test.That(t, err, test.ShouldBeNil)
+
+	source := &imagesource.StaticSource{DepthImg: pc}
+	rs := &rotateSource{source, camera.DepthStream}
+
+	rawImage, _, err := rs.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	err = rimage.WriteImageToFile(outDir+"/test_rotate_depth_source.png", rawImage)
+	test.That(t, err, test.ShouldBeNil)
+
+	dm, err := rimage.ConvertImageToDepthMap(rawImage)
+	test.That(t, err, test.ShouldBeNil)
+
+	for x := 0; x < pc.Width(); x++ {
+		p1 := image.Point{x, 0}
+		p2 := image.Point{pc.Width() - x - 1, pc.Height() - 1}
+
+		d1 := pc.Get(p1)
+		d2 := dm.Get(p2)
 
 		test.That(t, d1, test.ShouldEqual, d2)
 	}
 }
 
-func BenchmarkRotate(b *testing.B) {
-	pc, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
+func BenchmarkColorRotate(b *testing.B) {
+	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
 	test.That(b, err, test.ShouldBeNil)
 
-	source := &imagesource.StaticSource{ColorImg: pc, DepthImg: pc}
-	rs := &rotateImageDepthSource{source}
+	source := &imagesource.StaticSource{ColorImg: img}
+	rs := &rotateSource{source, camera.ColorStream}
+
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		rs.Next(context.Background())
+	}
+}
+
+func BenchmarkDepthRotate(b *testing.B) {
+	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1.dat.gz"))
+	test.That(b, err, test.ShouldBeNil)
+
+	source := &imagesource.StaticSource{DepthImg: img}
+	rs := &rotateSource{source, camera.DepthStream}
 
 	b.ResetTimer()
 

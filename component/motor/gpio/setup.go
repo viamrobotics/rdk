@@ -41,7 +41,7 @@ func init() {
 				return nil, err
 			}
 
-			err = m.Stop(ctx)
+			err = m.Stop(ctx, nil)
 			if err != nil {
 				return nil, err
 			}

@@ -4,11 +4,13 @@ import (
 	"context"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream/media"
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/driver"
+	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
@@ -86,15 +88,22 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webca
 
 		props, err := getProperties(d)
 		if len(props) == 0 {
-			rlog.Logger.Warnw("no properties detected for driver, skipping discovery...", "driver", d.Info().Label)
+			rlog.Logger.Debugw("no properties detected for driver, skipping discovery...", "driver", driverInfo.Label)
 			continue
 		} else if err != nil {
-			rlog.Logger.Warnw("cannot access driver properties, skipping discovery...", "driver", d.Info().Label, "error", err)
+			rlog.Logger.Debugw("cannot access driver properties, skipping discovery...", "driver", driverInfo.Label, "error", err)
 			continue
 		}
 
+		if d.Status() == driver.StateRunning {
+			rlog.Logger.Debugw("driver is in use, skipping discovery...", "driver", driverInfo.Label)
+			continue
+		}
+
+		labelParts := strings.Split(driverInfo.Label, mediadevicescamera.LabelSeparator)
+		label := labelParts[len(labelParts)-1]
 		wc := &pb.Webcam{
-			Label:      driverInfo.Label,
+			Label:      label,
 			Status:     string(d.Status()),
 			Properties: make([]*pb.Property, 0, len(d.Properties())),
 		}
@@ -136,6 +145,8 @@ type WebcamAttrs struct {
 	Format      string `json:"format"`
 	Path        string `json:"path"`
 	PathPattern string `json:"path_pattern"`
+	Width       int    `json:"width"`
+	Height      int    `json:"height"`
 }
 
 func makeConstraints(attrs *WebcamAttrs, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {

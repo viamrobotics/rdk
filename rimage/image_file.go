@@ -23,13 +23,9 @@ import (
 	ut "go.viam.com/rdk/utils"
 )
 
-// readImageFromFile extracts the RGB, Z16, or "both" data from an image file.
-// Aligned matters if you are reading a .both.gz file and both the rgb and d image are already aligned.
-// Otherwise, if you are just reading an image, aligned is a moot parameter and should be false.
-func readImageFromFile(path string, aligned bool) (image.Image, error) {
+// readImageFromFile extracts the RGB, Z16, or raw depth data from an image file.
+func readImageFromFile(path string) (image.Image, error) {
 	switch {
-	case strings.HasSuffix(path, ".both.gz"):
-		return ReadBothFromFile(path, aligned)
 	case strings.HasSuffix(path, ".dat.gz"):
 		return ParseDepthMap(path)
 	default:
@@ -50,26 +46,20 @@ func readImageFromFile(path string, aligned bool) (image.Image, error) {
 
 // NewImageFromFile returns an image read in from the given file.
 func NewImageFromFile(fn string) (*Image, error) {
-	img, err := readImageFromFile(fn, false) // extracting rgb, alignment doesn't matter
+	img, err := readImageFromFile(fn)
 	if err != nil {
 		return nil, err
 	}
-
 	return ConvertImage(img), nil
 }
 
-// NewDepthMapFromFile extract the depth map from a Z16 image file or a .both.gz image file.
+// NewDepthMapFromFile extract the depth map from a Z16 image file or a .dat image file.
 func NewDepthMapFromFile(fn string) (*DepthMap, error) {
-	img, err := readImageFromFile(fn, false) // extracting depth, alignment doesn't matter
+	img, err := readImageFromFile(fn)
 	if err != nil {
 		return nil, err
 	}
-	dm, err := ConvertImageToDepthMap(img)
-	if err != nil {
-		return nil, err
-	}
-
-	return dm, nil
+	return ConvertImageToDepthMap(img)
 }
 
 // WriteImageToFile writes the given image to a file at the supplied path.
@@ -102,7 +92,7 @@ func ConvertImage(img image.Image) *Image {
 		return ii
 	}
 
-	iwd, ok := img.(*ImageWithDepth)
+	iwd, ok := img.(*imageWithDepth)
 	if ok {
 		return iwd.Color
 	}
@@ -133,7 +123,7 @@ func CloneImage(img image.Image) *Image {
 	if ok {
 		return ii.Clone()
 	}
-	iwd, ok := img.(*ImageWithDepth)
+	iwd, ok := img.(*imageWithDepth)
 	if ok {
 		return iwd.Clone().Color
 	}
@@ -167,7 +157,7 @@ func SaveImage(pic image.Image, loc string) error {
 // DecodeImage takes an image buffer and decodes it, using the mimeType
 // and the dimensions, to return the image.
 func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string, width, height int) (image.Image, error) {
-	_, span := trace.StartSpan(ctx, "camera::server::Decode::"+mimeType)
+	_, span := trace.StartSpan(ctx, "rimage::DecodeImage::"+mimeType)
 	defer span.End()
 
 	switch mimeType {
@@ -175,10 +165,6 @@ func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string, width, h
 		img := image.NewNRGBA(image.Rect(0, 0, width, height))
 		img.Pix = imgBytes
 		return img, nil
-	case ut.MimeTypeRawIWD:
-		// TODO(DATA-237) - remove
-		img, err := ImageWithDepthFromRawBytes(width, height, imgBytes)
-		return img, err
 	case ut.MimeTypeRawDepth:
 		depth, err := ReadDepthMap(bufio.NewReader(bytes.NewReader(imgBytes)))
 		return depth, err
@@ -199,7 +185,7 @@ func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string, width, h
 // EncodeImage takes an image and mimeType as input and encodes it into a
 // slice of bytes (buffer) and returns the bytes.
 func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte, error) {
-	_, span := trace.StartSpan(ctx, "camera::server::Encode::"+mimeType)
+	_, span := trace.StartSpan(ctx, "rimage::EncodeImage::"+mimeType)
 	defer span.End()
 
 	var buf bytes.Buffer
@@ -209,36 +195,14 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 		imgCopy := image.NewRGBA(bounds)
 		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
 		buf.Write(imgCopy.Pix)
-	case ut.MimeTypeRawIWD:
-		// TODO(DATA-237) remove this data type
-		iwd, ok := img.(*ImageWithDepth)
-		if !ok {
-			return nil, errors.Errorf("want %s but don't have %T", ut.MimeTypeRawIWD, iwd)
-		}
-		err := iwd.RawBytesWrite(&buf)
-		if err != nil {
-			return nil, errors.Wrapf(err, "error writing %s", ut.MimeTypeRawIWD)
-		}
 	case ut.MimeTypeRawDepth:
-		// TODO(DATA-237) remove this data type
+		// TODO(bijan) remove this data type
 		dm, ok := img.(*DepthMap)
 		if !ok {
 			return nil, ut.NewUnexpectedTypeError(dm, img)
 		}
 		_, err := dm.WriteTo(&buf)
 		if err != nil {
-			return nil, err
-		}
-	case ut.MimeTypeBoth:
-		// TODO(DATA-237) remove this data type
-		iwd, ok := img.(*ImageWithDepth)
-		if !ok {
-			return nil, errors.Errorf("want %s but don't have %T", ut.MimeTypeBoth, iwd)
-		}
-		if iwd.Color == nil || iwd.Depth == nil {
-			return nil, errors.Errorf("for %s need depth and color info", ut.MimeTypeBoth)
-		}
-		if err := EncodeBoth(iwd, &buf); err != nil {
 			return nil, err
 		}
 	case ut.MimeTypePNG:
@@ -309,7 +273,7 @@ func fastConvertYcbcr(dst *Image, src *image.YCbCr) {
 // IsImageFile returns if the given file is an image file based on what
 // we support.
 func IsImageFile(fn string) bool {
-	extensions := []string{".both.gz", "ppm", "png", "jpg", "jpeg", "gif"}
+	extensions := []string{"ppm", "png", "jpg", "jpeg", "gif"}
 	for _, suffix := range extensions {
 		if strings.HasSuffix(fn, suffix) {
 			return true

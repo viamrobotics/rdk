@@ -25,6 +25,7 @@
                 },
                 "path_pattern": "usb",
                 "width": 1280,
+                "height": 720,
                 "rotate": true,
                 "debug": true
             }
@@ -48,6 +49,8 @@
             {
                 "color": "front-color",
                 "depth": "front-depth",
+                "height": 720,
+                "width": 1280,
                 "make": "intel515",
                 "debug": false,
                 "camera_parameters": {

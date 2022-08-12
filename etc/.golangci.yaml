@@ -1,7 +1,7 @@
 service:
   golangci-lint-version: 1.46.x
 run:
-  deadline: 600s
+  deadline: 900s
   skip-dirs:
     - genfiles$
     - gen$
@@ -27,6 +27,7 @@ linters:
     - goimports
     - golint
     - gomnd
+    - ifshort
     - interfacer
     - ireturn
     - maintidx

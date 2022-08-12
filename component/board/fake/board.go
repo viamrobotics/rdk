@@ -182,8 +182,8 @@ func (b *Board) GPIOPinNames() []string {
 }
 
 // Status returns the current status of the board.
-func (b *Board) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
-	return board.CreateStatus(ctx, b)
+func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
+	return board.CreateStatus(ctx, b, extra)
 }
 
 // ModelAttributes returns attributes related to the model of this board.
@@ -297,7 +297,7 @@ type Analog struct {
 	Mu         sync.RWMutex
 }
 
-func (a *Analog) Read(context.Context) (int, error) {
+func (a *Analog) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	a.Mu.RLock()
 	defer a.Mu.RUnlock()
 	return a.Value, nil
@@ -323,34 +323,34 @@ type GPIOPin struct {
 }
 
 // Set sets the pin to either low or high.
-func (gp *GPIOPin) Set(ctx context.Context, high bool) error {
+func (gp *GPIOPin) Set(ctx context.Context, high bool, extra map[string]interface{}) error {
 	gp.high = high
 	return nil
 }
 
 // Get gets the high/low state of the pin.
-func (gp *GPIOPin) Get(ctx context.Context) (bool, error) {
+func (gp *GPIOPin) Get(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	return gp.high, nil
 }
 
 // PWM gets the pin's given duty cycle.
-func (gp *GPIOPin) PWM(ctx context.Context) (float64, error) {
+func (gp *GPIOPin) PWM(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	return gp.pwm, nil
 }
 
 // SetPWM sets the pin to the given duty cycle.
-func (gp *GPIOPin) SetPWM(ctx context.Context, dutyCyclePct float64) error {
+func (gp *GPIOPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[string]interface{}) error {
 	gp.pwm = dutyCyclePct
 	return nil
 }
 
 // PWMFreq gets the PWM frequency of the pin.
-func (gp *GPIOPin) PWMFreq(ctx context.Context) (uint, error) {
+func (gp *GPIOPin) PWMFreq(ctx context.Context, extra map[string]interface{}) (uint, error) {
 	return gp.pwmFreq, nil
 }
 
 // SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint) error {
+func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint, extra map[string]interface{}) error {
 	gp.pwmFreq = freqHz
 	return nil
 }

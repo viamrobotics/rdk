@@ -37,7 +37,7 @@ func init() {
 			}
 			confFilter := objectdetection.NewScoreFilter(attrs.ConfidenceThreshold)
 			detector := &detectorSource{cam, sourceName, attrs.DetectorName, confFilter, r, logger}
-			proj, _ := camera.GetProjector(ctx, attrs.AttrConfig, cam)
+			proj, _ := camera.GetProjector(ctx, nil, cam)
 			return camera.New(detector, proj)
 		}})
 
@@ -45,7 +45,7 @@ func init() {
 		camera.SubtypeName,
 		"detector",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
+			transformAttrs, err := extractAttributes(attributes)
 			if err != nil {
 				return nil, err
 			}
@@ -58,7 +58,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(result, attrs)
 			}
-			result.AttrConfig = cameraAttrs
+			result.transformConfig = transformAttrs
 			return result, nil
 		},
 		&detectorAttrs{},
@@ -67,7 +67,7 @@ func init() {
 
 // detectorAttrs is the attribute struct for detectors (their name as found in the vision service).
 type detectorAttrs struct {
-	*camera.AttrConfig
+	*transformConfig
 	DetectorName        string  `json:"detector_name"`
 	ConfidenceThreshold float64 `json:"confidence_threshold"`
 }
