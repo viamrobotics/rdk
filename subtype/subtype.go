@@ -15,8 +15,9 @@ type Service interface {
 }
 
 type subtypeSvc struct {
-	mu        sync.RWMutex
-	resources map[string]interface{}
+	mu         sync.RWMutex
+	resources  map[string]interface{}
+	shortNames map[string]string
 }
 
 // New creates a new subtype service, which holds and replaces resources belonging to that subtype.
@@ -36,15 +37,8 @@ func (s *subtypeSvc) Resource(name string) interface{} {
 		return resource
 	}
 	// looking for remote resource matching the name
-	foundCandidates := []string{}
-	for k := range s.resources {
-		keySplit := strings.Split(k, ":")
-		if keySplit[len(keySplit)-1] == name {
-			foundCandidates = append(foundCandidates, k)
-		}
-	}
-	if len(foundCandidates) == 1 {
-		return s.resources[foundCandidates[0]]
+	if resource, ok := s.resources[s.shortNames[name]]; ok {
+		return resource
 	}
 	return nil
 }
@@ -54,14 +48,27 @@ func (s *subtypeSvc) Replace(r map[resource.Name]interface{}) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	resources := make(map[string]interface{}, len(r))
+	shortNames := make(map[string]string, len(r))
 	for n, v := range r {
+		var name string
 		switch {
 		case n.Name == "":
-			resources[n.String()] = v
+			name = n.String()
 		default:
-			resources[n.ShortName()] = v
+			name = n.ShortName()
+		}
+		resources[name] = v
+		shortcut := name[strings.LastIndexAny(name, ":")+1:]
+		if _, ok := shortNames[shortcut]; ok {
+			oldName := shortNames[shortcut]
+			delete(shortNames, shortcut)
+			shortNames[oldName] = oldName
+			shortNames[name] = name
+		} else {
+			shortNames[shortcut] = name
 		}
 	}
 	s.resources = resources
+	s.shortNames = shortNames
 	return nil
 }
