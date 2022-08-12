@@ -8,7 +8,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -131,9 +130,6 @@ func (ms *motionService) PlanAndMove(
 
 	// get goal frame
 	goalFrameName := destination.FrameName()
-	if goalFrameName == componentName.Name {
-		return false, errors.New("cannot move component with respect to its own frame, will always be at its own origin")
-	}
 	logger.Debugf("goal given in frame of %q", goalFrameName)
 
 	frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.GetTransforms())
