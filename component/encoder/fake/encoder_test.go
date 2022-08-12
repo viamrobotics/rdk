@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 )
 
 func TestEncoder(t *testing.T) {
@@ -13,27 +14,54 @@ func TestEncoder(t *testing.T) {
 	e := &Encoder{}
 
 	// Get and set position
-	pos, err := e.GetTicksCount(ctx, nil)
-	test.That(t, pos, test.ShouldEqual, 0)
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("get and set position", func(t *testing.T) {
+		pos, err := e.GetTicksCount(ctx, nil)
+		test.That(t, pos, test.ShouldEqual, 0)
+		test.That(t, err, test.ShouldBeNil)
 
-	err = e.SetPosition(ctx, 1)
-	test.That(t, err, test.ShouldBeNil)
+		err = e.SetPosition(ctx, 1)
+		test.That(t, err, test.ShouldBeNil)
 
-	pos, err = e.GetTicksCount(ctx, nil)
-	test.That(t, pos, test.ShouldEqual, 1)
-	test.That(t, err, test.ShouldBeNil)
+		pos, err = e.GetTicksCount(ctx, nil)
+		test.That(t, pos, test.ShouldEqual, 1)
+		test.That(t, err, test.ShouldBeNil)
+	})
 
 	// ResetToZero
-	err = e.ResetToZero(ctx, 0, nil)
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("reset to zero", func(t *testing.T) {
+		err := e.ResetToZero(ctx, 0, nil)
+		test.That(t, err, test.ShouldBeNil)
 
-	pos, err = e.GetTicksCount(ctx, nil)
-	test.That(t, pos, test.ShouldEqual, 0)
-	test.That(t, err, test.ShouldBeNil)
+		pos, err := e.GetTicksCount(ctx, nil)
+		test.That(t, pos, test.ShouldEqual, 0)
+		test.That(t, err, test.ShouldBeNil)
+	})
 
 	// Set Speed
-	err = e.SetSpeed(ctx, 1)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, e.speed, test.ShouldEqual, 1)
+	t.Run("set speed", func(t *testing.T) {
+		err := e.SetSpeed(ctx, 1)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, e.speed, test.ShouldEqual, 1)
+	})
+
+	// Start with default update rate
+	t.Run("start default update rate", func(t *testing.T) {
+		err := e.SetSpeed(ctx, 0)
+		test.That(t, err, test.ShouldBeNil)
+
+		e.Start(ctx, func(){})
+		test.That(t, e.updateRate, test.ShouldEqual, 100)
+
+		err = e.SetSpeed(ctx, 60)
+		test.That(t, err, test.ShouldBeNil)
+
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			
+			pos, err := e.GetTicksCount(ctx, nil)
+			test.That(t, pos, test.ShouldBeGreaterThan, 0)
+			test.That(t, err, test.ShouldBeNil)
+		})
+	})
+
 }
