@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
@@ -126,9 +125,7 @@ func TestStatusValid(t *testing.T) {
 	status := &commonpb.ActuatorStatus{
 		IsMoving: true,
 	}
-	map1, err := protoutils.InterfaceToMap(status)
-	test.That(t, err, test.ShouldBeNil)
-	newStruct, err := structpb.NewStruct(map1)
+	newStruct, err := protoutils.StructToStructPb(status)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(
 		t,

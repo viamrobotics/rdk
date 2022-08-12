@@ -79,10 +79,10 @@ message Sphere {
   double radius_mm = 1;
 }
 
+// RectangularPrism contains a Vector3 field corresponding to the X, Y, Z dimensions of the prism in mms
+// These dimensions are with respect to the referenceframe in which the RectangularPrism is defined
 message RectangularPrism {
-  double width_mm = 1;
-  double length_mm = 2;
-  double depth_mm = 3;
+  Vector3 dims_mm = 1;
 }
 
 // Geometry contains the dimensions of a given geometry and the pose of its center. The geometry is one of either a sphere or a box.
