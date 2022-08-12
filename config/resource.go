@@ -319,11 +319,7 @@ func (config *Service) Validate(path string) error {
 	// Validate that all serviice have name
 	// Default services will get a default name if the name is empty
 	if config.Name == "" {
-		if config.Type == "data_manager" || config.Type == "vision" || config.Type == "sensors" {
-			config.Name = resource.DefaultServiceName
-		} else {
-			return utils.NewConfigValidationFieldRequiredError(path, "name")
-		}
+		return utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
 	if config.Namespace == "" {
 		// NOTE: This should never be removed in order to ensure RDK is the
