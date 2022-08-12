@@ -466,6 +466,10 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		svc.partID = cfg.Cloud.ID
 	}
 
+	if svc.syncerConstructor == nil {
+		svc.syncerConstructor = datasync.NewDefaultManager
+	}
+
 	toggledCaptureOff := (svc.captureDisabled != svcConfig.CaptureDisabled) && svcConfig.CaptureDisabled
 	svc.captureDisabled = svcConfig.CaptureDisabled
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
