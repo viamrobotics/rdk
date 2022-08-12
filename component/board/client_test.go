@@ -269,10 +269,10 @@ func TestClientWithoutStatus(t *testing.T) {
 
 	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
-	test.That(t, client.AnalogReaderNames(), test.ShouldBeNil)
-	test.That(t, client.DigitalInterruptNames(), test.ShouldBeNil)
-	test.That(t, client.SPINames(), test.ShouldBeNil)
-	test.That(t, client.I2CNames(), test.ShouldBeNil)
+	test.That(t, client.AnalogReaderNames(), test.ShouldResemble, []string{})
+	test.That(t, client.DigitalInterruptNames(), test.ShouldResemble, []string{})
+	test.That(t, client.SPINames(), test.ShouldResemble, []string{})
+	test.That(t, client.I2CNames(), test.ShouldResemble, []string{})
 
 	err = utils.TryClose(context.Background(), client)
 	test.That(t, err, test.ShouldBeNil)
