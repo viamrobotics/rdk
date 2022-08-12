@@ -60,6 +60,10 @@ func WrapMotorWithEncoder(
 		return m, nil
 	}
 
+	if mc.TicksPerRotation == 0 {
+		return nil, errors.Errorf("need a TicksPerRotation for motor (%s)", c.Name)
+	}
+
 	mm, err := newEncodedMotor(c, mc, m, e, logger)
 	if err != nil {
 		return nil, err
@@ -188,12 +192,8 @@ func (m *EncodedMotor) GetPosition(ctx context.Context, extra map[string]interfa
 	if err != nil {
 		return 0, err
 	}
-	tpr, err := m.encoder.TicksPerRotation(ctx)
-	if err != nil {
-		return 0, err
-	}
 
-	return float64(ticks) / float64(tpr), nil
+	return float64(ticks) / float64(m.cfg.TicksPerRotation), nil
 }
 
 // DirectionMoving returns the direction we are currently mpving in, with 1 representing
@@ -352,11 +352,7 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 
 	if m.state.regulated {
 		ticksLeft = (m.state.setPoint - pos) * int64(m.state.lastPowerPct/math.Abs(m.state.lastPowerPct))
-		tpr, err := m.encoder.TicksPerRotation(m.cancelCtx)
-		if err != nil {
-			return
-		}
-		rotationsLeft := float64(ticksLeft) / float64(tpr)
+		rotationsLeft := float64(ticksLeft) / float64(m.cfg.TicksPerRotation)
 		if rotationsLeft <= 0 {
 			err := m.off(m.cancelCtx)
 			if err != nil {
@@ -381,12 +377,7 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 
 func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime int64, desiredRPM, rotationsLeft float64, rpmDebug bool) {
 	lastPowerPct := m.state.lastPowerPct
-
-	tpr, err := m.encoder.TicksPerRotation(m.cancelCtx)
-	if err != nil {
-		return
-	}
-	rotations := float64(pos-lastPos) / float64(tpr)
+	rotations := float64(pos-lastPos) / float64(m.cfg.TicksPerRotation)
 	minutes := float64(now-lastTime) / (1e9 * 60)
 	currentRPM := rotations / minutes
 	if minutes == 0 {
@@ -484,11 +475,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm float64, revolutio
 		return err
 	}
 
-	tpr, err := m.encoder.TicksPerRotation(m.cancelCtx)
-	if err != nil {
-		return err
-	}
-	numTicks := int64(revolutions * float64(tpr))
+	numTicks := int64(revolutions * float64(m.cfg.TicksPerRotation))
 
 	pos, err := m.encoder.GetTicksCount(ctx, nil)
 	if err != nil {
@@ -644,9 +631,5 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 // ResetZeroPosition sets the current position of the motor specified by the request
 // (adjusted by a given offset) to be its new zero position.
 func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	tpr, err := m.encoder.TicksPerRotation(m.cancelCtx)
-	if err != nil {
-		return err
-	}
-	return m.encoder.ResetToZero(ctx, int64(offset*float64(tpr)), extra)
+	return m.encoder.ResetToZero(ctx, int64(offset*float64(m.cfg.TicksPerRotation)), extra)
 }

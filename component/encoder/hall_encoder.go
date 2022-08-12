@@ -71,8 +71,6 @@ func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config conf
 		e.A, _ = board.DigitalInterruptByName(pinA)
 		e.B, _ = board.DigitalInterruptByName(pinB)
 
-		e.Tpr = int64(cfg.TicksPerRotation)
-
 		return e, nil
 	}
 
@@ -200,11 +198,6 @@ func (e *HallEncoder) ResetToZero(ctx context.Context, offset int64, extra map[s
 	atomic.StoreInt64(&e.position, offset)
 	atomic.StoreInt64(&e.pRaw, (offset<<1)|atomic.LoadInt64(&e.pRaw)&0x1)
 	return nil
-}
-
-// TicksPerRotation returns the number of ticks needed for a full rotation.
-func (e *HallEncoder) TicksPerRotation(ctx context.Context) (int64, error) {
-	return atomic.LoadInt64(&e.Tpr), nil
 }
 
 // RawPosition returns the raw position of the encoder.

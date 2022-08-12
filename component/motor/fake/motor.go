@@ -12,10 +12,8 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/encoder"
-	fakeencoder "go.viam.com/rdk/component/encoder/fake"
 	"go.viam.com/rdk/component/generic"
 	fakeencoder "go.viam.com/rdk/component/encoder/fake"
-	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
@@ -47,22 +45,17 @@ func init() {
 				m.MaxRPM = mcfg.MaxRPM
 
 				if mcfg.Encoder != "" {
+					if mcfg.TicksPerRotation <= 0 {
+						return nil, errors.New("need nonzero TicksPerRotation for encoded motor")
+					}
+					m.TicksPerRotation = mcfg.TicksPerRotation
+					
 					e, err := encoder.FromDependencies(deps, mcfg.Encoder)
 					if err != nil {
 						return nil, err
 					}
 					realEncoder := rdkutils.UnwrapProxy(e)
 					m.Encoder = realEncoder.(*fakeencoder.Encoder)
-
-					tpr, err := m.Encoder.TicksPerRotation(ctx)
-					if err != nil {
-						return 0, err
-					}
-
-					if tpr <= 0 {
-						return nil, errors.Errorf("need a TicksPerRotation for encoder (%s)", mcfg.Encoder)
-					}
-
 					m.PositionReporting = true
 
 					m.Encoder.Start(ctx, func() {})
@@ -93,6 +86,7 @@ type Motor struct {
 	Encoder           *fakeencoder.Encoder
 	MaxRPM            float64
 	opMgr             operation.SingleOperationManager
+	TicksPerRotation  int
 	generic.Echo
 }
 
@@ -110,15 +104,11 @@ func (m *Motor) GetPosition(ctx context.Context, extra map[string]interface{}) (
 		return 0, err
 	}
 
-	tpr, err := m.Encoder.TicksPerRotation(ctx)
-	if err != nil {
-		return 0, err
-	}
-	if tpr == 0 {
-		return 0, errors.New("need nonzero Tpr (ticks per rotation) for encoder")
+	if m.TicksPerRotation == 0 {
+		return 0, errors.New("need nonzero TicksPerRotation for motor")
 	}
 
-	return float64(ticks) / float64(tpr), nil
+	return float64(ticks) / float64(m.TicksPerRotation), nil
 }
 
 // GetFeatures returns the status of whether the motor supports certain optional features.
@@ -142,16 +132,12 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 			return errors.New("not supported, define max_rpm attribute != 0")
 		}
 
-		tpr, err := m.Encoder.TicksPerRotation(ctx)
-		if err != nil {
-			return err
-		}
-		if tpr <= 0 {
-			return errors.New("need positive nonzero Tpr (ticks per rotation) for encoder")
+		if m.TicksPerRotation <= 0 {
+			return errors.New("need positive nonzero TicksPerRotation")
 		}
 
-		newSpeed := (m.MaxRPM * m.powerPct) * float64(tpr)
-		err = m.Encoder.SetSpeed(ctx, newSpeed)
+		newSpeed := (m.MaxRPM * m.powerPct) * float64(m.TicksPerRotation)
+		err := m.Encoder.SetSpeed(ctx, newSpeed)
 		if err != nil {
 			return err
 		}
@@ -241,11 +227,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64, ext
 		}
 
 		if m.Encoder != nil {
-			tpr, err := m.Encoder.TicksPerRotation(ctx)
-			if err != nil {
-				return err
-			}
-			return m.Encoder.SetPosition(ctx, int64(finalPos*float64(tpr)))
+			return m.Encoder.SetPosition(ctx, int64(finalPos*float64(m.TicksPerRotation)))
 		}
 	}
 	return nil
@@ -288,12 +270,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64, extra map[st
 			return err
 		}
 
-		tpr, err := m.Encoder.TicksPerRotation(ctx)
-		if err != nil {
-			return err
-		}
-
-		return m.Encoder.SetPosition(ctx, int64(pos*float64(tpr)))
+		return m.Encoder.SetPosition(ctx, int64(pos*float64(m.TicksPerRotation)))
 	}
 
 	return nil
@@ -310,16 +287,11 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 		return errors.New("encoder is not defined")
 	}
 
-	tpr, err := m.Encoder.TicksPerRotation(ctx)
-	if err != nil {
-		return err
+	if m.TicksPerRotation == 0 {
+		return errors.New("need nonzero TicksPerRotation for motor")
 	}
 
-	if tpr == 0 {
-		return errors.New("need nonzero Tpr (ticks per rotation) for encoder")
-	}
-
-	err = m.Encoder.ResetToZero(ctx, int64(offset*float64(tpr)), extra)
+	err := m.Encoder.ResetToZero(ctx, int64(offset*float64(m.TicksPerRotation)), extra)
 	if err != nil {
 		return err
 	}

@@ -87,7 +87,6 @@ func NewSingleEncoder(
 		if !ok {
 			return nil, errors.Errorf("cannot find pin (%s) for SingleEncoder", pin)
 		}
-		e.Tpr = int64(cfg.TicksPerRotation)
 	}
 
 	return e, nil
@@ -131,11 +130,6 @@ func (e *SingleEncoder) GetTicksCount(ctx context.Context, extra map[string]inte
 func (e *SingleEncoder) ResetToZero(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	atomic.StoreInt64(&e.position, offset)
 	return nil
-}
-
-// TicksPerRotation returns the number of ticks needed for a full rotation.
-func (e *SingleEncoder) TicksPerRotation(ctx context.Context) (int64, error) {
-	return atomic.LoadInt64(&e.Tpr), nil
 }
 
 // Close shuts down the SingleEncoder.
