@@ -3,6 +3,7 @@ package fake
 import (
 	"context"
 	"testing"
+	"time"
 
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
@@ -50,18 +51,19 @@ func TestEncoder(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		e.Start(ctx, func(){})
-		test.That(t, e.updateRate, test.ShouldEqual, 100)
-
-		err = e.SetSpeed(ctx, 60)
-		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			
-			pos, err := e.GetTicksCount(ctx, nil)
-			test.That(t, pos, test.ShouldBeGreaterThan, 0)
-			test.That(t, err, test.ShouldBeNil)
+			test.That(t, e.updateRate, test.ShouldEqual, 100)
 		})
+
+		err = e.SetSpeed(ctx, 600)
+		test.That(t, err, test.ShouldBeNil)
+
+		time.Sleep(200 * time.Millisecond)
+		pos, err := e.GetTicksCount(ctx, nil)
+		test.That(t, pos, test.ShouldBeGreaterThan, 0)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 }

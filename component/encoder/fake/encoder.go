@@ -46,11 +46,14 @@ func (e *Encoder) GetTicksCount(ctx context.Context, extra map[string]interface{
 
 // Start starts a background thread to run the encoder.
 func (e *Encoder) Start(cancelCtx context.Context, onStart func()) {
+	if e.updateRate == 0 {
+		e.mu.Lock()
+		e.updateRate = 100
+		e.mu.Unlock()
+	}
+	
 	e.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		if e.updateRate == 0 {
-			e.updateRate = 100
-		}
 		for {
 			select {
 			case <-cancelCtx.Done():
@@ -61,7 +64,7 @@ func (e *Encoder) Start(cancelCtx context.Context, onStart func()) {
 			if !utils.SelectContextOrWait(cancelCtx, time.Duration(e.updateRate)*time.Millisecond) {
 				return
 			}
-
+ 
 			e.mu.Lock()
 			e.position += int64(e.speed / float64(60*1000/e.updateRate))
 			e.mu.Unlock()
