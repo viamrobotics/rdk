@@ -29,6 +29,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 		logger: logger,
 	}
 }
+
 func (c *client) Move(ctx context.Context, angleDeg uint8) error {
 	req := &pb.MoveRequest{AngleDeg: uint32(angleDeg), Name: c.name}
 	if _, err := c.client.Move(ctx, req); err != nil {
