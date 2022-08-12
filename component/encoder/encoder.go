@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
-	"github.com/pkg/errors"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
