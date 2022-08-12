@@ -1548,6 +1548,7 @@ func TestReconnectRemote(t *testing.T) {
 		tb.Helper()
 		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 3)
 	})
+	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 3)
 	_, err = anArm.GetEndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError)
 
@@ -1568,6 +1569,7 @@ func TestReconnectRemote(t *testing.T) {
 		tb.Helper()
 		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 7)
 	})
+	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 7)
 	_, err = remoteRobotClient.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1577,7 +1579,7 @@ func TestReconnectRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestReconnectRemote1(t *testing.T) {
+func TestReconnectRemoteChangeConfig(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	// start the first robot
@@ -1654,6 +1656,7 @@ func TestReconnectRemote1(t *testing.T) {
 		tb.Helper()
 		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 3)
 	})
+	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 3)
 	_, err = anArm.GetEndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError)
 
@@ -1683,6 +1686,7 @@ func TestReconnectRemote1(t *testing.T) {
 		tb.Helper()
 		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 7)
 	})
+	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 7)
 	_, err = anArm.GetEndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError)
 
