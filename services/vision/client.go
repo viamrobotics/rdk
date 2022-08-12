@@ -9,12 +9,12 @@ import (
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/vision/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -57,7 +57,7 @@ func (c *client) GetDetectorNames(ctx context.Context) ([]string, error) {
 func (c *client) AddDetector(ctx context.Context, cfg DetectorConfig) error {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::AddDetector")
 	defer span.End()
-	params, err := structpb.NewStruct(cfg.Parameters)
+	params, err := protoutils.StructToStructPb(cfg.Parameters)
 	if err != nil {
 		return err
 	}
@@ -152,7 +152,7 @@ func (c *client) GetObjectPointClouds(ctx context.Context,
 	segmenterName string,
 	params config.AttributeMap,
 ) ([]*vision.Object, error) {
-	conf, err := structpb.NewStruct(params)
+	conf, err := protoutils.StructToStructPb(params)
 	if err != nil {
 		return nil, err
 	}

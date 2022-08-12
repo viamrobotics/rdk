@@ -8,8 +8,7 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"go.viam.com/rdk/component/gps"
-	"go.viam.com/rdk/component/imu"
+	"go.viam.com/rdk/component/movementsensor"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/sensors/v1"
 	"go.viam.com/rdk/protoutils"
@@ -68,7 +67,7 @@ func TestServerGetSensors(t *testing.T) {
 		}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
-		names := []resource.Name{gps.Named("gps"), imu.Named("imu")}
+		names := []resource.Name{movementsensor.Named("gps"), movementsensor.Named("imu")}
 		injectSensors.GetSensorsFunc = func(ctx context.Context) ([]resource.Name, error) {
 			return names, nil
 		}
@@ -126,8 +125,8 @@ func TestServerGetReadings(t *testing.T) {
 		}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
-		iReading := sensors.Readings{Name: imu.Named("imu"), Readings: []interface{}{1.2, 2.3, 3.4}}
-		gReading := sensors.Readings{Name: gps.Named("gps"), Readings: []interface{}{4.5, 5.6, 6.7}}
+		iReading := sensors.Readings{Name: movementsensor.Named("imu"), Readings: []interface{}{1.2, 2.3, 3.4}}
+		gReading := sensors.Readings{Name: movementsensor.Named("gps"), Readings: []interface{}{4.5, 5.6, 6.7}}
 		readings := []sensors.Readings{iReading, gReading}
 		expected := map[resource.Name]interface{}{
 			iReading.Name: iReading.Readings,
