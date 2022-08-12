@@ -5,8 +5,10 @@ import (
 	"context"
 	"sync"
 
+	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
+	"github.com/pkg/errors"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -14,7 +16,6 @@ import (
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
-	"github.com/pkg/errors"
 )
 
 func init() {
@@ -33,7 +34,7 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// A Encoder turns a position into an electronic signal
+// A Encoder turns a position into an electronic signal.
 type Encoder interface {
 	// GetTicksCount returns number of ticks since last zeroing
 	GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error)
@@ -171,9 +172,9 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 
 // Config describes the configuration of an encoder.
 type Config struct {
-	Pins      map[string]string 	`json:"pins"`
-	BoardName string                `json:"board"`
-	TicksPerRotation int 			`json:"ticks_per_rotation"`
+	Pins             map[string]string `json:"pins"`
+	BoardName        string            `json:"board"`
+	TicksPerRotation int               `json:"ticks_per_rotation"`
 }
 
 // Validate ensures all parts of the config are valid.

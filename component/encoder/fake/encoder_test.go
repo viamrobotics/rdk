@@ -50,7 +50,7 @@ func TestEncoder(t *testing.T) {
 		err := e.SetSpeed(ctx, 0)
 		test.That(t, err, test.ShouldBeNil)
 
-		e.Start(ctx, func(){})
+		e.Start(ctx, func() {})
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
@@ -65,5 +65,4 @@ func TestEncoder(t *testing.T) {
 		test.That(t, pos, test.ShouldBeGreaterThan, 0)
 		test.That(t, err, test.ShouldBeNil)
 	})
-
 }

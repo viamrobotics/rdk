@@ -59,7 +59,7 @@ func WrapMotorWithEncoder(
 	if e == nil {
 		return m, nil
 	}
-	
+
 	mm, err := newEncodedMotor(c, mc, m, e, logger)
 	if err != nil {
 		return nil, err
