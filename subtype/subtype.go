@@ -2,6 +2,7 @@
 package subtype
 
 import (
+	"strings"
 	"sync"
 
 	"go.viam.com/rdk/resource"
@@ -33,6 +34,17 @@ func (s *subtypeSvc) Resource(name string) interface{} {
 	defer s.mu.RUnlock()
 	if resource, ok := s.resources[name]; ok {
 		return resource
+	}
+	// looking for remote resource matching the name
+	foundCandidates := []string{}
+	for k := range s.resources {
+		keySplit := strings.Split(k, ":")
+		if keySplit[len(keySplit)-1] == name {
+			foundCandidates = append(foundCandidates, k)
+		}
+	}
+	if len(foundCandidates) == 1 {
+		return s.resources[foundCandidates[0]]
 	}
 	return nil
 }
