@@ -12,9 +12,11 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/encoder"
-	"go.viam.com/rdk/component/motor"
+	fakeencoder "go.viam.com/rdk/component/encoder/fake"
 	"go.viam.com/rdk/component/generic"
 	fakeencoder "go.viam.com/rdk/component/encoder/fake"
+	"go.viam.com/rdk/component/generic"
+	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"

@@ -89,8 +89,8 @@ func TestConfig3(t *testing.T) {
 			Direction: "io17",
 			PWM:       "io18",
 		},
-		Encoder:          "encoder1",
-		MaxPowerPct:      0.5,
+		Encoder:     "encoder1",
+		MaxPowerPct: 0.5,
 	})
 	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &encoder.Config{
 		Pins: map[string]string{
