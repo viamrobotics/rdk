@@ -199,7 +199,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <v-collapse title="Get Segments">
+  <v-collapse title="Navigation Service">
     <div class="flex flex-col gap-2 border border-t-0 border-black p-4">
       <v-radio
         label="Navigation mode"

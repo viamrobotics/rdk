@@ -17,7 +17,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/config"
 	servicepb "go.viam.com/rdk/proto/api/service/navigation/v1"
 	"go.viam.com/rdk/registry"
@@ -89,6 +89,7 @@ type Service interface {
 var (
 	_ = Service(&reconfigurableNavigation{})
 	_ = resource.Reconfigurable(&reconfigurableNavigation{})
+	_ = utils.ContextCloser(&reconfigurableNavigation{})
 )
 
 // SubtypeName is the name of the type of service.
@@ -106,9 +107,9 @@ var Name = resource.NameFromSubtype(Subtype, "")
 
 // Config describes how to configure the service.
 type Config struct {
-	Store    StoreConfig `json:"store"`
-	BaseName string      `json:"base"`
-	GPSName  string      `json:"gps"`
+	Store              StoreConfig `json:"store"`
+	BaseName           string      `json:"base"`
+	MovementSensorName string      `json:"movement_sensor"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -119,8 +120,8 @@ func (config *Config) Validate(path string) error {
 	if config.BaseName == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "base")
 	}
-	if config.GPSName == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "gps")
+	if config.MovementSensorName == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "movement_sensor")
 	}
 	return nil
 }
@@ -135,7 +136,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	if err != nil {
 		return nil, err
 	}
-	gpsDevice, err := gps.FromRobot(r, svcConfig.GPSName)
+	movementSensor, err := movementsensor.FromRobot(r, svcConfig.MovementSensorName)
 	if err != nil {
 		return nil, err
 	}
@@ -156,13 +157,13 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	navSvc := &navService{
-		r:          r,
-		store:      store,
-		base:       base1,
-		gpsDevice:  gpsDevice,
-		logger:     logger,
-		cancelCtx:  cancelCtx,
-		cancelFunc: cancelFunc,
+		r:              r,
+		store:          store,
+		base:           base1,
+		movementSensor: movementSensor,
+		logger:         logger,
+		cancelCtx:      cancelCtx,
+		cancelFunc:     cancelFunc,
 	}
 	return navSvc, nil
 }
@@ -173,8 +174,8 @@ type navService struct {
 	store navStore
 	mode  Mode
 
-	base      base.Base
-	gpsDevice gps.GPS
+	base           base.Base
+	movementSensor movementsensor.MovementSensor
 
 	logger                  golog.Logger
 	cancelCtx               context.Context
@@ -223,7 +224,7 @@ func (svc *navService) startWaypoint() error {
 				return
 			}
 
-			currentLoc, err := svc.gpsDevice.ReadLocation(svc.cancelCtx)
+			currentLoc, _, err := svc.movementSensor.GetPosition(svc.cancelCtx)
 			if err != nil {
 				svc.logger.Errorw("failed to get gps location", "error", err)
 				continue
@@ -264,14 +265,14 @@ func (svc *navService) startWaypoint() error {
 				// TODO(erh->erd): maybe need an arc/stroke abstraction?
 				// - Remember that we added -1*bearingDelta instead of steeringDir
 				// - Test both naval/land to prove it works
-				if err := svc.base.Spin(ctx, -1*bearingDelta, 45); err != nil {
+				if err := svc.base.Spin(ctx, -1*bearingDelta, 45, nil); err != nil {
 					return fmt.Errorf("error turning: %w", err)
 				}
 
 				distanceMm := distanceToGoal * 1000 * 1000
 				distanceMm = math.Min(distanceMm, 10*1000)
 
-				if err := svc.base.MoveStraight(ctx, int(distanceMm), 500); err != nil {
+				if err := svc.base.MoveStraight(ctx, int(distanceMm), 500, nil); err != nil {
 					return fmt.Errorf("error moving %w", err)
 				}
 
@@ -298,10 +299,11 @@ func (svc *navService) waypointDirectionAndDistanceToGo(ctx context.Context, cur
 }
 
 func (svc *navService) GetLocation(ctx context.Context) (*geo.Point, error) {
-	if svc.gpsDevice == nil {
+	if svc.movementSensor == nil {
 		return nil, errors.New("no way to get location")
 	}
-	return svc.gpsDevice.ReadLocation(ctx)
+	loc, _, err := svc.movementSensor.GetPosition(ctx)
+	return loc, err
 }
 
 func (svc *navService) GetWaypoints(ctx context.Context) ([]Waypoint, error) {
@@ -383,7 +385,7 @@ func (svc *reconfigurableNavigation) RemoveWaypoint(ctx context.Context, id prim
 	return svc.actual.RemoveWaypoint(ctx, id)
 }
 
-func (svc *reconfigurableNavigation) Close(ctx context.Context, id primitive.ObjectID) error {
+func (svc *reconfigurableNavigation) Close(ctx context.Context) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return utils.TryClose(ctx, svc.actual)

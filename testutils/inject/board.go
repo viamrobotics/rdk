@@ -30,7 +30,7 @@ type Board struct {
 	GPIOPinNamesFunc           func() []string
 	CloseFunc                  func(ctx context.Context) error
 	ConfigFunc                 func(ctx context.Context) (board.Config, error)
-	StatusFunc                 func(ctx context.Context) (*commonpb.BoardStatus, error)
+	StatusFunc                 func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error)
 	statusCap                  []interface{}
 }
 
@@ -155,12 +155,12 @@ func (b *Board) Close(ctx context.Context) error {
 }
 
 // Status calls the injected Status or the real version.
-func (b *Board) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
+func (b *Board) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	b.statusCap = []interface{}{ctx}
 	if b.StatusFunc == nil {
-		return b.LocalBoard.Status(ctx)
+		return b.LocalBoard.Status(ctx, extra)
 	}
-	return b.StatusFunc(ctx)
+	return b.StatusFunc(ctx, extra)
 }
 
 // StatusCap returns the last parameters received by Status, and then clears them.

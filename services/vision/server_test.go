@@ -6,13 +6,15 @@ import (
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"google.golang.org/protobuf/types/known/structpb"
+	"go.viam.com/utils/artifact"
 
 	// register cameras for testing.
 	_ "go.viam.com/rdk/component/camera/register"
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/service/vision/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
@@ -89,7 +91,7 @@ func TestServerAddDetector(t *testing.T) {
 	}
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
-	params, err := structpb.NewStruct(config.AttributeMap{
+	params, err := protoutils.StructToStructPb(config.AttributeMap{
 		"detect_color": "#112233",
 		"tolerance":    0.4,
 		"segment_size": 200,
@@ -133,7 +135,7 @@ func TestServerGetDetections(t *testing.T) {
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
 	// success
-	resp, err := server.GetDetections(context.Background(), &pb.GetDetectionsRequest{
+	resp, err := server.GetDetectionsFromCamera(context.Background(), &pb.GetDetectionsFromCameraRequest{
 		CameraName:   "fake_cam",
 		DetectorName: "detect_red",
 	})
@@ -146,9 +148,42 @@ func TestServerGetDetections(t *testing.T) {
 	test.That(t, *(resp.Detections[0].XMax), test.ShouldEqual, 183)
 	test.That(t, *(resp.Detections[0].YMax), test.ShouldEqual, 349)
 	// failure - empty request
-	_, err = server.GetDetections(context.Background(), &pb.GetDetectionsRequest{})
+	_, err = server.GetDetectionsFromCamera(context.Background(), &pb.GetDetectionsFromCameraRequest{})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+
+	// test new getdetections straight from image
+	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
+	params, err := protoutils.StructToStructPb(config.AttributeMap{
+		"model_path":  modelLoc,
+		"num_threads": 1,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	// success
+	addDetResp, err := server.AddDetector(context.Background(), &pb.AddDetectorRequest{
+		DetectorName:       "test",
+		DetectorModelType:  "tflite",
+		DetectorParameters: params,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, addDetResp, test.ShouldNotBeNil)
+	img, _ := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
+	imgBytes, err := rimage.EncodeImage(context.Background(), img, utils.MimeTypeJPEG)
+	test.That(t, err, test.ShouldBeNil)
+
+	resp2, err := server.GetDetections(context.Background(), &pb.GetDetectionsRequest{
+		Image:        imgBytes,
+		Width:        int64(img.Width()),
+		Height:       int64(img.Height()),
+		MimeType:     utils.MimeTypeJPEG,
+		DetectorName: "test",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp2.Detections, test.ShouldNotBeNil)
+	test.That(t, resp2.Detections[0].ClassName, test.ShouldResemble, "17")
+	test.That(t, resp2.Detections[0].Confidence, test.ShouldBeGreaterThan, 0.79)
+	test.That(t, resp2.Detections[1].ClassName, test.ShouldResemble, "17")
+	test.That(t, resp2.Detections[1].Confidence, test.ShouldBeGreaterThan, 0.73)
 }
 
 func TestServerObjectSegmentation(t *testing.T) {
@@ -202,7 +237,7 @@ func TestServerObjectSegmentation(t *testing.T) {
 	})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
 
-	params, err := structpb.NewStruct(config.AttributeMap{})
+	params, err := protoutils.StructToStructPb(config.AttributeMap{})
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
 		CameraName:    "fakeCamera",
@@ -223,7 +258,7 @@ func TestServerObjectSegmentation(t *testing.T) {
 	test.That(t, paramNames[2].Type, test.ShouldEqual, "float64")
 	test.That(t, paramNames[3].Type, test.ShouldEqual, "int")
 
-	params, err = structpb.NewStruct(config.AttributeMap{
+	params, err = protoutils.StructToStructPb(config.AttributeMap{
 		paramNames[0].Name: 100, // min points in plane
 		paramNames[1].Name: 3,   // min points in segment
 		paramNames[2].Name: 5.,  //  clustering radius

@@ -31,7 +31,7 @@ func TestICPRegistration(t *testing.T) {
 	}
 
 	targetCloud, err := pointCloudFromArtifact(t, "pointcloud/bun000.pcd")
-	targetKD := NewKDTree(targetCloud)
+	targetKD := ToKDTree(targetCloud)
 	test.That(t, err, test.ShouldBeNil)
 
 	sourceCloud, err := pointCloudFromArtifact(t, "pointcloud/bun045.pcd")
@@ -44,7 +44,7 @@ func TestICPRegistration(t *testing.T) {
 			Pitch: 0.6,
 			Yaw:   0,
 		})
-	registered, info, err := RegisterPointCloudICP(sourceCloud, targetKD, guess, true)
+	registered, info, err := RegisterPointCloudICP(sourceCloud, targetKD, guess, true, numThreadsPointCloud)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, registered, test.ShouldNotBeNil)
 	test.That(t, info, test.ShouldNotBeNil)

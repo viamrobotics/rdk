@@ -65,8 +65,8 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64) []Input
 			u = 999
 		}
 
-		jRange := math.Abs(u - l)
-		pos = append(pos, Input{lim * (rSeed.Float64()*jRange + l)})
+		span := u - l
+		pos = append(pos, Input{lim*span*rSeed.Float64() + l + (span * (1 - lim) / 2)})
 	}
 	return pos
 }
@@ -89,9 +89,7 @@ func RandomFrameInputs(m Frame, rSeed *rand.Rand) []Input {
 		if u == math.Inf(1) {
 			u = 999
 		}
-
-		jRange := math.Abs(u - l)
-		pos = append(pos, Input{rSeed.Float64()*jRange + l})
+		pos = append(pos, Input{rSeed.Float64()*(u-l) + l})
 	}
 	return pos
 }
@@ -445,7 +443,7 @@ func (mf *mobile2DFrame) Transform(input []Input) (spatial.Pose, error) {
 	// We allow out-of-bounds calculations, but will return a non-nil error
 	for i, lim := range mf.limit {
 		if input[i].Value < lim.Min || input[i].Value > lim.Max {
-			multierr.AppendInto(&errAll, fmt.Errorf("%.5f input out of rev frame bounds %.5f", input[i].Value, lim))
+			multierr.AppendInto(&errAll, fmt.Errorf("%.5f %s %.5f", input[i].Value, OOBErrString, mf.limit[i]))
 		}
 	}
 	return spatial.NewPoseFromPoint(r3.Vector{input[0].Value, input[1].Value, 0}), errAll

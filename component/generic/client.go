@@ -8,8 +8,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	pb "go.viam.com/rdk/proto/api/component/generic/v1"
-
-	"google.golang.org/protobuf/types/known/structpb"
+	"go.viam.com/rdk/protoutils"
 )
 
 // serviceClient is a client satisfies the generic.proto contract.
@@ -53,7 +52,7 @@ func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string
 // DoFromConnection is a helper to allow Do() calls from other component clients.
 func DoFromConnection(ctx context.Context, conn rpc.ClientConn, name string, cmd map[string]interface{}) (map[string]interface{}, error) {
 	gclient := pb.NewGenericServiceClient(conn)
-	command, err := structpb.NewStruct(cmd)
+	command, err := protoutils.StructToStructPb(cmd)
 	if err != nil {
 		return nil, err
 	}

@@ -6,8 +6,10 @@ import (
 	"testing"
 
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
 )
 
@@ -28,7 +30,7 @@ func TestGetDetections(t *testing.T) {
 	r := buildRobotWithFakeCamera(t)
 	srv, err := vision.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
-	dets, err := srv.GetDetections(context.Background(), "fake_cam", "detect_red")
+	dets, err := srv.GetDetectionsFromCamera(context.Background(), "fake_cam", "detect_red")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dets, test.ShouldHaveLength, 1)
 	test.That(t, dets[0].Label(), test.ShouldEqual, "red")
@@ -37,9 +39,9 @@ func TestGetDetections(t *testing.T) {
 	test.That(t, box.Min, test.ShouldResemble, image.Point{110, 288})
 	test.That(t, box.Max, test.ShouldResemble, image.Point{183, 349})
 	// errors
-	_, err = srv.GetDetections(context.Background(), "fake_cam", "detect_blue")
+	_, err = srv.GetDetectionsFromCamera(context.Background(), "fake_cam", "detect_blue")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no Detector with name")
-	_, err = srv.GetDetections(context.Background(), "real_cam", "detect_red")
+	_, err = srv.GetDetectionsFromCamera(context.Background(), "real_cam", "detect_red")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "\"rdk:component:camera/real_cam\" not found")
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
@@ -56,6 +58,16 @@ func TestAddDetector(t *testing.T) {
 			"segment_size": 100,
 		},
 	}
+	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
+	cfg2 := vision.DetectorConfig{
+		Name: "testdetector", Type: "tflite",
+		Parameters: config.AttributeMap{
+			"model_path":  modelLoc,
+			"label_path":  "",
+			"num_threads": 2,
+		},
+	}
+
 	err := srv.AddDetector(context.Background(), cfg)
 	test.That(t, err, test.ShouldBeNil)
 	names, err := srv.GetDetectorNames(context.Background())
@@ -75,4 +87,13 @@ func TestAddDetector(t *testing.T) {
 	test.That(t, names, test.ShouldContain, "test")
 	test.That(t, names, test.ShouldNotContain, "will_fail")
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	// test new GetDetections directly on image
+	err = srv.AddDetector(context.Background(), cfg2)
+	test.That(t, err, test.ShouldBeNil)
+	img, _ := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
+	dets, err := srv.GetDetections(context.Background(), img, "testdetector")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, dets, test.ShouldNotBeNil)
+	test.That(t, dets[0].Label(), test.ShouldResemble, "17")
+	test.That(t, dets[0].Score(), test.ShouldBeGreaterThan, 0.79)
 }

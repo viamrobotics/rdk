@@ -57,6 +57,7 @@ type Service interface {
 var (
 	_ = Service(&reconfigurableShell{})
 	_ = resource.Reconfigurable(&reconfigurableShell{})
+	_ = utils.ContextCloser(&reconfigurableShell{})
 )
 
 // Output reflects an instance of shell output on either stdout or stderr.

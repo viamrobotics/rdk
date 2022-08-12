@@ -42,6 +42,8 @@ func init() {
 			return New(ctx, r, c, logger)
 		},
 	})
+
+	resource.AddDefaultService(Name)
 }
 
 // A Readings ties both the sensor name and its reading together.
@@ -59,6 +61,7 @@ type Service interface {
 var (
 	_ = Service(&reconfigurableSensors{})
 	_ = resource.Reconfigurable(&reconfigurableSensors{})
+	_ = goutils.ContextCloser(&reconfigurableSensors{})
 )
 
 // SubtypeName is the name of the type of service.

@@ -1,9 +1,13 @@
-interface Resource {
+export interface Resource {
   name: string
   type: string
   subtype: string
   namespace: string
 }
+
+export const normalizeRemoteName = (name: string) => {
+  return name.replace(':', '-');
+};
 
 const sortByName = (a: Resource, b: Resource) => {
   if (a.name < b.name) {
@@ -54,3 +58,10 @@ export const filterRdkComponentsWithStatus = (resources: Resource[], status: any
       status[resourceNameToString(resource)]
     ).sort(sortByName);
 };
+
+export const filterResourcesWithNames = (resources: Resource[]) => {
+  return resources
+    .filter((resource) => Boolean(resource.name)
+    ).sort(sortByName);
+};
+

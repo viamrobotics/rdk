@@ -163,6 +163,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 var (
 	_ = Controller(&reconfigurableInputController{})
 	_ = resource.Reconfigurable(&reconfigurableInputController{})
+	_ = viamutils.ContextCloser(&reconfigurableInputController{})
 )
 
 // FromDependencies is a helper for getting the named input controller from a collection of

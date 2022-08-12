@@ -38,6 +38,7 @@ func TestServer(t *testing.T) {
 		workingBase.MoveStraightFunc = func(
 			ctx context.Context, distanceMm int,
 			mmPerSec float64,
+			extra map[string]interface{},
 		) error {
 			return nil
 		}
@@ -55,6 +56,7 @@ func TestServer(t *testing.T) {
 		brokenBase.MoveStraightFunc = func(
 			ctx context.Context, distanceMm int,
 			mmPerSec float64,
+			extra map[string]interface{},
 		) error {
 			return errors.New(errMsg)
 		}
@@ -93,6 +95,7 @@ func TestServer(t *testing.T) {
 		workingBase.SpinFunc = func(
 			ctx context.Context,
 			angleDeg, degsPerSec float64,
+			extra map[string]interface{},
 		) error {
 			return nil
 		}
@@ -110,6 +113,7 @@ func TestServer(t *testing.T) {
 		brokenBase.SpinFunc = func(
 			ctx context.Context,
 			angleDeg, degsPerSec float64,
+			extra map[string]interface{},
 		) error {
 			return errors.New(errMsg)
 		}
@@ -145,7 +149,7 @@ func TestServer(t *testing.T) {
 
 	t.Run("Stop", func(t *testing.T) {
 		// on successful stop
-		workingBase.StopFunc = func(ctx context.Context) error {
+		workingBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 			return nil
 		}
 		req := &pb.StopRequest{Name: testBaseName}
@@ -155,7 +159,7 @@ func TestServer(t *testing.T) {
 
 		// on failing stop
 		errMsg := "stop failed"
-		brokenBase.StopFunc = func(ctx context.Context) error {
+		brokenBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 			return errors.New(errMsg)
 		}
 		req = &pb.StopRequest{Name: failBaseName}

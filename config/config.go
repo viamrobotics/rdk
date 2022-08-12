@@ -181,6 +181,23 @@ func (c Config) FindComponent(name string) *Component {
 	return nil
 }
 
+// CopyOnlyPublicFields returns a deep-copy of the current config only preserving JSON exported fields.
+func (c *Config) CopyOnlyPublicFields() (*Config, error) {
+	// We're using JSON as an intermediary to ensure only the json exported fields are
+	// copied.
+	tmpJSON, err := json.Marshal(c)
+	if err != nil {
+		return nil, errors.Wrap(err, "error marshaling config")
+	}
+	var cfg Config
+	err = json.Unmarshal(tmpJSON, &cfg)
+	if err != nil {
+		return nil, errors.Wrap(err, "error unmarshaling config")
+	}
+
+	return &cfg, nil
+}
+
 // A Remote describes a remote robot that should be integrated.
 // The Frame field defines how the "world" node of the remote robot should be reconciled with the "world" node of the
 // the current robot. All components of the remote robot who have Parent as "world" will be attached to the parent defined
@@ -295,8 +312,13 @@ type NetworkConfigData struct {
 	// FQDN is the unique name of this server.
 	FQDN string `json:"fqdn"`
 
+	// Listener is the listener that the web server will use. This is mutually
+	// exclusive with BindAddress.
+	Listener net.Listener `json:"-"`
+
 	// BindAddress is the address that the web server will bind to.
-	// The default behavior is to bind to localhost:8080.
+	// The default behavior is to bind to localhost:8080. This is mutually
+	// exclusive with Listener.
 	BindAddress string `json:"bind_address"`
 
 	BindAddressDefaultSet bool `json:"-"`
@@ -330,6 +352,9 @@ const DefaultBindAddress = "localhost:8080"
 
 // Validate ensures all parts of the config are valid.
 func (nc *NetworkConfig) Validate(path string) error {
+	if nc.BindAddress != "" && nc.Listener != nil {
+		return utils.NewConfigValidationError(path, errors.New("may only set one of bind_address or listener"))
+	}
 	if nc.BindAddress == "" {
 		nc.BindAddress = DefaultBindAddress
 		nc.BindAddressDefaultSet = true

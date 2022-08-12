@@ -22,9 +22,11 @@ func PreprocessDepthMap(dm *DepthMap, img *Image) (*DepthMap, error) {
 		return nil, err
 	}
 	// fill in large holes using color info
-	dm, err = FillDepthMap(dm, img)
-	if err != nil {
-		return nil, err
+	if img != nil {
+		dm, err = FillDepthMap(dm, img)
+		if err != nil {
+			return nil, err
+		}
 	}
 	// smooth the sharp edges out
 	dm, err = OpeningMorph(dm, 5, 1)

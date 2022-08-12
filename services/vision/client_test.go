@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
@@ -19,6 +20,7 @@ import (
 	servicepb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
@@ -110,13 +112,13 @@ func TestClient(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-	t.Run("get detections", func(t *testing.T) {
+	t.Run("get detections from cam", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		client := vision.NewClientFromConn(context.Background(), conn, "", logger)
 
-		dets, err := client.GetDetections(context.Background(), "fake_cam", "detect_red")
+		dets, err := client.GetDetectionsFromCamera(context.Background(), "fake_cam", "detect_red")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dets, test.ShouldHaveLength, 1)
 		test.That(t, dets[0].Label(), test.ShouldEqual, "red")
@@ -125,8 +127,36 @@ func TestClient(t *testing.T) {
 		test.That(t, box.Min, test.ShouldResemble, image.Point{110, 288})
 		test.That(t, box.Max, test.ShouldResemble, image.Point{183, 349})
 		// failure - no such camera
-		_, err = client.GetDetections(context.Background(), "no_camera", "detect_red")
+		_, err = client.GetDetectionsFromCamera(context.Background(), "no_camera", "detect_red")
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+	t.Run("get detections from img", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		client := vision.NewClientFromConn(context.Background(), conn, "", logger)
+
+		img, _ := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
+		modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
+		cfg := vision.DetectorConfig{
+			Name: "test", Type: "tflite",
+			Parameters: config.AttributeMap{
+				"model_path":  modelLoc,
+				"label_path":  "",
+				"num_threads": 2,
+			},
+		}
+		err = client.AddDetector(context.Background(), cfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		dets, err := client.GetDetections(context.Background(), img, "test")
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, dets, test.ShouldNotBeNil)
+		test.That(t, dets[0].Label(), test.ShouldResemble, "17")
+		test.That(t, dets[0].Score(), test.ShouldBeGreaterThan, 0.79)
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
