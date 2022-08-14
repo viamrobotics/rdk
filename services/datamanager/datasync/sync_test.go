@@ -83,9 +83,10 @@ func TestFileUpload(t *testing.T) {
 		expectedMsgs = append(expectedMsgs, &v1.UploadRequest{
 			UploadPacket: &v1.UploadRequest_Metadata{
 				Metadata: &v1.UploadMetadata{
-					PartId:   partID,
-					Type:     v1.DataType_DATA_TYPE_FILE,
-					FileName: filepath.Base(tf.Name()),
+					PartId:        partID,
+					Type:          v1.DataType_DATA_TYPE_FILE,
+					FileName:      filepath.Base(tf.Name()),
+					FileExtension: defaultFileExt,
 				},
 			},
 		})
