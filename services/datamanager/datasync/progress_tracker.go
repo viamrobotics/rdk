@@ -1,6 +1,7 @@
 package datasync
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// TODO: should progress file index should include metadata?
 var viamProgressDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "progress")
 
 type progressTracker struct {
@@ -46,7 +48,8 @@ func bytesToInt(bs []byte) (int, error) {
 }
 
 func (pt *progressTracker) createProgressFile(path string) error {
-	err := ioutil.WriteFile(path, []byte("0"), os.FileMode((0o777)))
+	err := os.WriteFile(path, []byte("0"), os.FileMode(0o777))
+	fmt.Println("wrote file to " + path)
 	if err != nil {
 		return err
 	}
@@ -54,6 +57,7 @@ func (pt *progressTracker) createProgressFile(path string) error {
 }
 
 func (pt *progressTracker) deleteProgressFile(path string) error {
+	fmt.Printf("deleting progress file %s\n", path)
 	return os.Remove(path)
 }
 
@@ -62,13 +66,15 @@ func (pt *progressTracker) updateProgressFileIndex(path string, requestsWritten 
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(path, []byte(strconv.Itoa(i+requestsWritten)), os.FileMode((0o777)))
+	fmt.Printf("increasing request written to %d\n", i+requestsWritten)
+	err = ioutil.WriteFile(path, []byte(strconv.Itoa(i+requestsWritten)), os.FileMode(0o777))
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
+// TODO: return errNotExist if errNotExist
 // Returns the index of next sensordata message to upload.
 func (pt *progressTracker) getProgressFileIndex(path string) (int, error) {
 	//nolint:gosec

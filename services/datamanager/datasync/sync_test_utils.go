@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math"
 	"os"
 	"path/filepath"
 	"sync"
@@ -35,6 +34,7 @@ var (
 // Compares UploadRequests containing either binary or tabular sensor data.
 // nolint:thelper
 func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequest, expected []*v1.UploadRequest) {
+	t.Helper()
 	// Ensure length of slices is same before proceeding with rest of tests.
 	test.That(t, len(actual), test.ShouldEqual, len(expected))
 
@@ -69,7 +69,7 @@ func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 	test.That(t, filepath.Base(actualMetadata.FileName), test.ShouldEqual, filepath.Base(expectedMetadata.FileName))
 	test.That(t, actualMetadata.PartId, test.ShouldEqual, expectedMetadata.PartId)
 	test.That(t, actualMetadata.ComponentName, test.ShouldEqual, expectedMetadata.ComponentName)
-	test.That(t, actualMetadata.ComponentModel, test.ShouldEqual, expectedMetadata.ComponentModel)
+	//test.That(t, actualMetadata.ComponentModel, test.ShouldEqual, expectedMetadata.ComponentModel)
 	test.That(t, actualMetadata.ComponentType, test.ShouldEqual, expectedMetadata.ComponentType)
 	test.That(t, actualMetadata.MethodName, test.ShouldEqual, expectedMetadata.MethodName)
 	test.That(t, actualMetadata.Type, test.ShouldEqual, expectedMetadata.Type)
@@ -225,19 +225,10 @@ func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientCo
 	)
 }
 
-type partialUploadTestcase struct {
-	name                             string
-	sendAckEveryNSensorDataMessages  int
-	sendCancelCtxAfterNTotalMessages int
-	dataType                         v1.DataType
-	toSend                           []*v1.SensorData
-	expReceivedDataBeforeCancel      []*v1.SensorData
-	expReceivedDataAfterCancel       []*v1.SensorData
-}
-
 type mockDataSyncServiceServer struct {
 	uploadRequests *[]*v1.UploadRequest
 	callCount      *atomic.Int32
+	msgCount       *atomic.Int32
 	failUntilIndex int32
 	failAtIndex    int32
 	errorToReturn  error
@@ -246,43 +237,43 @@ type mockDataSyncServiceServer struct {
 	v1.UnimplementedDataSyncServiceServer
 
 	// Fields below this line added by maxhorowitz
-	sendAckEveryNSensorDataMessages  int
-	reqsStagedForResponse            int
-	messagesPersisted                int
-	sendCancelCtxAfterNTotalMessages int
-	uploadResponses                  *[]*v1.UploadResponse
-	shouldNotRetryUpload             bool
-	cancelChannel                    chan bool
+	sendAckEveryNSensorDataMessages int
+	reqsStagedForResponse           int
+	clientContextCancelIndex        int
+	uploadResponses                 *[]*v1.UploadResponse
+	cancelChannel                   chan bool
+	doneCancelChannel               chan bool
 }
 
 func getMockService() mockDataSyncServiceServer {
 	return mockDataSyncServiceServer{
 		uploadRequests:                     &[]*v1.UploadRequest{},
 		callCount:                          &atomic.Int32{},
+		msgCount:                           &atomic.Int32{},
 		failAtIndex:                        -1,
 		lock:                               &sync.Mutex{},
 		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
+		errorToReturn:                      errors.New("generic error goes here"),
 
 		// Fields below this line added by maxhorowitz
-		sendAckEveryNSensorDataMessages:  0,
-		reqsStagedForResponse:            0,
-		sendCancelCtxAfterNTotalMessages: -1,
-		uploadResponses:                  &[]*v1.UploadResponse{},
-		shouldNotRetryUpload:             false,
+		sendAckEveryNSensorDataMessages: 0,
+		reqsStagedForResponse:           0,
+		clientContextCancelIndex:        -1,
+		uploadResponses:                 &[]*v1.UploadResponse{},
 	}
 }
 
-func (m *mockDataSyncServiceServer) setMockServiceBeforeCancel(tc partialUploadTestcase) {
-	m.shouldNotRetryUpload = true
-	m.sendAckEveryNSensorDataMessages = tc.sendAckEveryNSensorDataMessages
-	m.sendCancelCtxAfterNTotalMessages = tc.sendCancelCtxAfterNTotalMessages
-}
-
-func (m *mockDataSyncServiceServer) setMockServiceAfterCancel(tc partialUploadTestcase) {
-	m.shouldNotRetryUpload = true
-	m.sendAckEveryNSensorDataMessages = tc.sendAckEveryNSensorDataMessages
-	m.sendCancelCtxAfterNTotalMessages = math.MaxInt
-}
+//func (m *mockDataSyncServiceServer) setMockServiceBeforeCancel(tc partialUploadTestcase) {
+//	m.shouldNotRetryUpload = true
+//	m.sendAckEveryNSensorDataMessages = tc.sendAckEveryNSensorDataMessages
+//	m.sendCancelCtxAfterNTotalMessages = tc.sendCancelCtxAfterNTotalMessages
+//}
+//
+//func (m *mockDataSyncServiceServer) setMockServiceAfterCancel(tc partialUploadTestcase) {
+//	m.shouldNotRetryUpload = true
+//	m.sendAckEveryNSensorDataMessages = tc.sendAckEveryNSensorDataMessages
+//	m.sendCancelCtxAfterNTotalMessages = math.MaxInt
+//}
 
 func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
 	(*m.lock).Lock()
@@ -292,23 +283,21 @@ func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
 	defer m.callCount.Add(1)
-	if m.callCount.Load() < m.failUntilIndex && !m.shouldNotRetryUpload {
+	if m.callCount.Load() < m.failUntilIndex {
 		return m.errorToReturn
 	}
 	m.reqsStagedForResponse = 0
 	for {
-		if m.callCount.Load() == m.failAtIndex && !m.shouldNotRetryUpload {
+		fmt.Println(m.msgCount)
+		if m.msgCount.Load() == m.failAtIndex {
+			fmt.Println("failed")
 			return m.errorToReturn
 		}
 
 		// Recv UploadRequest (block until received).
 		ur, err := stream.Recv()
+		m.msgCount.Add(1)
 		if errors.Is(err, io.EOF) {
-			if len(m.getUploadRequests()) == 1 {
-				(*m.lock).Lock()
-				*m.uploadRequests = []*v1.UploadRequest{}
-				(*m.lock).Unlock()
-			}
 			break
 		}
 		if err != nil {
@@ -317,25 +306,25 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 
 		// Append UploadRequest to list of recorded requests.
 		(*m.lock).Lock()
-		newData := append(*m.uploadRequests, ur)
-		*m.uploadRequests = newData
-		m.reqsStagedForResponse++
+		*m.uploadRequests = append(*m.uploadRequests, ur)
+		// TODO: only ack non-md messages
+		if ur.GetMetadata() == nil {
+			m.reqsStagedForResponse++
+		}
 		(*m.lock).Unlock()
 
-		if (m.reqsStagedForResponse - 1) == m.sendAckEveryNSensorDataMessages {
-			if err := stream.Send(&v1.UploadResponse{RequestsWritten: int32(m.reqsStagedForResponse - 1)}); err != nil {
+		if m.reqsStagedForResponse == m.sendAckEveryNSensorDataMessages {
+			if err := stream.Send(&v1.UploadResponse{RequestsWritten: int32(m.reqsStagedForResponse)}); err != nil {
 				return err
 			}
-			m.messagesPersisted += m.reqsStagedForResponse
 			m.reqsStagedForResponse = 0
 		}
 
 		// If we want the client to cancel its own context, send signal through channel to the 'sut.'
-		if m.sendCancelCtxAfterNTotalMessages == len(m.getUploadRequests()) {
-			(*m.lock).Lock()
-			*m.uploadRequests = (*m.uploadRequests)[0:(m.messagesPersisted)]
-			(*m.lock).Unlock()
+		if m.clientContextCancelIndex == len(m.getUploadRequests()) {
+			fmt.Println("cancelling client context")
 			m.cancelChannel <- true
+			<-m.doneCancelChannel
 		}
 	}
 	return nil
