@@ -2,6 +2,7 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -61,6 +62,7 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 					return
 				}
 				if err != nil {
+					fmt.Println("received error from server")
 					retRecvUploadResponse <- err
 					cancelFn()
 					return
@@ -114,6 +116,7 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 				}
 
 				if err = stream.Send(uploadReq); err != nil {
+					fmt.Println("received error when sending to server")
 					retSendingUploadReqs <- err
 					cancelFn()
 					return
@@ -124,9 +127,11 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	activeBackgroundWorkers.Wait()
 
 	if err := <-retRecvUploadResponse; err != nil {
+		fmt.Printf("Error when trying to recv UploadResponse from server: %v", err)
 		return errors.Errorf("Error when trying to recv UploadResponse from server: %v", err)
 	}
 	if err := <-retSendingUploadReqs; err != nil {
+		fmt.Printf("Error when trying to send UploadRequest to server: %v", err)
 		return errors.Errorf("Error when trying to send UploadRequest to server: %v", err)
 	}
 
@@ -152,8 +157,11 @@ func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, 
 	}
 	if progressIndex == 0 {
 		if err := pt.createProgressFile(progressFilePath); err != nil {
+			fmt.Println("error creating progress file")
+			fmt.Println(err)
 			return err
 		}
+		fmt.Println("created progress file " + progressFilePath)
 		return nil
 	}
 
@@ -178,7 +186,8 @@ func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, 
 func getNextSensorUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequest, error) {
 	select {
 	case <-ctx.Done():
-		return nil, context.Canceled
+		fmt.Println("client context done: " + ctx.Err().Error())
+		return nil, ctx.Err()
 	default:
 		// Get the next sensor data reading from file, check for an error.
 		next, err := datacapture.ReadNextSensorData(f)
