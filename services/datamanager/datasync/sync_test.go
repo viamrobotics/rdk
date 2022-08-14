@@ -172,6 +172,7 @@ func TestSensorUploadTabular(t *testing.T) {
 			MethodName:       methodName,
 			Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			MethodParameters: nil,
+			FileExtension:    tabularFileExt,
 		}
 		if _, err := pbutil.WriteDelimited(tf, &captureMetadata); err != nil {
 			t.Errorf("%s cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v",
@@ -215,6 +216,7 @@ func TestSensorUploadTabular(t *testing.T) {
 					Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 					FileName:         filepath.Base(tf.Name()),
 					MethodParameters: nil,
+					FileExtension:    tabularFileExt,
 				},
 			},
 		})
@@ -286,6 +288,7 @@ func TestSensorUploadBinary(t *testing.T) {
 			MethodName:       methodName,
 			Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			MethodParameters: nil,
+			FileExtension:    binaryFileExt,
 		}
 		if _, err := pbutil.WriteDelimited(tf, &syncMetadata); err != nil {
 			t.Errorf("%s cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v",
@@ -371,6 +374,21 @@ func TestUploadsOnce(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	_, err = os.Stat(file2.Name())
 	test.That(t, err, test.ShouldNotBeNil)
+}
+
+func getFileExtension(dataType v1.DataType) string {
+	switch dataType {
+	case v1.DataType_DATA_TYPE_BINARY_SENSOR:
+		return binaryFileExt
+	case v1.DataType_DATA_TYPE_TABULAR_SENSOR:
+		return tabularFileExt
+	case v1.DataType_DATA_TYPE_FILE:
+		return defaultFileExt
+	case v1.DataType_DATA_TYPE_UNSPECIFIED:
+		return defaultFileExt
+	default:
+		return defaultFileExt
+	}
 }
 
 func TestUploadExponentialRetry(t *testing.T) {
@@ -518,6 +536,7 @@ func TestPartialUpload(t *testing.T) {
 				MethodName:       methodName,
 				Type:             tc.dataType,
 				MethodParameters: nil,
+				FileExtension:    getFileExtension(tc.dataType),
 			}
 			if _, err := pbutil.WriteDelimited(f, &captureMetadata); err != nil {
 				t.Errorf("cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v", err)
