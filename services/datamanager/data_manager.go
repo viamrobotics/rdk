@@ -611,6 +611,7 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 	modelServiceClient := modelclient.NewClientFromConn(*svc.clientConn, svc.logger)
 	for _, model := range modelsToDownload {
 		go func(model *Model) {
+			// Change context to a timeout?
 			defer svc.deployModelsBackgroundWorkers.Done()
 			deployRequest := &modelpb.DeployRequest{
 				Metadata: &modelpb.DeployMetadata{
@@ -622,16 +623,14 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 				svc.logger.Error(err)
 			} else {
 				url := deployResp.Message
-				// added in model.Name such that the file is downloaded into the dotDir.
-				dotFilepath := filepath.Join(model.Destination, "."+model.Name)
-				err := downloadFile(cancelCtx, dotFilepath, url, svc.logger)
+				err := downloadFile(cancelCtx, model.Destination, url, svc.logger)
 				if err != nil {
 					svc.logger.Error(err)
 					return // Don't try to unzip the file if we can't download it.
 				}
 				// A download from a GCS signed URL only returns one file.
 				modelFileToUnzip := model.Name + ".zip" // TODO: For now, hardcode.
-				if err = unzipSource(cancelCtx, model.Destination, model.Name, modelFileToUnzip, svc.logger); err != nil {
+				if err = unzipSource(cancelCtx, model.Destination, modelFileToUnzip, svc.logger); err != nil {
 					svc.logger.Error(err)
 				}
 			}
@@ -641,13 +640,7 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 }
 
 // unzipSource unzips all files inside a zip file.
-// Here unzip the files in the dotDir.
-// When unzipFile is called we transfer the files
-// out of the dotDir and into the model.Destination
-func unzipSource(cancelCtx context.Context, destination, modelName, fileName string, logger golog.Logger) error {
-	// make sure the below destination is correct.
-	destination = filepath.Join(destination, "."+modelName)
-	// make sure zipreader is pointing into the correct directory
+func unzipSource(cancelCtx context.Context, destination, fileName string, logger golog.Logger) error {
 	zipReader, err := zip.OpenReader(filepath.Join(destination, fileName))
 	if err != nil {
 		return err
@@ -663,11 +656,6 @@ func unzipSource(cancelCtx context.Context, destination, modelName, fileName str
 	return nil
 }
 
-// Here we unzip the file that was downloaded into the model dotDir.
-// When the file has been unzipped we transfer them into the model.Destination
-// Responsible for removing the .zip file from the dotDir
-// Could then also serve as when to remove the dotDir for logic in getModelsToDownload()
-// This function needs to be changed such that the file path we are checking is the right one.
 func unzipFile(cancelCtx context.Context, f *zip.File, destination string, logger golog.Logger) error {
 	// TODO: DATA-307, We should be passing in the context to any operations that can take several seconds,
 	// which includes unzipFile. As written, this can block .Close for an unbounded amount of time.
@@ -684,7 +672,7 @@ func unzipFile(cancelCtx context.Context, f *zip.File, destination string, logge
 		}
 		return nil
 	}
-	// file path needs to augmented here??
+
 	if err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm); err != nil {
 		return err
 	}
@@ -713,7 +701,6 @@ func unzipFile(cancelCtx context.Context, f *zip.File, destination string, logge
 	//nolint:errcheck
 	defer zippedFile.Close()
 
-	// below is where we should copy out of the dotDir into the parent dir.
 	// Gosec is worried about a decompression bomb; we restrict the size of the
 	// files we upload to our data store, so should be OK.
 	//nolint:gosec
@@ -739,9 +726,6 @@ func unzipFile(cancelCtx context.Context, f *zip.File, destination string, logge
 
 // downloadFile will download a url to a local file. It writes as it
 // downloads and doesn't load the whole file into memory.
-// Here we download the file into the model dotDir.
-// I augmented the function call in downloadModels() such that
-// filepath = $HOME/models/.viam/M1/.M1
 func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.Logger) error {
 	getReq, err := http.NewRequestWithContext(cancelCtx, "GET", url, nil)
 	if err != nil {
@@ -759,7 +743,6 @@ func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.
 
 	//nolint:gosec
 	out, err := os.Create(filepath)
-	// creates dotDirectory to save the model to
 	if err != nil {
 		return err
 	}
@@ -778,12 +761,15 @@ func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.
 }
 
 func getModelsToDownload(models []*Model) []*Model {
+	// Right now, this may not act as expected. It currently checks
+	// if the model folder is empty. If it is, then we proceed to download the model.
+	// I can imagine a scenario where the user specifies a local folder to dump
+	// all their models in. In that case, this wouldn't work as expected.
+	// TODO: Fix.
 	modelsToDownload := make([]*Model, 0)
 	for _, model := range models {
-		// Set the model destination to default if it is not specified
-		// in the config.
 		if model.Destination == "" {
-			// should the model destination not be set directly to the dirDir?
+			// Set the model destination to default if it's not specified in the config.
 			model.Destination = filepath.Join(viamModelDotDir, model.Name)
 		}
 		_, err := os.Stat(model.Destination)
@@ -792,17 +778,7 @@ func getModelsToDownload(models []*Model) []*Model {
 		if errors.Is(err, os.ErrNotExist) {
 			modelsToDownload = append(modelsToDownload, model)
 		} else if err != nil {
-			panic("can't access files: " + err.Error())
-		} else {
-			// this is the case where we are dealing with a partial download.
-			// still need to add functionality here.
-			// checks the contents of model dotDir to see if there
-			// was a successful download of the model's .zip file?
-			_, err := os.Stat(model.Destination + "." + model.Name)
-			if errors.Is(err, os.ErrNotExist) {
-				fmt.Println("this model was not partially downloaded")
-				modelsToDownload = append(modelsToDownload, model)
-			}
+			panic("can't access files: " + err.Error()) // better thing to do?
 		}
 	}
 	return modelsToDownload
