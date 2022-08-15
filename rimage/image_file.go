@@ -25,7 +25,7 @@ import (
 // readImageFromFile extracts the RGB, Z16, or raw depth data from an image file.
 func readImageFromFile(path string) (image.Image, error) {
 	switch {
-	case strings.HasSuffix(path, ".dat.gz"):
+	case strings.HasSuffix(path, ".dat.gz") || strings.HasSuffix(path, ".dat"):
 		return ParseRawDepthMap(path)
 	default:
 		//nolint:gosec

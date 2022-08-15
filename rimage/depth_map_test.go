@@ -56,7 +56,7 @@ func TestDepthMap(t *testing.T) {
 	test.That(t, origHeight, test.ShouldEqual, 749)
 
 	buf := bytes.Buffer{}
-	err = m.WriteTo(&buf)
+	err = m.WriteToBuf(&buf)
 	test.That(t, err, test.ShouldBeNil)
 
 	img, _, err := image.Decode(bufio.NewReader(&buf))
