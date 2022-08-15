@@ -17,7 +17,7 @@ import (
 
 var errArmClientInputsNotSupport = errors.New("arm client does not support inputs directly")
 
-// client is an arm client.
+// client implements ArmServiceClient.
 type client struct {
 	name   string
 	conn   rpc.ClientConn

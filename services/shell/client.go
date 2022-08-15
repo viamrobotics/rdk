@@ -11,7 +11,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/service/shell/v1"
 )
 
-// client is a client that implements ShellServiceClient.
+// client implements ShellServiceClient.
 type client struct {
 	conn                    rpc.ClientConn
 	client                  pb.ShellServiceClient

@@ -13,7 +13,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/service/navigation/v1"
 )
 
-// client is a client that implements NavigationServiceClient.
+// client implements NavigationServiceClient.
 type client struct {
 	conn   rpc.ClientConn
 	client pb.NavigationServiceClient

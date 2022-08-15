@@ -12,7 +12,7 @@ import (
 	"go.viam.com/rdk/protoutils"
 )
 
-// client is a motor client.
+// client implements MotorServiceClient.
 type client struct {
 	name   string
 	conn   rpc.ClientConn

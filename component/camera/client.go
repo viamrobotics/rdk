@@ -19,7 +19,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// client is a camera client.
+// client implements CameraServiceClient.
 type client struct {
 	name   string
 	conn   rpc.ClientConn

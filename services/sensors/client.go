@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// client is a client that implements SensorsServiceClient.
+// client implements SensorsServiceClient.
 type client struct {
 	conn   rpc.ClientConn
 	client pb.SensorsServiceClient

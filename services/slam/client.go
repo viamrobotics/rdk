@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-// client is a client that implements SLAMServiceClient.
+// client implements SLAMServiceClient.
 type client struct {
 	conn   rpc.ClientConn
 	client pb.SLAMServiceClient

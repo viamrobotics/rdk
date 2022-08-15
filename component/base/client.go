@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/protoutils"
 )
 
-// client is a base client.
+// client implements BaseServiceClient.
 type client struct {
 	name   string
 	conn   rpc.ClientConn

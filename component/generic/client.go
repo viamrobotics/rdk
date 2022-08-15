@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/protoutils"
 )
 
-// client is a generic client.
+// client implements GenericServiceClient.
 type client struct {
 	name   string
 	conn   rpc.ClientConn
