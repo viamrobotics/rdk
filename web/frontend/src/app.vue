@@ -386,6 +386,8 @@ export default {
     },
     getSegmenterNames() {
       const req = new visionApi.GetSegmenterNamesRequest();
+      // We are deliberately just getting the first sensors service to ensure this will not break.
+      // May want to allow for more services in the future
       const visionName = filterResources(this.resources, 'rdk', 'services', 'vision')[0];
       
       req.setName(visionName)
@@ -983,6 +985,8 @@ export default {
       this.pcdClick.calculatingSegments = true;
       this.pcdClick.foundSegments = false;
       const req = new visionApi.GetObjectPointCloudsRequest();
+      // We are deliberately just getting the first sensors service to ensure this will not break.
+      // May want to allow for more services in the future
       const visionName = filterResources(this.resources, 'rdk', 'services', 'vision')[0];
       
       req.setName(visionName);

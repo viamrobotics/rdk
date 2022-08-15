@@ -136,6 +136,7 @@
     "services":
     [
         {
+            "name": "nav1",
             "type": "navigation",
             "attributes": {
                 "store": {
@@ -146,9 +147,11 @@
             }
         },
         {
+            "name": "vis1",
             "type": "vision"
         },
         {
+            "name": "motion1",
             "type": "motion"
         }
     ]

@@ -198,6 +198,9 @@ func (n Name) ShortName() string {
 
 // Validate ensures that important fields exist and are valid.
 func (n Name) Validate() error {
+	if n.Name == "" {
+		return errors.New("Name field for resource is empty")
+	}
 	if err := n.Subtype.Validate(); err != nil {
 		return err
 	}

@@ -338,15 +338,18 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(navigation.Named(testSvcName1)))
 	})
-	injectSvc = &inject.NavigationService{}
-	resourceMap = map[resource.Name]interface{}{
-		navigation.Named(testSvcName1): injectSvc,
-		navigation.Named(testSvcName2): injectSvc,
-	}
-	injectSubtypeSvc, err = subtype.New(resourceMap)
-	test.That(t, err, test.ShouldBeNil)
-	navServer = navigation.NewServer(injectSubtypeSvc)
 	t.Run("multiple services valid", func(t *testing.T) {
+		injectSvc = &inject.NavigationService{}
+		resourceMap = map[resource.Name]interface{}{
+			navigation.Named(testSvcName1): injectSvc,
+			navigation.Named(testSvcName2): injectSvc,
+		}
+		injectSubtypeSvc, err = subtype.New(resourceMap)
+		test.That(t, err, test.ShouldBeNil)
+		navServer = navigation.NewServer(injectSubtypeSvc)
+		injectSvc.GetModeFunc = func(ctx context.Context) (navigation.Mode, error) {
+			return navigation.ModeManual, nil
+		}
 		req := &pb.GetModeRequest{Name: testSvcName1}
 		resp, err := navServer.GetMode(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)

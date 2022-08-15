@@ -4,6 +4,8 @@ package subtype
 import (
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/resource"
 )
 
@@ -43,13 +45,10 @@ func (s *subtypeSvc) Replace(r map[resource.Name]interface{}) error {
 	defer s.mu.Unlock()
 	resources := make(map[string]interface{}, len(r))
 	for n, v := range r {
-		switch {
-		// can remove once default names are added
-		case n.Name == "":
-			resources[n.String()] = v
-		default:
-			resources[n.ShortName()] = v
+		if n.Name == "" {
+			return errors.Errorf("Empty name used for resource: %s", n)
 		}
+		resources[n.ShortName()] = v
 	}
 	s.resources = resources
 	return nil

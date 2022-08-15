@@ -662,7 +662,7 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 func getServiceConfig(cfg *config.Config) (*Config, bool, error) {
 	for _, c := range cfg.Services {
 		// Compare service type and name.
-		if string(c.Type) == string(SubtypeName) {
+		if c.ResourceName().ResourceSubtype == SubtypeName {
 			svcConfig, ok := c.ConvertedAttributes.(*Config)
 			// Incorrect configuration is an error.
 			if !ok {
