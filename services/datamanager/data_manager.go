@@ -241,11 +241,12 @@ type collectorAndConfig struct {
 	Attributes dataCaptureConfig
 }
 
-// Identifier for a particular collector: component name,
-// component model, component type, and method name.
+// Identifier for a particular collector: component name, component model, component type,
+// method parameters, and method name.
 type componentMethodMetadata struct {
 	ComponentName  string
 	ComponentModel string
+	MethodParams   string
 	MethodMetadata data.MethodMetadata
 }
 
@@ -268,9 +269,11 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		Subtype:    attributes.Type,
 		MethodName: attributes.Method,
 	}
+
 	componentMetadata := componentMethodMetadata{
 		ComponentName:  attributes.Name,
 		ComponentModel: attributes.Model,
+		MethodParams:   fmt.Sprintf("%v", attributes.AdditionalParams),
 		MethodMetadata: metadata,
 	}
 	// Build metadata.
