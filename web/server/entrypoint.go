@@ -149,20 +149,20 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 				return
 			}
 			defer restartCheck.close()
-			restartInterval := defaultNeedsRestartCheckInterval
+			restartInterval := defaultNeedsRestartCheckInternval
 
 			for {
 				if !utils.SelectContextOrWait(ctx, restartInterval) {
 					return
 				}
 
-				mustRestart, newRestartInterval, err := restartCheck.needsRestart(ctx)
+				mustRestart, newRestartInternval, err := restartCheck.needsRestart(ctx)
 				if err != nil {
 					logger.Infow("failed to check restart", "error", err)
 					continue
 				}
 
-				restartInterval = newRestartInterval
+				restartInterval = newRestartInternval
 
 				if mustRestart {
 					cancel()
