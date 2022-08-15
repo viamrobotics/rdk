@@ -9,8 +9,11 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
+	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -80,9 +83,10 @@ func TestFileUpload(t *testing.T) {
 		expectedMsgs = append(expectedMsgs, &v1.UploadRequest{
 			UploadPacket: &v1.UploadRequest_Metadata{
 				Metadata: &v1.UploadMetadata{
-					PartId:   partID,
-					Type:     v1.DataType_DATA_TYPE_FILE,
-					FileName: filepath.Base(tf.Name()),
+					PartId:        partID,
+					Type:          v1.DataType_DATA_TYPE_FILE,
+					FileName:      filepath.Base(tf.Name()),
+					FileExtension: defaultFileExt,
 				},
 			},
 		})
@@ -165,9 +169,11 @@ func TestSensorUploadTabular(t *testing.T) {
 		captureMetadata := v1.DataCaptureMetadata{
 			ComponentType:    componentType,
 			ComponentName:    componentName,
+			ComponentModel:   componentModel,
 			MethodName:       methodName,
 			Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			MethodParameters: nil,
+			FileExtension:    tabularFileExt,
 		}
 		if _, err := pbutil.WriteDelimited(tf, &captureMetadata); err != nil {
 			t.Errorf("%s cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v",
@@ -206,10 +212,12 @@ func TestSensorUploadTabular(t *testing.T) {
 					PartId:           partID,
 					ComponentType:    componentType,
 					ComponentName:    componentName,
+					ComponentModel:   componentModel,
 					MethodName:       methodName,
 					Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 					FileName:         filepath.Base(tf.Name()),
 					MethodParameters: nil,
+					FileExtension:    tabularFileExt,
 				},
 			},
 		})
@@ -277,9 +285,11 @@ func TestSensorUploadBinary(t *testing.T) {
 		syncMetadata := v1.DataCaptureMetadata{
 			ComponentType:    componentType,
 			ComponentName:    componentName,
+			ComponentModel:   componentModel,
 			MethodName:       methodName,
 			Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			MethodParameters: nil,
+			FileExtension:    binaryFileExt,
 		}
 		if _, err := pbutil.WriteDelimited(tf, &syncMetadata); err != nil {
 			t.Errorf("%s cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v",
@@ -367,40 +377,87 @@ func TestUploadsOnce(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
+func getFileExtension(dataType v1.DataType) string {
+	switch dataType {
+	case v1.DataType_DATA_TYPE_BINARY_SENSOR:
+		return binaryFileExt
+	case v1.DataType_DATA_TYPE_TABULAR_SENSOR:
+		return tabularFileExt
+	case v1.DataType_DATA_TYPE_FILE:
+		return defaultFileExt
+	case v1.DataType_DATA_TYPE_UNSPECIFIED:
+		return defaultFileExt
+	default:
+		return defaultFileExt
+	}
+}
+
 func TestUploadExponentialRetry(t *testing.T) {
 	// Set retry related global vars to faster values for test.
 	initialWaitTime = time.Millisecond * 50
 	maxRetryInterval = time.Millisecond * 150
+	uploadChunkSize = 10
 	// Register mock datasync service with a mock server.
 	logger, _ := golog.NewObservedTestLogger(t)
-	// Build a mock service that fails 3 times before succeeding.
-	mockService := getMockService()
-	mockService.failUntilIndex = 3
-	rpcServer := buildAndStartLocalServer(t, logger, mockService)
-	uploadChunkSize = 10
-	defer func() {
-		err := rpcServer.Stop()
-		test.That(t, err, test.ShouldBeNil)
-	}()
 
-	conn, err := getLocalServerConn(rpcServer, logger)
-	test.That(t, err, test.ShouldBeNil)
-	client := NewClient(conn)
-	sut, err := NewManager(logger, partID, client, conn)
-	test.That(t, err, test.ShouldBeNil)
+	tests := []struct {
+		name             string
+		err              error
+		waitTime         time.Duration
+		expCallCount     int32
+		shouldStillExist bool
+	}{
+		{
+			name:         "Retryable errors should be retried",
+			err:          errors.New("literally any error here"),
+			waitTime:     time.Second,
+			expCallCount: 4,
+		},
+		{
+			name:             "Non-retryable errors should not be retried",
+			err:              status.Error(codes.InvalidArgument, "bad"),
+			waitTime:         time.Millisecond * 300,
+			expCallCount:     1,
+			shouldStillExist: true,
+		},
+	}
 
-	// Sync file.
-	file1, _ := ioutil.TempFile("", "whatever")
-	defer os.Remove(file1.Name())
-	_, _ = file1.Write([]byte("this is some amount of content greater than 10"))
-	sut.Sync([]string{file1.Name()})
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Build a mock service that fails 3 times before succeeding.
+			mockService := getMockService()
+			mockService.failUntilIndex = 3
+			mockService.errorToReturn = tc.err
+			rpcServer := buildAndStartLocalServer(t, logger, mockService)
+			defer func() {
+				err := rpcServer.Stop()
+				test.That(t, err, test.ShouldBeNil)
+			}()
 
-	// Let it run.
-	time.Sleep(time.Second)
-	sut.Close()
+			conn, err := getLocalServerConn(rpcServer, logger)
+			test.That(t, err, test.ShouldBeNil)
+			client := NewClient(conn)
+			sut, err := NewManager(logger, partID, client, conn)
+			test.That(t, err, test.ShouldBeNil)
 
-	// Validate that the client called Upload repeatedly.
-	test.That(t, mockService.callCount.Load(), test.ShouldEqual, 4)
+			// Start file sync.
+			file1, _ := ioutil.TempFile("", "whatever")
+			defer os.Remove(file1.Name())
+			_, _ = file1.Write([]byte("this is some amount of content greater than 10"))
+			sut.Sync([]string{file1.Name()})
+
+			// Let it run so it can retry (or not).
+			time.Sleep(tc.waitTime)
+			sut.Close()
+
+			// Validate that the client called Upload the correct number of times, and whether or not the file was
+			// deleted.
+			test.That(t, mockService.callCount.Load(), test.ShouldEqual, tc.expCallCount)
+			_, err = os.Stat(file1.Name())
+			exists := !errors.Is(err, os.ErrNotExist)
+			test.That(t, exists, test.ShouldEqual, tc.shouldStillExist)
+		})
+	}
 }
 
 func TestPartialUpload(t *testing.T) {
@@ -480,6 +537,7 @@ func TestPartialUpload(t *testing.T) {
 				MethodName:       methodName,
 				Type:             tc.dataType,
 				MethodParameters: nil,
+				FileExtension:    getFileExtension(tc.dataType),
 			}
 			if _, err := pbutil.WriteDelimited(f, &captureMetadata); err != nil {
 				t.Errorf("cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v", err)
