@@ -29,3 +29,80 @@
     :why:
     :versions: []
     :when: 2022-08-15 13:37:40.979906881 Z
+- - :license
+  - github.com/ajstarks/svgo
+  - Creative Commons Attribution 4.0 International Public License
+  - :who:
+    :license_links: https://github.com/ajstarks/svgo/blob/1546f124cd8b0cba8d505fa2ddb110c211670c59/LICENSE
+    :versions: []
+    :when: 2022-08-15 14:34:00.115389050 Z
+- - :license
+  - github.com/go-fonts/liberation
+  - New BSD
+  - :who:
+    :license_links: https://github.com/go-fonts/liberation/blob/0c2fdab5e932afd0923f4f71ae23691a66305ef6/LICENSE
+    :versions: []
+    :when: 2022-08-15 14:47:01.153930427 Z
+- - :license
+  - github.com/go-gl/mathgl
+  - New BSD
+  - :who:
+    :license_links: https://github.com/go-gl/mathgl/blob/45f44e1fbc36e29eb200186c5fd63828a2ffc540/LICENSE
+    :versions: []
+    :when: 2022-08-15 14:51:09.537862545 Z
+- - :license
+  - github.com/go-latex/latex
+  - New BSD
+  - :who:
+    :license_links: https://github.com/go-latex/latex/blob/c0d11ff05a81a63afdffbba6e577b2a3a6e69c85/LICENSE
+    :versions: []
+    :when: 2022-08-15 14:55:14.011453253 Z
+- - :license
+  - github.com/improbable-eng/grpc-web
+  - Apache License 2.0
+  - :who:
+    :license_links: https://github.com/improbable-eng/grpc-web/blob/90ce72a31aa7bdfd6eae03fc735953902949c0de/LICENSE.txt
+    :versions: []
+    :when: 2022-08-15 14:58:14.484806455 Z
+- - :license
+  - github.com/jmespath/go-jmespath
+  - Apache License 2.0
+  - :who:
+    :license_links: https://github.com/jmespath/go-jmespath/blob/b0104c826a24d7c202da8e1dbfb9ea4cfa35d774/LICENSE
+    :versions: []
+    :when: 2022-08-15 15:00:22.812116090 Z
+- - :license
+  - github.com/xdg-go/pbkdf2
+  - Apache License 2.0
+  - :who:
+    :license_links: https://github.com/xdg-go/pbkdf2/blob/7f452ef1dac88350356f1bb84a23748205e64b96/LICENSE
+    :versions: []
+    :when: 2022-08-15 15:02:55.419786268 Z
+- - :license
+  - github.com/xdg-go/scram
+  - Apache License 2.0
+  - :who:
+    :license_links: https://github.com/xdg-go/scram/blob/ef29d5590bacede26100601bb2f7d9bb08bacc75/LICENSE
+    :versions: []
+    :when: 2022-08-15 15:48:55.549018227 Z
+- - :license
+  - github.com/xdg-go/stringprep
+  - Apache License 2.0
+  - :who:
+    :license_links: https://github.com/xdg-go/stringprep/blob/eb5c8f240eb1ea3fe0144fd4d3e0c305492d8eb1/LICENSE
+    :versions: []
+    :when: 2022-08-15 15:50:08.659677721 Z
+- - :license
+  - go-hep.org/x/hep
+  - New BSD
+  - :who:
+    :license_links: https://github.com/go-hep/hep/blob/535619c28f900dcd37c522f2b9d593ec61b7b8dd/LICENSE
+    :versions: []
+    :when: 2022-08-15 15:53:36.138009630 Z
+- - :license
+  - gonum.org/v1/plot
+  - New BSD
+  - :who:
+    :license_links: https://github.com/gonum/plot/blob/c2b63591159b9dceb2cbf953702691d2a2fe7a6d/LICENSE
+    :versions: []
+    :when: 2022-08-15 15:56:25.026774237 Z
