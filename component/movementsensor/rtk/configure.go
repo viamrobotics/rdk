@@ -1,144 +1,227 @@
 package rtk
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/jacobsa/go-serial/serial"
+	"go.viam.com/rdk/config"
 )
 
 const (
-	UBX_SYNCH_1            = 0xB5
-	UBX_SYNCH_2            = 0x62
-	UBX_RTCM_1001          = 0x01
-	UBX_RTCM_1002          = 0x02
-	UBX_RTCM_1005          = 0x05 // Stationary RTK reference ARP
-	UBX_RTCM_1074          = 0x4A // GPS MSM4
-	UBX_RTCM_1077          = 0x4D // GPS MSM7
-	UBX_RTCM_1084          = 0x54 // GLONASS MSM4
-	UBX_RTCM_1087          = 0x57 // GLONASS MSM7
-	UBX_RTCM_1094          = 0x5E // Galileo MSM4
-	UBX_RTCM_1097          = 0x61 // Galileo MSM7
-	UBX_RTCM_1124          = 0x7C // BeiDou MSM4
-	UBX_RTCM_1127          = 0x7F // BeiDou MSM7
-	UBX_RTCM_1230          = 0xE6 // GLONASS code-phase biases, set to once every 10 seconds
-	COM_PORT_UART2         = 2
-	COM_PORT_USB           = 3
-	UBX_RTCM_MSB           = 0xF5
-	UBX_CLASS_CFG          = 0x06
-	UBX_CFG_MSG            = 0x01
-	UBX_CFG_TMODE3         = 0x71
-	MAX_PAYLOAD_SIZE       = 256
-	UBX_CFG_PRT            = 0x00
-	UBX_CFG_CFG            = 0x09
-	VAL_CFG_SUBSEC_IOPORT  = 0x00000001 // ioPort - communications port settings (causes IO system reset!)
-	VAL_CFG_SUBSEC_MSGCONF = 0x00000002 // msgConf - message configuration
+	ubxSynch1           = 0xB5
+	ubxSynch2           = 0x62
+	ubxRtcm1001         = 0x01
+	ubxRtcm1002         = 0x02
+	ubxRtcm1005         = 0x05 // Stationary RTK reference ARP
+	ubxRtcm1074         = 0x4A // GPS MSM4
+	ubxRtcm1077         = 0x4D // GPS MSM7
+	ubxRtcm1084         = 0x54 // GLONASS MSM4
+	ubxRtcm1087         = 0x57 // GLONASS MSM7
+	ubxRtcm1094         = 0x5E // Galileo MSM4
+	ubxRtcm1097         = 0x61 // Galileo MSM7
+	ubxRtcm1124         = 0x7C // BeiDou MSM4
+	ubxRtcm1127         = 0x7F // BeiDou MSM7
+	ubxRtcm1230         = 0xE6 // GLONASS code-phase biases, set to once every 10 seconds
+	uart2               = 2
+	usb                 = 3
+	ubxRtcmMsb          = 0xF5
+	ubxClassCfg         = 0x06
+	ubxCfgMsg           = 0x01
+	ubxCfgTmode3        = 0x71
+	maxPayloadSize      = 256
+	ubxCfgPrt           = 0x00
+	ubxCfgCfg           = 0x09
+	valCfgSubsecIoPort  = 0x00000001 // ioPort - communications port settings (causes IO system reset!)
+	valCfgSubsecMsgconf = 0x00000002 // msgConf - message configuration
 
-	UBX_NMEA_MSB = 0xF0 // All NMEA enable commands have 0xF0 as MSB. Equal to UBX_CLASS_NMEA
-	UBX_NMEA_DTM = 0x0A // GxDTM (datum reference)
-	UBX_NMEA_GAQ = 0x45 // GxGAQ (poll a standard message (if the current talker ID is GA))
-	UBX_NMEA_GBQ = 0x44 // GxGBQ (poll a standard message (if the current Talker ID is GB))
-	UBX_NMEA_GBS = 0x09 // GxGBS (GNSS satellite fault detection)
-	UBX_NMEA_GGA = 0x00 // GxGGA (Global positioning system fix data)
-	UBX_NMEA_GLL = 0x01 // GxGLL (latitude and long, whith time of position fix and status)
-	UBX_NMEA_GLQ = 0x43 // GxGLQ (poll a standard message (if the current Talker ID is GL))
-	UBX_NMEA_GNQ = 0x42 // GxGNQ (poll a standard message (if the current Talker ID is GN))
-	UBX_NMEA_GNS = 0x0D // GxGNS (GNSS fix data)
-	UBX_NMEA_GPQ = 0x40 // GxGPQ (poll a standard message (if the current Talker ID is GP))
-	UBX_NMEA_GQQ = 0x47 // GxGQQ (poll a standard message (if the current Talker ID is GQ))
-	UBX_NMEA_GRS = 0x06 // GxGRS (GNSS range residuals)
-	UBX_NMEA_GSA = 0x02 // GxGSA (GNSS DOP and Active satellites)
-	UBX_NMEA_GST = 0x07 // GxGST (GNSS Pseudo Range Error Statistics)
-	UBX_NMEA_GSV = 0x03 // GxGSV (GNSS satellites in view)
-	UBX_NMEA_RLM = 0x0B // GxRMC (Return link message (RLM))
-	UBX_NMEA_RMC = 0x04 // GxRMC (Recommended minimum data)
-	UBX_NMEA_TXT = 0x41 // GxTXT (text transmission)
-	UBX_NMEA_VLW = 0x0F // GxVLW (dual ground/water distance)
-	UBX_NMEA_VTG = 0x05 // GxVTG (course over ground and Ground speed)
-	UBX_NMEA_ZDA = 0x08 // GxZDA (Time and Date)
+	ubxNmeaMsb = 0xF0 // All NMEA enable commands have 0xF0 as MSB. Equal to UBX_CLASS_NMEA
+	ubxNmeaDtm = 0x0A // GxDTM (datum reference)
+	ubxNmeaGaq = 0x45 // GxGAQ (poll a standard message (if the current talker ID is GA))
+	ubxNmeaGbq = 0x44 // GxGBQ (poll a standard message (if the current Talker ID is GB))
+	ubxNmeaGbs = 0x09 // GxGBS (GNSS satellite fault detection)
+	ubxNmeaGga = 0x00 // GxGGA (Global positioning system fix data)
+	ubxNmeaGll = 0x01 // GxGLL (latitude and long, whith time of position fix and status)
+	ubxNmeaGlq = 0x43 // GxGLQ (poll a standard message (if the current Talker ID is GL))
+	ubxNmeaGnq = 0x42 // GxGNQ (poll a standard message (if the current Talker ID is GN))
+	ubxNmeaGns = 0x0D // GxGNS (GNSS fix data)
+	ubxNmeaGpq = 0x40 // GxGPQ (poll a standard message (if the current Talker ID is GP))
+	ubxNmeaGqq = 0x47 // GxGQQ (poll a standard message (if the current Talker ID is GQ))
+	ubxNmeaGrs = 0x06 // GxGRS (GNSS range residuals)
+	ubxNmeaGsa = 0x02 // GxGSA (GNSS DOP and Active satellites)
+	ubxNmeaGst = 0x07 // GxGST (GNSS Pseudo Range Error Statistics)
+	ubxNmeaGsv = 0x03 // GxGSV (GNSS satellites in view)
+	ubxNmeaRlm = 0x0B // GxRMC (Return link message (RLM))
+	ubxNmeaRmc = 0x04 // GxRMC (Recommended minimum data)
+	ubxNmeaTxt = 0x41 // GxTXT (text transmission)
+	ubxNmeaVlw = 0x0F // GxVLW (dual ground/water distance)
+	ubxNmeaVtg = 0x05 // GxVTG (course over ground and Ground speed)
+	ubxNmeaZda = 0x08 // GxZDA (Time and Date)
 
-	SVIN_MODE_ENABLE  = 0x01
-	SVIN_MODE_DISABLE = 0x00
+	svinModeEnable  = 0x01
+	svinModeDisable = 0x00
+
+	// configuration constants
+	requiredAccuracyConfig = "loc_accuracy"
+	observationTimeConfig  = "time_accuracy"
+	timeMode               = "time"
+	svinConfig             = "svin"
+
+	rtcmMsgs = map[int]int{
+		ubxRtcm1005: 1,
+		ubxRtcm1074: 1,
+		ubxRtcm1084: 1,
+		ubxRtcm1094: 1,
+		ubxRtcm1124: 1,
+		ubxRtcm1230: 5,
+	}
+	nmeaMsgs = map[int]int{
+		ubxNmeaGll: 1,
+		ubxNmeaGsa: 1,
+		ubxNmeaGsv: 1,
+		ubxNmeaRmc: 1,
+		ubxNmeaVtg: 1,
+		ubxNmeaGga: 1,
+	}
 )
 
+type configCommand struct {
+	correctionType string
+	portName       string
+	baudRate       uint
+	surveyIn       string
+
+	requiredAcc     float64
+	observationTime int
+
+	msgsToEnable  map[int]int
+	msgsToDisable map[int]int
+
+	portId int
+}
+
 // configure an RTKStation with time mode
-func ConfigureBaseRTKStation(requiredAccuracy float64, observationTime int) {
-	enableAllRTCM()
-	enableSVIN(requiredAccuracy, observationTime)
+func ConfigureBaseRTKStation(config config.Component) (*configCommand, error) {
+	correctionType := config.Attributes.String(correctionSourceName)
+
+	surveyIn := config.Attributes.String(svinConfig)
+	requiredAcc := config.Attributes.Float64(requiredAccuracyConfig, 10)
+	observationTime := config.Attributes.Int(observationTimeConfig, 60)
+
+	// already configured
+	if surveyIn != timeMode {
+		return nil, nil
+	}
+
+	c := &configCommand{
+		correctionType:  correctionType,
+		requiredAcc:     requiredAcc,
+		observationTime: observationTime,
+		msgsToEnable:    rtcmMsgs, // defaults
+		msgsToDisable:   nmeaMsgs, // defaults
+	}
+
+	switch correctionType {
+	case "serial":
+		portName := config.Attributes.String("correction_path")
+		if portName == "" {
+			return nil, fmt.Errorf("serialCorrectionSource expected non-empty string for %q", correctionPathName)
+		}
+		c.portName = portName
+
+		baudRate := config.Attributes.Int("correction_baud", 0)
+		if baudRate == 0 {
+			baudRate = 9600
+		}
+		c.baudRate = uint(baudRate)
+		c.portId = uart2
+		return c, nil
+	default:
+		return nil, nil
+	}
+
+	c.enableAll(ubxRtcmMsb)
+	c.disableAll(ubxNmeaMsb)
+	c.enableSVIN()
+
+	return nil, nil
 }
 
-func ConfigureDefaultSettings() {
-	disableAllRTCM()
-	enableNMEA()
+// configure to default rover settings
+func ConfigureRoverDefault(config config.Component) (*configCommand, error) {
+	correctionType := config.Attributes.String(correctionSourceName)
+
+	c := &configCommand{
+		correctionType: correctionType,
+		msgsToEnable:   nmeaMsgs, // defaults
+		msgsToDisable:  rtcmMsgs, // defaults
+	}
+
+	switch correctionType {
+	case "serial":
+		portName := config.Attributes.String("correction_path")
+		if portName == "" {
+			return nil, fmt.Errorf("serialCorrectionSource expected non-empty string for %q", correctionPathName)
+		}
+		c.portName = portName
+
+		baudRate := config.Attributes.Int("correction_baud", 0)
+		if baudRate == 0 {
+			baudRate = 9600
+		}
+		c.baudRate = uint(baudRate)
+		c.portId = uart2
+		return c, nil
+	default:
+		return nil, nil
+	}
+
+	c.enableAll(ubxNmeaMsb)
+	c.disableAll(ubxRtcmMsb)
+
+	return nil, nil
 }
 
-func disableAllRTCM() {
-	disableRTCMCommand(UBX_RTCM_1005, COM_PORT_UART2)
-	disableRTCMCommand(UBX_RTCM_1074, COM_PORT_UART2)
-	disableRTCMCommand(UBX_RTCM_1084, COM_PORT_UART2)
-	disableRTCMCommand(UBX_RTCM_1094, COM_PORT_UART2)
-	disableRTCMCommand(UBX_RTCM_1124, COM_PORT_UART2)
-	disableRTCMCommand(UBX_RTCM_1230, COM_PORT_UART2)
-	disableRTCMCommand(UBX_RTCM_1001, COM_PORT_UART2)
-	disableRTCMCommand(UBX_RTCM_1002, COM_PORT_UART2)
-	saveAllConfigs()
+func (c *configCommand) disableAll(msb int) {
+	for msg, _ := range c.msgsToDisable {
+		c.disableMessageCommand(msb, msg, c.portId)
+	}
+	c.saveAllConfigs()
 }
 
-func enableAllRTCM() {
-	enableRTCMCommand(UBX_RTCM_1005, COM_PORT_UART2, 1)
-	enableRTCMCommand(UBX_RTCM_1074, COM_PORT_UART2, 1)
-	enableRTCMCommand(UBX_RTCM_1084, COM_PORT_UART2, 1)
-	enableRTCMCommand(UBX_RTCM_1094, COM_PORT_UART2, 1)
-	enableRTCMCommand(UBX_RTCM_1124, COM_PORT_UART2, 1)
-	enableRTCMCommand(UBX_RTCM_1230, COM_PORT_UART2, 5)
-	saveAllConfigs()
+func (c *configCommand) enableAll(msb int) {
+	for msg, sendRate := range c.msgsToEnable {
+		c.enableMessageCommand(msb, msg, c.portId, sendRate)
+	}
+	c.saveAllConfigs()
 }
 
-func enableNMEA() {
-	enableRTCMCommand(UBX_NMEA_GLL, COM_PORT_UART2, 1)
-	enableRTCMCommand(UBX_NMEA_GSA, COM_PORT_UART2, 1)
-	enableRTCMCommand(UBX_NMEA_GSV, COM_PORT_UART2, 1)
-	enableRTCMCommand(UBX_NMEA_RMC, COM_PORT_UART2, 1)
-	enableRTCMCommand(UBX_NMEA_VTG, COM_PORT_UART2, 1)
-	enableRTCMCommand(UBX_NMEA_GGA, COM_PORT_UART2, 1)
-	saveAllConfigs()
-}
-
-func disableNMEA() {
-	disableRTCMCommand(UBX_NMEA_GLL, COM_PORT_UART2) 
-	disableRTCMCommand(UBX_NMEA_GSA, COM_PORT_UART2)
-	disableRTCMCommand(UBX_NMEA_GSV, COM_PORT_UART2)
-	disableRTCMCommand(UBX_NMEA_RMC, COM_PORT_UART2)
-	disableRTCMCommand(UBX_NMEA_VTG, COM_PORT_UART2)
-	disableRTCMCommand(UBX_NMEA_GGA, COM_PORT_UART2)
-	saveAllConfigs()
-}
-
-func getSurveyMode() []byte {
-	cls := UBX_CLASS_CFG
-	id := UBX_CFG_TMODE3
+func (c *configCommand) getSurveyMode() []byte {
+	cls := ubxClassCfg
+	id := ubxCfgTmode3
 	payloadCfg := make([]byte, 40)
-	return sendCommand(cls, id, 0, payloadCfg) // set payloadcfg
+	return c.sendCommand(cls, id, 0, payloadCfg) // set payloadcfg
 }
 
-func enableSVIN(requiredAccuracy float64, observationTime int) {
-	setSurveyMode(SVIN_MODE_ENABLE, requiredAccuracy, observationTime)
-	saveAllConfigs()
+func (c *configCommand) enableSVIN() {
+	c.setSurveyMode(svinModeEnable, c.requiredAcc, c.observationTime)
+	c.saveAllConfigs()
 }
 
-func disableSVIN(requiredAccuracy float64, observationTime int) {
-	setSurveyMode(SVIN_MODE_DISABLE, requiredAccuracy, observationTime)
-	saveAllConfigs()
+func (c *configCommand) disableSVIN() {
+	c.setSurveyMode(svinModeDisable, 0, 0)
+	c.saveAllConfigs()
 }
 
-func setSurveyMode(mode int, requiredAccuracy float64, observationTime int) bool {
+func (c *configCommand) setSurveyMode(mode int, requiredAccuracy float64, observationTime int) bool {
 	// payloadCfg := getSurveyMode() // get current configs
 	payloadCfg := make([]byte, 40)
 	if len(payloadCfg) == 0 {
 		return false
 	}
 
-	cls := UBX_CLASS_CFG
-	id := UBX_CFG_TMODE3
+	cls := ubxClassCfg
+	id := ubxCfgTmode3
 	msg_len := 40
 
 	// payloadCfg should be loaded with poll response. Now modify only the bits we care about
@@ -158,17 +241,17 @@ func setSurveyMode(mode int, requiredAccuracy float64, observationTime int) bool
 	payloadCfg[30] = byte((svinAccLimit >> 16) & 0xFF)
 	payloadCfg[31] = byte((svinAccLimit >> 24) & 0xFF)
 
-	sendCommand(cls, id, msg_len, payloadCfg)
+	c.sendCommand(cls, id, msg_len, payloadCfg)
 
 	return true
 }
 
-func setStaticPosition(ecefXOrLat int, ecefXOrLatHP int, ecefYOrLon int, ecefYOrLonHP int, ecefZOrAlt int, ecefZOrAltHP int, latLong bool) {
-	cls := UBX_CLASS_CFG
-	id := UBX_CFG_TMODE3
+func (c *configCommand) setStaticPosition(ecefXOrLat int, ecefXOrLatHP int, ecefYOrLon int, ecefYOrLonHP int, ecefZOrAlt int, ecefZOrAltHP int, latLong bool) {
+	cls := ubxClassCfg
+	id := ubxCfgTmode3
 	msg_len := 40
 
-	payloadCfg := make([]byte, 256)
+	payloadCfg := make([]byte, maxPayloadSize)
 	payloadCfg[2] = byte(2)
 
 	if latLong == true {
@@ -197,38 +280,48 @@ func setStaticPosition(ecefXOrLat int, ecefXOrLatHP int, ecefYOrLon int, ecefYOr
 	payloadCfg[16] = byte(ecefXOrLatHP)
 	payloadCfg[17] = byte(ecefYOrLonHP)
 	payloadCfg[18] = byte(ecefZOrAltHP)
-	sendCommand(cls, id, msg_len, payloadCfg)
+	c.sendCommand(cls, id, msg_len, payloadCfg)
 }
 
-func disableRTCMCommand(messageNumber int, portId int) {
-	enableRTCMCommand(messageNumber, portId, 0)
+func (c *configCommand) disableMessageCommand(msgClass int, messageNumber int, portId int) {
+	c.enableMessageCommand(msgClass, messageNumber, portId, 0)
 }
 
-func enableRTCMCommand(messageNumber int, portId int, sendRate int) {
+func (c *configCommand) enableMessageCommand(msgClass int, messageNumber int, portId int, sendRate int) {
 	//dont use current port settings actually
-	payloadCfg := make([]byte, 256)
+	payloadCfg := make([]byte, maxPayloadSize)
 
-	cls := UBX_CLASS_CFG
-	id := UBX_CFG_MSG
+	cls := ubxClassCfg
+	id := ubxCfgMsg
 	msg_len := 8
 
-	payloadCfg[0] = byte(UBX_RTCM_MSB)
+	payloadCfg[0] = byte(msgClass)
 	payloadCfg[1] = byte(messageNumber)
 	payloadCfg[2+portId] = byte(sendRate)
 	//default to enable usb on with same sendRate
-	payloadCfg[2+COM_PORT_USB] = byte(sendRate)
+	payloadCfg[2+usb] = byte(sendRate)
 
-	sendCommand(cls, id, msg_len, payloadCfg)
+	c.sendCommand(cls, id, msg_len, payloadCfg)
 }
 
-func sendCommand(cls int, id int, msg_len int, payloadCfg []byte) []byte {
+func (c *configCommand) sendCommand(cls int, id int, msg_len int, payloadCfg []byte) ([]byte, error) {
+	switch c.correctionType {
+	case "serial":
+		msg, err := c.sendCommandSerial(cls, id, msg_len, payloadCfg)
+		if err != nil {
+			return nil, err
+		}
+		return msg, nil
+	default:
+		return nil, nil
+	}
+}
+
+func (c *configCommand) sendCommandSerial(cls int, id int, msg_len int, payloadCfg []byte) ([]byte, error) {
 	checksumA, checksumB := calcChecksum(cls, id, msg_len, payloadCfg)
-
-	log.Print(byte(checksumA))
-
 	options := serial.OpenOptions{
-		PortName:        "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00", // change to base port
-		BaudRate:        115200,
+		PortName:        c.portName,
+		BaudRate:        c.baudRate,
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,
@@ -237,7 +330,7 @@ func sendCommand(cls int, id int, msg_len int, payloadCfg []byte) []byte {
 	// Open the port.
 	writePort, err := serial.Open(options)
 	if err != nil {
-		log.Fatalf("serial.Open: %v", err)
+		return nil, err
 	}
 	defer writePort.Close()
 
@@ -246,8 +339,8 @@ func sendCommand(cls int, id int, msg_len int, payloadCfg []byte) []byte {
 	packet := make([]byte, byteSize)
 
 	//header bytes
-	packet[0] = byte(UBX_SYNCH_1)
-	packet[1] = byte(UBX_SYNCH_2)
+	packet[0] = byte(ubxSynch1)
+	packet[1] = byte(ubxSynch2)
 	packet[2] = byte(cls)
 	packet[3] = byte(id)
 	packet[4] = byte(msg_len & 0xFF) //LSB
@@ -260,29 +353,28 @@ func sendCommand(cls int, id int, msg_len int, payloadCfg []byte) []byte {
 	packet[len(packet)-1] = byte(checksumB)
 	packet[len(packet)-2] = byte(checksumA)
 
-	log.Print("Writing: %s", packet)
 	writePort.Write(packet)
 
 	//then wait to capture a byte
-	buf := make([]byte, 256)
+	buf := make([]byte, maxPayloadSize)
 	n, err := writePort.Read(buf)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return buf[:n]
+	return buf[:n], nil
 }
 
-func saveAllConfigs() {
-	cls := UBX_CLASS_CFG
-	id := UBX_CFG_CFG
+func (c *configCommand) saveAllConfigs() {
+	cls := ubxClassCfg
+	id := ubxCfgCfg
 	msg_len := 12
 
-	payloadCfg := make([]byte, 256)
+	payloadCfg := make([]byte, maxPayloadSize)
 
 	payloadCfg[4] = 0xFF
 	payloadCfg[5] = 0xFF
 
-	sendCommand(cls, id, msg_len, payloadCfg)
+	c.sendCommand(cls, id, msg_len, payloadCfg)
 
 }
 

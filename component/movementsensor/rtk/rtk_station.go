@@ -193,7 +193,7 @@ func newRTKStation(
 	if r.surveyIn == timeMode {
 		r.requiredAcc = config.Attributes.Float64(requiredAccuracyConfig, 10)
 		r.observationTime = config.Attributes.Int(observationTimeConfig, 60)
-		ConfigureBaseRTKStation(r.requiredAcc, r.observationTime)
+		ConfigureBaseRTKStation(config, r.requiredAcc, r.observationTime)
 	}
 
 	// Init movementsensor correction input addresses
@@ -225,6 +225,7 @@ func newRTKStation(
 			}
 
 			r.serialPorts = append(r.serialPorts, port)
+
 		case *nmea.PmtkI2CNMEAMovementSensor:
 			bus, addr := t.GetBusAddr()
 			busAddr := i2cBusAddr{bus: bus, addr: addr}
