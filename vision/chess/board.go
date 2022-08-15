@@ -36,7 +36,7 @@ func FindAndWarpBoardFromFiles(colorFN, depthFN string, aligned bool, logger gol
 	if err != nil {
 		return nil, err
 	}
-	depth, err := rimage.ParseDepthMap(depthFN)
+	depth, err := rimage.ParseRawDepthMap(depthFN)
 	if err != nil {
 		return nil, err
 	}
