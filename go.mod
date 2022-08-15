@@ -30,7 +30,6 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551
-	github.com/golang/mock v1.6.0
 	github.com/golangci/golangci-lint v1.46.3-0.20220606112104-c531fc2ad559
 	github.com/google/flatbuffers v2.0.6+incompatible
 	github.com/google/go-cmp v0.5.8
@@ -345,5 +344,3 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20210220032938-85be41e4509f // indirect
 )
-
-replace go.viam.com/api => /Users/adam/Software/api
