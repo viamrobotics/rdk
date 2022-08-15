@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// client is a client that implements MotionServiceClient.
+// client implements MotionServiceClient.
 type client struct {
 	conn   rpc.ClientConn
 	client pb.MotionServiceClient

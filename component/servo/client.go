@@ -11,7 +11,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/servo/v1"
 )
 
-// client is a servo client.
+// client implements ServoServiceClient.
 type client struct {
 	name   string
 	conn   rpc.ClientConn

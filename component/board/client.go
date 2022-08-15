@@ -20,7 +20,7 @@ import (
 // eventually be implemented server side or faked client side.
 var errUnimplemented = errors.New("unimplemented")
 
-// client is a Board client.
+// client implements BoardServiceClient.
 type client struct {
 	conn   rpc.ClientConn
 	client pb.BoardServiceClient

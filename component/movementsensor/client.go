@@ -15,9 +15,10 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// check client fulfills sensor.Sensor interface
 var _ = sensor.Sensor(&client{})
 
-// client is a movement sensor client.
+// client implements MovementSensorServiceClient.
 type client struct {
 	name   string
 	conn   rpc.ClientConn

@@ -10,7 +10,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/service/datamanager/v1"
 )
 
-// client is a client that implements DataManagerServiceClient.
+// client implements DataManagerServiceClient.
 type client struct {
 	conn   rpc.ClientConn
 	client pb.DataManagerServiceClient

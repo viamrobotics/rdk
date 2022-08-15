@@ -15,7 +15,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
 )
 
-// client is an input controller client.
+// client implements InputControllerServiceClient.
 type client struct {
 	conn   rpc.ClientConn
 	client pb.InputControllerServiceClient

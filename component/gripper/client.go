@@ -12,7 +12,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-// client is a gripper client.
+// client implements GripperServiceClient.
 type client struct {
 	name   string
 	conn   rpc.ClientConn

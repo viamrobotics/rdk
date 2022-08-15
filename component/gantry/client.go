@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-// client is a gantry client.
+// client implements GantryServiceClient.
 type client struct {
 	name   string
 	conn   rpc.ClientConn

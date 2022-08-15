@@ -11,7 +11,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/sensor/v1"
 )
 
-// client is a sensor client.
+// client implements SensorServiceClient.
 type client struct {
 	name   string
 	conn   rpc.ClientConn
