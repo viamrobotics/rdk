@@ -664,6 +664,7 @@ func unzipSource(cancelCtx context.Context, destination, modelName, fileName str
 // When the file has been unzipped we transfer them into the model.Destination
 // Responsible for removing the .zip file from the dotDir
 // Could then also serve as when to remove the dotDir for logic in getModelsToDownload()
+// This function needs to be changed such that the file path we are checking is the right one.
 func unzipFile(cancelCtx context.Context, f *zip.File, destination string, logger golog.Logger) error {
 	// TODO: DATA-307, We should be passing in the context to any operations that can take several seconds,
 	// which includes unzipFile. As written, this can block .Close for an unbounded amount of time.
