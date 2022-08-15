@@ -11,7 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	utils "go.viam.com/utils"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/input"
@@ -121,20 +121,29 @@ func (config *ServiceConfig) validate() ([]string, error) {
 	}
 	deps = append(deps, config.InputControllerName)
 
-	if config.JointStep <= 0 {
-		return nil, errors.New("Joint Step needs to be greater than 0")
+	// setup defaults for omitempty and validate entries
+	if config.ControllerSensitivity == 0.0 {
+		config.ControllerSensitivity = defaultControllerSensitivity
+	} else if config.ControllerSensitivity <= 0.0 {
+		return nil, errors.New("Controller sensitivity must be greater than 0")
 	}
 
-	if config.DegreeStep <= 0 {
+	if config.DegreeStep == 0.0 {
+		config.DegreeStep = defaultDegreeStep
+	} else if config.DegreeStep <= 0.0 {
 		return nil, errors.New("Degree step needs to be greater than 0")
 	}
 
-	if config.MMStep <= 0 {
-		return nil, errors.New("MM step must be greater than 0")
+	if config.JointStep == 0.0 {
+		config.JointStep = defaultJointStep
+	} else if config.JointStep <= 0.0 {
+		return nil, errors.New("Joint Step needs to be greater than 0")
 	}
 
-	if config.ControllerSensitivity <= 0 {
-		return nil, errors.New("Controller sensitivity cannot be 0")
+	if config.MMStep == 0.0 {
+		config.MMStep = defaultMMStep
+	} else if config.MMStep <= 0 {
+		return nil, errors.New("MM step must be greater than 0")
 	}
 
 	if len(config.ControllerModes) == 0 {
@@ -210,7 +219,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, rdkutils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
 
-	arm1, err := arm.FromRobot(r, svcConfig.ArmName)
+	armComponent, err := arm.FromRobot(r, svcConfig.ArmName)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +246,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	}
 
 	// ensure we are mapped to degree of freedoms
-	dofLen := len(arm1.ModelFrame().DoF())
+	dofLen := len(armComponent.ModelFrame().DoF())
 	for _, mode := range svcConfig.ControllerModes {
 		if mode.ModeName == jointMode {
 			if len(mode.ControlMapping) != dofLen {
@@ -247,7 +256,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	}
 
 	armRemoteSvc := &armRemoteService{
-		arm:             arm1,
+		arm:             armComponent,
 		inputController: controller,
 		config:          svcConfig,
 		logger:          logger,
