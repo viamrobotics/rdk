@@ -13,6 +13,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
+	m1 "go.viam.com/api/proto/viam/model/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
@@ -674,6 +675,12 @@ type mockDataSyncServiceServer struct {
 	v1.UnimplementedDataSyncServiceServer
 }
 
+type mockModelServiceServer struct {
+	uploadedFiles *[]string
+	lock          *sync.Mutex
+	m1.UnimplementedModelServiceServer
+}
+
 func (m mockDataSyncServiceServer) getUploadedFiles() []string {
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
@@ -715,6 +722,33 @@ func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServ
 		&v1.DataSyncService_ServiceDesc,
 		mockService,
 		v1.RegisterDataSyncServiceHandlerFromEndpoint,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Stand up the server. Defer stopping the server.
+	go func() {
+		err := rpcServer.Start()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+	return rpcServer, mockService
+}
+
+// code here to buildandstartlocalmodelserver which gives us a mock model service
+//nolint:thelper
+func buildAndStartLocalModelServer(t *testing.T) (rpc.Server, mockModelServiceServer) {
+	logger, _ := golog.NewObservedTestLogger(t)
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+	mockService := mockModelServiceServer{
+		uploadedFiles:                   &[]string{},
+		lock:                            &sync.Mutex{},
+		UnimplementedModelServiceServer: m1.UnimplementedModelServiceServer{},
+	}
+	err = rpcServer.RegisterServiceServer(
+		context.Background(),
+		&m1.ModelService_ServiceDesc,
+		mockService,
+		m1.RegisterModelServiceHandlerFromEndpoint,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
