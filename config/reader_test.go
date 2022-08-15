@@ -6,29 +6,8 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/mock/gomock"
-	mockapppb "go.viam.com/api/proto/viam/app/mock_v1"
-	apppb "go.viam.com/api/proto/viam/app/v1"
 	"go.viam.com/test"
 )
-
-func TestStoreToCache2(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	client := mockapppb.NewMockRobotServiceClient(ctrl)
-	client.EXPECT().Config(gomock.Any(), gomock.Any()).Return(&apppb.ConfigResponse{
-		Config: &apppb.RobotConfig{
-			Cloud: &apppb.CloudConfig{
-				Id: "123",
-			},
-		},
-	}, nil)
-
-	res, err := client.Config(context.Background(), &apppb.ConfigRequest{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, res, test.ShouldNotBeNil)
-}
 
 func TestStoreToCache(t *testing.T) {
 	logger := golog.NewTestLogger(t)
