@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/rlog"
+	"go.viam.com/utils/rpc"
 )
 
 type wrappedLogger struct {
@@ -59,12 +60,25 @@ func newNetLogger(config *config.Cloud) (*netLogger, error) {
 		return nil, err
 	}
 
+	var logWriter remoteLogWriter
+	if config.AppAddress == "" {
+		logWriter = &remoteLogWriterHTTP{
+			cfg:    config,
+			client: http.Client{},
+		}
+	} else {
+		logWriter = &remoteLogWriterGRPC{
+			logger: rlog.Logger,
+			cfg:    config,
+		}
+	}
+
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	nl := &netLogger{
-		hostname:  hostname,
-		cfg:       config,
-		cancelCtx: cancelCtx,
-		cancel:    cancel,
+		hostname:     hostname,
+		cancelCtx:    cancelCtx,
+		cancel:       cancel,
+		remoteWriter: logWriter,
 	}
 	nl.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(nl.backgroundWorker, nl.activeBackgroundWorkers.Done)
@@ -72,9 +86,8 @@ func newNetLogger(config *config.Cloud) (*netLogger, error) {
 }
 
 type netLogger struct {
-	hostname   string
-	cfg        *config.Cloud
-	httpClient http.Client
+	hostname     string
+	remoteWriter remoteLogWriter
 
 	toLogMutex sync.Mutex
 	toLog      []*apppb.LogEntry
@@ -101,7 +114,7 @@ func (nl *netLogger) Close() {
 	}
 	nl.cancel()
 	nl.activeBackgroundWorkers.Wait()
-	nl.httpClient.CloseIdleConnections()
+	nl.remoteWriter.close()
 }
 
 func (nl *netLogger) Enabled(zapcore.Level) bool {
@@ -185,52 +198,6 @@ func (nl *netLogger) addToQueue(x *apppb.LogEntry) {
 	nl.toLog = append(nl.toLog, x)
 }
 
-func (nl *netLogger) writeToServer(log *apppb.LogEntry) error {
-	level, err := zapcore.ParseLevel(log.Level)
-	if err != nil {
-		return errors.Wrap(err, "error creating log request")
-	}
-
-	e := zapcore.Entry{
-		Level:      level,
-		LoggerName: log.LoggerName,
-		Message:    log.Message,
-		Stack:      log.Stack,
-		Time:       log.Time.AsTime(),
-	}
-
-	x := map[string]interface{}{
-		"id":     nl.cfg.ID,
-		"host":   log.Host,
-		"log":    e,
-		"fields": log.Fields,
-	}
-
-	js, err := json.Marshal(x)
-	if err != nil {
-		return err
-	}
-
-	// we specifically don't use a parented cancellable context here so we can make sure we finish writing but
-	// we will only give it up to 5 seconds to do so in case we are trying to shutdown.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	r, err := http.NewRequestWithContext(ctx, http.MethodPost, nl.cfg.LogPath, bytes.NewReader(js))
-	if err != nil {
-		return errors.Wrap(err, "error creating log request")
-	}
-	r.Header.Set("Secret", nl.cfg.Secret)
-
-	resp, err := nl.httpClient.Do(r)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		utils.UncheckedError(resp.Body.Close())
-	}()
-	return nil
-}
-
 func (nl *netLogger) backgroundWorker() {
 	normalInterval := 100 * time.Millisecond
 	abnormalInterval := 5 * time.Second
@@ -256,7 +223,6 @@ func (nl *netLogger) backgroundWorker() {
 
 func (nl *netLogger) Sync() error {
 	// TODO(erh): batch writes
-
 	for {
 		x := func() *apppb.LogEntry {
 			nl.toLogMutex.Lock()
@@ -276,7 +242,8 @@ func (nl *netLogger) Sync() error {
 			return nil
 		}
 
-		err := nl.writeToServer(x)
+		ll := []*apppb.LogEntry{x}
+		err := nl.remoteWriter.write(ll)
 		if err != nil {
 			nl.addToQueue(x) // we'll try again later
 			return err
@@ -294,4 +261,117 @@ func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, func(
 		return zapcore.NewTee(c, nl)
 	}))
 	return l.Sugar(), nl.Close, nil
+}
+
+type remoteLogWriter interface {
+	write(logs []*apppb.LogEntry) error
+	close()
+}
+
+type remoteLogWriterHTTP struct {
+	cfg    *config.Cloud
+	client http.Client
+}
+
+func (w *remoteLogWriterHTTP) write(logs []*apppb.LogEntry) error {
+	for _, log := range logs {
+		err := w.writeToServer(log)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *remoteLogWriterHTTP) writeToServer(log *apppb.LogEntry) error {
+	level, err := zapcore.ParseLevel(log.Level)
+	if err != nil {
+		return errors.Wrap(err, "error creating log request")
+	}
+
+	e := zapcore.Entry{
+		Level:      level,
+		LoggerName: log.LoggerName,
+		Message:    log.Message,
+		Stack:      log.Stack,
+		Time:       log.Time.AsTime(),
+	}
+
+	x := map[string]interface{}{
+		"id":     w.cfg.ID,
+		"host":   log.Host,
+		"log":    e,
+		"fields": log.Fields,
+	}
+
+	js, err := json.Marshal(x)
+	if err != nil {
+		return err
+	}
+
+	// we specifically don't use a parented cancellable context here so we can make sure we finish writing but
+	// we will only give it up to 5 seconds to do so in case we are trying to shutdown.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	r, err := http.NewRequestWithContext(ctx, http.MethodPost, w.cfg.LogPath, bytes.NewReader(js))
+	if err != nil {
+		return errors.Wrap(err, "error creating log request")
+	}
+	r.Header.Set("Secret", w.cfg.Secret)
+
+	resp, err := w.client.Do(r)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		utils.UncheckedError(resp.Body.Close())
+	}()
+	return nil
+}
+
+func (w *remoteLogWriterHTTP) close() {
+	w.client.CloseIdleConnections()
+}
+
+type remoteLogWriterGRPC struct {
+	cfg         *config.Cloud
+	client      rpc.ClientConn
+	clientMutex sync.Mutex
+	logger      golog.Logger
+}
+
+func (w *remoteLogWriterGRPC) write(logs []*apppb.LogEntry) error {
+	client, err := w.getOrCreateClient()
+	if err != nil {
+		return err
+	}
+
+	service := apppb.NewRobotServiceClient(client)
+	_, err = service.Log(context.Background(), &apppb.LogRequest{Id: w.cfg.ID, Logs: logs})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (w *remoteLogWriterGRPC) getOrCreateClient() (rpc.ClientConn, error) {
+	if w.client == nil {
+		w.clientMutex.Lock()
+		defer w.clientMutex.Unlock()
+
+		client, err := config.CreateNewGRPCClient(context.Background(), w.cfg, w.logger)
+		if err != nil {
+			return nil, err
+		}
+
+		w.client = client
+	}
+	return w.client, nil
+}
+
+func (w *remoteLogWriterGRPC) close() {
+	if w.client != nil {
+		utils.UncheckedErrorFunc(w.client.Close)
+	}
 }
