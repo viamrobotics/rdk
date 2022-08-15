@@ -7,7 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	utils "go.viam.com/utils"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
 	fakearm "go.viam.com/rdk/component/arm/fake"
@@ -22,15 +22,15 @@ import (
 
 func buildCfg(dof int) *ServiceConfig {
 	cfg := &ServiceConfig{
-		ArmName: "",
-		InputControllerName: "",
-		JointStep: 10.0,
-		MMStep: 0.1,
-		DegreeStep: 5.0,
+		ArmName:               "",
+		InputControllerName:   "",
+		JointStep:             10.0,
+		MMStep:                0.1,
+		DegreeStep:            5.0,
 		ControllerSensitivity: 5.0,
 		ControllerModes: []ControllerMode{
 			{
-				ModeName: jointMode,
+				ModeName:       jointMode,
 				ControlMapping: map[string]input.Control{},
 			},
 			{
@@ -52,6 +52,7 @@ func buildCfg(dof int) *ServiceConfig {
 	}
 	return cfg
 }
+
 func TestArmRemoteControl(t *testing.T) {
 	ctx := context.Background()
 
