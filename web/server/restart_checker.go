@@ -4,11 +4,7 @@ package server
 import (
 	"bytes"
 	"context"
-<<<<<<< HEAD
-	"io/ioutil"
-=======
 	"io"
->>>>>>> d4751676 ([APP-531] Optionally use gRPC endpoint to check if robot needs to restart (#1179))
 	"net/http"
 	"time"
 
@@ -22,13 +18,8 @@ import (
 )
 
 const (
-<<<<<<< HEAD
-	defaultNeedsRestartCheckInternval = time.Second * 1
-	minNeedsRestartCheckInternval     = time.Second * 1
-=======
 	defaultNeedsRestartCheckInterval = time.Second * 1
 	minNeedsRestartCheckInterval     = time.Second * 1
->>>>>>> d4751676 ([APP-531] Optionally use gRPC endpoint to check if robot needs to restart (#1179))
 )
 
 type needsRestartChecker interface {
@@ -64,11 +55,7 @@ func (c *needsRestartCheckerHTTP) needsRestart(ctx context.Context) (bool, time.
 		return false, c.restartInterval, errors.Wrapf(err, "bad status code")
 	}
 
-<<<<<<< HEAD
-	read, err := ioutil.ReadAll(resp.Body)
-=======
 	read, err := io.ReadAll(resp.Body)
->>>>>>> d4751676 ([APP-531] Optionally use gRPC endpoint to check if robot needs to restart (#1179))
 	if err != nil {
 		return false, c.restartInterval, errors.Wrapf(err, "failed to read body")
 	}
@@ -84,28 +71,15 @@ type needsRestartCheckerGRPC struct {
 }
 
 func (c *needsRestartCheckerGRPC) close() {
-<<<<<<< HEAD
 	if c.client != nil {
 		utils.UncheckedErrorFunc(c.client.Close)
 	}
-=======
-	utils.UncheckedErrorFunc(c.client.Close)
->>>>>>> d4751676 ([APP-531] Optionally use gRPC endpoint to check if robot needs to restart (#1179))
 }
 
 func (c *needsRestartCheckerGRPC) needsRestart(ctx context.Context) (bool, time.Duration, error) {
 	service := apppb.NewRobotServiceClient(c.client)
 	res, err := service.NeedsRestart(ctx, &apppb.NeedsRestartRequest{Id: c.cfg.ID})
 	if err != nil {
-<<<<<<< HEAD
-		return false, defaultNeedsRestartCheckInternval, err
-	}
-
-	restartInterval := res.RestartCheckInterval.AsDuration()
-	if restartInterval < minNeedsRestartCheckInternval {
-		c.logger.Warnf("received restart interval less than 1 second not using was %d", res.RestartCheckInterval.AsDuration())
-		restartInterval = defaultNeedsRestartCheckInternval
-=======
 		return false, defaultNeedsRestartCheckInterval, err
 	}
 
@@ -115,7 +89,7 @@ func (c *needsRestartCheckerGRPC) needsRestart(ctx context.Context) (bool, time.
 			minNeedsRestartCheckInterval,
 			res.RestartCheckInterval.AsDuration())
 		restartInterval = defaultNeedsRestartCheckInterval
->>>>>>> d4751676 ([APP-531] Optionally use gRPC endpoint to check if robot needs to restart (#1179))
+		return false, defaultNeedsRestartCheckInterval, err
 	}
 
 	return res.MustRestart, restartInterval, nil
@@ -126,11 +100,7 @@ func newRestartChecker(ctx context.Context, cfg *config.Cloud, logger golog.Logg
 		return &needsRestartCheckerHTTP{
 			cfg:             cfg,
 			logger:          logger,
-<<<<<<< HEAD
-			restartInterval: defaultNeedsRestartCheckInternval,
-=======
 			restartInterval: defaultNeedsRestartCheckInterval,
->>>>>>> d4751676 ([APP-531] Optionally use gRPC endpoint to check if robot needs to restart (#1179))
 			client:          http.Client{},
 		}, nil
 	}
