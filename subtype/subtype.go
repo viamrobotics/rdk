@@ -60,10 +60,7 @@ func (s *subtypeSvc) Replace(r map[resource.Name]interface{}) error {
 		resources[name] = v
 		shortcut := name[strings.LastIndexAny(name, ":")+1:]
 		if _, ok := shortNames[shortcut]; ok {
-			oldName := shortNames[shortcut]
-			delete(shortNames, shortcut)
-			shortNames[oldName] = oldName
-			shortNames[name] = name
+			shortNames[shortcut] = ""
 		} else {
 			shortNames[shortcut] = name
 		}
