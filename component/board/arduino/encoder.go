@@ -28,7 +28,15 @@ func init() {
 		) (interface{}, error) {
 			return NewEncoder(ctx, deps, config, logger)
 		}})
-	encoder.RegisterConfigAttributeConverter("arduino")
+
+	config.RegisterComponentAttributeMapConverter(
+		encoder.SubtypeName,
+		"arduino",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf EncoderConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&EncoderConfig{})
 }
 
 // NewEncoder creates a new HallEncoder.
@@ -62,9 +70,9 @@ func NewEncoder(ctx context.Context, deps registry.Dependencies, config config.C
 
 // Encoder keeps track of an arduino motor position.
 type Encoder struct {
-	board            *arduinoBoard
-	A, B             string
-	name             string
+	board *arduinoBoard
+	A, B  string
+	name  string
 
 	generic.Unimplemented
 }

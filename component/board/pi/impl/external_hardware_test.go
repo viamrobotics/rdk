@@ -148,13 +148,12 @@ func TestPiHardware(t *testing.T) {
 
 	deps := make(registry.Dependencies)
 	_, err = encoderReg.Constructor(ctx, deps, config.Component{
-		Name: "encoder1", ConvertedAttributes: &encoder.Config{
-			Pins: map[string]string{
-				"a": "hall-a",
-				"b": "hall-b",
+		Name: "encoder1", ConvertedAttributes: &encoder.HallConfig{
+			Pins: encoder.HallPins{
+				A: "hall-a",
+				B: "hall-b",
 			},
-			BoardName:        "test",
-			TicksPerRotation: 200,
+			BoardName: "test",
 		},
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -169,8 +168,9 @@ func TestPiHardware(t *testing.T) {
 				B:   "40", // bcom 21
 				PWM: "7",  // bcom 4
 			},
-			BoardName: "test",
-			Encoder:   "encoder1",
+			BoardName:        "test",
+			Encoder:          "encoder1",
+			TicksPerRotation: 200,
 		},
 		DependsOn: motorDeps,
 	}, logger)
