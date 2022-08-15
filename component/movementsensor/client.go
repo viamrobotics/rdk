@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// check client fulfills sensor.Sensor interface
+// check client fulfills sensor.Sensor interface.
 var _ = sensor.Sensor(&client{})
 
 // client implements MovementSensorServiceClient.
