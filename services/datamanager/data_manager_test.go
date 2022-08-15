@@ -45,6 +45,7 @@ var (
 	syncIntervalMins   = 0.0041 // 250ms
 	captureDir         = "/tmp/capture"
 	armDir             = captureDir + "/arm/arm1/GetEndPosition"
+	modelDir           = "/tmp/models"
 	emptyFileBytesSize = 30 // size of leading metadata message
 	testSvcName1       = "svc1"
 	testSvcName2       = "svc2"
@@ -300,27 +301,38 @@ func TestModelsAfterKilled(t *testing.T) {
 		err := rpcServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
 	}()
-	// is this the right action to take? -> make sure..
+	// want to make sure that function below is populating model path as well
+	// populate model sep func
 	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
 	defer func() {
 		for _, dir := range dirs {
 			resetFolder(t, dir)
 		}
 	}()
+
+	// figure out: do we need to do resetFolder for captureDir and armDir if we are not testing them?
+	// might need to keep resetfolder for capturedir and armdir if they are being populated in syncpath() and the testing here could get messed up?
 	defer resetFolder(t, captureDir)
-	// might need to create armDir
+	// might need to create dotDir???
 	defer resetFolder(t, armDir)
 	if err != nil {
 		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
 	}
 
+	// make sure we set up testCfg correctly to incorporate model data
 	testCfg := setupConfig(t, configPath)
+	// same here
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
+	// dirs here includes -- ModelsToDeploy []*Model `json:"models_on_robot"`
+	// as this is what is defined in the config struct in data_manager.go
 	dmCfg.AdditionalSyncPaths = dirs
 
 	// Initialize the data manager and update it with our config.
+	// the function below will need to be substituted...?
+	// need to create function `newTestModelManager``
+	//contains model stuff so good here --> just need to change call
 	dmsvc := newTestDataManager(t, "arm1", "")
 	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(10)
@@ -341,6 +353,9 @@ func TestModelsAfterKilled(t *testing.T) {
 	dmsvc = newTestDataManager(t, "arm1", "")
 	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
+
+	// dmsvc.Update is what we want because in
+	// we do a downloadModels call inside the function
 	err = dmsvc.Update(context.TODO(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -348,6 +363,7 @@ func TestModelsAfterKilled(t *testing.T) {
 	time.Sleep(syncWaitTime)
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
+	//
 	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 1+numArbitraryFilesToSync)
 }
 
