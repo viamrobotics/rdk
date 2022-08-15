@@ -138,15 +138,11 @@ type i2cBusAddr struct {
 }
 
 const (
-	correctionSourceName   = "correction_source"
-	childrenName           = "children"
-	i2cStr                 = "I2C"
-	serialStr              = "serial"
-	ntripStr               = "ntrip"
-	requiredAccuracyConfig = "loc_accuracy"
-	observationTimeConfig  = "time_accuracy"
-	timeMode               = "time"
-	svinConfig             = "svin"
+	correctionSourceName = "correction_source"
+	childrenName         = "children"
+	i2cStr               = "I2C"
+	serialStr            = "serial"
+	ntripStr             = "ntrip"
 )
 
 func newRTKStation(
@@ -186,15 +182,7 @@ func newRTKStation(
 
 	r.movementsensorNames = config.Attributes.StringSlice(childrenName)
 
-	if len(config.Attributes.String(svinConfig)) != 0 {
-		r.surveyIn = config.Attributes.String(svinConfig)
-	}
-	// enable time fix for rtk base station if time mode specified
-	if r.surveyIn == timeMode {
-		r.requiredAcc = config.Attributes.Float64(requiredAccuracyConfig, 10)
-		r.observationTime = config.Attributes.Int(observationTimeConfig, 60)
-		ConfigureBaseRTKStation(config, r.requiredAcc, r.observationTime)
-	}
+	ConfigureBaseRTKStation(config)
 
 	// Init movementsensor correction input addresses
 	r.logger.Debug("Init movementsensor")
@@ -234,6 +222,8 @@ func newRTKStation(
 		default:
 			return nil, errors.New("child is not valid nmeaMovementSensor type")
 		}
+
+		ConfigureRoverDefault(config) // TODO: get movementsensor configs or rewrite configure to take the sensor itself
 	}
 
 	r.logger.Debug("Init multiwriter")
