@@ -3,6 +3,7 @@ package imagesource
 import (
 	"context"
 	"image"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/component/camera"
@@ -152,4 +154,50 @@ func TestDualServerSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// compare point clouds, should be the same
 	test.That(t, pc2, test.ShouldResemble, pc1)
+}
+
+func TestDepthPNGRoundTrip(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	// get depth image
+	depthPath := artifact.MustPath("rimage/my_desk_intel515_from_server.png")
+	dataDepth, err := os.ReadFile(depthPath)
+	test.That(t, err, test.ShouldBeNil)
+	// create mock router and server
+	handleDepth := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "image/png")
+		w.Write(dataDepth)
+	}
+	router := http.NewServeMux()
+	router.HandleFunc("/depth", handleDepth)
+	svr := httptest.NewServer(router)
+	defer svr.Close()
+	// create camera
+	attrs := ServerAttrs{
+		URL: svr.URL + "/depth",
+		AttrConfig: &camera.AttrConfig{
+			Stream: "depth",
+		},
+	}
+	cam, err := NewServerSource(context.Background(), &attrs, logger)
+	test.That(t, err, test.ShouldBeNil)
+	// expected original depth image
+	f, err := os.Open(artifact.MustPath("rimage/my_desk_intel515_from_server.png"))
+	test.That(t, err, test.ShouldBeNil)
+	defer utils.UncheckedErrorFunc(f.Close)
+	expImg, err := png.Decode(f)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, expImg, test.ShouldHaveSameTypeAs, &image.Gray16{})
+	// request DepthMap from server
+	img, _, err := cam.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, img, test.ShouldHaveSameTypeAs, &rimage.DepthMap{})
+	// check if converting DepthMap to Gray16 matches
+	dm := img.(*rimage.DepthMap)
+	toGray16 := dm.ToGray16Picture()
+	test.That(t, toGray16, test.ShouldResemble, expImg)
+	// check if converting Gray16 to DepthMap matches
+	toDepthMap, err := rimage.ConvertImageToDepthMap(expImg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, toDepthMap, test.ShouldResemble, img)
+
 }
