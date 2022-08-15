@@ -83,6 +83,7 @@ func createFakeDepsForTestNewOneAxis(t *testing.T) registry.Dependencies {
 		PositionReporting: true,
 		MaxRPM:            60,
 		Logger:            logger,
+		TicksPerRotation:  1,
 	}
 	deps := make(registry.Dependencies)
 	deps[board.Named("board")] = fakeBoard
