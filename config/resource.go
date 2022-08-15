@@ -316,8 +316,7 @@ func (config *Service) Validate(path string) error {
 	if config.Type == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "type")
 	}
-	// Validate that all serviice have name
-	// Default services will get a default name if the name is empty
+	// Validate that all service have name
 	if config.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
 	}

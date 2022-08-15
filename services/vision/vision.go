@@ -106,7 +106,7 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 	return svc, nil
 }
 
-// FindFirstName Returns name of first vision service found.
+// FindFirstName returns name of first vision service found.
 func FindFirstName(r robot.Robot) string {
 	for _, val := range robot.NamesBySubtype(r, Subtype) {
 		return val
@@ -114,7 +114,7 @@ func FindFirstName(r robot.Robot) string {
 	return ""
 }
 
-// FirstFromRobot Returns the first service in this robot.
+// FirstFromRobot returns the first vision service in this robot.
 func FirstFromRobot(r robot.Robot) (Service, error) {
 	name := FindFirstName(r)
 	return FromRobot(r, name)
