@@ -11,38 +11,23 @@ import (
 	"go.viam.com/rdk/protoutils"
 )
 
-// serviceClient is a client satisfies the generic.proto contract.
-type serviceClient struct {
+// client implements GenericServiceClient.
+type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.GenericServiceClient
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
-	client := pb.NewGenericServiceClient(conn)
-	sc := &serviceClient{
-		conn:   conn,
-		client: client,
-		logger: logger,
-	}
-	return sc
-}
-
-// client is a Generic client.
-type client struct {
-	*serviceClient
-	name string
-}
-
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Generic {
-	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(sc, name)
-}
-
-func clientFromSvcClient(sc *serviceClient, name string) Generic {
-	return &client{sc, name}
+	c := pb.NewGenericServiceClient(conn)
+	return &client{
+		name:   name,
+		conn:   conn,
+		client: c,
+		logger: logger,
+	}
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
