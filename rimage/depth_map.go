@@ -166,8 +166,8 @@ func (dm *DepthMap) ToGray16Picture() image.Image {
 	return grayScale
 }
 
-// WriteTo writes the depth map to a writer as 16bit grayscale png.
-func (dm *DepthMap) WriteTo(out io.Writer) (err error) {
+// WriteToBuf writes the depth map to a writer as 16bit grayscale png.
+func (dm *DepthMap) WriteToBuf(out io.Writer) error {
 	img := dm.ToGray16Picture()
 	return png.Encode(out, img)
 }
