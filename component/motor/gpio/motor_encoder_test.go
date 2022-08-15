@@ -39,12 +39,13 @@ func TestMotorEncoder1(t *testing.T) {
 
 	cfg := motor.Config{TicksPerRotation: 100, MaxRPM: 100}
 	fakeMotor := &fakemotor.Motor{
-		MaxRPM: 100,
-		Logger: logger,
+		MaxRPM:           100,
+		Logger:           logger,
+		TicksPerRotation: 100,
 	}
 	interrupt := &board.BasicDigitalInterrupt{}
 
-	e := &encoder.SingleEncoder{I: interrupt, CancelCtx: context.Background(), Tpr: 100}
+	e := &encoder.SingleEncoder{I: interrupt, CancelCtx: context.Background()}
 	e.AttachDirectionalAwareness(&fakeDirectionAware{m: fakeMotor})
 	motorIfc, err := NewEncodedMotor(config.Component{}, cfg, fakeMotor, e, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -257,12 +258,13 @@ func TestMotorEncoderHall(t *testing.T) {
 		t.Helper()
 		cfg := motor.Config{TicksPerRotation: 100, MaxRPM: 100}
 		fakeMotor := &fakemotor.Motor{
-			MaxRPM: 100,
-			Logger: logger,
+			MaxRPM:           100,
+			Logger:           logger,
+			TicksPerRotation: 100,
 		}
 		encoderA := &board.BasicDigitalInterrupt{}
 		encoderB := &board.BasicDigitalInterrupt{}
-		encoder := &encoder.HallEncoder{A: encoderA, B: encoderB, CancelCtx: context.Background(), Tpr: 100}
+		encoder := &encoder.HallEncoder{A: encoderA, B: encoderB, CancelCtx: context.Background()}
 
 		motorIfc, err := NewEncodedMotor(config.Component{}, cfg, fakeMotor, encoder, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -551,7 +553,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		fakeMotor := &fakemotor.Motor{}
 		b.Digitals["a"] = &board.BasicDigitalInterrupt{}
-		e := &encoder.SingleEncoder{I: b.Digitals["a"], CancelCtx: context.Background(), Tpr: 100}
+		e := &encoder.SingleEncoder{I: b.Digitals["a"], CancelCtx: context.Background()}
 		e.AttachDirectionalAwareness(&fakeDirectionAware{m: fakeMotor})
 
 		m, err := WrapMotorWithEncoder(
@@ -573,7 +575,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		fakeMotor := &fakemotor.Motor{}
 		b.Digitals["a"] = &board.BasicDigitalInterrupt{}
 		b.Digitals["b"] = &board.BasicDigitalInterrupt{}
-		e := &encoder.HallEncoder{A: b.Digitals["a"], B: b.Digitals["b"], CancelCtx: context.Background(), Tpr: 100}
+		e := &encoder.HallEncoder{A: b.Digitals["a"], B: b.Digitals["b"], CancelCtx: context.Background()}
 
 		m, err := WrapMotorWithEncoder(
 			context.Background(),

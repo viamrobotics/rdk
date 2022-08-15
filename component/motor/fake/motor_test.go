@@ -16,10 +16,11 @@ func TestMotorInit(t *testing.T) {
 	ctx := context.Background()
 
 	m := &Motor{
-		Encoder:           &fakeencoder.Encoder{Tpr: 1},
+		Encoder:           &fakeencoder.Encoder{},
 		Logger:            logger,
 		PositionReporting: true,
 		MaxRPM:            60,
+		TicksPerRotation:  1,
 	}
 
 	pos, err := m.GetPosition(ctx, nil)
@@ -36,10 +37,11 @@ func TestGoFor(t *testing.T) {
 	ctx := context.Background()
 
 	m := &Motor{
-		Encoder:           &fakeencoder.Encoder{Tpr: 1},
+		Encoder:           &fakeencoder.Encoder{},
 		Logger:            logger,
 		PositionReporting: true,
 		MaxRPM:            60,
+		TicksPerRotation:  1,
 	}
 
 	m.Encoder.Start(ctx, func() {})
@@ -52,10 +54,11 @@ func TestGoTo(t *testing.T) {
 	ctx := context.Background()
 
 	m := &Motor{
-		Encoder:           &fakeencoder.Encoder{Tpr: 1},
+		Encoder:           &fakeencoder.Encoder{},
 		Logger:            logger,
 		PositionReporting: true,
 		MaxRPM:            60,
+		TicksPerRotation:  1,
 	}
 
 	m.Encoder.Start(ctx, func() {})
@@ -68,10 +71,11 @@ func TestGoTillStop(t *testing.T) {
 	ctx := context.Background()
 
 	m := &Motor{
-		Encoder:           &fakeencoder.Encoder{Tpr: 1},
+		Encoder:           &fakeencoder.Encoder{},
 		Logger:            logger,
 		PositionReporting: true,
 		MaxRPM:            60,
+		TicksPerRotation:  1,
 	}
 
 	err := m.GoTillStop(ctx, 0, func(ctx context.Context) bool { return false })
@@ -83,10 +87,11 @@ func TestResetZeroPosition(t *testing.T) {
 	ctx := context.Background()
 
 	m := &Motor{
-		Encoder:           &fakeencoder.Encoder{Tpr: 1},
+		Encoder:           &fakeencoder.Encoder{},
 		Logger:            logger,
 		PositionReporting: true,
 		MaxRPM:            60,
+		TicksPerRotation:  1,
 	}
 
 	err := m.ResetZeroPosition(ctx, 0, nil)
@@ -102,10 +107,11 @@ func TestPower(t *testing.T) {
 	ctx := context.Background()
 
 	m := &Motor{
-		Encoder:           &fakeencoder.Encoder{Tpr: 1},
+		Encoder:           &fakeencoder.Encoder{},
 		Logger:            logger,
 		PositionReporting: true,
 		MaxRPM:            60,
+		TicksPerRotation:  1,
 	}
 
 	err := m.SetPower(ctx, 1.0, nil)

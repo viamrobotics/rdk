@@ -18,7 +18,7 @@ import (
 func init() {
 	registry.RegisterComponent(
 		Subtype,
-		"hall-encoder",
+		"hall",
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -27,7 +27,15 @@ func init() {
 		) (interface{}, error) {
 			return NewHallEncoder(ctx, deps, config, logger)
 		}})
-	RegisterConfigAttributeConverter("hall-encoder")
+
+	config.RegisterComponentAttributeMapConverter(
+		SubtypeName,
+		"hall",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf HallConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&HallConfig{})
 }
 
 // HallEncoder keeps track of a motor position using a rotary hall encoder.
@@ -36,7 +44,6 @@ type HallEncoder struct {
 	position int64
 	pRaw     int64
 	pState   int64
-	Tpr      int64
 
 	logger                  golog.Logger
 	CancelCtx               context.Context
@@ -46,19 +53,50 @@ type HallEncoder struct {
 	generic.Unimplemented
 }
 
+// HallPins describes the configuration of Pins for a Hall encoder.
+type HallPins struct {
+	A string `json:"a"`
+	B string `json:"b"`
+}
+
+// HallConfig describes the configuration of a Hall encoder.
+type HallConfig struct {
+	Pins      HallPins `json:"pins"`
+	BoardName string   `json:"board"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *HallConfig) Validate(path string) ([]string, error) {
+	var deps []string
+
+	if config.Pins.A == "" {
+		return nil, errors.New("expected nonempty string for a")
+	}
+	if config.Pins.B == "" {
+		return nil, errors.New("expected nonempty string for b")
+	}
+
+	if len(config.BoardName) == 0 {
+		return nil, errors.New("expected nonempty board")
+	}
+	deps = append(deps, config.BoardName)
+
+	return deps, nil
+}
+
 // NewHallEncoder creates a new HallEncoder.
 func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (*HallEncoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	e := &HallEncoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0, pRaw: 0, pState: 0}
-	if cfg, ok := config.ConvertedAttributes.(*Config); ok {
+	if cfg, ok := config.ConvertedAttributes.(*HallConfig); ok {
 		if cfg.BoardName == "" {
 			return nil, errors.New("HallEncoder expected non-empty string for board")
 		}
-		pinA := cfg.Pins["a"]
+		pinA := cfg.Pins.A
 		if pinA == "" {
 			return nil, errors.New("HallEncoder pin configuration expects non-empty string for a")
 		}
-		pinB := cfg.Pins["b"]
+		pinB := cfg.Pins.B
 		if pinB == "" {
 			return nil, errors.New("HallEncoder pin configuration expects non-empty string for b")
 		}

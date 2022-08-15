@@ -89,16 +89,16 @@ func TestConfig3(t *testing.T) {
 			Direction: "io17",
 			PWM:       "io18",
 		},
-		Encoder:     "encoder1",
-		MaxPowerPct: 0.5,
-	})
-	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &encoder.Config{
-		Pins: map[string]string{
-			"a": "encoder-steering-b",
-			"b": "encoder-steering-a",
-		},
+		Encoder:          "encoder1",
+		MaxPowerPct:      0.5,
 		TicksPerRotation: 10000,
-		BoardName:        "board1",
+	})
+	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &encoder.HallConfig{
+		Pins: encoder.HallPins{
+			A: "encoder-steering-b",
+			B: "encoder-steering-a",
+		},
+		BoardName: "board1",
 	})
 }
 

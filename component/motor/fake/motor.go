@@ -12,8 +12,8 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/encoder"
-	"go.viam.com/rdk/component/generic"
 	fakeencoder "go.viam.com/rdk/component/encoder/fake"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
@@ -49,7 +49,7 @@ func init() {
 						return nil, errors.New("need nonzero TicksPerRotation for encoded motor")
 					}
 					m.TicksPerRotation = mcfg.TicksPerRotation
-					
+
 					e, err := encoder.FromDependencies(deps, mcfg.Encoder)
 					if err != nil {
 						return nil, err

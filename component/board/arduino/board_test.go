@@ -51,8 +51,7 @@ func TestArduinoPWM(t *testing.T) {
 								A: "3",
 								B: "2",
 							},
-							TicksPerRotation: 2000,
-							MotorName:        "m1",
+							MotorName: "m1",
 						},
 					},
 				},
@@ -85,8 +84,7 @@ func TestArduinoPWM(t *testing.T) {
 								A: "3",
 								B: "2",
 							},
-							TicksPerRotation: 2000,
-							MotorName:        "m1",
+							MotorName: "m1",
 						},
 					},
 				},
@@ -118,8 +116,7 @@ func TestArduinoPWM(t *testing.T) {
 								A: "3",
 								B: "2",
 							},
-							TicksPerRotation: 2000,
-							MotorName:        "m1",
+							MotorName: "m1",
 						},
 					},
 				},
@@ -153,8 +150,7 @@ func TestArduinoPWM(t *testing.T) {
 								A: "3",
 								B: "2",
 							},
-							TicksPerRotation: 2000,
-							MotorName:        "m1",
+							MotorName: "m1",
 						},
 					},
 				},
@@ -178,7 +174,7 @@ func TestArduinoPWM(t *testing.T) {
 				b,
 				tc.conf.Components[0],
 				tc.conf.Components[0].ConvertedAttributes.(*motor.Config),
-				&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName, ticksPerRotation: int64(ecfg.TicksPerRotation)},
+				&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName},
 			)
 
 			if tc.err == "" {
@@ -238,8 +234,7 @@ func TestArduinoMotorABPWM(t *testing.T) {
 						A: "20",
 						B: "21",
 					},
-					TicksPerRotation: 980,
-					MotorName:        "m1",
+					MotorName: "m1",
 				},
 			},
 		},
@@ -261,7 +256,7 @@ func TestArduinoMotorABPWM(t *testing.T) {
 		b,
 		cfg.Components[0],
 		cfg.Components[0].ConvertedAttributes.(*motor.Config),
-		&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName, ticksPerRotation: int64(ecfg.TicksPerRotation)},
+		&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName},
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -297,8 +292,7 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 						A: "3",
 						B: "2",
 					},
-					TicksPerRotation: 2000,
-					MotorName:        "m1",
+					MotorName: "m1",
 				},
 			},
 		},
@@ -320,7 +314,7 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 		b,
 		cfg.Components[0],
 		cfg.Components[0].ConvertedAttributes.(*motor.Config),
-		&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName, ticksPerRotation: int64(ecfg.TicksPerRotation)},
+		&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName},
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -356,8 +350,7 @@ func TestArduinoMotorAB(t *testing.T) {
 						A: "3",
 						B: "2",
 					},
-					TicksPerRotation: 2000,
-					MotorName:        "m1",
+					MotorName: "m1",
 				},
 			},
 		},
@@ -379,7 +372,7 @@ func TestArduinoMotorAB(t *testing.T) {
 		b,
 		cfg.Components[0],
 		cfg.Components[0].ConvertedAttributes.(*motor.Config),
-		&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName, ticksPerRotation: int64(ecfg.TicksPerRotation)},
+		&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName},
 	)
 	test.That(t, err, test.ShouldBeNil)
 

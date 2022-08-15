@@ -18,7 +18,7 @@ import (
 func init() {
 	registry.RegisterComponent(
 		Subtype,
-		"single-encoder",
+		"single",
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -27,7 +27,15 @@ func init() {
 		) (interface{}, error) {
 			return NewSingleEncoder(ctx, deps, config, logger)
 		}})
-	RegisterConfigAttributeConverter("single-encoder")
+
+	config.RegisterComponentAttributeMapConverter(
+		SubtypeName,
+		"single",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf SingleConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&SingleConfig{})
 }
 
 // DirectionAware lets you ask what direction something is moving. Only used for SingleEncoder for now, unclear future.
@@ -42,12 +50,42 @@ type SingleEncoder struct {
 	I        board.DigitalInterrupt
 	position int64
 	m        DirectionAware
-	Tpr      int64
 
 	logger                  golog.Logger
 	CancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+}
+
+// SinglePins describes the configuration of Pins for a Single encoder.
+type SinglePins struct {
+	I   string `json:"i"`
+	Dir string `json:"dir"`
+}
+
+// SingleConfig describes the configuration of a single encoder.
+type SingleConfig struct {
+	Pins      SinglePins `json:"pins"`
+	BoardName string     `json:"board"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *SingleConfig) Validate(path string) ([]string, error) {
+	var deps []string
+
+	if config.Pins.I == "" {
+		return nil, errors.New("expected nonempty string for i")
+	}
+	if config.Pins.Dir == "" {
+		return nil, errors.New("expected nonempty string for dir")
+	}
+
+	if len(config.BoardName) == 0 {
+		return nil, errors.New("expected nonempty board")
+	}
+	deps = append(deps, config.BoardName)
+
+	return deps, nil
 }
 
 // AttachDirectionalAwareness to pre-created encoder.
@@ -64,17 +102,17 @@ func NewSingleEncoder(
 ) (*SingleEncoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	e := &SingleEncoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0}
-	if cfg, ok := config.ConvertedAttributes.(*Config); ok {
+	if cfg, ok := config.ConvertedAttributes.(*SingleConfig); ok {
 		if cfg.BoardName == "" {
 			return nil, errors.New("SingleEncoder expected non-empty string for board")
 		}
 
-		pin := cfg.Pins["i"]
+		pin := cfg.Pins.I
 		if pin == "" {
 			return nil, errors.New("HallEncoder pin configuration expects non-empty string for a")
 		}
 
-		if cfg.Pins["dir"] == "" {
+		if cfg.Pins.Dir == "" {
 			return nil, errors.New("single line encoder needs motor direction pin")
 		}
 

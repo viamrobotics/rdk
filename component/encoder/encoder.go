@@ -5,11 +5,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
@@ -158,38 +156,4 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 	return &reconfigurableEncoder{actual: m}, nil
-}
-
-// Config describes the configuration of an encoder.
-type Config struct {
-	Pins             map[string]string `json:"pins"`
-	BoardName        string            `json:"board"`
-}
-
-// Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) ([]string, error) {
-	var deps []string
-
-	if config.Pins == nil {
-		return nil, errors.New("expected nonnil pins")
-	}
-
-	if len(config.BoardName) == 0 {
-		return nil, errors.New("expected nonempty board")
-	}
-	deps = append(deps, config.BoardName)
-
-	return deps, nil
-}
-
-// RegisterConfigAttributeConverter registers a Config converter.
-func RegisterConfigAttributeConverter(model string) {
-	config.RegisterComponentAttributeMapConverter(
-		SubtypeName,
-		model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&Config{})
 }
