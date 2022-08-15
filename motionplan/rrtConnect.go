@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"context"
-	"errors"
 	"math/rand"
 
 	"github.com/edaniels/golog"
@@ -155,16 +154,16 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 
 		if map1reached && map2reached {
 			cancel()
-			solutionChan <- &planReturn{steps: extractPath(startMap, goalMap, targetNode, targetNode)}
+			solutionChan <- &planReturn{steps: extractPath(startMap, goalMap, &nodePair{targetNode, targetNode})}
 			return
 		}
 
+		// get next sample, switch map pointers
 		target = mp.sample()
-
 		map1, map2 = map2, map1
 	}
 
-	solutionChan <- &planReturn{err: errors.New("could not solve path")}
+	solutionChan <- &planReturn{err: NewPlannerFailedError()}
 }
 
 func (mp *rrtConnectMotionPlanner) sample() []referenceframe.Input {

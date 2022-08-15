@@ -43,6 +43,8 @@ type node struct {
 	cost float64
 }
 
+type nodePair struct{ a, b *node }
+
 type planReturn struct {
 	steps []*node
 	err   error
@@ -409,7 +411,7 @@ IK:
 		}
 	}
 	if len(solutions) == 0 {
-		return nil, errors.New("unable to solve for position")
+		return nil, NewIKError()
 	}
 
 	keys := make([]float64, 0, len(solutions))
@@ -423,6 +425,64 @@ IK:
 		orderedSolutions = append(orderedSolutions, solutions[key])
 	}
 	return orderedSolutions, nil
+}
+
+func NewIKError() error {
+	return errors.New("unable to solve for position")
+}
+
+func NewPlannerFailedError() error {
+	return errors.New("motion planner failed to find path")
+}
+
+func extractPath(startMap, goalMap map[*node]*node, pair *nodePair) []*node {
+	// need to figure out which of the two nodes is in the start map
+	var startReached, goalReached *node
+	if _, ok := startMap[pair.a]; ok {
+		startReached, goalReached = pair.a, pair.b
+	} else {
+		startReached, goalReached = pair.b, pair.a
+	}
+
+	// extract the path to the seed
+	path := []*node{}
+	for startReached != nil {
+		path = append(path, startReached)
+		startReached = startMap[startReached]
+	}
+
+	// reverse the slice
+	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
+		path[i], path[j] = path[j], path[i]
+	}
+
+	// skip goalReached node and go directly to its parent in order to not repeat this node
+	goalReached = goalMap[goalReached]
+
+	// extract the path to the goal
+	for goalReached != nil {
+		path = append(path, goalReached)
+		goalReached = goalMap[goalReached]
+	}
+	return path
+}
+
+func shortestPath(startMap, goalMap map[*node]*node, nodePairs []*nodePair) *planReturn {
+	if len(nodePairs) == 0 {
+		return &planReturn{err: NewPlannerFailedError()}
+	}
+	pairCost := func(pair *nodePair) float64 {
+		return pair.a.cost + pair.b.cost
+	}
+	minIdx := 0
+	minDist := pairCost(nodePairs[0])
+	for i := 1; i < len(nodePairs); i++ {
+		if dist := pairCost(nodePairs[i]); dist < minDist {
+			minDist = dist
+			minIdx = i
+		}
+	}
+	return &planReturn{steps: extractPath(startMap, goalMap, nodePairs[minIdx])}
 }
 
 func inputDist(from, to []frame.Input) float64 {

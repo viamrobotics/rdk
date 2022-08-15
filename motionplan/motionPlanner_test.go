@@ -43,16 +43,17 @@ type seededPlannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand,
 
 func TestUnconstrainedMotion(t *testing.T) {
 	planners := []seededPlannerConstructor{
-		NewRRTConnectMotionPlannerWithSeed,
-		NewCBiRRTMotionPlannerWithSeed,
+		NewRRTStarConnectMotionPlannerWithSeed,
+		// NewRRTConnectMotionPlannerWithSeed,
+		// NewCBiRRTMotionPlannerWithSeed,
 	}
 	testCases := []struct {
 		name   string
 		config planConfig
 	}{
 		{"2D plan test", simple2DMap(t)},
-		{"6D plan test", simpleUR5eMotion(t)},
-		{"7D plan test", simpleXArmMotion(t)},
+		// {"6D plan test", simpleUR5eMotion(t)},
+		// {"7D plan test", simpleXArmMotion(t)},
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -221,8 +222,7 @@ func simpleUR5eMotion(t *testing.T) planConfig {
 // testPlanner is a helper function that takes a planner and a planning query specified through a config object and tests that it
 // returns a valid set of waypoints.
 func testPlanner(t *testing.T, planner seededPlannerConstructor, config *planConfig) {
-	t.Helper()
-	allPaths := make([][][]frame.Input, config.NumTests)
+	var path [][]frame.Input
 	for i := 0; i < config.NumTests; i++ {
 		// setup planner
 		mp, err := planner(config.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(i))), logger.Sugar())
@@ -238,7 +238,7 @@ func testPlanner(t *testing.T, planner seededPlannerConstructor, config *planCon
 		opt.AddConstraint("collision", NewCollisionConstraint(config.RobotFrame, toMap(config.Obstacles), toMap(config.InteractionSpaces)))
 
 		// plan
-		path, err := mp.Plan(context.Background(), config.Goal, config.Start, opt)
+		path, err = mp.Plan(context.Background(), config.Goal, config.Start, opt)
 		test.That(t, err, test.ShouldBeNil)
 
 		// evaluate
@@ -260,7 +260,7 @@ func testPlanner(t *testing.T, planner seededPlannerConstructor, config *planCon
 	}
 
 	// write output
-	test.That(t, writeJSONFile(utils.ResolveFile("motionplan/output.test"), allPaths), test.ShouldBeNil)
+	test.That(t, writeJSONFile(utils.ResolveFile("motionplan/output.test"), [][][]frame.Input{path}), test.ShouldBeNil)
 }
 
 func writeJSONFile(filename string, data interface{}) error {

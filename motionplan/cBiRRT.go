@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"context"
-	"errors"
 	"math"
 	"math/rand"
 
@@ -210,7 +209,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 
 		if inputDist(map1reached.q, map2reached.q) < mp.solDist {
 			cancel()
-			path := extractPath(seedMap, goalMap, map1reached, map2reached)
+			path := extractPath(seedMap, goalMap, &nodePair{map1reached, map2reached})
 			if endpointPreview != nil {
 				endpointPreview <- path[len(path)-1]
 			}
@@ -224,7 +223,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		map1, map2 = map2, map1
 	}
 
-	solutionChan <- &planReturn{err: errors.New("could not solve path")}
+	solutionChan <- &planReturn{err: NewPlannerFailedError()}
 }
 
 func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) []referenceframe.Input {
@@ -475,36 +474,4 @@ func getFrameSteps(f referenceframe.Frame, by float64) []float64 {
 		pos[i] = jRange * by
 	}
 	return pos
-}
-
-func extractPath(startMap, goalMap map[*node]*node, q1, q2 *node) []*node {
-	// need to figure out which of the two nodes is in the start map
-	var startReached, goalReached *node
-	if _, ok := startMap[q1]; ok {
-		startReached, goalReached = q1, q2
-	} else {
-		startReached, goalReached = q2, q1
-	}
-
-	// extract the path to the seed
-	path := []*node{}
-	for startReached != nil {
-		path = append(path, startReached)
-		startReached = startMap[startReached]
-	}
-
-	// reverse the slice
-	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
-		path[i], path[j] = path[j], path[i]
-	}
-
-	// skip goalReached node and go directly to its parent in order to not repeat this node
-	goalReached = goalMap[goalReached]
-
-	// extract the path to the goal
-	for goalReached != nil {
-		path = append(path, goalReached)
-		goalReached = goalMap[goalReached]
-	}
-	return path
 }

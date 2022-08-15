@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"context"
-	"errors"
 	"math"
 	"math/rand"
 
@@ -130,6 +129,9 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	// Create a reference to the two maps so that we can alternate which one is grown
 	map1, map2 := startMap, goalMap
 
+	// Keep a list of the node pairs that have the same inputs
+	shared := make([]*nodePair, 0)
+
 	// sample until the max number of iterations is reached
 	for i := 0; i < mp.iter; i++ {
 		select {
@@ -139,29 +141,34 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 		default:
 		}
 
-		if mp.extend(opt, map1, target) && mp.extend(opt, map2, target) {
-
+		// try to connect the target to map 1
+		if map1reached := mp.extend(opt, map1, target); map1reached != nil {
+			// try to connect the target to map 2
+			if map2reached := mp.extend(opt, map2, target); map2reached != nil {
+				// target was added to both map
+				shared = append(shared, &nodePair{map1reached, map2reached})
+			}
 		}
 
+		// get next sample, switch map pointers
 		target = mp.sample()
-
 		map1, map2 = map2, map1
 	}
 
-	solutionChan <- &planReturn{err: errors.New("could not solve path")}
+	solutionChan <- shortestPath(startMap, goalMap, shared)
 }
 
 func (mp *rrtStarConnectMotionPlanner) sample() []referenceframe.Input {
 	return referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
 }
 
-func (mp *rrtStarConnectMotionPlanner) extend(opt *PlannerOptions, tree map[*node]*node, target []referenceframe.Input) bool {
+func (mp *rrtStarConnectMotionPlanner) extend(opt *PlannerOptions, tree map[*node]*node, target []referenceframe.Input) *node {
 	neighbors := kNearestNeighbors(tree, target)
 
 	// TODO(rb): potentially either add a steer() function or get the closest valid point from constraint checker
 	map1reached := mp.checkPath(opt, neighbors[0].node.q, target)
 	if !map1reached {
-		return false
+		return nil
 	}
 
 	minIndex := 0
@@ -194,7 +201,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(opt *PlannerOptions, tree map[*nod
 			tree[neighbors[i].node] = targetNode
 		}
 	}
-	return true
+	return targetNode
 }
 
 func (mp *rrtStarConnectMotionPlanner) checkPath(opt *PlannerOptions, seedInputs, target []referenceframe.Input) bool {
