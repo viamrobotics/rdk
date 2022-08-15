@@ -334,7 +334,11 @@ func readCertificateDataFromCloud(ctx context.Context, signalingInsecure bool, c
 	}, nil
 }
 
-func readCertificateDataFromCloudGRPC(ctx context.Context, signalingInsecure bool, cloudConfigFromDisk *Cloud, logger golog.Logger) (*Cloud, error) {
+func readCertificateDataFromCloudGRPC(ctx context.Context,
+	signalingInsecure bool,
+	cloudConfigFromDisk *Cloud,
+	logger golog.Logger,
+) (*Cloud, error) {
 	conn, err := createNewGRPCClient(ctx, cloudConfigFromDisk, logger)
 	if err != nil {
 		return nil, err
