@@ -17,13 +17,18 @@ import (
 	"go.uber.org/zap/zapcore"
 	apppb "go.viam.com/api/proto/viam/app/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/rlog"
-	"go.viam.com/utils/rpc"
+)
+
+const (
+	maxQueueSize   = 20000
+	writeBatchSize = 100
 )
 
 type wrappedLogger struct {
@@ -191,11 +196,27 @@ func (nl *netLogger) addToQueue(x *apppb.LogEntry) {
 	nl.toLogMutex.Lock()
 	defer nl.toLogMutex.Unlock()
 
-	if len(nl.toLog) > 20000 {
+	if len(nl.toLog) > maxQueueSize {
 		// TODO(erh): sample?
 		nl.toLog = nl.toLog[1:]
 	}
 	nl.toLog = append(nl.toLog, x)
+}
+
+func (nl *netLogger) addBatchToQueue(x []*apppb.LogEntry) {
+	if len(x) == 0 {
+		return
+	}
+
+	nl.toLogMutex.Lock()
+	defer nl.toLogMutex.Unlock()
+
+	if len(nl.toLog) > maxQueueSize {
+		// TODO(erh): sample?
+		nl.toLog = nl.toLog[len(x):]
+	}
+
+	nl.toLog = append(nl.toLog, x...)
 }
 
 func (nl *netLogger) backgroundWorker() {
@@ -222,9 +243,8 @@ func (nl *netLogger) backgroundWorker() {
 }
 
 func (nl *netLogger) Sync() error {
-	// TODO(erh): batch writes
 	for {
-		x := func() *apppb.LogEntry {
+		x := func() []*apppb.LogEntry {
 			nl.toLogMutex.Lock()
 			defer nl.toLogMutex.Unlock()
 
@@ -232,20 +252,24 @@ func (nl *netLogger) Sync() error {
 				return nil
 			}
 
-			x := nl.toLog[0]
-			nl.toLog = nl.toLog[1:]
+			batchSize := writeBatchSize
+			if len(nl.toLog) < writeBatchSize {
+				batchSize = len(nl.toLog)
+			}
+
+			x := nl.toLog[0:batchSize]
+			nl.toLog = nl.toLog[batchSize:]
 
 			return x
 		}()
 
-		if x == nil {
+		if len(x) == 0 {
 			return nil
 		}
 
-		ll := []*apppb.LogEntry{x}
-		err := nl.remoteWriter.write(ll)
+		err := nl.remoteWriter.write(x)
 		if err != nil {
-			nl.addToQueue(x) // we'll try again later
+			nl.addBatchToQueue(x)
 			return err
 		}
 	}
@@ -335,7 +359,8 @@ func (w *remoteLogWriterHTTP) close() {
 
 type remoteLogWriterGRPC struct {
 	cfg         *config.Cloud
-	client      rpc.ClientConn
+	service     apppb.RobotServiceClient
+	rpcClient   rpc.ClientConn
 	clientMutex sync.Mutex
 	logger      golog.Logger
 }
@@ -346,8 +371,7 @@ func (w *remoteLogWriterGRPC) write(logs []*apppb.LogEntry) error {
 		return err
 	}
 
-	service := apppb.NewRobotServiceClient(client)
-	_, err = service.Log(context.Background(), &apppb.LogRequest{Id: w.cfg.ID, Logs: logs})
+	_, err = client.Log(context.Background(), &apppb.LogRequest{Id: w.cfg.ID, Logs: logs})
 	if err != nil {
 		return err
 	}
@@ -355,8 +379,8 @@ func (w *remoteLogWriterGRPC) write(logs []*apppb.LogEntry) error {
 	return nil
 }
 
-func (w *remoteLogWriterGRPC) getOrCreateClient() (rpc.ClientConn, error) {
-	if w.client == nil {
+func (w *remoteLogWriterGRPC) getOrCreateClient() (apppb.RobotServiceClient, error) {
+	if w.service == nil {
 		w.clientMutex.Lock()
 		defer w.clientMutex.Unlock()
 
@@ -365,13 +389,14 @@ func (w *remoteLogWriterGRPC) getOrCreateClient() (rpc.ClientConn, error) {
 			return nil, err
 		}
 
-		w.client = client
+		w.rpcClient = client
+		w.service = apppb.NewRobotServiceClient(w.rpcClient)
 	}
-	return w.client, nil
+	return w.service, nil
 }
 
 func (w *remoteLogWriterGRPC) close() {
-	if w.client != nil {
-		utils.UncheckedErrorFunc(w.client.Close)
+	if w.rpcClient != nil {
+		utils.UncheckedErrorFunc(w.rpcClient.Close)
 	}
 }
