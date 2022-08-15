@@ -62,6 +62,7 @@ func TestEncoder(t *testing.T) {
 
 		time.Sleep(200 * time.Millisecond)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
 			pos, err := e.GetTicksCount(ctx, nil)
 			test.That(t, pos, test.ShouldBeGreaterThan, 0)
 			test.That(t, err, test.ShouldBeNil)
