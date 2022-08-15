@@ -51,6 +51,7 @@ var (
 	embeddedStruct     = EmbeddedStruct{simpleStruct, sliceStruct}
 	emptyPointerStruct = EmptyPointerStruct{EmptyStruct: nil}
 	singleByteStruct   = SingleUintStruct{UintValue: uint16(1)}
+	emptyInterface     = EmptyInterface{Interface: nil}
 
 	nilPointerResembleVal = EmptyPointerStruct{EmptyStruct: &EmptyStruct{}}
 
@@ -109,6 +110,11 @@ var (
 			singleByteStruct,
 			map[string]interface{}{"UintValue": uint(1)},
 			SingleUintStruct{},
+		}, {
+			"struct with nil pointer",
+			emptyInterface,
+			map[string]interface{}{"nil_interface": nil},
+			EmptyInterface{},
 		},
 	}
 )
@@ -391,4 +397,8 @@ type EmbeddedStruct struct {
 
 type SingleUintStruct struct {
 	UintValue uint16
+}
+
+type EmptyInterface struct {
+	Interface interface{} `json:"nil_interface"`
 }

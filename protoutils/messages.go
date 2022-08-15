@@ -82,6 +82,11 @@ func StructToStructPb(i interface{}) (*structpb.Struct, error) {
 func toInterface(data interface{}) (interface{}, error) {
 	t := reflect.TypeOf(data)
 	v := reflect.ValueOf(data)
+
+	if t == nil {
+		return nil, nil
+	}
+
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
 		v = reflect.Indirect(v)
@@ -259,9 +264,9 @@ func ConvertOrientationToProto(o spatialmath.Orientation) *commonpb.Orientation 
 // ConvertProtoToOrientation
 func ConvertProtoToOrientation(o *commonpb.Orientation) spatialmath.Orientation {
 	return &spatialmath.OrientationVectorDegrees{
-		OX : o.OX,
-		OY : o.OY,
-		OZ : o.OZ,
-		Theta : o.Theta	,
+		OX:    o.OX,
+		OY:    o.OY,
+		OZ:    o.OZ,
+		Theta: o.Theta,
 	}
 }
