@@ -14,27 +14,22 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// client is a client satisfies the motion.proto contract.
+// client implements MotionServiceClient.
 type client struct {
 	conn   rpc.ClientConn
 	client pb.MotionServiceClient
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
+// NewClientFromConn constructs a new Client from connection passed in.
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
 	grpcClient := pb.NewMotionServiceClient(conn)
-	sc := &client{
+	c := &client{
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
 	}
-	return sc
-}
-
-// NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
-	return newSvcClientFromConn(conn, logger)
+	return c
 }
 
 func (c *client) PlanAndMove(
