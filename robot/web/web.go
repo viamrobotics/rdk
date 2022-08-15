@@ -448,6 +448,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return errors.New("may only set one of network bind address or listener")
 	}
 	listener := options.Network.Listener
+
 	if listener == nil {
 		listener, err = net.Listen("tcp", options.Network.BindAddress)
 		if err != nil {
