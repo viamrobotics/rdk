@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
@@ -283,6 +284,41 @@ func TestConfigEnsure(t *testing.T) {
 		validAPIKeyHandler,
 	}
 	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
+}
+
+func TestCopyOnlyPublicFields(t *testing.T) {
+	t.Run("copy sample config", func(t *testing.T) {
+		content, err := os.ReadFile("data/robot.json")
+		test.That(t, err, test.ShouldBeNil)
+		var cfg config.Config
+		json.Unmarshal(content, &cfg)
+
+		cfgCopy, err := cfg.CopyOnlyPublicFields()
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, *cfgCopy, test.ShouldResemble, cfg)
+	})
+
+	t.Run("should not copy unexported json fields", func(t *testing.T) {
+		cfg := &config.Config{
+			Cloud: &config.Cloud{
+				TLSCertificate: "abc",
+			},
+			Network: config.NetworkConfig{
+				NetworkConfigData: config.NetworkConfigData{
+					TLSConfig: &tls.Config{
+						Time: time.Now().UTC,
+					},
+				},
+			},
+		}
+
+		cfgCopy, err := cfg.CopyOnlyPublicFields()
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, cfgCopy.Cloud.TLSCertificate, test.ShouldEqual, cfg.Cloud.TLSCertificate)
+		test.That(t, cfgCopy.Network.TLSConfig, test.ShouldBeNil)
+	})
 }
 
 func TestConfigSortComponents(t *testing.T) {

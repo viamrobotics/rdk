@@ -92,8 +92,8 @@ func (config *GeometryConfig) ParseConfig() (GeometryCreator, error) {
 // NewGeometryFromProto instatiates a new Geometry from a protobuf Geometry message.
 func NewGeometryFromProto(geometry *commonpb.Geometry) (Geometry, error) {
 	pose := NewPoseFromProtobuf(geometry.Center)
-	if box := geometry.GetBox(); box != nil {
-		return NewBox(pose, r3.Vector{X: box.WidthMm, Y: box.LengthMm, Z: box.DepthMm})
+	if box := geometry.GetBox().GetDimsMm(); box != nil {
+		return NewBox(pose, r3.Vector{X: box.X, Y: box.Y, Z: box.Z})
 	}
 	if sphere := geometry.GetSphere(); sphere != nil {
 		if sphere.RadiusMm == 0 {
