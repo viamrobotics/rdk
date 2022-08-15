@@ -49,11 +49,7 @@ func TestMoveFailures(t *testing.T) {
 		_, err = ms.PlanAndMove(context.Background(), camera.Named("fake"), grabPose, &commonpb.WorldState{})
 		test.That(t, err, test.ShouldNotBeNil)
 	})
-	t.Run("fail on moving gripper with respect to gripper", func(t *testing.T) {
-		badGrabPose := referenceframe.NewPoseInFrame("arm1", spatialmath.NewZeroPose())
-		_, err = ms.PlanAndMove(context.Background(), gripper.Named("arm1"), badGrabPose, &commonpb.WorldState{})
-		test.That(t, err, test.ShouldBeError, "cannot move component with respect to its own frame, will always be at its own origin")
-	})
+
 	t.Run("fail on disconnected supplemental frames in world state", func(t *testing.T) {
 		testPose := spatialmath.NewPoseFromOrientation(
 			r3.Vector{X: 1., Y: 2., Z: 3.},
@@ -77,12 +73,24 @@ func TestMoveFailures(t *testing.T) {
 	})
 }
 
-func TestMove(t *testing.T) {
+func TestMove1(t *testing.T) {
 	var err error
 	ms := setupMotionServiceFromConfig(t, "data/moving_arm.json")
 
 	t.Run("succeeds when all frame info in config", func(t *testing.T) {
 		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
+		_, err = ms.PlanAndMove(context.Background(), gripper.Named("pieceGripper"), grabPose, &commonpb.WorldState{})
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("succeeds when mobile component can be solved for destinations in own frame", func(t *testing.T) {
+		grabPose := referenceframe.NewPoseInFrame("pieceArm", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
+		_, err = ms.PlanAndMove(context.Background(), gripper.Named("pieceArm"), grabPose, &commonpb.WorldState{})
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("succeeds when immobile component can be solved for destinations in own frame", func(t *testing.T) {
+		grabPose := referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
 		_, err = ms.PlanAndMove(context.Background(), gripper.Named("pieceGripper"), grabPose, &commonpb.WorldState{})
 		test.That(t, err, test.ShouldBeNil)
 	})
