@@ -186,15 +186,11 @@ func (rc *RobotClient) reconfigureChildren(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			_, err = resource.ReconfigureResource(ctx, client, newClient)
+			currResource, err := resource.ReconfigureResource(ctx, client, newClient)
 			if err != nil {
 				return err
 			}
-			_, oldIsReconfigurable := client.(resource.Reconfigurable)
-			_, newIsReconfigurable := newClient.(resource.Reconfigurable)
-			if !oldIsReconfigurable && !newIsReconfigurable {
-				rc.children[name] = newClient
-			}
+			rc.children[name] = currResource
 			checkedChildren[name] = true
 		}
 	}
