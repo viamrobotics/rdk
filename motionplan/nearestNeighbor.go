@@ -130,7 +130,7 @@ func (nm *neighborManager) nnWorker(ctx context.Context) {
 		case k := <-nm.nnKeys:
 			if k != nil {
 				nm.nnLock.RLock()
-				dist := inputDist(nm.seedPos.q, k.q)
+				dist := inputDist(nm.seedPos, k.q)
 				nm.nnLock.RUnlock()
 				if dist < bestDist {
 					bestDist = dist
