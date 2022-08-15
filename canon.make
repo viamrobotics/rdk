@@ -71,7 +71,8 @@ canon-shell-arm64: canon-update
 
 
 # Docker targets that pre-cache go module downloads (intended to be rebuilt weekly/nightly)
-BUILD_CMD = docker buildx build --pull --load $(BUILD_PUSH) --force-rm --no-cache $(DOCKER_NETRC_BUILD) --build-arg BASE_TAG=$(BUILD_TAG) --platform linux/$(BUILD_TAG) -f etc/Dockerfile.cache -t 'ghcr.io/viamrobotics/canon:$(BUILD_TAG)-cache' .
+BUILD_CMD = docker buildx build --pull $(BUILD_PUSH) --force-rm --no-cache $(DOCKER_NETRC_BUILD) --build-arg BASE_TAG=$(BUILD_TAG) --platform linux/$(BUILD_TAG) -f etc/Dockerfile.cache -t 'ghcr.io/viamrobotics/canon:$(BUILD_TAG)-cache' .
+BUILD_PUSH = --load
 
 canon-cache: canon-cache-build canon-cache-upload
 
