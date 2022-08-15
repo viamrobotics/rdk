@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 func newServer() (pb.CameraServiceServer, *inject.Camera, *inject.Camera, error) {
@@ -90,10 +91,13 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not a camera")
 
-		resp, err := cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{Name: testCameraName})
+		resp, err := cameraServer.GetFrame(
+			context.Background(),
+			&pb.GetFrameRequest{Name: testCameraName, MimeType: utils.MimeTypeRawRGBA},
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, imageReleased, test.ShouldBeTrue)
-		test.That(t, resp.MimeType, test.ShouldEqual, "image/png")
+		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeRawRGBA)
 		test.That(t, resp.Image, test.ShouldResemble, img.Pix)
 
 		imageReleased = false
