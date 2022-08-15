@@ -71,7 +71,9 @@ type needsRestartCheckerGRPC struct {
 }
 
 func (c *needsRestartCheckerGRPC) close() {
-	utils.UncheckedErrorFunc(c.client.Close)
+	if c.client != nil {
+		utils.UncheckedErrorFunc(c.client.Close)
+	}
 }
 
 func (c *needsRestartCheckerGRPC) needsRestart(ctx context.Context) (bool, time.Duration, error) {
