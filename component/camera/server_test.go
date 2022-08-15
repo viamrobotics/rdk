@@ -93,7 +93,7 @@ func TestServer(t *testing.T) {
 		resp, err := cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{Name: testCameraName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, imageReleased, test.ShouldBeTrue)
-		test.That(t, resp.MimeType, test.ShouldEqual, "image/raw-rgba")
+		test.That(t, resp.MimeType, test.ShouldEqual, "image/png")
 		test.That(t, resp.Image, test.ShouldResemble, img.Pix)
 
 		imageReleased = false
