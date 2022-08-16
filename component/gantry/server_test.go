@@ -6,11 +6,11 @@ import (
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/gantry"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -92,7 +92,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not a gantry")
 
-		ext, err := structpb.NewStruct(map[string]interface{}{"foo": "123", "bar": 234})
+		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "123", "bar": 234})
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := gantryServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: testGantryName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
@@ -112,7 +112,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no gantry")
 
-		ext, err := structpb.NewStruct(map[string]interface{}{"foo": "234", "bar": 345})
+		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "234", "bar": 345})
 		test.That(t, err, test.ShouldBeNil)
 		_, err = gantryServer.MoveToPosition(
 			context.Background(),
@@ -136,7 +136,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no gantry")
 
-		ext, err := structpb.NewStruct(map[string]interface{}{"foo": 123, "bar": "234"})
+		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": 123, "bar": "234"})
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := gantryServer.GetLengths(context.Background(), &pb.GetLengthsRequest{Name: testGantryName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)
@@ -153,7 +153,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no gantry")
 
-		ext, err := structpb.NewStruct(map[string]interface{}{"foo": 234, "bar": "123"})
+		ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": 234, "bar": "123"})
 		test.That(t, err, test.ShouldBeNil)
 		_, err = gantryServer.Stop(context.Background(), &pb.StopRequest{Name: testGantryName, Extra: ext})
 		test.That(t, err, test.ShouldBeNil)

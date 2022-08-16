@@ -586,10 +586,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 					logger.Debugf("error reading device: %s", err)
 					return
 				}
-				// TODO(DATA-237): .both will be removed
 				im := rimage.ConvertImage(img)
-				dm, _ := rimage.ConvertImageToDepthMap(img) // depth map optional
-				theBoard, err := chess.FindAndWarpBoard(im, dm, logger)
+				theBoard, err := chess.FindAndWarpBoard(im, nil, logger)
 				if err != nil {
 					logger.Debug(err)
 					return

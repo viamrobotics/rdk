@@ -400,7 +400,7 @@ func (jpcs *joinPointCloudSource) Next(ctx context.Context) (image.Image, func()
 		return nil, nil, err
 	}
 	switch jpcs.stream {
-	case camera.UnspecifiedStream, camera.ColorStream, camera.BothStream:
+	case camera.UnspecifiedStream, camera.ColorStream:
 		return img, func() {}, nil
 	case camera.DepthStream:
 		return dm, func() {}, nil

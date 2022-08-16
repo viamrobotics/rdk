@@ -11,38 +11,23 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-// serviceClient is a client that satisfies the pose_tracker.proto contract.
-type serviceClient struct {
+// client implements PoseTrackerServiceClient.
+type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.PoseTrackerServiceClient
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
-	client := pb.NewPoseTrackerServiceClient(conn)
-	sc := &serviceClient{
-		conn:   conn,
-		client: client,
-		logger: logger,
-	}
-	return sc
-}
-
-// client is a pose tracker client.
-type client struct {
-	*serviceClient
-	name string
-}
-
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) PoseTracker {
-	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(sc, name)
-}
-
-func clientFromSvcClient(sc *serviceClient, name string) PoseTracker {
-	return &client{sc, name}
+	c := pb.NewPoseTrackerServiceClient(conn)
+	return &client{
+		name:   name,
+		conn:   conn,
+		client: c,
+		logger: logger,
+	}
 }
 
 func (c *client) GetPoses(

@@ -17,7 +17,7 @@ func (cd ChargeDebug) Process(
 	t *testing.T,
 	pCtx *rimage.ProcessorContext,
 	fn string,
-	img image.Image,
+	img, img2 image.Image,
 	logger golog.Logger,
 ) error {
 	t.Helper()
@@ -36,7 +36,7 @@ func (cd ChargeDebug) Process(
 }
 
 func TestCharge1(t *testing.T) {
-	d := rimage.NewMultipleImageTestDebugger(t, "minirover2/charging3", "*.jpg", false)
+	d := rimage.NewMultipleImageTestDebugger(t, "minirover2/charging3", "*.jpg", "")
 	err := d.Process(t, ChargeDebug{})
 	test.That(t, err, test.ShouldBeNil)
 }
