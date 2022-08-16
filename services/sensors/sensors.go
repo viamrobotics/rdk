@@ -80,7 +80,7 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// FromRobot retrieves the sensor service of a robot.
+// FromRobot is a helper for getting the named sensor service from the given Robot.
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	resource, err := r.ResourceByName(Named(name))
 	if err != nil {
