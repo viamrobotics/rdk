@@ -63,7 +63,11 @@ func newUndistortSource(ctx context.Context, source camera.Camera, attrs *transf
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	imgSrc := &undistortSource{source, camera.StreamType(attrs.Stream), intrinsics}
-	return camera.FromImageSource(imgSrc, proj)
+	props, err := source.GetProperties(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to retrieve properties for source camera")
+	}
+	return camera.FromImageSource(imgSrc, proj, props.HasDepth)
 }
 
 // Next undistorts the original image according to the camera parameters.
