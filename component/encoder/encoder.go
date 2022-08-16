@@ -36,11 +36,9 @@ type Encoder interface {
 	// GetTicksCount returns number of ticks since last zeroing
 	GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error)
 
-	// ResetToZero resets the counted ticks to 0
-	ResetToZero(ctx context.Context, offset int64, extra map[string]interface{}) error
-
-	// Start starts the encoder in a background thread
-	Start(ctx context.Context, onStart func())
+	// Reset sets the current position of the motor (adjusted by a given offset)
+	// to be its new zero position.
+	Reset(ctx context.Context, offset int64, extra map[string]interface{}) error
 
 	generic.Generic
 }
@@ -111,14 +109,10 @@ func (r *reconfigurableEncoder) GetTicksCount(ctx context.Context, extra map[str
 	return r.actual.GetTicksCount(ctx, extra)
 }
 
-func (r *reconfigurableEncoder) ResetToZero(ctx context.Context, offset int64, extra map[string]interface{}) error {
+func (r *reconfigurableEncoder) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.ResetToZero(ctx, offset, extra)
-}
-
-func (r *reconfigurableEncoder) Start(ctx context.Context, onstart func()) {
-	r.actual.Start(ctx, onstart)
+	return r.actual.Reset(ctx, offset, extra)
 }
 
 func (r *reconfigurableEncoder) Close(ctx context.Context) error {

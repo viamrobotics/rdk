@@ -57,8 +57,6 @@ func init() {
 					realEncoder := rdkutils.UnwrapProxy(e)
 					m.Encoder = realEncoder.(*fakeencoder.Encoder)
 					m.PositionReporting = true
-
-					m.Encoder.Start(ctx, func() {})
 				} else {
 					m.PositionReporting = false
 				}
@@ -291,7 +289,7 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 		return errors.New("need nonzero TicksPerRotation for motor")
 	}
 
-	err := m.Encoder.ResetToZero(ctx, int64(offset*float64(m.TicksPerRotation)), extra)
+	err := m.Encoder.Reset(ctx, int64(offset*float64(m.TicksPerRotation)), extra)
 	if err != nil {
 		return err
 	}

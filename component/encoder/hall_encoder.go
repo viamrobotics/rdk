@@ -89,25 +89,21 @@ func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config conf
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	e := &HallEncoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0, pRaw: 0, pState: 0}
 	if cfg, ok := config.ConvertedAttributes.(*HallConfig); ok {
-		if cfg.BoardName == "" {
-			return nil, errors.New("HallEncoder expected non-empty string for board")
-		}
-		pinA := cfg.Pins.A
-		if pinA == "" {
-			return nil, errors.New("HallEncoder pin configuration expects non-empty string for a")
-		}
-		pinB := cfg.Pins.B
-		if pinB == "" {
-			return nil, errors.New("HallEncoder pin configuration expects non-empty string for b")
-		}
-
 		board, err := board.FromDependencies(deps, cfg.BoardName)
 		if err != nil {
 			return nil, err
 		}
 
-		e.A, _ = board.DigitalInterruptByName(pinA)
-		e.B, _ = board.DigitalInterruptByName(pinB)
+		e.A, ok = board.DigitalInterruptByName(cfg.Pins.A)
+		if !ok {
+			return nil, errors.Errorf("cannot find pin (%s) for HallEncoder", cfg.Pins.A)
+		}
+		e.B, ok = board.DigitalInterruptByName(cfg.Pins.B)
+		if !ok {
+			return nil, errors.Errorf("cannot find pin (%s) for HallEncoder", cfg.Pins.B)
+		}
+
+		e.Start(ctx)
 
 		return e, nil
 	}
@@ -116,8 +112,7 @@ func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config conf
 }
 
 // Start starts the HallEncoder background thread.
-// Note: unsure about whether we still need onStart.
-func (e *HallEncoder) Start(ctx context.Context, onStart func()) {
+func (e *HallEncoder) Start(ctx context.Context) {
 	/**
 	  a rotary encoder looks like
 
@@ -172,7 +167,6 @@ func (e *HallEncoder) Start(ctx context.Context, onStart func()) {
 	e.activeBackgroundWorkers.Add(1)
 
 	utils.ManagedGo(func() {
-		onStart()
 		for {
 			select {
 			case <-e.CancelCtx.Done():
@@ -231,8 +225,9 @@ func (e *HallEncoder) GetTicksCount(ctx context.Context, extra map[string]interf
 	return atomic.LoadInt64(&e.position), nil
 }
 
-// ResetToZero resets the counted ticks to 0.
-func (e *HallEncoder) ResetToZero(ctx context.Context, offset int64, extra map[string]interface{}) error {
+// Reset sets the current position of the motor (adjusted by a given offset)
+// to be its new zero position..
+func (e *HallEncoder) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	atomic.StoreInt64(&e.position, offset)
 	atomic.StoreInt64(&e.pRaw, (offset<<1)|atomic.LoadInt64(&e.pRaw)&0x1)
 	return nil

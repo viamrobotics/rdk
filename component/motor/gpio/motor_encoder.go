@@ -271,21 +271,13 @@ func (m *EncodedMotor) RPMMonitorStart() {
 	if startedRPMMonitor {
 		return
 	}
-	started := make(chan struct{})
 	m.activeBackgroundWorkers.Add(1)
-	var closeOnce bool
 	utils.ManagedGo(func() {
-		m.rpmMonitor(func() {
-			if !closeOnce {
-				closeOnce = true
-				close(started)
-			}
-		})
+		m.rpmMonitor()
 	}, m.activeBackgroundWorkers.Done)
-	<-started
 }
 
-func (m *EncodedMotor) rpmMonitor(onStart func()) {
+func (m *EncodedMotor) rpmMonitor() {
 	if m.encoder == nil {
 		panic("started rpmMonitor but have no encoder")
 	}
@@ -297,8 +289,6 @@ func (m *EncodedMotor) rpmMonitor(onStart func()) {
 	}
 	m.startedRPMMonitor = true
 	m.startedRPMMonitorMu.Unlock()
-
-	m.encoder.Start(m.cancelCtx, onStart)
 
 	lastPos, err := m.encoder.GetTicksCount(m.cancelCtx, nil)
 	if err != nil {
@@ -631,5 +621,5 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 // ResetZeroPosition sets the current position of the motor specified by the request
 // (adjusted by a given offset) to be its new zero position.
 func (m *EncodedMotor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	return m.encoder.ResetToZero(ctx, int64(offset*float64(m.cfg.TicksPerRotation)), extra)
+	return m.encoder.Reset(ctx, int64(offset*float64(m.cfg.TicksPerRotation)), extra)
 }

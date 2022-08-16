@@ -20,6 +20,8 @@ func init() {
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			e := &Encoder{}
 			e.updateRate = int64(config.Attributes.Int("update_rate", 0))
+
+			e.Start(ctx)
 			return e, nil
 		},
 	}
@@ -43,7 +45,7 @@ func (e *Encoder) GetTicksCount(ctx context.Context, extra map[string]interface{
 }
 
 // Start starts a background thread to run the encoder.
-func (e *Encoder) Start(cancelCtx context.Context, onStart func()) {
+func (e *Encoder) Start(cancelCtx context.Context) {
 	if e.updateRate == 0 {
 		e.mu.Lock()
 		e.updateRate = 100
@@ -70,8 +72,9 @@ func (e *Encoder) Start(cancelCtx context.Context, onStart func()) {
 	}, e.activeBackgroundWorkers.Done)
 }
 
-// ResetToZero resets the zero position.
-func (e *Encoder) ResetToZero(ctx context.Context, offset int64, extra map[string]interface{}) error {
+// Reset sets the current position of the motor (adjusted by a given offset)
+// to be its new zero position.
+func (e *Encoder) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.position = offset
