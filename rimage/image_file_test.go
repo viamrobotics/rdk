@@ -23,5 +23,6 @@ func TestPngEncodings(t *testing.T) {
 	test.That(t, openGray16, test.ShouldResemble, goGray16)  // but they decode to the same image
 	var goEncodedOpenCVBytes bytes.Buffer
 	err = png.Encode(&goEncodedOpenCVBytes, openGray16)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, goEncodedOpenCVBytes.Bytes(), test.ShouldResemble, goBytes)
 }
