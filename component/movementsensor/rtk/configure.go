@@ -66,24 +66,24 @@ const (
 	observationTimeConfig  = "time_accuracy"
 	timeMode               = "time"
 	svinConfig             = "svin"
-
-	rtcmMsgs = map[int]int{
-		ubxRtcm1005: 1,
-		ubxRtcm1074: 1,
-		ubxRtcm1084: 1,
-		ubxRtcm1094: 1,
-		ubxRtcm1124: 1,
-		ubxRtcm1230: 5,
-	}
-	nmeaMsgs = map[int]int{
-		ubxNmeaGll: 1,
-		ubxNmeaGsa: 1,
-		ubxNmeaGsv: 1,
-		ubxNmeaRmc: 1,
-		ubxNmeaVtg: 1,
-		ubxNmeaGga: 1,
-	}
 )
+
+var rtcmMsgs = map[int]int{
+	ubxRtcm1005: 1,
+	ubxRtcm1074: 1,
+	ubxRtcm1084: 1,
+	ubxRtcm1094: 1,
+	ubxRtcm1124: 1,
+	ubxRtcm1230: 5,
+}
+var nmeaMsgs = map[int]int{
+	ubxNmeaGll: 1,
+	ubxNmeaGsa: 1,
+	ubxNmeaGsv: 1,
+	ubxNmeaRmc: 1,
+	ubxNmeaVtg: 1,
+	ubxNmeaGga: 1,
+}
 
 type configCommand struct {
 	correctionType string
@@ -196,7 +196,7 @@ func (c *configCommand) enableAll(msb int) {
 	c.saveAllConfigs()
 }
 
-func (c *configCommand) getSurveyMode() []byte {
+func (c *configCommand) getSurveyMode() ([]byte, error) {
 	cls := ubxClassCfg
 	id := ubxCfgTmode3
 	payloadCfg := make([]byte, 40)
@@ -214,7 +214,6 @@ func (c *configCommand) disableSVIN() {
 }
 
 func (c *configCommand) setSurveyMode(mode int, requiredAccuracy float64, observationTime int) bool {
-	// payloadCfg := getSurveyMode() // get current configs
 	payloadCfg := make([]byte, 40)
 	if len(payloadCfg) == 0 {
 		return false
