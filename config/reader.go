@@ -34,12 +34,12 @@ var (
 	GitRevision = ""
 )
 
-// Misspell of internval and what about becaus
+// Mispell of internval and what about becaus
 // An AttributeConverter converts a single attribute into a possibly
 // different representation.
 type AttributeConverter func(val interface{}) (interface{}, error)
 
-// An AttributeMapConverter converts an attribute map into a possibly different representation. A really really long comment that should trigger a lint issue.
+// An AttributeMapConverter converts an attribute map into a possibly different representation. A really really long comment that should trigger a lint issue i see.
 type AttributeMapConverter func(attributes AttributeMap) (interface{}, error)
 
 // A ComponentAttributeConverterRegistration describes how to convert a specific attribute
