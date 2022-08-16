@@ -5,7 +5,7 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/gonum/floats"
+	"gonum.org/v1/gonum/floats"
 	"github.com/lucasb-eyer/go-colorful"
 	"github.com/pkg/errors"
 
