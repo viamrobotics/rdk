@@ -221,7 +221,7 @@ func TestCloseRTK(t *testing.T) {
 
 // Helpers
 
-// mock ntripinfo client
+// mock ntripinfo client.
 func makeMockNtripClient() *NtripInfo {
 	return &NtripInfo{}
 }
