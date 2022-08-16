@@ -2,6 +2,7 @@ package datamanager_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/fs"
 	"io/ioutil"
@@ -45,8 +46,8 @@ var (
 	syncIntervalMins   = 0.0041 // 250ms
 	captureDir         = "/tmp/capture"
 	armDir             = captureDir + "/arm/arm1/GetEndPosition"
-	modelDir           = "/tmp/models"
-	emptyFileBytesSize = 30 // size of leading metadata message
+	modelDir           = "/tmp/models" // do we need this???
+	emptyFileBytesSize = 30            // size of leading metadata message
 	testSvcName1       = "svc1"
 	testSvcName2       = "svc2"
 )
@@ -86,10 +87,14 @@ func getInjectedRobotWithArm(armKey string) *inject.Robot {
 	return r
 }
 
+// this looks like an important function to understand
+// will probably need to create my own version for model stuff
+// or maybe this does not need to be re-done for models ...
 func newTestDataManager(t *testing.T, localArmKey string, remoteArmKey string) internal.DMService {
 	t.Helper()
 	dmCfg := &datamanager.Config{}
 	cfgService := config.Service{
+		// type for me should remain "data_manager" per the json that I edited.
 		Type:                "data_manager",
 		ConvertedAttributes: dmCfg,
 	}
@@ -233,6 +238,7 @@ func TestNewRemoteDataManager(t *testing.T) {
 	test.That(t, filesInRemoteArmDir[0].Size(), test.ShouldBeGreaterThan, 0)
 }
 
+// re-read and understand this function better..
 // Validates that if the datamanager/robot die unexpectedly, that previously captured but not synced files are still
 // synced at start up.
 func TestRecoversAfterKilled(t *testing.T) {
@@ -301,74 +307,25 @@ func TestModelsAfterKilled(t *testing.T) {
 		err := rpcServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
 	}()
-	// want to make sure that function below is populating model path as well
-	// populate model sep func
-	dirs, numArbitraryFilesToSync, err := populateAdditionalSyncPaths()
-	defer func() {
-		for _, dir := range dirs {
-			resetFolder(t, dir)
-		}
-	}()
 
-	// figure out: do we need to do resetFolder for captureDir and armDir if we are not testing them?
-	// might need to keep resetfolder for capturedir and armdir if they are being populated in syncpath() and the testing here could get messed up?
-	defer resetFolder(t, captureDir)
-	// might need to create dotDir???
-	defer resetFolder(t, armDir)
+	modelss, err := populateModels()
 	if err != nil {
-		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
+		t.Error("something went wrong..")
 	}
 
-	// make sure we set up testCfg correctly to incorporate model data
 	testCfg := setupConfig(t, configPath)
-	// same here
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
-	// dirs here includes -- ModelsToDeploy []*Model `json:"models_on_robot"`
-	// as this is what is defined in the config struct in data_manager.go
-	dmCfg.AdditionalSyncPaths = dirs
+	dmCfg.ModelsToDeploy = modelss
 
-	// Initialize the data manager and update it with our config.
-	// the function below will need to be substituted...?
-	// need to create function `newTestModelManager``
-	//contains model stuff so good here --> just need to change call
-	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
-	dmsvc.SetWaitAfterLastModifiedSecs(10)
-	err = dmsvc.Update(context.TODO(), testCfg)
-	test.That(t, err, test.ShouldBeNil)
+	fmt.Printf("mockService type: %T", mockService)
 
-	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not synced.
-	time.Sleep(time.Millisecond * 150)
-
-	// Simulate turning off the service.
-	err = dmsvc.Close(context.TODO())
-	test.That(t, err, test.ShouldBeNil)
-
-	// Validate nothing has been synced yet.
-	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 0)
-
-	// Turn the service back on.
-	dmsvc = newTestDataManager(t, "arm1", "")
-	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
-	dmsvc.SetWaitAfterLastModifiedSecs(0)
-
-	// dmsvc.Update is what we want because in
-	// we do a downloadModels call inside the function
-	err = dmsvc.Update(context.TODO(), testCfg)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Validate that the previously captured file was uploaded at startup.
-	time.Sleep(syncWaitTime)
-	err = dmsvc.Close(context.TODO())
-	test.That(t, err, test.ShouldBeNil)
-	//
-	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 1+numArbitraryFilesToSync)
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
 // that directory is created (and can be synced on subsequent iterations of syncing).
+// hmmmmm.... does this need to be edited?
 func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	td := "additional_sync_path_dir"
 	// Once testing is complete, remove contents from data capture dirs.
@@ -402,6 +359,17 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	_ = dmsvc.Close(context.TODO())
 	_, err = os.Stat(td)
 	test.That(t, errors.Is(err, nil), test.ShouldBeTrue)
+}
+
+// in return arguments below
+func populateModels() ([]*datamanager.Model, error) {
+	var additionalModels []*datamanager.Model
+
+	m1 := &datamanager.Model{Name: "M1", Destination: "/home/example_user/"}
+	additionalModels = append(additionalModels, m1)
+	// m2 := datamanager.Model{Name: "M2", Destination: "/home/example_user/"}
+	// additionalModels = append(additionalModels, m2)
+	return additionalModels, nil
 }
 
 // Generates and populates a directory structure of files that contain arbitrary file data. Used to simulate testing
@@ -812,7 +780,6 @@ func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServ
 	return rpcServer, mockService
 }
 
-// code here to buildandstartlocalmodelserver which gives us a mock model service
 //nolint:thelper
 func buildAndStartLocalModelServer(t *testing.T) (rpc.Server, mockModelServiceServer) {
 	logger, _ := golog.NewObservedTestLogger(t)

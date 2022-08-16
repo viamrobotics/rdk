@@ -766,6 +766,7 @@ func getModelsToDownload(models []*Model) []*Model {
 	// I can imagine a scenario where the user specifies a local folder to dump
 	// all their models in. In that case, this wouldn't work as expected.
 	// TODO: Fix.
+	// to test this version we only upload one model?
 	modelsToDownload := make([]*Model, 0)
 	for _, model := range models {
 		if model.Destination == "" {

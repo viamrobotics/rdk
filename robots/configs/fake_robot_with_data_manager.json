@@ -35,7 +35,7 @@
                 "models_on_robot": [
                     {
                       "source_model_name": "model_1",
-                      "destination": "/home/example_user/"
+                      "destination": ""
                     }
                 ]
             }
