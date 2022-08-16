@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/motionplan/visualization"
 	pb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -104,30 +103,29 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 }
 
 func connect(ctx context.Context, simulation bool) (robotClient robot.Robot, xArm arm.Arm, err error) {
-	armName := arm.Named("xarm6")
+	armName := "xarm6"
 	if simulation {
-		registry.RegisterComponent(arm.Subtype, "fake_ik", registry.Component{
-			Constructor: func(
-				ctx context.Context,
-				deps registry.Dependencies,
-				config config.Component,
-				logger golog.Logger,
-			) (interface{}, error) {
-				fakeArm, err := fake.NewArmIK(ctx, config, logger)
-				if err != nil {
-					return nil, err
-				}
-				return fakeArm, nil
-			},
-		})
-		robotClient, err = robotimpl.RobotFromResources(ctx, map[resource.Name]interface{}{armName: xArm}, logger)
+		fakeName := "fake"
+		fakeArm, err := fake.NewArmIK(ctx, config.Component{Name: fakeName}, logger)
+		if err != nil {
+			return nil, nil, err
+		}
+		robotClient, err = robotimpl.RobotFromResources(ctx, map[resource.Name]interface{}{
+			arm.Named(armName):  xArm,
+			arm.Named(fakeName): fakeArm,
+		}, logger)
 		if err != nil {
 			return nil, nil, err
 		}
 		defer robotClient.Close(ctx)
+		names := robotClient.ResourceNames()
+		_ = names
 		xArm, err = wrapper.NewWrapperArm(
 			config.Component{
-				ConvertedAttributes: wrapper.AttrConfig{ModelPath: rdkutils.ResolveFile("component/arm/xarm/xarm6_kinematics.json"), ArmName: "xarm6"},
+				ConvertedAttributes: &wrapper.AttrConfig{
+					ModelPath: rdkutils.ResolveFile("component/arm/xarm/xarm6_kinematics.json"),
+					ArmName:   "fake",
+				},
 			},
 			robotClient,
 			logger,
