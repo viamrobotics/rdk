@@ -23,13 +23,13 @@ const (
 	// Number of planner iterations before giving up.
 	planIter = 2000
 	// Number of IK solutions with which to seed the goal side of the bidirectional tree.
-	solutionsToSeed = 10
+	solutionsToSeed = 50
 	// Check constraints are still met every this many mm/degrees of movement.
 	stepSize = 2
 	// Name of joint swing scorer.
 	jointConstraint = "defaultJointSwingConstraint"
 	// Max number of iterations of path smoothing to run.
-	smoothIter = 250
+	smoothIter = 750
 	// Number of iterations to mrun before beginning to accept randomly seeded locations.
 	iterBeforeRand = 50
 )
@@ -145,8 +145,8 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	defer close(solutionChan)
 
 	// use default options if none are provided
-	if opt == nil {
-		opt = NewDefaultPlannerOptions()
+	//~ if opt == nil {
+		//~ opt = NewDefaultPlannerOptions()
 		seedPos, err := mp.frame.Transform(seed)
 		if err != nil {
 			solutionChan <- &planReturn{err: err}
@@ -155,7 +155,8 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		goalPos := spatial.NewPoseFromProtobuf(goal)
 
 		opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
-	}
+	//~ }
+	
 
 	// get many potential end goals from IK solver
 	solutions, err := getSolutions(ctx, opt, mp.solver, goal, seed, mp.Frame())
@@ -234,7 +235,7 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed *configuration, sampleNum int) *conf
 		return &configuration{referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
 	}
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
-	q := &configuration{referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)}
+	q := &configuration{referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.5)}
 	for j, v := range rSeed.inputs {
 		q.inputs[j].Value += v.Value
 	}
