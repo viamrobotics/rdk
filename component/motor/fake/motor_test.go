@@ -52,8 +52,8 @@ func TestGoFor(t *testing.T) {
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
 		pos, err := m.GetPosition(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos, test.ShouldEqual, 1)
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, pos, test.ShouldEqual, 1)
 	})
 }
 
@@ -76,8 +76,8 @@ func TestGoTo(t *testing.T) {
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
 		pos, err := m.GetPosition(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos, test.ShouldEqual, 1)
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, pos, test.ShouldEqual, 1)
 	})
 }
 
