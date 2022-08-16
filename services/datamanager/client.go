@@ -10,7 +10,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/service/datamanager/v1"
 )
 
-// client is a client that satisfies the data_manager.proto contract.
+// client implements DataManagerServiceClient.
 type client struct {
 	name   string
 	conn   rpc.ClientConn
@@ -18,21 +18,16 @@ type client struct {
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) *client {
+// NewClientFromConn constructs a new Client from connection passed in.
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
 	grpcClient := pb.NewDataManagerServiceClient(conn)
-	sc := &client{
+	c := &client{
 		name:   name,
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
 	}
-	return sc
-}
-
-// NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
-	return newSvcClientFromConn(conn, name, logger)
+	return c
 }
 
 func (c *client) Sync(ctx context.Context) error {

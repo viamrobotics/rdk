@@ -11,7 +11,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/service/shell/v1"
 )
 
-// client is a client implements the ShellServiceClient.
+// client implements ShellServiceClient.
 type client struct {
 	name                    string
 	conn                    rpc.ClientConn
@@ -20,21 +20,16 @@ type client struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) *client {
+// NewClientFromConn constructs a new Client from connection passed in.
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
 	grpcClient := pb.NewShellServiceClient(conn)
-	sc := &client{
+	c := &client{
 		name:   name,
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
 	}
-	return sc
-}
-
-// NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
-	return newSvcClientFromConn(conn, name, logger)
+	return c
 }
 
 func (c *client) Shell(ctx context.Context) (chan<- string, <-chan Output, error) {
