@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 
 	fakeencoder "go.viam.com/rdk/component/encoder/fake"
 	"go.viam.com/rdk/component/motor"
@@ -47,6 +48,13 @@ func TestGoFor(t *testing.T) {
 	m.Encoder.Start(ctx)
 	err := m.GoFor(ctx, 60, 1, nil)
 	test.That(t, err, test.ShouldBeNil)
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		pos, err := m.GetPosition(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldEqual, 1)
+	})
 }
 
 func TestGoTo(t *testing.T) {
@@ -64,6 +72,13 @@ func TestGoTo(t *testing.T) {
 	m.Encoder.Start(ctx)
 	err := m.GoTo(ctx, 60, 1, nil)
 	test.That(t, err, test.ShouldBeNil)
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		pos, err := m.GetPosition(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldEqual, 1)
+	})
 }
 
 func TestGoTillStop(t *testing.T) {

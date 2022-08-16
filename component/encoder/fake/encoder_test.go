@@ -3,8 +3,6 @@ package fake
 import (
 	"context"
 	"testing"
-	// "time"
-	"github.com/edaniels/golog"
 
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
@@ -48,7 +46,7 @@ func TestEncoder(t *testing.T) {
 
 	// Start with default update rate
 	t.Run("start default update rate", func(t *testing.T) {
-		logger := golog.NewTestLogger(t)
+		err := e.SetSpeed(ctx, 0)
 		test.That(t, err, test.ShouldBeNil)
 
 		e.Start(ctx)
@@ -64,8 +62,8 @@ func TestEncoder(t *testing.T) {
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos, err := e.GetTicksCount(ctx, nil)
-			test.That(t, pos, test.ShouldBeGreaterThan, 0)
-			test.That(t, err, test.ShouldBeNil)
+			test.That(tb, pos, test.ShouldBeGreaterThan, 0)
+			test.That(tb, err, test.ShouldBeNil)
 		})
 	})
 }
