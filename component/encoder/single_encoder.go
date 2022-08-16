@@ -45,7 +45,7 @@ type DirectionAware interface {
 }
 
 type fakeDirectionAware struct {
-	dir	int64
+	dir int64
 }
 
 func (f *fakeDirectionAware) DirectionMoving() int64 {
@@ -72,9 +72,9 @@ type SinglePins struct {
 
 // SingleConfig describes the configuration of a single encoder.
 type SingleConfig struct {
-	Pins      		SinglePins `json:"pins"`
-	BoardName 		string     `json:"board"`
-	DirectionAware	bool	   `json:"direction_aware,omitempty"`
+	Pins           SinglePins `json:"pins"`
+	BoardName      string     `json:"board"`
+	DirectionAware bool       `json:"direction_aware,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
