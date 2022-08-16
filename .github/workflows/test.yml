@@ -51,6 +51,29 @@ jobs:
       run: |
         sudo -u testbot bash -lc 'echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc'
 
+    - name: misspell
+      uses: reviewdog/action-misspell@v1
+      with:
+        github_token: ${{ secrets.github_token }}
+        locale: "US"
+        pattern: |
+          *.go
+          *.sh
+          *.md
+          *.html
+          *.js
+          *.ts
+        exclude: |
+          ./.git/*
+          ./.cache/*
+
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        args: --fix --config=./etc/.golangci.yaml
+        only-new-issues: true
+        skip-cache: true
+
     - name: Verify no uncommitted changes from "${{ matrix.build_lint }}"
       run: |
         git init
