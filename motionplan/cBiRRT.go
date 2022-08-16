@@ -20,11 +20,11 @@ const (
 	// If the dot product between two sets of joint angles is less than this, consider them identical.
 	jointSolveDist = 0.0001
 	// Number of planner iterations before giving up.
-	planIter = 2000
+	planIter = 500
 	// Number of IK solutions with which to seed the goal side of the bidirectional tree.
 	solutionsToSeed = 10
 	// Check constraints are still met every this many mm/degrees of movement.
-	stepSize = 2
+	stepSize = .1
 	// Name of joint swing scorer.
 	jointConstraint = "defaultJointSwingConstraint"
 	// Max number of iterations of path smoothing to run.
@@ -210,6 +210,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		if inputDist(map1reached.q, map2reached.q) < mp.solDist {
 			cancel()
 			path := extractPath(seedMap, goalMap, &nodePair{map1reached, map2reached})
+			exportMaps(seedMap, goalMap)
 			if endpointPreview != nil {
 				endpointPreview <- path[len(path)-1]
 			}

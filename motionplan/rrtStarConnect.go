@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"context"
-	"math"
 	"math/rand"
 
 	"github.com/edaniels/golog"
@@ -25,7 +24,7 @@ type rrtStarConnectMotionPlanner struct {
 
 // TODO(rb): find a reasonable default for this
 // neighborhoodSize represents the number of neighbors to find in a k-nearest neighbors search
-const neighborhoodSize = 5
+const neighborhoodSize = 10
 
 // NewRRTStarConnectMotionPlanner creates a rrtStarConnectMotionPlanner object.
 func NewRRTStarConnectMotionPlanner(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
@@ -170,14 +169,13 @@ func (mp *rrtStarConnectMotionPlanner) extend(opt *PlannerOptions, tree map[*nod
 	if !map1reached {
 		return nil
 	}
-
 	minIndex := 0
-	minCost := math.Inf(1)
+	minCost := neighbors[0].node.cost + neighbors[0].dist
 
 	// iterate over neighbors and find the minimum cost to connect the target node to the tree
-	for i := 0; i < len(neighbors); i++ {
+	for i := 1; i < len(neighbors); i++ {
 		cost := neighbors[i].node.cost + neighbors[i].dist
-		if mp.checkPath(opt, neighbors[i].node.q, target) && cost < minCost {
+		if cost < minCost && mp.checkPath(opt, neighbors[i].node.q, target) {
 			minIndex = i
 			minCost = cost
 		}
@@ -195,7 +193,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(opt *PlannerOptions, tree map[*nod
 		}
 
 		cost := targetNode.cost + inputDist(target, neighbors[i].node.q)
-		if mp.checkPath(opt, target, neighbors[i].node.q) && cost < neighbors[i].node.cost {
+		if cost < neighbors[i].node.cost && mp.checkPath(opt, target, neighbors[i].node.q) {
 			// shortcut possible, rewire the node
 			neighbors[i].node.cost = cost
 			tree[neighbors[i].node] = targetNode

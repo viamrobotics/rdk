@@ -3,7 +3,9 @@ package motionplan
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"math"
 	"sort"
 
@@ -467,6 +469,24 @@ func extractPath(startMap, goalMap map[*node]*node, pair *nodePair) []*node {
 	return path
 }
 
+// func shortestPath(startMap, goalMap map[*node]*node, nodePairs []*nodePair) *planReturn {
+// 	if len(nodePairs) == 0 {
+// 		return &planReturn{err: NewPlannerFailedError()}
+// 	}
+// 	pairCost := func(pair *nodePair) float64 {
+// 		return pair.a.cost + pair.b.cost
+// 	}
+// 	minIdx := 0
+// 	minDist := pairCost(nodePairs[0])
+// 	for i := 1; i < len(nodePairs); i++ {
+// 		if dist := pairCost(nodePairs[i]); dist < minDist {
+// 			minDist = dist
+// 			minIdx = i
+// 		}
+// 	}
+// 	return &planReturn{steps: extractPath(startMap, goalMap, nodePairs[minIdx])}
+// }
+
 func shortestPath(startMap, goalMap map[*node]*node, nodePairs []*nodePair) *planReturn {
 	if len(nodePairs) == 0 {
 		return &planReturn{err: NewPlannerFailedError()}
@@ -474,15 +494,32 @@ func shortestPath(startMap, goalMap map[*node]*node, nodePairs []*nodePair) *pla
 	pairCost := func(pair *nodePair) float64 {
 		return pair.a.cost + pair.b.cost
 	}
-	minIdx := 0
+	minPath := []*node{}
 	minDist := pairCost(nodePairs[0])
-	for i := 1; i < len(nodePairs); i++ {
-		if dist := pairCost(nodePairs[i]); dist < minDist {
+	for i := 0; i < len(nodePairs); i++ {
+		path := extractPath(startMap, goalMap, nodePairs[i])
+		dist := evaluatePlanNodes(path)
+		if dist < minDist {
 			minDist = dist
-			minIdx = i
+			minPath = path
 		}
 	}
-	return &planReturn{steps: extractPath(startMap, goalMap, nodePairs[minIdx])}
+	exportMaps(startMap, goalMap)
+	return &planReturn{steps: minPath}
+}
+
+func evaluatePlanNodes(path []*node) (cost float64) {
+	for i := 1; i < len(path)-1; i++ {
+		cost += inputDist(path[i].q, path[i+1].q)
+	}
+	return cost
+}
+
+func evaluatePlan(path [][]frame.Input) (cost float64) {
+	for i := 1; i < len(path)-1; i++ {
+		cost += inputDist(path[i], path[i+1])
+	}
+	return cost
 }
 
 func inputDist(from, to []frame.Input) float64 {
@@ -490,5 +527,32 @@ func inputDist(from, to []frame.Input) float64 {
 	for i, f := range from {
 		dist += math.Pow(to[i].Value-f.Value, 2)
 	}
-	return dist
+	// TODO(rb): its inefficient to return the sqrt here.... take this out before the PR goes through
+	return math.Sqrt(dist)
+}
+
+func exportMaps(m1, m2 map[*node]*node) {
+	outputList := make([][]frame.Input, 0)
+	for key, value := range m1 {
+		if value != nil {
+			outputList = append(outputList, key.q, value.q)
+		}
+	}
+	for key, value := range m2 {
+		if value != nil {
+			outputList = append(outputList, key.q, value.q)
+		}
+	}
+	writeJSONFile(vutil.ResolveFile("motionplan/tree.test"), [][][]frame.Input{outputList})
+}
+
+func writeJSONFile(filename string, data interface{}) error {
+	bytes, err := json.MarshalIndent(data, "", " ")
+	if err != nil {
+		return err
+	}
+	if err := ioutil.WriteFile(filename, bytes, 0o644); err != nil {
+		return err
+	}
+	return nil
 }

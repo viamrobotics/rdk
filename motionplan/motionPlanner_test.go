@@ -2,8 +2,6 @@ package motionplan
 
 import (
 	"context"
-	"encoding/json"
-	"io/ioutil"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -179,7 +177,7 @@ func simple2DMap(t *testing.T) planConfig {
 	test.That(t, err, test.ShouldBeNil)
 
 	// obstacles
-	box, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{0, 6, 0}), r3.Vector{8, 8, 1})
+	box, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{0, 5, 0}), r3.Vector{8, 8, 1})
 	test.That(t, err, test.ShouldBeNil)
 
 	return planConfig{
@@ -225,7 +223,7 @@ func testPlanner(t *testing.T, planner seededPlannerConstructor, config *planCon
 	var path [][]frame.Input
 	for i := 0; i < config.NumTests; i++ {
 		// setup planner
-		mp, err := planner(config.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(i))), logger.Sugar())
+		mp, err := planner(config.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(0))), logger.Sugar())
 		test.That(t, err, test.ShouldBeNil)
 		opt := NewDefaultPlannerOptions()
 		toMap := func(geometries []spatial.Geometry) map[string]spatial.Geometry {
@@ -257,19 +255,9 @@ func testPlanner(t *testing.T, planner seededPlannerConstructor, config *planCon
 			}, mp.Resolution())
 			test.That(t, ok, test.ShouldBeTrue)
 		}
+		t.Log(evaluatePlan(path))
 	}
 
 	// write output
-	test.That(t, writeJSONFile(utils.ResolveFile("motionplan/output.test"), [][][]frame.Input{path}), test.ShouldBeNil)
-}
-
-func writeJSONFile(filename string, data interface{}) error {
-	bytes, err := json.MarshalIndent(data, "", " ")
-	if err != nil {
-		return err
-	}
-	if err := ioutil.WriteFile(filename, bytes, 0o644); err != nil {
-		return err
-	}
-	return nil
+	test.That(t, writeJSONFile(utils.ResolveFile("motionplan/path.test"), [][][]frame.Input{path}), test.ShouldBeNil)
 }
