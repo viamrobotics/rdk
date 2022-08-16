@@ -4,7 +4,7 @@ package server
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	defaultNeedsRestartCheckInternval = time.Second * 1
-	minNeedsRestartCheckInternval     = time.Second * 1
+	defaultNeedsRestartCheckInterval = time.Second * 1
+	minNeedsRestartCheckInterval     = time.Second * 1
 )
 
 type needsRestartChecker interface {
@@ -55,7 +55,7 @@ func (c *needsRestartCheckerHTTP) needsRestart(ctx context.Context) (bool, time.
 		return false, c.restartInterval, errors.Wrapf(err, "bad status code")
 	}
 
-	read, err := ioutil.ReadAll(resp.Body)
+	read, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return false, c.restartInterval, errors.Wrapf(err, "failed to read body")
 	}
@@ -78,13 +78,15 @@ func (c *needsRestartCheckerGRPC) needsRestart(ctx context.Context) (bool, time.
 	service := apppb.NewRobotServiceClient(c.client)
 	res, err := service.NeedsRestart(ctx, &apppb.NeedsRestartRequest{Id: c.cfg.ID})
 	if err != nil {
-		return false, defaultNeedsRestartCheckInternval, err
+		return false, defaultNeedsRestartCheckInterval, err
 	}
 
 	restartInterval := res.RestartCheckInterval.AsDuration()
-	if restartInterval < minNeedsRestartCheckInternval {
-		c.logger.Warnf("received restart interval less than 1 second not using was %d", res.RestartCheckInterval.AsDuration())
-		restartInterval = defaultNeedsRestartCheckInternval
+	if restartInterval < minNeedsRestartCheckInterval {
+		c.logger.Warnf("received restart interval less than %s not using was %d",
+			minNeedsRestartCheckInterval,
+			res.RestartCheckInterval.AsDuration())
+		restartInterval = defaultNeedsRestartCheckInterval
 	}
 
 	return res.MustRestart, restartInterval, nil
@@ -95,7 +97,7 @@ func newRestartChecker(ctx context.Context, cfg *config.Cloud, logger golog.Logg
 		return &needsRestartCheckerHTTP{
 			cfg:             cfg,
 			logger:          logger,
-			restartInterval: defaultNeedsRestartCheckInternval,
+			restartInterval: defaultNeedsRestartCheckInterval,
 			client:          http.Client{},
 		}, nil
 	}

@@ -379,7 +379,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 				return
 			}
 			defer restartCheck.close()
-			restartInterval := defaultNeedsRestartCheckInternval
+			restartInterval := defaultNeedsRestartCheckInterval
 
 			for {
 				if !utils.SelectContextOrWait(ctx, restartInterval) {
