@@ -35,10 +35,10 @@ func TestAlignTypeError(t *testing.T) {
 	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.png"))
 	test.That(t, err, test.ShouldBeNil)
 	colorSrc := &StaticSource{ColorImg: im}
-	colorCam, err := camera.New(colorSrc, nil)
+	colorCam, err := camera.FromImageSource(colorSrc, nil, true)
 	test.That(t, err, test.ShouldBeNil)
 	depthSrc := &StaticSource{DepthImg: dm}
-	depthCam, err := camera.New(depthSrc, nil)
+	depthCam, err := camera.FromImageSource(depthSrc, nil, true)
 	test.That(t, err, test.ShouldBeNil)
 	attrs := &alignAttrs{
 		AttrConfig: &camera.AttrConfig{},
@@ -74,10 +74,10 @@ func applyAlignment(
 ) (pointcloud.PointCloud, rimage.Projector) {
 	t.Helper()
 	colorSrc := &StaticSource{ColorImg: img}
-	colorCam, err := camera.New(colorSrc, nil)
+	colorCam, err := camera.FromImageSource(colorSrc, nil, true)
 	test.That(t, err, test.ShouldBeNil)
 	depthSrc := &StaticSource{DepthImg: dm}
-	depthCam, err := camera.New(depthSrc, nil)
+	depthCam, err := camera.FromImageSource(depthSrc, nil, true)
 	test.That(t, err, test.ShouldBeNil)
 	is, err := newAlignColorDepth(context.Background(), colorCam, depthCam, attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
