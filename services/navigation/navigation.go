@@ -28,8 +28,10 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const StraightMMSecDefault = 500
-const SpinDegSecDefault = 45
+const (
+	straightMMSecDefault = 500
+	spinDegSecDefault    = 45
+)
 
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
@@ -163,11 +165,11 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	// get default speeds from config if set, else defaults from nav services const
 	straightSpeed := svcConfig.StraightMMSecDefault
 	if straightSpeed == 0 {
-		straightSpeed = StraightMMSecDefault
+		straightSpeed = straightMMSecDefault
 	}
 	spinSpeed := svcConfig.SpinDegSecDefault
 	if spinSpeed == 0 {
-		spinSpeed = SpinDegSecDefault
+		spinSpeed = spinDegSecDefault
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
