@@ -2,128 +2,38 @@ package transformpipeline
 
 import (
 	"context"
-	"fmt"
 	"image"
 	"image/color"
 
 	"github.com/disintegration/imaging"
-	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-func init() {
-	registry.RegisterComponent(
-		camera.Subtype,
-		"identity",
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*transformConfig)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
-			}
-			sourceName := attrs.Source
-			source, err := camera.FromDependencies(deps, sourceName)
-			if err != nil {
-				return nil, fmt.Errorf("no source camera for identity (%s): %w", sourceName, err)
-			}
-			proj, _ := camera.GetProjector(ctx, nil, source)
-			return camera.New(source, proj)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "identity",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf transformConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&transformConfig{})
-
-	registry.RegisterComponent(
-		camera.Subtype,
-		"rotate",
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*transformConfig)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
-			}
-			sourceName := attrs.Source
-			source, err := camera.FromDependencies(deps, sourceName)
-			if err != nil {
-				return nil, fmt.Errorf("no source camera for rotate (%s): %w", sourceName, err)
-			}
-			imgSrc := &rotateSource{source, camera.StreamType(attrs.Stream)}
-			proj, _ := camera.GetProjector(ctx, nil, source)
-			return camera.New(imgSrc, proj)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "rotate",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf transformConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&transformConfig{})
-
-	registry.RegisterComponent(
-		camera.Subtype,
-		"resize",
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*transformConfig)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
-			}
-			sourceName := attrs.Source
-			source, err := camera.FromDependencies(deps, sourceName)
-			if err != nil {
-				return nil, fmt.Errorf("no source camera for resize (%s): %w", sourceName, err)
-			}
-
-			width := attrs.Width
-			if width == 0 {
-				width = 800
-			}
-			height := attrs.Height
-			if height == 0 {
-				height = 640
-			}
-
-			imgSrc := gostream.ResizeImageSource{Src: source, Width: width, Height: height}
-			proj, _ := camera.GetProjector(ctx, nil, nil) // camera parameters from source camera do not work for resized images
-			return camera.New(imgSrc, proj)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "resize",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf transformConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&transformConfig{})
+// newIdentityTransform creates a new identity transform
+func newIdentityTransform(ctx context.Context, source camera.Camera) (camera.Camera, error) {
+	proj, _ := camera.GetProjector(ctx, nil, source)
+	return camera.New(source, proj)
 }
 
 // rotateSource is the source to be rotated and the kind of image type.
 type rotateSource struct {
 	original gostream.ImageSource
 	stream   camera.StreamType
+}
+
+// newRotateTransform creates a new rotation transform
+func newRotateTransform(ctx context.Context, source camera.Camera, stream camera.StreamType) (camera.Camera, error) {
+	imgSrc := &rotateSource{source, stream}
+	proj, _ := camera.GetProjector(ctx, nil, source)
+	return camera.New(imgSrc, proj)
 }
 
 // Next rotates the 2D image depending on the stream type.
@@ -148,7 +58,36 @@ func (rs *rotateSource) Next(ctx context.Context) (image.Image, func(), error) {
 	}
 }
 
-// Close TODO.
+// Close closes the original stream.
 func (rs *rotateSource) Close(ctx context.Context) error {
 	return utils.TryClose(ctx, rs.original)
+}
+
+// resizeAttrs are the attributes for a resize transform
+type resizeAttrs struct {
+	Height int `json:"height"`
+	Width  int `json:"width"`
+}
+
+// newResizeTransform creates a new resize transform
+func newResizeTransform(
+	ctx context.Context, source camera.Camera, stream camera.StreamType, am config.AttributeMap,
+) (camera.Camera, error) {
+	conf, err := config.TransformAttributeMapToStruct(&(resizeAttrs{}), am)
+	if err != nil {
+		return nil, err
+	}
+	attrs, ok := conf.(*resizeAttrs)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(attrs, conf)
+	}
+	if attrs.Width == 0 {
+		return nil, errors.New("new width for resize transform cannot be 0")
+	}
+	if attrs.Height == 0 {
+		return nil, errors.New("new height for resize transform cannot be 0")
+	}
+
+	imgSrc := gostream.ResizeImageSource{Src: source, Width: attrs.Width, Height: attrs.Height}
+	return camera.New(imgSrc, nil)
 }

@@ -41,28 +41,6 @@ func init() {
 			return camera.New(detector, proj)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(
-		camera.SubtypeName,
-		"detector",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			transformAttrs, err := extractAttributes(attributes)
-			if err != nil {
-				return nil, err
-			}
-			var conf detectorAttrs
-			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
-			if err != nil {
-				return nil, err
-			}
-			result, ok := attrs.(*detectorAttrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(result, attrs)
-			}
-			result.transformConfig = transformAttrs
-			return result, nil
-		},
-		&detectorAttrs{},
-	)
 }
 
 // detectorAttrs is the attribute struct for detectors (their name as found in the vision service).

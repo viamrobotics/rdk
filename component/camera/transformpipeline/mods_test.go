@@ -19,7 +19,7 @@ var outDir string
 
 func init() {
 	var err error
-	outDir, err = testutils.TempDir("", "rimage_imagetransform")
+	outDir, err = testutils.TempDir("", "camera_transformpipeline")
 	if err != nil {
 		panic(err)
 	}
@@ -31,7 +31,10 @@ func TestRotateColorSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	source := &imagesource.StaticSource{ColorImg: img}
-	rs := &rotateSource{source, camera.ColorStream}
+	cam, err := camera.New(source, nil)
+	test.That(t, err, test.ShouldBeNil)
+	rs, err := newRotateTransform(context.Background(), cam, camera.ColorStream)
+	test.That(t, err, test.ShouldBeNil)
 
 	rawImage, _, err := rs.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -58,7 +61,10 @@ func TestRotateDepthSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	source := &imagesource.StaticSource{DepthImg: pc}
-	rs := &rotateSource{source, camera.DepthStream}
+	cam, err := camera.New(source, nil)
+	test.That(t, err, test.ShouldBeNil)
+	rs, err := newRotateTransform(context.Background(), cam, camera.DepthStream)
+	test.That(t, err, test.ShouldBeNil)
 
 	rawImage, _, err := rs.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -85,7 +91,10 @@ func BenchmarkColorRotate(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 
 	source := &imagesource.StaticSource{ColorImg: img}
-	rs := &rotateSource{source, camera.ColorStream}
+	cam, err := camera.New(source, nil)
+	test.That(b, err, test.ShouldBeNil)
+	rs, err := newRotateTransform(context.Background(), cam, camera.ColorStream)
+	test.That(b, err, test.ShouldBeNil)
 
 	b.ResetTimer()
 
@@ -99,7 +108,10 @@ func BenchmarkDepthRotate(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 
 	source := &imagesource.StaticSource{DepthImg: img}
-	rs := &rotateSource{source, camera.DepthStream}
+	cam, err := camera.New(source, nil)
+	test.That(b, err, test.ShouldBeNil)
+	rs, err := newRotateTransform(context.Background(), cam, camera.DepthStream)
+	test.That(b, err, test.ShouldBeNil)
 
 	b.ResetTimer()
 
