@@ -31,7 +31,7 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// A Encoder turns a position into an electronic signal.
+// A Encoder turns a position into a signal.
 type Encoder interface {
 	// GetTicksCount returns number of ticks since last zeroing
 	GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error)
