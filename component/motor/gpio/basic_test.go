@@ -51,7 +51,7 @@ func TestMotorABPWM(t *testing.T) {
 		gpioMotor, ok := m.(*Motor)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		test.That(t, gpioMotor.setPWM(ctx, 0.43), test.ShouldBeNil)
+		test.That(t, gpioMotor.setPWM(ctx, 0.43, nil), test.ShouldBeNil)
 		on, err := gpioMotor.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
@@ -333,13 +333,13 @@ type mustGPIOPin struct {
 }
 
 func (m mustGPIOPin) Set(ctx context.Context, high bool) {
-	if err := m.pin.Set(ctx, high); err != nil {
+	if err := m.pin.Set(ctx, high, nil); err != nil {
 		panic(err)
 	}
 }
 
 func (m mustGPIOPin) Get(ctx context.Context) bool {
-	ret, err := m.pin.Get(ctx)
+	ret, err := m.pin.Get(ctx, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -347,7 +347,7 @@ func (m mustGPIOPin) Get(ctx context.Context) bool {
 }
 
 func (m mustGPIOPin) PWM(ctx context.Context) float64 {
-	ret, err := m.pin.PWM(ctx)
+	ret, err := m.pin.PWM(ctx, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -355,13 +355,13 @@ func (m mustGPIOPin) PWM(ctx context.Context) float64 {
 }
 
 func (m mustGPIOPin) SetPWM(ctx context.Context, dutyCyclePct float64) {
-	if err := m.pin.SetPWM(ctx, dutyCyclePct); err != nil {
+	if err := m.pin.SetPWM(ctx, dutyCyclePct, nil); err != nil {
 		panic(err)
 	}
 }
 
 func (m mustGPIOPin) PWMFreq(ctx context.Context) uint {
-	ret, err := m.pin.PWMFreq(ctx)
+	ret, err := m.pin.PWMFreq(ctx, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -369,7 +369,7 @@ func (m mustGPIOPin) PWMFreq(ctx context.Context) uint {
 }
 
 func (m mustGPIOPin) SetPWMFreq(ctx context.Context, freqHz uint) {
-	err := m.pin.SetPWMFreq(ctx, freqHz)
+	err := m.pin.SetPWMFreq(ctx, freqHz, nil)
 	if err != nil {
 		panic(err)
 	}

@@ -3,6 +3,7 @@ package datamanager
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -108,6 +109,7 @@ const defaultCaptureBufferSize = 4096
 // Attributes to initialize the collector for a component or remote.
 type dataCaptureConfig struct {
 	Name               string               `json:"name"`
+	Model              string               `json:"model"`
 	Type               resource.SubtypeName `json:"type"`
 	Method             string               `json:"method"`
 	CaptureFrequencyHz float32              `json:"capture_frequency_hz"`
@@ -137,23 +139,24 @@ type dataManagerService struct {
 	logger                    golog.Logger
 	captureDir                string
 	captureDisabled           bool
-	syncDisabled              bool
 	collectors                map[componentMethodMetadata]collectorAndConfig
-	syncer                    datasync.Manager
-	syncIntervalMins          float64
 	lock                      sync.Mutex
 	backgroundWorkers         sync.WaitGroup
-	uploadFunc                datasync.UploadFunc
 	updateCollectorsCancelFn  func()
-	additionalSyncPaths       []string
 	partID                    string
 	waitAfterLastModifiedSecs int
+
+	additionalSyncPaths []string
+	syncDisabled        bool
+	syncIntervalMins    float64
+	syncer              datasync.Manager
+	syncerConstructor   datasync.ManagerConstructor
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
 // New returns a new data manager service for the given robot.
-func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
+func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger) (Service, error) {
 	// Set syncIntervalMins = -1 as we rely on initOrUpdateSyncer to instantiate a syncer
 	// on first call to Update, even if syncIntervalMins value is 0, and the default value for int64 is 0.
 	dataManagerSvc := &dataManagerService{
@@ -166,13 +169,14 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		syncIntervalMins:          -1,
 		additionalSyncPaths:       []string{},
 		waitAfterLastModifiedSecs: 10,
+		syncerConstructor:         datasync.NewDefaultManager,
 	}
 
 	return dataManagerSvc, nil
 }
 
 // Close releases all resources managed by data_manager.
-func (svc *dataManagerService) Close(ctx context.Context) error {
+func (svc *dataManagerService) Close(_ context.Context) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	svc.closeCollectors()
@@ -205,9 +209,12 @@ type collectorAndConfig struct {
 	Attributes dataCaptureConfig
 }
 
-// Identifier for a particular collector: component name, component type, and method name.
+// Identifier for a particular collector: component name, component model, component type,
+// method parameters, and method name.
 type componentMethodMetadata struct {
 	ComponentName  string
+	ComponentModel string
+	MethodParams   string
 	MethodMetadata data.MethodMetadata
 }
 
@@ -216,7 +223,7 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 	if captureFrequencyHz == 0 {
 		return time.Duration(0)
 	}
-	return time.Duration((float32(time.Second) / captureFrequencyHz))
+	return time.Duration(float32(time.Second) / captureFrequencyHz)
 }
 
 // Initialize a collector for the component/method or update it if it has previously been created.
@@ -230,13 +237,16 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		Subtype:    attributes.Type,
 		MethodName: attributes.Method,
 	}
+
 	componentMetadata := componentMethodMetadata{
 		ComponentName:  attributes.Name,
+		ComponentModel: attributes.Model,
+		MethodParams:   fmt.Sprintf("%v", attributes.AdditionalParams),
 		MethodMetadata: metadata,
 	}
 	// Build metadata.
-	syncMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
-		attributes.Method, attributes.AdditionalParams)
+	captureMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
+		attributes.Model, attributes.Method, attributes.AdditionalParams)
 
 	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
 		collector := storedCollectorParams.Collector
@@ -245,7 +255,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		// If the attributes have not changed, keep the current collector and update the target capture file if needed.
 		if reflect.DeepEqual(previousAttributes, attributes) {
 			if updateCaptureDir {
-				targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, syncMetadata)
+				targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
 				if err != nil {
 					return nil, err
 				}
@@ -289,7 +299,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
-	targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, syncMetadata)
+	targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -329,7 +339,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	return &componentMetadata, nil
 }
 
-func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMins float64) error {
+func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMins float64, cfg *config.Config) error {
 	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
 	// TODO DATA-235: fix that
 	if svc.syncer != nil {
@@ -340,14 +350,14 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 
 	svc.cancelSyncBackgroundRoutine()
 
-	syncer, err := datasync.NewSyncer(svc.logger, svc.uploadFunc, svc.partID)
-	if err != nil {
-		return errors.Wrap(err, "failed to initialize new syncer")
-	}
-	svc.syncer = syncer
-
 	// Kick off syncer if we're running it.
 	if intervalMins > 0 {
+		syncer, err := svc.syncerConstructor(svc.logger, cfg)
+		if err != nil {
+			return errors.Wrap(err, "failed to initialize new syncer")
+		}
+		svc.syncer = syncer
+
 		// Sync existing files in captureDir.
 		var previouslyCaptured []string
 		//nolint
@@ -373,7 +383,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 }
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
-func (svc *dataManagerService) Sync(ctx context.Context) error {
+func (svc *dataManagerService) Sync(_ context.Context) error {
 	if svc.syncer == nil {
 		return errors.New("called Sync on data manager service with nil syncer")
 	}
@@ -388,10 +398,10 @@ func (svc *dataManagerService) syncDataCaptureFiles() {
 	for _, collector := range svc.collectors {
 		// Create new target and set it.
 		attributes := collector.Attributes
-		syncMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
-			attributes.Method, attributes.AdditionalParams)
+		captureMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
+			attributes.Model, attributes.Method, attributes.AdditionalParams)
 
-		nextTarget, err := datacapture.CreateDataCaptureFile(svc.captureDir, syncMetadata)
+		nextTarget, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
 		if err != nil {
 			svc.logger.Errorw("failed to create new data capture file", "error", err)
 		}
@@ -465,7 +475,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		return nil
 	}
 
-	allComponentAttributes, err := getAllDataCaptureConfigs(cfg)
+	allComponentAttributes, err := buildDataCaptureConfigs(cfg)
 	if err != nil {
 		return err
 	}
@@ -486,7 +496,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 
 	// Stop syncing if newly disabled in the config.
 	if toggledSyncOff {
-		if err := svc.initOrUpdateSyncer(ctx, 0); err != nil {
+		if err := svc.initOrUpdateSyncer(ctx, 0, cfg); err != nil {
 			return err
 		}
 	} else if toggledSyncOn || (svcConfig.SyncIntervalMins != svc.syncIntervalMins) ||
@@ -496,7 +506,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 		svc.lock.Unlock()
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
-		if err := svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins); err != nil {
+		if err := svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins, cfg); err != nil {
 			return err
 		}
 	}
@@ -655,8 +665,8 @@ func getAttrsFromServiceConfig(resourceSvcConfig config.ResourceLevelServiceConf
 	return *convertedConfigs, nil
 }
 
-// Get the component configs associated with the data manager service.
-func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
+// Build the component configs associated with the data manager service.
+func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	var componentDataCaptureConfigs []dataCaptureConfig
 	for _, c := range cfg.Components {
 		// Iterate over all component-level service configs of type data_manager.
@@ -669,6 +679,7 @@ func getAllDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 
 				for _, attrs := range attrs.Attributes {
 					attrs.Name = c.Name
+					attrs.Model = c.Model
 					attrs.Type = c.Type
 					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
 				}
