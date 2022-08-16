@@ -44,6 +44,14 @@ type DirectionAware interface {
 	DirectionMoving() int64
 }
 
+type fakeDirectionAware struct {
+	dir	int64
+}
+
+func (f *fakeDirectionAware) DirectionMoving() int64 {
+	return f.dir
+}
+
 // SingleEncoder keeps track of a motor position using a rotary hall encoder.
 type SingleEncoder struct {
 	generic.Unimplemented
@@ -64,8 +72,9 @@ type SinglePins struct {
 
 // SingleConfig describes the configuration of a single encoder.
 type SingleConfig struct {
-	Pins      SinglePins `json:"pins"`
-	BoardName string     `json:"board"`
+	Pins      		SinglePins `json:"pins"`
+	BoardName 		string     `json:"board"`
+	DirectionAware	bool	   `json:"direction_aware,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -107,6 +116,10 @@ func NewSingleEncoder(
 		e.I, ok = board.DigitalInterruptByName(cfg.Pins.I)
 		if !ok {
 			return nil, errors.Errorf("cannot find pin (%s) for SingleEncoder", cfg.Pins.I)
+		}
+
+		if cfg.DirectionAware {
+			e.AttachDirectionalAwareness(&fakeDirectionAware{})
 		}
 
 		e.Start(ctx)
