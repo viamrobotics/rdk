@@ -72,5 +72,5 @@ func newDepthEdgesSource(ctx context.Context, deps registry.Dependencies, attrs 
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
 	imgSrc := &depthEdgesSource{source, canny, 3.0}
 	proj, _ := camera.GetProjector(ctx, nil, source)
-	return camera.FromImageSource(imgSrc, proj)
+	return camera.FromImageSource(imgSrc, proj, true)
 }

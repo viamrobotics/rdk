@@ -128,7 +128,7 @@ func New(logger golog.Logger, port int, ttlMilliseconds int) (camera.Camera, err
 		c.run(cancelCtx, listener)
 	})
 
-	return camera.FromImageSource(c, nil)
+	return camera.FromImageSource(c, nil, true)
 }
 
 func (c *client) setLastError(err error) {

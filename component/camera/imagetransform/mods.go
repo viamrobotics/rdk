@@ -121,7 +121,11 @@ func init() {
 
 			imgSrc := gostream.ResizeImageSource{Src: source, Width: width, Height: height}
 			proj, _ := camera.GetProjector(ctx, nil, nil) // camera parameters from source camera do not work for resized images
-			return camera.FromImageSource(imgSrc, proj)
+			props, err := source.GetProperties(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("unable to retrieve properties for source camera for resize (%s): %w", sourceName, err)
+			}
+			return camera.FromImageSource(imgSrc, proj, props.HasDepth)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "resize",
