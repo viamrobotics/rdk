@@ -1,20 +1,50 @@
 package transformpipeline
 
 import (
+	"context"
+
+	"github.com/pkg/errors"
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/utils"
 )
 
-// extractAttributes extracts the common transform attributes.
-func extractAttributes(attributes config.AttributeMap) (*transformConfig, error) {
-	var transformAttrs transformConfig
-	attrs, err := config.TransformAttributeMapToStruct(&transformAttrs, attributes)
-	if err != nil {
-		return nil, err
+// transformType is the list of allowed transforms that can be used in the pipeline.
+type transformType string
+
+// the allowed types of transforms.
+const (
+	unspecifiedTrasform      = transformType("")
+	identityTransform        = transformType("identity")
+	rotateTransform          = transformType("rotate")
+	resizeTransform          = transformType("resize")
+	depthPrettyTransform     = transformType("depth_to_pretty")
+	overlayTransform         = transformType("overlay")
+	undistortTrasform        = transformType("undistort")
+	detectionsTransform      = transformType("detections")
+	depthPreprocessTransform = transformType("depth_preprocess")
+	depthEdgesTransform      = transformType("depth_edges")
+)
+
+func NewUnknownTransformType(t string) error {
+	return errors.Errorf("do not know camera transform of type %q", t)
+}
+
+// Transformation states the type of transformation and the attributes that are specific to the given type.
+type Transformation struct {
+	Type       string              `json:"type"`
+	Attributes config.AttributeMap `json:"attributes"`
+}
+
+// buildTransform uses the Transformation config to build the desired transform camera.
+func buildTransform(ctx context.Context, source camera.Camera, stream camera.StreamType, tr Transformation) (camera.Camera, error) {
+	switch transformType(tr.Type) {
+	case unspecifiedTrasform, identityTransform:
+		return newIdentityTransform(ctx, source)
+	case rotateTransform:
+		return newRotateTransform(ctx, source, stream)
+	case resizeTransform:
+		return newResizeTransform(ctx, source, stream, tr.Attributes)
+	default:
+		return nil, NewUnknownTransformType(tr.Type)
 	}
-	result, ok := attrs.(*transformConfig)
-	if !ok {
-		return nil, utils.NewUnexpectedTypeError(result, attrs)
-	}
-	return result, nil
 }
