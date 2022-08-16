@@ -112,6 +112,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 
 func TestJoinPointCloudNaive(t *testing.T) {
 	r := makeFakeRobot(t)
+	time.Sleep(500 * time.Millisecond)
 	// PoV from base1
 	attrs := &JoinAttrs{
 		AttrConfig:    &camera.AttrConfig{},
@@ -351,6 +352,7 @@ func TestFixedPointCloudICP(t *testing.T) {
 	ctx := context.Background()
 	r, err := makeFakeRobotICP(t)
 	test.That(t, err, test.ShouldBeNil)
+	time.Sleep(500 * time.Millisecond)
 	// PoV from base1
 	attrs := &JoinAttrs{
 		AttrConfig: &camera.AttrConfig{
@@ -372,6 +374,7 @@ func TestTwinPointCloudICP(t *testing.T) {
 	t.Skip("Test is too large for now.")
 	r, err := makeFakeRobotICP(t)
 	test.That(t, err, test.ShouldBeNil)
+	time.Sleep(500 * time.Millisecond)
 
 	attrs := &JoinAttrs{
 		AttrConfig: &camera.AttrConfig{
@@ -399,6 +402,7 @@ func TestMultiPointCloudICP(t *testing.T) {
 	t.Skip("Test is too large for now.")
 	r, err := makeFakeRobotICP(t)
 	test.That(t, err, test.ShouldBeNil)
+	time.Sleep(500 * time.Millisecond)
 
 	attrs := &JoinAttrs{
 		AttrConfig: &camera.AttrConfig{
