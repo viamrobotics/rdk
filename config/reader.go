@@ -39,8 +39,7 @@ var (
 // different representation.
 type AttributeConverter func(val interface{}) (interface{}, error)
 
-// An AttributeMapConverter converts an attribute map into a possibly
-// different representation.
+// An AttributeMapConverter converts an attribute map into a possibly different representation. A really really long comment that should trigger a lint issue.
 type AttributeMapConverter func(attributes AttributeMap) (interface{}, error)
 
 // A ComponentAttributeConverterRegistration describes how to convert a specific attribute
