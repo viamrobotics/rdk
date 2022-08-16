@@ -172,7 +172,7 @@ func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger
 	return dataManagerSvc, nil
 }
 
-// FromRobot retrieves the sensor service of a robot.
+// FromRobot is a helper for getting the named data manager service from the given Robot.
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	resource, err := r.ResourceByName(Named(name))
 	if err != nil {

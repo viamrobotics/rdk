@@ -93,7 +93,7 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// FromRobot retrieves the vision service of a robot.
+// FromRobot is a helper for getting the named vision service from the given Robot.
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	resource, err := r.ResourceByName(Named(name))
 	if err != nil {
