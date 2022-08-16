@@ -71,9 +71,7 @@ jobs:
       uses: golangci/golangci-lint-action@v3
       with:
         version: v1.48.0
-        args: --fix --config=./etc/.golangci.yaml
-        only-new-issues: true
-        skip-cache: true
+        args: --config=./etc/.golangci.yaml
 
     - name: Verify no uncommitted changes from "${{ matrix.build_lint }}"
       run: |

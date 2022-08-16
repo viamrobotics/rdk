@@ -34,7 +34,7 @@ var (
 	GitRevision = ""
 )
 
-// Mispell of internval and what about becaus
+// Misspell of internval and what about becaus
 // An AttributeConverter converts a single attribute into a possibly
 // different representation.
 type AttributeConverter func(val interface{}) (interface{}, error)
