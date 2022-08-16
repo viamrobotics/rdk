@@ -136,14 +136,12 @@ mod_profiles(){
 	grep -q github.com ~/.ssh/known_hosts || ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
 }
 
+# This workaround is for https://viam.atlassian.net/browse/RSDK-526, without the application default credential file our tests will
+# create goroutines that get leaked and fail. Once https://github.com/googleapis/google-cloud-go/issues/5430 is fixed we can remove this.
 check_gcloud_auth(){
-	APP_CREDENTIALS_FILE="$HOME/.gcloud/application_default_credentials.json"		
-	if [ "$(uname)" == "Darwin" ]; then
-		APP_CREDENTIALS_FILE="$HOME/.config/gcloud/application_default_credentials.json"
-	fi 
-
+	APP_CREDENTIALS_FILE="$HOME/.config/gcloud/application_default_credentials.json"	
 	if [ ! -f "$APP_CREDENTIALS_FILE" ]; then
-		echo "Missnig gcloud application default credentials, this can cause goroutines to leak if not configured. Creating with empty config at $APP_CREDENTIALS_FILE"
+		echo "Missing gcloud application default credentials, this can cause goroutines to leak if not configured. Creating with empty config at $APP_CREDENTIALS_FILE"
 		echo '{"client_id":"XXXX","client_secret":"XXXX","refresh_token":"XXXX","type":"authorized_user"}' > $APP_CREDENTIALS_FILE
 	fi
 }
