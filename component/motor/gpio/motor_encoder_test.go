@@ -47,6 +47,7 @@ func TestMotorEncoder1(t *testing.T) {
 
 	e := &encoder.SingleEncoder{I: interrupt, CancelCtx: context.Background()}
 	e.AttachDirectionalAwareness(&fakeDirectionAware{m: fakeMotor})
+	e.Start(context.Background())
 	motorIfc, err := NewEncodedMotor(config.Component{}, cfg, fakeMotor, e, logger)
 	test.That(t, err, test.ShouldBeNil)
 	_motor, ok := motorIfc.(*EncodedMotor)
@@ -265,6 +266,7 @@ func TestMotorEncoderHall(t *testing.T) {
 		encoderA := &board.BasicDigitalInterrupt{}
 		encoderB := &board.BasicDigitalInterrupt{}
 		encoder := &encoder.HallEncoder{A: encoderA, B: encoderB, CancelCtx: context.Background()}
+		encoder.Start(context.Background())
 
 		motorIfc, err := NewEncodedMotor(config.Component{}, cfg, fakeMotor, encoder, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -555,6 +557,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		b.Digitals["a"] = &board.BasicDigitalInterrupt{}
 		e := &encoder.SingleEncoder{I: b.Digitals["a"], CancelCtx: context.Background()}
 		e.AttachDirectionalAwareness(&fakeDirectionAware{m: fakeMotor})
+		e.Start(context.Background())
 
 		m, err := WrapMotorWithEncoder(
 			context.Background(),
@@ -576,6 +579,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		b.Digitals["a"] = &board.BasicDigitalInterrupt{}
 		b.Digitals["b"] = &board.BasicDigitalInterrupt{}
 		e := &encoder.HallEncoder{A: b.Digitals["a"], B: b.Digitals["b"], CancelCtx: context.Background()}
+		e.Start(context.Background())
 
 		m, err := WrapMotorWithEncoder(
 			context.Background(),
