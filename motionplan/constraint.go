@@ -3,6 +3,7 @@ package motionplan
 import (
 	"errors"
 	"math"
+	"fmt"
 	"strconv"
 
 	"github.com/golang/geo/r3"
@@ -44,6 +45,8 @@ func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution 
 		return false, nil
 	}
 	steps := GetSteps(ci.StartPos, ci.EndPos, resolution)
+	//~ fmt.Println("steps", steps)
+	//~ fmt.Println("start end", spatial.PoseToProtobuf(ci.StartPos), spatial.PoseToProtobuf(ci.EndPos))
 
 	var lastGood []referenceframe.Input
 	// Seed with just the start position to walk the path
@@ -229,9 +232,12 @@ func NewLinearInterpolatingConstraint(from, to spatial.Pose, epsilon float64) (C
 	f := func(cInput *ConstraintInput) (bool, float64) {
 		oValid, oDist := orientConstraint(cInput)
 		lValid, lDist := lineConstraint(cInput)
+		//~ fmt.Println(oValid, lValid)
 		return oValid && lValid, oDist + lDist
 	}
 	return f, interpMetric
+	//~ return NewLineConstraint(from.Point(), to.Point(), epsilon)
+	//~ return NewSlerpOrientationConstraint(from, to, epsilon)
 }
 
 // NewJointConstraint returns a constraint which will sum the squared differences in each input from start to end
@@ -272,7 +278,7 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, epsilon float64) (C
 	var gradFunc func(from, _ spatial.Pose) float64
 	origDist := orientDist(start.Orientation(), goal.Orientation())
 
-	if origDist < epsilon*epsilon {
+	if origDist < defaultEpsilon {
 		gradFunc = func(from, _ spatial.Pose) float64 {
 			oDist := orientDist(start.Orientation(), from.Orientation())
 			return oDist
@@ -285,7 +291,10 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, epsilon float64) (C
 		}
 	}
 
-	validDist := epsilon * epsilon
+	validDist := origDist * epsilon
+	if origDist < defaultEpsilon {
+		validDist = defaultEpsilon
+	}
 
 	validFunc := func(cInput *ConstraintInput) (bool, float64) {
 		err := resolveInputsToPositions(cInput)
@@ -294,6 +303,9 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, epsilon float64) (C
 		}
 		dist := gradFunc(cInput.StartPos, cInput.EndPos)
 		if dist < validDist {
+			if(false){
+				fmt.Println(cInput.StartPos.Orientation().OrientationVectorDegrees())
+			}
 			return true, 0
 		}
 		return false, 0
@@ -350,7 +362,7 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Con
 // epsilon refers to the closeness to the line necessary to be a valid pose.
 func NewLineConstraint(pt1, pt2 r3.Vector, epsilon float64) (Constraint, Metric) {
 	// distance from line to point
-	lineDist := func(point r3.Vector) float64 {
+	distToLine := func(point r3.Vector) float64 {
 		ab := pt1.Sub(pt2)
 		av := point.Sub(pt2)
 
@@ -367,9 +379,11 @@ func NewLineConstraint(pt1, pt2 r3.Vector, epsilon float64) (Constraint, Metric)
 
 		return dist
 	}
+	
+	lineLen := pt1.Distance(pt2) * epsilon
 
 	gradFunc := func(from, _ spatial.Pose) float64 {
-		pDist := lineDist(from.Point())
+		pDist := math.Max(distToLine(from.Point()) - lineLen, 0)
 		return pDist * pDist
 	}
 
@@ -379,7 +393,7 @@ func NewLineConstraint(pt1, pt2 r3.Vector, epsilon float64) (Constraint, Metric)
 			return false, 0
 		}
 		dist := gradFunc(cInput.StartPos, cInput.EndPos)
-		if dist < epsilon*epsilon {
+		if dist < lineLen*lineLen {
 			return true, 0
 		}
 		return false, dist

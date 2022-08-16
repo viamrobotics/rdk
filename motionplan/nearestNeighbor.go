@@ -8,7 +8,7 @@ import (
 	"go.viam.com/utils"
 )
 
-const neighborsBeforeParallelization = 1000
+const neighborsBeforeParallelization = 100000
 
 type neighborManager struct {
 	nnKeys    chan *configuration

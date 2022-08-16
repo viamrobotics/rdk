@@ -18,7 +18,7 @@ import (
 const (
 	// When setting default constraints, the translation and orientation distances between the start/end are calculated and multiplied by
 	// this value. At no point during a movement may the minimum distance to the start or end exceed these values.
-	deviationFactor = 1.0
+	deviationFactor = 0.6
 	// Default distance below which two distances are considered equal.
 	defaultEpsilon = 0.001
 	// Default motion constraint name.
@@ -78,25 +78,15 @@ func DefaultConstraint(
 	f frame.Frame,
 	opt *PlannerOptions,
 ) *PlannerOptions {
-	pathDist := newDefaultMetric(from, to)
-
-	validFunc := func(cInput *ConstraintInput) (bool, float64) {
-		err := resolveInputsToPositions(cInput)
-		if err != nil {
-			return false, 0
-		}
-		dist := pathDist(cInput.StartPos, cInput.EndPos)
-		if dist < defaultEpsilon*defaultEpsilon {
-			return true, 0
-		}
-		return false, dist
-	}
+	pathConst, pathDist := NewLinearInterpolatingConstraint(from, to, deviationFactor)
+	
 	opt.pathDist = pathDist
-	opt.AddConstraint(defaultMotionConstraint, validFunc)
+	
+	opt.AddConstraint(defaultMotionConstraint, pathConst)
 
 	// Add self-collision check if available
-	collisionConst := NewCollisionConstraint(f, map[string]spatial.Geometry{}, map[string]spatial.Geometry{})
-	opt.AddConstraint("self-collision", collisionConst)
+	//~ collisionConst := NewCollisionConstraint(f, map[string]spatial.Geometry{}, map[string]spatial.Geometry{})
+	//~ opt.AddConstraint("self-collision", collisionConst)
 	return opt
 }
 
