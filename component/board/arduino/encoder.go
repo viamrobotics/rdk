@@ -105,11 +105,9 @@ func (e *Encoder) GetTicksCount(ctx context.Context, extra map[string]interface{
 	return ticks, nil
 }
 
-// ResetToZero resets the counted ticks to 0.
-func (e *Encoder) ResetToZero(ctx context.Context, offset int64, extra map[string]interface{}) error {
+// Reset sets the current position of the motor (adjusted by a given offset)
+// to be its new zero position.
+func (e *Encoder) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	_, err := e.board.runCommand(fmt.Sprintf("motor-zero %s %d", e.name, offset))
 	return err
 }
-
-// Start doesn't do anything for arduino encoder.
-func (e *Encoder) Start(ctx context.Context, onStart func()) {}

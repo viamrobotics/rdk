@@ -44,7 +44,7 @@ func TestGoFor(t *testing.T) {
 		TicksPerRotation:  1,
 	}
 
-	m.Encoder.Start(ctx, func() {})
+	m.Encoder.Start(ctx)
 	err := m.GoFor(ctx, 60, 1, nil)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -61,7 +61,7 @@ func TestGoTo(t *testing.T) {
 		TicksPerRotation:  1,
 	}
 
-	m.Encoder.Start(ctx, func() {})
+	m.Encoder.Start(ctx)
 	err := m.GoTo(ctx, 60, 1, nil)
 	test.That(t, err, test.ShouldBeNil)
 }

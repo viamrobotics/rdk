@@ -59,8 +59,7 @@ type SingleEncoder struct {
 
 // SinglePins describes the configuration of Pins for a Single encoder.
 type SinglePins struct {
-	I   string `json:"i"`
-	Dir string `json:"dir"`
+	I string `json:"i"`
 }
 
 // SingleConfig describes the configuration of a single encoder.
@@ -75,9 +74,6 @@ func (config *SingleConfig) Validate(path string) ([]string, error) {
 
 	if config.Pins.I == "" {
 		return nil, errors.New("expected nonempty string for i")
-	}
-	if config.Pins.Dir == "" {
-		return nil, errors.New("expected nonempty string for dir")
 	}
 
 	if len(config.BoardName) == 0 {
@@ -103,40 +99,30 @@ func NewSingleEncoder(
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	e := &SingleEncoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0}
 	if cfg, ok := config.ConvertedAttributes.(*SingleConfig); ok {
-		if cfg.BoardName == "" {
-			return nil, errors.New("SingleEncoder expected non-empty string for board")
-		}
-
-		pin := cfg.Pins.I
-		if pin == "" {
-			return nil, errors.New("HallEncoder pin configuration expects non-empty string for a")
-		}
-
-		if cfg.Pins.Dir == "" {
-			return nil, errors.New("single line encoder needs motor direction pin")
-		}
-
 		board, err := board.FromDependencies(deps, cfg.BoardName)
 		if err != nil {
 			return nil, err
 		}
 
-		e.I, ok = board.DigitalInterruptByName(pin)
+		e.I, ok = board.DigitalInterruptByName(cfg.Pins.I)
 		if !ok {
-			return nil, errors.Errorf("cannot find pin (%s) for SingleEncoder", pin)
+			return nil, errors.Errorf("cannot find pin (%s) for SingleEncoder", cfg.Pins.I)
 		}
+
+		e.Start(ctx)
+
+		return e, nil
 	}
 
-	return e, nil
+	return nil, errors.New("encoder config for SingleEncoder is not valid")
 }
 
 // Start starts the SingleEncoder background thread.
-func (e *SingleEncoder) Start(ctx context.Context, onStart func()) {
+func (e *SingleEncoder) Start(ctx context.Context) {
 	encoderChannel := make(chan bool)
 	e.I.AddCallback(encoderChannel)
 	e.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		onStart()
 		for {
 			select {
 			case <-e.CancelCtx.Done():
@@ -163,9 +149,9 @@ func (e *SingleEncoder) GetTicksCount(ctx context.Context, extra map[string]inte
 	return atomic.LoadInt64(&e.position), nil
 }
 
-// ResetToZero sets the current position of the motor (adjusted by a given offset)
+// Reset sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
-func (e *SingleEncoder) ResetToZero(ctx context.Context, offset int64, extra map[string]interface{}) error {
+func (e *SingleEncoder) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	atomic.StoreInt64(&e.position, offset)
 	return nil
 }
