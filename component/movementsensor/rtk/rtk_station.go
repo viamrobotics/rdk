@@ -75,7 +75,6 @@ func (config *AttrConfig) Validate(path string) error {
 		if len(config.CorrectionPath) == 0 {
 			return errors.New("must specify serial path")
 		}
-
 	}
 
 	if config.CorrectionSource == i2cStr {

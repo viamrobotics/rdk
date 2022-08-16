@@ -212,7 +212,7 @@ func TestConnect(t *testing.T) {
 
 // Helpers
 
-// mock ntripinfo client
+// mock ntripinfo client.
 func makeMockNtripClient() *nmea.NtripInfo {
 	return &nmea.NtripInfo{}
 }
