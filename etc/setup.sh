@@ -48,6 +48,7 @@ do_bullseye(){
 	EOS
 
 	mod_profiles
+	check_gcloud_auth
 }
 
 do_linux(){
@@ -82,6 +83,7 @@ do_linux(){
 
 	do_brew
 	mod_profiles
+	check_gcloud_auth
 }
 
 
@@ -114,6 +116,7 @@ do_darwin(){
 
 	do_brew
 	mod_profiles
+	check_gcloud_auth
 }
 
 mod_profiles(){
@@ -131,6 +134,18 @@ mod_profiles(){
 	fi
 	mkdir -p ~/.ssh
 	grep -q github.com ~/.ssh/known_hosts || ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
+}
+
+check_gcloud_auth(){
+	APP_CREDENTIALS_FILE="$HOME/.gcloud/application_default_credentials.json"		
+	if [ "$(uname)" == "Darwin" ]; then
+		APP_CREDENTIALS_FILE="$HOME/.config/gcloud/application_default_credentials.json"
+	fi 
+
+	if [ ! -f "$APP_CREDENTIALS_FILE" ]; then
+		echo "Missnig gcloud application default credentials, this can cause goroutines to leak if not configured. Creating with empty config at $APP_CREDENTIALS_FILE"
+		echo '{"client_id":"XXXX","client_secret":"XXXX","refresh_token":"XXXX","type":"authorized_user"}' > $APP_CREDENTIALS_FILE
+	fi
 }
 
 do_brew(){
