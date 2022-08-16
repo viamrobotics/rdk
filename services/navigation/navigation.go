@@ -28,6 +28,9 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+const StraightMMSecDefault = 500
+const SpinDegSecDefault = 45
+
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
@@ -107,9 +110,11 @@ var Name = resource.NameFromSubtype(Subtype, "")
 
 // Config describes how to configure the service.
 type Config struct {
-	Store              StoreConfig `json:"store"`
-	BaseName           string      `json:"base"`
-	MovementSensorName string      `json:"movement_sensor"`
+	Store                StoreConfig `json:"store"`
+	BaseName             string      `json:"base"`
+	MovementSensorName   string      `json:"movement_sensor"`
+	SpinDegSecDefault    float64     `json:"spin_deg_sec"`
+	StraightMMSecDefault float64     `json:"straight_mm_sec"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -155,15 +160,27 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, errors.Errorf("unknown store type %q", svcConfig.Store.Type)
 	}
 
+	// get default speeds from config if set, else defaults from nav services const
+	straightSpeed := svcConfig.StraightMMSecDefault
+	if straightSpeed == 0 {
+		straightSpeed = StraightMMSecDefault
+	}
+	spinSpeed := svcConfig.SpinDegSecDefault
+	if spinSpeed == 0 {
+		spinSpeed = SpinDegSecDefault
+	}
+
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	navSvc := &navService{
-		r:              r,
-		store:          store,
-		base:           base1,
-		movementSensor: movementSensor,
-		logger:         logger,
-		cancelCtx:      cancelCtx,
-		cancelFunc:     cancelFunc,
+		r:                    r,
+		store:                store,
+		base:                 base1,
+		movementSensor:       movementSensor,
+		straightMMSecDefault: straightSpeed,
+		spinDegSecDefault:    spinSpeed,
+		logger:               logger,
+		cancelCtx:            cancelCtx,
+		cancelFunc:           cancelFunc,
 	}
 	return navSvc, nil
 }
@@ -177,6 +194,8 @@ type navService struct {
 	base           base.Base
 	movementSensor movementsensor.MovementSensor
 
+	straightMMSecDefault    float64
+	spinDegSecDefault       float64
 	logger                  golog.Logger
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -265,14 +284,14 @@ func (svc *navService) startWaypoint() error {
 				// TODO(erh->erd): maybe need an arc/stroke abstraction?
 				// - Remember that we added -1*bearingDelta instead of steeringDir
 				// - Test both naval/land to prove it works
-				if err := svc.base.Spin(ctx, -1*bearingDelta, 45, nil); err != nil {
+				if err := svc.base.Spin(ctx, -1*bearingDelta, svc.spinDegSecDefault, nil); err != nil {
 					return fmt.Errorf("error turning: %w", err)
 				}
 
 				distanceMm := distanceToGoal * 1000 * 1000
 				distanceMm = math.Min(distanceMm, 10*1000)
 
-				if err := svc.base.MoveStraight(ctx, int(distanceMm), 500, nil); err != nil {
+				if err := svc.base.MoveStraight(ctx, int(distanceMm), svc.straightMMSecDefault, nil); err != nil {
 					return fmt.Errorf("error moving %w", err)
 				}
 
