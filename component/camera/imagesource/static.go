@@ -27,7 +27,7 @@ func init() {
 			}
 			imgSrc := &fileSource{attrs.Color, attrs.Depth, attrs.CameraParameters}
 			proj, _ := camera.GetProjector(ctx, attrs.AttrConfig, nil)
-			return camera.New(imgSrc, proj)
+			return camera.FromImageSource(imgSrc, proj, true)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "file",

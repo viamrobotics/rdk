@@ -42,7 +42,11 @@ func init() {
 				return nil, fmt.Errorf("no source camera for identity (%s): %w", sourceName, err)
 			}
 			proj, _ := camera.GetProjector(ctx, nil, source)
-			return camera.New(source, proj)
+			props, err := source.GetProperties(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("get properties failed for source camera for identity (%s): %w", sourceName, err)
+			}
+			return camera.FromImageSource(source, proj, props.HasDepth)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "identity",
@@ -72,7 +76,12 @@ func init() {
 			}
 			imgSrc := &rotateSource{source, camera.StreamType(attrs.Stream)}
 			proj, _ := camera.GetProjector(ctx, nil, source)
-			return camera.New(imgSrc, proj)
+			hasDepth := (attrs.Stream == "depth")
+			_, supportsPointCloud := imgSrc.original.(camera.PointCloudSource)
+			if (attrs.Stream == "color") && supportsPointCloud {
+				hasDepth = true
+			}
+			return camera.FromImageSource(imgSrc, proj, hasDepth)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "rotate",
@@ -112,7 +121,7 @@ func init() {
 
 			imgSrc := gostream.ResizeImageSource{Src: source, Width: width, Height: height}
 			proj, _ := camera.GetProjector(ctx, nil, nil) // camera parameters from source camera do not work for resized images
-			return camera.New(imgSrc, proj)
+			return camera.FromImageSource(imgSrc, proj)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "resize",

@@ -191,7 +191,7 @@ func newAlignColorDepth(ctx context.Context, color, depth camera.Camera, attrs *
 		debug:     attrs.Debug,
 		logger:    logger,
 	}
-	return camera.New(imgSrc, proj)
+	return camera.FromImageSource(imgSrc, proj, true)
 }
 
 // Next aligns the next images from the color and the depth sources to the frame of the color camera.

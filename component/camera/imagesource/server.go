@@ -119,7 +119,7 @@ func newDualServerSource(ctx context.Context, cfg *dualServerAttrs) (camera.Came
 		Stream:     camera.StreamType(cfg.Stream),
 	}
 	proj, _ := camera.GetProjector(ctx, cfg.AttrConfig, nil)
-	return camera.New(imgSrc, proj)
+	return camera.FromImageSource(imgSrc, proj, true)
 }
 
 // Next requests either the color or depth frame, depending on what the config specifies.
@@ -243,5 +243,5 @@ func NewServerSource(ctx context.Context, cfg *ServerAttrs, logger golog.Logger)
 		Intrinsics: cfg.AttrConfig.CameraParameters,
 	}
 	proj, _ := camera.GetProjector(ctx, cfg.AttrConfig, nil)
-	return camera.New(imgSrc, proj)
+	return camera.FromImageSource(imgSrc, proj, true)
 }

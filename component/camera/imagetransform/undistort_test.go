@@ -36,7 +36,7 @@ func TestUndistortSetup(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := &imagesource.StaticSource{ColorImg: img}
-	cam, err := camera.New(source, nil)
+	cam, err := camera.FromImageSource(source, nil)
 	test.That(t, err, test.ShouldBeNil)
 	props, err := cam.GetProperties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -53,7 +53,7 @@ func TestUndistortSetup(t *testing.T) {
 		ColorImg: img,
 		Proj:     undistortTestParams,
 	}
-	cam, err = camera.New(source, source.Proj)
+	cam, err = camera.FromImageSource(source, source.Proj)
 	test.That(t, err, test.ShouldBeNil)
 	attrs.Stream = "fake"
 	us, err := newUndistortSource(context.Background(), cam, attrs)
@@ -71,7 +71,7 @@ func TestUndistortSetup(t *testing.T) {
 
 	// success - attrs does not have cam parameters, but source does
 	proj, _ := camera.GetProjector(context.Background(), nil, cam)
-	cam2, err := camera.New(source, proj)
+	cam2, err := camera.FromImageSource(source, proj)
 	test.That(t, err, test.ShouldBeNil)
 
 	attrs.Stream = string(camera.ColorStream)

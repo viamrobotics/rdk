@@ -138,9 +138,9 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, l golog.Logger,
 
 	if idx, ok := contains(joinSource.sourceNames, joinSource.targetName); ok {
 		proj, _ := camera.GetProjector(ctx, nil, joinSource.sourceCameras[idx])
-		return camera.New(joinSource, proj)
+		return camera.FromImageSource(joinSource, proj, true)
 	}
-	return camera.New(joinSource, nil)
+	return camera.FromImageSource(joinSource, nil, true)
 }
 
 // NextPointCloud gets all the point clouds from the source cameras,

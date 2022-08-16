@@ -109,12 +109,12 @@ func GetProjector(ctx context.Context, attrs *AttrConfig, parentSource Camera) (
 	return nil, false
 }
 
-// New creates a Camera either with or without a projector.
-func New(imgSrc gostream.ImageSource, proj rimage.Projector) (Camera, error) {
+// FromImageSource creates a Camera either with or without a projector.
+func FromImageSource(imgSrc gostream.ImageSource, proj rimage.Projector, hasDepth bool) (Camera, error) {
 	if imgSrc == nil {
 		return nil, errors.New("cannot have a nil image source")
 	}
-	return &imageSource{imgSrc, proj, generic.Unimplemented{}}, nil
+	return &imageSource{imgSrc, proj, generic.Unimplemented{}, hasDepth}, nil
 }
 
 // ImageSource implements a Camera with a gostream.ImageSource.
@@ -122,6 +122,7 @@ type imageSource struct {
 	gostream.ImageSource
 	projector rimage.Projector
 	generic.Unimplemented
+	hasDepth bool
 }
 
 // Close closes the underlying ImageSource.

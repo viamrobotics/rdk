@@ -2,6 +2,7 @@ package imagesource
 
 import (
 	"context"
+	"image"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -16,8 +17,10 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
+	"go.viam.com/rdk/pointcloud"
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rlog"
@@ -66,6 +69,24 @@ func init() {
 		discovery.NewQuery(camera.SubtypeName, model),
 		func(ctx context.Context) (interface{}, error) { return Discover(ctx, getVideoDrivers) },
 	)
+}
+
+type webcam struct {
+	reader media.VideoReadCloser
+	attrs  *WebcamAttrs
+	generic.Unimplemented
+}
+
+func (cam *webcam) GetProperties(ctx context.Context) (camera.Properties, error) {
+	return camera.Properties{HasDepth: false, IntrinsicParams: cam.attrs.CameraParameters}, nil
+}
+
+func (cam *webcam) Next(ctx context.Context) (image.Image, func(), error) {
+	return cam.reader.Next(ctx)
+}
+
+func (cam *webcam) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	return nil, errors.New("point cloud retrieval is not supported for the webcam camera model")
 }
 
 func getVideoDrivers() []driver.Driver {
@@ -255,6 +276,8 @@ func tryWebcamOpen(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	proj, _ := camera.GetProjector(ctx, attrs.AttrConfig, nil)
-	return camera.New(reader, proj)
+	return &webcam{
+		attrs:  attrs,
+		reader: reader,
+	}, nil
 }

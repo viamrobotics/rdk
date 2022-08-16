@@ -69,5 +69,5 @@ func newPreprocessDepth(ctx context.Context, deps registry.Dependencies, attrs *
 	}
 	imgSrc := &preprocessDepthSource{source}
 	proj, _ := camera.GetProjector(ctx, nil, source)
-	return camera.New(imgSrc, proj)
+	return camera.FromImageSource(imgSrc, proj)
 }
