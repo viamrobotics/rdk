@@ -327,7 +327,7 @@ func TestSampleNIntegersUniform(t *testing.T) {
 	for _, value := range counter {
 		// 1000 samples in a range of 20 values - counter should be on average 50
 		test.That(t, value, test.ShouldBeGreaterThanOrEqualTo, 10)
-		test.That(t, value, test.ShouldBeLessThanOrEqualTo, 65)
+		test.That(t, value, test.ShouldBeLessThanOrEqualTo, 68)
 	}
 }
 
