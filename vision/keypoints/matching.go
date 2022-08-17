@@ -2,8 +2,8 @@ package keypoints
 
 import (
 	"github.com/edaniels/golog"
-	"github.com/gonum/floats"
 	"github.com/pkg/errors"
+	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/utils"
