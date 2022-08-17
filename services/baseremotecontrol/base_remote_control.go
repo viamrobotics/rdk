@@ -272,12 +272,12 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 
-	svc, ok := s.(remoteService)
+	svc, ok := s.(*remoteService)
 	if !ok {
-		return nil, utils.NewUnexpectedTypeError(&remoteService{}, s)
+		return nil, utils.NewUnexpectedTypeError(remoteService{}, s)
 	}
 
-	return &reconfigurableBaseRemoteControl{actual: &svc}, nil
+	return &reconfigurableBaseRemoteControl{actual: svc}, nil
 }
 
 // triggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left joystick to

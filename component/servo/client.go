@@ -11,38 +11,23 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/servo/v1"
 )
 
-// serviceClient is a client that satisfies the servo.proto contract.
-type serviceClient struct {
+// client implements ServoServiceClient.
+type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.ServoServiceClient
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
-	client := pb.NewServoServiceClient(conn)
-	sc := &serviceClient{
-		conn:   conn,
-		client: client,
-		logger: logger,
-	}
-	return sc
-}
-
-// client is a servo client.
-type client struct {
-	*serviceClient
-	name string
-}
-
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Servo {
-	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(sc, name)
-}
-
-func clientFromSvcClient(sc *serviceClient, name string) Servo {
-	return &client{sc, name}
+	c := pb.NewServoServiceClient(conn)
+	return &client{
+		name:   name,
+		conn:   conn,
+		client: c,
+		logger: logger,
+	}
 }
 
 func (c *client) Move(ctx context.Context, angleDeg uint8) error {

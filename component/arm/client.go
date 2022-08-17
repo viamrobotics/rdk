@@ -17,38 +17,23 @@ import (
 
 var errArmClientInputsNotSupport = errors.New("arm client does not support inputs directly")
 
-// serviceClient is a client satisfies the arm.proto contract.
-type serviceClient struct {
+// client implements ArmServiceClient.
+type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.ArmServiceClient
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
-	client := pb.NewArmServiceClient(conn)
-	sc := &serviceClient{
-		conn:   conn,
-		client: client,
-		logger: logger,
-	}
-	return sc
-}
-
-// client is an arm client.
-type client struct {
-	*serviceClient
-	name string
-}
-
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Arm {
-	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(sc, name)
-}
-
-func clientFromSvcClient(sc *serviceClient, name string) Arm {
-	return &client{sc, name}
+	c := pb.NewArmServiceClient(conn)
+	return &client{
+		name:   name,
+		conn:   conn,
+		client: c,
+		logger: logger,
+	}
 }
 
 func (c *client) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
