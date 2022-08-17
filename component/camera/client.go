@@ -19,38 +19,23 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// serviceClient is a client satisfies the camera.proto contract.
-type serviceClient struct {
+// client implements CameraServiceClient.
+type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.CameraServiceClient
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
-	client := pb.NewCameraServiceClient(conn)
-	sc := &serviceClient{
-		conn:   conn,
-		client: client,
-		logger: logger,
-	}
-	return sc
-}
-
-// client is an camera client.
-type client struct {
-	*serviceClient
-	name string
-}
-
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Camera {
-	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(sc, name)
-}
-
-func clientFromSvcClient(sc *serviceClient, name string) Camera {
-	return &client{sc, name}
+	c := pb.NewCameraServiceClient(conn)
+	return &client{
+		name:   name,
+		conn:   conn,
+		client: c,
+		logger: logger,
+	}
 }
 
 func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
