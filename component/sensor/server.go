@@ -48,13 +48,14 @@ func (s *subtypeServer) GetReadings(
 	if err != nil {
 		return nil, err
 	}
-	readingsP := make([]*structpb.Value, 0, len(readings))
-	for _, r := range readings {
-		v, err := structpb.NewValue(r)
+	m := map[string]*structpb.Value{}
+
+	for k, v := range readings {
+		vv, err := structpb.NewValue(v)
 		if err != nil {
 			return nil, err
 		}
-		readingsP = append(readingsP, v)
+		m[k] = vv
 	}
-	return &pb.GetReadingsResponse{Readings: readingsP}, nil
+	return &pb.GetReadingsResponse{Readings: m}, nil
 }

@@ -77,13 +77,13 @@ func (server *subtypeServer) GetReadings(
 
 	readingsP := make([]*pb.Readings, 0, len(readings))
 	for _, reading := range readings {
-		rReading := make([]*structpb.Value, 0, len(reading.Readings))
-		for _, r := range reading.Readings {
-			v, err := structpb.NewValue(r)
+		rReading := map[string]*structpb.Value{}
+		for k, v := range reading.Readings {
+			vv, err := structpb.NewValue(v)
 			if err != nil {
 				return nil, err
 			}
-			rReading = append(rReading, v)
+			rReading[k] = vv
 		}
 		readingP := &pb.Readings{
 			Name:     protoutils.ResourceNameToProto(reading.Name),

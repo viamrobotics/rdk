@@ -30,18 +30,19 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
+func (c *client) GetReadings(ctx context.Context) (map[string]interface{}, error) {
 	resp, err := c.client.GetReadings(ctx, &pb.GetReadingsRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return nil, err
 	}
-	readings := make([]interface{}, 0, len(resp.Readings))
-	for _, r := range resp.Readings {
-		readings = append(readings, r.AsInterface())
+
+	m := map[string]interface{}{}
+	for k, v := range resp.Readings {
+		m[k] = v.AsInterface()
 	}
-	return readings, nil
+	return m, nil
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
