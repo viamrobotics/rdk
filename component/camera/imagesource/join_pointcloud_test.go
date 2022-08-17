@@ -170,7 +170,6 @@ func TestJoinPointCloudNaive(t *testing.T) {
 
 	img, _, err = joinedCam.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	// fmt.Println(img)
 	test.That(t, img.Bounds(), test.ShouldResemble, image.Rect(0, 0, 1, 100))
 }
 

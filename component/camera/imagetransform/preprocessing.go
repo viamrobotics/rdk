@@ -69,5 +69,9 @@ func newPreprocessDepth(ctx context.Context, deps registry.Dependencies, attrs *
 	}
 	imgSrc := &preprocessDepthSource{source}
 	proj, _ := camera.GetProjector(ctx, nil, source)
-	return camera.FromImageSource(imgSrc, proj, true)
+	sourceProps, err := source.GetProperties(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get properties from source camera (%s): %w", attrs.Source, err)
+	}
+	return camera.FromImageSource(imgSrc, proj, sourceProps.HasDepth)
 }

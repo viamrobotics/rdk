@@ -42,7 +42,7 @@ func main() {
 	}
 	if *imgPtr != "" {
 		src := &simpleSource{*imgPtr}
-		cam, err := camera.FromImageSource(src, nil, true)
+		cam, err := camera.FromImageSource(src, nil, false)
 		if err != nil {
 			logger.Fatal(err)
 		}

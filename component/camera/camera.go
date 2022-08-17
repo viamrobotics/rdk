@@ -155,7 +155,10 @@ func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 func (is *imageSource) GetProperties(ctx context.Context) (Properties, error) {
 	result := Properties{HasDepth: is.hasDepth}
 	if is.projector != nil {
-		result.IntrinsicParams = is.projector.(*transform.PinholeCameraIntrinsics)
+		intrinsicParams, ok := is.projector.(*transform.PinholeCameraIntrinsics)
+		if ok {
+			result.IntrinsicParams = intrinsicParams
+		}
 	}
 	return result, nil
 }

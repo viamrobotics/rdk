@@ -242,6 +242,7 @@ func NewServerSource(ctx context.Context, cfg *ServerAttrs, logger golog.Logger)
 		stream:     camera.StreamType(cfg.Stream),
 		Intrinsics: cfg.AttrConfig.CameraParameters,
 	}
+	hasDepth := cfg.Stream == "depth"
 	proj, _ := camera.GetProjector(ctx, cfg.AttrConfig, nil)
-	return camera.FromImageSource(imgSrc, proj, true)
+	return camera.FromImageSource(imgSrc, proj, hasDepth)
 }
