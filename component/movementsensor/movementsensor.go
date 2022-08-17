@@ -119,7 +119,7 @@ func NamesFromRobot(r robot.Robot) []string {
 // GetReadings is a helper for getting all readings from a MovementSensor.
 func GetReadings(ctx context.Context, g MovementSensor) (map[string]interface{}, error) {
 	readings := map[string]interface{}{}
-	
+
 	pos, altitide, err := g.GetPosition(ctx)
 	if err != nil {
 		return nil, err

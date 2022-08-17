@@ -42,5 +42,5 @@ type Sensor struct {
 func (s *Sensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return map[string]interface{}{"a" : 1, "b" : 2, "c" : 3}, nil
+	return map[string]interface{}{"a": 1, "b": 2, "c": 3}, nil
 }

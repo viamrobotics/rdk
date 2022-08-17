@@ -125,8 +125,8 @@ func TestServerGetReadings(t *testing.T) {
 		}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
-		iReading := sensors.Readings{Name: movementsensor.Named("imu"), Readings: map[string]interface{}{"a" : 1.2, "b" : 2.3, "c" : 3.4}}
-		gReading := sensors.Readings{Name: movementsensor.Named("gps"), Readings: map[string]interface{}{"a" : 4.5, "b" : 5.6, "c" : 6.7}}
+		iReading := sensors.Readings{Name: movementsensor.Named("imu"), Readings: map[string]interface{}{"a": 1.2, "b": 2.3, "c": 3.4}}
+		gReading := sensors.Readings{Name: movementsensor.Named("gps"), Readings: map[string]interface{}{"a": 4.5, "b": 5.6, "c": 6.7}}
 		readings := []sensors.Readings{iReading, gReading}
 		expected := map[resource.Name]interface{}{
 			iReading.Name: iReading.Readings,

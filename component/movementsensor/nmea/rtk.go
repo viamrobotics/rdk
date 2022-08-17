@@ -520,7 +520,7 @@ func (g *RTKMovementSensor) GetReadings(ctx context.Context) (map[string]interfa
 	}
 
 	readings["fix"] = fix
-	
+
 	return readings, nil
 }
 

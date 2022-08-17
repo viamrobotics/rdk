@@ -230,7 +230,7 @@ func (g *SerialNMEAMovementSensor) GetReadings(ctx context.Context) (map[string]
 	if err != nil {
 		return nil, err
 	}
-	
+
 	readings["fix"] = fix
 
 	return readings, nil
