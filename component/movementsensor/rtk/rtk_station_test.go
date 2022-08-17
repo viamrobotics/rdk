@@ -186,7 +186,7 @@ func TestConnect(t *testing.T) {
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	info := &nmea.NtripInfo{
-		Url:                "invalidurl",
+		URL:                "invalidurl",
 		Username:           "user",
 		Password:           "pwd",
 		MountPoint:         "",
@@ -198,7 +198,7 @@ func TestConnect(t *testing.T) {
 	err := g.Connect()
 	test.That(t, err, test.ShouldNotBeNil)
 
-	g.info.Url = "http://fakeurl"
+	g.info.URL = "http://fakeurl"
 	err = g.Connect()
 	test.That(t, err, test.ShouldBeNil)
 

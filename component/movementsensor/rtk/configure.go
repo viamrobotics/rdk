@@ -2,7 +2,7 @@ package rtk
 
 import (
 	"fmt"
-	"log"
+	"io"
 
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
@@ -76,11 +76,12 @@ type configCommand struct {
 	msgsToEnable  map[int]int
 	msgsToDisable map[int]int
 
-	portId int
+	portID    int
+	writePort io.ReadWriteCloser
 }
 
-// configure an RTKStation with time mode.
-func ConfigureBaseRTKStation(config config.Component) (*configCommand, error) {
+// ConfigureBaseRTKStation configures an RTK chip to act as a base station and send correction data.
+func ConfigureBaseRTKStation(config config.Component) error {
 	correctionType := config.Attributes.String(correctionSourceName)
 
 	surveyIn := config.Attributes.String(svinConfig)
@@ -93,40 +94,44 @@ func ConfigureBaseRTKStation(config config.Component) (*configCommand, error) {
 		observationTime: observationTime,
 		msgsToEnable:    rtcmMsgs, // defaults
 		msgsToDisable:   nmeaMsgs, // defaults
+		surveyIn:        surveyIn,
 	}
 
 	// already configured
-	if surveyIn != timeMode {
-		return c, nil
+	if c.surveyIn != timeMode {
+		return nil
 	}
 
 	switch c.correctionType {
-	case "serial":
-		portName := config.Attributes.String("correction_path")
-		if portName == "" {
-			return nil, fmt.Errorf("serialCorrectionSource expected non-empty string for %q", correctionPathName)
+	case serialStr:
+		err := c.serialConfigure(config)
+		if err != nil {
+			return err
 		}
-		c.portName = portName
-
-		baudRate := config.Attributes.Int("correction_baud", 0)
-		if baudRate == 0 {
-			baudRate = 9600
-		}
-		c.baudRate = uint(baudRate)
-		c.portId = uart2
 	default:
-		return nil, errors.Errorf("configuration not supported for %s", correctionType)
+		return errors.Errorf("configuration not supported for %s", correctionType)
 	}
 
-	c.enableAll(ubxRtcmMsb)
-	c.disableAll(ubxNmeaMsb)
-	c.enableSVIN()
+	err := c.enableAll(ubxRtcmMsb)
+	if err != nil {
+		return err
+	}
 
-	return c, nil
+	err = c.disableAll(ubxNmeaMsb)
+	if err != nil {
+		return err
+	}
+
+	err = c.enableSVIN()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// configure to default rover settings.
-func ConfigureRoverDefault(config config.Component) (*configCommand, error) {
+// ConfigureRoverDefault sets up an RTK chip to act as a rover and receive correction data.
+func ConfigureRoverDefault(config config.Component) error {
 	correctionType := config.Attributes.String(correctionSourceName)
 
 	c := &configCommand{
@@ -136,58 +141,178 @@ func ConfigureRoverDefault(config config.Component) (*configCommand, error) {
 	}
 
 	switch correctionType {
-	case "serial":
-		portName := config.Attributes.String("correction_path")
-		if portName == "" {
-			return nil, fmt.Errorf("serialCorrectionSource expected non-empty string for %q", correctionPathName)
+	case serialStr:
+		err := c.serialConfigure(config)
+		if err != nil {
+			return err
 		}
-		c.portName = portName
-
-		baudRate := config.Attributes.Int("correction_baud", 0)
-		if baudRate == 0 {
-			baudRate = 9600
-		}
-		c.baudRate = uint(baudRate)
-		c.portId = uart2
 	default:
-		return nil, errors.Errorf("configuration not supported for %s", correctionType)
+		return errors.Errorf("configuration not supported for %s", correctionType)
 	}
 
-	c.enableAll(ubxNmeaMsb)
-	c.disableAll(ubxRtcmMsb)
+	err := c.enableAll(ubxNmeaMsb)
+	if err != nil {
+		return err
+	}
 
-	return c, nil
+	err = c.disableAll(ubxRtcmMsb)
+	if err != nil {
+		return err
+	}
+
+	err = c.disableSVIN()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (c *configCommand) disableAll(msb int) {
+func (c *configCommand) serialConfigure(config config.Component) error {
+	portName := config.Attributes.String("correction_path")
+	if portName == "" {
+		return fmt.Errorf("serialCorrectionSource expected non-empty string for %q", correctionPathName)
+	}
+	c.portName = portName
+
+	baudRate := config.Attributes.Int("correction_baud", 0)
+	if baudRate == 0 {
+		baudRate = 9600
+	}
+	c.baudRate = uint(baudRate)
+	c.portID = uart2
+
+	options := serial.OpenOptions{
+		PortName:        c.portName,
+		BaudRate:        c.baudRate,
+		DataBits:        8,
+		StopBits:        1,
+		MinimumReadSize: 1,
+	}
+
+	// Open the port
+	writePort, err := serial.Open(options)
+	if err != nil {
+		return err
+	}
+	c.writePort = writePort
+
+	return nil
+}
+
+func (c *configCommand) sendCommand(cls int, id int, msgLen int, payloadCfg []byte) ([]byte, error) {
+	switch c.correctionType {
+	case serialStr:
+		msg, err := c.sendCommandSerial(cls, id, msgLen, payloadCfg)
+		if err != nil {
+			return nil, err
+		}
+		return msg, nil
+	default:
+		return nil, errors.Errorf("configuration not supported for %s", c.correctionType)
+	}
+}
+
+func (c *configCommand) sendCommandSerial(cls int, id int, msgLen int, payloadCfg []byte) ([]byte, error) {
+	checksumA, checksumB := calcChecksum(cls, id, msgLen, payloadCfg)
+
+	// build packet to send over serial
+	byteSize := msgLen + 8 // header+checksum+payload
+	packet := make([]byte, byteSize)
+
+	// header bytes
+	packet[0] = byte(ubxSynch1)
+	packet[1] = byte(ubxSynch2)
+	packet[2] = byte(cls)
+	packet[3] = byte(id)
+	packet[4] = byte(msgLen & 0xFF) // LSB
+	packet[5] = byte(msgLen >> 8)   // MSB
+
+	ind := 6
+	for i := 0; i < msgLen; i++ {
+		packet[ind+i] = payloadCfg[i]
+	}
+	packet[len(packet)-1] = byte(checksumB)
+	packet[len(packet)-2] = byte(checksumA)
+
+	_, err := c.writePort.Write(packet)
+	if err != nil {
+		return nil, err
+	}
+
+	// then wait to capture a byte
+	buf := make([]byte, maxPayloadSize)
+	n, err := c.writePort.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf[:n], nil
+}
+
+func (c *configCommand) disableAll(msb int) error {
 	for msg := range c.msgsToDisable {
-		c.disableMessageCommand(msb, msg, c.portId)
+		err := c.disableMessageCommand(msb, msg, c.portID)
+		if err != nil {
+			return err
+		}
 	}
-	c.saveAllConfigs()
+	err := c.saveAllConfigs()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (c *configCommand) enableAll(msb int) {
+func (c *configCommand) enableAll(msb int) error {
 	for msg, sendRate := range c.msgsToEnable {
-		c.enableMessageCommand(msb, msg, c.portId, sendRate)
+		err := c.enableMessageCommand(msb, msg, c.portID, sendRate)
+		if err != nil {
+			return err
+		}
 	}
-	c.saveAllConfigs()
+	err := c.saveAllConfigs()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
+//nolint:unused
 func (c *configCommand) getSurveyMode() ([]byte, error) {
 	cls := ubxClassCfg
 	id := ubxCfgTmode3
 	payloadCfg := make([]byte, 40)
-	return c.sendCommand(cls, id, 0, payloadCfg) // set payloadcfg
+	val, err := c.sendCommand(cls, id, 0, payloadCfg) // set payloadcfg
+	if err != nil {
+		return nil, err
+	}
+	return val, nil
 }
 
-func (c *configCommand) enableSVIN() {
-	c.setSurveyMode(svinModeEnable, c.requiredAcc, c.observationTime)
-	c.saveAllConfigs()
+func (c *configCommand) enableSVIN() error {
+	err := c.setSurveyMode(svinModeEnable, c.requiredAcc, c.observationTime)
+	if err != nil {
+		return err
+	}
+
+	err = c.saveAllConfigs()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (c *configCommand) disableSVIN() {
-	c.setSurveyMode(svinModeDisable, 0, 0)
-	c.saveAllConfigs()
+func (c *configCommand) disableSVIN() error {
+	err := c.setSurveyMode(svinModeDisable, 0, 0)
+	if err != nil {
+		return err
+	}
+
+	err = c.saveAllConfigs()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *configCommand) setSurveyMode(mode int, requiredAccuracy float64, observationTime int) error {
@@ -198,7 +323,7 @@ func (c *configCommand) setSurveyMode(mode int, requiredAccuracy float64, observ
 
 	cls := ubxClassCfg
 	id := ubxCfgTmode3
-	msg_len := 40
+	msgLen := 40
 
 	// payloadCfg should be loaded with poll response. Now modify only the bits we care about
 	payloadCfg[2] = byte(mode) // Set mode. Survey-In and Disabled are most common. Use ECEF (not LAT/LON/ALT).
@@ -217,7 +342,7 @@ func (c *configCommand) setSurveyMode(mode int, requiredAccuracy float64, observ
 	payloadCfg[30] = byte((svinAccLimit >> 16) & 0xFF)
 	payloadCfg[31] = byte((svinAccLimit >> 24) & 0xFF)
 
-	_, err := c.sendCommand(cls, id, msg_len, payloadCfg)
+	_, err := c.sendCommand(cls, id, msgLen, payloadCfg)
 	if err != nil {
 		return err
 	}
@@ -225,15 +350,16 @@ func (c *configCommand) setSurveyMode(mode int, requiredAccuracy float64, observ
 	return nil
 }
 
+//nolint:lll,unused
 func (c *configCommand) setStaticPosition(ecefXOrLat int, ecefXOrLatHP int, ecefYOrLon int, ecefYOrLonHP int, ecefZOrAlt int, ecefZOrAltHP int, latLong bool) error {
 	cls := ubxClassCfg
 	id := ubxCfgTmode3
-	msg_len := 40
+	msgLen := 40
 
 	payloadCfg := make([]byte, maxPayloadSize)
 	payloadCfg[2] = byte(2)
 
-	if latLong == true {
+	if latLong {
 		payloadCfg[3] = (1 << 0) // Set mode to fixed. Use LAT/LON/ALT.
 	}
 
@@ -260,120 +386,72 @@ func (c *configCommand) setStaticPosition(ecefXOrLat int, ecefXOrLatHP int, ecef
 	payloadCfg[17] = byte(ecefYOrLonHP)
 	payloadCfg[18] = byte(ecefZOrAltHP)
 
-	_, err := c.sendCommand(cls, id, msg_len, payloadCfg)
+	_, err := c.sendCommand(cls, id, msgLen, payloadCfg)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *configCommand) disableMessageCommand(msgClass int, messageNumber int, portId int) error {
-	err := c.enableMessageCommand(msgClass, messageNumber, portId, 0)
+func (c *configCommand) disableMessageCommand(msgClass int, messageNumber int, portID int) error {
+	err := c.enableMessageCommand(msgClass, messageNumber, portID, 0)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *configCommand) enableMessageCommand(msgClass int, messageNumber int, portId int, sendRate int) error {
+func (c *configCommand) enableMessageCommand(msgClass int, messageNumber int, portID int, sendRate int) error {
 	// dont use current port settings actually
 	payloadCfg := make([]byte, maxPayloadSize)
 
 	cls := ubxClassCfg
 	id := ubxCfgMsg
-	msg_len := 8
+	msgLen := 8
 
 	payloadCfg[0] = byte(msgClass)
 	payloadCfg[1] = byte(messageNumber)
-	payloadCfg[2+portId] = byte(sendRate)
+	payloadCfg[2+portID] = byte(sendRate)
 	// default to enable usb on with same sendRate
 	payloadCfg[2+usb] = byte(sendRate)
 
-	_, err := c.sendCommand(cls, id, msg_len, payloadCfg)
+	_, err := c.sendCommand(cls, id, msgLen, payloadCfg)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *configCommand) sendCommand(cls int, id int, msg_len int, payloadCfg []byte) ([]byte, error) {
-	switch c.correctionType {
-	case "serial":
-		msg, err := c.sendCommandSerial(cls, id, msg_len, payloadCfg)
-		if err != nil {
-			return nil, err
-		}
-		return msg, nil
-	default:
-		return nil, errors.Errorf("configuration not supported for %s", c.correctionType)
-	}
-}
-
-func (c *configCommand) sendCommandSerial(cls int, id int, msg_len int, payloadCfg []byte) ([]byte, error) {
-	checksumA, checksumB := calcChecksum(cls, id, msg_len, payloadCfg)
-	options := serial.OpenOptions{
-		PortName:        c.portName,
-		BaudRate:        c.baudRate,
-		DataBits:        8,
-		StopBits:        1,
-		MinimumReadSize: 1,
-	}
-
-	// Open the port.
-	writePort, err := serial.Open(options)
-	if err != nil {
-		return nil, err
-	}
-	defer writePort.Close()
-
-	// build packet to send over serial
-	byteSize := msg_len + 8 // header+checksum+payload
-	packet := make([]byte, byteSize)
-
-	// header bytes
-	packet[0] = byte(ubxSynch1)
-	packet[1] = byte(ubxSynch2)
-	packet[2] = byte(cls)
-	packet[3] = byte(id)
-	packet[4] = byte(msg_len & 0xFF) // LSB
-	packet[5] = byte(msg_len >> 8)   // MSB
-
-	ind := 6
-	for i := 0; i < msg_len; i++ {
-		packet[ind+i] = payloadCfg[i]
-	}
-	packet[len(packet)-1] = byte(checksumB)
-	packet[len(packet)-2] = byte(checksumA)
-
-	writePort.Write(packet)
-
-	// then wait to capture a byte
-	buf := make([]byte, maxPayloadSize)
-	n, err := writePort.Read(buf)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return buf[:n], nil
-}
-
 func (c *configCommand) saveAllConfigs() error {
 	cls := ubxClassCfg
 	id := ubxCfgCfg
-	msg_len := 12
+	msgLen := 12
 
 	payloadCfg := make([]byte, maxPayloadSize)
 
 	payloadCfg[4] = 0xFF
 	payloadCfg[5] = 0xFF
 
-	_, err := c.sendCommand(cls, id, msg_len, payloadCfg)
+	_, err := c.sendCommand(cls, id, msgLen, payloadCfg)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func calcChecksum(cls int, id int, msg_len int, payload []byte) (checksumA int, checksumB int) {
+// Close closes all open ports used in configuration.
+func (c *configCommand) Close() error {
+	// close port reader if serial
+	if c.writePort != nil {
+		if err := c.writePort.Close(); err != nil {
+			return err
+		}
+		c.writePort = nil
+	}
+	return nil
+}
+
+func calcChecksum(cls int, id int, msgLen int, payload []byte) (checksumA int, checksumB int) {
 	checksumA = 0
 	checksumB = 0
 
@@ -383,13 +461,13 @@ func calcChecksum(cls int, id int, msg_len int, payload []byte) (checksumA int, 
 	checksumA += id
 	checksumB += checksumA
 
-	checksumA += (msg_len & 0xFF)
+	checksumA += (msgLen & 0xFF)
 	checksumB += checksumA
 
-	checksumA += (msg_len >> 8)
+	checksumA += (msgLen >> 8)
 	checksumB += checksumA
 
-	for i := 0; i < msg_len; i++ {
+	for i := 0; i < msgLen; i++ {
 		checksumA += int(payload[i])
 		checksumB += checksumA
 	}
