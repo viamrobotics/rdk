@@ -469,24 +469,6 @@ func extractPath(startMap, goalMap map[*node]*node, pair *nodePair) []*node {
 	return path
 }
 
-// func shortestPath(startMap, goalMap map[*node]*node, nodePairs []*nodePair) *planReturn {
-// 	if len(nodePairs) == 0 {
-// 		return &planReturn{err: NewPlannerFailedError()}
-// 	}
-// 	pairCost := func(pair *nodePair) float64 {
-// 		return pair.a.cost + pair.b.cost
-// 	}
-// 	minIdx := 0
-// 	minDist := pairCost(nodePairs[0])
-// 	for i := 1; i < len(nodePairs); i++ {
-// 		if dist := pairCost(nodePairs[i]); dist < minDist {
-// 			minDist = dist
-// 			minIdx = i
-// 		}
-// 	}
-// 	return &planReturn{steps: extractPath(startMap, goalMap, nodePairs[minIdx])}
-// }
-
 func shortestPath(startMap, goalMap map[*node]*node, nodePairs []*nodePair) *planReturn {
 	if len(nodePairs) == 0 {
 		return &planReturn{err: NewPlannerFailedError()}
@@ -494,29 +476,51 @@ func shortestPath(startMap, goalMap map[*node]*node, nodePairs []*nodePair) *pla
 	pairCost := func(pair *nodePair) float64 {
 		return pair.a.cost + pair.b.cost
 	}
-	minPath := []*node{}
+	minIdx := 0
 	minDist := pairCost(nodePairs[0])
-	for i := 0; i < len(nodePairs); i++ {
-		path := extractPath(startMap, goalMap, nodePairs[i])
-		dist := evaluatePlanNodes(path)
-		if dist < minDist {
+	for i := 1; i < len(nodePairs); i++ {
+		if dist := pairCost(nodePairs[i]); dist < minDist {
 			minDist = dist
-			minPath = path
+			minIdx = i
 		}
 	}
 	exportMaps(startMap, goalMap)
-	return &planReturn{steps: minPath}
+	return &planReturn{steps: extractPath(startMap, goalMap, nodePairs[minIdx])}
 }
 
+// func shortestPath(startMap, goalMap map[*node]*node, nodePairs []*nodePair) *planReturn {
+// 	if len(nodePairs) == 0 {
+// 		return &planReturn{err: NewPlannerFailedError()}
+// 	}
+// 	pairCost := func(pair *nodePair) float64 {
+// 		return pair.a.cost + pair.b.cost
+// 	}
+// 	minPath := []*node{}
+// 	minDist := pairCost(nodePairs[0])
+// 	for i := 0; i < len(nodePairs); i++ {
+// 		path := extractPath(startMap, goalMap, nodePairs[i])
+// 		dist := evaluatePlanNodes(path)
+// 		if dist < minDist {
+// 			minDist = dist
+// 			minPath = path
+// 		}
+// 	}
+// 	exportMaps(startMap, goalMap)
+// 	return &planReturn{steps: minPath}
+// }
+
 func evaluatePlanNodes(path []*node) (cost float64) {
-	for i := 1; i < len(path)-1; i++ {
+	if len(path) < 2 {
+		return math.Inf(1)
+	}
+	for i := 0; i < len(path)-1; i++ {
 		cost += inputDist(path[i].q, path[i+1].q)
 	}
 	return cost
 }
 
 func evaluatePlan(path [][]frame.Input) (cost float64) {
-	for i := 1; i < len(path)-1; i++ {
+	for i := 0; i < len(path)-1; i++ {
 		cost += inputDist(path[i], path[i+1])
 	}
 	return cost

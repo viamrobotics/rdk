@@ -2,6 +2,8 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"math/rand"
 
 	"github.com/edaniels/golog"
@@ -132,6 +134,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	shared := make([]*nodePair, 0)
 
 	// sample until the max number of iterations is reached
+	prevCost := math.Inf(1)
 	for i := 0; i < mp.iter; i++ {
 		select {
 		case <-ctx.Done():
@@ -152,6 +155,13 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 		// get next sample, switch map pointers
 		target = mp.sample()
 		map1, map2 = map2, map1
+		plan := shortestPath(startMap, goalMap, shared)
+		cost := evaluatePlanNodes(plan.steps)
+		if prevCost < cost {
+			fmt.Println("RRT* should never have the cost of the total path decrease")
+		}
+		prevCost = cost
+		fmt.Println(cost)
 	}
 
 	solutionChan <- shortestPath(startMap, goalMap, shared)
@@ -169,10 +179,10 @@ func (mp *rrtStarConnectMotionPlanner) extend(opt *PlannerOptions, tree map[*nod
 	if !map1reached {
 		return nil
 	}
-	minIndex := 0
-	minCost := neighbors[0].node.cost + neighbors[0].dist
 
 	// iterate over neighbors and find the minimum cost to connect the target node to the tree
+	minIndex := 0
+	minCost := neighbors[0].node.cost + neighbors[0].dist
 	for i := 1; i < len(neighbors); i++ {
 		cost := neighbors[i].node.cost + neighbors[i].dist
 		if cost < minCost && mp.checkPath(opt, neighbors[i].node.q, target) {
@@ -192,7 +202,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(opt *PlannerOptions, tree map[*nod
 			continue
 		}
 
-		cost := targetNode.cost + inputDist(target, neighbors[i].node.q)
+		cost := targetNode.cost + inputDist(targetNode.q, neighbors[i].node.q)
 		if cost < neighbors[i].node.cost && mp.checkPath(opt, target, neighbors[i].node.q) {
 			// shortcut possible, rewire the node
 			neighbors[i].node.cost = cost
