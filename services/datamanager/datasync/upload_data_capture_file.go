@@ -45,33 +45,39 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	cancelCtx, cancelFn := context.WithCancel(ctx)
 	var activeBackgroundWorkers sync.WaitGroup
 
-	retRecvUploadResponse := make(chan error, 1)
+	recvStreamError := make(chan error, 1)
 	activeBackgroundWorkers.Add(1)
 	go func() {
 		defer activeBackgroundWorkers.Done()
-		defer close(retRecvUploadResponse)
+		defer close(recvStreamError)
 		for {
-			select {
-			case <-cancelCtx.Done():
-				retRecvUploadResponse <- cancelCtx.Err()
-				cancelFn()
-				return
-			default:
+			recvChannel := make(chan error)
+			go func() {
+				defer close(recvChannel)
 				ur, err := stream.Recv()
-				if errors.Is(err, io.EOF) {
-					return
-				}
 				if err != nil {
 					fmt.Println("received error from server")
-					retRecvUploadResponse <- err
+					recvStreamError <- err
 					cancelFn()
 					return
 				}
 				if err := pt.updateProgressFileIndex(progressFileName, int(ur.GetRequestsWritten())); err != nil {
-					retRecvUploadResponse <- err
+					recvStreamError <- err
 					cancelFn()
 					return
 				}
+			}()
+
+			select {
+			case <-cancelCtx.Done():
+				recvStreamError <- cancelCtx.Err()
+				cancelFn()
+				return
+			case e := <-recvChannel:
+				recvStreamError <- e
+				return
+			default:
+				continue
 			}
 		}
 	}()
@@ -126,7 +132,7 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	}()
 	activeBackgroundWorkers.Wait()
 
-	if err := <-retRecvUploadResponse; err != nil {
+	if err := <-recvStreamError; err != nil {
 		fmt.Printf("Error when trying to recv UploadResponse from server: %v", err)
 		return errors.Errorf("Error when trying to recv UploadResponse from server: %v", err)
 	}
@@ -186,6 +192,7 @@ func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, 
 func getNextSensorUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequest, error) {
 	select {
 	case <-ctx.Done():
+		// TODO: is this right?
 		fmt.Println("client context done: " + ctx.Err().Error())
 		return nil, ctx.Err()
 	default:
