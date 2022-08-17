@@ -3,7 +3,6 @@ package datacapture
 
 import (
 	"fmt"
-	"go.viam.com/rdk/utils"
 	"os"
 	"path/filepath"
 	"time"
@@ -11,8 +10,8 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
-
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils"
 )
 
 // TODO Data-343: Reorganize this into a more standard interface/package, and add tests.

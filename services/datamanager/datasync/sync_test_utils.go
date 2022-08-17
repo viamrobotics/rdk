@@ -2,7 +2,6 @@ package datasync
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -69,7 +68,7 @@ func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 	test.That(t, actualMetadata.PartId, test.ShouldEqual, expectedMetadata.PartId)
 	test.That(t, actualMetadata.ComponentName, test.ShouldEqual, expectedMetadata.ComponentName)
 	// TODO: don't compare metadata until pull latest from main
-	//test.That(t, actualMetadata.ComponentModel, test.ShouldEqual, expectedMetadata.ComponentModel)
+	// test.That(t, actualMetadata.ComponentModel, test.ShouldEqual, expectedMetadata.ComponentModel)
 	test.That(t, actualMetadata.ComponentType, test.ShouldEqual, expectedMetadata.ComponentType)
 	test.That(t, actualMetadata.MethodName, test.ShouldEqual, expectedMetadata.MethodName)
 	test.That(t, actualMetadata.Type, test.ShouldEqual, expectedMetadata.Type)
@@ -288,9 +287,7 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 	}
 	m.reqsStagedForResponse = 0
 	for {
-		fmt.Println(m.msgCount)
 		if m.msgCount.Load() == m.failAtIndex {
-			fmt.Println("failed")
 			return m.errorToReturn
 		}
 
@@ -322,7 +319,6 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 
 		// If we want the client to cancel its own context, send signal through channel to the 'sut.'
 		if m.clientContextCancelIndex == len(m.getUploadRequests()) {
-			fmt.Println("cancelling client context")
 			m.cancelChannel <- true
 			<-m.doneCancelChannel
 		}

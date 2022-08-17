@@ -374,7 +374,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 
 // TODO: have separate server fail and client fail tests
 // TODO: readd all componentmodel stuff
-// TODO: make all message counting stuff not include metadata. Or separate them somehow. I feel like it's weird currently,
+// TODO: make all message counting stuff not include metadata. Or separate them somehow. I feel like it's weird currently,.
 func TestPartialUpload(t *testing.T) {
 	initialWaitTime = time.Minute
 	msg1 := []byte("viam")
@@ -485,11 +485,9 @@ func TestPartialUpload(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			go func() {
 				<-cancelChannel
-				fmt.Println("closing client")
 				time.Sleep(10 * time.Millisecond)
 				sut.Close()
 				doneCancelChannel <- true
-				fmt.Println("closed client")
 			}()
 			sut.Sync([]string{f.Name()})
 			time.Sleep(syncWaitTime)
@@ -498,6 +496,7 @@ func TestPartialUpload(t *testing.T) {
 			// TODO: refactor to not need this -1
 			var expMsgs []*v1.UploadRequest
 			var act []*v1.UploadRequest
+
 			if tc.clientCancelAfterNMsgs != -1 {
 				expMsgs = buildSensorDataUploadRequests(tc.toSend[:tc.clientCancelAfterNMsgs-1], tc.dataType, f.Name())
 				act = mockService.getUploadRequests()[:tc.clientCancelAfterNMsgs]

@@ -1,7 +1,6 @@
 package datasync
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -49,7 +48,6 @@ func bytesToInt(bs []byte) (int, error) {
 
 func (pt *progressTracker) createProgressFile(path string) error {
 	err := os.WriteFile(path, []byte("0"), os.FileMode(0o777))
-	fmt.Println("wrote file to " + path)
 	if err != nil {
 		return err
 	}
@@ -57,7 +55,6 @@ func (pt *progressTracker) createProgressFile(path string) error {
 }
 
 func (pt *progressTracker) deleteProgressFile(path string) error {
-	fmt.Printf("deleting progress file %s\n", path)
 	return os.Remove(path)
 }
 
@@ -66,7 +63,6 @@ func (pt *progressTracker) updateProgressFileIndex(path string, requestsWritten 
 	if err != nil {
 		return err
 	}
-	fmt.Printf("increasing request written to %d\n", i+requestsWritten)
 	err = ioutil.WriteFile(path, []byte(strconv.Itoa(i+requestsWritten)), os.FileMode(0o777))
 	if err != nil {
 		return err

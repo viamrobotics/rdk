@@ -2,7 +2,6 @@ package datasync
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -67,16 +66,14 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 
 			select {
 			case <-ctx.Done():
-				fmt.Println("ctx done in recv")
 				errChannel <- context.Canceled
 				return
 			case e := <-recvChannel:
 				if e != nil {
-					fmt.Println("reveived error on recv channel ")
 					errChannel <- e
 					return
 				}
-				//errChannel <- e
+				// errChannel <- e
 			}
 		}
 	}()
@@ -92,7 +89,6 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		for {
 			select {
 			case <-ctx.Done():
-				fmt.Println("ctx done in send")
 				errChannel <- context.Canceled
 				return
 			default:
@@ -116,11 +112,9 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 				}
 
 				if err = stream.Send(uploadReq); err != nil {
-					fmt.Println("received error when sending to server")
 					errChannel <- err
 					return
 				}
-				fmt.Println("sent " + uploadReq.String() + " to server")
 			}
 		}
 	}()
@@ -130,13 +124,10 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 
 	// TODO: maybe combine error?
 	for err := range errChannel {
-		fmt.Println("entered err channel loop")
 		if err == nil {
-			fmt.Println("error is nil")
 			continue
 		}
 		if !errors.Is(err, io.EOF) {
-			fmt.Println("got non eof error " + err.Error())
 			return err
 		}
 	}
@@ -163,11 +154,8 @@ func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, 
 	}
 	if progressIndex == 0 {
 		if err := pt.createProgressFile(progressFilePath); err != nil {
-			fmt.Println("error creating progress file")
-			fmt.Println(err)
 			return err
 		}
-		fmt.Println("created progress file " + progressFilePath)
 		return nil
 	}
 
@@ -193,7 +181,6 @@ func getNextSensorUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequ
 	select {
 	case <-ctx.Done():
 		// TODO: is this right?
-		fmt.Println("client context done: " + ctx.Err().Error())
 		return nil, context.Canceled
 	default:
 		// Get the next sensor data reading from file, check for an error.
