@@ -2,7 +2,6 @@ package datasync
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -39,7 +38,6 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 
 	activeBackgroundWorkers.Add(1)
 	go func() {
-		defer fmt.Println("finished receiving")
 		defer activeBackgroundWorkers.Done()
 		for {
 			recvChannel := make(chan error)
@@ -63,7 +61,6 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 
 	activeBackgroundWorkers.Add(1)
 	go func() {
-		defer fmt.Println("finished sending")
 		defer activeBackgroundWorkers.Done()
 		// Do not check error of stream close send because it is always following the error check
 		// of the wider function execution.
@@ -113,7 +110,6 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 			return nil
 		}
 		if !errors.Is(err, io.EOF) {
-			fmt.Println("got non eof error " + err.Error())
 			return err
 		}
 	}
