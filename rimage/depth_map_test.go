@@ -13,49 +13,76 @@ import (
 	"go.viam.com/utils/artifact"
 )
 
-func TestDepthMap1(t *testing.T) {
-	m, err := ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
+func TestRawDepthMap(t *testing.T) {
+	m, err := ParseRawDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, m.width, test.ShouldEqual, 1280)
-	test.That(t, m.height, test.ShouldEqual, 720)
-
+	test.That(t, m.Width(), test.ShouldEqual, 1280)
+	test.That(t, m.Height(), test.ShouldEqual, 720)
 	origHeight := m.GetDepth(300, 300)
 	test.That(t, origHeight, test.ShouldEqual, 749)
 
 	buf := bytes.Buffer{}
-	_, err = m.WriteTo(&buf)
+	_, err = WriteRawDepthMapTo(m, &buf)
 	test.That(t, err, test.ShouldBeNil)
 
-	m, err = ReadDepthMap(bufio.NewReader(&buf))
+	m, err = ReadRawDepthMap(bufio.NewReader(&buf))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, m.width, test.ShouldEqual, 1280)
-	test.That(t, m.height, test.ShouldEqual, 720)
-}
-
-func TestDepthMap2(t *testing.T) {
-	m, err := ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, m.width, test.ShouldEqual, 1280)
-	test.That(t, m.height, test.ShouldEqual, 720)
-
-	origHeight := m.GetDepth(300, 300)
+	test.That(t, m.Width(), test.ShouldEqual, 1280)
+	test.That(t, m.Height(), test.ShouldEqual, 720)
+	origHeight = m.GetDepth(300, 300)
 	test.That(t, origHeight, test.ShouldEqual, 749)
 
 	fn := outDir + "/board2-rt.dat.gz"
 
-	err = m.WriteToFile(fn)
+	err = WriteRawDepthMapToFile(m, fn)
 	test.That(t, err, test.ShouldBeNil)
 
-	m, err = ParseDepthMap(fn)
+	m, err = ParseRawDepthMap(fn)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, m.width, test.ShouldEqual, 1280)
-	test.That(t, m.height, test.ShouldEqual, 720)
+	test.That(t, m.Width(), test.ShouldEqual, 1280)
+	test.That(t, m.Height(), test.ShouldEqual, 720)
+	origHeight = m.GetDepth(300, 300)
+	test.That(t, origHeight, test.ShouldEqual, 749)
+}
+
+func TestDepthMap(t *testing.T) {
+	m, err := NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, m.Width(), test.ShouldEqual, 1280)
+	test.That(t, m.Height(), test.ShouldEqual, 720)
+	origHeight := m.GetDepth(300, 300)
+	test.That(t, origHeight, test.ShouldEqual, 749)
+
+	buf := bytes.Buffer{}
+	err = m.WriteToBuf(&buf)
+	test.That(t, err, test.ShouldBeNil)
+
+	img, _, err := image.Decode(bufio.NewReader(&buf))
+	test.That(t, err, test.ShouldBeNil)
+	m, err = ConvertImageToDepthMap(img)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, m.Width(), test.ShouldEqual, 1280)
+	test.That(t, m.Height(), test.ShouldEqual, 720)
+	origHeight = m.GetDepth(300, 300)
+	test.That(t, origHeight, test.ShouldEqual, 749)
+
+	fn := outDir + "/board2-rt.png"
+
+	err = WriteImageToFile(fn, m)
+	test.That(t, err, test.ShouldBeNil)
+
+	m, err = NewDepthMapFromFile(fn)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, m.Width(), test.ShouldEqual, 1280)
+	test.That(t, m.Height(), test.ShouldEqual, 720)
+	origHeight = m.GetDepth(300, 300)
+	test.That(t, origHeight, test.ShouldEqual, 749)
 }
 
 func TestCloneDepthMap(t *testing.T) {
-	m, err := ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
+	m, err := NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	mm := m.Clone()
@@ -69,7 +96,7 @@ func TestCloneDepthMap(t *testing.T) {
 }
 
 func TestDepthMapNewFormat(t *testing.T) {
-	m, err := ParseDepthMap(artifact.MustPath("rimage/depthformat2.dat.gz"))
+	m, err := ParseRawDepthMap(artifact.MustPath("rimage/depthformat2.dat.gz"))
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, m.width, test.ShouldEqual, 1280)
@@ -201,7 +228,7 @@ func TestSubImage(t *testing.T) {
 }
 
 func BenchmarkDepthMapRotate90(b *testing.B) {
-	dm, err := ParseDepthMap(artifact.MustPath("rimage/depthformat2.dat.gz"))
+	dm, err := ParseRawDepthMap(artifact.MustPath("rimage/depthformat2.dat.gz"))
 	test.That(b, err, test.ShouldBeNil)
 
 	b.ResetTimer()
@@ -212,7 +239,7 @@ func BenchmarkDepthMapRotate90(b *testing.B) {
 }
 
 func BenchmarkDepthMapRotate180(b *testing.B) {
-	dm, err := ParseDepthMap(artifact.MustPath("rimage/depthformat2.dat.gz"))
+	dm, err := ParseRawDepthMap(artifact.MustPath("rimage/depthformat2.dat.gz"))
 	test.That(b, err, test.ShouldBeNil)
 
 	b.ResetTimer()

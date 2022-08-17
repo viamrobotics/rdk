@@ -8,8 +8,6 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
-
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Overlay overlays an rgb image over a depth map.
@@ -206,7 +204,7 @@ func newImageWithDepth(colorFN, depthFN string, isAligned bool) (*imageWithDepth
 		return nil, errors.Wrapf(err, "cannot read color file (%s)", colorFN)
 	}
 
-	dm, err := ParseDepthMap(depthFN)
+	dm, err := NewDepthMapFromFile(depthFN)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot read depth file (%s)", depthFN)
 	}
@@ -219,27 +217,6 @@ func newImageWithDepth(colorFN, depthFN string, isAligned bool) (*imageWithDepth
 	}
 
 	return &imageWithDepth{img, dm, isAligned}, nil
-}
-
-func imageToDepthMap(img image.Image) *DepthMap {
-	bounds := img.Bounds()
-
-	width, height := bounds.Dx(), bounds.Dy()
-	dm := NewEmptyDepthMap(width, height)
-
-	grayImg, ok := img.(*image.Gray16)
-	if !ok {
-		panic(rdkutils.NewUnexpectedTypeError(grayImg, img))
-	}
-	for x := 0; x < width; x++ {
-		for y := 0; y < height; y++ {
-			i := grayImg.PixOffset(x, y)
-			z := uint16(grayImg.Pix[i+0])<<8 | uint16(grayImg.Pix[i+1])
-			dm.Set(x, y, Depth(z))
-		}
-	}
-
-	return dm
 }
 
 // convertToImageWithDepth attempts to convert a go image into an image

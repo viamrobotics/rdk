@@ -1,20 +1,9 @@
 package utils
 
 const (
-	// MimeTypeViamBest is a hint that we should send whatever format is best for the type of image.
-	MimeTypeViamBest = "image/viambest"
-
-	// MimeTypeRawIWD is a row rimage.imageWithDepth.
-	MimeTypeRawIWD = "image/raw-iwd"
-
-	// MimeTypeRawRGBA is for go's internal image.RGBA.
-	MimeTypeRawRGBA = "image/raw-rgba"
-
-	// MimeTypeRawDepth is a raw rimage.DepthMap.
-	MimeTypeRawDepth = "image/raw-depth"
-
-	// MimeTypeBoth is for the the .both file format we use, see rimage/both.go.
-	MimeTypeBoth = "image/both"
+	// MimeTypeRawRGBA is for go's internal image.RGBA. The data has no headers, so you must
+	// assume that the bytes can be read directly into the image.RGBA struct.
+	MimeTypeRawRGBA = "image/vnd.viam.rgba"
 
 	// MimeTypeJPEG is regular jpgs.
 	MimeTypeJPEG = "image/jpeg"
