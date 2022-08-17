@@ -17,11 +17,11 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-// dubinsRRTMotionPlanner an object able to solve for paths using Dubin's Car Model
+// DubinsRRTMotionPlanner an object able to solve for paths using Dubin's Car Model
 // around obstacles to some goal for a given referenceframe.
 // It uses the RRT* with vehicle dynamics algorithm, Khanal 2022
 // https://arxiv.org/abs/2206.10533
-type dubinsRRTMotionPlanner struct {
+type DubinsRRTMotionPlanner struct {
 	solDist         float64
 	solver          InverseKinematics
 	fastGradDescent *NloptIK
@@ -32,7 +32,7 @@ type dubinsRRTMotionPlanner struct {
 	nCPU            int
 	stepSize        float64
 	randseed        *rand.Rand
-	d               Dubins
+	D               Dubins
 }
 
 type obstacle struct {
@@ -59,7 +59,7 @@ type MobileRobotPlanConfig struct {
 	Obstacles []obstacle `json:"obstacles"`
 }
 
-// NewDubinsRRTMotionPlanner creates a dubinsRRTMotionPlanner object.
+// NewDubinsRRTMotionPlanner creates a DubinsRRTMotionPlanner object.
 func NewDubinsRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger, d Dubins) (MotionPlanner, error) {
 	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
@@ -70,7 +70,7 @@ func NewDubinsRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golo
 	if err != nil {
 		return nil, err
 	}
-	mp := &dubinsRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: jointSolveDist, nCPU: nCPU, d: d}
+	mp := &DubinsRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: jointSolveDist, nCPU: nCPU, D: d}
 
 	mp.qstep = getFrameSteps(frame, frameStep)
 	mp.iter = planIter
@@ -82,15 +82,15 @@ func NewDubinsRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golo
 	return mp, nil
 }
 
-func (mp *dubinsRRTMotionPlanner) Frame() referenceframe.Frame {
+func (mp *DubinsRRTMotionPlanner) Frame() referenceframe.Frame {
 	return mp.frame
 }
 
-func (mp *dubinsRRTMotionPlanner) Resolution() float64 {
+func (mp *DubinsRRTMotionPlanner) Resolution() float64 {
 	return mp.stepSize
 }
 
-func (mp *dubinsRRTMotionPlanner) Plan(ctx context.Context,
+func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
 	opt *PlannerOptions,
@@ -124,7 +124,7 @@ func (mp *dubinsRRTMotionPlanner) Plan(ctx context.Context,
 
 // planRunner will execute the plan. When Plan() is called, it will call planRunner in a separate thread and wait for the results.
 // Separating this allows other things to call planRunner in parallel while also enabling the thread-agnostic Plan to be accessible.
-func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
+func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
 	opt *PlannerOptions,
@@ -151,7 +151,7 @@ func (mp *dubinsRRTMotionPlanner) planRunner(ctx context.Context,
 	goalInputs[0], goalInputs[1], goalInputs[2] = referenceframe.Input{Value: goal.X}, referenceframe.Input{Value: goal.Y}, referenceframe.Input{Value: goal.Theta}
 	goalConfig := &configuration{goalInputs}
 
-	dm := &dubinOptionManager{nCPU: mp.nCPU, d: mp.d}
+	dm := &dubinOptionManager{nCPU: mp.nCPU, d: mp.D}
 
 	for i := 0; i < mp.iter; i++ {
 		select {
@@ -267,7 +267,7 @@ func updateChildren(
 	}
 }
 
-func (mp *dubinsRRTMotionPlanner) checkPath(
+func (mp *DubinsRRTMotionPlanner) checkPath(
 	from, to *configuration,
 	opt *PlannerOptions,
 	dm *dubinOptionManager,
