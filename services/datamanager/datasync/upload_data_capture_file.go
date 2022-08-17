@@ -43,7 +43,6 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	}
 
 	// TODO: use single error channel for these two
-	cancelCtx, cancelFn := context.WithCancel(ctx)
 	var activeBackgroundWorkers sync.WaitGroup
 
 	errChannel := make(chan error, 1)
@@ -56,26 +55,28 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 				defer close(recvChannel)
 				ur, err := stream.Recv()
 				if err != nil {
-					fmt.Println("received error from server")
-					errChannel <- err
-					cancelFn()
+					recvChannel <- err
 					return
 				}
 				if err := pt.updateProgressFileIndex(progressFileName, int(ur.GetRequestsWritten())); err != nil {
-					errChannel <- err
-					cancelFn()
+					recvChannel <- err
 					return
 				}
+				recvChannel <- nil
 			}()
 
 			select {
-			case <-cancelCtx.Done():
-				errChannel <- cancelCtx.Err()
-				cancelFn()
+			case <-ctx.Done():
+				fmt.Println("ctx done in recv")
+				errChannel <- context.Canceled
 				return
 			case e := <-recvChannel:
-				errChannel <- e
-				return
+				if e != nil {
+					fmt.Println("reveived error on recv channel ")
+					errChannel <- e
+					return
+				}
+				//errChannel <- e
 			}
 		}
 	}()
@@ -90,11 +91,9 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		defer stream.CloseSend()
 		for {
 			select {
-			case <-cancelCtx.Done():
-				if cancelCtx.Err() != nil {
-					errChannel <- cancelCtx.Err()
-				}
-				cancelFn()
+			case <-ctx.Done():
+				fmt.Println("ctx done in send")
+				errChannel <- context.Canceled
 				return
 			default:
 				// Get the next UploadRequest from the file.
@@ -113,16 +112,15 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 				}
 				if err != nil {
 					errChannel <- err
-					cancelFn()
 					return
 				}
 
 				if err = stream.Send(uploadReq); err != nil {
 					fmt.Println("received error when sending to server")
 					errChannel <- err
-					cancelFn()
 					return
 				}
+				fmt.Println("sent " + uploadReq.String() + " to server")
 			}
 		}
 	}()
@@ -132,7 +130,15 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 
 	// TODO: maybe combine error?
 	for err := range errChannel {
-		return err
+		fmt.Println("entered err channel loop")
+		if err == nil {
+			fmt.Println("error is nil")
+			continue
+		}
+		if !errors.Is(err, io.EOF) {
+			fmt.Println("got non eof error " + err.Error())
+			return err
+		}
 	}
 
 	// Upload is complete, delete the corresponding progress file on disk.
@@ -188,7 +194,7 @@ func getNextSensorUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequ
 	case <-ctx.Done():
 		// TODO: is this right?
 		fmt.Println("client context done: " + ctx.Err().Error())
-		return nil, ctx.Err()
+		return nil, context.Canceled
 	default:
 		// Get the next sensor data reading from file, check for an error.
 		next, err := datacapture.ReadNextSensorData(f)
