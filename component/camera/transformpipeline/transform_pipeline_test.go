@@ -44,7 +44,8 @@ func TestTransformPipelineColor(t *testing.T) {
 func TestTransformPipelineDepth(t *testing.T) {
 	transformConf := &transformConfig{
 		AttrConfig: &camera.AttrConfig{
-			Stream: "depth",
+			Stream:           "depth",
+			CameraParameters: nil,
 		},
 		Source: "source",
 		Pipeline: []Transformation{
