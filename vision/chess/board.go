@@ -8,8 +8,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"
-	"github.com/gonum/stat"
 	"github.com/pkg/errors"
+	"gonum.org/v1/gonum/stat"
 
 	"go.viam.com/rdk/rimage"
 )
