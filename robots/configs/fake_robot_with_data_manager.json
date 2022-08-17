@@ -28,31 +28,9 @@
     [
         {
             "type": "data_manager",
-            "attributes":
-            {
+            "attributes": {
                 "sync_interval_mins": 0,
-                "capture_dir": "/tmp/capture",
-                "models_on_robot": [
-                    {
-                      "source_model_name": "model_1",
-                      "destination": ""
-                    }
-                ]
-            }
-        },
-        {
-            "type": "object_detection",
-            "attributes":
-            {
-                "detector_registry": [
-                    {
-                        "name": "detector_1",
-                        "type": "tflite",
-                        "parameters": {
-                           "location": "/home/example_user/model_1"
-                        }
-                    }
-                ]
+                "capture_dir": "/tmp/capture"
             }
         }
     ]
