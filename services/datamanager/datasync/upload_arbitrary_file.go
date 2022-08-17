@@ -39,16 +39,23 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 		defer activeBackgroundWorkers.Done()
 		defer close(retRecv)
 		for {
+			recvChannel := make(chan error)
+			go func() {
+				defer close(recvChannel)
+				_, err := stream.Recv()
+				if err != nil {
+					recvChannel <- err
+					return
+				}
+
+			}()
 			select {
 			case <-ctx.Done():
 				retRecv <- ctx.Err()
 				return
-			default:
-				_, err := stream.Recv()
-				if err != nil {
-					retRecv <- err
-					return
-				}
+			case e := <-recvChannel:
+				retRecv <- e
+				return
 			}
 		}
 	}()
@@ -113,6 +120,7 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 func getNextFileUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequest, error) {
 	select {
 	case <-ctx.Done():
+		// TODO: is this right?
 		return nil, ctx.Err()
 	default:
 		// Get the next file data reading from file, check for an error.
