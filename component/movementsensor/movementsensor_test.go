@@ -224,7 +224,14 @@ func TestGetReadings(t *testing.T) {
 	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
 
 	readings1, err := movementsensor.GetReadings(context.Background(), actualMovementSensor1)
-	allReadings := []interface{}{loc, alt, speed, ang, compass, orie}
+	allReadings := map[string]interface{}{
+		"altitide":alt,
+		"angular_velocity":ang,
+		"compass":compass,
+		"linear_velocity":speed,
+		"orientation":orie,
+		"position":loc,
+	}
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings1, test.ShouldResemble, allReadings)
 
@@ -285,7 +292,7 @@ func (m *mock) GetCompassHeading(ctx context.Context) (float64, error) {
 	return compass, nil
 }
 
-func (m *mock) GetReadings(ctx context.Context) ([]interface{}, error) {
+func (m *mock) GetReadings(ctx context.Context) (map[string]interface{}, error) {
 	return movementsensor.GetReadings(ctx, m)
 }
 
