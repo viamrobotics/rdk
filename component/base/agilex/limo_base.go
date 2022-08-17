@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"strconv"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -22,9 +21,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
-	spatial "go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/motionplan"
-	frame "go.viam.com/rdk/referenceframe"
 )
 
 var (
@@ -482,116 +478,4 @@ func GetLimoBase(b base.Base) (*limoBase, error) {
 		return nil, errors.New("Cannot convert base to limobase")
 	}
 	return l, nil
-}
-
-func (base *limoBase) Move(
-	ctx context.Context,
-	planConfig *motionplan.MobileRobotPlanConfig,
-	logger golog.Logger,
-) error {
-	switch base.driveMode {
-	case "ackermann":
-		waypoints, d, err := base.Plan(ctx, planConfig, logger)
-		if err != nil {
-			return err
-		}
-		traj := motionplan.GetDubinTrajectoryFromPath(waypoints, d)
-		base.FollowDubinsTrajectory(ctx, planConfig, traj)
-	default:
-		logger.Info("no motion plan type specified")
-	}
-
-	return nil
-}
-
-func (base *limoBase) newDubinsPlanner(ctx context.Context, config *motionplan.MobileRobotPlanConfig, logger golog.Logger) (*motionplan.DubinsRRTMotionPlanner, error) {
-	// parse input
-	robotGeometry, err := spatial.NewBoxCreator(r3.Vector{X: config.RobotDims[0], Y: config.RobotDims[1], Z: 1}, spatial.NewZeroPose())
-	if err != nil {
-		return nil, err
-	}
-	limits := []frame.Limit{{Min: config.Xlim[0], Max: config.Xlim[1]}, {Min: config.YLim[0], Max: config.YLim[1]}}
-	// TODO(rb) add logic to parse limit input to check for infinite limits
-	// limits = []frame.Limit{{Min: math.Inf(-1), Max: math.Inf(1)}, {Min: math.Inf(-1), Max: math.Inf(1)}}
-
-	// build model
-	model, err := frame.NewMobile2DFrame(config.Name, limits, robotGeometry)
-	if err != nil {
-		return nil, err
-	}
-
-	// setup planner
-	radius := config.Radius * 1000.0 / config.GridConversion
-	d := motionplan.Dubins{Radius: radius, PointSeparation: config.PointSep}
-	mp, err := motionplan.NewDubinsRRTMotionPlanner(model, 1, logger, d)
-	if err != nil {
-		return nil, err
-	}
-
-	dubins, ok := mp.(*motionplan.DubinsRRTMotionPlanner)
-	if !ok {
-		return nil, errors.New("Could not create DubinsRRTMotionPlanner")
-	}
-	return dubins, nil
-}
-
-func (base *limoBase) Plan(ctx context.Context, config *motionplan.MobileRobotPlanConfig, logger golog.Logger) ([][]frame.Input, motionplan.Dubins, error) {
-	dubins, err := base.newDubinsPlanner(ctx, config, logger)
-	if err != nil {
-		return nil, motionplan.Dubins{}, err
-	}
-
-	start := frame.FloatsToInputs(config.Start)
-	goal := spatial.PoseToProtobuf(spatial.NewPoseFromPoint(r3.Vector{X: config.Goal[0], Y: config.Goal[1], Z: 0}))
-	obstacleGeometries := map[string]spatial.Geometry{}
-	for i, o := range config.Obstacles {
-		box, err := spatial.NewBox(spatial.NewPoseFromPoint(
-			r3.Vector{X: o.Center[0], Y: o.Center[1], Z: 0}),
-			r3.Vector{X: o.Dims[0], Y: o.Dims[1], Z: 1})
-		if err != nil {
-			return nil, motionplan.Dubins{}, err
-		}
-		obstacleGeometries[strconv.Itoa(i)] = box
-	}
-
-	opt := motionplan.NewDefaultPlannerOptions()
-	opt.AddConstraint("collision", motionplan.NewCollisionConstraint(dubins.Frame(), obstacleGeometries, map[string]spatial.Geometry{}))
-
-	// plan
-	waypoints, err := dubins.Plan(ctx, goal, start, opt)
-	if err != nil {
-		return nil, motionplan.Dubins{}, err
-	}
-	return waypoints, dubins.D, nil
-}
-
-func (base *limoBase) FollowDubinsTrajectory(ctx context.Context, config *motionplan.MobileRobotPlanConfig, traj []motionplan.DubinOption) {
-	for _, opt := range traj {
-		dubinsPath := opt.DubinsPath
-		straight := opt.Straight
-
-		base.MoveToWaypointDubins(ctx, config, dubinsPath, straight)
-	}
-}
-
-func fixAngle(ang float64) float64 {
-	// currently positive angles move base clockwise, which is opposite of what is expected, so multiply by -1
-	deg := -ang * 180 / math.Pi
-	return deg
-
-}
-
-func (base *limoBase) MoveToWaypointDubins(ctx context.Context, config *motionplan.MobileRobotPlanConfig, path []float64, straight bool) {
-	//first turn
-	base.Spin(ctx, fixAngle(path[0]), 20, nil) //base is currently configured backwards
-
-	//second turn/straight
-	if straight {
-		base.MoveStraight(ctx, int(path[2]*config.GridConversion), 100, nil) //constant speed right now
-	} else {
-		base.Spin(ctx, fixAngle(path[2]), 20, nil)
-	}
-
-	//last turn
-	base.Spin(ctx, fixAngle(path[1]), 40, nil)
 }
