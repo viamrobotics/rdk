@@ -69,6 +69,12 @@ func WrapMotorWithEncoder(
 		return nil, err
 	}
 
+	single, isSingle := rutils.UnwrapProxy(e).(*encoder.SingleEncoder)
+	if isSingle {
+		single.AttachDirectionalAwareness(mm)
+		logger.Info("direction attached to single encoder from encoded motor")
+	}
+
 	mm.RPMMonitorStart()
 
 	return mm, nil
@@ -89,7 +95,7 @@ func newEncodedMotor(
 	config config.Component,
 	motorConfig motor.Config,
 	realMotor motor.Motor,
-	encoder encoder.Encoder,
+	realEncoder encoder.Encoder,
 	logger golog.Logger,
 ) (*EncodedMotor, error) {
 	localReal, ok := realMotor.(motor.LocalMotor)
@@ -101,7 +107,7 @@ func newEncodedMotor(
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		cfg:                     motorConfig,
 		real:                    localReal,
-		encoder:                 encoder,
+		encoder:                 realEncoder,
 		cancelCtx:               cancelCtx,
 		cancel:                  cancel,
 		stateMu:                 &sync.RWMutex{},
