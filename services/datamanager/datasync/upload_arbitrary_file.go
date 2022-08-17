@@ -33,11 +33,12 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 
 	var activeBackgroundWorkers sync.WaitGroup
 
-	retRecv := make(chan error, 1)
+	// TODO: use single error channel for these two
+	errChannel := make(chan error, 1)
+
 	activeBackgroundWorkers.Add(1)
 	go func() {
 		defer activeBackgroundWorkers.Done()
-		defer close(retRecv)
 		for {
 			recvChannel := make(chan error)
 			go func() {
@@ -51,20 +52,18 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 			}()
 			select {
 			case <-ctx.Done():
-				retRecv <- ctx.Err()
+				errChannel <- ctx.Err()
 				return
 			case e := <-recvChannel:
-				retRecv <- e
+				errChannel <- e
 				return
 			}
 		}
 	}()
 
-	retSend := make(chan error, 1)
 	activeBackgroundWorkers.Add(1)
 	go func() {
 		defer activeBackgroundWorkers.Done()
-		defer close(retSend)
 		// Do not check error of stream close send because it is always following the error check
 		// of the wider function execution.
 		//nolint: errcheck
@@ -74,7 +73,7 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 			select {
 			case <-ctx.Done():
 				if ctx.Err() != nil {
-					retSend <- ctx.Err()
+					errChannel <- ctx.Err()
 				}
 				return
 			default:
@@ -84,7 +83,7 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 				// EOF means we've completed successfully.
 				if errors.Is(err, io.EOF) {
 					if err := stream.CloseSend(); err != nil {
-						retSend <- errors.Wrap(err, "error when closing the stream")
+						errChannel <- errors.Wrap(err, "error when closing the stream")
 					}
 					return
 				}
@@ -93,12 +92,12 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 				}
 
 				if err != nil {
-					retSend <- err
+					errChannel <- err
 					return
 				}
 
 				if err = stream.Send(uploadReq); err != nil {
-					retSend <- err
+					errChannel <- err
 					return
 				}
 			}
@@ -106,12 +105,12 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 	}()
 
 	activeBackgroundWorkers.Wait()
+	// TODO: close channel here
+	close(errChannel)
 
-	if err := <-retRecv; err != nil && !errors.Is(err, io.EOF) {
-		return errors.Errorf("Error when trying to recv from server: %v", err)
-	}
-	if err := <-retSend; err != nil {
-		return errors.Errorf("Error when trying to send to server: %v", err)
+	// TODO: maybe combine error?
+	for err := range errChannel {
+		return err
 	}
 
 	return nil

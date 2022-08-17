@@ -42,14 +42,14 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
 
+	// TODO: use single error channel for these two
 	cancelCtx, cancelFn := context.WithCancel(ctx)
 	var activeBackgroundWorkers sync.WaitGroup
 
-	recvStreamError := make(chan error, 1)
+	errChannel := make(chan error, 1)
 	activeBackgroundWorkers.Add(1)
 	go func() {
 		defer activeBackgroundWorkers.Done()
-		defer close(recvStreamError)
 		for {
 			recvChannel := make(chan error)
 			go func() {
@@ -57,12 +57,12 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 				ur, err := stream.Recv()
 				if err != nil {
 					fmt.Println("received error from server")
-					recvStreamError <- err
+					errChannel <- err
 					cancelFn()
 					return
 				}
 				if err := pt.updateProgressFileIndex(progressFileName, int(ur.GetRequestsWritten())); err != nil {
-					recvStreamError <- err
+					errChannel <- err
 					cancelFn()
 					return
 				}
@@ -70,24 +70,20 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 
 			select {
 			case <-cancelCtx.Done():
-				recvStreamError <- cancelCtx.Err()
+				errChannel <- cancelCtx.Err()
 				cancelFn()
 				return
 			case e := <-recvChannel:
-				recvStreamError <- e
+				errChannel <- e
 				return
-			default:
-				continue
 			}
 		}
 	}()
 
-	retSendingUploadReqs := make(chan error, 1)
 	activeBackgroundWorkers.Add(1)
 	go func() {
 		// Loop until there is no more content to be read from file.
 		defer activeBackgroundWorkers.Done()
-		defer close(retSendingUploadReqs)
 		// Do not check error of stream close send because it is always following the error check
 		// of the wider function execution.
 		//nolint: errcheck
@@ -96,7 +92,7 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 			select {
 			case <-cancelCtx.Done():
 				if cancelCtx.Err() != nil {
-					retSendingUploadReqs <- cancelCtx.Err()
+					errChannel <- cancelCtx.Err()
 				}
 				cancelFn()
 				return
@@ -108,7 +104,7 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 				if errors.Is(err, io.EOF) {
 					// Close the stream to server.
 					if err = stream.CloseSend(); err != nil {
-						retSendingUploadReqs <- errors.Errorf("error when closing the stream: %v", err)
+						errChannel <- errors.Errorf("error when closing the stream: %v", err)
 					}
 					return
 				}
@@ -116,14 +112,14 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 					continue
 				}
 				if err != nil {
-					retSendingUploadReqs <- err
+					errChannel <- err
 					cancelFn()
 					return
 				}
 
 				if err = stream.Send(uploadReq); err != nil {
 					fmt.Println("received error when sending to server")
-					retSendingUploadReqs <- err
+					errChannel <- err
 					cancelFn()
 					return
 				}
@@ -132,13 +128,11 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	}()
 	activeBackgroundWorkers.Wait()
 
-	if err := <-recvStreamError; err != nil {
-		fmt.Printf("Error when trying to recv UploadResponse from server: %v", err)
-		return errors.Errorf("Error when trying to recv UploadResponse from server: %v", err)
-	}
-	if err := <-retSendingUploadReqs; err != nil {
-		fmt.Printf("Error when trying to send UploadRequest to server: %v", err)
-		return errors.Errorf("Error when trying to send UploadRequest to server: %v", err)
+	close(errChannel)
+
+	// TODO: maybe combine error?
+	for err := range errChannel {
+		return err
 	}
 
 	// Upload is complete, delete the corresponding progress file on disk.
