@@ -182,7 +182,6 @@ func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) (mode, 
 // runtimeServiceValidation ensures the service's data processing and saving is valid for the mode and
 // cameras given.
 
-// TODO[DATA-347]: Re-enable runtime service validation.
 func runtimeServiceValidation(ctx context.Context, cams []camera.Camera, slamSvc *slamService) error {
 	if len(cams) == 0 {
 		return nil
@@ -288,7 +287,6 @@ type slamService struct {
 // configureCameras will check the config to see if any cameras are desired and if so, grab the cameras from
 // the robot. We assume there are at most two cameras and that we only require intrinsics from the first one.
 // Returns the name of the first camera.
-// TODO[DATA-247]: re-enable.
 func configureCameras(ctx context.Context, svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) (string, []camera.Camera, error) {
 	if len(svcConfig.Sensors) > 0 {
 		logger.Debug("Running in live mode")
@@ -438,7 +436,6 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
 
-	// TODO[DATA-347]: Re-enable camera configuration
 	cameraName, cams, err := configureCameras(ctx, svcConfig, r, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "configuring camera error")
@@ -501,12 +498,10 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		}
 	}()
 
-	// TODO[DATA-347]: Re-enable runtime service validation
 	if err := runtimeServiceValidation(cancelCtx, cams, slamSvc); err != nil {
 		return nil, errors.Wrap(err, "runtime slam service error")
 	}
 
-	// TODO[DATA-345]: Re-enable data process
 	slamSvc.StartDataProcess(cancelCtx, cams)
 
 	if err := slamSvc.StartSLAMProcess(ctx); err != nil {
