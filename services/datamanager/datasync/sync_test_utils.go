@@ -28,6 +28,9 @@ var (
 	componentName  = "componentname"
 	componentModel = "componentmodel"
 	methodName     = "methodname"
+	binaryFileExt  = ".pcd"
+	tabularFileExt = ".csv"
+	defaultFileExt = ""
 )
 
 // Compares UploadRequests containing either binary or tabular sensor data.
@@ -72,6 +75,7 @@ func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 	test.That(t, actualMetadata.ComponentType, test.ShouldEqual, expectedMetadata.ComponentType)
 	test.That(t, actualMetadata.MethodName, test.ShouldEqual, expectedMetadata.MethodName)
 	test.That(t, actualMetadata.Type, test.ShouldEqual, expectedMetadata.Type)
+	test.That(t, actualMetadata.FileExtension, test.ShouldEqual, expectedMetadata.FileExtension)
 }
 
 type anyStruct struct {
@@ -140,6 +144,7 @@ func buildSensorDataUploadRequests(sds []*v1.SensorData, dataType v1.DataType, f
 				ComponentName:  componentName,
 				ComponentModel: componentModel,
 				MethodName:     methodName,
+				FileExtension:  binaryFileExt,
 			},
 		},
 	})
