@@ -171,9 +171,10 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 		return latestFrame.Load().(image.Image), func() {}, nil
 	})
 	proj, _ := camera.GetProjector(ctx, attrs.AttrConfig, nil)
-	hasDepth := (attrs.AttrConfig.Stream == "depth")
+	cfg := attrs.AttrConfig
+	hasDepth := (cfg != nil) && (cfg.Stream == "depth")
 	_, supportsPointCloud := ffCam.ImageSource.(camera.PointCloudSource)
-	if (attrs.AttrConfig.Stream == "color") && supportsPointCloud {
+	if (cfg != nil) && (cfg.Stream == "color") && supportsPointCloud {
 		hasDepth = true
 	}
 	return camera.FromImageSource(ffCam, proj, hasDepth)
