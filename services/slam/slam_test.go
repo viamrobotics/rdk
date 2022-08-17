@@ -713,7 +713,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 
 	cmdResult := [][]string{
 		{slam.SLAMLibraries["fake_orbslamv3"].BinaryLocation},
-		{"-sensors="},
+		{"-sensors=good_camera"},
 		{"-config_param={mode=mono,test_param=viam}", "-config_param={test_param=viam,mode=mono}"},
 		{"-data_rate_ms=100"},
 		{"-map_rate_sec=200"},
