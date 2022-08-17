@@ -225,12 +225,12 @@ func TestGetReadings(t *testing.T) {
 
 	readings1, err := movementsensor.GetReadings(context.Background(), actualMovementSensor1)
 	allReadings := map[string]interface{}{
-		"altitide":alt,
-		"angular_velocity":ang,
-		"compass":compass,
-		"linear_velocity":speed,
-		"orientation":orie,
-		"position":loc,
+		"altitide":         alt,
+		"angular_velocity": ang,
+		"compass":          compass,
+		"linear_velocity":  speed,
+		"orientation":      orie,
+		"position":         loc,
 	}
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings1, test.ShouldResemble, allReadings)

@@ -154,12 +154,12 @@ func TestGetReadings(t *testing.T) {
 	})
 
 	t.Run("many sensors", func(t *testing.T) {
-		readings1 := map[string]interface{}{"a" : 1.1, "b" : 2.2}
+		readings1 := map[string]interface{}{"a": 1.1, "b": 2.2}
 		injectSensor := &inject.Sensor{}
 		injectSensor.GetReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
 			return readings1, nil
 		}
-		readings2 := map[string]interface{}{"a" : 2.2, "b" : 3.3}
+		readings2 := map[string]interface{}{"a": 2.2, "b": 3.3}
 		injectSensor2 := &inject.Sensor{}
 		injectSensor2.GetReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
 			return readings2, nil

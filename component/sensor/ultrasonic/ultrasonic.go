@@ -131,5 +131,5 @@ func (s *Sensor) GetReadings(ctx context.Context) (map[string]interface{}, error
 		return nil, errors.New("ultrasonic timeout")
 	}
 	dist := timeA.Sub(timeB).Seconds() * 340 / 2
-	return map[string]interface{}{"distance" : dist}, nil
+	return map[string]interface{}{"distance": dist}, nil
 }

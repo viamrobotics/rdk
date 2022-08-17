@@ -63,7 +63,7 @@ func TestFromRobot(t *testing.T) {
 
 	result, err := s.GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldResemble, map[string]interface{}{"a" : reading})
+	test.That(t, result, test.ShouldResemble, map[string]interface{}{"a": reading})
 
 	s, err = sensor.FromRobot(r, fakeSensorName)
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Sensor", "string"))
@@ -149,7 +149,7 @@ func TestReconfigurableSensor(t *testing.T) {
 	test.That(t, actualSensor2.readingsCount, test.ShouldEqual, 0)
 	result, err := reconfSensor1.(sensor.Sensor).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldResemble, map[string]interface{}{"a" : reading})
+	test.That(t, result, test.ShouldResemble, map[string]interface{}{"a": reading})
 	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 0)
 	test.That(t, actualSensor2.readingsCount, test.ShouldEqual, 1)
 
@@ -165,7 +165,7 @@ func TestGetReadings(t *testing.T) {
 	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 0)
 	result, err := reconfSensor1.(sensor.Sensor).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldResemble, map[string]interface{}{"a" : reading})
+	test.That(t, result, test.ShouldResemble, map[string]interface{}{"a": reading})
 	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 1)
 }
 
@@ -189,7 +189,7 @@ type mock struct {
 
 func (m *mock) GetReadings(ctx context.Context) (map[string]interface{}, error) {
 	m.readingsCount++
-	return map[string]interface{}{"a" : reading}, nil
+	return map[string]interface{}{"a": reading}, nil
 }
 
 func (m *mock) Close() { m.reconfCount++ }
