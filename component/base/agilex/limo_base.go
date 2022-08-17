@@ -476,23 +476,26 @@ func (base *limoBase) GetWidth(ctx context.Context) (int, error) {
 	return base.width, nil
 }
 
+func GetLimoBase(b base.Base) (*limoBase, error) {
+	l, ok := b.(*limoBase)
+	if !ok {
+		return nil, errors.New("Cannot convert base to limobase")
+	}
+	return l, nil
+}
+
 func (base *limoBase) Move(
 	ctx context.Context,
-	config *Config,
-	logger golog.Logger,
 	planConfig *motionplan.MobileRobotPlanConfig,
+	logger golog.Logger,
 ) error {
-	switch config.DriveMode {
+	switch base.driveMode {
 	case "ackermann":
-		planner, err := base.newDubinsPlanner(ctx, planConfig, logger)
+		waypoints, d, err := base.Plan(ctx, planConfig, logger)
 		if err != nil {
 			return err
 		}
-		waypoints, err := base.Plan(ctx, planConfig, planner)
-		if err != nil {
-			return err
-		}
-		traj := motionplan.GetDubinTrajectoryFromPath(waypoints, planner.D)
+		traj := motionplan.GetDubinTrajectoryFromPath(waypoints, d)
 		base.FollowDubinsTrajectory(ctx, planConfig, traj)
 	default:
 		logger.Info("no motion plan type specified")
@@ -532,7 +535,12 @@ func (base *limoBase) newDubinsPlanner(ctx context.Context, config *motionplan.M
 	return dubins, nil
 }
 
-func (base *limoBase) Plan(ctx context.Context, config *motionplan.MobileRobotPlanConfig, dubins *motionplan.DubinsRRTMotionPlanner) ([][]frame.Input, error) {
+func (base *limoBase) Plan(ctx context.Context, config *motionplan.MobileRobotPlanConfig, logger golog.Logger) ([][]frame.Input, motionplan.Dubins, error) {
+	dubins, err := base.newDubinsPlanner(ctx, config, logger)
+	if err != nil {
+		return nil, motionplan.Dubins{}, err
+	}
+
 	start := frame.FloatsToInputs(config.Start)
 	goal := spatial.PoseToProtobuf(spatial.NewPoseFromPoint(r3.Vector{X: config.Goal[0], Y: config.Goal[1], Z: 0}))
 	obstacleGeometries := map[string]spatial.Geometry{}
@@ -541,7 +549,7 @@ func (base *limoBase) Plan(ctx context.Context, config *motionplan.MobileRobotPl
 			r3.Vector{X: o.Center[0], Y: o.Center[1], Z: 0}),
 			r3.Vector{X: o.Dims[0], Y: o.Dims[1], Z: 1})
 		if err != nil {
-			return nil, err
+			return nil, motionplan.Dubins{}, err
 		}
 		obstacleGeometries[strconv.Itoa(i)] = box
 	}
@@ -550,7 +558,11 @@ func (base *limoBase) Plan(ctx context.Context, config *motionplan.MobileRobotPl
 	opt.AddConstraint("collision", motionplan.NewCollisionConstraint(dubins.Frame(), obstacleGeometries, map[string]spatial.Geometry{}))
 
 	// plan
-	return dubins.Plan(ctx, goal, start, opt)
+	waypoints, err := dubins.Plan(ctx, goal, start, opt)
+	if err != nil {
+		return nil, motionplan.Dubins{}, err
+	}
+	return waypoints, dubins.D, nil
 }
 
 func (base *limoBase) FollowDubinsTrajectory(ctx context.Context, config *motionplan.MobileRobotPlanConfig, traj []motionplan.DubinOption) {
