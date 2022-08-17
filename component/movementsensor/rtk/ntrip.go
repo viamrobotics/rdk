@@ -57,7 +57,7 @@ func (n *ntripCorrectionSource) Connect() error {
 		default:
 		}
 
-		c, err = ntrip.NewClient(n.info.Url, ntrip.Options{Username: n.info.Username, Password: n.info.Password})
+		c, err = ntrip.NewClient(n.info.URL, ntrip.Options{Username: n.info.Username, Password: n.info.Password})
 		if err == nil {
 			success = true
 		}
@@ -122,7 +122,7 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 	}
 
 	if !n.info.Client.IsCasterAlive() {
-		n.logger.Infof("caster %s seems to be down", n.info.Url)
+		n.logger.Infof("caster %s seems to be down", n.info.URL)
 	}
 
 	var w io.Writer

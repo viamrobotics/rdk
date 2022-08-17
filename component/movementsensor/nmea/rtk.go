@@ -101,8 +101,9 @@ type RTKMovementSensor struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
+// NtripInfo contains the information necessary to connect to a mountpoint.
 type NtripInfo struct {
-	Url                string
+	URL                string
 	Username           string
 	Password           string
 	MountPoint         string
@@ -122,12 +123,13 @@ const (
 	baudAttrName               = "ntrip_baud"
 )
 
+// NewNtripInfo creates a new NtripInfo object given ntrip information in the configuration.
 func NewNtripInfo(ctx context.Context, config config.Component, logger golog.Logger) (*NtripInfo, error) {
 	n := &NtripInfo{}
 
 	// Init NtripInfo from attributes
-	n.Url = config.Attributes.String(ntripAddrAttrName)
-	if n.Url == "" {
+	n.URL = config.Attributes.String(ntripAddrAttrName)
+	if n.URL == "" {
 		return nil, fmt.Errorf("NTRIP expected non-empty string for %q", ntripAddrAttrName)
 	}
 	n.Username = config.Attributes.String(ntripUserAttrName)
@@ -294,13 +296,13 @@ func (g *RTKMovementSensor) GetStream(mountPoint string, maxAttempts int) error 
 func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 	g.activeBackgroundWorkers.Add(1)
 	defer g.activeBackgroundWorkers.Done()
-	err := g.Connect(g.ntripClient.Url, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
+	err := g.Connect(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
 		return
 	}
 
 	if !g.ntripClient.Client.IsCasterAlive() {
-		g.logger.Infof("caster %s seems to be down", g.ntripClient.Url)
+		g.logger.Infof("caster %s seems to be down", g.ntripClient.URL)
 	}
 
 	// establish I2C connection
@@ -416,13 +418,13 @@ func (g *RTKMovementSensor) ReceiveAndWriteI2C(ctx context.Context) {
 func (g *RTKMovementSensor) ReceiveAndWriteSerial() {
 	g.activeBackgroundWorkers.Add(1)
 	defer g.activeBackgroundWorkers.Done()
-	err := g.Connect(g.ntripClient.Url, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
+	err := g.Connect(g.ntripClient.URL, g.ntripClient.Username, g.ntripClient.Password, g.ntripClient.MaxConnectAttempts)
 	if err != nil {
 		return
 	}
 
 	if !g.ntripClient.Client.IsCasterAlive() {
-		g.logger.Infof("caster %s seems to be down", g.ntripClient.Url)
+		g.logger.Infof("caster %s seems to be down", g.ntripClient.URL)
 	}
 
 	options := slib.OpenOptions{

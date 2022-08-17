@@ -116,10 +116,6 @@ type rtkStation struct {
 	serialWriter        io.Writer
 	movementsensorNames []string
 
-	surveyIn        string
-	requiredAcc     float64
-	observationTime int
-
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
@@ -181,7 +177,11 @@ func newRTKStation(
 
 	r.movementsensorNames = config.Attributes.StringSlice(childrenName)
 
-	ConfigureBaseRTKStation(config)
+	err = ConfigureBaseRTKStation(config)
+	if err != nil {
+		r.logger.Info("rtk base station could not be configured")
+		return r, err
+	}
 
 	// Init movementsensor correction input addresses
 	r.logger.Debug("Init movementsensor")
@@ -221,8 +221,6 @@ func newRTKStation(
 		default:
 			return nil, errors.New("child is not valid nmeaMovementSensor type")
 		}
-
-		ConfigureRoverDefault(config) // TODO: get movementsensor configs or rewrite configure to take the sensor itself
 	}
 
 	r.logger.Debug("Init multiwriter")
