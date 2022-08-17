@@ -41,9 +41,9 @@ type obstacle struct {
 }
 
 type MobileRobotPlanConfig struct {
-	Name           string  `json: name`
-	GridConversion float64 `json: grid_conversion` // in mm
-	Type           string  `json: type`
+	Name           string  `json:"name"`
+	GridConversion float64 `json:"grid-conversion"` // in mm
+	Type           string  `json:"type"`
 	// planning conditions
 	Start []float64 `json:"start"`
 	Goal  []float64 `json:"goal"`
