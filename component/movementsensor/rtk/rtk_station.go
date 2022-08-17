@@ -34,6 +34,10 @@ type AttrConfig struct {
 	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
 	NtripPass            string `json:"ntrip_password,omitempty"`
 	NtripUser            string `json:"ntrip_username,omitempty"`
+	// non ntrip
+	SurveyIn         string  `json:"svin,omitempty"`
+	RequiredAccuracy float64 `json:"required_accuracy,omitempty"`
+	RequiredTime     int     `json:"required_time,omitempty"`
 	// serial
 	CorrectionPath string `json:"correction_path"`
 	// I2C
@@ -54,6 +58,16 @@ func (config *AttrConfig) Validate(path string) error {
 	if config.CorrectionSource == ntripStr {
 		if len(config.NtripAddr) == 0 {
 			return errors.New("expected nonempty ntrip address")
+		}
+	}
+
+	// not ntrip
+	if config.SurveyIn == timeMode {
+		if config.RequiredAccuracy == 0 {
+			return errors.New("must specify required accuracy for base station fix")
+		}
+		if config.RequiredTime == 0 {
+			return errors.New("must specify required time for base station fix")
 		}
 	}
 
@@ -163,6 +177,12 @@ func newRTKStation(
 
 	r.movementsensorNames = config.Attributes.StringSlice(childrenName)
 
+	err = ConfigureBaseRTKStation(config)
+	if err != nil {
+		r.logger.Info("rtk base station could not be configured")
+		return r, err
+	}
+
 	// Init movementsensor correction input addresses
 	r.logger.Debug("Init movementsensor")
 	r.serialPorts = make([]io.Writer, 0)
@@ -192,6 +212,7 @@ func newRTKStation(
 			}
 
 			r.serialPorts = append(r.serialPorts, port)
+
 		case *nmea.PmtkI2CNMEAMovementSensor:
 			bus, addr := t.GetBusAddr()
 			busAddr := i2cBusAddr{bus: bus, addr: addr}
@@ -331,4 +352,3 @@ func (r *rtkStation) GetAccuracy(ctx context.Context) (map[string]float32, error
 func (r *rtkStation) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{}, nil
 }
-
