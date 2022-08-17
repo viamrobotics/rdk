@@ -14,38 +14,23 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-// serviceClient is a client satisfies the gantry.proto contract.
-type serviceClient struct {
+// client implements GantryServiceClient.
+type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.GantryServiceClient
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
-	client := pb.NewGantryServiceClient(conn)
-	sc := &serviceClient{
-		conn:   conn,
-		client: client,
-		logger: logger,
-	}
-	return sc
-}
-
-// client is an gantry client.
-type client struct {
-	*serviceClient
-	name string
-}
-
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Gantry {
-	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(sc, name)
-}
-
-func clientFromSvcClient(sc *serviceClient, name string) Gantry {
-	return &client{sc, name}
+	c := pb.NewGantryServiceClient(conn)
+	return &client{
+		name:   name,
+		conn:   conn,
+		client: c,
+		logger: logger,
+	}
 }
 
 func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) ([]float64, error) {

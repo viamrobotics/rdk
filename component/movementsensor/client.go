@@ -15,40 +15,26 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// serviceClient is a client satisfies the gps.proto contract.
-type serviceClient struct {
+// check client fulfills sensor.Sensor interface.
+var _ = sensor.Sensor(&client{})
+
+// client implements MovementSensorServiceClient.
+type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.MovementSensorServiceClient
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
-	client := pb.NewMovementSensorServiceClient(conn)
-	sc := &serviceClient{
-		conn:   conn,
-		client: client,
-		logger: logger,
-	}
-	return sc
-}
-
-var _ = sensor.Sensor(&client{})
-
-// client is a MovementSensor client.
-type client struct {
-	*serviceClient
-	name string
-}
-
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) MovementSensor {
-	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(sc, name)
-}
-
-func clientFromSvcClient(sc *serviceClient, name string) MovementSensor {
-	return &client{sc, name}
+	c := pb.NewMovementSensorServiceClient(conn)
+	return &client{
+		name:   name,
+		conn:   conn,
+		client: c,
+		logger: logger,
+	}
 }
 
 func (c *client) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
