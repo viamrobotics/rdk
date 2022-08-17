@@ -17,27 +17,22 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-// client is a client that satisfies the slam.proto contract.
+// client implements SLAMServiceClient.
 type client struct {
 	conn   rpc.ClientConn
 	client pb.SLAMServiceClient
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
+// NewClientFromConn constructs a new Client from the connection passed in.
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
 	grpcClient := pb.NewSLAMServiceClient(conn)
-	sc := &client{
+	c := &client{
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
 	}
-	return sc
-}
-
-// NewClientFromConn constructs a new Client from the connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
-	return newSvcClientFromConn(conn, logger)
+	return c
 }
 
 // GetPosition creates a request, calls the slam service GetPosition, and parses the response into the desired PoseInFrame.
