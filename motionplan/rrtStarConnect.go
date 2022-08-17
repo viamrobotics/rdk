@@ -135,12 +135,17 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 
 	// sample until the max number of iterations is reached
 	prevCost := math.Inf(1)
+	var plan *planReturn
 	for i := 0; i < mp.iter; i++ {
 		select {
 		case <-ctx.Done():
 			solutionChan <- &planReturn{err: ctx.Err()}
 			return
 		default:
+		}
+
+		if i == 98 {
+			fmt.Println("ok")
 		}
 
 		// try to connect the target to map 1
@@ -154,11 +159,16 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 
 		// get next sample, switch map pointers
 		target = mp.sample()
-		map1, map2 = map2, map1
-		plan := shortestPath(startMap, goalMap, shared)
+
+		// TODO(rb): figure out why the hell uncommenting this matters
+		// map1, map2 = map2, map1
+		plan = shortestPath(startMap, goalMap, shared)
+		if len(plan.steps) != 0 && (plan.steps[0].q[0] != seed[0] || plan.steps[0].q[1] != seed[1]) {
+			fmt.Println("what the actual fuck")
+		}
 		cost := evaluatePlanNodes(plan.steps)
 		if prevCost < cost {
-			fmt.Println("RRT* should never have the cost of the total path decrease")
+			fmt.Println("RRT* should never have the cost of the total path increase")
 		}
 		prevCost = cost
 		fmt.Println(cost)
