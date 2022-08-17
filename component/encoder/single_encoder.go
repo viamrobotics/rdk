@@ -72,9 +72,8 @@ type SinglePins struct {
 
 // SingleConfig describes the configuration of a single encoder.
 type SingleConfig struct {
-	Pins           SinglePins `json:"pins"`
-	BoardName      string     `json:"board"`
-	DirectionAware bool       `json:"direction_aware,omitempty"`
+	Pins      SinglePins `json:"pins"`
+	BoardName string     `json:"board"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -118,9 +117,8 @@ func NewSingleEncoder(
 			return nil, errors.Errorf("cannot find pin (%s) for SingleEncoder", cfg.Pins.I)
 		}
 
-		if cfg.DirectionAware {
-			e.AttachDirectionalAwareness(&fakeDirectionAware{})
-		}
+		e.AttachDirectionalAwareness(&fakeDirectionAware{dir: 0})
+		logger.Info("no direction attached to SingleEncoder yet. SingleEncoder will not take measurements until attached to encoded motor.")
 
 		e.Start(ctx)
 
