@@ -94,7 +94,11 @@ func newOverlay(ctx context.Context, deps registry.Dependencies, attrs *transfor
 	}
 	proj, _ := camera.GetProjector(ctx, nil, source)
 	imgSrc := &overlaySource{source, proj}
-	return camera.FromImageSource(imgSrc, proj, true)
+	sourceProps, err := source.GetProperties(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return camera.FromImageSource(imgSrc, proj, sourceProps.HasDepth)
 }
 
 type depthToPretty struct {

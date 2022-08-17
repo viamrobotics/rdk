@@ -71,6 +71,10 @@ func init() {
 	)
 }
 
+func NewMissingWebcamPropertiesError() error {
+	return errors.New("webcam missing attributes")
+}
+
 type webcam struct {
 	reader media.VideoReadCloser
 	attrs  *WebcamAttrs
@@ -78,6 +82,9 @@ type webcam struct {
 }
 
 func (cam *webcam) GetProperties(ctx context.Context) (camera.Properties, error) {
+	if cam.attrs == nil {
+		return camera.Properties{}, NewMissingWebcamPropertiesError()
+	}
 	return camera.Properties{HasDepth: false, IntrinsicParams: cam.attrs.CameraParameters}, nil
 }
 
