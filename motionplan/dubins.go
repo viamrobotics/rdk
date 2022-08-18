@@ -33,9 +33,9 @@ func NewDubins(radius float64, point_separation float64) (*Dubins, error) {
 	return dubins, nil
 }
 
-func (d *Dubins) findCenter(point []float64, side string) []float64 {
+func (d *Dubins) findCenter(point []float64, isLeft bool) []float64 {
 	angle := point[2]
-	if side == "L" {
+	if isLeft {
 		angle += math.Pi / 2
 	} else {
 		angle -= math.Pi / 2
@@ -188,10 +188,10 @@ func (d *Dubins) rlr(start []float64, end []float64, center_0 []float64, center_
 }
 
 func (d *Dubins) AllOptions(start []float64, end []float64, sorts bool) []DubinOption {
-	center_0_left := d.findCenter(start, "L")
-	center_0_right := d.findCenter(start, "R")
-	center_2_left := d.findCenter(end, "L")
-	center_2_right := d.findCenter(end, "R")
+	center_0_left := d.findCenter(start, true)   // "L"
+	center_0_right := d.findCenter(start, false) // "R"
+	center_2_left := d.findCenter(end, true)     // "L"
+	center_2_right := d.findCenter(end, false)   // "R"
 
 	options := []DubinOption{d.lsl(start, end, center_0_left, center_2_left),
 		d.rsr(start, end, center_0_right, center_2_right),
@@ -211,12 +211,12 @@ func (d *Dubins) AllOptions(start []float64, end []float64, sorts bool) []DubinO
 func (d *Dubins) generatePointsStraight(start []float64, end []float64, path []float64) [][]float64 {
 	total := d.Radius*(math.Abs(path[1])+math.Abs(path[0])) + path[2]
 
-	center_0 := d.findCenter(start, "R")
-	center_2 := d.findCenter(end, "R")
+	center_0 := d.findCenter(start, false) // "R"
+	center_2 := d.findCenter(end, false)   // "R"
 
 	if path[0] > 0 {
-		center_0 = d.findCenter(start, "L")
-		center_2 = d.findCenter(end, "L")
+		center_0 = d.findCenter(start, false) // "L"
+		center_2 = d.findCenter(end, false)   // "L"
 	}
 
 	// start of straight
@@ -268,11 +268,11 @@ func (d *Dubins) generatePointsStraight(start []float64, end []float64, path []f
 func (d *Dubins) generatePointsCurve(start []float64, end []float64, path []float64) [][]float64 {
 	total := d.Radius*(math.Abs(path[1])+math.Abs(path[0])) + path[2]
 
-	center_0 := d.findCenter(start, "R")
-	center_2 := d.findCenter(end, "R")
+	center_0 := d.findCenter(start, false) // "R"
+	center_2 := d.findCenter(end, false)   // "R"
 	if path[0] > 0 {
-		center_0 = d.findCenter(start, "L")
-		center_2 = d.findCenter(end, "L")
+		center_0 = d.findCenter(start, true) // "L"
+		center_2 = d.findCenter(end, true)   // "L"
 	}
 
 	intercenter := dist(center_0, center_2)
