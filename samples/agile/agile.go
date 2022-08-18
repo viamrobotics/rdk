@@ -27,10 +27,6 @@ import (
 
 var logger = golog.NewDevelopmentLogger("agile")
 
-const (
-	gridConversion = 1000 // mm per grid square
-)
-
 func main() {
 	utils.ContextualMain(mainWithArgs, logger)
 }
@@ -56,6 +52,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	logger.Info(robot.ResourceNames())
 
 	l, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
+	if err != nil {
+		return err
+	}
 	b := l.(base.Base)
 	limo1 := limoBase{ctx: ctx, realBase: b, driveMode: "ackermann", logger: logger}
 
@@ -245,7 +244,19 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input, config *motionplan
 				last = dubinsPath[2]
 			}
 
-			writeData := []string{fmt.Sprintf("%f", fixAngle(start[0])), fmt.Sprintf("%f", fixAngle(start[1])), fmt.Sprintf("%f", fixAngle(start[2])), fmt.Sprintf("%f", fixAngle(dubinsPath[0])), fmt.Sprintf("%f", fixAngle(dubinsPath[1])), fmt.Sprintf("%f", last), sstra}
+			writeData := []string{
+				fmt.Sprintf("%f",
+					fixAngle(start[0])),
+				fmt.Sprintf("%f",
+					fixAngle(start[1])),
+				fmt.Sprintf("%f",
+					fixAngle(start[2])),
+				fmt.Sprintf("%f",
+					fixAngle(dubinsPath[0])),
+				fmt.Sprintf("%f", fixAngle(dubinsPath[1])),
+				fmt.Sprintf("%f", last),
+				sstra,
+			}
 			_ = csvwriter.Write(writeData)
 
 			for j := 0; j < 3; j++ {
@@ -254,7 +265,15 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input, config *motionplan
 		}
 	}
 	// last point
-	writeData := []string{fmt.Sprintf("%f", start[0]), fmt.Sprintf("%f", start[1]), fmt.Sprintf("%f", start[2]), fmt.Sprintf("%d", 0), fmt.Sprintf("%d", 0), fmt.Sprintf("%d", 0), fmt.Sprintf("%d", 0)}
+	writeData := []string{
+		fmt.Sprintf("%f", start[0]),
+		fmt.Sprintf("%f", start[1]),
+		fmt.Sprintf("%f", start[2]),
+		fmt.Sprintf("%d", 0),
+		fmt.Sprintf("%d", 0),
+		fmt.Sprintf("%d", 0),
+		fmt.Sprintf("%d", 0),
+	}
 	_ = csvwriter.Write(writeData)
 
 	csvwriter.Flush()
@@ -268,7 +287,12 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input, config *motionplan
 	csvwriter = csv.NewWriter(csvFile)
 
 	for _, o := range config.Obstacles {
-		writeData := []string{fmt.Sprintf("%f", o.Center[0]), fmt.Sprintf("%f", o.Center[1]), fmt.Sprintf("%f", o.Dims[0]), fmt.Sprintf("%f", o.Dims[1])}
+		writeData := []string{
+			fmt.Sprintf("%f", o.Center[0]),
+			fmt.Sprintf("%f", o.Center[1]),
+			fmt.Sprintf("%f", o.Dims[0]),
+			fmt.Sprintf("%f", o.Dims[1]),
+		}
 		_ = csvwriter.Write(writeData)
 	}
 
