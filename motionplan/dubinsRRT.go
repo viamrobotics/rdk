@@ -470,10 +470,6 @@ func (dm *dubinOptionManager) optWorker(ctx context.Context) {
 	}
 }
 
-func mobile2DInputDist(from, to []referenceframe.Input) float64 {
-	return math.Pow(from[0].Value-to[0].Value, 2)
-}
-
 func mobile2DConfigDist(from, to *configuration) float64 {
 	return math.Pow(from.inputs[0].Value-to.inputs[0].Value, 2)
 }
