@@ -63,24 +63,34 @@ func TestServer(t *testing.T) {
 	projA = intrinsics
 
 	var imageReleased bool
-	injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-		return img, func() { imageReleased = true }, nil
-	}
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
 	injectCamera.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return projA, nil
 	}
-
-	injectCamera2.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-		return nil, nil, errors.New("can't generate next frame")
+	injectCamera.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+		imageReleased = true
+		switch mimeType {
+		case "", utils.MimeTypePNG:
+			return imgBuf.Bytes(), utils.MimeTypePNG, int64(img.Bounds().Dx()), int64(img.Bounds().Dy()), nil
+		case utils.MimeTypeRawRGBA:
+			return img.Pix, utils.MimeTypeRawRGBA, int64(img.Bounds().Dx()), int64(img.Bounds().Dy()), nil
+		case utils.MimeTypeJPEG:
+			return imgBufJpeg.Bytes(), utils.MimeTypeJPEG, int64(img.Bounds().Dx()), int64(img.Bounds().Dy()), nil
+		default:
+			return nil, "", 0, 0, errors.New("invalid mime type")
+		}
 	}
+
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return nil, errors.New("can't generate next point cloud")
 	}
 	injectCamera2.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return nil, errors.New("can't get camera properties")
+	}
+	injectCamera2.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+		return nil, "", 0, 0, errors.New("can't generate frame")
 	}
 	t.Run("GetFrame", func(t *testing.T) {
 		_, err := cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{Name: missingCameraName})
@@ -125,12 +135,12 @@ func TestServer(t *testing.T) {
 			MimeType: "image/who",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid mime type")
 		test.That(t, imageReleased, test.ShouldBeTrue)
 
 		_, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{Name: failCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next frame")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate frame")
 	})
 
 	t.Run("RenderFrame", func(t *testing.T) {
@@ -162,12 +172,12 @@ func TestServer(t *testing.T) {
 			MimeType: "image/who",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid mime type")
 		test.That(t, imageReleased, test.ShouldBeTrue)
 
 		_, err = cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{Name: failCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next frame")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate frame")
 	})
 
 	t.Run("GetPointCloud", func(t *testing.T) {
