@@ -13,9 +13,9 @@ type Dubins struct {
 }
 
 type DubinOption struct {
-	TotalLen   float64
-	DubinsPath []float64
-	Straight   bool
+	TotalLen   float64	// Total length of all segments making up a single Dubin's path 
+	DubinsPath []float64	// Length array of the six possible Dubin's path combiantions 
+	Straight   bool		// True if Dubin's Path segment is straight
 }
 
 func NewDubins(radius float64, point_separation float64) (*Dubins, error) {
@@ -196,7 +196,7 @@ func (d *Dubins) AllOptions(start []float64, end []float64, sorts bool) []DubinO
 		d.rlr(start, end, center_0_right, center_2_right),
 		d.lrl(start, end, center_0_left, center_2_left)}
 	if sorts {
-		//sort by first element in options
+		// sort by first element in options
 		sort.SliceStable(options, func(i, j int) bool {
 			return options[i].TotalLen < options[j].TotalLen
 		})
@@ -215,8 +215,8 @@ func (d *Dubins) generatePointsStraight(start []float64, end []float64, path []f
 		center_2 = d.findCenter(end, "L")
 	}
 
-	//start of straight
-	ini := start[:2] //if less than 0
+	// start of straight
+	ini := start[:2]
 	if math.Abs(path[0]) > 0 {
 		angle := start[2]
 		if path[0] > 0 {
@@ -228,7 +228,7 @@ func (d *Dubins) generatePointsStraight(start []float64, end []float64, path []f
 		ini = d.add(center_0, d.mul(sides, d.Radius))
 	}
 
-	//end of straight
+	// end of straight
 	fin := end[:2]
 	if math.Abs(path[1]) > 0 {
 		angle := end[2] + (-math.Abs(path[1]) - math.Pi/2)
@@ -243,8 +243,7 @@ func (d *Dubins) generatePointsStraight(start []float64, end []float64, path []f
 
 	dist_straight := d.dist(ini, fin)
 
-	//generate all points
-	// points_len := int(total/d.PointSeparation)
+	// generate all points
 	points := make([][]float64, 0)
 	x := 0.0
 	for x < total {
@@ -281,8 +280,7 @@ func (d *Dubins) generatePointsCurve(start []float64, end []float64, path []floa
 	}
 	psi_0 := math.Atan2(d.sub(center_1, center_0)[1], d.sub(center_1, center_0)[0]) - math.Pi
 
-	//generate all points
-	// points_len := int(total/d.PointSeparation)
+	// generate all points
 	points := make([][]float64, 0)
 	x := 0.0
 	for x < total {
@@ -335,7 +333,7 @@ func (d *Dubins) DubinsPath(start []float64, end []float64) [][]float64 {
 	return d.generatePoints(start, end, DubinsPath, straight)
 }
 
-//Helper functions
+// Helper functions
 
 // convert to python mod
 func (d *Dubins) mod(n float64, M float64) float64 {
