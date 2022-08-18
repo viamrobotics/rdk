@@ -148,14 +148,14 @@ func newEncodedMotor(
 	}
 
 	if em.rampRate < 0 || em.rampRate > 1 {
-		return nil, fmt.Errorf("ramp rate needs to be [0,1) but is %v", em.rampRate)
+		return nil, fmt.Errorf("ramp rate needs to be (0, 1] but is %v", em.rampRate)
 	}
 	if em.rampRate == 0 {
 		em.rampRate = 0.2 // Use a conservative value by default.
 	}
 
 	if em.maxPowerPct < 0 || em.maxPowerPct > 1 {
-		return nil, fmt.Errorf("max power pct needs to be [0,1) but is %v", em.maxPowerPct)
+		return nil, fmt.Errorf("max power pct needs to be (0, 1] but is %v", em.maxPowerPct)
 	}
 	if em.maxPowerPct == 0 {
 		em.maxPowerPct = 1.0
@@ -184,7 +184,7 @@ type EncodedMotor struct {
 	startedRPMMonitorMu *sync.Mutex
 
 	// how fast as we increase power do we do so
-	// valid numbers are [0, 1)
+	// valid numbers are (0, 1]
 	// .01 would ramp very slowly, 1 would ramp instantaneously
 	rampRate    float64
 	maxPowerPct float64
