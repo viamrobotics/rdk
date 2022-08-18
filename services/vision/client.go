@@ -9,39 +9,34 @@ import (
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/vision/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
-// client is a client that implements the Vision Service.
+// client implements VisionServiceClient.
 type client struct {
 	conn   rpc.ClientConn
 	client pb.VisionServiceClient
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
+// NewClientFromConn constructs a new Client from connection passed in.
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
 	grpcClient := pb.NewVisionServiceClient(conn)
-	sc := &client{
+	c := &client{
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
 	}
-	return sc
-}
-
-// NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
-	return newSvcClientFromConn(conn, logger)
+	return c
 }
 
 func (c *client) GetDetectorNames(ctx context.Context) ([]string, error) {
@@ -57,7 +52,7 @@ func (c *client) GetDetectorNames(ctx context.Context) ([]string, error) {
 func (c *client) AddDetector(ctx context.Context, cfg DetectorConfig) error {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::AddDetector")
 	defer span.End()
-	params, err := structpb.NewStruct(cfg.Parameters)
+	params, err := protoutils.StructToStructPb(cfg.Parameters)
 	if err != nil {
 		return err
 	}
@@ -152,7 +147,7 @@ func (c *client) GetObjectPointClouds(ctx context.Context,
 	segmenterName string,
 	params config.AttributeMap,
 ) ([]*vision.Object, error) {
-	conf, err := structpb.NewStruct(params)
+	conf, err := protoutils.StructToStructPb(params)
 	if err != nil {
 		return nil, err
 	}

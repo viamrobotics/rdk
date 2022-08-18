@@ -18,6 +18,7 @@ type Camera struct {
 	NextFunc           func(ctx context.Context) (image.Image, func(), error)
 	NextPointCloudFunc func(ctx context.Context) (pointcloud.PointCloud, error)
 	GetPropertiesFunc  func(ctx context.Context) (rimage.Projector, error)
+	GetFrameFunc       func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error)
 	CloseFunc          func(ctx context.Context) error
 }
 
@@ -43,6 +44,14 @@ func (c *Camera) GetProperties(ctx context.Context) (rimage.Projector, error) {
 		return c.Camera.GetProperties(ctx)
 	}
 	return c.GetPropertiesFunc(ctx)
+}
+
+// GetFrame calls the injected GetFrame or the real version.
+func (c *Camera) GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+	if c.GetFrameFunc == nil {
+		return c.Camera.GetFrame(ctx, mimeType)
+	}
+	return c.GetFrameFunc(ctx, mimeType)
 }
 
 // Close calls the injected Close or the real version.

@@ -55,3 +55,13 @@ func TestStoreToCache(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloudCfg3, test.ShouldResemble, cfg)
 }
+
+func TestProcessConfig(t *testing.T) {
+	unprocessedConfig := Config{
+		ConfigFilePath: "path",
+	}
+
+	cfg, err := processConfig(&unprocessedConfig, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, *cfg, test.ShouldResemble, unprocessedConfig)
+}

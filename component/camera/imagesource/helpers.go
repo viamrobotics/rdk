@@ -1,14 +1,12 @@
 package imagesource
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"image"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
@@ -19,10 +17,6 @@ import (
 func decodeImage(imgData []byte) (image.Image, error) {
 	img, _, err := image.Decode(bytes.NewBuffer(imgData))
 	return img, err
-}
-
-func decodeDepth(depthData []byte) (*rimage.DepthMap, error) {
-	return rimage.ReadDepthMap(bufio.NewReader(bytes.NewReader(depthData)))
 }
 
 func prepReadFromURL(ctx context.Context, client http.Client, url string) (io.ReadCloser, error) {
@@ -65,11 +59,6 @@ func readDepthURL(ctx context.Context, client http.Client, url string) (*rimage.
 	depthData, err := readyBytesFromURL(ctx, client, url)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't ready depth url")
-	}
-	// do this first and make sure ok before creating any mats
-	// dat.gz files are deprecated, will be able to remove these soon.
-	if strings.HasSuffix(url, "dat") || strings.HasSuffix(url, "dat.gz") {
-		return decodeDepth(depthData)
 	}
 	img, err := decodeImage(depthData)
 	if err != nil {

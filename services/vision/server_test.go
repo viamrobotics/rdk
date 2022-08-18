@@ -7,12 +7,12 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	// register cameras for testing.
 	_ "go.viam.com/rdk/component/camera/register"
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/service/vision/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
@@ -91,7 +91,7 @@ func TestServerAddDetector(t *testing.T) {
 	}
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
-	params, err := structpb.NewStruct(config.AttributeMap{
+	params, err := protoutils.StructToStructPb(config.AttributeMap{
 		"detect_color": "#112233",
 		"tolerance":    0.4,
 		"segment_size": 200,
@@ -154,7 +154,7 @@ func TestServerGetDetections(t *testing.T) {
 
 	// test new getdetections straight from image
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
-	params, err := structpb.NewStruct(config.AttributeMap{
+	params, err := protoutils.StructToStructPb(config.AttributeMap{
 		"model_path":  modelLoc,
 		"num_threads": 1,
 	})
@@ -237,7 +237,7 @@ func TestServerObjectSegmentation(t *testing.T) {
 	})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
 
-	params, err := structpb.NewStruct(config.AttributeMap{})
+	params, err := protoutils.StructToStructPb(config.AttributeMap{})
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
 		CameraName:    "fakeCamera",
@@ -258,7 +258,7 @@ func TestServerObjectSegmentation(t *testing.T) {
 	test.That(t, paramNames[2].Type, test.ShouldEqual, "float64")
 	test.That(t, paramNames[3].Type, test.ShouldEqual, "int")
 
-	params, err = structpb.NewStruct(config.AttributeMap{
+	params, err = protoutils.StructToStructPb(config.AttributeMap{
 		paramNames[0].Name: 100, // min points in plane
 		paramNames[1].Name: 3,   // min points in segment
 		paramNames[2].Name: 5.,  //  clustering radius
