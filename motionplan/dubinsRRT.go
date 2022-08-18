@@ -21,13 +21,13 @@ import (
 // It uses the RRT* with vehicle dynamics algorithm, Khanal 2022
 // https://arxiv.org/abs/2206.10533
 type DubinsRRTMotionPlanner struct {
-	frame           referenceframe.Frame
-	logger          golog.Logger
-	iter            int
-	nCPU            int
-	stepSize        float64
-	randseed        *rand.Rand
-	D               Dubins
+	frame    referenceframe.Frame
+	logger   golog.Logger
+	iter     int
+	nCPU     int
+	stepSize float64
+	randseed *rand.Rand
+	D        Dubins
 }
 
 type obstacle struct {
@@ -35,6 +35,7 @@ type obstacle struct {
 	Dims   []float64 `json:"dims"`
 }
 
+// MobileRobotPlanConfig describes a motion planning problem for a 2D mobile robot.
 type MobileRobotPlanConfig struct {
 	Name           string  `json:"name"`
 	GridConversion float64 `json:"grid-conversion"` // in mm
@@ -67,14 +68,18 @@ func NewDubinsRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golo
 	return mp, nil
 }
 
+// Frame will return the frame used for planning.
 func (mp *DubinsRRTMotionPlanner) Frame() referenceframe.Frame {
 	return mp.frame
 }
 
+// Resolution specifies how narrowly to check for constraints.
 func (mp *DubinsRRTMotionPlanner) Resolution() float64 {
 	return mp.stepSize
 }
 
+// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
+// should be visited in order to arrive at the goal while satisfying all constraints.
 func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
@@ -132,7 +137,9 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 	pathLenMap[seedConfig] = 0
 
 	goalInputs := make([]referenceframe.Input, 3)
-	goalInputs[0], goalInputs[1], goalInputs[2] = referenceframe.Input{Value: goal.X}, referenceframe.Input{Value: goal.Y}, referenceframe.Input{Value: goal.Theta}
+	goalInputs[0] = referenceframe.Input{Value: goal.X}
+	goalInputs[1] = referenceframe.Input{Value: goal.Y}
+	goalInputs[2] = referenceframe.Input{Value: goal.Theta}
 	goalConfig := &configuration{goalInputs}
 
 	dm := &dubinOptionManager{nCPU: mp.nCPU, d: mp.D}
@@ -149,8 +156,8 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 		if (rand.Float64() > 1-goalRate) || i == 0 {
 			target = goalConfig
 		} else {
-			input2D := referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
-			inputDubins := append(input2D, referenceframe.Input{Value: rand.Float64() * 2 * math.Pi})
+			inputDubins := referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
+			inputDubins = append(inputDubins, referenceframe.Input{Value: rand.Float64() * 2 * math.Pi})
 			target = &configuration{inputDubins}
 		}
 
@@ -229,7 +236,7 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 
 			solutionChan <- &planReturn{steps: inputSteps}
 			for _, step := range inputSteps {
-				mp.logger.Debug(*step)
+				mp.logger.Debugf("%v\n", *step)
 			}
 			return
 		}
@@ -260,8 +267,11 @@ func (mp *DubinsRRTMotionPlanner) checkPath(
 	end := configuration2slice(to)
 	path := dm.d.generatePoints(start, end, o.DubinsPath, o.Straight)
 
+	mp.logger.Debugf("%v\n", path)
+
 	pathOk := true
-	p1, p2 := path[0], path[1]
+	var p2 []float64
+	p1 := path[0]
 	for _, p := range path[1:] {
 		p2 = p
 
@@ -396,7 +406,7 @@ func (dm *dubinOptionManager) parallelselectOptions(
 
 	// Sort and choose best nbOptions options
 	sort.Sort(pl)
-	var options map[*configuration]DubinOption
+	options := make(map[*configuration]DubinOption)
 	for _, p := range pl[:nbOptions] {
 		options[p.key] = p.value
 	}
@@ -442,9 +452,11 @@ func (dm *dubinOptionManager) optWorker(ctx context.Context) {
 			if dm.ready {
 				dm.optLock.RUnlock()
 				opt := pl[0]
-				pl = pl[1:]
 				dm.options <- &opt
-				return
+				if len(pl) == 1 {
+					return
+				}
+				pl = pl[1:]
 			}
 			dm.optLock.RUnlock()
 		}
