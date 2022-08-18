@@ -32,61 +32,63 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
-	if args != nil {
-		move := false
-		robot, err := client.New(
-			context.Background(),
-			args[1],
-			logger,
-			client.WithDialOptions(rpc.WithCredentials(rpc.Credentials{
-				Type:    utilsrdk.CredentialsTypeRobotLocationSecret,
-				Payload: args[2],
-			})),
-		)
+	if len(args) < 2 {
+		return nil
+	}
+	
+	move := false
+	robot, err := client.New(
+		context.Background(),
+		args[1],
+		logger,
+		client.WithDialOptions(rpc.WithCredentials(rpc.Credentials{
+			Type:    utilsrdk.CredentialsTypeRobotLocationSecret,
+			Payload: args[2],
+		})),
+	)
+	if err != nil {
+		logger.Debug(err)
+		return err
+	}
+	defer robot.Close(ctx)
+	logger.Info("Resources:")
+	logger.Info(robot.ResourceNames())
+
+	l, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
+	if err != nil {
+		return err
+	}
+	b := l.(base.Base)
+	limo1 := limoBase{ctx: ctx, realBase: b, driveMode: "ackermann", logger: logger}
+
+	if move {
+		// read config
+		config, err := parseJSONFile("samples/agile/planConfig.json")
 		if err != nil {
-			logger.Debug(err)
+			logger.Fatal(err.Error())
+		}
+
+		// call Move from Agile
+		limo1.Move(config)
+	} else {
+		// read config
+		config, err := parseJSONFile("samples/agile/planConfig.json")
+		if err != nil {
+			logger.Fatal(err.Error())
+		}
+
+		// call Plan from Agile
+		waypoints, d, err := limo1.Plan(config)
+		if err != nil {
 			return err
 		}
-		defer robot.Close(ctx)
-		logger.Info("Resources:")
-		logger.Info(robot.ResourceNames())
 
-		l, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
-		if err != nil {
-			return err
+		// write output
+		if err := writeJSONFile("samples/agile/planOutput.json", waypoints); err != nil {
+			logger.Fatal(err.Error())
 		}
-		b := l.(base.Base)
-		limo1 := limoBase{ctx: ctx, realBase: b, driveMode: "ackermann", logger: logger}
 
-		if move {
-			// read config
-			config, err := parseJSONFile("samples/agile/planConfig.json")
-			if err != nil {
-				logger.Fatal(err.Error())
-			}
-
-			// call Move from Agile
-			limo1.Move(config)
-		} else {
-			// read config
-			config, err := parseJSONFile("samples/agile/planConfig.json")
-			if err != nil {
-				logger.Fatal(err.Error())
-			}
-
-			// call Plan from Agile
-			waypoints, d, err := limo1.Plan(config)
-			if err != nil {
-				return err
-			}
-
-			// write output
-			if err := writeJSONFile("samples/agile/planOutput.json", waypoints); err != nil {
-				logger.Fatal(err.Error())
-			}
-
-			savePath(d, waypoints, config)
-		}
+		savePath(d, waypoints, config)
 	}
 
 	return nil
