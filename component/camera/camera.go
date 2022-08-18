@@ -143,9 +143,9 @@ func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	if err != nil {
 		return nil, err
 	}
-	dm, ok := img.(*rimage.DepthMap)
-	if !ok {
-		return nil, errors.New("image has no depth information to project to pointcloud")
+	dm, err := rimage.ConvertImageToDepthMap(img)
+	if err != nil {
+		return nil, errors.Wrapf(err, "cannot project to a point cloud")
 	}
 	return dm.ToPointCloud(is.projector), nil
 }
