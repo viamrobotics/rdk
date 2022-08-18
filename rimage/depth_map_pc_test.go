@@ -34,7 +34,7 @@ func genIntrinsics() *transform.PinholeCameraIntrinsics {
 }
 
 func TestDMPointCloudAdapter(t *testing.T) {
-	m, err := rimage.ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
+	m, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	adapter := m.ToPointCloud(genIntrinsics())
@@ -64,7 +64,7 @@ func TestDMPointCloudAdapter(t *testing.T) {
 }
 
 func TestDMPointCloudAdapterRace(t *testing.T) {
-	m, err := rimage.ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
+	m, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	baseAdapter := m.ToPointCloud(genIntrinsics())
