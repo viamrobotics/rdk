@@ -25,5 +25,11 @@ func TestConfigValidate(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 
 	validConfig.DigitalInterrupts = []DigitalInterruptConfig{{Name: "bar"}}
+	err = validConfig.Validate("path")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `path.digital_interrupts.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"pin" is required`)
+
+	validConfig.DigitalInterrupts = []DigitalInterruptConfig{{Name: "bar", Pin: "3"}}
 	test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
 }

@@ -3760,6 +3760,10 @@
       "hash": "9d126ef020bba1dd8351573a7f6fa086",
       "size": 1760554
     },
+    "board2_gray.png": {
+      "hash": "3e62dc2c62bbd4f5e198fb1c4e82f9a9",
+      "size": 92327
+    },
     "canny1.png": {
       "hash": "2484495f4ffaec93f87c4bfb52a5613a",
       "size": 663484
@@ -3800,6 +3804,10 @@
       "hash": "53edaff91ae8023a7c187d6381d8fd22",
       "size": 567
     },
+    "go_encoded_image.png": {
+      "hash": "ae17174de7ec900b670aa2230ce83db9",
+      "size": 158099
+    },
     "hsvdistancechess3.txt": {
       "hash": "09f3023223cf3a19822c513082cb4ccd",
       "size": 6761
@@ -3815,6 +3823,14 @@
     "matched_kps.json": {
       "hash": "5bb0c43f3997c3a01e8141d4805dd5d5",
       "size": 28205
+    },
+    "my_desk_intel515_from_server.png": {
+      "hash": "3a7a0a83d1d32a7d6769f37a10f00404",
+      "size": 394925
+    },
+    "opencv_encoded_image.png": {
+      "hash": "3a7a0a83d1d32a7d6769f37a10f00404",
+      "size": 394925
     },
     "shelf_color.png": {
       "hash": "359c262e40f1f52fa6c6ced431a31999",
