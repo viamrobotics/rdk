@@ -27,8 +27,8 @@ import (
 )
 
 var (
-	modelSingle = resource.Model{Name: "single_stream"}
-	modelDual = resource.Model{Name: "dual_stream"}
+	modelSingle = resource.NewDefaultModel("single_stream")
+	modelDual = resource.NewDefaultModel("dual_stream")
 )
 
 
@@ -44,7 +44,7 @@ func init() {
 			return NewServerSource(ctx, attrs, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelSingle,
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelSingle,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
 			if err != nil {
@@ -75,7 +75,7 @@ func init() {
 			return newDualServerSource(ctx, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelDual,
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelDual,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
 			if err != nil {

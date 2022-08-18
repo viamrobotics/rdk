@@ -50,7 +50,7 @@ func init() {
 		},
 	}
 
-	registry.RegisterComponent(motor.Subtype, resource.Model{Name: "gpio"}, comp)
+	registry.RegisterComponent(motor.Subtype, resource.NewDefaultModel("gpio"), comp)
 	motor.RegisterConfigAttributeConverter("gpio")
 }
 

@@ -49,7 +49,7 @@ const (
 var v1modeljson []byte
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, resource.Model{Name: "varm1"}, registry.Component{
+	registry.RegisterComponent(arm.Subtype, resource.NewDefaultModel("varm1"), registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newArmV1(ctx, r, logger)
 		},

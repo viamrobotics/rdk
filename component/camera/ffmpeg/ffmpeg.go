@@ -40,7 +40,7 @@ type FilterAttrs struct {
 	KWArgs map[string]interface{} `json:"kw_args"`
 }
 
-var model = resource.Model{Name: "ffmpeg"}
+var model = resource.NewDefaultModel("ffmpeg")
 
 func init() {
 	registry.RegisterComponent(camera.Subtype, model, registry.Component{
@@ -54,7 +54,7 @@ func init() {
 	})
 
 	config.RegisterComponentAttributeMapConverter(
-		camera.SubtypeName,
+		camera.Subtype,
 		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)

@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/component/input/gpio"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 func TestGPIOInput(t *testing.T) {
@@ -90,7 +91,7 @@ func TestGPIOInput(t *testing.T) {
 		},
 	}
 
-	inputReg := registry.ComponentLookup(input.Subtype, "gpio")
+	inputReg := registry.ComponentLookup(input.Subtype, resource.NewDefaultModel("gpio"))
 	test.That(t, inputReg, test.ShouldNotBeNil)
 
 	res, err := inputReg.Constructor(context.Background(), deps, config.Component{Name: "input1", ConvertedAttributes: &ic}, logger)

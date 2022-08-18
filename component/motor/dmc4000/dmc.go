@@ -28,7 +28,7 @@ import (
 
 // Timeout for Home() and GoTillStop().
 const homeTimeout = time.Minute
-var modelName = resource.Model{Name: "DMC4000"}
+var modelName = resource.NewDefaultModel("DMC4000")
 
 // controllers is global to all instances, mapped by serial device.
 var (
@@ -90,7 +90,7 @@ func init() {
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
 
 	config.RegisterComponentAttributeMapConverter(
-		motor.SubtypeName,
+		motor.Subtype,
 		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config

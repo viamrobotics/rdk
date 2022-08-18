@@ -885,7 +885,7 @@ func TestClientDiscovery(t *testing.T) {
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return finalResources
 	}
-	q := discovery.Query{movementsensor.Named("foo").ResourceSubtype, "something"}
+	q := discovery.Query{movementsensor.Named("foo").ResourceSubtype, resource.Model{Name: "something"}}
 	injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
 		return []discovery.Discovery{{
 			Query:   q,

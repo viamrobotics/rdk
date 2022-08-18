@@ -96,7 +96,7 @@ func (config *AttrConfig) Validate(path string) error {
 func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
-		resource.Model{Name: "rtk-station"},
+		resource.NewDefaultModel("rtk-station"),
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,

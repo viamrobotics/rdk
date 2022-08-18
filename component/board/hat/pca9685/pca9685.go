@@ -21,7 +21,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var modelName = resource.Model{Name: "pca9685"}
+var modelName = resource.NewDefaultModel("pca9685")
 
 var (
 	_ = board.Board(&PCA9685{})
@@ -60,7 +60,7 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
-		board.SubtypeName,
+		board.Subtype,
 		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config

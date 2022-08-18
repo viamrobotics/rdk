@@ -20,7 +20,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var modelname = resource.Model{Name: "ds18b20"}
+var modelname = resource.NewDefaultModel("ds18b20")
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
@@ -40,7 +40,7 @@ func init() {
 			return newSensor(config.Name, config.ConvertedAttributes.(*AttrConfig).UniqueID), nil
 		}})
 
-	config.RegisterComponentAttributeMapConverter(sensor.SubtypeName, modelname,
+	config.RegisterComponentAttributeMapConverter(sensor.Subtype, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

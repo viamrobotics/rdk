@@ -20,7 +20,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var modelname = resource.Model{Name: "multiaxis"}
+var modelname = resource.NewDefaultModel("multiaxis")
 
 
 // AttrConfig is used for converting multiAxis config attributes.
@@ -58,7 +58,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(gantry.SubtypeName, modelname,
+	config.RegisterComponentAttributeMapConverter(gantry.Subtype, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

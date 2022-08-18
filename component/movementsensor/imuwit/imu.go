@@ -19,11 +19,12 @@ import (
 	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
-const model = "imu_wit"
+var model = resource.NewDefaultModel("imu_wit")
 
 func init() {
 	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{

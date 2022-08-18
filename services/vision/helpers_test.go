@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
@@ -58,7 +59,7 @@ func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
 	cameraComp := config.Component{
 		Name:  "fake_cam",
 		Type:  camera.SubtypeName,
-		Model: "file",
+		Model: resource.Model{Name: "file"},
 		Attributes: config.AttributeMap{
 			"color":   artifact.MustPath("vision/objectdetection/detection_test.jpg"),
 			"depth":   "",

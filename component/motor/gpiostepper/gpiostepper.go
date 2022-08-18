@@ -23,7 +23,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var modelName = resource.Model{Name: "gpiostepper"}
+var modelName = resource.NewDefaultModel("gpiostepper")
 
 func init() {
 	_motor := registry.Component{

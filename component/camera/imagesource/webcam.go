@@ -25,7 +25,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var model = resource.Model{Name: "webcam"}
+var model = resource.NewDefaultModel("webcam")
 
 func init() {
 	registry.RegisterComponent(
@@ -44,7 +44,7 @@ func init() {
 			return NewWebcamSource(ctx, attrs, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, model,
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
 			if err != nil {

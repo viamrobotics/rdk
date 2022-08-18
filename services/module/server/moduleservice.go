@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/module/v1"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 )
 
 type server struct {
@@ -25,7 +26,7 @@ func (s *server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 
 	c := &config.Component{
 		Name:  req.GetResourceName(),
-		Model: "Foobar",
+		Model: resource.Model{Name: "Foobar"},
 		Attributes: config.AttributeMap{
 			"Speed": 30,
 			"Port":  "localhost:3030",

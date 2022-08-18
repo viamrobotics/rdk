@@ -703,7 +703,7 @@ func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 
 				for _, attrs := range attrs.Attributes {
 					attrs.Name = c.Name
-					attrs.Model = c.Model
+					attrs.Model = c.Model.String()
 					attrs.Type = c.Type
 					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
 				}

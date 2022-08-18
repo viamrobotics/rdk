@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var modelPP = resource.Model{Name: "preprocess_depth"}
+var modelPP = resource.NewDefaultModel("preprocess_depth")
 
 func init() {
 	registry.RegisterComponent(
@@ -36,7 +36,7 @@ func init() {
 			return newPreprocessDepth(ctx, deps, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelPP,
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelPP,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

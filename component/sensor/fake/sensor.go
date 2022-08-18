@@ -17,7 +17,7 @@ import (
 func init() {
 	registry.RegisterComponent(
 		sensor.Subtype,
-		resource.Model{Name: "fake"},
+		resource.NewDefaultModel("fake"),
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,

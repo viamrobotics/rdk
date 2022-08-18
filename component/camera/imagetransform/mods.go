@@ -25,9 +25,9 @@ import (
 
 
 var (
-	modelIdentity = resource.Model{Name: "identity"}
-	modelRotate = resource.Model{Name: "rotate"}
-	modelResize = resource.Model{Name: "resize"}
+	modelIdentity = resource.NewDefaultModel("identity")
+	modelRotate = resource.NewDefaultModel("rotate")
+	modelResize = resource.NewDefaultModel("resize")
 )
 
 
@@ -54,7 +54,7 @@ func init() {
 			return camera.New(source, proj)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelIdentity,
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelIdentity,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -84,7 +84,7 @@ func init() {
 			return camera.New(imgSrc, proj)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelRotate,
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelRotate,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -124,7 +124,7 @@ func init() {
 			return camera.New(imgSrc, proj)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelResize,
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelResize,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

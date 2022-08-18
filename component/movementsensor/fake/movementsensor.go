@@ -11,13 +11,16 @@ import (
 	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
+
+var model = resource.NewDefaultModel("fake")
 
 func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
-		"fake",
+		model,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,

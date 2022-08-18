@@ -22,7 +22,7 @@ import (
 //go:embed static_arm_model.json
 var armModelJSON []byte
 
-var modelname = resource.Model{Name: "fake"}
+var modelname = resource.NewDefaultModel("fake")
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{

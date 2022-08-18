@@ -13,12 +13,15 @@ import (
 	"go.viam.com/rdk/component/movementsensor/nmea"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 const (
 	testBoardName = "board1"
 	testBusName   = "i2c1"
 )
+
+var modelName = resource.NewDefaultModel("rtk-station")
 
 func setupDependencies(t *testing.T) registry.Dependencies {
 	t.Helper()
@@ -72,7 +75,7 @@ func TestRTK(t *testing.T) {
 	// test NTRIPConnection Source
 	cfig := config.Component{
 		Name:  "rtk1",
-		Model: "rtk-station",
+		Model: modelName,
 		Type:  "gps",
 		Attributes: config.AttributeMap{
 			"correction_source":      "ntrip",
@@ -92,7 +95,7 @@ func TestRTK(t *testing.T) {
 	path := "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00"
 	cfig = config.Component{
 		Name:  "rtk1",
-		Model: "rtk-station",
+		Model: modelName,
 		Type:  "gps",
 		Attributes: config.AttributeMap{
 			"correction_source": "serial",
@@ -110,7 +113,7 @@ func TestRTK(t *testing.T) {
 	// test I2C correction source
 	cfig = config.Component{
 		Name:  "rtk1",
-		Model: "rtk-station",
+		Model: modelName,
 		Type:  "gps",
 		Attributes: config.AttributeMap{
 			"correction_source":      "I2C",
@@ -135,7 +138,7 @@ func TestRTK(t *testing.T) {
 	// test invalid source
 	cfig = config.Component{
 		Name:  "rtk1",
-		Model: "rtk-station",
+		Model: modelName,
 		Type:  "gps",
 		Attributes: config.AttributeMap{
 			"correction_source":      "invalid-protocol",

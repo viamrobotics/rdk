@@ -2,8 +2,12 @@ package resource
 
 import (
 	// "context"
+
+	"encoding/json"
 	"fmt"
 	"regexp"
+	"strings"
+
 	// "strings"
 
 	// "github.com/jhump/protoreflect/desc"
@@ -41,10 +45,10 @@ func NewModelFamily(namespace Namespace, family ModelFamilyName) ModelFamily {
 // Validate ensures that important fields exist and are valid.
 func (f ModelFamily) Validate() error {
 	if f.Namespace == "" {
-		return errors.New("namespace field for resource missing or invalid")
+		return errors.New("model namespace field for resource missing")
 	}
 	if f.ModelFamily == "" {
-		return errors.New("modelfamily field for resource missing or invalid")
+		return errors.New(" model family field for resource missing")
 	}
 	if err := ContainsReservedCharacter(string(f.Namespace)); err != nil {
 		return err
@@ -72,6 +76,11 @@ func NewModel(namespace Namespace, fName ModelFamilyName, model ModelName) Model
 	return Model{family, model}
 }
 
+// NewDefaultModel creates a new Model in the rdk:default namespace/family based on parameters passed in.
+func NewDefaultModel(model ModelName) Model {
+	return Model{ModelFamilyDefault, model}
+}
+
 // NewModelFromString creates a new Name based on a fully qualified resource name string passed in.
 func NewModelFromString(modelStr string) (Model, error) {
 	if modelRegexValidator.MatchString(modelStr) {
@@ -90,7 +99,7 @@ func (m Model) Validate() error {
 		return err
 	}
 	if m.Name == "" {
-		return errors.New("model name field for resource missing or invalid")
+		return errors.New("model name field for resource missing")
 	}
 	if err := ContainsReservedCharacter(string(m.Name)); err != nil {
 		return err
@@ -101,4 +110,37 @@ func (m Model) Validate() error {
 // String returns the resource model string for the component.
 func (m Model) String() string {
 	return fmt.Sprintf("%s:%s", m.ModelFamily, m.Name)
+}
+
+func (m *Model) UnmarshalJSON(data []byte) error {
+	modelStr := strings.Trim(string(data), "\"'")
+	fmt.Printf("SMURF510: %s\n", modelStr)
+	if modelRegexValidator.MatchString(modelStr) {
+		matches := resRegexValidator.FindStringSubmatch(modelStr)
+		m.Namespace = Namespace(matches[1])
+		m.ModelFamily.ModelFamily = ModelFamilyName(matches[2])
+		m.Name = ModelName(matches[3])
+		fmt.Printf("SMURF520: %+v\n", m)
+		return nil
+	}
+	if shortModelRegexValidator.MatchString(modelStr) {
+		m.Namespace = ResourceNamespaceRDK
+		m.ModelFamily.ModelFamily = ModelFamilyDefaultName
+		m.Name = ModelName(modelStr)
+		fmt.Printf("SMURF521: %+v\n", m)
+		return nil
+	}
+
+	var tempModel map[string]string
+	err := json.Unmarshal(data, &tempModel)
+	fmt.Printf("SMURF600: %+s decodes to %+v with error %v \n", data, tempModel, err)
+	if err != nil {
+		return err
+	}
+
+	m.Namespace = Namespace(tempModel["Namespace"])
+	m.ModelFamily.ModelFamily = ModelFamilyName(tempModel["ModelFamily"])
+	m.Name = ModelName(tempModel["Name"])
+
+	return m.Validate()
 }

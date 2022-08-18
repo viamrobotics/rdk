@@ -20,7 +20,7 @@ import (
 var gripperjson []byte
 
 func init() {
-	registry.RegisterComponent(gripper.Subtype, resource.Model{Name: "fake"}, registry.Component{
+	registry.RegisterComponent(gripper.Subtype, resource.NewDefaultModel("fake"), registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			model, err := referenceframe.UnmarshalModelJSON(gripperjson, "")
 			if err != nil {

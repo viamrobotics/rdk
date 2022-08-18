@@ -22,7 +22,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var modelname = resource.Model{Name: "robotiq"}
+var modelname = resource.NewDefaultModel("robotiq")
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
@@ -36,7 +36,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(input.SubtypeName, modelname,
+	config.RegisterComponentAttributeMapConverter(input.Subtype, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

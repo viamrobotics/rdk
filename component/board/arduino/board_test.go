@@ -14,11 +14,15 @@ import (
 	"go.viam.com/rdk/component/encoder"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 )
+
+var	model = resource.NewDefaultModel("arduino")
 
 func TestArduinoPWM(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
+
 
 	for i, tc := range []struct {
 		conf config.Config
@@ -29,7 +33,7 @@ func TestArduinoPWM(t *testing.T) {
 				Components: []config.Component{
 					{
 						Name:  "m1",
-						Model: "arduino",
+						Model: model,
 						Type:  motor.SubtypeName,
 						ConvertedAttributes: &motor.Config{
 							Pins: motor.PinConfig{
@@ -63,7 +67,7 @@ func TestArduinoPWM(t *testing.T) {
 				Components: []config.Component{
 					{
 						Name:  "m1",
-						Model: "arduino",
+						Model: model,
 						Type:  motor.SubtypeName,
 						ConvertedAttributes: &motor.Config{
 							Pins: motor.PinConfig{
@@ -96,7 +100,7 @@ func TestArduinoPWM(t *testing.T) {
 				Components: []config.Component{
 					{
 						Name:  "m1",
-						Model: "arduino",
+						Model: model,
 						Type:  motor.SubtypeName,
 						ConvertedAttributes: &motor.Config{
 							Pins: motor.PinConfig{
@@ -128,7 +132,7 @@ func TestArduinoPWM(t *testing.T) {
 				Components: []config.Component{
 					{
 						Name:  "m1",
-						Model: "arduino",
+						Model: model,
 						Type:  motor.SubtypeName,
 						ConvertedAttributes: &motor.Config{
 							Pins: motor.PinConfig{
@@ -213,7 +217,7 @@ func TestArduinoMotorABPWM(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "m1",
-				Model: "arduino",
+				Model: model,
 				Type:  motor.SubtypeName,
 				ConvertedAttributes: &motor.Config{
 					Pins: motor.PinConfig{
@@ -273,7 +277,7 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "m1",
-				Model: "arduino",
+				Model: model,
 				Type:  motor.SubtypeName,
 				ConvertedAttributes: &motor.Config{
 					Pins: motor.PinConfig{
@@ -332,7 +336,7 @@ func TestArduinoMotorAB(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "m1",
-				Model: "arduino",
+				Model: model,
 				Type:  motor.SubtypeName,
 				ConvertedAttributes: &motor.Config{
 					Pins: motor.PinConfig{

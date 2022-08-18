@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	registry.RegisterComponent(servo.Subtype, resource.Model{Name: "fake"}, registry.Component{
+	registry.RegisterComponent(servo.Subtype, resource.NewDefaultModel("fake"), registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			var s servo.LocalServo = &Servo{Name: config.Name}
 			return s, nil

@@ -3,6 +3,7 @@ package config
 import (
 	"testing"
 
+	"go.viam.com/rdk/resource"
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -15,8 +16,7 @@ func TestComponentConfigToProto(t *testing.T) {
 		Name:      "some-name",
 		Type:      "some-type",
 		Namespace: "some-namespace",
-		SubType:   "some-sub-type",
-		Model:     "some-model",
+		Model:     resource.Model{Name: "some-model"},
 		DependsOn: []string{"dep1", "dep2"},
 		Attributes: AttributeMap{
 			"attr1": 1,
@@ -57,7 +57,6 @@ func TestComponentConfigToProto(t *testing.T) {
 	test.That(t, out.Name, test.ShouldEqual, component.Name)
 	test.That(t, out.Type, test.ShouldEqual, component.Type)
 	test.That(t, out.Namespace, test.ShouldEqual, component.Namespace)
-	test.That(t, out.SubType, test.ShouldEqual, component.SubType)
 	test.That(t, out.Model, test.ShouldEqual, component.Model)
 	test.That(t, out.DependsOn, test.ShouldResemble, component.DependsOn)
 	test.That(t, out.Attributes.Int("attr1", 0), test.ShouldEqual, component.Attributes.Int("attr1", -1))

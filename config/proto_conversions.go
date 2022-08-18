@@ -29,8 +29,7 @@ func ComponentConfigToProto(component *Component) (*pb.ComponentConfig, error) {
 		Name:           component.Name,
 		Namespace:      string(component.Namespace),
 		Type:           string(component.Type),
-		SubType:        component.SubType,
-		Model:          component.Model,
+		Model:          component.Model.String(),
 		DependsOn:      component.DependsOn,
 		ServiceConfigs: serviceConfigs,
 		Attributes:     attributes,
@@ -54,12 +53,16 @@ func ComponentConfigFromProto(proto *pb.ComponentConfig) (*Component, error) {
 		return nil, errors.Wrap(err, "failed to convert service configs")
 	}
 
+	model, err := resource.NewModelFromString(proto.GetModel())
+	if err != nil {
+		return nil, err
+	}
+
 	component := Component{
 		Name:          proto.GetName(),
 		Type:          resource.SubtypeName(proto.GetType()),
 		Namespace:     resource.Namespace(proto.GetNamespace()),
-		SubType:       proto.GetSubType(),
-		Model:         proto.GetModel(),
+		Model:         model,
 		Attributes:    proto.GetAttributes().AsMap(),
 		DependsOn:     proto.GetDependsOn(),
 		ServiceConfig: serviceConfigs,

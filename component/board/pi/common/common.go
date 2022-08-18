@@ -12,7 +12,7 @@ import (
 )
 
 // ModelName is the name used refer to any implementation of a pi based component.
-var ModelName = resource.Model{Name: "pi"}
+var ModelName = resource.NewDefaultModel("pi")
 
 // ServoConfig is the config for a pi servo.
 type ServoConfig struct {
@@ -37,7 +37,7 @@ func init() {
 	board.RegisterConfigAttributeConverter(string(ModelName.Name))
 
 	config.RegisterComponentAttributeMapConverter(
-		servo.SubtypeName,
+		servo.Subtype,
 		ModelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf ServoConfig

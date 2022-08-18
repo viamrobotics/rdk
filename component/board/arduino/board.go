@@ -24,7 +24,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var modelName = resource.Model{Name: "arduino"}
+var modelName = resource.NewDefaultModel("arduino")
 
 // init registers an arduino board.
 func init() {

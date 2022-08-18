@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
-var modelDetector = resource.Model{Name: "detector"}
+var modelDetector = resource.NewDefaultModel("detector")
 
 func init() {
 	registry.RegisterComponent(
@@ -45,7 +45,7 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
-		camera.SubtypeName,
+		camera.Subtype,
 		modelDetector,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			transformAttrs, err := extractAttributes(attributes)

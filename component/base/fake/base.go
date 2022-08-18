@@ -17,7 +17,7 @@ import (
 func init() {
 	registry.RegisterComponent(
 		base.Subtype,
-		resource.Model{Name: "fake"},
+		resource.NewDefaultModel("fake"),
 		registry.Component{
 			Constructor: func(
 				ctx context.Context,

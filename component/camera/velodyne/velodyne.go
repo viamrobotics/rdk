@@ -72,7 +72,7 @@ var allProductData map[vlp16.ProductID]productConfig = map[vlp16.ProductID]produ
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
-		resource.Model{Name: "velodyne"},
+		resource.NewDefaultModel("velodyne"),
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			_ registry.Dependencies,

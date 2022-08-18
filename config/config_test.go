@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/component/board"
 	// board attribute converters.
 	_ "go.viam.com/rdk/component/board/fake"
+
 	// motor attribute converters.
 	"go.viam.com/rdk/component/encoder"
 	"go.viam.com/rdk/component/motor"
@@ -46,7 +47,8 @@ func TestConfig3(t *testing.T) {
 		Y string
 	}
 
-	config.RegisterComponentAttributeConverter("foo", "eliot", "bar", func(sub interface{}) (interface{}, error) {
+	subtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, "foo")
+	config.RegisterComponentAttributeConverter(subtype, resource.Model{Name: "eliot"}, "bar", func(sub interface{}) (interface{}, error) {
 		t := &temp{}
 		err := mapstructure.Decode(sub, t)
 		return t, err

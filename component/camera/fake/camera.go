@@ -20,7 +20,7 @@ import (
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
-		resource.Model{Name: "fake"},
+		resource.NewDefaultModel("fake"),
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			_ registry.Dependencies,

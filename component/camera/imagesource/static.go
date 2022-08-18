@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var modelFile = resource.Model{Name: "file"}
+var modelFile = resource.NewDefaultModel("file")
 
 func init() {
 	registry.RegisterComponent(camera.Subtype, modelFile,
@@ -33,7 +33,7 @@ func init() {
 			return camera.New(imgSrc, proj)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelFile,
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelFile,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
 			if err != nil {

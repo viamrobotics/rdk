@@ -23,7 +23,7 @@ import (
 )
 
 func init() {
-	registry.RegisterComponent(gripper.Subtype, resource.Model{Name: "yahboom-dofbot"}, registry.Component{
+	registry.RegisterComponent(gripper.Subtype, resource.NewDefaultModel("yahboom-dofbot"), registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newGripper(deps, config)
 		},

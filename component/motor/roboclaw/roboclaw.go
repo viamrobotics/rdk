@@ -18,7 +18,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var modelname = resource.Model{Name: "roboclaw"}
+var modelname = resource.NewDefaultModel("roboclaw")
 
 type roboclawConfig struct {
 	SerialPort       string `json:"serial_port"`
@@ -40,7 +40,7 @@ func init() {
 	)
 
 	config.RegisterComponentAttributeMapConverter(
-		motor.SubtypeName,
+		motor.Subtype,
 		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf roboclawConfig

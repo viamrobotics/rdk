@@ -31,7 +31,7 @@ type Config struct {
 	MaxReadBits int    `json:"max_read_bits"`
 }
 
-var modelName = resource.Model{Name: "ezopmp"}
+var modelName = resource.NewDefaultModel("ezopmp")
 
 func init() {
 	_motor := registry.Component{
@@ -41,7 +41,7 @@ func init() {
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
 	config.RegisterComponentAttributeMapConverter(
-		motor.SubtypeName,
+		motor.Subtype,
 		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config

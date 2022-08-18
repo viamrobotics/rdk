@@ -525,14 +525,16 @@ func (r *localRobot) getDependencies(rName resource.Name) (registry.Dependencies
 func (r *localRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
 	rName := config.ResourceName()
 
-	model, err := resource.NewModelFromString(config.ModelStr)
-	if err != nil {
-		return nil, err
-	}
-	config.Model = model
+	// if config.Model.String() == "" {
+	// 	model, err := resource.NewModelFromString(config.ModelStr)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	config.Model = model
+	// }
 
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
-	if f == nil  && config.Model.Namespace != resource.ResourceNamespaceRDK {
+	if f == nil  {
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
 	}
 

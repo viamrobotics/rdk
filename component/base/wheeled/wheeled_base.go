@@ -24,8 +24,8 @@ import (
 )
 
 var (
-	modelname = resource.Model{Name: "wheeled"}
-	modelname4 = resource.Model{Name: "four-wheel"}
+	modelname = resource.NewDefaultModel("wheeled")
+	modelname4 = resource.NewDefaultModel("four-wheel")
 )
 
 func init() {
@@ -39,7 +39,7 @@ func init() {
 
 	registry.RegisterComponent(base.Subtype, modelname4, fourWheelComp)
 	config.RegisterComponentAttributeMapConverter(
-		base.SubtypeName,
+		base.Subtype,
 		modelname4,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf FourWheelConfig
@@ -57,7 +57,7 @@ func init() {
 
 	registry.RegisterComponent(base.Subtype, modelname, wheeledBaseComp)
 	config.RegisterComponentAttributeMapConverter(
-		base.SubtypeName,
+		base.Subtype,
 		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config

@@ -20,7 +20,7 @@ import (
 
 var _ = board.LocalBoard(&Board{})
 
-var modelName = resource.Model{Name: "fake"}
+var modelName = resource.NewDefaultModel("fake")
 
 func init() {
 	registry.RegisterComponent(

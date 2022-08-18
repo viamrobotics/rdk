@@ -25,7 +25,7 @@ type AttrConfig struct {
 	ArmName   string `json:"arm-name"`
 }
 
-var model = resource.Model{Name: "wrapper_arm"}
+var model = resource.NewDefaultModel("wrapper_arm")
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, model, registry.Component{
@@ -34,7 +34,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, model,
+	config.RegisterComponentAttributeMapConverter(arm.Subtype, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

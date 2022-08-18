@@ -27,7 +27,7 @@ import (
 var vgripperv1json []byte
 
 // modelName is used to register the gripper to a model name.
-var modelName = resource.Model{Name: "viam-v1"}
+var modelName = resource.NewDefaultModel("viam-v1")
 
 func init() {
 	registry.RegisterComponent(gripper.Subtype, modelName, registry.Component{

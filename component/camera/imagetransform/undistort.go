@@ -19,7 +19,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var modelUndistort = resource.Model{Name: "undistort"}
+var modelUndistort = resource.NewDefaultModel("undistort")
 
 
 func init() {
@@ -44,7 +44,7 @@ func init() {
 			return newUndistortSource(ctx, source, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelUndistort,
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelUndistort,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

@@ -23,7 +23,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.Model{Name: "imu_vectornav"}
+var model = resource.NewDefaultModel("imu_vectornav")
 
 func init() {
 	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{

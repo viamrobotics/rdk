@@ -32,6 +32,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/movementsensor"
+
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
@@ -56,6 +57,8 @@ import (
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
 )
+
+var fakeModel = resource.Model{Name: "fake"}
 
 func TestConfig1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -117,7 +120,7 @@ func TestConfigRemote(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "foo",
 				Type:      base.SubtypeName,
-				Model:     "fake",
+				Model:     fakeModel,
 				Frame: &config.Frame{
 					Parent: referenceframe.World,
 				},
@@ -126,7 +129,7 @@ func TestConfigRemote(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "myParentIsRemote",
 				Type:      base.SubtypeName,
-				Model:     "fake",
+				Model:     fakeModel,
 				Frame: &config.Frame{
 					Parent: "cameraOver",
 				},
@@ -743,7 +746,7 @@ func TestStopAll(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	channel := make(chan struct{})
 
-	modelName := utils.RandomAlphaString(8)
+	modelName := resource.Model{Name: resource.ModelName(utils.RandomAlphaString(8))}
 	dummyArm1 := dummyArm{channel: channel}
 	dummyArm2 := dummyArm{channel: channel}
 	registry.RegisterComponent(
@@ -868,7 +871,7 @@ func (db *dummyBoard) Close() {
 func TestNewTeardown(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	modelName := utils.RandomAlphaString(8)
+	modelName := resource.Model{Name: resource.ModelName(utils.RandomAlphaString(8))}
 	var dummyBoard1 dummyBoard
 	registry.RegisterComponent(
 		board.Subtype,
@@ -1271,19 +1274,19 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "arm1",
 				Type:      arm.SubtypeName,
-				Model:     "fake",
+				Model:     fakeModel,
 			},
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "arm2",
 				Type:      arm.SubtypeName,
-				Model:     "fake",
+				Model:     fakeModel,
 			},
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "pieceArm",
 				Type:      arm.SubtypeName,
-				Model:     "fake",
+				Model:     fakeModel,
 			},
 		},
 		Services: []config.Service{},
@@ -1398,7 +1401,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "fake0",
 				Type:      base.SubtypeName,
-				Model:     "random",
+				Model:     resource.Model{Name: "random"},
 			},
 		},
 		Services: []config.Service{
@@ -1416,7 +1419,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "fake0",
 				Type:      base.SubtypeName,
-				Model:     "fake",
+				Model:     fakeModel,
 			},
 		},
 		Services: []config.Service{
@@ -1481,7 +1484,7 @@ func TestReconnectRemote(t *testing.T) {
 		Namespace: resource.ResourceNamespaceRDK,
 		Name:      "arm1",
 		Type:      arm.SubtypeName,
-		Model:     "fake",
+		Model:     fakeModel,
 	}
 	cfg := config.Config{
 		Components: []config.Component{armConfig},
@@ -1589,7 +1592,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 		Namespace: resource.ResourceNamespaceRDK,
 		Name:      "arm1",
 		Type:      arm.SubtypeName,
-		Model:     "fake",
+		Model:     fakeModel,
 	}
 	cfg := config.Config{
 		Components: []config.Component{armConfig},
@@ -1668,7 +1671,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 		Namespace: resource.ResourceNamespaceRDK,
 		Name:      "base1",
 		Type:      base.SubtypeName,
-		Model:     "fake",
+		Model:     fakeModel,
 	}
 	cfg = config.Config{
 		Components: []config.Component{baseConfig},

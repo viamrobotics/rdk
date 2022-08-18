@@ -33,7 +33,7 @@ import (
 
 const numThreadsImagesource = 8 // This should be a param
 
-var modelJoinPC = resource.Model{Name: "join_pointclouds"}
+var modelJoinPC = resource.NewDefaultModel("join_pointclouds")
 
 
 func init() {
@@ -53,7 +53,7 @@ func init() {
 			return newJoinPointCloudSource(ctx, r, logger, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelJoinPC,
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelJoinPC,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf JoinAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)

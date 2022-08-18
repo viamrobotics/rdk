@@ -259,11 +259,10 @@ func TestParseComponentFlag(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
 
-	comp, err = config.ParseComponentFlag("type=foo,model=bar,name=baz,attr=wee:woo,subtype=who,depends_on=foo|bar,attr=one:two")
+	comp, err = config.ParseComponentFlag("type=foo,model=bar,name=baz,attr=wee:woo,depends_on=foo|bar,attr=one:two")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, comp.Name, test.ShouldEqual, "baz")
 	test.That(t, comp.Type, test.ShouldEqual, resource.SubtypeName("foo"))
-	test.That(t, comp.SubType, test.ShouldEqual, "who")
 	test.That(t, comp.Model, test.ShouldEqual, "bar")
 	test.That(t, comp.DependsOn, test.ShouldResemble, []string{"foo", "bar"})
 	test.That(t, comp.Attributes, test.ShouldResemble, config.AttributeMap{
@@ -429,7 +428,7 @@ func TestSet(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
 
-	err = conf.Set("type=foo,model=bar,name=baz,attr=wee:woo,subtype=who,depends_on=foo|bar,attr=one:two")
+	err = conf.Set("type=foo,model=bar,name=baz,attr=wee:woo,depends_on=foo|bar,attr=one:two")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conf.Type, test.ShouldEqual, config.ServiceType("foo"))
 	test.That(t, conf.Attributes, test.ShouldResemble, config.AttributeMap{

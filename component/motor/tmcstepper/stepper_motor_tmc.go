@@ -34,7 +34,7 @@ type TMC5072Config struct {
 	HoldDelay   int32   `json:"hold_delay"`   // 0=instant powerdown, 1-15=delay * 2^18 clocks, 6 default
 }
 
-var modelname = resource.Model{Name: "TMC5072"}
+var modelname = resource.NewDefaultModel("TMC5072")
 
 func init() {
 	_motor := registry.Component{
@@ -45,7 +45,7 @@ func init() {
 	registry.RegisterComponent(motor.Subtype, modelname, _motor)
 
 	config.RegisterComponentAttributeMapConverter(
-		motor.SubtypeName,
+		motor.Subtype,
 		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf TMC5072Config

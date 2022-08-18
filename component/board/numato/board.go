@@ -30,7 +30,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var modelName = resource.Model{Name: "numato"}
+var modelName = resource.NewDefaultModel("numato")
 
 var errNoBoard = errors.New("no numato boards found")
 

@@ -17,7 +17,7 @@ import (
 
 // NOTE: Component NAME (in config file) must also be set to "WebGamepad" exactly
 // This is because there's no way to get a component's model from a robot.Robot.
-var modelname = resource.Model{Name: "WebGamepad"}
+var modelname = resource.NewDefaultModel("WebGamepad")
 
 func init() {
 	registry.RegisterComponent(input.Subtype, modelname, registry.Component{Constructor: NewController})

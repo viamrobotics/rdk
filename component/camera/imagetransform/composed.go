@@ -19,8 +19,8 @@ import (
 )
 
 var (
-	modelDtP = resource.Model{Name: "depth_to_pretty"}
-	modelOverlay = resource.Model{Name: "depth_to_pretty"}
+	modelDtP = resource.NewDefaultModel("depth_to_pretty")
+	modelOverlay = resource.NewDefaultModel("overlay")
 )
 
 func init() {
@@ -40,7 +40,7 @@ func init() {
 			return newDepthToPretty(ctx, deps, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelDtP,
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelDtP,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -62,7 +62,7 @@ func init() {
 			return newOverlay(ctx, deps, attrs)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelOverlay,
+	config.RegisterComponentAttributeMapConverter(camera.Subtype, modelOverlay,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf transformConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

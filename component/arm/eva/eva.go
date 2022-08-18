@@ -35,7 +35,7 @@ import (
 )
 
 var (
-	modelname = resource.Model{Name: "eva"}
+	modelname = resource.NewDefaultModel("eva")
 )
 
 // AttrConfig is used for converting config attributes.
@@ -54,7 +54,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, modelname,
+	config.RegisterComponentAttributeMapConverter(arm.Subtype, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

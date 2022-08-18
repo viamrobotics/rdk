@@ -26,7 +26,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var modelname = resource.Model{Name: "oneaxis"}
+var modelname = resource.NewDefaultModel("oneaxis")
 
 // AttrConfig is used for converting oneAxis config attributes.
 type AttrConfig struct {
@@ -102,7 +102,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(gantry.SubtypeName, modelname,
+	config.RegisterComponentAttributeMapConverter(gantry.Subtype, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

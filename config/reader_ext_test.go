@@ -59,8 +59,8 @@ func TestFromReaderValidate(t *testing.T) {
 	})
 
 	badComponentMapConverter := func() {
-		config.RegisterComponentAttributeMapConverter(resource.SubtypeName("somecomponent"),
-			"somemodel",
+		config.RegisterComponentAttributeMapConverter(resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, "somecomponent"),
+			resource.Model{Name: "somemodel"},
 			func(attributes config.AttributeMap) (interface{}, error) {
 				return &conf, nil
 			}, nil)

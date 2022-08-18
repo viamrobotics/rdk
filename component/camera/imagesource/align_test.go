@@ -116,7 +116,6 @@ func TestAlignWarp(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
-
 	c := conf.FindComponent("combined")
 	test.That(t, c, test.ShouldNotBeNil)
 

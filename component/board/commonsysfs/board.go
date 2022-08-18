@@ -34,7 +34,7 @@ var _ = board.LocalBoard(&sysfsBoard{})
 func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
 	registry.RegisterComponent(
 		board.Subtype,
-		resource.Model{Name: resource.ModelName(modelName)},
+		resource.NewDefaultModel(resource.ModelName(modelName)),
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			_ registry.Dependencies,

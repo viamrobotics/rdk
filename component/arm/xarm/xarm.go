@@ -59,8 +59,8 @@ var xArm6modeljson []byte
 var xArm7modeljson []byte
 
 var (
-	modelname6 = resource.Model{Name: "xArm6"}
-	modelname7 = resource.Model{Name: "xArm7"}
+	modelname6 = resource.NewDefaultModel("xArm6")
+	modelname7 = resource.NewDefaultModel("xArm7")
 )
 
 func init() {
@@ -75,14 +75,14 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, modelname6,
+	config.RegisterComponentAttributeMapConverter(arm.Subtype, modelname6,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
 		&AttrConfig{})
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, modelname7,
+	config.RegisterComponentAttributeMapConverter(arm.Subtype, modelname7,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

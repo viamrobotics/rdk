@@ -43,7 +43,7 @@ func (config *SerialAttrConfig) ValidateSerial(path string) error {
 func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
-		resource.Model{Name: "nmea-serial"},
+		resource.NewDefaultModel("nmea-serial"),
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			_ registry.Dependencies,

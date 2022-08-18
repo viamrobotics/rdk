@@ -20,13 +20,13 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var modelName = resource.Model{Name: "gpio"}
+var modelName = resource.NewDefaultModel("gpio")
 
 func init() {
 	registry.RegisterComponent(input.Subtype, modelName, registry.Component{Constructor: NewGPIOController})
 
 	config.RegisterComponentAttributeMapConverter(
-		input.SubtypeName,
+		input.Subtype,
 		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config

@@ -25,13 +25,13 @@ func TestComponentRegistry(t *testing.T) {
 	rf := func(ctx context.Context, deps Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 		return 1, nil
 	}
-	modelName := "x"
+	modelName := resource.Model{Name: "x"}
 	test.That(t, func() { RegisterComponent(acme.Subtype, modelName, Component{}) }, test.ShouldPanic)
 	RegisterComponent(acme.Subtype, modelName, Component{Constructor: rf})
 
 	creator := ComponentLookup(acme.Subtype, modelName)
 	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, ComponentLookup(acme.Subtype, "z"), test.ShouldBeNil)
+	test.That(t, ComponentLookup(acme.Subtype, resource.Model{Name: "z"}), test.ShouldBeNil)
 	test.That(t, creator.Constructor, test.ShouldEqual, rf)
 }
 
@@ -96,10 +96,10 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 
 func TestDiscoveryFunctionRegistry(t *testing.T) {
 	df := func(ctx context.Context) (interface{}, error) { return []discovery.Discovery{}, nil }
-	invalidSubtypeQuery := discovery.NewQuery(resource.SubtypeName("some subtype"), "some model")
+	invalidSubtypeQuery := discovery.NewQuery(resource.SubtypeName("some subtype"), resource.Model{Name: "some model"})
 	test.That(t, func() { RegisterDiscoveryFunction(invalidSubtypeQuery, df) }, test.ShouldPanic)
 
-	validSubtypeQuery := discovery.NewQuery(acme.ResourceSubtype, "some model")
+	validSubtypeQuery := discovery.NewQuery(acme.ResourceSubtype, resource.Model{Name: "some model"})
 	_, ok := DiscoveryFunctionLookup(validSubtypeQuery)
 	test.That(t, ok, test.ShouldBeFalse)
 

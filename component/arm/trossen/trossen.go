@@ -119,8 +119,8 @@ var wx250smodeljson []byte
 var vx300smodeljson []byte
 
 var (
-	modelname250 = resource.Model{Name: "wx250s"}
-	modelname300 = resource.Model{Name: "vx300s"}
+	modelname250 = resource.NewDefaultModel("wx250s")
+	modelname300 = resource.NewDefaultModel("vx300s")
 )
 
 func init() {

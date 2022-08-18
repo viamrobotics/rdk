@@ -65,7 +65,7 @@ func init() {
 			return m, nil
 		},
 	}
-	registry.RegisterComponent(motor.Subtype, resource.Model{Name: "fake"}, _motor)
+	registry.RegisterComponent(motor.Subtype, resource.NewDefaultModel("fake"), _motor)
 
 	motor.RegisterConfigAttributeConverter("fake")
 }
