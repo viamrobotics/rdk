@@ -9,7 +9,7 @@ import (
 	"sort"
 
 	"github.com/golang/geo/r3"
-	"github.com/gonum/stat/distuv"
+	"gonum.org/v1/gonum/stat/distuv"
 )
 
 // DegToRad converts degrees to radians.

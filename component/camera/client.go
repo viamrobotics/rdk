@@ -43,7 +43,7 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 	defer span.End()
 	resp, err := c.client.GetFrame(ctx, &pb.GetFrameRequest{
 		Name:     c.name,
-		MimeType: utils.MimeTypeViamBest,
+		MimeType: "", // use the default
 	})
 	if err != nil {
 		return nil, nil, err

@@ -82,6 +82,7 @@ type remoteService struct {
 	base            base.Base
 	inputController input.Controller
 	controlMode     controlMode
+	closed          bool
 
 	config *Config
 	logger golog.Logger
@@ -148,6 +149,10 @@ func (svc *remoteService) start(ctx context.Context) error {
 		onlyOneAtATime.Lock()
 		defer onlyOneAtATime.Unlock()
 
+		if svc.closed {
+			return
+		}
+
 		if event.Time.Before(lastEvent.Time) {
 			return
 		}
@@ -175,17 +180,7 @@ func (svc *remoteService) start(ctx context.Context) error {
 
 // Close out of all remote control related systems.
 func (svc *remoteService) Close(ctx context.Context) error {
-	for _, control := range svc.controllerInputs() {
-		var err error
-		if svc.controlMode == buttonControl {
-			err = svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.ButtonChange}, nil)
-		} else {
-			err = svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.PositionChangeAbs}, nil)
-		}
-		if err != nil {
-			return err
-		}
-	}
+	svc.closed = true
 	return nil
 }
 
@@ -259,7 +254,7 @@ func (svc *reconfigurableBaseRemoteControl) Reconfigure(ctx context.Context, new
 	if !ok {
 		return utils.NewUnexpectedTypeError(svc, newSvc)
 	}
-	if err := viamutils.TryClose(ctx, &svc.actual); err != nil {
+	if err := viamutils.TryClose(ctx, svc.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	svc.actual = rSvc.actual
