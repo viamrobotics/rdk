@@ -21,13 +21,13 @@ import (
 // It uses the RRT* with vehicle dynamics algorithm, Khanal 2022
 // https://arxiv.org/abs/2206.10533
 type DubinsRRTMotionPlanner struct {
-	frame           referenceframe.Frame
-	logger          golog.Logger
-	iter            int
-	nCPU            int
-	stepSize        float64
-	randseed        *rand.Rand
-	D               Dubins
+	frame    referenceframe.Frame
+	logger   golog.Logger
+	iter     int
+	nCPU     int
+	stepSize float64
+	randseed *rand.Rand
+	D        Dubins
 }
 
 type obstacle struct {
