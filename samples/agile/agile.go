@@ -11,20 +11,18 @@ import (
 	"strconv"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/grpc/client"
-
 	"go.viam.com/utils"
-
-	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/resource"
-	utilsrdk "go.viam.com/rdk/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/motionplan"
 	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
-	"github.com/golang/geo/r3"
+	utilsrdk "go.viam.com/rdk/utils"
 )
 
 var logger = golog.NewDevelopmentLogger("agile")
@@ -92,14 +90,13 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}
 
 	return nil
-
 }
 
 type limoBase struct {
-	ctx			context.Context
-	realBase	base.Base
-	driveMode	string
-	logger		golog.Logger
+	ctx       context.Context
+	realBase  base.Base
+	driveMode string
+	logger    golog.Logger
 }
 
 func (l *limoBase) Spin(angleDeg float64, degsPerSec float64) {
@@ -203,17 +200,17 @@ func fixAngle(ang float64) float64 {
 }
 
 func (l *limoBase) MoveToWaypointDubins(config *motionplan.MobileRobotPlanConfig, path []float64, straight bool) {
-	//first turn
-	l.Spin(fixAngle(path[0]), 20) //base is currently configured backwards
+	// first turn
+	l.Spin(fixAngle(path[0]), 20) // base is currently configured backwards
 
-	//second turn/straight
+	// second turn/straight
 	if straight {
-		l.MoveStraight(int(path[2]*config.GridConversion), 100) //constant speed right now
+		l.MoveStraight(int(path[2]*config.GridConversion), 100) // constant speed right now
 	} else {
 		l.Spin(fixAngle(path[2]), 20)
 	}
 
-	//last turn
+	// last turn
 	l.Spin(fixAngle(path[1]), 40)
 }
 
@@ -256,14 +253,14 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input, config *motionplan
 			}
 		}
 	}
-	//last point
+	// last point
 	writeData := []string{fmt.Sprintf("%f", start[0]), fmt.Sprintf("%f", start[1]), fmt.Sprintf("%f", start[2]), fmt.Sprintf("%d", 0), fmt.Sprintf("%d", 0), fmt.Sprintf("%d", 0), fmt.Sprintf("%d", 0)}
 	_ = csvwriter.Write(writeData)
 
 	csvwriter.Flush()
 	csvFile.Close()
 
-	//now write obstacles if there are obstacles
+	// now write obstacles if there are obstacles
 	csvFile, err = os.Create("obstacles.csv")
 	if err != nil {
 		return err

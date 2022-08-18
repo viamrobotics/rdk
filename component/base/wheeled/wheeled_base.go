@@ -70,7 +70,7 @@ type wheeledBase struct {
 	right     []motor.Motor
 	allMotors []motor.Motor
 
-	opMgr     operation.SingleOperationManager
+	opMgr operation.SingleOperationManager
 }
 
 func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
@@ -386,11 +386,11 @@ func CreateFourWheelBase(
 
 // Config is how you configure a wheeled base.
 type Config struct {
-	WidthMM              int                               `json:"width_mm"`
-	WheelCircumferenceMM int                               `json:"wheel_circumference_mm"`
-	SpinSlipFactor       float64                           `json:"spin_slip_factor,omitempty"`
-	Left                 []string                          `json:"left"`
-	Right                []string                          `json:"right"`
+	WidthMM              int      `json:"width_mm"`
+	WheelCircumferenceMM int      `json:"wheel_circumference_mm"`
+	SpinSlipFactor       float64  `json:"spin_slip_factor,omitempty"`
+	Left                 []string `json:"left"`
+	Right                []string `json:"right"`
 }
 
 // Validate ensures all parts of the config are valid.

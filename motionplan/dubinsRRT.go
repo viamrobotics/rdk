@@ -3,7 +3,6 @@ package motionplan
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"math/rand"
 	"sort"
@@ -173,7 +172,6 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 				targetConnected = true
 				break
 			}
-
 		}
 
 		if targetConnected && target != goalConfig {
@@ -231,7 +229,7 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 
 			solutionChan <- &planReturn{steps: inputSteps}
 			for _, step := range inputSteps {
-				fmt.Println(*step)
+				mp.logger.Debug(*step)
 			}
 			return
 		}
@@ -261,8 +259,6 @@ func (mp *DubinsRRTMotionPlanner) checkPath(
 	start := configuration2slice(from)
 	end := configuration2slice(to)
 	path := dm.d.generatePoints(start, end, o.DubinsPath, o.Straight)
-
-	fmt.Println(path)
 
 	pathOk := true
 	p1, p2 := path[0], path[1]
@@ -301,7 +297,7 @@ func (mp *DubinsRRTMotionPlanner) checkPath(
 	return pathOk
 }
 
-// Used for coordinating parallel computations of dubins options
+// Used for coordinating parallel computations of dubins options.
 type dubinOptionManager struct {
 	optKeys chan *configuration
 	options chan *nodeToOption
@@ -453,6 +449,10 @@ func (dm *dubinOptionManager) optWorker(ctx context.Context) {
 			dm.optLock.RUnlock()
 		}
 	}
+}
+
+func mobile2DInputDist(from, to []referenceframe.Input) float64 {
+	return math.Pow(from[0].Value-to[0].Value, 2)
 }
 
 func mobile2DConfigDist(from, to *configuration) float64 {
