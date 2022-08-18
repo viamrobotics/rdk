@@ -716,17 +716,17 @@ func (slamSvc *slamService) getSimultaneousColorAndDepth(ctx context.Context, ca
 			}
 			return images, err
 		}
-		i := i
+		iLoop := i
 		goutils.PanicCapturingGo(func() {
 			defer slamSvc.activeBackgroundWorkers.Done()
 			defer wg.Done()
 			var mimeType string
-			images[i], mimeType, _, _, errs[i] = cams[i].GetFrame(ctx, utils.MimeTypePNG)
-			if errs[i] != nil {
+			images[iLoop], mimeType, _, _, errs[iLoop] = cams[iLoop].GetFrame(ctx, utils.MimeTypePNG)
+			if errs[iLoop] != nil {
 				return
 			}
 			if mimeType != utils.MimeTypePNG {
-				errs[i] = errors.Errorf("expected mime type %v, got %v", utils.MimeTypePNG, mimeType)
+				errs[iLoop] = errors.Errorf("expected mime type %v, got %v", utils.MimeTypePNG, mimeType)
 			}
 		})
 	}
