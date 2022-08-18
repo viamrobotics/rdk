@@ -7,18 +7,15 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/rdk/services/datamanager/datacapture"
-
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/test"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
-
-	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 const (
