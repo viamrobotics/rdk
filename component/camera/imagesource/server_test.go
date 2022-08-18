@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 )
 
-func createTestRouter(t *testing.T) (*http.ServeMux, image.Image, image.Image) {
+func createTestRouter(t *testing.T) (*http.ServeMux, image.Image, image.Image, []byte, []byte) {
 	t.Helper()
 	// get color image
 	colorPath := artifact.MustPath("rimage/board1.png")
@@ -41,13 +41,13 @@ func createTestRouter(t *testing.T) (*http.ServeMux, image.Image, image.Image) {
 		w.Write(dataDepth)
 	}
 	router := http.NewServeMux()
-	router.HandleFunc("/color", handleColor)
-	router.HandleFunc("/depth", handleDepth)
 	// expected depth image from raw data
 	depthDatPath := artifact.MustPath("rimage/board1.dat.gz")
 	expectedDepth, err := rimage.NewDepthMapFromFile(depthDatPath)
 	test.That(t, err, test.ShouldBeNil)
-	return router, expectedColor, expectedDepth
+	router.HandleFunc("/color.png", handleColor)
+	router.HandleFunc("/depth.png", handleDepth)
+	return router, expectedColor, expectedDepth, colorBytes, dataDepth
 }
 
 func TestServerSource(t *testing.T) {
@@ -62,12 +62,12 @@ func TestServerSource(t *testing.T) {
 		Ppy:    370.70529534,
 	}
 	// create mock server
-	router, expectedColor, expectedDepth := createTestRouter(t)
+	router, expectedColor, expectedDepth, expectedColorBytes, expectedDepthBytes := createTestRouter(t)
 	svr := httptest.NewServer(router)
 	defer svr.Close()
 	// create color camera
 	attrs := ServerAttrs{
-		URL: svr.URL + "/color",
+		URL: svr.URL + "/color.png",
 		AttrConfig: &camera.AttrConfig{
 			CameraParameters: intrinsics,
 			Stream:           "color",
@@ -82,9 +82,13 @@ func TestServerSource(t *testing.T) {
 	test.That(t, img, test.ShouldResemble, expectedColor)
 	_, err = cam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
+	imgBytes, mimeType, _, _, err := cam.GetFrame(context.Background(), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, imgBytes, test.ShouldResemble, expectedColorBytes)
+	test.That(t, mimeType, test.ShouldEqual, "image/png")
 	// create depth camera
 	attrs2 := ServerAttrs{
-		URL: svr.URL + "/depth",
+		URL: svr.URL + "/depth.png",
 		AttrConfig: &camera.AttrConfig{
 			CameraParameters: intrinsics,
 			Stream:           "depth",
@@ -99,10 +103,14 @@ func TestServerSource(t *testing.T) {
 	pc, err := cam2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 921600)
+	depthBytes, depthMimeType, _, _, err := cam2.GetFrame(context.Background(), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, depthBytes, test.ShouldResemble, expectedDepthBytes)
+	test.That(t, depthMimeType, test.ShouldEqual, "image/png")
 }
 
 func TestDualServerSource(t *testing.T) {
-	router, expectedColor, expectedDepth := createTestRouter(t)
+	router, expectedColor, expectedDepth, expectedColorBytes, expectedDepthBytes := createTestRouter(t)
 	svr := httptest.NewServer(router)
 	defer svr.Close()
 	// intrinsics for the image
@@ -116,8 +124,8 @@ func TestDualServerSource(t *testing.T) {
 	}
 	// create camera with a color stream
 	attrs1 := dualServerAttrs{
-		Color: svr.URL + "/color",
-		Depth: svr.URL + "/depth",
+		Color: svr.URL + "/color.png",
+		Depth: svr.URL + "/depth.png",
 		AttrConfig: &camera.AttrConfig{
 			CameraParameters: intrinsics,
 			Stream:           "color",
@@ -132,10 +140,14 @@ func TestDualServerSource(t *testing.T) {
 	test.That(t, img, test.ShouldResemble, expectedColor)
 	pc1, err := cam1.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+	imgBytes, mimeType, _, _, err := cam1.GetFrame(context.Background(), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, imgBytes, test.ShouldResemble, expectedColorBytes)
+	test.That(t, mimeType, test.ShouldEqual, "image/png")
 	// create camera with a depth stream
 	attrs2 := dualServerAttrs{
-		Color: svr.URL + "/color",
-		Depth: svr.URL + "/depth",
+		Color: svr.URL + "/color.png",
+		Depth: svr.URL + "/depth.png",
 		AttrConfig: &camera.AttrConfig{
 			CameraParameters: intrinsics,
 			Stream:           "depth",
@@ -152,4 +164,8 @@ func TestDualServerSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// compare point clouds, should be the same
 	test.That(t, pc2, test.ShouldResemble, pc1)
+	depthBytes, depthMimeType, _, _, err := cam2.GetFrame(context.Background(), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, depthBytes, test.ShouldResemble, expectedDepthBytes)
+	test.That(t, depthMimeType, test.ShouldEqual, "image/png")
 }
