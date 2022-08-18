@@ -1,7 +1,6 @@
 package datasync
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -515,16 +514,18 @@ func TestPartialUpload(t *testing.T) {
 			var expMsgs []*v1.UploadRequest
 			var act []*v1.UploadRequest
 
-			if tc.clientCancelAfterNMsgs != -1 {
-				expMsgs = buildSensorDataUploadRequests(tc.toSend[:tc.clientCancelAfterNMsgs-1], tc.dataType, f.Name())
-				act = mockService.getUploadRequests()[:tc.clientCancelAfterNMsgs]
-			} else if tc.serverErrorAfterNMsgs != -1 {
-				expMsgs = buildSensorDataUploadRequests(tc.toSend[:tc.serverErrorAfterNMsgs-1], tc.dataType, f.Name())
-				act = mockService.getUploadRequests()[:tc.serverErrorAfterNMsgs]
-			} else {
-				expMsgs = buildSensorDataUploadRequests(tc.toSend, tc.dataType, f.Name())
-				act = mockService.getUploadRequests()
+			var retryIndex int
+			switch {
+			case tc.clientCancelAfterNMsgs != -1:
+				retryIndex = tc.clientCancelAfterNMsgs
+			case tc.serverErrorAfterNMsgs != -1:
+				retryIndex = int(tc.serverErrorAfterNMsgs)
+			default:
+				retryIndex = len(tc.toSend)
 			}
+			expMsgs = buildSensorDataUploadRequests(tc.toSend[:retryIndex-1], tc.dataType, f.Name())
+			act = mockService.getUploadRequests()[:retryIndex]
+
 			compareUploadRequests(t, true, act, expMsgs)
 
 			// For non-empty testcases, validate progress file & data capture file existences.
@@ -558,7 +559,6 @@ func TestPartialUpload(t *testing.T) {
 
 			// Validate client sent mockService the upload requests we would expect after resuming upload.
 			expMsgs = buildSensorDataUploadRequests(tc.expSentAfterRetry, tc.dataType, f.Name())
-			fmt.Println()
 			compareUploadRequests(t, true, mockService.getUploadRequests(), expMsgs)
 
 			// Validate progress file does not exist.
