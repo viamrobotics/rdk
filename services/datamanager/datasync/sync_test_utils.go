@@ -70,8 +70,7 @@ func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 	test.That(t, filepath.Base(actualMetadata.FileName), test.ShouldEqual, filepath.Base(expectedMetadata.FileName))
 	test.That(t, actualMetadata.PartId, test.ShouldEqual, expectedMetadata.PartId)
 	test.That(t, actualMetadata.ComponentName, test.ShouldEqual, expectedMetadata.ComponentName)
-	// TODO: don't compare metadata until pull latest from main
-	// test.That(t, actualMetadata.ComponentModel, test.ShouldEqual, expectedMetadata.ComponentModel)
+	test.That(t, actualMetadata.ComponentModel, test.ShouldEqual, expectedMetadata.ComponentModel)
 	test.That(t, actualMetadata.ComponentType, test.ShouldEqual, expectedMetadata.ComponentType)
 	test.That(t, actualMetadata.MethodName, test.ShouldEqual, expectedMetadata.MethodName)
 	test.That(t, actualMetadata.Type, test.ShouldEqual, expectedMetadata.Type)
@@ -266,18 +265,6 @@ func getMockService() mockDataSyncServiceServer {
 		uploadResponses:                 &[]*v1.UploadResponse{},
 	}
 }
-
-//func (m *mockDataSyncServiceServer) setMockServiceBeforeCancel(tc partialUploadTestcase) {
-//	m.shouldNotRetryUpload = true
-//	m.sendAckEveryNSensorDataMessages = tc.sendAckEveryNSensorDataMessages
-//	m.sendCancelCtxAfterNTotalMessages = tc.sendCancelCtxAfterNTotalMessages
-//}
-//
-//func (m *mockDataSyncServiceServer) setMockServiceAfterCancel(tc partialUploadTestcase) {
-//	m.shouldNotRetryUpload = true
-//	m.sendAckEveryNSensorDataMessages = tc.sendAckEveryNSensorDataMessages
-//	m.sendCancelCtxAfterNTotalMessages = math.MaxInt
-//}
 
 func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
 	(*m.lock).Lock()

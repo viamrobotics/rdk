@@ -227,6 +227,7 @@ func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
 			PartId:           partID,
 			ComponentType:    captureMD.GetComponentType(),
 			ComponentName:    captureMD.GetComponentName(),
+			ComponentModel:   captureMD.GetComponentModel(),
 			MethodName:       captureMD.GetMethodName(),
 			Type:             captureMD.GetType(),
 			FileName:         filepath.Base(f.Name()),
