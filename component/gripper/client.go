@@ -12,38 +12,23 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-// serviceClient is a client satisfies the gripper.proto contract.
-type serviceClient struct {
+// client implements GripperServiceClient.
+type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.GripperServiceClient
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
-	client := pb.NewGripperServiceClient(conn)
-	sc := &serviceClient{
-		conn:   conn,
-		client: client,
-		logger: logger,
-	}
-	return sc
-}
-
-// client is an gripper client.
-type client struct {
-	*serviceClient
-	name string
-}
-
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Gripper {
-	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(sc, name)
-}
-
-func clientFromSvcClient(sc *serviceClient, name string) Gripper {
-	return &client{sc, name}
+	c := pb.NewGripperServiceClient(conn)
+	return &client{
+		name:   name,
+		conn:   conn,
+		client: c,
+		logger: logger,
+	}
 }
 
 func (c *client) Open(ctx context.Context) error {

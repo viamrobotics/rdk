@@ -1,7 +1,6 @@
 package rimage
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"image"
@@ -26,8 +25,8 @@ import (
 // readImageFromFile extracts the RGB, Z16, or raw depth data from an image file.
 func readImageFromFile(path string) (image.Image, error) {
 	switch {
-	case strings.HasSuffix(path, ".dat.gz"):
-		return ParseDepthMap(path)
+	case strings.HasSuffix(path, ".dat.gz") || strings.HasSuffix(path, ".dat"):
+		return ParseRawDepthMap(path)
 	default:
 		//nolint:gosec
 		f, err := os.Open(path)
@@ -72,6 +71,9 @@ func WriteImageToFile(path string, img image.Image) (err error) {
 	defer func() {
 		err = multierr.Combine(err, f.Close())
 	}()
+	if dm, ok := img.(*DepthMap); ok {
+		img = dm.ToGray16Picture()
+	}
 
 	switch filepath.Ext(path) {
 	case ".png":
@@ -80,6 +82,8 @@ func WriteImageToFile(path string, img image.Image) (err error) {
 		return jpeg.Encode(f, img, nil)
 	case ".ppm":
 		return ppm.Encode(f, img)
+	case ".qoi":
+		return qoi.Encode(f, img)
 	default:
 		return errors.Errorf("rimage.WriteImageToFile unsupported format: %s", filepath.Ext(path))
 	}
@@ -165,9 +169,6 @@ func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string, width, h
 		img := image.NewNRGBA(image.Rect(0, 0, width, height))
 		img.Pix = imgBytes
 		return img, nil
-	case ut.MimeTypeRawDepth:
-		depth, err := ReadDepthMap(bufio.NewReader(bytes.NewReader(imgBytes)))
-		return depth, err
 	case ut.MimeTypeJPEG:
 		img, err := jpeg.Decode(bytes.NewReader(imgBytes))
 		return img, err
@@ -195,16 +196,6 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 		imgCopy := image.NewRGBA(bounds)
 		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
 		buf.Write(imgCopy.Pix)
-	case ut.MimeTypeRawDepth:
-		// TODO(bijan) remove this data type
-		dm, ok := img.(*DepthMap)
-		if !ok {
-			return nil, ut.NewUnexpectedTypeError(dm, img)
-		}
-		_, err := dm.WriteTo(&buf)
-		if err != nil {
-			return nil, err
-		}
 	case ut.MimeTypePNG:
 		if err := png.Encode(&buf, img); err != nil {
 			return nil, err

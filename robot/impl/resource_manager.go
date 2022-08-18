@@ -120,6 +120,7 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 	for _, res := range oldResources {
 		visited[res] = false
 	}
+
 	for _, res := range newResources {
 		rrName := res
 		res = res.PrependRemote(resource.RemoteName(remoteName.Name))
@@ -127,7 +128,7 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 			visited[res] = true
 			continue
 		}
-		iface, err := rr.ResourceByName(rrName)
+		iface, err := rr.ResourceByName(rrName) // this returns a remote known OR foreign resource client
 		if err != nil {
 			manager.logger.Errorw("couldn't obtain remote resource interface",
 				"name", rrName,
@@ -477,49 +478,6 @@ func (manager *resourceManager) RemoteByName(name string) (robot.Robot, bool) {
 	return nil, false
 }
 
-func (manager *resourceManager) reconfigureResource(ctx context.Context, old, newR interface{}) (interface{}, error) {
-	if old == nil {
-		// if the oldPart was never created, replace directly with the new resource
-		return newR, nil
-	}
-
-	oldPart, oldResourceIsReconfigurable := old.(resource.Reconfigurable)
-	newPart, newResourceIsReconfigurable := newR.(resource.Reconfigurable)
-
-	switch {
-	case oldResourceIsReconfigurable != newResourceIsReconfigurable:
-		// this is an indicator of a serious constructor problem
-		// for the resource subtype.
-		reconfError := errors.Errorf(
-			"new type %T is reconfigurable whereas old type %T is not",
-			newR, old)
-		if oldResourceIsReconfigurable {
-			reconfError = errors.Errorf(
-				"old type %T is reconfigurable whereas new type %T is not",
-				old, newR)
-		}
-		return nil, reconfError
-	case oldResourceIsReconfigurable && newResourceIsReconfigurable:
-		// if we are dealing with a reconfigurable resource
-		// use the new resource to reconfigure the old one.
-		if err := oldPart.Reconfigure(ctx, newPart); err != nil {
-			return nil, err
-		}
-		return old, nil
-	case !oldResourceIsReconfigurable && !newResourceIsReconfigurable:
-		// if we are not dealing with a reconfigurable resource
-		// we want to close the old resource and replace it with the
-		// new.
-		if err := utils.TryClose(ctx, old); err != nil {
-			return nil, err
-		}
-		return newR, nil
-	default:
-		return nil, errors.Errorf("unexpected outcome during reconfiguration of type %T and type %T",
-			old, newR)
-	}
-}
-
 func (manager *resourceManager) processService(ctx context.Context,
 	c config.Service,
 	old interface{},
@@ -532,7 +490,7 @@ func (manager *resourceManager) processService(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	return manager.reconfigureResource(ctx, old, svc)
+	return resource.ReconfigureResource(ctx, old, svc)
 }
 
 func (manager *resourceManager) markChildrenForUpdate(ctx context.Context, rName resource.Name, r *localRobot) error {
@@ -594,7 +552,7 @@ func (manager *resourceManager) processComponent(ctx context.Context,
 		if err != nil {
 			return old, err
 		}
-		rr, err := manager.reconfigureResource(ctx, old, nr)
+		rr, err := resource.ReconfigureResource(ctx, old, nr)
 		if err != nil {
 			return old, err
 		}

@@ -34,25 +34,31 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	t.Helper()
 	logger := golog.NewTestLogger(t)
 	cam1 := &inject.Camera{}
+	pc1 := pointcloud.New()
+	err := pc1.Set(pointcloud.NewVector(1, 0, 0), pointcloud.NewColoredData(color.NRGBA{255, 0, 0, 255}))
+	test.That(t, err, test.ShouldBeNil)
 	cam1.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		pc := pointcloud.New()
-		return pc, pc.Set(pointcloud.NewVector(1, 0, 0), pointcloud.NewColoredData(color.NRGBA{255, 0, 0, 255}))
+		return pc1, nil
 	}
 	cam1.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	cam2 := &inject.Camera{}
+	pc2 := pointcloud.New()
+	err = pc2.Set(pointcloud.NewVector(0, 1, 0), pointcloud.NewColoredData(color.NRGBA{0, 255, 0, 255}))
+	test.That(t, err, test.ShouldBeNil)
 	cam2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		pc := pointcloud.New()
-		return pc, pc.Set(pointcloud.NewVector(0, 1, 0), pointcloud.NewColoredData(color.NRGBA{0, 255, 0, 255}))
+		return pc2, nil
 	}
 	cam2.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	cam3 := &inject.Camera{}
+	pc3 := pointcloud.New()
+	err = pc3.Set(pointcloud.NewVector(0, 0, 1), pointcloud.NewColoredData(color.NRGBA{0, 0, 255, 255}))
+	test.That(t, err, test.ShouldBeNil)
 	cam3.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		pc := pointcloud.New()
-		return pc, pc.Set(pointcloud.NewVector(0, 0, 1), pointcloud.NewColoredData(color.NRGBA{0, 0, 255, 255}))
+		return pc3, nil
 	}
 	cam3.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
@@ -109,6 +115,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 
 func TestJoinPointCloudNaive(t *testing.T) {
 	r := makeFakeRobot(t)
+	time.Sleep(500 * time.Millisecond)
 	// PoV from base1
 	attrs := &JoinAttrs{
 		AttrConfig:    &camera.AttrConfig{},
@@ -348,6 +355,7 @@ func TestFixedPointCloudICP(t *testing.T) {
 	ctx := context.Background()
 	r, err := makeFakeRobotICP(t)
 	test.That(t, err, test.ShouldBeNil)
+	time.Sleep(500 * time.Millisecond)
 	// PoV from base1
 	attrs := &JoinAttrs{
 		AttrConfig: &camera.AttrConfig{
@@ -369,6 +377,7 @@ func TestTwinPointCloudICP(t *testing.T) {
 	t.Skip("Test is too large for now.")
 	r, err := makeFakeRobotICP(t)
 	test.That(t, err, test.ShouldBeNil)
+	time.Sleep(500 * time.Millisecond)
 
 	attrs := &JoinAttrs{
 		AttrConfig: &camera.AttrConfig{
@@ -396,6 +405,7 @@ func TestMultiPointCloudICP(t *testing.T) {
 	t.Skip("Test is too large for now.")
 	r, err := makeFakeRobotICP(t)
 	test.That(t, err, test.ShouldBeNil)
+	time.Sleep(500 * time.Millisecond)
 
 	attrs := &JoinAttrs{
 		AttrConfig: &camera.AttrConfig{
