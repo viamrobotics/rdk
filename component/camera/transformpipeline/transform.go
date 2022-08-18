@@ -3,6 +3,7 @@ package transformpipeline
 import (
 	"context"
 
+	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -35,11 +36,13 @@ type Transformation struct {
 	Attributes config.AttributeMap `json:"attributes"`
 }
 
-// buildTransform uses the Transformation config to build the desired transform camera.
-func buildTransform(ctx context.Context, source camera.Camera, stream camera.StreamType, tr Transformation) (camera.Camera, error) {
+// buildTransform uses the Transformation config to build the desired transform ImageSource
+func buildTransform(
+	ctx context.Context, source gostream.ImageSource, stream camera.StreamType, tr Transformation,
+) (gostream.ImageSource, error) {
 	switch transformType(tr.Type) {
 	case unspecifiedTrasform, identityTransform:
-		return newIdentityTransform(ctx, source)
+		return source, nil
 	case rotateTransform:
 		return newRotateTransform(ctx, source, stream)
 	case resizeTransform:

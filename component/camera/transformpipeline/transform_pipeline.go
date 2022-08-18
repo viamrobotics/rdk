@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -71,15 +72,16 @@ func newTransformPipeline(ctx context.Context, source camera.Camera, cfg *transf
 		return nil, errors.New("no source camera for transform pipeline")
 	}
 	stream := camera.StreamType(cfg.Stream)
-	// loop through the pipeline and create the cameras
-	outCam := source
+	// loop through the pipeline and create the image flow
+	var outSource gostream.ImageSource
+	outSource = source
 	for _, tr := range cfg.Pipeline {
-		cam, err := buildTransform(ctx, outCam, stream, tr)
+		src, err := buildTransform(ctx, outSource, stream, tr)
 		if err != nil {
 			return nil, err
 		}
-		outCam = cam
+		outSource = src
 	}
-	proj, _ := camera.GetProjector(ctx, cfg.AttrConfig, outCam)
-	return camera.New(outCam, proj)
+	proj, _ := camera.GetProjector(ctx, cfg.AttrConfig, nil)
+	return camera.New(outSource, proj)
 }
