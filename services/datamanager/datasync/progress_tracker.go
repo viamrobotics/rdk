@@ -1,16 +1,14 @@
 package datasync
 
 import (
+	"github.com/pkg/errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
-
-	"github.com/pkg/errors"
 )
 
-// TODO: should progress file index should include metadata?
 var viamProgressDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "progress")
 
 type progressTracker struct {
@@ -70,11 +68,11 @@ func (pt *progressTracker) updateProgressFileIndex(path string, requestsWritten 
 	return nil
 }
 
-// TODO: return errNotExist if errNotExist
 // Returns the index of next sensordata message to upload.
 func (pt *progressTracker) getProgressFileIndex(path string) (int, error) {
 	//nolint:gosec
 	bs, err := ioutil.ReadFile(path)
+	// TODO: fix stuff around this
 	if errors.Is(err, os.ErrNotExist) {
 		return 0, nil
 	}
