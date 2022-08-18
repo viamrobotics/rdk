@@ -339,7 +339,7 @@ func readCertificateDataFromCloudGRPC(ctx context.Context,
 	cloudConfigFromDisk *Cloud,
 	logger golog.Logger,
 ) (*Cloud, error) {
-	conn, err := createNewGRPCClient(ctx, cloudConfigFromDisk, logger)
+	conn, err := CreateNewGRPCClient(ctx, cloudConfigFromDisk, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -675,7 +675,7 @@ func getFromCloudHTTP(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger) (*Config, bool, error) {
 	shouldCheckCacheOnFailure := true
 
-	conn, err := createNewGRPCClient(ctx, cloudCfg, logger)
+	conn, err := CreateNewGRPCClient(ctx, cloudCfg, logger)
 	if err != nil {
 		return nil, shouldCheckCacheOnFailure, err
 	}
@@ -746,7 +746,8 @@ func toRDKSlice[PT any, RT any](protoList []*PT, toRDK func(*PT) (*RT, error)) (
 	return out, nil
 }
 
-func createNewGRPCClient(ctx context.Context, cloudCfg *Cloud, logger golog.Logger) (rpc.ClientConn, error) {
+// CreateNewGRPCClient creates a new grpc cloud configured to communicate with the robot service based on the cloud config given.
+func CreateNewGRPCClient(ctx context.Context, cloudCfg *Cloud, logger golog.Logger) (rpc.ClientConn, error) {
 	u, err := url.Parse(cloudCfg.AppAddress)
 	if err != nil {
 		return nil, err

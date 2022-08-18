@@ -63,9 +63,8 @@ func (s *subtypeServer) GetFrame(
 			release()
 		}
 	}()
-	// choose the best/fastest representation
-	if req.MimeType == "" || req.MimeType == utils.MimeTypeViamBest {
-		req.MimeType = utils.MimeTypeRawRGBA
+	if req.MimeType == "" { // transmit png bytes by default
+		req.MimeType = utils.MimeTypePNG
 	}
 
 	bounds := img.Bounds()

@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/movementsensor/nmea"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 )
@@ -159,6 +160,7 @@ func TestClose(t *testing.T) {
 	g := rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	r := ioutil.NopCloser(strings.NewReader("hello world"))
 	n := &ntripCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, correctionReader: r}
+	n.info = makeMockNtripClient()
 	g.correction = n
 
 	err := g.Close()
@@ -183,12 +185,12 @@ func TestConnect(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	info := ntripInfo{
-		url:                "invalidurl",
-		username:           "user",
-		password:           "pwd",
-		mountPoint:         "",
-		maxConnectAttempts: 10,
+	info := &nmea.NtripInfo{
+		URL:                "invalidurl",
+		Username:           "user",
+		Password:           "pwd",
+		MountPoint:         "",
+		MaxConnectAttempts: 10,
 	}
 	g := &ntripCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, info: info}
 
@@ -196,19 +198,24 @@ func TestConnect(t *testing.T) {
 	err := g.Connect()
 	test.That(t, err, test.ShouldNotBeNil)
 
-	g.info.url = "http://fakeurl"
+	g.info.URL = "http://fakeurl"
 	err = g.Connect()
 	test.That(t, err, test.ShouldBeNil)
 
 	err = g.GetStream()
 	test.That(t, err, test.ShouldNotBeNil)
 
-	g.info.mountPoint = "mp"
+	g.info.MountPoint = "mp"
 	err = g.GetStream()
 	test.That(t, err.Error(), test.ShouldContainSubstring, "lookup fakeurl")
 }
 
 // Helpers
+
+// mock ntripinfo client.
+func makeMockNtripClient() *nmea.NtripInfo {
+	return &nmea.NtripInfo{}
+}
 
 type mock struct {
 	board.LocalBoard
