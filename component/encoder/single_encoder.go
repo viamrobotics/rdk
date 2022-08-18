@@ -44,14 +44,6 @@ type DirectionAware interface {
 	DirectionMoving() int64
 }
 
-type fakeDirectionAware struct {
-	dir int64
-}
-
-func (f *fakeDirectionAware) DirectionMoving() int64 {
-	return f.dir
-}
-
 // SingleEncoder keeps track of a motor position using a rotary hall encoder.
 type SingleEncoder struct {
 	generic.Unimplemented
@@ -117,7 +109,6 @@ func NewSingleEncoder(
 			return nil, errors.Errorf("cannot find pin (%s) for SingleEncoder", cfg.Pins.I)
 		}
 
-		e.AttachDirectionalAwareness(&fakeDirectionAware{dir: 0})
 		logger.Info("no direction attached to SingleEncoder yet. SingleEncoder will not take measurements until attached to encoded motor.")
 
 		e.Start(ctx)
@@ -147,9 +138,11 @@ func (e *SingleEncoder) Start(ctx context.Context) {
 			case <-encoderChannel:
 			}
 
-			dir := e.m.DirectionMoving()
-			if dir == 1 || dir == -1 {
-				atomic.AddInt64(&e.position, dir)
+			if e.m != nil {
+				dir := e.m.DirectionMoving()
+				if dir == 1 || dir == -1 {
+					atomic.AddInt64(&e.position, dir)
+				}
 			}
 		}
 	}, e.activeBackgroundWorkers.Done)
