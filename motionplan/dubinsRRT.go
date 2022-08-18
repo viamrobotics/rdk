@@ -153,10 +153,12 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 		}
 
 		var target *configuration
+		//nolint:gosec
 		if (rand.Float64() > 1-goalRate) || i == 0 {
 			target = goalConfig
 		} else {
 			inputDubins := referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
+			//nolint:gosec
 			inputDubins = append(inputDubins, referenceframe.Input{Value: rand.Float64() * 2 * math.Pi})
 			target = &configuration{inputDubins}
 		}
@@ -461,10 +463,6 @@ func (dm *dubinOptionManager) optWorker(ctx context.Context) {
 			dm.optLock.RUnlock()
 		}
 	}
-}
-
-func mobile2DInputDist(from, to []referenceframe.Input) float64 {
-	return math.Pow(from[0].Value-to[0].Value, 2)
 }
 
 func mobile2DConfigDist(from, to *configuration) float64 {
