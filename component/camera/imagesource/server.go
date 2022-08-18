@@ -171,6 +171,37 @@ func (ds *dualServerSource) NextPointCloud(ctx context.Context) (pointcloud.Poin
 	return ds.Intrinsics.RGBDToPointCloud(color, depth)
 }
 
+func (ds *dualServerSource) GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+	ctx, span := trace.StartSpan(ctx, "imagesource::dualServerSource::GetFrame")
+	defer span.End()
+
+	var url string
+	switch ds.Stream {
+	case camera.ColorStream, camera.UnspecifiedStream:
+		url = ds.ColorURL
+	case camera.DepthStream:
+		url = ds.DepthURL
+	default:
+		return nil, "", 0, 0, camera.NewUnsupportedStreamError(ds.Stream)
+	}
+
+	data, err := readyBytesFromURL(ctx, ds.client, url)
+	if err != nil {
+		return nil, "", 0, 0, errors.Wrap(err, "couldn't ready url")
+	}
+
+	usedMimeType := http.DetectContentType(data)
+
+	if mimeType != "" && mimeType != usedMimeType {
+		return nil, "", 0, 0,
+			errors.Errorf("mime type %v is not supported; %v is the only supported mime type",
+				mimeType, usedMimeType)
+	}
+
+	// TODO RSDK-556: Remove width and height from response.
+	return data, usedMimeType, -1, -1, nil
+}
+
 // Close closes the connection to both servers.
 func (ds *dualServerSource) Close() {
 	ds.client.CloseIdleConnections()
@@ -227,6 +258,25 @@ func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	}
 	return nil,
 		errors.Errorf("no depth information in stream %q, cannot project to point cloud", s.stream)
+}
+
+func (s *serverSource) GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+	ctx, span := trace.StartSpan(ctx, "imagesource::serverSource::GetFrame")
+	defer span.End()
+	data, err := readyBytesFromURL(ctx, s.client, s.URL)
+	if err != nil {
+		return nil, "", 0, 0, errors.Wrap(err, "couldn't ready url")
+	}
+
+	usedMimeType := http.DetectContentType(data)
+	if mimeType != "" && mimeType != usedMimeType {
+		return nil, "", 0, 0,
+			errors.Errorf("mime type %v is not supported; %v is the only supported mime type",
+				mimeType, usedMimeType)
+	}
+
+	// TODO RSDK-556: Remove width and height from response.
+	return data, usedMimeType, -1, -1, nil
 }
 
 // NewServerSource creates the ImageSource that streams color/depth data from an external server at a given URL.
