@@ -471,11 +471,3 @@ func (base *limoBase) Close(ctx context.Context) error {
 func (base *limoBase) GetWidth(ctx context.Context) (int, error) {
 	return base.width, nil
 }
-
-func GetLimoBase(b base.Base) (*limoBase, error) {
-	l, ok := b.(*limoBase)
-	if !ok {
-		return nil, errors.New("Cannot convert base to limobase")
-	}
-	return l, nil
-}
