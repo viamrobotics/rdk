@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"go.viam.com/rdk/services/datamanager/datacapture"
+
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
@@ -15,6 +17,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 const (
@@ -130,10 +134,11 @@ func TestSensorUploadTabular(t *testing.T) {
 		captureMetadata := v1.DataCaptureMetadata{
 			ComponentType:    componentType,
 			ComponentName:    componentName,
+			ComponentModel:   componentModel,
 			MethodName:       methodName,
 			Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			MethodParameters: nil,
-			FileExtension:    tabularFileExt,
+			FileExtension:    datacapture.GetFileExt(v1.DataType_DATA_TYPE_TABULAR_SENSOR, methodName, nil),
 		}
 		if _, err := pbutil.WriteDelimited(tf, &captureMetadata); err != nil {
 			t.Errorf("%s cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v",
@@ -214,10 +219,11 @@ func TestSensorUploadBinary(t *testing.T) {
 		syncMetadata := v1.DataCaptureMetadata{
 			ComponentType:    componentType,
 			ComponentName:    componentName,
+			ComponentModel:   componentModel,
 			MethodName:       methodName,
 			Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			MethodParameters: nil,
-			FileExtension:    binaryFileExt,
+			FileExtension:    datacapture.GetFileExt(v1.DataType_DATA_TYPE_BINARY_SENSOR, methodName, nil),
 		}
 		if _, err := pbutil.WriteDelimited(tf, &syncMetadata); err != nil {
 			t.Errorf("%s cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v",
@@ -303,21 +309,6 @@ func TestUploadsOnce(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	_, err = os.Stat(file2.Name())
 	test.That(t, err, test.ShouldNotBeNil)
-}
-
-func getFileExtension(dataType v1.DataType) string {
-	switch dataType {
-	case v1.DataType_DATA_TYPE_BINARY_SENSOR:
-		return binaryFileExt
-	case v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		return tabularFileExt
-	case v1.DataType_DATA_TYPE_FILE:
-		return defaultFileExt
-	case v1.DataType_DATA_TYPE_UNSPECIFIED:
-		return defaultFileExt
-	default:
-		return defaultFileExt
-	}
 }
 
 func TestUploadExponentialRetry(t *testing.T) {
@@ -459,10 +450,11 @@ func TestPartialUpload(t *testing.T) {
 			captureMetadata := v1.DataCaptureMetadata{
 				ComponentType:    componentType,
 				ComponentName:    componentName,
+				ComponentModel:   componentModel,
 				MethodName:       methodName,
 				Type:             tc.dataType,
 				MethodParameters: nil,
-				FileExtension:    getFileExtension(tc.dataType),
+				FileExtension:    datacapture.GetFileExt(tc.dataType, methodName, nil),
 			}
 			if _, err := pbutil.WriteDelimited(f, &captureMetadata); err != nil {
 				t.Errorf("cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v", err)

@@ -58,7 +58,7 @@ func BuildCaptureMetadata(compType resource.SubtypeName, compName string, compMo
 		MethodName:       method,
 		Type:             dataType,
 		MethodParameters: additionalParams,
-		FileExtension:    getFileExt(dataType, method, additionalParams),
+		FileExtension:    GetFileExt(dataType, method, additionalParams),
 	}
 }
 
@@ -116,7 +116,8 @@ func getDataType(_ string, methodName string) v1.DataType {
 	return v1.DataType_DATA_TYPE_TABULAR_SENSOR
 }
 
-func getFileExt(dataType v1.DataType, methodName string, parameters map[string]string) string {
+// GetFileExt gets the file extension for a capture file.
+func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]string) string {
 	defaultFileExt := ""
 	switch dataType {
 	case v1.DataType_DATA_TYPE_TABULAR_SENSOR:
