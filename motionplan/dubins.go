@@ -219,13 +219,8 @@ func (d *Dubins) generatePointsStraight(start []float64, end []float64, path []f
 	center2 := d.findCenter(end, false)   // "R"
 
 	if path[0] > 0 {
-<<<<<<< HEAD
 		center0 = d.findCenter(start, false) // "L"
 		center2 = d.findCenter(end, false)   // "L"
-=======
-		center_0 = d.findCenter(start, true) // "L"
-		center_2 = d.findCenter(end, true)   // "L"
->>>>>>> f0425a2ec12e217a0a2ef802bf32dd570bf2bdfd
 	}
 
 	// start of straight
