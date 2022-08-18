@@ -32,10 +32,10 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
-	if len(args) < 2 {
+	if len(args) > 2 {
 		return nil
 	}
-	
+	fmt.Println("args: ", args)
 	move := false
 	robot, err := client.New(
 		context.Background(),
