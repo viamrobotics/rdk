@@ -161,7 +161,7 @@ func TestUndistortDepthMap(t *testing.T) {
 	// correct undistortion
 	outDir, err = testutils.TempDir("", "transform")
 	test.That(t, err, test.ShouldBeNil)
-	img, err := rimage.ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
+	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 	corrected, err := params.UndistortDepthMap(img)
 	test.That(t, err, test.ShouldBeNil)
