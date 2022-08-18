@@ -27,10 +27,7 @@ var (
 	componentType  = "componenttype"
 	componentName  = "componentname"
 	componentModel = "componentmodel"
-	methodName     = "methodname"
-	binaryFileExt  = ".pcd"
-	tabularFileExt = ".csv"
-	defaultFileExt = ""
+	methodName     = "NextPointCloud"
 )
 
 // Compares UploadRequests containing either binary or tabular sensor data.
@@ -62,10 +59,11 @@ func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequ
 	}
 }
 
-// nolint:thelper
+
 func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 	expectedMetadata *v1.UploadMetadata,
 ) {
+	t.Helper()
 	// Test the fields within UploadRequest Metadata.
 	test.That(t, filepath.Base(actualMetadata.FileName), test.ShouldEqual, filepath.Base(expectedMetadata.FileName))
 	test.That(t, actualMetadata.PartId, test.ShouldEqual, expectedMetadata.PartId)
@@ -143,7 +141,7 @@ func buildSensorDataUploadRequests(sds []*v1.SensorData, dataType v1.DataType, f
 				ComponentName:  componentName,
 				ComponentModel: componentModel,
 				MethodName:     methodName,
-				FileExtension:  binaryFileExt,
+				FileExtension:  datacapture.GetFileExt(dataType, methodName, nil),
 			},
 		},
 	})
