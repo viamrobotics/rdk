@@ -141,27 +141,27 @@ func setupInjectRobot() *inject.Robot {
 			}
 			return cam, nil
 		case camera.Named("good_color_camera"):
-			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-				img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
-				return img, nil, err
-			}
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
 			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
 				return projA, nil
 			}
+			cam.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+				imgBytes, err := os.ReadFile(artifact.MustPath("rimage/board1.png"))
+				return imgBytes, rdkutils.MimeTypePNG, -1, -1, err
+			}
 			return cam, nil
 		case camera.Named("good_depth_camera"):
-			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-				img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1.dat.gz"))
-				return img, nil, err
-			}
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
 			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
 				return nil, transform.NewNoIntrinsicsError("")
+			}
+			cam.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+				imgBytes, err := os.ReadFile(artifact.MustPath("rimage/board1_gray.png"))
+				return imgBytes, rdkutils.MimeTypePNG, -1, -1, err
 			}
 			return cam, nil
 		case camera.Named("bad_camera"):
