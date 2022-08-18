@@ -21,12 +21,8 @@ import (
 // It uses the RRT* with vehicle dynamics algorithm, Khanal 2022
 // https://arxiv.org/abs/2206.10533
 type DubinsRRTMotionPlanner struct {
-	solDist         float64
-	solver          InverseKinematics
-	fastGradDescent *NloptIK
 	frame           referenceframe.Frame
 	logger          golog.Logger
-	qstep           []float64
 	iter            int
 	nCPU            int
 	stepSize        float64
@@ -60,18 +56,8 @@ type MobileRobotPlanConfig struct {
 
 // NewDubinsRRTMotionPlanner creates a DubinsRRTMotionPlanner object.
 func NewDubinsRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger, d Dubins) (MotionPlanner, error) {
-	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
-	if err != nil {
-		return nil, err
-	}
-	// nlopt should try only once
-	nlopt, err := CreateNloptIKSolver(frame, logger, 1)
-	if err != nil {
-		return nil, err
-	}
-	mp := &DubinsRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: jointSolveDist, nCPU: nCPU, D: d}
+	mp := &DubinsRRTMotionPlanner{frame: frame, logger: logger, nCPU: nCPU, D: d}
 
-	mp.qstep = getFrameSteps(frame, frameStep)
 	mp.iter = planIter
 	mp.stepSize = stepSize
 
@@ -102,8 +88,7 @@ func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 			solutionChan <- &planReturn{err: err}
 			return nil, err
 		}
-		goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
-		opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
+		opt = DefaultConstraint(seedPos, spatial.NewPoseFromProtobuf(goal), mp.Frame(), opt)
 	}
 
 	utils.PanicCapturingGo(func() {
@@ -471,7 +456,7 @@ func mobile2DInputDist(from, to []referenceframe.Input) float64 {
 }
 
 func mobile2DConfigDist(from, to *configuration) float64 {
-	return math.Pow(from.inputs[0].Value-to.inputs[0].Value, 2)
+	return math.Pow(from.inputs[0].Value-to.inputs[0].Value, 2) + math.Pow(from.inputs[1].Value-to.inputs[1].Value, 2)
 }
 
 func findNearNeighbors(sample *configuration, rrtMap map[*configuration]*configuration, nbNeighbors int) []*configuration {

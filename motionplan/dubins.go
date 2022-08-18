@@ -11,11 +11,13 @@ import (
 // paper: https://arxiv.org/pdf/2206.10533.pdf
 // python dubins-rrt package used for reference: https://github.com/FelicienC/RRT-Dubins
 
+// Dubins describes the parameters for a specific Dubin's problem
 type Dubins struct {
-	Radius          float64
-	PointSeparation float64
+	Radius          float64 // Turning radius of car
+	PointSeparation float64 // Separation of points on path to check for collision
 }
 
+// DubinOption describes a Dubins path that can be taken from one point to another
 type DubinOption struct {
 	TotalLen   float64   // Total length of all segments making up a single Dubin's path
 	DubinsPath []float64 // Length array of the six possible Dubin's path combiantions
@@ -217,8 +219,13 @@ func (d *Dubins) generatePointsStraight(start []float64, end []float64, path []f
 	center2 := d.findCenter(end, false)   // "R"
 
 	if path[0] > 0 {
+<<<<<<< HEAD
 		center0 = d.findCenter(start, false) // "L"
 		center2 = d.findCenter(end, false)   // "L"
+=======
+		center_0 = d.findCenter(start, true) // "L"
+		center_2 = d.findCenter(end, true)   // "L"
+>>>>>>> f0425a2ec12e217a0a2ef802bf32dd570bf2bdfd
 	}
 
 	// start of straight
