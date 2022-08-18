@@ -7,6 +7,10 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
+// paper: https://arxiv.org/pdf/2206.10533.pdf
+// python dubins-rrt package used for reference: https://github.com/FelicienC/RRT-Dubins
+
+
 type Dubins struct {
 	Radius          float64
 	PointSeparation float64
