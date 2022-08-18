@@ -409,3 +409,4 @@ func GetDubinTrajectoryFromPath(waypoints [][]referenceframe.Input, d Dubins) []
 
 	return traj
 }
+
