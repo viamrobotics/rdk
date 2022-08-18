@@ -24,10 +24,7 @@ func createTestRouter(t *testing.T) (*http.ServeMux, image.Image, image.Image) {
 	expectedColor, err := rimage.NewImageFromFile(colorPath)
 	test.That(t, err, test.ShouldBeNil)
 	// get depth image
-	depthDatPath := artifact.MustPath("rimage/board1.dat.gz")
 	depthPath := artifact.MustPath("rimage/board1_gray.png")
-	expectedDepth, err := rimage.NewDepthMapFromFile(depthDatPath)
-	test.That(t, err, test.ShouldBeNil)
 	// get color bytes
 	colorBytes, err := os.ReadFile(colorPath) // get png bytes
 	test.That(t, err, test.ShouldBeNil)
@@ -46,6 +43,10 @@ func createTestRouter(t *testing.T) (*http.ServeMux, image.Image, image.Image) {
 	router := http.NewServeMux()
 	router.HandleFunc("/color", handleColor)
 	router.HandleFunc("/depth", handleDepth)
+	// expected depth image from raw data
+	depthDatPath := artifact.MustPath("rimage/board1.dat.gz")
+	expectedDepth, err := rimage.NewDepthMapFromFile(depthDatPath)
+	test.That(t, err, test.ShouldBeNil)
 	return router, expectedColor, expectedDepth
 }
 

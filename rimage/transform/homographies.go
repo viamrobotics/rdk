@@ -5,8 +5,8 @@ import (
 
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
-	"github.com/gonum/floats"
 	"github.com/pkg/errors"
+	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/stat"
 

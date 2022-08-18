@@ -18,7 +18,7 @@ func TestParallelProjection(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	img2, err := NewImageFromFile(artifact.MustPath("rimage/circle.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
+	dm, err := NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 	// no image error
 	_, err = pp.RGBDToPointCloud(nil, dm)
