@@ -99,11 +99,11 @@ func (b *box) ToProtobuf() *commonpb.Geometry {
 	return &commonpb.Geometry{
 		Center: PoseToProtobuf(b.pose),
 		GeometryType: &commonpb.Geometry_Box{
-			Box: &commonpb.RectangularPrism{
-				WidthMm:  2 * b.halfSize[0],
-				LengthMm: 2 * b.halfSize[1],
-				DepthMm:  2 * b.halfSize[2],
-			},
+			Box: &commonpb.RectangularPrism{DimsMm: &commonpb.Vector3{
+				X: 2 * b.halfSize[0],
+				Y: 2 * b.halfSize[1],
+				Z: 2 * b.halfSize[2],
+			}},
 		},
 	}
 }
