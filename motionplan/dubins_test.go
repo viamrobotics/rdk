@@ -85,3 +85,34 @@ func TestAllOptions(t *testing.T) {
 	test.That(t, allPaths[4].TotalLen, test.ShouldEqual, math.Inf(1))
 	test.That(t, allPaths[5].TotalLen, test.ShouldEqual, math.Inf(1))
 }
+
+func TestGeneratePoints(t *testing.T) {
+	// straight movement points
+	start := []float64{0, 0, 0}
+	end := []float64{1, 0, 0}
+
+	radius := 1.0
+	pointSep := 20.0
+
+	epsilon := 0.0001
+
+	d := &Dubins{Radius: radius, PointSeparation: pointSep}
+	paths := d.AllOptions(start, end, true)[0] // get shortest paths
+	points := d.generatePoints(start, end, paths.DubinsPath, true)
+	test.That(t, len(points), test.ShouldEqual, 2)
+	test.That(t, math.Abs(points[0][0]-start[0]), test.ShouldBeLessThan, epsilon)
+	test.That(t, math.Abs(points[0][1]-start[1]), test.ShouldBeLessThan, epsilon)
+	test.That(t, math.Abs(points[1][0]-end[0]), test.ShouldBeLessThan, epsilon)
+	test.That(t, math.Abs(points[1][1]-end[1]), test.ShouldBeLessThan, epsilon)
+
+	// curved movement points
+	end = []float64{1, 1, math.Pi / 4.0}
+	paths = d.AllOptions(start, end, true)[0] // get shortest paths
+	points = d.generatePoints(start, end, paths.DubinsPath, false)
+
+	test.That(t, len(points), test.ShouldEqual, 2)
+	test.That(t, math.Abs(points[0][0]-start[0]), test.ShouldBeLessThan, epsilon)
+	test.That(t, math.Abs(points[0][1]-start[1]), test.ShouldBeLessThan, epsilon)
+	test.That(t, math.Abs(points[1][0]-end[0]), test.ShouldBeLessThan, epsilon)
+	test.That(t, math.Abs(points[1][1]-end[1]), test.ShouldBeLessThan, epsilon)
+}
