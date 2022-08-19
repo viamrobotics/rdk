@@ -42,7 +42,7 @@ func TestFindCenter(t *testing.T) {
 	test.That(t, math.Abs(x[1]-centerRightEnd[1]), test.ShouldBeLessThan, epsilon)
 }
 
-func TestAllOptions(t *testing.T) {
+func TestAllPaths(t *testing.T) {
 	// no movement
 	start := []float64{0, 0, 0}
 	end := []float64{0, 0, 0}
@@ -51,7 +51,7 @@ func TestAllOptions(t *testing.T) {
 	pointSep := 1.0
 
 	d := &Dubins{Radius: radius, PointSeparation: pointSep}
-	paths := d.AllOptions(start, end, true)[0] // get shortest paths
+	paths := d.AllPaths(start, end, true)[0] // get shortest paths
 
 	test.That(t, paths.TotalLen, test.ShouldEqual, 0.0)
 	test.That(t, paths.DubinsPath[0], test.ShouldEqual, 0.0)
