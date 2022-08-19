@@ -333,11 +333,7 @@ func (d *Dubins) generatePoints(start []float64, end []float64, dubinsPath []flo
 
 // DubinsPath returns a list of points along the shortest Dubins path from start to end.
 func (d *Dubins) DubinsPath(start []float64, end []float64) [][]float64 {
-	paths := d.AllPaths(start, end, false)
-	// sort by first element in paths
-	sort.SliceStable(paths, func(i, j int) bool {
-		return paths[i].TotalLen < paths[j].TotalLen
-	})
+	paths := d.AllPaths(start, end, true)
 	DubinsPath, straight := paths[0].DubinsPath, paths[0].Straight
 	return d.generatePoints(start, end, DubinsPath, straight)
 }
