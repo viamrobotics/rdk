@@ -257,12 +257,14 @@ func (mp *DubinsRRTMotionPlanner) checkPath(
 		pose1, err := mp.frame.Transform(input1)
 		if err != nil {
 			mp.logger.Error("Transform failed")
+			return false
 		}
 		input2 := make([]referenceframe.Input, 2)
 		input2[0], input2[1] = referenceframe.Input{Value: p2[0]}, referenceframe.Input{Value: p2[1]}
 		pose2, err := mp.frame.Transform(input2)
 		if err != nil {
 			mp.logger.Error("Transform failed")
+			return false
 		}
 
 		ci := &ConstraintInput{
