@@ -205,7 +205,9 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 			}
 
 			solutionChan <- &planReturn{steps: inputSteps}
-		
+			for _, step := range inputSteps {
+				mp.logger.Debugf("%v\n", *step)
+			}
 			return
 		}
 	}
@@ -234,6 +236,8 @@ func (mp *DubinsRRTMotionPlanner) checkPath(
 	start := configuration2slice(from)
 	end := configuration2slice(to)
 	path := dm.d.generatePoints(start, end, o.DubinsPath, o.Straight)
+
+	mp.logger.Debugf("%v\n", path)
 
 	pathOk := true
 	var p2 []float64
