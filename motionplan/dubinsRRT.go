@@ -317,10 +317,10 @@ func (dm *dubinPathAttrManager) selectOptions(
 	for node := range rrtMap {
 		start := configuration2slice(node)
 		end := configuration2slice(sample)
-		allOpts := dm.d.AllPaths(start, end, true)
+		bestOpt := dm.d.AllPaths(start, end, true)[0]
 
-		if allOpts[0].TotalLen != math.Inf(1) {
-			pl = append(pl, nodeToOption{node, allOpts[0]})
+		if bestOpt.TotalLen != math.Inf(1) {
+			pl = append(pl, nodeToOption{node, bestOpt})
 		}
 	}
 	sort.Sort(pl)
@@ -416,11 +416,11 @@ func (dm *dubinPathAttrManager) optWorker(ctx context.Context) {
 				dm.optLock.RLock()
 				start := configuration2slice(node)
 				end := configuration2slice(dm.sample)
-				allOpts := dm.d.AllPaths(start, end, true)
+				bestOpt := dm.d.AllPaths(start, end, true)[0]
 				dm.optLock.RUnlock()
 
-				if allOpts[0].TotalLen != math.Inf(1) {
-					pl = append(pl, nodeToOption{node, allOpts[0]})
+				if bestOpt.TotalLen != math.Inf(1) {
+					pl = append(pl, nodeToOption{node, bestOpt})
 				}
 			}
 		default:
