@@ -3,6 +3,7 @@ syntax = "proto3";
 package proto.api.component.arm.v1;
 
 import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
 import "proto/api/common/v1/common.proto";
 
 option go_package = "go.viam.com/rdk/proto/api/component/arm/v1";
@@ -51,6 +52,8 @@ service ArmService {
 message GetEndPositionRequest {
   // Name of an arm
   string name = 1;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message GetEndPositionResponse {
@@ -60,20 +63,22 @@ message GetEndPositionResponse {
 }
 
 message JointPositions {
-  // A list of joint positions represented in degrees
+  // A list of joint positions. Rotations values are in degrees, translational values in mm.
   // The numbers are ordered spatially from the base toward the end effector
   // This is used in GetJointPositionsResponse and MoveToJointPositionsRequest
-  repeated double degrees = 1;
+  repeated double values = 1;
 }
 
 message GetJointPositionsRequest {
   // Name of an arm
   string name = 1;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message GetJointPositionsResponse {
   //a list JointPositions
-  JointPositions position_degs = 1;
+  JointPositions positions = 1;
 }
 
 message MoveToPositionRequest {
@@ -81,6 +86,8 @@ message MoveToPositionRequest {
   string name = 1;
   common.v1.Pose to = 2;
   optional common.v1.WorldState world_state = 3;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message MoveToPositionResponse {}
@@ -88,9 +95,11 @@ message MoveToPositionResponse {}
 message MoveToJointPositionsRequest {
   // Name of an arm
   string name = 1;
-  // A list of joint positions represented in degrees
-  // There should be 1 entry in the list per joint, ordered spatially from the base toward the end effector
-  JointPositions position_degs = 2;
+  // A list of joint positions
+  // There should be 1 entry in the list per joint DOF, ordered spatially from the base toward the end effector
+  JointPositions positions = 2;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message MoveToJointPositionsResponse {}
@@ -98,6 +107,8 @@ message MoveToJointPositionsResponse {}
 message StopRequest {
   // Name of an arm
   string name = 1;
+  // Additional arguments to the method
+  google.protobuf.Struct extra = 99;
 }
 
 message StopResponse {}

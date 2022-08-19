@@ -104,7 +104,7 @@ func NewMotor(ctx context.Context, deps registry.Dependencies, c *Config, logger
 
 	flowRate, err := m.findMaxFlowRate(ctx)
 	if err != nil {
-		return nil, errors.New("can't find max flow rate")
+		return nil, errors.Errorf("can't find max flow rate: %v", err)
 	}
 	m.maxFlowRate = flowRate
 
@@ -142,10 +142,12 @@ func (m *Ezopmp) Validate() error {
 	}
 
 	if m.I2CAddress == 0 {
+		m.logger.Warn("i2c address set at 103")
 		m.I2CAddress = 103
 	}
 
 	if m.maxReadBits == 0 {
+		m.logger.Warn("max_read_bits set to 39")
 		m.maxReadBits = 39
 	}
 
@@ -220,7 +222,7 @@ func (m *Ezopmp) writeRegWithCheck(ctx context.Context, command []byte) error {
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
 // Negative power implies a backward directional rotational
 // for this pump, it goes between 0.5ml to 105ml/min.
-func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64) error {
+func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
 
 	powerPct = math.Min(powerPct, m.maxPowerPct)
@@ -245,7 +247,7 @@ func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64) error {
 
 // GoFor sets a constant flow rate
 // mLPerMin = rpm, mins = revolutions.
-func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin float64, mins float64) error {
+func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin float64, mins float64, extra map[string]interface{}) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -266,7 +268,7 @@ func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin float64, mins float64) erro
 
 // GoTo uses the Dose Over Time Command in the EZO-PMP datasheet
 // mLPerMin = rpm, mins = revolutions.
-func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin float64, mins float64) error {
+func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin float64, mins float64, extra map[string]interface{}) error {
 	switch speed := math.Abs(mLPerMin); {
 	case speed < 0.5:
 		return errors.New("motor cannot move this slowly")
@@ -283,13 +285,13 @@ func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin float64, mins float64) error
 }
 
 // ResetZeroPosition clears the amount of volume that has been dispensed.
-func (m *Ezopmp) ResetZeroPosition(ctx context.Context, offset float64) error {
+func (m *Ezopmp) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	command := []byte(clear)
 	return m.writeRegWithCheck(ctx, command)
 }
 
 // GetPosition will return the total volume dispensed.
-func (m *Ezopmp) GetPosition(ctx context.Context) (float64, error) {
+func (m *Ezopmp) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	command := []byte(totVolDispensed)
 	writeErr := m.writeReg(ctx, command)
 	if writeErr != nil {
@@ -305,14 +307,14 @@ func (m *Ezopmp) GetPosition(ctx context.Context) (float64, error) {
 }
 
 // GetFeatures returns the status of optional features on the motor.
-func (m *Ezopmp) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
+func (m *Ezopmp) GetFeatures(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: true,
 	}, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
-func (m *Ezopmp) Stop(ctx context.Context) error {
+func (m *Ezopmp) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
 	command := []byte(stop)
 	return m.writeRegWithCheck(ctx, command)
@@ -320,11 +322,11 @@ func (m *Ezopmp) Stop(ctx context.Context) error {
 
 // IsMoving returns whether or not the motor is currently moving.
 func (m *Ezopmp) IsMoving(ctx context.Context) (bool, error) {
-	return m.IsPowered(ctx)
+	return m.IsPowered(ctx, nil)
 }
 
 // IsPowered returns whether or not the motor is currently on.
-func (m *Ezopmp) IsPowered(ctx context.Context) (bool, error) {
+func (m *Ezopmp) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	command := []byte(dispenseStatus)
 	writeErr := m.writeReg(ctx, command)
 	if writeErr != nil {

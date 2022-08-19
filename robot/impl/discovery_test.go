@@ -84,6 +84,9 @@ func init() {
 func TestDiscovery(t *testing.T) {
 	t.Run("not found", func(t *testing.T) {
 		r := setupNewLocalRobot(t)
+		defer func() {
+			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+		}()
 		discoveries, err := r.DiscoverComponents(context.Background(), []discovery.Query{missingQ})
 		test.That(t, discoveries, test.ShouldBeEmpty)
 		test.That(t, err, test.ShouldBeNil)
@@ -91,6 +94,9 @@ func TestDiscovery(t *testing.T) {
 
 	t.Run("no Discover", func(t *testing.T) {
 		r := setupNewLocalRobot(t)
+		defer func() {
+			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+		}()
 
 		discoveries, err := r.DiscoverComponents(context.Background(), []discovery.Query{noDiscoverQ})
 		test.That(t, err, test.ShouldBeNil)
@@ -100,6 +106,9 @@ func TestDiscovery(t *testing.T) {
 
 	t.Run("failing Discover", func(t *testing.T) {
 		r := setupNewLocalRobot(t)
+		defer func() {
+			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+		}()
 
 		_, err := r.DiscoverComponents(context.Background(), []discovery.Query{failQ})
 		test.That(t, err, test.ShouldBeError, &discovery.DiscoverError{failQ})
@@ -107,6 +116,9 @@ func TestDiscovery(t *testing.T) {
 
 	t.Run("working Discover", func(t *testing.T) {
 		r := setupNewLocalRobot(t)
+		defer func() {
+			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+		}()
 
 		discoveries, err := r.DiscoverComponents(context.Background(), []discovery.Query{workingQ})
 		test.That(t, err, test.ShouldBeNil)
@@ -115,6 +127,9 @@ func TestDiscovery(t *testing.T) {
 
 	t.Run("duplicated working Discover", func(t *testing.T) {
 		r := setupNewLocalRobot(t)
+		defer func() {
+			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+		}()
 
 		discoveries, err := r.DiscoverComponents(context.Background(), []discovery.Query{workingQ, workingQ, workingQ})
 		test.That(t, err, test.ShouldBeNil)
@@ -123,6 +138,9 @@ func TestDiscovery(t *testing.T) {
 
 	t.Run("working and missing Discover", func(t *testing.T) {
 		r := setupNewLocalRobot(t)
+		defer func() {
+			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+		}()
 
 		discoveries, err := r.DiscoverComponents(context.Background(), []discovery.Query{workingQ, missingQ})
 		test.That(t, err, test.ShouldBeNil)

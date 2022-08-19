@@ -3,7 +3,6 @@ syntax = "proto3";
 package proto.api.component.posetracker.v1;
 
 import "google/api/annotations.proto";
-import "google/protobuf/struct.proto";
 import "proto/api/common/v1/common.proto";
 
 option go_package = "go.viam.com/rdk/proto/api/component/v1";

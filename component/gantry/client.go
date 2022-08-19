@@ -10,46 +10,37 @@ import (
 	"go.viam.com/rdk/component/generic"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 )
 
-// serviceClient is a client satisfies the gantry.proto contract.
-type serviceClient struct {
+// client implements GantryServiceClient.
+type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.GantryServiceClient
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
-	client := pb.NewGantryServiceClient(conn)
-	sc := &serviceClient{
-		conn:   conn,
-		client: client,
-		logger: logger,
-	}
-	return sc
-}
-
-// client is an gantry client.
-type client struct {
-	*serviceClient
-	name string
-}
-
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Gantry {
-	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(sc, name)
+	c := pb.NewGantryServiceClient(conn)
+	return &client{
+		name:   name,
+		conn:   conn,
+		client: c,
+		logger: logger,
+	}
 }
 
-func clientFromSvcClient(sc *serviceClient, name string) Gantry {
-	return &client{sc, name}
-}
-
-func (c *client) GetPosition(ctx context.Context) ([]float64, error) {
+func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.client.GetPosition(ctx, &pb.GetPositionRequest{
-		Name: c.name,
+		Name:  c.name,
+		Extra: ext,
 	})
 	if err != nil {
 		return nil, err
@@ -57,9 +48,14 @@ func (c *client) GetPosition(ctx context.Context) ([]float64, error) {
 	return resp.PositionsMm, nil
 }
 
-func (c *client) GetLengths(ctx context.Context) ([]float64, error) {
+func (c *client) GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
 	lengths, err := c.client.GetLengths(ctx, &pb.GetLengthsRequest{
-		Name: c.name,
+		Name:  c.name,
+		Extra: ext,
 	})
 	if err != nil {
 		return nil, err
@@ -67,17 +63,31 @@ func (c *client) GetLengths(ctx context.Context) ([]float64, error) {
 	return lengths.LengthsMm, nil
 }
 
-func (c *client) MoveToPosition(ctx context.Context, positionsMm []float64, worldState *commonpb.WorldState) error {
-	_, err := c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
+func (c *client) MoveToPosition(
+	ctx context.Context,
+	positionsMm []float64,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
 		Name:        c.name,
 		PositionsMm: positionsMm,
 		WorldState:  worldState,
+		Extra:       ext,
 	})
 	return err
 }
 
-func (c *client) Stop(ctx context.Context) error {
-	_, err := c.client.Stop(ctx, &pb.StopRequest{Name: c.name})
+func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.Stop(ctx, &pb.StopRequest{Name: c.name, Extra: ext})
 	return err
 }
 
@@ -87,7 +97,7 @@ func (c *client) ModelFrame() referenceframe.Model {
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := c.GetPosition(ctx)
+	res, err := c.GetPosition(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +105,7 @@ func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 }
 
 func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &commonpb.WorldState{})
+	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &commonpb.WorldState{}, nil)
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

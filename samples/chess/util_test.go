@@ -120,7 +120,7 @@ func TestOneMove(t *testing.T) {
 
 func TestWristDepth1(t *testing.T) {
 	t.Skip()
-	dm, err := rimage.ParseDepthMap(artifact.MustPath("samples/chess/wristdepth1.dat.gz"))
+	dm, err := rimage.ParseRawDepthMap(artifact.MustPath("samples/chess/wristdepth1.dat.gz"))
 	test.That(t, err, test.ShouldBeNil)
 
 	ppr := dm.ToPrettyPicture(0, 1000)

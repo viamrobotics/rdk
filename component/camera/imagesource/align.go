@@ -4,18 +4,16 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	"go.viam.com/utils"
-	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -42,7 +40,7 @@ func init() {
 			if err != nil {
 				return nil, fmt.Errorf("no depth camera (%s): %w", depthName, err)
 			}
-			return newAlignColorDepth(color, depth, attrs, logger)
+			return newAlignColorDepth(ctx, color, depth, attrs, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "align_color_depth",
@@ -103,8 +101,6 @@ func init() {
 		})
 }
 
-var alignCurrentlyWriting = false
-
 func getAligner(attrs *alignAttrs, logger golog.Logger) (rimage.Aligner, error) {
 	switch {
 	case attrs.IntrinsicExtrinsic != nil:
@@ -134,7 +130,7 @@ func getAligner(attrs *alignAttrs, logger golog.Logger) (rimage.Aligner, error) 
 		}
 		return cam, nil
 	default:
-		return nil, errors.New("no valid alignment attribute field provided")
+		return nil, nil
 	}
 }
 
@@ -143,6 +139,8 @@ type alignAttrs struct {
 	*camera.AttrConfig
 	Color              string      `json:"color"`
 	Depth              string      `json:"depth"`
+	Height             int         `json:"height"`
+	Width              int         `json:"width"`
 	IntrinsicExtrinsic interface{} `json:"intrinsic_extrinsic"`
 	Homography         interface{} `json:"homography"`
 	Warp               interface{} `json:"warp"`
@@ -150,64 +148,98 @@ type alignAttrs struct {
 
 // alignColorDepth takes a color and depth image source and aligns them together.
 type alignColorDepth struct {
-	color, depth    gostream.ImageSource
-	alignmentCamera rimage.Aligner
-	debug           bool
-	logger          golog.Logger
+	color, depth gostream.ImageSource
+	aligner      rimage.Aligner
+	projector    rimage.Projector
+	stream       camera.StreamType
+	height       int // height of the aligned image
+	width        int // width of the aligned image
+	debug        bool
+	logger       golog.Logger
 }
 
 // newAlignColorDepth creates a gostream.ImageSource that aligned color and depth channels.
-func newAlignColorDepth(color, depth camera.Camera, attrs *alignAttrs, logger golog.Logger) (camera.Camera, error) {
+func newAlignColorDepth(ctx context.Context, color, depth camera.Camera, attrs *alignAttrs, logger golog.Logger,
+) (camera.Camera, error) {
 	alignCamera, err := getAligner(attrs, logger)
 	if err != nil {
 		return nil, err
 	}
+	if attrs.Height <= 0 || attrs.Width <= 0 {
+		return nil, errors.Errorf("alignColorDepth needs Width and Height fields set. Got illegal dimensions (%d, %d)", attrs.Width, attrs.Height)
+	}
+	// get the projector for the alignment camera
+	stream := camera.StreamType(attrs.Stream)
+	var proj rimage.Projector
+	switch stream {
+	case camera.ColorStream, camera.UnspecifiedStream:
+		proj, _ = camera.GetProjector(ctx, attrs.AttrConfig, color)
+	case camera.DepthStream:
+		proj, _ = camera.GetProjector(ctx, attrs.AttrConfig, depth)
+	default:
+		return nil, camera.NewUnsupportedStreamError(stream)
+	}
 
-	imgSrc := &alignColorDepth{color, depth, alignCamera, attrs.Debug, logger}
-	return camera.New(imgSrc, attrs.AttrConfig, color) // aligns the image to the color camera
+	imgSrc := &alignColorDepth{
+		color:     color,
+		depth:     depth,
+		aligner:   alignCamera,
+		projector: proj,
+		stream:    stream,
+		height:    attrs.Height,
+		width:     attrs.Width,
+		debug:     attrs.Debug,
+		logger:    logger,
+	}
+	return camera.New(imgSrc, proj)
 }
 
-// Next aligns the next images from the color and the depth sources.
+// Next aligns the next images from the color and the depth sources to the frame of the color camera.
+// stream parameter will determine which channel gets streamed.
 func (acd *alignColorDepth) Next(ctx context.Context) (image.Image, func(), error) {
-	c, cCloser, err := acd.color.Next(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	defer cCloser()
-
-	d, dCloser, err := acd.depth.Next(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer dCloser()
-
-	dm, err := rimage.ConvertImageToDepthMap(d)
-	if err != nil {
-		return nil, nil, err
-	}
-	_, span := trace.StartSpan(ctx, "AlignImageWithDepth")
+	ctx, span := trace.StartSpan(ctx, "imagesource::alignColorDepth::Next")
 	defer span.End()
-	if acd.debug {
-		if !alignCurrentlyWriting {
-			alignCurrentlyWriting = true
-			utils.PanicCapturingGo(func() {
-				defer func() { alignCurrentlyWriting = false }()
-				fn := artifact.MustNewPath(fmt.Sprintf("rimage/imagesource/align-test-%d.both.gz", time.Now().Unix()))
-				ii := rimage.MakeImageWithDepth(rimage.ConvertImage(c), dm, false)
-				err := ii.WriteTo(fn)
-				if err != nil {
-					acd.logger.Debugf("error writing debug file: %s", err)
-				} else {
-					acd.logger.Debugf("wrote debug file to %s", fn)
-				}
-			})
+	switch acd.stream {
+	case camera.ColorStream, camera.UnspecifiedStream:
+		// things are being aligned to the color image, so just return the color image.
+		return acd.color.Next(ctx)
+	case camera.DepthStream:
+		// don't need to request the color image, just its dimensions
+		colDimImage := rimage.NewImage(acd.width, acd.height)
+		depth, depthCloser, err := acd.depth.Next(ctx)
+		if err != nil {
+			return nil, nil, err
 		}
+		dm, err := rimage.ConvertImageToDepthMap(depth)
+		if err != nil {
+			return nil, nil, err
+		}
+		if acd.aligner == nil {
+			return dm, depthCloser, nil
+		}
+		_, alignedDepth, err := acd.aligner.AlignColorAndDepthImage(colDimImage, dm)
+		return alignedDepth, depthCloser, err
+	default:
+		return nil, nil, camera.NewUnsupportedStreamError(acd.stream)
 	}
+}
 
-	aligned, err := acd.alignmentCamera.AlignColorAndDepthImage(rimage.ConvertImage(c), dm)
-	if err != nil {
-		return nil, nil, err
+func (acd *alignColorDepth) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	ctx, span := trace.StartSpan(ctx, "imagesource::alignColorDepth::NextPointCloud")
+	defer span.End()
+	if acd.projector == nil {
+		return nil, transform.NewNoIntrinsicsError("")
 	}
-	return aligned, func() {}, err
+	col, dm := camera.SimultaneousColorDepthNext(ctx, acd.color, acd.depth)
+	if col == nil || dm == nil {
+		return nil, errors.New("requested color or depth image from camera is nil")
+	}
+	if acd.aligner == nil {
+		return acd.projector.RGBDToPointCloud(rimage.ConvertImage(col), dm)
+	}
+	alignedColor, alignedDepth, err := acd.aligner.AlignColorAndDepthImage(rimage.ConvertImage(col), dm)
+	if err != nil {
+		return nil, err
+	}
+	return acd.projector.RGBDToPointCloud(alignedColor, alignedDepth)
 }

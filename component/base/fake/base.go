@@ -30,6 +30,8 @@ func init() {
 	)
 }
 
+var _ = base.LocalBase(&Base{})
+
 // Base is a fake base that returns what it was provided in each method.
 type Base struct {
 	generic.Echo
@@ -38,22 +40,22 @@ type Base struct {
 }
 
 // MoveStraight does nothing.
-func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
+func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	return nil
 }
 
 // Spin does nothing.
-func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
 	return nil
 }
 
 // SetPower does nothing.
-func (b *Base) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+func (b *Base) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	return nil
 }
 
 // SetVelocity does nothing.
-func (b *Base) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+func (b *Base) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	return nil
 }
 
@@ -63,8 +65,13 @@ func (b *Base) GetWidth(ctx context.Context) (int, error) {
 }
 
 // Stop does nothing.
-func (b *Base) Stop(ctx context.Context) error {
+func (b *Base) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return nil
+}
+
+// IsMoving always returns false.
+func (b *Base) IsMoving(ctx context.Context) (bool, error) {
+	return false, nil
 }
 
 // Close does nothing.

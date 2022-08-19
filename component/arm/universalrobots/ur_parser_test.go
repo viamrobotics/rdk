@@ -18,10 +18,10 @@ func Test1(t *testing.T) {
 	state, err := readRobotStateMessage(data, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, int(math.Round(state.Joints[0].AngleDegrees())), test.ShouldEqual, 90)
-	test.That(t, int(math.Round(state.Joints[1].AngleDegrees())), test.ShouldEqual, -90)
-	test.That(t, int(math.Round(state.Joints[2].AngleDegrees())), test.ShouldEqual, 5)
-	test.That(t, int(math.Round(state.Joints[3].AngleDegrees())), test.ShouldEqual, 10)
-	test.That(t, int(math.Round(state.Joints[4].AngleDegrees())), test.ShouldEqual, 15)
-	test.That(t, int(math.Round(state.Joints[5].AngleDegrees())), test.ShouldEqual, 20)
+	test.That(t, int(math.Round(state.Joints[0].AngleValues())), test.ShouldEqual, 90)
+	test.That(t, int(math.Round(state.Joints[1].AngleValues())), test.ShouldEqual, -90)
+	test.That(t, int(math.Round(state.Joints[2].AngleValues())), test.ShouldEqual, 5)
+	test.That(t, int(math.Round(state.Joints[3].AngleValues())), test.ShouldEqual, 10)
+	test.That(t, int(math.Round(state.Joints[4].AngleValues())), test.ShouldEqual, 15)
+	test.That(t, int(math.Round(state.Joints[5].AngleValues())), test.ShouldEqual, 20)
 }

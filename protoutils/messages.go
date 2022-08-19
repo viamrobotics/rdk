@@ -3,13 +3,16 @@ package protoutils
 
 import (
 	"fmt"
-	"google.golang.org/protobuf/types/known/structpb"
 	"reflect"
 	"strings"
+
+	"github.com/golang/geo/r3"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // ResourceNameToProto converts a resource.Name to its proto counterpart.
@@ -18,7 +21,7 @@ func ResourceNameToProto(name resource.Name) *commonpb.ResourceName {
 		Namespace: string(name.Namespace),
 		Type:      string(name.ResourceType),
 		Subtype:   string(name.ResourceSubtype),
-		Name:      name.Name,
+		Name:      name.ShortName(),
 	}
 }
 
@@ -225,4 +228,40 @@ func marshalSlice(data interface{}) ([]interface{}, error) {
 		newList = append(newList, data)
 	}
 	return newList, nil
+}
+
+// ConvertVectorProtoToR3
+func ConvertVectorProtoToR3(v *commonpb.Vector3) r3.Vector {
+	if v == nil {
+		return r3.Vector{}
+	}
+	return r3.Vector{X: v.X, Y: v.Y, Z: v.Z}
+}
+
+// ConvertVectorR3ToProto
+func ConvertVectorR3ToProto(v r3.Vector) *commonpb.Vector3 {
+	return &commonpb.Vector3{X: v.X, Y: v.Y, Z: v.Z}
+}
+
+// ConvertOrientationToProto
+func ConvertOrientationToProto(o spatialmath.Orientation) *commonpb.Orientation {
+	oo := &commonpb.Orientation{}
+	if o != nil {
+		ov := o.OrientationVectorDegrees()
+		oo.OX = ov.OX
+		oo.OY = ov.OY
+		oo.OZ = ov.OZ
+		oo.Theta = ov.Theta
+	}
+	return oo
+}
+
+// ConvertProtoToOrientation
+func ConvertProtoToOrientation(o *commonpb.Orientation) spatialmath.Orientation {
+	return &spatialmath.OrientationVectorDegrees{
+		OX : o.OX,
+		OY : o.OY,
+		OZ : o.OZ,
+		Theta : o.Theta	,
+	}
 }

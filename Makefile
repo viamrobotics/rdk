@@ -4,9 +4,8 @@ TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 
 PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
-VERSION := $(shell git fetch --tags && git tag --sort=-version:refname | head -n 1)
-GIT_REVISION := $(shell git rev-parse HEAD | tr -d '\n')
-LDFLAGS = -ldflags "-X 'go.viam.com/rdk/config.Version=${VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
+GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
+LDFLAGS = -ldflags "$(shell etc/tag_version.sh) -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
 
 default: build lint server
 
@@ -19,8 +18,9 @@ build-go: buf-go
 	go build ./...
 
 build-web: buf-web
-	cd web/frontend/dls && npm ci && npm run build:prod
-	cd web/frontend && npm ci && npx webpack build --config ./webpack.prod.js
+	export NODE_OPTIONS=--openssl-legacy-provider && node --version 2>/dev/null || unset NODE_OPTIONS;\
+	cd web/frontend && npm ci --audit=false && npm run rollup
+	cd web/frontend && npm run build
 
 tool-install:
 	GOBIN=`pwd`/$(TOOL_BIN) go install google.golang.org/protobuf/cmd/protoc-gen-go \
@@ -44,23 +44,25 @@ buf-go: tool-install
 	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s generate
 
 buf-web: tool-install
-	npm install
+	npm ci --audit=false
 	PATH=$(PATH_WITH_TOOLS) buf lint
 	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml
 	PATH=$(PATH_WITH_TOOLS) buf generate --timeout 5m --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
 	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
+	cd web/frontend && npm ci --audit=false && npm run rollup
 
-lint: lint-go lint-web
+lint: lint-buf lint-go
 
-lint-go: tool-install
+lint-buf: tool-install
 	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s lint
 	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s format -w
-	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs go vet -vettool=$(TOOL_BIN)/combined
-	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
-lint-web:
-	cd web/frontend/dls && npm ci && npm run lint
-	cd web/frontend && npm ci && npm run lint
+lint-go: tool-install
+	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs go vet -vettool=$(TOOL_BIN)/combined
+	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | GOGC=50 xargs $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
+
+lint-web: buf-web
+	cd web/frontend && npm ci --audit=false && npm run rollup && npm run lint
 
 cover:
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
@@ -71,12 +73,12 @@ test-go:
 	./etc/test.sh
 
 test-web: build-web
-	cd web/frontend/dls && npm run test:unit
+	cd web/frontend && npm run test:unit
 
 # test.short skips tests requiring external hardware (motors/servos)
 test-pi:
 	go test -c -o $(BIN_OUTPUT_PATH)/test-pi go.viam.com/rdk/component/board/pi/impl
-	sudo $(BIN_OUTPUT_PATH)/test-pi -test.short
+	sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
 
 server:
 	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go

@@ -2,7 +2,6 @@ package framesystem_test
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"testing"
 
@@ -10,7 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/gripper"
@@ -43,10 +42,9 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	defer r.Close(context.Background())
 
 	// use fake registrations to have a FrameSystem return
-	testPose := spatialmath.NewPoseFromAxisAngle(
+	testPose := spatialmath.NewPoseFromOrientation(
 		r3.Vector{X: 1., Y: 2., Z: 3.},
-		r3.Vector{X: 0., Y: 1., Z: 0.},
-		math.Pi/2,
+		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
 
 	transformMsgs := []*commonpb.Transform{
@@ -118,15 +116,15 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
-	t.Log("gps2")
-	test.That(t, fs.GetFrame("gps2"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("gps2").Transform(emptyIn)
+	t.Log("movement_sensor2")
+	test.That(t, fs.GetFrame("movement_sensor2"), test.ShouldNotBeNil)
+	pose, err = fs.GetFrame("movement_sensor2").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
-	t.Log("gps2_offset")
-	test.That(t, fs.GetFrame("gps2_offset"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("gps2_offset").Transform(emptyIn)
+	t.Log("movement_sensor2_offset")
+	test.That(t, fs.GetFrame("movement_sensor2_offset"), test.ShouldNotBeNil)
+	pose, err = fs.GetFrame("movement_sensor2_offset").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
@@ -142,35 +140,41 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{2000, 500, 1300})
 
-	t.Log("gps1")
-	test.That(t, fs.GetFrame("gps1"), test.ShouldBeNil) // gps1 is not registered
+	t.Log("movement_sensor1")
+	test.That(t, fs.GetFrame("movement_sensor1"), test.ShouldBeNil) // movement_sensor1 is not registered
 
 	// There is a point at (1500, 500, 1300) in the world referenceframe. See if it transforms correctly in each referenceframe.
-	worldPt := r3.Vector{1500, 500, 1300}
+	worldPose := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{1500, 500, 1300}))
 	armPt := r3.Vector{0, 0, 500}
-	transformPoint, err := fs.TransformPoint(blankPos, worldPt, referenceframe.World, "pieceArm")
+	tf, err := fs.Transform(blankPos, worldPose, "pieceArm")
 	test.That(t, err, test.ShouldBeNil)
-	pointAlmostEqual(t, transformPoint, armPt)
+	transformPose, _ := tf.(*referenceframe.PoseInFrame)
+	pointAlmostEqual(t, transformPose.Pose().Point(), armPt)
 
 	sensorPt := r3.Vector{0, 0, 500}
-	transformPoint, err = fs.TransformPoint(blankPos, worldPt, referenceframe.World, "gps2")
+	tf, err = fs.Transform(blankPos, worldPose, "movement_sensor2")
 	test.That(t, err, test.ShouldBeNil)
-	pointAlmostEqual(t, transformPoint, sensorPt)
+	transformPose, _ = tf.(*referenceframe.PoseInFrame)
+	pointAlmostEqual(t, transformPose.Pose().Point(), sensorPt)
 
 	gripperPt := r3.Vector{0, 0, 300}
-	transformPoint, err = fs.TransformPoint(blankPos, worldPt, referenceframe.World, "pieceGripper")
+	tf, err = fs.Transform(blankPos, worldPose, "pieceGripper")
 	test.That(t, err, test.ShouldBeNil)
-	pointAlmostEqual(t, transformPoint, gripperPt)
+	transformPose, _ = tf.(*referenceframe.PoseInFrame)
+	pointAlmostEqual(t, transformPose.Pose().Point(), gripperPt)
 
 	cameraPt := r3.Vector{500, 0, 0}
-	transformPoint, err = fs.TransformPoint(blankPos, worldPt, referenceframe.World, "cameraOver")
+	tf, err = fs.Transform(blankPos, worldPose, "cameraOver")
 	test.That(t, err, test.ShouldBeNil)
-	pointAlmostEqual(t, transformPoint, cameraPt)
+	transformPose, _ = tf.(*referenceframe.PoseInFrame)
+	pointAlmostEqual(t, transformPose.Pose().Point(), cameraPt)
 
 	// go from camera point to gripper point
-	transformPoint, err = fs.TransformPoint(blankPos, cameraPt, "cameraOver", "pieceGripper")
+	cameraPose := referenceframe.NewPoseInFrame("cameraOver", spatialmath.NewPoseFromPoint(cameraPt))
+	tf, err = fs.Transform(blankPos, cameraPose, "pieceGripper")
 	test.That(t, err, test.ShouldBeNil)
-	pointAlmostEqual(t, transformPoint, gripperPt)
+	transformPose, _ = tf.(*referenceframe.PoseInFrame)
+	pointAlmostEqual(t, transformPose.Pose().Point(), gripperPt)
 }
 
 // All of these config files should fail.
@@ -226,10 +230,9 @@ func TestWrongFrameSystems(t *testing.T) {
 	err = serviceUpdateable.Update(ctx, resources)
 	test.That(t, err, test.ShouldBeError, errors.New("parent field in frame config for part \"cameraOver\" is empty"))
 
-	testPose := spatialmath.NewPoseFromAxisAngle(
+	testPose := spatialmath.NewPoseFromOrientation(
 		r3.Vector{X: 1., Y: 2., Z: 3.},
-		r3.Vector{X: 0., Y: 1., Z: 0.},
-		math.Pi/2,
+		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
 
 	transformMsgs := []*commonpb.Transform{
@@ -283,13 +286,13 @@ func TestServiceWithRemote(t *testing.T) {
 	defer func() {
 		test.That(t, remoteRobot.Close(context.Background()), test.ShouldBeNil)
 	}()
-	port, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
 	options := weboptions.New()
-	options.Network.BindAddress = fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = ""
+	listener := testutils.ReserveRandomListener(t)
+	addr := listener.Addr().String()
+	options.Network.Listener = listener
 	err = remoteRobot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
-	addr := fmt.Sprintf("localhost:%d", port)
 
 	// make the local robot
 	localConfig := &config.Config{
@@ -343,10 +346,9 @@ func TestServiceWithRemote(t *testing.T) {
 	}
 
 	// make local robot
-	testPose := spatialmath.NewPoseFromAxisAngle(
+	testPose := spatialmath.NewPoseFromOrientation(
 		r3.Vector{X: 1., Y: 2., Z: 3.},
-		r3.Vector{X: 0., Y: 1., Z: 0.},
-		math.Pi/2,
+		&spatialmath.R4AA{Theta: math.Pi / 2, RX: 0., RY: 1., RZ: 0.},
 	)
 
 	transformMsgs := []*commonpb.Transform{

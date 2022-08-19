@@ -15,7 +15,7 @@ import (
 )
 
 func TestDetectorMap(t *testing.T) {
-	fn := func(image.Image) ([]objdet.Detection, error) {
+	fn := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
 	}
 	registeredFn := registeredDetector{detector: fn, closer: nil}
@@ -45,15 +45,16 @@ func TestDetectorMap(t *testing.T) {
 	names = reg.detectorNames()
 	test.That(t, names, test.ShouldContain, fnName)
 	// remove
-	reg.removeDetector(fnName, testlog)
+	err = reg.removeDetector(fnName, testlog)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reg.detectorNames(), test.ShouldNotContain, fnName)
 }
 
 func TestDetectorCloser(t *testing.T) {
-	fakeDetectFn := func(image.Image) ([]objdet.Detection, error) {
+	fakeDetectFn := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
 	}
-	closer := inf.TFLiteStruct{Info: &inf.TFLiteInfo{100, 100, 3, "uint8", 1, 4, []string{}}}
+	closer := inf.TFLiteStruct{Info: &inf.TFLiteInfo{100, 100, 3, []int{1, 100, 100, 3}, "uint8", 1, 4, []string{}}}
 
 	d := registeredDetector{detector: fakeDetectFn, closer: &closer}
 	reg := make(detectorMap)
@@ -64,10 +65,11 @@ func TestDetectorCloser(t *testing.T) {
 }
 
 func TestDetectorRemoval(t *testing.T) {
-	fakeDetectFn := func(image.Image) ([]objdet.Detection, error) {
+	fakeDetectFn := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
 	}
-	closer, err := addTFLiteModel(artifact.MustPath("vision/tflite/effdet0.tflite"), nil)
+	ctx := context.Background()
+	closer, err := addTFLiteModel(ctx, artifact.MustPath("vision/tflite/effdet0.tflite"), nil)
 	test.That(t, err, test.ShouldBeNil)
 	d := registeredDetector{detector: fakeDetectFn, closer: closer}
 	testlog := golog.NewTestLogger(t)
@@ -77,10 +79,12 @@ func TestDetectorRemoval(t *testing.T) {
 	err = reg.registerDetector("y", &d, testlog)
 	test.That(t, err, test.ShouldBeNil)
 	logger, obs := golog.NewObservedTestLogger(t)
-	reg.removeDetector("z", logger)
+	err = reg.removeDetector("z", logger)
+	test.That(t, err, test.ShouldBeNil)
 	got := obs.All()[len(obs.All())-1].Message
 	test.That(t, got, test.ShouldContainSubstring, "no Detector with name")
-	reg.removeDetector("x", logger)
+	err = reg.removeDetector("x", logger)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reg.detectorNames(), test.ShouldNotContain, "x")
 }
 

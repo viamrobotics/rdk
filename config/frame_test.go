@@ -37,6 +37,14 @@ func TestFrame(t *testing.T) {
 	}
 	test.That(t, frame, test.ShouldResemble, exp)
 
+	// test going back to json and validating.
+	rd, err := json.Marshal(&frame)
+	test.That(t, err, test.ShouldBeNil)
+	frame2 := Frame{}
+	err = json.Unmarshal(rd, &frame2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, frame2, test.ShouldResemble, exp)
+
 	pose := frame.Pose()
 	expPose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, exp.Orientation)
 	test.That(t, pose, test.ShouldResemble, expPose)
@@ -69,7 +77,9 @@ func TestMergeFrameSystems(t *testing.T) {
 	err = fs2.AddFrame(frame3, fs2.World())
 	test.That(t, err, test.ShouldBeNil)
 	// frame4 - pure rotiation around y 90 degrees
-	frame4, err := referenceframe.NewStaticFrame("frame4", spatial.NewPoseFromAxisAngle(r3.Vector{}, r3.Vector{0., 1., 0.}, math.Pi/2))
+	frame4, err := referenceframe.NewStaticFrame(
+		"frame4",
+		spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.R4AA{math.Pi / 2, 0., 1., 0.}))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs2.AddFrame(frame4, fs2.GetFrame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
@@ -77,13 +87,11 @@ func TestMergeFrameSystems(t *testing.T) {
 	// merge to fs1 with zero offset
 	err = MergeFrameSystems(fs1, fs2, nil)
 	test.That(t, err, test.ShouldBeNil)
-	pointStart := r3.Vector{0, 0, 0}  // PoV from frame 2
-	pointEnd := r3.Vector{-9, -2, -3} // PoV from frame 4
-	transformPoint, err := fs1.TransformPoint(blankPos, pointStart, "frame2", "frame4")
+	poseStart := spatial.NewZeroPose()                         // PoV from frame 2
+	poseEnd := spatial.NewPoseFromPoint(r3.Vector{-9, -2, -3}) // PoV from frame 4
+	transformPoint, err := fs1.Transform(blankPos, referenceframe.NewPoseInFrame("frame2", poseStart), "frame4")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointEnd.X)
-	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointEnd.Y)
-	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, pointEnd.Z)
+	test.That(t, spatial.PoseAlmostCoincident(transformPoint.(*referenceframe.PoseInFrame).Pose(), poseEnd), test.ShouldBeTrue)
 
 	// reset fs1 framesystem to original
 	fs1 = referenceframe.NewEmptySimpleFrameSystem("test1")
@@ -101,19 +109,16 @@ func TestMergeFrameSystems(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// the frame of test2_world is rotated around z by 90 degrees, then displaced by (1,2,3) in the frame of frame1,
 	// so the origin of frame1 from the perspective of test2_frame should be (-2, 1, -3)
-	pointStart = r3.Vector{0, 0, 0} // PoV from frame 1
-	pointEnd = r3.Vector{-2, 1, -3} // PoV from the world of test2
-	transformPoint, err = fs1.TransformPoint(blankPos, pointStart, "frame1", "test2_world")
+	poseStart = spatial.NewZeroPose()                        // PoV from frame 1
+	poseEnd = spatial.NewPoseFromPoint(r3.Vector{-2, 1, -3}) // PoV from the world of test2
+	transformPoint, err = fs1.Transform(blankPos, referenceframe.NewPoseInFrame("frame1", poseStart), "test2_world")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointEnd.X)
-	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointEnd.Y)
-	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, pointEnd.Z)
+	test.That(t, spatial.PoseAlmostCoincident(transformPoint.(*referenceframe.PoseInFrame).Pose(), poseEnd), test.ShouldBeTrue)
+
 	// frame frame 2 to frame 4
-	pointStart = r3.Vector{0, 0, 0} // PoV from frame 2
-	pointEnd = r3.Vector{-6, -6, 0} // PoV from frame 4
-	transformPoint, err = fs1.TransformPoint(blankPos, pointStart, "frame2", "frame4")
+	poseStart = spatial.NewZeroPose()                        // PoV from frame 2
+	poseEnd = spatial.NewPoseFromPoint(r3.Vector{-6, -6, 0}) // PoV from frame 4
+	transformPoint, err = fs1.Transform(blankPos, referenceframe.NewPoseInFrame("frame2", poseStart), "frame4")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointEnd.X)
-	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointEnd.Y)
-	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, pointEnd.Z)
+	test.That(t, spatial.PoseAlmostCoincident(transformPoint.(*referenceframe.PoseInFrame).Pose(), poseEnd), test.ShouldBeTrue)
 }

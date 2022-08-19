@@ -2,6 +2,7 @@ package referenceframe
 
 import (
 	"context"
+	"fmt"
 
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/utils"
@@ -32,22 +33,11 @@ func InputsToFloats(inputs []Input) []float64 {
 	return floats
 }
 
-// InputsToJointPos will take a slice of Inputs which are all joint position radians, and return a JointPositions struct.
-func InputsToJointPos(inputs []Input) *pb.JointPositions {
-	return JointPositionsFromRadians(InputsToFloats(inputs))
-}
-
-// JointPosToInputs will take a pb.JointPositions which has values in Degrees, convert to Radians and wrap in Inputs.
-func JointPosToInputs(jp *pb.JointPositions) []Input {
-	floats := JointPositionsToRadians(jp)
-	return FloatsToInputs(floats)
-}
-
 // JointPositionsToRadians converts the given positions into a slice
 // of radians.
 func JointPositionsToRadians(jp *pb.JointPositions) []float64 {
-	n := make([]float64, len(jp.Degrees))
-	for idx, d := range jp.Degrees {
+	n := make([]float64, len(jp.Values))
+	for idx, d := range jp.Values {
 		n[idx] = utils.DegToRad(d)
 	}
 	return n
@@ -60,7 +50,7 @@ func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 	for idx, a := range radians {
 		n[idx] = utils.RadToDeg(a)
 	}
-	return &pb.JointPositions{Degrees: n}
+	return &pb.JointPositions{Values: n}
 }
 
 // InputEnabled is a standard interface for all things that interact with the frame system
@@ -80,4 +70,17 @@ func InterpolateInputs(from, to []Input, by float64) []Input {
 		newVals = append(newVals, Input{j1.Value + ((to[i].Value - j1.Value) * by)})
 	}
 	return newVals
+}
+
+// GetFrameInputs looks through the inputMap and returns a slice of Inputs corresponding to the given frame.
+func GetFrameInputs(frame Frame, inputMap map[string][]Input) ([]Input, error) {
+	var input []Input
+	// Get frame inputs if necessary
+	if len(frame.DoF()) > 0 {
+		if _, ok := inputMap[frame.Name()]; !ok {
+			return nil, fmt.Errorf("no positions provided for frame with name %s", frame.Name())
+		}
+		input = inputMap[frame.Name()]
+	}
+	return input, nil
 }

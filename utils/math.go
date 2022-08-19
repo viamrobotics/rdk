@@ -9,7 +9,7 @@ import (
 	"sort"
 
 	"github.com/golang/geo/r3"
-	"github.com/gonum/stat/distuv"
+	"gonum.org/v1/gonum/stat/distuv"
 )
 
 // DegToRad converts degrees to radians.
@@ -154,6 +154,31 @@ func Clamp(value float64, min float64, max float64) float64 {
 		return max
 	}
 	return value
+}
+
+// CycleIntSliceByN cycles the list to the right by n steps.
+func CycleIntSliceByN(s []int, n int) []int {
+	n %= len(s)
+	res := make([]int, 0, len(s))
+	res = append(res, s[n:]...)
+	res = append(res, s[:n]...)
+	return res
+}
+
+// SampleNRegularlySpaced returns the same set of evenly divided numbers every time, and is mostly used for testing purposes.
+func SampleNRegularlySpaced(n int, vMin, vMax float64) []int {
+	if vMax < vMin {
+		panic("vMax cannot be less than vMin")
+	}
+	length := vMax - vMin
+	step := length / float64(n)
+	result := make([]int, n)
+	add := 0.0
+	for i := range result {
+		result[i] = int(vMin) + int(math.Round(add))
+		add += step
+	}
+	return result
 }
 
 // SampleNIntegersNormal samples n integers from normal distribution centered around (vMax+vMin) / 2

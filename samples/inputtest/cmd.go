@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream/codec/x264"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/input"
+	_ "go.viam.com/rdk/component/input/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -28,7 +30,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
-	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
+	myRobot, err := robotimpl.RobotFromConfig(
+		ctx,
+		cfg,
+		logger,
+		robotimpl.WithWebOptions(web.WithStreamConfig(x264.DefaultStreamConfig)),
+	)
 	if err != nil {
 		return err
 	}

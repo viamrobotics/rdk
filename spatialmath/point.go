@@ -27,9 +27,7 @@ func NewPointCreator(offset Pose) GeometryCreator {
 
 // NewGeometry instantiates a new point from a PointCreator class.
 func (pc *pointCreator) NewGeometry(pose Pose) Geometry {
-	p := &point{pc.offset}
-	p.Transform(pose)
-	return p
+	return &point{Compose(pc.offset, pose)}
 }
 
 func (pc *pointCreator) MarshalJSON() ([]byte, error) {
@@ -66,8 +64,8 @@ func (pt *point) AlmostEqual(g Geometry) bool {
 }
 
 // Transform premultiplies the point pose with a transform, allowing the point to be moved in space.
-func (pt *point) Transform(toPremultiply Pose) {
-	pt.pose = Compose(toPremultiply, pt.pose)
+func (pt *point) Transform(toPremultiply Pose) Geometry {
+	return &point{Compose(toPremultiply, pt.pose)}
 }
 
 // ToProto converts the point to a Geometry proto message.

@@ -2,6 +2,7 @@ package gpio
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	fakeboard "go.viam.com/rdk/component/board/fake"
+	"go.viam.com/rdk/component/encoder"
 	"go.viam.com/rdk/component/motor"
 	fakemotor "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
@@ -22,29 +24,43 @@ func nowNanosTest() uint64 {
 	return uint64(time.Now().UnixNano())
 }
 
+type fakeDirectionAware struct {
+	m *fakemotor.Motor
+}
+
+func (f *fakeDirectionAware) DirectionMoving() int64 {
+	return int64(f.m.Direction())
+}
+
 func TestMotorEncoder1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	undo := SetRPMSleepDebug(1, false)
 	defer undo()
 
 	cfg := motor.Config{TicksPerRotation: 100, MaxRPM: 100}
-	fakeMotor := &fakemotor.Motor{}
+	fakeMotor := &fakemotor.Motor{
+		MaxRPM:           100,
+		Logger:           logger,
+		TicksPerRotation: 100,
+	}
 	interrupt := &board.BasicDigitalInterrupt{}
 
-	motorIfc, err := NewEncodedMotor(config.Component{}, cfg, fakeMotor, nil, logger)
+	e := &encoder.SingleEncoder{I: interrupt, CancelCtx: context.Background()}
+	e.AttachDirectionalAwareness(&fakeDirectionAware{m: fakeMotor})
+	e.Start(context.Background())
+	motorIfc, err := NewEncodedMotor(config.Component{}, cfg, fakeMotor, e, logger)
 	test.That(t, err, test.ShouldBeNil)
 	_motor, ok := motorIfc.(*EncodedMotor)
 	test.That(t, ok, test.ShouldBeTrue)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), _motor), test.ShouldBeNil)
 	}()
-	_motor.encoder = board.NewSingleEncoder(interrupt, _motor)
 
 	t.Run("encoded motor testing the basics", func(t *testing.T) {
-		isOn, err := _motor.IsPowered(context.Background())
+		isOn, err := _motor.IsPowered(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isOn, test.ShouldBeFalse)
-		features, err := _motor.GetFeatures(context.Background())
+		features, err := _motor.GetFeatures(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
 	})
@@ -58,13 +74,13 @@ func TestMotorEncoder1(t *testing.T) {
 	})
 
 	t.Run("encoded motor testing SetPower", func(t *testing.T) {
-		test.That(t, _motor.SetPower(context.Background(), .01), test.ShouldBeNil)
+		test.That(t, _motor.SetPower(context.Background(), .01, nil), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldEqual, .01)
 	})
 
 	t.Run("encoded motor testing Stop", func(t *testing.T) {
-		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background(), nil), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 0)
 	})
 
@@ -81,12 +97,12 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, interrupt.Ticks(context.Background(), 99, nowNanosTest()), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 
-		_motor.SetPower(context.Background(), .25)
+		_motor.SetPower(context.Background(), .25, nil)
 		test.That(t, interrupt.Ticks(context.Background(), 1000, nowNanosTest()), test.ShouldBeNil) // go far!
 	})
 
 	t.Run("encoded motor testing Go (non controlled)", func(t *testing.T) {
-		_motor.SetPower(context.Background(), .25)
+		_motor.SetPower(context.Background(), .25, nil)
 		test.That(t, interrupt.Ticks(context.Background(), 1000, nowNanosTest()), test.ShouldBeNil) // go far!
 
 		// we should still be moving at the previous force
@@ -96,13 +112,13 @@ func TestMotorEncoder1(t *testing.T) {
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 1)
 		})
 
-		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background(), nil), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			pos, err := _motor.GetPosition(context.Background())
+			pos, err := _motor.GetPosition(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, pos, test.ShouldEqual, 20.99)
+			test.That(tb, math.Abs(pos-20.99), test.ShouldBeLessThan, 0.01)
 		})
 	})
 
@@ -123,7 +139,7 @@ func TestMotorEncoder1(t *testing.T) {
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 0)
 		})
 
-		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background(), nil), test.ShouldBeNil)
 
 		test.That(t, _motor.goForInternal(context.Background(), 1000, 1), test.ShouldBeNil)
 		atStart := _motor.RPMMonitorCalls()
@@ -133,7 +149,7 @@ func TestMotorEncoder1(t *testing.T) {
 			test.That(tb, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, 0.5)
 		})
 
-		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background(), nil), test.ShouldBeNil)
 	})
 
 	t.Run("encoded motor testing GoFor (REV - | REV +)", func(t *testing.T) {
@@ -153,7 +169,7 @@ func TestMotorEncoder1(t *testing.T) {
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 0)
 		})
 
-		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background(), nil), test.ShouldBeNil)
 
 		test.That(t, _motor.goForInternal(context.Background(), -1000, 1), test.ShouldBeNil)
 		atStart := _motor.RPMMonitorCalls()
@@ -162,7 +178,7 @@ func TestMotorEncoder1(t *testing.T) {
 			test.That(tb, _motor.RPMMonitorCalls(), test.ShouldBeGreaterThan, atStart+10)
 			test.That(tb, fakeMotor.PowerPct(), test.ShouldEqual, -1)
 		})
-		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background(), nil), test.ShouldBeNil)
 	})
 
 	t.Run("encoded motor testing GoFor (REV + | REV -)", func(t *testing.T) {
@@ -182,7 +198,7 @@ func TestMotorEncoder1(t *testing.T) {
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 0)
 		})
 
-		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background(), nil), test.ShouldBeNil)
 
 		test.That(t, _motor.goForInternal(context.Background(), 1000, -1), test.ShouldBeNil)
 		atStart := _motor.RPMMonitorCalls()
@@ -192,7 +208,7 @@ func TestMotorEncoder1(t *testing.T) {
 			test.That(tb, fakeMotor.PowerPct(), test.ShouldEqual, -1)
 		})
 
-		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background(), nil), test.ShouldBeNil)
 	})
 
 	t.Run("encoded motor testing GoFor (REV - | REV -)", func(t *testing.T) {
@@ -212,7 +228,7 @@ func TestMotorEncoder1(t *testing.T) {
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 0)
 		})
 
-		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background(), nil), test.ShouldBeNil)
 
 		test.That(t, _motor.goForInternal(context.Background(), -1000, -1), test.ShouldBeNil)
 		atStart := _motor.RPMMonitorCalls()
@@ -222,7 +238,7 @@ func TestMotorEncoder1(t *testing.T) {
 			test.That(tb, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, 0.5)
 		})
 
-		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background(), nil), test.ShouldBeNil)
 	})
 }
 
@@ -232,7 +248,7 @@ func TestMotorEncoderHall(t *testing.T) {
 	defer undo()
 
 	type testHarness struct {
-		Encoder   *board.HallEncoder
+		Encoder   *encoder.HallEncoder
 		EncoderA  board.DigitalInterrupt
 		EncoderB  board.DigitalInterrupt
 		RealMotor *fakemotor.Motor
@@ -242,10 +258,15 @@ func TestMotorEncoderHall(t *testing.T) {
 	setup := func(t *testing.T) testHarness {
 		t.Helper()
 		cfg := motor.Config{TicksPerRotation: 100, MaxRPM: 100}
-		fakeMotor := &fakemotor.Motor{}
+		fakeMotor := &fakemotor.Motor{
+			MaxRPM:           100,
+			Logger:           logger,
+			TicksPerRotation: 100,
+		}
 		encoderA := &board.BasicDigitalInterrupt{}
 		encoderB := &board.BasicDigitalInterrupt{}
-		encoder := board.NewHallEncoder(encoderA, encoderB)
+		encoder := &encoder.HallEncoder{A: encoderA, B: encoderB, CancelCtx: context.Background()}
+		encoder.Start(context.Background())
 
 		motorIfc, err := NewEncodedMotor(config.Component{}, cfg, fakeMotor, encoder, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -305,7 +326,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 1)
-			pos, err := encoder.GetPosition(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 0)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -315,7 +336,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 2)
-			pos, err := encoder.GetPosition(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 1)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -325,7 +346,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 3)
-			pos, err := encoder.GetPosition(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 1)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -335,7 +356,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 4)
-			pos, err := encoder.GetPosition(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 2)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -361,7 +382,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 1)
-			pos, err := encoder.GetPosition(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 0)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -371,7 +392,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 2)
-			pos, err := encoder.GetPosition(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 1)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -381,7 +402,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 3)
-			pos, err := encoder.GetPosition(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 1)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -391,7 +412,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 4)
-			pos, err := encoder.GetPosition(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 2)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -401,7 +422,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 3)
-			pos, err := encoder.GetPosition(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 1)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -411,7 +432,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 2)
-			pos, err := encoder.GetPosition(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 1)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -421,7 +442,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 1)
-			pos, err := encoder.GetPosition(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 0)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -431,7 +452,7 @@ func TestMotorEncoderHall(t *testing.T) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 0)
-			pos, err := encoder.GetPosition(context.Background())
+			pos, err := encoder.GetTicksCount(context.Background(), nil)
 			test.That(tb, pos, test.ShouldEqual, 0)
 			test.That(tb, err, test.ShouldBeNil)
 		})
@@ -529,40 +550,19 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
 	})
 
-	t.Run("wrap motor with encoder no ticksPerRotation", func(t *testing.T) {
-		fakeMotor := &fakemotor.Motor{}
-		m, err := WrapMotorWithEncoder(
-			context.Background(),
-			nil,
-			config.Component{Name: "motor1"}, motor.Config{EncoderA: "a"},
-			fakeMotor,
-			logger,
-		)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, m, test.ShouldBeNil)
-		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
-	})
-
 	t.Run("wrap motor with single encoder", func(t *testing.T) {
 		b, err := fakeboard.NewBoard(context.Background(), config.Component{ConvertedAttributes: &board.Config{}}, rlog.Logger)
 		test.That(t, err, test.ShouldBeNil)
 		fakeMotor := &fakemotor.Motor{}
+		b.Digitals["a"] = &board.BasicDigitalInterrupt{}
+		e := &encoder.SingleEncoder{I: b.Digitals["a"], CancelCtx: context.Background()}
+		e.AttachDirectionalAwareness(&fakeDirectionAware{m: fakeMotor})
+		e.Start(context.Background())
+
 		m, err := WrapMotorWithEncoder(
 			context.Background(),
-			b,
-			config.Component{Name: "motor1"}, motor.Config{EncoderA: "a", TicksPerRotation: 100},
-			fakeMotor,
-			logger,
-		)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, m, test.ShouldBeNil)
-		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
-
-		b.Digitals["a"] = &board.BasicDigitalInterrupt{}
-		m, err = WrapMotorWithEncoder(
-			context.Background(),
-			b,
-			config.Component{Name: "motor1"}, motor.Config{EncoderA: "a", TicksPerRotation: 100},
+			e,
+			config.Component{Name: "motor1"}, motor.Config{TicksPerRotation: 100},
 			fakeMotor,
 			logger,
 		)
@@ -576,26 +576,21 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		b, err := fakeboard.NewBoard(context.Background(), config.Component{ConvertedAttributes: &board.Config{}}, rlog.Logger)
 		test.That(t, err, test.ShouldBeNil)
 		fakeMotor := &fakemotor.Motor{}
+		b.Digitals["a"] = &board.BasicDigitalInterrupt{}
+		b.Digitals["b"] = &board.BasicDigitalInterrupt{}
+		e := &encoder.HallEncoder{A: b.Digitals["a"], B: b.Digitals["b"], CancelCtx: context.Background()}
+		e.Start(context.Background())
+
 		m, err := WrapMotorWithEncoder(
 			context.Background(),
-			b,
-			config.Component{Name: "motor1"}, motor.Config{EncoderA: "a", TicksPerRotation: 100, EncoderB: "b"},
+			e,
+			config.Component{Name: "motor1"}, motor.Config{TicksPerRotation: 100},
 			fakeMotor,
 			logger,
 		)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, m, test.ShouldBeNil)
-		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
-
-		m, err = WrapMotorWithEncoder(
-			context.Background(),
-			b,
-			config.Component{Name: "motor1"}, motor.Config{EncoderA: "a", EncoderB: "b", TicksPerRotation: 100},
-			fakeMotor,
-			logger,
-		)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, m, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
+		_, ok := m.(*EncodedMotor)
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
 	})
 }

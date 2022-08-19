@@ -10,18 +10,17 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"runtime/pprof"
-	"sync/atomic"
 	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/edaniels/gostream/codec/x264"
 	"github.com/pkg/errors"
 	"github.com/tonyOreglia/glee/pkg/engine"
 	"github.com/tonyOreglia/glee/pkg/moves"
 	"github.com/tonyOreglia/glee/pkg/position"
 	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"
-	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/camera"
@@ -49,8 +48,6 @@ var (
 	BoardHeight    = -230.0
 	SafeMoveHeight = BoardHeight + 150
 
-	wantPicture = int32(0)
-
 	numPiecesCaptured = 0
 	logger            = golog.NewDevelopmentLogger("chess")
 )
@@ -71,12 +68,12 @@ func getCoord(chess string) pos {
 
 func moveTo(ctx context.Context, myArm arm.Arm, chess string, heightModMillis int64) error {
 	// first make sure in safe position
-	where, err := myArm.GetEndPosition(ctx)
+	where, err := myArm.GetEndPosition(ctx, nil)
 	if err != nil {
 		return err
 	}
 	where.Z = SafeMoveHeight + float64(heightModMillis)
-	err = myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+	err = myArm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 	if err != nil {
 		return err
 	}
@@ -92,7 +89,7 @@ func moveTo(ctx context.Context, myArm arm.Arm, chess string, heightModMillis in
 		where.X = float64(f.x)
 		where.Y = float64(f.y)
 	}
-	return myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+	return myArm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 }
 
 func movePiece(
@@ -134,12 +131,12 @@ func movePiece(
 	}
 
 	height := boardState.NewestBoard().SquareCenterHeight(from, 35) // TODO(erh): change to something more intelligent
-	where, err := myArm.GetEndPosition(ctx)
+	where, err := myArm.GetEndPosition(ctx, nil)
 	if err != nil {
 		return err
 	}
 	where.Z = BoardHeight + height + 10
-	myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+	myArm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 
 	// grab piece
 	for {
@@ -157,7 +154,7 @@ func movePiece(
 			return err
 		}
 		logger.Debug("no piece")
-		where, err = myArm.GetEndPosition(ctx)
+		where, err = myArm.GetEndPosition(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -165,7 +162,7 @@ func movePiece(
 		if where.Z <= BoardHeight {
 			return errors.New("no piece")
 		}
-		myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+		myArm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 	}
 
 	saveZ := where.Z // save the height to bring the piece down to
@@ -196,22 +193,22 @@ func movePiece(
 	}
 
 	// drop piece
-	where, err = myArm.GetEndPosition(ctx)
+	where, err = myArm.GetEndPosition(ctx, nil)
 	if err != nil {
 		return err
 	}
 
 	where.Z = saveZ
-	myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+	myArm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 	myGripper.Open(ctx)
 
 	if to != "-" {
-		where, err = myArm.GetEndPosition(ctx)
+		where, err = myArm.GetEndPosition(ctx, nil)
 		if err != nil {
 			return err
 		}
 		where.Z = SafeMoveHeight
-		myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+		myArm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 		moveOutOfWay(ctx, myArm)
 	}
 	return nil
@@ -220,7 +217,7 @@ func movePiece(
 func moveOutOfWay(ctx context.Context, myArm arm.Arm) error {
 	foo := getCoord("a1")
 
-	where, err := myArm.GetEndPosition(ctx)
+	where, err := myArm.GetEndPosition(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -228,16 +225,16 @@ func moveOutOfWay(ctx context.Context, myArm arm.Arm) error {
 	where.Y = float64(foo.y)
 	where.Z = SafeMoveHeight + 300 // HARD CODED
 
-	return myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+	return myArm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 }
 
 func moveJointDelta(ctx context.Context, myArm arm.Arm, joint int, degAngle float64) error {
-	joints, err := myArm.GetJointPositions(ctx)
+	joints, err := myArm.GetJointPositions(ctx, nil)
 	if err != nil {
 		return err
 	}
-	joints.Degrees[joint] += degAngle
-	return myArm.MoveToJointPositions(ctx, joints)
+	joints.Values[joint] += degAngle
+	return myArm.MoveToJointPositions(ctx, joints, nil)
 }
 
 func initArm(ctx context.Context, myArm arm.Arm) error {
@@ -251,7 +248,7 @@ func initArm(ctx context.Context, myArm arm.Arm) error {
 		OY:    0,
 		OZ:    0,
 	}
-	err := myArm.MoveToPosition(ctx, target, &commonpb.WorldState{})
+	err := myArm.MoveToPosition(ctx, target, &commonpb.WorldState{}, nil)
 	if err != nil {
 		return err
 	}
@@ -301,7 +298,7 @@ func getWristPicCorners(ctx context.Context, wristCam gostream.ImageSource, debu
 	defer release()
 
 	// got picture finally
-	out, corners, err := chess.FindChessCornersPinkCheat(rimage.ConvertToImageWithDepth(img), logger)
+	out, corners, err := chess.FindChessCornersPinkCheat(rimage.ConvertImage(img), logger)
 	if err != nil {
 		return nil, imageSize, err
 	}
@@ -329,7 +326,7 @@ func lookForBoardAdjust(
 ) error {
 	debugNumber := 100
 	for {
-		where, err := myArm.GetEndPosition(ctx)
+		where, err := myArm.GetEndPosition(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -358,7 +355,7 @@ func lookForBoardAdjust(
 
 		where.X += xMove * 1000
 		where.Y += yMove * 1000
-		err = myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+		err = myArm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 		if err != nil {
 			return err
 		}
@@ -381,7 +378,7 @@ func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot robot.Robot) error
 
 	for foo := -1.0; foo <= 1.0; foo += 2 {
 		// HARD CODED
-		where, err := myArm.GetEndPosition(ctx)
+		where, err := myArm.GetEndPosition(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -392,7 +389,7 @@ func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot robot.Robot) error
 		where.OX = -2.600206
 		where.OY = -0.007839
 		where.OZ = -0.061827
-		err = myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+		err = myArm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 		if err != nil {
 			return err
 		}
@@ -436,7 +433,7 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 	}
 
 	for {
-		where, err := arm.GetEndPosition(ctx)
+		where, err := arm.GetEndPosition(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -449,7 +446,10 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 		var dm *rimage.DepthMap
 		func() {
 			defer release()
-			dm = rimage.ConvertToImageWithDepth(raw).Depth
+			dm, err = rimage.ConvertImageToDepthMap(raw)
+			if err != nil {
+				rlog.Logger.Error("could not convert image to DepthMap")
+			}
 		}()
 		if dm == nil {
 			return errors.New("no depth on gripperCam")
@@ -481,7 +481,7 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 
 		rlog.Logger.Infof("\t moving to %v,%v\n", where.X, where.Y)
 
-		err = arm.MoveToPosition(ctx, where, &commonpb.WorldState{})
+		err = arm.MoveToPosition(ctx, where, &commonpb.WorldState{}, nil)
 		if err != nil {
 			return err
 		}
@@ -516,7 +516,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
-	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
+	myRobot, err := robotimpl.RobotFromConfig(
+		ctx,
+		cfg,
+		logger,
+		robotimpl.WithWebOptions(web.WithStreamConfig(x264.DefaultStreamConfig)),
+	)
 	if err != nil {
 		return err
 	}
@@ -581,30 +586,23 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 					logger.Debugf("error reading device: %s", err)
 					return
 				}
-
-				theBoard, err := chess.FindAndWarpBoard(rimage.ConvertToImageWithDepth(img), logger)
+				im := rimage.ConvertImage(img)
+				theBoard, err := chess.FindAndWarpBoard(im, nil, logger)
 				if err != nil {
 					logger.Debug(err)
 					return
 				}
 
-				annotated := theBoard.Annotate()
-
 				if theBoard.IsBoardBlocked() {
 					logger.Debug("board blocked")
 					boardState.Clear()
-					wantPicture = 1
 				} else {
 					// boardState now owns theBoard
-					interessting, err := boardState.newData(theBoard)
+					_, err := boardState.newData(theBoard)
 					if err != nil {
-						wantPicture = 1
 						logger.Debug(err)
 						boardState.Clear()
-					} else if interessting {
-						wantPicture = 1
 					}
-
 					if boardState.Ready() {
 						if !initialPositionOk {
 							bb, err := boardState.GetBitBoard()
@@ -652,19 +650,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 							}
 						}
 					}
-				}
-
-				iwd := rimage.ConvertToImageWithDepth(annotated)
-				if atomic.LoadInt32(&wantPicture) != 0 {
-					tm := time.Now().Unix()
-
-					fn := artifact.MustNewPath(fmt.Sprintf("samples/chess/board-%d.both.gz", tm))
-					logger.Debugf("saving image %s", fn)
-					if err := iwd.WriteTo(fn); err != nil {
-						panic(err)
-					}
-
-					atomic.StoreInt32(&wantPicture, 0)
 				}
 			}()
 		}

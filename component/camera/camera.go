@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
@@ -47,6 +48,10 @@ func init() {
 		Subtype:    SubtypeName,
 		MethodName: nextPointCloud.String(),
 	}, newNextPointCloudCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: next.String(),
+	}, newNextCollector)
 }
 
 // SubtypeName is a constant that identifies the camera resource subtype string.
@@ -69,50 +74,52 @@ type Camera interface {
 	gostream.ImageSource
 	generic.Generic
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
+	GetProperties(ctx context.Context) (rimage.Projector, error)
+	GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error)
 }
 
-// WithProjector is a camera with the capability to project images to 3D.
-type WithProjector interface {
-	Camera
-	GetProjector() rimage.Projector
+// A PointCloudSource is a source that can generate pointclouds.
+type PointCloudSource interface {
+	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
 }
 
-// Projector will return the camera's projector if it has it, or returns nil if not.
-func Projector(cam Camera) rimage.Projector {
-	var proj rimage.Projector
-	if c, ok := cam.(WithProjector); ok {
-		proj = c.GetProjector()
-	} else if c, ok := utils.UnwrapProxy(cam).(WithProjector); ok {
-		proj = c.GetProjector()
+// A FrameSource is a source that can generate frames.
+type FrameSource interface {
+	GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error)
+}
+
+// GetProjector either gets the camera parameters from the config, or if the camera has a parent source,
+// can copy over the projector from there. If the camera doesn't have a projector, will return false.
+func GetProjector(ctx context.Context, attrs *AttrConfig, parentSource Camera) (rimage.Projector, bool) {
+	// if the camera parameters are specified in the config, those get priority.
+	if attrs != nil && attrs.CameraParameters != nil {
+		return attrs.CameraParameters, true
 	}
-	return proj
+	// inherit camera parameters from source camera if possible.
+	if parentSource != nil {
+		proj, err := parentSource.GetProperties(ctx)
+		if errors.Is(err, transform.ErrNoIntrinsics) {
+			return nil, false
+		} else if err != nil {
+			panic(err)
+		}
+		return proj, true
+	}
+	return nil, false
 }
 
-// New creates a Camera either with or without a projector, depending on if the camera config has the parameters,
-// or if it has a parent Camera with camera parameters that it should copy. parentSource and attrs can be nil.
-func New(imgSrc gostream.ImageSource, attrs *AttrConfig, parentSource Camera) (Camera, error) {
+// New creates a Camera either with or without a projector.
+func New(imgSrc gostream.ImageSource, proj rimage.Projector) (Camera, error) {
 	if imgSrc == nil {
 		return nil, errors.New("cannot have a nil image source")
 	}
-	// if the camera parameters are specified in the config, those get priority.
-	if attrs != nil && attrs.CameraParameters != nil {
-		return &imageSourceWithProjector{imgSrc, attrs.CameraParameters, generic.Unimplemented{}}, nil
-	}
-	// inherit camera parameters from source camera if possible. if not, create a camera without projector.
-	if reconfigCam, ok := parentSource.(*reconfigurableCamera); ok {
-		if c, ok := reconfigCam.ProxyFor().(WithProjector); ok {
-			return &imageSourceWithProjector{imgSrc, c.GetProjector(), generic.Unimplemented{}}, nil
-		}
-	}
-	if camera, ok := parentSource.(WithProjector); ok {
-		return &imageSourceWithProjector{imgSrc, camera.GetProjector(), generic.Unimplemented{}}, nil
-	}
-	return &imageSource{imgSrc, generic.Unimplemented{}}, nil
+	return &imageSource{imgSrc, proj, generic.Unimplemented{}}, nil
 }
 
 // ImageSource implements a Camera with a gostream.ImageSource.
 type imageSource struct {
 	gostream.ImageSource
+	projector rimage.Projector
 	generic.Unimplemented
 }
 
@@ -125,55 +132,57 @@ func (is *imageSource) Close(ctx context.Context) error {
 func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::imageSource::NextPointCloud")
 	defer span.End()
-	if c, ok := is.ImageSource.(Camera); ok {
+	if c, ok := is.ImageSource.(PointCloudSource); ok {
 		return c.NextPointCloud(ctx)
 	}
-	return nil, errors.New("source has no Projector/Camera Intrinsics associated with it to do a projection to a point cloud")
-}
-
-// ImageSourceWithProjector implements a CameraWithProjector with a gostream.ImageSource and Projector.
-type imageSourceWithProjector struct {
-	gostream.ImageSource
-	projector rimage.Projector
-	generic.Unimplemented
-}
-
-// Close closes the underlying ImageSource.
-func (iswp *imageSourceWithProjector) Close(ctx context.Context) error {
-	return viamutils.TryClose(ctx, iswp.ImageSource)
-}
-
-// Projector returns the camera's Projector.
-func (iswp *imageSourceWithProjector) GetProjector() rimage.Projector {
-	return iswp.projector
-}
-
-// NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
-func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	ctx, span := trace.StartSpan(ctx, "camera::imageSourceWithProjector::NextPointCloud")
-	defer span.End()
-	if c, ok := iswp.ImageSource.(Camera); ok {
-		return c.NextPointCloud(ctx)
+	if is.projector == nil {
+		return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")
 	}
-	img, closer, err := iswp.Next(ctx)
+	img, release, err := is.Next(ctx)
+	defer release()
 	if err != nil {
 		return nil, err
 	}
-
 	dm, ok := img.(*rimage.DepthMap)
-	if ok {
-		return dm.ToPointCloud(iswp.projector), nil
+	if !ok {
+		return nil, errors.New("image has no depth information to project to pointcloud")
+	}
+	return dm.ToPointCloud(is.projector), nil
+}
+
+func (is *imageSource) GetProperties(ctx context.Context) (rimage.Projector, error) {
+	if is.projector != nil {
+		return is.projector, nil
+	}
+	return nil, transform.NewNoIntrinsicsError("No features in config")
+}
+
+func (is *imageSource) GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+	if c, ok := is.ImageSource.(FrameSource); ok {
+		return c.GetFrame(ctx, mimeType)
 	}
 
-	defer closer()
+	img, release, err := is.Next(ctx)
+	if err != nil {
+		return nil, mimeType, 0, 0, err
+	}
+	defer func() {
+		if release != nil {
+			release()
+		}
+	}()
 
-	_, toImageWithDepthSpan := trace.StartSpan(ctx, "camera::imageSourceWithProjector::NextPointCloud::ConvertToImageWithDepth")
-	imageWithDepth := rimage.ConvertToImageWithDepth(img)
-	toImageWithDepthSpan.End()
+	// choose the best/fastest representation
+	if mimeType == "" {
+		mimeType = utils.MimeTypePNG
+	}
 
-	_, toPcdSpan := trace.StartSpan(ctx, "camera::imageSourceWithProjector::NextPointCloud::ImageWithDepthToPointCloud")
-	defer toPcdSpan.End()
-	return iswp.projector.ImageWithDepthToPointCloud(imageWithDepth)
+	imgData, err := rimage.EncodeImage(ctx, img, mimeType)
+	if err != nil {
+		return nil, mimeType, 0, 0, err
+	}
+	bounds := img.Bounds()
+	return imgData, mimeType, int64(bounds.Dx()), int64(bounds.Dy()), nil
 }
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
@@ -191,6 +200,7 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 var (
 	_ = Camera(&reconfigurableCamera{})
 	_ = resource.Reconfigurable(&reconfigurableCamera{})
+	_ = viamutils.ContextCloser(&reconfigurableCamera{})
 )
 
 // FromDependencies is a helper for getting the named camera from a collection of
@@ -248,6 +258,12 @@ func (c *reconfigurableCamera) NextPointCloud(ctx context.Context) (pointcloud.P
 	return c.actual.NextPointCloud(ctx)
 }
 
+func (c *reconfigurableCamera) GetProperties(ctx context.Context) (rimage.Projector, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.actual.GetProperties(ctx)
+}
+
 func (c *reconfigurableCamera) Close(ctx context.Context) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -258,6 +274,12 @@ func (c *reconfigurableCamera) Do(ctx context.Context, cmd map[string]interface{
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.actual.Do(ctx, cmd)
+}
+
+func (c *reconfigurableCamera) GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.actual.GetFrame(ctx, mimeType)
 }
 
 // Reconfigure reconfigures the resource.
@@ -273,4 +295,37 @@ func (c *reconfigurableCamera) Reconfigure(ctx context.Context, newCamera resour
 	}
 	c.actual = actual.actual
 	return nil
+}
+
+// SimultaneousColorDepthNext will call Next on both the color and depth camera as simultaneously as possible.
+func SimultaneousColorDepthNext(ctx context.Context, color, depth gostream.ImageSource) (image.Image, *rimage.DepthMap) {
+	wg := sync.WaitGroup{}
+	var col image.Image
+	var dm *rimage.DepthMap
+	// do a parallel request for the color and depth image
+	// get color image
+	wg.Add(1)
+	viamutils.PanicCapturingGo(func() {
+		defer wg.Done()
+		var err error
+		col, _, err = color.Next(ctx)
+		if err != nil {
+			panic(err)
+		}
+	})
+	// get depth image
+	wg.Add(1)
+	viamutils.PanicCapturingGo(func() {
+		defer wg.Done()
+		d, _, err := depth.Next(ctx)
+		if err != nil {
+			panic(err)
+		}
+		dm, err = rimage.ConvertImageToDepthMap(d)
+		if err != nil {
+			panic(err)
+		}
+	})
+	wg.Wait()
+	return col, dm
 }

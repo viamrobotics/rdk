@@ -83,7 +83,7 @@ func init() {
 			if ttl == 0 {
 				return nil, errors.New("need to specify a ttl")
 			}
-			//nolint:contextcheck
+
 			return New(logger, port, ttl)
 		}})
 }
@@ -128,7 +128,7 @@ func New(logger golog.Logger, port int, ttlMilliseconds int) (camera.Camera, err
 		c.run(cancelCtx, listener)
 	})
 
-	return camera.New(c, nil, nil)
+	return camera.New(c, nil)
 }
 
 func (c *client) setLastError(err error) {

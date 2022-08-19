@@ -27,10 +27,19 @@ func init() {
 		Constructor: func(
 			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return CreateFourWheelBase(ctx, deps, config, logger)
+			return CreateFourWheelBase(ctx, deps, config.ConvertedAttributes.(*FourWheelConfig), logger)
 		},
 	}
+
 	registry.RegisterComponent(base.Subtype, "four-wheel", fourWheelComp)
+	config.RegisterComponentAttributeMapConverter(
+		base.SubtypeName,
+		"four-wheel",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf FourWheelConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&FourWheelConfig{})
 
 	wheeledBaseComp := registry.Component{
 		Constructor: func(
@@ -64,13 +73,13 @@ type wheeledBase struct {
 	opMgr operation.SingleOperationManager
 }
 
-func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
 	ctx, done := base.opMgr.New(ctx)
 	defer done()
 
 	// Stop the motors if the speed is 0
 	if math.Abs(degsPerSec) < 0.0001 {
-		err := base.Stop(ctx)
+		err := base.Stop(ctx, nil)
 		if err != nil {
 			return errors.Errorf("error when trying to spin at a speed of 0: %v", err)
 		}
@@ -83,13 +92,13 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec 
 	return base.runAll(ctx, -rpm, revolutions, rpm, revolutions)
 }
 
-func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
+func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	ctx, done := base.opMgr.New(ctx)
 	defer done()
 
 	// Stop the motors if the speed or distance are 0
 	if math.Abs(mmPerSec) < 0.0001 || distanceMm == 0 {
-		err := base.Stop(ctx)
+		err := base.Stop(ctx, nil)
 		if err != nil {
 			return errors.Errorf("error when trying to move straight at a speed and/or distance of 0: %v", err)
 		}
@@ -106,68 +115,81 @@ func (base *wheeledBase) runAll(ctx context.Context, leftRPM, leftRotations, rig
 	fs := []rdkutils.SimpleFunc{}
 
 	for _, m := range base.left {
-		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, leftRPM, leftRotations) })
+		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, leftRPM, leftRotations, nil) })
 	}
 
 	for _, m := range base.right {
-		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rightRPM, rightRotations) })
+		fs = append(fs, func(ctx context.Context) error { return m.GoFor(ctx, rightRPM, rightRotations, nil) })
 	}
 
 	if _, err := rdkutils.RunInParallel(ctx, fs); err != nil {
-		return multierr.Combine(err, base.Stop(ctx))
+		return multierr.Combine(err, base.Stop(ctx, nil))
 	}
 	return nil
 }
 
-func (base *wheeledBase) setPowerMath(linear, angular r3.Vector) (float64, float64) {
-	x := linear.Y
-	y := angular.Z
+// differentialDrive takes forward and left direction inputs from a first person
+// perspective on a 2D plane and converts them to left and right motor powers. negative
+// forward means backward and negative left means right.
+func (base *wheeledBase) differentialDrive(forward, left float64) (float64, float64) {
+	if forward < 0 {
+		// Mirror the forward turning arc if we go in reverse
+		leftMotor, rightMotor := base.differentialDrive(-forward, left)
+		return -leftMotor, -rightMotor
+	}
 
 	// convert to polar coordinates
-	r := math.Hypot(x, y)
-	t := math.Atan2(y, x)
+	r := math.Hypot(forward, left)
+	t := math.Atan2(left, forward)
 
 	// rotate by 45 degrees
 	t += math.Pi / 4
+	if t == 0 {
+		// HACK: Fixes a weird ATAN2 corner case. Ensures that when motor that is on the
+		// same side as the turn has the same power when going left and right. Without
+		// this, the right motor has ZERO power when going forward/backward turning
+		// right, when it should have at least some very small value.
+		t += 1.224647e-16 / 2
+	}
 
-	// back to cartesian
-	left := r * math.Cos(t)
-	right := r * math.Sin(t)
+	// convert to cartesian
+	leftMotor := r * math.Cos(t)
+	rightMotor := r * math.Sin(t)
 
 	// rescale the new coords
-	left *= math.Sqrt(2)
-	right *= math.Sqrt(2)
+	leftMotor *= math.Sqrt(2)
+	rightMotor *= math.Sqrt(2)
 
 	// clamp to -1/+1
-	left = math.Max(-1, math.Min(left, 1))
-	right = math.Max(-1, math.Min(right, 1))
+	leftMotor = math.Max(-1, math.Min(leftMotor, 1))
+	rightMotor = math.Max(-1, math.Min(rightMotor, 1))
 
-	return left, right
+	return leftMotor, rightMotor
 }
 
-func (base *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+func (base *wheeledBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	base.opMgr.CancelRunning(ctx)
 	l, r := base.velocityMath(linear.Y, angular.Z)
 	return base.runAll(ctx, l, 0, r, 0)
 }
 
-func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	base.opMgr.CancelRunning(ctx)
 
-	lPower, rPower := base.setPowerMath(linear, angular)
+	lPower, rPower := base.differentialDrive(linear.Y, angular.Z)
 
 	// Send motor commands
 	var err error
 	for _, m := range base.left {
-		err = multierr.Combine(err, m.SetPower(ctx, lPower))
+		err = multierr.Combine(err, m.SetPower(ctx, lPower, extra))
 	}
 
 	for _, m := range base.right {
-		err = multierr.Combine(err, m.SetPower(ctx, rPower))
+		err = multierr.Combine(err, m.SetPower(ctx, rPower, extra))
 	}
 
 	if err != nil {
-		return multierr.Combine(err, base.Stop(ctx))
+		return multierr.Combine(err, base.Stop(ctx, nil))
 	}
 
 	return nil
@@ -222,7 +244,7 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 		anyOff := false
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx)
+			isOn, err := m.IsPowered(ctx, nil)
 			if err != nil {
 				return err
 			}
@@ -239,65 +261,121 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 
 		if anyOff {
 			// once one motor turns off, we turn them all off
-			return base.Stop(ctx)
+			return base.Stop(ctx, nil)
 		}
 	}
 }
 
-func (base *wheeledBase) Stop(ctx context.Context) error {
+func (base *wheeledBase) Stop(ctx context.Context, extra map[string]interface{}) error {
 	var err error
 	for _, m := range base.allMotors {
-		err = multierr.Combine(err, m.Stop(ctx))
+		err = multierr.Combine(err, m.Stop(ctx, extra))
 	}
 	return err
 }
 
+func (base *wheeledBase) IsMoving(ctx context.Context) (bool, error) {
+	for _, m := range base.allMotors {
+		isMoving, err := m.IsPowered(ctx, nil)
+		if err != nil {
+			return false, err
+		}
+		if isMoving {
+			return true, err
+		}
+	}
+	return false, nil
+}
+
 func (base *wheeledBase) Close(ctx context.Context) error {
-	return base.Stop(ctx)
+	return base.Stop(ctx, nil)
 }
 
 func (base *wheeledBase) GetWidth(ctx context.Context) (int, error) {
 	return base.widthMm, nil
 }
 
+// FourWheelConfig is how you configure a four-wheeled base.
+type FourWheelConfig struct {
+	WidthMM              int     `json:"width_mm"`
+	WheelCircumferenceMM int     `json:"wheel_circumference_mm"`
+	SpinSlipFactor       float64 `json:"spin_slip_factor,omitempty"`
+	FrontLeft            string  `json:"front_left"`
+	FrontRight           string  `json:"front_right"`
+	BackLeft             string  `json:"back_left"`
+	BackRight            string  `json:"back_right"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *FourWheelConfig) Validate(path string) ([]string, error) {
+	var deps []string
+
+	if config.WidthMM == 0 {
+		return nil, errors.New("need a width_mm for a four-wheel base")
+	}
+
+	if config.WheelCircumferenceMM == 0 {
+		return nil, errors.New("need a wheel_circumference_mm for a four-wheel base")
+	}
+
+	if len(config.FrontLeft) == 0 {
+		return nil, errors.New("need a front_left motor")
+	}
+
+	if len(config.FrontRight) == 0 {
+		return nil, errors.New("need a front_right motor")
+	}
+
+	if len(config.BackLeft) == 0 {
+		return nil, errors.New("need a back_left motor")
+	}
+
+	if len(config.BackRight) == 0 {
+		return nil, errors.New("need a back_right motor")
+	}
+
+	deps = append(deps, config.FrontLeft)
+	deps = append(deps, config.FrontRight)
+	deps = append(deps, config.BackLeft)
+	deps = append(deps, config.BackRight)
+
+	return deps, nil
+}
+
 // CreateFourWheelBase returns a new four wheel base defined by the given config.
 func CreateFourWheelBase(
 	ctx context.Context,
 	deps registry.Dependencies,
-	config config.Component,
+	config *FourWheelConfig,
 	logger golog.Logger,
 ) (base.LocalBase, error) {
-	frontLeft, err := motor.FromDependencies(deps, config.Attributes.String("front_left"))
+	frontLeft, err := motor.FromDependencies(deps, config.FrontLeft)
 	if err != nil {
 		return nil, errors.Wrap(err, "front_left motor not found")
 	}
-	frontRight, err := motor.FromDependencies(deps, config.Attributes.String("front_right"))
+	frontRight, err := motor.FromDependencies(deps, config.FrontRight)
 	if err != nil {
 		return nil, errors.Wrap(err, "front_right motor not found")
 	}
-	backLeft, err := motor.FromDependencies(deps, config.Attributes.String("back_left"))
+	backLeft, err := motor.FromDependencies(deps, config.BackLeft)
 	if err != nil {
 		return nil, errors.Wrap(err, "back_left motor not found")
 	}
-	backRight, err := motor.FromDependencies(deps, config.Attributes.String("back_right"))
+	backRight, err := motor.FromDependencies(deps, config.BackRight)
 	if err != nil {
 		return nil, errors.Wrap(err, "back_right motor not found")
 	}
 
 	base := &wheeledBase{
-		widthMm:              config.Attributes.Int("width_mm", 0),
-		wheelCircumferenceMm: config.Attributes.Int("wheel_circumference_mm", 0),
-		spinSlipFactor:       config.Attributes.Float64("spin_slip_factor", 1.0),
+		widthMm:              config.WidthMM,
+		wheelCircumferenceMm: config.WheelCircumferenceMM,
+		spinSlipFactor:       config.SpinSlipFactor,
 		left:                 []motor.Motor{frontLeft, backLeft},
 		right:                []motor.Motor{frontRight, backRight},
 	}
 
-	if base.widthMm == 0 {
-		return nil, errors.New("need a widthMm for a four-wheel base")
-	}
-
-	if base.wheelCircumferenceMm == 0 {
-		return nil, errors.New("need a wheelCircumferenceMm for a four-wheel base")
+	if base.spinSlipFactor == 0 {
+		base.spinSlipFactor = 1
 	}
 
 	base.allMotors = append(base.allMotors, base.left...)
@@ -315,20 +393,43 @@ type Config struct {
 	Right                []string `json:"right"`
 }
 
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) ([]string, error) {
+	var deps []string
+
+	if config.WidthMM == 0 {
+		return nil, errors.New("need a width_mm for a wheeled base")
+	}
+
+	if config.WheelCircumferenceMM == 0 {
+		return nil, errors.New("need a wheel_circumference_mm for a wheeled base")
+	}
+
+	if len(config.Left) == 0 || len(config.Right) == 0 {
+		return nil, errors.New("need left and right motors")
+	}
+
+	if len(config.Left) != len(config.Right) {
+		return nil, fmt.Errorf("left and right need to have the same number of motors, not %d vs %d", len(config.Left), len(config.Right))
+	}
+
+	deps = append(deps, config.Left...)
+	deps = append(deps, config.Right...)
+
+	return deps, nil
+}
+
 // CreateWheeledBase returns a new wheeled base defined by the given config.
-func CreateWheeledBase(ctx context.Context, deps registry.Dependencies, config *Config, logger golog.Logger) (base.LocalBase, error) {
+func CreateWheeledBase(
+	ctx context.Context,
+	deps registry.Dependencies,
+	config *Config,
+	logger golog.Logger,
+) (base.LocalBase, error) {
 	base := &wheeledBase{
 		widthMm:              config.WidthMM,
 		wheelCircumferenceMm: config.WheelCircumferenceMM,
 		spinSlipFactor:       config.SpinSlipFactor,
-	}
-
-	if base.widthMm == 0 {
-		return nil, errors.New("need a width_mm for a wheeled base")
-	}
-
-	if base.wheelCircumferenceMm == 0 {
-		return nil, errors.New("need a wheel_circumference_mm for a wheeled base")
 	}
 
 	if base.spinSlipFactor == 0 {
@@ -349,14 +450,6 @@ func CreateWheeledBase(ctx context.Context, deps registry.Dependencies, config *
 			return nil, errors.Wrapf(err, "no right motor named (%s)", name)
 		}
 		base.right = append(base.right, m)
-	}
-
-	if len(base.left) == 0 {
-		return nil, errors.New("need left and right motors")
-	}
-
-	if len(base.left) != len(base.right) {
-		return nil, fmt.Errorf("left and right need to have the same number of motors, not %d vs %d", len(base.left), len(base.right))
 	}
 
 	base.allMotors = append(base.allMotors, base.left...)

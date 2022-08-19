@@ -15,27 +15,12 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
 )
 
-// serviceClient is a client satisfies the proto contract.
-type serviceClient struct {
+// client implements InputControllerServiceClient.
+type client struct {
 	conn   rpc.ClientConn
 	client pb.InputControllerServiceClient
 	logger golog.Logger
-}
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
-	client := pb.NewInputControllerServiceClient(conn)
-	sc := &serviceClient{
-		conn:   conn,
-		client: client,
-		logger: logger,
-	}
-	return sc
-}
-
-// client is an input controller client.
-type client struct {
-	*serviceClient
 	name          string
 	streamCancel  context.CancelFunc
 	streamHUP     bool
@@ -53,12 +38,14 @@ type client struct {
 
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Controller {
-	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(ctx, sc, name)
-}
-
-func clientFromSvcClient(ctx context.Context, sc *serviceClient, name string) Controller {
-	return &client{closeContext: ctx, serviceClient: sc, name: name}
+	c := pb.NewInputControllerServiceClient(conn)
+	return &client{
+		conn:         conn,
+		client:       c,
+		logger:       logger,
+		name:         name,
+		closeContext: ctx,
+	}
 }
 
 func (c *client) GetControls(ctx context.Context) ([]Control, error) {

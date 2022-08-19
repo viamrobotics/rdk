@@ -51,6 +51,18 @@ message Pose {
   // degrees
   double theta = 7;
 }
+
+message Orientation {
+  // x component of a vector defining axis of rotation
+  double o_x = 1;
+  // y component of a vector defining axis of rotation
+  double o_y = 2;
+  // z component of a vector defining axis of rotation
+  double o_z = 3;
+  // degrees
+  double theta = 4;
+}
+
 // PoseInFrame contains a pose and the and the reference frame in which it was observed
 message PoseInFrame {
   string reference_frame = 1;
@@ -67,10 +79,10 @@ message Sphere {
   double radius_mm = 1;
 }
 
+// RectangularPrism contains a Vector3 field corresponding to the X, Y, Z dimensions of the prism in mms
+// These dimensions are with respect to the referenceframe in which the RectangularPrism is defined
 message RectangularPrism {
-  double width_mm = 1;
-  double length_mm = 2;
-  double depth_mm = 3;
+  Vector3 dims_mm = 1;
 }
 
 // Geometry contains the dimensions of a given geometry and the pose of its center. The geometry is one of either a sphere or a box.
@@ -121,10 +133,13 @@ message Transform {
 // they can include information about the physical dimensions of an obstacle, the freespace of a robot, and any desired transforms between a
 // given reference frame and a new target reference frame.
 message WorldState {
-  // a list of obstacles expressed as a geomtry and the reference frame in which it was observed; this field is optional
+  // a list of obstacles expressed as a geometry and the reference frame in which it was observed; this field is optional
   repeated GeometriesInFrame obstacles = 1;
+  // a list of spaces the robot is allowed to operate within expressed as a geometry and the reference frame it is measured fom;
+  // this field is optional
+  repeated GeometriesInFrame interaction_spaces = 2;
   // a list of Transforms needed to transform a pose from one reference frame to another; this field is optional
-  repeated Transform transforms = 2;
+  repeated Transform transforms = 3;
 }
 
 // ActuatorStatus is a generic status for resources that only need to return actuator status.

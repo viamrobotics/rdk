@@ -1,5 +1,7 @@
 package objectdetection
 
+import "sort"
+
 // Postprocessor defines a function that filters/modifies on an incoming array of Detections.
 type Postprocessor func([]Detection) []Detection
 
@@ -26,5 +28,15 @@ func NewScoreFilter(conf float64) Postprocessor {
 			}
 		}
 		return out
+	}
+}
+
+// SortByArea returns a function that sorts the list of detections by area (largest first).
+func SortByArea() Postprocessor {
+	return func(in []Detection) []Detection {
+		sort.Slice(in, func(i, j int) bool {
+			return in[i].BoundingBox().Dx()*in[i].BoundingBox().Dy() > in[j].BoundingBox().Dx()*in[j].BoundingBox().Dy()
+		})
+		return in
 	}
 }

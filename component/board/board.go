@@ -32,7 +32,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnimplementedInterfaceError("Board", resource)
 			}
-			return board.Status(ctx)
+			return board.Status(ctx, nil)
 		},
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
@@ -94,7 +94,7 @@ type Board interface {
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
 	// this.
-	Status(ctx context.Context) (*commonpb.BoardStatus, error)
+	Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error)
 
 	// ModelAttributes returns attributes related to the model of this board.
 	ModelAttributes() ModelAttributes
@@ -149,7 +149,7 @@ type SPIHandle interface {
 // An AnalogReader represents an analog pin reader that resides on a board.
 type AnalogReader interface {
 	// Read reads off the current value.
-	Read(ctx context.Context) (int, error)
+	Read(ctx context.Context, extra map[string]interface{}) (int, error)
 }
 
 // A PostProcessor takes a raw input and transforms it into a new value.
@@ -158,8 +158,11 @@ type AnalogReader interface {
 type PostProcessor func(raw int64) int64
 
 var (
-	_ = LocalBoard(&reconfigurableBoard{})
+	_ = Board(&reconfigurableBoard{})
+	_ = LocalBoard(&reconfigurableLocalBoard{})
 	_ = resource.Reconfigurable(&reconfigurableBoard{})
+	_ = resource.Reconfigurable(&reconfigurableLocalBoard{})
+	_ = viamutils.ContextCloser(&reconfigurableLocalBoard{})
 )
 
 // FromDependencies is a helper for getting the named board from a collection of
@@ -196,9 +199,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 type reconfigurableBoard struct {
 	mu       sync.RWMutex
-	actual   LocalBoard
-	spis     map[string]*reconfigurableSPI
-	i2cs     map[string]*reconfigurableI2C
+	actual   Board
 	analogs  map[string]*reconfigurableAnalogReader
 	digitals map[string]*reconfigurableDigitalInterrupt
 }
@@ -213,20 +214,6 @@ func (r *reconfigurableBoard) Do(ctx context.Context, cmd map[string]interface{}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.Do(ctx, cmd)
-}
-
-func (r *reconfigurableBoard) SPIByName(name string) (SPI, bool) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	s, ok := r.spis[name]
-	return s, ok
-}
-
-func (r *reconfigurableBoard) I2CByName(name string) (I2C, bool) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	s, ok := r.i2cs[name]
-	return s, ok
 }
 
 func (r *reconfigurableBoard) AnalogReaderByName(name string) (AnalogReader, bool) {
@@ -252,41 +239,25 @@ func (r *reconfigurableBoard) GPIOPinByName(name string) (GPIOPin, error) {
 func (r *reconfigurableBoard) SPINames() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	names := []string{}
-	for k := range r.spis {
-		names = append(names, k)
-	}
-	return names
+	return r.actual.SPINames()
 }
 
 func (r *reconfigurableBoard) I2CNames() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	names := []string{}
-	for k := range r.i2cs {
-		names = append(names, k)
-	}
-	return names
+	return r.actual.I2CNames()
 }
 
 func (r *reconfigurableBoard) AnalogReaderNames() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	names := []string{}
-	for k := range r.analogs {
-		names = append(names, k)
-	}
-	return names
+	return r.actual.AnalogReaderNames()
 }
 
 func (r *reconfigurableBoard) DigitalInterruptNames() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	names := []string{}
-	for k := range r.digitals {
-		names = append(names, k)
-	}
-	return names
+	return r.actual.DigitalInterruptNames()
 }
 
 func (r *reconfigurableBoard) GPIOPinNames() []string {
@@ -295,19 +266,22 @@ func (r *reconfigurableBoard) GPIOPinNames() []string {
 	return r.actual.GPIOPinNames()
 }
 
-func (r *reconfigurableBoard) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
+func (r *reconfigurableBoard) Status(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	if r.actual.ModelAttributes().Remote {
-		return r.actual.Status(ctx)
+		return r.actual.Status(ctx, extra)
 	}
-	return CreateStatus(ctx, r)
+	return CreateStatus(ctx, r, extra)
 }
 
 func (r *reconfigurableBoard) Reconfigure(ctx context.Context, newBoard resource.Reconfigurable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	return r.reconfigure(ctx, newBoard)
+}
 
+func (r *reconfigurableBoard) reconfigure(ctx context.Context, newBoard resource.Reconfigurable) error {
 	actual, ok := newBoard.(*reconfigurableBoard)
 	if !ok {
 		return utils.NewUnexpectedTypeError(r, newBoard)
@@ -316,23 +290,9 @@ func (r *reconfigurableBoard) Reconfigure(ctx context.Context, newBoard resource
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 
-	var oldSPINames map[string]struct{}
-	var oldI2CNames map[string]struct{}
 	var oldAnalogReaderNames map[string]struct{}
 	var oldDigitalInterruptNames map[string]struct{}
 
-	if len(r.spis) != 0 {
-		oldSPINames = make(map[string]struct{}, len(r.spis))
-		for name := range r.spis {
-			oldSPINames[name] = struct{}{}
-		}
-	}
-	if len(r.i2cs) != 0 {
-		oldI2CNames = make(map[string]struct{}, len(r.i2cs))
-		for name := range r.i2cs {
-			oldI2CNames[name] = struct{}{}
-		}
-	}
 	if len(r.analogs) != 0 {
 		oldAnalogReaderNames = make(map[string]struct{}, len(r.analogs))
 		for name := range r.analogs {
@@ -346,24 +306,6 @@ func (r *reconfigurableBoard) Reconfigure(ctx context.Context, newBoard resource
 		}
 	}
 
-	for name, newPart := range actual.spis {
-		oldPart, ok := r.spis[name]
-		delete(oldSPINames, name)
-		if ok {
-			oldPart.reconfigure(ctx, newPart)
-			continue
-		}
-		r.spis[name] = newPart
-	}
-	for name, newPart := range actual.i2cs {
-		oldPart, ok := r.i2cs[name]
-		delete(oldI2CNames, name)
-		if ok {
-			oldPart.reconfigure(ctx, newPart)
-			continue
-		}
-		r.i2cs[name] = newPart
-	}
 	for name, newPart := range actual.analogs {
 		oldPart, ok := r.analogs[name]
 		delete(oldAnalogReaderNames, name)
@@ -383,12 +325,6 @@ func (r *reconfigurableBoard) Reconfigure(ctx context.Context, newBoard resource
 		r.digitals[name] = newPart
 	}
 
-	for name := range oldSPINames {
-		delete(r.spis, name)
-	}
-	for name := range oldI2CNames {
-		delete(r.i2cs, name)
-	}
 	for name := range oldAnalogReaderNames {
 		delete(r.analogs, name)
 	}
@@ -425,38 +361,104 @@ func (r *reconfigurableBoard) UpdateAction(c *config.Component) config.UpdateAct
 	return config.Reconfigure
 }
 
+type reconfigurableLocalBoard struct {
+	*reconfigurableBoard
+	actual LocalBoard
+	spis   map[string]*reconfigurableSPI
+	i2cs   map[string]*reconfigurableI2C
+}
+
+func (r *reconfigurableLocalBoard) SPIByName(name string) (SPI, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	s, ok := r.spis[name]
+	return s, ok
+}
+
+func (r *reconfigurableLocalBoard) I2CByName(name string) (I2C, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	s, ok := r.i2cs[name]
+	return s, ok
+}
+
+func (r *reconfigurableLocalBoard) Reconfigure(ctx context.Context, newBoard resource.Reconfigurable) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	actual, ok := newBoard.(*reconfigurableLocalBoard)
+	if !ok {
+		return utils.NewUnexpectedTypeError(r, newBoard)
+	}
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+
+	var oldSPINames map[string]struct{}
+	var oldI2CNames map[string]struct{}
+
+	if len(r.spis) != 0 {
+		oldSPINames = make(map[string]struct{}, len(r.spis))
+		for name := range r.spis {
+			oldSPINames[name] = struct{}{}
+		}
+	}
+	if len(r.i2cs) != 0 {
+		oldI2CNames = make(map[string]struct{}, len(r.i2cs))
+		for name := range r.i2cs {
+			oldI2CNames[name] = struct{}{}
+		}
+	}
+
+	for name, newPart := range actual.spis {
+		oldPart, ok := r.spis[name]
+		delete(oldSPINames, name)
+		if ok {
+			oldPart.reconfigure(ctx, newPart)
+			continue
+		}
+		r.spis[name] = newPart
+	}
+	for name, newPart := range actual.i2cs {
+		oldPart, ok := r.i2cs[name]
+		delete(oldI2CNames, name)
+		if ok {
+			oldPart.reconfigure(ctx, newPart)
+			continue
+		}
+		r.i2cs[name] = newPart
+	}
+
+	for name := range oldSPINames {
+		delete(r.spis, name)
+	}
+	for name := range oldI2CNames {
+		delete(r.i2cs, name)
+	}
+
+	r.actual = actual.actual
+
+	return r.reconfigurableBoard.reconfigure(ctx, actual.reconfigurableBoard)
+}
+
 // WrapWithReconfigurable converts a regular Board implementation to a reconfigurableBoard.
 // If board is already a reconfigurableBoard, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	board, ok := r.(LocalBoard)
+	board, ok := r.(Board)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalBoard", r)
+		return nil, utils.NewUnimplementedInterfaceError("Board", r)
 	}
+
 	if reconfigurable, ok := board.(*reconfigurableBoard); ok {
 		return reconfigurable, nil
 	}
+
 	rb := reconfigurableBoard{
 		actual:   board,
-		spis:     map[string]*reconfigurableSPI{},
-		i2cs:     map[string]*reconfigurableI2C{},
 		analogs:  map[string]*reconfigurableAnalogReader{},
 		digitals: map[string]*reconfigurableDigitalInterrupt{},
 	}
 
-	for _, name := range rb.actual.SPINames() {
-		actualPart, ok := rb.actual.SPIByName(name)
-		if !ok {
-			continue
-		}
-		rb.spis[name] = &reconfigurableSPI{actual: actualPart}
-	}
-	for _, name := range rb.actual.I2CNames() {
-		actualPart, ok := rb.actual.I2CByName(name)
-		if !ok {
-			continue
-		}
-		rb.i2cs[name] = &reconfigurableI2C{actual: actualPart}
-	}
 	for _, name := range rb.actual.AnalogReaderNames() {
 		actualPart, ok := rb.actual.AnalogReaderByName(name)
 		if !ok {
@@ -472,7 +474,37 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 		rb.digitals[name] = &reconfigurableDigitalInterrupt{actual: actualPart}
 	}
 
-	return &rb, nil
+	localBoard, ok := r.(LocalBoard)
+	if !ok {
+		return &rb, nil
+	}
+	if reconfigurable, ok := localBoard.(*reconfigurableLocalBoard); ok {
+		return reconfigurable, nil
+	}
+
+	rlb := reconfigurableLocalBoard{
+		actual:              localBoard,
+		spis:                map[string]*reconfigurableSPI{},
+		i2cs:                map[string]*reconfigurableI2C{},
+		reconfigurableBoard: &rb,
+	}
+
+	for _, name := range rlb.actual.SPINames() {
+		actualPart, ok := rlb.actual.SPIByName(name)
+		if !ok {
+			continue
+		}
+		rlb.spis[name] = &reconfigurableSPI{actual: actualPart}
+	}
+	for _, name := range rlb.actual.I2CNames() {
+		actualPart, ok := rlb.actual.I2CByName(name)
+		if !ok {
+			continue
+		}
+		rlb.i2cs[name] = &reconfigurableI2C{actual: actualPart}
+	}
+
+	return &rlb, nil
 }
 
 type reconfigurableSPI struct {
@@ -543,10 +575,10 @@ func (r *reconfigurableAnalogReader) reconfigure(ctx context.Context, newAnalogR
 	r.actual = actual.actual
 }
 
-func (r *reconfigurableAnalogReader) Read(ctx context.Context) (int, error) {
+func (r *reconfigurableAnalogReader) Read(ctx context.Context, extra map[string]interface{}) (int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Read(ctx)
+	return r.actual.Read(ctx, extra)
 }
 
 func (r *reconfigurableAnalogReader) ProxyFor() interface{} {
@@ -583,10 +615,10 @@ func (r *reconfigurableDigitalInterrupt) reconfigure(ctx context.Context, newDig
 	r.actual = actual.actual
 }
 
-func (r *reconfigurableDigitalInterrupt) Value(ctx context.Context) (int64, error) {
+func (r *reconfigurableDigitalInterrupt) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Value(ctx)
+	return r.actual.Value(ctx, extra)
 }
 
 func (r *reconfigurableDigitalInterrupt) Tick(ctx context.Context, high bool, nanos uint64) error {

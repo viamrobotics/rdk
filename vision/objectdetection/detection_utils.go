@@ -34,9 +34,7 @@ func drawDetection(img *gg.Context, d Detection) {
 
 // OverlayText writes a string in the top of the image.
 func OverlayText(img image.Image, text string) image.Image {
-	rimg := rimage.ConvertToImageWithDepth(img)
-	gimg := gg.NewContextForImage(rimg.Color)
+	gimg := gg.NewContextForImage(img)
 	rimage.DrawString(gimg, text, image.Point{30, 30}, color.NRGBA{255, 0, 0, 255}, 30)
-	rimg.Color = rimage.ConvertImage(gimg.Image())
-	return rimg
+	return gimg.Image()
 }

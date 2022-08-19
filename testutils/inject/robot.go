@@ -32,6 +32,7 @@ type Robot struct {
 	ConfigFunc              func(ctx context.Context) (*config.Config, error)
 	LoggerFunc              func() golog.Logger
 	CloseFunc               func(ctx context.Context) error
+	StopAllFunc             func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
 	RefreshFunc             func(ctx context.Context) error
 	FrameSystemConfigFunc   func(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error)
 	TransformPoseFunc       func(
@@ -147,6 +148,14 @@ func (r *Robot) Close(ctx context.Context) error {
 	return r.CloseFunc(ctx)
 }
 
+// StopAll calls the injected StopAll or the real version.
+func (r *Robot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
+	if r.StopAllFunc == nil {
+		return r.LocalRobot.StopAll(ctx, extra)
+	}
+	return r.StopAllFunc(ctx, extra)
+}
+
 // Refresh calls the injected Refresh or the real version.
 func (r *Robot) Refresh(ctx context.Context) error {
 	if r.RefreshFunc == nil {
@@ -164,27 +173,6 @@ func (r *Robot) DiscoverComponents(ctx context.Context, keys []discovery.Query) 
 		return r.LocalRobot.DiscoverComponents(ctx, keys)
 	}
 	return r.DiscoverComponentsFunc(ctx, keys)
-}
-
-// RemoteRobot is an injected remote robot.
-type RemoteRobot struct {
-	Robot
-
-	Disconnected bool
-	ChangeChan   chan bool
-}
-
-// Changed returns a channel that returns true when the remote has changed.
-func (r *RemoteRobot) Changed() <-chan bool {
-	if r.ChangeChan == nil {
-		r.ChangeChan = make(chan bool)
-	}
-	return r.ChangeChan
-}
-
-// Connected returns whether the injected robot is connected or not.
-func (r *RemoteRobot) Connected() bool {
-	return !r.Disconnected
 }
 
 // FrameSystemConfig calls the injected FrameSystemConfig or the real version.

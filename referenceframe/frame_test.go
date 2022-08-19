@@ -2,6 +2,7 @@ package referenceframe
 
 import (
 	"math"
+	"math/rand"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -15,7 +16,7 @@ import (
 
 func TestStaticFrame(t *testing.T) {
 	// define a static transform
-	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{1, 2, 3}, r3.Vector{0, 0, 1}, math.Pi/2)
+	expPose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.R4AA{math.Pi / 2, 0., 0., 1.})
 	frame, err := NewStaticFrame("test", expPose)
 	test.That(t, err, test.ShouldBeNil)
 	// get expected transform back
@@ -82,23 +83,23 @@ func TestRevoluteFrame(t *testing.T) {
 	axis := r3.Vector{1, 0, 0}                                                    // axis of rotation is x axis
 	frame := &rotationalFrame{"test", axis, []Limit{{-math.Pi / 2, math.Pi / 2}}} // limits between -90 and 90 degrees
 	// expected output
-	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{1, 0, 0}, math.Pi/4) // 45 degrees
+	expPose := spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, &spatial.R4AA{math.Pi / 4, 1, 0, 0}) // 45 degrees
 	// get expected transform back
-	input := JointPosToInputs(&pb.JointPositions{Degrees: []float64{45}})
+	input := frame.InputFromProtobuf(&pb.JointPositions{Values: []float64{45}})
 	pose, err := frame.Transform(input)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
 	// if you feed in too many inputs, should get error back
-	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{45, 55}})
+	input = frame.InputFromProtobuf(&pb.JointPositions{Values: []float64{45, 55}})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you feed in empty input, should get errr back
-	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{}})
+	input = frame.InputFromProtobuf(&pb.JointPositions{Values: []float64{}})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you try to move beyond set limits, should get an error
 	overLimit := 100.0 // degrees
-	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{overLimit}})
+	input = frame.InputFromProtobuf(&pb.JointPositions{Values: []float64{overLimit}})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f %s %.5f", utils.DegToRad(overLimit), OOBErrString, frame.DoF()[0]))
 	// gets the correct limits back
@@ -137,19 +138,12 @@ func TestGeometries(t *testing.T) {
 	pose := spatial.NewPoseFromPoint(r3.Vector{0, 10, 0})
 	expectedBox := bc.NewGeometry(pose)
 
-	// test creating a new static frame with a geometry
-	sf, err := NewStaticFrameWithGeometry("", pose, bc)
-	test.That(t, err, test.ShouldBeNil)
-	geometries, err := sf.Geometries([]Input{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expectedBox.AlmostEqual(geometries[""]), test.ShouldBeTrue)
-
 	// test creating a new translational frame with a geometry
 	tf, err := NewTranslationalFrameWithGeometry("", r3.Vector{0, 1, 0}, Limit{Min: -30, Max: 30}, bc)
 	test.That(t, err, test.ShouldBeNil)
-	geometries, err = tf.Geometries(FloatsToInputs([]float64{10}))
+	geometries, err := tf.Geometries(FloatsToInputs([]float64{10}))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expectedBox.AlmostEqual(geometries[""]), test.ShouldBeTrue)
+	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[""]), test.ShouldBeTrue)
 
 	// test erroring correctly from trying to create a geometry for a rotational frame
 	rf, err := NewRotationalFrame("", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6})
@@ -163,18 +157,26 @@ func TestGeometries(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err = mf.Geometries(FloatsToInputs([]float64{0, 10}))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expectedBox.AlmostEqual(geometries[""]), test.ShouldBeTrue)
+	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[""]), test.ShouldBeTrue)
+
+	// test creating a new static frame with a geometry
+	expectedBox = bc.NewGeometry(spatial.NewZeroPose())
+	sf, err := NewStaticFrameWithGeometry("", pose, bc)
+	test.That(t, err, test.ShouldBeNil)
+	geometries, err = sf.Geometries([]Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[""]), test.ShouldBeTrue)
 
 	// test inheriting a geometry creator
 	sf, err = NewStaticFrameFromFrame(tf, pose)
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err = sf.Geometries([]Input{})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expectedBox.AlmostEqual(geometries[""]), test.ShouldBeTrue)
+	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[""]), test.ShouldBeTrue)
 }
 
 func TestSerializationStatic(t *testing.T) {
-	f, err := NewStaticFrame("foo", spatial.NewPoseFromAxisAngle(r3.Vector{1, 2, 3}, r3.Vector{4, 5, 6}, math.Pi/2))
+	f, err := NewStaticFrame("foo", spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.R4AA{math.Pi / 2, 4, 5, 6}))
 	test.That(t, err, test.ShouldBeNil)
 
 	data, err := f.MarshalJSON()
@@ -212,4 +214,19 @@ func TestSerializationRotations(t *testing.T) {
 
 	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
 	test.That(t, f2, test.ShouldResemble, f)
+}
+
+func TestRandomFrameInputs(t *testing.T) {
+	frame, _ := NewMobile2DFrame("", []Limit{{-10, 10}, {-10, 10}}, nil)
+	seed := rand.New(rand.NewSource(23))
+	for i := 0; i < 100; i++ {
+		_, err := frame.Transform(RandomFrameInputs(frame, seed))
+		test.That(t, err, test.ShouldBeNil)
+	}
+
+	limitedFrame, _ := NewMobile2DFrame("", []Limit{{-2, 2}, {-2, 2}}, nil)
+	for i := 0; i < 100; i++ {
+		_, err := limitedFrame.Transform(RestrictedRandomFrameInputs(frame, seed, .2))
+		test.That(t, err, test.ShouldBeNil)
+	}
 }

@@ -335,11 +335,6 @@ type serviceClient struct {
 	logger golog.Logger
 }
 
-// Close cleanly closes the underlying connections.
-func (sc *serviceClient) Close() error {
-	return sc.conn.Close()
-}
-
 // client is an gripper client.
 type client struct {
 	*serviceClient
@@ -443,10 +438,6 @@ func (c *client) DoTwo(ctx context.Context, arg1 bool) (string, error) {
 		return "", err
 	}
 	return resp.Ret1, nil
-}
-
-func (c *client) Close() error {
-	return c.serviceClient.Close()
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
