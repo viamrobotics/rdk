@@ -117,7 +117,7 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 	goalInputs[2] = referenceframe.Input{Value: goal.Theta}
 	goalConfig := &configuration{goalInputs}
 
-	dm := &dubinOptionManager{nCPU: mp.nCPU, d: mp.D}
+	dm := &dubinPathAttrManager{nCPU: mp.nCPU, d: mp.D}
 
 	for i := 0; i < mp.iter; i++ {
 		select {
@@ -165,7 +165,7 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 				start := configuration2slice(target)
 				end := configuration2slice(n)
 
-				bestOption := dm.d.AllOptions(start, end, true)[0]
+				bestOption := dm.d.AllPaths(start, end, true)[0]
 				if bestOption.TotalLen < 0 {
 					continue
 				}
@@ -237,8 +237,8 @@ func updateChildren(
 func (mp *DubinsRRTMotionPlanner) checkPath(
 	from, to *configuration,
 	opt *PlannerOptions,
-	dm *dubinOptionManager,
-	o DubinOption,
+	dm *dubinPathAttrManager,
+	o DubinPathAttr,
 ) bool {
 	start := configuration2slice(from)
 	end := configuration2slice(to)
@@ -286,8 +286,8 @@ func (mp *DubinsRRTMotionPlanner) checkPath(
 	return pathOk
 }
 
-// Used for coordinating parallel computations of dubins options.
-type dubinOptionManager struct {
+// Used for coordinating parallel computations of dubins path options.
+type dubinPathAttrManager struct {
 	optKeys chan *configuration
 	options chan *nodeToOption
 	optLock sync.RWMutex
@@ -299,7 +299,7 @@ type dubinOptionManager struct {
 
 type nodeToOption struct {
 	key   *configuration
-	value DubinOption
+	value DubinPathAttr
 }
 
 type nodeToOptionList []nodeToOption
@@ -308,12 +308,12 @@ func (p nodeToOptionList) Len() int           { return len(p) }
 func (p nodeToOptionList) Less(i, j int) bool { return p[i].value.TotalLen < p[j].value.TotalLen }
 func (p nodeToOptionList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
-func (dm *dubinOptionManager) selectOptions(
+func (dm *dubinPathAttrManager) selectOptions(
 	ctx context.Context,
 	sample *configuration,
 	rrtMap map[*configuration]*configuration,
 	nbOptions int,
-) map[*configuration]DubinOption {
+) map[*configuration]DubinPathAttr {
 	if len(rrtMap) > 1000 {
 		// If the map is large, calculate distances in parallel
 		return dm.parallelselectOptions(ctx, sample, rrtMap, nbOptions)
@@ -324,7 +324,7 @@ func (dm *dubinOptionManager) selectOptions(
 	for node := range rrtMap {
 		start := configuration2slice(node)
 		end := configuration2slice(sample)
-		allOpts := dm.d.AllOptions(start, end, true)
+		allOpts := dm.d.AllPaths(start, end, true)
 
 		if len(allOpts) > 0 {
 			pl = append(pl, nodeToOption{node, allOpts[0]})
@@ -333,7 +333,7 @@ func (dm *dubinOptionManager) selectOptions(
 	sort.Sort(pl)
 
 	// Sort and choose best nbOptions options
-	options := make(map[*configuration]DubinOption)
+	options := make(map[*configuration]DubinPathAttr)
 	topn := nbOptions
 	if len(pl) < nbOptions {
 		topn = len(pl)
@@ -346,12 +346,12 @@ func (dm *dubinOptionManager) selectOptions(
 	return options
 }
 
-func (dm *dubinOptionManager) parallelselectOptions(
+func (dm *dubinPathAttrManager) parallelselectOptions(
 	ctx context.Context,
 	sample *configuration,
 	rrtMap map[*configuration]*configuration,
 	nbOptions int,
-) map[*configuration]DubinOption {
+) map[*configuration]DubinPathAttr {
 	dm.ready = false
 	dm.startOptWorkers(ctx)
 	defer close(dm.optKeys)
@@ -385,7 +385,7 @@ func (dm *dubinOptionManager) parallelselectOptions(
 
 	// Sort and choose best nbOptions options
 	sort.Sort(pl)
-	options := make(map[*configuration]DubinOption)
+	options := make(map[*configuration]DubinPathAttr)
 	numReturn := nbOptions
 	if len(pl) < nbOptions {
 		numReturn = len(pl)
@@ -397,7 +397,7 @@ func (dm *dubinOptionManager) parallelselectOptions(
 	return options
 }
 
-func (dm *dubinOptionManager) startOptWorkers(ctx context.Context) {
+func (dm *dubinPathAttrManager) startOptWorkers(ctx context.Context) {
 	dm.options = make(chan *nodeToOption, dm.nCPU)
 	dm.optKeys = make(chan *configuration, dm.nCPU)
 	for i := 0; i < dm.nCPU; i++ {
@@ -407,7 +407,7 @@ func (dm *dubinOptionManager) startOptWorkers(ctx context.Context) {
 	}
 }
 
-func (dm *dubinOptionManager) optWorker(ctx context.Context) {
+func (dm *dubinPathAttrManager) optWorker(ctx context.Context) {
 	pl := make(nodeToOptionList, 0)
 
 	for {
@@ -423,7 +423,7 @@ func (dm *dubinOptionManager) optWorker(ctx context.Context) {
 				dm.optLock.RLock()
 				start := configuration2slice(node)
 				end := configuration2slice(dm.sample)
-				allOpts := dm.d.AllOptions(start, end, true)
+				allOpts := dm.d.AllPaths(start, end, true)
 				dm.optLock.RUnlock()
 
 				if len(allOpts) > 0 {
