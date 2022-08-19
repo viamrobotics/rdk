@@ -31,10 +31,32 @@ func main() {
 	utils.ContextualMain(mainWithArgs, logger)
 }
 
+type obstacle struct {
+	Center []float64 `json:"center"`
+	Dims   []float64 `json:"dims"`
+}
+
+// MobileRobotPlanConfig describes a motion planning problem for a 2D mobile robot.
+type MobileRobotPlanConfig struct {
+	Name           string  `json:"name"`
+	GridConversion float64 `json:"grid-conversion"` // in mm
+	Type           string  `json:"type"`
+	// planning conditions
+	Start []float64 `json:"start"`
+	Goal  []float64 `json:"goal"`
+
+	// robot params
+	RobotDims []float64 `json:"robot-dims"`
+	Radius    float64   `json:"radius"`
+	PointSep  float64   `json:"point-sep"`
+
+	// map definition
+	Xlim      []float64  `json:"xlim"`
+	YLim      []float64  `json:"ylim"`
+	Obstacles []obstacle `json:"obstacles"`
+}
+
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
-	if len(args) > 2 {
-		return nil
-	}
 	move := false
 	robot, err := client.New(
 		context.Background(),
