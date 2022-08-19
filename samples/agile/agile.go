@@ -207,7 +207,7 @@ func (l *limoBase) Plan(config *MobileRobotPlanConfig) ([][]frame.Input, motionp
 	return waypoints, dubins.D, nil
 }
 
-func (l *limoBase) FollowDubinsTrajectory(config *MobileRobotPlanConfig, traj []motionplan.DubinOption) {
+func (l *limoBase) FollowDubinsTrajectory(config *MobileRobotPlanConfig, traj []motionplan.DubinPathAttr) {
 	for _, opt := range traj {
 		dubinsPath := opt.DubinsPath
 		straight := opt.Straight
@@ -257,7 +257,7 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input, config *MobileRobo
 				next[j] = wp[j].Value
 			}
 
-			pathOptions := d.AllOptions(start, next, true)[0]
+			pathOptions := d.AllPaths(start, next, true)[0]
 
 			dubinsPath := pathOptions.DubinsPath
 
