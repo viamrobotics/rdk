@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/sensor"
@@ -14,6 +15,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/service/sensors/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -33,12 +35,15 @@ func init() {
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
+		Reconfigurable: WrapWithReconfigurable,
 	})
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
 		},
 	})
+
+	resource.AddDefaultService(Name)
 }
 
 // A Readings ties both the sensor name and its reading together.
@@ -53,6 +58,12 @@ type Service interface {
 	GetReadings(ctx context.Context, sensorNames []resource.Name) ([]Readings, error)
 }
 
+var (
+	_ = Service(&reconfigurableSensors{})
+	_ = resource.Reconfigurable(&reconfigurableSensors{})
+	_ = goutils.ContextCloser(&reconfigurableSensors{})
+)
+
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("sensors")
 
@@ -65,6 +76,12 @@ var Subtype = resource.NewSubtype(
 
 // Name is the SensorService's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
+
+// Named is a helper for getting the named sensor's typed resource name.
+// RSDK-347 Implements senors's Named.
+func Named(name string) resource.Name {
+	return resource.NameFromSubtype(Subtype, name)
+}
 
 // FromRobot retrieves the sensor service of a robot.
 func FromRobot(r robot.Robot) (Service, error) {
@@ -150,4 +167,62 @@ func (s *sensorsService) Update(ctx context.Context, resources map[resource.Name
 	}
 	s.sensors = sensors
 	return nil
+}
+
+type reconfigurableSensors struct {
+	mu     sync.RWMutex
+	actual Service
+}
+
+func (svc *reconfigurableSensors) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.(resource.Updateable).Update(ctx, resources)
+}
+
+func (svc *reconfigurableSensors) GetSensors(ctx context.Context) ([]resource.Name, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetSensors(ctx)
+}
+
+func (svc *reconfigurableSensors) GetReadings(ctx context.Context, sensorNames []resource.Name) ([]Readings, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetReadings(ctx, sensorNames)
+}
+
+func (svc *reconfigurableSensors) Close(ctx context.Context) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return goutils.TryClose(ctx, svc.actual)
+}
+
+// Reconfigure replaces the old Sensors service with a new Sensors.
+func (svc *reconfigurableSensors) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	rSvc, ok := newSvc.(*reconfigurableSensors)
+	if !ok {
+		return utils.NewUnexpectedTypeError(svc, newSvc)
+	}
+	if err := goutils.TryClose(ctx, svc.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	svc.actual = rSvc.actual
+	return nil
+}
+
+// WrapWithReconfigurable wraps a Sensors service as a Reconfigurable.
+func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
+	svc, ok := s.(Service)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("sensors.Service", s)
+	}
+
+	if reconfigurable, ok := s.(*reconfigurableSensors); ok {
+		return reconfigurable, nil
+	}
+
+	return &reconfigurableSensors{actual: svc}, nil
 }

@@ -15,7 +15,7 @@ import (
 
 func TestCreateNloptIKSolver(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("component/arm/trossen/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateNloptIKSolver(m, logger, -1)
 	test.That(t, err, test.ShouldBeNil)
@@ -29,7 +29,7 @@ func TestCreateNloptIKSolver(t *testing.T) {
 
 	pos = &commonpb.Pose{X: -46, Y: -23, Z: 372, Theta: utils.RadToDeg(3.92), OX: -0.46, OY: 0.84, OZ: 0.28}
 
-	seed = referenceframe.JointPosToInputs(&pb.JointPositions{Degrees: []float64{49, 28, -101, 0, -73, 0}})
+	seed = m.InputFromProtobuf(&pb.JointPositions{Values: []float64{49, 28, -101, 0, -73, 0}})
 
 	_, err = solveTest(context.Background(), ik, pos, seed)
 	test.That(t, err, test.ShouldBeNil)

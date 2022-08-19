@@ -32,15 +32,10 @@ func init() {
 	})
 }
 
-// fakeModel returns the kinematics model.
-func fakeModel() (referenceframe.Model, error) {
-	return referenceframe.UnmarshalModelJSON(armikModelJSON, "")
-}
-
 // NewArmIK returns a new fake arm.
 func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	name := cfg.Name
-	model, err := fakeModel()
+	model, err := referenceframe.UnmarshalModelJSON(armikModelJSON, "")
 	if err != nil {
 		return nil, err
 	}
@@ -48,11 +43,10 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 	if err != nil {
 		return nil, err
 	}
-
 	return &ArmIK{
 		Name:     name,
 		position: &commonpb.Pose{},
-		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+		joints:   &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 0}},
 		mp:       mp,
 		model:    model,
 	}, nil
@@ -75,8 +69,8 @@ func (a *ArmIK) ModelFrame() referenceframe.Model {
 }
 
 // GetEndPosition returns the set position.
-func (a *ArmIK) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := a.GetJointPositions(ctx)
+func (a *ArmIK) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := a.GetJointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -84,12 +78,17 @@ func (a *ArmIK) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition sets the position.
-func (a *ArmIK) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
-	joints, err := a.GetJointPositions(ctx)
+func (a *ArmIK) MoveToPosition(
+	ctx context.Context,
+	pos *commonpb.Pose,
+	worldState *commonpb.WorldState,
+	extra map[string]interface{},
+) error {
+	joints, err := a.GetJointPositions(ctx, extra)
 	if err != nil {
 		return err
 	}
-	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
+	solution, err := a.mp.Plan(ctx, pos, a.model.InputFromProtobuf(joints), nil)
 	if err != nil {
 		return err
 	}
@@ -97,18 +96,18 @@ func (a *ArmIK) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldSta
 }
 
 // MoveToJointPositions sets the joints.
-func (a *ArmIK) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
+func (a *ArmIK) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
 	a.joints = joints
 	return nil
 }
 
 // GetJointPositions returns the set joints.
-func (a *ArmIK) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (a *ArmIK) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	return a.joints, nil
 }
 
 // Stop doesn't do anything for a fake arm.
-func (a *ArmIK) Stop(ctx context.Context) error {
+func (a *ArmIK) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return nil
 }
 
@@ -119,16 +118,16 @@ func (a *ArmIK) IsMoving(ctx context.Context) (bool, error) {
 
 // CurrentInputs TODO.
 func (a *ArmIK) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.GetJointPositions(ctx)
+	res, err := a.GetJointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.JointPosToInputs(res), nil
+	return a.model.InputFromProtobuf(res), nil
 }
 
 // GoToInputs TODO.
 func (a *ArmIK) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
+	return a.MoveToJointPositions(ctx, a.model.ProtobufFromInput(goal), nil)
 }
 
 // Close does nothing.

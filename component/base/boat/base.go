@@ -15,8 +15,8 @@ import (
 
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/generic"
-	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
@@ -64,7 +64,7 @@ func createBoat(deps registry.Dependencies, config *boatConfig, logger golog.Log
 
 	if config.IMU != "" {
 		var err error
-		theBoat.imu, err = imu.FromDependencies(deps, config.IMU)
+		theBoat.imu, err = movementsensor.FromDependencies(deps, config.IMU)
 		if err != nil {
 			return nil, err
 		}
@@ -86,7 +86,7 @@ type boat struct {
 
 	cfg    *boatConfig
 	motors []motor.Motor
-	imu    imu.IMU
+	imu    movementsensor.MovementSensor
 
 	opMgr operation.SingleOperationManager
 
@@ -99,28 +99,28 @@ type boat struct {
 	logger golog.Logger
 }
 
-func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64) error {
+func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 	if distanceMm < 0 {
 		mmPerSec *= -1
 		distanceMm *= -1
 	}
-	err := b.SetVelocity(ctx, r3.Vector{Y: mmPerSec}, r3.Vector{})
+	err := b.SetVelocity(ctx, r3.Vector{Y: mmPerSec}, r3.Vector{}, extra)
 	if err != nil {
 		return err
 	}
 	s := time.Duration(float64(time.Millisecond) * math.Abs(float64(distanceMm)))
 	utils.SelectContextOrWait(ctx, s)
-	return b.Stop(ctx)
+	return b.Stop(ctx, nil)
 }
 
-func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64) error {
+func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
 	millis := 1000 * (angleDeg / degsPerSec)
-	err := b.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: -1 * degsPerSec})
+	err := b.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: -1 * degsPerSec}, extra)
 	if err != nil {
 		return err
 	}
 	utils.SelectContextOrWait(ctx, time.Duration(float64(time.Millisecond)*millis))
-	return b.Stop(ctx)
+	return b.Stop(ctx, nil)
 }
 
 func (b *boat) startVelocityThread() error {
@@ -151,7 +151,7 @@ func (b *boat) startVelocityThread() error {
 }
 
 func (b *boat) velocityThreadLoop(ctx context.Context) error {
-	av, err := b.imu.ReadAngularVelocity(ctx)
+	av, err := b.imu.GetAngularVelocity(ctx)
 	if err != nil {
 		return err
 	}
@@ -207,7 +207,7 @@ func computeNextPower(state *boatState, angularVelocity spatialmath.AngularVeloc
 	return linear, angular
 }
 
-func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error {
+func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	b.logger.Debugf("SetVelocity %v %v", linear, angular)
 	_, done := b.opMgr.New(ctx)
 	defer done()
@@ -215,7 +215,6 @@ func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error
 	b.stateMutex.Lock()
 
 	if !b.state.threadStarted {
-		// nolint:contextcheck
 		err := b.startVelocityThread()
 		if err != nil {
 			return err
@@ -231,7 +230,7 @@ func (b *boat) SetVelocity(ctx context.Context, linear, angular r3.Vector) error
 	return nil
 }
 
-func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector) error {
+func (b *boat) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
 	b.logger.Debugf("SetPower %v %v", linear, angular)
 	ctx, done := b.opMgr.New(ctx)
 	defer done()
@@ -249,9 +248,9 @@ func (b *boat) setPowerInternal(ctx context.Context, linear, angular r3.Vector) 
 	// b.logger.Debugf("setPowerInternal %0.2f %0.2f %0.2f computePower: %v", linear.X, linear.Y, angular.Z, power)
 
 	for idx, p := range power {
-		err := b.motors[idx].SetPower(ctx, p)
+		err := b.motors[idx].SetPower(ctx, p, nil)
 		if err != nil {
-			return multierr.Combine(b.Stop(ctx), err)
+			return multierr.Combine(b.Stop(ctx, nil), err)
 		}
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -267,7 +266,7 @@ func (b *boat) setPowerInternal(ctx context.Context, linear, angular r3.Vector) 
 	return nil
 }
 
-func (b *boat) Stop(ctx context.Context) error {
+func (b *boat) Stop(ctx context.Context, extra map[string]interface{}) error {
 	b.stateMutex.Lock()
 	b.state.velocityLinearGoal = r3.Vector{}
 	b.state.velocityAngularGoal = r3.Vector{}
@@ -276,7 +275,7 @@ func (b *boat) Stop(ctx context.Context) error {
 	b.opMgr.CancelRunning(ctx)
 	var err error
 	for _, m := range b.motors {
-		err = multierr.Combine(m.Stop(ctx), err)
+		err = multierr.Combine(m.Stop(ctx, nil), err)
 	}
 	return err
 }
@@ -285,11 +284,24 @@ func (b *boat) GetWidth(ctx context.Context) (int, error) {
 	return int(b.cfg.WidthMM), nil
 }
 
+func (b *boat) IsMoving(ctx context.Context) (bool, error) {
+	for _, m := range b.motors {
+		isMoving, err := m.IsPowered(ctx, nil)
+		if err != nil {
+			return false, err
+		}
+		if isMoving {
+			return true, err
+		}
+	}
+	return false, nil
+}
+
 func (b *boat) Close(ctx context.Context) error {
 	if b.cancel != nil {
 		b.cancel()
 		b.cancel = nil
 		b.waitGroup.Wait()
 	}
-	return b.Stop(ctx)
+	return b.Stop(ctx, nil)
 }

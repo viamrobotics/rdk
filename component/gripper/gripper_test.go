@@ -6,7 +6,6 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"go.viam.com/test"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gripper"
@@ -27,7 +26,7 @@ const (
 )
 
 func setupInjectRobot() *inject.Robot {
-	gripper1 := &mock{Name: testGripperName}
+	gripper1 := &mockLocal{Name: testGripperName}
 	r := &inject.Robot{}
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
@@ -89,9 +88,7 @@ func TestStatusValid(t *testing.T) {
 	status := &commonpb.ActuatorStatus{
 		IsMoving: true,
 	}
-	map1, err := protoutils.InterfaceToMap(status)
-	test.That(t, err, test.ShouldBeNil)
-	newStruct, err := structpb.NewStruct(map1)
+	newStruct, err := protoutils.StructToStructPb(status)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(
 		t,
@@ -185,24 +182,35 @@ func TestGripperName(t *testing.T) {
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualGripper1 gripper.Gripper = &mock{Name: testGripperName}
+	var actualGripper1 gripper.Gripper = &mockLocal{Name: testGripperName}
 	reconfGripper1, err := gripper.WrapWithReconfigurable(actualGripper1)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = gripper.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalGripper", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gripper", nil))
 
 	reconfGripper2, err := gripper.WrapWithReconfigurable(reconfGripper1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfGripper2, test.ShouldEqual, reconfGripper1)
+
+	var actualGripper2 gripper.LocalGripper = &mockLocal{Name: testGripperName}
+	reconfGripper3, err := gripper.WrapWithReconfigurable(actualGripper2)
+	test.That(t, err, test.ShouldBeNil)
+
+	reconfGripper4, err := gripper.WrapWithReconfigurable(reconfGripper3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfGripper4, test.ShouldResemble, reconfGripper3)
+
+	_, ok := reconfGripper4.(gripper.LocalGripper)
+	test.That(t, ok, test.ShouldBeTrue)
 }
 
 func TestReconfigurableGripper(t *testing.T) {
-	actualGripper1 := &mock{Name: testGripperName}
+	actualGripper1 := &mockLocal{Name: testGripperName}
 	reconfGripper1, err := gripper.WrapWithReconfigurable(actualGripper1)
 	test.That(t, err, test.ShouldBeNil)
 
-	actualGripper2 := &mock{Name: testGripperName}
+	actualGripper2 := &mockLocal{Name: testGripperName}
 	reconfGripper2, err := gripper.WrapWithReconfigurable(actualGripper2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualGripper1.reconfCount, test.ShouldEqual, 0)
@@ -210,7 +218,7 @@ func TestReconfigurableGripper(t *testing.T) {
 	err = reconfGripper1.Reconfigure(context.Background(), reconfGripper2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfGripper1, test.ShouldResemble, reconfGripper2)
-	test.That(t, actualGripper1.reconfCount, test.ShouldEqual, 1)
+	test.That(t, actualGripper1.reconfCount, test.ShouldEqual, 2)
 
 	test.That(t, actualGripper1.grabCount, test.ShouldEqual, 0)
 	test.That(t, actualGripper2.grabCount, test.ShouldEqual, 0)
@@ -222,11 +230,34 @@ func TestReconfigurableGripper(t *testing.T) {
 
 	err = reconfGripper1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *gripper.reconfigurableGripper")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfGripper1, nil))
+
+	actualGripper3 := &mock{Name: failGripperName}
+	reconfGripper3, err := gripper.WrapWithReconfigurable(actualGripper3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfGripper3, test.ShouldNotBeNil)
+
+	err = reconfGripper1.Reconfigure(context.Background(), reconfGripper3)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfGripper1, reconfGripper3))
+	test.That(t, actualGripper3.reconfCount, test.ShouldEqual, 0)
+
+	err = reconfGripper3.Reconfigure(context.Background(), reconfGripper1)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfGripper3, reconfGripper1))
+
+	actualGripper4 := &mock{Name: testGripperName2}
+	reconfGripper4, err := gripper.WrapWithReconfigurable(actualGripper4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfGripper4, test.ShouldNotBeNil)
+
+	err = reconfGripper3.Reconfigure(context.Background(), reconfGripper4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfGripper3, test.ShouldResemble, reconfGripper4)
 }
 
 func TestStop(t *testing.T) {
-	actualGripper1 := &mock{Name: testGripperName}
+	actualGripper1 := &mockLocal{Name: testGripperName}
 	reconfGripper1, err := gripper.WrapWithReconfigurable(actualGripper1)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -238,6 +269,14 @@ func TestStop(t *testing.T) {
 const grabbed = true
 
 type mock struct {
+	gripper.Gripper
+	Name        string
+	reconfCount int
+}
+
+func (m *mock) Close() { m.reconfCount++ }
+
+type mockLocal struct {
 	gripper.LocalGripper
 	Name        string
 	grabCount   int
@@ -245,18 +284,18 @@ type mock struct {
 	reconfCount int
 }
 
-func (m *mock) Grab(ctx context.Context) (bool, error) {
+func (m *mockLocal) Grab(ctx context.Context) (bool, error) {
 	m.grabCount++
 	return grabbed, nil
 }
 
-func (m *mock) Stop(ctx context.Context) error {
+func (m *mockLocal) Stop(ctx context.Context) error {
 	m.stopCount++
 	return nil
 }
 
-func (m *mock) Close() { m.reconfCount++ }
+func (m *mockLocal) Close() { m.reconfCount++ }
 
-func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (m *mockLocal) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }

@@ -25,12 +25,12 @@ func (cid *chunkImageDebug) Process(
 	t *testing.T,
 	pCtx *rimage.ProcessorContext,
 	fn string,
-	imgraw image.Image,
+	imgraw, img2 image.Image,
 	logger golog.Logger,
 ) error {
 	t.Helper()
-	iwd := rimage.ConvertToImageWithDepth(imgraw)
-	img := iwd.Color
+	img := rimage.ConvertImage(imgraw)
+	dm, _ := rimage.ConvertImageToDepthMap(img2) // DepthMap is optional, ok if nil.
 
 	type AShape struct {
 		Start      image.Point
@@ -62,14 +62,14 @@ func (cid *chunkImageDebug) Process(
 
 		if true {
 			// this shows things with the cleaning, is it useful, not sure
-			out, err := ShapeWalkMultiple(iwd, starts, ShapeWalkOptions{SkipCleaning: true}, logger)
+			out, err := ShapeWalkMultiple(img, dm, starts, ShapeWalkOptions{SkipCleaning: true}, logger)
 			if err != nil {
 				return err
 			}
 			pCtx.GotDebugImage(out, "shapes-noclean")
 		}
 
-		out, err := ShapeWalkMultiple(iwd, starts, ShapeWalkOptions{}, logger)
+		out, err := ShapeWalkMultiple(img, dm, starts, ShapeWalkOptions{}, logger)
 		if err != nil {
 			return err
 		}
@@ -95,7 +95,7 @@ func (cid *chunkImageDebug) Process(
 
 			if reRun {
 				// run again with debugging on
-				_, err := ShapeWalkMultiple(iwd, []image.Point{s.Start}, ShapeWalkOptions{Debug: true}, logger)
+				_, err := ShapeWalkMultiple(img, dm, []image.Point{s.Start}, ShapeWalkOptions{Debug: true}, logger)
 				if err != nil {
 					return err
 				}
@@ -104,22 +104,22 @@ func (cid *chunkImageDebug) Process(
 	}
 
 	if true {
-		out, err := ShapeWalkEntireDebug(iwd, ShapeWalkOptions{}, logger)
+		out, err := ShapeWalkEntireDebug(img, dm, ShapeWalkOptions{}, logger)
 		if err != nil {
 			return err
 		}
 		pCtx.GotDebugImage(out, "entire")
 	}
 
-	if iwd.Depth != nil {
-		x := iwd.Depth.ToPrettyPicture(0, 0)
+	if dm != nil {
+		x := dm.ToPrettyPicture(0, 0)
 		pCtx.GotDebugImage(x, "depth")
 
-		x2 := iwd.Depth.InterestingPixels(2)
+		x2 := dm.InterestingPixels(2)
 		pCtx.GotDebugImage(x2, "depth-interesting")
 
 		pp := rimage.ParallelProjection{}
-		pc, err := pp.ImageWithDepthToPointCloud(iwd)
+		pc, err := pp.RGBDToPointCloud(img, dm)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -145,7 +145,7 @@ func TestChunk1(t *testing.T) {
 	if chunkTest == "" {
 		t.Skipf("set environmental variable %q to run this test", debugChunks)
 	}
-	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/test1", "*", true)
+	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/test1/color", "*.png", "segmentation/test1/depth")
 	err := d.Process(t, &chunkImageDebug{})
 	test.That(t, err, test.ShouldBeNil)
 }

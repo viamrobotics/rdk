@@ -34,8 +34,8 @@ var cartographerMetadata = LibraryMetadata{
 var orbslamv3Metadata = LibraryMetadata{
 	AlgoName:       "orbslamv3",
 	AlgoType:       sparse,
-	SlamMode:       map[string]mode{"": rgbd, "mono": mono, "rgbd": rgbd},
-	BinaryLocation: "true",
+	SlamMode:       map[string]mode{"mono": mono, "rgbd": rgbd},
+	BinaryLocation: "orb_grpc_server",
 }
 
 // LibraryMetadata contains all pertinent information for defining a SLAM library/algorithm including the

@@ -39,12 +39,12 @@ type voxelPlane struct {
 	normal    r3.Vector
 	center    r3.Vector
 	offset    float64
-	points    []PointAndData
+	points    map[r3.Vector]Data
 	voxelKeys []VoxelCoords
 }
 
 // NewPlaneFromVoxel creats a Plane object from a set of voxel properties.
-func NewPlaneFromVoxel(normal, center r3.Vector, offset float64, points []PointAndData, voxelKeys []VoxelCoords) Plane {
+func NewPlaneFromVoxel(normal, center r3.Vector, offset float64, points map[r3.Vector]Data, voxelKeys []VoxelCoords) Plane {
 	return &voxelPlane{normal, center, offset, points, voxelKeys}
 }
 
@@ -82,8 +82,8 @@ func (p *voxelPlane) PointCloud() (PointCloud, error) {
 		return nil, errors.New("no points in plane to turn into point cloud")
 	}
 	pc := New()
-	for _, pt := range p.points {
-		err := pc.Set(pt.P, pt.D)
+	for p, d := range p.points {
+		err := pc.Set(p, d)
 		if err != nil {
 			return nil, err
 		}
@@ -115,7 +115,7 @@ func (p *voxelPlane) Distance(pt r3.Vector) float64 {
 type Voxel struct {
 	Key             VoxelCoords
 	Label           int
-	Points          []PointAndData
+	Points          map[r3.Vector]Data
 	Center          r3.Vector
 	Normal          r3.Vector
 	Offset          float64
@@ -130,7 +130,7 @@ func NewVoxel(coords VoxelCoords) *Voxel {
 	return &Voxel{
 		Key:             coords,
 		Label:           0,
-		Points:          make([]PointAndData, 0),
+		Points:          make(map[r3.Vector]Data),
 		Center:          r3.Vector{},
 		Normal:          r3.Vector{},
 		Offset:          0,
@@ -147,7 +147,7 @@ func NewVoxelFromPoint(pt, ptMin r3.Vector, voxelSize float64) *Voxel {
 	return &Voxel{
 		Key:             coords,
 		Label:           0,
-		Points:          []PointAndData{{pt, nil}},
+		Points:          map[r3.Vector]Data{pt: NewBasicData()},
 		Center:          r3.Vector{},
 		Normal:          r3.Vector{},
 		Offset:          0,
@@ -161,8 +161,10 @@ func NewVoxelFromPoint(pt, ptMin r3.Vector, voxelSize float64) *Voxel {
 // Positions gets the positions of the points inside the voxel.
 func (v1 *Voxel) Positions() []r3.Vector {
 	positions := make([]r3.Vector, len(v1.Points))
-	for i, pt := range v1.Points {
-		positions[i] = pt.P
+	i := 0
+	for p := range v1.Points {
+		positions[i] = p
+		i++
 	}
 	return positions
 }
@@ -224,8 +226,8 @@ type VoxelSlice []*Voxel
 func (d VoxelSlice) ToPointCloud() (PointCloud, error) {
 	cloud := New()
 	for _, vox := range d {
-		for _, pt := range vox.Points {
-			err := cloud.Set(pt.P, pt.D)
+		for p, d := range vox.Points {
+			err := cloud.Set(p, d)
 			if err != nil {
 				return nil, err
 			}
@@ -428,7 +430,8 @@ func (vg *VoxelGrid) ConvertToPointCloudWithValue() (PointCloud, error) {
 	// fill output point cloud with labels
 	pc := New()
 	for _, vox := range vg.Voxels {
-		for i, pt := range vox.Points {
+		i := 0
+		for p, d := range vox.Points {
 			var label int
 			if vox.PointLabels == nil {
 				// create point with value
@@ -437,16 +440,17 @@ func (vg *VoxelGrid) ConvertToPointCloudWithValue() (PointCloud, error) {
 				label = vox.PointLabels[i]
 			}
 			var ptValue Data
-			if pt.D != nil {
-				ptValue = pt.D.SetValue(label)
+			if d != nil {
+				ptValue = d.SetValue(label)
 			} else {
 				ptValue = NewValueData(label)
 			}
 			// add it to the point cloud
-			err := pc.Set(pt.P, ptValue)
+			err := pc.Set(p, ptValue)
 			if err != nil {
 				return nil, err
 			}
+			i++
 		}
 	}
 	return pc, nil
@@ -473,7 +477,7 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 			voxelMap.Voxels[coords] = &Voxel{
 				Key:             coords,
 				Label:           0,
-				Points:          []PointAndData{{pt, d}},
+				Points:          map[r3.Vector]Data{pt: d},
 				Center:          r3.Vector{},
 				Normal:          r3.Vector{},
 				Offset:          0,
@@ -484,7 +488,7 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 			}
 		} else {
 			// if voxel coordinates is in the keys of voxelMap, add point to slice
-			vox.Points = append(vox.Points, PointAndData{pt, d})
+			vox.Points[pt] = d
 		}
 		return true
 	})

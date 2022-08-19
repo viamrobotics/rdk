@@ -16,6 +16,15 @@
       "attributes":
       {
       }
+    },
+    {
+      "model": "${TEST_MODEL_NAME_2-fake2}",
+      "name": "mock6",
+      "type": "mock",
+      "depends_on" : ["mock1", "mock3"],
+      "attributes":
+      {
+      }
     }
   ],
   "processes":

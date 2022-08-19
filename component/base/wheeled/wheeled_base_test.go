@@ -2,49 +2,53 @@ package wheeled
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
-	"github.com/golang/geo/r3"
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/motor/fake"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rlog"
 )
 
-func fakeDependencies(t *testing.T) registry.Dependencies {
+func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
 	t.Helper()
+	logger := golog.NewTestLogger(t)
 
-	deps := make(registry.Dependencies)
-	deps[motor.Named("fl-m")] = &fake.Motor{}
-	deps[motor.Named("fr-m")] = &fake.Motor{}
-	deps[motor.Named("bl-m")] = &fake.Motor{}
-	deps[motor.Named("br-m")] = &fake.Motor{}
-	return deps
+	result := make(registry.Dependencies)
+	for _, dep := range deps {
+		result[motor.Named(dep)] = &fake.Motor{
+			MaxRPM: 60,
+			Logger: logger,
+		}
+	}
+	return result
 }
 
 func TestFourWheelBase1(t *testing.T) {
 	ctx := context.Background()
 
-	deps := fakeDependencies(t)
-
-	_, err := CreateFourWheelBase(context.Background(), deps, config.Component{}, rlog.Logger)
+	cfg := &FourWheelConfig{}
+	_, err := cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 
-	cfg := config.Component{
-		Attributes: config.AttributeMap{
-			"width_mm":               100,
-			"wheel_circumference_mm": 1000,
-			"front_right":            "fr-m",
-			"front_left":             "fl-m",
-			"back_right":             "br-m",
-			"back_left":              "bl-m",
-		},
+	cfg = &FourWheelConfig{
+		WidthMM:              100,
+		WheelCircumferenceMM: 1000,
+		FrontRight:           "fr-m",
+		FrontLeft:            "fl-m",
+		BackRight:            "br-m",
+		BackLeft:             "bl-m",
 	}
-	baseBase, err := CreateFourWheelBase(context.Background(), deps, cfg, rlog.Logger)
+	deps, err := cfg.Validate("path")
+	test.That(t, err, test.ShouldBeNil)
+	motorDeps := fakeMotorDependencies(t, deps)
+
+	baseBase, err := CreateFourWheelBase(context.Background(), motorDeps, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
 	base, ok := baseBase.(*wheeledBase)
@@ -75,40 +79,40 @@ func TestFourWheelBase1(t *testing.T) {
 	})
 
 	t.Run("straight no speed", func(t *testing.T) {
-		err := base.MoveStraight(ctx, 1000, 0)
+		err := base.MoveStraight(ctx, 1000, 0, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = base.WaitForMotorsToStop(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(context.Background())
+			isOn, err := m.IsPowered(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
 	})
 
 	t.Run("straight no distance", func(t *testing.T) {
-		err := base.MoveStraight(ctx, 0, 1000)
+		err := base.MoveStraight(ctx, 0, 1000, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = base.WaitForMotorsToStop(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(context.Background())
+			isOn, err := m.IsPowered(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
 	})
 
 	t.Run("WaitForMotorsToStop", func(t *testing.T) {
-		err := base.Stop(ctx)
+		err := base.Stop(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = base.allMotors[0].SetPower(ctx, 1)
+		err = base.allMotors[0].SetPower(ctx, 1, nil)
 		test.That(t, err, test.ShouldBeNil)
-		isOn, err := base.allMotors[0].IsPowered(ctx)
+		isOn, err := base.allMotors[0].IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isOn, test.ShouldBeTrue)
 
@@ -116,7 +120,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx)
+			isOn, err := m.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
@@ -125,7 +129,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx)
+			isOn, err := m.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
@@ -135,17 +139,17 @@ func TestFourWheelBase1(t *testing.T) {
 	t.Run("go block", func(t *testing.T) {
 		go func() {
 			time.Sleep(time.Millisecond * 10)
-			err = base.Stop(ctx)
+			err = base.Stop(ctx, nil)
 			if err != nil {
 				panic(err)
 			}
 		}()
 
-		err := base.MoveStraight(ctx, 10000, 1000)
+		err := base.MoveStraight(ctx, 10000, 1000, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx)
+			isOn, err := m.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
@@ -171,17 +175,17 @@ func TestFourWheelBase1(t *testing.T) {
 	t.Run("spin block", func(t *testing.T) {
 		go func() {
 			time.Sleep(time.Millisecond * 10)
-			err := base.Stop(ctx)
+			err := base.Stop(ctx, nil)
 			if err != nil {
 				panic(err)
 			}
 		}()
 
-		err := base.Spin(ctx, 5, 5)
+		err := base.Spin(ctx, 5, 5, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx)
+			isOn, err := m.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
@@ -216,56 +220,132 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, r, test.ShouldEqual, -60.0)
 	})
 
-	t.Run("setPowerMath", func(t *testing.T) {
-		l, r := base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{})
-		test.That(t, l, test.ShouldEqual, 1)
-		test.That(t, r, test.ShouldEqual, 1)
+	t.Run("differentialDrive", func(t *testing.T) {
+		var fwdL, fwdR, revL, revR float64
 
-		l, r = base.setPowerMath(r3.Vector{Y: -1}, r3.Vector{})
-		test.That(t, l, test.ShouldEqual, -1)
-		test.That(t, r, test.ShouldEqual, -1)
+		// Go straight (↑)
+		t.Logf("Go straight (↑)")
+		fwdL, fwdR = base.differentialDrive(1, 0)
+		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
+		test.That(t, fwdR, test.ShouldBeGreaterThan, 0)
+		test.That(t, math.Abs(fwdL), test.ShouldEqual, math.Abs(fwdR))
 
-		l, r = base.setPowerMath(r3.Vector{}, r3.Vector{Z: 1})
-		test.That(t, l, test.ShouldEqual, -1)
-		test.That(t, r, test.ShouldEqual, 1)
+		// Go forward-left (↰)
+		t.Logf("Go forward-left (↰)")
+		fwdL, fwdR = base.differentialDrive(1, 1)
+		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
+		test.That(t, fwdR, test.ShouldBeGreaterThan, 0)
+		test.That(t, math.Abs(fwdL), test.ShouldBeLessThan, math.Abs(fwdR))
 
-		l, r = base.setPowerMath(r3.Vector{}, r3.Vector{Z: -1})
-		test.That(t, l, test.ShouldEqual, 1)
-		test.That(t, r, test.ShouldEqual, -1)
+		// Go reverse-left (↲)
+		t.Logf("Go reverse-left (↲)")
+		revL, revR = base.differentialDrive(-1, 1)
+		test.That(t, revL, test.ShouldBeLessThan, 0)
+		test.That(t, revR, test.ShouldBeLessThan, 0)
+		test.That(t, math.Abs(revL), test.ShouldBeLessThan, math.Abs(revR))
 
-		l, r = base.setPowerMath(r3.Vector{Y: 1}, r3.Vector{Z: 1})
-		test.That(t, l, test.ShouldAlmostEqual, 0, .001)
-		test.That(t, r, test.ShouldEqual, 1)
+		// Ensure motor powers are mirrored going left.
+		test.That(t, math.Abs(fwdL), test.ShouldEqual, math.Abs(revL))
+		test.That(t, math.Abs(fwdR), test.ShouldEqual, math.Abs(revR))
+
+		// Go forward-right (↱)
+		t.Logf("Go forward-right (↱)")
+		fwdL, fwdR = base.differentialDrive(1, -1)
+		test.That(t, fwdL, test.ShouldBeGreaterThan, 0)
+		test.That(t, fwdR, test.ShouldBeGreaterThan, 0)
+		test.That(t, math.Abs(fwdL), test.ShouldBeGreaterThan, math.Abs(revL))
+
+		// Go reverse-right (↳)
+		t.Logf("Go reverse-right (↳)")
+		revL, revR = base.differentialDrive(-1, -1)
+		test.That(t, revL, test.ShouldBeLessThan, 0)
+		test.That(t, revR, test.ShouldBeLessThan, 0)
+		test.That(t, math.Abs(revL), test.ShouldBeGreaterThan, math.Abs(revR))
+
+		// Ensure motor powers are mirrored going right.
+		test.That(t, math.Abs(fwdL), test.ShouldEqual, math.Abs(revL))
+		test.That(t, math.Abs(fwdR), test.ShouldEqual, math.Abs(revR))
+
+		// Test spin left (↺)
+		t.Logf("Test spin left (↺)")
+		spinL, spinR := base.differentialDrive(0, 1)
+		test.That(t, spinL, test.ShouldBeLessThanOrEqualTo, 0)
+		test.That(t, spinR, test.ShouldBeGreaterThan, 0)
+
+		// Test spin right (↻)
+		t.Logf("Test spin right (↻)")
+		spinL, spinR = base.differentialDrive(0, -1)
+		test.That(t, spinL, test.ShouldBeGreaterThan, 0)
+		test.That(t, spinR, test.ShouldBeLessThanOrEqualTo, 0)
 	})
 }
 
 func TestWheeledBaseConstructor(t *testing.T) {
 	ctx := context.Background()
-	deps := fakeDependencies(t)
 
-	_, err := CreateWheeledBase(context.Background(), deps, &Config{}, rlog.Logger)
+	// empty config
+	cfg := &Config{}
+	_, err := cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 
-	cfg := &Config{
+	// invalid config
+	cfg = &Config{
 		WidthMM:              100,
 		WheelCircumferenceMM: 1000,
 		Left:                 []string{"fl-m", "bl-m"},
 		Right:                []string{"fr-m"},
 	}
-	_, err = CreateWheeledBase(ctx, deps, cfg, rlog.Logger)
+	_, err = cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 
+	// valid config
 	cfg = &Config{
 		WidthMM:              100,
 		WheelCircumferenceMM: 1000,
 		Left:                 []string{"fl-m", "bl-m"},
 		Right:                []string{"fr-m", "br-m"},
 	}
-	baseBase, err := CreateWheeledBase(ctx, deps, cfg, rlog.Logger)
+	deps, err := cfg.Validate("path")
+	test.That(t, err, test.ShouldBeNil)
+	motorDeps := fakeMotorDependencies(t, deps)
+
+	baseBase, err := CreateWheeledBase(ctx, motorDeps, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*wheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, len(base.left), test.ShouldEqual, 2)
 	test.That(t, len(base.right), test.ShouldEqual, 2)
 	test.That(t, len(base.allMotors), test.ShouldEqual, 4)
+}
+
+func TestValidate(t *testing.T) {
+	cfg := &Config{}
+	deps, err := cfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "need a width_mm for a wheeled base")
+
+	cfg.WidthMM = 100
+	deps, err = cfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "need a wheel_circumference_mm for a wheeled base")
+
+	cfg.WheelCircumferenceMM = 1000
+	deps, err = cfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "need left and right motors")
+
+	cfg.Left = []string{"fl-m", "bl-m"}
+	deps, err = cfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "need left and right motors")
+
+	cfg.Right = []string{"fr-m"}
+	deps, err = cfg.Validate("path")
+	test.That(t, deps, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "left and right need to have the same number of motors, not 2 vs 1")
+
+	cfg.Right = append(cfg.Right, "br-m")
+	deps, err = cfg.Validate("path")
+	test.That(t, deps, test.ShouldResemble, []string{"fl-m", "bl-m", "fr-m", "br-m"})
+	test.That(t, err, test.ShouldBeNil)
 }

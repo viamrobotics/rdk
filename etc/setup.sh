@@ -24,10 +24,10 @@ do_bullseye(){
 
 	# Node repo
 	curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --yes --dearmor -o /usr/share/keyrings/nodesource.gpg
-	echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_16.x $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/nodesource.list
+	echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/nodesource.list
 
 	# Install most things
-	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev libtensorflowlite-dev protobuf-compiler protoc-gen-grpc-web && apt-get clean
+	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev libtensorflowlite-dev protobuf-compiler protoc-gen-grpc-web ffmpeg && apt-get clean
 
 	# Install backports
 	apt-get install -y -t $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports golang-go
@@ -44,13 +44,11 @@ do_bullseye(){
 	fi
 
 	cat > ~/.viamdevrc <<-EOS
-	if [[ "\$VIAM_DEV_ENV"x == "x" ]]; then
-		export VIAM_DEV_ENV=1
-		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-	fi
+	export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 	EOS
 
 	mod_profiles
+	check_gcloud_auth
 }
 
 do_linux(){
@@ -74,20 +72,18 @@ do_linux(){
 	fi
 
 	cat > ~/.viamdevrc <<-EOS
-	if [[ "\$VIAM_DEV_ENV"x == "x" ]]; then
-		export VIAM_DEV_ENV=1
-		eval "\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-		export LIBRARY_PATH=/home/linuxbrew/.linuxbrew/lib
-		export CGO_LDFLAGS=-L/home/linuxbrew/.linuxbrew/lib
-		export CGO_CFLAGS=-I/home/linuxbrew/.linuxbrew/include
-		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-		export CC=gcc-11
-		export CXX=g++-11
-	fi
+	eval "\$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+	export LIBRARY_PATH=/home/linuxbrew/.linuxbrew/lib
+	export CGO_LDFLAGS=-L/home/linuxbrew/.linuxbrew/lib
+	export CGO_CFLAGS=-I/home/linuxbrew/.linuxbrew/include
+	export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
+	export CC=gcc-11
+	export CXX=g++-11
 	EOS
 
 	do_brew
 	mod_profiles
+	check_gcloud_auth
 }
 
 
@@ -101,31 +97,26 @@ do_darwin(){
 	if [ "$(uname -m)" == "arm64" ]; then
 
 		cat > ~/.viamdevrc <<-EOS
-		if [[ "\$VIAM_DEV_ENV"x == "x" ]]; then
-			export VIAM_DEV_ENV=1
-			eval "\$(/opt/homebrew/bin/brew shellenv)"
-			export LIBRARY_PATH=/opt/homebrew/lib
-			export CGO_LDFLAGS=-L/opt/homebrew/lib
-			export CGO_CFLAGS=-I/opt/homebrew/include
-			export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-		fi
+		eval "\$(/opt/homebrew/bin/brew shellenv)"
+		export LIBRARY_PATH=/opt/homebrew/lib
+		export CGO_LDFLAGS=-L/opt/homebrew/lib
+		export CGO_CFLAGS=-I/opt/homebrew/include
+		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 		EOS
 
   	else # assuming x86_64, but untested
 
 		cat > ~/.viamdevrc <<-EOS
-		if [[ "\$VIAM_DEV_ENV"x == "x" ]]; then
-			export VIAM_DEV_ENV=1
-			eval "\$(/usr/local/bin/brew shellenv)"
-			export LIBRARY_PATH=/usr/local/lib
-			export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-		fi
+		eval "\$(/usr/local/bin/brew shellenv)"
+		export LIBRARY_PATH=/usr/local/lib
+		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 		EOS
 
 	fi
 
 	do_brew
 	mod_profiles
+	check_gcloud_auth
 }
 
 mod_profiles(){
@@ -135,13 +126,24 @@ mod_profiles(){
 	test -f ~/.zprofile && ( grep -q viamdevrc ~/.zprofile || echo "source ~/.viamdevrc" >> ~/.zprofile )
 	test -f ~/.zshrc && ( grep -q viamdevrc ~/.zshrc || echo "source ~/.viamdevrc" >> ~/.zshrc )
 
-	# Once again seems to be needed, now that API is a distinct private repo
-	git config --global --get-regexp url. > /dev/null
+	# We have some private repos for now so exclude them from https in order to utilize SSH keys.
+	git config --global --get-regexp url.ssh://git@github.com/viamrobotics > /dev/null
 	if [ $? -ne 0 ]; then
-		git config --global url.ssh://git@github.com/.insteadOf https://github.com/
+		git config --global url.ssh://git@github.com/viamrobotics/rdk.insteadOf https://github.com/viamrobotics/rdk
+		git config --global url.ssh://git@github.com/viamrobotics/api.insteadOf https://github.com/viamrobotics/api
 	fi
 	mkdir -p ~/.ssh
 	grep -q github.com ~/.ssh/known_hosts || ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
+}
+
+# This workaround is for https://viam.atlassian.net/browse/RSDK-526, without the application default credential file our tests will
+# create goroutines that get leaked and fail. Once https://github.com/googleapis/google-cloud-go/issues/5430 is fixed we can remove this.
+check_gcloud_auth(){
+	APP_CREDENTIALS_FILE="$HOME/.config/gcloud/application_default_credentials.json"	
+	if [ ! -f "$APP_CREDENTIALS_FILE" ]; then
+		echo "Missing gcloud application default credentials, this can cause goroutines to leak if not configured. Creating with empty config at $APP_CREDENTIALS_FILE"
+		echo '{"client_id":"XXXX","client_secret":"XXXX","refresh_token":"XXXX","type":"authorized_user"}' > $APP_CREDENTIALS_FILE
+	fi
 }
 
 do_brew(){
@@ -161,11 +163,13 @@ do_brew(){
 	brew "protoc-gen-grpc-web"
 	brew "pkg-config"
 	brew "tensorflowlite"
+	brew "ffmpeg"
+
 	# pinned
 	brew "gcc@11"
-	brew "go@1.17"
-	brew "node@16"
-	brew "protobuf@3.19"
+	brew "go@1.18"
+	brew "node@18"
+	brew "protobuf@3"
 
 	EOS
 
@@ -173,7 +177,8 @@ do_brew(){
 		exit 1
 	fi
 
-	brew link --overwrite "gcc@11" "go@1.17" "node@16" "protobuf@3.19" || exit 1
+	brew unlink "gcc" "go" "node" "protobuf"
+	brew link --overwrite "gcc@11" "go@1.18" "node@18" "protobuf@3" || exit 1
 
 	echo "Brew installed software versions..."
 	brew list --version

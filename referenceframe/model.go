@@ -10,6 +10,7 @@ import (
 
 	"go.uber.org/multierr"
 
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -76,8 +77,36 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 	return frames[0].transform, err
 }
 
+// InputFromProtobuf converts pb.JointPosition to inputs.
+func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
+	inputs := make([]Input, 0, len(jp.Values))
+	posIdx := 0
+	for _, transform := range m.OrdTransforms {
+		dof := len(transform.DoF()) + posIdx
+		jPos := jp.Values[posIdx:dof]
+		posIdx = dof
+
+		inputs = append(inputs, transform.InputFromProtobuf(&pb.JointPositions{Values: jPos})...)
+	}
+
+	return inputs
+}
+
+// ProtobufFromInput converts inputs to pb.JointPosition.
+func (m *SimpleModel) ProtobufFromInput(input []Input) *pb.JointPositions {
+	jPos := &pb.JointPositions{}
+	posIdx := 0
+	for _, transform := range m.OrdTransforms {
+		dof := len(transform.DoF()) + posIdx
+		jPos.Values = append(jPos.Values, transform.ProtobufFromInput(input[posIdx:dof]).Values...)
+		posIdx = dof
+	}
+
+	return jPos
+}
+
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
-func (m *SimpleModel) Geometries(inputs []Input) (map[string]spatialmath.Geometry, error) {
+func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 	frames, err := m.inputsToFrames(inputs, true)
 	if err != nil && frames == nil {
 		return nil, err
@@ -91,9 +120,9 @@ func (m *SimpleModel) Geometries(inputs []Input) (map[string]spatialmath.Geometr
 			multierr.AppendInto(&errAll, err)
 			continue
 		}
-		geometryMap[m.name+":"+frame.Name()] = geometry[frame.Name()]
+		geometryMap[m.name+":"+frame.Name()] = geometry.Geometries()[frame.Name()].Transform(frame.transform)
 	}
-	return geometryMap, errAll
+	return NewGeometriesInFrame(m.name, geometryMap), errAll
 }
 
 // CachedTransform will check a sync.Map cache to see if the exact given set of inputs has been computed yet. If so

@@ -20,30 +20,33 @@ func (h *homographyTestHelper) Process(
 	t *testing.T,
 	pCtx *rimage.ProcessorContext,
 	fn string,
-	img image.Image,
+	img, img2 image.Image,
 	logger golog.Logger,
 ) error {
 	t.Helper()
 	var err error
-	ii := rimage.ConvertToImageWithDepth(img)
-	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth_homography")
-
-	fixed, err := h.params.AlignColorAndDepthImage(ii.Color, ii.Depth)
+	im := rimage.ConvertImage(img)
+	dm, err := rimage.ConvertImageToDepthMap(img2)
 	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugImage(fixed.Color, "color-fixed_homography")
-	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed_homography")
+	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "depth_homography")
 
-	pCtx.GotDebugImage(fixed.Overlay(), "overlay_homography")
+	imgFixed, dmFixed, err := h.params.AlignColorAndDepthImage(im, dm)
+	test.That(t, err, test.ShouldBeNil)
+	pCtx.GotDebugImage(imgFixed, "color-fixed_homography")
+	pCtx.GotDebugImage(dmFixed.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed_homography")
+
+	pCtx.GotDebugImage(rimage.Overlay(imgFixed, dmFixed), "overlay_homography")
 
 	// get pointcloud
-	pc, err := h.proj.ImageWithDepthToPointCloud(fixed)
+	pc, err := h.proj.RGBDToPointCloud(imgFixed, dmFixed)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(pc, "aligned-pointcloud_homography")
 
-	// go back to image with depth
-	roundTrip, err := h.proj.PointCloudToImageWithDepth(pc)
+	// go back to image and depth map
+	roundTripImg, roundTripDm, err := h.proj.PointCloudToRGBD(pc)
 	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugImage(roundTrip.Overlay(), "from-pointcloud_homography")
+	pCtx.GotDebugImage(roundTripImg, "from-pointcloud-color")
+	pCtx.GotDebugImage(roundTripDm.ToPrettyPicture(0, rimage.MaxDepth), "from-pointcloud-depth")
 
 	return nil
 }
@@ -96,7 +99,7 @@ func TestDepthColorHomography(t *testing.T) {
 
 	dch, err := NewDepthColorHomography(conf)
 	test.That(t, err, test.ShouldBeNil)
-	d := rimage.NewMultipleImageTestDebugger(t, "transform/homography", "*.both.gz", false)
+	d := rimage.NewMultipleImageTestDebugger(t, "transform/homography/color", "*.png", "transform/homography/depth")
 	err = d.Process(t, &homographyTestHelper{dch, intrinsics})
 	test.That(t, err, test.ShouldBeNil)
 }

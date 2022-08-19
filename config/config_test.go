@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"net"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
@@ -17,8 +19,9 @@ import (
 	"go.viam.com/rdk/component/board"
 	// board attribute converters.
 	_ "go.viam.com/rdk/component/board/fake"
-	"go.viam.com/rdk/component/motor"
 	// motor attribute converters.
+	"go.viam.com/rdk/component/encoder"
+	"go.viam.com/rdk/component/motor"
 	_ "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
@@ -54,7 +57,7 @@ func TestConfig3(t *testing.T) {
 	cfg, err := config.Read(context.Background(), "data/config3.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(cfg.Components), test.ShouldEqual, 3)
+	test.That(t, len(cfg.Components), test.ShouldEqual, 4)
 	test.That(t, cfg.Components[0].Attributes.Int("foo", 0), test.ShouldEqual, 5)
 	test.That(t, cfg.Components[0].Attributes.Bool("foo2", false), test.ShouldEqual, true)
 	test.That(t, cfg.Components[0].Attributes.Bool("foo3", false), test.ShouldEqual, false)
@@ -86,10 +89,16 @@ func TestConfig3(t *testing.T) {
 			Direction: "io17",
 			PWM:       "io18",
 		},
-		EncoderA:         "encoder-steering-b",
-		EncoderB:         "encoder-steering-a",
-		TicksPerRotation: 10000,
+		Encoder:          "encoder1",
 		MaxPowerPct:      0.5,
+		TicksPerRotation: 10000,
+	})
+	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &encoder.HallConfig{
+		Pins: encoder.HallPins{
+			A: "encoder-steering-b",
+			B: "encoder-steering-a",
+		},
+		BoardName: "board1",
 	})
 }
 
@@ -231,6 +240,12 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, `bind_address`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `missing port`)
 
+	invalidNetwork.Network.BindAddress = "woop"
+	invalidNetwork.Network.Listener = &net.TCPListener{}
+	err = invalidNetwork.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `only set one of`)
+
 	invalidAuthConfig := config.Config{
 		Auth: config.AuthConfig{},
 	}
@@ -276,6 +291,41 @@ func TestConfigEnsure(t *testing.T) {
 		validAPIKeyHandler,
 	}
 	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
+}
+
+func TestCopyOnlyPublicFields(t *testing.T) {
+	t.Run("copy sample config", func(t *testing.T) {
+		content, err := os.ReadFile("data/robot.json")
+		test.That(t, err, test.ShouldBeNil)
+		var cfg config.Config
+		json.Unmarshal(content, &cfg)
+
+		cfgCopy, err := cfg.CopyOnlyPublicFields()
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, *cfgCopy, test.ShouldResemble, cfg)
+	})
+
+	t.Run("should not copy unexported json fields", func(t *testing.T) {
+		cfg := &config.Config{
+			Cloud: &config.Cloud{
+				TLSCertificate: "abc",
+			},
+			Network: config.NetworkConfig{
+				NetworkConfigData: config.NetworkConfigData{
+					TLSConfig: &tls.Config{
+						Time: time.Now().UTC,
+					},
+				},
+			},
+		}
+
+		cfgCopy, err := cfg.CopyOnlyPublicFields()
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, cfgCopy.Cloud.TLSCertificate, test.ShouldEqual, cfg.Cloud.TLSCertificate)
+		test.That(t, cfgCopy.Network.TLSConfig, test.ShouldBeNil)
+	})
 }
 
 func TestConfigSortComponents(t *testing.T) {

@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/component/sensor"
@@ -32,13 +31,13 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 	t.Helper()
 
 	deps := make(registry.Dependencies)
-	deps[gantry.Named(testGantryName)] = &mock{Name: testGantryName}
+	deps[gantry.Named(testGantryName)] = &mockLocal{Name: testGantryName}
 	deps[gantry.Named(fakeGantryName)] = "not a gantry"
 	return deps
 }
 
 func setupInjectRobot() *inject.Robot {
-	gantry1 := &mock{Name: testGantryName}
+	gantry1 := &mockLocal{Name: testGantryName}
 	r := &inject.Robot{}
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
@@ -76,7 +75,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	lengths1, err := res.GetLengths(context.Background())
+	lengths1, err := res.GetLengths(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths1, test.ShouldResemble, lengths)
 
@@ -96,7 +95,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	lengths1, err := res.GetLengths(context.Background())
+	lengths1, err := res.GetLengths(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths1, test.ShouldResemble, lengths)
 
@@ -122,9 +121,7 @@ func TestStatusValid(t *testing.T) {
 		LengthsMm:   []float64{4.4, 5.5, 6.6},
 		IsMoving:    true,
 	}
-	map1, err := protoutils.InterfaceToMap(status)
-	test.That(t, err, test.ShouldBeNil)
-	newStruct, err := structpb.NewStruct(map1)
+	newStruct, err := protoutils.StructToStructPb(status)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(
 		t,
@@ -156,10 +153,10 @@ func TestCreateStatus(t *testing.T) {
 	}
 
 	injectGantry := &inject.Gantry{}
-	injectGantry.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
+	injectGantry.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return status.PositionsMm, nil
 	}
-	injectGantry.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
+	injectGantry.GetLengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return status.LengthsMm, nil
 	}
 	injectGantry.IsMovingFunc = func(context.Context) (bool, error) {
@@ -194,7 +191,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on GetLengths", func(t *testing.T) {
 		errFail := errors.New("can't get lengths")
-		injectGantry.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
+		injectGantry.GetLengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 			return nil, errFail
 		}
 		_, err = gantry.CreateStatus(context.Background(), injectGantry)
@@ -203,7 +200,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on GetPositions", func(t *testing.T) {
 		errFail := errors.New("can't get positions")
-		injectGantry.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
+		injectGantry.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 			return nil, errFail
 		}
 		_, err = gantry.CreateStatus(context.Background(), injectGantry)
@@ -253,18 +250,30 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = gantry.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalGantry", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gantry", nil))
+
 	reconfGantry2, err := gantry.WrapWithReconfigurable(reconfGantry1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfGantry2, test.ShouldEqual, reconfGantry1)
+
+	var actualGantry2 gantry.LocalGantry = &mockLocal{Name: testGantryName}
+	reconfGantry3, err := gantry.WrapWithReconfigurable(actualGantry2)
+	test.That(t, err, test.ShouldBeNil)
+
+	reconfGantry4, err := gantry.WrapWithReconfigurable(reconfGantry3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfGantry4, test.ShouldResemble, reconfGantry3)
+
+	_, ok := reconfGantry4.(gantry.LocalGantry)
+	test.That(t, ok, test.ShouldBeTrue)
 }
 
 func TestReconfigurableGantry(t *testing.T) {
-	actualGantry1 := &mock{Name: testGantryName}
+	actualGantry1 := &mockLocal{Name: testGantryName}
 	reconfGantry1, err := gantry.WrapWithReconfigurable(actualGantry1)
 	test.That(t, err, test.ShouldBeNil)
 
-	actualGantry2 := &mock{Name: testGantryName2}
+	actualGantry2 := &mockLocal{Name: testGantryName2}
 	reconfGantry2, err := gantry.WrapWithReconfigurable(actualGantry2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualGantry1.reconfCount, test.ShouldEqual, 0)
@@ -272,11 +281,11 @@ func TestReconfigurableGantry(t *testing.T) {
 	err = reconfGantry1.Reconfigure(context.Background(), reconfGantry2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfGantry1, test.ShouldResemble, reconfGantry2)
-	test.That(t, actualGantry1.reconfCount, test.ShouldEqual, 1)
+	test.That(t, actualGantry1.reconfCount, test.ShouldEqual, 2)
 
 	test.That(t, actualGantry1.lengthsCount, test.ShouldEqual, 0)
 	test.That(t, actualGantry2.lengthsCount, test.ShouldEqual, 0)
-	lengths1, err := reconfGantry1.(gantry.Gantry).GetLengths(context.Background())
+	lengths1, err := reconfGantry1.(gantry.Gantry).GetLengths(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths1, test.ShouldResemble, lengths)
 	test.That(t, actualGantry1.lengthsCount, test.ShouldEqual, 0)
@@ -284,21 +293,45 @@ func TestReconfigurableGantry(t *testing.T) {
 
 	err = reconfGantry1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *gantry.reconfigurableGantry")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfGantry1, nil))
+
+	actualGantry3 := &mock{Name: testGantryName}
+	reconfGantry3, err := gantry.WrapWithReconfigurable(actualGantry3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfGantry3, test.ShouldNotBeNil)
+
+	err = reconfGantry1.Reconfigure(context.Background(), reconfGantry3)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfGantry1, reconfGantry3))
+	test.That(t, actualGantry3.reconfCount, test.ShouldEqual, 0)
+
+	err = reconfGantry3.Reconfigure(context.Background(), reconfGantry1)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfGantry3, reconfGantry1))
+
+	actualGantry4 := &mock{Name: testGantryName2}
+	reconfGantry4, err := gantry.WrapWithReconfigurable(actualGantry4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfGantry4, test.ShouldNotBeNil)
+
+	err = reconfGantry3.Reconfigure(context.Background(), reconfGantry4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfGantry3, test.ShouldResemble, reconfGantry4)
 }
 
 func TestStop(t *testing.T) {
-	actualGantry1 := &mock{Name: testGantryName}
+	actualGantry1 := &mockLocal{Name: testGantryName}
 	reconfGantry1, err := gantry.WrapWithReconfigurable(actualGantry1)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualGantry1.stopCount, test.ShouldEqual, 0)
-	test.That(t, reconfGantry1.(gantry.Gantry).Stop(context.Background()), test.ShouldBeNil)
+	test.That(t, reconfGantry1.(gantry.Gantry).Stop(context.Background(), map[string]interface{}{"foo": 123}), test.ShouldBeNil)
 	test.That(t, actualGantry1.stopCount, test.ShouldEqual, 1)
+	test.That(t, actualGantry1.extra, test.ShouldResemble, map[string]interface{}{"foo": 123})
 }
 
 func TestClose(t *testing.T) {
-	actualGantry1 := &mock{Name: testGantryName}
+	actualGantry1 := &mockLocal{Name: testGantryName}
 	reconfGantry1, err := gantry.WrapWithReconfigurable(actualGantry1)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -310,25 +343,36 @@ func TestClose(t *testing.T) {
 var lengths = []float64{1.0, 2.0, 3.0}
 
 type mock struct {
+	gantry.Gantry
+	Name        string
+	reconfCount int
+}
+
+func (m *mock) Close() { m.reconfCount++ }
+
+type mockLocal struct {
 	gantry.LocalGantry
 	Name         string
 	lengthsCount int
 	stopCount    int
 	reconfCount  int
+	extra        map[string]interface{}
 }
 
-func (m *mock) GetLengths(context.Context) ([]float64, error) {
+func (m *mockLocal) GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	m.lengthsCount++
+	m.extra = extra
 	return lengths, nil
 }
 
-func (m *mock) Stop(ctx context.Context) error {
+func (m *mockLocal) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.stopCount++
+	m.extra = extra
 	return nil
 }
 
-func (m *mock) Close() { m.reconfCount++ }
+func (m *mockLocal) Close() { m.reconfCount++ }
 
-func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (m *mockLocal) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }

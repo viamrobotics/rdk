@@ -141,7 +141,7 @@
                 "store": {
                     "type": "memory"
                 },
-                "gps": "gps1",
+                "movement_sensor": "gps1",
                 "base": "base1"
             }
         },

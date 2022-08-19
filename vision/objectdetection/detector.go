@@ -3,6 +3,7 @@
 package objectdetection
 
 import (
+	"context"
 	"fmt"
 	"image"
 
@@ -10,7 +11,7 @@ import (
 )
 
 // Detector returns a slice of object detections from an input image.
-type Detector func(image.Image) ([]Detection, error)
+type Detector func(context.Context, image.Image) ([]Detection, error)
 
 // Build zips up a preprocessor-detector-postprocessor stream into a detector.
 func Build(prep Preprocessor, det Detector, post Postprocessor) (Detector, error) {
@@ -23,9 +24,9 @@ func Build(prep Preprocessor, det Detector, post Postprocessor) (Detector, error
 	if post == nil {
 		post = func(inp []Detection) []Detection { return inp }
 	}
-	return func(img image.Image) ([]Detection, error) {
+	return func(ctx context.Context, img image.Image) ([]Detection, error) {
 		preprocessed := prep(img)
-		detections, err := det(preprocessed)
+		detections, err := det(ctx, preprocessed)
 		if err != nil {
 			return nil, err
 		}

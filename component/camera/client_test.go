@@ -1,11 +1,9 @@
 package camera_test
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"image"
-	"image/jpeg"
 	"net"
 	"testing"
 
@@ -23,9 +21,11 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 func TestClient(t *testing.T) {
@@ -37,26 +37,47 @@ func TestClient(t *testing.T) {
 
 	injectCamera := &inject.Camera{}
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
-	var imgBuf bytes.Buffer
-	test.That(t, jpeg.Encode(&imgBuf, img, nil), test.ShouldBeNil)
 
 	pcA := pointcloud.New()
 	err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	var imageReleased bool
-	injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-		return img, func() { imageReleased = true }, nil
+	var projA rimage.Projector
+	intrinsics := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
+		Width:  1280,
+		Height: 720,
+		Fx:     200,
+		Fy:     200,
+		Ppx:    100,
+		Ppy:    100,
 	}
+	projA = intrinsics
+
+	var imageReleased bool
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
-	injectCamera2 := &inject.Camera{}
-	injectCamera2.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-		return nil, nil, errors.New("can't generate next frame")
+	injectCamera.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+		return projA, nil
 	}
+	injectCamera.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+		imageReleased = true
+		bytes, err := rimage.EncodeImage(ctx, img, rdkutils.MimeTypePNG)
+		if err != nil {
+			return nil, "", 0, 0, err
+		}
+		return bytes, rdkutils.MimeTypePNG, int64(img.Bounds().Dx()), int64(img.Bounds().Dy()), nil
+	}
+
+	injectCamera2 := &inject.Camera{}
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return nil, errors.New("can't generate next point cloud")
+	}
+	injectCamera2.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+		return nil, errors.New("can't get camera properties")
+	}
+	injectCamera2.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+		return nil, "", 0, 0, errors.New("can't generate frame")
 	}
 
 	resources := map[resource.Name]interface{}{
@@ -98,6 +119,10 @@ func TestClient(t *testing.T) {
 		_, got := pcB.At(5, 5, 5)
 		test.That(t, got, test.ShouldBeTrue)
 
+		projB, err := camera1Client.GetProperties(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, projB, test.ShouldNotBeNil)
+
 		// Do
 		resp, err := camera1Client.Do(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
@@ -117,11 +142,15 @@ func TestClient(t *testing.T) {
 
 		_, _, err = camera2Client.Next(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next frame")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate frame")
 
 		_, err = camera2Client.NextPointCloud(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next point cloud")
+
+		_, err = camera2Client.GetProperties(context.Background())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get camera properties")
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})

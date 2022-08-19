@@ -42,8 +42,8 @@ type JointData struct {
 	JointMode byte
 }
 
-// AngleDegrees TODO.
-func (j JointData) AngleDegrees() float64 {
+// AngleValues TODO.
+func (j JointData) AngleValues() float64 {
 	return utils.RadToDeg(j.Qactual)
 }
 

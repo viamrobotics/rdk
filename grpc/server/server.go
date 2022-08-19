@@ -81,12 +81,7 @@ func convertInterfaceToStruct(i interface{}) (*structpb.Struct, error) {
 	if i == nil {
 		return &structpb.Struct{}, nil
 	}
-	m, err := protoutils.InterfaceToMap(i)
-	if err != nil {
-		return nil, err
-	}
-
-	return structpb.NewStruct(m)
+	return protoutils.StructToStructPb(i)
 }
 
 // CancelOperation kills an operations.
@@ -131,7 +126,10 @@ func (s *Server) ResourceRPCSubtypes(ctx context.Context, _ *pb.ResourceRPCSubty
 	protoTypes := make([]*pb.ResourceRPCSubtype, 0, len(resSubtypes))
 	for _, rt := range resSubtypes {
 		protoTypes = append(protoTypes, &pb.ResourceRPCSubtype{
-			Subtype:      protoutils.ResourceNameToProto(resource.Name{rt.Subtype, ""}),
+			Subtype: protoutils.ResourceNameToProto(resource.Name{
+				Subtype: rt.Subtype,
+				Name:    "",
+			}),
 			ProtoService: rt.Desc.GetFullyQualifiedName(),
 		})
 	}
@@ -217,15 +215,9 @@ func (s *Server) GetStatus(ctx context.Context, req *pb.GetStatusRequest) (*pb.G
 
 	statusesP := make([]*pb.Status, 0, len(statuses))
 	for _, status := range statuses {
-		// InterfaceToMap necessary because structpb.NewStruct only accepts []interface{} for slices and mapstructure does not do the
-		// conversion necessary.
-		encoded, err := protoutils.InterfaceToMap(status.Status)
+		statusP, err := protoutils.StructToStructPb(status.Status)
 		if err != nil {
-			return nil, errors.Wrapf(err, "unable to convert status for %q to a form acceptable to structpb.NewStruct", status.Name)
-		}
-		statusP, err := structpb.NewStruct(encoded)
-		if err != nil {
-			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from status for %q", status.Name)
+			return nil, err
 		}
 		statusesP = append(
 			statusesP,
@@ -268,4 +260,16 @@ func (s *Server) StreamStatus(req *pb.StreamStatusRequest, streamServer pb.Robot
 			return err
 		}
 	}
+}
+
+// StopAll will stop all current and outstanding operations for the robot and stops all actuators and movement.
+func (s *Server) StopAll(ctx context.Context, req *pb.StopAllRequest) (*pb.StopAllResponse, error) {
+	extra := map[resource.Name]map[string]interface{}{}
+	for _, e := range req.Extra {
+		extra[protoutils.ResourceNameFromProto(e.Name)] = e.Params.AsMap()
+	}
+	if err := s.r.StopAll(ctx, extra); err != nil {
+		return nil, err
+	}
+	return &pb.StopAllResponse{}, nil
 }

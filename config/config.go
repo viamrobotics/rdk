@@ -2,6 +2,7 @@
 package config
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -29,7 +30,7 @@ func SortComponents(components []Component) ([]Component, error) {
 			return nil, errors.Errorf("component name %q is not unique", config.Name)
 		}
 		componentToConfig[config.Name] = config
-		dependencies[config.Name] = config.DependsOn
+		dependencies[config.Name] = config.Dependencies()
 	}
 
 	// TODO(RSDK-427): this check just raises a warning if a dependency is missing. We
@@ -132,9 +133,11 @@ func (c *Config) Ensure(fromCloud bool) error {
 	}
 
 	for idx := 0; idx < len(c.Components); idx++ {
-		if err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx)); err != nil {
+		dependsOn, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx))
+		if err != nil {
 			return err
 		}
+		c.Components[idx].ImplicitDependsOn = dependsOn
 	}
 
 	if len(c.Components) > 0 {
@@ -178,20 +181,38 @@ func (c Config) FindComponent(name string) *Component {
 	return nil
 }
 
+// CopyOnlyPublicFields returns a deep-copy of the current config only preserving JSON exported fields.
+func (c *Config) CopyOnlyPublicFields() (*Config, error) {
+	// We're using JSON as an intermediary to ensure only the json exported fields are
+	// copied.
+	tmpJSON, err := json.Marshal(c)
+	if err != nil {
+		return nil, errors.Wrap(err, "error marshaling config")
+	}
+	var cfg Config
+	err = json.Unmarshal(tmpJSON, &cfg)
+	if err != nil {
+		return nil, errors.Wrap(err, "error unmarshaling config")
+	}
+
+	return &cfg, nil
+}
+
 // A Remote describes a remote robot that should be integrated.
 // The Frame field defines how the "world" node of the remote robot should be reconciled with the "world" node of the
 // the current robot. All components of the remote robot who have Parent as "world" will be attached to the parent defined
 // in Frame, and with the given offset as well.
 type Remote struct {
-	Name                    string        `json:"name"`
-	Address                 string        `json:"address"`
-	Prefix                  bool          `json:"prefix"`
-	Frame                   *Frame        `json:"frame,omitempty"`
-	Auth                    RemoteAuth    `json:"auth"`
-	ManagedBy               string        `json:"managed_by"`
-	Insecure                bool          `json:"insecure"`
-	ConnectionCheckInterval time.Duration `json:"connection_check_interval,omitempty"`
-	ReconnectInterval       time.Duration `json:"reconnect_interval,omitempty"`
+	Name                    string                       `json:"name"`
+	Address                 string                       `json:"address"`
+	Prefix                  bool                         `json:"prefix"`
+	Frame                   *Frame                       `json:"frame,omitempty"`
+	Auth                    RemoteAuth                   `json:"auth"`
+	ManagedBy               string                       `json:"managed_by"`
+	Insecure                bool                         `json:"insecure"`
+	ConnectionCheckInterval time.Duration                `json:"connection_check_interval,omitempty"`
+	ReconnectInterval       time.Duration                `json:"reconnect_interval,omitempty"`
+	ServiceConfig           []ResourceLevelServiceConfig `json:"service_config"`
 
 	// Secret is a helper for a robot location secret.
 	Secret string `json:"secret"`
@@ -253,6 +274,7 @@ type Cloud struct {
 	SignalingInsecure bool          `json:"signaling_insecure,omitempty"`
 	Path              string        `json:"path"`
 	LogPath           string        `json:"log_path"`
+	AppAddress        string        `json:"app_address"`
 	RefreshInterval   time.Duration `json:"refresh_interval,omitempty"`
 
 	// cached by us and fetched from a non-config endpoint.
@@ -291,8 +313,13 @@ type NetworkConfigData struct {
 	// FQDN is the unique name of this server.
 	FQDN string `json:"fqdn"`
 
+	// Listener is the listener that the web server will use. This is mutually
+	// exclusive with BindAddress.
+	Listener net.Listener `json:"-"`
+
 	// BindAddress is the address that the web server will bind to.
-	// The default behavior is to bind to localhost:8080.
+	// The default behavior is to bind to localhost:8080. This is mutually
+	// exclusive with Listener.
 	BindAddress string `json:"bind_address"`
 
 	BindAddressDefaultSet bool `json:"-"`
@@ -326,6 +353,9 @@ const DefaultBindAddress = "localhost:8080"
 
 // Validate ensures all parts of the config are valid.
 func (nc *NetworkConfig) Validate(path string) error {
+	if nc.BindAddress != "" && nc.Listener != nil {
+		return utils.NewConfigValidationError(path, errors.New("may only set one of bind_address or listener"))
+	}
 	if nc.BindAddress == "" {
 		nc.BindAddress = DefaultBindAddress
 		nc.BindAddressDefaultSet = true
@@ -461,4 +491,10 @@ func ProcessConfig(in *Config, tlsCfg *TLSConfig) (*Config, error) {
 		out.Remotes[idx] = remoteCopy
 	}
 	return &out, nil
+}
+
+// Updateable is implemented when component/service of a robot should be updated with the config.
+type Updateable interface {
+	// Update updates the resource
+	Update(context.Context, *Config) error
 }
