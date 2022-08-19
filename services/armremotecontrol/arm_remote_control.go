@@ -245,6 +245,11 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		svcConfig.MMStep = defaultMMStep
 	}
 
+	modelFrame := armComponent.ModelFrame()
+	if modelFrame == nil {
+		return nil, errors.New("arm modelframe not found, validate config")
+	}
+
 	// ensure we are mapped to degree of freedoms
 	dofLen := len(armComponent.ModelFrame().DoF())
 	for _, mode := range svcConfig.ControllerModes {
