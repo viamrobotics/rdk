@@ -55,6 +55,7 @@ func buildCfg(dof int) *ServiceConfig {
 
 func TestArmRemoteControl(t *testing.T) {
 	ctx := context.Background()
+	cfg := buildCfg(6)
 
 	fakeRobot := &inject.Robot{}
 	fakeController := &inject.InputController{}
@@ -64,7 +65,7 @@ func TestArmRemoteControl(t *testing.T) {
 		case input.Subtype:
 			return fakeController, nil
 		case arm.Subtype:
-			return &fakearm.Arm{}, nil
+			return fakearm.NewArmIK(ctx, config.Component{Name: "arm"}, rlog.Logger)
 		}
 		return nil, rdkutils.NewResourceNotFoundError(name)
 	}
@@ -78,7 +79,11 @@ func TestArmRemoteControl(t *testing.T) {
 		return nil
 	}
 
-	cfg := buildCfg(6)
+	fakeController.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+		r := make([]input.Control, 1)
+		r[0] = input.ButtonMenu
+		return r, nil
+	}
 
 	// New arm_remote_control check
 	tmpSvc, err := New(ctx, fakeRobot,
@@ -89,6 +94,7 @@ func TestArmRemoteControl(t *testing.T) {
 		},
 		rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
+
 	svc, ok := tmpSvc.(*armRemoteService)
 	test.That(t, ok, test.ShouldBeTrue)
 
