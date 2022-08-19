@@ -19,38 +19,23 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// serviceClient is a client satisfies the camera.proto contract.
-type serviceClient struct {
+// client implements CameraServiceClient.
+type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.CameraServiceClient
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
-	client := pb.NewCameraServiceClient(conn)
-	sc := &serviceClient{
-		conn:   conn,
-		client: client,
-		logger: logger,
-	}
-	return sc
-}
-
-// client is an camera client.
-type client struct {
-	*serviceClient
-	name string
-}
-
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Camera {
-	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(sc, name)
-}
-
-func clientFromSvcClient(sc *serviceClient, name string) Camera {
-	return &client{sc, name}
+	c := pb.NewCameraServiceClient(conn)
+	return &client{
+		name:   name,
+		conn:   conn,
+		client: c,
+		logger: logger,
+	}
 }
 
 func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
@@ -58,7 +43,7 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 	defer span.End()
 	resp, err := c.client.GetFrame(ctx, &pb.GetFrameRequest{
 		Name:     c.name,
-		MimeType: utils.MimeTypeViamBest,
+		MimeType: "", // use the default
 	})
 	if err != nil {
 		return nil, nil, err
@@ -119,6 +104,19 @@ func (c *client) GetProperties(ctx context.Context) (rimage.Projector, error) {
 	}
 	proj = intrinsics
 	return proj, nil
+}
+
+func (c *client) GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::client::GetFrame")
+	defer span.End()
+	resp, err := c.client.GetFrame(ctx, &pb.GetFrameRequest{
+		Name:     c.name,
+		MimeType: mimeType,
+	})
+	if err != nil {
+		return nil, "", 0, 0, err
+	}
+	return resp.GetImage(), resp.GetMimeType(), resp.GetWidthPx(), resp.GetHeightPx(), nil
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

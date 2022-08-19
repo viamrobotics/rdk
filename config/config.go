@@ -274,6 +274,7 @@ type Cloud struct {
 	SignalingInsecure bool          `json:"signaling_insecure,omitempty"`
 	Path              string        `json:"path"`
 	LogPath           string        `json:"log_path"`
+	AppAddress        string        `json:"app_address"`
 	RefreshInterval   time.Duration `json:"refresh_interval,omitempty"`
 
 	// cached by us and fetched from a non-config endpoint.

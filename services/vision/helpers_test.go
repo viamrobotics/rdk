@@ -10,6 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
@@ -151,6 +152,10 @@ func (c *cloudSource) GetProperties(ctx context.Context) (rimage.Projector, erro
 
 	proj = intrinsics
 	return proj, nil
+}
+
+func (c *cloudSource) GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+	return nil, "", 0, 0, errors.New("not implemented")
 }
 
 func (c *cloudSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
