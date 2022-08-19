@@ -341,7 +341,7 @@ func (d *Dubins) DubinsPath(start []float64, end []float64) [][]float64 {
 // Helper functions
 
 // In python, the modulo computes n%m = (n+m)%n. For example: -1%10 is 9 in python, and -1 in Go/C
-// python mod is desirable here so convert to python mod
+// python mod is desirable here so convert to python mod.
 func mod(n float64, m float64) float64 {
 	return math.Mod(math.Mod(n, m)+m, m)
 }
