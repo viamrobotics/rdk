@@ -4,11 +4,12 @@ import (
 	"math"
 	"testing"
 
+	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
-	"github.com/golang/geo/r3"
-	"github.com/edaniels/golog"
 )
 
 func TestFindCenter(t *testing.T) {
@@ -121,11 +122,6 @@ func TestGeneratePoints(t *testing.T) {
 	test.That(t, math.Abs(points[1][1]-end[1]), test.ShouldBeLessThan, epsilon)
 }
 
-type obstacle struct {
-	Center []float64
-	Dims   []float64
-}
-
 func TestCheckPathCollision(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	robotGeometry, err := spatial.NewBoxCreator(r3.Vector{X: 1, Y: 1, Z: 1}, spatial.NewZeroPose())
@@ -147,7 +143,7 @@ func TestCheckPathCollision(t *testing.T) {
 	obstacleGeometries := map[string]spatial.Geometry{}
 	box, err := spatial.NewBox(spatial.NewPoseFromPoint(
 		r3.Vector{X: 5, Y: 0, Z: 0}), // Center of box
-		r3.Vector{X: 1, Y: 20, Z: 1})  // Dimensions of box
+		r3.Vector{X: 1, Y: 20, Z: 1}) // Dimensions of box
 	test.That(t, err, test.ShouldEqual, nil)
 	obstacleGeometries["1"] = box
 
@@ -156,7 +152,7 @@ func TestCheckPathCollision(t *testing.T) {
 
 	dm := &dubinPathAttrManager{
 		nCPU: 1,
-		d: d,
+		d:    d,
 	}
 
 	start := make([]float64, 3)
@@ -172,11 +168,11 @@ func TestCheckPathCollision(t *testing.T) {
 	goalInputs[0] = frame.Input{10}
 	goalInputs[1] = frame.Input{0}
 	goalInputs[2] = frame.Input{0}
-	isValid := dubins.checkPath(&configuration{inputs:startInputs},
-							&configuration{inputs:goalInputs},
-							opt,
-							dm,
-							o[0],
+	isValid := dubins.checkPath(&configuration{inputs: startInputs},
+		&configuration{inputs: goalInputs},
+		opt,
+		dm,
+		o[0],
 	)
 	test.That(t, isValid, test.ShouldEqual, false)
 }
@@ -206,7 +202,7 @@ func TestCheckPathNoCollision(t *testing.T) {
 
 	dm := &dubinPathAttrManager{
 		nCPU: 1,
-		d: d,
+		d:    d,
 	}
 
 	start := make([]float64, 3)
@@ -222,11 +218,11 @@ func TestCheckPathNoCollision(t *testing.T) {
 	goalInputs[0] = frame.Input{10}
 	goalInputs[1] = frame.Input{0}
 	goalInputs[2] = frame.Input{0}
-	isValid := dubins.checkPath(&configuration{inputs:startInputs},
-							&configuration{inputs:goalInputs},
-							opt,
-							dm,
-							o[0],
+	isValid := dubins.checkPath(&configuration{inputs: startInputs},
+		&configuration{inputs: goalInputs},
+		opt,
+		dm,
+		o[0],
 	)
 	test.That(t, isValid, test.ShouldEqual, true)
 }
