@@ -433,13 +433,12 @@ func (dm *dubinOptionManager) optWorker(ctx context.Context) {
 		default:
 			dm.optLock.RLock()
 			if dm.ready {
-				dm.optLock.RUnlock()
 				opt := pl[0]
-				dm.options <- &opt
-				if len(pl) == 1 {
-					return
+				if len(pl) != 1 {
+					pl = pl[1:]
 				}
-				pl = pl[1:]
+				dm.optLock.RUnlock()
+				dm.options <- &opt
 				return
 			}
 			dm.optLock.RUnlock()
