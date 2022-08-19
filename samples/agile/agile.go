@@ -257,7 +257,7 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input, config *MobileRobo
 				next[j] = wp[j].Value
 			}
 
-			pathOptions := d.AllOptions(start, next, true)[0]
+			pathOptions := d.AllPaths(start, next, true)[0]
 
 			dubinsPath := pathOptions.DubinsPath
 
