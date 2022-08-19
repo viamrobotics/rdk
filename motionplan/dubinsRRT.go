@@ -439,7 +439,7 @@ func mobile2DConfigDist(from, to *configuration) float64 {
 	return math.Pow(from.inputs[0].Value-to.inputs[0].Value, 2) + math.Pow(from.inputs[1].Value-to.inputs[1].Value, 2)
 }
 
-// TODO: Update nearestNeighbor.go to take a custom distance function, so then everything can use the same function (rh pl rb)
+// TODO: Update nearestNeighbor.go to take a custom distance function, so then everything can use the same function (rh pl rb).
 func findNearNeighbors(sample *configuration, rrtMap map[*configuration]*configuration, nbNeighbors int) []*configuration {
 	keys := make([]*configuration, 0, len(rrtMap))
 
