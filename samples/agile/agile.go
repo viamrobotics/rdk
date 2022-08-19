@@ -130,7 +130,7 @@ func (l *limoBase) MoveStraight(distanceMm int, mmPerSec float64) {
 	l.realBase.MoveStraight(l.ctx, distanceMm, mmPerSec, nil)
 }
 
-func (l *limoBase) Move(planConfig *motionplan.MobileRobotPlanConfig) error {
+func (l *limoBase) Move(planConfig *MobileRobotPlanConfig) error {
 	switch l.driveMode {
 	case "ackermann":
 		waypoints, d, err := l.Plan(planConfig)
@@ -146,7 +146,7 @@ func (l *limoBase) Move(planConfig *motionplan.MobileRobotPlanConfig) error {
 	return nil
 }
 
-func (l *limoBase) newDubinsPlanner(config *motionplan.MobileRobotPlanConfig) (*motionplan.DubinsRRTMotionPlanner, error) {
+func (l *limoBase) newDubinsPlanner(config *MobileRobotPlanConfig) (*motionplan.DubinsRRTMotionPlanner, error) {
 	// parse input
 	robotGeometry, err := spatial.NewBoxCreator(r3.Vector{X: config.RobotDims[0], Y: config.RobotDims[1], Z: 1}, spatial.NewZeroPose())
 	if err != nil {
@@ -177,7 +177,7 @@ func (l *limoBase) newDubinsPlanner(config *motionplan.MobileRobotPlanConfig) (*
 	return dubins, nil
 }
 
-func (l *limoBase) Plan(config *motionplan.MobileRobotPlanConfig) ([][]frame.Input, motionplan.Dubins, error) {
+func (l *limoBase) Plan(config *MobileRobotPlanConfig) ([][]frame.Input, motionplan.Dubins, error) {
 	dubins, err := l.newDubinsPlanner(config)
 	if err != nil {
 		return nil, motionplan.Dubins{}, err
@@ -207,7 +207,7 @@ func (l *limoBase) Plan(config *motionplan.MobileRobotPlanConfig) ([][]frame.Inp
 	return waypoints, dubins.D, nil
 }
 
-func (l *limoBase) FollowDubinsTrajectory(config *motionplan.MobileRobotPlanConfig, traj []motionplan.DubinOption) {
+func (l *limoBase) FollowDubinsTrajectory(config *MobileRobotPlanConfig, traj []motionplan.DubinOption) {
 	for _, opt := range traj {
 		dubinsPath := opt.DubinsPath
 		straight := opt.Straight
@@ -222,7 +222,7 @@ func fixAngle(ang float64) float64 {
 	return deg
 }
 
-func (l *limoBase) MoveToWaypointDubins(config *motionplan.MobileRobotPlanConfig, path []float64, straight bool) {
+func (l *limoBase) MoveToWaypointDubins(config *MobileRobotPlanConfig, path []float64, straight bool) {
 	// first turn
 	l.Spin(fixAngle(path[0]), 20) // base is currently configured backwards
 
@@ -237,7 +237,7 @@ func (l *limoBase) MoveToWaypointDubins(config *motionplan.MobileRobotPlanConfig
 	l.Spin(fixAngle(path[1]), 40)
 }
 
-func savePath(d motionplan.Dubins, waypoints [][]frame.Input, config *motionplan.MobileRobotPlanConfig) error {
+func savePath(d motionplan.Dubins, waypoints [][]frame.Input, config *MobileRobotPlanConfig) error {
 	csvFile, err := os.Create("path.csv")
 	if err != nil {
 		return err
@@ -326,12 +326,12 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input, config *motionplan
 	return nil
 }
 
-func parseJSONFile(filename string) (*motionplan.MobileRobotPlanConfig, error) {
+func parseJSONFile(filename string) (*MobileRobotPlanConfig, error) {
 	jsonData, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read json file")
 	}
-	config := &motionplan.MobileRobotPlanConfig{}
+	config := &MobileRobotPlanConfig{}
 	if len(jsonData) == 0 {
 		return nil, errors.New("no model information")
 	}
