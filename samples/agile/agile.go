@@ -58,31 +58,32 @@ type MobileRobotPlanConfig struct {
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	move := false
-	robot, err := client.New(
-		context.Background(),
-		args[1],
-		logger,
-		client.WithDialOptions(rpc.WithCredentials(rpc.Credentials{
-			Type:    utilsrdk.CredentialsTypeRobotLocationSecret,
-			Payload: args[2],
-		})),
-	)
-	if err != nil {
-		logger.Debug(err)
-		return err
-	}
-	defer robot.Close(ctx)
-	logger.Info("Resources:")
-	logger.Info(robot.ResourceNames())
-
-	l, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
-	if err != nil {
-		return err
-	}
-	b := l.(base.Base)
-	limo1 := limoBase{ctx: ctx, realBase: b, driveMode: "ackermann", logger: logger}
 
 	if move {
+		robot, err := client.New(
+			context.Background(),
+			args[1],
+			logger,
+			client.WithDialOptions(rpc.WithCredentials(rpc.Credentials{
+				Type:    utilsrdk.CredentialsTypeRobotLocationSecret,
+				Payload: args[2],
+			})),
+		)
+		if err != nil {
+			logger.Debug(err)
+			return err
+		}
+		defer robot.Close(ctx)
+		logger.Info("Resources:")
+		logger.Info(robot.ResourceNames())
+	
+		l, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
+		if err != nil {
+			return err
+		}
+		b := l.(base.Base)
+		limo1 := limoBase{ctx: ctx, realBase: b, driveMode: "ackermann", logger: logger}
+
 		// read config
 		config, err := parseJSONFile("samples/agile/planConfig.json")
 		if err != nil {
@@ -92,6 +93,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		// call Move from Agile
 		limo1.Move(config)
 	} else {
+		limo1 := limoBase{ctx: ctx, driveMode: "ackermann", logger: logger}
+		
 		// read config
 		config, err := parseJSONFile("samples/agile/planConfig.json")
 		if err != nil {
