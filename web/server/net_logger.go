@@ -27,8 +27,8 @@ import (
 )
 
 const (
-	maxQueueSize   = 20000
-	writeBatchSize = 100
+	defaultMaxQueueSize = 20000
+	writeBatchSize      = 100
 )
 
 type wrappedLogger struct {
@@ -68,8 +68,7 @@ func newNetLogger(config *config.Cloud) (*netLogger, error) {
 	var logWriter remoteLogWriter
 	if config.AppAddress == "" {
 		logWriter = &remoteLogWriterHTTP{
-			cfg:    config,
-			client: http.Client{},
+			cfg: config,
 		}
 	} else {
 		logWriter = &remoteLogWriterGRPC{
@@ -84,6 +83,7 @@ func newNetLogger(config *config.Cloud) (*netLogger, error) {
 		cancelCtx:    cancelCtx,
 		cancel:       cancel,
 		remoteWriter: logWriter,
+		maxQueueSize: defaultMaxQueueSize,
 	}
 	nl.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(nl.backgroundWorker, nl.activeBackgroundWorkers.Done)
@@ -94,8 +94,9 @@ type netLogger struct {
 	hostname     string
 	remoteWriter remoteLogWriter
 
-	toLogMutex sync.Mutex
-	toLog      []*apppb.LogEntry
+	toLogMutex   sync.Mutex
+	toLog        []*apppb.LogEntry
+	maxQueueSize int
 
 	cancelCtx               context.Context
 	cancel                  func()
@@ -196,7 +197,7 @@ func (nl *netLogger) addToQueue(x *apppb.LogEntry) {
 	nl.toLogMutex.Lock()
 	defer nl.toLogMutex.Unlock()
 
-	if len(nl.toLog) > maxQueueSize {
+	if len(nl.toLog) >= nl.maxQueueSize {
 		// TODO(erh): sample?
 		nl.toLog = nl.toLog[1:]
 	}
@@ -211,9 +212,13 @@ func (nl *netLogger) addBatchToQueue(x []*apppb.LogEntry) {
 	nl.toLogMutex.Lock()
 	defer nl.toLogMutex.Unlock()
 
-	if len(nl.toLog) > maxQueueSize {
+	if len(x) > nl.maxQueueSize {
+		x = x[len(x)-nl.maxQueueSize:]
+	}
+
+	if len(nl.toLog)+len(x) >= nl.maxQueueSize {
 		// TODO(erh): sample?
-		nl.toLog = nl.toLog[len(x):]
+		nl.toLog = nl.toLog[len(nl.toLog)+len(x)-nl.maxQueueSize:]
 	}
 
 	nl.toLog = append(nl.toLog, x...)
@@ -257,7 +262,7 @@ func (nl *netLogger) Sync() error {
 				batchSize = len(nl.toLog)
 			}
 
-			x := nl.toLog[0:batchSize]
+			x := nl.toLog[:batchSize]
 			nl.toLog = nl.toLog[batchSize:]
 
 			return x
