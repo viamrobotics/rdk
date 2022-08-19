@@ -32,9 +32,6 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
-	if len(args) > 2 {
-		return nil
-	}
 	move := false
 	robot, err := client.New(
 		context.Background(),
@@ -352,6 +349,10 @@ func parseJSONFile(filename string) (*motionplan.MobileRobotPlanConfig, error) {
 
 func writeJSONFile(filename string, data interface{}) error {
 	bytes, err := json.MarshalIndent(data, "", " ")
+	if err != nil {
+		return err
+	}
+	_, err = os.Create(filename)
 	if err != nil {
 		return err
 	}
