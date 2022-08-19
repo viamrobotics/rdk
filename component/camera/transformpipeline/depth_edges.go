@@ -2,41 +2,20 @@ package transformpipeline
 
 import (
 	"context"
-	"fmt"
 	"image"
 
-	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/utils"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
-func init() {
-	registry.RegisterComponent(
-		camera.Subtype,
-		"depth_edges",
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*transformConfig)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
-			}
-			return newDepthEdgesSource(ctx, deps, attrs)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "depth_edges",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf transformConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &transformConfig{})
+type depthEdgesAttrs struct {
+	HiThresh   float64 `json:"high_threshold"`
+	LoThresh   float64 `json:"low_threshold"`
+	BlurRadius float64 `json:"blur_radius"`
 }
 
 // depthEdgesSource applies a Canny Edge Detector to the depth map.
@@ -46,31 +25,32 @@ type depthEdgesSource struct {
 	blurRadius float64
 }
 
+func newDepthEdgesTransform(source gostream.ImageSource, am config.AttributeMap) (gostream.ImageSource, error) {
+	conf, err := config.TransformAttributeMapToStruct(&(depthEdgesAttrs{}), am)
+	if err != nil {
+		return nil, err
+	}
+	attrs, ok := conf.(*depthEdgesAttrs)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(attrs, conf)
+	}
+	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(attrs.HiThresh, attrs.LoThresh, true)
+	return &depthEdgesSource{source, canny, attrs.BlurRadius}, nil
+}
+
 // Next applies a canny edge detector on the depth map of the next image.
 func (os *depthEdgesSource) Next(ctx context.Context) (image.Image, func(), error) {
 	i, closer, err := os.source.Next(ctx)
 	if err != nil {
-		return i, closer, err
+		return nil, nil, err
 	}
-	defer closer()
 	dm, err := rimage.ConvertImageToDepthMap(i)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrapf(err, "cannot transform for depth edges")
 	}
 	edges, err := os.detector.DetectDepthEdges(dm, os.blurRadius)
 	if err != nil {
 		return nil, nil, err
 	}
-	return edges, func() {}, nil
-}
-
-func newDepthEdgesSource(ctx context.Context, deps registry.Dependencies, attrs *transformConfig) (camera.Camera, error) {
-	source, err := camera.FromDependencies(deps, attrs.Source)
-	if err != nil {
-		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
-	}
-	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
-	imgSrc := &depthEdgesSource{source, canny, 3.0}
-	proj, _ := camera.GetProjector(ctx, nil, source)
-	return camera.New(imgSrc, proj)
+	return edges, closer, nil
 }

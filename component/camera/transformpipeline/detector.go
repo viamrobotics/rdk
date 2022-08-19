@@ -5,59 +5,39 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/edaniels/golog"
-
-	"go.viam.com/rdk/component/camera"
+	"github.com/edaniels/gostream"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
-	"go.viam.com/rdk/utils"
+	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
-func init() {
-	registry.RegisterComponent(
-		camera.Subtype,
-		"detector",
-		registry.Component{RobotConstructor: func(
-			ctx context.Context,
-			r robot.Robot,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*detectorAttrs)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
-			}
-			sourceName := attrs.Source
-			cam, err := camera.FromRobot(r, sourceName)
-			if err != nil {
-				return nil, fmt.Errorf("no source camera (%s): %w", sourceName, err)
-			}
-			confFilter := objectdetection.NewScoreFilter(attrs.ConfidenceThreshold)
-			detector := &detectorSource{cam, sourceName, attrs.DetectorName, confFilter, r, logger}
-			proj, _ := camera.GetProjector(ctx, nil, cam)
-			return camera.New(detector, proj)
-		}})
-
-}
-
 // detectorAttrs is the attribute struct for detectors (their name as found in the vision service).
 type detectorAttrs struct {
-	*transformConfig
 	DetectorName        string  `json:"detector_name"`
 	ConfidenceThreshold float64 `json:"confidence_threshold"`
 }
 
 // detectorSource takes an image from the camera, and overlays the detections from the detector.
 type detectorSource struct {
-	source       camera.Camera
-	cameraName   string
+	source       gostream.ImageSource
 	detectorName string
 	confFilter   objectdetection.Postprocessor
 	r            robot.Robot
-	logger       golog.Logger
+}
+
+func newDetectionsTransform(source gostream.ImageSource, r robot.Robot, am config.AttributeMap) (gostream.ImageSource, error) {
+	conf, err := config.TransformAttributeMapToStruct(&(detectorAttrs{}), am)
+	if err != nil {
+		return nil, err
+	}
+	attrs, ok := conf.(*detectorAttrs)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(attrs, conf)
+	}
+	confFilter := objectdetection.NewScoreFilter(attrs.ConfidenceThreshold)
+	return &detectorSource{source, attrs.DetectorName, confFilter, r}, nil
 }
 
 // Next returns the image overlaid with the detection bounding boxes.
@@ -67,14 +47,14 @@ func (ds *detectorSource) Next(ctx context.Context) (image.Image, func(), error)
 	if err != nil {
 		return nil, nil, fmt.Errorf("source_detector cant find vision service: %w", err)
 	}
-	dets, err := srv.GetDetectionsFromCamera(ctx, ds.cameraName, ds.detectorName)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not get detections: %w", err)
-	}
 	// get image from source camera
 	img, release, err := ds.source.Next(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get next source image: %w", err)
+	}
+	dets, err := srv.GetDetections(ctx, img, ds.detectorName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not get detections: %w", err)
 	}
 	// overlay detections of the source image
 	dets = ds.confFilter(dets)

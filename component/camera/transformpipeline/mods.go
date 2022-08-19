@@ -26,7 +26,7 @@ type rotateSource struct {
 }
 
 // newRotateTransform creates a new rotation transform
-func newRotateTransform(ctx context.Context, source gostream.ImageSource, stream camera.StreamType) (gostream.ImageSource, error) {
+func newRotateTransform(source gostream.ImageSource, stream camera.StreamType) (gostream.ImageSource, error) {
 	return &rotateSource{source, stream}, nil
 }
 
@@ -72,7 +72,7 @@ type resizeSource struct {
 
 // newResizeTransform creates a new resize transform
 func newResizeTransform(
-	ctx context.Context, source gostream.ImageSource, stream camera.StreamType, am config.AttributeMap,
+	source gostream.ImageSource, stream camera.StreamType, am config.AttributeMap,
 ) (gostream.ImageSource, error) {
 	conf, err := config.TransformAttributeMapToStruct(&(resizeAttrs{}), am)
 	if err != nil {

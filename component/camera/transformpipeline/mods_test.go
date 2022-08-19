@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/camera/imagesource"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rlog"
 )
@@ -26,14 +27,56 @@ func init() {
 	rlog.Logger.Debugf("out dir: %q", outDir)
 }
 
+func TestResizeColor(t *testing.T) {
+	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
+	test.That(t, err, test.ShouldBeNil)
+
+	am := config.AttributeMap{
+		"height": 200,
+		"width":  300,
+	}
+	source := &imagesource.StaticSource{ColorImg: img}
+	out, _, err := source.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 1280)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 720)
+
+	rs, err := newResizeTransform(source, camera.ColorStream, am)
+	test.That(t, err, test.ShouldBeNil)
+	out, _, err = rs.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 300)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 200)
+}
+
+func TestResizeDepth(t *testing.T) {
+	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray.png"))
+	test.That(t, err, test.ShouldBeNil)
+
+	am := config.AttributeMap{
+		"height": 200,
+		"width":  300,
+	}
+	source := &imagesource.StaticSource{DepthImg: img}
+	out, _, err := source.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 1280)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 720)
+
+	rs, err := newResizeTransform(source, camera.DepthStream, am)
+	test.That(t, err, test.ShouldBeNil)
+	out, _, err = rs.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 300)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 200)
+}
+
 func TestRotateColorSource(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	source := &imagesource.StaticSource{ColorImg: img}
-	cam, err := camera.New(source, nil)
-	test.That(t, err, test.ShouldBeNil)
-	rs, err := newRotateTransform(context.Background(), cam, camera.ColorStream)
+	rs, err := newRotateTransform(source, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
 
 	rawImage, _, err := rs.Next(context.Background())
@@ -61,9 +104,7 @@ func TestRotateDepthSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	source := &imagesource.StaticSource{DepthImg: pc}
-	cam, err := camera.New(source, nil)
-	test.That(t, err, test.ShouldBeNil)
-	rs, err := newRotateTransform(context.Background(), cam, camera.DepthStream)
+	rs, err := newRotateTransform(source, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
 
 	rawImage, _, err := rs.Next(context.Background())
@@ -93,7 +134,7 @@ func BenchmarkColorRotate(b *testing.B) {
 	source := &imagesource.StaticSource{ColorImg: img}
 	cam, err := camera.New(source, nil)
 	test.That(b, err, test.ShouldBeNil)
-	rs, err := newRotateTransform(context.Background(), cam, camera.ColorStream)
+	rs, err := newRotateTransform(cam, camera.ColorStream)
 	test.That(b, err, test.ShouldBeNil)
 
 	b.ResetTimer()
@@ -110,7 +151,7 @@ func BenchmarkDepthRotate(b *testing.B) {
 	source := &imagesource.StaticSource{DepthImg: img}
 	cam, err := camera.New(source, nil)
 	test.That(b, err, test.ShouldBeNil)
-	rs, err := newRotateTransform(context.Background(), cam, camera.DepthStream)
+	rs, err := newRotateTransform(cam, camera.DepthStream)
 	test.That(b, err, test.ShouldBeNil)
 
 	b.ResetTimer()
