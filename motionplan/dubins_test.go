@@ -64,7 +64,7 @@ func TestAllOptions(t *testing.T) {
 
 	epsilon := 0.00001
 
-	paths = d.AllOptions(start, end, true)[0] // get shortest paths
+	paths = d.AllPaths(start, end, true)[0] // get shortest paths
 	TotalLen := 7.61372
 	dubinsPath := []float64{0.4636476090008061, 2.677945044588987, 4.47213595499958}
 
@@ -75,7 +75,7 @@ func TestAllOptions(t *testing.T) {
 	test.That(t, paths.Straight, test.ShouldBeTrue)
 
 	// test individual dubin's paths function math with no sorting
-	allPaths := d.AllOptions(start, end, false)
+	allPaths := d.AllPaths(start, end, false)
 	allLengths := []float64{7.613728608589373, 16.63588051169736, 13.86821850391708, 10.726625850327286}
 
 	for i, val := range allLengths {
@@ -97,7 +97,7 @@ func TestGeneratePoints(t *testing.T) {
 	epsilon := 0.0001
 
 	d := &Dubins{Radius: radius, PointSeparation: pointSep}
-	paths := d.AllOptions(start, end, true)[0] // get shortest paths
+	paths := d.AllPaths(start, end, true)[0] // get shortest paths
 	points := d.generatePoints(start, end, paths.DubinsPath, true)
 	test.That(t, len(points), test.ShouldEqual, 2)
 	test.That(t, math.Abs(points[0][0]-start[0]), test.ShouldBeLessThan, epsilon)
@@ -107,7 +107,7 @@ func TestGeneratePoints(t *testing.T) {
 
 	// curved movement points
 	end = []float64{1, 1, math.Pi / 4.0}
-	paths = d.AllOptions(start, end, true)[0] // get shortest paths
+	paths = d.AllPaths(start, end, true)[0] // get shortest paths
 	points = d.generatePoints(start, end, paths.DubinsPath, false)
 
 	test.That(t, len(points), test.ShouldEqual, 2)
