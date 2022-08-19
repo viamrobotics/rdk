@@ -68,6 +68,7 @@ func TestNewNetBatchWrites(t *testing.T) {
 		cancelCtx:    cancelCtx,
 		cancel:       cancel,
 		remoteWriter: logWriter,
+		maxQueueSize: 1000,
 	}
 
 	l := logger.Desugar()
@@ -91,6 +92,40 @@ func TestNewNetBatchWrites(t *testing.T) {
 
 	nl.Sync()
 	nl.Close()
+}
+
+func TestNetLoggerQueueOperations(t *testing.T) {
+	t.Run("test addBatchToQueue", func(t *testing.T) {
+		queueSize := 10
+		nl := netLogger{
+			maxQueueSize: queueSize,
+		}
+
+		nl.addBatchToQueue(make([]*apppb.LogEntry, queueSize-1))
+		test.That(t, nl.queueSize(), test.ShouldEqual, queueSize-1)
+
+		nl.addBatchToQueue(make([]*apppb.LogEntry, 2))
+		test.That(t, nl.queueSize(), test.ShouldEqual, queueSize)
+
+		nl.addBatchToQueue(make([]*apppb.LogEntry, queueSize+1))
+		test.That(t, nl.queueSize(), test.ShouldEqual, queueSize)
+	})
+
+	t.Run("test addToQueue", func(t *testing.T) {
+		queueSize := 2
+		nl := netLogger{
+			maxQueueSize: queueSize,
+		}
+
+		nl.addToQueue(&apppb.LogEntry{})
+		test.That(t, nl.queueSize(), test.ShouldEqual, 1)
+
+		nl.addToQueue(&apppb.LogEntry{})
+		test.That(t, nl.queueSize(), test.ShouldEqual, queueSize)
+
+		nl.addToQueue(&apppb.LogEntry{})
+		test.That(t, nl.queueSize(), test.ShouldEqual, queueSize)
+	})
 }
 
 func TestBatchFailureAndRetry(t *testing.T) {
@@ -118,6 +153,7 @@ func TestBatchFailureAndRetry(t *testing.T) {
 		cancelCtx:    cancelCtx,
 		cancel:       cancel,
 		remoteWriter: logWriter,
+		maxQueueSize: 100,
 	}
 
 	l := logger.Desugar()

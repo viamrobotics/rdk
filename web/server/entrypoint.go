@@ -73,7 +73,7 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 	}
 	cancel()
 
-	if cfg.Cloud != nil && cfg.Cloud.LogPath != "" {
+	if cfg.Cloud != nil && (cfg.Cloud.LogPath != "" || cfg.Cloud.AppAddress != "") {
 		var closer func()
 		logger, closer, err = addCloudLogger(logger, cfg.Cloud)
 		if err != nil {
