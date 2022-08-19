@@ -7,7 +7,6 @@ import (
 	"context"
 	"image"
 	"image/jpeg"
-	"image/png"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -34,7 +33,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
@@ -685,7 +683,7 @@ func (slamSvc *slamService) getAndSaveDataSparse(ctx context.Context, cams []cam
 				return filenames, err
 			}
 			w := bufio.NewWriter(f)
-			if err := png.Encode(w, images[i]); err != nil {
+			if _, err := w.Write(images[i]); err != nil {
 				return filenames, err
 			}
 			if err := w.Flush(); err != nil {
@@ -704,51 +702,34 @@ func (slamSvc *slamService) getAndSaveDataSparse(ctx context.Context, cams []cam
 }
 
 // Gets the color image and depth image from the cameras as close to simultaneously as possible.
-// Assume the first camera is for color and the second is for depth.
-func (slamSvc *slamService) getSimultaneousColorAndDepth(ctx context.Context, cams []camera.Camera) ([2]image.Image, error) {
+func (slamSvc *slamService) getSimultaneousColorAndDepth(ctx context.Context, cams []camera.Camera) ([2][]byte, error) {
 	var wg sync.WaitGroup
-	var images [2]image.Image
+	var images [2][]byte
 	var errs [2]error
 
-	// Get color image.
-	slamSvc.activeBackgroundWorkers.Add(1)
-	wg.Add(1)
-	if err := ctx.Err(); err != nil {
-		if !errors.Is(err, context.Canceled) {
-			slamSvc.logger.Errorw("unexpected error in SLAM service", "error", err)
+	for i := 0; i < 2; i++ {
+		slamSvc.activeBackgroundWorkers.Add(1)
+		wg.Add(1)
+		if err := ctx.Err(); err != nil {
+			if !errors.Is(err, context.Canceled) {
+				slamSvc.logger.Errorw("unexpected error in SLAM service", "error", err)
+			}
+			return images, err
 		}
-		return images, err
+		iLoop := i
+		goutils.PanicCapturingGo(func() {
+			defer slamSvc.activeBackgroundWorkers.Done()
+			defer wg.Done()
+			var mimeType string
+			images[iLoop], mimeType, _, _, errs[iLoop] = cams[iLoop].GetFrame(ctx, utils.MimeTypePNG)
+			if errs[iLoop] != nil {
+				return
+			}
+			if mimeType != utils.MimeTypePNG {
+				errs[iLoop] = errors.Errorf("expected mime type %v, got %v", utils.MimeTypePNG, mimeType)
+			}
+		})
 	}
-	goutils.PanicCapturingGo(func() {
-		defer slamSvc.activeBackgroundWorkers.Done()
-		defer wg.Done()
-		images[0], _, errs[0] = cams[0].Next(ctx)
-	})
-
-	// Get depth image.
-	slamSvc.activeBackgroundWorkers.Add(1)
-	wg.Add(1)
-	if err := ctx.Err(); err != nil {
-		if !errors.Is(err, context.Canceled) {
-			slamSvc.logger.Errorw("unexpected error in SLAM service", "error", err)
-		}
-		return images, err
-	}
-	goutils.PanicCapturingGo(func() {
-		defer slamSvc.activeBackgroundWorkers.Done()
-		defer wg.Done()
-		var depthImage image.Image
-		depthImage, _, errs[1] = cams[1].Next(ctx)
-		if errs[1] != nil {
-			return
-		}
-		var depthMap *rimage.DepthMap
-		depthMap, errs[1] = rimage.ConvertImageToDepthMap(depthImage)
-		if errs[1] != nil {
-			return
-		}
-		images[1] = depthMap.ToGray16Picture()
-	})
 	wg.Wait()
 
 	for _, err := range errs {
