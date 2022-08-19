@@ -307,7 +307,7 @@ func (dm *dubinPathAttrManager) selectOptions(
 	rrtMap map[*configuration]*configuration,
 	nbOptions int,
 ) map[*configuration]DubinPathAttr {
-	if len(rrtMap) < 0 {
+	if len(rrtMap) < 1 {
 		// If the map is large, calculate distances in parallel
 		return dm.parallelselectOptions(ctx, sample, rrtMap, nbOptions)
 	}

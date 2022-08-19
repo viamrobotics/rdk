@@ -4,9 +4,7 @@ import (
 	"math"
 	"testing"
 
-
 	"go.viam.com/test"
-
 )
 
 func TestFindCenter(t *testing.T) {
