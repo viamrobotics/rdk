@@ -205,7 +205,9 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 			}
 
 			solutionChan <- &planReturn{steps: inputSteps}
-			
+			for _, step := range inputSteps {
+				mp.logger.Debugf("%v\n", *step)
+			}
 			return
 		}
 	}
