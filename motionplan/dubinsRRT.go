@@ -386,7 +386,11 @@ func (dm *dubinPathAttrManager) parallelselectOptions(
 	// Sort and choose best nbOptions options
 	sort.Sort(pl)
 	options := make(map[*configuration]DubinPathAttr)
-	for _, p := range pl[:nbOptions] {
+	numReturn := nbOptions
+	if len(pl) < nbOptions {
+		numReturn = len(pl)
+	}
+	for _, p := range pl[:numReturn] {
 		options[p.key] = p.value
 	}
 
@@ -436,6 +440,7 @@ func (dm *dubinPathAttrManager) optWorker(ctx context.Context) {
 					return
 				}
 				pl = pl[1:]
+				return
 			}
 			dm.optLock.RUnlock()
 		}

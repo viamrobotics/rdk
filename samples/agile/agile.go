@@ -377,6 +377,10 @@ func writeJSONFile(filename string, data interface{}) error {
 	if err != nil {
 		return err
 	}
+	_, err = os.Create(filename)
+	if err != nil {
+		return err
+	}
 	if err := ioutil.WriteFile(filename, bytes, 0o644); err != nil {
 		return err
 	}
