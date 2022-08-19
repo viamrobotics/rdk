@@ -59,6 +59,8 @@ func buildTransform(
 		return newDetectionsTransform(source, r, tr.Attributes)
 	case depthEdgesTransform:
 		return newDepthEdgesTransform(source, tr.Attributes)
+	case depthPreprocessTransform:
+		return newDepthPreprocessTransform(source)
 	default:
 		return nil, NewUnknownTransformType(tr.Type)
 	}
