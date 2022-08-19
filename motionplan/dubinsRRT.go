@@ -63,12 +63,6 @@ func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 	solutionChan := make(chan *planReturn, 1)
 	if opt == nil {
 		opt = NewDefaultPlannerOptions()
-		seedPos, err := mp.frame.Transform(seed[:2])
-		if err != nil {
-			solutionChan <- &planReturn{err: err}
-			return nil, err
-		}
-		opt = DefaultConstraint(seedPos, spatial.NewPoseFromProtobuf(goal), mp.Frame(), opt)
 	}
 
 	utils.PanicCapturingGo(func() {
