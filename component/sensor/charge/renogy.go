@@ -1,4 +1,4 @@
-// Package renogy implements a charge controller sensor
+// Package charge implements a charge controller sensor
 package charge
 
 import (
@@ -17,15 +17,13 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
-var (
-	globalMu sync.Mutex
-)
+var globalMu sync.Mutex
 
-// defaults assume the device is connected via UART serial
+// defaults assume the device is connected via UART serial.
 const (
-	modelname    = "renogy"
-	path_default = "/dev/serial0"
-	baud_default = 9600
+	modelname   = "renogy"
+	pathDefault = "/dev/serial0"
+	baudDefault = 9600
 )
 
 // AttrConfig is used for converting config attributes.
@@ -34,7 +32,8 @@ type AttrConfig struct {
 	Baud int    `json:"baud"`
 }
 
-type charge struct {
+// Charge represents a charge state.
+type Charge struct {
 	SolarVolt         float32
 	SolarAmp          float32
 	SolarWatt         float32
@@ -61,7 +60,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newSensor(config.Name, config.ConvertedAttributes.(*AttrConfig).Path, config.ConvertedAttributes.(*AttrConfig).Baud, config.ConvertedAttributes.(*AttrConfig).TestChan, logger)
+			return newSensor(config.Name, config.ConvertedAttributes.(*AttrConfig).Path, config.ConvertedAttributes.(*AttrConfig).Baud, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(sensor.SubtypeName, modelname,
@@ -73,16 +72,16 @@ func init() {
 
 func newSensor(name string, path string, baud int, logger golog.Logger) (sensor.Sensor, error) {
 	if path == "" {
-		path = path_default
+		path = pathDefault
 	}
 	if baud == 0 {
-		baud = baud_default
+		baud = baudDefault
 	}
 
 	return &Sensor{Name: name, path: path, baud: baud}, nil
 }
 
-// Sensor is a serial charge controller
+// Sensor is a serial charge controller.
 type Sensor struct {
 	Name string
 	path string
@@ -99,9 +98,9 @@ func (s *Sensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{readings}, nil
 }
 
-// GetControllerOutput returns current readings from the charge controller
-func (s *Sensor) GetControllerOutput(ctx context.Context) (charge, error) {
-	var chargeRes charge
+// GetControllerOutput returns current readings from the charge controller.
+func (s *Sensor) GetControllerOutput(ctx context.Context) (Charge, error) {
+	var chargeRes Charge
 	handler := modbus.NewRTUClientHandler(s.path)
 	handler.BaudRate = s.baud
 	handler.DataBits = 8
@@ -111,8 +110,8 @@ func (s *Sensor) GetControllerOutput(ctx context.Context) (charge, error) {
 	handler.Timeout = 2 * time.Second
 
 	err := handler.Connect()
-	defer handler.Close()
 	if err != nil {
+		err = handler.Close()
 		return chargeRes, err
 	}
 	client := modbus.NewClient(handler)
@@ -142,11 +141,14 @@ func (s *Sensor) GetControllerOutput(ctx context.Context) (charge, error) {
 	chargeRes.MaxBattTodayVolt = readRegister(client, 268, 1)
 	chargeRes.MinBattTodayVolt = readRegister(client, 267, 1)
 
-	return chargeRes, nil
+	err = handler.Close()
+	return chargeRes, err
 }
 
 func readRegister(client modbus.Client, register uint16, precision uint) (result float32) {
+	globalMu.Lock()
 	b, err := client.ReadHoldingRegisters(register, 1)
+	globalMu.Unlock()
 	if err != nil {
 		result = 0
 	} else {
