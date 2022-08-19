@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"image"
-	"image/jpeg"
+	"image/png"
 	"math"
 	"net"
 	"testing"
@@ -87,6 +87,16 @@ var finalResources = []resource.Name{
 	servo.Named("servo3"),
 }
 
+var pose1 = &commonpb.Pose{
+	X:     0.0,
+	Y:     0.0,
+	Z:     0.0,
+	Theta: 0.0,
+	OX:    1.0,
+	OY:    0.0,
+	OZ:    0.0,
+}
+
 func TestStatusClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
@@ -107,15 +117,6 @@ func TestStatusClient(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
 
-	pose1 := &commonpb.Pose{
-		X:     0.0,
-		Y:     0.0,
-		Z:     0.0,
-		Theta: 0.0,
-		OX:    1.0,
-		OY:    0.0,
-		OZ:    0.0,
-	}
 	injectArm := &inject.Arm{}
 	injectArm.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return pose1, nil
@@ -129,11 +130,12 @@ func TestStatusClient(t *testing.T) {
 	injectCamera := &inject.Camera{}
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
 	var imgBuf bytes.Buffer
-	test.That(t, jpeg.Encode(&imgBuf, img, nil), test.ShouldBeNil)
+	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 
 	var imageReleased bool
-	injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-		return img, func() { imageReleased = true }, nil
+	injectCamera.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+		imageReleased = true
+		return imgBuf.Bytes(), rutils.MimeTypePNG, int64(img.Bounds().Dx()), int64(img.Bounds().Dy()), nil
 	}
 
 	injectInputDev := &inject.InputController{}
@@ -726,6 +728,15 @@ func TestClientReconnect(t *testing.T) {
 
 	go gServer.Serve(listener)
 
+	injectArm := &inject.Arm{}
+	injectArm.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+		return pose1, nil
+	}
+
+	armSvc2, err := subtype.New(map[resource.Name]interface{}{arm.Named("arm1"): injectArm})
+	test.That(t, err, test.ShouldBeNil)
+	armpb.RegisterArmServiceServer(gServer, arm.NewServer(armSvc2))
+
 	dur := 100 * time.Millisecond
 	client, err := New(
 		context.Background(),
@@ -738,6 +749,12 @@ func TestClientReconnect(t *testing.T) {
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	}()
+
+	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 1)
+	a, err := client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = a.(arm.Arm).GetEndPosition(context.Background(), map[string]interface{}{})
+	test.That(t, err, test.ShouldBeNil)
 	gServer.Stop()
 
 	test.That(t, <-client.Changed(), test.ShouldBeTrue)
@@ -747,6 +764,7 @@ func TestClientReconnect(t *testing.T) {
 
 	gServer2 := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot))
+	armpb.RegisterArmServiceServer(gServer2, arm.NewServer(armSvc2))
 
 	// Note: There's a slight chance this test can fail if someone else
 	// claims the port we just released by closing the server.
@@ -759,6 +777,8 @@ func TestClientReconnect(t *testing.T) {
 	test.That(t, client.Connected(), test.ShouldBeTrue)
 	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 1)
 	_, err = client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = a.(arm.Arm).GetEndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 }
 

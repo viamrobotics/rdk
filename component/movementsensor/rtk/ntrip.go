@@ -2,7 +2,6 @@ package rtk
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"sync"
 
@@ -11,12 +10,13 @@ import (
 	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/component/movementsensor/nmea"
 	"go.viam.com/rdk/config"
 )
 
 type ntripCorrectionSource struct {
 	correctionReader io.ReadCloser
-	info             ntripInfo
+	info             *nmea.NtripInfo
 	logger           golog.Logger
 	ntripStatus      bool
 
@@ -25,50 +25,17 @@ type ntripCorrectionSource struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-type ntripInfo struct {
-	url                string
-	username           string
-	password           string
-	mountPoint         string
-	client             *ntrip.Client
-	stream             io.ReadCloser
-	maxConnectAttempts int
-}
-
-const (
-	ntripAddrAttrName        = "ntrip_addr"
-	ntripUserAttrName        = "ntrip_username"
-	ntripPassAttrName        = "ntrip_password"
-	ntripMountPointAttrName  = "ntrip_mountpoint"
-	ntripConnectAttemptsName = "ntrip_connect_attempts"
-)
-
 func newNtripCorrectionSource(ctx context.Context, config config.Component, logger golog.Logger) (correctionSource, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	n := &ntripCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 
 	// Init ntripInfo from attributes
-	n.info.url = config.Attributes.String(ntripAddrAttrName)
-	if n.info.url == "" {
-		return nil, fmt.Errorf("NTRIP expected non-empty string for %q", ntripAddrAttrName)
+	ntripInfoComp, err := nmea.NewNtripInfo(ctx, config, logger)
+	if err != nil {
+		return nil, err
 	}
-	n.info.username = config.Attributes.String(ntripUserAttrName)
-	if n.info.username == "" {
-		n.logger.Info("ntrip_username set to empty")
-	}
-	n.info.password = config.Attributes.String(ntripPassAttrName)
-	if n.info.password == "" {
-		n.logger.Info("ntrip_password set to empty")
-	}
-	n.info.mountPoint = config.Attributes.String(ntripMountPointAttrName)
-	if n.info.mountPoint == "" {
-		n.logger.Info("ntrip_mountpoint set to empty")
-	}
-	n.info.maxConnectAttempts = config.Attributes.Int(ntripConnectAttemptsName, 10)
-	if n.info.maxConnectAttempts == 10 {
-		n.logger.Info("ntrip_connect_attempts using default 10")
-	}
+	n.info = ntripInfoComp
 
 	n.logger.Debug("Returning n")
 	return n, nil
@@ -83,14 +50,14 @@ func (n *ntripCorrectionSource) Connect() error {
 	var err error
 
 	n.logger.Debug("Connecting to NTRIP caster")
-	for !success && attempts < n.info.maxConnectAttempts {
+	for !success && attempts < n.info.MaxConnectAttempts {
 		select {
 		case <-n.cancelCtx.Done():
 			return errors.New("Canceled")
 		default:
 		}
 
-		c, err = ntrip.NewClient(n.info.url, ntrip.Options{Username: n.info.username, Password: n.info.password})
+		c, err = ntrip.NewClient(n.info.URL, ntrip.Options{Username: n.info.Username, Password: n.info.Password})
 		if err == nil {
 			success = true
 		}
@@ -102,7 +69,7 @@ func (n *ntripCorrectionSource) Connect() error {
 		return err
 	}
 
-	n.info.client = c
+	n.info.Client = c
 
 	n.logger.Debug("Connected to NTRIP caster")
 
@@ -119,14 +86,14 @@ func (n *ntripCorrectionSource) GetStream() error {
 
 	n.logger.Debug("Getting NTRIP stream")
 
-	for !success && attempts < n.info.maxConnectAttempts {
+	for !success && attempts < n.info.MaxConnectAttempts {
 		select {
 		case <-n.cancelCtx.Done():
 			return errors.New("Canceled")
 		default:
 		}
 
-		rc, err = n.info.client.GetStream(n.info.mountPoint)
+		rc, err = n.info.Client.GetStream(n.info.MountPoint)
 		if err == nil {
 			success = true
 		}
@@ -138,7 +105,7 @@ func (n *ntripCorrectionSource) GetStream() error {
 		return err
 	}
 
-	n.info.stream = rc
+	n.info.Stream = rc
 
 	n.logger.Debug("Connected to stream")
 
@@ -154,8 +121,8 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 		return
 	}
 
-	if !n.info.client.IsCasterAlive() {
-		n.logger.Infof("caster %s seems to be down", n.info.url)
+	if !n.info.Client.IsCasterAlive() {
+		n.logger.Infof("caster %s seems to be down", n.info.URL)
 	}
 
 	var w io.Writer
@@ -167,7 +134,7 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 		return
 	}
 
-	r := io.TeeReader(n.info.stream, w)
+	r := io.TeeReader(n.info.Stream, w)
 	scanner := rtcm3.NewScanner(r)
 
 	n.ntripStatus = true
@@ -189,7 +156,7 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 					return
 				}
 
-				r = io.TeeReader(n.info.stream, w)
+				r = io.TeeReader(n.info.Stream, w)
 				scanner = rtcm3.NewScanner(r)
 				n.ntripStatus = true
 				continue
@@ -221,16 +188,16 @@ func (n *ntripCorrectionSource) Close() error {
 	}
 
 	// close ntrip client and stream
-	if n.info.client != nil {
-		n.info.client.CloseIdleConnections()
-		n.info.client = nil
+	if n.info.Client != nil {
+		n.info.Client.CloseIdleConnections()
+		n.info.Client = nil
 	}
 
-	if n.info.stream != nil {
-		if err := n.info.stream.Close(); err != nil {
+	if n.info.Stream != nil {
+		if err := n.info.Stream.Close(); err != nil {
 			return err
 		}
-		n.info.stream = nil
+		n.info.Stream = nil
 	}
 
 	return nil

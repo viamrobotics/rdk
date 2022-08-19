@@ -73,7 +73,7 @@ func createController(ctx context.Context, logger golog.Logger, devFile string, 
 					}
 					continue
 				} else {
-					g.logger.Fatal(err)
+					g.logger.Error(err)
 					return
 				}
 			}
