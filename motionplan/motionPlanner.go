@@ -9,6 +9,8 @@ import (
 
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/framesystem"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -16,13 +18,8 @@ import (
 )
 
 const (
-	// When setting default constraints, the translation and orientation distances between the start/end are calculated and multiplied by
-	// this value. At no point during a movement may the minimum distance to the start or end exceed these values.
-	deviationFactor = 0.6
 	// Default distance below which two distances are considered equal.
 	defaultEpsilon = 0.001
-	// Default motion constraint name.
-	defaultMotionConstraint = "defaultMotionConstraint"
 	// Solve for waypoints this far apart to speed solving.
 	pathStepSize = 10.0
 )
@@ -47,83 +44,87 @@ type planReturn struct {
 	err   error
 }
 
-// PlannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
-type PlannerOptions struct {
-	constraintHandler
-	metric   Metric
-	pathDist Metric
-	// For the below values, if left uninitialized, default values will be used. To disable, set < 0
-	// Max number of ik solutions to consider
-	maxSolutions int
-	// Movements that score below this amount are considered "good enough" and returned immediately
-	minScore float64
-}
-
-// NewDefaultPlannerOptions specifies a set of default options for the planner.
-func NewDefaultPlannerOptions() *PlannerOptions {
-	opt := &PlannerOptions{}
-	opt.AddConstraint(jointConstraint, NewJointConstraint(math.Inf(1)))
-	opt.metric = NewSquaredNormMetric()
-	opt.pathDist = NewSquaredNormMetric()
-	return opt
-}
-
-// DefaultConstraint creates a default constraint and metric that constrains the position and orientation. The allowed magnitude of
-// deviation of the position and orientation from the start or goal shall never be greater than than the magnitude of deviation between
-// the start and goal poses.
-// For example- if a user requests a translation, orientation will not change during the movement. If there is an obstacle, deflection
-// from the ideal path is allowed as a function of the length of the ideal path.
-func DefaultConstraint(
-	from, to spatial.Pose,
+// PlanRobotMotion plans a motion to destination for a given frame
+func PlanRobotMotion(ctx context.Context,
+	destination *frame.PoseInFrame,
 	f frame.Frame,
-	opt *PlannerOptions,
-) *PlannerOptions {
-	pathConst, pathDist := NewLinearInterpolatingConstraint(from, to, deviationFactor)
+	r robot.Robot,
+	fs frame.FrameSystem,
+	worldState *commonpb.WorldState,
+	planningOpts map[string]interface{},
+) ([][]frame.Input, error) {
+	seedMap, _, err := framesystem.RobotFsCurrentInputs(ctx, r, fs)
+	if err != nil {
+		return nil, err
+	}
 	
-	opt.pathDist = pathDist
+	return PlanMotion(ctx, destination, f, seedMap, fs, worldState, planningOpts)
+}
+
+func PlanMotion(ctx context.Context,
+	destination *frame.PoseInFrame,
+	f frame.Frame,
+	seedMap map[string][]frame.Input,
+	fs frame.FrameSystem,
+	worldState *commonpb.WorldState,
+	planningOpts map[string]interface{},
+) ([][]frame.Input, error) {
 	
-	opt.AddConstraint(defaultMotionConstraint, pathConst)
+	solvableFS := NewSolvableFrameSystem(fs
+	
+	if profile, ok := planningOpts["motionProfile"]; ok && profile != "" {
+		var opts []*PlannerOptions
+		var seed []frame.Input
+		var goals []spatial.Pose
+		if profile == "linear" {
+			// With linear motion, we know all intermediate poses of the motion ahead of time, so can generate waypoints ahead of time for
+			// faster solving
+			seed, ok := seedMap[f]
+			if !ok {
+				return nil, errors.New(
+			}
 
-	// Add self-collision check if available
-	//~ collisionConst := NewCollisionConstraint(f, map[string]spatial.Geometry{}, map[string]spatial.Geometry{})
-	//~ opt.AddConstraint("self-collision", collisionConst)
-	return opt
+			seedPos, err := model.Transform(model.InputFromProtobuf(seed))
+			if err != nil {
+				return nil, err
+			}
+			goalPos := spatialmath.NewPoseFromProtobuf(dst)
+
+			numSteps := motionplan.GetSteps(seedPos, goalPos, DefaultPathStepSize)
+			goals := make([]spatialmath.Pose, 0, numSteps)
+			opts := make([]*motionplan.PlannerOptions, 0, numSteps)
+
+			collisionConst, err := motionplan.NewCollisionConstraintFromWorldState(model, fs, worldState, inputs)
+			if err != nil {
+				return nil, err
+			}
+
+			from := seedPos
+			for i := 1; i < numSteps; i++ {
+				by := float64(i) / float64(numSteps)
+				to := spatialmath.Interpolate(seedPos, goalPos, by)
+				goals = append(goals, to)
+				opt := DefaultArmPlannerOptions(from, to, model, collisionConst)
+				opts = append(opts, opt)
+
+				from = to
+			}
+			goals = append(goals, goalPos)
+			opt := DefaultArmPlannerOptions(from, goalPos, model, collisionConst)
+			opts = append(opts, opt)
+		} else {
+			
+		}
+
+	} else {
+		// Default behavior will be to try to solve a pseudolinear path, then fall back to free motion 
+	}
+	
+	return nil, nil
 }
 
-// SetMetric sets the distance metric for the solver.
-func (p *PlannerOptions) SetMetric(m Metric) {
-	p.metric = m
-}
-
-// SetPathDist sets the distance metric for the solver to move a constraint-violating point into a valid manifold.
-func (p *PlannerOptions) SetPathDist(m Metric) {
-	p.pathDist = m
-}
-
-// SetMaxSolutions sets the maximum number of IK solutions to generate for the planner.
-func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
-	p.maxSolutions = maxSolutions
-}
-
-// SetMinScore specifies the IK stopping score for the planner.
-func (p *PlannerOptions) SetMinScore(minScore float64) {
-	p.minScore = minScore
-}
-
-// Clone makes a deep copy of the PlannerOptions.
-func (p *PlannerOptions) Clone() *PlannerOptions {
-	opt := &PlannerOptions{}
-	opt.constraints = p.constraints
-	opt.metric = p.metric
-	opt.pathDist = p.pathDist
-	opt.maxSolutions = p.maxSolutions
-	opt.minScore = p.minScore
-
-	return opt
-}
-
-// RunPlannerWithWaypoints will plan to each of a list of goals in oder, optionally also taking a new planner option for each goal.
-func RunPlannerWithWaypoints(ctx context.Context,
+// runPlannerWithWaypoints will plan to each of a list of goals in order, optionally also taking a new planner option for each goal.
+func runPlannerWithWaypoints(ctx context.Context,
 	planner MotionPlanner,
 	goals []spatial.Pose,
 	seed []frame.Input,
@@ -134,11 +135,12 @@ func RunPlannerWithWaypoints(ctx context.Context,
 	goal := goals[iter]
 	opt := opts[iter]
 	if opt == nil {
-		opt = NewDefaultPlannerOptions()
+		opt = NewBasicPlannerOptions()
 	}
 	remainingSteps := [][]frame.Input{}
 	if cbert, ok := planner.(*cBiRRTMotionPlanner); ok {
 		// cBiRRT supports solution look-ahead for parallel waypoint solving
+		// TODO(pl): other planners will support lookaheads, so this should be made to be an interface
 		endpointPreview := make(chan *configuration, 1)
 		solutionChan := make(chan *planReturn, 1)
 		utils.PanicCapturingGo(func() {
@@ -164,7 +166,7 @@ func RunPlannerWithWaypoints(ctx context.Context,
 				if iter+1 < len(goals) {
 					// In this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it.
-					remainingSteps, err = RunPlannerWithWaypoints(ctx, planner, goals, nextSeed.inputs, opts, iter+1)
+					remainingSteps, err = runPlannerWithWaypoints(ctx, planner, goals, nextSeed.inputs, opts, iter+1)
 					if err != nil {
 						return nil, err
 					}
@@ -199,7 +201,7 @@ func RunPlannerWithWaypoints(ctx context.Context,
 				if iter+1 < len(goals) {
 					// in this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it
-					remainingSteps, err = RunPlannerWithWaypoints(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps)-1].inputs, opts, iter+1)
+					remainingSteps, err = runPlannerWithWaypoints(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps)-1].inputs, opts, iter+1)
 					if err != nil {
 						return nil, err
 					}
@@ -221,7 +223,7 @@ func RunPlannerWithWaypoints(ctx context.Context,
 		if iter < len(goals)-2 {
 			// in this case, we create the next step (and thus the remaining steps) and the
 			// step from our iteration hangs out in the channel buffer until we're done with it
-			remainingSteps, err = RunPlannerWithWaypoints(ctx, planner, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, iter+1)
+			remainingSteps, err = runPlannerWithWaypoints(ctx, planner, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, iter+1)
 			if err != nil {
 				return nil, err
 			}

@@ -117,7 +117,7 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	// setup opts
 	if len(opts) == 0 {
 		for i := 0; i < len(goals); i++ {
-			opts = append(opts, NewDefaultPlannerOptions())
+			opts = append(opts, NewBasicPlannerOptions())
 		}
 	}
 	if len(opts) != len(goals) {
@@ -128,7 +128,7 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	}
 
 	seed := sf.mapToSlice(seedMap)
-	resultSlices, err := RunPlannerWithWaypoints(ctx, planner, goals, seed, opts, 0)
+	resultSlices, err := runPlannerWithWaypoints(ctx, planner, goals, seed, opts, 0)
 	if err != nil {
 		return nil, err
 	}

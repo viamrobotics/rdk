@@ -8,7 +8,7 @@ import (
 	"go.viam.com/utils"
 )
 
-const neighborsBeforeParallelization = 100000
+const neighborsBeforeParallelization = 1000
 
 type neighborManager struct {
 	nnKeys    chan *configuration
@@ -29,7 +29,7 @@ func (nm *neighborManager) nearestNeighbor(
 	seed *configuration,
 	rrtMap map[*configuration]*configuration,
 ) *configuration {
-	if len(rrtMap) > neighborsBeforeParallelization {
+	if len(rrtMap) > neighborsBeforeParallelization && nm.nCPU > 1 {
 		// If the map is large, calculate distances in parallel
 		return nm.parallelNearestNeighbor(ctx, seed, rrtMap)
 	}
@@ -51,12 +51,10 @@ func (nm *neighborManager) parallelNearestNeighbor(
 	rrtMap map[*configuration]*configuration,
 ) *configuration {
 	nm.ready = false
+	nm.seedPos = seed
 	nm.startNNworkers(ctx)
 	defer close(nm.nnKeys)
 	defer close(nm.neighbors)
-	nm.nnLock.Lock()
-	nm.seedPos = seed
-	nm.nnLock.Unlock()
 
 	for k := range rrtMap {
 		nm.nnKeys <- k
