@@ -384,7 +384,11 @@ func (dm *dubinOptionManager) parallelselectOptions(
 	// Sort and choose best nbOptions options
 	sort.Sort(pl)
 	options := make(map[*configuration]DubinOption)
-	for _, p := range pl[:nbOptions] {
+	numReturn := nbOptions
+	if len(pl) < nbOptions {
+		numReturn = len(pl)
+	}
+	for _, p := range pl[:numReturn] {
 		options[p.key] = p.value
 	}
 
@@ -434,6 +438,7 @@ func (dm *dubinOptionManager) optWorker(ctx context.Context) {
 					return
 				}
 				pl = pl[1:]
+				return
 			}
 			dm.optLock.RUnlock()
 		}
