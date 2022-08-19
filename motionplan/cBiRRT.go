@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"fmt"
 	"math/rand"
 
 	"github.com/edaniels/golog"
@@ -126,7 +127,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 
 	// We want to make this of len(goals), not len(0) so that indexing does not fail
 	opts := make([]*PlannerOptions, len(goals))
-	results, err := RunPlannerWithWaypoints(ctx, mp, goals, seed, opts, 0)
+	results, err := runPlannerWithWaypoints(ctx, mp, goals, seed, opts, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -145,17 +146,9 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	defer close(solutionChan)
 
 	// use default options if none are provided
-	//~ if opt == nil {
-		//~ opt = NewDefaultPlannerOptions()
-		seedPos, err := mp.frame.Transform(seed)
-		if err != nil {
-			solutionChan <- &planReturn{err: err}
-			return
-		}
-		goalPos := spatial.NewPoseFromProtobuf(goal)
-
-		opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
-	//~ }
+	if opt == nil {
+		opt = NewBasicPlannerOptions()
+	}
 	
 
 	// get many potential end goals from IK solver
@@ -210,6 +203,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		corners[map2reached] = true
 
 		if inputDist(map1reached.inputs, map2reached.inputs) < mp.solDist {
+			fmt.Println("Solved in", i)
 			cancel()
 			path := extractPath(seedMap, goalMap, map1reached, map2reached)
 			if endpointPreview != nil {

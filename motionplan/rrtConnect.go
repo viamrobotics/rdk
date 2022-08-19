@@ -10,7 +10,6 @@ import (
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
-	spatial "go.viam.com/rdk/spatialmath"
 )
 
 type rrtConnectMotionPlanner struct {
@@ -88,15 +87,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 
 	// use default options if none are provided
 	if opt == nil {
-		opt = NewDefaultPlannerOptions()
-		seedPos, err := mp.frame.Transform(seed)
-		if err != nil {
-			solutionChan <- &planReturn{err: err}
-			return
-		}
-		goalPos := spatial.NewPoseFromProtobuf(goal)
-
-		opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
+		opt = NewBasicPlannerOptions()
 	}
 
 	// get many potential end goals from IK solver
