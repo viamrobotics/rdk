@@ -76,7 +76,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		defer robot.Close(ctx)
 		logger.Info("Resources:")
 		logger.Info(robot.ResourceNames())
-	
+
 		l, err := robot.ResourceByName(resource.NameFromSubtype(base.Subtype, "limo"))
 		if err != nil {
 			return err
@@ -94,7 +94,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		limo1.Move(config)
 	} else {
 		limo1 := limoBase{ctx: ctx, driveMode: "ackermann", logger: logger}
-		
+
 		// read config
 		config, err := parseJSONFile("samples/agile/planConfig.json")
 		if err != nil {
