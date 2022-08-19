@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/robot"
 )
 
 // transformType is the list of allowed transforms that can be used in the pipeline.
@@ -20,7 +21,7 @@ const (
 	resizeTransform          = transformType("resize")
 	depthPrettyTransform     = transformType("depth_to_pretty")
 	overlayTransform         = transformType("overlay")
-	undistortTrasform        = transformType("undistort")
+	undistortTransform       = transformType("undistort")
 	detectionsTransform      = transformType("detections")
 	depthPreprocessTransform = transformType("depth_preprocess")
 	depthEdgesTransform      = transformType("depth_edges")
@@ -38,15 +39,26 @@ type Transformation struct {
 
 // buildTransform uses the Transformation config to build the desired transform ImageSource
 func buildTransform(
-	ctx context.Context, source gostream.ImageSource, stream camera.StreamType, tr Transformation,
+	ctx context.Context, r robot.Robot, source gostream.ImageSource, cfg *transformConfig, tr Transformation,
 ) (gostream.ImageSource, error) {
+	stream := camera.StreamType(cfg.Stream)
 	switch transformType(tr.Type) {
 	case unspecifiedTrasform, identityTransform:
 		return source, nil
 	case rotateTransform:
-		return newRotateTransform(ctx, source, stream)
+		return newRotateTransform(source, stream)
 	case resizeTransform:
-		return newResizeTransform(ctx, source, stream, tr.Attributes)
+		return newResizeTransform(source, stream, tr.Attributes)
+	case depthPrettyTransform:
+		return newDepthToPrettyTransform(ctx, source, cfg.AttrConfig)
+	case overlayTransform:
+		return newOverlayTransform(ctx, source, cfg.AttrConfig)
+	case undistortTransform:
+		return newUndistortTransform(source, stream, tr.Attributes)
+	case detectionsTransform:
+		return newDetectionsTransform(source, r, tr.Attributes)
+	case depthEdgesTransform:
+		return newDepthEdgesTransform(source, tr.Attributes)
 	default:
 		return nil, NewUnknownTransformType(tr.Type)
 	}

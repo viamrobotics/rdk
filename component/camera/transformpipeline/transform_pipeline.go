@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -21,9 +22,9 @@ func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
 		"transform",
-		registry.Component{Constructor: func(
+		registry.Component{RobotConstructor: func(
 			ctx context.Context,
-			deps registry.Dependencies,
+			r robot.Robot,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
@@ -32,11 +33,11 @@ func init() {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
-			source, err := camera.FromDependencies(deps, sourceName)
+			source, err := camera.FromRobot(r, sourceName)
 			if err != nil {
 				return nil, fmt.Errorf("no source camera for transform pipeline (%s): %w", sourceName, err)
 			}
-			return newTransformPipeline(ctx, source, attrs)
+			return newTransformPipeline(ctx, source, attrs, r)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "transform",
@@ -67,16 +68,15 @@ type transformConfig struct {
 	Pipeline []Transformation `json:"pipeline"`
 }
 
-func newTransformPipeline(ctx context.Context, source camera.Camera, cfg *transformConfig) (camera.Camera, error) {
+func newTransformPipeline(ctx context.Context, source camera.Camera, cfg *transformConfig, r robot.Robot) (camera.Camera, error) {
 	if source == nil {
 		return nil, errors.New("no source camera for transform pipeline")
 	}
-	stream := camera.StreamType(cfg.Stream)
 	// loop through the pipeline and create the image flow
 	var outSource gostream.ImageSource
 	outSource = source
 	for _, tr := range cfg.Pipeline {
-		src, err := buildTransform(ctx, outSource, stream, tr)
+		src, err := buildTransform(ctx, r, outSource, cfg, tr)
 		if err != nil {
 			return nil, err
 		}
