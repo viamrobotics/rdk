@@ -13,7 +13,6 @@ import (
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
-	spatial "go.viam.com/rdk/spatialmath"
 )
 
 // DubinsRRTMotionPlanner an object able to solve for paths using Dubin's Car Model
@@ -63,12 +62,6 @@ func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 	solutionChan := make(chan *planReturn, 1)
 	if opt == nil {
 		opt = NewDefaultPlannerOptions()
-		seedPos, err := mp.frame.Transform(seed[:2])
-		if err != nil {
-			solutionChan <- &planReturn{err: err}
-			return nil, err
-		}
-		opt = DefaultConstraint(seedPos, spatial.NewPoseFromProtobuf(goal), mp.Frame(), opt)
 	}
 
 	utils.PanicCapturingGo(func() {
@@ -450,6 +443,7 @@ func mobile2DConfigDist(from, to *configuration) float64 {
 	return math.Pow(from.inputs[0].Value-to.inputs[0].Value, 2) + math.Pow(from.inputs[1].Value-to.inputs[1].Value, 2)
 }
 
+// TODO: Update nearestNeighbor.go to take a custom distance function, so then everything can use the same function (rh pl rb)
 func findNearNeighbors(sample *configuration, rrtMap map[*configuration]*configuration, nbNeighbors int) []*configuration {
 	keys := make([]*configuration, 0, len(rrtMap))
 
