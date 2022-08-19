@@ -32,16 +32,28 @@
       "model": "gpio",
       "name": "m1",
       "type": "motor",
-      "depends_on" : ["board1"],
+      "depends_on" : ["board1", "e1"],
       "attributes" : {
         "board" : "board1",
+        "encoder": "e1",
         "pins" : {
           "pwm" : "5"
         },
         "pwm_freq" : 4000,
-        "encoder": "encoder",
-        "encoder_b": "encoder-b",
         "ticks_per_rotation" : 1
+      }
+    },
+    {
+      "model": "hall",
+      "name": "e1",
+      "type": "encoder",
+      "depends_on" : ["board1"],
+      "attributes" : {
+        "board" : "board1",
+        "pins" : {
+          "a" : "encoder",
+          "b": "encoder-b"
+        }
       }
     },
     {
