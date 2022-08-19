@@ -289,7 +289,7 @@ func (mp *DubinsRRTMotionPlanner) checkPath(
 // Used for coordinating parallel computations of dubins path options.
 type dubinPathAttrManager struct {
 	optKeys chan *configuration
-	options chan *nodeToOption
+	options chan *nodeToOptionList
 	optLock sync.RWMutex
 	sample  *configuration
 	ready   bool
@@ -326,7 +326,7 @@ func (dm *dubinPathAttrManager) selectOptions(
 		end := configuration2slice(sample)
 		allOpts := dm.d.AllPaths(start, end, true)
 
-		if len(allOpts) > 0 {
+		if allOpts[0].TotalLen != math.Inf(1) {
 			pl = append(pl, nodeToOption{node, allOpts[0]})
 		}
 	}
@@ -378,7 +378,7 @@ func (dm *dubinPathAttrManager) parallelselectOptions(
 		select {
 		case opt := <-dm.options:
 			returned++
-			pl = append(pl, *opt)
+			pl = append(pl, *opt...)
 		default:
 		}
 	}
@@ -386,11 +386,11 @@ func (dm *dubinPathAttrManager) parallelselectOptions(
 	// Sort and choose best nbOptions options
 	sort.Sort(pl)
 	options := make(map[*configuration]DubinPathAttr)
-	numReturn := nbOptions
+	topn := nbOptions
 	if len(pl) < nbOptions {
-		numReturn = len(pl)
+		topn = len(pl)
 	}
-	for _, p := range pl[:numReturn] {
+	for _, p := range pl[:topn] {
 		options[p.key] = p.value
 	}
 
@@ -398,7 +398,7 @@ func (dm *dubinPathAttrManager) parallelselectOptions(
 }
 
 func (dm *dubinPathAttrManager) startOptWorkers(ctx context.Context) {
-	dm.options = make(chan *nodeToOption, dm.nCPU)
+	dm.options = make(chan *nodeToOptionList, dm.nCPU)
 	dm.optKeys = make(chan *configuration, dm.nCPU)
 	for i := 0; i < dm.nCPU; i++ {
 		utils.PanicCapturingGo(func() {
@@ -426,19 +426,15 @@ func (dm *dubinPathAttrManager) optWorker(ctx context.Context) {
 				allOpts := dm.d.AllPaths(start, end, true)
 				dm.optLock.RUnlock()
 
-				if len(allOpts) > 0 {
+				if allOpts[0].TotalLen != math.Inf(1) {
 					pl = append(pl, nodeToOption{node, allOpts[0]})
 				}
 			}
 		default:
 			dm.optLock.RLock()
 			if dm.ready {
-				opt := pl[0]
-				if len(pl) != 1 {
-					pl = pl[1:]
-				}
 				dm.optLock.RUnlock()
-				dm.options <- &opt
+				dm.options <- &pl
 				return
 			}
 			dm.optLock.RUnlock()
