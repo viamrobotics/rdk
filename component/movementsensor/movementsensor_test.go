@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -238,6 +239,12 @@ func TestGetReadings(t *testing.T) {
 	result, err := reconfMovementSensor1.(sensor.Sensor).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, readings1)
+
+	p, err := protoutils.SensorGoToProto(allReadings)
+	test.That(t, err, test.ShouldBeNil)
+	r2, err := protoutils.SensorProtoToGo(p)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r2, test.ShouldResemble, allReadings)
 }
 
 func TestClose(t *testing.T) {

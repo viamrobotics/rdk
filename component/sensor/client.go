@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/component/generic"
 	pb "go.viam.com/rdk/proto/api/component/sensor/v1"
+	"go.viam.com/rdk/protoutils"
 )
 
 // client implements SensorServiceClient.
@@ -38,11 +39,7 @@ func (c *client) GetReadings(ctx context.Context) (map[string]interface{}, error
 		return nil, err
 	}
 
-	m := map[string]interface{}{}
-	for k, v := range resp.Readings {
-		m[k] = v.AsInterface()
-	}
-	return m, nil
+	return protoutils.SensorProtoToGo(resp.Readings)
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
