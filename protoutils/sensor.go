@@ -9,6 +9,12 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+const type_angular_velocity = "angular_velocity"
+const type_vector3 = "vector3"
+const type_euler = "euler"
+const type_quat = "quat"
+const type_geopoint = "geopoint"
+
 func goToProto(v interface{}) (*structpb.Value, error) {
 	switch x := v.(type) {
 	case spatialmath.AngularVelocity:
@@ -16,21 +22,21 @@ func goToProto(v interface{}) (*structpb.Value, error) {
 			"x" : x.X,
 			"y" : x.Y,
 			"z" : x.Z,
-			"_type" : "angular_velocity",
+			"_type" : type_angular_velocity,
 		}
 	case r3.Vector: 
 		v = map[string]interface{}{
 			"x" : x.X,
 			"y" : x.Y,
 			"z" : x.Z,
-			"_type" : "vector3",
+			"_type" : type_vector3,
 		}
 	case *spatialmath.EulerAngles: 
 		v = map[string]interface{}{
 			"roll" : x.Roll,
 			"pitch" : x.Pitch,
 			"yaw" : x.Yaw,
-			"_type" : "euler",
+			"_type" : type_euler,
 		}
 	case *spatialmath.Quaternion: 
 		v = map[string]interface{}{
@@ -38,14 +44,14 @@ func goToProto(v interface{}) (*structpb.Value, error) {
 			"i" : x.Imag,
 			"j" : x.Jmag,
 			"k" : x.Kmag,
-			"_type" : "quat",
+			"_type" : type_quat,
 		}
 
 	case *geo.Point: 
 		v = map[string]interface{}{
 			"lat" : x.Lat(),
 			"lng" : x.Lng(),
-			"_type" : "geopoint",
+			"_type" : type_geopoint,
 		}
 
 	}
@@ -85,25 +91,25 @@ func cleanSensorType(v interface{}) interface{} {
 	switch x := v.(type) {
 	case map[string]interface{}:
 		switch x["_type"] {
-		case "angular_velocity":
+		case type_angular_velocity:
 			return spatialmath.AngularVelocity{
 				X : x["x"].(float64),
 				Y : x["y"].(float64),
 				Z : x["z"].(float64),
 			}
-		case "vector3":
+		case type_vector3:
 			return r3.Vector{
 				X : x["x"].(float64),
 				Y : x["y"].(float64),
 				Z : x["z"].(float64),
 			}
-		case "euler":
+		case type_euler:
 			return &spatialmath.EulerAngles{
 				Roll : x["roll"].(float64),
 				Pitch : x["pitch"].(float64),
 				Yaw : x["yaw"].(float64),
 			}
-		case "quat":
+		case type_quat:
 			return &spatialmath.Quaternion{
 				x["r"].(float64),
 				x["i"].(float64),
@@ -111,7 +117,7 @@ func cleanSensorType(v interface{}) interface{} {
 				x["k"].(float64),
 			}
 
-		case "geopoint":
+		case type_geopoint:
 			return geo.NewPoint(
 				x["lat"].(float64),
 				x["lng"].(float64),

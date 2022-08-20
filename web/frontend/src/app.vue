@@ -2319,7 +2319,10 @@ function setBoundingBox(box, centerPoint) {
               <table style="font-size:.7em; text-align: left;">
                 <tr v-for="(value, sensorField) in sensorReadings[resourceNameToString(name)]">
                   <th>{{ sensorField }}</th>
-                  <td>{{value}}</td>
+                  <td>
+                    {{value}}
+                    <a v-if="value._type == 'geopoint'" :href="'https://www.google.com/maps/search/' + value.lat + ',' + value.lng">google maps</a>
+                  </td>
                 </tr>
               </table>
             </td>
