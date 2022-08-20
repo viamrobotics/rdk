@@ -75,7 +75,7 @@ func (server *subtypeServer) GetReadings(
 
 	readingsP := make([]*pb.Readings, 0, len(readings))
 	for _, reading := range readings {
-		rReading, err := protoutils.SensorGoToProto(reading.Readings)
+		rReading, err := protoutils.ReadingGoToProto(reading.Readings)
 		if err != nil {
 			return nil, err
 		}

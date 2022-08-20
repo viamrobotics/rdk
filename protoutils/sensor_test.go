@@ -21,10 +21,10 @@ func TestRoundtrip(t *testing.T) {
 		"gp" : geo.NewPoint(12,13),
 	}
 
-	p, err := SensorGoToProto(m1)
+	p, err := ReadingGoToProto(m1)
 	test.That(t, err, test.ShouldBeNil)
 
-	m2, err := SensorProtoToGo(p)
+	m2, err := ReadingProtoToGo(p)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, m2, test.ShouldResemble, m1)

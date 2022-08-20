@@ -50,10 +50,14 @@ func goToProto(v interface{}) (*structpb.Value, error) {
 
 	}
 
+	v, err := toInterface(v)
+	if err != nil {
+		return nil, err
+	}
 	return structpb.NewValue(v)
 }
 
-func SensorGoToProto(readings map[string]interface{}) (map[string]*structpb.Value, error) {
+func ReadingGoToProto(readings map[string]interface{}) (map[string]*structpb.Value, error) {
 	m := map[string]*structpb.Value{}
 	
 	for k, v := range readings {
@@ -68,7 +72,7 @@ func SensorGoToProto(readings map[string]interface{}) (map[string]*structpb.Valu
 	return m, nil
 }
 
-func SensorProtoToGo(readings map[string]*structpb.Value) (map[string]interface{}, error) {
+func ReadingProtoToGo(readings map[string]*structpb.Value) (map[string]interface{}, error) {
 	m := map[string]interface{}{}
 	for k, v := range readings {
 		m[k] = cleanSensorType(v.AsInterface())
