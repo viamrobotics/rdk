@@ -39,7 +39,7 @@ func (c *client) GetReadings(ctx context.Context) (map[string]interface{}, error
 		return nil, err
 	}
 
-	return protoutils.SensorProtoToGo(resp.Readings)
+	return protoutils.ReadingProtoToGo(resp.Readings)
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

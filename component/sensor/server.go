@@ -48,7 +48,7 @@ func (s *subtypeServer) GetReadings(
 	if err != nil {
 		return nil, err
 	}
-	m, err := protoutils.SensorGoToProto(readings)
+	m, err := protoutils.ReadingGoToProto(readings)
 	if err != nil {
 		return nil, err
 	}

@@ -240,9 +240,9 @@ func TestGetReadings(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, readings1)
 
-	p, err := protoutils.SensorGoToProto(allReadings)
+	p, err := protoutils.ReadingGoToProto(allReadings)
 	test.That(t, err, test.ShouldBeNil)
-	r2, err := protoutils.SensorProtoToGo(p)
+	r2, err := protoutils.ReadingProtoToGo(p)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r2, test.ShouldResemble, allReadings)
 }
