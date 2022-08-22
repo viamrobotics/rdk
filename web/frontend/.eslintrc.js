@@ -34,7 +34,6 @@ module.exports = {
     // Spacing and code style
     // https://github.com/eslint/eslint/issues/13956
     indent: 'off',
-    '@typescript-eslint/indent': ['error', 2],
     'arrow-spacing': 'error',
     'block-spacing': 'error',
     'comma-spacing': 'error',
@@ -59,7 +58,6 @@ module.exports = {
     'semi-style': 'error',
     'dot-notation': 'error',
     'nonblock-statement-body-position': 'error',
-    'vue/no-deprecated-slot-attribute': 'off',
     quotes: ['error', 'single', { avoidEscape: true }],
     semi: ['error', 'always'],
     'comma-dangle': [
@@ -111,6 +109,8 @@ module.exports = {
     'prefer-const': 'error',
 
     // Vue
+    'vue/no-deprecated-slot-attribute': 'off',
+    'vue/require-default-prop': 'off',
     'vue/multi-word-component-names': 'off',
     'vue/no-undef-components': ['error', { ignorePatterns: ['v-'] }],
 
@@ -157,6 +157,7 @@ module.exports = {
     'tailwindcss/no-custom-classname': 'off',
 
     // Typescript
+    '@typescript-eslint/indent': ['error', 2],
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     '@typescript-eslint/no-explicit-any': 'error',
     '@typescript-eslint/no-non-null-assertion': 'off',
@@ -170,7 +171,4 @@ module.exports = {
     },
   },
   ignorePatterns: ['**/cypress/**', '**/node_modules/**', '*.json', '**/protos/**'],
-  globals: {
-    'cypress/globals': true,
-  },
 };
