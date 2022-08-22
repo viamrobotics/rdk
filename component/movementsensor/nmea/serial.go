@@ -220,7 +220,7 @@ func (g *SerialNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 }
 
 // GetReadings will use return all of the MovementSensor Readings.
-func (g *SerialNMEAMovementSensor) GetReadings(ctx context.Context) ([]interface{}, error) {
+func (g *SerialNMEAMovementSensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
 	readings, err := movementsensor.GetReadings(ctx, g)
 	if err != nil {
 		return nil, err
@@ -231,7 +231,7 @@ func (g *SerialNMEAMovementSensor) GetReadings(ctx context.Context) ([]interface
 		return nil, err
 	}
 
-	readings = append(readings, fix)
+	readings["fix"] = fix
 
 	return readings, nil
 }
