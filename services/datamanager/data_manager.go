@@ -623,9 +623,12 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 				},
 			}
 			deployResp, err := modelServiceClient.Deploy(cancelCtx, deployRequest)
+			fmt.Println("do we make it past?")
 			if err != nil {
+				fmt.Println("NOT PAST")
 				svc.logger.Error(err)
 			} else {
+				fmt.Println("YES PAST")
 				url := deployResp.Message
 				err := downloadFile(cancelCtx, model.Destination, url, svc.logger)
 				if err != nil {
@@ -777,8 +780,10 @@ func getModelsToDownload(models []*Model) []*Model {
 	modelsToDownload := make([]*Model, 0)
 	for _, model := range models {
 		if model.Destination == "" {
+			// fmt.Println("model destination not specified")
 			// Set the model destination to default if it's not specified in the config.
 			model.Destination = filepath.Join(viamModelDotDir, model.Name)
+			// fmt.Println("model.Destination: ", model.Destination)
 		}
 		_, err := os.Stat(model.Destination)
 		// If the path to the specified destination does not exist,
