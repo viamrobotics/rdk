@@ -84,7 +84,7 @@ const motorStop = () => {
 
 <template>
   <v-collapse
-    :title="motorName"
+    title="Motor"
     class="motor"
   >
     <v-breadcrumbs
