@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
+	fakeencoder "go.viam.com/rdk/component/encoder/fake"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
@@ -78,11 +79,11 @@ func createFakeDepsForTestNewOneAxis(t *testing.T) registry.Dependencies {
 	logger := golog.NewTestLogger(t)
 
 	fakeMotor := &fake.Motor{
-		Encoder:           &fake.Encoder{},
+		Encoder:           &fakeencoder.Encoder{},
 		PositionReporting: true,
-		TicksPerRotation:  1,
 		MaxRPM:            60,
 		Logger:            logger,
+		TicksPerRotation:  1,
 	}
 	deps := make(registry.Dependencies)
 	deps[board.Named("board")] = fakeBoard

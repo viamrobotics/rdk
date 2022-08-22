@@ -19,8 +19,9 @@ import (
 	"go.viam.com/rdk/component/board"
 	// board attribute converters.
 	_ "go.viam.com/rdk/component/board/fake"
-	"go.viam.com/rdk/component/motor"
 	// motor attribute converters.
+	"go.viam.com/rdk/component/encoder"
+	"go.viam.com/rdk/component/motor"
 	_ "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
@@ -56,7 +57,7 @@ func TestConfig3(t *testing.T) {
 	cfg, err := config.Read(context.Background(), "data/config3.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(cfg.Components), test.ShouldEqual, 3)
+	test.That(t, len(cfg.Components), test.ShouldEqual, 4)
 	test.That(t, cfg.Components[0].Attributes.Int("foo", 0), test.ShouldEqual, 5)
 	test.That(t, cfg.Components[0].Attributes.Bool("foo2", false), test.ShouldEqual, true)
 	test.That(t, cfg.Components[0].Attributes.Bool("foo3", false), test.ShouldEqual, false)
@@ -88,10 +89,16 @@ func TestConfig3(t *testing.T) {
 			Direction: "io17",
 			PWM:       "io18",
 		},
-		EncoderA:         "encoder-steering-b",
-		EncoderB:         "encoder-steering-a",
-		TicksPerRotation: 10000,
+		Encoder:          "encoder1",
 		MaxPowerPct:      0.5,
+		TicksPerRotation: 10000,
+	})
+	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &encoder.HallConfig{
+		Pins: encoder.HallPins{
+			A: "encoder-steering-b",
+			B: "encoder-steering-a",
+		},
+		BoardName: "board1",
 	})
 }
 

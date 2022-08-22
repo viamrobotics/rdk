@@ -135,7 +135,10 @@ func (r *Rover) Ready(ctx context.Context, theRobot robot.Robot) error {
 						depthErr = true
 						return
 					}
-					err = pc.WriteToFile(artifact.MustNewPath(fmt.Sprintf("samples/minirover/rover-centering-%d.dat.gz", time.Now().Unix())))
+					err = rimage.WriteRawDepthMapToFile(
+						pc,
+						artifact.MustNewPath(fmt.Sprintf("samples/minirover/rover-centering-%d.dat.gz", time.Now().Unix())),
+					)
 					if err != nil {
 						logger.Debugf("error writing %s", err)
 					}
