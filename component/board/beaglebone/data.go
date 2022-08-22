@@ -1,4 +1,4 @@
-package bb
+package beaglebone
 
 import "go.viam.com/rdk/component/board/commonsysfs"
 
@@ -7,31 +7,12 @@ const bbAi = "bb_Ai64"
 var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 	bbAi: {
 		PinDefinitions: []commonsysfs.PinDefinition{
-			// GPIOChipRelativeIDs: map[int]int{NGPIO: LINENUM},
-			// GPIONames: map[int]string{emptyforbeagle} ,
-			// GPIOChipSysFSDir: "600000.gpio"/"601000.gpio",
-			// PinNumberBoard: 3, PinNumberBCM: 0-emptyfor beagle,
-			// PinNameCVM: "P9_11", can be anything, used as keys for our board mappings.
-			// PinNameTegraSOC: "" - emptyforbeagle,
-			// PWMChipSysFSDir: "3000000.pwm"/"3010000.pwm"/"3020000.pwm"/"3030000.pwm"/"304000.pwm",
-			// PWMID: -1 for nopwm, 1 for yes, 0 for yes and matching line to 1},
-
-			// ******** GPIO CHIPS *********************************
-			// From /sys/class/gpio/
-			// cat gpiochip300/label -> 600000.gpio : /sys/devices/platform/bus@100000/600000.gpio/ contains gpiochip 1
-			// cat gpiochip264/label -> 601000.gpio	: /sys/devices/platform/bus@100000/601000.gpio/ contains gpiochip 2
-
-			// ******** PWM CHIPS **********************************
-			// output of /sys/class/pwm$ ls -ls
-			// 0 lrwxrwxrwx 1 root root 0 Aug 17 15:50 pwmchip0 -> ../../devices/platform/bus@100000/3000000.pwm/pwm/pwmchip0
-			// 0 lrwxrwxrwx 1 root root 0 Aug 17 15:50 pwmchip10 -> ../../devices/platform/bus@100000/3050000.pwm/pwm/pwmchip10
-			// 0 lrwxrwxrwx 1 root root 0 Aug 17 15:50 pwmchip2 -> ../../devices/platform/bus@100000/3010000.pwm/pwm/pwmchip2
-			// 0 lrwxrwxrwx 1 root root 0 Aug 17 15:50 pwmchip4 -> ../../devices/platform/bus@100000/3020000.pwm/pwm/pwmchip4
-			// 0 lrwxrwxrwx 1 root root 0 Aug 17 15:50 pwmchip6 -> ../../devices/platform/bus@100000/3030000.pwm/pwm/pwmchip6
-			// 0 lrwxrwxrwx 1 root root 0 Aug 17 15:50 pwmchip8 -> ../../devices/platform/bus@100000/3040000.pwm/pwm/pwmchip8
+			// GPIOChipRelativeIDs {NGPIO: LINENUM} -> {128: 93}
+			// PinNumberBoard {914} -> PinNameCVM3 "P9_14"
+			// Duplicate pins are commented out of the
 
 			// ******** DATA MAPPING ********************************
-			// PWMs
+			// PWMs contain a number other than -1 in the last element of map
 			{map[int]int{128: 89}, map[int]string{}, "600000.gpio", 813, 0, "P8_13", "", "3000000.pwm ", 0}, // pwmchip0 V27 EHRPWM0_A
 			{map[int]int{128: 88}, map[int]string{}, "600000.gpio", 819, 0, "P8_19", "", "3000000.pwm ", 1}, // pwmchip0 V29 EHRPWM0_B
 			{map[int]int{128: 93}, map[int]string{}, "600000.gpio", 914, 0, "P9_14", "", "3030000.pwm", 1},  // pwmchip4 U27 EHRPWM2_A
@@ -131,6 +112,6 @@ var boardInfoMappings = map[string]commonsysfs.BoardInformation{
 			{map[int]int{36: 2}, map[int]string{}, "601000.gpio", 0, 0, "P9_20", "", "", -1},
 			// {map[int]int{128: 77}, map[int]string{}, "600000.gpio", 920, 0, "P9_20B", "", "", -1},
 		},
-		Compats: []string{"beagle,j721e-beagleboneai64ti,j721e"},
+		Compats: []string{"beagle,j721e-beagleboneai64", "ti,j721e"},
 	},
 }
