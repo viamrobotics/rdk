@@ -48,7 +48,7 @@ func (c *client) GetPoses(
 	return result, nil
 }
 
-func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
+func (c *client) GetReadings(ctx context.Context) (map[string]interface{}, error) {
 	return GetReadings(ctx, c)
 }
 
