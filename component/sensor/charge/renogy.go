@@ -97,8 +97,14 @@ func (s *Sensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 		return nil, err
 	}
 	m := make(map[string]interface{})
-	j, _ := json.Marshal(readings)
-	json.Unmarshal(j, &m)
+	j, err := json.Marshal(readings)
+	if err != nil {
+		return []interface{}{}, err
+	}
+	err = json.Unmarshal(j, &m)
+	if err != nil {
+		return []interface{}{}, err
+	}
 	return []interface{}{m}, nil
 }
 
