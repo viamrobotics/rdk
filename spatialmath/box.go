@@ -212,9 +212,12 @@ func boxVsBoxCollision(a, b *box) bool {
 // the penetration depth for the two boxes, which are in collision.  If the returned float is positive it represents
 // a lower bound on the separation distance for the two boxes, which are not in collision.
 // NOTES: calculating the true separation distance is a computationally infeasible problem
-//        the "minimum translation vector" (MTV) can also be computed here but is not currently as there is no use for it yet
+//
+//	the "minimum translation vector" (MTV) can also be computed here but is not currently as there is no use for it yet
+//
 // references:  https://comp.graphics.algorithms.narkive.com/jRAgjIUh/obb-obb-distance-calculation
-//              https://dyn4j.org/2010/01/sat/#sat-nointer
+//
+//	https://dyn4j.org/2010/01/sat/#sat-nointer
 func boxVsBoxDistance(a, b *box) float64 {
 	positionDelta := PoseDelta(a.pose, b.pose).Point()
 	rmA := a.pose.Orientation().RotationMatrix()
@@ -275,9 +278,10 @@ func boxInSphere(b *box, s *sphere) bool {
 // this plane.  Per the separating hyperplane theorem, if such a plane exists (and a positive number is returned)
 // this proves that there is no collision between the boxes
 // references:  https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
-//              https://gamedev.stackexchange.com/questions/25397/obb-vs-obb-collision-detection
-//              https://www.cs.bgu.ac.il/~vgp192/wiki.files/Separating%20Axis%20Theorem%20for%20Oriented%20Bounding%20Boxes.pdf
-//              https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
+//
+//	https://gamedev.stackexchange.com/questions/25397/obb-vs-obb-collision-detection
+//	https://www.cs.bgu.ac.il/~vgp192/wiki.files/Separating%20Axis%20Theorem%20for%20Oriented%20Bounding%20Boxes.pdf
+//	https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
 func separatingAxisTest(positionDelta, plane r3.Vector, a, b *box) float64 {
 	rmA := a.pose.Orientation().RotationMatrix()
 	rmB := b.pose.Orientation().RotationMatrix()
