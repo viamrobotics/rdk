@@ -1,7 +1,6 @@
 package datasync
 
 import (
-	"github.com/pkg/errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -72,10 +71,6 @@ func (pt *progressTracker) updateProgressFileIndex(path string, requestsWritten 
 func (pt *progressTracker) getProgressFileIndex(path string) (int, error) {
 	//nolint:gosec
 	bs, err := ioutil.ReadFile(path)
-	// TODO: fix stuff around this
-	if errors.Is(err, os.ErrNotExist) {
-		return 0, nil
-	}
 	if err != nil {
 		return 0, err
 	}

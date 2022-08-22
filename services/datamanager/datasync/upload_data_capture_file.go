@@ -41,10 +41,10 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
 
-	// TODO: use single error channel for these two
 	var activeBackgroundWorkers sync.WaitGroup
-
 	errChannel := make(chan error, 1)
+
+	// Start a goroutine for recving acks back from the server.
 	activeBackgroundWorkers.Add(1)
 	go func() {
 		defer activeBackgroundWorkers.Done()
@@ -61,7 +61,6 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 					recvChannel <- err
 					return
 				}
-				recvChannel <- nil
 			}()
 
 			select {
@@ -71,58 +70,32 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 			case e := <-recvChannel:
 				if e != nil {
 					errChannel <- e
-					return
 				}
-				// errChannel <- e
+				return
 			}
 		}
 	}()
 
+	// Start a goroutine for sending SensorData to the server.
 	activeBackgroundWorkers.Add(1)
 	go func() {
 		// Loop until there is no more content to be read from file.
 		defer activeBackgroundWorkers.Done()
-		// Do not check error of stream close send because it is always following the error check
-		// of the wider function execution.
-		//nolint: errcheck
-		defer stream.CloseSend()
 		for {
-			select {
-			case <-ctx.Done():
-				errChannel <- context.Canceled
-				return
-			default:
-				// Get the next UploadRequest from the file.
-				uploadReq, err := getNextSensorUploadRequest(ctx, f)
-
-				// If the error is EOF, we completed successfully.
-				if errors.Is(err, io.EOF) {
-					// Close the stream to server.
-					if err = stream.CloseSend(); err != nil {
-						errChannel <- errors.Errorf("error when closing the stream: %v", err)
-					}
-					return
-				}
-				if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
-					continue
-				}
-				if err != nil {
-					errChannel <- err
-					return
-				}
-
-				if err = stream.Send(uploadReq); err != nil {
-					errChannel <- err
-					return
-				}
+			err := sendNextUploadRequest(ctx, f, stream)
+			if err != nil {
+				errChannel <- err
+				break
 			}
+		}
+		if err = stream.CloseSend(); err != nil {
+			errChannel <- err
 		}
 	}()
 	activeBackgroundWorkers.Wait()
 
 	close(errChannel)
 
-	// TODO: maybe combine error?
 	for err := range errChannel {
 		if err == nil {
 			continue
@@ -149,14 +122,14 @@ func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, 
 	// create an upload progress file.
 	progressFilePath := filepath.Join(pt.progressDir, filepath.Base(dcFileName))
 	progressIndex, err := pt.getProgressFileIndex(progressFilePath)
-	if err != nil {
-		return err
-	}
-	if progressIndex == 0 {
+	if errors.Is(err, os.ErrNotExist) {
 		if err := pt.createProgressFile(progressFilePath); err != nil {
 			return err
 		}
 		return nil
+	}
+	if err != nil {
+		return err
 	}
 
 	// Sets the next file pointer to the next sensordata message that needs to be uploaded.
@@ -180,7 +153,6 @@ func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, 
 func getNextSensorUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequest, error) {
 	select {
 	case <-ctx.Done():
-		// TODO: is this right?
 		return nil, context.Canceled
 	default:
 		// Get the next sensor data reading from file, check for an error.
@@ -195,4 +167,26 @@ func getNextSensorUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequ
 			},
 		}, nil
 	}
+}
+
+func sendNextUploadRequest(ctx context.Context, f *os.File, stream v1.DataSyncService_UploadClient) error {
+	select {
+	case <-ctx.Done():
+		return context.Canceled
+	default:
+		// Get the next UploadRequest from the file.
+		uploadReq, err := getNextSensorUploadRequest(ctx, f)
+
+		if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		if err = stream.Send(uploadReq); err != nil {
+			return err
+		}
+	}
+	return nil
 }
