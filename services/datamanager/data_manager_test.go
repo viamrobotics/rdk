@@ -878,10 +878,6 @@ func (m mockModelServiceServer) Upload(stream m1.ModelService_UploadServer) erro
 //nolint:thelper
 func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServer) {
 	logger, _ := golog.NewObservedTestLogger(t)
-	// Cannot set up server with rpc.WithUnauthenticated()
-	// rpcServer, instantiated below needs to be configured with a TLS config and robot location secret, right?
-	// TLS config is created through having a credentialsType and
-	// also creating an AuthHandler.
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	mockService := mockDataSyncServiceServer{
@@ -909,6 +905,10 @@ func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServ
 func buildAndStartLocalModelServer(t *testing.T) (rpc.Server, mockModelServiceServer) {
 	fmt.Println("buildAndStartLocalModelServer()")
 	logger, _ := golog.NewObservedTestLogger(t)
+	// Cannot set up server with rpc.WithUnauthenticated()
+	// rpcServer, instantiated below needs to be configured with a TLS config and robot location secret, right?
+	// TLS config is created through having a credentialsType and
+	// also creating an AuthHandler.
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	mockService := mockModelServiceServer{
