@@ -46,7 +46,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	mp.randseed = rand.New(rand.NewSource(42))
 
-	opt := NewDefaultPlannerOptions()
+	opt := NewBasicPlannerOptions()
 
 	pos := &commonpb.Pose{
 		X:  206,

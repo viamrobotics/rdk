@@ -4,9 +4,11 @@ package motionplan
 import (
 	"context"
 	"errors"
+	//~ "fmt"
 	"math"
 	"sort"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/robot"
@@ -44,83 +46,55 @@ type planReturn struct {
 	err   error
 }
 
-// PlanRobotMotion plans a motion to destination for a given frame
+// PlanRobotMotion plans a motion to destination for a given frame. A robot object is passed in and current position inputs are determined
 func PlanRobotMotion(ctx context.Context,
-	destination *frame.PoseInFrame,
+	dst *frame.PoseInFrame,
 	f frame.Frame,
 	r robot.Robot,
 	fs frame.FrameSystem,
 	worldState *commonpb.WorldState,
 	planningOpts map[string]interface{},
-) ([][]frame.Input, error) {
+) ([]map[string][]frame.Input, error) {
 	seedMap, _, err := framesystem.RobotFsCurrentInputs(ctx, r, fs)
 	if err != nil {
 		return nil, err
 	}
 	
-	return PlanMotion(ctx, destination, f, seedMap, fs, worldState, planningOpts)
+	return PlanWaypoints(ctx, r.Logger(), []*frame.PoseInFrame{dst}, f, seedMap, fs, worldState, []map[string]interface{}{planningOpts})
 }
 
+// PlanMotion plans a motion to destination for a given frame. It takes a given frame system, wraps it with a SolvableFS, and solves.
 func PlanMotion(ctx context.Context,
-	destination *frame.PoseInFrame,
+	logger golog.Logger,
+	dst *frame.PoseInFrame,
 	f frame.Frame,
 	seedMap map[string][]frame.Input,
 	fs frame.FrameSystem,
 	worldState *commonpb.WorldState,
 	planningOpts map[string]interface{},
-) ([][]frame.Input, error) {
+) ([]map[string][]frame.Input, error) {
 	
-	solvableFS := NewSolvableFrameSystem(fs
+	return PlanWaypoints(ctx, logger, []*frame.PoseInFrame{dst}, f, seedMap, fs, worldState, []map[string]interface{}{planningOpts})
+}
+
+// PlanWaypoints plans motions to a list of destinations in order for a given frame. It takes a given frame system, wraps it with a
+// SolvableFS, and solves. It will generate a list of intermediate waypoints as well to pass to the solvable framesystem if possible.
+func PlanWaypoints(ctx context.Context,
+	logger golog.Logger,
+	dst []*frame.PoseInFrame,
+	f frame.Frame,
+	seedMap map[string][]frame.Input,
+	fs frame.FrameSystem,
+	worldState *commonpb.WorldState,
+	planningOpts []map[string]interface{},
+) ([]map[string][]frame.Input, error) {
 	
-	if profile, ok := planningOpts["motionProfile"]; ok && profile != "" {
-		var opts []*PlannerOptions
-		var seed []frame.Input
-		var goals []spatial.Pose
-		if profile == "linear" {
-			// With linear motion, we know all intermediate poses of the motion ahead of time, so can generate waypoints ahead of time for
-			// faster solving
-			seed, ok := seedMap[f]
-			if !ok {
-				return nil, errors.New(
-			}
-
-			seedPos, err := model.Transform(model.InputFromProtobuf(seed))
-			if err != nil {
-				return nil, err
-			}
-			goalPos := spatialmath.NewPoseFromProtobuf(dst)
-
-			numSteps := motionplan.GetSteps(seedPos, goalPos, DefaultPathStepSize)
-			goals := make([]spatialmath.Pose, 0, numSteps)
-			opts := make([]*motionplan.PlannerOptions, 0, numSteps)
-
-			collisionConst, err := motionplan.NewCollisionConstraintFromWorldState(model, fs, worldState, inputs)
-			if err != nil {
-				return nil, err
-			}
-
-			from := seedPos
-			for i := 1; i < numSteps; i++ {
-				by := float64(i) / float64(numSteps)
-				to := spatialmath.Interpolate(seedPos, goalPos, by)
-				goals = append(goals, to)
-				opt := DefaultArmPlannerOptions(from, to, model, collisionConst)
-				opts = append(opts, opt)
-
-				from = to
-			}
-			goals = append(goals, goalPos)
-			opt := DefaultArmPlannerOptions(from, goalPos, model, collisionConst)
-			opts = append(opts, opt)
-		} else {
-			
-		}
-
-	} else {
-		// Default behavior will be to try to solve a pseudolinear path, then fall back to free motion 
+	solvableFS := NewSolvableFrameSystem(fs, logger)
+	if len(dst) == 0 {
+		return nil, errors.New("no destinations passed to PlanWaypoints")
 	}
 	
-	return nil, nil
+	return solvableFS.SolveWaypointsWithOptions(ctx, seedMap, dst, f.Name(), worldState, planningOpts)
 }
 
 // runPlannerWithWaypoints will plan to each of a list of goals in order, optionally also taking a new planner option for each goal.

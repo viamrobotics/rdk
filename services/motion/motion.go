@@ -157,11 +157,10 @@ func (ms *motionService) PlanAndMove(
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 	output, err := solver.SolveWaypointsWithOptions(ctx,
 		fsInputs,
-		[]spatialmath.Pose{goalPose.Pose()},
+		[]*referenceframe.PoseInFrame{goalPose},
 		componentName.Name,
-		solvingFrame,
 		worldState,
-		[]*motionplan.PlannerOptions{},
+		[]map[string]interface{}{},
 	)
 	if err != nil {
 		return false, err
@@ -215,7 +214,7 @@ func (ms *motionService) MoveSingleComponent(
 			return false, err
 		}
 		// get the initial inputs
-		fsInputs, _, err := ms.fsCurrentInputs(ctx, frameSys)
+		fsInputs, _, err := framesystem.RobotFsCurrentInputs(ctx, ms.r, frameSys)
 		if err != nil {
 			return false, err
 		}

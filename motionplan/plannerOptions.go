@@ -12,7 +12,7 @@ import (
 const(
 	// max linear deviation from straight-line between start and goal, in mm
 	defaultLinearDeviation = 0.1
-	// allowable deviation from slerp between start/goal orientations, unit is the norm of the R3AA between 
+	// allowable deviation from slerp between start/goal orientations, unit is the norm of the R3AA between start and goal
 	defaultOrientationDeviation = 0.05
 	// allowable linear and orientation deviation from direct interpolation path, as a proportion of the linear and orientation distances
 	// between the start and goal
@@ -22,6 +22,8 @@ const(
 	defaultPseudolinearConstraintName = "defaultPseudolinearConstraint"
 	defaultFreeConstraintName = "defaultFreeConstraint"
 	defaultCollisionConstraintName = "defaultCollisionConstraint"
+	
+	DefaultPathStepSize = 10
 )
 
 func plannerSetupFromMoveRequest(
@@ -68,12 +70,21 @@ func plannerSetupFromMoveRequest(
 		constraint, pathDist := NewProportionalLinearInterpolatingConstraint(from, to, tolerance)
 		opt.AddConstraint(defaultLinearConstraintName, constraint)
 		opt.pathDist = pathDist
+	case "orientation":
+		tolerance, ok := planningOpts["tolerance"].(float64)
+		if !ok {
+			// Default
+			tolerance = defaultOrientationDeviation
+		}
+		constraint, pathDist := NewSlerpOrientationConstraint(from, to, tolerance)
+		opt.AddConstraint(defaultLinearConstraintName, constraint)
+		opt.pathDist = pathDist
 	case "free":
 		
 	default:
 		// By default, we will default to pseudolinear at first for a limited number of iterations, then will fall back to `free` if no
 		// direct path is found.
-		// TODO(pl): once RRT* is workable, replace `free` with that here.
+		// TODO(pl): once RRT* is workable, use here.
 	}
 	
 	return opt, nil
