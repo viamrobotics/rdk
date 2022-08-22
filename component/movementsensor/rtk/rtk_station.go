@@ -119,6 +119,8 @@ type rtkStation struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+	done                    chan struct{}
+	errors                  chan error
 }
 
 type correctionSource interface {
@@ -148,7 +150,13 @@ func newRTKStation(
 ) (movementsensor.MovementSensor, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
-	r := &rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	r := &rtkStation{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+		done:       make(chan struct{}),
+		errors:     make(chan error),
+	}
 
 	r.correctionType = config.Attributes.String(correctionSourceName)
 
@@ -244,7 +252,9 @@ func (r *rtkStation) Start(ctx context.Context) {
 		<-ready
 		stream, err := r.correction.GetReader()
 		if err != nil {
-			r.logger.Fatalf("Unable to get reader: %s", err)
+			r.logger.Errorf("Unable to get reader: %s", err)
+			r.errors <- err
+			return
 		}
 
 		reader := io.TeeReader(stream, r.serialWriter)
@@ -269,7 +279,9 @@ func (r *rtkStation) Start(ctx context.Context) {
 					r.logger.Debug("Pipe closed")
 					return
 				}
-				r.logger.Fatalf("Unable to read stream: %s", err)
+				r.logger.Errorf("Unable to read stream: %s", err)
+				r.errors <- err
+				return
 			}
 
 			// write buf to all i2c handles
@@ -277,19 +289,22 @@ func (r *rtkStation) Start(ctx context.Context) {
 				// open handle
 				handle, err := busAddr.bus.OpenHandle(busAddr.addr)
 				if err != nil {
-					r.logger.Fatalf("can't open movementsensor i2c handle: %s", err)
+					r.logger.Errorf("can't open movementsensor i2c handle: %s", err)
+					r.errors <- err
 					return
 				}
 				// write to i2c handle
 				err = handle.Write(ctx, buf)
 				if err != nil {
-					r.logger.Fatalf("i2c handle write failed %s", err)
+					r.logger.Errorf("i2c handle write failed %s", err)
+					r.errors <- err
 					return
 				}
 				// close i2c handle
 				err = handle.Close()
 				if err != nil {
-					r.logger.Fatalf("failed to close handle: %s", err)
+					r.logger.Errorf("failed to close handle: %s", err)
+					r.errors <- err
 					return
 				}
 			}
@@ -307,7 +322,17 @@ func (r *rtkStation) Close() error {
 	}
 
 	r.cancelFunc()
-	r.activeBackgroundWorkers.Wait()
+	go func() {
+		r.activeBackgroundWorkers.Wait()
+		r.done <- struct{}{}
+	}()
+	select {
+	case err := <-r.errors:
+		if err != nil {
+			return err
+		}
+	case <-r.done:
+	}
 
 	// close all ports in slice
 	for _, port := range r.serialPorts {

@@ -22,6 +22,8 @@ type serialCorrectionSource struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+	done                    chan struct{}
+	errors                  chan error
 }
 
 type pipeReader struct {
@@ -56,7 +58,13 @@ const (
 func newSerialCorrectionSource(ctx context.Context, config config.Component, logger golog.Logger) (correctionSource, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
-	s := &serialCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	s := &serialCorrectionSource{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+		done:       make(chan struct{}),
+		errors:     make(chan error),
+	}
 
 	serialPath := config.Attributes.String(correctionPathName)
 	if serialPath == "" {
@@ -105,7 +113,9 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 		case <-s.cancelCtx.Done():
 			err := w.Close()
 			if err != nil {
-				s.logger.Fatalf("Unable to close writer: %s", err)
+				s.logger.Errorf("Unable to close writer: %s", err)
+				s.errors <- err
+				return
 			}
 			return
 		default:
@@ -113,7 +123,9 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 
 		msg, err := scanner.NextMessage()
 		if err != nil {
-			s.logger.Fatalf("Error reading RTCM message: %s", err)
+			s.logger.Errorf("Error reading RTCM message: %s", err)
+			s.errors <- err
+			return
 		}
 
 		switch msg.(type) {
@@ -124,7 +136,9 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 			byteMsg := frame.Serialize()
 			_, err := w.Write(byteMsg)
 			if err != nil {
-				s.logger.Fatalf("Error writing RTCM message: %s", err)
+				s.logger.Errorf("Error writing RTCM message: %s", err)
+				s.errors <- err
+				return
 			}
 		}
 	}
@@ -142,7 +156,17 @@ func (s *serialCorrectionSource) GetReader() (io.ReadCloser, error) {
 // Close shuts down the serialCorrectionSource and closes s.port.
 func (s *serialCorrectionSource) Close() error {
 	s.cancelFunc()
-	s.activeBackgroundWorkers.Wait()
+	go func() {
+		s.activeBackgroundWorkers.Wait()
+		s.done <- struct{}{}
+	}()
+	select {
+	case err := <-s.errors:
+		if err != nil {
+			return err
+		}
+	case <-s.done:
+	}
 
 	// close port reader
 	if s.port != nil {

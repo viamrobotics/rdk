@@ -23,6 +23,8 @@ type i2cCorrectionSource struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+	done                    chan struct{}
+	errors                  chan error
 }
 
 func newI2CCorrectionSource(
@@ -50,7 +52,15 @@ func newI2CCorrectionSource(
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
-	s := &i2cCorrectionSource{bus: i2cbus, addr: byte(addr), cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	s := &i2cCorrectionSource{
+		bus:        i2cbus,
+		addr:       byte(addr),
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+		done:       make(chan struct{}),
+		errors:     make(chan error),
+	}
 
 	return s, nil
 }
@@ -68,7 +78,8 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 	// open I2C handle every time
 	handle, err := s.bus.OpenHandle(s.addr)
 	if err != nil {
-		s.logger.Fatalf("can't open gps i2c handle: %s", err)
+		s.logger.Errorf("can't open gps i2c handle: %s", err)
+		s.errors <- err
 		return
 	}
 
@@ -79,13 +90,16 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 	}
 	_, err = w.Write(buffer)
 	if err != nil {
-		s.logger.Fatalf("Error writing RTCM message: %s", err)
+		s.logger.Errorf("Error writing RTCM message: %s", err)
+		s.errors <- err
+		return
 	}
 
 	// close I2C handle
 	err = handle.Close()
 	if err != nil {
 		s.logger.Debug("failed to close handle: %s", err)
+		s.errors <- err
 		return
 	}
 
@@ -99,7 +113,8 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 		// Open I2C handle every time
 		handle, err := s.bus.OpenHandle(s.addr)
 		if err != nil {
-			s.logger.Fatalf("can't open gps i2c handle: %s", err)
+			s.logger.Errorf("can't open gps i2c handle: %s", err)
+			s.errors <- err
 			return
 		}
 
@@ -110,13 +125,16 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 		}
 		_, err = w.Write(buffer)
 		if err != nil {
-			s.logger.Fatalf("Error writing RTCM message: %s", err)
+			s.logger.Errorf("Error writing RTCM message: %s", err)
+			s.errors <- err
+			return
 		}
 
 		// close I2C handle
 		err = handle.Close()
 		if err != nil {
 			s.logger.Debug("failed to close handle: %s", err)
+			s.errors <- err
 			return
 		}
 	}
@@ -134,7 +152,17 @@ func (s *i2cCorrectionSource) GetReader() (io.ReadCloser, error) {
 // Close shuts down the i2cCorrectionSource.
 func (s *i2cCorrectionSource) Close() error {
 	s.cancelFunc()
-	s.activeBackgroundWorkers.Wait()
+	go func() {
+		s.activeBackgroundWorkers.Wait()
+		s.done <- struct{}{}
+	}()
+	select {
+	case err := <-s.errors:
+		if err != nil {
+			return err
+		}
+	case <-s.done:
+	}
 
 	// close correction reader
 	if s.correctionReader != nil {

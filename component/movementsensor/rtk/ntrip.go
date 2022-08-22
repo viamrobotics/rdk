@@ -23,12 +23,20 @@ type ntripCorrectionSource struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+	done                    chan struct{}
+	errors                  chan error
 }
 
 func newNtripCorrectionSource(ctx context.Context, config config.Component, logger golog.Logger) (correctionSource, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
-	n := &ntripCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	n := &ntripCorrectionSource{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+		done:       make(chan struct{}),
+		errors:     make(chan error),
+	}
 
 	// Init ntripInfo from attributes
 	ntripInfoComp, err := nmea.NewNtripInfo(ctx, config, logger)
@@ -118,6 +126,7 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 	defer n.activeBackgroundWorkers.Done()
 	err := n.Connect()
 	if err != nil {
+		n.errors <- err
 		return
 	}
 
@@ -131,6 +140,7 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 
 	err = n.GetStream()
 	if err != nil {
+		n.errors <- err
 		return
 	}
 
@@ -153,6 +163,7 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 				n.logger.Debug("No message... reconnecting to stream...")
 				err = n.GetStream()
 				if err != nil {
+					n.errors <- err
 					return
 				}
 
@@ -176,8 +187,19 @@ func (n *ntripCorrectionSource) GetReader() (io.ReadCloser, error) {
 
 // Close shuts down the ntripCorrectionSource and closes all connections to the caster.
 func (n *ntripCorrectionSource) Close() error {
+	n.logger.Debug("Closing ntrip client")
 	n.cancelFunc()
-	n.activeBackgroundWorkers.Wait()
+	go func() {
+		n.activeBackgroundWorkers.Wait()
+		n.done <- struct{}{}
+	}()
+	select {
+	case err := <-n.errors:
+		if err != nil {
+			return err
+		}
+	case <-n.done:
+	}
 
 	// close correction reader
 	if n.correctionReader != nil {
