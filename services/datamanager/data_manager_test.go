@@ -29,7 +29,6 @@ import (
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/utils"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -129,8 +128,8 @@ func setupConfig(t *testing.T, relativePath string) *config.Config {
 	test.That(t, err, test.ShouldBeNil)
 	// fmt.Println("testCfg.Cloud: ", testCfg.Cloud)
 	testCfg.Cloud = &config.Cloud{ID: "part_id"}
-	testCfg.Cloud = &config.Cloud{TLSCertificate: "abc"}
-	testCfg.Cloud = &config.Cloud{LocationSecret: utils.CredentialsTypeRobotLocationSecret}
+	// testCfg.Cloud = &config.Cloud{TLSCertificate: "abc"}
+	// testCfg.Cloud = &config.Cloud{LocationSecret: rutils.CredentialsTypeRobotLocationSecret}
 	fmt.Println("testCfg.Cloud: ", testCfg.Cloud)
 	return testCfg
 }
@@ -416,7 +415,8 @@ func populateModels() ([]*datamanager.Model, int, error) {
 	// Generate models_on_robot "dummy" dirs and files.
 	for i := 0; i < 2; i++ {
 		// Create a temp dir that will house models_on_robot.
-		td, err := ioutil.TempDir("", modelDir)
+		td, err := ioutil.TempDir("", "additional_model_path_dir_")
+		fmt.Println("err: ", err)
 		if err != nil {
 			return []*datamanager.Model{}, 0, errors.New("cannot create temporary dir to simulate models_on_robot in data manager service config")
 		}
