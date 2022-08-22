@@ -181,10 +181,12 @@ func structToMap(data interface{}) (map[string]interface{}, error) {
 		if strings.Contains(tag, "omitempty") && isEmptyValue(reflect.ValueOf(field)) {
 			continue
 		}
+
 		data, err := toInterface(field)
 		if err != nil {
 			return nil, err
 		}
+
 		res[key] = data
 	}
 	return res, nil
