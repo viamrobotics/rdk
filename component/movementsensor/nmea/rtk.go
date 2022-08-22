@@ -526,7 +526,7 @@ func (g *RTKMovementSensor) GetAccuracy(ctx context.Context) (map[string]float32
 }
 
 // GetReadings will use the default MovementSensor GetReadings if not provided.
-func (g *RTKMovementSensor) GetReadings(ctx context.Context) ([]interface{}, error) {
+func (g *RTKMovementSensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
 	readings, err := movementsensor.GetReadings(ctx, g)
 	if err != nil {
 		return nil, err
@@ -537,7 +537,7 @@ func (g *RTKMovementSensor) GetReadings(ctx context.Context) ([]interface{}, err
 		return nil, err
 	}
 
-	readings = append(readings, fix)
+	readings["fix"] = fix
 
 	return readings, nil
 }
