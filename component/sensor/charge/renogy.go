@@ -4,6 +4,7 @@ package charge
 import (
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"math"
 	"sync"
 	"time"
@@ -95,7 +96,10 @@ func (s *Sensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []interface{}{readings}, nil
+	m := make(map[string]interface{})
+	j, _ := json.Marshal(readings)
+	json.Unmarshal(j, &m)
+	return []interface{}{m}, nil
 }
 
 // GetControllerOutput returns current readings from the charge controller.
@@ -107,7 +111,7 @@ func (s *Sensor) GetControllerOutput(ctx context.Context) (Charge, error) {
 	handler.Parity = "N"
 	handler.StopBits = 1
 	handler.SlaveId = 1
-	handler.Timeout = 2 * time.Second
+	handler.Timeout = 1 * time.Second
 
 	err := handler.Connect()
 	if err != nil {
@@ -117,13 +121,13 @@ func (s *Sensor) GetControllerOutput(ctx context.Context) (Charge, error) {
 	client := modbus.NewClient(handler)
 	chargeRes.SolarVolt = readRegister(client, 263, 1)
 	chargeRes.SolarAmp = readRegister(client, 264, 2)
-	chargeRes.SolarWatt = readRegister(client, 265, 1)
+	chargeRes.SolarWatt = readRegister(client, 265, 0)
 	chargeRes.LoadVolt = readRegister(client, 260, 1)
 	chargeRes.LoadAmp = readRegister(client, 261, 2)
-	chargeRes.LoadWatt = readRegister(client, 262, 1)
+	chargeRes.LoadWatt = readRegister(client, 262, 0)
 	chargeRes.BattVolt = readRegister(client, 257, 1)
-	chargeRes.BattChargePct = readRegister(client, 256, 1)
-	tempReading := readRegister(client, 259, 1)
+	chargeRes.BattChargePct = readRegister(client, 256, 0)
+	tempReading := readRegister(client, 259, 0)
 	battTempSign := (int16(tempReading) & 0b0000000010000000) >> 7
 	battTemp := int16(tempReading) & 0b0000000001111111
 	if battTempSign == 1 {
@@ -136,8 +140,8 @@ func (s *Sensor) GetControllerOutput(ctx context.Context) (Charge, error) {
 		ctlTemp = -ctlTemp
 	}
 	chargeRes.ControllerDegC = ctlTemp
-	chargeRes.MaxSolarTodayWatt = readRegister(client, 271, 1)
-	chargeRes.MinSolarTodayWatt = readRegister(client, 272, 1)
+	chargeRes.MaxSolarTodayWatt = readRegister(client, 271, 0)
+	chargeRes.MinSolarTodayWatt = readRegister(client, 272, 0)
 	chargeRes.MaxBattTodayVolt = readRegister(client, 268, 1)
 	chargeRes.MinBattTodayVolt = readRegister(client, 267, 1)
 
@@ -152,15 +156,17 @@ func readRegister(client modbus.Client, register uint16, precision uint) (result
 	if err != nil {
 		result = 0
 	} else {
-		result = float32frombytes(b, precision)
+		if len(b) > 0 {
+			result = float32FromBytes(b, precision)
+		} else {
+			result = 0
+		}
 	}
 	return result
 }
 
-func float32frombytes(bytes []byte, precision uint) float32 {
-	bits := binary.LittleEndian.Uint32(bytes)
-	float := math.Float32frombits(bits)
+func float32FromBytes(bytes []byte, precision uint) float32 {
+	i := binary.BigEndian.Uint16(bytes)
 	ratio := math.Pow(10, float64(precision))
-	float = float32(math.Round(float64(float)*ratio) / ratio)
-	return float
+	return float32(float64(i) / ratio)
 }
