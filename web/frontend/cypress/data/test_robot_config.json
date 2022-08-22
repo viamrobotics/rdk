@@ -3,48 +3,48 @@
     [
         {
             "model": "fake",
-            "name": "arm",
+            "name": "test_arm",
             "type": "arm"
         },
         {
             "model": "fake",
-            "name": "base",
+            "name": "test_base",
             "type": "base"
         },
         {
             "model": "fake",
-            "name": "sensor",
+            "name": "test_sensor",
             "type": "sensor"
         },
         {
             "model": "fake",
-            "name": "gripper",
+            "name": "test_gripper",
             "type": "gripper"
         },
         {
             "model": "fake",
-            "name": "camera",
+            "name": "test_camera",
             "type": "camera"
         },
         {
             "model": "fake",
-            "name": "gantry",
+            "name": "test_gantry",
             "type": "gantry"
         },
         {
             "model": "fake",
-            "name": "movement",
+            "name": "test_movement",
             "type": "movement_sensor"
         },
         {
             "model": "fake",
-            "name": "board",
+            "name": "test_board",
             "type": "board",
             "attributes": {}
         },
         {
             "model": "fake",
-            "name": "input",
+            "name": "test_input",
             "type": "input_controller"
         },
         {
@@ -54,7 +54,7 @@
         },
         {
             "model": "fake",
-            "name": "servo",
+            "name": "test_servo",
             "type": "servo",
             "attributes":
             {
@@ -62,7 +62,7 @@
             }
         },
         {
-            "name": "motor",
+            "name": "test_motor",
             "type": "motor",
             "model": "fake",
             "attributes":
@@ -89,8 +89,8 @@
                 "store": {
                     "type": "memory"
                 },
-                "movement_sensor": "movement",
-                "base": "base"
+                "movement_sensor": "test_movement",
+                "base": "test_base"
             }
         }
     ]

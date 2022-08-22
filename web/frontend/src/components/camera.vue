@@ -119,7 +119,7 @@ const togglePCDExpand = () => {
 
 <template>
   <v-collapse
-    title="Camera"
+    :title="streamName"
     class="camera"
   >
     <v-breadcrumbs

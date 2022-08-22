@@ -3,6 +3,7 @@
 interface Props {
   servoName: string
   servoAngle: string
+  crumbs: string[]
 }
 
 interface Emits {
@@ -23,9 +24,13 @@ const servoStop = () => {
 <template>
   <div>
     <v-collapse
-      :title="`Servo ${servoName}`"
+      :title="servoName"
       class="servo"
     >
+      <v-breadcrumbs
+        slot="title"
+        :crumbs="crumbs.join(',')"
+      />
       <v-button
         slot="header"
         label="STOP"
