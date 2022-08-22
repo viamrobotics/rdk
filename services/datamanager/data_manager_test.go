@@ -303,7 +303,6 @@ func TestRecoversAfterKilled(t *testing.T) {
 	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 1+numArbitraryFilesToSync)
 }
 
-// need to finish
 // Validates that if the datamanager/robot die unexpectedly, that previously captured
 // but not synced model files are still synced at start up.
 func TestModelsAfterKilled(t *testing.T) {
@@ -315,14 +314,21 @@ func TestModelsAfterKilled(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	}()
 
-	modelss, numArbitraryFilesToSync, err := populateModels()
-	fmt.Println("numArbitraryFilesToSync: ", numArbitraryFilesToSync)
+	// ToDo: rename `modelss` var to something more appropriate
+	modelss, dirs, numArbitraryFilesToSync, err := populateModels()
+	defer func() {
+		for _, dir := range dirs {
+			resetFolder(t, dir)
+		}
+	}()
+	defer resetFolder(t, captureDir)
+	defer resetFolder(t, armDir)
+	defer resetFolder(t, modelDir)
 
 	if err != nil {
-		t.Error("something went wrong with populateModels().")
+		t.Error("unable to generate arbitrary data files and create directory structure for ModelsToDeploy")
 	}
 
-	// testCfg := setupConfig(t, configPath)
 	testCfg := setupConfig(t, configPath)
 	// fmt.Println()
 	// fmt.Println("testCfg: ", testCfg)
@@ -353,9 +359,11 @@ func TestModelsAfterKilled(t *testing.T) {
 	test.That(t, len(mockService.getUploadedModels()), test.ShouldEqual, 0)
 
 	// Turn the service back on.
+	fmt.Println("turning the service back on")
 	dmsvc = newTestDataManager(t, "arm1", "")
 	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
+	fmt.Println("calliung Update(), now we transition to code in data_manager.go")
 	err = dmsvc.Update(context.TODO(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -363,7 +371,8 @@ func TestModelsAfterKilled(t *testing.T) {
 	time.Sleep(syncWaitTime)
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
-	// test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 1+numArbitraryFilesToSync)
+	fmt.Println("len(mockService.getUploadedModels()): ", len(mockService.getUploadedModels()))
+	test.That(t, len(mockService.getUploadedModels()), test.ShouldEqual, 1+numArbitraryFilesToSync)
 
 }
 
@@ -407,21 +416,25 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 // Generates and populates a directory structure of files that contain arbitrary file data. Used to simulate testing
 // syncing of data in the service's models_on_robot.
 //nolint
-func populateModels() ([]*datamanager.Model, int, error) {
+func populateModels() ([]*datamanager.Model, []string, int, error) {
 	fmt.Println("populateModels()")
 	var additionalModels []*datamanager.Model
+	var additionalPaths []string
 	numArbitraryFilesToSync := 0
 
 	// Generate models_on_robot "dummy" dirs and files.
 	for i := 0; i < 2; i++ {
 		// Create a temp dir that will house models_on_robot.
 		td, err := ioutil.TempDir("", "additional_model_path_dir_")
-		fmt.Println("err: ", err)
+		// td e.g. below
+		// /var/folders/9p/rf85l68x6k36hlzwspcl0phm0000gp/T/additional_model_path_dir_544998160
 		if err != nil {
-			return []*datamanager.Model{}, 0, errors.New("cannot create temporary dir to simulate models_on_robot in data manager service config")
+			return []*datamanager.Model{}, []string{}, 0, errors.New("cannot create temporary dir to simulate models_on_robot in data manager service config")
 		}
+		additionalPaths = append(additionalPaths, td)
+
 		m := &datamanager.Model{Name: "M" + strconv.Itoa(i), Destination: modelDir}
-		fmt.Println("this is m now: ", m)
+		// fmt.Println("this is m now: ", m)
 		additionalModels = append(additionalModels, m)
 
 		// Make the first dir empty.
@@ -436,12 +449,12 @@ func populateModels() ([]*datamanager.Model, int, error) {
 				// Create arbitrary file that will be in the temp dir generated above.
 				tf, err := ioutil.TempFile(td, "arbitrary_model_file_")
 				if err != nil {
-					return nil, 0, errors.New("cannot create temporary file to simulate uploading from data manager service")
+					return nil, nil, 0, errors.New("cannot create temporary file to simulate uploading from data manager service")
 				}
 
 				// Write data to the temp file.
 				if _, err := tf.Write(fileData); err != nil {
-					return nil, 0, errors.New("cannot write arbitrary data to temporary file")
+					return nil, nil, 0, errors.New("cannot write arbitrary data to temporary file")
 				}
 
 				// Increment number of files to be synced.
@@ -450,7 +463,7 @@ func populateModels() ([]*datamanager.Model, int, error) {
 		}
 	}
 
-	return additionalModels, numArbitraryFilesToSync, nil
+	return additionalModels, additionalPaths, numArbitraryFilesToSync, nil
 }
 
 // Generates and populates a directory structure of files that contain arbitrary file data. Used to simulate testing
