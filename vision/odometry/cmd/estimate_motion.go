@@ -33,6 +33,7 @@ func main() {
 	// get orb points for each image
 	imOrb1, imOrb2, err := RunOrbPointFinding(image1Path, image2Path, configPath)
 	if err != nil {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err.Error())
 	}
 	// get matched lines

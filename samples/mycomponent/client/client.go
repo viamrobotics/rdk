@@ -18,46 +18,54 @@ func main() {
 		logger,
 	)
 	if err != nil {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err)
 	}
 
 	res, err := robot.ResourceByName(myc.Named("comp1"))
 	if err != nil {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err)
 	}
 	comp1 := res.(myc.MyComponent)
 	ret1, err := comp1.DoOne(context.Background(), "hello")
 	if err != nil {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err)
 	}
 	logger.Info(ret1)
 
 	ret2, err := comp1.DoOneClientStream(context.Background(), []string{"hello", "arg1", "foo"})
 	if err != nil {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err)
 	}
 	logger.Info(ret2)
 
 	ret2, err = comp1.DoOneClientStream(context.Background(), []string{"arg1", "arg1", "arg1"})
 	if err != nil {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err)
 	}
 	logger.Info(ret2)
 
 	ret3, err := comp1.DoOneServerStream(context.Background(), "hello")
 	if err != nil {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err)
 	}
 	logger.Info(ret3)
 
 	ret3, err = comp1.DoOneBiDiStream(context.Background(), []string{"hello", "arg1", "foo"})
 	if err != nil {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err)
 	}
 	logger.Info(ret3)
 
 	ret3, err = comp1.DoOneBiDiStream(context.Background(), []string{"arg1", "arg1", "arg1"})
 	if err != nil {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err)
 	}
 	logger.Info(ret3)
