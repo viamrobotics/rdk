@@ -32,13 +32,13 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return c
 }
 
-func (c *client) PlanAndMove(
+func (c *client) Move(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
 ) (bool, error) {
-	resp, err := c.client.PlanAndMove(ctx, &pb.PlanAndMoveRequest{
+	resp, err := c.client.Move(ctx, &pb.MoveRequest{
 		ComponentName: protoutils.ResourceNameToProto(componentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
 		WorldState:    worldState,
