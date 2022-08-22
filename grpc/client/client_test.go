@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"image"
-	"image/jpeg"
+	"image/png"
 	"math"
 	"net"
 	"testing"
@@ -130,11 +130,12 @@ func TestStatusClient(t *testing.T) {
 	injectCamera := &inject.Camera{}
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
 	var imgBuf bytes.Buffer
-	test.That(t, jpeg.Encode(&imgBuf, img, nil), test.ShouldBeNil)
+	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 
 	var imageReleased bool
-	injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-		return img, func() { imageReleased = true }, nil
+	injectCamera.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+		imageReleased = true
+		return imgBuf.Bytes(), rutils.MimeTypePNG, int64(img.Bounds().Dx()), int64(img.Bounds().Dy()), nil
 	}
 
 	injectInputDev := &inject.InputController{}
