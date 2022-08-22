@@ -341,8 +341,8 @@ func (r *rtkStation) GetCompassHeading(ctx context.Context) (float64, error) {
 	return 0, nil
 }
 
-func (r *rtkStation) GetReadings(ctx context.Context) ([]interface{}, error) {
-	return []interface{}{}, nil
+func (r *rtkStation) GetReadings(ctx context.Context) (map[string]interface{}, error) {
+	return map[string]interface{}{}, nil
 }
 
 func (r *rtkStation) GetAccuracy(ctx context.Context) (map[string]float32, error) {
