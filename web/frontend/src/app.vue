@@ -2394,7 +2394,7 @@ function setBoundingBox(box, centerPoint) {
       v-for="streamName in streamNames"
       :key="streamName"
       :stream-name="streamName"
-      :crumbs="[streamName]"
+      :crumbs="['camera', streamName]"
       :x="pcdClick.x"
       :y="pcdClick.y"
       :z="pcdClick.z"
