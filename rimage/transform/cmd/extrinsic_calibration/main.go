@@ -31,11 +31,13 @@ func main() {
 func calibrate(conf string, logger golog.Logger) {
 	cfg, err := readConfig(conf)
 	if err != nil {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err)
 	}
 	// set up the optimization problem
 	problem, err := transform.BuildExtrinsicOptProblem(cfg)
 	if err != nil {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err)
 	}
 	// solve the problem
@@ -43,6 +45,7 @@ func calibrate(conf string, logger golog.Logger) {
 	// print result to output stream
 	logger.Infof("\nrotation:\n%v\ntranslation:\n%.3f\n", printRot(pose.Orientation()), pose.Point())
 	if err != nil {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err)
 	}
 }

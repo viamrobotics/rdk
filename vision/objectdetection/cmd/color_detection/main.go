@@ -36,15 +36,18 @@ func main() {
 	flag.Parse()
 	logger := golog.NewLogger("simple_detection")
 	if *imgPtr == "" && *urlPtr == "" {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal("must either have a -img argument or -url argument for the image source")
 	}
 	if *imgPtr != "" && *urlPtr != "" {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal("cannot have both a path argument and a url argument for image source, must choose one")
 	}
 	if *imgPtr != "" {
 		src := &simpleSource{*imgPtr}
 		cam, err := camera.NewFromReader(context.Background(), src, nil, camera.UnspecifiedStream)
 		if err != nil {
+			// TODO(RSDK-548): remove fatal?
 			logger.Fatal(err)
 		}
 		pipeline(cam, *threshPtr, *sizePtr, *colorPtr, logger)
@@ -57,6 +60,7 @@ func main() {
 		}
 		src, err := videosource.NewServerSource(context.Background(), cfg, logger)
 		if err != nil {
+			// TODO(RSDK-548): remove fatal?
 			logger.Fatal(err)
 		}
 		pipeline(src, *threshPtr, *sizePtr, *colorPtr, logger)
@@ -74,10 +78,12 @@ func pipeline(src gostream.VideoSource, tol float64, size int, colorString strin
 	// create detector
 	det, err := objectdetection.NewColorDetector(detCfg)
 	if err != nil {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err)
 	}
 	pipe, err := objectdetection.NewSource(src, det)
 	if err != nil {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err)
 	}
 	defer pipe.Close()
@@ -86,6 +92,7 @@ func pipeline(src gostream.VideoSource, tol float64, size int, colorString strin
 		start := time.Now()
 		result, err := pipe.NextResult(context.Background())
 		if err != nil {
+			// TODO(RSDK-548): remove fatal?
 			logger.Fatal(err)
 		}
 		duration := time.Since(start)
@@ -96,10 +103,12 @@ func pipeline(src gostream.VideoSource, tol float64, size int, colorString strin
 		logger.Infof("FPS: %.2f", 1./duration.Seconds())
 		ovImg, err := objectdetection.Overlay(result.OriginalImage, result.Detections)
 		if err != nil {
+			// TODO(RSDK-548): remove fatal?
 			logger.Fatal(err)
 		}
 		err = rimage.WriteImageToFile("./simple_detection.jpg", ovImg)
 		if err != nil {
+			// TODO(RSDK-548): remove fatal?
 			logger.Fatal(err)
 		}
 	}

@@ -20,18 +20,22 @@ func main() {
 	flag.Parse()
 	if flag.NArg() != 3 {
 		err := errors.Errorf("need 3 numbers for a depth map point. Have %d", flag.NArg())
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err)
 	}
 	x, err := strconv.ParseFloat(flag.Arg(0), 64)
 	if err != nil {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err)
 	}
 	y, err := strconv.ParseFloat(flag.Arg(1), 64)
 	if err != nil {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err)
 	}
 	z, err := strconv.ParseFloat(flag.Arg(2), 64)
 	if err != nil {
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err)
 	}
 	logger.Infof("depth: x: %.3f, y: %.3f, z:%.3f\n", x, y, z)
@@ -40,6 +44,7 @@ func main() {
 	params, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(*confPtr)
 	if err != nil {
 		err = errors.Wrap(err, fmt.Sprintf("path=%q", *confPtr))
+		// TODO(RSDK-548): remove fatal?
 		logger.Fatal(err)
 	}
 	cx, cy, _ := params.DepthPixelToColorPixel(x, y, z)
