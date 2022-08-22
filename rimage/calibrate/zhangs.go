@@ -9,19 +9,21 @@ points (on the same plane) per image in at least 3 separate images.
 
 Currently, the parameter estimation varies significantly from that of a Python OpenCV implementation (using calibrateCamera()).
 The source of the discretion is unclear.  Running this code on the test data returns the parameters:
-   v0: -159.7855277608248,  lam: -0.27235145392528703,  alpha: 1707.468648921812
-   beta: 61.57166329492043,  gamma: -813.9634324862932,   u0: -601.9565547382913
+
+	v0: -159.7855277608248,  lam: -0.27235145392528703,  alpha: 1707.468648921812
+	beta: 61.57166329492043,  gamma: -813.9634324862932,   u0: -601.9565547382913
 
 Compared to OpenCV which returns:
-   vo ~= 381.36 ,  alpha ~= 943.35,   beta ~= 968.31
-   gamma = 0,    u0 ~= 622.62
+
+	vo ~= 381.36 ,  alpha ~= 943.35,   beta ~= 968.31
+	gamma = 0,    u0 ~= 622.62
 
 Finally, here are some resources that you may find useful.
+
 	Python implementation of Zhang's: https://kushalvyas.github.io/calib.html
 	Youtube lecture on Zhang's: https://www.youtube.com/watch?v=-9He7Nu3u8s
 	Great lecture notes on Zhang's: https://engineering.purdue.edu/kak/computervision/ECE661Folder/Lecture19.pdf
 	Book on theory: https://people.cs.rutgers.edu/~elgammal/classes/cs534/lectures/CameraCalibration-book-chapter.pdf
-
 */
 package calibrate
 
@@ -46,7 +48,9 @@ func CornersToMatrix(cc []Corner) mat.Matrix {
 	return out.T()
 }
 
-/* buildA builds the A matrix for Zhang's method. Reminder that each point pairing from
+/*
+	buildA builds the A matrix for Zhang's method. Reminder that each point pairing from
+
 2D-image(x,y) to 2D-world (X,Y) coordinates gives two equations: ax^T*h=0 and ay^T*h = 0, where
 ax^T = [-X, -Y, -1, 0,0,0, xX,xY, x]
 ay^T = [0,0,0, -X, -Y, -1, yX,yY, y],

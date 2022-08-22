@@ -94,26 +94,26 @@ func (ws *walkState) valid(p image.Point) bool {
 }
 
 /*
-func (ws *walkState) towardsCenter(p image.Point, amount int) image.Point {
-	xd := p.X - ws.originalPoint.X
-	yd := p.Y - ws.originalPoint.Y
+	func (ws *walkState) towardsCenter(p image.Point, amount int) image.Point {
+		xd := p.X - ws.originalPoint.X
+		yd := p.Y - ws.originalPoint.Y
 
-	ret := p
+		ret := p
 
-	if xd < 0 {
-		ret.X += utils.MinInt(amount, utils.AbsInt(xd))
-	} else if xd > 0 {
-		ret.X -= utils.MinInt(amount, utils.AbsInt(xd))
-	}
+		if xd < 0 {
+			ret.X += utils.MinInt(amount, utils.AbsInt(xd))
+		} else if xd > 0 {
+			ret.X -= utils.MinInt(amount, utils.AbsInt(xd))
+		}
 
-	if yd < 0 {
-		ret.Y += utils.MinInt(amount, utils.AbsInt(yd))
-	} else if yd > 0 {
-		ret.Y -= utils.MinInt(amount, utils.AbsInt(yd))
-	}
+		if yd < 0 {
+			ret.Y += utils.MinInt(amount, utils.AbsInt(yd))
+		} else if yd > 0 {
+			ret.Y -= utils.MinInt(amount, utils.AbsInt(yd))
+		}
 
-	return ret
-}.
+		return ret
+	}.
 */
 func (ws *walkState) isPixelIsCluster(p image.Point, clusterNumber int, path []image.Point) bool {
 	v := ws.dots.get(p)
