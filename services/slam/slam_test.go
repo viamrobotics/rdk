@@ -141,27 +141,27 @@ func setupInjectRobot() *inject.Robot {
 			}
 			return cam, nil
 		case camera.Named("good_color_camera"):
-			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-				img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
-				return img, nil, err
-			}
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
 			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
 				return projA, nil
 			}
+			cam.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+				imgBytes, err := os.ReadFile(artifact.MustPath("rimage/board1.png"))
+				return imgBytes, rdkutils.MimeTypePNG, -1, -1, err
+			}
 			return cam, nil
 		case camera.Named("good_depth_camera"):
-			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-				img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1.dat.gz"))
-				return img, nil, err
-			}
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
 			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
 				return nil, transform.NewNoIntrinsicsError("")
+			}
+			cam.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+				imgBytes, err := os.ReadFile(artifact.MustPath("rimage/board1_gray.png"))
+				return imgBytes, rdkutils.MimeTypePNG, -1, -1, err
 			}
 			return cam, nil
 		case camera.Named("bad_camera"):
@@ -229,8 +229,6 @@ func TestGeneralNew(t *testing.T) {
 	})
 
 	t.Run("New slam service with no camera", func(t *testing.T) {
-		t.Skip("skipping, re-add after DATA-347")
-
 		attrCfg := &slam.AttrConfig{
 			Algorithm:     "fake_cartographer",
 			Sensors:       []string{},
@@ -250,8 +248,6 @@ func TestGeneralNew(t *testing.T) {
 	})
 
 	t.Run("New slam service with bad camera", func(t *testing.T) {
-		t.Skip("skipping, re-add after DATA-347")
-
 		attrCfg := &slam.AttrConfig{
 			Algorithm:     "fake_cartographer",
 			Sensors:       []string{"gibberish"},
@@ -269,8 +265,6 @@ func TestGeneralNew(t *testing.T) {
 	})
 
 	t.Run("New slam service with invalid slam algo type", func(t *testing.T) {
-		t.Skip("skipping, re-add after DATA-347")
-
 		attrCfg := &slam.AttrConfig{
 			Algorithm:     "test",
 			Sensors:       []string{},
@@ -295,8 +289,6 @@ func TestGeneralNew(t *testing.T) {
 	})
 
 	t.Run("New slam service the fails at slam process due to binary location", func(t *testing.T) {
-		t.Skip("skipping, re-add after DATA-347")
-
 		attrCfg := &slam.AttrConfig{
 			Algorithm:     "orbslamv3",
 			Sensors:       []string{"good_camera"},
@@ -316,8 +308,6 @@ func TestGeneralNew(t *testing.T) {
 }
 
 func TestCartographerNew(t *testing.T) {
-	t.Skip("skipping, re-add after DATA-347")
-
 	name, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -381,15 +371,12 @@ func TestCartographerNew(t *testing.T) {
 }
 
 func TestORBSLAMNew(t *testing.T) {
-	t.Skip("skipping, re-add after DATA-347")
-
 	name, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
 
 	t.Run("New orbslamv3 service with good camera in slam mode rgbd", func(t *testing.T) {
-		t.Skip("skipping since ImageWithDepth is no longer supported")
 		attrCfg := &slam.AttrConfig{
 			Algorithm:     "fake_orbslamv3",
 			Sensors:       []string{"good_color_camera", "good_depth_camera"},
@@ -516,8 +503,6 @@ func TestORBSLAMNew(t *testing.T) {
 }
 
 func TestCartographerDataProcess(t *testing.T) {
-	t.Skip("skipping, re-add after DATA-345")
-
 	name, err := createTempFolderArchitecture(true)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -636,8 +621,6 @@ func TestORBSLAMDataProcess(t *testing.T) {
 	})
 
 	t.Run("ORBSLAM3 Data Process with camera that errors during call to Next", func(t *testing.T) {
-		t.Skip("skipping, re-add after DATA-347")
-
 		badCam := &inject.Camera{}
 		badCam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 			return nil, nil, errors.New("bad_camera")
@@ -730,7 +713,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 
 	cmdResult := [][]string{
 		{slam.SLAMLibraries["fake_orbslamv3"].BinaryLocation},
-		{"-sensors="},
+		{"-sensors=good_camera"},
 		{"-config_param={mode=mono,test_param=viam}", "-config_param={test_param=viam,mode=mono}"},
 		{"-data_rate_ms=100"},
 		{"-map_rate_sec=200"},

@@ -1,33 +1,26 @@
 package rimage
 
 import (
-	"bufio"
-	"compress/gzip"
-	"encoding/binary"
 	"image"
 	"image/color"
+	"image/png"
 	"io"
 	"math"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/utils"
 )
 
-// Depth TODO.
+// Depth is the depth in mm.
 type Depth uint16
 
-// MaxDepth TODO.
+// MaxDepth is the maximum allowed depth.
 const MaxDepth = Depth(math.MaxUint16)
 
-// DepthMap TODO.
+// DepthMap fulfills the image.Image interface and represents the depth information of the scene in mm.
 type DepthMap struct {
 	width  int
 	height int
@@ -57,32 +50,32 @@ func (dm *DepthMap) kxy(x, y int) int {
 	return (y * dm.width) + x
 }
 
-// Width TODO.
+// Width returns the width of the depth map.
 func (dm *DepthMap) Width() int {
 	return dm.width
 }
 
-// Height TODO.
+// Height returns the height of the depth map.
 func (dm *DepthMap) Height() int {
 	return dm.height
 }
 
-// Bounds TODO.
+// Bounds returns the rectangle dimensions of the image.
 func (dm *DepthMap) Bounds() image.Rectangle {
 	return image.Rect(0, 0, dm.width, dm.height)
 }
 
-// Get TODO.
+// Get returns the depth at a given image.Point.
 func (dm *DepthMap) Get(p image.Point) Depth {
 	return dm.data[dm.kxy(p.X, p.Y)]
 }
 
-// GetDepth TODO.
+// GetDepth returns the depth at a given (x,y) coordinate.
 func (dm *DepthMap) GetDepth(x, y int) Depth {
 	return dm.data[dm.kxy(x, y)]
 }
 
-// Set TODO.
+// Set sets the depth at a given (x,y) coordinate.
 func (dm *DepthMap) Set(x, y int, val Depth) {
 	dm.data[dm.kxy(x, y)] = val
 }
@@ -108,7 +101,7 @@ func (tdm *TheDepthModel) Convert(c color.Color) color.Color {
 	return color.Gray16Model.Convert(c)
 }
 
-// SubImage TODO.
+// SubImage returns a cropped image of the original DepthMap from the given rectangle.
 func (dm *DepthMap) SubImage(r image.Rectangle) *DepthMap {
 	if r.Empty() {
 		return &DepthMap{}
@@ -128,160 +121,6 @@ func (dm *DepthMap) SubImage(r image.Rectangle) *DepthMap {
 	return &DepthMap{width: width, height: height, data: newData}
 }
 
-func _readNext(r io.Reader) (int64, error) {
-	data := make([]byte, 8)
-	x, err := r.Read(data)
-	if x == 8 {
-		return int64(binary.LittleEndian.Uint64(data)), nil
-	}
-
-	return 0, errors.Wrapf(err, "got %d bytes", x)
-}
-
-// ParseDepthMap parses a depth map from the given file. It knows
-// how to handle compressed files as well.
-func ParseDepthMap(fn string) (*DepthMap, error) {
-	var f io.Reader
-
-	//nolint:gosec
-	f, err := os.Open(fn)
-	if err != nil {
-		return nil, err
-	}
-
-	if filepath.Ext(fn) == ".gz" {
-		f, err = gzip.NewReader(f)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return ReadDepthMap(bufio.NewReader(f))
-}
-
-// ReadDepthMap returns a depth map from the given reader.
-func ReadDepthMap(f *bufio.Reader) (*DepthMap, error) {
-	var err error
-	dm := DepthMap{}
-
-	rawWidth, err := _readNext(f)
-	if err != nil {
-		return nil, err
-	}
-	dm.width = int(rawWidth)
-
-	if rawWidth == 6363110499870197078 { // magic number for VERSIONX
-		return readDepthMapFormat2(f)
-	}
-
-	rawHeight, err := _readNext(f)
-	if err != nil {
-		return nil, err
-	}
-	dm.height = int(rawHeight)
-
-	if dm.width <= 0 || dm.width >= 100000 || dm.height <= 0 || dm.height >= 100000 {
-		return nil, errors.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
-	}
-
-	dm.data = make([]Depth, dm.width*dm.height)
-
-	for x := 0; x < dm.width; x++ {
-		for y := 0; y < dm.height; y++ {
-			temp, err := _readNext(f)
-			if err != nil {
-				return nil, err
-			}
-			dm.Set(x, y, Depth(temp))
-		}
-	}
-
-	return &dm, nil
-}
-
-func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
-	dm := DepthMap{}
-
-	// get past garbade
-	_, err := r.ReadString('\n')
-	if err != nil {
-		return nil, err
-	}
-
-	bytesPerPixelString, err := r.ReadString('\n')
-	if err != nil {
-		return nil, err
-	}
-	bytesPerPixelString = strings.TrimSpace(bytesPerPixelString)
-
-	if bytesPerPixelString != "2" {
-		return nil, errors.Errorf("i only know how to handle 2 bytes per pixel in new format, not %s", bytesPerPixelString)
-	}
-
-	unitsString, err := r.ReadString('\n')
-	if err != nil {
-		return nil, err
-	}
-	unitsString = strings.TrimSpace(unitsString)
-	units, err := strconv.ParseFloat(unitsString, 64)
-	if err != nil {
-		return nil, err
-	}
-	units *= 1000 // meters to millis
-
-	widthString, err := r.ReadString('\n')
-	if err != nil {
-		return nil, err
-	}
-	widthString = strings.TrimSpace(widthString)
-	x, err := strconv.ParseInt(widthString, 10, 64)
-	dm.width = int(x)
-	if err != nil {
-		return nil, err
-	}
-
-	heightString, err := r.ReadString('\n')
-	if err != nil {
-		return nil, err
-	}
-	heightString = strings.TrimSpace(heightString)
-	x, err = strconv.ParseInt(heightString, 10, 64)
-	dm.height = int(x)
-	if err != nil {
-		return nil, err
-	}
-
-	if dm.width <= 0 || dm.width >= 100000 || dm.height <= 0 || dm.height >= 100000 {
-		return nil, errors.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
-	}
-
-	temp := make([]byte, 2)
-	dm.data = make([]Depth, dm.width*dm.height)
-
-	for y := 0; y < dm.height; y++ {
-		for x := 0; x < dm.width; x++ {
-			n, err := r.Read(temp)
-			if n == 1 {
-				b2, err2 := r.ReadByte()
-				if err2 != nil {
-					err = err2
-				} else {
-					n++
-				}
-				temp[1] = b2
-			}
-
-			if n != 2 || err != nil {
-				return nil, errors.Wrapf(err, "didn't read 2 bytes, got: %d x,y: %d,%x", n, x, y)
-			}
-
-			dm.Set(x, y, Depth(units*float64(binary.LittleEndian.Uint16(temp))))
-		}
-	}
-
-	return &dm, nil
-}
-
 // ConvertImageToDepthMap takes an image and figures out if it's already a DepthMap
 // or if it can be converted into one.
 func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
@@ -291,82 +130,49 @@ func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
 	case *imageWithDepth:
 		return ii.Depth, nil
 	case *image.Gray16:
-		return imageToDepthMap(ii), nil
+		return gray16ToDepthMap(ii), nil
 	default:
 		return nil, errors.Errorf("don't know how to make DepthMap from %T", img)
 	}
 }
 
-// WriteToFile writes this depth map to the given file.
-func (dm *DepthMap) WriteToFile(fn string) (err error) {
-	//nolint:gosec
-	f, err := os.Create(fn)
-	if err != nil {
-		return err
+// gray16ToDepthMap creates a DepthMap from an image.Gray16.
+func gray16ToDepthMap(img *image.Gray16) *DepthMap {
+	bounds := img.Bounds()
+	width, height := bounds.Dx(), bounds.Dy()
+	dm := NewEmptyDepthMap(width, height)
+	for x := 0; x < width; x++ {
+		for y := 0; y < height; y++ {
+			i := img.PixOffset(x, y)
+			z := uint16(img.Pix[i+0])<<8 | uint16(img.Pix[i+1])
+			dm.Set(x, y, Depth(z))
+		}
 	}
-	defer func() {
-		err = multierr.Combine(err, f.Close())
-	}()
+	return dm
+}
 
-	var gout *gzip.Writer
-	var out io.Writer = f
+// ToGray16Picture converts this depth map into a grayscale image of the same dimensions.
+func (dm *DepthMap) ToGray16Picture() image.Image {
+	grayScale := image.NewGray16(image.Rect(0, 0, dm.Width(), dm.Height()))
 
-	if filepath.Ext(fn) == ".gz" {
-		gout = gzip.NewWriter(f)
-		out = gout
-		defer func() {
-			err = multierr.Combine(err, gout.Close())
-		}()
-	}
-
-	_, err = dm.WriteTo(out)
-	if err != nil {
-		return err
-	}
-
-	if gout != nil {
-		if err := gout.Flush(); err != nil {
-			return err
+	for x := 0; x < dm.Width(); x++ {
+		for y := 0; y < dm.Height(); y++ {
+			val := dm.GetDepth(x, y)
+			grayColor := color.Gray16{uint16(val)}
+			grayScale.Set(x, y, grayColor)
 		}
 	}
 
-	return f.Sync()
+	return grayScale
 }
 
-// WriteTo writes this depth map to the given writer.
-func (dm *DepthMap) WriteTo(out io.Writer) (int64, error) {
-	buf := make([]byte, 8)
-
-	var totalN int64
-	binary.LittleEndian.PutUint64(buf, uint64(dm.width))
-	n, err := out.Write(buf)
-	totalN += int64(n)
-	if err != nil {
-		return totalN, err
-	}
-
-	binary.LittleEndian.PutUint64(buf, uint64(dm.height))
-	n, err = out.Write(buf)
-	totalN += int64(n)
-	if err != nil {
-		return totalN, err
-	}
-
-	for x := 0; x < dm.width; x++ {
-		for y := 0; y < dm.height; y++ {
-			binary.LittleEndian.PutUint64(buf, uint64(dm.GetDepth(x, y)))
-			n, err = out.Write(buf)
-			totalN += int64(n)
-			if err != nil {
-				return totalN, err
-			}
-		}
-	}
-
-	return totalN, nil
+// WriteToBuf writes the depth map to a writer as 16bit grayscale png.
+func (dm *DepthMap) WriteToBuf(out io.Writer) error {
+	img := dm.ToGray16Picture()
+	return png.Encode(out, img)
 }
 
-// MinMax TODO.
+// MinMax returns the minimum and maximum depth values within the depth map.
 func (dm *DepthMap) MinMax() (Depth, Depth) {
 	min := MaxDepth
 	max := Depth(0)
@@ -389,23 +195,8 @@ func (dm *DepthMap) MinMax() (Depth, Depth) {
 	return min, max
 }
 
-// ToGray16Picture converts this depth map into a grayscale image of the
-// same dimensions.
-func (dm *DepthMap) ToGray16Picture() image.Image {
-	grayScale := image.NewGray16(image.Rect(0, 0, dm.Width(), dm.Height()))
-
-	for x := 0; x < dm.Width(); x++ {
-		for y := 0; y < dm.Height(); y++ {
-			val := dm.GetDepth(x, y)
-			grayColor := color.Gray16{uint16(val)}
-			grayScale.Set(x, y, grayColor)
-		}
-	}
-
-	return grayScale
-}
-
-// ToPrettyPicture TODO.
+// ToPrettyPicture converts the depth map into a colorful image to make it easier to see the depth gradients.
+// The colorful picture will have no useful depth information, though.
 func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) *Image {
 	min, max := dm.MinMax()
 

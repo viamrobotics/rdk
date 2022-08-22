@@ -43,7 +43,7 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 	defer span.End()
 	resp, err := c.client.GetFrame(ctx, &pb.GetFrameRequest{
 		Name:     c.name,
-		MimeType: utils.MimeTypeViamBest,
+		MimeType: "", // use the default
 	})
 	if err != nil {
 		return nil, nil, err
@@ -104,6 +104,19 @@ func (c *client) GetProperties(ctx context.Context) (rimage.Projector, error) {
 	}
 	proj = intrinsics
 	return proj, nil
+}
+
+func (c *client) GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::client::GetFrame")
+	defer span.End()
+	resp, err := c.client.GetFrame(ctx, &pb.GetFrameRequest{
+		Name:     c.name,
+		MimeType: mimeType,
+	})
+	if err != nil {
+		return nil, "", 0, 0, err
+	}
+	return resp.GetImage(), resp.GetMimeType(), resp.GetWidthPx(), resp.GetHeightPx(), nil
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
