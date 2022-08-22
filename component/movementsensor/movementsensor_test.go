@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -224,13 +225,26 @@ func TestGetReadings(t *testing.T) {
 	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
 
 	readings1, err := movementsensor.GetReadings(context.Background(), actualMovementSensor1)
-	allReadings := []interface{}{loc, alt, speed, ang, compass, orie}
+	allReadings := map[string]interface{}{
+		"altitide":         alt,
+		"angular_velocity": ang,
+		"compass":          compass,
+		"linear_velocity":  speed,
+		"orientation":      orie,
+		"position":         loc,
+	}
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings1, test.ShouldResemble, allReadings)
 
 	result, err := reconfMovementSensor1.(sensor.Sensor).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, readings1)
+
+	p, err := protoutils.ReadingGoToProto(allReadings)
+	test.That(t, err, test.ShouldBeNil)
+	r2, err := protoutils.ReadingProtoToGo(p)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r2, test.ShouldResemble, allReadings)
 }
 
 func TestClose(t *testing.T) {
@@ -285,7 +299,7 @@ func (m *mock) GetCompassHeading(ctx context.Context) (float64, error) {
 	return compass, nil
 }
 
-func (m *mock) GetReadings(ctx context.Context) ([]interface{}, error) {
+func (m *mock) GetReadings(ctx context.Context) (map[string]interface{}, error) {
 	return movementsensor.GetReadings(ctx, m)
 }
 

@@ -38,7 +38,7 @@ message GetReadingsRequest {
 
 message Readings {
   common.v1.ResourceName name = 1;
-  repeated google.protobuf.Value readings = 2;
+  map<string, google.protobuf.Value> readings = 2;
 }
 
 message GetReadingsResponse {

@@ -447,7 +447,7 @@ func (g *oneAxis) IsMoving(ctx context.Context) (bool, error) {
 	return g.opMgr.OpRunning(), nil
 }
 
-//  ModelFrame returns the frame model of the Gantry.
+// ModelFrame returns the frame model of the Gantry.
 func (g *oneAxis) ModelFrame() referenceframe.Model {
 	if g.model == nil {
 		var errs error

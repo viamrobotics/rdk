@@ -3,7 +3,6 @@ package posetracker_test
 import (
 	"context"
 	"math"
-	"sort"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -150,7 +149,7 @@ func (m *mock) GetPoses(ctx context.Context, bodyNames []string) (posetracker.Bo
 	}, nil
 }
 
-func (m *mock) GetReadings(ctx context.Context) ([]interface{}, error) {
+func (m *mock) GetReadings(ctx context.Context) (map[string]interface{}, error) {
 	return posetracker.GetReadings(ctx, m)
 }
 
@@ -197,25 +196,14 @@ func TestGetReadings(t *testing.T) {
 	sensorPT1, isSensor := reconfPT1.(sensor.Sensor)
 	test.That(t, isSensor, test.ShouldBeTrue)
 
-	expectedReadings := [][]interface{}{
-		{"body1", "world", 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0},
-		{"body2", "world", 2.0, 4.0, 6.0, 0.0, 0.0, 1.0, math.Pi},
-	}
-	receivedRawReadings, err := sensorPT1.GetReadings(context.Background())
+	receivedReadings, err := sensorPT1.GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
-	receivedReadings := make([][]interface{}, 0)
-	for _, reading := range receivedRawReadings {
-		receivedReadings = append(receivedReadings, reading.([]interface{}))
-	}
-	sort.SliceStable(expectedReadings, func(i, j int) bool {
-		return expectedReadings[i][0].(string) < expectedReadings[j][0].(string)
-	})
-	sort.SliceStable(receivedReadings, func(i, j int) bool {
-		return receivedReadings[i][0].(string) < receivedReadings[j][0].(string)
-	})
-
-	test.That(t, receivedReadings, test.ShouldResemble, expectedReadings)
+	test.That(t, receivedReadings["body1"], test.ShouldResemble, referenceframe.NewPoseInFrame("world", spatialmath.NewZeroPose()))
+	test.That(t, receivedReadings["body2"], test.ShouldResemble, referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromOrientation(
+		r3.Vector{X: 2, Y: 4, Z: 6},
+		&spatialmath.R4AA{Theta: math.Pi, RX: 0, RY: 0, RZ: 1},
+	)))
 }
 
 func TestClose(t *testing.T) {

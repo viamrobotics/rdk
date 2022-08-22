@@ -28,7 +28,8 @@ func TestImageToDepthMap(t *testing.T) {
 	// convert to gray16 image
 	depthImage := iwd.Depth.ToGray16Picture()
 	// convert back
-	dmFromImage := imageToDepthMap(depthImage)
+	dmFromImage, err := ConvertImageToDepthMap(depthImage)
+	test.That(t, err, test.ShouldBeNil)
 	// tests
 	test.That(t, iwd.Depth.Height(), test.ShouldEqual, dmFromImage.Height())
 	test.That(t, iwd.Depth.Width(), test.ShouldEqual, dmFromImage.Width())
