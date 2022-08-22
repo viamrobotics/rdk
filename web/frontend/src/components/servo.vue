@@ -23,7 +23,7 @@ const servoStop = () => {
 <template>
   <div>
     <v-collapse
-      :title="servoName"
+      :title="`Servo ${servoName}`"
       class="servo"
     >
       <v-button

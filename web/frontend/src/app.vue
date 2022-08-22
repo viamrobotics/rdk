@@ -1728,7 +1728,7 @@ function setBoundingBox(box, centerPoint) {
     <v-collapse
       v-for="movementsensor in filterResources(resources, 'rdk', 'component', 'movement_sensor')"
       :key="movementsensor.name"
-      :title="`MovementSensor: ${movementsensor.name}`"
+      :title="`Movement Sensor ${movementsensor.name}`"
       class="movement"
     >
       <div class="flex items-end border border-t-0 border-black p-4">
