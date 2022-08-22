@@ -582,7 +582,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy []*Model) error {
 	fmt.Println("downloadModels()")
 	modelsToDownload := getModelsToDownload(modelsToDeploy)
-	fmt.Println("modelsToDownload: ", modelsToDownload)
+	// fmt.Println("modelsToDownload: ", modelsToDownload)
 	// TODO: DATA-295, delete models in file system that are no longer in the config.
 
 	// If we have no models to download, exit.
@@ -603,7 +603,6 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 	// One connection can be reused over and over again, so store it and use it for subsequent
 	// downloads as well.
 	if svc.clientConn == nil {
-		// fmt.Println("this is cfg: ", cfg)
 		conn, err := createClientConnection(svc.logger, cfg)
 		if err != nil {
 			return err
@@ -614,6 +613,7 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 	svc.deployModelsBackgroundWorkers.Add(len(modelsToDownload))
 	modelServiceClient := modelclient.NewClientFromConn(*svc.clientConn, svc.logger)
 	for _, model := range modelsToDownload {
+		// fmt.Println("model.Name: ", model.Name)
 		go func(model *Model) {
 			// Change context to a timeout?
 			defer svc.deployModelsBackgroundWorkers.Done()
@@ -801,10 +801,12 @@ func createClientConnection(logger *zap.SugaredLogger, cfg *config.Config) (rpc.
 	fmt.Println("createClientConnection()")
 	ctx := context.Background()
 	// fmt.Println("cfg.Cloud: ", cfg.Cloud)
+
 	tlsConfig := config.NewTLSConfig(cfg).Config // unable to generate a TLSConfig
 	// if tlsConfig == nil {
 	// 	logger.Fatalf("unable to generate a tlsConfig")
 	// }
+
 	// err = tlsConfig.UpdateCert(cfg).Config
 	// if err != nil {
 	// 	fmt.Println("err: ", err)
