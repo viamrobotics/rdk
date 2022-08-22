@@ -117,36 +117,39 @@ func NamesFromRobot(r robot.Robot) []string {
 }
 
 // GetReadings is a helper for getting all readings from a MovementSensor.
-func GetReadings(ctx context.Context, g MovementSensor) ([]interface{}, error) {
+func GetReadings(ctx context.Context, g MovementSensor) (map[string]interface{}, error) {
+	readings := map[string]interface{}{}
+
 	pos, altitide, err := g.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	readings := []interface{}{pos, altitide}
+	readings["position"] = pos
+	readings["altitide"] = altitide
 
 	vel, err := g.GetLinearVelocity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	readings = append(readings, vel)
+	readings["linear_velocity"] = vel
 
 	avel, err := g.GetAngularVelocity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	readings = append(readings, avel)
+	readings["angular_velocity"] = avel
 
 	compass, err := g.GetCompassHeading(ctx)
 	if err != nil {
 		return nil, err
 	}
-	readings = append(readings, compass)
+	readings["compass"] = compass
 
 	ori, err := g.GetOrientation(ctx)
 	if err != nil {
 		return nil, err
 	}
-	readings = append(readings, ori)
+	readings["orientation"] = ori
 
 	return readings, nil
 }
@@ -216,7 +219,7 @@ func (r *reconfigurableMovementSensor) GetAccuracy(ctx context.Context) (map[str
 	return r.actual.GetAccuracy(ctx)
 }
 
-func (r *reconfigurableMovementSensor) GetReadings(ctx context.Context) ([]interface{}, error) {
+func (r *reconfigurableMovementSensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetReadings(ctx)

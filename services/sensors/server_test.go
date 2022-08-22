@@ -125,8 +125,8 @@ func TestServerGetReadings(t *testing.T) {
 		}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
-		iReading := sensors.Readings{Name: movementsensor.Named("imu"), Readings: []interface{}{1.2, 2.3, 3.4}}
-		gReading := sensors.Readings{Name: movementsensor.Named("gps"), Readings: []interface{}{4.5, 5.6, 6.7}}
+		iReading := sensors.Readings{Name: movementsensor.Named("imu"), Readings: map[string]interface{}{"a": 1.2, "b": 2.3, "c": 3.4}}
+		gReading := sensors.Readings{Name: movementsensor.Named("gps"), Readings: map[string]interface{}{"a": 4.5, "b": 5.6, "c": 6.7}}
 		readings := []sensors.Readings{iReading, gReading}
 		expected := map[resource.Name]interface{}{
 			iReading.Name: iReading.Readings,
@@ -143,10 +143,10 @@ func TestServerGetReadings(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp.Readings), test.ShouldEqual, 2)
 
-		conv := func(rs []*structpb.Value) []interface{} {
-			r := make([]interface{}, 0, len(resp.Readings))
-			for _, value := range rs {
-				r = append(r, value.AsInterface())
+		conv := func(rs map[string]*structpb.Value) map[string]interface{} {
+			r := map[string]interface{}{}
+			for k, value := range rs {
+				r[k] = value.AsInterface()
 			}
 			return r
 		}

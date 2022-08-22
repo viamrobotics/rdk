@@ -4,8 +4,6 @@ package sensors
 import (
 	"context"
 
-	"google.golang.org/protobuf/types/known/structpb"
-
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/sensors/v1"
 	"go.viam.com/rdk/protoutils"
@@ -77,13 +75,9 @@ func (server *subtypeServer) GetReadings(
 
 	readingsP := make([]*pb.Readings, 0, len(readings))
 	for _, reading := range readings {
-		rReading := make([]*structpb.Value, 0, len(reading.Readings))
-		for _, r := range reading.Readings {
-			v, err := structpb.NewValue(r)
-			if err != nil {
-				return nil, err
-			}
-			rReading = append(rReading, v)
+		rReading, err := protoutils.ReadingGoToProto(reading.Readings)
+		if err != nil {
+			return nil, err
 		}
 		readingP := &pb.Readings{
 			Name:     protoutils.ResourceNameToProto(reading.Name),
