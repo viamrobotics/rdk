@@ -22,33 +22,43 @@ var globalMu sync.Mutex
 
 // defaults assume the device is connected via UART serial.
 const (
-	modelname   = "renogy"
-	pathDefault = "/dev/serial0"
-	baudDefault = 9600
+	modelname       = "renogy"
+	pathDefault     = "/dev/serial0"
+	baudDefault     = 9600
+	modbusIdDefault = 1
 )
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	Path string `json:"path"`
-	Baud int    `json:"baud"`
+	Path     string `json:"path"`
+	Baud     int    `json:"baud"`
+	ModbusId byte   `json:"modbus_id"`
 }
 
 // Charge represents a charge state.
 type Charge struct {
-	SolarVolt         float32
-	SolarAmp          float32
-	SolarWatt         float32
-	LoadVolt          float32
-	LoadAmp           float32
-	LoadWatt          float32
-	BattVolt          float32
-	BattChargePct     float32
-	BattDegC          int16
-	ControllerDegC    int16
-	MaxSolarTodayWatt float32
-	MinSolarTodayWatt float32
-	MaxBattTodayVolt  float32
-	MinBattTodayVolt  float32
+	SolarVolt               float32
+	SolarAmp                float32
+	SolarWatt               float32
+	LoadVolt                float32
+	LoadAmp                 float32
+	LoadWatt                float32
+	BattVolt                float32
+	BattChargePct           float32
+	BattDegC                int16
+	ControllerDegC          int16
+	MaxSolarTodayWatt       float32
+	MinSolarTodayWatt       float32
+	MaxBattTodayVolt        float32
+	MinBattTodayVolt        float32
+	MaxSolarTodayAmp        float32
+	MinSolarTodayAmp        float32
+	ChargeHoursTodayWatt    float32
+	DischargeHoursTodayWatt float32
+	ChargeHoursTodayAmp     float32
+	DischargeHoursTodayAmp  float32
+	TotalBattOverCharges    float32
+	TotalBattFullCharges    float32
 }
 
 func init() {
@@ -61,7 +71,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newSensor(config.Name, config.ConvertedAttributes.(*AttrConfig).Path, config.ConvertedAttributes.(*AttrConfig).Baud, logger)
+			return newSensor(config.Name, config.ConvertedAttributes.(*AttrConfig).Path, config.ConvertedAttributes.(*AttrConfig).Baud, config.ConvertedAttributes.(*AttrConfig).ModbusId, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(sensor.SubtypeName, modelname,
@@ -71,22 +81,26 @@ func init() {
 		}, &AttrConfig{})
 }
 
-func newSensor(name string, path string, baud int, logger golog.Logger) (sensor.Sensor, error) {
+func newSensor(name string, path string, baud int, modbusId byte, logger golog.Logger) (sensor.Sensor, error) {
 	if path == "" {
 		path = pathDefault
 	}
 	if baud == 0 {
 		baud = baudDefault
 	}
+	if modbusId == 0 {
+		modbusId = modbusIdDefault
+	}
 
-	return &Sensor{Name: name, path: path, baud: baud}, nil
+	return &Sensor{Name: name, path: path, baud: baud, modbusId: modbusId}, nil
 }
 
 // Sensor is a serial charge controller.
 type Sensor struct {
-	Name string
-	path string
-	baud int
+	Name     string
+	path     string
+	baud     int
+	modbusId byte
 	generic.Unimplemented
 }
 
@@ -99,11 +113,11 @@ func (s *Sensor) GetReadings(ctx context.Context) (map[string]interface{}, error
 	m := make(map[string]interface{})
 	j, err := json.Marshal(readings)
 	if err != nil {
-		return map[string]interface{}{}, err
+		return nil, err
 	}
 	err = json.Unmarshal(j, &m)
 	if err != nil {
-		return map[string]interface{}{}, err
+		return nil, err
 	}
 	return m, nil
 }
@@ -116,7 +130,7 @@ func (s *Sensor) GetControllerOutput(ctx context.Context) (Charge, error) {
 	handler.DataBits = 8
 	handler.Parity = "N"
 	handler.StopBits = 1
-	handler.SlaveId = 1
+	handler.SlaveId = s.modbusId
 	handler.Timeout = 1 * time.Second
 
 	err := handler.Connect()
@@ -150,6 +164,14 @@ func (s *Sensor) GetControllerOutput(ctx context.Context) (Charge, error) {
 	chargeRes.MinSolarTodayWatt = readRegister(client, 272, 0)
 	chargeRes.MaxBattTodayVolt = readRegister(client, 268, 1)
 	chargeRes.MinBattTodayVolt = readRegister(client, 267, 1)
+	chargeRes.MaxSolarTodayAmp = readRegister(client, 269, 2)
+	chargeRes.MinSolarTodayAmp = readRegister(client, 270, 1)
+	chargeRes.ChargeHoursTodayAmp = readRegister(client, 273, 0)
+	chargeRes.DischargeHoursTodayAmp = readRegister(client, 274, 0)
+	chargeRes.ChargeHoursTodayWatt = readRegister(client, 275, 0)
+	chargeRes.DischargeHoursTodayWatt = readRegister(client, 276, 0)
+	chargeRes.TotalBattOverCharges = readRegister(client, 278, 0)
+	chargeRes.TotalBattFullCharges = readRegister(client, 279, 0)
 
 	err = handler.Close()
 	return chargeRes, err
