@@ -67,7 +67,7 @@ for (const ctrl of controlOrder) {
 </script>
 
 <template>
-  <v-collapse :title="`${controllerName} Input`">
+  <v-collapse :title="`Input ${controllerName}`">
     <div
       slot="header"
       class="flex flex-wrap items-center"
