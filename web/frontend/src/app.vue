@@ -856,9 +856,13 @@ export default {
         if (err) {
           return;
         }
-        for (const r of resp.getReadingsList()) {
-          const readings = r.getReadingsList().map((v) => v.toJavaScript());
-          this.sensorReadings[resourceNameToString(r.getName().toObject())] = readings;
+          for (const r of resp.getReadingsList()) {
+              const readings = r.getReadingsMap();
+              var rr = {};
+              readings.forEach( (v, k) => {
+                  rr[k] = v.toJavaScript();
+                  });
+              this.sensorReadings[resourceNameToString(r.getName().toObject())] = rr;
         }
       });
     },
@@ -2312,7 +2316,15 @@ function setBoundingBox(box, centerPoint) {
               {{ name.subtype }}
             </td>
             <td class="border border-black p-2">
-              {{ sensorReadings[resourceNameToString(name)] }}
+              <table style="font-size:.7em; text-align: left;">
+                <tr v-for="(value, sensorField) in sensorReadings[resourceNameToString(name)]">
+                  <th>{{ sensorField }}</th>
+                  <td>
+                    {{value}}
+                    <a v-if="value._type == 'geopoint'" :href="'https://www.google.com/maps/search/' + value.lat + ',' + value.lng">google maps</a>
+                  </td>
+                </tr>
+              </table>
             </td>
             <td class="border border-black p-2 text-center">
               <v-button

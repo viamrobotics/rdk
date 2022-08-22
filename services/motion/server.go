@@ -36,18 +36,18 @@ func (server *subtypeServer) service() (Service, error) {
 	return svc, nil
 }
 
-func (server *subtypeServer) PlanAndMove(ctx context.Context, req *pb.PlanAndMoveRequest) (*pb.PlanAndMoveResponse, error) {
+func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}
-	success, err := svc.PlanAndMove(
+	success, err := svc.Move(
 		ctx,
 		protoutils.ResourceNameFromProto(req.GetComponentName()),
 		referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
 		req.GetWorldState(),
 	)
-	return &pb.PlanAndMoveResponse{Success: success}, err
+	return &pb.MoveResponse{Success: success}, err
 }
 
 func (server *subtypeServer) MoveSingleComponent(
