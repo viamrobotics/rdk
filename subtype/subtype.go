@@ -2,6 +2,7 @@
 package subtype
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -16,8 +17,9 @@ type Service interface {
 }
 
 type subtypeSvc struct {
-	mu        sync.RWMutex
-	resources map[string]interface{}
+	mu         sync.RWMutex
+	resources  map[string]interface{}
+	shortNames map[string]string
 }
 
 // New creates a new subtype service, which holds and replaces resources belonging to that subtype.
@@ -36,6 +38,10 @@ func (s *subtypeSvc) Resource(name string) interface{} {
 	if resource, ok := s.resources[name]; ok {
 		return resource
 	}
+	// looking for remote resource matching the name
+	if resource, ok := s.resources[s.shortNames[name]]; ok {
+		return resource
+	}
 	return nil
 }
 
@@ -44,12 +50,22 @@ func (s *subtypeSvc) Replace(r map[resource.Name]interface{}) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	resources := make(map[string]interface{}, len(r))
+	shortNames := make(map[string]string, len(r))
 	for n, v := range r {
 		if n.Name == "" {
 			return errors.Errorf("Empty name used for resource: %s", n)
 		}
+		name := n.ShortName()
+		resources[name] = v
+		shortcut := name[strings.LastIndexAny(name, ":")+1:]
+		if _, ok := shortNames[shortcut]; ok {
+			shortNames[shortcut] = ""
+		} else {
+			shortNames[shortcut] = name
+		}
 		resources[n.ShortName()] = v
 	}
 	s.resources = resources
+	s.shortNames = shortNames
 	return nil
 }

@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/encoder"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/movementsensor"
@@ -1225,6 +1226,7 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5"),
 			mockNamed("mock6"),
 		}
+		encoderNames := []resource.Name{encoder.Named("e1")}
 		robot.Reconfigure(context.Background(), conf7)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
@@ -1249,6 +1251,12 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
+		test.That(
+			t,
+			utils.NewStringSet(encoder.NamesFromRobot(robot)...),
+			test.ShouldResemble,
+			utils.NewStringSet(rdktestutils.ExtractNames(encoderNames...)...),
+		)
 		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
@@ -1259,6 +1267,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				motorNames,
 				mockNames,
+				encoderNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
@@ -1333,6 +1342,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				boardNames,
 				mockNames,
+				encoderNames,
 			)...))
 	})
 
@@ -1347,6 +1357,7 @@ func TestRobotReconfigure(t *testing.T) {
 		}()
 		boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
 		motorNames := []resource.Name{motor.Named("m1")}
+		encoderNames := []resource.Name{encoder.Named("e1")}
 		mockNames := []resource.Name{
 			mockNamed("mock1"), mockNamed("mock2"), mockNamed("mock6"),
 			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5"),
@@ -1374,6 +1385,12 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
+		test.That(
+			t,
+			utils.NewStringSet(encoder.NamesFromRobot(robot)...),
+			test.ShouldResemble,
+			utils.NewStringSet(rdktestutils.ExtractNames(encoderNames...)...),
+		)
 		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
@@ -1381,6 +1398,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				boardNames,
+				encoderNames,
 				serviceNames,
 				motorNames,
 				mockNames,
@@ -1472,6 +1490,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				boardNames,
 				mockNames,
+				encoderNames,
 			)...))
 		robot.Reconfigure(context.Background(), conf8)
 		mockNames = []resource.Name{
@@ -1501,6 +1520,12 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
+		test.That(
+			t,
+			utils.NewStringSet(encoder.NamesFromRobot(robot)...),
+			test.ShouldResemble,
+			utils.NewStringSet(rdktestutils.ExtractNames(encoderNames...)...),
+		)
 		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
@@ -1511,6 +1536,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				motorNames,
 				mockNames,
+				encoderNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
@@ -1607,6 +1633,7 @@ func TestRobotReconfigure(t *testing.T) {
 		}()
 		boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
 		motorNames := []resource.Name{motor.Named("m1")}
+		encoderNames := []resource.Name{encoder.Named("e1")}
 		mockNames := []resource.Name{
 			mockNamed("mock1"), mockNamed("mock2"),
 			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5"),
@@ -1625,6 +1652,12 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
+		test.That(
+			t,
+			utils.NewStringSet(encoder.NamesFromRobot(robot)...),
+			test.ShouldResemble,
+			utils.NewStringSet(rdktestutils.ExtractNames(encoderNames...)...),
+		)
 
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
@@ -1632,6 +1665,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				motorNames,
 				mockNames,
+				encoderNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
@@ -1719,6 +1753,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				boardNames,
 				mockNames,
+				encoderNames,
 			)...))
 
 		reconfigurableTrue = false
@@ -1737,6 +1772,12 @@ func TestRobotReconfigure(t *testing.T) {
 		)
 		test.That(
 			t,
+			utils.NewStringSet(encoder.NamesFromRobot(robot)...),
+			test.ShouldResemble,
+			utils.NewStringSet(rdktestutils.ExtractNames(encoderNames...)...),
+		)
+		test.That(
+			t,
 			utils.NewStringSet(board.NamesFromRobot(robot)...),
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
@@ -1748,6 +1789,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				motorNames,
 				mockNames,
+				encoderNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
@@ -1816,6 +1858,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				boardNames,
 				mockNames,
+				encoderNames,
 				[]resource.Name{
 					arm.Named("armFake"),
 					mockNamed("mock1"),
@@ -1844,6 +1887,12 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
+		test.That(
+			t,
+			utils.NewStringSet(encoder.NamesFromRobot(robot)...),
+			test.ShouldResemble,
+			utils.NewStringSet(rdktestutils.ExtractNames(encoderNames...)...),
+		)
 
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
@@ -1851,6 +1900,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				motorNames,
 				mockNames,
+				encoderNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
@@ -1942,6 +1992,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				boardNames,
 				mockNames,
+				encoderNames,
 				[]resource.Name{
 					arm.Named("armFake"),
 					mockNamed("mock6"),
