@@ -3,7 +3,6 @@ package motionplan
 import (
 	"context"
 	"fmt"
-	"math"
 	"math/rand"
 
 	"github.com/edaniels/golog"
@@ -133,9 +132,10 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	// Keep a list of the node pairs that have the same inputs
 	shared := make([]*nodePair, 0)
 
+	// prevCost := math.Inf(1)
+	// var plan *planReturn
+
 	// sample until the max number of iterations is reached
-	prevCost := math.Inf(1)
-	var plan *planReturn
 	for i := 0; i < mp.iter; i++ {
 		select {
 		case <-ctx.Done():
@@ -144,9 +144,14 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 		default:
 		}
 
-		if i == 98 {
-			fmt.Println("ok")
-		}
+		fmt.Println(i)
+
+		// if i == 98 {
+		// 	path := shortestPath(startMap, goalMap, shared)
+		// 	cost := evaluatePlanNodes(path.steps)
+		// 	fmt.Println("98th iteration")
+		// 	fmt.Println(cost)
+		// }
 
 		// try to connect the target to map 1
 		if map1reached := mp.extend(opt, map1, target); map1reached != nil {
@@ -159,19 +164,15 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 
 		// get next sample, switch map pointers
 		target = mp.sample()
+		map1, map2 = map2, map1
 
-		// TODO(rb): figure out why the hell uncommenting this matters
-		// map1, map2 = map2, map1
-		plan = shortestPath(startMap, goalMap, shared)
-		if len(plan.steps) != 0 && (plan.steps[0].q[0] != seed[0] || plan.steps[0].q[1] != seed[1]) {
-			fmt.Println("what the actual fuck")
-		}
-		cost := evaluatePlanNodes(plan.steps)
-		if prevCost < cost {
-			fmt.Println("RRT* should never have the cost of the total path increase")
-		}
-		prevCost = cost
-		fmt.Println(cost)
+		// plan = shortestPath(startMap, goalMap, shared)
+		// cost := evaluatePlanNodes(plan.steps)
+		// if prevCost < cost {
+		// 	fmt.Println("RRT* should never have the cost of the total path increase")
+		// }
+		// prevCost = cost
+		// fmt.Println(cost)
 	}
 
 	solutionChan <- shortestPath(startMap, goalMap, shared)
@@ -185,6 +186,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(opt *PlannerOptions, tree map[*nod
 	neighbors := kNearestNeighbors(tree, target)
 
 	// TODO(rb): potentially either add a steer() function or get the closest valid point from constraint checker
+	// TODO(rb): future optimization, check if the sample node is in an obstacle itself
 	map1reached := mp.checkPath(opt, neighbors[0].node.q, target)
 	if !map1reached {
 		return nil
