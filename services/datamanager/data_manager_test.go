@@ -128,7 +128,8 @@ func setupConfig(t *testing.T, relativePath string) *config.Config {
 	test.That(t, err, test.ShouldBeNil)
 	// fmt.Println("testCfg.Cloud: ", testCfg.Cloud)
 	testCfg.Cloud = &config.Cloud{ID: "part_id"}
-	// testCfg.Cloud = &config.Cloud{TLSCertificate: "abc"}
+	testCfg.Cloud = &config.Cloud{TLSCertificate: "abc"}
+	testCfg.Cloud = &config.Cloud{TLSPrivateKey: "123"}
 	// testCfg.Cloud = &config.Cloud{LocationSecret: rutils.CredentialsTypeRobotLocationSecret}
 	// fmt.Println("testCfg.Cloud: ", testCfg.Cloud)
 	return testCfg
@@ -316,7 +317,7 @@ func TestModelsAfterKilled(t *testing.T) {
 
 	// ToDo: rename `modelss` var to something more appropriate
 	modelss, dirs, numArbitraryFilesToSync, err := populateModels()
-	fmt.Println("modelss: ", modelss)
+	// fmt.Println("modelss: ", modelss)
 	defer func() {
 		for _, dir := range dirs {
 			resetFolder(t, dir)
@@ -339,15 +340,13 @@ func TestModelsAfterKilled(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
 	dmCfg.ModelsToDeploy = append(dmCfg.ModelsToDeploy, modelss...)
-	fmt.Println("we have added the models")
+	// fmt.Println("we have added the models")
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
-
 	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(10)
 	err = dmsvc.Update(context.TODO(), testCfg)
-
 	test.That(t, err, test.ShouldBeNil)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not synced.
@@ -427,17 +426,17 @@ func populateModels() ([]*datamanager.Model, []string, int, error) {
 	// Generate models_on_robot "dummy" dirs and files.
 	for i := 0; i < 2; i++ {
 		// Create a temp dir that will house models_on_robot.
+		// dest := filepath.Join(filepath.Join(os.Getenv("HOME"), "models", ".viam"), "m"+strconv.Itoa(i))
+		// fmt.Println("dest: ", dest)
 		td, err := ioutil.TempDir("", "")
-		fmt.Println("td: ", td)
+		// fmt.Println("td: ", td)
 		// td, err := ioutil.TempDir("", "additional_model_path_dir_")
-		// td e.g. below
-		// /var/folders/9p/rf85l68x6k36hlzwspcl0phm0000gp/T/additional_model_path_dir_544998160
 		if err != nil {
 			return []*datamanager.Model{}, []string{}, 0, errors.New("cannot create temporary dir to simulate models_on_robot in data manager service config")
 		}
 		additionalPaths = append(additionalPaths, td)
 
-		m := &datamanager.Model{Name: "M" + strconv.Itoa(i), Destination: td}
+		m := &datamanager.Model{Name: "m" + strconv.Itoa(i+1), Destination: td}
 		// fmt.Println("this is m now: ", m)
 		additionalModels = append(additionalModels, m)
 
@@ -867,6 +866,7 @@ func (m mockModelServiceServer) Upload(stream m1.ModelService_UploadServer) erro
 			fileName = ur.GetMetadata().ModelName
 		}
 	}
+	// make sure that below is what we want to be doing.
 	dest := filepath.Join(filepath.Join(os.Getenv("HOME"), "models", ".viam"), fileName)
 	model := &datamanager.Model{Name: fileName, Destination: dest}
 	(*m.lock).Lock()
@@ -878,6 +878,10 @@ func (m mockModelServiceServer) Upload(stream m1.ModelService_UploadServer) erro
 //nolint:thelper
 func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServer) {
 	logger, _ := golog.NewObservedTestLogger(t)
+	// Cannot set up server with rpc.WithUnauthenticated()
+	// rpcServer, instantiated below needs to be configured with a TLS config and robot location secret, right?
+	// TLS config is created through having a credentialsType and
+	// also creating an AuthHandler.
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	mockService := mockDataSyncServiceServer{
