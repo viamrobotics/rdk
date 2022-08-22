@@ -346,23 +346,25 @@ func readCertificateDataFromCloudGRPC(ctx context.Context,
 	defer utils.UncheckedErrorFunc(conn.Close)
 
 	service := apppb.NewRobotServiceClient(conn)
-	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudConfigFromDisk.ID})
+	res, err := service.Certificate(ctx, &apppb.CertificateRequest{Id: cloudConfigFromDisk.ID})
 	if err != nil {
 		// Check cache?
 		return nil, err
 	}
 
-	cfg := Config{}
-
-	cfg.Cloud, err = CloudConfigFromProto(res.Config.Cloud)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting Cloud config from proto")
+	if !signalingInsecure {
+		if res.TlsCertificate == "" {
+			return nil, errors.New("no TLS certificate yet from cloud; try again later")
+		}
+		if res.TlsPrivateKey == "" {
+			return nil, errors.New("no TLS private key yet from cloud; try again later")
+		}
 	}
 
 	// TODO(RSDK-539): we might want to use an internal type here. The gRPC api will not return a Cloud json struct.
 	return &Cloud{
-		TLSCertificate: cfg.Cloud.TLSCertificate,
-		TLSPrivateKey:  cfg.Cloud.TLSPrivateKey,
+		TLSCertificate: res.TlsCertificate,
+		TLSPrivateKey:  res.TlsPrivateKey,
 	}, nil
 }
 

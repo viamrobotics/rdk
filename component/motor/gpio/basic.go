@@ -185,7 +185,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 	)
 }
 
-//  SetPower instructs the motor to operate at an rpm, where the sign of the rpm
+// SetPower instructs the motor to operate at an rpm, where the sign of the rpm
 // indicates direction.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
