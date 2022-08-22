@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"testing"
@@ -47,7 +48,6 @@ var (
 	syncIntervalMins   = 0.0041 // 250ms
 	captureDir         = "/tmp/capture"
 	armDir             = captureDir + "/arm/arm1/GetEndPosition"
-	modelDir           = "/tmp/models"
 	emptyFileBytesSize = 30 // size of leading metadata message
 	testSvcName1       = "svc1"
 	testSvcName2       = "svc2"
@@ -130,7 +130,7 @@ func setupConfig(t *testing.T, relativePath string) *config.Config {
 	testCfg.Cloud = &config.Cloud{ID: "part_id"}
 	// testCfg.Cloud = &config.Cloud{TLSCertificate: "abc"}
 	// testCfg.Cloud = &config.Cloud{LocationSecret: rutils.CredentialsTypeRobotLocationSecret}
-	fmt.Println("testCfg.Cloud: ", testCfg.Cloud)
+	// fmt.Println("testCfg.Cloud: ", testCfg.Cloud)
 	return testCfg
 }
 
@@ -316,14 +316,15 @@ func TestModelsAfterKilled(t *testing.T) {
 
 	// ToDo: rename `modelss` var to something more appropriate
 	modelss, dirs, numArbitraryFilesToSync, err := populateModels()
+	fmt.Println("modelss: ", modelss)
 	defer func() {
 		for _, dir := range dirs {
 			resetFolder(t, dir)
 		}
 	}()
+
 	defer resetFolder(t, captureDir)
 	defer resetFolder(t, armDir)
-	defer resetFolder(t, modelDir)
 
 	if err != nil {
 		t.Error("unable to generate arbitrary data files and create directory structure for ModelsToDeploy")
@@ -338,6 +339,7 @@ func TestModelsAfterKilled(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
 	dmCfg.ModelsToDeploy = append(dmCfg.ModelsToDeploy, modelss...)
+	fmt.Println("we have added the models")
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
@@ -363,7 +365,7 @@ func TestModelsAfterKilled(t *testing.T) {
 	dmsvc = newTestDataManager(t, "arm1", "")
 	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
-	fmt.Println("calliung Update(), now we transition to code in data_manager.go")
+	fmt.Println("calling Update(), now we transition to code in data_manager.go")
 	err = dmsvc.Update(context.TODO(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -425,7 +427,9 @@ func populateModels() ([]*datamanager.Model, []string, int, error) {
 	// Generate models_on_robot "dummy" dirs and files.
 	for i := 0; i < 2; i++ {
 		// Create a temp dir that will house models_on_robot.
-		td, err := ioutil.TempDir("", "additional_model_path_dir_")
+		td, err := ioutil.TempDir("", "")
+		fmt.Println("td: ", td)
+		// td, err := ioutil.TempDir("", "additional_model_path_dir_")
 		// td e.g. below
 		// /var/folders/9p/rf85l68x6k36hlzwspcl0phm0000gp/T/additional_model_path_dir_544998160
 		if err != nil {
@@ -433,7 +437,7 @@ func populateModels() ([]*datamanager.Model, []string, int, error) {
 		}
 		additionalPaths = append(additionalPaths, td)
 
-		m := &datamanager.Model{Name: "M" + strconv.Itoa(i), Destination: modelDir}
+		m := &datamanager.Model{Name: "M" + strconv.Itoa(i), Destination: td}
 		// fmt.Println("this is m now: ", m)
 		additionalModels = append(additionalModels, m)
 
@@ -828,8 +832,6 @@ func (m mockModelServiceServer) getUploadedModels() []datamanager.Model {
 	return *m.uploadedModels
 }
 
-// IMPORTANT BELOW
-// do i need to make a separate version of this for ModelSyncService?
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
 	var fileName string
 	for {
@@ -846,6 +848,29 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 	}
 	(*m.lock).Lock()
 	*m.uploadedFiles = append(*m.uploadedFiles, fileName)
+	(*m.lock).Unlock()
+	return nil
+}
+
+// is it correct to have this function??
+func (m mockModelServiceServer) Upload(stream m1.ModelService_UploadServer) error {
+	var fileName string
+	for {
+		ur, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		if ur.GetMetadata() != nil {
+			fileName = ur.GetMetadata().ModelName
+		}
+	}
+	dest := filepath.Join(filepath.Join(os.Getenv("HOME"), "models", ".viam"), fileName)
+	model := &datamanager.Model{Name: fileName, Destination: dest}
+	(*m.lock).Lock()
+	*m.uploadedModels = append(*m.uploadedModels, *model)
 	(*m.lock).Unlock()
 	return nil
 }
@@ -880,10 +905,6 @@ func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServ
 func buildAndStartLocalModelServer(t *testing.T) (rpc.Server, mockModelServiceServer) {
 	fmt.Println("buildAndStartLocalModelServer()")
 	logger, _ := golog.NewObservedTestLogger(t)
-	// not sure if rpc.WithUnauthenticated() is the right thing to do
-	// sOpt := rpc.WithAuthHandler(rpc.CredentialsTypeAPIKey, nil)
-	// smth := rpc.WithAuthenticateToHandler(rpc.CredentialsTypeAPIKey, sOpt)
-	// fmt.Println("smth: ", smth)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	mockService := mockModelServiceServer{
