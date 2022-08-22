@@ -16,11 +16,22 @@ on:
 jobs:
   canon-cache:
     name: Build Canon Cache Docker Images
-    runs-on: [x64, qemu-host]
+    strategy:
+      matrix:
+        include:
+          - arch: [x64, qemu-host]
+            image: ghcr.io/viamrobotics/canon:amd64
+            platform: linux/amd64
+            make_target: 'canon-cache-amd64-ci'
+          - arch: [arm64, qemu-host]
+            image: ghcr.io/viamrobotics/canon:arm64
+            platform: linux/arm64
+            make_target: 'canon-cache-arm64-ci'
+    runs-on: ${{ matrix.arch }}
     container:
-      image: ghcr.io/viamrobotics/canon:amd64
-      options: --platform linux/amd64
-    timeout-minutes: 45
+      image: ${{ matrix.image }}
+      options: --platform ${{ matrix.platform }}
+    timeout-minutes: 30
     steps:
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v1
@@ -30,10 +41,10 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Check out code
       uses: actions/checkout@v2
-    - name: Build and push
+    - name: Build and Push
       run: |
         echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc
-        make canon-cache
+        make ${{ matrix.make_target}}
 
   test:
     needs: canon-cache

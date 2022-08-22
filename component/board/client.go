@@ -20,29 +20,13 @@ import (
 // eventually be implemented server side or faked client side.
 var errUnimplemented = errors.New("unimplemented")
 
-// serviceClient is a client satisfies the board.proto contract.
-type serviceClient struct {
+// client implements BoardServiceClient.
+type client struct {
 	conn   rpc.ClientConn
 	client pb.BoardServiceClient
 	logger golog.Logger
-}
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
-	client := pb.NewBoardServiceClient(conn)
-	sc := &serviceClient{
-		conn:   conn,
-		client: client,
-		logger: logger,
-	}
-	return sc
-}
-
-// client is an Board client.
-type client struct {
-	*serviceClient
-	info boardInfo
-
+	info           boardInfo
 	cachedStatus   *commonpb.BoardStatus
 	cachedStatusMu *sync.Mutex
 }
@@ -58,26 +42,24 @@ type boardInfo struct {
 
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Board {
-	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(ctx, sc, name)
-}
-
-func clientFromSvcClient(ctx context.Context, sc *serviceClient, name string) Board {
 	info := boardInfo{name: name}
+	bClient := pb.NewBoardServiceClient(conn)
 	c := &client{
-		serviceClient:  sc,
+		conn:           conn,
+		client:         bClient,
+		logger:         logger,
 		info:           info,
 		cachedStatusMu: &sync.Mutex{},
 	}
 	if err := c.refresh(ctx); err != nil {
-		sc.logger.Warn(err)
+		c.logger.Warn(err)
 	}
 	return c
 }
 
 func (c *client) AnalogReaderByName(name string) (AnalogReader, bool) {
 	return &analogReaderClient{
-		serviceClient:    c.serviceClient,
+		client:           c,
 		boardName:        c.info.name,
 		analogReaderName: name,
 	}, true
@@ -85,7 +67,7 @@ func (c *client) AnalogReaderByName(name string) (AnalogReader, bool) {
 
 func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
 	return &digitalInterruptClient{
-		serviceClient:        c.serviceClient,
+		client:               c,
 		boardName:            c.info.name,
 		digitalInterruptName: name,
 	}, true
@@ -93,43 +75,48 @@ func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
 
 func (c *client) GPIOPinByName(name string) (GPIOPin, error) {
 	return &gpioPinClient{
-		serviceClient: c.serviceClient,
-		boardName:     c.info.name,
-		pinName:       name,
+		client:    c,
+		boardName: c.info.name,
+		pinName:   name,
 	}, nil
 }
 
 func (c *client) SPINames() []string {
 	if c.getCachedStatus() == nil {
-		panic("no status")
+		c.logger.Debugw("no cached status")
+		return []string{}
 	}
 	return copyStringSlice(c.info.spiNames)
 }
 
 func (c *client) I2CNames() []string {
 	if c.getCachedStatus() == nil {
-		panic("no status")
+		c.logger.Debugw("no cached status")
+		return []string{}
 	}
 	return copyStringSlice(c.info.i2cNames)
 }
 
 func (c *client) AnalogReaderNames() []string {
 	if c.getCachedStatus() == nil {
-		panic("no status")
+		c.logger.Debugw("no cached status")
+		return []string{}
 	}
 	return copyStringSlice(c.info.analogReaderNames)
 }
 
 func (c *client) DigitalInterruptNames() []string {
 	if c.getCachedStatus() == nil {
-		panic("no status")
+		c.logger.Debugw("no cached status")
+		return []string{}
 	}
 	return copyStringSlice(c.info.digitalInterruptNames)
 }
 
 func (c *client) GPIOPinNames() []string {
 	if c.getCachedStatus() == nil {
-		panic("no status")
+		c.logger.Debugw("no cached status")
+		return []string{}
 	}
 	return copyStringSlice(c.info.gpioPinNames)
 }
@@ -205,7 +192,7 @@ func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string
 // analogReaderClient satisfies a gRPC based board.AnalogReader. Refer to the interface
 // for descriptions of its methods.
 type analogReaderClient struct {
-	*serviceClient
+	*client
 	boardName        string
 	analogReaderName string
 }
@@ -215,7 +202,7 @@ func (arc *analogReaderClient) Read(ctx context.Context, extra map[string]interf
 	if err != nil {
 		return 0, err
 	}
-	resp, err := arc.client.ReadAnalogReader(ctx, &pb.ReadAnalogReaderRequest{
+	resp, err := arc.client.client.ReadAnalogReader(ctx, &pb.ReadAnalogReaderRequest{
 		BoardName:        arc.boardName,
 		AnalogReaderName: arc.analogReaderName,
 		Extra:            ext,
@@ -229,7 +216,7 @@ func (arc *analogReaderClient) Read(ctx context.Context, extra map[string]interf
 // digitalInterruptClient satisfies a gRPC based board.DigitalInterrupt. Refer to the
 // interface for descriptions of its methods.
 type digitalInterruptClient struct {
-	*serviceClient
+	*client
 	boardName            string
 	digitalInterruptName string
 }
@@ -239,7 +226,7 @@ func (dic *digitalInterruptClient) Value(ctx context.Context, extra map[string]i
 	if err != nil {
 		return 0, err
 	}
-	resp, err := dic.client.GetDigitalInterruptValue(ctx, &pb.GetDigitalInterruptValueRequest{
+	resp, err := dic.client.client.GetDigitalInterruptValue(ctx, &pb.GetDigitalInterruptValueRequest{
 		BoardName:            dic.boardName,
 		DigitalInterruptName: dic.digitalInterruptName,
 		Extra:                ext,
@@ -265,7 +252,7 @@ func (dic *digitalInterruptClient) AddPostProcessor(pp PostProcessor) {
 // gpioPinClient satisfies a gRPC based board.GPIOPin. Refer to the interface
 // for descriptions of its methods.
 type gpioPinClient struct {
-	*serviceClient
+	*client
 	boardName string
 	pinName   string
 }
@@ -275,7 +262,7 @@ func (gpc *gpioPinClient) Set(ctx context.Context, high bool, extra map[string]i
 	if err != nil {
 		return err
 	}
-	_, err = gpc.client.SetGPIO(ctx, &pb.SetGPIORequest{
+	_, err = gpc.client.client.SetGPIO(ctx, &pb.SetGPIORequest{
 		Name:  gpc.boardName,
 		Pin:   gpc.pinName,
 		High:  high,
@@ -289,7 +276,7 @@ func (gpc *gpioPinClient) Get(ctx context.Context, extra map[string]interface{})
 	if err != nil {
 		return false, err
 	}
-	resp, err := gpc.client.GetGPIO(ctx, &pb.GetGPIORequest{
+	resp, err := gpc.client.client.GetGPIO(ctx, &pb.GetGPIORequest{
 		Name:  gpc.boardName,
 		Pin:   gpc.pinName,
 		Extra: ext,
@@ -305,7 +292,7 @@ func (gpc *gpioPinClient) PWM(ctx context.Context, extra map[string]interface{})
 	if err != nil {
 		return math.NaN(), err
 	}
-	resp, err := gpc.client.PWM(ctx, &pb.PWMRequest{
+	resp, err := gpc.client.client.PWM(ctx, &pb.PWMRequest{
 		Name:  gpc.boardName,
 		Pin:   gpc.pinName,
 		Extra: ext,
@@ -321,7 +308,7 @@ func (gpc *gpioPinClient) SetPWM(ctx context.Context, dutyCyclePct float64, extr
 	if err != nil {
 		return err
 	}
-	_, err = gpc.client.SetPWM(ctx, &pb.SetPWMRequest{
+	_, err = gpc.client.client.SetPWM(ctx, &pb.SetPWMRequest{
 		Name:         gpc.boardName,
 		Pin:          gpc.pinName,
 		DutyCyclePct: dutyCyclePct,
@@ -335,7 +322,7 @@ func (gpc *gpioPinClient) PWMFreq(ctx context.Context, extra map[string]interfac
 	if err != nil {
 		return 0, err
 	}
-	resp, err := gpc.client.PWMFrequency(ctx, &pb.PWMFrequencyRequest{
+	resp, err := gpc.client.client.PWMFrequency(ctx, &pb.PWMFrequencyRequest{
 		Name:  gpc.boardName,
 		Pin:   gpc.pinName,
 		Extra: ext,
@@ -351,7 +338,7 @@ func (gpc *gpioPinClient) SetPWMFreq(ctx context.Context, freqHz uint, extra map
 	if err != nil {
 		return err
 	}
-	_, err = gpc.client.SetPWMFrequency(ctx, &pb.SetPWMFrequencyRequest{
+	_, err = gpc.client.client.SetPWMFrequency(ctx, &pb.SetPWMFrequencyRequest{
 		Name:        gpc.boardName,
 		Pin:         gpc.pinName,
 		FrequencyHz: uint64(freqHz),

@@ -110,7 +110,7 @@ func TestUndistortImage(t *testing.T) {
 }
 
 func TestUndistortDepthMap(t *testing.T) {
-	img, err := rimage.ParseDepthMap(artifact.MustPath("rimage/board1.dat.gz"))
+	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := &imagesource.StaticSource{DepthImg: img}
 
