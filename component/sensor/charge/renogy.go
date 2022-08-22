@@ -91,7 +91,7 @@ type Sensor struct {
 }
 
 // GetReadings returns a list containing single item (current temperature).
-func (s *Sensor) GetReadings(ctx context.Context) ([]interface{}, error) {
+func (s *Sensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
 	readings, err := s.GetControllerOutput(ctx)
 	if err != nil {
 		return nil, err
@@ -99,13 +99,13 @@ func (s *Sensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 	m := make(map[string]interface{})
 	j, err := json.Marshal(readings)
 	if err != nil {
-		return []interface{}{}, err
+		return map[string]interface{}{}, err
 	}
 	err = json.Unmarshal(j, &m)
 	if err != nil {
-		return []interface{}{}, err
+		return map[string]interface{}{}, err
 	}
-	return []interface{}{m}, nil
+	return m, nil
 }
 
 // GetControllerOutput returns current readings from the charge controller.
