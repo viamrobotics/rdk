@@ -69,6 +69,8 @@ type SerialNMEAMovementSensor struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+	done                    chan struct{}
+	errors                  chan error
 }
 
 const (
@@ -130,15 +132,19 @@ func newSerialNMEAMovementSensor(ctx context.Context, config config.Component, l
 		correctionBaudRate: uint(correctionBaudRate),
 		disableNmea:        disableNmea,
 		data:               gpsData{},
+		done:               make(chan struct{}),
+		errors:             make(chan error),
 	}
 
-	g.Start(ctx)
+	if err := g.Start(ctx); err != nil {
+		return nil, err
+	}
 
 	return g, nil
 }
 
 // Start begins reading nmea messages from module and updates gps data.
-func (g *SerialNMEAMovementSensor) Start(ctx context.Context) {
+func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer g.activeBackgroundWorkers.Done()
@@ -153,7 +159,9 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) {
 			if !g.disableNmea {
 				line, err := r.ReadString('\n')
 				if err != nil {
-					g.logger.Fatalf("can't read gps serial %s", err)
+					g.logger.Errorf("can't read gps serial %s", err)
+					g.errors <- err
+					return
 				}
 				// Update our struct's gps data in-place
 				g.mu.Lock()
@@ -165,6 +173,8 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) {
 			}
 		}
 	})
+
+	return nil
 }
 
 // GetCorrectionInfo returns the serial path that takes in rtcm corrections and baudrate for reading.
@@ -248,7 +258,18 @@ func (g *SerialNMEAMovementSensor) GetProperties(ctx context.Context) (*movement
 func (g *SerialNMEAMovementSensor) Close() error {
 	g.logger.Debug("Closing SerialNMEAMovementSensor")
 	g.cancelFunc()
-	g.activeBackgroundWorkers.Wait()
+	go func() {
+		g.activeBackgroundWorkers.Wait()
+		g.done <- struct{}{}
+	}()
+	select {
+	case err := <-g.errors:
+		if err != nil {
+			return err
+		}
+	case <-g.done:
+	}
+
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if g.dev != nil {

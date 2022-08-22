@@ -71,6 +71,8 @@ type PmtkI2CNMEAMovementSensor struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+	done                    chan struct{}
+	errors                  chan error
 }
 
 func newPmtkI2CNMEAMovementSensor(
@@ -104,19 +106,29 @@ func newPmtkI2CNMEAMovementSensor(
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	g := &PmtkI2CNMEAMovementSensor{
-		bus: i2cbus, addr: byte(addr), wbaud: wbaud, cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, disableNmea: disableNmea,
+		bus:         i2cbus,
+		addr:        byte(addr),
+		wbaud:       wbaud,
+		cancelCtx:   cancelCtx,
+		cancelFunc:  cancelFunc,
+		logger:      logger,
+		disableNmea: disableNmea,
+		done:        make(chan struct{}),
+		errors:      make(chan error),
 	}
-	g.Start(ctx)
 
+	if err := g.Start(ctx); err != nil {
+		return nil, err
+	}
 	return g, nil
 }
 
 // Start begins reading nmea messages from module and updates gps data.
-func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) {
+func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) error {
 	handle, err := g.bus.OpenHandle(g.addr)
 	if err != nil {
-		g.logger.Fatalf("can't open gps i2c %s", err)
-		return
+		g.logger.Errorf("can't open gps i2c %s", err)
+		return err
 	}
 	// Send GLL, RMC, VTG, GGA, GSA, and GSV sentences each 1000ms
 	baudcmd := fmt.Sprintf("PMTK251,%d", g.wbaud)
@@ -130,18 +142,18 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) {
 	}
 	err = handle.Write(ctx, cmd314)
 	if err != nil {
-		g.logger.Fatalf("i2c handle write failed %s", err)
-		return
+		g.logger.Errorf("i2c handle write failed %s", err)
+		return err
 	}
 	err = handle.Write(ctx, cmd220)
 	if err != nil {
-		g.logger.Fatalf("i2c handle write failed %s", err)
-		return
+		g.logger.Errorf("i2c handle write failed %s", err)
+		return err
 	}
 	err = handle.Close()
 	if err != nil {
-		g.logger.Fatalf("failed to close handle: %s", err)
-		return
+		g.logger.Errorf("failed to close handle: %s", err)
+		return err
 	}
 
 	g.activeBackgroundWorkers.Add(1)
@@ -159,13 +171,15 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) {
 				// Opening an i2c handle blocks the whole bus, so we open/close each loop so other things also have a chance to use it
 				handle, err := g.bus.OpenHandle(g.addr)
 				if err != nil {
-					g.logger.Fatalf("can't open gps i2c handle: %s", err)
+					g.logger.Errorf("can't open gps i2c handle: %s", err)
+					g.errors <- err
 					return
 				}
 				buffer, err := handle.Read(ctx, 1024)
 				hErr := handle.Close()
 				if hErr != nil {
-					g.logger.Fatalf("failed to close handle: %s", hErr)
+					g.logger.Errorf("failed to close handle: %s", hErr)
+					g.errors <- err
 					return
 				}
 				if err != nil {
@@ -193,6 +207,8 @@ func (g *PmtkI2CNMEAMovementSensor) Start(ctx context.Context) {
 			}
 		}
 	})
+
+	return nil
 }
 
 // GetBusAddr returns the bus and address that takes in rtcm corrections.
@@ -277,7 +293,18 @@ func (g *PmtkI2CNMEAMovementSensor) GetReadings(ctx context.Context) (map[string
 // Close shuts down the SerialNMEAMOVEMENTSENSOR.
 func (g *PmtkI2CNMEAMovementSensor) Close() error {
 	g.cancelFunc()
-	g.activeBackgroundWorkers.Wait()
+	go func() {
+		g.activeBackgroundWorkers.Wait()
+		g.done <- struct{}{}
+	}()
+	select {
+	case err := <-g.errors:
+		if err != nil {
+			return err
+		}
+	case <-g.done:
+	}
+
 	return nil
 }
 

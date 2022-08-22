@@ -76,7 +76,13 @@ func TestReadingsSerial(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := &SerialNMEAMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := &SerialNMEAMovementSensor{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+		done:       make(chan struct{}),
+		errors:     make(chan error),
+	}
 	g.data = gpsData{
 		location:   loc,
 		alt:        alt,
@@ -115,7 +121,13 @@ func TestCloseSerial(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := &SerialNMEAMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := &SerialNMEAMovementSensor{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+		done:       make(chan struct{}),
+		errors:     make(chan error),
+	}
 
 	err := g.Close()
 	test.That(t, err, test.ShouldBeNil)

@@ -30,7 +30,13 @@ func TestConnect(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := RTKMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := RTKMovementSensor{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+		done:       make(chan struct{}),
+		errors:     make(chan error),
+	}
 
 	url := "http://fakeurl"
 	username := "user"
@@ -174,8 +180,20 @@ func TestReadingsRTK(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := RTKMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
-	nmeamovementsensor := &SerialNMEAMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := RTKMovementSensor{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+		done:       make(chan struct{}),
+		errors:     make(chan error),
+	}
+	nmeamovementsensor := &SerialNMEAMovementSensor{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+		done:       make(chan struct{}),
+		errors:     make(chan error),
+	}
 	nmeamovementsensor.data = gpsData{
 		location:   loc,
 		alt:        alt,
@@ -211,9 +229,21 @@ func TestCloseRTK(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := RTKMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := RTKMovementSensor{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+		done:       make(chan struct{}),
+		errors:     make(chan error),
+	}
 	g.ntripClient = makeMockNtripClient()
-	g.nmeamovementsensor = &SerialNMEAMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g.nmeamovementsensor = &SerialNMEAMovementSensor{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+		done:       make(chan struct{}),
+		errors:     make(chan error),
+	}
 
 	err := g.Close()
 	test.That(t, err, test.ShouldBeNil)
