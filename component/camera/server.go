@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/rdk/pointcloud"
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -41,8 +40,8 @@ func (s *subtypeServer) getCamera(name string) (Camera, error) {
 	return camera, nil
 }
 
-// GetFrame returns a frame from a camera of the underlying robot. A specific MIME type
-// can be requested but may not necessarily be the same one returned.
+// GetFrame returns a frame from a camera of the underlying robot. If a specific MIME type
+// is requested and is not available, an error is returned.
 func (s *subtypeServer) GetFrame(
 	ctx context.Context,
 	req *pb.GetFrameRequest,
@@ -54,30 +53,17 @@ func (s *subtypeServer) GetFrame(
 		return nil, err
 	}
 
-	img, release, err := camera.Next(ctx)
+	imgData, usedMimeType, width, height, err := camera.GetFrame(ctx, req.GetMimeType())
 	if err != nil {
 		return nil, err
-	}
-	defer func() {
-		if release != nil {
-			release()
-		}
-	}()
-	if req.MimeType == "" { // transmit png bytes by default
-		req.MimeType = utils.MimeTypePNG
 	}
 
-	bounds := img.Bounds()
 	resp := pb.GetFrameResponse{
-		MimeType: req.MimeType,
-		WidthPx:  int64(bounds.Dx()),
-		HeightPx: int64(bounds.Dy()),
+		Image:    imgData,
+		MimeType: usedMimeType,
+		WidthPx:  width,
+		HeightPx: height,
 	}
-	outBytes, err := rimage.EncodeImage(ctx, img, req.MimeType)
-	if err != nil {
-		return nil, err
-	}
-	resp.Image = outBytes
 	return &resp, nil
 }
 
