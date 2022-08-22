@@ -803,9 +803,9 @@ func createClientConnection(logger *zap.SugaredLogger, cfg *config.Config) (rpc.
 	// fmt.Println("cfg.Cloud: ", cfg.Cloud)
 
 	tlsConfig := config.NewTLSConfig(cfg).Config // unable to generate a TLSConfig
-	// if tlsConfig == nil {
-	// 	logger.Fatalf("unable to generate a tlsConfig")
-	// }
+	if tlsConfig == nil {
+		logger.Fatalf("unable to generate a tlsConfig")
+	}
 
 	// err = tlsConfig.UpdateCert(cfg).Config
 	// if err != nil {
@@ -819,8 +819,8 @@ func createClientConnection(logger *zap.SugaredLogger, cfg *config.Config) (rpc.
 		rpc.WithEntityCredentials(
 			cloudConfig.ID,
 			rpc.Credentials{
-				Type:    utils.CredentialsTypeRobotLocationSecret,
-				Payload: cloudConfig.LocationSecret,
+				Type:    utils.CredentialsTypeRobotSecret,
+				Payload: cloudConfig.Secret,
 			}),
 	}
 	appURL := "app.viam.com:443" // TODO: Find way to not hardcode this. Maybe look in grpc/dial.go?

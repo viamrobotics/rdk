@@ -3,6 +3,7 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -57,6 +58,7 @@ type ManagerConstructor func(logger golog.Logger, cfg *config.Config) (Manager, 
 // NewDefaultManager returns the default Manager that syncs data to app.viam.com.
 func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error) {
 	tlsConfig := config.NewTLSConfig(cfg).Config
+	fmt.Println("tlsConfig: ", tlsConfig)
 	cloudConfig := cfg.Cloud
 	rpcOpts := []rpc.DialOption{
 		rpc.WithTLSConfig(tlsConfig),
