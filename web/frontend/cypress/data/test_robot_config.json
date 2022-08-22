@@ -1,0 +1,97 @@
+{
+    "components":
+    [
+        {
+            "model": "fake",
+            "name": "arm",
+            "type": "arm"
+        },
+        {
+            "model": "fake",
+            "name": "base",
+            "type": "base"
+        },
+        {
+            "model": "fake",
+            "name": "sensor",
+            "type": "sensor"
+        },
+        {
+            "model": "fake",
+            "name": "gripper",
+            "type": "gripper"
+        },
+        {
+            "model": "fake",
+            "name": "camera",
+            "type": "camera"
+        },
+        {
+            "model": "fake",
+            "name": "gantry",
+            "type": "gantry"
+        },
+        {
+            "model": "fake",
+            "name": "movement",
+            "type": "movement_sensor"
+        },
+        {
+            "model": "fake",
+            "name": "board",
+            "type": "board",
+            "attributes": {}
+        },
+        {
+            "model": "fake",
+            "name": "input",
+            "type": "input_controller"
+        },
+        {
+            "model": "fake",
+            "name": "WebGamepad",
+            "type": "input_controller"
+        },
+        {
+            "model": "fake",
+            "name": "servo",
+            "type": "servo",
+            "attributes":
+            {
+                "pin": "12"
+            }
+        },
+        {
+            "name": "motor",
+            "type": "motor",
+            "model": "fake",
+            "attributes":
+            {
+                "pins":
+                {
+                    "a": "1",
+                    "b": "2",
+                    "pwm": "3"
+                }
+            }
+        }
+    ],
+    "services": [
+        {
+            "type": "vision"
+        },
+        {
+            "type": "motion"
+        },
+        {
+            "type": "navigation",
+            "attributes": {
+                "store": {
+                    "type": "memory"
+                },
+                "movement_sensor": "movement",
+                "base": "base"
+            }
+        }
+    ]
+}

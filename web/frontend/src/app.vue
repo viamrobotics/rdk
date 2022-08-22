@@ -238,18 +238,18 @@ export default {
 
         for (const key of Object.keys(statuses)) {
           switch (key) {
-          case 'resources': {
-            errorsList.innerHTML += '<li>Robot Resources</li>';
-            break;
-          }
-          case 'ops': {
-            errorsList.innerHTML += '<li>Current Operations</li>';
-            break;
-          }
-          case 'streams': {
-            errorsList.innerHTML += '<li>Streams</li>';
-            break;
-          }
+            case 'resources': {
+              errorsList.innerHTML += '<li>Robot Resources</li>';
+              break;
+            }
+            case 'ops': {
+              errorsList.innerHTML += '<li>Current Operations</li>';
+              break;
+            }
+            case 'streams': {
+              errorsList.innerHTML += '<li>Streams</li>';
+              break;
+            }
           }
         }
 
@@ -348,19 +348,20 @@ export default {
     fixRawStatus(name, status) {
       switch (resourceNameToSubtypeString(name)) {
       // TODO (APP-146): generate these using constants
-      case 'rdk:component:arm':
-        return fixArmStatus(status);
-      case 'rdk:component:board':
-        return fixBoardStatus(status);
-      case 'rdk:component:gantry':
-        return fixGantryStatus(status);
-      case 'rdk:component:input_controller':
-        return fixInputStatus(status);
-      case 'rdk:component:motor':
-        return fixMotorStatus(status);
-      case 'rdk:component:servo':
-        return fixServoStatus(status);
+        case 'rdk:component:arm':
+          return fixArmStatus(status);
+        case 'rdk:component:board':
+          return fixBoardStatus(status);
+        case 'rdk:component:gantry':
+          return fixGantryStatus(status);
+        case 'rdk:component:input_controller':
+          return fixInputStatus(status);
+        case 'rdk:component:motor':
+          return fixMotorStatus(status);
+        case 'rdk:component:servo':
+          return fixServoStatus(status);
       }
+
       return status;
     },
     grpcCallback (err, resp, stringify) {
@@ -566,16 +567,16 @@ export default {
     gripperAction(name, action) {
       let req;
       switch (action) {
-      case 'open':
-        req = new gripperApi.OpenRequest();
-        req.setName(name);
-        gripperService.open(req, {}, this.grpcCallback);
-        break;
-      case 'grab':
-        req = new gripperApi.GrabRequest();
-        req.setName(name);
-        gripperService.grab(req, {}, this.grpcCallback);
-        break;
+        case 'open':
+          req = new gripperApi.OpenRequest();
+          req.setName(name);
+          gripperService.open(req, {}, this.grpcCallback);
+          break;
+        case 'grab':
+          req = new gripperApi.GrabRequest();
+          req.setName(name);
+          gripperService.grab(req, {}, this.grpcCallback);
+          break;
       }
     },
     gripperStop(name) {
@@ -597,15 +598,15 @@ export default {
     },
     motorCommand(name, inputs) {
       switch (inputs.type) {
-      case 'go':
-        MotorControlHelper.setPower(name, inputs.power * inputs.direction / 100, this.grpcCallback);
-        break;
-      case 'goFor':
-        MotorControlHelper.goFor(name, inputs.rpm * inputs.direction, inputs.revolutions, this.grpcCallback);
-        break;
-      case 'goTo':
-        MotorControlHelper.goTo(name, inputs.rpm, inputs.position, this.grpcCallback);
-        break;
+        case 'go':
+          MotorControlHelper.setPower(name, inputs.power * inputs.direction / 100, this.grpcCallback);
+          break;
+        case 'goFor':
+          MotorControlHelper.goFor(name, inputs.rpm * inputs.direction, inputs.revolutions, this.grpcCallback);
+          break;
+        case 'goTo':
+          MotorControlHelper.goTo(name, inputs.rpm, inputs.position, this.grpcCallback);
+          break;
       }
     },
     motorStop(name) {
@@ -1027,17 +1028,17 @@ export default {
     },
     doSelectObject(selection, index) {
       switch (selection) {
-      case 'Center Point':
-        this.doSegmentLoad(index);
-        break;
-      case 'Bounding Box':
-        this.doBoundingBoxLoad(index);
-        break;
-      case 'Cropped':
-        this.doPointLoad(index);
-        break;
-      default:
-        break;
+        case 'Center Point':
+          this.doSegmentLoad(index);
+          break;
+        case 'Bounding Box':
+          this.doBoundingBoxLoad(index);
+          break;
+        case 'Cropped':
+          this.doPointLoad(index);
+          break;
+        default:
+          break;
       }
     },
     viewCamera(name) {
@@ -1365,7 +1366,7 @@ export default {
               console.log(err);
               return;
             }
-              this.movementsensorData[name].orientation = resp.toObject().orientation;
+            this.movementsensorData[name].orientation = resp.toObject().orientation;
           });
         }
 
@@ -1377,10 +1378,10 @@ export default {
             if (err) {
               console.log(err);
               return;
-              }
+            }
             this.movementsensorData[name].angularVelocity = resp.toObject().angularVelocity;
           });
-          }
+        }
         {
           const req = new movementsensorApi.GetLinearVelocityRequest();
           req.setName(name);
@@ -1407,7 +1408,7 @@ export default {
           });
         }
 
-          {
+        {
           const req = new movementsensorApi.GetPositionRequest();
           req.setName(name);
 
@@ -1416,13 +1417,13 @@ export default {
               console.log(err);
               return;
             }
-              var temp = resp.toObject();
-              this.movementsensorData[name].coordinate = temp.coordinate;
-              this.movementsensorData[name].altitudeMm = temp.altitudeMm;
+            const temp = resp.toObject();
+            this.movementsensorData[name].coordinate = temp.coordinate;
+            this.movementsensorData[name].altitudeMm = temp.altitudeMm;
           });
-          }
+        }
 
-          {
+        {
           const req = new movementsensorApi.GetPropertiesRequest();
           req.setName(name);
 
@@ -1431,10 +1432,10 @@ export default {
               console.log(err);
               return;
             }
-              var temp = resp.toObject();
-              this.movementsensorData[name].properties = temp;
+            const temp = resp.toObject();
+            this.movementsensorData[name].properties = temp;
           });
-          }
+        }
 
       }
 
@@ -1617,51 +1618,45 @@ function setBoundingBox(box, centerPoint) {
     </div>
 
     <!-- ******* BASE *******  -->
-    <div
+    <template
       v-for="base in filterResources(resources, 'rdk', 'component', 'base')"
       :key="base.name"
-      class="base"
     >
-      <div v-if="streamNames.length === 0">
-        <div class="camera">
-          <BaseComponent
-            :base-name="base.name"
-            :connected-camera="false"
-            :crumbs="['base', base.name]"
-            @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
-            @base-spin="handleBaseSpin(base.name, $event)"
-            @base-straight="handleBaseStraight(base.name, $event)"
-            @base-stop="handleBaseActionStop(base.name)"
-          />
-        </div>
-      </div>
-      <div v-else>
-        <div
+      <template v-if="streamNames.length === 0">
+        <BaseComponent
+          :base-name="base.name"
+          :connected-camera="false"
+          :crumbs="['base', base.name]"
+          @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
+          @base-spin="handleBaseSpin(base.name, $event)"
+          @base-straight="handleBaseStraight(base.name, $event)"
+          @base-stop="handleBaseActionStop(base.name)"
+        />
+      </template>
+      <template v-else>
+        <BaseComponent
           v-for="streamName in streamNames"
           :key="streamName"
-          class="camera"
-        >
-          <BaseComponent
-            :base-name="base.name"
-            :stream-name="streamName"
-            :crumbs="['base', base.name]"
-            :connected-camera="true"
-            @base-change-tab="viewPreviewCamera(streamName)"
-            @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
-            @base-spin="handleBaseSpin(base.name, $event)"
-            @base-straight="handleBaseStraight(base.name, $event)"
-            @base-stop="handleBaseActionStop(base.name)"
-            @show-base-camera="viewPreviewCamera(streamName)"
-          />
-        </div>
-      </div>
-    </div>
+          :base-name="base.name"
+          :stream-name="streamName"
+          :crumbs="['base', base.name]"
+          :connected-camera="true"
+          @base-change-tab="viewPreviewCamera(streamName)"
+          @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
+          @base-spin="handleBaseSpin(base.name, $event)"
+          @base-straight="handleBaseStraight(base.name, $event)"
+          @base-stop="handleBaseActionStop(base.name)"
+          @show-base-camera="viewPreviewCamera(streamName)"
+        />
+      </template>
+    </template>
 
     <!-- ******* GANTRY *******  -->
     <v-collapse
       v-for="gantry in filterRdkComponentsWithStatus(resources, status, 'gantry')"
       :key="gantry.name"
       :title="`Gantry ${gantry.name}`"
+      class="gantry"
     >
       <div
         slot="header"
@@ -1734,11 +1729,14 @@ function setBoundingBox(box, centerPoint) {
       v-for="movementsensor in filterResources(resources, 'rdk', 'component', 'movement_sensor')"
       :key="movementsensor.name"
       :title="`MovementSensor: ${movementsensor.name}`"
+      class="movement"
     >
       <div class="flex items-end border border-t-0 border-black p-4">
         <template v-if="movementsensorData[movementsensor.name] && movementsensorData[movementsensor.name].properties">
-
-          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.positionSupported">
+          <div
+            v-if="movementsensorData[movementsensor.name].properties.positionSupported"
+            class="mr-4 w-1/4"
+          >
             <h3 class="mb-1">
               Position
             </h3>
@@ -1748,7 +1746,7 @@ function setBoundingBox(box, centerPoint) {
                   Latitude
                 </th>
                 <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].coordinate?.latitude.toFixed(6)}}
+                  {{ movementsensorData[movementsensor.name].coordinate?.latitude.toFixed(6) }}
                 </td>
               </tr>
               <tr>
@@ -1756,7 +1754,7 @@ function setBoundingBox(box, centerPoint) {
                   Longitude
                 </th>
                 <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].coordinate?.longitude.toFixed(6)}}
+                  {{ movementsensorData[movementsensor.name].coordinate?.longitude.toFixed(6) }}
                 </td>
               </tr>
               <tr>
@@ -1770,7 +1768,10 @@ function setBoundingBox(box, centerPoint) {
             </table>
           </div>
 
-          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.orientationSupported">
+          <div
+            v-if="movementsensorData[movementsensor.name].properties.orientationSupported"
+            class="mr-4 w-1/4"
+          >
             <h3 class="mb-1">
               Orientation (degrees)
             </h3>
@@ -1810,7 +1811,10 @@ function setBoundingBox(box, centerPoint) {
             </table>
           </div>
                 
-          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.angularVelocitySupported">
+          <div
+            v-if="movementsensorData[movementsensor.name].properties.angularVelocitySupported"
+            class="mr-4 w-1/4"
+          >
             <h3 class="mb-1">
               Angular Velocity (degrees/second)
             </h3>
@@ -1842,7 +1846,10 @@ function setBoundingBox(box, centerPoint) {
             </table>
           </div>
 
-          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.linearVelocitySupported">
+          <div
+            v-if="movementsensorData[movementsensor.name].properties.linearVelocitySupported"
+            class="mr-4 w-1/4"
+          >
             <h3 class="mb-1">
               Linear Velocity
             </h3>
@@ -1874,7 +1881,10 @@ function setBoundingBox(box, centerPoint) {
             </table>
           </div>
 
-          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.compassHeadingSupported">
+          <div
+            v-if="movementsensorData[movementsensor.name].properties.compassHeadingSupported"
+            class="mr-4 w-1/4"
+          >
             <h3 class="mb-1">
               Compass Heading
             </h3>
@@ -1889,7 +1899,6 @@ function setBoundingBox(box, centerPoint) {
               </tr>
             </table>
           </div>
-          
         </template>
       </div>
     </v-collapse>
@@ -1899,6 +1908,7 @@ function setBoundingBox(box, centerPoint) {
       v-for="arm in filterResources(resources, 'rdk', 'component', 'arm')"
       :key="arm.name"
       :title="`Arm ${arm.name}`"
+      class="arm"
     >
       <div
         slot="header"
@@ -2088,6 +2098,7 @@ function setBoundingBox(box, centerPoint) {
       v-for="gripper in filterResources(resources, 'rdk', 'component', 'gripper')"
       :key="gripper.name"
       :title="`Gripper ${gripper.name}`"
+      class="gripper"
     >
       <div
         slot="header"
@@ -2139,6 +2150,7 @@ function setBoundingBox(box, centerPoint) {
       :key="'new-' + controller.name"
       :controller-name="controller.name"
       :controller-status="resourceStatusByName(controller)"
+      class="input"
     />
 
     <!-- ******* WEB CONTROLS *******  -->
@@ -2153,6 +2165,7 @@ function setBoundingBox(box, centerPoint) {
       v-for="board in filterRdkComponentsWithStatus(resources, status, 'board')"
       :key="board.name"
       :title="`Board ${board.name}`"
+      class="board"
     >
       <div class="border border-t-0 border-black p-4">
         <h3 class="mb-2">
@@ -2280,6 +2293,7 @@ function setBoundingBox(box, centerPoint) {
     <v-collapse
       v-if="nonEmpty(sensorNames)"
       title="Sensors"
+      class="sensors"
     >
       <div class="border border-t-0 border-black p-4">
         <table class="w-full table-auto border border-black">
@@ -2333,7 +2347,10 @@ function setBoundingBox(box, centerPoint) {
     />
 
     <!-- current operations -->
-    <v-collapse title="Current Operations">
+    <v-collapse
+      title="Current Operations"
+      class="operations"
+    >
       <div class="border border-t-0 border-black p-4">
         <table class="w-full table-auto border border-black">
           <tr>
