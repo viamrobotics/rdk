@@ -17,13 +17,13 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-//go:embed visualize.py
+//go:embed visualize3D.py
 var vviz []byte
 
 type stepData map[string][][]r3.Vector
 
 // VisualizePlan visualizes a plan for a given model and given worldState.
-func VisualizePlan(ctx context.Context, plan [][]referenceframe.Input, model referenceframe.Model, worldState *pb.WorldState) error {
+func VisualizePlan(ctx context.Context, plan [][]referenceframe.Input, model referenceframe.Frame, worldState *pb.WorldState) error {
 	planData := make([]stepData, 0)
 	for _, step := range plan {
 		planData = append(planData, getStepData(model, worldState, step))

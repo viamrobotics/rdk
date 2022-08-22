@@ -66,7 +66,7 @@ class Scene():
             self.model = EntityGroup(ax, example_data["model"], 'r')
             artists.append(self.model)
         
-        self.artists = list(itertools.chain.from_iterable([self.obstacles.artists, self.model.artists]))
+        self.artists = list(itertools.chain.from_iterable([artists]))
 
     def draw(self, data):
         # TODO: fix draw order of entities in the scene

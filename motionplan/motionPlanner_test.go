@@ -11,11 +11,14 @@ import (
 	"go.uber.org/zap"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/motionplan/visualization"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
+
+var numTests = 1
 
 var (
 	home7 = frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
@@ -43,14 +46,14 @@ func TestUnconstrainedMotion(t *testing.T) {
 	planners := []seededPlannerConstructor{
 		NewRRTStarConnectMotionPlannerWithSeed,
 		// NewRRTConnectMotionPlannerWithSeed,
-		// NewCBiRRTMotionPlannerWithSeed,
+		NewCBiRRTMotionPlannerWithSeed,
 	}
 	testCases := []struct {
 		name   string
 		config planConfig
 	}{
-		{"2D plan test", simple2DMap(t)},
-		// {"6D plan test", simpleUR5eMotion(t)},
+		// {"2D plan test", simple2DMap(t)},
+		{"6D plan test", simpleUR5eMotion(t)},
 		// {"7D plan test", simpleXArmMotion(t)},
 	}
 	for _, testCase := range testCases {
@@ -181,7 +184,7 @@ func simple2DMap(t *testing.T) planConfig {
 	test.That(t, err, test.ShouldBeNil)
 
 	return planConfig{
-		NumTests:   1,
+		NumTests:   numTests,
 		Start:      frame.FloatsToInputs([]float64{-9., 9.}),
 		Goal:       spatial.PoseToProtobuf(spatial.NewPoseFromPoint(r3.Vector{X: 9, Y: 9, Z: 0})),
 		RobotFrame: model,
@@ -223,7 +226,7 @@ func testPlanner(t *testing.T, planner seededPlannerConstructor, config *planCon
 	var path [][]frame.Input
 	for i := 0; i < config.NumTests; i++ {
 		// setup planner
-		mp, err := planner(config.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(0))), logger.Sugar())
+		mp, err := planner(config.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(i))), logger.Sugar())
 		test.That(t, err, test.ShouldBeNil)
 		opt := NewDefaultPlannerOptions()
 		toMap := func(geometries []spatial.Geometry) map[string]spatial.Geometry {
@@ -256,6 +259,7 @@ func testPlanner(t *testing.T, planner seededPlannerConstructor, config *planCon
 			test.That(t, ok, test.ShouldBeTrue)
 		}
 		t.Log(evaluatePlan(path))
+		visualization.VisualizePlan(context.Background(), path, config.RobotFrame, nil)
 	}
 
 	// write output
