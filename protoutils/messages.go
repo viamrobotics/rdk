@@ -178,11 +178,14 @@ func structToMap(data interface{}) (map[string]interface{}, error) {
 			continue
 		}
 
-		data, err := toInterface(field)
-		if err != nil {
-			return nil, err
+		var data interface{} = nil
+		var err error
+		if field != nil {
+			data, err = toInterface(field)
+			if err != nil {
+				return nil, err
+			}
 		}
-
 		res[key] = data
 	}
 	return res, nil
@@ -260,9 +263,9 @@ func ConvertOrientationToProto(o spatialmath.Orientation) *commonpb.Orientation 
 // ConvertProtoToOrientation
 func ConvertProtoToOrientation(o *commonpb.Orientation) spatialmath.Orientation {
 	return &spatialmath.OrientationVectorDegrees{
-		OX : o.OX,
-		OY : o.OY,
-		OZ : o.OZ,
-		Theta : o.Theta	,
+		OX:    o.OX,
+		OY:    o.OY,
+		OZ:    o.OZ,
+		Theta: o.Theta,
 	}
 }
