@@ -105,7 +105,7 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
 
 <template>
   <v-collapse
-    title="Base"
+    :title="baseName"
     class="base"
   >
     <v-breadcrumbs

@@ -857,13 +857,16 @@ export default {
         if (err) {
           return;
         }
-          for (const r of resp.getReadingsList()) {
-              const readings = r.getReadingsMap();
-              var rr = {};
-              readings.forEach( (v, k) => {
-                  rr[k] = v.toJavaScript();
-                  });
-              this.sensorReadings[resourceNameToString(r.getName().toObject())] = rr;
+
+        for (const r of resp.getReadingsList()) {
+          const readings = r.getReadingsMap();
+          const rr = {};
+
+          for (const [k, v] of readings.entries()) {
+            rr[k] = v.toJavaScript();
+          }
+          
+          this.sensorReadings[resourceNameToString(r.getName().toObject())] = rr;
         }
       });
     },
@@ -1631,7 +1634,7 @@ function setBoundingBox(box, centerPoint) {
         <BaseComponent
           :base-name="base.name"
           :connected-camera="false"
-          :crumbs="['base', base.name]"
+          :crumbs="['base']"
           @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
           @base-spin="handleBaseSpin(base.name, $event)"
           @base-straight="handleBaseStraight(base.name, $event)"
@@ -1644,7 +1647,7 @@ function setBoundingBox(box, centerPoint) {
           :key="streamName"
           :base-name="base.name"
           :stream-name="streamName"
-          :crumbs="['base', base.name]"
+          :crumbs="['base']"
           :connected-camera="true"
           @base-change-tab="viewPreviewCamera(streamName)"
           @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
@@ -1660,9 +1663,13 @@ function setBoundingBox(box, centerPoint) {
     <v-collapse
       v-for="gantry in filterRdkComponentsWithStatus(resources, status, 'gantry')"
       :key="gantry.name"
-      :title="`Gantry ${gantry.name}`"
+      :title="gantry.name"
       class="gantry"
     >
+      <v-breadcrumbs
+        slot="title"
+        :crumbs="['gantry'].join(',')"
+      />
       <div
         slot="header"
         class="flex items-center justify-between gap-2"
@@ -1729,13 +1736,18 @@ function setBoundingBox(box, centerPoint) {
         </table>
       </div>
     </v-collapse>
+
     <!-- ******* MovementSensor *******  -->
     <v-collapse
       v-for="movementsensor in filterResources(resources, 'rdk', 'component', 'movement_sensor')"
       :key="movementsensor.name"
-      :title="`Movement Sensor ${movementsensor.name}`"
+      :title="movementsensor.name"
       class="movement"
     >
+      <v-breadcrumbs
+        slot="title"
+        :crumbs="['movement_sensor'].join(',')"
+      />
       <div class="flex items-end border border-t-0 border-black p-4">
         <template v-if="movementsensorData[movementsensor.name] && movementsensorData[movementsensor.name].properties">
           <div
@@ -1912,9 +1924,13 @@ function setBoundingBox(box, centerPoint) {
     <v-collapse
       v-for="arm in filterResources(resources, 'rdk', 'component', 'arm')"
       :key="arm.name"
-      :title="`Arm ${arm.name}`"
+      :title="arm.name"
       class="arm"
     >
+      <v-breadcrumbs
+        slot="title"
+        :crumbs="['arm'].join(',')"
+      />
       <div
         slot="header"
         class="flex items-center justify-between gap-2"
@@ -2102,9 +2118,13 @@ function setBoundingBox(box, centerPoint) {
     <v-collapse
       v-for="gripper in filterResources(resources, 'rdk', 'component', 'gripper')"
       :key="gripper.name"
-      :title="`Gripper ${gripper.name}`"
+      :title="gripper.name"
       class="gripper"
     >
+      <v-breadcrumbs
+        slot="title"
+        :crumbs="['gripper'].join(',')"
+      />
       <div
         slot="header"
         class="flex items-center justify-between gap-2"
@@ -2134,6 +2154,7 @@ function setBoundingBox(box, centerPoint) {
       :key="servo.name"
       :servo-name="servo.name"
       :servo-angle="resourceStatusByName(servo).positionDeg"
+      :crumbs="['servo']"
       @servo-move="(amount) => servoMove(servo, amount)"
       @servo-stop="servoStop(servo.name)"
     />
@@ -2143,7 +2164,7 @@ function setBoundingBox(box, centerPoint) {
       v-for="motor in filterRdkComponentsWithStatus(resources, status, 'motor')"
       :key="'new-' + motor.name" 
       :motor-name="motor.name" 
-      :crumbs="['motor', motor.name]" 
+      :crumbs="['motor']" 
       :motor-status="resourceStatusByName(motor)"
       @motor-run="motorCommand(motor.name, $event)"
       @motor-stop="motorStop(motor.name)"
@@ -2155,6 +2176,7 @@ function setBoundingBox(box, centerPoint) {
       :key="'new-' + controller.name"
       :controller-name="controller.name"
       :controller-status="resourceStatusByName(controller)"
+      :crumbs="['input_controller']"
       class="input"
     />
 
@@ -2169,9 +2191,13 @@ function setBoundingBox(box, centerPoint) {
     <v-collapse
       v-for="board in filterRdkComponentsWithStatus(resources, status, 'board')"
       :key="board.name"
-      :title="`Board ${board.name}`"
+      :title="board.name"
       class="board"
     >
+      <v-breadcrumbs
+        slot="title"
+        :crumbs="['board'].join(',')"
+      />
       <div class="border border-t-0 border-black p-4">
         <h3 class="mb-2">
           Analogs
@@ -2294,7 +2320,43 @@ function setBoundingBox(box, centerPoint) {
       </div>
     </v-collapse>
 
-    <!-- sensors -->
+    <!-- ******* CAMERAS *******  -->
+    <Camera
+      v-for="streamName in streamNames"
+      :key="streamName"
+      :stream-name="streamName"
+      :crumbs="['camera']"
+      :x="pcdClick.x"
+      :y="pcdClick.y"
+      :z="pcdClick.z"
+      :pcd-click="pcdClick"
+      :segmenter-names="segmenterNames"
+      :segmenter-parameters="segmenterParameters"
+      :segmenter-parameter-names="segmenterParameterNames"
+      :parameter-type="parameterType"
+      :segment-algo="segmentAlgo"
+      :segment-objects="objects"
+      :find-status="pcdClick.calculatingSegments"
+      @full-image="doPCDLoad(fullcloud)"
+      @center-pcd="doCenterPCDLoad(fullcloud)"
+      @find-segments="findSegments(segmentAlgo, segmenterParameters)"
+      @change-segmenter="getSegmenterParameters"
+      @toggle-camera="viewCamera(streamName)"
+      @refresh-camera="viewCameraFrame"
+      @selected-camera-view="viewCameraFrame"
+      @toggle-pcd="renderPCD(streamName)"
+      @pcd-click="grabClick"
+      @pcd-move="doPCDMove"
+      @point-load="doPointLoad"
+      @segment-load="doSegmentLoad"
+      @bounding-box-load="doBoundingBoxLoad"
+      @download-screenshot="renderFrame(streamName)"
+      @download-raw-data="doPCDDownload(fullcloud)"
+      @select-object="doSelectObject"
+      @segmenter-parameters-input="(name, value) => segmenterParameters[name] = Number(value)"
+    />
+
+    <!-- ******* SENSORS ******* -->
     <v-collapse
       v-if="nonEmpty(sensorNames)"
       title="Sensors"
@@ -2332,11 +2394,17 @@ function setBoundingBox(box, centerPoint) {
             </td>
             <td class="border border-black p-2">
               <table style="font-size:.7em; text-align: left;">
-                <tr v-for="(value, sensorField) in sensorReadings[resourceNameToString(name)]">
+                <tr
+                  v-for="(sensorValue, sensorField) in sensorReadings[resourceNameToString(name)]"
+                  :key="sensorField"
+                >
                   <th>{{ sensorField }}</th>
                   <td>
-                    {{value}}
-                    <a v-if="value._type == 'geopoint'" :href="'https://www.google.com/maps/search/' + value.lat + ',' + value.lng">google maps</a>
+                    {{ sensorValue }}
+                    <a
+                      v-if="sensorValue._type == 'geopoint'"
+                      :href="'https://www.google.com/maps/search/' + sensorValue.lat + ',' + sensorValue.lng"
+                    >google maps</a>
                   </td>
                 </tr>
               </table>
@@ -2353,13 +2421,21 @@ function setBoundingBox(box, centerPoint) {
       </div>
     </v-collapse>
 
-    <!-- get segments -->
+    <!-- ******* NAVIGATION ******* -->
     <Navigation
       v-if="filterResources(resources, 'rdk', 'service', 'navigation').length > 0"
       :resources="resources"
     />
 
-    <!-- current operations -->
+    <!-- ******* SLAM *******  -->
+    <Slam
+      v-if="filterResources(resources, 'rdk', 'service', 'slam').length > 0"
+      :image-map="imageMapTemp"
+      @update-slam-image-refresh-frequency="updateSLAMImageRefreshFrequency"
+      @update-slam-pcd-refresh-frequency="updateSLAMPCDRefreshFrequency"
+    />
+
+    <!-- ******* CURRENT OPERATIONS ******* -->
     <v-collapse
       title="Current Operations"
       class="operations"
@@ -2401,50 +2477,6 @@ function setBoundingBox(box, centerPoint) {
         </table>
       </div>
     </v-collapse>
-
-    <!-- ******* CAMERAS *******  -->
-    <Camera
-      v-for="streamName in streamNames"
-      :key="streamName"
-      :stream-name="streamName"
-      :crumbs="['camera', streamName]"
-      :x="pcdClick.x"
-      :y="pcdClick.y"
-      :z="pcdClick.z"
-      :pcd-click="pcdClick"
-      :segmenter-names="segmenterNames"
-      :segmenter-parameters="segmenterParameters"
-      :segmenter-parameter-names="segmenterParameterNames"
-      :parameter-type="parameterType"
-      :segment-algo="segmentAlgo"
-      :segment-objects="objects"
-      :find-status="pcdClick.calculatingSegments"
-      @full-image="doPCDLoad(fullcloud)"
-      @center-pcd="doCenterPCDLoad(fullcloud)"
-      @find-segments="findSegments(segmentAlgo, segmenterParameters)"
-      @change-segmenter="getSegmenterParameters"
-      @toggle-camera="viewCamera(streamName)"
-      @refresh-camera="viewCameraFrame"
-      @selected-camera-view="viewCameraFrame"
-      @toggle-pcd="renderPCD(streamName)"
-      @pcd-click="grabClick"
-      @pcd-move="doPCDMove"
-      @point-load="doPointLoad"
-      @segment-load="doSegmentLoad"
-      @bounding-box-load="doBoundingBoxLoad"
-      @download-screenshot="renderFrame(streamName)"
-      @download-raw-data="doPCDDownload(fullcloud)"
-      @select-object="doSelectObject"
-      @segmenter-parameters-input="(name, value) => segmenterParameters[name] = Number(value)"
-    />
-
-    <!-- ******* SLAM *******  -->
-    <Slam
-      v-if="filterResources(resources, 'rdk', 'service', 'slam').length > 0"
-      :image-map="imageMapTemp"
-      @update-slam-image-refresh-frequency="updateSLAMImageRefreshFrequency"
-      @update-slam-pcd-refresh-frequency="updateSLAMPCDRefreshFrequency"
-    />
 
     <!-- ******* DO ******* -->
     <Do :resources="filterResourcesWithNames(resources)" />
