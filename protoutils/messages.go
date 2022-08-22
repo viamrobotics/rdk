@@ -81,6 +81,10 @@ func StructToStructPb(i interface{}) (*structpb.Struct, error) {
 
 // takes a go type and tries to make it a better type for converting to grpc
 func toInterface(data interface{}) (interface{}, error) {
+	if data == nil {
+		return nil, nil
+	}
+
 	t := reflect.TypeOf(data)
 	v := reflect.ValueOf(data)
 	if t.Kind() == reflect.Ptr {
@@ -177,14 +181,9 @@ func structToMap(data interface{}) (map[string]interface{}, error) {
 		if strings.Contains(tag, "omitempty") && isEmptyValue(reflect.ValueOf(field)) {
 			continue
 		}
-
-		var data interface{} = nil
-		var err error
-		if field != nil {
-			data, err = toInterface(field)
-			if err != nil {
-				return nil, err
-			}
+		data, err := toInterface(field)
+		if err != nil {
+			return nil, err
 		}
 		res[key] = data
 	}
