@@ -377,32 +377,33 @@ func newWithResources(
 		return nil, err
 	}
 	// See if default service already exists in the config
-	m := make(map[resource.Subtype]bool)
+	seen := make(map[resource.Subtype]bool)
 	for _, name := range resource.DefaultServices {
-		m[name.Subtype] = false
+		seen[name.Subtype] = false
 		r.defaultServicesNames[name.Subtype] = name
 	}
 	// Mark default service subtypes in the map as true
 	for _, val := range cfg.Services {
-		if _, ok := m[val.ResourceName().Subtype]; ok {
-			m[val.ResourceName().Subtype] = true
+		if _, ok := seen[val.ResourceName().Subtype]; ok {
+			seen[val.ResourceName().Subtype] = true
 			r.defaultServicesNames[val.ResourceName().Subtype] = val.ResourceName()
 		}
 	}
 	// default services added if they are not already defined in the config
 	for _, name := range resource.DefaultServices {
-		if !m[name.Subtype] {
-			cfg := config.Service{
-				Namespace: name.Namespace,
-				Type:      config.ServiceType(name.ResourceSubtype),
-			}
-			svc, err := r.newService(ctx, cfg)
-			if err != nil {
-				logger.Errorw("failed to add default service", "error", err, "service", name)
-				continue
-			}
-			r.manager.addResource(name, svc)
+		if seen[name.Subtype] {
+			continue
 		}
+		cfg := config.Service{
+			Namespace: name.Namespace,
+			Type:      config.ServiceType(name.ResourceSubtype),
+		}
+		svc, err := r.newService(ctx, cfg)
+		if err != nil {
+			logger.Errorw("failed to add default service", "error", err, "service", name)
+			continue
+		}
+		r.manager.addResource(name, svc)
 	}
 
 	r.activeBackgroundWorkers.Add(1)
