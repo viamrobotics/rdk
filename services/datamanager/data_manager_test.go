@@ -128,8 +128,8 @@ func setupConfig(t *testing.T, relativePath string) *config.Config {
 	test.That(t, err, test.ShouldBeNil)
 	// fmt.Println("testCfg.Cloud: ", testCfg.Cloud)
 	testCfg.Cloud = &config.Cloud{ID: "part_id"}
-	testCfg.Cloud = &config.Cloud{TLSCertificate: "abc"}
-	testCfg.Cloud = &config.Cloud{TLSPrivateKey: "123"}
+	// testCfg.Cloud = &config.Cloud{TLSCertificate: "abc"}
+	// testCfg.Cloud = &config.Cloud{TLSPrivateKey: "123"}
 	// testCfg.Cloud = &config.Cloud{LocationSecret: rutils.CredentialsTypeRobotLocationSecret}
 	// fmt.Println("testCfg.Cloud: ", testCfg.Cloud)
 	return testCfg

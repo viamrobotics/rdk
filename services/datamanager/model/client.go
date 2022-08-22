@@ -3,6 +3,7 @@ package model
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
@@ -19,6 +20,7 @@ type client struct {
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
 func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
+	fmt.Println("newSvcClientFromConn()")
 	grpcClient := pb.NewModelServiceClient(conn)
 	sc := &client{
 		conn:   conn,
@@ -31,6 +33,7 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
 // NewClientFromConn constructs a new Client from connection passed in.
 //nolint:revive
 func NewClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
+	fmt.Println("NewClientFromConn()")
 	return newSvcClientFromConn(conn, logger)
 }
 

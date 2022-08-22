@@ -623,12 +623,12 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 				},
 			}
 			deployResp, err := modelServiceClient.Deploy(cancelCtx, deployRequest)
-			fmt.Println("do we make it past?")
+			// fmt.Println("do we make it past?")
 			if err != nil {
-				fmt.Println("NOT PAST")
+				// fmt.Println("NOT PAST")
 				svc.logger.Error(err)
 			} else {
-				fmt.Println("YES PAST")
+				// fmt.Println("YES PAST")
 				url := deployResp.Message
 				err := downloadFile(cancelCtx, model.Destination, url, svc.logger)
 				if err != nil {
@@ -803,9 +803,10 @@ func createClientConnection(logger *zap.SugaredLogger, cfg *config.Config) (rpc.
 	// fmt.Println("cfg.Cloud: ", cfg.Cloud)
 
 	tlsConfig := config.NewTLSConfig(cfg).Config // unable to generate a TLSConfig
-	if tlsConfig == nil {
-		logger.Fatalf("unable to generate a tlsConfig")
-	}
+
+	// if tlsConfig == nil {
+	// 	logger.Fatalf("unable to generate a tlsConfig")
+	// }
 
 	// err = tlsConfig.UpdateCert(cfg).Config
 	// if err != nil {
