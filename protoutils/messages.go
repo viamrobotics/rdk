@@ -79,6 +79,7 @@ func StructToStructPb(i interface{}) (*structpb.Struct, error) {
 	return ret, nil
 }
 
+// takes a go type and tries to make it a better type for converting to grpc
 func toInterface(data interface{}) (interface{}, error) {
 	t := reflect.TypeOf(data)
 	v := reflect.ValueOf(data)
