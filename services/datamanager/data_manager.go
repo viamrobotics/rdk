@@ -490,6 +490,7 @@ func (svc *dataManagerService) syncAdditionalSyncPaths() {
 
 // Update updates the data manager service when the config has changed.
 func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) error {
+	fmt.Println("Update()")
 	svcConfig, ok, err := getServiceConfig(cfg)
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
 	// Close any collectors.
@@ -579,7 +580,9 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 }
 
 func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy []*Model) error {
+	fmt.Println("downloadModels()")
 	modelsToDownload := getModelsToDownload(modelsToDeploy)
+	fmt.Println("modelsToDownload: ", modelsToDownload)
 	// TODO: DATA-295, delete models in file system that are no longer in the config.
 
 	// If we have no models to download, exit.
@@ -600,6 +603,7 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 	// One connection can be reused over and over again, so store it and use it for subsequent
 	// downloads as well.
 	if svc.clientConn == nil {
+		// fmt.Println("this is cfg: ", cfg)
 		conn, err := createClientConnection(svc.logger, cfg)
 		if err != nil {
 			return err
@@ -641,6 +645,7 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 
 // unzipSource unzips all files inside a zip file.
 func unzipSource(cancelCtx context.Context, destination, fileName string, logger golog.Logger) error {
+	fmt.Println("unzipSource()")
 	zipReader, err := zip.OpenReader(filepath.Join(destination, fileName))
 	if err != nil {
 		return err
@@ -657,6 +662,7 @@ func unzipSource(cancelCtx context.Context, destination, fileName string, logger
 }
 
 func unzipFile(cancelCtx context.Context, f *zip.File, destination string, logger golog.Logger) error {
+	fmt.Println("unzipFile()")
 	// TODO: DATA-307, We should be passing in the context to any operations that can take several seconds,
 	// which includes unzipFile. As written, this can block .Close for an unbounded amount of time.
 	//nolint:gosec
@@ -767,6 +773,7 @@ func getModelsToDownload(models []*Model) []*Model {
 	// all their models in. In that case, this wouldn't work as expected.
 	// TODO: Fix.
 	// to test this version we only upload one model?
+	fmt.Println("getModelsToDownload()")
 	modelsToDownload := make([]*Model, 0)
 	for _, model := range models {
 		if model.Destination == "" {
@@ -786,9 +793,20 @@ func getModelsToDownload(models []*Model) []*Model {
 }
 
 func createClientConnection(logger *zap.SugaredLogger, cfg *config.Config) (rpc.ClientConn, error) {
+	fmt.Println("createClientConnection()")
 	ctx := context.Background()
-	tlsConfig := config.NewTLSConfig(cfg).Config
+	// fmt.Println("cfg.Cloud: ", cfg.Cloud)
+	tlsConfig := config.NewTLSConfig(cfg).Config // unable to generate a TLSConfig
+	// if tlsConfig == nil {
+	// 	logger.Fatalf("unable to generate a tlsConfig")
+	// }
+	// err = tlsConfig.UpdateCert(cfg).Config
+	// if err != nil {
+	// 	fmt.Println("err: ", err)
+	// }
+	// fmt.Println("tlsConfig: ", tlsCo/nfig)
 	cloudConfig := cfg.Cloud
+	// fmt.Println("cloudConfig.LocationSecret: ", cloudConfig.LocationSecret)
 	rpcOpts := []rpc.DialOption{
 		rpc.WithTLSConfig(tlsConfig),
 		rpc.WithEntityCredentials(

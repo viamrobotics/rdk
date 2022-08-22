@@ -5,11 +5,12 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	pb "go.viam.com/api/proto/viam/model/v1"
 	"go.viam.com/utils/rpc"
+
+	pb "go.viam.com/api/proto/viam/model/v1"
 )
 
-// client is a client satisfies the model.proto contract.
+// client implements ModelServiceClient.
 type client struct {
 	conn   rpc.ClientConn
 	client pb.ModelServiceClient

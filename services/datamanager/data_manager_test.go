@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -28,6 +29,7 @@ import (
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -46,8 +48,8 @@ var (
 	syncIntervalMins   = 0.0041 // 250ms
 	captureDir         = "/tmp/capture"
 	armDir             = captureDir + "/arm/arm1/GetEndPosition"
-	modelDir           = "/tmp/models" // do we need this???
-	emptyFileBytesSize = 30            // size of leading metadata message
+	modelDir           = "/tmp/models"
+	emptyFileBytesSize = 30 // size of leading metadata message
 	testSvcName1       = "svc1"
 	testSvcName2       = "svc2"
 )
@@ -120,11 +122,16 @@ func newTestDataManager(t *testing.T, localArmKey string, remoteArmKey string) i
 }
 
 func setupConfig(t *testing.T, relativePath string) *config.Config {
+	fmt.Println("setupConfig()")
 	t.Helper()
 	logger := golog.NewTestLogger(t)
 	testCfg, err := config.Read(context.Background(), rutils.ResolveFile(relativePath), logger)
 	test.That(t, err, test.ShouldBeNil)
+	// fmt.Println("testCfg.Cloud: ", testCfg.Cloud)
 	testCfg.Cloud = &config.Cloud{ID: "part_id"}
+	testCfg.Cloud = &config.Cloud{TLSCertificate: "abc"}
+	testCfg.Cloud = &config.Cloud{LocationSecret: utils.CredentialsTypeRobotLocationSecret}
+	fmt.Println("testCfg.Cloud: ", testCfg.Cloud)
 	return testCfg
 }
 
@@ -238,7 +245,6 @@ func TestNewRemoteDataManager(t *testing.T) {
 	test.That(t, filesInRemoteArmDir[0].Size(), test.ShouldBeGreaterThan, 0)
 }
 
-// re-read and understand this function better..
 // Validates that if the datamanager/robot die unexpectedly, that previously captured but not synced files are still
 // synced at start up.
 func TestRecoversAfterKilled(t *testing.T) {
@@ -298,9 +304,11 @@ func TestRecoversAfterKilled(t *testing.T) {
 	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 1+numArbitraryFilesToSync)
 }
 
+// need to finish
 // Validates that if the datamanager/robot die unexpectedly, that previously captured
-// but not synced modelfiles are still synced at start up
+// but not synced model files are still synced at start up.
 func TestModelsAfterKilled(t *testing.T) {
+	fmt.Println("TestModelsAfterKilled()")
 	// Register mock model service with a mock server.
 	rpcServer, mockService := buildAndStartLocalModelServer(t)
 	defer func() {
@@ -308,24 +316,60 @@ func TestModelsAfterKilled(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	}()
 
-	modelss, err := populateModels()
+	modelss, numArbitraryFilesToSync, err := populateModels()
+	fmt.Println("numArbitraryFilesToSync: ", numArbitraryFilesToSync)
+
 	if err != nil {
-		t.Error("something went wrong..")
+		t.Error("something went wrong with populateModels().")
 	}
 
+	// testCfg := setupConfig(t, configPath)
 	testCfg := setupConfig(t, configPath)
+	// fmt.Println()
+	// fmt.Println("testCfg: ", testCfg)
+
 	dmCfg, err := getDataManagerConfig(testCfg)
+	// fmt.Println("dmCfg: ", dmCfg)
 	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
-	dmCfg.ModelsToDeploy = modelss
+	dmCfg.ModelsToDeploy = append(dmCfg.ModelsToDeploy, modelss...)
 
-	fmt.Printf("mockService type: %T", mockService)
+	// Initialize the data manager and update it with our config.
+	dmsvc := newTestDataManager(t, "arm1", "")
+
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+	dmsvc.SetWaitAfterLastModifiedSecs(10)
+	err = dmsvc.Update(context.TODO(), testCfg)
+
+	test.That(t, err, test.ShouldBeNil)
+
+	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not synced.
+	time.Sleep(time.Millisecond * 150)
+
+	// Simulate turning off the service.
+	err = dmsvc.Close(context.TODO())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Validate nothing has been synced yet.
+	test.That(t, len(mockService.getUploadedModels()), test.ShouldEqual, 0)
+
+	// Turn the service back on.
+	dmsvc = newTestDataManager(t, "arm1", "")
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+	dmsvc.SetWaitAfterLastModifiedSecs(0)
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Validate that the previously captured file was uploaded at startup.
+	time.Sleep(syncWaitTime)
+	err = dmsvc.Close(context.TODO())
+	test.That(t, err, test.ShouldBeNil)
+	// test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 1+numArbitraryFilesToSync)
 
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
 // that directory is created (and can be synced on subsequent iterations of syncing).
-// hmmmmm.... does this need to be edited?
 func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	td := "additional_sync_path_dir"
 	// Once testing is complete, remove contents from data capture dirs.
@@ -361,15 +405,52 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	test.That(t, errors.Is(err, nil), test.ShouldBeTrue)
 }
 
-// in return arguments below
-func populateModels() ([]*datamanager.Model, error) {
+// Generates and populates a directory structure of files that contain arbitrary file data. Used to simulate testing
+// syncing of data in the service's models_on_robot.
+//nolint
+func populateModels() ([]*datamanager.Model, int, error) {
+	fmt.Println("populateModels()")
 	var additionalModels []*datamanager.Model
+	numArbitraryFilesToSync := 0
 
-	m1 := &datamanager.Model{Name: "M1", Destination: "/home/example_user/"}
-	additionalModels = append(additionalModels, m1)
-	// m2 := datamanager.Model{Name: "M2", Destination: "/home/example_user/"}
-	// additionalModels = append(additionalModels, m2)
-	return additionalModels, nil
+	// Generate models_on_robot "dummy" dirs and files.
+	for i := 0; i < 2; i++ {
+		// Create a temp dir that will house models_on_robot.
+		td, err := ioutil.TempDir("", modelDir)
+		if err != nil {
+			return []*datamanager.Model{}, 0, errors.New("cannot create temporary dir to simulate models_on_robot in data manager service config")
+		}
+		m := &datamanager.Model{Name: "M" + strconv.Itoa(i), Destination: modelDir}
+		fmt.Println("this is m now: ", m)
+		additionalModels = append(additionalModels, m)
+
+		// Make the first dir empty.
+		if i == 0 {
+			continue
+		} else {
+			// Make the dirs that will contain two files.
+			for i := 0; i < 2; i++ {
+				// Generate data that will be in a temp file.
+				fileData := []byte("This is file data. It will be stored in a directory included in the user's specified models on robot. Hopefully it is uploaded from the robot to the cloud!")
+
+				// Create arbitrary file that will be in the temp dir generated above.
+				tf, err := ioutil.TempFile(td, "arbitrary_model_file_")
+				if err != nil {
+					return nil, 0, errors.New("cannot create temporary file to simulate uploading from data manager service")
+				}
+
+				// Write data to the temp file.
+				if _, err := tf.Write(fileData); err != nil {
+					return nil, 0, errors.New("cannot write arbitrary data to temporary file")
+				}
+
+				// Increment number of files to be synced.
+				numArbitraryFilesToSync++
+			}
+		}
+	}
+
+	return additionalModels, numArbitraryFilesToSync, nil
 }
 
 // Generates and populates a directory structure of files that contain arbitrary file data. Used to simulate testing
@@ -717,8 +798,8 @@ type mockDataSyncServiceServer struct {
 }
 
 type mockModelServiceServer struct {
-	uploadedFiles *[]string
-	lock          *sync.Mutex
+	uploadedModels *[]datamanager.Model
+	lock           *sync.Mutex
 	m1.UnimplementedModelServiceServer
 }
 
@@ -728,12 +809,14 @@ func (m mockDataSyncServiceServer) getUploadedFiles() []string {
 	return *m.uploadedFiles
 }
 
-func (m mockModelServiceServer) getUploadedFiles() []string {
+func (m mockModelServiceServer) getUploadedModels() []datamanager.Model {
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
-	return *m.uploadedFiles
+	return *m.uploadedModels
 }
 
+// IMPORTANT BELOW
+// do i need to make a separate version of this for ModelSyncService?
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
 	var fileName string
 	for {
@@ -782,11 +865,16 @@ func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServ
 
 //nolint:thelper
 func buildAndStartLocalModelServer(t *testing.T) (rpc.Server, mockModelServiceServer) {
+	fmt.Println("buildAndStartLocalModelServer()")
 	logger, _ := golog.NewObservedTestLogger(t)
+	// not sure if rpc.WithUnauthenticated() is the right thing to do
+	// sOpt := rpc.WithAuthHandler(rpc.CredentialsTypeAPIKey, nil)
+	// smth := rpc.WithAuthenticateToHandler(rpc.CredentialsTypeAPIKey, sOpt)
+	// fmt.Println("smth: ", smth)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	mockService := mockModelServiceServer{
-		uploadedFiles:                   &[]string{},
+		uploadedModels:                  &[]datamanager.Model{},
 		lock:                            &sync.Mutex{},
 		UnimplementedModelServiceServer: m1.UnimplementedModelServiceServer{},
 	}
