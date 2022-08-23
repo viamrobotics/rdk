@@ -351,12 +351,13 @@ func TestServiceValidate(t *testing.T) {
 	})
 
 	t.Run("no name", func(t *testing.T) {
-		invalidConfig := config.Service{
+		testConfig := config.Service{
+			Name: "",
 			Type: "thingy",
 		}
-		err := invalidConfig.Validate("path")
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, `name" is required`)
+		err := testConfig.Validate("path")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, testConfig.Name, test.ShouldEqual, resource.DefaultServiceName)
 	})
 
 	t.Run("with namespace", func(t *testing.T) {

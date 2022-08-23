@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 )
 
 // UpdateActionType help hint the reconfigure process on whether one should reconfigure a resource or rebuild it.
@@ -316,9 +317,10 @@ func (config *Service) Validate(path string) error {
 	if config.Type == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "type")
 	}
-	// Validate that all service have name
+	// If services do not have a name use the name builtin
 	if config.Name == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "name")
+		rlog.Logger.Warnw("no name given, defaulting name to builtin")
+		config.Name = resource.DefaultServiceName
 	}
 	if config.Namespace == "" {
 		// NOTE: This should never be removed in order to ensure RDK is the
