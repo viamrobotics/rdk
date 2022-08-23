@@ -386,6 +386,12 @@ export default {
     },
     getSegmenterNames() {
       const req = new visionApi.GetSegmenterNamesRequest();
+      // We are deliberately just getting the first vision service to ensure this will not break.
+      // May want to allow for more services in the future
+      const visionName = filterResources(this.resources, 'rdk', 'services', 'vision')[0];
+      
+      req.setName(visionName)
+
       visionService.getSegmenterNames(req, {}, (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
@@ -399,7 +405,13 @@ export default {
     getSegmenterParameters(name) {
       this.segmentAlgo = name;
       const req = new visionApi.GetSegmenterParametersRequest();
+      // We are deliberately just getting the first vision service to ensure this will not break.
+      // May want to allow for more services in the future
+      const visionName = filterResources(this.resources, 'rdk', 'services', 'vision')[0];
+
+      req.setName(visionName)
       req.setSegmenterName(name);
+      
       visionService.getSegmenterParameters(req, {}, (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
@@ -795,8 +807,12 @@ export default {
       }
     },
     viewSLAMImageMap() {
+      
       const req = new slamApi.GetMapRequest();
-      req.setName('UI');
+      // We are deliberately just getting the first slam service to ensure this will not break.
+      // May want to allow for more services in the future
+      const slamName = filterResources(this.resources, 'rdk', 'services', 'slam')[0];
+      req.setName(slamName);
       req.setMimeType('image/jpeg');
       req.setIncludeRobotMarker(true);
       slamService.getMap(req, {}, (err, resp) => {
@@ -824,7 +840,8 @@ export default {
     viewSLAMPCDMap(load) {
       this.$nextTick(() => {
         const req = new slamApi.GetMapRequest();
-        req.setName('UI');
+        const slamName = filterResources(this.resources, 'rdk', 'services', 'slam')[0];
+        req.setName(slamName);
         req.setMimeType('pointcloud/pcd');
         if (load) {
           this.initPCD();
@@ -842,6 +859,7 @@ export default {
     },
     getReadings(sensorNames) {
       const req = new sensorsApi.GetReadingsRequest();
+      const sensorsName = filterResources(this.resources, 'rdk', 'service','sensors')[0];
       const names = sensorNames.map((name) => {
         const resourceName = new commonApi.ResourceName();
         resourceName.setNamespace(name.namespace);
@@ -850,6 +868,7 @@ export default {
         resourceName.setName(name.name);
         return resourceName;
       });
+      req.setName(sensorsName.name)
       req.setSensorNamesList(names);
       sensorsService.getReadings(req, {}, (err, resp) => {
         this.grpcCallback(err, resp, false);
@@ -936,6 +955,9 @@ export default {
 
       const req = new motionApi.MoveRequest();
       const cameraPoint = new commonApi.Pose();
+      // We are deliberately just getting the first motion service to ensure this will not break.
+      // May want to allow for more services in the future
+      const motionName = filterResources(this.resources, 'rdk', 'services', 'motion')[0];
       cameraPoint.setX(cameraPointX);
       cameraPoint.setY(cameraPointY);
       cameraPoint.setZ(cameraPointZ);
@@ -944,6 +966,7 @@ export default {
       pose.setReferenceFrame(cameraName);
       pose.setPose(cameraPoint);
       req.setDestination(pose);
+      req.setName(motionName);
       const componentName = new commonApi.ResourceName();
       componentName.setNamespace(gripperName.namespace);
       componentName.setType(gripperName.type);
@@ -966,6 +989,11 @@ export default {
       this.pcdClick.calculatingSegments = true;
       this.pcdClick.foundSegments = false;
       const req = new visionApi.GetObjectPointCloudsRequest();
+      // We are deliberately just getting the first vision service to ensure this will not break.
+      // May want to allow for more services in the future
+      const visionName = filterResources(this.resources, 'rdk', 'services', 'vision')[0];
+      
+      req.setName(visionName);
       req.setCameraName(pcdGlobal.cameraName);
       req.setSegmenterName(segmenterName);
       req.setParameters(proto.google.protobuf.Struct.fromJavaScript(segmenterParams));
@@ -1190,7 +1218,12 @@ export default {
       });
     },
     querySensors() {
-      sensorsService.getSensors(new sensorsApi.GetSensorsRequest(), {}, (err, resp) => {
+      // We are deliberately just getting the first sensors service to ensure this will not break.
+      // May want to allow for more services in the future
+      const sensorsName = filterResources(this.resources, 'rdk', 'service','sensors')[0];
+      const req = new sensorsApi.GetSensorsRequest();
+      req.setName(sensorsName.name)
+      sensorsService.getSensors(req, {}, (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           return;
@@ -2340,8 +2373,9 @@ function setBoundingBox(box, centerPoint) {
 
     <!-- get segments -->
     <Navigation
-      v-if="filterResources(resources, 'rdk', 'service', 'navigation').length > 0"
-      :resources="resources"
+      v-for = "nav in filterResources(resources, 'rdk', 'service', 'navigation')"
+      :resources="nav.resources"
+      :name = "nav.name"
     />
 
     <!-- current operations -->

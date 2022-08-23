@@ -33,17 +33,19 @@ func newServer(m map[resource.Name]interface{}) (pb.VisionServiceServer, error) 
 }
 
 func TestVisionServerFailures(t *testing.T) {
-	nameRequest := &pb.GetDetectorNamesRequest{}
+	nameRequest := &pb.GetDetectorNamesRequest{
+		Name: testVisionServiceName,
+	}
 
 	// no service
 	m := map[resource.Name]interface{}{}
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.GetDetectorNames(context.Background(), nameRequest)
-	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:vision\" not found"))
+	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:vision/vision1\" not found"))
 
 	// set up the robot with something that is not a vision service
-	m = map[resource.Name]interface{}{vision.Name: "not what you want"}
+	m = map[resource.Name]interface{}{vision.Named(testVisionServiceName): "not what you want"}
 	server, err = newServer(m)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.GetDetectorNames(context.Background(), nameRequest)
@@ -52,7 +54,7 @@ func TestVisionServerFailures(t *testing.T) {
 	// correct server
 	injectODS := &inject.VisionService{}
 	m = map[resource.Name]interface{}{
-		vision.Name: injectODS,
+		vision.Named(testVisionServiceName): injectODS,
 	}
 	server, err = newServer(m)
 	test.That(t, err, test.ShouldBeNil)
@@ -68,7 +70,7 @@ func TestVisionServerFailures(t *testing.T) {
 func TestServerGetDetectorNames(t *testing.T) {
 	injectODS := &inject.VisionService{}
 	m := map[resource.Name]interface{}{
-		vision.Name: injectODS,
+		vision.Named(testVisionServiceName): injectODS,
 	}
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
@@ -78,7 +80,7 @@ func TestServerGetDetectorNames(t *testing.T) {
 	injectODS.GetDetectorNamesFunc = func(ctx context.Context) ([]string, error) {
 		return expSlice, nil
 	}
-	nameRequest := &pb.GetDetectorNamesRequest{}
+	nameRequest := &pb.GetDetectorNamesRequest{Name: testVisionServiceName}
 	resp, err := server.GetDetectorNames(context.Background(), nameRequest)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetDetectorNames(), test.ShouldResemble, expSlice)
@@ -87,7 +89,7 @@ func TestServerGetDetectorNames(t *testing.T) {
 func TestServerAddDetector(t *testing.T) {
 	srv, r := createService(t, "data/empty.json")
 	m := map[resource.Name]interface{}{
-		vision.Name: srv,
+		vision.Named(testVisionServiceName): srv,
 	}
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
@@ -99,23 +101,25 @@ func TestServerAddDetector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// success
 	_, err = server.AddDetector(context.Background(), &pb.AddDetectorRequest{
+		Name:               testVisionServiceName,
 		DetectorName:       "test",
 		DetectorModelType:  "color",
 		DetectorParameters: params,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	// did it add the detector
-	detRequest := &pb.GetDetectorNamesRequest{}
+	detRequest := &pb.GetDetectorNamesRequest{Name: testVisionServiceName}
 	detResp, err := server.GetDetectorNames(context.Background(), detRequest)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, detResp.GetDetectorNames(), test.ShouldContain, "test")
 	// did it also add the segmenter
-	segRequest := &pb.GetSegmenterNamesRequest{}
+	segRequest := &pb.GetSegmenterNamesRequest{Name: testVisionServiceName}
 	segResp, err := server.GetSegmenterNames(context.Background(), segRequest)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, segResp.GetSegmenterNames(), test.ShouldContain, "test")
 	// failure
 	resp, err := server.AddDetector(context.Background(), &pb.AddDetectorRequest{
+		Name:               testVisionServiceName,
 		DetectorName:       "failing",
 		DetectorModelType:  "no_such_type",
 		DetectorParameters: params,
@@ -127,15 +131,17 @@ func TestServerAddDetector(t *testing.T) {
 
 func TestServerGetDetections(t *testing.T) {
 	r := buildRobotWithFakeCamera(t)
-	srv, err := vision.FromRobot(r)
+	visName := vision.FindFirstName(r)
+	srv, err := vision.FromRobot(r, visName)
 	test.That(t, err, test.ShouldBeNil)
 	m := map[resource.Name]interface{}{
-		vision.Name: srv,
+		vision.Named(visName): srv,
 	}
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
 	// success
 	resp, err := server.GetDetectionsFromCamera(context.Background(), &pb.GetDetectionsFromCameraRequest{
+		Name:         visName,
 		CameraName:   "fake_cam",
 		DetectorName: "detect_red",
 	})
@@ -148,7 +154,7 @@ func TestServerGetDetections(t *testing.T) {
 	test.That(t, *(resp.Detections[0].XMax), test.ShouldEqual, 183)
 	test.That(t, *(resp.Detections[0].YMax), test.ShouldEqual, 349)
 	// failure - empty request
-	_, err = server.GetDetectionsFromCamera(context.Background(), &pb.GetDetectionsFromCameraRequest{})
+	_, err = server.GetDetectionsFromCamera(context.Background(), &pb.GetDetectionsFromCameraRequest{Name: testVisionServiceName})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
@@ -161,6 +167,7 @@ func TestServerGetDetections(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// success
 	addDetResp, err := server.AddDetector(context.Background(), &pb.AddDetectorRequest{
+		Name:               visName,
 		DetectorName:       "test",
 		DetectorModelType:  "tflite",
 		DetectorParameters: params,
@@ -172,6 +179,7 @@ func TestServerGetDetections(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	resp2, err := server.GetDetections(context.Background(), &pb.GetDetectionsRequest{
+		Name:         visName,
 		Image:        imgBytes,
 		Width:        int64(img.Width()),
 		Height:       int64(img.Height()),
@@ -220,12 +228,14 @@ func TestServerObjectSegmentation(t *testing.T) {
 	}
 	// make server
 	m := map[resource.Name]interface{}{
-		vision.Name: injectOSS,
+		vision.Named(testVisionServiceName): injectOSS,
 	}
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
 	// request segmenters
-	segReq := &pb.GetSegmenterNamesRequest{}
+	segReq := &pb.GetSegmenterNamesRequest{
+		Name: testVisionServiceName,
+	}
 	segResp, err := server.GetSegmenterNames(context.Background(), segReq)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, segResp.SegmenterNames, test.ShouldHaveLength, 1)
@@ -233,6 +243,7 @@ func TestServerObjectSegmentation(t *testing.T) {
 
 	// no such segmenter in registry
 	_, err = server.GetSegmenterParameters(context.Background(), &pb.GetSegmenterParametersRequest{
+		Name:          testVisionServiceName,
 		SegmenterName: "no_such_segmenter",
 	})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
@@ -240,6 +251,7 @@ func TestServerObjectSegmentation(t *testing.T) {
 	params, err := protoutils.StructToStructPb(config.AttributeMap{})
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
+		Name:          testVisionServiceName,
 		CameraName:    "fakeCamera",
 		SegmenterName: "no_such_segmenter",
 		MimeType:      utils.MimeTypePCD,
@@ -249,6 +261,7 @@ func TestServerObjectSegmentation(t *testing.T) {
 
 	// successful request
 	paramNamesResp, err := server.GetSegmenterParameters(context.Background(), &pb.GetSegmenterParametersRequest{
+		Name:          testVisionServiceName,
 		SegmenterName: vision.RadiusClusteringSegmenter,
 	})
 	test.That(t, err, test.ShouldBeNil)
@@ -266,6 +279,7 @@ func TestServerObjectSegmentation(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	segs, err := server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
+		Name:          testVisionServiceName,
 		CameraName:    "fakeCamera",
 		SegmenterName: vision.RadiusClusteringSegmenter,
 		MimeType:      utils.MimeTypePCD,

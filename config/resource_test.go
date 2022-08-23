@@ -282,6 +282,7 @@ func TestServiceValidate(t *testing.T) {
 
 	t.Run("config valid", func(t *testing.T) {
 		validConfig := config.Service{
+			Name: "frame1",
 			Type: "frame_system",
 		}
 		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
@@ -290,6 +291,7 @@ func TestServiceValidate(t *testing.T) {
 	t.Run("ConvertedAttributes", func(t *testing.T) {
 		t.Run("config invalid", func(t *testing.T) {
 			invalidConfig := config.Service{
+				Name:                "frame1",
 				Type:                "frame_system",
 				ConvertedAttributes: &testutils.FakeConvertedAttributes{Thing: ""},
 			}
@@ -300,6 +302,7 @@ func TestServiceValidate(t *testing.T) {
 
 		t.Run("config valid", func(t *testing.T) {
 			invalidConfig := config.Service{
+				Name: "frame1",
 				Type: "frame_system",
 				ConvertedAttributes: &testutils.FakeConvertedAttributes{
 					Thing: "i am a thing!",
@@ -313,6 +316,7 @@ func TestServiceValidate(t *testing.T) {
 	t.Run("Attributes", func(t *testing.T) {
 		t.Run("config invalid", func(t *testing.T) {
 			invalidConfig := config.Service{
+				Name:       "frame1",
 				Type:       "frame_system",
 				Attributes: config.AttributeMap{"attr": &testutils.FakeConvertedAttributes{Thing: ""}},
 			}
@@ -323,6 +327,7 @@ func TestServiceValidate(t *testing.T) {
 
 		t.Run("config valid", func(t *testing.T) {
 			invalidConfig := config.Service{
+				Name: "frame1",
 				Type: "frame_system",
 				Attributes: config.AttributeMap{
 					"attr": testutils.FakeConvertedAttributes{
@@ -343,6 +348,16 @@ func TestServiceValidate(t *testing.T) {
 		}
 		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
 		test.That(t, validConfig.Namespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
+	})
+
+	t.Run("no name", func(t *testing.T) {
+		testConfig := config.Service{
+			Name: "",
+			Type: "thingy",
+		}
+		err := testConfig.Validate("path")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, testConfig.Name, test.ShouldEqual, resource.DefaultServiceName)
 	})
 
 	t.Run("with namespace", func(t *testing.T) {
@@ -390,9 +405,10 @@ func TestServiceResourceName(t *testing.T) {
 			config.Service{
 				Namespace: resource.ResourceNamespaceRDK,
 				Type:      "motion",
+				Name:      "motion1",
 			},
 			motion.Subtype,
-			resource.NameFromSubtype(motion.Subtype, ""),
+			resource.NameFromSubtype(motion.Subtype, "motion1"),
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {

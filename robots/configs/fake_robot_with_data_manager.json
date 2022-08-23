@@ -27,6 +27,7 @@
     "services":
     [
         {
+            "name": "data_manager1",
             "type": "data_manager",
             "attributes": {
                 "sync_interval_mins": 0,

@@ -13,6 +13,7 @@ import (
 
 // client implements ShellServiceClient.
 type client struct {
+	name                    string
 	conn                    rpc.ClientConn
 	client                  pb.ShellServiceClient
 	logger                  golog.Logger
@@ -23,6 +24,7 @@ type client struct {
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
 	grpcClient := pb.NewShellServiceClient(conn)
 	c := &client{
+		name:   name,
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
@@ -48,6 +50,7 @@ func (c *client) Shell(ctx context.Context) (chan<- string, <-chan Output, error
 			case dataIn, ok := <-input:
 				if ok {
 					if err := client.Send(&pb.ShellRequest{
+						Name:   c.name,
 						DataIn: dataIn,
 					}); err != nil {
 						c.logger.Errorw("error sending data", "error", err)
