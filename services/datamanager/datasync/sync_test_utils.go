@@ -2,15 +2,6 @@ package datasync
 
 import (
 	"context"
-	"fmt"
-	"io"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"sync"
-	"testing"
-	"time"
-
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
@@ -19,6 +10,12 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"sync"
+	"testing"
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/services/datamanager/datacapture"
@@ -242,7 +239,6 @@ func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
 }
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
-	defer fmt.Println("server upload returned")
 	defer m.callCount.Add(1)
 	if m.callCount.Load() < m.failUntilIndex {
 		return m.errorToReturn
@@ -254,35 +250,28 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 		}
 
 		ur, err := stream.Recv()
-		fmt.Println("received upload request")
 		m.msgCount.Add(1)
 		if errors.Is(err, io.EOF) {
-			fmt.Println("server received EOF")
 			break
 		}
 		if err != nil {
-			fmt.Println("server received error")
-			fmt.Println(err)
 			break
 		}
 
 		// Append UploadRequest to list of recorded requests.
 		(*m.lock).Lock()
 		*m.uploadRequests = append(*m.uploadRequests, ur)
-		// TODO: only ack non-md messages
 		if ur.GetMetadata() == nil {
 			m.messagesToAck++
 		}
 		(*m.lock).Unlock()
 
 		if m.messagesToAck == m.messagesPerAck {
-			fmt.Println("sending ack")
 			if err := stream.Send(&v1.UploadResponse{RequestsWritten: int32(m.messagesToAck)}); err != nil {
 				return err
 			}
-			time.Sleep(10 * time.Millisecond)
+			//time.Sleep(10 * time.Millisecond)
 			m.messagesToAck = 0
-			fmt.Println("successfully sent ack")
 		}
 
 		// If we want the client to cancel its own context, send signal through channel to the client, then wait for
@@ -293,6 +282,5 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 			break
 		}
 	}
-	fmt.Println("server returning")
 	return nil
 }

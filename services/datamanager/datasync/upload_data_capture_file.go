@@ -2,7 +2,6 @@ package datasync
 
 import (
 	"context"
-	"fmt"
 	goutils "go.viam.com/utils"
 	"io"
 	"os"
@@ -18,7 +17,6 @@ import (
 func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.DataSyncServiceClient,
 	md *v1.UploadMetadata, f *os.File,
 ) error {
-	fmt.Println("started upload")
 	stream, err := client.Upload(ctx)
 	if err != nil {
 		return err
@@ -168,20 +166,15 @@ func sendNextUploadRequest(ctx context.Context, f *os.File, stream v1.DataSyncSe
 
 func recvStream(ctx context.Context, stream v1.DataSyncService_UploadClient,
 	pt progressTracker, progressFile string) error {
-	defer fmt.Println("recv returned")
 	for {
 		recvChannel := make(chan error)
 		go func() {
 			defer close(recvChannel)
-			fmt.Println("waiting on recv")
 			ur, err := stream.Recv()
 			if err != nil {
-				fmt.Println("received error from server")
-				fmt.Println(err)
 				recvChannel <- err
 				return
 			}
-			fmt.Println("received ack")
 			if err := pt.updateProgressFileIndex(progressFile, int(ur.GetRequestsWritten())); err != nil {
 				recvChannel <- err
 				return
@@ -194,11 +187,7 @@ func recvStream(ctx context.Context, stream v1.DataSyncService_UploadClient,
 		case e := <-recvChannel:
 			if e != nil {
 				if !errors.Is(e, io.EOF) {
-					fmt.Println("received non EOF error from server")
-					fmt.Println(e)
-					fmt.Println(e == nil)
 					return e
-					//cancelFn()
 				}
 				return nil
 			}
@@ -209,19 +198,15 @@ func recvStream(ctx context.Context, stream v1.DataSyncService_UploadClient,
 func sendStream(ctx context.Context, stream v1.DataSyncService_UploadClient,
 	captureFile *os.File) error {
 
-	defer fmt.Println("send returned")
 	// Loop until there is no more content to be read from file.
 	for {
-		fmt.Println("sending upload request")
 		err := sendNextUploadRequest(ctx, captureFile, stream)
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
-			fmt.Println("error when reading ")
 			return err
 		}
-		fmt.Println("sent upload request")
 	}
 	if err := stream.CloseSend(); err != nil {
 		return err
