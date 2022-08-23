@@ -1,7 +1,6 @@
 package datasync
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -477,9 +476,7 @@ func TestPartialUpload(t *testing.T) {
 			mockService.doneCancelChannel = doneCancelChannel
 			go func() {
 				<-cancelChannel
-				fmt.Println("cancelling context")
 				sut.Close()
-				fmt.Println("cancelled context")
 				doneCancelChannel <- true
 			}()
 			sut.Sync([]string{captureFile.Name()})
