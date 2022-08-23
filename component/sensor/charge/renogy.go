@@ -25,14 +25,14 @@ const (
 	modelname       = "renogy"
 	pathDefault     = "/dev/serial0"
 	baudDefault     = 9600
-	modbusIdDefault = 1
+	modbusIDDefault = 1
 )
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
 	Path     string `json:"path"`
 	Baud     int    `json:"baud"`
-	ModbusId byte   `json:"modbus_id"`
+	ModbusID byte   `json:"modbus_id"`
 }
 
 // Charge represents a charge state.
@@ -71,7 +71,8 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newSensor(config.Name, config.ConvertedAttributes.(*AttrConfig).Path, config.ConvertedAttributes.(*AttrConfig).Baud, config.ConvertedAttributes.(*AttrConfig).ModbusId, logger)
+			return newSensor(config.Name, config.ConvertedAttributes.(*AttrConfig).Path,
+				config.ConvertedAttributes.(*AttrConfig).Baud, config.ConvertedAttributes.(*AttrConfig).ModbusID, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(sensor.SubtypeName, modelname,
@@ -81,18 +82,18 @@ func init() {
 		}, &AttrConfig{})
 }
 
-func newSensor(name string, path string, baud int, modbusId byte, logger golog.Logger) (sensor.Sensor, error) {
+func newSensor(name string, path string, baud int, modbusID byte, logger golog.Logger) (sensor.Sensor, error) {
 	if path == "" {
 		path = pathDefault
 	}
 	if baud == 0 {
 		baud = baudDefault
 	}
-	if modbusId == 0 {
-		modbusId = modbusIdDefault
+	if modbusID == 0 {
+		modbusID = modbusIDDefault
 	}
 
-	return &Sensor{Name: name, path: path, baud: baud, modbusId: modbusId}, nil
+	return &Sensor{Name: name, path: path, baud: baud, modbusID: modbusID}, nil
 }
 
 // Sensor is a serial charge controller.
@@ -100,7 +101,7 @@ type Sensor struct {
 	Name     string
 	path     string
 	baud     int
-	modbusId byte
+	modbusID byte
 	generic.Unimplemented
 }
 
@@ -130,7 +131,7 @@ func (s *Sensor) GetControllerOutput(ctx context.Context) (Charge, error) {
 	handler.DataBits = 8
 	handler.Parity = "N"
 	handler.StopBits = 1
-	handler.SlaveId = s.modbusId
+	handler.SlaveId = s.modbusID
 	handler.Timeout = 1 * time.Second
 
 	err := handler.Connect()
