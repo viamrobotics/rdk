@@ -2,12 +2,14 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
@@ -58,7 +60,6 @@ func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequ
 		}
 	}
 }
-
 
 func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 	expectedMetadata *v1.UploadMetadata,
@@ -237,13 +238,12 @@ type mockDataSyncServiceServer struct {
 	lock *sync.Mutex
 	v1.UnimplementedDataSyncServiceServer
 
-	// Fields below this line added by maxhorowitz
-	sendAckEveryNSensorDataMessages int
-	reqsStagedForResponse           int
-	clientContextCancelIndex        int
-	uploadResponses                 *[]*v1.UploadResponse
-	cancelChannel                   chan bool
-	doneCancelChannel               chan bool
+	messagesPerAck           int
+	messagesToAck            int
+	clientContextCancelIndex int
+	uploadResponses          *[]*v1.UploadResponse
+	cancelChannel            chan bool
+	doneCancelChannel        chan bool
 }
 
 func getMockService() mockDataSyncServiceServer {
@@ -257,10 +257,11 @@ func getMockService() mockDataSyncServiceServer {
 		errorToReturn:                      errors.New("generic error goes here"),
 
 		// Fields below this line added by maxhorowitz
-		sendAckEveryNSensorDataMessages: 0,
-		reqsStagedForResponse:           0,
-		clientContextCancelIndex:        -1,
-		uploadResponses:                 &[]*v1.UploadResponse{},
+		messagesPerAck: 1,
+		// TODO: this does not need to be a field
+		messagesToAck:            0,
+		clientContextCancelIndex: -1,
+		uploadResponses:          &[]*v1.UploadResponse{},
 	}
 }
 
@@ -271,24 +272,28 @@ func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
 }
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
+	defer fmt.Println("server upload returned")
 	defer m.callCount.Add(1)
 	if m.callCount.Load() < m.failUntilIndex {
 		return m.errorToReturn
 	}
-	m.reqsStagedForResponse = 0
+	m.messagesToAck = 0
 	for {
 		if m.msgCount.Load() == m.failAtIndex {
 			return m.errorToReturn
 		}
 
-		// Recv UploadRequest (block until received).
 		ur, err := stream.Recv()
+		fmt.Println("received upload request")
 		m.msgCount.Add(1)
 		if errors.Is(err, io.EOF) {
+			fmt.Println("server received EOF")
 			break
 		}
 		if err != nil {
-			return err
+			fmt.Println("server received error")
+			fmt.Println(err)
+			break
 		}
 
 		// Append UploadRequest to list of recorded requests.
@@ -296,22 +301,28 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 		*m.uploadRequests = append(*m.uploadRequests, ur)
 		// TODO: only ack non-md messages
 		if ur.GetMetadata() == nil {
-			m.reqsStagedForResponse++
+			m.messagesToAck++
 		}
 		(*m.lock).Unlock()
 
-		if m.reqsStagedForResponse == m.sendAckEveryNSensorDataMessages {
-			if err := stream.Send(&v1.UploadResponse{RequestsWritten: int32(m.reqsStagedForResponse)}); err != nil {
+		if m.messagesToAck == m.messagesPerAck {
+			fmt.Println("sending ack")
+			if err := stream.Send(&v1.UploadResponse{RequestsWritten: int32(m.messagesToAck)}); err != nil {
 				return err
 			}
-			m.reqsStagedForResponse = 0
+			time.Sleep(10 * time.Millisecond)
+			m.messagesToAck = 0
+			fmt.Println("successfully sent ack")
 		}
 
-		// If we want the client to cancel its own context, send signal through channel to the 'sut.'
+		// If we want the client to cancel its own context, send signal through channel to the client, then wait for
+		// client to Close. This simulates a client's context being cancelled before receiving a sent ACK.
 		if m.clientContextCancelIndex == len(m.getUploadRequests()) {
 			m.cancelChannel <- true
 			<-m.doneCancelChannel
+			break
 		}
 	}
+	fmt.Println("server returning")
 	return nil
 }
