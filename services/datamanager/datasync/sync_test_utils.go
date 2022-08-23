@@ -131,9 +131,6 @@ func buildSensorDataUploadRequests(sds []*v1.SensorData, dataType v1.DataType, f
 
 func buildFileDataUploadRequests(bs [][]byte, fileName string) []*v1.UploadRequest {
 	var expMsgs []*v1.UploadRequest
-	if len(bs) == 0 {
-		return expMsgs
-	}
 	// Metadata message precedes sensor data messages.
 	expMsgs = append(expMsgs, &v1.UploadRequest{
 		UploadPacket: &v1.UploadRequest_Metadata{

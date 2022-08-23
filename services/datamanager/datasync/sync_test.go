@@ -25,7 +25,6 @@ const (
 
 func TestFileUpload(t *testing.T) {
 	uploadChunkSize = 10
-	msgEmpty := []byte("")
 	msgContents := []byte("This is part of testing in datamanager service in RDK.")
 
 	tests := []struct {
@@ -34,12 +33,12 @@ func TestFileUpload(t *testing.T) {
 		expData [][]byte
 	}{
 		{
-			name:    "empty",
-			toSend:  msgEmpty,
+			name:    "Empty file should not send only metadata.",
+			toSend:  []byte(""),
 			expData: [][]byte{},
 		},
 		{
-			name:   "not empty",
+			name:   "Non empty file should successfully send its content in chunks.",
 			toSend: msgContents,
 			expData: [][]byte{
 				msgContents[:10], msgContents[10:20], msgContents[20:30], msgContents[30:40],
@@ -49,53 +48,47 @@ func TestFileUpload(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		t.Log(tc.name)
+		t.Run(tc.name, func(t *testing.T) {
+			// Register mock datasync service with a mock server.
+			logger, _ := golog.NewObservedTestLogger(t)
+			mockService := getMockService()
+			rpcServer := buildAndStartLocalServer(t, logger, mockService)
+			defer func() {
+				err := rpcServer.Stop()
+				test.That(t, err, test.ShouldBeNil)
+			}()
 
-		// Register mock datasync service with a mock server.
-		logger, _ := golog.NewObservedTestLogger(t)
-		mockService := getMockService()
-		rpcServer := buildAndStartLocalServer(t, logger, mockService)
-		defer func() {
-			err := rpcServer.Stop()
+			// Create temp file to be used as examples of reading data from the files into buffers
+			// (and finally to have that data be uploaded) to the cloud.
+			tf, err := ioutil.TempFile("", "")
 			test.That(t, err, test.ShouldBeNil)
-		}()
+			defer os.Remove(tf.Name())
 
-		// Create temp file to be used as examples of reading data from the files into buffers
-		// (and finally to have that data be uploaded) to the cloud.
-		tf, err := ioutil.TempFile("", "")
-		if err != nil {
-			t.Errorf("%s: cannot create temporary file to be used for sensorUpload/fileUpload testing: %v", tc.name, err)
-		}
-		defer os.Remove(tf.Name())
+			// Write the data from test cases into the temp file to prepare for reading by the fileUpload function.
+			_, err = tf.Write(tc.toSend)
+			test.That(t, err, test.ShouldBeNil)
 
-		// Write the data from test cases into the temp file to prepare for reading by the fileUpload function.
-		if _, err := tf.Write(tc.toSend); err != nil {
-			t.Errorf("%s: cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing: %v", tc.name, err)
-		}
+			conn, err := getLocalServerConn(rpcServer, logger)
+			test.That(t, err, test.ShouldBeNil)
+			client := NewClient(conn)
+			sut, err := NewManager(logger, partID, client, conn)
+			test.That(t, err, test.ShouldBeNil)
+			sut.Sync([]string{tf.Name()})
+			time.Sleep(syncWaitTime)
+			sut.Close()
 
-		conn, err := getLocalServerConn(rpcServer, logger)
-		test.That(t, err, test.ShouldBeNil)
-		client := NewClient(conn)
-		sut, err := NewManager(logger, partID, client, conn)
-		test.That(t, err, test.ShouldBeNil)
-		sut.Sync([]string{tf.Name()})
-
-		// Create []v1.UploadRequest object from test case input 'expData [][]byte'.
-		time.Sleep(syncWaitTime)
-		sut.Close()
-
-		// The mc.sent value should be the same as the expectedMsgs value.
-		expectedMsgs := buildFileDataUploadRequests(tc.expData, filepath.Base(tf.Name()))
-		if len(expectedMsgs) > 1 {
-			test.That(t, mockService.getUploadRequests()[0].GetMetadata().String(), test.ShouldResemble,
-				expectedMsgs[0].GetMetadata().String())
+			// Validate the expected messages were sent.
+			expectedMsgs := buildFileDataUploadRequests(tc.expData, filepath.Base(tf.Name()))
 			test.That(t, len(mockService.getUploadRequests()), test.ShouldEqual, len(expectedMsgs))
-			actual := mockService.getUploadRequests()[1:]
-			for i, exp := range expectedMsgs[1:] {
-				test.That(t, string(actual[i].GetFileContents().GetData()),
-					test.ShouldEqual, string(exp.GetFileContents().GetData()))
+			if len(expectedMsgs) > 1 {
+				test.That(t, mockService.getUploadRequests()[0].GetMetadata().String(), test.ShouldResemble,
+					expectedMsgs[0].GetMetadata().String())
+				for i := range expectedMsgs[1:] {
+					test.That(t, string(mockService.getUploadRequests()[i].GetFileContents().GetData()),
+						test.ShouldEqual, string(expectedMsgs[i].GetFileContents().GetData()))
+				}
 			}
-		}
+		})
 	}
 }
 
