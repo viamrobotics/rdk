@@ -2,6 +2,7 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -13,13 +14,19 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
+// TODO: Have two goroutines. If one errors and exits, it should cancel the other one. This is important because if the
+//       recv routine fails but the send continues, the server will continue to send ACKs (and persist data), but we
+//       won't be recving those ACKs, so duplicate data will be sent on the next run.
 func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.DataSyncServiceClient,
 	md *v1.UploadMetadata, f *os.File,
 ) error {
+	fmt.Println("started upload")
 	stream, err := client.Upload(ctx)
 	if err != nil {
 		return err
 	}
+	ctx, cancelFn := context.WithCancel(ctx)
+	defer cancelFn()
 	err = initDataCaptureUpload(ctx, f, pt, f.Name())
 	if errors.Is(err, io.EOF) {
 		return nil
@@ -47,16 +54,21 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	// Start a goroutine for recving acks back from the server.
 	activeBackgroundWorkers.Add(1)
 	go func() {
+		defer fmt.Println("recv returned")
 		defer activeBackgroundWorkers.Done()
 		for {
 			recvChannel := make(chan error)
 			go func() {
 				defer close(recvChannel)
+				fmt.Println("waiting on recv")
 				ur, err := stream.Recv()
 				if err != nil {
+					fmt.Println("received error from server")
+					fmt.Println(err)
 					recvChannel <- err
 					return
 				}
+				fmt.Println("received ack")
 				if err := pt.updateProgressFileIndex(progressFileName, int(ur.GetRequestsWritten())); err != nil {
 					recvChannel <- err
 					return
@@ -69,9 +81,16 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 				return
 			case e := <-recvChannel:
 				if e != nil {
-					errChannel <- e
+					if !errors.Is(e, io.EOF) {
+						fmt.Println("received non EOF error from server")
+						fmt.Println(e)
+						fmt.Println(e == nil)
+						errChannel <- e
+						cancelFn()
+					} else {
+						return
+					}
 				}
-				return
 			}
 		}
 	}()
@@ -79,30 +98,40 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	// Start a goroutine for sending SensorData to the server.
 	activeBackgroundWorkers.Add(1)
 	go func() {
+		defer fmt.Println("send returned")
 		// Loop until there is no more content to be read from file.
 		defer activeBackgroundWorkers.Done()
 		for {
+			fmt.Println("sending upload request")
 			err := sendNextUploadRequest(ctx, f, stream)
-			if err != nil {
-				errChannel <- err
+			if errors.Is(err, io.EOF) {
 				break
 			}
+			if err != nil {
+				fmt.Println("error when reading ")
+				errChannel <- err
+				cancelFn()
+				break
+			}
+			fmt.Println("sent upload request")
 		}
 		if err = stream.CloseSend(); err != nil {
 			errChannel <- err
 		}
 	}()
 	activeBackgroundWorkers.Wait()
+	fmt.Println("done waiting")
 
 	close(errChannel)
 
+	// TODO: should probably combine errors
 	for err := range errChannel {
+		fmt.Println("received error")
+		fmt.Println(err.Error())
 		if err == nil {
 			continue
 		}
-		if !errors.Is(err, io.EOF) {
-			return err
-		}
+		return err
 	}
 
 	// Upload is complete, delete the corresponding progress file on disk.
