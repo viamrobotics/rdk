@@ -28,7 +28,7 @@ To see more examples, check out the [Wiki](https://github.com/viamrobotics/rdk/w
 * Work in your own fork, not a fork of the company repository.
 * Follow this [Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md)
 * Always run `make lint` and test before pushing. `make build` should be run if `control.js` or proto files have changed. `make setup` should be run if any dependencies have changed, but does not need to be run otherwise.
-* If `control.js`, `webappindex.html` or proto files have changed, double check the UI still works through the instructions in [here](#first-time-run)
+* If `control.js`, `app.vue` or proto files have changed, double check the UI still works through the instructions in [here](#first-time-run)
 * Usually merge and squash your PRs and more rarely do merge commits with each commit being a logical unit of work.
 * If you add a new package, please add it to this README.
 * If you add a new sample or command, please add it to this README.
@@ -119,3 +119,6 @@ General workflow:
 1. Add your file of interest to the `.artifact/data` directory, wherever you want. You can even make a new folder for it.
 2. `artifact push` to create an entry for it in `.artfact/tree.json`
 3. `artifact pull` to download all the files that are in the `tree.json` file
+
+## License
+AGPLv3 - See [LICENSE](https://github.com/viamrobotics/rdk/blob/main/LICENSE) file

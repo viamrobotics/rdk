@@ -12,16 +12,17 @@ import (
 Frame contains the information of the pose and parent of the frame that will be created.
 When using the pose as a transformation, the rotation is applied first, and then the translation.
 The Orientation field is an interface. When writing a config file, the orientation field should be of the form
-{
-	"orientation" : {
-		"type": "orientation_type"
-		"value" : {
-			"param0" : ...,
-			"param1" : ...,
-			etc.
+
+	{
+		"orientation" : {
+			"type": "orientation_type"
+			"value" : {
+				"param0" : ...,
+				"param1" : ...,
+				etc.
+			}
 		}
-	}
-}.
+	}.
 */
 type Frame struct {
 	Parent      string                    `json:"parent"`
@@ -60,6 +61,28 @@ func (f *Frame) UnmarshalJSON(b []byte) error {
 	f.Translation = temp.Translation
 	f.Orientation = orientation
 	return nil
+}
+
+// MarshalJSON will encode the Orientation field into a spatial.OrientationConfig object instead of spatial.Orientation.
+func (f *Frame) MarshalJSON() ([]byte, error) {
+	temp := struct {
+		Parent      string                    `json:"parent"`
+		Translation spatial.TranslationConfig `json:"translation"`
+		Orientation spatial.OrientationConfig `json:"orientation"`
+	}{
+		Parent:      f.Parent,
+		Translation: f.Translation,
+	}
+
+	if f.Orientation != nil {
+		orientationConfig, err := spatial.NewOrientationConfig(f.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		temp.Orientation = *orientationConfig
+	}
+
+	return json.Marshal(temp)
 }
 
 // MergeFrameSystems will merge fromFS into toFS with an offset frame given by cfg. If cfg is nil, fromFS

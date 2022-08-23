@@ -1,7 +1,7 @@
 # Force updates if images are older than this. Should be updated for breaking changes to images.
 # Obtain from the OLDEST of either amd64 or arm64 (usually amd64) with the following:
 # docker inspect -f '{{ .Created }}' ghcr.io/viamrobotics/canon:amd64
-DOCKER_MIN_DATE=2022-06-29T21:15:42.180282006Z
+DOCKER_MIN_DATE=2022-08-10T16:21:33.935327168-04:00
 
 DOCKER_CMD = docker run $(DOCKER_SSH_AGENT) $(DOCKER_NETRC_RUN) -v$(HOME)/.ssh:/home/testbot/.ssh:ro -v$(shell pwd):/host --workdir /host --rm -ti $(DOCKER_PLATFORM) ghcr.io/viamrobotics/canon:$(DOCKER_TAG) --testbot-uid $(shell id -u) --testbot-gid $(shell id -g)
 
@@ -71,12 +71,32 @@ canon-shell-arm64: canon-update
 
 
 # Docker targets that pre-cache go module downloads (intended to be rebuilt weekly/nightly)
-canon-cache: canon-update canon-cache-build canon-cache-upload
+BUILD_CMD = docker buildx build --pull $(BUILD_PUSH) --force-rm --no-cache $(DOCKER_NETRC_BUILD) --build-arg BASE_TAG=$(BUILD_TAG) --platform linux/$(BUILD_TAG) -f etc/Dockerfile.cache -t 'ghcr.io/viamrobotics/canon:$(BUILD_TAG)-cache' .
+BUILD_PUSH = --load
 
-canon-cache-build:
-	docker buildx build $(DOCKER_NETRC_BUILD) --build-arg BASE_TAG=amd64 --load --no-cache --platform linux/amd64 -f etc/Dockerfile.cache -t 'ghcr.io/viamrobotics/canon:amd64-cache' .
-	docker buildx build $(DOCKER_NETRC_BUILD) --build-arg BASE_TAG=arm64 --load --no-cache --platform linux/arm64 -f etc/Dockerfile.cache -t 'ghcr.io/viamrobotics/canon:arm64-cache' .
+canon-cache: canon-cache-build canon-cache-upload
+
+canon-cache-build: canon-cache-amd64 canon-cache-arm64
+
+canon-cache-amd64: BUILD_TAG = amd64
+canon-cache-amd64:
+	$(BUILD_CMD)
+
+canon-cache-arm64: BUILD_TAG = arm64
+canon-cache-arm64:
+	$(BUILD_CMD)
 
 canon-cache-upload:
 	docker push 'ghcr.io/viamrobotics/canon:amd64-cache'
 	docker push 'ghcr.io/viamrobotics/canon:arm64-cache'
+
+# CI targets that automatically push, avoid for local test-first-then-push workflows
+canon-cache-amd64-ci: BUILD_TAG = amd64
+canon-cache-amd64-ci: BUILD_PUSH = --push
+canon-cache-amd64-ci:	
+	$(BUILD_CMD)
+
+canon-cache-arm64-ci: BUILD_TAG = arm64
+canon-cache-arm64-ci: BUILD_PUSH = --push
+canon-cache-arm64-ci:
+	$(BUILD_CMD)

@@ -4,8 +4,6 @@ package sensors
 import (
 	"context"
 
-	"google.golang.org/protobuf/types/known/structpb"
-
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/sensors/v1"
 	"go.viam.com/rdk/protoutils"
@@ -25,10 +23,10 @@ func NewServer(s subtype.Service) pb.SensorsServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }
 
-func (server *subtypeServer) service() (Service, error) {
-	resource := server.subtypeSvc.Resource(Name.String())
+func (server *subtypeServer) service(serviceName string) (Service, error) {
+	resource := server.subtypeSvc.Resource(serviceName)
 	if resource == nil {
-		return nil, utils.NewResourceNotFoundError(Name)
+		return nil, utils.NewResourceNotFoundError(Named(serviceName))
 	}
 	svc, ok := resource.(Service)
 	if !ok {
@@ -41,7 +39,7 @@ func (server *subtypeServer) GetSensors(
 	ctx context.Context,
 	req *pb.GetSensorsRequest,
 ) (*pb.GetSensorsResponse, error) {
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +59,7 @@ func (server *subtypeServer) GetReadings(
 	ctx context.Context,
 	req *pb.GetReadingsRequest,
 ) (*pb.GetReadingsResponse, error) {
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -77,13 +75,9 @@ func (server *subtypeServer) GetReadings(
 
 	readingsP := make([]*pb.Readings, 0, len(readings))
 	for _, reading := range readings {
-		rReading := make([]*structpb.Value, 0, len(reading.Readings))
-		for _, r := range reading.Readings {
-			v, err := structpb.NewValue(r)
-			if err != nil {
-				return nil, err
-			}
-			rReading = append(rReading, v)
+		rReading, err := protoutils.ReadingGoToProto(reading.Readings)
+		if err != nil {
+			return nil, err
 		}
 		readingP := &pb.Readings{
 			Name:     protoutils.ResourceNameToProto(reading.Name),

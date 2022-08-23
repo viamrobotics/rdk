@@ -1,48 +1,17 @@
 package rimage
 
 import (
-	"bytes"
 	"testing"
 
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 )
 
-func TestPCRoundTrip(t *testing.T) {
-	pc, err := NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
-	test.That(t, err, test.ShouldBeNil)
-
-	same := func(other *ImageWithDepth) {
-		test.That(t, other.Color.Width(), test.ShouldEqual, pc.Color.Width())
-		test.That(t, other.Color.Height(), test.ShouldEqual, pc.Color.Height())
-		test.That(t, other.Depth.Width(), test.ShouldEqual, pc.Depth.Width())
-		test.That(t, other.Depth.Height(), test.ShouldEqual, pc.Depth.Height())
-
-		test.That(t, other.Depth.GetDepth(111, 111), test.ShouldEqual, pc.Depth.GetDepth(111, 111))
-	}
-
-	fn := outDir + "/roundtrip1.both.gz"
-	err = pc.WriteTo(fn)
-	test.That(t, err, test.ShouldBeNil)
-
-	pc2, err := ReadBothFromFile(fn, true)
-	test.That(t, err, test.ShouldBeNil)
-
-	same(pc2)
-
-	var buf bytes.Buffer
-	test.That(t, pc.RawBytesWrite(&buf), test.ShouldBeNil)
-
-	pc3, err := ImageWithDepthFromRawBytes(pc.Color.Width(), pc.Color.Height(), buf.Bytes())
-	test.That(t, err, test.ShouldBeNil)
-	same(pc3)
-}
-
 func TestCloneImageWithDepth(t *testing.T) {
-	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
+	iwd, err := newImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
 	test.That(t, err, test.ShouldBeNil)
 
-	ii := CloneToImageWithDepth(iwd)
+	ii := cloneToImageWithDepth(iwd)
 	for y := 0; y < ii.Height(); y++ {
 		for x := 0; x < ii.Width(); x++ {
 			test.That(t, ii.Depth.GetDepth(x, y), test.ShouldResemble, iwd.Depth.GetDepth(x, y))
@@ -52,23 +21,15 @@ func TestCloneImageWithDepth(t *testing.T) {
 	test.That(t, ii.IsAligned(), test.ShouldEqual, iwd.IsAligned())
 }
 
-func TestImageWithDepthFromImages(t *testing.T) {
-	iwd, err := NewImageWithDepthFromImages(
-		artifact.MustPath("rimage/shelf_color.png"), artifact.MustPath("rimage/shelf_grayscale.png"), false)
-	test.That(t, err, test.ShouldBeNil)
-
-	err = iwd.WriteTo(outDir + "/shelf.both.gz")
-	test.That(t, err, test.ShouldBeNil)
-}
-
 func TestImageToDepthMap(t *testing.T) {
-	iwd, err := NewImageWithDepth(
+	iwd, err := newImageWithDepth(
 		artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
 	// convert to gray16 image
 	depthImage := iwd.Depth.ToGray16Picture()
 	// convert back
-	dmFromImage := imageToDepthMap(depthImage)
+	dmFromImage, err := ConvertImageToDepthMap(depthImage)
+	test.That(t, err, test.ShouldBeNil)
 	// tests
 	test.That(t, iwd.Depth.Height(), test.ShouldEqual, dmFromImage.Height())
 	test.That(t, iwd.Depth.Width(), test.ShouldEqual, dmFromImage.Width())
@@ -76,7 +37,7 @@ func TestImageToDepthMap(t *testing.T) {
 }
 
 func TestConvertToDepthMap(t *testing.T) {
-	iwd, err := NewImageWithDepth(
+	iwd, err := newImageWithDepth(
 		artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
 	// convert to gray16 image

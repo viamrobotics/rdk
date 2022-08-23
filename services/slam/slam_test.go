@@ -42,7 +42,10 @@ const (
 	timePadding = 5
 )
 
-var cam = &inject.Camera{}
+const (
+	testSlamServiceName  = "slam1"
+	testSlamServiceName2 = "slam2"
+)
 
 func createFakeSLAMLibraries() {
 	for _, s := range slam.SLAMLibraries {
@@ -107,6 +110,7 @@ func setupInjectRobot() *inject.Robot {
 	projB = intrinsicsB
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		cam := &inject.Camera{}
 		switch name {
 		case camera.Named("good_lidar"):
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -141,17 +145,28 @@ func setupInjectRobot() *inject.Robot {
 				return projA, nil
 			}
 			return cam, nil
-		case camera.Named("good_depth_camera"):
-			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-				img, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"),
-					artifact.MustPath("rimage/board1.dat.gz"), true)
-				return img, nil, err
-			}
+		case camera.Named("good_color_camera"):
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
 			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
 				return projA, nil
+			}
+			cam.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+				imgBytes, err := os.ReadFile(artifact.MustPath("rimage/board1.png"))
+				return imgBytes, rdkutils.MimeTypePNG, -1, -1, err
+			}
+			return cam, nil
+		case camera.Named("good_depth_camera"):
+			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+				return nil, errors.New("camera not lidar")
+			}
+			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+				return nil, transform.NewNoIntrinsicsError("")
+			}
+			cam.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+				imgBytes, err := os.ReadFile(artifact.MustPath("rimage/board1_gray.png"))
+				return imgBytes, rdkutils.MimeTypePNG, -1, -1, err
 			}
 			return cam, nil
 		case camera.Named("bad_camera"):
@@ -250,8 +265,8 @@ func TestGeneralNew(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		_, err := createSLAMService(t, attrCfg, logger, false)
 		test.That(t, err, test.ShouldBeError,
-			errors.Errorf("configuring camera error: error getting camera for slam service: "+
-				"resource \"rdk:component:camera/%v\" not found", attrCfg.Sensors[0]))
+			errors.Errorf("configuring camera error: error getting camera %v for slam service: "+
+				"resource \"rdk:component:camera/%v\" not found", attrCfg.Sensors[0], attrCfg.Sensors[0]))
 	})
 
 	t.Run("New slam service with invalid slam algo type", func(t *testing.T) {
@@ -369,7 +384,7 @@ func TestORBSLAMNew(t *testing.T) {
 	t.Run("New orbslamv3 service with good camera in slam mode rgbd", func(t *testing.T) {
 		attrCfg := &slam.AttrConfig{
 			Algorithm:     "fake_orbslamv3",
-			Sensors:       []string{"good_depth_camera"},
+			Sensors:       []string{"good_color_camera", "good_depth_camera"},
 			ConfigParams:  map[string]string{"mode": "rgbd"},
 			DataDirectory: name,
 			DataRateMs:    100,
@@ -384,6 +399,40 @@ func TestORBSLAMNew(t *testing.T) {
 
 		grpcServer.Stop()
 		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+	})
+
+	t.Run("New orbslamv3 service in slam mode rgbd that errors due to a single camera", func(t *testing.T) {
+		attrCfg := &slam.AttrConfig{
+			Algorithm:     "fake_orbslamv3",
+			Sensors:       []string{"good_color_camera"},
+			ConfigParams:  map[string]string{"mode": "rgbd"},
+			DataDirectory: name,
+			DataRateMs:    100,
+			Port:          "localhost:4445",
+		}
+
+		// Create slam service
+		logger := golog.NewTestLogger(t)
+		_, err := createSLAMService(t, attrCfg, logger, false)
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			errors.Errorf("expected 2 cameras for rgbd slam, found %v", len(attrCfg.Sensors)).Error())
+	})
+
+	t.Run("New orbslamv3 service in slam mode rgbd that errors due cameras in the wrong order", func(t *testing.T) {
+		attrCfg := &slam.AttrConfig{
+			Algorithm:     "fake_orbslamv3",
+			Sensors:       []string{"good_depth_camera", "good_color_camera"},
+			ConfigParams:  map[string]string{"mode": "rgbd"},
+			DataDirectory: name,
+			DataRateMs:    100,
+			Port:          "localhost:4445",
+		}
+
+		// Create slam service
+		logger := golog.NewTestLogger(t)
+		_, err := createSLAMService(t, attrCfg, logger, false)
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			errors.New("Unable to get camera features for first camera, make sure the color camera is listed first").Error())
 	})
 
 	t.Run("New orbslamv3 service with good camera in slam mode mono", func(t *testing.T) {
@@ -490,9 +539,10 @@ func TestCartographerDataProcess(t *testing.T) {
 		goodCam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 			return pointcloud.New(), nil
 		}
+		cams := []camera.Camera{goodCam}
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, goodCam)
+		slamSvc.StartDataProcess(cancelCtx, cams)
 
 		n := 5
 		// Note: timePadding is required to allow the sub processes to be fully completed during test
@@ -510,9 +560,10 @@ func TestCartographerDataProcess(t *testing.T) {
 		badCam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 			return nil, errors.New("bad_lidar")
 		}
+		cams := []camera.Camera{badCam}
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, badCam)
+		slamSvc.StartDataProcess(cancelCtx, cams)
 
 		time.Sleep(time.Millisecond * time.Duration(dataRateMs*2))
 		cancelFunc()
@@ -558,9 +609,10 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		goodCam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 			return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
 		}
+		cams := []camera.Camera{goodCam}
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, goodCam)
+		slamSvc.StartDataProcess(cancelCtx, cams)
 
 		n := 5
 		// Note: timePadding is required to allow the sub processes to be fully completed during test
@@ -578,9 +630,10 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		badCam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 			return nil, nil, errors.New("bad_camera")
 		}
+		cams := []camera.Camera{badCam}
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, badCam)
+		slamSvc.StartDataProcess(cancelCtx, cams)
 
 		time.Sleep(time.Millisecond * time.Duration(dataRateMs*2))
 		cancelFunc()

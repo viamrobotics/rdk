@@ -47,7 +47,7 @@ func (nm *neighborManager) nearestNeighbor(
 	seed []referenceframe.Input,
 	rrtMap map[*node]*node,
 ) *node {
-	if len(rrtMap) > neighborsBeforeParallelization {
+	if len(rrtMap) > neighborsBeforeParallelization && nm.nCPU > 1 {
 		// If the map is large, calculate distances in parallel
 		return nm.parallelNearestNeighbor(ctx, seed, rrtMap)
 	}

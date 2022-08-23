@@ -56,7 +56,7 @@ func Named(name string) resource.Name {
 // of some thing that it is sensing.
 type Sensor interface {
 	// GetReadings return data specific to the type of sensor and can be of any type.
-	GetReadings(ctx context.Context) ([]interface{}, error)
+	GetReadings(ctx context.Context) (map[string]interface{}, error)
 	generic.Generic
 }
 
@@ -108,7 +108,7 @@ func (r *reconfigurableSensor) Do(ctx context.Context, cmd map[string]interface{
 	return r.actual.Do(ctx, cmd)
 }
 
-func (r *reconfigurableSensor) GetReadings(ctx context.Context) ([]interface{}, error) {
+func (r *reconfigurableSensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetReadings(ctx)

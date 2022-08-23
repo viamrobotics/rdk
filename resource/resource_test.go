@@ -6,7 +6,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/resource"
 )
 
@@ -31,6 +31,21 @@ func TestResourceType(t *testing.T) {
 			"",
 			resource.Type{Namespace: resource.ResourceNamespaceRDK},
 			"type field for resource missing or invalid",
+		},
+
+		{
+			"reserved character in resource type",
+			"rd:k",
+			resource.ResourceTypeComponent,
+			resource.Type{Namespace: "rd:k", ResourceType: resource.ResourceTypeComponent},
+			"reserved character : used",
+		},
+		{
+			"reserved charater in namespace",
+			resource.ResourceNamespaceRDK,
+			"compon:ent",
+			resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: "compon:ent"},
+			"reserved character : used",
 		},
 		{
 			"all fields included",
@@ -101,6 +116,20 @@ func TestResourceSubtype(t *testing.T) {
 				},
 			},
 			"subtype field for resource missing or invalid",
+		},
+		{
+			"reserved character in subtype name",
+			resource.ResourceNamespaceRDK,
+			resource.ResourceTypeComponent,
+			"sub:type",
+			resource.Subtype{
+				Type: resource.Type{
+					Namespace:    resource.ResourceNamespaceRDK,
+					ResourceType: resource.ResourceTypeComponent,
+				},
+				ResourceSubtype: "sub:type",
+			},
+			"reserved character : used",
 		},
 		{
 			"all fields included",
@@ -203,7 +232,7 @@ func TestResourceNameNewFromString(t *testing.T) {
 		},
 		{
 			"missing name",
-			"rdk:component:arm",
+			"rdk:component:arm/",
 			resource.Name{
 				Subtype: resource.Subtype{
 					Type: resource.Type{
@@ -233,22 +262,22 @@ func TestResourceNameNewFromString(t *testing.T) {
 		},
 		{
 			"all fields included 2",
-			"rdk:component:gps/gps1",
+			"rdk:component:movement_sensor/movementsensor1",
 			resource.Name{
 				Subtype: resource.Subtype{
 					Type: resource.Type{
 						Namespace:    resource.ResourceNamespaceRDK,
 						ResourceType: resource.ResourceTypeComponent,
 					},
-					ResourceSubtype: gps.SubtypeName,
+					ResourceSubtype: movementsensor.SubtypeName,
 				},
-				Name: "gps1",
+				Name: "movementsensor1",
 			},
 			"",
 		},
 		{
 			"with remotes",
-			"rdk:component:gps/remote1:gps1",
+			"rdk:component:movement_sensor/remote1:movementsensor1",
 			resource.Name{
 				Remote: "remote1",
 				Subtype: resource.Subtype{
@@ -256,15 +285,15 @@ func TestResourceNameNewFromString(t *testing.T) {
 						Namespace:    resource.ResourceNamespaceRDK,
 						ResourceType: resource.ResourceTypeComponent,
 					},
-					ResourceSubtype: gps.SubtypeName,
+					ResourceSubtype: movementsensor.SubtypeName,
 				},
-				Name: "gps1",
+				Name: "movementsensor1",
 			},
 			"",
 		},
 		{
 			"with remotes 2",
-			"rdk:component:gps/remote1:remote2:gps1",
+			"rdk:component:movement_sensor/remote1:remote2:movementsensor1",
 			resource.Name{
 				Remote: "remote1:remote2",
 				Subtype: resource.Subtype{
@@ -272,9 +301,9 @@ func TestResourceNameNewFromString(t *testing.T) {
 						Namespace:    resource.ResourceNamespaceRDK,
 						ResourceType: resource.ResourceTypeComponent,
 					},
-					ResourceSubtype: gps.SubtypeName,
+					ResourceSubtype: movementsensor.SubtypeName,
 				},
-				Name: "gps1",
+				Name: "movementsensor1",
 			},
 			"",
 		},
@@ -337,7 +366,7 @@ func TestResourceNameStrings(t *testing.T) {
 					ResourceSubtype: arm.SubtypeName,
 				},
 			},
-			"rdk:component:arm",
+			"rdk:component:arm/",
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
@@ -402,7 +431,7 @@ func TestResourceNameValidate(t *testing.T) {
 					ResourceSubtype: arm.SubtypeName,
 				},
 			},
-			"",
+			"name field for resource is empty",
 		},
 		{
 			"all fields included",
@@ -432,7 +461,7 @@ func TestResourceNameValidate(t *testing.T) {
 }
 
 func TestRemoteResource(t *testing.T) {
-	n, err := resource.NewFromString("rdk:component:gps/gps1")
+	n, err := resource.NewFromString("rdk:component:movement_sensor/movementsensor1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, n, test.ShouldResemble, resource.Name{
 		Subtype: resource.Subtype{
@@ -440,9 +469,9 @@ func TestRemoteResource(t *testing.T) {
 				Namespace:    resource.ResourceNamespaceRDK,
 				ResourceType: resource.ResourceTypeComponent,
 			},
-			ResourceSubtype: gps.SubtypeName,
+			ResourceSubtype: movementsensor.SubtypeName,
 		},
-		Name: "gps1",
+		Name: "movementsensor1",
 	})
 
 	test.That(t, n.ContainsRemoteNames(), test.ShouldBeFalse)
@@ -451,7 +480,7 @@ func TestRemoteResource(t *testing.T) {
 
 	test.That(t, n1.ContainsRemoteNames(), test.ShouldBeTrue)
 	test.That(t, n1.Remote, test.ShouldResemble, resource.RemoteName("remote1"))
-	test.That(t, n1.String(), test.ShouldResemble, "rdk:component:gps/remote1:gps1")
+	test.That(t, n1.String(), test.ShouldResemble, "rdk:component:movement_sensor/remote1:movementsensor1")
 
 	test.That(t, n1, test.ShouldNotResemble, n)
 
@@ -459,19 +488,19 @@ func TestRemoteResource(t *testing.T) {
 
 	test.That(t, n2.ContainsRemoteNames(), test.ShouldBeTrue)
 	test.That(t, n2.Remote, test.ShouldResemble, resource.RemoteName("remote2:remote1"))
-	test.That(t, n2.String(), test.ShouldResemble, "rdk:component:gps/remote2:remote1:gps1")
+	test.That(t, n2.String(), test.ShouldResemble, "rdk:component:movement_sensor/remote2:remote1:movementsensor1")
 
 	n3 := n2.PopRemote()
 	test.That(t, n3.ContainsRemoteNames(), test.ShouldBeTrue)
 	test.That(t, n3.Remote, test.ShouldResemble, resource.RemoteName("remote1"))
 	test.That(t, n3, test.ShouldResemble, n1)
-	test.That(t, n3.String(), test.ShouldResemble, "rdk:component:gps/remote1:gps1")
+	test.That(t, n3.String(), test.ShouldResemble, "rdk:component:movement_sensor/remote1:movementsensor1")
 
 	n4 := n3.PopRemote()
 	test.That(t, n4.ContainsRemoteNames(), test.ShouldBeFalse)
 	test.That(t, n4.Remote, test.ShouldResemble, resource.RemoteName(""))
 	test.That(t, n4, test.ShouldResemble, n)
-	test.That(t, n4.String(), test.ShouldResemble, "rdk:component:gps/gps1")
+	test.That(t, n4.String(), test.ShouldResemble, "rdk:component:movement_sensor/movementsensor1")
 
 	resourceSubtype := resource.NewSubtype(
 		"test",
@@ -481,7 +510,7 @@ func TestRemoteResource(t *testing.T) {
 	n5 := resource.NameFromSubtype(resourceSubtype, "test")
 	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/test")
 	n5 = resource.NameFromSubtype(resourceSubtype, "")
-	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent")
+	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/")
 	n5 = resource.NameFromSubtype(resourceSubtype, "remote1:test")
 	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote1:test")
 	n5 = resource.NameFromSubtype(resourceSubtype, "remote2:remote1:test")

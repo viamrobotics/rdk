@@ -136,19 +136,22 @@
     "services":
     [
         {
+            "name": "nav1",
             "type": "navigation",
             "attributes": {
                 "store": {
                     "type": "memory"
                 },
-                "gps": "gps1",
+                "movement_sensor": "gps1",
                 "base": "base1"
             }
         },
         {
+            "name": "vis1",
             "type": "vision"
         },
         {
+            "name": "motion1",
             "type": "motion"
         }
     ]

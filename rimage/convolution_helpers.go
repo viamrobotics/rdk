@@ -136,7 +136,7 @@ func PaddingFloat64(img *mat.Dense, kernelSize image.Point, anchor image.Point, 
 // and the anchor point. Supported Border types are: BorderConstant, BorderReplicate, BorderReflect.
 // Example of usage:
 //
-//		 res, err := padding.PaddingGray(img, {5, 5}, {1, 1}, BorderReflect)
+//	res, err := padding.PaddingGray(img, {5, 5}, {1, 1}, BorderReflect)
 //
 // Note: this will add a 1px padding for the top and left borders of the image and a 3px padding fot the bottom and
 // right borders of the image.

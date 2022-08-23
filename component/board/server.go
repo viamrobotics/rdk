@@ -41,7 +41,7 @@ func (s *subtypeServer) Status(ctx context.Context, req *pb.StatusRequest) (*pb.
 		return nil, err
 	}
 
-	status, err := b.Status(ctx)
+	status, err := b.Status(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func (s *subtypeServer) SetGPIO(ctx context.Context, req *pb.SetGPIORequest) (*p
 		return nil, err
 	}
 
-	return &pb.SetGPIOResponse{}, p.Set(ctx, req.High)
+	return &pb.SetGPIOResponse{}, p.Set(ctx, req.High, req.Extra.AsMap())
 }
 
 // GetGPIO gets the high/low state of a given pin of a board of the underlying robot.
@@ -76,7 +76,7 @@ func (s *subtypeServer) GetGPIO(ctx context.Context, req *pb.GetGPIORequest) (*p
 		return nil, err
 	}
 
-	high, err := p.Get(ctx)
+	high, err := p.Get(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (s *subtypeServer) PWM(ctx context.Context, req *pb.PWMRequest) (*pb.PWMRes
 		return nil, err
 	}
 
-	pwm, err := p.PWM(ctx)
+	pwm, err := p.PWM(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func (s *subtypeServer) SetPWM(ctx context.Context, req *pb.SetPWMRequest) (*pb.
 		return nil, err
 	}
 
-	return &pb.SetPWMResponse{}, p.SetPWM(ctx, req.DutyCyclePct)
+	return &pb.SetPWMResponse{}, p.SetPWM(ctx, req.DutyCyclePct, req.Extra.AsMap())
 }
 
 // PWMFrequency gets the PWM frequency of the given pin of a board of the underlying robot.
@@ -129,7 +129,7 @@ func (s *subtypeServer) PWMFrequency(ctx context.Context, req *pb.PWMFrequencyRe
 		return nil, err
 	}
 
-	freq, err := p.PWMFreq(ctx)
+	freq, err := p.PWMFreq(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func (s *subtypeServer) SetPWMFrequency(
 		return nil, err
 	}
 
-	return &pb.SetPWMFrequencyResponse{}, p.SetPWMFreq(ctx, uint(req.FrequencyHz))
+	return &pb.SetPWMFrequencyResponse{}, p.SetPWMFreq(ctx, uint(req.FrequencyHz), req.Extra.AsMap())
 }
 
 // ReadAnalogReader reads off the current value of an analog reader of a board of the underlying robot.
@@ -170,7 +170,7 @@ func (s *subtypeServer) ReadAnalogReader(
 		return nil, errors.Errorf("unknown analog reader: %s", req.AnalogReaderName)
 	}
 
-	val, err := theReader.Read(ctx)
+	val, err := theReader.Read(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +192,7 @@ func (s *subtypeServer) GetDigitalInterruptValue(
 		return nil, errors.Errorf("unknown digital interrupt: %s", req.DigitalInterruptName)
 	}
 
-	val, err := interrupt.Value(ctx)
+	val, err := interrupt.Value(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}

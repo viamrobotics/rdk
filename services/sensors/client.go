@@ -13,31 +13,28 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// client is a client implements the SensorsServiceClient.
+// client implements SensorsServiceClient.
 type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.SensorsServiceClient
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
+// NewClientFromConn constructs a new Client from connection passed in.
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
 	grpcClient := pb.NewSensorsServiceClient(conn)
-	sc := &client{
+	c := &client{
+		name:   name,
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
 	}
-	return sc
-}
-
-// NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
-	return newSvcClientFromConn(conn, logger)
+	return c
 }
 
 func (c *client) GetSensors(ctx context.Context) ([]resource.Name, error) {
-	resp, err := c.client.GetSensors(ctx, &pb.GetSensorsRequest{})
+	resp, err := c.client.GetSensors(ctx, &pb.GetSensorsRequest{Name: c.name})
 	if err != nil {
 		return nil, err
 	}
@@ -54,16 +51,16 @@ func (c *client) GetReadings(ctx context.Context, sensorNames []resource.Name) (
 		names = append(names, protoutils.ResourceNameToProto(name))
 	}
 
-	resp, err := c.client.GetReadings(ctx, &pb.GetReadingsRequest{SensorNames: names})
+	resp, err := c.client.GetReadings(ctx, &pb.GetReadingsRequest{Name: c.name, SensorNames: names})
 	if err != nil {
 		return nil, err
 	}
 
 	readings := make([]Readings, 0, len(resp.Readings))
 	for _, reading := range resp.Readings {
-		sReading := make([]interface{}, 0, len(reading.Readings))
-		for _, r := range reading.Readings {
-			sReading = append(sReading, r.AsInterface())
+		sReading, err := protoutils.ReadingProtoToGo(reading.Readings)
+		if err != nil {
+			return nil, err
 		}
 		readings = append(
 			readings, Readings{

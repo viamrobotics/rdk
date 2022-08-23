@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/component/arm"
@@ -123,9 +122,7 @@ func TestStatusValid(t *testing.T) {
 	status := &pb.Status{
 		Events: []*pb.Event{{Time: timestamp, Event: string(input.PositionChangeAbs), Control: string(input.AbsoluteX), Value: 0.7}},
 	}
-	map1, err := protoutils.InterfaceToMap(status)
-	test.That(t, err, test.ShouldBeNil)
-	newStruct, err := structpb.NewStruct(map1)
+	newStruct, err := protoutils.StructToStructPb(status)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(
 		t,

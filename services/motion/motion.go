@@ -8,10 +8,10 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
@@ -59,6 +59,12 @@ type Service interface {
 		destination *referenceframe.PoseInFrame,
 		worldState *commonpb.WorldState,
 	) (bool, error)
+	MoveSingleComponent(
+		ctx context.Context,
+		componentName resource.Name,
+		destination *referenceframe.PoseInFrame,
+		worldState *commonpb.WorldState,
+	) (bool, error)
 	GetPose(
 		ctx context.Context,
 		componentName resource.Name,
@@ -83,12 +89,14 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// Name is the MotionService's typed resource name.
-var Name = resource.NameFromSubtype(Subtype, "")
+// Named is a helper for getting the named motion service's typed resource name.
+func Named(name string) resource.Name {
+	return resource.NameFromSubtype(Subtype, name)
+}
 
-// FromRobot retrieves the motion service of a robot.
-func FromRobot(r robot.Robot) (Service, error) {
-	resource, err := r.ResourceByName(Name)
+// FromRobot is a helper for getting the named motion service from the given Robot.
+func FromRobot(r robot.Robot, name string) (Service, error) {
+	resource, err := r.ResourceByName(Named(name))
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +120,7 @@ type motionService struct {
 	logger golog.Logger
 }
 
-// Move takes a goal location and moves a component specified by its name to that destination.
+// Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
 func (ms *motionService) Move(
 	ctx context.Context,
 	componentName resource.Name,
@@ -124,9 +132,6 @@ func (ms *motionService) Move(
 
 	// get goal frame
 	goalFrameName := destination.FrameName()
-	if goalFrameName == componentName.Name {
-		return false, errors.New("cannot move component with respect to its own frame, will always be at its own origin")
-	}
 	logger.Debugf("goal given in frame of %q", goalFrameName)
 
 	frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.GetTransforms())
@@ -135,42 +140,17 @@ func (ms *motionService) Move(
 	}
 	solver := motionplan.NewSolvableFrameSystem(frameSys, logger)
 
-	// get the initial inputs
-	input := referenceframe.StartPositions(solver)
-
 	// build maps of relevant components and inputs from initial inputs
-	allOriginals := map[string][]referenceframe.Input{}
-	resources := map[string]referenceframe.InputEnabled{}
-	for name, original := range input {
-		// skip frames with no input
-		if len(original) == 0 {
-			continue
-		}
-
-		// add component to map
-		allOriginals[name] = original
-		components := robot.AllResourcesByName(ms.r, name)
-		if len(components) != 1 {
-			return false, fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), name)
-		}
-		component, ok := components[0].(referenceframe.InputEnabled)
-		if !ok {
-			return false, fmt.Errorf("%v(%T) is not InputEnabled", name, components[0])
-		}
-		resources[name] = component
-
-		// add input to map
-		pos, err := component.CurrentInputs(ctx)
-		if err != nil {
-			return false, err
-		}
-		input[name] = pos
+	fsInputs, resources, err := ms.fsCurrentInputs(ctx, solver)
+	if err != nil {
+		return false, err
 	}
-	logger.Debugf("frame system inputs: %v", input)
+
+	logger.Debugf("frame system inputs: %v", fsInputs)
 
 	// re-evaluate goalPose to be in the frame we're going to move in
 	solvingFrame := referenceframe.World // TODO(erh): this should really be the parent of rootName
-	tf, err := solver.Transform(input, destination, solvingFrame)
+	tf, err := solver.Transform(fsInputs, destination, solvingFrame)
 	if err != nil {
 		return false, err
 	}
@@ -178,7 +158,7 @@ func (ms *motionService) Move(
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 	output, err := solver.SolveWaypointsWithOptions(ctx,
-		input,
+		fsInputs,
 		[]spatialmath.Pose{goalPose.Pose()},
 		componentName.Name,
 		solvingFrame,
@@ -205,6 +185,61 @@ func (ms *motionService) Move(
 	return true, nil
 }
 
+// MoveSingleComponent will pass through a move command to a component with a MoveToPosition method that takes a pose. Arms are the only
+// component that supports this. This method will transform the destination pose, given in an arbitrary frame, into the pose of the arm.
+// The arm will then move its most distal link to that pose. If you instead wish to move any other component than the arm end to that pose,
+// then you must manually adjust the given destination by the transform from the arm end to the intended component.
+func (ms *motionService) MoveSingleComponent(
+	ctx context.Context,
+	componentName resource.Name,
+	destination *referenceframe.PoseInFrame,
+	worldState *commonpb.WorldState,
+) (bool, error) {
+	operation.CancelOtherWithLabel(ctx, "motion-service")
+	logger := ms.r.Logger()
+
+	components := robot.AllResourcesByName(ms.r, componentName.Name)
+	if len(components) != 1 {
+		return false, fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), componentName.Name)
+	}
+	movableArm, ok := components[0].(arm.Arm)
+	if !ok {
+		return false, fmt.Errorf("%v(%T) is not an Arm and cannot MoveToPosition with a Pose", componentName.Name, components[0])
+	}
+
+	// get destination pose in frame of movable component
+	goalPose := destination.Pose()
+	if destination.FrameName() != componentName.Name {
+		logger.Debugf("goal given in frame of %q", destination.FrameName())
+
+		frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.GetTransforms())
+		if err != nil {
+			return false, err
+		}
+		// get the initial inputs
+		fsInputs, _, err := ms.fsCurrentInputs(ctx, frameSys)
+		if err != nil {
+			return false, err
+		}
+		logger.Debugf("frame system inputs: %v", fsInputs)
+
+		// re-evaluate goalPose to be in the frame we're going to move in
+		tf, err := frameSys.Transform(fsInputs, destination, componentName.Name+"_offset")
+		if err != nil {
+			return false, err
+		}
+		goalPoseInFrame, _ := tf.(*referenceframe.PoseInFrame)
+		goalPose = goalPoseInFrame.Pose()
+		logger.Debugf("converted goal pose %q", spatialmath.PoseToProtobuf(goalPose))
+	}
+
+	err := movableArm.MoveToPosition(ctx, spatialmath.PoseToProtobuf(goalPose), worldState, nil)
+	if err == nil {
+		return true, nil
+	}
+	return false, err
+}
+
 func (ms *motionService) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
@@ -225,6 +260,45 @@ func (ms *motionService) GetPose(
 	)
 }
 
+// get the initial inputs.
+func (ms *motionService) fsCurrentInputs(
+	ctx context.Context,
+	fs referenceframe.FrameSystem,
+) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
+	input := referenceframe.StartPositions(fs)
+
+	// build maps of relevant components and inputs from initial inputs
+	allOriginals := map[string][]referenceframe.Input{}
+	resources := map[string]referenceframe.InputEnabled{}
+	for name, original := range input {
+		// skip frames with no input
+		if len(original) == 0 {
+			continue
+		}
+
+		// add component to map
+		allOriginals[name] = original
+		components := robot.AllResourcesByName(ms.r, name)
+		if len(components) != 1 {
+			return nil, nil, fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), name)
+		}
+		component, ok := components[0].(referenceframe.InputEnabled)
+		if !ok {
+			return nil, nil, fmt.Errorf("%v(%T) is not InputEnabled", name, components[0])
+		}
+		resources[name] = component
+
+		// add input to map
+		pos, err := component.CurrentInputs(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		input[name] = pos
+	}
+
+	return input, resources, nil
+}
+
 type reconfigurableMotionService struct {
 	mu     sync.RWMutex
 	actual Service
@@ -239,6 +313,17 @@ func (svc *reconfigurableMotionService) Move(
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.Move(ctx, componentName, destination, worldState)
+}
+
+func (svc *reconfigurableMotionService) MoveSingleComponent(
+	ctx context.Context,
+	componentName resource.Name,
+	destination *referenceframe.PoseInFrame,
+	worldState *commonpb.WorldState,
+) (bool, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.MoveSingleComponent(ctx, componentName, destination, worldState)
 }
 
 func (svc *reconfigurableMotionService) GetPose(

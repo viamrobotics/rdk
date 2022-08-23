@@ -4,14 +4,12 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -141,6 +139,8 @@ type alignAttrs struct {
 	*camera.AttrConfig
 	Color              string      `json:"color"`
 	Depth              string      `json:"depth"`
+	Height             int         `json:"height"`
+	Width              int         `json:"width"`
 	IntrinsicExtrinsic interface{} `json:"intrinsic_extrinsic"`
 	Homography         interface{} `json:"homography"`
 	Warp               interface{} `json:"warp"`
@@ -148,15 +148,14 @@ type alignAttrs struct {
 
 // alignColorDepth takes a color and depth image source and aligns them together.
 type alignColorDepth struct {
-	color, depth            gostream.ImageSource
-	aligner                 rimage.Aligner
-	projector               rimage.Projector
-	stream                  camera.StreamType
-	height                  int // height of the aligned image
-	width                   int // width of the aligned image
-	debug                   bool
-	logger                  golog.Logger
-	activeBackgroundWorkers sync.WaitGroup
+	color, depth gostream.ImageSource
+	aligner      rimage.Aligner
+	projector    rimage.Projector
+	stream       camera.StreamType
+	height       int // height of the aligned image
+	width        int // width of the aligned image
+	debug        bool
+	logger       golog.Logger
 }
 
 // newAlignColorDepth creates a gostream.ImageSource that aligned color and depth channels.
@@ -173,7 +172,7 @@ func newAlignColorDepth(ctx context.Context, color, depth camera.Camera, attrs *
 	stream := camera.StreamType(attrs.Stream)
 	var proj rimage.Projector
 	switch stream {
-	case camera.ColorStream, camera.UnspecifiedStream, camera.BothStream:
+	case camera.ColorStream, camera.UnspecifiedStream:
 		proj, _ = camera.GetProjector(ctx, attrs.AttrConfig, color)
 	case camera.DepthStream:
 		proj, _ = camera.GetProjector(ctx, attrs.AttrConfig, depth)
@@ -201,7 +200,7 @@ func (acd *alignColorDepth) Next(ctx context.Context) (image.Image, func(), erro
 	ctx, span := trace.StartSpan(ctx, "imagesource::alignColorDepth::Next")
 	defer span.End()
 	switch acd.stream {
-	case camera.ColorStream, camera.UnspecifiedStream, camera.BothStream:
+	case camera.ColorStream, camera.UnspecifiedStream:
 		// things are being aligned to the color image, so just return the color image.
 		return acd.color.Next(ctx)
 	case camera.DepthStream:
@@ -231,33 +230,10 @@ func (acd *alignColorDepth) NextPointCloud(ctx context.Context) (pointcloud.Poin
 	if acd.projector == nil {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
-	var col image.Image
-	var dm *rimage.DepthMap
-	// do a parallel request for the color and depth image
-	// get color image
-	acd.activeBackgroundWorkers.Add(1)
-	viamutils.PanicCapturingGo(func() {
-		defer acd.activeBackgroundWorkers.Done()
-		var err error
-		col, _, err = acd.color.Next(ctx)
-		if err != nil {
-			panic(err)
-		}
-	})
-	// get depth image
-	acd.activeBackgroundWorkers.Add(1)
-	viamutils.PanicCapturingGo(func() {
-		defer acd.activeBackgroundWorkers.Done()
-		d, _, err := acd.depth.Next(ctx)
-		if err != nil {
-			panic(err)
-		}
-		dm, err = rimage.ConvertImageToDepthMap(d)
-		if err != nil {
-			panic(err)
-		}
-	})
-	acd.activeBackgroundWorkers.Wait()
+	col, dm := camera.SimultaneousColorDepthNext(ctx, acd.color, acd.depth)
+	if col == nil || dm == nil {
+		return nil, errors.New("requested color or depth image from camera is nil")
+	}
 	if acd.aligner == nil {
 		return acd.projector.RGBDToPointCloud(rimage.ConvertImage(col), dm)
 	}

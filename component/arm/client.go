@@ -7,52 +7,37 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/generic"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 )
 
 var errArmClientInputsNotSupport = errors.New("arm client does not support inputs directly")
 
-// serviceClient is a client satisfies the arm.proto contract.
-type serviceClient struct {
+// client implements ArmServiceClient.
+type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.ArmServiceClient
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
-	client := pb.NewArmServiceClient(conn)
-	sc := &serviceClient{
-		conn:   conn,
-		client: client,
-		logger: logger,
-	}
-	return sc
-}
-
-// client is an arm client.
-type client struct {
-	*serviceClient
-	name string
-}
-
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Arm {
-	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(sc, name)
-}
-
-func clientFromSvcClient(sc *serviceClient, name string) Arm {
-	return &client{sc, name}
+	c := pb.NewArmServiceClient(conn)
+	return &client{
+		name:   name,
+		conn:   conn,
+		client: c,
+		logger: logger,
+	}
 }
 
 func (c *client) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +57,7 @@ func (c *client) MoveToPosition(
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) error {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
@@ -86,7 +71,7 @@ func (c *client) MoveToPosition(
 }
 
 func (c *client) MoveToJointPositions(ctx context.Context, positions *pb.JointPositions, extra map[string]interface{}) error {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
@@ -99,7 +84,7 @@ func (c *client) MoveToJointPositions(ctx context.Context, positions *pb.JointPo
 }
 
 func (c *client) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +99,7 @@ func (c *client) GetJointPositions(ctx context.Context, extra map[string]interfa
 }
 
 func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}

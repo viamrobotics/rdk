@@ -29,7 +29,7 @@ func init() {
 func TestPC1(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// get camera matrix parameters
@@ -56,7 +56,7 @@ func TestPC1(t *testing.T) {
 }
 
 func TestPC2(t *testing.T) {
-	dm, err := rimage.ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// get camera matrix parameters
@@ -75,7 +75,7 @@ func TestPC2(t *testing.T) {
 func TestCameraMatrixTo3D(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// get and set camera matrix parameters

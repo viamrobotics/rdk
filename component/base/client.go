@@ -7,49 +7,34 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/generic"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/base/v1"
+	"go.viam.com/rdk/protoutils"
 )
 
-// serviceClient is a client satisfies the arm.proto contract.
-type serviceClient struct {
+// client implements BaseServiceClient.
+type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.BaseServiceClient
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
-	client := pb.NewBaseServiceClient(conn)
-	sc := &serviceClient{
-		conn:   conn,
-		client: client,
-		logger: logger,
-	}
-	return sc
-}
-
-// client is a base client.
-type client struct {
-	*serviceClient
-	name string
-}
-
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Base {
-	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(sc, name)
-}
-
-func clientFromSvcClient(sc *serviceClient, name string) Base {
-	return &client{sc, name}
+	c := pb.NewBaseServiceClient(conn)
+	return &client{
+		name:   name,
+		conn:   conn,
+		client: c,
+		logger: logger,
+	}
 }
 
 func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
@@ -66,7 +51,7 @@ func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec floa
 }
 
 func (c *client) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
@@ -83,7 +68,7 @@ func (c *client) Spin(ctx context.Context, angleDeg float64, degsPerSec float64,
 }
 
 func (c *client) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
@@ -100,7 +85,7 @@ func (c *client) SetPower(ctx context.Context, linear, angular r3.Vector, extra 
 }
 
 func (c *client) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
@@ -117,7 +102,7 @@ func (c *client) SetVelocity(ctx context.Context, linear, angular r3.Vector, ext
 }
 
 func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
-	ext, err := structpb.NewStruct(extra)
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 )
 
 // define a few typed strings.
@@ -30,9 +31,13 @@ const (
 	ResourceNamespaceRDK  = Namespace("rdk")
 	ResourceTypeComponent = TypeName("component")
 	ResourceTypeService   = TypeName("service")
+	DefaultServiceName    = "builtin"
 )
 
-var resRegexValidator = regexp.MustCompile(`^(rdk:\w+:(?:\w+))\/?(\w+:(?:\w+:)*)?(.+)?$`)
+var (
+	reservedChars     = [...]string{":"}
+	resRegexValidator = regexp.MustCompile(`^(rdk:\w+:(?:\w+))\/?(\w+:(?:\w+:)*)?(.+)?$`)
+)
 
 // Type represents a known component/service type of a robot.
 type Type struct {
@@ -52,6 +57,12 @@ func (t Type) Validate() error {
 	}
 	if t.ResourceType == "" {
 		return errors.New("type field for resource missing or invalid")
+	}
+	if err := ContainsReservedCharacter(string(t.Namespace)); err != nil {
+		return err
+	}
+	if err := ContainsReservedCharacter(string(t.ResourceType)); err != nil {
+		return err
 	}
 	return nil
 }
@@ -87,6 +98,9 @@ func (s Subtype) Validate() error {
 	if s.ResourceSubtype == "" {
 		return errors.New("subtype field for resource missing or invalid")
 	}
+	if err := ContainsReservedCharacter(string(s.ResourceSubtype)); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -104,14 +118,10 @@ type Name struct {
 
 // NewName creates a new Name based on parameters passed in.
 func NewName(namespace Namespace, rType TypeName, subtype SubtypeName, name string) Name {
-	isService := rType == ResourceTypeService
 	resourceSubtype := NewSubtype(namespace, rType, subtype)
 	r := strings.Split(name, ":")
 	remote := RemoteName(strings.Join(r[0:len(r)-1], ":"))
 	nameIdent := r[len(r)-1]
-	if isService {
-		nameIdent = ""
-	}
 	return Name{
 		Subtype: resourceSubtype,
 		Name:    nameIdent,
@@ -189,23 +199,86 @@ func (n Name) ShortName() string {
 
 // Validate ensures that important fields exist and are valid.
 func (n Name) Validate() error {
-	return n.Subtype.Validate()
+	if n.Name == "" {
+		return errors.New("name field for resource is empty")
+	}
+	if err := n.Subtype.Validate(); err != nil {
+		return err
+	}
+	if err := ContainsReservedCharacter(n.Name); err != nil {
+		return err
+	}
+	return nil
 }
 
 // String returns the fully qualified name for the resource.
 func (n Name) String() string {
 	name := n.Subtype.String()
 	if n.Remote != "" {
-		name = fmt.Sprintf("%s/%s:", name, n.Remote)
-	}
-	if n.Name != "" && (n.ResourceType != ResourceTypeService) {
-		if n.Remote != "" {
-			name = fmt.Sprintf("%s%s", name, n.Name)
-		} else {
-			name = fmt.Sprintf("%s/%s", name, n.Name)
-		}
+		name = fmt.Sprintf("%s/%s:%s", name, n.Remote, n.Name)
+	} else {
+		name = fmt.Sprintf("%s/%s", name, n.Name)
 	}
 	return name
+}
+
+// NewReservedCharacterUsedError is used when a reserved character is wrongly used in a name.
+func NewReservedCharacterUsedError(val string, reservedChar string) error {
+	return errors.Errorf("reserved character %s used in name:%q", reservedChar, val)
+}
+
+// ContainsReservedCharacter returns error if string contains a reserved character.
+func ContainsReservedCharacter(val string) error {
+	for _, char := range reservedChars {
+		if strings.Contains(val, char) {
+			return NewReservedCharacterUsedError(val, char)
+		}
+	}
+	return nil
+}
+
+// ReconfigureResource tries to reconfigure/replace an old resource with a new one.
+func ReconfigureResource(ctx context.Context, old, newR interface{}) (interface{}, error) {
+	if old == nil {
+		// if the oldPart was never created, replace directly with the new resource
+		return newR, nil
+	}
+
+	oldPart, oldResourceIsReconfigurable := old.(Reconfigurable)
+	newPart, newResourceIsReconfigurable := newR.(Reconfigurable)
+
+	switch {
+	case oldResourceIsReconfigurable != newResourceIsReconfigurable:
+		// this is an indicator of a serious constructor problem
+		// for the resource subtype.
+		reconfError := errors.Errorf(
+			"new type %T is reconfigurable whereas old type %T is not",
+			newR, old)
+		if oldResourceIsReconfigurable {
+			reconfError = errors.Errorf(
+				"old type %T is reconfigurable whereas new type %T is not",
+				old, newR)
+		}
+		return nil, reconfError
+	case oldResourceIsReconfigurable && newResourceIsReconfigurable:
+		// if we are dealing with a reconfigurable resource
+		// use the new resource to reconfigure the old one.
+		if err := oldPart.Reconfigure(ctx, newPart); err != nil {
+			return nil, err
+		}
+		return old, nil
+	case !oldResourceIsReconfigurable && !newResourceIsReconfigurable:
+		// if we are not dealing with a reconfigurable resource
+		// we want to close the old resource and replace it with the
+		// new.
+		if err := utils.TryClose(ctx, old); err != nil {
+			return nil, err
+		}
+		return newR, nil
+	default:
+		return nil, errors.Errorf("unexpected outcome during reconfiguration of type %T and type %T",
+			old, newR)
+	}
 }
 
 // Reconfigurable is implemented when component/service of a robot is reconfigurable.

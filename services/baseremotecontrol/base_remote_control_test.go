@@ -127,7 +127,7 @@ func TestBaseRemoteControl(t *testing.T) {
 			ConvertedAttributes: cfg,
 		},
 		rlog.Logger)
-	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:input_controller\" not found"))
+	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:input_controller/\" not found"))
 
 	// Base import failure
 	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
@@ -144,7 +144,7 @@ func TestBaseRemoteControl(t *testing.T) {
 			ConvertedAttributes: cfg,
 		},
 		rlog.Logger)
-	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:base\" not found"))
+	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:base/\" not found"))
 
 	// Start checks
 	err = svc.start(ctx)
@@ -413,7 +413,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	_, err = WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(&remoteService{}, nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(remoteService{}, nil))
 
 	reconfSvc2, err := WrapWithReconfigurable(reconfSvc)
 	test.That(t, err, test.ShouldBeNil)
@@ -450,8 +450,23 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(&reconfigurableBaseRemoteControl{}, nil))
 }
 
-func returnMock(name string) remoteService {
-	return remoteService{
+func TestReconfigureClose(t *testing.T) {
+	actualSvc := returnMock("svc1")
+	reconfSvc, err := WrapWithReconfigurable(actualSvc)
+	test.That(t, err, test.ShouldBeNil)
+
+	actualSvc2 := returnMock("svc2")
+	reconfSvc2, err := WrapWithReconfigurable(actualSvc2)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = reconfSvc.Reconfigure(context.Background(), reconfSvc2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, actualSvc.closed, test.ShouldBeTrue)
+	test.That(t, actualSvc2.closed, test.ShouldBeFalse)
+}
+
+func returnMock(name string) *remoteService {
+	return &remoteService{
 		config: &Config{BaseName: name},
 	}
 }
