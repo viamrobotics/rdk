@@ -37,14 +37,14 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-type moduleConfig struct {
-	path   string
-	models []string
-}
+// type moduleConfig struct {
+// 	path   string
+// 	models []string
+// }
 
 // Config holds the list of modules.
 type Config struct {
-	modules []moduleConfig
+	// modules []moduleConfig
 }
 
 func init() {

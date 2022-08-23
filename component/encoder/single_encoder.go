@@ -13,12 +13,13 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 func init() {
 	registry.RegisterComponent(
 		Subtype,
-		"single",
+		resource.NewDefaultModel("single"),
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -29,8 +30,8 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
-		SubtypeName,
-		"single",
+		Subtype,
+		resource.NewDefaultModel("single"),
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf SingleConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

@@ -13,12 +13,13 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 func init() {
 	registry.RegisterComponent(
 		Subtype,
-		"hall",
+		resource.NewDefaultModel("hall"),
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -29,8 +30,8 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
-		SubtypeName,
-		"hall",
+		Subtype,
+		resource.NewDefaultModel("hall"),
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf HallConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

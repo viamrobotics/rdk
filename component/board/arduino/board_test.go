@@ -47,7 +47,7 @@ func TestArduinoPWM(t *testing.T) {
 					},
 					{
 						Name:  "e1",
-						Model: "arduino",
+						Model: model,
 						Type:  encoder.SubtypeName,
 						ConvertedAttributes: &EncoderConfig{
 							Pins: EncoderPins{
@@ -80,7 +80,7 @@ func TestArduinoPWM(t *testing.T) {
 					},
 					{
 						Name:  "e1",
-						Model: "arduino",
+						Model: model,
 						Type:  encoder.SubtypeName,
 						ConvertedAttributes: &EncoderConfig{
 							Pins: EncoderPins{
@@ -112,7 +112,7 @@ func TestArduinoPWM(t *testing.T) {
 					},
 					{
 						Name:  "e1",
-						Model: "arduino",
+						Model: model,
 						Type:  encoder.SubtypeName,
 						ConvertedAttributes: &EncoderConfig{
 							Pins: EncoderPins{
@@ -146,7 +146,7 @@ func TestArduinoPWM(t *testing.T) {
 					},
 					{
 						Name:  "e1",
-						Model: "arduino",
+						Model: model,
 						Type:  encoder.SubtypeName,
 						ConvertedAttributes: &EncoderConfig{
 							Pins: EncoderPins{
@@ -230,7 +230,7 @@ func TestArduinoMotorABPWM(t *testing.T) {
 			},
 			{
 				Name:  "e1",
-				Model: "arduino",
+				Model: model,
 				Type:  encoder.SubtypeName,
 				ConvertedAttributes: &EncoderConfig{
 					Pins: EncoderPins{
@@ -289,7 +289,7 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 			},
 			{
 				Name:  "e1",
-				Model: "arduino",
+				Model: model,
 				Type:  encoder.SubtypeName,
 				ConvertedAttributes: &EncoderConfig{
 					Pins: EncoderPins{
@@ -348,7 +348,7 @@ func TestArduinoMotorAB(t *testing.T) {
 			},
 			{
 				Name:  "e1",
-				Model: "arduino",
+				Model: model,
 				Type:  encoder.SubtypeName,
 				ConvertedAttributes: &EncoderConfig{
 					Pins: EncoderPins{

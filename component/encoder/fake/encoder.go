@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 func init() {
@@ -25,7 +26,7 @@ func init() {
 			return e, nil
 		},
 	}
-	registry.RegisterComponent(encoder.Subtype, "fake", _encoder)
+	registry.RegisterComponent(encoder.Subtype, resource.NewDefaultModel("fake"), _encoder)
 }
 
 // Encoder keeps track of a fake motor position.
