@@ -65,7 +65,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sensorNames, test.ShouldResemble, names)
 
-		gReading := sensors.Readings{Name: movementsensor.Named("gps"), Readings: []interface{}{4.5, 5.6, 6.7}}
+		gReading := sensors.Readings{Name: movementsensor.Named("gps"), Readings: map[string]interface{}{"a": 4.5, "b": 5.6, "c": 6.7}}
 		readings := []sensors.Readings{gReading}
 		expected := map[resource.Name]interface{}{
 			gReading.Name: gReading.Readings,

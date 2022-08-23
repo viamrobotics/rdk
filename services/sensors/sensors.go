@@ -49,7 +49,7 @@ func init() {
 // A Readings ties both the sensor name and its reading together.
 type Readings struct {
 	Name     resource.Name
-	Readings []interface{}
+	Readings map[string]interface{}
 }
 
 // A Service centralizes all sensors into one place.

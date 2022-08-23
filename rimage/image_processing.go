@@ -433,9 +433,10 @@ func GetHysteresisThresholds(mag, nms *mat.Dense, ratioHigh, ratioLow float64) (
 // GetConnectivity8Neighbors return the pixel coordinates of the neighbors of a pixel (i,j) in connectivity 8;
 // Returns only the pixel within the image bounds.
 // Connectivity 8 :
-//  .   .   .
-//  .   o   .
-//  .   .   .
+//
+//	.   .   .
+//	.   o   .
+//	.   .   .
 func GetConnectivity8Neighbors(i, j, r, c int) []MatrixPixelPoint {
 	neighbors := make([]MatrixPixelPoint, 0, 8)
 	if i-1 > 0 && j-1 > 0 {

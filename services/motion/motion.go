@@ -53,7 +53,7 @@ func init() {
 
 // A Service controls the flow of moving components.
 type Service interface {
-	PlanAndMove(
+	Move(
 		ctx context.Context,
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
@@ -120,8 +120,8 @@ type motionService struct {
 	logger golog.Logger
 }
 
-// PlanAndMove takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
-func (ms *motionService) PlanAndMove(
+// Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
+func (ms *motionService) Move(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
@@ -304,7 +304,7 @@ type reconfigurableMotionService struct {
 	actual Service
 }
 
-func (svc *reconfigurableMotionService) PlanAndMove(
+func (svc *reconfigurableMotionService) Move(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
@@ -312,7 +312,7 @@ func (svc *reconfigurableMotionService) PlanAndMove(
 ) (bool, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.PlanAndMove(ctx, componentName, destination, worldState)
+	return svc.actual.Move(ctx, componentName, destination, worldState)
 }
 
 func (svc *reconfigurableMotionService) MoveSingleComponent(

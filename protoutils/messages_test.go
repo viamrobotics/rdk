@@ -17,6 +17,7 @@ type mapTest struct {
 
 var (
 	simpleMap    = map[string]bool{"exists": true}
+	nilValueMap  = map[string]interface{}{"here": nil}
 	sliceMap     = map[string][]string{"foo": {"bar"}}
 	nestedMap    = map[string]map[string]string{"foo": {"bar": "bar2"}}
 	pointerMap   = map[string]interface{}{"foo": &simpleStruct}
@@ -24,6 +25,7 @@ var (
 	structMapMap = map[string]MapStruct{"foo": mapStruct}
 	mapTests     = []mapTest{
 		{"simple map", simpleMap, map[string]interface{}{"exists": true}},
+		{"nil value map", nilValueMap, map[string]interface{}{"here": nil}},
 		{"slice map", sliceMap, map[string]interface{}{"foo": []interface{}{"bar"}}},
 		{"pointer map", pointerMap, map[string]interface{}{"foo": map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3}}},
 		{"nested map", nestedMap, map[string]interface{}{"foo": map[string]interface{}{"bar": "bar2"}}},
