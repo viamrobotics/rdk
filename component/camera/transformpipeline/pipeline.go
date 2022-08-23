@@ -10,12 +10,12 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -30,7 +30,7 @@ func init() {
 		) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*transformConfig)
 			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
+				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
 			source, err := camera.FromRobot(r, sourceName)

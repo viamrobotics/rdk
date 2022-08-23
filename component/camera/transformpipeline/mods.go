@@ -5,13 +5,12 @@ import (
 	"image"
 	"image/color"
 
-	"golang.org/x/image/draw"
-
 	"github.com/disintegration/imaging"
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
+	"golang.org/x/image/draw"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -30,7 +29,7 @@ type rotateSource struct {
 	stream   camera.StreamType
 }
 
-// newRotateTransform creates a new rotation transform
+// newRotateTransform creates a new rotation transform.
 func newRotateTransform(source gostream.ImageSource, stream camera.StreamType) (gostream.ImageSource, error) {
 	return &rotateSource{source, stream}, nil
 }
@@ -62,7 +61,7 @@ func (rs *rotateSource) Close(ctx context.Context) error {
 	return utils.TryClose(ctx, rs.original)
 }
 
-// resizeAttrs are the attributes for a resize transform
+// resizeAttrs are the attributes for a resize transform.
 type resizeAttrs struct {
 	Height int `json:"height"`
 	Width  int `json:"width"`
@@ -75,7 +74,7 @@ type resizeSource struct {
 	width    int
 }
 
-// newResizeTransform creates a new resize transform
+// newResizeTransform creates a new resize transform.
 func newResizeTransform(
 	source gostream.ImageSource, stream camera.StreamType, am config.AttributeMap,
 ) (gostream.ImageSource, error) {
