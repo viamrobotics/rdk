@@ -3,6 +3,7 @@ package datasync
 import (
 	"context"
 	"fmt"
+	goutils "go.viam.com/utils"
 	"io"
 	"os"
 	"path/filepath"
@@ -27,8 +28,6 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	if err != nil {
 		return err
 	}
-	ctx, cancelFn := context.WithCancel(ctx)
-	defer cancelFn()
 	err = initDataCaptureUpload(ctx, f, pt, f.Name())
 	if errors.Is(err, io.EOF) {
 		return nil
@@ -50,91 +49,37 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		return errors.Wrap(err, "error while sending upload metadata")
 	}
 
-	var activeBackgroundWorkers sync.WaitGroup
+	activeBackgroundWorkers := &sync.WaitGroup{}
 	errChannel := make(chan error, 1)
+
+	// Create cancelCtx so if either the recv or send goroutines error, we can cancel the other one.
+	cancelCtx, cancelFn := context.WithCancel(ctx)
+	defer cancelFn()
 
 	// Start a goroutine for recving acks back from the server.
 	activeBackgroundWorkers.Add(1)
-	// TODO: make this a named function
-	go func() {
-		defer fmt.Println("recv returned")
-		defer activeBackgroundWorkers.Done()
-		for {
-			recvChannel := make(chan error)
-			go func() {
-				defer close(recvChannel)
-				fmt.Println("waiting on recv")
-				ur, err := stream.Recv()
-				if err != nil {
-					fmt.Println("received error from server")
-					fmt.Println(err)
-					recvChannel <- err
-					return
-				}
-				fmt.Println("received ack")
-				if err := pt.updateProgressFileIndex(progressFileName, int(ur.GetRequestsWritten())); err != nil {
-					recvChannel <- err
-					return
-				}
-			}()
-
-			select {
-			case <-ctx.Done():
-				errChannel <- context.Canceled
-				return
-			case e := <-recvChannel:
-				if e != nil {
-					if !errors.Is(e, io.EOF) {
-						fmt.Println("received non EOF error from server")
-						fmt.Println(e)
-						fmt.Println(e == nil)
-						errChannel <- e
-						cancelFn()
-					} else {
-						return
-					}
-				}
-			}
+	goutils.PanicCapturingGo(func() {
+		err := recvStream(cancelCtx, activeBackgroundWorkers, stream, pt, progressFileName)
+		if err != nil {
+			cancelFn()
+			errChannel <- err
 		}
-	}()
+	})
 
 	// Start a goroutine for sending SensorData to the server.
 	activeBackgroundWorkers.Add(1)
-	// TODO: make this a named function
-	go func() {
-		defer fmt.Println("send returned")
-		// Loop until there is no more content to be read from file.
-		defer activeBackgroundWorkers.Done()
-		for {
-			fmt.Println("sending upload request")
-			err := sendNextUploadRequest(ctx, f, stream)
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			if err != nil {
-				fmt.Println("error when reading ")
-				errChannel <- err
-				cancelFn()
-				break
-			}
-			fmt.Println("sent upload request")
-		}
-		if err = stream.CloseSend(); err != nil {
+	goutils.PanicCapturingGo(func() {
+		err := sendStream(cancelCtx, activeBackgroundWorkers, stream, f)
+		if err != nil {
+			cancelFn()
 			errChannel <- err
 		}
-	}()
-	activeBackgroundWorkers.Wait()
-	fmt.Println("done waiting")
+	})
 
+	activeBackgroundWorkers.Wait()
 	close(errChannel)
 
-	// TODO: should probably combine errors
 	for err := range errChannel {
-		fmt.Println("received error")
-		fmt.Println(err.Error())
-		if err == nil {
-			continue
-		}
 		return err
 	}
 
@@ -220,6 +165,71 @@ func sendNextUploadRequest(ctx context.Context, f *os.File, stream v1.DataSyncSe
 		if err = stream.Send(uploadReq); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func recvStream(ctx context.Context, wg *sync.WaitGroup, stream v1.DataSyncService_UploadClient,
+	pt progressTracker, progressFile string) error {
+	defer fmt.Println("recv returned")
+	defer wg.Done()
+	for {
+		recvChannel := make(chan error)
+		go func() {
+			defer close(recvChannel)
+			fmt.Println("waiting on recv")
+			ur, err := stream.Recv()
+			if err != nil {
+				fmt.Println("received error from server")
+				fmt.Println(err)
+				recvChannel <- err
+				return
+			}
+			fmt.Println("received ack")
+			if err := pt.updateProgressFileIndex(progressFile, int(ur.GetRequestsWritten())); err != nil {
+				recvChannel <- err
+				return
+			}
+		}()
+
+		select {
+		case <-ctx.Done():
+			return context.Canceled
+		case e := <-recvChannel:
+			if e != nil {
+				if !errors.Is(e, io.EOF) {
+					fmt.Println("received non EOF error from server")
+					fmt.Println(e)
+					fmt.Println(e == nil)
+					return e
+					//cancelFn()
+				}
+				return nil
+			}
+		}
+	}
+}
+
+func sendStream(ctx context.Context, wg *sync.WaitGroup, stream v1.DataSyncService_UploadClient,
+	captureFile *os.File) error {
+
+	defer fmt.Println("send returned")
+	// Loop until there is no more content to be read from file.
+	defer wg.Done()
+	for {
+		fmt.Println("sending upload request")
+		err := sendNextUploadRequest(ctx, captureFile, stream)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			fmt.Println("error when reading ")
+			return err
+		}
+		fmt.Println("sent upload request")
+	}
+	if err := stream.CloseSend(); err != nil {
+		return err
 	}
 	return nil
 }
