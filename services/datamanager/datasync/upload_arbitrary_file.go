@@ -110,7 +110,6 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 func getNextFileUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequest, error) {
 	select {
 	case <-ctx.Done():
-		// TODO: is this right?
 		return nil, context.Canceled
 	default:
 		// Get the next file data reading from file, check for an error.
