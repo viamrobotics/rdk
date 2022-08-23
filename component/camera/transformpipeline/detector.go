@@ -13,6 +13,10 @@ import (
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
+const (
+	detectionsTransform = transformType("detections")
+)
+
 // detectorAttrs is the attribute struct for detectors (their name as found in the vision service).
 type detectorAttrs struct {
 	DetectorName        string  `json:"detector_name"`

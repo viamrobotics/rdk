@@ -19,6 +19,11 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+const (
+	rotateTransform = transformType("rotate")
+	resizeTransform = transformType("resize")
+)
+
 // rotateSource is the source to be rotated and the kind of image type.
 type rotateSource struct {
 	original gostream.ImageSource

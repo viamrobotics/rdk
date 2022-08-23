@@ -13,20 +13,13 @@ import (
 // transformType is the list of allowed transforms that can be used in the pipeline.
 type transformType string
 
-// the allowed types of transforms.
+// the identity transforms. Other transformType names are defined in their respective go files.
 const (
-	unspecifiedTrasform      = transformType("")
-	identityTransform        = transformType("identity")
-	rotateTransform          = transformType("rotate")
-	resizeTransform          = transformType("resize")
-	depthPrettyTransform     = transformType("depth_to_pretty")
-	overlayTransform         = transformType("overlay")
-	undistortTransform       = transformType("undistort")
-	detectionsTransform      = transformType("detections")
-	depthPreprocessTransform = transformType("depth_preprocess")
-	depthEdgesTransform      = transformType("depth_edges")
+	unspecifiedTrasform = transformType("")
+	identityTransform   = transformType("identity")
 )
 
+// NewUnknownTransformType returns an error of an unknown input transformType
 func NewUnknownTransformType(t string) error {
 	return errors.Errorf("do not know camera transform of type %q", t)
 }
