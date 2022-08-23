@@ -63,22 +63,38 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	detectorComp := config.Component{
 		Name:  "color_detect",
 		Type:  camera.SubtypeName,
-		Model: "detector",
+		Model: "transform",
 		Attributes: config.AttributeMap{
-			"source":        "fake_cam",
-			"detector_name": "detector_color",
+			"source": "fake_cam",
+			"pipeline": []config.AttributeMap{
+				{
+					"type": "detections",
+					"attributes": config.AttributeMap{
+						"detector_name":        "detector_color",
+						"confidence_threshold": 0.35,
+					},
+				},
+			},
 		},
 		DependsOn: []string{"fake_cam"},
 	}
 	cfg.Components = append(cfg.Components, detectorComp)
+	// create 2nd fake detector camera
 	tfliteComp := config.Component{
 		Name:  "tflite_detect",
 		Type:  camera.SubtypeName,
 		Model: "detector",
 		Attributes: config.AttributeMap{
-			"source":               "fake_cam",
-			"detector_name":        "detector_tflite",
-			"confidence_threshold": 0.35,
+			"source": "fake_cam",
+			"pipeline": []config.AttributeMap{
+				{
+					"type": "detections",
+					"attributes": config.AttributeMap{
+						"detector_name":        "detector_tflite",
+						"confidence_threshold": 0.35,
+					},
+				},
+			},
 		},
 		DependsOn: []string{"fake_cam"},
 	}
