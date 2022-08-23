@@ -54,20 +54,22 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	// Start a goroutine for recving acks back from the server.
 	activeBackgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
-		err := recvStream(cancelCtx, activeBackgroundWorkers, stream, pt, progressFileName)
+		defer activeBackgroundWorkers.Done()
+		err := recvStream(cancelCtx, stream, pt, progressFileName)
 		if err != nil {
-			cancelFn()
 			errChannel <- err
+			cancelFn()
 		}
 	})
 
 	// Start a goroutine for sending SensorData to the server.
 	activeBackgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
-		err := sendStream(cancelCtx, activeBackgroundWorkers, stream, f)
+		defer activeBackgroundWorkers.Done()
+		err := sendStream(cancelCtx, stream, f)
 		if err != nil {
-			cancelFn()
 			errChannel <- err
+			cancelFn()
 		}
 	})
 
@@ -164,10 +166,9 @@ func sendNextUploadRequest(ctx context.Context, f *os.File, stream v1.DataSyncSe
 	return nil
 }
 
-func recvStream(ctx context.Context, wg *sync.WaitGroup, stream v1.DataSyncService_UploadClient,
+func recvStream(ctx context.Context, stream v1.DataSyncService_UploadClient,
 	pt progressTracker, progressFile string) error {
 	defer fmt.Println("recv returned")
-	defer wg.Done()
 	for {
 		recvChannel := make(chan error)
 		go func() {
@@ -205,12 +206,11 @@ func recvStream(ctx context.Context, wg *sync.WaitGroup, stream v1.DataSyncServi
 	}
 }
 
-func sendStream(ctx context.Context, wg *sync.WaitGroup, stream v1.DataSyncService_UploadClient,
+func sendStream(ctx context.Context, stream v1.DataSyncService_UploadClient,
 	captureFile *os.File) error {
 
 	defer fmt.Println("send returned")
 	// Loop until there is no more content to be read from file.
-	defer wg.Done()
 	for {
 		fmt.Println("sending upload request")
 		err := sendNextUploadRequest(ctx, captureFile, stream)
