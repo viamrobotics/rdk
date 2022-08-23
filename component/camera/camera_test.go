@@ -24,6 +24,7 @@ import (
 
 const (
 	testCameraName    = "camera1"
+	depthCameraName   = "camera_depth"
 	testCameraName2   = "camera2"
 	failCameraName    = "camera3"
 	fakeCameraName    = "camera4"

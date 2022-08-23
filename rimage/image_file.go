@@ -166,7 +166,7 @@ func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string, width, h
 
 	switch mimeType {
 	case ut.MimeTypeRawRGBA:
-		img := image.NewNRGBA(image.Rect(0, 0, width, height))
+		img := image.NewNRGBA64(image.Rect(0, 0, width, height))
 		img.Pix = imgBytes
 		return img, nil
 	case ut.MimeTypeJPEG:
@@ -193,7 +193,7 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 	bounds := img.Bounds()
 	switch mimeType {
 	case ut.MimeTypeRawRGBA:
-		imgCopy := image.NewRGBA(bounds)
+		imgCopy := image.NewNRGBA64(bounds)
 		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
 		buf.Write(imgCopy.Pix)
 	case ut.MimeTypePNG:
