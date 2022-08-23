@@ -216,7 +216,7 @@ func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 	return referenceframe.FloatsToInputs(inputs), nil
 }
 
-//  ModelFrame returns the frame model of the Gantry.
+// ModelFrame returns the frame model of the Gantry.
 func (g *multiAxis) ModelFrame() referenceframe.Model {
 	if g.model == nil {
 		model := referenceframe.NewSimpleModel()
