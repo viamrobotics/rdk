@@ -1,0 +1,41 @@
+{
+	"services": [
+		{
+			"type": "module",
+			"attributes": {
+				"modules": [
+					{
+						"path": "/tmp/testmod",
+						"models": [
+							{
+								"namespace": "acme",
+								"model_family": "test",
+								"name": "blarg"
+							}
+						]
+					}
+				]
+			}
+		}
+	],
+	"components": [
+		{	
+			"name": "mysmurf",
+			"type": "generic",
+			"model": {
+				"namespace": "acme",
+				"model_family": "test",
+				"name": "blarg"
+			},
+			"attributes": {
+				"attr1": "foo",
+				"attr2": 42,
+				"attr3": [ "foo", "bar" ],
+				"attr4": {
+					"sub1": "long",
+					"sub2": 55
+				}
+			}
+		}
+	]
+}

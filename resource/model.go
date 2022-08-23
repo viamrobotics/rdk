@@ -30,8 +30,8 @@ var (
 
 // ModelFamily is a family of related models.
 type ModelFamily struct {
-	Namespace   Namespace
-	ModelFamily ModelFamilyName
+	Namespace   Namespace `json:"namespace"`
+	ModelFamily ModelFamilyName `json:"model_family"`
 }
 
 // NewModelFamily creates a new ModelFamily based on parameters passed in.
@@ -63,8 +63,8 @@ func (f ModelFamily) String() string {
 
 // Model represents an individual model within a family.
 type Model struct {
-	ModelFamily
-	Name ModelName
+	ModelFamily `json:",squash"`
+	Name ModelName `json:"name"`
 }
 
 // NewModel creates a new Model based on parameters passed in.
@@ -115,33 +115,33 @@ func (m Model) String() string {
 // UnmarshalJSON pareses namespace:family:modelname strings to the full Model{} struct.
 func (m *Model) UnmarshalJSON(data []byte) error {
 	modelStr := strings.Trim(string(data), "\"'")
-	// fmt.Printf("SMURF510: %s\n", modelStr)
+	fmt.Printf("SMURF510: %s\n", modelStr)
 	if modelRegexValidator.MatchString(modelStr) {
 		matches := modelRegexValidator.FindStringSubmatch(modelStr)
 		m.Namespace = Namespace(matches[1])
 		m.ModelFamily.ModelFamily = ModelFamilyName(matches[2])
 		m.Name = ModelName(matches[3])
-		// fmt.Printf("SMURF520: %+v\n", m)
+		fmt.Printf("SMURF520: %+v\n", m)
 		return nil
 	}
 	if shortModelRegexValidator.MatchString(modelStr) {
 		m.Namespace = ResourceNamespaceRDK
 		m.ModelFamily.ModelFamily = ModelFamilyDefaultName
 		m.Name = ModelName(modelStr)
-		// fmt.Printf("SMURF521: %+v\n", m)
+		fmt.Printf("SMURF521: %+v\n", m)
 		return nil
 	}
 
 	var tempModel map[string]string
 	err := json.Unmarshal(data, &tempModel)
-	// fmt.Printf("SMURF600: %+s decodes to %+v with error %v \n", data, tempModel, err)
+	fmt.Printf("SMURF600: %+s decodes to %+v with error %v \n", data, tempModel, err)
 	if err != nil {
 		return err
 	}
 
-	m.Namespace = Namespace(tempModel["Namespace"])
-	m.ModelFamily.ModelFamily = ModelFamilyName(tempModel["ModelFamily"])
-	m.Name = ModelName(tempModel["Name"])
+	m.Namespace = Namespace(tempModel["namespace"])
+	m.ModelFamily.ModelFamily = ModelFamilyName(tempModel["model_family"])
+	m.Name = ModelName(tempModel["name"])
 
 	return nil
 }
