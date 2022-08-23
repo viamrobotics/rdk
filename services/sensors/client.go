@@ -56,9 +56,9 @@ func (c *client) GetReadings(ctx context.Context, sensorNames []resource.Name) (
 
 	readings := make([]Readings, 0, len(resp.Readings))
 	for _, reading := range resp.Readings {
-		sReading := make([]interface{}, 0, len(reading.Readings))
-		for _, r := range reading.Readings {
-			sReading = append(sReading, r.AsInterface())
+		sReading, err := protoutils.ReadingProtoToGo(reading.Readings)
+		if err != nil {
+			return nil, err
 		}
 		readings = append(
 			readings, Readings{

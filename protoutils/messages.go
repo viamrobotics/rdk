@@ -79,7 +79,12 @@ func StructToStructPb(i interface{}) (*structpb.Struct, error) {
 	return ret, nil
 }
 
+// takes a go type and tries to make it a better type for converting to grpc
 func toInterface(data interface{}) (interface{}, error) {
+	if data == nil {
+		return nil, nil
+	}
+
 	t := reflect.TypeOf(data)
 	v := reflect.ValueOf(data)
 	if t.Kind() == reflect.Ptr {
@@ -259,9 +264,9 @@ func ConvertOrientationToProto(o spatialmath.Orientation) *commonpb.Orientation 
 // ConvertProtoToOrientation
 func ConvertProtoToOrientation(o *commonpb.Orientation) spatialmath.Orientation {
 	return &spatialmath.OrientationVectorDegrees{
-		OX : o.OX,
-		OY : o.OY,
-		OZ : o.OZ,
-		Theta : o.Theta	,
+		OX:    o.OX,
+		OY:    o.OY,
+		OZ:    o.OZ,
+		Theta: o.Theta,
 	}
 }
