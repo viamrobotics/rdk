@@ -4,14 +4,15 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
+
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/camera/imagesource"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
 )
 
 func TestTransformPipelineColor(t *testing.T) {
@@ -48,7 +49,6 @@ func TestTransformPipelineColor(t *testing.T) {
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
 	_, err = color.GetProperties(context.Background())
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
-
 }
 
 func TestTransformPipelineDepth(t *testing.T) {
@@ -69,7 +69,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 		Source: "source",
 		Pipeline: []Transformation{
 			{Type: "rotate", Attributes: config.AttributeMap{}},
-			{Type: "resize", Attributes: config.AttributeMap{"height": 200, "width": 100}},
+			{Type: "resize", Attributes: config.AttributeMap{"height": 300, "width": 400}},
 		},
 	}
 	r := &inject.Robot{}
@@ -89,8 +89,8 @@ func TestTransformPipelineDepth(t *testing.T) {
 
 	outImg, _, err := depth.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 100)
-	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 200)
+	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 400)
+	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 300)
 	prop, err := depth.GetProperties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, prop, test.ShouldResemble, intrinsics)
@@ -221,6 +221,7 @@ func TestPipeIntoPipe(t *testing.T) {
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 200)
 	test.That(t, err, test.ShouldBeNil)
 	prop, err = pipe2.GetProperties(context.Background())
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, prop.(*transform.PinholeCameraIntrinsics).Width, test.ShouldEqual, 100)
 	test.That(t, prop.(*transform.PinholeCameraIntrinsics).Height, test.ShouldEqual, 200)
 	// should error - color image cannot be depth resized

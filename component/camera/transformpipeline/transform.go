@@ -5,6 +5,7 @@ import (
 
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/robot"
@@ -19,7 +20,7 @@ const (
 	identityTransform   = transformType("identity")
 )
 
-// NewUnknownTransformType returns an error of an unknown input transformType
+// NewUnknownTransformType returns an error of an unknown input transformType.
 func NewUnknownTransformType(t string) error {
 	return errors.Errorf("do not know camera transform of type %q", t)
 }
@@ -30,7 +31,7 @@ type Transformation struct {
 	Attributes config.AttributeMap `json:"attributes"`
 }
 
-// buildTransform uses the Transformation config to build the desired transform ImageSource
+// buildTransform uses the Transformation config to build the desired transform ImageSource.
 func buildTransform(
 	ctx context.Context, r robot.Robot, source gostream.ImageSource, cfg *transformConfig, tr Transformation,
 ) (gostream.ImageSource, error) {

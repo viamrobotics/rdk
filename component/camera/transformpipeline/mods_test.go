@@ -27,6 +27,7 @@ func init() {
 	rlog.Logger.Debugf("out dir: %q", outDir)
 }
 
+// nolint:dupl
 func TestResizeColor(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
 	test.That(t, err, test.ShouldBeNil)
@@ -49,13 +50,14 @@ func TestResizeColor(t *testing.T) {
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 200)
 }
 
+// nolint:dupl
 func TestResizeDepth(t *testing.T) {
 	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	am := config.AttributeMap{
-		"height": 200,
-		"width":  300,
+		"height": 400,
+		"width":  600,
 	}
 	source := &imagesource.StaticSource{DepthImg: img}
 	out, _, err := source.Next(context.Background())
@@ -67,8 +69,8 @@ func TestResizeDepth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	out, _, err = rs.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 300)
-	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 200)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 600)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 400)
 }
 
 func TestRotateColorSource(t *testing.T) {

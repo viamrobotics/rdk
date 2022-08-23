@@ -6,6 +6,7 @@ import (
 	"image"
 
 	"github.com/edaniels/gostream"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
