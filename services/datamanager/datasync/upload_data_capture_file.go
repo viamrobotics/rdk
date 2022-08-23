@@ -15,11 +15,6 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
-// TODO: Have two goroutines. If one errors and exits, it should cancel the other one. This is important because if the
-//       recv routine fails but the send continues, the server will continue to send ACKs (and persist data), but we
-//       won't be recving those ACKs, so duplicate data will be sent on the next run.
-
-// TODO: clean up this messy ass code
 func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.DataSyncServiceClient,
 	md *v1.UploadMetadata, f *os.File,
 ) error {

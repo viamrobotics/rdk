@@ -32,10 +32,7 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 	}
 
 	var activeBackgroundWorkers sync.WaitGroup
-
-	// TODO: use single error channel for these two
 	errChannel := make(chan error, 1)
-
 	activeBackgroundWorkers.Add(1)
 	go func() {
 		defer activeBackgroundWorkers.Done()
@@ -48,11 +45,13 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 			}()
 			select {
 			case <-ctx.Done():
-				errChannel <- ctx.Err()
+				errChannel <- context.Canceled
 				return
 			case e := <-recvChannel:
 				if e != nil {
-					errChannel <- e
+					if !errors.Is(e, io.EOF) {
+						errChannel <- e
+					}
 					return
 				}
 			}
@@ -61,16 +60,14 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 
 	activeBackgroundWorkers.Add(1)
 	go func() {
-		defer activeBackgroundWorkers.Done()
-		// Do not check error of stream close send because it is always following the error check
-		// of the wider function execution.
-		//nolint: errcheck
+		//nolint:errcheck
 		defer stream.CloseSend()
+		defer activeBackgroundWorkers.Done()
 		// Loop until there is no more content to be read from file.
 		for {
 			select {
 			case <-ctx.Done():
-				errChannel <- ctx.Err()
+				errChannel <- context.Canceled
 				return
 			default:
 				// Get the next UploadRequest from the file.
@@ -79,7 +76,7 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 				// EOF means we've completed successfully.
 				if errors.Is(err, io.EOF) {
 					if err := stream.CloseSend(); err != nil {
-						errChannel <- errors.Wrap(err, "error when closing the stream")
+						errChannel <- errors.Wrap(err, "error when closing stream")
 					}
 					return
 				}
@@ -101,17 +98,10 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 	}()
 
 	activeBackgroundWorkers.Wait()
-	// TODO: close channel here
 	close(errChannel)
 
-	// TODO: maybe combine error?
 	for err := range errChannel {
-		if err == nil {
-			return nil
-		}
-		if !errors.Is(err, io.EOF) {
-			return err
-		}
+		return err
 	}
 
 	return nil
@@ -121,7 +111,7 @@ func getNextFileUploadRequest(ctx context.Context, f *os.File) (*v1.UploadReques
 	select {
 	case <-ctx.Done():
 		// TODO: is this right?
-		return nil, ctx.Err()
+		return nil, context.Canceled
 	default:
 		// Get the next file data reading from file, check for an error.
 		next, err := readNextFileChunk(f)
