@@ -431,7 +431,7 @@ func TestResourceNameValidate(t *testing.T) {
 					ResourceSubtype: arm.SubtypeName,
 				},
 			},
-			"Name field for resource is empty",
+			"name field for resource is empty",
 		},
 		{
 			"all fields included",

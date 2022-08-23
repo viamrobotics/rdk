@@ -214,7 +214,6 @@ func (n Name) Validate() error {
 // String returns the fully qualified name for the resource.
 func (n Name) String() string {
 	name := n.Subtype.String()
-
 	if n.Remote != "" {
 		name = fmt.Sprintf("%s/%s:%s", name, n.Remote, n.Name)
 	} else {

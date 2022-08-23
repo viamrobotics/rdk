@@ -153,9 +153,10 @@ func TestFixOvIncrement(t *testing.T) {
 }
 
 // simple2DMapConfig returns a planConfig with the following map
-//		- start at (-9, 9) and end at (9, 9)
-//      - bounds are from (-10, -10) to (10, 10)
-//      - obstacle from (-4, 2) to (4, 10)
+//   - start at (-9, 9) and end at (9, 9)
+//   - bounds are from (-10, -10) to (10, 10)
+//   - obstacle from (-4, 2) to (4, 10)
+//
 // ------------------------
 // | +      |    |      + |
 // |        |    |        |

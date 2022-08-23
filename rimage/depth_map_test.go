@@ -116,9 +116,9 @@ func TestDepthMapNewFormat(t *testing.T) {
 	test.That(t, numZero, test.ShouldBeBetween, 0, m.width)
 }
 
-//  1 2              5 3 1 //  1 2               2 4 6
-//  3 4  -- 90 cw -> 6 4 2 //  3 4  -- 90 ccw -> 1 3 5
-//  5 6                    //  5 6
+// 1 2              5 3 1 //  1 2               2 4 6
+// 3 4  -- 90 cw -> 6 4 2 //  3 4  -- 90 ccw -> 1 3 5
+// 5 6                    //  5 6.
 func TestDepthRotate90(t *testing.T) {
 	dm := NewEmptyDepthMap(2, 3)
 	dm.Set(0, 0, 1)
