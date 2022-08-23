@@ -35,7 +35,6 @@ const numThreadsImagesource = 8 // This should be a param
 
 var modelJoinPC = resource.NewDefaultModel("join_pointclouds")
 
-
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,

@@ -516,7 +516,7 @@ func TestManagerAdd(t *testing.T) {
 }
 
 func TestManagerNewComponent(t *testing.T) {
-	fakeModel := resource.Model{Name: "fake"}
+	fakeModel := resource.NewDefaultModel("fake")
 	cfg := &config.Config{
 		Components: []config.Component{
 			{

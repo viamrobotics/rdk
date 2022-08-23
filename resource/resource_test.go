@@ -430,8 +430,23 @@ func TestResourceNameValidate(t *testing.T) {
 					},
 					ResourceSubtype: arm.SubtypeName,
 				},
+				Model: resource.NewDefaultModel("test"),
 			},
 			"name field for resource is empty",
+		},
+		{
+			"missing model",
+			resource.Name{
+				Subtype: resource.Subtype{
+					Type: resource.Type{
+						Namespace:    resource.ResourceNamespaceRDK,
+						ResourceType: resource.ResourceTypeComponent,
+					},
+					ResourceSubtype: arm.SubtypeName,
+				},
+				Name: "arm1",
+			},
+			"model namespace field for resource missing",
 		},
 		{
 			"all fields included",
@@ -443,7 +458,8 @@ func TestResourceNameValidate(t *testing.T) {
 					},
 					ResourceSubtype: arm.SubtypeName,
 				},
-				Name: "arm1",
+				Name:  "arm1",
+				Model: resource.NewDefaultModel("test"),
 			},
 			"",
 		},

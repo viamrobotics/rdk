@@ -28,6 +28,7 @@ import (
 
 // Timeout for Home() and GoTillStop().
 const homeTimeout = time.Minute
+
 var modelName = resource.NewDefaultModel("DMC4000")
 
 // controllers is global to all instances, mapped by serial device.

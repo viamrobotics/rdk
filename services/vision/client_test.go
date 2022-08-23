@@ -161,7 +161,7 @@ func TestClient(t *testing.T) {
 
 		test.That(t, dets, test.ShouldNotBeNil)
 		test.That(t, dets[0].Label(), test.ShouldResemble, "17")
-		test.That(t, dets[0].Score(), test.ShouldBeGreaterThan, 0.79)
+		test.That(t, dets[0].Score(), test.ShouldBeGreaterThan, 0.78)
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

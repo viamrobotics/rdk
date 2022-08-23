@@ -138,9 +138,9 @@ var (
 // RegisterComponent register a creator to its corresponding component and model.
 func RegisterComponent(subtype resource.Subtype, model resource.Model, creator Component) {
 	creator.RegistrarLoc = getCallerName()
-	err := model.Validate()
+	// err := model.Validate()
 	qName := fmt.Sprintf("%s/%s", subtype.String(), model.String())
-	fmt.Printf("SMURF10: %s -- %s %v\n", subtype.String(), model.String(), err)
+	// fmt.Printf("SMURF10: %s -- %s %v\n", subtype.String(), model.String(), err)
 	_, old := componentRegistry[qName]
 	if old {
 		panic(errors.Errorf("trying to register two resources with same subtype:%s, model:%s", subtype, model))
@@ -155,7 +155,7 @@ func RegisterComponent(subtype resource.Subtype, model resource.Model, creator C
 // there is no creator registered.
 func ComponentLookup(subtype resource.Subtype, model resource.Model) *Component {
 	qName := fmt.Sprintf("%s/%s", subtype, model)
-	fmt.Printf("SMURF11: %s -- %s\n", subtype.String(), model.String())
+	// fmt.Printf("SMURF11: %s -- %s\n", subtype.String(), model.String())
 	if registration, ok := RegisteredComponents()[qName]; ok {
 		return &registration
 	}

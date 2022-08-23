@@ -26,6 +26,7 @@ import (
 )
 
 const defaultMapping = "Microsoft X-Box 360 pad"
+
 var modelname = resource.NewDefaultModel("gamepad")
 
 // Config is used for converting config attributes.

@@ -32,7 +32,6 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/movementsensor"
-
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
@@ -58,7 +57,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var fakeModel = resource.Model{Name: "fake"}
+var fakeModel = resource.NewDefaultModel("fake")
 
 func TestConfig1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -746,7 +745,7 @@ func TestStopAll(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	channel := make(chan struct{})
 
-	modelName := resource.Model{Name: resource.ModelName(utils.RandomAlphaString(8))}
+	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 	dummyArm1 := dummyArm{channel: channel}
 	dummyArm2 := dummyArm{channel: channel}
 	registry.RegisterComponent(
@@ -778,8 +777,7 @@ func TestStopAll(t *testing.T) {
 			}
 		]
 	}
-	`, modelName)
-
+	`, modelName.String())
 	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(armConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -871,7 +869,7 @@ func (db *dummyBoard) Close() {
 func TestNewTeardown(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	modelName := resource.Model{Name: resource.ModelName(utils.RandomAlphaString(8))}
+	modelName := resource.NewDefaultModel(resource.ModelName(utils.RandomAlphaString(8)))
 	var dummyBoard1 dummyBoard
 	registry.RegisterComponent(
 		board.Subtype,
@@ -1401,7 +1399,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "fake0",
 				Type:      base.SubtypeName,
-				Model:     resource.Model{Name: "random"},
+				Model:     resource.NewDefaultModel("random"),
 			},
 		},
 		Services: []config.Service{

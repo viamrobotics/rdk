@@ -74,7 +74,7 @@ func TestServer(t *testing.T) {
 		injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 		injectRobot.ResourceNamesFunc = func() []resource.Name { return []resource.Name{} }
 		server := server.New(injectRobot)
-		q := discovery.Query{arm.Named("arm").ResourceSubtype, resource.Model{Name: "some arm"}}
+		q := discovery.Query{arm.Named("arm").ResourceSubtype, resource.NewDefaultModel("some-arm")}
 		disc := discovery.Discovery{Query: q, Results: struct{}{}}
 		discoveries := []discovery.Discovery{disc}
 		injectRobot.DiscoverComponentsFunc = func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {

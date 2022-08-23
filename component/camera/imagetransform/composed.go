@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	modelDtP = resource.NewDefaultModel("depth_to_pretty")
+	modelDtP     = resource.NewDefaultModel("depth_to_pretty")
 	modelOverlay = resource.NewDefaultModel("overlay")
 )
 

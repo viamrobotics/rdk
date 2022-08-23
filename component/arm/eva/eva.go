@@ -4,7 +4,6 @@ package eva
 import (
 	"bytes"
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"encoding/json"
@@ -34,9 +33,7 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
-var (
-	modelname = resource.NewDefaultModel("eva")
-)
+var modelname = resource.NewDefaultModel("eva")
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {

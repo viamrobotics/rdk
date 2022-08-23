@@ -60,12 +60,12 @@ type ResourceLevelServiceConfig struct {
 type Component struct {
 	Name string `json:"name"`
 
-	Namespace      resource.Namespace           `json:"namespace"`
-	Type           resource.SubtypeName         `json:"type"`
-	Model          resource.Model               `json:"model"`
-	Frame          *Frame                       `json:"frame,omitempty"`
-	DependsOn      []string                     `json:"depends_on"`
-	ServiceConfig  []ResourceLevelServiceConfig `json:"service_config"`
+	Namespace     resource.Namespace           `json:"namespace"`
+	Type          resource.SubtypeName         `json:"type"`
+	Model         resource.Model               `json:"model"`
+	Frame         *Frame                       `json:"frame,omitempty"`
+	DependsOn     []string                     `json:"depends_on"`
+	ServiceConfig []ResourceLevelServiceConfig `json:"service_config"`
 
 	Attributes          AttributeMap `json:"attributes"`
 	ConvertedAttributes interface{}  `json:"-"`

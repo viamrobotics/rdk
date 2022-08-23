@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	modelname = resource.NewDefaultModel("wheeled")
+	modelname  = resource.NewDefaultModel("wheeled")
 	modelname4 = resource.NewDefaultModel("four-wheel")
 )
 

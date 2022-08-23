@@ -23,13 +23,11 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-
 var (
 	modelIdentity = resource.NewDefaultModel("identity")
-	modelRotate = resource.NewDefaultModel("rotate")
-	modelResize = resource.NewDefaultModel("resize")
+	modelRotate   = resource.NewDefaultModel("rotate")
+	modelResize   = resource.NewDefaultModel("resize")
 )
-
 
 func init() {
 	registry.RegisterComponent(

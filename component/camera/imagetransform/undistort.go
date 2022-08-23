@@ -21,7 +21,6 @@ import (
 
 var modelUndistort = resource.NewDefaultModel("undistort")
 
-
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,

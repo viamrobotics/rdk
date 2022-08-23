@@ -20,8 +20,8 @@ import (
 	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // SerialAttrConfig is used for converting Serial NMEA MovementSensor config attributes.

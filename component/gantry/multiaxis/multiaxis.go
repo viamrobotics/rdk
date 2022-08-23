@@ -22,7 +22,6 @@ import (
 
 var modelname = resource.NewDefaultModel("multiaxis")
 
-
 // AttrConfig is used for converting multiAxis config attributes.
 type AttrConfig struct {
 	SubAxes []string `json:"subaxes_list"`

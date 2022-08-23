@@ -36,8 +36,8 @@ import (
 type internalServiceName string
 
 const (
-	webName          internalServiceName = "web"
-	framesystemName  internalServiceName = "framesystem"
+	webName         internalServiceName = "web"
+	framesystemName internalServiceName = "framesystem"
 )
 
 var _ = robot.LocalRobot(&localRobot{})
@@ -534,7 +534,7 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	// }
 
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
-	if f == nil  {
+	if f == nil {
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
 	}
 

@@ -77,13 +77,18 @@ var (
 // RegisterComponentAttributeConverter associates a component type and model with a way to convert a
 // particular attribute name.
 func RegisterComponentAttributeConverter(subtype resource.Subtype, model resource.Model, attr string, conv AttributeConverter) {
-	fmt.Printf("SMURF80: %+v -- %+v\n", subtype, model)
+	// fmt.Printf("SMURF80: %+v -- %+v\n", subtype, model)
 	componentAttributeConverters = append(componentAttributeConverters, ComponentAttributeConverterRegistration{subtype, model, attr, conv})
 }
 
 // RegisterComponentAttributeMapConverter associates a component type and model with a way to convert all attributes.
-func RegisterComponentAttributeMapConverter(subtype resource.Subtype, model resource.Model, conv AttributeMapConverter, retType interface{}) {
-	fmt.Printf("SMURF90: %+v -- %+v\n", subtype, model)
+func RegisterComponentAttributeMapConverter(
+	subtype resource.Subtype,
+	model resource.Model,
+	conv AttributeMapConverter,
+	retType interface{},
+) {
+	// fmt.Printf("SMURF90: %+v -- %+v\n", subtype, model)
 	if retType == nil {
 		panic("retType should not be nil")
 	}
@@ -169,7 +174,7 @@ func RegisteredServiceAttributeMapConverters() []ServiceAttributeMapConverterReg
 }
 
 func findConverter(subtype resource.Subtype, model resource.Model, attr string) AttributeConverter {
-	fmt.Printf("SMURF81: %+v -- %+v\n", subtype, model)
+	// fmt.Printf("SMURF81: %+v -- %+v\n", subtype, model)
 	for _, r := range componentAttributeConverters {
 		if r.Subtype == subtype && r.Model == model && r.Attr == attr {
 			return r.Conv
@@ -179,7 +184,7 @@ func findConverter(subtype resource.Subtype, model resource.Model, attr string) 
 }
 
 func findMapConverter(subtype resource.Subtype, model resource.Model) AttributeMapConverter {
-	fmt.Printf("SMURF91: %+v -- %+v\n", subtype, model)
+	// fmt.Printf("SMURF91: %+v -- %+v\n", subtype, model)
 	for _, r := range componentAttributeMapConverters {
 		if r.Subtype == subtype && r.Model == model {
 			return r.Conv
@@ -567,7 +572,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool) (*Config, error) {
 	cfg.ConfigFilePath = unprocessedConfig.ConfigFilePath
 
 	for idx, c := range cfg.Components {
-		fmt.Printf("SMURF100: %+v\n", c)
+		// fmt.Printf("SMURF100: %+v\n", c)
 		subtype := resource.NewSubtype(c.Namespace, resource.ResourceTypeComponent, c.Type)
 		conv := findMapConverter(subtype, c.Model)
 		// inner attributes may have their own converters
@@ -593,11 +598,11 @@ func processConfig(unprocessedConfig *Config, fromCloud bool) (*Config, error) {
 		}
 		cfg.Components[idx].Attributes = nil
 		cfg.Components[idx].ConvertedAttributes = converted
-		fmt.Printf("SMURF101: %+v\n", cfg.Components[idx])
+		// fmt.Printf("SMURF101: %+v\n", cfg.Components[idx])
 	}
 
 	for idx, c := range cfg.Services {
-		fmt.Printf("SMURF102: %+v\n", c)
+		// fmt.Printf("SMURF102: %+v\n", c)
 		conv := findServiceMapConverter(c.Type)
 		if conv == nil {
 			continue
@@ -609,7 +614,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool) (*Config, error) {
 		}
 		cfg.Services[idx].Attributes = nil
 		cfg.Services[idx].ConvertedAttributes = converted
-		fmt.Printf("SMURF103: %+v\n", cfg.Services[idx])
+		// fmt.Printf("SMURF103: %+v\n", cfg.Services[idx])
 	}
 
 	if err := cfg.Ensure(fromCloud); err != nil {

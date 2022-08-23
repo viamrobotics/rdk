@@ -1,4 +1,4 @@
-// The module system provides service for external resource and logic modules.
+// Package module provides services for external resource and logic modules.
 package module
 
 import (
@@ -7,9 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
 	"go.uber.org/multierr"
-
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
@@ -26,7 +24,6 @@ type (
 	modulePath    string
 )
 
-
 // A Service that handles external resource modules.
 type Service interface {
 	AddModule(ctx context.Context, path modulePath) error
@@ -41,28 +38,26 @@ var Subtype = resource.NewSubtype(
 )
 
 type moduleConfig struct {
-	path string
+	path   string
 	models []string
 }
 
+// Config holds the list of modules.
 type Config struct {
 	modules []moduleConfig
 }
 
-
 func init() {
 	registry.RegisterService(Subtype, registry.Service{Constructor: New})
 	cType := config.ServiceType(SubtypeName)
-	//registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{})
+	// registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{})
 
 	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
 		return config.TransformAttributeMapToStruct(&conf, attributes)
 	},
-	&Config{})
+		&Config{})
 }
-
-
 
 // New returns a module system service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
@@ -76,13 +71,12 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 // the module system.
 type moduleService struct {
-	mu             sync.RWMutex
-	robot          robot.Robot
-	logger         golog.Logger
-	modules        map[modulePath]*module
-	serviceMap     map[resource.Name]moduleAddress
+	mu         sync.RWMutex
+	robot      robot.Robot
+	logger     golog.Logger
+	modules    map[modulePath]*module
+	serviceMap map[resource.Name]moduleAddress
 }
-
 
 type module struct {
 	process pexec.ManagedProcess
@@ -97,7 +91,7 @@ func (svc *moduleService) Update(ctx context.Context, resources map[resource.Nam
 func (svc *moduleService) Close(ctx context.Context) error {
 	var err error
 	for _, mod := range svc.modules {
-		multierr.Combine(err, mod.process.Stop())
+		err = multierr.Combine(err, mod.process.Stop())
 	}
 	return err
 }

@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var fakeModel = resource.Model{Name: "fake"}
+var fakeModel = resource.NewDefaultModel("fake")
 
 func TestDiffConfigs(t *testing.T) {
 	config1 := config.Config{
@@ -356,12 +356,6 @@ func TestDiffConfigHeterogenousTypes(t *testing.T) {
 			"component type",
 			"data/diff_config_1.json",
 			"data/diff_config_1_component_type.json",
-			"cannot modify type of existing component",
-		},
-		{
-			"component subtype",
-			"data/diff_config_1.json",
-			"data/diff_config_1_component_subtype.json",
 			"cannot modify type of existing component",
 		},
 		{

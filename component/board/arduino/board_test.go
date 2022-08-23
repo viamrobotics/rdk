@@ -17,12 +17,11 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var	model = resource.NewDefaultModel("arduino")
+var model = resource.NewDefaultModel("arduino")
 
 func TestArduinoPWM(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-
 
 	for i, tc := range []struct {
 		conf config.Config

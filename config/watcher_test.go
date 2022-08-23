@@ -68,6 +68,7 @@ func TestNewWatcherFile(t *testing.T) {
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "hello",
+				Model:     resource.NewDefaultModel("hello"),
 				Attributes: AttributeMap{
 					"world": 1.0,
 				},
@@ -92,6 +93,7 @@ func TestNewWatcherFile(t *testing.T) {
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "world",
+				Model:     resource.NewDefaultModel("world"),
 				Attributes: AttributeMap{
 					"hello": 1.0,
 				},
@@ -135,6 +137,7 @@ func TestNewWatcherFile(t *testing.T) {
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "woo",
+				Model:     resource.NewDefaultModel("woo"),
 				Attributes: AttributeMap{
 					"wah": 1.0,
 				},
@@ -240,6 +243,7 @@ func TestNewWatcherCloud(t *testing.T) {
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "hello",
+				Model:     resource.NewDefaultModel("hello"),
 				Attributes: AttributeMap{
 					"world": 1.0,
 				},
@@ -270,6 +274,7 @@ func TestNewWatcherCloud(t *testing.T) {
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "world",
+				Model:     resource.NewDefaultModel("world"),
 				Attributes: AttributeMap{
 					"hello": 1.0,
 				},
@@ -308,6 +313,7 @@ func TestNewWatcherCloud(t *testing.T) {
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "woo",
+				Model:     resource.NewDefaultModel("woo"),
 				Attributes: AttributeMap{
 					"wah": 1.0,
 				},

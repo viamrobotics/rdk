@@ -28,9 +28,8 @@ import (
 
 var (
 	modelSingle = resource.NewDefaultModel("single_stream")
-	modelDual = resource.NewDefaultModel("dual_stream")
+	modelDual   = resource.NewDefaultModel("dual_stream")
 )
-
 
 func init() {
 	registry.RegisterComponent(camera.Subtype, modelSingle,

@@ -95,5 +95,5 @@ func TestAddDetector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dets, test.ShouldNotBeNil)
 	test.That(t, dets[0].Label(), test.ShouldResemble, "17")
-	test.That(t, dets[0].Score(), test.ShouldBeGreaterThan, 0.79)
+	test.That(t, dets[0].Score(), test.ShouldBeGreaterThan, 0.78)
 }

@@ -31,7 +31,7 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
-var	modelname = resource.NewDefaultModel("ur")
+var modelname = resource.NewDefaultModel("ur")
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
