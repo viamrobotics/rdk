@@ -1,6 +1,6 @@
-// Package transformpipeline defines cameras that apply transforms for images in an image transformation pipeline.
-// They are not original generators of image, but require an image source in order to function.
-// They are typically registered as cameras in the API.
+// Package transformpipeline defines image sources that apply transforms on images, and can be composed into
+// an image transformation pipeline. The image sources are not original generators of image, but require an image source
+// from a real camera or video in order to function.
 package transformpipeline
 
 import (
