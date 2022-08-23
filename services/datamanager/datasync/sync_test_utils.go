@@ -271,7 +271,6 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 			if err := stream.Send(&v1.UploadResponse{RequestsWritten: int32(m.messagesToAck)}); err != nil {
 				return err
 			}
-			// time.Sleep(10 * time.Millisecond)
 			m.messagesToAck = 0
 		}
 

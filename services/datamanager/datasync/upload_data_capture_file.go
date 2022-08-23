@@ -7,13 +7,10 @@ import (
 	"path/filepath"
 	"sync"
 
-	goutils "go.viam.com/utils"
-
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
-	goutils "go.viam.com/utils"
-
 	"go.viam.com/rdk/services/datamanager/datacapture"
+	goutils "go.viam.com/utils"
 )
 
 func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.DataSyncServiceClient,
