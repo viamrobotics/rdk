@@ -72,9 +72,9 @@ func TestServer(t *testing.T) {
 	injectCamera.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
 		imageReleased = true
 		switch mimeType {
-		case "", utils.MimeTypePNG:
+		case utils.MimeTypePNG:
 			return imgBuf.Bytes(), utils.MimeTypePNG, int64(img.Bounds().Dx()), int64(img.Bounds().Dy()), nil
-		case utils.MimeTypeRawRGBA:
+		case "", utils.MimeTypeRawRGBA:
 			return img.Pix, utils.MimeTypeRawRGBA, int64(img.Bounds().Dx()), int64(img.Bounds().Dy()), nil
 		case utils.MimeTypeJPEG:
 			return imgBufJpeg.Bytes(), utils.MimeTypeJPEG, int64(img.Bounds().Dx()), int64(img.Bounds().Dy()), nil
@@ -116,7 +116,7 @@ func TestServer(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, imageReleased, test.ShouldBeTrue)
-		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypePNG)
+		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeRawRGBA)
 		test.That(t, resp.Image, test.ShouldNotBeNil)
 
 		imageReleased = false

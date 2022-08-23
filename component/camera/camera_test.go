@@ -322,7 +322,7 @@ func TestCameraWithNoProjector(t *testing.T) {
 
 	_, mimeType, width, height, err := noProj2.GetFrame(context.Background(), "")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mimeType, test.ShouldEqual, rutils.MimeTypePNG)
+	test.That(t, mimeType, test.ShouldEqual, rutils.MimeTypeRawRGBA)
 	test.That(t, width, test.ShouldEqual, 1280)
 	test.That(t, height, test.ShouldEqual, 720)
 }
@@ -361,7 +361,7 @@ func TestCameraWithProjector(t *testing.T) {
 
 	_, mimeType, width, height, err := cam2.GetFrame(context.Background(), "")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mimeType, test.ShouldEqual, rutils.MimeTypePNG)
+	test.That(t, mimeType, test.ShouldEqual, rutils.MimeTypeRawRGBA)
 	test.That(t, width, test.ShouldEqual, 1280)
 	test.That(t, height, test.ShouldEqual, 720)
 }
