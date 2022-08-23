@@ -7,6 +7,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/services/datamanager/datasync"
+	urpc "go.viam.com/utils/rpc"
 )
 
 // DMService in the internal package includes additional exported functions relating to the syncing and
@@ -18,4 +19,5 @@ type DMService interface {
 	Close(ctx context.Context) error
 	SetSyncerConstructor(fn datasync.ManagerConstructor)
 	SetWaitAfterLastModifiedSecs(s int)
+	SetClientConn(c urpc.ClientConn)
 }

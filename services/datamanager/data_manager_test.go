@@ -88,14 +88,11 @@ func getInjectedRobotWithArm(armKey string) *inject.Robot {
 	return r
 }
 
-// this looks like an important function to understand
-// will probably need to create my own version for model stuff
-// or maybe this does not need to be re-done for models ...
 func newTestDataManager(t *testing.T, localArmKey string, remoteArmKey string) internal.DMService {
+	fmt.Println("newTestDataManager()")
 	t.Helper()
 	dmCfg := &datamanager.Config{}
 	cfgService := config.Service{
-		// type for me should remain "data_manager" per the json that I edited.
 		Type:                "data_manager",
 		ConvertedAttributes: dmCfg,
 	}
@@ -126,12 +123,7 @@ func setupConfig(t *testing.T, relativePath string) *config.Config {
 	logger := golog.NewTestLogger(t)
 	testCfg, err := config.Read(context.Background(), rutils.ResolveFile(relativePath), logger)
 	test.That(t, err, test.ShouldBeNil)
-	// fmt.Println("testCfg.Cloud: ", testCfg.Cloud)
 	testCfg.Cloud = &config.Cloud{ID: "part_id"}
-	// testCfg.Cloud = &config.Cloud{TLSCertificate: "abc"}
-	// testCfg.Cloud = &config.Cloud{TLSPrivateKey: "123"}
-	// testCfg.Cloud = &config.Cloud{LocationSecret: rutils.CredentialsTypeRobotLocationSecret}
-	// fmt.Println("testCfg.Cloud: ", testCfg.Cloud)
 	return testCfg
 }
 
@@ -261,8 +253,6 @@ func TestRecoversAfterKilled(t *testing.T) {
 			resetFolder(t, dir)
 		}
 	}()
-	defer resetFolder(t, captureDir)
-	defer resetFolder(t, armDir)
 	if err != nil {
 		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
 	}
@@ -315,37 +305,35 @@ func TestModelsAfterKilled(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	}()
 
-	// ToDo: rename `modelss` var to something more appropriate
 	modelss, dirs, numArbitraryFilesToSync, err := populateModels()
-	// fmt.Println("modelss: ", modelss)
 	defer func() {
 		for _, dir := range dirs {
 			resetFolder(t, dir)
 		}
 	}()
-
-	defer resetFolder(t, captureDir)
-	defer resetFolder(t, armDir)
-
 	if err != nil {
-		t.Error("unable to generate arbitrary data files and create directory structure for ModelsToDeploy")
+		t.Error("unable to generate arbitrary data files and create directory structure.")
 	}
+	fmt.Println("numArbitraryFilesToSync: ", numArbitraryFilesToSync)
+
+	logger, _ := golog.NewObservedTestLogger(t)
+	conn, err := getLocalServerConn(rpcServer, logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	testCfg := setupConfig(t, configPath)
-	// fmt.Println()
-	// fmt.Println("testCfg: ", testCfg)
-
 	dmCfg, err := getDataManagerConfig(testCfg)
-	// fmt.Println("dmCfg: ", dmCfg)
 	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
+	// dmCfg.AdditionalSyncPaths = dirs
 	dmCfg.ModelsToDeploy = append(dmCfg.ModelsToDeploy, modelss...)
-	// fmt.Println("we have added the models")
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+	// dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+	// dmsvc.SetSyncerConstructor(altGetTestSyncerConstructor(t, rpcServer))
+	// dmsvc.SetSyncerConstructor(getTestSyncerConstructor(&testing.T{}, rpcServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(10)
+	dmsvc.SetClientConn(conn)
 	err = dmsvc.Update(context.TODO(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -358,23 +346,6 @@ func TestModelsAfterKilled(t *testing.T) {
 
 	// Validate nothing has been synced yet.
 	test.That(t, len(mockService.getUploadedModels()), test.ShouldEqual, 0)
-
-	// Turn the service back on.
-	fmt.Println("turning the service back on")
-	dmsvc = newTestDataManager(t, "arm1", "")
-	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
-	dmsvc.SetWaitAfterLastModifiedSecs(0)
-	fmt.Println("calling Update(), now we transition to code in data_manager.go")
-	err = dmsvc.Update(context.TODO(), testCfg)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Validate that the previously captured file was uploaded at startup.
-	time.Sleep(syncWaitTime)
-	err = dmsvc.Close(context.TODO())
-	test.That(t, err, test.ShouldBeNil)
-	fmt.Println("len(mockService.getUploadedModels()): ", len(mockService.getUploadedModels()))
-	test.That(t, len(mockService.getUploadedModels()), test.ShouldEqual, 1+numArbitraryFilesToSync)
-
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
@@ -797,6 +768,7 @@ func TestGetDurationFromHz(t *testing.T) {
 }
 
 func getDataManagerConfig(config *config.Config) (*datamanager.Config, error) {
+	fmt.Println("getDataManagerConfig()")
 	svcConfig, ok, err := datamanager.GetServiceConfig(config)
 	if err != nil {
 		return nil, err
@@ -905,10 +877,6 @@ func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServ
 func buildAndStartLocalModelServer(t *testing.T) (rpc.Server, mockModelServiceServer) {
 	fmt.Println("buildAndStartLocalModelServer()")
 	logger, _ := golog.NewObservedTestLogger(t)
-	// Cannot set up server with rpc.WithUnauthenticated()
-	// rpcServer, instantiated below needs to be configured with a TLS config and robot location secret, right?
-	// TLS config is created through having a credentialsType and
-	// also creating an AuthHandler.
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	mockService := mockModelServiceServer{
