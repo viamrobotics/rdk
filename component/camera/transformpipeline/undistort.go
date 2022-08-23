@@ -15,6 +15,10 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+const (
+	undistortTransform = transformType("undistort")
+)
+
 type undistortConfig struct {
 	CameraParams *transform.PinholeCameraIntrinsics `json:"camera_parameters"`
 }

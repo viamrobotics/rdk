@@ -68,7 +68,9 @@ type transformConfig struct {
 	Pipeline []Transformation `json:"pipeline"`
 }
 
-func newTransformPipeline(ctx context.Context, source camera.Camera, cfg *transformConfig, r robot.Robot) (camera.Camera, error) {
+func newTransformPipeline(
+	ctx context.Context, source gostream.ImageSource, cfg *transformConfig, r robot.Robot,
+) (camera.Camera, error) {
 	if source == nil {
 		return nil, errors.New("no source camera for transform pipeline")
 	}

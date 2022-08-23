@@ -53,9 +53,8 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 		Type:  camera.SubtypeName,
 		Model: "file",
 		Attributes: config.AttributeMap{
-			"color":   artifact.MustPath("vision/objectdetection/detection_test.jpg"),
-			"depth":   "",
-			"aligned": false,
+			"color": artifact.MustPath("vision/objectdetection/detection_test.jpg"),
+			"depth": "",
 		},
 	}
 	cfg.Components = append(cfg.Components, cameraComp)
@@ -83,7 +82,7 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	tfliteComp := config.Component{
 		Name:  "tflite_detect",
 		Type:  camera.SubtypeName,
-		Model: "detector",
+		Model: "transform",
 		Attributes: config.AttributeMap{
 			"source": "fake_cam",
 			"pipeline": []config.AttributeMap{
