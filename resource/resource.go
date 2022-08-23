@@ -31,6 +31,7 @@ const (
 	ResourceNamespaceRDK  = Namespace("rdk")
 	ResourceTypeComponent = TypeName("component")
 	ResourceTypeService   = TypeName("service")
+	DefaultServiceName    = "builtin"
 )
 
 var (
@@ -117,14 +118,10 @@ type Name struct {
 
 // NewName creates a new Name based on parameters passed in.
 func NewName(namespace Namespace, rType TypeName, subtype SubtypeName, name string) Name {
-	isService := rType == ResourceTypeService
 	resourceSubtype := NewSubtype(namespace, rType, subtype)
 	r := strings.Split(name, ":")
 	remote := RemoteName(strings.Join(r[0:len(r)-1], ":"))
 	nameIdent := r[len(r)-1]
-	if isService {
-		nameIdent = ""
-	}
 	return Name{
 		Subtype: resourceSubtype,
 		Name:    nameIdent,
@@ -202,6 +199,9 @@ func (n Name) ShortName() string {
 
 // Validate ensures that important fields exist and are valid.
 func (n Name) Validate() error {
+	if n.Name == "" {
+		return errors.New("name field for resource is empty")
+	}
 	if err := n.Subtype.Validate(); err != nil {
 		return err
 	}
@@ -215,14 +215,9 @@ func (n Name) Validate() error {
 func (n Name) String() string {
 	name := n.Subtype.String()
 	if n.Remote != "" {
-		name = fmt.Sprintf("%s/%s:", name, n.Remote)
-	}
-	if n.Name != "" && (n.ResourceType != ResourceTypeService) {
-		if n.Remote != "" {
-			name = fmt.Sprintf("%s%s", name, n.Name)
-		} else {
-			name = fmt.Sprintf("%s/%s", name, n.Name)
-		}
+		name = fmt.Sprintf("%s/%s:%s", name, n.Remote, n.Name)
+	} else {
+		name = fmt.Sprintf("%s/%s", name, n.Name)
 	}
 	return name
 }

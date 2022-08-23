@@ -100,8 +100,10 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// Name is the slam service's typed resource name.
-var Name = resource.NameFromSubtype(Subtype, "")
+// Named is a helper for getting the named service's typed resource name.
+func Named(name string) resource.Name {
+	return resource.NameFromSubtype(Subtype, name)
+}
 
 // runtimeConfigValidation ensures that required config parameters are valid at runtime. If any of the required config parameters are
 // not valid, this function will throw a warning, but not close out/shut down the server. The required parameters that are checked here

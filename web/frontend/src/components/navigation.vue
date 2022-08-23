@@ -9,6 +9,7 @@ import { filterResources } from '../lib/resource';
 
 interface Props {
   resources: any
+  name:string
 }
 
 const props = defineProps<Props>();
@@ -35,6 +36,7 @@ const setNavigationMode = (mode: 'manual' | 'waypoint') => {
   }
 
   const req = new navigationApi.SetModeRequest();
+  req.setName(props.name);
   req.setMode(pbMode);
   (window as any).navigationService.setMode(req, {}, grpcCallback);
 };
@@ -55,6 +57,7 @@ const setNavigationLocation = () => {
     toast.error('no gps device found');
     return;
   }
+  req.setName(props.name);
   req.setResourceName(gpsName);
   req.setCommandName('set_location');
   req.setArgs(
@@ -100,6 +103,7 @@ const initNavigation = async () => {
     const point = new commonApi.GeoPoint();
     point.setLatitude(event.latLng.lat());
     point.setLongitude(event.latLng.lng());
+    req.setName(props.name);
     req.setLocation(point);
     (window as any).navigationService.addWaypoint(req, {}, grpcCallback);
   });
@@ -110,6 +114,7 @@ const initNavigation = async () => {
   
   const updateWaypoints = () => {
     const req = new navigationApi.GetWaypointsRequest();
+    req.setName(props.name);
     (window as any).navigationService.getWaypoints(req, {}, (err: any, resp: any) => {
       grpcCallback(err, resp, false);
       if (err) {
@@ -143,6 +148,7 @@ const initNavigation = async () => {
         });
         marker.addListener('dblclick', () => {
           const req = new navigationApi.RemoveWaypointRequest();
+          req.setName(props.name);
           req.setId(waypoint.getId());
           (window as any).navigationService.removeWaypoint(req, {}, grpcCallback);
         });
@@ -163,6 +169,7 @@ const initNavigation = async () => {
   const locationMarker = new (window as any).google.maps.Marker({ label: 'robot' });
   const updateLocation = () => {
     const req = new navigationApi.GetLocationRequest();
+    req.setName(props.name);
     (window as any).navigationService.getLocation(req, {}, (err: any, resp: any) => {
       grpcCallback(err, resp, false);
       if (err) {
@@ -199,7 +206,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <v-collapse title="Navigation Service">
+  <v-collapse :title=props.name>
     <div class="flex flex-col gap-2 border border-t-0 border-black p-4">
       <v-radio
         label="Navigation mode"

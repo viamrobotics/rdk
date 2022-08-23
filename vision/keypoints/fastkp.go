@@ -253,16 +253,16 @@ func getDarkerValues(s []float64, t float64) []float64 {
 
 // ComputeFAST computes the location of FAST keypoints.
 // The configuration should contain the following parameters
-// - nMatchCircle - Minimum number of consecutive pixels out of 16 pixels on the
-//    circle that should all be either brighter or darker w.r.t
-//    test-pixel. A point c on the circle is darker w.r.t test pixel p
-//    if ``Ic < Ip - threshold`` and brighter if
-//    ``Ic > Ip + threshold``.
-// - nmsWin - int, size of window to perform non-maximum suppression
-// - threshold - float64, Threshold used to decide whether the pixels on the
-//    circle are brighter, darker or similar w.r.t. the test pixel.
-//    Decrease the threshold when more corners are desired and
-//    vice-versa.
+//   - nMatchCircle - Minimum number of consecutive pixels out of 16 pixels on the
+//     circle that should all be either brighter or darker w.r.t
+//     test-pixel. A point c on the circle is darker w.r.t test pixel p
+//     if “Ic < Ip - threshold“ and brighter if
+//     “Ic > Ip + threshold“.
+//   - nmsWin - int, size of window to perform non-maximum suppression
+//   - threshold - float64, Threshold used to decide whether the pixels on the
+//     circle are brighter, darker or similar w.r.t. the test pixel.
+//     Decrease the threshold when more corners are desired and
+//     vice-versa.
 func ComputeFAST(img *image.Gray, cfg *FASTConfig) KeyPoints {
 	kps := make([]FASTPixel, 0)
 	w, h := img.Bounds().Max.X, img.Bounds().Max.Y

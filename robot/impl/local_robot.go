@@ -52,7 +52,8 @@ type localRobot struct {
 	logger     golog.Logger
 
 	// services internal to a localRobot. Currently just web, more to come.
-	internalServices map[internalServiceName]interface{}
+	internalServices     map[internalServiceName]interface{}
+	defaultServicesNames map[resource.Subtype]resource.Name
 
 	activeBackgroundWorkers *sync.WaitGroup
 	cancelBackgroundWorkers func()
@@ -358,6 +359,7 @@ func newWithResources(
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		closeContext:            closeCtx,
 		cancelBackgroundWorkers: cancel,
+		defaultServicesNames:    make(map[resource.Subtype]resource.Name),
 		triggerConfig:           make(chan bool),
 		configTimer:             nil,
 	}
@@ -374,8 +376,24 @@ func newWithResources(
 	if err := r.manager.processManager.Start(ctx); err != nil {
 		return nil, err
 	}
-	// default services
+	// See if default service already exists in the config
+	seen := make(map[resource.Subtype]bool)
 	for _, name := range resource.DefaultServices {
+		seen[name.Subtype] = false
+		r.defaultServicesNames[name.Subtype] = name
+	}
+	// Mark default service subtypes in the map as true
+	for _, val := range cfg.Services {
+		if _, ok := seen[val.ResourceName().Subtype]; ok {
+			seen[val.ResourceName().Subtype] = true
+			r.defaultServicesNames[val.ResourceName().Subtype] = val.ResourceName()
+		}
+	}
+	// default services added if they are not already defined in the config
+	for _, name := range resource.DefaultServices {
+		if seen[name.Subtype] {
+			continue
+		}
 		cfg := config.Service{
 			Namespace: name.Namespace,
 			Type:      config.ServiceType(name.ResourceSubtype),
@@ -531,7 +549,7 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) {
 		resources[n] = res
 	}
 
-	for _, name := range resource.DefaultServices {
+	for _, name := range r.defaultServicesNames {
 		svc, err := r.ResourceByName(name)
 		if err != nil {
 			r.Logger().Errorw("resource not found", "error", utils.NewResourceNotFoundError(name))
