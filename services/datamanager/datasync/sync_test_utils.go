@@ -2,6 +2,13 @@ package datasync
 
 import (
 	"context"
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"sync"
+	"testing"
+
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
@@ -10,12 +17,6 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
-	"io"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"sync"
-	"testing"
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/services/datamanager/datacapture"
@@ -36,7 +37,7 @@ func compareTabularUploadRequests(t *testing.T, actual []*v1.UploadRequest, expe
 	test.That(t, len(actual), test.ShouldEqual, len(expected))
 
 	if len(actual) > 0 {
-		//compareMetadata(t, actual[0].GetMetadata(), expected[0].GetMetadata())
+		// compareMetadata(t, actual[0].GetMetadata(), expected[0].GetMetadata())
 		test.That(t, actual[0].GetMetadata().String(), test.ShouldResemble, expected[0].GetMetadata().String())
 		for i := range actual[1:] {
 			a := actual[i+1].GetSensorContents().GetStruct().String()
@@ -270,7 +271,7 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 			if err := stream.Send(&v1.UploadResponse{RequestsWritten: int32(m.messagesToAck)}); err != nil {
 				return err
 			}
-			//time.Sleep(10 * time.Millisecond)
+			// time.Sleep(10 * time.Millisecond)
 			m.messagesToAck = 0
 		}
 

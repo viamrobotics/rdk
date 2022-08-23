@@ -2,14 +2,16 @@ package datasync
 
 import (
 	"context"
-	goutils "go.viam.com/utils"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
 
+	goutils "go.viam.com/utils"
+
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
@@ -165,7 +167,8 @@ func sendNextUploadRequest(ctx context.Context, f *os.File, stream v1.DataSyncSe
 }
 
 func recvStream(ctx context.Context, stream v1.DataSyncService_UploadClient,
-	pt progressTracker, progressFile string) error {
+	pt progressTracker, progressFile string,
+) error {
 	for {
 		recvChannel := make(chan error)
 		go func() {
@@ -196,8 +199,8 @@ func recvStream(ctx context.Context, stream v1.DataSyncService_UploadClient,
 }
 
 func sendStream(ctx context.Context, stream v1.DataSyncService_UploadClient,
-	captureFile *os.File) error {
-
+	captureFile *os.File,
+) error {
 	// Loop until there is no more content to be read from file.
 	for {
 		err := sendNextUploadRequest(ctx, captureFile, stream)
