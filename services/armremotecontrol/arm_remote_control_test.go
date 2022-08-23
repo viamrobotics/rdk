@@ -113,7 +113,7 @@ func TestArmRemoteControl(t *testing.T) {
 			ConvertedAttributes: cfg,
 		},
 		rlog.Logger)
-	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:input_controller\" not found"))
+	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:input_controller/\" not found"))
 
 	// Arm import failure
 	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
@@ -130,7 +130,7 @@ func TestArmRemoteControl(t *testing.T) {
 			ConvertedAttributes: cfg,
 		},
 		rlog.Logger)
-	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:arm\" not found"))
+	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:arm/\" not found"))
 
 	// Start checks
 	err = svc.start(ctx)
