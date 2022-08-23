@@ -1,7 +1,9 @@
 package motionplan
 
 import (
+	"fmt"
 	"math"
+	"time"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
@@ -58,5 +60,18 @@ func fixOvIncrement(pos, seed *commonpb.Pose) *commonpb.Pose {
 		OX:    pos.OX,
 		OY:    pos.OY,
 		OZ:    pos.OZ,
+	}
+}
+
+// Timer returns a function that prints the name argument and
+// the elapsed time between the call to timer and the call to
+// the returned function. The returned function is intended to
+// be used in a defer statement:
+//
+//   defer timer("sum")()
+func timer(name string) func() {
+	start := time.Now()
+	return func() {
+		fmt.Printf("%s took %v\n", name, time.Since(start))
 	}
 }
