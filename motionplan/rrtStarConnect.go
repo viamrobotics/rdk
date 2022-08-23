@@ -3,6 +3,7 @@ package motionplan
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 
 	"github.com/edaniels/golog"
@@ -183,21 +184,17 @@ func (mp *rrtStarConnectMotionPlanner) sample() []referenceframe.Input {
 }
 
 func (mp *rrtStarConnectMotionPlanner) extend(opt *PlannerOptions, tree map[*node]*node, target []referenceframe.Input) *node {
-	neighbors := kNearestNeighbors(tree, target)
-
-	// TODO(rb): potentially either add a steer() function or get the closest valid point from constraint checker
-	// TODO(rb): future optimization, check if the sample node is in an obstacle itself
-	map1reached := mp.checkPath(opt, neighbors[0].node.q, target)
-	if !map1reached {
+	if validTarget := mp.checkInputs(opt, target); !validTarget {
 		return nil
 	}
 
-	// iterate over neighbors and find the minimum cost to connect the target node to the tree
-	minIndex := 0
-	minCost := neighbors[0].node.cost + neighbors[0].dist
-	for i := 1; i < len(neighbors); i++ {
-		cost := neighbors[i].node.cost + neighbors[i].dist
-		if cost < minCost && mp.checkPath(opt, neighbors[i].node.q, target) {
+	// iterate over the k nearest neighbors and find the minimum cost to connect the target node to the tree
+	neighbors := kNearestNeighbors(tree, target)
+	minCost := math.Inf(1)
+	var minIndex int
+	for i, neighbor := range neighbors {
+		cost := neighbor.node.cost + neighbor.dist
+		if cost < minCost && mp.checkPath(opt, neighbor.node.q, target) {
 			minIndex = i
 			minCost = cost
 		}
@@ -214,14 +211,29 @@ func (mp *rrtStarConnectMotionPlanner) extend(opt *PlannerOptions, tree map[*nod
 			continue
 		}
 
+		// check to see if a shortcut is possible, and rewire the node if it is
 		cost := targetNode.cost + inputDist(targetNode.q, neighbors[i].node.q)
 		if cost < neighbors[i].node.cost && mp.checkPath(opt, target, neighbors[i].node.q) {
-			// shortcut possible, rewire the node
 			neighbors[i].node.cost = cost
 			tree[neighbors[i].node] = targetNode
 		}
 	}
 	return targetNode
+}
+
+func (mp *rrtStarConnectMotionPlanner) checkInputs(opt *PlannerOptions, inputs []referenceframe.Input) bool {
+	position, err := mp.frame.Transform(inputs)
+	if err != nil {
+		return false
+	}
+	ok, _ := opt.CheckConstraints(&ConstraintInput{
+		StartPos:   position,
+		EndPos:     position,
+		StartInput: inputs,
+		EndInput:   inputs,
+		Frame:      mp.frame,
+	})
+	return ok
 }
 
 func (mp *rrtStarConnectMotionPlanner) checkPath(opt *PlannerOptions, seedInputs, target []referenceframe.Input) bool {
@@ -233,7 +245,6 @@ func (mp *rrtStarConnectMotionPlanner) checkPath(opt *PlannerOptions, seedInputs
 	if err != nil {
 		return false
 	}
-	// Check if constraints need to be met
 	ok, _ := opt.CheckConstraintPath(
 		&ConstraintInput{
 			StartPos:   seedPos,

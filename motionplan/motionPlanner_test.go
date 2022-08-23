@@ -38,19 +38,28 @@ type planConfig struct {
 type seededPlannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error)
 type planConfigConstructor func() (*planConfig, error)
 
+func BenchmarkUnconstrainedMotion(b *testing.B) {
+	config, err := simpleUR5eMotion()
+	test.That(b, err, test.ShouldBeNil)
+	mp, err := NewRRTStarConnectMotionPlannerWithSeed(config.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(1))), logger.Sugar())
+	test.That(b, err, test.ShouldBeNil)
+	_, err = mp.Plan(context.Background(), config.Goal, config.Start, config.Options)
+	test.That(b, err, test.ShouldBeNil)
+}
+
 func TestUnconstrainedMotion(t *testing.T) {
 	planners := []seededPlannerConstructor{
 		NewRRTStarConnectMotionPlannerWithSeed,
-		// NewRRTConnectMotionPlannerWithSeed,
-		// NewCBiRRTMotionPlannerWithSeed,
+		NewRRTConnectMotionPlannerWithSeed,
+		NewCBiRRTMotionPlannerWithSeed,
 	}
 	testCases := []struct {
 		name   string
 		config planConfigConstructor
 	}{
-		// {"2D plan test", simple2DMap},
+		{"2D plan test", simple2DMap},
 		{"6D plan test", simpleUR5eMotion},
-		// {"7D plan test", simpleXArmMotion},
+		{"7D plan test", simpleXArmMotion},
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -130,8 +139,8 @@ func constrainedXArmMotion() (*planConfig, error) {
 // ------------------------.
 func simple2DMap() (*planConfig, error) {
 	// build model
-	limits := []frame.Limit{{Min: -10, Max: 10}, {Min: -10, Max: 10}}
-	physicalGeometry, err := spatial.NewBoxCreator(r3.Vector{X: 1, Y: 1, Z: 1}, spatial.NewZeroPose())
+	limits := []frame.Limit{{Min: -100, Max: 100}, {Min: -100, Max: 100}}
+	physicalGeometry, err := spatial.NewBoxCreator(r3.Vector{X: 10, Y: 10, Z: 10}, spatial.NewZeroPose())
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +150,7 @@ func simple2DMap() (*planConfig, error) {
 	}
 
 	// obstacles
-	box, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{0, 5, 0}), r3.Vector{8, 8, 1})
+	box, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{0, 50, 0}), r3.Vector{80, 80, 1})
 	if err != nil {
 		return nil, err
 	}
@@ -158,8 +167,8 @@ func simple2DMap() (*planConfig, error) {
 	opt.AddConstraint("collision", NewCollisionConstraint(model, toMap([]spatial.Geometry{box}), nil))
 
 	return &planConfig{
-		Start:      frame.FloatsToInputs([]float64{-9., 9.}),
-		Goal:       spatial.PoseToProtobuf(spatial.NewPoseFromPoint(r3.Vector{X: 9, Y: 9, Z: 0})),
+		Start:      frame.FloatsToInputs([]float64{-90., 90.}),
+		Goal:       spatial.PoseToProtobuf(spatial.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0})),
 		RobotFrame: model,
 		Options:    opt,
 	}, nil
@@ -206,8 +215,6 @@ func simpleUR5eMotion() (*planConfig, error) {
 // testPlanner is a helper function that takes a planner and a planning query specified through a config object and tests that it
 // returns a valid set of waypoints.
 func testPlanner(t *testing.T, planner seededPlannerConstructor, config planConfigConstructor, seed int) {
-	t.Helper()
-
 	// plan
 	cfg, err := config()
 	test.That(t, err, test.ShouldBeNil)
@@ -216,7 +223,7 @@ func testPlanner(t *testing.T, planner seededPlannerConstructor, config planConf
 	path, err := mp.Plan(context.Background(), cfg.Goal, cfg.Start, cfg.Options)
 	test.That(t, err, test.ShouldBeNil)
 
-	// evaluate
+	// test that path doesn't violate constraints
 	test.That(t, len(path), test.ShouldBeGreaterThanOrEqualTo, 2)
 	for j := 0; j < len(path)-1; j++ {
 		startPos, err := cfg.RobotFrame.Transform(path[j])

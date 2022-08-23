@@ -20,11 +20,11 @@ const (
 	// If the dot product between two sets of joint angles is less than this, consider them identical.
 	jointSolveDist = 0.0001
 	// Number of planner iterations before giving up.
-	planIter = 10
+	planIter = 500
 	// Number of IK solutions with which to seed the goal side of the bidirectional tree.
 	solutionsToSeed = 10
 	// Check constraints are still met every this many mm/degrees of movement.
-	stepSize = .1
+	stepSize = 2
 	// Name of joint swing scorer.
 	jointConstraint = "defaultJointSwingConstraint"
 	// Max number of iterations of path smoothing to run.
