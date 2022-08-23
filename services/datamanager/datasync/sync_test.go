@@ -470,8 +470,6 @@ func TestPartialUpload(t *testing.T) {
 			// Stand up mock server. Register mock datasync service with a mock server.
 			cancelChannel := make(chan bool)
 			doneCancelChannel := make(chan bool)
-			defer close(cancelChannel)
-			defer close(doneCancelChannel)
 			logger := golog.NewTestLogger(t)
 			mockService := getMockService()
 			mockService.clientContextCancelIndex = tc.clientCancelAfterNMsgs
