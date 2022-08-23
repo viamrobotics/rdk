@@ -35,6 +35,23 @@ func request_NavigationService_GetMode_0(ctx context.Context, marshaler runtime.
 	var protoReq GetModeRequest
 	var metadata runtime.ServerMetadata
 
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
+
 	msg, err := client.GetMode(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
@@ -44,18 +61,52 @@ func local_request_NavigationService_GetMode_0(ctx context.Context, marshaler ru
 	var protoReq GetModeRequest
 	var metadata runtime.ServerMetadata
 
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
+
 	msg, err := server.GetMode(ctx, &protoReq)
 	return msg, metadata, err
 
 }
 
 var (
-	filter_NavigationService_SetMode_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+	filter_NavigationService_SetMode_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
 )
 
 func request_NavigationService_SetMode_0(ctx context.Context, marshaler runtime.Marshaler, client NavigationServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq SetModeRequest
 	var metadata runtime.ServerMetadata
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
 
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
@@ -73,6 +124,23 @@ func local_request_NavigationService_SetMode_0(ctx context.Context, marshaler ru
 	var protoReq SetModeRequest
 	var metadata runtime.ServerMetadata
 
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
+
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
@@ -89,6 +157,23 @@ func request_NavigationService_GetLocation_0(ctx context.Context, marshaler runt
 	var protoReq GetLocationRequest
 	var metadata runtime.ServerMetadata
 
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
+
 	msg, err := client.GetLocation(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
@@ -97,6 +182,23 @@ func request_NavigationService_GetLocation_0(ctx context.Context, marshaler runt
 func local_request_NavigationService_GetLocation_0(ctx context.Context, marshaler runtime.Marshaler, server NavigationServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq GetLocationRequest
 	var metadata runtime.ServerMetadata
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
 
 	msg, err := server.GetLocation(ctx, &protoReq)
 	return msg, metadata, err
@@ -107,6 +209,23 @@ func request_NavigationService_GetWaypoints_0(ctx context.Context, marshaler run
 	var protoReq GetWaypointsRequest
 	var metadata runtime.ServerMetadata
 
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
+
 	msg, err := client.GetWaypoints(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
@@ -116,18 +235,52 @@ func local_request_NavigationService_GetWaypoints_0(ctx context.Context, marshal
 	var protoReq GetWaypointsRequest
 	var metadata runtime.ServerMetadata
 
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
+
 	msg, err := server.GetWaypoints(ctx, &protoReq)
 	return msg, metadata, err
 
 }
 
 var (
-	filter_NavigationService_AddWaypoint_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+	filter_NavigationService_AddWaypoint_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
 )
 
 func request_NavigationService_AddWaypoint_0(ctx context.Context, marshaler runtime.Marshaler, client NavigationServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq AddWaypointRequest
 	var metadata runtime.ServerMetadata
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
 
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
@@ -144,6 +297,23 @@ func request_NavigationService_AddWaypoint_0(ctx context.Context, marshaler runt
 func local_request_NavigationService_AddWaypoint_0(ctx context.Context, marshaler runtime.Marshaler, server NavigationServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq AddWaypointRequest
 	var metadata runtime.ServerMetadata
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
 
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
@@ -167,6 +337,16 @@ func request_NavigationService_RemoveWaypoint_0(ctx context.Context, marshaler r
 		err error
 		_   = err
 	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
 
 	val, ok = pathParams["id"]
 	if !ok {
@@ -193,6 +373,16 @@ func local_request_NavigationService_RemoveWaypoint_0(ctx context.Context, marsh
 		err error
 		_   = err
 	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
 
 	val, ok = pathParams["id"]
 	if !ok {
@@ -222,7 +412,7 @@ func RegisterNavigationServiceHandlerServer(ctx context.Context, mux *runtime.Se
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetMode", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/mode"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetMode", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/{name}/mode"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -246,7 +436,7 @@ func RegisterNavigationServiceHandlerServer(ctx context.Context, mux *runtime.Se
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/SetMode", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/mode"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/SetMode", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/{name}/mode"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -270,7 +460,7 @@ func RegisterNavigationServiceHandlerServer(ctx context.Context, mux *runtime.Se
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetLocation", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/location"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetLocation", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/{name}/location"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -294,7 +484,7 @@ func RegisterNavigationServiceHandlerServer(ctx context.Context, mux *runtime.Se
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetWaypoints", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/waypoints"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetWaypoints", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/{name}/waypoints"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -318,7 +508,7 @@ func RegisterNavigationServiceHandlerServer(ctx context.Context, mux *runtime.Se
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/AddWaypoint", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/waypoints"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/AddWaypoint", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/{name}/waypoints"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -342,7 +532,7 @@ func RegisterNavigationServiceHandlerServer(ctx context.Context, mux *runtime.Se
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/RemoveWaypoint", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/waypoints/{id}"))
+		ctx, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/RemoveWaypoint", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/{name}/waypoints/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -405,7 +595,7 @@ func RegisterNavigationServiceHandlerClient(ctx context.Context, mux *runtime.Se
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetMode", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/mode"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetMode", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/{name}/mode"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -426,7 +616,7 @@ func RegisterNavigationServiceHandlerClient(ctx context.Context, mux *runtime.Se
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/SetMode", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/mode"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/SetMode", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/{name}/mode"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -447,7 +637,7 @@ func RegisterNavigationServiceHandlerClient(ctx context.Context, mux *runtime.Se
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetLocation", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/location"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetLocation", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/{name}/location"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -468,7 +658,7 @@ func RegisterNavigationServiceHandlerClient(ctx context.Context, mux *runtime.Se
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetWaypoints", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/waypoints"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/GetWaypoints", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/{name}/waypoints"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -489,7 +679,7 @@ func RegisterNavigationServiceHandlerClient(ctx context.Context, mux *runtime.Se
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/AddWaypoint", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/waypoints"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/AddWaypoint", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/{name}/waypoints"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -510,7 +700,7 @@ func RegisterNavigationServiceHandlerClient(ctx context.Context, mux *runtime.Se
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
-		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/RemoveWaypoint", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/waypoints/{id}"))
+		ctx, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/RemoveWaypoint", runtime.WithHTTPPathPattern("/viam/api/v1/service/navigation/{name}/waypoints/{id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -530,17 +720,17 @@ func RegisterNavigationServiceHandlerClient(ctx context.Context, mux *runtime.Se
 }
 
 var (
-	pattern_NavigationService_GetMode_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "navigation", "mode"}, ""))
+	pattern_NavigationService_GetMode_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "service", "navigation", "name", "mode"}, ""))
 
-	pattern_NavigationService_SetMode_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "navigation", "mode"}, ""))
+	pattern_NavigationService_SetMode_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "service", "navigation", "name", "mode"}, ""))
 
-	pattern_NavigationService_GetLocation_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "navigation", "location"}, ""))
+	pattern_NavigationService_GetLocation_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "service", "navigation", "name", "location"}, ""))
 
-	pattern_NavigationService_GetWaypoints_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "navigation", "waypoints"}, ""))
+	pattern_NavigationService_GetWaypoints_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "service", "navigation", "name", "waypoints"}, ""))
 
-	pattern_NavigationService_AddWaypoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "navigation", "waypoints"}, ""))
+	pattern_NavigationService_AddWaypoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "service", "navigation", "name", "waypoints"}, ""))
 
-	pattern_NavigationService_RemoveWaypoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5, 1, 0, 4, 1, 5, 6}, []string{"viam", "api", "v1", "service", "navigation", "waypoints", "id"}, ""))
+	pattern_NavigationService_RemoveWaypoint_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6, 1, 0, 4, 1, 5, 7}, []string{"viam", "api", "v1", "service", "navigation", "name", "waypoints", "id"}, ""))
 )
 
 var (

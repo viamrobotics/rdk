@@ -12,11 +12,13 @@ service DataManagerService {
   // Sync performs a sync of the non-synced files for the specified service name,
   rpc Sync(SyncRequest) returns (SyncResponse) {
     option (google.api.http) = {
-      post: "/viam/api/v1/service/datamanager/datasync"
+      post: "/viam/api/v1/service/datamanager/{name}/datasync"
     };
   }
 }
 
-message SyncRequest {}
+message SyncRequest {
+  string name = 1;
+}
 
 message SyncResponse {}

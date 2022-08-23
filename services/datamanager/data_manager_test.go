@@ -49,6 +49,10 @@ var (
 	testSvcName2       = "svc2"
 )
 
+const (
+	testDataManagerServiceName = "DataManager1"
+)
+
 // readDir filters out folders from a slice of FileInfos.
 func readDir(t *testing.T, dir string) ([]fs.FileInfo, error) {
 	t.Helper()
