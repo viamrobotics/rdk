@@ -205,17 +205,17 @@ func (mp *rrtStarConnectMotionPlanner) extend(opt *PlannerOptions, tree map[*nod
 	tree[targetNode] = neighbors[minIndex].node
 
 	// rewire the tree
-	for i := 0; i < len(neighbors); i++ {
+	for i, neighbor := range neighbors {
 		// dont need to try to rewire minIndex, so skip it
 		if i == minIndex {
 			continue
 		}
 
 		// check to see if a shortcut is possible, and rewire the node if it is
-		cost := targetNode.cost + inputDist(targetNode.q, neighbors[i].node.q)
-		if cost < neighbors[i].node.cost && mp.checkPath(opt, target, neighbors[i].node.q) {
-			neighbors[i].node.cost = cost
-			tree[neighbors[i].node] = targetNode
+		cost := targetNode.cost + inputDist(targetNode.q, neighbor.node.q)
+		if cost < neighbor.node.cost && mp.checkPath(opt, target, neighbor.node.q) {
+			neighbor.node.cost = cost
+			tree[neighbor.node] = targetNode
 		}
 	}
 	return targetNode
