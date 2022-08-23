@@ -45,6 +45,7 @@ import (
 
 const (
 	defaultDataRateMs             = 200
+	minDataRateMs                 = 200
 	defaultMapRateSec             = 60
 	cameraValidationMaxTimeoutSec = 30
 	cameraValidationIntervalSec   = 1.
@@ -176,6 +177,10 @@ func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) (mode, 
 		if startFileIndex > endFileIndex {
 			return "", errors.Errorf("second value in input file pattern must be larger than the first [%v]", svcConfig.InputFilePattern)
 		}
+	}
+
+	if svcConfig.DataRateMs != 0 && svcConfig.DataRateMs < minDataRateMs {
+		return "", errors.Errorf("cannot specify data_rate_ms less than %v", minDataRateMs)
 	}
 
 	return slamMode, nil
@@ -593,18 +598,28 @@ func (slamSvc *slamService) StartDataProcess(
 			case <-cancelCtx.Done():
 				return
 			case <-ticker.C:
-				switch slamSvc.slamLib.AlgoType {
-				case dense:
-					if _, err := slamSvc.getAndSaveDataDense(cancelCtx, cams); err != nil {
-						slamSvc.logger.Warn(err)
+				slamSvc.activeBackgroundWorkers.Add(1)
+				if err := cancelCtx.Err(); err != nil {
+					if !errors.Is(err, context.Canceled) {
+						slamSvc.logger.Errorw("unexpected error in SLAM service", "error", err)
 					}
-				case sparse:
-					if _, err := slamSvc.getAndSaveDataSparse(cancelCtx, cams, camStreams); err != nil {
-						slamSvc.logger.Warn(err)
-					}
-				default:
-					slamSvc.logger.Warnw("warning invalid algorithm specified", "algorithm", slamSvc.slamLib.AlgoType)
+					return
 				}
+				goutils.PanicCapturingGo(func() {
+					defer slamSvc.activeBackgroundWorkers.Done()
+					switch slamSvc.slamLib.AlgoType {
+					case dense:
+						if _, err := slamSvc.getAndSaveDataDense(cancelCtx, cams); err != nil {
+							slamSvc.logger.Warn(err)
+						}
+					case sparse:
+						if _, err := slamSvc.getAndSaveDataSparse(cancelCtx, cams, camStreams); err != nil {
+							slamSvc.logger.Warn(err)
+						}
+					default:
+						slamSvc.logger.Warnw("warning invalid algorithm specified", "algorithm", slamSvc.slamLib.AlgoType)
+					}
+				})
 			}
 		}
 	})
