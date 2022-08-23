@@ -368,11 +368,25 @@ func readCertificateDataFromCloudGRPC(ctx context.Context,
 	}, nil
 }
 
+// shouldCheckForCert checks the Cloud config to see if the TLS cert should be refetched.
+func shouldCheckForCert(prevCloud, cloud *Cloud) bool {
+	// only checking the same fields as the ones that are explicitly overwritten in mergeCloudConfig
+	diffFQDN := prevCloud.FQDN != cloud.FQDN
+	diffLocalFQDN := prevCloud.LocalFQDN != cloud.LocalFQDN
+	diffSignalingAddr := prevCloud.SignalingAddress != cloud.SignalingAddress
+	diffSignalInsecure := prevCloud.SignalingInsecure != cloud.SignalingInsecure
+	diffManagedBy := prevCloud.ManagedBy != cloud.ManagedBy
+	diffLocSecret := prevCloud.LocationSecret != cloud.LocationSecret
+
+	return diffFQDN || diffLocalFQDN || diffSignalingAddr || diffSignalInsecure || diffManagedBy || diffLocSecret
+}
+
 // readFromCloud fetches a robot config from the cloud based
 // on the given config.
 func readFromCloud(
 	ctx context.Context,
-	originalCfg *Config,
+	originalCfg,
+	prevCfg *Config,
 	shouldReadFromCache bool,
 	checkForNewCert bool,
 	logger golog.Logger,
@@ -417,6 +431,10 @@ func readFromCloud(
 		} else if !os.IsNotExist(err) {
 			return nil, nil, err
 		}
+	}
+
+	if prevCfg != nil && shouldCheckForCert(prevCfg.Cloud, cfg.Cloud) {
+		checkForNewCert = true
 	}
 
 	if checkForNewCert || tlsCertificate == "" || tlsPrivateKey == "" {
@@ -510,7 +528,7 @@ func FromReader(
 	}
 
 	if cfgFromDisk.Cloud != nil {
-		cfg, _, err := readFromCloud(ctx, cfgFromDisk, true, true, logger)
+		cfg, _, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger)
 		return cfg, err
 	}
 
