@@ -174,7 +174,7 @@ func (is *imageSource) GetFrame(ctx context.Context, mimeType string) ([]byte, s
 
 	// choose the best/fastest representation
 	if mimeType == "" {
-		mimeType = utils.MimeTypePNG
+		mimeType = utils.MimeTypeRawRGBA
 	}
 
 	imgData, err := rimage.EncodeImage(ctx, img, mimeType)

@@ -68,7 +68,7 @@ func newNextCollector(resource interface{}, params data.CollectorParams) (data.C
 	mimeType := params.MethodParams["mime_type"]
 	if mimeType == "" {
 		// TODO: Potentially log the actual mime type at collector instantiation or include in response.
-		mimeType = utils.MimeTypePNG
+		mimeType = utils.MimeTypeRawRGBA
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
