@@ -53,7 +53,7 @@ func newCloudWatcher(ctx context.Context, config *Config, logger golog.Logger) *
 
 	ticker := time.NewTicker(config.Cloud.RefreshInterval)
 
-	var prevCfg *Config = nil
+	var prevCfg *Config
 	utils.ManagedGo(func() {
 		for {
 			if !utils.SelectContextOrWait(cancelCtx, config.Cloud.RefreshInterval) {
