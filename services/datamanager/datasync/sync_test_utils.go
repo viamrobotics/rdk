@@ -34,46 +34,19 @@ var (
 
 // Compares UploadRequests containing either binary or tabular sensor data.
 // nolint:thelper
-func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequest, expected []*v1.UploadRequest) {
+func compareTabularUploadRequests(t *testing.T, actual []*v1.UploadRequest, expected []*v1.UploadRequest) {
 	// Ensure length of slices is same before proceeding with rest of tests.
 	test.That(t, len(actual), test.ShouldEqual, len(expected))
 
 	if len(actual) > 0 {
-		// Compare metadata upload requests (uncomment below).
-		compareMetadata(t, actual[0].GetMetadata(), expected[0].GetMetadata())
-
-		// Compare data differently for binary & tabular data.
-		if isTabular {
-			// Compare tabular data upload request (stream).
-			for i, uploadRequest := range actual[1:] {
-				a := uploadRequest.GetSensorContents().GetStruct().String()
-				e := expected[i+1].GetSensorContents().GetStruct().String()
-				test.That(t, a, test.ShouldResemble, e)
-			}
-		} else {
-			// Compare sensor data upload request (stream).
-			for i, uploadRequest := range actual[1:] {
-				a := uploadRequest.GetSensorContents().GetBinary()
-				e := expected[i+1].GetSensorContents().GetBinary()
-				test.That(t, a, test.ShouldResemble, e)
-			}
+		//compareMetadata(t, actual[0].GetMetadata(), expected[0].GetMetadata())
+		test.That(t, actual[0].GetMetadata().String(), test.ShouldResemble, expected[0].GetMetadata().String())
+		for i := range actual[1:] {
+			a := actual[i+1].GetSensorContents().GetStruct().String()
+			e := expected[i+1].GetSensorContents().GetStruct().String()
+			test.That(t, a, test.ShouldResemble, e)
 		}
 	}
-}
-
-func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
-	expectedMetadata *v1.UploadMetadata,
-) {
-	t.Helper()
-	// Test the fields within UploadRequest Metadata.
-	test.That(t, filepath.Base(actualMetadata.FileName), test.ShouldEqual, filepath.Base(expectedMetadata.FileName))
-	test.That(t, actualMetadata.PartId, test.ShouldEqual, expectedMetadata.PartId)
-	test.That(t, actualMetadata.ComponentName, test.ShouldEqual, expectedMetadata.ComponentName)
-	test.That(t, actualMetadata.ComponentModel, test.ShouldEqual, expectedMetadata.ComponentModel)
-	test.That(t, actualMetadata.ComponentType, test.ShouldEqual, expectedMetadata.ComponentType)
-	test.That(t, actualMetadata.MethodName, test.ShouldEqual, expectedMetadata.MethodName)
-	test.That(t, actualMetadata.Type, test.ShouldEqual, expectedMetadata.Type)
-	test.That(t, actualMetadata.FileExtension, test.ShouldEqual, expectedMetadata.FileExtension)
 }
 
 type anyStruct struct {
@@ -126,7 +99,7 @@ func createTabularSensorData(toWrite []*structpb.Struct) []*v1.SensorData {
 	return sds
 }
 
-func buildSensorDataUploadRequests(sds []*v1.SensorData, dataType v1.DataType, fileName string) []*v1.UploadRequest {
+func buildSensorDataUploadRequests(sds []*v1.SensorData, dataType v1.DataType, filePath string) []*v1.UploadRequest {
 	var expMsgs []*v1.UploadRequest
 	if len(sds) == 0 {
 		return expMsgs
@@ -137,7 +110,7 @@ func buildSensorDataUploadRequests(sds []*v1.SensorData, dataType v1.DataType, f
 			Metadata: &v1.UploadMetadata{
 				PartId:         partID,
 				Type:           dataType,
-				FileName:       fileName,
+				FileName:       filepath.Base(filePath),
 				ComponentType:  componentType,
 				ComponentName:  componentName,
 				ComponentModel: componentModel,
@@ -238,12 +211,12 @@ type mockDataSyncServiceServer struct {
 	lock *sync.Mutex
 	v1.UnimplementedDataSyncServiceServer
 
-	messagesPerAck           int
-	messagesToAck            int
-	clientContextCancelIndex int
-	uploadResponses          *[]*v1.UploadResponse
-	cancelChannel            chan bool
-	doneCancelChannel        chan bool
+	messagesPerAck      int
+	messagesToAck       int
+	clientShutdownIndex int
+	uploadResponses     *[]*v1.UploadResponse
+	cancelChannel       chan bool
+	doneCancelChannel   chan bool
 }
 
 func getMockService() mockDataSyncServiceServer {
@@ -259,9 +232,9 @@ func getMockService() mockDataSyncServiceServer {
 		// Fields below this line added by maxhorowitz
 		messagesPerAck: 1,
 		// TODO: this does not need to be a field
-		messagesToAck:            0,
-		clientContextCancelIndex: -1,
-		uploadResponses:          &[]*v1.UploadResponse{},
+		messagesToAck:       0,
+		clientShutdownIndex: -1,
+		uploadResponses:     &[]*v1.UploadResponse{},
 	}
 }
 
@@ -317,7 +290,7 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 
 		// If we want the client to cancel its own context, send signal through channel to the client, then wait for
 		// client to Close. This simulates a client's context being cancelled before receiving a sent ACK.
-		if m.clientContextCancelIndex == len(m.getUploadRequests()) {
+		if m.clientShutdownIndex == len(m.getUploadRequests()) {
 			m.cancelChannel <- true
 			<-m.doneCancelChannel
 			break
