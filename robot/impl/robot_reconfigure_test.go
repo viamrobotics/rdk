@@ -23,9 +23,10 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/encoder"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
@@ -488,7 +489,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		pin, err := b.GPIOPinByName("1")
 		test.That(t, err, test.ShouldBeNil)
-		pwmF, err := pin.PWMFreq(context.Background())
+		pwmF, err := pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 1000)
 
@@ -576,7 +577,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		pin, err := b.GPIOPinByName("5")
 		test.That(t, err, test.ShouldBeNil)
-		pwmF, err := pin.PWMFreq(context.Background())
+		pwmF, err := pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 4000)
 		_, ok := b.DigitalInterruptByName("encoder")
@@ -650,12 +651,12 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, err = b.GPIOPinByName("5")
 		test.That(t, err, test.ShouldBeNil)
-		pwmF, err = pin.PWMFreq(context.Background())
+		pwmF, err = pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 4000)
 		pin, err = b.GPIOPinByName("1")
 		test.That(t, err, test.ShouldBeNil)
-		pwmF, err = pin.PWMFreq(context.Background())
+		pwmF, err = pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 1000) // TODO double check this is the expected result
 		_, ok = b.DigitalInterruptByName("encoder")
@@ -876,7 +877,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		pin, err := b.GPIOPinByName("1")
 		test.That(t, err, test.ShouldBeNil)
-		pwmF, err := pin.PWMFreq(context.Background())
+		pwmF, err := pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 1000)
 		_, ok := b.DigitalInterruptByName("encoder")
@@ -956,7 +957,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		pin, err = b.GPIOPinByName("1")
 		test.That(t, err, test.ShouldBeNil)
-		pwmF, err = pin.PWMFreq(context.Background())
+		pwmF, err = pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 0)
 		_, ok = b.DigitalInterruptByName("encoder")
@@ -1099,7 +1100,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		pin, err := b.GPIOPinByName("1")
 		test.That(t, err, test.ShouldBeNil)
-		pwmF, err := pin.PWMFreq(context.Background())
+		pwmF, err := pin.PWMFreq(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pwmF, test.ShouldEqual, 0)
 		_, ok := b.DigitalInterruptByName("encoder")
@@ -1225,6 +1226,7 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5"),
 			mockNamed("mock6"),
 		}
+		encoderNames := []resource.Name{encoder.Named("e1")}
 		robot.Reconfigure(context.Background(), conf7)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
@@ -1249,6 +1251,12 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
+		test.That(
+			t,
+			utils.NewStringSet(encoder.NamesFromRobot(robot)...),
+			test.ShouldResemble,
+			utils.NewStringSet(rdktestutils.ExtractNames(encoderNames...)...),
+		)
 		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
@@ -1259,6 +1267,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				motorNames,
 				mockNames,
+				encoderNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
@@ -1333,6 +1342,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				boardNames,
 				mockNames,
+				encoderNames,
 			)...))
 	})
 
@@ -1347,6 +1357,7 @@ func TestRobotReconfigure(t *testing.T) {
 		}()
 		boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
 		motorNames := []resource.Name{motor.Named("m1")}
+		encoderNames := []resource.Name{encoder.Named("e1")}
 		mockNames := []resource.Name{
 			mockNamed("mock1"), mockNamed("mock2"), mockNamed("mock6"),
 			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5"),
@@ -1374,6 +1385,12 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
+		test.That(
+			t,
+			utils.NewStringSet(encoder.NamesFromRobot(robot)...),
+			test.ShouldResemble,
+			utils.NewStringSet(rdktestutils.ExtractNames(encoderNames...)...),
+		)
 		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
@@ -1381,6 +1398,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				boardNames,
+				encoderNames,
 				serviceNames,
 				motorNames,
 				mockNames,
@@ -1403,7 +1421,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err := motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err := m.GetPosition(context.Background())
+		c, err := m.GetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
@@ -1413,7 +1431,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background())
+			c, err = m.GetPosition(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 1)
 		})
@@ -1472,6 +1490,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				boardNames,
 				mockNames,
+				encoderNames,
 			)...))
 		robot.Reconfigure(context.Background(), conf8)
 		mockNames = []resource.Name{
@@ -1501,6 +1520,12 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
+		test.That(
+			t,
+			utils.NewStringSet(encoder.NamesFromRobot(robot)...),
+			test.ShouldResemble,
+			utils.NewStringSet(rdktestutils.ExtractNames(encoderNames...)...),
+		)
 		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
@@ -1511,6 +1536,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				motorNames,
 				mockNames,
+				encoderNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
@@ -1530,7 +1556,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err = motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err = m.GetPosition(context.Background())
+		c, err = m.GetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
@@ -1540,7 +1566,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background())
+			c, err = m.GetPosition(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 1)
 		})
@@ -1607,6 +1633,7 @@ func TestRobotReconfigure(t *testing.T) {
 		}()
 		boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
 		motorNames := []resource.Name{motor.Named("m1")}
+		encoderNames := []resource.Name{encoder.Named("e1")}
 		mockNames := []resource.Name{
 			mockNamed("mock1"), mockNamed("mock2"),
 			mockNamed("mock3"), mockNamed("mock4"), mockNamed("mock5"),
@@ -1625,6 +1652,12 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
+		test.That(
+			t,
+			utils.NewStringSet(encoder.NamesFromRobot(robot)...),
+			test.ShouldResemble,
+			utils.NewStringSet(rdktestutils.ExtractNames(encoderNames...)...),
+		)
 
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
@@ -1632,6 +1665,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				motorNames,
 				mockNames,
+				encoderNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
@@ -1645,7 +1679,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err := motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err := m.GetPosition(context.Background())
+		c, err := m.GetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
@@ -1655,7 +1689,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background())
+			c, err = m.GetPosition(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 1)
 		})
@@ -1719,6 +1753,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				boardNames,
 				mockNames,
+				encoderNames,
 			)...))
 
 		reconfigurableTrue = false
@@ -1737,6 +1772,12 @@ func TestRobotReconfigure(t *testing.T) {
 		)
 		test.That(
 			t,
+			utils.NewStringSet(encoder.NamesFromRobot(robot)...),
+			test.ShouldResemble,
+			utils.NewStringSet(rdktestutils.ExtractNames(encoderNames...)...),
+		)
+		test.That(
+			t,
 			utils.NewStringSet(board.NamesFromRobot(robot)...),
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
@@ -1748,6 +1789,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				motorNames,
 				mockNames,
+				encoderNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
@@ -1761,7 +1803,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err = motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err = m.GetPosition(context.Background())
+		c, err = m.GetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
@@ -1771,7 +1813,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background())
+			c, err = m.GetPosition(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 1)
 		})
@@ -1816,6 +1858,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				boardNames,
 				mockNames,
+				encoderNames,
 				[]resource.Name{
 					arm.Named("armFake"),
 					mockNamed("mock1"),
@@ -1844,6 +1887,12 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
+		test.That(
+			t,
+			utils.NewStringSet(encoder.NamesFromRobot(robot)...),
+			test.ShouldResemble,
+			utils.NewStringSet(rdktestutils.ExtractNames(encoderNames...)...),
+		)
 
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
@@ -1851,6 +1900,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				motorNames,
 				mockNames,
+				encoderNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
@@ -1864,7 +1914,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err = motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err = m.GetPosition(context.Background())
+		c, err = m.GetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 1)
 
@@ -1874,7 +1924,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background())
+			c, err = m.GetPosition(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 2)
 		})
@@ -1942,6 +1992,7 @@ func TestRobotReconfigure(t *testing.T) {
 				serviceNames,
 				boardNames,
 				mockNames,
+				encoderNames,
 				[]resource.Name{
 					arm.Named("armFake"),
 					mockNamed("mock6"),
@@ -2179,7 +2230,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	sensorNames := []resource.Name{gps.Named("gps1"), gps.Named("gps2")}
+	sensorNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
 
 	t.Run("empty to two sensors", func(t *testing.T) {
 		robot, err := New(context.Background(), emptyCfg, logger)
@@ -2188,7 +2239,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		svc, err := sensors.FromRobot(robot)
+		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		foundSensors, err := svc.GetSensors(context.Background())
@@ -2209,7 +2260,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		svc, err := sensors.FromRobot(robot)
+		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		foundSensors, err := svc.GetSensors(context.Background())
@@ -2230,7 +2281,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		svc, err := sensors.FromRobot(robot)
+		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		foundSensors, err := svc.GetSensors(context.Background())
@@ -2253,10 +2304,10 @@ func TestStatusServiceUpdate(t *testing.T) {
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	resourceNames := []resource.Name{gps.Named("gps1"), gps.Named("gps2")}
+	resourceNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
 	expected := map[resource.Name]interface{}{
-		gps.Named("gps1"): map[string]interface{}{},
-		gps.Named("gps2"): map[string]interface{}{},
+		movementsensor.Named("movement_sensor1"): map[string]interface{}{},
+		movementsensor.Named("movement_sensor2"): map[string]interface{}{},
 	}
 
 	t.Run("empty to not empty", func(t *testing.T) {
@@ -2390,16 +2441,16 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Name, sensors.Name, datamanager.Name,
+			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
-			gps.Named("foo:gps1"),
-			gps.Named("foo:gps2"),
+			movementsensor.Named("foo:movement_sensor1"),
+			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
-			vision.Named("foo:"),
-			sensors.Named("foo:"),
-			datamanager.Named("foo:"),
+			vision.Named("foo:builtin"),
+			sensors.Named("foo:builtin"),
+			datamanager.Named("foo:builtin"),
 		),
 	)
 	err = remote2.StartWeb(ctx, options)
@@ -2417,24 +2468,24 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Name, sensors.Name, datamanager.Name,
+			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"), arm.Named("arm2"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
-			gps.Named("foo:gps1"),
-			gps.Named("foo:gps2"),
+			movementsensor.Named("foo:movement_sensor1"),
+			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
-			vision.Named("foo:"),
-			sensors.Named("foo:"),
-			datamanager.Named("foo:"),
+			vision.Named("foo:builtin"),
+			sensors.Named("foo:builtin"),
+			datamanager.Named("foo:builtin"),
 			arm.Named("bar:pieceArm"),
 			camera.Named("bar:cameraOver"),
-			gps.Named("bar:gps1"),
-			gps.Named("bar:gps2"),
+			movementsensor.Named("bar:movement_sensor1"),
+			movementsensor.Named("bar:movement_sensor2"),
 			gripper.Named("bar:pieceGripper"),
-			vision.Named("bar:"),
-			sensors.Named("bar:"),
-			datamanager.Named("bar:"),
+			vision.Named("bar:builtin"),
+			sensors.Named("bar:builtin"),
+			datamanager.Named("bar:builtin"),
 		),
 	)
 
@@ -2448,16 +2499,16 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Name, sensors.Name, datamanager.Name,
+			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
-			gps.Named("foo:gps1"),
-			gps.Named("foo:gps2"),
+			movementsensor.Named("foo:movement_sensor1"),
+			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
-			vision.Named("foo:"),
-			sensors.Named("foo:"),
-			datamanager.Named("foo:"),
+			vision.Named("foo:builtin"),
+			sensors.Named("foo:builtin"),
+			datamanager.Named("foo:builtin"),
 		),
 	)
 
@@ -2490,24 +2541,24 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Name, sensors.Name, datamanager.Name,
+			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"), arm.Named("arm2"),
 			arm.Named("foo:pieceArm"),
 			camera.Named("foo:cameraOver"),
-			gps.Named("foo:gps1"),
-			gps.Named("foo:gps2"),
+			movementsensor.Named("foo:movement_sensor1"),
+			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
-			vision.Named("foo:"),
-			sensors.Named("foo:"),
-			datamanager.Named("foo:"),
+			vision.Named("foo:builtin"),
+			sensors.Named("foo:builtin"),
+			datamanager.Named("foo:builtin"),
 			arm.Named("bar:pieceArm"),
 			camera.Named("bar:cameraOver"),
-			gps.Named("bar:gps1"),
-			gps.Named("bar:gps2"),
+			movementsensor.Named("bar:movement_sensor1"),
+			movementsensor.Named("bar:movement_sensor2"),
 			gripper.Named("bar:pieceGripper"),
-			vision.Named("bar:"),
-			sensors.Named("bar:"),
-			datamanager.Named("bar:"),
+			vision.Named("bar:builtin"),
+			sensors.Named("bar:builtin"),
+			datamanager.Named("bar:builtin"),
 		),
 	)
 }

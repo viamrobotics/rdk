@@ -48,6 +48,10 @@ func init() {
 		Subtype:    SubtypeName,
 		MethodName: nextPointCloud.String(),
 	}, newNextPointCloudCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: next.String(),
+	}, newNextCollector)
 }
 
 // SubtypeName is a constant that identifies the camera resource subtype string.
@@ -71,11 +75,17 @@ type Camera interface {
 	generic.Generic
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
 	GetProperties(ctx context.Context) (rimage.Projector, error)
+	GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error)
 }
 
 // A PointCloudSource is a source that can generate pointclouds.
 type PointCloudSource interface {
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
+}
+
+// A FrameSource is a source that can generate frames.
+type FrameSource interface {
+	GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error)
 }
 
 // GetProjector either gets the camera parameters from the config, or if the camera has a parent source,
@@ -145,6 +155,34 @@ func (is *imageSource) GetProperties(ctx context.Context) (rimage.Projector, err
 		return is.projector, nil
 	}
 	return nil, transform.NewNoIntrinsicsError("No features in config")
+}
+
+func (is *imageSource) GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+	if c, ok := is.ImageSource.(FrameSource); ok {
+		return c.GetFrame(ctx, mimeType)
+	}
+
+	img, release, err := is.Next(ctx)
+	if err != nil {
+		return nil, mimeType, 0, 0, err
+	}
+	defer func() {
+		if release != nil {
+			release()
+		}
+	}()
+
+	// choose the best/fastest representation
+	if mimeType == "" {
+		mimeType = utils.MimeTypePNG
+	}
+
+	imgData, err := rimage.EncodeImage(ctx, img, mimeType)
+	if err != nil {
+		return nil, mimeType, 0, 0, err
+	}
+	bounds := img.Bounds()
+	return imgData, mimeType, int64(bounds.Dx()), int64(bounds.Dy()), nil
 }
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
@@ -238,6 +276,12 @@ func (c *reconfigurableCamera) Do(ctx context.Context, cmd map[string]interface{
 	return c.actual.Do(ctx, cmd)
 }
 
+func (c *reconfigurableCamera) GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.actual.GetFrame(ctx, mimeType)
+}
+
 // Reconfigure reconfigures the resource.
 func (c *reconfigurableCamera) Reconfigure(ctx context.Context, newCamera resource.Reconfigurable) error {
 	c.mu.Lock()
@@ -251,4 +295,37 @@ func (c *reconfigurableCamera) Reconfigure(ctx context.Context, newCamera resour
 	}
 	c.actual = actual.actual
 	return nil
+}
+
+// SimultaneousColorDepthNext will call Next on both the color and depth camera as simultaneously as possible.
+func SimultaneousColorDepthNext(ctx context.Context, color, depth gostream.ImageSource) (image.Image, *rimage.DepthMap) {
+	wg := sync.WaitGroup{}
+	var col image.Image
+	var dm *rimage.DepthMap
+	// do a parallel request for the color and depth image
+	// get color image
+	wg.Add(1)
+	viamutils.PanicCapturingGo(func() {
+		defer wg.Done()
+		var err error
+		col, _, err = color.Next(ctx)
+		if err != nil {
+			panic(err)
+		}
+	})
+	// get depth image
+	wg.Add(1)
+	viamutils.PanicCapturingGo(func() {
+		defer wg.Done()
+		d, _, err := depth.Next(ctx)
+		if err != nil {
+			panic(err)
+		}
+		dm, err = rimage.ConvertImageToDepthMap(d)
+		if err != nil {
+			panic(err)
+		}
+	})
+	wg.Wait()
+	return col, dm
 }

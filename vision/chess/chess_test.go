@@ -21,13 +21,12 @@ func (dd ChessImageProcessDebug) Process(
 	t *testing.T,
 	pCtx *rimage.ProcessorContext,
 	fn string,
-	img image.Image,
+	img, img2 image.Image,
 	logger golog.Logger,
 ) error {
 	t.Helper()
-	// TODO(DATA-237): .both will be removed
 	col := rimage.ConvertImage(img)
-	dm, _ := rimage.ConvertImageToDepthMap(img) // depthmap optional
+	dm, _ := rimage.ConvertImageToDepthMap(img2)
 	out, corners, err := dd.p(col, logger)
 	if err != nil {
 		return err
@@ -97,7 +96,7 @@ func (dd ChessImageProcessDebug) Process(
 }
 
 func TestChessCheatRed1(t *testing.T) {
-	d := rimage.NewMultipleImageTestDebugger(t, "chess/boardseliot2", "*", true)
+	d := rimage.NewMultipleImageTestDebugger(t, "chess/boardseliot2/color", "*", "chess/boardseliot2/depth")
 	err := d.Process(t, &ChessImageProcessDebug{FindChessCornersPinkCheat})
 	test.That(t, err, test.ShouldBeNil)
 }

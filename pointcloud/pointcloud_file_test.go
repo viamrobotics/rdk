@@ -298,6 +298,30 @@ func TestRoundTripFileWithColorFloat(t *testing.T) {
 	test.That(t, nextCloud, test.ShouldResemble, cloud)
 }
 
+func TestPCDKDTree(t *testing.T) {
+	cloud := NewKDTree()
+	test.That(t, cloud.Set(NewVector(-1, -2, 5), NewBasicData()), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewVector(582, 12, 0), NewBasicData()), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewVector(7, 6, 1), NewBasicData()), test.ShouldBeNil)
+	test.That(t, cloud.Size(), test.ShouldEqual, 3)
+
+	var buf bytes.Buffer
+	err := ToPCD(cloud, &buf, PCDBinary)
+	test.That(t, err, test.ShouldBeNil)
+	gotPCD := buf.String()
+	test.That(t, gotPCD, test.ShouldContainSubstring, "WIDTH 3\n")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "HEIGHT 1\n")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "POINTS 3\n")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "DATA binary\n")
+
+	cloud2, err := ReadPCDToKDTree(strings.NewReader(gotPCD))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cloud2.Size(), test.ShouldEqual, 3)
+	gotPt, found := cloud2.At(-1, -2, 5)
+	test.That(t, found, test.ShouldBeTrue)
+	test.That(t, gotPt, test.ShouldNotBeNil)
+}
+
 func TestPCDColor(t *testing.T) {
 	c := color.NRGBA{5, 31, 123, 255}
 	p := NewColoredData(c)

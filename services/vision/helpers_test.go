@@ -10,6 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
@@ -29,7 +30,7 @@ func createService(t *testing.T, filePath string) (vision.Service, robot.Robot) 
 	logger := golog.NewTestLogger(t)
 	r, err := robotimpl.RobotFromConfigPath(context.Background(), filePath, logger)
 	test.That(t, err, test.ShouldBeNil)
-	srv, err := vision.FromRobot(r)
+	srv, err := vision.FirstFromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 	return srv, r
 }
@@ -71,7 +72,7 @@ func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
 	// make the robot from new config and get the service
 	r, err := robotimpl.RobotFromConfigPath(context.Background(), newConfFile, logger)
 	test.That(t, err, test.ShouldBeNil)
-	srv, err := vision.FromRobot(r)
+	srv, err := vision.FirstFromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 	// add the detector
 	detConf := vision.DetectorConfig{
@@ -151,6 +152,10 @@ func (c *cloudSource) GetProperties(ctx context.Context) (rimage.Projector, erro
 
 	proj = intrinsics
 	return proj, nil
+}
+
+func (c *cloudSource) GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+	return nil, "", 0, 0, errors.New("not implemented")
 }
 
 func (c *cloudSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

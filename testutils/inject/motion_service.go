@@ -40,6 +40,19 @@ func (mgs *MotionService) Move(
 	return mgs.MoveFunc(ctx, componentName, grabPose, worldState)
 }
 
+// MoveSingleComponent calls the injected MoveSingleComponent or the real variant. It uses the same function as Move.
+func (mgs *MotionService) MoveSingleComponent(
+	ctx context.Context,
+	componentName resource.Name,
+	grabPose *referenceframe.PoseInFrame,
+	worldState *commonpb.WorldState,
+) (bool, error) {
+	if mgs.MoveFunc == nil {
+		return mgs.Service.MoveSingleComponent(ctx, componentName, grabPose, worldState)
+	}
+	return mgs.MoveFunc(ctx, componentName, grabPose, worldState)
+}
+
 // GetPose calls the injected GetPose or the real variant.
 func (mgs *MotionService) GetPose(
 	ctx context.Context,

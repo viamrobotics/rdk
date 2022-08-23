@@ -494,7 +494,7 @@ func TestManagerAdd(t *testing.T) {
 	) (bool, error) {
 		return false, nil
 	}
-	objectMResName := motion.Name
+	objectMResName := motion.Named("motion1")
 	manager.addResource(objectMResName, injectMotionService)
 	motionService, err := manager.ResourceByName(objectMResName)
 	test.That(t, err, test.ShouldBeNil)
@@ -508,7 +508,7 @@ func TestManagerAdd(t *testing.T) {
 	) ([]*viz.Object, error) {
 		return []*viz.Object{viz.NewEmptyObject()}, nil
 	}
-	objectSegResName := vision.Name
+	objectSegResName := vision.Named(resource.DefaultServiceName)
 	manager.addResource(objectSegResName, injectVisionService)
 	objectSegmentationService, err := manager.ResourceByName(objectSegResName)
 	test.That(t, err, test.ShouldBeNil)
@@ -724,7 +724,7 @@ func TestManagerNewComponent(t *testing.T) {
 		logger:  logger,
 		config:  cfg,
 	}
-	diff, err := config.DiffConfigs(&config.Config{}, cfg)
+	diff, err := config.DiffConfigs(config.Config{}, *cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robotForRemote.manager.updateResources(context.Background(), diff, func(name string) (resource.Name, bool) {
 		for _, c := range cfg.Components {

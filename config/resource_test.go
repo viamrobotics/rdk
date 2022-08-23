@@ -7,7 +7,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/movementsensor"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
@@ -84,6 +84,28 @@ func TestComponentValidate(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, validConfig.Namespace, test.ShouldEqual, "acme")
 	})
+
+	t.Run("reserved character in name", func(t *testing.T) {
+		invalidConfig := config.Component{
+			Namespace: "acme",
+			Name:      "fo:o",
+			Type:      "arm",
+		}
+		_, err := invalidConfig.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
+	})
+
+	t.Run("reserved character in namespace", func(t *testing.T) {
+		invalidConfig := config.Component{
+			Namespace: "ac:me",
+			Name:      "foo",
+			Type:      "arm",
+		}
+		_, err := invalidConfig.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
+	})
 }
 
 func TestComponentResourceName(t *testing.T) {
@@ -144,17 +166,17 @@ func TestComponentResourceName(t *testing.T) {
 			"sensor with subtype",
 			config.Component{
 				Namespace: resource.ResourceNamespaceRDK,
-				Type:      "gps",
+				Type:      "movement_sensor",
 				Name:      "foo",
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-				ResourceSubtype: gps.SubtypeName,
+				ResourceSubtype: movementsensor.SubtypeName,
 			},
 			resource.Name{
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: gps.SubtypeName,
+					ResourceSubtype: movementsensor.SubtypeName,
 				},
 				Name: "foo",
 			},
@@ -163,17 +185,17 @@ func TestComponentResourceName(t *testing.T) {
 			"sensor missing name",
 			config.Component{
 				Namespace: resource.ResourceNamespaceRDK,
-				Type:      "gps",
+				Type:      "movement_sensor",
 				Name:      "",
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-				ResourceSubtype: gps.SubtypeName,
+				ResourceSubtype: movementsensor.SubtypeName,
 			},
 			resource.Name{
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: gps.SubtypeName,
+					ResourceSubtype: movementsensor.SubtypeName,
 				},
 				Name: "",
 			},
@@ -260,6 +282,7 @@ func TestServiceValidate(t *testing.T) {
 
 	t.Run("config valid", func(t *testing.T) {
 		validConfig := config.Service{
+			Name: "frame1",
 			Type: "frame_system",
 		}
 		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
@@ -268,6 +291,7 @@ func TestServiceValidate(t *testing.T) {
 	t.Run("ConvertedAttributes", func(t *testing.T) {
 		t.Run("config invalid", func(t *testing.T) {
 			invalidConfig := config.Service{
+				Name:                "frame1",
 				Type:                "frame_system",
 				ConvertedAttributes: &testutils.FakeConvertedAttributes{Thing: ""},
 			}
@@ -278,6 +302,7 @@ func TestServiceValidate(t *testing.T) {
 
 		t.Run("config valid", func(t *testing.T) {
 			invalidConfig := config.Service{
+				Name: "frame1",
 				Type: "frame_system",
 				ConvertedAttributes: &testutils.FakeConvertedAttributes{
 					Thing: "i am a thing!",
@@ -291,6 +316,7 @@ func TestServiceValidate(t *testing.T) {
 	t.Run("Attributes", func(t *testing.T) {
 		t.Run("config invalid", func(t *testing.T) {
 			invalidConfig := config.Service{
+				Name:       "frame1",
 				Type:       "frame_system",
 				Attributes: config.AttributeMap{"attr": &testutils.FakeConvertedAttributes{Thing: ""}},
 			}
@@ -301,6 +327,7 @@ func TestServiceValidate(t *testing.T) {
 
 		t.Run("config valid", func(t *testing.T) {
 			invalidConfig := config.Service{
+				Name: "frame1",
 				Type: "frame_system",
 				Attributes: config.AttributeMap{
 					"attr": testutils.FakeConvertedAttributes{
@@ -323,6 +350,16 @@ func TestServiceValidate(t *testing.T) {
 		test.That(t, validConfig.Namespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
 	})
 
+	t.Run("no name", func(t *testing.T) {
+		testConfig := config.Service{
+			Name: "",
+			Type: "thingy",
+		}
+		err := testConfig.Validate("path")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, testConfig.Name, test.ShouldEqual, resource.DefaultServiceName)
+	})
+
 	t.Run("with namespace", func(t *testing.T) {
 		validConfig := config.Service{
 			Namespace: "acme",
@@ -331,6 +368,28 @@ func TestServiceValidate(t *testing.T) {
 		}
 		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
 		test.That(t, validConfig.Namespace, test.ShouldEqual, "acme")
+	})
+
+	t.Run("reserved character in name", func(t *testing.T) {
+		invalidConfig := config.Service{
+			Namespace: "acme",
+			Name:      "fo:o",
+			Type:      "thingy",
+		}
+		err := invalidConfig.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
+	})
+
+	t.Run("reserved character in namespace", func(t *testing.T) {
+		invalidConfig := config.Service{
+			Namespace: "ac:me",
+			Name:      "foo",
+			Type:      "thingy",
+		}
+		err := invalidConfig.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
 	})
 }
 
@@ -346,9 +405,10 @@ func TestServiceResourceName(t *testing.T) {
 			config.Service{
 				Namespace: resource.ResourceNamespaceRDK,
 				Type:      "motion",
+				Name:      "motion1",
 			},
 			motion.Subtype,
-			resource.NameFromSubtype(motion.Subtype, ""),
+			resource.NameFromSubtype(motion.Subtype, "motion1"),
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {

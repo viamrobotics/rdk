@@ -20,7 +20,7 @@ const ServoRollingAverageWindow = 10
 type DigitalInterrupt interface {
 	// Value returns the current value of the interrupt which is
 	// based on the type of interrupt.
-	Value(ctx context.Context) (int64, error)
+	Value(ctx context.Context, extra map[string]interface{}) (int64, error)
 
 	// Tick is to be called either manually if the interrupt is a proxy to some real
 	// hardware interrupt or for tests.
@@ -109,7 +109,7 @@ func (i *BasicDigitalInterrupt) Config(ctx context.Context) (DigitalInterruptCon
 }
 
 // Value returns the amount of ticks that have occurred.
-func (i *BasicDigitalInterrupt) Value(ctx context.Context) (int64, error) {
+func (i *BasicDigitalInterrupt) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	count := atomic.LoadInt64(&i.count)
 	if i.pp != nil {
 		return i.pp(count), nil
@@ -168,7 +168,7 @@ func (i *ServoDigitalInterrupt) Config(ctx context.Context) (DigitalInterruptCon
 
 // Value will return the window averaged value followed by its post processed
 // result.
-func (i *ServoDigitalInterrupt) Value(ctx context.Context) (int64, error) {
+func (i *ServoDigitalInterrupt) Value(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	v := int64(i.ra.Average())
 	if i.pp != nil {
 		return i.pp(v), nil

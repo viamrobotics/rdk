@@ -1,7 +1,6 @@
 package imagesource
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"image"
@@ -15,13 +14,9 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
-func decodeColor(colorData []byte) (image.Image, error) {
-	img, _, err := image.Decode(bytes.NewBuffer(colorData))
+func decodeImage(imgData []byte) (image.Image, error) {
+	img, _, err := image.Decode(bytes.NewBuffer(imgData))
 	return img, err
-}
-
-func decodeDepth(depthData []byte) (*rimage.DepthMap, error) {
-	return rimage.ReadDepthMap(bufio.NewReader(bytes.NewReader(depthData)))
 }
 
 func prepReadFromURL(ctx context.Context, client http.Client, url string) (io.ReadCloser, error) {
@@ -53,7 +48,7 @@ func readColorURL(ctx context.Context, client http.Client, url string) (*rimage.
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't ready color url")
 	}
-	img, err := decodeColor(colorData)
+	img, err := decodeImage(colorData)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +60,9 @@ func readDepthURL(ctx context.Context, client http.Client, url string) (*rimage.
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't ready depth url")
 	}
-	// do this first and make sure ok before creating any mats
-	return decodeDepth(depthData)
+	img, err := decodeImage(depthData)
+	if err != nil {
+		return nil, err
+	}
+	return rimage.ConvertImageToDepthMap(img)
 }

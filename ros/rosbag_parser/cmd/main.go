@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -51,8 +52,8 @@ func saveImageAsPng(img image.Image, filename string) error {
 	return nil
 }
 
-// extractPlanes extract planes from an image with depth.
-func extractPlanes(ctx context.Context, imgWd *rimage.ImageWithDepth) (*segmentation.SegmentedImage, error) {
+// extractPlanes extract planes from an image and depth map.
+func extractPlanes(ctx context.Context, img *rimage.Image, dm *rimage.DepthMap) (*segmentation.SegmentedImage, error) {
 	// Set camera matrices in image-with-depth
 	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
 	if err != nil {
@@ -60,7 +61,7 @@ func extractPlanes(ctx context.Context, imgWd *rimage.ImageWithDepth) (*segmenta
 	}
 
 	// Get the pointcloud from the image-with-depth
-	pcl, err := camera.RGBDToPointCloud(imgWd.Color, imgWd.Depth)
+	pcl, err := camera.RGBDToPointCloud(img, dm)
 	if err != nil {
 		return nil, err
 	}
@@ -125,18 +126,27 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			}
 
 			// Create & display image
-			imgWd, err := rimage.ReadBothFromBytes(message.Data.Data, true)
+			img1, _, err := image.Decode(bytes.NewReader(message.ColorData.Data))
 			if err != nil {
 				return err
 			}
-			imgNrgba := imgWd.Overlay()
+			img2, _, err := image.Decode(bytes.NewReader(message.DepthData.Data))
+			if err != nil {
+				return err
+			}
+			img := rimage.ConvertImage(img1)
+			dm, err := rimage.ConvertImageToDepthMap(img2)
+			if err != nil {
+				return err
+			}
+			imgNrgba := rimage.Overlay(img, dm)
 			err = saveImageAsPng(imgNrgba, "img_"+fmt.Sprint(count)+".png")
 			if err != nil {
 				return err
 			}
 
 			// Apply plane segmentation on image
-			segImg, err := extractPlanes(ctx, imgWd)
+			segImg, err := extractPlanes(ctx, img, dm)
 			if err != nil {
 				return err
 			}
