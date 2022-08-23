@@ -80,7 +80,7 @@ func (h *depthSourceTestHelper) Process(
 
 	// preprocess depth map
 	source = &imagesource.StaticSource{DepthImg: dm}
-	rs, err := newDepthPreprocessTransform{source}
+	rs, err := newDepthPreprocessTransform(source)
 	test.That(t, err, test.ShouldBeNil)
 
 	output, _, err := rs.Next(context.Background())

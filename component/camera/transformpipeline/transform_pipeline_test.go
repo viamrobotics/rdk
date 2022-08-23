@@ -9,6 +9,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 )
@@ -24,6 +25,7 @@ func TestTransformPipelineColor(t *testing.T) {
 			{Type: "resize", Attributes: config.AttributeMap{"height": 200, "width": 100}},
 		},
 	}
+	r := &inject.Robot{}
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := &imagesource.StaticSource{ColorImg: img}
@@ -33,7 +35,7 @@ func TestTransformPipelineColor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = rimage.WriteImageToFile(outDir+"/test_color_original.png", inImg)
 
-	color, err := newTransformPipeline(context.Background(), cam, transformConf)
+	color, err := newTransformPipeline(context.Background(), cam, transformConf, r)
 	test.That(t, err, test.ShouldBeNil)
 
 	outImg, _, err := color.Next(context.Background())
@@ -69,6 +71,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 			{Type: "resize", Attributes: config.AttributeMap{"height": 200, "width": 100}},
 		},
 	}
+	r := &inject.Robot{}
 
 	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
@@ -79,7 +82,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = rimage.WriteImageToFile(outDir+"/test_depth_original.png", inImg)
 
-	depth, err := newTransformPipeline(context.Background(), cam, transformConf)
+	depth, err := newTransformPipeline(context.Background(), cam, transformConf, r)
 	test.That(t, err, test.ShouldBeNil)
 
 	outImg, _, err := depth.Next(context.Background())
