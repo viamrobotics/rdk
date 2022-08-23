@@ -503,6 +503,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 
 		// Download models from models_on_robot.
 		modelsToDeploy := svcConfig.ModelsToDeploy
+		// fmt.Println("modelsToDeploy: ", modelsToDeploy)
 		err = svc.downloadModels(cfg, modelsToDeploy)
 		if err != nil {
 			svc.logger.Errorf("can't download models_on_robot in config", "error", err)
@@ -582,9 +583,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy []*Model) error {
 	fmt.Println("downloadModels()")
 	modelsToDownload := getModelsToDownload(modelsToDeploy)
-	// fmt.Println("modelsToDownload: ", modelsToDownload)
 	// TODO: DATA-295, delete models in file system that are no longer in the config.
-
 	// If we have no models to download, exit.
 	if len(modelsToDownload) == 0 {
 		return nil
@@ -613,7 +612,6 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 	svc.deployModelsBackgroundWorkers.Add(len(modelsToDownload))
 	modelServiceClient := modelclient.NewClientFromConn(*svc.clientConn, svc.logger)
 	for _, model := range modelsToDownload {
-		// fmt.Println("model.Name: ", model.Name)
 		go func(model *Model) {
 			// Change context to a timeout?
 			defer svc.deployModelsBackgroundWorkers.Done()
@@ -622,13 +620,11 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 					ModelName: model.Name,
 				},
 			}
+			fmt.Println("modelServiceClient.Deploy()")
 			deployResp, err := modelServiceClient.Deploy(cancelCtx, deployRequest)
-			// fmt.Println("do we make it past?")
 			if err != nil {
-				// fmt.Println("NOT PAST")
-				svc.logger.Error(err)
+				svc.logger.Fatalf(err.Error())
 			} else {
-				// fmt.Println("YES PAST")
 				url := deployResp.Message
 				err := downloadFile(cancelCtx, model.Destination, url, svc.logger)
 				if err != nil {
@@ -800,22 +796,10 @@ func getModelsToDownload(models []*Model) []*Model {
 func createClientConnection(logger *zap.SugaredLogger, cfg *config.Config) (rpc.ClientConn, error) {
 	fmt.Println("createClientConnection()")
 	ctx := context.Background()
-	// fmt.Println("cfg.Cloud: ", cfg.Cloud)
-
-	tlsConfig := config.NewTLSConfig(cfg).Config // unable to generate a TLSConfig
-
-	// if tlsConfig == nil {
-	// 	logger.Fatalf("unable to generate a tlsConfig")
-	// }
-
-	// err = tlsConfig.UpdateCert(cfg).Config
-	// if err != nil {
-	// 	fmt.Println("err: ", err)
-	// }
-	// fmt.Println("tlsConfig: ", tlsCo/nfig)
+	tlsConfig := config.NewTLSConfig(cfg).Config
 	cloudConfig := cfg.Cloud
-	// fmt.Println("cloudConfig.LocationSecret: ", cloudConfig.LocationSecret)
 	rpcOpts := []rpc.DialOption{
+		rpc.WithInsecure(),
 		rpc.WithTLSConfig(tlsConfig),
 		rpc.WithEntityCredentials(
 			cloudConfig.ID,
@@ -824,7 +808,8 @@ func createClientConnection(logger *zap.SugaredLogger, cfg *config.Config) (rpc.
 				Payload: cloudConfig.Secret,
 			}),
 	}
-	appURL := "app.viam.com:443" // TODO: Find way to not hardcode this. Maybe look in grpc/dial.go?
+	// appURL := cfg.Network.BindAddress
+	appURL := "app.viam.com:443"
 
 	conn, err := rpc.DialDirectGRPC(
 		ctx,

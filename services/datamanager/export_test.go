@@ -3,6 +3,7 @@ package datamanager
 
 import (
 	"go.viam.com/rdk/services/datamanager/datasync"
+	"go.viam.com/utils/rpc"
 )
 
 // SetSyncerConstructor sets the syncer constructor for the data manager to use when creating its syncer.
@@ -13,6 +14,11 @@ func (svc *dataManagerService) SetSyncerConstructor(fn datasync.ManagerConstruct
 // SetWaitAfterLastModifiedSecs sets the wait time for the syncer to use when initialized/changed in Service.Update.
 func (svc *dataManagerService) SetWaitAfterLastModifiedSecs(s int) {
 	svc.waitAfterLastModifiedSecs = s
+}
+
+// SetWaitAfterLastModifiedSecs sets the wait time for the syncer to use when initialized/changed in Service.Update.
+func (svc *dataManagerService) SetClientConn(c rpc.ClientConn) {
+	svc.clientConn = &c
 }
 
 // Make getServiceConfig global for tests.
