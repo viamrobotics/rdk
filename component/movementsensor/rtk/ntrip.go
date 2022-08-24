@@ -24,7 +24,7 @@ type ntripCorrectionSource struct {
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 
-	mu        sync.Mutex
+	errMu        sync.Mutex
 	lastError error
 }
 
@@ -120,8 +120,8 @@ func (n *ntripCorrectionSource) GetStream() error {
 }
 
 func (n *ntripCorrectionSource) setLastError(err error) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
+	n.errMu.Lock()
+	defer n.errMu.Unlock()
 
 	n.lastError = err
 }
