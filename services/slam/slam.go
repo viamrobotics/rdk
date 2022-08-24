@@ -618,7 +618,6 @@ func (slamSvc *slamService) StartSLAMProcess(ctx context.Context) error {
 	if err = slamSvc.slamProcess.Start(ctx); err != nil {
 		return errors.Wrap(err, "problem starting slam process")
 	}
-	//})
 
 	return nil
 }
