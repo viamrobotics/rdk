@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // RTKAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
@@ -99,7 +100,6 @@ type RTKMovementSensor struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	done                    chan struct{}
 	errors                  chan error
 }
 
@@ -167,7 +167,6 @@ func newRTKMovementSensor(
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		done:       make(chan struct{}),
 		errors:     make(chan error),
 	}
 
@@ -575,16 +574,8 @@ func (g *RTKMovementSensor) GetReadings(ctx context.Context) (map[string]interfa
 // Close shuts down the RTKMOVEMENTSENSOR.
 func (g *RTKMovementSensor) Close() error {
 	g.cancelFunc()
-	go func() {
-		g.activeBackgroundWorkers.Wait()
-		g.done <- struct{}{}
-	}()
-	select {
-	case err := <-g.errors:
-		if err != nil {
-			return err
-		}
-	case <-g.done:
+	if err := utils.WaitWithError(&g.activeBackgroundWorkers, g.errors); err != nil {
+		return err
 	}
 
 	err := g.nmeamovementsensor.Close()

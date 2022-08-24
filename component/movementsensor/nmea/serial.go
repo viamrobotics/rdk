@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // SerialAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
@@ -69,7 +70,6 @@ type SerialNMEAMovementSensor struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	done                    chan struct{}
 	errors                  chan error
 }
 
@@ -132,7 +132,6 @@ func newSerialNMEAMovementSensor(ctx context.Context, config config.Component, l
 		correctionBaudRate: uint(correctionBaudRate),
 		disableNmea:        disableNmea,
 		data:               gpsData{},
-		done:               make(chan struct{}),
 		errors:             make(chan error),
 	}
 
@@ -258,16 +257,8 @@ func (g *SerialNMEAMovementSensor) GetProperties(ctx context.Context) (*movement
 func (g *SerialNMEAMovementSensor) Close() error {
 	g.logger.Debug("Closing SerialNMEAMovementSensor")
 	g.cancelFunc()
-	go func() {
-		g.activeBackgroundWorkers.Wait()
-		g.done <- struct{}{}
-	}()
-	select {
-	case err := <-g.errors:
-		if err != nil {
-			return err
-		}
-	case <-g.done:
+	if err := rdkutils.WaitWithError(&g.activeBackgroundWorkers, g.errors); err != nil {
+		return err
 	}
 
 	g.mu.Lock()
