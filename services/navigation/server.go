@@ -24,10 +24,10 @@ func NewServer(s subtype.Service) pb.NavigationServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }
 
-func (server *subtypeServer) service() (Service, error) {
-	resource := server.subtypeSvc.Resource(Name.String())
+func (server *subtypeServer) service(serviceName string) (Service, error) {
+	resource := server.subtypeSvc.Resource(serviceName)
 	if resource == nil {
-		return nil, utils.NewResourceNotFoundError(Name)
+		return nil, utils.NewResourceNotFoundError(Named(serviceName))
 	}
 	svc, ok := resource.(Service)
 	if !ok {
@@ -39,7 +39,7 @@ func (server *subtypeServer) service() (Service, error) {
 func (server *subtypeServer) GetMode(ctx context.Context, req *pb.GetModeRequest) (
 	*pb.GetModeResponse, error,
 ) {
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func (server *subtypeServer) GetMode(ctx context.Context, req *pb.GetModeRequest
 func (server *subtypeServer) SetMode(ctx context.Context, req *pb.SetModeRequest) (
 	*pb.SetModeResponse, error,
 ) {
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func (server *subtypeServer) SetMode(ctx context.Context, req *pb.SetModeRequest
 func (server *subtypeServer) GetLocation(ctx context.Context, req *pb.GetLocationRequest) (
 	*pb.GetLocationResponse, error,
 ) {
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (server *subtypeServer) GetLocation(ctx context.Context, req *pb.GetLocatio
 func (server *subtypeServer) GetWaypoints(ctx context.Context, req *pb.GetWaypointsRequest) (
 	*pb.GetWaypointsResponse, error,
 ) {
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (server *subtypeServer) GetWaypoints(ctx context.Context, req *pb.GetWaypoi
 func (server *subtypeServer) AddWaypoint(ctx context.Context, req *pb.AddWaypointRequest) (
 	*pb.AddWaypointResponse, error,
 ) {
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (server *subtypeServer) AddWaypoint(ctx context.Context, req *pb.AddWaypoin
 func (server *subtypeServer) RemoveWaypoint(ctx context.Context, req *pb.RemoveWaypointRequest) (
 	*pb.RemoveWaypointResponse, error,
 ) {
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}

@@ -42,6 +42,18 @@ func TestSubtypeService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc.Resource(name1), test.ShouldBeNil)
 	test.That(t, svc.Resource(name2), test.ShouldBeNil)
+	// Test should error if resource name is empty
+	resources = map[resource.Name]interface{}{
+		resource.NewName(
+			resource.ResourceNamespaceRDK,
+			resource.ResourceTypeComponent,
+			strType,
+			"",
+		): name1,
+	}
+	err = svc.Replace(resources)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "Empty name used for resource:")
 }
 
 func TestSubtypeRemoteNames(t *testing.T) {

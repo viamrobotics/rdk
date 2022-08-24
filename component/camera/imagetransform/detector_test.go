@@ -105,7 +105,8 @@ func TestColorDetectionSource(t *testing.T) {
 	}()
 
 	// add the detector
-	srv, err := vision.FromRobot(r)
+
+	srv, err := vision.FirstFromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 	detConf := vision.DetectorConfig{
 		Name: "detector_color",
@@ -142,7 +143,7 @@ func TestTFLiteDetectionSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// add the detector
-	srv, err := vision.FromRobot(r)
+	srv, err := vision.FirstFromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 	detConf := vision.DetectorConfig{
 		Name: "detector_tflite",
@@ -177,7 +178,7 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 	}()
 	test.That(b, err, test.ShouldBeNil)
 	// add the detector
-	srv, err := vision.FromRobot(r)
+	srv, err := vision.FirstFromRobot(r)
 	test.That(b, err, test.ShouldBeNil)
 	detConf := vision.DetectorConfig{
 		Name: "detector_color",
@@ -212,7 +213,7 @@ func BenchmarkTFLiteDetectionSource(b *testing.B) {
 	}()
 	test.That(b, err, test.ShouldBeNil)
 	// add the detector
-	srv, err := vision.FromRobot(r)
+	srv, err := vision.FirstFromRobot(r)
 	test.That(b, err, test.ShouldBeNil)
 	detConf := vision.DetectorConfig{
 		Name: "detector_tflite",

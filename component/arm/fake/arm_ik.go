@@ -97,13 +97,20 @@ func (a *ArmIK) MoveToPosition(
 
 // MoveToJointPositions sets the joints.
 func (a *ArmIK) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
-	a.joints = joints
+	inputs := a.model.InputFromProtobuf(joints)
+	_, err := a.model.Transform(inputs)
+	if err != nil {
+		return err
+	}
+
+	copy(a.joints.Values, joints.Values)
 	return nil
 }
 
-// GetJointPositions returns the set joints.
+// GetJointPositions returns joints.
 func (a *ArmIK) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-	return a.joints, nil
+	retJoint := &pb.JointPositions{Values: a.joints.Values}
+	return retJoint, nil
 }
 
 // Stop doesn't do anything for a fake arm.
