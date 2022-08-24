@@ -1203,7 +1203,8 @@ export default {
               }
             }
           }
-
+          
+          this.resources = resources;
           if (resourcesChanged === true) {
             this.querySensors();
 
@@ -1211,8 +1212,6 @@ export default {
               this.restartStatusStream();
             }
           }
-
-          this.resources = resources;
           resolve(this.resources);
         });
       });
