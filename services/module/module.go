@@ -3,6 +3,7 @@ package module
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"sync"
@@ -32,17 +33,6 @@ import (
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("module")
 
-type (
-	moduleAddress string
-	modulePath    string
-)
-
-// A Service that handles external resource modules.
-type Service interface {
-	AddModule(ctx context.Context, path modulePath) error
-	AddModularResource(ctx context.Context, cfg config.Component) error
-}
-
 // Subtype is a constant that identifies the remote control resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
@@ -50,8 +40,18 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
+// Name is the name of the module service
+var Name = resource.NameFromSubtype(Subtype, "")
+
+
+type (
+	moduleAddress string
+	modulePath    string
+)
+
 type ModuleConfig struct {
 	Path   modulePath `json:"path"`
+	Type   string `json:"type"`
 	Models []resource.Model `json:"models"`
 }
 
@@ -68,11 +68,17 @@ func init() {
 	config.RegisterServiceAttributeMapConverter(cType,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
-			cfg, err := config.TransformAttributeMapToStruct(&conf, attributes)
-			return cfg, err
+			jsonStr, err := json.Marshal(attributes)
+			if err != nil {
+				return &conf, err
+			}
+			err = json.Unmarshal(jsonStr, &conf)
+			return &conf, err
 		},
 	&Config{},
 	)
+
+	// resource.AddDefaultService(Name)
 }
 
 // New returns a module system service for the given robot.
@@ -91,7 +97,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	}
 
 	for _, mod := range svcConfig.Modules {
-		err := svc.AddModule(ctx, mod.Path, mod.Models)
+		err := svc.AddModule(ctx, mod.Path, mod.Type, mod.Models)
 		logger.Debugf("SMURF98: %+v", mod.Models)
 		if err != nil {
 			return nil, err
@@ -131,7 +137,7 @@ func (svc *moduleService) Close(ctx context.Context) error {
 	return err
 }
 
-func (svc *moduleService) AddModule(ctx context.Context, path modulePath, serves []resource.Model) error {
+func (svc *moduleService) AddModule(ctx context.Context, path modulePath, modtype string, serves []resource.Model) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	_, exists := svc.modules[path]
@@ -161,7 +167,10 @@ func (svc *moduleService) AddModule(ctx context.Context, path modulePath, serves
 		return errors.WithMessage(err, "module startup failed")
 	}
 
-	conn, err := grpc.Dial(string("unix://" + svc.modules[path].addr), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(
+		string("unix://" + svc.modules[path].addr),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")
 	}
@@ -169,12 +178,19 @@ func (svc *moduleService) AddModule(ctx context.Context, path modulePath, serves
 	svc.modules[path].serves = serves
 
 	for _, model := range serves {
-		registry.RegisterComponent(generic.Subtype, model, registry.Component{
-			Constructor: func(ctx context.Context, _ registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
-				err := svc.AddModularResource(ctx, cfg)
-				return nil, err
-			},
-		})
+		if modtype == "component" {
+			registry.RegisterComponent(generic.Subtype, model, registry.Component{
+				Constructor: func(ctx context.Context, _ registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
+					return svc.AddModularComponent(ctx, cfg)
+				},
+			})
+		} else if modtype == "service" {
+			svc.logger.Warn("modular services not yet supported")
+		} else if modtype == "logic" {
+			svc.logger.Warn("modular logic not yet supported")
+		} else {
+			svc.logger.Errorf("invalid module type: %s", modtype)
+		}
 	}
 
 
@@ -184,14 +200,14 @@ func (svc *moduleService) AddModule(ctx context.Context, path modulePath, serves
 	return nil
 }
 
-func (svc *moduleService) AddModularResource(ctx context.Context, cfg config.Component ) error {
+func (svc *moduleService) AddModularComponent(ctx context.Context, cfg config.Component) (interface{}, error) {
 	for _, module := range svc.modules {
 		for _, model := range module.serves {
 			if cfg.Model == model {
 				client := pb.NewModuleServiceClient(module.conn)
 				cfgStruct, err := protoutils.StructToStructPb(cfg)
 				if err != nil {
-					return err
+					return nil, err
 				}
 				req := &pb.AddResourceRequest{
 					Name: protoutils.ResourceNameToProto(cfg.ResourceName()),
@@ -199,12 +215,22 @@ func (svc *moduleService) AddModularResource(ctx context.Context, cfg config.Com
 				}
 				_, err = client.AddResource(ctx, req)
 				if err != nil {
-					return err
+					return nil, err
 				}
 				svc.serviceMap[cfg.ResourceName()] = module.conn
-				return nil
+
+				c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
+				nameR := cfg.ResourceName().ShortName()
+				// TODO SMURF proper context
+				resourceClient := c.RPCClient(ctx, module.conn, nameR, svc.logger)
+				if c.Reconfigurable == nil {
+					return resourceClient, nil
+				}
+				return c.Reconfigurable(resourceClient)
+
+				return resourceClient, nil
 			}
 		}
 	}
-	return errors.Errorf("no module registered to serve resource model %s", cfg.ResourceName().Model)
+	return nil, errors.Errorf("no module registered to serve resource model %s", cfg.ResourceName().Model)
 }

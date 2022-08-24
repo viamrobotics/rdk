@@ -6,12 +6,9 @@
 				"modules": [
 					{
 						"path": "/tmp/testmod",
+						"type": "component",
 						"models": [
-							{
-								"namespace": "acme",
-								"model_family": "test",
-								"name": "blarg"
-							}
+							"acme:test:anvil"
 						]
 					}
 				]
@@ -19,14 +16,11 @@
 		}
 	],
 	"components": [
-		{	
-			"name": "mysmurf",
+		{
+			"namespace": "rdk",
 			"type": "generic",
-			"model": {
-				"namespace": "acme",
-				"model_family": "test",
-				"name": "blarg"
-			},
+			"name": "heavy",
+			"model": "acme:test:anvil",
 			"attributes": {
 				"attr1": "foo",
 				"attr2": 42,
@@ -37,5 +31,8 @@
 				}
 			}
 		}
-	]
+	],
+  "network": {
+    "bind_address": ":8080"
+  }
 }

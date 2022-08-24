@@ -19,10 +19,10 @@ type (
 )
 
 // ModelFamilyDefaultName is the name "default".
-const ModelFamilyDefaultName = ModelFamilyName("default")
+const ModelFamilyDefaultName = ModelFamilyName("builtin")
 
 var (
-	// ModelFamilyDefault is the rdk:default model family for built-in resources.
+	// ModelFamilyDefault is the rdk:builtin model family for built-in resources.
 	ModelFamilyDefault       = ModelFamily{ResourceNamespaceRDK, ModelFamilyDefaultName}
 	modelRegexValidator      = regexp.MustCompile(`^([\w-]+):([\w-]+):([\w-]+)$`)
 	shortModelRegexValidator = regexp.MustCompile(`^([\w-]+)$`)

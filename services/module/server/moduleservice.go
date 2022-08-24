@@ -9,23 +9,44 @@ import (
 	"syscall"
 
 	"google.golang.org/grpc"
-	//"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/utils"
 
-	//"go.viam.com/rdk/config"
+	pbgeneric "go.viam.com/rdk/proto/api/component/generic/v1"
 	pb "go.viam.com/rdk/proto/api/module/v1"
-	//"go.viam.com/rdk/protoutils"
-	//"go.viam.com/rdk/resource"
+	//"go.viam.com/rdk/config"
+	"go.viam.com/rdk/protoutils"
 )
+
+type myComponent struct {
+	pbgeneric.UnimplementedGenericServiceServer
+}
+
+func (c *myComponent) Do(ctx context.Context, req *pbgeneric.DoRequest) (*pbgeneric.DoResponse, error) {
+	res, err := structpb.NewStruct(map[string]interface{}{"Zort!": "FJORD!"})
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &pbgeneric.DoResponse{
+		Result: res,
+	}
+	return resp, nil
+}
 
 type server struct {
 	pb.UnimplementedModuleServiceServer
 }
 
 
-func (s * server) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*pb.AddResourceResponse, error) {
+func (s *server) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*pb.AddResourceResponse, error) {
 	log.Printf("SMURF100: %+v", req)
+
+	name := protoutils.ResourceNameFromProto(req.Name)
+	conf := req.Config.AsMap()
+	log.Printf("SMURF101: %+v, %+v", name, conf)
+
 	return &pb.AddResourceResponse{}, nil
 }
 
@@ -62,6 +83,9 @@ func main() {
 	}
 	s := grpc.NewServer()
 	pb.RegisterModuleServiceServer(s, &server{})
+	pbgeneric.RegisterGenericServiceServer(s, &myComponent{})
+
+
 	log.Printf("server listening at %v", lis.Addr())
 	go func() {
 		if err := s.Serve(lis); err != nil {
