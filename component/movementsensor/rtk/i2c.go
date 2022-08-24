@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/utils"
 )
 
 type i2cCorrectionSource struct {
@@ -24,7 +23,9 @@ type i2cCorrectionSource struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	errors                  chan error
+
+	mu        sync.Mutex
+	lastError error
 }
 
 func newI2CCorrectionSource(
@@ -58,10 +59,16 @@ func newI2CCorrectionSource(
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		errors:     make(chan error),
 	}
 
-	return s, nil
+	return s, s.lastError
+}
+
+func (s *i2cCorrectionSource) setLastError(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.lastError = err
 }
 
 // Start reads correction data from the i2c address and sends it into the correctionReader.
@@ -78,7 +85,7 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 	handle, err := s.bus.OpenHandle(s.addr)
 	if err != nil {
 		s.logger.Errorf("can't open gps i2c handle: %s", err)
-		s.errors <- err
+		s.setLastError(err)
 		return
 	}
 
@@ -90,7 +97,7 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 	_, err = w.Write(buffer)
 	if err != nil {
 		s.logger.Errorf("Error writing RTCM message: %s", err)
-		s.errors <- err
+		s.setLastError(err)
 		return
 	}
 
@@ -98,7 +105,7 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 	err = handle.Close()
 	if err != nil {
 		s.logger.Debug("failed to close handle: %s", err)
-		s.errors <- err
+		s.setLastError(err)
 		return
 	}
 
@@ -113,7 +120,7 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 		handle, err := s.bus.OpenHandle(s.addr)
 		if err != nil {
 			s.logger.Errorf("can't open gps i2c handle: %s", err)
-			s.errors <- err
+			s.setLastError(err)
 			return
 		}
 
@@ -125,7 +132,7 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 		_, err = w.Write(buffer)
 		if err != nil {
 			s.logger.Errorf("Error writing RTCM message: %s", err)
-			s.errors <- err
+			s.setLastError(err)
 			return
 		}
 
@@ -133,7 +140,7 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 		err = handle.Close()
 		if err != nil {
 			s.logger.Debug("failed to close handle: %s", err)
-			s.errors <- err
+			s.setLastError(err)
 			return
 		}
 	}
@@ -145,15 +152,13 @@ func (s *i2cCorrectionSource) GetReader() (io.ReadCloser, error) {
 		return nil, errors.New("no stream")
 	}
 
-	return s.correctionReader, nil
+	return s.correctionReader, s.lastError
 }
 
 // Close shuts down the i2cCorrectionSource.
 func (s *i2cCorrectionSource) Close() error {
 	s.cancelFunc()
-	if err := utils.WaitWithError(&s.activeBackgroundWorkers, s.errors); err != nil {
-		return err
-	}
+	s.activeBackgroundWorkers.Wait()
 
 	// close correction reader
 	if s.correctionReader != nil {
@@ -163,5 +168,5 @@ func (s *i2cCorrectionSource) Close() error {
 		s.correctionReader = nil
 	}
 
-	return nil
+	return s.lastError
 }

@@ -12,7 +12,6 @@ import (
 
 	"go.viam.com/rdk/component/movementsensor/nmea"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/utils"
 )
 
 type ntripCorrectionSource struct {
@@ -24,7 +23,9 @@ type ntripCorrectionSource struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	errors                  chan error
+
+	mu        sync.Mutex
+	lastError error
 }
 
 func newNtripCorrectionSource(ctx context.Context, config config.Component, logger golog.Logger) (correctionSource, error) {
@@ -34,7 +35,6 @@ func newNtripCorrectionSource(ctx context.Context, config config.Component, logg
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		errors:     make(chan error),
 	}
 
 	// Init ntripInfo from attributes
@@ -45,7 +45,7 @@ func newNtripCorrectionSource(ctx context.Context, config config.Component, logg
 	n.info = ntripInfoComp
 
 	n.logger.Debug("Returning n")
-	return n, nil
+	return n, n.lastError
 }
 
 // Connect attempts to connect to ntrip client until successful connection or timeout.
@@ -80,7 +80,7 @@ func (n *ntripCorrectionSource) Connect() error {
 
 	n.logger.Debug("Connected to NTRIP caster")
 
-	return nil
+	return n.lastError
 }
 
 // GetStream attempts to connect to ntrip stream until successful connection or timeout.
@@ -116,7 +116,14 @@ func (n *ntripCorrectionSource) GetStream() error {
 
 	n.logger.Debug("Connected to stream")
 
-	return nil
+	return n.lastError
+}
+
+func (n *ntripCorrectionSource) setLastError(err error) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	n.lastError = err
 }
 
 // Start connects to the ntrip caster and stream and sends filtered correction data into the correctionReader.
@@ -125,7 +132,7 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 	defer n.activeBackgroundWorkers.Done()
 	err := n.Connect()
 	if err != nil {
-		n.errors <- err
+		n.setLastError(err)
 		return
 	}
 
@@ -139,7 +146,7 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 
 	err = n.GetStream()
 	if err != nil {
-		n.errors <- err
+		n.setLastError(err)
 		return
 	}
 
@@ -162,7 +169,7 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 				n.logger.Debug("No message... reconnecting to stream...")
 				err = n.GetStream()
 				if err != nil {
-					n.errors <- err
+					n.setLastError(err)
 					return
 				}
 
@@ -181,16 +188,14 @@ func (n *ntripCorrectionSource) GetReader() (io.ReadCloser, error) {
 		return nil, errors.New("no stream")
 	}
 
-	return n.correctionReader, nil
+	return n.correctionReader, n.lastError
 }
 
 // Close shuts down the ntripCorrectionSource and closes all connections to the caster.
 func (n *ntripCorrectionSource) Close() error {
 	n.logger.Debug("Closing ntrip client")
 	n.cancelFunc()
-	if err := utils.WaitWithError(&n.activeBackgroundWorkers, n.errors); err != nil {
-		return err
-	}
+	n.activeBackgroundWorkers.Wait()
 
 	// close correction reader
 	if n.correctionReader != nil {
@@ -213,5 +218,5 @@ func (n *ntripCorrectionSource) Close() error {
 		n.info.Stream = nil
 	}
 
-	return nil
+	return n.lastError
 }

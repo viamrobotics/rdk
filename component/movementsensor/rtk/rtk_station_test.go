@@ -157,14 +157,13 @@ func TestClose(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, errors: make(chan error)}
+	g := rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	r := ioutil.NopCloser(strings.NewReader("hello world"))
 	n := &ntripCorrectionSource{
 		cancelCtx:        cancelCtx,
 		cancelFunc:       cancelFunc,
 		logger:           logger,
 		correctionReader: r,
-		errors:           make(chan error),
 	}
 	n.info = makeMockNtripClient()
 	g.correction = n
@@ -172,26 +171,24 @@ func TestClose(t *testing.T) {
 	err := g.Close()
 	test.That(t, err, test.ShouldBeNil)
 
-	g = rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, errors: make(chan error)}
+	g = rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	s := &serialCorrectionSource{
 		cancelCtx:        cancelCtx,
 		cancelFunc:       cancelFunc,
 		logger:           logger,
 		correctionReader: r,
-		errors:           make(chan error),
 	}
 	g.correction = s
 
 	err = g.Close()
 	test.That(t, err, test.ShouldBeNil)
 
-	g = rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, errors: make(chan error)}
+	g = rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	i := &i2cCorrectionSource{
 		cancelCtx:        cancelCtx,
 		cancelFunc:       cancelFunc,
 		logger:           logger,
 		correctionReader: r,
-		errors:           make(chan error),
 	}
 	g.correction = i
 
@@ -215,7 +212,6 @@ func TestConnect(t *testing.T) {
 		cancelFunc: cancelFunc,
 		logger:     logger,
 		info:       info,
-		errors:     make(chan error),
 	}
 
 	// create new ntrip client and connect

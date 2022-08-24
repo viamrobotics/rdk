@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/utils"
 )
 
 type serialCorrectionSource struct {
@@ -23,7 +22,9 @@ type serialCorrectionSource struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	errors                  chan error
+
+	mu        sync.Mutex
+	lastError error
 }
 
 type pipeReader struct {
@@ -62,7 +63,6 @@ func newSerialCorrectionSource(ctx context.Context, config config.Component, log
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		errors:     make(chan error),
 	}
 
 	serialPath := config.Attributes.String(correctionPathName)
@@ -90,7 +90,14 @@ func newSerialCorrectionSource(ctx context.Context, config config.Component, log
 		return nil, err
 	}
 
-	return s, nil
+	return s, s.lastError
+}
+
+func (s *serialCorrectionSource) setLastError(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.lastError = err
 }
 
 // Start reads correction data from the serial port and sends it into the correctionReader.
@@ -113,7 +120,7 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 			err := w.Close()
 			if err != nil {
 				s.logger.Errorf("Unable to close writer: %s", err)
-				s.errors <- err
+				s.setLastError(err)
 				return
 			}
 			return
@@ -123,7 +130,7 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 		msg, err := scanner.NextMessage()
 		if err != nil {
 			s.logger.Errorf("Error reading RTCM message: %s", err)
-			s.errors <- err
+			s.setLastError(err)
 			return
 		}
 
@@ -136,7 +143,7 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 			_, err := w.Write(byteMsg)
 			if err != nil {
 				s.logger.Errorf("Error writing RTCM message: %s", err)
-				s.errors <- err
+				s.setLastError(err)
 				return
 			}
 		}
@@ -149,15 +156,13 @@ func (s *serialCorrectionSource) GetReader() (io.ReadCloser, error) {
 		return nil, errors.New("no stream")
 	}
 
-	return s.correctionReader, nil
+	return s.correctionReader, s.lastError
 }
 
 // Close shuts down the serialCorrectionSource and closes s.port.
 func (s *serialCorrectionSource) Close() error {
 	s.cancelFunc()
-	if err := utils.WaitWithError(&s.activeBackgroundWorkers, s.errors); err != nil {
-		return err
-	}
+	s.activeBackgroundWorkers.Wait()
 
 	// close port reader
 	if s.port != nil {
@@ -175,5 +180,5 @@ func (s *serialCorrectionSource) Close() error {
 		s.correctionReader = nil
 	}
 
-	return nil
+	return s.lastError
 }

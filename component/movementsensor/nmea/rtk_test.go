@@ -19,7 +19,12 @@ func TestValidateRTK(t *testing.T) {
 
 	fakecfg.NtripAddr = "http://fakeurl"
 	err = fakecfg.ValidateRTK("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected either nonempty ntrip path, serial path, or I2C board, bus, and address")
+	test.That(
+		t,
+		err.Error(),
+		test.ShouldContainSubstring,
+		"expected either nonempty ntrip path, serial path, or I2C board, bus, and address",
+	)
 
 	fakecfg.NtripPath = "some-ntrip-path"
 	err = fakecfg.ValidateRTK("path")
@@ -34,7 +39,6 @@ func TestConnect(t *testing.T) {
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		errors:     make(chan error),
 	}
 
 	url := "http://fakeurl"
@@ -183,13 +187,11 @@ func TestReadingsRTK(t *testing.T) {
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		errors:     make(chan error),
 	}
 	nmeamovementsensor := &SerialNMEAMovementSensor{
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		errors:     make(chan error),
 	}
 	nmeamovementsensor.data = gpsData{
 		location:   loc,
@@ -230,14 +232,12 @@ func TestCloseRTK(t *testing.T) {
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		errors:     make(chan error),
 	}
 	g.ntripClient = makeMockNtripClient()
 	g.nmeamovementsensor = &SerialNMEAMovementSensor{
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		errors:     make(chan error),
 	}
 
 	err := g.Close()
