@@ -32,7 +32,63 @@ type TFLiteDetectorConfig struct {
 // NewTFLiteDetector creates an RDK detector given a DetectorConfig. In other words, this
 // function returns a function from image-->[]objectdetection.Detection. It does this by making calls to
 // an inference package and wrapping the result.
-func NewTFLiteDetector(ctx context.Context, cfg *DetectorConfig, logger golog.Logger) (objectdetection.Detector, *inf.TFLiteStruct, error) {
+func NewTFLiteDetector(ctx context.Context, cfg *VisModelConfig, logger golog.Logger) (objectdetection.Detector, *inf.TFLiteStruct, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::NewTFLiteDetector")
+	defer span.End()
+
+	// Read those parameters into a TFLiteDetectorConfig
+	var t TFLiteDetectorConfig
+	tfParams, err := config.TransformAttributeMapToStruct(&t, cfg.Parameters)
+	if err != nil {
+		return nil, nil, errors.New("error getting parameters from config")
+	}
+	params, ok := tfParams.(*TFLiteDetectorConfig)
+	if !ok {
+		err := utils.NewUnexpectedTypeError(params, tfParams)
+		return nil, nil, errors.Wrapf(err, "register tflite detector %s", cfg.Name)
+	}
+
+	// Add the model
+	model, err := addTFLiteModel(ctx, params.ModelPath, params.NumThreads)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "something wrong with adding the model")
+	}
+
+	var inHeight, inWidth uint
+
+	if shape := model.Info.InputShape; getIndex(shape, 3) == 1 {
+		inHeight, inWidth = uint(shape[2]), uint(shape[3])
+	} else {
+		inHeight, inWidth = uint(shape[1]), uint(shape[2])
+	}
+
+	if params.LabelPath == nil {
+		blank := ""
+		params.LabelPath = &blank
+	}
+
+	labelMap, err := loadLabels(*params.LabelPath)
+	if err != nil {
+		logger.Warn("did not retrieve class labels")
+	}
+
+	// This function to be returned is the detector.
+	return func(ctx context.Context, img image.Image) ([]objectdetection.Detection, error) {
+		origW, origH := img.Bounds().Dx(), img.Bounds().Dy()
+		resizedImg := resize.Resize(inHeight, inWidth, img, resize.Bilinear)
+		outTensors, err := tfliteInfer(ctx, model, resizedImg)
+		if err != nil {
+			return nil, err
+		}
+		detections := unpackTensors(ctx, outTensors, model, labelMap, logger, origW, origH)
+		return detections, nil
+	}, model, nil
+}
+
+// NewTFLiteDetector creates an RDK detector given a DetectorConfig. In other words, this
+// function returns a function from image-->[]objectdetection.Detection. It does this by making calls to
+// an inference package and wrapping the result.
+func NewTFLiteDetectorr(ctx context.Context, cfg *DetectorConfig, logger golog.Logger) (objectdetection.Detector, *inf.TFLiteStruct, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::NewTFLiteDetector")
 	defer span.End()
 

@@ -14,8 +14,8 @@ import (
 
 func BenchmarkAddTFLiteDetector(b *testing.B) {
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
-	cfg := DetectorConfig{
-		Name: "testdetector", Type: "tflite",
+	cfg := VisModelConfig{
+		Name: "testdetector", Type: "tflite_detector",
 		Parameters: config.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
@@ -35,8 +35,8 @@ func BenchmarkGetTFLiteDetections(b *testing.B) {
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
 	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
 	test.That(b, err, test.ShouldBeNil)
-	cfg := DetectorConfig{
-		Name: "testdetector", Type: "tflite",
+	cfg := VisModelConfig{
+		Name: "testdetector", Type: "tflite_detector",
 		Parameters: config.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
@@ -59,7 +59,7 @@ func BenchmarkGetTFLiteDetections(b *testing.B) {
 
 func TestNewTfLiteDetector(t *testing.T) {
 	// Test that empty config gives error about loading model
-	emptyCfg := DetectorConfig{}
+	emptyCfg := VisModelConfig{}
 	ctx := context.Background()
 	got, model, err := NewTFLiteDetector(ctx, &emptyCfg, golog.NewTestLogger(t))
 	test.That(t, model, test.ShouldBeNil)
@@ -70,7 +70,7 @@ func TestNewTfLiteDetector(t *testing.T) {
 	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
 	test.That(t, err, test.ShouldBeNil)
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
-	cfg := DetectorConfig{
+	cfg := VisModelConfig{
 		Name: "testdetector", Type: "tflite",
 		Parameters: config.AttributeMap{
 			"model_path":  modelLoc,
@@ -101,8 +101,8 @@ func TestMoreDetectorModels(t *testing.T) {
 	// Build SSD detector
 	ctx := context.Background()
 	modelLoc := artifact.MustPath("vision/tflite/ssdmobilenet.tflite")
-	cfg := DetectorConfig{
-		Name: "testssddetector", Type: "tflite",
+	cfg := VisModelConfig{
+		Name: "testssddetector", Type: "tflite_detector",
 		Parameters: config.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
@@ -122,8 +122,8 @@ func TestMoreDetectorModels(t *testing.T) {
 	test.That(t, got[1].Score(), test.ShouldBeGreaterThan, 0.8)
 
 	modelLoc = artifact.MustPath("vision/tflite/mobilenet.tflite")
-	cfg = DetectorConfig{
-		Name: "mobilenetdetector", Type: "tflite",
+	cfg = VisModelConfig{
+		Name: "mobilenetdetector", Type: "tflite_detector",
 		Parameters: config.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
