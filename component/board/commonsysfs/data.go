@@ -65,7 +65,6 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 		idsPath        = "/proc/device-tree/chosen/plugin-manager/ids"
 	)
 
-	utils.Logger.Infof("board mappings name %s", modelName)
 	compatiblesRd, err := ioutil.ReadFile(compatiblePath)
 	if err != nil {
 		if os.IsNotExist(err) {
