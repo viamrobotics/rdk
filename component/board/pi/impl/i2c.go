@@ -104,7 +104,7 @@ func (s *piPigpioI2C) OpenHandle(addr byte) (board.I2CHandle, error) {
 	return handle, nil
 }
 
-func (h *piPigpioI2CHandle) Close() error {
-	C.i2cClose(h.handle)
+func (s *piPigpioI2CHandle) Close() error {
+	C.i2cClose(s.handle)
 	return nil
 }

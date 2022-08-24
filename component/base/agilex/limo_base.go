@@ -310,7 +310,7 @@ func (c *controller) sendFrame(frame *limoFrame) error {
 
 // see https://github.com/agilexrobotics/limo_ros/blob/master/limo_base/src/limo_driver.cpp
 func (base *limoBase) setMotionCommand(linearVel float64,
-	angularVel float64, lateralVel float64, steeringAngle float64,
+	angularVel, lateralVel, steeringAngle float64,
 ) error {
 	frame := new(limoFrame)
 	frame.id = 0x111
@@ -339,7 +339,7 @@ func (base *limoBase) setMotionCommand(linearVel float64,
 	return err
 }
 
-func (base *limoBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
+func (base *limoBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	base.controller.logger.Debugf("Spin(%f, %f)", angleDeg, degsPerSec)
 	secsToRun := math.Abs(angleDeg / degsPerSec)
 	var err error

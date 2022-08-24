@@ -132,7 +132,7 @@ func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (boa
 		piInstance.spis = make(map[string]board.SPI, len(cfg.SPIs))
 		for _, sc := range cfg.SPIs {
 			if sc.BusSelect != "0" && sc.BusSelect != "1" {
-				return nil, errors.New("only SPI buses 0 and 1 are available on Pi boards.")
+				return nil, errors.New("only SPI buses 0 and 1 are available on Pi boards")
 			}
 			piInstance.spis[sc.Name] = &piPigpioSPI{pi: piInstance, busSelect: sc.BusSelect}
 		}
@@ -361,7 +361,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 	// Thus you don't have anything using those pins even when we're directly controlling another (extended/gpio) CS line
 	// Use only the native CS pins OR don't use them at all
 	if s.bus.nativeCSSeen && s.bus.gpioCSSeen {
-		return nil, errors.New("Pi SPI cannot use both native CS pins and extended/gpio CS pins at the same time.")
+		return nil, errors.New("pi SPI cannot use both native CS pins and extended/gpio CS pins at the same time")
 	}
 
 	// Bitfields for mode
@@ -414,7 +414,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 	}
 
 	if int(ret) != count {
-		return nil, errors.Errorf("error with spiXfer: Wanted %d bytes, got %d bytes.", count, ret)
+		return nil, errors.Errorf("error with spiXfer: Wanted %d bytes, got %d bytes", count, ret)
 	}
 
 	return C.GoBytes(rxPtr, (C.int)(count)), nil
@@ -426,9 +426,9 @@ func (s *piPigpioSPI) OpenHandle() (board.SPIHandle, error) {
 	return s.openHandle, nil
 }
 
-func (h *piPigpioSPIHandle) Close() error {
-	h.isClosed = true
-	h.bus.mu.Unlock()
+func (s *piPigpioSPIHandle) Close() error {
+	s.isClosed = true
+	s.bus.mu.Unlock()
 	return nil
 }
 

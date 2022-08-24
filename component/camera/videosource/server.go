@@ -1,5 +1,5 @@
-// Package imagesource defines various image sources typically registered as cameras in the API.
-package imagesource
+// Package videosource defines various image sources typically registered as cameras in the API.
+package videosource
 
 import (
 	"context"
@@ -107,28 +107,28 @@ type dualServerAttrs struct {
 	Depth string `json:"depth"`
 }
 
-// newDualServerSource creates the ImageSource that streams color/depth data from two external servers, one for each channel.
+// newDualServerSource creates the VideoSource that streams color/depth data from two external servers, one for each channel.
 func newDualServerSource(ctx context.Context, cfg *dualServerAttrs) (camera.Camera, error) {
 	if (cfg.Color == "") || (cfg.Depth == "") {
 		return nil, errors.New("camera 'dual_stream' needs color and depth attributes")
 	}
-	imgSrc := &dualServerSource{
+	videoSrc := &dualServerSource{
 		ColorURL:   cfg.Color,
 		DepthURL:   cfg.Depth,
 		Intrinsics: cfg.CameraParameters,
 		Stream:     camera.StreamType(cfg.Stream),
 	}
 	proj, _ := camera.GetProjector(ctx, cfg.AttrConfig, nil)
-	return camera.New(imgSrc, proj)
+	return camera.NewFromReader(videoSrc, proj)
 }
 
-// Next requests either the color or depth frame, depending on what the config specifies.
-func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), error) {
-	ctx, span := trace.StartSpan(ctx, "imagesource::dualServerSource::Next")
+// Read requests either the color or depth frame, depending on what the config specifies.
+func (ds *dualServerSource) Read(ctx context.Context) (image.Image, func(), error) {
+	ctx, span := trace.StartSpan(ctx, "videosource::dualServerSource::Read")
 	defer span.End()
 	switch ds.Stream {
 	case camera.ColorStream, camera.UnspecifiedStream:
-		img, err := readColorURL(ctx, ds.client, ds.ColorURL)
+		img, err := readColorURL(ctx, ds.client, ds.ColorURL, false)
 		return img, func() {}, err
 	case camera.DepthStream:
 		depth, err := readDepthURL(ctx, ds.client, ds.DepthURL)
@@ -139,7 +139,7 @@ func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), erro
 }
 
 func (ds *dualServerSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	ctx, span := trace.StartSpan(ctx, "imagesource::dualServerSource::NextPointCloud")
+	ctx, span := trace.StartSpan(ctx, "videosource::dualServerSource::NextPointCloud")
 	defer span.End()
 	if ds.Intrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("dualServerSource has nil intrinsics")
@@ -152,10 +152,11 @@ func (ds *dualServerSource) NextPointCloud(ctx context.Context) (pointcloud.Poin
 	viamutils.PanicCapturingGo(func() {
 		defer ds.activeBackgroundWorkers.Done()
 		var err error
-		color, err = readColorURL(ctx, ds.client, ds.ColorURL)
+		colorImg, err := readColorURL(ctx, ds.client, ds.ColorURL, true)
 		if err != nil {
 			panic(err)
 		}
+		color = colorImg.(*rimage.Image)
 	})
 	// get depth image
 	ds.activeBackgroundWorkers.Add(1)
@@ -171,40 +172,10 @@ func (ds *dualServerSource) NextPointCloud(ctx context.Context) (pointcloud.Poin
 	return ds.Intrinsics.RGBDToPointCloud(color, depth)
 }
 
-func (ds *dualServerSource) GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
-	ctx, span := trace.StartSpan(ctx, "imagesource::dualServerSource::GetFrame")
-	defer span.End()
-
-	var url string
-	switch ds.Stream {
-	case camera.ColorStream, camera.UnspecifiedStream:
-		url = ds.ColorURL
-	case camera.DepthStream:
-		url = ds.DepthURL
-	default:
-		return nil, "", 0, 0, camera.NewUnsupportedStreamError(ds.Stream)
-	}
-
-	data, err := readyBytesFromURL(ctx, ds.client, url)
-	if err != nil {
-		return nil, "", 0, 0, errors.Wrap(err, "couldn't ready url")
-	}
-
-	usedMimeType := http.DetectContentType(data)
-
-	if mimeType != "" && mimeType != usedMimeType {
-		return nil, "", 0, 0,
-			errors.Errorf("mime type %v is not supported; %v is the only supported mime type",
-				mimeType, usedMimeType)
-	}
-
-	// TODO RSDK-556: Remove width and height from response.
-	return data, usedMimeType, -1, -1, nil
-}
-
 // Close closes the connection to both servers.
-func (ds *dualServerSource) Close() {
+func (ds *dualServerSource) Close(ctx context.Context) error {
 	ds.client.CloseIdleConnections()
+	return nil
 }
 
 // serverSource streams the color/depth camera data from an external server at a given URL.
@@ -222,17 +193,18 @@ type ServerAttrs struct {
 }
 
 // Close closes the server connection.
-func (s *serverSource) Close() {
+func (s *serverSource) Close(ctx context.Context) error {
 	s.client.CloseIdleConnections()
+	return nil
 }
 
-// Next returns the next image in the queue from the server.
-func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
-	ctx, span := trace.StartSpan(ctx, "imagesource::serverSource::Next")
+// Read returns the next image in the queue from the server.
+func (s *serverSource) Read(ctx context.Context) (image.Image, func(), error) {
+	ctx, span := trace.StartSpan(ctx, "videosource::serverSource::Read")
 	defer span.End()
 	switch s.stream {
 	case camera.ColorStream, camera.UnspecifiedStream:
-		img, err := readColorURL(ctx, s.client, s.URL)
+		img, err := readColorURL(ctx, s.client, s.URL, false)
 		return img, func() {}, err
 	case camera.DepthStream:
 		depth, err := readDepthURL(ctx, s.client, s.URL)
@@ -244,7 +216,7 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 
 // serverSource can only produce a PointCloud from a DepthMap.
 func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	ctx, span := trace.StartSpan(ctx, "imagesource::serverSource::NextPointCloud")
+	ctx, span := trace.StartSpan(ctx, "videosource::serverSource::NextPointCloud")
 	defer span.End()
 	if s.Intrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("single serverSource has nil intrinsics")
@@ -260,26 +232,7 @@ func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 		errors.Errorf("no depth information in stream %q, cannot project to point cloud", s.stream)
 }
 
-func (s *serverSource) GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
-	ctx, span := trace.StartSpan(ctx, "imagesource::serverSource::GetFrame")
-	defer span.End()
-	data, err := readyBytesFromURL(ctx, s.client, s.URL)
-	if err != nil {
-		return nil, "", 0, 0, errors.Wrap(err, "couldn't ready url")
-	}
-
-	usedMimeType := http.DetectContentType(data)
-	if mimeType != "" && mimeType != usedMimeType {
-		return nil, "", 0, 0,
-			errors.Errorf("mime type %v is not supported; %v is the only supported mime type",
-				mimeType, usedMimeType)
-	}
-
-	// TODO RSDK-556: Remove width and height from response.
-	return data, usedMimeType, -1, -1, nil
-}
-
-// NewServerSource creates the ImageSource that streams color/depth data from an external server at a given URL.
+// NewServerSource creates the VideoSource that streams color/depth data from an external server at a given URL.
 func NewServerSource(ctx context.Context, cfg *ServerAttrs, logger golog.Logger) (camera.Camera, error) {
 	if cfg.Stream == "" {
 		return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth)")
@@ -287,11 +240,11 @@ func NewServerSource(ctx context.Context, cfg *ServerAttrs, logger golog.Logger)
 	if cfg.URL == "" {
 		return nil, errors.New("camera 'single_stream' needs attribute 'url'")
 	}
-	imgSrc := &serverSource{
+	videoSrc := &serverSource{
 		URL:        cfg.URL,
 		stream:     camera.StreamType(cfg.Stream),
 		Intrinsics: cfg.AttrConfig.CameraParameters,
 	}
 	proj, _ := camera.GetProjector(ctx, cfg.AttrConfig, nil)
-	return camera.New(imgSrc, proj)
+	return camera.NewFromReader(videoSrc, proj)
 }

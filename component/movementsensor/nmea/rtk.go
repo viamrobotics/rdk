@@ -242,7 +242,7 @@ func (g *RTKMovementSensor) Start(ctx context.Context) error {
 }
 
 // Connect attempts to connect to ntrip client until successful connection or timeout.
-func (g *RTKMovementSensor) Connect(casterAddr string, user string, pwd string, maxAttempts int) error {
+func (g *RTKMovementSensor) Connect(casterAddr, user, pwd string, maxAttempts int) error {
 	success := false
 	attempts := 0
 

@@ -1,4 +1,4 @@
-package imagesource
+package videosource
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -148,7 +149,7 @@ type alignAttrs struct {
 
 // alignColorDepth takes a color and depth image source and aligns them together.
 type alignColorDepth struct {
-	color, depth gostream.ImageSource
+	color, depth gostream.VideoStream
 	aligner      rimage.Aligner
 	projector    rimage.Projector
 	stream       camera.StreamType
@@ -158,7 +159,7 @@ type alignColorDepth struct {
 	logger       golog.Logger
 }
 
-// newAlignColorDepth creates a gostream.ImageSource that aligned color and depth channels.
+// newAlignColorDepth creates a gostream.VideoSource that aligned color and depth channels.
 func newAlignColorDepth(ctx context.Context, color, depth camera.Camera, attrs *alignAttrs, logger golog.Logger,
 ) (camera.Camera, error) {
 	alignCamera, err := getAligner(attrs, logger)
@@ -180,9 +181,9 @@ func newAlignColorDepth(ctx context.Context, color, depth camera.Camera, attrs *
 		return nil, camera.NewUnsupportedStreamError(stream)
 	}
 
-	imgSrc := &alignColorDepth{
-		color:     color,
-		depth:     depth,
+	videoSrc := &alignColorDepth{
+		color:     gostream.NewEmbeddedVideoStream(color),
+		depth:     gostream.NewEmbeddedVideoStream(depth),
 		aligner:   alignCamera,
 		projector: proj,
 		stream:    stream,
@@ -191,13 +192,13 @@ func newAlignColorDepth(ctx context.Context, color, depth camera.Camera, attrs *
 		debug:     attrs.Debug,
 		logger:    logger,
 	}
-	return camera.New(imgSrc, proj)
+	return camera.NewFromReader(videoSrc, proj)
 }
 
-// Next aligns the next images from the color and the depth sources to the frame of the color camera.
+// Read aligns the next images from the color and the depth sources to the frame of the color camera.
 // stream parameter will determine which channel gets streamed.
-func (acd *alignColorDepth) Next(ctx context.Context) (image.Image, func(), error) {
-	ctx, span := trace.StartSpan(ctx, "imagesource::alignColorDepth::Next")
+func (acd *alignColorDepth) Read(ctx context.Context) (image.Image, func(), error) {
+	ctx, span := trace.StartSpan(ctx, "videosource::alignColorDepth::Read")
 	defer span.End()
 	switch acd.stream {
 	case camera.ColorStream, camera.UnspecifiedStream:
@@ -225,7 +226,7 @@ func (acd *alignColorDepth) Next(ctx context.Context) (image.Image, func(), erro
 }
 
 func (acd *alignColorDepth) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	ctx, span := trace.StartSpan(ctx, "imagesource::alignColorDepth::NextPointCloud")
+	ctx, span := trace.StartSpan(ctx, "videosource::alignColorDepth::NextPointCloud")
 	defer span.End()
 	if acd.projector == nil {
 		return nil, transform.NewNoIntrinsicsError("")
@@ -242,4 +243,8 @@ func (acd *alignColorDepth) NextPointCloud(ctx context.Context) (pointcloud.Poin
 		return nil, err
 	}
 	return acd.projector.RGBDToPointCloud(alignedColor, alignedDepth)
+}
+
+func (acd *alignColorDepth) Close(ctx context.Context) error {
+	return multierr.Combine(acd.color.Close(ctx), acd.depth.Close(ctx))
 }

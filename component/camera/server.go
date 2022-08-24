@@ -1,4 +1,3 @@
-// Package camera contains a gRPC based camera service server.
 package camera
 
 import (
@@ -11,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/pointcloud"
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -33,11 +33,11 @@ func (s *subtypeServer) getCamera(name string) (Camera, error) {
 	if resource == nil {
 		return nil, errors.Errorf("no camera with name (%s)", name)
 	}
-	camera, ok := resource.(Camera)
+	cam, ok := resource.(Camera)
 	if !ok {
 		return nil, errors.Errorf("resource with name (%s) is not a camera", name)
 	}
-	return camera, nil
+	return cam, nil
 }
 
 // GetFrame returns a frame from a camera of the underlying robot. If a specific MIME type
@@ -48,22 +48,37 @@ func (s *subtypeServer) GetFrame(
 ) (*pb.GetFrameResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::server::GetFrame")
 	defer span.End()
-	camera, err := s.getCamera(req.Name)
+	cam, err := s.getCamera(req.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	imgData, usedMimeType, width, height, err := camera.GetFrame(ctx, req.GetMimeType())
+	if req.MimeType == "" {
+		req.MimeType = utils.MimeTypeRawRGBALazy
+	}
+
+	img, release, err := ReadImage(WithMIMETypeHint(ctx, req.MimeType), cam)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if release != nil {
+			release()
+		}
+	}()
 
+	bounds := img.Bounds()
+	actualMIME, _ := utils.CheckLazyMIMEType(req.MimeType)
 	resp := pb.GetFrameResponse{
-		Image:    imgData,
-		MimeType: usedMimeType,
-		WidthPx:  width,
-		HeightPx: height,
+		MimeType: actualMIME,
+		WidthPx:  int64(bounds.Dx()),
+		HeightPx: int64(bounds.Dy()),
 	}
+	outBytes, err := rimage.EncodeImage(ctx, img, req.MimeType)
+	if err != nil {
+		return nil, err
+	}
+	resp.Image = outBytes
 	return &resp, nil
 }
 
@@ -130,7 +145,7 @@ func (s *subtypeServer) GetProperties(
 	if err != nil {
 		return nil, err
 	}
-	proj, err := camera.GetProperties(ctx) // will be nil if no intrinsics
+	proj, err := camera.Projector(ctx) // will be nil if no intrinsics
 	if err != nil {
 		return nil, err
 	}

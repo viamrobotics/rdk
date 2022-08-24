@@ -1,8 +1,8 @@
 package config
 
 import (
-	"io/ioutil"
 	"math"
+	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -18,7 +18,7 @@ import (
 )
 
 func TestFrameModelPart(t *testing.T) {
-	jsonData, err := ioutil.ReadFile(rdkutils.ResolveFile("config/data/model_frame.json"))
+	jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame.json"))
 	test.That(t, err, test.ShouldBeNil)
 	model, err := referenceframe.UnmarshalModelJSON(jsonData, "")
 	test.That(t, err, test.ShouldBeNil)
@@ -98,7 +98,7 @@ func TestFrameModelPart(t *testing.T) {
 
 func TestFramesFromPart(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	jsonData, err := ioutil.ReadFile(rdkutils.ResolveFile("config/data/model_frame.json"))
+	jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame.json"))
 	test.That(t, err, test.ShouldBeNil)
 	model, err := referenceframe.UnmarshalModelJSON(jsonData, "")
 	test.That(t, err, test.ShouldBeNil)

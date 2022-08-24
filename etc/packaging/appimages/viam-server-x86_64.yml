@@ -38,6 +38,7 @@ AppDir:
     - libnlopt0
     - libx264-160
     - libtensorflowlite2
+    - libopus0
   files:
     include: []
     exclude:

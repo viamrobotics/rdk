@@ -1,3 +1,4 @@
+// Package main helps calibrate a camera's intrinsic parameters.
 package main
 
 import (

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 	"github.com/google/go-cmp/cmp"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/mitchellh/mapstructure"
@@ -133,9 +134,11 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 
 	var imageReleased bool
-	injectCamera.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
-		imageReleased = true
-		return imgBuf.Bytes(), rutils.MimeTypePNG, int64(img.Bounds().Dx()), int64(img.Bounds().Dy()), nil
+	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+			imageReleased = true
+			return img, func() {}, nil
+		})), nil
 	}
 
 	injectInputDev := &inject.InputController{}
@@ -304,7 +307,7 @@ func TestStatusClient(t *testing.T) {
 
 	camera1, err := camera.FromRobot(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
-	_, _, err = camera1.Next(context.Background())
+	_, _, err = camera.ReadImage(context.Background(), camera1)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
 
@@ -391,7 +394,7 @@ func TestStatusClient(t *testing.T) {
 
 	camera1, err = camera.FromRobot(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
-	frame, _, err := camera1.Next(context.Background())
+	frame, _, err := camera.ReadImage(context.Background(), camera1)
 	test.That(t, err, test.ShouldBeNil)
 	compVal, _, err := rimage.CompareImages(img, frame)
 	test.That(t, err, test.ShouldBeNil)
@@ -915,7 +918,7 @@ func TestClientDiscovery(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func ensurePartsAreEqual(part *config.FrameSystemPart, otherPart *config.FrameSystemPart) error {
+func ensurePartsAreEqual(part, otherPart *config.FrameSystemPart) error {
 	if part.Name != otherPart.Name {
 		return errors.Errorf("part had name %s while other part had name %s", part.Name, otherPart.Name)
 	}

@@ -1,11 +1,10 @@
-package imagesource
+package videosource
 
 import (
 	"bytes"
 	"context"
 	"image"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/pkg/errors"
@@ -40,10 +39,10 @@ func readyBytesFromURL(ctx context.Context, client http.Client, url string) ([]b
 	defer func() {
 		viamutils.UncheckedError(body.Close())
 	}()
-	return ioutil.ReadAll(body)
+	return io.ReadAll(body)
 }
 
-func readColorURL(ctx context.Context, client http.Client, url string) (*rimage.Image, error) {
+func readColorURL(ctx context.Context, client http.Client, url string, immediate bool) (image.Image, error) {
 	colorData, err := readyBytesFromURL(ctx, client, url)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't ready color url")
@@ -51,6 +50,9 @@ func readColorURL(ctx context.Context, client http.Client, url string) (*rimage.
 	img, err := decodeImage(colorData)
 	if err != nil {
 		return nil, err
+	}
+	if !immediate {
+		return img, nil
 	}
 	return rimage.ConvertImage(img), nil
 }

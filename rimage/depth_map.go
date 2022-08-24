@@ -1,6 +1,7 @@
 package rimage
 
 import (
+	"context"
 	"image"
 	"image/color"
 	"image/png"
@@ -117,6 +118,13 @@ func (dm *DepthMap) SubImage(r image.Rectangle) *DepthMap {
 // or if it can be converted into one.
 func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
 	switch ii := img.(type) {
+	case *LazyEncodedImage:
+		decoded, err := decodeImage(
+			context.Background(), ii.RawData(), ii.MIMEType(), ii.Bounds().Dx(), ii.Bounds().Dy(), false)
+		if err != nil {
+			return nil, err
+		}
+		return ConvertImageToDepthMap(decoded)
 	case *DepthMap:
 		return ii, nil
 	case *imageWithDepth:
@@ -444,7 +452,7 @@ func (dm *DepthMap) Warp(m TransformationMatrix, newSize image.Point) *DepthMap 
 // same dimensions.
 func (dm *DepthMap) ConvertDepthMapToLuminanceFloat() *mat.Dense {
 	out := mat.NewDense(dm.height, dm.width, nil)
-	utils.ParallelForEachPixel(image.Point{dm.width, dm.height}, func(x int, y int) {
+	utils.ParallelForEachPixel(image.Point{dm.width, dm.height}, func(x, y int) {
 		d := dm.GetDepth(x, y)
 		out.Set(y, x, float64(d))
 	})

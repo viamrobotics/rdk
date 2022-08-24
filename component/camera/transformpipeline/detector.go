@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/gostream"
 
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/vision"
@@ -22,13 +23,13 @@ type detectorAttrs struct {
 
 // detectorSource takes an image from the camera, and overlays the detections from the detector.
 type detectorSource struct {
-	source       gostream.ImageSource
+	stream       gostream.VideoStream
 	detectorName string
 	confFilter   objectdetection.Postprocessor
 	r            robot.Robot
 }
 
-func newDetectionsTransform(source gostream.ImageSource, r robot.Robot, am config.AttributeMap) (gostream.ImageSource, error) {
+func newDetectionsTransform(source gostream.VideoSource, r robot.Robot, am config.AttributeMap) (gostream.VideoSource, error) {
 	conf, err := config.TransformAttributeMapToStruct(&(detectorAttrs{}), am)
 	if err != nil {
 		return nil, err
@@ -38,18 +39,24 @@ func newDetectionsTransform(source gostream.ImageSource, r robot.Robot, am confi
 		return nil, rdkutils.NewUnexpectedTypeError(attrs, conf)
 	}
 	confFilter := objectdetection.NewScoreFilter(attrs.ConfidenceThreshold)
-	return &detectorSource{source, attrs.DetectorName, confFilter, r}, nil
+	detector := &detectorSource{
+		gostream.NewEmbeddedVideoStream(source),
+		attrs.DetectorName,
+		confFilter,
+		r,
+	}
+	return camera.NewFromReader(detector, nil)
 }
 
 // Next returns the image overlaid with the detection bounding boxes.
-func (ds *detectorSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error) {
 	// get the bounding boxes from the service
 	srv, err := vision.FirstFromRobot(ds.r)
 	if err != nil {
 		return nil, nil, fmt.Errorf("source_detector cant find vision service: %w", err)
 	}
 	// get image from source camera
-	img, release, err := ds.source.Next(ctx)
+	img, release, err := ds.stream.Next(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get next source image: %w", err)
 	}
@@ -64,4 +71,8 @@ func (ds *detectorSource) Next(ctx context.Context) (image.Image, func(), error)
 		return nil, nil, fmt.Errorf("could not overlay bounding boxes: %w", err)
 	}
 	return res, release, nil
+}
+
+func (ds *detectorSource) Close(ctx context.Context) error {
+	return ds.stream.Close(ctx)
 }
