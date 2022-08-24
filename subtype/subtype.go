@@ -5,6 +5,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/resource"
 )
 
@@ -50,13 +52,10 @@ func (s *subtypeSvc) Replace(r map[resource.Name]interface{}) error {
 	resources := make(map[string]interface{}, len(r))
 	shortNames := make(map[string]string, len(r))
 	for n, v := range r {
-		var name string
-		switch {
-		case n.Name == "":
-			name = n.String()
-		default:
-			name = n.ShortName()
+		if n.Name == "" {
+			return errors.Errorf("Empty name used for resource: %s", n)
 		}
+		name := n.ShortName()
 		resources[name] = v
 		shortcut := name[strings.LastIndexAny(name, ":")+1:]
 		if _, ok := shortNames[shortcut]; ok {
@@ -64,6 +63,7 @@ func (s *subtypeSvc) Replace(r map[resource.Name]interface{}) error {
 		} else {
 			shortNames[shortcut] = name
 		}
+		resources[n.ShortName()] = v
 	}
 	s.resources = resources
 	s.shortNames = shortNames

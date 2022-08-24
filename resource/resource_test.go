@@ -232,7 +232,7 @@ func TestResourceNameNewFromString(t *testing.T) {
 		},
 		{
 			"missing name",
-			"rdk:component:arm",
+			"rdk:component:arm/",
 			resource.Name{
 				Subtype: resource.Subtype{
 					Type: resource.Type{
@@ -366,7 +366,7 @@ func TestResourceNameStrings(t *testing.T) {
 					ResourceSubtype: arm.SubtypeName,
 				},
 			},
-			"rdk:component:arm",
+			"rdk:component:arm/",
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
@@ -431,7 +431,7 @@ func TestResourceNameValidate(t *testing.T) {
 					ResourceSubtype: arm.SubtypeName,
 				},
 			},
-			"",
+			"name field for resource is empty",
 		},
 		{
 			"all fields included",
@@ -510,7 +510,7 @@ func TestRemoteResource(t *testing.T) {
 	n5 := resource.NameFromSubtype(resourceSubtype, "test")
 	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/test")
 	n5 = resource.NameFromSubtype(resourceSubtype, "")
-	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent")
+	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/")
 	n5 = resource.NameFromSubtype(resourceSubtype, "remote1:test")
 	test.That(t, n5.String(), test.ShouldResemble, "test:component:mycomponent/remote1:test")
 	n5 = resource.NameFromSubtype(resourceSubtype, "remote2:remote1:test")

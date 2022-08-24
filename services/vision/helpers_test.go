@@ -30,7 +30,7 @@ func createService(t *testing.T, filePath string) (vision.Service, robot.Robot) 
 	logger := golog.NewTestLogger(t)
 	r, err := robotimpl.RobotFromConfigPath(context.Background(), filePath, logger)
 	test.That(t, err, test.ShouldBeNil)
-	srv, err := vision.FromRobot(r)
+	srv, err := vision.FirstFromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 	return srv, r
 }
@@ -72,7 +72,7 @@ func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
 	// make the robot from new config and get the service
 	r, err := robotimpl.RobotFromConfigPath(context.Background(), newConfFile, logger)
 	test.That(t, err, test.ShouldBeNil)
-	srv, err := vision.FromRobot(r)
+	srv, err := vision.FirstFromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 	// add the detector
 	detConf := vision.DetectorConfig{

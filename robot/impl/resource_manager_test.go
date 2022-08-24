@@ -494,7 +494,7 @@ func TestManagerAdd(t *testing.T) {
 	) (bool, error) {
 		return false, nil
 	}
-	objectMResName := motion.Name
+	objectMResName := motion.Named("motion1")
 	manager.addResource(objectMResName, injectMotionService)
 	motionService, err := manager.ResourceByName(objectMResName)
 	test.That(t, err, test.ShouldBeNil)
@@ -508,7 +508,7 @@ func TestManagerAdd(t *testing.T) {
 	) ([]*viz.Object, error) {
 		return []*viz.Object{viz.NewEmptyObject()}, nil
 	}
-	objectSegResName := vision.Name
+	objectSegResName := vision.Named(resource.DefaultServiceName)
 	manager.addResource(objectSegResName, injectVisionService)
 	objectSegmentationService, err := manager.ResourceByName(objectSegResName)
 	test.That(t, err, test.ShouldBeNil)

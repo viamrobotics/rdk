@@ -43,7 +43,7 @@ func init() {
 		},
 	})
 
-	resource.AddDefaultService(Name)
+	resource.AddDefaultService(Named(resource.DefaultServiceName))
 }
 
 // A Readings ties both the sensor name and its reading together.
@@ -74,18 +74,15 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// Name is the SensorService's typed resource name.
-var Name = resource.NameFromSubtype(Subtype, "")
-
 // Named is a helper for getting the named sensor's typed resource name.
 // RSDK-347 Implements senors's Named.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// FromRobot retrieves the sensor service of a robot.
-func FromRobot(r robot.Robot) (Service, error) {
-	resource, err := r.ResourceByName(Name)
+// FromRobot is a helper for getting the named sensor service from the given Robot.
+func FromRobot(r robot.Robot, name string) (Service, error) {
+	resource, err := r.ResourceByName(Named(name))
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +91,20 @@ func FromRobot(r robot.Robot) (Service, error) {
 		return nil, utils.NewUnimplementedInterfaceError("sensors.Service", resource)
 	}
 	return svc, nil
+}
+
+// FindFirstName returns name of first sensors service found.
+func FindFirstName(r robot.Robot) string {
+	for _, val := range robot.NamesBySubtype(r, Subtype) {
+		return val
+	}
+	return ""
+}
+
+// FirstFromRobot returns the first sensor service in this robot.
+func FirstFromRobot(r robot.Robot) (Service, error) {
+	name := FindFirstName(r)
+	return FromRobot(r, name)
 }
 
 // New returns a new sensor service for the given robot.

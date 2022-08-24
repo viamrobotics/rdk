@@ -27,6 +27,11 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+const (
+	testMotionServiceName  = "motion1"
+	testMotionServiceName2 = "motion2"
+)
+
 func setupMotionServiceFromConfig(t *testing.T, configFilename string) motion.Service {
 	t.Helper()
 	ctx := context.Background()
@@ -367,7 +372,7 @@ func (m *mock) Close(ctx context.Context) error {
 func TestFromRobot(t *testing.T) {
 	r, svc1 := setupInjectRobot()
 
-	svc, err := motion.FromRobot(r)
+	svc, err := motion.FromRobot(r, testMotionServiceName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc, test.ShouldNotBeNil)
 
@@ -381,7 +386,7 @@ func TestFromRobot(t *testing.T) {
 		return "not motion", nil
 	}
 
-	svc, err = motion.FromRobot(r)
+	svc, err = motion.FromRobot(r, testMotionServiceName2)
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("motion.Service", "string"))
 	test.That(t, svc, test.ShouldBeNil)
 
@@ -389,8 +394,8 @@ func TestFromRobot(t *testing.T) {
 		return nil, rutils.NewResourceNotFoundError(name)
 	}
 
-	svc, err = motion.FromRobot(r)
-	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(motion.Name))
+	svc, err = motion.FromRobot(r, testMotionServiceName)
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(motion.Named(testMotionServiceName)))
 	test.That(t, svc, test.ShouldBeNil)
 }
 
