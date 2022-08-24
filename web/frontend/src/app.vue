@@ -793,26 +793,22 @@ export default {
 
       this.getSegmenterNames();
     },
-    updateSLAMImageRefreshFrequency(time) {
+    updateSLAMImageRefreshFrequency(name, time) {
       clearInterval(this.slamImageIntervalId);
       if (time === 'manual') {
-        this.viewSLAMImageMap();
+        this.viewSLAMImageMap(name);
       } else if (time === 'off') {
         // do nothing
       } else {
-        this.viewSLAMImageMap();
+        this.viewSLAMImageMap(name);
         this.slamImageIntervalId = window.setInterval(() => {
-          this.viewSLAMImageMap();
+          this.viewSLAMImageMap(name);
         }, Number(time) * 1000);
       }
     },
-    viewSLAMImageMap() {
-      
+    viewSLAMImageMap(name) {
       const req = new slamApi.GetMapRequest();
-      // We are deliberately just getting the first slam service to ensure this will not break.
-      // May want to allow for more services in the future
-      const slamName = filterResources(this.resources, 'rdk', 'services', 'slam')[0];
-      req.setName(slamName);
+      req.setName(name);
       req.setMimeType('image/jpeg');
       req.setIncludeRobotMarker(true);
       slamService.getMap(req, {}, (err, resp) => {
@@ -824,24 +820,23 @@ export default {
         this.imageMapTemp = URL.createObjectURL(blob);
       });
     },
-    updateSLAMPCDRefreshFrequency(time, load) {
+    updateSLAMPCDRefreshFrequency(name, time, load) {
       clearInterval(this.slamPCDIntervalId);
       if (time === 'manual') {
-        this.viewSLAMPCDMap(load);
+        this.viewSLAMPCDMap(name, load);
       } else if (time === 'off') {
         // do nothing
       } else {
-        this.viewSLAMPCDMap(load);
+        this.viewSLAMPCDMap(name, load);
         this.slamPCDIntervalId = window.setInterval(() => {
           this.viewSLAMPCDMap();
         }, Number(time) * 1000);
       }
     },
-    viewSLAMPCDMap(load) {
+    viewSLAMPCDMap(name, load) {
       this.$nextTick(() => {
         const req = new slamApi.GetMapRequest();
-        const slamName = filterResources(this.resources, 'rdk', 'services', 'slam')[0];
-        req.setName(slamName);
+        req.setName(name);
         req.setMimeType('pointcloud/pcd');
         if (load) {
           this.initPCD();
@@ -2455,7 +2450,8 @@ function setBoundingBox(box, centerPoint) {
 
     <!-- ******* SLAM *******  -->
     <Slam
-      v-if="filterResources(resources, 'rdk', 'service', 'slam').length > 0"
+      v-for = "slam in filterResources(resources, 'rdk', 'service', 'slam')"
+      :name = "slam.name"
       :image-map="imageMapTemp"
       @update-slam-image-refresh-frequency="updateSLAMImageRefreshFrequency"
       @update-slam-pcd-refresh-frequency="updateSLAMPCDRefreshFrequency"
