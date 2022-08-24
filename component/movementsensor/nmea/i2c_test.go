@@ -94,7 +94,6 @@ func TestReadingsI2C(t *testing.T) {
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		errors:     make(chan error),
 	}
 	g.data = gpsData{
 		location:   loc,
@@ -137,7 +136,6 @@ func TestCloseI2C(t *testing.T) {
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		errors:     make(chan error),
 	}
 
 	err := g.Close()
