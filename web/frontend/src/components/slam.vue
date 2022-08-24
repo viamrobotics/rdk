@@ -1,6 +1,6 @@
 <template>
   <v-collapse
-    title="SLAM"
+    :title=props.name
     class="slam"
   >
     <div class="h-auto border-x border-b border-black p-2">
@@ -156,15 +156,17 @@
 import { ref } from 'vue';
 
 interface Props {
+  name: string
   imageMap?: string
 }
 
 interface Emits {
-  (event: 'update-slam-image-refresh-frequency', value: string): void
-  (event: 'update-slam-pcd-refresh-frequency', value: string, load: boolean): void
+  (event: 'update-slam-image-refresh-frequency', name: string, value: string): void
+  (event: 'update-slam-pcd-refresh-frequency', name: string, value: string, load: boolean): void
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
+
 
 const emit = defineEmits<Emits>();
 
@@ -176,35 +178,35 @@ const selectedPCDValue = ref('manual');
 const toggleImageExpand = () => {
   showImage.value = !showImage.value;
   if (showImage.value) {
-    emit('update-slam-image-refresh-frequency', selectedImageValue.value);
+    emit('update-slam-image-refresh-frequency', props.name, selectedImageValue.value);
   } else {
-    emit('update-slam-image-refresh-frequency', "off");
+    emit('update-slam-image-refresh-frequency', props.name, "off");
   }
 };
 
 const togglePCDExpand = () => {
   showPCD.value = !showPCD.value;
   if (showPCD.value) {
-    emit('update-slam-pcd-refresh-frequency', selectedPCDValue.value, true);
+    emit('update-slam-pcd-refresh-frequency', props.name, selectedPCDValue.value, true);
   } else {
-    emit('update-slam-pcd-refresh-frequency', "off", false);
+    emit('update-slam-pcd-refresh-frequency', props.name, "off", false);
   }
 };
 
 const selectSLAMImageRefreshFrequency = () => {
-  emit('update-slam-image-refresh-frequency', selectedImageValue.value);
+  emit('update-slam-image-refresh-frequency', props.name, selectedImageValue.value);
 };
 
 const selectSLAMPCDRefreshFrequency = () => {
-  emit('update-slam-pcd-refresh-frequency', selectedPCDValue.value, false);
+  emit('update-slam-pcd-refresh-frequency', props.name, selectedPCDValue.value, false);
 };
 
 const refreshImageMap = () => {
-  emit('update-slam-image-refresh-frequency', selectedImageValue.value);
+  emit('update-slam-image-refresh-frequency', props.name, selectedImageValue.value);
 };
 
 const refreshPCDMap = () => {
-  emit('update-slam-pcd-refresh-frequency', selectedPCDValue.value, false);
+  emit('update-slam-pcd-refresh-frequency', props.name, selectedPCDValue.value, false);
 };
 
 </script>
