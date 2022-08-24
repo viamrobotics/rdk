@@ -3,7 +3,6 @@ package motionplan
 import (
 	"errors"
 	"math"
-	"fmt"
 	"strconv"
 
 	"github.com/golang/geo/r3"
@@ -45,8 +44,6 @@ func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution 
 		return false, nil
 	}
 	steps := GetSteps(ci.StartPos, ci.EndPos, resolution)
-	//~ fmt.Println("steps", steps)
-	//~ fmt.Println("start end", spatial.PoseToProtobuf(ci.StartPos), spatial.PoseToProtobuf(ci.EndPos))
 
 	var lastGood []referenceframe.Input
 	// Seed with just the start position to walk the path
@@ -219,7 +216,7 @@ func NewCollisionConstraintFromWorldState(
 	return NewCollisionConstraint(model, obstacles.Geometries(), interactionSpaces.Geometries()), nil
 }
 
-// NewAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold is 
+// NewAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold is.
 func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, orientTol float64) (Constraint, Metric) {
 	orientConstraint, orientMetric := NewSlerpOrientationConstraint(from, to, orientTol)
 	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), linTol)
@@ -233,13 +230,12 @@ func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, ori
 	return f, interpMetric
 }
 
-// NewProportionalLinearInterpolatingConstraint 
-// This constraint will interpolate between the start and end poses, and ensure that the pose given by interpolating
-// the inputs the same amount does not deviate by more than a set amount.
+// NewProportionalLinearInterpolatingConstraint will interpolate between the start and end poses, and ensure that the pose given by
+// interpolating the inputs the same amount does not deviate by more than a set amount.
 func NewProportionalLinearInterpolatingConstraint(from, to spatial.Pose, epsilon float64) (Constraint, Metric) {
 	orientTol := epsilon * orientDist(from.Orientation(), to.Orientation())
 	linTol := epsilon * from.Point().Distance(to.Point())
-	
+
 	orientConstraint, orientMetric := NewSlerpOrientationConstraint(from, to, orientTol)
 	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), linTol)
 	interpMetric := CombineMetrics(orientMetric, lineMetric)
@@ -314,9 +310,6 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) 
 		}
 		dist := gradFunc(cInput.StartPos, cInput.EndPos)
 		if dist < tolerance {
-			if(false){
-				fmt.Println(cInput.StartPos.Orientation().OrientationVectorDegrees())
-			}
 			return true, 0
 		}
 		return false, 0
@@ -370,7 +363,7 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Con
 // NewLineConstraint is used to define a constraint space for a line, and will return 1) a constraint
 // function which will determine whether a point is on the line, and 2) a distance function
 // which will bring a pose into the valid constraint space.
-// tolerance refers to the closeness to the line necessary to be a valid pose in mm
+// tolerance refers to the closeness to the line necessary to be a valid pose in mm.
 func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (Constraint, Metric) {
 	// distance from line to point
 	distToLine := func(point r3.Vector) float64 {
@@ -391,8 +384,12 @@ func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (Constraint, Metri
 		return dist
 	}
 
+	if pt1.Distance(pt2) < defaultEpsilon {
+		tolerance = defaultEpsilon
+	}
+
 	gradFunc := func(from, _ spatial.Pose) float64 {
-		pDist := math.Max(distToLine(from.Point()) - tolerance, 0)
+		pDist := math.Max(distToLine(from.Point())-tolerance, 0)
 		return pDist * pDist
 	}
 

@@ -38,9 +38,9 @@ func NewRRTConnectMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, se
 		solver:   ik,
 		frame:    frame,
 		logger:   logger,
-		iter:     planIter,
+		iter:     defaultPlanIter,
 		nCPU:     nCPU,
-		stepSize: stepSize,
+		stepSize: defaultResolution,
 		randseed: seed,
 	}, nil
 }
@@ -98,7 +98,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	}
 
 	// publish endpoint of plan if it is known
-	if opt.maxSolutions == 1 && endpointPreview != nil {
+	if opt.MaxSolutions == 1 && endpointPreview != nil {
 		endpointPreview <- &configuration{solutions[0]}
 	}
 

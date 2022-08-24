@@ -28,8 +28,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var numCPUs = 4
-
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
@@ -62,13 +60,12 @@ func init() {
 
 // SubtypeName is a constant that identifies the component resource subtype string "arm".
 const (
-	SubtypeName            = resource.SubtypeName("arm")
-	DefaultPathStepSize    = 10.0
+	SubtypeName = resource.SubtypeName("arm")
 )
 
-var DefaultArmPlannerOptions = map[string]interface{}{
-		"motionProfile": "linear",
-	}
+var defaultArmPlannerOptions = map[string]interface{}{
+	"motion_profile": "linear",
+}
 
 // Subtype is a constant that identifies the component resource subtype.
 var Subtype = resource.NewSubtype(
@@ -387,17 +384,16 @@ func Plan(
 	dst *commonpb.Pose,
 	worldState *commonpb.WorldState,
 ) ([][]referenceframe.Input, error) {
-
 	// build the framesystem
 	fs, err := framesystem.RobotFrameSystem(ctx, r, worldState.GetTransforms())
 	if err != nil {
 		return nil, err
 	}
 	armName := a.ModelFrame().Name()
-	
-	destination := referenceframe.NewPoseInFrame(armName + "_offset", spatialmath.NewPoseFromProtobuf(dst))
-	
-	solutionMap, err := motionplan.PlanRobotMotion(ctx, destination, a.ModelFrame(), r, fs, worldState, DefaultArmPlannerOptions)
+
+	destination := referenceframe.NewPoseInFrame(armName+"_offset", spatialmath.NewPoseFromProtobuf(dst))
+
+	solutionMap, err := motionplan.PlanRobotMotion(ctx, destination, a.ModelFrame(), r, fs, worldState, defaultArmPlannerOptions)
 	if err != nil {
 		return nil, err
 	}
