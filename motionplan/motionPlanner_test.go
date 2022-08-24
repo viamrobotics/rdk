@@ -52,16 +52,16 @@ func BenchmarkUnconstrainedMotion(b *testing.B) {
 func TestUnconstrainedMotion(t *testing.T) {
 	planners := []seededPlannerConstructor{
 		NewRRTStarConnectMotionPlannerWithSeed,
-		NewRRTConnectMotionPlannerWithSeed,
-		NewCBiRRTMotionPlannerWithSeed,
+		// NewRRTConnectMotionPlannerWithSeed,
+		// NewCBiRRTMotionPlannerWithSeed,
 	}
 	testCases := []struct {
 		name   string
 		config planConfigConstructor
 	}{
 		{"2D plan test", simple2DMap},
-		{"6D plan test", simpleUR5eMotion},
-		{"7D plan test", simpleXArmMotion},
+		// {"6D plan test", simpleUR5eMotion},
+		// {"7D plan test", simpleXArmMotion},
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {

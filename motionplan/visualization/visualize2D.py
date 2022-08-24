@@ -34,6 +34,6 @@ if __name__ == "__main__":
     fig.canvas.manager.set_window_title('Viam Visualizer')
     Tree("/Users/ray/rdk/motionplan/tree.test").draw(ax, 'r')  
     Path("/Users/ray/rdk/motionplan/path.test").draw(ax, 'g')      
-    rect = patches.Rectangle((-4, 1), 8, 8, linewidth=1, edgecolor='b', facecolor='b')
+    rect = patches.Rectangle((-40, 10), 80, 80, linewidth=1, edgecolor='b', facecolor='b')
     ax.add_patch(rect)
     plt.show()
