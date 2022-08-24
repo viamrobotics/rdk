@@ -10,10 +10,6 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
-const (
-	depthPreprocessTransform = transformType("depth_preprocess")
-)
-
 // preprocessDepthTransform applies pre-processing functions to depth maps in order to smooth edges and fill holes.
 type preprocessDepthTransform struct {
 	source gostream.ImageSource

@@ -146,7 +146,7 @@ func TestTransformPipelineDepth2(t *testing.T) {
 }
 
 func TestNullPipeline(t *testing.T) {
-	transformConf := &transformConfig{
+	transform1 := &transformConfig{
 		AttrConfig: &camera.AttrConfig{
 			Stream: "color",
 		},
@@ -157,9 +157,19 @@ func TestNullPipeline(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := &imagesource.StaticSource{ColorImg: img}
-	pipe, err := newTransformPipeline(context.Background(), source, transformConf, r)
-	test.That(t, err, test.ShouldBeNil)
+	_, err = newTransformPipeline(context.Background(), source, transform1, r)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "pipeline has no transforms")
 
+	transform2 := &transformConfig{
+		AttrConfig: &camera.AttrConfig{
+			Stream: "color",
+		},
+		Source:   "source",
+		Pipeline: []Transformation{{Type: "identity", Attributes: nil}},
+	}
+	pipe, err := newTransformPipeline(context.Background(), source, transform2, r)
+	test.That(t, err, test.ShouldBeNil)
 	outImg, _, err := pipe.Next(context.Background()) // should not transform anything
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 1280)

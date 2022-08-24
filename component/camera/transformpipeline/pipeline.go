@@ -74,6 +74,9 @@ func newTransformPipeline(
 	if source == nil {
 		return nil, errors.New("no source camera for transform pipeline")
 	}
+	if len(cfg.Pipeline) == 0 {
+		return nil, errors.New("pipeline has no transforms in it")
+	}
 	// loop through the pipeline and create the image flow
 	var outSource gostream.ImageSource
 	outSource = source

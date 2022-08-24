@@ -16,14 +16,17 @@ type transformType string
 
 // the identity transforms. Other transformType names are defined in their respective go files.
 const (
-	unspecifiedTrasform = transformType("")
-	identityTransform   = transformType("identity")
+	transformTypeUnspecified     = transformType("")
+	transformTypeIdentity        = transformType("identity")
+	transformTypeRotate          = transformType("rotate")
+	transformTypeResize          = transformType("resize")
+	transformTypeDepthPretty     = transformType("depth_to_pretty")
+	transformTypeOverlay         = transformType("overlay")
+	transformTypeUndistort       = transformType("undistort")
+	transformTypeDetections      = transformType("detections")
+	transformTypeDepthEdges      = transformType("depth_edges")
+	transformTypeDepthPreprocess = transformType("depth_preprocess")
 )
-
-// NewUnknownTransformType returns an error of an unknown input transformType.
-func NewUnknownTransformType(t string) error {
-	return errors.Errorf("do not know camera transform of type %q", t)
-}
 
 // Transformation states the type of transformation and the attributes that are specific to the given type.
 type Transformation struct {
@@ -37,25 +40,25 @@ func buildTransform(
 ) (gostream.ImageSource, error) {
 	stream := camera.StreamType(cfg.Stream)
 	switch transformType(tr.Type) {
-	case unspecifiedTrasform, identityTransform:
+	case transformTypeUnspecified, transformTypeIdentity:
 		return source, nil
-	case rotateTransform:
+	case transformTypeRotate:
 		return newRotateTransform(source, stream)
-	case resizeTransform:
+	case transformTypeResize:
 		return newResizeTransform(source, stream, tr.Attributes)
-	case depthPrettyTransform:
+	case transformTypeDepthPretty:
 		return newDepthToPrettyTransform(ctx, source, cfg.AttrConfig)
-	case overlayTransform:
+	case transformTypeOverlay:
 		return newOverlayTransform(ctx, source, cfg.AttrConfig)
-	case undistortTransform:
+	case transformTypeUndistort:
 		return newUndistortTransform(source, stream, tr.Attributes)
-	case detectionsTransform:
+	case transformTypeDetections:
 		return newDetectionsTransform(source, r, tr.Attributes)
-	case depthEdgesTransform:
+	case transformTypeDepthEdges:
 		return newDepthEdgesTransform(source, tr.Attributes)
-	case depthPreprocessTransform:
+	case transformTypeDepthPreprocess:
 		return newDepthPreprocessTransform(source)
 	default:
-		return nil, NewUnknownTransformType(tr.Type)
+		return nil, errors.Errorf("do not know camera transform of type %q", tr.Type)
 	}
 }
