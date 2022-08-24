@@ -64,8 +64,11 @@ func (c *client) GetMap(ctx context.Context, name, mimeType string, cameraPositi
 	req := &pb.GetMapRequest{
 		Name:               name,
 		MimeType:           mimeType,
-		CameraPosition:     referenceframe.PoseInFrameToProtobuf(cameraPosition).Pose,
 		IncludeRobotMarker: includeRobotMarker,
+	}
+
+	if cameraPosition != nil {
+		req.CameraPosition = referenceframe.PoseInFrameToProtobuf(cameraPosition).Pose
 	}
 
 	var imageData image.Image
