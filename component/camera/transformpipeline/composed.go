@@ -13,11 +13,6 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 )
 
-const (
-	depthPrettyTransform = transformType("depth_to_pretty")
-	overlayTransform     = transformType("overlay")
-)
-
 // depthToPretty takes a depth image and turns into a colorful image, with blue being
 // farther away, and red being closest. Actual depth information is lost in the transform.
 type depthToPretty struct {

@@ -12,10 +12,6 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const (
-	depthEdgesTransform = transformType("depth_edges")
-)
-
 type depthEdgesAttrs struct {
 	HiThresh   float64 `json:"high_threshold"`
 	LoThresh   float64 `json:"low_threshold"`
