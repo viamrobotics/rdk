@@ -14,7 +14,7 @@ import (
 
 // registerColorDetector parses the Parameter field from the config into ColorDetectorConfig,
 // creates the ColorDetector, and registers it to the detector map.
-func registerColorDetector(ctx context.Context, dm detectorMap, conf *DetectorConfig, logger golog.Logger) error {
+func registerColorDetectorr(ctx context.Context, dm detectorMap, conf *DetectorConfig, logger golog.Logger) error {
 	_, span := trace.StartSpan(ctx, "service::vision::registerColorDetector")
 	defer span.End()
 	if conf == nil {
