@@ -5,7 +5,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"fmt"
 	"image"
 	"image/jpeg"
 	"os"
