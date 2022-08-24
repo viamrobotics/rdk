@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/component/movementsensor/nmea"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/utils"
 )
 
 type ntripCorrectionSource struct {
@@ -23,7 +24,6 @@ type ntripCorrectionSource struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	done                    chan struct{}
 	errors                  chan error
 }
 
@@ -34,7 +34,6 @@ func newNtripCorrectionSource(ctx context.Context, config config.Component, logg
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		done:       make(chan struct{}),
 		errors:     make(chan error),
 	}
 
@@ -189,16 +188,8 @@ func (n *ntripCorrectionSource) GetReader() (io.ReadCloser, error) {
 func (n *ntripCorrectionSource) Close() error {
 	n.logger.Debug("Closing ntrip client")
 	n.cancelFunc()
-	go func() {
-		n.activeBackgroundWorkers.Wait()
-		n.done <- struct{}{}
-	}()
-	select {
-	case err := <-n.errors:
-		if err != nil {
-			return err
-		}
-	case <-n.done:
+	if err := utils.WaitWithError(&n.activeBackgroundWorkers, n.errors); err != nil {
+		return err
 	}
 
 	// close correction reader

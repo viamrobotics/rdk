@@ -34,7 +34,6 @@ func TestConnect(t *testing.T) {
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		done:       make(chan struct{}),
 		errors:     make(chan error),
 	}
 
@@ -184,14 +183,12 @@ func TestReadingsRTK(t *testing.T) {
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		done:       make(chan struct{}),
 		errors:     make(chan error),
 	}
 	nmeamovementsensor := &SerialNMEAMovementSensor{
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		done:       make(chan struct{}),
 		errors:     make(chan error),
 	}
 	nmeamovementsensor.data = gpsData{
@@ -233,7 +230,6 @@ func TestCloseRTK(t *testing.T) {
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		done:       make(chan struct{}),
 		errors:     make(chan error),
 	}
 	g.ntripClient = makeMockNtripClient()
@@ -241,7 +237,6 @@ func TestCloseRTK(t *testing.T) {
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		done:       make(chan struct{}),
 		errors:     make(chan error),
 	}
 

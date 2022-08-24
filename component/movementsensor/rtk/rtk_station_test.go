@@ -157,14 +157,13 @@ func TestClose(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, done: make(chan struct{}), errors: make(chan error)}
+	g := rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, errors: make(chan error)}
 	r := ioutil.NopCloser(strings.NewReader("hello world"))
 	n := &ntripCorrectionSource{
 		cancelCtx:        cancelCtx,
 		cancelFunc:       cancelFunc,
 		logger:           logger,
 		correctionReader: r,
-		done:             make(chan struct{}),
 		errors:           make(chan error),
 	}
 	n.info = makeMockNtripClient()
@@ -173,13 +172,12 @@ func TestClose(t *testing.T) {
 	err := g.Close()
 	test.That(t, err, test.ShouldBeNil)
 
-	g = rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, done: make(chan struct{}), errors: make(chan error)}
+	g = rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, errors: make(chan error)}
 	s := &serialCorrectionSource{
 		cancelCtx:        cancelCtx,
 		cancelFunc:       cancelFunc,
 		logger:           logger,
 		correctionReader: r,
-		done:             make(chan struct{}),
 		errors:           make(chan error),
 	}
 	g.correction = s
@@ -187,13 +185,12 @@ func TestClose(t *testing.T) {
 	err = g.Close()
 	test.That(t, err, test.ShouldBeNil)
 
-	g = rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, done: make(chan struct{}), errors: make(chan error)}
+	g = rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger, errors: make(chan error)}
 	i := &i2cCorrectionSource{
 		cancelCtx:        cancelCtx,
 		cancelFunc:       cancelFunc,
 		logger:           logger,
 		correctionReader: r,
-		done:             make(chan struct{}),
 		errors:           make(chan error),
 	}
 	g.correction = i
@@ -218,7 +215,6 @@ func TestConnect(t *testing.T) {
 		cancelFunc: cancelFunc,
 		logger:     logger,
 		info:       info,
-		done:       make(chan struct{}),
 		errors:     make(chan error),
 	}
 

@@ -80,7 +80,6 @@ func TestReadingsSerial(t *testing.T) {
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		done:       make(chan struct{}),
 		errors:     make(chan error),
 	}
 	g.data = gpsData{
@@ -125,7 +124,6 @@ func TestCloseSerial(t *testing.T) {
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		done:       make(chan struct{}),
 		errors:     make(chan error),
 	}
 

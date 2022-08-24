@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/utils"
 )
 
 type i2cCorrectionSource struct {
@@ -23,7 +24,6 @@ type i2cCorrectionSource struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	done                    chan struct{}
 	errors                  chan error
 }
 
@@ -58,7 +58,6 @@ func newI2CCorrectionSource(
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		done:       make(chan struct{}),
 		errors:     make(chan error),
 	}
 
@@ -152,16 +151,8 @@ func (s *i2cCorrectionSource) GetReader() (io.ReadCloser, error) {
 // Close shuts down the i2cCorrectionSource.
 func (s *i2cCorrectionSource) Close() error {
 	s.cancelFunc()
-	go func() {
-		s.activeBackgroundWorkers.Wait()
-		s.done <- struct{}{}
-	}()
-	select {
-	case err := <-s.errors:
-		if err != nil {
-			return err
-		}
-	case <-s.done:
+	if err := utils.WaitWithError(&s.activeBackgroundWorkers, s.errors); err != nil {
+		return err
 	}
 
 	// close correction reader

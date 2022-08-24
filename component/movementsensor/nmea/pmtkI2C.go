@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // I2CAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
@@ -71,7 +72,6 @@ type PmtkI2CNMEAMovementSensor struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	done                    chan struct{}
 	errors                  chan error
 }
 
@@ -113,7 +113,6 @@ func newPmtkI2CNMEAMovementSensor(
 		cancelFunc:  cancelFunc,
 		logger:      logger,
 		disableNmea: disableNmea,
-		done:        make(chan struct{}),
 		errors:      make(chan error),
 	}
 
@@ -293,16 +292,8 @@ func (g *PmtkI2CNMEAMovementSensor) GetReadings(ctx context.Context) (map[string
 // Close shuts down the SerialNMEAMOVEMENTSENSOR.
 func (g *PmtkI2CNMEAMovementSensor) Close() error {
 	g.cancelFunc()
-	go func() {
-		g.activeBackgroundWorkers.Wait()
-		g.done <- struct{}{}
-	}()
-	select {
-	case err := <-g.errors:
-		if err != nil {
-			return err
-		}
-	case <-g.done:
+	if err := rdkutils.WaitWithError(&g.activeBackgroundWorkers, g.errors); err != nil {
+		return err
 	}
 
 	return nil

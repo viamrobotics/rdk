@@ -119,7 +119,6 @@ type rtkStation struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	done                    chan struct{}
 	errors                  chan error
 }
 
@@ -154,7 +153,6 @@ func newRTKStation(
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		done:       make(chan struct{}),
 		errors:     make(chan error),
 	}
 
@@ -322,16 +320,8 @@ func (r *rtkStation) Close() error {
 	}
 
 	r.cancelFunc()
-	go func() {
-		r.activeBackgroundWorkers.Wait()
-		r.done <- struct{}{}
-	}()
-	select {
-	case err := <-r.errors:
-		if err != nil {
-			return err
-		}
-	case <-r.done:
+	if err := rdkutils.WaitWithError(&r.activeBackgroundWorkers, r.errors); err != nil {
+		return err
 	}
 
 	// close all ports in slice

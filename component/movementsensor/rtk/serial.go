@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/utils"
 )
 
 type serialCorrectionSource struct {
@@ -22,7 +23,6 @@ type serialCorrectionSource struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	done                    chan struct{}
 	errors                  chan error
 }
 
@@ -62,7 +62,6 @@ func newSerialCorrectionSource(ctx context.Context, config config.Component, log
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		done:       make(chan struct{}),
 		errors:     make(chan error),
 	}
 
@@ -156,16 +155,8 @@ func (s *serialCorrectionSource) GetReader() (io.ReadCloser, error) {
 // Close shuts down the serialCorrectionSource and closes s.port.
 func (s *serialCorrectionSource) Close() error {
 	s.cancelFunc()
-	go func() {
-		s.activeBackgroundWorkers.Wait()
-		s.done <- struct{}{}
-	}()
-	select {
-	case err := <-s.errors:
-		if err != nil {
-			return err
-		}
-	case <-s.done:
+	if err := utils.WaitWithError(&s.activeBackgroundWorkers, s.errors); err != nil {
+		return err
 	}
 
 	// close port reader
