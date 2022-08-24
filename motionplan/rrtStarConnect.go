@@ -29,7 +29,7 @@ type rrtStarConnectMotionPlanner struct {
 const neighborhoodSize = 10
 
 // NewRRTStarConnectMotionPlanner creates a rrtStarConnectMotionPlanner object.
-func NewRRTStarConnectMotionPlanner(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
+func NewRRTStarConnectMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger) (MotionPlanner, error) {
 	//nolint:gosec
 	return NewRRTStarConnectMotionPlannerWithSeed(frame, nCPU, rand.New(rand.NewSource(1)), logger)
 }
@@ -133,8 +133,8 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	// Keep a list of the node pairs that have the same inputs
 	shared := make([]*nodePair, 0)
 
-	// prevCost := math.Inf(1)
-	// var plan *planReturn
+	prevCost := math.Inf(1)
+	var plan *planReturn
 
 	// sample until the max number of iterations is reached
 	for i := 0; i < mp.iter; i++ {
@@ -144,8 +144,6 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 			return
 		default:
 		}
-
-		fmt.Println(i)
 
 		// if i == 98 {
 		// 	path := shortestPath(startMap, goalMap, shared)
@@ -167,13 +165,13 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 		target = mp.sample()
 		map1, map2 = map2, map1
 
-		// plan = shortestPath(startMap, goalMap, shared)
-		// cost := evaluatePlanNodes(plan.steps)
-		// if prevCost < cost {
-		// 	fmt.Println("RRT* should never have the cost of the total path increase")
-		// }
-		// prevCost = cost
-		// fmt.Println(cost)
+		plan = shortestPath(startMap, goalMap, shared)
+		cost := evaluatePlanNodes(plan.steps)
+		if prevCost < cost {
+			fmt.Println("RRT* should never have the cost of the total path increase")
+		}
+		prevCost = cost
+		fmt.Println(i, cost)
 	}
 
 	solutionChan <- shortestPath(startMap, goalMap, shared)
