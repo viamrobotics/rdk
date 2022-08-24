@@ -174,7 +174,6 @@ func TestServer(t *testing.T) {
 			int(resp.WidthPx), int(resp.HeightPx),
 		)
 		test.That(t, err, test.ShouldBeNil)
-		t.Logf("raw pix: %v", resp.Image)
 		dm, err := rimage.ConvertImageToDepthMap(decodedDepth)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dm, test.ShouldResemble, depthImage)

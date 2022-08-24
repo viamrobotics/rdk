@@ -64,7 +64,7 @@ func TestClient(t *testing.T) {
 	injectCamera.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
 		imageReleased = true
 		if mimeType == "" {
-			mimeType = rdkutils.MimeTypePNG
+			mimeType = rdkutils.MimeTypeRawRGBA
 		}
 		bytes, err := rimage.EncodeImage(ctx, img, mimeType)
 		if err != nil {
