@@ -14,7 +14,7 @@ import (
 // transformType is the list of allowed transforms that can be used in the pipeline.
 type transformType string
 
-// the allowed transforms
+// the allowed transforms.
 const (
 	transformTypeUnspecified     = transformType("")
 	transformTypeIdentity        = transformType("identity")
