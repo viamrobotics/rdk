@@ -174,7 +174,7 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 			by := float64(i) / float64(numSteps)
 			to := spatial.Interpolate(seedPos, goalPos, by)
 			goals = append(goals, to)
-			opt, err := plannerSetupFromMoveRequest(ctx, from, to, sf, sf.fss, seedMap, worldState, motionConfig)
+			opt, err := plannerSetupFromMoveRequest(from, to, sf, sf.fss, seedMap, worldState, motionConfig)
 			if err != nil {
 				return nil, err
 			}
@@ -183,13 +183,13 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 			from = to
 		}
 		goals = append(goals, goalPos)
-		opt, err := plannerSetupFromMoveRequest(ctx, from, goalPos, sf, sf.fss, seedMap, worldState, motionConfig)
+		opt, err := plannerSetupFromMoveRequest(from, goalPos, sf, sf.fss, seedMap, worldState, motionConfig)
 		if err != nil {
 			return nil, err
 		}
 		opts = append(opts, opt)
 	} else {
-		opt, err := plannerSetupFromMoveRequest(ctx, seedPos, goalPos, sf, sf.fss, seedMap, worldState, motionConfig)
+		opt, err := plannerSetupFromMoveRequest(seedPos, goalPos, sf, sf.fss, seedMap, worldState, motionConfig)
 		if err != nil {
 			return nil, err
 		}

@@ -7,21 +7,23 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/rimage"
 )
 
 // preprocessDepthTransform applies pre-processing functions to depth maps in order to smooth edges and fill holes.
 type preprocessDepthTransform struct {
-	source gostream.ImageSource
+	stream gostream.VideoStream
 }
 
-func newDepthPreprocessTransform(source gostream.ImageSource) (gostream.ImageSource, error) {
-	return &preprocessDepthTransform{source}, nil
+func newDepthPreprocessTransform(source gostream.VideoSource) (gostream.VideoSource, error) {
+	reader := &preprocessDepthTransform{gostream.NewEmbeddedVideoStream(source)}
+	return camera.NewFromReader(reader, nil)
 }
 
 // Next applies depth preprocessing to the next image.
-func (os *preprocessDepthTransform) Next(ctx context.Context) (image.Image, func(), error) {
-	i, release, err := os.source.Next(ctx)
+func (os *preprocessDepthTransform) Read(ctx context.Context) (image.Image, func(), error) {
+	i, release, err := os.stream.Next(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -34,4 +36,8 @@ func (os *preprocessDepthTransform) Next(ctx context.Context) (image.Image, func
 		return nil, nil, err
 	}
 	return dm, release, nil
+}
+
+func (os *preprocessDepthTransform) Close(ctx context.Context) error {
+	return os.stream.Close(ctx)
 }

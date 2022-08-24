@@ -9,6 +9,7 @@ import (
 	"image/png"
 	"testing"
 
+	"github.com/edaniels/gostream"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/camera"
@@ -43,6 +44,17 @@ func TestServer(t *testing.T) {
 	cameraServer, injectCamera, injectCameraDepth, injectCamera2, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
+	img := image.NewNRGBA64(image.Rect(0, 0, 4, 4))
+	var imgBuf bytes.Buffer
+	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
+	var imgBufJpeg bytes.Buffer
+	test.That(t, jpeg.Encode(&imgBufJpeg, img, nil), test.ShouldBeNil)
+
+	imgPng, err := png.Decode(bytes.NewReader(imgBuf.Bytes()))
+	test.That(t, err, test.ShouldBeNil)
+	imgJpeg, err := jpeg.Decode(bytes.NewReader(imgBufJpeg.Bytes()))
+	test.That(t, err, test.ShouldBeNil)
+
 	var projA rimage.Projector
 	intrinsics := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
 		Width:  1280,
@@ -58,25 +70,27 @@ func TestServer(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	var imageReleased bool
-	// color camera
-	img := image.NewNRGBA64(image.Rect(0, 0, 4, 4))
-	var imgBuf bytes.Buffer
-	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
-	var imgBufJpeg bytes.Buffer
-	test.That(t, jpeg.Encode(&imgBufJpeg, img, nil), test.ShouldBeNil)
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
-	injectCamera.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+	injectCamera.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return projA, nil
 	}
-	injectCamera.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
-		imageReleased = true
-		if mimeType == "" {
-			mimeType = utils.MimeTypeRawRGBA
-		}
-		imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
-		return imgBytes, mimeType, int64(img.Bounds().Dx()), int64(img.Bounds().Dy()), err
+	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+			imageReleased = true
+			mimeType, _ := utils.CheckLazyMIMEType(camera.MIMETypeHint(ctx, utils.MimeTypeRawRGBA))
+			switch mimeType {
+			case "", utils.MimeTypeRawRGBA:
+				return img, func() {}, nil
+			case utils.MimeTypePNG:
+				return imgPng, func() {}, nil
+			case utils.MimeTypeJPEG:
+				return imgJpeg, func() {}, nil
+			default:
+				return nil, nil, errors.New("invalid mime type")
+			}
+		})), nil
 	}
 	// depth camera
 	depthImage := rimage.NewEmptyDepthMap(10, 20)
@@ -90,26 +104,24 @@ func TestServer(t *testing.T) {
 	injectCameraDepth.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
-	injectCameraDepth.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+	injectCameraDepth.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return projA, nil
 	}
-	injectCameraDepth.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
-		imageReleased = true
-		if mimeType == "" {
-			mimeType = utils.MimeTypeRawRGBA
-		}
-		depthBytes, err := rimage.EncodeImage(ctx, depthImage, mimeType)
-		return depthBytes, mimeType, int64(depthImage.Bounds().Dx()), int64(depthImage.Bounds().Dy()), err
+	injectCameraDepth.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+			imageReleased = true
+			return depthImage, func() {}, nil
+		})), nil
 	}
 	// bad camera
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return nil, errors.New("can't generate next point cloud")
 	}
-	injectCamera2.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+	injectCamera2.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return nil, errors.New("can't get camera properties")
 	}
-	injectCamera2.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
-		return nil, "", 0, 0, errors.New("can't generate frame")
+	injectCamera2.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		return nil, errors.New("can't generate stream")
 	}
 	// does a depth camera transfer its depth image properly
 	t.Run("GetFrame", func(t *testing.T) {
@@ -190,7 +202,7 @@ func TestServer(t *testing.T) {
 		// bad camera
 		_, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{Name: failCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate frame")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate stream")
 	})
 
 	t.Run("RenderFrame", func(t *testing.T) {
@@ -222,12 +234,12 @@ func TestServer(t *testing.T) {
 			MimeType: "image/who",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how to encode")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
 		test.That(t, imageReleased, test.ShouldBeTrue)
 
 		_, err = cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{Name: failCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate frame")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate stream")
 	})
 
 	t.Run("GetPointCloud", func(t *testing.T) {

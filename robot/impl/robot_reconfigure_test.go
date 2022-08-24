@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"testing"
@@ -2060,12 +2059,12 @@ func TestRobotReconfigure(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 		// create a unexecutable file
-		noExecF, err := ioutil.TempFile(tempDir, "noexec*.sh")
+		noExecF, err := os.CreateTemp(tempDir, "noexec*.sh")
 		test.That(t, err, test.ShouldBeNil)
 		err = noExecF.Close()
 		test.That(t, err, test.ShouldBeNil)
 		// create a origin file
-		originF, err := ioutil.TempFile(tempDir, "origin*")
+		originF, err := os.CreateTemp(tempDir, "origin*")
 		test.That(t, err, test.ShouldBeNil)
 		token := make([]byte, 128)
 		_, err = rand.Read(token)
@@ -2075,11 +2074,11 @@ func TestRobotReconfigure(t *testing.T) {
 		err = originF.Sync()
 		test.That(t, err, test.ShouldBeNil)
 		// create a target file
-		targetF, err := ioutil.TempFile(tempDir, "target*")
+		targetF, err := os.CreateTemp(tempDir, "target*")
 		test.That(t, err, test.ShouldBeNil)
 
 		// create a second target file
-		target2F, err := ioutil.TempFile(tempDir, "target*")
+		target2F, err := os.CreateTemp(tempDir, "target*")
 		test.That(t, err, test.ShouldBeNil)
 
 		// config1

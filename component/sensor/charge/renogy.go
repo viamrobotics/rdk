@@ -72,7 +72,7 @@ func init() {
 			logger golog.Logger,
 		) (interface{}, error) {
 			return newSensor(config.Name, config.ConvertedAttributes.(*AttrConfig).Path,
-				config.ConvertedAttributes.(*AttrConfig).Baud, config.ConvertedAttributes.(*AttrConfig).ModbusID, logger)
+				config.ConvertedAttributes.(*AttrConfig).Baud, config.ConvertedAttributes.(*AttrConfig).ModbusID), nil
 		}})
 
 	config.RegisterComponentAttributeMapConverter(sensor.SubtypeName, modelname,
@@ -82,7 +82,7 @@ func init() {
 		}, &AttrConfig{})
 }
 
-func newSensor(name string, path string, baud int, modbusID byte, logger golog.Logger) (sensor.Sensor, error) {
+func newSensor(name, path string, baud int, modbusID byte) sensor.Sensor {
 	if path == "" {
 		path = pathDefault
 	}
@@ -93,7 +93,7 @@ func newSensor(name string, path string, baud int, modbusID byte, logger golog.L
 		modbusID = modbusIDDefault
 	}
 
-	return &Sensor{Name: name, path: path, baud: baud, modbusID: modbusID}, nil
+	return &Sensor{Name: name, path: path, baud: baud, modbusID: modbusID}
 }
 
 // Sensor is a serial charge controller.

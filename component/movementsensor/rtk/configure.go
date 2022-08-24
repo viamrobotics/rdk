@@ -200,20 +200,17 @@ func (c *configCommand) serialConfigure(config config.Component) error {
 	return nil
 }
 
-func (c *configCommand) sendCommand(cls int, id int, msgLen int, payloadCfg []byte) ([]byte, error) {
+func (c *configCommand) sendCommand(cls, id, msgLen int, payloadCfg []byte) error {
 	switch c.correctionType {
 	case serialStr:
-		msg, err := c.sendCommandSerial(cls, id, msgLen, payloadCfg)
-		if err != nil {
-			return nil, err
-		}
-		return msg, nil
+		_, err := c.sendCommandSerial(cls, id, msgLen, payloadCfg)
+		return err
 	default:
-		return nil, errors.Errorf("configuration not supported for %s", c.correctionType)
+		return errors.Errorf("configuration not supported for %s", c.correctionType)
 	}
 }
 
-func (c *configCommand) sendCommandSerial(cls int, id int, msgLen int, payloadCfg []byte) ([]byte, error) {
+func (c *configCommand) sendCommandSerial(cls, id, msgLen int, payloadCfg []byte) ([]byte, error) {
 	checksumA, checksumB := calcChecksum(cls, id, msgLen, payloadCfg)
 
 	// build packet to send over serial
@@ -278,15 +275,11 @@ func (c *configCommand) enableAll(msb int) error {
 }
 
 //nolint:unused
-func (c *configCommand) getSurveyMode() ([]byte, error) {
+func (c *configCommand) getSurveyMode() error {
 	cls := ubxClassCfg
 	id := ubxCfgTmode3
 	payloadCfg := make([]byte, 40)
-	val, err := c.sendCommand(cls, id, 0, payloadCfg) // set payloadcfg
-	if err != nil {
-		return nil, err
-	}
-	return val, nil
+	return c.sendCommand(cls, id, 0, payloadCfg) // set payloadcfg
 }
 
 func (c *configCommand) enableSVIN() error {
@@ -342,16 +335,11 @@ func (c *configCommand) setSurveyMode(mode int, requiredAccuracy float64, observ
 	payloadCfg[30] = byte((svinAccLimit >> 16) & 0xFF)
 	payloadCfg[31] = byte((svinAccLimit >> 24) & 0xFF)
 
-	_, err := c.sendCommand(cls, id, msgLen, payloadCfg)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return c.sendCommand(cls, id, msgLen, payloadCfg)
 }
 
 //nolint:lll,unused
-func (c *configCommand) setStaticPosition(ecefXOrLat int, ecefXOrLatHP int, ecefYOrLon int, ecefYOrLonHP int, ecefZOrAlt int, ecefZOrAltHP int, latLong bool) error {
+func (c *configCommand) setStaticPosition(ecefXOrLat, ecefXOrLatHP, ecefYOrLon, ecefYOrLonHP, ecefZOrAlt, ecefZOrAltHP int, latLong bool) error {
 	cls := ubxClassCfg
 	id := ubxCfgTmode3
 	msgLen := 40
@@ -386,14 +374,10 @@ func (c *configCommand) setStaticPosition(ecefXOrLat int, ecefXOrLatHP int, ecef
 	payloadCfg[17] = byte(ecefYOrLonHP)
 	payloadCfg[18] = byte(ecefZOrAltHP)
 
-	_, err := c.sendCommand(cls, id, msgLen, payloadCfg)
-	if err != nil {
-		return err
-	}
-	return nil
+	return c.sendCommand(cls, id, msgLen, payloadCfg)
 }
 
-func (c *configCommand) disableMessageCommand(msgClass int, messageNumber int, portID int) error {
+func (c *configCommand) disableMessageCommand(msgClass, messageNumber, portID int) error {
 	err := c.enableMessageCommand(msgClass, messageNumber, portID, 0)
 	if err != nil {
 		return err
@@ -401,7 +385,7 @@ func (c *configCommand) disableMessageCommand(msgClass int, messageNumber int, p
 	return nil
 }
 
-func (c *configCommand) enableMessageCommand(msgClass int, messageNumber int, portID int, sendRate int) error {
+func (c *configCommand) enableMessageCommand(msgClass, messageNumber, portID, sendRate int) error {
 	// dont use current port settings actually
 	payloadCfg := make([]byte, maxPayloadSize)
 
@@ -415,11 +399,7 @@ func (c *configCommand) enableMessageCommand(msgClass int, messageNumber int, po
 	// default to enable usb on with same sendRate
 	payloadCfg[2+usb] = byte(sendRate)
 
-	_, err := c.sendCommand(cls, id, msgLen, payloadCfg)
-	if err != nil {
-		return err
-	}
-	return nil
+	return c.sendCommand(cls, id, msgLen, payloadCfg)
 }
 
 func (c *configCommand) saveAllConfigs() error {
@@ -432,11 +412,7 @@ func (c *configCommand) saveAllConfigs() error {
 	payloadCfg[4] = 0xFF
 	payloadCfg[5] = 0xFF
 
-	_, err := c.sendCommand(cls, id, msgLen, payloadCfg)
-	if err != nil {
-		return err
-	}
-	return nil
+	return c.sendCommand(cls, id, msgLen, payloadCfg)
 }
 
 // Close closes all open ports used in configuration.
@@ -451,7 +427,7 @@ func (c *configCommand) Close() error {
 	return nil
 }
 
-func calcChecksum(cls int, id int, msgLen int, payload []byte) (checksumA int, checksumB int) {
+func calcChecksum(cls, id, msgLen int, payload []byte) (checksumA, checksumB int) {
 	checksumA = 0
 	checksumB = 0
 

@@ -47,7 +47,7 @@ func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.F
 }
 
 // BuildCaptureMetadata builds a DataCaptureMetadata object.
-func BuildCaptureMetadata(compType resource.SubtypeName, compName string, compModel string, method string,
+func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, method string,
 	additionalParams map[string]string,
 ) *v1.DataCaptureMetadata {
 	dataType := getDataType(string(compType), method)
@@ -109,7 +109,7 @@ func getFileTimestampName() string {
 }
 
 // TODO DATA-246: Implement this in some more robust, programmatic way.
-func getDataType(_ string, methodName string) v1.DataType {
+func getDataType(_, methodName string) v1.DataType {
 	if methodName == "NextPointCloud" {
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
 	}

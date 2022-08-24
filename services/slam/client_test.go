@@ -56,7 +56,7 @@ func TestClientWorkingService(t *testing.T) {
 		return pSucc, nil
 	}
 
-	workingSLAMService.GetMapFunc = func(ctx context.Context, name string, mimeType string, cp *referenceframe.PoseInFrame,
+	workingSLAMService.GetMapFunc = func(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
 		include bool,
 	) (string, image.Image, *vision.Object, error) {
 		if mimeType == utils.MimeTypePCD {
@@ -165,7 +165,7 @@ func TestClientFailingService(t *testing.T) {
 		return pFail, errors.New("failure to get position")
 	}
 
-	failingSLAMService.GetMapFunc = func(ctx context.Context, name string, mimeType string, cp *referenceframe.PoseInFrame,
+	failingSLAMService.GetMapFunc = func(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
 		include bool,
 	) (string, image.Image, *vision.Object, error) {
 		return mimeType, imFail, pcFail, errors.New("failure to get map")

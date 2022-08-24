@@ -3,7 +3,6 @@ package transformpipeline
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -25,7 +24,7 @@ func writeTempConfig(cfg *config.Config) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	tmpFile, err := ioutil.TempFile(os.TempDir(), "objdet_config-")
+	tmpFile, err := os.CreateTemp(os.TempDir(), "objdet_config-")
 	if err != nil {
 		return "", err
 	}
@@ -139,11 +138,12 @@ func TestColorDetectionSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.TryClose(ctx, detector)
 
-	resImg, _, err := detector.Next(ctx)
+	resImg, _, err := camera.ReadImage(ctx, detector)
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
 	test.That(t, ovImg.GetXY(852, 431), test.ShouldResemble, rimage.Red)
 	test.That(t, ovImg.GetXY(984, 561), test.ShouldResemble, rimage.Red)
+	test.That(t, detector.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestTFLiteDetectionSource(t *testing.T) {
@@ -175,11 +175,12 @@ func TestTFLiteDetectionSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.TryClose(ctx, detector)
 
-	resImg, _, err := detector.Next(ctx)
+	resImg, _, err := camera.ReadImage(ctx, detector)
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
 	test.That(t, ovImg.GetXY(624, 402), test.ShouldResemble, rimage.Red)
 	test.That(t, ovImg.GetXY(816, 648), test.ShouldResemble, rimage.Red)
+	test.That(t, detector.Close(context.Background()), test.ShouldBeNil)
 }
 
 func BenchmarkColorDetectionSource(b *testing.B) {
@@ -213,8 +214,9 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 	b.ResetTimer()
 	// begin benchmarking
 	for i := 0; i < b.N; i++ {
-		_, _, _ = detector.Next(ctx)
+		_, _, _ = camera.ReadImage(ctx, detector)
 	}
+	test.That(b, detector.Close(context.Background()), test.ShouldBeNil)
 }
 
 func BenchmarkTFLiteDetectionSource(b *testing.B) {
@@ -247,6 +249,7 @@ func BenchmarkTFLiteDetectionSource(b *testing.B) {
 	b.ResetTimer()
 	// begin benchmarking
 	for i := 0; i < b.N; i++ {
-		_, _, _ = detector.Next(ctx)
+		_, _, _ = camera.ReadImage(ctx, detector)
 	}
+	test.That(b, detector.Close(context.Background()), test.ShouldBeNil)
 }

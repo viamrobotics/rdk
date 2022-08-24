@@ -40,6 +40,7 @@ AppDir:
     - libx264-160
     - libtensorflowlite2
     - libpigpio1
+    - libopus0
   files:
     include: []
     exclude:

@@ -33,7 +33,7 @@ type (
 	// BeforeParallelGroupWorkFunc executes before any work starts with the calculated group size.
 	BeforeParallelGroupWorkFunc func(groupSize int)
 	// MemberWorkFunc runs for each work item (member) of a group.
-	MemberWorkFunc func(memberNum int, workNum int)
+	MemberWorkFunc func(memberNum, workNum int)
 	// GroupWorkDoneFunc runs when a single group's work is done; helpful for merge stages.
 	GroupWorkDoneFunc func()
 	// GroupWorkFunc runs to determine what work members should do, if any.
@@ -87,7 +87,7 @@ func GroupWorkParallel(ctx context.Context, totalSize int, before BeforeParallel
 // ParallelForEachPixel loops through the image and calls f functions for each [x, y] position.
 // The image is divided into N * N blocks, where N is the number of available processor threads. For each block a
 // parallel Goroutine is started.
-func ParallelForEachPixel(size image.Point, f func(x int, y int)) {
+func ParallelForEachPixel(size image.Point, f func(x, y int)) {
 	procs := runtime.GOMAXPROCS(0)
 	var waitGroup sync.WaitGroup
 	waitGroup.Add(procs * procs)

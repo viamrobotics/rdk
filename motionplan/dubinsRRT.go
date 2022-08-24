@@ -65,7 +65,7 @@ func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 	}
 
 	utils.PanicCapturingGo(func() {
-		mp.planRunner(ctx, goal, seed, opt, nil, solutionChan, 0.1)
+		mp.planRunner(ctx, goal, seed, opt, solutionChan, 0.1)
 	})
 	select {
 	case <-ctx.Done():
@@ -85,7 +85,6 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
 	opt *PlannerOptions,
-	endpointPreview chan *configuration,
 	solutionChan chan *planReturn,
 	goalRate float64,
 ) {

@@ -70,7 +70,7 @@ func TestConfig1(t *testing.T) {
 
 	c1, err := camera.FromRobot(r, "c1")
 	test.That(t, err, test.ShouldBeNil)
-	pic, _, err := c1.Next(context.Background())
+	pic, _, err := camera.ReadImage(context.Background(), c1)
 	test.That(t, err, test.ShouldBeNil)
 
 	bounds := pic.Bounds()
