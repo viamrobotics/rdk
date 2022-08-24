@@ -7,6 +7,9 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
+	// modelpb "go.viam.com/api/proto/viam/model/v1"
+	// modelclient "go.viam.com/rdk/services/datamanager/model"
+
 	pb "go.viam.com/rdk/proto/api/service/datamanager/v1"
 )
 
@@ -35,3 +38,13 @@ func (c *client) Sync(ctx context.Context) error {
 	}
 	return nil
 }
+
+// does this need to be edited/added?
+
+// func (c *client) Depoy(ctx context.Context, req *modelpb.DeployRequest) (*modelpb.DeployResponse, error) {
+// 	resp, err := modelclient.Deploy(ctx, req)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return resp, nil
+// }

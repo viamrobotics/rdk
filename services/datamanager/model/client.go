@@ -4,6 +4,11 @@ package model
 import (
 	"context"
 	"fmt"
+	"reflect"
+
+	// "sync"
+
+	// "github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
@@ -20,13 +25,13 @@ type client struct {
 
 // NewClient constructs a new pb.ModelServiceClient using the passed in connection.
 func NewClient(conn rpc.ClientConn) v1.ModelServiceClient {
-	fmt.Println("NewClient()")
+	fmt.Println("model/client.go/NewClient()")
 	return v1.NewModelServiceClient(conn)
 }
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
 func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
-	fmt.Println("newSvcClientFromConn()")
+	fmt.Println("model/client.go/newSvcClientFromConn()")
 	grpcClient := NewClient(conn)
 	sc := &client{
 		conn:   conn,
@@ -39,7 +44,7 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
 // NewClientFromConn constructs a new Client from connection passed in.
 //nolint:revive
 func NewClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
-	fmt.Println("NewClientFromConn()")
+	fmt.Println("model/client.go/NewClientFromConn()")
 	return newSvcClientFromConn(conn, logger)
 }
 
@@ -52,8 +57,51 @@ func (c *client) Upload(ctx context.Context) (v1.ModelService_UploadClient, erro
 }
 
 func (c *client) Deploy(ctx context.Context, req *v1.DeployRequest) (*v1.DeployResponse, error) {
-	// fmt.Println("Deploy()")
-	// resp, err := c.client.Deploy(ctx, req)
-	// fmt.Println("err: ", err)
+	fmt.Println("model/client.go/Deploy()")
+	fmt.Println(reflect.TypeOf(c))
+	fmt.Println(reflect.TypeOf(c.client))
+
 	return c.client.Deploy(ctx, req)
 }
+
+// // =-----
+// type Manager interface {
+// 	Deploy(ctx context.Context, req *v1.DeployRequest)
+// }
+
+// // syncer is responsible for uploading files in captureDir to the cloud.
+// type syncer struct {
+// 	partID            string
+// 	conn              rpc.ClientConn
+// 	client            v1.DataSyncServiceClient
+// 	logger            golog.Logger
+// 	progressTracker   progressTracker
+// 	backgroundWorkers sync.WaitGroup
+// 	cancelCtx         context.Context
+// 	cancelFunc        func()
+// }
+
+// func NewManager(logger golog.Logger, partID string, client v1.ModelServiceClient,
+// 	conn rpc.ClientConn,
+// ) (Manager, error) {
+// 	fmt.Println("datasync/sync.go/NewManager()")
+// 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+// 	ret := syncer{
+// 		conn:   conn,
+// 		client: client,
+// 		logger: logger,
+// 		progressTracker: progressTracker{
+// 			lock:        &sync.Mutex{},
+// 			m:           make(map[string]struct{}),
+// 			progressDir: viamProgressDotDir,
+// 		},
+// 		backgroundWorkers: sync.WaitGroup{},
+// 		cancelCtx:         cancelCtx,
+// 		cancelFunc:        cancelFunc,
+// 		partID:            partID,
+// 	}
+// 	if err := ret.progressTracker.initProgressDir(); err != nil {
+// 		return nil, errors.Wrap(err, "couldn't initialize progress tracking directory")
+// 	}
+// 	return &ret, nil
+// }

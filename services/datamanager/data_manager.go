@@ -32,6 +32,7 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	modelclient "go.viam.com/rdk/services/datamanager/model"
+
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -42,6 +43,7 @@ func init() {
 			return New(ctx, r, c, logger)
 		},
 	})
+	// ----------------------
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
@@ -71,14 +73,54 @@ func init() {
 	}, &Config{})
 
 	resource.AddDefaultService(Name)
+
+	// ----------------------
+
+	// registry.RegisterResourceSubtype(MSubtype, registry.ResourceSubtype{
+	// 	RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+	// 		return rpcServer.RegisterServiceServer(
+	// 			ctx,
+	// 			&modelpb.ModelService_ServiceDesc,
+	// 			NewMServer(subtypeSvc),
+	// 			modelpb.RegisterModelServiceHandlerFromEndpoint,
+	// 		)
+	// 	},
+	// 	RPCServiceDesc: &modelpb.ModelService_ServiceDesc,
+	// 	RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+	// 		return modelclient.NewClientFromConn(conn, logger)
+	// 	},
+	// 	Reconfigurable: WrapWithReconfigurable,
+	// })
+	// mType := config.ServiceType("models")
+	// config.RegisterServiceAttributeMapConverter(mType, func(attributes config.AttributeMap) (interface{}, error) {
+	// 	var conf Config
+	// 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	if err := decoder.Decode(attributes); err != nil {
+	// 		return nil, err
+	// 	}
+	// 	return &conf, nil
+	// }, &Config{})
+	// resource.AddDefaultService(MName)
+
 }
 
 // Service defines what a Data Manager Service should expose to the users.
 type Service interface {
 	Sync(ctx context.Context) error
+	// backmo.Deploy(ctx context.Context, req *modelpb.DeployRequest) (*modelpb.DeployResponse, error)
 }
 
+// Deploy(ctx context.Context, req *modelpb.DeployRequest) (*modelpb.DeployResponse, error)
+
+// type MService interface {
+// 	Deploy(ctx context.Context, req *modelpb.DeployRequest) (*modelpb.DeployResponse, error)
+// }
+
 var (
+	// _ = MService(&reconfigurableDataManager{})
 	_ = Service(&reconfigurableDataManager{})
 	_ = resource.Reconfigurable(&reconfigurableDataManager{})
 	_ = goutils.ContextCloser(&reconfigurableDataManager{})
@@ -86,6 +128,7 @@ var (
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("data_manager")
+const SubtypeMName = resource.SubtypeName("model_manager")
 
 // Subtype is a constant that identifies the data manager service resource subtype.
 var Subtype = resource.NewSubtype(
@@ -94,8 +137,16 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
+// MSubtype is a constant that identifies the data manager service resource subtype.
+var MSubtype = resource.NewSubtype(
+	resource.ResourceNamespaceRDK,
+	resource.ResourceTypeService,
+	SubtypeMName,
+)
+
 // Name is the DataManager's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
+var MName = resource.NameFromSubtype(Subtype, "")
 
 // Named is a helper for getting the named datamanager's typed resource name.
 // RSDK-347 Implements datamanager's Named.
@@ -178,6 +229,7 @@ var (
 
 // New returns a new data manager service for the given robot.
 func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger) (Service, error) {
+	fmt.Println("data_manager.go/New()")
 	// Set syncIntervalMins = -1 as we rely on initOrUpdateSyncer to instantiate a syncer
 	// on first call to Update, even if syncIntervalMins value is 0, and the default value for int64 is 0.
 	dataManagerSvc := &dataManagerService{
@@ -490,7 +542,7 @@ func (svc *dataManagerService) syncAdditionalSyncPaths() {
 
 // Update updates the data manager service when the config has changed.
 func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) error {
-	fmt.Println("Update()")
+	fmt.Println("data_manager.go/Update()")
 	svcConfig, ok, err := getServiceConfig(cfg)
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
 	// Close any collectors.
@@ -581,7 +633,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 }
 
 func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy []*Model) error {
-	fmt.Println("downloadModels()")
+	fmt.Println("data_manager.go/downloadModels()")
 	modelsToDownload := getModelsToDownload(modelsToDeploy)
 	// TODO: DATA-295, delete models in file system that are no longer in the config.
 	// If we have no models to download, exit.
@@ -611,6 +663,7 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 
 	svc.deployModelsBackgroundWorkers.Add(len(modelsToDownload))
 	modelServiceClient := modelclient.NewClientFromConn(*svc.clientConn, svc.logger)
+	fmt.Println("What happens now?")
 	for _, model := range modelsToDownload {
 		go func(model *Model) {
 			// Change context to a timeout?
@@ -620,7 +673,7 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 					ModelName: model.Name,
 				},
 			}
-			fmt.Println("modelServiceClient.Deploy()")
+			fmt.Println("versus What happens now?")
 			deployResp, err := modelServiceClient.Deploy(cancelCtx, deployRequest)
 			if err != nil {
 				svc.logger.Fatalf(err.Error())
@@ -644,7 +697,7 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 
 // unzipSource unzips all files inside a zip file.
 func unzipSource(cancelCtx context.Context, destination, fileName string, logger golog.Logger) error {
-	fmt.Println("unzipSource()")
+	fmt.Println("data_manager.go/unzipSource()")
 	zipReader, err := zip.OpenReader(filepath.Join(destination, fileName))
 	if err != nil {
 		return err
@@ -661,7 +714,7 @@ func unzipSource(cancelCtx context.Context, destination, fileName string, logger
 }
 
 func unzipFile(cancelCtx context.Context, f *zip.File, destination string, logger golog.Logger) error {
-	fmt.Println("unzipFile()")
+	fmt.Println("data_manager.go/unzipFile()")
 	// TODO: DATA-307, We should be passing in the context to any operations that can take several seconds,
 	// which includes unzipFile. As written, this can block .Close for an unbounded amount of time.
 	//nolint:gosec
@@ -772,7 +825,7 @@ func getModelsToDownload(models []*Model) []*Model {
 	// all their models in. In that case, this wouldn't work as expected.
 	// TODO: Fix.
 	// to test this version we only upload one model?
-	fmt.Println("getModelsToDownload()")
+	fmt.Println("data_manager.go/getModelsToDownload()")
 	modelsToDownload := make([]*Model, 0)
 	for _, model := range models {
 		if model.Destination == "" {
@@ -794,7 +847,7 @@ func getModelsToDownload(models []*Model) []*Model {
 }
 
 func createClientConnection(logger *zap.SugaredLogger, cfg *config.Config) (rpc.ClientConn, error) {
-	fmt.Println("createClientConnection()")
+	fmt.Println("data_manager.go/createClientConnection()")
 	ctx := context.Background()
 	tlsConfig := config.NewTLSConfig(cfg).Config
 	cloudConfig := cfg.Cloud
@@ -808,7 +861,6 @@ func createClientConnection(logger *zap.SugaredLogger, cfg *config.Config) (rpc.
 				Payload: cloudConfig.Secret,
 			}),
 	}
-	// appURL := cfg.Network.BindAddress
 	appURL := "app.viam.com:443"
 
 	conn, err := rpc.DialDirectGRPC(
@@ -863,6 +915,7 @@ func (svc *dataManagerService) cancelSyncBackgroundRoutine() {
 type reconfigurableDataManager struct {
 	mu     sync.RWMutex
 	actual Service
+	// mact   MService
 }
 
 func (svc *reconfigurableDataManager) Sync(ctx context.Context) error {
@@ -870,6 +923,12 @@ func (svc *reconfigurableDataManager) Sync(ctx context.Context) error {
 	defer svc.mu.RUnlock()
 	return svc.actual.Sync(ctx)
 }
+
+// func (svc *reconfigurableDataManager) Deploy(ctx context.Context, req *modelpb.DeployRequest) (*modelpb.DeployResponse, error) {
+// 	svc.mu.RLock()
+// 	defer svc.mu.RUnlock()
+// 	return svc.mact.Deploy(ctx, req)
+// }
 
 func (svc *reconfigurableDataManager) Close(ctx context.Context) error {
 	svc.mu.RLock()

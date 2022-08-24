@@ -89,7 +89,7 @@ func getInjectedRobotWithArm(armKey string) *inject.Robot {
 }
 
 func newTestDataManager(t *testing.T, localArmKey string, remoteArmKey string) internal.DMService {
-	fmt.Println("newTestDataManager()")
+	fmt.Println("data_manager_test.go/newTestDataManager()")
 	t.Helper()
 	dmCfg := &datamanager.Config{}
 	cfgService := config.Service{
@@ -118,7 +118,7 @@ func newTestDataManager(t *testing.T, localArmKey string, remoteArmKey string) i
 }
 
 func setupConfig(t *testing.T, relativePath string) *config.Config {
-	fmt.Println("setupConfig()")
+	fmt.Println("data_manager_test.go/setupConfig()")
 	t.Helper()
 	logger := golog.NewTestLogger(t)
 	testCfg, err := config.Read(context.Background(), rutils.ResolveFile(relativePath), logger)
@@ -297,7 +297,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 // Validates that if the datamanager/robot die unexpectedly, that previously captured
 // but not synced model files are still synced at start up.
 func TestModelsAfterKilled(t *testing.T) {
-	fmt.Println("TestModelsAfterKilled()")
+	fmt.Println("data_manager_test.go/TestModelsAfterKilled()")
 	// Register mock model service with a mock server.
 	rpcServer, mockService := buildAndStartLocalModelServer(t)
 	defer func() {
@@ -314,6 +314,7 @@ func TestModelsAfterKilled(t *testing.T) {
 	if err != nil {
 		t.Error("unable to generate arbitrary data files and create directory structure.")
 	}
+
 	fmt.Println("numArbitraryFilesToSync: ", numArbitraryFilesToSync)
 
 	logger, _ := golog.NewObservedTestLogger(t)
@@ -329,9 +330,12 @@ func TestModelsAfterKilled(t *testing.T) {
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
+
+	// hmmm this smells funny
 	// dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	// dmsvc.SetSyncerConstructor(altGetTestSyncerConstructor(t, rpcServer))
-	// dmsvc.SetSyncerConstructor(getTestSyncerConstructor(&testing.T{}, rpcServer))
+	// dmsvc.SetSyncerConstructor(getTestSyncerConstructor(nil, nil))
+
 	dmsvc.SetWaitAfterLastModifiedSecs(10)
 	dmsvc.SetClientConn(conn)
 	err = dmsvc.Update(context.TODO(), testCfg)
@@ -389,7 +393,7 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 // syncing of data in the service's models_on_robot.
 //nolint
 func populateModels() ([]*datamanager.Model, []string, int, error) {
-	fmt.Println("populateModels()")
+	fmt.Println("data_manager_test.go/populateModels()")
 	var additionalModels []*datamanager.Model
 	var additionalPaths []string
 	numArbitraryFilesToSync := 0
@@ -768,7 +772,7 @@ func TestGetDurationFromHz(t *testing.T) {
 }
 
 func getDataManagerConfig(config *config.Config) (*datamanager.Config, error) {
-	fmt.Println("getDataManagerConfig()")
+	fmt.Println("data_manager_test.go/getDataManagerConfig()")
 	svcConfig, ok, err := datamanager.GetServiceConfig(config)
 	if err != nil {
 		return nil, err
@@ -875,7 +879,7 @@ func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServ
 
 //nolint:thelper
 func buildAndStartLocalModelServer(t *testing.T) (rpc.Server, mockModelServiceServer) {
-	fmt.Println("buildAndStartLocalModelServer()")
+	fmt.Println("data_manager_test.go/buildAndStartLocalModelServer()")
 	logger, _ := golog.NewObservedTestLogger(t)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
@@ -901,6 +905,7 @@ func buildAndStartLocalModelServer(t *testing.T) (rpc.Server, mockModelServiceSe
 }
 
 func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientConn, error) {
+	fmt.Println("data_manager_test.go/getLocalServerConn()")
 	return rpc.DialDirectGRPC(
 		context.Background(),
 		rpcServer.InternalAddr().String(),
@@ -911,6 +916,7 @@ func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientCo
 
 //nolint:thelper
 func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerConstructor {
+	fmt.Println("data_manager_test.go/getTestSyncerConstructor()")
 	return func(logger golog.Logger, cfg *config.Config) (datasync.Manager, error) {
 		conn, err := getLocalServerConn(server, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -918,3 +924,14 @@ func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerC
 		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn)
 	}
 }
+
+//nolint:thelper
+// func altGetTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerConstructor {
+// 	fmt.Println("data_manager_test.go/altGetTestSyncerConstructor()")
+// 	return func(logger golog.Logger, cfg *config.Config) (datasync.Manager, error) {
+// 		conn, err := getLocalServerConn(server, logger)
+// 		test.That(t, err, test.ShouldBeNil)
+// 		client := modelclient.NewClient(conn)
+// 		return modelclient.NewManager(logger, cfg.Cloud.ID, client, conn)
+// 	}
+// }
