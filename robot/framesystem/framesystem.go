@@ -33,7 +33,8 @@ type Service interface {
 	) (*referenceframe.PoseInFrame, error)
 }
 
-// get present inputs for a framesystem from a robot.
+// RobotFsCurrentInputs will get present inputs for a framesystem from a robot and return a map of those inputs, as well as a map of the
+// InputEnabled resources that those inputs came from.
 func RobotFsCurrentInputs(
 	ctx context.Context,
 	r robot.Robot,

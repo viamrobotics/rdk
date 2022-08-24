@@ -4,17 +4,16 @@ package motionplan
 import (
 	"context"
 	"errors"
-	//~ "fmt"
 	"math"
 	"sort"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/robot/framesystem"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/framesystem"
 	spatial "go.viam.com/rdk/spatialmath"
 	vutil "go.viam.com/rdk/utils"
 )
@@ -22,8 +21,6 @@ import (
 const (
 	// Default distance below which two distances are considered equal.
 	defaultEpsilon = 0.001
-	// Solve for waypoints this far apart to speed solving.
-	pathStepSize = 10.0
 )
 
 // MotionPlanner provides an interface to path planning methods, providing ways to request a path to be planned, and
@@ -32,8 +29,7 @@ type MotionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
 	Plan(context.Context, *commonpb.Pose, []frame.Input, *PlannerOptions) ([][]frame.Input, error)
-	Resolution() float64 // Resolution specifies how narrowly to check for constraints
-	Frame() frame.Frame  // Frame will return the frame used for planning
+	Frame() frame.Frame // Frame will return the frame used for planning
 }
 
 // needed to wrap slices so we can use them as map keys.
@@ -46,7 +42,7 @@ type planReturn struct {
 	err   error
 }
 
-// PlanRobotMotion plans a motion to destination for a given frame. A robot object is passed in and current position inputs are determined
+// PlanRobotMotion plans a motion to destination for a given frame. A robot object is passed in and current position inputs are determined.
 func PlanRobotMotion(ctx context.Context,
 	dst *frame.PoseInFrame,
 	f frame.Frame,
@@ -59,7 +55,7 @@ func PlanRobotMotion(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return PlanWaypoints(ctx, r.Logger(), []*frame.PoseInFrame{dst}, f, seedMap, fs, worldState, []map[string]interface{}{planningOpts})
 }
 
@@ -73,7 +69,6 @@ func PlanMotion(ctx context.Context,
 	worldState *commonpb.WorldState,
 	planningOpts map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
-	
 	return PlanWaypoints(ctx, logger, []*frame.PoseInFrame{dst}, f, seedMap, fs, worldState, []map[string]interface{}{planningOpts})
 }
 
@@ -88,12 +83,11 @@ func PlanWaypoints(ctx context.Context,
 	worldState *commonpb.WorldState,
 	planningOpts []map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
-	
 	solvableFS := NewSolvableFrameSystem(fs, logger)
 	if len(dst) == 0 {
 		return nil, errors.New("no destinations passed to PlanWaypoints")
 	}
-	
+
 	return solvableFS.SolveWaypointsWithOptions(ctx, seedMap, dst, f.Name(), worldState, planningOpts)
 }
 
@@ -289,9 +283,9 @@ func getSolutions(ctx context.Context,
 ) ([][]frame.Input, error) {
 	// Linter doesn't properly handle loop labels
 
-	nSolutions := opt.maxSolutions
+	nSolutions := opt.MaxSolutions
 	if nSolutions == 0 {
-		nSolutions = solutionsToSeed
+		nSolutions = defaultSolutionsToSeed
 	}
 
 	seedPos, err := f.Transform(seed)
@@ -342,7 +336,7 @@ IK:
 			})
 
 			if cPass && endPass {
-				if cScore < opt.minScore && opt.minScore > 0 {
+				if cScore < opt.MinScore && opt.MinScore > 0 {
 					solutions = map[float64][]frame.Input{}
 					solutions[cScore] = step
 					// good solution, stopping early

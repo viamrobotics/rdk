@@ -255,7 +255,7 @@ func testPlanner(t *testing.T, planner seededPlannerConstructor, config *planCon
 				StartInput: path[j],
 				EndInput:   path[j+1],
 				Frame:      config.RobotFrame,
-			}, mp.Resolution())
+			}, opt.Resolution)
 			test.That(t, ok, test.ShouldBeTrue)
 		}
 	}

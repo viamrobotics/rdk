@@ -51,7 +51,6 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	worldState *commonpb.WorldState,
 	motionConfigs []map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
-	
 	steps := make([]map[string][]frame.Input, 0, len(goals)*2)
 
 	// Get parentage of both frames. This will also verify the frames are in the frame system
@@ -63,27 +62,28 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	
+
 	opts := make([]map[string]interface{}, 0, len(goals))
-	
+
 	// If no planning opts, use default. If one, use for all goals. If one per goal, use respective option. Otherwise error.
 	if len(motionConfigs) != len(goals) {
-		if len(motionConfigs) == 0 {
-			for range(goals) {
+		switch len(motionConfigs) {
+		case 0:
+			for range goals {
 				opts = append(opts, map[string]interface{}{})
 			}
-		}else if len(motionConfigs) == 1 {
+		case 1:
 			// If one config passed, use it for all waypoints
-			for range(goals) {
+			for range goals {
 				opts = append(opts, motionConfigs[0])
 			}
-		}else{
+		default:
 			return nil, errors.New("goals and motion configs had different lengths")
 		}
-	}else{
+	} else {
 		opts = motionConfigs
 	}
-	
+
 	// Each goal is a different PoseInFrame and so may have a different destination Pose. Since the motion can be solved from either end,
 	// each goal is solved independently.
 	for i, goal := range goals {
@@ -133,20 +133,18 @@ type solverFrame struct {
 	goalFrame  frame.Frame
 }
 
-func (sf *solverFrame) planSingleWaypoint (ctx context.Context,
+func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 	seedMap map[string][]frame.Input,
 	goalPos spatial.Pose,
 	worldState *commonpb.WorldState,
 	motionConfig map[string]interface{},
 ) ([][]frame.Input, error) {
-	
 	seed := sf.mapToSlice(seedMap)
 	seedPos, err := sf.Transform(seed)
 	if err != nil {
 		return nil, err
 	}
-	
-	
+
 	// Build planner
 	var planner MotionPlanner
 	if sf.fss.mpFunc != nil {
@@ -157,21 +155,19 @@ func (sf *solverFrame) planSingleWaypoint (ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	
+
 	goals := []spatial.Pose{goalPos}
 	opts := []*PlannerOptions{}
-	
+
 	// linear motion profile has known intermediate points, so solving can be broken up and sped up
 	if profile, ok := motionConfig["motionProfile"]; ok && profile == "linear" {
-		
 		pathStepSize, ok := motionConfig["pathStepSize"].(float64)
 		if !ok {
 			// Default
-			pathStepSize = DefaultPathStepSize
+			pathStepSize = defaultPathStepSize
 		}
 		numSteps := GetSteps(seedPos, goalPos, pathStepSize)
 		goals = make([]spatial.Pose, 0, numSteps)
-		fmt.Println("it's linear! num steps: ", numSteps)
 
 		from := seedPos
 		for i := 1; i < numSteps; i++ {
@@ -199,8 +195,6 @@ func (sf *solverFrame) planSingleWaypoint (ctx context.Context,
 		}
 		opts = append(opts, opt)
 	}
-	
-	fmt.Println("goals", goals)
 
 	resultSlices, err := runPlannerWithWaypoints(ctx, planner, goals, seed, opts, 0)
 	if err != nil {
