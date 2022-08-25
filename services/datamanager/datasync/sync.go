@@ -116,7 +116,6 @@ func (s *syncer) Close() {
 }
 
 func (s *syncer) upload(ctx context.Context, path string) {
-	fmt.Println("in syncer upload")
 	if s.progressTracker.inProgress(path) {
 		return
 	}
@@ -158,9 +157,7 @@ func (s *syncer) upload(ctx context.Context, path string) {
 }
 
 func (s *syncer) Sync(paths []string) {
-	fmt.Println("sync in datasync/sync.go() on ", paths)
 	for _, p := range paths {
-		fmt.Println("uploading in datasync/sync.go")
 		s.upload(s.cancelCtx, p)
 	}
 }
