@@ -12,7 +12,7 @@ import (
 
 const (
 	// max linear deviation from straight-line between start and goal, in mm.
-	defaultLinearDeviation = 0.3
+	defaultLinearDeviation = 0.1
 	// allowable deviation from slerp between start/goal orientations, unit is the norm of the R3AA between start and goal.
 	defaultOrientationDeviation = 0.05
 	// allowable linear and orientation deviation from direct interpolation path, as a proportion of the linear and orientation distances
@@ -24,6 +24,8 @@ const (
 	defaultResolution = 2.0
 	// If an IK solution scores below this much, return it immediately.
 	defaultMinIkScore = 0.
+	// Default distance below which two distances are considered equal.
+	defaultEpsilon = 0.001
 	// names of constraints.
 	defaultLinearConstraintName       = "defaultLinearConstraint"
 	defaultPseudolinearConstraintName = "defaultPseudolinearConstraint"
@@ -32,7 +34,7 @@ const (
 	defaultJointConstraint            = "defaultJointSwingConstraint"
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
-	defaultPathStepSize = 20
+	defaultPathStepSize = 10
 )
 
 func plannerSetupFromMoveRequest(

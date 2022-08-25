@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
-	//~ "fmt".
 	"math/rand"
 
 	"github.com/edaniels/golog"
@@ -27,6 +26,53 @@ const (
 	// Number of iterations to run before beginning to accept randomly seeded locations.
 	defaultIterBeforeRand = 50
 )
+
+type cbirrtOptions struct {
+	// The maximum percent of a joints range of motion to allow per step.
+	FrameStep float64 `json:"frame_step"`
+	// If the dot product between two sets of joint angles is less than this, consider them identical.
+	JointSolveDist float64 `json:"joint_solve_dist"`
+	// Number of planner iterations before giving up.
+	PlanIter int `json:"plan_iter"`
+	// Number of IK solutions with which to seed the goal side of the bidirectional tree.
+	SolutionsToSeed int `json:"solutions_to_seed"`
+	// Max number of iterations of path smoothing to run.
+	SmoothIter int `json:"smooth_iter"`
+	// Number of iterations to mrun before beginning to accept randomly seeded locations.
+	IterBeforeRand int `json:"iter_before_rand"`
+
+	// This is how far cbirrt will try to extend the map towards a goal per-step. Determined from FrameStep
+	qstep []float64
+	// Contains constraints, IK solving params, etc
+	planOpts *PlannerOptions
+}
+
+// newCbirrtOptions creates a struct controlling the running of a single invocation of cbirrt. All values are pre-set to reasonable
+// defaults, but can be tweaked if needed.
+func newCbirrtOptions(planOpts *PlannerOptions, frame referenceframe.Frame) (*cbirrtOptions, error) {
+	opt := &cbirrtOptions{
+		FrameStep:       defaultFrameStep,
+		JointSolveDist:  defaultJointSolveDist,
+		PlanIter:        defaultPlanIter,
+		SolutionsToSeed: defaultSolutionsToSeed,
+		SmoothIter:      defaultSmoothIter,
+		IterBeforeRand:  defaultIterBeforeRand,
+		planOpts:        planOpts,
+	}
+	// convert map to json
+	jsonString, err := json.Marshal(planOpts.extra)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(jsonString, opt)
+	if err != nil {
+		return nil, err
+	}
+
+	opt.qstep = getFrameSteps(frame, opt.FrameStep)
+
+	return opt, nil
+}
 
 // cBiRRTMotionPlanner an object able to solve constrained paths around obstacles to some goal for a given referenceframe.
 // It uses the Constrained Bidirctional Rapidly-expanding Random Tree algorithm, Berenson et al 2009
@@ -105,9 +151,9 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 ) {
 	defer close(solutionChan)
 
-	// use default options if none are provided
 	if planOpt == nil {
-		planOpt = NewBasicPlannerOptions()
+		solutionChan <- &planReturn{err: errors.New("planRunner requires populated planner options")}
+		return
 	}
 	opt, err := newCbirrtOptions(planOpt, mp.frame)
 	if err != nil {
@@ -467,49 +513,4 @@ func extractPath(startMap, goalMap map[*configuration]*configuration, q1, q2 *co
 		goalReached = goalMap[goalReached]
 	}
 	return path
-}
-
-type cbirrtOptions struct {
-	// The maximum percent of a joints range of motion to allow per step.
-	FrameStep float64 `json:"frame_step"`
-	// If the dot product between two sets of joint angles is less than this, consider them identical.
-	JointSolveDist float64 `json:"joint_solve_dist"`
-	// Number of planner iterations before giving up.
-	PlanIter int `json:"plan_iter"`
-	// Number of IK solutions with which to seed the goal side of the bidirectional tree.
-	SolutionsToSeed int `json:"solutions_to_seed"`
-	// Max number of iterations of path smoothing to run.
-	SmoothIter int `json:"smooth_iter"`
-	// Number of iterations to mrun before beginning to accept randomly seeded locations.
-	IterBeforeRand int `json:"iter_before_rand"`
-
-	qstep    []float64
-	planOpts *PlannerOptions
-}
-
-// newCbirrtOptions creates a struct controlling the running of a single invocation of cbirrt. All values are pre-set to reasonable
-// defaults, but can be tweaked if needed.
-func newCbirrtOptions(planOpts *PlannerOptions, frame referenceframe.Frame) (*cbirrtOptions, error) {
-	opt := &cbirrtOptions{
-		FrameStep:       defaultFrameStep,
-		JointSolveDist:  defaultJointSolveDist,
-		PlanIter:        defaultPlanIter,
-		SolutionsToSeed: defaultSolutionsToSeed,
-		SmoothIter:      defaultSmoothIter,
-		IterBeforeRand:  defaultIterBeforeRand,
-		planOpts:        planOpts,
-	}
-	// convert map to json
-	jsonString, err := json.Marshal(planOpts.extra)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(jsonString, opt)
-	if err != nil {
-		return nil, err
-	}
-
-	opt.qstep = getFrameSteps(frame, opt.FrameStep)
-
-	return opt, nil
 }
