@@ -99,7 +99,7 @@ func (dm detectorMap) removeDetector(name string, logger golog.Logger) error {
 
 // registerNewDetectors take an attributes struct and parses each element by type to create an RDK Detector
 // and register it to the detector map.
-func registerNewDetectors(ctx context.Context, dm detectorMap, attrs *Attributes, logger golog.Logger) error {
+func registerNewDetectors(ctx context.Context, dm detectorMap, mm modelMap, attrs *Attributes, logger golog.Logger) error {
 	_, span := trace.StartSpan(ctx, "service::vision::registerNewDetectors")
 	defer span.End()
 	for _, attr := range attrs.DetectorRegistry {
@@ -111,6 +111,22 @@ func registerNewDetectors(ctx context.Context, dm detectorMap, attrs *Attributes
 			return newDetectorTypeNotImplemented(attr.Type)
 		case ColorType:
 			err := registerColorDetectorr(ctx, dm, &attr, logger)
+			if err != nil {
+				return err
+			}
+		default:
+			return newDetectorTypeNotImplemented(attr.Type)
+		}
+	}
+	for _, attr := range attrs.ModelRegistry {
+		logger.Debugf("adding detector %q of type %s", attr.Name, attr.Type)
+		switch DetectorType(attr.Type) {
+		case TFLiteType:
+			return registerTfliteDetector(ctx, mm, &attr, logger)
+		case TensorFlowType:
+			return newDetectorTypeNotImplemented(attr.Type)
+		case ColorType:
+			err := registerColorDetector(ctx, mm, &attr, logger)
 			if err != nil {
 				return err
 			}

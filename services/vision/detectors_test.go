@@ -104,7 +104,8 @@ func TestRegisterTFLiteDetector(t *testing.T) {
 		},
 	}
 	reg := make(detectorMap)
-	err := registerNewDetectors(context.Background(), reg, conf, golog.NewTestLogger(t))
+	reg2 := make(modelMap)
+	err := registerNewDetectors(context.Background(), reg, reg2, conf, golog.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -119,7 +120,8 @@ func TestRegisterTensorFlowDetector(t *testing.T) {
 		},
 	}
 	reg := make(detectorMap)
-	err := registerNewDetectors(context.Background(), reg, conf, golog.NewTestLogger(t))
+	reg2 := make(modelMap)
+	err := registerNewDetectors(context.Background(), reg, reg2, conf, golog.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeError, newDetectorTypeNotImplemented("tensorflow"))
 }
 
@@ -138,14 +140,15 @@ func TestRegisterColorDetector(t *testing.T) {
 		},
 	}
 	reg := make(detectorMap)
-	err := registerNewDetectors(context.Background(), reg, conf, golog.NewTestLogger(t))
+	reg2 := make(modelMap)
+	err := registerNewDetectors(context.Background(), reg, reg2, conf, golog.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = reg.detectorLookup("my_color_det")
 	test.That(t, err, test.ShouldBeNil)
 
 	// error from bad config
 	conf.DetectorRegistry[0].Parameters = nil
-	err = registerNewDetectors(context.Background(), reg, conf, golog.NewTestLogger(t))
+	err = registerNewDetectors(context.Background(), reg, reg2, conf, golog.NewTestLogger(t))
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected EOF")
 }
 
@@ -160,6 +163,7 @@ func TestRegisterUnknownDetector(t *testing.T) {
 		},
 	}
 	reg := make(detectorMap)
-	err := registerNewDetectors(context.Background(), reg, conf, golog.NewTestLogger(t))
+	reg2 := make(modelMap)
+	err := registerNewDetectors(context.Background(), reg, reg2, conf, golog.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeError, newDetectorTypeNotImplemented("not_real"))
 }

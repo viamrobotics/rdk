@@ -130,6 +130,7 @@ type Attributes struct {
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
 	detMap := make(detectorMap)
 	segMap := make(segmenterMap)
+	modMap := make(modelMap)
 	// register default segmenters
 	err := segMap.registerSegmenter(RadiusClusteringSegmenter, SegmenterRegistration{
 		segmentation.Segmenter(segmentation.RadiusClustering),
@@ -144,7 +145,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		if !ok {
 			return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 		}
-		err = registerNewDetectors(ctx, detMap, attrs, logger)
+		err = registerNewDetectors(ctx, detMap, modMap, attrs, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -152,6 +153,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	service := &visionService{
 		r:      r,
 		detReg: detMap,
+		modReg: modMap,
 		segReg: segMap,
 		logger: logger,
 	}
@@ -168,6 +170,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 type visionService struct {
 	r      robot.Robot
 	detReg detectorMap
+	modReg modelMap
 	segReg segmenterMap
 	logger golog.Logger
 }
@@ -185,7 +188,7 @@ func (vs *visionService) AddDetector(ctx context.Context, cfg DetectorConfig) er
 	ctx, span := trace.StartSpan(ctx, "service::vision::AddDetector")
 	defer span.End()
 	attrs := &Attributes{DetectorRegistry: []DetectorConfig{cfg}}
-	err := registerNewDetectors(ctx, vs.detReg, attrs, vs.logger)
+	err := registerNewDetectors(ctx, vs.detReg, vs.modReg, attrs, vs.logger)
 	if err != nil {
 		return err
 	}
