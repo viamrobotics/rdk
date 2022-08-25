@@ -103,7 +103,7 @@ func TestServerAddDetector(t *testing.T) {
 	_, err = server.AddDetector(context.Background(), &pb.AddDetectorRequest{
 		Name:               testVisionServiceName,
 		DetectorName:       "test",
-		DetectorModelType:  "color",
+		DetectorModelType:  "color_detector",
 		DetectorParameters: params,
 	})
 	test.That(t, err, test.ShouldBeNil)
@@ -116,7 +116,7 @@ func TestServerAddDetector(t *testing.T) {
 	segRequest := &pb.GetSegmenterNamesRequest{Name: testVisionServiceName}
 	segResp, err := server.GetSegmenterNames(context.Background(), segRequest)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, segResp.GetSegmenterNames(), test.ShouldContain, "test")
+	test.That(t, segResp.GetSegmenterNames(), test.ShouldContain, "test_segmenter")
 	// failure
 	resp, err := server.AddDetector(context.Background(), &pb.AddDetectorRequest{
 		Name:               testVisionServiceName,
@@ -169,7 +169,7 @@ func TestServerGetDetections(t *testing.T) {
 	addDetResp, err := server.AddDetector(context.Background(), &pb.AddDetectorRequest{
 		Name:               visName,
 		DetectorName:       "test",
-		DetectorModelType:  "tflite",
+		DetectorModelType:  "tflite_detector",
 		DetectorParameters: params,
 	})
 	test.That(t, err, test.ShouldBeNil)

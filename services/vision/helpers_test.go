@@ -74,9 +74,9 @@ func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
 	srv, err := vision.FirstFromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 	// add the detector
-	detConf := vision.DetectorConfig{
+	detConf := vision.VisModelConfig{
 		Name: "detect_red",
-		Type: "color",
+		Type: "color_detector",
 		Parameters: config.AttributeMap{
 			"detect_color": "#C9131F", // look for red
 			"tolerance":    0.05,

@@ -70,7 +70,7 @@ func (server *subtypeServer) AddDetector(
 		return nil, err
 	}
 	params := config.AttributeMap(req.DetectorParameters.AsMap())
-	cfg := DetectorConfig{
+	cfg := VisModelConfig{
 		Name:       req.DetectorName,
 		Type:       req.DetectorModelType,
 		Parameters: params,

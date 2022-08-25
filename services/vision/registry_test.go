@@ -14,7 +14,7 @@ import (
 	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
-func TestDetectorMap(t *testing.T) {
+func TestDetectorMap2(t *testing.T) {
 	fn := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
 	}
@@ -50,7 +50,7 @@ func TestDetectorMap(t *testing.T) {
 	test.That(t, reg.detectorNames(), test.ShouldNotContain, fnName)
 }
 
-func TestDetectorCloser(t *testing.T) {
+func TestDetectorCloser2(t *testing.T) {
 	fakeDetectFn := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
 	}
@@ -64,7 +64,7 @@ func TestDetectorCloser(t *testing.T) {
 	test.That(t, got, test.ShouldNotBeNil)
 }
 
-func TestDetectorRemoval(t *testing.T) {
+func TestDetectorRemoval2(t *testing.T) {
 	fakeDetectFn := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
 	}
@@ -88,7 +88,7 @@ func TestDetectorRemoval(t *testing.T) {
 	test.That(t, reg.detectorNames(), test.ShouldNotContain, "x")
 }
 
-func TestRegisterTFLiteDetector(t *testing.T) {
+func TestRegisterTFLiteDetector2(t *testing.T) {
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
 	conf := &Attributes{
 		DetectorRegistry: []DetectorConfig{
@@ -109,7 +109,7 @@ func TestRegisterTFLiteDetector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestRegisterTensorFlowDetector(t *testing.T) {
+func TestRegisterTensorFlowDetector2(t *testing.T) {
 	conf := &Attributes{
 		DetectorRegistry: []DetectorConfig{
 			{
@@ -125,7 +125,7 @@ func TestRegisterTensorFlowDetector(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, newDetectorTypeNotImplemented("tensorflow"))
 }
 
-func TestRegisterColorDetector(t *testing.T) {
+func TestRegisterColorDetector2(t *testing.T) {
 	conf := &Attributes{
 		DetectorRegistry: []DetectorConfig{
 			{
@@ -152,7 +152,7 @@ func TestRegisterColorDetector(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected EOF")
 }
 
-func TestRegisterUnknownDetector(t *testing.T) {
+func TestRegisterUnknownDetector2(t *testing.T) {
 	conf := &Attributes{
 		DetectorRegistry: []DetectorConfig{
 			{

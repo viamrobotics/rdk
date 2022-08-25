@@ -10,6 +10,9 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision/classification"
+	"go.viam.com/rdk/vision/objectdetection"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 // DetectorType defines what detector types are known.
@@ -51,43 +54,61 @@ type registeredModel struct {
 	SegParams []utils.TypedName
 }
 
+func (m *registeredModel) toDetector() (objectdetection.Detector, error) {
+	toReturn, ok := m.model.(objectdetection.Detector)
+	if !ok {
+		return nil, errors.New("couldn't convert model to detector")
+	}
+	return toReturn, nil
+}
+
+func (m *registeredModel) toClassifier() (classification.Classifier, error) {
+	toReturn, ok := m.model.(classification.Classifier)
+	if !ok {
+		return nil, errors.New("couldn't convert model to classifier")
+	}
+	return toReturn, nil
+}
+
+func (m *registeredModel) toSegmenter() (segmentation.Segmenter, error) {
+	toReturn, ok := m.model.(segmentation.Segmenter)
+	if !ok {
+		return nil, errors.New("couldn't convert model to segmenter")
+	}
+	return toReturn, nil
+}
+
 func (mm modelMap) DetectorNames() []string {
-	return detectorList
+	names := make([]string, 0, len(mm))
+	for name := range mm {
+		thisType, _ := mm.getModelType(name)
+		if thisType == TFDetector || thisType == TFLiteDetector || thisType == ColorDetector {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 func (mm modelMap) ClassifierNames() []string {
-	return classifierList
+	names := make([]string, 0, len(mm))
+	for name := range mm {
+		thisType, _ := mm.getModelType(name)
+		if thisType == TFClassifier || thisType == TFLiteClassifier {
+			names = append(names, name)
+		}
+	}
+	return names
 }
 
 func (mm modelMap) SegmenterNames() []string {
-	return segmenterList
-}
-
-func (mm modelMap) modelLookup(name string) (registeredModel, error) {
-	m, ok := mm[name]
-	if !ok {
-		return registeredModel{}, errors.Errorf("no such vision model with name %q", name)
+	names := make([]string, 0, len(mm))
+	for name := range mm {
+		thisType, _ := mm.getModelType(name)
+		if thisType == RCSegmenter || thisType == ObjectSegmenter {
+			names = append(names, name)
+		}
 	}
-
-	//switch m.modelType {
-	//case TFLiteDetector:
-	//	return m.model.(objectdetection.Detector), nil
-	//case TFDetector:
-	//	return m.model.(objectdetection.Detector), nil
-	//case ColorDetector:
-	//	return m.model.(objectdetection.Detector), nil
-	//case TFLiteClassifier:
-	//	return m.model.(classification.Classifier), nil
-	//case TFClassifier:
-	//	return m.model.(classification.Classifier), nil
-	//case RadiusClusteringSegmenter:
-	//	return m.model.(segmentation.Segmenter), nil
-	//case ObjectSegmenter:
-	//	return m.model.(segmentation.Segmenter), nil
-	//default:
-	//	return nil, newVisModelTypeNotImplemented(name)
-	//}
-	return m, nil
+	return names
 }
 
 func (mm modelMap) getModelType(name string) (VisModelType, error) {
@@ -98,6 +119,14 @@ func (mm modelMap) getModelType(name string) (VisModelType, error) {
 	return m.modelType, nil
 }
 
+func (mm modelMap) modelLookup(name string) (registeredModel, error) {
+	m, ok := mm[name]
+	if !ok {
+		return registeredModel{}, errors.Errorf("no such vision model with name %q", name)
+	}
+	return m, nil
+}
+
 func (mm modelMap) modelNames() []string {
 	names := make([]string, 0, len(mm))
 	for name := range mm {
@@ -106,7 +135,7 @@ func (mm modelMap) modelNames() []string {
 	return names
 }
 
-func (mm modelMap) removeModel(name string, logger golog.Logger) error {
+func (mm modelMap) removeVisModel(name string, logger golog.Logger) error {
 	if _, ok := mm[name]; !ok {
 		logger.Infof("no such vision model with name %s", name)
 		return nil
@@ -151,7 +180,7 @@ func (mm modelMap) registerVisModel(name string, m *registeredModel, logger golo
 			detectorList = append(detectorList, name)
 		case ColorDetector:
 			detectorList = append(detectorList, name)
-		case RadiusClusteringSegmenter:
+		case RCSegmenter:
 			segmenterList = append(segmenterList, name)
 		case ObjectSegmenter:
 			segmenterList = append(segmenterList, name)

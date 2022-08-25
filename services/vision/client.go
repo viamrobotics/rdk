@@ -51,7 +51,7 @@ func (c *client) GetDetectorNames(ctx context.Context) ([]string, error) {
 	return resp.DetectorNames, nil
 }
 
-func (c *client) AddDetector(ctx context.Context, cfg DetectorConfig) error {
+func (c *client) AddDetector(ctx context.Context, cfg VisModelConfig) error {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::AddDetector")
 	defer span.End()
 	params, err := protoutils.StructToStructPb(cfg.Parameters)
