@@ -50,7 +50,7 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 	}
 
 	if argsParsed.ConfigFile == "" {
-		logger.Error("please specify a config file through the --config parameter.")
+		logger.Error("please specify a config file through the -config parameter.")
 		return
 	}
 
