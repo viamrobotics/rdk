@@ -28,7 +28,7 @@ func init() {
 		"\t\t\t\tbeaglebone 601000.gpio/ corresponds to gpiochip2 and /sys/class/gpio/gpiochip264/\n",
 	)
 
-	rlog.Logger.Info(
+	rlog.Logger.Debug(
 		"beaglebone has 3 pwm chips for the following pins:\n",
 		"\t\t\t\t/sys/devices/platform/bus@100000/3000000.pwm/pwm/pwmchip0 for P8_13 and P8_19\n",
 		"\t\t\t\t/sys/devices/platform/bus@100000/3020000.pwm/pwm/pwmchip4 for P9_14 and P9_16\n",
