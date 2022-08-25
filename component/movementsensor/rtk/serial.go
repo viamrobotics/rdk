@@ -22,6 +22,9 @@ type serialCorrectionSource struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+
+	errMu     sync.Mutex
+	lastError error
 }
 
 type pipeReader struct {
@@ -56,7 +59,11 @@ const (
 func newSerialCorrectionSource(ctx context.Context, config config.Component, logger golog.Logger) (correctionSource, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
-	s := &serialCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	s := &serialCorrectionSource{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+	}
 
 	serialPath := config.Attributes.String(correctionPathName)
 	if serialPath == "" {
@@ -83,7 +90,14 @@ func newSerialCorrectionSource(ctx context.Context, config config.Component, log
 		return nil, err
 	}
 
-	return s, nil
+	return s, s.lastError
+}
+
+func (s *serialCorrectionSource) setLastError(err error) {
+	s.errMu.Lock()
+	defer s.errMu.Unlock()
+
+	s.lastError = err
 }
 
 // Start reads correction data from the serial port and sends it into the correctionReader.
@@ -105,7 +119,9 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 		case <-s.cancelCtx.Done():
 			err := w.Close()
 			if err != nil {
-				s.logger.Fatalf("Unable to close writer: %s", err)
+				s.logger.Errorf("Unable to close writer: %s", err)
+				s.setLastError(err)
+				return
 			}
 			return
 		default:
@@ -113,7 +129,9 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 
 		msg, err := scanner.NextMessage()
 		if err != nil {
-			s.logger.Fatalf("Error reading RTCM message: %s", err)
+			s.logger.Errorf("Error reading RTCM message: %s", err)
+			s.setLastError(err)
+			return
 		}
 
 		switch msg.(type) {
@@ -124,7 +142,9 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 			byteMsg := frame.Serialize()
 			_, err := w.Write(byteMsg)
 			if err != nil {
-				s.logger.Fatalf("Error writing RTCM message: %s", err)
+				s.logger.Errorf("Error writing RTCM message: %s", err)
+				s.setLastError(err)
+				return
 			}
 		}
 	}
@@ -136,7 +156,7 @@ func (s *serialCorrectionSource) GetReader() (io.ReadCloser, error) {
 		return nil, errors.New("no stream")
 	}
 
-	return s.correctionReader, nil
+	return s.correctionReader, s.lastError
 }
 
 // Close shuts down the serialCorrectionSource and closes s.port.
@@ -160,5 +180,5 @@ func (s *serialCorrectionSource) Close() error {
 		s.correctionReader = nil
 	}
 
-	return nil
+	return s.lastError
 }
