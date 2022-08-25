@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -29,6 +30,10 @@ func TestCommonSysFs(t *testing.T) {
 	t.Run("test empty sysfs board", func(t *testing.T) {
 		test.That(t, gp1.b.GPIOPinNames(), test.ShouldBeNil)
 		test.That(t, gp1.b.SPINames(), test.ShouldBeNil)
+		_, err := gp1.PWM(ctx, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		_, err = gp1.b.GPIOPinByName("10")
+		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	gp2 := &gpioPin{
@@ -44,7 +49,7 @@ func TestCommonSysFs(t *testing.T) {
 			},
 			analogs: map[string]board.AnalogReader{"an": &board.MCP3008AnalogReader{}},
 			pwms: map[string]pwmSetting{
-				"10": {},
+				"10": {dutyCycle: 1, frequency: 1},
 			},
 			logger:    golog.NewTestLogger(t),
 			cancelCtx: ctx,
@@ -150,7 +155,28 @@ func TestCommonSysFs(t *testing.T) {
 	})
 
 	t.Run("test software pwm loop", func(t *testing.T) {
+		newCtx, _ := context.WithTimeout(ctx, time.Duration(10))
+		gp2.b.softwarePWMLoop(newCtx, *gp2)
+
+		gp2.b.pwms = map[string]pwmSetting{
+			"10": {dutyCycle: 1, frequency: 1},
+		}
 		gp2.b.startSoftwarePWMLoop(*gp2)
-		gp2.b.softwarePWMLoop(ctx, *gp2)
+
+		gp2.b.softwarePWMLoop(newCtx, *gp2)
+	})
+
+	t.Run("test getGPIOLine", func(t *testing.T) {
+		_, ok, err := gp2.b.getGPIOLine("Bbgh")
+		test.That(t, ok, test.ShouldBeFalse)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "parse")
+
+		_, ok, err = gp2.b.getGPIOLine("9")
+		test.That(t, ok, test.ShouldBeFalse)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid")
+
+		_, ok, err = gp2.b.getGPIOLine("10")
+		test.That(t, ok, test.ShouldBeFalse)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no global pin")
 	})
 }
