@@ -220,7 +220,7 @@ func (b *sysfsBoard) getGPIOLine(hwPin string) (gpio.PinIO, bool, error) {
 	if b.gpioMappings != nil {
 		pinParsed, err := strconv.ParseInt(hwPin, 10, 32)
 		if err != nil {
-			return nil, false, err
+			return nil, false, errors.New("pin cannot be parsed or unset")
 		}
 
 		mapping, ok := b.gpioMappings[int(pinParsed)]
@@ -279,7 +279,11 @@ func (gp gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float6
 	gp.b.mu.RLock()
 	defer gp.b.mu.RUnlock()
 
-	return float64(gp.b.pwms[gp.pinName].dutyCycle), nil
+	pwm, ok := gp.b.pwms[gp.pinName]
+	if !ok {
+		return 0, fmt.Errorf("missing pin %s", gp.pinName)
+	}
+	return float64(pwm.dutyCycle) / float64(gpio.DutyMax), nil
 }
 
 // expects to already have lock acquired.
@@ -296,7 +300,6 @@ func (b *sysfsBoard) softwarePWMLoop(ctx context.Context, gp gpioPin) {
 			b.mu.RLock()
 			defer b.mu.RUnlock()
 			pwmSetting, ok := b.pwms[gp.pinName]
-
 			if !ok {
 				b.logger.Debug("pwm setting deleted; stopping")
 				return false
@@ -338,7 +341,12 @@ func (gp gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[st
 	gp.b.pwms[gp.pinName] = last
 
 	if gp.hwPWMSupported {
-		return gp.pin.PWM(duty, freqHz)
+		err := gp.pin.PWM(duty, freqHz)
+		// TODO: [RSDK-569] (rh) find or implement a PWM sysfs that works with hardware pwm mappings
+		// periph.io does not implement PWM
+		if err != nil {
+			return errors.New("sysfs PWM not currently supported, use another pin for software PWM loops")
+		}
 	}
 
 	if !alreadySet {
