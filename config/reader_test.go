@@ -33,7 +33,7 @@ func TestStoreToCache(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// read config from cloud, confirm consistency
-	cloudCfg, _, err := readFromCloud(ctx, cfg, true, true, logger)
+	cloudCfg, _, err := readFromCloud(ctx, cfg, nil, true, true, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloudCfg, test.ShouldResemble, cfg)
 
@@ -42,7 +42,7 @@ func TestStoreToCache(t *testing.T) {
 	cfg.Remotes = append(cfg.Remotes, newRemote)
 
 	// read config from cloud again, confirm that the cached config differs from cfg
-	cloudCfg2, _, err := readFromCloud(ctx, cfg, true, true, logger)
+	cloudCfg2, _, err := readFromCloud(ctx, cfg, nil, true, true, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloudCfg2, test.ShouldNotResemble, cfg)
 
@@ -51,9 +51,31 @@ func TestStoreToCache(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// read updated cloud config, confirm that it now matches our updated cfg
-	cloudCfg3, _, err := readFromCloud(ctx, cfg, true, true, logger)
+	cloudCfg3, _, err := readFromCloud(ctx, cfg, nil, true, true, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloudCfg3, test.ShouldResemble, cfg)
+}
+
+func TestShouldCheckForCert(t *testing.T) {
+	cloud1 := Cloud{
+		ManagedBy:        "acme",
+		SignalingAddress: "abc",
+		ID:               "forCachingTest",
+		Secret:           "ghi",
+		FQDN:             "fqdn",
+		LocalFQDN:        "localFqdn",
+		TLSCertificate:   "cert",
+		TLSPrivateKey:    "key",
+	}
+	cloud2 := cloud1
+	test.That(t, shouldCheckForCert(&cloud1, &cloud2), test.ShouldBeFalse)
+
+	cloud2.TLSCertificate = "abc"
+	test.That(t, shouldCheckForCert(&cloud1, &cloud2), test.ShouldBeFalse)
+
+	cloud2 = cloud1
+	cloud2.LocationSecret = "something else"
+	test.That(t, shouldCheckForCert(&cloud1, &cloud2), test.ShouldBeTrue)
 }
 
 func TestProcessConfig(t *testing.T) {
