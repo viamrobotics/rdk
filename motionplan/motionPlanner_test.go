@@ -241,7 +241,7 @@ func testPlanner(t *testing.T, planner seededPlannerConstructor, config planConf
 		}, mp.Resolution())
 		test.That(t, ok, test.ShouldBeTrue)
 	}
-	t.Log(evaluatePlan(path))
+	t.Log(EvaluatePlan(path))
 	// visualization.VisualizePlan(context.Background(), path, cfg.RobotFrame, nil)
 
 	// write output
