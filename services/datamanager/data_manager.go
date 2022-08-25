@@ -565,12 +565,9 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 
 		// Download models from models_on_robot.
 		modelsToDeploy := svcConfig.ModelsToDeploy
-		fmt.Println("modelsToDeploy: ", modelsToDeploy)
-		if len(modelsToDeploy) > 0 {
-			err = svc.downloadModels(cfg, modelsToDeploy)
-			if err != nil {
-				svc.logger.Errorf("can't download models_on_robot in config", "error", err)
-			}
+		err = svc.downloadModels(cfg, modelsToDeploy)
+		if err != nil {
+			svc.logger.Errorf("can't download models_on_robot in config", "error", err)
 		}
 	}
 

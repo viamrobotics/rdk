@@ -328,7 +328,6 @@ func TestModelsAfterKilled(t *testing.T) {
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
-	// dmCfg.AdditionalSyncPaths = dirs
 	dmCfg.ModelsToDeploy = append(dmCfg.ModelsToDeploy, models...)
 
 	// Initialize the data manager and update it with our config.
@@ -336,14 +335,9 @@ func TestModelsAfterKilled(t *testing.T) {
 
 	// set default manager to connect to local version
 	logger, _ := golog.NewObservedTestLogger(t)
-	// modelConn, err := getSLocalServerConn(rpcServer, testCfg, logger)
-	modelConn, err := getLocalServerConn(modelServer, logger) // Deploy unimplemented
+	modelConn, err := getLocalServerConn(modelServer, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	// client := datasync.NewClient(conn)
-	// sut, err := datasync.NewManager(logger, testCfg.Cloud.ID, client, conn)
-	// test.That(t, err, test.ShouldBeNil)
-	// dmsvc.SetSyncer(sut)
 	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, syncServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(10)
 	dmsvc.SetClientConn(modelConn)

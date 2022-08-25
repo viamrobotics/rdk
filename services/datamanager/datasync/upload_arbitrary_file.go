@@ -2,7 +2,6 @@ package datasync
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -16,7 +15,6 @@ import (
 func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, md *v1.UploadMetadata,
 	f *os.File,
 ) error {
-	fmt.Println("CLIENT UPLOAD!!!!!!")
 	stream, err := client.Upload(ctx)
 	if err != nil {
 		return err
