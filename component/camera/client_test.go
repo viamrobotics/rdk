@@ -36,7 +36,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	injectCamera := &inject.Camera{}
-	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
+	img := image.NewNRGBA64(image.Rect(0, 0, 4, 4))
 
 	pcA := pointcloud.New()
 	err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
@@ -54,6 +54,7 @@ func TestClient(t *testing.T) {
 	projA = intrinsics
 
 	var imageReleased bool
+	// color camera
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
@@ -62,13 +63,41 @@ func TestClient(t *testing.T) {
 	}
 	injectCamera.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
 		imageReleased = true
-		bytes, err := rimage.EncodeImage(ctx, img, rdkutils.MimeTypePNG)
+		if mimeType == "" {
+			mimeType = rdkutils.MimeTypeRawRGBA
+		}
+		bytes, err := rimage.EncodeImage(ctx, img, mimeType)
 		if err != nil {
 			return nil, "", 0, 0, err
 		}
-		return bytes, rdkutils.MimeTypePNG, int64(img.Bounds().Dx()), int64(img.Bounds().Dy()), nil
+		return bytes, mimeType, int64(img.Bounds().Dx()), int64(img.Bounds().Dy()), nil
 	}
-
+	// depth camera
+	injectCameraDepth := &inject.Camera{}
+	depthImg := rimage.NewEmptyDepthMap(10, 20)
+	depthImg.Set(0, 0, rimage.Depth(40))
+	depthImg.Set(0, 1, rimage.Depth(1))
+	depthImg.Set(5, 6, rimage.Depth(190))
+	depthImg.Set(9, 12, rimage.Depth(3000))
+	depthImg.Set(5, 9, rimage.MaxDepth-rimage.Depth(1))
+	injectCameraDepth.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		return pcA, nil
+	}
+	injectCameraDepth.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+		return projA, nil
+	}
+	injectCameraDepth.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+		imageReleased = true
+		if mimeType == "" {
+			mimeType = rdkutils.MimeTypeRawRGBA
+		}
+		bytes, err := rimage.EncodeImage(ctx, depthImg, mimeType)
+		if err != nil {
+			return nil, "", 0, 0, err
+		}
+		return bytes, mimeType, int64(depthImg.Bounds().Dx()), int64(depthImg.Bounds().Dy()), nil
+	}
+	// bad camera
 	injectCamera2 := &inject.Camera{}
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return nil, errors.New("can't generate next point cloud")
@@ -81,8 +110,9 @@ func TestClient(t *testing.T) {
 	}
 
 	resources := map[resource.Name]interface{}{
-		camera.Named(testCameraName): injectCamera,
-		camera.Named(failCameraName): injectCamera2,
+		camera.Named(testCameraName):  injectCamera,
+		camera.Named(failCameraName):  injectCamera2,
+		camera.Named(depthCameraName): injectCameraDepth,
 	}
 	cameraSvc, err := subtype.New(resources)
 	test.That(t, err, test.ShouldBeNil)
@@ -130,6 +160,23 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
 		test.That(t, utils.TryClose(context.Background(), camera1Client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+	t.Run("camera client depth", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		client := resourceSubtype.RPCClient(context.Background(), conn, depthCameraName, logger)
+		cameraDepthClient, ok := client.(camera.Camera)
+		test.That(t, ok, test.ShouldBeTrue)
+
+		frame, _, err := cameraDepthClient.Next(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		dm, err := rimage.ConvertImageToDepthMap(frame)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, dm, test.ShouldResemble, depthImg)
+		test.That(t, imageReleased, test.ShouldBeTrue)
+
+		test.That(t, utils.TryClose(context.Background(), cameraDepthClient), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 

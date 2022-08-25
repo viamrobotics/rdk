@@ -214,30 +214,45 @@ func CreateCloudRequest(ctx context.Context, cloudCfg *Cloud) (*http.Request, er
 	}
 	r.Header.Set(cloudConfigSecretField, cloudCfg.Secret)
 
-	userInfo := map[string]interface{}{}
-	hostname, err := os.Hostname()
+	agentInfo, err := getAgentInfo()
 	if err != nil {
 		return nil, err
 	}
-	userInfo[cloudConfigUserInfoHostField] = hostname
-	userInfo[cloudConfigUserInfoOSField] = runtime.GOOS
 
-	ips, err := utils.GetAllLocalIPv4s()
-	if err != nil {
-		return nil, err
-	}
-	userInfo[cloudConfigUserInfoLocalIPsField] = ips
-	userInfo[cloudConfigVersionField] = Version
-	userInfo[cloudConfigGitRevisionField] = GitRevision
+	userInfo := map[string]interface{}{}
+	userInfo[cloudConfigUserInfoHostField] = agentInfo.Host
+	userInfo[cloudConfigUserInfoOSField] = agentInfo.Os
+	userInfo[cloudConfigUserInfoLocalIPsField] = agentInfo.Ips
+	userInfo[cloudConfigVersionField] = agentInfo.Version
+	userInfo[cloudConfigGitRevisionField] = agentInfo.GitRevision
 
 	userInfoBytes, err := json.Marshal(userInfo)
 	if err != nil {
 		return nil, err
 	}
-
 	r.Header.Set(cloudConfigUserInfoField, string(userInfoBytes))
 
 	return r, nil
+}
+
+func getAgentInfo() (*apppb.AgentInfo, error) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+
+	ips, err := utils.GetAllLocalIPv4s()
+	if err != nil {
+		return nil, err
+	}
+
+	return &apppb.AgentInfo{
+		Host:        hostname,
+		Ips:         ips,
+		Os:          runtime.GOOS,
+		Version:     Version,
+		GitRevision: GitRevision,
+	}, nil
 }
 
 // createCloudCertificateRequest makes a request to fetch the robot's TLS
@@ -368,11 +383,25 @@ func readCertificateDataFromCloudGRPC(ctx context.Context,
 	}, nil
 }
 
+// shouldCheckForCert checks the Cloud config to see if the TLS cert should be refetched.
+func shouldCheckForCert(prevCloud, cloud *Cloud) bool {
+	// only checking the same fields as the ones that are explicitly overwritten in mergeCloudConfig
+	diffFQDN := prevCloud.FQDN != cloud.FQDN
+	diffLocalFQDN := prevCloud.LocalFQDN != cloud.LocalFQDN
+	diffSignalingAddr := prevCloud.SignalingAddress != cloud.SignalingAddress
+	diffSignalInsecure := prevCloud.SignalingInsecure != cloud.SignalingInsecure
+	diffManagedBy := prevCloud.ManagedBy != cloud.ManagedBy
+	diffLocSecret := prevCloud.LocationSecret != cloud.LocationSecret
+
+	return diffFQDN || diffLocalFQDN || diffSignalingAddr || diffSignalInsecure || diffManagedBy || diffLocSecret
+}
+
 // readFromCloud fetches a robot config from the cloud based
 // on the given config.
 func readFromCloud(
 	ctx context.Context,
-	originalCfg *Config,
+	originalCfg,
+	prevCfg *Config,
 	shouldReadFromCache bool,
 	checkForNewCert bool,
 	logger golog.Logger,
@@ -417,6 +446,10 @@ func readFromCloud(
 		} else if !os.IsNotExist(err) {
 			return nil, nil, err
 		}
+	}
+
+	if prevCfg != nil && shouldCheckForCert(prevCfg.Cloud, cfg.Cloud) {
+		checkForNewCert = true
 	}
 
 	if checkForNewCert || tlsCertificate == "" || tlsPrivateKey == "" {
@@ -510,7 +543,7 @@ func FromReader(
 	}
 
 	if cfgFromDisk.Cloud != nil {
-		cfg, _, err := readFromCloud(ctx, cfgFromDisk, true, true, logger)
+		cfg, _, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger)
 		return cfg, err
 	}
 
@@ -683,8 +716,13 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 	}
 	defer utils.UncheckedErrorFunc(conn.Close)
 
+	agentInfo, err := getAgentInfo()
+	if err != nil {
+		return nil, shouldCheckCacheOnFailure, err
+	}
+
 	service := apppb.NewRobotServiceClient(conn)
-	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID})
+	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID, AgentInfo: agentInfo})
 	if err != nil {
 		// Check cache?
 		return nil, shouldCheckCacheOnFailure, err
