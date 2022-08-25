@@ -23,10 +23,10 @@ func NewServer(s subtype.Service) pb.ShellServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }
 
-func (server *subtypeServer) service() (Service, error) {
-	resource := server.subtypeSvc.Resource(Name.String())
+func (server *subtypeServer) service(serviceName string) (Service, error) {
+	resource := server.subtypeSvc.Resource(serviceName)
 	if resource == nil {
-		return nil, utils.NewResourceNotFoundError(Name)
+		return nil, utils.NewResourceNotFoundError(Named(serviceName))
 	}
 	svc, ok := resource.(Service)
 	if !ok {
@@ -36,7 +36,10 @@ func (server *subtypeServer) service() (Service, error) {
 }
 
 func (server *subtypeServer) Shell(srv pb.ShellService_ShellServer) (retErr error) {
-	svc, err := server.service()
+	firstMsg := true
+	req, err := srv.Recv()
+	errTemp := err
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return err
 	}
@@ -55,7 +58,12 @@ func (server *subtypeServer) Shell(srv pb.ShellService_ShellServer) (retErr erro
 		defer close(inDone)
 
 		for {
-			req, err := srv.Recv()
+			if firstMsg {
+				firstMsg = false
+				err = errTemp
+			} else {
+				req, err = srv.Recv()
+			}
 			if err != nil {
 				if errors.Is(err, io.EOF) {
 					close(input)

@@ -328,6 +328,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 	if err := rc.checkConnected(); err != nil {
 		return nil, err
 	}
+
 	if client, ok := rc.children[name]; ok {
 		return client, nil
 	}

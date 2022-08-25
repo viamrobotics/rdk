@@ -80,7 +80,7 @@ func GetGaussian5() Kernel {
 // ConvolveGray applies a convolution matrix (Kernel) to a grayscale image.
 // Example of usage:
 //
-// 		res, err := convolution.ConvolveGray(img, kernel, {1, 1}, BorderReflect)
+//	res, err := convolution.ConvolveGray(img, kernel, {1, 1}, BorderReflect)
 //
 // Note: the anchor represents a point inside the area of the kernel. After every step of the convolution the position
 // specified by the anchor point gets updated on the result image.
