@@ -16,7 +16,3 @@ until nc -vz 127.0.0.1 8080; do sleep 2; done
 
 cd web/frontend
 npm run cypress:ci -- -c defaultCommandTimeout=30000
-
-# Teardown
-
-kill -9 $(lsof -t -i:8080 2> /dev/null)
