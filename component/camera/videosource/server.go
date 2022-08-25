@@ -128,10 +128,10 @@ func (ds *dualServerSource) Read(ctx context.Context) (image.Image, func(), erro
 	defer span.End()
 	switch ds.Stream {
 	case camera.ColorStream, camera.UnspecifiedStream:
-		img, err := readColorURL(ctx, ds.client, ds.ColorURL, false)
+		img, err := readColorURL(ctx, ds.client, ds.ColorURL)
 		return img, func() {}, err
 	case camera.DepthStream:
-		depth, err := readDepthURL(ctx, ds.client, ds.DepthURL)
+		depth, err := readDepthURL(ctx, ds.client, ds.DepthURL, false)
 		return depth, func() {}, err
 	default:
 		return nil, nil, camera.NewUnsupportedStreamError(ds.Stream)
@@ -152,7 +152,7 @@ func (ds *dualServerSource) NextPointCloud(ctx context.Context) (pointcloud.Poin
 	viamutils.PanicCapturingGo(func() {
 		defer ds.activeBackgroundWorkers.Done()
 		var err error
-		colorImg, err := readColorURL(ctx, ds.client, ds.ColorURL, true)
+		colorImg, err := readColorURL(ctx, ds.client, ds.ColorURL)
 		if err != nil {
 			panic(err)
 		}
@@ -163,7 +163,9 @@ func (ds *dualServerSource) NextPointCloud(ctx context.Context) (pointcloud.Poin
 	viamutils.PanicCapturingGo(func() {
 		defer ds.activeBackgroundWorkers.Done()
 		var err error
-		depth, err = readDepthURL(ctx, ds.client, ds.DepthURL)
+		var depthImg image.Image
+		depthImg, err = readDepthURL(ctx, ds.client, ds.DepthURL, true)
+		depth = depthImg.(*rimage.DepthMap)
 		if err != nil {
 			panic(err)
 		}
@@ -204,10 +206,10 @@ func (s *serverSource) Read(ctx context.Context) (image.Image, func(), error) {
 	defer span.End()
 	switch s.stream {
 	case camera.ColorStream, camera.UnspecifiedStream:
-		img, err := readColorURL(ctx, s.client, s.URL, false)
+		img, err := readColorURL(ctx, s.client, s.URL)
 		return img, func() {}, err
 	case camera.DepthStream:
-		depth, err := readDepthURL(ctx, s.client, s.URL)
+		depth, err := readDepthURL(ctx, s.client, s.URL, false)
 		return depth, func() {}, err
 	default:
 		return nil, nil, camera.NewUnsupportedStreamError(s.stream)
@@ -222,11 +224,11 @@ func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 		return nil, transform.NewNoIntrinsicsError("single serverSource has nil intrinsics")
 	}
 	if s.stream == camera.DepthStream {
-		depth, err := readDepthURL(ctx, s.client, s.URL)
+		depth, err := readDepthURL(ctx, s.client, s.URL, true)
 		if err != nil {
 			return nil, err
 		}
-		return depth.ToPointCloud(s.Intrinsics), nil
+		return depth.(*rimage.DepthMap).ToPointCloud(s.Intrinsics), nil
 	}
 	return nil,
 		errors.Errorf("no depth information in stream %q, cannot project to point cloud", s.stream)

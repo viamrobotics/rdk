@@ -72,6 +72,10 @@ func (lei *LazyEncodedImage) ColorModel() color.Model {
 // Bounds returns the domain for which At can return non-zero color.
 // The bounds do not necessarily contain the point (0, 0).
 func (lei *LazyEncodedImage) Bounds() image.Rectangle {
+	if lei.width <= 0 || lei.height <= 0 {
+		lei.decode()
+		return lei.decodedImage.Bounds()
+	}
 	return image.Rect(0, 0, lei.width, lei.height)
 }
 
