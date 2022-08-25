@@ -31,13 +31,7 @@
             "attributes":
             {
                 "sync_interval_mins": 0,
-                "capture_dir": "/tmp/capture",
-                "models_on_robot": [
-                    {
-                      "source_model_name": "model_1",
-                      "destination": "/home/example_user/"
-                    }
-                ]
+                "capture_dir": "/tmp/capture"
             }
         },
         {
