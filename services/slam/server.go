@@ -26,11 +26,10 @@ func NewServer(s subtype.Service) pb.SLAMServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }
 
-func (server *subtypeServer) service() (Service, error) {
-	name := Name
-	resource := server.subtypeSvc.Resource(name.String())
+func (server *subtypeServer) service(serviceName string) (Service, error) {
+	resource := server.subtypeSvc.Resource(serviceName)
 	if resource == nil {
-		return nil, utils.NewResourceNotFoundError(name)
+		return nil, utils.NewResourceNotFoundError(Named(serviceName))
 	}
 	svc, ok := resource.(Service)
 	if !ok {
@@ -47,7 +46,7 @@ func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositio
 	ctx, span := trace.StartSpan(ctx, "slam::server::GetPosition")
 	defer span.End()
 
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +70,7 @@ func (server *subtypeServer) GetMap(ctx context.Context, req *pb.GetMapRequest) 
 	ctx, span := trace.StartSpan(ctx, "slam::server::GetMap")
 	defer span.End()
 
-	svc, err := server.service()
+	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}

@@ -30,58 +30,60 @@ func init() {
 	rlog.Logger.Debugf("out dir: %q", outDir)
 }
 
-/* TODO(erh): put back
-func TestInit(t *testing.T) {
-	state := boardStateGuesser{}
+/*
+TODO(erh): put back
 
-	fns, err := filepath.Glob(artifact.MustPath("samples/chess/init/board-*.png"))
-	test.That(t, err, test.ShouldBeNil)
-	sort.Strings(fns)
+	func TestInit(t *testing.T) {
+		state := boardStateGuesser{}
 
-	for idx, fn := range fns {
-		rlog.Logger.Info(fn)
-		depthDN := strings.Replace(fn, ".png", ".dat.gz", 1)
-
-		board, err := chess.FindAndWarpBoardFromFiles(fn, depthDN, true)
+		fns, err := filepath.Glob(artifact.MustPath("samples/chess/init/board-*.png"))
 		test.That(t, err, test.ShouldBeNil)
+		sort.Strings(fns)
 
-		_, err = state.newData(board)
-		test.That(t, err, test.ShouldBeNil)
+		for idx, fn := range fns {
+			rlog.Logger.Info(fn)
+			depthDN := strings.Replace(fn, ".png", ".dat.gz", 1)
 
-		pcs, err := state.game.GetSquaresWithPieces(board)
-		if err != nil {
-			err2 := board.WriteDebugImages(fmt.Sprintf("%s/init_foo", outDir))
-			test.That(t, err2, test.ShouldBeNil)
-		}
-		t.Logf("\t%s\n", pcs)
-		if len(pcs) != 32 {
-			temp := board.Annotate()
-			tempfn := fmt.Sprintf(outDir + "/init-%d.png", idx)
-
-			utils.WriteImageToFile(tempfn, temp)
-			t.Logf("\t annotated -> %s\n", tempfn)
-		}
-
-		if state.Ready() {
-			squares, err := state.GetSquaresWithPieces()
+			board, err := chess.FindAndWarpBoardFromFiles(fn, depthDN, true)
 			test.That(t, err, test.ShouldBeNil)
 
-			test.That(t, squares, test.ShouldHaveLength, 32)
+			_, err = state.newData(board)
+			test.That(t, err, test.ShouldBeNil)
 
-			for x := 'a'; x <= 'h'; x++ {
-				for _, y := range []string{"1", "2", "7", "8"} {
-					sq := string(x) + y
-					test.That(t, squares[sq], test.ShouldBeTrue)
+			pcs, err := state.game.GetSquaresWithPieces(board)
+			if err != nil {
+				err2 := board.WriteDebugImages(fmt.Sprintf("%s/init_foo", outDir))
+				test.That(t, err2, test.ShouldBeNil)
+			}
+			t.Logf("\t%s\n", pcs)
+			if len(pcs) != 32 {
+				temp := board.Annotate()
+				tempfn := fmt.Sprintf(outDir + "/init-%d.png", idx)
+
+				utils.WriteImageToFile(tempfn, temp)
+				t.Logf("\t annotated -> %s\n", tempfn)
+			}
+
+			if state.Ready() {
+				squares, err := state.GetSquaresWithPieces()
+				test.That(t, err, test.ShouldBeNil)
+
+				test.That(t, squares, test.ShouldHaveLength, 32)
+
+				for x := 'a'; x <= 'h'; x++ {
+					for _, y := range []string{"1", "2", "7", "8"} {
+						sq := string(x) + y
+						test.That(t, squares[sq], test.ShouldBeTrue)
+					}
 				}
 			}
 		}
-	}
 
-	p := position.StartingPosition()
-	m, err := state.GetPrevMove(p)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, m, test.ShouldBeNil)
-}.
+		p := position.StartingPosition()
+		m, err := state.GetPrevMove(p)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, m, test.ShouldBeNil)
+	}.
 */
 func TestOneMove(t *testing.T) {
 	t.Skip()

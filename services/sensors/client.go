@@ -15,6 +15,7 @@ import (
 
 // client implements SensorsServiceClient.
 type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.SensorsServiceClient
 	logger golog.Logger
@@ -24,6 +25,7 @@ type client struct {
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
 	grpcClient := pb.NewSensorsServiceClient(conn)
 	c := &client{
+		name:   name,
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
@@ -32,7 +34,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 }
 
 func (c *client) GetSensors(ctx context.Context) ([]resource.Name, error) {
-	resp, err := c.client.GetSensors(ctx, &pb.GetSensorsRequest{})
+	resp, err := c.client.GetSensors(ctx, &pb.GetSensorsRequest{Name: c.name})
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +51,7 @@ func (c *client) GetReadings(ctx context.Context, sensorNames []resource.Name) (
 		names = append(names, protoutils.ResourceNameToProto(name))
 	}
 
-	resp, err := c.client.GetReadings(ctx, &pb.GetReadingsRequest{SensorNames: names})
+	resp, err := c.client.GetReadings(ctx, &pb.GetReadingsRequest{Name: c.name, SensorNames: names})
 	if err != nil {
 		return nil, err
 	}

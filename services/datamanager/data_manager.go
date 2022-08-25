@@ -63,7 +63,7 @@ func init() {
 		return &conf, nil
 	}, &Config{})
 
-	resource.AddDefaultService(Name)
+	resource.AddDefaultService(Named(resource.DefaultServiceName))
 }
 
 // Service defines what a Data Manager Service should expose to the users.
@@ -86,9 +86,6 @@ var Subtype = resource.NewSubtype(
 	resource.ResourceTypeService,
 	SubtypeName,
 )
-
-// Name is the DataManager's typed resource name.
-var Name = resource.NameFromSubtype(Subtype, "")
 
 // Named is a helper for getting the named datamanager's typed resource name.
 // RSDK-347 Implements datamanager's Named.
@@ -173,6 +170,33 @@ func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger
 	}
 
 	return dataManagerSvc, nil
+}
+
+// FromRobot is a helper for getting the named data manager service from the given Robot.
+func FromRobot(r robot.Robot, name string) (Service, error) {
+	resource, err := r.ResourceByName(Named(name))
+	if err != nil {
+		return nil, err
+	}
+	svc, ok := resource.(Service)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("data_manager.Service", resource)
+	}
+	return svc, nil
+}
+
+// FindFirstName returns name of first data manager service found.
+func FindFirstName(r robot.Robot) string {
+	for _, val := range robot.NamesBySubtype(r, Subtype) {
+		return val
+	}
+	return ""
+}
+
+// FirstFromRobot returns the first data manager service in this robot.
+func FirstFromRobot(r robot.Robot) (Service, error) {
+	name := FindFirstName(r)
+	return FromRobot(r, name)
 }
 
 // Close releases all resources managed by data_manager.
@@ -638,7 +662,7 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 func getServiceConfig(cfg *config.Config) (*Config, bool, error) {
 	for _, c := range cfg.Services {
 		// Compare service type and name.
-		if c.ResourceName() == Name {
+		if c.ResourceName().ResourceSubtype == SubtypeName {
 			svcConfig, ok := c.ConvertedAttributes.(*Config)
 			// Incorrect configuration is an error.
 			if !ok {
@@ -671,7 +695,7 @@ func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	for _, c := range cfg.Components {
 		// Iterate over all component-level service configs of type data_manager.
 		for _, componentSvcConfig := range c.ServiceConfig {
-			if componentSvcConfig.ResourceName() == Name {
+			if componentSvcConfig.Type == SubtypeName {
 				attrs, err := getAttrsFromServiceConfig(componentSvcConfig)
 				if err != nil {
 					return componentDataCaptureConfigs, err
@@ -690,7 +714,7 @@ func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	for _, r := range cfg.Remotes {
 		// Iterate over all remote-level service configs of type data_manager.
 		for _, resourceSvcConfig := range r.ServiceConfig {
-			if resourceSvcConfig.ResourceName() == Name {
+			if resourceSvcConfig.Type == SubtypeName {
 				attrs, err := getAttrsFromServiceConfig(resourceSvcConfig)
 				if err != nil {
 					return componentDataCaptureConfigs, err

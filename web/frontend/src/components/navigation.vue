@@ -18,6 +18,7 @@ import navigationApi, {
 
 interface Props {
   resources: Resource[]
+  name:string
 }
 
 const props = defineProps<Props>();
@@ -44,6 +45,7 @@ const setNavigationMode = (mode: 'manual' | 'waypoint') => {
   }
 
   const req = new navigationApi.SetModeRequest();
+  req.setName(props.name);
   req.setMode(pbMode);
   window.navigationService.setMode(req, new grpc.Metadata(), grpcCallback);
 };
@@ -67,6 +69,7 @@ const setNavigationLocation = () => {
     toast.error('no gps device found');
     return;
   }
+  req.setName(props.name);
   req.setResourceName(gpsName);
   req.setCommandName('set_location');
   req.setArgs(
@@ -126,6 +129,7 @@ const initNavigation = async () => {
 
     point.setLatitude(lat);
     point.setLongitude(lng);
+    req.setName(props.name);
     req.setLocation(point);
 
     window.navigationService.addWaypoint(req, new grpc.Metadata(), grpcCallback);
@@ -137,6 +141,8 @@ const initNavigation = async () => {
   
   const updateWaypoints = () => {
     const req = new navigationApi.GetWaypointsRequest();
+    req.setName(props.name);
+
     window.navigationService.getWaypoints(req, new grpc.Metadata(), (err: ServiceError | null, resp: GetWaypointsResponse | null) => {
       grpcCallback(err, resp, false);
 
@@ -181,6 +187,7 @@ const initNavigation = async () => {
 
         marker.addListener('dblclick', () => {
           const req = new navigationApi.RemoveWaypointRequest();
+          req.setName(props.name);
           req.setId(waypoint.getId());
           window.navigationService.removeWaypoint(req, new grpc.Metadata(), grpcCallback);
         });
@@ -205,6 +212,7 @@ const initNavigation = async () => {
   const updateLocation = () => {
     const req = new navigationApi.GetLocationRequest();
 
+    req.setName(props.name);
     window.navigationService.getLocation(req, new grpc.Metadata(), (err: ServiceError | null, resp: GetLocationResponse | null) => {
       grpcCallback(err, resp, false);
 
@@ -247,9 +255,13 @@ onUnmounted(() => {
 
 <template>
   <v-collapse
-    title="Navigation Service"
+    :title="props.name"
     class="navigation"
   >
+    <v-breadcrumbs
+      slot="title"
+      :crumbs="['navigation'].join(',')"
+    />
     <div class="flex flex-col gap-2 border border-t-0 border-black p-4">
       <v-radio
         label="Navigation mode"

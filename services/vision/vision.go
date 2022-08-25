@@ -55,7 +55,7 @@ func init() {
 		&Attributes{},
 	)
 
-	resource.AddDefaultService(Name)
+	resource.AddDefaultService(Named(resource.DefaultServiceName))
 }
 
 // A Service that implements various computer vision algorithms like detection and segmentation.
@@ -87,26 +87,37 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// Name is the Vision Service's typed resource name.
-var Name = resource.NameFromSubtype(Subtype, "")
-
 // Named is a helper for getting the named vision's typed resource name.
 // RSDK-347 Implements vision's Named.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// FromRobot retrieves the vision service of a robot.
-func FromRobot(r robot.Robot) (Service, error) {
-	resource, err := r.ResourceByName(Name)
+// FromRobot is a helper for getting the named vision service from the given Robot.
+func FromRobot(r robot.Robot, name string) (Service, error) {
+	resource, err := r.ResourceByName(Named(name))
 	if err != nil {
-		return nil, utils.NewResourceNotFoundError(Name)
+		return nil, utils.NewResourceNotFoundError(Named(name))
 	}
 	svc, ok := resource.(Service)
 	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError("vision.Service", resource)
 	}
 	return svc, nil
+}
+
+// FindFirstName returns name of first vision service found.
+func FindFirstName(r robot.Robot) string {
+	for _, val := range robot.NamesBySubtype(r, Subtype) {
+		return val
+	}
+	return ""
+}
+
+// FirstFromRobot returns the first vision service in this robot.
+func FirstFromRobot(r robot.Robot) (Service, error) {
+	name := FindFirstName(r)
+	return FromRobot(r, name)
 }
 
 // Attributes contains a list of the user-provided details necessary to register a new vision service.

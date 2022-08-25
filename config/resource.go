@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 )
 
 // UpdateActionType help hint the reconfigure process on whether one should reconfigure a resource or rebuild it.
@@ -225,7 +226,7 @@ type ServiceType string
 
 // A Service describes the configuration of a service.
 type Service struct {
-	Name                string             `json:"name"` // NOTE: This property is deprecated for services
+	Name                string             `json:"name"`
 	Namespace           resource.Namespace `json:"namespace"`
 	Type                ServiceType        `json:"type"`
 	Attributes          AttributeMap       `json:"attributes"`
@@ -247,7 +248,7 @@ func (config *Service) ResourceName() resource.Name {
 	rName := resource.NewName(config.Namespace,
 		resource.ResourceTypeService,
 		resource.SubtypeName(cType),
-		cType)
+		config.Name)
 	if len(remotes) > 1 {
 		return rName.PrependRemote(resource.RemoteName(strings.Join(remotes[:len(remotes)-1], ":")))
 	}
@@ -315,6 +316,11 @@ func ParseServiceFlag(flag string) (Service, error) {
 func (config *Service) Validate(path string) error {
 	if config.Type == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "type")
+	}
+	// If services do not have a name use the name builtin
+	if config.Name == "" {
+		rlog.Logger.Warnw("no name given, defaulting name to builtin")
+		config.Name = resource.DefaultServiceName
 	}
 	if config.Namespace == "" {
 		// NOTE: This should never be removed in order to ensure RDK is the

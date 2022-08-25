@@ -13,21 +13,22 @@ import (
 )
 
 // TODO for bidi partial uploads:
-//      - Have goroutine waiting on Recv on stream (select with cancel context). On recv:
-//        - Update progress index
-//        - If EOF: Return nil. we know all messages were sent and received becuse errors are a response type, so
-//                       are sent serially with other responses
-//        - If other error: We actually returned an error from our server. Determine how to handle individually. For now
-//                      a blanket "return err" (triggering restarts) is probably fine
-//      - Have sends happening in goroutine
-//          - If EOF, send EOF and Close (not recv!) to server. This will trigger server to send final ack then EOF.
-//          - If other error, return error
-//      Wait for both goroutines. If error, return error. If none, return nil.
+//   - Have goroutine waiting on Recv on stream (select with cancel context). On recv:
+//   - Update progress index
+//   - If EOF: Return nil. we know all messages were sent and received becuse errors are a response type, so
+//     are sent serially with other responses
+//   - If other error: We actually returned an error from our server. Determine how to handle individually. For now
+//     a blanket "return err" (triggering restarts) is probably fine
+//   - Have sends happening in goroutine
+//   - If EOF, send EOF and Close (not recv!) to server. This will trigger server to send final ack then EOF.
+//   - If other error, return error
+//     Wait for both goroutines. If error, return error. If none, return nil.
 //
 // TODO
-//      Some principles to keep in mind:
-//        - The thread/goroutine sending on a channel/grpc connection should be the one closing it
-//        - If some thing is blocking or long running, it should probably be passed a context so it can be cancelled
+//
+//	Some principles to keep in mind:
+//	  - The thread/goroutine sending on a channel/grpc connection should be the one closing it
+//	  - If some thing is blocking or long running, it should probably be passed a context so it can be cancelled
 func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.DataSyncServiceClient,
 	md *v1.UploadMetadata, f *os.File,
 ) error {

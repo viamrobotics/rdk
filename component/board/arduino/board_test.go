@@ -264,6 +264,7 @@ func TestArduinoMotorABPWM(t *testing.T) {
 }
 
 // Test the DIR/PWM style IO.
+//
 //nolint:dupl
 func TestArduinoMotorDirPWM(t *testing.T) {
 	ctx := context.Background()
@@ -322,6 +323,7 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 }
 
 // Test the A/B only style IO.
+//
 //nolint:dupl
 func TestArduinoMotorAB(t *testing.T) {
 	ctx := context.Background()

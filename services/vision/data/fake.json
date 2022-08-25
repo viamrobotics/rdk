@@ -1,6 +1,7 @@
 {  
   "services": [
     {
+      "name": "vision1",
       "type": "vision",
       "attributes": {
         "register_detectors": [
