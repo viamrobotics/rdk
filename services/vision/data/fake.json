@@ -1,4 +1,4 @@
-{  
+{
   "services": [
     {
       "name": "vision1",
@@ -6,7 +6,7 @@
       "attributes": {
         "register_detectors": [
           {
-             "name": "detector_3", 
+             "name": "detector_3",
              "type": "color",
              "parameters": {
                 "detect_color" : "#CD934A",
