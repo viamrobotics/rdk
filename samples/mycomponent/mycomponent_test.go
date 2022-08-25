@@ -54,7 +54,7 @@ func TestMyComponent(t *testing.T) {
 	pCfg := pexec.ProcessConfig{
 		ID:      "Intermediate",
 		Name:    "go",
-		Args:    []string{"run", utils.ResolveFile("./web/cmd/server/main.go"), tmpConf.Name()},
+		Args:    []string{"run", utils.ResolveFile("./web/cmd/server/main.go"), "-config", tmpConf.Name()},
 		CWD:     "",
 		OneShot: false,
 		Log:     true,

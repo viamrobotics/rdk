@@ -31,7 +31,7 @@ func TestDofBotIK(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	goal := commonpb.Pose{X: 206.59, Y: -1.57, Z: 253.05, Theta: -180, OX: -.53, OY: 0, OZ: .85}
-	opt := motionplan.NewDefaultPlannerOptions()
+	opt := motionplan.NewBasicPlannerOptions()
 	opt.SetMetric(motionplan.NewPositionOnlyMetric())
 	_, err = mp.Plan(ctx, &goal, model.InputFromProtobuf(&componentpb.JointPositions{Values: make([]float64, 5)}), opt)
 	test.That(t, err, test.ShouldBeNil)

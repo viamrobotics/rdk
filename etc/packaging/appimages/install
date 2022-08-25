@@ -15,7 +15,7 @@ cp "$APPDIR/viam-server.service" /etc/systemd/system/
 systemctl daemon-reload
 
 echo "Systemd service installed at /etc/systemd/system/viam-server.service"
-echo "Using configuration from /etc/viam-server.json"
+echo "Using configuration from /etc/viam.json"
 echo "Start/stop/restart with 'sudo systemctl [start|stop|restart] viam-server'"
 echo "Enabling automatic startup on boot"
 systemctl enable --now viam-server
