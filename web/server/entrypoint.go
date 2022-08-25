@@ -25,7 +25,7 @@ import (
 // Arguments for the command.
 type Arguments struct {
 	AllowInsecureCreds bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
-	ConfigFile         string `flag:"0,required,usage=robot config file"`
+	ConfigFile         string `flag:"config,usage=robot config file"`
 	CPUProfile         string `flag:"cpuprofile,usage=write cpu profile to file"`
 	Debug              bool   `flag:"debug"`
 	SharedDir          string `flag:"shareddir,usage=web resource directory"`
@@ -46,6 +46,11 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 	// fmt.Println would be better but fails linting. Good enough.
 	logger.Infof("Viam RDK Version: %s, Hash: %s", config.Version, config.GitRevision)
 	if argsParsed.Version {
+		return
+	}
+
+	if argsParsed.ConfigFile == "" {
+		logger.Error("please specify a config file through the -config parameter.")
 		return
 	}
 

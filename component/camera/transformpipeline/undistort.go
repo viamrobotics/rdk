@@ -1,69 +1,47 @@
-package imagetransform
+package transformpipeline
 
 import (
 	"context"
-	"fmt"
 	"image"
 
-	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-func init() {
-	registry.RegisterComponent(
-		camera.Subtype,
-		"undistort",
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*transformConfig)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
-			}
-			sourceName := attrs.Source
-			source, err := camera.FromDependencies(deps, sourceName)
-			if err != nil {
-				return nil, fmt.Errorf("no source camera for undistort (%s): %w", sourceName, err)
-			}
-			return newUndistortSource(ctx, source, attrs)
-		}})
-
-	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "undistort",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf transformConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&transformConfig{})
+type undistortConfig struct {
+	CameraParams *transform.PinholeCameraIntrinsics `json:"camera_parameters"`
 }
 
 // undistortSource will undistort the original image according to the Distortion parameters
-// in AttrConfig.CameraParameters.
+// within the intrinsic parameters.
 type undistortSource struct {
 	original     gostream.ImageSource
 	stream       camera.StreamType
 	cameraParams *transform.PinholeCameraIntrinsics
 }
 
-func newUndistortSource(ctx context.Context, source camera.Camera, attrs *transformConfig) (camera.Camera, error) {
-	proj, _ := camera.GetProjector(ctx, nil, source)
-	intrinsics, ok := proj.(*transform.PinholeCameraIntrinsics)
-	if !ok {
-		return nil, transform.NewNoIntrinsicsError("")
+func newUndistortTransform(
+	source gostream.ImageSource, stream camera.StreamType, am config.AttributeMap,
+) (gostream.ImageSource, error) {
+	conf, err := config.TransformAttributeMapToStruct(&(undistortConfig{}), am)
+	if err != nil {
+		return nil, err
 	}
-	imgSrc := &undistortSource{source, camera.StreamType(attrs.Stream), intrinsics}
-	return camera.New(imgSrc, proj)
+	attrs, ok := conf.(*undistortConfig)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(attrs, conf)
+	}
+	if attrs.CameraParams == nil {
+		return nil, errors.Wrapf(transform.ErrNoIntrinsics, "cannot create undistort transform")
+	}
+	return &undistortSource{source, stream, attrs.CameraParams}, nil
 }
 
 // Next undistorts the original image according to the camera parameters.
