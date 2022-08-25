@@ -283,7 +283,7 @@ func (gp gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float6
 	if !ok {
 		return 0, fmt.Errorf("missing pin %s", gp.pinName)
 	}
-	return float64(pwm.dutyCycle / gpio.DutyMax), nil
+	return float64(pwm.dutyCycle) / float64(gpio.DutyMax), nil
 }
 
 // expects to already have lock acquired.
@@ -300,7 +300,6 @@ func (b *sysfsBoard) softwarePWMLoop(ctx context.Context, gp gpioPin) {
 			b.mu.RLock()
 			defer b.mu.RUnlock()
 			pwmSetting, ok := b.pwms[gp.pinName]
-
 			if !ok {
 				b.logger.Debug("pwm setting deleted; stopping")
 				return false
