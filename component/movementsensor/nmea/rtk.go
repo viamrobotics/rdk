@@ -524,7 +524,7 @@ func (g *RTKMovementSensor) NtripStatus() (bool, error) {
 // GetPosition returns the current geographic location of the MOVEMENTSENSOR.
 func (g *RTKMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
 	if g.lastError != nil {
-		return nil, 0, g.lastError
+		return &geo.Point{}, 0, g.lastError
 	}
 	return g.nmeamovementsensor.GetPosition(ctx)
 }
@@ -556,7 +556,7 @@ func (g *RTKMovementSensor) GetCompassHeading(ctx context.Context) (float64, err
 // GetOrientation passthrough.
 func (g *RTKMovementSensor) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	if g.lastError != nil {
-		return nil, g.lastError
+		return spatialmath.NewZeroOrientation(), g.lastError
 	}
 	return g.nmeamovementsensor.GetOrientation(ctx)
 }
@@ -572,7 +572,7 @@ func (g *RTKMovementSensor) ReadFix(ctx context.Context) (int, error) {
 // GetProperties passthrough.
 func (g *RTKMovementSensor) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
 	if g.lastError != nil {
-		return nil, g.lastError
+		return &movementsensor.Properties{}, g.lastError
 	}
 	return g.nmeamovementsensor.GetProperties(ctx)
 }
@@ -580,7 +580,7 @@ func (g *RTKMovementSensor) GetProperties(ctx context.Context) (*movementsensor.
 // GetAccuracy passthrough.
 func (g *RTKMovementSensor) GetAccuracy(ctx context.Context) (map[string]float32, error) {
 	if g.lastError != nil {
-		return nil, g.lastError
+		return map[string]float32{}, g.lastError
 	}
 	return g.nmeamovementsensor.GetAccuracy(ctx)
 }
