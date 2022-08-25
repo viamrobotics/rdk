@@ -13,5 +13,3 @@ nohup go run cmd/server/main.go frontend/cypress/data/test_robot_config.json &
 
 cd frontend
 npx cypress run
-
-teardown
