@@ -43,8 +43,8 @@ type FrameSystem interface {
 	// is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
 	Transform(positions map[string][]Input, object Transformable, dst string) (Transformable, error)
 
-	// DivideFrameSystem will take a frame system and a frame in that system, and return two frame systems- one being rooted
-	// at the given frame and containing all descendents of it, the other with the original world with the frame and its
+	// DivideFrameSystem will take a frame system and a frame in that system, and return a new frame system rooted
+	// at the given frame and containing all descendents of it, while the original has the frame and its
 	// descendents removed.
 	DivideFrameSystem(newRoot Frame) (FrameSystem, error)
 
@@ -256,8 +256,8 @@ func (sfs *simpleFrameSystem) MergeFrameSystem(systemToMerge FrameSystem, attach
 	return nil
 }
 
-// DivideFrameSystem will take a frame system and a frame in that system, and return two frame systems- one being rooted
-// at the given frame and containing all descendents of it, the other with the original world with the frame and its
+// DivideFrameSystem will take a frame system and a frame in that system, and return a new frame system rooted
+// at the given frame and containing all descendents of it, while the original has the frame and its
 // descendents removed. For example, if there is a frame system with two independent rovers, and one rover goes offline,
 // A user could divide the frame system to remove the offline rover and have the rest of the frame system unaffected.
 func (sfs *simpleFrameSystem) DivideFrameSystem(newRoot Frame) (FrameSystem, error) {
