@@ -23,7 +23,7 @@ type serialCorrectionSource struct {
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 
-	errMu        sync.Mutex
+	errMu     sync.Mutex
 	lastError error
 }
 
