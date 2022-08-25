@@ -214,30 +214,45 @@ func CreateCloudRequest(ctx context.Context, cloudCfg *Cloud) (*http.Request, er
 	}
 	r.Header.Set(cloudConfigSecretField, cloudCfg.Secret)
 
-	userInfo := map[string]interface{}{}
-	hostname, err := os.Hostname()
+	agentInfo, err := getAgentInfo()
 	if err != nil {
 		return nil, err
 	}
-	userInfo[cloudConfigUserInfoHostField] = hostname
-	userInfo[cloudConfigUserInfoOSField] = runtime.GOOS
 
-	ips, err := utils.GetAllLocalIPv4s()
-	if err != nil {
-		return nil, err
-	}
-	userInfo[cloudConfigUserInfoLocalIPsField] = ips
-	userInfo[cloudConfigVersionField] = Version
-	userInfo[cloudConfigGitRevisionField] = GitRevision
+	userInfo := map[string]interface{}{}
+	userInfo[cloudConfigUserInfoHostField] = agentInfo.Host
+	userInfo[cloudConfigUserInfoOSField] = agentInfo.Os
+	userInfo[cloudConfigUserInfoLocalIPsField] = agentInfo.Ips
+	userInfo[cloudConfigVersionField] = agentInfo.Version
+	userInfo[cloudConfigGitRevisionField] = agentInfo.GitRevision
 
 	userInfoBytes, err := json.Marshal(userInfo)
 	if err != nil {
 		return nil, err
 	}
-
 	r.Header.Set(cloudConfigUserInfoField, string(userInfoBytes))
 
 	return r, nil
+}
+
+func getAgentInfo() (*apppb.AgentInfo, error) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+
+	ips, err := utils.GetAllLocalIPv4s()
+	if err != nil {
+		return nil, err
+	}
+
+	return &apppb.AgentInfo{
+		Host:        hostname,
+		Ips:         ips,
+		Os:          runtime.GOOS,
+		Version:     Version,
+		GitRevision: GitRevision,
+	}, nil
 }
 
 // createCloudCertificateRequest makes a request to fetch the robot's TLS
@@ -701,8 +716,13 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 	}
 	defer utils.UncheckedErrorFunc(conn.Close)
 
+	agentInfo, err := getAgentInfo()
+	if err != nil {
+		return nil, shouldCheckCacheOnFailure, err
+	}
+
 	service := apppb.NewRobotServiceClient(conn)
-	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID})
+	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID, AgentInfo: agentInfo})
 	if err != nil {
 		// Check cache?
 		return nil, shouldCheckCacheOnFailure, err

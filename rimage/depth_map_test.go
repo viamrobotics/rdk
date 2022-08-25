@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"image"
+	"image/color"
 	"image/png"
+	"math"
 	"math/rand"
 	"os"
 	"testing"
@@ -288,4 +290,48 @@ func TestDepthMap_ConvertDepthMapToLuminanceFloat(t *testing.T) {
 	// select random pixel
 	x, y := rand.Intn(nCols), rand.Intn(nRows)
 	test.That(t, fimg.At(y, x), test.ShouldEqual, float64(iwd.Depth.GetDepth(x, y)))
+}
+
+func TestDepthColorModel(t *testing.T) {
+	dm := NewEmptyDepthMap(1, 1)
+	// DepthMap Color model should convert to Gray16
+	gray := color.Gray16{Y: 5}
+	convGray := dm.ColorModel().Convert(gray)
+	test.That(t, convGray, test.ShouldHaveSameTypeAs, gray)
+	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, gray.Y)
+	// test Gray8
+	gray8 := color.Gray{Y: math.MaxUint8}
+	convGray = dm.ColorModel().Convert(gray8)
+	test.That(t, convGray, test.ShouldHaveSameTypeAs, gray)
+	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, math.MaxUint16)
+	gray8 = color.Gray{Y: 24} // copies the 8 bits, to 16 bits: 0001 1000 -> 0001 1000 0001 1000
+	convGray = dm.ColorModel().Convert(gray8)
+	test.That(t, convGray, test.ShouldHaveSameTypeAs, gray)
+	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, 6168)
+	// do it directly in binary for clarity
+	gray8 = color.Gray{Y: 0b01101100}
+	convGray = dm.ColorModel().Convert(gray8)
+	test.That(t, convGray, test.ShouldHaveSameTypeAs, gray)
+	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, 0b0110110001101100)
+	// test max value
+	maxGray := color.Gray16{Y: math.MaxUint16}
+	convGray = dm.ColorModel().Convert(maxGray)
+	test.That(t, convGray, test.ShouldHaveSameTypeAs, gray)
+	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, maxGray.Y)
+	// conversion from color
+	rgba := color.NRGBA64{6168, 6168, 6168, math.MaxUint16}
+	convGray = dm.ColorModel().Convert(rgba)
+	test.That(t, convGray, test.ShouldHaveSameTypeAs, gray)
+	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, 6168)
+	// 8 bit color gets copied into the next byte
+	rgba8 := color.NRGBA{24, 24, 24, math.MaxUint8}
+	convGray = dm.ColorModel().Convert(rgba8)
+	test.That(t, convGray, test.ShouldHaveSameTypeAs, gray)
+	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, 6168)
+	// when color is not equal in all channels, gray16 calculation is given by the JFIF specification (a weighted average).
+	// see golang's color.gray16Model for details.
+	rgba = color.NRGBA64{6168, 0, 0, math.MaxUint16}
+	convGray = dm.ColorModel().Convert(rgba)
+	test.That(t, convGray, test.ShouldHaveSameTypeAs, gray)
+	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, 1844)
 }

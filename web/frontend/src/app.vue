@@ -1326,7 +1326,7 @@ export default {
       if (pcdGlobal) {
         return;
       }
-      initPCD();
+      this.initPCD();
     },
     initPCD() {
       this.pcdClick.enable = true;
