@@ -43,7 +43,6 @@ func init() {
 			return New(ctx, r, c, logger)
 		},
 	})
-	// ----------------------
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
@@ -74,53 +73,14 @@ func init() {
 
 	resource.AddDefaultService(Name)
 
-	// ----------------------
-
-	// registry.RegisterResourceSubtype(MSubtype, registry.ResourceSubtype{
-	// 	RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
-	// 		return rpcServer.RegisterServiceServer(
-	// 			ctx,
-	// 			&modelpb.ModelService_ServiceDesc,
-	// 			NewMServer(subtypeSvc),
-	// 			modelpb.RegisterModelServiceHandlerFromEndpoint,
-	// 		)
-	// 	},
-	// 	RPCServiceDesc: &modelpb.ModelService_ServiceDesc,
-	// 	RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-	// 		return modelclient.NewClientFromConn(conn, logger)
-	// 	},
-	// 	Reconfigurable: WrapWithReconfigurable,
-	// })
-	// mType := config.ServiceType("models")
-	// config.RegisterServiceAttributeMapConverter(mType, func(attributes config.AttributeMap) (interface{}, error) {
-	// 	var conf Config
-	// 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	if err := decoder.Decode(attributes); err != nil {
-	// 		return nil, err
-	// 	}
-	// 	return &conf, nil
-	// }, &Config{})
-	// resource.AddDefaultService(MName)
-
 }
 
 // Service defines what a Data Manager Service should expose to the users.
 type Service interface {
 	Sync(ctx context.Context) error
-	// backmo.Deploy(ctx context.Context, req *modelpb.DeployRequest) (*modelpb.DeployResponse, error)
 }
 
-// Deploy(ctx context.Context, req *modelpb.DeployRequest) (*modelpb.DeployResponse, error)
-
-// type MService interface {
-// 	Deploy(ctx context.Context, req *modelpb.DeployRequest) (*modelpb.DeployResponse, error)
-// }
-
 var (
-	// _ = MService(&reconfigurableDataManager{})
 	_ = Service(&reconfigurableDataManager{})
 	_ = resource.Reconfigurable(&reconfigurableDataManager{})
 	_ = goutils.ContextCloser(&reconfigurableDataManager{})
@@ -128,7 +88,6 @@ var (
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("data_manager")
-const SubtypeMName = resource.SubtypeName("model_manager")
 
 // Subtype is a constant that identifies the data manager service resource subtype.
 var Subtype = resource.NewSubtype(
@@ -137,16 +96,8 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// MSubtype is a constant that identifies the data manager service resource subtype.
-var MSubtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeService,
-	SubtypeMName,
-)
-
 // Name is the DataManager's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
-var MName = resource.NameFromSubtype(Subtype, "")
 
 // Named is a helper for getting the named datamanager's typed resource name.
 // RSDK-347 Implements datamanager's Named.
@@ -251,12 +202,10 @@ func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger
 
 // Close releases all resources managed by data_manager.
 func (svc *dataManagerService) Close(_ context.Context) error {
-	fmt.Println("is this called?1")
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	svc.closeCollectors()
 	if svc.syncer != nil {
-		fmt.Println("is this called?11")
 		svc.syncer.Close()
 	}
 	if svc.deployModelsCancelFn != nil {
@@ -276,7 +225,6 @@ func (svc *dataManagerService) Close(_ context.Context) error {
 }
 
 func (svc *dataManagerService) closeCollectors() {
-	fmt.Println("is this called?2")
 	wg := sync.WaitGroup{}
 	for md, collector := range svc.collectors {
 		currCollector := collector
@@ -350,7 +298,6 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 			}
 			return &componentMetadata, nil
 		}
-		fmt.Println("is this called?3")
 		// Otherwise, close the current collector and instantiate a new one below.
 		collector.Close()
 	}
@@ -430,9 +377,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
 	// TODO DATA-235: fix that
 	fmt.Println("initOrUpdateSyncer()")
-	fmt.Println("svc.syncer != nil: ", svc.syncer != nil)
 	if svc.syncer != nil {
-		fmt.Println("is this called?4")
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
 		svc.syncer.Close()
 		svc.syncer = nil
@@ -442,14 +387,11 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 
 	// Kick off syncer if we're running it.
 	if intervalMins > 0 {
-		fmt.Println("so now we are here?")
 		syncer, err := svc.syncerConstructor(svc.logger, cfg)
 		if err != nil {
 			return errors.Wrap(err, "failed to initialize new syncer")
 		}
-		fmt.Println("setting the syncer")
 		svc.syncer = syncer
-		fmt.Println("svc.syncer != nil: ", svc.syncer != nil)
 		// Sync existing files in captureDir.
 		var previouslyCaptured []string
 		//nolint
@@ -463,7 +405,6 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 			previouslyCaptured = append(previouslyCaptured, path)
 			return nil
 		})
-		fmt.Println("sync in data_manager")
 		svc.syncer.Sync(previouslyCaptured)
 
 		// Validate svc.additionSyncPaths all exist, and create them if not. Then sync files in svc.additionalSyncPaths.
@@ -556,7 +497,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
 	// Close any collectors.
 	if !ok {
-		fmt.Println("is this called?5")
 		svc.closeCollectors()
 		return err
 	}
@@ -575,7 +515,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	svc.captureDisabled = svcConfig.CaptureDisabled
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if toggledCaptureOff {
-		fmt.Println("is this called?6")
 		svc.closeCollectors()
 		svc.collectors = make(map[componentMethodMetadata]collectorAndConfig)
 		return nil
@@ -602,7 +541,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 
 	// Stop syncing if newly disabled in the config.
 	if toggledSyncOff {
-		fmt.Println("callhere1")
 		if err := svc.initOrUpdateSyncer(ctx, 0, cfg); err != nil {
 			return err
 		}
@@ -612,7 +550,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 		svc.lock.Unlock()
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
-		fmt.Println("callhere2")
 		if err := svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins, cfg); err != nil {
 			return err
 		}
@@ -635,7 +572,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	// If a component/method has been removed from the config, close the collector and remove it from the map.
 	for componentMetadata, params := range svc.collectors {
 		if _, present := newCollectorMetadata[componentMetadata]; !present {
-			fmt.Println("is this called?7")
 			params.Collector.Close()
 			delete(svc.collectors, componentMetadata)
 		}
@@ -647,6 +583,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy []*Model) error {
 	fmt.Println("data_manager.go/downloadModels()")
 	modelsToDownload := getModelsToDownload(modelsToDeploy)
+	fmt.Println("len(modelsToDownload): ", len(modelsToDownload))
 	// TODO: DATA-295, delete models in file system that are no longer in the config.
 	// If we have no models to download, exit.
 	if len(modelsToDownload) == 0 {
@@ -672,22 +609,9 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 		}
 		svc.clientConn = &conn
 	}
-	// if svc.syncer == nil {
-	// 	fmt.Println("svc.syncer was not set")
-	// 	syncer, err := svc.syncerConstructor(svc.logger, cfg)
-	// 	if err != nil {
-	// 		errors.Wrap(err, "failed to initialize new syncer")
-	// 	}
-	// 	fmt.Println("setting the syncer now")
-	// 	svc.syncer = syncer
-	// 	fmt.Println("svc.syncer != nil: ", svc.syncer != nil)
-	// } else {
-	// 	fmt.Println("svc.syncer: ", svc.syncer)
-	// }
 
 	svc.deployModelsBackgroundWorkers.Add(len(modelsToDownload))
 	modelServiceClient := modelclient.NewClient(*svc.clientConn)
-	fmt.Println("What happens now?")
 	for _, model := range modelsToDownload {
 		go func(model *Model) {
 			// Change context to a timeout?
@@ -697,8 +621,6 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 					ModelName: model.Name,
 				},
 			}
-			fmt.Println("versus What happens now?")
-
 			deployResp, err := modelServiceClient.Deploy(cancelCtx, deployRequest)
 			if err != nil {
 				svc.logger.Fatalf(err.Error())
@@ -854,10 +776,8 @@ func getModelsToDownload(models []*Model) []*Model {
 	modelsToDownload := make([]*Model, 0)
 	for _, model := range models {
 		if model.Destination == "" {
-			// fmt.Println("model destination not specified")
 			// Set the model destination to default if it's not specified in the config.
 			model.Destination = filepath.Join(viamModelDotDir, model.Name)
-			// fmt.Println("model.Destination: ", model.Destination)
 		}
 		_, err := os.Stat(model.Destination)
 		// If the path to the specified destination does not exist,
@@ -949,14 +869,7 @@ func (svc *reconfigurableDataManager) Sync(ctx context.Context) error {
 	return svc.actual.Sync(ctx)
 }
 
-// func (svc *reconfigurableDataManager) Deploy(ctx context.Context, req *modelpb.DeployRequest) (*modelpb.DeployResponse, error) {
-// 	svc.mu.RLock()
-// 	defer svc.mu.RUnlock()
-// 	return svc.mact.Deploy(ctx, req)
-// }
-
 func (svc *reconfigurableDataManager) Close(ctx context.Context) error {
-	fmt.Println("is this called?8")
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return goutils.TryClose(ctx, svc.actual)
@@ -976,7 +889,6 @@ func (svc *reconfigurableDataManager) Update(ctx context.Context, resources *con
 func (svc *reconfigurableDataManager) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	fmt.Println("is this called?9")
 	rSvc, ok := newSvc.(*reconfigurableDataManager)
 	if !ok {
 		return utils.NewUnexpectedTypeError(svc, newSvc)
