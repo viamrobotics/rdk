@@ -301,14 +301,21 @@ func TestModelsAfterKilled(t *testing.T) {
 	fmt.Println("data_manager_test.go/TestModelsAfterKilled()")
 
 	// Register mock model service with a mock server.
-	rpcServer, mockService := buildAndStartLocalModelServer(t)
+	syncServer, _ := buildAndStartLocalServer(t)
 	defer func() {
-		fmt.Println("when is rpcServer.Stop() called?")
-		err := rpcServer.Stop()
+		fmt.Println("syncServer.Stop()")
+		err := syncServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
 	}()
 
-	modelss, dirs, numArbitraryFilesToSync, err := populateModels()
+	modelServer, mockModelService := buildAndStartLocalModelServer(t)
+	defer func() {
+		fmt.Println("modelServer.Stop()")
+		err := modelServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	models, dirs, numArbitraryFilesToSync, err := populateModels() // don't need arbitrary files here
 	defer func() {
 		for _, dir := range dirs {
 			resetFolder(t, dir)
@@ -322,29 +329,24 @@ func TestModelsAfterKilled(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
 	// dmCfg.AdditionalSyncPaths = dirs
-	dmCfg.ModelsToDeploy = append(dmCfg.ModelsToDeploy, modelss...)
+	dmCfg.ModelsToDeploy = append(dmCfg.ModelsToDeploy, models...)
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
 
 	// set default manager to connect to local version
 	logger, _ := golog.NewObservedTestLogger(t)
-	conn, err := getSLocalServerConn(rpcServer, testCfg, logger)
-	// conn, err := getLocalServerConn(rpcServer, logger)
-	defer func() {
-		fmt.Println("when is conn.Close() called?")
-		err := conn.Close()
-		test.That(t, err, test.ShouldBeNil)
-	}()
+	// modelConn, err := getSLocalServerConn(rpcServer, testCfg, logger)
+	modelConn, err := getLocalServerConn(modelServer, logger) // Deploy unimplemented
 	test.That(t, err, test.ShouldBeNil)
 
 	// client := datasync.NewClient(conn)
 	// sut, err := datasync.NewManager(logger, testCfg.Cloud.ID, client, conn)
 	// test.That(t, err, test.ShouldBeNil)
 	// dmsvc.SetSyncer(sut)
-	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, syncServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(10)
-	dmsvc.SetClientConn(conn)
+	dmsvc.SetClientConn(modelConn)
 
 	err = dmsvc.Update(context.TODO(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
@@ -357,7 +359,7 @@ func TestModelsAfterKilled(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Validate nothing has been synced yet.
-	test.That(t, len(mockService.getUploadedModels()), test.ShouldEqual, numArbitraryFilesToSync-numArbitraryFilesToSync)
+	test.That(t, len(mockModelService.getUploadedModels()), test.ShouldEqual, numArbitraryFilesToSync-numArbitraryFilesToSync)
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
@@ -890,11 +892,12 @@ func buildAndStartLocalModelServer(t *testing.T) (rpc.Server, mockModelServiceSe
 	fmt.Println("data_manager_test.go/buildAndStartLocalModelServer()")
 	logger, _ := golog.NewObservedTestLogger(t)
 	// tlsConfig := config.NewTLSConfig(cfg).Config
-	rpcOpts := []rpc.ServerOption{
-		rpc.WithUnauthenticated(),
-		// rpc.WithInternalTLSConfig(tlsConfig),
-	}
-	rpcServer, err := rpc.NewServer(logger, rpcOpts...)
+	// rpcOpts := []rpc.ServerOption{
+	// 	rpc.WithUnauthenticated(),
+	// 	// rpc.WithInternalTLSConfig(tlsConfig),
+	// }
+	// rpcServer, err := rpc.NewServer(logger, rpcOpts...)
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	mockService := mockModelServiceServer{
 		uploadedModels:                  &[]datamanager.Model{},

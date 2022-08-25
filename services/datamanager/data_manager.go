@@ -463,6 +463,7 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 			previouslyCaptured = append(previouslyCaptured, path)
 			return nil
 		})
+		fmt.Println("sync in data_manager")
 		svc.syncer.Sync(previouslyCaptured)
 
 		// Validate svc.additionSyncPaths all exist, and create them if not. Then sync files in svc.additionalSyncPaths.
@@ -564,10 +565,12 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 
 		// Download models from models_on_robot.
 		modelsToDeploy := svcConfig.ModelsToDeploy
-		// fmt.Println("modelsToDeploy: ", modelsToDeploy)
-		err = svc.downloadModels(cfg, modelsToDeploy)
-		if err != nil {
-			svc.logger.Errorf("can't download models_on_robot in config", "error", err)
+		fmt.Println("modelsToDeploy: ", modelsToDeploy)
+		if len(modelsToDeploy) > 0 {
+			err = svc.downloadModels(cfg, modelsToDeploy)
+			if err != nil {
+				svc.logger.Errorf("can't download models_on_robot in config", "error", err)
+			}
 		}
 	}
 
@@ -686,7 +689,7 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 	// }
 
 	svc.deployModelsBackgroundWorkers.Add(len(modelsToDownload))
-	modelServiceClient := modelclient.NewClientFromConn(*svc.clientConn, svc.logger)
+	modelServiceClient := modelclient.NewClient(*svc.clientConn)
 	fmt.Println("What happens now?")
 	for _, model := range modelsToDownload {
 		go func(model *Model) {
