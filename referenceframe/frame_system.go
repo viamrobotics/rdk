@@ -43,6 +43,10 @@ type FrameSystem interface {
 	// is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
 	Transform(positions map[string][]Input, object Transformable, dst string) (Transformable, error)
 
+	// GetFrameSystemSubset will take a frame system and a frame in that system, and return a new frame system rooted
+	// at the given frame and containing all descendents of it. The original frame system is unchanged.
+	GetFrameSystemSubset(newRoot Frame) (FrameSystem, error)
+
 	// DivideFrameSystem will take a frame system and a frame in that system, and return a new frame system rooted
 	// at the given frame and containing all descendents of it, while the original has the frame and its
 	// descendents removed.
@@ -120,7 +124,7 @@ func (sfs *simpleFrameSystem) GetFrame(name string) Frame {
 }
 
 // TracebackFrame traces the parentage of the given frame up to the world, and returns the full list of frames in between.
-// The list will include both the query frame and the world referenceframe.
+// The list will include both the query frame and the world referenceframe, and is ordered from query to world.
 func (sfs *simpleFrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
 	if !sfs.frameExists(query.Name()) {
 		return nil, fmt.Errorf("frame with name %q not in frame system", query.Name())
@@ -256,11 +260,9 @@ func (sfs *simpleFrameSystem) MergeFrameSystem(systemToMerge FrameSystem, attach
 	return nil
 }
 
-// DivideFrameSystem will take a frame system and a frame in that system, and return a new frame system rooted
-// at the given frame and containing all descendents of it, while the original has the frame and its
-// descendents removed. For example, if there is a frame system with two independent rovers, and one rover goes offline,
-// A user could divide the frame system to remove the offline rover and have the rest of the frame system unaffected.
-func (sfs *simpleFrameSystem) DivideFrameSystem(newRoot Frame) (FrameSystem, error) {
+// GetFrameSystemSubset will take a frame system and a frame in that system, and return a new frame system rooted
+// at the given frame and containing all descendents of it. The original frame system is unchanged.
+func (sfs *simpleFrameSystem) GetFrameSystemSubset(newRoot Frame) (FrameSystem, error) {
 	newWorld := NewZeroStaticFrame(World)
 	newFS := &simpleFrameSystem{newRoot.Name() + "_FS", newWorld, map[string]Frame{}, map[Frame]Frame{}}
 
@@ -268,9 +270,9 @@ func (sfs *simpleFrameSystem) DivideFrameSystem(newRoot Frame) (FrameSystem, err
 	if rootFrame == nil {
 		return nil, fmt.Errorf("newRoot frame not in fs %s", newRoot.Name())
 	}
-
-	delete(sfs.frames, newRoot.Name())
-	delete(sfs.parents, newRoot)
+	newFS.frames[newRoot.Name()] = newRoot
+	newFS.parents[newRoot] = newWorld
+	
 
 	var traceParent func(Frame) bool
 	traceParent = func(parent Frame) bool {
@@ -288,7 +290,6 @@ func (sfs *simpleFrameSystem) DivideFrameSystem(newRoot Frame) (FrameSystem, err
 	for frame, parent := range sfs.parents {
 		var addNew bool
 		if parent == newRoot {
-			parent = newWorld
 			addNew = true
 		} else {
 			addNew = traceParent(parent)
@@ -298,6 +299,27 @@ func (sfs *simpleFrameSystem) DivideFrameSystem(newRoot Frame) (FrameSystem, err
 			newFS.parents[frame] = parent
 		}
 	}
+
+	return newFS, nil
+}
+
+// DivideFrameSystem will take a frame system and a frame in that system, and return a new frame system rooted
+// at the given frame and containing all descendents of it, while the original has the frame and its
+// descendents removed. For example, if there is a frame system with two independent rovers, and one rover goes offline,
+// A user could divide the frame system to remove the offline rover and have the rest of the frame system unaffected.
+func (sfs *simpleFrameSystem) DivideFrameSystem(newRoot Frame) (FrameSystem, error) {
+	newFS, err := sfs.GetFrameSystemSubset(newRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	rootFrame := sfs.GetFrame(newRoot.Name())
+	if rootFrame == nil {
+		return nil, fmt.Errorf("newRoot frame not in fs %s", newRoot.Name())
+	}
+
+	delete(sfs.frames, newRoot.Name())
+	delete(sfs.parents, newRoot)
 
 	sfs.RemoveFrame(rootFrame)
 
