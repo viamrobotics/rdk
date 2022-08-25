@@ -160,8 +160,23 @@ func gray16ToDepthMap(img *image.Gray16) *DepthMap {
 	return dm
 }
 
+// ConvertImageToGray16 takes an image and figures out if it's already an image.Gray16
+// or if it can be converted into one.
+func ConvertImageToGray16(img image.Image) (*image.Gray16, error) {
+	switch ii := img.(type) {
+	case *DepthMap:
+		return ii.ToGray16Picture(), nil
+	case *imageWithDepth:
+		return ii.Depth.ToGray16Picture(), nil
+	case *image.Gray16:
+		return ii, nil
+	default:
+		return nil, errors.Errorf("don't know how to make image.Gray16 from %T", img)
+	}
+}
+
 // ToGray16Picture converts this depth map into a grayscale image of the same dimensions.
-func (dm *DepthMap) ToGray16Picture() image.Image {
+func (dm *DepthMap) ToGray16Picture() *image.Gray16 {
 	grayScale := image.NewGray16(image.Rect(0, 0, dm.Width(), dm.Height()))
 
 	for x := 0; x < dm.Width(); x++ {
