@@ -91,15 +91,7 @@ func (dm *DepthMap) At(x, y int) color.Color {
 }
 
 // ColorModel for DepthMap so that it implements image.Image.
-func (dm *DepthMap) ColorModel() color.Model { return &TheDepthModel{} }
-
-// TheDepthModel is the color model used to convert other colors to its own color.
-type TheDepthModel struct{}
-
-// Convert will use the Gray16 model as a stand-in for the depth model.
-func (tdm *TheDepthModel) Convert(c color.Color) color.Color {
-	return color.Gray16Model.Convert(c)
-}
+func (dm *DepthMap) ColorModel() color.Model { return color.Gray16Model }
 
 // SubImage returns a cropped image of the original DepthMap from the given rectangle.
 func (dm *DepthMap) SubImage(r image.Rectangle) *DepthMap {
@@ -131,9 +123,26 @@ func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
 		return ii.Depth, nil
 	case *image.Gray16:
 		return gray16ToDepthMap(ii), nil
+	case *image.NRGBA64:
+		return nrgba64ToDepthMap(ii), nil
 	default:
 		return nil, errors.Errorf("don't know how to make DepthMap from %T", img)
 	}
+}
+
+// nrgba64ToDepthMap creates a Depthmap from an image.NRGBA64.
+func nrgba64ToDepthMap(img *image.NRGBA64) *DepthMap {
+	bounds := img.Bounds()
+	width, height := bounds.Dx(), bounds.Dy()
+	dm := NewEmptyDepthMap(width, height)
+	for x := 0; x < width; x++ {
+		for y := 0; y < height; y++ {
+			c := img.At(x, y)
+			z := color.Gray16Model.Convert(c).(color.Gray16).Y
+			dm.Set(x, y, Depth(z))
+		}
+	}
+	return dm
 }
 
 // gray16ToDepthMap creates a DepthMap from an image.Gray16.
