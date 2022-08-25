@@ -43,11 +43,12 @@ buf-go: tool-install
 	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s generate
 
 buf-web: tool-install
-	npm ci --audit=false --prefix web/frontend
+	npm ci --audit=false
 	PATH=$(PATH_WITH_TOOLS) buf lint
 	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml
 	PATH=$(PATH_WITH_TOOLS) buf generate --timeout 5m --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
 	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
+	npm ci --audit=false --prefix web/frontend
 	npm run rollup --prefix web/frontend
 
 lint: lint-buf lint-go
