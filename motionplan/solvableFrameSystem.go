@@ -35,30 +35,10 @@ func NewSolvableFrameSystem(fs frame.FrameSystem, logger golog.Logger) *Solvable
 // the world frame. It will use the default planner options.
 func (fss *SolvableFrameSystem) SolvePose(ctx context.Context,
 	seedMap map[string][]frame.Input,
-	goal spatial.Pose,
-	solveFrameName, goalFrameName string,
+	goal *frame.PoseInFrame,
+	solveFrameName string,
 ) ([]map[string][]frame.Input, error) {
-	return fss.SolveWaypointsWithOptions(ctx, seedMap, []spatial.Pose{goal}, solveFrameName, goalFrameName, nil, nil)
-}
-
-// SolvePoseWithOptions will take a set of starting positions, a goal frame, a frame to solve for, a pose, and a configurable
-// set of PlannerOptions. It will solve the solveFrame to the goal pose with respect to the goal frame using the provided
-// planning options.
-func (fss *SolvableFrameSystem) SolvePoseWithOptions(ctx context.Context,
-	seedMap map[string][]frame.Input,
-	goal spatial.Pose,
-	solveFrameName, goalFrameName string,
-	worldState *commonpb.WorldState,
-	opt *PlannerOptions,
-) ([]map[string][]frame.Input, error) {
-	return fss.SolveWaypointsWithOptions(ctx,
-		seedMap,
-		[]spatial.Pose{goal},
-		solveFrameName,
-		goalFrameName,
-		worldState,
-		[]*PlannerOptions{opt},
-	)
+	return fss.SolveWaypointsWithOptions(ctx, seedMap, []*frame.PoseInFrame{goal}, solveFrameName, nil, nil)
 }
 
 // SolveWaypointsWithOptions will take a set of starting positions, a goal frame, a frame to solve for, goal poses, and a configurable
@@ -66,10 +46,10 @@ func (fss *SolvableFrameSystem) SolvePoseWithOptions(ctx context.Context,
 // planning options.
 func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	seedMap map[string][]frame.Input,
-	goals []spatial.Pose,
-	solveFrameName, goalFrameName string,
+	goals []*frame.PoseInFrame,
+	solveFrameName string,
 	worldState *commonpb.WorldState,
-	opts []*PlannerOptions,
+	motionConfigs []map[string]interface{},
 ) ([]map[string][]frame.Input, error) {
 	steps := make([]map[string][]frame.Input, 0, len(goals)*2)
 
@@ -82,58 +62,55 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	goalFrame := fss.GetFrame(goalFrameName)
-	if goalFrame == nil {
-		return nil, fmt.Errorf("frame with name %s not found in frame system", goalFrameName)
-	}
-	gFrames, err := fss.TracebackFrame(goalFrame)
-	if err != nil {
-		return nil, err
-	}
-	frames := uniqInPlaceSlice(append(sFrames, gFrames...))
 
-	// Create a frame to solve for, and an IK solver with that frame.
-	sf := &solverFrame{solveFrameName + "_" + goalFrameName, fss, frames, solveFrame, goalFrame}
-	if len(sf.DoF()) == 0 {
-		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
-	}
+	opts := make([]map[string]interface{}, 0, len(goals))
 
-	// Build planner
-	var planner MotionPlanner
-	if fss.mpFunc != nil {
-		planner, err = fss.mpFunc(sf, runtime.NumCPU()/2, fss.logger)
-	} else {
-		planner, err = NewCBiRRTMotionPlanner(sf, runtime.NumCPU()/2, fss.logger)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	collisionConstraint, err := NewCollisionConstraintFromWorldState(sf, fss, worldState, seedMap)
-	if err != nil {
-		return nil, err
-	}
-
-	// setup opts
-	if len(opts) == 0 {
-		for i := 0; i < len(goals); i++ {
-			opts = append(opts, NewDefaultPlannerOptions())
+	// If no planning opts, use default. If one, use for all goals. If one per goal, use respective option. Otherwise error.
+	if len(motionConfigs) != len(goals) {
+		switch len(motionConfigs) {
+		case 0:
+			for range goals {
+				opts = append(opts, map[string]interface{}{})
+			}
+		case 1:
+			// If one config passed, use it for all waypoints
+			for range goals {
+				opts = append(opts, motionConfigs[0])
+			}
+		default:
+			return nil, errors.New("goals and motion configs had different lengths")
 		}
-	}
-	if len(opts) != len(goals) {
-		return nil, errors.New("goals and options had different lengths")
-	}
-	for _, opt := range opts {
-		opt.constraintHandler.AddConstraint("collision", collisionConstraint)
+	} else {
+		opts = motionConfigs
 	}
 
-	seed := sf.mapToSlice(seedMap)
-	resultSlices, err := RunPlannerWithWaypoints(ctx, planner, goals, seed, opts, 0)
-	if err != nil {
-		return nil, err
-	}
-	for _, resultSlice := range resultSlices {
-		steps = append(steps, sf.sliceToMapConf(resultSlice))
+	// Each goal is a different PoseInFrame and so may have a different destination Pose. Since the motion can be solved from either end,
+	// each goal is solved independently.
+	for i, goal := range goals {
+		goalFrameName := goal.FrameName()
+		goalFrame := fss.GetFrame(goalFrameName)
+		if goalFrame == nil {
+			return nil, fmt.Errorf("frame with name %s not found in frame system", goalFrameName)
+		}
+		gFrames, err := fss.TracebackFrame(goalFrame)
+		if err != nil {
+			return nil, err
+		}
+		frames := uniqInPlaceSlice(append(sFrames, gFrames...))
+
+		// Create a frame to solve for, and an IK solver with that frame.
+		sf := &solverFrame{solveFrameName + "_" + goalFrameName, fss, frames, solveFrame, goalFrame}
+		if len(sf.DoF()) == 0 {
+			return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
+		}
+
+		resultSlices, err := sf.planSingleWaypoint(ctx, seedMap, goal.Pose(), worldState, opts[i])
+		if err != nil {
+			return nil, err
+		}
+		for _, resultSlice := range resultSlices {
+			steps = append(steps, sf.sliceToMapConf(resultSlice))
+		}
 	}
 
 	return steps, nil
@@ -154,6 +131,76 @@ type solverFrame struct {
 	frames     []frame.Frame
 	solveFrame frame.Frame
 	goalFrame  frame.Frame
+}
+
+func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
+	seedMap map[string][]frame.Input,
+	goalPos spatial.Pose,
+	worldState *commonpb.WorldState,
+	motionConfig map[string]interface{},
+) ([][]frame.Input, error) {
+	seed := sf.mapToSlice(seedMap)
+	seedPos, err := sf.Transform(seed)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build planner
+	var planner MotionPlanner
+	if sf.fss.mpFunc != nil {
+		planner, err = sf.fss.mpFunc(sf, runtime.NumCPU()/2, sf.fss.logger)
+	} else {
+		planner, err = NewCBiRRTMotionPlanner(sf, runtime.NumCPU()/2, sf.fss.logger)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	goals := []spatial.Pose{goalPos}
+	opts := []*PlannerOptions{}
+
+	// linear motion profile has known intermediate points, so solving can be broken up and sped up
+	if profile, ok := motionConfig["motionProfile"]; ok && profile == "linear" {
+		pathStepSize, ok := motionConfig["pathStepSize"].(float64)
+		if !ok {
+			// Default
+			pathStepSize = defaultPathStepSize
+		}
+		numSteps := GetSteps(seedPos, goalPos, pathStepSize)
+		goals = make([]spatial.Pose, 0, numSteps)
+
+		from := seedPos
+		for i := 1; i < numSteps; i++ {
+			by := float64(i) / float64(numSteps)
+			to := spatial.Interpolate(seedPos, goalPos, by)
+			goals = append(goals, to)
+			opt, err := plannerSetupFromMoveRequest(ctx, from, to, sf, sf.fss, seedMap, worldState, motionConfig)
+			if err != nil {
+				return nil, err
+			}
+			opts = append(opts, opt)
+
+			from = to
+		}
+		goals = append(goals, goalPos)
+		opt, err := plannerSetupFromMoveRequest(ctx, from, goalPos, sf, sf.fss, seedMap, worldState, motionConfig)
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, opt)
+	} else {
+		opt, err := plannerSetupFromMoveRequest(ctx, seedPos, goalPos, sf, sf.fss, seedMap, worldState, motionConfig)
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, opt)
+	}
+
+	resultSlices, err := runPlannerWithWaypoints(ctx, planner, goals, seed, opts, 0)
+	if err != nil {
+		return nil, err
+	}
+	return resultSlices, nil
 }
 
 // Name returns the name of the solver referenceframe.
