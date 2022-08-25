@@ -143,4 +143,4 @@ jobs:
       options: --platform linux/amd64
     steps:
       - name: Run e2e Tests
-        run: sudo -u testbot bash -lc 'make test-e2e'
+        run: make test-e2e
