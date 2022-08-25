@@ -1,4 +1,4 @@
-package imagetransform
+package transformpipeline
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/component/camera/imagesource"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
@@ -30,9 +31,13 @@ func TestDepthSource(t *testing.T) {
 	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := &imagesource.StaticSource{DepthImg: img}
-	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
-	blur := 3.0
-	ds := &depthEdgesSource{source, canny, blur}
+	am := config.AttributeMap{
+		"high_threshold": 0.85,
+		"low_threshold":  0.40,
+		"blur_radius":    3.0,
+	}
+	ds, err := newDepthEdgesTransform(source, am)
+	test.That(t, err, test.ShouldBeNil)
 	_, _, err = ds.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -56,9 +61,13 @@ func (h *depthSourceTestHelper) Process(
 
 	// create edge map
 	source := &imagesource.StaticSource{DepthImg: dm}
-	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
-	blur := 3.0
-	ds := &depthEdgesSource{source, canny, blur}
+	am := config.AttributeMap{
+		"high_threshold": 0.85,
+		"low_threshold":  0.40,
+		"blur_radius":    3.0,
+	}
+	ds, err := newDepthEdgesTransform(source, am)
+	test.That(t, err, test.ShouldBeNil)
 	edges, _, err := ds.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
@@ -71,7 +80,8 @@ func (h *depthSourceTestHelper) Process(
 
 	// preprocess depth map
 	source = &imagesource.StaticSource{DepthImg: dm}
-	rs := &preprocessDepthSource{source}
+	rs, err := newDepthPreprocessTransform(source)
+	test.That(t, err, test.ShouldBeNil)
 
 	output, _, err := rs.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -84,7 +94,8 @@ func (h *depthSourceTestHelper) Process(
 	pCtx.GotDebugPointCloud(preprocessedPointCloud, "preprocessed-aligned-pointcloud")
 
 	source = &imagesource.StaticSource{DepthImg: preprocessed}
-	ds = &depthEdgesSource{source, canny, blur}
+	ds, err = newDepthEdgesTransform(source, am)
+	test.That(t, err, test.ShouldBeNil)
 	processedEdges, _, err := ds.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
