@@ -1,4 +1,4 @@
-package imagetransform
+package transformpipeline
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/camera/imagesource"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 )
@@ -36,45 +37,24 @@ func TestUndistortSetup(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := &imagesource.StaticSource{ColorImg: img}
-	cam, err := camera.New(source, nil)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = cam.GetProperties(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
 
 	// no camera parameters
-	attrs := &transformConfig{}
-	_, err = newUndistortSource(context.Background(), cam, attrs)
+	am := config.AttributeMap{}
+	_, err = newUndistortTransform(source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
 
 	// bad stream type
-	source = &imagesource.StaticSource{
-		ColorImg: img,
-		Proj:     undistortTestParams,
-	}
-	cam, err = camera.New(source, source.Proj)
-	test.That(t, err, test.ShouldBeNil)
-	attrs.Stream = "fake"
-	us, err := newUndistortSource(context.Background(), cam, attrs)
+	source = &imagesource.StaticSource{ColorImg: img}
+	am = config.AttributeMap{"camera_parameters": undistortTestParams}
+	us, err := newUndistortTransform(source, camera.StreamType("fake"), am)
 	test.That(t, err, test.ShouldBeNil)
 	_, _, err = us.Next(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how to decode stream")
 
 	// success - attrs has camera parameters
-	attrs.Stream = string(camera.ColorStream)
-	us, err = newUndistortSource(context.Background(), cam, attrs)
-	test.That(t, err, test.ShouldBeNil)
-	_, _, err = us.Next(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-
-	// success - attrs does not have cam parameters, but source does
-	proj, _ := camera.GetProjector(context.Background(), nil, cam)
-	cam2, err := camera.New(source, proj)
-	test.That(t, err, test.ShouldBeNil)
-
-	attrs.Stream = string(camera.ColorStream)
-	us, err = newUndistortSource(context.Background(), cam2, attrs)
+	us, err = newUndistortTransform(source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	_, _, err = us.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -89,7 +69,9 @@ func TestUndistortImage(t *testing.T) {
 	source := &imagesource.StaticSource{ColorImg: img}
 
 	// success
-	us := &undistortSource{source, camera.ColorStream, undistortTestParams}
+	am := config.AttributeMap{"camera_parameters": undistortTestParams}
+	us, err := newUndistortTransform(source, camera.ColorStream, am)
+	test.That(t, err, test.ShouldBeNil)
 	corrected, _, err := us.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	result, ok := corrected.(*rimage.Image)
@@ -104,7 +86,8 @@ func TestUndistortImage(t *testing.T) {
 
 	// bad source
 	source = &imagesource.StaticSource{ColorImg: rimage.NewImage(10, 10)}
-	us = &undistortSource{source, camera.ColorStream, undistortTestParams}
+	us, err = newUndistortTransform(source, camera.ColorStream, am)
+	test.That(t, err, test.ShouldBeNil)
 	_, _, err = us.Next(context.Background())
 	test.That(t, err.Error(), test.ShouldContainSubstring, "img dimension and intrinsics don't match")
 }
@@ -115,7 +98,9 @@ func TestUndistortDepthMap(t *testing.T) {
 	source := &imagesource.StaticSource{DepthImg: img}
 
 	// success
-	us := &undistortSource{source, camera.DepthStream, undistortTestParams}
+	am := config.AttributeMap{"camera_parameters": undistortTestParams}
+	us, err := newUndistortTransform(source, camera.DepthStream, am)
+	test.That(t, err, test.ShouldBeNil)
 	corrected, _, err := us.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	result, ok := corrected.(*rimage.DepthMap)
@@ -130,13 +115,15 @@ func TestUndistortDepthMap(t *testing.T) {
 
 	// bad source
 	source = &imagesource.StaticSource{DepthImg: rimage.NewEmptyDepthMap(10, 10)}
-	us = &undistortSource{source, camera.DepthStream, undistortTestParams}
+	us, err = newUndistortTransform(source, camera.DepthStream, am)
+	test.That(t, err, test.ShouldBeNil)
 	_, _, err = us.Next(context.Background())
 	test.That(t, err.Error(), test.ShouldContainSubstring, "img dimension and intrinsics don't match")
 
 	// can't convert image to depth map
 	source = &imagesource.StaticSource{ColorImg: rimage.NewImage(10, 10)}
-	us = &undistortSource{source, camera.DepthStream, undistortTestParams}
+	us, err = newUndistortTransform(source, camera.DepthStream, am)
+	test.That(t, err, test.ShouldBeNil)
 	_, _, err = us.Next(context.Background())
 	test.That(t, err.Error(), test.ShouldContainSubstring, "don't know how to make DepthMap")
 }
