@@ -299,9 +299,9 @@ func TestRecoversAfterKilled(t *testing.T) {
 // but not synced model files are still synced at start up.
 func TestModelsAfterKilled(t *testing.T) {
 	fmt.Println("data_manager_test.go/TestModelsAfterKilled()")
+
 	// Register mock model service with a mock server.
 	rpcServer, mockService := buildAndStartLocalModelServer(t)
-	fmt.Println("mockService:", mockService)
 	defer func() {
 		fmt.Println("when is rpcServer.Stop() called?")
 		err := rpcServer.Stop()
@@ -317,11 +317,7 @@ func TestModelsAfterKilled(t *testing.T) {
 	if err != nil {
 		t.Error("unable to generate arbitrary data files and create directory structure.")
 	}
-
-	fmt.Println("numArbitraryFilesToSync: ", numArbitraryFilesToSync)
-
 	testCfg := setupConfig(t, configPath)
-
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
@@ -334,6 +330,7 @@ func TestModelsAfterKilled(t *testing.T) {
 	// set default manager to connect to local version
 	logger, _ := golog.NewObservedTestLogger(t)
 	conn, err := getSLocalServerConn(rpcServer, testCfg, logger)
+	// conn, err := getLocalServerConn(rpcServer, logger)
 	defer func() {
 		fmt.Println("when is conn.Close() called?")
 		err := conn.Close()
@@ -341,10 +338,10 @@ func TestModelsAfterKilled(t *testing.T) {
 	}()
 	test.That(t, err, test.ShouldBeNil)
 
-	client := datasync.NewClient(conn)
-	sut, err := datasync.NewManager(logger, testCfg.Cloud.ID, client, conn)
-	test.That(t, err, test.ShouldBeNil)
-	dmsvc.SetSyncer(sut)
+	// client := datasync.NewClient(conn)
+	// sut, err := datasync.NewManager(logger, testCfg.Cloud.ID, client, conn)
+	// test.That(t, err, test.ShouldBeNil)
+	// dmsvc.SetSyncer(sut)
 	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(10)
 	dmsvc.SetClientConn(conn)
@@ -353,14 +350,14 @@ func TestModelsAfterKilled(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not synced.
-	// time.Sleep(time.Millisecond * 150)
+	time.Sleep(time.Millisecond * 150)
 
 	// Simulate turning off the service.
-	// err = dmsvc.Close(context.TODO())
-	// test.That(t, err, test.ShouldBeNil)
+	err = dmsvc.Close(context.TODO())
+	test.That(t, err, test.ShouldBeNil)
 
 	// Validate nothing has been synced yet.
-	// test.That(t, len(mockService.getUploadedModels()), test.ShouldEqual, 0)
+	test.That(t, len(mockService.getUploadedModels()), test.ShouldEqual, numArbitraryFilesToSync-numArbitraryFilesToSync)
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
@@ -892,7 +889,12 @@ func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServ
 func buildAndStartLocalModelServer(t *testing.T) (rpc.Server, mockModelServiceServer) {
 	fmt.Println("data_manager_test.go/buildAndStartLocalModelServer()")
 	logger, _ := golog.NewObservedTestLogger(t)
-	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	// tlsConfig := config.NewTLSConfig(cfg).Config
+	rpcOpts := []rpc.ServerOption{
+		rpc.WithUnauthenticated(),
+		// rpc.WithInternalTLSConfig(tlsConfig),
+	}
+	rpcServer, err := rpc.NewServer(logger, rpcOpts...)
 	test.That(t, err, test.ShouldBeNil)
 	mockService := mockModelServiceServer{
 		uploadedModels:                  &[]datamanager.Model{},
@@ -924,6 +926,7 @@ func buildAndStartLocalModelServer(t *testing.T) (rpc.Server, mockModelServiceSe
 // 		rpc.WithInsecure(),
 // 	)
 // }
+
 func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientConn, error) {
 	fmt.Println("data_manager_test.go/getLocalServerConn()")
 	return rpc.DialDirectGRPC(
@@ -961,6 +964,8 @@ func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerC
 	return func(logger golog.Logger, cfg *config.Config) (datasync.Manager, error) {
 		conn, err := getSLocalServerConn(server, cfg, logger)
 		// conn, err := getLocalServerConn(server, logger)
+		fmt.Println("make it past?")
+
 		test.That(t, err, test.ShouldBeNil)
 		client := datasync.NewClient(conn)
 		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn)
