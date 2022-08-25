@@ -67,12 +67,14 @@ func newGripper(attributes config.AttributeMap, logger golog.Logger) (gripper.Lo
 	if err != nil {
 		return nil, err
 	}
-	err = jServo.SetTorqueEnable(true)
+	if err := jServo.SetTorqueEnable(true); err != nil {
+		return nil, err
+	}
 	newGripper := Gripper{
 		jServo:   jServo,
 		moveLock: getPortMutex(usbPort),
 	}
-	return &newGripper, err
+	return &newGripper, nil
 }
 
 // GetMoveLock TODO.
