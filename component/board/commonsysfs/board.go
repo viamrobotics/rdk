@@ -339,7 +339,7 @@ func (gp gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[st
 
 	if gp.hwPWMSupported {
 		err := gp.pin.PWM(duty, freqHz)
-		// TODO: (rh) find or implement a PWM sysfs that works with hardware pwm mappings
+		// TODO: [RSDK-569] (rh) find or implement a PWM sysfs that works with hardware pwm mappings
 		// periph.io does not implement PWM
 		if err != nil {
 			return errors.New("sysfs PWM not currently supported, use another pin for software PWM loops")
