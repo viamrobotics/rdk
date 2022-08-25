@@ -1,4 +1,4 @@
-package imagetransform
+package transformpipeline
 
 import (
 	"context"
@@ -43,7 +43,7 @@ func writeTempConfig(cfg *config.Config) (string, error) {
 // make a fake robot with a vision service.
 func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	// add a fake camera to the config
-	cfg, err := config.Read(context.Background(), "data/vision.json", logger)
+	cfg, err := config.Read(context.Background(), artifact.MustPath("component/camera/transformpipeline/vision.json"), logger)
 	if err != nil {
 		return nil, err
 	}
@@ -53,9 +53,8 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 		Type:  camera.SubtypeName,
 		Model: "file",
 		Attributes: config.AttributeMap{
-			"color":   artifact.MustPath("vision/objectdetection/detection_test.jpg"),
-			"depth":   "",
-			"aligned": false,
+			"color": artifact.MustPath("vision/objectdetection/detection_test.jpg"),
+			"depth": "",
 		},
 	}
 	cfg.Components = append(cfg.Components, cameraComp)
@@ -63,22 +62,38 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	detectorComp := config.Component{
 		Name:  "color_detect",
 		Type:  camera.SubtypeName,
-		Model: "detector",
+		Model: "transform",
 		Attributes: config.AttributeMap{
-			"source":        "fake_cam",
-			"detector_name": "detector_color",
+			"source": "fake_cam",
+			"pipeline": []config.AttributeMap{
+				{
+					"type": "detections",
+					"attributes": config.AttributeMap{
+						"detector_name":        "detector_color",
+						"confidence_threshold": 0.35,
+					},
+				},
+			},
 		},
 		DependsOn: []string{"fake_cam"},
 	}
 	cfg.Components = append(cfg.Components, detectorComp)
+	// create 2nd fake detector camera
 	tfliteComp := config.Component{
 		Name:  "tflite_detect",
 		Type:  camera.SubtypeName,
-		Model: "detector",
+		Model: "transform",
 		Attributes: config.AttributeMap{
-			"source":               "fake_cam",
-			"detector_name":        "detector_tflite",
-			"confidence_threshold": 0.35,
+			"source": "fake_cam",
+			"pipeline": []config.AttributeMap{
+				{
+					"type": "detections",
+					"attributes": config.AttributeMap{
+						"detector_name":        "detector_tflite",
+						"confidence_threshold": 0.35,
+					},
+				},
+			},
 		},
 		DependsOn: []string{"fake_cam"},
 	}
