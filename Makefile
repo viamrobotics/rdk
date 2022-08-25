@@ -80,6 +80,9 @@ test-pi:
 	go test -c -o $(BIN_OUTPUT_PATH)/test-pi go.viam.com/rdk/component/board/pi/impl
 	sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
 
+test-e2e:
+	./etc/e2e.sh
+
 server:
 	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
 

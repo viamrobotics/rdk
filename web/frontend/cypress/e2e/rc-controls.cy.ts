@@ -1,6 +1,6 @@
 describe('should load the page', () => {
   it('passes', () => {
-    cy.visit('http://127.0.0.1:8080/');
+    cy.visit('/');
 
     cy.contains('h2', 'test_base').should('exist');
     cy.contains('h2', 'test_gantry').should('exist');
