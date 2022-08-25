@@ -130,7 +130,7 @@ func TestDMC4000Motor(t *testing.T) {
 	waitTx(t, resChan)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
-		features, err := _motor.GetFeatures(ctx, nil)
+		features, err := _motor.GetProperties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
 	})
