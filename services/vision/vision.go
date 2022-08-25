@@ -122,8 +122,7 @@ func FirstFromRobot(r robot.Robot) (Service, error) {
 
 // Attributes contains a list of the user-provided details necessary to register a new vision service.
 type Attributes struct {
-	DetectorRegistry []DetectorConfig `json:"register_detectors"`
-	ModelRegistry    []VisModelConfig `json:"register_models"`
+	ModelRegistry []VisModelConfig `json:"register_models"`
 }
 
 // New registers new detectors from the config and returns a new object detection service for the given robot.

@@ -11,9 +11,9 @@ import (
 )
 
 func TestColorDetector(t *testing.T) {
-	inp := &DetectorConfig{
+	inp := &VisModelConfig{
 		Name: "my_color_detector",
-		Type: "color",
+		Type: "color_detector",
 		Parameters: config.AttributeMap{
 			"segment_size": 150000,
 			"tolerance":    0.44,
@@ -22,25 +22,25 @@ func TestColorDetector(t *testing.T) {
 		},
 	}
 	ctx := context.Background()
-	reg := make(detectorMap)
+	reg := make(modelMap)
 	testlog := golog.NewLogger("testlog")
-	err := registerColorDetectorr(ctx, reg, inp, testlog)
+	err := registerColorDetector(ctx, reg, inp, testlog)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = reg.detectorLookup("my_color_detector")
+	_, err = reg.modelLookup("my_color_detector")
 	test.That(t, err, test.ShouldBeNil)
 
 	// with error - bad parameters
 	inp.Name = "will_fail"
 	inp.Parameters["tolerance"] = 4.0 // value out of range
-	err = registerColorDetectorr(ctx, reg, inp, testlog)
+	err = registerColorDetector(ctx, reg, inp, testlog)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "tolerance must be between")
 
 	// with error - nil entry
-	err = registerColorDetectorr(ctx, reg, nil, testlog)
+	err = registerColorDetector(ctx, reg, nil, testlog)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
 
 	// with error - nil parameters
 	inp.Parameters = nil
-	err = registerColorDetectorr(ctx, reg, inp, testlog)
+	err = registerColorDetector(ctx, reg, inp, testlog)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected EOF")
 }

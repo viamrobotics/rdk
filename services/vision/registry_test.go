@@ -14,84 +14,84 @@ import (
 	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
-func TestDetectorMap2(t *testing.T) {
+func TestDetectorMap(t *testing.T) {
 	fn := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
 	}
-	registeredFn := registeredDetector{detector: fn, closer: nil}
-	emptyFn := registeredDetector{detector: nil, closer: nil}
+	registeredFn := registeredModel{model: fn, closer: nil, modelType: ColorDetector}
+	emptyFn := registeredModel{model: nil, closer: nil}
 	fnName := "x"
-	reg := make(detectorMap)
+	reg := make(modelMap)
 	testlog := golog.NewLogger("testlog")
 	// no detector
-	err := reg.registerDetector(fnName, &emptyFn, testlog)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot register a nil detector")
+	err := reg.registerVisModel(fnName, &emptyFn, testlog)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot register a nil model")
 	// success
-	reg.registerDetector(fnName, &registeredFn, testlog)
+	reg.registerVisModel(fnName, &registeredFn, testlog)
 	// detector names
-	names := reg.detectorNames()
+	names := reg.DetectorNames()
 	test.That(t, names, test.ShouldNotBeNil)
 	test.That(t, names, test.ShouldContain, fnName)
 	// look up
-	det, err := reg.detectorLookup(fnName)
+	det, err := reg.modelLookup(fnName)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, det, test.ShouldEqual, fn)
-	det, err = reg.detectorLookup("z")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no Detector with name")
-	test.That(t, det, test.ShouldBeNil)
+	test.That(t, det.model, test.ShouldEqual, fn)
+	det, err = reg.modelLookup("z")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no such vision model with name")
+	test.That(t, det.model, test.ShouldBeNil)
 	// duplicate
-	err = reg.registerDetector(fnName, &registeredFn, testlog)
+	err = reg.registerVisModel(fnName, &registeredFn, testlog)
 	test.That(t, err, test.ShouldBeNil)
-	names = reg.detectorNames()
+	names = reg.DetectorNames()
 	test.That(t, names, test.ShouldContain, fnName)
 	// remove
-	err = reg.removeDetector(fnName, testlog)
+	err = reg.removeVisModel(fnName, testlog)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reg.detectorNames(), test.ShouldNotContain, fnName)
+	test.That(t, reg.DetectorNames(), test.ShouldNotContain, fnName)
 }
 
-func TestDetectorCloser2(t *testing.T) {
+func TestDetectorCloser(t *testing.T) {
 	fakeDetectFn := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
 	}
 	closer := inf.TFLiteStruct{Info: &inf.TFLiteInfo{100, 100, 3, []int{1, 100, 100, 3}, "uint8", 1, 4, []string{}}}
 
-	d := registeredDetector{detector: fakeDetectFn, closer: &closer}
-	reg := make(detectorMap)
-	err := reg.registerDetector("x", &d, golog.NewTestLogger(t))
+	d := registeredModel{model: fakeDetectFn, closer: &closer, modelType: ColorDetector}
+	reg := make(modelMap)
+	err := reg.registerVisModel("x", &d, golog.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 	got := reg["x"].closer
 	test.That(t, got, test.ShouldNotBeNil)
 }
 
-func TestDetectorRemoval2(t *testing.T) {
+func TestDetectorRemoval(t *testing.T) {
 	fakeDetectFn := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{objdet.NewDetection(image.Rectangle{}, 0.0, "")}, nil
 	}
 	ctx := context.Background()
 	closer, err := addTFLiteModel(ctx, artifact.MustPath("vision/tflite/effdet0.tflite"), nil)
 	test.That(t, err, test.ShouldBeNil)
-	d := registeredDetector{detector: fakeDetectFn, closer: closer}
+	d := registeredModel{model: fakeDetectFn, closer: closer, modelType: ColorDetector}
 	testlog := golog.NewTestLogger(t)
-	reg := make(detectorMap)
-	err = reg.registerDetector("x", &d, testlog)
+	reg := make(modelMap)
+	err = reg.registerVisModel("x", &d, testlog)
 	test.That(t, err, test.ShouldBeNil)
-	err = reg.registerDetector("y", &d, testlog)
+	err = reg.registerVisModel("y", &d, testlog)
 	test.That(t, err, test.ShouldBeNil)
 	logger, obs := golog.NewObservedTestLogger(t)
-	err = reg.removeDetector("z", logger)
+	err = reg.removeVisModel("z", logger)
 	test.That(t, err, test.ShouldBeNil)
 	got := obs.All()[len(obs.All())-1].Message
-	test.That(t, got, test.ShouldContainSubstring, "no Detector with name")
-	err = reg.removeDetector("x", logger)
+	test.That(t, got, test.ShouldContainSubstring, "no such vision model with name")
+	err = reg.removeVisModel("x", logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reg.detectorNames(), test.ShouldNotContain, "x")
+	test.That(t, reg.DetectorNames(), test.ShouldNotContain, "x")
 }
 
-func TestRegisterTFLiteDetector2(t *testing.T) {
+func TestRegisterTFLiteDetector(t *testing.T) {
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
 	conf := &Attributes{
-		DetectorRegistry: []DetectorConfig{
+		ModelRegistry: []VisModelConfig{
 			{
 				Name: "my_tflite_det",
 				Type: "tflite_detector",
@@ -103,15 +103,14 @@ func TestRegisterTFLiteDetector2(t *testing.T) {
 			},
 		},
 	}
-	reg := make(detectorMap)
-	reg2 := make(modelMap)
-	err := registerNewDetectors(context.Background(), reg, reg2, conf, golog.NewTestLogger(t))
+	reg := make(modelMap)
+	err := registerNewVisModels(context.Background(), reg, conf, golog.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestRegisterTensorFlowDetector2(t *testing.T) {
+func TestRegisterTensorFlowDetector(t *testing.T) {
 	conf := &Attributes{
-		DetectorRegistry: []DetectorConfig{
+		ModelRegistry: []VisModelConfig{
 			{
 				Name:       "my_tensorflow_det",
 				Type:       "tf_detector",
@@ -119,15 +118,14 @@ func TestRegisterTensorFlowDetector2(t *testing.T) {
 			},
 		},
 	}
-	reg := make(detectorMap)
-	reg2 := make(modelMap)
-	err := registerNewDetectors(context.Background(), reg, reg2, conf, golog.NewTestLogger(t))
-	test.That(t, err, test.ShouldBeError, newDetectorTypeNotImplemented("tensorflow"))
+	reg := make(modelMap)
+	err := registerNewVisModels(context.Background(), reg, conf, golog.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeError, newVisModelTypeNotImplemented("tf_detector"))
 }
 
-func TestRegisterColorDetector2(t *testing.T) {
+func TestRegisterColorDetector(t *testing.T) {
 	conf := &Attributes{
-		DetectorRegistry: []DetectorConfig{
+		ModelRegistry: []VisModelConfig{
 			{
 				Name: "my_color_det",
 				Type: "color_detector",
@@ -139,22 +137,21 @@ func TestRegisterColorDetector2(t *testing.T) {
 			},
 		},
 	}
-	reg := make(detectorMap)
-	reg2 := make(modelMap)
-	err := registerNewDetectors(context.Background(), reg, reg2, conf, golog.NewTestLogger(t))
+	reg := make(modelMap)
+	err := registerNewVisModels(context.Background(), reg, conf, golog.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = reg.detectorLookup("my_color_det")
+	_, err = reg.modelLookup("my_color_det")
 	test.That(t, err, test.ShouldBeNil)
 
 	// error from bad config
-	conf.DetectorRegistry[0].Parameters = nil
-	err = registerNewDetectors(context.Background(), reg, reg2, conf, golog.NewTestLogger(t))
+	conf.ModelRegistry[0].Parameters = nil
+	err = registerNewVisModels(context.Background(), reg, conf, golog.NewTestLogger(t))
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected EOF")
 }
 
-func TestRegisterUnknownDetector2(t *testing.T) {
+func TestRegisterUnknownDetector(t *testing.T) {
 	conf := &Attributes{
-		DetectorRegistry: []DetectorConfig{
+		ModelRegistry: []VisModelConfig{
 			{
 				Name:       "my_random_det",
 				Type:       "not_real",
@@ -162,8 +159,7 @@ func TestRegisterUnknownDetector2(t *testing.T) {
 			},
 		},
 	}
-	reg := make(detectorMap)
-	reg2 := make(modelMap)
-	err := registerNewDetectors(context.Background(), reg, reg2, conf, golog.NewTestLogger(t))
-	test.That(t, err, test.ShouldBeError, newDetectorTypeNotImplemented("not_real"))
+	reg := make(modelMap)
+	err := registerNewVisModels(context.Background(), reg, conf, golog.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeError, newVisModelTypeNotImplemented("not_real"))
 }
