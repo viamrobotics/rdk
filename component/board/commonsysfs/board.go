@@ -279,7 +279,11 @@ func (gp gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float6
 	gp.b.mu.RLock()
 	defer gp.b.mu.RUnlock()
 
-	return float64(gp.b.pwms[gp.pinName].dutyCycle / gpio.DutyMax), nil
+	pwm, ok := gp.b.pwms[gp.pinName]
+	if !ok {
+		return 0, fmt.Errorf("missing pin %s", gp.pinName)
+	}
+	return float64(pwm.dutyCycle / gpio.DutyMax), nil
 }
 
 // expects to already have lock acquired.
@@ -339,7 +343,7 @@ func (gp gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64, extra map[st
 
 	if gp.hwPWMSupported {
 		err := gp.pin.PWM(duty, freqHz)
-		// TODO: (rh) find or implement a PWM sysfs that works with hardware pwm mappings
+		// TODO: [RSDK-569] (rh) find or implement a PWM sysfs that works with hardware pwm mappings
 		// periph.io does not implement PWM
 		if err != nil {
 			return errors.New("sysfs PWM not currently supported, use another pin for software PWM loops")
