@@ -80,7 +80,6 @@ test-pi:
 	sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
 
 test-e2e:
-	make build-web
 	./etc/e2e.sh
 
 server:
