@@ -23,7 +23,7 @@ type serialCorrectionSource struct {
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 
-	mu        sync.Mutex
+	errMu        sync.Mutex
 	lastError error
 }
 
@@ -94,8 +94,8 @@ func newSerialCorrectionSource(ctx context.Context, config config.Component, log
 }
 
 func (s *serialCorrectionSource) setLastError(err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.errMu.Lock()
+	defer s.errMu.Unlock()
 
 	s.lastError = err
 }
