@@ -76,7 +76,7 @@ func TestClient(t *testing.T) {
 		// detector was turned into segmenter
 		segNames, err := client.GetSegmenterNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, segNames, test.ShouldContain, "detect_red")
+		test.That(t, segNames, test.ShouldContain, "detect_red_segmenter")
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -88,9 +88,9 @@ func TestClient(t *testing.T) {
 
 		client := vision.NewClientFromConn(context.Background(), conn, visName, logger)
 
-		cfg := vision.DetectorConfig{
+		cfg := vision.VisModelConfig{
 			Name: "new_detector",
-			Type: "color",
+			Type: "color_detector",
 			Parameters: config.AttributeMap{
 				"detect_color": "#112233",
 				"tolerance":    0.9,
@@ -108,8 +108,8 @@ func TestClient(t *testing.T) {
 		// segmenter should also be added
 		segNames, err := client.GetSegmenterNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, segNames, test.ShouldContain, "detect_red")
-		test.That(t, segNames, test.ShouldContain, "new_detector")
+		test.That(t, segNames, test.ShouldContain, "detect_red_segmenter")
+		test.That(t, segNames, test.ShouldContain, "new_detector_segmenter")
 		// tries to add a detector again
 		err = client.AddDetector(context.Background(), cfg)
 		test.That(t, err, test.ShouldBeNil)
@@ -145,8 +145,8 @@ func TestClient(t *testing.T) {
 
 		img, _ := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
 		modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
-		cfg := vision.DetectorConfig{
-			Name: "test", Type: "tflite",
+		cfg := vision.VisModelConfig{
+			Name: "test", Type: "tflite_detector",
 			Parameters: config.AttributeMap{
 				"model_path":  modelLoc,
 				"label_path":  "",

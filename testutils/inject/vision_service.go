@@ -16,7 +16,7 @@ type VisionService struct {
 	vision.Service
 	// detection functions
 	GetDetectorNamesFunc        func(ctx context.Context) ([]string, error)
-	AddDetectorFunc             func(ctx context.Context, cfg vision.DetectorConfig) error
+	AddDetectorFunc             func(ctx context.Context, cfg vision.VisModelConfig) error
 	GetDetectionsFromCameraFunc func(ctx context.Context, cameraName, detectorName string) ([]objectdetection.Detection, error)
 	GetDetectionsFunc           func(ctx context.Context, img image.Image, detectorName string) ([]objectdetection.Detection, error)
 	// segmentation functions
@@ -36,7 +36,7 @@ func (vs *VisionService) GetDetectorNames(ctx context.Context) ([]string, error)
 }
 
 // AddDetector calls the injected AddDetector or the real variant.
-func (vs *VisionService) AddDetector(ctx context.Context, cfg vision.DetectorConfig) error {
+func (vs *VisionService) AddDetector(ctx context.Context, cfg vision.VisModelConfig) error {
 	if vs.AddDetectorFunc == nil {
 		return vs.Service.AddDetector(ctx, cfg)
 	}
