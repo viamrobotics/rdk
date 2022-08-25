@@ -163,4 +163,5 @@ jobs:
 
       - name: Run e2e Tests
         run: |
+          chown -R testbot .
           sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS -u testbot bash -lc 'make build-web test-e2e'
