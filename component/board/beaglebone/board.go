@@ -22,7 +22,7 @@ func init() {
 		rlog.Logger.Debugw("error getting beaglebone GPIO board mapping", "error", err)
 	}
 
-	rlog.Logger.Info(
+	rlog.Logger.Debug(
 		"beaglebone gpio mapping uses directory sys/devices/platform/bus@100000/*.gpio",
 		"\t\t\t\tbeaglebone 600000.gpio/ corresponds to gpiochip1 and /sys/class/gpio/gpiochip300/\n",
 		"\t\t\t\tbeaglebone 601000.gpio/ corresponds to gpiochip2 and /sys/class/gpio/gpiochip264/\n",
