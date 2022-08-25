@@ -78,6 +78,9 @@ type Camera interface {
 	projectorProvider
 
 	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
+
+	// NextPointCloud returns the next immediately available point cloud, not necessarily one
+	// a part of a squence. In the future, there could be streaming of point clouds.
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
 	Close(ctx context.Context) error
 }
