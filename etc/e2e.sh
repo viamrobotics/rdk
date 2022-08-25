@@ -7,7 +7,7 @@ cd $ROOT_DIR/web
 
 # Run server with test config
 
-nohup go run cmd/server/main.go -config frontend/cypress/data/test_robot_config.json &
+sudo nohup go run cmd/server/main.go -config frontend/cypress/data/test_robot_config.json &
 
 # Wait for interface to be live before running tests
 until nc -vz 127.0.0.1 8080; do sleep 2; done
