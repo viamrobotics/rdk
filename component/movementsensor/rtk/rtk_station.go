@@ -120,7 +120,7 @@ type rtkStation struct {
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 
-	mu        sync.Mutex
+	errMu     sync.Mutex
 	lastError error
 }
 
@@ -239,8 +239,8 @@ func newRTKStation(
 }
 
 func (r *rtkStation) setLastError(err error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.errMu.Lock()
+	defer r.errMu.Unlock()
 
 	r.lastError = err
 }

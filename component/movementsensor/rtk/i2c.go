@@ -24,7 +24,7 @@ type i2cCorrectionSource struct {
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 
-	mu        sync.Mutex
+	errMu     sync.Mutex
 	lastError error
 }
 
@@ -65,8 +65,8 @@ func newI2CCorrectionSource(
 }
 
 func (s *i2cCorrectionSource) setLastError(err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.errMu.Lock()
+	defer s.errMu.Unlock()
 
 	s.lastError = err
 }

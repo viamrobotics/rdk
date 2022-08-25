@@ -100,7 +100,7 @@ type RTKMovementSensor struct {
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 
-	mu        sync.Mutex
+	errMu     sync.Mutex
 	lastError error
 }
 
@@ -220,8 +220,8 @@ func newRTKMovementSensor(
 }
 
 func (g *RTKMovementSensor) setLastError(err error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.errMu.Lock()
+	defer g.errMu.Unlock()
 
 	g.lastError = err
 }
