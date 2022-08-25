@@ -142,5 +142,9 @@ jobs:
       image: ghcr.io/viamrobotics/canon:amd64-cache
       options: --platform linux/amd64
     steps:
+      - name: Check out code in rdk directory
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
       - name: Run e2e Tests
         run: make test-e2e
