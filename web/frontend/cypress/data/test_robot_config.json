@@ -78,12 +78,15 @@
     ],
     "services": [
         {
+            "name": "test_vision",
             "type": "vision"
         },
         {
+            "name": "test_motion",
             "type": "motion"
         },
         {
+            "name": "test_navigation",
             "type": "navigation",
             "attributes": {
                 "store": {

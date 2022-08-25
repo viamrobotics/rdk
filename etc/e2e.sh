@@ -7,9 +7,16 @@ cd $ROOT_DIR/web
 
 # Run server with test config
 
-nohup go run cmd/server/main.go frontend/cypress/data/test_robot_config.json &
+nohup go run cmd/server/main.go -config frontend/cypress/data/test_robot_config.json &
 
-# Remote Control Tests
+# Wait for interface to be live before running tests
+until nc -vz 127.0.0.1 8080; do sleep 2; done
+
+# Run tests
 
 cd frontend
-npx cypress run
+npm run cypress:ci -- -c defaultCommandTimeout=10000
+
+# Teardown
+
+kill -9 $(lsof -t -i:8080 2> /dev/null)

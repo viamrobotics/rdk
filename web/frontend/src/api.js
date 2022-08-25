@@ -47,7 +47,6 @@ window.boardApi = boardApi;
 window.cameraApi = cameraApi;
 window.gantryApi = gantryApi;
 window.genericApi = genericApi;
-window.gpsApi = gpsApi;
 window.gripperApi = gripperApi;
 window.movementSensorApi = movementSensorApi;
 window.inputControllerApi = inputControllerApi;
