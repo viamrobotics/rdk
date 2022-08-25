@@ -80,6 +80,7 @@ test-pi:
 	sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
 
 test-e2e:
+	go build $(LDFLAGS) -o bin/test-e2e/server web/cmd/server/main.go
 	./etc/e2e.sh
 
 server:
