@@ -6,7 +6,6 @@ import { BoardServiceClient } from './gen/proto/api/component/board/v1/board_pb_
 import { CameraServiceClient } from './gen/proto/api/component/camera/v1/camera_pb_service.esm';
 import { GantryServiceClient } from './gen/proto/api/component/gantry/v1/gantry_pb_service.esm';
 import { GenericServiceClient } from './gen/proto/api/component/generic/v1/generic_pb_service.esm';
-import { GPSServiceClient } from './gen/proto/api/component/gps/v1/gps_pb_service.esm';
 import { GripperServiceClient } from './gen/proto/api/component/gripper/v1/gripper_pb_service.esm';
 import { MovementSensorServiceClient } from './gen/proto/api/component/movementsensor/v1/movementsensor_pb_service.esm';
 import { InputControllerServiceClient } from './gen/proto/api/component/inputcontroller/v1/input_controller_pb_service.esm';
@@ -27,7 +26,6 @@ import boardApi from './gen/proto/api/component/board/v1/board_pb.esm';
 import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
 import gantryApi from './gen/proto/api/component/gantry/v1/gantry_pb.esm';
 import genericApi from './gen/proto/api/component/generic/v1/generic_pb.esm';
-import gpsApi from './gen/proto/api/component/gps/v1/gps_pb.esm';
 import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
 import movementSensorApi from './gen/proto/api/component/movementsensor/v1/movementsensor_pb.esm';
 import inputControllerApi from './gen/proto/api/component/inputcontroller/v1/input_controller_pb.esm';
@@ -142,7 +140,6 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
   window.gantryService = new GantryServiceClient(window.webrtcHost, { transport: transportFactory });
   window.genericService = new GenericServiceClient(window.webrtcHost, { transport: transportFactory });
   window.gripperService = new GripperServiceClient(window.webrtcHost, { transport: transportFactory });
-  window.gpsService = new GPSServiceClient(window.webrtcHost, { transport: transportFactory });
   window.movementsensorService = new MovementSensorServiceClient(window.webrtcHost, { transport: transportFactory });
   window.inputControllerService = new InputControllerServiceClient(window.webrtcHost, { transport: transportFactory });
   window.motorService = new MotorServiceClient(window.webrtcHost, { transport: transportFactory });
