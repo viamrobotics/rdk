@@ -22,18 +22,6 @@ func TestSqNormMetric(t *testing.T) {
 	test.That(t, d2, test.ShouldAlmostEqual, 100)
 }
 
-func TestDefaultMetric(t *testing.T) {
-	p1 := spatial.NewPoseFromPoint(r3.Vector{0, 0, 0})
-	p2 := spatial.NewPoseFromPoint(r3.Vector{0, 0, 10})
-	p3 := spatial.NewPoseFromPoint(r3.Vector{0, 0, 5})
-
-	defaultMetric := newDefaultMetric(p1, p2)
-
-	// The halfway point between two points should pass
-	d1 := defaultMetric(p3, nil)
-	test.That(t, d1, test.ShouldAlmostEqual, 0)
-}
-
 func TestBasicMetric(t *testing.T) {
 	sqMet := func(from, to spatial.Pose) float64 {
 		return spatial.PoseDelta(from, to).Point().Norm2()
