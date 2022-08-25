@@ -444,11 +444,10 @@ func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMin
 	if intervalMins > 0 {
 		fmt.Println("so now we are here?")
 		syncer, err := svc.syncerConstructor(svc.logger, cfg)
-		fmt.Println("did we make it past?")
 		if err != nil {
 			return errors.Wrap(err, "failed to initialize new syncer")
 		}
-		fmt.Println("setting the syncer?")
+		fmt.Println("setting the syncer")
 		svc.syncer = syncer
 		fmt.Println("svc.syncer != nil: ", svc.syncer != nil)
 		// Sync existing files in captureDir.
@@ -609,9 +608,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		}
 	} else if toggledSyncOn || (svcConfig.SyncIntervalMins != svc.syncIntervalMins) ||
 		!reflect.DeepEqual(svcConfig.AdditionalSyncPaths, svc.additionalSyncPaths) {
-		// If the sync config has changed, update the syncer.
-		fmt.Println("our values")
-		fmt.Println("toggledSyncOn: ", toggledSyncOn)
 		svc.lock.Lock()
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 		svc.lock.Unlock()
@@ -676,6 +672,18 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 		}
 		svc.clientConn = &conn
 	}
+	// if svc.syncer == nil {
+	// 	fmt.Println("svc.syncer was not set")
+	// 	syncer, err := svc.syncerConstructor(svc.logger, cfg)
+	// 	if err != nil {
+	// 		errors.Wrap(err, "failed to initialize new syncer")
+	// 	}
+	// 	fmt.Println("setting the syncer now")
+	// 	svc.syncer = syncer
+	// 	fmt.Println("svc.syncer != nil: ", svc.syncer != nil)
+	// } else {
+	// 	fmt.Println("svc.syncer: ", svc.syncer)
+	// }
 
 	svc.deployModelsBackgroundWorkers.Add(len(modelsToDownload))
 	modelServiceClient := modelclient.NewClientFromConn(*svc.clientConn, svc.logger)
@@ -690,24 +698,7 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 				},
 			}
 			fmt.Println("versus What happens now?")
-			if svc.syncer == nil {
-				fmt.Println("svc.syncer was not set")
-				syncer, err := svc.syncerConstructor(svc.logger, cfg)
-				if err != nil {
-					errors.Wrap(err, "failed to initialize new syncer")
-				}
-				fmt.Println("setting the syncer?")
-				svc.syncer = syncer
-				fmt.Println("svc.syncer != nil: ", svc.syncer != nil)
-			} else {
-				fmt.Println("svc.syncer: ", svc.syncer)
-			}
 
-			if svc.syncerConstructor == nil {
-				fmt.Println("svc.syncerConstructor was not set")
-			} else {
-				fmt.Println("svc.syncerConstructor: ", svc.syncerConstructor)
-			}
 			deployResp, err := modelServiceClient.Deploy(cancelCtx, deployRequest)
 			if err != nil {
 				svc.logger.Fatalf(err.Error())
