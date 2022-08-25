@@ -134,3 +134,10 @@ jobs:
           echo Main Tests: ${{ needs.build_and_test.result }}
           [ "${{ needs.test_pi.result }}" == "success" ] && \
           [ "${{ needs.build_and_test.result }}" == "success" ]
+
+  test_e2e:
+    name: End-to-End Tests Passing
+    runs-on: [x64, qemu-host]
+    steps:
+      - name: Run e2e Tests
+        run: make test-e2e
