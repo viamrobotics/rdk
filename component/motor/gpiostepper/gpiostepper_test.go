@@ -45,7 +45,7 @@ func Test1(t *testing.T) {
 	m := mm.(*gpioStepper)
 
 	t.Run("motor test supports position reporting", func(t *testing.T) {
-		features, err := m.GetFeatures(ctx, nil)
+		features, err := m.GetProperties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
 	})

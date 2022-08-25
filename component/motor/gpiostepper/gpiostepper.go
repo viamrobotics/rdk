@@ -324,8 +324,8 @@ func (m *gpioStepper) GetPosition(ctx context.Context, extra map[string]interfac
 	return float64(m.stepPosition) / float64(m.stepsPerRotation), nil
 }
 
-// GetFeatures returns the status of whether the motor supports certain optional features.
-func (m *gpioStepper) GetFeatures(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+// GetProperties returns the status of whether the motor supports certain optional features.
+func (m *gpioStepper) GetProperties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: true,
 	}, nil
