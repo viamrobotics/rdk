@@ -2888,6 +2888,12 @@
           "hash": "3db8bb7ff7845790c0a770dc19b7dd46",
           "size": 13914
         }
+      },
+      "transformpipeline": {
+        "vision.json": {
+          "hash": "6a08f5990ff4e77de7265facc1518a67",
+          "size": 84
+        }
       }
     }
   },
