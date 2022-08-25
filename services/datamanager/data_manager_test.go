@@ -114,6 +114,7 @@ func newTestDataManager(t *testing.T, localArmKey string, remoteArmKey string) i
 	if err != nil {
 		t.Log(err)
 	}
+
 	return svc.(internal.DMService)
 }
 
@@ -300,7 +301,9 @@ func TestModelsAfterKilled(t *testing.T) {
 	fmt.Println("data_manager_test.go/TestModelsAfterKilled()")
 	// Register mock model service with a mock server.
 	rpcServer, mockService := buildAndStartLocalModelServer(t)
+	fmt.Println("mockService:", mockService)
 	defer func() {
+		fmt.Println("when is rpcServer.Stop() called?")
 		err := rpcServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
 	}()
@@ -317,11 +320,8 @@ func TestModelsAfterKilled(t *testing.T) {
 
 	fmt.Println("numArbitraryFilesToSync: ", numArbitraryFilesToSync)
 
-	logger, _ := golog.NewObservedTestLogger(t)
-	conn, err := getLocalServerConn(rpcServer, logger)
-	test.That(t, err, test.ShouldBeNil)
-
 	testCfg := setupConfig(t, configPath)
+
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
@@ -331,25 +331,36 @@ func TestModelsAfterKilled(t *testing.T) {
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
 
-	// hmmm this smells funny
-	// dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
-	// dmsvc.SetSyncerConstructor(altGetTestSyncerConstructor(t, rpcServer))
-	// dmsvc.SetSyncerConstructor(getTestSyncerConstructor(nil, nil))
+	// set default manager to connect to local version
+	logger, _ := golog.NewObservedTestLogger(t)
+	conn, err := getSLocalServerConn(rpcServer, testCfg, logger)
+	defer func() {
+		fmt.Println("when is conn.Close() called?")
+		err := conn.Close()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+	test.That(t, err, test.ShouldBeNil)
 
+	client := datasync.NewClient(conn)
+	sut, err := datasync.NewManager(logger, testCfg.Cloud.ID, client, conn)
+	test.That(t, err, test.ShouldBeNil)
+	dmsvc.SetSyncer(sut)
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(10)
 	dmsvc.SetClientConn(conn)
+
 	err = dmsvc.Update(context.TODO(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not synced.
-	time.Sleep(time.Millisecond * 150)
+	// time.Sleep(time.Millisecond * 150)
 
 	// Simulate turning off the service.
-	err = dmsvc.Close(context.TODO())
-	test.That(t, err, test.ShouldBeNil)
+	// err = dmsvc.Close(context.TODO())
+	// test.That(t, err, test.ShouldBeNil)
 
 	// Validate nothing has been synced yet.
-	test.That(t, len(mockService.getUploadedModels()), test.ShouldEqual, 0)
+	// test.That(t, len(mockService.getUploadedModels()), test.ShouldEqual, 0)
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
@@ -904,6 +915,15 @@ func buildAndStartLocalModelServer(t *testing.T) (rpc.Server, mockModelServiceSe
 	return rpcServer, mockService
 }
 
+// func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientConn, error) {
+// 	fmt.Println("data_manager_test.go/getLocalServerConn()")
+// 	return rpc.DialDirectGRPC(
+// 		context.Background(),
+// 		rpcServer.InternalAddr().String(),
+// 		logger,
+// 		rpc.WithInsecure(),
+// 	)
+// }
 func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientConn, error) {
 	fmt.Println("data_manager_test.go/getLocalServerConn()")
 	return rpc.DialDirectGRPC(
@@ -914,24 +934,35 @@ func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientCo
 	)
 }
 
+func getSLocalServerConn(rpcServer rpc.Server, cfg *config.Config, logger golog.Logger) (rpc.ClientConn, error) {
+	fmt.Println("data_manager_test.go/getSLocalServerConn()")
+	tlsConfig := config.NewTLSConfig(cfg).Config
+	rpcOpts := []rpc.DialOption{
+		rpc.WithInsecure(),
+		rpc.WithTLSConfig(tlsConfig),
+		rpc.WithEntityCredentials(
+			cfg.Cloud.ID,
+			rpc.Credentials{
+				Type:    rutils.CredentialsTypeRobotSecret,
+				Payload: cfg.Cloud.Secret,
+			}),
+	}
+	return rpc.DialDirectGRPC(
+		context.Background(),
+		rpcServer.InternalAddr().String(),
+		logger,
+		rpcOpts...,
+	)
+}
+
 //nolint:thelper
 func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerConstructor {
 	fmt.Println("data_manager_test.go/getTestSyncerConstructor()")
 	return func(logger golog.Logger, cfg *config.Config) (datasync.Manager, error) {
-		conn, err := getLocalServerConn(server, logger)
+		conn, err := getSLocalServerConn(server, cfg, logger)
+		// conn, err := getLocalServerConn(server, logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := datasync.NewClient(conn)
 		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn)
 	}
 }
-
-//nolint:thelper
-// func altGetTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerConstructor {
-// 	fmt.Println("data_manager_test.go/altGetTestSyncerConstructor()")
-// 	return func(logger golog.Logger, cfg *config.Config) (datasync.Manager, error) {
-// 		conn, err := getLocalServerConn(server, logger)
-// 		test.That(t, err, test.ShouldBeNil)
-// 		client := modelclient.NewClient(conn)
-// 		return modelclient.NewManager(logger, cfg.Cloud.ID, client, conn)
-// 	}
-// }

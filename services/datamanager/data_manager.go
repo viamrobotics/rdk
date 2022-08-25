@@ -251,10 +251,12 @@ func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger
 
 // Close releases all resources managed by data_manager.
 func (svc *dataManagerService) Close(_ context.Context) error {
+	fmt.Println("is this called?1")
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	svc.closeCollectors()
 	if svc.syncer != nil {
+		fmt.Println("is this called?11")
 		svc.syncer.Close()
 	}
 	if svc.deployModelsCancelFn != nil {
@@ -274,6 +276,7 @@ func (svc *dataManagerService) Close(_ context.Context) error {
 }
 
 func (svc *dataManagerService) closeCollectors() {
+	fmt.Println("is this called?2")
 	wg := sync.WaitGroup{}
 	for md, collector := range svc.collectors {
 		currCollector := collector
@@ -347,7 +350,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 			}
 			return &componentMetadata, nil
 		}
-
+		fmt.Println("is this called?3")
 		// Otherwise, close the current collector and instantiate a new one below.
 		collector.Close()
 	}
@@ -426,22 +429,28 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 func (svc *dataManagerService) initOrUpdateSyncer(_ context.Context, intervalMins float64, cfg *config.Config) error {
 	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
 	// TODO DATA-235: fix that
+	fmt.Println("initOrUpdateSyncer()")
+	fmt.Println("svc.syncer != nil: ", svc.syncer != nil)
 	if svc.syncer != nil {
+		fmt.Println("is this called?4")
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
 		svc.syncer.Close()
 		svc.syncer = nil
 	}
 
-	svc.cancelSyncBackgroundRoutine()
+	defer svc.cancelSyncBackgroundRoutine()
 
 	// Kick off syncer if we're running it.
 	if intervalMins > 0 {
+		fmt.Println("so now we are here?")
 		syncer, err := svc.syncerConstructor(svc.logger, cfg)
+		fmt.Println("did we make it past?")
 		if err != nil {
 			return errors.Wrap(err, "failed to initialize new syncer")
 		}
+		fmt.Println("setting the syncer?")
 		svc.syncer = syncer
-
+		fmt.Println("svc.syncer != nil: ", svc.syncer != nil)
 		// Sync existing files in captureDir.
 		var previouslyCaptured []string
 		//nolint
@@ -547,6 +556,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
 	// Close any collectors.
 	if !ok {
+		fmt.Println("is this called?5")
 		svc.closeCollectors()
 		return err
 	}
@@ -566,6 +576,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	svc.captureDisabled = svcConfig.CaptureDisabled
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if toggledCaptureOff {
+		fmt.Println("is this called?6")
 		svc.closeCollectors()
 		svc.collectors = make(map[componentMethodMetadata]collectorAndConfig)
 		return nil
@@ -592,16 +603,20 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 
 	// Stop syncing if newly disabled in the config.
 	if toggledSyncOff {
+		fmt.Println("callhere1")
 		if err := svc.initOrUpdateSyncer(ctx, 0, cfg); err != nil {
 			return err
 		}
 	} else if toggledSyncOn || (svcConfig.SyncIntervalMins != svc.syncIntervalMins) ||
 		!reflect.DeepEqual(svcConfig.AdditionalSyncPaths, svc.additionalSyncPaths) {
 		// If the sync config has changed, update the syncer.
+		fmt.Println("our values")
+		fmt.Println("toggledSyncOn: ", toggledSyncOn)
 		svc.lock.Lock()
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
 		svc.lock.Unlock()
 		svc.syncIntervalMins = svcConfig.SyncIntervalMins
+		fmt.Println("callhere2")
 		if err := svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins, cfg); err != nil {
 			return err
 		}
@@ -624,6 +639,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	// If a component/method has been removed from the config, close the collector and remove it from the map.
 	for componentMetadata, params := range svc.collectors {
 		if _, present := newCollectorMetadata[componentMetadata]; !present {
+			fmt.Println("is this called?7")
 			params.Collector.Close()
 			delete(svc.collectors, componentMetadata)
 		}
@@ -674,6 +690,24 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 				},
 			}
 			fmt.Println("versus What happens now?")
+			if svc.syncer == nil {
+				fmt.Println("svc.syncer was not set")
+				syncer, err := svc.syncerConstructor(svc.logger, cfg)
+				if err != nil {
+					errors.Wrap(err, "failed to initialize new syncer")
+				}
+				fmt.Println("setting the syncer?")
+				svc.syncer = syncer
+				fmt.Println("svc.syncer != nil: ", svc.syncer != nil)
+			} else {
+				fmt.Println("svc.syncer: ", svc.syncer)
+			}
+
+			if svc.syncerConstructor == nil {
+				fmt.Println("svc.syncerConstructor was not set")
+			} else {
+				fmt.Println("svc.syncerConstructor: ", svc.syncerConstructor)
+			}
 			deployResp, err := modelServiceClient.Deploy(cancelCtx, deployRequest)
 			if err != nil {
 				svc.logger.Fatalf(err.Error())
@@ -931,6 +965,7 @@ func (svc *reconfigurableDataManager) Sync(ctx context.Context) error {
 // }
 
 func (svc *reconfigurableDataManager) Close(ctx context.Context) error {
+	fmt.Println("is this called?8")
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return goutils.TryClose(ctx, svc.actual)
@@ -950,6 +985,7 @@ func (svc *reconfigurableDataManager) Update(ctx context.Context, resources *con
 func (svc *reconfigurableDataManager) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
+	fmt.Println("is this called?9")
 	rSvc, ok := newSvc.(*reconfigurableDataManager)
 	if !ok {
 		return utils.NewUnexpectedTypeError(svc, newSvc)

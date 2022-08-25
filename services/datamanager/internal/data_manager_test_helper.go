@@ -18,6 +18,7 @@ type DMService interface {
 	Update(ctx context.Context, cfg *config.Config) error
 	Close(ctx context.Context) error
 	SetSyncerConstructor(fn datasync.ManagerConstructor)
+	SetSyncer(s datasync.Manager)
 	SetWaitAfterLastModifiedSecs(s int)
 	SetClientConn(c urpc.ClientConn)
 }
