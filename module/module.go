@@ -30,57 +30,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/module/v1"
 )
 
-// SubtypeName is the name of the type of service.
-const SubtypeName = resource.SubtypeName("module")
-
-// Subtype is a constant that identifies the remote control resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeService,
-	SubtypeName,
-)
-
-// Name is the name of the module service
-var Name = resource.NameFromSubtype(Subtype, "")
-
-
-type (
-	moduleAddress string
-	modulePath    string
-)
-
-type ModuleConfig struct {
-	Path   modulePath `json:"path"`
-	Type   string `json:"type"`
-	Models []resource.Model `json:"models"`
-}
-
-// Config holds the list of modules.
-type Config struct {
-	Modules []ModuleConfig `json:"modules"`
-}
-
-func init() {
-	registry.RegisterService(Subtype, registry.Service{Constructor: New})
-	cType := config.ServiceType(SubtypeName)
-	// registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{})
-
-	config.RegisterServiceAttributeMapConverter(cType,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			jsonStr, err := json.Marshal(attributes)
-			if err != nil {
-				return &conf, err
-			}
-			err = json.Unmarshal(jsonStr, &conf)
-			return &conf, err
-		},
-	&Config{},
-	)
-
-	// resource.AddDefaultService(Name)
-}
-
 // New returns a module system service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
 	svcConfig, ok := config.ConvertedAttributes.(*Config)
@@ -107,24 +56,18 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	return svc, nil
 }
 
-// the module system.
-type moduleService struct {
-	mu         sync.RWMutex
-	robot      robot.Robot
+var (
+	mapMu      sync.RWMutex
 	logger     golog.Logger
-	modules    map[modulePath]*module
+	modulesMap map[string]*Module
 	serviceMap map[resource.Name]rpc.ClientConn
-}
+)
 
-type module struct {
+type Module struct {
 	process pexec.ManagedProcess
 	serves  []resource.Model
 	conn    rpc.ClientConn
-	addr    moduleAddress
-}
-
-func (svc *moduleService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
-	return nil
+	addr    string
 }
 
 func (svc *moduleService) Close(ctx context.Context) error {

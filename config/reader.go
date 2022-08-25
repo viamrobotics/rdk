@@ -765,6 +765,11 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Services config from proto")
 	}
 
+	cfg.Modules, err = toRDKSlice(res.Config.Modules, ModuleConfigFromProto)
+	if err != nil {
+		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Modules config from proto")
+	}
+
 	return &cfg, false, nil
 }
 
