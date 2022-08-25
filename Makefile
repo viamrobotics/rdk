@@ -19,7 +19,6 @@ build-go: buf-go
 
 build-web: buf-web
 	export NODE_OPTIONS=--openssl-legacy-provider && node --version 2>/dev/null || unset NODE_OPTIONS;\
-	cd web/frontend && npm ci --audit=false && npm run rollup
 	cd web/frontend && npm run build
 
 tool-install:
@@ -81,6 +80,7 @@ test-pi:
 	sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
 
 test-e2e:
+	make build-web
 	./etc/e2e.sh
 
 server:
