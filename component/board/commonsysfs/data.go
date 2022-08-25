@@ -20,6 +20,8 @@ type GPIOBoardMapping struct {
 	GPIOChipDev    string
 	GPIO           int
 	GPIOGlobal     int
+	GPIOName       string
+	PWMSysFsDir    string
 	HWPWMSupported bool
 }
 
@@ -166,6 +168,7 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 	}
 
 	data := make(map[int]GPIOBoardMapping, len(pinDefs))
+
 	for _, pinDef := range pinDefs {
 		key := pinDef.PinNumberBoard
 
@@ -180,9 +183,10 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 			GPIOChipDev:    gpioChipDirs[pinDef.GPIOChipSysFSDir],
 			GPIO:           chipRelativeID,
 			GPIOGlobal:     chipGPIOBase + chipRelativeID,
+			GPIOName:       pinDef.PinNameCVM,
+			PWMSysFsDir:    pinDef.PWMChipSysFSDir,
 			HWPWMSupported: pinDef.PWMID != -1,
 		}
 	}
-
 	return data, nil
 }

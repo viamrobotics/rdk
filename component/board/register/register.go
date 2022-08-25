@@ -4,6 +4,7 @@ package register
 import (
 	// for boards.
 	_ "go.viam.com/rdk/component/board/arduino"
+	_ "go.viam.com/rdk/component/board/beaglebone"
 	_ "go.viam.com/rdk/component/board/fake"
 	_ "go.viam.com/rdk/component/board/hat/pca9685"
 	_ "go.viam.com/rdk/component/board/jetson"
