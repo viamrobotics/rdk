@@ -279,7 +279,11 @@ func (gp gpioPin) PWM(ctx context.Context, extra map[string]interface{}) (float6
 	gp.b.mu.RLock()
 	defer gp.b.mu.RUnlock()
 
-	return float64(gp.b.pwms[gp.pinName].dutyCycle / gpio.DutyMax), nil
+        pwm, ok := gp.b.pwms[gp.pinName]
+        if !ok {
+                return 0, fmt.Errorf("missing pin %s", gp.pinName)
+        }
+	return float64(pwm.dutyCycle / gpio.DutyMax), nil
 }
 
 // expects to already have lock acquired.
