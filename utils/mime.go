@@ -1,8 +1,8 @@
 package utils
 
 const (
-	// MimeTypeRawRGBA is for go's internal image.RGBA. The data has no headers, so you must
-	// assume that the bytes can be read directly into the image.RGBA struct.
+	// MimeTypeRawRGBA is for go's internal image.NRGBA64. The data has no headers, so you must
+	// assume that the bytes can be read directly into the image.NRGBA64 struct.
 	MimeTypeRawRGBA = "image/vnd.viam.rgba"
 
 	// MimeTypeJPEG is regular jpgs.
