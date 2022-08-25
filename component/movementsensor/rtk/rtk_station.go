@@ -119,6 +119,9 @@ type rtkStation struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+
+	errMu     sync.Mutex
+	lastError error
 }
 
 type correctionSource interface {
@@ -148,7 +151,11 @@ func newRTKStation(
 ) (movementsensor.MovementSensor, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
-	r := &rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	r := &rtkStation{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+	}
 
 	r.correctionType = config.Attributes.String(correctionSourceName)
 
@@ -228,7 +235,14 @@ func newRTKStation(
 	r.logger.Debug("Starting")
 
 	r.Start(ctx)
-	return r, nil
+	return r, r.lastError
+}
+
+func (r *rtkStation) setLastError(err error) {
+	r.errMu.Lock()
+	defer r.errMu.Unlock()
+
+	r.lastError = err
 }
 
 // Start starts reading from the correction source and sends corrections to the child movementsensor's.
@@ -244,7 +258,9 @@ func (r *rtkStation) Start(ctx context.Context) {
 		<-ready
 		stream, err := r.correction.GetReader()
 		if err != nil {
-			r.logger.Fatalf("Unable to get reader: %s", err)
+			r.logger.Errorf("Unable to get reader: %s", err)
+			r.setLastError(err)
+			return
 		}
 
 		reader := io.TeeReader(stream, r.serialWriter)
@@ -269,7 +285,9 @@ func (r *rtkStation) Start(ctx context.Context) {
 					r.logger.Debug("Pipe closed")
 					return
 				}
-				r.logger.Fatalf("Unable to read stream: %s", err)
+				r.logger.Errorf("Unable to read stream: %s", err)
+				r.setLastError(err)
+				return
 			}
 
 			// write buf to all i2c handles
@@ -277,19 +295,22 @@ func (r *rtkStation) Start(ctx context.Context) {
 				// open handle
 				handle, err := busAddr.bus.OpenHandle(busAddr.addr)
 				if err != nil {
-					r.logger.Fatalf("can't open movementsensor i2c handle: %s", err)
+					r.logger.Errorf("can't open movementsensor i2c handle: %s", err)
+					r.setLastError(err)
 					return
 				}
 				// write to i2c handle
 				err = handle.Write(ctx, buf)
 				if err != nil {
-					r.logger.Fatalf("i2c handle write failed %s", err)
+					r.logger.Errorf("i2c handle write failed %s", err)
+					r.setLastError(err)
 					return
 				}
 				// close i2c handle
 				err = handle.Close()
 				if err != nil {
-					r.logger.Fatalf("failed to close handle: %s", err)
+					r.logger.Errorf("failed to close handle: %s", err)
+					r.setLastError(err)
 					return
 				}
 			}
@@ -318,37 +339,37 @@ func (r *rtkStation) Close() error {
 	}
 
 	r.logger.Debug("RTK Station Closed")
-	return nil
+	return r.lastError
 }
 
 func (r *rtkStation) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
-	return &geo.Point{}, 0, nil
+	return &geo.Point{}, 0, r.lastError
 }
 
 func (r *rtkStation) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
-	return r3.Vector{}, nil
+	return r3.Vector{}, r.lastError
 }
 
 func (r *rtkStation) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
-	return spatialmath.AngularVelocity{}, nil
+	return spatialmath.AngularVelocity{}, r.lastError
 }
 
 func (r *rtkStation) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
-	return spatialmath.NewZeroOrientation(), nil
+	return spatialmath.NewZeroOrientation(), r.lastError
 }
 
 func (r *rtkStation) GetCompassHeading(ctx context.Context) (float64, error) {
-	return 0, nil
+	return 0, r.lastError
 }
 
 func (r *rtkStation) GetReadings(ctx context.Context) (map[string]interface{}, error) {
-	return map[string]interface{}{}, nil
+	return map[string]interface{}{}, r.lastError
 }
 
 func (r *rtkStation) GetAccuracy(ctx context.Context) (map[string]float32, error) {
-	return map[string]float32{}, nil
+	return map[string]float32{}, r.lastError
 }
 
 func (r *rtkStation) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
-	return &movementsensor.Properties{}, nil
+	return &movementsensor.Properties{}, r.lastError
 }
