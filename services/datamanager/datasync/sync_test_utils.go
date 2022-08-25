@@ -196,8 +196,8 @@ func buildBinaryUploadRequests(data [][]byte, fileName string) []*v1.UploadReque
 	return expMsgs
 }
 
-func getMockService() mockDataSyncServiceServer {
-	return mockDataSyncServiceServer{
+func getMockService() *mockDataSyncServiceServer {
+	return &mockDataSyncServiceServer{
 		uploadRequests:                     &[]*v1.UploadRequest{},
 		callCount:                          &atomic.Int32{},
 		failAtIndex:                        -1,
@@ -208,7 +208,7 @@ func getMockService() mockDataSyncServiceServer {
 }
 
 //nolint:thelper
-func buildAndStartLocalServer(t *testing.T, logger golog.Logger, mockService mockDataSyncServiceServer) rpc.Server {
+func buildAndStartLocalServer(t *testing.T, logger golog.Logger, mockService *mockDataSyncServiceServer) rpc.Server {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	err = rpcServer.RegisterServiceServer(
