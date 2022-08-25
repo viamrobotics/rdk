@@ -18,11 +18,6 @@ import (
 	vutil "go.viam.com/rdk/utils"
 )
 
-const (
-	// Default distance below which two distances are considered equal.
-	defaultEpsilon = 0.001
-)
-
 // MotionPlanner provides an interface to path planning methods, providing ways to request a path to be planned, and
 // management of the constraints used to plan paths.
 type MotionPlanner interface {
