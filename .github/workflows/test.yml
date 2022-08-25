@@ -138,8 +138,9 @@ jobs:
   test_e2e:
     name: End-to-End Tests Passing
     runs-on: [x64, qemu-host]
-    image: ghcr.io/viamrobotics/canon:amd64-cache
-    platform: linux/amd64
+    container:
+      image: ghcr.io/viamrobotics/canon:amd64-cache
+      options: --platform linux/amd64
     steps:
       - name: Run e2e Tests
         run: sudo -u testbot bash -lc 'make test-e2e'
