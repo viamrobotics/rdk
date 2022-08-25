@@ -66,11 +66,7 @@ func (mp *rrtConnectMotionPlanner) Plan(ctx context.Context,
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
-		finalSteps := make([][]referenceframe.Input, 0, len(plan.steps))
-		for _, step := range plan.steps {
-			finalSteps = append(finalSteps, step.q)
-		}
-		return finalSteps, plan.err
+		return plan.toInputs(), plan.err
 	}
 }
 

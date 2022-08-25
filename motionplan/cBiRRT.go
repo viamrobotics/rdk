@@ -20,7 +20,7 @@ const (
 	// If the dot product between two sets of joint angles is less than this, consider them identical.
 	jointSolveDist = 0.0001
 	// Number of planner iterations before giving up.
-	planIter = 1000
+	planIter = 2000
 	// Number of IK solutions with which to seed the goal side of the bidirectional tree.
 	solutionsToSeed = 10
 	// Check constraints are still met every this many mm/degrees of movement.
@@ -31,6 +31,8 @@ const (
 	smoothIter = 250
 	// Number of iterations to mrun before beginning to accept randomly seeded locations.
 	iterBeforeRand = 50
+	// Number representing the precentage interval after which debug logs will be printed
+	loggingInterval = 0.05
 )
 
 // cBiRRTMotionPlanner an object able to solve constrained paths around obstacles to some goal for a given referenceframe.
@@ -101,11 +103,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case plan := <-solutionChan:
-			finalSteps := make([][]referenceframe.Input, 0, len(plan.steps))
-			for _, step := range plan.steps {
-				finalSteps = append(finalSteps, step.q)
-			}
-			return finalSteps, plan.err
+			return plan.toInputs(), plan.err
 		}
 	}
 

@@ -4,7 +4,6 @@ package motionplan
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io/ioutil"
 	"math"
 	"sort"
@@ -41,7 +40,8 @@ type MotionPlanner interface {
 
 // needed to wrap slices so we can use them as map keys.
 type node struct {
-	q    []frame.Input
+	q []frame.Input
+	// TODO(rb): do not add extra fields to this parameter, if the need arises
 	cost float64
 }
 
@@ -50,6 +50,14 @@ type nodePair struct{ a, b *node }
 type planReturn struct {
 	steps []*node
 	err   error
+}
+
+func (plan *planReturn) toInputs() [][]frame.Input {
+	inputs := make([][]frame.Input, 0, len(plan.steps))
+	for _, step := range plan.steps {
+		inputs = append(inputs, step.q)
+	}
+	return inputs
 }
 
 // PlannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
@@ -137,6 +145,14 @@ func (p *PlannerOptions) Clone() *PlannerOptions {
 	return opt
 }
 
+// EvaluatePlan assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan
+func EvaluatePlan(plan [][]frame.Input) (cost float64) {
+	for i := 0; i < len(plan)-1; i++ {
+		cost += inputDist(plan[i], plan[i+1])
+	}
+	return cost
+}
+
 // RunPlannerWithWaypoints will plan to each of a list of goals in oder, optionally also taking a new planner option for each goal.
 func RunPlannerWithWaypoints(ctx context.Context,
 	planner MotionPlanner,
@@ -197,11 +213,7 @@ func RunPlannerWithWaypoints(ctx context.Context,
 						if finalSteps.err != nil {
 							return nil, finalSteps.err
 						}
-						results := make([][]frame.Input, 0, len(finalSteps.steps)+len(remainingSteps))
-						for _, step := range finalSteps.steps {
-							results = append(results, step.q)
-						}
-						results = append(results, remainingSteps...)
+						results := append(finalSteps.toInputs(), remainingSteps...)
 						return results, nil
 					default:
 					}
@@ -218,7 +230,7 @@ func RunPlannerWithWaypoints(ctx context.Context,
 						ctx,
 						planner,
 						goals,
-						finalSteps.steps[len(finalSteps.steps)-1].q,
+						finalSteps.toInputs()[len(finalSteps.steps)-1],
 						opts,
 						iter+1,
 					)
@@ -226,11 +238,7 @@ func RunPlannerWithWaypoints(ctx context.Context,
 						return nil, err
 					}
 				}
-				results := make([][]frame.Input, 0, len(finalSteps.steps)+len(remainingSteps))
-				for _, step := range finalSteps.steps {
-					results = append(results, step.q)
-				}
-				results = append(results, remainingSteps...)
+				results := append(finalSteps.toInputs(), remainingSteps...)
 				return results, nil
 			default:
 			}
@@ -374,14 +382,6 @@ IK:
 	return orderedSolutions, nil
 }
 
-func NewIKError() error {
-	return errors.New("unable to solve for position")
-}
-
-func NewPlannerFailedError() error {
-	return errors.New("motion planner failed to find path")
-}
-
 func extractPath(startMap, goalMap map[*node]*node, pair *nodePair) []*node {
 	// need to figure out which of the two nodes is in the start map
 	var startReached, goalReached *node
@@ -392,7 +392,7 @@ func extractPath(startMap, goalMap map[*node]*node, pair *nodePair) []*node {
 	}
 
 	// extract the path to the seed
-	path := []*node{}
+	path := make([]*node, 0)
 	for startReached != nil {
 		path = append(path, startReached)
 		startReached = startMap[startReached]
@@ -431,44 +431,6 @@ func shortestPath(startMap, goalMap map[*node]*node, nodePairs []*nodePair) *pla
 	}
 	exportMaps(startMap, goalMap)
 	return &planReturn{steps: extractPath(startMap, goalMap, nodePairs[minIdx])}
-}
-
-// func shortestPath(startMap, goalMap map[*node]*node, nodePairs []*nodePair) *planReturn {
-// 	if len(nodePairs) == 0 {
-// 		return &planReturn{err: NewPlannerFailedError()}
-// 	}
-// 	pairCost := func(pair *nodePair) float64 {
-// 		return pair.a.cost + pair.b.cost
-// 	}
-// 	minPath := []*node{}
-// 	minDist := pairCost(nodePairs[0])
-// 	for i := 0; i < len(nodePairs); i++ {
-// 		path := extractPath(startMap, goalMap, nodePairs[i])
-// 		dist := evaluatePlanNodes(path)
-// 		if dist < minDist {
-// 			minDist = dist
-// 			minPath = path
-// 		}
-// 	}
-// 	exportMaps(startMap, goalMap)
-// 	return &planReturn{steps: minPath}
-// }
-
-func evaluatePlanNodes(path []*node) (cost float64) {
-	if len(path) < 2 {
-		return math.Inf(1)
-	}
-	for i := 0; i < len(path)-1; i++ {
-		cost += inputDist(path[i].q, path[i+1].q)
-	}
-	return cost
-}
-
-func evaluatePlan(path [][]frame.Input) (cost float64) {
-	for i := 0; i < len(path)-1; i++ {
-		cost += inputDist(path[i], path[i+1])
-	}
-	return cost
 }
 
 func inputDist(from, to []frame.Input) float64 {

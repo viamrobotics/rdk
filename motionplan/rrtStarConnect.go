@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"math/rand"
 
@@ -72,11 +71,7 @@ func (mp *rrtStarConnectMotionPlanner) Plan(ctx context.Context,
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
-		finalSteps := make([][]referenceframe.Input, 0, len(plan.steps))
-		for _, step := range plan.steps {
-			finalSteps = append(finalSteps, step.q)
-		}
-		return finalSteps, plan.err
+		return plan.toInputs(), plan.err
 	}
 }
 
@@ -133,24 +128,17 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	// Keep a list of the node pairs that have the same inputs
 	shared := make([]*nodePair, 0)
 
-	prevCost := math.Inf(1)
-	var plan *planReturn
+	// Number of iterations after which a log will be printed
+	logIteration := int(float32(mp.iter) * loggingInterval)
 
 	// sample until the max number of iterations is reached
-	for i := 0; i < mp.iter; i++ {
+	for i := 1; i <= mp.iter; i++ {
 		select {
 		case <-ctx.Done():
 			solutionChan <- &planReturn{err: ctx.Err()}
 			return
 		default:
 		}
-
-		// if i == 98 {
-		// 	path := shortestPath(startMap, goalMap, shared)
-		// 	cost := evaluatePlanNodes(path.steps)
-		// 	fmt.Println("98th iteration")
-		// 	fmt.Println(cost)
-		// }
 
 		// try to connect the target to map 1
 		if map1reached := mp.extend(opt, map1, target); map1reached != nil {
@@ -165,13 +153,13 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 		target = mp.sample()
 		map1, map2 = map2, map1
 
-		plan = shortestPath(startMap, goalMap, shared)
-		cost := evaluatePlanNodes(plan.steps)
-		if prevCost < cost {
-			fmt.Println("RRT* should never have the cost of the total path increase")
+		// log status of planner to periodically inform user
+		if i%logIteration == 0 {
+			mp.logger.Debugf("RRT* progress: %d%%\tpath cost: %.3f",
+				100*i/mp.iter,
+				EvaluatePlan(shortestPath(startMap, goalMap, shared).toInputs()),
+			)
 		}
-		prevCost = cost
-		fmt.Println(i, cost)
 	}
 
 	solutionChan <- shortestPath(startMap, goalMap, shared)
