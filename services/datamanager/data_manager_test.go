@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -315,15 +314,12 @@ func TestModelsAfterKilled(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	}()
 
-	models, dirs, numArbitraryFilesToSync, err := populateModels() // don't need arbitrary files here
-	defer func() {
-		for _, dir := range dirs {
-			resetFolder(t, dir)
-		}
-	}()
+	models, err := populateModels() // don't need arbitrary files here
+	fmt.Println("len(models): ", len(models))
 	if err != nil {
 		t.Error("unable to generate arbitrary data files and create directory structure.")
 	}
+
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
@@ -353,7 +349,20 @@ func TestModelsAfterKilled(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Validate nothing has been synced yet.
-	test.That(t, len(mockModelService.getUploadedModels()), test.ShouldEqual, numArbitraryFilesToSync-numArbitraryFilesToSync)
+	test.That(t, len(mockModelService.getUploadedModels()), test.ShouldEqual, 0)
+
+	// Turn the service back on.
+	dmsvc = newTestDataManager(t, "arm1", "")
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, syncServer))
+	dmsvc.SetWaitAfterLastModifiedSecs(0)
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Validate that the previously captured file was uploaded at startup.
+	time.Sleep(syncWaitTime)
+	err = dmsvc.Close(context.TODO())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mockModelService.getUploadedModels()), test.ShouldEqual, 1)
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
@@ -396,56 +405,14 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 // Generates and populates a directory structure of files that contain arbitrary file data. Used to simulate testing
 // syncing of data in the service's models_on_robot.
 //nolint
-func populateModels() ([]*datamanager.Model, []string, int, error) {
+func populateModels() ([]*datamanager.Model, error) {
 	fmt.Println("data_manager_test.go/populateModels()")
 	var additionalModels []*datamanager.Model
-	var additionalPaths []string
-	numArbitraryFilesToSync := 0
 
-	// Generate models_on_robot "dummy" dirs and files.
-	for i := 0; i < 2; i++ {
-		// Create a temp dir that will house models_on_robot.
-		// dest := filepath.Join(filepath.Join(os.Getenv("HOME"), "models", ".viam"), "m"+strconv.Itoa(i))
-		// fmt.Println("dest: ", dest)
-		td, err := ioutil.TempDir("", "")
-		// fmt.Println("td: ", td)
-		// td, err := ioutil.TempDir("", "additional_model_path_dir_")
-		if err != nil {
-			return []*datamanager.Model{}, []string{}, 0, errors.New("cannot create temporary dir to simulate models_on_robot in data manager service config")
-		}
-		additionalPaths = append(additionalPaths, td)
+	m := &datamanager.Model{Name: "m1", Destination: ""}
+	additionalModels = append(additionalModels, m)
 
-		m := &datamanager.Model{Name: "m" + strconv.Itoa(i+1), Destination: td}
-		// fmt.Println("this is m now: ", m)
-		additionalModels = append(additionalModels, m)
-
-		// Make the first dir empty.
-		if i == 0 {
-			continue
-		} else {
-			// Make the dirs that will contain two files.
-			for i := 0; i < 2; i++ {
-				// Generate data that will be in a temp file.
-				fileData := []byte("This is file data. It will be stored in a directory included in the user's specified models on robot. Hopefully it is uploaded from the robot to the cloud!")
-
-				// Create arbitrary file that will be in the temp dir generated above.
-				tf, err := ioutil.TempFile(td, "arbitrary_model_file_")
-				if err != nil {
-					return nil, nil, 0, errors.New("cannot create temporary file to simulate uploading from data manager service")
-				}
-
-				// Write data to the temp file.
-				if _, err := tf.Write(fileData); err != nil {
-					return nil, nil, 0, errors.New("cannot write arbitrary data to temporary file")
-				}
-
-				// Increment number of files to be synced.
-				numArbitraryFilesToSync++
-			}
-		}
-	}
-
-	return additionalModels, additionalPaths, numArbitraryFilesToSync, nil
+	return additionalModels, nil
 }
 
 // Generates and populates a directory structure of files that contain arbitrary file data. Used to simulate testing
@@ -885,12 +852,6 @@ func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServ
 func buildAndStartLocalModelServer(t *testing.T) (rpc.Server, mockModelServiceServer) {
 	fmt.Println("data_manager_test.go/buildAndStartLocalModelServer()")
 	logger, _ := golog.NewObservedTestLogger(t)
-	// tlsConfig := config.NewTLSConfig(cfg).Config
-	// rpcOpts := []rpc.ServerOption{
-	// 	rpc.WithUnauthenticated(),
-	// 	// rpc.WithInternalTLSConfig(tlsConfig),
-	// }
-	// rpcServer, err := rpc.NewServer(logger, rpcOpts...)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	mockService := mockModelServiceServer{
@@ -914,16 +875,6 @@ func buildAndStartLocalModelServer(t *testing.T) (rpc.Server, mockModelServiceSe
 	return rpcServer, mockService
 }
 
-// func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientConn, error) {
-// 	fmt.Println("data_manager_test.go/getLocalServerConn()")
-// 	return rpc.DialDirectGRPC(
-// 		context.Background(),
-// 		rpcServer.InternalAddr().String(),
-// 		logger,
-// 		rpc.WithInsecure(),
-// 	)
-// }
-
 func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientConn, error) {
 	fmt.Println("data_manager_test.go/getLocalServerConn()")
 	return rpc.DialDirectGRPC(
@@ -934,35 +885,11 @@ func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientCo
 	)
 }
 
-func getSLocalServerConn(rpcServer rpc.Server, cfg *config.Config, logger golog.Logger) (rpc.ClientConn, error) {
-	fmt.Println("data_manager_test.go/getSLocalServerConn()")
-	tlsConfig := config.NewTLSConfig(cfg).Config
-	rpcOpts := []rpc.DialOption{
-		rpc.WithInsecure(),
-		rpc.WithTLSConfig(tlsConfig),
-		rpc.WithEntityCredentials(
-			cfg.Cloud.ID,
-			rpc.Credentials{
-				Type:    rutils.CredentialsTypeRobotSecret,
-				Payload: cfg.Cloud.Secret,
-			}),
-	}
-	return rpc.DialDirectGRPC(
-		context.Background(),
-		rpcServer.InternalAddr().String(),
-		logger,
-		rpcOpts...,
-	)
-}
-
 //nolint:thelper
 func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerConstructor {
 	fmt.Println("data_manager_test.go/getTestSyncerConstructor()")
 	return func(logger golog.Logger, cfg *config.Config) (datasync.Manager, error) {
-		conn, err := getSLocalServerConn(server, cfg, logger)
-		// conn, err := getLocalServerConn(server, logger)
-		fmt.Println("make it past?")
-
+		conn, err := getLocalServerConn(server, logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := datasync.NewClient(conn)
 		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn)
