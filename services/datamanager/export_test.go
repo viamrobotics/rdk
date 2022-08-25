@@ -11,6 +11,11 @@ func (svc *dataManagerService) SetSyncerConstructor(fn datasync.ManagerConstruct
 	svc.syncerConstructor = fn
 }
 
+// SetSyncerConstructor sets the syncer constructor for the data manager to use when creating its syncer.
+func (svc *dataManagerService) SetSyncer(s datasync.Manager) {
+	svc.syncer = s
+}
+
 // SetWaitAfterLastModifiedSecs sets the wait time for the syncer to use when initialized/changed in Service.Update.
 func (svc *dataManagerService) SetWaitAfterLastModifiedSecs(s int) {
 	svc.waitAfterLastModifiedSecs = s
