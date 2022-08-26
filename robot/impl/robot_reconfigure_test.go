@@ -19,6 +19,7 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/audioinput"
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
@@ -2443,6 +2444,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
+			audioinput.Named("foo:mic1"),
 			camera.Named("foo:cameraOver"),
 			movementsensor.Named("foo:movement_sensor1"),
 			movementsensor.Named("foo:movement_sensor2"),
@@ -2470,6 +2472,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"), arm.Named("arm2"),
 			arm.Named("foo:pieceArm"),
+			audioinput.Named("foo:mic1"),
 			camera.Named("foo:cameraOver"),
 			movementsensor.Named("foo:movement_sensor1"),
 			movementsensor.Named("foo:movement_sensor2"),
@@ -2478,6 +2481,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			sensors.Named("foo:builtin"),
 			datamanager.Named("foo:builtin"),
 			arm.Named("bar:pieceArm"),
+			audioinput.Named("bar:mic1"),
 			camera.Named("bar:cameraOver"),
 			movementsensor.Named("bar:movement_sensor1"),
 			movementsensor.Named("bar:movement_sensor2"),
@@ -2501,6 +2505,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
+			audioinput.Named("foo:mic1"),
 			camera.Named("foo:cameraOver"),
 			movementsensor.Named("foo:movement_sensor1"),
 			movementsensor.Named("foo:movement_sensor2"),
@@ -2543,6 +2548,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"), arm.Named("arm2"),
 			arm.Named("foo:pieceArm"),
+			audioinput.Named("foo:mic1"),
 			camera.Named("foo:cameraOver"),
 			movementsensor.Named("foo:movement_sensor1"),
 			movementsensor.Named("foo:movement_sensor2"),
@@ -2551,6 +2557,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			sensors.Named("foo:builtin"),
 			datamanager.Named("foo:builtin"),
 			arm.Named("bar:pieceArm"),
+			audioinput.Named("bar:mic1"),
 			camera.Named("bar:cameraOver"),
 			movementsensor.Named("bar:movement_sensor1"),
 			movementsensor.Named("bar:movement_sensor2"),
