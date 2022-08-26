@@ -42,7 +42,7 @@ type planConfigConstructor func() (*planConfig, error)
 func BenchmarkUnconstrainedMotion(b *testing.B) {
 	config, err := simpleUR5eMotion()
 	test.That(b, err, test.ShouldBeNil)
-	mp, err := NewRRTStarConnectMotionPlannerWithSeed(config.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(1))), logger.Sugar())
+	mp, err := NewRRTConnectMotionPlannerWithSeed(config.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(1))), logger.Sugar())
 	test.That(b, err, test.ShouldBeNil)
 	plan, err := mp.Plan(context.Background(), config.Goal, config.Start, config.Options)
 	test.That(b, err, test.ShouldBeNil)

@@ -33,6 +33,7 @@ type DubinsRRTMotionPlanner struct {
 func NewDubinsRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger, d Dubins) (MotionPlanner, error) {
 	mp := &DubinsRRTMotionPlanner{frame: frame, logger: logger, nCPU: nCPU, D: d}
 
+	// TODO(rb): this should support PlannerOptions in the way the other planners do
 	mp.iter = defaultPlanIter
 	mp.stepSize = defaultResolution
 

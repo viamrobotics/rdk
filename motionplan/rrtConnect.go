@@ -15,9 +15,7 @@ type rrtConnectMotionPlanner struct {
 	solver   InverseKinematics
 	frame    referenceframe.Frame
 	logger   golog.Logger
-	iter     int
 	nCPU     int
-	stepSize float64
 	randseed *rand.Rand
 }
 
@@ -46,18 +44,17 @@ func (mp *rrtConnectMotionPlanner) Frame() referenceframe.Frame {
 	return mp.frame
 }
 
-func (mp *rrtConnectMotionPlanner) Resolution() float64 {
-	return mp.stepSize
-}
-
 func (mp *rrtConnectMotionPlanner) Plan(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
-	opt *PlannerOptions,
+	planOpts *PlannerOptions,
 ) ([][]referenceframe.Input, error) {
+	if planOpts == nil {
+		planOpts = NewBasicPlannerOptions()
+	}
 	solutionChan := make(chan *planReturn, 1)
 	utils.PanicCapturingGo(func() {
-		mp.planRunner(ctx, goal, seed, opt, nil, solutionChan)
+		mp.planRunner(ctx, goal, seed, planOpts, nil, solutionChan)
 	})
 	select {
 	case <-ctx.Done():
@@ -72,26 +69,27 @@ func (mp *rrtConnectMotionPlanner) Plan(ctx context.Context,
 func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
-	opt *PlannerOptions,
+	planOpts *PlannerOptions,
 	endpointPreview chan *node,
 	solutionChan chan *planReturn,
 ) {
 	defer close(solutionChan)
 
-	// use default options if none are provided
-	if opt == nil {
-		opt = NewBasicPlannerOptions()
+	if planOpts == nil {
+		solutionChan <- &planReturn{err: NewPlannerOptionsError()}
+		return
 	}
+	algOpts := newRRTOptions(planOpts)
 
 	// get many potential end goals from IK solver
-	solutions, err := getSolutions(ctx, opt, mp.solver, goal, seed, mp.Frame())
+	solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame())
 	if err != nil {
 		solutionChan <- &planReturn{err: err}
 		return
 	}
 
 	// publish endpoint of plan if it is known
-	if opt.MaxSolutions == 1 && endpointPreview != nil {
+	if planOpts.MaxSolutions == 1 && endpointPreview != nil {
 		endpointPreview <- &node{q: solutions[0]}
 	}
 
@@ -114,7 +112,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	// Create a reference to the two maps so that we can alternate which one is grown
 	map1, map2 := startMap, goalMap
 
-	for i := 0; i < mp.iter; i++ {
+	for i := 0; i < algOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
 			solutionChan <- &planReturn{err: ctx.Err()}
@@ -127,12 +125,12 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 		nearest2 := nm.nearestNeighbor(nmContext, target, map2)
 
 		// attempt to extend the map to connect the target to map 1, then try to connect the maps together
-		map1reached := mp.checkPath(ctx, opt, nearest1.q, target)
+		map1reached := mp.checkPath(ctx, planOpts, nearest1.q, target)
 		targetNode := &node{q: target}
 		if map1reached {
 			map1[targetNode] = nearest1
 		}
-		map2reached := mp.checkPath(ctx, opt, nearest2.q, target)
+		map2reached := mp.checkPath(ctx, planOpts, nearest2.q, target)
 		if map2reached {
 			map2[targetNode] = nearest2
 		}
@@ -173,7 +171,7 @@ func (mp *rrtConnectMotionPlanner) checkPath(ctx context.Context, opt *PlannerOp
 			EndInput:   target,
 			Frame:      mp.frame,
 		},
-		mp.Resolution(),
+		opt.Resolution,
 	)
 	return ok
 }

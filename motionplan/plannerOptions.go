@@ -134,6 +134,7 @@ func NewBasicPlannerOptions() *PlannerOptions {
 }
 
 // PlannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
+// TODO(rb): make this a private struct so that somebody can't just make their own and initialize wrong
 type PlannerOptions struct {
 	constraintHandler
 	metric   Metric // Distance function to the goal
