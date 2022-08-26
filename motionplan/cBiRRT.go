@@ -3,7 +3,6 @@ package motionplan
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"math"
 	"math/rand"
 
@@ -18,12 +17,13 @@ import (
 const (
 	// The maximum percent of a joints range of motion to allow per step.
 	defaultFrameStep = 0.015
+
 	// If the dot product between two sets of joint angles is less than this, consider them identical.
 	defaultJointSolveDist = 0.0001
-	// Number of planner iterations before giving up.
-	defaultPlanIter = 2000
+
 	// Max number of iterations of path smoothing to run.
 	defaultSmoothIter = 750
+
 	// Number of iterations to run before beginning to accept randomly seeded locations.
 	defaultIterBeforeRand = 50
 )
@@ -31,21 +31,24 @@ const (
 type cbirrtOptions struct {
 	// The maximum percent of a joints range of motion to allow per step.
 	FrameStep float64 `json:"frame_step"`
+
 	// If the dot product between two sets of joint angles is less than this, consider them identical.
 	JointSolveDist float64 `json:"joint_solve_dist"`
-	// Number of planner iterations before giving up.
-	PlanIter int `json:"plan_iter"`
+
 	// Number of IK solutions with which to seed the goal side of the bidirectional tree.
 	SolutionsToSeed int `json:"solutions_to_seed"`
+
 	// Max number of iterations of path smoothing to run.
 	SmoothIter int `json:"smooth_iter"`
+
 	// Number of iterations to mrun before beginning to accept randomly seeded locations.
 	IterBeforeRand int `json:"iter_before_rand"`
 
 	// This is how far cbirrt will try to extend the map towards a goal per-step. Determined from FrameStep
 	qstep []float64
-	// Contains constraints, IK solving params, etc
-	planOpts *PlannerOptions
+
+	// Parameters common to all RRT implementations
+	*rrtOptions
 }
 
 // newCbirrtOptions creates a struct controlling the running of a single invocation of cbirrt. All values are pre-set to reasonable
@@ -54,11 +57,10 @@ func newCbirrtOptions(planOpts *PlannerOptions, frame referenceframe.Frame) (*cb
 	algOpts := &cbirrtOptions{
 		FrameStep:       defaultFrameStep,
 		JointSolveDist:  defaultJointSolveDist,
-		PlanIter:        defaultPlanIter,
 		SolutionsToSeed: defaultSolutionsToSeed,
 		SmoothIter:      defaultSmoothIter,
 		IterBeforeRand:  defaultIterBeforeRand,
-		planOpts:        planOpts,
+		rrtOptions:      newRRTOptions(planOpts),
 	}
 	// convert map to json
 	jsonString, err := json.Marshal(planOpts.extra)
@@ -134,11 +136,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
-		finalSteps := make([][]referenceframe.Input, 0, len(plan.steps))
-		for _, step := range plan.steps {
-			finalSteps = append(finalSteps, step.q)
-		}
-		return finalSteps, plan.err
+		return plan.toInputs(), plan.err
 	}
 }
 
@@ -147,31 +145,31 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
-	planOpt *PlannerOptions,
+	planOpts *PlannerOptions,
 	endpointPreview chan *node,
 	solutionChan chan *planReturn,
 ) {
 	defer close(solutionChan)
 
-	if planOpt == nil {
-		solutionChan <- &planReturn{err: errors.New("planRunner requires populated planner options")}
+	if planOpts == nil {
+		solutionChan <- &planReturn{err: NewPlannerOptionsError()}
 		return
 	}
-	algOpts, err := newCbirrtOptions(planOpt, mp.frame)
+	algOpts, err := newCbirrtOptions(planOpts, mp.frame)
 	if err != nil {
 		solutionChan <- &planReturn{err: err}
 		return
 	}
 
 	// get many potential end goals from IK solver
-	solutions, err := getSolutions(ctx, planOpt, mp.solver, goal, seed, mp.Frame())
+	solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame())
 	if err != nil {
 		solutionChan <- &planReturn{err: err}
 		return
 	}
 
 	// publish endpoint of plan if it is known
-	if algOpts.planOpts.MaxSolutions == 1 && endpointPreview != nil {
+	if planOpts.MaxSolutions == 1 && endpointPreview != nil {
 		endpointPreview <- &node{q: solutions[0]}
 		endpointPreview = nil
 	}

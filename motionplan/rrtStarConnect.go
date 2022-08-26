@@ -16,9 +16,7 @@ type rrtStarConnectMotionPlanner struct {
 	solver   InverseKinematics
 	frame    referenceframe.Frame
 	logger   golog.Logger
-	iter     int
 	nCPU     int
-	stepSize float64
 	randseed *rand.Rand
 }
 
@@ -51,18 +49,17 @@ func (mp *rrtStarConnectMotionPlanner) Frame() referenceframe.Frame {
 	return mp.frame
 }
 
-func (mp *rrtStarConnectMotionPlanner) Resolution() float64 {
-	return mp.stepSize
-}
-
 func (mp *rrtStarConnectMotionPlanner) Plan(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
-	opt *PlannerOptions,
+	planOpts *PlannerOptions,
 ) ([][]referenceframe.Input, error) {
+	if planOpts == nil {
+		planOpts = NewBasicPlannerOptions()
+	}
 	solutionChan := make(chan *planReturn, 1)
 	utils.PanicCapturingGo(func() {
-		mp.planRunner(ctx, goal, seed, opt, nil, solutionChan)
+		mp.planRunner(ctx, goal, seed, planOpts, nil, solutionChan)
 	})
 	select {
 	case <-ctx.Done():
@@ -77,26 +74,27 @@ func (mp *rrtStarConnectMotionPlanner) Plan(ctx context.Context,
 func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
-	opt *PlannerOptions,
+	planOpts *PlannerOptions,
 	endpointPreview chan *node,
 	solutionChan chan *planReturn,
 ) {
 	defer close(solutionChan)
 
 	// use default options if none are provided
-	if opt == nil {
-		opt = NewBasicPlannerOptions()
+	if planOpts == nil {
+		planOpts = NewBasicPlannerOptions()
 	}
+	algOpts := newRRTOptions(planOpts)
 
 	// get many potential end goals from IK solver
-	solutions, err := getSolutions(ctx, opt, mp.solver, goal, seed, mp.Frame())
+	solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame())
 	if err != nil {
 		solutionChan <- &planReturn{err: err}
 		return
 	}
 
 	// publish endpoint of plan if it is known
-	if opt.MaxSolutions == 1 && endpointPreview != nil {
+	if planOpts.MaxSolutions == 1 && endpointPreview != nil {
 		endpointPreview <- &node{q: solutions[0]}
 	}
 
@@ -118,10 +116,10 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	shared := make([]*nodePair, 0)
 
 	// Number of iterations after which a log will be printed
-	logIteration := int(float64(mp.iter) * opt.LoggingInterval)
+	logIteration := int(float64(algOpts.PlanIter) * planOpts.LoggingInterval)
 
 	// sample until the max number of iterations is reached
-	for i := 1; i <= mp.iter; i++ {
+	for i := 1; i <= algOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
 			solutionChan <- &planReturn{err: ctx.Err()}
@@ -130,9 +128,9 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 		}
 
 		// try to connect the target to map 1
-		if map1reached := mp.extend(opt, map1, target); map1reached != nil {
+		if map1reached := mp.extend(planOpts, map1, target); map1reached != nil {
 			// try to connect the target to map 2
-			if map2reached := mp.extend(opt, map2, target); map2reached != nil {
+			if map2reached := mp.extend(planOpts, map2, target); map2reached != nil {
 				// target was added to both map
 				shared = append(shared, &nodePair{map1reached, map2reached})
 			}
@@ -145,7 +143,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 		// log status of planner to periodically inform user
 		if i%logIteration == 0 {
 			mp.logger.Debugf("RRT* progress: %d%%\tpath cost: %.3f",
-				100*i/mp.iter,
+				100*i/algOpts.PlanIter,
 				EvaluatePlan(shortestPath(startMap, goalMap, shared).toInputs()),
 			)
 		}
@@ -228,7 +226,7 @@ func (mp *rrtStarConnectMotionPlanner) checkPath(opt *PlannerOptions, seedInputs
 			EndInput:   target,
 			Frame:      mp.frame,
 		},
-		mp.Resolution(),
+		opt.Resolution,
 	)
 	return ok
 }
