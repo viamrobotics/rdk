@@ -164,6 +164,9 @@ func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string, width, h
 	return decodeImage(ctx, imgBytes, mimeType, width, height, true)
 }
 
+// decodeImage decodes an image based on its data and MIME type. If checkLazy is true
+// and the MIME type has a lazy suffix, we will not fully decode the image and instead
+// return an intermediate (lazy), not yet decoded image type.
 func decodeImage(
 	ctx context.Context,
 	imgBytes []byte,
