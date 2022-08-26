@@ -11,8 +11,9 @@ type Signal struct {
 	mu        *sync.Mutex
 }
 
-func makeSignal(name string, dimension int) Signal {
+func makeSignal(name string) Signal {
 	var s Signal
+	dimension := 1
 	s.dimension = dimension
 	s.signal = make([]float64, dimension)
 	s.time = make([]int, dimension)

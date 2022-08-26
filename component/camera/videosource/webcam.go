@@ -1,4 +1,4 @@
-package imagesource
+package videosource
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream/media"
+	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/driver"
 	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
@@ -217,7 +217,7 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 		}
 	}
 
-	labels := media.QueryVideoDeviceLabels()
+	labels := gostream.QueryVideoDeviceLabels()
 	for _, label := range labels {
 		if debug {
 			logger.Debugf("%s", label)
@@ -251,10 +251,10 @@ func tryWebcamOpen(ctx context.Context,
 	path string,
 	constraints mediadevices.MediaStreamConstraints,
 ) (camera.Camera, error) {
-	reader, err := media.GetNamedVideoReader(filepath.Base(path), constraints)
+	source, err := gostream.GetNamedVideoSource(filepath.Base(path), constraints)
 	if err != nil {
 		return nil, err
 	}
 	proj, _ := camera.GetProjector(ctx, attrs.AttrConfig, nil)
-	return camera.New(reader, proj)
+	return camera.NewFromSource(source, proj)
 }

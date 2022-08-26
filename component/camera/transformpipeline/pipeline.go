@@ -6,10 +6,12 @@ package transformpipeline
 import (
 	"context"
 	"fmt"
+	"image"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -69,7 +71,7 @@ type transformConfig struct {
 }
 
 func newTransformPipeline(
-	ctx context.Context, source gostream.ImageSource, cfg *transformConfig, r robot.Robot,
+	ctx context.Context, source gostream.VideoSource, cfg *transformConfig, r robot.Robot,
 ) (camera.Camera, error) {
 	if source == nil {
 		return nil, errors.New("no source camera for transform pipeline")
@@ -78,15 +80,41 @@ func newTransformPipeline(
 		return nil, errors.New("pipeline has no transforms in it")
 	}
 	// loop through the pipeline and create the image flow
-	var outSource gostream.ImageSource
-	outSource = source
+	pipeline := make([]gostream.VideoSource, 0, len(cfg.Pipeline))
+	lastSource := source
 	for _, tr := range cfg.Pipeline {
-		src, err := buildTransform(ctx, r, outSource, cfg, tr)
+		src, err := buildTransform(ctx, r, lastSource, cfg, tr)
 		if err != nil {
 			return nil, err
 		}
-		outSource = src
+		pipeline = append(pipeline, src)
+		lastSource = src
 	}
+	lastSourceStream := gostream.NewEmbeddedVideoStream(lastSource)
 	proj, _ := camera.GetProjector(ctx, cfg.AttrConfig, nil)
-	return camera.New(outSource, proj)
+	return camera.NewFromReader(transformPipeline{pipeline, lastSourceStream}, proj)
+}
+
+type transformPipeline struct {
+	pipeline []gostream.VideoSource
+	stream   gostream.VideoStream
+}
+
+func (tp transformPipeline) Read(ctx context.Context) (image.Image, func(), error) {
+	return tp.stream.Next(ctx)
+}
+
+func (tp transformPipeline) Close(ctx context.Context) error {
+	var errs error
+	for _, src := range tp.pipeline {
+		errs = multierr.Combine(errs, func() (err error) {
+			defer func() {
+				if panicErr := recover(); panicErr != nil {
+					err = multierr.Combine(err, errors.Errorf("panic: %v", panicErr))
+				}
+			}()
+			return src.Close(ctx)
+		}())
+	}
+	return multierr.Combine(tp.stream.Close(ctx), errs)
 }

@@ -36,6 +36,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"go.viam.com/rdk/component/audioinput"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
@@ -148,10 +149,10 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// allSourcesToDisplay returns every possible image source that could be viewed from
+// allVideoSourcesToDisplay returns every possible video source that could be viewed from
 // the robot.
-func allSourcesToDisplay(theRobot robot.Robot) map[string]gostream.ImageSource {
-	sources := make(map[string]gostream.ImageSource)
+func allVideoSourcesToDisplay(theRobot robot.Robot) map[string]gostream.VideoSource {
+	sources := make(map[string]gostream.VideoSource)
 
 	for _, name := range camera.NamesFromRobot(theRobot) {
 		cam, err := camera.FromRobot(theRobot, name)
@@ -160,6 +161,23 @@ func allSourcesToDisplay(theRobot robot.Robot) map[string]gostream.ImageSource {
 		}
 
 		sources[name] = cam
+	}
+
+	return sources
+}
+
+// allAudioSourcesToDisplay returns every possible audio source that could be listened to from
+// the robot.
+func allAudioSourcesToDisplay(theRobot robot.Robot) map[string]gostream.AudioSource {
+	sources := make(map[string]gostream.AudioSource)
+
+	for _, name := range audioinput.NamesFromRobot(theRobot) {
+		input, err := audioinput.FromRobot(theRobot, name)
+		if err != nil {
+			continue
+		}
+
+		sources[name] = input
 	}
 
 	return sources
@@ -325,15 +343,16 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		svc.logger.Warn("attempting to add stream before stream server is initialized. skipping this operation...")
 		return nil
 	}
-	sources := allSourcesToDisplay(svc.r)
+	videoSources := allVideoSourcesToDisplay(svc.r)
+	audioSources := allAudioSourcesToDisplay(svc.r)
 	if svc.opts.streamConfig == nil {
-		if len(sources) != 0 {
+		if len(videoSources) != 0 || len(audioSources) != 0 {
 			svc.logger.Debug("not starting streams due to no stream config being set")
 		}
 		return nil
 	}
 
-	for name, source := range sources {
+	newStream := func(name string) (gostream.Stream, bool, error) {
 		// Configure new stream
 		config := *svc.opts.streamConfig
 		config.Name = name
@@ -343,42 +362,85 @@ func (svc *webService) addNewStreams(ctx context.Context) error {
 		var registeredError *gostream.StreamAlreadyRegisteredError
 		if errors.As(err, &registeredError) {
 			svc.logger.Warn(registeredError.Error())
-			continue
+			return nil, true, nil
 		} else if err != nil {
-			return err
+			return nil, false, err
 		}
 
 		if !svc.streamServer.HasStreams {
 			svc.streamServer.HasStreams = true
 		}
+		return stream, false, nil
+	}
 
-		// Stream
-		svc.startStream(ctx, source, stream)
+	for name, source := range videoSources {
+		stream, alreadyRegistered, err := newStream(name)
+		if err != nil {
+			return err
+		} else if alreadyRegistered {
+			continue
+		}
+
+		svc.startImageStream(ctx, source, stream)
+	}
+
+	for name, source := range audioSources {
+		stream, alreadyRegistered, err := newStream(name)
+		if err != nil {
+			return err
+		} else if alreadyRegistered {
+			continue
+		}
+
+		svc.startAudioStream(ctx, source, stream)
 	}
 
 	return nil
 }
 
 func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, error) {
-	sources := allSourcesToDisplay(svc.r)
+	videoSources := allVideoSourcesToDisplay(svc.r)
+	audioSources := allAudioSourcesToDisplay(svc.r)
 	var streams []gostream.Stream
+	var streamTypes []bool
 
-	if svc.opts.streamConfig == nil || len(sources) == 0 {
-		if len(sources) != 0 {
+	if svc.opts.streamConfig == nil || (len(videoSources) == 0 && len(audioSources) == 0) {
+		if len(videoSources) != 0 || len(audioSources) != 0 {
 			svc.logger.Debug("not starting streams due to no stream config being set")
 		}
 		noopServer, err := gostream.NewStreamServer(streams...)
 		return &StreamServer{noopServer, false}, err
 	}
 
-	for name := range sources {
+	addStream := func(streams []gostream.Stream, name string, isVideo bool) ([]gostream.Stream, error) {
 		config := *svc.opts.streamConfig
 		config.Name = name
+		if isVideo {
+			config.AudioEncoderFactory = nil
+		} else {
+			config.VideoEncoderFactory = nil
+		}
 		stream, err := gostream.NewStream(config)
+		if err != nil {
+			return streams, err
+		}
+		return append(streams, stream), nil
+	}
+	for name := range videoSources {
+		var err error
+		streams, err = addStream(streams, name, true)
 		if err != nil {
 			return nil, err
 		}
-		streams = append(streams, stream)
+		streamTypes = append(streamTypes, true)
+	}
+	for name := range audioSources {
+		var err error
+		streams, err = addStream(streams, name, false)
+		if err != nil {
+			return nil, err
+		}
+		streamTypes = append(streamTypes, false)
 	}
 
 	streamServer, err := gostream.NewStreamServer(streams...)
@@ -386,14 +448,18 @@ func (svc *webService) makeStreamServer(ctx context.Context) (*StreamServer, err
 		return nil, err
 	}
 
-	for _, stream := range streams {
-		svc.startStream(ctx, sources[stream.Name()], stream)
+	for idx, stream := range streams {
+		if streamTypes[idx] {
+			svc.startImageStream(ctx, videoSources[stream.Name()], stream)
+		} else {
+			svc.startAudioStream(ctx, audioSources[stream.Name()], stream)
+		}
 	}
 
 	return &StreamServer{streamServer, true}, nil
 }
 
-func (svc *webService) startStream(ctx context.Context, source gostream.ImageSource, stream gostream.Stream) {
+func (svc *webService) startStream(streamFunc func(opts *webstream.BackoffTuningOptions) error) {
 	waitCh := make(chan struct{})
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -402,10 +468,25 @@ func (svc *webService) startStream(ctx context.Context, source gostream.ImageSou
 		opts := &webstream.BackoffTuningOptions{
 			BaseSleep: 50 * time.Microsecond,
 			MaxSleep:  2 * time.Second,
+			Cooldown:  5 * time.Second,
 		}
-		webstream.StreamSource(ctx, source, stream, opts)
+		if err := streamFunc(opts); err != nil {
+			svc.logger.Errorw("error streaming", "error", err)
+		}
 	})
 	<-waitCh
+}
+
+func (svc *webService) startImageStream(ctx context.Context, source gostream.VideoSource, stream gostream.Stream) {
+	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
+		return webstream.StreamVideoSource(ctx, source, stream, opts)
+	})
+}
+
+func (svc *webService) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
+	svc.startStream(func(opts *webstream.BackoffTuningOptions) error {
+		return webstream.StreamAudioSource(ctx, source, stream, opts)
+	})
 }
 
 type ssStreamContextWrapper struct {

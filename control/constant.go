@@ -11,13 +11,13 @@ import (
 
 type constant struct {
 	mu       sync.Mutex
-	cfg      ControlBlockConfig
+	cfg      BlockConfig
 	y        []Signal
 	constant float64
 	logger   golog.Logger
 }
 
-func newConstant(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
+func newConstant(config BlockConfig, logger golog.Logger) (Block, error) {
 	c := &constant{cfg: config, logger: logger}
 	if err := c.reset(); err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func (b *constant) reset() error {
 	}
 	b.constant = b.cfg.Attribute.Float64("constant_val", 0.0)
 	b.y = make([]Signal, 1)
-	b.y[0] = makeSignal(b.cfg.Name, 1)
+	b.y[0] = makeSignal(b.cfg.Name)
 	b.y[0].SetSignalValueAt(0, b.constant)
 	return nil
 }
@@ -49,7 +49,7 @@ func (b *constant) Reset(ctx context.Context) error {
 	return b.reset()
 }
 
-func (b *constant) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
+func (b *constant) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.cfg = config
@@ -60,6 +60,6 @@ func (b *constant) Output(ctx context.Context) []Signal {
 	return b.y
 }
 
-func (b *constant) Config(ctx context.Context) ControlBlockConfig {
+func (b *constant) Config(ctx context.Context) BlockConfig {
 	return b.cfg
 }
