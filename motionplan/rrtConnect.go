@@ -11,6 +11,9 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
+// rrtConnectMotionPlanner is an object able to quickly solve for valid paths around obstacles to some goal for a given referenceframe.
+// It uses the RRT-Connect algorithm, Kuffner & LaValle 2000
+// https://ieeexplore.ieee.org/document/844730
 type rrtConnectMotionPlanner struct {
 	solver   InverseKinematics
 	frame    referenceframe.Frame
