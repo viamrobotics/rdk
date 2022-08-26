@@ -129,12 +129,12 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 		nearest2 := nm.nearestNeighbor(nmContext, target, map2)
 
 		// attempt to extend the map to connect the target to map 1, then try to connect the maps together
-		map1reached := mp.checkPath(ctx, planOpts, nearest1.q, target)
+		map1reached := checkPath(mp, planOpts, nearest1.q, target)
 		targetNode := &node{q: target}
 		if map1reached {
 			map1[targetNode] = nearest1
 		}
-		map2reached := mp.checkPath(ctx, planOpts, nearest2.q, target)
+		map2reached := checkPath(mp, planOpts, nearest2.q, target)
 		if map2reached {
 			map2[targetNode] = nearest2
 		}
@@ -146,36 +146,9 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 		}
 
 		// get next sample, switch map pointers
-		target = mp.sample()
+		target = referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
 		map1, map2 = map2, map1
 	}
 
 	solutionChan <- &planReturn{err: newPlannerFailedError()}
-}
-
-func (mp *rrtConnectMotionPlanner) sample() []referenceframe.Input {
-	return referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
-}
-
-func (mp *rrtConnectMotionPlanner) checkPath(ctx context.Context, opt *PlannerOptions, seedInputs, target []referenceframe.Input) bool {
-	seedPos, err := mp.frame.Transform(seedInputs)
-	if err != nil {
-		return false
-	}
-	goalPos, err := mp.frame.Transform(target)
-	if err != nil {
-		return false
-	}
-	// Check if constraints need to be met
-	ok, _ := opt.CheckConstraintPath(
-		&ConstraintInput{
-			StartPos:   seedPos,
-			EndPos:     goalPos,
-			StartInput: seedInputs,
-			EndInput:   target,
-			Frame:      mp.frame,
-		},
-		opt.Resolution,
-	)
-	return ok
 }

@@ -42,9 +42,6 @@ const (
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultPathStepSize = 10
-
-	// default percentage interval of max iterations after which to print debug logs.
-	defualtLoggingInterval = 0.05
 )
 
 func plannerSetupFromMoveRequest(
@@ -129,7 +126,6 @@ func NewBasicPlannerOptions() *PlannerOptions {
 	opt.MaxSolutions = defaultSolutionsToSeed
 	opt.MinScore = defaultMinIkScore
 	opt.Resolution = defaultResolution
-	opt.LoggingInterval = defualtLoggingInterval
 	return opt
 }
 

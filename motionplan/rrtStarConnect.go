@@ -15,7 +15,10 @@ import (
 
 const (
 	// If a solution is found that is within this percentage of the optimal unconstrained solution, exit early.
-	defaultOptimalityThreshold = .95
+	defaultOptimalityThreshold = .05
+
+	// Period of iterations after which a new solution is calculated and updated.
+	defaultSolutionCalculationPeriod = 100
 
 	// The number of nearest neighbors to consider when adding a new sample to the tree.
 	defaultNeighborhoodSize = 10
@@ -146,6 +149,14 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 		endpointPreview <- &node{q: solutions[0]}
 	}
 
+	// the smallest interpolated distance between the start and end input represents a lower bound on cost
+	optimalCost := math.Inf(1)
+	for _, solution := range solutions {
+		if cost := inputDist(solution, seed); cost < optimalCost {
+			optimalCost = cost
+		}
+	}
+
 	// initialize maps
 	goalMap := make(map[*node]*node, len(solutions))
 	for _, solution := range solutions {
@@ -163,11 +174,9 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	// Keep a list of the node pairs that have the same inputs
 	shared := make([]*nodePair, 0)
 
-	// Number of iterations after which a log will be printed
-	logIteration := int(float64(algOpts.PlanIter) * planOpts.LoggingInterval)
-
 	// sample until the max number of iterations is reached
-	for i := 1; i <= algOpts.PlanIter; i++ {
+	var solutionCost float64
+	for i := 0; i < algOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
 			solutionChan <- &planReturn{err: ctx.Err()}
@@ -185,27 +194,29 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 		}
 
 		// get next sample, switch map pointers
-		target = mp.sample()
+		target = referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
 		map1, map2 = map2, map1
 
-		// log status of planner to periodically inform user
-		if i%logIteration == 0 {
-			mp.logger.Debugf("RRT* progress: %d%%\tpath cost: %.3f",
-				100*i/algOpts.PlanIter,
-				EvaluatePlan(shortestPath(startMap, goalMap, shared).toInputs()),
-			)
+		// calculate the solution and log status of planner
+		if i%defaultSolutionCalculationPeriod == 0 {
+			solution := shortestPath(startMap, goalMap, shared)
+			solutionCost = EvaluatePlan(solution.toInputs())
+			mp.logger.Debugf("RRT* progress: %d%%\tpath cost: %.3f", 100*i/algOpts.PlanIter, solutionCost)
+
+			// check if an early exit is possible
+			if math.Abs(solutionCost-optimalCost) < algOpts.OptimalityThreshold*optimalCost {
+				mp.logger.Debug("RRT* progress: sufficiently optimal path found, exiting")
+				solutionChan <- solution
+				return
+			}
 		}
 	}
 
 	solutionChan <- shortestPath(startMap, goalMap, shared)
 }
 
-func (mp *rrtStarConnectMotionPlanner) sample() []referenceframe.Input {
-	return referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
-}
-
 func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tree map[*node]*node, target []referenceframe.Input) *node {
-	if validTarget := mp.checkInputs(algOpts.planOpts, target); !validTarget {
+	if validTarget := checkInputs(mp, algOpts.planOpts, target); !validTarget {
 		return nil
 	}
 
@@ -215,7 +226,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tr
 	var minIndex int
 	for i, neighbor := range neighbors {
 		cost := neighbor.node.cost + neighbor.dist
-		if cost < minCost && mp.checkPath(algOpts.planOpts, neighbor.node.q, target) {
+		if cost < minCost && checkPath(mp, algOpts.planOpts, neighbor.node.q, target) {
 			minIndex = i
 			minCost = cost
 		}
@@ -234,47 +245,10 @@ func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tr
 
 		// check to see if a shortcut is possible, and rewire the node if it is
 		cost := targetNode.cost + inputDist(targetNode.q, neighbor.node.q)
-		if cost < neighbor.node.cost && mp.checkPath(algOpts.planOpts, target, neighbor.node.q) {
+		if cost < neighbor.node.cost && checkPath(mp, algOpts.planOpts, target, neighbor.node.q) {
 			neighbor.node.cost = cost
 			tree[neighbor.node] = targetNode
 		}
 	}
 	return targetNode
-}
-
-func (mp *rrtStarConnectMotionPlanner) checkInputs(opt *PlannerOptions, inputs []referenceframe.Input) bool {
-	position, err := mp.frame.Transform(inputs)
-	if err != nil {
-		return false
-	}
-	ok, _ := opt.CheckConstraints(&ConstraintInput{
-		StartPos:   position,
-		EndPos:     position,
-		StartInput: inputs,
-		EndInput:   inputs,
-		Frame:      mp.frame,
-	})
-	return ok
-}
-
-func (mp *rrtStarConnectMotionPlanner) checkPath(opt *PlannerOptions, seedInputs, target []referenceframe.Input) bool {
-	seedPos, err := mp.frame.Transform(seedInputs)
-	if err != nil {
-		return false
-	}
-	goalPos, err := mp.frame.Transform(target)
-	if err != nil {
-		return false
-	}
-	ok, _ := opt.CheckConstraintPath(
-		&ConstraintInput{
-			StartPos:   seedPos,
-			EndPos:     goalPos,
-			StartInput: seedInputs,
-			EndInput:   target,
-			Frame:      mp.frame,
-		},
-		opt.Resolution,
-	)
-	return ok
 }
