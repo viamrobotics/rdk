@@ -12,20 +12,8 @@
         },
         {
             "model": "fake",
-            "name": "base1_int",
-            "type": "base"
-        },
-        {
-            "model": "intercept_gps",
             "name": "base1",
-            "type": "base",
-            "attributes": {
-                "base": "base1_int",
-                "gps": "gps1",
-                "start_latitude": 40.745297,
-                "start_longitude": -74.010916
-            },
-            "depends_on": ["base1_int", "gps1"]
+            "type": "base"
         },
         {
             "model": "fake",
@@ -53,7 +41,7 @@
                 "digital_interrupts":
                 [
                     {
-                        "name": "encoder",
+                        "name": "di1",
                         "pin": "14"
                     }
                 ]
@@ -62,11 +50,7 @@
         {
             "model": "fake",
             "name": "servo1",
-            "type": "servo",
-            "attributes":
-            {
-                "pin": "12"
-            }
+            "type": "servo"
         },
         {
             "name": "g",
@@ -74,26 +58,28 @@
             "model": "fake",
             "attributes":
             {
-                "encoder": "encoder",
+                "encoder": "encoder1",
                 "pins":
                 {
                     "a": "1",
                     "b": "2",
                     "pwm": "3"
                 },
-                "ticks_per_rotation": 100
-            }
+                "ticks_per_rotation": 100,
+                "max_rpm": 100
+            },
+            "depends_on": ["board1", "encoder1"]
         },
         {
-            "name": "gps1",
-            "type": "gps",
+            "name": "encoder1",
+            "type": "encoder",
             "model": "fake"
         }, 
         {
-            "name": "imu1",
-            "type": "imu",
+            "name": "movement_sensor1",
+            "type": "movement_sensor",
             "model": "fake"
-        },
+        }, 
         {
             "name": "gantry1",
             "type": "gantry",
@@ -105,7 +91,7 @@
             "model": "fake"
         },
         {
-            "name": "input",
+            "name": "input1",
             "model": "fake",
             "type": "input_controller"
         }
@@ -142,7 +128,7 @@
                 "store": {
                     "type": "memory"
                 },
-                "movement_sensor": "gps1",
+                "movement_sensor": "movement_sensor1",
                 "base": "base1"
             }
         },
