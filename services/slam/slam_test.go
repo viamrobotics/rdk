@@ -672,6 +672,8 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		files, err := os.ReadDir(name + "/data/")
 		test.That(t, len(files), test.ShouldEqual, n)
 		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, utils.TryClose(context.Background(), slamSvc), test.ShouldBeNil)
 	})
 
 	t.Run("ORBSLAM3 Data Process with camera that errors during call to Next", func(t *testing.T) {
