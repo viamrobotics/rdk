@@ -52,6 +52,9 @@ func newRRTStarConnectOptions(planOpts *PlannerOptions) (*rrtStarConnectOptions,
 	return algOpts, nil
 }
 
+// rrtStarConnectMotionPlanner is an object able to asymptotically optimally path around obstacles to some goal for a given referenceframe.
+// It uses the RRT*-Connect algorithm, Klemm et al 2015
+// https://ieeexplore.ieee.org/document/7419012
 type rrtStarConnectMotionPlanner struct {
 	solver   InverseKinematics
 	frame    referenceframe.Frame
@@ -59,10 +62,6 @@ type rrtStarConnectMotionPlanner struct {
 	nCPU     int
 	randseed *rand.Rand
 }
-
-// TODO(rb): find a reasonable default for this
-// neighborhoodSize represents the number of neighbors to find in a k-nearest neighbors search.
-const neighborhoodSize = 10
 
 // NewRRTStarConnectMotionPlanner creates a rrtStarConnectMotionPlanner object.
 func NewRRTStarConnectMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger) (MotionPlanner, error) {
@@ -177,9 +176,9 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 		}
 
 		// try to connect the target to map 1
-		if map1reached := mp.extend(planOpts, map1, target); map1reached != nil {
+		if map1reached := mp.extend(algOpts, map1, target); map1reached != nil {
 			// try to connect the target to map 2
-			if map2reached := mp.extend(planOpts, map2, target); map2reached != nil {
+			if map2reached := mp.extend(algOpts, map2, target); map2reached != nil {
 				// target was added to both map
 				shared = append(shared, &nodePair{map1reached, map2reached})
 			}
@@ -205,18 +204,18 @@ func (mp *rrtStarConnectMotionPlanner) sample() []referenceframe.Input {
 	return referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
 }
 
-func (mp *rrtStarConnectMotionPlanner) extend(opt *PlannerOptions, tree map[*node]*node, target []referenceframe.Input) *node {
-	if validTarget := mp.checkInputs(opt, target); !validTarget {
+func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tree map[*node]*node, target []referenceframe.Input) *node {
+	if validTarget := mp.checkInputs(algOpts.planOpts, target); !validTarget {
 		return nil
 	}
 
 	// iterate over the k nearest neighbors and find the minimum cost to connect the target node to the tree
-	neighbors := kNearestNeighbors(tree, target)
+	neighbors := kNearestNeighbors(tree, target, algOpts.NeighborhoodSize)
 	minCost := math.Inf(1)
 	var minIndex int
 	for i, neighbor := range neighbors {
 		cost := neighbor.node.cost + neighbor.dist
-		if cost < minCost && mp.checkPath(opt, neighbor.node.q, target) {
+		if cost < minCost && mp.checkPath(algOpts.planOpts, neighbor.node.q, target) {
 			minIndex = i
 			minCost = cost
 		}
@@ -235,7 +234,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(opt *PlannerOptions, tree map[*nod
 
 		// check to see if a shortcut is possible, and rewire the node if it is
 		cost := targetNode.cost + inputDist(targetNode.q, neighbor.node.q)
-		if cost < neighbor.node.cost && mp.checkPath(opt, target, neighbor.node.q) {
+		if cost < neighbor.node.cost && mp.checkPath(algOpts.planOpts, target, neighbor.node.q) {
 			neighbor.node.cost = cost
 			tree[neighbor.node] = targetNode
 		}
