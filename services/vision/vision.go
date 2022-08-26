@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
+	"go.viam.com/rdk/vision/classification"
 	objdet "go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/segmentation"
 )
@@ -129,8 +130,10 @@ type Attributes struct {
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
 	modMap := make(modelMap)
 	// register default segmenters
-	defSeg := registeredModel{model: segmentation.Segmenter(segmentation.RadiusClustering),
-		modelType: RCSegmenter, SegParams: utils.JSONTags(segmentation.RadiusClusteringConfig{})}
+	defSeg := registeredModel{
+		model:     segmentation.Segmenter(segmentation.RadiusClustering),
+		modelType: RCSegmenter, SegParams: utils.JSONTags(segmentation.RadiusClusteringConfig{}),
+	}
 	err := modMap.registerVisModel(RadiusClusteringSegmenter, &defSeg, logger)
 	if err != nil {
 		return nil, err
@@ -168,7 +171,7 @@ type visionService struct {
 }
 
 // Detection Methods
-// GetDetectorNames returns a list of the all the names of the detectors in the detector map.
+// GetDetectorNames returns a list of the all the names of the detectors in the registry.
 func (vs *visionService) GetDetectorNames(ctx context.Context) ([]string, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::GetDetectorNames")
 	defer span.End()
@@ -188,7 +191,18 @@ func (vs *visionService) AddDetector(ctx context.Context, cfg VisModelConfig) er
 	return vs.registerSegmenterFromDetector(cfg.Name, vs.logger)
 }
 
-// GetDetections returns the detections of the next image from the given camera and the given detector.
+// RemoveDetector removes a detector from the registry.
+func (vs *visionService) RemoveDetector(ctx context.Context, cfg VisModelConfig) error {
+	_, span := trace.StartSpan(ctx, "service::vision::RemoveDetector")
+	defer span.End()
+	err := vs.modReg.removeVisModel(cfg.Name, vs.logger)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetDetectionsFromCamera returns the detections of the next image from the given camera and the given detector.
 func (vs *visionService) GetDetectionsFromCamera(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetDetectionsFromCamera")
 	defer span.End()
@@ -213,7 +227,7 @@ func (vs *visionService) GetDetectionsFromCamera(ctx context.Context, cameraName
 	return detector(ctx, img)
 }
 
-// GetDetections returns the detections of the next image from the given camera and the given detector.
+// GetDetections returns the detections of given image using the given detector.
 func (vs *visionService) GetDetections(ctx context.Context, img image.Image, detectorName string,
 ) ([]objdet.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetDetections")
@@ -229,6 +243,86 @@ func (vs *visionService) GetDetections(ctx context.Context, img image.Image, det
 	}
 
 	return detector(ctx, img)
+}
+
+// GetClassifierNames returns a list of the all the names of the classifiers in the registry.
+func (vs *visionService) GetClassifierNames(ctx context.Context) ([]string, error) {
+	_, span := trace.StartSpan(ctx, "service::vision::GetClassifierNames")
+	defer span.End()
+	return vs.modReg.ClassifierNames(), nil
+}
+
+// AddClassifier adds a new classifier from an Attribute config struct.
+func (vs *visionService) AddClassifier(ctx context.Context, cfg VisModelConfig) error {
+	ctx, span := trace.StartSpan(ctx, "service::vision::AddClassifier")
+	defer span.End()
+	attrs := &Attributes{ModelRegistry: []VisModelConfig{cfg}}
+	err := registerNewVisModels(ctx, vs.modReg, attrs, vs.logger)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Remove classifier removes a classifier from the registry.
+func (vs *visionService) RemoveClassifier(ctx context.Context, cfg VisModelConfig) error {
+	_, span := trace.StartSpan(ctx, "service::vision::RemoveClassifier")
+	defer span.End()
+	err := vs.modReg.removeVisModel(cfg.Name, vs.logger)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetClassificationsFromCamera returns the classifications of the next image from the given camera and the given detector.
+func (vs *visionService) GetClassificationsFromCamera(ctx context.Context, cameraName,
+	classifierName string, n int) (classification.Classifications, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::GetClassificationsFromCamera")
+	defer span.End()
+	cam, err := camera.FromRobot(vs.r, cameraName)
+	if err != nil {
+		return nil, err
+	}
+	c, err := vs.modReg.modelLookup(classifierName)
+	if err != nil {
+		return nil, err
+	}
+	classifier, err := c.toClassifier()
+	if err != nil {
+		return nil, err
+	}
+	img, release, err := cam.Next(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	fullClassifications, err := classifier(ctx, img)
+	if err != nil {
+		return nil, err
+	}
+	return fullClassifications.TopN(n)
+}
+
+// GetClassifications returns the classifications of given image using the given classifier.
+func (vs *visionService) GetClassifications(ctx context.Context, img image.Image,
+	classifierName string, n int) (classification.Classifications, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::GetClassifications")
+	defer span.End()
+
+	c, err := vs.modReg.modelLookup(classifierName)
+	if err != nil {
+		return nil, err
+	}
+	classifier, err := c.toClassifier()
+	if err != nil {
+		return nil, err
+	}
+	fullClassifications, err := classifier(ctx, img)
+	if err != nil {
+		return nil, err
+	}
+	return fullClassifications.TopN(n)
 }
 
 // Segmentation Methods

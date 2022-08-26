@@ -33,7 +33,7 @@ func TestCloseService(t *testing.T) {
 	det := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{}, nil
 	}
-	//registeredFn := registeredDetector{detector: det, closer: fakeStruct}
+	// registeredFn := registeredDetector{detector: det, closer: fakeStruct}
 	registeredFn := registeredModel{model: det, closer: fakeStruct}
 	logger := golog.NewTestLogger(t)
 	err = vService.modReg.registerVisModel("fake", &registeredFn, logger)
