@@ -39,28 +39,28 @@ const revolutions = ref(0);
 const setMovementType = (value: string) => {
   movementType.value = value;
   switch (value) {
-  case 'Go':
-    type.value = 'go';
-    break;
-  case 'Go For':
-    type.value = 'goFor';
-    break;
-  case 'Go To':
-    type.value = 'goTo';
-    break;
+    case 'Go':
+      type.value = 'go';
+      break;
+    case 'Go For':
+      type.value = 'goFor';
+      break;
+    case 'Go To':
+      type.value = 'goTo';
+      break;
   }
 };
 
 const setDirection = (value: string) => {
   switch (value) {
-  case 'Forwards':
-    direction.value = 1;
-    break;
-  case 'Backwards':
-    direction.value = -1;
-    break;
-  default:
-    direction.value = 1;
+    case 'Forwards':
+      direction.value = 1;
+      break;
+    case 'Backwards':
+      direction.value = -1;
+      break;
+    default:
+      direction.value = 1;
   }
 };
 
@@ -83,7 +83,10 @@ const motorStop = () => {
 </script>
 
 <template>
-  <v-collapse :title="motorName">
+  <v-collapse
+    :title="motorName"
+    class="motor"
+  >
     <v-breadcrumbs
       slot="title"
       :crumbs="crumbs.join(',')"
