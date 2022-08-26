@@ -202,9 +202,12 @@ func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	if vs.projectorFunc == nil {
 		return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")
 	}
-	props, err := vs.projectorFunc(ctx)
+	proj, err := vs.projectorFunc(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if proj == nil {
+		return nil, errors.New("cannot have a nil projector")
 	}
 	img, release, err := vs.videoStream.Next(ctx)
 	defer release()
@@ -215,7 +218,7 @@ func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot project to a point cloud")
 	}
-	return dm.ToPointCloud(props), nil
+	return dm.ToPointCloud(proj), nil
 }
 
 func (vs *videoSource) Projector(ctx context.Context) (rimage.Projector, error) {

@@ -11,7 +11,7 @@ const (
 	MimeTypeRawRGBA = "image/vnd.viam.rgba"
 
 	// MimeTypeRawRGBALazy is a lazy MimeTypeRawRGBA.
-	MimeTypeRawRGBALazy = "image/vnd.viam.rgba" + "+" + MimeTypeSuffixLazy
+	MimeTypeRawRGBALazy = MimeTypeRawRGBA + "+" + MimeTypeSuffixLazy
 
 	// MimeTypeJPEG is regular jpgs.
 	MimeTypeJPEG = "image/jpeg"
