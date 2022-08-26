@@ -205,7 +205,7 @@ func TestPiPigpio(t *testing.T) {
 		servo1 := servoInt.(servo.Servo)
 		pos1, err := servo1.GetPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos1, test.ShouldEqual, 32)
+		test.That(t, pos1, test.ShouldEqual, 33)
 
 		localServo := servo1.(*piPigpioServo)
 		test.That(t, localServo.holdPos, test.ShouldBeTrue)
