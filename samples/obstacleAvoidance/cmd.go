@@ -84,7 +84,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}
 
 	// setup planner options
-	opt := motionplan.NewDefaultPlannerOptions()
+	opt := motionplan.NewBasicPlannerOptions()
 	opt.AddConstraint("collision", motionplan.NewCollisionConstraint(xArm.ModelFrame(), obstacles, workspace))
 	// opt.AddConstraint("collision", motionplan.NewCollisionConstraint(xArm.ModelFrame(), obstacles, workspace))
 

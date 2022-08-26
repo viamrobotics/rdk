@@ -13,19 +13,26 @@ import (
 const (
 	// max linear deviation from straight-line between start and goal, in mm.
 	defaultLinearDeviation = 0.1
+
 	// allowable deviation from slerp between start/goal orientations, unit is the norm of the R3AA between start and goal.
 	defaultOrientationDeviation = 0.05
+
 	// allowable linear and orientation deviation from direct interpolation path, as a proportion of the linear and orientation distances
 	// between the start and goal.
 	defaultPseudolinearTolerance = 0.8
+
 	// Number of IK solutions that should be generated before stopping.
 	defaultSolutionsToSeed = 50
+
 	// Check constraints are still met every this many mm/degrees of movement.
 	defaultResolution = 2.0
+
 	// If an IK solution scores below this much, return it immediately.
 	defaultMinIkScore = 0.
+
 	// Default distance below which two distances are considered equal.
 	defaultEpsilon = 0.001
+
 	// names of constraints.
 	defaultLinearConstraintName       = "defaultLinearConstraint"
 	defaultPseudolinearConstraintName = "defaultPseudolinearConstraint"
@@ -35,6 +42,9 @@ const (
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultPathStepSize = 10
+
+	// default percentage interval of max iterations after which to print debug logs
+	defualtLoggingInterval = 0.05
 )
 
 func plannerSetupFromMoveRequest(
@@ -119,6 +129,7 @@ func NewBasicPlannerOptions() *PlannerOptions {
 	opt.MaxSolutions = defaultSolutionsToSeed
 	opt.MinScore = defaultMinIkScore
 	opt.Resolution = defaultResolution
+	opt.LoggingInterval = defualtLoggingInterval
 	return opt
 }
 
@@ -128,13 +139,19 @@ type PlannerOptions struct {
 	metric   Metric // Distance function to the goal
 	pathDist Metric // Distance function to the nearest valid point
 	extra    map[string]interface{}
+
 	// For the below values, if left uninitialized, default values will be used. To disable, set < 0
 	// Max number of ik solutions to consider
 	MaxSolutions int `json:"max_ik_solutions"`
+
 	// Movements that score below this amount are considered "good enough" and returned immediately
 	MinScore float64 `json:"min_ik_score"`
+
 	// Check constraints are still met every this many mm/degrees of movement.
 	Resolution float64 `json:"resolution"`
+
+	// Percentage interval of max iterations after which to print debug logs
+	LoggingInterval float64 `json:"logging_interval`
 }
 
 // SetMetric sets the distance metric for the solver.
