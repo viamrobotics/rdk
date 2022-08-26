@@ -121,6 +121,26 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
 }
 
+type audioPropertiesFunc func(ctx context.Context) (prop.Audio, error)
+
+func (apf audioPropertiesFunc) MediaProperties(ctx context.Context) (prop.Audio, error) {
+	return apf(ctx)
+}
+
+// NewFromReader creates an AudioInput from a reader.
+func NewFromReader(reader gostream.AudioReader, props prop.Audio) (AudioInput, error) {
+	if reader == nil {
+		return nil, errors.New("cannot have a nil reader")
+	}
+	as := gostream.NewAudioSource(reader, props)
+	return &audioSource{
+		as: as,
+		prov: audioPropertiesFunc(func(ctx context.Context) (prop.Audio, error) {
+			return props, nil
+		}),
+	}, nil
+}
+
 // NewFromSource creates an AudioInput from an AudioSource.
 func NewFromSource(audSrc gostream.AudioSource) (AudioInput, error) {
 	if audSrc == nil {
