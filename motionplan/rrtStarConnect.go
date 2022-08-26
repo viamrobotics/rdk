@@ -10,7 +10,6 @@ import (
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
-	spatial "go.viam.com/rdk/spatialmath"
 )
 
 type rrtStarConnectMotionPlanner struct {
@@ -43,9 +42,7 @@ func NewRRTStarConnectMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int
 		solver:   ik,
 		frame:    frame,
 		logger:   logger,
-		iter:     planIter,
 		nCPU:     nCPU,
-		stepSize: stepSize,
 		randseed: seed,
 	}, nil
 }
@@ -88,15 +85,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 
 	// use default options if none are provided
 	if opt == nil {
-		opt = NewDefaultPlannerOptions()
-		seedPos, err := mp.frame.Transform(seed)
-		if err != nil {
-			solutionChan <- &planReturn{err: err}
-			return
-		}
-		goalPos := spatial.NewPoseFromProtobuf(goal)
-
-		opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
+		opt = NewBasicPlannerOptions()
 	}
 
 	// get many potential end goals from IK solver
@@ -107,7 +96,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	}
 
 	// publish endpoint of plan if it is known
-	if opt.maxSolutions == 1 && endpointPreview != nil {
+	if opt.MaxSolutions == 1 && endpointPreview != nil {
 		endpointPreview <- &node{q: solutions[0]}
 	}
 
@@ -129,7 +118,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	shared := make([]*nodePair, 0)
 
 	// Number of iterations after which a log will be printed
-	logIteration := int(float32(mp.iter) * loggingInterval)
+	logIteration := int(float64(mp.iter) * opt.LoggingInterval)
 
 	// sample until the max number of iterations is reached
 	for i := 1; i <= mp.iter; i++ {
