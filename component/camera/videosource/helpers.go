@@ -45,7 +45,7 @@ func readyBytesFromURL(ctx context.Context, client http.Client, url string) ([]b
 }
 
 func checkLazyFromData(ctx context.Context, data []byte) (image.Image, bool, error) {
-	requestedMime := gostream.MIMETypeHint(ctx, "FOOBAR")
+	requestedMime := gostream.MIMETypeHint(ctx, "")
 	if actualMime, isLazy := utils.CheckLazyMIMEType(requestedMime); isLazy {
 		usedMimeType := http.DetectContentType(data)
 		if actualMime != "" && actualMime != usedMimeType {
