@@ -28,6 +28,7 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/datamanager/internal"
+	"go.viam.com/rdk/services/datamanager/model"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -115,6 +116,36 @@ func newTestDataManager(t *testing.T, localArmKey string, remoteArmKey string) i
 	}
 
 	return svc.(internal.DMService)
+}
+
+func newTestModelManager(t *testing.T, localArmKey string, remoteArmKey string) internal.MMService {
+	fmt.Println("data_manager_test.go/newTestModelManager()")
+	t.Helper()
+	dmCfg := &datamanager.Config{}
+	cfgService := config.Service{
+		Type:                "model_manager",
+		ConvertedAttributes: dmCfg,
+	}
+	logger := golog.NewTestLogger(t)
+
+	// Create local robot with injected arm.
+	r := getInjectedRobotWithArm(localArmKey)
+
+	// If passed, create remote robot with an injected arm.
+	if remoteArmKey != "" {
+		remoteRobot := getInjectedRobotWithArm(remoteArmKey)
+
+		r.RemoteByNameFunc = func(name string) (robot.Robot, bool) {
+			return remoteRobot, true
+		}
+	}
+
+	svc, err := datamanager.MNew(context.Background(), r, cfgService, logger)
+	if err != nil {
+		t.Log(err)
+	}
+
+	return svc.(internal.MMService)
 }
 
 func setupConfig(t *testing.T, relativePath string) *config.Config {
@@ -299,7 +330,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 func TestModelsAfterKilled(t *testing.T) {
 	fmt.Println("data_manager_test.go/TestModelsAfterKilled()")
 
-	// Register mock model service with a mock server.
+	// Register mock datasync service with a mock server.
 	syncServer, _ := buildAndStartLocalServer(t)
 	defer func() {
 		fmt.Println("syncServer.Stop()")
@@ -321,46 +352,62 @@ func TestModelsAfterKilled(t *testing.T) {
 	}
 
 	testCfg := setupConfig(t, configPath)
+
+	testCfg.Cloud = &config.Cloud{AppAddress: modelServer.InternalAddr().String()}
+
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
 	dmCfg.SyncIntervalMins = configSyncIntervalMins
 	dmCfg.ModelsToDeploy = append(dmCfg.ModelsToDeploy, models...)
 
 	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t, "arm1", "")
+	// dmsvc := newTestDataManager(t, "arm1", "")
+	mmsvc := newTestModelManager(t, "arm1", "")
+	fmt.Println("mmsvc: ", mmsvc)
 
 	// set default manager to connect to local version
 	logger, _ := golog.NewObservedTestLogger(t)
 	modelConn, err := getLocalServerConn(modelServer, logger)
+	// fmt.Println("modelConn: ", modelConn)
 	test.That(t, err, test.ShouldBeNil)
 
-	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, syncServer))
-	dmsvc.SetWaitAfterLastModifiedSecs(10)
-	dmsvc.SetClientConn(modelConn)
+	// dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, syncServer))
+	mmsvc.SetModelrConstructor(getTestModelrConstructor(t, modelServer))
+	mmsvc.SetWaitAfterLastModifiedSecs(10)
+	mmsvc.SetClientConn(modelConn)
 
-	err = dmsvc.Update(context.TODO(), testCfg)
+	err = mmsvc.Update(context.TODO(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not synced.
 	time.Sleep(time.Millisecond * 150)
 
 	// Simulate turning off the service.
-	err = dmsvc.Close(context.TODO())
+	// err = dmsvc.Close(context.TODO())
+	// test.That(t, err, test.ShouldBeNil)
+
+	err = mmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
 
 	// Validate nothing has been synced yet.
 	test.That(t, len(mockModelService.getUploadedModels()), test.ShouldEqual, 0)
 
 	// Turn the service back on.
-	dmsvc = newTestDataManager(t, "arm1", "")
-	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, syncServer))
-	dmsvc.SetWaitAfterLastModifiedSecs(0)
-	err = dmsvc.Update(context.TODO(), testCfg)
+	// dmsvc = newTestDataManager(t, "arm1", "")
+	mmsvc = newTestModelManager(t, "arm1", "")
+	mmsvc.SetClientConn(modelConn)
+
+	// dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, syncServer))
+	mmsvc.SetModelrConstructor(getTestModelrConstructor(t, modelServer))
+	mmsvc.SetWaitAfterLastModifiedSecs(0)
+	err = mmsvc.Update(context.TODO(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Validate that the previously captured file was uploaded at startup.
 	time.Sleep(syncWaitTime)
-	err = dmsvc.Close(context.TODO())
+	// err = dmsvc.Close(context.TODO())
+	// test.That(t, err, test.ShouldBeNil)
+	err = mmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(mockModelService.getUploadedModels()), test.ShouldEqual, 1)
 }
@@ -409,6 +456,8 @@ func populateModels() ([]*datamanager.Model, error) {
 	fmt.Println("data_manager_test.go/populateModels()")
 	var additionalModels []*datamanager.Model
 
+	// Setting destination as nill forces it to adopt
+	// the default directory in data_manager.go
 	m := &datamanager.Model{Name: "m1", Destination: ""}
 	additionalModels = append(additionalModels, m)
 
@@ -760,10 +809,14 @@ type mockDataSyncServiceServer struct {
 	v1.UnimplementedDataSyncServiceServer
 }
 
+type Deploy func(ctx context.Context, req *m1.DeployRequest) (*m1.DeployResponse, error)
+
 type mockModelServiceServer struct {
 	uploadedModels *[]datamanager.Model
 	lock           *sync.Mutex
 	m1.UnimplementedModelServiceServer
+	Dep  Deploy
+	resp *m1.DeployResponse
 }
 
 func (m mockDataSyncServiceServer) getUploadedFiles() []string {
@@ -776,6 +829,17 @@ func (m mockModelServiceServer) getUploadedModels() []datamanager.Model {
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
 	return *m.uploadedModels
+}
+
+func (m mockModelServiceServer) Deploy(ctx context.Context, req *m1.DeployRequest) (*m1.DeployResponse, error) {
+	(*m.lock).Lock()
+	defer (*m.lock).Unlock()
+	r, err := m.Dep(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return r, nil
 }
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
@@ -824,6 +888,7 @@ func (m mockModelServiceServer) Upload(stream m1.ModelService_UploadServer) erro
 
 //nolint:thelper
 func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServer) {
+	fmt.Println("data_manager_test.go/buildAndStartLocalServer()")
 	logger, _ := golog.NewObservedTestLogger(t)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
@@ -858,6 +923,10 @@ func buildAndStartLocalModelServer(t *testing.T) (rpc.Server, mockModelServiceSe
 		uploadedModels:                  &[]datamanager.Model{},
 		lock:                            &sync.Mutex{},
 		UnimplementedModelServiceServer: m1.UnimplementedModelServiceServer{},
+		Dep: func(ctx context.Context, req *m1.DeployRequest) (*m1.DeployResponse, error) {
+			return &m1.DeployResponse{}, nil
+		},
+		resp: &m1.DeployResponse{},
 	}
 	err = rpcServer.RegisterServiceServer(
 		context.Background(),
@@ -893,5 +962,16 @@ func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerC
 		test.That(t, err, test.ShouldBeNil)
 		client := datasync.NewClient(conn)
 		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn)
+	}
+}
+
+//nolint:thelper
+func getTestModelrConstructor(t *testing.T, server rpc.Server) model.ManagerConstructor {
+	fmt.Println("data_manager_test.go/getTestModelrConstructor()")
+	return func(logger golog.Logger, cfg *config.Config) (model.Manager, error) {
+		conn, err := getLocalServerConn(server, logger)
+		test.That(t, err, test.ShouldBeNil)
+		client := model.NewClient(conn)
+		return model.NewManager(logger, cfg.Cloud.ID, client, conn)
 	}
 }

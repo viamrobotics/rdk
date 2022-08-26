@@ -7,8 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
-	// modelpb "go.viam.com/api/proto/viam/model/v1"
-	// modelclient "go.viam.com/rdk/services/datamanager/model"
+	modelpb "go.viam.com/api/proto/viam/model/v1"
 
 	pb "go.viam.com/rdk/proto/api/service/datamanager/v1"
 )
@@ -41,10 +40,28 @@ func (c *client) Sync(ctx context.Context) error {
 
 // does this need to be edited/added?
 
-// func (c *client) Depoy(ctx context.Context, req *modelpb.DeployRequest) (*modelpb.DeployResponse, error) {
-// 	resp, err := modelclient.Deploy(ctx, req)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	return resp, nil
-// }
+type mclient struct {
+	conn   rpc.ClientConn
+	client modelpb.ModelServiceClient
+	logger golog.Logger
+}
+
+// NewClientFromConn constructs a new Client from connection passed in.
+func NewMClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) MService {
+	grpcClient := modelpb.NewModelServiceClient(conn)
+	c := &mclient{
+		conn:   conn,
+		client: grpcClient,
+		logger: logger,
+	}
+	return c
+}
+
+func (c *mclient) Deploy(ctx context.Context, req *modelpb.DeployRequest) (*modelpb.DeployResponse, error) {
+	// resp, err := modelclient.Manager.Deploy(ctx, req)
+	resp, err := c.client.Deploy(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

@@ -7,6 +7,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/services/datamanager/datasync"
+	"go.viam.com/rdk/services/datamanager/model"
 	urpc "go.viam.com/utils/rpc"
 )
 
@@ -20,5 +21,12 @@ type DMService interface {
 	SetSyncerConstructor(fn datasync.ManagerConstructor)
 	SetSyncer(s datasync.Manager)
 	SetWaitAfterLastModifiedSecs(s int)
+}
+
+type MMService interface {
+	SetModelrConstructor(fn model.ManagerConstructor)
+	Close(ctx context.Context) error
 	SetClientConn(c urpc.ClientConn)
+	Update(ctx context.Context, cfg *config.Config) error
+	SetWaitAfterLastModifiedSecs(s int)
 }
