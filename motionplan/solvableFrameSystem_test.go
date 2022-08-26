@@ -128,14 +128,18 @@ func TestSolverFrame(t *testing.T) {
 	goalFrame, err := frame.NewStaticFrame("goal", spatial.NewPoseFromPoint(r3.Vector{100, 100, 200}))
 	test.That(t, err, test.ShouldBeNil)
 	solver.AddFrame(goalFrame, solver.World())
-	sFrames, err := solver.TracebackFrame(goalFrame)
-	test.That(t, err, test.ShouldBeNil)
 	solveFrame := solver.GetFrame("UR5e")
-	test.That(t, solveFrame, test.ShouldNotBeNil)
-	gFrames, err := solver.TracebackFrame(solveFrame)
+	sFrames, err := solver.TracebackFrame(solveFrame)
 	test.That(t, err, test.ShouldBeNil)
-	frames := uniqInPlaceSlice(append(sFrames, gFrames...))
-	sf := &solverFrame{"", solver, frames, solveFrame, goalFrame}
+	test.That(t, solveFrame, test.ShouldNotBeNil)
+
+	sf, err := newSolverFrame(
+		solver,
+		sFrames, 
+		goalFrame.Name(),
+		frame.StartPositions(solver),
+	)
+	test.That(t, err, test.ShouldBeNil)
 
 	// get the Geometry at the zero position and test that the output is correct
 	inputs := sf.mapToSlice(frame.StartPositions(solver))

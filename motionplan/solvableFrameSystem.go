@@ -58,7 +58,7 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	if solveFrame == nil {
 		return nil, fmt.Errorf("frame with name %s not found in frame system", solveFrameName)
 	}
-	sFrames, err := fss.TracebackFrame(solveFrame)
+	solveFrameList, err := fss.TracebackFrame(solveFrame)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	// each goal is solved independently.
 	for i, goal := range goals {
 		// Create a frame to solve for, and an IK solver with that frame.
-		sf, err := newSolverFrame(fss, sFrames, goal.FrameName(), seedMap)
+		sf, err := newSolverFrame(fss, solveFrameList, goal.FrameName(), seedMap)
 		if err != nil {
 			return nil, err
 		}
@@ -129,6 +129,10 @@ type solverFrame struct {
 	frames     []frame.Frame // all frames directly between and including solveFrame and goalFrame. Order not important.
 	solveFrame frame.Frame
 	goalFrame  frame.Frame
+	// If this is true, then goals are translated to their position in `World` before solving.
+	// This is useful when e.g. moving a gripper relative to a point seen by a camera built into that gripper
+	// TODO(pl): explore allowing this to be frames other than world
+	worldRooted bool
 	origSeed   map[string][]frame.Input // stores starting locations of all frames in fss that are NOT in `frames`
 }
 
@@ -141,6 +145,9 @@ func newSolverFrame(
 	
 	var solveFrame frame.Frame
 	var name string
+	var movingFs frame.FrameSystem
+	var frames []frame.Frame
+	worldRooted := false
 	
 	goalFrame := fss.GetFrame(goalFrameName)
 	if goalFrame == nil {
@@ -163,24 +170,40 @@ func newSolverFrame(
 	if pivotNode == nil {
 		return nil, errors.New("no path from solve frame to goal frame")
 	}
-	frames := []frame.Frame{}
-	for _, f := range solveFrameList {
-		if f.Name() == pivotNode.Name() {
-			break
+	if pivotNode.Name() == frame.World {
+		movingFs = fss
+		frames = uniqInPlaceSlice(append(solveFrameList, goalFrameList...))
+	} else {
+		// Get minimal set of frames from solve frame to goal frame
+		for _, f := range solveFrameList {
+			if f.Name() == pivotNode.Name() {
+				break
+			}
+			frames = append(frames, f)
 		}
-		frames = append(frames, f)
-	}
-	for _, f := range goalFrameList {
-		if f.Name() == pivotNode.Name() {
-			break
+		for _, f := range goalFrameList {
+			if f.Name() == pivotNode.Name() {
+				break
+			}
+			frames = append(frames, f)
 		}
-		frames = append(frames, f)
-	}
-	
-	// Get all child nodes of pivot node
-	movingFs, err := fss.GetFrameSystemSubset(pivotNode)
-	if err != nil {
-		return nil, err
+		
+		dof := 0
+		for _, f := range frames {
+			dof += len(f.DoF())
+		}
+		// If shortest path has 0 dof (e.g. a camera attached to a gripper), translate goal to world frame
+		if dof == 0 {
+			worldRooted = true
+			movingFs = fss
+			frames = solveFrameList
+		} else {
+			// Get all child nodes of pivot node
+			movingFs, err = fss.GetFrameSystemSubset(pivotNode)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 	
 	origSeed := map[string][]frame.Input{}
@@ -199,6 +222,7 @@ func newSolverFrame(
 		frames: frames,
 		solveFrame: solveFrame,
 		goalFrame: goalFrame,
+		worldRooted: worldRooted,
 		origSeed: origSeed,
 	}
 	
@@ -226,6 +250,14 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 	}
 	if err != nil {
 		return nil, err
+	}
+	// If we are world rooted, translate the goal pose into the world frame
+	if sf.worldRooted {
+		tf, err := sf.fss.Transform(seedMap, frame.NewPoseInFrame(sf.goalFrame.Name(), goalPos), frame.World)
+		if err != nil {
+			return nil, err
+		}
+		goalPos = tf.(*frame.PoseInFrame).Pose()
 	}
 
 	goals := []spatial.Pose{goalPos}
@@ -286,7 +318,11 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 		return nil, fmt.Errorf("incorrect number of inputs to Transform got %d want %d", len(inputs), len(sf.DoF()))
 	}
 	pf := frame.NewPoseInFrame(sf.solveFrame.Name(), spatial.NewZeroPose())
-	tf, err := sf.movingFs.Transform(sf.sliceToMap(inputs), pf, sf.goalFrame.Name())
+	solveName := sf.goalFrame.Name()
+	if sf.worldRooted {
+		solveName = frame.World
+	}
+	tf, err := sf.movingFs.Transform(sf.sliceToMap(inputs), pf, solveName)
 	if err != nil {
 		return nil, err
 	}
