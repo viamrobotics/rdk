@@ -1,4 +1,4 @@
-package imagesource
+package videosource
 
 import (
 	"context"
@@ -18,13 +18,13 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const debugImageSource = "VIAM_DEBUG"
+const debugVideoSource = "VIAM_DEBUG"
 
-func debugImageSourceOrSkip(t *testing.T) {
+func debugVideoSourceOrSkip(t *testing.T) {
 	t.Helper()
-	imageSourceTest := os.Getenv(debugImageSource)
-	if imageSourceTest == "" {
-		t.Skipf("set environmental variable %q to run this test", debugImageSource)
+	videoSourceTest := os.Getenv(debugVideoSource)
+	if videoSourceTest == "" {
+		t.Skipf("set environmental variable %q to run this test", debugVideoSource)
 	}
 }
 
@@ -35,10 +35,10 @@ func TestAlignTypeError(t *testing.T) {
 	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("align/intel515/chairs.png"))
 	test.That(t, err, test.ShouldBeNil)
 	colorSrc := &StaticSource{ColorImg: im}
-	colorCam, err := camera.New(colorSrc, nil)
+	colorCam, err := camera.NewFromReader(colorSrc, nil)
 	test.That(t, err, test.ShouldBeNil)
 	depthSrc := &StaticSource{DepthImg: dm}
-	depthCam, err := camera.New(depthSrc, nil)
+	depthCam, err := camera.NewFromReader(depthSrc, nil)
 	test.That(t, err, test.ShouldBeNil)
 	attrs := &alignAttrs{
 		AttrConfig: &camera.AttrConfig{},
@@ -74,22 +74,24 @@ func applyAlignment(
 ) (pointcloud.PointCloud, rimage.Projector) {
 	t.Helper()
 	colorSrc := &StaticSource{ColorImg: img}
-	colorCam, err := camera.New(colorSrc, nil)
+	colorCam, err := camera.NewFromReader(colorSrc, nil)
 	test.That(t, err, test.ShouldBeNil)
 	depthSrc := &StaticSource{DepthImg: dm}
-	depthCam, err := camera.New(depthSrc, nil)
+	depthCam, err := camera.NewFromReader(depthSrc, nil)
 	test.That(t, err, test.ShouldBeNil)
 	is, err := newAlignColorDepth(context.Background(), colorCam, depthCam, attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	alignedPointCloud, err := is.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	proj, err := is.GetProperties(context.Background())
+	proj, err := is.Projector(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, colorCam.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, depthCam.Close(context.Background()), test.ShouldBeNil)
 	return alignedPointCloud, proj
 }
 
-// nolint:dupl
+//nolint:dupl
 func TestAlignIntrinsics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
@@ -141,7 +143,7 @@ func TestAlignWarp(t *testing.T) {
 	test.That(t, aligned, test.ShouldNotBeNil)
 }
 
-// nolint:dupl
+//nolint:dupl
 func TestAlignHomography(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
@@ -204,7 +206,7 @@ func (h *alignTestHelper) Process(
 
 func TestAlignIntelIntrinsics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	debugImageSourceOrSkip(t)
+	debugVideoSourceOrSkip(t)
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -220,7 +222,7 @@ func TestAlignIntelIntrinsics(t *testing.T) {
 
 func TestAlignGripperWarp(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	debugImageSourceOrSkip(t)
+	debugVideoSourceOrSkip(t)
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -241,7 +243,7 @@ func TestAlignGripperWarp(t *testing.T) {
 
 func TestAlignGripperHomography(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	debugImageSourceOrSkip(t)
+	debugVideoSourceOrSkip(t)
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 

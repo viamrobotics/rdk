@@ -77,7 +77,7 @@ func init() {
 }
 
 type ffmpegCamera struct {
-	gostream.ImageSource
+	gostream.VideoReader
 	cancelFunc              context.CancelFunc
 	activeBackgroundWorkers sync.WaitGroup
 	inClose                 func() error
@@ -160,7 +160,7 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 	}, ffCam.activeBackgroundWorkers.Done)
 
 	// when next image is requested simply load the image from where it is stored in shared memory
-	ffCam.ImageSource = gostream.ImageSourceFunc(func(ctx context.Context) (image.Image, func(), error) {
+	reader := gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 		select {
 		case <-cancelableCtx.Done():
 			return nil, nil, cancelableCtx.Err()
@@ -170,13 +170,16 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 		}
 		return latestFrame.Load().(image.Image), func() {}, nil
 	})
+
+	ffCam.VideoReader = reader
 	proj, _ := camera.GetProjector(ctx, attrs.AttrConfig, nil)
-	return camera.New(ffCam, proj)
+	return camera.NewFromReader(ffCam, proj)
 }
 
-func (fc *ffmpegCamera) Close() {
+func (fc *ffmpegCamera) Close(ctx context.Context) error {
 	fc.cancelFunc()
 	viamutils.UncheckedError(fc.inClose())
 	viamutils.UncheckedError(fc.outClose())
 	fc.activeBackgroundWorkers.Wait()
+	return nil
 }

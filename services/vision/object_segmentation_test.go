@@ -47,7 +47,7 @@ func TestObjectSegmentationFailures(t *testing.T) {
 	// fails since camera cannot generate point clouds (no depth in image)
 	r = &inject.Robot{}
 	_cam := &simpleSource{}
-	cam, err := camera.New(_cam, nil)
+	cam, err := camera.NewFromReader(_cam, nil)
 	test.That(t, err, test.ShouldBeNil)
 	r.LoggerFunc = func() golog.Logger {
 		return logger
@@ -82,7 +82,7 @@ func TestGetObjectPointClouds(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	r := &inject.Robot{}
 	_cam := &cloudSource{}
-	cam, err := camera.New(_cam, nil)
+	cam, err := camera.NewFromReader(_cam, nil)
 	test.That(t, err, test.ShouldBeNil)
 	r.LoggerFunc = func() golog.Logger {
 		return logger
@@ -198,7 +198,7 @@ func TestFullClientServerLoop(t *testing.T) {
 	// create the robot, camera, and service
 	r := &inject.Robot{}
 	_cam := &cloudSource{}
-	cam, err := camera.New(_cam, nil)
+	cam, err := camera.NewFromReader(_cam, nil)
 	test.That(t, err, test.ShouldBeNil)
 	r.LoggerFunc = func() golog.Logger {
 		return logger

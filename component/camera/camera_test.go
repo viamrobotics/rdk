@@ -3,8 +3,10 @@ package camera_test
 import (
 	"context"
 	"image"
+	"sync"
 	"testing"
 
+	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -79,11 +81,12 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	img1, _, err := res.Next(context.Background())
+	img1, _, err := camera.ReadImage(context.Background(), res)
 	test.That(t, err, test.ShouldBeNil)
 	compVal, _, err := rimage.CompareImages(img, img1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, compVal, test.ShouldEqual, 0)
+	test.That(t, res.Close(context.Background()), test.ShouldBeNil)
 
 	res, err = camera.FromDependencies(deps, fakeCameraName)
 	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeCameraName, "Camera", "string"))
@@ -101,11 +104,12 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	img1, _, err := res.Next(context.Background())
+	img1, _, err := camera.ReadImage(context.Background(), res)
 	test.That(t, err, test.ShouldBeNil)
 	compVal, _, err := rimage.CompareImages(img, img1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, compVal, test.ShouldEqual, 0)
+	test.That(t, res.Close(context.Background()), test.ShouldBeNil)
 
 	res, err = camera.FromRobot(r, fakeCameraName)
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Camera", "string"))
@@ -182,24 +186,37 @@ func TestReconfigurableCamera(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 0)
 
+	stream, err := reconfCamera1.(camera.Camera).Stream(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	nextImg, _, err := stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, nextImg, test.ShouldResemble, img)
+
 	err = reconfCamera1.Reconfigure(context.Background(), reconfCamera2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfCamera1, test.ShouldResemble, reconfCamera2)
+	test.That(t, rutils.UnwrapProxy(reconfCamera1), test.ShouldResemble, rutils.UnwrapProxy(reconfCamera2))
 	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 1)
-
-	test.That(t, actualCamera1.nextCount, test.ShouldEqual, 0)
+	test.That(t, actualCamera1.nextCount, test.ShouldEqual, 1)
 	test.That(t, actualCamera2.nextCount, test.ShouldEqual, 0)
-	img1, _, err := reconfCamera1.(camera.Camera).Next(context.Background())
+
+	nextImg, _, err = stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, nextImg, test.ShouldResemble, img)
+
+	img1, _, err := camera.ReadImage(context.Background(), reconfCamera1.(camera.Camera))
 	test.That(t, err, test.ShouldBeNil)
 	compVal, _, err := rimage.CompareImages(img, img1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, compVal, test.ShouldEqual, 0)
-	test.That(t, actualCamera1.nextCount, test.ShouldEqual, 0)
-	test.That(t, actualCamera2.nextCount, test.ShouldEqual, 1)
+	test.That(t, actualCamera1.nextCount, test.ShouldEqual, 1)
+	test.That(t, actualCamera2.nextCount, test.ShouldEqual, 2)
+	test.That(t, reconfCamera1.(camera.Camera).Close(context.Background()), test.ShouldBeNil)
 
 	err = reconfCamera1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *camera.reconfigurableCamera")
+	test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestClose(t *testing.T) {
@@ -216,17 +233,46 @@ var img = image.NewNRGBA(image.Rect(0, 0, 4, 4))
 
 type mock struct {
 	camera.Camera
+	mu          sync.Mutex
 	Name        string
 	nextCount   int
 	reconfCount int
+	closedErr   error
 }
 
-func (m *mock) Next(ctx context.Context) (image.Image, func(), error) {
-	m.nextCount++
-	return img, nil, nil
+type mockStream struct {
+	m *mock
 }
 
-func (m *mock) Close() { m.reconfCount++ }
+func (ms *mockStream) Next(ctx context.Context) (image.Image, func(), error) {
+	ms.m.mu.Lock()
+	defer ms.m.mu.Unlock()
+	if ms.m.closedErr != nil {
+		return nil, nil, ms.m.closedErr
+	}
+	ms.m.nextCount++
+	return img, func() {}, nil
+}
+
+func (ms *mockStream) Close(ctx context.Context) error {
+	ms.m.mu.Lock()
+	defer ms.m.mu.Unlock()
+	return nil
+}
+
+func (m *mock) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return &mockStream{m: m}, nil
+}
+
+func (m *mock) Close(_ context.Context) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.reconfCount++
+	m.closedErr = context.Canceled
+	return nil
+}
 
 func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
@@ -236,7 +282,7 @@ type simpleSource struct {
 	filePath string
 }
 
-func (s *simpleSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (s *simpleSource) Read(ctx context.Context) (image.Image, func(), error) {
 	img, err := rimage.NewDepthMapFromFile(artifact.MustPath(s.filePath + ".dat.gz"))
 	return img, func() {}, err
 }
@@ -244,40 +290,40 @@ func (s *simpleSource) Next(ctx context.Context) (image.Image, func(), error) {
 func TestNewCamera(t *testing.T) {
 	attrs1 := &camera.AttrConfig{CameraParameters: &transform.PinholeCameraIntrinsics{Width: 1280, Height: 720}}
 	attrs2 := &camera.AttrConfig{CameraParameters: &transform.PinholeCameraIntrinsics{Width: 100, Height: 100}}
-	imgSrc := &simpleSource{"rimage/board1"}
+	videoSrc := &simpleSource{"rimage/board1"}
 
 	// no camera
-	_, err := camera.New(nil, nil)
-	test.That(t, err, test.ShouldBeError, errors.New("cannot have a nil image source"))
+	_, err := camera.NewFromReader(nil, nil)
+	test.That(t, err, test.ShouldBeError, errors.New("cannot have a nil reader"))
 
 	// camera with no camera parameters
-	cam1, err := camera.New(imgSrc, nil)
+	cam1, err := camera.NewFromReader(videoSrc, nil)
 	test.That(t, err, test.ShouldBeNil)
-	proj, err := cam1.GetProperties(context.Background())
+	proj, err := cam1.Projector(context.Background())
 	test.That(t, proj, test.ShouldBeNil)
 	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
 
 	// camera with camera parameters
 	proj, _ = camera.GetProjector(context.Background(), attrs1, cam1)
-	cam2, err := camera.New(imgSrc, proj)
+	cam2, err := camera.NewFromReader(videoSrc, proj)
 	test.That(t, err, test.ShouldBeNil)
-	proj2, err := cam2.GetProperties(context.Background())
+	proj2, err := cam2.Projector(context.Background())
 	test.That(t, proj2, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
 
 	// camera with camera parameters inherited  from other camera
 	proj, _ = camera.GetProjector(context.Background(), nil, cam2)
-	cam3, err := camera.New(imgSrc, proj)
+	cam3, err := camera.NewFromReader(videoSrc, proj)
 	test.That(t, err, test.ShouldBeNil)
-	proj3, err := cam3.GetProperties(context.Background())
+	proj3, err := cam3.Projector(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, proj3, test.ShouldResemble, proj2)
 
 	// camera with different camera parameters, will not inherit
 	proj, _ = camera.GetProjector(context.Background(), attrs2, cam2)
-	cam4, err := camera.New(imgSrc, proj)
+	cam4, err := camera.NewFromReader(videoSrc, proj)
 	test.That(t, err, test.ShouldBeNil)
-	proj4, err := cam4.GetProperties(context.Background())
+	proj4, err := cam4.Projector(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, proj4, test.ShouldNotResemble, proj2)
 
@@ -286,9 +332,9 @@ func TestNewCamera(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fakeCamera := reconfig.(camera.Camera)
 	proj, _ = camera.GetProjector(context.Background(), nil, fakeCamera)
-	cam5, err := camera.New(imgSrc, proj)
+	cam5, err := camera.NewFromReader(videoSrc, proj)
 	test.That(t, err, test.ShouldBeNil)
-	proj5, err := cam5.GetProperties(context.Background())
+	proj5, err := cam5.Projector(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, proj5, test.ShouldResemble, proj4)
 }
@@ -304,32 +350,38 @@ func (cs *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 }
 
 func TestCameraWithNoProjector(t *testing.T) {
-	imgSrc := &simpleSource{"rimage/board1"}
-	noProj, err := camera.New(imgSrc, nil)
+	videoSrc := &simpleSource{"rimage/board1"}
+	noProj, err := camera.NewFromReader(videoSrc, nil)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = noProj.NextPointCloud(context.Background())
 	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
-	_, err = noProj.GetProperties(context.Background())
+	_, err = noProj.Projector(context.Background())
 	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
 
 	// make a camera with a NextPointCloudFunction
-	imgSrc2 := &cloudSource{imgSrc, generic.Unimplemented{}}
-	noProj2, err := camera.New(imgSrc2, nil)
+	videoSrc2 := &cloudSource{videoSrc, generic.Unimplemented{}}
+	noProj2, err := camera.NewFromReader(videoSrc2, nil)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := noProj2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	_, got := pc.At(0, 0, 0)
 	test.That(t, got, test.ShouldBeTrue)
 
-	_, mimeType, width, height, err := noProj2.GetFrame(context.Background(), "")
+	img, _, err := camera.ReadImage(
+		gostream.WithMIMETypeHint(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG)),
+		noProj2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mimeType, test.ShouldEqual, rutils.MimeTypeRawRGBA)
-	test.That(t, width, test.ShouldEqual, 1280)
-	test.That(t, height, test.ShouldEqual, 720)
+
+	depthImg := img.(*rimage.DepthMap)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, depthImg.Bounds().Dx(), test.ShouldEqual, 1280)
+	test.That(t, depthImg.Bounds().Dy(), test.ShouldEqual, 720)
+
+	test.That(t, noProj2.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestCameraWithProjector(t *testing.T) {
-	imgSrc := &simpleSource{"rimage/board1"}
+	videoSrc := &simpleSource{"rimage/board1"}
 	attrs1 := &camera.AttrConfig{
 		CameraParameters: &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
 			Width:  1280,
@@ -341,28 +393,35 @@ func TestCameraWithProjector(t *testing.T) {
 		},
 	}
 	proj, _ := camera.GetProjector(context.Background(), attrs1, nil)
-	cam, err := camera.New(imgSrc, proj)
+	cam, err := camera.NewFromReader(videoSrc, proj)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := cam.NextPointCloud(context.Background())
 	test.That(t, pc.Size(), test.ShouldEqual, 921600)
 	test.That(t, err, test.ShouldBeNil)
-	proj, err = cam.GetProperties(context.Background())
+	proj, err = cam.Projector(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, proj, test.ShouldNotBeNil)
+	test.That(t, cam.Close(context.Background()), test.ShouldBeNil)
 
 	// camera with a point cloud function
-	imgSrc2 := &cloudSource{imgSrc, generic.Unimplemented{}}
+	videoSrc2 := &cloudSource{videoSrc, generic.Unimplemented{}}
 	proj, _ = camera.GetProjector(context.Background(), nil, cam)
-	cam2, err := camera.New(imgSrc2, proj)
+	cam2, err := camera.NewFromReader(videoSrc2, proj)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err = cam2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	_, got := pc.At(0, 0, 0)
 	test.That(t, got, test.ShouldBeTrue)
 
-	_, mimeType, width, height, err := cam2.GetFrame(context.Background(), "")
+	img, _, err := camera.ReadImage(
+		gostream.WithMIMETypeHint(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG)),
+		cam2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mimeType, test.ShouldEqual, rutils.MimeTypeRawRGBA)
-	test.That(t, width, test.ShouldEqual, 1280)
-	test.That(t, height, test.ShouldEqual, 720)
+
+	depthImg := img.(*rimage.DepthMap)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, depthImg.Bounds().Dx(), test.ShouldEqual, 1280)
+	test.That(t, depthImg.Bounds().Dy(), test.ShouldEqual, 720)
+
+	test.That(t, cam2.Close(context.Background()), test.ShouldBeNil)
 }

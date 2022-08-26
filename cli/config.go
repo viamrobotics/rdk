@@ -2,7 +2,6 @@ package cli
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -17,7 +16,7 @@ func getCLICachePath() string {
 }
 
 func configFromCache() (*Config, error) {
-	rd, err := ioutil.ReadFile(getCLICachePath())
+	rd, err := os.ReadFile(getCLICachePath())
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +43,7 @@ func storeConfigToCache(cfg *Config) error {
 		return err
 	}
 	//nolint:gosec
-	return ioutil.WriteFile(getCLICachePath(), md, 0o640)
+	return os.WriteFile(getCLICachePath(), md, 0o640)
 }
 
 // Config contains stored config information for the CLI.

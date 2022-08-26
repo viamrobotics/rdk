@@ -16,7 +16,7 @@ type controlBlockInternal struct {
 	blockType controlBlockType
 	ins       []chan []Signal
 	outs      []chan []Signal
-	blk       ControlBlock
+	blk       Block
 }
 
 // controlTicker Used to emit impulse on blocks which do not depend on inputs or are endpoints.
@@ -25,10 +25,9 @@ type controlTicker struct {
 	stop   chan bool
 }
 
-// ControlLoop holds the loop config
-// nolint: revive
-type ControlLoop struct {
-	cfg                     ControlConfig
+// Loop holds the loop config.
+type Loop struct {
+	cfg                     Config
 	blocks                  map[string]*controlBlockInternal
 	ct                      controlTicker
 	logger                  golog.Logger
@@ -40,14 +39,14 @@ type ControlLoop struct {
 	running                 bool
 }
 
-// NewControlLoop construct a new control loop for a specific endpoint.
-func NewControlLoop(logger golog.Logger, cfg ControlConfig, m Controllable) (*ControlLoop, error) {
-	return createControlLoop(logger, cfg, m)
+// NewLoop construct a new control loop for a specific endpoint.
+func NewLoop(logger golog.Logger, cfg Config, m Controllable) (*Loop, error) {
+	return createLoop(logger, cfg, m)
 }
 
-func createControlLoop(logger golog.Logger, cfg ControlConfig, m Controllable) (*ControlLoop, error) {
+func createLoop(logger golog.Logger, cfg Config, m Controllable) (*Loop, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
-	c := ControlLoop{
+	l := Loop{
 		logger:                  logger,
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		cfg:                     cfg,
@@ -56,37 +55,37 @@ func createControlLoop(logger golog.Logger, cfg ControlConfig, m Controllable) (
 		cancel:                  cancel,
 		running:                 false,
 	}
-	if c.cfg.Frequency == 0.0 || c.cfg.Frequency > 200 {
+	if l.cfg.Frequency == 0.0 || l.cfg.Frequency > 200 {
 		return nil, errors.New("loop frequency shouldn't be 0 or above 200Hz")
 	}
-	c.dt = time.Duration(float64(time.Second) * (1.0 / (c.cfg.Frequency)))
+	l.dt = time.Duration(float64(time.Second) * (1.0 / (l.cfg.Frequency)))
 	for _, bcfg := range cfg.Blocks {
-		blk, err := createControlBlock(bcfg, logger)
+		blk, err := createBlock(bcfg, logger)
 		if err != nil {
 			return nil, err
 		}
-		c.blocks[bcfg.Name] = &controlBlockInternal{blk: blk, blockType: bcfg.Type}
+		l.blocks[bcfg.Name] = &controlBlockInternal{blk: blk, blockType: bcfg.Type}
 		if bcfg.Type == blockEndpoint {
-			c.blocks[bcfg.Name].blk.(*endpoint).ctr = m
+			l.blocks[bcfg.Name].blk.(*endpoint).ctr = m
 		}
 	}
-	for _, b := range c.blocks {
-		for _, dep := range b.blk.Config(c.cancelCtx).DependsOn {
-			blockDep, ok := c.blocks[dep]
+	for _, b := range l.blocks {
+		for _, dep := range b.blk.Config(l.cancelCtx).DependsOn {
+			blockDep, ok := l.blocks[dep]
 			if !ok {
-				return nil, errors.Errorf("block %s depends on %s but it does not exist", b.blk.Config(c.cancelCtx).Name, dep)
+				return nil, errors.Errorf("block %s depends on %s but it does not exist", b.blk.Config(l.cancelCtx).Name, dep)
 			}
 			blockDep.outs = append(blockDep.outs, make(chan []Signal))
 			b.ins = append(b.ins, blockDep.outs[len(blockDep.outs)-1])
 		}
 	}
-	for _, b := range c.blocks {
-		if len(b.blk.Config(c.cancelCtx).DependsOn) == 0 || b.blk.Config(c.cancelCtx).Type == blockEndpoint {
+	for _, b := range l.blocks {
+		if len(b.blk.Config(l.cancelCtx).DependsOn) == 0 || b.blk.Config(l.cancelCtx).Type == blockEndpoint {
 			waitCh := make(chan struct{})
-			c.ts = append(c.ts, make(chan time.Time, 1))
-			c.activeBackgroundWorkers.Add(1)
+			l.ts = append(l.ts, make(chan time.Time, 1))
+			l.activeBackgroundWorkers.Add(1)
 			utils.ManagedGo(func() {
-				t := c.ts[len(c.ts)-1]
+				t := l.ts[len(l.ts)-1]
 				b := b
 				close(waitCh)
 				for {
@@ -100,17 +99,17 @@ func createControlLoop(logger golog.Logger, cfg ControlConfig, m Controllable) (
 						b.mu.Unlock()
 						return
 					}
-					v, _ := b.blk.Next(c.cancelCtx, nil, c.dt)
+					v, _ := b.blk.Next(l.cancelCtx, nil, l.dt)
 					for _, out := range b.outs {
 						out <- v
 					}
 				}
-			}, c.activeBackgroundWorkers.Done)
+			}, l.activeBackgroundWorkers.Done)
 			<-waitCh
 		}
-		if len(b.blk.Config(c.cancelCtx).DependsOn) != 0 {
+		if len(b.blk.Config(l.cancelCtx).DependsOn) != 0 {
 			waitCh := make(chan struct{})
-			c.activeBackgroundWorkers.Add(1)
+			l.activeBackgroundWorkers.Add(1)
 			utils.ManagedGo(func() {
 				b := b
 				nInputs := len(b.ins)
@@ -133,27 +132,27 @@ func createControlLoop(logger golog.Logger, cfg ControlConfig, m Controllable) (
 							sw[i] = r[0]
 						} else {
 							// TODO(npmenard) do we want to support multidimentional signals?
-							// nolint: makezero
+							//nolint: makezero
 							sw = append(sw, r...)
 						}
 					}
-					v, ok := b.blk.Next(c.cancelCtx, sw, c.dt)
+					v, ok := b.blk.Next(l.cancelCtx, sw, l.dt)
 					if ok {
 						for _, out := range b.outs {
 							out <- v
 						}
 					}
 				}
-			}, c.activeBackgroundWorkers.Done)
+			}, l.activeBackgroundWorkers.Done)
 			<-waitCh
 		}
 	}
-	return &c, nil
+	return &l, nil
 }
 
 // OutputAt returns the Signal at the block name, error when the block doesn't exist.
-func (c *ControlLoop) OutputAt(ctx context.Context, name string) ([]Signal, error) {
-	blk, ok := c.blocks[name]
+func (l *Loop) OutputAt(ctx context.Context, name string) ([]Signal, error) {
+	blk, ok := l.blocks[name]
 	if !ok {
 		return []Signal{}, errors.Errorf("cannot return Signals for non existing block %s", name)
 	}
@@ -161,17 +160,17 @@ func (c *ControlLoop) OutputAt(ctx context.Context, name string) ([]Signal, erro
 }
 
 // ConfigAt returns the Configl at the block name, error when the block doesn't exist.
-func (c *ControlLoop) ConfigAt(ctx context.Context, name string) (ControlBlockConfig, error) {
-	blk, ok := c.blocks[name]
+func (l *Loop) ConfigAt(ctx context.Context, name string) (BlockConfig, error) {
+	blk, ok := l.blocks[name]
 	if !ok {
-		return ControlBlockConfig{}, errors.Errorf("cannot return Config for non existing block %s", name)
+		return BlockConfig{}, errors.Errorf("cannot return Config for non existing block %s", name)
 	}
 	return blk.blk.Config(ctx), nil
 }
 
 // SetConfigAt returns the Configl at the block name, error when the block doesn't exist.
-func (c *ControlLoop) SetConfigAt(ctx context.Context, name string, config ControlBlockConfig) error {
-	blk, ok := c.blocks[name]
+func (l *Loop) SetConfigAt(ctx context.Context, name string, config BlockConfig) error {
+	blk, ok := l.blocks[name]
 	if !ok {
 		return errors.Errorf("cannot return Config for non existing block %s", name)
 	}
@@ -179,37 +178,37 @@ func (c *ControlLoop) SetConfigAt(ctx context.Context, name string, config Contr
 }
 
 // BlockList returns the list of blocks in a control loop error when the list is empty.
-func (c *ControlLoop) BlockList(ctx context.Context) ([]string, error) {
+func (l *Loop) BlockList(ctx context.Context) ([]string, error) {
 	var out []string
-	for k := range c.blocks {
+	for k := range l.blocks {
 		out = append(out, k)
 	}
 	return out, nil
 }
 
 // Frequency returns the loop's frequency.
-func (c *ControlLoop) Frequency(ctx context.Context) (float64, error) {
-	return c.cfg.Frequency, nil
+func (l *Loop) Frequency(ctx context.Context) (float64, error) {
+	return l.cfg.Frequency, nil
 }
 
 // Start starts the loop.
-func (c *ControlLoop) Start() error {
-	if len(c.ts) == 0 {
+func (l *Loop) Start() error {
+	if len(l.ts) == 0 {
 		return errors.New("cannot start the control loop if there are no blocks depending on an impulse")
 	}
-	c.logger.Debugf("Running loop on %1.4f %+v\r\n", c.cfg.Frequency, c.dt)
-	c.ct = controlTicker{
-		ticker: time.NewTicker(c.dt),
+	l.logger.Debugf("Running loop on %1.4f %+v\r\n", l.cfg.Frequency, l.dt)
+	l.ct = controlTicker{
+		ticker: time.NewTicker(l.dt),
 		stop:   make(chan bool, 1),
 	}
 	waitCh := make(chan struct{})
-	c.activeBackgroundWorkers.Add(1)
+	l.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		ct := c.ct
-		ts := c.ts
+		ct := l.ct
+		ts := l.ts
 		close(waitCh)
 		for {
-			if c.cancelCtx.Err() != nil {
+			if l.cancelCtx.Err() != nil {
 				for _, c := range ts {
 					close(c)
 				}
@@ -225,31 +224,31 @@ func (c *ControlLoop) Start() error {
 					close(c)
 				}
 				return
-			case <-c.cancelCtx.Done():
+			case <-l.cancelCtx.Done():
 				for _, c := range ts {
 					close(c)
 				}
 				return
 			}
 		}
-	}, c.activeBackgroundWorkers.Done)
+	}, l.activeBackgroundWorkers.Done)
 	<-waitCh
-	c.running = true
+	l.running = true
 	return nil
 }
 
 // StartBenchmark special start function to benchmark speed of complex loop configurations.
-func (c *ControlLoop) startBenchmark(loops int) error {
-	if len(c.ts) == 0 {
+func (l *Loop) startBenchmark(loops int) error {
+	if len(l.ts) == 0 {
 		return errors.New("cannot start the control loop if there are no blocks depending on an impulse")
 	}
 	waitCh := make(chan struct{})
-	c.activeBackgroundWorkers.Add(1)
+	l.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		ts := c.ts
+		ts := l.ts
 		close(waitCh)
 		for i := 0; i < loops; i++ {
-			if c.cancelCtx.Err() != nil {
+			if l.cancelCtx.Err() != nil {
 				for _, c := range ts {
 					close(c)
 				}
@@ -262,22 +261,22 @@ func (c *ControlLoop) startBenchmark(loops int) error {
 		for _, c := range ts {
 			close(c)
 		}
-	}, c.activeBackgroundWorkers.Done)
+	}, l.activeBackgroundWorkers.Done)
 	<-waitCh
 	return nil
 }
 
 // Stop stops then loop.
-func (c *ControlLoop) Stop() {
-	if c.running {
-		c.ct.ticker.Stop()
-		close(c.ct.stop)
-		c.activeBackgroundWorkers.Wait()
-		c.running = false
+func (l *Loop) Stop() {
+	if l.running {
+		l.ct.ticker.Stop()
+		close(l.ct.stop)
+		l.activeBackgroundWorkers.Wait()
+		l.running = false
 	}
 }
 
 // GetConfig return the control loop config.
-func (c *ControlLoop) GetConfig(ctx context.Context) ControlConfig {
-	return c.cfg
+func (l *Loop) GetConfig(ctx context.Context) Config {
+	return l.cfg
 }

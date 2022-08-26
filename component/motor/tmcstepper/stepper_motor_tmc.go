@@ -398,7 +398,7 @@ func (m *Motor) doJog(ctx context.Context, rpm float64) error {
 // GoFor turns in the given direction the given number of times at the given speed.
 // Both the RPM and the revolutions can be assigned negative values to move in a backwards direction.
 // Note: if both are negative the motor will spin in the forward direction.
-func (m *Motor) GoFor(ctx context.Context, rpm float64, rotations float64, extra map[string]interface{}) error {
+func (m *Motor) GoFor(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
 	curPos, err := m.GetPosition(ctx, extra)
 	if err != nil {
 		return err
@@ -438,7 +438,7 @@ func (m *Motor) rpmsToA(acc float64) int32 {
 // GoTo moves to the specified position in terms of (provided in revolutions from home/zero),
 // at a specific speed. Regardless of the directionality of the RPM this function will move the
 // motor towards the specified target.
-func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64, extra map[string]interface{}) error {
+func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 

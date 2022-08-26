@@ -45,7 +45,7 @@ func (c *client) SetPower(ctx context.Context, powerPct float64, extra map[strin
 	return err
 }
 
-func (c *client) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
+func (c *client) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -60,7 +60,7 @@ func (c *client) GoFor(ctx context.Context, rpm float64, revolutions float64, ex
 	return err
 }
 
-func (c *client) GoTo(ctx context.Context, rpm float64, positionRevolutions float64, extra map[string]interface{}) error {
+func (c *client) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err

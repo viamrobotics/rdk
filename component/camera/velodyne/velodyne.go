@@ -31,7 +31,7 @@ type channelConfig struct {
 
 type productConfig []channelConfig
 
-var allProductData map[vlp16.ProductID]productConfig = map[vlp16.ProductID]productConfig{
+var allProductData = map[vlp16.ProductID]productConfig{
 	vlp16.ProductIDVLP32C: {
 		channelConfig{-25, 1.4},
 		channelConfig{-1, -4.2},
@@ -107,7 +107,7 @@ type client struct {
 }
 
 // New creates a connection to a Velodyne lidar and generates pointclouds from it.
-func New(logger golog.Logger, port int, ttlMilliseconds int) (camera.Camera, error) {
+func New(logger golog.Logger, port, ttlMilliseconds int) (camera.Camera, error) {
 	bindAddress := fmt.Sprintf("0.0.0.0:%d", port)
 	listener, err := vlp16.ListenUDP(context.Background(), bindAddress)
 	if err != nil {
@@ -128,7 +128,7 @@ func New(logger golog.Logger, port int, ttlMilliseconds int) (camera.Camera, err
 		c.run(cancelCtx, listener)
 	})
 
-	return camera.New(c, nil)
+	return camera.NewFromReader(c, nil)
 }
 
 func (c *client) setLastError(err error) {
@@ -272,7 +272,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	return pc, nil
 }
 
-func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
+func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	pc, err := c.NextPointCloud(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -310,7 +310,8 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 	return img, nil, nil
 }
 
-func (c *client) Close() {
+func (c *client) Close(ctx context.Context) error {
 	c.cancelFunc()
 	c.activeBackgroundWorkers.Wait()
+	return nil
 }

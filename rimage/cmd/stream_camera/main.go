@@ -7,10 +7,11 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
-	"github.com/edaniels/gostream/media"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/camera/imagesource"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/camera/videosource"
 	"go.viam.com/rdk/config"
 )
 
@@ -36,7 +37,7 @@ type Arguments struct {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	// both argesParsed and argsMap are similar, and should at some point be merged or refactored
 	var argsParsed Arguments
-	var argsMap imagesource.WebcamAttrs
+	var argsMap videosource.WebcamAttrs
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
 	}
@@ -45,7 +46,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}
 
 	if argsParsed.Dump {
-		all := media.QueryVideoDevices()
+		all := gostream.QueryVideoDevices()
 		for _, info := range all {
 			logger.Debugf("%s", info.ID)
 			logger.Debugf("\t labels: %v", info.Labels)
@@ -85,14 +86,14 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	return viewCamera(ctx, argsMap, int(argsParsed.Port), argsParsed.Debug, logger)
 }
 
-func viewCamera(ctx context.Context, attrs imagesource.WebcamAttrs, port int, debug bool, logger golog.Logger) error {
-	webcam, err := imagesource.NewWebcamSource(ctx, &attrs, logger)
+func viewCamera(ctx context.Context, attrs videosource.WebcamAttrs, port int, debug bool, logger golog.Logger) error {
+	webcam, err := videosource.NewWebcamSource(ctx, &attrs, logger)
 	if err != nil {
 		return err
 	}
 
 	if err := func() error {
-		img, closer, err := webcam.Next(ctx)
+		img, closer, err := camera.ReadImage(ctx, webcam)
 		if err != nil {
 			return err
 		}
@@ -110,7 +111,7 @@ func viewCamera(ctx context.Context, attrs imagesource.WebcamAttrs, port int, de
 		return err
 	}
 
-	server, err := gostream.NewStandaloneStreamServer(port, logger, remoteStream)
+	server, err := gostream.NewStandaloneStreamServer(port, logger, nil, remoteStream)
 	if err != nil {
 		return err
 	}
@@ -119,7 +120,5 @@ func viewCamera(ctx context.Context, attrs imagesource.WebcamAttrs, port int, de
 	}
 
 	utils.ContextMainReadyFunc(ctx)()
-	gostream.StreamSource(ctx, webcam, remoteStream)
-
-	return server.Stop(ctx)
+	return multierr.Combine(gostream.StreamVideoSource(ctx, webcam, remoteStream), server.Stop(ctx))
 }

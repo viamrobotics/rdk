@@ -6,6 +6,9 @@ PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 LDFLAGS = -ldflags "$(shell etc/tag_version.sh) -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
+BUILD_TAGS=dynamic
+GO_BUILD_TAGS = -tags $(BUILD_TAGS)
+LINT_BUILD_TAGS = --build-tags $(BUILD_TAGS)
 
 default: build lint server
 
@@ -15,7 +18,7 @@ setup:
 build: build-web build-go
 
 build-go: buf-go
-	go build ./...
+	go build $(GO_BUILD_TAGS) ./...
 
 build-web: buf-web
 	export NODE_OPTIONS=--openssl-legacy-provider && node --version 2>/dev/null || unset NODE_OPTIONS;\
@@ -58,8 +61,8 @@ lint-buf: tool-install
 	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s format -w
 
 lint-go: tool-install
-	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | xargs go vet -vettool=$(TOOL_BIN)/combined
-	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto`" && echo "$$pkgs" | GOGC=50 xargs $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
+	export pkgs="`go list $(GO_BUILD_TAGS) -f '{{.Dir}}' ./... | grep -v /proto/`" && echo "$$pkgs" | xargs go vet $(GO_BUILD_TAGS) -vettool=$(TOOL_BIN)/combined
+	GOGC=50 $(TOOL_BIN)/golangci-lint run $(LINT_BUILD_TAGS) -v --fix --config=./etc/.golangci.yaml
 
 lint-web: buf-web
 	cd web/frontend && npm ci --audit=false && npm run rollup && npm run lint
@@ -85,7 +88,7 @@ test-e2e:
 	./etc/e2e.sh
 
 server:
-	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
+	go build $(GO_BUILD_TAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
 
 clean-all:
 	git clean -fxd
