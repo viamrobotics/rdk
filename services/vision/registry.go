@@ -29,8 +29,6 @@ const (
 	ObjectSegmenter  = VisModelType("object_segmenter")
 )
 
-var detectorList, classifierList, segmenterList []string
-
 // newVisModelTypeNotImplemented is used when the model type is not implemented.
 func newVisModelTypeNotImplemented(name string) error {
 	return errors.Errorf("vision model type %q is not implemented", name)
@@ -148,9 +146,6 @@ func (mm modelMap) removeVisModel(name string, logger golog.Logger) error {
 		}
 	}
 	delete(mm, name)
-	detectorList = removeIfInList(detectorList, name)
-	segmenterList = removeIfInList(segmenterList, name)
-	classifierList = removeIfInList(classifierList, name)
 	return nil
 }
 
@@ -167,29 +162,9 @@ func (mm modelMap) registerVisModel(name string, m *registeredModel, logger golo
 	}
 	if _, old := mm[name]; old {
 		logger.Infof("overwriting the model with name: %s", name)
-	} else {
-		// Add name to appropriate list (only if not already there)
-		switch m.modelType {
-		case TFClassifier:
-			classifierList = append(classifierList, name)
-		case TFLiteClassifier:
-			classifierList = append(classifierList, name)
-		case TFDetector:
-			detectorList = append(detectorList, name)
-		case TFLiteDetector:
-			detectorList = append(detectorList, name)
-		case ColorDetector:
-			detectorList = append(detectorList, name)
-		case RCSegmenter:
-			segmenterList = append(segmenterList, name)
-		case ObjectSegmenter:
-			segmenterList = append(segmenterList, name)
-		default:
-			return newVisModelTypeNotImplemented(name)
-		}
 	}
-	mm[name] = registeredModel{
-		model: m.model, modelType: m.modelType,
+
+	mm[name] = registeredModel{model: m.model, modelType: m.modelType,
 		closer: nil, isLoaded: m.isLoaded, SegParams: m.SegParams,
 	}
 	return nil
@@ -213,20 +188,11 @@ func registerNewVisModels(ctx context.Context, mm modelMap, attrs *Attributes, l
 			return newVisModelTypeNotImplemented(attr.Type)
 		case ColorDetector:
 			return registerColorDetector(ctx, mm, &attr, logger)
-		case RadiusClusteringSegmenter:
+		case RCSegmenter:
 			return registerRCSegmenter(ctx, mm, &attr, logger)
 		default:
 			return newVisModelTypeNotImplemented(attr.Type)
 		}
 	}
 	return nil
-}
-
-func removeIfInList(list []string, elem string) []string {
-	for i, e := range list {
-		if e == elem {
-			return append(list[:i], list[i+1:]...)
-		}
-	}
-	return list
 }
