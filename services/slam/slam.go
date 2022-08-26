@@ -43,14 +43,16 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-var cameraValidationMaxTimeoutSec = 30 // reconfigurable for testing
+var (
+	cameraValidationMaxTimeoutSec = 30 // reconfigurable for testing
+	dialMaxTimeoutSec             = 5  // reconfigurable for testing
+)
 
 const (
 	defaultDataRateMs           = 200
 	minDataRateMs               = 200
 	defaultMapRateSec           = 60
 	cameraValidationIntervalSec = 1.
-	dialMaxTimeoutSec           = 5
 	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	// time format for the slam service.
 	slamTimeFormat        = "2006-01-02T15_04_05.0000"
@@ -60,6 +62,11 @@ const (
 // SetCameraValidationMaxTimeoutSecForTesting sets cameraValidationMaxTimeoutSec for testing.
 func SetCameraValidationMaxTimeoutSecForTesting(val int) {
 	cameraValidationMaxTimeoutSec = val
+}
+
+// SetDialMaxTimeoutSecForTesting sets dialMaxTimeoutSec for testing.
+func SetDialMaxTimeoutSecForTesting(val int) {
+	dialMaxTimeoutSec = val
 }
 
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
@@ -364,7 +371,7 @@ func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) 
 	defer span.End()
 
 	// This takes about 1 second, so the timeout should be sufficient.
-	ctx, timeoutCancel := context.WithTimeout(ctx, dialMaxTimeoutSec*time.Second)
+	ctx, timeoutCancel := context.WithTimeout(ctx, time.Duration(dialMaxTimeoutSec)*time.Second)
 	defer timeoutCancel()
 	// The 'port' provided in the config is already expected to include "localhost:", if needed, so that it doesn't need to be
 	// added anywhere in the code. This will allow cloud-based SLAM processing to exist in the future.
