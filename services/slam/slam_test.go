@@ -235,6 +235,7 @@ func createSLAMService(t *testing.T, attrCfg *slam.AttrConfig, logger golog.Logg
 	r := setupInjectRobot()
 
 	slam.SetCameraValidationMaxTimeoutSecForTesting(1)
+	slam.SetDialMaxTimeoutSecForTesting(1)
 
 	svc, err := slam.New(ctx, r, cfgService, logger)
 
