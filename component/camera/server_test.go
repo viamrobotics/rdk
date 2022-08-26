@@ -76,6 +76,7 @@ func TestServer(t *testing.T) {
 	injectCamera.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return projA, nil
 	}
+	wooMIME := "image/woohoo"
 	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 			imageReleased = true
@@ -87,6 +88,8 @@ func TestServer(t *testing.T) {
 				return imgPng, func() {}, nil
 			case utils.MimeTypeJPEG:
 				return imgJpeg, func() {}, nil
+			case "image/woohoo":
+				return rimage.NewLazyEncodedImage([]byte{1, 2, 3}, mimeType, 2, 4), func() {}, nil
 			default:
 				return nil, nil, errors.New("invalid mime type")
 			}
@@ -203,6 +206,26 @@ func TestServer(t *testing.T) {
 		_, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{Name: failCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate stream")
+	})
+
+	t.Run("GetFrame with lazy", func(t *testing.T) {
+		// we know its lazy if it's a mime we can't actually handle internally
+		resp, err := cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{
+			Name:     testCameraName,
+			MimeType: utils.WithLazyMIMEType(wooMIME),
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.MimeType, test.ShouldEqual, wooMIME)
+		test.That(t, resp.Image, test.ShouldResemble, []byte{1, 2, 3})
+		test.That(t, resp.WidthPx, test.ShouldEqual, 2)
+		test.That(t, resp.HeightPx, test.ShouldEqual, 4)
+
+		_, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{
+			Name:     testCameraName,
+			MimeType: "image/notwoo",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid mime type")
 	})
 
 	t.Run("RenderFrame", func(t *testing.T) {
