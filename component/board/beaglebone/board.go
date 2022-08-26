@@ -22,7 +22,5 @@ func init() {
 		rlog.Logger.Debugw("error getting beaglebone GPIO board mapping", "error", err)
 	}
 
-	if err == nil {
-		commonsysfs.RegisterBoard(modelName, gpioMappings)
-	}
+	commonsysfs.RegisterBoard(modelName, gpioMappings)
 }
