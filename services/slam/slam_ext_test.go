@@ -17,22 +17,25 @@ func TestConfigValidation(t *testing.T) {
 	name1, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
-	t.Run("valid config with sensor", func(t *testing.T) {
-		cfg := getValidConfig(name1)
-		mode, err := runtimeConfigValidation(cfg, logger)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mode, test.ShouldEqual, "2d")
-	})
+	cfg := &AttrConfig{
+		Algorithm:        "cartographer",
+		Sensors:          []string{"rplidar"},
+		ConfigParams:     map[string]string{"mode": "2d"},
+		DataDirectory:    name1,
+		InputFilePattern: "100:300:5",
+	}
+
+	mode, err := runtimeConfigValidation(cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mode, test.ShouldEqual, "2d")
 
 	t.Run("run test of config with no sensor", func(t *testing.T) {
-		cfg := getValidConfig(name1)
 		cfg.Sensors = []string{}
 		_, err = runtimeConfigValidation(cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("SLAM config slam mode test with invalid mode for library", func(t *testing.T) {
-		cfg := getValidConfig(name1)
 		cfg.ConfigParams["mode"] = ""
 		_, err = runtimeConfigValidation(cfg, logger)
 		test.That(t, err, test.ShouldBeError,
@@ -40,7 +43,6 @@ func TestConfigValidation(t *testing.T) {
 	})
 
 	t.Run("SLAM config input file pattern tests with bad pattern", func(t *testing.T) {
-		cfg := getValidConfig(name1)
 		cfg.ConfigParams["mode"] = "2d"
 		cfg.InputFilePattern = "dd:300:3"
 		_, err = runtimeConfigValidation(cfg, logger)
@@ -49,7 +51,6 @@ func TestConfigValidation(t *testing.T) {
 	})
 
 	t.Run("SLAM config input file pattern tests with initial file larger then final fail", func(t *testing.T) {
-		cfg := getValidConfig(name1)
 		cfg.InputFilePattern = "500:300:3"
 		_, err = runtimeConfigValidation(cfg, logger)
 		test.That(t, err, test.ShouldBeError,
@@ -57,7 +58,6 @@ func TestConfigValidation(t *testing.T) {
 	})
 
 	t.Run("SLAM config input file pattern tests with 0 interval", func(t *testing.T) {
-		cfg := getValidConfig(name1)
 		cfg.InputFilePattern = "1:15:0"
 		_, err = runtimeConfigValidation(cfg, logger)
 		test.That(t, err, test.ShouldBeError,
@@ -65,17 +65,9 @@ func TestConfigValidation(t *testing.T) {
 	})
 
 	t.Run("SLAM config check on specified algorithm", func(t *testing.T) {
-		cfg := getValidConfig(name1)
 		cfg.Algorithm = "wrong_algo"
 		_, err = runtimeConfigValidation(cfg, logger)
 		test.That(t, err, test.ShouldBeError, errors.Errorf("%v algorithm specified not in implemented list", cfg.Algorithm))
-	})
-
-	t.Run("SLAM config check data_rate_ms", func(t *testing.T) {
-		cfg := getValidConfig(name1)
-		cfg.DataRateMs = 10
-		_, err = runtimeConfigValidation(cfg, logger)
-		test.That(t, err, test.ShouldBeError, errors.New("cannot specify data_rate_ms less than 200"))
 	})
 }
 
@@ -95,14 +87,4 @@ func createTempFolderArchitecture() (string, error) {
 		return "", err
 	}
 	return name, nil
-}
-
-func getValidConfig(dataDirectory string) *AttrConfig {
-	return &AttrConfig{
-		Algorithm:        "cartographer",
-		Sensors:          []string{"rplidar"},
-		ConfigParams:     map[string]string{"mode": "2d"},
-		DataDirectory:    dataDirectory,
-		InputFilePattern: "100:300:5",
-	}
 }
