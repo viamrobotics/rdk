@@ -6,6 +6,7 @@ import type { Status } from '../gen/proto/api/component/inputcontroller/v1/input
 interface Props {
   controllerName: string
   controllerStatus: Status.AsObject
+  crumbs: string[]
 }
 
 const props = defineProps<Props>();
@@ -67,7 +68,11 @@ for (const ctrl of controlOrder) {
 </script>
 
 <template>
-  <v-collapse :title="`${controllerName} Input`">
+  <v-collapse :title="`${controllerName}`">
+    <v-breadcrumbs
+      slot="title"
+      :crumbs="crumbs.join(',')"
+    />
     <div
       slot="header"
       class="flex flex-wrap items-center"
