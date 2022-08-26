@@ -10,12 +10,10 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-
 	"go.viam.com/rdk/component/board"
 	picommon "go.viam.com/rdk/component/board/pi/common"
 	"go.viam.com/rdk/component/encoder"
-	"go.viam.com/rdk/component/motor"
-
+	"go.viam.com/rdk/component/motor"	
 	// for gpio motor.
 	_ "go.viam.com/rdk/component/motor/gpio"
 	"go.viam.com/rdk/component/servo"
@@ -139,7 +137,6 @@ func TestPiHardware(t *testing.T) {
 		val, err := servoI.Value(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, val, test.ShouldAlmostEqual, int64(1500), 500) // this is a tad noisy
-
 	})
 
 	motorReg := registry.ComponentLookup(motor.Subtype, picommon.ModelName)
@@ -259,23 +256,4 @@ func TestPiHardware(t *testing.T) {
 			}
 		}
 	})
-}
-
-func TestServoMath(t *testing.T) {
-	pw := angleToPulseWidth(1)
-	test.That(t, pw, test.ShouldEqual, 511)
-	pw = angleToPulseWidth(0)
-	test.That(t, pw, test.ShouldEqual, 500)
-	pw = angleToPulseWidth(179)
-	test.That(t, pw, test.ShouldEqual, 2488)
-	pw = angleToPulseWidth(180)
-	test.That(t, pw, test.ShouldEqual, 2500)
-	a := pulseWidthToAngle(511)
-	test.That(t, a, test.ShouldEqual, 1)
-	a = pulseWidthToAngle(500)
-	test.That(t, a, test.ShouldEqual, 0)
-	a = pulseWidthToAngle(2500)
-	test.That(t, a, test.ShouldEqual, 180)
-	a = pulseWidthToAngle(2488)
-	test.That(t, a, test.ShouldEqual, 179)
 }
