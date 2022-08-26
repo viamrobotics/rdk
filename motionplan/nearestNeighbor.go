@@ -69,12 +69,10 @@ func (nm *neighborManager) parallelNearestNeighbor(
 	rrtMap map[*node]*node,
 ) *node {
 	nm.ready = false
+	nm.seedPos = seed
 	nm.startNNworkers(ctx)
 	defer close(nm.nnKeys)
 	defer close(nm.neighbors)
-	nm.nnLock.Lock()
-	nm.seedPos = seed
-	nm.nnLock.Unlock()
 
 	for k := range rrtMap {
 		nm.nnKeys <- k

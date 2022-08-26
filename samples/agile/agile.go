@@ -199,7 +199,7 @@ func (l *limoBase) Plan(config *MobileRobotPlanConfig) ([][]frame.Input, motionp
 		obstacleGeometries[strconv.Itoa(i)] = box
 	}
 
-	opt := motionplan.NewDefaultPlannerOptions()
+	opt := motionplan.NewBasicPlannerOptions()
 	opt.AddConstraint("collision", motionplan.NewCollisionConstraint(dubins.Frame(), obstacleGeometries, map[string]spatial.Geometry{}))
 
 	// plan

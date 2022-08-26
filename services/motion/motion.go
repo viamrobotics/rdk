@@ -141,7 +141,7 @@ func (ms *motionService) Move(
 	solver := motionplan.NewSolvableFrameSystem(frameSys, logger)
 
 	// build maps of relevant components and inputs from initial inputs
-	fsInputs, resources, err := ms.fsCurrentInputs(ctx, solver)
+	fsInputs, resources, err := framesystem.RobotFsCurrentInputs(ctx, ms.r, solver)
 	if err != nil {
 		return false, err
 	}
@@ -159,11 +159,10 @@ func (ms *motionService) Move(
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 	output, err := solver.SolveWaypointsWithOptions(ctx,
 		fsInputs,
-		[]spatialmath.Pose{goalPose.Pose()},
+		[]*referenceframe.PoseInFrame{goalPose},
 		componentName.Name,
-		solvingFrame,
 		worldState,
-		[]*motionplan.PlannerOptions{},
+		[]map[string]interface{}{},
 	)
 	if err != nil {
 		return false, err
@@ -217,7 +216,7 @@ func (ms *motionService) MoveSingleComponent(
 			return false, err
 		}
 		// get the initial inputs
-		fsInputs, _, err := ms.fsCurrentInputs(ctx, frameSys)
+		fsInputs, _, err := framesystem.RobotFsCurrentInputs(ctx, ms.r, frameSys)
 		if err != nil {
 			return false, err
 		}
@@ -258,45 +257,6 @@ func (ms *motionService) GetPose(
 		destinationFrame,
 		supplementalTransforms,
 	)
-}
-
-// get the initial inputs.
-func (ms *motionService) fsCurrentInputs(
-	ctx context.Context,
-	fs referenceframe.FrameSystem,
-) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
-	input := referenceframe.StartPositions(fs)
-
-	// build maps of relevant components and inputs from initial inputs
-	allOriginals := map[string][]referenceframe.Input{}
-	resources := map[string]referenceframe.InputEnabled{}
-	for name, original := range input {
-		// skip frames with no input
-		if len(original) == 0 {
-			continue
-		}
-
-		// add component to map
-		allOriginals[name] = original
-		components := robot.AllResourcesByName(ms.r, name)
-		if len(components) != 1 {
-			return nil, nil, fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), name)
-		}
-		component, ok := components[0].(referenceframe.InputEnabled)
-		if !ok {
-			return nil, nil, fmt.Errorf("%v(%T) is not InputEnabled", name, components[0])
-		}
-		resources[name] = component
-
-		// add input to map
-		pos, err := component.CurrentInputs(ctx)
-		if err != nil {
-			return nil, nil, err
-		}
-		input[name] = pos
-	}
-
-	return input, resources, nil
 }
 
 type reconfigurableMotionService struct {
