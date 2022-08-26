@@ -590,6 +590,8 @@ func TestCartographerDataProcess(t *testing.T) {
 		files, err := os.ReadDir(name + "/data/")
 		test.That(t, len(files), test.ShouldEqual, n)
 		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, utils.TryClose(context.Background(), slamSvc), test.ShouldBeNil)
 	})
 
 	t.Run("Cartographer Data Process with lidar that errors during call to NextPointCloud", func(t *testing.T) {
