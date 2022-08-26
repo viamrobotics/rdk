@@ -666,7 +666,7 @@ func (m *mockI2CHandle) ReadByteData(ctx context.Context, register byte) (byte, 
 	return 0, nil
 }
 
-func (m *mockI2CHandle) WriteByteData(ctx context.Context, register byte, data byte) error {
+func (m *mockI2CHandle) WriteByteData(ctx context.Context, register, data byte) error {
 	return nil
 }
 

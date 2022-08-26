@@ -389,7 +389,7 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 }
 
 // isInvalid: currently assume sensitivity is 0-5.
-func isInvalid(sensitivity float64, val float64) bool {
+func isInvalid(sensitivity, val float64) bool {
 	sensitivity = (94 + sensitivity) * 0.01
 	return math.Abs(val)-sensitivity <= 0
 }

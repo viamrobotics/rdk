@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"sync"
@@ -158,7 +157,7 @@ func (e *eva) doMoveJoints(ctx context.Context, joints []float64) error {
 	return e.apiControlGoTo(ctx, joints)
 }
 
-func (e *eva) apiRequest(ctx context.Context, method string, path string, payload interface{}, auth bool, out interface{}) error {
+func (e *eva) apiRequest(ctx context.Context, method, path string, payload interface{}, auth bool, out interface{}) error {
 	return e.apiRequestRetry(ctx, method, path, payload, auth, out, true)
 }
 
@@ -200,7 +199,7 @@ func (e *eva) apiRequestRetry(
 		utils.UncheckedError(res.Body.Close())
 	}()
 
-	if res.StatusCode == 401 {
+	if res.StatusCode == http.StatusUnauthorized {
 		// need to login
 
 		if !retry {
@@ -220,10 +219,10 @@ func (e *eva) apiRequestRetry(
 		return e.apiRequestRetry(ctx, method, path, payload, auth, out, false)
 	}
 
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		more := ""
 		if res.Body != nil {
-			more2, e2 := ioutil.ReadAll(res.Body)
+			more2, e2 := io.ReadAll(res.Body)
 			if e2 == nil {
 				more = string(more2)
 			}

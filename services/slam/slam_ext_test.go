@@ -3,7 +3,6 @@
 package slam
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -15,7 +14,7 @@ import (
 func TestConfigValidation(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	name1, err := createTempFolderArchitecture(true)
+	name1, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	cfg := &AttrConfig{
@@ -72,22 +71,20 @@ func TestConfigValidation(t *testing.T) {
 	})
 }
 
-func createTempFolderArchitecture(validArch bool) (string, error) {
-	name, err := ioutil.TempDir("", "*")
+func createTempFolderArchitecture() (string, error) {
+	name, err := os.MkdirTemp("", "*")
 	if err != nil {
 		return "nil", err
 	}
 
-	if validArch {
-		if err := os.Mkdir(name+"/map", os.ModePerm); err != nil {
-			return "", err
-		}
-		if err := os.Mkdir(name+"/data", os.ModePerm); err != nil {
-			return "", err
-		}
-		if err := os.Mkdir(name+"/config", os.ModePerm); err != nil {
-			return "", err
-		}
+	if err := os.Mkdir(name+"/map", os.ModePerm); err != nil {
+		return "", err
+	}
+	if err := os.Mkdir(name+"/data", os.ModePerm); err != nil {
+		return "", err
+	}
+	if err := os.Mkdir(name+"/config", os.ModePerm); err != nil {
+		return "", err
 	}
 	return name, nil
 }

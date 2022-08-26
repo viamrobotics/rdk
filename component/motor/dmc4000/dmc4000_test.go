@@ -41,7 +41,7 @@ func waitTx(tb testing.TB, resChan chan string) {
 	}
 }
 
-func checkTx(resChan chan string, c chan string, expects []string) {
+func checkTx(resChan, c chan string, expects []string) {
 	defer txMu.Unlock()
 	for _, expected := range expects {
 		tx := <-c
@@ -51,7 +51,7 @@ func checkTx(resChan chan string, c chan string, expects []string) {
 	resChan <- "DONE"
 }
 
-func checkRx(resChan chan string, c chan string, expects []string, sends []string) {
+func checkRx(resChan, c chan string, expects, sends []string) {
 	defer txMu.Unlock()
 	for i, expected := range expects {
 		tx := <-c

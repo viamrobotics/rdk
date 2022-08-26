@@ -35,7 +35,7 @@ func checkTx(t *testing.T, c chan []byte, expects [][]byte) {
 	}
 }
 
-func checkRx(t *testing.T, c chan []byte, expects [][]byte, sends [][]byte) {
+func checkRx(t *testing.T, c chan []byte, expects, sends [][]byte) {
 	t.Helper()
 	for i, expected := range expects {
 		tx := <-c

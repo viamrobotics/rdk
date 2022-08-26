@@ -41,6 +41,7 @@ import { addResizeListeners } from './lib/resize';
 
 import BaseComponent from './components/base.vue';
 import Camera from './components/camera.vue';
+import AudioInput from './components/audio-input.vue';
 import Do from './components/do.vue';
 import Gamepad from './components/gamepad.vue';
 import InputController from './components/input-controller.vue';
@@ -150,6 +151,7 @@ export default {
   components: {
     BaseComponent,
     Camera,
+    AudioInput,
     Do,
     Gamepad,
     InputController,
@@ -169,7 +171,6 @@ export default {
       sensorReadings: {},
       resources: [],
       sensorNames: [],
-      streamNames: [],
       cameraFrameIntervalId: null,
       slamImageIntervalId: null,
       slamPCDIntervalId: null,
@@ -226,7 +227,6 @@ export default {
       const statuses = {
         resources: true,
         ops: true,
-        streams: true,
       };
 
       let interval = null;
@@ -289,21 +289,6 @@ export default {
           errors.push[error];
         }
 
-        if (window.streamService) {
-          try {
-            await this.queryStreams();
-
-            if (!statuses.streams) {
-              connectionRestablished = true;
-            }
-
-            statuses.streams = true;
-          } catch (error) {
-            statuses.streams = false;
-            errors.push[error];
-          }
-        }
-
         if (isConnected()) {
           if (connectionRestablished) {
             toast.success('Connection established');
@@ -322,8 +307,7 @@ export default {
       const isConnected = () => {
         return (
           statuses.resources && 
-          statuses.ops && 
-          (window.streamService && statuses.streams)
+          statuses.ops
         );
       };
 
@@ -711,14 +695,15 @@ export default {
         window.open(URL.createObjectURL(blob), '_blank');
       });
     },
-    viewCameraFrame(time) {
+    viewCameraFrame(cameraName, time) {
       clearInterval(this.cameraFrameIntervalId);
-      const cameraName = this.streamNames[0];
       if (time === 'manual') {
+        this.viewCamera(cameraName, false);
         this.viewManualFrame(cameraName);
       } else if (time === 'live') {
-        this.viewCamera(cameraName);
+        this.viewCamera(cameraName, true);
       } else {
+        this.viewCamera(cameraName, false);
         this.viewIntervalFrame(cameraName, time);
       }
     },
@@ -1071,32 +1056,86 @@ export default {
           break;
       }
     },
-    viewCamera(name) {
+    viewCamera(name, isOn) {
       const streamName = normalizeRemoteName(name);
       const streamContainer = document.querySelector(`#stream-${streamName}`);
-      const req = new streamApi.AddStreamRequest();
+
+      if (isOn) {
+        const req = new streamApi.AddStreamRequest();
+        req.setName(name);
+        streamService.addStream(req, {}, (err, resp) => {
+          this.grpcCallback(err, resp, false);
+          if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
+            streamContainer.querySelectorAll('img')[0].remove();
+          }
+          if (err) {
+            this.error = 'no live camera device found';
+            
+          }
+        });
+        return;
+      }
+
+      const req = new streamApi.RemoveStreamRequest();
+        req.setName(name);
+        streamService.removeStream(req, {}, (err, resp) => {
+          this.grpcCallback(err, resp, false);
+          if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
+            streamContainer.querySelectorAll('img')[0].remove();
+          }
+          if (err) {
+            this.error = 'no live camera device found';
+          }
+        });
+    },
+    viewPreviewCamera(name, isOn) {
+      if (isOn) {
+        const req = new streamApi.AddStreamRequest();
+        req.setName(name);
+        streamService.addStream(req, {}, (err, resp) => {
+          this.grpcCallback(err, resp, false);
+          if (err) {
+            this.error = 'no live camera device found';
+            
+          }
+        });
+        return;
+      }
+      const req = new streamApi.RemoveStreamRequest();
       req.setName(name);
-      streamService.addStream(req, {}, (err, resp) => {
+      streamService.removeStream(req, {}, (err, resp) => {
         this.grpcCallback(err, resp, false);
-        if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
-          streamContainer.querySelectorAll('img')[0].remove();
-        }
         if (err) {
           this.error = 'no live camera device found';
           
         }
       });
     },
-    viewPreviewCamera(name) {
-      const req = new streamApi.AddStreamRequest();
-      req.setName(name);
-      streamService.addStream(req, {}, (err, resp) => {
-        this.grpcCallback(err, resp, false);
-        if (err) {
-          this.error = 'no live camera device found';
-          
-        }
-      });
+    listenAudioInput(name, isOn) {
+      const streamName = normalizeRemoteName(name);
+      const streamContainer = document.querySelector(`#stream-${streamName}`);
+
+      if (isOn) {
+        const req = new streamApi.AddStreamRequest();
+        req.setName(name);
+        streamService.addStream(req, {}, (err, resp) => {
+          this.grpcCallback(err, resp, false);
+          if (err) {
+            this.error = 'no live audio input device found';
+            
+          }
+        });
+        return;
+      }
+
+      const req = new streamApi.RemoveStreamRequest();
+        req.setName(name);
+        streamService.removeStream(req, {}, (err, resp) => {
+          this.grpcCallback(err, resp, false);
+          if (err) {
+            this.error = 'no live audio input device found';
+          }
+        });
     },
     displayRadiansInDegrees (r) {
       let d = r * 180;
@@ -1206,7 +1245,6 @@ export default {
           this.resources = resources;
           if (resourcesChanged === true) {
             this.querySensors();
-
             if (shouldRestartStatusStream === true) {
               this.restartStatusStream();
             }
@@ -1306,25 +1344,6 @@ export default {
           doLogin();
         });
       }
-    },
-    queryStreams() {
-      return new Promise((resolve, reject) => {
-        streamService.listStreams(new streamApi.ListStreamsRequest(), {}, (err, resp) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-
-          if (!resp) {
-            reject(null);
-            return;
-          }
-
-          const streamNames = resp.toObject().namesList;
-          this.streamNames = streamNames;
-          resolve(this.streamNames);
-        });
-      });
     },
     initPCDIfNeeded() {
       if (pcdGlobal) {
@@ -1657,7 +1676,7 @@ function setBoundingBox(box, centerPoint) {
       v-for="base in filterResources(resources, 'rdk', 'component', 'base')"
       :key="base.name"
     >
-      <template v-if="streamNames.length === 0">
+      <template v-if="filterResources(resources, 'rdk', 'component', 'camera').length === 0">
         <BaseComponent
           :base-name="base.name"
           :connected-camera="false"
@@ -1670,18 +1689,18 @@ function setBoundingBox(box, centerPoint) {
       </template>
       <template v-else>
         <BaseComponent
-          v-for="streamName in streamNames"
-          :key="streamName"
+          v-for="camera in filterResources(resources, 'rdk', 'component', 'camera')"
+          :key="camera.name"
           :base-name="base.name"
-          :stream-name="streamName"
+          :stream-name="camera.name"
           :crumbs="['base']"
           :connected-camera="true"
-          @base-change-tab="viewPreviewCamera(streamName)"
+          @base-change-tab="viewPreviewCamera(camera.name)"
           @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
           @base-spin="handleBaseSpin(base.name, $event)"
           @base-straight="handleBaseStraight(base.name, $event)"
           @base-stop="handleBaseActionStop(base.name)"
-          @show-base-camera="viewPreviewCamera(streamName)"
+          @show-base-camera="viewPreviewCamera(camera.name)"
         />
       </template>
     </template>
@@ -2349,10 +2368,10 @@ function setBoundingBox(box, centerPoint) {
 
     <!-- ******* CAMERAS *******  -->
     <Camera
-      v-for="streamName in streamNames"
-      :key="streamName"
-      :stream-name="streamName"
-      :crumbs="['camera']"
+      v-for="camera in filterResources(resources, 'rdk', 'component', 'camera')"
+      :key="camera.name"
+      :stream-name="camera.name"
+      :crumbs="[camera.name]"
       :x="pcdClick.x"
       :y="pcdClick.y"
       :z="pcdClick.z"
@@ -2368,16 +2387,16 @@ function setBoundingBox(box, centerPoint) {
       @center-pcd="doCenterPCDLoad(fullcloud)"
       @find-segments="findSegments(segmentAlgo, segmenterParameters)"
       @change-segmenter="getSegmenterParameters"
-      @toggle-camera="viewCamera(streamName)"
-      @refresh-camera="viewCameraFrame"
-      @selected-camera-view="viewCameraFrame"
-      @toggle-pcd="renderPCD(streamName)"
+      @toggle-camera="isOn => { viewCamera(camera.name, isOn) }"
+      @refresh-camera="t => { viewCameraFrame(camera.name, t) }"
+      @selected-camera-view="t => { viewCameraFrame(camera.name, t) }"
+      @toggle-pcd="renderPCD(camera.name)"
       @pcd-click="grabClick"
       @pcd-move="doPCDMove"
       @point-load="doPointLoad"
       @segment-load="doSegmentLoad"
       @bounding-box-load="doBoundingBoxLoad"
-      @download-screenshot="renderFrame(streamName)"
+      @download-screenshot="renderFrame(camera.name)"
       @download-raw-data="doPCDDownload(fullcloud)"
       @select-object="doSelectObject"
       @segmenter-parameters-input="(name, value) => segmenterParameters[name] = Number(value)"
@@ -2456,13 +2475,26 @@ function setBoundingBox(box, centerPoint) {
       </div>
     </v-collapse>
 
+    <!-- ******* AUDIO INPUTS *******  -->
+    <AudioInput
+      v-for="audioInput in filterResources(resources, 'rdk', 'component', 'audio_input')"
+      :key="audioInput.name"
+      :stream-name="audioInput.name"
+      :crumbs="[audioInput.name]"
+      @toggle-input="isOn => { listenAudioInput(audioInput.name, isOn) }"
+    />
+
     <!-- ******* SLAM *******  -->
     <Slam
-      v-if="filterResources(resources, 'rdk', 'service', 'slam').length > 0"
+      v-for = "slam in filterResources(resources, 'rdk', 'service', 'slam')"
+      :name = "slam.name"
       :image-map="imageMapTemp"
       @update-slam-image-refresh-frequency="updateSLAMImageRefreshFrequency"
       @update-slam-pcd-refresh-frequency="updateSLAMPCDRefreshFrequency"
     />
+
+    <!-- ******* DO ******* -->
+    <Do :resources="filterResourcesWithNames(resources)" />
 
     <!-- ******* CURRENT OPERATIONS ******* -->
     <v-collapse
@@ -2506,9 +2538,6 @@ function setBoundingBox(box, centerPoint) {
         </table>
       </div>
     </v-collapse>
-
-    <!-- ******* DO ******* -->
-    <Do :resources="filterResourcesWithNames(resources)" />
   </div>
 </template>
 

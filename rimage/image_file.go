@@ -161,8 +161,28 @@ func SaveImage(pic image.Image, loc string) error {
 // DecodeImage takes an image buffer and decodes it, using the mimeType
 // and the dimensions, to return the image.
 func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string, width, height int) (image.Image, error) {
+	return decodeImage(ctx, imgBytes, mimeType, width, height, true)
+}
+
+// decodeImage decodes an image based on its data and MIME type. If checkLazy is true
+// and the MIME type has a lazy suffix, we will not fully decode the image and instead
+// return an intermediate (lazy), not yet decoded image type.
+func decodeImage(
+	ctx context.Context,
+	imgBytes []byte,
+	mimeType string,
+	width, height int,
+	checkLazy bool,
+) (image.Image, error) {
 	_, span := trace.StartSpan(ctx, "rimage::DecodeImage::"+mimeType)
 	defer span.End()
+
+	if checkLazy {
+		actualType, isLazy := ut.CheckLazyMIMEType(mimeType)
+		if isLazy {
+			return NewLazyEncodedImage(imgBytes, actualType, width, height), nil
+		}
+	}
 
 	switch mimeType {
 	case ut.MimeTypeRawRGBA:
@@ -189,9 +209,15 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 	_, span := trace.StartSpan(ctx, "rimage::EncodeImage::"+mimeType)
 	defer span.End()
 
+	actualOutMIME, _ := ut.CheckLazyMIMEType(mimeType)
+	if lazy, ok := img.(*LazyEncodedImage); ok && lazy.MIMEType() == actualOutMIME {
+		// fast path - zero copy
+		return lazy.RawData(), nil
+	}
+
 	var buf bytes.Buffer
 	bounds := img.Bounds()
-	switch mimeType {
+	switch actualOutMIME {
 	case ut.MimeTypeRawRGBA:
 		imgCopy := image.NewNRGBA64(bounds)
 		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
@@ -209,7 +235,7 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 			return nil, err
 		}
 	default:
-		return nil, errors.Errorf("do not know how to encode %q", mimeType)
+		return nil, errors.Errorf("do not know how to encode %q", actualOutMIME)
 	}
 
 	return buf.Bytes(), nil

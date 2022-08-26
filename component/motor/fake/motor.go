@@ -193,7 +193,7 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration, float6
 
 // GoFor sets the given direction and an arbitrary power percentage.
 // If rpm is 0, the motor should immediately move to the final position.
-func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
+func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	if m.MaxRPM == 0 {
 		return errors.New("not supported, define max_rpm attribute != 0")
 	}
@@ -232,7 +232,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64, ext
 }
 
 // GoTo sets the given direction and an arbitrary power percentage for now.
-func (m *Motor) GoTo(ctx context.Context, rpm float64, pos float64, extra map[string]interface{}) error {
+func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]interface{}) error {
 	if m.Encoder == nil {
 		return errors.New("encoder is not defined")
 	}

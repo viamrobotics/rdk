@@ -134,11 +134,11 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 		nearest2 := nm.nearestNeighbor(nmContext, target, map2)
 
 		// attempt to extend the map to connect the target to map 1, then try to connect the maps together
-		map1reached := mp.checkPath(ctx, opt, nearest1.inputs, target.inputs)
+		map1reached := mp.checkPath(opt, nearest1.inputs, target.inputs)
 		if map1reached {
 			map1[target] = nearest1
 		}
-		map2reached := mp.checkPath(ctx, opt, nearest2.inputs, target.inputs)
+		map2reached := mp.checkPath(opt, nearest2.inputs, target.inputs)
 		if map2reached {
 			map2[target] = nearest2
 		}
@@ -161,7 +161,7 @@ func (mp *rrtConnectMotionPlanner) sample() *configuration {
 	return &configuration{referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
 }
 
-func (mp *rrtConnectMotionPlanner) checkPath(ctx context.Context, opt *PlannerOptions, seedInputs, target []referenceframe.Input) bool {
+func (mp *rrtConnectMotionPlanner) checkPath(opt *PlannerOptions, seedInputs, target []referenceframe.Input) bool {
 	seedPos, err := mp.frame.Transform(seedInputs)
 	if err != nil {
 		return false

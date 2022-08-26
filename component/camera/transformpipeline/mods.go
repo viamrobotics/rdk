@@ -9,7 +9,6 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	"go.viam.com/utils"
 	"golang.org/x/image/draw"
 
 	"go.viam.com/rdk/component/camera"
@@ -20,20 +19,21 @@ import (
 
 // rotateSource is the source to be rotated and the kind of image type.
 type rotateSource struct {
-	original gostream.ImageSource
-	stream   camera.StreamType
+	originalStream gostream.VideoStream
+	stream         camera.StreamType
 }
 
 // newRotateTransform creates a new rotation transform.
-func newRotateTransform(source gostream.ImageSource, stream camera.StreamType) (gostream.ImageSource, error) {
-	return &rotateSource{source, stream}, nil
+func newRotateTransform(source gostream.VideoSource, stream camera.StreamType) (gostream.VideoSource, error) {
+	reader := &rotateSource{gostream.NewEmbeddedVideoStream(source), stream}
+	return camera.NewFromReader(reader, nil)
 }
 
 // Next rotates the 2D image depending on the stream type.
-func (rs *rotateSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (rs *rotateSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::rotate::Next")
 	defer span.End()
-	orig, release, err := rs.original.Next(ctx)
+	orig, release, err := rs.originalStream.Next(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -53,7 +53,7 @@ func (rs *rotateSource) Next(ctx context.Context) (image.Image, func(), error) {
 
 // Close closes the original stream.
 func (rs *rotateSource) Close(ctx context.Context) error {
-	return utils.TryClose(ctx, rs.original)
+	return rs.originalStream.Close(ctx)
 }
 
 // resizeAttrs are the attributes for a resize transform.
@@ -63,16 +63,16 @@ type resizeAttrs struct {
 }
 
 type resizeSource struct {
-	original gostream.ImageSource
-	stream   camera.StreamType
-	height   int
-	width    int
+	originalStream gostream.VideoStream
+	stream         camera.StreamType
+	height         int
+	width          int
 }
 
 // newResizeTransform creates a new resize transform.
 func newResizeTransform(
-	source gostream.ImageSource, stream camera.StreamType, am config.AttributeMap,
-) (gostream.ImageSource, error) {
+	source gostream.VideoSource, stream camera.StreamType, am config.AttributeMap,
+) (gostream.VideoSource, error) {
 	conf, err := config.TransformAttributeMapToStruct(&(resizeAttrs{}), am)
 	if err != nil {
 		return nil, err
@@ -88,14 +88,15 @@ func newResizeTransform(
 		return nil, errors.New("new height for resize transform cannot be 0")
 	}
 
-	return &resizeSource{source, stream, attrs.Height, attrs.Width}, nil
+	reader := &resizeSource{gostream.NewEmbeddedVideoStream(source), stream, attrs.Height, attrs.Width}
+	return camera.NewFromReader(reader, nil)
 }
 
 // Next resizes the 2D image depending on the stream type.
-func (rs *resizeSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (rs *resizeSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::resize::Next")
 	defer span.End()
-	orig, release, err := rs.original.Next(ctx)
+	orig, release, err := rs.originalStream.Next(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -115,4 +116,9 @@ func (rs *resizeSource) Next(ctx context.Context) (image.Image, func(), error) {
 	default:
 		return nil, nil, camera.NewUnsupportedStreamError(rs.stream)
 	}
+}
+
+// Close closes the original stream.
+func (rs *resizeSource) Close(ctx context.Context) error {
+	return rs.originalStream.Close(ctx)
 }

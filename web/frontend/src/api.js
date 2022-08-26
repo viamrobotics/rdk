@@ -1,5 +1,4 @@
 import { dialDirect, dialWebRTC } from '@viamrobotics/rpc';
-import { RobotServiceClient } from './gen/proto/api/robot/v1/robot_pb_service.esm';
 import { ArmServiceClient } from './gen/proto/api/component/arm/v1/arm_pb_service.esm';
 import { BaseServiceClient } from './gen/proto/api/component/base/v1/base_pb_service.esm';
 import { BoardServiceClient } from './gen/proto/api/component/board/v1/board_pb_service.esm';
@@ -7,15 +6,16 @@ import { CameraServiceClient } from './gen/proto/api/component/camera/v1/camera_
 import { GantryServiceClient } from './gen/proto/api/component/gantry/v1/gantry_pb_service.esm';
 import { GenericServiceClient } from './gen/proto/api/component/generic/v1/generic_pb_service.esm';
 import { GripperServiceClient } from './gen/proto/api/component/gripper/v1/gripper_pb_service.esm';
-import { MovementSensorServiceClient } from './gen/proto/api/component/movementsensor/v1/movementsensor_pb_service.esm';
 import { InputControllerServiceClient } from './gen/proto/api/component/inputcontroller/v1/input_controller_pb_service.esm';
 import { MotorServiceClient } from './gen/proto/api/component/motor/v1/motor_pb_service.esm';
-import { NavigationServiceClient } from './gen/proto/api/service/navigation/v1/navigation_pb_service.esm';
-import { MotionServiceClient } from './gen/proto/api/service/motion/v1/motion_pb_service.esm';
-import { VisionServiceClient } from './gen/proto/api/service/vision/v1/vision_pb_service.esm';
-import { SensorsServiceClient } from './gen/proto/api/service/sensors/v1/sensors_pb_service.esm';
+import { MovementSensorServiceClient } from './gen/proto/api/component/movementsensor/v1/movementsensor_pb_service.esm';
 import { ServoServiceClient } from './gen/proto/api/component/servo/v1/servo_pb_service.esm';
+import { RobotServiceClient } from './gen/proto/api/robot/v1/robot_pb_service.esm';
+import { MotionServiceClient } from './gen/proto/api/service/motion/v1/motion_pb_service.esm';
+import { NavigationServiceClient } from './gen/proto/api/service/navigation/v1/navigation_pb_service.esm';
+import { SensorsServiceClient } from './gen/proto/api/service/sensors/v1/sensors_pb_service.esm';
 import { SLAMServiceClient } from './gen/proto/api/service/slam/v1/slam_pb_service.esm';
+import { VisionServiceClient } from './gen/proto/api/service/vision/v1/vision_pb_service.esm';
 import { StreamServiceClient } from './gen/proto/stream/v1/stream_pb_service.esm';
 import { normalizeRemoteName } from './lib/resource';
 
@@ -27,9 +27,9 @@ import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
 import gantryApi from './gen/proto/api/component/gantry/v1/gantry_pb.esm';
 import genericApi from './gen/proto/api/component/generic/v1/generic_pb.esm';
 import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
-import movementSensorApi from './gen/proto/api/component/movementsensor/v1/movementsensor_pb.esm';
 import inputControllerApi from './gen/proto/api/component/inputcontroller/v1/input_controller_pb.esm';
 import motorApi from './gen/proto/api/component/motor/v1/motor_pb.esm';
+import movementSensorApi from './gen/proto/api/component/movementsensor/v1/movementsensor_pb.esm';
 import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
 import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
 import servoApi from './gen/proto/api/component/servo/v1/servo_pb.esm';
@@ -98,31 +98,40 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
     transportFactory = webRTCConn.transportFactory;
 
     webRTCConn.peerConnection.ontrack = (event) => {
-      const video = document.createElement('video');
-      video.srcObject = event.streams[0];
-      video.autoplay = true;
-      video.controls = false;
-      video.playsInline = true;
+      const kind = event.track.kind;
+      const mediaElement = document.createElement(kind);
+      mediaElement.srcObject = event.streams[0];
+      mediaElement.autoplay = true;
+      if (kind === 'video') {
+        mediaElement.playsInline = true;        
+        mediaElement.controls = false;
+      } else {
+        mediaElement.controls = true;
+      }
       let streamName = event.streams[0].id;
       streamName = normalizeRemoteName(streamName);
       const streamContainer = document.querySelector(`#stream-${streamName}`);
-      if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
-        streamContainer.querySelectorAll('video')[0].remove();
+      if (streamContainer && streamContainer.querySelectorAll(kind).length > 0) {
+        streamContainer.querySelectorAll(kind)[0].remove();
       }
       if (streamContainer) {
-        streamContainer.append(video);
+        streamContainer.append(mediaElement);
       }
-      const videoPreview = document.createElement('video');
-      videoPreview.srcObject = event.streams[0];
-      videoPreview.autoplay = true;
-      videoPreview.controls = false;
-      videoPreview.playsInline = true;
+      const mediaElementPreview = document.createElement(kind);
+      mediaElementPreview.srcObject = event.streams[0];
+      mediaElementPreview.autoplay = true;
+      if (kind === 'video') {
+        mediaElementPreview.playsInline = true;        
+        mediaElementPreview.controls = false;
+      } else {
+        mediaElementPreview.controls = true;
+      }
       const streamPreviewContainer = document.querySelector(`#stream-preview-${streamName}`);
-      if (streamPreviewContainer && streamPreviewContainer.querySelectorAll('video').length > 0) {
-        streamPreviewContainer.querySelectorAll('video')[0].remove();
+      if (streamPreviewContainer && streamPreviewContainer.querySelectorAll(kind).length > 0) {
+        streamPreviewContainer.querySelectorAll(kind)[0].remove();
       }
       if (streamPreviewContainer) {
-        streamPreviewContainer.append(videoPreview);
+        streamPreviewContainer.append(mediaElementPreview);
       }
     };
   } else {

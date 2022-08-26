@@ -1,7 +1,6 @@
 package motionplan
 
 import (
-	"context"
 	"encoding/json"
 	"math"
 
@@ -38,7 +37,6 @@ const (
 )
 
 func plannerSetupFromMoveRequest(
-	ctx context.Context,
 	from, to spatial.Pose,
 	f frame.Frame,
 	fs frame.FrameSystem,

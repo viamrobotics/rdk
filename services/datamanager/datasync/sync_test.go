@@ -1,7 +1,6 @@
 package datasync
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -60,7 +59,7 @@ func TestFileUpload(t *testing.T) {
 
 		// Create temp file to be used as examples of reading data from the files into buffers
 		// (and finally to have that data be uploaded) to the cloud.
-		tf, err := ioutil.TempFile("", "")
+		tf, err := os.CreateTemp("", "")
 		if err != nil {
 			t.Errorf("%s: cannot create temporary file to be used for sensorUpload/fileUpload testing: %v", tc.name, err)
 		}
@@ -347,8 +346,8 @@ func TestUploadsOnce(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Put a couple files in captureDir.
-	file1, _ := ioutil.TempFile("", "whatever")
-	file2, _ := ioutil.TempFile("", "whatever2")
+	file1, _ := os.CreateTemp("", "whatever")
+	file2, _ := os.CreateTemp("", "whatever2")
 
 	// Immediately try to Sync same files many times.
 	for i := 1; i < 10; i++ {
@@ -441,7 +440,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			// Start file sync.
-			file1, _ := ioutil.TempFile("", "whatever")
+			file1, _ := os.CreateTemp("", "whatever")
 			defer os.Remove(file1.Name())
 			_, _ = file1.Write([]byte("this is some amount of content greater than 10"))
 			sut.Sync([]string{file1.Name()})

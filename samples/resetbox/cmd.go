@@ -89,7 +89,7 @@ func (a *LinearAxis) AddMotors(robot robot.Robot, names []string) error {
 }
 
 // GoTo moves to a position specified in mm and at a speed in mm/s.
-func (a *LinearAxis) GoTo(ctx context.Context, speed float64, position float64) error {
+func (a *LinearAxis) GoTo(ctx context.Context, speed, position float64) error {
 	var errs error
 	errPath := make(chan error, len(a.m))
 	for _, m := range a.m {
@@ -104,7 +104,7 @@ func (a *LinearAxis) GoTo(ctx context.Context, speed float64, position float64) 
 }
 
 // GoFor moves for the distance specified in mm and at a speed in mm/s.
-func (a *LinearAxis) GoFor(ctx context.Context, speed float64, position float64) error {
+func (a *LinearAxis) GoFor(ctx context.Context, speed, position float64) error {
 	var errs error
 	errPath := make(chan error, len(a.m))
 	for _, m := range a.m {

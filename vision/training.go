@@ -30,7 +30,7 @@ type ImageTrainingStore struct {
 }
 
 // NewImageTrainingStore TODO.
-func NewImageTrainingStore(ctx context.Context, mongoURI string, db string, collection string) (*ImageTrainingStore, error) {
+func NewImageTrainingStore(ctx context.Context, mongoURI, db, collection string) (*ImageTrainingStore, error) {
 	client, err := mongo.NewClient(options.Client().ApplyURI(mongoURI))
 	if err != nil {
 		return nil, err
