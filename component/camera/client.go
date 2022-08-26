@@ -51,6 +51,7 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Read")
 	defer span.End()
 	mimeType := gostream.MIMETypeHint(ctx, utils.MimeTypeRawRGBALazy)
+	actualType, _ := utils.CheckLazyMIMEType(mimeType)
 	resp, err := c.client.GetFrame(ctx, &pb.GetFrameRequest{
 		Name:     c.name,
 		MimeType: mimeType,
@@ -58,8 +59,10 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if mimeType != resp.MimeType {
-		c.logger.Debugw("got different MIME type than what was asked for", "sent", mimeType, "received", resp.MimeType)
+	if actualType != resp.MimeType {
+		c.logger.Debugw("got different MIME type than what was asked for", "sent", actualType, "received", resp.MimeType)
+	} else {
+		resp.MimeType = mimeType
 	}
 	img, err := rimage.DecodeImage(ctx, resp.Image, resp.MimeType, int(resp.WidthPx), int(resp.HeightPx))
 	if err != nil {
