@@ -57,7 +57,7 @@ const (
 	opTimeoutErrorMessage = "bad scan: OpTimeout"
 )
 
-// Set cameraValidationMaxTimeoutSec for testing.
+// SetCameraValidationMaxTimeoutSecForTesting sets cameraValidationMaxTimeoutSec for testing.
 func SetCameraValidationMaxTimeoutSecForTesting(val int) {
 	cameraValidationMaxTimeoutSec = val
 }
