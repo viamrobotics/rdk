@@ -6,9 +6,11 @@ package piimpl
 // #include <pigpio.h>
 // #include "pi.h"
 // #cgo LDFLAGS: -lpigpio
-import "context"
+import "C"
 
-	"C"
+import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/board"

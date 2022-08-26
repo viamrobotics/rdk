@@ -7,13 +7,15 @@ package piimpl
 // #include <pigpio.h>
 // #include "pi.h"
 // #cgo LDFLAGS: -lpigpio
-import "context"
+import "C"
+
+import (
+	"context"
 	"math"
 	"os"
 	"strconv"
 	"sync"
 
-	"C"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
