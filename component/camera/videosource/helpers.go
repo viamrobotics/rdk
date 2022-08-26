@@ -50,7 +50,7 @@ func checkLazyFromData(ctx context.Context, data []byte) (image.Image, bool, err
 		usedMimeType := http.DetectContentType(data)
 		if actualMime != "" && actualMime != usedMimeType {
 			return nil, false,
-				errors.Errorf("mime type %v is not supported; %v is the only supported mime type",
+				errors.Errorf("mime type requested (%q) for lazy decode not returned (got %q)",
 					actualMime, usedMimeType)
 		}
 
