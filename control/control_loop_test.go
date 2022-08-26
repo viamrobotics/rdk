@@ -16,7 +16,7 @@ import (
 )
 
 type wrapBlocks struct {
-	c ControlBlockConfig
+	c BlockConfig
 	x int
 	y int
 }
@@ -24,7 +24,7 @@ type wrapBlocks struct {
 func generateNInputs(n int, baseName string) []wrapBlocks {
 	out := make([]wrapBlocks, n)
 
-	out[0].c = ControlBlockConfig{
+	out[0].c = BlockConfig{
 		Name: "",
 		Type: "endpoint",
 		Attribute: config.AttributeMap{
@@ -36,7 +36,7 @@ func generateNInputs(n int, baseName string) []wrapBlocks {
 	out[0].y = 0
 	out[0].c.Name = fmt.Sprintf("%s%d", baseName, 0)
 	for i := 1; i < n; i++ {
-		out[i].c = ControlBlockConfig{
+		out[i].c = BlockConfig{
 			Name: "S1",
 			Type: "constant",
 			Attribute: config.AttributeMap{
@@ -51,9 +51,9 @@ func generateNInputs(n int, baseName string) []wrapBlocks {
 	return out
 }
 
-func generateNSums(n int, xMax int, yMax int, baseName string, ins []wrapBlocks) []wrapBlocks {
+func generateNSums(n, xMax, yMax int, baseName string, ins []wrapBlocks) []wrapBlocks {
 	b := wrapBlocks{
-		c: ControlBlockConfig{
+		c: BlockConfig{
 			Name: "",
 			Type: "sum",
 			Attribute: config.AttributeMap{
@@ -84,7 +84,7 @@ func generateNSums(n int, xMax int, yMax int, baseName string, ins []wrapBlocks)
 			}
 		}
 		b = wrapBlocks{
-			c: ControlBlockConfig{
+			c: BlockConfig{
 				Name: "",
 				Type: "sum",
 				Attribute: config.AttributeMap{
@@ -101,7 +101,7 @@ func generateNSums(n int, xMax int, yMax int, baseName string, ins []wrapBlocks)
 	return ins
 }
 
-func generateNBlocks(n int, xMax int, yMax int, baseName string, ins []wrapBlocks) []wrapBlocks {
+func generateNBlocks(n, xMax, yMax int, baseName string, ins []wrapBlocks) []wrapBlocks {
 	for i := 0; i < n; i++ {
 		var xR int
 		var yR int
@@ -120,7 +120,7 @@ func generateNBlocks(n int, xMax int, yMax int, baseName string, ins []wrapBlock
 			}
 		}
 		b := wrapBlocks{
-			c: ControlBlockConfig{
+			c: BlockConfig{
 				Name: "C",
 				Type: "gain",
 				Attribute: config.AttributeMap{
@@ -137,7 +137,7 @@ func generateNBlocks(n int, xMax int, yMax int, baseName string, ins []wrapBlock
 	return ins
 }
 
-func findVerticalBlock(xStart int, xMax int, yStart int, grid [][]*wrapBlocks) *wrapBlocks {
+func findVerticalBlock(xStart, xMax, yStart int, grid [][]*wrapBlocks) *wrapBlocks {
 	for i := xStart + 1; i < xMax; i++ {
 		if grid[i][yStart] != nil {
 			return grid[i][yStart]
@@ -146,7 +146,7 @@ func findVerticalBlock(xStart int, xMax int, yStart int, grid [][]*wrapBlocks) *
 	return nil
 }
 
-func findSumHalfSquare(xMax int, yMax int, xStart int, yStart int, grid [][]*wrapBlocks) *wrapBlocks {
+func findSumHalfSquare(xMax, yMax, xStart, yStart int, grid [][]*wrapBlocks) *wrapBlocks {
 	for i := xStart + 1; i < int(math.Max(float64(xMax), float64(xStart+1))); i++ {
 		for j := yStart - 1; j < yStart+1; j++ {
 			if i > xMax-1 || j > yMax-1 || i < 0 || j < 0 {
@@ -160,7 +160,7 @@ func findSumHalfSquare(xMax int, yMax int, xStart int, yStart int, grid [][]*wra
 	return nil
 }
 
-func mergedAll(xMax int, yMax int, grid [][]*wrapBlocks, def *wrapBlocks) {
+func mergedAll(xMax, yMax int, grid [][]*wrapBlocks, def *wrapBlocks) {
 	for i, l := range grid {
 		for j, b := range l {
 			if b == nil {
@@ -214,9 +214,9 @@ func benchNBlocks(b *testing.B, n int, freq float64) {
 	}
 	mergedAll(xMax, yMax, grid, lastSum)
 
-	cfg := ControlConfig{
+	cfg := Config{
 		Frequency: freq,
-		Blocks:    []ControlBlockConfig{},
+		Blocks:    []BlockConfig{},
 	}
 	for i := range out {
 		if out[i].c.Type == "sum" {
@@ -225,7 +225,7 @@ func benchNBlocks(b *testing.B, n int, freq float64) {
 		cfg.Blocks = append(cfg.Blocks, out[i].c)
 	}
 	logger := golog.NewLogger("Bench")
-	cloop, err := createControlLoop(logger, cfg, nil)
+	cloop, err := createLoop(logger, cfg, nil)
 	if err == nil {
 		b.ResetTimer()
 		cloop.startBenchmark(b.N)
@@ -248,8 +248,8 @@ func BenchmarkLoop100(b *testing.B) {
 func TestControlLoop(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
-	cfg := ControlConfig{
-		Blocks: []ControlBlockConfig{
+	cfg := Config{
+		Blocks: []BlockConfig{
 			{
 				Name: "A",
 				Type: "endpoint",
@@ -309,7 +309,7 @@ func TestControlLoop(t *testing.T) {
 		},
 		Frequency: 20.0,
 	}
-	cLoop, err := createControlLoop(logger, cfg, nil)
+	cLoop, err := createLoop(logger, cfg, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cLoop, test.ShouldNotBeNil)
 	cLoop.Start()

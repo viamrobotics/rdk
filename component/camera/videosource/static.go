@@ -1,4 +1,4 @@
-package imagesource
+package videosource
 
 import (
 	"context"
@@ -25,9 +25,9 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			imgSrc := &fileSource{attrs.Color, attrs.Depth, attrs.CameraParameters}
+			videoSrc := &fileSource{attrs.Color, attrs.Depth, attrs.CameraParameters}
 			proj, _ := camera.GetProjector(ctx, attrs.AttrConfig, nil)
-			return camera.New(imgSrc, proj)
+			return camera.NewFromReader(videoSrc, proj)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "file",
@@ -65,8 +65,8 @@ type fileSourceAttrs struct {
 	Depth string `json:"depth"`
 }
 
-// Next returns just the RGB image if it is present, or the depth map if the RGB image is not present.
-func (fs *fileSource) Next(ctx context.Context) (image.Image, func(), error) {
+// Read returns just the RGB image if it is present, or the depth map if the RGB image is not present.
+func (fs *fileSource) Read(ctx context.Context) (image.Image, func(), error) {
 	if fs.ColorFN == "" { // only depth info
 		img, err := rimage.NewDepthMapFromFile(fs.DepthFN)
 		return img, func() {}, err
@@ -75,7 +75,7 @@ func (fs *fileSource) Next(ctx context.Context) (image.Image, func(), error) {
 	return img, func() {}, err
 }
 
-// Next PointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters.
+// NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters.
 func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	if fs.Intrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
@@ -105,8 +105,8 @@ type StaticSource struct {
 	Proj     rimage.Projector
 }
 
-// Next returns the stored image.
-func (ss *StaticSource) Next(ctx context.Context) (image.Image, func(), error) {
+// Read returns the stored image.
+func (ss *StaticSource) Read(ctx context.Context) (image.Image, func(), error) {
 	if ss.ColorImg != nil {
 		return ss.ColorImg, func() {}, nil
 	}
@@ -127,4 +127,9 @@ func (ss *StaticSource) NextPointCloud(ctx context.Context) (pointcloud.PointClo
 		return nil, err
 	}
 	return ss.Proj.RGBDToPointCloud(col, dm)
+}
+
+// Close does nothing.
+func (ss *StaticSource) Close(ctx context.Context) error {
+	return nil
 }

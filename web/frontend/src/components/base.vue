@@ -13,7 +13,7 @@ interface Props {
 interface Emits {
   (event: 'base-stop'): void
   (event: 'show-base-camera'): void
-  (event: 'base-change-tab', selectedItem: string): void
+  (event: 'base-change-tab', isOn: boolean): void
   (event: 'base-spin', data: { direction: 1 | -1, speed: number, angle: number }): void
   (event: 'base-straight', data: { movementType: string, direction: 1 | -1, speed: number, distance: number }): void
   (event: 'keyboard-ctl', data: Record<string, boolean>): void
@@ -43,8 +43,9 @@ const handleTabSelect = (tab: 'Keyboard' | 'Discrete') => {
   selectedItem.value = tab;
 
   if (tab === 'Keyboard') {
-    emit('base-change-tab', selectedItem.value.toLowerCase());
+    emit('base-change-tab', true);
   } else {
+    emit('base-change-tab', false);
     resetDiscreteState();
   }
 };

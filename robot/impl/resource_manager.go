@@ -337,7 +337,7 @@ func (manager *resourceManager) completeConfig(
 		if !ok {
 			continue
 		}
-		manager.logger.Infow("we are now handling the resource ", "resource", r.Name)
+		manager.logger.Infow("we are now handling the resource ", "resource", r)
 		if c, ok := wrap.config.(config.Component); ok {
 			iface, err := manager.processComponent(ctx, r, c, wrap.real, robot)
 			if err != nil {

@@ -52,7 +52,7 @@ func bottomPaddingReplicate(img image.Image, p Paddings, setPixel func(int, int,
 	}
 }
 
-func leftPaddingReplicate(img image.Image, padded image.Image, p Paddings, setPixel func(int, int, color.Color)) {
+func leftPaddingReplicate(img, padded image.Image, p Paddings, setPixel func(int, int, color.Color)) {
 	originalSize := img.Bounds().Size()
 	for y := 0; y < originalSize.Y+p.PaddingBottom+p.PaddingTop; y++ {
 		firstPixel := padded.At(p.PaddingLeft, y)
@@ -62,7 +62,7 @@ func leftPaddingReplicate(img image.Image, padded image.Image, p Paddings, setPi
 	}
 }
 
-func rightPaddingReplicate(img image.Image, padded image.Image, p Paddings, setPixel func(int, int, color.Color)) {
+func rightPaddingReplicate(img, padded image.Image, p Paddings, setPixel func(int, int, color.Color)) {
 	originalSize := img.Bounds().Size()
 	for y := 0; y < originalSize.Y+p.PaddingBottom+p.PaddingTop; y++ {
 		lastPixel := padded.At(originalSize.X+p.PaddingLeft-1, y)
@@ -92,7 +92,7 @@ func bottomPaddingReflect(img image.Image, p Paddings, setPixel func(int, int, c
 	}
 }
 
-func leftPaddingReflect(img image.Image, padded image.Image, p Paddings, setPixel func(int, int, color.Color)) {
+func leftPaddingReflect(img, padded image.Image, p Paddings, setPixel func(int, int, color.Color)) {
 	originalSize := img.Bounds().Size()
 	for y := 0; y < originalSize.Y+p.PaddingBottom+p.PaddingTop; y++ {
 		for x := 0; x < p.PaddingLeft; x++ {
@@ -102,7 +102,7 @@ func leftPaddingReflect(img image.Image, padded image.Image, p Paddings, setPixe
 	}
 }
 
-func rightPaddingReflect(img image.Image, padded image.Image, p Paddings, setPixel func(int, int, color.Color)) {
+func rightPaddingReflect(img, padded image.Image, p Paddings, setPixel func(int, int, color.Color)) {
 	originalSize := img.Bounds().Size()
 	for y := 0; y < originalSize.Y+p.PaddingBottom+p.PaddingTop; y++ {
 		for x := originalSize.X + p.PaddingLeft; x < originalSize.X+p.PaddingLeft+p.PaddingRight; x++ {
@@ -113,7 +113,7 @@ func rightPaddingReflect(img image.Image, padded image.Image, p Paddings, setPix
 }
 
 // PaddingFloat64 pads a *mat.Dense - padding mode = reflect.
-func PaddingFloat64(img *mat.Dense, kernelSize image.Point, anchor image.Point, border BorderPad) (*mat.Dense, error) {
+func PaddingFloat64(img *mat.Dense, kernelSize, anchor image.Point, border BorderPad) (*mat.Dense, error) {
 	h, w := img.Dims()
 	originalSize := image.Point{w, h}
 	p, err := computePaddingSizes(kernelSize, anchor)
@@ -140,7 +140,7 @@ func PaddingFloat64(img *mat.Dense, kernelSize image.Point, anchor image.Point, 
 //
 // Note: this will add a 1px padding for the top and left borders of the image and a 3px padding fot the bottom and
 // right borders of the image.
-func PaddingGray(img *image.Gray, kernelSize image.Point, anchor image.Point, border BorderPad) (*image.Gray, error) {
+func PaddingGray(img *image.Gray, kernelSize, anchor image.Point, border BorderPad) (*image.Gray, error) {
 	originalSize := img.Bounds().Size()
 	p, err := computePaddingSizes(kernelSize, anchor)
 	if err != nil {
@@ -159,29 +159,29 @@ func PaddingGray(img *image.Gray, kernelSize image.Point, anchor image.Point, bo
 	case BorderConstant:
 		// do nothing
 	case BorderReplicate:
-		topPaddingReplicate(img, p, func(x int, y int, pixel color.Color) {
+		topPaddingReplicate(img, p, func(x, y int, pixel color.Color) {
 			padded.Set(x, y, pixel)
 		})
-		bottomPaddingReplicate(img, p, func(x int, y int, pixel color.Color) {
+		bottomPaddingReplicate(img, p, func(x, y int, pixel color.Color) {
 			padded.Set(x, y, pixel)
 		})
-		leftPaddingReplicate(img, padded, p, func(x int, y int, pixel color.Color) {
+		leftPaddingReplicate(img, padded, p, func(x, y int, pixel color.Color) {
 			padded.Set(x, y, pixel)
 		})
-		rightPaddingReplicate(img, padded, p, func(x int, y int, pixel color.Color) {
+		rightPaddingReplicate(img, padded, p, func(x, y int, pixel color.Color) {
 			padded.Set(x, y, pixel)
 		})
 	case BorderReflect:
-		topPaddingReflect(img, p, func(x int, y int, pixel color.Color) {
+		topPaddingReflect(img, p, func(x, y int, pixel color.Color) {
 			padded.Set(x, y, pixel)
 		})
-		bottomPaddingReflect(img, p, func(x int, y int, pixel color.Color) {
+		bottomPaddingReflect(img, p, func(x, y int, pixel color.Color) {
 			padded.Set(x, y, pixel)
 		})
-		leftPaddingReflect(img, padded, p, func(x int, y int, pixel color.Color) {
+		leftPaddingReflect(img, padded, p, func(x, y int, pixel color.Color) {
 			padded.Set(x, y, pixel)
 		})
-		rightPaddingReflect(img, padded, p, func(x int, y int, pixel color.Color) {
+		rightPaddingReflect(img, padded, p, func(x, y int, pixel color.Color) {
 			padded.Set(x, y, pixel)
 		})
 	default:
@@ -191,7 +191,7 @@ func PaddingGray(img *image.Gray, kernelSize image.Point, anchor image.Point, bo
 }
 
 // helper functions.
-func computePaddingSizes(kernelSize image.Point, anchor image.Point) (Paddings, error) {
+func computePaddingSizes(kernelSize, anchor image.Point) (Paddings, error) {
 	var p Paddings
 	if kernelSize.X < 0 || kernelSize.Y < 0 {
 		return p, errors.New("kernel size is negative")

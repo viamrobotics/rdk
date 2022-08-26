@@ -535,7 +535,11 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	if c == nil || c.Reconfigurable == nil {
 		return newResource, nil
 	}
-	return c.Reconfigurable(newResource)
+	wrapped, err := c.Reconfigurable(newResource)
+	if err != nil {
+		return nil, multierr.Combine(err, goutils.TryClose(ctx, newResource))
+	}
+	return wrapped, nil
 }
 
 func (r *localRobot) updateDefaultServices(ctx context.Context) {

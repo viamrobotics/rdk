@@ -1,4 +1,4 @@
-package imagesource_test
+package videosource_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/component/camera/imagesource"
+	"go.viam.com/rdk/component/camera/videosource"
 )
 
 // fakeDriver is a driver has a label and media properties.
@@ -38,7 +38,7 @@ func testGetDrivers() []driver.Driver {
 }
 
 func TestDiscoveryWebcam(t *testing.T) {
-	resp, err := imagesource.Discover(context.Background(), testGetDrivers)
+	resp, err := videosource.Discover(context.Background(), testGetDrivers)
 
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Webcams, test.ShouldHaveLength, 1)
