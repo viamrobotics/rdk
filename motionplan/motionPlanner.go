@@ -337,6 +337,45 @@ IK:
 	return orderedSolutions, nil
 }
 
+func checkInputs(mp MotionPlanner, opt *PlannerOptions, inputs []frame.Input) bool {
+	frame := mp.Frame()
+	position, err := frame.Transform(inputs)
+	if err != nil {
+		return false
+	}
+	ok, _ := opt.CheckConstraints(&ConstraintInput{
+		StartPos:   position,
+		EndPos:     position,
+		StartInput: inputs,
+		EndInput:   inputs,
+		Frame:      frame,
+	})
+	return ok
+}
+
+func checkPath(mp MotionPlanner, opt *PlannerOptions, seedInputs, target []frame.Input) bool {
+	frame := mp.Frame()
+	seedPos, err := frame.Transform(seedInputs)
+	if err != nil {
+		return false
+	}
+	goalPos, err := frame.Transform(target)
+	if err != nil {
+		return false
+	}
+	ok, _ := opt.CheckConstraintPath(
+		&ConstraintInput{
+			StartPos:   seedPos,
+			EndPos:     goalPos,
+			StartInput: seedInputs,
+			EndInput:   target,
+			Frame:      frame,
+		},
+		opt.Resolution,
+	)
+	return ok
+}
+
 func extractPath(startMap, goalMap map[*node]*node, pair *nodePair) []*node {
 	// need to figure out which of the two nodes is in the start map
 	var startReached, goalReached *node
