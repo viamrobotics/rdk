@@ -43,18 +43,24 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
+var cameraValidationMaxTimeoutSec = 30 // reconfigurable for testing
+
 const (
-	defaultDataRateMs             = 200
-	minDataRateMs                 = 200
-	defaultMapRateSec             = 60
-	cameraValidationMaxTimeoutSec = 30
-	cameraValidationIntervalSec   = 1.
-	dialMaxTimeoutSec             = 5
+	defaultDataRateMs           = 200
+	minDataRateMs               = 200
+	defaultMapRateSec           = 60
+	cameraValidationIntervalSec = 1.
+	dialMaxTimeoutSec           = 5
 	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	// time format for the slam service.
 	slamTimeFormat        = "2006-01-02T15_04_05.0000"
 	opTimeoutErrorMessage = "bad scan: OpTimeout"
 )
+
+// Set cameraValidationMaxTimeoutSec for testing.
+func SetCameraValidationMaxTimeoutSecForTesting(val int) {
+	cameraValidationMaxTimeoutSec = val
+}
 
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
 func init() {
@@ -226,7 +232,7 @@ func runtimeServiceValidation(
 		}
 
 		// This takes about 5 seconds, so the timeout should be sufficient.
-		if time.Since(startTime) >= cameraValidationMaxTimeoutSec*time.Second {
+		if time.Since(startTime) >= time.Duration(cameraValidationMaxTimeoutSec)*time.Second {
 			return errors.Wrap(err, "error getting data in desired mode")
 		}
 		if !goutils.SelectContextOrWait(ctx, cameraValidationIntervalSec*time.Second) {
