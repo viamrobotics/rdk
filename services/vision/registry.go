@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/vision/segmentation"
 )
 
-// DetectorType defines what detector types are known.
+// VisModelType defines what vision models are known by the vision service.
 type VisModelType string
 
 // The set of allowed classifier types.
@@ -79,9 +79,11 @@ func (m *registeredModel) toSegmenter() (segmentation.Segmenter, error) {
 func (mm modelMap) DetectorNames() []string {
 	names := make([]string, 0, len(mm))
 	for name := range mm {
-		thisType, _ := mm.getModelType(name)
-		if thisType == TFDetector || thisType == TFLiteDetector || thisType == ColorDetector {
-			names = append(names, name)
+		thisType, err := mm.getModelType(name)
+		if err == nil { // found the model
+			if thisType == TFDetector || thisType == TFLiteDetector || thisType == ColorDetector {
+				names = append(names, name)
+			}
 		}
 	}
 	return names
@@ -90,9 +92,11 @@ func (mm modelMap) DetectorNames() []string {
 func (mm modelMap) ClassifierNames() []string {
 	names := make([]string, 0, len(mm))
 	for name := range mm {
-		thisType, _ := mm.getModelType(name)
-		if thisType == TFClassifier || thisType == TFLiteClassifier {
-			names = append(names, name)
+		thisType, err := mm.getModelType(name)
+		if err == nil {
+			if thisType == TFClassifier || thisType == TFLiteClassifier {
+				names = append(names, name)
+			}
 		}
 	}
 	return names
@@ -101,9 +105,11 @@ func (mm modelMap) ClassifierNames() []string {
 func (mm modelMap) SegmenterNames() []string {
 	names := make([]string, 0, len(mm))
 	for name := range mm {
-		thisType, _ := mm.getModelType(name)
-		if thisType == RCSegmenter || thisType == ObjectSegmenter {
-			names = append(names, name)
+		thisType, err := mm.getModelType(name)
+		if err == nil {
+			if thisType == RCSegmenter || thisType == ObjectSegmenter {
+				names = append(names, name)
+			}
 		}
 	}
 	return names
@@ -164,7 +170,8 @@ func (mm modelMap) registerVisModel(name string, m *registeredModel, logger golo
 		logger.Infof("overwriting the model with name: %s", name)
 	}
 
-	mm[name] = registeredModel{model: m.model, modelType: m.modelType,
+	mm[name] = registeredModel{
+		model: m.model, modelType: m.modelType,
 		closer: nil, isLoaded: m.isLoaded, SegParams: m.SegParams,
 	}
 	return nil
@@ -177,7 +184,7 @@ func registerNewVisModels(ctx context.Context, mm modelMap, attrs *Attributes, l
 	defer span.End()
 	for _, attr := range attrs.ModelRegistry {
 		logger.Debugf("adding vision model %q of type %q", attr.Name, attr.Type)
-		switch VisModelType(attr.Type) {
+		switch VisModelType(attr.Type) { // nolint: exhaustive
 		case TFLiteDetector:
 			return registerTfliteDetector(ctx, mm, &attr, logger)
 		case TFLiteClassifier:
@@ -190,6 +197,7 @@ func registerNewVisModels(ctx context.Context, mm modelMap, attrs *Attributes, l
 			return registerColorDetector(ctx, mm, &attr, logger)
 		case RCSegmenter:
 			return registerRCSegmenter(ctx, mm, &attr, logger)
+		// ObjectSegmenters are registered directly from detectors in vision.registerSegmenterFromDetector
 		default:
 			return newVisModelTypeNotImplemented(attr.Type)
 		}

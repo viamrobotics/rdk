@@ -37,7 +37,7 @@ func (cc Classifications) Top1() (Classification, error) {
 }
 */
 
-// TopN finds the N Classifications with the highest confidence scores
+// TopN finds the N Classifications with the highest confidence scores.
 func (cc Classifications) TopN(n int) (Classifications, error) {
 	if len(cc) < n {
 		return nil, errors.Errorf("cannot produce top %v results from list of length %v", n, len(cc))

@@ -277,7 +277,8 @@ func (vs *visionService) RemoveClassifier(ctx context.Context, cfg VisModelConfi
 
 // GetClassificationsFromCamera returns the classifications of the next image from the given camera and the given detector.
 func (vs *visionService) GetClassificationsFromCamera(ctx context.Context, cameraName,
-	classifierName string, n int) (classification.Classifications, error) {
+	classifierName string, n int,
+) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetClassificationsFromCamera")
 	defer span.End()
 	cam, err := camera.FromRobot(vs.r, cameraName)
@@ -306,7 +307,8 @@ func (vs *visionService) GetClassificationsFromCamera(ctx context.Context, camer
 
 // GetClassifications returns the classifications of given image using the given classifier.
 func (vs *visionService) GetClassifications(ctx context.Context, img image.Image,
-	classifierName string, n int) (classification.Classifications, error) {
+	classifierName string, n int,
+) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetClassifications")
 	defer span.End()
 
