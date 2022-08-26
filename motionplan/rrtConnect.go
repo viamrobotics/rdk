@@ -75,8 +75,9 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 ) {
 	defer close(solutionChan)
 
+	// setup planner options
 	if planOpts == nil {
-		solutionChan <- &planReturn{err: NewPlannerOptionsError()}
+		solutionChan <- &planReturn{err: newPlannerOptionsError()}
 		return
 	}
 	algOpts := newRRTOptions(planOpts)
@@ -146,7 +147,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 		map1, map2 = map2, map1
 	}
 
-	solutionChan <- &planReturn{err: NewPlannerFailedError()}
+	solutionChan <- &planReturn{err: newPlannerFailedError()}
 }
 
 func (mp *rrtConnectMotionPlanner) sample() []referenceframe.Input {

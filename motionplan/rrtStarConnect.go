@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"math/rand"
 
@@ -11,6 +12,45 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 )
+
+const (
+	// If a solution is found that is within this percentage of the optimal unconstrained solution, exit early
+	defaultOptimalityThreshold = .95
+
+	// The number of nearest neighbors to consider when adding a new sample to the tree
+	defaultNeighborhoodSize = 10
+)
+
+type rrtStarConnectOptions struct {
+	// If a solution is found that is within this percentage of the optimal unconstrained solution, exit early
+	OptimalityThreshold float64 `json:"optimality_threshold"`
+
+	// The number of nearest neighbors to consider when adding a new sample to the tree
+	NeighborhoodSize int `json:"neighborhood_size"`
+
+	// Parameters common to all RRT implementations
+	*rrtOptions
+}
+
+// newRRTStarConnectOptions creates a struct controlling the running of a single invocation of the algorithm.
+// All values are pre-set to reasonable defaults, but can be tweaked if needed.
+func newRRTStarConnectOptions(planOpts *PlannerOptions) (*rrtStarConnectOptions, error) {
+	algOpts := &rrtStarConnectOptions{
+		OptimalityThreshold: defaultOptimalityThreshold,
+		NeighborhoodSize:    defaultNeighborhoodSize,
+		rrtOptions:          newRRTOptions(planOpts),
+	}
+	// convert map to json
+	jsonString, err := json.Marshal(planOpts.extra)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(jsonString, algOpts)
+	if err != nil {
+		return nil, err
+	}
+	return algOpts, nil
+}
 
 type rrtStarConnectMotionPlanner struct {
 	solver   InverseKinematics
@@ -31,7 +71,12 @@ func NewRRTStarConnectMotionPlanner(frame referenceframe.Frame, nCPU int, logger
 }
 
 // NewRRTStarConnectMotionPlannerWithSeed creates a rrtStarConnectMotionPlanner object with a user specified random seed.
-func NewRRTStarConnectMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
+func NewRRTStarConnectMotionPlannerWithSeed(
+	frame referenceframe.Frame,
+	nCPU int,
+	seed *rand.Rand,
+	logger golog.Logger,
+) (MotionPlanner, error) {
 	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
 		return nil, err
@@ -80,11 +125,15 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 ) {
 	defer close(solutionChan)
 
-	// use default options if none are provided
+	// setup planner options
 	if planOpts == nil {
 		planOpts = NewBasicPlannerOptions()
 	}
-	algOpts := newRRTOptions(planOpts)
+	algOpts, err := newRRTStarConnectOptions(planOpts)
+	if err != nil {
+		solutionChan <- &planReturn{err: err}
+		return
+	}
 
 	// get many potential end goals from IK solver
 	solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame())

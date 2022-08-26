@@ -11,7 +11,6 @@ import (
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
-	frame "go.viam.com/rdk/referenceframe"
 )
 
 const (
@@ -151,8 +150,9 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 ) {
 	defer close(solutionChan)
 
+	// setup planner options
 	if planOpts == nil {
-		solutionChan <- &planReturn{err: NewPlannerOptionsError()}
+		solutionChan <- &planReturn{err: newPlannerOptionsError()}
 		return
 	}
 	algOpts, err := newCbirrtOptions(planOpts, mp.frame)
@@ -229,10 +229,10 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		map1, map2 = map2, map1
 	}
 
-	solutionChan <- &planReturn{err: NewPlannerFailedError()}
+	solutionChan <- &planReturn{err: newPlannerFailedError()}
 }
 
-func (mp *cBiRRTMotionPlanner) sample(algOpts *cbirrtOptions, rSeed *node, sampleNum int) []frame.Input {
+func (mp *cBiRRTMotionPlanner) sample(algOpts *cbirrtOptions, rSeed *node, sampleNum int) []referenceframe.Input {
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
 	if sampleNum >= algOpts.IterBeforeRand && sampleNum%4 >= 2 {

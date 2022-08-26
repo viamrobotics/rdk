@@ -43,7 +43,7 @@ const (
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultPathStepSize = 10
 
-	// default percentage interval of max iterations after which to print debug logs
+	// default percentage interval of max iterations after which to print debug logs.
 	defualtLoggingInterval = 0.05
 )
 
@@ -134,7 +134,7 @@ func NewBasicPlannerOptions() *PlannerOptions {
 }
 
 // PlannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
-// TODO(rb): make this a private struct so that somebody can't just make their own and initialize wrong
+// TODO(rb): make this a private struct so that somebody can't just make their own and initialize wrong.
 type PlannerOptions struct {
 	constraintHandler
 	metric   Metric // Distance function to the goal
@@ -152,7 +152,7 @@ type PlannerOptions struct {
 	Resolution float64 `json:"resolution"`
 
 	// Percentage interval of max iterations after which to print debug logs
-	LoggingInterval float64 `json:"logging_interval`
+	LoggingInterval float64 `json:"logging_interval"`
 }
 
 // SetMetric sets the distance metric for the solver.

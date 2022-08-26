@@ -6,8 +6,9 @@ import (
 	"sort"
 	"sync"
 
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/referenceframe"
 )
 
 const neighborsBeforeParallelization = 1000
@@ -26,6 +27,7 @@ type neighbor struct {
 	node *node
 }
 
+//nolint:revive
 func kNearestNeighbors(rrtMap map[*node]*node, target []referenceframe.Input) []*neighbor {
 	kNeighbors := neighborhoodSize
 	if neighborhoodSize > len(rrtMap) {
@@ -33,7 +35,7 @@ func kNearestNeighbors(rrtMap map[*node]*node, target []referenceframe.Input) []
 	}
 
 	allCosts := make([]*neighbor, 0)
-	for node, _ := range rrtMap {
+	for node := range rrtMap {
 		allCosts = append(allCosts, &neighbor{dist: inputDist(node.q, target), node: node})
 	}
 	sort.Slice(allCosts, func(i, j int) bool {

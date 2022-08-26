@@ -3,8 +3,9 @@ package motionplan
 import (
 	"testing"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/test"
+
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
 func TestFixOvIncrement(t *testing.T) {
