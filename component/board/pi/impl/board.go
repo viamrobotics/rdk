@@ -7,31 +7,26 @@ package piimpl
 // #include <pigpio.h>
 // #include "pi.h"
 // #cgo LDFLAGS: -lpigpio
-import "C"
-
-import (
-	"context"
+import "context"
 	"math"
 	"os"
 	"strconv"
 	"sync"
 
-	"github.com/pkg/errors"
-
+	"C"
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
 	picommon "go.viam.com/rdk/component/board/pi/common"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rlog"
 	rdkutils "go.viam.com/rdk/utils"
-
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
 // init registers a pi board based on pigpio.

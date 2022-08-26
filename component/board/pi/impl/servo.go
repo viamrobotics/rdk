@@ -6,14 +6,13 @@ package piimpl
 // #include <pigpio.h>
 // #include "pi.h"
 // #cgo LDFLAGS: -lpigpio
-import "C"
-
-import (
-	"context"
+import "context"
 	"time"
 
+	"C"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
 	picommon "go.viam.com/rdk/component/board/pi/common"
 	"go.viam.com/rdk/component/generic"
@@ -21,7 +20,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/utils"
 )
 
 var (
