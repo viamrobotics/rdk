@@ -50,7 +50,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Read")
 	defer span.End()
-	mimeType := MIMETypeHint(ctx, utils.MimeTypeRawRGBALazy)
+	mimeType := gostream.MIMETypeHint(ctx, utils.MimeTypeRawRGBALazy)
 	resp, err := c.client.GetFrame(ctx, &pb.GetFrameRequest{
 		Name:     c.name,
 		MimeType: mimeType,
@@ -72,7 +72,7 @@ func (c *client) Stream(
 	ctx context.Context,
 	errHandlers ...gostream.ErrorHandler,
 ) (gostream.VideoStream, error) {
-	cancelCtxWithMIME := WithMIMETypeHint(c.cancelCtx, MIMETypeHint(c.cancelCtx, utils.MimeTypeRawRGBALazy))
+	cancelCtxWithMIME := gostream.WithMIMETypeHint(c.cancelCtx, gostream.MIMETypeHint(c.cancelCtx, utils.MimeTypeRawRGBALazy))
 	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](cancelCtxWithMIME)
 
 	c.mu.Lock()

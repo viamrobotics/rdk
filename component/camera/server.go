@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"google.golang.org/genproto/googleapis/api/httpbody"
@@ -57,7 +58,7 @@ func (s *subtypeServer) GetFrame(
 		req.MimeType = utils.MimeTypeRawRGBALazy
 	}
 
-	img, release, err := ReadImage(WithMIMETypeHint(ctx, req.MimeType), cam)
+	img, release, err := ReadImage(gostream.WithMIMETypeHint(ctx, req.MimeType), cam)
 	if err != nil {
 		return nil, err
 	}

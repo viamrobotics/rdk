@@ -338,7 +338,7 @@ func TestCameraWithNoProjector(t *testing.T) {
 	test.That(t, got, test.ShouldBeTrue)
 
 	img, _, err := camera.ReadImage(
-		camera.WithMIMETypeHint(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG)),
+		gostream.WithMIMETypeHint(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG)),
 		noProj2)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -384,7 +384,7 @@ func TestCameraWithProjector(t *testing.T) {
 	test.That(t, got, test.ShouldBeTrue)
 
 	img, _, err := camera.ReadImage(
-		camera.WithMIMETypeHint(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG)),
+		gostream.WithMIMETypeHint(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG)),
 		cam2)
 	test.That(t, err, test.ShouldBeNil)
 

@@ -77,6 +77,8 @@ type Camera interface {
 	generic.Generic
 	projectorProvider
 
+	// Stream returns a stream that makes a best effort to return consecutive images
+	// that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
 	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
 
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
@@ -85,7 +87,7 @@ type Camera interface {
 	Close(ctx context.Context) error
 }
 
-// ReadImage reads an image from the given source  that is immediately available.
+// ReadImage reads an image from the given source that is immediately available.
 func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func(), error) {
 	return gostream.ReadImage(ctx, src)
 }
@@ -447,23 +449,4 @@ func SimultaneousColorDepthNext(ctx context.Context, color, depth gostream.Video
 	})
 	wg.Wait()
 	return col, dm
-}
-
-type contextValue byte
-
-const contextValueMIMETypeHint contextValue = iota
-
-// WithMIMETypeHint provides a hint to readers that images should be encoded to
-// this type.
-func WithMIMETypeHint(ctx context.Context, mimeType string) context.Context {
-	return context.WithValue(ctx, contextValueMIMETypeHint, mimeType)
-}
-
-// MIMETypeHint gets the hint of what MIME type to use in encoding; if nothing is
-// set, the default provided is used.
-func MIMETypeHint(ctx context.Context, defaultType string) string {
-	if val, ok := ctx.Value(contextValueMIMETypeHint).(string); ok {
-		return val
-	}
-	return defaultType
 }
