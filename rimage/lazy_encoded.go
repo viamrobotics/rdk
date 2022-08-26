@@ -20,7 +20,9 @@ type LazyEncodedImage struct {
 }
 
 // NewLazyEncodedImage returns a new image that will only get decoded once actual data is needed
-// from it. This is helpful for zero copy scenarios.
+// from it. This is helpful for zero copy scenarios. If a width or height of less is unknown,
+// pass 0 or -1; when done a decode will happen on Bounds. In the future this can probably go
+// away with reading all metadata from the header of the image bytes.
 // NOTE: Usage of an image that would fail to decode causes a lazy panic.
 func NewLazyEncodedImage(imgBytes []byte, mimeType string, width, height int) image.Image {
 	return &LazyEncodedImage{
