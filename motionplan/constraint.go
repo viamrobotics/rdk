@@ -216,14 +216,12 @@ func NewCollisionConstraintFromWorldState(
 	return NewCollisionConstraint(model, obstacles.Geometries(), interactionSpaces.Geometries()), nil
 }
 
-// NewLinearInterpolatingConstraint creates a constraint function from an arbitrary function that will decide if a given pose is valid.
-// This function will check the given function at each point in checkSeq, and 1-point. If all constraints are satisfied,
-// it will return true. If any intermediate pose violates the constraint, will return false.
-// This constraint will interpolate between the start and end poses, and ensure that the pose given by interpolating
-// the inputs the same amount does not deviate by more than a set amount.
-func NewLinearInterpolatingConstraint(from, to spatial.Pose, epsilon float64) (Constraint, Metric) {
-	orientConstraint, orientMetric := NewSlerpOrientationConstraint(from, to, epsilon)
-	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), epsilon)
+// NewAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold allows a specified amount of deviation from the
+// shortest straight-line path between the start and the goal. linTol is the allowed linear deviation in mm, orientTol is the allowed
+// orientation deviation measured by norm of the R3AA orientation difference to the slerp path between start/goal orientations.
+func NewAbsoluteLinearInterpolatingConstraint(from, to spatial.Pose, linTol, orientTol float64) (Constraint, Metric) {
+	orientConstraint, orientMetric := NewSlerpOrientationConstraint(from, to, orientTol)
+	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), linTol)
 	interpMetric := CombineMetrics(orientMetric, lineMetric)
 
 	f := func(cInput *ConstraintInput) (bool, float64) {
@@ -232,6 +230,15 @@ func NewLinearInterpolatingConstraint(from, to spatial.Pose, epsilon float64) (C
 		return oValid && lValid, oDist + lDist
 	}
 	return f, interpMetric
+}
+
+// NewProportionalLinearInterpolatingConstraint will provide the same metric and constraint as NewAbsoluteLinearInterpolatingConstraint,
+// except that allowable linear and orientation deviation is scaled based on the distance from start to goal.
+func NewProportionalLinearInterpolatingConstraint(from, to spatial.Pose, epsilon float64) (Constraint, Metric) {
+	orientTol := epsilon * orientDist(from.Orientation(), to.Orientation())
+	linTol := epsilon * from.Point().Distance(to.Point())
+
+	return NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
 }
 
 // NewJointConstraint returns a constraint which will sum the squared differences in each input from start to end
@@ -266,26 +273,23 @@ func NewOrientationConstraint(orientFunc func(o spatial.Orientation) bool) Const
 }
 
 // NewSlerpOrientationConstraint will measure the orientation difference between the orientation of two poses, and return a constraint that
-// returns whether a given orientation is within a given epsilon distance of the shortest arc between the two orientations, as well as a
+// returns whether a given orientation is within a given tolerance distance of the shortest arc between the two orientations, as well as a
 // metric which returns the distance to that valid region.
-func NewSlerpOrientationConstraint(start, goal spatial.Pose, epsilon float64) (Constraint, Metric) {
+func NewSlerpOrientationConstraint(start, goal spatial.Pose, tolerance float64) (Constraint, Metric) {
 	var gradFunc func(from, _ spatial.Pose) float64
-	origDist := orientDist(start.Orientation(), goal.Orientation())
+	origDist := math.Max(orientDist(start.Orientation(), goal.Orientation()), defaultEpsilon)
 
-	if origDist < epsilon*epsilon {
-		gradFunc = func(from, _ spatial.Pose) float64 {
-			oDist := orientDist(start.Orientation(), from.Orientation())
-			return oDist
+	gradFunc = func(from, _ spatial.Pose) float64 {
+		sDist := orientDist(start.Orientation(), from.Orientation())
+		gDist := 0.
+
+		// If origDist is less than or equal to defaultEpsilon, then the starting and ending orientations are the same and we do not need
+		// to compute the distance to the ending orientation
+		if origDist > defaultEpsilon {
+			gDist = orientDist(goal.Orientation(), from.Orientation())
 		}
-	} else {
-		gradFunc = func(from, _ spatial.Pose) float64 {
-			sDist := orientDist(start.Orientation(), from.Orientation())
-			gDist := orientDist(goal.Orientation(), from.Orientation())
-			return (sDist + gDist) - origDist
-		}
+		return (sDist + gDist) - origDist
 	}
-
-	validDist := epsilon * epsilon
 
 	validFunc := func(cInput *ConstraintInput) (bool, float64) {
 		err := resolveInputsToPositions(cInput)
@@ -293,7 +297,7 @@ func NewSlerpOrientationConstraint(start, goal spatial.Pose, epsilon float64) (C
 			return false, 0
 		}
 		dist := gradFunc(cInput.StartPos, cInput.EndPos)
-		if dist < validDist {
+		if dist < tolerance {
 			return true, 0
 		}
 		return false, 0
@@ -347,10 +351,10 @@ func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Con
 // NewLineConstraint is used to define a constraint space for a line, and will return 1) a constraint
 // function which will determine whether a point is on the line, and 2) a distance function
 // which will bring a pose into the valid constraint space.
-// epsilon refers to the closeness to the line necessary to be a valid pose.
-func NewLineConstraint(pt1, pt2 r3.Vector, epsilon float64) (Constraint, Metric) {
+// tolerance refers to the closeness to the line necessary to be a valid pose in mm.
+func NewLineConstraint(pt1, pt2 r3.Vector, tolerance float64) (Constraint, Metric) {
 	// distance from line to point
-	lineDist := func(point r3.Vector) float64 {
+	distToLine := func(point r3.Vector) float64 {
 		ab := pt1.Sub(pt2)
 		av := point.Sub(pt2)
 
@@ -368,9 +372,13 @@ func NewLineConstraint(pt1, pt2 r3.Vector, epsilon float64) (Constraint, Metric)
 		return dist
 	}
 
+	if pt1.Distance(pt2) < defaultEpsilon {
+		tolerance = defaultEpsilon
+	}
+
 	gradFunc := func(from, _ spatial.Pose) float64 {
-		pDist := lineDist(from.Point())
-		return pDist * pDist
+		pDist := math.Max(distToLine(from.Point())-tolerance, 0)
+		return pDist
 	}
 
 	validFunc := func(cInput *ConstraintInput) (bool, float64) {
@@ -379,7 +387,7 @@ func NewLineConstraint(pt1, pt2 r3.Vector, epsilon float64) (Constraint, Metric)
 			return false, 0
 		}
 		dist := gradFunc(cInput.StartPos, cInput.EndPos)
-		if dist < epsilon*epsilon {
+		if dist == 0 {
 			return true, 0
 		}
 		return false, dist

@@ -101,7 +101,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 	// Test ability to arrive at another position
 	pos := &commonpb.Pose{X: -206, Y: 100, Z: 120, OZ: -1}
 
-	opt := NewDefaultPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	orientMetric := NewPoseFlexOVMetric(spatial.NewPoseFromProtobuf(pos), 0.09)
 
 	oFunc := orientDistToRegion(spatial.NewPoseFromProtobuf(pos).Orientation(), 0.1)
@@ -158,7 +158,7 @@ func simple2DMap() (*planConfig, error) {
 	}
 
 	// setup planner options
-	opt := NewDefaultPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	toMap := func(geometries []spatial.Geometry) map[string]spatial.Geometry {
 		geometryMap := make(map[string]spatial.Geometry, 0)
 		for i, geometry := range geometries {
@@ -184,7 +184,7 @@ func simpleXArmMotion() (*planConfig, error) {
 	}
 
 	// setup planner options
-	opt := NewDefaultPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	opt.AddConstraint("collision", NewCollisionConstraint(xarm, nil, nil))
 
 	return &planConfig{
@@ -203,7 +203,7 @@ func simpleUR5eMotion() (*planConfig, error) {
 	}
 
 	// setup planner options
-	opt := NewDefaultPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	opt.AddConstraint("collision", NewCollisionConstraint(ur5e, nil, nil))
 
 	return &planConfig{
@@ -238,7 +238,7 @@ func testPlanner(t *testing.T, planner seededPlannerConstructor, config planConf
 			StartInput: path[j],
 			EndInput:   path[j+1],
 			Frame:      cfg.RobotFrame,
-		}, mp.Resolution())
+		}, cfg.Options.Resolution)
 		test.That(t, ok, test.ShouldBeTrue)
 	}
 	t.Log(EvaluatePlan(path))
