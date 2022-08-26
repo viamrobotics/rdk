@@ -245,7 +245,4 @@ func testPlanner(t *testing.T, planner seededPlannerConstructor, config planConf
 		}, cfg.Options.Resolution)
 		test.That(t, ok, test.ShouldBeTrue)
 	}
-
-	// write output
-	test.That(t, writeJSONFile(utils.ResolveFile("motionplan/path.test"), [][][]frame.Input{path}), test.ShouldBeNil)
 }

@@ -215,7 +215,6 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		if inputDist(map1reached.q, map2reached.q) < algOpts.JointSolveDist {
 			cancel()
 			path := extractPath(seedMap, goalMap, &nodePair{map1reached, map2reached})
-			// exportMaps(seedMap, goalMap)
 			if endpointPreview != nil {
 				endpointPreview <- path[len(path)-1]
 			}

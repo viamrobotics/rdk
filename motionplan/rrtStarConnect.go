@@ -14,10 +14,10 @@ import (
 )
 
 const (
-	// If a solution is found that is within this percentage of the optimal unconstrained solution, exit early
+	// If a solution is found that is within this percentage of the optimal unconstrained solution, exit early.
 	defaultOptimalityThreshold = .95
 
-	// The number of nearest neighbors to consider when adding a new sample to the tree
+	// The number of nearest neighbors to consider when adding a new sample to the tree.
 	defaultNeighborhoodSize = 10
 )
 
@@ -61,7 +61,7 @@ type rrtStarConnectMotionPlanner struct {
 }
 
 // TODO(rb): find a reasonable default for this
-// neighborhoodSize represents the number of neighbors to find in a k-nearest neighbors search
+// neighborhoodSize represents the number of neighbors to find in a k-nearest neighbors search.
 const neighborhoodSize = 10
 
 // NewRRTStarConnectMotionPlanner creates a rrtStarConnectMotionPlanner object.
