@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	modelpb "go.viam.com/api/proto/viam/model/v1"
 	"go.viam.com/rdk/services/datamanager"
 )
 
@@ -13,6 +14,9 @@ type DataManagerService struct {
 	SyncFunc func(
 		ctx context.Context,
 	) error
+	DeployFunc func(
+		ctx context.Context, req *modelpb.DeployRequest,
+	) (*modelpb.DeployResponse, error)
 }
 
 // Sync calls the injected Sync or the real variant.
@@ -23,4 +27,20 @@ func (svc *DataManagerService) Sync(
 		return svc.Service.Sync(ctx)
 	}
 	return svc.SyncFunc(ctx)
+}
+
+type ModelManagerService struct {
+	datamanager.MService
+	DeployFunc func(
+		ctx context.Context, req *modelpb.DeployRequest,
+	) (*modelpb.DeployResponse, error)
+}
+
+func (svc *ModelManagerService) Deploy(
+	ctx context.Context, req *modelpb.DeployRequest,
+) (*modelpb.DeployResponse, error) {
+	if svc.DeployFunc == nil {
+		return svc.MService.Deploy(ctx, req)
+	}
+	return svc.DeployFunc(ctx, req)
 }

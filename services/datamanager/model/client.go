@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 
+	"go.uber.org/zap"
+
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
@@ -34,6 +36,19 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
 		logger: logger,
 	}
 	return sc
+}
+
+// NewConnection builds a connection to the passed address with the passed rpcOpts.
+func NewConnection(logger *zap.SugaredLogger, address string, rpcOpts []rpc.DialOption) (rpc.ClientConn, error) {
+	fmt.Println("model/model.go/NewConnection()")
+	ctx := context.Background()
+	conn, err := rpc.DialDirectGRPC(
+		ctx,
+		address,
+		logger,
+		rpcOpts...,
+	)
+	return conn, err
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
