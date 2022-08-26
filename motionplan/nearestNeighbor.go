@@ -28,7 +28,7 @@ type neighbor struct {
 }
 
 //nolint:revive
-func kNearestNeighbors(rrtMap map[*node]*node, target []referenceframe.Input) []*neighbor {
+func kNearestNeighbors(rrtMap map[*node]*node, target []referenceframe.Input, neighborhoodSize int) []*neighbor {
 	kNeighbors := neighborhoodSize
 	if neighborhoodSize > len(rrtMap) {
 		kNeighbors = len(rrtMap)
