@@ -6,12 +6,14 @@ import (
 	"encoding/binary"
 	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/audioinput"
 	"go.viam.com/rdk/config"
@@ -31,17 +33,26 @@ func init() {
 			logger golog.Logger,
 		) (interface{}, error) {
 			cancelCtx, cancelFunc := context.WithCancel(context.Background())
-			ticker := time.NewTicker(latencyMillis * time.Millisecond)
+			condMu := &sync.RWMutex{}
+			cond := sync.NewCond(condMu.RLocker())
 			input := &audioInput{
-				Name:   config.Name,
-				toneHz: 440,
-				cancel: func() {
-					cancelFunc()
-					ticker.Stop()
-				},
+				Name:      config.Name,
+				toneHz:    440,
+				cancel:    cancelFunc,
 				cancelCtx: cancelCtx,
-				tickerC:   ticker.C,
+				cond:      cond,
 			}
+			input.activeBackgroundWorkers.Add(1)
+			utils.ManagedGo(func() {
+				ticker := time.NewTicker(latencyMillis * time.Millisecond)
+				for {
+					if !utils.SelectContextOrWaitChan(cancelCtx, ticker.C) {
+						return
+					}
+					atomic.AddInt64(&input.step, 1)
+					cond.Broadcast()
+				}
+			}, input.activeBackgroundWorkers.Done)
 			as := gostream.NewAudioSource(gostream.AudioReaderFunc(input.Read), prop.Audio{
 				ChannelCount:  channelCount,
 				SampleRate:    samplingRate,
@@ -57,13 +68,14 @@ func init() {
 // audioInput is a fake audioinput that always returns the same chunk.
 type audioInput struct {
 	gostream.AudioSource
-	mu        sync.Mutex
-	Name      string
-	step      int
-	toneHz    float64
-	cancel    func()
-	cancelCtx context.Context
-	tickerC   <-chan time.Time
+	mu                      sync.RWMutex
+	Name                    string
+	step                    int64
+	toneHz                  float64
+	cancel                  func()
+	cancelCtx               context.Context
+	activeBackgroundWorkers sync.WaitGroup
+	cond                    *sync.Cond
 }
 
 const (
@@ -81,22 +93,27 @@ func (i *audioInput) Read(ctx context.Context) (wave.Audio, func(), error) {
 	default:
 	}
 
+	i.cond.L.Lock()
+	i.cond.Wait()
+	i.cond.L.Unlock()
+
 	select {
 	case <-i.cancelCtx.Done():
 		return nil, nil, i.cancelCtx.Err()
 	case <-ctx.Done():
 		return nil, nil, ctx.Err()
-	case <-i.tickerC:
+	default:
 	}
+
 	const length = samplingRate * latencyMillis / 1000
 	const numChunks = samplingRate / length
 	angle := math.Pi * 2 / (float64(length) * numChunks)
 
-	i.mu.Lock()
+	i.mu.RLock()
 	toneHz := i.toneHz
-	i.mu.Unlock()
+	i.mu.RUnlock()
 
-	i.step = (i.step + 1) % numChunks
+	step := int(atomic.LoadInt64(&i.step) % numChunks)
 	chunk := wave.NewFloat32Interleaved(wave.ChunkInfo{
 		Len:          length,
 		Channels:     channelCount,
@@ -104,7 +121,7 @@ func (i *audioInput) Read(ctx context.Context) (wave.Audio, func(), error) {
 	})
 
 	for sample := 0; sample < length; sample++ {
-		val := wave.Float32Sample(math.Sin(angle * toneHz * (float64((length * i.step) + sample))))
+		val := wave.Float32Sample(math.Sin(angle * toneHz * (float64((length * step) + sample))))
 		chunk.Set(sample, 0, val)
 	}
 	return chunk, func() {}, nil
@@ -136,5 +153,6 @@ func (i *audioInput) Do(ctx context.Context, cmd map[string]interface{}) (map[st
 // Close stops the generator routine.
 func (i *audioInput) Close(ctx context.Context) error {
 	i.cancel()
+	i.activeBackgroundWorkers.Wait()
 	return i.AudioSource.Close(ctx)
 }

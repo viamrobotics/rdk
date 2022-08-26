@@ -7,10 +7,10 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
-	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 )
@@ -45,7 +45,7 @@ func readyBytesFromURL(ctx context.Context, client http.Client, url string) ([]b
 }
 
 func checkLazyFromData(ctx context.Context, data []byte) (image.Image, bool, error) {
-	requestedMime := camera.MIMETypeHint(ctx, utils.MimeTypePNG)
+	requestedMime := gostream.MIMETypeHint(ctx, "FOOBAR")
 	if actualMime, isLazy := utils.CheckLazyMIMEType(requestedMime); isLazy {
 		usedMimeType := http.DetectContentType(data)
 		if actualMime != "" && actualMime != usedMimeType {

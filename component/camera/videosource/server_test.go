@@ -11,15 +11,17 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/utils"
 )
 
-func createTestRouter(t *testing.T) (*http.ServeMux, image.Image, image.Image) {
+func createTestRouter(t *testing.T) (*http.ServeMux, image.Image, []byte, image.Image) {
 	t.Helper()
 	// get color image
 	colorPath := artifact.MustPath("rimage/board1.png")
@@ -51,7 +53,7 @@ func createTestRouter(t *testing.T) (*http.ServeMux, image.Image, image.Image) {
 	expectedColor, err := png.Decode(bytes.NewReader(colorBytes))
 	test.That(t, err, test.ShouldBeNil)
 
-	return router, expectedColor, expectedDepth
+	return router, expectedColor, colorBytes, expectedDepth
 }
 
 func TestServerSource(t *testing.T) {
@@ -66,7 +68,7 @@ func TestServerSource(t *testing.T) {
 		Ppy:    370.70529534,
 	}
 	// create mock server
-	router, expectedColor, expectedDepth := createTestRouter(t)
+	router, expectedColor, expectedColorBytes, expectedDepth := createTestRouter(t)
 	svr := httptest.NewServer(router)
 	defer svr.Close()
 	// create color camera
@@ -84,7 +86,49 @@ func TestServerSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer release()
 
-	test.That(t, img, test.ShouldResemble, expectedColor)
+	imgDecode, _, err := image.Decode(bytes.NewReader(expectedColorBytes))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, img, test.ShouldResemble, rimage.ConvertImage(imgDecode))
+
+	lazyCtx := gostream.WithMIMETypeHint(context.Background(), utils.WithLazyMIMEType(utils.MimeTypePNG))
+	img, release, err = camera.ReadImage(
+		lazyCtx,
+		cam,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	defer release()
+
+	lazyPng := rimage.NewLazyEncodedImage(expectedColorBytes, utils.MimeTypePNG, -1, -1)
+	test.That(t, img, test.ShouldResemble, lazyPng)
+
+	stream, err := cam.Stream(lazyCtx)
+	test.That(t, err, test.ShouldBeNil)
+
+	img, release, err = stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	defer release()
+	test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
+
+	test.That(t, img, test.ShouldResemble, lazyPng)
+
+	img, release, err = camera.ReadImage(
+		gostream.WithMIMETypeHint(context.Background(), utils.MimeTypePNG),
+		cam,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	defer release()
+
+	test.That(t, img, test.ShouldResemble, rimage.ConvertImage(expectedColor))
+
+	img, release, err = camera.ReadImage(
+		gostream.WithMIMETypeHint(context.Background(), "idk"),
+		cam,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	defer release()
+
+	test.That(t, img, test.ShouldResemble, rimage.ConvertImage(expectedColor))
+
 	_, err = cam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, cam.Close(context.Background()), test.ShouldBeNil)
@@ -110,7 +154,7 @@ func TestServerSource(t *testing.T) {
 }
 
 func TestDualServerSource(t *testing.T) {
-	router, expectedColor, expectedDepth := createTestRouter(t)
+	router, _, expectedColorBytes, expectedDepth := createTestRouter(t)
 	svr := httptest.NewServer(router)
 	defer svr.Close()
 	// intrinsics for the image
@@ -137,7 +181,11 @@ func TestDualServerSource(t *testing.T) {
 	img, release, err := camera.ReadImage(context.Background(), cam1)
 	test.That(t, err, test.ShouldBeNil)
 	defer release()
-	test.That(t, img, test.ShouldResemble, expectedColor)
+
+	imgDecode, _, err := image.Decode(bytes.NewReader(expectedColorBytes))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, img, test.ShouldResemble, rimage.ConvertImage(imgDecode))
+
 	pc1, err := cam1.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cam1.Close(context.Background()), test.ShouldBeNil)

@@ -79,7 +79,7 @@ func TestServer(t *testing.T) {
 	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 			imageReleased = true
-			mimeType, _ := utils.CheckLazyMIMEType(camera.MIMETypeHint(ctx, utils.MimeTypeRawRGBA))
+			mimeType, _ := utils.CheckLazyMIMEType(gostream.MIMETypeHint(ctx, utils.MimeTypeRawRGBA))
 			switch mimeType {
 			case "", utils.MimeTypeRawRGBA:
 				return img, func() {}, nil
@@ -167,7 +167,7 @@ func TestServer(t *testing.T) {
 			MimeType: "image/who",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how to encode")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid mime type")
 		test.That(t, imageReleased, test.ShouldBeTrue)
 		// depth camera
 		imageReleased = false
@@ -234,7 +234,7 @@ func TestServer(t *testing.T) {
 			MimeType: "image/who",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid mime type")
 		test.That(t, imageReleased, test.ShouldBeTrue)
 
 		_, err = cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{Name: failCameraName})
