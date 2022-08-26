@@ -736,7 +736,7 @@ func (mt *mockType) Reconfigure(ctx context.Context, newRes resource.Reconfigura
 }
 
 func TestClientReconnect(t *testing.T) {
-	var someSubtype = resource.NewSubtype(
+	someSubtype := resource.NewSubtype(
 		resource.Namespace("acme"),
 		resource.ResourceTypeComponent,
 		resource.SubtypeName(uuid.New().String()),
@@ -830,7 +830,7 @@ func TestClientReconnect(t *testing.T) {
 }
 
 func TestClientRefreshNoReconfigure(t *testing.T) {
-	var someSubtype = resource.NewSubtype(
+	someSubtype := resource.NewSubtype(
 		resource.Namespace("acme"),
 		resource.ResourceTypeComponent,
 		resource.SubtypeName(uuid.New().String()),
