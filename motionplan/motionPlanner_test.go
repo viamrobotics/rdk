@@ -52,16 +52,16 @@ func BenchmarkUnconstrainedMotion(b *testing.B) {
 func TestUnconstrainedMotion(t *testing.T) {
 	planners := []seededPlannerConstructor{
 		NewRRTStarConnectMotionPlannerWithSeed,
-		// NewRRTConnectMotionPlannerWithSeed,
-		// NewCBiRRTMotionPlannerWithSeed,
+		NewRRTConnectMotionPlannerWithSeed,
+		NewCBiRRTMotionPlannerWithSeed,
 	}
 	testCases := []struct {
 		name   string
 		config planConfigConstructor
 	}{
 		{"2D plan test", simple2DMap},
-		// {"6D plan test", simpleUR5eMotion},
-		// {"7D plan test", simpleXArmMotion},
+		{"6D plan test", simpleUR5eMotion},
+		{"7D plan test", simpleXArmMotion},
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -117,8 +117,8 @@ func constrainedXArmMotion() (*planConfig, error) {
 	opt.AddConstraint("orientation", NewOrientationConstraint(orientConstraint))
 
 	return &planConfig{
-		Start:      frame.FloatsToInputs([]float64{-9., 9.}),
-		Goal:       spatial.PoseToProtobuf(spatial.NewPoseFromPoint(r3.Vector{X: 9, Y: 9, Z: 0})),
+		Start:      home7,
+		Goal:       pos,
 		RobotFrame: model,
 		Options:    opt,
 	}, nil
