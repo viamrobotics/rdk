@@ -3,9 +3,7 @@ package motionplan
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"math"
 	"sort"
 
@@ -386,7 +384,6 @@ func shortestPath(startMap, goalMap map[*node]*node, nodePairs []*nodePair) *pla
 			minIdx = i
 		}
 	}
-	exportMaps(startMap, goalMap)
 	return &planReturn{steps: extractPath(startMap, goalMap, nodePairs[minIdx])}
 }
 
@@ -397,15 +394,4 @@ func inputDist(from, to []frame.Input) float64 {
 	}
 	// TODO(rb): its inefficient to return the sqrt here.... take this out before the PR goes through
 	return math.Sqrt(dist)
-}
-
-func writeJSONFile(filename string, data interface{}) error {
-	bytes, err := json.MarshalIndent(data, "", " ")
-	if err != nil {
-		return err
-	}
-	if err := ioutil.WriteFile(filename, bytes, 0o644); err != nil {
-		return err
-	}
-	return nil
 }
