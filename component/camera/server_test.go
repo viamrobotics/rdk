@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/jpeg"
 	"image/png"
+	"sync"
 	"testing"
 
 	"github.com/edaniels/gostream"
@@ -70,6 +71,7 @@ func TestServer(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	var imageReleased bool
+	var imageReleasedMu sync.Mutex
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
@@ -79,7 +81,9 @@ func TestServer(t *testing.T) {
 	wooMIME := "image/woohoo"
 	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+			imageReleasedMu.Lock()
 			imageReleased = true
+			imageReleasedMu.Unlock()
 			mimeType, _ := utils.CheckLazyMIMEType(gostream.MIMETypeHint(ctx, utils.MimeTypeRawRGBA))
 			switch mimeType {
 			case "", utils.MimeTypeRawRGBA:
@@ -112,7 +116,9 @@ func TestServer(t *testing.T) {
 	}
 	injectCameraDepth.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+			imageReleasedMu.Lock()
 			imageReleased = true
+			imageReleasedMu.Unlock()
 			return depthImage, func() {}, nil
 		})), nil
 	}
@@ -141,7 +147,9 @@ func TestServer(t *testing.T) {
 			&pb.GetFrameRequest{Name: testCameraName, MimeType: utils.MimeTypeRawRGBA},
 		)
 		test.That(t, err, test.ShouldBeNil)
+		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
 		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeRawRGBA)
 		test.That(t, resp.Image, test.ShouldResemble, img.Pix)
 
@@ -150,36 +158,50 @@ func TestServer(t *testing.T) {
 			&pb.GetFrameRequest{Name: testCameraName, MimeType: ""},
 		)
 		test.That(t, err, test.ShouldBeNil)
+		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
 		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeRawRGBA)
 		test.That(t, resp.Image, test.ShouldNotBeNil)
 
+		imageReleasedMu.Lock()
 		imageReleased = false
+		imageReleasedMu.Unlock()
 		resp, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{
 			Name:     testCameraName,
 			MimeType: "image/png",
 		})
 		test.That(t, err, test.ShouldBeNil)
+		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
 		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypePNG)
 		test.That(t, resp.Image, test.ShouldResemble, imgBuf.Bytes())
 
+		imageReleasedMu.Lock()
 		imageReleased = false
+		imageReleasedMu.Unlock()
 		_, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{
 			Name:     testCameraName,
 			MimeType: "image/who",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid mime type")
+		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
 		// depth camera
+		imageReleasedMu.Lock()
 		imageReleased = false
+		imageReleasedMu.Unlock()
 		resp, err = cameraServer.GetFrame(
 			context.Background(),
 			&pb.GetFrameRequest{Name: depthCameraName, MimeType: ""},
 		)
 		test.That(t, err, test.ShouldBeNil)
+		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
 		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeRawRGBA)
 		test.That(t, resp.Image, test.ShouldNotBeNil)
 		decodedDepth, err := rimage.DecodeImage(
@@ -193,13 +215,17 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dm, test.ShouldResemble, depthImage)
 
+		imageReleasedMu.Lock()
 		imageReleased = false
+		imageReleasedMu.Unlock()
 		resp, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{
 			Name:     depthCameraName,
 			MimeType: "image/png",
 		})
 		test.That(t, err, test.ShouldBeNil)
+		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
 		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypePNG)
 		test.That(t, resp.Image, test.ShouldResemble, depthBuf.Bytes())
 		// bad camera
@@ -237,28 +263,38 @@ func TestServer(t *testing.T) {
 			Name: testCameraName,
 		})
 		test.That(t, err, test.ShouldBeNil)
+		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
 		test.That(t, resp.ContentType, test.ShouldEqual, "image/jpeg")
 		test.That(t, resp.Data, test.ShouldResemble, imgBufJpeg.Bytes())
 
+		imageReleasedMu.Lock()
 		imageReleased = false
+		imageReleasedMu.Unlock()
 		resp, err = cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{
 			Name:     testCameraName,
 			MimeType: "image/png",
 		})
 		test.That(t, err, test.ShouldBeNil)
+		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
 		test.That(t, resp.ContentType, test.ShouldEqual, "image/png")
 		test.That(t, resp.Data, test.ShouldResemble, imgBuf.Bytes())
 
+		imageReleasedMu.Lock()
 		imageReleased = false
+		imageReleasedMu.Unlock()
 		_, err = cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{
 			Name:     testCameraName,
 			MimeType: "image/who",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid mime type")
+		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
 
 		_, err = cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{Name: failCameraName})
 		test.That(t, err, test.ShouldNotBeNil)

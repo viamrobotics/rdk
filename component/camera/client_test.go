@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/png"
 	"net"
+	"sync"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -62,6 +63,7 @@ func TestClient(t *testing.T) {
 	projA = intrinsics
 
 	var imageReleased bool
+	var imageReleasedMu sync.Mutex
 	// color camera
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
@@ -71,7 +73,9 @@ func TestClient(t *testing.T) {
 	}
 	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+			imageReleasedMu.Lock()
 			imageReleased = true
+			imageReleasedMu.Unlock()
 			return imgPng, func() {}, nil
 		})), nil
 	}
@@ -91,7 +95,9 @@ func TestClient(t *testing.T) {
 	}
 	injectCameraDepth.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+			imageReleasedMu.Lock()
 			imageReleased = true
+			imageReleasedMu.Unlock()
 			return depthImg, func() {}, nil
 		})), nil
 	}
@@ -140,7 +146,9 @@ func TestClient(t *testing.T) {
 		compVal, _, err := rimage.CompareImages(img, frame)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
+		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
 
 		pcB, err := camera1Client.NextPointCloud(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -172,7 +180,9 @@ func TestClient(t *testing.T) {
 		dm, err := rimage.ConvertImageToDepthMap(frame)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dm, test.ShouldResemble, depthImg)
+		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
 
 		test.That(t, utils.TryClose(context.Background(), cameraDepthClient), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
