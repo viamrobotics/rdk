@@ -41,7 +41,8 @@ import (
 )
 
 const (
-	timePadding = 5
+	timePadding     = 5
+	validDataRateMS = 200
 )
 
 const (
@@ -233,6 +234,9 @@ func createSLAMService(t *testing.T, attrCfg *slam.AttrConfig, logger golog.Logg
 
 	r := setupInjectRobot()
 
+	slam.SetCameraValidationMaxTimeoutSecForTesting(1)
+	slam.SetDialMaxTimeoutSecForTesting(1)
+
 	svc, err := slam.New(ctx, r, cfgService, logger)
 
 	if success {
@@ -287,7 +291,7 @@ func TestGeneralNew(t *testing.T) {
 			Sensors:       []string{"gibberish"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
-			DataRateMs:    100,
+			DataRateMs:    validDataRateMS,
 		}
 
 		// Create slam service
@@ -304,7 +308,7 @@ func TestGeneralNew(t *testing.T) {
 			Sensors:       []string{},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
-			DataRateMs:    100,
+			DataRateMs:    validDataRateMS,
 		}
 
 		slam.SLAMLibraries["test"] = slam.LibraryMetadata{
@@ -328,7 +332,7 @@ func TestGeneralNew(t *testing.T) {
 			Sensors:       []string{"good_camera"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
-			DataRateMs:    100,
+			DataRateMs:    validDataRateMS,
 			Port:          "localhost:4445",
 		}
 
@@ -353,7 +357,7 @@ func TestCartographerNew(t *testing.T) {
 			Sensors:       []string{"good_lidar"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
-			DataRateMs:    100,
+			DataRateMs:    validDataRateMS,
 			Port:          "localhost:4445",
 		}
 
@@ -373,7 +377,7 @@ func TestCartographerNew(t *testing.T) {
 			Sensors:       []string{"bad_lidar"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
-			DataRateMs:    100,
+			DataRateMs:    validDataRateMS,
 			Port:          "localhost:4445",
 		}
 
@@ -390,7 +394,7 @@ func TestCartographerNew(t *testing.T) {
 			Sensors:       []string{"good_camera"},
 			ConfigParams:  map[string]string{"mode": "2d"},
 			DataDirectory: name,
-			DataRateMs:    100,
+			DataRateMs:    validDataRateMS,
 			Port:          "localhost:4445",
 		}
 
@@ -416,7 +420,7 @@ func TestORBSLAMNew(t *testing.T) {
 			Sensors:       []string{"good_color_camera", "good_depth_camera"},
 			ConfigParams:  map[string]string{"mode": "rgbd"},
 			DataDirectory: name,
-			DataRateMs:    100,
+			DataRateMs:    validDataRateMS,
 			Port:          "localhost:4445",
 		}
 
@@ -436,7 +440,7 @@ func TestORBSLAMNew(t *testing.T) {
 			Sensors:       []string{"good_color_camera"},
 			ConfigParams:  map[string]string{"mode": "rgbd"},
 			DataDirectory: name,
-			DataRateMs:    100,
+			DataRateMs:    validDataRateMS,
 			Port:          "localhost:4445",
 		}
 
@@ -453,7 +457,7 @@ func TestORBSLAMNew(t *testing.T) {
 			Sensors:       []string{"good_depth_camera", "good_color_camera"},
 			ConfigParams:  map[string]string{"mode": "rgbd"},
 			DataDirectory: name,
-			DataRateMs:    100,
+			DataRateMs:    validDataRateMS,
 			Port:          "localhost:4445",
 		}
 
@@ -470,7 +474,7 @@ func TestORBSLAMNew(t *testing.T) {
 			Sensors:       []string{"good_camera"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
-			DataRateMs:    100,
+			DataRateMs:    validDataRateMS,
 			Port:          "localhost:4445",
 		}
 
@@ -490,7 +494,7 @@ func TestORBSLAMNew(t *testing.T) {
 			Sensors:       []string{"bad_camera"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
-			DataRateMs:    100,
+			DataRateMs:    validDataRateMS,
 		}
 
 		// Create slam service
@@ -507,7 +511,7 @@ func TestORBSLAMNew(t *testing.T) {
 			Sensors:       []string{"bad_camera_intrinsics"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
-			DataRateMs:    100,
+			DataRateMs:    validDataRateMS,
 		}
 
 		// Create slam service
@@ -524,7 +528,7 @@ func TestORBSLAMNew(t *testing.T) {
 			Sensors:       []string{"good_lidar"},
 			ConfigParams:  map[string]string{"mode": "mono"},
 			DataDirectory: name,
-			DataRateMs:    100,
+			DataRateMs:    validDataRateMS,
 		}
 
 		// Create slam service
@@ -542,13 +546,12 @@ func TestCartographerDataProcess(t *testing.T) {
 
 	createFakeSLAMLibraries()
 
-	dataRateMs := 100
 	attrCfg := &slam.AttrConfig{
 		Algorithm:     "fake_cartographer",
 		Sensors:       []string{"good_lidar"},
 		ConfigParams:  map[string]string{"mode": "2d"},
 		DataDirectory: name,
-		DataRateMs:    dataRateMs,
+		DataRateMs:    validDataRateMS,
 		Port:          "localhost:4445",
 	}
 
@@ -581,13 +584,14 @@ func TestCartographerDataProcess(t *testing.T) {
 
 		n := 5
 		// Note: timePadding is required to allow the sub processes to be fully completed during test
-		time.Sleep(time.Millisecond * time.Duration((n)*(dataRateMs+timePadding)))
+		time.Sleep(time.Millisecond * time.Duration((n)*(validDataRateMS+timePadding)))
 		cancelFunc()
 
-		_, err := os.ReadDir(name + "/data/")
-		// TODO DATA-251: make the data loop run at the desired rate
-		// test.That(t, len(files), test.ShouldEqual, n)
+		files, err := os.ReadDir(name + "/data/")
+		test.That(t, len(files), test.ShouldEqual, n)
 		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, utils.TryClose(context.Background(), slamSvc), test.ShouldBeNil)
 	})
 
 	t.Run("Cartographer Data Process with lidar that errors during call to NextPointCloud", func(t *testing.T) {
@@ -606,7 +610,7 @@ func TestCartographerDataProcess(t *testing.T) {
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 		slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
 
-		time.Sleep(time.Millisecond * time.Duration(dataRateMs*2))
+		time.Sleep(time.Millisecond * time.Duration(validDataRateMS*2))
 		cancelFunc()
 
 		latestLoggedEntry := obs.All()[len(obs.All())-1]
@@ -624,13 +628,12 @@ func TestORBSLAMDataProcess(t *testing.T) {
 
 	createFakeSLAMLibraries()
 
-	dataRateMs := 100
 	attrCfg := &slam.AttrConfig{
 		Algorithm:     "fake_orbslamv3",
 		Sensors:       []string{"good_camera"},
 		ConfigParams:  map[string]string{"mode": "mono"},
 		DataDirectory: name,
-		DataRateMs:    dataRateMs,
+		DataRateMs:    validDataRateMS,
 		Port:          "localhost:4445",
 	}
 
@@ -665,13 +668,14 @@ func TestORBSLAMDataProcess(t *testing.T) {
 
 		n := 5
 		// Note: timePadding is required to allow the sub processes to be fully completed during test
-		time.Sleep(time.Millisecond * time.Duration((n)*(dataRateMs+timePadding)))
+		time.Sleep(time.Millisecond * time.Duration((n)*(validDataRateMS+timePadding)))
 		cancelFunc()
 
-		_, err := os.ReadDir(name + "/data/")
-		// TODO DATA-251: make the data loop run at the desired rate
-		// test.That(t, len(files), test.ShouldEqual, n)
+		files, err := os.ReadDir(name + "/data/")
+		test.That(t, len(files), test.ShouldEqual, n)
 		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, utils.TryClose(context.Background(), slamSvc), test.ShouldBeNil)
 	})
 
 	t.Run("ORBSLAM3 Data Process with camera that errors during call to Next", func(t *testing.T) {
@@ -690,7 +694,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 		slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
 
-		time.Sleep(time.Millisecond * time.Duration(dataRateMs*2))
+		time.Sleep(time.Millisecond * time.Duration(validDataRateMS*2))
 		cancelFunc()
 
 		latestLoggedEntry := obs.All()[len(obs.All())-1]
@@ -714,7 +718,7 @@ func TestGetMapAndPosition(t *testing.T) {
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
 		MapRateSec:       200,
-		DataRateMs:       100,
+		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:4445",
 	}
@@ -756,7 +760,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
 		MapRateSec:       200,
-		DataRateMs:       100,
+		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:4445",
 	}
@@ -775,7 +779,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		{slam.SLAMLibraries["fake_orbslamv3"].BinaryLocation},
 		{"-sensors=good_camera"},
 		{"-config_param={mode=mono,test_param=viam}", "-config_param={test_param=viam,mode=mono}"},
-		{"-data_rate_ms=100"},
+		{"-data_rate_ms=200"},
 		{"-map_rate_sec=200"},
 		{"-data_dir=" + name},
 		{"-input_file_pattern=10:200:1"},
@@ -806,7 +810,7 @@ func TestSLAMProcessFail(t *testing.T) {
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
 		MapRateSec:       200,
-		DataRateMs:       100,
+		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:4445",
 	}
@@ -858,7 +862,7 @@ func TestGRPCConnection(t *testing.T) {
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
 		MapRateSec:       200,
-		DataRateMs:       100,
+		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:-1",
 	}
