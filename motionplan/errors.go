@@ -2,14 +2,14 @@ package motionplan
 
 import "errors"
 
-func NewIKError() error {
+func newIKError() error {
 	return errors.New("unable to solve for position")
 }
 
-func NewPlannerFailedError() error {
+func newPlannerFailedError() error {
 	return errors.New("motion planner failed to find path")
 }
 
-func NewPlannerOptionsError() error {
+func newPlannerOptionsError() error {
 	return errors.New("PlannerOptions are required but have not been specified")
 }

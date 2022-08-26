@@ -100,7 +100,7 @@ func PlanWaypoints(ctx context.Context,
 	return solvableFS.SolveWaypointsWithOptions(ctx, seedMap, dst, f.Name(), worldState, planningOpts)
 }
 
-// EvaluatePlan assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan
+// EvaluatePlan assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
 func EvaluatePlan(plan [][]frame.Input) (cost float64) {
 	for i := 0; i < len(plan)-1; i++ {
 		cost += inputDist(plan[i], plan[i+1])
@@ -323,7 +323,7 @@ IK:
 		}
 	}
 	if len(solutions) == 0 {
-		return nil, NewIKError()
+		return nil, newIKError()
 	}
 
 	keys := make([]float64, 0, len(solutions))
@@ -373,7 +373,7 @@ func extractPath(startMap, goalMap map[*node]*node, pair *nodePair) []*node {
 
 func shortestPath(startMap, goalMap map[*node]*node, nodePairs []*nodePair) *planReturn {
 	if len(nodePairs) == 0 {
-		return &planReturn{err: NewPlannerFailedError()}
+		return &planReturn{err: newPlannerFailedError()}
 	}
 	pairCost := func(pair *nodePair) float64 {
 		return pair.a.cost + pair.b.cost
@@ -397,21 +397,6 @@ func inputDist(from, to []frame.Input) float64 {
 	}
 	// TODO(rb): its inefficient to return the sqrt here.... take this out before the PR goes through
 	return math.Sqrt(dist)
-}
-
-func exportMaps(m1, m2 map[*node]*node) {
-	outputList := make([][]frame.Input, 0)
-	for key, value := range m1 {
-		if value != nil {
-			outputList = append(outputList, key.q, value.q)
-		}
-	}
-	for key, value := range m2 {
-		if value != nil {
-			outputList = append(outputList, key.q, value.q)
-		}
-	}
-	writeJSONFile(vutil.ResolveFile("motionplan/tree.test"), [][][]frame.Input{outputList})
 }
 
 func writeJSONFile(filename string, data interface{}) error {

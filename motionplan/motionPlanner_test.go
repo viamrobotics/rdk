@@ -36,8 +36,10 @@ type planConfig struct {
 	Options    *PlannerOptions
 }
 
-type seededPlannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error)
-type planConfigConstructor func() (*planConfig, error)
+type (
+	seededPlannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error)
+	planConfigConstructor    func() (*planConfig, error)
+)
 
 func BenchmarkUnconstrainedMotion(b *testing.B) {
 	config, err := simpleUR5eMotion()
@@ -217,6 +219,8 @@ func simpleUR5eMotion() (*planConfig, error) {
 // testPlanner is a helper function that takes a planner and a planning query specified through a config object and tests that it
 // returns a valid set of waypoints.
 func testPlanner(t *testing.T, planner seededPlannerConstructor, config planConfigConstructor, seed int) {
+	t.Helper()
+
 	// plan
 	cfg, err := config()
 	test.That(t, err, test.ShouldBeNil)
@@ -241,8 +245,6 @@ func testPlanner(t *testing.T, planner seededPlannerConstructor, config planConf
 		}, cfg.Options.Resolution)
 		test.That(t, ok, test.ShouldBeTrue)
 	}
-	t.Log(EvaluatePlan(path))
-	// visualization.VisualizePlan(context.Background(), path, cfg.RobotFrame, nil)
 
 	// write output
 	test.That(t, writeJSONFile(utils.ResolveFile("motionplan/path.test"), [][][]frame.Input{path}), test.ShouldBeNil)
