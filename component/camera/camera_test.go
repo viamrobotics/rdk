@@ -3,6 +3,7 @@ package camera_test
 import (
 	"context"
 	"image"
+	"sync"
 	"testing"
 
 	"github.com/edaniels/gostream"
@@ -185,25 +186,37 @@ func TestReconfigurableCamera(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 0)
 
+	stream, err := reconfCamera1.(camera.Camera).Stream(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	nextImg, _, err := stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, nextImg, test.ShouldResemble, img)
+
 	err = reconfCamera1.Reconfigure(context.Background(), reconfCamera2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rutils.UnwrapProxy(reconfCamera1), test.ShouldResemble, rutils.UnwrapProxy(reconfCamera2))
 	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 1)
-
-	test.That(t, actualCamera1.nextCount, test.ShouldEqual, 0)
+	test.That(t, actualCamera1.nextCount, test.ShouldEqual, 1)
 	test.That(t, actualCamera2.nextCount, test.ShouldEqual, 0)
+
+	nextImg, _, err = stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, nextImg, test.ShouldResemble, img)
+
 	img1, _, err := camera.ReadImage(context.Background(), reconfCamera1.(camera.Camera))
 	test.That(t, err, test.ShouldBeNil)
 	compVal, _, err := rimage.CompareImages(img, img1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, compVal, test.ShouldEqual, 0)
-	test.That(t, actualCamera1.nextCount, test.ShouldEqual, 0)
-	test.That(t, actualCamera2.nextCount, test.ShouldEqual, 1)
+	test.That(t, actualCamera1.nextCount, test.ShouldEqual, 1)
+	test.That(t, actualCamera2.nextCount, test.ShouldEqual, 2)
 	test.That(t, reconfCamera1.(camera.Camera).Close(context.Background()), test.ShouldBeNil)
 
 	err = reconfCamera1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *camera.reconfigurableCamera")
+	test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestClose(t *testing.T) {
@@ -220,9 +233,11 @@ var img = image.NewNRGBA(image.Rect(0, 0, 4, 4))
 
 type mock struct {
 	camera.Camera
+	mu          sync.Mutex
 	Name        string
 	nextCount   int
 	reconfCount int
+	closedErr   error
 }
 
 type mockStream struct {
@@ -230,19 +245,34 @@ type mockStream struct {
 }
 
 func (ms *mockStream) Next(ctx context.Context) (image.Image, func(), error) {
+	ms.m.mu.Lock()
+	defer ms.m.mu.Unlock()
+	if ms.m.closedErr != nil {
+		return nil, nil, ms.m.closedErr
+	}
 	ms.m.nextCount++
-	return img, nil, nil
+	return img, func() {}, nil
 }
 
 func (ms *mockStream) Close(ctx context.Context) error {
+	ms.m.mu.Lock()
+	defer ms.m.mu.Unlock()
 	return nil
 }
 
 func (m *mock) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return &mockStream{m: m}, nil
 }
 
-func (m *mock) Close(_ context.Context) error { m.reconfCount++; return nil }
+func (m *mock) Close(_ context.Context) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.reconfCount++
+	m.closedErr = context.Canceled
+	return nil
+}
 
 func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
