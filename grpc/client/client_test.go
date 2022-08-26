@@ -7,6 +7,7 @@ import (
 	"image/png"
 	"math"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -134,9 +135,12 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 
 	var imageReleased bool
+	var imageReleasedMu sync.Mutex
 	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+			imageReleasedMu.Lock()
 			imageReleased = true
+			imageReleasedMu.Unlock()
 			return img, func() {}, nil
 		})), nil
 	}
@@ -399,7 +403,9 @@ func TestStatusClient(t *testing.T) {
 	compVal, _, err := rimage.CompareImages(img, frame)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
+	imageReleasedMu.Lock()
 	test.That(t, imageReleased, test.ShouldBeTrue)
+	imageReleasedMu.Unlock()
 
 	gripper1, err = gripper.FromRobot(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
