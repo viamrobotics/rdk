@@ -78,6 +78,16 @@ issues:
   exclude:
     - composites
   exclude-rules:
+    # See https://github.com/daixiang0/gci/issues/103
+    - path: component/board/pi/impl/board\.go$
+      linters:
+        - gci
+    - path: component/board/pi/impl/i2c\.go$
+      linters:
+        - gci
+    - path: component/board/pi/impl/servo\.go$
+      linters:
+        - gci
     - path: _test\.go$|^tests/|^samples/
       linters:
         - errcheck

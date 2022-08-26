@@ -6,10 +6,12 @@ package piimpl
 // #include <pigpio.h>
 // #include "pi.h"
 // #cgo LDFLAGS: -lpigpio
-import "context"
+import "C"
+
+import (
+	"context"
 	"time"
 
-	"C"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
