@@ -5,6 +5,7 @@ import (
 	"context"
 	"image"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -24,7 +25,7 @@ import (
 type TFLiteDetectorConfig struct {
 	// this should come from the attributes part of the detector config
 	ModelPath  string  `json:"model_path"`
-	NumThreads *int    `json:"num_threads"`
+	NumThreads int     `json:"num_threads"`
 	LabelPath  *string `json:"label_path"`
 	ServiceURL *string `json:"service_url"`
 }
@@ -47,9 +48,13 @@ func NewTFLiteDetector(ctx context.Context, cfg *VisModelConfig, logger golog.Lo
 		err := utils.NewUnexpectedTypeError(params, tfParams)
 		return nil, nil, errors.Wrapf(err, "register tflite detector %s", cfg.Name)
 	}
+	// Secret but hard limit on num_threads
+	if params.NumThreads > runtime.NumCPU()/4 {
+		params.NumThreads = runtime.NumCPU() / 4
+	}
 
 	// Add the model
-	model, err := addTFLiteModel(ctx, params.ModelPath, params.NumThreads)
+	model, err := addTFLiteModel(ctx, params.ModelPath, &params.NumThreads)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "something wrong with adding the model")
 	}

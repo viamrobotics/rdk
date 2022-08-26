@@ -3,6 +3,7 @@ package vision
 import (
 	"context"
 	"image"
+	"runtime"
 
 	"github.com/edaniels/golog"
 	"github.com/nfnt/resize"
@@ -19,7 +20,7 @@ import (
 type TFLiteClassifierConfig struct {
 	// this should come from the attributes part of the detector config
 	ModelPath  string  `json:"model_path"`
-	NumThreads *int    `json:"num_threads"`
+	NumThreads int     `json:"num_threads"`
 	LabelPath  *string `json:"label_path"`
 }
 
@@ -43,7 +44,12 @@ func NewTFLiteClassifier(ctx context.Context, conf *VisModelConfig,
 		err := utils.NewUnexpectedTypeError(params, tfParams)
 		return nil, nil, errors.Wrapf(err, "register tflite detector %s", conf.Name)
 	}
-	model, err := addTFLiteModel(ctx, params.ModelPath, params.NumThreads)
+	// Secret but hard limit on num_threads
+	if params.NumThreads > runtime.NumCPU()/4 {
+		params.NumThreads = runtime.NumCPU() / 4
+	}
+
+	model, err := addTFLiteModel(ctx, params.ModelPath, &params.NumThreads)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "something wrong with adding the model")
 	}
