@@ -170,14 +170,14 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 
 	// publish endpoint of plan if it is known
 	if planOpts.MaxSolutions == 1 && endpointPreview != nil {
-		endpointPreview <- &node{q: solutions[0]}
+		endpointPreview <- solutions[0]
 		endpointPreview = nil
 	}
 
 	// initialize maps
 	goalMap := make(map[*node]*node, len(solutions))
 	for _, solution := range solutions {
-		goalMap[&node{q: solution}] = nil
+		goalMap[solution] = nil
 	}
 	corners := map[*node]bool{}
 	seedMap := make(map[*node]*node)
@@ -192,7 +192,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	defer cancel()
 
 	// main sampling loop - for the first sample we try the 0.5 interpolation between seed and goal[0]
-	target := referenceframe.InterpolateInputs(seed, solutions[0], 0.5)
+	target := referenceframe.InterpolateInputs(seed, solutions[0].q, 0.5)
 	for i := 0; i < algOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():

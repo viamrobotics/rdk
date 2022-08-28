@@ -66,7 +66,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	}
 
 	for _, solution := range solutions[:nSolutions] {
-		goalMap[&node{q: solution}] = nil
+		goalMap[solution] = nil
 	}
 	nn := &neighborManager{nCPU: nCPU}
 
