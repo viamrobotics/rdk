@@ -447,6 +447,7 @@ func newWithResources(
 				r.manager.completeConfig(closeCtx, r)
 				r.updateDefaultServices(ctx)
 			}
+			r.manager.updateRemotesResourceNames(ctx, r)
 		}
 	}, r.activeBackgroundWorkers.Done)
 
