@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/Masterminds/sprig"
+	"github.com/NYTimes/gziphandler"
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	streampb "github.com/edaniels/gostream/proto/stream/v1"
@@ -516,7 +517,7 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options w
 		staticDir = http.FS(embedFS)
 	}
 
-	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(staticDir)))
+	mux.Handle(pat.Get("/static/*"), gziphandler.GzipHandler(http.StripPrefix("/static", http.FileServer(staticDir))))
 	mux.Handle(pat.New("/"), app)
 
 	return nil
