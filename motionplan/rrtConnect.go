@@ -94,13 +94,13 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 
 	// publish endpoint of plan if it is known
 	if planOpts.MaxSolutions == 1 && endpointPreview != nil {
-		endpointPreview <- &node{q: solutions[0]}
+		endpointPreview <- solutions[0]
 	}
 
 	// initialize maps
 	goalMap := make(map[*node]*node, len(solutions))
 	for _, solution := range solutions {
-		goalMap[&node{q: solution}] = nil
+		goalMap[solution] = nil
 	}
 	startMap := make(map[*node]*node)
 	startMap[&node{q: seed}] = nil
@@ -111,7 +111,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	defer cancel()
 
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
-	target := referenceframe.InterpolateInputs(seed, solutions[0], 0.5)
+	target := referenceframe.InterpolateInputs(seed, solutions[0].q, 0.5)
 
 	// Create a reference to the two maps so that we can alternate which one is grown
 	map1, map2 := startMap, goalMap

@@ -239,7 +239,7 @@ func getSolutions(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []frame.Input,
 	f frame.Frame,
-) ([][]frame.Input, error) {
+) ([]*node, error) {
 	// Linter doesn't properly handle loop labels
 	nSolutions := opt.MaxSolutions
 	if nSolutions == 0 {
@@ -330,9 +330,9 @@ IK:
 	}
 	sort.Float64s(keys)
 
-	orderedSolutions := make([][]frame.Input, 0)
+	orderedSolutions := make([]*node, 0)
 	for _, key := range keys {
-		orderedSolutions = append(orderedSolutions, solutions[key])
+		orderedSolutions = append(orderedSolutions, &node{q: solutions[key], cost: key})
 	}
 	return orderedSolutions, nil
 }
@@ -431,6 +431,5 @@ func inputDist(from, to []frame.Input) float64 {
 	for i, f := range from {
 		dist += math.Pow(to[i].Value-f.Value, 2)
 	}
-	// TODO(rb): its inefficient to return the sqrt here.... take this out before the PR goes through
-	return math.Sqrt(dist)
+	return dist
 }

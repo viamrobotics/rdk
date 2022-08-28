@@ -146,27 +146,22 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 
 	// publish endpoint of plan if it is known
 	if planOpts.MaxSolutions == 1 && endpointPreview != nil {
-		endpointPreview <- &node{q: solutions[0]}
+		endpointPreview <- solutions[0]
 	}
 
 	// the smallest interpolated distance between the start and end input represents a lower bound on cost
-	optimalCost := math.Inf(1)
-	for _, solution := range solutions {
-		if cost := inputDist(solution, seed); cost < optimalCost {
-			optimalCost = cost
-		}
-	}
+	optimalCost := solutions[0].cost
 
 	// initialize maps
 	goalMap := make(map[*node]*node, len(solutions))
 	for _, solution := range solutions {
-		goalMap[&node{q: solution}] = nil
+		goalMap[&node{q: solution.q, cost: 0}] = nil
 	}
 	startMap := make(map[*node]*node)
 	startMap[&node{q: seed}] = nil
 
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
-	target := referenceframe.InterpolateInputs(seed, solutions[0], 0.5)
+	target := referenceframe.InterpolateInputs(seed, solutions[0].q, 0.5)
 
 	// Create a reference to the two maps so that we can alternate which one is grown
 	map1, map2 := startMap, goalMap
@@ -204,7 +199,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 			mp.logger.Debugf("RRT* progress: %d%%\tpath cost: %.3f", 100*i/algOpts.PlanIter, solutionCost)
 
 			// check if an early exit is possible
-			if math.Abs(solutionCost-optimalCost) < algOpts.OptimalityThreshold*optimalCost {
+			if solutionCost-optimalCost < algOpts.OptimalityThreshold*optimalCost {
 				mp.logger.Debug("RRT* progress: sufficiently optimal path found, exiting")
 				solutionChan <- solution
 				return
