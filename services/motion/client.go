@@ -16,6 +16,7 @@ import (
 
 // client implements MotionServiceClient.
 type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.MotionServiceClient
 	logger golog.Logger
@@ -25,6 +26,7 @@ type client struct {
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
 	grpcClient := pb.NewMotionServiceClient(conn)
 	c := &client{
+		name:   name,
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
@@ -39,6 +41,7 @@ func (c *client) Move(
 	worldState *commonpb.WorldState,
 ) (bool, error) {
 	resp, err := c.client.Move(ctx, &pb.MoveRequest{
+		Name:          c.name,
 		ComponentName: protoutils.ResourceNameToProto(componentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
 		WorldState:    worldState,
@@ -56,6 +59,7 @@ func (c *client) MoveSingleComponent(
 	worldState *commonpb.WorldState,
 ) (bool, error) {
 	resp, err := c.client.MoveSingleComponent(ctx, &pb.MoveSingleComponentRequest{
+		Name:          c.name,
 		ComponentName: protoutils.ResourceNameToProto(componentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
 		WorldState:    worldState,
@@ -73,6 +77,7 @@ func (c *client) GetPose(
 	supplementalTransforms []*commonpb.Transform,
 ) (*referenceframe.PoseInFrame, error) {
 	resp, err := c.client.GetPose(ctx, &pb.GetPoseRequest{
+		Name:                   c.name,
 		ComponentName:          protoutils.ResourceNameToProto(componentName),
 		DestinationFrame:       destinationFrame,
 		SupplementalTransforms: supplementalTransforms,

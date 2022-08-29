@@ -123,7 +123,7 @@ func (r *Rover) Ready(ctx context.Context, theRobot robot.Robot) error {
 				}
 				var depthErr bool
 				func() {
-					img, release, err := cam.Next(ctx)
+					img, release, err := camera.ReadImage(ctx, cam)
 					if err != nil {
 						logger.Debugf("error from camera %s", err)
 						return

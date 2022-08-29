@@ -249,7 +249,7 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 // GoFor moves an inputted number of revolutions at the given rpm, no encoder is present
 // for this so power is determined via a linear relationship with the maxRPM and the distance
 // traveled is a time based estimation based on desired RPM.
-func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
+func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	if m.maxRPM == 0 {
 		return errors.New("not supported, define max_rpm attribute != 0")
 	}
@@ -288,7 +288,7 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 }
 
 // GoTo is not supported.
-func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64, extra map[string]interface{}) error {
+func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	return errors.New("not supported")
 }
 

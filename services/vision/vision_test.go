@@ -15,7 +15,7 @@ import (
 
 func TestCloseService(t *testing.T) {
 	ctx := context.Background()
-	srv := createService(ctx, t, "data/empty.json")
+	srv := createService(ctx, t)
 	// success
 	cfg := DetectorConfig{
 		Name: "test",
@@ -59,7 +59,7 @@ func (s *fakeClosingStruct) Close() error {
 	return nil
 }
 
-func createService(ctx context.Context, t *testing.T, filePath string) Service {
+func createService(ctx context.Context, t *testing.T) Service {
 	t.Helper()
 	logger := golog.NewTestLogger(t)
 	srv, err := New(ctx, nil, config.Service{}, logger)

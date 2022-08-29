@@ -15,11 +15,11 @@ import (
 func TestGainConfig(t *testing.T) {
 	logger := golog.NewDevelopmentLogger("gain")
 	for _, c := range []struct {
-		conf ControlBlockConfig
+		conf BlockConfig
 		err  string
 	}{
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name: "Gain1",
 				Type: "gain",
 				Attribute: config.AttributeMap{
@@ -30,7 +30,7 @@ func TestGainConfig(t *testing.T) {
 			"",
 		},
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name: "Gain1",
 				Type: "gain",
 				Attribute: config.AttributeMap{
@@ -41,7 +41,7 @@ func TestGainConfig(t *testing.T) {
 			"gain block Gain1 doesn't have a gain field",
 		},
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name: "Gain1",
 				Type: "gain",
 				Attribute: config.AttributeMap{
@@ -67,7 +67,7 @@ func TestGainConfig(t *testing.T) {
 func TestGainNext(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewDevelopmentLogger("gain")
-	c := ControlBlockConfig{
+	c := BlockConfig{
 		Name: "Gain1",
 		Type: "gain",
 		Attribute: config.AttributeMap{

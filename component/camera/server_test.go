@@ -7,8 +7,10 @@ import (
 	"image"
 	"image/jpeg"
 	"image/png"
+	"sync"
 	"testing"
 
+	"github.com/edaniels/gostream"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/camera"
@@ -22,33 +24,36 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-func newServer() (pb.CameraServiceServer, *inject.Camera, *inject.Camera, error) {
+func newServer() (pb.CameraServiceServer, *inject.Camera, *inject.Camera, *inject.Camera, error) {
 	injectCamera := &inject.Camera{}
+	injectCameraDepth := &inject.Camera{}
 	injectCamera2 := &inject.Camera{}
 	cameras := map[resource.Name]interface{}{
-		camera.Named(testCameraName): injectCamera,
-		camera.Named(failCameraName): injectCamera2,
-		camera.Named(fakeCameraName): "notCamera",
+		camera.Named(testCameraName):  injectCamera,
+		camera.Named(depthCameraName): injectCameraDepth,
+		camera.Named(failCameraName):  injectCamera2,
+		camera.Named(fakeCameraName):  "notCamera",
 	}
 	cameraSvc, err := subtype.New(cameras)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
-	return camera.NewServer(cameraSvc), injectCamera, injectCamera2, nil
+	return camera.NewServer(cameraSvc), injectCamera, injectCameraDepth, injectCamera2, nil
 }
 
 func TestServer(t *testing.T) {
-	cameraServer, injectCamera, injectCamera2, err := newServer()
+	cameraServer, injectCamera, injectCameraDepth, injectCamera2, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
+	img := image.NewNRGBA64(image.Rect(0, 0, 4, 4))
 	var imgBuf bytes.Buffer
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 	var imgBufJpeg bytes.Buffer
 	test.That(t, jpeg.Encode(&imgBufJpeg, img, nil), test.ShouldBeNil)
 
-	pcA := pointcloud.New()
-	err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
+	imgPng, err := png.Decode(bytes.NewReader(imgBuf.Bytes()))
+	test.That(t, err, test.ShouldBeNil)
+	imgJpeg, err := jpeg.Decode(bytes.NewReader(imgBufJpeg.Bytes()))
 	test.That(t, err, test.ShouldBeNil)
 
 	var projA rimage.Projector
@@ -61,37 +66,73 @@ func TestServer(t *testing.T) {
 		Ppy:    100,
 	}
 	projA = intrinsics
+	pcA := pointcloud.New()
+	err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
+	test.That(t, err, test.ShouldBeNil)
 
 	var imageReleased bool
+	var imageReleasedMu sync.Mutex
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
-	injectCamera.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+	injectCamera.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return projA, nil
 	}
-	injectCamera.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
-		imageReleased = true
-		switch mimeType {
-		case "", utils.MimeTypePNG:
-			return imgBuf.Bytes(), utils.MimeTypePNG, int64(img.Bounds().Dx()), int64(img.Bounds().Dy()), nil
-		case utils.MimeTypeRawRGBA:
-			return img.Pix, utils.MimeTypeRawRGBA, int64(img.Bounds().Dx()), int64(img.Bounds().Dy()), nil
-		case utils.MimeTypeJPEG:
-			return imgBufJpeg.Bytes(), utils.MimeTypeJPEG, int64(img.Bounds().Dx()), int64(img.Bounds().Dy()), nil
-		default:
-			return nil, "", 0, 0, errors.New("invalid mime type")
-		}
+	wooMIME := "image/woohoo"
+	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+			imageReleasedMu.Lock()
+			imageReleased = true
+			imageReleasedMu.Unlock()
+			mimeType, _ := utils.CheckLazyMIMEType(gostream.MIMETypeHint(ctx, utils.MimeTypeRawRGBA))
+			switch mimeType {
+			case "", utils.MimeTypeRawRGBA:
+				return img, func() {}, nil
+			case utils.MimeTypePNG:
+				return imgPng, func() {}, nil
+			case utils.MimeTypeJPEG:
+				return imgJpeg, func() {}, nil
+			case "image/woohoo":
+				return rimage.NewLazyEncodedImage([]byte{1, 2, 3}, mimeType, 2, 4), func() {}, nil
+			default:
+				return nil, nil, errors.New("invalid mime type")
+			}
+		})), nil
 	}
-
+	// depth camera
+	depthImage := rimage.NewEmptyDepthMap(10, 20)
+	depthImage.Set(0, 0, rimage.Depth(40))
+	depthImage.Set(0, 1, rimage.Depth(1))
+	depthImage.Set(5, 6, rimage.Depth(190))
+	depthImage.Set(9, 12, rimage.Depth(3000))
+	depthImage.Set(5, 9, rimage.MaxDepth-rimage.Depth(1))
+	var depthBuf bytes.Buffer
+	test.That(t, png.Encode(&depthBuf, depthImage), test.ShouldBeNil)
+	injectCameraDepth.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		return pcA, nil
+	}
+	injectCameraDepth.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+		return projA, nil
+	}
+	injectCameraDepth.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+			imageReleasedMu.Lock()
+			imageReleased = true
+			imageReleasedMu.Unlock()
+			return depthImage, func() {}, nil
+		})), nil
+	}
+	// bad camera
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return nil, errors.New("can't generate next point cloud")
 	}
-	injectCamera2.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+	injectCamera2.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return nil, errors.New("can't get camera properties")
 	}
-	injectCamera2.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
-		return nil, "", 0, 0, errors.New("can't generate frame")
+	injectCamera2.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		return nil, errors.New("can't generate stream")
 	}
+	// does a depth camera transfer its depth image properly
 	t.Run("GetFrame", func(t *testing.T) {
 		_, err := cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{Name: missingCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -100,13 +141,15 @@ func TestServer(t *testing.T) {
 		_, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{Name: fakeCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not a camera")
-
+		// color camera
 		resp, err := cameraServer.GetFrame(
 			context.Background(),
 			&pb.GetFrameRequest{Name: testCameraName, MimeType: utils.MimeTypeRawRGBA},
 		)
 		test.That(t, err, test.ShouldBeNil)
+		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
 		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeRawRGBA)
 		test.That(t, resp.Image, test.ShouldResemble, img.Pix)
 
@@ -115,32 +158,100 @@ func TestServer(t *testing.T) {
 			&pb.GetFrameRequest{Name: testCameraName, MimeType: ""},
 		)
 		test.That(t, err, test.ShouldBeNil)
+		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
-		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypePNG)
+		imageReleasedMu.Unlock()
+		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeRawRGBA)
 		test.That(t, resp.Image, test.ShouldNotBeNil)
 
+		imageReleasedMu.Lock()
 		imageReleased = false
+		imageReleasedMu.Unlock()
 		resp, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{
 			Name:     testCameraName,
 			MimeType: "image/png",
 		})
 		test.That(t, err, test.ShouldBeNil)
+		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
-		test.That(t, resp.MimeType, test.ShouldEqual, "image/png")
+		imageReleasedMu.Unlock()
+		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypePNG)
 		test.That(t, resp.Image, test.ShouldResemble, imgBuf.Bytes())
 
+		imageReleasedMu.Lock()
 		imageReleased = false
+		imageReleasedMu.Unlock()
 		_, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{
 			Name:     testCameraName,
 			MimeType: "image/who",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid mime type")
+		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
+		// depth camera
+		imageReleasedMu.Lock()
+		imageReleased = false
+		imageReleasedMu.Unlock()
+		resp, err = cameraServer.GetFrame(
+			context.Background(),
+			&pb.GetFrameRequest{Name: depthCameraName, MimeType: ""},
+		)
+		test.That(t, err, test.ShouldBeNil)
+		imageReleasedMu.Lock()
+		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
+		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeRawRGBA)
+		test.That(t, resp.Image, test.ShouldNotBeNil)
+		decodedDepth, err := rimage.DecodeImage(
+			context.Background(),
+			resp.Image,
+			resp.MimeType,
+			int(resp.WidthPx), int(resp.HeightPx),
+		)
+		test.That(t, err, test.ShouldBeNil)
+		dm, err := rimage.ConvertImageToDepthMap(decodedDepth)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, dm, test.ShouldResemble, depthImage)
 
+		imageReleasedMu.Lock()
+		imageReleased = false
+		imageReleasedMu.Unlock()
+		resp, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{
+			Name:     depthCameraName,
+			MimeType: "image/png",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		imageReleasedMu.Lock()
+		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
+		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypePNG)
+		test.That(t, resp.Image, test.ShouldResemble, depthBuf.Bytes())
+		// bad camera
 		_, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{Name: failCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate frame")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate stream")
+	})
+
+	t.Run("GetFrame with lazy", func(t *testing.T) {
+		// we know its lazy if it's a mime we can't actually handle internally
+		resp, err := cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{
+			Name:     testCameraName,
+			MimeType: utils.WithLazyMIMEType(wooMIME),
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.MimeType, test.ShouldEqual, wooMIME)
+		test.That(t, resp.Image, test.ShouldResemble, []byte{1, 2, 3})
+		test.That(t, resp.WidthPx, test.ShouldEqual, 2)
+		test.That(t, resp.HeightPx, test.ShouldEqual, 4)
+
+		_, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{
+			Name:     testCameraName,
+			MimeType: "image/notwoo",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid mime type")
 	})
 
 	t.Run("RenderFrame", func(t *testing.T) {
@@ -152,32 +263,42 @@ func TestServer(t *testing.T) {
 			Name: testCameraName,
 		})
 		test.That(t, err, test.ShouldBeNil)
+		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
 		test.That(t, resp.ContentType, test.ShouldEqual, "image/jpeg")
 		test.That(t, resp.Data, test.ShouldResemble, imgBufJpeg.Bytes())
 
+		imageReleasedMu.Lock()
 		imageReleased = false
+		imageReleasedMu.Unlock()
 		resp, err = cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{
 			Name:     testCameraName,
 			MimeType: "image/png",
 		})
 		test.That(t, err, test.ShouldBeNil)
+		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
 		test.That(t, resp.ContentType, test.ShouldEqual, "image/png")
 		test.That(t, resp.Data, test.ShouldResemble, imgBuf.Bytes())
 
+		imageReleasedMu.Lock()
 		imageReleased = false
+		imageReleasedMu.Unlock()
 		_, err = cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{
 			Name:     testCameraName,
 			MimeType: "image/who",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid mime type")
+		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
+		imageReleasedMu.Unlock()
 
 		_, err = cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{Name: failCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate frame")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate stream")
 	})
 
 	t.Run("GetPointCloud", func(t *testing.T) {

@@ -11,13 +11,13 @@ import (
 
 type gain struct {
 	mu     sync.Mutex
-	cfg    ControlBlockConfig
+	cfg    BlockConfig
 	y      []Signal
 	gain   float64
 	logger golog.Logger
 }
 
-func newGain(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
+func newGain(config BlockConfig, logger golog.Logger) (Block, error) {
 	g := &gain{cfg: config, logger: logger}
 	if err := g.reset(); err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func (b *gain) reset() error {
 	}
 	b.gain = b.cfg.Attribute.Float64("gain", 1.0)
 	b.y = make([]Signal, 1)
-	b.y[0] = makeSignal(b.cfg.Name, 1)
+	b.y[0] = makeSignal(b.cfg.Name)
 	return nil
 }
 
@@ -56,7 +56,7 @@ func (b *gain) Reset(ctx context.Context) error {
 	return b.reset()
 }
 
-func (b *gain) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
+func (b *gain) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.cfg = config
@@ -67,6 +67,6 @@ func (b *gain) Output(ctx context.Context) []Signal {
 	return b.y
 }
 
-func (b *gain) Config(ctx context.Context) ControlBlockConfig {
+func (b *gain) Config(ctx context.Context) BlockConfig {
 	return b.cfg
 }

@@ -14,6 +14,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
 	picommon "go.viam.com/rdk/component/board/pi/common"
 	"go.viam.com/rdk/component/generic"
@@ -21,14 +22,12 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/utils"
 )
 
-//nolint:stylecheck
-var PI_BAD_PULSEWIDTH = -7
-
-//nolint:stylecheck
-var PI_NOT_SERVO_GPIO = -93
+var (
+	piBadPulseWidth = -7
+	piNotServoGPIO  = -93
+)
 
 // init registers a pi servo based on pigpio.
 func init() {
@@ -138,13 +137,13 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 // returns piGPIO specific errors to user
 func (s *piPigpioServo) pigpioErrors(res int) error {
 	switch {
-	case res == PI_NOT_SERVO_GPIO:
+	case res == piNotServoGPIO:
 		return errors.Errorf("gpioservo pin %s is not set up to send and receive pulsewidths", s.pinname)
-	case res == PI_BAD_PULSEWIDTH:
+	case res == piBadPulseWidth:
 		return errors.Errorf("gpioservo on pin %s trying to reach out of range position", s.pinname)
 	case res == 0:
 		return nil
-	case res < 0 && res != PI_BAD_PULSEWIDTH && res != PI_NOT_SERVO_GPIO:
+	case res < 0 && res != piBadPulseWidth && res != piNotServoGPIO:
 		return errors.Errorf("gpioServo on pin %s failed with %d", s.pinname, res)
 	default:
 		return nil

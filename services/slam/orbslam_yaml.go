@@ -106,7 +106,7 @@ type ORBsettings struct {
 // generate a .yaml file to be used with orbslam.
 func (slamSvc *slamService) orbGenYAML(ctx context.Context, cam camera.Camera) error {
 	// Get the camera and check if the properties are valid
-	proj, err := cam.GetProperties(ctx)
+	proj, err := cam.Projector(ctx)
 	if err != nil {
 		return err
 	}
@@ -168,7 +168,7 @@ func (slamSvc *slamService) orbGenYAML(ctx context.Context, cam camera.Camera) e
 func (slamSvc *slamService) orbConfigToInt(key string, def int) (int, error) {
 	valStr, ok := slamSvc.configParams[key]
 	if !ok {
-		slamSvc.logger.Debugf("Parameter %s not found, using default value %f", key, def)
+		slamSvc.logger.Debugf("Parameter %s not found, using default value %d", key, def)
 		return def, nil
 	}
 

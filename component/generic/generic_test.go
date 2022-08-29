@@ -158,7 +158,7 @@ func TestClose(t *testing.T) {
 type mock struct {
 	Name string
 
-	doCount    int
+	doCount     int
 	reconfCount int
 }
 

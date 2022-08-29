@@ -41,10 +41,15 @@ func init() {
 const SubtypeName = resource.SubtypeName("generic")
 
 var (
+	// ErrUnimplemented is returned if the Do methods is not implemented.
 	ErrUnimplemented = errors.New("Do() unimplemented")
-	EchoFunc         = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+
+	// EchoFunc is a helper to echo out the say command passsed in a Do.
+	EchoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return cmd, nil
 	}
+
+	// TestCommand is a dummy command to send for a Do.
 	TestCommand = map[string]interface{}{"command": "test", "data": 500}
 )
 
@@ -60,16 +65,16 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// Generic represents a general purpose interface
+// Generic represents a general purpose interface.
 type Generic interface {
-	// Do sends and recieves arbitrary data
+	// Do sends and receives arbitrary data
 	Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 }
 
 // Unimplemented can be embedded in other components to save boilerplate.
 type Unimplemented struct{}
 
-// Do covers the unimplemented case for other components
+// Do covers the unimplemented case for other components.
 func (u *Unimplemented) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return nil, ErrUnimplemented
 }
@@ -77,7 +82,7 @@ func (u *Unimplemented) Do(ctx context.Context, cmd map[string]interface{}) (map
 // Echo can be embedded in other (fake) components to save boilerplate.
 type Echo struct{}
 
-// Do covers the echo case for other components
+// Do covers the echo case for other components.
 func (e *Echo) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }
@@ -156,8 +161,8 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	return &reconfigurableGeneric{actual: Generic}, nil
 }
 
-// RegisterService is a helper for testing in other components
-func RegisterService(server rpc.Server, service subtype.Service) {
+// RegisterService is a helper for testing in other components.
+func RegisterService(server rpc.Server, service subtype.Service) error {
 	resourceSubtype := registry.ResourceSubtypeLookup(Subtype)
-	resourceSubtype.RegisterRPCService(context.Background(), server, service)
+	return resourceSubtype.RegisterRPCService(context.Background(), server, service)
 }
