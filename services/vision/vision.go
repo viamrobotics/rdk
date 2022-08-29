@@ -465,14 +465,16 @@ func (svc *reconfigurableVision) RemoveClassifier(ctx context.Context, classifie
 }
 
 func (svc *reconfigurableVision) GetClassificationsFromCamera(ctx context.Context, cameraName,
-	classifierName string, n int) (classification.Classifications, error) {
+	classifierName string, n int,
+) (classification.Classifications, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.GetClassificationsFromCamera(ctx, cameraName, classifierName, n)
 }
 
 func (svc *reconfigurableVision) GetClassifications(ctx context.Context, img image.Image,
-	classifierName string, n int) (classification.Classifications, error) {
+	classifierName string, n int,
+) (classification.Classifications, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.GetClassifications(ctx, img, classifierName, n)
