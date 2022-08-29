@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -46,6 +47,8 @@ func newUndistortTransform(
 
 // Read undistorts the original image according to the camera parameters.
 func (us *undistortSource) Read(ctx context.Context) (image.Image, func(), error) {
+	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::undistort::Read")
+	defer span.End()
 	orig, release, err := us.originalStream.Next(ctx)
 	if err != nil {
 		return nil, nil, err
