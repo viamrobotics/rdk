@@ -3,7 +3,6 @@ package model
 
 import (
 	"context"
-	"fmt"
 
 	"go.uber.org/zap"
 
@@ -22,13 +21,11 @@ type client struct {
 
 // NewClient constructs a new pb.ModelServiceClient using the passed in connection.
 func NewClient(conn rpc.ClientConn) v1.ModelServiceClient {
-	fmt.Println("model/client.go/NewClient()")
 	return v1.NewModelServiceClient(conn)
 }
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
 func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
-	fmt.Println("model/client.go/newSvcClientFromConn()")
 	grpcClient := NewClient(conn)
 	sc := &client{
 		conn:   conn,
@@ -40,7 +37,6 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
 
 // NewConnection builds a connection to the passed address with the passed rpcOpts.
 func NewConnection(logger *zap.SugaredLogger, address string, rpcOpts []rpc.DialOption) (rpc.ClientConn, error) {
-	fmt.Println("model/model.go/NewConnection()")
 	ctx := context.Background()
 	conn, err := rpc.DialDirectGRPC(
 		ctx,
@@ -54,7 +50,6 @@ func NewConnection(logger *zap.SugaredLogger, address string, rpcOpts []rpc.Dial
 // NewClientFromConn constructs a new Client from connection passed in.
 //nolint:revive
 func NewClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
-	fmt.Println("model/client.go/NewClientFromConn()")
 	return newSvcClientFromConn(conn, logger)
 }
 
@@ -67,6 +62,5 @@ func (c *client) Upload(ctx context.Context) (v1.ModelService_UploadClient, erro
 }
 
 func (c *client) Deploy(ctx context.Context, req *v1.DeployRequest) (*v1.DeployResponse, error) {
-	fmt.Println("model/client.go/Deploy()")
 	return c.client.Deploy(ctx, req)
 }
