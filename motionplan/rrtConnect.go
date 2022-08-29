@@ -113,12 +113,12 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 		nearest2 := nm.nearestNeighbor(nmContext, target, map2)
 
 		// attempt to extend the map to connect the target to map 1, then try to connect the maps together
-		map1reached := checkPath(mp, planOpts, nearest1.q, target)
+		map1reached := mp.checkPath(planOpts, nearest1.q, target)
 		targetNode := &node{q: target}
 		if map1reached {
 			map1[targetNode] = nearest1
 		}
-		map2reached := checkPath(mp, planOpts, nearest2.q, target)
+		map2reached := mp.checkPath(planOpts, nearest2.q, target)
 		if map2reached {
 			map2[targetNode] = nearest2
 		}
