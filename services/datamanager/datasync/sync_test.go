@@ -414,7 +414,7 @@ func TestPartialUpload(t *testing.T) {
 			ackEveryNSensorDatas:         2,
 			serverErrorAfterNSensorDatas: 3,
 			toSend:                       createBinarySensorData([][]byte{msg1, msg2, msg3, msg4, msg5}),
-			// First two messages should be ACKed, so only msg3-5 should be sent after retry.
+			// First two messages were ACKed, and third was sent but not acked. Only msg3-5 should be sent after retry.
 			expSentAfterRetry: createBinarySensorData([][]byte{msg3, msg4, msg5}),
 		},
 		{
@@ -520,7 +520,6 @@ func TestPartialUpload(t *testing.T) {
 			// Restart the server and register the service.
 			mockService = getMockService()
 			mockService.messagesPerAck = tc.ackEveryNSensorDatas
-			mockService.clientShutdownIndex = -1
 			rpcServer = buildAndStartLocalServer(t, logger, mockService)
 			defer func() {
 				err := rpcServer.Stop()
