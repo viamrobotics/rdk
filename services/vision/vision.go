@@ -64,8 +64,15 @@ type Service interface {
 	// detector methods
 	GetDetectorNames(ctx context.Context) ([]string, error)
 	AddDetector(ctx context.Context, cfg VisModelConfig) error
+	RemoveDetector(ctx context.Context, detectorName string) error
 	GetDetectionsFromCamera(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error)
 	GetDetections(ctx context.Context, img image.Image, detectorName string) ([]objdet.Detection, error)
+	// classifier methods
+	GetClassifierNames(ctx context.Context) ([]string, error)
+	AddClassifier(ctx context.Context, cfg VisModelConfig) error
+	RemoveClassifier(ctx context.Context, classifierName string) error
+	GetClassificationsFromCamera(ctx context.Context, cameraName, classifierName string, n int) (classification.Classifications, error)
+	GetClassifications(ctx context.Context, img image.Image, classifierName string, n int) (classification.Classifications, error)
 	// segmenter methods
 	GetSegmenterNames(ctx context.Context) ([]string, error)
 	GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
@@ -195,10 +202,10 @@ func (vs *visionService) AddDetector(ctx context.Context, cfg VisModelConfig) er
 }
 
 // RemoveDetector removes a detector from the registry.
-func (vs *visionService) RemoveDetector(ctx context.Context, cfg VisModelConfig) error {
+func (vs *visionService) RemoveDetector(ctx context.Context, detectorName string) error {
 	_, span := trace.StartSpan(ctx, "service::vision::RemoveDetector")
 	defer span.End()
-	err := vs.modReg.removeVisModel(cfg.Name, vs.logger)
+	err := vs.modReg.removeVisModel(detectorName, vs.logger)
 	if err != nil {
 		return err
 	}
@@ -268,10 +275,10 @@ func (vs *visionService) AddClassifier(ctx context.Context, cfg VisModelConfig) 
 }
 
 // Remove classifier removes a classifier from the registry.
-func (vs *visionService) RemoveClassifier(ctx context.Context, cfg VisModelConfig) error {
+func (vs *visionService) RemoveClassifier(ctx context.Context, classifierName string) error {
 	_, span := trace.StartSpan(ctx, "service::vision::RemoveClassifier")
 	defer span.End()
-	err := vs.modReg.removeVisModel(cfg.Name, vs.logger)
+	err := vs.modReg.removeVisModel(classifierName, vs.logger)
 	if err != nil {
 		return err
 	}
@@ -420,6 +427,12 @@ func (svc *reconfigurableVision) AddDetector(ctx context.Context, cfg VisModelCo
 	return svc.actual.AddDetector(ctx, cfg)
 }
 
+func (svc *reconfigurableVision) RemoveDetector(ctx context.Context, detectorName string) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.RemoveDetector(ctx, detectorName)
+}
+
 func (svc *reconfigurableVision) GetDetectionsFromCamera(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
@@ -431,6 +444,38 @@ func (svc *reconfigurableVision) GetDetections(ctx context.Context, img image.Im
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.GetDetections(ctx, img, detectorName)
+}
+
+func (svc *reconfigurableVision) GetClassifierNames(ctx context.Context) ([]string, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetClassifierNames(ctx)
+}
+
+func (svc *reconfigurableVision) AddClassifier(ctx context.Context, cfg VisModelConfig) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.AddClassifier(ctx, cfg)
+}
+
+func (svc *reconfigurableVision) RemoveClassifier(ctx context.Context, classifierName string) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.RemoveDetector(ctx, classifierName)
+}
+
+func (svc *reconfigurableVision) GetClassificationsFromCamera(ctx context.Context, cameraName,
+	classifierName string, n int) (classification.Classifications, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetClassificationsFromCamera(ctx, cameraName, classifierName, n)
+}
+
+func (svc *reconfigurableVision) GetClassifications(ctx context.Context, img image.Image,
+	classifierName string, n int) (classification.Classifications, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetClassifications(ctx, img, classifierName, n)
 }
 
 func (svc *reconfigurableVision) GetSegmenterNames(ctx context.Context) ([]string, error) {
