@@ -41,12 +41,13 @@ var errUnimplemented = errors.New("unimplemented")
 // RobotClient satisfies the robot.Robot interface through a gRPC based
 // client conforming to the robot.proto contract.
 type RobotClient struct {
-	address     string
-	conn        rpc.ClientConn
-	client      pb.RobotServiceClient
-	refClient   *grpcreflect.Client
-	dialOptions []rpc.DialOption
-	children    map[resource.Name]interface{}
+	address       string
+	conn          rpc.ClientConn
+	client        pb.RobotServiceClient
+	refClient     *grpcreflect.Client
+	dialOptions   []rpc.DialOption
+	children      map[resource.Name]interface{}
+	remoteNameMap map[resource.Name]resource.Name
 
 	mu                  *sync.RWMutex
 	resourceNames       []resource.Name
@@ -83,6 +84,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		dialOptions:             rOpts.dialOptions,
 		notifyParent:            nil,
 		children:                make(map[resource.Name]interface{}),
+		remoteNameMap:           make(map[resource.Name]resource.Name),
 	}
 	if err := rc.connect(ctx); err != nil {
 		return nil, err
@@ -332,6 +334,18 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 	if client, ok := rc.children[name]; ok {
 		return client, nil
 	}
+	// if the client isnt found see if a remote name matches the name
+	shortName := name.ShortName()
+	shortcut := shortName[strings.LastIndexAny(shortName, ":")+1:]
+	tempName := resource.NameFromSubtype(name.Subtype, shortcut)
+	if val, ok := rc.remoteNameMap[tempName]; ok {
+		if val.Name != "" {
+			val.Remote = ""
+			if client, ok := rc.children[val]; ok {
+				return client, nil
+			}
+		}
+	}
 	resourceClient, err := rc.createClient(name)
 	if err != nil {
 		return nil, err
@@ -430,7 +444,33 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 		rc.resourceRPCSubtypes = rpcSubtypes
 	}
 
+	err = rc.updateRemoteNameMap(ctx)
+	if err != nil {
+		return err
+	}
+
 	return rc.reconfigureChildren(ctx)
+}
+
+func (rc *RobotClient) updateRemoteNameMap(ctx context.Context) error {
+	tempMap := make(map[resource.Name]resource.Name)
+	for _, n := range rc.resourceNames {
+		if n.Name == "" {
+			return errors.Errorf("Empty name used for resource: %s", n)
+		}
+		name := n.ShortName()
+		tempName := resource.NameFromSubtype(n.Subtype, name)
+		shortcut := name[strings.LastIndexAny(name, ":")+1:]
+		n.Name = shortcut
+		// If the short name already exists in the map then there is a collision and we make the long name empty.
+		if _, ok := tempMap[n]; ok {
+			tempMap[n] = resource.NameFromSubtype(n.Subtype, "")
+		} else {
+			tempMap[n] = tempName
+		}
+	}
+	rc.remoteNameMap = tempMap
+	return nil
 }
 
 // RemoteNames returns the names of all known remotes.
