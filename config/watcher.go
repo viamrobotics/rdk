@@ -3,7 +3,7 @@ package config
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -52,6 +52,8 @@ func newCloudWatcher(ctx context.Context, config *Config, logger golog.Logger) *
 	nextCheckForNewCert := time.Now().Add(checkForNewCertInterval)
 
 	ticker := time.NewTicker(config.Cloud.RefreshInterval)
+
+	var prevCfg *Config
 	utils.ManagedGo(func() {
 		for {
 			if !utils.SelectContextOrWait(cancelCtx, config.Cloud.RefreshInterval) {
@@ -61,10 +63,13 @@ func newCloudWatcher(ctx context.Context, config *Config, logger golog.Logger) *
 			if time.Now().After(nextCheckForNewCert) {
 				checkForNewCert = true
 			}
-			newConfig, _, err := readFromCloud(cancelCtx, config, false, checkForNewCert, logger)
+			newConfig, err := readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger)
 			if err != nil {
 				logger.Errorw("error reading cloud config", "error", err)
 				continue
+			}
+			if cp, err := newConfig.CopyOnlyPublicFields(); err == nil {
+				prevCfg = cp
 			}
 			if checkForNewCert {
 				nextCheckForNewCert = time.Now().Add(checkForNewCertInterval)
@@ -128,7 +133,7 @@ func newFSWatcher(ctx context.Context, configPath string, logger golog.Logger) (
 			case event := <-fsWatcher.Events:
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					//nolint:gosec
-					rd, err := ioutil.ReadFile(configPath)
+					rd, err := os.ReadFile(configPath)
 					if err != nil {
 						logger.Errorw("error reading config file after write", "error", err)
 						continue

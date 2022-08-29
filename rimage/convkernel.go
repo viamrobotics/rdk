@@ -19,7 +19,7 @@ type Kernel struct {
 }
 
 // NewKernel creates a new Kernel with the given width and height. The value for every position of the kernel is 0.
-func NewKernel(width int, height int) (*Kernel, error) {
+func NewKernel(width, height int) (*Kernel, error) {
 	if width < 0 || height < 0 {
 		return nil, errors.New("negative kernel size")
 	}
@@ -36,7 +36,7 @@ func (k *Kernel) At(x, y int) float64 {
 }
 
 // Set sets a value at a given {x, y} position.
-func (k *Kernel) Set(x int, y int, value float64) {
+func (k *Kernel) Set(x, y int, value float64) {
 	k.Content[x][y] = value
 }
 

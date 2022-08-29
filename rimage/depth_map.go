@@ -1,6 +1,7 @@
 package rimage
 
 import (
+	"context"
 	"image"
 	"image/color"
 	"image/png"
@@ -91,15 +92,7 @@ func (dm *DepthMap) At(x, y int) color.Color {
 }
 
 // ColorModel for DepthMap so that it implements image.Image.
-func (dm *DepthMap) ColorModel() color.Model { return &TheDepthModel{} }
-
-// TheDepthModel is the color model used to convert other colors to its own color.
-type TheDepthModel struct{}
-
-// Convert will use the Gray16 model as a stand-in for the depth model.
-func (tdm *TheDepthModel) Convert(c color.Color) color.Color {
-	return color.Gray16Model.Convert(c)
-}
+func (dm *DepthMap) ColorModel() color.Model { return color.Gray16Model }
 
 // SubImage returns a cropped image of the original DepthMap from the given rectangle.
 func (dm *DepthMap) SubImage(r image.Rectangle) *DepthMap {
@@ -125,15 +118,39 @@ func (dm *DepthMap) SubImage(r image.Rectangle) *DepthMap {
 // or if it can be converted into one.
 func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
 	switch ii := img.(type) {
+	case *LazyEncodedImage:
+		decoded, err := decodeImage(
+			context.Background(), ii.RawData(), ii.MIMEType(), ii.Bounds().Dx(), ii.Bounds().Dy(), false)
+		if err != nil {
+			return nil, err
+		}
+		return ConvertImageToDepthMap(decoded)
 	case *DepthMap:
 		return ii, nil
 	case *imageWithDepth:
 		return ii.Depth, nil
 	case *image.Gray16:
 		return gray16ToDepthMap(ii), nil
+	case *image.NRGBA64:
+		return nrgba64ToDepthMap(ii), nil
 	default:
 		return nil, errors.Errorf("don't know how to make DepthMap from %T", img)
 	}
+}
+
+// nrgba64ToDepthMap creates a Depthmap from an image.NRGBA64.
+func nrgba64ToDepthMap(img *image.NRGBA64) *DepthMap {
+	bounds := img.Bounds()
+	width, height := bounds.Dx(), bounds.Dy()
+	dm := NewEmptyDepthMap(width, height)
+	for x := 0; x < width; x++ {
+		for y := 0; y < height; y++ {
+			c := img.At(x, y)
+			z := color.Gray16Model.Convert(c).(color.Gray16).Y
+			dm.Set(x, y, Depth(z))
+		}
+	}
+	return dm
 }
 
 // gray16ToDepthMap creates a DepthMap from an image.Gray16.
@@ -151,8 +168,23 @@ func gray16ToDepthMap(img *image.Gray16) *DepthMap {
 	return dm
 }
 
+// ConvertImageToGray16 takes an image and figures out if it's already an image.Gray16
+// or if it can be converted into one.
+func ConvertImageToGray16(img image.Image) (*image.Gray16, error) {
+	switch ii := img.(type) {
+	case *DepthMap:
+		return ii.ToGray16Picture(), nil
+	case *imageWithDepth:
+		return ii.Depth.ToGray16Picture(), nil
+	case *image.Gray16:
+		return ii, nil
+	default:
+		return nil, errors.Errorf("don't know how to make image.Gray16 from %T", img)
+	}
+}
+
 // ToGray16Picture converts this depth map into a grayscale image of the same dimensions.
-func (dm *DepthMap) ToGray16Picture() image.Image {
+func (dm *DepthMap) ToGray16Picture() *image.Gray16 {
 	grayScale := image.NewGray16(image.Rect(0, 0, dm.Width(), dm.Height()))
 
 	for x := 0; x < dm.Width(); x++ {
@@ -420,7 +452,7 @@ func (dm *DepthMap) Warp(m TransformationMatrix, newSize image.Point) *DepthMap 
 // same dimensions.
 func (dm *DepthMap) ConvertDepthMapToLuminanceFloat() *mat.Dense {
 	out := mat.NewDense(dm.height, dm.width, nil)
-	utils.ParallelForEachPixel(image.Point{dm.width, dm.height}, func(x int, y int) {
+	utils.ParallelForEachPixel(image.Point{dm.width, dm.height}, func(x, y int) {
 		d := dm.GetDepth(x, y)
 		out.Set(y, x, float64(d))
 	})

@@ -13,7 +13,7 @@ import (
 type SLAMService struct {
 	slam.Service
 	GetPositionFunc func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error)
-	GetMapFunc      func(ctx context.Context, name string, mimeType string, cp *referenceframe.PoseInFrame,
+	GetMapFunc      func(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
 		include bool) (string, image.Image, *vision.Object, error)
 }
 

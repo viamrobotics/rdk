@@ -1,3 +1,4 @@
+// Package main is a color detection tool.
 package main
 
 import (
@@ -11,7 +12,7 @@ import (
 	"github.com/edaniels/gostream"
 
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/camera/imagesource"
+	"go.viam.com/rdk/component/camera/videosource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/vision/objectdetection"
 )
@@ -20,7 +21,7 @@ type simpleSource struct {
 	filePath string
 }
 
-func (s *simpleSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (s *simpleSource) Read(ctx context.Context) (image.Image, func(), error) {
 	img, err := rimage.NewImageFromFile(s.filePath)
 	return img, func() {}, err
 }
@@ -42,19 +43,19 @@ func main() {
 	}
 	if *imgPtr != "" {
 		src := &simpleSource{*imgPtr}
-		cam, err := camera.New(src, nil)
+		cam, err := camera.NewFromReader(src, nil)
 		if err != nil {
 			logger.Fatal(err)
 		}
 		pipeline(cam, *threshPtr, *sizePtr, *colorPtr, logger)
 	} else {
-		cfg := &imagesource.ServerAttrs{
+		cfg := &videosource.ServerAttrs{
 			URL: *urlPtr,
 			AttrConfig: &camera.AttrConfig{
 				Stream: *streamPtr,
 			},
 		}
-		src, err := imagesource.NewServerSource(context.Background(), cfg, logger)
+		src, err := videosource.NewServerSource(context.Background(), cfg, logger)
 		if err != nil {
 			logger.Fatal(err)
 		}
@@ -64,7 +65,7 @@ func main() {
 	os.Exit(0)
 }
 
-func pipeline(src gostream.ImageSource, tol float64, size int, colorString string, logger golog.Logger) {
+func pipeline(src gostream.VideoSource, tol float64, size int, colorString string, logger golog.Logger) {
 	detCfg := &objectdetection.ColorDetectorConfig{
 		SegmentSize:       size,
 		Tolerance:         tol,

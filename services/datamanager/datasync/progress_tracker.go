@@ -1,7 +1,6 @@
 package datasync
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"

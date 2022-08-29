@@ -2,10 +2,9 @@
 
 import { computed, ref } from 'vue';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
-import type { GenericServiceClient } from '../gen/proto/api/component/generic/v1/generic_pb_service.esm';
 import type { Resource } from '../lib/resource';
 import genericApi from '../gen/proto/api/component/generic/v1/generic_pb.esm';
-import { toast } from '../lib/toast.js';
+import { toast } from '../lib/toast';
 
 interface Props {
   resources: Resource[]
@@ -28,7 +27,7 @@ const doCommand = (name: string, command: string) => {
 
   executing.value = true;
 
-  ((window as any).genericService as GenericServiceClient).do(request, (error, response) => {
+  window.genericService.do(request, (error, response) => {
     if (error) {
       toast.error(`Error executing command on ${name}: ${error}`);
       executing.value = false;
@@ -41,14 +40,17 @@ const doCommand = (name: string, command: string) => {
       return;
     }
 
-    output.value = JSON.stringify(response?.getResult().toObject(), null, '\t');
+    output.value = JSON.stringify(response?.getResult()?.toObject(), null, '\t');
     executing.value = false;
   });
 };
 </script>
 
 <template>
-  <v-collapse :title="`Do()`">
+  <v-collapse
+    title="Do()"
+    class="do"
+  >
     <div class="h-full w-full border border-t-0 border-black p-4">
       <v-select
         label="Selected Component"

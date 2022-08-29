@@ -19,6 +19,7 @@ import (
 
 // client implements SLAMServiceClient.
 type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.SLAMServiceClient
 	logger golog.Logger
@@ -28,6 +29,7 @@ type client struct {
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
 	grpcClient := pb.NewSLAMServiceClient(conn)
 	c := &client{
+		name:   name,
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
@@ -62,8 +64,11 @@ func (c *client) GetMap(ctx context.Context, name, mimeType string, cameraPositi
 	req := &pb.GetMapRequest{
 		Name:               name,
 		MimeType:           mimeType,
-		CameraPosition:     referenceframe.PoseInFrameToProtobuf(cameraPosition).Pose,
 		IncludeRobotMarker: includeRobotMarker,
+	}
+
+	if cameraPosition != nil {
+		req.CameraPosition = referenceframe.PoseInFrameToProtobuf(cameraPosition).Pose
 	}
 
 	var imageData image.Image

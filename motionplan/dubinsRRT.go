@@ -33,8 +33,8 @@ type DubinsRRTMotionPlanner struct {
 func NewDubinsRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger, d Dubins) (MotionPlanner, error) {
 	mp := &DubinsRRTMotionPlanner{frame: frame, logger: logger, nCPU: nCPU, D: d}
 
-	mp.iter = planIter
-	mp.stepSize = stepSize
+	mp.iter = defaultPlanIter
+	mp.stepSize = defaultResolution
 
 	//nolint:gosec
 	mp.randseed = rand.New(rand.NewSource(1))
@@ -61,11 +61,11 @@ func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 ) ([][]referenceframe.Input, error) {
 	solutionChan := make(chan *planReturn, 1)
 	if opt == nil {
-		opt = NewDefaultPlannerOptions()
+		opt = NewBasicPlannerOptions()
 	}
 
 	utils.PanicCapturingGo(func() {
-		mp.planRunner(ctx, goal, seed, opt, nil, solutionChan, 0.1)
+		mp.planRunner(ctx, goal, seed, opt, solutionChan, 0.1)
 	})
 	select {
 	case <-ctx.Done():
@@ -85,7 +85,6 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
 	opt *PlannerOptions,
-	endpointPreview chan *configuration,
 	solutionChan chan *planReturn,
 	goalRate float64,
 ) {

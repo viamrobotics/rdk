@@ -2,7 +2,7 @@ package config
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"math"
 	"os"
 	"testing"
@@ -20,7 +20,7 @@ func TestFrame(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.UncheckedErrorFunc(file.Close)
 
-	data, err := ioutil.ReadAll(file)
+	data, err := io.ReadAll(file)
 	test.That(t, err, test.ShouldBeNil)
 	// Parse into map of tests
 	var testMap map[string]json.RawMessage

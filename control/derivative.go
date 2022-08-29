@@ -58,14 +58,14 @@ var backward2nd2Stencil = derivativeStencil{
 
 type derivative struct {
 	mu      sync.Mutex
-	cfg     ControlBlockConfig
+	cfg     BlockConfig
 	stencil derivativeStencil
 	px      [][]float64
 	y       []Signal
 	logger  golog.Logger
 }
 
-func newDerivative(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
+func newDerivative(config BlockConfig, logger golog.Logger) (Block, error) {
 	d := &derivative{cfg: config, logger: logger}
 	if err := d.reset(); err != nil {
 		return nil, err
@@ -125,12 +125,12 @@ func (d *derivative) reset() error {
 	d.y = make([]Signal, len(d.cfg.DependsOn))
 	for i := range d.px {
 		d.px[i] = make([]float64, len(d.stencil.Coeffs))
-		d.y[i] = makeSignal(d.cfg.Name, 1)
+		d.y[i] = makeSignal(d.cfg.Name)
 	}
 	return nil
 }
 
-func (d *derivative) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
+func (d *derivative) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.cfg = config
@@ -147,6 +147,6 @@ func (d *derivative) Output(ctx context.Context) []Signal {
 	return d.y
 }
 
-func (d *derivative) Config(ctx context.Context) ControlBlockConfig {
+func (d *derivative) Config(ctx context.Context) BlockConfig {
 	return d.cfg
 }

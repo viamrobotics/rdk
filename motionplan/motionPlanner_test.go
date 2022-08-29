@@ -3,8 +3,8 @@ package motionplan
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
 	"math/rand"
+	"os"
 	"strconv"
 	"testing"
 
@@ -79,7 +79,7 @@ func TestConstrainedArmMotion(t *testing.T) {
 		OZ: -1,
 	}
 
-	opt := NewDefaultPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	orientMetric := NewPoseFlexOVMetric(spatial.NewPoseFromProtobuf(pos), 0.09)
 
 	oFunc := orientDistToRegion(spatial.NewPoseFromProtobuf(pos).Orientation(), 0.1)
@@ -228,7 +228,7 @@ func testPlanner(t *testing.T, planner seededPlannerConstructor, config *planCon
 		// setup planner
 		mp, err := planner(config.RobotFrame, nCPU/4, rand.New(rand.NewSource(int64(i))), logger.Sugar())
 		test.That(t, err, test.ShouldBeNil)
-		opt := NewDefaultPlannerOptions()
+		opt := NewBasicPlannerOptions()
 		toMap := func(geometries []spatial.Geometry) map[string]spatial.Geometry {
 			geometryMap := make(map[string]spatial.Geometry, 0)
 			for i, geometry := range geometries {
@@ -255,7 +255,7 @@ func testPlanner(t *testing.T, planner seededPlannerConstructor, config *planCon
 				StartInput: path[j],
 				EndInput:   path[j+1],
 				Frame:      config.RobotFrame,
-			}, mp.Resolution())
+			}, opt.Resolution)
 			test.That(t, ok, test.ShouldBeTrue)
 		}
 	}
@@ -269,7 +269,7 @@ func writeJSONFile(filename string, data interface{}) error {
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(filename, bytes, 0o644); err != nil {
+	if err := os.WriteFile(filename, bytes, 0o644); err != nil {
 		return err
 	}
 	return nil
