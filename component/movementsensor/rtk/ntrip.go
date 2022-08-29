@@ -23,12 +23,19 @@ type ntripCorrectionSource struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+
+	errMu     sync.Mutex
+	lastError error
 }
 
 func newNtripCorrectionSource(ctx context.Context, config config.Component, logger golog.Logger) (correctionSource, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
-	n := &ntripCorrectionSource{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	n := &ntripCorrectionSource{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+	}
 
 	// Init ntripInfo from attributes
 	ntripInfoComp, err := nmea.NewNtripInfo(ctx, config, logger)
@@ -38,7 +45,7 @@ func newNtripCorrectionSource(ctx context.Context, config config.Component, logg
 	n.info = ntripInfoComp
 
 	n.logger.Debug("Returning n")
-	return n, nil
+	return n, n.lastError
 }
 
 // Connect attempts to connect to ntrip client until successful connection or timeout.
@@ -73,7 +80,7 @@ func (n *ntripCorrectionSource) Connect() error {
 
 	n.logger.Debug("Connected to NTRIP caster")
 
-	return nil
+	return n.lastError
 }
 
 // GetStream attempts to connect to ntrip stream until successful connection or timeout.
@@ -109,7 +116,14 @@ func (n *ntripCorrectionSource) GetStream() error {
 
 	n.logger.Debug("Connected to stream")
 
-	return nil
+	return n.lastError
+}
+
+func (n *ntripCorrectionSource) setLastError(err error) {
+	n.errMu.Lock()
+	defer n.errMu.Unlock()
+
+	n.lastError = err
 }
 
 // Start connects to the ntrip caster and stream and sends filtered correction data into the correctionReader.
@@ -118,6 +132,7 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 	defer n.activeBackgroundWorkers.Done()
 	err := n.Connect()
 	if err != nil {
+		n.setLastError(err)
 		return
 	}
 
@@ -131,6 +146,7 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 
 	err = n.GetStream()
 	if err != nil {
+		n.setLastError(err)
 		return
 	}
 
@@ -153,6 +169,7 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 				n.logger.Debug("No message... reconnecting to stream...")
 				err = n.GetStream()
 				if err != nil {
+					n.setLastError(err)
 					return
 				}
 
@@ -171,11 +188,12 @@ func (n *ntripCorrectionSource) GetReader() (io.ReadCloser, error) {
 		return nil, errors.New("no stream")
 	}
 
-	return n.correctionReader, nil
+	return n.correctionReader, n.lastError
 }
 
 // Close shuts down the ntripCorrectionSource and closes all connections to the caster.
 func (n *ntripCorrectionSource) Close() error {
+	n.logger.Debug("Closing ntrip client")
 	n.cancelFunc()
 	n.activeBackgroundWorkers.Wait()
 
@@ -200,5 +218,5 @@ func (n *ntripCorrectionSource) Close() error {
 		n.info.Stream = nil
 	}
 
-	return nil
+	return n.lastError
 }

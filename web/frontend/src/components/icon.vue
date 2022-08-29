@@ -16,6 +16,7 @@ const props = withDefaults(defineProps<Props>(), {
   rotate: 0,
   spin: false,
   color: '#000',
+  title: '',
 });
 
 const rotation = computed(() => {

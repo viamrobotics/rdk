@@ -27,9 +27,7 @@ func NewUnsupportedStreamError(s StreamType) error {
 type AttrConfig struct {
 	CameraParameters *transform.PinholeCameraIntrinsics `json:"camera_parameters"`
 	Stream           string                             `json:"stream"`
-	Hide             bool                               `json:"hide"`
 	Debug            bool                               `json:"debug"`
-	Dump             bool                               `json:"dump"`
 }
 
 // CommonCameraAttributes extracts the common camera attributes.

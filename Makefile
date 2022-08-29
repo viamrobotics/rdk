@@ -19,7 +19,6 @@ build-go: buf-go
 
 build-web: buf-web
 	export NODE_OPTIONS=--openssl-legacy-provider && node --version 2>/dev/null || unset NODE_OPTIONS;\
-	cd web/frontend && npm ci --audit=false && npm run rollup
 	cd web/frontend && npm run build
 
 tool-install:
@@ -49,7 +48,8 @@ buf-web: tool-install
 	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml
 	PATH=$(PATH_WITH_TOOLS) buf generate --timeout 5m --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
 	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
-	cd web/frontend && npm ci --audit=false && npm run rollup
+	npm ci --audit=false --prefix web/frontend
+	npm run rollup --prefix web/frontend
 
 lint: lint-buf lint-go
 
@@ -79,6 +79,10 @@ test-web: build-web
 test-pi:
 	go test -c -o $(BIN_OUTPUT_PATH)/test-pi go.viam.com/rdk/component/board/pi/impl
 	sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
+
+test-e2e:
+	go build $(LDFLAGS) -o bin/test-e2e/server web/cmd/server/main.go
+	./etc/e2e.sh
 
 server:
 	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go

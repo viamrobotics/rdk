@@ -24,8 +24,11 @@
     "vue3-popper": "^1.5.0"
   },
   "devDependencies": {
+    "@types/google-protobuf": "^3.15.6",
+    "@types/google.maps": "^3.49.2",
     "@types/three": "^0.141.0",
     "@typescript-eslint/eslint-plugin": "^5.30.6",
+    "cypress": "^10.6.0",
     "eslint": "^8.20.0",
     "eslint-plugin-import": "^2.26.0",
     "eslint-plugin-unicorn": "^43.0.1",
@@ -43,6 +46,7 @@
     "check": "vue-tsc --noEmit",
     "preview": "vite preview",
     "lint": "eslint 'src/**/*.{ts,js,vue}' --fix --ignore-pattern 'gen/'",
+    "cypress:ci": "cypress run",
     "test:unit": "echo \"no tests exist yet\""
   }
 }
