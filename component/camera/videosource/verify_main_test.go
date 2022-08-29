@@ -1,4 +1,4 @@
-package imagesource
+package videosource
 
 import (
 	"testing"

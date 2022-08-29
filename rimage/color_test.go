@@ -3,8 +3,8 @@ package rimage
 import (
 	"image"
 	"image/color"
-	"io/ioutil"
 	"math"
+	"os"
 	"strings"
 	"testing"
 
@@ -370,7 +370,7 @@ func TestColorHSVDistanceChess5(t *testing.T) {
 }
 
 func readColorsFromFile(fn string) ([]Color, error) {
-	raw, err := ioutil.ReadFile(fn)
+	raw, err := os.ReadFile(fn)
 	if err != nil {
 		return nil, err
 	}

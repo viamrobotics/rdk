@@ -3,7 +3,6 @@ package datasync
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -34,8 +33,9 @@ var (
 )
 
 // Compares UploadRequests containing either binary or tabular sensor data.
-// nolint:thelper
-func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequest, expected []*v1.UploadRequest) {
+//
+//nolint:thelper
+func compareUploadRequests(t *testing.T, isTabular bool, actual, expected []*v1.UploadRequest) {
 	// Ensure length of slices is same before proceeding with rest of tests.
 	test.That(t, len(actual), test.ShouldEqual, len(expected))
 
@@ -62,7 +62,7 @@ func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequ
 	}
 }
 
-// nolint:thelper
+//nolint:thelper
 func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 	expectedMetadata *v1.UploadMetadata,
 ) {
@@ -148,7 +148,7 @@ func createTabularSensorData(toWrite []*structpb.Struct) []*v1.SensorData {
 // createTmpDataCaptureFile creates a data capture file, which is defined as a file with the dataCaptureFileExt as its
 // file extension.
 func createTmpDataCaptureFile() (file *os.File, err error) {
-	tf, err := ioutil.TempFile("", "")
+	tf, err := os.CreateTemp("", "")
 	if err != nil {
 		return nil, err
 	}
@@ -196,8 +196,8 @@ func buildBinaryUploadRequests(data [][]byte, fileName string) []*v1.UploadReque
 	return expMsgs
 }
 
-func getMockService() mockDataSyncServiceServer {
-	return mockDataSyncServiceServer{
+func getMockService() *mockDataSyncServiceServer {
+	return &mockDataSyncServiceServer{
 		uploadRequests:                     &[]*v1.UploadRequest{},
 		callCount:                          &atomic.Int32{},
 		failAtIndex:                        -1,
@@ -208,7 +208,7 @@ func getMockService() mockDataSyncServiceServer {
 }
 
 //nolint:thelper
-func buildAndStartLocalServer(t *testing.T, logger golog.Logger, mockService mockDataSyncServiceServer) rpc.Server {
+func buildAndStartLocalServer(t *testing.T, logger golog.Logger, mockService *mockDataSyncServiceServer) rpc.Server {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	err = rpcServer.RegisterServiceServer(

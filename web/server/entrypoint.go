@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
+	"github.com/edaniels/gostream/codec/opus"
 	"github.com/edaniels/gostream/codec/x264"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
@@ -177,11 +179,15 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		})
 	}
 
+	var streamConfig gostream.StreamConfig
+	streamConfig.AudioEncoderFactory = opus.NewEncoderFactory()
+	streamConfig.VideoEncoderFactory = x264.NewEncoderFactory()
+
 	myRobot, err := robotimpl.New(
 		ctx,
 		processedConfig,
 		logger,
-		robotimpl.WithWebOptions(web.WithStreamConfig(x264.DefaultStreamConfig)),
+		robotimpl.WithWebOptions(web.WithStreamConfig(streamConfig)),
 	)
 	if err != nil {
 		return err

@@ -1,17 +1,18 @@
-package imagesource
+package videosource
 
 import (
 	"bytes"
 	"context"
 	"image"
 	"io"
-	"io/ioutil"
 	"net/http"
 
+	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
 )
 
 func decodeImage(imgData []byte) (image.Image, error) {
@@ -40,14 +41,36 @@ func readyBytesFromURL(ctx context.Context, client http.Client, url string) ([]b
 	defer func() {
 		viamutils.UncheckedError(body.Close())
 	}()
-	return ioutil.ReadAll(body)
+	return io.ReadAll(body)
 }
 
-func readColorURL(ctx context.Context, client http.Client, url string) (*rimage.Image, error) {
+func checkLazyFromData(ctx context.Context, data []byte) (image.Image, bool, error) {
+	requestedMime := gostream.MIMETypeHint(ctx, "")
+	if actualMime, isLazy := utils.CheckLazyMIMEType(requestedMime); isLazy {
+		usedMimeType := http.DetectContentType(data)
+		if actualMime != "" && actualMime != usedMimeType {
+			return nil, false,
+				errors.Errorf("mime type requested (%q) for lazy decode not returned (got %q)",
+					actualMime, usedMimeType)
+		}
+
+		return rimage.NewLazyEncodedImage(data, usedMimeType, -1, -1), true, nil
+	}
+	return nil, false, nil
+}
+
+func readColorURL(ctx context.Context, client http.Client, url string) (image.Image, error) {
 	colorData, err := readyBytesFromURL(ctx, client, url)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't ready color url")
 	}
+
+	if lazyImg, ok, err := checkLazyFromData(ctx, colorData); err != nil {
+		return nil, err
+	} else if ok {
+		return lazyImg, nil
+	}
+
 	img, err := decodeImage(colorData)
 	if err != nil {
 		return nil, err
@@ -55,11 +78,20 @@ func readColorURL(ctx context.Context, client http.Client, url string) (*rimage.
 	return rimage.ConvertImage(img), nil
 }
 
-func readDepthURL(ctx context.Context, client http.Client, url string) (*rimage.DepthMap, error) {
+func readDepthURL(ctx context.Context, client http.Client, url string, immediate bool) (image.Image, error) {
 	depthData, err := readyBytesFromURL(ctx, client, url)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't ready depth url")
 	}
+
+	if !immediate {
+		if lazyImg, ok, err := checkLazyFromData(ctx, depthData); err != nil {
+			return nil, err
+		} else if ok {
+			return lazyImg, nil
+		}
+	}
+
 	img, err := decodeImage(depthData)
 	if err != nil {
 		return nil, err

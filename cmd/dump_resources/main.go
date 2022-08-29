@@ -1,3 +1,4 @@
+// Package main dumps all registered resources. This will probably be removed in the future.
 package main
 
 import (

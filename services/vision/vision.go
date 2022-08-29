@@ -204,7 +204,7 @@ func (vs *visionService) GetDetectionsFromCamera(ctx context.Context, cameraName
 	if err != nil {
 		return nil, err
 	}
-	img, release, err := cam.Next(ctx)
+	img, release, err := camera.ReadImage(ctx, cam)
 	if err != nil {
 		return nil, err
 	}

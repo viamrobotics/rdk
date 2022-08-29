@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -33,6 +34,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
@@ -182,7 +184,12 @@ func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) (mode, 
 // runtimeServiceValidation ensures the service's data processing and saving is valid for the mode and
 // cameras given.
 
-func runtimeServiceValidation(ctx context.Context, cams []camera.Camera, slamSvc *slamService) error {
+func runtimeServiceValidation(
+	ctx context.Context,
+	cams []camera.Camera,
+	camStreams []gostream.VideoStream,
+	slamSvc *slamService,
+) error {
 	if len(cams) == 0 {
 		return nil
 	}
@@ -199,7 +206,7 @@ func runtimeServiceValidation(ctx context.Context, cams []camera.Camera, slamSvc
 		switch slamSvc.slamLib.AlgoType {
 		case sparse:
 			var currPaths []string
-			currPaths, err = slamSvc.getAndSaveDataSparse(ctx, cams)
+			currPaths, err = slamSvc.getAndSaveDataSparse(ctx, cams, camStreams)
 			paths = append(paths, currPaths...)
 		case dense:
 			var path string
@@ -279,6 +286,8 @@ type slamService struct {
 	dataRateMs int
 	mapRateSec int
 
+	camStreams []gostream.VideoStream
+
 	cancelFunc              func()
 	logger                  golog.Logger
 	activeBackgroundWorkers sync.WaitGroup
@@ -299,7 +308,7 @@ func configureCameras(ctx context.Context, svcConfig *AttrConfig, r robot.Robot,
 			return "", nil, errors.Wrapf(err, "error getting camera %v for slam service", cameraName)
 		}
 
-		proj, err := cam.GetProperties(ctx)
+		proj, err := cam.Projector(ctx)
 		if err != nil {
 			if len(svcConfig.Sensors) == 1 {
 				// LiDAR do not have intrinsic parameters and only send point clouds,
@@ -471,6 +480,11 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		mapRate = svcConfig.MapRateSec
 	}
 
+	camStreams := make([]gostream.VideoStream, 0, len(cams))
+	for _, cam := range cams {
+		camStreams = append(camStreams, gostream.NewEmbeddedVideoStream(cam))
+	}
+
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	// SLAM Service Object
@@ -485,6 +499,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		port:             port,
 		dataRateMs:       dataRate,
 		mapRateSec:       mapRate,
+		camStreams:       camStreams,
 		cancelFunc:       cancelFunc,
 		logger:           logger,
 	}
@@ -498,11 +513,11 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		}
 	}()
 
-	if err := runtimeServiceValidation(cancelCtx, cams, slamSvc); err != nil {
+	if err := runtimeServiceValidation(cancelCtx, cams, camStreams, slamSvc); err != nil {
 		return nil, errors.Wrap(err, "runtime slam service error")
 	}
 
-	slamSvc.StartDataProcess(cancelCtx, cams)
+	slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
 
 	if err := slamSvc.StartSLAMProcess(ctx); err != nil {
 		return nil, errors.Wrap(err, "error with slam service slam process")
@@ -531,12 +546,25 @@ func (slamSvc *slamService) Close() error {
 		return errors.Wrap(err, "error occurred during closeout of process")
 	}
 	slamSvc.activeBackgroundWorkers.Wait()
+	for idx, stream := range slamSvc.camStreams {
+		i := idx
+		s := stream
+		defer func() {
+			if err := s.Close(context.Background()); err != nil {
+				slamSvc.logger.Errorw("error closing cam", "number", i, "error", err)
+			}
+		}()
+	}
 	return nil
 }
 
 // TODO 05/10/2022: Remove from SLAM service once GRPC data transfer is available.
 // startDataProcess is the background control loop for sending data from camera to the data directory for processing.
-func (slamSvc *slamService) StartDataProcess(cancelCtx context.Context, cams []camera.Camera) {
+func (slamSvc *slamService) StartDataProcess(
+	cancelCtx context.Context,
+	cams []camera.Camera,
+	camStreams []gostream.VideoStream,
+) {
 	if len(cams) == 0 {
 		return
 	}
@@ -571,7 +599,7 @@ func (slamSvc *slamService) StartDataProcess(cancelCtx context.Context, cams []c
 						slamSvc.logger.Warn(err)
 					}
 				case sparse:
-					if _, err := slamSvc.getAndSaveDataSparse(cancelCtx, cams); err != nil {
+					if _, err := slamSvc.getAndSaveDataSparse(cancelCtx, cams, camStreams); err != nil {
 						slamSvc.logger.Warn(err)
 					}
 				default:
@@ -632,16 +660,20 @@ func (slamSvc *slamService) StopSLAMProcess() error {
 
 // getAndSaveDataSparse implements the data extraction for sparse algos and saving to the directory path (data subfolder) specified in
 // the config. It returns the full filepath for each file saved along with any error associated with the data creation or saving.
-func (slamSvc *slamService) getAndSaveDataSparse(ctx context.Context, cams []camera.Camera) ([]string, error) {
+func (slamSvc *slamService) getAndSaveDataSparse(
+	ctx context.Context,
+	cams []camera.Camera,
+	camStreams []gostream.VideoStream,
+) ([]string, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::getAndSaveDataSparse")
 	defer span.End()
 
 	switch slamSvc.slamMode {
 	case mono:
-		if len(cams) != 1 {
-			return nil, errors.Errorf("expected 1 camera for mono slam, found %v", len(cams))
+		if len(camStreams) != 1 {
+			return nil, errors.Errorf("expected 1 camera for mono slam, found %v", len(camStreams))
 		}
-		img, _, err := cams[0].Next(ctx)
+		img, _, err := camStreams[0].Next(ctx)
 		if err != nil {
 			if err.Error() == opTimeoutErrorMessage {
 				slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
@@ -704,7 +736,10 @@ func (slamSvc *slamService) getAndSaveDataSparse(ctx context.Context, cams []cam
 }
 
 // Gets the color image and depth image from the cameras as close to simultaneously as possible.
-func (slamSvc *slamService) getSimultaneousColorAndDepth(ctx context.Context, cams []camera.Camera) ([2][]byte, error) {
+func (slamSvc *slamService) getSimultaneousColorAndDepth(
+	ctx context.Context,
+	cams []camera.Camera,
+) ([2][]byte, error) {
 	var wg sync.WaitGroup
 	var images [2][]byte
 	var errs [2]error
@@ -722,14 +757,28 @@ func (slamSvc *slamService) getSimultaneousColorAndDepth(ctx context.Context, ca
 		goutils.PanicCapturingGo(func() {
 			defer slamSvc.activeBackgroundWorkers.Done()
 			defer wg.Done()
-			var mimeType string
-			images[iLoop], mimeType, _, _, errs[iLoop] = cams[iLoop].GetFrame(ctx, utils.MimeTypePNG)
+			var img image.Image
+			var release func()
+
+			// We will hint that we want a PNG.
+			// The Camera service server implementation in RDK respects this; others may not.
+			img, release, errs[iLoop] = camera.ReadImage(
+				gostream.WithMIMETypeHint(ctx, utils.WithLazyMIMEType(utils.MimeTypePNG)), cams[iLoop])
 			if errs[iLoop] != nil {
 				return
 			}
-			if mimeType != utils.MimeTypePNG {
-				errs[iLoop] = errors.Errorf("expected mime type %v, got %v", utils.MimeTypePNG, mimeType)
+			defer release()
+
+			lazyImg, ok := img.(*rimage.LazyEncodedImage)
+			if ok {
+				if lazyImg.MIMEType() == utils.MimeTypePNG {
+					images[iLoop] = lazyImg.RawData()
+					return
+				}
+				errs[iLoop] = errors.Errorf("expected mime type %v, got %v", utils.MimeTypePNG, lazyImg.MIMEType())
+				return
 			}
+			errs[iLoop] = errors.Errorf("expected lazily encoded image, got %T", lazyImg)
 		})
 	}
 	wg.Wait()
