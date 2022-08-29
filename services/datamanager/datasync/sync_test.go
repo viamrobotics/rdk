@@ -382,49 +382,51 @@ func TestPartialUpload(t *testing.T) {
 	msg8 := toProto(anyStruct{Field1: true, Field2: 2020, Field3: "viam"})
 
 	tests := []struct {
-		name                        string
-		sendAckEveryNUploadRequests int
-		clientCancelAfterNMsgs      int
-		serverErrorAfterNMsgs       int32
-		dataType                    v1.DataType
-		toSend                      []*v1.SensorData
-		expSentAfterRetry           []*v1.SensorData
+		name                          string
+		ackEveryNSensorDatas          int
+		clientCancelAfterNSensorDatas int
+		serverErrorAfterNMsgs         int32
+		dataType                      v1.DataType
+		toSend                        []*v1.SensorData
+		expSentAfterRetry             []*v1.SensorData
 	}{
 		{
-			name:                        `Binary upload should resume from last ACKed point if the syncer is closed.`,
-			dataType:                    v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			sendAckEveryNUploadRequests: 2,
-			clientCancelAfterNMsgs:      4,
-			serverErrorAfterNMsgs:       -1,
-			toSend:                      createBinarySensorData([][]byte{msg1, msg2, msg3, msg4, msg5}),
-			expSentAfterRetry:           createBinarySensorData([][]byte{msg3, msg4, msg5}),
+			name:                          `Binary upload should resume from last ACKed point if the syncer is closed.`,
+			dataType:                      v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			ackEveryNSensorDatas:          2,
+			clientCancelAfterNSensorDatas: 2,
+			serverErrorAfterNMsgs:         -1,
+			toSend:                        createBinarySensorData([][]byte{msg1, msg2, msg3, msg4, msg5}),
+			// First two messages should be ACKed, so only 3-5 should be sent after retry.
+			expSentAfterRetry: createBinarySensorData([][]byte{msg3, msg4, msg5}),
 		},
 		{
-			name:                        `Tabular upload should resume from last ACKed point if the syncer is closed.`,
-			dataType:                    v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			sendAckEveryNUploadRequests: 2,
-			clientCancelAfterNMsgs:      4,
-			serverErrorAfterNMsgs:       -1,
-			toSend:                      createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8}),
-			expSentAfterRetry:           createTabularSensorData([]*structpb.Struct{msg8}),
+			name:                          `Tabular upload should resume from last ACKed point if the syncer is closed.`,
+			dataType:                      v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			ackEveryNSensorDatas:          2,
+			clientCancelAfterNSensorDatas: 2,
+			serverErrorAfterNMsgs:         -1,
+			toSend:                        createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8}),
+			// First two messages should be ACKed, so only msg8 should be sent after retry.
+			expSentAfterRetry: createTabularSensorData([]*structpb.Struct{msg8}),
 		},
 		{
-			name:                        `Binary upload should resume after server disconnection.`,
-			dataType:                    v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			sendAckEveryNUploadRequests: 2,
-			clientCancelAfterNMsgs:      -1,
-			serverErrorAfterNMsgs:       4,
-			toSend:                      createBinarySensorData([][]byte{msg1, msg2, msg3, msg4, msg5}),
-			expSentAfterRetry:           createBinarySensorData([][]byte{msg3, msg4, msg5}),
+			name:                          `Binary upload should resume from last ACKed point after server disconnection.`,
+			dataType:                      v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			ackEveryNSensorDatas:          2,
+			clientCancelAfterNSensorDatas: -1,
+			serverErrorAfterNMsgs:         4,
+			toSend:                        createBinarySensorData([][]byte{msg1, msg2, msg3, msg4, msg5}),
+			expSentAfterRetry:             createBinarySensorData([][]byte{msg3, msg4, msg5}),
 		},
 		{
-			name:                        `Tabular upload should resume after server disconnection.`,
-			dataType:                    v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			sendAckEveryNUploadRequests: 2,
-			clientCancelAfterNMsgs:      -1,
-			serverErrorAfterNMsgs:       4,
-			toSend:                      createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8}),
-			expSentAfterRetry:           createTabularSensorData([]*structpb.Struct{msg8}),
+			name:                          `Tabular upload should resume from last ACKed point after server disconnection.`,
+			dataType:                      v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			ackEveryNSensorDatas:          2,
+			clientCancelAfterNSensorDatas: -1,
+			serverErrorAfterNMsgs:         4,
+			toSend:                        createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8}),
+			expSentAfterRetry:             createTabularSensorData([]*structpb.Struct{msg8}),
 		},
 	}
 
@@ -452,8 +454,8 @@ func TestPartialUpload(t *testing.T) {
 			// Build mock service with configured cancel and ack values.
 			logger := golog.NewTestLogger(t)
 			mockService := getMockService()
-			mockService.clientShutdownIndex = tc.clientCancelAfterNMsgs
-			mockService.messagesPerAck = tc.sendAckEveryNUploadRequests
+			mockService.clientShutdownIndex = tc.clientCancelAfterNSensorDatas
+			mockService.messagesPerAck = tc.ackEveryNSensorDatas
 			mockService.failAtIndex = tc.serverErrorAfterNMsgs
 
 			// Build and start a local server and client.
@@ -487,8 +489,8 @@ func TestPartialUpload(t *testing.T) {
 			var actMsgs []*v1.UploadRequest
 			var cancelIndex int
 			switch {
-			case tc.clientCancelAfterNMsgs != -1:
-				cancelIndex = tc.clientCancelAfterNMsgs
+			case tc.clientCancelAfterNSensorDatas != -1:
+				cancelIndex = tc.clientCancelAfterNSensorDatas + 1
 			case tc.serverErrorAfterNMsgs != -1:
 				cancelIndex = int(tc.serverErrorAfterNMsgs)
 			default:
@@ -513,7 +515,7 @@ func TestPartialUpload(t *testing.T) {
 
 			// Restart the server and register the service.
 			mockService = getMockService()
-			mockService.messagesPerAck = tc.sendAckEveryNUploadRequests
+			mockService.messagesPerAck = tc.ackEveryNSensorDatas
 			mockService.clientShutdownIndex = -1
 			rpcServer = buildAndStartLocalServer(t, logger, mockService)
 			defer func() {
