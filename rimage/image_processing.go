@@ -44,7 +44,7 @@ func (i *Image) AverageColor(p image.Point, radius int) Color {
 }
 
 // AverageColorXY returns the average color about a certain point.
-func (i *Image) AverageColorXY(x, y int, radius int) Color {
+func (i *Image) AverageColorXY(x, y, radius int) Color {
 	h := 0.0
 	s := 0.0
 	v := 0.0
@@ -98,7 +98,7 @@ func (i *Image) InterestingPixels(t float64) *image.Gray {
 }
 
 // SimpleEdgeDetection TODO.
-func SimpleEdgeDetection(img *Image, t1 float64, blur float64) (*image.Gray, error) {
+func SimpleEdgeDetection(img *Image, t1, blur float64) (*image.Gray, error) {
 	img = ConvertImage(imaging.Blur(img, blur))
 
 	out := image.NewGray(img.Bounds())

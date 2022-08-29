@@ -15,11 +15,11 @@ import (
 func TestSumConfig(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	for _, c := range []struct {
-		conf ControlBlockConfig
+		conf BlockConfig
 		err  string
 	}{
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name: "Sum1",
 				Type: "Sum",
 				Attribute: config.AttributeMap{
@@ -30,7 +30,7 @@ func TestSumConfig(t *testing.T) {
 			"",
 		},
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name: "Sum1",
 				Type: "Sum",
 				Attribute: config.AttributeMap{
@@ -41,7 +41,7 @@ func TestSumConfig(t *testing.T) {
 			"sum block Sum1 doesn't have a sum_string",
 		},
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name: "Sum1",
 				Type: "Sum",
 				Attribute: config.AttributeMap{
@@ -52,7 +52,7 @@ func TestSumConfig(t *testing.T) {
 			"invalid number of inputs for sum block Sum1 expected 4 got 3",
 		},
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name: "Sum1",
 				Type: "Sum",
 				Attribute: config.AttributeMap{
@@ -78,7 +78,7 @@ func TestSumConfig(t *testing.T) {
 func TestSumNext(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	c := ControlBlockConfig{
+	c := BlockConfig{
 		Name: "Sum1",
 		Type: "Sum",
 		Attribute: config.AttributeMap{

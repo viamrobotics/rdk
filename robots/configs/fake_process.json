@@ -27,6 +27,16 @@
         },
         {
             "model": "fake",
+            "name": "mic1",
+            "type": "audio_input"
+        },
+        {
+            "model": "fake",
+            "name": "audioinput1",
+            "type": "audio_input"
+        },
+        {
+            "model": "fake",
             "name": "board1",
             "type": "board",
             "attributes":

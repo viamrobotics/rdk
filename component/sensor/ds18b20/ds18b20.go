@@ -48,7 +48,7 @@ func init() {
 		}, &AttrConfig{})
 }
 
-func newSensor(name string, id string) sensor.Sensor {
+func newSensor(name, id string) sensor.Sensor {
 	// temp sensors are in family 28
 	return &Sensor{Name: name, OneWireID: id, OneWireFamily: "28"}
 }

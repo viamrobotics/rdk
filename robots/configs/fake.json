@@ -28,6 +28,11 @@
         },
         {
             "model": "fake",
+            "name": "mic1",
+            "type": "audio_input"
+        },
+        {
+            "model": "fake",
             "name": "servo1",
             "type": "servo",
             "attributes":

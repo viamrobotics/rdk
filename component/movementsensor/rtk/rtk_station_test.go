@@ -2,7 +2,7 @@ package rtk
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"strings"
 	"testing"
 
@@ -158,7 +158,7 @@ func TestClose(t *testing.T) {
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	g := rtkStation{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
-	r := ioutil.NopCloser(strings.NewReader("hello world"))
+	r := io.NopCloser(strings.NewReader("hello world"))
 	n := &ntripCorrectionSource{
 		cancelCtx:        cancelCtx,
 		cancelFunc:       cancelFunc,
