@@ -195,7 +195,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 }
 
 func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tree map[*node]*node, target []referenceframe.Input) *node {
-	if validTarget := checkInputs(mp, algOpts.planOpts, target); !validTarget {
+	if validTarget := mp.checkInputs(algOpts.planOpts, target); !validTarget {
 		return nil
 	}
 
@@ -205,7 +205,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tr
 	var minIndex int
 	for i, neighbor := range neighbors {
 		cost := neighbor.node.cost + neighbor.dist
-		if cost < minCost && checkPath(mp, algOpts.planOpts, neighbor.node.q, target) {
+		if cost < minCost && mp.checkPath(algOpts.planOpts, neighbor.node.q, target) {
 			minIndex = i
 			minCost = cost
 		}
@@ -223,8 +223,8 @@ func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tr
 		}
 
 		// check to see if a shortcut is possible, and rewire the node if it is
-		cost := targetNode.cost + inputDist(targetNode.q, neighbor.node.q)
-		if cost < neighbor.node.cost && checkPath(mp, algOpts.planOpts, target, neighbor.node.q) {
+		cost := targetNode.cost + mp.distance(algOpts.planOpts, targetNode.q, neighbor.node.q)
+		if cost < neighbor.node.cost && mp.checkPath(algOpts.planOpts, target, neighbor.node.q) {
 			neighbor.node.cost = cost
 			tree[neighbor.node] = targetNode
 		}

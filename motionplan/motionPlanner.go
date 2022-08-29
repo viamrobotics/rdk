@@ -58,6 +58,50 @@ func (mp *planner) Frame() referenceframe.Frame {
 	return mp.frame
 }
 
+func (mp *planner) distance(opt *PlannerOptions, q1, q2 []referenceframe.Input) float64 {
+	// TODO(rb): we want to tie to this function to Metrics, after we decouple it from cbirrt and determine what good defaults are
+	return inputDist(q1, q2)
+}
+
+func (mp *planner) checkInputs(opt *PlannerOptions, inputs []frame.Input) bool {
+	frame := mp.Frame()
+	position, err := frame.Transform(inputs)
+	if err != nil {
+		return false
+	}
+	ok, _ := opt.CheckConstraints(&ConstraintInput{
+		StartPos:   position,
+		EndPos:     position,
+		StartInput: inputs,
+		EndInput:   inputs,
+		Frame:      frame,
+	})
+	return ok
+}
+
+func (mp *planner) checkPath(opt *PlannerOptions, seedInputs, target []frame.Input) bool {
+	frame := mp.Frame()
+	seedPos, err := frame.Transform(seedInputs)
+	if err != nil {
+		return false
+	}
+	goalPos, err := frame.Transform(target)
+	if err != nil {
+		return false
+	}
+	ok, _ := opt.CheckConstraintPath(
+		&ConstraintInput{
+			StartPos:   seedPos,
+			EndPos:     goalPos,
+			StartInput: seedInputs,
+			EndInput:   target,
+			Frame:      frame,
+		},
+		opt.Resolution,
+	)
+	return ok
+}
+
 // needed to wrap slices so we can use them as map keys.
 type node struct {
 	q []frame.Input
@@ -366,45 +410,6 @@ IK:
 		orderedSolutions = append(orderedSolutions, &node{q: solutions[key], cost: key})
 	}
 	return orderedSolutions, nil
-}
-
-func checkInputs(mp MotionPlanner, opt *PlannerOptions, inputs []frame.Input) bool {
-	frame := mp.Frame()
-	position, err := frame.Transform(inputs)
-	if err != nil {
-		return false
-	}
-	ok, _ := opt.CheckConstraints(&ConstraintInput{
-		StartPos:   position,
-		EndPos:     position,
-		StartInput: inputs,
-		EndInput:   inputs,
-		Frame:      frame,
-	})
-	return ok
-}
-
-func checkPath(mp MotionPlanner, opt *PlannerOptions, seedInputs, target []frame.Input) bool {
-	frame := mp.Frame()
-	seedPos, err := frame.Transform(seedInputs)
-	if err != nil {
-		return false
-	}
-	goalPos, err := frame.Transform(target)
-	if err != nil {
-		return false
-	}
-	ok, _ := opt.CheckConstraintPath(
-		&ConstraintInput{
-			StartPos:   seedPos,
-			EndPos:     goalPos,
-			StartInput: seedInputs,
-			EndInput:   target,
-			Frame:      frame,
-		},
-		opt.Resolution,
-	)
-	return ok
 }
 
 func extractPath(startMap, goalMap map[*node]*node, pair *nodePair) []*node {
