@@ -106,3 +106,10 @@
     :license_links: https://github.com/gonum/plot/blob/c2b63591159b9dceb2cbf953702691d2a2fe7a6d/LICENSE
     :versions: []
     :when: 2022-08-15 15:56:25.026774237 Z
+- - :ignore
+  - github.com/tonyOreglia/glee
+  - :who:
+    :why: 'TODO(RSDK-579): temporarily ignoring to pass CI - need to find what license
+      this library uses'
+    :versions: []
+    :when: 2022-08-29 22:18:31.897842380 Z
