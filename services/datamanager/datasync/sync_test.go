@@ -391,7 +391,7 @@ func TestPartialUpload(t *testing.T) {
 		expSentAfterRetry           []*v1.SensorData
 	}{
 		{
-			name:                        `Binary upload should resume if the syncer is closed.`,
+			name:                        `Binary upload should resume from last ACKed point if the syncer is closed.`,
 			dataType:                    v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			sendAckEveryNUploadRequests: 2,
 			clientCancelAfterNMsgs:      4,
@@ -400,7 +400,7 @@ func TestPartialUpload(t *testing.T) {
 			expSentAfterRetry:           createBinarySensorData([][]byte{msg3, msg4, msg5}),
 		},
 		{
-			name:                        `Tabular upload should resume if the syncer is closed.`,
+			name:                        `Tabular upload should resume from last ACKed point if the syncer is closed.`,
 			dataType:                    v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			sendAckEveryNUploadRequests: 2,
 			clientCancelAfterNMsgs:      4,
@@ -496,7 +496,7 @@ func TestPartialUpload(t *testing.T) {
 			}
 			// Build all expected messages from before the Upload was cancelled.
 			expMsgs = buildSensorDataUploadRequests(tc.toSend[:cancelIndex-1], tc.dataType, captureFile.Name())
-			actMsgs = mockService.getUploadRequests()[:cancelIndex]
+			actMsgs = mockService.getUploadRequests()
 			compareTabularUploadRequests(t, actMsgs, expMsgs)
 
 			// For non-empty testcases, validate progress file & data capture file existences.

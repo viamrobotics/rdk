@@ -4,13 +4,10 @@ import (
 	"context"
 	"io"
 	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
-
-	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, md *v1.UploadMetadata,
@@ -32,7 +29,9 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 	}
 
 	var activeBackgroundWorkers sync.WaitGroup
-	errChannel := make(chan error, 1)
+	errChannel := make(chan error, 2)
+
+	// Start a goroutine for recving errors back from the server.
 	activeBackgroundWorkers.Add(1)
 	go func() {
 		defer activeBackgroundWorkers.Done()
@@ -58,6 +57,7 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 		}
 	}()
 
+	// Start a goroutine for sending upload requests to the server.
 	activeBackgroundWorkers.Add(1)
 	go func() {
 		//nolint:errcheck
@@ -79,9 +79,6 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 						errChannel <- errors.Wrap(err, "error when closing stream")
 					}
 					return
-				}
-				if errors.Is(err, datacapture.EmptyReadingErr(filepath.Base(f.Name()))) {
-					continue
 				}
 
 				if err != nil {

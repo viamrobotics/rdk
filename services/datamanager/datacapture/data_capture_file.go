@@ -20,11 +20,6 @@ import (
 // FileExt defines the file extension for Viam data capture files.
 const FileExt = ".capture"
 
-// EmptyReadingErr defines the error for when a SensorData contains no data.
-func EmptyReadingErr(fileName string) error {
-	return errors.Errorf("%s contains SensorData containing no data", fileName)
-}
-
 // CreateDataCaptureFile creates a timestamped file within the given capture directory.
 func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.File, error) {
 	// First create directories and the file in it.
@@ -94,11 +89,6 @@ func ReadNextSensorData(f *os.File) (*v1.SensorData, error) {
 		return nil, err
 	}
 
-	// Ensure we construct and return a SensorData value for tabular data when the tabular data's fields and
-	// corresponding entries are not nil. Otherwise, return io.EOF error and nil.
-	if r.GetBinary() == nil && r.GetStruct() == nil {
-		return r, EmptyReadingErr(filepath.Base(f.Name()))
-	}
 	return r, nil
 }
 
@@ -109,6 +99,7 @@ func getFileTimestampName() string {
 }
 
 // TODO DATA-246: Implement this in some more robust, programmatic way.
+// TODO: support GetFrame. This is why image stuff isn't working.
 func getDataType(_ string, methodName string) v1.DataType {
 	if methodName == "NextPointCloud" {
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
