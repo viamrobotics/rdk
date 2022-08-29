@@ -50835,6 +50835,10 @@
         "hash": "3a047d6fd440b36cbba72e5532ff3548",
         "size": 4563519
       },
+      "effnet0.tflite": {
+        "hash": "301b893e4701ec6f490c21a2435befbc",
+        "size": 7165437
+      },
       "fakelabels.txt": {
         "hash": "9b9d5e11ece4e6fe52246a2851636145",
         "size": 50
