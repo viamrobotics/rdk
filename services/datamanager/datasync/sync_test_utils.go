@@ -240,7 +240,7 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 	}
 	m.messagesToAck = 0
 	for {
-		if len(*m.uploadRequests) == int(m.failAtIndex) {
+		if len(m.getUploadRequests()) == int(m.failAtIndex) {
 			return m.errorToReturn
 		}
 
