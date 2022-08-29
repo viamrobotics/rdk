@@ -100,7 +100,7 @@ func getFileTimestampName() string {
 
 // TODO DATA-246: Implement this in some more robust, programmatic way.
 // TODO: support GetFrame. This is why image stuff isn't working.
-func getDataType(_ string, methodName string) v1.DataType {
+func getDataType(_, methodName string) v1.DataType {
 	if methodName == "NextPointCloud" {
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
 	}
