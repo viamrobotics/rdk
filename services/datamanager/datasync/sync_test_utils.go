@@ -197,7 +197,6 @@ func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientCo
 type mockDataSyncServiceServer struct {
 	uploadRequests *[]*v1.UploadRequest
 	callCount      *atomic.Int32
-	msgCount       *atomic.Int32
 	failUntilIndex int32
 	failAtIndex    int32
 	errorToReturn  error
@@ -217,18 +216,14 @@ func getMockService() mockDataSyncServiceServer {
 	return mockDataSyncServiceServer{
 		uploadRequests:                     &[]*v1.UploadRequest{},
 		callCount:                          &atomic.Int32{},
-		msgCount:                           &atomic.Int32{},
 		failAtIndex:                        -1,
 		lock:                               &sync.Mutex{},
 		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
 		errorToReturn:                      errors.New("generic error goes here"),
-
-		// Fields below this line added by maxhorowitz
-		messagesPerAck: 1,
-		// TODO: this does not need to be a field
-		messagesToAck:       0,
-		clientShutdownIndex: -1,
-		uploadResponses:     &[]*v1.UploadResponse{},
+		messagesPerAck:                     1,
+		messagesToAck:                      0,
+		clientShutdownIndex:                -1,
+		uploadResponses:                    &[]*v1.UploadResponse{},
 	}
 }
 
@@ -245,12 +240,11 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 	}
 	m.messagesToAck = 0
 	for {
-		if m.msgCount.Load() == m.failAtIndex {
+		if len(*m.uploadRequests) == int(m.failAtIndex) {
 			return m.errorToReturn
 		}
 
 		ur, err := stream.Recv()
-		m.msgCount.Add(1)
 		if errors.Is(err, io.EOF) {
 			break
 		}
@@ -275,7 +269,7 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 
 		// If we want the client to cancel its own context, send signal through channel to the client, then wait for
 		// client to Close. This simulates a client's context being cancelled before receiving a sent ACK.
-		if m.clientShutdownIndex == len(m.getUploadRequests()) {
+		if m.clientShutdownIndex == len(m.getUploadRequests())-1 {
 			m.cancelChannel <- true
 			<-m.doneCancelChannel
 			break
