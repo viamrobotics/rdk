@@ -31,7 +31,7 @@ func newRotateTransform(source gostream.VideoSource, stream camera.StreamType) (
 
 // Next rotates the 2D image depending on the stream type.
 func (rs *rotateSource) Read(ctx context.Context) (image.Image, func(), error) {
-	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::rotate::Next")
+	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::rotate::Read")
 	defer span.End()
 	orig, release, err := rs.originalStream.Next(ctx)
 	if err != nil {
@@ -94,7 +94,7 @@ func newResizeTransform(
 
 // Next resizes the 2D image depending on the stream type.
 func (rs *resizeSource) Read(ctx context.Context) (image.Image, func(), error) {
-	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::resize::Next")
+	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::resize::Read")
 	defer span.End()
 	orig, release, err := rs.originalStream.Next(ctx)
 	if err != nil {
