@@ -272,7 +272,7 @@ func TestRegisterTensorFlowClassifier(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, newVisModelTypeNotImplemented("tf_classifier"))
 }
 
-func TestSegmenterMap2(t *testing.T) {
+func TestSegmenterMap(t *testing.T) {
 	fn := func(ctx context.Context, c camera.Camera, parameters config.AttributeMap) ([]*vis.Object, error) {
 		return []*vis.Object{vis.NewEmptyObject()}, nil
 	}
