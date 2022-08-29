@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -42,6 +43,8 @@ func newDepthEdgesTransform(source gostream.VideoSource, am config.AttributeMap)
 
 // Next applies a canny edge detector on the depth map of the next image.
 func (os *depthEdgesSource) Read(ctx context.Context) (image.Image, func(), error) {
+	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::depthEdges::Read")
+	defer span.End()
 	i, closer, err := os.stream.Next(ctx)
 	if err != nil {
 		return nil, nil, err

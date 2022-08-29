@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/component/camera"
@@ -36,6 +37,8 @@ func newDepthToPrettyTransform(ctx context.Context, source gostream.VideoSource,
 }
 
 func (dtp *depthToPretty) Read(ctx context.Context) (image.Image, func(), error) {
+	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::depthToPretty::Read")
+	defer span.End()
 	i, release, err := dtp.depthStream.Next(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -52,6 +55,8 @@ func (dtp *depthToPretty) Close(ctx context.Context) error {
 }
 
 func (dtp *depthToPretty) PointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::depthToPretty::PointCloud")
+	defer span.End()
 	if dtp.proj == nil {
 		return nil, errors.Wrapf(transform.ErrNoIntrinsics, "depthToPretty transform cannot project to pointcloud")
 	}
@@ -76,6 +81,8 @@ func newOverlayTransform(ctx context.Context, src gostream.VideoSource, attrs *c
 }
 
 func (os *overlaySource) Read(ctx context.Context) (image.Image, func(), error) {
+	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::overlay::Read")
+	defer span.End()
 	if os.proj == nil {
 		return nil, nil, transform.ErrNoIntrinsics
 	}
