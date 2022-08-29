@@ -184,7 +184,7 @@ func registerNewVisModels(ctx context.Context, mm modelMap, attrs *Attributes, l
 	defer span.End()
 	for _, attr := range attrs.ModelRegistry {
 		logger.Debugf("adding vision model %q of type %q", attr.Name, attr.Type)
-		switch VisModelType(attr.Type) { // nolint: exhaustive
+		switch VisModelType(attr.Type) { //nolint: exhaustive
 		case TFLiteDetector:
 			return registerTfliteDetector(ctx, mm, &attr, logger)
 		case TFLiteClassifier:

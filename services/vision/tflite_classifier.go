@@ -79,7 +79,7 @@ func NewTFLiteClassifier(ctx context.Context, conf *VisModelConfig,
 			return nil, err
 		}
 
-		classifications, err := unpackCTensor(ctx, outTensor, model, labels, logger)
+		classifications, err := unpackClassificationTensor(ctx, outTensor, model, labels)
 		if err != nil {
 			return nil, err
 		}
@@ -87,9 +87,12 @@ func NewTFLiteClassifier(ctx context.Context, conf *VisModelConfig,
 	}, model, nil
 }
 
-func unpackCTensor(ctx context.Context, tensor []interface{}, model *inf.TFLiteStruct,
-	labels []string, logger golog.Logger,
+func unpackClassificationTensor(ctx context.Context, tensor []interface{},
+	model *inf.TFLiteStruct, labels []string,
 ) (classification.Classifications, error) {
+	_, span := trace.StartSpan(ctx, "service::vision::unpackClassificationTensor")
+	defer span.End()
+
 	outType := model.Info.OutputTensorTypes[0]
 	var outConf []float64
 

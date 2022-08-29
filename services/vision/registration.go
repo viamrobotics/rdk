@@ -77,6 +77,6 @@ func registerRCSegmenter(ctx context.Context, mm modelMap, conf *VisModelConfig,
 	}
 	segmenter := segmentation.Segmenter(segmentation.RadiusClustering)
 
-	regModel := registeredModel{model: segmenter, modelType: RadiusClusteringSegmenter, closer: nil, isLoaded: false}
+	regModel := registeredModel{model: segmenter, modelType: RCSegmenter, closer: nil, isLoaded: false}
 	return mm.registerVisModel(conf.Name, &regModel, logger)
 }
