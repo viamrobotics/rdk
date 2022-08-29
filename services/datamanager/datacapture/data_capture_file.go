@@ -18,7 +18,11 @@ import (
 // TODO Data-343: Reorganize this into a more standard interface/package, and add tests.
 
 // FileExt defines the file extension for Viam data capture files.
-const FileExt = ".capture"
+const (
+	FileExt        = ".capture"
+	next           = "Next"
+	nextPointCloud = "NextPointCloud"
+)
 
 // EmptyReadingErr defines the error for when a SensorData contains no data.
 func EmptyReadingErr(fileName string) error {
@@ -111,9 +115,9 @@ func getFileTimestampName() string {
 // TODO DATA-246: Implement this in some more robust, programmatic way.
 func getDataType(_, methodName string) v1.DataType {
 	switch methodName {
-	case "NextPointCloud":
+	case nextPointCloud:
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
-	case "Next":
+	case next:
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
 	default:
 		return v1.DataType_DATA_TYPE_TABULAR_SENSOR
@@ -128,10 +132,10 @@ func getFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 	case v1.DataType_DATA_TYPE_FILE:
 		return defaultFileExt
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR:
-		if methodName == "NextPointCloud" {
+		if methodName == nextPointCloud {
 			return ".pcd"
 		}
-		if methodName == "Next" {
+		if methodName == next {
 			// TODO: Add explicit file extensions for all mime types.
 			switch parameters["mime_type"] {
 			case utils.MimeTypeJPEG:

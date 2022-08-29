@@ -4,9 +4,10 @@ import (
 	"testing"
 
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/test"
 )
 
 func TestTabularBuildCaptureMetadata(t *testing.T) {
