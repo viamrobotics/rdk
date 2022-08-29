@@ -6,6 +6,7 @@ import (
 	"image"
 
 	"github.com/edaniels/gostream"
+	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -50,6 +51,8 @@ func newDetectionsTransform(source gostream.VideoSource, r robot.Robot, am confi
 
 // Next returns the image overlaid with the detection bounding boxes.
 func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error) {
+	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::detector::Read")
+	defer span.End()
 	// get the bounding boxes from the service
 	srv, err := vision.FirstFromRobot(ds.r)
 	if err != nil {
