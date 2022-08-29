@@ -110,10 +110,14 @@ func getFileTimestampName() string {
 
 // TODO DATA-246: Implement this in some more robust, programmatic way.
 func getDataType(_, methodName string) v1.DataType {
-	if methodName == "NextPointCloud" {
+	switch methodName {
+	case "NextPointCloud":
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
+	case "Next":
+		return v1.DataType_DATA_TYPE_BINARY_SENSOR
+	default:
+		return v1.DataType_DATA_TYPE_TABULAR_SENSOR
 	}
-	return v1.DataType_DATA_TYPE_TABULAR_SENSOR
 }
 
 func getFileExt(dataType v1.DataType, methodName string, parameters map[string]string) string {
