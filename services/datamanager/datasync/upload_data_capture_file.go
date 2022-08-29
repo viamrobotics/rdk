@@ -148,7 +148,6 @@ func sendNextUploadRequest(ctx context.Context, f *os.File, stream v1.DataSyncSe
 	default:
 		// Get the next UploadRequest from the file.
 		uploadReq, err := getNextSensorUploadRequest(ctx, f)
-
 		if err != nil {
 			return err
 		}

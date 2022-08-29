@@ -385,7 +385,7 @@ func TestPartialUpload(t *testing.T) {
 		name                          string
 		ackEveryNSensorDatas          int
 		clientCancelAfterNSensorDatas int
-		serverErrorAfterNMsgs         int32
+		serverErrorAfterNSensorDatas  int32
 		dataType                      v1.DataType
 		toSend                        []*v1.SensorData
 		expSentAfterRetry             []*v1.SensorData
@@ -394,8 +394,7 @@ func TestPartialUpload(t *testing.T) {
 			name:                          `Binary upload should resume from last ACKed point if the syncer is closed.`,
 			dataType:                      v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			ackEveryNSensorDatas:          2,
-			clientCancelAfterNSensorDatas: 2,
-			serverErrorAfterNMsgs:         -1,
+			clientCancelAfterNSensorDatas: 3,
 			toSend:                        createBinarySensorData([][]byte{msg1, msg2, msg3, msg4, msg5}),
 			// First two messages should be ACKed, so only 3-5 should be sent after retry.
 			expSentAfterRetry: createBinarySensorData([][]byte{msg3, msg4, msg5}),
@@ -405,28 +404,27 @@ func TestPartialUpload(t *testing.T) {
 			dataType:                      v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			ackEveryNSensorDatas:          2,
 			clientCancelAfterNSensorDatas: 2,
-			serverErrorAfterNMsgs:         -1,
 			toSend:                        createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8}),
 			// First two messages should be ACKed, so only msg8 should be sent after retry.
 			expSentAfterRetry: createTabularSensorData([]*structpb.Struct{msg8}),
 		},
 		{
-			name:                          `Binary upload should resume from last ACKed point after server disconnection.`,
-			dataType:                      v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			ackEveryNSensorDatas:          2,
-			clientCancelAfterNSensorDatas: -1,
-			serverErrorAfterNMsgs:         4,
-			toSend:                        createBinarySensorData([][]byte{msg1, msg2, msg3, msg4, msg5}),
-			expSentAfterRetry:             createBinarySensorData([][]byte{msg3, msg4, msg5}),
+			name:                         `Binary upload should resume from last ACKed point after server disconnection.`,
+			dataType:                     v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			ackEveryNSensorDatas:         2,
+			serverErrorAfterNSensorDatas: 3,
+			toSend:                       createBinarySensorData([][]byte{msg1, msg2, msg3, msg4, msg5}),
+			// First two messages should be ACKed, so only msg3-5 should be sent after retry.
+			expSentAfterRetry: createBinarySensorData([][]byte{msg3, msg4, msg5}),
 		},
 		{
-			name:                          `Tabular upload should resume from last ACKed point after server disconnection.`,
-			dataType:                      v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			ackEveryNSensorDatas:          2,
-			clientCancelAfterNSensorDatas: -1,
-			serverErrorAfterNMsgs:         4,
-			toSend:                        createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8}),
-			expSentAfterRetry:             createTabularSensorData([]*structpb.Struct{msg8}),
+			name:                         `Tabular upload should resume from last ACKed point after server disconnection.`,
+			dataType:                     v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+			ackEveryNSensorDatas:         2,
+			serverErrorAfterNSensorDatas: 2,
+			toSend:                       createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8}),
+			// First two messages should be ACKed, so only msg8 should be sent after retry.
+			expSentAfterRetry: createTabularSensorData([]*structpb.Struct{msg8}),
 		},
 	}
 
@@ -454,9 +452,13 @@ func TestPartialUpload(t *testing.T) {
 			// Build mock service with configured cancel and ack values.
 			logger := golog.NewTestLogger(t)
 			mockService := getMockService()
-			mockService.clientShutdownIndex = tc.clientCancelAfterNSensorDatas
 			mockService.messagesPerAck = tc.ackEveryNSensorDatas
-			mockService.failAtIndex = tc.serverErrorAfterNMsgs
+			if tc.serverErrorAfterNSensorDatas != 0 {
+				mockService.failAtIndex = tc.serverErrorAfterNSensorDatas + 1
+			}
+			if tc.clientCancelAfterNSensorDatas != 0 {
+				mockService.clientShutdownIndex = tc.clientCancelAfterNSensorDatas
+			}
 
 			// Build and start a local server and client.
 			rpcServer := buildAndStartLocalServer(t, logger, mockService)
@@ -487,12 +489,14 @@ func TestPartialUpload(t *testing.T) {
 			// Validate client sent mockService the upload requests we would expect before canceling the upload.
 			var expMsgs []*v1.UploadRequest
 			var actMsgs []*v1.UploadRequest
+
+			// Add 1 to account for the first UploadRequest containing metadata.
 			var cancelIndex int
 			switch {
-			case tc.clientCancelAfterNSensorDatas != -1:
+			case tc.clientCancelAfterNSensorDatas != 0:
 				cancelIndex = tc.clientCancelAfterNSensorDatas + 1
-			case tc.serverErrorAfterNMsgs != -1:
-				cancelIndex = int(tc.serverErrorAfterNMsgs)
+			case tc.serverErrorAfterNSensorDatas != 0:
+				cancelIndex = int(tc.serverErrorAfterNSensorDatas) + 1
 			default:
 				cancelIndex = len(tc.toSend)
 			}
