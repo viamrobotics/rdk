@@ -7,10 +7,10 @@ import (
 	"math/rand"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/utils"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/utils"
 )
 
 const (
@@ -80,13 +80,8 @@ func newCbirrtOptions(planOpts *PlannerOptions, frame referenceframe.Frame) (*cb
 // It uses the Constrained Bidirctional Rapidly-expanding Random Tree algorithm, Berenson et al 2009
 // https://ieeexplore.ieee.org/document/5152399/
 type cBiRRTMotionPlanner struct {
-	solver          InverseKinematics
+	*planner
 	fastGradDescent *NloptIK
-	frame           referenceframe.Frame
-	logger          golog.Logger
-	nCPU            int
-	// TODO(pl): As we move to per-segment planner instantiation, this should move to the options struct
-	randseed *rand.Rand
 }
 
 // NewCBiRRTMotionPlanner creates a cBiRRTMotionPlanner object.
@@ -97,7 +92,7 @@ func NewCBiRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.L
 
 // NewCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
 func NewCBiRRTMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
-	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
+	planner, err := newPlanner(frame, nCPU, seed, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -107,16 +102,9 @@ func NewCBiRRTMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *
 		return nil, err
 	}
 	return &cBiRRTMotionPlanner{
-		solver:          ik,
+		planner:         planner,
 		fastGradDescent: nlopt,
-		frame:           frame,
-		logger:          logger,
-		randseed:        seed,
 	}, nil
-}
-
-func (mp *cBiRRTMotionPlanner) Frame() referenceframe.Frame {
-	return mp.frame
 }
 
 func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,

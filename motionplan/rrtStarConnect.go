@@ -7,10 +7,10 @@ import (
 	"math/rand"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/utils"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/utils"
 )
 
 const (
@@ -58,42 +58,26 @@ func newRRTStarConnectOptions(planOpts *PlannerOptions) (*rrtStarConnectOptions,
 // rrtStarConnectMotionPlanner is an object able to asymptotically optimally path around obstacles to some goal for a given referenceframe.
 // It uses the RRT*-Connect algorithm, Klemm et al 2015
 // https://ieeexplore.ieee.org/document/7419012
-type rrtStarConnectMotionPlanner struct {
-	solver   InverseKinematics
-	frame    referenceframe.Frame
-	logger   golog.Logger
-	nCPU     int
-	randseed *rand.Rand
-}
+type rrtStarConnectMotionPlanner struct{ *planner }
 
-// NewRRTStarConnectMotionPlanner creates a rrtStarConnectMotionPlanner object.
+// NewRRTConnectMotionPlanner creates a rrtConnectMotionPlanner object.
 func NewRRTStarConnectMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger) (MotionPlanner, error) {
 	//nolint:gosec
 	return NewRRTStarConnectMotionPlannerWithSeed(frame, nCPU, rand.New(rand.NewSource(1)), logger)
 }
 
-// NewRRTStarConnectMotionPlannerWithSeed creates a rrtStarConnectMotionPlanner object with a user specified random seed.
+// NewRRTConnectMotionPlannerWithSeed creates a rrtConnectMotionPlanner object with a user specified random seed.
 func NewRRTStarConnectMotionPlannerWithSeed(
 	frame referenceframe.Frame,
 	nCPU int,
 	seed *rand.Rand,
 	logger golog.Logger,
 ) (MotionPlanner, error) {
-	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
+	planner, err := newPlanner(frame, nCPU, seed, logger)
 	if err != nil {
 		return nil, err
 	}
-	return &rrtStarConnectMotionPlanner{
-		solver:   ik,
-		frame:    frame,
-		logger:   logger,
-		nCPU:     nCPU,
-		randseed: seed,
-	}, nil
-}
-
-func (mp *rrtStarConnectMotionPlanner) Frame() referenceframe.Frame {
-	return mp.frame
+	return &rrtStarConnectMotionPlanner{planner}, nil
 }
 
 func (mp *rrtStarConnectMotionPlanner) Plan(ctx context.Context,

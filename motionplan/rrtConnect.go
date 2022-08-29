@@ -5,46 +5,30 @@ import (
 	"math/rand"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/utils"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/utils"
 )
 
 // rrtConnectMotionPlanner is an object able to quickly solve for valid paths around obstacles to some goal for a given referenceframe.
 // It uses the RRT-Connect algorithm, Kuffner & LaValle 2000
 // https://ieeexplore.ieee.org/document/844730
-type rrtConnectMotionPlanner struct {
-	solver   InverseKinematics
-	frame    referenceframe.Frame
-	logger   golog.Logger
-	nCPU     int
-	randseed *rand.Rand
-}
+type rrtConnectMotionPlanner struct{ *planner }
 
 // NewRRTConnectMotionPlanner creates a rrtConnectMotionPlanner object.
-func NewRRTConnectMotionPlanner(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
+func NewRRTConnectMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger) (MotionPlanner, error) {
 	//nolint:gosec
 	return NewRRTConnectMotionPlannerWithSeed(frame, nCPU, rand.New(rand.NewSource(1)), logger)
 }
 
 // NewRRTConnectMotionPlannerWithSeed creates a rrtConnectMotionPlanner object with a user specified random seed.
 func NewRRTConnectMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error) {
-	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
+	planner, err := newPlanner(frame, nCPU, seed, logger)
 	if err != nil {
 		return nil, err
 	}
-	return &rrtConnectMotionPlanner{
-		solver:   ik,
-		frame:    frame,
-		logger:   logger,
-		nCPU:     nCPU,
-		randseed: seed,
-	}, nil
-}
-
-func (mp *rrtConnectMotionPlanner) Frame() referenceframe.Frame {
-	return mp.frame
+	return &rrtConnectMotionPlanner{planner}, nil
 }
 
 func (mp *rrtConnectMotionPlanner) Plan(ctx context.Context,

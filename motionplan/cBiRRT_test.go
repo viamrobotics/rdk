@@ -32,14 +32,9 @@ func TestSimpleLinearMotion(t *testing.T) {
 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
+	mp, err := NewCBiRRTMotionPlannerWithSeed(m, 1, rand.New(rand.NewSource(42)), logger)
 	test.That(t, err, test.ShouldBeNil)
-	nlopt, err := CreateNloptIKSolver(m, logger, 1)
-	test.That(t, err, test.ShouldBeNil)
-	// nlopt should try only once
-	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: m, logger: logger}
-
-	mp.randseed = rand.New(rand.NewSource(42))
+	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
 
 	opt := NewBasicPlannerOptions()
 
@@ -51,7 +46,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	}
 	corners := map[*node]bool{}
 
-	solutions, err := getSolutions(ctx, opt, mp.solver, pos, home7, mp.Frame())
+	solutions, err := getSolutions(ctx, opt, cbirrt.solver, pos, home7, mp.Frame())
 	test.That(t, err, test.ShouldBeNil)
 
 	near1 := &node{q: home7}
@@ -74,11 +69,11 @@ func TestSimpleLinearMotion(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
-	seedReached := mp.constrainedExtend(ctx, cOpt, seedMap, near1, &node{q: target})
+	seedReached := cbirrt.constrainedExtend(ctx, cOpt, seedMap, near1, &node{q: target})
 	// Find the nearest point in goalMap to the furthest point reached in seedMap
 	near2 := nn.nearestNeighbor(ctx, seedReached.q, goalMap)
 	// extend goalMap towards the point in seedMap
-	goalReached := mp.constrainedExtend(ctx, cOpt, goalMap, near2, seedReached)
+	goalReached := cbirrt.constrainedExtend(ctx, cOpt, goalMap, near2, seedReached)
 
 	test.That(t, inputDist(seedReached.q, goalReached.q) < cOpt.JointSolveDist, test.ShouldBeTrue)
 
@@ -102,6 +97,6 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	// Test that smoothing succeeds and does not lengthen the path (it may be the same length)
 	unsmoothLen := len(inputSteps)
-	finalSteps := mp.SmoothPath(ctx, cOpt, inputSteps, corners)
+	finalSteps := cbirrt.SmoothPath(ctx, cOpt, inputSteps, corners)
 	test.That(t, len(finalSteps), test.ShouldBeLessThanOrEqualTo, unsmoothLen)
 }
