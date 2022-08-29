@@ -21,12 +21,14 @@ type DMService interface {
 	SetSyncerConstructor(fn datasync.ManagerConstructor)
 	SetSyncer(s datasync.Manager)
 	SetWaitAfterLastModifiedSecs(s int)
+	SetModelrConstructor(fn model.ManagerConstructor)
+	SetClientConn(c urpc.ClientConn)
 }
 
-type MMService interface {
-	SetModelrConstructor(fn model.ManagerConstructor)
-	Close(ctx context.Context) error
-	SetClientConn(c urpc.ClientConn)
-	Update(ctx context.Context, cfg *config.Config) error
-	SetWaitAfterLastModifiedSecs(s int)
-}
+// type MMService interface {
+// 	SetModelrConstructor(fn model.ManagerConstructor)
+// 	Close(ctx context.Context) error
+// 	SetClientConn(c urpc.ClientConn)
+// 	Update(ctx context.Context, cfg *config.Config) error
+// 	SetWaitAfterLastModifiedSecs(s int)
+// }

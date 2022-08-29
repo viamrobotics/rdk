@@ -2,8 +2,6 @@
 package datamanager
 
 import (
-	"fmt"
-
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/datamanager/model"
 	"go.viam.com/utils/rpc"
@@ -14,7 +12,7 @@ func (svc *dataManagerService) SetSyncerConstructor(fn datasync.ManagerConstruct
 	svc.syncerConstructor = fn
 }
 
-func (svc *modelManagerService) SetModelrConstructor(fn model.ManagerConstructor) {
+func (svc *dataManagerService) SetModelrConstructor(fn model.ManagerConstructor) {
 	svc.modelrConstructor = fn
 }
 
@@ -28,14 +26,14 @@ func (svc *dataManagerService) SetWaitAfterLastModifiedSecs(s int) {
 	svc.waitAfterLastModifiedSecs = s
 }
 
-func (svc *modelManagerService) SetWaitAfterLastModifiedSecs(s int) {
-	svc.waitAfterLastModifiedSecs = s
-}
+// func (svc *modelManagerService) SetWaitAfterLastModifiedSecs(s int) {
+// 	svc.waitAfterLastModifiedSecs = s
+// }
 
-func (svc *modelManagerService) SetClientConn(c rpc.ClientConn) {
+func (svc *dataManagerService) SetClientConn(c rpc.ClientConn) {
 	// fmt.Println("export_test.go/SetClientConn() with value c: ", c)
 	svc.clientConn = &c
-	fmt.Println("svc.clientConn: ", svc.clientConn)
+	// fmt.Println("svc.clientConn: ", svc.clientConn)
 }
 
 // Make getServiceConfig global for tests.

@@ -82,7 +82,7 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceClient,
 	conn rpc.ClientConn,
 ) (Manager, error) {
-	fmt.Println("datasync/sync.go/NewManager()")
+	// fmt.Println("datasync/sync.go/NewManager()")
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
 		conn:   conn,

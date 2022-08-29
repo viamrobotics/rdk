@@ -14,7 +14,7 @@ import (
 
 type Manager interface {
 	Deploy(ctx context.Context, req *v1.DeployRequest) (*v1.DeployResponse, error)
-	Close()
+	// Close()
 }
 
 // syncer is responsible for uploading files in captureDir to the cloud.
@@ -32,7 +32,7 @@ type ManagerConstructor func(logger golog.Logger, cfg *config.Config) (Manager, 
 
 // NewDefaultManager returns the default Manager that syncs data to app.viam.com.
 func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error) {
-	fmt.Println("model/model.go/NewDefaultManager()")
+	// fmt.Println("model/model.go/NewDefaultManager()")
 	// tlsConfig := config.NewTLSConfig(cfg).Config
 	// cloudConfig := cfg.Cloud
 	// rpcOpts := []rpc.DialOption{
@@ -49,9 +49,10 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 	}
 	var appAddress = ""
 	if cfg.Cloud.AppAddress == "" {
+		fmt.Println("set here")
 		appAddress = "app.viam.com:443"
 	} else {
-		fmt.Println("we have set it properly")
+		// fmt.Println("we have set it properly")
 		appAddress = cfg.Cloud.AppAddress
 	}
 
@@ -67,7 +68,7 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 func NewManager(logger golog.Logger, partID string, client v1.ModelServiceClient,
 	conn rpc.ClientConn,
 ) (Manager, error) {
-	fmt.Println("model/model.go/NewManager()")
+	// fmt.Println("model/model.go/NewManager()")
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := modelr{
 		conn:              conn,
@@ -82,15 +83,19 @@ func NewManager(logger golog.Logger, partID string, client v1.ModelServiceClient
 }
 
 func (s *modelr) Deploy(ctx context.Context, req *v1.DeployRequest) (*v1.DeployResponse, error) {
-	return s.client.Deploy(ctx, req)
+	resp, err := s.client.Deploy(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
-func (s *modelr) Close() {
-	s.cancelFunc()
-	s.backgroundWorkers.Wait()
-	if s.conn != nil {
-		if err := s.conn.Close(); err != nil {
-			s.logger.Errorw("error closing datasync server connection", "error", err)
-		}
-	}
-}
+// func (s *modelr) Close() {
+// 	s.cancelFunc()
+// 	s.backgroundWorkers.Wait()
+// 	if s.conn != nil {
+// 		if err := s.conn.Close(); err != nil {
+// 			s.logger.Errorw("error closing model deploy server connection", "error", err)
+// 		}
+// 	}
+// }
