@@ -2,6 +2,7 @@ package datasync
 
 import (
 	"context"
+	goutils "go.viam.com/utils"
 	"io"
 	"os"
 	"sync"
@@ -31,68 +32,31 @@ func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, m
 	var activeBackgroundWorkers sync.WaitGroup
 	errChannel := make(chan error, 2)
 
+	// Create cancelCtx so if either the recv or send goroutines error, we can cancel the other one.
+	cancelCtx, cancelFn := context.WithCancel(ctx)
+	defer cancelFn()
+
 	// Start a goroutine for recving errors back from the server.
 	activeBackgroundWorkers.Add(1)
-	go func() {
+	goutils.PanicCapturingGo(func() {
 		defer activeBackgroundWorkers.Done()
-		for {
-			recvChannel := make(chan error)
-			go func() {
-				defer close(recvChannel)
-				_, err := stream.Recv()
-				recvChannel <- err
-			}()
-			select {
-			case <-ctx.Done():
-				errChannel <- context.Canceled
-				return
-			case e := <-recvChannel:
-				if e != nil {
-					if !errors.Is(e, io.EOF) {
-						errChannel <- e
-					}
-					return
-				}
-			}
+		err := recvFileUploadResponses(cancelCtx, stream)
+		if err != nil {
+			errChannel <- err
+			cancelFn()
 		}
-	}()
+	})
 
-	// Start a goroutine for sending upload requests to the server.
+	// Start a goroutine for sending requests to the server.
 	activeBackgroundWorkers.Add(1)
-	go func() {
-		//nolint:errcheck
-		defer stream.CloseSend()
+	goutils.PanicCapturingGo(func() {
 		defer activeBackgroundWorkers.Done()
-		// Loop until there is no more content to be read from file.
-		for {
-			select {
-			case <-ctx.Done():
-				errChannel <- context.Canceled
-				return
-			default:
-				// Get the next UploadRequest from the file.
-				uploadReq, err := getNextFileUploadRequest(ctx, f)
-
-				// EOF means we've completed successfully.
-				if errors.Is(err, io.EOF) {
-					if err := stream.CloseSend(); err != nil {
-						errChannel <- errors.Wrap(err, "error when closing stream")
-					}
-					return
-				}
-
-				if err != nil {
-					errChannel <- err
-					return
-				}
-
-				if err = stream.Send(uploadReq); err != nil {
-					errChannel <- err
-					return
-				}
-			}
+		err := sendFileUploadRequests(cancelCtx, stream, f)
+		if err != nil {
+			errChannel <- err
+			cancelFn()
 		}
-	}()
+	})
 
 	activeBackgroundWorkers.Wait()
 	close(errChannel)
@@ -133,4 +97,57 @@ func readNextFileChunk(f *os.File) (*v1.FileData, error) {
 		return nil, err
 	}
 	return &v1.FileData{Data: byteArr}, nil
+}
+
+func recvFileUploadResponses(ctx context.Context, stream v1.DataSyncService_UploadClient) error {
+	for {
+		recvChannel := make(chan error)
+		go func() {
+			defer close(recvChannel)
+			_, err := stream.Recv()
+			recvChannel <- err
+		}()
+		select {
+		case <-ctx.Done():
+			return context.Canceled
+		case e := <-recvChannel:
+			if e != nil {
+				if !errors.Is(e, io.EOF) {
+					return e
+				}
+				return nil
+			}
+		}
+	}
+}
+
+func sendFileUploadRequests(ctx context.Context, stream v1.DataSyncService_UploadClient, f *os.File) error {
+	//nolint:errcheck
+	defer stream.CloseSend()
+	// Loop until there is no more content to be read from file.
+	for {
+		select {
+		case <-ctx.Done():
+			return context.Canceled
+		default:
+			// Get the next UploadRequest from the file.
+			uploadReq, err := getNextFileUploadRequest(ctx, f)
+
+			// EOF means we've completed successfully.
+			if errors.Is(err, io.EOF) {
+				if err := stream.CloseSend(); err != nil {
+					return err
+				}
+				return nil
+			}
+
+			if err != nil {
+				return err
+			}
+
+			if err = stream.Send(uploadReq); err != nil {
+				return err
+			}
+		}
+	}
 }
