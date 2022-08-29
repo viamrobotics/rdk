@@ -3,14 +3,17 @@ package motionplan
 
 import (
 	"context"
-	"errors"
 	"math"
+	"math/rand"
 	"sort"
+
+	"github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
@@ -25,6 +28,34 @@ type MotionPlanner interface {
 	// should be visited in order to arrive at the goal while satisfying all constraints
 	Plan(context.Context, *commonpb.Pose, []frame.Input, *PlannerOptions) ([][]frame.Input, error)
 	Frame() frame.Frame // Frame will return the frame used for planning
+}
+
+type planner struct {
+	solver InverseKinematics
+	frame  referenceframe.Frame
+	logger golog.Logger
+	nCPU   int
+	// TODO(pl): As we move to per-segment planner instantiation, this should move to the options struct
+	randseed *rand.Rand
+}
+
+func newPlanner(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (*planner, error) {
+	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
+	if err != nil {
+		return nil, err
+	}
+	mp := &planner{
+		solver:   ik,
+		frame:    frame,
+		logger:   logger,
+		nCPU:     nCPU,
+		randseed: seed,
+	}
+	return mp, nil
+}
+
+func (mp *planner) Frame() referenceframe.Frame {
+	return mp.frame
 }
 
 // needed to wrap slices so we can use them as map keys.
