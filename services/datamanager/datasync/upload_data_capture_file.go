@@ -28,8 +28,7 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		return err
 	}
 
-	progressFileName := filepath.Join(pt.progressDir,
-		filepath.Base(f.Name()))
+	progressFileName := filepath.Join(pt.progressDir, filepath.Base(f.Name()))
 
 	// Send metadata upload request.
 	req := &v1.UploadRequest{

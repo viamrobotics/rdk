@@ -166,13 +166,14 @@ func createTmpDataCaptureFile() (file *os.File, err error) {
 }
 
 //nolint:thelper
-func buildAndStartLocalServer(t *testing.T, logger golog.Logger, mockService mockDataSyncServiceServer) rpc.Server {
+func buildAndStartLocalServer(t *testing.T, logger golog.Logger, mockService *mockDataSyncServiceServer) rpc.Server {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	err = rpcServer.RegisterServiceServer(
 		context.Background(),
 		&v1.DataSyncService_ServiceDesc,
-		mockService,
+		// TODO: why does this break on partial uploads without dereference?
+		*mockService,
 		v1.RegisterDataSyncServiceHandlerFromEndpoint,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -207,13 +208,12 @@ type mockDataSyncServiceServer struct {
 	messagesPerAck      int
 	messagesToAck       int
 	clientShutdownIndex int
-	uploadResponses     *[]*v1.UploadResponse
 	cancelChannel       chan bool
 	doneCancelChannel   chan bool
 }
 
-func getMockService() mockDataSyncServiceServer {
-	return mockDataSyncServiceServer{
+func getMockService() *mockDataSyncServiceServer {
+	return &mockDataSyncServiceServer{
 		uploadRequests:                     &[]*v1.UploadRequest{},
 		callCount:                          &atomic.Int32{},
 		failAtIndex:                        -1,
@@ -223,7 +223,6 @@ func getMockService() mockDataSyncServiceServer {
 		messagesPerAck:                     1,
 		messagesToAck:                      0,
 		clientShutdownIndex:                -1,
-		uploadResponses:                    &[]*v1.UploadResponse{},
 	}
 }
 
