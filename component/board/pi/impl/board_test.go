@@ -117,7 +117,7 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, after-before, test.ShouldEqual, int64(1))
 	})
 
-	//nolint:dupl
+	
 	t.Run("servo in/out", func(t *testing.T) {
 		servoReg := registry.ComponentLookup(servo.Subtype, picommon.ModelName)
 		test.That(t, servoReg, test.ShouldNotBeNil)
