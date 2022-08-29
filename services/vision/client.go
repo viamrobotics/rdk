@@ -182,7 +182,8 @@ func (c *client) RemoveClassifier(ctx context.Context, classifierName string) er
 }
 
 func (c *client) GetClassificationsFromCamera(ctx context.Context, cameraName,
-	classifierName string, n int) (classification.Classifications, error) {
+	classifierName string, n int,
+) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetClassificationsFromCamera")
 	defer span.End()
 	resp, err := c.client.GetClassificationsFromCamera(ctx, &pb.GetClassificationsFromCameraRequest{
@@ -203,7 +204,8 @@ func (c *client) GetClassificationsFromCamera(ctx context.Context, cameraName,
 }
 
 func (c *client) GetClassifications(ctx context.Context, img image.Image,
-	classifierName string, n int) (classification.Classifications, error) {
+	classifierName string, n int,
+) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetClassifications")
 	defer span.End()
 	mimeType := utils.MimeTypePNG
