@@ -54,6 +54,7 @@
   - github.com/go-latex/latex
   - New BSD
   - :who:
+    :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
     :license_links: https://github.com/go-latex/latex/blob/c0d11ff05a81a63afdffbba6e577b2a3a6e69c85/LICENSE
     :versions: []
     :when: 2022-08-15 14:55:14.011453253 Z
@@ -61,6 +62,7 @@
   - github.com/improbable-eng/grpc-web
   - Apache License 2.0
   - :who:
+    :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
     :license_links: https://github.com/improbable-eng/grpc-web/blob/90ce72a31aa7bdfd6eae03fc735953902949c0de/LICENSE.txt
     :versions: []
     :when: 2022-08-15 14:58:14.484806455 Z
@@ -68,6 +70,7 @@
   - github.com/jmespath/go-jmespath
   - Apache License 2.0
   - :who:
+    :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
     :license_links: https://github.com/jmespath/go-jmespath/blob/b0104c826a24d7c202da8e1dbfb9ea4cfa35d774/LICENSE
     :versions: []
     :when: 2022-08-15 15:00:22.812116090 Z
@@ -75,6 +78,7 @@
   - github.com/xdg-go/pbkdf2
   - Apache License 2.0
   - :who:
+    :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
     :license_links: https://github.com/xdg-go/pbkdf2/blob/7f452ef1dac88350356f1bb84a23748205e64b96/LICENSE
     :versions: []
     :when: 2022-08-15 15:02:55.419786268 Z
@@ -82,6 +86,7 @@
   - github.com/xdg-go/scram
   - Apache License 2.0
   - :who:
+    :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
     :license_links: https://github.com/xdg-go/scram/blob/ef29d5590bacede26100601bb2f7d9bb08bacc75/LICENSE
     :versions: []
     :when: 2022-08-15 15:48:55.549018227 Z
@@ -89,6 +94,7 @@
   - github.com/xdg-go/stringprep
   - Apache License 2.0
   - :who:
+    :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
     :license_links: https://github.com/xdg-go/stringprep/blob/eb5c8f240eb1ea3fe0144fd4d3e0c305492d8eb1/LICENSE
     :versions: []
     :when: 2022-08-15 15:50:08.659677721 Z
@@ -96,6 +102,7 @@
   - go-hep.org/x/hep
   - New BSD
   - :who:
+    :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
     :license_links: https://github.com/go-hep/hep/blob/535619c28f900dcd37c522f2b9d593ec61b7b8dd/LICENSE
     :versions: []
     :when: 2022-08-15 15:53:36.138009630 Z
@@ -103,6 +110,7 @@
   - gonum.org/v1/plot
   - New BSD
   - :who:
+    :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
     :license_links: https://github.com/gonum/plot/blob/c2b63591159b9dceb2cbf953702691d2a2fe7a6d/LICENSE
     :versions: []
     :when: 2022-08-15 15:56:25.026774237 Z
