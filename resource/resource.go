@@ -188,6 +188,7 @@ func (n Name) ContainsRemoteNames() bool {
 	return len(n.Remote) > 0
 }
 
+// RemoveRemoteName returns a new name with remote removed.
 func RemoveRemoteName(n Name) Name {
 	tempName := NameFromSubtype(n.Subtype, n.Name)
 	tempName.Remote = ""

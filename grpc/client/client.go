@@ -467,12 +467,12 @@ func (rc *RobotClient) updateResources(ctx context.Context, reason updateReason)
 		rc.resourceRPCSubtypes = rpcSubtypes
 	}
 
-	rc.updateRemoteNameMap(ctx)
+	rc.updateRemoteNameMap()
 
 	return rc.updateResourceClients(ctx, reason)
 }
 
-func (rc *RobotClient) updateRemoteNameMap(ctx context.Context) {
+func (rc *RobotClient) updateRemoteNameMap() {
 	tempMap := make(map[resource.Name]resource.Name)
 	dupMap := make(map[resource.Name]bool)
 	for _, n := range rc.resourceNames {
@@ -488,7 +488,7 @@ func (rc *RobotClient) updateRemoteNameMap(ctx context.Context) {
 			tempMap[tempName] = n
 		}
 	}
-	for key, _ := range dupMap {
+	for key := range dupMap {
 		delete(tempMap, key)
 	}
 	rc.remoteNameMap = tempMap
