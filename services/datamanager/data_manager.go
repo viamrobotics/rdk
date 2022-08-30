@@ -604,27 +604,6 @@ func (svc *dataManagerService) syncAdditionalSyncPaths() {
 // TODO: DATA-304, create a way for other services to check when their specified models
 // are ready to be used.
 
-// func (svc *modelManagerService) Update(ctx context.Context, cfg *config.Config) error {
-// 	svcConfig, _, _ := getServiceConfig(cfg)
-// 	// if !ok {
-// 	// 	svc.closeCollectors()
-// 	// 	return err
-// 	// }
-// 	// fmt.Println("HIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII")
-// 	// fmt.Println("svc.clientConn: ", svc.clientConn)
-// 	if cfg.Cloud != nil {
-// 		svc.partID = cfg.Cloud.ID
-
-// 		// Download models from models_on_robot.
-// 		modelsToDeploy := svcConfig.ModelsToDeploy
-// 		err := svc.downloadModels(cfg, modelsToDeploy)
-// 		if err != nil {
-// 			svc.logger.Errorf("can't download models_on_robot in config", "error", err)
-// 		}
-// 	}
-// 	return nil
-// }
-
 // Update updates the data manager service when the config has changed.
 func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) error {
 	// fmt.Println("data_manager.go/Update()")
@@ -720,6 +699,16 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	return nil
 }
 
+// define interface here?
+// type smth interface {
+// 	http.DefaultClient.Do(getReq *http.Request)
+// }
+
+// type Resp struct {
+// 	// panic bool
+// 	some *smth
+// }
+
 func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy []*Model) error {
 	// fmt.Println("data_manager.go/downloadModels()")
 	modelsToDownload := getModelsToDownload(modelsToDeploy)
@@ -750,15 +739,17 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 		svc.clientConn = &conn
 	}
 
+	// it feels weird here.
+	// i feel like i am forcing this to happen when it should
+	// occur more organically.
 	modelr, err := svc.modelrConstructor(svc.logger, cfg)
 	if err != nil {
-		return errors.Wrap(err, "failed to initialize new syncer")
+		return errors.Wrap(err, "failed to initialize new modelr")
 	}
 	svc.modelr = modelr
 
 	svc.deployModelsBackgroundWorkers.Add(len(modelsToDownload))
 	// modelServiceClient := model.NewClient(*svc.clientConn)
-	// modelServiceClient := modelclient.NewClientFromConn(*svc.clientConn, svc.logger)
 	for _, model := range modelsToDownload {
 		go func(model *Model) {
 			// Change context to a timeout?
@@ -769,22 +760,18 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 				},
 			}
 
-			// fmt.Println("deployRequest: ", deployRequest)
 			// deployResp, err := modelServiceClient.Deploy(cancelCtx, deployRequest)
 			deployResp, err := modelr.Deploy(cancelCtx, deployRequest)
-
-			fmt.Println("deployResp: ", deployResp)
-
 			if err != nil {
-				svc.logger.Fatalf(err.Error())
+				svc.logger.Error(err)
 			} else {
-				fmt.Println("made it past :)")
 				url := deployResp.Message
 				err := downloadFile(cancelCtx, model.Destination, url, svc.logger)
 				if err != nil {
 					svc.logger.Error(err)
 					return // Don't try to unzip the file if we can't download it.
 				}
+
 				fmt.Println("do we make it here?")
 				// A download from a GCS signed URL only returns one file.
 				modelFileToUnzip := model.Name + ".zip" // TODO: For now, hardcode.
@@ -887,6 +874,7 @@ func unzipFile(cancelCtx context.Context, f *zip.File, destination string, logge
 // downloadFile will download a url to a local file. It writes as it
 // downloads and doesn't load the whole file into memory.
 func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.Logger) error {
+	fmt.Println("data_manager.go/downloadFile()")
 	getReq, err := http.NewRequestWithContext(cancelCtx, "GET", url, nil)
 	if err != nil {
 		return err
