@@ -50,7 +50,7 @@ export const fixArmStatus = (old: {
   return newStatus;
 };
 
-export const fixBoardStatus = (old: { analogs: unknown[]; digital_interrupts: unknown[] }) =>  {
+export const fixBoardStatus = (old: { analogs: unknown[]; digital_interrupts: unknown[] }) => {
   return {
     analogsMap: old.analogs || [],
     digitalInterruptsMap: old.digital_interrupts || [],
