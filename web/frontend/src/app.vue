@@ -57,6 +57,7 @@ import {
   fixGantryStatus,
   fixInputStatus,
   fixMotorStatus,
+  fixServoStatus,
 } from './lib/fixers';
 
 export default {
@@ -1025,9 +1026,6 @@ export default {
       });
     },
     listenAudioInput(name, isOn) {
-      const streamName = normalizeRemoteName(name);
-      const streamContainer = document.querySelector(`#stream-${streamName}`);
-
       if (isOn) {
         const req = new streamApi.AddStreamRequest();
         req.setName(name);
@@ -1422,6 +1420,7 @@ export default {
           rawStatus[nameStr] = statusJs;
           status[nameStr] = fixed;
         } catch (error) {
+          console.log(error)
           toast.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`, error);
         }
       }
@@ -2399,8 +2398,9 @@ function setBoundingBox(box, centerPoint) {
 
     <!-- ******* SLAM *******  -->
     <Slam
-      v-for = "slam in filterResources(resources, 'rdk', 'service', 'slam')"
-      :name = "slam.name"
+      v-for="slam in filterResources(resources, 'rdk', 'service', 'slam')"
+      :key="slam.name"
+      :name="slam.name"
       :image-map="imageMapTemp"
       @update-slam-image-refresh-frequency="updateSLAMImageRefreshFrequency"
       @update-slam-pcd-refresh-frequency="updateSLAMPCDRefreshFrequency"
