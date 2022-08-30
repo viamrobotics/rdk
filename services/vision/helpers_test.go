@@ -64,8 +64,20 @@ func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
 			"aligned": false,
 		},
 	}
+	cameraComp2 := config.Component{
+		Name:  "fake_cam2",
+		Type:  camera.SubtypeName,
+		Model: "file",
+		Attributes: config.AttributeMap{
+			"color":   artifact.MustPath("vision/tflite/lion.jpeg"),
+			"depth":   "",
+			"aligned": false,
+		},
+	}
+
 	test.That(t, err, test.ShouldBeNil)
 	cfg.Components = append(cfg.Components, cameraComp)
+	cfg.Components = append(cfg.Components, cameraComp2)
 	newConfFile := writeTempConfig(t, cfg)
 	defer os.Remove(newConfFile)
 	// make the robot from new config and get the service

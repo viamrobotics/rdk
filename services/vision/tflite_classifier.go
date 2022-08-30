@@ -4,6 +4,7 @@ import (
 	"context"
 	"image"
 	"runtime"
+	"strconv"
 
 	"github.com/edaniels/golog"
 	"github.com/nfnt/resize"
@@ -108,10 +109,15 @@ func unpackClassificationTensor(ctx context.Context, tensor []interface{},
 	default:
 		return nil, errors.New("output type not valid. try uint8 or float32")
 	}
-
 	out := make(classification.Classifications, 0, len(outConf))
-	for i, c := range outConf {
-		out = append(out, classification.NewClassification(c, labels[i]))
+	if len(labels) > 0 {
+		for i, c := range outConf {
+			out = append(out, classification.NewClassification(c, labels[i]))
+		}
+	} else {
+		for i, c := range outConf {
+			out = append(out, classification.NewClassification(c, strconv.Itoa(i)))
+		}
 	}
 	return out, nil
 }
