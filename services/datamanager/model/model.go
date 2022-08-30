@@ -9,15 +9,15 @@ import (
 
 	v1 "go.viam.com/api/proto/viam/model/v1"
 	"go.viam.com/rdk/config"
+	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/utils/rpc"
 )
 
 type Manager interface {
 	Deploy(ctx context.Context, req *v1.DeployRequest) (*v1.DeployResponse, error)
-	// Close()
 }
 
-// syncer is responsible for uploading files in captureDir to the cloud.
+// modelr is responsible for uploading files in captureDir to the cloud.
 type modelr struct {
 	partID            string
 	conn              rpc.ClientConn
@@ -33,28 +33,18 @@ type ManagerConstructor func(logger golog.Logger, cfg *config.Config) (Manager, 
 // NewDefaultManager returns the default Manager that syncs data to app.viam.com.
 func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error) {
 	// fmt.Println("model/model.go/NewDefaultManager()")
-	// tlsConfig := config.NewTLSConfig(cfg).Config
-	// cloudConfig := cfg.Cloud
-	// rpcOpts := []rpc.DialOption{
-	// 	rpc.WithTLSConfig(tlsConfig),
-	// 	rpc.WithEntityCredentials(
-	// 		cloudConfig.ID,
-	// 		rpc.Credentials{
-	// 			Type:    rdkutils.CredentialsTypeRobotSecret,
-	// 			Payload: cloudConfig.Secret,
-	// 		}),
-	// }
+	tlsConfig := config.NewTLSConfig(cfg).Config
+	cloudConfig := cfg.Cloud
 	rpcOpts := []rpc.DialOption{
-		rpc.WithInsecure(),
+		rpc.WithTLSConfig(tlsConfig),
+		rpc.WithEntityCredentials(
+			cloudConfig.ID,
+			rpc.Credentials{
+				Type:    rdkutils.CredentialsTypeRobotSecret,
+				Payload: cloudConfig.Secret,
+			}),
 	}
-	var appAddress = ""
-	if cfg.Cloud.AppAddress == "" {
-		fmt.Println("set here")
-		appAddress = "app.viam.com:443"
-	} else {
-		// fmt.Println("we have set it properly")
-		appAddress = cfg.Cloud.AppAddress
-	}
+	appAddress := "app.viam.com:443"
 
 	conn, err := NewConnection(logger, appAddress, rpcOpts)
 	if err != nil {
@@ -68,7 +58,6 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 func NewManager(logger golog.Logger, partID string, client v1.ModelServiceClient,
 	conn rpc.ClientConn,
 ) (Manager, error) {
-	// fmt.Println("model/model.go/NewManager()")
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := modelr{
 		conn:              conn,
@@ -83,19 +72,10 @@ func NewManager(logger golog.Logger, partID string, client v1.ModelServiceClient
 }
 
 func (s *modelr) Deploy(ctx context.Context, req *v1.DeployRequest) (*v1.DeployResponse, error) {
+	fmt.Println("called Deploy() in model/model.go")
 	resp, err := s.client.Deploy(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
 }
-
-// func (s *modelr) Close() {
-// 	s.cancelFunc()
-// 	s.backgroundWorkers.Wait()
-// 	if s.conn != nil {
-// 		if err := s.conn.Close(); err != nil {
-// 			s.logger.Errorw("error closing model deploy server connection", "error", err)
-// 		}
-// 	}
-// }
