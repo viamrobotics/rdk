@@ -2,13 +2,13 @@ package datasync
 
 import (
 	"context"
-	goutils "go.viam.com/utils"
 	"io"
 	"os"
 	"sync"
 
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
+	goutils "go.viam.com/utils"
 )
 
 func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, md *v1.UploadMetadata,
