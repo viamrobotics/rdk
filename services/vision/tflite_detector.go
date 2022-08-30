@@ -3,6 +3,7 @@ package vision
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"image"
 	"os"
 	"strconv"
@@ -202,7 +203,7 @@ func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLite
 	if err != nil {
 		hasMetadata = false
 		// If you could not access the metadata
-		logger.Warn("could not find tensor order. Using default order: location, category, score")
+		logger.Warnf("could not find tensor order. %v Using default order: location, category, score", err)
 		tensorOrder = []int{0, 1, 2}
 	} else {
 		hasMetadata = true
@@ -310,19 +311,23 @@ func getIndex(s []int, num int) int {
 // getBboxOrder checks the metadata and looks for the bounding box order
 // returned as []int, where 0=xmin, 1=xmax, 2=ymin, 3=ymax.
 func getBboxOrder(m *tflite_metadata.ModelMetadataT) []int {
-	bboxOrder := make([]int, 4)
 
 	// tensorData should be a []TensorMetadataT from the metadata telling me about each tensor in order
 	tensorData := m.SubgraphMetadata[0].OutputTensorMetadata
 	for _, t := range tensorData {
-		if strings.ToLower(t.Name) == "location" {
-			order := t.Content.ContentProperties.Value.(*tflite_metadata.BoundingBoxPropertiesT).Index
-			for i, o := range order {
-				bboxOrder[i] = int(o)
-			}
+		if !strings.HasPrefix(t.Name, "location") {
+			continue
 		}
+
+		bboxOrder := make([]int, 4)
+		order := t.Content.ContentProperties.Value.(*tflite_metadata.BoundingBoxPropertiesT).Index
+		for i, o := range order {
+			bboxOrder[i] = int(o)
+		}
+		return bboxOrder
 	}
-	return bboxOrder
+
+	panic("cannot find location in getBboxOrder")
 }
 
 // getTensorOrder checks the metadata for the order of the output tensors
@@ -331,17 +336,34 @@ func getTensorOrder(m *tflite_metadata.ModelMetadataT) []int {
 	tensorOrder := make([]int, 4) // location = 0 , category = 1, score = 2
 
 	tensorData := m.SubgraphMetadata[0].OutputTensorMetadata
+
+	found := make([]bool, 3)
+
 	for i, t := range tensorData {
 		switch name := strings.ToLower(t.Name); name {
 		case "location":
+		case "locations":
 			tensorOrder[i] = 0
+			found[0] = true
 		case "category":
+		case "class":
+		case "classes":
 			tensorOrder[i] = 1
+			found[1] = true
 		case "score":
+		case "scores":
 			tensorOrder[i] = 2
+			found[2] = true
 		default:
 			continue
 		}
 	}
+
+	for _, b := range found {
+		if !b {
+			panic(fmt.Sprintf("getTensorOrder failed %v", found))
+		}
+	}
+
 	return tensorOrder
 }
