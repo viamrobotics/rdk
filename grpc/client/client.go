@@ -335,9 +335,8 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 		return client, nil
 	}
 	// if the client isnt found see if a remote name matches the name
-	shortName := name.ShortName()
-	shortcut := shortName[strings.LastIndexAny(shortName, ":")+1:]
-	tempName := resource.NameFromSubtype(name.Subtype, shortcut)
+
+	tempName := resource.RemoveRemoteName(name)
 	if val, ok := rc.remoteNameMap[tempName]; ok {
 		if val.Name != "" {
 			val.Remote = ""
@@ -458,10 +457,7 @@ func (rc *RobotClient) updateRemoteNameMap(ctx context.Context) error {
 		if n.Name == "" {
 			return errors.Errorf("Empty name used for resource: %s", n)
 		}
-		name := n.ShortName()
-		tempName := resource.NameFromSubtype(n.Subtype, name)
-		shortcut := name[strings.LastIndexAny(name, ":")+1:]
-		n.Name = shortcut
+		tempName := resource.RemoveRemoteName(n)
 		// If the short name already exists in the map then there is a collision and we make the long name empty.
 		if _, ok := tempMap[n]; ok {
 			tempMap[n] = resource.NameFromSubtype(n.Subtype, "")
