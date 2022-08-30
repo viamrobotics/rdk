@@ -163,3 +163,11 @@
     :why: this is our library
     :versions: []
     :when: 2022-08-30 15:41:06.902196379 Z
+- - :ignore
+  - github.com/ziutek/mymysql
+  - :who:
+    :why: 'TODO(RSDK-580): temporarily ignoring to pass CI - it has an unnamed license
+      that looks like New BSD'
+    :versions: []
+    :when: 2022-08-30 15:57:05.777568049 Z
+    :license_links: https://github.com/ziutek/mymysql/blob/fffb8880277462abe6f4526dbd69a1982f9437b6/LICENSE
