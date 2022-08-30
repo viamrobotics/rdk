@@ -24,18 +24,16 @@ const (
 	blockEncoderToRPM               controlBlockType = "encoderToRpm"
 )
 
-// ControlBlockConfig configuration of a given block
-// nolint: revive
-type ControlBlockConfig struct {
+// BlockConfig configuration of a given block.
+type BlockConfig struct {
 	Name      string              `json:"name"`       // Control Block name
 	Type      controlBlockType    `json:"type"`       // Control Block type
 	Attribute config.AttributeMap `json:"attributes"` // Internal block configuration
 	DependsOn []string            `json:"depends_on"` // List of blocks needed for calling Next
 }
 
-// ControlBlock interface for a control block
-// nolint: revive
-type ControlBlock interface {
+// Block interface for a control block.
+type Block interface {
 	// Reset will reset the control block to initial state. Returns an error on failure
 	Reset(ctx context.Context) error
 
@@ -43,16 +41,16 @@ type ControlBlock interface {
 	Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool)
 
 	// UpdateConfig update the configuration of a pre-existing control block returns an error on failure
-	UpdateConfig(ctx context.Context, config ControlBlockConfig) error
+	UpdateConfig(ctx context.Context, config BlockConfig) error
 
 	// Output returns the most recent valid value, useful for block aggregating signals
 	Output(ctx context.Context) []Signal
 
-	// Config returns the underlying config for a ControlBlock
-	Config(ctx context.Context) ControlBlockConfig
+	// Config returns the underlying config for a Block
+	Config(ctx context.Context) BlockConfig
 }
 
-func createControlBlock(cfg ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
+func createBlock(cfg BlockConfig, logger golog.Logger) (Block, error) {
 	t := cfg.Type
 	switch t {
 	case blockEndpoint:

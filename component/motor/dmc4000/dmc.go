@@ -493,7 +493,7 @@ func (m *Motor) stopJog() error {
 // revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 // can be assigned negative values to move in a backwards direction. Note: if both are
 // negative the motor will spin in the forward direction.
-func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
+func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -522,7 +522,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64, ext
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 // at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target/position.
-func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64, extra map[string]interface{}) error {
+func (m *Motor) GoTo(ctx context.Context, rpm, position float64, extra map[string]interface{}) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -756,7 +756,7 @@ func (m *Motor) startHome() error {
 }
 
 // Must be run inside a lock.
-func (m *Motor) doGoTo(rpm float64, position float64) error {
+func (m *Motor) doGoTo(rpm, position float64) error {
 	// Exit jog mode if in it
 	err := m.stopJog()
 	if err != nil {

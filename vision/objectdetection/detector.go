@@ -1,5 +1,5 @@
 // Package objectdetection defines a functional way to create object detection pipelines by feeding in
-// images from a gostream.ImageSource source.
+// images from a gostream.VideoSource source.
 package objectdetection
 
 import (

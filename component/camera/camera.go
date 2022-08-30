@@ -8,12 +8,15 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	"go.uber.org/multierr"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/generic"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
@@ -71,21 +74,31 @@ func Named(name string) resource.Name {
 
 // A Camera represents anything that can capture frames.
 type Camera interface {
-	gostream.ImageSource
 	generic.Generic
+	projectorProvider
+
+	// Stream returns a stream that makes a best effort to return consecutive images
+	// that may have a MIME type hint dictated in the context via gostream.WithMIMETypeHint.
+	Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error)
+
+	// NextPointCloud returns the next immediately available point cloud, not necessarily one
+	// a part of a sequence. In the future, there could be streaming of point clouds.
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
-	GetProperties(ctx context.Context) (rimage.Projector, error)
-	GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error)
+	Close(ctx context.Context) error
+}
+
+// ReadImage reads an image from the given source that is immediately available.
+func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func(), error) {
+	return gostream.ReadImage(ctx, src)
+}
+
+type projectorProvider interface {
+	Projector(ctx context.Context) (rimage.Projector, error)
 }
 
 // A PointCloudSource is a source that can generate pointclouds.
 type PointCloudSource interface {
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
-}
-
-// A FrameSource is a source that can generate frames.
-type FrameSource interface {
-	GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error)
 }
 
 // GetProjector either gets the camera parameters from the config, or if the camera has a parent source,
@@ -97,7 +110,7 @@ func GetProjector(ctx context.Context, attrs *AttrConfig, parentSource Camera) (
 	}
 	// inherit camera parameters from source camera if possible.
 	if parentSource != nil {
-		proj, err := parentSource.GetProperties(ctx)
+		proj, err := parentSource.Projector(ctx)
 		if errors.Is(err, transform.ErrNoIntrinsics) {
 			return nil, false
 		} else if err != nil {
@@ -108,37 +121,95 @@ func GetProjector(ctx context.Context, attrs *AttrConfig, parentSource Camera) (
 	return nil, false
 }
 
-// New creates a Camera either with or without a projector.
-func New(imgSrc gostream.ImageSource, proj rimage.Projector) (Camera, error) {
-	if imgSrc == nil {
-		return nil, errors.New("cannot have a nil image source")
+// NewFromReader creates a Camera either with or without a projector.
+func NewFromReader(reader gostream.VideoReader, proj rimage.Projector) (Camera, error) {
+	if reader == nil {
+		return nil, errors.New("cannot have a nil reader")
 	}
-	return &imageSource{imgSrc, proj, generic.Unimplemented{}}, nil
+	vs := gostream.NewVideoSource(reader, prop.Video{})
+	var projectorFunc func(ctx context.Context) (rimage.Projector, error)
+	if proj == nil {
+		projectorFunc = detectProjectorFunc(reader)
+	} else {
+		projectorFunc = func(_ context.Context) (rimage.Projector, error) {
+			return proj, nil
+		}
+	}
+	return &videoSource{
+		projectorFunc: projectorFunc,
+		videoSource:   vs,
+		videoStream:   gostream.NewEmbeddedVideoStream(vs),
+		actualSource:  reader,
+	}, nil
 }
 
-// ImageSource implements a Camera with a gostream.ImageSource.
-type imageSource struct {
-	gostream.ImageSource
-	projector rimage.Projector
-	generic.Unimplemented
+// NewFromSource creates a Camera either with or without a projector.
+func NewFromSource(source gostream.VideoSource, proj rimage.Projector) (Camera, error) {
+	if source == nil {
+		return nil, errors.New("cannot have a nil source")
+	}
+	var projectorFunc func(ctx context.Context) (rimage.Projector, error)
+	if proj == nil {
+		projectorFunc = detectProjectorFunc(source)
+	} else {
+		projectorFunc = func(_ context.Context) (rimage.Projector, error) {
+			return proj, nil
+		}
+	}
+	return &videoSource{
+		projectorFunc: projectorFunc,
+		videoSource:   source,
+		videoStream:   gostream.NewEmbeddedVideoStream(source),
+		actualSource:  source,
+	}, nil
 }
 
-// Close closes the underlying ImageSource.
-func (is *imageSource) Close(ctx context.Context) error {
-	return viamutils.TryClose(ctx, is.ImageSource)
+func detectProjectorFunc(from interface{}) func(ctx context.Context) (rimage.Projector, error) {
+	projProv, ok := from.(projectorProvider)
+	if !ok {
+		return nil
+	}
+	var getPropsOnce sync.Once
+	var props rimage.Projector
+	var propsErr error
+	return func(ctx context.Context) (rimage.Projector, error) {
+		getPropsOnce.Do(func() {
+			props, propsErr = projProv.Projector(ctx)
+		})
+		return props, propsErr
+	}
+}
+
+// videoSource implements a Camera with a gostream.VideoSource.
+type videoSource struct {
+	videoSource   gostream.VideoSource
+	videoStream   gostream.VideoStream
+	actualSource  interface{}
+	projectorFunc func(ctx context.Context) (rimage.Projector, error)
+}
+
+func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+	return vs.videoSource.Stream(ctx, errHandlers...)
 }
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
-func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	ctx, span := trace.StartSpan(ctx, "camera::imageSource::NextPointCloud")
+func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::videoSource::NextPointCloud")
 	defer span.End()
-	if c, ok := is.ImageSource.(PointCloudSource); ok {
+	if c, ok := vs.actualSource.(PointCloudSource); ok {
 		return c.NextPointCloud(ctx)
 	}
-	if is.projector == nil {
+	if vs.projectorFunc == nil {
 		return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")
 	}
-	img, release, err := is.Next(ctx)
+	proj, err := vs.projectorFunc(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if proj == nil {
+		return nil, errors.New("cannot have a nil projector")
+	}
+	img, release, err := vs.videoStream.Next(ctx)
 	defer release()
 	if err != nil {
 		return nil, err
@@ -147,42 +218,25 @@ func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot project to a point cloud")
 	}
-	return dm.ToPointCloud(is.projector), nil
+	return dm.ToPointCloud(proj), nil
 }
 
-func (is *imageSource) GetProperties(ctx context.Context) (rimage.Projector, error) {
-	if is.projector != nil {
-		return is.projector, nil
+func (vs *videoSource) Projector(ctx context.Context) (rimage.Projector, error) {
+	if vs.projectorFunc != nil {
+		return vs.projectorFunc(ctx)
 	}
 	return nil, transform.NewNoIntrinsicsError("No features in config")
 }
 
-func (is *imageSource) GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
-	if c, ok := is.ImageSource.(FrameSource); ok {
-		return c.GetFrame(ctx, mimeType)
+func (vs *videoSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if doer, ok := vs.videoSource.(generic.Generic); ok {
+		return doer.Do(ctx, cmd)
 	}
+	return nil, generic.ErrUnimplemented
+}
 
-	img, release, err := is.Next(ctx)
-	if err != nil {
-		return nil, mimeType, 0, 0, err
-	}
-	defer func() {
-		if release != nil {
-			release()
-		}
-	}()
-
-	// choose the best/fastest representation
-	if mimeType == "" {
-		mimeType = utils.MimeTypeRawRGBA
-	}
-
-	imgData, err := rimage.EncodeImage(ctx, img, mimeType)
-	if err != nil {
-		return nil, mimeType, 0, 0, err
-	}
-	bounds := img.Bounds()
-	return imgData, mimeType, int64(bounds.Dx()), int64(bounds.Dy()), nil
+func (vs *videoSource) Close(ctx context.Context) error {
+	return multierr.Combine(vs.videoStream.Close(ctx), vs.videoSource.Close(ctx))
 }
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
@@ -194,7 +248,12 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	if reconfigurable, ok := c.(*reconfigurableCamera); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableCamera{actual: c}, nil
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	return &reconfigurableCamera{
+		actual:    c,
+		cancelCtx: cancelCtx,
+		cancel:    cancel,
+	}, nil
 }
 
 var (
@@ -236,8 +295,10 @@ func NamesFromRobot(r robot.Robot) []string {
 }
 
 type reconfigurableCamera struct {
-	mu     sync.RWMutex
-	actual Camera
+	mu        sync.RWMutex
+	actual    Camera
+	cancelCtx context.Context
+	cancel    func()
 }
 
 func (c *reconfigurableCamera) ProxyFor() interface{} {
@@ -246,10 +307,65 @@ func (c *reconfigurableCamera) ProxyFor() interface{} {
 	return c.actual
 }
 
-func (c *reconfigurableCamera) Next(ctx context.Context) (image.Image, func(), error) {
+func (c *reconfigurableCamera) Stream(
+	ctx context.Context,
+	errHandlers ...gostream.ErrorHandler,
+) (gostream.VideoStream, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.actual.Next(ctx)
+
+	stream := &reconfigurableCameraStream{
+		c:           c,
+		errHandlers: errHandlers,
+		cancelCtx:   c.cancelCtx,
+	}
+	stream.mu.Lock()
+	defer stream.mu.Unlock()
+	if err := stream.init(ctx); err != nil {
+		return nil, err
+	}
+
+	return stream, nil
+}
+
+type reconfigurableCameraStream struct {
+	mu          sync.Mutex
+	c           *reconfigurableCamera
+	errHandlers []gostream.ErrorHandler
+	stream      gostream.VideoStream
+	cancelCtx   context.Context
+}
+
+func (cs *reconfigurableCameraStream) init(ctx context.Context) error {
+	var err error
+	cs.stream, err = cs.c.actual.Stream(ctx, cs.errHandlers...)
+	return err
+}
+
+func (cs *reconfigurableCameraStream) Next(ctx context.Context) (image.Image, func(), error) {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
+	if cs.stream == nil || cs.cancelCtx.Err() != nil {
+		if err := func() error {
+			cs.c.mu.Lock()
+			defer cs.c.mu.Unlock()
+			return cs.init(ctx)
+		}(); err != nil {
+			return nil, nil, err
+		}
+	}
+	return cs.stream.Next(ctx)
+}
+
+func (cs *reconfigurableCameraStream) Close(ctx context.Context) error {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
+	if cs.stream == nil {
+		return nil
+	}
+	return cs.stream.Close(ctx)
 }
 
 func (c *reconfigurableCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -258,28 +374,22 @@ func (c *reconfigurableCamera) NextPointCloud(ctx context.Context) (pointcloud.P
 	return c.actual.NextPointCloud(ctx)
 }
 
-func (c *reconfigurableCamera) GetProperties(ctx context.Context) (rimage.Projector, error) {
+func (c *reconfigurableCamera) Projector(ctx context.Context) (rimage.Projector, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.actual.GetProperties(ctx)
+	return c.actual.Projector(ctx)
 }
 
 func (c *reconfigurableCamera) Close(ctx context.Context) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return viamutils.TryClose(ctx, c.actual)
+	return c.actual.Close(ctx)
 }
 
 func (c *reconfigurableCamera) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.actual.Do(ctx, cmd)
-}
-
-func (c *reconfigurableCamera) GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.actual.GetFrame(ctx, mimeType)
 }
 
 // Reconfigure reconfigures the resource.
@@ -293,12 +403,26 @@ func (c *reconfigurableCamera) Reconfigure(ctx context.Context, newCamera resour
 	if err := viamutils.TryClose(ctx, c.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
+	c.cancel()
+	// reset
 	c.actual = actual.actual
+	c.cancelCtx = actual.cancelCtx
+	c.cancel = actual.cancel
 	return nil
 }
 
+// UpdateAction helps hint the reconfiguration process on what strategy to use given a modified config.
+// See config.ShouldUpdateAction for more information.
+func (c *reconfigurableCamera) UpdateAction(conf *config.Component) config.UpdateActionType {
+	obj, canUpdate := c.actual.(config.CompononentUpdate)
+	if canUpdate {
+		return obj.UpdateAction(conf)
+	}
+	return config.Reconfigure
+}
+
 // SimultaneousColorDepthNext will call Next on both the color and depth camera as simultaneously as possible.
-func SimultaneousColorDepthNext(ctx context.Context, color, depth gostream.ImageSource) (image.Image, *rimage.DepthMap) {
+func SimultaneousColorDepthNext(ctx context.Context, color, depth gostream.VideoStream) (image.Image, *rimage.DepthMap) {
 	wg := sync.WaitGroup{}
 	var col image.Image
 	var dm *rimage.DepthMap

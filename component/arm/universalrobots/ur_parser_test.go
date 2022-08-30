@@ -1,8 +1,8 @@
 package universalrobots
 
 import (
-	"io/ioutil"
 	"math"
+	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -12,7 +12,7 @@ import (
 
 func Test1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	data, err := ioutil.ReadFile(artifact.MustPath("robots/universalrobots/test1.raw"))
+	data, err := os.ReadFile(artifact.MustPath("robots/universalrobots/test1.raw"))
 	test.That(t, err, test.ShouldBeNil)
 
 	state, err := readRobotStateMessage(data, logger)

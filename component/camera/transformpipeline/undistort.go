@@ -6,7 +6,6 @@ import (
 
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -22,14 +21,14 @@ type undistortConfig struct {
 // undistortSource will undistort the original image according to the Distortion parameters
 // within the intrinsic parameters.
 type undistortSource struct {
-	original     gostream.ImageSource
-	stream       camera.StreamType
-	cameraParams *transform.PinholeCameraIntrinsics
+	originalStream gostream.VideoStream
+	stream         camera.StreamType
+	cameraParams   *transform.PinholeCameraIntrinsics
 }
 
 func newUndistortTransform(
-	source gostream.ImageSource, stream camera.StreamType, am config.AttributeMap,
-) (gostream.ImageSource, error) {
+	source gostream.VideoSource, stream camera.StreamType, am config.AttributeMap,
+) (gostream.VideoSource, error) {
 	conf, err := config.TransformAttributeMapToStruct(&(undistortConfig{}), am)
 	if err != nil {
 		return nil, err
@@ -41,12 +40,13 @@ func newUndistortTransform(
 	if attrs.CameraParams == nil {
 		return nil, errors.Wrapf(transform.ErrNoIntrinsics, "cannot create undistort transform")
 	}
-	return &undistortSource{source, stream, attrs.CameraParams}, nil
+	reader := &undistortSource{gostream.NewEmbeddedVideoStream(source), stream, attrs.CameraParams}
+	return camera.NewFromReader(reader, nil)
 }
 
-// Next undistorts the original image according to the camera parameters.
-func (us *undistortSource) Next(ctx context.Context) (image.Image, func(), error) {
-	orig, release, err := us.original.Next(ctx)
+// Read undistorts the original image according to the camera parameters.
+func (us *undistortSource) Read(ctx context.Context) (image.Image, func(), error) {
+	orig, release, err := us.originalStream.Next(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -73,7 +73,7 @@ func (us *undistortSource) Next(ctx context.Context) (image.Image, func(), error
 	}
 }
 
-// Close closes the imageSource.
+// Close closes the original stream.
 func (us *undistortSource) Close(ctx context.Context) error {
-	return utils.TryClose(ctx, us.original)
+	return us.originalStream.Close(ctx)
 }

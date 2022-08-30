@@ -1,7 +1,6 @@
 package motionplan
 
 import (
-	"context"
 	"encoding/json"
 	"math"
 
@@ -38,7 +37,6 @@ const (
 )
 
 func plannerSetupFromMoveRequest(
-	ctx context.Context,
 	from, to spatial.Pose,
 	f frame.Frame,
 	fs frame.FrameSystem,
@@ -58,12 +56,12 @@ func plannerSetupFromMoveRequest(
 	switch planningOpts["motion_profile"] {
 	case "linear":
 		// Linear constraints
-		linTol, ok := planningOpts["lineTolerance"].(float64)
+		linTol, ok := planningOpts["line_tolerance"].(float64)
 		if !ok {
 			// Default
 			linTol = defaultLinearDeviation
 		}
-		orientTol, ok := planningOpts["orientTolerance"].(float64)
+		orientTol, ok := planningOpts["orient_tolerance"].(float64)
 		if !ok {
 			// Default
 			orientTol = defaultLinearDeviation

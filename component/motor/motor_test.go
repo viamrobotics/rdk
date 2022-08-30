@@ -488,13 +488,13 @@ func (m *mock) SetPower(ctx context.Context, powerPct float64, extra map[string]
 	return nil
 }
 
-func (m *mock) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
+func (m *mock) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	m.goForCount++
 	m.extra = extra
 	return nil
 }
 
-func (m *mock) GoTo(ctx context.Context, rpm float64, positionRevolutions float64, extra map[string]interface{}) error {
+func (m *mock) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	m.goToCount++
 	m.extra = extra
 	return nil

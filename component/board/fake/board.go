@@ -270,7 +270,7 @@ func (h *I2CHandle) ReadByteData(ctx context.Context, register byte) (byte, erro
 }
 
 // WriteByteData writes a byte to the i2c channelC.
-func (h *I2CHandle) WriteByteData(ctx context.Context, register byte, data byte) error {
+func (h *I2CHandle) WriteByteData(ctx context.Context, register, data byte) error {
 	return errors.New("finish me")
 }
 

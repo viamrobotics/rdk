@@ -160,8 +160,8 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 	opts := []*PlannerOptions{}
 
 	// linear motion profile has known intermediate points, so solving can be broken up and sped up
-	if profile, ok := motionConfig["motionProfile"]; ok && profile == "linear" {
-		pathStepSize, ok := motionConfig["pathStepSize"].(float64)
+	if profile, ok := motionConfig["motion_profile"]; ok && profile == "linear" {
+		pathStepSize, ok := motionConfig["path_step_size"].(float64)
 		if !ok {
 			// Default
 			pathStepSize = defaultPathStepSize
@@ -174,7 +174,7 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 			by := float64(i) / float64(numSteps)
 			to := spatial.Interpolate(seedPos, goalPos, by)
 			goals = append(goals, to)
-			opt, err := plannerSetupFromMoveRequest(ctx, from, to, sf, sf.fss, seedMap, worldState, motionConfig)
+			opt, err := plannerSetupFromMoveRequest(from, to, sf, sf.fss, seedMap, worldState, motionConfig)
 			if err != nil {
 				return nil, err
 			}
@@ -183,13 +183,13 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 			from = to
 		}
 		goals = append(goals, goalPos)
-		opt, err := plannerSetupFromMoveRequest(ctx, from, goalPos, sf, sf.fss, seedMap, worldState, motionConfig)
+		opt, err := plannerSetupFromMoveRequest(from, goalPos, sf, sf.fss, seedMap, worldState, motionConfig)
 		if err != nil {
 			return nil, err
 		}
 		opts = append(opts, opt)
 	} else {
-		opt, err := plannerSetupFromMoveRequest(ctx, seedPos, goalPos, sf, sf.fss, seedMap, worldState, motionConfig)
+		opt, err := plannerSetupFromMoveRequest(seedPos, goalPos, sf, sf.fss, seedMap, worldState, motionConfig)
 		if err != nil {
 			return nil, err
 		}

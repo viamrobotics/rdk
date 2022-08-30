@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	rdkutils "go.viam.com/rdk/utils"
@@ -20,12 +21,12 @@ type depthEdgesAttrs struct {
 
 // depthEdgesSource applies a Canny Edge Detector to the depth map.
 type depthEdgesSource struct {
-	source     gostream.ImageSource
+	stream     gostream.VideoStream
 	detector   *rimage.CannyEdgeDetector
 	blurRadius float64
 }
 
-func newDepthEdgesTransform(source gostream.ImageSource, am config.AttributeMap) (gostream.ImageSource, error) {
+func newDepthEdgesTransform(source gostream.VideoSource, am config.AttributeMap) (gostream.VideoSource, error) {
 	conf, err := config.TransformAttributeMapToStruct(&(depthEdgesAttrs{}), am)
 	if err != nil {
 		return nil, err
@@ -35,12 +36,13 @@ func newDepthEdgesTransform(source gostream.ImageSource, am config.AttributeMap)
 		return nil, rdkutils.NewUnexpectedTypeError(attrs, conf)
 	}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(attrs.HiThresh, attrs.LoThresh, true)
-	return &depthEdgesSource{source, canny, attrs.BlurRadius}, nil
+	videoSrc := &depthEdgesSource{gostream.NewEmbeddedVideoStream(source), canny, 3.0}
+	return camera.NewFromReader(videoSrc, nil)
 }
 
 // Next applies a canny edge detector on the depth map of the next image.
-func (os *depthEdgesSource) Next(ctx context.Context) (image.Image, func(), error) {
-	i, closer, err := os.source.Next(ctx)
+func (os *depthEdgesSource) Read(ctx context.Context) (image.Image, func(), error) {
+	i, closer, err := os.stream.Next(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -53,4 +55,8 @@ func (os *depthEdgesSource) Next(ctx context.Context) (image.Image, func(), erro
 		return nil, nil, err
 	}
 	return edges, closer, nil
+}
+
+func (os *depthEdgesSource) Close(ctx context.Context) error {
+	return os.stream.Close(ctx)
 }
