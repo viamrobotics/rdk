@@ -1209,10 +1209,6 @@ const relevantSubtypesForStatus = ['arm', 'gantry', 'board', 'servo', 'motor', '
 let statusStream;
 let lastStatusTS = Date.now();
 
-function r(n) {
-  return Math.round(n * 1000);
-}
-
 </script>
 
 <template>
