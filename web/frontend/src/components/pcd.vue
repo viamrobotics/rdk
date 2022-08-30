@@ -12,6 +12,7 @@ import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { filterResources, type Resource } from '../lib/resource';
+import { toast } from '../lib/toast';
 import type { PointCloudObject, RectangularPrism } from '../gen/proto/api/common/v1/common_pb';
 import cameraApi from '../gen/proto/api/component/camera/v1/camera_pb.esm';
 import motionApi from '../gen/proto/api/service/motion/v1/motion_pb.esm';
@@ -29,18 +30,22 @@ const props = defineProps<Props>();
 
 const container = $ref<HTMLDivElement>();
 
+let cube: THREE.LineSegments;
 let segmenterParameterNames = $ref<TypedParameter[]>();
 let objects = $ref<PointCloudObject[]>([]);
 let segmenterNames = $ref<string[]>([]);
-let segmenterParameters = $ref({});
-
-let segmentAlgo = $ref('');
-let selectedObject = $ref('');
-let selectedSegmenter = $ref('');
-let loaded = $ref(false)
+let segmenterParameters = $ref<Record<string, number>>({});
 let calculatingSegments = $ref(false);
-let foundSegments = $ref(false);
 let url = $ref('');
+
+const selectedObject = $ref('');
+const selectedSegmenter = $ref('');
+
+const distanceFromCamera = $computed(() => Math.round(
+  Math.sqrt(
+    Math.pow(click.x, 2) + Math.pow(click.y, 2) + Math.pow(click.z, 2)
+  )
+) || 0);
 
 const loader = new PCDLoader();
 const scene = new THREE.Scene();
@@ -61,18 +66,14 @@ let frameId = -1;
 
 const renderPCD = () => {
   nextTick(() => {
-    loaded = false;
-    foundSegments = false;
-
-    const req = new cameraApi.GetPointCloudRequest();
-    req.setName(props.cameraName);
-    req.setMimeType('pointcloud/pcd');
-    window.cameraService.getPointCloud(req, new grpc.Metadata(), (error, response) => {
-      // this.grpcCallback(error, response, false);
+    const request = new cameraApi.GetPointCloudRequest();
+    request.setName(props.cameraName);
+    request.setMimeType('pointcloud/pcd');
+    window.cameraService.getPointCloud(request, new grpc.Metadata(), (error, response) => {
       if (error) {
+        toast.error(`Error getting point cloud: ${error}`);
         return;
       }
-      console.log('loading pcd');
       const pointcloud = response!.getPointCloud_asB64();
       url = `data:pointcloud/pcd;base64,${pointcloud}`;
     });
@@ -82,26 +83,24 @@ const renderPCD = () => {
 };
 
 const getSegmenterNames = () => {
-  const req = new window.visionApi.GetSegmenterNamesRequest();
+  const request = new visionApi.GetSegmenterNamesRequest();
   // We are deliberately just getting the first vision service to ensure this will not break.
   // May want to allow for more services in the future
   const visionName = filterResources(props.resources, 'rdk', 'services', 'vision')[0];
   
-  req.setName(visionName.name);
+  request.setName(visionName.name);
 
-  window.visionService.getSegmenterNames(req, new grpc.Metadata(), (err, resp) => {
-    // this.grpcCallback(err, resp, false);
-    if (err) {
-      console.log('error getting segmenter names');
-      console.log(err);
+  window.visionService.getSegmenterNames(request, new grpc.Metadata(), (error, response) => {
+    if (error) {
+      toast.error(`Error getting segmenter names: ${error}`);
       return;
     }
-    segmenterNames = resp!.getSegmenterNamesList();
+
+    segmenterNames = response!.getSegmenterNamesList();
   });
 };
 
 const getSegmenterParameters = () => {
-  segmentAlgo = selectedSegmenter;
   const req = new visionApi.GetSegmenterParametersRequest();
   // We are deliberately just getting the first vision service to ensure this will not break.
   // May want to allow for more services in the future
@@ -110,14 +109,13 @@ const getSegmenterParameters = () => {
   req.setName(visionName.name);
   req.setSegmenterName(selectedSegmenter);
   
-  window.visionService.getSegmenterParameters(req, new grpc.Metadata(), (err, resp) => {
-    // this.grpcCallback(err, resp, false);
-    if (err) {
-      console.log(`error getting segmenter parameters for ${name}`);
-      console.log(err);
+  window.visionService.getSegmenterParameters(req, new grpc.Metadata(), (error, response) => {
+    if (error) {
+      toast.error(`Error getting segmenter parameters: ${error}`);
       return;
     }
-    segmenterParameterNames = resp!.getSegmenterParametersList();
+
+    segmenterParameterNames = response!.getSegmenterParametersList();
     segmenterParameters = {};
   });
 };
@@ -153,44 +151,37 @@ const setPoint = (point: THREE.Vector3) => {
   sphere.position.copy(point);
 };
 
-const distanceFromCamera = () => {
-  return (
-    Math.round(
-      Math.sqrt(
-        Math.pow(click.x, 2) + Math.pow(click.y, 2) + Math.pow(click.z, 2)
-      )
-    ) || 0
-  );
+const parameterType = (type: string) => {
+  if (type === 'int' || type === 'float64') {
+    return 'number';
+  } else if (type === 'string' || type === 'char') {
+    return 'text';
+  }
+  return '';
 };
 
-const findSegments = (segmenterName: string, segmenterParams) => {
-  console.log('parameters for segmenter below:');
-  console.log(segmenterParams);
+const findSegments = () => {
   calculatingSegments = true;
-  foundSegments = false;
-  const req = new window.visionApi.GetObjectPointCloudsRequest();
+  const req = new visionApi.GetObjectPointCloudsRequest();
+
   // We are deliberately just getting the first vision service to ensure this will not break.
   // May want to allow for more services in the future
   const visionName = filterResources(props.resources, 'rdk', 'services', 'vision')[0];
   
   req.setName(visionName.name);
   req.setCameraName(props.cameraName);
-  req.setSegmenterName(segmenterName);
-  req.setParameters(Struct.fromJavaScript(segmenterParams));
-  const mimeType = 'pointcloud/pcd';
-  req.setMimeType(mimeType);
-  console.log('finding object segments...');
-  window.visionService.getObjectPointClouds(req, new grpc.Metadata(), (err, resp) => {
-    // this.grpcCallback(err, resp, false);
-    if (err) {
-      console.log('error getting segments');
-      console.log(err);
+  req.setSegmenterName(selectedSegmenter);
+  req.setParameters(Struct.fromJavaScript(segmenterParameters));
+  req.setMimeType('pointcloud/pcd');
+
+  window.visionService.getObjectPointClouds(req, new grpc.Metadata(), (error, response) => {
+    if (error) {
+      toast.error(`Error getting segments: ${error}`);
       calculatingSegments = false;
       return;
     }
-    console.log('got pcd segments');
-    foundSegments = true;
-    objects = resp!.getObjectsList();
+
+    objects = response!.getObjectsList();
     calculatingSegments = false;
   });
 };
@@ -241,23 +232,24 @@ const loadPoint = (index: string) => {
 };
 
 const setBoundingBox = (box: RectangularPrism, centerPoint: THREE.Vector3) => {
+  const dimensions = box.getDimsMm()!;
   const geometry = new THREE.BoxGeometry(
-    box.getWidthMm() / 1000,
-    box.getLengthMm() / 1000,
-    box.getDepthMm() / 1000
+    dimensions.getX() / 1000,
+    dimensions.getY() / 1000,
+    dimensions.getZ() / 1000
   );
   const edges = new THREE.EdgesGeometry(geometry);
   const material = new THREE.LineBasicMaterial({ color: 0xFF_00_00 });
-  const cube = new THREE.LineSegments(edges, material);
-  cube.position.copy(centerPoint);
-  cube.name = 'bounding-box';
+  const lineSegments = new THREE.LineSegments(edges, material);
+  lineSegments.position.copy(centerPoint);
+  lineSegments.name = 'bounding-box';
 
-  const previousBox = scene.getObjectByName('bounding-box')!
+  const previousBox = scene.getObjectByName('bounding-box')!;
   if (previousBox) {
     scene.remove(previousBox);
   }
 
-  cube = cube;
+  cube = lineSegments;
   scene.add(cube);
 };
 
@@ -274,7 +266,7 @@ const handleClick = (event: MouseEvent) => {
   if (intersect !== null) {
     setPoint(intersect.point);
   } else {
-    console.log('no point intersected');
+    toast.info('No point intersected.');
   }
 };
 
@@ -305,14 +297,14 @@ const handleMove = () => {
   componentName.setSubtype(gripperName.subtype);
   componentName.setName(gripperName.name);
   req.setComponentName(componentName);
-  console.log(`making move attempt using ${gripperName}`);
 
-  window.motionService.move(req, new grpc.Metadata(), (err, resp) => {
-    // this.grpcCallback(err, resp);
-    if (err) {
-      return Promise.reject(err);
+  window.motionService.move(req, new grpc.Metadata(), (error, response) => {
+    if (error) {
+      toast.error(`Error moving: ${error}`);
+      return;
     }
-    return Promise.resolve(resp).then(() => console.log(`move success: ${resp.getSuccess()}`));
+
+    toast.success(`Move success: ${response!.getSuccess()}`);
   });
 };
 
@@ -328,10 +320,8 @@ const handleSelectObject = (selection: string) => {
       return loadBoundingBox(selectedObject);
     case 'Cropped':
       return loadPoint(selectedObject);
-    default:
-      break;
   }
-}
+};
 
 const handleDownload = () => {
   window.open(url);
@@ -339,10 +329,7 @@ const handleDownload = () => {
 
 onMounted(() => {
   container.append(renderer.domElement);
-
-  // this.pcdClick.enable = true;
   renderer.setSize(window.innerWidth / 2, window.innerHeight / 2);
-
   requestAnimationFrame(animate);
   renderPCD();
 });
@@ -455,8 +442,10 @@ watch(() => props.pointcloud, async (pointcloud: string) => {
                   :id="param.getName()"
                   :type="parameterType(param.getType())"
                   :label="param.getName()"
-                  :value="segmenterParameters![param.getName()]"
-                  @input="handleSegmenterParamsInput(param.getName(), $event.detail.value)"
+                  :value="segmenterParameters[param.getName()]"
+                  @input="(event: CustomEvent) => {
+                    segmenterParameters[param.getName()] = Number(event.detail.value)
+                  }"
                 />
               </div>
             </div>
@@ -464,7 +453,7 @@ watch(() => props.pointcloud, async (pointcloud: string) => {
           <div class="float-right p-4">
             <v-button
               :loading="calculatingSegments"
-              :disabled="selectedSegmenterValue === ''"
+              :disabled="selectedSegmenter === ''"
               label="FIND SEGMENTS"
               @click="findSegments"
             />
@@ -501,7 +490,7 @@ watch(() => props.pointcloud, async (pointcloud: string) => {
             </div>
           </div>
           <div class="pt-4 text-xs">
-            Distance From Camera: {{ distanceFromCamera() }}mm
+            Distance From Camera: {{ distanceFromCamera }}mm
           </div>
           <div class="flex pt-4 pb-8">
             <div class="column">
@@ -519,7 +508,7 @@ watch(() => props.pointcloud, async (pointcloud: string) => {
                 v-model="selectedObject"
                 class="m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
                 :class="['py-2 pl-2']"
-                @change="changeObject"
+                @change="handleSelectObject(($event.currentTarget as HTMLSelectElement).value)"
               >
                 <option
                   disabled
@@ -529,7 +518,7 @@ watch(() => props.pointcloud, async (pointcloud: string) => {
                   Select Object
                 </option>
                 <option
-                  v-for="(seg, index) in segmentObjects"
+                  v-for="(seg, index) in objects"
                   :key="index"
                   :value="index"
                 >
@@ -540,9 +529,9 @@ watch(() => props.pointcloud, async (pointcloud: string) => {
             <div class="pl-8">
               <div class="grid grid-cols-1">
                 <span class="text-xs">Object Points</span>
-                <span class="pt-2">{{
-                  segmentObjects ? segmentObjects.length : "null"
-                }}</span>
+                <span class="pt-2">
+                  {{ objects ? objects.length : "null" }}
+                </span>
               </div>
             </div>
           </div>

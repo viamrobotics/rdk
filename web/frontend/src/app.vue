@@ -1,5 +1,5 @@
 <!-- eslint-disable require-atomic-updates -->
-<script lang="ts">
+<script>
 
 import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from './lib/toast';
@@ -11,7 +11,6 @@ import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
 import gantryApi from './gen/proto/api/component/gantry/v1/gantry_pb.esm';
 import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
 import movementsensorApi from './gen/proto/api/component/movementsensor/v1/movementsensor_pb.esm';
-import visionApi from './gen/proto/api/service/vision/v1/vision_pb.esm';
 import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
 import servoApi from './gen/proto/api/component/servo/v1/servo_pb.esm';
 import slamApi from './gen/proto/api/service/slam/v1/slam_pb.esm';
