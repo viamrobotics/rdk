@@ -115,9 +115,7 @@ func getFileTimestampName() string {
 // TODO DATA-246: Implement this in some more robust, programmatic way.
 func getDataType(_, methodName string) v1.DataType {
 	switch methodName {
-	case nextPointCloud:
-		return v1.DataType_DATA_TYPE_BINARY_SENSOR
-	case next:
+	case nextPointCloud, next:
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
 	default:
 		return v1.DataType_DATA_TYPE_TABULAR_SENSOR
