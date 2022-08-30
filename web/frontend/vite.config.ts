@@ -18,7 +18,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         control: './src/main.js',
-        api: './src/api.js',
+        api: './src/api.ts',
       },
       output: {
         entryFileNames: '[name].js',

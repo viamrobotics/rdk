@@ -11,6 +11,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/component/camera"
@@ -101,6 +102,8 @@ type transformPipeline struct {
 }
 
 func (tp transformPipeline) Read(ctx context.Context) (image.Image, func(), error) {
+	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::Read")
+	defer span.End()
 	return tp.stream.Next(ctx)
 }
 
