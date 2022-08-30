@@ -1432,7 +1432,7 @@ func TestRemoteClientMatch(t *testing.T) {
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
-	var validResources = []resource.Name{arm.Named("remote:arm1")}
+	validResources := []resource.Name{arm.Named("remote:arm1")}
 	injectRobot1 := &inject.Robot{
 		ResourceNamesFunc:       func() []resource.Name { return validResources },
 		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
@@ -1478,7 +1478,7 @@ func TestRemoteClientDuplicate(t *testing.T) {
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
-	var validResources = []resource.Name{arm.Named("remote1:arm1"), arm.Named("remote2:arm1")}
+	validResources := []resource.Name{arm.Named("remote1:arm1"), arm.Named("remote2:arm1")}
 	injectRobot1 := &inject.Robot{
 		ResourceNamesFunc:       func() []resource.Name { return validResources },
 		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
