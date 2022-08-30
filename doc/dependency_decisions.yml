@@ -157,3 +157,9 @@
     :why: https://github.com/goburrow/modbus/blob/606c02f4eef527a1d4cf7d8733d5fd7ba34f91d8/LICENSE
     :versions: []
     :when: 2022-08-30 15:40:18.342840322 Z
+- - :ignore
+  - github.com/viamrobotics/evdev
+  - :who:
+    :why: this is our library
+    :versions: []
+    :when: 2022-08-30 15:41:06.902196379 Z
