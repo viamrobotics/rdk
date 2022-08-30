@@ -150,3 +150,10 @@
     :license_links: https://github.com/gen2brain/malgo/blob/6af716cf2273f0675789cc1366977970e31b2239/LICENSE
     :versions: []
     :when: 2022-08-30 15:37:02.011437856 Z
+- - :license
+  - github.com/goburrow/modbus
+  - New BSD
+  - :who:
+    :why: https://github.com/goburrow/modbus/blob/606c02f4eef527a1d4cf7d8733d5fd7ba34f91d8/LICENSE
+    :versions: []
+    :when: 2022-08-30 15:40:18.342840322 Z
