@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from './lib/toast';
 import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
 import commonApi from './gen/proto/api/common/v1/common_pb.esm';
@@ -49,103 +50,15 @@ import MotorDetail from './components/motor-detail.vue';
 import Navigation from './components/navigation.vue';
 import ServoComponent from './components/servo.vue';
 import Slam from './components/slam.vue';
-
-function roundTo2Decimals(num) {
-  return Math.round(num * 100) / 100;
-}
-
-function fixArmStatus(old) {
-  const newStatus = {
-    pos_pieces: [],
-    joint_pieces: [],
-    is_moving: old.is_moving || false,
-  };
-
-  const fieldSetters = [
-    ['x', 'X'],
-    ['y', 'Y'],
-    ['z', 'Z'],
-    ['theta', 'Theta'],
-    ['o_x', 'OX'],
-    ['o_y', 'OY'],
-    ['o_z', 'OZ'],
-  ];
-  
-  for (const fieldSetter of fieldSetters) {
-    const endPositionField = fieldSetter[0];
-    newStatus.pos_pieces.push(
-      { 
-        endPosition: fieldSetter,
-        endPositionValue: old.end_position[endPositionField] || 0,
-      }
-    );
-  }
-
-  for (let j = 0; j < old.joint_positions.values.length; j++) {
-    newStatus.joint_pieces.push(
-      { 
-        joint: j,
-        jointValue: old.joint_positions.values[j] || 0,
-      }
-    );
-  }
-
-  return newStatus;
-}
-
-function fixBoardStatus(old) {
-  return {
-    analogsMap: old.analogs || [],
-    digitalInterruptsMap: old.digital_interrupts || [],
-  };
-}
-
-function fixGantryStatus(old) {
-  const newStatus = {
-    parts: [],
-    is_moving: old.is_moving || false,
-  };
-
-  if (old.lengths_mm.length !== old.positions_mm.length) {
-    throw 'gantry lists different lengths';
-  }
-
-  for (let i = 0; i < old.lengths_mm.length; i++) {
-    newStatus.parts.push({
-      axis: i,
-      pos: old.positions_mm[i],
-      length: old.lengths_mm[i],
-    });
-  }
-
-  return newStatus;
-}
-
-function fixInputStatus(old) {
-  const events = old.events || [];
-  const eventsList = events.map((event) => {
-    return {
-      time: event.time || {},
-      event: event.event || '',
-      control: event.control || '',
-      value: event.value || 0,
-    };
-  });
-  return { eventsList };
-}
-
-function fixMotorStatus(old) {
-  return {
-    isPowered: old.is_powered || false,
-    positionReporting: old.position_reporting || false,
-    position: old.position || 0,
-    isMoving: old.is_moving || false,
-  };
-}
-
-function fixServoStatus(old) {
-  return { positionDeg: old.position_deg || 0, is_moving: old.is_moving || false };
-}
+import { roundTo2Decimals } from './lib/math';
+import {
+  fixArmStatus,
+  fixBoardStatus,
+  fixGantryStatus,
+  fixInputStatus,
+  fixMotorStatus,
+  fixServoStatus,
+} from './lib/fixers';
 
 export default {
   components: {
@@ -377,7 +290,7 @@ export default {
       
       req.setName(visionName);
 
-      visionService.getSegmenterNames(req, {}, (err, resp) => {
+      window.visionService.getSegmenterNames(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           console.log('error getting segmenter names');
@@ -397,7 +310,7 @@ export default {
       req.setName(visionName);
       req.setSegmenterName(name);
       
-      visionService.getSegmenterParameters(req, {}, (err, resp) => {
+      window.visionService.getSegmenterParameters(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           console.log(`error getting segmenter parameters for ${name}`);
@@ -442,12 +355,12 @@ export default {
       const req = new gantryApi.MoveToPositionRequest();
       req.setName(name.name);
       req.setPositionsMmList(pos);
-      gantryService.moveToPosition(req, {}, this.grpcCallback);
+      window.gantryService.moveToPosition(req, new grpc.Metadata(), this.grpcCallback);
     },
     gantryStop(name) {
       const request = new gantryApi.StopRequest();
       request.setName(name);
-      gantryService.stop(request, {}, this.grpcCallback);
+      window.gantryService.stop(request, new grpc.Metadata(), this.grpcCallback);
     },
     armEndPositionInc(name, getterSetter, amount) {
       const adjustedAmount = getterSetter[0] === 'o' || getterSetter[0] === 'O' ? amount / 100 : amount;
@@ -476,7 +389,7 @@ export default {
       const req = new armApi.MoveToPositionRequest();
       req.setName(name.name);
       req.setTo(newPose);
-      armService.moveToPosition(req, {}, this.grpcCallback);
+      window.armService.moveToPosition(req, new grpc.Metadata(), this.grpcCallback);
     },
     armJointInc(name, field, amount) {
       const arm = this.rawResourceStatusByName(name);
@@ -487,7 +400,7 @@ export default {
       const req = new armApi.MoveToJointPositionsRequest();
       req.setName(name.name);
       req.setPositions(newPositionDegs);
-      armService.moveToJointPositions(req, {}, this.grpcCallback);
+      window.armService.moveToJointPositions(req, new grpc.Metadata(), this.grpcCallback);
     },
     armHome(name) {
       const arm = this.rawResourceStatusByName(name);
@@ -500,16 +413,18 @@ export default {
       const req = new armApi.MoveToJointPositionsRequest();
       req.setName(name.name);
       req.setPositions(newPositionDegs);
-      armService.moveToJointPositions(req, {}, this.grpcCallback);
+      window.armService.moveToJointPositions(req, {}, this.grpcCallback);
     },
     armModifyAll(name) {
       const arm = this.resourceStatusByName(name);
-      const n = { pos_pieces: [], joint_pieces: [] };
+      const n = {
+        pos_pieces: [],
+        joint_pieces: [],
+      };
       for (let i = 0; i < arm.pos_pieces.length; i++) {
         n.pos_pieces.push({
           endPosition: arm.pos_pieces[i].endPosition,
           endPositionValue: roundTo2Decimals(arm.pos_pieces[i].endPositionValue),
-
         });
       }
       for (let i = 0; i < arm.joint_pieces.length; i++) {
@@ -552,13 +467,13 @@ export default {
       const req = new armApi.MoveToJointPositionsRequest();
       req.setName(name.name);
       req.setPositions(newPositionDegs);
-      armService.moveToJointPositions(req, {}, this.grpcCallback);
+      window.armService.moveToJointPositions(req, new grpc.Metadata(), this.grpcCallback);
       delete this.armToggle[name.name];
     },
     armStop(name) {
       const request = new armApi.StopRequest();
       request.setName(name);
-      armService.stop(request, {}, this.grpcCallback);
+      window.armService.stop(request, new grpc.Metadata(), this.grpcCallback);
     },
     gripperAction(name, action) {
       let req;
@@ -566,19 +481,19 @@ export default {
         case 'open':
           req = new gripperApi.OpenRequest();
           req.setName(name);
-          gripperService.open(req, {}, this.grpcCallback);
+          window.gripperService.open(req, new grpc.Metadata(), this.grpcCallback);
           break;
         case 'grab':
           req = new gripperApi.GrabRequest();
           req.setName(name);
-          gripperService.grab(req, {}, this.grpcCallback);
+          window.gripperService.grab(req, new grpc.Metadata(), this.grpcCallback);
           break;
       }
     },
     gripperStop(name) {
       const request = new gripperApi.StopRequest();
       request.setName(name);
-      gripperService.stop(request, {}, this.grpcCallback);
+      window.gripperService.stop(request, new grpc.Metadata(), this.grpcCallback);
     },
     servoMove(name, amount) {
       const servo = this.rawResourceStatusByName(name);
@@ -587,7 +502,7 @@ export default {
       const req = new servoApi.MoveRequest();
       req.setName(name.name);
       req.setAngleDeg(angle);
-      servoService.move(req, {}, this.grpcCallback);
+      window.servoService.move(req, {}, this.grpcCallback);
     },
     servoStop(name) {
       ServoControlHelper.stop(name, (err, resp) => this.grpcCallback(err, resp));
@@ -629,12 +544,12 @@ export default {
       );
     },
     inputInject(req) {
-      inputControllerService.triggerEvent(req, {}, this.grpcCallback);
+      window.inputControllerService.triggerEvent(req, new grpc.Metadata(), this.grpcCallback);
     },
     killOp(id) {
       const req = new robotApi.CancelOperationRequest();
       req.setId(id);
-      window.robotService.cancelOperation(req, {}, this.grpcCallback);
+      window.robotService.cancelOperation(req, new grpc.Metadata(), this.grpcCallback);
     },
     baseKeyboardCtl(name, controls) {
       if (Object.values(controls).every((item) => item === false)) {
@@ -653,7 +568,7 @@ export default {
     handleBaseActionStop(name) {
       const req = new baseApi.StopRequest();
       req.setName(name);
-      baseService.stop(req, {}, this.grpcCallback);
+      window.baseService.stop(req, new grpc.Metadata(), this.grpcCallback);
     },
     handleBaseSpin(name, event) {
       BaseControlHelper.spin(name, 
@@ -686,7 +601,7 @@ export default {
       req.setName(cameraName);
       const mimeType = 'image/jpeg';
       req.setMimeType(mimeType);
-      cameraService.renderFrame(req, {}, (err, resp) => {
+      window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           return;
@@ -712,7 +627,7 @@ export default {
       req.setName(cameraName);
       const mimeType = 'image/jpeg';
       req.setMimeType(mimeType);
-      cameraService.renderFrame(req, {}, (err, resp) => {
+      window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           return;
@@ -736,7 +651,7 @@ export default {
         const req = new cameraApi.RenderFrameRequest();
         req.setName(cameraName);
         req.setMimeType('image/jpeg');
-        cameraService.renderFrame(req, {}, (err, resp) => {
+        window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
           this.grpcCallback(err, resp, false);
           if (err) {
             return;
@@ -766,7 +681,7 @@ export default {
         const req = new cameraApi.GetPointCloudRequest();
         req.setName(cameraName);
         req.setMimeType('pointcloud/pcd');
-        cameraService.getPointCloud(req, {}, (err, resp) => {
+        window.cameraService.getPointCloud(req, new grpc.Metadata(), (err, resp) => {
           this.grpcCallback(err, resp, false);
           if (err) {
             return;
@@ -797,7 +712,7 @@ export default {
       req.setName(name);
       req.setMimeType('image/jpeg');
       req.setIncludeRobotMarker(true);
-      slamService.getMap(req, {}, (err, resp) => {
+      window.slamService.getMap(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           return;
@@ -827,7 +742,7 @@ export default {
         if (load) {
           this.initPCD();
         }
-        slamService.getMap(req, {}, (err, resp) => {
+        window.slamService.getMap(req, new grpc.Metadata(), (err, resp) => {
           this.grpcCallback(err, resp, false);
           if (err) {
             return;
@@ -851,7 +766,7 @@ export default {
       });
       req.setName(sensorsName.name);
       req.setSensorNamesList(names);
-      sensorsService.getReadings(req, {}, (err, resp) => {
+      window.sensorsService.getReadings(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           return;
@@ -959,7 +874,7 @@ export default {
       req.setComponentName(componentName);
       console.log(`making move attempt using ${gripperName}`);
 
-      motionService.move(req, {}, (err, resp) => {
+      window.motionService.move(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp);
         if (err) {
           return Promise.reject(err);
@@ -984,7 +899,7 @@ export default {
       const mimeType = 'pointcloud/pcd';
       req.setMimeType(mimeType);
       console.log('finding object segments...');
-      visionService.getObjectPointClouds(req, {}, (err, resp) => {
+      window.visionService.getObjectPointClouds(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           console.log('error getting segments');
@@ -1063,7 +978,7 @@ export default {
       if (isOn) {
         const req = new streamApi.AddStreamRequest();
         req.setName(name);
-        streamService.addStream(req, {}, (err, resp) => {
+        window.streamService.addStream(req, new grpc.Metadata(), (err, resp) => {
           this.grpcCallback(err, resp, false);
           if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
             streamContainer.querySelectorAll('img')[0].remove();
@@ -1077,22 +992,22 @@ export default {
       }
 
       const req = new streamApi.RemoveStreamRequest();
-        req.setName(name);
-        streamService.removeStream(req, {}, (err, resp) => {
-          this.grpcCallback(err, resp, false);
-          if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
-            streamContainer.querySelectorAll('img')[0].remove();
-          }
-          if (err) {
-            this.error = 'no live camera device found';
-          }
-        });
+      req.setName(name);
+      window.streamService.removeStream(req, new grpc.Metadata(), (err, resp) => {
+        this.grpcCallback(err, resp, false);
+        if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
+          streamContainer.querySelectorAll('img')[0].remove();
+        }
+        if (err) {
+          this.error = 'no live camera device found';
+        }
+      });
     },
     viewPreviewCamera(name, isOn) {
       if (isOn) {
         const req = new streamApi.AddStreamRequest();
         req.setName(name);
-        streamService.addStream(req, {}, (err, resp) => {
+        window.streamService.addStream(req, new grpc.Metadata(), (err, resp) => {
           this.grpcCallback(err, resp, false);
           if (err) {
             this.error = 'no live camera device found';
@@ -1103,39 +1018,34 @@ export default {
       }
       const req = new streamApi.RemoveStreamRequest();
       req.setName(name);
-      streamService.removeStream(req, {}, (err, resp) => {
+      window.streamService.removeStream(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           this.error = 'no live camera device found';
-          
         }
       });
     },
     listenAudioInput(name, isOn) {
-      const streamName = normalizeRemoteName(name);
-      const streamContainer = document.querySelector(`#stream-${streamName}`);
-
       if (isOn) {
         const req = new streamApi.AddStreamRequest();
         req.setName(name);
-        streamService.addStream(req, {}, (err, resp) => {
+        window.streamService.addStream(req, new grpc.Metadata(), (err, resp) => {
           this.grpcCallback(err, resp, false);
           if (err) {
             this.error = 'no live audio input device found';
-            
           }
         });
         return;
       }
 
       const req = new streamApi.RemoveStreamRequest();
-        req.setName(name);
-        streamService.removeStream(req, {}, (err, resp) => {
-          this.grpcCallback(err, resp, false);
-          if (err) {
-            this.error = 'no live audio input device found';
-          }
-        });
+      req.setName(name);
+      window.streamService.removeStream(req, new grpc.Metadata(), (err, resp) => {
+        this.grpcCallback(err, resp, false);
+        if (err) {
+          this.error = 'no live audio input device found';
+        }
+      });
     },
     displayRadiansInDegrees (r) {
       let d = r * 180;
@@ -1204,7 +1114,7 @@ export default {
         let resourcesChanged = false;
         let shouldRestartStatusStream = false;
 
-        window.robotService.resourceNames(new robotApi.ResourceNamesRequest(), {}, (err, resp) => {
+        window.robotService.resourceNames(new robotApi.ResourceNamesRequest(), new grpc.Metadata(), (err, resp) => {
           if (err) {
             reject(err);
             return;
@@ -1259,7 +1169,7 @@ export default {
       const sensorsName = filterResources(this.resources, 'rdk', 'service', 'sensors')[0];
       const req = new sensorsApi.GetSensorsRequest();
       req.setName(sensorsName.name);
-      sensorsService.getSensors(req, {}, (err, resp) => {
+      window.sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           return;
@@ -1271,7 +1181,7 @@ export default {
       return new Promise((resolve, reject) => {  
         const req = new robotApi.GetOperationsRequest();
 
-        window.robotService.getOperations(req, {}, (err, resp) => {
+        window.robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
           if (err) {
             reject(err);
             return;
@@ -1317,16 +1227,16 @@ export default {
 
       const authElems = [];
       const disableAll = () => {
-        for (elem of authElems) {
+        for (const elem of authElems) {
           elem.disabled = true;
         }
       };
       const enableAll = () => {
-        for (elem of authElems) {
+        for (const elem of authElems) {
           elem.disabled = false;
         }
       };
-      for (authType of window.supportedAuthTypes) {
+      for (const authType of window.supportedAuthTypes) {
         const authDiv = document.querySelector(`#auth-${authType}`);
         const input = authDiv.querySelectorAll('input')[0];
         const button = authDiv.querySelectorAll('button')[0];
@@ -1415,7 +1325,7 @@ export default {
           const req = new movementsensorApi.GetOrientationRequest();
           req.setName(name);
 
-          movementsensorService.getOrientation(req, {}, (err, resp) => {
+          window.movementsensorService.getOrientation(req, new grpc.Metadata(), (err, resp) => {
             if (err) {
               console.log(err);
               return;
@@ -1428,7 +1338,7 @@ export default {
           const req = new movementsensorApi.GetAngularVelocityRequest();
           req.setName(name);
 
-          movementsensorService.getAngularVelocity(req, {}, (err, resp) => {
+          window.movementsensorService.getAngularVelocity(req, new grpc.Metadata(), (err, resp) => {
             if (err) {
               console.log(err);
               return;
@@ -1436,11 +1346,12 @@ export default {
             this.movementsensorData[name].angularVelocity = resp.toObject().angularVelocity;
           });
         }
+
         {
           const req = new movementsensorApi.GetLinearVelocityRequest();
           req.setName(name);
 
-          movementsensorService.getLinearVelocity(req, {}, (err, resp) => {
+          window.movementsensorService.getLinearVelocity(req, new grpc.Metadata(), (err, resp) => {
             if (err) {
               console.log(err);
               return;
@@ -1453,7 +1364,7 @@ export default {
           const req = new movementsensorApi.GetCompassHeadingRequest();
           req.setName(name);
 
-          movementsensorService.getCompassHeading(req, {}, (err, resp) => {
+          window.movementsensorService.getCompassHeading(req, new grpc.Metadata(), (err, resp) => {
             if (err) {
               console.log(err);
               return;
@@ -1466,7 +1377,7 @@ export default {
           const req = new movementsensorApi.GetPositionRequest();
           req.setName(name);
 
-          movementsensorService.getPosition(req, {}, (err, resp) => {
+          window.movementsensorService.getPosition(req, new grpc.Metadata(), (err, resp) => {
             if (err) {
               console.log(err);
               return;
@@ -1481,7 +1392,7 @@ export default {
           const req = new movementsensorApi.GetPropertiesRequest();
           req.setName(name);
 
-          movementsensorService.getProperties(req, {}, (err, resp) => {
+          window.movementsensorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
             if (err) {
               console.log(err);
               return;
@@ -1509,6 +1420,7 @@ export default {
           rawStatus[nameStr] = statusJs;
           status[nameStr] = fixed;
         } catch (error) {
+          console.log(error)
           toast.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`, error);
         }
       }
@@ -2486,8 +2398,9 @@ function setBoundingBox(box, centerPoint) {
 
     <!-- ******* SLAM *******  -->
     <Slam
-      v-for = "slam in filterResources(resources, 'rdk', 'service', 'slam')"
-      :name = "slam.name"
+      v-for="slam in filterResources(resources, 'rdk', 'service', 'slam')"
+      :key="slam.name"
+      :name="slam.name"
       :image-map="imageMapTemp"
       @update-slam-image-refresh-frequency="updateSLAMImageRefreshFrequency"
       @update-slam-pcd-refresh-frequency="updateSLAMPCDRefreshFrequency"
