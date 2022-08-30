@@ -143,3 +143,10 @@
     :why:
     :versions: []
     :when: 2022-08-30 15:22:06.823924964 Z
+- - :license
+  - github.com/gen2brain/malgo
+  - The Unlicense
+  - :who:
+    :license_links: https://github.com/gen2brain/malgo/blob/6af716cf2273f0675789cc1366977970e31b2239/LICENSE
+    :versions: []
+    :when: 2022-08-30 15:37:02.011437856 Z
