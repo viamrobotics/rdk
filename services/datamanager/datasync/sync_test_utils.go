@@ -2,16 +2,6 @@ package datasync
 
 import (
 	"context"
-	"github.com/edaniels/golog"
-	"github.com/matttproud/golang_protobuf_extensions/pbutil"
-	"github.com/pkg/errors"
-	"go.uber.org/atomic"
-	v1 "go.viam.com/api/proto/viam/datasync/v1"
-	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/services/datamanager/datacapture"
-	"go.viam.com/test"
-	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/structpb"
 	"io"
 	"io/ioutil"
 	"os"
@@ -19,9 +9,22 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/edaniels/golog"
+	"github.com/matttproud/golang_protobuf_extensions/pbutil"
+	"github.com/pkg/errors"
+	"go.uber.org/atomic"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
+	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 var (
+	sendWaitTime   = time.Millisecond * 25
 	partID         = "partid"
 	componentType  = "componenttype"
 	componentName  = "componentname"
@@ -262,7 +265,7 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 			if err := stream.Send(&v1.UploadResponse{RequestsWritten: int32(m.messagesToAck)}); err != nil {
 				return err
 			}
-			time.Sleep(time.Millisecond * 25)
+			time.Sleep(sendWaitTime)
 			m.messagesToAck = 0
 		}
 

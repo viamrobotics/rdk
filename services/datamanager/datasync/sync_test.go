@@ -1,7 +1,6 @@
 package datasync
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -13,11 +12,12 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/test"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 const (
@@ -80,7 +80,6 @@ func TestFileUpload(t *testing.T) {
 
 			// Validate the expected messages were sent.
 			expectedMsgs := buildFileDataUploadRequests(tc.expData, filepath.Base(tf.Name()))
-			fmt.Println(mockService.getUploadRequests())
 			test.That(t, len(mockService.getUploadRequests()), test.ShouldEqual, len(expectedMsgs))
 			if len(expectedMsgs) > 1 {
 				test.That(t, mockService.getUploadRequests()[0].GetMetadata().String(), test.ShouldResemble,
@@ -329,7 +328,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 		{
 			name:             "Non-retryable errors should not be retried",
 			err:              status.Error(codes.InvalidArgument, "bad"),
-			waitTime:         time.Millisecond * 300,
+			waitTime:         time.Second,
 			expCallCount:     1,
 			shouldStillExist: true,
 		},
@@ -489,10 +488,8 @@ func TestPartialUpload(t *testing.T) {
 			mockService.doneCancelChannel = doneCancelChannel
 			go func() {
 				<-cancelChannel
-				fmt.Println("cancelling")
 				sut.Close()
 				doneCancelChannel <- true
-				fmt.Println("cancelled")
 			}()
 			sut.Sync([]string{captureFile.Name()})
 			time.Sleep(syncWaitTime)
@@ -504,7 +501,6 @@ func TestPartialUpload(t *testing.T) {
 			// Build all expected messages from before the Upload was cancelled.
 			expMsgs = buildSensorDataUploadRequests(tc.expSentBeforeRetry, tc.dataType, captureFile.Name())
 			actMsgs = mockService.getUploadRequests()
-			fmt.Println(actMsgs)
 			compareTabularUploadRequests(t, actMsgs, expMsgs)
 
 			// For non-empty testcases, validate progress file & data capture file existences.
@@ -520,7 +516,6 @@ func TestPartialUpload(t *testing.T) {
 
 			// Restart the server and register the service.
 			mockService = getMockService()
-			fmt.Println(mockService.getUploadRequests())
 			mockService.messagesPerAck = tc.ackEveryNSensorDatas
 			rpcServer = buildAndStartLocalServer(t, logger, mockService)
 			defer func() {
@@ -538,12 +533,10 @@ func TestPartialUpload(t *testing.T) {
 
 			// Validate client sent mockService the upload requests we would expect after resuming upload.
 			expMsgs = buildSensorDataUploadRequests(tc.expSentAfterRetry, tc.dataType, captureFile.Name())
-			fmt.Println(mockService.getUploadRequests())
 			compareTabularUploadRequests(t, mockService.getUploadRequests(), expMsgs)
 
 			// Validate progress file does not exist.
 			_, err = os.Stat(progressFile)
-			fmt.Println(progressFile)
 			test.That(t, err, test.ShouldNotBeNil)
 
 			// Validate data capture file does not exist.
