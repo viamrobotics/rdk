@@ -179,3 +179,10 @@
     :versions: []
     :when: 2022-08-30 16:08:52.919938114 Z
     :license_links: https://github.com/golang/freetype/blob/e2365dfdc4a05e4b8299a783240d4a7d5a65d4e4/LICENSE
+- - :permit
+  - The Unlicense
+  - :who:
+    :why:
+    :versions: []
+    :when: 2022-08-30 16:12:12.044846522 Z
+    :license_links: https://unlicense.org
