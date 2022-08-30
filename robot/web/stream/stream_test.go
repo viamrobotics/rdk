@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/edaniels/gostream"
+	"github.com/pion/mediadevices/pkg/prop"
+	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pion/webrtc/v3"
 	"go.viam.com/test"
 
@@ -17,39 +19,41 @@ import (
 
 var errImageRetrieval = errors.New("image retrieval failed")
 
-type mockErrorImageSource struct {
+type mockErrorVideoSource struct {
 	callsLeft int
 	wg        sync.WaitGroup
 }
 
-func newMockErrorImageSource(expectedCalls int) *mockErrorImageSource {
-	mock := &mockErrorImageSource{callsLeft: expectedCalls}
+func newMockErrorVideoReader(expectedCalls int) *mockErrorVideoSource {
+	mock := &mockErrorVideoSource{callsLeft: expectedCalls}
 	mock.wg.Add(expectedCalls)
 	return mock
 }
 
-func (imageSource *mockErrorImageSource) Next(ctx context.Context) (image.Image, func(), error) {
-	if imageSource.callsLeft > 0 {
-		imageSource.wg.Done()
-	} else {
-		panic("mock image source was called too many times")
+func (videoSource *mockErrorVideoSource) Read(ctx context.Context) (image.Image, func(), error) {
+	if videoSource.callsLeft > 0 {
+		videoSource.wg.Done()
+		videoSource.callsLeft--
 	}
-	imageSource.callsLeft--
 	return nil, nil, errImageRetrieval
 }
 
 type mockStream struct {
 	name               string
 	streamingReadyFunc func() <-chan struct{}
-	inputFramesFunc    func() chan<- gostream.FrameReleasePair
+	inputFramesFunc    func() (chan<- gostream.MediaReleasePair[image.Image], error)
 }
 
-func (mS *mockStream) StreamingReady() <-chan struct{} {
-	return mS.streamingReadyFunc()
+func (mS *mockStream) StreamingReady() (<-chan struct{}, context.Context) {
+	return mS.streamingReadyFunc(), context.Background()
 }
 
-func (mS *mockStream) InputFrames() chan<- gostream.FrameReleasePair {
+func (mS *mockStream) InputVideoFrames(props prop.Video) (chan<- gostream.MediaReleasePair[image.Image], error) {
 	return mS.inputFramesFunc()
+}
+
+func (mS *mockStream) InputAudioChunks(props prop.Audio) (chan<- gostream.MediaReleasePair[wave.Audio], error) {
+	return make(chan gostream.MediaReleasePair[wave.Audio]), nil
 }
 
 func (mS *mockStream) Name() string {
@@ -62,8 +66,12 @@ func (mS *mockStream) Start() {
 func (mS *mockStream) Stop() {
 }
 
-func (mS *mockStream) TrackLocal() webrtc.TrackLocal {
-	return nil
+func (mS *mockStream) VideoTrackLocal() (webrtc.TrackLocal, bool) {
+	return nil, false
+}
+
+func (mS *mockStream) AudioTrackLocal() (webrtc.TrackLocal, bool) {
+	return nil, false
 }
 
 func TestStreamSourceErrorBackoff(t *testing.T) {
@@ -72,9 +80,14 @@ func TestStreamSourceErrorBackoff(t *testing.T) {
 	backoffOpts := &webstream.BackoffTuningOptions{
 		BaseSleep: 50 * time.Microsecond,
 		MaxSleep:  250 * time.Millisecond,
+		Cooldown:  time.Second,
 	}
 	calls := 25
-	imgSrc := newMockErrorImageSource(calls)
+	videoReader := newMockErrorVideoReader(calls)
+	videoSrc := gostream.NewVideoSource(videoReader, prop.Video{})
+	defer func() {
+		test.That(t, videoSrc.Close(context.Background()), test.ShouldBeNil)
+	}()
 
 	totalExpectedSleep := int64(0)
 	// Note that we do not add the expected sleep duration for the last error since the
@@ -84,18 +97,18 @@ func TestStreamSourceErrorBackoff(t *testing.T) {
 	}
 	str := &mockStream{}
 	readyChan := make(chan struct{})
-	inputChan := make(chan gostream.FrameReleasePair)
+	inputChan := make(chan gostream.MediaReleasePair[image.Image])
 	str.streamingReadyFunc = func() <-chan struct{} {
 		return readyChan
 	}
-	str.inputFramesFunc = func() chan<- gostream.FrameReleasePair {
-		return inputChan
+	str.inputFramesFunc = func() (chan<- gostream.MediaReleasePair[image.Image], error) {
+		return inputChan, nil
 	}
 
-	go webstream.StreamSource(ctx, imgSrc, str, backoffOpts)
+	go webstream.StreamVideoSource(ctx, videoSrc, str, backoffOpts)
 	start := time.Now()
 	readyChan <- struct{}{}
-	imgSrc.wg.Wait()
+	videoReader.wg.Wait()
 	cancel()
 
 	duration := time.Since(start).Nanoseconds()

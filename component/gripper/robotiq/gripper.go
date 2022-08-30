@@ -122,7 +122,7 @@ func (g *robotiqGripper) Send(msg string) (string, error) {
 }
 
 // Set TODO.
-func (g *robotiqGripper) Set(what string, to string) error {
+func (g *robotiqGripper) Set(what, to string) error {
 	res, err := g.Send(fmt.Sprintf("SET %s %s\r\n", what, to))
 	if err != nil {
 		return err

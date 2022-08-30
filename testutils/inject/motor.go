@@ -11,8 +11,8 @@ type Motor struct {
 	motor.Motor
 	DoFunc                func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	SetPowerFunc          func(ctx context.Context, powerPct float64, extra map[string]interface{}) error
-	GoForFunc             func(ctx context.Context, rpm float64, rotations float64, extra map[string]interface{}) error
-	GoToFunc              func(ctx context.Context, rpm float64, position float64, extra map[string]interface{}) error
+	GoForFunc             func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error
+	GoToFunc              func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error
 	ResetZeroPositionFunc func(ctx context.Context, offset float64, extra map[string]interface{}) error
 	GetPositionFunc       func(ctx context.Context, extra map[string]interface{}) (float64, error)
 	GetFeaturesFunc       func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error)
@@ -29,7 +29,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 }
 
 // GoFor calls the injected GoFor or the real version.
-func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
+func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	if m.GoForFunc == nil {
 		return m.Motor.GoFor(ctx, rpm, revolutions, extra)
 	}
@@ -37,7 +37,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64, ext
 }
 
 // GoTo calls the injected GoTo or the real version.
-func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64, extra map[string]interface{}) error {
+func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	if m.GoToFunc == nil {
 		return m.Motor.GoTo(ctx, rpm, positionRevolutions, extra)
 	}

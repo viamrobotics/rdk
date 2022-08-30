@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 
 	"github.com/edaniels/golog"
@@ -63,7 +63,7 @@ func readConfig(cfgPath string) (*transform.ExtrinsicCalibrationConfig, error) {
 	}
 	defer utils.UncheckedErrorFunc(f.Close)
 
-	byteJSON, err := ioutil.ReadAll(f)
+	byteJSON, err := io.ReadAll(f)
 	if err != nil {
 		return nil, err
 	}

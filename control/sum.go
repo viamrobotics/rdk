@@ -18,13 +18,13 @@ const (
 
 type sum struct {
 	mu        sync.Mutex
-	cfg       ControlBlockConfig
+	cfg       BlockConfig
 	y         []Signal
 	operation map[string]sumOperand
 	logger    golog.Logger
 }
 
-func newSum(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
+func newSum(config BlockConfig, logger golog.Logger) (Block, error) {
 	s := &sum{cfg: config, logger: logger}
 	if err := s.reset(); err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func (b *sum) reset() error {
 		b.operation[b.cfg.DependsOn[idx]] = sumOperand(c)
 	}
 	b.y = make([]Signal, 1)
-	b.y[0] = makeSignal(b.cfg.Name, 1)
+	b.y[0] = makeSignal(b.cfg.Name)
 	return nil
 }
 
@@ -82,7 +82,7 @@ func (b *sum) Reset(ctx context.Context) error {
 	return b.reset()
 }
 
-func (b *sum) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
+func (b *sum) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.cfg = config
@@ -93,6 +93,6 @@ func (b *sum) Output(ctx context.Context) []Signal {
 	return b.y
 }
 
-func (b *sum) Config(ctx context.Context) ControlBlockConfig {
+func (b *sum) Config(ctx context.Context) BlockConfig {
 	return b.cfg
 }

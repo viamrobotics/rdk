@@ -11,14 +11,14 @@ import (
 
 type encoderToRPM struct {
 	mu                 sync.Mutex
-	cfg                ControlBlockConfig
+	cfg                BlockConfig
 	y                  []Signal
 	ticksPerRevolution int
 	prevEncCount       int
 	logger             golog.Logger
 }
 
-func newEncoderSpeed(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
+func newEncoderSpeed(config BlockConfig, logger golog.Logger) (Block, error) {
 	e := &encoderToRPM{cfg: config, logger: logger}
 	if err := e.reset(); err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ func (b *encoderToRPM) reset() error {
 	b.ticksPerRevolution = b.cfg.Attribute.Int("ticks_per_revolution", 0)
 	b.prevEncCount = 0
 	b.y = make([]Signal, 1)
-	b.y[0] = makeSignal(b.cfg.Name, 1)
+	b.y[0] = makeSignal(b.cfg.Name)
 	return nil
 }
 
@@ -53,7 +53,7 @@ func (b *encoderToRPM) Reset(ctx context.Context) error {
 	return b.reset()
 }
 
-func (b *encoderToRPM) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
+func (b *encoderToRPM) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.cfg = config
@@ -64,6 +64,6 @@ func (b *encoderToRPM) Output(ctx context.Context) []Signal {
 	return b.y
 }
 
-func (b *encoderToRPM) Config(ctx context.Context) ControlBlockConfig {
+func (b *encoderToRPM) Config(ctx context.Context) BlockConfig {
 	return b.cfg
 }

@@ -113,7 +113,7 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float6
 	return b.Stop(ctx, nil)
 }
 
-func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
+func (b *boat) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	millis := 1000 * (angleDeg / degsPerSec)
 	err := b.SetVelocity(ctx, r3.Vector{}, r3.Vector{Z: -1 * degsPerSec}, extra)
 	if err != nil {

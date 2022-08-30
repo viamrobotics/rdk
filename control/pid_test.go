@@ -16,11 +16,11 @@ import (
 func TestPIDConfig(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	for i, tc := range []struct {
-		conf ControlBlockConfig
+		conf BlockConfig
 		err  string
 	}{
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name:      "PID1",
 				Attribute: config.AttributeMap{"kD": 0.11, "kP": 0.12, "kI": 0.22},
 				Type:      "PID",
@@ -29,7 +29,7 @@ func TestPIDConfig(t *testing.T) {
 			"pid block PID1 should have 1 input got 2",
 		},
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name:      "PID1",
 				Attribute: config.AttributeMap{"kD": 0.11, "kP": 0.12, "kI": 0.22},
 				Type:      "PID",
@@ -38,7 +38,7 @@ func TestPIDConfig(t *testing.T) {
 			"",
 		},
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name:      "PID1",
 				Attribute: config.AttributeMap{"Kdd": 0.11},
 				Type:      "PID",
@@ -62,7 +62,7 @@ func TestPIDConfig(t *testing.T) {
 func TestPIDBasicIntegralWindup(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	cfg := ControlBlockConfig{
+	cfg := BlockConfig{
 		Name: "PID1",
 		Attribute: config.AttributeMap{
 			"kD":             0.11,
@@ -122,7 +122,7 @@ func TestPIDBasicIntegralWindup(t *testing.T) {
 func TestPIDTunner(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	cfg := ControlBlockConfig{
+	cfg := BlockConfig{
 		Name: "PID1",
 		Attribute: config.AttributeMap{
 			"kD":             0.0,

@@ -3,8 +3,8 @@ package motionplan
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
 	"math/rand"
+	"os"
 	"strconv"
 	"testing"
 
@@ -269,7 +269,7 @@ func writeJSONFile(filename string, data interface{}) error {
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(filename, bytes, 0o644); err != nil {
+	if err := os.WriteFile(filename, bytes, 0o644); err != nil {
 		return err
 	}
 	return nil
