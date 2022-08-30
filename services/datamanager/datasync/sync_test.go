@@ -1,9 +1,11 @@
 package datasync
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -19,7 +21,7 @@ import (
 )
 
 const (
-	syncWaitTime = 100 * time.Millisecond
+	syncWaitTime = 500 * time.Millisecond
 )
 
 func TestFileUpload(t *testing.T) {
@@ -78,6 +80,7 @@ func TestFileUpload(t *testing.T) {
 
 			// Validate the expected messages were sent.
 			expectedMsgs := buildFileDataUploadRequests(tc.expData, filepath.Base(tf.Name()))
+			fmt.Println(mockService.getUploadRequests())
 			test.That(t, len(mockService.getUploadRequests()), test.ShouldEqual, len(expectedMsgs))
 			if len(expectedMsgs) > 1 {
 				test.That(t, mockService.getUploadRequests()[0].GetMetadata().String(), test.ShouldResemble,
@@ -380,6 +383,7 @@ func TestPartialUpload(t *testing.T) {
 	msg6 := toProto(anyStruct{})
 	msg7 := toProto(anyStruct{Field1: false})
 	msg8 := toProto(anyStruct{Field1: true, Field2: 2020, Field3: "viam"})
+	msg9 := toProto(anyStruct{Field1: true, Field2: 2021})
 
 	tests := []struct {
 		name                          string
@@ -388,6 +392,7 @@ func TestPartialUpload(t *testing.T) {
 		serverErrorAfterNSensorDatas  int32
 		dataType                      v1.DataType
 		toSend                        []*v1.SensorData
+		expSentBeforeRetry            []*v1.SensorData
 		expSentAfterRetry             []*v1.SensorData
 	}{
 		{
@@ -397,16 +402,18 @@ func TestPartialUpload(t *testing.T) {
 			clientCancelAfterNSensorDatas: 3,
 			toSend:                        createBinarySensorData([][]byte{msg1, msg2, msg3, msg4, msg5}),
 			// First two messages should be ACKed, so only 3-5 should be sent after retry.
-			expSentAfterRetry: createBinarySensorData([][]byte{msg3, msg4, msg5}),
+			expSentBeforeRetry: createBinarySensorData([][]byte{msg1, msg2, msg3}),
+			expSentAfterRetry:  createBinarySensorData([][]byte{msg3, msg4, msg5}),
 		},
 		{
 			name:                          `Tabular upload should resume from last ACKed point if the syncer is closed.`,
 			dataType:                      v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			ackEveryNSensorDatas:          2,
-			clientCancelAfterNSensorDatas: 2,
-			toSend:                        createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8}),
+			clientCancelAfterNSensorDatas: 3,
+			toSend:                        createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8, msg9}),
 			// First two messages should be ACKed, so only msg8 should be sent after retry.
-			expSentAfterRetry: createTabularSensorData([]*structpb.Struct{msg8}),
+			expSentBeforeRetry: createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8}),
+			expSentAfterRetry:  createTabularSensorData([]*structpb.Struct{msg8, msg9}),
 		},
 		{
 			name:                         `Binary upload should resume from last ACKed point after server disconnection.`,
@@ -415,16 +422,18 @@ func TestPartialUpload(t *testing.T) {
 			serverErrorAfterNSensorDatas: 3,
 			toSend:                       createBinarySensorData([][]byte{msg1, msg2, msg3, msg4, msg5}),
 			// First two messages were ACKed, and third was sent but not acked. Only msg3-5 should be sent after retry.
-			expSentAfterRetry: createBinarySensorData([][]byte{msg3, msg4, msg5}),
+			expSentBeforeRetry: createBinarySensorData([][]byte{msg1, msg2, msg3}),
+			expSentAfterRetry:  createBinarySensorData([][]byte{msg3, msg4, msg5}),
 		},
 		{
 			name:                         `Tabular upload should resume from last ACKed point after server disconnection.`,
 			dataType:                     v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			ackEveryNSensorDatas:         2,
-			serverErrorAfterNSensorDatas: 2,
-			toSend:                       createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8}),
+			serverErrorAfterNSensorDatas: 3,
+			toSend:                       createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8, msg9}),
 			// First two messages should be ACKed, so only msg8 should be sent after retry.
-			expSentAfterRetry: createTabularSensorData([]*structpb.Struct{msg8}),
+			expSentBeforeRetry: createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8}),
+			expSentAfterRetry:  createTabularSensorData([]*structpb.Struct{msg8, msg9}),
 		},
 	}
 
@@ -480,8 +489,10 @@ func TestPartialUpload(t *testing.T) {
 			mockService.doneCancelChannel = doneCancelChannel
 			go func() {
 				<-cancelChannel
+				fmt.Println("cancelling")
 				sut.Close()
 				doneCancelChannel <- true
+				fmt.Println("cancelled")
 			}()
 			sut.Sync([]string{captureFile.Name()})
 			time.Sleep(syncWaitTime)
@@ -490,35 +501,26 @@ func TestPartialUpload(t *testing.T) {
 			var expMsgs []*v1.UploadRequest
 			var actMsgs []*v1.UploadRequest
 
-			// Add 1 to account for the first UploadRequest containing metadata.
-			var cancelIndex int
-			switch {
-			case tc.clientCancelAfterNSensorDatas != 0:
-				cancelIndex = tc.clientCancelAfterNSensorDatas + 1
-			case tc.serverErrorAfterNSensorDatas != 0:
-				cancelIndex = int(tc.serverErrorAfterNSensorDatas) + 1
-			default:
-				cancelIndex = len(tc.toSend)
-			}
 			// Build all expected messages from before the Upload was cancelled.
-			expMsgs = buildSensorDataUploadRequests(tc.toSend[:cancelIndex-1], tc.dataType, captureFile.Name())
+			expMsgs = buildSensorDataUploadRequests(tc.expSentBeforeRetry, tc.dataType, captureFile.Name())
 			actMsgs = mockService.getUploadRequests()
+			fmt.Println(actMsgs)
 			compareTabularUploadRequests(t, actMsgs, expMsgs)
 
 			// For non-empty testcases, validate progress file & data capture file existences.
 			progressFile := filepath.Join(viamProgressDotDir, filepath.Base(captureFile.Name()))
-			if len(tc.toSend) > 0 {
-				// Validate progress file exists for non-empty test cases.
-				_, err = os.Stat(progressFile)
-				test.That(t, err, test.ShouldBeNil)
+			defer os.Remove(progressFile)
 
-				// Validate data capture file exists.
-				_, err = os.Stat(captureFile.Name())
-				test.That(t, err, test.ShouldBeNil)
-			}
+			// Validate progress file exists and has correct value.
+			_, err = os.Stat(progressFile)
+			test.That(t, err, test.ShouldBeNil)
+			bs, _ := ioutil.ReadFile(progressFile)
+			i, _ := strconv.Atoi(string(bs))
+			test.That(t, i, test.ShouldEqual, tc.ackEveryNSensorDatas)
 
 			// Restart the server and register the service.
 			mockService = getMockService()
+			fmt.Println(mockService.getUploadRequests())
 			mockService.messagesPerAck = tc.ackEveryNSensorDatas
 			rpcServer = buildAndStartLocalServer(t, logger, mockService)
 			defer func() {
@@ -536,10 +538,12 @@ func TestPartialUpload(t *testing.T) {
 
 			// Validate client sent mockService the upload requests we would expect after resuming upload.
 			expMsgs = buildSensorDataUploadRequests(tc.expSentAfterRetry, tc.dataType, captureFile.Name())
+			fmt.Println(mockService.getUploadRequests())
 			compareTabularUploadRequests(t, mockService.getUploadRequests(), expMsgs)
 
 			// Validate progress file does not exist.
 			_, err = os.Stat(progressFile)
+			fmt.Println(progressFile)
 			test.That(t, err, test.ShouldNotBeNil)
 
 			// Validate data capture file does not exist.
