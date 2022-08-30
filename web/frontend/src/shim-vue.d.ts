@@ -6,6 +6,5 @@ declare module '*.vue' {
 }
 
 declare module '*.worker?worker';
-declare module 'konami-code';
 declare module 'vue-toast-notification';
 declare module 'blockly';

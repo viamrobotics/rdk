@@ -1,4 +1,5 @@
 import { dialDirect, dialWebRTC } from '@viamrobotics/rpc';
+import type { Credentials, DialOptions } from '@viamrobotics/rpc/src/dial';
 import { ArmServiceClient } from './gen/proto/api/component/arm/v1/arm_pb_service.esm';
 import { BaseServiceClient } from './gen/proto/api/component/base/v1/base_pb_service.esm';
 import { BoardServiceClient } from './gen/proto/api/component/board/v1/board_pb_service.esm';
@@ -62,8 +63,8 @@ window.streamApi = streamApi;
  */
 window.robotApi = robotApi;
 
-let savedAuthEntity;
-let savedCreds;
+let savedAuthEntity: string;
+let savedCreds: Credentials;
 
 const rtcConfig = {
   iceServers: [
@@ -79,10 +80,13 @@ if (window.webrtcAdditionalICEServers) {
 
 const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
   let transportFactory;
-  const opts = { 
+  const opts: DialOptions = { 
     authEntity,
     credentials: creds,
-    webrtcOptions: { rtcConfig },
+    webrtcOptions: {
+      disableTrickleICE: false,
+      rtcConfig,
+    },
   };
   const impliedURL = `${location.protocol}//${location.hostname}${location.port ? `:${location.port}` : ''}`;
 
@@ -91,18 +95,18 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
   savedCreds = creds;
   
   if (window.webrtcEnabled) {
-    opts.webrtcOptions.signalingAuthEntity = opts.authEntity;
-    opts.webrtcOptions.signalingCredentials = opts.credentials;
+    opts.webrtcOptions!.signalingAuthEntity = opts.authEntity;
+    opts.webrtcOptions!.signalingCredentials = opts.credentials;
 
     const webRTCConn = await dialWebRTC(window.webrtcSignalingAddress || impliedURL, window.webrtcHost, opts);
     transportFactory = webRTCConn.transportFactory;
 
     webRTCConn.peerConnection.ontrack = (event) => {
       const kind = event.track.kind;
-      const mediaElement = document.createElement(kind);
+      const mediaElement = document.createElement(kind) as HTMLAudioElement | HTMLVideoElement;
       mediaElement.srcObject = event.streams[0];
       mediaElement.autoplay = true;
-      if (kind === 'video') {
+      if (mediaElement instanceof HTMLVideoElement) {
         mediaElement.playsInline = true;        
         mediaElement.controls = false;
       } else {
@@ -117,10 +121,10 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
       if (streamContainer) {
         streamContainer.append(mediaElement);
       }
-      const mediaElementPreview = document.createElement(kind);
+      const mediaElementPreview = document.createElement(kind) as HTMLAudioElement | HTMLVideoElement;
       mediaElementPreview.srcObject = event.streams[0];
       mediaElementPreview.autoplay = true;
-      if (kind === 'video') {
+      if (mediaElementPreview instanceof HTMLVideoElement) {
         mediaElementPreview.playsInline = true;        
         mediaElementPreview.controls = false;
       } else {
