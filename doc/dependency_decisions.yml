@@ -119,3 +119,21 @@
     :why:
     :versions: []
     :when: 2022-08-29 22:26:18.925886068 Z
+- - :ignore
+  - "@viamrobotics/prime"
+  - :who:
+    :why: this is our library
+    :versions: []
+    :when: 2022-08-30 15:13:20.289177210 Z
+- - :ignore
+  - "@viamrobotics/rpc"
+  - :who:
+    :why: this is our library
+    :versions: []
+    :when: 2022-08-30 15:13:30.443695242 Z
+- - :ignore
+  - go.viam.com/api
+  - :who:
+    :why: this is our library
+    :versions: []
+    :when: 2022-08-30 15:13:46.282776672 Z
