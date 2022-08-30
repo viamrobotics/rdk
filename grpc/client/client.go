@@ -331,20 +331,18 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 		return nil, err
 	}
 
+	// see if a remote name matches the name if so then return the remote client
+	if val, ok := rc.remoteNameMap[name]; ok {
+		val.Remote = ""
+		if client, ok := rc.children[val]; ok {
+			return client, nil
+		}
+	}
+
 	if client, ok := rc.children[name]; ok {
 		return client, nil
 	}
-	// if the client isnt found see if a remote name matches the name
 
-	tempName := resource.RemoveRemoteName(name)
-	if val, ok := rc.remoteNameMap[tempName]; ok {
-		if val.Name != "" {
-			val.Remote = ""
-			if client, ok := rc.children[val]; ok {
-				return client, nil
-			}
-		}
-	}
 	resourceClient, err := rc.createClient(name)
 	if err != nil {
 		return nil, err
@@ -443,30 +441,31 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 		rc.resourceRPCSubtypes = rpcSubtypes
 	}
 
-	err = rc.updateRemoteNameMap(ctx)
-	if err != nil {
-		return err
-	}
+	rc.updateRemoteNameMap(ctx)
 
 	return rc.reconfigureChildren(ctx)
 }
 
-func (rc *RobotClient) updateRemoteNameMap(ctx context.Context) error {
+func (rc *RobotClient) updateRemoteNameMap(ctx context.Context) {
 	tempMap := make(map[resource.Name]resource.Name)
+	dupMap := make(map[resource.Name]bool)
 	for _, n := range rc.resourceNames {
 		if n.Name == "" {
-			return errors.Errorf("Empty name used for resource: %s", n)
+			rc.Logger().Errorw("Error found resource in resourceNames with empty name")
+			continue
 		}
 		tempName := resource.RemoveRemoteName(n)
 		// If the short name already exists in the map then there is a collision and we make the long name empty.
-		if _, ok := tempMap[n]; ok {
-			tempMap[n] = resource.NameFromSubtype(n.Subtype, "")
+		if _, ok := tempMap[tempName]; ok {
+			dupMap[tempName] = true
 		} else {
-			tempMap[n] = tempName
+			tempMap[tempName] = n
 		}
 	}
+	for key, _ := range dupMap {
+		delete(tempMap, key)
+	}
 	rc.remoteNameMap = tempMap
-	return nil
 }
 
 // RemoteNames returns the names of all known remotes.
