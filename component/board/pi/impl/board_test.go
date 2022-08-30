@@ -117,7 +117,6 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, after-before, test.ShouldEqual, int64(1))
 	})
 
-	//nolint:dupl
 	t.Run("servo in/out", func(t *testing.T) {
 		servoReg := registry.ComponentLookup(servo.Subtype, picommon.ModelName)
 		test.That(t, servoReg, test.ShouldNotBeNil)
@@ -135,6 +134,9 @@ func TestPiPigpio(t *testing.T) {
 
 		err = servo1.Move(ctx, 90)
 		test.That(t, err, test.ShouldBeNil)
+
+		err = servo1.Move(ctx, 190)
+		test.That(t, err, test.ShouldNotBeNil)
 
 		v, err := servo1.GetPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
@@ -205,9 +207,79 @@ func TestPiPigpio(t *testing.T) {
 		servo1 := servoInt.(servo.Servo)
 		pos1, err := servo1.GetPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos1, test.ShouldEqual, 32)
+		test.That(t, pos1, test.ShouldEqual, 33)
 
 		localServo := servo1.(*piPigpioServo)
 		test.That(t, localServo.holdPos, test.ShouldBeTrue)
+	})
+}
+
+func TestServoFunctions(t *testing.T) {
+	t.Run("check servo math", func(t *testing.T) {
+		pw := angleToPulseWidth(1)
+		test.That(t, pw, test.ShouldEqual, 511)
+		pw = angleToPulseWidth(0)
+		test.That(t, pw, test.ShouldEqual, 500)
+		pw = angleToPulseWidth(179)
+		test.That(t, pw, test.ShouldEqual, 2488)
+		pw = angleToPulseWidth(180)
+		test.That(t, pw, test.ShouldEqual, 2500)
+		a := pulseWidthToAngle(511)
+		test.That(t, a, test.ShouldEqual, 1)
+		a = pulseWidthToAngle(500)
+		test.That(t, a, test.ShouldEqual, 0)
+		a = pulseWidthToAngle(2500)
+		test.That(t, a, test.ShouldEqual, 180)
+		a = pulseWidthToAngle(2488)
+		test.That(t, a, test.ShouldEqual, 179)
+	})
+
+	t.Run(("check Move IsMoving ande pigpio errors"), func(t *testing.T) {
+		ctx := context.Background()
+		s := &piPigpioServo{pinname: "1"}
+
+		s.res = -93
+		err := s.pigpioErrors(int(s.res))
+		test.That(t, err.Error(), test.ShouldContainSubstring, "pulsewidths")
+		moving, err := s.IsMoving(ctx)
+		test.That(t, moving, test.ShouldBeFalse)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		s.res = -7
+		err = s.pigpioErrors(int(s.res))
+		test.That(t, err.Error(), test.ShouldContainSubstring, "range")
+		moving, err = s.IsMoving(ctx)
+		test.That(t, moving, test.ShouldBeFalse)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		s.res = 0
+		err = s.pigpioErrors(int(s.res))
+		test.That(t, err, test.ShouldBeNil)
+		moving, err = s.IsMoving(ctx)
+		test.That(t, moving, test.ShouldBeFalse)
+		test.That(t, err, test.ShouldBeNil)
+
+		s.res = 1
+		err = s.pigpioErrors(int(s.res))
+		test.That(t, err, test.ShouldBeNil)
+		moving, err = s.IsMoving(ctx)
+		test.That(t, moving, test.ShouldBeFalse)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = s.pigpioErrors(-4)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "failed")
+		moving, err = s.IsMoving(ctx)
+		test.That(t, moving, test.ShouldBeFalse)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = s.Move(ctx, 8)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		err = s.Stop(ctx)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		pos, err := s.GetPosition(ctx)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, pos, test.ShouldEqual, 0)
 	})
 }

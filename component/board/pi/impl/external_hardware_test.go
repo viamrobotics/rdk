@@ -14,8 +14,7 @@ import (
 	"go.viam.com/rdk/component/board"
 	picommon "go.viam.com/rdk/component/board/pi/common"
 	"go.viam.com/rdk/component/encoder"
-	"go.viam.com/rdk/component/motor"
-	// for gpio motor.
+	"go.viam.com/rdk/component/motor" // for gpio motor.
 	_ "go.viam.com/rdk/component/motor/gpio"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
@@ -108,7 +107,6 @@ func TestPiHardware(t *testing.T) {
 		test.That(t, after-before, test.ShouldEqual, int64(1))
 	})
 
-	//nolint:dupl
 	t.Run("servo in/out", func(t *testing.T) {
 		servoReg := registry.ComponentLookup(servo.Subtype, picommon.ModelName)
 		test.That(t, servoReg, test.ShouldNotBeNil)
