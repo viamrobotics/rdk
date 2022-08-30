@@ -311,7 +311,6 @@ func getIndex(s []int, num int) int {
 // getBboxOrder checks the metadata and looks for the bounding box order
 // returned as []int, where 0=xmin, 1=xmax, 2=ymin, 3=ymax.
 func getBboxOrder(m *tflite_metadata.ModelMetadataT) []int {
-
 	// tensorData should be a []TensorMetadataT from the metadata telling me about each tensor in order
 	tensorData := m.SubgraphMetadata[0].OutputTensorMetadata
 	for _, t := range tensorData {
