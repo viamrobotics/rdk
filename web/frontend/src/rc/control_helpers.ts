@@ -4,59 +4,63 @@
 * Feel free to add any missing gRPC method wrappers.
 */
 
+import { grpc } from '@improbable-eng/grpc-web';
 import boardApi from '../gen/proto/api/component/board/v1/board_pb.esm';
 import motorApi from '../gen/proto/api/component/motor/v1/motor_pb.esm';
 import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
 import servoApi from '../gen/proto/api/component/servo/v1/servo_pb.esm';
+import type { Vector3 } from '../gen/proto/api/common/v1/common_pb';
 
 window.rcDebug = false;
 
-const rcLogConditionally = (req) => {
-  if (rcDebug) {
+const rcLogConditionally = (req: unknown) => {
+  if (window.rcDebug) {
     console.log('gRPC call:', req);
   }
 };
 
+type Callback = (error: unknown | null, responseMessage: unknown | null) => void
+
 // Base control helpers
 export const BaseControlHelper = {
-  moveStraight(name, distance_mm, speed_mm_s, cb) {
+  moveStraight(name: string, distance_mm: number, speed_mm_s: number, cb: Callback) {
     const req = new baseApi.MoveStraightRequest();
     req.setName(name);
     req.setMmPerSec(speed_mm_s);
     req.setDistanceMm(distance_mm);
 
     rcLogConditionally(req);
-    window.baseService.moveStraight(req, {}, cb);
+    window.baseService.moveStraight(req, new grpc.Metadata(), cb);
   },
 
-  spin(name, angle_deg, speed_deg_s, cb) {
+  spin(name: string, angle_deg: number, speed_deg_s: number, cb: Callback) {
     const req = new baseApi.SpinRequest();
     req.setName(name);
     req.setAngleDeg(angle_deg);
     req.setDegsPerSec(speed_deg_s);
 
     rcLogConditionally(req);
-    window.baseService.spin(req, {}, cb);
+    window.baseService.spin(req, new grpc.Metadata(), cb);
   },
 
-  setPower(name, linearVector, angularVector, cb) {
+  setPower(name: string, linearVector: Vector3, angularVector: Vector3, cb: Callback) {
     const req = new baseApi.SetPowerRequest();
     req.setName(name);
     req.setLinear(linearVector);
     req.setAngular(angularVector);
 
     rcLogConditionally(req);
-    window.baseService.setPower(req, {}, cb);
+    window.baseService.setPower(req, new grpc.Metadata(), cb);
   },
 
-  setVelocity(name, linearVector, angularVector, cb) {
+  setVelocity(name: string, linearVector: Vector3, angularVector: Vector3, cb: Callback) {
     const req = new baseApi.SetVelocityRequest();
     req.setName(name);
     req.setLinear(linearVector);
     req.setAngular(angularVector);
 
     rcLogConditionally(req);
-    window.baseService.setVelocity(req, {}, cb);
+    window.baseService.setVelocity(req, new grpc.Metadata(), cb);
   },
 };
 
@@ -65,7 +69,7 @@ export const BaseControlHelper = {
 * Input: State of keys. e.g. {straight : true, backward : false, right : false, left: false}
 * Output: linearY and angularZ throttle
 */
-export const computeKeyboardBaseControls = (keysPressed) => {
+export const computeKeyboardBaseControls = (keysPressed: Record<string, boolean>) => {
   let linear = 0;
   let angular = 0;
 
@@ -86,112 +90,112 @@ export const computeKeyboardBaseControls = (keysPressed) => {
 
 // Simple motor control helpers
 export const MotorControlHelper = {
-  setPower(name, powerPct, cb) {
+  setPower(name: string, powerPct: number, cb: Callback) {
     const req = new motorApi.SetPowerRequest();
     req.setName(name);
     req.setPowerPct(powerPct);
 
     rcLogConditionally(req);
-    window.motorService.setPower(req, {}, cb);
+    window.motorService.setPower(req, new grpc.Metadata(), cb);
   },
   
-  goFor(name, rpm, revolutions, cb) {
+  goFor(name: string, rpm: number, revolutions: number, cb: Callback) {
     const req = new motorApi.GoForRequest();
     req.setName(name);
     req.setRpm(rpm);
     req.setRevolutions(revolutions);
 
     rcLogConditionally(req);
-    window.motorService.goFor(req, {}, cb);
+    window.motorService.goFor(req, new grpc.Metadata(), cb);
   },
 
-  goTo(name, rpm, positionRevolutions, cb) {
+  goTo(name: string, rpm: number, positionRevolutions: number, cb: Callback) {
     const req = new motorApi.GoToRequest();
     req.setName(name);
     req.setRpm(rpm);
     req.setPositionRevolutions(positionRevolutions);
 
     rcLogConditionally(req);
-    window.motorService.goTo(req, {}, cb);
+    window.motorService.goTo(req, new grpc.Metadata(), cb);
   },
 
-  stop(name, cb) {
+  stop(name: string, cb: Callback) {
     const req = new motorApi.StopRequest();
     req.setName(name);
 
     rcLogConditionally(req);
-    window.motorService.stop(req, {}, cb);
+    window.motorService.stop(req, new grpc.Metadata(), cb);
   },
 };
 
 // Simple motor control helpers
 export const BoardControlHelper = {
-  getGPIO (name, pin, cb) {
+  getGPIO (name: string, pin: string, cb: Callback) {
     const req = new boardApi.GetGPIORequest();
     req.setName(name);
     req.setPin(pin);
 
     rcLogConditionally(req);
-    window.boardService.getGPIO(req, {}, cb);
+    window.boardService.getGPIO(req, new grpc.Metadata(), cb);
   },
 
-  setGPIO (name, pin, value, cb) {
+  setGPIO (name: string, pin: string, value: boolean, cb: Callback) {
     const req = new boardApi.SetGPIORequest();
     req.setName(name);
     req.setPin(pin);
     req.setHigh(value);
 
     rcLogConditionally(req);
-    window.boardService.setGPIO(req, {}, cb);
+    window.boardService.setGPIO(req, new grpc.Metadata(), cb);
   },
 
-  getPWM (name, pin, cb) {
+  getPWM (name: string, pin: string, cb: Callback) {
     const req = new boardApi.PWMRequest();
     req.setName(name);
     req.setPin(pin);
 
     rcLogConditionally(req);
-    boardService.pWM(req, {}, cb);
+    window.boardService.pWM(req, new grpc.Metadata(), cb);
   },
 
-  setPWM (name, pin, value, cb) {
+  setPWM (name: string, pin: string, value: number, cb: Callback) {
     const req = new boardApi.SetPWMRequest();
     req.setName(name);
     req.setPin(pin);
     req.setDutyCyclePct(value);
 
     rcLogConditionally(req);
-    boardService.setPWM(req, {}, cb);
+    window.boardService.setPWM(req, new grpc.Metadata(), cb);
   },
 
-  getPWMFrequency: function (name, pin, cb) {
+  getPWMFrequency (name: string, pin: string, cb: Callback) {
     const req = new boardApi.PWMFrequencyRequest();
     req.setName(name);
     req.setPin(pin);
 
     rcLogConditionally(req);
-    boardService.pWMFrequency(req, {}, cb);
+    window.boardService.pWMFrequency(req, new grpc.Metadata(), cb);
   },
 
-  setPWMFrequency: function (name, pin, value, cb) {
+  setPWMFrequency (name: string, pin: string, value: number, cb: Callback) {
     const req = new boardApi.SetPWMFrequencyRequest();
     req.setName(name);
     req.setPin(pin);
     req.setFrequencyHz(value);
 
     rcLogConditionally(req);
-    boardService.setPWMFrequency(req, {}, cb);
+    window.boardService.setPWMFrequency(req, new grpc.Metadata(), cb);
   },
 };
 
 // Servo control helpers
 // todo: add the rest
 export const ServoControlHelper = {
-  stop(name, cb) {
+  stop(name: string, cb: Callback) {
     const req = new servoApi.StopRequest();
     req.setName(name);
 
     rcLogConditionally(req);
-    servoService.stop(req, {}, cb);
+    window.servoService.stop(req, new grpc.Metadata(), cb);
   },
 };
