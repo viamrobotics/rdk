@@ -480,9 +480,18 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...O
 
 func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
 	rName := config.ResourceName()
-	f := registry.ServiceLookup(rName.Subtype)
+	f := registry.ServiceLookup(rName.Subtype, config.Model)
+	// If service model/type not found then print list of valid models they can choose from
 	if f == nil {
-		return nil, errors.Errorf("unknown service type: %s", rName.Subtype)
+		validModels := make([]string, 0)
+		for key := range registry.RegisteredServices() {
+			if strings.Contains(key, rName.Subtype.String()) {
+				splitName := strings.Split(key, "/")
+				validModels = append(validModels, splitName[1])
+			}
+		}
+		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s use one of the following valid models: %s",
+			rName.Subtype, config.Model, strings.Join(validModels, ", "))
 	}
 	svc, err := f.Constructor(ctx, r, config, r.logger)
 	if err != nil {

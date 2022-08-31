@@ -50,7 +50,7 @@ var Subtype = resource.NewSubtype(
 var Name = resource.NameFromSubtype(Subtype, "")
 
 func init() {
-	registry.RegisterService(Subtype, registry.Service{Constructor: New})
+	registry.RegisterService(Subtype, resource.DefaultModelName, registry.Service{Constructor: New})
 	cType := config.ServiceType(SubtypeName)
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
