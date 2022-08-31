@@ -26,21 +26,21 @@ type VisionServiceClient interface {
 	GetDetectorNames(ctx context.Context, in *GetDetectorNamesRequest, opts ...grpc.CallOption) (*GetDetectorNamesResponse, error)
 	// AddDetector adds a new detector to the registry.
 	AddDetector(ctx context.Context, in *AddDetectorRequest, opts ...grpc.CallOption) (*AddDetectorResponse, error)
-	// RemoveDetector adds a new detector to the registry.
+	// RemoveDetector removes a detector from the registry.
 	RemoveDetector(ctx context.Context, in *RemoveDetectorRequest, opts ...grpc.CallOption) (*RemoveDetectorResponse, error)
 	// GetDetectionsFromCamera will return a list of detections in the next image given a camera and a detector
 	GetDetectionsFromCamera(ctx context.Context, in *GetDetectionsFromCameraRequest, opts ...grpc.CallOption) (*GetDetectionsFromCameraResponse, error)
-	// GetDetections will return a list of detections in the next image given a camera and a detector
+	// GetDetections will return a list of detections in the next image given the image bytes and a detector
 	GetDetections(ctx context.Context, in *GetDetectionsRequest, opts ...grpc.CallOption) (*GetDetectionsResponse, error)
-	// GetClassifierNames returns the list of detectors in the registry.
+	// GetClassifierNames returns the list of classifiers in the registry.
 	GetClassifierNames(ctx context.Context, in *GetClassifierNamesRequest, opts ...grpc.CallOption) (*GetClassifierNamesResponse, error)
 	// AddClassifier adds a new classifier to the registry.
 	AddClassifier(ctx context.Context, in *AddClassifierRequest, opts ...grpc.CallOption) (*AddClassifierResponse, error)
 	// RemoveClassifier adds a new classifier to the registry.
 	RemoveClassifier(ctx context.Context, in *RemoveClassifierRequest, opts ...grpc.CallOption) (*RemoveClassifierResponse, error)
-	// GetDetectionsFromCamera will return a list of detections in the next image given a camera and a detector
+	// GetClassificationsFromCamera will return a list of classifications in the next image given a camera and a classifier
 	GetClassificationsFromCamera(ctx context.Context, in *GetClassificationsFromCameraRequest, opts ...grpc.CallOption) (*GetClassificationsFromCameraResponse, error)
-	// GetDetections will return a list of detections in the next image given a camera and a detector
+	// GetClassifications will return a list of classifications in the next image given the image bytes and a classifier
 	GetClassifications(ctx context.Context, in *GetClassificationsRequest, opts ...grpc.CallOption) (*GetClassificationsResponse, error)
 	// GetSegmenterNames returns the list of segmenters in the registry.
 	GetSegmenterNames(ctx context.Context, in *GetSegmenterNamesRequest, opts ...grpc.CallOption) (*GetSegmenterNamesResponse, error)
@@ -185,21 +185,21 @@ type VisionServiceServer interface {
 	GetDetectorNames(context.Context, *GetDetectorNamesRequest) (*GetDetectorNamesResponse, error)
 	// AddDetector adds a new detector to the registry.
 	AddDetector(context.Context, *AddDetectorRequest) (*AddDetectorResponse, error)
-	// RemoveDetector adds a new detector to the registry.
+	// RemoveDetector removes a detector from the registry.
 	RemoveDetector(context.Context, *RemoveDetectorRequest) (*RemoveDetectorResponse, error)
 	// GetDetectionsFromCamera will return a list of detections in the next image given a camera and a detector
 	GetDetectionsFromCamera(context.Context, *GetDetectionsFromCameraRequest) (*GetDetectionsFromCameraResponse, error)
-	// GetDetections will return a list of detections in the next image given a camera and a detector
+	// GetDetections will return a list of detections in the next image given the image bytes and a detector
 	GetDetections(context.Context, *GetDetectionsRequest) (*GetDetectionsResponse, error)
-	// GetClassifierNames returns the list of detectors in the registry.
+	// GetClassifierNames returns the list of classifiers in the registry.
 	GetClassifierNames(context.Context, *GetClassifierNamesRequest) (*GetClassifierNamesResponse, error)
 	// AddClassifier adds a new classifier to the registry.
 	AddClassifier(context.Context, *AddClassifierRequest) (*AddClassifierResponse, error)
 	// RemoveClassifier adds a new classifier to the registry.
 	RemoveClassifier(context.Context, *RemoveClassifierRequest) (*RemoveClassifierResponse, error)
-	// GetDetectionsFromCamera will return a list of detections in the next image given a camera and a detector
+	// GetClassificationsFromCamera will return a list of classifications in the next image given a camera and a classifier
 	GetClassificationsFromCamera(context.Context, *GetClassificationsFromCameraRequest) (*GetClassificationsFromCameraResponse, error)
-	// GetDetections will return a list of detections in the next image given a camera and a detector
+	// GetClassifications will return a list of classifications in the next image given the image bytes and a classifier
 	GetClassifications(context.Context, *GetClassificationsRequest) (*GetClassificationsResponse, error)
 	// GetSegmenterNames returns the list of segmenters in the registry.
 	GetSegmenterNames(context.Context, *GetSegmenterNamesRequest) (*GetSegmenterNamesResponse, error)
