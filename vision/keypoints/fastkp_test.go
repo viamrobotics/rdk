@@ -152,8 +152,8 @@ func TestComputeFAST(t *testing.T) {
 	// compute kps
 	kpsChess := ComputeFAST(imGray, cfg)
 	test.That(t, len(kpsChess), test.ShouldEqual, 100)
-	err = PlotKeypoints(imGray, kpsChess, "/tmp/keypoints2.png")
-	test.That(t, err, test.ShouldBeNil)
+	keyImg := PlotKeypoints(imGray, kpsChess)
+	test.That(t, keyImg, test.ShouldNotBeNil)
 	// test with rectangle image
 	rectImage := createTestImage()
 	kps := ComputeFAST(rectImage, cfg)

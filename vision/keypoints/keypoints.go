@@ -23,7 +23,7 @@ type OrientedKeypoints struct {
 }
 
 // PlotKeypoints plots keypoints on image.
-func PlotKeypoints(img *image.Gray, kps []image.Point, outName string) error {
+func PlotKeypoints(img *image.Gray, kps []image.Point) image.Image {
 	w, h := img.Bounds().Max.X, img.Bounds().Max.Y
 
 	dc := gg.NewContext(w, h)
@@ -35,7 +35,7 @@ func PlotKeypoints(img *image.Gray, kps []image.Point, outName string) error {
 		dc.DrawCircle(float64(p.X), float64(p.Y), float64(3.0))
 		dc.Fill()
 	}
-	return dc.SavePNG(outName)
+	return dc.Image()
 }
 
 // PlotMatchedLines plots matched keypoints on both images.
