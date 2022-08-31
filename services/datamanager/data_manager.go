@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -507,6 +508,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 
 		// Download models from models_on_robot.
 		modelsToDeploy := svcConfig.ModelsToDeploy
+		fmt.Println("modelsToDeploy: ", modelsToDeploy)
 		err := svc.downloadModels(cfg, modelsToDeploy)
 		if err != nil {
 			svc.logger.Errorf("can't download models_on_robot in config", "error", err)
@@ -743,6 +745,8 @@ func unzipFile(cancelCtx context.Context, f *zip.File, destination string, logge
 		logger.Error(err)
 	}
 
+	// increment deployed model here
+
 	return nil
 }
 
@@ -774,22 +778,48 @@ func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.
 		}
 	}()
 
+	// fmt.Printf("resp.Body%T\n ", resp.Body)
+	fmt.Println("resp.Body: ", resp.Body)
+	var s = filepath + ".zip"
+	fmt.Println("s: ", s)
 	//nolint:gosec
-	out, err := os.Create(filepath) // os join here?
+	out, err := os.Create(s)
 	if err != nil {
 		fmt.Println("err: ", err)
 		return err
 	}
-
 	//nolint:gosec,errcheck
 	defer out.Close()
 
+	b, err := io.ReadAll(resp.Body)
+	// b, err := ioutil.ReadAll(resp.Body)  Go.1.15 and earlier
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("b: ", string(b))
+
+	// fmt.Println("resp.Status: ", resp.Status)
+	input, err := ioutil.ReadFile(resp.Status)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	fmt.Println("input: ", input)
+
+	err = ioutil.WriteFile(s, input, os.ModePerm)
+
 	// Write body to file
-	_, err = io.Copy(out, resp.Body)
+	// _, err = io.Copy(out, resp.Body)
+	// if err != nil {
+	// 	fmt.Println("err: ", err)
+	// 	return err
+	// }
 
 	if closeErr := out.Close(); err != nil {
 		return closeErr
 	}
+	os.Remove(resp.Status)
 	return err
 }
 
@@ -819,10 +849,18 @@ func getModelsToDownload(models []*Model) ([]*Model, error) {
 			if err != nil {
 				return nil, err
 			}
+
+			// Config
+
+			// Conf.ModelsToDeploy = append(Conf.ModelsToDeploy, model)
+			// fmt.Println("conf now: ", Conf)
 		} else if err != nil {
 			panic("can't access files: " + err.Error()) // better thing to do?
 		} else { // this conditional is a hack for testing
 			modelsToDownload = append(modelsToDownload, model)
+			// Conf := &Config{}
+			// Conf.ModelsToDeploy = append(Conf.ModelsToDeploy, model)
+			// fmt.Println("conf now: ", Conf)
 		}
 	}
 	return modelsToDownload, nil

@@ -1,12 +1,16 @@
 package datamanager_test
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"io/fs"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"path/filepath"
 
 	// "net/http"
 	"os"
@@ -326,21 +330,23 @@ func TestModelsAfterKilled(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	dmsvc.SetModelrConstructor(getTestModelrConstructor(t, modelServer))
-	dmsvc.SetWaitAfterLastModifiedSecs(10)
+	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	dmsvc.SetClientConn(modelConn)
 
-	err = dmsvc.Update(context.TODO(), testCfg)
-	test.That(t, err, test.ShouldBeNil)
+	_ = dmsvc.Update(context.TODO(), testCfg)
+	// err = dmsvc.Update(context.TODO(), testCfg)
+	// test.That(t, err, test.ShouldBeNil)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not downloaded.
-	time.Sleep(time.Millisecond * 150)
+	// time.Sleep(time.Millisecond * 150)
 
 	// Simulate turning off the service.
-	err = dmsvc.Close(context.TODO())
-	test.That(t, err, test.ShouldBeNil)
+	_ = dmsvc.Close(context.TODO())
+	// err = dmsvc.Close(context.TODO())
+	// test.That(t, err, test.ShouldBeNil)
 
 	// Validate nothing has been downloaded yet.
-	test.That(t, len(mockModelService.getDeployedModels()), test.ShouldEqual, 0)
+	test.That(t, mockModelService.getDeployedModels(), test.ShouldEqual, 0)
 
 	// Turn the service back on.
 	dmsvc = newTestDataManager(t, "arm1", "")
@@ -355,7 +361,7 @@ func TestModelsAfterKilled(t *testing.T) {
 	time.Sleep(syncWaitTime)
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(mockModelService.getDeployedModels()), test.ShouldEqual, 1)
+	test.That(t, mockModelService.getDeployedModels(), test.ShouldEqual, 1)
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
@@ -766,10 +772,29 @@ func (m mockDataSyncServiceServer) getUploadedFiles() []string {
 	return *m.uploadedFiles
 }
 
-func (m mockModelServiceServer) getDeployedModels() []datamanager.Model {
+func (m mockModelServiceServer) getDeployedModels() int {
+	fmt.Println("getDeployedModels()")
+	fmt.Println(datamanager.Config{})
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
-	return *m.deployedModels
+	// all we do is check if $Home/models exists and how many subdirs it has as each model has its own subdir
+	_, err := os.Stat(filepath.Join(os.Getenv("HOME"), "models", ".viam"))
+	// If the path to the specified destination does not exist,
+	// add the model to the names of models we need to download.
+	if errors.Is(err, os.ErrNotExist) {
+		return 0
+	} else {
+		files, err := ioutil.ReadDir(filepath.Join(os.Getenv("HOME"), "models", ".viam"))
+		if err != nil {
+			log.Fatalf(err.Error())
+		}
+		// fmt.Println("UMMMMMMMMM")
+		// for _, file := range files {
+		// 	fmt.Println(file.Name())
+		// }
+		return len(files) - 1 // do -1 bc files contains .DS_Store
+	}
+	// return *m.deployedModels
 }
 
 func (m mockModelServiceServer) Deploy(ctx context.Context, req *m1.DeployRequest) (*m1.DeployResponse, error) {
@@ -789,10 +814,26 @@ type MockClient struct {
 
 // Do is the mock client's `Do` func
 func (m *MockClient) Do(req *http.Request) (*http.Response, error) {
+	fmt.Println("creating zip archive...")
 	r := ioutil.NopCloser(bytes.NewReader([]byte("mocked response")))
+	archive, err := os.Create("archive.zip")
+	if err != nil {
+		panic(err)
+	}
+	zipWriter := zip.NewWriter(archive)
+	w1, err := zipWriter.Create("smth.txt")
+	if err != nil {
+		panic(err)
+	}
+	if _, err := io.Copy(w1, r); err != nil {
+		panic(err)
+	}
+	zipWriter.Close()
+	// fmt.Println("archive: ", archive)
 	response := &http.Response{
+		Status:     "archive.zip",
 		StatusCode: 200,
-		Body:       r,
+		Body:       archive,
 	}
 	return response, nil
 }
