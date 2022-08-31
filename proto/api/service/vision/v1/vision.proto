@@ -26,7 +26,7 @@ service VisionService {
     };
   }
 
-  // RemoveDetector adds a new detector to the registry.
+  // RemoveDetector removes a detector from the registry.
   rpc RemoveDetector(RemoveDetectorRequest) returns (RemoveDetectorResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/service/vision/{name}/remove_detector"
@@ -40,7 +40,7 @@ service VisionService {
     };
   }
 
-  // GetDetections will return a list of detections in the next image given a camera and a detector
+  // GetDetections will return a list of detections in the next image given the image bytes and a detector
   rpc GetDetections(GetDetectionsRequest) returns (GetDetectionsResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/service/vision/{name}/detections"
@@ -49,7 +49,7 @@ service VisionService {
 
   // Classification methods
 
-  // GetClassifierNames returns the list of detectors in the registry.
+  // GetClassifierNames returns the list of classifiers in the registry.
   rpc GetClassifierNames(GetClassifierNamesRequest) returns (GetClassifierNamesResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/service/vision/{name}/classifier_names"
@@ -70,14 +70,14 @@ service VisionService {
     };
   }
 
-  // GetDetectionsFromCamera will return a list of detections in the next image given a camera and a detector
+  // GetClassificationsFromCamera will return a list of classifications in the next image given a camera and a classifier
   rpc GetClassificationsFromCamera(GetClassificationsFromCameraRequest) returns (GetClassificationsFromCameraResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/service/vision/{name}/camera_classifications"
     };
   }
 
-  // GetDetections will return a list of detections in the next image given a camera and a detector
+  // GetClassifications will return a list of classifications in the next image given the image bytes and a classifier
   rpc GetClassifications(GetClassificationsRequest) returns (GetClassificationsResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/service/vision/{name}/classifications"

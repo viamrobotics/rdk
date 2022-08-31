@@ -19,24 +19,6 @@ type Classification interface {
 // Classifications is a list of the Classification object.
 type Classifications []Classification
 
-/*
-// Top1 finds the particular Classification in the list with the highest confidence and returns it.
-func (cc Classifications) Top1() (Classification, error) {
-	if len(cc) < 1 {
-		return nil, errors.New("list of classifications wasn't long enough")
-	}
-	var maxScore float64
-	var maxLabel string
-	for _, c := range cc {
-		if c.Score() > maxScore {
-			maxScore = c.Score()
-			maxLabel = c.Label()
-		}
-	}
-	return NewClassification(maxScore, maxLabel), nil
-}
-*/
-
 // TopN finds the N Classifications with the highest confidence scores.
 func (cc Classifications) TopN(n int) (Classifications, error) {
 	if len(cc) < n {
