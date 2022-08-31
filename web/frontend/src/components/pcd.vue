@@ -62,6 +62,7 @@ const renderer = new THREE.WebGLRenderer({
   powerPreference: 'high-performance',
   antialias: true,
 });
+renderer.domElement.style.width = '100%';
 renderer.setClearColor('white');
 const raycaster = new THREE.Raycaster();
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -672,9 +673,3 @@ watch(() => props.pointcloud, (updated: string) => {
     </div>
   </div>
 </template>
-
-<style>
-  .pcd-container canvas {
-    width: 100%;
-  }
-</style>
