@@ -7,13 +7,11 @@ import (
 	"math/rand"
 	"sort"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
@@ -32,14 +30,14 @@ type MotionPlanner interface {
 
 type planner struct {
 	solver InverseKinematics
-	frame  referenceframe.Frame
+	frame  frame.Frame
 	logger golog.Logger
 	nCPU   int
 	// TODO(pl): As we move to per-segment planner instantiation, this should move to the options struct
 	randseed *rand.Rand
 }
 
-func newPlanner(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (*planner, error) {
+func newPlanner(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (*planner, error) {
 	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
 		return nil, err
@@ -54,22 +52,17 @@ func newPlanner(frame referenceframe.Frame, nCPU int, seed *rand.Rand, logger go
 	return mp, nil
 }
 
-func (mp *planner) Frame() referenceframe.Frame {
+func (mp *planner) Frame() frame.Frame {
 	return mp.frame
 }
 
-func (mp *planner) distance(opt *PlannerOptions, q1, q2 []referenceframe.Input) float64 {
-	// TODO(rb): we want to tie to this function to Metrics, after we decouple it from cbirrt and determine what good defaults are
-	return inputDist(q1, q2)
-}
-
-func (mp *planner) checkInputs(opt *PlannerOptions, inputs []frame.Input) bool {
+func (mp *planner) checkInputs(planOpts *PlannerOptions, inputs []frame.Input) bool {
 	frame := mp.Frame()
 	position, err := frame.Transform(inputs)
 	if err != nil {
 		return false
 	}
-	ok, _ := opt.CheckConstraints(&ConstraintInput{
+	ok, _ := planOpts.CheckConstraints(&ConstraintInput{
 		StartPos:   position,
 		EndPos:     position,
 		StartInput: inputs,
@@ -79,25 +72,14 @@ func (mp *planner) checkInputs(opt *PlannerOptions, inputs []frame.Input) bool {
 	return ok
 }
 
-func (mp *planner) checkPath(opt *PlannerOptions, seedInputs, target []frame.Input) bool {
-	frame := mp.Frame()
-	seedPos, err := frame.Transform(seedInputs)
-	if err != nil {
-		return false
-	}
-	goalPos, err := frame.Transform(target)
-	if err != nil {
-		return false
-	}
-	ok, _ := opt.CheckConstraintPath(
+func (mp *planner) checkPath(planOpts *PlannerOptions, seedInputs, target []frame.Input) bool {
+	ok, _ := planOpts.CheckConstraintPath(
 		&ConstraintInput{
-			StartPos:   seedPos,
-			EndPos:     goalPos,
 			StartInput: seedInputs,
 			EndInput:   target,
-			Frame:      frame,
+			Frame:      mp.Frame(),
 		},
-		opt.Resolution,
+		planOpts.Resolution,
 	)
 	return ok
 }
@@ -174,11 +156,12 @@ func PlanWaypoints(ctx context.Context,
 }
 
 // EvaluatePlan assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
-func EvaluatePlan(plan [][]frame.Input) (cost float64) {
+func EvaluatePlan(plan [][]frame.Input, planOpts *PlannerOptions) (totalCost float64) {
 	for i := 0; i < len(plan)-1; i++ {
-		cost += inputDist(plan[i], plan[i+1])
+		_, cost := planOpts.DistanceFunc(&ConstraintInput{StartInput: plan[i], EndInput: plan[i+1]})
+		totalCost += cost
 	}
-	return cost
+	return totalCost
 }
 
 // runPlannerWithWaypoints will plan to each of a list of goals in oder, optionally also taking a new planner option for each goal.
@@ -309,14 +292,14 @@ func GetSteps(seedPos, goalPos spatial.Pose, stepSize float64) int {
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
 func getSolutions(ctx context.Context,
-	opt *PlannerOptions,
+	planOpts *PlannerOptions,
 	solver InverseKinematics,
 	goal *commonpb.Pose,
 	seed []frame.Input,
 	f frame.Frame,
 ) ([]*node, error) {
 	// Linter doesn't properly handle loop labels
-	nSolutions := opt.MaxSolutions
+	nSolutions := planOpts.MaxSolutions
 	if nSolutions == 0 {
 		nSolutions = defaultSolutionsToSeed
 	}
@@ -337,7 +320,7 @@ func getSolutions(ctx context.Context,
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
-		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goalPos, seed, opt.metric)
+		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goalPos, seed, planOpts.metric)
 	})
 
 	solutions := map[float64][]frame.Input{}
@@ -353,14 +336,14 @@ IK:
 
 		select {
 		case step := <-solutionGen:
-			cPass, cScore := opt.CheckConstraints(&ConstraintInput{
+			cPass, cScore := planOpts.CheckConstraints(&ConstraintInput{
 				seedPos,
 				goalPos,
 				seed,
 				step,
 				f,
 			})
-			endPass, _ := opt.CheckConstraints(&ConstraintInput{
+			endPass, _ := planOpts.CheckConstraints(&ConstraintInput{
 				goalPos,
 				goalPos,
 				step,
@@ -369,7 +352,7 @@ IK:
 			})
 
 			if cPass && endPass {
-				if cScore < opt.MinScore && opt.MinScore > 0 {
+				if cScore < planOpts.MinScore && planOpts.MinScore > 0 {
 					solutions = map[float64][]frame.Input{}
 					solutions[cScore] = step
 					// good solution, stopping early
@@ -460,12 +443,4 @@ func shortestPath(startMap, goalMap map[*node]*node, nodePairs []*nodePair) *pla
 		}
 	}
 	return &planReturn{steps: extractPath(startMap, goalMap, nodePairs[minIdx])}
-}
-
-func inputDist(from, to []frame.Input) float64 {
-	dist := 0.
-	for i, f := range from {
-		dist += math.Pow(to[i].Value-f.Value, 2)
-	}
-	return dist
 }

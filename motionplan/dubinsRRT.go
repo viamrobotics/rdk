@@ -58,15 +58,15 @@ func (mp *DubinsRRTMotionPlanner) Resolution() float64 {
 func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
-	opt *PlannerOptions,
+	planOpts *PlannerOptions,
 ) ([][]referenceframe.Input, error) {
 	solutionChan := make(chan *planReturn, 1)
-	if opt == nil {
-		opt = NewBasicPlannerOptions()
+	if planOpts == nil {
+		planOpts = NewBasicPlannerOptions()
 	}
 
 	utils.PanicCapturingGo(func() {
-		mp.planRunner(ctx, goal, seed, opt, nil, solutionChan, 0.1)
+		mp.planRunner(ctx, goal, seed, planOpts, solutionChan, 0.1)
 	})
 	select {
 	case <-ctx.Done():
@@ -81,8 +81,7 @@ func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
-	opt *PlannerOptions,
-	endpointPreview chan *node,
+	planOpts *PlannerOptions,
 	solutionChan chan *planReturn,
 	goalRate float64,
 ) {
@@ -135,7 +134,7 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 				break
 			}
 
-			if mp.checkPath(n, target, opt, dm, o) {
+			if mp.checkPath(n, target, planOpts, dm, o) {
 				seedMap[target] = n
 				if o.TotalLen < 0 {
 					continue
@@ -152,8 +151,8 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 			// reroute near neighbors through new node if it shortens the path
 			neighbors := findNearNeighbors(target, seedMap, 10)
 			for _, n := range neighbors {
-				start := node2slice(target)
-				end := node2slice(n)
+				start := nodeToSlice(target)
+				end := nodeToSlice(n)
 
 				bestOption := dm.d.AllPaths(start, end, true)[0]
 				if bestOption.TotalLen < 0 {
@@ -226,12 +225,12 @@ func updateChildren(
 
 func (mp *DubinsRRTMotionPlanner) checkPath(
 	from, to *node,
-	opt *PlannerOptions,
+	planOpts *PlannerOptions,
 	dm *dubinPathAttrManager,
 	o DubinPathAttr,
 ) bool {
-	start := node2slice(from)
-	end := node2slice(to)
+	start := nodeToSlice(from)
+	end := nodeToSlice(to)
 	path := dm.d.generatePoints(start, end, o.DubinsPath, o.Straight)
 
 	pathOk := true
@@ -263,7 +262,7 @@ func (mp *DubinsRRTMotionPlanner) checkPath(
 			Frame:      mp.frame,
 		}
 
-		if ok, _ := opt.CheckConstraintPath(ci, mp.Resolution()); !ok {
+		if ok, _ := planOpts.CheckConstraintPath(ci, mp.Resolution()); !ok {
 			pathOk = false
 			break
 		}
@@ -310,8 +309,8 @@ func (dm *dubinPathAttrManager) selectOptions(
 	// get all options from all nodes
 	pl := make(nodeToOptionList, 0)
 	for node := range rrtMap {
-		start := node2slice(node)
-		end := node2slice(sample)
+		start := nodeToSlice(node)
+		end := nodeToSlice(sample)
 		bestOpt := dm.d.AllPaths(start, end, true)[0]
 
 		if bestOpt.TotalLen != math.Inf(1) {
@@ -409,8 +408,8 @@ func (dm *dubinPathAttrManager) optWorker(ctx context.Context) {
 		case node := <-dm.optKeys:
 			if node != nil {
 				dm.optLock.RLock()
-				start := node2slice(node)
-				end := node2slice(dm.sample)
+				start := nodeToSlice(node)
+				end := nodeToSlice(dm.sample)
 				bestOpt := dm.d.AllPaths(start, end, true)[0]
 				dm.optLock.RUnlock()
 
@@ -457,7 +456,7 @@ func findNearNeighbors(sample *node, rrtMap map[*node]*node, nbNeighbors int) []
 	return keys[:topn]
 }
 
-func node2slice(c *node) []float64 {
+func nodeToSlice(c *node) []float64 {
 	s := make([]float64, 0)
 	for _, v := range c.q {
 		s = append(s, v.Value)
