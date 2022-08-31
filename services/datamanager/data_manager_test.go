@@ -1,11 +1,15 @@
 package datamanager_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"io/fs"
 	"io/ioutil"
+	"net/http"
+
+	// "net/http"
 	"os"
 	"path/filepath"
 	"sync"
@@ -297,6 +301,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 // but not downloaded model files are still downloaded at start up.
 func TestModelsAfterKilled(t *testing.T) {
 	// Register mock model service with a mock server.
+
 	modelServer, mockModelService := buildAndStartLocalModelServer(t)
 	defer func() {
 		err := modelServer.Stop()
@@ -776,8 +781,56 @@ func (m mockModelServiceServer) Deploy(ctx context.Context, req *m1.DeployReques
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
 	fmt.Println("called Deploy() in data_manager_test.go")
+	// fmt.Println("Client in data_manager_test.go/Deploy()!: ", datamanager.Client)
+	// datamanager.Client = &http.Client{}
+	datamanager.Client = &MockClient{}
+	// fmt.Printf("datamanager.Client type %T\n: ", datamanager.Client)
+	// fmt.Println("Client in data_manager_test.go/Deploy()!: ", datamanager.Client)
 	depResp := &m1.DeployResponse{Message: "abc"}
 	return depResp, nil
+}
+
+// // MockClient is the mock client
+type MockClient struct {
+	DoFunc func(req *http.Request) (*http.Response, error)
+}
+
+// Do is the mock client's `Do` func
+func (m *MockClient) Do(req *http.Request) (*http.Response, error) {
+	// fmt.Println("hey there ;)")
+	r := ioutil.NopCloser(bytes.NewReader([]byte("body")))
+	response := &http.Response{
+		StatusCode: 200,
+		Body:       r,
+	}
+	return response, nil
+	// return GetDoFunc(req)
+}
+
+var (
+	// GetDoFunc fetches the mock client's `Do` func
+	GetDoFunc func(req *http.Request) (*http.Response, error)
+)
+
+// MockHTTPResponse sets the mock do function
+func MockHTTPResponse() {
+	fmt.Println("MockHTTPResponse()")
+	r := ioutil.NopCloser(bytes.NewReader([]byte("body")))
+	response := &http.Response{
+		StatusCode: 200,
+		Body:       r,
+	}
+	GetDoFunc = func(*http.Request) (*http.Response, error) {
+		return response, nil
+	}
+}
+
+// MockHTTPError sets the mock do function
+func MockHTTPError(err string) {
+	fmt.Println("MockHTTPError")
+	GetDoFunc = func(*http.Request) (*http.Response, error) {
+		return nil, errors.New(err)
+	}
 }
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
@@ -816,7 +869,7 @@ func (m mockModelServiceServer) Upload(stream m1.ModelService_UploadServer) erro
 			fileName = ur.GetMetadata().ModelName
 		}
 	}
-	// make sure that below is what we want to be doing.
+	// make sure that dest is what we want to be doing.
 	dest := filepath.Join(filepath.Join(os.Getenv("HOME"), "models", ".viam"), fileName)
 	model := &datamanager.Model{Name: fileName, Destination: dest}
 	(*m.lock).Lock()

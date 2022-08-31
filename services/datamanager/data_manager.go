@@ -72,46 +72,6 @@ func init() {
 	}, &Config{})
 
 	resource.AddDefaultService(Name)
-
-	// -----
-
-	// registry.RegisterService(MSubtype, registry.Service{
-	// 	Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-	// 		return MNew(ctx, r, c, logger)
-	// 	},
-	// })
-	// registry.RegisterResourceSubtype(MSubtype, registry.ResourceSubtype{
-	// 	RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
-	// 		return rpcServer.RegisterServiceServer(
-	// 			ctx,
-	// 			&modelpb.ModelService_ServiceDesc,
-	// 			NewMServer(subtypeSvc),
-	// 			modelpb.RegisterModelServiceHandlerFromEndpoint,
-	// 		)
-	// 	},
-	// 	RPCServiceDesc: &modelpb.ModelService_ServiceDesc,
-	// 	RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-	// 		return NewMClientFromConn(ctx, conn, name, logger)
-	// 	},
-	// 	Reconfigurable: WrapMWithReconfigurable,
-	// })
-	// MType := config.ServiceType(SubtypeMName)
-	// config.RegisterServiceAttributeMapConverter(MType, func(attributes config.AttributeMap) (interface{}, error) {
-	// 	var conf Config
-	// 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	if err := decoder.Decode(attributes); err != nil {
-	// 		return nil, err
-	// 	}
-	// 	return &conf, nil
-	// }, &Config{})
-
-	// resource.AddDefaultService(MName)
-
-	// -----
-
 }
 
 // Service defines what a Data Manager Service should expose to the users.
@@ -119,13 +79,7 @@ type Service interface {
 	Sync(ctx context.Context) error
 }
 
-// type MService interface {
-// 	Deploy(ctx context.Context, req *modelpb.DeployRequest) (*modelpb.DeployResponse, error)
-// }
-
 var (
-	// _ = MService(&reconfigurableModelManager{})
-	// _ = resource.Reconfigurable(&reconfigurableModelManager{})
 	_ = Service(&reconfigurableDataManager{})
 	_ = resource.Reconfigurable(&reconfigurableDataManager{})
 	_ = goutils.ContextCloser(&reconfigurableDataManager{})
@@ -134,8 +88,6 @@ var (
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("data_manager")
 
-// const SubtypeMName = resource.SubtypeName("model_manager")
-
 // Subtype is a constant that identifies the data manager service resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
@@ -143,16 +95,8 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// var MSubtype = resource.NewSubtype(
-// 	resource.ResourceNamespaceRDK,
-// 	resource.ResourceTypeService,
-// 	SubtypeMName,
-// )
-
 // Name is the DataManager's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
-
-// var MName = resource.NameFromSubtype(MSubtype, "")
 
 // Named is a helper for getting the named datamanager's typed resource name.
 // RSDK-347 Implements datamanager's Named.
@@ -230,19 +174,6 @@ type dataManagerService struct {
 	clientConn                    *rpc.ClientConn
 }
 
-// type modelManagerService struct {
-// 	clientConn                    *rpc.ClientConn
-// 	partID                        string
-// 	waitAfterLastModifiedSecs     int
-// 	logger                        golog.Logger
-// 	backgroundWorkers             sync.WaitGroup
-// 	lock                          sync.Mutex
-// 	modelr                        model.Manager
-// 	modelrConstructor             model.ManagerConstructor
-// 	deployModelsBackgroundWorkers sync.WaitGroup
-// 	deployModelsCancelFn          func()
-// }
-
 var (
 	viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 	viamModelDotDir   = filepath.Join(os.Getenv("HOME"), "models", ".viam")
@@ -265,23 +196,11 @@ func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger
 		additionalSyncPaths:           []string{},
 		waitAfterLastModifiedSecs:     10,
 		syncerConstructor:             datasync.NewDefaultManager,
+		modelrConstructor:             model.NewDefaultManager,
 	}
 
 	return dataManagerSvc, nil
 }
-
-// func MNew(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger) (MService, error) {
-// 	modelManagerSvc := &modelManagerService{
-// 		logger:                    logger,
-// 		backgroundWorkers:         sync.WaitGroup{},
-// 		lock:                      sync.Mutex{},
-// 		waitAfterLastModifiedSecs: 10,
-// 		// modelrConstructor: model.NewDefaultManager, // do we need this?
-// 	}
-
-// 	return modelManagerSvc, nil
-
-// }
 
 // Close releases all resources managed by data_manager.
 func (svc *dataManagerService) Close(_ context.Context) error {
@@ -699,16 +618,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	return nil
 }
 
-// define interface here?
-// type smth interface {
-// 	http.DefaultClient.Do(getReq *http.Request)
-// }
-
-// type Resp struct {
-// 	// panic bool
-// 	some *smth
-// }
-
 func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy []*Model) error {
 	// fmt.Println("data_manager.go/downloadModels()")
 	modelsToDownload := getModelsToDownload(modelsToDeploy)
@@ -747,6 +656,9 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 		return errors.Wrap(err, "failed to initialize new modelr")
 	}
 	svc.modelr = modelr
+
+	Client = &http.Client{}
+	// fmt.Println("Client now!: ", Client)
 
 	svc.deployModelsBackgroundWorkers.Add(len(modelsToDownload))
 	// modelServiceClient := model.NewClient(*svc.clientConn)
@@ -871,6 +783,14 @@ func unzipFile(cancelCtx context.Context, f *zip.File, destination string, logge
 	return nil
 }
 
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+var (
+	Client HTTPClient
+)
+
 // downloadFile will download a url to a local file. It writes as it
 // downloads and doesn't load the whole file into memory.
 func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.Logger) error {
@@ -879,22 +799,27 @@ func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.
 	if err != nil {
 		return err
 	}
-	resp, err := http.DefaultClient.Do(getReq)
+	// fmt.Println("Client in downloadFile(): ", Client)
+	// fmt.Printf("Client type: %T\n", Client)
+
+	resp, err := Client.Do(getReq)
+	// fmt.Println("we make it here")
 	if err != nil {
 		return err
 	}
+	// fmt.Println("resp: ", resp)
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
 			logger.Error(err)
 		}
 	}()
-
+	fmt.Println("we make it here:)")
 	//nolint:gosec
 	out, err := os.Create(filepath)
 	if err != nil {
 		return err
 	}
-
+	fmt.Println("we make it here:))")
 	//nolint:gosec,errcheck
 	defer out.Close()
 
@@ -904,7 +829,7 @@ func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.
 	if closeErr := out.Close(); err != nil {
 		return closeErr
 	}
-
+	fmt.Println("we make it here:)))")
 	return err
 }
 
@@ -928,6 +853,7 @@ func getModelsToDownload(models []*Model) []*Model {
 		if errors.Is(err, os.ErrNotExist) {
 			// fmt.Println("model: ", *model)
 			modelsToDownload = append(modelsToDownload, model)
+			// create the directory here.
 		} else if err != nil {
 			panic("can't access files: " + err.Error()) // better thing to do?
 		}
@@ -936,7 +862,7 @@ func getModelsToDownload(models []*Model) []*Model {
 }
 
 func createClientConnection(logger *zap.SugaredLogger, cfg *config.Config) (rpc.ClientConn, error) {
-	fmt.Println("data_manager.go/createClientConnection()")
+	// fmt.Println("data_manager.go/createClientConnection()")
 	ctx := context.Background()
 	tlsConfig := config.NewTLSConfig(cfg).Config
 	cloudConfig := cfg.Cloud
@@ -1006,34 +932,17 @@ type reconfigurableDataManager struct {
 	actual Service
 }
 
-// type reconfigurableModelManager struct {
-// 	mu     sync.RWMutex
-// 	actual MService
-// }
-
 func (svc *reconfigurableDataManager) Sync(ctx context.Context) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.Sync(ctx)
 }
 
-// func (svc *reconfigurableModelManager) Deploy(ctx context.Context, req *modelpb.DeployRequest) (*modelpb.DeployResponse, error) {
-// 	svc.mu.RLock()
-// 	defer svc.mu.RUnlock()
-// 	return svc.actual.Deploy(ctx, req)
-// }
-
 func (svc *reconfigurableDataManager) Close(ctx context.Context) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return goutils.TryClose(ctx, svc.actual)
 }
-
-// func (svc *reconfigurableModelManager) Close(ctx context.Context) error {
-// 	svc.mu.RLock()
-// 	defer svc.mu.RUnlock()
-// 	return goutils.TryClose(ctx, svc.actual)
-// }
 
 func (svc *reconfigurableDataManager) Update(ctx context.Context, resources *config.Config) error {
 	svc.mu.RLock()
@@ -1060,20 +969,6 @@ func (svc *reconfigurableDataManager) Reconfigure(ctx context.Context, newSvc re
 	return nil
 }
 
-// func (svc *reconfigurableModelManager) Reconfigure(ctx context.Context, newSvc resource.Reconfigurable) error {
-// 	svc.mu.Lock()
-// 	defer svc.mu.Unlock()
-// 	rSvc, ok := newSvc.(*reconfigurableModelManager)
-// 	if !ok {
-// 		return utils.NewUnexpectedTypeError(svc, newSvc)
-// 	}
-// 	if err := goutils.TryClose(ctx, svc.actual); err != nil {
-// 		rlog.Logger.Errorw("error closing old", "error", err)
-// 	}
-// 	svc.actual = rSvc.actual
-// 	return nil
-// }
-
 // WrapWithReconfigurable wraps a data_manager as a Reconfigurable.
 func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 	svc, ok := s.(Service)
@@ -1087,19 +982,6 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 
 	return &reconfigurableDataManager{actual: svc}, nil
 }
-
-// func WrapMWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
-// 	svc, ok := s.(MService)
-// 	if !ok {
-// 		return nil, utils.NewUnimplementedInterfaceError("model_manager.Service", s)
-// 	}
-
-// 	if reconfigurable, ok := s.(*reconfigurableModelManager); ok {
-// 		return reconfigurable, nil
-// 	}
-
-// 	return &reconfigurableModelManager{actual: svc}, nil
-// }
 
 // Get the config associated with the data manager service.
 // Returns a boolean for whether a config is returned and an error if the
