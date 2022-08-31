@@ -31,6 +31,7 @@ var (
 	binaryFileExt  = ".pcd"
 	tabularFileExt = ".csv"
 	defaultFileExt = ""
+	tags           = [2]string{"tagA", "tagB"}
 )
 
 // Compares UploadRequests containing either binary or tabular sensor data.
@@ -75,6 +76,7 @@ func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 	test.That(t, actualMetadata.MethodName, test.ShouldEqual, expectedMetadata.MethodName)
 	test.That(t, actualMetadata.Type, test.ShouldEqual, expectedMetadata.Type)
 	test.That(t, actualMetadata.FileExtension, test.ShouldEqual, expectedMetadata.FileExtension)
+	test.That(t, actualMetadata.Tags, test.ShouldEqual, expectedMetadata.Tags)
 }
 
 type anyStruct struct {
