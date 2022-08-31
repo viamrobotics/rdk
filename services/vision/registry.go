@@ -18,7 +18,10 @@ import (
 // VisModelType defines what vision models are known by the vision service.
 type VisModelType string
 
-// The set of allowed classifier types.
+// VisOperation defines what types of operations are allowed by the vision service.
+type VisOperation string
+
+// The set of allowed vision model types.
 const (
 	TFLiteDetector   = VisModelType("tflite_detector")
 	TFDetector       = VisModelType("tf_detector")
@@ -28,6 +31,24 @@ const (
 	RCSegmenter      = VisModelType("radius_clustering_segmenter")
 	ObjectSegmenter  = VisModelType("object_segmenter")
 )
+
+// The set of operations supported by the vision model types.
+const (
+	VisDetection      = VisOperation("detection")
+	VisClassification = VisOperation("classification")
+	VisSegmentation   = VisOperation("segmentation")
+)
+
+// visModelToOpMap maps the vision model type with the corresponding vision operation.
+var visModelToOpMap = map[VisModelType]VisOperation{
+	TFLiteDetector:   VisDetection,
+	TFDetector:       VisDetection,
+	ColorDetector:    VisDetection,
+	TFLiteClassifier: VisClassification,
+	TFClassifier:     VisClassification,
+	RCSegmenter:      VisSegmentation,
+	ObjectSegmenter:  VisSegmentation,
+}
 
 // newVisModelTypeNotImplemented is used when the model type is not implemented.
 func newVisModelTypeNotImplemented(name string) error {
@@ -80,7 +101,7 @@ func (mm modelMap) DetectorNames() []string {
 	for name := range mm {
 		thisType, err := mm.getModelType(name)
 		if err == nil { // found the model
-			if thisType == TFDetector || thisType == TFLiteDetector || thisType == ColorDetector {
+			if visModelToOpMap[thisType] == VisDetection {
 				names = append(names, name)
 			}
 		}
@@ -93,7 +114,7 @@ func (mm modelMap) ClassifierNames() []string {
 	for name := range mm {
 		thisType, err := mm.getModelType(name)
 		if err == nil {
-			if thisType == TFClassifier || thisType == TFLiteClassifier {
+			if visModelToOpMap[thisType] == VisClassification {
 				names = append(names, name)
 			}
 		}
@@ -106,7 +127,7 @@ func (mm modelMap) SegmenterNames() []string {
 	for name := range mm {
 		thisType, err := mm.getModelType(name)
 		if err == nil {
-			if thisType == RCSegmenter || thisType == ObjectSegmenter {
+			if visModelToOpMap[thisType] == VisSegmentation {
 				names = append(names, name)
 			}
 		}
