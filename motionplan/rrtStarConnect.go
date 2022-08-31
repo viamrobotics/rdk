@@ -66,7 +66,7 @@ func NewRRTStarConnectMotionPlanner(frame referenceframe.Frame, nCPU int, logger
 	return NewRRTStarConnectMotionPlannerWithSeed(frame, nCPU, rand.New(rand.NewSource(1)), logger)
 }
 
-// NewRRTStarConnectMotionPlannerWithSeed creates a rrtConnectMotionPlanner object with a user specified random seed.
+// NewRRTStarConnectMotionPlannerWithSeed creates a rrtStarConnectMotionPlanner object with a user specified random seed.
 func NewRRTStarConnectMotionPlannerWithSeed(
 	frame referenceframe.Frame,
 	nCPU int,
