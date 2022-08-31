@@ -181,7 +181,6 @@ var (
 
 // New returns a new data manager service for the given robot.
 func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger) (Service, error) {
-	// fmt.Println("data_manager.go/New()")
 	// Set syncIntervalMins = -1 as we rely on initOrUpdateSyncer to instantiate a syncer
 	// on first call to Update, even if syncIntervalMins value is 0, and the default value for int64 is 0.
 	dataManagerSvc := &dataManagerService{
@@ -225,27 +224,6 @@ func (svc *dataManagerService) Close(_ context.Context) error {
 	svc.deployModelsBackgroundWorkers.Wait()
 	return nil
 }
-
-// func (svc *modelManagerService) Close(_ context.Context) error {
-// 	svc.lock.Lock()
-// 	defer svc.lock.Unlock()
-// 	if svc.modelr != nil {
-// 		svc.modelr.Close()
-// 	}
-// 	if svc.deployModelsCancelFn != nil {
-// 		svc.deployModelsCancelFn()
-// 	}
-
-// 	if svc.clientConn != nil {
-// 		if err := (*svc.clientConn).Close(); err != nil {
-// 			svc.logger.Error(err)
-// 		}
-// 	}
-
-// 	svc.backgroundWorkers.Wait()
-// 	svc.deployModelsBackgroundWorkers.Wait()
-// 	return nil
-// }
 
 func (svc *dataManagerService) closeCollectors() {
 	wg := sync.WaitGroup{}
@@ -448,17 +426,6 @@ func (svc *dataManagerService) Sync(_ context.Context) error {
 	return nil
 }
 
-// func (svc *dataManagerService) Deploy(ctx context.Context, req *modelpb.DeployRequest) (*modelpb.DeployResponse, error) {
-// 	if svc.modelr == nil {
-// 		return nil, errors.New("called Deploy on data manager service with nil modelr")
-// 	}
-// 	resp, err := svc.modelr.Deploy(ctx, req)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return resp, nil
-// }
-
 func (svc *dataManagerService) syncDataCaptureFiles() {
 	svc.lock.Lock()
 	oldFiles := make([]string, 0, len(svc.collectors))
@@ -588,9 +555,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		if err := svc.initOrUpdateSyncer(ctx, svcConfig.SyncIntervalMins, cfg); err != nil {
 			return err
 		}
-		// if err := svc.initOrUpdateModelr(ctx, svcConfig.SyncIntervalMins, cfg); err != nil {
-		// 	return err
-		// }
 	}
 
 	// Initialize or add a collector based on changes to the component configurations.
@@ -620,8 +584,10 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 
 func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy []*Model) error {
 	fmt.Println("data_manager.go/downloadModels()")
-	modelsToDownload := getModelsToDownload(modelsToDeploy)
-	// fmt.Println("len(modelsToDownload): ", len(modelsToDownload))
+	modelsToDownload, err := getModelsToDownload(modelsToDeploy)
+	if err != nil {
+		return err
+	}
 	// TODO: DATA-295, delete models in file system that are no longer in the config.
 	// If we have no models to download, exit.
 	if len(modelsToDownload) == 0 {
@@ -648,8 +614,6 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 		svc.clientConn = &conn
 	}
 
-	// i feel like i am forcing this to happen when it should
-	// occur more organically.
 	modelr, err := svc.modelrConstructor(svc.logger, cfg)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new modelr")
@@ -657,7 +621,6 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 	svc.modelr = modelr
 
 	Client = &http.Client{}
-	// fmt.Println("Client now!: ", Client)
 
 	svc.deployModelsBackgroundWorkers.Add(len(modelsToDownload))
 	// modelServiceClient := model.NewClient(*svc.clientConn)
@@ -670,15 +633,13 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 					ModelName: model.Name,
 				},
 			}
-
-			// deployResp, err := modelServiceClient.Deploy(cancelCtx, deployRequest)
 			deployResp, err := modelr.Deploy(cancelCtx, deployRequest)
 			if err != nil {
 				svc.logger.Error(err)
 			} else {
 				url := deployResp.Message
 				fmt.Println("model.Destination: ", model.Destination)
-				err := downloadFile(cancelCtx, model.Destination, url, svc.logger)
+				err := downloadFile(cancelCtx, model.Destination+"/"+model.Name, url, svc.logger)
 				if err != nil {
 					svc.logger.Error(err)
 					return // Don't try to unzip the file if we can't download it.
@@ -688,6 +649,7 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 				if err = unzipSource(cancelCtx, model.Destination, modelFileToUnzip, svc.logger); err != nil {
 					svc.logger.Error(err)
 				}
+				fmt.Println("done")
 			}
 		}(model)
 	}
@@ -697,10 +659,13 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 // unzipSource unzips all files inside a zip file.
 func unzipSource(cancelCtx context.Context, destination, fileName string, logger golog.Logger) error {
 	fmt.Println("data_manager.go/unzipSource()")
+	fmt.Println("filepath.Join(destination, fileName): ", filepath.Join(destination, fileName))
 	zipReader, err := zip.OpenReader(filepath.Join(destination, fileName))
 	if err != nil {
+		fmt.Println("err here")
 		return err
 	}
+	fmt.Println("past")
 	for _, f := range zipReader.File {
 		if err := unzipFile(cancelCtx, f, destination, logger); err != nil {
 			return err
@@ -808,14 +773,14 @@ func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.
 			logger.Error(err)
 		}
 	}()
-	fmt.Println("we make it here:)")
+
 	//nolint:gosec
-	out, err := os.Create(filepath)
+	out, err := os.Create(filepath) // os join here?
 	if err != nil {
 		fmt.Println("err: ", err)
 		return err
 	}
-	fmt.Println("we make it here:))")
+
 	//nolint:gosec,errcheck
 	defer out.Close()
 
@@ -825,17 +790,15 @@ func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.
 	if closeErr := out.Close(); err != nil {
 		return closeErr
 	}
-	fmt.Println("we make it here:)))")
 	return err
 }
 
-func getModelsToDownload(models []*Model) []*Model {
+func getModelsToDownload(models []*Model) ([]*Model, error) {
 	// Right now, this may not act as expected. It currently checks
 	// if the model folder is empty. If it is, then we proceed to download the model.
 	// I can imagine a scenario where the user specifies a local folder to dump
 	// all their models in. In that case, this wouldn't work as expected.
 	// TODO: Fix.
-	// to test this version we only upload one model?
 	fmt.Println("data_manager.go/getModelsToDownload()")
 	modelsToDownload := make([]*Model, 0)
 	for _, model := range models {
@@ -848,14 +811,21 @@ func getModelsToDownload(models []*Model) []*Model {
 		// add the model to the names of models we need to download.
 		if errors.Is(err, os.ErrNotExist) {
 			// fmt.Println("model: ", *model)
+
 			modelsToDownload = append(modelsToDownload, model)
-			// create the directory here?
-			fmt.Println("here")
+
+			// create model.Destination directory
+			err := os.MkdirAll(model.Destination, os.ModePerm)
+			if err != nil {
+				return nil, err
+			}
 		} else if err != nil {
 			panic("can't access files: " + err.Error()) // better thing to do?
+		} else { // this conditional is a hack for testing
+			modelsToDownload = append(modelsToDownload, model)
 		}
 	}
-	return modelsToDownload
+	return modelsToDownload, nil
 }
 
 func createClientConnection(logger *zap.SugaredLogger, cfg *config.Config) (rpc.ClientConn, error) {
