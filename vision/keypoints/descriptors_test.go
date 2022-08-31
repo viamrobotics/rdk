@@ -40,10 +40,4 @@ func TestComputeBRIEFDescriptors(t *testing.T) {
 	briefDescriptors, err := ComputeBRIEFDescriptors(imGray, fastKps, cfgBrief)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(briefDescriptors), test.ShouldEqual, len(fastKps.Points))
-
-	// // test that for any descriptor (random index in descriptor), all values are either 0 or 1 (square of value is equal to value)
-	// randIdx := rand.Intn(len(briefDescriptors))
-	// for _, desc := range briefDescriptors[randIdx] {
-	// 	test.That(t, desc*desc, test.ShouldEqual, desc)
-	// }
 }
