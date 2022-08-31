@@ -2,12 +2,7 @@ package motionplan
 
 import (
 	"context"
-<<<<<<< HEAD
-=======
-	"encoding/json"
->>>>>>> 93ac9cf9e663472289624b33ec422f8ab23ce00d
 	"math/rand"
-	"os"
 	"strconv"
 	"testing"
 
@@ -92,6 +87,7 @@ func TestConstrainedMotion(t *testing.T) {
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
 			for _, planner := range planners {
 				testPlanner(t, planner, testCase.config, 1)
 			}
@@ -235,30 +231,14 @@ func testPlanner(t *testing.T, planner seededPlannerConstructor, config planConf
 	path, err := mp.Plan(context.Background(), cfg.Goal, cfg.Start, cfg.Options)
 	test.That(t, err, test.ShouldBeNil)
 
-<<<<<<< HEAD
 	// test that path doesn't violate constraints
 	test.That(t, len(path), test.ShouldBeGreaterThanOrEqualTo, 2)
 	for j := 0; j < len(path)-1; j++ {
-		startPos, err := cfg.RobotFrame.Transform(path[j])
-		test.That(t, err, test.ShouldBeNil)
-		endPos, err := cfg.RobotFrame.Transform(path[j+1])
-		test.That(t, err, test.ShouldBeNil)
 		ok, _ := cfg.Options.constraintHandler.CheckConstraintPath(&ConstraintInput{
-			StartPos:   startPos,
-			EndPos:     endPos,
 			StartInput: path[j],
 			EndInput:   path[j+1],
 			Frame:      cfg.RobotFrame,
 		}, cfg.Options.Resolution)
 		test.That(t, ok, test.ShouldBeTrue)
-=======
-func writeJSONFile(filename string, data interface{}) error {
-	bytes, err := json.MarshalIndent(data, "", " ")
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(filename, bytes, 0o644); err != nil {
-		return err
->>>>>>> 93ac9cf9e663472289624b33ec422f8ab23ce00d
 	}
 }
