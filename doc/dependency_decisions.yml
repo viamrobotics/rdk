@@ -117,7 +117,8 @@
 - - :ignore
   - github.com/tonyOreglia/glee
   - :who:
-    :why: 'TODO(RSDK-579): temporarily ignoring to pass CI - need to find what license
+    :why:
+      'TODO(RSDK-579): temporarily ignoring to pass CI - need to find what license
       this library uses'
     :versions: []
     :when: 2022-08-29 22:18:31.897842380 Z
@@ -156,7 +157,8 @@
 - - :ignore
   - github.com/ziutek/mymysql
   - :who:
-    :why: 'TODO(RSDK-580): temporarily ignoring to pass CI - it has an unnamed license
+    :why:
+      'TODO(RSDK-580): temporarily ignoring to pass CI - it has an unnamed license
       that looks like New BSD'
     :versions: []
     :when: 2022-08-30 15:57:05.777568049 Z
@@ -164,7 +166,8 @@
 - - :ignore
   - github.com/golang/freetype
   - :who:
-    :why: 'TODO(RSDK-581): temporarily ignoring to pass CI - it permits one of two
+    :why:
+      'TODO(RSDK-581): temporarily ignoring to pass CI - it permits one of two
       licenses. See ticket for details.'
     :versions: []
     :when: 2022-08-30 16:08:52.919938114 Z
@@ -180,7 +183,8 @@
   - github.com/gonum/blas
   - New BSD
   - :who:
-    :why: 'TODO(RSDK-582): this library is deprecated but still an indirect dependency
+    :why:
+      'TODO(RSDK-582): this library is deprecated but still an indirect dependency
       to RDK'
     :license_links: https://github.com/gonum/license/blob/59758bd3db1383fa1f02f88eceee1f8568a87039/LICENSE
     :versions: []
@@ -189,7 +193,8 @@
   - github.com/gonum/lapack
   - New BSD
   - :who:
-    :why: 'TODO(RSDK-582): this library is deprecated but still an indirect dependency
+    :why:
+      'TODO(RSDK-582): this library is deprecated but still an indirect dependency
       to RDK'
     :license_links: https://github.com/gonum/license/blob/59758bd3db1383fa1f02f88eceee1f8568a87039/LICENSE
     :versions: []
