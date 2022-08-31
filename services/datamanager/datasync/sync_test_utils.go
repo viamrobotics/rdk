@@ -116,7 +116,6 @@ func buildSensorDataUploadRequests(sds []*v1.SensorData, dataType v1.DataType, f
 				ComponentModel: componentModel,
 				MethodName:     methodName,
 				FileExtension:  datacapture.GetFileExt(dataType, methodName, nil),
-        Tags:           tags,
 			},
 		},
 	})
