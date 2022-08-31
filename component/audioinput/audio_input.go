@@ -297,7 +297,7 @@ func (i *reconfigurableAudioInput) Reconfigure(ctx context.Context, newAudioInpu
 // UpdateAction helps hint the reconfiguration process on what strategy to use given a modified config.
 // See config.ShouldUpdateAction for more information.
 func (i *reconfigurableAudioInput) UpdateAction(conf *config.Component) config.UpdateActionType {
-	obj, canUpdate := i.actual.(config.CompononentUpdate)
+	obj, canUpdate := i.actual.(config.ComponentUpdate)
 	if canUpdate {
 		return obj.UpdateAction(conf)
 	}

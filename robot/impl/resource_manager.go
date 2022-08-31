@@ -549,7 +549,7 @@ func (manager *resourceManager) processComponent(ctx context.Context,
 	if old == nil {
 		return r.newResource(ctx, conf)
 	}
-	obj, canValidate := old.(config.CompononentUpdate)
+	obj, canValidate := old.(config.ComponentUpdate)
 	res := config.Rebuild
 	if canValidate {
 		res = obj.UpdateAction(&conf)
