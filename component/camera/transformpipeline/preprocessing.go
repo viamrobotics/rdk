@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/rimage"
@@ -23,6 +24,8 @@ func newDepthPreprocessTransform(source gostream.VideoSource) (gostream.VideoSou
 
 // Next applies depth preprocessing to the next image.
 func (os *preprocessDepthTransform) Read(ctx context.Context) (image.Image, func(), error) {
+	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::depthPreprocess::Read")
+	defer span.End()
 	i, release, err := os.stream.Next(ctx)
 	if err != nil {
 		return nil, nil, err
