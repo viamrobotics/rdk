@@ -620,7 +620,7 @@ func (r *localRobot) TransformPose(
 func RobotFromConfigPath(ctx context.Context, cfgPath string, logger golog.Logger, opts ...Option) (robot.LocalRobot, error) {
 	cfg, err := config.Read(ctx, cfgPath, logger)
 	if err != nil {
-		logger.Fatal("cannot read config")
+		logger.Error("cannot read config")
 		return nil, err
 	}
 	return RobotFromConfig(ctx, cfg, logger, opts...)

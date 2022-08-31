@@ -1418,6 +1418,7 @@ let lastStatusTS = Date.now();
                 </td>
               </tr>
             </table>
+            <a :href="'https://www.google.com/maps/search/' + movementsensorData[movementsensor.name].coordinate?.latitude + ',' + movementsensorData[movementsensor.name].coordinate?.longitude">google maps</a>
           </div>
 
           <div
