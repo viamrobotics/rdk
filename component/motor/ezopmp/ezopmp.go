@@ -306,8 +306,8 @@ func (m *Ezopmp) GetPosition(ctx context.Context, extra map[string]interface{}) 
 	return floatVal, err
 }
 
-// GetFeatures returns the status of optional features on the motor.
-func (m *Ezopmp) GetFeatures(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+// GetProperties returns the status of optional features on the motor.
+func (m *Ezopmp) GetProperties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: true,
 	}, nil

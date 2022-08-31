@@ -830,7 +830,7 @@ func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]
 	}
 }
 
-// GetFeatures returns the additional features supported by this motor.
-func (m *Motor) GetFeatures(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+// GetProperties returns the additional features supported by this motor.
+func (m *Motor) GetProperties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{motor.PositionReporting: true}, nil
 }
