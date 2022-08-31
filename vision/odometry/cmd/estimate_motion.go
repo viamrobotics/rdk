@@ -47,9 +47,9 @@ func main() {
 		logger.Fatal(err.Error())
 	}
 	// get matched lines
-	matchedLines, _, err := RunMotionEstimation(im1, im2, configPath)
+	_, matchedLines, err := RunMotionEstimation(im1, im2, configPath)
 	if err != nil {
-		logger.Fatal(err.Error())
+		logger.Error(err.Error())
 	}
 	http.HandleFunc("/orb/", func(w http.ResponseWriter, r *http.Request) {
 		writeImageWithTemplate(w, im1, "img")
@@ -92,7 +92,7 @@ func RunOrbPointFinding(img1, img2 *rimage.Image, configPath string) (image.Imag
 }
 
 // RunMotionEstimation runs motion estimation between the two frames in artifacts.
-func RunMotionEstimation(im1, im2 *rimage.Image, configPath string) (image.Image, *odometry.Motion3D, error) {
+func RunMotionEstimation(im1, im2 *rimage.Image, configPath string) (*odometry.Motion3D, image.Image, error) {
 	// load cfg
 	cfg, err := odometry.LoadMotionEstimationConfig(configPath)
 	if err != nil {
@@ -101,12 +101,12 @@ func RunMotionEstimation(im1, im2 *rimage.Image, configPath string) (image.Image
 	// Estimate motion
 	motion, matchedLines, err := odometry.EstimateMotionFrom2Frames(im1, im2, cfg, logger)
 	if err != nil {
-		return nil, nil, err
+		return nil, matchedLines, err
 	}
 	logger.Info(motion.Rotation)
 	logger.Info(motion.Translation)
 
-	return matchedLines, motion, nil
+	return motion, matchedLines, nil
 }
 
 // writeImageWithTemplate encodes an image 'img' in jpeg format and writes it into ResponseWriter using a template.

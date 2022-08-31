@@ -3,7 +3,6 @@ package keypoints
 import (
 	"encoding/json"
 	"image"
-	"image/color"
 	"math"
 	"os"
 	"path/filepath"
@@ -110,7 +109,7 @@ func LoadFASTConfiguration(file string) *FASTConfig {
 func GetPointValuesInNeighborhood(img *image.Gray, coords image.Point, neighborhood []image.Point) []float64 {
 	vals := make([]float64, len(neighborhood))
 	for i := 0; i < len(neighborhood); i++ {
-		c := img.At(coords.X+neighborhood[i].X, coords.Y+neighborhood[i].Y).(color.Gray).Y
+		c := img.GrayAt(coords.X+neighborhood[i].X, coords.Y+neighborhood[i].Y).Y
 		vals[i] = float64(c)
 	}
 	return vals
@@ -154,7 +153,7 @@ func sumOfNegativeValuesSlice(s []float64) float64 {
 }
 
 func computeNMSScore(img *image.Gray, pix FASTPixel) float64 {
-	val := float64(img.At(pix.Point.X, pix.Point.Y).(color.Gray).Y)
+	val := float64(img.GrayAt(pix.Point.X, pix.Point.Y).Y)
 	circleValues := GetPointValuesInNeighborhood(img, pix.Point, CircleIdx)
 	diffValues := make([]float64, len(circleValues))
 	for i, v := range circleValues {
@@ -206,8 +205,8 @@ func computeAngle(img *image.Gray, kp image.Point, radius int, halfWidthMax []in
 		currentWidth := halfWidthMax[int(math.Abs(float64(y)))]
 		for x := 0; x < currentWidth; x++ {
 			if x+kp.X < w {
-				m10 += x * int(img.At(x+kp.X, y+kp.Y).(color.Gray).Y)
-				m01 += y * int(img.At(x+kp.X, y+kp.Y).(color.Gray).Y)
+				m10 += x * int(img.GrayAt(x+kp.X, y+kp.Y).Y)
+				m01 += y * int(img.GrayAt(x+kp.X, y+kp.Y).Y)
 			}
 		}
 	}
@@ -268,10 +267,11 @@ func ComputeFAST(img *image.Gray, cfg *FASTConfig) KeyPoints {
 	w, h := img.Bounds().Max.X, img.Bounds().Max.Y
 	for y := 3; y < h-3; y++ {
 		for x := 3; x < w-3; x++ {
-			pixel := float64(img.At(x, y).(color.Gray).Y)
+			pixel := float64(img.GrayAt(x, y).Y)
+			thresh := cfg.Threshold * (256.0 / 2.0) // fraction of maximum value
 			circleValues := GetPointValuesInNeighborhood(img, image.Point{x, y}, CircleIdx)
-			brighterValues := getBrighterValues(circleValues, pixel+cfg.Threshold)
-			darkerValues := getDarkerValues(circleValues, pixel-cfg.Threshold)
+			brighterValues := getBrighterValues(circleValues, pixel+thresh)
+			darkerValues := getDarkerValues(circleValues, pixel-thresh)
 			if isValidSliceVals(brighterValues, cfg.NMatchesCircle) {
 				kps = append(kps, FASTPixel{image.Point{x, y}, brighter})
 			} else if isValidSliceVals(darkerValues, cfg.NMatchesCircle) {

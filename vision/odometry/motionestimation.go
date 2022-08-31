@@ -84,13 +84,13 @@ func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationCo
 	matchedKps2Float := convertImagePointSliceToFloatPointSlice(matchedKps2)
 	pose, err := transform.EstimateNewPose(matchedKps1Float, matchedKps2Float, k)
 	if err != nil {
-		return nil, nil, err
+		return nil, matchedLines, err
 	}
 
 	// Rescale motion
 	estimatedCamHeight, err := EstimateCameraHeight(matchedKps1Float, matchedKps2Float, pose, cfg.ScaleEstimatorCfg, cfg.CamIntrinsics)
 	if err != nil {
-		return nil, nil, err
+		return nil, matchedLines, err
 	}
 	scale := cfg.CamHeightGround / estimatedCamHeight
 
