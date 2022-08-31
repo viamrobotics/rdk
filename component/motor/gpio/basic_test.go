@@ -108,7 +108,7 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
-		features, err := m.GetFeatures(ctx, nil)
+		features, err := m.GetProperties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeFalse)
 	})
@@ -185,7 +185,7 @@ func TestMotorDirPWM(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
-		features, err := m.GetFeatures(ctx, nil)
+		features, err := m.GetProperties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeFalse)
 	})
@@ -254,7 +254,7 @@ func TestMotorAB(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
-		features, err := m.GetFeatures(ctx, nil)
+		features, err := m.GetProperties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeFalse)
 	})

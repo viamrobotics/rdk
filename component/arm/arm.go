@@ -272,7 +272,7 @@ func (r *reconfigurableArm) reconfigure(ctx context.Context, newArm resource.Rec
 // UpdateAction helps hint the reconfiguration process on what strategy to use given a modified config.
 // See config.ShouldUpdateAction for more information.
 func (r *reconfigurableArm) UpdateAction(c *config.Component) config.UpdateActionType {
-	obj, canUpdate := r.actual.(config.CompononentUpdate)
+	obj, canUpdate := r.actual.(config.ComponentUpdate)
 	if canUpdate {
 		return obj.UpdateAction(c)
 	}
