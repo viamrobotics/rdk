@@ -147,7 +147,7 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
               <v-select
                 label="Select Camera"
                 :options="cameraOptions.map(option => option.label).join(',')"
-                :selected="selectedValue"
+                :value="selectedValue"
                 @input="handleCameraOptionsInput"
               />
             </div>
