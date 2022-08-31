@@ -410,7 +410,7 @@ func TestPartialUpload(t *testing.T) {
 			ackEveryNSensorDatas:          2,
 			clientCancelAfterNSensorDatas: 3,
 			toSend:                        createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8, msg9}),
-			// First two messages should be ACKed, so only msg8 should be sent after retry.
+			// First two messages should be ACKed, so only msg8-9 should be sent after retry.
 			expSentBeforeRetry: createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8}),
 			expSentAfterRetry:  createTabularSensorData([]*structpb.Struct{msg8, msg9}),
 		},
@@ -430,7 +430,7 @@ func TestPartialUpload(t *testing.T) {
 			ackEveryNSensorDatas:         2,
 			serverErrorAfterNSensorDatas: 3,
 			toSend:                       createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8, msg9}),
-			// First two messages should be ACKed, so only msg8 should be sent after retry.
+			// First two messages should be ACKed, so only msg8-9 should be sent after retry.
 			expSentBeforeRetry: createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8}),
 			expSentAfterRetry:  createTabularSensorData([]*structpb.Struct{msg8, msg9}),
 		},
@@ -503,18 +503,18 @@ func TestPartialUpload(t *testing.T) {
 			actMsgs = mockService.getUploadRequests()
 			compareTabularUploadRequests(t, actMsgs, expMsgs)
 
-			// For non-empty testcases, validate progress file & data capture file existences.
+			// Validate progress file exists and has correct value.
 			progressFile := filepath.Join(viamProgressDotDir, filepath.Base(captureFile.Name()))
 			defer os.Remove(progressFile)
-
-			// Validate progress file exists and has correct value.
 			_, err = os.Stat(progressFile)
 			test.That(t, err, test.ShouldBeNil)
-			bs, _ := ioutil.ReadFile(progressFile)
-			i, _ := strconv.Atoi(string(bs))
+			bs, err := ioutil.ReadFile(progressFile)
+			test.That(t, err, test.ShouldBeNil)
+			i, err := strconv.Atoi(string(bs))
+			test.That(t, err, test.ShouldBeNil)
 			test.That(t, i, test.ShouldEqual, tc.ackEveryNSensorDatas)
 
-			// Restart the server and register the service.
+			// Restart the client and server and attempt to sync again.
 			mockService = getMockService()
 			mockService.messagesPerAck = tc.ackEveryNSensorDatas
 			rpcServer = buildAndStartLocalServer(t, logger, mockService)
