@@ -102,8 +102,7 @@ func TestOneMove(t *testing.T) {
 		board, err := chess.FindAndWarpBoardFromFiles(fn, depthDN, true, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = state.newData(board)
-		test.That(t, err, test.ShouldBeNil)
+		test.That(t, state.newData(board), test.ShouldBeNil)
 
 		board.WriteDebugImages(fmt.Sprintf("%s/%d", outDir, idx))
 	}

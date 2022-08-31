@@ -3,7 +3,7 @@ package mycomponent_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -43,7 +43,7 @@ func TestMyComponent(t *testing.T) {
 	err = r0.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	tmpConf, err := ioutil.TempFile("", "*.json")
+	tmpConf, err := os.CreateTemp("", "*.json")
 	test.That(t, err, test.ShouldBeNil)
 	_, err = tmpConf.Write([]byte(fmt.Sprintf(`{"network":{"bind_address":"%s"},"remotes":[{"address":"%s","name":"robot1"}]}`, addr2, addr1)))
 	test.That(t, err, test.ShouldBeNil)
@@ -54,7 +54,7 @@ func TestMyComponent(t *testing.T) {
 	pCfg := pexec.ProcessConfig{
 		ID:      "Intermediate",
 		Name:    "go",
-		Args:    []string{"run", utils.ResolveFile("./web/cmd/server/main.go"), tmpConf.Name()},
+		Args:    []string{"run", utils.ResolveFile("./web/cmd/server/main.go"), "-config", tmpConf.Name()},
 		CWD:     "",
 		OneShot: false,
 		Log:     true,

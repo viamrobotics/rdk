@@ -1,8 +1,8 @@
 package inference
 
 import (
-	"io/ioutil"
 	"log"
+	"os"
 	"runtime"
 
 	tflite "github.com/mattn/go-tflite"
@@ -239,7 +239,7 @@ func (model *TFLiteStruct) GetMetadata() (*metadata.ModelMetadataT, error) {
 // getTFLiteMetadataBytes takes a model path of a tflite file and extracts the metadata buffer from the entire model.
 func getTFLiteMetadataBytes(modelPath string) ([]byte, error) {
 	//nolint:gosec
-	buf, err := ioutil.ReadFile(modelPath)
+	buf, err := os.ReadFile(modelPath)
 	if err != nil {
 		return nil, err
 	}

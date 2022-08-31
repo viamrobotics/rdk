@@ -1,3 +1,4 @@
+// Package agile is an agile robot playground.
 package main
 
 import (
@@ -5,7 +6,6 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"os"
 	"strconv"
@@ -125,7 +125,7 @@ type limoBase struct {
 	logger    golog.Logger
 }
 
-func (l *limoBase) Spin(angleDeg float64, degsPerSec float64) {
+func (l *limoBase) Spin(angleDeg, degsPerSec float64) {
 	l.realBase.Spin(l.ctx, angleDeg, degsPerSec, nil)
 }
 
@@ -199,7 +199,7 @@ func (l *limoBase) Plan(config *MobileRobotPlanConfig) ([][]frame.Input, motionp
 		obstacleGeometries[strconv.Itoa(i)] = box
 	}
 
-	opt := motionplan.NewDefaultPlannerOptions()
+	opt := motionplan.NewBasicPlannerOptions()
 	opt.AddConstraint("collision", motionplan.NewCollisionConstraint(dubins.Frame(), obstacleGeometries, map[string]spatial.Geometry{}))
 
 	// plan
@@ -330,7 +330,7 @@ func savePath(d motionplan.Dubins, waypoints [][]frame.Input, config *MobileRobo
 }
 
 func parseJSONFile(filename string) (*MobileRobotPlanConfig, error) {
-	jsonData, err := ioutil.ReadFile(filename)
+	jsonData, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read json file")
 	}
@@ -384,7 +384,7 @@ func writeJSONFile(filename string, data interface{}) error {
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(filename, bytes, 0o644); err != nil {
+	if err := os.WriteFile(filename, bytes, 0o644); err != nil {
 		return err
 	}
 	return nil

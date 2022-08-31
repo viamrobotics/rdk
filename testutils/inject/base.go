@@ -13,7 +13,7 @@ type Base struct {
 	base.LocalBase
 	DoFunc           func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	MoveStraightFunc func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error
-	SpinFunc         func(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error
+	SpinFunc         func(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error
 	GetWidthFunc     func(ctx context.Context) (int, error)
 	StopFunc         func(ctx context.Context, extra map[string]interface{}) error
 	IsMovingFunc     func(context.Context) (bool, error)
@@ -29,7 +29,7 @@ func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float6
 }
 
 // Spin calls the injected Spin or the real version.
-func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
+func (b *Base) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	if b.SpinFunc == nil {
 		return b.LocalBase.Spin(ctx, angleDeg, degsPerSec, extra)
 	}

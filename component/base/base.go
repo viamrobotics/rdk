@@ -68,7 +68,7 @@ type Base interface {
 	// Spin spins the robot by a given angle in degrees at a given speed.
 	// If a speed of 0 the base will stop.
 	// This method blocks until completed or cancelled
-	Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error
+	Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error
 
 	SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error
 
@@ -168,7 +168,7 @@ func (r *reconfigurableBase) MoveStraight(
 	return r.actual.MoveStraight(ctx, distanceMm, mmPerSec, extra)
 }
 
-func (r *reconfigurableBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
+func (r *reconfigurableBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.Spin(ctx, angleDeg, degsPerSec, extra)

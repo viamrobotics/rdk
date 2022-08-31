@@ -119,7 +119,7 @@ func newEncodedMotor(
 	}
 
 	if len(motorConfig.ControlLoop.Blocks) != 0 {
-		cLoop, err := control.NewControlLoop(logger, motorConfig.ControlLoop, em)
+		cLoop, err := control.NewLoop(logger, motorConfig.ControlLoop, em)
 		if err != nil {
 			return nil, err
 		}
@@ -176,7 +176,7 @@ type EncodedMotor struct {
 	logger          golog.Logger
 	cancelCtx       context.Context
 	cancel          func()
-	loop            *control.ControlLoop
+	loop            *control.Loop
 	opMgr           operation.SingleOperationManager
 
 	generic.Unimplemented
@@ -434,7 +434,7 @@ func (m *EncodedMotor) computeRamp(oldPower, newPower float64) float64 {
 // GoFor instructs the motor to go in a given direction at the given RPM for a number of given revolutions.
 // Both the RPM and the revolutions can be assigned negative values to move in a backwards direction.
 // Note: if both are negative the motor will spin in the forward direction.
-func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
+func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -445,7 +445,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m)
 }
 
-func (m *EncodedMotor) goForInternal(ctx context.Context, rpm float64, revolutions float64) error {
+func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float64) error {
 	m.RPMMonitorStart()
 
 	var d int64 = 1
@@ -542,7 +542,7 @@ func (m *EncodedMotor) Close() {
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 // at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target.
-func (m *EncodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition float64, extra map[string]interface{}) error {
+func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, extra map[string]interface{}) error {
 	curPos, err := m.GetPosition(ctx, extra)
 	if err != nil {
 		return err

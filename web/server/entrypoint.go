@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
+	"github.com/edaniels/gostream/codec/opus"
 	"github.com/edaniels/gostream/codec/x264"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
@@ -25,7 +27,7 @@ import (
 // Arguments for the command.
 type Arguments struct {
 	AllowInsecureCreds bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
-	ConfigFile         string `flag:"0,required,usage=robot config file"`
+	ConfigFile         string `flag:"config,usage=robot config file"`
 	CPUProfile         string `flag:"cpuprofile,usage=write cpu profile to file"`
 	Debug              bool   `flag:"debug"`
 	SharedDir          string `flag:"shareddir,usage=web resource directory"`
@@ -46,6 +48,11 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 	// fmt.Println would be better but fails linting. Good enough.
 	logger.Infof("Viam RDK Version: %s, Hash: %s", config.Version, config.GitRevision)
 	if argsParsed.Version {
+		return
+	}
+
+	if argsParsed.ConfigFile == "" {
+		logger.Error("please specify a config file through the -config parameter.")
 		return
 	}
 
@@ -172,11 +179,15 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		})
 	}
 
+	var streamConfig gostream.StreamConfig
+	streamConfig.AudioEncoderFactory = opus.NewEncoderFactory()
+	streamConfig.VideoEncoderFactory = x264.NewEncoderFactory()
+
 	myRobot, err := robotimpl.New(
 		ctx,
 		processedConfig,
 		logger,
-		robotimpl.WithWebOptions(web.WithStreamConfig(x264.DefaultStreamConfig)),
+		robotimpl.WithWebOptions(web.WithStreamConfig(streamConfig)),
 	)
 	if err != nil {
 		return err

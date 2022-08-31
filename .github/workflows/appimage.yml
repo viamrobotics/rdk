@@ -135,7 +135,7 @@ jobs:
         export RAND_PORT=$((30000 + $RANDOM))
         echo "{\"network\": {\"bind_address\":\"localhost:${RAND_PORT}\"}}" > test.json
 
-        ./viam-server test.json &
+        ./viam-server -config test.json &
         curl --retry 5 --retry-delay 5 --retry-connrefused localhost:$RAND_PORT
         export RET1=$?
         kill %%

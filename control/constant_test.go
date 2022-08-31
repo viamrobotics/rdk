@@ -14,11 +14,11 @@ import (
 func TestConstantConfig(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	for _, c := range []struct {
-		conf ControlBlockConfig
+		conf BlockConfig
 		err  string
 	}{
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name: "constant1",
 				Type: "constant",
 				Attribute: config.AttributeMap{
@@ -29,7 +29,7 @@ func TestConstantConfig(t *testing.T) {
 			"",
 		},
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name: "constant1",
 				Type: "constant",
 				Attribute: config.AttributeMap{
@@ -40,7 +40,7 @@ func TestConstantConfig(t *testing.T) {
 			"constant block constant1 doesn't have a constant_val field",
 		},
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name: "constant1",
 				Type: "constant",
 				Attribute: config.AttributeMap{
@@ -66,7 +66,7 @@ func TestConstantConfig(t *testing.T) {
 func TestConstantNext(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	c := ControlBlockConfig{
+	c := BlockConfig{
 		Name: "constant1",
 		Type: "constant",
 		Attribute: config.AttributeMap{
