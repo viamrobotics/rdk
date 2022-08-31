@@ -11,7 +11,7 @@ on:
   push:
 
 jobs:
-  build_and_test:
+  license_finder:
     name: Audit 3rd-Party Licenses
     runs-on: [x64, qemu-host]
     container:
@@ -31,4 +31,4 @@ jobs:
 
       - name: Run license finder
         run: |
-          sudo -u testbot bash -lc 'license_finder --npm-options="--prefix web/frontend"'
+          sudo -u testbot bash -lc 'make license'
