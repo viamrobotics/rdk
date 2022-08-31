@@ -22,7 +22,7 @@ import InfoButton from './info-button.vue';
 
 interface Props {
   resources: Resource[]
-  pointcloud: string
+  pointcloud: Uint8Array
   cameraName: string
 }
 
@@ -37,7 +37,6 @@ let segmenterParameterNames = $ref<TypedParameter[]>();
 let objects = $ref<PointCloudObject[]>([]);
 let segmenterNames = $ref<string[]>([]);
 let segmenterParameters = $ref<Record<string, number>>({});
-let url = $ref('');
 
 const click = $ref(new THREE.Vector3());
 
@@ -94,7 +93,7 @@ const renderPCD = () => {
       return;
     }
 
-    update(response!.getPointCloud_asB64());
+    update(response!.getPointCloud_asU8());
   });
 
   getSegmenterNames();
@@ -204,7 +203,7 @@ const loadSegment = (index: number) => {
     toast.error('Segment cannot be found.');
   }
 
-  const pointcloud = segment.getPointCloud_asB64();
+  const pointcloud = segment.getPointCloud_asU8();
   const center = segment.getGeometries()!.getGeometriesList()[0].getCenter()!;
   const box = segment.getGeometries()!.getGeometriesList()[0].getBox()!;
 
@@ -419,13 +418,12 @@ const handlePointsResize = (event: CustomEvent) => {
 
 const color = new THREE.Color();
 
-const update = async (cloud: string) => {
+const update = (cloud: Uint8Array) => {
   if (!cloud) {
     return;
   }
 
-  url = `data:pointcloud/pcd;base64,${cloud}`;
-  const points = await loader.loadAsync(url);
+  const points = loader.parse(cloud.buffer, '');
   points.name = 'points';
   const positions = points.geometry.attributes.position.array;
   const colors = points.geometry.attributes.colors;
@@ -476,7 +474,7 @@ onUnmounted(() => {
   renderer.setAnimationLoop(null);
 });
 
-watch(() => props.pointcloud, (updated: string) => {
+watch(() => props.pointcloud, (updated: Uint8Array) => {
   update(updated);
 });
 

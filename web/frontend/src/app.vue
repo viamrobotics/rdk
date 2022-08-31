@@ -81,7 +81,7 @@ export default {
       cameraFrameIntervalId: null,
       slamImageIntervalId: null,
       slamPCDIntervalId: null,
-      pointcloud: '',
+      pointcloud: null,
       objects: null,
       armToggle: {},
       value: 0,
@@ -666,7 +666,7 @@ export default {
             return;
           }
           const pcObject = resp.getPointCloud();
-          this.pointcloud = pcObject.getPointCloud_asB64();
+          this.pointcloud = pcObject.getPointCloud_asU8();
         });
       });
     },

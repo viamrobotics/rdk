@@ -10,7 +10,7 @@ interface Props {
   cameraName: string
   crumbs: string[]
   resources: Resource[]
-  pointcloud: string
+  pointcloud?: Uint8Array
 }
 
 interface Emits {
