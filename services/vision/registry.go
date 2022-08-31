@@ -48,7 +48,6 @@ type registeredModel struct {
 	model     interface{}
 	modelType VisModelType
 	closer    io.Closer
-	isLoaded  bool
 	SegParams []utils.TypedName
 }
 
@@ -162,7 +161,7 @@ func (mm modelMap) registerVisModel(name string, m *registeredModel, logger golo
 	if m.closer != nil {
 		mm[name] = registeredModel{
 			model: m.model, modelType: m.modelType,
-			closer: m.closer, isLoaded: m.isLoaded, SegParams: m.SegParams,
+			closer: m.closer, SegParams: m.SegParams,
 		}
 		return nil
 	}
@@ -172,7 +171,7 @@ func (mm modelMap) registerVisModel(name string, m *registeredModel, logger golo
 
 	mm[name] = registeredModel{
 		model: m.model, modelType: m.modelType,
-		closer: nil, isLoaded: m.isLoaded, SegParams: m.SegParams,
+		closer: nil, SegParams: m.SegParams,
 	}
 	return nil
 }

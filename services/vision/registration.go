@@ -35,7 +35,7 @@ func registerColorDetector(ctx context.Context, mm modelMap, conf *VisModelConfi
 	if err != nil {
 		return errors.Wrapf(err, "register color detector %s", conf.Name)
 	}
-	regModel := registeredModel{model: detector, modelType: ColorDetector, closer: nil, isLoaded: false}
+	regModel := registeredModel{model: detector, modelType: ColorDetector, closer: nil}
 	return mm.registerVisModel(conf.Name, &regModel, logger)
 }
 
@@ -50,7 +50,7 @@ func registerTfliteClassifier(ctx context.Context, mm modelMap, conf *VisModelCo
 		return errors.Wrapf(err, "could not register tflite classifier %s", conf.Name)
 	}
 
-	regModel := registeredModel{model: classifier, modelType: TFLiteClassifier, closer: model, isLoaded: false}
+	regModel := registeredModel{model: classifier, modelType: TFLiteClassifier, closer: model}
 	return mm.registerVisModel(conf.Name, &regModel, logger)
 }
 
@@ -65,7 +65,7 @@ func registerTfliteDetector(ctx context.Context, mm modelMap, conf *VisModelConf
 		return errors.Wrapf(err, "could not register tflite detector %s", conf.Name)
 	}
 
-	regModel := registeredModel{model: detector, modelType: TFLiteDetector, closer: model, isLoaded: false}
+	regModel := registeredModel{model: detector, modelType: TFLiteDetector, closer: model}
 	return mm.registerVisModel(conf.Name, &regModel, logger)
 }
 
@@ -77,6 +77,6 @@ func registerRCSegmenter(ctx context.Context, mm modelMap, conf *VisModelConfig,
 	}
 	segmenter := segmentation.Segmenter(segmentation.RadiusClustering)
 
-	regModel := registeredModel{model: segmenter, modelType: RCSegmenter, closer: nil, isLoaded: false}
+	regModel := registeredModel{model: segmenter, modelType: RCSegmenter, closer: nil}
 	return mm.registerVisModel(conf.Name, &regModel, logger)
 }
