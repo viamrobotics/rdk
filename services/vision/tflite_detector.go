@@ -3,7 +3,6 @@ package vision
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"image"
 	"os"
 	"strconv"
@@ -208,8 +207,11 @@ func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLite
 	} else {
 		hasMetadata = true
 		// But if you can
-		tensorOrder = getTensorOrder(m) // location = 0 , category = 1, score = 2 for tensor order
-		boxOrder = getBboxOrder(m)
+		tensorOrder, _ = getTensorOrder(m) // location = 0 , category = 1, score = 2 for tensor order
+		boxOrder, err = getBboxOrder(m)
+		if err != nil {
+			hasMetadata = false
+		}
 	}
 
 	// Populate bboxes, labels, and scores from tensorOrder
@@ -310,7 +312,7 @@ func getIndex(s []int, num int) int {
 
 // getBboxOrder checks the metadata and looks for the bounding box order
 // returned as []int, where 0=xmin, 1=xmax, 2=ymin, 3=ymax.
-func getBboxOrder(m *tflite_metadata.ModelMetadataT) []int {
+func getBboxOrder(m *tflite_metadata.ModelMetadataT) ([]int, error) {
 	// tensorData should be a []TensorMetadataT from the metadata telling me about each tensor in order
 	tensorData := m.SubgraphMetadata[0].OutputTensorMetadata
 	for _, t := range tensorData {
@@ -323,15 +325,15 @@ func getBboxOrder(m *tflite_metadata.ModelMetadataT) []int {
 		for i, o := range order {
 			bboxOrder[i] = int(o)
 		}
-		return bboxOrder
+		return bboxOrder, nil
 	}
 
-	panic("cannot find location in getBboxOrder")
+	return nil, errors.New("cannot find location in getBboxOrder")
 }
 
 // getTensorOrder checks the metadata for the order of the output tensors
 // returned as []int where 0=bounding box location, 1=class/category/label, 2= confidence score.
-func getTensorOrder(m *tflite_metadata.ModelMetadataT) []int {
+func getTensorOrder(m *tflite_metadata.ModelMetadataT) ([]int, []bool) {
 	tensorOrder := make([]int, 4) // location = 0 , category = 1, score = 2
 
 	tensorData := m.SubgraphMetadata[0].OutputTensorMetadata
@@ -340,17 +342,13 @@ func getTensorOrder(m *tflite_metadata.ModelMetadataT) []int {
 
 	for i, t := range tensorData {
 		switch name := strings.ToLower(t.Name); name {
-		case "location":
-		case "locations":
+		case "location", "locations":
 			tensorOrder[i] = 0
 			found[0] = true
-		case "category":
-		case "class":
-		case "classes":
+		case "category", "class", "classes":
 			tensorOrder[i] = 1
 			found[1] = true
-		case "score":
-		case "scores":
+		case "score", "scores":
 			tensorOrder[i] = 2
 			found[2] = true
 		default:
@@ -358,11 +356,5 @@ func getTensorOrder(m *tflite_metadata.ModelMetadataT) []int {
 		}
 	}
 
-	for _, b := range found {
-		if !b {
-			panic(fmt.Sprintf("getTensorOrder failed %v", found))
-		}
-	}
-
-	return tensorOrder
+	return tensorOrder, found
 }
