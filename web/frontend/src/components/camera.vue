@@ -68,7 +68,7 @@ const togglePCDExpand = () => {
               :value="camera ? 'on' : 'off'"
               @input="toggleExpand()"
             />
-            <span class="pr-2">View Camera</span>
+            <span class="pr-2 text-xs">View Camera</span>
           </div>
           
           <div class="float-right pb-4">
@@ -149,7 +149,7 @@ const togglePCDExpand = () => {
               :value="pcdExpanded ? 'on' : 'off'"
               @input="togglePCDExpand()"
             />
-            <span class="pr-0.5">Point Cloud Data</span>
+            <span class="pr-0.5 text-xs">Point Cloud Data</span>
             <InfoButton :info-rows="['When turned on, point cloud will be recalculated']" />
           </div>
 
