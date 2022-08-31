@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/audioinput"
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
@@ -70,7 +71,7 @@ func TestConfig1(t *testing.T) {
 
 	c1, err := camera.FromRobot(r, "c1")
 	test.That(t, err, test.ShouldBeNil)
-	pic, _, err := c1.Next(context.Background())
+	pic, _, err := camera.ReadImage(context.Background(), c1)
 	test.That(t, err, test.ShouldBeNil)
 
 	bounds := pic.Bounds()
@@ -178,6 +179,9 @@ func TestConfigRemote(t *testing.T) {
 		camera.Named("squee:cameraOver"),
 		camera.Named("foo:cameraOver"),
 		camera.Named("bar:cameraOver"),
+		audioinput.Named("squee:mic1"),
+		audioinput.Named("foo:mic1"),
+		audioinput.Named("bar:mic1"),
 		movementsensor.Named("squee:movement_sensor1"),
 		movementsensor.Named("foo:movement_sensor1"),
 		movementsensor.Named("bar:movement_sensor1"),
@@ -446,6 +450,8 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				datamanager.Named(resource.DefaultServiceName),
 				arm.Named("bar:pieceArm"),
 				arm.Named("foo:pieceArm"),
+				audioinput.Named("bar:mic1"),
+				audioinput.Named("foo:mic1"),
 				camera.Named("bar:cameraOver"),
 				camera.Named("foo:cameraOver"),
 				movementsensor.Named("bar:movement_sensor1"),
@@ -648,6 +654,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		sensors.Named(resource.DefaultServiceName),
 		datamanager.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
+		audioinput.Named("foo:mic1"),
 		camera.Named("foo:cameraOver"),
 		movementsensor.Named("foo:movement_sensor1"),
 		movementsensor.Named("foo:movement_sensor2"),
@@ -933,13 +940,14 @@ func TestMetadataUpdate(t *testing.T) {
 	resources := r.ResourceNames()
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(resources), test.ShouldEqual, 8)
+	test.That(t, len(resources), test.ShouldEqual, 9)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
 	// 5 declared resources + default sensors
 	resourceNames := []resource.Name{
 		arm.Named("pieceArm"),
+		audioinput.Named("mic1"),
 		camera.Named("cameraOver"),
 		gripper.Named("pieceGripper"),
 		movementsensor.Named("movement_sensor1"),
@@ -1352,6 +1360,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 			arm.Named("remote:foo:arm1"), arm.Named("remote:foo:arm2"),
 			arm.Named("remote:pieceArm"),
 			arm.Named("remote:foo:pieceArm"),
+			audioinput.Named("remote:mic1"),
 			camera.Named("remote:cameraOver"),
 			movementsensor.Named("remote:movement_sensor1"),
 			movementsensor.Named("remote:movement_sensor2"),

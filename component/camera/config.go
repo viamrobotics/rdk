@@ -11,7 +11,7 @@ import (
 // StreamType specifies what kind of image stream is coming from the camera.
 type StreamType string
 
-// The allowed types of streams that can come from an ImageSource.
+// The allowed types of streams that can come from a VideoSource.
 const (
 	UnspecifiedStream = StreamType("")
 	ColorStream       = StreamType("color")

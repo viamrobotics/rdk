@@ -4,11 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edaniels/gostream"
+	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/camera/imagesource"
+	"go.viam.com/rdk/component/camera/videosource"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -29,10 +31,10 @@ func TestTransformPipelineColor(t *testing.T) {
 	r := &inject.Robot{}
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := &imagesource.StaticSource{ColorImg: img}
-	cam, err := camera.New(source, nil)
+	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
+	cam, err := camera.NewFromSource(source, nil)
 	test.That(t, err, test.ShouldBeNil)
-	inImg, _, err := cam.Next(context.Background())
+	inImg, _, err := camera.ReadImage(context.Background(), cam)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 1280)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 720)
@@ -40,15 +42,17 @@ func TestTransformPipelineColor(t *testing.T) {
 	color, err := newTransformPipeline(context.Background(), cam, transformConf, r)
 	test.That(t, err, test.ShouldBeNil)
 
-	outImg, _, err := color.Next(context.Background())
+	outImg, _, err := camera.ReadImage(context.Background(), color)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 100)
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 200)
 	_, err = color.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
-	_, err = color.GetProperties(context.Background())
+	_, err = color.Projector(context.Background())
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
+	test.That(t, color.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestTransformPipelineDepth(t *testing.T) {
@@ -76,10 +80,10 @@ func TestTransformPipelineDepth(t *testing.T) {
 
 	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := &imagesource.StaticSource{DepthImg: dm}
-	cam, err := camera.New(source, nil)
+	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: dm}, prop.Video{})
+	cam, err := camera.NewFromSource(source, nil)
 	test.That(t, err, test.ShouldBeNil)
-	inImg, _, err := cam.Next(context.Background())
+	inImg, _, err := camera.ReadImage(context.Background(), cam)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 1280)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 720)
@@ -87,16 +91,19 @@ func TestTransformPipelineDepth(t *testing.T) {
 	depth, err := newTransformPipeline(context.Background(), cam, transformConf, r)
 	test.That(t, err, test.ShouldBeNil)
 
-	outImg, _, err := depth.Next(context.Background())
+	outImg, _, err := camera.ReadImage(context.Background(), depth)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 400)
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 300)
-	prop, err := depth.GetProperties(context.Background())
+	prop, err := depth.Projector(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, prop, test.ShouldResemble, intrinsics)
 	outPc, err := depth.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outPc, test.ShouldNotBeNil)
+
+	test.That(t, depth.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestTransformPipelineDepth2(t *testing.T) {
@@ -128,21 +135,24 @@ func TestTransformPipelineDepth2(t *testing.T) {
 
 	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := &imagesource.StaticSource{DepthImg: dm}
+	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: dm}, prop.Video{})
 	// first depth transform
 	depth1, err := newTransformPipeline(context.Background(), source, transform1, r)
 	test.That(t, err, test.ShouldBeNil)
-	outImg, _, err := depth1.Next(context.Background())
+	outImg, _, err := camera.ReadImage(context.Background(), depth1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 100)
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 200)
+	test.That(t, depth1.Close(context.Background()), test.ShouldBeNil)
 	// second depth image
 	depth2, err := newTransformPipeline(context.Background(), source, transform2, r)
 	test.That(t, err, test.ShouldBeNil)
-	outImg, _, err = depth2.Next(context.Background())
+	outImg, _, err = camera.ReadImage(context.Background(), depth2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 400)
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 300)
+	test.That(t, depth2.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestNullPipeline(t *testing.T) {
@@ -156,7 +166,7 @@ func TestNullPipeline(t *testing.T) {
 	r := &inject.Robot{}
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := &imagesource.StaticSource{ColorImg: img}
+	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
 	_, err = newTransformPipeline(context.Background(), source, transform1, r)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "pipeline has no transforms")
@@ -170,17 +180,19 @@ func TestNullPipeline(t *testing.T) {
 	}
 	pipe, err := newTransformPipeline(context.Background(), source, transform2, r)
 	test.That(t, err, test.ShouldBeNil)
-	outImg, _, err := pipe.Next(context.Background()) // should not transform anything
+	outImg, _, err := camera.ReadImage(context.Background(), pipe) // should not transform anything
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 1280)
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 720)
+	test.That(t, pipe.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestPipeIntoPipe(t *testing.T) {
 	r := &inject.Robot{}
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := &imagesource.StaticSource{ColorImg: img}
+	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
 
 	intrinsics1 := &transform.PinholeCameraIntrinsics{Width: 1280, Height: 720}
 	transform1 := &transformConfig{
@@ -214,30 +226,34 @@ func TestPipeIntoPipe(t *testing.T) {
 
 	pipe1, err := newTransformPipeline(context.Background(), source, transform1, r)
 	test.That(t, err, test.ShouldBeNil)
-	outImg, _, err := pipe1.Next(context.Background())
+	outImg, _, err := camera.ReadImage(context.Background(), pipe1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 1280)
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 720)
-	prop, err := pipe1.GetProperties(context.Background())
+	prop, err := pipe1.Projector(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, prop.(*transform.PinholeCameraIntrinsics).Width, test.ShouldEqual, 1280)
 	test.That(t, prop.(*transform.PinholeCameraIntrinsics).Height, test.ShouldEqual, 720)
 	// transform pipeline into pipeline
 	pipe2, err := newTransformPipeline(context.Background(), pipe1, transform2, r)
 	test.That(t, err, test.ShouldBeNil)
-	outImg, _, err = pipe2.Next(context.Background())
+	outImg, _, err = camera.ReadImage(context.Background(), pipe2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 100)
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 200)
 	test.That(t, err, test.ShouldBeNil)
-	prop, err = pipe2.GetProperties(context.Background())
+	prop, err = pipe2.Projector(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, prop.(*transform.PinholeCameraIntrinsics).Width, test.ShouldEqual, 100)
 	test.That(t, prop.(*transform.PinholeCameraIntrinsics).Height, test.ShouldEqual, 200)
+	test.That(t, pipe2.Close(context.Background()), test.ShouldBeNil)
 	// should error - color image cannot be depth resized
 	pipeWrong, err := newTransformPipeline(context.Background(), pipe1, transformWrong, r)
 	test.That(t, err, test.ShouldBeNil)
-	_, _, err = pipeWrong.Next(context.Background())
+	_, _, err = camera.ReadImage(context.Background(), pipeWrong)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "don't know how to make image.Gray16")
+	test.That(t, pipeWrong.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, pipe1.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }

@@ -7,39 +7,43 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
+	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/rdk/component/camera/imagesource"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/camera/videosource"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
 
-const debugImageTransform = "VIAM_DEBUG"
+const debugVideoTransform = "VIAM_DEBUG"
 
-func debugImageTransformOrSkip(t *testing.T) {
+func debugVideoTransformOrSkip(t *testing.T) {
 	t.Helper()
-	imageTransformTest := os.Getenv(debugImageTransform)
-	if imageTransformTest == "" {
-		t.Skipf("set environmental variable %q to run this test", debugImageTransform)
+	VideoTransformTest := os.Getenv(debugVideoTransform)
+	if VideoTransformTest == "" {
+		t.Skipf("set environmental variable %q to run this test", debugVideoTransform)
 	}
 }
 
 func TestDepthSource(t *testing.T) {
 	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := &imagesource.StaticSource{DepthImg: img}
+	source := &videosource.StaticSource{DepthImg: img}
 	am := config.AttributeMap{
 		"high_threshold": 0.85,
 		"low_threshold":  0.40,
 		"blur_radius":    3.0,
 	}
-	ds, err := newDepthEdgesTransform(source, am)
+	ds, err := newDepthEdgesTransform(gostream.NewVideoSource(source, prop.Video{}), am)
 	test.That(t, err, test.ShouldBeNil)
-	_, _, err = ds.Next(context.Background())
+	_, _, err = camera.ReadImage(context.Background(), ds)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ds.Close(context.Background()), test.ShouldBeNil)
 }
 
 type depthSourceTestHelper struct {
@@ -60,16 +64,17 @@ func (h *depthSourceTestHelper) Process(
 	pCtx.GotDebugImage(dm.ToPrettyPicture(0, rimage.MaxDepth), "aligned-depth")
 
 	// create edge map
-	source := &imagesource.StaticSource{DepthImg: dm}
+	source := &videosource.StaticSource{DepthImg: dm}
 	am := config.AttributeMap{
 		"high_threshold": 0.85,
 		"low_threshold":  0.40,
 		"blur_radius":    3.0,
 	}
-	ds, err := newDepthEdgesTransform(source, am)
+	ds, err := newDepthEdgesTransform(gostream.NewVideoSource(source, prop.Video{}), am)
 	test.That(t, err, test.ShouldBeNil)
-	edges, _, err := ds.Next(context.Background())
+	edges, _, err := camera.ReadImage(context.Background(), ds)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ds.Close(context.Background()), test.ShouldBeNil)
 
 	pCtx.GotDebugImage(edges, "edges-aligned-depth")
 
@@ -79,25 +84,27 @@ func (h *depthSourceTestHelper) Process(
 	pCtx.GotDebugPointCloud(fixedPointCloud, "aligned-pointcloud")
 
 	// preprocess depth map
-	source = &imagesource.StaticSource{DepthImg: dm}
-	rs, err := newDepthPreprocessTransform(source)
+	source = &videosource.StaticSource{DepthImg: dm}
+	rs, err := newDepthPreprocessTransform(gostream.NewVideoSource(source, prop.Video{}))
 	test.That(t, err, test.ShouldBeNil)
 
-	output, _, err := rs.Next(context.Background())
+	output, _, err := camera.ReadImage(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
 	preprocessed, err := rimage.ConvertImageToDepthMap(output)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
 	pCtx.GotDebugImage(preprocessed.ToPrettyPicture(0, rimage.MaxDepth), "preprocessed-aligned-depth")
 	preprocessedPointCloud := preprocessed.ToPointCloud(h.proj)
 	test.That(t, preprocessedPointCloud.MetaData().HasColor, test.ShouldBeFalse)
 	pCtx.GotDebugPointCloud(preprocessedPointCloud, "preprocessed-aligned-pointcloud")
 
-	source = &imagesource.StaticSource{DepthImg: preprocessed}
-	ds, err = newDepthEdgesTransform(source, am)
+	source = &videosource.StaticSource{DepthImg: preprocessed}
+	ds, err = newDepthEdgesTransform(gostream.NewVideoSource(source, prop.Video{}), am)
 	test.That(t, err, test.ShouldBeNil)
-	processedEdges, _, err := ds.Next(context.Background())
+	processedEdges, _, err := camera.ReadImage(context.Background(), ds)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ds.Close(context.Background()), test.ShouldBeNil)
 
 	pCtx.GotDebugImage(processedEdges, "edges-preprocessed-aligned-depth")
 
@@ -105,7 +112,7 @@ func (h *depthSourceTestHelper) Process(
 }
 
 func TestDepthSourceGripper(t *testing.T) {
-	debugImageTransformOrSkip(t)
+	debugVideoTransformOrSkip(t)
 	proj, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/gripper_parameters.json"))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -115,7 +122,7 @@ func TestDepthSourceGripper(t *testing.T) {
 }
 
 func TestDepthSourceIntel(t *testing.T) {
-	debugImageTransformOrSkip(t)
+	debugVideoTransformOrSkip(t)
 	proj, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
 	test.That(t, err, test.ShouldBeNil)
 

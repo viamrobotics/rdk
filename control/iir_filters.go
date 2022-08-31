@@ -21,7 +21,7 @@ type iirFilter struct {
 	normalizedGain float64   // normalizedGain will make the filter have a gain of one at DC
 }
 
-func calculateBiquadCoefficient(fc float64, p int, n int, rp float64, hp bool) ([]float64, []float64) {
+func calculateBiquadCoefficient(fc float64, p, n int, rp float64, hp bool) ([]float64, []float64) {
 	a := make([]float64, 3)
 	b := make([]float64, 3)
 	realP := -math.Cos(math.Pi/float64(2*n) + float64(p-1)*math.Pi/float64(n))
@@ -143,7 +143,7 @@ func (f *iirFilter) Reset() error {
 	return err
 }
 
-func design(fp float64, fs float64, gp float64, gs float64, smpFreq float64) (*iirFilter, error) {
+func design(fp, fs, gp, gs, smpFreq float64) (*iirFilter, error) {
 	wp := 2.0 * fp / smpFreq
 	ws := 2.0 * fs / smpFreq
 	if wp > 1.0 {

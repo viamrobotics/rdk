@@ -18,12 +18,11 @@ import (
 // TODO Data-343: Reorganize this into a more standard interface/package, and add tests.
 
 // FileExt defines the file extension for Viam data capture files.
-const FileExt = ".capture"
-
-// EmptyReadingErr defines the error for when a SensorData contains no data.
-func EmptyReadingErr(fileName string) error {
-	return errors.Errorf("%s contains SensorData containing no data", fileName)
-}
+const (
+	FileExt        = ".capture"
+	next           = "Next"
+	nextPointCloud = "NextPointCloud"
+)
 
 // CreateDataCaptureFile creates a timestamped file within the given capture directory.
 func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.File, error) {
@@ -47,7 +46,7 @@ func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.F
 }
 
 // BuildCaptureMetadata builds a DataCaptureMetadata object.
-func BuildCaptureMetadata(compType resource.SubtypeName, compName string, compModel string, method string,
+func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, method string,
 	additionalParams map[string]string,
 ) *v1.DataCaptureMetadata {
 	dataType := getDataType(string(compType), method)
@@ -58,7 +57,7 @@ func BuildCaptureMetadata(compType resource.SubtypeName, compName string, compMo
 		MethodName:       method,
 		Type:             dataType,
 		MethodParameters: additionalParams,
-		FileExtension:    getFileExt(dataType, method, additionalParams),
+		FileExtension:    GetFileExt(dataType, method, additionalParams),
 	}
 }
 
@@ -94,11 +93,6 @@ func ReadNextSensorData(f *os.File) (*v1.SensorData, error) {
 		return nil, err
 	}
 
-	// Ensure we construct and return a SensorData value for tabular data when the tabular data's fields and
-	// corresponding entries are not nil. Otherwise, return io.EOF error and nil.
-	if r.GetBinary() == nil && r.GetStruct() == nil {
-		return r, EmptyReadingErr(filepath.Base(f.Name()))
-	}
 	return r, nil
 }
 
@@ -109,14 +103,18 @@ func getFileTimestampName() string {
 }
 
 // TODO DATA-246: Implement this in some more robust, programmatic way.
-func getDataType(_ string, methodName string) v1.DataType {
-	if methodName == "NextPointCloud" {
+// TODO: support GetFrame. This is why image stuff isn't working.
+func getDataType(_, methodName string) v1.DataType {
+	switch methodName {
+	case nextPointCloud, next:
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
+	default:
+		return v1.DataType_DATA_TYPE_TABULAR_SENSOR
 	}
-	return v1.DataType_DATA_TYPE_TABULAR_SENSOR
 }
 
-func getFileExt(dataType v1.DataType, methodName string, parameters map[string]string) string {
+// GetFileExt gets the file extension for a capture file.
+func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]string) string {
 	defaultFileExt := ""
 	switch dataType {
 	case v1.DataType_DATA_TYPE_TABULAR_SENSOR:
@@ -124,10 +122,10 @@ func getFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 	case v1.DataType_DATA_TYPE_FILE:
 		return defaultFileExt
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR:
-		if methodName == "NextPointCloud" {
+		if methodName == nextPointCloud {
 			return ".pcd"
 		}
-		if methodName == "Next" {
+		if methodName == next {
 			// TODO: Add explicit file extensions for all mime types.
 			switch parameters["mime_type"] {
 			case utils.MimeTypeJPEG:

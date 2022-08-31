@@ -245,11 +245,11 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
 	}()
 	manager.addRemote(context.Background(),
-		newDummyRobot(context.Background(), setupInjectRobot(logger)),
+		newDummyRobot(setupInjectRobot(logger)),
 		config.Remote{Name: "remote1"}, nil,
 	)
 	manager.addRemote(context.Background(),
-		newDummyRobot(context.Background(), setupInjectRobot(logger)),
+		newDummyRobot(setupInjectRobot(logger)),
 		config.Remote{Name: "remote2"}, nil,
 	)
 
@@ -400,11 +400,11 @@ func TestManagerWithSameNameInRemoteNoPrefix(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
 	}()
 	manager.addRemote(context.Background(),
-		newDummyRobot(context.Background(), setupInjectRobot(logger)),
+		newDummyRobot(setupInjectRobot(logger)),
 		config.Remote{Name: "remote1"}, nil,
 	)
 	manager.addRemote(context.Background(),
-		newDummyRobot(context.Background(), setupInjectRobot(logger)),
+		newDummyRobot(setupInjectRobot(logger)),
 		config.Remote{Name: "remote2"}, nil,
 	)
 
@@ -423,7 +423,7 @@ func TestManagerWithSameNameInBaseAndRemote(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
 	}()
 	manager.addRemote(context.Background(),
-		newDummyRobot(context.Background(), setupInjectRobot(logger)),
+		newDummyRobot(setupInjectRobot(logger)),
 		config.Remote{Name: "remote1"}, nil,
 	)
 
@@ -772,11 +772,11 @@ func managerForTest(ctx context.Context, t *testing.T, l golog.Logger) *resource
 	manager := managerForDummyRobot(injectRobot)
 
 	manager.addRemote(context.Background(),
-		newDummyRobot(ctx, setupInjectRobot(l)),
+		newDummyRobot(setupInjectRobot(l)),
 		config.Remote{Name: "remote1"}, nil,
 	)
 	manager.addRemote(context.Background(),
-		newDummyRobot(ctx, setupInjectRobot(l)),
+		newDummyRobot(setupInjectRobot(l)),
 		config.Remote{Name: "remote2"}, nil,
 	)
 	_, err := manager.processManager.AddProcess(ctx, &fakeProcess{id: "1"}, false)
@@ -1509,7 +1509,7 @@ func TestManagerResourceRPCSubtypes(t *testing.T) {
 	}
 
 	manager.addRemote(context.Background(),
-		newDummyRobot(context.Background(), injectRobotRemote1),
+		newDummyRobot(injectRobotRemote1),
 		config.Remote{Name: "remote1"}, nil,
 	)
 
@@ -1549,7 +1549,7 @@ func TestManagerResourceRPCSubtypes(t *testing.T) {
 	}
 
 	manager.addRemote(context.Background(),
-		newDummyRobot(context.Background(), injectRobotRemote2),
+		newDummyRobot(injectRobotRemote2),
 		config.Remote{Name: "remote2"}, nil,
 	)
 
@@ -1661,7 +1661,7 @@ type dummyRobot struct {
 
 // newDummyRobot returns a new dummy robot wrapping a given robot.Robot
 // and its configuration.
-func newDummyRobot(ctx context.Context, robot robot.Robot) *dummyRobot {
+func newDummyRobot(robot robot.Robot) *dummyRobot {
 	remoteManager := managerForDummyRobot(robot)
 	remote := &dummyRobot{
 		robot:   robot,

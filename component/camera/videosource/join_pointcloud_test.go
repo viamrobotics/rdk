@@ -1,4 +1,4 @@
-package imagesource
+package videosource
 
 import (
 	"context"
@@ -40,7 +40,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam1.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc1, nil
 	}
-	cam1.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+	cam1.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	cam2 := &inject.Camera{}
@@ -50,7 +50,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc2, nil
 	}
-	cam2.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+	cam2.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	cam3 := &inject.Camera{}
@@ -60,7 +60,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam3.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc3, nil
 	}
-	cam3.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+	cam3.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	base1 := &inject.Base{}
@@ -141,9 +141,10 @@ func TestJoinPointCloudNaive(t *testing.T) {
 	test.That(t, got, test.ShouldBeTrue)
 	test.That(t, data.Color(), test.ShouldResemble, &color.NRGBA{0, 0, 255, 255})
 
-	img, _, err := joinedCam.Next(context.Background())
+	img, _, err := camera.ReadImage(context.Background(), joinedCam)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, img.Bounds(), test.ShouldResemble, image.Rect(0, 0, 1, 100))
+	test.That(t, joinedCam.Close(context.Background()), test.ShouldBeNil)
 
 	// PoV from cam1
 	attrs = &JoinAttrs{
@@ -170,9 +171,10 @@ func TestJoinPointCloudNaive(t *testing.T) {
 	test.That(t, got, test.ShouldBeTrue)
 	test.That(t, data.Color(), test.ShouldResemble, &color.NRGBA{0, 0, 255, 255})
 
-	img, _, err = joinedCam.Next(context.Background())
+	img, _, err = camera.ReadImage(context.Background(), joinedCam)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, img.Bounds(), test.ShouldResemble, image.Rect(0, 0, 1, 100))
+	test.That(t, joinedCam.Close(context.Background()), test.ShouldBeNil)
 }
 
 func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int) (pointcloud.PointCloud, error) {

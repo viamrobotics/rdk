@@ -1,4 +1,4 @@
-package imagesource
+package videosource
 
 import (
 	"context"
@@ -30,7 +30,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const numThreadsImagesource = 8 // This should be a param
+const numThreadsVideoSource = 8 // This should be a param
 
 func init() {
 	registry.RegisterComponent(
@@ -139,9 +139,9 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, l golog.Logger,
 
 	if idx, ok := contains(joinSource.sourceNames, joinSource.targetName); ok {
 		proj, _ := camera.GetProjector(ctx, nil, joinSource.sourceCameras[idx])
-		return camera.New(joinSource, proj)
+		return camera.NewFromReader(joinSource, proj)
 	}
-	return camera.New(joinSource, nil)
+	return camera.NewFromReader(joinSource, nil)
 }
 
 // NextPointCloud gets all the point clouds from the source cameras,
@@ -310,7 +310,7 @@ func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointc
 		}
 
 		registeredPointCloud, info, err := pointcloud.RegisterPointCloudICP(pcSrc, finalPointCloud,
-			theTransform.(*referenceframe.PoseInFrame).Pose(), jpcs.debug, numThreadsImagesource)
+			theTransform.(*referenceframe.PoseInFrame).Pose(), jpcs.debug, numThreadsVideoSource)
 		if err != nil {
 			return nil, err
 		}
@@ -377,12 +377,12 @@ func (jpcs *joinPointCloudSource) initializeInputs(
 	return inputs, nil
 }
 
-// Next gets the merged point cloud from all sources, and then uses a projection to turn it into a 2D image.
-func (jpcs *joinPointCloudSource) Next(ctx context.Context) (image.Image, func(), error) {
+// Read gets the merged point cloud from all sources, and then uses a projection to turn it into a 2D image.
+func (jpcs *joinPointCloudSource) Read(ctx context.Context) (image.Image, func(), error) {
 	var proj rimage.Projector
 	var err error
 	if idx, ok := contains(jpcs.sourceNames, jpcs.targetName); ok {
-		proj, err = jpcs.sourceCameras[idx].GetProperties(ctx)
+		proj, err = jpcs.sourceCameras[idx].Projector(ctx)
 		if err != nil && !errors.Is(err, transform.ErrNoIntrinsics) {
 			return nil, nil, err
 		}

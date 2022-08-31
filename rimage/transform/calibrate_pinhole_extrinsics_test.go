@@ -3,7 +3,7 @@ package transform
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"testing"
 
@@ -28,7 +28,7 @@ func TestExtrinsicCalibration(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer jsonFile.Close()
 
-	byteValue, err := ioutil.ReadAll(jsonFile)
+	byteValue, err := io.ReadAll(jsonFile)
 	test.That(t, err, test.ShouldBeNil)
 
 	extConf := &ExtrinsicCalibrationConfig{}
