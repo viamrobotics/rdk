@@ -10,13 +10,7 @@ export const normalizeRemoteName = (name: string) => {
 };
 
 const sortByName = (a: Resource, b: Resource) => {
-  if (a.name < b.name) {
-    return -1;
-  }
-  if (a.name > b.name) {
-    return 1;
-  }
-  return 0;
+  return a.name > b.name ? 1 : -1;
 };
 
 export const resourceNameToSubtypeString = (resource: Resource) => {
@@ -40,13 +34,19 @@ export const resourceNameToString = (resource: Resource) => {
 };
 
 export const filterResources = (resources: Resource[], namespace: string, type: string, subtype: string) => {
-  return resources
-    .filter((resource) =>
+  const results = [];
+
+  for (const resource of resources) {
+    if (
       resource.namespace === namespace &&
       resource.type === type &&
       resource.subtype === subtype
-    )
-    .sort(sortByName);
+    ) {
+      results.push(resource);
+    }
+  }
+
+  return results.sort(sortByName);
 };
 
 export const filterRdkComponentsWithStatus = (resources: Resource[], status: any, subtype: string) => {

@@ -81,7 +81,7 @@ export default {
       cameraFrameIntervalId: null,
       slamImageIntervalId: null,
       slamPCDIntervalId: null,
-      pointcloud: null,
+      pointcloud: '',
       objects: null,
       armToggle: {},
       value: 0,
@@ -1240,7 +1240,7 @@ let lastStatusTS = Date.now();
         class="w-96"
       >
         <input
-          class="mb-2 block w-full appearance-none border p-2 text-gray-700 transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none dark:text-gray-200 dark:placeholder:text-gray-500"
+          class="mb-2 block w-full appearance-none border p-2 text-gray-700 transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none"
           type="password"
         >
         <button
@@ -1962,7 +1962,7 @@ let lastStatusTS = Date.now();
       :camera-name="camera.name"
       :crumbs="[camera.name]"
       :pointcloud="pointcloud"
-      :resources="nav.resources"
+      :resources="resources"
       @toggle-camera="isOn => { viewCamera(camera.name, isOn) }"
       @refresh-camera="t => { viewCameraFrame(camera.name, t) }"
       @selected-camera-view="t => { viewCameraFrame(camera.name, t) }"

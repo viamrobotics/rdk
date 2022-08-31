@@ -10,14 +10,6 @@ interface Props {
   cameraName: string
   crumbs: string[]
   resources: Resource[]
-  segmenterNames?: string[]
-  segmentObjects?: Record<string, unknown>[]
-  segmenterParameterNames?: {
-    getName(): string
-    getType(): string
-  }[]
-  parameterType: (type: string) => string
-  segmenterParameters: Record<string, unknown>
   pointcloud: string
 }
 
@@ -38,8 +30,6 @@ let pcdExpanded = $ref(false);
 
 const camera = ref(false);
 const selectedValue = ref('live');
-const selectedSegmenterValue = ref('');
-const selectedObject = ref('');
 
 const toggleExpand = () => {
   camera.value = !camera.value;
@@ -52,22 +42,6 @@ const selectCameraView = () => {
 
 const refreshCamera = () => {
   emit('refresh-camera', selectedValue.value);
-};
-
-const findSegments = () => {
-  emit(
-    'find-segments',
-    selectedSegmenterValue.value,
-    props.segmenterParameters
-  );
-};
-
-const selectObject = (event: string) => {
-  emit('select-object', event, selectedObject.value);
-};
-
-const changeObject = (event: Event) => {
-  emit('select-object', (event.currentTarget as HTMLSelectElement).value, 'Center Point');
 };
 
 const togglePCDExpand = () => {
@@ -103,7 +77,7 @@ const togglePCDExpand = () => {
                 v-if="camera"
                 class="w-64"
               >
-                <p class="font-label mb-1 text-gray-800 dark:text-gray-200">
+                <p class="font-label mb-1 text-gray-800">
                   Refresh frequency
                 </p>
                 <div class="relative">
@@ -133,7 +107,7 @@ const togglePCDExpand = () => {
                     class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
                   >
                     <svg
-                      class="h-4 w-4 stroke-2 text-gray-700 dark:text-gray-300"
+                      class="h-4 w-4 stroke-2 text-gray-700"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
                       stroke-linejoin="round"

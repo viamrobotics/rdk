@@ -6,7 +6,7 @@
  */
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { nextTick, onMounted, onUnmounted, watch } from 'vue';
+import { onMounted, onUnmounted, watch } from 'vue';
 import * as THREE from 'three';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
@@ -31,12 +31,16 @@ const props = defineProps<Props>();
 const container = $ref<HTMLDivElement>();
 
 let cube: THREE.LineSegments;
+let pointsMaterial: THREE.PointsMaterial;
+
 let segmenterParameterNames = $ref<TypedParameter[]>();
 let objects = $ref<PointCloudObject[]>([]);
 let segmenterNames = $ref<string[]>([]);
 let segmenterParameters = $ref<Record<string, number>>({});
 let calculatingSegments = $ref(false);
 let url = $ref('');
+let pointsSize = $ref(1);
+const click = $ref(new THREE.Vector3());
 
 const selectedObject = $ref('');
 const selectedSegmenter = $ref('');
@@ -49,34 +53,39 @@ const distanceFromCamera = $computed(() => Math.round(
 
 const loader = new PCDLoader();
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
-const renderer = new THREE.WebGLRenderer();
+const camera = new THREE.PerspectiveCamera(
+  75, window.innerWidth / window.innerHeight, 0.01, 2000
+);
+const renderer = new THREE.WebGLRenderer({
+  powerPreference: 'high-performance',
+  antialias: true,
+});
+renderer.setClearColor('white');
 const raycaster = new THREE.Raycaster();
+raycaster.params.Points.threshold = 0.1;
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
 const sphereGeometry = new THREE.SphereGeometry(0.009, 32, 32);
 const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xFF_00_00 });
 const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-const controls = new OrbitControls(camera, renderer.domElement);
-const click = new THREE.Vector3();
-camera.position.set(0, 0, 0);
-controls.target.set(0, 0, -1);
-controls.update();
-camera.updateMatrix();
 
-let frameId = -1;
+const size = 10;
+const divisions = 10;
+const gridHelper = new THREE.GridHelper(size, divisions);
+gridHelper.material.color.set('black');
 
 const renderPCD = () => {
-  nextTick(() => {
-    const request = new cameraApi.GetPointCloudRequest();
-    request.setName(props.cameraName);
-    request.setMimeType('pointcloud/pcd');
-    window.cameraService.getPointCloud(request, new grpc.Metadata(), (error, response) => {
-      if (error) {
-        toast.error(`Error getting point cloud: ${error}`);
-        return;
-      }
-      const pointcloud = response!.getPointCloud_asB64();
-      url = `data:pointcloud/pcd;base64,${pointcloud}`;
-    });
+  const request = new cameraApi.GetPointCloudRequest();
+  request.setName(props.cameraName);
+  request.setMimeType('pointcloud/pcd');
+  window.cameraService.getPointCloud(request, new grpc.Metadata(), (error, response) => {
+    if (error) {
+      toast.error(`Error getting point cloud: ${error}`);
+      return;
+    }
+
+    update(response!.getPointCloud_asB64());
   });
 
   getSegmenterNames();
@@ -86,8 +95,8 @@ const getSegmenterNames = () => {
   const request = new visionApi.GetSegmenterNamesRequest();
   // We are deliberately just getting the first vision service to ensure this will not break.
   // May want to allow for more services in the future
-  const visionName = filterResources(props.resources, 'rdk', 'services', 'vision')[0];
-  
+  const [visionName] = filterResources(props.resources, 'rdk', 'service', 'vision');
+
   request.setName(visionName.name);
 
   window.visionService.getSegmenterNames(request, new grpc.Metadata(), (error, response) => {
@@ -104,7 +113,7 @@ const getSegmenterParameters = () => {
   const req = new visionApi.GetSegmenterParametersRequest();
   // We are deliberately just getting the first vision service to ensure this will not break.
   // May want to allow for more services in the future
-  const visionName = filterResources(props.resources, 'rdk', 'services', 'vision')[0];
+  const visionName = filterResources(props.resources, 'rdk', 'service', 'vision')[0];
 
   req.setName(visionName.name);
   req.setSegmenterName(selectedSegmenter);
@@ -121,27 +130,23 @@ const getSegmenterParameters = () => {
 };
 
 const animate = () => {
-  frameId = requestAnimationFrame(animate);
-
-  if (resizeRendererToDisplaySize()) {
-    const canvas = renderer.domElement;
-    camera.aspect = canvas.clientWidth / canvas.clientHeight;
-    camera.updateProjectionMatrix();
-  }
-
+  resizeRendererToDisplaySize();
   renderer.render(scene, camera);
   controls.update();
 };
 
 const resizeRendererToDisplaySize = () => {
   const canvas = renderer.domElement;
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
+  const pixelRatio = window.devicePixelRatio;
+  const width = Math.trunc(canvas.clientWidth * pixelRatio);
+  const height = Math.trunc(canvas.clientHeight * pixelRatio);
   const needResize = canvas.width !== width || canvas.height !== height;
+
   if (needResize) {
     renderer.setSize(width, height, false);
+    camera.aspect = canvas.clientWidth / canvas.clientHeight;
+    camera.updateProjectionMatrix();
   }
-  return needResize;
 };
 
 const setPoint = (point: THREE.Vector3) => {
@@ -166,7 +171,7 @@ const findSegments = () => {
 
   // We are deliberately just getting the first vision service to ensure this will not break.
   // May want to allow for more services in the future
-  const visionName = filterResources(props.resources, 'rdk', 'services', 'vision')[0];
+  const visionName = filterResources(props.resources, 'rdk', 'service', 'vision')[0];
   
   req.setName(visionName.name);
   req.setCameraName(props.cameraName);
@@ -187,6 +192,7 @@ const findSegments = () => {
 };
 
 const loadSegment = (index: string) => {
+  console.log(objects, index)
   const segment = objects[index]!;
   const pointcloud = segment.getPointCloud_asB64();
   const center = segment.getGeometries()!.getGeometriesList()[0].getCenter()!;
@@ -201,7 +207,7 @@ const loadSegment = (index: string) => {
   setPoint(point);
 
   setBoundingBox(box, point);
-  url = `data:pointcloud/pcd;base64,${pointcloud}`;
+  update(pointcloud);
 };
 
 const loadBoundingBox = (index: string) => {
@@ -253,17 +259,27 @@ const setBoundingBox = (box: RectangularPrism, centerPoint: THREE.Vector3) => {
   scene.add(cube);
 };
 
+const getCanvasRelativePosition = (event: MouseEvent) => {
+  const canvas = renderer.domElement;
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (event.clientX - rect.left) * canvas.width / rect.width,
+    y: (event.clientY - rect.top) * canvas.height / rect.height,
+  };
+};
+
 const handleClick = (event: MouseEvent) => {
-  const mouse = new THREE.Vector2();
-  const target = event.currentTarget as HTMLDivElement;
-  mouse.x = (event.offsetX / target.offsetWidth) * 2 - 1;
-  mouse.y = (event.offsetY / target.offsetHeight) * -2 + 1;
+  const { x, y } = getCanvasRelativePosition(event);
+  const mouse = new THREE.Vector2(x, y);
+
+  console.log(x, y)
 
   raycaster.setFromCamera(mouse, camera);
 
-  const [intersect] = raycaster.intersectObjects(scene.children);
+  const [intersect] = raycaster.intersectObjects([scene.getObjectByName('points')!]);
 
-  if (intersect !== null) {
+  if (intersect) {
+    console.log(intersect);
     setPoint(intersect.point);
   } else {
     toast.info('No point intersected.');
@@ -281,7 +297,7 @@ const handleMove = () => {
   const cameraPoint = new commonApi.Pose();
   // We are deliberately just getting the first motion service to ensure this will not break.
   // May want to allow for more services in the future
-  const motionName = filterResources(props.resources, 'rdk', 'services', 'motion')[0];
+  const motionName = filterResources(props.resources, 'rdk', 'service', 'motion')[0];
   cameraPoint.setX(cameraPointX);
   cameraPoint.setY(cameraPointY);
   cameraPoint.setZ(cameraPointZ);
@@ -327,33 +343,54 @@ const handleDownload = () => {
   window.open(url);
 };
 
-onMounted(() => {
-  container.append(renderer.domElement);
-  renderer.setSize(window.innerWidth / 2, window.innerHeight / 2);
-  requestAnimationFrame(animate);
-  renderPCD();
-});
+const handlePointsResize = (event: CustomEvent) => {
+  console.log(event.detail.value)
+  pointsSize = event.detail.value;
+  pointsMaterial.size = pointsSize;
+  pointsMaterial.needsUpdate = true;
+};
 
-onUnmounted(() => {
-  cancelAnimationFrame(frameId);
-});
-
-watch(() => props.pointcloud, async (pointcloud: string) => {
-  if (!pointcloud) {
+const update = async (cloud: string) => {
+  console.log(atob(cloud));
+  if (!cloud) {
     return;
   }
 
-  url = `data:pointcloud/pcd;base64,${pointcloud}`;
+  url = `data:pointcloud/pcd;base64,${cloud}`;
   const points = await loader.loadAsync(url);
+  points.name = 'points';
+  
+  pointsMaterial = points.material as THREE.PointsMaterial;
+  pointsMaterial.size = pointsSize;
+  pointsMaterial.vertexColors = true;
+
   scene.clear();
   scene.add(points);
+  camera.position.set(0.5, 0.5, 1);
+  camera.lookAt(0, 0, 0);
+
   scene.add(sphere);
+  scene.add(gridHelper);
 
   if (cube) {
     scene.add(cube);
   }
 
   animate();
+};
+
+onMounted(() => {
+  container.append(renderer.domElement);
+  renderer.setAnimationLoop(animate);
+  renderPCD();
+});
+
+onUnmounted(() => {
+  renderer.setAnimationLoop(null);
+});
+
+watch(() => props.pointcloud, (updated: string) => {
+  update(updated);
 });
 
 </script>
@@ -375,7 +412,7 @@ watch(() => props.pointcloud, async (pointcloud: string) => {
 
     <div
       ref="container"
-      class="relative"
+      class="pcd-container relative w-full border border-black"
       @click="handleClick"
     />
 
@@ -390,6 +427,17 @@ watch(() => props.pointcloud, async (pointcloud: string) => {
       />
     </div>
 
+    <div class="flex items-center gap-1 whitespace-nowrap w-36 relative">
+      <v-slider
+        label="Points Size"
+        min="1"
+        value="1"
+        max="10"
+        step="0.1"
+        @input="handlePointsResize"
+      />
+    </div>
+  
     <div class="clear-both grid grid-cols-1 divide-y">
       <div>
         <div class="container mx-auto pt-4">
@@ -421,7 +469,7 @@ watch(() => props.pointcloud, async (pointcloud: string) => {
                 class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
               >
                 <svg
-                  class="h-4 w-4 stroke-2 text-gray-700 dark:text-gray-300"
+                  class="h-4 w-4 stroke-2 text-gray-700"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
                   stroke-linejoin="round"
@@ -540,3 +588,9 @@ watch(() => props.pointcloud, async (pointcloud: string) => {
     </div>
   </div>
 </template>
+
+<style>
+  .pcd-container canvas {
+    width: 100%;
+  }
+</style>

@@ -24,7 +24,7 @@
                 v-if="showImage"
                 class="w-64"
               >
-                <p class="font-label mb-1 text-gray-800 dark:text-gray-200">
+                <p class="font-label mb-1 text-gray-800">
                   Refresh frequency
                 </p>
                 <div class="relative">
@@ -51,7 +51,7 @@
                     class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
                   >
                     <svg
-                      class="h-4 w-4 stroke-2 text-gray-700 dark:text-gray-300"
+                      class="h-4 w-4 stroke-2 text-gray-700"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
                       stroke-linejoin="round"
@@ -94,7 +94,7 @@
                 v-if="showPCD"
                 class="w-64"
               >
-                <p class="font-label mb-1 text-gray-800 dark:text-gray-200">
+                <p class="font-label mb-1 text-gray-800">
                   Refresh frequency
                 </p>
                 <div class="relative">
@@ -121,7 +121,7 @@
                     class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
                   >
                     <svg
-                      class="h-4 w-4 stroke-2 text-gray-700 dark:text-gray-300"
+                      class="h-4 w-4 stroke-2 text-gray-700"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
                       stroke-linejoin="round"
