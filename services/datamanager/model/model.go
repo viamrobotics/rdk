@@ -4,7 +4,6 @@ import (
 	// "bytes"
 	"context"
 	// "errors"
-	"fmt"
 
 	// "io/ioutil"
 	"sync"
@@ -80,7 +79,6 @@ func NewManager(logger golog.Logger, partID string, client v1.ModelServiceClient
 }
 
 func (s *modelr) Deploy(ctx context.Context, req *v1.DeployRequest) (*v1.DeployResponse, error) {
-	fmt.Println("called Deploy() in model/model.go")
 	resp, err := s.client.Deploy(ctx, req)
 	if err != nil {
 		return nil, err

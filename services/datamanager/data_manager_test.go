@@ -3,7 +3,6 @@ package datamanager_test
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"io/fs"
 	"io/ioutil"
@@ -11,7 +10,6 @@ import (
 
 	// "net/http"
 	"os"
-	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -301,7 +299,6 @@ func TestRecoversAfterKilled(t *testing.T) {
 // but not downloaded model files are still downloaded at start up.
 func TestModelsAfterKilled(t *testing.T) {
 	// Register mock model service with a mock server.
-
 	modelServer, mockModelService := buildAndStartLocalModelServer(t)
 	defer func() {
 		err := modelServer.Stop()
@@ -314,7 +311,6 @@ func TestModelsAfterKilled(t *testing.T) {
 	}
 
 	testCfg := setupConfig(t, configPath)
-	testCfg.Cloud = &config.Cloud{AppAddress: modelServer.InternalAddr().String()}
 
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
@@ -322,7 +318,6 @@ func TestModelsAfterKilled(t *testing.T) {
 	dmCfg.ModelsToDeploy = append(dmCfg.ModelsToDeploy, models...)
 
 	// Initialize the data manager and update it with our config.
-	// mmsvc := newTestModelManager(t, "arm1", "")
 	dmsvc := newTestDataManager(t, "arm1", "")
 
 	// set default manager to connect to local version
@@ -407,7 +402,7 @@ func populateModels() ([]*datamanager.Model, error) {
 	var additionalModels []*datamanager.Model
 
 	// Setting destination as nil forces adoption of
-	// the default directory in data_manager.go
+	// the default model directory in data_manager.go
 	m := &datamanager.Model{Name: "m1", Destination: ""}
 	additionalModels = append(additionalModels, m)
 
@@ -780,13 +775,10 @@ func (m mockModelServiceServer) getDeployedModels() []datamanager.Model {
 func (m mockModelServiceServer) Deploy(ctx context.Context, req *m1.DeployRequest) (*m1.DeployResponse, error) {
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
-	fmt.Println("called Deploy() in data_manager_test.go")
-	// fmt.Println("Client in data_manager_test.go/Deploy()!: ", datamanager.Client)
-	// datamanager.Client = &http.Client{}
 	datamanager.Client = &MockClient{}
-	// fmt.Printf("datamanager.Client type %T\n: ", datamanager.Client)
-	// fmt.Println("Client in data_manager_test.go/Deploy()!: ", datamanager.Client)
 	depResp := &m1.DeployResponse{Message: "abc"}
+	// model := &datamanager.Model{Name: "fileName", Destination: ""}
+	// *m.deployedModels = append(*m.deployedModels, *model)
 	return depResp, nil
 }
 
@@ -797,41 +789,18 @@ type MockClient struct {
 
 // Do is the mock client's `Do` func
 func (m *MockClient) Do(req *http.Request) (*http.Response, error) {
-	// fmt.Println("hey there ;)")
-	r := ioutil.NopCloser(bytes.NewReader([]byte("body")))
+	r := ioutil.NopCloser(bytes.NewReader([]byte("mocked response")))
 	response := &http.Response{
 		StatusCode: 200,
 		Body:       r,
 	}
 	return response, nil
-	// return GetDoFunc(req)
 }
 
 var (
 	// GetDoFunc fetches the mock client's `Do` func
 	GetDoFunc func(req *http.Request) (*http.Response, error)
 )
-
-// MockHTTPResponse sets the mock do function
-func MockHTTPResponse() {
-	fmt.Println("MockHTTPResponse()")
-	r := ioutil.NopCloser(bytes.NewReader([]byte("body")))
-	response := &http.Response{
-		StatusCode: 200,
-		Body:       r,
-	}
-	GetDoFunc = func(*http.Request) (*http.Response, error) {
-		return response, nil
-	}
-}
-
-// MockHTTPError sets the mock do function
-func MockHTTPError(err string) {
-	fmt.Println("MockHTTPError")
-	GetDoFunc = func(*http.Request) (*http.Response, error) {
-		return nil, errors.New(err)
-	}
-}
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
 	var fileName string
@@ -870,8 +839,8 @@ func (m mockModelServiceServer) Upload(stream m1.ModelService_UploadServer) erro
 		}
 	}
 	// make sure that dest is what we want to be doing.
-	dest := filepath.Join(filepath.Join(os.Getenv("HOME"), "models", ".viam"), fileName)
-	model := &datamanager.Model{Name: fileName, Destination: dest}
+	// dest := filepath.Join(filepath.Join(os.Getenv("HOME"), "models", ".viam"), fileName)
+	model := &datamanager.Model{Name: fileName, Destination: ""}
 	(*m.lock).Lock()
 	*m.deployedModels = append(*m.deployedModels, *model)
 	(*m.lock).Unlock()
