@@ -1,11 +1,17 @@
 package model
 
 import (
+	// "bytes"
 	"context"
+	// "errors"
 	"fmt"
+
+	// "io/ioutil"
 	"sync"
 
 	"github.com/edaniels/golog"
+
+	// "net/http"
 
 	v1 "go.viam.com/api/proto/viam/model/v1"
 	"go.viam.com/rdk/config"
@@ -19,9 +25,10 @@ type Manager interface {
 
 // modelr is responsible for uploading files in captureDir to the cloud.
 type modelr struct {
-	partID            string
-	conn              rpc.ClientConn
-	client            v1.ModelServiceClient
+	partID string
+	conn   rpc.ClientConn
+	client v1.ModelServiceClient
+	// httpClient        http.Client
 	logger            golog.Logger
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
@@ -60,8 +67,9 @@ func NewManager(logger golog.Logger, partID string, client v1.ModelServiceClient
 ) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := modelr{
-		conn:              conn,
-		client:            client,
+		conn:   conn,
+		client: client,
+		// httpClient:        http.Client{},
 		logger:            logger,
 		backgroundWorkers: sync.WaitGroup{},
 		cancelCtx:         cancelCtx,
