@@ -154,12 +154,6 @@
     :versions: []
     :when: 2022-08-30 15:40:18.342840322 Z
 - - :ignore
-  - github.com/viamrobotics/evdev
-  - :who:
-    :why: this is our library
-    :versions: []
-    :when: 2022-08-30 15:41:06.902196379 Z
-- - :ignore
   - github.com/ziutek/mymysql
   - :who:
     :why: 'TODO(RSDK-580): temporarily ignoring to pass CI - it has an unnamed license
@@ -204,16 +198,24 @@
   - github.com/gonum/matrix
   - New BSD
   - :who:
-    :why: 'TODO(RSDK-582): this library is deprecated but still an indirect dependency
+    :why:
+      'TODO(RSDK-582): this library is deprecated but still an indirect dependency
       to RDK'
     :license_links: https://github.com/gonum/license/blob/59758bd3db1383fa1f02f88eceee1f8568a87039/LICENSE
     :versions: []
     :when: 2022-08-30 16:24:26.855308650 Z
 - - :license
-  - "@viamrobotics/rpc"
+  - '@viamrobotics/rpc'
   - MIT
   - :who:
     :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
     :license_links: https://github.com/viamrobotics/goutils/blob/6684974ace14045e04d479777852602817e03313/LICENSE
     :versions: []
     :when: 2022-08-31 20:08:14.585047144 Z
+- - :approve
+  - github.com/viamrobotics/evdev
+  - :who:
+    :why: 'license language is compatible with AGPL'
+    :license_links: 'https://github.com/viamrobotics/evdev/blob/5a415229fba9557cca9bfedc7ba89cb48f28fab0/LICENSE'
+    :versions: []
+    :when: 2022-08-31 20:13:08.147340927 Z
