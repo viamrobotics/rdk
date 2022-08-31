@@ -3,10 +3,12 @@ package datasync
 import (
 	"context"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
@@ -22,59 +24,28 @@ import (
 )
 
 var (
+	sendWaitTime   = time.Millisecond * 25
 	partID         = "partid"
 	componentType  = "componenttype"
 	componentName  = "componentname"
 	componentModel = "componentmodel"
-	methodName     = "methodname"
-	binaryFileExt  = ".pcd"
-	tabularFileExt = ".csv"
-	defaultFileExt = ""
+	methodName     = "NextPointCloud"
 )
 
 // Compares UploadRequests containing either binary or tabular sensor data.
-//
-//nolint:thelper
-func compareUploadRequests(t *testing.T, isTabular bool, actual, expected []*v1.UploadRequest) {
+func compareTabularUploadRequests(t *testing.T, actual, expected []*v1.UploadRequest) {
+	t.Helper()
 	// Ensure length of slices is same before proceeding with rest of tests.
 	test.That(t, len(actual), test.ShouldEqual, len(expected))
 
 	if len(actual) > 0 {
-		// Compare metadata upload requests (uncomment below).
-		compareMetadata(t, actual[0].GetMetadata(), expected[0].GetMetadata())
-
-		// Compare data differently for binary & tabular data.
-		if isTabular {
-			// Compare tabular data upload request (stream).
-			for i, uploadRequest := range actual[1:] {
-				a := uploadRequest.GetSensorContents().GetStruct()
-				e := actual[i+1].GetSensorContents().GetStruct()
-				test.That(t, a, test.ShouldResemble, e)
-			}
-		} else {
-			// Compare sensor data upload request (stream).
-			for i, uploadRequest := range actual[1:] {
-				a := uploadRequest.GetSensorContents().GetBinary()
-				e := expected[i+1].GetSensorContents().GetBinary()
-				test.That(t, a, test.ShouldResemble, e)
-			}
+		test.That(t, actual[0].GetMetadata().String(), test.ShouldResemble, expected[0].GetMetadata().String())
+		for i := range actual[1:] {
+			a := actual[i+1].GetSensorContents().GetStruct().String()
+			e := expected[i+1].GetSensorContents().GetStruct().String()
+			test.That(t, a, test.ShouldResemble, e)
 		}
 	}
-}
-
-//nolint:thelper
-func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
-	expectedMetadata *v1.UploadMetadata,
-) {
-	// Test the fields within UploadRequest Metadata.
-	test.That(t, filepath.Base(actualMetadata.FileName), test.ShouldEqual, filepath.Base(expectedMetadata.FileName))
-	test.That(t, actualMetadata.PartId, test.ShouldEqual, expectedMetadata.PartId)
-	test.That(t, actualMetadata.ComponentName, test.ShouldEqual, expectedMetadata.ComponentName)
-	test.That(t, actualMetadata.ComponentModel, test.ShouldEqual, expectedMetadata.ComponentModel)
-	test.That(t, actualMetadata.ComponentType, test.ShouldEqual, expectedMetadata.ComponentType)
-	test.That(t, actualMetadata.MethodName, test.ShouldEqual, expectedMetadata.MethodName)
-	test.That(t, actualMetadata.Type, test.ShouldEqual, expectedMetadata.Type)
-	test.That(t, actualMetadata.FileExtension, test.ShouldEqual, expectedMetadata.FileExtension)
 }
 
 type anyStruct struct {
@@ -89,24 +60,6 @@ func toProto(r interface{}) *structpb.Struct {
 		return nil
 	}
 	return msg
-}
-
-func writeBinarySensorData(f *os.File, toWrite [][]byte) error {
-	if _, err := f.Seek(0, 0); err != nil {
-		return err
-	}
-	for _, bytes := range toWrite {
-		sd := &v1.SensorData{
-			Data: &v1.SensorData_Binary{
-				Binary: bytes,
-			},
-		}
-		_, err := pbutil.WriteDelimited(f, sd)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func writeSensorData(f *os.File, sds []*v1.SensorData) error {
@@ -145,10 +98,62 @@ func createTabularSensorData(toWrite []*structpb.Struct) []*v1.SensorData {
 	return sds
 }
 
+func buildSensorDataUploadRequests(sds []*v1.SensorData, dataType v1.DataType, filePath string) []*v1.UploadRequest {
+	var expMsgs []*v1.UploadRequest
+	if len(sds) == 0 {
+		return expMsgs
+	}
+	// Metadata message precedes sensor data messages.
+	expMsgs = append(expMsgs, &v1.UploadRequest{
+		UploadPacket: &v1.UploadRequest_Metadata{
+			Metadata: &v1.UploadMetadata{
+				PartId:         partID,
+				Type:           dataType,
+				FileName:       filepath.Base(filePath),
+				ComponentType:  componentType,
+				ComponentName:  componentName,
+				ComponentModel: componentModel,
+				MethodName:     methodName,
+				FileExtension:  datacapture.GetFileExt(dataType, methodName, nil),
+			},
+		},
+	})
+	for _, expMsg := range sds {
+		expMsgs = append(expMsgs, &v1.UploadRequest{
+			UploadPacket: &v1.UploadRequest_SensorContents{
+				SensorContents: expMsg,
+			},
+		})
+	}
+	return expMsgs
+}
+
+func buildFileDataUploadRequests(bs [][]byte, fileName string) []*v1.UploadRequest {
+	var expMsgs []*v1.UploadRequest
+	// Metadata message precedes sensor data messages.
+	expMsgs = append(expMsgs, &v1.UploadRequest{
+		UploadPacket: &v1.UploadRequest_Metadata{
+			Metadata: &v1.UploadMetadata{
+				PartId:   partID,
+				Type:     v1.DataType_DATA_TYPE_FILE,
+				FileName: fileName,
+			},
+		},
+	})
+	for _, b := range bs {
+		expMsgs = append(expMsgs, &v1.UploadRequest{
+			UploadPacket: &v1.UploadRequest_FileContents{
+				FileContents: &v1.FileData{Data: b},
+			},
+		})
+	}
+	return expMsgs
+}
+
 // createTmpDataCaptureFile creates a data capture file, which is defined as a file with the dataCaptureFileExt as its
 // file extension.
 func createTmpDataCaptureFile() (file *os.File, err error) {
-	tf, err := os.CreateTemp("", "")
+	tf, err := ioutil.TempFile("", "")
 	if err != nil {
 		return nil, err
 	}
@@ -162,51 +167,6 @@ func createTmpDataCaptureFile() (file *os.File, err error) {
 	return ret, nil
 }
 
-func buildBinaryUploadRequests(data [][]byte, fileName string) []*v1.UploadRequest {
-	var expMsgs []*v1.UploadRequest
-	if len(data) == 0 {
-		return expMsgs
-	}
-	// Metadata message precedes sensor data messages.
-	expMsgs = append(expMsgs, &v1.UploadRequest{
-		UploadPacket: &v1.UploadRequest_Metadata{
-			Metadata: &v1.UploadMetadata{
-				PartId:         partID,
-				Type:           v1.DataType_DATA_TYPE_BINARY_SENSOR,
-				FileName:       fileName,
-				ComponentType:  componentType,
-				ComponentName:  componentName,
-				ComponentModel: componentModel,
-				MethodName:     methodName,
-				FileExtension:  binaryFileExt,
-			},
-		},
-	})
-	for _, expMsg := range data {
-		expMsgs = append(expMsgs, &v1.UploadRequest{
-			UploadPacket: &v1.UploadRequest_SensorContents{
-				SensorContents: &v1.SensorData{
-					Data: &v1.SensorData_Binary{
-						Binary: expMsg,
-					},
-				},
-			},
-		})
-	}
-	return expMsgs
-}
-
-func getMockService() *mockDataSyncServiceServer {
-	return &mockDataSyncServiceServer{
-		uploadRequests:                     &[]*v1.UploadRequest{},
-		callCount:                          &atomic.Int32{},
-		failAtIndex:                        -1,
-		lock:                               &sync.Mutex{},
-		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
-		errorToReturn:                      errors.New("oh no error :("),
-	}
-}
-
 //nolint:thelper
 func buildAndStartLocalServer(t *testing.T, logger golog.Logger, mockService *mockDataSyncServiceServer) rpc.Server {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
@@ -214,6 +174,7 @@ func buildAndStartLocalServer(t *testing.T, logger golog.Logger, mockService *mo
 	err = rpcServer.RegisterServiceServer(
 		context.Background(),
 		&v1.DataSyncService_ServiceDesc,
+		// TODO: why does this break on partial uploads without dereference?
 		mockService,
 		v1.RegisterDataSyncServiceHandlerFromEndpoint,
 	)
@@ -245,6 +206,26 @@ type mockDataSyncServiceServer struct {
 
 	lock *sync.Mutex
 	v1.UnimplementedDataSyncServiceServer
+
+	messagesPerAck      int
+	messagesToAck       int
+	clientShutdownIndex int
+	cancelChannel       chan bool
+	doneCancelChannel   chan bool
+}
+
+func getMockService() *mockDataSyncServiceServer {
+	return &mockDataSyncServiceServer{
+		uploadRequests:                     &[]*v1.UploadRequest{},
+		callCount:                          &atomic.Int32{},
+		failAtIndex:                        -1,
+		lock:                               &sync.Mutex{},
+		UnimplementedDataSyncServiceServer: v1.UnimplementedDataSyncServiceServer{},
+		errorToReturn:                      errors.New("generic error goes here"),
+		messagesPerAck:                     1,
+		messagesToAck:                      0,
+		clientShutdownIndex:                -1,
+	}
 }
 
 func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
@@ -258,10 +239,12 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 	if m.callCount.Load() < m.failUntilIndex {
 		return m.errorToReturn
 	}
+	m.messagesToAck = 0
 	for {
-		if m.callCount.Load() == m.failAtIndex {
+		if len(m.getUploadRequests()) == int(m.failAtIndex) {
 			return m.errorToReturn
 		}
+
 		ur, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
 			break
@@ -269,12 +252,30 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 		if err != nil {
 			return err
 		}
+
+		// Append UploadRequest to list of recorded requests.
 		(*m.lock).Lock()
 		*m.uploadRequests = append(*m.uploadRequests, ur)
+		if ur.GetMetadata() == nil {
+			m.messagesToAck++
+		}
 		(*m.lock).Unlock()
-	}
-	if err := stream.SendAndClose(&v1.UploadResponse{}); err != nil {
-		return err
+
+		if m.messagesToAck == m.messagesPerAck {
+			if err := stream.Send(&v1.UploadResponse{RequestsWritten: int32(m.messagesToAck)}); err != nil {
+				return err
+			}
+			time.Sleep(sendWaitTime)
+			m.messagesToAck = 0
+		}
+
+		// If we want the client to cancel its own context, send signal through channel to the client, then wait for
+		// client to Close. This simulates a client's context being cancelled before receiving a sent ACK.
+		if m.clientShutdownIndex == len(m.getUploadRequests())-1 {
+			m.cancelChannel <- true
+			<-m.doneCancelChannel
+			break
+		}
 	}
 	return nil
 }
