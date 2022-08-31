@@ -103,7 +103,7 @@ type Config struct {
 	Network    NetworkConfig         `json:"network"`
 	Auth       AuthConfig            `json:"auth"`
 
-	Debug bool `json:"-"`
+	Debug bool `json:"debug,omitempty"`
 
 	ConfigFilePath string `json:"-"`
 
