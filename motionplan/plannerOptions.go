@@ -44,6 +44,15 @@ const (
 	defaultPathStepSize = 10
 )
 
+// defaultDistanceFunc returns the square of the two-norm between the StartInput and EndInput vectors in the given ConstraintInput.
+func defaultDistanceFunc(ci *ConstraintInput) (bool, float64) {
+	dist := 0.
+	for i, f := range ci.StartInput {
+		dist += math.Pow(ci.EndInput[i].Value-f.Value, 2)
+	}
+	return true, dist
+}
+
 func plannerSetupFromMoveRequest(
 	ctx context.Context,
 	from, to spatial.Pose,
@@ -126,6 +135,7 @@ func NewBasicPlannerOptions() *PlannerOptions {
 	opt.MaxSolutions = defaultSolutionsToSeed
 	opt.MinScore = defaultMinIkScore
 	opt.Resolution = defaultResolution
+	opt.DistanceFunc = defaultDistanceFunc
 	return opt
 }
 
@@ -149,6 +159,10 @@ type PlannerOptions struct {
 
 	// Percentage interval of max iterations after which to print debug logs
 	LoggingInterval float64 `json:"logging_interval"`
+
+	// Function to use to measure distance between two inputs
+	// TODO(rb): this should really become a Metric once we change the way the constraint system works, its awkward to return 2 values here
+	DistanceFunc Constraint
 }
 
 // SetMetric sets the distance metric for the solver.

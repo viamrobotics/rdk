@@ -7,10 +7,10 @@ import (
 	"math/rand"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/utils"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/utils"
 )
 
 const (
@@ -190,17 +190,18 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		}
 
 		// attempt to extend map1 first
-		nearest1 := nm.nearestNeighbor(nmContext, target, map1)
+		nearest1 := nm.nearestNeighbor(nmContext, planOpts, target, map1)
 		map1reached := mp.constrainedExtend(ctx, algOpts, map1, nearest1, &node{q: target})
 
 		// then attempt to extend map2 towards map 1
-		nearest2 := nm.nearestNeighbor(nmContext, map1reached.q, map2)
+		nearest2 := nm.nearestNeighbor(nmContext, planOpts, map1reached.q, map2)
 		map2reached := mp.constrainedExtend(ctx, algOpts, map2, nearest2, map1reached)
 
 		corners[map1reached] = true
 		corners[map2reached] = true
 
-		if inputDist(map1reached.q, map2reached.q) < algOpts.JointSolveDist {
+		_, reachedDelta := planOpts.DistanceFunc(&ConstraintInput{StartInput: map1reached.q, EndInput: map2reached.q})
+		if reachedDelta < algOpts.JointSolveDist {
 			cancel()
 			path := extractPath(seedMap, goalMap, &nodePair{map1reached, map2reached})
 			if endpointPreview != nil {
@@ -243,12 +244,15 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 ) *node {
 	oldNear := near
 	for i := 0; true; i++ {
+		_, dist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: near.q, EndInput: target.q})
+		_, oldDist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: oldNear.q, EndInput: target.q})
+		_, nearDist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: near.q, EndInput: oldNear.q})
 		switch {
-		case inputDist(near.q, target.q) < algOpts.JointSolveDist:
+		case dist < algOpts.JointSolveDist:
 			return near
-		case inputDist(near.q, target.q) > inputDist(oldNear.q, target.q):
+		case dist > oldDist:
 			return oldNear
-		case i > 2 && inputDist(near.q, oldNear.q) < math.Pow(algOpts.JointSolveDist, 3):
+		case i > 2 && nearDist < math.Pow(algOpts.JointSolveDist, 3):
 			// not moving enough to make meaningful progress. Do not trigger on first iteration.
 			return oldNear
 		}
@@ -330,9 +334,12 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		algOpts.planOpts.Resolution,
 	)
 	if !ok {
-		if failpos != nil && inputDist(target, failpos.EndInput) > algOpts.JointSolveDist {
-			// If we have a first failing position, and that target is updating (no infinite loop), then recurse
-			return mp.constrainNear(ctx, algOpts, failpos.StartInput, failpos.EndInput)
+		if failpos != nil {
+			_, dist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: target, EndInput: failpos.EndInput})
+			if dist > algOpts.JointSolveDist {
+				// If we have a first failing position, and that target is updating (no infinite loop), then recurse
+				return mp.constrainNear(ctx, algOpts, failpos.StartInput, failpos.EndInput)
+			}
 		}
 		return nil
 	}
@@ -378,7 +385,8 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 		// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
 		// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
 		// so we allow elongation here.
-		if inputDist(inputSteps[i].q, reached.q) < algOpts.JointSolveDist && len(reached.q) < j-i {
+		_, dist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: inputSteps[i].q, EndInput: reached.q})
+		if dist < algOpts.JointSolveDist && len(reached.q) < j-i {
 			corners[iSol] = true
 			corners[jSol] = true
 			for _, hitCorner := range hitCorners {

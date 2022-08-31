@@ -7,10 +7,10 @@ import (
 	"math/rand"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/utils"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/utils"
 )
 
 const (
@@ -60,13 +60,13 @@ func newRRTStarConnectOptions(planOpts *PlannerOptions) (*rrtStarConnectOptions,
 // https://ieeexplore.ieee.org/document/7419012
 type rrtStarConnectMotionPlanner struct{ *planner }
 
-// NewRRTConnectMotionPlanner creates a rrtConnectMotionPlanner object.
+// NewRRTStarConnectMotionPlanner creates a rrtStarConnectMotionPlanner object.
 func NewRRTStarConnectMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger) (MotionPlanner, error) {
 	//nolint:gosec
 	return NewRRTStarConnectMotionPlannerWithSeed(frame, nCPU, rand.New(rand.NewSource(1)), logger)
 }
 
-// NewRRTConnectMotionPlannerWithSeed creates a rrtConnectMotionPlanner object with a user specified random seed.
+// NewRRTStarConnectMotionPlannerWithSeed creates a rrtConnectMotionPlanner object with a user specified random seed.
 func NewRRTStarConnectMotionPlannerWithSeed(
 	frame referenceframe.Frame,
 	nCPU int,
@@ -179,7 +179,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 		// calculate the solution and log status of planner
 		if i%defaultSolutionCalculationPeriod == 0 {
 			solution := shortestPath(startMap, goalMap, shared)
-			solutionCost = EvaluatePlan(solution.toInputs())
+			solutionCost = EvaluatePlan(solution.toInputs(), planOpts)
 			mp.logger.Debugf("RRT* progress: %d%%\tpath cost: %.3f", 100*i/algOpts.PlanIter, solutionCost)
 
 			// check if an early exit is possible
@@ -200,7 +200,7 @@ func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tr
 	}
 
 	// iterate over the k nearest neighbors and find the minimum cost to connect the target node to the tree
-	neighbors := kNearestNeighbors(tree, target, algOpts.NeighborhoodSize)
+	neighbors := kNearestNeighbors(algOpts.planOpts, tree, target, algOpts.NeighborhoodSize)
 	minCost := math.Inf(1)
 	var minIndex int
 	for i, neighbor := range neighbors {
@@ -223,7 +223,11 @@ func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tr
 		}
 
 		// check to see if a shortcut is possible, and rewire the node if it is
-		cost := targetNode.cost + mp.distance(algOpts.planOpts, targetNode.q, neighbor.node.q)
+		_, connectionCost := algOpts.planOpts.DistanceFunc(&ConstraintInput{
+			StartInput: neighbor.node.q,
+			EndInput:   targetNode.q,
+		})
+		cost := connectionCost + targetNode.cost
 		if cost < neighbor.node.cost && mp.checkPath(algOpts.planOpts, target, neighbor.node.q) {
 			neighbor.node.cost = cost
 			tree[neighbor.node] = targetNode

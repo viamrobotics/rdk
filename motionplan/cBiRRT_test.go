@@ -71,11 +71,11 @@ func TestSimpleLinearMotion(t *testing.T) {
 	// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
 	seedReached := cbirrt.constrainedExtend(ctx, cOpt, seedMap, near1, &node{q: target})
 	// Find the nearest point in goalMap to the furthest point reached in seedMap
-	near2 := nn.nearestNeighbor(ctx, seedReached.q, goalMap)
+	near2 := nn.nearestNeighbor(ctx, opt, seedReached.q, goalMap)
 	// extend goalMap towards the point in seedMap
 	goalReached := cbirrt.constrainedExtend(ctx, cOpt, goalMap, near2, seedReached)
-
-	test.That(t, inputDist(seedReached.q, goalReached.q) < cOpt.JointSolveDist, test.ShouldBeTrue)
+	_, dist := opt.DistanceFunc(&ConstraintInput{StartInput: seedReached.q, EndInput: goalReached.q})
+	test.That(t, dist < cOpt.JointSolveDist, test.ShouldBeTrue)
 
 	corners[seedReached] = true
 	corners[goalReached] = true

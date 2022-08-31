@@ -5,10 +5,10 @@ import (
 	"math/rand"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/utils"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/utils"
 )
 
 // rrtConnectMotionPlanner is an object able to quickly solve for valid paths around obstacles to some goal for a given referenceframe.
@@ -109,8 +109,8 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 		}
 
 		// for each map get the nearest neighbor to the target
-		nearest1 := nm.nearestNeighbor(nmContext, target, map1)
-		nearest2 := nm.nearestNeighbor(nmContext, target, map2)
+		nearest1 := nm.nearestNeighbor(nmContext, planOpts, target, map1)
+		nearest2 := nm.nearestNeighbor(nmContext, planOpts, target, map2)
 
 		// attempt to extend the map to connect the target to map 1, then try to connect the maps together
 		map1reached := mp.checkPath(planOpts, nearest1.q, target)
