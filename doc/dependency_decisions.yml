@@ -128,12 +128,6 @@
     :versions: []
     :when: 2022-08-29 22:26:18.925886068 Z
 - - :ignore
-  - "@viamrobotics/rpc"
-  - :who:
-    :why: this is our library
-    :versions: []
-    :when: 2022-08-30 15:13:30.443695242 Z
-- - :ignore
   - go.viam.com/api
   - :who:
     :why: this is our library
@@ -212,3 +206,11 @@
     :license_links: https://github.com/gonum/license/blob/59758bd3db1383fa1f02f88eceee1f8568a87039/LICENSE
     :versions: []
     :when: 2022-08-30 16:24:26.855308650 Z
+- - :license
+  - "@viamrobotics/rpc"
+  - MIT
+  - :who:
+    :why: 'TODO(RSDK-583): why is license finder unable to detect this license automatically?'
+    :license_links: https://github.com/viamrobotics/goutils/blob/6684974ace14045e04d479777852602817e03313/LICENSE
+    :versions: []
+    :when: 2022-08-31 20:08:14.585047144 Z
