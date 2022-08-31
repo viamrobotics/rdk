@@ -713,7 +713,7 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 }
 
 //nolint:thelper
-func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServer) {
+func buildAndStartLocalServer(t *testing.T) (rpc.Server, *mockDataSyncServiceServer) {
 	logger, _ := golog.NewObservedTestLogger(t)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
@@ -735,7 +735,7 @@ func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServ
 		err := rpcServer.Start()
 		test.That(t, err, test.ShouldBeNil)
 	}()
-	return rpcServer, mockService
+	return rpcServer, &mockService
 }
 
 func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientConn, error) {
