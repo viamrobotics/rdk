@@ -12,7 +12,6 @@ import (
 
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/vision/keypoints/descriptors"
 )
 
 // SamplingType stores 0 if a sampling of image points for BRIEF is uniform, 1 if gaussian.
@@ -65,7 +64,7 @@ func sampleIntegers(patchSize, n int, sampling SamplingType) []int {
 }
 
 // ComputeBRIEFDescriptors computes BRIEF descriptors on image img at keypoints kps.
-func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConfig) (descriptors.Descriptors, error) {
+func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConfig) (Descriptors, error) {
 	// blur image
 	kernel := rimage.GetGaussian5()
 	normalized := kernel.Normalize()
@@ -81,7 +80,7 @@ func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConf
 
 	// compute descriptors
 
-	descs := make([]descriptors.Descriptor, len(kps.Points))
+	descs := make([]Descriptor, len(kps.Points))
 	padded, err := rimage.PaddingGray(blurred, image.Point{17, 17}, image.Point{8, 8}, rimage.BorderConstant)
 	if err != nil {
 		return nil, err

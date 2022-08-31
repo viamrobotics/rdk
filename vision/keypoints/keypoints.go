@@ -6,6 +6,7 @@ import (
 	"image"
 
 	"github.com/fogleman/gg"
+	"go.viam.com/rdk/utils"
 )
 
 type (
@@ -37,16 +38,9 @@ func PlotKeypoints(img *image.Gray, kps []image.Point, outName string) error {
 	return dc.SavePNG(outName)
 }
 
-func max(x, y int) int {
-	if x < y {
-		return y
-	}
-	return x
-}
-
 // PlotMatchedLines plots matched keypoints on both images.
-func PlotMatchedLines(im1 image.Image, im2 image.Image, kps1 []image.Point, kps2 []image.Point, outName string) error {
-	w, h := max(im1.Bounds().Max.X, im2.Bounds().Max.X), im1.Bounds().Max.Y+im2.Bounds().Max.Y
+func PlotMatchedLines(im1 image.Image, im2 image.Image, kps1 []image.Point, kps2 []image.Point) image.Image {
+	w, h := utils.MaxInt(im1.Bounds().Max.X, im2.Bounds().Max.X), im1.Bounds().Max.Y+im2.Bounds().Max.Y
 
 	dc := gg.NewContext(w, h)
 	dc.DrawImage(im1, 0, 0)
@@ -64,7 +58,7 @@ func PlotMatchedLines(im1 image.Image, im2 image.Image, kps1 []image.Point, kps2
 		dc.DrawLine(float64(p1.X), float64(p1.Y), float64(p2.X), float64(im1.Bounds().Max.Y+p2.Y))
 		dc.Stroke()
 	}
-	return dc.SavePNG(outName)
+	return dc.Image()
 }
 
 // RescaleKeypoints rescales given keypoints wrt scaleFactor.
