@@ -1614,7 +1614,7 @@ func TestUpdateConfig(t *testing.T) {
 		test.That(t, utils.TryClose(ctx, manager), test.ShouldBeNil)
 	}()
 
-	svc1 := config.Service{Name: "", Namespace: resource.ResourceNamespaceRDK, Type: "testSubType"}
+	svc1 := config.Service{Name: "", Model: resource.DefaultModelName, Namespace: resource.ResourceNamespaceRDK, Type: "testSubType"}
 
 	local, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)

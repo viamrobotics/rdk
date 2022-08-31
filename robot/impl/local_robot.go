@@ -395,6 +395,8 @@ func newWithResources(
 			continue
 		}
 		cfg := config.Service{
+			Name:      name.Name,
+			Model:     resource.DefaultModelName,
 			Namespace: name.Namespace,
 			Type:      config.ServiceType(name.ResourceSubtype),
 		}
