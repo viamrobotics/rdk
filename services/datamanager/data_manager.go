@@ -619,7 +619,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 }
 
 func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy []*Model) error {
-	// fmt.Println("data_manager.go/downloadModels()")
+	fmt.Println("data_manager.go/downloadModels()")
 	modelsToDownload := getModelsToDownload(modelsToDeploy)
 	// fmt.Println("len(modelsToDownload): ", len(modelsToDownload))
 	// TODO: DATA-295, delete models in file system that are no longer in the config.
@@ -648,7 +648,6 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 		svc.clientConn = &conn
 	}
 
-	// it feels weird here.
 	// i feel like i am forcing this to happen when it should
 	// occur more organically.
 	modelr, err := svc.modelrConstructor(svc.logger, cfg)
@@ -684,8 +683,6 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 					svc.logger.Error(err)
 					return // Don't try to unzip the file if we can't download it.
 				}
-
-				fmt.Println("do we make it here?")
 				// A download from a GCS signed URL only returns one file.
 				modelFileToUnzip := model.Name + ".zip" // TODO: For now, hardcode.
 				if err = unzipSource(cancelCtx, model.Destination, modelFileToUnzip, svc.logger); err != nil {
@@ -699,7 +696,7 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 
 // unzipSource unzips all files inside a zip file.
 func unzipSource(cancelCtx context.Context, destination, fileName string, logger golog.Logger) error {
-	// fmt.Println("data_manager.go/unzipSource()")
+	fmt.Println("data_manager.go/unzipSource()")
 	zipReader, err := zip.OpenReader(filepath.Join(destination, fileName))
 	if err != nil {
 		return err
@@ -716,7 +713,7 @@ func unzipSource(cancelCtx context.Context, destination, fileName string, logger
 }
 
 func unzipFile(cancelCtx context.Context, f *zip.File, destination string, logger golog.Logger) error {
-	// fmt.Println("data_manager.go/unzipFile()")
+	fmt.Println("data_manager.go/unzipFile()")
 	// TODO: DATA-307, We should be passing in the context to any operations that can take several seconds,
 	// which includes unzipFile. As written, this can block .Close for an unbounded amount of time.
 	//nolint:gosec
@@ -813,7 +810,7 @@ func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.
 	}()
 	fmt.Println("we make it here:)")
 	//nolint:gosec
-	out, err := os.Create(filepath) // make sure to comment what you did locally to bypass this and if this is the right solution
+	out, err := os.Create(filepath)
 	if err != nil {
 		fmt.Println("err: ", err)
 		return err
@@ -839,7 +836,7 @@ func getModelsToDownload(models []*Model) []*Model {
 	// all their models in. In that case, this wouldn't work as expected.
 	// TODO: Fix.
 	// to test this version we only upload one model?
-	// fmt.Println("data_manager.go/getModelsToDownload()")
+	fmt.Println("data_manager.go/getModelsToDownload()")
 	modelsToDownload := make([]*Model, 0)
 	for _, model := range models {
 		if model.Destination == "" {
@@ -853,6 +850,7 @@ func getModelsToDownload(models []*Model) []*Model {
 			// fmt.Println("model: ", *model)
 			modelsToDownload = append(modelsToDownload, model)
 			// create the directory here?
+			fmt.Println("here")
 		} else if err != nil {
 			panic("can't access files: " + err.Error()) // better thing to do?
 		}
