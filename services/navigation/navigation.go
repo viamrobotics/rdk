@@ -49,7 +49,7 @@ func init() {
 		},
 		Reconfigurable: WrapWithReconfigurable,
 	})
-	registry.RegisterService(Subtype, registry.Service{
+	registry.RegisterService(Subtype, resource.DefaultModelName, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
 		},
