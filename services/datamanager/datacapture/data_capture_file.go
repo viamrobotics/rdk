@@ -24,11 +24,6 @@ const (
 	nextPointCloud = "NextPointCloud"
 )
 
-// EmptyReadingErr defines the error for when a SensorData contains no data.
-func EmptyReadingErr(fileName string) error {
-	return errors.Errorf("%s contains SensorData containing no data", fileName)
-}
-
 // CreateDataCaptureFile creates a timestamped file within the given capture directory.
 func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.File, error) {
 	// First create directories and the file in it.
@@ -62,7 +57,7 @@ func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, me
 		MethodName:       method,
 		Type:             dataType,
 		MethodParameters: additionalParams,
-		FileExtension:    getFileExt(dataType, method, additionalParams),
+		FileExtension:    GetFileExt(dataType, method, additionalParams),
 	}
 }
 
@@ -98,11 +93,6 @@ func ReadNextSensorData(f *os.File) (*v1.SensorData, error) {
 		return nil, err
 	}
 
-	// Ensure we construct and return a SensorData value for tabular data when the tabular data's fields and
-	// corresponding entries are not nil. Otherwise, return io.EOF error and nil.
-	if r.GetBinary() == nil && r.GetStruct() == nil {
-		return r, EmptyReadingErr(filepath.Base(f.Name()))
-	}
 	return r, nil
 }
 
@@ -113,6 +103,7 @@ func getFileTimestampName() string {
 }
 
 // TODO DATA-246: Implement this in some more robust, programmatic way.
+// TODO: support GetFrame. This is why image stuff isn't working.
 func getDataType(_, methodName string) v1.DataType {
 	switch methodName {
 	case nextPointCloud, next:
@@ -122,7 +113,8 @@ func getDataType(_, methodName string) v1.DataType {
 	}
 }
 
-func getFileExt(dataType v1.DataType, methodName string, parameters map[string]string) string {
+// GetFileExt gets the file extension for a capture file.
+func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]string) string {
 	defaultFileExt := ""
 	switch dataType {
 	case v1.DataType_DATA_TYPE_TABULAR_SENSOR:
