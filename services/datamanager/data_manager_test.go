@@ -155,7 +155,6 @@ func TestNewDataManager(t *testing.T) {
 	file, err := os.Open(armDir + "/" + captureFileName)
 	test.That(t, err, test.ShouldBeNil)
 	md, err := datacapture.ReadDataCaptureMetadata(file)
-	t.Log("Metadata:", md)
 	test.That(t, md.Tags[0], test.ShouldEqual, "a")
 	test.That(t, md.Tags[1], test.ShouldEqual, "b")
 
@@ -354,7 +353,7 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 
 // Generates and populates a directory structure of files that contain arbitrary file data. Used to simulate testing
 // syncing of data in the service's additional_sync_paths.
-// nolint
+//nolint
 func populateAdditionalSyncPaths() ([]string, int, error) {
 	var additionalSyncPaths []string
 	numArbitraryFilesToSync := 0
