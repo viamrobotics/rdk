@@ -124,7 +124,7 @@ func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra ma
 	}
 }
 
-func (m *roboclawMotor) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
+func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -147,7 +147,7 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm float64, revolutions floa
 	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m)
 }
 
-func (m *roboclawMotor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64, extra map[string]interface{}) error {
+func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	pos, err := m.GetPosition(ctx, extra)
 	if err != nil {
 		return err

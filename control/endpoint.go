@@ -12,12 +12,12 @@ import (
 type endpoint struct {
 	mu     sync.Mutex
 	ctr    Controllable
-	cfg    ControlBlockConfig
+	cfg    BlockConfig
 	y      []Signal
 	logger golog.Logger
 }
 
-func newEndpoint(config ControlBlockConfig, logger golog.Logger, ctr Controllable) (ControlBlock, error) {
+func newEndpoint(config BlockConfig, logger golog.Logger, ctr Controllable) (Block, error) {
 	e := &endpoint{cfg: config, logger: logger, ctr: ctr}
 	if err := e.reset(); err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (e *endpoint) reset() error {
 		return errors.Errorf("endpoint %s should have a motor_name field", e.cfg.Name)
 	}
 	e.y = make([]Signal, 1)
-	e.y[0] = makeSignal(e.cfg.Name, 1)
+	e.y[0] = makeSignal(e.cfg.Name)
 	return nil
 }
 
@@ -64,7 +64,7 @@ func (e *endpoint) Reset(ctx context.Context) error {
 	return e.reset()
 }
 
-func (e *endpoint) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
+func (e *endpoint) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.cfg = config
@@ -75,6 +75,6 @@ func (e *endpoint) Output(ctx context.Context) []Signal {
 	return e.y
 }
 
-func (e *endpoint) Config(ctx context.Context) ControlBlockConfig {
+func (e *endpoint) Config(ctx context.Context) BlockConfig {
 	return e.cfg
 }

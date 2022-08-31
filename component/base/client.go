@@ -50,7 +50,7 @@ func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec floa
 	return nil
 }
 
-func (c *client) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
+func (c *client) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err

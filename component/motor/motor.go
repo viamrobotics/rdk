@@ -72,13 +72,13 @@ type Motor interface {
 	// negative the motor will spin in the forward direction.
 	// If revolutions is 0, this will run the motor at rpm indefinitely
 	// If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
-	GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error
+	GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error
 
 	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 	// at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 	// towards the specified target/position
 	// This will block until the position has been reached
-	GoTo(ctx context.Context, rpm float64, positionRevolutions float64, extra map[string]interface{}) error
+	GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error
 
 	// Set the current position (+/- offset) to be the new zero (home) position.
 	ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error
@@ -214,13 +214,13 @@ func (r *reconfigurableMotor) SetPower(ctx context.Context, powerPct float64, ex
 	return r.actual.SetPower(ctx, powerPct, extra)
 }
 
-func (r *reconfigurableMotor) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
+func (r *reconfigurableMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GoFor(ctx, rpm, revolutions, extra)
 }
 
-func (r *reconfigurableMotor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64, extra map[string]interface{}) error {
+func (r *reconfigurableMotor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GoTo(ctx, rpm, positionRevolutions, extra)
@@ -354,14 +354,14 @@ type PinConfig struct {
 
 // Config describes the configuration of a motor.
 type Config struct {
-	Pins          PinConfig             `json:"pins"`
-	BoardName     string                `json:"board"`                   // used to get encoders
-	MinPowerPct   float64               `json:"min_power_pct,omitempty"` // min power percentage to allow for this motor default is 0.0
-	MaxPowerPct   float64               `json:"max_power_pct,omitempty"` // max power percentage to allow for this motor (0.06 - 1.0)
-	PWMFreq       uint                  `json:"pwm_freq,omitempty"`
-	DirectionFlip bool                  `json:"dir_flip,omitempty"`       // Flip the direction of the signal sent if there is a Dir pin
-	StepperDelay  uint                  `json:"stepper_delay,omitempty"`  // When using stepper motors, the time to remain high
-	ControlLoop   control.ControlConfig `json:"control_config,omitempty"` // Optional control loop
+	Pins          PinConfig      `json:"pins"`
+	BoardName     string         `json:"board"`                   // used to get encoders
+	MinPowerPct   float64        `json:"min_power_pct,omitempty"` // min power percentage to allow for this motor default is 0.0
+	MaxPowerPct   float64        `json:"max_power_pct,omitempty"` // max power percentage to allow for this motor (0.06 - 1.0)
+	PWMFreq       uint           `json:"pwm_freq,omitempty"`
+	DirectionFlip bool           `json:"dir_flip,omitempty"`       // Flip the direction of the signal sent if there is a Dir pin
+	StepperDelay  uint           `json:"stepper_delay,omitempty"`  // When using stepper motors, the time to remain high
+	ControlLoop   control.Config `json:"control_config,omitempty"` // Optional control loop
 
 	Encoder          string  `json:"encoder,omitempty"`          // name of encoder
 	RampRate         float64 `json:"ramp_rate,omitempty"`        // how fast to ramp power to motor when using rpm control

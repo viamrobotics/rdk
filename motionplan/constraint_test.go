@@ -33,7 +33,7 @@ func TestIKTolerances(t *testing.T) {
 		OY: -3.3,
 		OZ: -1.11,
 	}
-	opt := NewDefaultPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}), opt)
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -63,7 +63,7 @@ func TestConstraintPath(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Test interpolating
-	constraint, _ := NewLinearInterpolatingConstraint(ci.StartPos, ci.EndPos, 0.01)
+	constraint, _ := NewProportionalLinearInterpolatingConstraint(ci.StartPos, ci.EndPos, 0.01)
 	handler.AddConstraint("interp", constraint)
 	ok, failCI = handler.CheckConstraintPath(ci, 0.5)
 	test.That(t, failCI, test.ShouldBeNil)
@@ -152,7 +152,7 @@ func TestLineFollow(t *testing.T) {
 	// Create a frame to solve for, and an IK solver with that frame.
 	sf := &solverFrame{solveFrame.Name() + "_" + goalFrame.Name(), fss, frames, solveFrame, goalFrame}
 
-	opt := NewDefaultPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	opt.SetPathDist(gradFunc)
 	opt.AddConstraint("whiteboard", validFunc)
 	ok, lastGood := opt.CheckConstraintPath(

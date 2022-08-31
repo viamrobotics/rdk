@@ -280,7 +280,7 @@ func loadLabels(filename string) ([]string, error) {
 		return nil, errors.New("no labelpath")
 	}
 	labels := []string{}
-	f, err := os.Open(filename) // nolint:gosec
+	f, err := os.Open(filename) //nolint:gosec
 	if err != nil {
 		return nil, err
 	}

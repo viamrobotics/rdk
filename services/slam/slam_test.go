@@ -4,10 +4,11 @@
 package slam_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"image"
-	"io/ioutil"
+	"image/png"
 	"math"
 	"net"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -116,10 +118,10 @@ func setupInjectRobot() *inject.Robot {
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return pointcloud.New(), nil
 			}
-			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-				return nil, nil, errors.New("lidar not camera")
+			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+				return nil, errors.New("lidar not camera")
 			}
-			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+			cam.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 				return nil, transform.NewNoIntrinsicsError("")
 			}
 			return cam, nil
@@ -127,21 +129,23 @@ func setupInjectRobot() *inject.Robot {
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("bad_lidar")
 			}
-			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-				return nil, nil, errors.New("lidar not camera")
+			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+				return nil, errors.New("lidar not camera")
 			}
-			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+			cam.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 				return nil, transform.NewNoIntrinsicsError("")
 			}
 			return cam, nil
 		case camera.Named("good_camera"):
-			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-				return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
+			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+				return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+					return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
+				})), nil
 			}
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
-			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+			cam.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 				return projA, nil
 			}
 			return cam, nil
@@ -149,45 +153,67 @@ func setupInjectRobot() *inject.Robot {
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
-			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+			cam.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 				return projA, nil
 			}
-			cam.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 				imgBytes, err := os.ReadFile(artifact.MustPath("rimage/board1.png"))
-				return imgBytes, rdkutils.MimeTypePNG, -1, -1, err
+				if err != nil {
+					return nil, err
+				}
+				img, err := png.Decode(bytes.NewReader(imgBytes))
+				if err != nil {
+					return nil, err
+				}
+				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, img.Bounds().Dx(), img.Bounds().Dy())
+				return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+					return lazy, func() {}, nil
+				})), nil
 			}
 			return cam, nil
 		case camera.Named("good_depth_camera"):
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
-			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+			cam.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 				return nil, transform.NewNoIntrinsicsError("")
 			}
-			cam.GetFrameFunc = func(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
+			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 				imgBytes, err := os.ReadFile(artifact.MustPath("rimage/board1_gray.png"))
-				return imgBytes, rdkutils.MimeTypePNG, -1, -1, err
+				if err != nil {
+					return nil, err
+				}
+				img, err := png.Decode(bytes.NewReader(imgBytes))
+				if err != nil {
+					return nil, err
+				}
+				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, img.Bounds().Dx(), img.Bounds().Dy())
+				return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+					return lazy, func() {}, nil
+				})), nil
 			}
 			return cam, nil
 		case camera.Named("bad_camera"):
-			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-				return nil, nil, errors.New("bad_camera")
+			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+				return nil, errors.New("bad_camera")
 			}
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
-			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+			cam.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 				return nil, transform.NewNoIntrinsicsError("")
 			}
 			return cam, nil
 		case camera.Named("bad_camera_intrinsics"):
-			cam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-				return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
+			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+				return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+					return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
+				})), nil
 			}
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
-			cam.GetPropertiesFunc = func(ctx context.Context) (rimage.Projector, error) {
+			cam.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 				return projB, nil
 			}
 			return cam, nil
@@ -210,6 +236,9 @@ func createSLAMService(t *testing.T, attrCfg *slam.AttrConfig, logger golog.Logg
 	svc, err := slam.New(ctx, r, cfgService, logger)
 
 	if success {
+		if err != nil {
+			return nil, err
+		}
 		test.That(t, svc, test.ShouldNotBeNil)
 		return svc, nil
 	}
@@ -219,7 +248,7 @@ func createSLAMService(t *testing.T, attrCfg *slam.AttrConfig, logger golog.Logg
 }
 
 func TestGeneralNew(t *testing.T) {
-	name, err := createTempFolderArchitecture(true)
+	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -313,7 +342,7 @@ func TestGeneralNew(t *testing.T) {
 }
 
 func TestCartographerNew(t *testing.T) {
-	name, err := createTempFolderArchitecture(true)
+	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -376,7 +405,7 @@ func TestCartographerNew(t *testing.T) {
 }
 
 func TestORBSLAMNew(t *testing.T) {
-	name, err := createTempFolderArchitecture(true)
+	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -508,7 +537,7 @@ func TestORBSLAMNew(t *testing.T) {
 }
 
 func TestCartographerDataProcess(t *testing.T) {
-	name, err := createTempFolderArchitecture(true)
+	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -540,16 +569,22 @@ func TestCartographerDataProcess(t *testing.T) {
 			return pointcloud.New(), nil
 		}
 		cams := []camera.Camera{goodCam}
+		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(goodCam)}
+		defer func() {
+			for _, stream := range camStreams {
+				test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
+			}
+		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, cams)
+		slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
 
 		n := 5
 		// Note: timePadding is required to allow the sub processes to be fully completed during test
 		time.Sleep(time.Millisecond * time.Duration((n)*(dataRateMs+timePadding)))
 		cancelFunc()
 
-		_, err := ioutil.ReadDir(name + "/data/")
+		_, err := os.ReadDir(name + "/data/")
 		// TODO DATA-251: make the data loop run at the desired rate
 		// test.That(t, len(files), test.ShouldEqual, n)
 		test.That(t, err, test.ShouldBeNil)
@@ -561,9 +596,15 @@ func TestCartographerDataProcess(t *testing.T) {
 			return nil, errors.New("bad_lidar")
 		}
 		cams := []camera.Camera{badCam}
+		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(badCam)}
+		defer func() {
+			for _, stream := range camStreams {
+				test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
+			}
+		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, cams)
+		slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
 
 		time.Sleep(time.Millisecond * time.Duration(dataRateMs*2))
 		cancelFunc()
@@ -578,7 +619,7 @@ func TestCartographerDataProcess(t *testing.T) {
 }
 
 func TestORBSLAMDataProcess(t *testing.T) {
-	name, err := createTempFolderArchitecture(true)
+	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -606,20 +647,28 @@ func TestORBSLAMDataProcess(t *testing.T) {
 
 	t.Run("ORBSLAM3 Data Process with camera in slam mode mono", func(t *testing.T) {
 		goodCam := &inject.Camera{}
-		goodCam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-			return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
+		goodCam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+			return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+				return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
+			})), nil
 		}
 		cams := []camera.Camera{goodCam}
+		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(goodCam)}
+		defer func() {
+			for _, stream := range camStreams {
+				test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
+			}
+		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, cams)
+		slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
 
 		n := 5
 		// Note: timePadding is required to allow the sub processes to be fully completed during test
 		time.Sleep(time.Millisecond * time.Duration((n)*(dataRateMs+timePadding)))
 		cancelFunc()
 
-		_, err := ioutil.ReadDir(name + "/data/")
+		_, err := os.ReadDir(name + "/data/")
 		// TODO DATA-251: make the data loop run at the desired rate
 		// test.That(t, len(files), test.ShouldEqual, n)
 		test.That(t, err, test.ShouldBeNil)
@@ -627,13 +676,19 @@ func TestORBSLAMDataProcess(t *testing.T) {
 
 	t.Run("ORBSLAM3 Data Process with camera that errors during call to Next", func(t *testing.T) {
 		badCam := &inject.Camera{}
-		badCam.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-			return nil, nil, errors.New("bad_camera")
+		badCam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+			return nil, errors.New("bad_camera")
 		}
 		cams := []camera.Camera{badCam}
+		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(badCam)}
+		defer func() {
+			for _, stream := range camStreams {
+				test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
+			}
+		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, cams)
+		slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
 
 		time.Sleep(time.Millisecond * time.Duration(dataRateMs*2))
 		cancelFunc()
@@ -648,7 +703,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 }
 
 func TestGetMapAndPosition(t *testing.T) {
-	name, err := createTempFolderArchitecture(true)
+	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -690,7 +745,7 @@ func TestGetMapAndPosition(t *testing.T) {
 }
 
 func TestSLAMProcessSuccess(t *testing.T) {
-	name, err := createTempFolderArchitecture(true)
+	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -740,7 +795,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 }
 
 func TestSLAMProcessFail(t *testing.T) {
-	name, err := createTempFolderArchitecture(true)
+	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -792,7 +847,7 @@ func TestSLAMProcessFail(t *testing.T) {
 }
 
 func TestGRPCConnection(t *testing.T) {
-	name, err := createTempFolderArchitecture(true)
+	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
@@ -816,22 +871,20 @@ func TestGRPCConnection(t *testing.T) {
 	closeOutSLAMService(t, name)
 }
 
-func createTempFolderArchitecture(validArch bool) (string, error) {
-	name, err := ioutil.TempDir("", "*")
+func createTempFolderArchitecture() (string, error) {
+	name, err := os.MkdirTemp("", "*")
 	if err != nil {
 		return "nil", err
 	}
 
-	if validArch {
-		if err := os.Mkdir(name+"/map", os.ModePerm); err != nil {
-			return "", err
-		}
-		if err := os.Mkdir(name+"/data", os.ModePerm); err != nil {
-			return "", err
-		}
-		if err := os.Mkdir(name+"/config", os.ModePerm); err != nil {
-			return "", err
-		}
+	if err := os.Mkdir(name+"/map", os.ModePerm); err != nil {
+		return "", err
+	}
+	if err := os.Mkdir(name+"/data", os.ModePerm); err != nil {
+		return "", err
+	}
+	if err := os.Mkdir(name+"/config", os.ModePerm); err != nil {
+		return "", err
 	}
 	return name, nil
 }

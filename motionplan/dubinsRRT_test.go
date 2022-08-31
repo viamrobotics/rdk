@@ -36,7 +36,7 @@ func TestCheckPathCollision(t *testing.T) {
 	test.That(t, err, test.ShouldEqual, nil)
 	obstacleGeometries["1"] = box
 
-	opt := NewDefaultPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	opt.AddConstraint("collision", NewCollisionConstraint(dubins.Frame(), obstacleGeometries, map[string]spatial.Geometry{}))
 
 	dm := &dubinPathAttrManager{
@@ -86,7 +86,7 @@ func TestCheckPathNoCollision(t *testing.T) {
 
 	obstacleGeometries := map[string]spatial.Geometry{}
 
-	opt := NewDefaultPlannerOptions()
+	opt := NewBasicPlannerOptions()
 	opt.AddConstraint("collision", NewCollisionConstraint(dubins.Frame(), obstacleGeometries, map[string]spatial.Geometry{}))
 
 	dm := &dubinPathAttrManager{

@@ -28,25 +28,8 @@
         },
         {
             "model": "fake",
-            "name": "board1",
-            "type": "board",
-            "attributes":
-            {
-                "analogs":
-                [
-                    {
-                        "name": "analog1",
-                        "pin": "0"
-                    }
-                ],
-                "digital_interrupts":
-                [
-                    {
-                        "name": "encoder",
-                        "pin": "14"
-                    }
-                ]
-            }
+            "name": "mic1",
+            "type": "audio_input"
         },
         {
             "model": "fake",
@@ -55,22 +38,6 @@
             "attributes":
             {
                 "pin": "12"
-            }
-        },
-        {
-            "name": "g",
-            "type": "motor",
-            "model": "fake",
-            "attributes":
-            {
-                "encoder": "encoder",
-                "pins":
-                {
-                    "a": "1",
-                    "b": "2",
-                    "pwm": "3"
-                },
-                "ticks_per_rotation": 100
             }
         }
     ],
