@@ -678,6 +678,7 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 				svc.logger.Error(err)
 			} else {
 				url := deployResp.Message
+				fmt.Println("model.Destination: ", model.Destination)
 				err := downloadFile(cancelCtx, model.Destination, url, svc.logger)
 				if err != nil {
 					svc.logger.Error(err)
@@ -795,19 +796,16 @@ var (
 // downloads and doesn't load the whole file into memory.
 func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.Logger) error {
 	fmt.Println("data_manager.go/downloadFile()")
+	fmt.Println("filepath: ", filepath)
 	getReq, err := http.NewRequestWithContext(cancelCtx, "GET", url, nil)
 	if err != nil {
 		return err
 	}
-	// fmt.Println("Client in downloadFile(): ", Client)
-	// fmt.Printf("Client type: %T\n", Client)
 
 	resp, err := Client.Do(getReq)
-	// fmt.Println("we make it here")
 	if err != nil {
 		return err
 	}
-	// fmt.Println("resp: ", resp)
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
 			logger.Error(err)
@@ -815,8 +813,9 @@ func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.
 	}()
 	fmt.Println("we make it here:)")
 	//nolint:gosec
-	out, err := os.Create(filepath)
+	out, err := os.Create(filepath) // make sure to comment what you did locally to bypass this and if this is the right solution
 	if err != nil {
+		fmt.Println("err: ", err)
 		return err
 	}
 	fmt.Println("we make it here:))")
@@ -853,7 +852,7 @@ func getModelsToDownload(models []*Model) []*Model {
 		if errors.Is(err, os.ErrNotExist) {
 			// fmt.Println("model: ", *model)
 			modelsToDownload = append(modelsToDownload, model)
-			// create the directory here.
+			// create the directory here?
 		} else if err != nil {
 			panic("can't access files: " + err.Error()) // better thing to do?
 		}
