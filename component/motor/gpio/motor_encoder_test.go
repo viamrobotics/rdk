@@ -60,7 +60,7 @@ func TestMotorEncoder1(t *testing.T) {
 		isOn, err := _motor.IsPowered(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isOn, test.ShouldBeFalse)
-		features, err := _motor.GetFeatures(context.Background(), nil)
+		features, err := _motor.GetProperties(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
 	})

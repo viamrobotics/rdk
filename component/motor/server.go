@@ -92,17 +92,17 @@ func (server *subtypeServer) GetPosition(
 	return &pb.GetPositionResponse{Position: pos}, nil
 }
 
-// GetFeatures returns a message of booleans indicating which optional features the robot's motor supports.
-func (server *subtypeServer) GetFeatures(
+// GetProperties returns a message of booleans indicating which optional features the robot's motor supports.
+func (server *subtypeServer) GetProperties(
 	ctx context.Context,
-	req *pb.GetFeaturesRequest,
-) (*pb.GetFeaturesResponse, error) {
+	req *pb.GetPropertiesRequest,
+) (*pb.GetPropertiesResponse, error) {
 	motorName := req.GetName()
 	motor, err := server.getMotor(motorName)
 	if err != nil {
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
-	features, err := motor.GetFeatures(ctx, req.Extra.AsMap())
+	features, err := motor.GetProperties(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
