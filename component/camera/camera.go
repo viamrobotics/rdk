@@ -414,7 +414,7 @@ func (c *reconfigurableCamera) Reconfigure(ctx context.Context, newCamera resour
 // UpdateAction helps hint the reconfiguration process on what strategy to use given a modified config.
 // See config.ShouldUpdateAction for more information.
 func (c *reconfigurableCamera) UpdateAction(conf *config.Component) config.UpdateActionType {
-	obj, canUpdate := c.actual.(config.CompononentUpdate)
+	obj, canUpdate := c.actual.(config.ComponentUpdate)
 	if canUpdate {
 		return obj.UpdateAction(conf)
 	}
