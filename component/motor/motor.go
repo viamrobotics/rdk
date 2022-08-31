@@ -88,8 +88,8 @@ type Motor interface {
 	// back into calls of GoFor.
 	GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error)
 
-	// GetFeatures returns whether or not the motor supports certain optional features.
-	GetFeatures(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error)
+	// GetProperties returns whether or not the motor supports certain optional features.
+	GetProperties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error)
 
 	// Stop turns the power to the motor off immediately, without any gradual step down.
 	Stop(ctx context.Context, extra map[string]interface{}) error
@@ -168,7 +168,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if err != nil {
 		return nil, err
 	}
-	features, err := motor.GetFeatures(ctx, nil)
+	features, err := motor.GetProperties(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -238,10 +238,10 @@ func (r *reconfigurableMotor) GetPosition(ctx context.Context, extra map[string]
 	return r.actual.GetPosition(ctx, extra)
 }
 
-func (r *reconfigurableMotor) GetFeatures(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error) {
+func (r *reconfigurableMotor) GetProperties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetFeatures(ctx, extra)
+	return r.actual.GetProperties(ctx, extra)
 }
 
 func (r *reconfigurableMotor) Stop(ctx context.Context, extra map[string]interface{}) error {

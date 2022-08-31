@@ -112,30 +112,30 @@ func TestServerPosition(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestServerGetFeatures(t *testing.T) {
+func TestServerGetProperties(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 
 	// fails on a bad motor
-	req := pb.GetFeaturesRequest{Name: fakeMotorName}
-	resp, err := motorServer.GetFeatures(context.Background(), &req)
+	req := pb.GetPropertiesRequest{Name: fakeMotorName}
+	resp, err := motorServer.GetProperties(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.GetFeaturesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+	failingMotor.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 		return nil, errors.New("unable to get supported features")
 	}
-	req = pb.GetFeaturesRequest{Name: failMotorName}
-	resp, err = motorServer.GetFeatures(context.Background(), &req)
+	req = pb.GetPropertiesRequest{Name: failMotorName}
+	resp, err = motorServer.GetProperties(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.GetFeaturesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+	workingMotor.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 		return map[motor.Feature]bool{
 			motor.PositionReporting: true,
 		}, nil
 	}
-	req = pb.GetFeaturesRequest{Name: testMotorName}
-	resp, err = motorServer.GetFeatures(context.Background(), &req)
+	req = pb.GetPropertiesRequest{Name: testMotorName}
+	resp, err = motorServer.GetProperties(context.Background(), &req)
 	test.That(t, resp.GetPositionReporting(), test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
 }
