@@ -73,7 +73,7 @@ type wheeledBase struct {
 	opMgr operation.SingleOperationManager
 }
 
-func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
+func (base *wheeledBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	ctx, done := base.opMgr.New(ctx)
 	defer done()
 
@@ -196,7 +196,7 @@ func (base *wheeledBase) SetPower(ctx context.Context, linear, angular r3.Vector
 }
 
 // returns rpm, revolutions for a spin motion.
-func (base *wheeledBase) spinMath(angleDeg float64, degsPerSec float64) (float64, float64) {
+func (base *wheeledBase) spinMath(angleDeg, degsPerSec float64) (float64, float64) {
 	wheelTravel := base.spinSlipFactor * float64(base.widthMm) * math.Pi * angleDeg / 360.0
 	revolutions := wheelTravel / float64(base.wheelCircumferenceMm)
 
@@ -208,7 +208,7 @@ func (base *wheeledBase) spinMath(angleDeg float64, degsPerSec float64) (float64
 }
 
 // return rpms left, right.
-func (base *wheeledBase) velocityMath(mmPerSec float64, degsPerSec float64) (float64, float64) {
+func (base *wheeledBase) velocityMath(mmPerSec, degsPerSec float64) (float64, float64) {
 	// Base calculations
 	v := mmPerSec
 	r := float64(base.wheelCircumferenceMm) / (2.0 * math.Pi)

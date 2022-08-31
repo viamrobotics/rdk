@@ -48,7 +48,7 @@ func LoadBRIEFConfiguration(file string) *BRIEFConfig {
 	return &config
 }
 
-func sampleIntegers(patchSize int, n int, sampling SamplingType) []int {
+func sampleIntegers(patchSize, n int, sampling SamplingType) []int {
 	vMin := math.Round(-(float64(patchSize) - 2) / 2.)
 	vMax := math.Round(float64(patchSize) / 2.)
 	switch sampling {

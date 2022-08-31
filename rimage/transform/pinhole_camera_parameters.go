@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"io/ioutil"
+	"io"
 	"math"
 	"os"
 
@@ -140,7 +140,7 @@ func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColor
 	}
 	defer utils.UncheckedErrorFunc(jsonFile.Close)
 	// read our opened jsonFile as a byte array.
-	byteValue, err := ioutil.ReadAll(jsonFile)
+	byteValue, err := io.ReadAll(jsonFile)
 	if err != nil {
 		err = errors.Wrap(err, "error reading JSON data")
 		return nil, err
@@ -160,7 +160,7 @@ func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*Pinho
 	}
 	defer utils.UncheckedErrorFunc(jsonFile.Close)
 	// read our opened jsonFile as a byte array.
-	byteValue, err2 := ioutil.ReadAll(jsonFile)
+	byteValue, err2 := io.ReadAll(jsonFile)
 	if err2 != nil {
 		err2 = errors.Wrap(err2, "error reading JSON data")
 		return nil, err2

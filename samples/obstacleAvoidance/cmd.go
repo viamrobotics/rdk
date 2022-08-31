@@ -1,3 +1,4 @@
+// Package main is an obstacle avoidance utility.
 package main
 
 import (

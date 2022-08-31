@@ -8,7 +8,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/camera/imagesource"
+	"go.viam.com/rdk/component/camera/videosource"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -25,9 +25,9 @@ func TestColorObjects(t *testing.T) {
 	params, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "color")
 	test.That(t, err, test.ShouldBeNil)
 	cameraAttrs := &camera.AttrConfig{CameraParameters: params}
-	c := &imagesource.StaticSource{img, dm, params}
+	c := &videosource.StaticSource{img, dm, params}
 	proj, _ := camera.GetProjector(context.Background(), cameraAttrs, nil)
-	cam, err := camera.New(c, proj)
+	cam, err := camera.NewFromReader(c, proj)
 	test.That(t, err, test.ShouldBeNil)
 	// create config
 	cfg := config.AttributeMap{

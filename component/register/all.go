@@ -4,6 +4,7 @@ package register
 import (
 	// register components.
 	_ "go.viam.com/rdk/component/arm/register"
+	_ "go.viam.com/rdk/component/audioinput/register"
 	_ "go.viam.com/rdk/component/base/register"
 	_ "go.viam.com/rdk/component/board/register"
 	_ "go.viam.com/rdk/component/camera/register"

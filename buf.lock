@@ -4,14 +4,8 @@ deps:
   - remote: buf.build
     owner: erdaniels
     repository: gostream
-    branch: main
-    commit: 99544b68ab15405ab7eef404997d9cf4
-    digest: b1-S6NNdCCMeptWYhGCkdDDHHZ-tBsVGgaq4c3zICBMG2Y=
-    create_time: 2021-12-21T00:00:55.874475Z
+    commit: 804b8b573d234e2d81b3971b3116a9c5
   - remote: buf.build
     owner: googleapis
     repository: googleapis
-    branch: main
     commit: a821d6d6abbe4b439907ff7970459941
-    digest: b1-2K8F7EHYBrgGfmCQmWc1zBNyiyLoIABNm3BQVj7q8DY=
-    create_time: 2021-10-27T15:08:18.775093Z

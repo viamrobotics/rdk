@@ -2,8 +2,8 @@ package referenceframe
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"math"
+	"os"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -200,7 +200,7 @@ func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 // ParseModelJSONFile will read a given file and then parse the contained JSON data.
 func ParseModelJSONFile(filename, modelName string) (Model, error) {
 	//nolint:gosec
-	jsonData, err := ioutil.ReadFile(filename)
+	jsonData, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read json file")
 	}

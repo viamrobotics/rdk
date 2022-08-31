@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func newPID(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
+func newPID(config BlockConfig, logger golog.Logger) (Block, error) {
 	p := &basicPID{cfg: config, logger: logger}
 	if err := p.reset(); err != nil {
 		return nil, err
@@ -21,7 +21,7 @@ func newPID(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error
 // BasicPID is the standard implementation of a PID controller.
 type basicPID struct {
 	mu       sync.Mutex
-	cfg      ControlBlockConfig
+	cfg      BlockConfig
 	error    float64
 	kI       float64
 	kD       float64
@@ -123,7 +123,7 @@ func (p *basicPID) reset() error {
 		p.tuning = true
 	}
 	p.y = make([]Signal, 1)
-	p.y[0] = makeSignal(p.cfg.Name, 1)
+	p.y[0] = makeSignal(p.cfg.Name)
 	return nil
 }
 
@@ -133,7 +133,7 @@ func (p *basicPID) Reset(ctx context.Context) error {
 	return p.reset()
 }
 
-func (p *basicPID) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
+func (p *basicPID) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.cfg = config
@@ -144,7 +144,7 @@ func (p *basicPID) Output(ctx context.Context) []Signal {
 	return p.y
 }
 
-func (p *basicPID) Config(ctx context.Context) ControlBlockConfig {
+func (p *basicPID) Config(ctx context.Context) BlockConfig {
 	return p.cfg
 }
 

@@ -320,7 +320,7 @@ func TestDoMove(t *testing.T) {
 	err = base.DoMove(context.Background(), m, dev)
 	test.That(t, err, test.ShouldBeNil)
 
-	dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
+	dev.SpinFunc = func(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 		return err1
 	}
 
@@ -328,7 +328,7 @@ func TestDoMove(t *testing.T) {
 	err = base.DoMove(context.Background(), m, dev)
 	test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 
-	dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
+	dev.SpinFunc = func(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 		test.That(t, angleDeg, test.ShouldEqual, m.AngleDeg)
 		test.That(t, degsPerSec, test.ShouldEqual, m.DegsPerSec)
 		test.That(t, extra, test.ShouldResemble, m.Extra)

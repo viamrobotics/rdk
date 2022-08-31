@@ -302,7 +302,7 @@ func (g *Graph) removeChildren(child, parent Name) {
 	g.removeTransitiveClosure(child, parent)
 }
 
-func (g *Graph) addTransitiveClosure(child Name, parent Name) {
+func (g *Graph) addTransitiveClosure(child, parent Name) {
 	for u := range g.transitiveClosureMatrix {
 		for v := range g.transitiveClosureMatrix[u] {
 			g.transitiveClosureMatrix[u][v] += g.transitiveClosureMatrix[u][child] * g.transitiveClosureMatrix[parent][v]
@@ -310,7 +310,7 @@ func (g *Graph) addTransitiveClosure(child Name, parent Name) {
 	}
 }
 
-func (g *Graph) removeTransitiveClosure(child Name, parent Name) {
+func (g *Graph) removeTransitiveClosure(child, parent Name) {
 	for u := range g.transitiveClosureMatrix {
 		for v := range g.transitiveClosureMatrix[u] {
 			g.transitiveClosureMatrix[u][v] -= g.transitiveClosureMatrix[u][child] * g.transitiveClosureMatrix[parent][v]

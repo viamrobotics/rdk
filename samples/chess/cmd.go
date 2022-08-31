@@ -276,9 +276,9 @@ func searchForNextMove(p *position.Position) (*position.Position, *moves.Move) {
 	return p, params.EngineMove
 }
 
-func getWristPicCorners(ctx context.Context, wristCam gostream.ImageSource, debugNumber int) ([]image.Point, image.Point, error) {
+func getWristPicCorners(ctx context.Context, wristCam gostream.VideoSource, debugNumber int) ([]image.Point, image.Point, error) {
 	imageSize := image.Point{}
-	img, release, err := wristCam.Next(ctx)
+	img, release, err := camera.ReadImage(ctx, wristCam)
 	if err != nil {
 		return nil, imageSize, err
 	}
@@ -291,7 +291,7 @@ func getWristPicCorners(ctx context.Context, wristCam gostream.ImageSource, debu
 	if !goutils.SelectContextOrWait(ctx, 500*time.Millisecond) {
 		return nil, imageSize, ctx.Err()
 	}
-	img, release, err = wristCam.Next(ctx)
+	img, release, err = camera.ReadImage(ctx, wristCam)
 	if err != nil {
 		return nil, imageSize, err
 	}
@@ -320,7 +320,7 @@ func getWristPicCorners(ctx context.Context, wristCam gostream.ImageSource, debu
 func lookForBoardAdjust(
 	ctx context.Context,
 	myArm arm.Arm,
-	wristCam gostream.ImageSource,
+	wristCam gostream.VideoSource,
 	corners []image.Point,
 	imageSize image.Point,
 ) error {
@@ -439,7 +439,7 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 		}
 		rlog.Logger.Infof("starting at: %v,%v\n", where.X, where.Y)
 
-		raw, release, err := cam.Next(ctx)
+		raw, release, err := camera.ReadImage(ctx, cam)
 		if err != nil {
 			return err
 		}
@@ -579,7 +579,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 
 	goutils.PanicCapturingGo(func() {
 		for {
-			img, release, err := webcam.Next(ctx)
+			img, release, err := camera.ReadImage(ctx, webcam)
 			func() {
 				defer release()
 				if err != nil {
@@ -598,8 +598,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 					boardState.Clear()
 				} else {
 					// boardState now owns theBoard
-					_, err := boardState.newData(theBoard)
-					if err != nil {
+					if err := boardState.newData(theBoard); err != nil {
 						logger.Debug(err)
 						boardState.Clear()
 					}

@@ -35,7 +35,7 @@ func DetectionSegmenter(detector objectdetection.Detector) (Segmenter, []utils.T
 				return nil, err
 			}
 		}
-		proj, err := cam.GetProperties(ctx)
+		proj, err := cam.Projector(ctx)
 		if err != nil {
 			return nil, err
 		}

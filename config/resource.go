@@ -26,9 +26,9 @@ const (
 	Rebuild
 )
 
-// CompononentUpdate interface that a component can optionally implement.
+// ComponentUpdate interface that a component can optionally implement.
 // This interface helps the reconfiguration process.
-type CompononentUpdate interface {
+type ComponentUpdate interface {
 	UpdateAction(config *Component) UpdateActionType
 }
 

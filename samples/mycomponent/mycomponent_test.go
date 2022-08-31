@@ -3,7 +3,7 @@ package mycomponent_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -43,7 +43,7 @@ func TestMyComponent(t *testing.T) {
 	err = r0.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	tmpConf, err := ioutil.TempFile("", "*.json")
+	tmpConf, err := os.CreateTemp("", "*.json")
 	test.That(t, err, test.ShouldBeNil)
 	_, err = tmpConf.Write([]byte(fmt.Sprintf(`{"network":{"bind_address":"%s"},"remotes":[{"address":"%s","name":"robot1"}]}`, addr2, addr1)))
 	test.That(t, err, test.ShouldBeNil)

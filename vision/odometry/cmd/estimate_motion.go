@@ -1,3 +1,4 @@
+// Package main is a motion estimation via visual odometry tool.
 package main
 
 import (
@@ -40,6 +41,7 @@ func main() {
 	http.Handle("/", http.FileServer(http.Dir(".")))
 	logger.Info("Listening on 8080...")
 	logger.Info("Images can be visualized at http://localhost:8080/orb/")
+	//nolint:gosec
 	err = http.ListenAndServe(":8080", nil)
 	if err != nil {
 		log.Fatal("ListenAndServe:", err)
