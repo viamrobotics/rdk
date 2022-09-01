@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"io/fs"
 	"io/ioutil"
@@ -303,7 +302,6 @@ func TestModelsAfterKilled(t *testing.T) {
 	// Register mock sync service with a mock server.
 	syncServer, _ := buildAndStartLocalServer(t)
 	defer func() {
-		fmt.Println("stopping syncServer")
 		err := syncServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
 	}()
@@ -311,7 +309,6 @@ func TestModelsAfterKilled(t *testing.T) {
 	// Register mock model service with a mock server.
 	modelServer, mockModelService := buildAndStartLocalModelServer(t)
 	defer func() {
-		fmt.Println("stopping modelServer")
 		err := modelServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
 	}()
@@ -345,16 +342,15 @@ func TestModelsAfterKilled(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not downloaded.
-	// time.Sleep(time.Millisecond * 250)
+	// time.Sleep(time.Millisecond * 250) // do not think I need this
 
 	// Simulate turning off the service.
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
 
 	// Validate nothing has been deployed yet.
-	logger.Info("TEST1")
 	test.That(t, mockModelService.getDeployedModels(), test.ShouldEqual, 0)
-	time.Sleep(2 * time.Second)
+	time.Sleep(2 * time.Second) // hacky?
 
 	// Turn the service back on.
 	dmsvc = newTestDataManager(t, "arm1", "")
@@ -370,12 +366,8 @@ func TestModelsAfterKilled(t *testing.T) {
 	time.Sleep(syncWaitTime)
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
-	logger.Info("TEST2")
 	test.That(t, mockModelService.getDeployedModels(), test.ShouldEqual, 1)
-	fmt.Println("do we make it here?")
-	// os.RemoveAll("Users/nick/models/.viam/m1")
-	os.RemoveAll("Users/nick/models/")
-	fmt.Println("have we made it past?")
+	os.Remove(filepath.Join(os.Getenv("HOME"), "models", ".viam", "m1"))
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
@@ -786,7 +778,6 @@ func (m mockDataSyncServiceServer) getUploadedFiles() []string {
 }
 
 func (m mockModelServiceServer) getDeployedModels() int {
-	fmt.Println("mockModelServiceServer.getDeployedModels()")
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
 	// all we do is check if $Home/models exists and how many subdirs it has
@@ -803,14 +794,9 @@ func (m mockModelServiceServer) getDeployedModels() int {
 		}
 		m := 0
 		for i := 0; i < len(files); i++ {
-			name := files[i].Name()
-			fmt.Println("name: ", name)
 			_, _, modTimeSec := files[i].ModTime().Clock()
-			fmt.Println("modTime: ", modTimeSec)
 			_, _, timeNowSec := time.Now().Clock()
-			fmt.Println("timeNow: ", timeNowSec)
 			diff := timeNowSec - modTimeSec
-			fmt.Println("diff: ", diff)
 			if diff <= 1 {
 				m++
 			}

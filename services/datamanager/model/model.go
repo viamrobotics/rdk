@@ -53,7 +53,7 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 	return NewManager(logger, cfg.Cloud.ID, client, conn)
 }
 
-// NewManager returns a new syncer.
+// NewManager returns a new modelr.
 func NewManager(logger golog.Logger, partID string, client v1.ModelServiceClient,
 	conn rpc.ClientConn,
 ) (Manager, error) {
