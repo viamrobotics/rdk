@@ -862,13 +862,13 @@ func (m *MockClient) Do(req *http.Request) (*http.Response, error) {
 	zipWriter.Close()
 
 	response := &http.Response{
-		StatusCode: 200,
+		StatusCode: http.StatusOK, // might not even need this
 		Body:       io.NopCloser(buf),
 	}
 	return response, nil
 }
 
-// GetDoFunc fetches the mock client's `Do` func
+// GetDoFunc fetches the mock client's `Do` func.
 var GetDoFunc func(req *http.Request) (*http.Response, error)
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {

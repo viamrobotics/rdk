@@ -35,7 +35,7 @@ func NewCorner(x, y float64) Corner {
 }
 
 // NewCornerWithR creates a new corner with an R value.
-func NewCornerWithR(x, y float64, r float64) Corner {
+func NewCornerWithR(x, y, r float64) Corner {
 	return Corner{X: x, Y: y, R: r}
 }
 
