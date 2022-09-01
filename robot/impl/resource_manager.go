@@ -113,13 +113,21 @@ func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []
 // 1) The remote resource already is in the tree as an unknown type, it will be renamed
 // 2) A remote resource is being deleted but a local resource depends on it.
 // It will be renamed as unknown and its local children are going to be destroyed.
-func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, remoteName resource.Name, rr robot.Robot, lr *localRobot) {
+func (manager *resourceManager) updateRemoteResourceNames(
+	ctx context.Context,
+	remoteName resource.Name,
+	rr robot.Robot,
+	lr *localRobot,
+) bool {
 	visited := map[resource.Name]bool{}
 	newResources := rr.ResourceNames()
 	oldResources := manager.remoteResourceNames(remoteName)
 	for _, res := range oldResources {
 		visited[res] = false
 	}
+
+	anythingChanged := false
+
 	for _, res := range newResources {
 		rrName := res
 		res = res.PrependRemote(resource.RemoteName(remoteName.Name))
@@ -127,7 +135,7 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 			visited[res] = true
 			continue
 		}
-		iface, err := rr.ResourceByName(rrName)
+		iface, err := rr.ResourceByName(rrName) // this returns a remote known OR foreign resource client
 		if err != nil {
 			manager.logger.Errorw("couldn't obtain remote resource interface",
 				"name", rrName,
@@ -149,6 +157,8 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 		err = manager.resources.AddChildren(res, remoteName)
 		if err != nil {
 			manager.logger.Errorw("error while trying add node as a dependency of remote", "node", res, "remote", remoteName)
+		} else {
+			anythingChanged = true
 		}
 	}
 	for res, visit := range visited {
@@ -171,19 +181,23 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 				continue
 			}
 			manager.resources.Remove(res)
+			anythingChanged = true
 		}
 	}
+	return anythingChanged
 }
 
-func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context, r *localRobot) {
+func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context, r *localRobot) bool {
+	anythingChanged := false
 	for _, name := range manager.resources.Names() {
 		iface, _ := manager.resources.Node(name)
 		if name.ResourceType == remoteTypeName {
 			if rr, ok := iface.(robot.Robot); ok {
-				manager.updateRemoteResourceNames(ctx, name, rr, r)
+				anythingChanged = anythingChanged || manager.updateRemoteResourceNames(ctx, name, rr, r)
 			}
 		}
 	}
+	return anythingChanged
 }
 
 // addResource adds a resource to the manager.
@@ -336,7 +350,7 @@ func (manager *resourceManager) completeConfig(
 		if !ok {
 			continue
 		}
-		manager.logger.Infow("we are now handling the resource ", "resource", r.Name)
+		manager.logger.Infow("we are now handling the resource ", "resource", r)
 		if c, ok := wrap.config.(config.Component); ok {
 			iface, err := manager.processComponent(ctx, r, c, wrap.real, robot)
 			if err != nil {
@@ -477,49 +491,6 @@ func (manager *resourceManager) RemoteByName(name string) (robot.Robot, bool) {
 	return nil, false
 }
 
-func (manager *resourceManager) reconfigureResource(ctx context.Context, old, newR interface{}) (interface{}, error) {
-	if old == nil {
-		// if the oldPart was never created, replace directly with the new resource
-		return newR, nil
-	}
-
-	oldPart, oldResourceIsReconfigurable := old.(resource.Reconfigurable)
-	newPart, newResourceIsReconfigurable := newR.(resource.Reconfigurable)
-
-	switch {
-	case oldResourceIsReconfigurable != newResourceIsReconfigurable:
-		// this is an indicator of a serious constructor problem
-		// for the resource subtype.
-		reconfError := errors.Errorf(
-			"new type %T is reconfigurable whereas old type %T is not",
-			newR, old)
-		if oldResourceIsReconfigurable {
-			reconfError = errors.Errorf(
-				"old type %T is reconfigurable whereas new type %T is not",
-				old, newR)
-		}
-		return nil, reconfError
-	case oldResourceIsReconfigurable && newResourceIsReconfigurable:
-		// if we are dealing with a reconfigurable resource
-		// use the new resource to reconfigure the old one.
-		if err := oldPart.Reconfigure(ctx, newPart); err != nil {
-			return nil, err
-		}
-		return old, nil
-	case !oldResourceIsReconfigurable && !newResourceIsReconfigurable:
-		// if we are not dealing with a reconfigurable resource
-		// we want to close the old resource and replace it with the
-		// new.
-		if err := utils.TryClose(ctx, old); err != nil {
-			return nil, err
-		}
-		return newR, nil
-	default:
-		return nil, errors.Errorf("unexpected outcome during reconfiguration of type %T and type %T",
-			old, newR)
-	}
-}
-
 func (manager *resourceManager) processService(ctx context.Context,
 	c config.Service,
 	old interface{},
@@ -532,7 +503,7 @@ func (manager *resourceManager) processService(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	return manager.reconfigureResource(ctx, old, svc)
+	return resource.ReconfigureResource(ctx, old, svc)
 }
 
 func (manager *resourceManager) markChildrenForUpdate(ctx context.Context, rName resource.Name, r *localRobot) error {
@@ -578,7 +549,7 @@ func (manager *resourceManager) processComponent(ctx context.Context,
 	if old == nil {
 		return r.newResource(ctx, conf)
 	}
-	obj, canValidate := old.(config.CompononentUpdate)
+	obj, canValidate := old.(config.ComponentUpdate)
 	res := config.Rebuild
 	if canValidate {
 		res = obj.UpdateAction(&conf)
@@ -594,7 +565,7 @@ func (manager *resourceManager) processComponent(ctx context.Context,
 		if err != nil {
 			return old, err
 		}
-		rr, err := manager.reconfigureResource(ctx, old, nr)
+		rr, err := resource.ReconfigureResource(ctx, old, nr)
 		if err != nil {
 			return old, err
 		}

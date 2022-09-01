@@ -13,9 +13,14 @@ import (
 	"go.viam.com/rdk/rlog"
 )
 
-// StreamSource starts a stream from an image source with a throttled error handler.
-func StreamSource(ctx context.Context, source gostream.ImageSource, stream gostream.Stream, backoffOpts *BackoffTuningOptions) {
-	gostream.StreamSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler())
+// StreamVideoSource starts a stream from a video source with a throttled error handler.
+func StreamVideoSource(ctx context.Context, source gostream.VideoSource, stream gostream.Stream, backoffOpts *BackoffTuningOptions) error {
+	return gostream.StreamVideoSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler())
+}
+
+// StreamAudioSource starts a stream from an audio source with a throttled error handler.
+func StreamAudioSource(ctx context.Context, source gostream.AudioSource, stream gostream.Stream, backoffOpts *BackoffTuningOptions) error {
+	return gostream.StreamAudioSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler())
 }
 
 // BackoffTuningOptions represents a set of parameters for determining exponential
@@ -30,6 +35,10 @@ type BackoffTuningOptions struct {
 	// MaxSleep determines the maximum amount of time that streamSource is
 	// permitted to a sleep after receiving a single error.
 	MaxSleep time.Duration
+	// Cooldown sets how long since the last error that we can reset our backoff. This
+	// should be greater than MaxSleep. This prevents a scenario where we haven't made
+	// a call to read for a long time and the error may go away sooner.
+	Cooldown time.Duration
 }
 
 // GetSleepTimeFromErrorCount returns a sleep time from an error count.
@@ -43,15 +52,17 @@ func (opts *BackoffTuningOptions) GetSleepTimeFromErrorCount(errorCount int) tim
 	return time.Duration(sleep)
 }
 
-func (opts *BackoffTuningOptions) getErrorThrottledHandler() func(context.Context, error) bool {
+func (opts *BackoffTuningOptions) getErrorThrottledHandler() func(context.Context, error) {
 	var prevErr error
 	var errorCount int
+	lastErrTime := time.Now()
 
-	return func(ctx context.Context, err error) bool {
-		if err == nil {
+	return func(ctx context.Context, err error) {
+		now := time.Now()
+		if now.Sub(lastErrTime) > opts.Cooldown {
 			errorCount = 0
-			return false
 		}
+		lastErrTime = now
 
 		if errors.Is(prevErr, err) {
 			errorCount++
@@ -61,9 +72,7 @@ func (opts *BackoffTuningOptions) getErrorThrottledHandler() func(context.Contex
 		}
 
 		sleep := opts.GetSleepTimeFromErrorCount(errorCount)
-		rlog.Logger.Debugw("error getting frame", "error", err, "count", errorCount)
+		rlog.Logger.Debugw("error getting media", "error", err, "count", errorCount, "sleep", sleep)
 		utils.SelectContextOrWait(ctx, sleep)
-
-		return true
 	}
 }

@@ -8,7 +8,8 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/rdk/component/camera/imagesource"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/camera/videosource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/vision/objectdetection"
 )
@@ -17,7 +18,8 @@ func TestDetectionSource(t *testing.T) {
 	// make the original source
 	sourceImg, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
-	src := &imagesource.StaticSource{ColorImg: sourceImg}
+	src, err := camera.NewFromReader(&videosource.StaticSource{ColorImg: sourceImg}, nil)
+	test.That(t, err, test.ShouldBeNil)
 	// make the preprocessing function
 	p, err := objectdetection.RemoveColorChannel("b")
 	test.That(t, err, test.ShouldBeNil)
@@ -46,11 +48,12 @@ func TestDetectionSource(t *testing.T) {
 	test.That(t, bbs[0].BoundingBox(), test.ShouldResemble, &image.Rectangle{image.Point{848, 424}, image.Point{999, 565}})
 
 	// overlay the image and see if it is red where you expect
-	img, _, err := pipeline.Next(context.Background())
+	img, _, err := pipeline.Read(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(img)
 	test.That(t, ovImg.GetXY(848, 424), test.ShouldResemble, rimage.Red)
 	test.That(t, ovImg.GetXY(998, 564), test.ShouldResemble, rimage.Red)
+	test.That(t, src.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestEmptyDetection(t *testing.T) {

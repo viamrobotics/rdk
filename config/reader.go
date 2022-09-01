@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -19,10 +18,13 @@ import (
 	"github.com/mitchellh/copystructure"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	apppb "go.viam.com/api/proto/viam/app/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/resource"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // RDK versioning variables which are replaced by LD flags.
@@ -211,30 +213,45 @@ func CreateCloudRequest(ctx context.Context, cloudCfg *Cloud) (*http.Request, er
 	}
 	r.Header.Set(cloudConfigSecretField, cloudCfg.Secret)
 
-	userInfo := map[string]interface{}{}
-	hostname, err := os.Hostname()
+	agentInfo, err := getAgentInfo()
 	if err != nil {
 		return nil, err
 	}
-	userInfo[cloudConfigUserInfoHostField] = hostname
-	userInfo[cloudConfigUserInfoOSField] = runtime.GOOS
 
-	ips, err := utils.GetAllLocalIPv4s()
-	if err != nil {
-		return nil, err
-	}
-	userInfo[cloudConfigUserInfoLocalIPsField] = ips
-	userInfo[cloudConfigVersionField] = Version
-	userInfo[cloudConfigGitRevisionField] = GitRevision
+	userInfo := map[string]interface{}{}
+	userInfo[cloudConfigUserInfoHostField] = agentInfo.Host
+	userInfo[cloudConfigUserInfoOSField] = agentInfo.Os
+	userInfo[cloudConfigUserInfoLocalIPsField] = agentInfo.Ips
+	userInfo[cloudConfigVersionField] = agentInfo.Version
+	userInfo[cloudConfigGitRevisionField] = agentInfo.GitRevision
 
 	userInfoBytes, err := json.Marshal(userInfo)
 	if err != nil {
 		return nil, err
 	}
-
 	r.Header.Set(cloudConfigUserInfoField, string(userInfoBytes))
 
 	return r, nil
+}
+
+func getAgentInfo() (*apppb.AgentInfo, error) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+
+	ips, err := utils.GetAllLocalIPv4s()
+	if err != nil {
+		return nil, err
+	}
+
+	return &apppb.AgentInfo{
+		Host:        hostname,
+		Ips:         ips,
+		Os:          runtime.GOOS,
+		Version:     Version,
+		GitRevision: GitRevision,
+	}, nil
 }
 
 // createCloudCertificateRequest makes a request to fetch the robot's TLS
@@ -290,65 +307,6 @@ func storeToCache(id string, cfg *Config) error {
 	return artifact.AtomicStore(path, reader, id)
 }
 
-// getFromCloud actually does the fetching of the robot config and parses to an unprocessed Config struct.
-func getFromCloud(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger golog.Logger) (*Config, bool, error) {
-	cloudReq, err := CreateCloudRequest(ctx, cloudCfg)
-	if err != nil {
-		return nil, false, err
-	}
-
-	var cached bool
-	unprocessedConfig := &Config{
-		ConfigFilePath: "",
-	}
-
-	var client http.Client
-	defer client.CloseIdleConnections()
-	resp, err := client.Do(cloudReq)
-	// Try to load from the cache
-	if err != nil {
-		if !shouldReadFromCache {
-			return nil, cached, err
-		}
-		var urlErr *url.Error
-		if !errors.Is(err, context.DeadlineExceeded) && (!errors.As(err, &urlErr) || urlErr.Temporary()) {
-			return nil, cached, err
-		}
-		cachedConfig, cacheErr := readFromCache(cloudCfg.ID)
-		if cacheErr != nil {
-			if os.IsNotExist(cacheErr) {
-				// Return original http error if failed to load from cache.
-				return nil, cached, err
-			}
-			// return cache err
-			cached = true
-			return nil, cached, cacheErr
-		}
-		logger.Warnw("unable to get cloud config; using cached version", "error", err)
-		cached = true
-		return cachedConfig, cached, nil
-	}
-
-	defer utils.UncheckedErrorFunc(resp.Body.Close)
-
-	rd, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, cached, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		if len(rd) != 0 {
-			return nil, cached, errors.Errorf("unexpected status %d: %s", resp.StatusCode, string(rd))
-		}
-		return nil, cached, errors.Errorf("unexpected status %d", resp.StatusCode)
-	}
-
-	if err := json.Unmarshal(rd, unprocessedConfig); err != nil {
-		return nil, cached, errors.Wrap(err, "cannot parse cloud config")
-	}
-	return unprocessedConfig, cached, nil
-}
-
 // readCertificateDataFromCloud returns the certificate from the app. It returns it as properties of a new Cloud config.
 // The argument `cloudConfigFromDisk` represents the Cloud config from disk and only the Path parameters are used to
 // generate the url. This is different from the Cloud config returned from the HTTP or gRPC API which do not have it.
@@ -366,7 +324,9 @@ func readCertificateDataFromCloud(ctx context.Context, signalingInsecure bool, c
 	if err != nil {
 		return nil, err
 	}
-	defer utils.UncheckedErrorFunc(resp.Body.Close)
+	defer func() {
+		utils.UncheckedError(resp.Body.Close())
+	}()
 
 	dec := json.NewDecoder(resp.Body)
 	var certData Cloud
@@ -390,32 +350,80 @@ func readCertificateDataFromCloud(ctx context.Context, signalingInsecure bool, c
 	}, nil
 }
 
+func readCertificateDataFromCloudGRPC(ctx context.Context,
+	signalingInsecure bool,
+	cloudConfigFromDisk *Cloud,
+	logger golog.Logger,
+) (*Cloud, error) {
+	conn, err := CreateNewGRPCClient(ctx, cloudConfigFromDisk, logger)
+	if err != nil {
+		return nil, err
+	}
+	defer utils.UncheckedErrorFunc(conn.Close)
+
+	service := apppb.NewRobotServiceClient(conn)
+	res, err := service.Certificate(ctx, &apppb.CertificateRequest{Id: cloudConfigFromDisk.ID})
+	if err != nil {
+		// Check cache?
+		return nil, err
+	}
+
+	if !signalingInsecure {
+		if res.TlsCertificate == "" {
+			return nil, errors.New("no TLS certificate yet from cloud; try again later")
+		}
+		if res.TlsPrivateKey == "" {
+			return nil, errors.New("no TLS private key yet from cloud; try again later")
+		}
+	}
+
+	// TODO(RSDK-539): we might want to use an internal type here. The gRPC api will not return a Cloud json struct.
+	return &Cloud{
+		TLSCertificate: res.TlsCertificate,
+		TLSPrivateKey:  res.TlsPrivateKey,
+	}, nil
+}
+
+// shouldCheckForCert checks the Cloud config to see if the TLS cert should be refetched.
+func shouldCheckForCert(prevCloud, cloud *Cloud) bool {
+	// only checking the same fields as the ones that are explicitly overwritten in mergeCloudConfig
+	diffFQDN := prevCloud.FQDN != cloud.FQDN
+	diffLocalFQDN := prevCloud.LocalFQDN != cloud.LocalFQDN
+	diffSignalingAddr := prevCloud.SignalingAddress != cloud.SignalingAddress
+	diffSignalInsecure := prevCloud.SignalingInsecure != cloud.SignalingInsecure
+	diffManagedBy := prevCloud.ManagedBy != cloud.ManagedBy
+	diffLocSecret := prevCloud.LocationSecret != cloud.LocationSecret
+
+	return diffFQDN || diffLocalFQDN || diffSignalingAddr || diffSignalInsecure || diffManagedBy || diffLocSecret
+}
+
 // readFromCloud fetches a robot config from the cloud based
 // on the given config.
 func readFromCloud(
 	ctx context.Context,
-	originalCfg *Config,
+	originalCfg,
+	prevCfg *Config,
 	shouldReadFromCache bool,
 	checkForNewCert bool,
 	logger golog.Logger,
-) (*Config, *Config, error) {
+) (*Config, error) {
 	logger.Debug("reading configuration from the cloud")
 	cloudCfg := originalCfg.Cloud
-	unprocessedConfig, cached, err := getFromCloud(ctx, cloudCfg, shouldReadFromCache, logger)
+	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, cloudCfg, shouldReadFromCache, logger)
 	if err != nil {
 		if !cached {
 			err = errors.Wrapf(err, "error getting cloud config, please make sure the RDK config located in %v is valid", originalCfg.ConfigFilePath)
 		}
-		return nil, nil, err
+		return nil, err
 	}
 
 	// process the config
 	cfg, err := processConfigFromCloud(unprocessedConfig)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if cfg.Cloud == nil {
-		return nil, nil, errors.New("expected config to have cloud section")
+		return nil, errors.New("expected config to have cloud section")
 	}
 
 	// empty if not cached, since its a separate request, which we check next
@@ -429,7 +437,7 @@ func readFromCloud(
 		if err == nil {
 			cachedConfig, err := processConfigFromCloud(unproccessedCachedConfig)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 
 			if cachedConfig.Cloud != nil {
@@ -437,21 +445,32 @@ func readFromCloud(
 				tlsPrivateKey = cachedConfig.Cloud.TLSPrivateKey
 			}
 		} else if !os.IsNotExist(err) {
-			return nil, nil, err
+			return nil, err
 		}
+	}
+
+	if prevCfg != nil && shouldCheckForCert(prevCfg.Cloud, cfg.Cloud) {
+		checkForNewCert = true
 	}
 
 	if checkForNewCert || tlsCertificate == "" || tlsPrivateKey == "" {
 		logger.Debug("reading tlsCertificate from the cloud")
 		// Use the SignalingInsecure from the Cloud config returned from the app not the initial config.
-		certData, err := readCertificateDataFromCloud(ctx, cfg.Cloud.SignalingInsecure, cloudCfg)
+
+		var certData *Cloud
+		if originalCfg.Cloud.AppAddress == "" {
+			certData, err = readCertificateDataFromCloud(ctx, cfg.Cloud.SignalingInsecure, cloudCfg)
+		} else {
+			certData, err = readCertificateDataFromCloudGRPC(ctx, cfg.Cloud.SignalingInsecure, cloudCfg, logger)
+		}
+
 		if err != nil {
 			var urlErr *url.Error
 			if !errors.Is(err, context.DeadlineExceeded) && (!errors.As(err, &urlErr) || urlErr.Temporary()) {
-				return nil, nil, err
+				return nil, err
 			}
 			if tlsCertificate == "" || tlsPrivateKey == "" {
-				return nil, nil, errors.Wrap(err, "error getting certificate data from cloud; try again later")
+				return nil, errors.Wrap(err, "error getting certificate data from cloud; try again later")
 			}
 			logger.Warnw("failed to refresh certificate data; using cached for now", "error", err)
 		} else {
@@ -480,13 +499,12 @@ func readFromCloud(
 	}
 
 	mergeCloudConfig(cfg)
-	mergeCloudConfig(unprocessedConfig)
 
 	if err := storeToCache(cloudCfg.ID, unprocessedConfig); err != nil {
 		golog.Global.Errorw("failed to cache config", "error", err)
 	}
 
-	return cfg, unprocessedConfig, nil
+	return cfg, nil
 }
 
 // Read reads a config from the given file.
@@ -525,7 +543,7 @@ func FromReader(
 	}
 
 	if cfgFromDisk.Cloud != nil {
-		cfg, _, err := readFromCloud(ctx, cfgFromDisk, true, true, logger)
+		cfg, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger)
 		return cfg, err
 	}
 
@@ -605,4 +623,189 @@ func processConfig(unprocessedConfig *Config, fromCloud bool) (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// getFromCloudOrCache returns the config from either the legacy HTTP endpoint or gRPC endpoint depending if the original config
+// has the AppAddress set. If failures during cloud lookup fallback to the local cache if the error indicates it should.
+func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCache bool, logger golog.Logger) (*Config, bool, error) {
+	var cached bool
+	var cfg *Config
+	var errorShouldCheckCache bool
+	var err error
+	if cloudCfg.AppAddress == "" {
+		cfg, errorShouldCheckCache, err = getFromCloudHTTP(ctx, cloudCfg)
+	} else {
+		cfg, errorShouldCheckCache, err = getFromCloudGRPC(ctx, cloudCfg, logger)
+	}
+
+	if err != nil {
+		if shouldReadFromCache && errorShouldCheckCache {
+			logger.Warnw("failed to read config from cloud, checking cache", "error", err)
+			cachedConfig, cacheErr := readFromCache(cloudCfg.ID)
+			if cacheErr != nil {
+				if os.IsNotExist(cacheErr) {
+					// Return original http error if failed to load from cache.
+					return nil, cached, err
+				}
+				// return cache err
+				return nil, cached, cacheErr
+			}
+			logger.Warnw("unable to get cloud config; using cached version", "error", err)
+			cached = true
+			return cachedConfig, cached, nil
+		}
+
+		return nil, cached, err
+	}
+
+	return cfg, cached, nil
+}
+
+// getFromCloud actually does the fetching of the robot config and parses to an unprocessed Config struct.
+func getFromCloudHTTP(ctx context.Context, cloudCfg *Cloud) (*Config, bool, error) {
+	shouldCheckCacheOnFailure := false
+	cloudReq, err := CreateCloudRequest(ctx, cloudCfg)
+	if err != nil {
+		return nil, false, err
+	}
+
+	unprocessedConfig := &Config{
+		ConfigFilePath: "",
+	}
+
+	var client http.Client
+	defer client.CloseIdleConnections()
+	resp, err := client.Do(cloudReq)
+	// Try to load from the cache
+	if err != nil {
+		var urlErr *url.Error
+		if !errors.Is(err, context.DeadlineExceeded) && (!errors.As(err, &urlErr) || urlErr.Temporary()) {
+			return nil, shouldCheckCacheOnFailure, err
+		}
+		shouldCheckCacheOnFailure = true
+		return nil, shouldCheckCacheOnFailure, err
+	}
+
+	defer func() {
+		utils.UncheckedError(resp.Body.Close())
+	}()
+
+	rd, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, shouldCheckCacheOnFailure, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		if len(rd) != 0 {
+			return nil, shouldCheckCacheOnFailure, errors.Errorf("unexpected status %d: %s", resp.StatusCode, string(rd))
+		}
+		return nil, shouldCheckCacheOnFailure, errors.Errorf("unexpected status %d", resp.StatusCode)
+	}
+
+	if err := json.Unmarshal(rd, unprocessedConfig); err != nil {
+		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "cannot parse cloud config")
+	}
+	return unprocessedConfig, shouldCheckCacheOnFailure, nil
+}
+
+// getFromCloudGRPC actually does the fetching of the robot config from the gRPC endpoint.
+func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger) (*Config, bool, error) {
+	shouldCheckCacheOnFailure := true
+
+	conn, err := CreateNewGRPCClient(ctx, cloudCfg, logger)
+	if err != nil {
+		return nil, shouldCheckCacheOnFailure, err
+	}
+	defer utils.UncheckedErrorFunc(conn.Close)
+
+	agentInfo, err := getAgentInfo()
+	if err != nil {
+		return nil, shouldCheckCacheOnFailure, err
+	}
+
+	service := apppb.NewRobotServiceClient(conn)
+	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID, AgentInfo: agentInfo})
+	if err != nil {
+		// Check cache?
+		return nil, shouldCheckCacheOnFailure, err
+	}
+
+	cfg := Config{}
+
+	cfg.Cloud, err = CloudConfigFromProto(res.Config.Cloud)
+	if err != nil {
+		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Cloud config from proto")
+	}
+
+	if res.Config.Network != nil {
+		network, err := NetworkConfigFromProto(res.Config.Network)
+		if err != nil {
+			return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Network config from proto")
+		}
+		cfg.Network = *network
+	}
+
+	if res.Config.Auth != nil {
+		auth, err := AuthConfigFromProto(res.Config.Auth)
+		if err != nil {
+			return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Auth config from proto")
+		}
+		cfg.Auth = *auth
+	}
+
+	cfg.Components, err = toRDKSlice(res.Config.Components, ComponentConfigFromProto)
+	if err != nil {
+		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Components config from proto")
+	}
+
+	cfg.Remotes, err = toRDKSlice(res.Config.Remotes, RemoteConfigFromProto)
+	if err != nil {
+		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Remotes config from proto")
+	}
+
+	cfg.Processes, err = toRDKSlice(res.Config.Processes, ProcessConfigFromProto)
+	if err != nil {
+		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Processes config from proto")
+	}
+
+	cfg.Services, err = toRDKSlice(res.Config.Services, ServiceConfigFromProto)
+	if err != nil {
+		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Services config from proto")
+	}
+
+	return &cfg, false, nil
+}
+
+func toRDKSlice[PT, RT any](protoList []*PT, toRDK func(*PT) (*RT, error)) ([]RT, error) {
+	out := make([]RT, len(protoList))
+	for i, proto := range protoList {
+		rdk, err := toRDK(proto)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = *rdk
+	}
+	return out, nil
+}
+
+// CreateNewGRPCClient creates a new grpc cloud configured to communicate with the robot service based on the cloud config given.
+func CreateNewGRPCClient(ctx context.Context, cloudCfg *Cloud, logger golog.Logger) (rpc.ClientConn, error) {
+	u, err := url.Parse(cloudCfg.AppAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	dialOpts := make([]rpc.DialOption, 1, 2)
+	dialOpts[0] = rpc.WithEntityCredentials(cloudCfg.ID,
+		rpc.Credentials{
+			Type:    rutils.CredentialsTypeRobotSecret,
+			Payload: cloudCfg.Secret,
+		},
+	)
+
+	if u.Scheme == "http" {
+		dialOpts = append(dialOpts, rpc.WithInsecure())
+	}
+
+	return rpc.DialDirectGRPC(ctx, u.Host, logger, dialOpts...)
 }

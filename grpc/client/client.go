@@ -41,11 +41,12 @@ var errUnimplemented = errors.New("unimplemented")
 // RobotClient satisfies the robot.Robot interface through a gRPC based
 // client conforming to the robot.proto contract.
 type RobotClient struct {
-	address     string
-	conn        rpc.ClientConn
-	client      pb.RobotServiceClient
-	refClient   *grpcreflect.Client
-	dialOptions []rpc.DialOption
+	address         string
+	conn            rpc.ClientConn
+	client          pb.RobotServiceClient
+	refClient       *grpcreflect.Client
+	dialOptions     []rpc.DialOption
+	resourceClients map[resource.Name]interface{}
 
 	mu                  *sync.RWMutex
 	resourceNames       []resource.Name
@@ -70,7 +71,6 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	for _, opt := range opts {
 		opt.apply(&rOpts)
 	}
-
 	closeCtx, cancel := context.WithCancel(ctx)
 
 	rc := &RobotClient{
@@ -82,6 +82,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		closeContext:            closeCtx,
 		dialOptions:             rOpts.dialOptions,
 		notifyParent:            nil,
+		resourceClients:         make(map[resource.Name]interface{}),
 	}
 	if err := rc.connect(ctx); err != nil {
 		return nil, err
@@ -125,6 +126,8 @@ func (rc *RobotClient) SetParentNotifier(f func()) {
 
 // Connected exposes whether a robot client is connected to the remote.
 func (rc *RobotClient) Connected() bool {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
 	return rc.connected
 }
 
@@ -132,6 +135,7 @@ func (rc *RobotClient) Connected() bool {
 func (rc *RobotClient) Changed() <-chan bool {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
+
 	if rc.changeChan == nil {
 		rc.changeChan = make(chan bool)
 	}
@@ -160,6 +164,12 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	rc.client = client
 	rc.refClient = refClient
 	rc.connected = true
+	if len(rc.resourceClients) != 0 {
+		if err := rc.updateResources(ctx, updateReasonReconnect); err != nil {
+			return err
+		}
+	}
+
 	if rc.changeChan != nil {
 		rc.changeChan <- true
 	}
@@ -169,11 +179,56 @@ func (rc *RobotClient) connect(ctx context.Context) error {
 	return nil
 }
 
+type updateReason byte
+
+const (
+	updateReasonReconnect updateReason = iota
+	updateReasonRefresh
+)
+
+func (rc *RobotClient) updateResourceClients(ctx context.Context, reason updateReason) error {
+	activeResources := make(map[resource.Name]bool)
+
+	for _, name := range rc.resourceNames {
+		activeResources[name] = true
+		switch reason {
+		case updateReasonRefresh:
+		case updateReasonReconnect:
+			fallthrough
+		default:
+			if client, ok := rc.resourceClients[name]; ok {
+				newClient, err := rc.createClient(name)
+				if err != nil {
+					return err
+				}
+				currResource, err := resource.ReconfigureResource(ctx, client, newClient)
+				if err != nil {
+					return err
+				}
+				rc.resourceClients[name] = currResource
+			}
+		}
+	}
+
+	for resourceName, client := range rc.resourceClients {
+		// check if no longer an active resource
+		if !activeResources[resourceName] {
+			if err := utils.TryClose(ctx, client); err != nil {
+				rc.Logger().Error(err)
+				continue
+			}
+			delete(rc.resourceClients, resourceName)
+		}
+	}
+
+	return nil
+}
+
 // checkConnection either checks if the client is still connected, or attempts to reconnect to the remote.
-func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Duration, reconnectEvery time.Duration) {
+func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnectEvery time.Duration) {
 	for {
 		var waitTime time.Duration
-		if rc.Connected() {
+		if rc.connected {
 			waitTime = checkEvery
 		} else {
 			if reconnectEvery != 0 {
@@ -186,7 +241,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery time.Dura
 		if !utils.SelectContextOrWait(ctx, waitTime) {
 			return
 		}
-		if !rc.Connected() {
+		if !rc.connected {
 			rc.Logger().Debugw("trying to reconnect to remote at address", "address", rc.address)
 			if err := rc.connect(ctx); err != nil {
 				rc.Logger().Debugw("failed to reconnect remote", "error", err, "address", rc.address)
@@ -255,7 +310,7 @@ func (rc *RobotClient) Close(ctx context.Context) error {
 }
 
 func (rc *RobotClient) checkConnected() error {
-	if !rc.Connected() {
+	if !rc.connected {
 		return errors.Errorf("not connected to remote robot at %s", rc.address)
 	}
 	return nil
@@ -286,22 +341,49 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
+	rc.mu.RLock()
 	if err := rc.checkConnected(); err != nil {
+		rc.mu.RUnlock()
 		return nil, err
 	}
+
+	if client, ok := rc.resourceClients[name]; ok {
+		rc.mu.RUnlock()
+		return client, nil
+	}
+	rc.mu.RUnlock()
+
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+	// one final check but under a more strict lock
+	if client, ok := rc.resourceClients[name]; ok {
+		return client, nil
+	}
+
+	resourceClient, err := rc.createClient(name)
+	if err != nil {
+		return nil, err
+	}
+	rc.resourceClients[name] = resourceClient
+	return resourceClient, nil
+}
+
+func (rc *RobotClient) createClient(name resource.Name) (interface{}, error) {
 	c := registry.ResourceSubtypeLookup(name.Subtype)
 	if c == nil || c.RPCClient == nil {
 		if name.Namespace != resource.ResourceNamespaceRDK {
 			return grpc.NewForeignResource(name, rc.conn), nil
 		}
-
 		// registration doesn't exist
 		return nil, errors.New("resource client registration doesn't exist")
 	}
 	// pass in conn
 	nameR := name.ShortName()
 	resourceClient := c.RPCClient(rc.closeContext, rc.conn, nameR, rc.Logger())
-	return resourceClient, nil
+	if c.Reconfigurable == nil {
+		return resourceClient, nil
+	}
+	return c.Reconfigurable(resourceClient)
 }
 
 func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resource.RPCSubtype, error) {
@@ -360,7 +442,10 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	if err := rc.checkConnected(); err != nil {
 		return err
 	}
+	return rc.updateResources(ctx, updateReasonRefresh)
+}
 
+func (rc *RobotClient) updateResources(ctx context.Context, reason updateReason) error {
 	// call metadata service.
 	names, rpcSubtypes, err := rc.resources(ctx)
 	// only return if it is not unimplemented - means a bigger error came up
@@ -373,7 +458,7 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 		rc.resourceRPCSubtypes = rpcSubtypes
 	}
 
-	return nil
+	return rc.updateResourceClients(ctx, reason)
 }
 
 // RemoteNames returns the names of all known remotes.

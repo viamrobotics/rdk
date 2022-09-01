@@ -9,7 +9,7 @@ import (
 	"sort"
 
 	"github.com/golang/geo/r3"
-	"github.com/gonum/stat/distuv"
+	"gonum.org/v1/gonum/stat/distuv"
 )
 
 // DegToRad converts degrees to radians.
@@ -147,7 +147,7 @@ func R3VectorAlmostEqual(a, b r3.Vector, epsilon float64) bool {
 
 // Clamp returns min if value is lesser than min, max if value is greater them max or value if the input value is
 // between min and max.
-func Clamp(value float64, min float64, max float64) float64 {
+func Clamp(value, min, max float64) float64 {
 	if value < min {
 		return min
 	} else if value > max {

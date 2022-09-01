@@ -276,7 +276,7 @@ func (vn *vectornav) GetProperties(ctx context.Context) (*movementsensor.Propert
 	}, nil
 }
 
-func (vn *vectornav) GetReadings(ctx context.Context) ([]interface{}, error) {
+func (vn *vectornav) GetReadings(ctx context.Context) (map[string]interface{}, error) {
 	return movementsensor.GetReadings(ctx, vn)
 }
 

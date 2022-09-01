@@ -28,7 +28,7 @@ func init() {
 		) (interface{}, error) {
 			color := config.Attributes.String("color")
 			cam := &Camera{Name: config.Name, color: color}
-			return camera.New(cam, nil)
+			return camera.NewFromReader(cam, nil)
 		}})
 }
 
@@ -39,9 +39,9 @@ type Camera struct {
 	color string
 }
 
-// Next always returns the same image with dot in the top left corner. The dot is colored
+// Read always returns the same image with dot in the top left corner. The dot is colored
 // either red (default), blue, or yellow.
-func (c *Camera) Next(ctx context.Context) (image.Image, func(), error) {
+func (c *Camera) Read(ctx context.Context) (image.Image, func(), error) {
 	img := image.NewNRGBA(image.Rect(0, 0, 1024, 1024))
 	switch c.color {
 	case "blue":

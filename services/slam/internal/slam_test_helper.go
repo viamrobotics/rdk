@@ -5,6 +5,7 @@ package internal
 import (
 	"context"
 
+	"github.com/edaniels/gostream"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/component/camera"
@@ -14,7 +15,7 @@ import (
 // slam processes in the slam service. These functions are not exported to the user. This resolves
 // a circular import caused by the inject package.
 type Service interface {
-	StartDataProcess(cancelCtx context.Context, cam []camera.Camera)
+	StartDataProcess(cancelCtx context.Context, cam []camera.Camera, camStreams []gostream.VideoStream)
 	StartSLAMProcess(ctx context.Context) error
 	StopSLAMProcess() error
 	Close() error

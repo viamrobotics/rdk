@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -54,7 +53,7 @@ func TestNewCollector(t *testing.T) {
 	test.That(t, err1, test.ShouldNotBeNil)
 
 	// If not missing parameters, should not return an error.
-	target1, _ := ioutil.TempFile("", "whatever")
+	target1, _ := os.CreateTemp("", "whatever")
 	c2, err2 := NewCollector(nil, CollectorParams{
 		ComponentName: "name",
 		Logger:        golog.NewTestLogger(t),
@@ -141,7 +140,7 @@ func TestSuccessfulWrite(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		target, _ := ioutil.TempFile("", "whatever")
+		target, _ := os.CreateTemp("", "whatever")
 		tc.params.Target = target
 		c, _ := NewCollector(tc.capturer, tc.params)
 		c.Collect()
@@ -165,7 +164,7 @@ func TestSuccessfulWrite(t *testing.T) {
 func TestClose(t *testing.T) {
 	// Set up a collector.
 	l := golog.NewTestLogger(t)
-	target1, _ := ioutil.TempFile("", "whatever")
+	target1, _ := os.CreateTemp("", "whatever")
 	defer os.Remove(target1.Name())
 	params := CollectorParams{
 		ComponentName: "testComponent",
@@ -191,8 +190,8 @@ func TestClose(t *testing.T) {
 
 func TestSetTarget(t *testing.T) {
 	l := golog.NewTestLogger(t)
-	target1, _ := ioutil.TempFile("", "whatever1")
-	target2, _ := ioutil.TempFile("", "whatever2")
+	target1, _ := os.CreateTemp("", "whatever1")
+	target2, _ := os.CreateTemp("", "whatever2")
 	defer os.Remove(target1.Name())
 	defer os.Remove(target2.Name())
 
@@ -224,7 +223,7 @@ func TestSetTarget(t *testing.T) {
 // TestCtxCancelledLoggedAsDebug verifies that context cancelled errors are logged as debug level instead of as errors.
 func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	logger, logs := golog.NewObservedTestLogger(t)
-	target1, _ := ioutil.TempFile("", "whatever")
+	target1, _ := os.CreateTemp("", "whatever")
 	defer os.Remove(target1.Name())
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		return nil, fmt.Errorf("arbitrary wrapping message: %w", context.Canceled)

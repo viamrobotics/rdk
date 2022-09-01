@@ -19,7 +19,12 @@ func TestValidateRTK(t *testing.T) {
 
 	fakecfg.NtripAddr = "http://fakeurl"
 	err = fakecfg.ValidateRTK("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected either nonempty ntrip path, serial path, or I2C board, bus, and address")
+	test.That(
+		t,
+		err.Error(),
+		test.ShouldContainSubstring,
+		"expected either nonempty ntrip path, serial path, or I2C board, bus, and address",
+	)
 
 	fakecfg.NtripPath = "some-ntrip-path"
 	err = fakecfg.ValidateRTK("path")
@@ -30,7 +35,12 @@ func TestConnect(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := RTKMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := RTKMovementSensor{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+	}
+
 	url := "http://fakeurl"
 	username := "user"
 	password := "pwd"
@@ -38,6 +48,8 @@ func TestConnect(t *testing.T) {
 
 	// create new ntrip client and connect
 	err := g.Connect("invalidurl", username, password, 10)
+	g.ntripClient = makeMockNtripClient()
+
 	test.That(t, err, test.ShouldNotBeNil)
 
 	err = g.Connect(url, username, password, 10)
@@ -60,16 +72,16 @@ func TestNewRTKMovementSensor(t *testing.T) {
 		Model: "rtk",
 		Type:  movementsensor.SubtypeName,
 		Attributes: config.AttributeMap{
-			"ntrip_addr":             "some_ntrip_address",
-			"ntrip_username":         "",
-			"ntrip_password":         "",
-			"ntrip_mountpoint":       "",
-			"ntrip_path":             "",
-			"ntrip_baud":             115200,
-			"ntrip_send_nmea":        true,
-			"ntrip_connect_attempts": 10,
-			"ntrip_input_protocol":   "serial",
-			"path":                   path,
+			"ntrip_addr":                "some_ntrip_address",
+			"ntrip_username":            "",
+			"ntrip_password":            "",
+			"ntrip_mountpoint":          "",
+			"ntrip_path":                "",
+			"ntrip_baud":                115200,
+			"ntrip_send_nmea":           true,
+			"ntrip_connect_attempts":    10,
+			"correction_input_protocol": "serial",
+			"path":                      path,
 		},
 	}
 
@@ -89,19 +101,19 @@ func TestNewRTKMovementSensor(t *testing.T) {
 		Model: "rtk",
 		Type:  movementsensor.SubtypeName,
 		Attributes: config.AttributeMap{
-			"ntrip_addr":             "some_ntrip_address",
-			"i2c_addr":               "",
-			"ntrip_username":         "",
-			"ntrip_password":         "",
-			"ntrip_mountpoint":       "",
-			"ntrip_path":             "",
-			"ntrip_baud":             115200,
-			"ntrip_send_nmea":        true,
-			"ntrip_connect_attempts": 10,
-			"ntrip_input_protocol":   "I2C",
-			"path":                   path,
-			"board":                  testBoardName,
-			"bus":                    testBusName,
+			"ntrip_addr":                "some_ntrip_address",
+			"i2c_addr":                  "",
+			"ntrip_username":            "",
+			"ntrip_password":            "",
+			"ntrip_mountpoint":          "",
+			"ntrip_path":                "",
+			"ntrip_baud":                115200,
+			"ntrip_send_nmea":           true,
+			"ntrip_connect_attempts":    10,
+			"correction_input_protocol": "I2C",
+			"path":                      path,
+			"board":                     testBoardName,
+			"bus":                       testBusName,
 		},
 	}
 
@@ -122,16 +134,16 @@ func TestNewRTKMovementSensor(t *testing.T) {
 		Model: "rtk",
 		Type:  movementsensor.SubtypeName,
 		Attributes: config.AttributeMap{
-			"ntrip_addr":             "some_ntrip_address",
-			"ntrip_username":         "",
-			"ntrip_password":         "",
-			"ntrip_mountpoint":       "",
-			"ntrip_path":             "",
-			"ntrip_baud":             115200,
-			"ntrip_send_nmea":        true,
-			"ntrip_connect_attempts": 10,
-			"ntrip_input_protocol":   "notserial",
-			"path":                   path,
+			"ntrip_addr":                "some_ntrip_address",
+			"ntrip_username":            "",
+			"ntrip_password":            "",
+			"ntrip_mountpoint":          "",
+			"ntrip_path":                "",
+			"ntrip_baud":                115200,
+			"ntrip_send_nmea":           true,
+			"ntrip_connect_attempts":    10,
+			"correction_input_protocol": "notserial",
+			"path":                      path,
 		},
 	}
 
@@ -147,16 +159,16 @@ func TestNewRTKMovementSensor(t *testing.T) {
 		Model: "rtk",
 		Type:  movementsensor.SubtypeName,
 		Attributes: config.AttributeMap{
-			"ntrip_addr":             "some_ntrip_address",
-			"ntrip_username":         "",
-			"ntrip_password":         "",
-			"ntrip_mountpoint":       "",
-			"ntrip_path":             "",
-			"ntrip_baud":             115200,
-			"ntrip_send_nmea":        true,
-			"ntrip_connect_attempts": 10,
-			"ntrip_input_protocol":   "serial",
-			"path":                   path,
+			"ntrip_addr":                "some_ntrip_address",
+			"ntrip_username":            "",
+			"ntrip_password":            "",
+			"ntrip_mountpoint":          "",
+			"ntrip_path":                "",
+			"ntrip_baud":                115200,
+			"ntrip_send_nmea":           true,
+			"ntrip_connect_attempts":    10,
+			"correction_input_protocol": "serial",
+			"path":                      path,
 		},
 	}
 
@@ -171,8 +183,16 @@ func TestReadingsRTK(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := RTKMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
-	nmeamovementsensor := &SerialNMEAMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := RTKMovementSensor{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+	}
+	nmeamovementsensor := &SerialNMEAMovementSensor{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+	}
 	nmeamovementsensor.data = gpsData{
 		location:   loc,
 		alt:        alt,
@@ -208,14 +228,28 @@ func TestCloseRTK(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	g := RTKMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
-	g.nmeamovementsensor = &SerialNMEAMovementSensor{cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := RTKMovementSensor{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+	}
+	g.ntripClient = makeMockNtripClient()
+	g.nmeamovementsensor = &SerialNMEAMovementSensor{
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+	}
 
 	err := g.Close()
 	test.That(t, err, test.ShouldBeNil)
 }
 
 // Helpers
+
+// mock ntripinfo client.
+func makeMockNtripClient() *NtripInfo {
+	return &NtripInfo{}
+}
 
 type mock struct {
 	board.LocalBoard
