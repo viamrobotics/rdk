@@ -22,7 +22,7 @@ func TestGetDetectorNames(t *testing.T) {
 	// check that segmenter was added too
 	segNames, err := srv.GetSegmenterNames(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, segNames, test.ShouldContain, "detector_3")
+	test.That(t, segNames, test.ShouldContain, "detector_3_segmenter")
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
@@ -40,7 +40,7 @@ func TestGetDetections(t *testing.T) {
 	test.That(t, box.Max, test.ShouldResemble, image.Point{183, 349})
 	// errors
 	_, err = srv.GetDetectionsFromCamera(context.Background(), "fake_cam", "detect_blue")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no Detector with name")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no such vision model with name")
 	_, err = srv.GetDetectionsFromCamera(context.Background(), "real_cam", "detect_red")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "\"rdk:component:camera/real_cam\" not found")
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
@@ -49,9 +49,9 @@ func TestGetDetections(t *testing.T) {
 func TestAddDetector(t *testing.T) {
 	srv, r := createService(t, "data/empty.json")
 	// success
-	cfg := vision.DetectorConfig{
+	cfg := vision.VisModelConfig{
 		Name: "test",
-		Type: "color",
+		Type: "color_detector",
 		Parameters: config.AttributeMap{
 			"detect_color": "#112233",
 			"tolerance":    0.4,
@@ -59,8 +59,8 @@ func TestAddDetector(t *testing.T) {
 		},
 	}
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
-	cfg2 := vision.DetectorConfig{
-		Name: "testdetector", Type: "tflite",
+	cfg2 := vision.VisModelConfig{
+		Name: "testdetector", Type: "tflite_detector",
 		Parameters: config.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
@@ -76,7 +76,7 @@ func TestAddDetector(t *testing.T) {
 	// test that segmenter was also added
 	segNames, err := srv.GetSegmenterNames(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, segNames, test.ShouldContain, "test")
+	test.That(t, segNames, test.ShouldContain, "test_segmenter")
 	// failure
 	cfg.Name = "will_fail"
 	cfg.Type = "wrong_type"
