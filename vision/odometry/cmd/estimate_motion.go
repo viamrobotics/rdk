@@ -73,11 +73,15 @@ func RunOrbPointFinding(image1Path, image2Path, configPath string) (image.Image,
 	if err != nil {
 		return nil, nil, err
 	}
-	_, kps1, err := keypoints.ComputeORBKeypoints(im1, cfg.KeyPointCfg)
+	sampleMethod := cfg.KeyPointCfg.BRIEFConf.Sampling
+	sampleN := cfg.KeyPointCfg.BRIEFConf.N
+	samplePatchSize := cfg.KeyPointCfg.BRIEFConf.PatchSize
+	samplePoints := keypoints.GenerateSamplePairs(sampleMethod, sampleN, samplePatchSize)
+	_, kps1, err := keypoints.ComputeORBKeypoints(im1, samplePoints, cfg.KeyPointCfg)
 	if err != nil {
 		return nil, nil, err
 	}
-	_, kps2, err := keypoints.ComputeORBKeypoints(im2, cfg.KeyPointCfg)
+	_, kps2, err := keypoints.ComputeORBKeypoints(im2, samplePoints, cfg.KeyPointCfg)
 	if err != nil {
 		return nil, nil, err
 	}

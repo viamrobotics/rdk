@@ -57,7 +57,7 @@ func (config *ORBConfig) Validate(path string) error {
 }
 
 // ComputeORBKeypoints compute ORB keypoints on gray image.
-func ComputeORBKeypoints(im *image.Gray, cfg *ORBConfig) (Descriptors, KeyPoints, error) {
+func ComputeORBKeypoints(im *image.Gray, sp *SamplePairs, cfg *ORBConfig) (Descriptors, KeyPoints, error) {
 	pyramid, err := GetImagePyramid(im)
 	if err != nil {
 		return nil, nil, err
@@ -86,7 +86,7 @@ func ComputeORBKeypoints(im *image.Gray, cfg *ORBConfig) (Descriptors, KeyPoints
 			Orientations: fastKps.Orientations,
 		}
 		orbPoints = append(orbPoints, rescaledFASTKps.Points...)
-		descs, err := ComputeBRIEFDescriptors(currentImage, &rescaledFASTKps, cfg.BRIEFConf)
+		descs, err := ComputeBRIEFDescriptors(currentImage, sp, &rescaledFASTKps, cfg.BRIEFConf)
 		if err != nil {
 			return nil, nil, err
 		}

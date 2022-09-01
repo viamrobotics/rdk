@@ -57,7 +57,8 @@ func TestMatchKeypoints(t *testing.T) {
 
 	// load BRIEF cfg
 	cfgBrief := LoadBRIEFConfiguration("brief.json")
-	briefDescriptors, err := ComputeBRIEFDescriptors(imGray, fastKps, cfgBrief)
+	samplePoints := GenerateSamplePairs(cfgBrief.Sampling, cfgBrief.N, cfgBrief.PatchSize)
+	briefDescriptors, err := ComputeBRIEFDescriptors(imGray, samplePoints, fastKps, cfgBrief)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(briefDescriptors), test.ShouldEqual, len(fastKps.Points))
 
@@ -73,7 +74,7 @@ func TestMatchKeypoints(t *testing.T) {
 	fastKps2 := NewFASTKeypointsFromImage(imGray2, cfg)
 
 	// load BRIEF cfg
-	briefDescriptors2, err := ComputeBRIEFDescriptors(imGray2, fastKps2, cfgBrief)
+	briefDescriptors2, err := ComputeBRIEFDescriptors(imGray2, samplePoints, fastKps2, cfgBrief)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(briefDescriptors2), test.ShouldEqual, len(fastKps2.Points))
 	// matches
@@ -108,7 +109,8 @@ func TestGetMatchingKeyPoints(t *testing.T) {
 	w, h := bounds.Max.X, bounds.Max.Y
 	imGray := image.NewGray(image.Rect(0, 0, w, h))
 	draw.Draw(imGray, imGray.Bounds(), im, im.Bounds().Min, draw.Src)
-	descs, kps, err := ComputeORBKeypoints(imGray, cfg)
+	samplePoints := GenerateSamplePairs(cfg.BRIEFConf.Sampling, cfg.BRIEFConf.N, cfg.BRIEFConf.PatchSize)
+	descs, kps, err := ComputeORBKeypoints(imGray, samplePoints, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(descs), test.ShouldEqual, 137)
 	test.That(t, len(kps), test.ShouldEqual, 137)
@@ -147,7 +149,7 @@ func TestOrbMatching(t *testing.T) {
 			N:              256,
 			Sampling:       2,
 			UseOrientation: true,
-			PatchSize:      16,
+			PatchSize:      48,
 		},
 	}
 	matchingConf := &MatchingConfig{
@@ -160,15 +162,16 @@ func TestOrbMatching(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	im1 := rimage.MakeGray(img1)
 	im2 := rimage.MakeGray(img2)
+	samplePoints := GenerateSamplePairs(orbConf.BRIEFConf.Sampling, orbConf.BRIEFConf.N, orbConf.BRIEFConf.PatchSize)
 	// image 1
-	orb1, kps1, err := ComputeORBKeypoints(im1, orbConf)
+	orb1, kps1, err := ComputeORBKeypoints(im1, samplePoints, orbConf)
 	test.That(t, err, test.ShouldBeNil)
-	orb1, err = sortDescriptorsByPoint(orb1, kps1)
+	orb1, kps1, err = sortDescriptorsByPoint(orb1, kps1, logger)
 	test.That(t, err, test.ShouldBeNil)
 	// image 2
-	orb2, kps2, err := ComputeORBKeypoints(im2, orbConf)
+	orb2, kps2, err := ComputeORBKeypoints(im2, samplePoints, orbConf)
 	test.That(t, err, test.ShouldBeNil)
-	orb2, err = sortDescriptorsByPoint(orb2, kps2)
+	orb2, kps2, err = sortDescriptorsByPoint(orb2, kps2, logger)
 	test.That(t, err, test.ShouldBeNil)
 	matches := MatchKeypoints(orb1, orb2, matchingConf, logger)
 	test.That(t, len(matches.Indices), test.ShouldBeGreaterThan, 300)
@@ -177,7 +180,7 @@ func TestOrbMatching(t *testing.T) {
 
 func sortDescriptorsByPoint(desc Descriptors, kps KeyPoints, logger golog.Logger) (Descriptors, KeyPoints, error) {
 	if len(desc) != len(kps) {
-		return nil, errors.Errorf("number of descriptors (%d) does not equal number of keypoints (%d)", len(desc), len(kps))
+		return nil, nil, errors.Errorf("number of descriptors (%d) does not equal number of keypoints (%d)", len(desc), len(kps))
 	}
 	// sort by point order
 	type ptdesc struct {
@@ -199,6 +202,7 @@ func sortDescriptorsByPoint(desc Descriptors, kps KeyPoints, logger golog.Logger
 	sortedKps := make(KeyPoints, 0, len(kps))
 	for i := range sorted {
 		sortedDesc = append(sortedDesc, sorted[i].Des)
+		sortedKps = append(sortedKps, sorted[i].Kp)
 	}
-	return sortedDesc, nil
+	return sortedDesc, sortedKps, nil
 }

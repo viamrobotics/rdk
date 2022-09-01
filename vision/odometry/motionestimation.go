@@ -60,12 +60,16 @@ func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationCo
 	// Convert both images to gray
 	im1 := rimage.MakeGray(img1)
 	im2 := rimage.MakeGray(img2)
+	sampleMethod := cfg.KeyPointCfg.BRIEFConf.Sampling
+	sampleN := cfg.KeyPointCfg.BRIEFConf.N
+	samplePatchSize := cfg.KeyPointCfg.BRIEFConf.PatchSize
+	samplePoints := keypoints.GenerateSamplePairs(sampleMethod, sampleN, samplePatchSize)
 	// compute keypoints
-	orb1, kps1, err := keypoints.ComputeORBKeypoints(im1, cfg.KeyPointCfg)
+	orb1, kps1, err := keypoints.ComputeORBKeypoints(im1, samplePoints, cfg.KeyPointCfg)
 	if err != nil {
 		return nil, nil, err
 	}
-	orb2, kps2, err := keypoints.ComputeORBKeypoints(im2, cfg.KeyPointCfg)
+	orb2, kps2, err := keypoints.ComputeORBKeypoints(im2, samplePoints, cfg.KeyPointCfg)
 	if err != nil {
 		return nil, nil, err
 	}
