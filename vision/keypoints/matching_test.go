@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/draw"
 	"math"
+	"os"
 	"sort"
 	"testing"
 
@@ -43,37 +44,41 @@ func TestRangeInt(t *testing.T) {
 
 func TestMatchKeypoints(t *testing.T) {
 	logger := golog.NewTestLogger(t)
+	tempDir, err := os.MkdirTemp("", "matching_keypoints")
+	test.That(t, err, test.ShouldBeNil)
+	//defer os.RemoveAll(tempDir)
+	logger.Infof("writing sample points to %s", tempDir)
 	// load config
 	cfg := LoadFASTConfiguration("kpconfig.json")
 	// load image from artifacts and convert to gray image
 	im, err := rimage.NewImageFromFile(artifact.MustPath("vision/keypoints/chess3.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 	// Convert to grayscale image
-	bounds := im.Bounds()
-	w, h := bounds.Max.X, bounds.Max.Y
-	imGray := image.NewGray(image.Rect(0, 0, w, h))
-	draw.Draw(imGray, imGray.Bounds(), im, im.Bounds().Min, draw.Src)
+	imGray := rimage.MakeGray(im)
 	fastKps := NewFASTKeypointsFromImage(imGray, cfg)
-
-	// load BRIEF cfg
-	cfgBrief := LoadBRIEFConfiguration("brief.json")
-	samplePoints := GenerateSamplePairs(cfgBrief.Sampling, cfgBrief.N, cfgBrief.PatchSize)
-	briefDescriptors, err := ComputeBRIEFDescriptors(imGray, samplePoints, fastKps, cfgBrief)
+	keyPtsImg := PlotKeypoints(imGray, fastKps.Points)
+	err = rimage.WriteImageToFile(tempDir+"/chessKps_1.png", keyPtsImg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(briefDescriptors), test.ShouldEqual, len(fastKps.Points))
 
 	// image 2
 	// load image from artifacts and convert to gray image
 	im2, err := rimage.NewImageFromFile(artifact.MustPath("vision/keypoints/chess.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 	// Convert to grayscale image
-	bounds2 := im2.Bounds()
-	w2, h2 := bounds2.Max.X, bounds2.Max.Y
-	imGray2 := image.NewGray(image.Rect(0, 0, w2, h2))
-	draw.Draw(imGray2, imGray2.Bounds(), im2, im2.Bounds().Min, draw.Src)
+	imGray2 := rimage.MakeGray(im2)
 	fastKps2 := NewFASTKeypointsFromImage(imGray2, cfg)
+	keyPtsImg2 := PlotKeypoints(imGray2, fastKps2.Points)
+	err = rimage.WriteImageToFile(tempDir+"/chessKps_2.png", keyPtsImg2)
+	test.That(t, err, test.ShouldBeNil)
 
 	// load BRIEF cfg
+	cfgBrief := LoadBRIEFConfiguration("brief.json")
+	samplePoints := GenerateSamplePairs(cfgBrief.Sampling, cfgBrief.N, cfgBrief.PatchSize)
+
+	briefDescriptors, err := ComputeBRIEFDescriptors(imGray, samplePoints, fastKps, cfgBrief)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(briefDescriptors), test.ShouldEqual, len(fastKps.Points))
+
 	briefDescriptors2, err := ComputeBRIEFDescriptors(imGray2, samplePoints, fastKps2, cfgBrief)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(briefDescriptors2), test.ShouldEqual, len(fastKps2.Points))
@@ -83,17 +88,24 @@ func TestMatchKeypoints(t *testing.T) {
 		1000,
 	}
 	// test matches with itself
+	cfgMatch.DoCrossCheck = true
 	matches := MatchKeypoints(briefDescriptors, briefDescriptors, &cfgMatch, logger)
+	matchedKps1, matchedKps2, err := GetMatchingKeyPoints(matches, fastKps.Points, fastKps.Points)
+	test.That(t, err, test.ShouldBeNil)
+	matchedLinesImg := PlotMatchedLines(imGray, imGray, matchedKps1, matchedKps2)
+	err = rimage.WriteImageToFile(tempDir+"/matched_chess.png", matchedLinesImg)
+	test.That(t, err, test.ShouldBeNil)
 	for _, match := range matches.Indices {
 		test.That(t, match.Idx1, test.ShouldEqual, match.Idx2)
 	}
-	// test matches with bigger image
-	matches2 := MatchKeypoints(briefDescriptors, briefDescriptors2, &cfgMatch, logger)
-	test.That(t, len(matches2.Indices), test.ShouldEqual, len(matches2.Descriptors1))
 	// test matches with bigger image and cross-check; #matches <= #kps2
-	cfgMatch.DoCrossCheck = true
-	matches3 := MatchKeypoints(briefDescriptors, briefDescriptors2, &cfgMatch, logger)
-	test.That(t, len(matches3.Indices), test.ShouldBeLessThanOrEqualTo, len(fastKps2.Points))
+	matches = MatchKeypoints(briefDescriptors, briefDescriptors2, &cfgMatch, logger)
+	test.That(t, len(matches.Indices), test.ShouldBeLessThanOrEqualTo, len(fastKps2.Points))
+	matchedKps1, matchedKps2, err = GetMatchingKeyPoints(matches, fastKps.Points, fastKps2.Points)
+	test.That(t, err, test.ShouldBeNil)
+	matchedLinesImg = PlotMatchedLines(imGray, imGray2, matchedKps1, matchedKps2)
+	err = rimage.WriteImageToFile(tempDir+"/bigger_matched_chess.png", matchedLinesImg)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestGetMatchingKeyPoints(t *testing.T) {
