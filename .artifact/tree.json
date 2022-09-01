@@ -50835,13 +50835,37 @@
         "hash": "3a047d6fd440b36cbba72e5532ff3548",
         "size": 4563519
       },
+      "effnet0.tflite": {
+        "hash": "301b893e4701ec6f490c21a2435befbc",
+        "size": 7165437
+      },
       "fakelabels.txt": {
         "hash": "9b9d5e11ece4e6fe52246a2851636145",
         "size": 50
       },
+      "lion.jpeg": {
+        "hash": "7a24ee403e1606a0956d63dc744f24de",
+        "size": 31645
+      },
       "mobilenet.tflite": {
         "hash": "66ee95e3edbaa9b3de5138cf1cbb127d",
         "size": 1866640
+      },
+      "mobilenetv2_class.tflite": {
+        "hash": "4fc85180f4b6c4bf2fb9417b94d84bcd",
+        "size": 3770391
+      },
+      "mobilenetv2_imagenet.tflite": {
+        "hash": "f91a23a41c7e71fa41efcb24522b2526",
+        "size": 3589848
+      },
+      "mobilenetv3_class.tflite": {
+        "hash": "3118459d58736a16b8e022e569de260c",
+        "size": 21967062
+      },
+      "redpanda.jpeg": {
+        "hash": "0394b41317317b30a6bc01fa7a18617b",
+        "size": 654771
       },
       "ssdmobilenet.tflite": {
         "hash": "4c421353bf0a105c5ffba593ffee4099",

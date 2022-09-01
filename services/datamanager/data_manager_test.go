@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/testutils/inject"
@@ -148,6 +149,14 @@ func TestNewDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	oldSize := oldInfo.Size()
 	test.That(t, oldSize, test.ShouldBeGreaterThan, emptyFileBytesSize)
+
+	// Check that dummy tags "a" and "b" are being wrote to metadata.
+	captureFileName := filesInArmDir[0].Name()
+	file, err := os.Open(armDir + "/" + captureFileName)
+	test.That(t, err, test.ShouldBeNil)
+	md, err := datacapture.ReadDataCaptureMetadata(file)
+	test.That(t, md.Tags[0], test.ShouldEqual, "a")
+	test.That(t, md.Tags[1], test.ShouldEqual, "b")
 
 	// When Close returns all background processes in svc should be closed, but still sleep for 100ms to verify
 	// that there's not a resource leak causing writes to still happens after Close() returns.
