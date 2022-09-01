@@ -17,9 +17,9 @@ func TestCloseService(t *testing.T) {
 	ctx := context.Background()
 	srv := createService(ctx, t)
 	// success
-	cfg := DetectorConfig{
+	cfg := VisModelConfig{
 		Name: "test",
-		Type: "color",
+		Type: "color_detector",
 		Parameters: config.AttributeMap{
 			"detect_color": "#112233",
 			"tolerance":    0.4,
@@ -33,9 +33,10 @@ func TestCloseService(t *testing.T) {
 	det := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{}, nil
 	}
-	registeredFn := registeredDetector{detector: det, closer: fakeStruct}
+	// registeredFn := registeredDetector{detector: det, closer: fakeStruct}
+	registeredFn := registeredModel{model: det, closer: fakeStruct}
 	logger := golog.NewTestLogger(t)
-	err = vService.detReg.registerDetector("fake", &registeredFn, logger)
+	err = vService.modReg.registerVisModel("fake", &registeredFn, logger)
 	test.That(t, err, test.ShouldBeNil)
 	err = viamutils.TryClose(ctx, srv)
 	test.That(t, err, test.ShouldBeNil)
