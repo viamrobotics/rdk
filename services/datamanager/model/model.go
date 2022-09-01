@@ -12,6 +12,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+// Manager is responsible for deploying model files.
 type Manager interface {
 	Deploy(ctx context.Context, req *v1.DeployRequest) (*v1.DeployResponse, error)
 	Close()
@@ -28,6 +29,7 @@ type modelr struct {
 	cancelFunc        func()
 }
 
+// ManagerConstructor is a function for building a Manager.
 type ManagerConstructor func(logger golog.Logger, cfg *config.Config) (Manager, error)
 
 // NewDefaultManager returns the default Manager that syncs data to app.viam.com.

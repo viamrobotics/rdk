@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/fs"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -812,22 +811,21 @@ func (m mockModelServiceServer) getDeployedModels() int {
 	// add the model to the names of models we need to download.
 	if errors.Is(err, os.ErrNotExist) {
 		return 0
-	} else {
-		files, err := ioutil.ReadDir(filepath.Join(os.Getenv("HOME"), "models", ".viam"))
-		if err != nil {
-			log.Fatalf(err.Error())
-		}
-		m := 0
-		for i := 0; i < len(files); i++ {
-			_, _, modTimeSec := files[i].ModTime().Clock()
-			_, _, timeNowSec := time.Now().Clock()
-			diff := timeNowSec - modTimeSec
-			if diff <= 1 {
-				m++
-			}
-		}
-		return len(files) - m
 	}
+	files, err := ioutil.ReadDir(filepath.Join(os.Getenv("HOME"), "models", ".viam"))
+	if err != nil {
+		return 0
+	}
+	minus := 0
+	for i := 0; i < len(files); i++ {
+		_, _, modTimeSec := files[i].ModTime().Clock()
+		_, _, timeNowSec := time.Now().Clock()
+		diff := timeNowSec - modTimeSec
+		if diff <= 1 {
+			minus++
+		}
+	}
+	return len(files) - minus
 }
 
 func (m mockModelServiceServer) Deploy(ctx context.Context, req *m1.DeployRequest) (*m1.DeployResponse, error) {
