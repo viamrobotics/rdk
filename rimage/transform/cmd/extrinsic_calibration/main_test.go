@@ -2,9 +2,9 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"math"
 	"math/rand"
+	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -30,7 +30,7 @@ func TestMainCalibrate(t *testing.T) {
 	// writes bytes to temporary file
 	b, err := json.MarshalIndent(calibConfig, "", " ")
 	test.That(t, err, test.ShouldBeNil)
-	err = ioutil.WriteFile(outDir+"/test.json", b, 0o644)
+	err = os.WriteFile(outDir+"/test.json", b, 0o644)
 	test.That(t, err, test.ShouldBeNil)
 
 	// read from temp file and process

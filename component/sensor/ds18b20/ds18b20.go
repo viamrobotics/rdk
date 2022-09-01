@@ -48,7 +48,7 @@ func init() {
 		}, &AttrConfig{})
 }
 
-func newSensor(name string, id string) sensor.Sensor {
+func newSensor(name, id string) sensor.Sensor {
 	// temp sensors are in family 28
 	return &Sensor{Name: name, OneWireID: id, OneWireFamily: "28"}
 }
@@ -84,10 +84,10 @@ func (s *Sensor) ReadTemperatureCelsius(ctx context.Context) (float64, error) {
 }
 
 // GetReadings returns a list containing single item (current temperature).
-func (s *Sensor) GetReadings(ctx context.Context) ([]interface{}, error) {
+func (s *Sensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
 	temp, err := s.ReadTemperatureCelsius(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return []interface{}{temp}, nil
+	return map[string]interface{}{"temp": temp}, nil
 }

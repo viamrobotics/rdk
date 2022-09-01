@@ -30,6 +30,10 @@ import (
 	"go.viam.com/rdk/vision/segmentation"
 )
 
+const (
+	testVisionServiceName = "vision1"
+)
+
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
@@ -38,10 +42,11 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	r := buildRobotWithFakeCamera(t)
-	srv, err := vision.FromRobot(r)
+	visName := vision.FindFirstName(r)
+	srv, err := vision.FromRobot(r, visName)
 	test.That(t, err, test.ShouldBeNil)
 	m := map[resource.Name]interface{}{
-		vision.Name: srv,
+		vision.Named(visName): srv,
 	}
 	svc, err := subtype.New(m)
 	test.That(t, err, test.ShouldBeNil)
@@ -63,7 +68,7 @@ func TestClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		client := vision.NewClientFromConn(context.Background(), conn, "", logger)
+		client := vision.NewClientFromConn(context.Background(), conn, visName, logger)
 
 		names, err := client.GetDetectorNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -71,21 +76,20 @@ func TestClient(t *testing.T) {
 		// detector was turned into segmenter
 		segNames, err := client.GetSegmenterNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, segNames, test.ShouldContain, "detect_red")
+		test.That(t, segNames, test.ShouldContain, "detect_red_segmenter")
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-
 	t.Run("add detector", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		client := vision.NewClientFromConn(context.Background(), conn, "", logger)
+		client := vision.NewClientFromConn(context.Background(), conn, visName, logger)
 
-		cfg := vision.DetectorConfig{
+		cfg := vision.VisModelConfig{
 			Name: "new_detector",
-			Type: "color",
+			Type: "color_detector",
 			Parameters: config.AttributeMap{
 				"detect_color": "#112233",
 				"tolerance":    0.9,
@@ -103,8 +107,8 @@ func TestClient(t *testing.T) {
 		// segmenter should also be added
 		segNames, err := client.GetSegmenterNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, segNames, test.ShouldContain, "detect_red")
-		test.That(t, segNames, test.ShouldContain, "new_detector")
+		test.That(t, segNames, test.ShouldContain, "detect_red_segmenter")
+		test.That(t, segNames, test.ShouldContain, "new_detector_segmenter")
 		// tries to add a detector again
 		err = client.AddDetector(context.Background(), cfg)
 		test.That(t, err, test.ShouldBeNil)
@@ -116,7 +120,7 @@ func TestClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		client := vision.NewClientFromConn(context.Background(), conn, "", logger)
+		client := vision.NewClientFromConn(context.Background(), conn, visName, logger)
 
 		dets, err := client.GetDetectionsFromCamera(context.Background(), "fake_cam", "detect_red")
 		test.That(t, err, test.ShouldBeNil)
@@ -136,12 +140,12 @@ func TestClient(t *testing.T) {
 	t.Run("get detections from img", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := vision.NewClientFromConn(context.Background(), conn, "", logger)
+		client := vision.NewClientFromConn(context.Background(), conn, visName, logger)
 
 		img, _ := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
 		modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
-		cfg := vision.DetectorConfig{
-			Name: "test", Type: "tflite",
+		cfg := vision.VisModelConfig{
+			Name: "test", Type: "tflite_detector",
 			Parameters: config.AttributeMap{
 				"model_path":  modelLoc,
 				"label_path":  "",
@@ -161,6 +165,97 @@ func TestClient(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
+	t.Run("add/remove/classifiernames", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		client := vision.NewClientFromConn(context.Background(), conn, visName, logger)
+
+		names, err := client.GetClassifierNames(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, names, test.ShouldBeEmpty)
+
+		cfg := vision.VisModelConfig{
+			Name: "new_class",
+			Type: "tflite_classifier",
+			Parameters: config.AttributeMap{
+				"model_path":  artifact.MustPath("vision/tflite/effnet0.tflite"),
+				"label_path":  "",
+				"num_threads": 1,
+			},
+		}
+		cfg2 := vision.VisModelConfig{
+			Name: "better_class",
+			Type: "tflite_classifier",
+			Parameters: config.AttributeMap{
+				"model_path":  artifact.MustPath("vision/tflite/effnet0.tflite"),
+				"label_path":  "",
+				"num_threads": 2,
+			},
+		}
+
+		// success
+		err = client.AddClassifier(context.Background(), cfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		names, err = client.GetClassifierNames(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, names, test.ShouldContain, "new_class")
+		names, err = client.GetDetectorNames(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, names, test.ShouldNotContain, "new_class")
+
+		err = client.AddClassifier(context.Background(), cfg2)
+		test.That(t, err, test.ShouldBeNil)
+		err = client.RemoveClassifier(context.Background(), "new_class")
+		test.That(t, err, test.ShouldBeNil)
+
+		names, err = client.GetClassifierNames(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, names, test.ShouldNotContain, "new_class")
+		test.That(t, names, test.ShouldContain, "better_class")
+
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("get classifications from cam", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		client := vision.NewClientFromConn(context.Background(), conn, visName, logger)
+
+		classifs, err := client.GetClassificationsFromCamera(context.Background(), "fake_cam2", "better_class", 3)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, classifs, test.ShouldNotBeNil)
+		test.That(t, classifs, test.ShouldHaveLength, 3)
+		test.That(t, classifs[0].Label(), test.ShouldResemble, "291")
+		test.That(t, classifs[0].Score(), test.ShouldBeGreaterThan, 0.82)
+
+		// failure - no such camera
+		_, err = client.GetClassificationsFromCamera(context.Background(), "no_camera", "better_class", 3)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+	t.Run("get classifications from img", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		client := vision.NewClientFromConn(context.Background(), conn, visName, logger)
+
+		img, _ := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/lion.jpeg"))
+
+		classifs, err := client.GetClassifications(context.Background(), img, "better_class", 5)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, classifs, test.ShouldNotBeNil)
+		test.That(t, classifs, test.ShouldHaveLength, 5)
+		test.That(t, classifs[0].Label(), test.ShouldResemble, "291")
+		test.That(t, classifs[0].Score(), test.ShouldBeGreaterThan, 0.82)
+
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
 
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
@@ -174,7 +269,7 @@ func TestInjectedServiceClient(t *testing.T) {
 
 	injectVision := &inject.VisionService{}
 	osMap := map[resource.Name]interface{}{
-		vision.Name: injectVision,
+		vision.Named(testVisionServiceName): injectVision,
 	}
 	svc, err := subtype.New(osMap)
 	test.That(t, err, test.ShouldBeNil)
@@ -191,7 +286,7 @@ func TestInjectedServiceClient(t *testing.T) {
 
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		workingDialedClient := vision.NewClientFromConn(context.Background(), conn, "", logger)
+		workingDialedClient := vision.NewClientFromConn(context.Background(), conn, testVisionServiceName, logger)
 		segmenterNames, err := workingDialedClient.GetSegmenterNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, segmenterNames, test.ShouldHaveLength, 1)
@@ -201,7 +296,7 @@ func TestInjectedServiceClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		client := vision.NewClientFromConn(context.Background(), conn, "", logger)
+		client := vision.NewClientFromConn(context.Background(), conn, testVisionServiceName, logger)
 
 		injCam := &cloudSource{}
 
@@ -277,7 +372,7 @@ func TestClientDialerOption(t *testing.T) {
 
 	injectODS := &inject.VisionService{}
 	m := map[resource.Name]interface{}{
-		vision.Name: injectODS,
+		vision.Named(testVisionServiceName): injectODS,
 	}
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
@@ -290,11 +385,11 @@ func TestClientDialerOption(t *testing.T) {
 	ctx := rpc.ContextWithDialer(context.Background(), td)
 	conn1, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client1 := vision.NewClientFromConn(ctx, conn1, "", logger)
+	client1 := vision.NewClientFromConn(ctx, conn1, testVisionServiceName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 	conn2, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client2 := vision.NewClientFromConn(ctx, conn2, "", logger)
+	client2 := vision.NewClientFromConn(ctx, conn2, testVisionServiceName, logger)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)

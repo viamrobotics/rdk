@@ -14,7 +14,7 @@ import (
 )
 
 func TestOrbslamYAMLNew(t *testing.T) {
-	name, err := createTempFolderArchitecture(true)
+	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()

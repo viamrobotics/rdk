@@ -10,7 +10,6 @@ import (
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
-	spatial "go.viam.com/rdk/spatialmath"
 )
 
 type rrtConnectMotionPlanner struct {
@@ -39,9 +38,9 @@ func NewRRTConnectMotionPlannerWithSeed(frame referenceframe.Frame, nCPU int, se
 		solver:   ik,
 		frame:    frame,
 		logger:   logger,
-		iter:     planIter,
+		iter:     defaultPlanIter,
 		nCPU:     nCPU,
-		stepSize: stepSize,
+		stepSize: defaultResolution,
 		randseed: seed,
 	}, nil
 }
@@ -88,15 +87,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 
 	// use default options if none are provided
 	if opt == nil {
-		opt = NewDefaultPlannerOptions()
-		seedPos, err := mp.frame.Transform(seed)
-		if err != nil {
-			solutionChan <- &planReturn{err: err}
-			return
-		}
-		goalPos := spatial.NewPoseFromProtobuf(goal)
-
-		opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
+		opt = NewBasicPlannerOptions()
 	}
 
 	// get many potential end goals from IK solver
@@ -107,7 +98,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	}
 
 	// publish endpoint of plan if it is known
-	if opt.maxSolutions == 1 && endpointPreview != nil {
+	if opt.MaxSolutions == 1 && endpointPreview != nil {
 		endpointPreview <- &configuration{solutions[0]}
 	}
 
@@ -143,11 +134,11 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 		nearest2 := nm.nearestNeighbor(nmContext, target, map2)
 
 		// attempt to extend the map to connect the target to map 1, then try to connect the maps together
-		map1reached := mp.checkPath(ctx, opt, nearest1.inputs, target.inputs)
+		map1reached := mp.checkPath(opt, nearest1.inputs, target.inputs)
 		if map1reached {
 			map1[target] = nearest1
 		}
-		map2reached := mp.checkPath(ctx, opt, nearest2.inputs, target.inputs)
+		map2reached := mp.checkPath(opt, nearest2.inputs, target.inputs)
 		if map2reached {
 			map2[target] = nearest2
 		}
@@ -170,7 +161,7 @@ func (mp *rrtConnectMotionPlanner) sample() *configuration {
 	return &configuration{referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
 }
 
-func (mp *rrtConnectMotionPlanner) checkPath(ctx context.Context, opt *PlannerOptions, seedInputs, target []referenceframe.Input) bool {
+func (mp *rrtConnectMotionPlanner) checkPath(opt *PlannerOptions, seedInputs, target []referenceframe.Input) bool {
 	seedPos, err := mp.frame.Transform(seedInputs)
 	if err != nil {
 		return false

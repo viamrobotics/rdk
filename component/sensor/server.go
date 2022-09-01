@@ -5,9 +5,9 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	pb "go.viam.com/rdk/proto/api/component/sensor/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -48,13 +48,9 @@ func (s *subtypeServer) GetReadings(
 	if err != nil {
 		return nil, err
 	}
-	readingsP := make([]*structpb.Value, 0, len(readings))
-	for _, r := range readings {
-		v, err := structpb.NewValue(r)
-		if err != nil {
-			return nil, err
-		}
-		readingsP = append(readingsP, v)
+	m, err := protoutils.ReadingGoToProto(readings)
+	if err != nil {
+		return nil, err
 	}
-	return &pb.GetReadingsResponse{Readings: readingsP}, nil
+	return &pb.GetReadingsResponse{Readings: m}, nil
 }

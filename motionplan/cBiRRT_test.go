@@ -37,16 +37,11 @@ func TestSimpleLinearMotion(t *testing.T) {
 	nlopt, err := CreateNloptIKSolver(m, logger, 1)
 	test.That(t, err, test.ShouldBeNil)
 	// nlopt should try only once
-	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: m, logger: logger, solDist: 0.0001}
-
-	// Max individual step of 0.5% of full range of motion
-	mp.qstep = getFrameSteps(m, 0.015)
-	mp.iter = 2000
-	mp.stepSize = 1
+	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: m, logger: logger}
 
 	mp.randseed = rand.New(rand.NewSource(42))
 
-	opt := NewDefaultPlannerOptions()
+	opt := NewBasicPlannerOptions()
 
 	pos := &commonpb.Pose{
 		X:  206,
@@ -75,14 +70,17 @@ func TestSimpleLinearMotion(t *testing.T) {
 	}
 	nn := &neighborManager{nCPU: nCPU}
 
+	cOpt, err := newCbirrtOptions(opt, m)
+	test.That(t, err, test.ShouldBeNil)
+
 	// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
-	seedReached := mp.constrainedExtend(ctx, opt, seedMap, near1, target)
+	seedReached := mp.constrainedExtend(ctx, cOpt, seedMap, near1, target)
 	// Find the nearest point in goalMap to the furthest point reached in seedMap
 	near2 := nn.nearestNeighbor(ctx, seedReached, goalMap)
 	// extend goalMap towards the point in seedMap
-	goalReached := mp.constrainedExtend(ctx, opt, goalMap, near2, seedReached)
+	goalReached := mp.constrainedExtend(ctx, cOpt, goalMap, near2, seedReached)
 
-	test.That(t, inputDist(seedReached.inputs, goalReached.inputs) < mp.solDist, test.ShouldBeTrue)
+	test.That(t, inputDist(seedReached.inputs, goalReached.inputs) < cOpt.JointSolveDist, test.ShouldBeTrue)
 
 	corners[seedReached] = true
 	corners[goalReached] = true
@@ -104,6 +102,6 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	// Test that smoothing succeeds and does not lengthen the path (it may be the same length)
 	unsmoothLen := len(inputSteps)
-	finalSteps := mp.SmoothPath(ctx, opt, inputSteps, corners)
+	finalSteps := mp.SmoothPath(ctx, cOpt, inputSteps, corners)
 	test.That(t, len(finalSteps), test.ShouldBeLessThanOrEqualTo, unsmoothLen)
 }

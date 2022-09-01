@@ -164,21 +164,21 @@ func TestOrbMatching(t *testing.T) {
 	// image 1
 	orb1, kps1, err := ComputeORBKeypoints(im1, orbConf)
 	test.That(t, err, test.ShouldBeNil)
-	orb1, _, err = sortDescriptorsByPoint(orb1, kps1, logger)
+	orb1, err = sortDescriptorsByPoint(orb1, kps1)
 	test.That(t, err, test.ShouldBeNil)
 	// image 2
 	orb2, kps2, err := ComputeORBKeypoints(im2, orbConf)
 	test.That(t, err, test.ShouldBeNil)
-	orb2, _, err = sortDescriptorsByPoint(orb2, kps2, logger)
+	orb2, err = sortDescriptorsByPoint(orb2, kps2)
 	test.That(t, err, test.ShouldBeNil)
 	matches := MatchKeypoints(orb1, orb2, matchingConf, logger)
 	test.That(t, len(matches.Indices), test.ShouldBeGreaterThan, 300)
 	test.That(t, len(matches.Indices), test.ShouldBeLessThan, 350)
 }
 
-func sortDescriptorsByPoint(desc Descriptors, kps KeyPoints, logger golog.Logger) (Descriptors, KeyPoints, error) {
+func sortDescriptorsByPoint(desc Descriptors, kps KeyPoints) (Descriptors, error) {
 	if len(desc) != len(kps) {
-		return nil, nil, errors.Errorf("number of descriptors (%d) does not equal number of keypoints (%d)", len(desc), len(kps))
+		return nil, errors.Errorf("number of descriptors (%d) does not equal number of keypoints (%d)", len(desc), len(kps))
 	}
 	// sort by point order
 	type ptdesc struct {
@@ -197,10 +197,8 @@ func sortDescriptorsByPoint(desc Descriptors, kps KeyPoints, logger golog.Logger
 		return sorted[i].Kp.Y > sorted[j].Kp.Y
 	})
 	sortedDesc := make(Descriptors, 0, len(desc))
-	sortedKps := make(KeyPoints, 0, len(kps))
 	for i := range sorted {
 		sortedDesc = append(sortedDesc, sorted[i].Des)
-		sortedKps = append(sortedKps, sorted[i].Kp)
 	}
-	return sortedDesc, sortedKps, nil
+	return sortedDesc, nil
 }

@@ -1,3 +1,4 @@
+// Package main is a rosbag parser.
 package main
 
 import (

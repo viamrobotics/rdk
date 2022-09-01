@@ -151,7 +151,7 @@ func newOneAxis(ctx context.Context, deps registry.Dependencies, config config.C
 	if err != nil {
 		return nil, err
 	}
-	features, err := _motor.GetFeatures(ctx, nil)
+	features, err := _motor.GetProperties(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -447,7 +447,7 @@ func (g *oneAxis) IsMoving(ctx context.Context) (bool, error) {
 	return g.opMgr.OpRunning(), nil
 }
 
-//  ModelFrame returns the frame model of the Gantry.
+// ModelFrame returns the frame model of the Gantry.
 func (g *oneAxis) ModelFrame() referenceframe.Model {
 	if g.model == nil {
 		var errs error

@@ -12,6 +12,7 @@ import (
 
 // client implements DataManagerServiceClient.
 type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.DataManagerServiceClient
 	logger golog.Logger
@@ -21,6 +22,7 @@ type client struct {
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
 	grpcClient := pb.NewDataManagerServiceClient(conn)
 	c := &client{
+		name:   name,
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
@@ -29,7 +31,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 }
 
 func (c *client) Sync(ctx context.Context) error {
-	_, err := c.client.Sync(ctx, &pb.SyncRequest{})
+	_, err := c.client.Sync(ctx, &pb.SyncRequest{Name: c.name})
 	if err != nil {
 		return err
 	}
