@@ -13,6 +13,7 @@ func (svc *dataManagerService) SetSyncerConstructor(fn datasync.ManagerConstruct
 	svc.syncerConstructor = fn
 }
 
+// SetModelrConstructor sets the modelr constructor for the data manager to use when creating its modelr.
 func (svc *dataManagerService) SetModelrConstructor(fn model.ManagerConstructor) {
 	svc.modelrConstructor = fn
 }
@@ -27,6 +28,7 @@ func (svc *dataManagerService) SetWaitAfterLastModifiedSecs(s int) {
 	svc.waitAfterLastModifiedSecs = s
 }
 
+// SetClientConn sets the syncer client conn for the data manager.
 func (svc *dataManagerService) SetClientConn(c rpc.ClientConn) {
 	svc.clientConn = &c
 }

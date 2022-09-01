@@ -645,7 +645,6 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 				if err = unzipSource(cancelCtx, model.Destination, modelFileToUnzip, svc.logger); err != nil {
 					svc.logger.Error(err)
 				}
-				svc.logger.Info("done with all helper functions for modelDeploy")
 			}
 		}(model)
 	}
@@ -735,8 +734,6 @@ func unzipFile(cancelCtx context.Context, f *zip.File, destination string, logge
 		logger.Error(err)
 	}
 
-	// increment deployed model here
-
 	return nil
 }
 
@@ -814,8 +811,6 @@ func getModelsToDownload(models []*Model) ([]*Model, error) {
 			}
 		} else if err != nil {
 			panic("can't access files: " + err.Error()) // better thing to do?
-		} else { // this conditional is a hack for testing
-			modelsToDownload = append(modelsToDownload, model)
 		}
 	}
 	return modelsToDownload, nil
