@@ -796,8 +796,8 @@ func (m *Motor) doPosition() (float64, error) {
 	return position / float64(m.StepsPerRotation), nil
 }
 
-// Do executes additional commands beyond the Motor{} interface.
-func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand executes additional commands beyond the Motor{} interface.
+func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	name, ok := cmd["command"]
 	if !ok {
 		return nil, errors.New("missing 'command' value")

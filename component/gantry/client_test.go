@@ -115,8 +115,8 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		gantry1Client := gantry.NewClientFromConn(context.Background(), conn, testGantryName, logger)
 
-		// Do
-		resp, err := gantry1Client.Do(context.Background(), generic.TestCommand)
+		// DoCommand
+		resp, err := gantry1Client.DoCommand(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])

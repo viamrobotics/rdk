@@ -140,8 +140,8 @@ func TestClient(t *testing.T) {
 		expectedArgs := []interface{}{distance, mmPerSec, map[string]interface{}{"foo": "bar"}}
 		test.That(t, argsReceived["MoveStraight"], test.ShouldResemble, expectedArgs)
 
-		// Do
-		resp, err := workingBaseClient.Do(context.Background(), generic.TestCommand)
+		// DoCommand
+		resp, err := workingBaseClient.DoCommand(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])

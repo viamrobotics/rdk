@@ -740,7 +740,7 @@ func (da *dummyArm) Stop(ctx context.Context, extra map[string]interface{}) erro
 	return nil
 }
 
-func (da *dummyArm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (da *dummyArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	close(da.channel)
 	<-ctx.Done()
 	return nil, ctx.Err()
@@ -833,7 +833,7 @@ func TestStopAll(t *testing.T) {
 			}
 		}
 	}()
-	_, err = arm1.Do(ctx, map[string]interface{}{})
+	_, err = arm1.DoCommand(ctx, map[string]interface{}{})
 	s, isGRPCErr := status.FromError(err)
 	test.That(t, isGRPCErr, test.ShouldBeTrue)
 	test.That(t, s.Code(), test.ShouldEqual, codes.Canceled)

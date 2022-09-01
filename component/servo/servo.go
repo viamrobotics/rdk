@@ -129,11 +129,11 @@ func (r *reconfigurableServo) ProxyFor() interface{} {
 	return r.actual
 }
 
-// Do passes generic commands/data.
-func (r *reconfigurableServo) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand passes generic commands/data.
+func (r *reconfigurableServo) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Do(ctx, cmd)
+	return r.actual.DoCommand(ctx, cmd)
 }
 
 func (r *reconfigurableServo) Move(ctx context.Context, angleDeg uint8) error {

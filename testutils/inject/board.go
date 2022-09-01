@@ -172,10 +172,10 @@ func (b *Board) StatusCap() []interface{} {
 	return b.statusCap
 }
 
-// Do calls the injected Do or the real version.
-func (b *Board) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand calls the injected DoCommand or the real version.
+func (b *Board) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if b.DoFunc == nil {
-		return b.LocalBoard.Do(ctx, cmd)
+		return b.LocalBoard.DoCommand(ctx, cmd)
 	}
 	return b.DoFunc(ctx, cmd)
 }

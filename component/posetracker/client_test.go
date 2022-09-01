@@ -105,8 +105,8 @@ func TestClient(t *testing.T) {
 			context.Background(), []string{zeroPoseBody, nonZeroPoseBody})
 		test.That(t, err, test.ShouldBeNil)
 
-		// Do
-		resp, err := workingPTClient.Do(context.Background(), generic.TestCommand)
+		// DoCommand
+		resp, err := workingPTClient.DoCommand(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])

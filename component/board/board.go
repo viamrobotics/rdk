@@ -210,10 +210,10 @@ func (r *reconfigurableBoard) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableBoard) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (r *reconfigurableBoard) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Do(ctx, cmd)
+	return r.actual.DoCommand(ctx, cmd)
 }
 
 func (r *reconfigurableBoard) AnalogReaderByName(name string) (AnalogReader, bool) {

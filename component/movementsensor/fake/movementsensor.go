@@ -51,7 +51,7 @@ func (f *fakeMovementSensor) GetOrientation(ctx context.Context) (spatialmath.Or
 	return spatialmath.NewZeroOrientation(), nil
 }
 
-func (f *fakeMovementSensor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (f *fakeMovementSensor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return map[string]interface{}{}, nil
 }
 

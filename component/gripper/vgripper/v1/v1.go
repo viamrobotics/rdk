@@ -511,7 +511,7 @@ const (
 	ReturnHasPressure = "has_pressure"
 )
 
-func (vg *gripperV1) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (vg *gripperV1) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	name, ok := cmd[Command]
 	if !ok {
 		return nil, errors.Errorf("missing %s value", Command)

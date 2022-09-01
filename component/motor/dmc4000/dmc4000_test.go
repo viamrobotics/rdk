@@ -711,7 +711,7 @@ func TestDMC4000Motor(t *testing.T) {
 			[]string{"testTX"},
 			[]string{" testRX\r\n:"},
 		)
-		resp, err := _motor.Do(ctx, map[string]interface{}{"command": "raw", "raw_input": "testTX"})
+		resp, err := _motor.DoCommand(ctx, map[string]interface{}{"command": "raw", "raw_input": "testTX"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["return"], test.ShouldEqual, "testRX")
 		waitTx(t, resChan)
@@ -753,7 +753,7 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		resp, err := _motor.Do(ctx, map[string]interface{}{"command": "home"})
+		resp, err := _motor.DoCommand(ctx, map[string]interface{}{"command": "home"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldBeNil)
 		waitTx(t, resChan)

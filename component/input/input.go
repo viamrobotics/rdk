@@ -232,10 +232,10 @@ func (c *reconfigurableInputController) ProxyFor() interface{} {
 	return c.actual
 }
 
-func (c *reconfigurableInputController) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *reconfigurableInputController) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.actual.Do(ctx, cmd)
+	return c.actual.DoCommand(ctx, cmd)
 }
 
 func (c *reconfigurableInputController) GetControls(ctx context.Context) ([]Control, error) {

@@ -171,9 +171,9 @@ func (as *audioSource) MediaProperties(ctx context.Context) (prop.Audio, error) 
 	return as.prov.MediaProperties(ctx)
 }
 
-func (as *audioSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (as *audioSource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if doer, ok := as.as.(generic.Generic); ok {
-		return doer.Do(ctx, cmd)
+		return doer.DoCommand(ctx, cmd)
 	}
 	return nil, generic.ErrUnimplemented
 }
@@ -269,10 +269,10 @@ func (i *reconfigurableAudioInput) Close(ctx context.Context) error {
 	return i.actual.Close(ctx)
 }
 
-func (i *reconfigurableAudioInput) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (i *reconfigurableAudioInput) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
-	return i.actual.Do(ctx, cmd)
+	return i.actual.DoCommand(ctx, cmd)
 }
 
 // Reconfigure reconfigures the resource.

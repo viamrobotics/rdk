@@ -70,9 +70,9 @@ func TestWorkingClient(t *testing.T) {
 		expectedExtra := map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}}
 		var actualExtra map[string]interface{}
 
-		// Do
+		// DoCommand
 		injectBoard.DoFunc = generic.EchoFunc
-		resp, err := client.Do(context.Background(), generic.TestCommand)
+		resp, err := client.DoCommand(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])

@@ -49,7 +49,7 @@ func TestGenericDo(t *testing.T) {
 	test.That(t, s, test.ShouldNotBeNil)
 
 	command := map[string]interface{}{"cmd": "test", "data1": 500}
-	ret, err := s.Do(context.Background(), command)
+	ret, err := s.DoCommand(context.Background(), command)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret, test.ShouldEqual, command)
 }
@@ -194,6 +194,6 @@ func (m *mock) GetReadings(ctx context.Context) (map[string]interface{}, error) 
 
 func (m *mock) Close() { m.reconfCount++ }
 
-func (m *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (m *mock) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }

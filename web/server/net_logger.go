@@ -348,7 +348,7 @@ func (w *remoteLogWriterHTTP) writeToServer(log *apppb.LogEntry) error {
 	}
 	r.Header.Set("Secret", w.cfg.Secret)
 
-	resp, err := w.client.Do(r)
+	resp, err := w.client.DoCommand(r)
 	if err != nil {
 		return err
 	}

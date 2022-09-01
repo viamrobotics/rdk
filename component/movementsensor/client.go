@@ -114,6 +114,6 @@ func (c *client) GetProperties(ctx context.Context) (*Properties, error) {
 	return (*Properties)(resp), nil
 }
 
-func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }

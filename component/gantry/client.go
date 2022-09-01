@@ -108,6 +108,6 @@ func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &commonpb.WorldState{}, nil)
 }
 
-func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }
