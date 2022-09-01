@@ -132,13 +132,7 @@ func TestSolverFrame(t *testing.T) {
 	sFrames, err := solver.TracebackFrame(solveFrame)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solveFrame, test.ShouldNotBeNil)
-
-	sf, err := newSolverFrame(
-		solver,
-		sFrames, 
-		goalFrame.Name(),
-		frame.StartPositions(solver),
-	)
+	sf, err := newSolverFrame(solver, sFrames, goalFrame.Name(), frame.StartPositions(solver))
 	test.That(t, err, test.ShouldBeNil)
 
 	// get the Geometry at the zero position and test that the output is correct

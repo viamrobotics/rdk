@@ -103,7 +103,7 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 		for j, resultSlice := range resultSlices {
 			stepMap := sf.sliceToMap(resultSlice)
 			steps = append(steps, stepMap)
-			if j == len(resultSlices) - 1 {
+			if j == len(resultSlices)-1 {
 				// update seed map
 				seedMap = stepMap
 			}
@@ -133,7 +133,7 @@ type solverFrame struct {
 	// This is useful when e.g. moving a gripper relative to a point seen by a camera built into that gripper
 	// TODO(pl): explore allowing this to be frames other than world
 	worldRooted bool
-	origSeed   map[string][]frame.Input // stores starting locations of all frames in fss that are NOT in `frames`
+	origSeed    map[string][]frame.Input // stores starting locations of all frames in fss that are NOT in `frames`
 }
 
 func newSolverFrame(
@@ -142,56 +142,52 @@ func newSolverFrame(
 	goalFrameName string,
 	seedMap map[string][]frame.Input,
 ) (*solverFrame, error) {
-	
-	var solveFrame frame.Frame
-	var name string
 	var movingFs frame.FrameSystem
 	var frames []frame.Frame
 	worldRooted := false
-	
+
+	// get goal frame
 	goalFrame := fss.GetFrame(goalFrameName)
 	if goalFrame == nil {
-		return nil, fmt.Errorf("frame with name %s not found in frame system", goalFrameName)
+		return nil, frame.NewFrameMissingError(goalFrameName)
 	}
-	
-	if len(solveFrameList) != 0 {
-		solveFrame = solveFrameList[0]
-		name = solveFrame.Name() + "_" + goalFrame.Name()
-	}else{
-		return nil, errors.New("solveFrameList was empty")
-	}
-	
 	goalFrameList, err := fss.TracebackFrame(goalFrame)
 	if err != nil {
 		return nil, err
 	}
-	
-	pivotNode := findPivotNode(solveFrameList, goalFrameList)
-	if pivotNode == nil {
-		return nil, errors.New("no path from solve frame to goal frame")
+
+	// get solve frame
+	if len(solveFrameList) == 0 {
+		return nil, errors.New("solveFrameList was empty")
 	}
-	if pivotNode.Name() == frame.World {
+	solveFrame := solveFrameList[0]
+
+	// find pivot frame between goal and solve frames
+	pivotFrame, err := findPivotFrame(solveFrameList, goalFrameList)
+	if err != nil {
+		return nil, err
+	}
+	if pivotFrame.Name() == frame.World {
 		movingFs = fss
 		frames = uniqInPlaceSlice(append(solveFrameList, goalFrameList...))
 	} else {
 		// Get minimal set of frames from solve frame to goal frame
-		for _, f := range solveFrameList {
-			if f.Name() == pivotNode.Name() {
-				break
-			}
-			frames = append(frames, f)
-		}
-		for _, f := range goalFrameList {
-			if f.Name() == pivotNode.Name() {
-				break
-			}
-			frames = append(frames, f)
-		}
-		
 		dof := 0
-		for _, f := range frames {
-			dof += len(f.DoF())
+		for _, frame := range solveFrameList {
+			if frame == pivotFrame {
+				break
+			}
+			dof += len(frame.DoF())
+			frames = append(frames, frame)
 		}
+		for _, frame := range goalFrameList {
+			if frame == pivotFrame {
+				break
+			}
+			dof += len(frame.DoF())
+			frames = append(frames, frame)
+		}
+
 		// If shortest path has 0 dof (e.g. a camera attached to a gripper), translate goal to world frame
 		if dof == 0 {
 			worldRooted = true
@@ -199,34 +195,32 @@ func newSolverFrame(
 			frames = solveFrameList
 		} else {
 			// Get all child nodes of pivot node
-			movingFs, err = fss.GetFrameSystemSubset(pivotNode)
+			movingFs, err = fss.GetFrameSystemSubset(pivotFrame)
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
-	
+
 	origSeed := map[string][]frame.Input{}
 	// deep copy of seed map
 	for k, v := range seedMap {
 		origSeed[k] = v
 	}
-	for _, f := range frames {
-		delete(origSeed, f.Name())
+	for _, frame := range frames {
+		delete(origSeed, frame.Name())
 	}
-	
-	sf := &solverFrame{
-		name: name,
-		fss: fss,
-		movingFs: movingFs,
-		frames: frames,
-		solveFrame: solveFrame,
-		goalFrame: goalFrame,
+
+	return &solverFrame{
+		name:        solveFrame.Name() + "_" + goalFrame.Name(),
+		fss:         fss,
+		movingFs:    movingFs,
+		frames:      frames,
+		solveFrame:  solveFrame,
+		goalFrame:   goalFrame,
 		worldRooted: worldRooted,
-		origSeed: origSeed,
-	}
-	
-	return sf, nil
+		origSeed:    origSeed,
+	}, nil
 }
 
 func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
@@ -251,6 +245,7 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+
 	// If we are world rooted, translate the goal pose into the world frame
 	if sf.worldRooted {
 		tf, err := sf.fss.Transform(seedMap, frame.NewPoseInFrame(sf.goalFrame.Name(), goalPos), frame.World)
@@ -267,7 +262,6 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 	if profile, ok := motionConfig["motion_profile"]; ok && profile == "linear" {
 		pathStepSize, ok := motionConfig["path_step_size"].(float64)
 		if !ok {
-			// Default
 			pathStepSize = defaultPathStepSize
 		}
 		numSteps := GetSteps(seedPos, goalPos, pathStepSize)
@@ -315,7 +309,7 @@ func (sf *solverFrame) Name() string {
 // Transform returns the pose between the two frames of this solver for a given set of inputs.
 func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	if len(inputs) != len(sf.DoF()) {
-		return nil, fmt.Errorf("incorrect number of inputs to Transform got %d want %d", len(inputs), len(sf.DoF()))
+		return nil, NewIncorrectInputLengthError(len(inputs), len(sf.DoF()))
 	}
 	pf := frame.NewPoseInFrame(sf.solveFrame.Name(), spatial.NewZeroPose())
 	solveName := sf.goalFrame.Name()
@@ -361,7 +355,7 @@ func (sf *solverFrame) ProtobufFromInput(input []frame.Input) *pb.JointPositions
 // geometries in the solverFrame in the reference frame of the World frame.
 func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFrame, error) {
 	if len(inputs) != len(sf.DoF()) {
-		return nil, errors.New("incorrect number of inputs to transform")
+		return nil, NewIncorrectInputLengthError(len(inputs), len(sf.DoF()))
 	}
 	var errAll error
 	inputMap := sf.sliceToMap(inputs)
@@ -369,7 +363,7 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 	for _, fName := range sf.movingFs.FrameNames() {
 		f := sf.movingFs.GetFrame(fName)
 		if f == nil {
-			return nil, fmt.Errorf("frame %s not found when querying geometries", fName)
+			return nil, frame.NewFrameMissingError(fName)
 		}
 		inputs, err := frame.GetFrameInputs(f, inputMap)
 		if err != nil {
@@ -451,23 +445,27 @@ func uniqInPlaceSlice(s []frame.Frame) []frame.Frame {
 	return s[:j]
 }
 
-// find the first common node in two ordered lists of 
-func findPivotNode(frameList1, frameList2 []frame.Frame) frame.Frame {
-	nameSet := map[string]struct{}{}
-	// slight optimization here
+// findPivotFrame finds the first common frame in two ordered lists of frames
+func findPivotFrame(frameList1, frameList2 []frame.Frame) (frame.Frame, error) {
+	// find shorter list
 	shortList := frameList1
 	longList := frameList2
 	if len(frameList1) > len(frameList2) {
 		shortList = frameList2
 		longList = frameList1
 	}
-	for _, f := range shortList {
-		nameSet[f.Name()] = struct{}{}
+
+	// cache names seen in shorter list
+	nameSet := make(map[string]struct{}, len(shortList))
+	for _, frame := range shortList {
+		nameSet[frame.Name()] = struct{}{}
 	}
-	for _, f := range longList {
-		if _, ok := nameSet[f.Name()]; ok {
-			return f
+
+	// look for already seen names in longer list
+	for _, frame := range longList {
+		if _, ok := nameSet[frame.Name()]; ok {
+			return frame, nil
 		}
 	}
-	return nil
+	return nil, errors.New("no path from solve frame to goal frame")
 }
