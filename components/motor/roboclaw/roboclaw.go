@@ -120,6 +120,7 @@ func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra ma
 	case 2:
 		return m.conn.DutyM2(m.addr, int16(powerPct*32767))
 	default:
+		// TODO(RSDK-548): can we return an error instead of panicking?
 		panic("impossible")
 	}
 }
@@ -139,6 +140,7 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 	case 2:
 		err = m.conn.SpeedDistanceM2(m.addr, ticksPerSecond, ticks, true)
 	default:
+		// TODO(RSDK-548): can we return an error instead of panicking?
 		panic("impossible")
 	}
 	if err != nil {
@@ -163,6 +165,7 @@ func (m *roboclawMotor) ResetZeroPosition(ctx context.Context, offset float64, e
 	case 2:
 		return m.conn.SetEncM2(m.addr, newTicks)
 	default:
+		// TODO(RSDK-548): seems like we can return an error instead of panicking
 		panic("impossible")
 	}
 }
