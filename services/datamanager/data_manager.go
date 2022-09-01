@@ -667,7 +667,7 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 				}
 				// A download from a GCS signed URL only returns one file.
 				modelFileToUnzip := model.Name + ".zip" // TODO: For now, hardcode.
-				if err = unzipSource(cancelCtx, model.Destination, modelFileToUnzip, svc.logger); err != nil {
+				if err = unzipSource(model.Destination, modelFileToUnzip, svc.logger); err != nil {
 					svc.logger.Error(err)
 				}
 			}
@@ -678,13 +678,13 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 }
 
 // unzipSource unzips all files inside a zip file.
-func unzipSource(cancelCtx context.Context, destination, fileName string, logger golog.Logger) error {
+func unzipSource(destination, fileName string, logger golog.Logger) error {
 	zipReader, err := zip.OpenReader(filepath.Join(destination, fileName))
 	if err != nil {
 		return err
 	}
 	for _, f := range zipReader.File {
-		if err := unzipFile(cancelCtx, f, destination, logger); err != nil {
+		if err := unzipFile(f, destination, logger); err != nil {
 			return err
 		}
 	}
@@ -694,7 +694,7 @@ func unzipSource(cancelCtx context.Context, destination, fileName string, logger
 	return nil
 }
 
-func unzipFile(cancelCtx context.Context, f *zip.File, destination string, logger golog.Logger) error {
+func unzipFile(f *zip.File, destination string, logger golog.Logger) error {
 	// TODO: DATA-307, We should be passing in the context to any operations that can take several seconds,
 	// which includes unzipFile. As written, this can block .Close for an unbounded amount of time.
 	//nolint:gosec
@@ -762,16 +762,18 @@ func unzipFile(cancelCtx context.Context, f *zip.File, destination string, logge
 	return nil
 }
 
+// HTTPClient allows us to mock a connection.
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+// Client is implementation of HTTPClient interface.
 var Client HTTPClient
 
 // downloadFile will download a url to a local file. It writes as it
 // downloads and doesn't load the whole file into memory.
 func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.Logger) error {
-	getReq, err := http.NewRequestWithContext(cancelCtx, "GET", url, nil)
+	getReq, err := http.NewRequestWithContext(cancelCtx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
@@ -801,14 +803,7 @@ func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.
 	}
 
 	err = ioutil.WriteFile(out.Name(), bodyBytes, os.ModePerm)
-	if err != nil {
-		return err
-	}
 
-	if closeErr := out.Close(); err != nil {
-		return closeErr
-	}
-	// os.Remove(resp.Status)
 	return err
 }
 
