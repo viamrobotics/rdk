@@ -30,7 +30,7 @@ func downscaleNearestGrayImage(img *image.Gray, factor float64) (*image.Gray, er
 		},
 	}
 	downsized := image.NewGray(newRect)
-	utils.ParallelForEachPixel(newRect.Max, func(x int, y int) {
+	utils.ParallelForEachPixel(newRect.Max, func(x, y int) {
 		origXTemp := float64(x) * factor
 		var origX int
 		// round original float coordinates to the closest int coordinates

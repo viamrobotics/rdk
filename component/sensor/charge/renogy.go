@@ -16,17 +16,18 @@ import (
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 var globalMu sync.Mutex
 
 // defaults assume the device is connected via UART serial.
 const (
-	modelname       = "renogy"
 	pathDefault     = "/dev/serial0"
 	baudDefault     = 9600
 	modbusIDDefault = 1
 )
+var modelname = resource.NewDefaultModel("renogy")
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
@@ -72,17 +73,17 @@ func init() {
 			logger golog.Logger,
 		) (interface{}, error) {
 			return newSensor(config.Name, config.ConvertedAttributes.(*AttrConfig).Path,
-				config.ConvertedAttributes.(*AttrConfig).Baud, config.ConvertedAttributes.(*AttrConfig).ModbusID, logger)
+				config.ConvertedAttributes.(*AttrConfig).Baud, config.ConvertedAttributes.(*AttrConfig).ModbusID), nil
 		}})
 
-	config.RegisterComponentAttributeMapConverter(sensor.SubtypeName, modelname,
+	config.RegisterComponentAttributeMapConverter(sensor.Subtype, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		}, &AttrConfig{})
 }
 
-func newSensor(name string, path string, baud int, modbusID byte, logger golog.Logger) (sensor.Sensor, error) {
+func newSensor(name, path string, baud int, modbusID byte) sensor.Sensor {
 	if path == "" {
 		path = pathDefault
 	}
@@ -93,7 +94,7 @@ func newSensor(name string, path string, baud int, modbusID byte, logger golog.L
 		modbusID = modbusIDDefault
 	}
 
-	return &Sensor{Name: name, path: path, baud: baud, modbusID: modbusID}, nil
+	return &Sensor{Name: name, path: path, baud: baud, modbusID: modbusID}
 }
 
 // Sensor is a serial charge controller.

@@ -5,7 +5,7 @@ import (
 	// for cameras.
 	_ "go.viam.com/rdk/component/camera/fake"
 	_ "go.viam.com/rdk/component/camera/ffmpeg"
-	_ "go.viam.com/rdk/component/camera/imagesource"
-	_ "go.viam.com/rdk/component/camera/imagetransform"
+	_ "go.viam.com/rdk/component/camera/transformpipeline"
 	_ "go.viam.com/rdk/component/camera/velodyne"
+	_ "go.viam.com/rdk/component/camera/videosource"
 )

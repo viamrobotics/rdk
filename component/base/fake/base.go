@@ -46,7 +46,7 @@ func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float6
 }
 
 // Spin does nothing.
-func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, extra map[string]interface{}) error {
+func (b *Base) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
 	return nil
 }
 

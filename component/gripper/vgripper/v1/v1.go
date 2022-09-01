@@ -117,11 +117,11 @@ func newGripperV1(
 	if vg.motor == nil {
 		return nil, errors.New("gripper needs a motor named 'g'")
 	}
-	supportedFeatures, err := vg.motor.GetFeatures(ctx, nil)
+	supportedProperties, err := vg.motor.GetProperties(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	supported := supportedFeatures[motor.PositionReporting]
+	supported := supportedProperties[motor.PositionReporting]
 	if !supported {
 		return nil, motor.NewFeatureUnsupportedError(motor.PositionReporting, "g")
 	}

@@ -92,7 +92,7 @@ func ConvolveGray(img *image.Gray, kernel *Kernel, anchor image.Point, border Bo
 	}
 	originalSize := img.Bounds().Size()
 	resultImage := image.NewGray(img.Bounds())
-	utils.ParallelForEachPixel(originalSize, func(x int, y int) {
+	utils.ParallelForEachPixel(originalSize, func(x, y int) {
 		sum := float64(0)
 		for ky := 0; ky < kernelSize.Y; ky++ {
 			for kx := 0; kx < kernelSize.X; kx++ {
@@ -118,7 +118,7 @@ func ConvolveGrayFloat64(m *mat.Dense, filter *Kernel) (*mat.Dense, error) {
 		return nil, err
 	}
 
-	utils.ParallelForEachPixel(image.Point{w, h}, func(x int, y int) {
+	utils.ParallelForEachPixel(image.Point{w, h}, func(x, y int) {
 		sum := float64(0)
 		for ky := 0; ky < kernelSize.Y; ky++ {
 			for kx := 0; kx < kernelSize.X; kx++ {

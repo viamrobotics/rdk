@@ -115,13 +115,20 @@ func (manager *resourceManager) remoteResourceNames(remoteName resource.Name) []
 // 1) The remote resource already is in the tree as an unknown type, it will be renamed
 // 2) A remote resource is being deleted but a local resource depends on it.
 // It will be renamed as unknown and its local children are going to be destroyed.
-func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, remoteName resource.Name, rr robot.Robot, lr *localRobot) {
+func (manager *resourceManager) updateRemoteResourceNames(
+	ctx context.Context,
+	remoteName resource.Name,
+	rr robot.Robot,
+	lr *localRobot,
+) bool {
 	visited := map[resource.Name]bool{}
 	newResources := rr.ResourceNames()
 	oldResources := manager.remoteResourceNames(remoteName)
 	for _, res := range oldResources {
 		visited[res] = false
 	}
+
+	anythingChanged := false
 
 	for _, res := range newResources {
 		rrName := res
@@ -152,6 +159,8 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 		err = manager.resources.AddChildren(res, remoteName)
 		if err != nil {
 			manager.logger.Errorw("error while trying add node as a dependency of remote", "node", res, "remote", remoteName)
+		} else {
+			anythingChanged = true
 		}
 	}
 	for res, visit := range visited {
@@ -174,19 +183,23 @@ func (manager *resourceManager) updateRemoteResourceNames(ctx context.Context, r
 				continue
 			}
 			manager.resources.Remove(res)
+			anythingChanged = true
 		}
 	}
+	return anythingChanged
 }
 
-func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context, r *localRobot) {
+func (manager *resourceManager) updateRemotesResourceNames(ctx context.Context, r *localRobot) bool {
+	anythingChanged := false
 	for _, name := range manager.resources.Names() {
 		iface, _ := manager.resources.Node(name)
 		if name.ResourceType == remoteTypeName {
 			if rr, ok := iface.(robot.Robot); ok {
-				manager.updateRemoteResourceNames(ctx, name, rr, r)
+				anythingChanged = anythingChanged || manager.updateRemoteResourceNames(ctx, name, rr, r)
 			}
 		}
 	}
+	return anythingChanged
 }
 
 // addResource adds a resource to the manager.
@@ -339,7 +352,7 @@ func (manager *resourceManager) completeConfig(
 		if !ok {
 			continue
 		}
-		manager.logger.Infow("we are now handling the resource ", "resource", r.Name)
+		manager.logger.Infow("we are now handling the resource ", "resource", r)
 		if c, ok := wrap.config.(config.Component); ok {
 			iface, err := manager.processComponent(ctx, r, c, wrap.real, robot)
 			if err != nil {
@@ -538,7 +551,7 @@ func (manager *resourceManager) processComponent(ctx context.Context,
 	if old == nil {
 		return r.newResource(ctx, conf)
 	}
-	obj, canValidate := old.(config.CompononentUpdate)
+	obj, canValidate := old.(config.ComponentUpdate)
 	res := config.Rebuild
 	if canValidate {
 		res = obj.UpdateAction(&conf)

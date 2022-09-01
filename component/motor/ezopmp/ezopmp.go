@@ -248,7 +248,7 @@ func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64, extra map[strin
 
 // GoFor sets a constant flow rate
 // mLPerMin = rpm, mins = revolutions.
-func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin float64, mins float64, extra map[string]interface{}) error {
+func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[string]interface{}) error {
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -269,7 +269,7 @@ func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin float64, mins float64, extr
 
 // GoTo uses the Dose Over Time Command in the EZO-PMP datasheet
 // mLPerMin = rpm, mins = revolutions.
-func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin float64, mins float64, extra map[string]interface{}) error {
+func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin, mins float64, extra map[string]interface{}) error {
 	switch speed := math.Abs(mLPerMin); {
 	case speed < 0.5:
 		return errors.New("motor cannot move this slowly")
@@ -307,8 +307,8 @@ func (m *Ezopmp) GetPosition(ctx context.Context, extra map[string]interface{}) 
 	return floatVal, err
 }
 
-// GetFeatures returns the status of optional features on the motor.
-func (m *Ezopmp) GetFeatures(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+// GetProperties returns the status of optional features on the motor.
+func (m *Ezopmp) GetProperties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: true,
 	}, nil

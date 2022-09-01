@@ -42,7 +42,7 @@ func waitTx(tb testing.TB, resChan chan string) {
 	}
 }
 
-func checkTx(resChan chan string, c chan string, expects []string) {
+func checkTx(resChan, c chan string, expects []string) {
 	defer txMu.Unlock()
 	for _, expected := range expects {
 		tx := <-c
@@ -52,7 +52,7 @@ func checkTx(resChan chan string, c chan string, expects []string) {
 	resChan <- "DONE"
 }
 
-func checkRx(resChan chan string, c chan string, expects []string, sends []string) {
+func checkRx(resChan, c chan string, expects, sends []string) {
 	defer txMu.Unlock()
 	for i, expected := range expects {
 		tx := <-c
@@ -131,7 +131,7 @@ func TestDMC4000Motor(t *testing.T) {
 	waitTx(t, resChan)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
-		features, err := _motor.GetFeatures(ctx, nil)
+		features, err := _motor.GetProperties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
 	})

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -223,30 +222,45 @@ func CreateCloudRequest(ctx context.Context, cloudCfg *Cloud) (*http.Request, er
 	}
 	r.Header.Set(cloudConfigSecretField, cloudCfg.Secret)
 
-	userInfo := map[string]interface{}{}
-	hostname, err := os.Hostname()
+	agentInfo, err := getAgentInfo()
 	if err != nil {
 		return nil, err
 	}
-	userInfo[cloudConfigUserInfoHostField] = hostname
-	userInfo[cloudConfigUserInfoOSField] = runtime.GOOS
 
-	ips, err := utils.GetAllLocalIPv4s()
-	if err != nil {
-		return nil, err
-	}
-	userInfo[cloudConfigUserInfoLocalIPsField] = ips
-	userInfo[cloudConfigVersionField] = Version
-	userInfo[cloudConfigGitRevisionField] = GitRevision
+	userInfo := map[string]interface{}{}
+	userInfo[cloudConfigUserInfoHostField] = agentInfo.Host
+	userInfo[cloudConfigUserInfoOSField] = agentInfo.Os
+	userInfo[cloudConfigUserInfoLocalIPsField] = agentInfo.Ips
+	userInfo[cloudConfigVersionField] = agentInfo.Version
+	userInfo[cloudConfigGitRevisionField] = agentInfo.GitRevision
 
 	userInfoBytes, err := json.Marshal(userInfo)
 	if err != nil {
 		return nil, err
 	}
-
 	r.Header.Set(cloudConfigUserInfoField, string(userInfoBytes))
 
 	return r, nil
+}
+
+func getAgentInfo() (*apppb.AgentInfo, error) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+
+	ips, err := utils.GetAllLocalIPv4s()
+	if err != nil {
+		return nil, err
+	}
+
+	return &apppb.AgentInfo{
+		Host:        hostname,
+		Ips:         ips,
+		Os:          runtime.GOOS,
+		Version:     Version,
+		GitRevision: GitRevision,
+	}, nil
 }
 
 // createCloudCertificateRequest makes a request to fetch the robot's TLS
@@ -319,7 +333,9 @@ func readCertificateDataFromCloud(ctx context.Context, signalingInsecure bool, c
 	if err != nil {
 		return nil, err
 	}
-	defer utils.UncheckedErrorFunc(resp.Body.Close)
+	defer func() {
+		utils.UncheckedError(resp.Body.Close())
+	}()
 
 	dec := json.NewDecoder(resp.Body)
 	var certData Cloud
@@ -399,7 +415,7 @@ func readFromCloud(
 	shouldReadFromCache bool,
 	checkForNewCert bool,
 	logger golog.Logger,
-) (*Config, *Config, error) {
+) (*Config, error) {
 	logger.Debug("reading configuration from the cloud")
 	cloudCfg := originalCfg.Cloud
 	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, cloudCfg, shouldReadFromCache, logger)
@@ -407,16 +423,16 @@ func readFromCloud(
 		if !cached {
 			err = errors.Wrapf(err, "error getting cloud config, please make sure the RDK config located in %v is valid", originalCfg.ConfigFilePath)
 		}
-		return nil, nil, err
+		return nil, err
 	}
 
 	// process the config
 	cfg, err := processConfigFromCloud(unprocessedConfig)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if cfg.Cloud == nil {
-		return nil, nil, errors.New("expected config to have cloud section")
+		return nil, errors.New("expected config to have cloud section")
 	}
 
 	// empty if not cached, since its a separate request, which we check next
@@ -430,7 +446,7 @@ func readFromCloud(
 		if err == nil {
 			cachedConfig, err := processConfigFromCloud(unproccessedCachedConfig)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 
 			if cachedConfig.Cloud != nil {
@@ -438,7 +454,7 @@ func readFromCloud(
 				tlsPrivateKey = cachedConfig.Cloud.TLSPrivateKey
 			}
 		} else if !os.IsNotExist(err) {
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
@@ -460,10 +476,10 @@ func readFromCloud(
 		if err != nil {
 			var urlErr *url.Error
 			if !errors.Is(err, context.DeadlineExceeded) && (!errors.As(err, &urlErr) || urlErr.Temporary()) {
-				return nil, nil, err
+				return nil, err
 			}
 			if tlsCertificate == "" || tlsPrivateKey == "" {
-				return nil, nil, errors.Wrap(err, "error getting certificate data from cloud; try again later")
+				return nil, errors.Wrap(err, "error getting certificate data from cloud; try again later")
 			}
 			logger.Warnw("failed to refresh certificate data; using cached for now", "error", err)
 		} else {
@@ -492,13 +508,12 @@ func readFromCloud(
 	}
 
 	mergeCloudConfig(cfg)
-	mergeCloudConfig(unprocessedConfig)
 
 	if err := storeToCache(cloudCfg.ID, unprocessedConfig); err != nil {
 		golog.Global.Errorw("failed to cache config", "error", err)
 	}
 
-	return cfg, unprocessedConfig, nil
+	return cfg, nil
 }
 
 // Read reads a config from the given file.
@@ -537,7 +552,7 @@ func FromReader(
 	}
 
 	if cfgFromDisk.Cloud != nil {
-		cfg, _, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger)
+		cfg, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger)
 		return cfg, err
 	}
 
@@ -632,7 +647,7 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 	var errorShouldCheckCache bool
 	var err error
 	if cloudCfg.AppAddress == "" {
-		cfg, errorShouldCheckCache, err = getFromCloudHTTP(ctx, cloudCfg, logger)
+		cfg, errorShouldCheckCache, err = getFromCloudHTTP(ctx, cloudCfg)
 	} else {
 		cfg, errorShouldCheckCache, err = getFromCloudGRPC(ctx, cloudCfg, logger)
 	}
@@ -661,7 +676,7 @@ func getFromCloudOrCache(ctx context.Context, cloudCfg *Cloud, shouldReadFromCac
 }
 
 // getFromCloud actually does the fetching of the robot config and parses to an unprocessed Config struct.
-func getFromCloudHTTP(ctx context.Context, cloudCfg *Cloud, logger golog.Logger) (*Config, bool, error) {
+func getFromCloudHTTP(ctx context.Context, cloudCfg *Cloud) (*Config, bool, error) {
 	shouldCheckCacheOnFailure := false
 	cloudReq, err := CreateCloudRequest(ctx, cloudCfg)
 	if err != nil {
@@ -685,9 +700,11 @@ func getFromCloudHTTP(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 		return nil, shouldCheckCacheOnFailure, err
 	}
 
-	defer utils.UncheckedErrorFunc(resp.Body.Close)
+	defer func() {
+		utils.UncheckedError(resp.Body.Close())
+	}()
 
-	rd, err := ioutil.ReadAll(resp.Body)
+	rd, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, shouldCheckCacheOnFailure, err
 	}
@@ -715,8 +732,13 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 	}
 	defer utils.UncheckedErrorFunc(conn.Close)
 
+	agentInfo, err := getAgentInfo()
+	if err != nil {
+		return nil, shouldCheckCacheOnFailure, err
+	}
+
 	service := apppb.NewRobotServiceClient(conn)
-	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID})
+	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID, AgentInfo: agentInfo})
 	if err != nil {
 		// Check cache?
 		return nil, shouldCheckCacheOnFailure, err
@@ -773,7 +795,7 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 	return &cfg, false, nil
 }
 
-func toRDKSlice[PT any, RT any](protoList []*PT, toRDK func(*PT) (*RT, error)) ([]RT, error) {
+func toRDKSlice[PT, RT any](protoList []*PT, toRDK func(*PT) (*RT, error)) ([]RT, error) {
 	out := make([]RT, len(protoList))
 	for i, proto := range protoList {
 		rdk, err := toRDK(proto)

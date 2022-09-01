@@ -57,7 +57,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		imSucc := image.NewNRGBA(image.Rect(0, 0, 4, 4))
 
-		injectSvc.GetMapFunc = func(ctx context.Context, name string, mimeType string, cp *referenceframe.PoseInFrame,
+		injectSvc.GetMapFunc = func(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
 			include bool,
 		) (string, image.Image, *vision.Object, error) {
 			return mimeType, imSucc, pcSucc, nil
@@ -100,7 +100,7 @@ func TestServer(t *testing.T) {
 	t.Run("failing get map function", func(t *testing.T) {
 		pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 
-		injectSvc.GetMapFunc = func(ctx context.Context, name string, mimeType string, cp *referenceframe.PoseInFrame,
+		injectSvc.GetMapFunc = func(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
 			include bool,
 		) (string, image.Image, *vision.Object, error) {
 			return mimeType, nil, nil, errors.New("failure to get map")

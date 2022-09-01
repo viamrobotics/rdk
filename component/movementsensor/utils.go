@@ -10,7 +10,7 @@ import (
 
 // GetHeading calculates bearing and absolute heading angles given 2 MovementSensor coordinates
 // 0 degrees indicate North, 90 degrees indicate East and so on.
-func GetHeading(gps1 *geo.Point, gps2 *geo.Point, yawOffset float64) (float64, float64, float64) {
+func GetHeading(gps1, gps2 *geo.Point, yawOffset float64) (float64, float64, float64) {
 	// convert latitude and longitude readings from degrees to radians
 	gps1Lat := utils.DegToRad(gps1.Lat())
 	gps1Long := utils.DegToRad(gps1.Lng())

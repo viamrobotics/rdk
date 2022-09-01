@@ -461,6 +461,9 @@ func newWithResources(
 				r.manager.completeConfig(closeCtx, r)
 				r.updateDefaultServices(ctx)
 			}
+			if r.manager.updateRemotesResourceNames(ctx, r) {
+				r.updateDefaultServices(ctx)
+			}
 		}
 	}, r.activeBackgroundWorkers.Done)
 
@@ -558,7 +561,11 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	if c == nil || c.Reconfigurable == nil {
 		return newResource, nil
 	}
-	return c.Reconfigurable(newResource)
+	wrapped, err := c.Reconfigurable(newResource)
+	if err != nil {
+		return nil, multierr.Combine(err, goutils.TryClose(ctx, newResource))
+	}
+	return wrapped, nil
 }
 
 func (r *localRobot) updateDefaultServices(ctx context.Context) {
@@ -636,7 +643,7 @@ func (r *localRobot) TransformPose(
 func RobotFromConfigPath(ctx context.Context, cfgPath string, logger golog.Logger, opts ...Option) (robot.LocalRobot, error) {
 	cfg, err := config.Read(ctx, cfgPath, logger)
 	if err != nil {
-		logger.Fatal("cannot read config")
+		logger.Error("cannot read config")
 		return nil, err
 	}
 	return RobotFromConfig(ctx, cfg, logger, opts...)

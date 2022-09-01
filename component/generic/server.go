@@ -35,7 +35,7 @@ func (s *subtypeServer) getGeneric(name string) (Generic, error) {
 	return generic, nil
 }
 
-// Do returns an aribtrary command and returns arbitrary results
+// Do returns an arbitrary command and returns arbitrary results.
 func (s *subtypeServer) Do(ctx context.Context, req *pb.DoRequest) (*pb.DoResponse, error) {
 	genericDevice, err := s.getGeneric(req.Name)
 	if err != nil {

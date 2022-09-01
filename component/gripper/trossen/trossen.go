@@ -69,13 +69,18 @@ type Gripper struct {
 // newGripper TODO.
 func newGripper(attributes config.AttributeMap, logger golog.Logger) (gripper.LocalGripper, error) {
 	usbPort := attributes.String("usb_port")
-	jServo := findServo(usbPort, attributes.String("baud_rate"), logger)
-	err := jServo.SetTorqueEnable(true)
+	jServo, err := findServo(usbPort, attributes.String("baud_rate"), logger)
+	if err != nil {
+		return nil, err
+	}
+	if err := jServo.SetTorqueEnable(true); err != nil {
+		return nil, err
+	}
 	newGripper := Gripper{
 		jServo:   jServo,
 		moveLock: getPortMutex(usbPort),
 	}
-	return &newGripper, err
+	return &newGripper, nil
 }
 
 // GetMoveLock TODO.
@@ -164,11 +169,12 @@ func (g *Gripper) ModelFrame() referenceframe.Model {
 
 // findServo finds the gripper numbered Dynamixel servo on the specified USB port
 // we are going to hardcode some USB parameters that we will literally never want to change.
-func findServo(usbPort, baudRateStr string, logger golog.Logger) *servo.Servo {
+func findServo(usbPort, baudRateStr string, logger golog.Logger) (*servo.Servo, error) {
 	GripperServoNum := 9
 	baudRate, err := strconv.Atoi(baudRateStr)
 	if err != nil {
-		logger.Fatalf("Mangled baudrate: %v\n", err)
+		logger.Errorf("Mangled baudrate: %v\n", err)
+		return nil, err
 	}
 	options := serial.OpenOptions{
 		PortName:              usbPort,
@@ -181,7 +187,8 @@ func findServo(usbPort, baudRateStr string, logger golog.Logger) *servo.Servo {
 
 	serial, err := serial.Open(options)
 	if err != nil {
-		logger.Fatalf("error opening serial port: %v\n", err)
+		logger.Errorf("error opening serial port: %v\n", err)
+		return nil, err
 	}
 
 	network := network.New(serial)
@@ -190,8 +197,9 @@ func findServo(usbPort, baudRateStr string, logger golog.Logger) *servo.Servo {
 	// Get model ID of servo
 	newServo, err := s_model.New(network, GripperServoNum)
 	if err != nil {
-		logger.Fatalf("error initializing servo %d: %v\n", GripperServoNum, err)
+		logger.Errorf("error initializing servo %d: %v\n", GripperServoNum, err)
+		return nil, err
 	}
 
-	return newServo
+	return newServo, nil
 }

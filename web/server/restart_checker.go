@@ -49,7 +49,9 @@ func (c *needsRestartCheckerHTTP) needsRestart(ctx context.Context) (bool, time.
 		return false, c.restartInterval, errors.Wrapf(err, "error querying cloud request")
 	}
 
-	defer utils.UncheckedErrorFunc(resp.Body.Close)
+	defer func() {
+		utils.UncheckedError(resp.Body.Close())
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return false, c.restartInterval, errors.Wrapf(err, "bad status code")
