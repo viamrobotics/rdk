@@ -302,6 +302,13 @@ func TestRecoversAfterKilled(t *testing.T) {
 // Validates that if the datamanager/robot die unexpectedly, that queued
 // but not downloaded model files are still downloaded at start up.
 func TestModelsAfterKilled(t *testing.T) {
+	// Register mock sync service with a mock server.
+	syncServer, _ := buildAndStartLocalServer(t)
+	defer func() {
+		err := syncServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
 	// Register mock model service with a mock server.
 	modelServer, mockModelService := buildAndStartLocalModelServer(t)
 	defer func() {
@@ -330,6 +337,7 @@ func TestModelsAfterKilled(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	dmsvc.SetModelrConstructor(getTestModelrConstructor(t, modelServer))
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, syncServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	dmsvc.SetClientConn(modelConn)
 
@@ -338,14 +346,15 @@ func TestModelsAfterKilled(t *testing.T) {
 	// test.That(t, err, test.ShouldBeNil)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not downloaded.
-	// time.Sleep(time.Millisecond * 150)
+	time.Sleep(time.Millisecond * 250)
 
 	// Simulate turning off the service.
 	_ = dmsvc.Close(context.TODO())
 	// err = dmsvc.Close(context.TODO())
 	// test.That(t, err, test.ShouldBeNil)
 
-	// Validate nothing has been downloaded yet.
+	// Validate nothing has been deployed yet.
+	fmt.Println("TEST1")
 	test.That(t, mockModelService.getDeployedModels(), test.ShouldEqual, 0)
 
 	// Turn the service back on.
@@ -353,6 +362,7 @@ func TestModelsAfterKilled(t *testing.T) {
 	dmsvc.SetClientConn(modelConn)
 
 	dmsvc.SetModelrConstructor(getTestModelrConstructor(t, modelServer))
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, syncServer))
 	dmsvc.SetWaitAfterLastModifiedSecs(0)
 	err = dmsvc.Update(context.TODO(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
@@ -743,7 +753,6 @@ func TestGetDurationFromHz(t *testing.T) {
 }
 
 func getDataManagerConfig(config *config.Config) (*datamanager.Config, error) {
-	// fmt.Println("data_manager_test.go/getDataManagerConfig()")
 	svcConfig, ok, err := datamanager.GetServiceConfig(config)
 	if err != nil {
 		return nil, err
@@ -774,7 +783,6 @@ func (m mockDataSyncServiceServer) getUploadedFiles() []string {
 
 func (m mockModelServiceServer) getDeployedModels() int {
 	fmt.Println("getDeployedModels()")
-	fmt.Println(datamanager.Config{})
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
 	// all we do is check if $Home/models exists and how many subdirs it has as each model has its own subdir
@@ -788,10 +796,6 @@ func (m mockModelServiceServer) getDeployedModels() int {
 		if err != nil {
 			log.Fatalf(err.Error())
 		}
-		// fmt.Println("UMMMMMMMMM")
-		// for _, file := range files {
-		// 	fmt.Println(file.Name())
-		// }
 		return len(files) - 1 // do -1 bc files contains .DS_Store
 	}
 	// return *m.deployedModels
@@ -802,8 +806,6 @@ func (m mockModelServiceServer) Deploy(ctx context.Context, req *m1.DeployReques
 	defer (*m.lock).Unlock()
 	datamanager.Client = &MockClient{}
 	depResp := &m1.DeployResponse{Message: "abc"}
-	// model := &datamanager.Model{Name: "fileName", Destination: ""}
-	// *m.deployedModels = append(*m.deployedModels, *model)
 	return depResp, nil
 }
 
@@ -814,14 +816,15 @@ type MockClient struct {
 
 // Do is the mock client's `Do` func
 func (m *MockClient) Do(req *http.Request) (*http.Response, error) {
-	fmt.Println("creating zip archive...")
-	r := ioutil.NopCloser(bytes.NewReader([]byte("mocked response")))
-	archive, err := os.Create("archive.zip")
-	if err != nil {
-		panic(err)
-	}
-	zipWriter := zip.NewWriter(archive)
-	w1, err := zipWriter.Create("smth.txt")
+	// why we are still using ioutil.NopCloser
+	// https://stackoverflow.com/questions/28158990/golang-io-ioutil-nopcloser
+	fmt.Println("creating zip response")
+
+	r := bytes.NewReader([]byte("mocked response readme"))
+
+	buf := new(bytes.Buffer)
+	zipWriter := zip.NewWriter(buf)
+	w1, err := zipWriter.Create("README.md")
 	if err != nil {
 		panic(err)
 	}
@@ -829,11 +832,10 @@ func (m *MockClient) Do(req *http.Request) (*http.Response, error) {
 		panic(err)
 	}
 	zipWriter.Close()
-	// fmt.Println("archive: ", archive)
+
 	response := &http.Response{
-		Status:     "archive.zip",
 		StatusCode: 200,
-		Body:       archive,
+		Body:       ioutil.NopCloser(buf),
 	}
 	return response, nil
 }
@@ -859,31 +861,6 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 	}
 	(*m.lock).Lock()
 	*m.uploadedFiles = append(*m.uploadedFiles, fileName)
-	(*m.lock).Unlock()
-	return nil
-}
-
-// is it correct to have this function??
-func (m mockModelServiceServer) Upload(stream m1.ModelService_UploadServer) error {
-
-	var fileName string
-	for {
-		ur, err := stream.Recv()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		if ur.GetMetadata() != nil {
-			fileName = ur.GetMetadata().ModelName
-		}
-	}
-	// make sure that dest is what we want to be doing.
-	// dest := filepath.Join(filepath.Join(os.Getenv("HOME"), "models", ".viam"), fileName)
-	model := &datamanager.Model{Name: fileName, Destination: ""}
-	(*m.lock).Lock()
-	*m.deployedModels = append(*m.deployedModels, *model)
 	(*m.lock).Unlock()
 	return nil
 }
