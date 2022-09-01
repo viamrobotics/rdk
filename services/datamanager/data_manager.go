@@ -493,7 +493,6 @@ func (svc *dataManagerService) syncAdditionalSyncPaths() {
 
 // Update updates the data manager service when the config has changed.
 func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) error {
-	// fmt.Println("data_manager.go/Update()")
 	svcConfig, ok, err := getServiceConfig(cfg)
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
 	// Close any collectors.
@@ -502,13 +501,11 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		return err
 	}
 
-	// modelsToDeploy := svcConfig.ModelsToDeploy
 	if cfg.Cloud != nil {
 		svc.partID = cfg.Cloud.ID
 
 		// Download models from models_on_robot.
 		modelsToDeploy := svcConfig.ModelsToDeploy
-		fmt.Println("modelsToDeploy: ", modelsToDeploy)
 		err := svc.downloadModels(cfg, modelsToDeploy)
 		if err != nil {
 			svc.logger.Errorf("can't download models_on_robot in config", "error", err)
@@ -585,7 +582,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 }
 
 func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy []*Model) error {
-	fmt.Println("data_manager.go/downloadModels()")
 	modelsToDownload, err := getModelsToDownload(modelsToDeploy)
 	if err != nil {
 		return err
@@ -640,7 +636,6 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 				svc.logger.Error(err)
 			} else {
 				url := deployResp.Message
-				fmt.Println("model.Destination: ", model.Destination)
 				err := downloadFile(cancelCtx, model.Destination+"/"+model.Name, url, svc.logger)
 				if err != nil {
 					svc.logger.Error(err)
@@ -651,7 +646,7 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 				if err = unzipSource(cancelCtx, model.Destination, modelFileToUnzip, svc.logger); err != nil {
 					svc.logger.Error(err)
 				}
-				fmt.Println("done")
+				fmt.Println("done with all helper functions for modelDeploy")
 			}
 		}(model)
 	}
@@ -661,13 +656,10 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 // unzipSource unzips all files inside a zip file.
 func unzipSource(cancelCtx context.Context, destination, fileName string, logger golog.Logger) error {
 	fmt.Println("data_manager.go/unzipSource()")
-	fmt.Println("filepath.Join(destination, fileName): ", filepath.Join(destination, fileName))
 	zipReader, err := zip.OpenReader(filepath.Join(destination, fileName))
 	if err != nil {
-		fmt.Println("err here")
 		return err
 	}
-	fmt.Println("past")
 	for _, f := range zipReader.File {
 		if err := unzipFile(cancelCtx, f, destination, logger); err != nil {
 			return err
@@ -762,7 +754,6 @@ var (
 // downloads and doesn't load the whole file into memory.
 func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.Logger) error {
 	fmt.Println("data_manager.go/downloadFile()")
-	fmt.Println("filepath: ", filepath)
 	getReq, err := http.NewRequestWithContext(cancelCtx, "GET", url, nil)
 	if err != nil {
 		return err
@@ -779,11 +770,9 @@ func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.
 	}()
 
 	var s = filepath + ".zip"
-	fmt.Println("s: ", s)
 	//nolint:gosec
 	out, err := os.Create(s)
 	if err != nil {
-		fmt.Println("err: ", err)
 		return err
 	}
 	//nolint:gosec,errcheck
@@ -793,14 +782,9 @@ func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.
 	if err != nil {
 		return err
 	}
-	// fmt.Println("regular resp.Body: ", resp.Body)
-	// fmt.Println("&resp.Body: ", &resp.Body)
-	// fmt.Println("resp.Body as string: ", string(bodyBytes))
-	// fmt.Println("bodyBytes: ", bodyBytes)
 
 	err = ioutil.WriteFile(out.Name(), bodyBytes, os.ModePerm)
 	if err != nil {
-		fmt.Println("err: ", err)
 		return err
 	}
 
@@ -828,27 +812,16 @@ func getModelsToDownload(models []*Model) ([]*Model, error) {
 		// If the path to the specified destination does not exist,
 		// add the model to the names of models we need to download.
 		if errors.Is(err, os.ErrNotExist) {
-			// fmt.Println("model: ", *model)
-
 			modelsToDownload = append(modelsToDownload, model)
-
 			// create model.Destination directory
 			err := os.MkdirAll(model.Destination, os.ModePerm)
 			if err != nil {
 				return nil, err
 			}
-
-			// Config
-
-			// Conf.ModelsToDeploy = append(Conf.ModelsToDeploy, model)
-			// fmt.Println("conf now: ", Conf)
 		} else if err != nil {
 			panic("can't access files: " + err.Error()) // better thing to do?
 		} else { // this conditional is a hack for testing
 			modelsToDownload = append(modelsToDownload, model)
-			// Conf := &Config{}
-			// Conf.ModelsToDeploy = append(Conf.ModelsToDeploy, model)
-			// fmt.Println("conf now: ", Conf)
 		}
 	}
 	return modelsToDownload, nil

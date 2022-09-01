@@ -338,20 +338,20 @@ func TestModelsAfterKilled(t *testing.T) {
 
 	dmsvc.SetModelrConstructor(getTestModelrConstructor(t, modelServer))
 	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, syncServer))
-	dmsvc.SetWaitAfterLastModifiedSecs(0)
+	dmsvc.SetWaitAfterLastModifiedSecs(50)
 	dmsvc.SetClientConn(modelConn)
 
-	_ = dmsvc.Update(context.TODO(), testCfg)
-	// err = dmsvc.Update(context.TODO(), testCfg)
-	// test.That(t, err, test.ShouldBeNil)
+	// _ = dmsvc.Update(context.TODO(), testCfg)
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not downloaded.
 	time.Sleep(time.Millisecond * 250)
 
 	// Simulate turning off the service.
-	_ = dmsvc.Close(context.TODO())
-	// err = dmsvc.Close(context.TODO())
-	// test.That(t, err, test.ShouldBeNil)
+	// _ = dmsvc.Close(context.TODO())
+	err = dmsvc.Close(context.TODO())
+	test.That(t, err, test.ShouldBeNil)
 
 	// Validate nothing has been deployed yet.
 	fmt.Println("TEST1")
@@ -796,9 +796,10 @@ func (m mockModelServiceServer) getDeployedModels() int {
 		if err != nil {
 			log.Fatalf(err.Error())
 		}
+		fmt.Println(files[0].Name())
+		fmt.Println(files[1].Name())
 		return len(files) - 1 // do -1 bc files contains .DS_Store
 	}
-	// return *m.deployedModels
 }
 
 func (m mockModelServiceServer) Deploy(ctx context.Context, req *m1.DeployRequest) (*m1.DeployResponse, error) {
@@ -818,7 +819,6 @@ type MockClient struct {
 func (m *MockClient) Do(req *http.Request) (*http.Response, error) {
 	// why we are still using ioutil.NopCloser
 	// https://stackoverflow.com/questions/28158990/golang-io-ioutil-nopcloser
-	fmt.Println("creating zip response")
 
 	r := bytes.NewReader([]byte("mocked response readme"))
 
