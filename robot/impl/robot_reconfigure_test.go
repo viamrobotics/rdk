@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"testing"
@@ -20,6 +19,7 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/audioinput"
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
@@ -2060,12 +2060,12 @@ func TestRobotReconfigure(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 		// create a unexecutable file
-		noExecF, err := ioutil.TempFile(tempDir, "noexec*.sh")
+		noExecF, err := os.CreateTemp(tempDir, "noexec*.sh")
 		test.That(t, err, test.ShouldBeNil)
 		err = noExecF.Close()
 		test.That(t, err, test.ShouldBeNil)
 		// create a origin file
-		originF, err := ioutil.TempFile(tempDir, "origin*")
+		originF, err := os.CreateTemp(tempDir, "origin*")
 		test.That(t, err, test.ShouldBeNil)
 		token := make([]byte, 128)
 		_, err = rand.Read(token)
@@ -2075,11 +2075,11 @@ func TestRobotReconfigure(t *testing.T) {
 		err = originF.Sync()
 		test.That(t, err, test.ShouldBeNil)
 		// create a target file
-		targetF, err := ioutil.TempFile(tempDir, "target*")
+		targetF, err := os.CreateTemp(tempDir, "target*")
 		test.That(t, err, test.ShouldBeNil)
 
 		// create a second target file
-		target2F, err := ioutil.TempFile(tempDir, "target*")
+		target2F, err := os.CreateTemp(tempDir, "target*")
 		test.That(t, err, test.ShouldBeNil)
 
 		// config1
@@ -2239,7 +2239,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		svc, err := sensors.FromRobot(robot)
+		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		foundSensors, err := svc.GetSensors(context.Background())
@@ -2260,7 +2260,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		svc, err := sensors.FromRobot(robot)
+		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		foundSensors, err := svc.GetSensors(context.Background())
@@ -2281,7 +2281,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		svc, err := sensors.FromRobot(robot)
+		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
 		foundSensors, err := svc.GetSensors(context.Background())
@@ -2441,16 +2441,17 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Name, sensors.Name, datamanager.Name,
+			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
+			audioinput.Named("foo:mic1"),
 			camera.Named("foo:cameraOver"),
 			movementsensor.Named("foo:movement_sensor1"),
 			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
-			vision.Named("foo:"),
-			sensors.Named("foo:"),
-			datamanager.Named("foo:"),
+			vision.Named("foo:builtin"),
+			sensors.Named("foo:builtin"),
+			datamanager.Named("foo:builtin"),
 		),
 	)
 	err = remote2.StartWeb(ctx, options)
@@ -2468,24 +2469,26 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Name, sensors.Name, datamanager.Name,
+			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"), arm.Named("arm2"),
 			arm.Named("foo:pieceArm"),
+			audioinput.Named("foo:mic1"),
 			camera.Named("foo:cameraOver"),
 			movementsensor.Named("foo:movement_sensor1"),
 			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
-			vision.Named("foo:"),
-			sensors.Named("foo:"),
-			datamanager.Named("foo:"),
+			vision.Named("foo:builtin"),
+			sensors.Named("foo:builtin"),
+			datamanager.Named("foo:builtin"),
 			arm.Named("bar:pieceArm"),
+			audioinput.Named("bar:mic1"),
 			camera.Named("bar:cameraOver"),
 			movementsensor.Named("bar:movement_sensor1"),
 			movementsensor.Named("bar:movement_sensor2"),
 			gripper.Named("bar:pieceGripper"),
-			vision.Named("bar:"),
-			sensors.Named("bar:"),
-			datamanager.Named("bar:"),
+			vision.Named("bar:builtin"),
+			sensors.Named("bar:builtin"),
+			datamanager.Named("bar:builtin"),
 		),
 	)
 
@@ -2499,16 +2502,17 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Name, sensors.Name, datamanager.Name,
+			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
+			audioinput.Named("foo:mic1"),
 			camera.Named("foo:cameraOver"),
 			movementsensor.Named("foo:movement_sensor1"),
 			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
-			vision.Named("foo:"),
-			sensors.Named("foo:"),
-			datamanager.Named("foo:"),
+			vision.Named("foo:builtin"),
+			sensors.Named("foo:builtin"),
+			datamanager.Named("foo:builtin"),
 		),
 	)
 
@@ -2541,24 +2545,26 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Name, sensors.Name, datamanager.Name,
+			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"), arm.Named("arm2"),
 			arm.Named("foo:pieceArm"),
+			audioinput.Named("foo:mic1"),
 			camera.Named("foo:cameraOver"),
 			movementsensor.Named("foo:movement_sensor1"),
 			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
-			vision.Named("foo:"),
-			sensors.Named("foo:"),
-			datamanager.Named("foo:"),
+			vision.Named("foo:builtin"),
+			sensors.Named("foo:builtin"),
+			datamanager.Named("foo:builtin"),
 			arm.Named("bar:pieceArm"),
+			audioinput.Named("bar:mic1"),
 			camera.Named("bar:cameraOver"),
 			movementsensor.Named("bar:movement_sensor1"),
 			movementsensor.Named("bar:movement_sensor2"),
 			gripper.Named("bar:pieceGripper"),
-			vision.Named("bar:"),
-			sensors.Named("bar:"),
-			datamanager.Named("bar:"),
+			vision.Named("bar:builtin"),
+			sensors.Named("bar:builtin"),
+			datamanager.Named("bar:builtin"),
 		),
 	)
 }

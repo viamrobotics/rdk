@@ -1,3 +1,4 @@
+// Package main tests out a MyComponent client.
 package main
 
 import (

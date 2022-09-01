@@ -16,11 +16,11 @@ import (
 func TestDerivativeConfig(t *testing.T) {
 	logger := golog.NewDevelopmentLogger("derivative")
 	for _, c := range []struct {
-		conf ControlBlockConfig
+		conf BlockConfig
 		err  string
 	}{
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name: "Derive1",
 				Type: "derivative",
 				Attribute: config.AttributeMap{
@@ -31,7 +31,7 @@ func TestDerivativeConfig(t *testing.T) {
 			"",
 		},
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name: "Derive1",
 				Type: "derivative",
 				Attribute: config.AttributeMap{
@@ -42,7 +42,7 @@ func TestDerivativeConfig(t *testing.T) {
 			"unsupported derive_type backward5st1 for block Derive1",
 		},
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name: "Derive1",
 				Type: "derivative",
 				Attribute: config.AttributeMap{
@@ -53,7 +53,7 @@ func TestDerivativeConfig(t *testing.T) {
 			"derive block Derive1 only supports one input got 2",
 		},
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name: "Derive1",
 				Type: "derivative",
 				Attribute: config.AttributeMap{
@@ -81,7 +81,7 @@ func TestDerivativeNext(t *testing.T) {
 	const iter int = 3000
 	logger := golog.NewDevelopmentLogger("derivative")
 	ctx := context.Background()
-	cfg := ControlBlockConfig{
+	cfg := BlockConfig{
 		Name: "Derive1",
 		Type: "derivative",
 		Attribute: config.AttributeMap{
@@ -112,7 +112,7 @@ func TestDerivativeNext(t *testing.T) {
 				-math.Sin((time.Duration(10 * i * int(time.Millisecond)).Seconds())), 0.01)
 		}
 	}
-	cfg = ControlBlockConfig{
+	cfg = BlockConfig{
 		Name: "Derive1",
 		Type: "derivative",
 		Attribute: config.AttributeMap{
@@ -131,7 +131,7 @@ func TestDerivativeNext(t *testing.T) {
 				math.Cos((time.Duration(10 * i * int(time.Millisecond)).Seconds())), 0.01)
 		}
 	}
-	cfg = ControlBlockConfig{
+	cfg = BlockConfig{
 		Name: "Derive1",
 		Type: "derivative",
 		Attribute: config.AttributeMap{

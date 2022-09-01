@@ -4,13 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"image"
-	"io/ioutil"
 	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
@@ -30,7 +29,7 @@ func createService(t *testing.T, filePath string) (vision.Service, robot.Robot) 
 	logger := golog.NewTestLogger(t)
 	r, err := robotimpl.RobotFromConfigPath(context.Background(), filePath, logger)
 	test.That(t, err, test.ShouldBeNil)
-	srv, err := vision.FromRobot(r)
+	srv, err := vision.FirstFromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 	return srv, r
 }
@@ -40,7 +39,7 @@ func writeTempConfig(t *testing.T, cfg *config.Config) string {
 	newConf, err := json.MarshalIndent(cfg, "", " ")
 	t.Logf("%v", string(newConf))
 	test.That(t, err, test.ShouldBeNil)
-	tmpFile, err := ioutil.TempFile(os.TempDir(), "objdet_config-")
+	tmpFile, err := os.CreateTemp(os.TempDir(), "objdet_config-")
 	test.That(t, err, test.ShouldBeNil)
 	_, err = tmpFile.Write(newConf)
 	test.That(t, err, test.ShouldBeNil)
@@ -65,19 +64,31 @@ func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
 			"aligned": false,
 		},
 	}
+	cameraComp2 := config.Component{
+		Name:  "fake_cam2",
+		Type:  camera.SubtypeName,
+		Model: "file",
+		Attributes: config.AttributeMap{
+			"color":   artifact.MustPath("vision/tflite/lion.jpeg"),
+			"depth":   "",
+			"aligned": false,
+		},
+	}
+
 	test.That(t, err, test.ShouldBeNil)
 	cfg.Components = append(cfg.Components, cameraComp)
+	cfg.Components = append(cfg.Components, cameraComp2)
 	newConfFile := writeTempConfig(t, cfg)
 	defer os.Remove(newConfFile)
 	// make the robot from new config and get the service
 	r, err := robotimpl.RobotFromConfigPath(context.Background(), newConfFile, logger)
 	test.That(t, err, test.ShouldBeNil)
-	srv, err := vision.FromRobot(r)
+	srv, err := vision.FirstFromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 	// add the detector
-	detConf := vision.DetectorConfig{
+	detConf := vision.VisModelConfig{
 		Name: "detect_red",
-		Type: "color",
+		Type: "color_detector",
 		Parameters: config.AttributeMap{
 			"detect_color": "#C9131F", // look for red
 			"tolerance":    0.05,
@@ -109,7 +120,7 @@ func makeExpectedBoxes(t *testing.T) []spatialmath.Geometry {
 
 type simpleSource struct{}
 
-func (s *simpleSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (s *simpleSource) Read(ctx context.Context) (image.Image, func(), error) {
 	img := rimage.NewImage(100, 200)
 	img.SetXY(20, 10, rimage.Red)
 	return img, nil, nil
@@ -121,7 +132,7 @@ func (s *simpleSource) Do(ctx context.Context, cmd map[string]interface{}) (map[
 
 type cloudSource struct{}
 
-func (c *cloudSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (c *cloudSource) Read(ctx context.Context) (image.Image, func(), error) {
 	img := rimage.NewImage(100, 200)
 	img.SetXY(20, 10, rimage.Red)
 	return img, nil, nil
@@ -138,7 +149,14 @@ func (c *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud
 	return pcA, nil
 }
 
-func (c *cloudSource) GetProperties(ctx context.Context) (rimage.Projector, error) {
+func (c *cloudSource) Stream(
+	ctx context.Context,
+	errHandlers ...gostream.ErrorHandler,
+) (gostream.VideoStream, error) {
+	panic("unimplemented")
+}
+
+func (c *cloudSource) Projector(ctx context.Context) (rimage.Projector, error) {
 	var proj rimage.Projector
 	intrinsics := &transform.PinholeCameraIntrinsics{
 		Width:      1280,
@@ -154,10 +172,10 @@ func (c *cloudSource) GetProperties(ctx context.Context) (rimage.Projector, erro
 	return proj, nil
 }
 
-func (c *cloudSource) GetFrame(ctx context.Context, mimeType string) ([]byte, string, int64, int64, error) {
-	return nil, "", 0, 0, errors.New("not implemented")
-}
-
 func (c *cloudSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
+}
+
+func (c *cloudSource) Close(ctx context.Context) error {
+	return nil
 }

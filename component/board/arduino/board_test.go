@@ -264,6 +264,7 @@ func TestArduinoMotorABPWM(t *testing.T) {
 }
 
 // Test the DIR/PWM style IO.
+//
 //nolint:dupl
 func TestArduinoMotorDirPWM(t *testing.T) {
 	ctx := context.Background()
@@ -322,6 +323,7 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 }
 
 // Test the A/B only style IO.
+//
 //nolint:dupl
 func TestArduinoMotorAB(t *testing.T) {
 	ctx := context.Background()
@@ -383,7 +385,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 	t.Helper()
 
 	t.Run("arduino motor features include position support", func(t *testing.T) {
-		features, err := m.GetFeatures(ctx, nil)
+		features, err := m.GetProperties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
 	})

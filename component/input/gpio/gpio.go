@@ -346,6 +346,6 @@ func abs(x int) int {
 	return x
 }
 
-func scaleAxis(x int, inMin int, inMax int, outMin float64, outMax float64) float64 {
+func scaleAxis(x, inMin, inMax int, outMin, outMax float64) float64 {
 	return float64(x-inMin)*(outMax-outMin)/float64(inMax-inMin) + outMin
 }

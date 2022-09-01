@@ -134,3 +134,34 @@ jobs:
           echo Main Tests: ${{ needs.build_and_test.result }}
           [ "${{ needs.test_pi.result }}" == "success" ] && \
           [ "${{ needs.build_and_test.result }}" == "success" ]
+
+  test_e2e:
+    name: End-to-End Tests Passing
+    runs-on: [x64, qemu-host]
+    container:
+      image: ghcr.io/viamrobotics/canon:amd64-cache
+      options: --platform linux/amd64
+    steps:
+      - name: Check out code in rdk directory
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+
+      - name: Create GCP Credential File from secret
+        run: |
+          GOOGLE_APPLICATION_CREDENTIALS=`pwd`/${GOOGLE_APPLICATION_CREDENTIALS_FILENAME}
+          echo "${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}" >> ${GOOGLE_APPLICATION_CREDENTIALS}
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
+
+      - name: Configure git for private repos
+        run: |
+          sudo -u testbot bash -lc 'echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get -y install libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb netcat lsof
+
+      - name: Run e2e Tests
+        run: |
+          chown -R testbot .
+          sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS -u testbot bash -lc 'make build-web test-e2e'

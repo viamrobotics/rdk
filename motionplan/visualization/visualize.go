@@ -6,7 +6,6 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strconv"
@@ -57,7 +56,7 @@ func getStepData(model referenceframe.Frame, worldState *pb.WorldState, inputs [
 
 func visualize(plan []stepData) error {
 	// write entities to temporary file
-	dataFile, err := ioutil.TempFile("", "vvizdata*.json")
+	dataFile, err := os.CreateTemp("", "vvizdata*.json")
 	if err != nil {
 		return err
 	}
@@ -72,7 +71,7 @@ func visualize(plan []stepData) error {
 	}
 
 	// write script bytes to temporary file
-	scriptFile, err := ioutil.TempFile("", "vviz*.py")
+	scriptFile, err := os.CreateTemp("", "vviz*.py")
 	if err != nil {
 		return err
 	}

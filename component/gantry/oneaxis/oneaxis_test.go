@@ -26,7 +26,7 @@ const motorName = "x"
 func createFakeMotor() *inject.Motor {
 	fakeMotor := &inject.Motor{}
 
-	fakeMotor.GetFeaturesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+	fakeMotor.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 		return map[motor.Feature]bool{
 			motor.PositionReporting: true,
 		}, nil
@@ -36,10 +36,10 @@ func createFakeMotor() *inject.Motor {
 
 	fakeMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]interface{}) error { return nil }
 
-	fakeMotor.GoToFunc = func(ctx context.Context, rpm float64, position float64, extra map[string]interface{}) error {
+	fakeMotor.GoToFunc = func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error {
 		return nil
 	}
-	fakeMotor.GoForFunc = func(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
+	fakeMotor.GoForFunc = func(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 		return nil
 	}
 
@@ -243,7 +243,7 @@ func TestNewOneAxis(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "missing from dependencies")
 
 	injectMotor := &inject.Motor{
-		GetFeaturesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+		GetPropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 			return map[motor.Feature]bool{
 				motor.PositionReporting: true,
 			}, nil
@@ -256,7 +256,7 @@ func TestNewOneAxis(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid gantry type")
 
 	injectMotor = &inject.Motor{
-		GetFeaturesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+		GetPropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 			return map[motor.Feature]bool{
 				motor.PositionReporting: false,
 			}, nil
@@ -287,7 +287,7 @@ func TestHome(t *testing.T) {
 
 	fakeMotor := &inject.Motor{}
 	goForErr := errors.New("GoFor failed")
-	fakeMotor.GetFeaturesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+	fakeMotor.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 		return map[motor.Feature]bool{
 			motor.PositionReporting: false,
 		}, nil
@@ -370,12 +370,12 @@ func TestHomeTwoLimitSwitch(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, getPosErr)
 
 	fakegantry.motor = &inject.Motor{
-		GetFeaturesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+		GetPropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 			return map[motor.Feature]bool{
 				motor.PositionReporting: true,
 			}, nil
 		},
-		GoForFunc: func(ctx context.Context, rpm float64, rotations float64, extra map[string]interface{}) error {
+		GoForFunc: func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
 			return errors.New("err")
 		},
 		StopFunc: func(ctx context.Context, extra map[string]interface{}) error { return nil },
@@ -384,12 +384,12 @@ func TestHomeTwoLimitSwitch(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakegantry.motor = &inject.Motor{
-		GetFeaturesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+		GetPropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 			return map[motor.Feature]bool{
 				motor.PositionReporting: true,
 			}, nil
 		},
-		GoForFunc: func(ctx context.Context, rpm float64, rotations float64, extra map[string]interface{}) error {
+		GoForFunc: func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
 			return nil
 		},
 		StopFunc: func(ctx context.Context, extra map[string]interface{}) error { return errors.New("err") },
@@ -398,12 +398,12 @@ func TestHomeTwoLimitSwitch(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakegantry.motor = &inject.Motor{
-		GetFeaturesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+		GetPropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 			return map[motor.Feature]bool{
 				motor.PositionReporting: true,
 			}, nil
 		},
-		GoForFunc: func(ctx context.Context, rpm float64, rotations float64, extra map[string]interface{}) error {
+		GoForFunc: func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
 			return errors.New("err")
 		},
 		StopFunc: func(ctx context.Context, extra map[string]interface{}) error { return nil },
@@ -474,12 +474,12 @@ func TestHomeOneLimitSwitch(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, getPosErr)
 
 	fakegantry.motor = &inject.Motor{
-		GetFeaturesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+		GetPropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 			return map[motor.Feature]bool{
 				motor.PositionReporting: true,
 			}, nil
 		},
-		GoForFunc: func(ctx context.Context, rpm float64, rotations float64, extra map[string]interface{}) error {
+		GoForFunc: func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
 			return errors.New("not supported")
 		},
 		StopFunc: func(ctx context.Context, extra map[string]interface{}) error { return nil },
@@ -558,7 +558,7 @@ func TestGetPosition(t *testing.T) {
 	ctx := context.Background()
 	fakegantry := &oneAxis{
 		motor: &inject.Motor{
-			GetFeaturesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+			GetPropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 				return map[motor.Feature]bool{
 					motor.PositionReporting: false,
 				}, nil
@@ -578,7 +578,7 @@ func TestGetPosition(t *testing.T) {
 
 	fakegantry = &oneAxis{
 		motor: &inject.Motor{
-			GetFeaturesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+			GetPropertiesFunc: func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 				return nil, errors.New("not supported")
 			},
 			GetPositionFunc: func(ctx context.Context, extra map[string]interface{}) (float64, error) {
@@ -668,14 +668,14 @@ func TestMoveToPosition(t *testing.T) {
 	fakegantry.board = &inject.Board{GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) { return injectGPIOPinGood, nil }}
 	fakegantry.motor = &inject.Motor{
 		StopFunc: func(ctx context.Context, extra map[string]interface{}) error { return nil },
-		GoToFunc: func(ctx context.Context, rpm float64, rotations float64, extra map[string]interface{}) error {
+		GoToFunc: func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
 			return errors.New("err")
 		},
 	}
 	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{}, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	fakegantry.motor = &inject.Motor{GoToFunc: func(ctx context.Context, rpm float64, rotations float64, extra map[string]interface{}) error {
+	fakegantry.motor = &inject.Motor{GoToFunc: func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
 		return nil
 	}}
 	err = fakegantry.MoveToPosition(ctx, pos, &commonpb.WorldState{}, nil)

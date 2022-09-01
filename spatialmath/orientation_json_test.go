@@ -2,7 +2,7 @@ package spatialmath
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"os"
 	"testing"
 
@@ -119,7 +119,7 @@ func loadOrientationTests(t *testing.T) map[string]json.RawMessage {
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.UncheckedErrorFunc(file.Close)
 
-	data, err := ioutil.ReadAll(file)
+	data, err := io.ReadAll(file)
 	test.That(t, err, test.ShouldBeNil)
 	// Parse into map of tests
 	var testMap map[string]json.RawMessage

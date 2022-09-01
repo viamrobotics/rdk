@@ -31,7 +31,7 @@ func TestClient(t *testing.T) {
 
 	injectMS := &inject.DataManagerService{}
 	resourceMap := map[resource.Name]interface{}{
-		datamanager.Name: injectMS,
+		datamanager.Named(testDataManagerServiceName): injectMS,
 	}
 	svc, err := subtype.New(resourceMap)
 	test.That(t, err, test.ShouldBeNil)
@@ -55,7 +55,7 @@ func TestClient(t *testing.T) {
 	t.Run("datamanager client 1", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := datamanager.NewClientFromConn(context.Background(), conn, "", logger)
+		client := datamanager.NewClientFromConn(context.Background(), conn, testDataManagerServiceName, logger)
 
 		injectMS.SyncFunc = func(
 			ctx context.Context,
@@ -72,7 +72,7 @@ func TestClient(t *testing.T) {
 	t.Run("datamanager client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		client := resourceSubtype.RPCClient(context.Background(), conn, "", logger)
+		client := resourceSubtype.RPCClient(context.Background(), conn, testDataManagerServiceName, logger)
 		client2, ok := client.(datamanager.Service)
 		test.That(t, ok, test.ShouldBeTrue)
 
@@ -98,7 +98,7 @@ func TestClientDialerOption(t *testing.T) {
 
 	injectMS := &inject.DataManagerService{}
 	resourceMap := map[resource.Name]interface{}{
-		datamanager.Name: injectMS,
+		datamanager.Named(testDataManagerServiceName): injectMS,
 	}
 	server, err := newServer(resourceMap)
 	test.That(t, err, test.ShouldBeNil)
