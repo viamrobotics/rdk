@@ -2,9 +2,10 @@
 package datamanager
 
 import (
+	"go.viam.com/utils/rpc"
+
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/datamanager/model"
-	"go.viam.com/utils/rpc"
 )
 
 // SetSyncerConstructor sets the syncer constructor for the data manager to use when creating its syncer.

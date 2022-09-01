@@ -33,7 +33,6 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/datamanager/model"
-
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -650,6 +649,7 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 			}
 		}(model)
 	}
+	svc.modelr.Close()
 	return nil
 }
 
@@ -744,9 +744,7 @@ type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-var (
-	Client HTTPClient
-)
+var Client HTTPClient
 
 // downloadFile will download a url to a local file. It writes as it
 // downloads and doesn't load the whole file into memory.
@@ -766,7 +764,7 @@ func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.
 		}
 	}()
 
-	var s = filepath + ".zip"
+	s := filepath + ".zip"
 	//nolint:gosec
 	out, err := os.Create(s)
 	if err != nil {

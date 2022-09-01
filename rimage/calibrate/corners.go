@@ -324,7 +324,7 @@ func GetAndShowCorners(inloc, outloc string, n int) ([]Corner, error) {
 		return nil, err
 	}
 
-	f, err := os.Open(outloc) // nolint:gosec
+	f, err := os.Open(outloc) //nolint:gosec
 	if err != nil {
 		return nil, err
 	}

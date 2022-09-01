@@ -61,7 +61,7 @@ func visualize(plan []stepData) error {
 	if err != nil {
 		return err
 	}
-	// nolint:errcheck
+	//nolint:errcheck
 	defer os.Remove(dataFile.Name())
 	bytes, err := json.MarshalIndent(plan, "", " ")
 	if err != nil {
@@ -76,16 +76,16 @@ func visualize(plan []stepData) error {
 	if err != nil {
 		return err
 	}
-	// nolint:errcheck
+	//nolint:errcheck
 	defer os.Remove(scriptFile.Name())
 	if _, err := scriptFile.Write(vviz); err != nil {
 		return err
 	}
 
 	// call python visualizer
-	// nolint:gosec
+	//nolint:gosec
 	_, err = exec.Command("python3", scriptFile.Name(), dataFile.Name()).Output()
-	// nolint:errorlint
+	//nolint:errorlint
 	if exitErr, ok := err.(*exec.ExitError); ok {
 		return errors.New(string(exitErr.Stderr))
 	}

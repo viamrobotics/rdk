@@ -10,10 +10,8 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"path/filepath"
-
-	// "net/http"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -305,6 +303,7 @@ func TestModelsAfterKilled(t *testing.T) {
 	// Register mock sync service with a mock server.
 	syncServer, _ := buildAndStartLocalServer(t)
 	defer func() {
+		fmt.Println("stopping syncServer")
 		err := syncServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
 	}()
@@ -312,6 +311,7 @@ func TestModelsAfterKilled(t *testing.T) {
 	// Register mock model service with a mock server.
 	modelServer, mockModelService := buildAndStartLocalModelServer(t)
 	defer func() {
+		fmt.Println("stopping modelServer")
 		err := modelServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
 	}()
@@ -338,7 +338,6 @@ func TestModelsAfterKilled(t *testing.T) {
 
 	dmsvc.SetModelrConstructor(getTestModelrConstructor(t, modelServer))
 	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, syncServer))
-	dmsvc.SetWaitAfterLastModifiedSecs(50)
 	dmsvc.SetClientConn(modelConn)
 
 	// _ = dmsvc.Update(context.TODO(), testCfg)
@@ -346,10 +345,9 @@ func TestModelsAfterKilled(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not downloaded.
-	time.Sleep(time.Millisecond * 250)
+	// time.Sleep(time.Millisecond * 250)
 
 	// Simulate turning off the service.
-	// _ = dmsvc.Close(context.TODO())
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
 
@@ -374,6 +372,10 @@ func TestModelsAfterKilled(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	logger.Info("TEST2")
 	test.That(t, mockModelService.getDeployedModels(), test.ShouldEqual, 1)
+	fmt.Println("do we make it here?")
+	// os.RemoveAll("Users/nick/models/.viam/m1")
+	os.RemoveAll("Users/nick/models/")
+	fmt.Println("have we made it past?")
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
@@ -825,12 +827,12 @@ func (m mockModelServiceServer) Deploy(ctx context.Context, req *m1.DeployReques
 	return depResp, nil
 }
 
-// // MockClient is the mock client
+// // MockClient is the mock client.
 type MockClient struct {
 	DoFunc func(req *http.Request) (*http.Response, error)
 }
 
-// Do is the mock client's `Do` func
+// Do is the mock client's `Do` func.
 func (m *MockClient) Do(req *http.Request) (*http.Response, error) {
 	// why we are still using ioutil.NopCloser
 	// https://stackoverflow.com/questions/28158990/golang-io-ioutil-nopcloser
@@ -850,15 +852,13 @@ func (m *MockClient) Do(req *http.Request) (*http.Response, error) {
 
 	response := &http.Response{
 		StatusCode: 200,
-		Body:       ioutil.NopCloser(buf),
+		Body:       io.NopCloser(buf),
 	}
 	return response, nil
 }
 
-var (
-	// GetDoFunc fetches the mock client's `Do` func
-	GetDoFunc func(req *http.Request) (*http.Response, error)
-)
+// GetDoFunc fetches the mock client's `Do` func
+var GetDoFunc func(req *http.Request) (*http.Response, error)
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
 	var fileName string

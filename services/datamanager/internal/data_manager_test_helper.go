@@ -5,10 +5,11 @@ package internal
 import (
 	"context"
 
+	urpc "go.viam.com/utils/rpc"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/datamanager/model"
-	urpc "go.viam.com/utils/rpc"
 )
 
 // DMService in the internal package includes additional exported functions relating to the syncing and

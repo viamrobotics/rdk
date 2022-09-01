@@ -26,7 +26,7 @@ type controlTicker struct {
 }
 
 // ControlLoop holds the loop config
-// nolint: revive
+//nolint: revive
 type ControlLoop struct {
 	cfg                     ControlConfig
 	blocks                  map[string]*controlBlockInternal
@@ -133,7 +133,7 @@ func createControlLoop(logger golog.Logger, cfg ControlConfig, m Controllable) (
 							sw[i] = r[0]
 						} else {
 							// TODO(npmenard) do we want to support multidimentional signals?
-							// nolint: makezero
+							//nolint: makezero
 							sw = append(sw, r...)
 						}
 					}
