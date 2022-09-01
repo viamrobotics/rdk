@@ -20,7 +20,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 		additionalParams map[string]string
 		dataType         v1.DataType
 		fileExtension    string
-		tags             [2]string
+		tags             []string
 	}{
 		{
 			name:             "Metadata for arm positions stored in a tabular .csv file",
@@ -31,7 +31,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			additionalParams: make(map[string]string),
 			dataType:         v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			fileExtension:    ".csv",
-			tags:             [2]string{"tagA", "tagB"},
+			tags:             []string{"tagA", "tagB"},
 		},
 		{
 			name:             "Metadata for a camera Next() image stored as a binary .jpeg file",
@@ -42,7 +42,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			additionalParams: map[string]string{"mime_type": utils.MimeTypeJPEG},
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			fileExtension:    ".jpeg",
-			tags:             [2]string{},
+			tags:             []string{},
 		},
 		{
 			name:             "Metadata for a LiDAR Next() point cloud stored as a binary .pcd file",
@@ -53,7 +53,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			additionalParams: map[string]string{"mime_type": utils.MimeTypePCD},
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			fileExtension:    ".pcd",
-			tags:             [2]string{},
+			tags:             []string{},
 		},
 		{
 			name:             "Metadata for a LiDAR NextPointCloud() stored as a binary .pcd file",
@@ -64,14 +64,14 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			additionalParams: make(map[string]string),
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			fileExtension:    ".pcd",
-			tags:             [2]string{},
+			tags:             []string{},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Log(tc.name)
 		actualMetadata := BuildCaptureMetadata(
-			tc.componentType, tc.componentName, tc.componentModel, tc.method, tc.additionalParams, tc.tags[:])
+			tc.componentType, tc.componentName, tc.componentModel, tc.method, tc.additionalParams, tc.tags)
 		expectedMetadata := v1.DataCaptureMetadata{
 			ComponentType:    string(tc.componentType),
 			ComponentName:    tc.componentName,
@@ -80,7 +80,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			Type:             tc.dataType,
 			MethodParameters: tc.additionalParams,
 			FileExtension:    tc.fileExtension,
-			Tags:             tc.tags[:],
+			Tags:             tc.tags,
 		}
 		test.That(t, actualMetadata.String(), test.ShouldEqual, expectedMetadata.String())
 	}
