@@ -354,8 +354,9 @@ func TestModelsAfterKilled(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Validate nothing has been deployed yet.
-	fmt.Println("TEST1")
+	logger.Info("TEST1")
 	test.That(t, mockModelService.getDeployedModels(), test.ShouldEqual, 0)
+	time.Sleep(2 * time.Second)
 
 	// Turn the service back on.
 	dmsvc = newTestDataManager(t, "arm1", "")
@@ -371,6 +372,7 @@ func TestModelsAfterKilled(t *testing.T) {
 	time.Sleep(syncWaitTime)
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
+	logger.Info("TEST2")
 	test.That(t, mockModelService.getDeployedModels(), test.ShouldEqual, 1)
 }
 
@@ -782,10 +784,11 @@ func (m mockDataSyncServiceServer) getUploadedFiles() []string {
 }
 
 func (m mockModelServiceServer) getDeployedModels() int {
-	fmt.Println("getDeployedModels()")
+	fmt.Println("mockModelServiceServer.getDeployedModels()")
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
-	// all we do is check if $Home/models exists and how many subdirs it has as each model has its own subdir
+	// all we do is check if $Home/models exists and how many subdirs it has
+	// as each model has its own subdir.
 	_, err := os.Stat(filepath.Join(os.Getenv("HOME"), "models", ".viam"))
 	// If the path to the specified destination does not exist,
 	// add the model to the names of models we need to download.
@@ -796,9 +799,21 @@ func (m mockModelServiceServer) getDeployedModels() int {
 		if err != nil {
 			log.Fatalf(err.Error())
 		}
-		fmt.Println(files[0].Name())
-		fmt.Println(files[1].Name())
-		return len(files) - 1 // do -1 bc files contains .DS_Store
+		m := 0
+		for i := 0; i < len(files); i++ {
+			name := files[i].Name()
+			fmt.Println("name: ", name)
+			_, _, modTimeSec := files[i].ModTime().Clock()
+			fmt.Println("modTime: ", modTimeSec)
+			_, _, timeNowSec := time.Now().Clock()
+			fmt.Println("timeNow: ", timeNowSec)
+			diff := timeNowSec - modTimeSec
+			fmt.Println("diff: ", diff)
+			if diff <= 1 {
+				m++
+			}
+		}
+		return len(files) - m
 	}
 }
 
