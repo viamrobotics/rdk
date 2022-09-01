@@ -778,8 +778,6 @@ func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.
 		}
 	}()
 
-	// fmt.Printf("resp.Body%T\n ", resp.Body)
-	fmt.Println("resp.Body: ", resp.Body)
 	var s = filepath + ".zip"
 	fmt.Println("s: ", s)
 	//nolint:gosec
@@ -791,35 +789,25 @@ func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.
 	//nolint:gosec,errcheck
 	defer out.Close()
 
-	b, err := io.ReadAll(resp.Body)
-	// b, err := ioutil.ReadAll(resp.Body)  Go.1.15 and earlier
+	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
+	// fmt.Println("regular resp.Body: ", resp.Body)
+	// fmt.Println("&resp.Body: ", &resp.Body)
+	// fmt.Println("resp.Body as string: ", string(bodyBytes))
+	// fmt.Println("bodyBytes: ", bodyBytes)
 
-	fmt.Println("b: ", string(b))
-
-	// fmt.Println("resp.Status: ", resp.Status)
-	input, err := ioutil.ReadFile(resp.Status)
+	err = ioutil.WriteFile(out.Name(), bodyBytes, os.ModePerm)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("err: ", err)
 		return err
 	}
-	fmt.Println("input: ", input)
-
-	err = ioutil.WriteFile(s, input, os.ModePerm)
-
-	// Write body to file
-	// _, err = io.Copy(out, resp.Body)
-	// if err != nil {
-	// 	fmt.Println("err: ", err)
-	// 	return err
-	// }
 
 	if closeErr := out.Close(); err != nil {
 		return closeErr
 	}
-	os.Remove(resp.Status)
+	// os.Remove(resp.Status)
 	return err
 }
 
