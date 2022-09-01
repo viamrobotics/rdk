@@ -191,7 +191,7 @@ func (e *eva) apiRequestRetry(
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", e.sessionToken))
 	}
 
-	res, err := http.DefaultClient.DoCommand(req)
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}

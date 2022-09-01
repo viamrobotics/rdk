@@ -151,7 +151,7 @@ func (c *AppClient) PrepareAuthorization() (string, string, error) {
 		return "", "", err
 	}
 	req = req.WithContext(c.c.Context)
-	resp, err := http.DefaultClient.DoCommand(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", "", err
 	}

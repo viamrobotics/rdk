@@ -320,7 +320,7 @@ func readCertificateDataFromCloud(ctx context.Context, signalingInsecure bool, c
 
 	var client http.Client
 	defer client.CloseIdleConnections()
-	resp, err := client.DoCommand(certReq)
+	resp, err := client.Do(certReq)
 	if err != nil {
 		return nil, err
 	}
@@ -675,7 +675,7 @@ func getFromCloudHTTP(ctx context.Context, cloudCfg *Cloud) (*Config, bool, erro
 
 	var client http.Client
 	defer client.CloseIdleConnections()
-	resp, err := client.DoCommand(cloudReq)
+	resp, err := client.Do(cloudReq)
 	// Try to load from the cache
 	if err != nil {
 		var urlErr *url.Error
