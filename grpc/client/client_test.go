@@ -4,14 +4,18 @@ import (
 	"bytes"
 	"context"
 	"image"
-	"image/jpeg"
+	"image/png"
 	"math"
 	"net"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
@@ -50,6 +54,7 @@ import (
 	servopb "go.viam.com/rdk/proto/api/component/servo/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
@@ -87,6 +92,16 @@ var finalResources = []resource.Name{
 	servo.Named("servo3"),
 }
 
+var pose1 = &commonpb.Pose{
+	X:     0.0,
+	Y:     0.0,
+	Z:     0.0,
+	Theta: 0.0,
+	OX:    1.0,
+	OY:    0.0,
+	OZ:    0.0,
+}
+
 func TestStatusClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
@@ -107,15 +122,6 @@ func TestStatusClient(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
 
-	pose1 := &commonpb.Pose{
-		X:     0.0,
-		Y:     0.0,
-		Z:     0.0,
-		Theta: 0.0,
-		OX:    1.0,
-		OY:    0.0,
-		OZ:    0.0,
-	}
 	injectArm := &inject.Arm{}
 	injectArm.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return pose1, nil
@@ -129,11 +135,17 @@ func TestStatusClient(t *testing.T) {
 	injectCamera := &inject.Camera{}
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
 	var imgBuf bytes.Buffer
-	test.That(t, jpeg.Encode(&imgBuf, img, nil), test.ShouldBeNil)
+	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 
 	var imageReleased bool
-	injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
-		return img, func() { imageReleased = true }, nil
+	var imageReleasedMu sync.Mutex
+	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+			imageReleasedMu.Lock()
+			imageReleased = true
+			imageReleasedMu.Unlock()
+			return img, func() {}, nil
+		})), nil
 	}
 
 	injectInputDev := &inject.InputController{}
@@ -302,7 +314,7 @@ func TestStatusClient(t *testing.T) {
 
 	camera1, err := camera.FromRobot(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
-	_, _, err = camera1.Next(context.Background())
+	_, _, err = camera.ReadImage(context.Background(), camera1)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
 
@@ -389,12 +401,14 @@ func TestStatusClient(t *testing.T) {
 
 	camera1, err = camera.FromRobot(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
-	frame, _, err := camera1.Next(context.Background())
+	frame, _, err := camera.ReadImage(context.Background(), camera1)
 	test.That(t, err, test.ShouldBeNil)
 	compVal, _, err := rimage.CompareImages(img, frame)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
+	imageReleasedMu.Lock()
 	test.That(t, imageReleased, test.ShouldBeTrue)
+	imageReleasedMu.Unlock()
 
 	gripper1, err = gripper.FromRobot(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
@@ -712,7 +726,32 @@ func TestClientDisconnect(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, client.checkConnected())
 }
 
+type mockType struct {
+	reconfCount int64
+}
+
+func (mt *mockType) Reconfigure(ctx context.Context, newRes resource.Reconfigurable) error {
+	atomic.AddInt64(&mt.reconfCount, 1)
+	return nil
+}
+
 func TestClientReconnect(t *testing.T) {
+	someSubtype := resource.NewSubtype(
+		resource.Namespace("acme"),
+		resource.ResourceTypeComponent,
+		resource.SubtypeName(uuid.New().String()),
+	)
+	var called int64
+	registry.RegisterResourceSubtype(
+		someSubtype,
+		registry.ResourceSubtype{
+			RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+				atomic.AddInt64(&called, 1)
+				return &mockType{}
+			},
+		},
+	)
+
 	logger := golog.NewTestLogger(t)
 
 	var listener net.Listener = gotestutils.ReserveRandomListener(t)
@@ -720,11 +759,21 @@ func TestClientReconnect(t *testing.T) {
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+	thing1Name := resource.NameFromSubtype(someSubtype, "thing1")
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{arm.Named("arm1")}
+		return []resource.Name{arm.Named("arm1"), thing1Name}
 	}
 
 	go gServer.Serve(listener)
+
+	injectArm := &inject.Arm{}
+	injectArm.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+		return pose1, nil
+	}
+
+	armSvc2, err := subtype.New(map[resource.Name]interface{}{arm.Named("arm1"): injectArm})
+	test.That(t, err, test.ShouldBeNil)
+	armpb.RegisterArmServiceServer(gServer, arm.NewServer(armSvc2))
 
 	dur := 100 * time.Millisecond
 	client, err := New(
@@ -738,6 +787,18 @@ func TestClientReconnect(t *testing.T) {
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	}()
+
+	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 2)
+	thing1Client, err := client.ResourceByName(thing1Name)
+	test.That(t, err, test.ShouldBeNil)
+	a, err := client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = a.(arm.Arm).GetEndPosition(context.Background(), map[string]interface{}{})
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, atomic.LoadInt64(&called), test.ShouldEqual, 1)
+	test.That(t, atomic.LoadInt64(&thing1Client.(*mockType).reconfCount), test.ShouldEqual, 0)
+
 	gServer.Stop()
 
 	test.That(t, <-client.Changed(), test.ShouldBeTrue)
@@ -747,6 +808,7 @@ func TestClientReconnect(t *testing.T) {
 
 	gServer2 := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot))
+	armpb.RegisterArmServiceServer(gServer2, arm.NewServer(armSvc2))
 
 	// Note: There's a slight chance this test can fail if someone else
 	// claims the port we just released by closing the server.
@@ -757,9 +819,83 @@ func TestClientReconnect(t *testing.T) {
 
 	test.That(t, <-client.Changed(), test.ShouldBeTrue)
 	test.That(t, client.Connected(), test.ShouldBeTrue)
-	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 1)
+	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 2)
 	_, err = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
+	_, err = a.(arm.Arm).GetEndPosition(context.Background(), map[string]interface{}{})
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, atomic.LoadInt64(&called), test.ShouldEqual, 2)
+	test.That(t, atomic.LoadInt64(&thing1Client.(*mockType).reconfCount), test.ShouldEqual, 1)
+}
+
+func TestClientRefreshNoReconfigure(t *testing.T) {
+	someSubtype := resource.NewSubtype(
+		resource.Namespace("acme"),
+		resource.ResourceTypeComponent,
+		resource.SubtypeName(uuid.New().String()),
+	)
+	var called int64
+	registry.RegisterResourceSubtype(
+		someSubtype,
+		registry.ResourceSubtype{
+			RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+				atomic.AddInt64(&called, 1)
+				return &mockType{}
+			},
+		},
+	)
+
+	logger := golog.NewTestLogger(t)
+
+	var listener net.Listener = gotestutils.ReserveRandomListener(t)
+	gServer := grpc.NewServer()
+	injectRobot := &inject.Robot{}
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+	thing1Name := resource.NameFromSubtype(someSubtype, "thing1")
+
+	var callCount int
+	calledEnough := make(chan struct{})
+
+	allow := make(chan struct{})
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		if callCount == 1 {
+			<-allow
+		}
+		if callCount == 5 {
+			close(calledEnough)
+		}
+		callCount++
+
+		return []resource.Name{arm.Named("arm1"), thing1Name}
+	}
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	dur := 100 * time.Millisecond
+	client, err := New(
+		context.Background(),
+		listener.Addr().String(),
+		logger,
+		WithRefreshEvery(dur),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+	}()
+
+	thing1Client, err := client.ResourceByName(thing1Name)
+	test.That(t, err, test.ShouldBeNil)
+
+	close(allow)
+	<-calledEnough
+
+	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 2)
+
+	test.That(t, atomic.LoadInt64(&called), test.ShouldEqual, 1)
+	test.That(t, atomic.LoadInt64(&thing1Client.(*mockType).reconfCount), test.ShouldEqual, 0)
 }
 
 func TestClientDialerOption(t *testing.T) {
@@ -895,7 +1031,7 @@ func TestClientDiscovery(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func ensurePartsAreEqual(part *config.FrameSystemPart, otherPart *config.FrameSystemPart) error {
+func ensurePartsAreEqual(part, otherPart *config.FrameSystemPart) error {
 	if part.Name != otherPart.Name {
 		return errors.Errorf("part had name %s while other part had name %s", part.Name, otherPart.Name)
 	}

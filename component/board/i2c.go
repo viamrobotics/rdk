@@ -17,7 +17,7 @@ type I2CHandle interface {
 	Read(ctx context.Context, count int) ([]byte, error)
 
 	ReadByteData(ctx context.Context, register byte) (byte, error)
-	WriteByteData(ctx context.Context, register byte, data byte) error
+	WriteByteData(ctx context.Context, register, data byte) error
 
 	ReadWordData(ctx context.Context, register byte) (uint16, error)
 	WriteWordData(ctx context.Context, register byte, data uint16) error

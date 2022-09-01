@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"io/ioutil"
+	"io"
 	"math"
 	"os"
 
@@ -140,7 +140,7 @@ func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColor
 	}
 	defer utils.UncheckedErrorFunc(jsonFile.Close)
 	// read our opened jsonFile as a byte array.
-	byteValue, err := ioutil.ReadAll(jsonFile)
+	byteValue, err := io.ReadAll(jsonFile)
 	if err != nil {
 		err = errors.Wrap(err, "error reading JSON data")
 		return nil, err
@@ -160,7 +160,7 @@ func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*Pinho
 	}
 	defer utils.UncheckedErrorFunc(jsonFile.Close)
 	// read our opened jsonFile as a byte array.
-	byteValue, err2 := ioutil.ReadAll(jsonFile)
+	byteValue, err2 := io.ReadAll(jsonFile)
 	if err2 != nil {
 		err2 = errors.Wrap(err2, "error reading JSON data")
 		return nil, err2
@@ -194,6 +194,7 @@ func (params *PinholeCameraIntrinsics) DistortionMap() func(u, v float64) (float
 // as the original image, but undistorted according to the distortion model in PinholeCameraIntrinsics. A bilinear
 // interpolation is used to interpolate values between image pixels.
 // NOTE(bh): potentially a use case for generics
+//
 //nolint:dupl
 func (params *PinholeCameraIntrinsics) UndistortImage(img *rimage.Image) (*rimage.Image, error) {
 	if img == nil {
@@ -224,6 +225,7 @@ func (params *PinholeCameraIntrinsics) UndistortImage(img *rimage.Image) (*rimag
 // as the original depth map, but undistorted according to the distortion model in PinholeCameraIntrinsics. A nearest neighbor
 // interpolation is used to interpolate values between depth pixels.
 // NOTE(bh): potentially a use case for generics
+//
 //nolint:dupl
 func (params *PinholeCameraIntrinsics) UndistortDepthMap(dm *rimage.DepthMap) (*rimage.DepthMap, error) {
 	if dm == nil {
@@ -391,8 +393,9 @@ func intrinsics2DTo3D(img *rimage.Image, dm *rimage.DepthMap, pci *PinholeCamera
 // GetCameraMatrix creates a new camera matrix and returns it.
 // Camera matrix:
 // [[fx 0 ppx],
-//  [0 fy ppy],
-//  [0 0  1]]
+//
+//	[0 fy ppy],
+//	[0 0  1]]
 func (params *PinholeCameraIntrinsics) GetCameraMatrix() *mat.Dense {
 	cameraMatrix := mat.NewDense(3, 3, nil)
 	cameraMatrix.Set(0, 0, params.Fx)

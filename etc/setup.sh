@@ -27,7 +27,7 @@ do_bullseye(){
 	echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/nodesource.list
 
 	# Install most things
-	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev libtensorflowlite-dev protobuf-compiler protoc-gen-grpc-web ffmpeg && apt-get clean
+	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev libopus-dev libtensorflowlite-dev protobuf-compiler protoc-gen-grpc-web ffmpeg && apt-get clean
 
 	# Install backports
 	apt-get install -y -t $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports golang-go
@@ -48,6 +48,7 @@ do_bullseye(){
 	EOS
 
 	mod_profiles
+	check_gcloud_auth
 }
 
 do_linux(){
@@ -82,6 +83,7 @@ do_linux(){
 
 	do_brew
 	mod_profiles
+	check_gcloud_auth
 }
 
 
@@ -114,6 +116,7 @@ do_darwin(){
 
 	do_brew
 	mod_profiles
+	check_gcloud_auth
 }
 
 mod_profiles(){
@@ -133,6 +136,18 @@ mod_profiles(){
 	grep -q github.com ~/.ssh/known_hosts || ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
 }
 
+# This workaround is for https://viam.atlassian.net/browse/RSDK-526, without the application default credential file our tests will
+# create goroutines that get leaked and fail. Once https://github.com/googleapis/google-cloud-go/issues/5430 is fixed we can remove this.
+check_gcloud_auth(){
+	APP_CREDENTIALS_DIR="$HOME/.config/gcloud"
+	mkdir -p $APP_CREDENTIALS_DIR
+	APP_CREDENTIALS_FILE="$APP_CREDENTIALS_DIR/application_default_credentials.json"	
+	if [ ! -f "$APP_CREDENTIALS_FILE" ]; then
+		echo "Missing gcloud application default credentials, this can cause goroutines to leak if not configured. Creating with empty config at $APP_CREDENTIALS_FILE"
+		echo '{"client_id":"XXXX","client_secret":"XXXX","refresh_token":"XXXX","type":"authorized_user"}' > $APP_CREDENTIALS_FILE
+	fi
+}
+
 do_brew(){
 	# Install brew
 	brew --version > /dev/null 2>&1 || bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || exit 1
@@ -147,6 +162,7 @@ do_brew(){
 	# unpinned
 	brew "nlopt"
 	brew "x264"
+	brew "opus"
 	brew "protoc-gen-grpc-web"
 	brew "pkg-config"
 	brew "tensorflowlite"

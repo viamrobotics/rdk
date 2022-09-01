@@ -17,7 +17,7 @@ const (
 
 type trapezoidVelocityGenerator struct {
 	mu           sync.Mutex
-	cfg          ControlBlockConfig
+	cfg          BlockConfig
 	maxAcc       float64
 	maxVel       float64
 	lastVelCmd   float64
@@ -35,7 +35,7 @@ type trapezoidVelocityGenerator struct {
 	kppGain      float64
 }
 
-func newTrapezoidVelocityProfile(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
+func newTrapezoidVelocityProfile(config BlockConfig, logger golog.Logger) (Block, error) {
 	t := &trapezoidVelocityGenerator{cfg: config, logger: logger}
 	if err := t.reset(); err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func (s *trapezoidVelocityGenerator) reset() error {
 	s.kppGain = s.cfg.Attribute.Float64("kpp_gain", 0.45)
 	s.currentPhase = rest
 	s.y = make([]Signal, 1)
-	s.y[0] = makeSignal(s.cfg.Name, 1)
+	s.y[0] = makeSignal(s.cfg.Name)
 	return nil
 }
 
@@ -121,7 +121,7 @@ func (s *trapezoidVelocityGenerator) Reset(ctx context.Context) error {
 	return s.reset()
 }
 
-func (s *trapezoidVelocityGenerator) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
+func (s *trapezoidVelocityGenerator) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.cfg = config
@@ -132,6 +132,6 @@ func (s *trapezoidVelocityGenerator) Output(ctx context.Context) []Signal {
 	return s.y
 }
 
-func (s *trapezoidVelocityGenerator) Config(ctx context.Context) ControlBlockConfig {
+func (s *trapezoidVelocityGenerator) Config(ctx context.Context) BlockConfig {
 	return s.cfg
 }

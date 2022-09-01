@@ -91,11 +91,11 @@ func getMotor(ctx context.Context, r robot.Robot, name string) (motor.Motor, err
 		return nil, err
 	}
 
-	supportedFeatures, err := m.GetFeatures(ctx, nil)
+	supportedProperties, err := m.GetProperties(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	pok := supportedFeatures[motor.PositionReporting]
+	pok := supportedProperties[motor.PositionReporting]
 	if !pok {
 		return nil, motor.NewFeatureUnsupportedError(motor.PositionReporting, name)
 	}

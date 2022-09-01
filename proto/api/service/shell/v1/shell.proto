@@ -12,7 +12,8 @@ service ShellService {
 }
 
 message ShellRequest {
-  string data_in = 1;
+  string name = 1;
+  string data_in = 2;
 }
 
 message ShellResponse {

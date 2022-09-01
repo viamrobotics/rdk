@@ -70,24 +70,16 @@ func TestWriteViam(t *testing.T) {
 	seedMap := map[string][]frame.Input{}
 
 	seedMap[m.Name()] = home7
-	curPos, err := fs.Transform(seedMap, frame.NewPoseInFrame(moveFrame.Name(), spatial.NewZeroPose()), frame.World)
+
+	steps, err := fss.SolvePose(ctx, seedMap, frame.NewPoseInFrame(fs.World().Name(), goal), moveFrame.Name())
 	test.That(t, err, test.ShouldBeNil)
 
-	steps, err := fss.SolvePose(ctx, seedMap, goal, moveFrame.Name(), fs.World().Name())
-	test.That(t, err, test.ShouldBeNil)
+	opt := []map[string]interface{}{{"motion_profile": "linear"}}
 
 	goToGoal := func(seedMap map[string][]frame.Input, goal spatial.Pose) map[string][]frame.Input {
-		curPos, _ = fs.Transform(seedMap, frame.NewPoseInFrame(moveFrame.Name(), spatial.NewZeroPose()), frame.World)
+		goalPiF := frame.NewPoseInFrame(fs.World().Name(), goal)
 
-		validFunc, gradFunc := motionplan.NewLineConstraint(curPos.(*frame.PoseInFrame).Pose().Point(), goal.Point(), 0.3)
-		destGrad := motionplan.NewPoseFlexOVMetric(goal, 0.2)
-
-		opt := motionplan.NewDefaultPlannerOptions()
-		opt.SetPathDist(gradFunc)
-		opt.SetMetric(destGrad)
-		opt.AddConstraint("whiteboard", validFunc)
-
-		waysteps, err := fss.SolvePoseWithOptions(ctx, seedMap, goal, moveFrame.Name(), fs.World().Name(), nil, opt)
+		waysteps, err := fss.SolveWaypointsWithOptions(ctx, seedMap, []*frame.PoseInFrame{goalPiF}, moveFrame.Name(), nil, opt)
 		test.That(t, err, test.ShouldBeNil)
 		return waysteps[len(waysteps)-1]
 	}

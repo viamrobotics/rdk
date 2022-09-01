@@ -73,7 +73,7 @@ func createController(ctx context.Context, logger golog.Logger, devFile string, 
 					}
 					continue
 				} else {
-					g.logger.Fatal(err)
+					g.logger.Error(err)
 					return
 				}
 			}
@@ -121,7 +121,7 @@ func timevaltoTime(timeVal syscall.Timeval) time.Time {
 	return time.Unix(int64(timeVal.Sec), int64(timeVal.Usec*1000))
 }
 
-func scaleAxis(x int32, inMin int32, inMax int32, outMin float64, outMax float64) float64 {
+func scaleAxis(x, inMin, inMax int32, outMin, outMax float64) float64 {
 	return float64(x-inMin)*(outMax-outMin)/float64(inMax-inMin) + outMin
 }
 

@@ -163,7 +163,7 @@ func invert(m mat.Matrix) *mat.Dense {
 }
 
 // returns good area.
-func getRoundedValueHelp(input WarpConnector, dx, dy float64, rp, cp float64, out, buf []float64) float64 {
+func getRoundedValueHelp(input WarpConnector, dx, dy, rp, cp float64, out, buf []float64) float64 {
 	area := dx * dy
 	if area <= .00001 {
 		return area

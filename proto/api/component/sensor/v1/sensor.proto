@@ -23,5 +23,5 @@ message GetReadingsRequest {
 }
 
 message GetReadingsResponse {
-  repeated google.protobuf.Value readings = 1;
+  map<string, google.protobuf.Value> readings = 1;
 }

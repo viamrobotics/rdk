@@ -19,7 +19,7 @@ To see more examples, check out the [Wiki](https://github.com/viamrobotics/rdk/w
 
 ### First time run
 
-* Try out `go run web/cmd/server/main.go robots/configs/fake.json` and visit http://localhost:8080
+* Try out `go run web/cmd/server/main.go -config robots/configs/fake.json` and visit http://localhost:8080
 
 ## Development
 
@@ -28,7 +28,7 @@ To see more examples, check out the [Wiki](https://github.com/viamrobotics/rdk/w
 * Work in your own fork, not a fork of the company repository.
 * Follow this [Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md)
 * Always run `make lint` and test before pushing. `make build` should be run if `control.js` or proto files have changed. `make setup` should be run if any dependencies have changed, but does not need to be run otherwise.
-* If `control.js`, `webappindex.html` or proto files have changed, double check the UI still works through the instructions in [here](#first-time-run)
+* If `control.js`, `app.vue` or proto files have changed, double check the UI still works through the instructions in [here](#first-time-run)
 * Usually merge and squash your PRs and more rarely do merge commits with each commit being a logical unit of work.
 * If you add a new package, please add it to this README.
 * If you add a new sample or command, please add it to this README.
@@ -96,7 +96,7 @@ Some guidelines on using these:
 
 ### Frontend
 
-To start the client development environment, first run the same `go run` command mentioned in getting started, but with the environmental variable `ENV=development` (like: `ENV=development go run web/cmd/server/main.go robots/configs/fake.json`). Then navigate to `web/frontend` and run `npm start` in a new terminal tab.
+To start the client development environment, first run the same `go run` command mentioned in getting started, but with the environmental variable `ENV=development` (like: `ENV=development go run web/cmd/server/main.go -config robots/configs/fake.json`). Then navigate to `web/frontend` and run `npm start` in a new terminal tab.
 
 Note that you should still visit `localhost:8080` to view the app, not `localhost:5173`. The latter is a hot module replacement server that rebuilds frontend asset changes.
 
@@ -121,4 +121,4 @@ General workflow:
 3. `artifact pull` to download all the files that are in the `tree.json` file
 
 ## License
-AGPLv3 - See [LICENSE][https://github.com/viamrobotics/main/LICENSE] file
+AGPLv3 - See [LICENSE](https://github.com/viamrobotics/rdk/blob/main/LICENSE) file

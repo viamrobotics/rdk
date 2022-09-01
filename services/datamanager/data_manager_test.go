@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"sync"
 	"testing"
@@ -24,6 +23,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/testutils/inject"
@@ -50,14 +50,18 @@ var (
 	testSvcName2       = "svc2"
 )
 
+const (
+	testDataManagerServiceName = "DataManager1"
+)
+
 // readDir filters out folders from a slice of FileInfos.
-func readDir(t *testing.T, dir string) ([]fs.FileInfo, error) {
+func readDir(t *testing.T, dir string) ([]fs.DirEntry, error) {
 	t.Helper()
-	filesAndFolders, err := ioutil.ReadDir(dir)
+	filesAndFolders, err := os.ReadDir(dir)
 	if err != nil {
 		t.Log(err)
 	}
-	var onlyFiles []fs.FileInfo
+	var onlyFiles []fs.DirEntry
 	for _, s := range filesAndFolders {
 		if !s.IsDir() {
 			onlyFiles = append(onlyFiles, s)
@@ -85,7 +89,7 @@ func getInjectedRobotWithArm(armKey string) *inject.Robot {
 	return r
 }
 
-func newTestDataManager(t *testing.T, localArmKey string, remoteArmKey string) internal.DMService {
+func newTestDataManager(t *testing.T, localArmKey, remoteArmKey string) internal.DMService {
 	t.Helper()
 	dmCfg := &datamanager.Config{}
 	cfgService := config.Service{
@@ -142,8 +146,18 @@ func TestNewDataManager(t *testing.T) {
 	filesInArmDir, err := readDir(t, armDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
-	oldSize := filesInArmDir[0].Size()
+	oldInfo, err := filesInArmDir[0].Info()
+	test.That(t, err, test.ShouldBeNil)
+	oldSize := oldInfo.Size()
 	test.That(t, oldSize, test.ShouldBeGreaterThan, emptyFileBytesSize)
+
+	// Check that dummy tags "a" and "b" are being wrote to metadata.
+	captureFileName := filesInArmDir[0].Name()
+	file, err := os.Open(armDir + "/" + captureFileName)
+	test.That(t, err, test.ShouldBeNil)
+	md, err := datacapture.ReadDataCaptureMetadata(file)
+	test.That(t, md.Tags[0], test.ShouldEqual, "a")
+	test.That(t, md.Tags[1], test.ShouldEqual, "b")
 
 	// When Close returns all background processes in svc should be closed, but still sleep for 100ms to verify
 	// that there's not a resource leak causing writes to still happens after Close() returns.
@@ -151,7 +165,9 @@ func TestNewDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	filesInArmDir, err = readDir(t, armDir)
 	test.That(t, err, test.ShouldBeNil)
-	newSize := filesInArmDir[0].Size()
+	newInfo, err := filesInArmDir[0].Info()
+	test.That(t, err, test.ShouldBeNil)
+	newSize := newInfo.Size()
 	test.That(t, oldSize, test.ShouldEqual, newSize)
 }
 
@@ -180,7 +196,9 @@ func TestCaptureDisabled(t *testing.T) {
 	filesInArmDir, err := readDir(t, armDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
-	test.That(t, filesInArmDir[0].Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
+	info, err := filesInArmDir[0].Info()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, info.Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
 
 	// Re-enable capture.
 	dmCfg.CaptureDisabled = false
@@ -199,7 +217,9 @@ func TestCaptureDisabled(t *testing.T) {
 
 	// Verify that something different was written to both files.
 	test.That(t, filesInArmDir[0], test.ShouldNotEqual, filesInArmDir[1])
-	test.That(t, filesInArmDir[1].Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
+	info, err = filesInArmDir[1].Info()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, info.Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
 }
 
 func TestNewRemoteDataManager(t *testing.T) {
@@ -223,13 +243,17 @@ func TestNewRemoteDataManager(t *testing.T) {
 	filesInLocalArmDir, err := readDir(t, localArmDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInLocalArmDir), test.ShouldEqual, 1)
-	test.That(t, filesInLocalArmDir[0].Size(), test.ShouldBeGreaterThan, 0)
+	info, err := filesInLocalArmDir[0].Info()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, info.Size(), test.ShouldBeGreaterThan, 0)
 
 	remoteArmDir := captureDir + "/arm/remoteArm/GetEndPosition"
 	filesInRemoteArmDir, err := readDir(t, remoteArmDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInRemoteArmDir), test.ShouldEqual, 1)
-	test.That(t, filesInRemoteArmDir[0].Size(), test.ShouldBeGreaterThan, 0)
+	info, err = filesInRemoteArmDir[0].Info()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, info.Size(), test.ShouldBeGreaterThan, 0)
 }
 
 // Validates that if the datamanager/robot die unexpectedly, that previously captured but not synced files are still
@@ -398,7 +422,7 @@ func populateAdditionalSyncPaths() ([]string, int, error) {
 	// Generate additional_sync_paths "dummy" dirs & files.
 	for i := 0; i < 2; i++ {
 		// Create a temp dir that will be in additional_sync_paths.
-		td, err := ioutil.TempDir("", "additional_sync_path_dir_")
+		td, err := os.MkdirTemp("", "additional_sync_path_dir_")
 		if err != nil {
 			return []string{}, 0, errors.New("cannot create temporary dir to simulate additional_sync_paths in data manager service config")
 		}
@@ -414,7 +438,7 @@ func populateAdditionalSyncPaths() ([]string, int, error) {
 				fileData := []byte("This is file data. It will be stored in a directory included in the user's specified additional sync paths. Hopefully it is uploaded from the robot to the cloud!")
 
 				// Create arbitrary file that will be in the temp dir generated above.
-				tf, err := ioutil.TempFile(td, "arbitrary_file_")
+				tf, err := os.CreateTemp(td, "arbitrary_file_")
 				if err != nil {
 					return nil, 0, errors.New("cannot create temporary file to simulate uploading from data manager service")
 				}
@@ -771,7 +795,7 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 }
 
 //nolint:thelper
-func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServer) {
+func buildAndStartLocalServer(t *testing.T) (rpc.Server, *mockDataSyncServiceServer) {
 	logger, _ := golog.NewObservedTestLogger(t)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
@@ -793,7 +817,7 @@ func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServ
 		err := rpcServer.Start()
 		test.That(t, err, test.ShouldBeNil)
 	}()
-	return rpcServer, mockService
+	return rpcServer, &mockService
 }
 
 // code here to buildandstartlocalmodelserver which gives us a mock model service

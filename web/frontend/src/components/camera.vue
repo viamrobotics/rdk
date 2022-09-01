@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
-import { normalizeRemoteName } from '../lib/resource';
 import { ref } from 'vue';
+import { normalizeRemoteName } from '../lib/resource';
 import InfoButton from './info-button.vue';
 
 interface Props {
@@ -118,7 +118,10 @@ const togglePCDExpand = () => {
 </script>
 
 <template>
-  <v-collapse :title="streamName">
+  <v-collapse
+    :title="streamName"
+    class="camera"
+  >
     <v-breadcrumbs
       slot="title"
       :crumbs="crumbs.join(',')"

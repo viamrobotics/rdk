@@ -14,36 +14,34 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// client is a client satisfies the motion.proto contract.
+// client implements MotionServiceClient.
 type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.MotionServiceClient
 	logger golog.Logger
 }
 
-// newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
+// NewClientFromConn constructs a new Client from connection passed in.
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
 	grpcClient := pb.NewMotionServiceClient(conn)
-	sc := &client{
+	c := &client{
+		name:   name,
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
 	}
-	return sc
+	return c
 }
 
-// NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
-	return newSvcClientFromConn(conn, logger)
-}
-
-func (c *client) PlanAndMove(
+func (c *client) Move(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
 ) (bool, error) {
-	resp, err := c.client.PlanAndMove(ctx, &pb.PlanAndMoveRequest{
+	resp, err := c.client.Move(ctx, &pb.MoveRequest{
+		Name:          c.name,
 		ComponentName: protoutils.ResourceNameToProto(componentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
 		WorldState:    worldState,
@@ -61,6 +59,7 @@ func (c *client) MoveSingleComponent(
 	worldState *commonpb.WorldState,
 ) (bool, error) {
 	resp, err := c.client.MoveSingleComponent(ctx, &pb.MoveSingleComponentRequest{
+		Name:          c.name,
 		ComponentName: protoutils.ResourceNameToProto(componentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
 		WorldState:    worldState,
@@ -78,6 +77,7 @@ func (c *client) GetPose(
 	supplementalTransforms []*commonpb.Transform,
 ) (*referenceframe.PoseInFrame, error) {
 	resp, err := c.client.GetPose(ctx, &pb.GetPoseRequest{
+		Name:                   c.name,
 		ComponentName:          protoutils.ResourceNameToProto(componentName),
 		DestinationFrame:       destinationFrame,
 		SupplementalTransforms: supplementalTransforms,

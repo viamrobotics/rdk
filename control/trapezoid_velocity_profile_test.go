@@ -17,11 +17,11 @@ func TestTrapezoidVelocityProfileConfig(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	for _, c := range []struct {
-		conf ControlBlockConfig
+		conf BlockConfig
 		err  string
 	}{
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name:      "Trap1",
 				Type:      "trapezoidalVelocityProfile",
 				DependsOn: []string{},
@@ -33,7 +33,7 @@ func TestTrapezoidVelocityProfileConfig(t *testing.T) {
 			"",
 		},
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name:      "Trap1",
 				Type:      "trapezoidalVelocityProfile",
 				DependsOn: []string{},
@@ -44,7 +44,7 @@ func TestTrapezoidVelocityProfileConfig(t *testing.T) {
 			"trapezoidale velocity profile block Trap1 needs max_vel field",
 		},
 		{
-			ControlBlockConfig{
+			BlockConfig{
 				Name:      "Trap1",
 				Type:      "trapezoidalVelocityProfile",
 				DependsOn: []string{},
@@ -70,7 +70,7 @@ func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	targetPos := 100.0
 	posWindow := 10.0
-	cfg := ControlBlockConfig{
+	cfg := BlockConfig{
 		Name:      "Trap1",
 		Type:      "trapezoidalVelocityProfile",
 		DependsOn: []string{},

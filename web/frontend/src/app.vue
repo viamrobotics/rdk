@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from './lib/toast';
 import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
 import commonApi from './gen/proto/api/common/v1/common_pb.esm';
@@ -41,6 +42,7 @@ import { addResizeListeners } from './lib/resize';
 
 import BaseComponent from './components/base.vue';
 import Camera from './components/camera.vue';
+import AudioInput from './components/audio-input.vue';
 import Do from './components/do.vue';
 import Gamepad from './components/gamepad.vue';
 import InputController from './components/input-controller.vue';
@@ -48,108 +50,21 @@ import MotorDetail from './components/motor-detail.vue';
 import Navigation from './components/navigation.vue';
 import ServoComponent from './components/servo.vue';
 import Slam from './components/slam.vue';
-
-function roundTo2Decimals(num) {
-  return Math.round(num * 100) / 100;
-}
-
-function fixArmStatus(old) {
-  const newStatus = {
-    pos_pieces: [],
-    joint_pieces: [],
-    is_moving: old.is_moving || false,
-  };
-
-  const fieldSetters = [
-    ['x', 'X'],
-    ['y', 'Y'],
-    ['z', 'Z'],
-    ['theta', 'Theta'],
-    ['o_x', 'OX'],
-    ['o_y', 'OY'],
-    ['o_z', 'OZ'],
-  ];
-  
-  for (const fieldSetter of fieldSetters) {
-    const endPositionField = fieldSetter[0];
-    newStatus.pos_pieces.push(
-      { 
-        endPosition: fieldSetter,
-        endPositionValue: old.end_position[endPositionField] || 0,
-      }
-    );
-  }
-
-  for (let j = 0; j < old.joint_positions.values.length; j++) {
-    newStatus.joint_pieces.push(
-      { 
-        joint: j,
-        jointValue: old.joint_positions.values[j] || 0,
-      }
-    );
-  }
-
-  return newStatus;
-}
-
-function fixBoardStatus(old) {
-  return {
-    analogsMap: old.analogs || [],
-    digitalInterruptsMap: old.digital_interrupts || [],
-  };
-}
-
-function fixGantryStatus(old) {
-  const newStatus = {
-    parts: [],
-    is_moving: old.is_moving || false,
-  };
-
-  if (old.lengths_mm.length !== old.positions_mm.length) {
-    throw 'gantry lists different lengths';
-  }
-
-  for (let i = 0; i < old.lengths_mm.length; i++) {
-    newStatus.parts.push({
-      axis: i,
-      pos: old.positions_mm[i],
-      length: old.lengths_mm[i],
-    });
-  }
-
-  return newStatus;
-}
-
-function fixInputStatus(old) {
-  const events = old.events || [];
-  const eventsList = events.map((event) => {
-    return {
-      time: event.time || {},
-      event: event.event || '',
-      control: event.control || '',
-      value: event.value || 0,
-    };
-  });
-  return { eventsList };
-}
-
-function fixMotorStatus(old) {
-  return {
-    isPowered: old.is_powered || false,
-    positionReporting: old.position_reporting || false,
-    position: old.position || 0,
-    isMoving: old.is_moving || false,
-  };
-}
-
-function fixServoStatus(old) {
-  return { positionDeg: old.position_deg || 0, is_moving: old.is_moving || false };
-}
+import { roundTo2Decimals } from './lib/math';
+import {
+  fixArmStatus,
+  fixBoardStatus,
+  fixGantryStatus,
+  fixInputStatus,
+  fixMotorStatus,
+  fixServoStatus,
+} from './lib/fixers';
 
 export default {
   components: {
     BaseComponent,
     Camera,
+    AudioInput,
     Do,
     Gamepad,
     InputController,
@@ -169,7 +84,6 @@ export default {
       sensorReadings: {},
       resources: [],
       sensorNames: [],
-      streamNames: [],
       cameraFrameIntervalId: null,
       slamImageIntervalId: null,
       slamPCDIntervalId: null,
@@ -226,7 +140,6 @@ export default {
       const statuses = {
         resources: true,
         ops: true,
-        streams: true,
       };
 
       let interval = null;
@@ -238,18 +151,18 @@ export default {
 
         for (const key of Object.keys(statuses)) {
           switch (key) {
-          case 'resources': {
-            errorsList.innerHTML += '<li>Robot Resources</li>';
-            break;
-          }
-          case 'ops': {
-            errorsList.innerHTML += '<li>Current Operations</li>';
-            break;
-          }
-          case 'streams': {
-            errorsList.innerHTML += '<li>Streams</li>';
-            break;
-          }
+            case 'resources': {
+              errorsList.innerHTML += '<li>Robot Resources</li>';
+              break;
+            }
+            case 'ops': {
+              errorsList.innerHTML += '<li>Current Operations</li>';
+              break;
+            }
+            case 'streams': {
+              errorsList.innerHTML += '<li>Streams</li>';
+              break;
+            }
           }
         }
 
@@ -289,21 +202,6 @@ export default {
           errors.push[error];
         }
 
-        if (window.streamService) {
-          try {
-            await this.queryStreams();
-
-            if (!statuses.streams) {
-              connectionRestablished = true;
-            }
-
-            statuses.streams = true;
-          } catch (error) {
-            statuses.streams = false;
-            errors.push[error];
-          }
-        }
-
         if (isConnected()) {
           if (connectionRestablished) {
             toast.success('Connection established');
@@ -322,8 +220,7 @@ export default {
       const isConnected = () => {
         return (
           statuses.resources && 
-          statuses.ops && 
-          (window.streamService && statuses.streams)
+          statuses.ops
         );
       };
 
@@ -348,19 +245,20 @@ export default {
     fixRawStatus(name, status) {
       switch (resourceNameToSubtypeString(name)) {
       // TODO (APP-146): generate these using constants
-      case 'rdk:component:arm':
-        return fixArmStatus(status);
-      case 'rdk:component:board':
-        return fixBoardStatus(status);
-      case 'rdk:component:gantry':
-        return fixGantryStatus(status);
-      case 'rdk:component:input_controller':
-        return fixInputStatus(status);
-      case 'rdk:component:motor':
-        return fixMotorStatus(status);
-      case 'rdk:component:servo':
-        return fixServoStatus(status);
+        case 'rdk:component:arm':
+          return fixArmStatus(status);
+        case 'rdk:component:board':
+          return fixBoardStatus(status);
+        case 'rdk:component:gantry':
+          return fixGantryStatus(status);
+        case 'rdk:component:input_controller':
+          return fixInputStatus(status);
+        case 'rdk:component:motor':
+          return fixMotorStatus(status);
+        case 'rdk:component:servo':
+          return fixServoStatus(status);
       }
+
       return status;
     },
     grpcCallback (err, resp, stringify) {
@@ -386,7 +284,13 @@ export default {
     },
     getSegmenterNames() {
       const req = new visionApi.GetSegmenterNamesRequest();
-      visionService.getSegmenterNames(req, {}, (err, resp) => {
+      // We are deliberately just getting the first vision service to ensure this will not break.
+      // May want to allow for more services in the future
+      const visionName = filterResources(this.resources, 'rdk', 'services', 'vision')[0];
+      
+      req.setName(visionName);
+
+      window.visionService.getSegmenterNames(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           console.log('error getting segmenter names');
@@ -399,8 +303,14 @@ export default {
     getSegmenterParameters(name) {
       this.segmentAlgo = name;
       const req = new visionApi.GetSegmenterParametersRequest();
+      // We are deliberately just getting the first vision service to ensure this will not break.
+      // May want to allow for more services in the future
+      const visionName = filterResources(this.resources, 'rdk', 'services', 'vision')[0];
+
+      req.setName(visionName);
       req.setSegmenterName(name);
-      visionService.getSegmenterParameters(req, {}, (err, resp) => {
+      
+      window.visionService.getSegmenterParameters(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           console.log(`error getting segmenter parameters for ${name}`);
@@ -445,12 +355,12 @@ export default {
       const req = new gantryApi.MoveToPositionRequest();
       req.setName(name.name);
       req.setPositionsMmList(pos);
-      gantryService.moveToPosition(req, {}, this.grpcCallback);
+      window.gantryService.moveToPosition(req, new grpc.Metadata(), this.grpcCallback);
     },
     gantryStop(name) {
       const request = new gantryApi.StopRequest();
       request.setName(name);
-      gantryService.stop(request, {}, this.grpcCallback);
+      window.gantryService.stop(request, new grpc.Metadata(), this.grpcCallback);
     },
     armEndPositionInc(name, getterSetter, amount) {
       const adjustedAmount = getterSetter[0] === 'o' || getterSetter[0] === 'O' ? amount / 100 : amount;
@@ -479,7 +389,7 @@ export default {
       const req = new armApi.MoveToPositionRequest();
       req.setName(name.name);
       req.setTo(newPose);
-      armService.moveToPosition(req, {}, this.grpcCallback);
+      window.armService.moveToPosition(req, new grpc.Metadata(), this.grpcCallback);
     },
     armJointInc(name, field, amount) {
       const arm = this.rawResourceStatusByName(name);
@@ -490,7 +400,7 @@ export default {
       const req = new armApi.MoveToJointPositionsRequest();
       req.setName(name.name);
       req.setPositions(newPositionDegs);
-      armService.moveToJointPositions(req, {}, this.grpcCallback);
+      window.armService.moveToJointPositions(req, new grpc.Metadata(), this.grpcCallback);
     },
     armHome(name) {
       const arm = this.rawResourceStatusByName(name);
@@ -503,16 +413,18 @@ export default {
       const req = new armApi.MoveToJointPositionsRequest();
       req.setName(name.name);
       req.setPositions(newPositionDegs);
-      armService.moveToJointPositions(req, {}, this.grpcCallback);
+      window.armService.moveToJointPositions(req, {}, this.grpcCallback);
     },
     armModifyAll(name) {
       const arm = this.resourceStatusByName(name);
-      const n = { pos_pieces: [], joint_pieces: [] };
+      const n = {
+        pos_pieces: [],
+        joint_pieces: [],
+      };
       for (let i = 0; i < arm.pos_pieces.length; i++) {
         n.pos_pieces.push({
           endPosition: arm.pos_pieces[i].endPosition,
           endPositionValue: roundTo2Decimals(arm.pos_pieces[i].endPositionValue),
-
         });
       }
       for (let i = 0; i < arm.joint_pieces.length; i++) {
@@ -555,33 +467,33 @@ export default {
       const req = new armApi.MoveToJointPositionsRequest();
       req.setName(name.name);
       req.setPositions(newPositionDegs);
-      armService.moveToJointPositions(req, {}, this.grpcCallback);
+      window.armService.moveToJointPositions(req, new grpc.Metadata(), this.grpcCallback);
       delete this.armToggle[name.name];
     },
     armStop(name) {
       const request = new armApi.StopRequest();
       request.setName(name);
-      armService.stop(request, {}, this.grpcCallback);
+      window.armService.stop(request, new grpc.Metadata(), this.grpcCallback);
     },
     gripperAction(name, action) {
       let req;
       switch (action) {
-      case 'open':
-        req = new gripperApi.OpenRequest();
-        req.setName(name);
-        gripperService.open(req, {}, this.grpcCallback);
-        break;
-      case 'grab':
-        req = new gripperApi.GrabRequest();
-        req.setName(name);
-        gripperService.grab(req, {}, this.grpcCallback);
-        break;
+        case 'open':
+          req = new gripperApi.OpenRequest();
+          req.setName(name);
+          window.gripperService.open(req, new grpc.Metadata(), this.grpcCallback);
+          break;
+        case 'grab':
+          req = new gripperApi.GrabRequest();
+          req.setName(name);
+          window.gripperService.grab(req, new grpc.Metadata(), this.grpcCallback);
+          break;
       }
     },
     gripperStop(name) {
       const request = new gripperApi.StopRequest();
       request.setName(name);
-      gripperService.stop(request, {}, this.grpcCallback);
+      window.gripperService.stop(request, new grpc.Metadata(), this.grpcCallback);
     },
     servoMove(name, amount) {
       const servo = this.rawResourceStatusByName(name);
@@ -590,22 +502,22 @@ export default {
       const req = new servoApi.MoveRequest();
       req.setName(name.name);
       req.setAngleDeg(angle);
-      servoService.move(req, {}, this.grpcCallback);
+      window.servoService.move(req, {}, this.grpcCallback);
     },
     servoStop(name) {
       ServoControlHelper.stop(name, (err, resp) => this.grpcCallback(err, resp));
     },
     motorCommand(name, inputs) {
       switch (inputs.type) {
-      case 'go':
-        MotorControlHelper.setPower(name, inputs.power * inputs.direction / 100, this.grpcCallback);
-        break;
-      case 'goFor':
-        MotorControlHelper.goFor(name, inputs.rpm * inputs.direction, inputs.revolutions, this.grpcCallback);
-        break;
-      case 'goTo':
-        MotorControlHelper.goTo(name, inputs.rpm, inputs.position, this.grpcCallback);
-        break;
+        case 'go':
+          MotorControlHelper.setPower(name, inputs.power * inputs.direction / 100, this.grpcCallback);
+          break;
+        case 'goFor':
+          MotorControlHelper.goFor(name, inputs.rpm * inputs.direction, inputs.revolutions, this.grpcCallback);
+          break;
+        case 'goTo':
+          MotorControlHelper.goTo(name, inputs.rpm, inputs.position, this.grpcCallback);
+          break;
       }
     },
     motorStop(name) {
@@ -632,12 +544,12 @@ export default {
       );
     },
     inputInject(req) {
-      inputControllerService.triggerEvent(req, {}, this.grpcCallback);
+      window.inputControllerService.triggerEvent(req, new grpc.Metadata(), this.grpcCallback);
     },
     killOp(id) {
-      const req = new robotApi.KillOperationRequest();
+      const req = new robotApi.CancelOperationRequest();
       req.setId(id);
-      window.robotService.killOperation(req, {}, this.grpcCallback);
+      window.robotService.cancelOperation(req, new grpc.Metadata(), this.grpcCallback);
     },
     baseKeyboardCtl(name, controls) {
       if (Object.values(controls).every((item) => item === false)) {
@@ -656,7 +568,7 @@ export default {
     handleBaseActionStop(name) {
       const req = new baseApi.StopRequest();
       req.setName(name);
-      baseService.stop(req, {}, this.grpcCallback);
+      window.baseService.stop(req, new grpc.Metadata(), this.grpcCallback);
     },
     handleBaseSpin(name, event) {
       BaseControlHelper.spin(name, 
@@ -689,7 +601,7 @@ export default {
       req.setName(cameraName);
       const mimeType = 'image/jpeg';
       req.setMimeType(mimeType);
-      cameraService.renderFrame(req, {}, (err, resp) => {
+      window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           return;
@@ -698,14 +610,15 @@ export default {
         window.open(URL.createObjectURL(blob), '_blank');
       });
     },
-    viewCameraFrame(time) {
+    viewCameraFrame(cameraName, time) {
       clearInterval(this.cameraFrameIntervalId);
-      const cameraName = this.streamNames[0];
       if (time === 'manual') {
+        this.viewCamera(cameraName, false);
         this.viewManualFrame(cameraName);
       } else if (time === 'live') {
-        this.viewCamera(cameraName);
+        this.viewCamera(cameraName, true);
       } else {
+        this.viewCamera(cameraName, false);
         this.viewIntervalFrame(cameraName, time);
       }
     },
@@ -714,7 +627,7 @@ export default {
       req.setName(cameraName);
       const mimeType = 'image/jpeg';
       req.setMimeType(mimeType);
-      cameraService.renderFrame(req, {}, (err, resp) => {
+      window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           return;
@@ -738,7 +651,7 @@ export default {
         const req = new cameraApi.RenderFrameRequest();
         req.setName(cameraName);
         req.setMimeType('image/jpeg');
-        cameraService.renderFrame(req, {}, (err, resp) => {
+        window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
           this.grpcCallback(err, resp, false);
           if (err) {
             return;
@@ -768,7 +681,7 @@ export default {
         const req = new cameraApi.GetPointCloudRequest();
         req.setName(cameraName);
         req.setMimeType('pointcloud/pcd');
-        cameraService.getPointCloud(req, {}, (err, resp) => {
+        window.cameraService.getPointCloud(req, new grpc.Metadata(), (err, resp) => {
           this.grpcCallback(err, resp, false);
           if (err) {
             return;
@@ -781,25 +694,25 @@ export default {
 
       this.getSegmenterNames();
     },
-    updateSLAMImageRefreshFrequency(time) {
+    updateSLAMImageRefreshFrequency(name, time) {
       clearInterval(this.slamImageIntervalId);
       if (time === 'manual') {
-        this.viewSLAMImageMap();
+        this.viewSLAMImageMap(name);
       } else if (time === 'off') {
         // do nothing
       } else {
-        this.viewSLAMImageMap();
+        this.viewSLAMImageMap(name);
         this.slamImageIntervalId = window.setInterval(() => {
-          this.viewSLAMImageMap();
+          this.viewSLAMImageMap(name);
         }, Number(time) * 1000);
       }
     },
-    viewSLAMImageMap() {
+    viewSLAMImageMap(name) {
       const req = new slamApi.GetMapRequest();
-      req.setName('UI');
+      req.setName(name);
       req.setMimeType('image/jpeg');
       req.setIncludeRobotMarker(true);
-      slamService.getMap(req, {}, (err, resp) => {
+      window.slamService.getMap(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           return;
@@ -808,28 +721,28 @@ export default {
         this.imageMapTemp = URL.createObjectURL(blob);
       });
     },
-    updateSLAMPCDRefreshFrequency(time, load) {
+    updateSLAMPCDRefreshFrequency(name, time, load) {
       clearInterval(this.slamPCDIntervalId);
       if (time === 'manual') {
-        this.viewSLAMPCDMap(load);
+        this.viewSLAMPCDMap(name, load);
       } else if (time === 'off') {
         // do nothing
       } else {
-        this.viewSLAMPCDMap(load);
+        this.viewSLAMPCDMap(name, load);
         this.slamPCDIntervalId = window.setInterval(() => {
           this.viewSLAMPCDMap();
         }, Number(time) * 1000);
       }
     },
-    viewSLAMPCDMap(load) {
+    viewSLAMPCDMap(name, load) {
       this.$nextTick(() => {
         const req = new slamApi.GetMapRequest();
-        req.setName('UI');
+        req.setName(name);
         req.setMimeType('pointcloud/pcd');
         if (load) {
           this.initPCD();
         }
-        slamService.getMap(req, {}, (err, resp) => {
+        window.slamService.getMap(req, new grpc.Metadata(), (err, resp) => {
           this.grpcCallback(err, resp, false);
           if (err) {
             return;
@@ -842,6 +755,7 @@ export default {
     },
     getReadings(sensorNames) {
       const req = new sensorsApi.GetReadingsRequest();
+      const sensorsName = filterResources(this.resources, 'rdk', 'service', 'sensors')[0];
       const names = sensorNames.map((name) => {
         const resourceName = new commonApi.ResourceName();
         resourceName.setNamespace(name.namespace);
@@ -850,15 +764,23 @@ export default {
         resourceName.setName(name.name);
         return resourceName;
       });
+      req.setName(sensorsName.name);
       req.setSensorNamesList(names);
-      sensorsService.getReadings(req, {}, (err, resp) => {
+      window.sensorsService.getReadings(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           return;
         }
+
         for (const r of resp.getReadingsList()) {
-          const readings = r.getReadingsList().map((v) => v.toJavaScript());
-          this.sensorReadings[resourceNameToString(r.getName().toObject())] = readings;
+          const readings = r.getReadingsMap();
+          const rr = {};
+
+          for (const [k, v] of readings.entries()) {
+            rr[k] = v.toJavaScript();
+          }
+          
+          this.sensorReadings[resourceNameToString(r.getName().toObject())] = rr;
         }
       });
     },
@@ -932,6 +854,9 @@ export default {
 
       const req = new motionApi.MoveRequest();
       const cameraPoint = new commonApi.Pose();
+      // We are deliberately just getting the first motion service to ensure this will not break.
+      // May want to allow for more services in the future
+      const motionName = filterResources(this.resources, 'rdk', 'services', 'motion')[0];
       cameraPoint.setX(cameraPointX);
       cameraPoint.setY(cameraPointY);
       cameraPoint.setZ(cameraPointZ);
@@ -940,6 +865,7 @@ export default {
       pose.setReferenceFrame(cameraName);
       pose.setPose(cameraPoint);
       req.setDestination(pose);
+      req.setName(motionName);
       const componentName = new commonApi.ResourceName();
       componentName.setNamespace(gripperName.namespace);
       componentName.setType(gripperName.type);
@@ -948,7 +874,7 @@ export default {
       req.setComponentName(componentName);
       console.log(`making move attempt using ${gripperName}`);
 
-      motionService.move(req, {}, (err, resp) => {
+      window.motionService.move(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp);
         if (err) {
           return Promise.reject(err);
@@ -962,13 +888,18 @@ export default {
       this.pcdClick.calculatingSegments = true;
       this.pcdClick.foundSegments = false;
       const req = new visionApi.GetObjectPointCloudsRequest();
+      // We are deliberately just getting the first vision service to ensure this will not break.
+      // May want to allow for more services in the future
+      const visionName = filterResources(this.resources, 'rdk', 'services', 'vision')[0];
+      
+      req.setName(visionName);
       req.setCameraName(pcdGlobal.cameraName);
       req.setSegmenterName(segmenterName);
       req.setParameters(proto.google.protobuf.Struct.fromJavaScript(segmenterParams));
       const mimeType = 'pointcloud/pcd';
       req.setMimeType(mimeType);
       console.log('finding object segments...');
-      visionService.getObjectPointClouds(req, {}, (err, resp) => {
+      window.visionService.getObjectPointClouds(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           console.log('error getting segments');
@@ -1027,43 +958,92 @@ export default {
     },
     doSelectObject(selection, index) {
       switch (selection) {
-      case 'Center Point':
-        this.doSegmentLoad(index);
-        break;
-      case 'Bounding Box':
-        this.doBoundingBoxLoad(index);
-        break;
-      case 'Cropped':
-        this.doPointLoad(index);
-        break;
-      default:
-        break;
+        case 'Center Point':
+          this.doSegmentLoad(index);
+          break;
+        case 'Bounding Box':
+          this.doBoundingBoxLoad(index);
+          break;
+        case 'Cropped':
+          this.doPointLoad(index);
+          break;
+        default:
+          break;
       }
     },
-    viewCamera(name) {
+    viewCamera(name, isOn) {
       const streamName = normalizeRemoteName(name);
       const streamContainer = document.querySelector(`#stream-${streamName}`);
-      const req = new streamApi.AddStreamRequest();
+
+      if (isOn) {
+        const req = new streamApi.AddStreamRequest();
+        req.setName(name);
+        window.streamService.addStream(req, new grpc.Metadata(), (err, resp) => {
+          this.grpcCallback(err, resp, false);
+          if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
+            streamContainer.querySelectorAll('img')[0].remove();
+          }
+          if (err) {
+            this.error = 'no live camera device found';
+            
+          }
+        });
+        return;
+      }
+
+      const req = new streamApi.RemoveStreamRequest();
       req.setName(name);
-      streamService.addStream(req, {}, (err, resp) => {
+      window.streamService.removeStream(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
           streamContainer.querySelectorAll('img')[0].remove();
         }
         if (err) {
           this.error = 'no live camera device found';
-          
         }
       });
     },
-    viewPreviewCamera(name) {
-      const req = new streamApi.AddStreamRequest();
+    viewPreviewCamera(name, isOn) {
+      if (isOn) {
+        const req = new streamApi.AddStreamRequest();
+        req.setName(name);
+        window.streamService.addStream(req, new grpc.Metadata(), (err, resp) => {
+          this.grpcCallback(err, resp, false);
+          if (err) {
+            this.error = 'no live camera device found';
+            
+          }
+        });
+        return;
+      }
+      const req = new streamApi.RemoveStreamRequest();
       req.setName(name);
-      streamService.addStream(req, {}, (err, resp) => {
+      window.streamService.removeStream(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           this.error = 'no live camera device found';
-          
+        }
+      });
+    },
+    listenAudioInput(name, isOn) {
+      if (isOn) {
+        const req = new streamApi.AddStreamRequest();
+        req.setName(name);
+        window.streamService.addStream(req, new grpc.Metadata(), (err, resp) => {
+          this.grpcCallback(err, resp, false);
+          if (err) {
+            this.error = 'no live audio input device found';
+          }
+        });
+        return;
+      }
+
+      const req = new streamApi.RemoveStreamRequest();
+      req.setName(name);
+      window.streamService.removeStream(req, new grpc.Metadata(), (err, resp) => {
+        this.grpcCallback(err, resp, false);
+        if (err) {
+          this.error = 'no live audio input device found';
         }
       });
     },
@@ -1134,7 +1114,7 @@ export default {
         let resourcesChanged = false;
         let shouldRestartStatusStream = false;
 
-        window.robotService.resourceNames(new robotApi.ResourceNamesRequest(), {}, (err, resp) => {
+        window.robotService.resourceNames(new robotApi.ResourceNamesRequest(), new grpc.Metadata(), (err, resp) => {
           if (err) {
             reject(err);
             return;
@@ -1171,22 +1151,25 @@ export default {
               }
             }
           }
-
+          
+          this.resources = resources;
           if (resourcesChanged === true) {
             this.querySensors();
-
             if (shouldRestartStatusStream === true) {
               this.restartStatusStream();
             }
           }
-
-          this.resources = resources;
           resolve(this.resources);
         });
       });
     },
     querySensors() {
-      sensorsService.getSensors(new sensorsApi.GetSensorsRequest(), {}, (err, resp) => {
+      // We are deliberately just getting the first sensors service to ensure this will not break.
+      // May want to allow for more services in the future
+      const sensorsName = filterResources(this.resources, 'rdk', 'service', 'sensors')[0];
+      const req = new sensorsApi.GetSensorsRequest();
+      req.setName(sensorsName.name);
+      window.sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
           return;
@@ -1198,7 +1181,7 @@ export default {
       return new Promise((resolve, reject) => {  
         const req = new robotApi.GetOperationsRequest();
 
-        window.robotService.getOperations(req, {}, (err, resp) => {
+        window.robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
           if (err) {
             reject(err);
             return;
@@ -1244,16 +1227,16 @@ export default {
 
       const authElems = [];
       const disableAll = () => {
-        for (elem of authElems) {
+        for (const elem of authElems) {
           elem.disabled = true;
         }
       };
       const enableAll = () => {
-        for (elem of authElems) {
+        for (const elem of authElems) {
           elem.disabled = false;
         }
       };
-      for (authType of window.supportedAuthTypes) {
+      for (const authType of window.supportedAuthTypes) {
         const authDiv = document.querySelector(`#auth-${authType}`);
         const input = authDiv.querySelectorAll('input')[0];
         const button = authDiv.querySelectorAll('button')[0];
@@ -1272,30 +1255,12 @@ export default {
         });
       }
     },
-    queryStreams() {
-      return new Promise((resolve, reject) => {
-        streamService.listStreams(new streamApi.ListStreamsRequest(), {}, (err, resp) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-
-          if (!resp) {
-            reject(null);
-            return;
-          }
-
-          const streamNames = resp.toObject().namesList;
-          this.streamNames = streamNames;
-          resolve(this.streamNames);
-        });
-      });
-    },
     initPCDIfNeeded() {
       if (pcdGlobal) {
         return;
       }
-      initPCD();
+      
+      this.initPCD();
     },
     initPCD() {
       this.pcdClick.enable = true;
@@ -1360,12 +1325,12 @@ export default {
           const req = new movementsensorApi.GetOrientationRequest();
           req.setName(name);
 
-          movementsensorService.getOrientation(req, {}, (err, resp) => {
+          window.movementsensorService.getOrientation(req, new grpc.Metadata(), (err, resp) => {
             if (err) {
               console.log(err);
               return;
             }
-              this.movementsensorData[name].orientation = resp.toObject().orientation;
+            this.movementsensorData[name].orientation = resp.toObject().orientation;
           });
         }
 
@@ -1373,19 +1338,20 @@ export default {
           const req = new movementsensorApi.GetAngularVelocityRequest();
           req.setName(name);
 
-          movementsensorService.getAngularVelocity(req, {}, (err, resp) => {
+          window.movementsensorService.getAngularVelocity(req, new grpc.Metadata(), (err, resp) => {
             if (err) {
               console.log(err);
               return;
-              }
+            }
             this.movementsensorData[name].angularVelocity = resp.toObject().angularVelocity;
           });
-          }
+        }
+
         {
           const req = new movementsensorApi.GetLinearVelocityRequest();
           req.setName(name);
 
-          movementsensorService.getLinearVelocity(req, {}, (err, resp) => {
+          window.movementsensorService.getLinearVelocity(req, new grpc.Metadata(), (err, resp) => {
             if (err) {
               console.log(err);
               return;
@@ -1398,7 +1364,7 @@ export default {
           const req = new movementsensorApi.GetCompassHeadingRequest();
           req.setName(name);
 
-          movementsensorService.getCompassHeading(req, {}, (err, resp) => {
+          window.movementsensorService.getCompassHeading(req, new grpc.Metadata(), (err, resp) => {
             if (err) {
               console.log(err);
               return;
@@ -1407,34 +1373,34 @@ export default {
           });
         }
 
-          {
+        {
           const req = new movementsensorApi.GetPositionRequest();
           req.setName(name);
 
-          movementsensorService.getPosition(req, {}, (err, resp) => {
+          window.movementsensorService.getPosition(req, new grpc.Metadata(), (err, resp) => {
             if (err) {
               console.log(err);
               return;
             }
-              var temp = resp.toObject();
-              this.movementsensorData[name].coordinate = temp.coordinate;
-              this.movementsensorData[name].altitudeMm = temp.altitudeMm;
+            const temp = resp.toObject();
+            this.movementsensorData[name].coordinate = temp.coordinate;
+            this.movementsensorData[name].altitudeMm = temp.altitudeMm;
           });
-          }
+        }
 
-          {
+        {
           const req = new movementsensorApi.GetPropertiesRequest();
           req.setName(name);
 
-          movementsensorService.getProperties(req, {}, (err, resp) => {
+          window.movementsensorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
             if (err) {
               console.log(err);
               return;
             }
-              var temp = resp.toObject();
-              this.movementsensorData[name].properties = temp;
+            const temp = resp.toObject();
+            this.movementsensorData[name].properties = temp;
           });
-          }
+        }
 
       }
 
@@ -1454,6 +1420,7 @@ export default {
           rawStatus[nameStr] = statusJs;
           status[nameStr] = fixed;
         } catch (error) {
+          console.log(error)
           toast.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`, error);
         }
       }
@@ -1617,52 +1584,50 @@ function setBoundingBox(box, centerPoint) {
     </div>
 
     <!-- ******* BASE *******  -->
-    <div
+    <template
       v-for="base in filterResources(resources, 'rdk', 'component', 'base')"
       :key="base.name"
-      class="base"
     >
-      <div v-if="streamNames.length === 0">
-        <div class="camera">
-          <BaseComponent
-            :base-name="base.name"
-            :connected-camera="false"
-            :crumbs="['base', base.name]"
-            @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
-            @base-spin="handleBaseSpin(base.name, $event)"
-            @base-straight="handleBaseStraight(base.name, $event)"
-            @base-stop="handleBaseActionStop(base.name)"
-          />
-        </div>
-      </div>
-      <div v-else>
-        <div
-          v-for="streamName in streamNames"
-          :key="streamName"
-          class="camera"
-        >
-          <BaseComponent
-            :base-name="base.name"
-            :stream-name="streamName"
-            :crumbs="['base', base.name]"
-            :connected-camera="true"
-            @base-change-tab="viewPreviewCamera(streamName)"
-            @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
-            @base-spin="handleBaseSpin(base.name, $event)"
-            @base-straight="handleBaseStraight(base.name, $event)"
-            @base-stop="handleBaseActionStop(base.name)"
-            @show-base-camera="viewPreviewCamera(streamName)"
-          />
-        </div>
-      </div>
-    </div>
+      <template v-if="filterResources(resources, 'rdk', 'component', 'camera').length === 0">
+        <BaseComponent
+          :base-name="base.name"
+          :connected-camera="false"
+          :crumbs="['base']"
+          @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
+          @base-spin="handleBaseSpin(base.name, $event)"
+          @base-straight="handleBaseStraight(base.name, $event)"
+          @base-stop="handleBaseActionStop(base.name)"
+        />
+      </template>
+      <template v-else>
+        <BaseComponent
+          v-for="camera in filterResources(resources, 'rdk', 'component', 'camera')"
+          :key="camera.name"
+          :base-name="base.name"
+          :stream-name="camera.name"
+          :crumbs="['base']"
+          :connected-camera="true"
+          @base-change-tab="viewPreviewCamera(camera.name)"
+          @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
+          @base-spin="handleBaseSpin(base.name, $event)"
+          @base-straight="handleBaseStraight(base.name, $event)"
+          @base-stop="handleBaseActionStop(base.name)"
+          @show-base-camera="viewPreviewCamera(camera.name)"
+        />
+      </template>
+    </template>
 
     <!-- ******* GANTRY *******  -->
     <v-collapse
       v-for="gantry in filterRdkComponentsWithStatus(resources, status, 'gantry')"
       :key="gantry.name"
-      :title="`Gantry ${gantry.name}`"
+      :title="gantry.name"
+      class="gantry"
     >
+      <v-breadcrumbs
+        slot="title"
+        :crumbs="['gantry'].join(',')"
+      />
       <div
         slot="header"
         class="flex items-center justify-between gap-2"
@@ -1729,16 +1694,24 @@ function setBoundingBox(box, centerPoint) {
         </table>
       </div>
     </v-collapse>
+
     <!-- ******* MovementSensor *******  -->
     <v-collapse
       v-for="movementsensor in filterResources(resources, 'rdk', 'component', 'movement_sensor')"
       :key="movementsensor.name"
-      :title="`MovementSensor: ${movementsensor.name}`"
+      :title="movementsensor.name"
+      class="movement"
     >
+      <v-breadcrumbs
+        slot="title"
+        :crumbs="['movement_sensor'].join(',')"
+      />
       <div class="flex items-end border border-t-0 border-black p-4">
         <template v-if="movementsensorData[movementsensor.name] && movementsensorData[movementsensor.name].properties">
-
-          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.positionSupported">
+          <div
+            v-if="movementsensorData[movementsensor.name].properties.positionSupported"
+            class="mr-4 w-1/4"
+          >
             <h3 class="mb-1">
               Position
             </h3>
@@ -1748,7 +1721,7 @@ function setBoundingBox(box, centerPoint) {
                   Latitude
                 </th>
                 <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].coordinate?.latitude.toFixed(6)}}
+                  {{ movementsensorData[movementsensor.name].coordinate?.latitude.toFixed(6) }}
                 </td>
               </tr>
               <tr>
@@ -1756,7 +1729,7 @@ function setBoundingBox(box, centerPoint) {
                   Longitude
                 </th>
                 <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].coordinate?.longitude.toFixed(6)}}
+                  {{ movementsensorData[movementsensor.name].coordinate?.longitude.toFixed(6) }}
                 </td>
               </tr>
               <tr>
@@ -1768,9 +1741,13 @@ function setBoundingBox(box, centerPoint) {
                 </td>
               </tr>
             </table>
+            <a :href="'https://www.google.com/maps/search/' + movementsensorData[movementsensor.name].coordinate?.latitude + ',' + movementsensorData[movementsensor.name].coordinate?.longitude">google maps</a>
           </div>
 
-          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.orientationSupported">
+          <div
+            v-if="movementsensorData[movementsensor.name].properties.orientationSupported"
+            class="mr-4 w-1/4"
+          >
             <h3 class="mb-1">
               Orientation (degrees)
             </h3>
@@ -1810,7 +1787,10 @@ function setBoundingBox(box, centerPoint) {
             </table>
           </div>
                 
-          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.angularVelocitySupported">
+          <div
+            v-if="movementsensorData[movementsensor.name].properties.angularVelocitySupported"
+            class="mr-4 w-1/4"
+          >
             <h3 class="mb-1">
               Angular Velocity (degrees/second)
             </h3>
@@ -1842,7 +1822,10 @@ function setBoundingBox(box, centerPoint) {
             </table>
           </div>
 
-          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.linearVelocitySupported">
+          <div
+            v-if="movementsensorData[movementsensor.name].properties.linearVelocitySupported"
+            class="mr-4 w-1/4"
+          >
             <h3 class="mb-1">
               Linear Velocity
             </h3>
@@ -1874,7 +1857,10 @@ function setBoundingBox(box, centerPoint) {
             </table>
           </div>
 
-          <div class="mr-4 w-1/4" v-if="movementsensorData[movementsensor.name].properties.compassHeadingSupported">
+          <div
+            v-if="movementsensorData[movementsensor.name].properties.compassHeadingSupported"
+            class="mr-4 w-1/4"
+          >
             <h3 class="mb-1">
               Compass Heading
             </h3>
@@ -1889,7 +1875,6 @@ function setBoundingBox(box, centerPoint) {
               </tr>
             </table>
           </div>
-          
         </template>
       </div>
     </v-collapse>
@@ -1898,8 +1883,13 @@ function setBoundingBox(box, centerPoint) {
     <v-collapse
       v-for="arm in filterResources(resources, 'rdk', 'component', 'arm')"
       :key="arm.name"
-      :title="`Arm ${arm.name}`"
+      :title="arm.name"
+      class="arm"
     >
+      <v-breadcrumbs
+        slot="title"
+        :crumbs="['arm'].join(',')"
+      />
       <div
         slot="header"
         class="flex items-center justify-between gap-2"
@@ -2087,8 +2077,13 @@ function setBoundingBox(box, centerPoint) {
     <v-collapse
       v-for="gripper in filterResources(resources, 'rdk', 'component', 'gripper')"
       :key="gripper.name"
-      :title="`Gripper ${gripper.name}`"
+      :title="gripper.name"
+      class="gripper"
     >
+      <v-breadcrumbs
+        slot="title"
+        :crumbs="['gripper'].join(',')"
+      />
       <div
         slot="header"
         class="flex items-center justify-between gap-2"
@@ -2118,6 +2113,7 @@ function setBoundingBox(box, centerPoint) {
       :key="servo.name"
       :servo-name="servo.name"
       :servo-angle="resourceStatusByName(servo).positionDeg"
+      :crumbs="['servo']"
       @servo-move="(amount) => servoMove(servo, amount)"
       @servo-stop="servoStop(servo.name)"
     />
@@ -2127,7 +2123,7 @@ function setBoundingBox(box, centerPoint) {
       v-for="motor in filterRdkComponentsWithStatus(resources, status, 'motor')"
       :key="'new-' + motor.name" 
       :motor-name="motor.name" 
-      :crumbs="['motor', motor.name]" 
+      :crumbs="['motor']" 
       :motor-status="resourceStatusByName(motor)"
       @motor-run="motorCommand(motor.name, $event)"
       @motor-stop="motorStop(motor.name)"
@@ -2139,6 +2135,8 @@ function setBoundingBox(box, centerPoint) {
       :key="'new-' + controller.name"
       :controller-name="controller.name"
       :controller-status="resourceStatusByName(controller)"
+      :crumbs="['input_controller']"
+      class="input"
     />
 
     <!-- ******* WEB CONTROLS *******  -->
@@ -2152,8 +2150,13 @@ function setBoundingBox(box, centerPoint) {
     <v-collapse
       v-for="board in filterRdkComponentsWithStatus(resources, status, 'board')"
       :key="board.name"
-      :title="`Board ${board.name}`"
+      :title="board.name"
+      class="board"
     >
+      <v-breadcrumbs
+        slot="title"
+        :crumbs="['board'].join(',')"
+      />
       <div class="border border-t-0 border-black p-4">
         <h3 class="mb-2">
           Analogs
@@ -2276,10 +2279,55 @@ function setBoundingBox(box, centerPoint) {
       </div>
     </v-collapse>
 
-    <!-- sensors -->
+    <!-- ******* CAMERAS *******  -->
+    <Camera
+      v-for="camera in filterResources(resources, 'rdk', 'component', 'camera')"
+      :key="camera.name"
+      :stream-name="camera.name"
+      :crumbs="[camera.name]"
+      :x="pcdClick.x"
+      :y="pcdClick.y"
+      :z="pcdClick.z"
+      :pcd-click="pcdClick"
+      :segmenter-names="segmenterNames"
+      :segmenter-parameters="segmenterParameters"
+      :segmenter-parameter-names="segmenterParameterNames"
+      :parameter-type="parameterType"
+      :segment-algo="segmentAlgo"
+      :segment-objects="objects"
+      :find-status="pcdClick.calculatingSegments"
+      @full-image="doPCDLoad(fullcloud)"
+      @center-pcd="doCenterPCDLoad(fullcloud)"
+      @find-segments="findSegments(segmentAlgo, segmenterParameters)"
+      @change-segmenter="getSegmenterParameters"
+      @toggle-camera="isOn => { viewCamera(camera.name, isOn) }"
+      @refresh-camera="t => { viewCameraFrame(camera.name, t) }"
+      @selected-camera-view="t => { viewCameraFrame(camera.name, t) }"
+      @toggle-pcd="renderPCD(camera.name)"
+      @pcd-click="grabClick"
+      @pcd-move="doPCDMove"
+      @point-load="doPointLoad"
+      @segment-load="doSegmentLoad"
+      @bounding-box-load="doBoundingBoxLoad"
+      @download-screenshot="renderFrame(camera.name)"
+      @download-raw-data="doPCDDownload(fullcloud)"
+      @select-object="doSelectObject"
+      @segmenter-parameters-input="(name, value) => segmenterParameters[name] = Number(value)"
+    />
+
+    <!-- ******* NAVIGATION ******* -->
+    <Navigation
+      v-for="nav in filterResources(resources, 'rdk', 'service', 'navigation')"
+      :key="nav.name"
+      :resources="nav.resources"
+      :name="nav.name"
+    />
+
+    <!-- ******* SENSORS ******* -->
     <v-collapse
       v-if="nonEmpty(sensorNames)"
       title="Sensors"
+      class="sensors"
     >
       <div class="border border-t-0 border-black p-4">
         <table class="w-full table-auto border border-black">
@@ -2312,7 +2360,21 @@ function setBoundingBox(box, centerPoint) {
               {{ name.subtype }}
             </td>
             <td class="border border-black p-2">
-              {{ sensorReadings[resourceNameToString(name)] }}
+              <table style="font-size:.7em; text-align: left;">
+                <tr
+                  v-for="(sensorValue, sensorField) in sensorReadings[resourceNameToString(name)]"
+                  :key="sensorField"
+                >
+                  <th>{{ sensorField }}</th>
+                  <td>
+                    {{ sensorValue }}
+                    <a
+                      v-if="sensorValue._type == 'geopoint'"
+                      :href="'https://www.google.com/maps/search/' + sensorValue.lat + ',' + sensorValue.lng"
+                    >google maps</a>
+                  </td>
+                </tr>
+              </table>
             </td>
             <td class="border border-black p-2 text-center">
               <v-button
@@ -2326,14 +2388,33 @@ function setBoundingBox(box, centerPoint) {
       </div>
     </v-collapse>
 
-    <!-- get segments -->
-    <Navigation
-      v-if="filterResources(resources, 'rdk', 'service', 'navigation').length > 0"
-      :resources="resources"
+    <!-- ******* AUDIO INPUTS *******  -->
+    <AudioInput
+      v-for="audioInput in filterResources(resources, 'rdk', 'component', 'audio_input')"
+      :key="audioInput.name"
+      :stream-name="audioInput.name"
+      :crumbs="[audioInput.name]"
+      @toggle-input="isOn => { listenAudioInput(audioInput.name, isOn) }"
     />
 
-    <!-- current operations -->
-    <v-collapse title="Current Operations">
+    <!-- ******* SLAM *******  -->
+    <Slam
+      v-for="slam in filterResources(resources, 'rdk', 'service', 'slam')"
+      :key="slam.name"
+      :name="slam.name"
+      :image-map="imageMapTemp"
+      @update-slam-image-refresh-frequency="updateSLAMImageRefreshFrequency"
+      @update-slam-pcd-refresh-frequency="updateSLAMPCDRefreshFrequency"
+    />
+
+    <!-- ******* DO ******* -->
+    <Do :resources="filterResourcesWithNames(resources)" />
+
+    <!-- ******* CURRENT OPERATIONS ******* -->
+    <v-collapse
+      title="Current Operations"
+      class="operations"
+    >
       <div class="border border-t-0 border-black p-4">
         <table class="w-full table-auto border border-black">
           <tr>
@@ -2371,53 +2452,6 @@ function setBoundingBox(box, centerPoint) {
         </table>
       </div>
     </v-collapse>
-
-    <!-- ******* CAMERAS *******  -->
-    <Camera
-      v-for="streamName in streamNames"
-      :key="streamName"
-      :stream-name="streamName"
-      :crumbs="[streamName]"
-      :x="pcdClick.x"
-      :y="pcdClick.y"
-      :z="pcdClick.z"
-      :pcd-click="pcdClick"
-      :segmenter-names="segmenterNames"
-      :segmenter-parameters="segmenterParameters"
-      :segmenter-parameter-names="segmenterParameterNames"
-      :parameter-type="parameterType"
-      :segment-algo="segmentAlgo"
-      :segment-objects="objects"
-      :find-status="pcdClick.calculatingSegments"
-      @full-image="doPCDLoad(fullcloud)"
-      @center-pcd="doCenterPCDLoad(fullcloud)"
-      @find-segments="findSegments(segmentAlgo, segmenterParameters)"
-      @change-segmenter="getSegmenterParameters"
-      @toggle-camera="viewCamera(streamName)"
-      @refresh-camera="viewCameraFrame"
-      @selected-camera-view="viewCameraFrame"
-      @toggle-pcd="renderPCD(streamName)"
-      @pcd-click="grabClick"
-      @pcd-move="doPCDMove"
-      @point-load="doPointLoad"
-      @segment-load="doSegmentLoad"
-      @bounding-box-load="doBoundingBoxLoad"
-      @download-screenshot="renderFrame(streamName)"
-      @download-raw-data="doPCDDownload(fullcloud)"
-      @select-object="doSelectObject"
-      @segmenter-parameters-input="(name, value) => segmenterParameters[name] = Number(value)"
-    />
-
-    <!-- ******* SLAM *******  -->
-    <Slam
-      v-if="filterResources(resources, 'rdk', 'service', 'slam').length > 0"
-      :image-map="imageMapTemp"
-      @update-slam-image-refresh-frequency="updateSLAMImageRefreshFrequency"
-      @update-slam-pcd-refresh-frequency="updateSLAMPCDRefreshFrequency"
-    />
-
-    <!-- ******* DO ******* -->
-    <Do :resources="filterResourcesWithNames(resources)" />
   </div>
 </template>
 
