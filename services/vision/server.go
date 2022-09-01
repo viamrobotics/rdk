@@ -70,7 +70,7 @@ func (server *subtypeServer) AddDetector(
 		return nil, err
 	}
 	params := config.AttributeMap(req.DetectorParameters.AsMap())
-	cfg := DetectorConfig{
+	cfg := VisModelConfig{
 		Name:       req.DetectorName,
 		Type:       req.DetectorModelType,
 		Parameters: params,
@@ -80,6 +80,23 @@ func (server *subtypeServer) AddDetector(
 		return nil, err
 	}
 	return &pb.AddDetectorResponse{}, nil
+}
+
+func (server *subtypeServer) RemoveDetector(
+	ctx context.Context,
+	req *pb.RemoveDetectorRequest,
+) (*pb.RemoveDetectorResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::RemoveDetector")
+	defer span.End()
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	err = svc.RemoveDetector(ctx, req.DetectorName)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.RemoveDetectorResponse{}, nil
 }
 
 func (server *subtypeServer) GetDetections(
@@ -161,6 +178,123 @@ func (server *subtypeServer) GetDetectionsFromCamera(
 	}
 	return &pb.GetDetectionsFromCameraResponse{
 		Detections: protoDets,
+	}, nil
+}
+
+func (server *subtypeServer) GetClassifierNames(
+	ctx context.Context,
+	req *pb.GetClassifierNamesRequest,
+) (*pb.GetClassifierNamesResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetClassifierNames")
+	defer span.End()
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	names, err := svc.GetClassifierNames(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetClassifierNamesResponse{
+		ClassifierNames: names,
+	}, nil
+}
+
+func (server *subtypeServer) AddClassifier(
+	ctx context.Context,
+	req *pb.AddClassifierRequest,
+) (*pb.AddClassifierResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::AddClassifier")
+	defer span.End()
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	params := config.AttributeMap(req.ClassifierParameters.AsMap())
+	cfg := VisModelConfig{
+		Name:       req.ClassifierName,
+		Type:       req.ClassifierModelType,
+		Parameters: params,
+	}
+	err = svc.AddClassifier(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.AddClassifierResponse{}, nil
+}
+
+func (server *subtypeServer) RemoveClassifier(
+	ctx context.Context,
+	req *pb.RemoveClassifierRequest,
+) (*pb.RemoveClassifierResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::RemoveClassifier")
+	defer span.End()
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	err = svc.RemoveDetector(ctx, req.ClassifierName)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.RemoveClassifierResponse{}, nil
+}
+
+func (server *subtypeServer) GetClassifications(
+	ctx context.Context,
+	req *pb.GetClassificationsRequest,
+) (*pb.GetClassificationsResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetClassifications")
+	defer span.End()
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	img, err := rimage.DecodeImage(ctx, req.Image, req.MimeType, int(req.Width), int(req.Height))
+	if err != nil {
+		return nil, err
+	}
+	classifications, err := svc.GetClassifications(ctx, img, req.ClassifierName, int(req.N))
+	if err != nil {
+		return nil, err
+	}
+	protoCs := make([]*pb.Classification, 0, len(classifications))
+	for _, c := range classifications {
+		cc := &pb.Classification{
+			ClassName:  c.Label(),
+			Confidence: c.Score(),
+		}
+		protoCs = append(protoCs, cc)
+	}
+	return &pb.GetClassificationsResponse{
+		Classifications: protoCs,
+	}, nil
+}
+
+func (server *subtypeServer) GetClassificationsFromCamera(
+	ctx context.Context,
+	req *pb.GetClassificationsFromCameraRequest,
+) (*pb.GetClassificationsFromCameraResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetClassificationsFromCamera")
+	defer span.End()
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	classifications, err := svc.GetClassificationsFromCamera(ctx, req.CameraName, req.ClassifierName, int(req.N))
+	if err != nil {
+		return nil, err
+	}
+	protoCs := make([]*pb.Classification, 0, len(classifications))
+	for _, c := range classifications {
+		cc := &pb.Classification{
+			ClassName:  c.Label(),
+			Confidence: c.Score(),
+		}
+		protoCs = append(protoCs, cc)
+	}
+	return &pb.GetClassificationsFromCameraResponse{
+		Classifications: protoCs,
 	}, nil
 }
 
