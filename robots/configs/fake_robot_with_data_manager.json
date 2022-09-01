@@ -30,25 +30,9 @@
         {
             "name": "data_manager1",
             "type": "data_manager",
-            "attributes":
-            {
+            "attributes": {
                 "sync_interval_mins": 0,
                 "capture_dir": "/tmp/capture"
-            }
-        },
-        {
-            "type": "object_detection",
-            "attributes":
-            {
-                "detector_registry": [
-                    {
-                        "name": "detector_1",
-                        "type": "tflite",
-                        "parameters": {
-                           "location": "/home/example_user/model_1"
-                        }
-                    }
-                ]
             }
         }
     ]
