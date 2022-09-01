@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"io/fs"
 	"io/ioutil"
@@ -279,6 +280,8 @@ func TestRecoversAfterKilled(t *testing.T) {
 			resetFolder(t, dir)
 		}
 	}()
+	defer resetFolder(t, captureDir)
+	defer resetFolder(t, armDir)
 	if err != nil {
 		t.Error("unable to generate arbitrary data files and create directory structure for additionalSyncPaths")
 	}
@@ -320,15 +323,9 @@ func TestRecoversAfterKilled(t *testing.T) {
 	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 1+numArbitraryFilesToSync)
 }
 
-// Validates that if the datamanager/robot die unexpectedly, that queued
-// but not downloaded model files are still downloaded at start up.
-func TestModelsAfterKilled(t *testing.T) {
-	// Register mock sync service with a mock server.
-	syncServer, _ := buildAndStartLocalServer(t)
-	defer func() {
-		err := syncServer.Stop()
-		test.That(t, err, test.ShouldBeNil)
-	}()
+// Validates that models can be deployed onto a robot.
+func TestDeployModels(t *testing.T) {
+	deployModelWaitTime := time.Millisecond * 2000
 
 	// Register mock model service with a mock server.
 	modelServer, mockModelService := buildAndStartLocalModelServer(t)
@@ -343,55 +340,35 @@ func TestModelsAfterKilled(t *testing.T) {
 	}
 
 	testCfg := setupConfig(t, configPath)
-
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
-	dmCfg.SyncIntervalMins = configSyncIntervalMins
+	dmCfg.SyncIntervalMins = 0
 	dmCfg.ModelsToDeploy = append(dmCfg.ModelsToDeploy, models...)
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
 
-	// set default manager to connect to local version
+	// Set default manager to connect to local version
 	logger, _ := golog.NewObservedTestLogger(t)
 	modelConn, err := getLocalServerConn(modelServer, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	dmsvc.SetModelrConstructor(getTestModelrConstructor(t, modelServer))
-	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, syncServer))
 	dmsvc.SetClientConn(modelConn)
 
-	// _ = dmsvc.Update(context.TODO(), testCfg)
-	err = dmsvc.Update(context.TODO(), testCfg)
-	test.That(t, err, test.ShouldBeNil)
-
-	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not downloaded.
-	// time.Sleep(time.Millisecond * 250) // do not think I need this
-
-	// Simulate turning off the service.
-	err = dmsvc.Close(context.TODO())
+	err = dmsvc.Update(context.Background(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Validate nothing has been deployed yet.
 	test.That(t, mockModelService.getDeployedModels(), test.ShouldEqual, 0)
-	time.Sleep(2 * time.Second) // hacky?
-
-	// Turn the service back on.
-	dmsvc = newTestDataManager(t, "arm1", "")
-	dmsvc.SetClientConn(modelConn)
-
-	dmsvc.SetModelrConstructor(getTestModelrConstructor(t, modelServer))
-	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, syncServer))
-	dmsvc.SetWaitAfterLastModifiedSecs(0)
-	err = dmsvc.Update(context.TODO(), testCfg)
-	test.That(t, err, test.ShouldBeNil)
+	time.Sleep(deployModelWaitTime) // hacky?
 
 	// Validate that the previously captured file was uploaded at startup.
 	time.Sleep(syncWaitTime)
-	err = dmsvc.Close(context.TODO())
+	err = dmsvc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, mockModelService.getDeployedModels(), test.ShouldEqual, 1)
-	os.Remove(filepath.Join(os.Getenv("HOME"), "models", ".viam", "m1"))
+	os.Remove(filepath.Join(os.Getenv("HOME"), "models", ".viam", models[0].Name))
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
@@ -818,9 +795,11 @@ func (m mockModelServiceServer) getDeployedModels() int {
 	}
 	minus := 0
 	for i := 0; i < len(files); i++ {
+		fmt.Println("names of files", files[i].Name())
 		_, _, modTimeSec := files[i].ModTime().Clock()
 		_, _, timeNowSec := time.Now().Clock()
 		diff := timeNowSec - modTimeSec
+		fmt.Println("diff: ", diff)
 		if diff <= 1 {
 			minus++
 		}

@@ -808,6 +808,7 @@ func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.
 }
 
 func getModelsToDownload(models []*Model) ([]*Model, error) {
+	fmt.Println("CALLED YES OR NO")
 	// Right now, this may not act as expected. It currently checks
 	// if the model folder is empty. If it is, then we proceed to download the model.
 	// I can imagine a scenario where the user specifies a local folder to dump
@@ -826,6 +827,7 @@ func getModelsToDownload(models []*Model) ([]*Model, error) {
 			modelsToDownload = append(modelsToDownload, model)
 			// create model.Destination directory
 			err := os.MkdirAll(model.Destination, os.ModePerm)
+			fmt.Println("DIR SHOULD HAVE BEEN MADE")
 			if err != nil {
 				return nil, err
 			}
