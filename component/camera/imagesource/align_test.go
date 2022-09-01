@@ -89,7 +89,7 @@ func applyAlignment(
 	return alignedPointCloud, proj
 }
 
-// nolint:dupl
+//nolint:dupl
 func TestAlignIntrinsics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
@@ -141,7 +141,7 @@ func TestAlignWarp(t *testing.T) {
 	test.That(t, aligned, test.ShouldNotBeNil)
 }
 
-// nolint:dupl
+//nolint:dupl
 func TestAlignHomography(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)

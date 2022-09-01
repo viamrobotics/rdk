@@ -34,7 +34,7 @@ var (
 )
 
 // Compares UploadRequests containing either binary or tabular sensor data.
-// nolint:thelper
+//nolint:thelper
 func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequest, expected []*v1.UploadRequest) {
 	// Ensure length of slices is same before proceeding with rest of tests.
 	test.That(t, len(actual), test.ShouldEqual, len(expected))
@@ -62,7 +62,7 @@ func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequ
 	}
 }
 
-// nolint:thelper
+//nolint:thelper
 func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
 	expectedMetadata *v1.UploadMetadata,
 ) {

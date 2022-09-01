@@ -4,12 +4,10 @@ package model
 import (
 	"context"
 
-	"go.uber.org/zap"
-
 	"github.com/edaniels/golog"
-	"go.viam.com/utils/rpc"
-
+	"go.uber.org/zap"
 	v1 "go.viam.com/api/proto/viam/model/v1"
+	"go.viam.com/utils/rpc"
 )
 
 // client implements ModelServiceClient.

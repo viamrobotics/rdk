@@ -3,7 +3,7 @@ package inject
 import (
 	"context"
 
-	// modelpb "go.viam.com/api/proto/viam/model/v1"
+	// modelpb "go.viam.com/api/proto/viam/model/v1".
 	"go.viam.com/rdk/services/datamanager"
 )
 

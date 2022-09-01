@@ -25,7 +25,7 @@ const (
 )
 
 // ControlBlockConfig configuration of a given block
-// nolint: revive
+//nolint: revive
 type ControlBlockConfig struct {
 	Name      string              `json:"name"`       // Control Block name
 	Type      controlBlockType    `json:"type"`       // Control Block type
@@ -34,7 +34,7 @@ type ControlBlockConfig struct {
 }
 
 // ControlBlock interface for a control block
-// nolint: revive
+//nolint: revive
 type ControlBlock interface {
 	// Reset will reset the control block to initial state. Returns an error on failure
 	Reset(ctx context.Context) error

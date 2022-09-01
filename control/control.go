@@ -14,7 +14,7 @@ type Controllable interface {
 }
 
 // ControlConfig configuration of the control loop
-// nolint: revive
+//nolint: revive
 type ControlConfig struct {
 	Blocks    []ControlBlockConfig `json:"blocks"`    // Blocks Control Block Config
 	Frequency float64              `json:"frequency"` // Frequency loop Frequency
