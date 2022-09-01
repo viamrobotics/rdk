@@ -137,8 +137,8 @@ func (i *audioInput) MediaProperties(_ context.Context) (prop.Audio, error) {
 	}, nil
 }
 
-// Do allows setting of tone.
-func (i *audioInput) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand allows setting of tone.
+func (i *audioInput) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	newTone, ok := cmd["set_tone_hz"].(float64)

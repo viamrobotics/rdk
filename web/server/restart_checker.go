@@ -44,7 +44,7 @@ func (c *needsRestartCheckerHTTP) needsRestart(ctx context.Context) (bool, time.
 		return false, c.restartInterval, errors.Wrapf(err, "error creating cloud request")
 	}
 	req.URL.Path = "/api/json1/needs_restart"
-	resp, err := c.client.Do(req)
+	resp, err := c.client.DoCommand(req)
 	if err != nil {
 		return false, c.restartInterval, errors.Wrapf(err, "error querying cloud request")
 	}

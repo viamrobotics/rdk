@@ -25,7 +25,7 @@ func prepReadFromURL(ctx context.Context, client http.Client, url string) (io.Re
 	if err != nil {
 		return nil, err
 	}
-	resp, err := client.Do(req)
+	resp, err := client.DoCommand(req)
 	if err != nil {
 		return nil, err
 	}

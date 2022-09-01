@@ -52,7 +52,7 @@ func TestGenericDo(t *testing.T) {
 	test.That(t, g, test.ShouldNotBeNil)
 
 	command := map[string]interface{}{"cmd": "test", "data1": 500}
-	ret, err := g.Do(context.Background(), command)
+	ret, err := g.DoCommand(context.Background(), command)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret, test.ShouldEqual, command)
 }

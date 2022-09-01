@@ -1,4 +1,4 @@
-// Package generic defines an abstract generic device and Do() method
+// Package generic defines an abstract generic device and DoCommand() method
 package generic
 
 import (
@@ -41,15 +41,15 @@ func init() {
 const SubtypeName = resource.SubtypeName("generic")
 
 var (
-	// ErrUnimplemented is returned if the Do methods is not implemented.
-	ErrUnimplemented = errors.New("Do() unimplemented")
+	// ErrUnimplemented is returned if the DoCommand methods is not implemented.
+	ErrUnimplemented = errors.New("DoCommand() unimplemented")
 
 	// EchoFunc is a helper to echo out the say command passsed in a Do.
 	EchoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return cmd, nil
 	}
 
-	// TestCommand is a dummy command to send for a Do.
+	// TestCommand is a dummy command to send for a DoCommand.
 	TestCommand = map[string]interface{}{"command": "test", "data": 500}
 )
 
@@ -67,23 +67,23 @@ func Named(name string) resource.Name {
 
 // Generic represents a general purpose interface.
 type Generic interface {
-	// Do sends and receives arbitrary data
-	Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	// DoCommand sends and receives arbitrary data
+	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 }
 
 // Unimplemented can be embedded in other components to save boilerplate.
 type Unimplemented struct{}
 
-// Do covers the unimplemented case for other components.
-func (u *Unimplemented) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand covers the unimplemented case for other components.
+func (u *Unimplemented) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return nil, ErrUnimplemented
 }
 
 // Echo can be embedded in other (fake) components to save boilerplate.
 type Echo struct{}
 
-// Do covers the echo case for other components.
-func (e *Echo) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand covers the echo case for other components.
+func (e *Echo) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }
 
@@ -128,10 +128,10 @@ func (r *reconfigurableGeneric) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableGeneric) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (r *reconfigurableGeneric) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Do(ctx, cmd)
+	return r.actual.DoCommand(ctx, cmd)
 }
 
 func (r *reconfigurableGeneric) Reconfigure(ctx context.Context, newGeneric resource.Reconfigurable) error {

@@ -126,7 +126,7 @@ func (s *simpleSource) Read(ctx context.Context) (image.Image, func(), error) {
 	return img, nil, nil
 }
 
-func (s *simpleSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (s *simpleSource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }
 
@@ -172,7 +172,7 @@ func (c *cloudSource) Projector(ctx context.Context) (rimage.Projector, error) {
 	return proj, nil
 }
 
-func (c *cloudSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *cloudSource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }
 

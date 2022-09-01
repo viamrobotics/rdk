@@ -21,10 +21,10 @@ func (s *Sensor) GetReadings(ctx context.Context) (map[string]interface{}, error
 	return s.GetReadingsFunc(ctx)
 }
 
-// Do calls the injected Do or the real version.
-func (s *Sensor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand calls the injected DoCommand or the real version.
+func (s *Sensor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if s.DoFunc == nil {
-		return s.Sensor.Do(ctx, cmd)
+		return s.Sensor.DoCommand(ctx, cmd)
 	}
 	return s.DoFunc(ctx, cmd)
 }
