@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -49,6 +50,7 @@ type localRobot struct {
 	manager    *resourceManager
 	config     *config.Config
 	operations *operation.Manager
+	modules    *module.Manager
 	logger     golog.Logger
 
 	// services internal to a localRobot. Currently just web, more to come.
@@ -143,6 +145,11 @@ func (r *localRobot) OperationManager() *operation.Manager {
 	return r.operations
 }
 
+// ModuleManager returns the module manager for the robot.
+func (r *localRobot) ModuleManager() *module.Manager {
+	return r.modules
+}
+
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
 	for _, svc := range r.internalServices {
@@ -161,7 +168,10 @@ func (r *localRobot) Close(ctx context.Context) error {
 		close(r.triggerConfig)
 	}
 	r.activeBackgroundWorkers.Wait()
-	return r.manager.Close(ctx)
+	return multierr.Combine(
+		r.manager.Close(ctx),
+		r.modules.Close(ctx),
+	)
 }
 
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
@@ -357,6 +367,11 @@ func newWithResources(
 		opt.apply(&rOpts)
 	}
 	closeCtx, cancel := context.WithCancel(ctx)
+	modMgr, err := module.NewManager(cfg.Modules, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	r := &localRobot{
 		manager: newResourceManager(
 			resourceManagerOptions{
@@ -368,6 +383,7 @@ func newWithResources(
 			logger,
 		),
 		operations:              operation.NewManager(),
+		modules:                 modMgr,
 		logger:                  logger,
 		remotesChanged:          make(chan string),
 		activeBackgroundWorkers: &sync.WaitGroup{},

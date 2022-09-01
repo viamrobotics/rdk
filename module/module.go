@@ -3,7 +3,6 @@ package module
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"sync"
@@ -24,115 +23,112 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/utils"
 
 	pb "go.viam.com/rdk/proto/api/module/v1"
 )
 
-// New returns a module system service for the given robot.
-func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
-	svcConfig, ok := config.ConvertedAttributes.(*Config)
-	if !ok {
-		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
-	}
-
-	svc := &moduleService{
+// NewManager returns a Manager
+func NewManager(cfgs []config.Module, logger golog.Logger) (*Manager, error) {
+	mgr := &Manager{
 		mu:         sync.RWMutex{},
-		robot:      r,
 		logger:     logger,
-		modules:    map[modulePath]*module{},
+		modules:    map[string]*module{},
 		serviceMap: map[resource.Name]rpc.ClientConn{},
 	}
 
-	for _, mod := range svcConfig.Modules {
-		err := svc.AddModule(ctx, mod.Path, mod.Type, mod.Models)
+	for _, mod := range cfgs {
+		err := mgr.AddModule(mod)
 		logger.Debugf("SMURF98: %+v", mod.Models)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return svc, nil
+	return mgr, nil
 }
 
-var (
-	mapMu      sync.RWMutex
-	logger     golog.Logger
-	modulesMap map[string]*Module
-	serviceMap map[resource.Name]rpc.ClientConn
-)
-
-type Module struct {
+type module struct {
+	name    string
 	process pexec.ManagedProcess
 	serves  []resource.Model
 	conn    rpc.ClientConn
 	addr    string
 }
 
-func (svc *moduleService) Close(ctx context.Context) error {
+type Manager struct {
+	mu         sync.RWMutex
+	logger     golog.Logger
+	modules    map[string]*module
+	serviceMap map[resource.Name]rpc.ClientConn
+}
+
+func (mgr *Manager) Close(ctx context.Context) error {
 	var err error
-	for _, mod := range svc.modules {
-		err = multierr.Combine(err, mod.conn.Close())
-		err = multierr.Combine(err, mod.process.Stop())
-		err = multierr.Combine(err, os.RemoveAll(filepath.Dir(string(mod.addr))))
+	for _, mod := range mgr.modules {
+		err = multierr.Combine(
+			err,
+			mod.conn.Close(),
+			err, mod.process.Stop(),
+			os.RemoveAll(filepath.Dir(string(mod.addr))),
+		)
 	}
 	return err
 }
 
-func (svc *moduleService) AddModule(ctx context.Context, path modulePath, modtype string, serves []resource.Model) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	_, exists := svc.modules[path]
+func (mgr *Manager) AddModule(cfg config.Module) error {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+	_, exists := mgr.modules[cfg.Name]
 	if exists {
 		return nil
 	}
-	svc.modules[path] = &module{}
+	mgr.modules[cfg.Name] = &module{}
 
 	dir, err := os.MkdirTemp("", "viam-module-*")
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")
 	}
-	svc.modules[path].addr = moduleAddress(dir + "/module.sock")
+	mgr.modules[cfg.Name].addr = dir + "/module.sock"
 
-	cfg := pexec.ProcessConfig{
-		ID:   string(path),
-		Name: string(path),
-		Args: []string{ string(svc.modules[path].addr) },
+	pcfg := pexec.ProcessConfig{
+		ID:   string(cfg.Name),
+		Name: string(cfg.Path),
+		Args: []string{ string(mgr.modules[cfg.Name].addr) },
 		// CWD     string   `json:"cwd"`
 		// OneShot bool     `json:"one_shot"`
 		// Log     bool     `json:"log"`
 	}
-	svc.modules[path].process = pexec.NewManagedProcess(cfg, svc.logger)
+	mgr.modules[cfg.Name].process = pexec.NewManagedProcess(pcfg, mgr.logger)
 
-	err = svc.modules[path].process.Start(ctx)
+	err = mgr.modules[cfg.Name].process.Start(context.Background())
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")
 	}
 
 	conn, err := grpc.Dial(
-		string("unix://" + svc.modules[path].addr),
+		string("unix://" + mgr.modules[cfg.Name].addr),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")
 	}
-	svc.modules[path].conn = conn
-	svc.modules[path].serves = serves
+	mgr.modules[cfg.Name].conn = conn
+	mgr.modules[cfg.Name].serves = cfg.Models
 
-	for _, model := range serves {
-		if modtype == "component" {
+	for _, model := range cfg.Models {
+		switch cfg.Type {
+		case "component":
 			registry.RegisterComponent(generic.Subtype, model, registry.Component{
 				Constructor: func(ctx context.Context, _ registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
-					return svc.AddModularComponent(ctx, cfg)
+					return mgr.AddComponent(ctx, cfg)
 				},
 			})
-		} else if modtype == "service" {
-			svc.logger.Warn("modular services not yet supported")
-		} else if modtype == "logic" {
-			svc.logger.Warn("modular logic not yet supported")
-		} else {
-			svc.logger.Errorf("invalid module type: %s", modtype)
+		case "service":
+			mgr.logger.Warn("modular services not yet supported")
+		case "logic":
+			mgr.logger.Warn("modular logic not yet supported")
+		default:
+			mgr.logger.Errorf("invalid module type: %s", cfg.Type)
 		}
 	}
 
@@ -143,8 +139,8 @@ func (svc *moduleService) AddModule(ctx context.Context, path modulePath, modtyp
 	return nil
 }
 
-func (svc *moduleService) AddModularComponent(ctx context.Context, cfg config.Component) (interface{}, error) {
-	for _, module := range svc.modules {
+func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component) (interface{}, error) {
+	for _, module := range mgr.modules {
 		for _, model := range module.serves {
 			if cfg.Model == model {
 				client := pb.NewModuleServiceClient(module.conn)
@@ -160,12 +156,12 @@ func (svc *moduleService) AddModularComponent(ctx context.Context, cfg config.Co
 				if err != nil {
 					return nil, err
 				}
-				svc.serviceMap[cfg.ResourceName()] = module.conn
+				mgr.serviceMap[cfg.ResourceName()] = module.conn
 
 				c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
 				nameR := cfg.ResourceName().ShortName()
 				// TODO SMURF proper context
-				resourceClient := c.RPCClient(ctx, module.conn, nameR, svc.logger)
+				resourceClient := c.RPCClient(ctx, module.conn, nameR, mgr.logger)
 				if c.Reconfigurable == nil {
 					return resourceClient, nil
 				}

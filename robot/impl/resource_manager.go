@@ -17,7 +17,6 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
-	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -42,7 +41,6 @@ type translateToName func(string) (resource.Name, bool)
 // resourceManager manages the actual parts that make up a robot.
 type resourceManager struct {
 	resources      *resource.Graph
-	modules        map[string]module.Module
 	processManager pexec.ProcessManager
 	opts           resourceManagerOptions
 	logger         golog.Logger
@@ -752,16 +750,6 @@ func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *conf
 	filtered := newResourceManager(manager.opts, logger)
 
 	for _, conf := range conf.Processes {
-		proc, ok := manager.processManager.RemoveProcessByID(conf.ID)
-		if !ok {
-			manager.logger.Errorw("couldn't remove process", "process", conf.ID)
-			continue
-		}
-		if _, err := filtered.processManager.AddProcess(ctx, proc, false); err != nil {
-			manager.logger.Errorw("couldn't add process", "process", conf.ID, "error", err)
-		}
-	}
-	for _, conf := range conf.Modules {
 		proc, ok := manager.processManager.RemoveProcessByID(conf.ID)
 		if !ok {
 			manager.logger.Errorw("couldn't remove process", "process", conf.ID)
