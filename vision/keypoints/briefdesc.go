@@ -32,10 +32,28 @@ type SamplePairs struct {
 // GenerateSamplePairs generates n samples for a patch size with the chosen Sampling Type
 func GenerateSamplePairs(dist SamplingType, n, patchSize int) *SamplePairs {
 	// sample positions
-	xs0 := sampleIntegers(patchSize, n, dist)
-	ys0 := utils.CycleIntSliceByN(sampleIntegers(patchSize, n, dist), n/4)
-	xs1 := utils.CycleIntSliceByN(sampleIntegers(patchSize, n, dist), n/2)
-	ys1 := utils.CycleIntSliceByN(sampleIntegers(patchSize, n, dist), 3*n/4)
+	xs0 := make([]int, 0, n)
+	ys0 := make([]int, 0, n)
+	xs1 := make([]int, 0, n)
+	ys1 := make([]int, 0, n)
+	if dist == fixed {
+		xs0 = sampleIntegers(patchSize, n, dist)
+		ys0 = sampleIntegers(patchSize, n, dist)
+		xs1 = sampleIntegers(patchSize, n, dist)
+		for i := 0; i < n; i++ {
+			ys1 = append(ys1, -ys0[i])
+			if i%2 == 0 {
+				xs0[i] = 2 * xs0[i] / 3
+				xs1[i] = -2 * xs1[i] / 3
+				ys1[i] = ys0[i]
+			}
+		}
+	} else {
+		xs0 = sampleIntegers(patchSize, n, dist)
+		ys0 = sampleIntegers(patchSize, n, dist)
+		xs1 = sampleIntegers(patchSize, n, dist)
+		ys1 = sampleIntegers(patchSize, n, dist)
+	}
 	p0 := make([]image.Point, 0, n)
 	p1 := make([]image.Point, 0, n)
 	for i := 0; i < n; i++ {
