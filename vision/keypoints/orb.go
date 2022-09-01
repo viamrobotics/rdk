@@ -74,7 +74,7 @@ func ComputeORBKeypoints(im *image.Gray, cfg *ORBConfig) (Descriptors, KeyPoints
 		err = errors.New("more layers than actual number of octaves in image pyramid")
 		return nil, nil, err
 	}
-	orbKeyPoints := make(Descriptors, 0)
+	orbDescriptors := make(Descriptors, 0)
 	orbPoints := make(KeyPoints, 0)
 	for i := 0; i < cfg.Layers; i++ {
 		currentImage := pyramid.Images[i]
@@ -90,7 +90,7 @@ func ComputeORBKeypoints(im *image.Gray, cfg *ORBConfig) (Descriptors, KeyPoints
 		if err != nil {
 			return nil, nil, err
 		}
-		orbKeyPoints = append(orbKeyPoints, descs...)
+		orbDescriptors = append(orbDescriptors, descs...)
 	}
-	return orbKeyPoints, orbPoints, nil
+	return orbDescriptors, orbPoints, nil
 }

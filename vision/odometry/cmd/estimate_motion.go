@@ -30,30 +30,17 @@ func main() {
 	image1Path := os.Args[1]
 	image2Path := os.Args[2]
 	configPath := os.Args[3]
-	// load images
-	img1, err := rimage.NewImageFromFile(image1Path)
-	if err != nil {
-		logger.Fatal(err.Error())
-	}
-	img2, err := rimage.NewImageFromFile(image2Path)
-	if err != nil {
-		logger.Fatal(err.Error())
-	}
-	im1 := rimage.ConvertImage(img1)
-	im2 := rimage.ConvertImage(img2)
 	// get orb points for each image
-	imOrb1, imOrb2, err := RunOrbPointFinding(im1, im2, configPath)
+	imOrb1, imOrb2, err := RunOrbPointFinding(image1Path, image2Path, configPath)
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
 	// get matched lines
-	_, matchedLines, err := RunMotionEstimation(im1, im2, configPath)
+	_, matchedLines, err := RunMotionEstimation(image1Path, image2Path, configPath)
 	if err != nil {
 		logger.Error(err.Error())
 	}
 	http.HandleFunc("/orb/", func(w http.ResponseWriter, r *http.Request) {
-		writeImageWithTemplate(w, im1, "img")
-		writeImageWithTemplate(w, im2, "img")
 		writeImageWithTemplate(w, imOrb1, "img")
 		writeImageWithTemplate(w, imOrb2, "img")
 		writeImageWithTemplate(w, matchedLines, "img")
@@ -69,10 +56,18 @@ func main() {
 }
 
 // RunOrbPointFinding gets the orb points for each image
-func RunOrbPointFinding(img1, img2 *rimage.Image, configPath string) (image.Image, image.Image, error) {
-	// Convert both images to gray
-	im1 := rimage.MakeGray(img1)
-	im2 := rimage.MakeGray(img2)
+func RunOrbPointFinding(image1Path, image2Path, configPath string) (image.Image, image.Image, error) {
+	// load images
+	img1, err := rimage.NewImageFromFile(image1Path)
+	if err != nil {
+		return nil, nil, err
+	}
+	img2, err := rimage.NewImageFromFile(image2Path)
+	if err != nil {
+		return nil, nil, err
+	}
+	im1 := rimage.MakeGray(rimage.ConvertImage(img1))
+	im2 := rimage.MakeGray(rimage.ConvertImage(img2))
 	// load cfg
 	cfg, err := odometry.LoadMotionEstimationConfig(configPath)
 	if err != nil {
@@ -92,7 +87,18 @@ func RunOrbPointFinding(img1, img2 *rimage.Image, configPath string) (image.Imag
 }
 
 // RunMotionEstimation runs motion estimation between the two frames in artifacts.
-func RunMotionEstimation(im1, im2 *rimage.Image, configPath string) (*odometry.Motion3D, image.Image, error) {
+func RunMotionEstimation(image1Path, image2Path, configPath string) (*odometry.Motion3D, image.Image, error) {
+	// load images
+	img1, err := rimage.NewImageFromFile(image1Path)
+	if err != nil {
+		return nil, nil, err
+	}
+	img2, err := rimage.NewImageFromFile(image2Path)
+	if err != nil {
+		return nil, nil, err
+	}
+	im1 := rimage.ConvertImage(img1)
+	im2 := rimage.ConvertImage(img2)
 	// load cfg
 	cfg, err := odometry.LoadMotionEstimationConfig(configPath)
 	if err != nil {

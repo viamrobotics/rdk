@@ -3,7 +3,6 @@ package keypoints
 import (
 	"encoding/json"
 	"image"
-	"image/color"
 	"math"
 	"os"
 	"path/filepath"
@@ -81,14 +80,27 @@ func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConf
 	// compute descriptors
 
 	descs := make([]Descriptor, len(kps.Points))
-	padded, err := rimage.PaddingGray(blurred, image.Point{17, 17}, image.Point{8, 8}, rimage.BorderConstant)
-	if err != nil {
-		return nil, err
-	}
+	/*
+		padded, err := rimage.PaddingGray(blurred, image.Point{17, 17}, image.Point{8, 8}, rimage.BorderConstant)
+		if err != nil {
+			return nil, err
+		}
+	*/
+	halfSize := cfg.PatchSize / 2
+	bnd := blurred.Bounds()
 	for k, kp := range kps.Points {
-		paddedKp := image.Point{kp.X + 8, kp.Y + 8}
+		//paddedKp := image.Point{kp.X + 8, kp.Y + 8}
+		paddedKp := image.Point{kp.X, kp.Y}
+		p1 := image.Point{kp.X + halfSize, kp.Y + halfSize}
+		p2 := image.Point{kp.X + halfSize, kp.Y - halfSize}
+		p3 := image.Point{kp.X - halfSize, kp.Y + halfSize}
+		p4 := image.Point{kp.X - halfSize, kp.Y - halfSize}
 		// Divide by 64 since we store a descriptor as a uint64 array.
 		descriptor := make([]uint64, cfg.N/64)
+		if !p1.In(bnd) || !p2.In(bnd) || !p3.In(bnd) || !p4.In(bnd) {
+			descs[k] = descriptor
+			continue
+		}
 		cosTheta := 1.0
 		sinTheta := 0.0
 		// if use orientation and keypoints are oriented, compute rotation matrix
@@ -106,7 +118,9 @@ func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConf
 			outx1 := int(math.Round(cosTheta*x1 - sinTheta*y1))
 			outy1 := int(math.Round(sinTheta*x1 + cosTheta*y1))
 			// fill BRIEF descriptor
-			if padded.At(paddedKp.X+outx0, paddedKp.Y+outy0).(color.Gray).Y < padded.At(paddedKp.X+outx1, paddedKp.Y+outy1).(color.Gray).Y {
+			p0Val := blurred.GrayAt(paddedKp.X+outx0, paddedKp.Y+outy0).Y
+			p1Val := blurred.GrayAt(paddedKp.X+outx1, paddedKp.Y+outy1).Y
+			if p0Val > p1Val {
 				// Casting to an int truncates the float, which is what we want.
 				descriptorIndex := int64(i / 64)
 				numPos := i % 64
