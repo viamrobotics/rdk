@@ -24,28 +24,16 @@ const (
 	blockEncoderToRPM               controlBlockType = "encoderToRpm"
 )
 
-<<<<<<< HEAD
-// ControlBlockConfig configuration of a given block
-//nolint: revive
-type ControlBlockConfig struct {
-=======
 // BlockConfig configuration of a given block.
 type BlockConfig struct {
->>>>>>> 70802f887c88df8b72112a79a6c4d99c592bff87
 	Name      string              `json:"name"`       // Control Block name
 	Type      controlBlockType    `json:"type"`       // Control Block type
 	Attribute config.AttributeMap `json:"attributes"` // Internal block configuration
 	DependsOn []string            `json:"depends_on"` // List of blocks needed for calling Next
 }
 
-<<<<<<< HEAD
-// ControlBlock interface for a control block
-//nolint: revive
-type ControlBlock interface {
-=======
 // Block interface for a control block.
 type Block interface {
->>>>>>> 70802f887c88df8b72112a79a6c4d99c592bff87
 	// Reset will reset the control block to initial state. Returns an error on failure
 	Reset(ctx context.Context) error
 

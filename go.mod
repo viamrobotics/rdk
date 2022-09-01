@@ -34,10 +34,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551
-<<<<<<< HEAD
-=======
 	github.com/golang/mock v1.6.0
->>>>>>> 70802f887c88df8b72112a79a6c4d99c592bff87
 	github.com/golangci/golangci-lint v1.48.1-0.20220821210316-320a18eb372f
 	github.com/google/flatbuffers v2.0.6+incompatible
 	github.com/google/go-cmp v0.5.8
@@ -53,6 +50,7 @@ require (
 	github.com/matttproud/golang_protobuf_extensions v1.0.1
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/mapstructure v1.5.0
+	github.com/montanaflynn/stats v0.6.6
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.3.0
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
@@ -85,12 +83,8 @@ require (
 	google.golang.org/genproto v0.0.0-20220808204814-fd01256a5276
 	google.golang.org/grpc v1.48.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
-<<<<<<< HEAD
-	google.golang.org/protobuf v1.28.0
-=======
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/src-d/go-billy.v4 v4.3.2
->>>>>>> 70802f887c88df8b72112a79a6c4d99c592bff87
 	gopkg.in/yaml.v2 v2.4.0
 	periph.io/x/conn/v3 v3.6.10
 	periph.io/x/host/v3 v3.7.2
@@ -153,11 +147,8 @@ require (
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/firefart/nonamedreturns v1.0.4 // indirect
 	github.com/fzipp/gocyclo v0.6.0 // indirect
-<<<<<<< HEAD
-=======
 	github.com/gen2brain/malgo v0.10.36-0.20220825113249-6af716cf2273 // indirect
 	github.com/go-audio/riff v1.0.0 // indirect
->>>>>>> 70802f887c88df8b72112a79a6c4d99c592bff87
 	github.com/go-chi/chi/v5 v5.0.7 // indirect
 	github.com/go-critic/go-critic v0.6.4 // indirect
 	github.com/go-fonts/liberation v0.2.0 // indirect
@@ -242,14 +233,9 @@ require (
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/mbilski/exhaustivestruct v1.2.0 // indirect
 	github.com/mgechev/revive v1.2.3 // indirect
-<<<<<<< HEAD
-	github.com/miekg/dns v1.1.43 // indirect
-=======
 	github.com/miekg/dns v1.1.50 // indirect
->>>>>>> 70802f887c88df8b72112a79a6c4d99c592bff87
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
-	github.com/montanaflynn/stats v0.6.6 // indirect
 	github.com/moricho/tparallel v0.2.1 // indirect
 	github.com/mwitkow/go-proto-validators v0.2.0 // indirect
 	github.com/nakabonne/nestif v0.3.1 // indirect
@@ -281,11 +267,7 @@ require (
 	github.com/pkg/profile v1.6.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/polyfloyd/go-errorlint v1.0.2 // indirect
-<<<<<<< HEAD
-	github.com/prometheus/client_golang v1.12.1 // indirect
-=======
 	github.com/prometheus/client_golang v1.12.2 // indirect
->>>>>>> 70802f887c88df8b72112a79a6c4d99c592bff87
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
@@ -348,11 +330,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
 	golang.org/x/exp/typeparams v0.0.0-20220613132600-b0d781184e0d // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-<<<<<<< HEAD
-	golang.org/x/oauth2 v0.0.0-20220718184931-c8730f7fcb92 // indirect
-=======
 	golang.org/x/oauth2 v0.0.0-20220722155238-128564f6959c // indirect
->>>>>>> 70802f887c88df8b72112a79a6c4d99c592bff87
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
 	golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab // indirect
 	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467 // indirect

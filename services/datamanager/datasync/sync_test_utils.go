@@ -34,13 +34,9 @@ var (
 )
 
 // Compares UploadRequests containing either binary or tabular sensor data.
-<<<<<<< HEAD
-//nolint:thelper
-func compareUploadRequests(t *testing.T, isTabular bool, actual []*v1.UploadRequest, expected []*v1.UploadRequest) {
-=======
+
 func compareTabularUploadRequests(t *testing.T, actual, expected []*v1.UploadRequest) {
 	t.Helper()
->>>>>>> 70802f887c88df8b72112a79a6c4d99c592bff87
 	// Ensure length of slices is same before proceeding with rest of tests.
 	test.That(t, len(actual), test.ShouldEqual, len(expected))
 
@@ -54,24 +50,6 @@ func compareTabularUploadRequests(t *testing.T, actual, expected []*v1.UploadReq
 	}
 }
 
-<<<<<<< HEAD
-//nolint:thelper
-func compareMetadata(t *testing.T, actualMetadata *v1.UploadMetadata,
-	expectedMetadata *v1.UploadMetadata,
-) {
-	// Test the fields within UploadRequest Metadata.
-	test.That(t, filepath.Base(actualMetadata.FileName), test.ShouldEqual, filepath.Base(expectedMetadata.FileName))
-	test.That(t, actualMetadata.PartId, test.ShouldEqual, expectedMetadata.PartId)
-	test.That(t, actualMetadata.ComponentName, test.ShouldEqual, expectedMetadata.ComponentName)
-	test.That(t, actualMetadata.ComponentModel, test.ShouldEqual, expectedMetadata.ComponentModel)
-	test.That(t, actualMetadata.ComponentType, test.ShouldEqual, expectedMetadata.ComponentType)
-	test.That(t, actualMetadata.MethodName, test.ShouldEqual, expectedMetadata.MethodName)
-	test.That(t, actualMetadata.Type, test.ShouldEqual, expectedMetadata.Type)
-	test.That(t, actualMetadata.FileExtension, test.ShouldEqual, expectedMetadata.FileExtension)
-}
-
-=======
->>>>>>> 70802f887c88df8b72112a79a6c4d99c592bff87
 type anyStruct struct {
 	Field1 bool
 	Field2 int
