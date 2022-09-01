@@ -646,7 +646,7 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 				if err = unzipSource(cancelCtx, model.Destination, modelFileToUnzip, svc.logger); err != nil {
 					svc.logger.Error(err)
 				}
-				fmt.Println("done with all helper functions for modelDeploy")
+				svc.logger.Info("done with all helper functions for modelDeploy")
 			}
 		}(model)
 	}
@@ -655,7 +655,6 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 
 // unzipSource unzips all files inside a zip file.
 func unzipSource(cancelCtx context.Context, destination, fileName string, logger golog.Logger) error {
-	fmt.Println("data_manager.go/unzipSource()")
 	zipReader, err := zip.OpenReader(filepath.Join(destination, fileName))
 	if err != nil {
 		return err
@@ -672,7 +671,6 @@ func unzipSource(cancelCtx context.Context, destination, fileName string, logger
 }
 
 func unzipFile(cancelCtx context.Context, f *zip.File, destination string, logger golog.Logger) error {
-	fmt.Println("data_manager.go/unzipFile()")
 	// TODO: DATA-307, We should be passing in the context to any operations that can take several seconds,
 	// which includes unzipFile. As written, this can block .Close for an unbounded amount of time.
 	//nolint:gosec
@@ -753,7 +751,6 @@ var (
 // downloadFile will download a url to a local file. It writes as it
 // downloads and doesn't load the whole file into memory.
 func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.Logger) error {
-	fmt.Println("data_manager.go/downloadFile()")
 	getReq, err := http.NewRequestWithContext(cancelCtx, "GET", url, nil)
 	if err != nil {
 		return err
@@ -801,7 +798,6 @@ func getModelsToDownload(models []*Model) ([]*Model, error) {
 	// I can imagine a scenario where the user specifies a local folder to dump
 	// all their models in. In that case, this wouldn't work as expected.
 	// TODO: Fix.
-	fmt.Println("data_manager.go/getModelsToDownload()")
 	modelsToDownload := make([]*Model, 0)
 	for _, model := range models {
 		if model.Destination == "" {
@@ -828,7 +824,6 @@ func getModelsToDownload(models []*Model) ([]*Model, error) {
 }
 
 func createClientConnection(logger *zap.SugaredLogger, cfg *config.Config) (rpc.ClientConn, error) {
-	// fmt.Println("data_manager.go/createClientConnection()")
 	ctx := context.Background()
 	tlsConfig := config.NewTLSConfig(cfg).Config
 	cloudConfig := cfg.Cloud
