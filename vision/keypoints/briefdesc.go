@@ -22,6 +22,45 @@ const (
 	fixed                       // 2
 )
 
+// SamplePairs are N pairs of points used to create the BRIEF Descriptors of a patch.
+type SamplePairs struct {
+	P0 []image.Point
+	P1 []image.Point
+	N  int
+}
+
+// GenerateSamplePairs generates n samples for a patch size with the chosen Sampling Type
+func GenerateSamplePairs(dist SamplingType, n, patchSize int) *SamplePairs {
+	// sample positions
+	xs0 := sampleIntegers(patchSize, n, dist)
+	ys0 := utils.CycleIntSliceByN(sampleIntegers(patchSize, n, dist), n/4)
+	xs1 := utils.CycleIntSliceByN(sampleIntegers(patchSize, n, dist), n/2)
+	ys1 := utils.CycleIntSliceByN(sampleIntegers(patchSize, n, dist), 3*n/4)
+	p0 := make([]image.Point, 0, n)
+	p1 := make([]image.Point, 0, n)
+	for i := 0; i < n; i++ {
+		p0 = append(p0, image.Point{X: xs0[i], Y: ys0[i]})
+		p1 = append(p1, image.Point{X: xs1[i], Y: ys1[i]})
+	}
+
+	return &SamplePairs{P0: p0, P1: p1, N: n}
+}
+
+func sampleIntegers(patchSize, n int, sampling SamplingType) []int {
+	vMin := math.Round(-(float64(patchSize) - 2) / 2.)
+	vMax := math.Round(float64(patchSize) / 2.)
+	switch sampling {
+	case uniform:
+		return utils.SampleNIntegersUniform(n, vMin, vMax)
+	case normal:
+		return utils.SampleNIntegersNormal(n, vMin, vMax)
+	case fixed:
+		return utils.SampleNRegularlySpaced(n, vMin, vMax)
+	default:
+		return utils.SampleNIntegersUniform(n, vMin, vMax)
+	}
+}
+
 // BRIEFConfig stores the parameters.
 type BRIEFConfig struct {
 	N              int          `json:"n"` // number of samples taken
@@ -47,23 +86,8 @@ func LoadBRIEFConfiguration(file string) *BRIEFConfig {
 	return &config
 }
 
-func sampleIntegers(patchSize, n int, sampling SamplingType) []int {
-	vMin := math.Round(-(float64(patchSize) - 2) / 2.)
-	vMax := math.Round(float64(patchSize) / 2.)
-	switch sampling {
-	case uniform:
-		return utils.SampleNIntegersUniform(n, vMin, vMax)
-	case normal:
-		return utils.SampleNIntegersNormal(n, vMin, vMax)
-	case fixed:
-		return utils.SampleNRegularlySpaced(n, vMin, vMax)
-	default:
-		return utils.SampleNIntegersUniform(n, vMin, vMax)
-	}
-}
-
 // ComputeBRIEFDescriptors computes BRIEF descriptors on image img at keypoints kps.
-func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConfig) (Descriptors, error) {
+func ComputeBRIEFDescriptors(img *image.Gray, sp *SamplePairs, kps *FASTKeypoints, cfg *BRIEFConfig) (Descriptors, error) {
 	// blur image
 	kernel := rimage.GetGaussian5()
 	normalized := kernel.Normalize()
@@ -71,12 +95,6 @@ func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConf
 	if err != nil {
 		return nil, err
 	}
-	// sample positions
-	xs0 := sampleIntegers(cfg.PatchSize, cfg.N, cfg.Sampling)
-	ys0 := utils.CycleIntSliceByN(sampleIntegers(cfg.PatchSize, cfg.N, cfg.Sampling), cfg.N/4)
-	xs1 := utils.CycleIntSliceByN(sampleIntegers(cfg.PatchSize, cfg.N, cfg.Sampling), cfg.N/2)
-	ys1 := utils.CycleIntSliceByN(sampleIntegers(cfg.PatchSize, cfg.N, cfg.Sampling), 3*cfg.N/4)
-
 	// compute descriptors
 
 	descs := make([]Descriptor, len(kps.Points))
@@ -86,8 +104,8 @@ func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConf
 			return nil, err
 		}
 	*/
-	halfSize := cfg.PatchSize / 2
 	bnd := blurred.Bounds()
+	halfSize := cfg.PatchSize / 2
 	for k, kp := range kps.Points {
 		//paddedKp := image.Point{kp.X + 8, kp.Y + 8}
 		paddedKp := image.Point{kp.X, kp.Y}
@@ -96,7 +114,7 @@ func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConf
 		p3 := image.Point{kp.X - halfSize, kp.Y + halfSize}
 		p4 := image.Point{kp.X - halfSize, kp.Y - halfSize}
 		// Divide by 64 since we store a descriptor as a uint64 array.
-		descriptor := make([]uint64, cfg.N/64)
+		descriptor := make([]uint64, sp.N/64)
 		if !p1.In(bnd) || !p2.In(bnd) || !p3.In(bnd) || !p4.In(bnd) {
 			descs[k] = descriptor
 			continue
@@ -109,9 +127,9 @@ func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConf
 			cosTheta = math.Cos(angle)
 			sinTheta = math.Sin(angle)
 		}
-		for i := 0; i < cfg.N; i++ {
-			x0, y0 := float64(xs0[i]), float64(ys0[i])
-			x1, y1 := float64(xs1[i]), float64(ys1[i])
+		for i := 0; i < sp.N; i++ {
+			x0, y0 := float64(sp.P0[i].X), float64(sp.P0[i].Y)
+			x1, y1 := float64(sp.P1[i].X), float64(sp.P1[i].Y)
 			// compute rotated sampled coordinates (Identity matrix if no orientation s)
 			outx0 := int(math.Round(cosTheta*x0 - sinTheta*y0))
 			outy0 := int(math.Round(sinTheta*x0 + cosTheta*y0))

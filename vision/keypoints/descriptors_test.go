@@ -37,7 +37,8 @@ func TestComputeBRIEFDescriptors(t *testing.T) {
 	// load BRIEF cfg
 	cfgBrief := LoadBRIEFConfiguration("brief.json")
 	test.That(t, cfgBrief, test.ShouldNotBeNil)
-	briefDescriptors, err := ComputeBRIEFDescriptors(imGray, fastKps, cfgBrief)
+	samplePoints := GenerateSamplePairs(cfgBrief.Sampling, cfgBrief.N, cfgBrief.PatchSize)
+	briefDescriptors, err := ComputeBRIEFDescriptors(imGray, samplePoints, fastKps, cfgBrief)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(briefDescriptors), test.ShouldEqual, len(fastKps.Points))
 }

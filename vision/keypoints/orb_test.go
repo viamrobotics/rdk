@@ -60,7 +60,8 @@ func TestComputeORBKeypoints(t *testing.T) {
 	w, h := bounds.Max.X, bounds.Max.Y
 	imGray := image.NewGray(image.Rect(0, 0, w, h))
 	draw.Draw(imGray, imGray.Bounds(), im, im.Bounds().Min, draw.Src)
-	descs, kps, err := ComputeORBKeypoints(imGray, cfg)
+	samplePoints := GenerateSamplePairs(cfg.BRIEFConf.Sampling, cfg.BRIEFConf.N, cfg.BRIEFConf.PatchSize)
+	descs, kps, err := ComputeORBKeypoints(imGray, samplePoints, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(descs), test.ShouldEqual, 137)
 	test.That(t, len(kps), test.ShouldEqual, 137)
