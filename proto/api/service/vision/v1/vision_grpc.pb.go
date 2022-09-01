@@ -26,10 +26,22 @@ type VisionServiceClient interface {
 	GetDetectorNames(ctx context.Context, in *GetDetectorNamesRequest, opts ...grpc.CallOption) (*GetDetectorNamesResponse, error)
 	// AddDetector adds a new detector to the registry.
 	AddDetector(ctx context.Context, in *AddDetectorRequest, opts ...grpc.CallOption) (*AddDetectorResponse, error)
+	// RemoveDetector removes a detector from the registry.
+	RemoveDetector(ctx context.Context, in *RemoveDetectorRequest, opts ...grpc.CallOption) (*RemoveDetectorResponse, error)
 	// GetDetectionsFromCamera will return a list of detections in the next image given a camera and a detector
 	GetDetectionsFromCamera(ctx context.Context, in *GetDetectionsFromCameraRequest, opts ...grpc.CallOption) (*GetDetectionsFromCameraResponse, error)
-	// GetDetections will return a list of detections in the next image given a camera and a detector
+	// GetDetections will return a list of detections in the next image given the image bytes and a detector
 	GetDetections(ctx context.Context, in *GetDetectionsRequest, opts ...grpc.CallOption) (*GetDetectionsResponse, error)
+	// GetClassifierNames returns the list of classifiers in the registry.
+	GetClassifierNames(ctx context.Context, in *GetClassifierNamesRequest, opts ...grpc.CallOption) (*GetClassifierNamesResponse, error)
+	// AddClassifier adds a new classifier to the registry.
+	AddClassifier(ctx context.Context, in *AddClassifierRequest, opts ...grpc.CallOption) (*AddClassifierResponse, error)
+	// RemoveClassifier adds a new classifier to the registry.
+	RemoveClassifier(ctx context.Context, in *RemoveClassifierRequest, opts ...grpc.CallOption) (*RemoveClassifierResponse, error)
+	// GetClassificationsFromCamera will return a list of classifications in the next image given a camera and a classifier
+	GetClassificationsFromCamera(ctx context.Context, in *GetClassificationsFromCameraRequest, opts ...grpc.CallOption) (*GetClassificationsFromCameraResponse, error)
+	// GetClassifications will return a list of classifications in the next image given the image bytes and a classifier
+	GetClassifications(ctx context.Context, in *GetClassificationsRequest, opts ...grpc.CallOption) (*GetClassificationsResponse, error)
 	// GetSegmenterNames returns the list of segmenters in the registry.
 	GetSegmenterNames(ctx context.Context, in *GetSegmenterNamesRequest, opts ...grpc.CallOption) (*GetSegmenterNamesResponse, error)
 	// GetSegmenterParameters returns the parameter fields needed for the given segmenter.
@@ -66,6 +78,15 @@ func (c *visionServiceClient) AddDetector(ctx context.Context, in *AddDetectorRe
 	return out, nil
 }
 
+func (c *visionServiceClient) RemoveDetector(ctx context.Context, in *RemoveDetectorRequest, opts ...grpc.CallOption) (*RemoveDetectorResponse, error) {
+	out := new(RemoveDetectorResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/RemoveDetector", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *visionServiceClient) GetDetectionsFromCamera(ctx context.Context, in *GetDetectionsFromCameraRequest, opts ...grpc.CallOption) (*GetDetectionsFromCameraResponse, error) {
 	out := new(GetDetectionsFromCameraResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/GetDetectionsFromCamera", in, out, opts...)
@@ -78,6 +99,51 @@ func (c *visionServiceClient) GetDetectionsFromCamera(ctx context.Context, in *G
 func (c *visionServiceClient) GetDetections(ctx context.Context, in *GetDetectionsRequest, opts ...grpc.CallOption) (*GetDetectionsResponse, error) {
 	out := new(GetDetectionsResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/GetDetections", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *visionServiceClient) GetClassifierNames(ctx context.Context, in *GetClassifierNamesRequest, opts ...grpc.CallOption) (*GetClassifierNamesResponse, error) {
+	out := new(GetClassifierNamesResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/GetClassifierNames", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *visionServiceClient) AddClassifier(ctx context.Context, in *AddClassifierRequest, opts ...grpc.CallOption) (*AddClassifierResponse, error) {
+	out := new(AddClassifierResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/AddClassifier", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *visionServiceClient) RemoveClassifier(ctx context.Context, in *RemoveClassifierRequest, opts ...grpc.CallOption) (*RemoveClassifierResponse, error) {
+	out := new(RemoveClassifierResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/RemoveClassifier", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *visionServiceClient) GetClassificationsFromCamera(ctx context.Context, in *GetClassificationsFromCameraRequest, opts ...grpc.CallOption) (*GetClassificationsFromCameraResponse, error) {
+	out := new(GetClassificationsFromCameraResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/GetClassificationsFromCamera", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *visionServiceClient) GetClassifications(ctx context.Context, in *GetClassificationsRequest, opts ...grpc.CallOption) (*GetClassificationsResponse, error) {
+	out := new(GetClassificationsResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/GetClassifications", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -119,10 +185,22 @@ type VisionServiceServer interface {
 	GetDetectorNames(context.Context, *GetDetectorNamesRequest) (*GetDetectorNamesResponse, error)
 	// AddDetector adds a new detector to the registry.
 	AddDetector(context.Context, *AddDetectorRequest) (*AddDetectorResponse, error)
+	// RemoveDetector removes a detector from the registry.
+	RemoveDetector(context.Context, *RemoveDetectorRequest) (*RemoveDetectorResponse, error)
 	// GetDetectionsFromCamera will return a list of detections in the next image given a camera and a detector
 	GetDetectionsFromCamera(context.Context, *GetDetectionsFromCameraRequest) (*GetDetectionsFromCameraResponse, error)
-	// GetDetections will return a list of detections in the next image given a camera and a detector
+	// GetDetections will return a list of detections in the next image given the image bytes and a detector
 	GetDetections(context.Context, *GetDetectionsRequest) (*GetDetectionsResponse, error)
+	// GetClassifierNames returns the list of classifiers in the registry.
+	GetClassifierNames(context.Context, *GetClassifierNamesRequest) (*GetClassifierNamesResponse, error)
+	// AddClassifier adds a new classifier to the registry.
+	AddClassifier(context.Context, *AddClassifierRequest) (*AddClassifierResponse, error)
+	// RemoveClassifier adds a new classifier to the registry.
+	RemoveClassifier(context.Context, *RemoveClassifierRequest) (*RemoveClassifierResponse, error)
+	// GetClassificationsFromCamera will return a list of classifications in the next image given a camera and a classifier
+	GetClassificationsFromCamera(context.Context, *GetClassificationsFromCameraRequest) (*GetClassificationsFromCameraResponse, error)
+	// GetClassifications will return a list of classifications in the next image given the image bytes and a classifier
+	GetClassifications(context.Context, *GetClassificationsRequest) (*GetClassificationsResponse, error)
 	// GetSegmenterNames returns the list of segmenters in the registry.
 	GetSegmenterNames(context.Context, *GetSegmenterNamesRequest) (*GetSegmenterNamesResponse, error)
 	// GetSegmenterParameters returns the parameter fields needed for the given segmenter.
@@ -144,11 +222,29 @@ func (UnimplementedVisionServiceServer) GetDetectorNames(context.Context, *GetDe
 func (UnimplementedVisionServiceServer) AddDetector(context.Context, *AddDetectorRequest) (*AddDetectorResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddDetector not implemented")
 }
+func (UnimplementedVisionServiceServer) RemoveDetector(context.Context, *RemoveDetectorRequest) (*RemoveDetectorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveDetector not implemented")
+}
 func (UnimplementedVisionServiceServer) GetDetectionsFromCamera(context.Context, *GetDetectionsFromCameraRequest) (*GetDetectionsFromCameraResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDetectionsFromCamera not implemented")
 }
 func (UnimplementedVisionServiceServer) GetDetections(context.Context, *GetDetectionsRequest) (*GetDetectionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDetections not implemented")
+}
+func (UnimplementedVisionServiceServer) GetClassifierNames(context.Context, *GetClassifierNamesRequest) (*GetClassifierNamesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetClassifierNames not implemented")
+}
+func (UnimplementedVisionServiceServer) AddClassifier(context.Context, *AddClassifierRequest) (*AddClassifierResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddClassifier not implemented")
+}
+func (UnimplementedVisionServiceServer) RemoveClassifier(context.Context, *RemoveClassifierRequest) (*RemoveClassifierResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveClassifier not implemented")
+}
+func (UnimplementedVisionServiceServer) GetClassificationsFromCamera(context.Context, *GetClassificationsFromCameraRequest) (*GetClassificationsFromCameraResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetClassificationsFromCamera not implemented")
+}
+func (UnimplementedVisionServiceServer) GetClassifications(context.Context, *GetClassificationsRequest) (*GetClassificationsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetClassifications not implemented")
 }
 func (UnimplementedVisionServiceServer) GetSegmenterNames(context.Context, *GetSegmenterNamesRequest) (*GetSegmenterNamesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSegmenterNames not implemented")
@@ -208,6 +304,24 @@ func _VisionService_AddDetector_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _VisionService_RemoveDetector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveDetectorRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VisionServiceServer).RemoveDetector(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.service.vision.v1.VisionService/RemoveDetector",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VisionServiceServer).RemoveDetector(ctx, req.(*RemoveDetectorRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _VisionService_GetDetectionsFromCamera_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetDetectionsFromCameraRequest)
 	if err := dec(in); err != nil {
@@ -240,6 +354,96 @@ func _VisionService_GetDetections_Handler(srv interface{}, ctx context.Context, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(VisionServiceServer).GetDetections(ctx, req.(*GetDetectionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VisionService_GetClassifierNames_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetClassifierNamesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VisionServiceServer).GetClassifierNames(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.service.vision.v1.VisionService/GetClassifierNames",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VisionServiceServer).GetClassifierNames(ctx, req.(*GetClassifierNamesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VisionService_AddClassifier_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddClassifierRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VisionServiceServer).AddClassifier(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.service.vision.v1.VisionService/AddClassifier",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VisionServiceServer).AddClassifier(ctx, req.(*AddClassifierRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VisionService_RemoveClassifier_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveClassifierRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VisionServiceServer).RemoveClassifier(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.service.vision.v1.VisionService/RemoveClassifier",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VisionServiceServer).RemoveClassifier(ctx, req.(*RemoveClassifierRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VisionService_GetClassificationsFromCamera_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetClassificationsFromCameraRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VisionServiceServer).GetClassificationsFromCamera(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.service.vision.v1.VisionService/GetClassificationsFromCamera",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VisionServiceServer).GetClassificationsFromCamera(ctx, req.(*GetClassificationsFromCameraRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VisionService_GetClassifications_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetClassificationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VisionServiceServer).GetClassifications(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.service.vision.v1.VisionService/GetClassifications",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VisionServiceServer).GetClassifications(ctx, req.(*GetClassificationsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -314,12 +518,36 @@ var VisionService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _VisionService_AddDetector_Handler,
 		},
 		{
+			MethodName: "RemoveDetector",
+			Handler:    _VisionService_RemoveDetector_Handler,
+		},
+		{
 			MethodName: "GetDetectionsFromCamera",
 			Handler:    _VisionService_GetDetectionsFromCamera_Handler,
 		},
 		{
 			MethodName: "GetDetections",
 			Handler:    _VisionService_GetDetections_Handler,
+		},
+		{
+			MethodName: "GetClassifierNames",
+			Handler:    _VisionService_GetClassifierNames_Handler,
+		},
+		{
+			MethodName: "AddClassifier",
+			Handler:    _VisionService_AddClassifier_Handler,
+		},
+		{
+			MethodName: "RemoveClassifier",
+			Handler:    _VisionService_RemoveClassifier_Handler,
+		},
+		{
+			MethodName: "GetClassificationsFromCamera",
+			Handler:    _VisionService_GetClassificationsFromCamera_Handler,
+		},
+		{
+			MethodName: "GetClassifications",
+			Handler:    _VisionService_GetClassifications_Handler,
 		},
 		{
 			MethodName: "GetSegmenterNames",
