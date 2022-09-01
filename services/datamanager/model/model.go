@@ -38,7 +38,6 @@ type ManagerConstructor func(logger golog.Logger, cfg *config.Config) (Manager, 
 
 // NewDefaultManager returns the default Manager that syncs data to app.viam.com.
 func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error) {
-	// fmt.Println("model/model.go/NewDefaultManager()")
 	tlsConfig := config.NewTLSConfig(cfg).Config
 	cloudConfig := cfg.Cloud
 	rpcOpts := []rpc.DialOption{

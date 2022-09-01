@@ -26,14 +26,8 @@ func (svc *dataManagerService) SetWaitAfterLastModifiedSecs(s int) {
 	svc.waitAfterLastModifiedSecs = s
 }
 
-// func (svc *modelManagerService) SetWaitAfterLastModifiedSecs(s int) {
-// 	svc.waitAfterLastModifiedSecs = s
-// }
-
 func (svc *dataManagerService) SetClientConn(c rpc.ClientConn) {
-	// fmt.Println("export_test.go/SetClientConn() with value c: ", c)
 	svc.clientConn = &c
-	// fmt.Println("svc.clientConn: ", svc.clientConn)
 }
 
 // Make getServiceConfig global for tests.
