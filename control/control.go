@@ -13,18 +13,10 @@ type Controllable interface {
 	GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error)
 }
 
-<<<<<<< HEAD
-// ControlConfig configuration of the control loop
-//nolint: revive
-type ControlConfig struct {
-	Blocks    []ControlBlockConfig `json:"blocks"`    // Blocks Control Block Config
-	Frequency float64              `json:"frequency"` // Frequency loop Frequency
-=======
 // Config configuration of the control loop.
 type Config struct {
 	Blocks    []BlockConfig `json:"blocks"`    // Blocks Control Block Config
 	Frequency float64       `json:"frequency"` // Frequency loop Frequency
->>>>>>> 70802f887c88df8b72112a79a6c4d99c592bff87
 }
 
 // Control control interface can be used to interfact with a control loop to query signals, change config, start/stop the loop etc...

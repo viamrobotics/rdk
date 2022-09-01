@@ -25,16 +25,9 @@ type controlTicker struct {
 	stop   chan bool
 }
 
-<<<<<<< HEAD
-// ControlLoop holds the loop config
-//nolint: revive
-type ControlLoop struct {
-	cfg                     ControlConfig
-=======
 // Loop holds the loop config.
 type Loop struct {
 	cfg                     Config
->>>>>>> 70802f887c88df8b72112a79a6c4d99c592bff87
 	blocks                  map[string]*controlBlockInternal
 	ct                      controlTicker
 	logger                  golog.Logger

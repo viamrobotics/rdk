@@ -341,11 +341,8 @@ func arrowEvent(event input.Event, arrows map[input.Control]float64) (float64, f
 }
 
 // oneJoyStickEvent (default) takes inputs from the gamepad allowing the left joystick to control speed and angle.
-<<<<<<< HEAD
-func oneJoyStickEvent(event input.Event, y float64, x float64) (float64, float64) {
-=======
+
 func oneJoyStickEvent(event input.Event, y, x float64) (float64, float64) {
->>>>>>> 70802f887c88df8b72112a79a6c4d99c592bff87
 	//nolint:exhaustive
 	switch event.Control {
 	case input.AbsoluteY:
