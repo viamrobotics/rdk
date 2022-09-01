@@ -103,7 +103,7 @@ func createWebOptions(cfg *config.Config, argsParsed Arguments, logger golog.Log
 	}
 	options.Pprof = argsParsed.WebProfile
 	options.SharedDir = argsParsed.SharedDir
-	options.Debug = argsParsed.Debug
+	options.Debug = argsParsed.Debug || cfg.Debug
 	options.WebRTC = argsParsed.WebRTC
 	if cfg.Cloud != nil && argsParsed.AllowInsecureCreds {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
@@ -136,7 +136,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		if err != nil {
 			return nil, err
 		}
-		out.Debug = argsParsed.Debug
+		out.Debug = argsParsed.Debug || cfg.Debug
 		out.FromCommand = true
 		out.AllowInsecureCreds = argsParsed.AllowInsecureCreds
 		return out, nil
