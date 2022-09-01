@@ -3,7 +3,7 @@
     [
         {
             "name": "pierre",
-            "model": "four-wheel",
+            "model": "wheeled",
             "type": "base",
             "attributes":
             {
@@ -11,10 +11,8 @@
                 "width_mm": 600,
                 "wheel_circumference_mm": 470,
                 "spin_slip_factor": 2.0,
-                "front_right": "fr-m",
-                "front_left": "fl-m",
-                "back_left": "bl-m",
-                "back_right": "br-m"
+                "left": ["fl-m", "bl-m"],
+                "right": ["fr-m", "br-m"]
             },
             "depends_on":
             [
