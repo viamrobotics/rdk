@@ -25,6 +25,17 @@ import (
 
 const model = "imu_wit"
 
+type AttrConfig struct {
+	Port string `json:"port"`
+}
+
+func (config *AttrConfig) Validate(path string) error {
+	if config.Port == "" {
+		return errors.New("no usb port found for witmotion imu")
+	}
+	return nil
+}
+
 func init() {
 	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{
 		Constructor: func(
@@ -112,7 +123,7 @@ func (imu *wit) GetProperties(ctx context.Context) (*movementsensor.Properties, 
 // NewWit creates a new Wit IMU.
 func NewWit(deps registry.Dependencies, config config.Component, logger golog.Logger) (movementsensor.MovementSensor, error) {
 	options := slib.OpenOptions{
-		BaudRate:        9600,
+		BaudRate:        115200,
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,
