@@ -26,6 +26,13 @@ service VisionService {
     };
   }
 
+  // RemoveDetector removes a detector from the registry.
+  rpc RemoveDetector(RemoveDetectorRequest) returns (RemoveDetectorResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/service/vision/{name}/remove_detector"
+    };
+  }
+
   // GetDetectionsFromCamera will return a list of detections in the next image given a camera and a detector
   rpc GetDetectionsFromCamera(GetDetectionsFromCameraRequest) returns (GetDetectionsFromCameraResponse) {
     option (google.api.http) = {
@@ -33,10 +40,47 @@ service VisionService {
     };
   }
 
-  // GetDetections will return a list of detections in the next image given a camera and a detector
+  // GetDetections will return a list of detections in the next image given the image bytes and a detector
   rpc GetDetections(GetDetectionsRequest) returns (GetDetectionsResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/service/vision/{name}/detections"
+    };
+  }
+
+  // Classification methods
+
+  // GetClassifierNames returns the list of classifiers in the registry.
+  rpc GetClassifierNames(GetClassifierNamesRequest) returns (GetClassifierNamesResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/service/vision/{name}/classifier_names"
+    };
+  }
+
+  // AddClassifier adds a new classifier to the registry.
+  rpc AddClassifier(AddClassifierRequest) returns (AddClassifierResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/service/vision/{name}/add_classifier"
+    };
+  }
+
+  // RemoveClassifier adds a new classifier to the registry.
+  rpc RemoveClassifier(RemoveClassifierRequest) returns (RemoveClassifierResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/service/vision/{name}/remove_classifier"
+    };
+  }
+
+  // GetClassificationsFromCamera will return a list of classifications in the next image given a camera and a classifier
+  rpc GetClassificationsFromCamera(GetClassificationsFromCameraRequest) returns (GetClassificationsFromCameraResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/service/vision/{name}/camera_classifications"
+    };
+  }
+
+  // GetClassifications will return a list of classifications in the next image given the image bytes and a classifier
+  rpc GetClassifications(GetClassificationsRequest) returns (GetClassificationsResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/service/vision/{name}/classifications"
     };
   }
 
@@ -82,6 +126,15 @@ message AddDetectorRequest {
 
 message AddDetectorResponse {}
 
+message RemoveDetectorRequest {
+  // name of the vision service
+  string name = 1;
+  // name of detector in registry
+  string detector_name = 2;
+}
+
+message RemoveDetectorResponse {}
+
 message GetDetectionsRequest {
   // name of the vision service
   string name = 1;
@@ -103,6 +156,7 @@ message GetDetectionsResponse {
 }
 
 message GetDetectionsFromCameraRequest {
+  // name of the vision service
   string name = 1;
   // name of camera source to use as input
   string camera_name = 2;
@@ -125,6 +179,81 @@ message Detection {
   double confidence = 5;
   // label associated with the detected object
   string class_name = 6;
+}
+
+message GetClassifierNamesRequest {
+  // name of the vision service
+  string name = 1;
+}
+
+message GetClassifierNamesResponse {
+  repeated string classifier_names = 1;
+}
+
+message AddClassifierRequest {
+  // name of the vision service
+  string name = 1;
+  // name of classifier to add to registry
+  string classifier_name = 2;
+  // the type of classifier
+  string classifier_model_type = 3;
+  // additional parameters
+  google.protobuf.Struct classifier_parameters = 4;
+}
+
+message AddClassifierResponse {}
+
+message RemoveClassifierRequest {
+  // name of the vision service
+  string name = 1;
+  // name of the classifier in registry
+  string classifier_name = 2;
+}
+
+message RemoveClassifierResponse {}
+
+message GetClassificationsRequest {
+  // name of the vision service
+  string name = 1;
+  // the image encoded as bytes
+  bytes image = 2;
+  // the width of the image
+  int32 width = 3;
+  // the height of the image
+  int32 height = 4;
+  // the actual MIME type of image
+  string mime_type = 5;
+  // the name of the registered classifier
+  string classifier_name = 6;
+  // the number of classifications desired
+  int32 n = 7;
+}
+
+message GetClassificationsResponse {
+  repeated Classification classifications = 1;
+}
+
+message GetClassificationsFromCameraRequest {
+  // name of the vision service
+  string name = 1;
+  // the image encoded as bytes
+  string camera_name = 2;
+  // the name of the registered classifier
+  string classifier_name = 3;
+  // the number of classifications desired
+  int32 n = 4;
+}
+
+message GetClassificationsFromCameraResponse {
+  repeated Classification classifications = 1;
+}
+
+// the general form of the output from a classifier
+message Classification {
+  // the class name
+  string class_name = 1;
+  // the confidence score of the classification
+  double confidence = 2;
 }
 
 message GetSegmenterNamesRequest {

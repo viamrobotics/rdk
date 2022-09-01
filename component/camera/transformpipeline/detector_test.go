@@ -122,9 +122,9 @@ func TestColorDetectionSource(t *testing.T) {
 
 	srv, err := vision.FirstFromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
-	detConf := vision.DetectorConfig{
+	detConf := vision.VisModelConfig{
 		Name: "detector_color",
-		Type: "color",
+		Type: "color_detector",
 		Parameters: config.AttributeMap{
 			"detect_color": "#4F3815",
 			"tolerance":    0.013,
@@ -160,9 +160,9 @@ func TestTFLiteDetectionSource(t *testing.T) {
 	// add the detector
 	srv, err := vision.FirstFromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
-	detConf := vision.DetectorConfig{
+	detConf := vision.VisModelConfig{
 		Name: "detector_tflite",
-		Type: "tflite",
+		Type: "tflite_detector",
 		Parameters: config.AttributeMap{
 			"model_path":  artifact.MustPath("vision/tflite/effdet0.tflite"),
 			"num_threads": 1,
@@ -196,9 +196,9 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 	// add the detector
 	srv, err := vision.FirstFromRobot(r)
 	test.That(b, err, test.ShouldBeNil)
-	detConf := vision.DetectorConfig{
+	detConf := vision.VisModelConfig{
 		Name: "detector_color",
-		Type: "color",
+		Type: "color_detector",
 		Parameters: config.AttributeMap{
 			"detect_color": "#4F3815",
 			"tolerance":    0.055556,
@@ -232,9 +232,9 @@ func BenchmarkTFLiteDetectionSource(b *testing.B) {
 	// add the detector
 	srv, err := vision.FirstFromRobot(r)
 	test.That(b, err, test.ShouldBeNil)
-	detConf := vision.DetectorConfig{
+	detConf := vision.VisModelConfig{
 		Name: "detector_tflite",
-		Type: "tflite",
+		Type: "tflite_detector",
 		Parameters: config.AttributeMap{
 			"model_path":  artifact.MustPath("vision/tflite/effdet0.tflite"),
 			"num_threads": 1,
