@@ -29,7 +29,7 @@ type SamplePairs struct {
 	N  int
 }
 
-// GenerateSamplePairs generates n samples for a patch size with the chosen Sampling Type
+// GenerateSamplePairs generates n samples for a patch size with the chosen Sampling Type.
 func GenerateSamplePairs(dist SamplingType, n, patchSize int) *SamplePairs {
 	// sample positions
 	xs0 := make([]int, 0, n)
