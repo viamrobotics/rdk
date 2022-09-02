@@ -116,17 +116,9 @@ func ComputeBRIEFDescriptors(img *image.Gray, sp *SamplePairs, kps *FASTKeypoint
 	// compute descriptors
 
 	descs := make([]Descriptor, len(kps.Points))
-	/*
-		padded, err := rimage.PaddingGray(blurred, image.Point{17, 17}, image.Point{8, 8}, rimage.BorderConstant)
-		if err != nil {
-			return nil, err
-		}
-	*/
 	bnd := blurred.Bounds()
 	halfSize := cfg.PatchSize / 2
 	for k, kp := range kps.Points {
-		//paddedKp := image.Point{kp.X + 8, kp.Y + 8}
-		paddedKp := image.Point{kp.X, kp.Y}
 		p1 := image.Point{kp.X + halfSize, kp.Y + halfSize}
 		p2 := image.Point{kp.X + halfSize, kp.Y - halfSize}
 		p3 := image.Point{kp.X - halfSize, kp.Y + halfSize}
@@ -154,8 +146,8 @@ func ComputeBRIEFDescriptors(img *image.Gray, sp *SamplePairs, kps *FASTKeypoint
 			outx1 := int(math.Round(cosTheta*x1 - sinTheta*y1))
 			outy1 := int(math.Round(sinTheta*x1 + cosTheta*y1))
 			// fill BRIEF descriptor
-			p0Val := blurred.GrayAt(paddedKp.X+outx0, paddedKp.Y+outy0).Y
-			p1Val := blurred.GrayAt(paddedKp.X+outx1, paddedKp.Y+outy1).Y
+			p0Val := blurred.GrayAt(kp.X+outx0, kp.Y+outy0).Y
+			p1Val := blurred.GrayAt(kp.X+outx1, kp.Y+outy1).Y
 			if p0Val > p1Val {
 				// Casting to an int truncates the float, which is what we want.
 				descriptorIndex := int64(i / 64)

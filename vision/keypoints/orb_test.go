@@ -19,7 +19,7 @@ func TestLoadORBConfiguration(t *testing.T) {
 	test.That(t, cfg, test.ShouldNotBeNil)
 	test.That(t, cfg.Layers, test.ShouldEqual, 4)
 	test.That(t, cfg.DownscaleFactor, test.ShouldEqual, 2)
-	test.That(t, cfg.FastConf.Threshold, test.ShouldEqual, 0.15)
+	test.That(t, cfg.FastConf.Threshold, test.ShouldEqual, 20)
 	test.That(t, cfg.FastConf.NMatchesCircle, test.ShouldEqual, 9)
 	test.That(t, cfg.FastConf.NMSWinSize, test.ShouldEqual, 7)
 
@@ -63,8 +63,8 @@ func TestComputeORBKeypoints(t *testing.T) {
 	samplePoints := GenerateSamplePairs(cfg.BRIEFConf.Sampling, cfg.BRIEFConf.N, cfg.BRIEFConf.PatchSize)
 	descs, kps, err := ComputeORBKeypoints(imGray, samplePoints, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(descs), test.ShouldEqual, 137)
-	test.That(t, len(kps), test.ShouldEqual, 137)
+	test.That(t, len(descs), test.ShouldEqual, 59)
+	test.That(t, len(kps), test.ShouldEqual, 59)
 	// save the output image in a temp file
 	tempDir, err := os.MkdirTemp("", "compute_orb_keypoints")
 	test.That(t, err, test.ShouldBeNil)
