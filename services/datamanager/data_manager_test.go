@@ -1,14 +1,10 @@
 package datamanager_test
 
 import (
-	"archive/zip"
-	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"io/fs"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
@@ -52,6 +48,7 @@ var (
 	syncIntervalMins   = 0.0041 // 250ms
 	captureDir         = "/tmp/capture"
 	armDir             = captureDir + "/arm/arm1/GetEndPosition"
+	defaultModelDir    = filepath.Join(os.Getenv("HOME"), "models", ".viam")
 	emptyFileBytesSize = 30 // size of leading metadata message
 	testSvcName1       = "svc1"
 	testSvcName2       = "svc2"
@@ -325,7 +322,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 
 // Validates that models can be deployed onto a robot.
 func TestDeployModels(t *testing.T) {
-	deployModelWaitTime := time.Millisecond * 2000
+	deployModelWaitTime := time.Millisecond * 100
 
 	// Register mock model service with a mock server.
 	modelServer, mockModelService := buildAndStartLocalModelServer(t)
@@ -338,37 +335,31 @@ func TestDeployModels(t *testing.T) {
 	if err != nil {
 		t.Error("Unable to generate fake models.")
 	}
+	defer resetFolder(t, filepath.Join(defaultModelDir, models[0].Name))
 
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
+
+	// Set SyncIntervalMins equal to zero so we do not enable syncing.
 	dmCfg.SyncIntervalMins = 0
 	dmCfg.ModelsToDeploy = append(dmCfg.ModelsToDeploy, models...)
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
 
-	// Set default manager to connect to local version
-	logger, _ := golog.NewObservedTestLogger(t)
-	modelConn, err := getLocalServerConn(modelServer, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	dmsvc.SetModelrConstructor(getTestModelrConstructor(t, modelServer))
-	dmsvc.SetClientConn(modelConn)
+	dmsvc.SetModelManagerConstructor(getTestModelrConstructor(t, modelServer))
+	dmsvc.SetClient()
 
 	err = dmsvc.Update(context.Background(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Validate nothing has been deployed yet.
-	test.That(t, mockModelService.getDeployedModels(), test.ShouldEqual, 0)
-	time.Sleep(deployModelWaitTime) // hacky?
+	time.Sleep(deployModelWaitTime)
 
-	// Validate that the previously captured file was uploaded at startup.
-	time.Sleep(syncWaitTime)
+	// Validate that model was deployed at startup.
 	err = dmsvc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mockModelService.getDeployedModels(), test.ShouldEqual, 1)
-	os.Remove(filepath.Join(os.Getenv("HOME"), "models", ".viam", models[0].Name))
+	test.That(t, mockModelService.getDeployedModels(), test.ShouldEqual, len(models))
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
@@ -408,15 +399,14 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	test.That(t, errors.Is(err, nil), test.ShouldBeTrue)
 }
 
-// Generates and populates a directory structure of files that contain arbitrary file data. Used to simulate testing
-// syncing of data in the service's models_on_robot.
+// Generates a fake model. Used to simulate testing deploying a model in the service's models_on_robot.
 //nolint
-func populateModels() ([]*datamanager.Model, error) {
-	var additionalModels []*datamanager.Model
+func populateModels() ([]*model.Model, error) {
+	var additionalModels []*model.Model
 
 	// Setting destination as nil forces adoption of
 	// the default model directory in data_manager.go
-	m := &datamanager.Model{Name: "m1", Destination: ""}
+	m := &model.Model{Name: "m1", Destination: ""}
 	additionalModels = append(additionalModels, m)
 
 	return additionalModels, nil
@@ -767,7 +757,7 @@ type mockDataSyncServiceServer struct {
 }
 
 type mockModelServiceServer struct {
-	deployedModels *[]datamanager.Model
+	deployedModels *[]model.Model
 	lock           *sync.Mutex
 	m1.UnimplementedModelServiceServer
 }
@@ -783,76 +773,24 @@ func (m mockModelServiceServer) getDeployedModels() int {
 	defer (*m.lock).Unlock()
 	// all we do is check if $Home/models exists and how many subdirs it has
 	// as each model has its own subdir.
-	_, err := os.Stat(filepath.Join(os.Getenv("HOME"), "models", ".viam"))
-	// If the path to the specified destination does not exist,
-	// add the model to the names of models we need to download.
+	_, err := os.Stat(defaultModelDir)
 	if errors.Is(err, os.ErrNotExist) {
 		return 0
 	}
-	files, err := ioutil.ReadDir(filepath.Join(os.Getenv("HOME"), "models", ".viam"))
+	files, err := ioutil.ReadDir(defaultModelDir)
 	if err != nil {
 		return 0
 	}
-	// add explanation
-	minus := 0
-	for i := 0; i < len(files); i++ {
-		fmt.Println("names of files", files[i].Name())
-		// x := files[i].ModTime()
-
-		fmt.Println("time.Now().Nanosecond(): ", time.Now().Nanosecond())
-		fmt.Println("files[i].ModTime().Clock().Nanosecond: ", files[i].ModTime())
-		_, _, modTimeSec := files[i].ModTime().Clock()
-		_, _, timeNowSec := time.Now().Clock()
-		diff := timeNowSec - modTimeSec
-		fmt.Println("diff: ", diff)
-		if diff <= 1 {
-			minus++
-		}
-	}
-	return len(files) - minus
+	return len(files)
 }
 
 func (m mockModelServiceServer) Deploy(ctx context.Context, req *m1.DeployRequest) (*m1.DeployResponse, error) {
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
-	datamanager.Client = &mockClient{}
+	// model.Client = &mockClient{}
 	depResp := &m1.DeployResponse{Message: "abc"}
 	return depResp, nil
 }
-
-// mockClient is the mock client.
-type mockClient struct {
-	DoFunc func(req *http.Request) (*http.Response, error)
-}
-
-// Do is mockClient's `Do` func.
-func (m *mockClient) Do(req *http.Request) (*http.Response, error) {
-	// why we are still using ioutil.NopCloser
-	// https://stackoverflow.com/questions/28158990/golang-io-ioutil-nopcloser
-	// using io.NopCloser and not ioutil.NopCloser bc the latter is depreciated
-
-	r := bytes.NewReader([]byte("mocked response readme"))
-
-	buf := new(bytes.Buffer)
-	zipWriter := zip.NewWriter(buf)
-	w1, err := zipWriter.Create("README.md")
-	if err != nil {
-		panic(err)
-	}
-	if _, err := io.Copy(w1, r); err != nil {
-		panic(err)
-	}
-	zipWriter.Close()
-
-	response := &http.Response{
-		StatusCode: http.StatusOK, // might not even need this
-		Body:       io.NopCloser(buf),
-	}
-	return response, nil
-}
-
-// GetDoFunc fetches the mockClient's `Do` func.
-var GetDoFunc func(req *http.Request) (*http.Response, error)
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
 	var fileName string
@@ -906,7 +844,7 @@ func buildAndStartLocalModelServer(t *testing.T) (rpc.Server, mockModelServiceSe
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	mockService := mockModelServiceServer{
-		deployedModels:                  &[]datamanager.Model{},
+		deployedModels:                  &[]model.Model{},
 		lock:                            &sync.Mutex{},
 		UnimplementedModelServiceServer: m1.UnimplementedModelServiceServer{},
 	}
@@ -947,7 +885,7 @@ func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerC
 
 //nolint:thelper
 func getTestModelrConstructor(t *testing.T, server rpc.Server) model.ManagerConstructor {
-	return func(logger golog.Logger, cfg *config.Config) (model.Manager, error) {
+	return func(logger golog.Logger, cfg *config.Config) (model.ModelManager, error) {
 		conn, err := getLocalServerConn(server, logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := model.NewClient(conn)
