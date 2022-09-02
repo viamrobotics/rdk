@@ -73,8 +73,8 @@ func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationCo
 	if err != nil {
 		return nil, nil, err
 	}
-	// match keypoints
-	matches := keypoints.MatchKeypoints(orb1, orb2, cfg.MatchingCfg, logger)
+	// match descriptors
+	matches := keypoints.MatchDescriptors(orb1, orb2, cfg.MatchingCfg, logger)
 	// get 2 sets of matching keypoints
 	matchedKps1, matchedKps2, err := keypoints.GetMatchingKeyPoints(matches, kps1, kps2)
 	matchedOrbPts1 := keypoints.PlotKeypoints(im1, matchedKps1)

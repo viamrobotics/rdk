@@ -42,7 +42,7 @@ func TestRangeInt(t *testing.T) {
 	test.That(t, r3[2], test.ShouldEqual, 6)
 }
 
-func TestMatchKeypoints(t *testing.T) {
+func TestMatchDescriptors(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	tempDir, err := os.MkdirTemp("", "matching_keypoints")
 	test.That(t, err, test.ShouldBeNil)
@@ -89,7 +89,7 @@ func TestMatchKeypoints(t *testing.T) {
 	}
 	// test matches with itself
 	cfgMatch.DoCrossCheck = true
-	matches := MatchKeypoints(briefDescriptors, briefDescriptors, &cfgMatch, logger)
+	matches := MatchDescriptors(briefDescriptors, briefDescriptors, &cfgMatch, logger)
 	matchedKps1, matchedKps2, err := GetMatchingKeyPoints(matches, fastKps.Points, fastKps.Points)
 	test.That(t, err, test.ShouldBeNil)
 	matchedLinesImg := PlotMatchedLines(imGray, imGray, matchedKps1, matchedKps2)
@@ -99,7 +99,7 @@ func TestMatchKeypoints(t *testing.T) {
 		test.That(t, match.Idx1, test.ShouldEqual, match.Idx2)
 	}
 	// test matches with bigger image and cross-check; #matches <= #kps2
-	matches = MatchKeypoints(briefDescriptors, briefDescriptors2, &cfgMatch, logger)
+	matches = MatchDescriptors(briefDescriptors, briefDescriptors2, &cfgMatch, logger)
 	test.That(t, len(matches.Indices), test.ShouldBeLessThanOrEqualTo, len(fastKps2.Points))
 	matchedKps1, matchedKps2, err = GetMatchingKeyPoints(matches, fastKps.Points, fastKps2.Points)
 	test.That(t, err, test.ShouldBeNil)
@@ -133,7 +133,7 @@ func TestGetMatchingKeyPoints(t *testing.T) {
 		1000,
 	}
 	// test matches with itself
-	matches := MatchKeypoints(descs, descs, &cfgMatch, logger)
+	matches := MatchDescriptors(descs, descs, &cfgMatch, logger)
 
 	kps1, kps2, err := GetMatchingKeyPoints(matches, kps, kps)
 	test.That(t, err, test.ShouldBeNil)
@@ -185,7 +185,7 @@ func TestOrbMatching(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	orb2, kps2, err = sortDescriptorsByPoint(orb2, kps2, logger)
 	test.That(t, err, test.ShouldBeNil)
-	matches := MatchKeypoints(orb1, orb2, matchingConf, logger)
+	matches := MatchDescriptors(orb1, orb2, matchingConf, logger)
 	test.That(t, len(matches.Indices), test.ShouldBeGreaterThan, 300)
 	test.That(t, len(matches.Indices), test.ShouldBeLessThan, 350)
 }
