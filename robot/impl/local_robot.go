@@ -152,10 +152,12 @@ func (r *localRobot) ModuleManager() *module.Manager {
 
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
+
+	// Signal logic and service modules to stop before components are closed.
+	err := r.modules.Stop(ctx)
+
 	for _, svc := range r.internalServices {
-		if err := goutils.TryClose(ctx, svc); err != nil {
-			return err
-		}
+		multierr.Combine(err, goutils.TryClose(ctx, svc))
 	}
 
 	if r.cancelBackgroundWorkers != nil {
@@ -169,6 +171,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 	}
 	r.activeBackgroundWorkers.Wait()
 	return multierr.Combine(
+		err,
 		r.manager.Close(ctx),
 		r.modules.Close(ctx),
 	)
@@ -406,6 +409,14 @@ func newWithResources(
 	if err := r.manager.processManager.Start(ctx); err != nil {
 		return nil, err
 	}
+
+	// TODO (@Otterverse) make this reconfigurable.
+	r.logger.Warn("SMURF MODULES")
+	for _, mod := range cfg.Modules {
+		r.logger.Debugf("SMURF MOD10: %+v", mod)
+		r.modules.AddModule(mod)
+	}
+
 	// See if default service already exists in the config
 	seen := make(map[resource.Subtype]bool)
 	for _, name := range resource.DefaultServices {

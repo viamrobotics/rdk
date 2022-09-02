@@ -9,10 +9,13 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/pkg/errors"
+
 	"go.uber.org/multierr"
 
 	"google.golang.org/grpc"
+	//"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 
 	"go.viam.com/utils/pexec"
@@ -20,11 +23,10 @@ import (
 
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 
-	pb "go.viam.com/rdk/proto/api/module/v1"
+	pb "go.viam.com/api/proto/viam/module/v1"
 )
 
 // NewManager returns a Manager
@@ -55,6 +57,7 @@ type module struct {
 	addr    string
 }
 
+// Manager is the root structure for the module system.
 type Manager struct {
 	mu         sync.RWMutex
 	logger     golog.Logger
@@ -62,6 +65,15 @@ type Manager struct {
 	serviceMap map[resource.Name]rpc.ClientConn
 }
 
+// Stop signals logic modules to stop operation and release resources.
+// Should be called before Close().
+func (mgr *Manager) Stop(ctx context.Context) error {
+	// TODO (@Otterverse) stop logic and services.
+	return nil
+}
+
+// Close terminates module connections and processes.
+// Should only be called after Stop().
 func (mgr *Manager) Close(ctx context.Context) error {
 	var err error
 	for _, mod := range mgr.modules {
@@ -75,6 +87,7 @@ func (mgr *Manager) Close(ctx context.Context) error {
 	return err
 }
 
+// AddModule adds and starts a new resource module.
 func (mgr *Manager) AddModule(cfg config.Module) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
@@ -94,9 +107,9 @@ func (mgr *Manager) AddModule(cfg config.Module) error {
 		ID:   string(cfg.Name),
 		Name: string(cfg.Path),
 		Args: []string{ string(mgr.modules[cfg.Name].addr) },
-		// CWD     string   `json:"cwd"`
-		// OneShot bool     `json:"one_shot"`
-		// Log     bool     `json:"log"`
+		Log: true,
+		// CWD string
+		// OneShot bool
 	}
 	mgr.modules[cfg.Name].process = pexec.NewManagedProcess(pcfg, mgr.logger)
 
@@ -108,6 +121,8 @@ func (mgr *Manager) AddModule(cfg config.Module) error {
 	conn, err := grpc.Dial(
 		string("unix://" + mgr.modules[cfg.Name].addr),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
+		grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor()),
 	)
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")
@@ -119,8 +134,8 @@ func (mgr *Manager) AddModule(cfg config.Module) error {
 		switch cfg.Type {
 		case "component":
 			registry.RegisterComponent(generic.Subtype, model, registry.Component{
-				Constructor: func(ctx context.Context, _ registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
-					return mgr.AddComponent(ctx, cfg)
+				Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
+					return mgr.AddComponent(ctx, cfg, depsToNames(deps))
 				},
 			})
 		case "service":
@@ -132,27 +147,25 @@ func (mgr *Manager) AddModule(cfg config.Module) error {
 		}
 	}
 
-
-	time.Sleep(time.Second * 5)
-
-
 	return nil
 }
 
-func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component) (interface{}, error) {
+// AddComponent tells a component module to configure a new component.
+func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component, deps []string) (interface{}, error) {
 	for _, module := range mgr.modules {
 		for _, model := range module.serves {
 			if cfg.Model == model {
 				client := pb.NewModuleServiceClient(module.conn)
-				cfgStruct, err := protoutils.StructToStructPb(cfg)
+				err := ping(ctx, client)
+				if err != nil {
+					return nil, errors.WithMessage(err, "SMURF PING: ")
+				}
+
+				cfgProto, err := config.ComponentConfigToProto(&cfg)
 				if err != nil {
 					return nil, err
 				}
-				req := &pb.AddResourceRequest{
-					Name: protoutils.ResourceNameToProto(cfg.ResourceName()),
-					Config:       cfgStruct,
-				}
-				_, err = client.AddResource(ctx, req)
+				_, err = client.AddComponent(ctx, &pb.AddComponentRequest{Config: cfgProto, Dependencies: deps})
 				if err != nil {
 					return nil, err
 				}
@@ -166,10 +179,38 @@ func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component) (int
 					return resourceClient, nil
 				}
 				return c.Reconfigurable(resourceClient)
-
-				return resourceClient, nil
 			}
 		}
 	}
 	return nil, errors.Errorf("no module registered to serve resource model %s", cfg.ResourceName().Model)
+}
+
+// AddService tells a service module to configure a new service.
+func (mgr *Manager) AddService(ctx context.Context, cfg config.Service) (interface{}, error) {
+	// TODO (@Otterverse) add service support
+	return nil, nil
+}
+
+func depsToNames (deps registry.Dependencies) []string {
+	var depStrings []string
+	for dep := range deps {
+		depStrings = append(depStrings, dep.Name)
+	}
+	return depStrings
+}
+
+func ping(ctx context.Context, client pb.ModuleServiceClient) error {
+	ctxTimeout, cancelFunc := context.WithTimeout(ctx, time.Second * 10)
+	defer cancelFunc()
+	for {
+		// TODO (@Otterverse) test if this actually fails on context.Done()
+		resp, err := client.Ready(ctxTimeout, &pb.ReadyRequest{}, grpc_retry.WithMax(5000))
+		if err != nil {
+			return err
+		}
+
+		if resp.Ready {
+			return nil
+		}
+	}
 }
