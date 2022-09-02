@@ -64,8 +64,20 @@ func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
 			"aligned": false,
 		},
 	}
+	cameraComp2 := config.Component{
+		Name:  "fake_cam2",
+		Type:  camera.SubtypeName,
+		Model: "file",
+		Attributes: config.AttributeMap{
+			"color":   artifact.MustPath("vision/tflite/lion.jpeg"),
+			"depth":   "",
+			"aligned": false,
+		},
+	}
+
 	test.That(t, err, test.ShouldBeNil)
 	cfg.Components = append(cfg.Components, cameraComp)
+	cfg.Components = append(cfg.Components, cameraComp2)
 	newConfFile := writeTempConfig(t, cfg)
 	defer os.Remove(newConfFile)
 	// make the robot from new config and get the service
@@ -74,9 +86,9 @@ func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
 	srv, err := vision.FirstFromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 	// add the detector
-	detConf := vision.DetectorConfig{
+	detConf := vision.VisModelConfig{
 		Name: "detect_red",
-		Type: "color",
+		Type: "color_detector",
 		Parameters: config.AttributeMap{
 			"detect_color": "#C9131F", // look for red
 			"tolerance":    0.05,

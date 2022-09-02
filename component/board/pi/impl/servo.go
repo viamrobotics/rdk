@@ -4,8 +4,8 @@ package piimpl
 
 // #include <stdlib.h>
 // #include <pigpio.h>
-// #include "pi.h"
 // #cgo LDFLAGS: -lpigpio
+// #include "pi.h"
 import "C"
 
 import (
@@ -24,10 +24,7 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
-var (
-	piBadPulseWidth = -7
-	piNotServoGPIO  = -93
-)
+var holdTime = 250000000 // 250ms in nanoseconds
 
 // init registers a pi servo based on pigpio.
 func init() {
@@ -66,7 +63,7 @@ func init() {
 						return nil, errors.Errorf("gpioServo failed with %d", setPos)
 					}
 				} else {
-					setPos := C.gpioServo(theServo.pin, C.uint(angleToPulseWidth(uint8(*attr.StartPos))))
+					setPos := C.gpioServo(theServo.pin, C.uint(angleToPulseWidth(int(*attr.StartPos))))
 					if setPos != 0 {
 						return nil, errors.Errorf("gpioServo failed with %d", setPos)
 					}
@@ -95,7 +92,7 @@ type piPigpioServo struct {
 	res        C.int
 	min, max   uint8
 	opMgr      operation.SingleOperationManager
-	pulseWidth float64 // pulsewidth value, 500-2500us is 0-180 degrees, 0 is off
+	pulseWidth int // pulsewidth value, 500-2500us is 0-180 degrees, 0 is off
 	holdPos    bool
 }
 
@@ -112,7 +109,7 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 		angle = s.max
 	}
 
-	pulseWidth := angleToPulseWidth(angle)
+	pulseWidth := angleToPulseWidth(int(angle))
 	res := C.gpioServo(s.pin, C.uint(pulseWidth))
 
 	s.pulseWidth = pulseWidth
@@ -125,7 +122,7 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 	utils.SelectContextOrWait(ctx, time.Duration(pulseWidth)*time.Microsecond) // duration of pulswidth send on pin and servo moves
 
 	if !s.holdPos { // the following logic disables a servo once it has reached a position or after a certain amount of time has been reached
-		time.Sleep(500 * time.Millisecond) // time before a stop is sent
+		time.Sleep(time.Duration(holdTime)) // time before a stop is sent
 		setPos := C.gpioServo(s.pin, C.uint(0))
 		if setPos < 0 {
 			return errors.Errorf("servo on pin %s failed with code %d", s.pinname, setPos)
@@ -137,13 +134,13 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 // returns piGPIO specific errors to user
 func (s *piPigpioServo) pigpioErrors(res int) error {
 	switch {
-	case res == piNotServoGPIO:
+	case res == C.PI_NOT_SERVO_GPIO:
 		return errors.Errorf("gpioservo pin %s is not set up to send and receive pulsewidths", s.pinname)
-	case res == piBadPulseWidth:
+	case res == C.PI_BAD_PULSEWIDTH:
 		return errors.Errorf("gpioservo on pin %s trying to reach out of range position", s.pinname)
 	case res == 0:
 		return nil
-	case res < 0 && res != piBadPulseWidth && res != piNotServoGPIO:
+	case res < 0 && res != C.PI_BAD_PULSEWIDTH && res != C.PI_NOT_SERVO_GPIO:
 		return errors.Errorf("gpioServo on pin %s failed with %d", s.pinname, res)
 	default:
 		return nil
@@ -160,21 +157,21 @@ func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 	if err != nil {
 		return 0, err
 	}
-	return pulseWidthToAngle(float64(s.res)), nil
+	return uint8(pulseWidthToAngle(int(s.res))), nil
 }
 
 // angleToPulseWidth changes the input angle in degrees
 // into the corresponding pulsewidth value in microsecond
-func angleToPulseWidth(angle uint8) float64 {
-	pulseWidth := 500 + (2000.0 * float64(angle) / 180.0)
+func angleToPulseWidth(angle int) int {
+	pulseWidth := 500 + (2000 * angle / 180)
 	return pulseWidth
 }
 
 // pulseWidthToAngle changes the pulsewidth value in microsecond
 // to the corresponding angle in degrees
-func pulseWidthToAngle(pulseWidth float64) uint8 {
-	angle := 180 * (pulseWidth - 500.0) / 2000.0
-	return uint8(angle)
+func pulseWidthToAngle(pulseWidth int) int {
+	angle := 180 * (pulseWidth + 1 - 500) / 2000
+	return angle
 }
 
 // Stop stops the servo. It is assumed the servo stops immediately.
@@ -189,7 +186,6 @@ func (s *piPigpioServo) Stop(ctx context.Context) error {
 }
 
 func (s *piPigpioServo) IsMoving(ctx context.Context) (bool, error) {
-	// RSDK-434: Refine implementation
 	err := s.pigpioErrors(int(s.res))
 	if err != nil {
 		return false, err

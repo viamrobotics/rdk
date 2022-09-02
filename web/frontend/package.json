@@ -47,6 +47,7 @@
     "preview": "vite preview",
     "lint": "eslint 'src/**/*.{ts,js,vue}' --fix --ignore-pattern 'gen/'",
     "cypress:ci": "cypress run",
+    "cypress": "cypress open",
     "test:unit": "echo \"no tests exist yet\""
   }
 }
