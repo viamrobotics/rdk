@@ -642,7 +642,7 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 				return err // Do not try to unzip if we can't download.
 			}
 			// A download from a GCS signed URL only returns one file.
-			modelFileToUnzip := deployModel.Name + gzip // TODO: For now, hardcode.
+			modelFileToUnzip := deployModel.Name + gzip
 			if err = model.UnzipSource(deployModel.Destination, modelFileToUnzip, svc.logger); err != nil {
 				svc.logger.Error(err)
 			}
