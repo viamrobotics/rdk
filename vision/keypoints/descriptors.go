@@ -5,9 +5,6 @@ import "errors"
 // Descriptor is an alias for a slice of uint64.
 type Descriptor = []uint64
 
-// Descriptors stores a slice of Descriptor.
-type Descriptors = []Descriptor
-
 // DescriptorsHammingDistnace computes the pairwise distances between 2 descriptor arrays.
 func DescriptorsHammingDistance(descs1, descs2 []Descriptor) ([][]int, error) {
 	var m int

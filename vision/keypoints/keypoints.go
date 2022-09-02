@@ -38,13 +38,20 @@ func PlotKeypoints(img *image.Gray, kps []image.Point) image.Image {
 	return dc.Image()
 }
 
-// PlotMatchedLines plots matched keypoints on both images.
-func PlotMatchedLines(im1 image.Image, im2 image.Image, kps1 []image.Point, kps2 []image.Point) image.Image {
+// PlotMatchedLines plots matched keypoints on both images. vertical is true if the images should be stacked on top of each other.
+func PlotMatchedLines(im1 image.Image, im2 image.Image, kps1 []image.Point, kps2 []image.Point, vertical bool) image.Image {
 	w, h := im1.Bounds().Max.X+im2.Bounds().Max.X, utils.MaxInt(im1.Bounds().Max.Y, im2.Bounds().Max.Y)
+	if vertical {
+		w, h = utils.MaxInt(im1.Bounds().Max.X, im2.Bounds().Max.X), im1.Bounds().Max.Y+im2.Bounds().Max.Y
+	}
 
 	dc := gg.NewContext(w, h)
 	dc.DrawImage(im1, 0, 0)
-	dc.DrawImage(im2, im1.Bounds().Max.X, 0)
+	if vertical {
+		dc.DrawImage(im2, 0, im1.Bounds().Max.Y)
+	} else {
+		dc.DrawImage(im2, im1.Bounds().Max.X, 0)
+	}
 
 	// draw keypoint matches on image
 	dc.SetRGBA(0, 1, 0, 0.5)
@@ -55,7 +62,11 @@ func PlotMatchedLines(im1 image.Image, im2 image.Image, kps1 []image.Point, kps2
 		}
 		p2 := kps2[i]
 		dc.SetLineWidth(1.25)
-		dc.DrawLine(float64(p1.X), float64(p1.Y), float64(im1.Bounds().Max.X+p2.X), float64(p2.Y))
+		if vertical {
+			dc.DrawLine(float64(p1.X), float64(p1.Y), float64(p2.X), float64(im1.Bounds().Max.Y+p2.Y))
+		} else {
+			dc.DrawLine(float64(p1.X), float64(p1.Y), float64(im1.Bounds().Max.X+p2.X), float64(p2.Y))
+		}
 		dc.Stroke()
 	}
 	return dc.Image()

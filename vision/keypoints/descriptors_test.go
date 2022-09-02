@@ -27,8 +27,8 @@ func TestComputeBRIEFDescriptors(t *testing.T) {
 		}
 	}
 	fastKps := NewFASTKeypointsFromImage(imGray, cfg)
-	test.That(t, len(fastKps.Points), test.ShouldEqual, 100)
-	test.That(t, len(fastKps.Orientations), test.ShouldEqual, 100)
+	test.That(t, len(fastKps.Points), test.ShouldEqual, 28)
+	test.That(t, len(fastKps.Orientations), test.ShouldEqual, 28)
 	// value from opencv FAST orientation computation
 	test.That(t, fastKps.Orientations[0], test.ShouldAlmostEqual, 0.058798250129)
 	isOriented1 := fastKps.IsOriented()

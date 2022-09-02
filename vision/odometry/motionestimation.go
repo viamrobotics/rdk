@@ -79,7 +79,7 @@ func EstimateMotionFrom2Frames(img1, img2 *rimage.Image, cfg *MotionEstimationCo
 	matchedKps1, matchedKps2, err := keypoints.GetMatchingKeyPoints(matches, kps1, kps2)
 	matchedOrbPts1 := keypoints.PlotKeypoints(im1, matchedKps1)
 	matchedOrbPts2 := keypoints.PlotKeypoints(im2, matchedKps2)
-	matchedLines := keypoints.PlotMatchedLines(matchedOrbPts1, matchedOrbPts2, matchedKps1, matchedKps2)
+	matchedLines := keypoints.PlotMatchedLines(matchedOrbPts1, matchedOrbPts2, matchedKps1, matchedKps2, true)
 	// get intrinsics matrix
 	k := cfg.CamIntrinsics.GetCameraMatrix()
 
