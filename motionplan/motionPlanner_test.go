@@ -13,8 +13,10 @@ import (
 	"go.uber.org/zap"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/motionplan/visualization"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -97,6 +99,40 @@ func TestConstrainedArmMotion(t *testing.T) {
 	path, err := mp.Plan(context.Background(), pos, home7, opt)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(path), test.ShouldNotEqual, 0)
+}
+
+func TestPlanningWithGripper(t *testing.T) {
+	fs := frame.NewEmptySimpleFrameSystem("")
+	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "ur")
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(ur5e, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+	bc, err := spatial.NewBoxCreator(r3.Vector{200, 200, 200}, spatial.NewPoseFromPoint(r3.Vector{Z: 100}))
+	gripper, err := frame.NewStaticFrameWithGeometry("gripper", spatial.NewPoseFromPoint(r3.Vector{0, 0, 200}), bc)
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(gripper, ur5e)
+	test.That(t, err, test.ShouldBeNil)
+	fss := NewSolvableFrameSystem(fs, logger.Sugar())
+	zeroPos := frame.StartPositions(fss)
+
+	eePose, err := fss.Transform(zeroPos, frame.NewPoseInFrame("gripper", spatial.NewZeroPose()), frame.World)
+	test.That(t, err, test.ShouldBeNil)
+	newPose := frame.NewPoseInFrame(
+		frame.World,
+		spatialmath.Compose(eePose.(*frame.PoseInFrame).Pose(), spatial.NewPoseFromPoint(r3.Vector{0, 0, 300})),
+	)
+	solutionMap, err := fss.SolvePose(context.Background(), zeroPos, newPose, gripper.Name())
+	test.That(t, err, test.ShouldBeNil)
+
+	sFrames, err := fss.TracebackFrame(gripper)
+	test.That(t, err, test.ShouldBeNil)
+	sf, err := newSolverFrame(fss, sFrames, frame.World, zeroPos)
+	test.That(t, err, test.ShouldBeNil)
+	solution := make([][]frame.Input, 0, len(solutionMap))
+	for _, step := range solutionMap {
+		solution = append(solution, step["ur"])
+	}
+	visualization.VisualizePlan(context.Background(), solution, sf, nil)
 }
 
 func TestFixOvIncrement(t *testing.T) {

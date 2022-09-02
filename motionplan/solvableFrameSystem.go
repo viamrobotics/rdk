@@ -334,7 +334,6 @@ func (sf *solverFrame) InputFromProtobuf(jp *pb.JointPositions) []frame.Input {
 
 		inputs = append(inputs, transform.InputFromProtobuf(&pb.JointPositions{Values: jPos})...)
 	}
-
 	return inputs
 }
 
@@ -347,7 +346,6 @@ func (sf *solverFrame) ProtobufFromInput(input []frame.Input) *pb.JointPositions
 		jPos.Values = append(jPos.Values, transform.ProtobufFromInput(input[posIdx:dof]).Values...)
 		posIdx = dof
 	}
-
 	return jPos
 }
 

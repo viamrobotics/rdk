@@ -22,17 +22,17 @@ var vviz []byte
 type stepData map[string][][]r3.Vector
 
 // VisualizePlan visualizes a plan for a given model and given worldState.
-func VisualizePlan(ctx context.Context, plan [][]referenceframe.Input, model referenceframe.Model, worldState *pb.WorldState) error {
+func VisualizePlan(ctx context.Context, plan [][]referenceframe.Input, frame referenceframe.Frame, worldState *pb.WorldState) error {
 	planData := make([]stepData, 0)
 	for _, step := range plan {
-		planData = append(planData, getStepData(model, worldState, step))
+		planData = append(planData, getStepData(frame, worldState, step))
 	}
 	return visualize(planData)
 }
 
 // VisualizeStep visualizes a single scene including a robot model at given inputs and its world state.
-func VisualizeStep(model referenceframe.Frame, worldState *pb.WorldState, inputs []referenceframe.Input) error {
-	return visualize([]stepData{getStepData(model, worldState, inputs)})
+func VisualizeStep(frame referenceframe.Frame, worldState *pb.WorldState, inputs []referenceframe.Input) error {
+	return visualize([]stepData{getStepData(frame, worldState, inputs)})
 }
 
 func getStepData(model referenceframe.Frame, worldState *pb.WorldState, inputs []referenceframe.Input) stepData {
