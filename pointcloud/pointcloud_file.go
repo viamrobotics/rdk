@@ -208,7 +208,7 @@ func WriteToLASFile(cloud PointCloud, fn string) (err error) {
 		return
 	}
 
-	// nolint:nakedret
+	//nolint:nakedret
 	return
 }
 

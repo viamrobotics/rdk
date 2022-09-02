@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import { ref, watch, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import InputController from '../gen/proto/api/component/inputcontroller/v1/input_controller_pb.esm';
 
@@ -107,11 +107,13 @@ const connectEvent = (con: boolean) => {
     newEvent.setTime(Timestamp.fromDate(new Date()));
     newEvent.setEvent(con ? 'Connect' : 'Disconnect');
     newEvent.setValue(0);
+
     if (/X|Y|Z$/.test(ctrl)) {
       newEvent.setControl(`Absolute${ctrl}`);
     } else {
       newEvent.setControl(`Button${ctrl}`);
     }
+
     sendEvent(newEvent);
   }
 };
@@ -177,48 +179,42 @@ const tick = () => {
 </script>
 
 <template>
-  <div class="component">
-    <div class="card">
-      <div
-        class="row"
-        style="margin-right: 0; align-items: center"
-      >
-        <div class="flex flex-row content-center items-center gap-2">
-          <h2 class="m-0">
-            WebGamepad
-          </h2>
-          <span
-            v-if="gamepadConnected && enabled"
-            class="pill green"
-          >Connected</span>
-          <span
-            v-else
-            class="pill"
-          >Disconnected</span>
-        </div>
-
-        <div
-          class="row"
-          style="justify-content: flex-end; flex-grow: 1; margin-right: 0"
-        >
-          <div class="ml-0 flex flex-col">
-            <label class="subtitle">Connection</label>
-            <v-switch
-              :value="enabled ? 'on' : 'off'"
-              @input="enabled = !enabled"
-            />
-          </div>
-        </div>
+  <v-collapse
+    title="WebGamepad"
+    class="do"
+  >
+    <v-breadcrumbs
+      slot="title"
+      :crumbs="['input_controller'].join(',')"
+    />
+    <div slot="header">
+      <span
+        v-if="gamepadConnected && enabled"
+        class="rounded-full bg-green-500 px-3 py-0.5 text-xs text-white"
+      >Connected</span>
+      <span
+        v-else
+        class="rounded-full bg-gray-200 px-3 py-0.5 text-xs text-gray-800"
+      >Disconnected</span>
+    </div>
+    
+    <div class="h-full w-full border border-t-0 border-black p-4">
+      <div class="flex flex-row">
+        <label class="subtitle mr-2">Connection</label>
+        <v-switch
+          :value="enabled ? 'on' : 'off'"
+          @input="enabled = !enabled"
+        />
       </div>
 
-      <div
+      <div 
         v-if="gamepadConnected"
-        class="row"
+        class="flex h-full w-full flex-row justify-between gap-2"
       >
         <div
           v-for="(value, name) of curStates"
           :key="name"
-          class="ml-0 flex w-[8ex] flex-col"
+          class="ml-0 flex w-[8ex] flex-col text-center"
         >
           <p class="subtitle m-0">
             {{ name }}
@@ -227,18 +223,10 @@ const tick = () => {
         </div>
       </div>
     </div>
-  </div>
+  </v-collapse>
 </template>
 
 <style scoped>
-
-.row {
-  display: flex;
-  flex-direction: row;
-  margin-right: 12px;
-  gap: 8px;
-  margin-bottom: 12px;
-}
 
 .subtitle {
   color: var(--black-70);

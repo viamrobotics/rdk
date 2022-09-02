@@ -3,7 +3,7 @@ package rimage
 import (
 	"html/template"
 	"image/color"
-	"io/ioutil"
+	"os"
 	"sort"
 	"strings"
 )
@@ -103,7 +103,7 @@ func (x *ColorDiffs) output() string {
 // WriteTo writes the diff information out to a file.
 func (x *ColorDiffs) WriteTo(fn string) error {
 	//nolint:gosec
-	return ioutil.WriteFile(fn, []byte(x.output()), 0o640)
+	return os.WriteFile(fn, []byte(x.output()), 0o640)
 }
 
 // ComputeColorDiffs computes the different between the all of the colors given.

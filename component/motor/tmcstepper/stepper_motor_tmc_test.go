@@ -35,7 +35,7 @@ func checkTx(t *testing.T, c chan []byte, expects [][]byte) {
 	}
 }
 
-func checkRx(t *testing.T, c chan []byte, expects [][]byte, sends [][]byte) {
+func checkRx(t *testing.T, c chan []byte, expects, sends [][]byte) {
 	t.Helper()
 	for i, expected := range expects {
 		tx := <-c
@@ -102,7 +102,7 @@ func TestTMCStepperMotor(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
-		features, err := _motor.GetFeatures(ctx, nil)
+		features, err := _motor.GetProperties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
 	})

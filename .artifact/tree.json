@@ -2888,6 +2888,12 @@
           "hash": "3db8bb7ff7845790c0a770dc19b7dd46",
           "size": 13914
         }
+      },
+      "transformpipeline": {
+        "vision.json": {
+          "hash": "6a08f5990ff4e77de7265facc1518a67",
+          "size": 84
+        }
       }
     }
   },
@@ -3760,6 +3766,10 @@
       "hash": "9d126ef020bba1dd8351573a7f6fa086",
       "size": 1760554
     },
+    "board2_gray.png": {
+      "hash": "3e62dc2c62bbd4f5e198fb1c4e82f9a9",
+      "size": 92327
+    },
     "canny1.png": {
       "hash": "2484495f4ffaec93f87c4bfb52a5613a",
       "size": 663484
@@ -3800,6 +3810,10 @@
       "hash": "53edaff91ae8023a7c187d6381d8fd22",
       "size": 567
     },
+    "go_encoded_image.png": {
+      "hash": "ae17174de7ec900b670aa2230ce83db9",
+      "size": 158099
+    },
     "hsvdistancechess3.txt": {
       "hash": "09f3023223cf3a19822c513082cb4ccd",
       "size": 6761
@@ -3815,6 +3829,14 @@
     "matched_kps.json": {
       "hash": "5bb0c43f3997c3a01e8141d4805dd5d5",
       "size": 28205
+    },
+    "my_desk_intel515_from_server.png": {
+      "hash": "3a7a0a83d1d32a7d6769f37a10f00404",
+      "size": 394925
+    },
+    "opencv_encoded_image.png": {
+      "hash": "3a7a0a83d1d32a7d6769f37a10f00404",
+      "size": 394925
     },
     "shelf_color.png": {
       "hash": "359c262e40f1f52fa6c6ced431a31999",
@@ -50813,13 +50835,37 @@
         "hash": "3a047d6fd440b36cbba72e5532ff3548",
         "size": 4563519
       },
+      "effnet0.tflite": {
+        "hash": "301b893e4701ec6f490c21a2435befbc",
+        "size": 7165437
+      },
       "fakelabels.txt": {
         "hash": "9b9d5e11ece4e6fe52246a2851636145",
         "size": 50
       },
+      "lion.jpeg": {
+        "hash": "7a24ee403e1606a0956d63dc744f24de",
+        "size": 31645
+      },
       "mobilenet.tflite": {
         "hash": "66ee95e3edbaa9b3de5138cf1cbb127d",
         "size": 1866640
+      },
+      "mobilenetv2_class.tflite": {
+        "hash": "4fc85180f4b6c4bf2fb9417b94d84bcd",
+        "size": 3770391
+      },
+      "mobilenetv2_imagenet.tflite": {
+        "hash": "f91a23a41c7e71fa41efcb24522b2526",
+        "size": 3589848
+      },
+      "mobilenetv3_class.tflite": {
+        "hash": "3118459d58736a16b8e022e569de260c",
+        "size": 21967062
+      },
+      "redpanda.jpeg": {
+        "hash": "0394b41317317b30a6bc01fa7a18617b",
+        "size": 654771
       },
       "ssdmobilenet.tflite": {
         "hash": "4c421353bf0a105c5ffba593ffee4099",

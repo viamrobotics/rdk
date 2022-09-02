@@ -17,6 +17,7 @@ type mapTest struct {
 
 var (
 	simpleMap    = map[string]bool{"exists": true}
+	nilValueMap  = map[string]interface{}{"here": nil}
 	sliceMap     = map[string][]string{"foo": {"bar"}}
 	nestedMap    = map[string]map[string]string{"foo": {"bar": "bar2"}}
 	pointerMap   = map[string]interface{}{"foo": &simpleStruct}
@@ -24,6 +25,7 @@ var (
 	structMapMap = map[string]MapStruct{"foo": mapStruct}
 	mapTests     = []mapTest{
 		{"simple map", simpleMap, map[string]interface{}{"exists": true}},
+		{"nil value map", nilValueMap, map[string]interface{}{"here": nil}},
 		{"slice map", sliceMap, map[string]interface{}{"foo": []interface{}{"bar"}}},
 		{"pointer map", pointerMap, map[string]interface{}{"foo": map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3}}},
 		{"nested map", nestedMap, map[string]interface{}{"foo": map[string]interface{}{"bar": "bar2"}}},
@@ -99,12 +101,14 @@ var (
 				"SimpleStruct": map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3},
 			},
 			EmbeddedStruct{},
-		}, {
+		},
+		{
 			"nil pointer struct",
 			emptyPointerStruct,
 			map[string]interface{}{"empty_struct": map[string]interface{}{}},
 			EmptyPointerStruct{},
-		}, {
+		},
+		{
 			"struct with uint",
 			singleByteStruct,
 			map[string]interface{}{"UintValue": uint(1)},
@@ -132,6 +136,7 @@ func TestInterfaceToMap(t *testing.T) {
 		test.That(t, newStruct.AsMap(), test.ShouldResemble, tc.Expected)
 	}
 
+	//nolint:dupl
 	for _, tc := range structTests {
 		map1, err := InterfaceToMap(tc.Data)
 		test.That(t, err, test.ShouldBeNil)
@@ -161,9 +166,7 @@ func TestInterfaceToMap(t *testing.T) {
 		default:
 			test.That(t, tc.Return, test.ShouldResemble, tc.Data)
 		}
-
 	}
-
 }
 
 func TestMarshalMap(t *testing.T) {
@@ -207,6 +210,7 @@ func TestStructToMap(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, errors.New("data of type []string is not a struct"))
 	})
 
+	//nolint:dupl
 	for _, tc := range structTests {
 		map1, err := structToMap(tc.Data)
 		test.That(t, err, test.ShouldBeNil)
@@ -238,6 +242,7 @@ func TestStructToMap(t *testing.T) {
 		}
 	}
 }
+
 func TestMarshalSlice(t *testing.T) {
 	t.Run("not a list", func(t *testing.T) {
 		_, err := marshalSlice(1)
@@ -263,13 +268,19 @@ func TestMarshalSlice(t *testing.T) {
 		{"list of simple lists", matrix, 1, []interface{}{[]interface{}{1.1, 2.2, 3.3}}},
 		{"list of list of simple lists", embeddedMatrix, 1, []interface{}{[]interface{}{[]interface{}{1.1, 2.2, 3.3}}}},
 		{"list of objects", objects, 1, []interface{}{map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}}}},
-		{"list of lists of objects", objectList, 1, []interface{}{[]interface{}{map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}}}}},
+		{
+			"list of lists of objects",
+			objectList,
+			1,
+			[]interface{}{[]interface{}{map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}}}},
+		},
 		{"list of maps", maps, 2, []interface{}{map[string]interface{}{"hello": "world"}, map[string]interface{}{"foo": 1.1}}},
 		{
 			"list of maps of lists",
 			mapsOfLists,
 			2,
-			[]interface{}{map[string]interface{}{"hello": []interface{}{"world"}}, map[string]interface{}{"foo": []interface{}{"bar"}}}},
+			[]interface{}{map[string]interface{}{"hello": []interface{}{"world"}}, map[string]interface{}{"foo": []interface{}{"bar"}}},
+		},
 		{
 			"list of mixed objects",
 			mixed,
@@ -319,7 +330,6 @@ func TestToInterfaceWeirdBugUint(t *testing.T) {
 	x, err = toInterface(&a)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, x, test.ShouldEqual, a)
-
 }
 
 func TestToInterfaceWeirdBugUint8(t *testing.T) {
@@ -331,7 +341,6 @@ func TestToInterfaceWeirdBugUint8(t *testing.T) {
 	x, err = toInterface(&a)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, x, test.ShouldEqual, a)
-
 }
 
 type TypedString string
@@ -342,10 +351,12 @@ type SimpleStruct struct {
 	Z float64 `json:"z"`
 }
 
-type EmptyStruct struct{}
-type TypedStringStruct struct {
-	TypedString TypedString `json:"typed_string"`
-}
+type (
+	EmptyStruct       struct{}
+	TypedStringStruct struct {
+		TypedString TypedString `json:"typed_string"`
+	}
+)
 
 type OmitStruct struct {
 	X float64 `json:"x"`

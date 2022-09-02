@@ -18,11 +18,13 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
+	"go.viam.com/rdk/vision/classification"
 	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
 // client implements VisionServiceClient.
 type client struct {
+	name   string
 	conn   rpc.ClientConn
 	client pb.VisionServiceClient
 	logger golog.Logger
@@ -32,6 +34,7 @@ type client struct {
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Service {
 	grpcClient := pb.NewVisionServiceClient(conn)
 	c := &client{
+		name:   name,
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,
@@ -42,14 +45,14 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 func (c *client) GetDetectorNames(ctx context.Context) ([]string, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetDetectorNames")
 	defer span.End()
-	resp, err := c.client.GetDetectorNames(ctx, &pb.GetDetectorNamesRequest{})
+	resp, err := c.client.GetDetectorNames(ctx, &pb.GetDetectorNamesRequest{Name: c.name})
 	if err != nil {
 		return nil, err
 	}
 	return resp.DetectorNames, nil
 }
 
-func (c *client) AddDetector(ctx context.Context, cfg DetectorConfig) error {
+func (c *client) AddDetector(ctx context.Context, cfg VisModelConfig) error {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::AddDetector")
 	defer span.End()
 	params, err := protoutils.StructToStructPb(cfg.Parameters)
@@ -57,9 +60,23 @@ func (c *client) AddDetector(ctx context.Context, cfg DetectorConfig) error {
 		return err
 	}
 	_, err = c.client.AddDetector(ctx, &pb.AddDetectorRequest{
+		Name:               c.name,
 		DetectorName:       cfg.Name,
 		DetectorModelType:  cfg.Type,
 		DetectorParameters: params,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *client) RemoveDetector(ctx context.Context, detectorName string) error {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::RemoveDetector")
+	defer span.End()
+	_, err := c.client.RemoveDetector(ctx, &pb.RemoveDetectorRequest{
+		Name:         c.name,
+		DetectorName: detectorName,
 	})
 	if err != nil {
 		return err
@@ -71,6 +88,7 @@ func (c *client) GetDetectionsFromCamera(ctx context.Context, cameraName, detect
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetDetectionsFromCamera")
 	defer span.End()
 	resp, err := c.client.GetDetectionsFromCamera(ctx, &pb.GetDetectionsFromCameraRequest{
+		Name:         c.name,
 		CameraName:   cameraName,
 		DetectorName: detectorName,
 	})
@@ -93,12 +111,13 @@ func (c *client) GetDetections(ctx context.Context, img image.Image, detectorNam
 ) ([]objdet.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetDetections")
 	defer span.End()
-	mimeType := utils.MimeTypePNG
+	mimeType := utils.MimeTypeRawRGBA
 	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
 	if err != nil {
 		return nil, err
 	}
 	resp, err := c.client.GetDetections(ctx, &pb.GetDetectionsRequest{
+		Name:         c.name,
 		Image:        imgBytes,
 		Width:        int64(img.Bounds().Dx()),
 		Height:       int64(img.Bounds().Dy()),
@@ -120,8 +139,102 @@ func (c *client) GetDetections(ctx context.Context, img image.Image, detectorNam
 	return detections, nil
 }
 
+func (c *client) GetClassifierNames(ctx context.Context) ([]string, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetClassifierNames")
+	defer span.End()
+	resp, err := c.client.GetClassifierNames(ctx, &pb.GetClassifierNamesRequest{Name: c.name})
+	if err != nil {
+		return nil, err
+	}
+	return resp.ClassifierNames, nil
+}
+
+func (c *client) AddClassifier(ctx context.Context, cfg VisModelConfig) error {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::AddClassifier")
+	defer span.End()
+	params, err := protoutils.StructToStructPb(cfg.Parameters)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.AddClassifier(ctx, &pb.AddClassifierRequest{
+		Name:                 c.name,
+		ClassifierName:       cfg.Name,
+		ClassifierModelType:  cfg.Type,
+		ClassifierParameters: params,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *client) RemoveClassifier(ctx context.Context, classifierName string) error {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::RemoveClassifier")
+	defer span.End()
+	_, err := c.client.RemoveClassifier(ctx, &pb.RemoveClassifierRequest{
+		Name:           c.name,
+		ClassifierName: classifierName,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *client) GetClassificationsFromCamera(ctx context.Context, cameraName,
+	classifierName string, n int,
+) (classification.Classifications, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetClassificationsFromCamera")
+	defer span.End()
+	resp, err := c.client.GetClassificationsFromCamera(ctx, &pb.GetClassificationsFromCameraRequest{
+		Name:           c.name,
+		CameraName:     cameraName,
+		ClassifierName: classifierName,
+		N:              int32(n),
+	})
+	if err != nil {
+		return nil, err
+	}
+	classifications := make([]classification.Classification, 0, len(resp.Classifications))
+	for _, c := range resp.Classifications {
+		classif := classification.NewClassification(c.Confidence, c.ClassName)
+		classifications = append(classifications, classif)
+	}
+	return classifications, nil
+}
+
+func (c *client) GetClassifications(ctx context.Context, img image.Image,
+	classifierName string, n int,
+) (classification.Classifications, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetClassifications")
+	defer span.End()
+	mimeType := utils.MimeTypeRawRGBA
+	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetClassifications(ctx, &pb.GetClassificationsRequest{
+		Name:           c.name,
+		Image:          imgBytes,
+		Width:          int32(img.Bounds().Dx()),
+		Height:         int32(img.Bounds().Dy()),
+		MimeType:       mimeType,
+		ClassifierName: classifierName,
+		N:              int32(n),
+	})
+	if err != nil {
+		return nil, err
+	}
+	classifications := make([]classification.Classification, 0, len(resp.Classifications))
+	for _, c := range resp.Classifications {
+		classif := classification.NewClassification(c.Confidence, c.ClassName)
+		classifications = append(classifications, classif)
+	}
+	return classifications, nil
+}
+
 func (c *client) GetSegmenterNames(ctx context.Context) ([]string, error) {
-	resp, err := c.client.GetSegmenterNames(ctx, &pb.GetSegmenterNamesRequest{})
+	resp, err := c.client.GetSegmenterNames(ctx, &pb.GetSegmenterNamesRequest{Name: c.name})
 	if err != nil {
 		return nil, err
 	}
@@ -130,6 +243,7 @@ func (c *client) GetSegmenterNames(ctx context.Context) ([]string, error) {
 
 func (c *client) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
 	resp, err := c.client.GetSegmenterParameters(ctx, &pb.GetSegmenterParametersRequest{
+		Name:          c.name,
 		SegmenterName: segmenterName,
 	})
 	if err != nil {
@@ -152,6 +266,7 @@ func (c *client) GetObjectPointClouds(ctx context.Context,
 		return nil, err
 	}
 	resp, err := c.client.GetObjectPointClouds(ctx, &pb.GetObjectPointCloudsRequest{
+		Name:          c.name,
 		CameraName:    cameraName,
 		SegmenterName: segmenterName,
 		MimeType:      utils.MimeTypePCD,

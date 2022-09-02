@@ -32,7 +32,8 @@ module.exports = {
   ],
   rules: {
     // Spacing and code style
-    indent: ['error', 2],
+    // https://github.com/eslint/eslint/issues/13956
+    indent: 'off',
     'arrow-spacing': 'error',
     'block-spacing': 'error',
     'comma-spacing': 'error',
@@ -71,7 +72,7 @@ module.exports = {
     ],
 
     // Typescript catches these issues, and ESLint isn't smart enough to understand
-    // Vue's macros like "defineProps()", so we'll turn these off for now
+    // Vue's macros like 'defineProps()', so we'll turn these off for now
     'no-undef': 'off',
     'no-unused-vars': 'off',
     'prefer-object-spread': 'error',
@@ -108,9 +109,9 @@ module.exports = {
     'prefer-const': 'error',
 
     // Vue
-    'vue/multi-word-component-names': 'off',
     'vue/no-deprecated-slot-attribute': 'off',
     'vue/require-default-prop': 'off',
+    'vue/multi-word-component-names': 'off',
     'vue/no-undef-components': ['error', { ignorePatterns: ['v-'] }],
 
     // Import
@@ -156,8 +157,9 @@ module.exports = {
     'tailwindcss/no-custom-classname': 'off',
 
     // Typescript
+    '@typescript-eslint/indent': ['error', 2],
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-    '@typescript-eslint/no-explicit-any': 'warn',
+    '@typescript-eslint/no-explicit-any': 'error',
     '@typescript-eslint/no-non-null-assertion': 'off',
     '@typescript-eslint/ban-ts-comment': 'warn',
   },
@@ -168,5 +170,5 @@ module.exports = {
       },
     },
   },
-  ignorePatterns: ['**/cypress/**', '**/node_modules/**', '*.json', '**/runtime-shared/**'],
+  ignorePatterns: ['**/cypress/**', '**/node_modules/**', '*.json', '**/protos/**'],
 };

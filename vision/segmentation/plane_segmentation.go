@@ -124,7 +124,7 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 		func(groupNum, groupSize, from, to int) (utils.MemberWorkFunc, utils.GroupWorkDoneFunc) {
 			bestEquation := [4]float64{}
 			bestInliers := 0
-			return func(memberNum int, workNum int) {
+			return func(memberNum, workNum int) {
 					currentInliers := 0
 					currentEquation := equations[workNum]
 					// store all the Points that are below a certain distance to the plane

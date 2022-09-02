@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
@@ -66,16 +67,18 @@ func newNextCollector(resource interface{}, params data.CollectorParams) (data.C
 	}
 	// choose the best/fastest representation
 	mimeType := params.MethodParams["mime_type"]
-	if mimeType == "" || mimeType == utils.MimeTypeViamBest {
+	if mimeType == "" {
 		// TODO: Potentially log the actual mime type at collector instantiation or include in response.
 		mimeType = utils.MimeTypeRawRGBA
 	}
+
+	stream := gostream.NewEmbeddedVideoStream(camera)
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::Next")
 		defer span.End()
 
-		img, release, err := camera.Next(ctx)
+		img, release, err := stream.Next(ctx)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, next.String(), err)
 		}
