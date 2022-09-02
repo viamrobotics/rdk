@@ -18,9 +18,11 @@ import (
 
 const debugPlaneSeg = "VIAM_DEBUG"
 
-var gripperComboParamsPath = utils.ResolveFile("vision/segmentation/data/gripper_combo_parameters.json")
-var intelJSONPath = utils.ResolveFile("vision/segmentation/data/intel.json")
-var intel515ParamsPath = utils.ResolveFile("vision/segmentation/data/intel515_parameters.json")
+var (
+	gripperComboParamsPath = utils.ResolveFile("vision/segmentation/data/gripper_combo_parameters.json")
+	intelJSONPath          = utils.ResolveFile("vision/segmentation/data/intel.json")
+	intel515ParamsPath     = utils.ResolveFile("vision/segmentation/data/intel515_parameters.json")
+)
 
 // Test finding the planes in an image with depth.
 func TestPlaneSegmentImageAndDepthMap(t *testing.T) {
