@@ -2,6 +2,7 @@ package spatialmath
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/golang/geo/r3"
 
@@ -11,6 +12,7 @@ import (
 // GeometryCreator provides a common way to instantiate Geometries.
 type GeometryCreator interface {
 	NewGeometry(Pose) Geometry
+	Offset() Pose
 	json.Marshaler
 }
 
@@ -26,16 +28,25 @@ type Geometry interface {
 	EncompassedBy(Geometry) (bool, error)
 }
 
+// GeometryCreatorType defines what geometry creator representations are known.
+type GeometryType string
+
+// The set of allowed representations for orientation.
+const (
+	UnknownType = GeometryType("")
+	BoxType     = GeometryType("box")
+	SphereType  = GeometryType("sphere")
+	PointType   = GeometryType("point")
+)
+
 // GeometryConfig specifies the format of geometries specified through the configuration file.
 type GeometryConfig struct {
-	Type string `json:"type"`
+	Type GeometryType `json:"type"`
 
-	// parameters used for defining a box's rectangular cross section
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-	Z float64 `json:"z"`
+	// parameter used for defining a box's dimensions
+	Dims r3VectorConfig
 
-	// parameters used for defining a sphere, its radius
+	// parameter used for defining a sphere's radius'
 	R float64 `json:"r"`
 
 	// define an offset to position the geometry
@@ -44,17 +55,29 @@ type GeometryConfig struct {
 }
 
 // NewGeometryConfig creates a config for a Geometry from an offset Pose.
-func NewGeometryConfig(offset Pose) (*GeometryConfig, error) {
+func NewGeometryConfig(gc GeometryCreator) (*GeometryConfig, error) {
+	config := &GeometryConfig{}
+	switch gcType := gc.(type) {
+	case *boxCreator:
+		config.Type = BoxType
+		config.Dims = r3VectorConfig(gc.(*boxCreator).halfSize.Mul(2))
+	case *sphereCreator:
+		config.Type = SphereType
+		config.R = gc.(*sphereCreator).radius
+	case *pointCreator:
+		config.Type = PointType
+	default:
+		return nil, newGeometryTypeUnsupportedError(fmt.Sprintf("%T", gcType))
+	}
+	offset := gc.Offset()
 	o := offset.Orientation()
-	translationConfig := NewTranslationConfig(Compose(NewPoseFromOrientation(r3.Vector{}, OrientationInverse(o)), offset).Point())
+	config.TranslationOffset = *NewTranslationConfig(Compose(NewPoseFromOrientation(r3.Vector{}, OrientationInverse(o)), offset).Point())
 	orientationConfig, err := NewOrientationConfig(o.AxisAngles())
 	if err != nil {
 		return nil, err
 	}
-	return &GeometryConfig{
-		TranslationOffset: *translationConfig,
-		OrientationOffset: *orientationConfig,
-	}, nil
+	config.OrientationOffset = *orientationConfig
+	return config, nil
 }
 
 // ParseConfig converts a GeometryConfig into the correct GeometryCreator type, as specified in its Type field.
@@ -68,15 +91,15 @@ func (config *GeometryConfig) ParseConfig() (GeometryCreator, error) {
 
 	// build GeometryCreator depending on specified type
 	switch config.Type {
-	case "box":
-		return NewBoxCreator(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset)
-	case "sphere":
+	case BoxType:
+		return NewBoxCreator(r3.Vector(config.Dims), offset)
+	case SphereType:
 		return NewSphereCreator(config.R, offset)
-	case "point":
+	case PointType:
 		return NewPointCreator(offset), nil
-	case "":
+	case UnknownType:
 		// no type specified, iterate through supported types and try to infer intent
-		creator, err := NewBoxCreator(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset)
+		creator, err := NewBoxCreator(r3.Vector(config.Dims), offset)
 		if err == nil {
 			return creator, nil
 		}
@@ -86,7 +109,7 @@ func (config *GeometryConfig) ParseConfig() (GeometryCreator, error) {
 		}
 		// never try to infer point geometry if nothing is specified
 	}
-	return nil, newGeometryTypeUnsupportedError(config.Type)
+	return nil, newGeometryTypeUnsupportedError(string(config.Type))
 }
 
 // NewGeometryFromProto instatiates a new Geometry from a protobuf Geometry message.

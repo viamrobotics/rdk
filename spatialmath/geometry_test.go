@@ -13,10 +13,10 @@ import (
 )
 
 func TestGeometrySerialization(t *testing.T) {
-	translation := TranslationConfig{1, 1, 1}
-	orientation := OrientationConfig{}
+	tc := TranslationConfig{1, 1, 1}
+	oc := OrientationConfig{}
 	testMap := loadOrientationTests(t)
-	err := json.Unmarshal(testMap["euler"], &orientation)
+	err := json.Unmarshal(testMap["euler"], &oc)
 	test.That(t, err, test.ShouldBeNil)
 
 	testCases := []struct {
@@ -24,13 +24,13 @@ func TestGeometrySerialization(t *testing.T) {
 		config  GeometryConfig
 		success bool
 	}{
-		{"box", GeometryConfig{Type: "box", X: 1, Y: 1, Z: 1, TranslationOffset: translation, OrientationOffset: orientation}, true},
-		{"box bad dims", GeometryConfig{Type: "box", X: 1, Y: 0, Z: 1}, false},
-		{"infer box", GeometryConfig{X: 1, Y: 1, Z: 1}, true},
-		{"sphere", GeometryConfig{Type: "sphere", R: 1, TranslationOffset: translation, OrientationOffset: orientation}, true},
+		{"box", GeometryConfig{Type: "box", Dims: r3VectorConfig{X: 1, Y: 1, Z: 1}, TranslationOffset: tc, OrientationOffset: oc}, true},
+		{"box bad dims", GeometryConfig{Type: "box", Dims: r3VectorConfig{X: 1, Y: 0, Z: 1}}, false},
+		{"infer box", GeometryConfig{Dims: r3VectorConfig{X: 1, Y: 1, Z: 1}}, true},
+		{"sphere", GeometryConfig{Type: "sphere", R: 1, TranslationOffset: tc, OrientationOffset: oc}, true},
 		{"sphere bad dims", GeometryConfig{Type: "sphere", R: -1}, false},
-		{"infer sphere", GeometryConfig{R: 1, OrientationOffset: orientation}, true},
-		{"point", GeometryConfig{Type: "point", TranslationOffset: translation, OrientationOffset: orientation}, true},
+		{"infer sphere", GeometryConfig{R: 1, OrientationOffset: oc}, true},
+		{"point", GeometryConfig{Type: "point", TranslationOffset: tc, OrientationOffset: oc}, true},
 		{"infer point", GeometryConfig{}, false},
 		{"bad type", GeometryConfig{Type: "bad"}, false},
 	}
