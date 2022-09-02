@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"math/rand"
 	"sort"
 
 	"github.com/edaniels/golog"
@@ -26,6 +27,9 @@ type MotionPlanner interface {
 	Plan(context.Context, *commonpb.Pose, []frame.Input, *PlannerOptions) ([][]frame.Input, error)
 	Frame() frame.Frame // Frame will return the frame used for planning
 }
+
+type plannerConstructor func(frame.Frame, int, golog.Logger) (MotionPlanner, error)
+type plannerConstructorWithSeed func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error)
 
 // needed to wrap slices so we can use them as map keys.
 type configuration struct {

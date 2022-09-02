@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.uber.org/zap"
 	"go.viam.com/test"
@@ -41,10 +40,8 @@ type planConfig struct {
 	InteractionSpaces []spatial.Geometry
 }
 
-type seededPlannerConstructor func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error)
-
 func TestUnconstrainedMotion(t *testing.T) {
-	planners := []seededPlannerConstructor{
+	planners := []plannerConstructorWithSeed{
 		NewRRTConnectMotionPlannerWithSeed,
 		NewCBiRRTMotionPlannerWithSeed,
 	}
@@ -257,7 +254,7 @@ func simpleUR5eMotion(t *testing.T) planConfig {
 
 // testPlanner is a helper function that takes a planner and a planning query specified through a config object and tests that it
 // returns a valid set of waypoints.
-func testPlanner(t *testing.T, planner seededPlannerConstructor, config *planConfig) {
+func testPlanner(t *testing.T, planner plannerConstructorWithSeed, config *planConfig) {
 	t.Helper()
 	allPaths := make([][][]frame.Input, config.NumTests)
 	for i := 0; i < config.NumTests; i++ {
