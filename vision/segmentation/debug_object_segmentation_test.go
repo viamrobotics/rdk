@@ -20,8 +20,10 @@ import (
 
 const debugObjSeg = "VIAM_DEBUG"
 
-var gripperComboParamsPath = utils.ResolveFile("vision/segmentation/data/gripper_combo_parameters.json")
-var intel515ParamsPath = utils.ResolveFile("vision/segmentation/data/intel515_parameters.json")
+var (
+	gripperComboParamsPath = utils.ResolveFile("vision/segmentation/data/gripper_combo_parameters.json")
+	intel515ParamsPath     = utils.ResolveFile("vision/segmentation/data/intel515_parameters.json")
+)
 
 // Test finding the objects in an aligned intel image.
 type segmentObjectTestHelper struct {
