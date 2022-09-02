@@ -20,7 +20,8 @@ import (
 type SolvableFrameSystem struct {
 	frame.FrameSystem
 	logger golog.Logger
-	mpFunc func(frame.Frame, int, golog.Logger) (MotionPlanner, error)
+	// TODO(rb): this probably shouldn't live here
+	mpFunc plannerConstructor
 }
 
 // NewSolvableFrameSystem will create a new solver for a frame system.
@@ -124,7 +125,7 @@ func (fss *SolvableFrameSystem) SetPlannerGen(mpFunc func(frame.Frame, int, golo
 // Frame interface so that it can be passed to inverse kinematics.
 type solverFrame struct {
 	name       string
-	fss        *SolvableFrameSystem
+	completeFs *SolvableFrameSystem
 	movingFs   frame.FrameSystem
 	frames     []frame.Frame // all frames directly between and including solveFrame and goalFrame. Order not important.
 	solveFrame frame.Frame
@@ -213,7 +214,7 @@ func newSolverFrame(
 
 	return &solverFrame{
 		name:        solveFrame.Name() + "_" + goalFrame.Name(),
-		fss:         fss,
+		completeFs:  fss,
 		movingFs:    movingFs,
 		frames:      frames,
 		solveFrame:  solveFrame,
@@ -237,10 +238,10 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 
 	// Build planner
 	var planner MotionPlanner
-	if sf.fss.mpFunc != nil {
-		planner, err = sf.fss.mpFunc(sf, runtime.NumCPU()/2, sf.fss.logger)
+	if sf.completeFs.mpFunc != nil {
+		planner, err = sf.completeFs.mpFunc(sf, runtime.NumCPU()/2, sf.completeFs.logger)
 	} else {
-		planner, err = NewCBiRRTMotionPlanner(sf, runtime.NumCPU()/2, sf.fss.logger)
+		planner, err = NewCBiRRTMotionPlanner(sf, runtime.NumCPU()/2, sf.completeFs.logger)
 	}
 	if err != nil {
 		return nil, err
@@ -248,7 +249,7 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 
 	// If we are world rooted, translate the goal pose into the world frame
 	if sf.worldRooted {
-		tf, err := sf.fss.Transform(seedMap, frame.NewPoseInFrame(sf.goalFrame.Name(), goalPos), frame.World)
+		tf, err := sf.completeFs.Transform(seedMap, frame.NewPoseInFrame(sf.goalFrame.Name(), goalPos), frame.World)
 		if err != nil {
 			return nil, err
 		}
@@ -272,7 +273,7 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 			by := float64(i) / float64(numSteps)
 			to := spatial.Interpolate(seedPos, goalPos, by)
 			goals = append(goals, to)
-			opt, err := plannerSetupFromMoveRequest(from, to, sf, sf.fss, seedMap, worldState, motionConfig)
+			opt, err := plannerSetupFromMoveRequest(from, to, sf, sf.completeFs, seedMap, worldState, motionConfig)
 			if err != nil {
 				return nil, err
 			}
@@ -281,13 +282,13 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 			from = to
 		}
 		goals = append(goals, goalPos)
-		opt, err := plannerSetupFromMoveRequest(from, goalPos, sf, sf.fss, seedMap, worldState, motionConfig)
+		opt, err := plannerSetupFromMoveRequest(from, goalPos, sf, sf.completeFs, seedMap, worldState, motionConfig)
 		if err != nil {
 			return nil, err
 		}
 		opts = append(opts, opt)
 	} else {
-		opt, err := plannerSetupFromMoveRequest(seedPos, goalPos, sf, sf.fss, seedMap, worldState, motionConfig)
+		opt, err := plannerSetupFromMoveRequest(seedPos, goalPos, sf, sf.completeFs, seedMap, worldState, motionConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -374,7 +375,7 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 			continue
 		}
 		var tf frame.Transformable
-		tf, err = sf.fss.Transform(inputMap, gf, frame.World)
+		tf, err = sf.completeFs.Transform(inputMap, gf, frame.World)
 		if err != nil {
 			return nil, err
 		}
