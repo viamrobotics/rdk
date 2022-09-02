@@ -11,10 +11,10 @@
             "name": "vision1",
             "type": "vision",
             "attributes": {
-                "register_detectors": [
+                "register_models": [
                     {
                         "name": "my_color_detector",
-                        "type": "color",
+                        "type": "color_detector",
                         "parameters": {
                             "detect_color": "#A3E2FF",
                             "tolerance": 1.0,

@@ -23,24 +23,6 @@ import (
 )
 
 func init() {
-	fourWheelComp := registry.Component{
-		Constructor: func(
-			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
-		) (interface{}, error) {
-			return CreateFourWheelBase(ctx, deps, config.ConvertedAttributes.(*FourWheelConfig), logger)
-		},
-	}
-
-	registry.RegisterComponent(base.Subtype, "four-wheel", fourWheelComp)
-	config.RegisterComponentAttributeMapConverter(
-		base.SubtypeName,
-		"four-wheel",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf FourWheelConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&FourWheelConfig{})
-
 	wheeledBaseComp := registry.Component{
 		Constructor: func(
 			ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger,
@@ -293,95 +275,6 @@ func (base *wheeledBase) Close(ctx context.Context) error {
 
 func (base *wheeledBase) GetWidth(ctx context.Context) (int, error) {
 	return base.widthMm, nil
-}
-
-// FourWheelConfig is how you configure a four-wheeled base.
-type FourWheelConfig struct {
-	WidthMM              int     `json:"width_mm"`
-	WheelCircumferenceMM int     `json:"wheel_circumference_mm"`
-	SpinSlipFactor       float64 `json:"spin_slip_factor,omitempty"`
-	FrontLeft            string  `json:"front_left"`
-	FrontRight           string  `json:"front_right"`
-	BackLeft             string  `json:"back_left"`
-	BackRight            string  `json:"back_right"`
-}
-
-// Validate ensures all parts of the config are valid.
-func (config *FourWheelConfig) Validate(path string) ([]string, error) {
-	var deps []string
-
-	if config.WidthMM == 0 {
-		return nil, errors.New("need a width_mm for a four-wheel base")
-	}
-
-	if config.WheelCircumferenceMM == 0 {
-		return nil, errors.New("need a wheel_circumference_mm for a four-wheel base")
-	}
-
-	if len(config.FrontLeft) == 0 {
-		return nil, errors.New("need a front_left motor")
-	}
-
-	if len(config.FrontRight) == 0 {
-		return nil, errors.New("need a front_right motor")
-	}
-
-	if len(config.BackLeft) == 0 {
-		return nil, errors.New("need a back_left motor")
-	}
-
-	if len(config.BackRight) == 0 {
-		return nil, errors.New("need a back_right motor")
-	}
-
-	deps = append(deps, config.FrontLeft)
-	deps = append(deps, config.FrontRight)
-	deps = append(deps, config.BackLeft)
-	deps = append(deps, config.BackRight)
-
-	return deps, nil
-}
-
-// CreateFourWheelBase returns a new four wheel base defined by the given config.
-func CreateFourWheelBase(
-	ctx context.Context,
-	deps registry.Dependencies,
-	config *FourWheelConfig,
-	logger golog.Logger,
-) (base.LocalBase, error) {
-	frontLeft, err := motor.FromDependencies(deps, config.FrontLeft)
-	if err != nil {
-		return nil, errors.Wrap(err, "front_left motor not found")
-	}
-	frontRight, err := motor.FromDependencies(deps, config.FrontRight)
-	if err != nil {
-		return nil, errors.Wrap(err, "front_right motor not found")
-	}
-	backLeft, err := motor.FromDependencies(deps, config.BackLeft)
-	if err != nil {
-		return nil, errors.Wrap(err, "back_left motor not found")
-	}
-	backRight, err := motor.FromDependencies(deps, config.BackRight)
-	if err != nil {
-		return nil, errors.Wrap(err, "back_right motor not found")
-	}
-
-	base := &wheeledBase{
-		widthMm:              config.WidthMM,
-		wheelCircumferenceMm: config.WheelCircumferenceMM,
-		spinSlipFactor:       config.SpinSlipFactor,
-		left:                 []motor.Motor{frontLeft, backLeft},
-		right:                []motor.Motor{frontRight, backRight},
-	}
-
-	if base.spinSlipFactor == 0 {
-		base.spinSlipFactor = 1
-	}
-
-	base.allMotors = append(base.allMotors, base.left...)
-	base.allMotors = append(base.allMotors, base.right...)
-
-	return base, nil
 }
 
 // Config is how you configure a wheeled base.

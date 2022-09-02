@@ -14,8 +14,8 @@ import (
 
 func BenchmarkAddTFLiteDetector(b *testing.B) {
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
-	cfg := DetectorConfig{
-		Name: "testdetector", Type: "tflite",
+	cfg := VisModelConfig{
+		Name: "testdetector", Type: "tflite_detector",
 		Parameters: config.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
@@ -35,8 +35,8 @@ func BenchmarkGetTFLiteDetections(b *testing.B) {
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
 	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
 	test.That(b, err, test.ShouldBeNil)
-	cfg := DetectorConfig{
-		Name: "testdetector", Type: "tflite",
+	cfg := VisModelConfig{
+		Name: "testdetector", Type: "tflite_detector",
 		Parameters: config.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
@@ -59,7 +59,7 @@ func BenchmarkGetTFLiteDetections(b *testing.B) {
 
 func TestNewTfLiteDetector(t *testing.T) {
 	// Test that empty config gives error about loading model
-	emptyCfg := DetectorConfig{}
+	emptyCfg := VisModelConfig{}
 	ctx := context.Background()
 	got, model, err := NewTFLiteDetector(ctx, &emptyCfg, golog.NewTestLogger(t))
 	test.That(t, model, test.ShouldBeNil)
@@ -70,8 +70,8 @@ func TestNewTfLiteDetector(t *testing.T) {
 	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
 	test.That(t, err, test.ShouldBeNil)
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")
-	cfg := DetectorConfig{
-		Name: "testdetector", Type: "tflite",
+	cfg := VisModelConfig{
+		Name: "testdetector", Type: "tflite_detector",
 		Parameters: config.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
@@ -101,8 +101,8 @@ func TestMoreDetectorModels(t *testing.T) {
 	// Build SSD detector
 	ctx := context.Background()
 	modelLoc := artifact.MustPath("vision/tflite/ssdmobilenet.tflite")
-	cfg := DetectorConfig{
-		Name: "testssddetector", Type: "tflite",
+	cfg := VisModelConfig{
+		Name: "testssddetector", Type: "tflite_detector",
 		Parameters: config.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
@@ -122,8 +122,8 @@ func TestMoreDetectorModels(t *testing.T) {
 	test.That(t, got[1].Score(), test.ShouldBeGreaterThan, 0.8)
 
 	modelLoc = artifact.MustPath("vision/tflite/mobilenet.tflite")
-	cfg = DetectorConfig{
-		Name: "mobilenetdetector", Type: "tflite",
+	cfg = VisModelConfig{
+		Name: "mobilenetdetector", Type: "tflite_detector",
 		Parameters: config.AttributeMap{
 			"model_path":  modelLoc,
 			"label_path":  "",
@@ -149,4 +149,86 @@ func TestLabelReader(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got[0], test.ShouldResemble, "this")
 	test.That(t, len(got), test.ShouldEqual, 12)
+}
+
+func TestNewTfLiteClassifier(t *testing.T) {
+	// Test that empty config gives error about loading model
+	emptyCfg := VisModelConfig{}
+	ctx := context.Background()
+	got, model, err := NewTFLiteClassifier(ctx, &emptyCfg, golog.NewTestLogger(t))
+	test.That(t, model, test.ShouldBeNil)
+	test.That(t, got, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "something wrong with adding the model")
+
+	// Test that a classifier would give an expected output on the lion image
+	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/lion.jpeg"))
+	test.That(t, err, test.ShouldBeNil)
+	modelLoc := artifact.MustPath("vision/tflite/effnet0.tflite")
+	cfg := VisModelConfig{
+		Name: "testclassifier", Type: "tflite_classifier",
+		Parameters: config.AttributeMap{
+			"model_path":  modelLoc,
+			"label_path":  "",
+			"num_threads": 2,
+		},
+	}
+
+	got2, model, err := NewTFLiteClassifier(ctx, &cfg, golog.NewTestLogger(t))
+	test.That(t, model, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+
+	outClass, err := got2(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	bestOut, err := outClass.TopN(1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, bestOut[0].Label(), test.ShouldResemble, "291")
+	test.That(t, bestOut[0].Score(), test.ShouldBeGreaterThan, 0.82)
+}
+
+func TestMoreClassifierModels(t *testing.T) {
+	ctx := context.Background()
+
+	// Test that a classifier would give an expected output on the redpanda image
+	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/redpanda.jpeg"))
+	test.That(t, err, test.ShouldBeNil)
+
+	modelLoc := artifact.MustPath("vision/tflite/mobilenetv2_class.tflite")
+	cfg := VisModelConfig{
+		Name: "testclassifier", Type: "tflite_classifier",
+		Parameters: config.AttributeMap{
+			"model_path":  modelLoc,
+			"label_path":  "",
+			"num_threads": 2,
+		},
+	}
+	got, _, err := NewTFLiteClassifier(ctx, &cfg, golog.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+	classifications, err := got(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	bestClass, err := classifications.TopN(1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, bestClass[0].Label(), test.ShouldResemble, "390")
+	test.That(t, bestClass[0].Score(), test.ShouldBeGreaterThan, 0.93)
+
+	// Test that a classifier would give an expected output on the redpanda image
+	pic, err = rimage.NewImageFromFile(artifact.MustPath("vision/tflite/lion.jpeg"))
+	test.That(t, err, test.ShouldBeNil)
+
+	modelLoc = artifact.MustPath("vision/tflite/mobilenetv2_imagenet.tflite")
+	cfg = VisModelConfig{
+		Name: "testclassifier", Type: "tflite_classifier",
+		Parameters: config.AttributeMap{
+			"model_path":  modelLoc,
+			"label_path":  "",
+			"num_threads": 2,
+		},
+	}
+	got2, _, err := NewTFLiteClassifier(ctx, &cfg, golog.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+	classifications, err = got2(ctx, pic)
+	test.That(t, err, test.ShouldBeNil)
+	bestClass, err = classifications.TopN(1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, bestClass[0].Label(), test.ShouldResemble, "292")
+	test.That(t, bestClass[0].Score(), test.ShouldBeGreaterThan, 0.93)
 }

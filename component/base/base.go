@@ -193,7 +193,7 @@ func (r *reconfigurableBase) Stop(ctx context.Context, extra map[string]interfac
 }
 
 func (r *reconfigurableBase) UpdateAction(c *config.Component) config.UpdateActionType {
-	obj, canUpdate := r.actual.(config.CompononentUpdate)
+	obj, canUpdate := r.actual.(config.ComponentUpdate)
 	if canUpdate {
 		return obj.UpdateAction(c)
 	}

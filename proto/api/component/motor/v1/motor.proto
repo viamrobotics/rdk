@@ -55,8 +55,8 @@ service MotorService {
     };
   }
 
-  // GetFeatures returns a message of booleans indicating which optional features the robot's motor supports
-  rpc GetFeatures(GetFeaturesRequest) returns (GetFeaturesResponse) {
+  // GetProperties returns a message of booleans indicating which optional features the robot's motor supports
+  rpc GetProperties(GetPropertiesRequest) returns (GetPropertiesResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/component/motor/{name}/features"
     };
@@ -160,14 +160,14 @@ message IsPoweredResponse {
   bool is_on = 1;
 }
 
-message GetFeaturesRequest {
+message GetPropertiesRequest {
   // Name of a motor
   string name = 1;
   // Additional arguments to the method
   google.protobuf.Struct extra = 99;
 }
 
-message GetFeaturesResponse {
+message GetPropertiesResponse {
   // Returns true if the motor supports reporting its position
   bool position_reporting = 1;
 }

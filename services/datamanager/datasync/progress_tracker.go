@@ -1,12 +1,11 @@
 package datasync
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
-
-	"github.com/pkg/errors"
 )
 
 var viamProgressDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "progress")
@@ -45,7 +44,7 @@ func bytesToInt(bs []byte) (int, error) {
 }
 
 func (pt *progressTracker) createProgressFile(path string) error {
-	err := os.WriteFile(path, []byte("0"), os.FileMode((0o777)))
+	err := os.WriteFile(path, []byte("0"), os.FileMode(0o777))
 	if err != nil {
 		return err
 	}
@@ -56,13 +55,12 @@ func (pt *progressTracker) deleteProgressFile(path string) error {
 	return os.Remove(path)
 }
 
-// Increment progress index in progress file.
-func (pt *progressTracker) incrementProgressFileIndex(path string) error {
+func (pt *progressTracker) updateProgressFileIndex(path string, requestsWritten int) error {
 	i, err := pt.getProgressFileIndex(path)
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(path, []byte(strconv.Itoa(i+1)), os.FileMode((0o777)))
+	err = ioutil.WriteFile(path, []byte(strconv.Itoa(i+requestsWritten)), os.FileMode(0o777))
 	if err != nil {
 		return err
 	}
@@ -71,10 +69,8 @@ func (pt *progressTracker) incrementProgressFileIndex(path string) error {
 
 // Returns the index of next sensordata message to upload.
 func (pt *progressTracker) getProgressFileIndex(path string) (int, error) {
-	bs, err := os.ReadFile(filepath.Clean(path))
-	if errors.Is(err, os.ErrNotExist) {
-		return 0, nil
-	}
+	//nolint:gosec
+	bs, err := ioutil.ReadFile(path)
 	if err != nil {
 		return 0, err
 	}
