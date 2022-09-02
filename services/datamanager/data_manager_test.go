@@ -777,11 +777,14 @@ func (m mockModelServiceServer) getDeployedModels() int {
 	if errors.Is(err, os.ErrNotExist) {
 		return 0
 	}
-	files, err := ioutil.ReadDir(defaultModelDir)
+	files, err := ioutil.ReadDir(defaultModelDir + "/m1") // should this be extracted?
 	if err != nil {
 		return 0
 	}
-	return len(files)
+	if len(files) > 0 {
+		return 1
+	}
+	return 0
 }
 
 func (m mockModelServiceServer) Deploy(ctx context.Context, req *m1.DeployRequest) (*m1.DeployResponse, error) {
@@ -885,7 +888,7 @@ func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerC
 
 //nolint:thelper
 func getTestModelrConstructor(t *testing.T, server rpc.Server) model.ManagerConstructor {
-	return func(logger golog.Logger, cfg *config.Config) (model.ModelManager, error) {
+	return func(logger golog.Logger, cfg *config.Config) (model.Manager, error) {
 		conn, err := getLocalServerConn(server, logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := model.NewClient(conn)

@@ -2,14 +2,11 @@
 package datamanager
 
 import (
-	"archive/zip"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -108,6 +105,9 @@ const defaultCaptureQueueSize = 250
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
 
+// Standard file compression file type for Unix/Linux/MacOS.
+const gzip = ".gz"
+
 // Attributes to initialize the collector for a component or remote.
 type dataCaptureConfig struct {
 	Name               string               `json:"name"`
@@ -156,17 +156,15 @@ type dataManagerService struct {
 	syncer              datasync.Manager
 	syncerConstructor   datasync.ManagerConstructor
 
-	modelManager                  model.ModelManager
+	modelManager                  model.Manager
 	modelManagerConstructor       model.ManagerConstructor
 	deployModelsBackgroundWorkers sync.WaitGroup
 	deployModelsCancelFn          func()
-	httpClient                    model.HTTPClient //*http.Client
+	httpClient                    model.HTTPClient
 	clientConn                    *rpc.ClientConn
 }
 
-var (
-	viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
-)
+var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
 // New returns a new data manager service for the given robot.
 func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger) (Service, error) {
@@ -185,7 +183,7 @@ func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger
 		waitAfterLastModifiedSecs:     10,
 		syncerConstructor:             datasync.NewDefaultManager,
 		modelManagerConstructor:       model.NewDefaultManager,
-		httpClient:                    model.Client, //&http.Client{}, //model.Client, //&http.Client{},
+		httpClient:                    model.Client,
 	}
 
 	return dataManagerSvc, nil
@@ -613,19 +611,22 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	svc.deployModelsCancelFn = cancelFn
 
-	modelManager, err := svc.modelManagerConstructor(svc.logger, cfg)
-	if err != nil {
-		return errors.Wrap(err, "failed to initialize new modelManager")
+	// Instantiate svc.modelManager
+	if svc.modelManager == nil {
+		modelManager, err := svc.modelManagerConstructor(svc.logger, cfg)
+		if err != nil {
+			return errors.Wrap(err, "failed to initialize new modelManager")
+		}
+		svc.modelManager = modelManager
 	}
-	svc.modelManager = modelManager
 
 	svc.deployModelsBackgroundWorkers.Add(len(modelsToDownload))
-	for _, model := range modelsToDownload {
+	for _, deployModel := range modelsToDownload {
 		// Change context to a timeout?
 		defer svc.deployModelsBackgroundWorkers.Done()
 		deployRequest := &modelpb.DeployRequest{
 			Metadata: &modelpb.DeployMetadata{
-				ModelName: model.Name,
+				ModelName: deployModel.Name,
 			},
 		}
 		deployResp, err := svc.modelManager.Deploy(cancelCtx, deployRequest)
@@ -633,104 +634,21 @@ func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy
 			svc.logger.Error(err)
 		} else {
 			url := deployResp.Message
-			err := svc.modelManager.DownloadFile(cancelCtx, svc.httpClient, model.Destination+"/"+model.Name, url, svc.logger)
+			// QUESTION: is "deployModel.Destination+"/"+deployModel.Name" 'ugly'?
+			// should I extract and have it be a variable above the function call?
+			err := model.DownloadFile(cancelCtx, svc.httpClient, deployModel.Destination+"/"+deployModel.Name, url, svc.logger)
 			if err != nil {
 				svc.logger.Error(err)
-				return err // Don't try to unzip the file if we can't download it.
+				return err // Do not try to unzip if we can't download.
 			}
 			// A download from a GCS signed URL only returns one file.
-			modelFileToUnzip := model.Name + ".zip" // TODO: For now, hardcode.
-			if err = unzipSource(model.Destination, modelFileToUnzip, svc.logger); err != nil {
+			modelFileToUnzip := deployModel.Name + gzip // TODO: For now, hardcode.
+			if err = model.UnzipSource(deployModel.Destination, modelFileToUnzip, svc.logger); err != nil {
 				svc.logger.Error(err)
 			}
 		}
 	}
 	svc.modelManager.Close()
-	return nil
-}
-
-// unzipSource unzips all files inside a zip file.
-func unzipSource(destination, fileName string, logger golog.Logger) error {
-	zipReader, err := zip.OpenReader(filepath.Join(destination, fileName))
-	if err != nil {
-		return err
-	}
-	for _, f := range zipReader.File {
-		if err := unzipFile(f, destination, logger); err != nil {
-			return err
-		}
-	}
-	if err = zipReader.Close(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func unzipFile(f *zip.File, destination string, logger golog.Logger) error {
-	// TODO: DATA-307, We should be passing in the context to any operations that can take several seconds,
-	// which includes unzipFile. As written, this can block .Close for an unbounded amount of time.
-	//nolint:gosec
-	filePath := filepath.Join(destination, f.Name)
-	// Ensure file paths aren't vulnerable to zip slip
-	if !strings.HasPrefix(filePath, filepath.Clean(destination)+string(os.PathSeparator)) {
-		return fmt.Errorf("invalid file path: %s", filePath)
-	}
-
-	if f.FileInfo().IsDir() {
-		if err := os.MkdirAll(filePath, os.ModePerm); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	if err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm); err != nil {
-		return err
-	}
-
-	// Create a destination file for unzipped content. We clean the
-	// file above, so gosec doesn't need to complain.
-	//nolint:gosec
-	destinationFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
-	if err != nil {
-		// os.Remove returns a path error which likely means that we don't have write permissions
-		// or the file we're removing doesn't exist. In either case,
-		// the file was never written to so don't need to remove it.
-		//nolint:errcheck,gosec
-		os.Remove(destinationFile.Name())
-		return err
-	}
-
-	//nolint:gosec,errcheck
-	defer destinationFile.Close()
-
-	// Unzip the content of a file and copy it to the destination file
-	zippedFile, err := f.Open()
-	if err != nil {
-		return err
-	}
-	//nolint:errcheck
-	defer zippedFile.Close()
-
-	// Gosec is worried about a decompression bomb; we restrict the size of the
-	// files we upload to our data store, so should be OK.
-	//nolint:gosec
-	if _, err := io.Copy(destinationFile, zippedFile); err != nil {
-		// See above comment regarding os.Remove.
-		//nolint:errcheck
-		os.Remove(destinationFile.Name())
-		return err
-	}
-
-	// Double up trying to close zippedFile/destinationFile (defer above and explicitly below)
-	// to ensure the buffer is flushed and closed.
-	if err = zippedFile.Close(); err != nil {
-		return err
-	}
-
-	if err = destinationFile.Close(); err != nil {
-		logger.Error(err)
-	}
-
 	return nil
 }
 
