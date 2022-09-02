@@ -64,7 +64,7 @@ func (s *piPigpioI2CHandle) ReadByteData(ctx context.Context, register byte) (by
 	return byte(res & 0xFF), nil
 }
 
-func (s *piPigpioI2CHandle) WriteByteData(ctx context.Context, register byte, data byte) error {
+func (s *piPigpioI2CHandle) WriteByteData(ctx context.Context, register, data byte) error {
 	res := C.i2cWriteByteData(s.handle, C.uint(register), C.uint(data))
 	if res != 0 {
 		return errors.Errorf("error in WriteByteData (%d)", res)
@@ -104,7 +104,7 @@ func (s *piPigpioI2C) OpenHandle(addr byte) (board.I2CHandle, error) {
 	return handle, nil
 }
 
-func (h *piPigpioI2CHandle) Close() error {
-	C.i2cClose(h.handle)
+func (s *piPigpioI2CHandle) Close() error {
+	C.i2cClose(s.handle)
 	return nil
 }

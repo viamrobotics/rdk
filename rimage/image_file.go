@@ -1,7 +1,6 @@
 package rimage
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"image"
@@ -26,8 +25,8 @@ import (
 // readImageFromFile extracts the RGB, Z16, or raw depth data from an image file.
 func readImageFromFile(path string) (image.Image, error) {
 	switch {
-	case strings.HasSuffix(path, ".dat.gz"):
-		return ParseDepthMap(path)
+	case strings.HasSuffix(path, ".dat.gz") || strings.HasSuffix(path, ".dat"):
+		return ParseRawDepthMap(path)
 	default:
 		//nolint:gosec
 		f, err := os.Open(path)
@@ -72,6 +71,9 @@ func WriteImageToFile(path string, img image.Image) (err error) {
 	defer func() {
 		err = multierr.Combine(err, f.Close())
 	}()
+	if dm, ok := img.(*DepthMap); ok {
+		img = dm.ToGray16Picture()
+	}
 
 	switch filepath.Ext(path) {
 	case ".png":
@@ -80,6 +82,8 @@ func WriteImageToFile(path string, img image.Image) (err error) {
 		return jpeg.Encode(f, img, nil)
 	case ".ppm":
 		return ppm.Encode(f, img)
+	case ".qoi":
+		return qoi.Encode(f, img)
 	default:
 		return errors.Errorf("rimage.WriteImageToFile unsupported format: %s", filepath.Ext(path))
 	}
@@ -157,17 +161,34 @@ func SaveImage(pic image.Image, loc string) error {
 // DecodeImage takes an image buffer and decodes it, using the mimeType
 // and the dimensions, to return the image.
 func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string, width, height int) (image.Image, error) {
+	return decodeImage(ctx, imgBytes, mimeType, width, height, true)
+}
+
+// decodeImage decodes an image based on its data and MIME type. If checkLazy is true
+// and the MIME type has a lazy suffix, we will not fully decode the image and instead
+// return an intermediate (lazy), not yet decoded image type.
+func decodeImage(
+	ctx context.Context,
+	imgBytes []byte,
+	mimeType string,
+	width, height int,
+	checkLazy bool,
+) (image.Image, error) {
 	_, span := trace.StartSpan(ctx, "rimage::DecodeImage::"+mimeType)
 	defer span.End()
 
+	if checkLazy {
+		actualType, isLazy := ut.CheckLazyMIMEType(mimeType)
+		if isLazy {
+			return NewLazyEncodedImage(imgBytes, actualType, width, height), nil
+		}
+	}
+
 	switch mimeType {
 	case ut.MimeTypeRawRGBA:
-		img := image.NewNRGBA(image.Rect(0, 0, width, height))
+		img := image.NewNRGBA64(image.Rect(0, 0, width, height))
 		img.Pix = imgBytes
 		return img, nil
-	case ut.MimeTypeRawDepth:
-		depth, err := ReadDepthMap(bufio.NewReader(bytes.NewReader(imgBytes)))
-		return depth, err
 	case ut.MimeTypeJPEG:
 		img, err := jpeg.Decode(bytes.NewReader(imgBytes))
 		return img, err
@@ -188,23 +209,19 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 	_, span := trace.StartSpan(ctx, "rimage::EncodeImage::"+mimeType)
 	defer span.End()
 
+	actualOutMIME, _ := ut.CheckLazyMIMEType(mimeType)
+	if lazy, ok := img.(*LazyEncodedImage); ok && lazy.MIMEType() == actualOutMIME {
+		// fast path - zero copy
+		return lazy.RawData(), nil
+	}
+
 	var buf bytes.Buffer
 	bounds := img.Bounds()
-	switch mimeType {
+	switch actualOutMIME {
 	case ut.MimeTypeRawRGBA:
-		imgCopy := image.NewRGBA(bounds)
+		imgCopy := image.NewNRGBA64(bounds)
 		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
 		buf.Write(imgCopy.Pix)
-	case ut.MimeTypeRawDepth:
-		// TODO(bijan) remove this data type
-		dm, ok := img.(*DepthMap)
-		if !ok {
-			return nil, ut.NewUnexpectedTypeError(dm, img)
-		}
-		_, err := dm.WriteTo(&buf)
-		if err != nil {
-			return nil, err
-		}
 	case ut.MimeTypePNG:
 		if err := png.Encode(&buf, img); err != nil {
 			return nil, err
@@ -218,7 +235,7 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 			return nil, err
 		}
 	default:
-		return nil, errors.Errorf("do not know how to encode %q", mimeType)
+		return nil, errors.Errorf("do not know how to encode %q", actualOutMIME)
 	}
 
 	return buf.Bytes(), nil

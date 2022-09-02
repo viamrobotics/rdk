@@ -2,7 +2,6 @@ package commonsysfs
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -20,6 +19,8 @@ type GPIOBoardMapping struct {
 	GPIOChipDev    string
 	GPIO           int
 	GPIOGlobal     int
+	GPIOName       string
+	PWMSysFsDir    string
 	HWPWMSupported bool
 }
 
@@ -63,7 +64,7 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 		idsPath        = "/proc/device-tree/chosen/plugin-manager/ids"
 	)
 
-	compatiblesRd, err := ioutil.ReadFile(compatiblePath)
+	compatiblesRd, err := os.ReadFile(compatiblePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, noBoardError(modelName)
@@ -140,7 +141,7 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 
 			baseFn := filepath.Join(gpioChipGPIODir, file.Name(), "base")
 			//nolint:gosec
-			baseRd, err := ioutil.ReadFile(baseFn)
+			baseRd, err := os.ReadFile(baseFn)
 			if err != nil {
 				return nil, err
 			}
@@ -152,7 +153,7 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 
 			ngpioFn := filepath.Join(gpioChipGPIODir, file.Name(), "ngpio")
 			//nolint:gosec
-			ngpioRd, err := ioutil.ReadFile(ngpioFn)
+			ngpioRd, err := os.ReadFile(ngpioFn)
 			if err != nil {
 				return nil, err
 			}
@@ -166,6 +167,7 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 	}
 
 	data := make(map[int]GPIOBoardMapping, len(pinDefs))
+
 	for _, pinDef := range pinDefs {
 		key := pinDef.PinNumberBoard
 
@@ -180,9 +182,10 @@ func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardIn
 			GPIOChipDev:    gpioChipDirs[pinDef.GPIOChipSysFSDir],
 			GPIO:           chipRelativeID,
 			GPIOGlobal:     chipGPIOBase + chipRelativeID,
+			GPIOName:       pinDef.PinNameCVM,
+			PWMSysFsDir:    pinDef.PWMChipSysFSDir,
 			HWPWMSupported: pinDef.PWMID != -1,
 		}
 	}
-
 	return data, nil
 }

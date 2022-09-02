@@ -34,18 +34,20 @@ func TestServer(t *testing.T) {
 	sensorServer, injectSensor, injectSensor2, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	rs := []interface{}{1.1, 2.2}
+	rs := map[string]interface{}{"a": 1.1, "b": 2.2}
 
-	injectSensor.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return rs, nil }
+	injectSensor.GetReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) { return rs, nil }
 
-	injectSensor2.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return nil, errors.New("can't get readings") }
+	injectSensor2.GetReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return nil, errors.New("can't get readings")
+	}
 
 	t.Run("GetReadings", func(t *testing.T) {
-		expected := make([]*structpb.Value, 0, len(rs))
-		for _, r := range rs {
-			v, err := structpb.NewValue(r)
+		expected := map[string]*structpb.Value{}
+		for k, v := range rs {
+			vv, err := structpb.NewValue(v)
 			test.That(t, err, test.ShouldBeNil)
-			expected = append(expected, v)
+			expected[k] = vv
 		}
 		resp, err := sensorServer.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: testSensorName})
 		test.That(t, err, test.ShouldBeNil)

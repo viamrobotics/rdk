@@ -82,6 +82,7 @@ type remoteService struct {
 	base            base.Base
 	inputController input.Controller
 	controlMode     controlMode
+	closed          bool
 
 	config *Config
 	logger golog.Logger
@@ -148,6 +149,10 @@ func (svc *remoteService) start(ctx context.Context) error {
 		onlyOneAtATime.Lock()
 		defer onlyOneAtATime.Unlock()
 
+		if svc.closed {
+			return
+		}
+
 		if event.Time.Before(lastEvent.Time) {
 			return
 		}
@@ -175,17 +180,7 @@ func (svc *remoteService) start(ctx context.Context) error {
 
 // Close out of all remote control related systems.
 func (svc *remoteService) Close(ctx context.Context) error {
-	for _, control := range svc.controllerInputs() {
-		var err error
-		if svc.controlMode == buttonControl {
-			err = svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.ButtonChange}, nil)
-		} else {
-			err = svc.inputController.RegisterControlCallback(ctx, control, []input.EventType{input.PositionChangeAbs}, nil)
-		}
-		if err != nil {
-			return err
-		}
-	}
+	svc.closed = true
 	return nil
 }
 
@@ -259,7 +254,7 @@ func (svc *reconfigurableBaseRemoteControl) Reconfigure(ctx context.Context, new
 	if !ok {
 		return utils.NewUnexpectedTypeError(svc, newSvc)
 	}
-	if err := viamutils.TryClose(ctx, &svc.actual); err != nil {
+	if err := viamutils.TryClose(ctx, svc.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	svc.actual = rSvc.actual
@@ -272,18 +267,18 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 		return reconfigurable, nil
 	}
 
-	svc, ok := s.(remoteService)
+	svc, ok := s.(*remoteService)
 	if !ok {
-		return nil, utils.NewUnexpectedTypeError(&remoteService{}, s)
+		return nil, utils.NewUnexpectedTypeError(remoteService{}, s)
 	}
 
-	return &reconfigurableBaseRemoteControl{actual: &svc}, nil
+	return &reconfigurableBaseRemoteControl{actual: svc}, nil
 }
 
 // triggerSpeedEvent takes inputs from the gamepad allowing the triggers to control speed and the left joystick to
 // control the angle.
-func triggerSpeedEvent(event input.Event, speed float64, angle float64) (float64, float64) {
-	// nolint:exhaustive
+func triggerSpeedEvent(event input.Event, speed, angle float64) (float64, float64) {
+	//nolint:exhaustive
 	switch event.Control {
 	case input.AbsoluteZ:
 		speed -= 0.05
@@ -303,7 +298,7 @@ func buttonControlEvent(event input.Event, buttons map[input.Control]bool) (floa
 	var speed float64
 	var angle float64
 
-	// nolint:exhaustive
+	//nolint:exhaustive
 	switch event.Event {
 	case input.ButtonPress:
 		buttons[event.Control] = true
@@ -345,8 +340,8 @@ func arrowEvent(event input.Event, arrows map[input.Control]float64) (float64, f
 }
 
 // oneJoyStickEvent (default) takes inputs from the gamepad allowing the left joystick to control speed and angle.
-func oneJoyStickEvent(event input.Event, y float64, x float64) (float64, float64) {
-	// nolint:exhaustive
+func oneJoyStickEvent(event input.Event, y, x float64) (float64, float64) {
+	//nolint:exhaustive
 	switch event.Control {
 	case input.AbsoluteY:
 		y = -1.0 * event.Value
@@ -360,7 +355,7 @@ func oneJoyStickEvent(event input.Event, y float64, x float64) (float64, float64
 // right joystick is forward/back, strafe right/left
 // left joystick is spin right/left & up/down.
 func droneEvent(event input.Event, linear, angular r3.Vector) (r3.Vector, r3.Vector) {
-	// nolint:exhaustive
+	//nolint:exhaustive
 	switch event.Control {
 	case input.AbsoluteX:
 		angular.Z = scaleThrottle(-1.0 * event.Value)
@@ -392,7 +387,7 @@ func similar(a, b r3.Vector, deltaThreshold float64) bool {
 }
 
 func scaleThrottle(a float64) float64 {
-	// nolint:ifshort
+	//nolint:ifshort
 	neg := a < 0
 
 	a = math.Abs(a)

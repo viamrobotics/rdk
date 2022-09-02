@@ -53,7 +53,7 @@ func init() {
 
 // A Service controls the flow of moving components.
 type Service interface {
-	PlanAndMove(
+	Move(
 		ctx context.Context,
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
@@ -89,12 +89,14 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// Name is the MotionService's typed resource name.
-var Name = resource.NameFromSubtype(Subtype, "")
+// Named is a helper for getting the named motion service's typed resource name.
+func Named(name string) resource.Name {
+	return resource.NameFromSubtype(Subtype, name)
+}
 
-// FromRobot retrieves the motion service of a robot.
-func FromRobot(r robot.Robot) (Service, error) {
-	resource, err := r.ResourceByName(Name)
+// FromRobot is a helper for getting the named motion service from the given Robot.
+func FromRobot(r robot.Robot, name string) (Service, error) {
+	resource, err := r.ResourceByName(Named(name))
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +120,8 @@ type motionService struct {
 	logger golog.Logger
 }
 
-// PlanAndMove takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
-func (ms *motionService) PlanAndMove(
+// Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
+func (ms *motionService) Move(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
@@ -139,7 +141,7 @@ func (ms *motionService) PlanAndMove(
 	solver := motionplan.NewSolvableFrameSystem(frameSys, logger)
 
 	// build maps of relevant components and inputs from initial inputs
-	fsInputs, resources, err := ms.fsCurrentInputs(ctx, solver)
+	fsInputs, resources, err := framesystem.RobotFsCurrentInputs(ctx, ms.r, solver)
 	if err != nil {
 		return false, err
 	}
@@ -157,11 +159,10 @@ func (ms *motionService) PlanAndMove(
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 	output, err := solver.SolveWaypointsWithOptions(ctx,
 		fsInputs,
-		[]spatialmath.Pose{goalPose.Pose()},
+		[]*referenceframe.PoseInFrame{goalPose},
 		componentName.Name,
-		solvingFrame,
 		worldState,
-		[]*motionplan.PlannerOptions{},
+		[]map[string]interface{}{},
 	)
 	if err != nil {
 		return false, err
@@ -215,7 +216,7 @@ func (ms *motionService) MoveSingleComponent(
 			return false, err
 		}
 		// get the initial inputs
-		fsInputs, _, err := ms.fsCurrentInputs(ctx, frameSys)
+		fsInputs, _, err := framesystem.RobotFsCurrentInputs(ctx, ms.r, frameSys)
 		if err != nil {
 			return false, err
 		}
@@ -258,51 +259,12 @@ func (ms *motionService) GetPose(
 	)
 }
 
-// get the initial inputs.
-func (ms *motionService) fsCurrentInputs(
-	ctx context.Context,
-	fs referenceframe.FrameSystem,
-) (map[string][]referenceframe.Input, map[string]referenceframe.InputEnabled, error) {
-	input := referenceframe.StartPositions(fs)
-
-	// build maps of relevant components and inputs from initial inputs
-	allOriginals := map[string][]referenceframe.Input{}
-	resources := map[string]referenceframe.InputEnabled{}
-	for name, original := range input {
-		// skip frames with no input
-		if len(original) == 0 {
-			continue
-		}
-
-		// add component to map
-		allOriginals[name] = original
-		components := robot.AllResourcesByName(ms.r, name)
-		if len(components) != 1 {
-			return nil, nil, fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), name)
-		}
-		component, ok := components[0].(referenceframe.InputEnabled)
-		if !ok {
-			return nil, nil, fmt.Errorf("%v(%T) is not InputEnabled", name, components[0])
-		}
-		resources[name] = component
-
-		// add input to map
-		pos, err := component.CurrentInputs(ctx)
-		if err != nil {
-			return nil, nil, err
-		}
-		input[name] = pos
-	}
-
-	return input, resources, nil
-}
-
 type reconfigurableMotionService struct {
 	mu     sync.RWMutex
 	actual Service
 }
 
-func (svc *reconfigurableMotionService) PlanAndMove(
+func (svc *reconfigurableMotionService) Move(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
@@ -310,7 +272,7 @@ func (svc *reconfigurableMotionService) PlanAndMove(
 ) (bool, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.PlanAndMove(ctx, componentName, destination, worldState)
+	return svc.actual.Move(ctx, componentName, destination, worldState)
 }
 
 func (svc *reconfigurableMotionService) MoveSingleComponent(

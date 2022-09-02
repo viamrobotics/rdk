@@ -25,13 +25,13 @@ type filter interface {
 
 type filterStruct struct {
 	mu     sync.Mutex
-	cfg    ControlBlockConfig
+	cfg    BlockConfig
 	filter filter
 	y      []Signal
 	logger golog.Logger
 }
 
-func newFilter(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
+func newFilter(config BlockConfig, logger golog.Logger) (Block, error) {
 	f := &filterStruct{cfg: config, logger: logger}
 	if err := f.initFilter(); err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func (f *filterStruct) initFilter() error {
 		return errors.Errorf("filter %s config should have a type field", f.cfg.Name)
 	}
 	f.y = make([]Signal, 1)
-	f.y[0] = makeSignal(f.cfg.Name, 1)
+	f.y[0] = makeSignal(f.cfg.Name)
 	fType := f.cfg.Attribute.String("type")
 	switch filterType(fType) {
 	case filterFIRMovingAverage:
@@ -149,11 +149,11 @@ func (f *filterStruct) Reset(ctx context.Context) error {
 	return f.filter.Reset()
 }
 
-func (f *filterStruct) Config(ctx context.Context) ControlBlockConfig {
+func (f *filterStruct) Config(ctx context.Context) BlockConfig {
 	return f.cfg
 }
 
-func (f *filterStruct) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
+func (f *filterStruct) UpdateConfig(ctx context.Context, config BlockConfig) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.cfg = config

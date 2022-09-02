@@ -30,13 +30,15 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	rs := []interface{}{1.1, 2.2}
+	rs := map[string]interface{}{"a": 1.1, "b": 2.2}
 
 	injectSensor := &inject.Sensor{}
-	injectSensor.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return rs, nil }
+	injectSensor.GetReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) { return rs, nil }
 
 	injectSensor2 := &inject.Sensor{}
-	injectSensor2.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return nil, errors.New("can't get readings") }
+	injectSensor2.GetReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return nil, errors.New("can't get readings")
+	}
 
 	sensorSvc, err := subtype.New(
 		(map[resource.Name]interface{}{sensor.Named(testSensorName): injectSensor, sensor.Named(failSensorName): injectSensor2}),

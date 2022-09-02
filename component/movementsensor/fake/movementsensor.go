@@ -59,7 +59,7 @@ func (f *fakeMovementSensor) GetAccuracy(ctx context.Context) (map[string]float3
 	return map[string]float32{}, nil
 }
 
-func (f *fakeMovementSensor) GetReadings(ctx context.Context) ([]interface{}, error) {
+func (f *fakeMovementSensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
 	return movementsensor.GetReadings(ctx, f)
 }
 

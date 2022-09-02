@@ -45,7 +45,7 @@ func (c *client) SetPower(ctx context.Context, powerPct float64, extra map[strin
 	return err
 }
 
-func (c *client) GoFor(ctx context.Context, rpm float64, revolutions float64, extra map[string]interface{}) error {
+func (c *client) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -60,7 +60,7 @@ func (c *client) GoFor(ctx context.Context, rpm float64, revolutions float64, ex
 	return err
 }
 
-func (c *client) GoTo(ctx context.Context, rpm float64, positionRevolutions float64, extra map[string]interface{}) error {
+func (c *client) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
@@ -102,13 +102,13 @@ func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) 
 	return resp.GetPosition(), nil
 }
 
-func (c *client) GetFeatures(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error) {
+func (c *client) GetProperties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}
-	req := &pb.GetFeaturesRequest{Name: c.name, Extra: ext}
-	resp, err := c.client.GetFeatures(ctx, req)
+	req := &pb.GetPropertiesRequest{Name: c.name, Extra: ext}
+	resp, err := c.client.GetProperties(ctx, req)
 	if err != nil {
 		return nil, err
 	}

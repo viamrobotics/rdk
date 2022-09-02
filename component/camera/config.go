@@ -11,7 +11,7 @@ import (
 // StreamType specifies what kind of image stream is coming from the camera.
 type StreamType string
 
-// The allowed types of streams that can come from an ImageSource.
+// The allowed types of streams that can come from a VideoSource.
 const (
 	UnspecifiedStream = StreamType("")
 	ColorStream       = StreamType("color")
@@ -27,9 +27,7 @@ func NewUnsupportedStreamError(s StreamType) error {
 type AttrConfig struct {
 	CameraParameters *transform.PinholeCameraIntrinsics `json:"camera_parameters"`
 	Stream           string                             `json:"stream"`
-	Hide             bool                               `json:"hide"`
 	Debug            bool                               `json:"debug"`
-	Dump             bool                               `json:"dump"`
 }
 
 // CommonCameraAttributes extracts the common camera attributes.

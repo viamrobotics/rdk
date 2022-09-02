@@ -17,10 +17,13 @@ func TestFFMPEGCamera(t *testing.T) {
 	path := artifact.MustPath("component/camera/ffmpeg/testsrc.mpg")
 	cam, err := NewFFMPEGCamera(ctx, &AttrConfig{VideoPath: path}, logger)
 	test.That(t, err, test.ShouldBeNil)
+	stream, err := cam.Stream(ctx)
+	test.That(t, err, test.ShouldBeNil)
 	for i := 0; i < 5; i++ {
-		_, _, err := cam.Next(ctx)
+		_, _, err := stream.Next(ctx)
 		test.That(t, err, test.ShouldBeNil)
 	}
+	test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, viamutils.TryClose(context.Background(), cam), test.ShouldBeNil)
 }
 

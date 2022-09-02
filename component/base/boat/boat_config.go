@@ -106,9 +106,12 @@ func (bc *boatConfig) computePowerOutput(powers []float64) motorWeights {
 
 // returns an array of power for each motors
 // forwardPercent: -1 -> 1 percent of power in which you want to move laterally
-//                  note only x & y are relevant. y is forward back, x is lateral
+//
+//	note only x & y are relevant. y is forward back, x is lateral
+//
 // angularPercent: -1 -> 1 percent of power you want applied to move angularly
-//                 note only z is relevant here
+//
+//	note only z is relevant here
 func (bc *boatConfig) computePower(linear, angular r3.Vector) []float64 {
 	goal := bc.computeGoal(linear, angular)
 

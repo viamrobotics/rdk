@@ -8,10 +8,10 @@ import (
 
 	"github.com/disintegration/imaging"
 	"github.com/golang/geo/r2"
-	"github.com/gonum/floats"
-	"github.com/gonum/stat"
 	"github.com/pkg/errors"
+	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
+	"gonum.org/v1/gonum/stat"
 
 	"go.viam.com/rdk/utils"
 )
@@ -44,7 +44,7 @@ func (i *Image) AverageColor(p image.Point, radius int) Color {
 }
 
 // AverageColorXY returns the average color about a certain point.
-func (i *Image) AverageColorXY(x, y int, radius int) Color {
+func (i *Image) AverageColorXY(x, y, radius int) Color {
 	h := 0.0
 	s := 0.0
 	v := 0.0
@@ -98,7 +98,7 @@ func (i *Image) InterestingPixels(t float64) *image.Gray {
 }
 
 // SimpleEdgeDetection TODO.
-func SimpleEdgeDetection(img *Image, t1 float64, blur float64) (*image.Gray, error) {
+func SimpleEdgeDetection(img *Image, t1, blur float64) (*image.Gray, error) {
 	img = ConvertImage(imaging.Blur(img, blur))
 
 	out := image.NewGray(img.Bounds())
@@ -433,9 +433,10 @@ func GetHysteresisThresholds(mag, nms *mat.Dense, ratioHigh, ratioLow float64) (
 // GetConnectivity8Neighbors return the pixel coordinates of the neighbors of a pixel (i,j) in connectivity 8;
 // Returns only the pixel within the image bounds.
 // Connectivity 8 :
-//  .   .   .
-//  .   o   .
-//  .   .   .
+//
+//	.   .   .
+//	.   o   .
+//	.   .   .
 func GetConnectivity8Neighbors(i, j, r, c int) []MatrixPixelPoint {
 	neighbors := make([]MatrixPixelPoint, 0, 8)
 	if i-1 > 0 && j-1 > 0 {
