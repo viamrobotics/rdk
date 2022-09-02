@@ -129,8 +129,8 @@ func TestGetMatchingKeyPoints(t *testing.T) {
 	samplePoints := GenerateSamplePairs(cfg.BRIEFConf.Sampling, cfg.BRIEFConf.N, cfg.BRIEFConf.PatchSize)
 	descs, kps, err := ComputeORBKeypoints(imGray, samplePoints, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(descs), test.ShouldEqual, 137)
-	test.That(t, len(kps), test.ShouldEqual, 137)
+	test.That(t, len(descs), test.ShouldEqual, 59)
+	test.That(t, len(kps), test.ShouldEqual, 59)
 
 	// get matches
 	cfgMatch := MatchingConfig{
@@ -163,7 +163,7 @@ func TestOrbMatching(t *testing.T) {
 			Radius:         16,
 		},
 		BRIEFConf: &BRIEFConfig{
-			N:              256,
+			N:              512,
 			Sampling:       2,
 			UseOrientation: true,
 			PatchSize:      48,
