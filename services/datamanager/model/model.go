@@ -151,9 +151,8 @@ func GetModelsToDownload(models []*Model) ([]*Model, error) {
 			return nil, err
 		}
 		if len(files) == 0 {
-			return nil, nil
+			modelsToDownload = append(modelsToDownload, model)
 		}
-		modelsToDownload = append(modelsToDownload, model)
 	}
 	return modelsToDownload, nil
 }
@@ -208,6 +207,7 @@ func UnzipSource(destination, fileName string, logger golog.Logger) error {
 	if err = zipReader.Close(); err != nil {
 		return err
 	}
+	// question: should I remove the .gz file once we have unzipped?
 	return nil
 }
 
