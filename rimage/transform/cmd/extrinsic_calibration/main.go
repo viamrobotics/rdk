@@ -1,7 +1,7 @@
 // Given at least 4 corresponding points, and the intrinsic matrices of both cameras, computes
 // the rigid transform (rotation + translation) that would be the extrinsic transformation
 // from camera 1 to camera 2.
-// rimage/transform/example_extrinsic_calib.json has an example input file.
+// rimage/transform/data/example_extrinsic_calib.json has an example input file.
 // $./extrinsic_calibration -conf=/path/to/input/file
 package main
 
