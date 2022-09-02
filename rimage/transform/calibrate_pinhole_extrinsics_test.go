@@ -14,12 +14,12 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var intel515Path = utils.ResolveFile("rimage/transform/data/intel515_parameters.json")
+var intel515ParamsPath = utils.ResolveFile("rimage/transform/data/intel515_parameters.json")
 
 func TestExtrinsicCalibration(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	// get a file with known extrinsic parameters and make expected pose
-	cam, err := NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515Path)
+	cam, err := NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)
 	expRotation, err := spatialmath.NewRotationMatrix(cam.ExtrinsicD2C.RotationMatrix)
 	test.That(t, err, test.ShouldBeNil)
