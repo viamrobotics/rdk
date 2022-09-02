@@ -56,7 +56,7 @@ func saveImageAsPng(img image.Image, filename string) error {
 // extractPlanes extract planes from an image and depth map.
 func extractPlanes(ctx context.Context, img *rimage.Image, dm *rimage.DepthMap) (*segmentation.SegmentedImage, error) {
 	// Set camera matrices in image-with-depth
-	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
+	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("ros/data/intel515_parameters.json"))
 	if err != nil {
 		return nil, err
 	}
