@@ -6,6 +6,7 @@ import (
 	"image"
 
 	"github.com/fogleman/gg"
+
 	"go.viam.com/rdk/utils"
 )
 
@@ -39,7 +40,7 @@ func PlotKeypoints(img *image.Gray, kps []image.Point) image.Image {
 }
 
 // PlotMatchedLines plots matched keypoints on both images. vertical is true if the images should be stacked on top of each other.
-func PlotMatchedLines(im1 image.Image, im2 image.Image, kps1 []image.Point, kps2 []image.Point, vertical bool) image.Image {
+func PlotMatchedLines(im1, im2 image.Image, kps1, kps2 []image.Point, vertical bool) image.Image {
 	w, h := im1.Bounds().Max.X+im2.Bounds().Max.X, utils.MaxInt(im1.Bounds().Max.Y, im2.Bounds().Max.Y)
 	if vertical {
 		w, h = utils.MaxInt(im1.Bounds().Max.X, im2.Bounds().Max.X), im1.Bounds().Max.Y+im2.Bounds().Max.Y

@@ -52,10 +52,9 @@ func main() {
 	if err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}
-
 }
 
-// RunOrbPointFinding gets the orb points for each image
+// RunOrbPointFinding gets the orb points for each image.
 func RunOrbPointFinding(image1Path, image2Path, configPath string) (image.Image, image.Image, error) {
 	// load images
 	img1, err := rimage.NewImageFromFile(image1Path)

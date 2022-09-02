@@ -5,11 +5,9 @@ import (
 	"image/draw"
 	"math"
 	"os"
-	"sort"
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
@@ -46,7 +44,7 @@ func TestMatchDescriptors(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	tempDir, err := os.MkdirTemp("", "matching_keypoints")
 	test.That(t, err, test.ShouldBeNil)
-	//defer os.RemoveAll(tempDir)
+
 	logger.Infof("writing sample points to %s", tempDir)
 	// load config
 	cfg := LoadFASTConfiguration("kpconfig.json")
@@ -193,33 +191,4 @@ func TestOrbMatching(t *testing.T) {
 	matches := MatchDescriptors(orb1, orb2, matchingConf, logger)
 	test.That(t, len(matches), test.ShouldBeGreaterThan, 300)
 	test.That(t, len(matches), test.ShouldBeLessThan, 350)
-}
-
-func sortDescriptorsByPoint(desc []Descriptor, kps KeyPoints, logger golog.Logger) ([]Descriptor, KeyPoints, error) {
-	if len(desc) != len(kps) {
-		return nil, nil, errors.Errorf("number of descriptors (%d) does not equal number of keypoints (%d)", len(desc), len(kps))
-	}
-	// sort by point order
-	type ptdesc struct {
-		Kp  image.Point
-		Des Descriptor
-	}
-
-	sorted := make([]ptdesc, 0, len(kps))
-	for i := range kps {
-		sorted = append(sorted, ptdesc{kps[i], desc[i]})
-	}
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].Kp.X > sorted[j].Kp.X
-	})
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].Kp.Y > sorted[j].Kp.Y
-	})
-	sortedDesc := make([]Descriptor, 0, len(desc))
-	sortedKps := make(KeyPoints, 0, len(kps))
-	for i := range sorted {
-		sortedDesc = append(sortedDesc, sorted[i].Des)
-		sortedKps = append(sortedKps, sorted[i].Kp)
-	}
-	return sortedDesc, sortedKps, nil
 }
