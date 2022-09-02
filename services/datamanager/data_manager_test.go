@@ -793,9 +793,14 @@ func (m mockModelServiceServer) getDeployedModels() int {
 	if err != nil {
 		return 0
 	}
+	// add explanation
 	minus := 0
 	for i := 0; i < len(files); i++ {
 		fmt.Println("names of files", files[i].Name())
+		// x := files[i].ModTime()
+
+		fmt.Println("time.Now().Nanosecond(): ", time.Now().Nanosecond())
+		fmt.Println("files[i].ModTime().Clock().Nanosecond: ", files[i].ModTime())
 		_, _, modTimeSec := files[i].ModTime().Clock()
 		_, _, timeNowSec := time.Now().Clock()
 		diff := timeNowSec - modTimeSec
@@ -810,20 +815,21 @@ func (m mockModelServiceServer) getDeployedModels() int {
 func (m mockModelServiceServer) Deploy(ctx context.Context, req *m1.DeployRequest) (*m1.DeployResponse, error) {
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
-	datamanager.Client = &MockClient{}
+	datamanager.Client = &mockClient{}
 	depResp := &m1.DeployResponse{Message: "abc"}
 	return depResp, nil
 }
 
-// // MockClient is the mock client.
-type MockClient struct {
+// mockClient is the mock client.
+type mockClient struct {
 	DoFunc func(req *http.Request) (*http.Response, error)
 }
 
-// Do is the mock client's `Do` func.
-func (m *MockClient) Do(req *http.Request) (*http.Response, error) {
+// Do is mockClient's `Do` func.
+func (m *mockClient) Do(req *http.Request) (*http.Response, error) {
 	// why we are still using ioutil.NopCloser
 	// https://stackoverflow.com/questions/28158990/golang-io-ioutil-nopcloser
+	// using io.NopCloser and not ioutil.NopCloser bc the latter is depreciated
 
 	r := bytes.NewReader([]byte("mocked response readme"))
 
@@ -845,7 +851,7 @@ func (m *MockClient) Do(req *http.Request) (*http.Response, error) {
 	return response, nil
 }
 
-// GetDoFunc fetches the mock client's `Do` func.
+// GetDoFunc fetches the mockClient's `Do` func.
 var GetDoFunc func(req *http.Request) (*http.Response, error)
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
