@@ -46,8 +46,8 @@ type DescriptorMatches struct {
 	Descriptors2 Descriptors
 }
 
-// MatchKeypoints takes 2 sets of descriptors and performs matching.
-func MatchKeypoints(desc1, desc2 Descriptors, cfg *MatchingConfig, logger golog.Logger) *DescriptorMatches {
+// MatchDescriptors takes 2 sets of descriptors and performs matching.
+func MatchDesriptors(desc1, desc2 Descriptors, cfg *MatchingConfig, logger golog.Logger) *DescriptorMatches {
 	distances, err := DescriptorsHammingDistance(desc1, desc2)
 	if err != nil {
 		return nil
