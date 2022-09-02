@@ -125,7 +125,7 @@ func decodePose(config FrameMapConfig) (spatial.Pose, error) {
 		return nil, err
 	}
 
-	orientation, err := (&spatial.OrientationConfig{oType, jsonValue}).ParseConfig()
+	orientation, err := (&spatial.OrientationConfig{spatial.OrientationType(oType), jsonValue}).ParseConfig()
 	if err != nil {
 		return nil, err
 	}
