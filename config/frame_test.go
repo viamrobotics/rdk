@@ -30,10 +30,13 @@ func TestFrame(t *testing.T) {
 	frame := Frame{}
 	err = json.Unmarshal(testMap["test"], &frame)
 	test.That(t, err, test.ShouldBeNil)
+	bc, err := spatial.NewBoxCreator(r3.Vector{4, 5, 6}, spatial.NewPoseFromPoint(r3.Vector{1, 2, 3}))
+	test.That(t, err, test.ShouldBeNil)
 	exp := Frame{
 		Parent:      "world",
-		Translation: spatial.TranslationConfig{1, 2, 3},
+		Translation: r3.Vector{1, 2, 3},
 		Orientation: &spatial.OrientationVectorDegrees{Theta: 85, OZ: 1},
+		Geometry:    bc,
 	}
 	test.That(t, frame, test.ShouldResemble, exp)
 
@@ -102,7 +105,7 @@ func TestMergeFrameSystems(t *testing.T) {
 
 	// merge to fs1 with an offset and rotation
 	offsetConfig := &Frame{
-		Parent: "frame1", Translation: spatial.TranslationConfig{1, 2, 3},
+		Parent: "frame1", Translation: r3.Vector{1, 2, 3},
 		Orientation: &spatial.R4AA{Theta: math.Pi / 2, RZ: 1.},
 	}
 	err = MergeFrameSystems(fs1, fs2, offsetConfig)
