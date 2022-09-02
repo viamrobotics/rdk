@@ -42,7 +42,7 @@ func (config *SerialAttrConfig) ValidateSerial(path string) error {
 func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
-		"nmea-serial",
+		"gps_nmeaserial",
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			_ registry.Dependencies,

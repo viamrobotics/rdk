@@ -63,7 +63,7 @@ func (config *RTKAttrConfig) ValidateRTK(path string) error {
 func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
-		"rtk",
+		"gps_rtk",
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,

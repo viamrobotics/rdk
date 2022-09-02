@@ -25,10 +25,12 @@ import (
 
 const model = "imu_wit"
 
+// AttrConfig is used for converting config attributes of a witmotion imu movement sensor.
 type AttrConfig struct {
 	Port string `json:"port"`
 }
 
+// Validate ensures all parts of the config are valid.
 func (config *AttrConfig) Validate(path string) error {
 	if config.Port == "" {
 		return errors.New("no usb port found for witmotion imu")
