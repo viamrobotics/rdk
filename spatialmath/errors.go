@@ -1,6 +1,8 @@
 package spatialmath
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+)
 
 func newBadGeometryDimensionsError(g Geometry) error {
 	return errors.Errorf("Invalid dimension(s) for Geometry type %T", g)
