@@ -34,7 +34,6 @@ var (
 )
 
 // Compares UploadRequests containing either binary or tabular sensor data.
-
 func compareTabularUploadRequests(t *testing.T, actual, expected []*v1.UploadRequest) {
 	t.Helper()
 	// Ensure length of slices is same before proceeding with rest of tests.
