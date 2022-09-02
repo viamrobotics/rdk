@@ -56,6 +56,7 @@ func TestMatchDescriptors(t *testing.T) {
 	// Convert to grayscale image
 	imGray := rimage.MakeGray(im)
 	fastKps := NewFASTKeypointsFromImage(imGray, cfg)
+	t.Logf("number of keypoints in img 1: %d", len(fastKps.Points))
 	keyPtsImg := PlotKeypoints(imGray, fastKps.Points)
 	err = rimage.WriteImageToFile(tempDir+"/chessKps_1.png", keyPtsImg)
 	test.That(t, err, test.ShouldBeNil)
@@ -67,6 +68,7 @@ func TestMatchDescriptors(t *testing.T) {
 	// Convert to grayscale image
 	imGray2 := rimage.MakeGray(im2)
 	fastKps2 := NewFASTKeypointsFromImage(imGray2, cfg)
+	t.Logf("number of keypoints in img 2: %d", len(fastKps2.Points))
 	keyPtsImg2 := PlotKeypoints(imGray2, fastKps2.Points)
 	err = rimage.WriteImageToFile(tempDir+"/chessKps_2.png", keyPtsImg2)
 	test.That(t, err, test.ShouldBeNil)
@@ -76,34 +78,37 @@ func TestMatchDescriptors(t *testing.T) {
 	samplePoints := GenerateSamplePairs(cfgBrief.Sampling, cfgBrief.N, cfgBrief.PatchSize)
 
 	briefDescriptors, err := ComputeBRIEFDescriptors(imGray, samplePoints, fastKps, cfgBrief)
+	t.Logf("number of descriptors in img 1: %d", len(briefDescriptors))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(briefDescriptors), test.ShouldEqual, len(fastKps.Points))
 
 	briefDescriptors2, err := ComputeBRIEFDescriptors(imGray2, samplePoints, fastKps2, cfgBrief)
+	t.Logf("number of descriptors in img 2: %d", len(briefDescriptors2))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(briefDescriptors2), test.ShouldEqual, len(fastKps2.Points))
 	// matches
 	cfgMatch := MatchingConfig{
-		false,
-		1000,
+		true,
+		400,
 	}
 	// test matches with itself
-	cfgMatch.DoCrossCheck = true
 	matches := MatchDescriptors(briefDescriptors, briefDescriptors, &cfgMatch, logger)
+	t.Logf("number of matches in img 1: %d", len(matches))
 	matchedKps1, matchedKps2, err := GetMatchingKeyPoints(matches, fastKps.Points, fastKps.Points)
 	test.That(t, err, test.ShouldBeNil)
-	matchedLinesImg := PlotMatchedLines(imGray, imGray, matchedKps1, matchedKps2)
+	matchedLinesImg := PlotMatchedLines(imGray, imGray, matchedKps1, matchedKps2, false)
 	err = rimage.WriteImageToFile(tempDir+"/matched_chess.png", matchedLinesImg)
 	test.That(t, err, test.ShouldBeNil)
-	for _, match := range matches.Indices {
+	for _, match := range matches {
 		test.That(t, match.Idx1, test.ShouldEqual, match.Idx2)
 	}
 	// test matches with bigger image and cross-check; #matches <= #kps2
 	matches = MatchDescriptors(briefDescriptors, briefDescriptors2, &cfgMatch, logger)
-	test.That(t, len(matches.Indices), test.ShouldBeLessThanOrEqualTo, len(fastKps2.Points))
+	t.Logf("number of matches in img 1 vs img 2: %d", len(matches))
+	test.That(t, len(matches), test.ShouldBeLessThanOrEqualTo, len(fastKps2.Points))
 	matchedKps1, matchedKps2, err = GetMatchingKeyPoints(matches, fastKps.Points, fastKps2.Points)
 	test.That(t, err, test.ShouldBeNil)
-	matchedLinesImg = PlotMatchedLines(imGray, imGray2, matchedKps1, matchedKps2)
+	matchedLinesImg = PlotMatchedLines(imGray, imGray2, matchedKps1, matchedKps2, false)
 	err = rimage.WriteImageToFile(tempDir+"/bigger_matched_chess.png", matchedLinesImg)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -153,7 +158,7 @@ func TestOrbMatching(t *testing.T) {
 		FastConf: &FASTConfig{
 			NMatchesCircle: 9,
 			NMSWinSize:     7,
-			Threshold:      .10,
+			Threshold:      20,
 			Oriented:       true,
 			Radius:         16,
 		},
@@ -186,11 +191,11 @@ func TestOrbMatching(t *testing.T) {
 	orb2, kps2, err = sortDescriptorsByPoint(orb2, kps2, logger)
 	test.That(t, err, test.ShouldBeNil)
 	matches := MatchDescriptors(orb1, orb2, matchingConf, logger)
-	test.That(t, len(matches.Indices), test.ShouldBeGreaterThan, 300)
-	test.That(t, len(matches.Indices), test.ShouldBeLessThan, 350)
+	test.That(t, len(matches), test.ShouldBeGreaterThan, 300)
+	test.That(t, len(matches), test.ShouldBeLessThan, 350)
 }
 
-func sortDescriptorsByPoint(desc Descriptors, kps KeyPoints, logger golog.Logger) (Descriptors, KeyPoints, error) {
+func sortDescriptorsByPoint(desc []Descriptor, kps KeyPoints, logger golog.Logger) ([]Descriptor, KeyPoints, error) {
 	if len(desc) != len(kps) {
 		return nil, nil, errors.Errorf("number of descriptors (%d) does not equal number of keypoints (%d)", len(desc), len(kps))
 	}
@@ -210,7 +215,7 @@ func sortDescriptorsByPoint(desc Descriptors, kps KeyPoints, logger golog.Logger
 	sort.Slice(sorted, func(i, j int) bool {
 		return sorted[i].Kp.Y > sorted[j].Kp.Y
 	})
-	sortedDesc := make(Descriptors, 0, len(desc))
+	sortedDesc := make([]Descriptor, 0, len(desc))
 	sortedKps := make(KeyPoints, 0, len(kps))
 	for i := range sorted {
 		sortedDesc = append(sortedDesc, sorted[i].Des)

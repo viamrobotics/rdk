@@ -105,7 +105,7 @@ func LoadBRIEFConfiguration(file string) *BRIEFConfig {
 }
 
 // ComputeBRIEFDescriptors computes BRIEF descriptors on image img at keypoints kps.
-func ComputeBRIEFDescriptors(img *image.Gray, sp *SamplePairs, kps *FASTKeypoints, cfg *BRIEFConfig) (Descriptors, error) {
+func ComputeBRIEFDescriptors(img *image.Gray, sp *SamplePairs, kps *FASTKeypoints, cfg *BRIEFConfig) ([]Descriptor, error) {
 	// blur image
 	kernel := rimage.GetGaussian5()
 	normalized := kernel.Normalize()

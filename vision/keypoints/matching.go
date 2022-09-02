@@ -1,9 +1,10 @@
 package keypoints
 
 import (
+	"sort"
+
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"gonum.org/v1/gonum/floats"
 
 	"go.viam.com/rdk/utils"
 )
@@ -33,29 +34,26 @@ type MatchingConfig struct {
 	MaxDist      int  `json:"max_dist"`
 }
 
-// DescriptorMatch contains the index of a match in the first and second set of descriptors.
+// DescriptorMatch contains the index of a match in the first and second set of descriptors, and their score.
 type DescriptorMatch struct {
-	Idx1 int
-	Idx2 int
-}
-
-// DescriptorMatches contains the descriptors and their matches.
-type DescriptorMatches struct {
-	Indices      []DescriptorMatch
-	Descriptors1 Descriptors
-	Descriptors2 Descriptors
+	Idx1        int
+	Idx2        int
+	Score       int
+	Descriptor1 Descriptor
+	Descriptor2 Descriptor
 }
 
 // MatchDescriptors takes 2 sets of descriptors and performs matching.
-func MatchDesriptors(desc1, desc2 Descriptors, cfg *MatchingConfig, logger golog.Logger) *DescriptorMatches {
+// Order orders: desc1 are being matched to desc2.
+func MatchDescriptors(desc1, desc2 []Descriptor, cfg *MatchingConfig, logger golog.Logger) []DescriptorMatch {
 	distances, err := DescriptorsHammingDistance(desc1, desc2)
 	if err != nil {
 		return nil
 	}
 	indices1 := rangeInt(len(desc1), 0, 1)
-	indices2 := utils.GetArgMinDistancesPerRowInt(distances)
+	matchedIn2 := utils.GetArgMinDistancesPerRowInt(distances)
 	// mask for valid indices
-	maskIdx := make([]int, len(desc1))
+	maskIdx := make([]int, len(indices1))
 	for i := range maskIdx {
 		maskIdx[i] = 1
 	}
@@ -63,70 +61,69 @@ func MatchDesriptors(desc1, desc2 Descriptors, cfg *MatchingConfig, logger golog
 		// transpose distances
 		distT := utils.Transpose(distances)
 		// compute argmin per rows on transposed mat
-		matches1 := utils.GetArgMinDistancesPerRowInt(distT)
+		matchedIn1 := utils.GetArgMinDistancesPerRowInt(distT)
 		// create mask for indices in cross check
-		for i := range indices1 {
-			if indices1[i] == matches1[indices2[i]] {
-				maskIdx[i] *= 1
+		for _, idx := range indices1 {
+			if indices1[idx] == matchedIn1[matchedIn2[idx]] {
+				maskIdx[idx] *= 1
 			} else {
-				maskIdx[i] *= 0
+				maskIdx[idx] *= 0
 			}
 		}
 	}
 	if cfg.MaxDist > 0 {
-		for i := range indices1 {
-			if distances[indices1[i]][indices2[i]] < cfg.MaxDist {
-				maskIdx[i] *= 1
+		for _, idx := range indices1 {
+			if distances[indices1[idx]][matchedIn2[idx]] < cfg.MaxDist {
+				maskIdx[idx] *= 1
 			} else {
-				maskIdx[i] = 0
+				maskIdx[idx] *= 0
 			}
 		}
 	}
-	// masked indices
-	idx1 := make([]int, 0, len(desc1))
-	idx2 := make([]int, 0, len(desc1))
+	// get the reduced set of matched indices, which will be less than or equal to len(desc1)
+	dm := make([]DescriptorMatch, 0, len(desc1))
 	for i := range desc1 {
 		if maskIdx[i] == 1 {
-			idx1 = append(idx1, indices1[i])
-			idx2 = append(idx2, indices2[i])
+			dm = append(dm, DescriptorMatch{
+				Idx1:        indices1[i],
+				Idx2:        matchedIn2[i],
+				Score:       distances[indices1[i]][matchedIn2[i]],
+				Descriptor1: desc1[indices1[i]],
+				Descriptor2: desc2[matchedIn2[i]],
+			})
 		}
 	}
-	// get minimum distances per selected pair of descriptor
-	dist := make([]int, len(idx1))
-	for i := range dist {
-		dist[i] = distances[idx1[i]][idx2[i]]
+	// sort by Score, highest to lowest
+	sort.Slice(dm, func(i, j int) bool {
+		return dm[j].Score < dm[i].Score
+	})
+	// fill matches, skip over points in 1 that have already been matched
+	alreadyMatched := make([]bool, len(indices1))
+	matches := make([]DescriptorMatch, 0, len(dm))
+	for _, match := range dm {
+		if !alreadyMatched[match.Idx1] {
+			matches = append(matches, match)
+			alreadyMatched[match.Idx1] = true
+		}
 	}
-	// sort
-	sortedIndices := make([]int, len(idx1))
-	float_dists := []float64{}
-	for _, v := range dist {
-		float_dists = append(float_dists, float64(v))
-	}
-	floats.Argsort(float_dists, sortedIndices)
-	// fill matches
-	matches := make([]DescriptorMatch, len(idx1))
-	for i, idx := range sortedIndices {
-		matches[i] = DescriptorMatch{idx1[idx], idx2[idx]}
-	}
-
-	return &DescriptorMatches{matches, desc1, desc2}
+	return matches
 }
 
 // GetMatchingKeyPoints takes the matches and the keypoints and returns the corresponding keypoints that are matched.
-func GetMatchingKeyPoints(matches *DescriptorMatches, kps1, kps2 KeyPoints) (KeyPoints, KeyPoints, error) {
-	if len(kps1) < len(matches.Indices) {
+func GetMatchingKeyPoints(matches []DescriptorMatch, kps1, kps2 KeyPoints) (KeyPoints, KeyPoints, error) {
+	if len(kps1) < len(matches) {
 		err := errors.New("there are more matches than keypoints in first set")
 		return nil, nil, err
 	}
-	if len(kps2) < len(matches.Indices) {
+	if len(kps2) < len(matches) {
 		err := errors.New("there are more matches than keypoints in second set")
 		return nil, nil, err
 	}
-	matchedKps1 := make(KeyPoints, len(matches.Indices))
-	matchedKps2 := make(KeyPoints, len(matches.Indices))
-	for i, match := range matches.Indices {
+	matchedKps1 := make(KeyPoints, len(matches))
+	matchedKps2 := make(KeyPoints, len(matches))
+	for i, match := range matches {
 		matchedKps1[i] = kps1[match.Idx1]
-		matchedKps2[i] = kps1[match.Idx2]
+		matchedKps2[i] = kps2[match.Idx2]
 	}
 	return matchedKps1, matchedKps2, nil
 }
