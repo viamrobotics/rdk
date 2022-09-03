@@ -194,7 +194,7 @@ func (mgr *Manager) AddService(ctx context.Context, cfg config.Service) (interfa
 func depsToNames (deps registry.Dependencies) []string {
 	var depStrings []string
 	for dep := range deps {
-		depStrings = append(depStrings, dep.Name)
+		depStrings = append(depStrings, dep.String())
 	}
 	return depStrings
 }

@@ -498,6 +498,17 @@ func newWithResources(
 	r.internalServices[webName] = web.New(ctx, r, logger, rOpts.webOptions...)
 	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
 
+	// TODO SMURF get argsParsed in here somehow (before removing RUNWEB)
+	webOpts, err := weboptions.FromConfig(cfg)
+	if err != nil {
+		logger.Errorw("error creating weboptions", "error", err)
+	}
+	if err := r.StartWeb(ctx, webOpts); err != nil {
+		logger.Errorw("error starting web service while reconfiguring", "error", err)
+	}
+
+	logger.Debug("SMURF WEB START")
+
 	r.config = &config.Config{}
 
 	r.Reconfigure(ctx, cfg)

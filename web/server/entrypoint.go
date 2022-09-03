@@ -253,8 +253,9 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	defer func() {
 		<-onWatchDone
 	}()
-	defer cancel()
 
-	options, err := createWebOptions(processedConfig, argsParsed, logger)
-	return web.RunWeb(ctx, myRobot, options, logger)
+	<-ctx.Done()
+	return nil
+	// options, err := createWebOptions(processedConfig, argsParsed, logger)
+	// return web.RunWeb(ctx, myRobot, options, logger)
 }
