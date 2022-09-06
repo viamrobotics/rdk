@@ -59,6 +59,7 @@ func GetArgMinDistancesPerRow(distances *mat.Dense) []int {
 	return indices
 }
 
+// Transpose transposes the slice of slice of ints.
 func Transpose(slice [][]int) [][]int {
 	xl := len(slice[0])
 	yl := len(slice)

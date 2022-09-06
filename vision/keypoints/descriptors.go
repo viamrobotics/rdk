@@ -5,7 +5,7 @@ import "errors"
 // Descriptor is an alias for a slice of uint64.
 type Descriptor = []uint64
 
-// DescriptorsHammingDistnace computes the pairwise distances between 2 descriptor arrays.
+// DescriptorsHammingDistance computes the pairwise distances between 2 descriptor arrays.
 func DescriptorsHammingDistance(descs1, descs2 []Descriptor) ([][]int, error) {
 	var m int
 	var n int
@@ -20,7 +20,7 @@ func DescriptorsHammingDistance(descs1, descs2 []Descriptor) ([][]int, error) {
 
 	for i := 0; i < m; i++ {
 		for j := 0; j < n; j++ {
-			d, err := DescHammingDistance(descs1[i], descs2[j])
+			d, err := descHammingDistance(descs1[i], descs2[j])
 			if err != nil {
 				return nil, err
 			}
@@ -30,7 +30,7 @@ func DescriptorsHammingDistance(descs1, descs2 []Descriptor) ([][]int, error) {
 	return distances, nil
 }
 
-func DescHammingDistance(desc1, desc2 Descriptor) (int, error) {
+func descHammingDistance(desc1, desc2 Descriptor) (int, error) {
 	if len(desc1) != len(desc2) {
 		return 0, errors.New("descriptors must have same length")
 	}
@@ -43,7 +43,7 @@ func DescHammingDistance(desc1, desc2 Descriptor) (int, error) {
 		// ^= is bitwise XOR
 		x ^= y
 		for x > 0 {
-			dist += 1
+			dist++
 			x &= x - 1
 		}
 	}
