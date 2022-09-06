@@ -10,7 +10,7 @@
   },
   "brief": {
     "n": 512,
-    "sampling": 0,
+    "sampling": 2,
     "use_orientation": true,
     "patch_size": 48
   }

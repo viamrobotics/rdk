@@ -127,8 +127,8 @@ func TestGetMatchingKeyPoints(t *testing.T) {
 	samplePoints := GenerateSamplePairs(cfg.BRIEFConf.Sampling, cfg.BRIEFConf.N, cfg.BRIEFConf.PatchSize)
 	descs, kps, err := ComputeORBKeypoints(imGray, samplePoints, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(descs), test.ShouldEqual, 59)
-	test.That(t, len(kps), test.ShouldEqual, 59)
+	test.That(t, len(descs), test.ShouldEqual, 58)
+	test.That(t, len(kps), test.ShouldEqual, 58)
 
 	// get matches
 	cfgMatch := MatchingConfig{

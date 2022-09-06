@@ -63,8 +63,8 @@ func TestComputeORBKeypoints(t *testing.T) {
 	samplePoints := GenerateSamplePairs(cfg.BRIEFConf.Sampling, cfg.BRIEFConf.N, cfg.BRIEFConf.PatchSize)
 	descs, kps, err := ComputeORBKeypoints(imGray, samplePoints, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(descs), test.ShouldEqual, 59)
-	test.That(t, len(kps), test.ShouldEqual, 59)
+	test.That(t, len(descs), test.ShouldEqual, 58)
+	test.That(t, len(kps), test.ShouldEqual, 58)
 	// save the output image in a temp file
 	tempDir, err := os.MkdirTemp("", "compute_orb_keypoints")
 	test.That(t, err, test.ShouldBeNil)
