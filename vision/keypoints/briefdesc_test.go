@@ -19,7 +19,7 @@ func TestGenerateSamplePairs(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 	logger.Infof("writing sample points to %s", tempDir)
 	// create plotter
-	plotImage := func(fileName string, sp *SamplePairs) {
+	plotTmpImage := func(fileName string, sp *SamplePairs) {
 		dc := gg.NewContext(patchSize, patchSize)
 		dc.SetRGBA(0, 1, 0, 0.5)
 		for i := 0; i < sp.N; i++ {
@@ -37,11 +37,11 @@ func TestGenerateSamplePairs(t *testing.T) {
 	test.That(t, uniformDist.N, test.ShouldEqual, descSize)
 	test.That(t, len(uniformDist.P0), test.ShouldEqual, descSize)
 	test.That(t, len(uniformDist.P1), test.ShouldEqual, descSize)
-	plotImage("uniform_dist.png", uniformDist)
+	plotTmpImage("uniform_dist.png", uniformDist)
 	// fixed distribution
 	fixedDist := GenerateSamplePairs(fixed, descSize, patchSize)
 	test.That(t, fixedDist.N, test.ShouldEqual, descSize)
 	test.That(t, len(fixedDist.P0), test.ShouldEqual, descSize)
 	test.That(t, len(fixedDist.P1), test.ShouldEqual, descSize)
-	plotImage("fixed_dist.png", fixedDist)
+	plotTmpImage("fixed_dist.png", fixedDist)
 }
