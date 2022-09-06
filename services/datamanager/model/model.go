@@ -2,7 +2,6 @@ package model
 
 import (
 	"archive/zip"
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -24,6 +23,9 @@ import (
 
 const appAddress = "app.viam.com:443"
 
+// Standard file compression file type for Unix/Linux/MacOS.
+const gzip = ".gz"
+
 // Model describes a model we want to download to the robot.
 type Model struct {
 	Name        string `json:"source_model_name"`
@@ -40,12 +42,10 @@ type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-// MockClient is the mock client.
-type MockClient struct{}
-
 // Manager is responsible for deploying model files.
 type Manager interface {
-	Deploy(ctx context.Context, req *v1.DeployRequest) (*v1.DeployResponse, error)
+	DownloadModels(cfg *config.Config, modelsToDeploy []*Model) error
+	// Deploy(ctx context.Context, req *v1.DeployRequest) (*v1.DeployResponse, error)
 	Close()
 }
 
@@ -58,6 +58,7 @@ type modelManager struct {
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancelFunc        func()
+	httpClient        HTTPClient
 }
 
 // ManagerConstructor is a function for building a Manager.
@@ -82,12 +83,12 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 		return nil, err
 	}
 	client := NewClient(conn)
-	return NewManager(logger, cfg.Cloud.ID, client, conn)
+	return NewManager(logger, cfg.Cloud.ID, client, conn, Client)
 }
 
 // NewManager returns a new modelr.
 func NewManager(logger golog.Logger, partID string, client v1.ModelServiceClient,
-	conn rpc.ClientConn,
+	conn rpc.ClientConn, httpClient HTTPClient,
 ) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := modelManager{
@@ -98,11 +99,12 @@ func NewManager(logger golog.Logger, partID string, client v1.ModelServiceClient
 		cancelCtx:         cancelCtx,
 		cancelFunc:        cancelFunc,
 		partID:            partID,
+		httpClient:        httpClient,
 	}
 	return &ret, nil
 }
 
-func (m *modelManager) Deploy(ctx context.Context, req *v1.DeployRequest) (*v1.DeployResponse, error) {
+func (m *modelManager) deploy(ctx context.Context, req *v1.DeployRequest) (*v1.DeployResponse, error) {
 	resp, err := m.client.Deploy(ctx, req)
 	if err != nil {
 		return nil, err
@@ -110,7 +112,7 @@ func (m *modelManager) Deploy(ctx context.Context, req *v1.DeployRequest) (*v1.D
 	return resp, nil
 }
 
-// Close closes all resources (goroutines) associated with s.
+// Close closes all resources (goroutines) associated with m.
 func (m *modelManager) Close() {
 	m.cancelFunc()
 	m.backgroundWorkers.Wait()
@@ -119,6 +121,54 @@ func (m *modelManager) Close() {
 			m.logger.Errorw("error closing model deploy server connection", "error", err)
 		}
 	}
+}
+
+func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Model) error {
+	modelsToDownload, err := GetModelsToDownload(modelsToDeploy)
+	if err != nil {
+		return err
+	}
+	// TODO: DATA-295, delete models in file system that are no longer in the config. If we have no models to download, exit.
+	if len(modelsToDownload) == 0 {
+		return nil
+	}
+	// Stop download of previous models if we're trying to download new ones.
+	if m.cancelFunc != nil {
+		m.cancelFunc()
+		m.backgroundWorkers.Wait()
+	}
+
+	cancelCtx, cancelFn := context.WithCancel(context.Background())
+	m.cancelFunc = cancelFn
+
+	m.backgroundWorkers.Add(len(modelsToDownload))
+	for _, deployModel := range modelsToDownload {
+		defer m.backgroundWorkers.Done()
+		deployRequest := &v1.DeployRequest{
+			Metadata: &v1.DeployMetadata{
+				ModelName: deployModel.Name,
+			},
+		}
+		deployResp, err := m.deploy(cancelCtx, deployRequest)
+		if err != nil {
+			m.logger.Error(err)
+		} else {
+			url := deployResp.Message
+			filePath := filepath.Join(deployModel.Destination, deployModel.Name)
+			err := downloadFile(cancelCtx, m.httpClient, filePath, url, m.logger)
+			if err != nil {
+				m.logger.Error(err)
+				return err // Do not try to unzip if we can't download.
+			}
+			// A download from a GCS signed URL only returns one file.
+			modelFileToUnzip := deployModel.Name + gzip
+			if err = unzipSource(deployModel.Destination, modelFileToUnzip, m.logger); err != nil {
+				m.logger.Error(err)
+			}
+		}
+	}
+	// m.close()
+	return nil
 }
 
 // GetModelsToDownload fetches the models that need to be downloaded according to the
@@ -159,7 +209,7 @@ func GetModelsToDownload(models []*Model) ([]*Model, error) {
 
 // DownloadFile will download a url to a local file. It writes as it
 // downloads and doesn't load the whole file into memory.
-func DownloadFile(cancelCtx context.Context, client HTTPClient, filepath, url string, logger golog.Logger) error {
+func downloadFile(cancelCtx context.Context, client HTTPClient, filepath, url string, logger golog.Logger) error {
 	getReq, err := http.NewRequestWithContext(cancelCtx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -194,7 +244,7 @@ func DownloadFile(cancelCtx context.Context, client HTTPClient, filepath, url st
 }
 
 // UnzipSource unzips all files inside a zip file.
-func UnzipSource(destination, fileName string, logger golog.Logger) error {
+func unzipSource(destination, fileName string, logger golog.Logger) error {
 	zipReader, err := zip.OpenReader(filepath.Join(destination, fileName))
 	if err != nil {
 		return err
@@ -277,28 +327,4 @@ func unzipFile(f *zip.File, destination string, logger golog.Logger) error {
 	}
 
 	return nil
-}
-
-// Do is mockClient's `Do` func.
-func (m *MockClient) Do(req *http.Request) (*http.Response, error) {
-	r := bytes.NewReader([]byte("mocked response readme"))
-	buf := new(bytes.Buffer)
-	zipWriter := zip.NewWriter(buf)
-	w1, err := zipWriter.Create("README.md")
-	if err != nil {
-		panic(err)
-	}
-	if _, err := io.Copy(w1, r); err != nil {
-		panic(err)
-	}
-	err = zipWriter.Close()
-	if err != nil {
-		panic(err)
-	}
-
-	response := &http.Response{
-		StatusCode: http.StatusOK, // Can I get rid of this?
-		Body:       io.NopCloser(buf),
-	}
-	return response, nil
 }
