@@ -69,17 +69,15 @@ func TestDMC4000Motor(t *testing.T) {
 	deps := make(registry.Dependencies)
 
 	mc := dmc4000.Config{
-		SerialDevice:  "testchan",
-		Axis:          "A",
-		HomeRPM:       50,
-		AmplifierGain: 3,
-		LowCurrent:    -1,
-		TestChan:      c,
-		Config: motor.Config{
-			MaxAcceleration:  5000,
-			MaxRPM:           300,
-			TicksPerRotation: 200,
-		},
+		SerialDevice:     "testchan",
+		Axis:             "A",
+		HomeRPM:          50,
+		AmplifierGain:    3,
+		LowCurrent:       -1,
+		TestChan:         c,
+		MaxAcceleration:  5000,
+		MaxRPM:           300,
+		TicksPerRotation: 200,
 	}
 
 	motorReg := registry.ComponentLookup(motor.Subtype, "DMC4000")
