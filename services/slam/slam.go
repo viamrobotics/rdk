@@ -592,6 +592,7 @@ func (slamSvc *slamService) StartDataProcess(
 		if !errors.Is(err, context.Canceled) {
 			slamSvc.logger.Errorw("unexpected error in SLAM service", "error", err)
 		}
+		slamSvc.activeBackgroundWorkers.Done()
 		return
 	}
 	goutils.PanicCapturingGo(func() {
@@ -616,6 +617,7 @@ func (slamSvc *slamService) StartDataProcess(
 					if !errors.Is(err, context.Canceled) {
 						slamSvc.logger.Errorw("unexpected error in SLAM service", "error", err)
 					}
+					slamSvc.activeBackgroundWorkers.Done()
 					return
 				}
 				goutils.PanicCapturingGo(func() {
@@ -779,6 +781,7 @@ func (slamSvc *slamService) getSimultaneousColorAndDepth(
 			if !errors.Is(err, context.Canceled) {
 				slamSvc.logger.Errorw("unexpected error in SLAM service", "error", err)
 			}
+			slamSvc.activeBackgroundWorkers.Done()
 			return images, err
 		}
 		iLoop := i
