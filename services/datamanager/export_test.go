@@ -16,11 +16,6 @@ func (svc *dataManagerService) SetModelManagerConstructor(fn model.ManagerConstr
 	svc.modelManagerConstructor = fn
 }
 
-// SetModelrConstructor sets the modelr constructor for the data manager to use when creating its modelr.
-// func (svc *dataManagerService) SetClient(c model.HTTPClient) {
-// 	svc.httpClient = c
-// }
-
 // SetWaitAfterLastModifiedSecs sets the wait time for the syncer to use when initialized/changed in Service.Update.
 func (svc *dataManagerService) SetWaitAfterLastModifiedSecs(s int) {
 	svc.waitAfterLastModifiedSecs = s

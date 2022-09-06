@@ -24,7 +24,7 @@ import (
 const appAddress = "app.viam.com:443"
 
 // Standard file compression file type for Unix/Linux/MacOS.
-const gzip = ".gz"
+const zipExtension = ".zip"
 
 // Model describes a model we want to download to the robot.
 type Model struct {
@@ -34,7 +34,7 @@ type Model struct {
 
 var (
 	viamModelDotDir = filepath.Join(os.Getenv("HOME"), "models", ".viam")
-	Client          HTTPClient // Client is implementation of HTTPClient interface.
+	httpClient      HTTPClient // Client is implementation of HTTPClient interface.
 )
 
 // HTTPClient allows us to mock a connection.
@@ -83,7 +83,7 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 		return nil, err
 	}
 	client := NewClient(conn)
-	return NewManager(logger, cfg.Cloud.ID, client, conn, Client)
+	return NewManager(logger, cfg.Cloud.ID, client, conn, httpClient)
 }
 
 // NewManager returns a new modelr.
@@ -124,7 +124,7 @@ func (m *modelManager) Close() {
 }
 
 func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Model) error {
-	modelsToDownload, err := GetModelsToDownload(modelsToDeploy)
+	modelsToDownload, err := getModelsToDownload(modelsToDeploy)
 	if err != nil {
 		return err
 	}
@@ -161,19 +161,18 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 				return err // Do not try to unzip if we can't download.
 			}
 			// A download from a GCS signed URL only returns one file.
-			modelFileToUnzip := deployModel.Name + gzip
+			modelFileToUnzip := deployModel.Name + zipExtension
 			if err = unzipSource(deployModel.Destination, modelFileToUnzip, m.logger); err != nil {
 				m.logger.Error(err)
 			}
 		}
 	}
-	// m.close()
 	return nil
 }
 
 // GetModelsToDownload fetches the models that need to be downloaded according to the
 // provided config.
-func GetModelsToDownload(models []*Model) ([]*Model, error) {
+func getModelsToDownload(models []*Model) ([]*Model, error) {
 	// Right now, this may not act as expected. It currently checks
 	// if the model folder is empty. If it is, then we proceed to download the model.
 	// I can imagine a scenario where the user specifies a local folder to dump
@@ -226,7 +225,7 @@ func downloadFile(cancelCtx context.Context, client HTTPClient, filepath, url st
 	}()
 
 	// QUESTION: should I extract out to be a constant as well?
-	s := filepath + ".gz"
+	s := filepath + zipExtension
 	// //nolint:gosec
 	out, err := os.Create(s)
 	if err != nil {

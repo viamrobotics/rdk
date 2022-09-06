@@ -154,9 +154,6 @@ type dataManagerService struct {
 
 	modelManager            model.Manager
 	modelManagerConstructor model.ManagerConstructor
-	// deployModelsBackgroundWorkers sync.WaitGroup // do not need this i think
-	// deployModelsCancelFn          func()         // do not need this i think
-	// httpClient                    model.HTTPClient // move this to modelManager
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
@@ -166,19 +163,17 @@ func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger
 	// Set syncIntervalMins = -1 as we rely on initOrUpdateSyncer to instantiate a syncer
 	// on first call to Update, even if syncIntervalMins value is 0, and the default value for int64 is 0.
 	dataManagerSvc := &dataManagerService{
-		r:                 r,
-		logger:            logger,
-		captureDir:        viamCaptureDotDir,
-		collectors:        make(map[componentMethodMetadata]collectorAndConfig),
-		backgroundWorkers: sync.WaitGroup{},
-		// deployModelsBackgroundWorkers: sync.WaitGroup{},
+		r:                         r,
+		logger:                    logger,
+		captureDir:                viamCaptureDotDir,
+		collectors:                make(map[componentMethodMetadata]collectorAndConfig),
+		backgroundWorkers:         sync.WaitGroup{},
 		lock:                      sync.Mutex{},
 		syncIntervalMins:          -1,
 		additionalSyncPaths:       []string{},
 		waitAfterLastModifiedSecs: 10,
 		syncerConstructor:         datasync.NewDefaultManager,
 		modelManagerConstructor:   model.NewDefaultManager,
-		// httpClient:                    model.Client,
 	}
 
 	return dataManagerSvc, nil
@@ -592,63 +587,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 
 	return nil
 }
-
-// func (svc *dataManagerService) downloadModels(cfg *config.Config, modelsToDeploy []*model.Model) error {
-// 	modelsToDownload, err := model.GetModelsToDownload(modelsToDeploy)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	// TODO: DATA-295, delete models in file system that are no longer in the config. If we have no models to download, exit.
-// 	if len(modelsToDownload) == 0 {
-// 		return nil
-// 	}
-// 	// Stop download of previous models if we're trying to download new ones.
-// 	if svc.deployModelsCancelFn != nil {
-// 		svc.deployModelsCancelFn()
-// 		svc.deployModelsBackgroundWorkers.Wait()
-// 	}
-
-// 	cancelCtx, cancelFn := context.WithCancel(context.Background())
-// 	svc.deployModelsCancelFn = cancelFn
-
-// 	// Instantiate svc.modelManager
-// 	if svc.modelManager == nil {
-// 		modelManager, err := svc.modelManagerConstructor(svc.logger, cfg)
-// 		if err != nil {
-// 			return errors.Wrap(err, "failed to initialize new modelManager")
-// 		}
-// 		svc.modelManager = modelManager
-// 	}
-
-// 	svc.deployModelsBackgroundWorkers.Add(len(modelsToDownload))
-// 	for _, deployModel := range modelsToDownload {
-// 		defer svc.deployModelsBackgroundWorkers.Done()
-// 		deployRequest := &modelpb.DeployRequest{
-// 			Metadata: &modelpb.DeployMetadata{
-// 				ModelName: deployModel.Name,
-// 			},
-// 		}
-// 		deployResp, err := svc.modelManager.Deploy(cancelCtx, deployRequest)
-// 		if err != nil {
-// 			svc.logger.Error(err)
-// 		} else {
-// 			url := deployResp.Message
-// 			filePath := filepath.Join(deployModel.Destination, deployModel.Name)
-// 			err := model.DownloadFile(cancelCtx, svc.model, filePath, url, svc.logger)
-// 			if err != nil {
-// 				svc.logger.Error(err)
-// 				return err // Do not try to unzip if we can't download.
-// 			}
-// 			// A download from a GCS signed URL only returns one file.
-// 			modelFileToUnzip := deployModel.Name + gzip
-// 			if err = model.UnzipSource(deployModel.Destination, modelFileToUnzip, svc.logger); err != nil {
-// 				svc.logger.Error(err)
-// 			}
-// 		}
-// 	}
-// 	svc.modelManager.Close()
-// 	return nil
-// }
 
 func (svc *dataManagerService) uploadData(cancelCtx context.Context, intervalMins float64) {
 	svc.backgroundWorkers.Add(1)

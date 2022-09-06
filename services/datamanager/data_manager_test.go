@@ -785,11 +785,11 @@ func (m mockModelServiceServer) getDeployedModels() int {
 	return 0
 }
 
-// MockClient is the mock client.
-type MockClient struct{}
+// mockClient is the mock client.
+type mockClient struct{}
 
 // Do is mockClient's `Do` func.
-func (m *MockClient) Do(req *http.Request) (*http.Response, error) {
+func (m *mockClient) Do(req *http.Request) (*http.Response, error) {
 	r := bytes.NewReader([]byte("mocked response readme"))
 	buf := new(bytes.Buffer)
 	zipWriter := zip.NewWriter(buf)
@@ -916,6 +916,6 @@ func getTestModelrConstructor(t *testing.T, server rpc.Server) model.ManagerCons
 		conn, err := getLocalServerConn(server, logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := model.NewClient(conn)
-		return model.NewManager(logger, cfg.Cloud.ID, client, conn, &MockClient{})
+		return model.NewManager(logger, cfg.Cloud.ID, client, conn, &mockClient{})
 	}
 }
