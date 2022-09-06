@@ -81,7 +81,7 @@ export default {
       cameraFrameIntervalId: null,
       slamImageIntervalId: null,
       slamPCDIntervalId: null,
-      pointcloud: null,
+      pointcloud: undefined,
       objects: null,
       armToggle: {},
       value: 0,
@@ -1137,7 +1137,6 @@ export default {
           rawStatus[nameStr] = statusJs;
           status[nameStr] = fixed;
         } catch (error) {
-          console.log(error)
           toast.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`, error);
         }
       }

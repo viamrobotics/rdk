@@ -22,7 +22,7 @@ import InfoButton from './info-button.vue';
 
 interface Props {
   resources: Resource[]
-  pointcloud: Uint8Array
+  pointcloud?: Uint8Array
   cameraName: string
 }
 
@@ -386,6 +386,7 @@ const handleSelectObject = (selection: string) => {
 };
 
 const handleDownload = () => {
+  console.log(props.pointcloud)
   window.open(url);
 };
 
@@ -447,6 +448,10 @@ const update = (cloud: Uint8Array) => {
     
   }
 
+  if (mesh.instanceColor) {
+    mesh.instanceColor.needsUpdate = true;
+  }
+
   mesh.instanceMatrix.needsUpdate = true;
 
   scene.clear();
@@ -474,7 +479,7 @@ onUnmounted(() => {
   renderer.setAnimationLoop(null);
 });
 
-watch(() => props.pointcloud, (updated: Uint8Array) => {
+watch(() => props.pointcloud!, (updated: Uint8Array) => {
   update(updated);
 });
 
