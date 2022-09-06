@@ -32,10 +32,7 @@ type SamplePairs struct {
 // GenerateSamplePairs generates n samples for a patch size with the chosen Sampling Type.
 func GenerateSamplePairs(dist SamplingType, n, patchSize int) *SamplePairs {
 	// sample positions
-	xs0 := make([]int, 0, n)
-	ys0 := make([]int, 0, n)
-	xs1 := make([]int, 0, n)
-	ys1 := make([]int, 0, n)
+	var xs0, ys0, xs1, ys1 []int
 	if dist == fixed {
 		xs0 = sampleIntegers(patchSize, n, dist)
 		ys0 = sampleIntegers(patchSize, n, dist)
