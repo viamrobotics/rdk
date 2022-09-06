@@ -24,10 +24,11 @@ func (av *AngularVelocity) OrientationToAngularVel(o Orientation, dt float64) *A
 	}
 }
 
-func (av *AngularVelocity) QuatToAngVel(q quat.Number, dt float64) *AngularVelocity {
+// QuatToAngVel calculates an angular velocity based on an orientation change expressed in quaternions over a time differnce.
+func (av *AngularVelocity) QuatToAngVel(diffQ quat.Number, dt float64) *AngularVelocity {
 	// todo (rh) check if normalisation needs to be performed at each step
-	dqdt := quat.Number{Real: q.Real / dt, Imag: q.Imag / dt, Jmag: q.Jmag / dt, Kmag: q.Kmag / dt}
-	w := quat.Scale(2, quat.Mul(quat.Conj(q), dqdt))
+	dqdt := quat.Number{Real: diffQ.Real / dt, Imag: diffQ.Imag / dt, Jmag: diffQ.Jmag / dt, Kmag: diffQ.Kmag / dt}
+	w := quat.Scale(2, quat.Mul(quat.Conj(diffQ), dqdt))
 	return &AngularVelocity{
 		X: w.Imag,
 		Y: w.Jmag,
@@ -35,17 +36,18 @@ func (av *AngularVelocity) QuatToAngVel(q quat.Number, dt float64) *AngularVeloc
 	}
 }
 
-func (av *AngularVelocity) EulerToAngVel(eu EulerAngles, dt float64) *AngularVelocity {
+// EulerToAngVel calculates an angular velocity based on an orientation change expressed in euler angles over a time differnce.
+func (av *AngularVelocity) EulerToAngVel(diffEu EulerAngles, dt float64) *AngularVelocity {
 	// TODO (rh) check order for tait bryan
 	return &AngularVelocity{
-		X: eu.Roll/dt - math.Sin(eu.Pitch)*eu.Yaw/dt,
-		Y: math.Cos(eu.Roll)*eu.Pitch/dt + math.Cos(eu.Pitch)*math.Sin(eu.Roll)*eu.Yaw/dt,
-		Z: -math.Sin(eu.Roll)*eu.Pitch/dt + math.Cos(eu.Pitch)*math.Cos(eu.Roll)*eu.Yaw/dt,
+		X: diffEu.Roll/dt - math.Sin(diffEu.Pitch)*diffEu.Yaw/dt,
+		Y: math.Cos(diffEu.Roll)*diffEu.Pitch/dt + math.Cos(diffEu.Pitch)*math.Sin(diffEu.Roll)*diffEu.Yaw/dt,
+		Z: -math.Sin(diffEu.Roll)*diffEu.Pitch/dt + math.Cos(diffEu.Pitch)*math.Cos(diffEu.Roll)*diffEu.Yaw/dt,
 	}
-
 }
 
-func (av *AngularVelocity) RotMatToAngVel(rm RotationMatrix, dt float64) *AngularVelocity {
+// RotMatToAngVel calculates an angular velocity based on an orientation change expressed in rotation matrices over a time differnce.
+func (av *AngularVelocity) RotMatToAngVel(diffRm RotationMatrix, dt float64) *AngularVelocity {
 	// I did this for homework once and refuse to do it again
-	return av.OrientationToAngularVel(rm.AxisAngles(), dt)
+	return av.OrientationToAngularVel(diffRm.AxisAngles(), dt)
 }
