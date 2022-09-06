@@ -29,6 +29,7 @@ var (
 	componentType  = "componenttype"
 	componentName  = "componentname"
 	componentModel = "componentmodel"
+	tags           = []string{"tagA", "tagB"}
 	methodName     = "NextPointCloud"
 )
 
@@ -115,6 +116,7 @@ func buildSensorDataUploadRequests(sds []*v1.SensorData, dataType v1.DataType, f
 				ComponentModel: componentModel,
 				MethodName:     methodName,
 				FileExtension:  datacapture.GetFileExt(dataType, methodName, nil),
+				Tags:           tags,
 			},
 		},
 	})

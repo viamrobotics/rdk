@@ -5,6 +5,7 @@ import (
 	"context"
 	"image"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -24,7 +25,7 @@ import (
 type TFLiteDetectorConfig struct {
 	// this should come from the attributes part of the detector config
 	ModelPath  string  `json:"model_path"`
-	NumThreads *int    `json:"num_threads"`
+	NumThreads int     `json:"num_threads"`
 	LabelPath  *string `json:"label_path"`
 	ServiceURL *string `json:"service_url"`
 }
@@ -32,7 +33,7 @@ type TFLiteDetectorConfig struct {
 // NewTFLiteDetector creates an RDK detector given a DetectorConfig. In other words, this
 // function returns a function from image-->[]objectdetection.Detection. It does this by making calls to
 // an inference package and wrapping the result.
-func NewTFLiteDetector(ctx context.Context, cfg *DetectorConfig, logger golog.Logger) (objectdetection.Detector, *inf.TFLiteStruct, error) {
+func NewTFLiteDetector(ctx context.Context, cfg *VisModelConfig, logger golog.Logger) (objectdetection.Detector, *inf.TFLiteStruct, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::NewTFLiteDetector")
 	defer span.End()
 
@@ -47,9 +48,13 @@ func NewTFLiteDetector(ctx context.Context, cfg *DetectorConfig, logger golog.Lo
 		err := utils.NewUnexpectedTypeError(params, tfParams)
 		return nil, nil, errors.Wrapf(err, "register tflite detector %s", cfg.Name)
 	}
+	// Secret but hard limit on num_threads
+	if params.NumThreads > runtime.NumCPU()/4 {
+		params.NumThreads = runtime.NumCPU() / 4
+	}
 
 	// Add the model
-	model, err := addTFLiteModel(ctx, params.ModelPath, params.NumThreads)
+	model, err := addTFLiteModel(ctx, params.ModelPath, &params.NumThreads)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "something wrong with adding the model")
 	}
@@ -120,14 +125,14 @@ func tfliteInfer(ctx context.Context, model *inf.TFLiteStruct, image image.Image
 	// Converts the image to bytes before sending it off
 	switch model.Info.InputTensorType {
 	case inf.UInt8:
-		imgBuff := imageToUInt8Buffer(image)
+		imgBuff := ImageToUInt8Buffer(image)
 		out, err := model.Infer(imgBuff)
 		if err != nil {
 			return nil, errors.Wrap(err, "couldn't infer from model")
 		}
 		return out, nil
 	case inf.Float32:
-		imgBuff := imageToFloatBuffer(image)
+		imgBuff := ImageToFloatBuffer(image)
 		out, err := model.Infer(imgBuff)
 		if err != nil {
 			return nil, errors.Wrap(err, "couldn't infer from model")
@@ -138,9 +143,9 @@ func tfliteInfer(ctx context.Context, model *inf.TFLiteStruct, image image.Image
 	}
 }
 
-// imageToUInt8Buffer reads an image into a byte slice in the most common sense way.
+// ImageToUInt8Buffer reads an image into a byte slice in the most common sense way.
 // Left to right like a book; R, then G, then B. No funny stuff. Assumes values should be between 0-255.
-func imageToUInt8Buffer(img image.Image) []byte {
+func ImageToUInt8Buffer(img image.Image) []byte {
 	output := make([]byte, img.Bounds().Dx()*img.Bounds().Dy()*3)
 	for y := 0; y < img.Bounds().Dy(); y++ {
 		for x := 0; x < img.Bounds().Dx(); x++ {
@@ -154,9 +159,9 @@ func imageToUInt8Buffer(img image.Image) []byte {
 	return output
 }
 
-// imageToFloatBuffer reads an image into a byte slice (buffer) the most common sense way.
+// ImageToFloatBuffer reads an image into a byte slice (buffer) the most common sense way.
 // Left to right like a book; R, then G, then B. No funny stuff. Assumes values between -1 and 1.
-func imageToFloatBuffer(img image.Image) []float32 {
+func ImageToFloatBuffer(img image.Image) []float32 {
 	output := make([]float32, img.Bounds().Dx()*img.Bounds().Dy()*3)
 	for y := 0; y < img.Bounds().Dy(); y++ {
 		for x := 0; x < img.Bounds().Dx(); x++ {
