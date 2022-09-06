@@ -57,7 +57,7 @@ func (config *ORBConfig) Validate(path string) error {
 }
 
 // ComputeORBKeypoints compute ORB keypoints on gray image.
-func ComputeORBKeypoints(im *image.Gray, cfg *ORBConfig) (Descriptors, KeyPoints, error) {
+func ComputeORBKeypoints(im *image.Gray, sp *SamplePairs, cfg *ORBConfig) ([]Descriptor, KeyPoints, error) {
 	pyramid, err := GetImagePyramid(im)
 	if err != nil {
 		return nil, nil, err
@@ -74,7 +74,7 @@ func ComputeORBKeypoints(im *image.Gray, cfg *ORBConfig) (Descriptors, KeyPoints
 		err = errors.New("more layers than actual number of octaves in image pyramid")
 		return nil, nil, err
 	}
-	orbKeyPoints := make(Descriptors, 0)
+	orbDescriptors := []Descriptor{}
 	orbPoints := make(KeyPoints, 0)
 	for i := 0; i < cfg.Layers; i++ {
 		currentImage := pyramid.Images[i]
@@ -86,11 +86,11 @@ func ComputeORBKeypoints(im *image.Gray, cfg *ORBConfig) (Descriptors, KeyPoints
 			Orientations: fastKps.Orientations,
 		}
 		orbPoints = append(orbPoints, rescaledFASTKps.Points...)
-		descs, err := ComputeBRIEFDescriptors(currentImage, &rescaledFASTKps, cfg.BRIEFConf)
+		descs, err := ComputeBRIEFDescriptors(currentImage, sp, &rescaledFASTKps, cfg.BRIEFConf)
 		if err != nil {
 			return nil, nil, err
 		}
-		orbKeyPoints = append(orbKeyPoints, descs...)
+		orbDescriptors = append(orbDescriptors, descs...)
 	}
-	return orbKeyPoints, orbPoints, nil
+	return orbDescriptors, orbPoints, nil
 }
