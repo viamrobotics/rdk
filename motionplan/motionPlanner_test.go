@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/motionplan/visualization"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -48,7 +47,7 @@ func BenchmarkUnconstrainedMotion(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 	plan, err := mp.Plan(context.Background(), config.Goal, config.Start, config.Options)
 	test.That(b, err, test.ShouldBeNil)
-	visualization.VisualizePlan(context.Background(), plan, mp.Frame(), nil)
+	test.That(b, len(plan), test.ShouldBeGreaterThanOrEqualTo, 2)
 }
 
 func TestUnconstrainedMotion(t *testing.T) {
