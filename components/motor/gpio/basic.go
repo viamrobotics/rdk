@@ -17,7 +17,7 @@ import (
 
 // NewMotor constructs a new GPIO based motor on the given board using the
 // given configuration.
-func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor, error) {
+func NewMotor(b board.Board, mc Config, logger golog.Logger) (motor.Motor, error) {
 	if mc.MaxPowerPct == 0 {
 		mc.MaxPowerPct = 1.0
 	}
@@ -71,11 +71,11 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor,
 		m.PWM = pwm
 	}
 	if mc.Pins.EnablePinHigh != "" {
-		enablePinhHigh, err := b.GPIOPinByName(mc.Pins.EnablePinHigh)
+		enablePinHigh, err := b.GPIOPinByName(mc.Pins.EnablePinHigh)
 		if err != nil {
 			return nil, err
 		}
-		m.EnablePinHigh = enablePinhHigh
+		m.EnablePinHigh = enablePinHigh
 	}
 	if mc.Pins.EnablePinLow != "" {
 		enablePinLow, err := b.GPIOPinByName(mc.Pins.EnablePinLow)
