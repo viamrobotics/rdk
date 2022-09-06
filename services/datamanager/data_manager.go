@@ -513,6 +513,7 @@ func (svc *dataManagerService) syncAdditionalSyncPaths() {
 // TODO: DATA-304, create a way for other services to check when their specified models
 // are ready to be used.
 
+// need to edit here as well..?
 // Update updates the data manager service when the config has changed.
 func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) error {
 	svcConfig, ok, err := getServiceConfig(cfg)
@@ -986,6 +987,7 @@ func getAttrsFromServiceConfig(resourceSvcConfig config.ResourceLevelServiceConf
 	return *convertedConfigs, nil
 }
 
+// maybe something here?
 // Build the component configs associated with the data manager service.
 func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	var componentDataCaptureConfigs []dataCaptureConfig
