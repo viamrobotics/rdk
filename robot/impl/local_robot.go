@@ -485,13 +485,7 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	f := registry.ServiceLookup(rName.Subtype, config.Model)
 	// If service model/type not found then print list of valid models they can choose from
 	if f == nil {
-		validModels := make([]string, 0)
-		for key := range registry.RegisteredServices() {
-			if strings.Contains(key, rName.Subtype.String()) {
-				splitName := strings.Split(key, "/")
-				validModels = append(validModels, splitName[1])
-			}
-		}
+		validModels := registry.FindValidServiceModels(rName)
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s use one of the following valid models: %s",
 			rName.Subtype, config.Model, strings.Join(validModels, ", "))
 	}

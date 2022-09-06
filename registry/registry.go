@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/edaniels/golog"
 	"github.com/jhump/protoreflect/desc"
@@ -246,4 +247,16 @@ func lookupSubtype(subtypeName resource.SubtypeName) (*resource.Subtype, bool) {
 		}
 	}
 	return nil, false
+}
+
+// FindValidServiceModels returns a list of valid models for a specified service.
+func FindValidServiceModels(rName resource.Name) []string {
+	validModels := make([]string, 0)
+	for key := range RegisteredServices() {
+		if strings.Contains(key, rName.Subtype.String()) {
+			splitName := strings.Split(key, "/")
+			validModels = append(validModels, splitName[1])
+		}
+	}
+	return validModels
 }
