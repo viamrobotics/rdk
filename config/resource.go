@@ -323,10 +323,9 @@ func (config *Service) Validate(path string) error {
 		rlog.Logger.Warnw("no name given, defaulting name to builtin")
 		config.Name = resource.DefaultServiceName
 	}
-	// ToDo add models to all services then remove defaulting service models to default
 	if config.Model == "" {
 		rlog.Logger.Warnw("no model given, defaulting to default model")
-		config.Model = "default"
+		config.Model = resource.DefaultModelName
 	}
 	if config.Namespace == "" {
 		// NOTE: This should never be removed in order to ensure RDK is the
