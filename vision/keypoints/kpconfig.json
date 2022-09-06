@@ -1,7 +1,7 @@
 {
   "n_matches": 9,
   "nms_win_size": 7,
-  "threshold": 0.15,
+  "threshold": 20,
   "oriented": true,
   "radius": 16
 }
