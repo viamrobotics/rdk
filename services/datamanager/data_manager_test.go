@@ -1,10 +1,13 @@
 package datamanager_test
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"io"
 	"io/fs"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
@@ -349,7 +352,7 @@ func TestDeployModels(t *testing.T) {
 	dmsvc := newTestDataManager(t, "arm1", "")
 
 	dmsvc.SetModelManagerConstructor(getTestModelrConstructor(t, modelServer))
-	dmsvc.SetClient()
+	// dmsvc.SetClient(&MockClient{})
 
 	err = dmsvc.Update(context.Background(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
@@ -400,16 +403,11 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 }
 
 // Generates a fake model. Used to simulate testing deploying a model in the service's models_on_robot.
-//nolint
 func populateModels() ([]*model.Model, error) {
-	var additionalModels []*model.Model
-
 	// Setting destination as nil forces adoption of
 	// the default model directory in data_manager.go
 	m := &model.Model{Name: "m1", Destination: ""}
-	additionalModels = append(additionalModels, m)
-
-	return additionalModels, nil
+	return []*model.Model{m}, nil
 }
 
 // Generates and populates a directory structure of files that contain arbitrary file data. Used to simulate testing
@@ -787,11 +785,37 @@ func (m mockModelServiceServer) getDeployedModels() int {
 	return 0
 }
 
+// MockClient is the mock client.
+type MockClient struct{}
+
+// Do is mockClient's `Do` func.
+func (m *MockClient) Do(req *http.Request) (*http.Response, error) {
+	r := bytes.NewReader([]byte("mocked response readme"))
+	buf := new(bytes.Buffer)
+	zipWriter := zip.NewWriter(buf)
+	w, err := zipWriter.Create("README.md")
+	if err != nil {
+		panic(err)
+	}
+	if _, err := io.Copy(w, r); err != nil {
+		panic(err)
+	}
+	err = zipWriter.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	response := &http.Response{
+		StatusCode: http.StatusOK, // Q: Can I get rid of this?
+		Body:       io.NopCloser(buf),
+	}
+	return response, nil
+}
+
 func (m mockModelServiceServer) Deploy(ctx context.Context, req *m1.DeployRequest) (*m1.DeployResponse, error) {
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
-	// model.Client = &mockClient{}
-	depResp := &m1.DeployResponse{Message: "abc"}
+	depResp := &m1.DeployResponse{Message: ""}
 	return depResp, nil
 }
 
@@ -892,6 +916,6 @@ func getTestModelrConstructor(t *testing.T, server rpc.Server) model.ManagerCons
 		conn, err := getLocalServerConn(server, logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := model.NewClient(conn)
-		return model.NewManager(logger, cfg.Cloud.ID, client, conn)
+		return model.NewManager(logger, cfg.Cloud.ID, client, conn, &MockClient{})
 	}
 }
