@@ -43,8 +43,10 @@ const (
 type GeometryConfig struct {
 	Type GeometryType `json:"type"`
 
-	// parameter used for defining a box's dimensions
-	Dims r3VectorConfig
+	// parameters used for defining a box's rectangular cross section
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	Z float64 `json:"z"`
 
 	// parameter used for defining a sphere's radius'
 	R float64 `json:"r"`
@@ -60,7 +62,9 @@ func NewGeometryConfig(gc GeometryCreator) (*GeometryConfig, error) {
 	switch gcType := gc.(type) {
 	case *boxCreator:
 		config.Type = BoxType
-		config.Dims = r3VectorConfig(gc.(*boxCreator).halfSize.Mul(2))
+		config.X = gc.(*boxCreator).halfSize.X * 2
+		config.Y = gc.(*boxCreator).halfSize.Y * 2
+		config.Z = gc.(*boxCreator).halfSize.Z * 2
 	case *sphereCreator:
 		config.Type = SphereType
 		config.R = gc.(*sphereCreator).radius
@@ -92,19 +96,17 @@ func (config *GeometryConfig) ParseConfig() (GeometryCreator, error) {
 	// build GeometryCreator depending on specified type
 	switch config.Type {
 	case BoxType:
-		return NewBoxCreator(r3.Vector(config.Dims), offset)
+		return NewBoxCreator(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset)
 	case SphereType:
 		return NewSphereCreator(config.R, offset)
 	case PointType:
 		return NewPointCreator(offset), nil
 	case UnknownType:
 		// no type specified, iterate through supported types and try to infer intent
-		creator, err := NewBoxCreator(r3.Vector(config.Dims), offset)
-		if err == nil {
+		if creator, err := NewBoxCreator(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset); err == nil {
 			return creator, nil
 		}
-		creator, err = NewSphereCreator(config.R, offset)
-		if err == nil {
+		if creator, err := NewSphereCreator(config.R, offset); err == nil {
 			return creator, nil
 		}
 		// never try to infer point geometry if nothing is specified
