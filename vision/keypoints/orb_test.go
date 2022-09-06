@@ -105,7 +105,7 @@ func TestMatchingWithRotation(t *testing.T) {
 	// save the output image in a temp file
 	tempDir, err := os.MkdirTemp("", "match_rotated_points")
 	test.That(t, err, test.ShouldBeNil)
-	//defer os.RemoveAll(tempDir)
+	defer os.RemoveAll(tempDir)
 	logger.Infof("writing orb keypoint files to %s", tempDir)
 	err = rimage.WriteImageToFile(tempDir+"/rotated_chess_orb.png", matchedLines)
 	test.That(t, err, test.ShouldBeNil)
