@@ -9,6 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/motionplan/visualization"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -175,7 +176,7 @@ func TestMovementWithGripper(t *testing.T) {
 	solution, err = sf.planSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
-	// visualization.VisualizePlan(context.Background(), solution, sf, worldState)
+	visualization.VisualizePlan(context.Background(), solution, sf, worldState)
 
 	// plan with end of arm with gripper attached - this will fail
 	sFrames, err = solver.TracebackFrame(solver.GetFrame("xArm6"))
