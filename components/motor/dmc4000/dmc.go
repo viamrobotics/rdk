@@ -65,10 +65,13 @@ type Motor struct {
 
 // Config adds DMC-specific config options.
 type Config struct {
-	motor.Config
-	SerialDevice string  `json:"serial_device"`   // path to /dev/ttyXXXX file
-	Axis         string  `json:"controller_axis"` // A-H
-	HomeRPM      float64 `json:"home_rpm"`        // Speed for Home()
+	DirectionFlip    bool    `json:"dir_flip,omitempty"`         // Flip the direction of the signal sent if there is a Dir pin
+	MaxRPM           float64 `json:"max_rpm,omitempty"`          // RPM
+	MaxAcceleration  float64 `json:"max_acceleration,omitempty"` // RPM per second
+	TicksPerRotation int     `json:"ticks_per_rotation,omitempty"`
+	SerialDevice     string  `json:"serial_device"`   // path to /dev/ttyXXXX file
+	Axis             string  `json:"controller_axis"` // A-H
+	HomeRPM          float64 `json:"home_rpm"`        // Speed for Home()
 
 	// Set the per phase current (when using stepper amp)
 	// https://www.galil.com/download/comref/com4103/index.html#amplifier_gain.html
