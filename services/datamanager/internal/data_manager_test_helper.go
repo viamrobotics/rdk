@@ -20,5 +20,4 @@ type DMService interface {
 	SetSyncerConstructor(fn datasync.ManagerConstructor)
 	SetWaitAfterLastModifiedSecs(s int)
 	SetModelManagerConstructor(fn model.ManagerConstructor)
-	// SetClient(c model.HTTPClient)
 }
