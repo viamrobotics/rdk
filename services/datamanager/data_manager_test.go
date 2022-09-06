@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/testutils/inject"
@@ -148,6 +149,14 @@ func TestNewDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	oldSize := oldInfo.Size()
 	test.That(t, oldSize, test.ShouldBeGreaterThan, emptyFileBytesSize)
+
+	// Check that dummy tags "a" and "b" are being wrote to metadata.
+	captureFileName := filesInArmDir[0].Name()
+	file, err := os.Open(armDir + "/" + captureFileName)
+	test.That(t, err, test.ShouldBeNil)
+	md, err := datacapture.ReadDataCaptureMetadata(file)
+	test.That(t, md.Tags[0], test.ShouldEqual, "a")
+	test.That(t, md.Tags[1], test.ShouldEqual, "b")
 
 	// When Close returns all background processes in svc should be closed, but still sleep for 100ms to verify
 	// that there's not a resource leak causing writes to still happens after Close() returns.
@@ -713,7 +722,7 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 }
 
 //nolint:thelper
-func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServer) {
+func buildAndStartLocalServer(t *testing.T) (rpc.Server, *mockDataSyncServiceServer) {
 	logger, _ := golog.NewObservedTestLogger(t)
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
@@ -735,7 +744,7 @@ func buildAndStartLocalServer(t *testing.T) (rpc.Server, mockDataSyncServiceServ
 		err := rpcServer.Start()
 		test.That(t, err, test.ShouldBeNil)
 	}()
-	return rpcServer, mockService
+	return rpcServer, &mockService
 }
 
 func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientConn, error) {
