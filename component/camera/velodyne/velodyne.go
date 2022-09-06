@@ -84,7 +84,7 @@ func init() {
 				return nil, errors.New("need to specify a ttl")
 			}
 
-			return New(logger, port, ttl)
+			return New(ctx, logger, port, ttl)
 		}})
 }
 
@@ -107,9 +107,9 @@ type client struct {
 }
 
 // New creates a connection to a Velodyne lidar and generates pointclouds from it.
-func New(logger golog.Logger, port, ttlMilliseconds int) (camera.Camera, error) {
+func New(ctx context.Context, logger golog.Logger, port, ttlMilliseconds int) (camera.Camera, error) {
 	bindAddress := fmt.Sprintf("0.0.0.0:%d", port)
-	listener, err := vlp16.ListenUDP(context.Background(), bindAddress)
+	listener, err := vlp16.ListenUDP(ctx, bindAddress)
 	if err != nil {
 		return nil, err
 	}
