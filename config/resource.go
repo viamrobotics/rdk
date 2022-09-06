@@ -49,11 +49,21 @@ type ResourceConfig interface {
 	Set(val string) error
 }
 
+type Model struct {
+	FilesToSync fileInfo `json:"files_to_sync"`
+}
+
+type fileInfo struct {
+	Source string `json:"source"`
+	Dest   string `json:"dest"`
+}
+
 // A ResourceLevelServiceConfig describes component or remote configuration for a service.
 type ResourceLevelServiceConfig struct {
 	Type                resource.SubtypeName `json:"type"`
 	Attributes          AttributeMap         `json:"attributes"`
 	ConvertedAttributes interface{}          `json:"-"`
+	Models              Model                `json:"models,omitempty"`
 }
 
 // A Component describes the configuration of a component.
@@ -73,6 +83,7 @@ type Component struct {
 	ImplicitDependsOn   []string     `json:"-"`
 }
 
+// might need to edit this instead of validate()
 // Dependencies returns the deduplicated union of user-defined and implicit dependencies.
 func (config *Component) Dependencies() []string {
 	result := make([]string, 0, len(config.DependsOn)+len(config.ImplicitDependsOn))
@@ -112,6 +123,7 @@ func (config *Component) ResourceName() resource.Name {
 	return resource.NewName(config.Namespace, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
 }
 
+// might need to edit here to add to dependencies
 // Validate ensures all parts of the config are valid and returns dependencies.
 func (config *Component) Validate(path string) ([]string, error) {
 	var deps []string
