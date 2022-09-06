@@ -48,7 +48,7 @@ func main() {
 	http.Handle("/", http.FileServer(http.Dir(".")))
 	logger.Info("Listening on 8080...")
 	logger.Info("Images can be visualized at http://localhost:8080/orb/")
-	err = http.ListenAndServe(":8080", nil)
+	err = http.ListenAndServe(":8080", nil) // nolint:gosec
 	if err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}

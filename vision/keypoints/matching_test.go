@@ -179,14 +179,10 @@ func TestOrbMatching(t *testing.T) {
 	im2 := rimage.MakeGray(img2)
 	samplePoints := GenerateSamplePairs(orbConf.BRIEFConf.Sampling, orbConf.BRIEFConf.N, orbConf.BRIEFConf.PatchSize)
 	// image 1
-	orb1, kps1, err := ComputeORBKeypoints(im1, samplePoints, orbConf)
-	test.That(t, err, test.ShouldBeNil)
-	orb1, kps1, err = sortDescriptorsByPoint(orb1, kps1, logger)
+	orb1, _, err := ComputeORBKeypoints(im1, samplePoints, orbConf)
 	test.That(t, err, test.ShouldBeNil)
 	// image 2
-	orb2, kps2, err := ComputeORBKeypoints(im2, samplePoints, orbConf)
-	test.That(t, err, test.ShouldBeNil)
-	orb2, kps2, err = sortDescriptorsByPoint(orb2, kps2, logger)
+	orb2, _, err := ComputeORBKeypoints(im2, samplePoints, orbConf)
 	test.That(t, err, test.ShouldBeNil)
 	matches := MatchDescriptors(orb1, orb2, matchingConf, logger)
 	test.That(t, len(matches), test.ShouldBeGreaterThan, 300)
