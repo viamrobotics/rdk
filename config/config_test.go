@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -17,6 +18,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/spatialmath"
 	// board attribute converters.
 	_ "go.viam.com/rdk/component/board/fake"
 	// motor attribute converters.
@@ -37,6 +39,11 @@ func TestConfigRobot(t *testing.T) {
 	test.That(t, len(cfg.Remotes), test.ShouldEqual, 2)
 	test.That(t, cfg.Remotes[0], test.ShouldResemble, config.Remote{Name: "one", Address: "foo", Prefix: true})
 	test.That(t, cfg.Remotes[1], test.ShouldResemble, config.Remote{Name: "two", Address: "bar"})
+
+	// test that gripper geometry is being added correctly
+	component := cfg.FindComponent("pieceGripper")
+	bc, err := spatialmath.NewBoxCreator(r3.Vector{1, 2, 3}, spatialmath.NewPoseFromPoint(r3.Vector{4, 5, 6}))
+	test.That(t, component.Frame.Geometry, test.ShouldResemble, bc)
 }
 
 func TestConfig3(t *testing.T) {

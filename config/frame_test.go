@@ -30,7 +30,7 @@ func TestFrame(t *testing.T) {
 	frame := Frame{}
 	err = json.Unmarshal(testMap["test"], &frame)
 	test.That(t, err, test.ShouldBeNil)
-	bc, err := spatial.NewBoxCreator(r3.Vector{4, 5, 6}, spatial.NewPoseFromPoint(r3.Vector{1, 2, 3}))
+	bc, err := spatial.NewBoxCreator(r3.Vector{1, 2, 3}, spatial.NewPoseFromPoint(r3.Vector{4, 5, 6}))
 	test.That(t, err, test.ShouldBeNil)
 	exp := Frame{
 		Parent:      "world",
@@ -54,7 +54,7 @@ func TestFrame(t *testing.T) {
 
 	staticFrame, err := frame.StaticFrame("test")
 	test.That(t, err, test.ShouldBeNil)
-	expStaticFrame, err := referenceframe.NewStaticFrame("test", expPose)
+	expStaticFrame, err := referenceframe.NewStaticFrameWithGeometry("test", expPose, bc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, staticFrame, test.ShouldResemble, expStaticFrame)
 }
