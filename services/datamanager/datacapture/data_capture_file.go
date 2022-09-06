@@ -47,7 +47,7 @@ func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.F
 
 // BuildCaptureMetadata builds a DataCaptureMetadata object.
 func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, method string,
-	additionalParams map[string]string,
+	additionalParams map[string]string, tags []string,
 ) *v1.DataCaptureMetadata {
 	dataType := getDataType(string(compType), method)
 	return &v1.DataCaptureMetadata{
@@ -58,10 +58,11 @@ func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, me
 		Type:             dataType,
 		MethodParameters: additionalParams,
 		FileExtension:    GetFileExt(dataType, method, additionalParams),
+		Tags:             tags,
 	}
 }
 
-// ReadDataCaptureMetadata reads the SyncMetadata message from the beginning of the capture file.
+// ReadDataCaptureMetadata reads the DataCaptureMetadata from the beginning of the capture file.
 func ReadDataCaptureMetadata(f *os.File) (*v1.DataCaptureMetadata, error) {
 	if _, err := f.Seek(0, 0); err != nil {
 		return nil, err
@@ -69,7 +70,7 @@ func ReadDataCaptureMetadata(f *os.File) (*v1.DataCaptureMetadata, error) {
 
 	r := &v1.DataCaptureMetadata{}
 	if _, err := pbutil.ReadDelimited(f, r); err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read SyncMetadata from %s", f.Name()))
+		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read DataCaptureMetadata from %s", f.Name()))
 	}
 
 	if r.GetType() == v1.DataType_DATA_TYPE_UNSPECIFIED {
