@@ -50786,8 +50786,12 @@
         "size": 67917
       },
       "chess3.jpg": {
-        "hash": "0fefadf89ef5ef419d9c98297cd3299e",
-        "size": 30714
+        "hash": "9d5034714d0b26fbf017da5e7105379d",
+        "size": 12187
+      },
+      "chess3_rotate.jpg": {
+        "hash": "3bda78e272e1cd570a27370262b65d96",
+        "size": 12360
       }
     },
     "objectdetection": {
@@ -50806,8 +50810,8 @@
         "size": 274770
       },
       "vo_config.json": {
-        "hash": "c67d1b7d0afb14bd2690f7d0e2eadfa1",
-        "size": 749
+        "hash": "ee9f92157fe9c6febc70acc22e43fa24",
+        "size": 747
       }
     },
     "segmentation": {
