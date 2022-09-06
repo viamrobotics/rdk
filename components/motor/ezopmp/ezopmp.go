@@ -24,7 +24,7 @@ import (
 
 // Config is user config inputs for ezopmp.
 type Config struct {
-	BoardName   string `json:"board"` // used to get encoders
+	BoardName   string `json:"board"`
 	BusName     string `json:"bus_name"`
 	I2CAddress  byte   `json:"i2c_address"`
 	MaxReadBits int    `json:"max_read_bits"`
