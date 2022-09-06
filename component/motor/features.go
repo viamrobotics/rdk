@@ -12,20 +12,20 @@ type Feature string
 // able to report its own position.
 const PositionReporting Feature = "PositionReporting"
 
-// ProtoFeaturesToMap takes a GetFeaturesResponse and returns
+// ProtoFeaturesToMap takes a GetPropertiesResponse and returns
 // an equivalent Feature-to-boolean map.
-func ProtoFeaturesToMap(resp *pb.GetFeaturesResponse) map[Feature]bool {
+func ProtoFeaturesToMap(resp *pb.GetPropertiesResponse) map[Feature]bool {
 	return map[Feature]bool{
 		PositionReporting: resp.PositionReporting,
 	}
 }
 
 // FeatureMapToProtoResponse takes a map of features to booleans (indicating
-// whether the feature is supported) and converts it to a GetFeaturesResponse.
+// whether the feature is supported) and converts it to a GetPropertiesResponse.
 func FeatureMapToProtoResponse(
 	featureMap map[Feature]bool,
-) (*pb.GetFeaturesResponse, error) {
-	return &pb.GetFeaturesResponse{
+) (*pb.GetPropertiesResponse, error) {
+	return &pb.GetPropertiesResponse{
 		PositionReporting: featureMap[PositionReporting],
 	}, nil
 }

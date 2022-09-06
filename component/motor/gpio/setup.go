@@ -51,10 +51,6 @@ func init() {
 
 	registry.RegisterComponent(motor.Subtype, "gpio", comp)
 	motor.RegisterConfigAttributeConverter("gpio")
-
-	// for backwards compatibility?
-	registry.RegisterComponent(motor.Subtype, "pi", comp)
-	motor.RegisterConfigAttributeConverter("pi")
 }
 
 func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component) (board.Board, *motor.Config, error) {
