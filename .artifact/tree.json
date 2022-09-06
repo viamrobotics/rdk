@@ -50786,8 +50786,12 @@
         "size": 67917
       },
       "chess3.jpg": {
-        "hash": "0fefadf89ef5ef419d9c98297cd3299e",
-        "size": 30714
+        "hash": "9d5034714d0b26fbf017da5e7105379d",
+        "size": 12187
+      },
+      "chess3_rotate.jpg": {
+        "hash": "3bda78e272e1cd570a27370262b65d96",
+        "size": 12360
       }
     },
     "objectdetection": {
