@@ -7,7 +7,7 @@
     [
         {
             "model": "fake",
-            "name": "arm1",
+            "name": "localArm",
             "type": "arm",
             "service_config": [
                 {
@@ -31,9 +31,30 @@
             "name": "data_manager1",
             "type": "data_manager",
             "attributes": {
-                "sync_interval_mins": 0,
                 "capture_dir": "/tmp/capture"
             }
+        }
+    ],
+    "remotes":
+    [
+        {
+            "name": "remote1",
+            "address": "localhost:8081",
+            "service_config": [
+                {
+                  "name": "data_manager2",
+                  "type": "data_manager",
+                  "attributes": {
+                    "capture_methods": [
+                        {
+                            "name": "rdk:component:arm/remoteArm",
+                            "method": "GetEndPosition",
+                            "capture_frequency_hz": 100
+                        }
+                    ]
+                  }
+                }
+            ]
         }
     ]
 }
