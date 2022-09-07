@@ -53,6 +53,7 @@ const (
 	minDataRateMs               = 200
 	defaultMapRateSec           = 60
 	cameraValidationIntervalSec = 1.
+	parsePortMaxTimeoutSec      = 30
 	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	// time format for the slam service.
 	slamTimeFormat        = "2006-01-02T15_04_05.0000"
@@ -475,11 +476,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 	var port string
 	if svcConfig.Port == "" {
-		p, err := goutils.TryReserveRandomPort()
-		if err != nil {
-			return nil, errors.Wrap(err, "error trying to return a random port")
-		}
-		port = "localhost:" + strconv.Itoa(p)
+		port = "localhost:0"
 	} else {
 		port = svcConfig.Port
 	}
@@ -541,7 +538,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, errors.Wrap(err, "error with slam service slam process")
 	}
 
-	client, clientClose, err := setupGRPCConnection(ctx, port, logger)
+	client, clientClose, err := setupGRPCConnection(ctx, slamSvc.port, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "error with initial grpc client to slam algorithm")
 	}
@@ -666,7 +663,8 @@ func (slamSvc *slamService) StartSLAMProcess(ctx context.Context) error {
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::StartSLAMProcess")
 	defer span.End()
 
-	_, err := slamSvc.slamProcess.AddProcessFromConfig(ctx, slamSvc.GetSLAMProcessConfig())
+	processConfig := slamSvc.GetSLAMProcessConfig()
+	_, err := slamSvc.slamProcess.AddProcessFromConfig(ctx, processConfig)
 	if err != nil {
 		return errors.Wrap(err, "problem adding slam process")
 	}
@@ -675,6 +673,29 @@ func (slamSvc *slamService) StartSLAMProcess(ctx context.Context) error {
 
 	if err = slamSvc.slamProcess.Start(ctx); err != nil {
 		return errors.Wrap(err, "problem starting slam process")
+	}
+
+	if slamSvc.port == "localhost:0" {
+		timeoutCtx, timeoutCancel := context.WithTimeout(ctx, parsePortMaxTimeoutSec*time.Second)
+		defer timeoutCancel()
+		process, ok := slamSvc.slamProcess.ProcessByID(processConfig.ID)
+		if !ok {
+			return errors.New("error getting slam process from process manager")
+		}
+		for {
+			line, err := process.GetLogLine(timeoutCtx)
+			if err != nil {
+				return errors.Wrapf(err, "error getting port from slam process")
+			}
+			if strings.Contains(line, "Server listening on ") {
+				linePieces := strings.Split(line, "Server listening on ")
+				if len(linePieces) != 2 {
+					return errors.Errorf("failed to parse port from slam process log line: %v", line)
+				}
+				slamSvc.port = "localhost:" + linePieces[1]
+				break
+			}
+		}
 	}
 
 	return nil
