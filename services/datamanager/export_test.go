@@ -11,7 +11,7 @@ func (svc *dataManagerService) SetSyncerConstructor(fn datasync.ManagerConstruct
 	svc.syncerConstructor = fn
 }
 
-// SetModelrConstructor sets the modelr constructor for the data manager to use when creating its modelr.
+// SetModelrConstructor sets the modelManager constructor for the data manager to use when creating its modelManager.
 func (svc *dataManagerService) SetModelManagerConstructor(fn model.ManagerConstructor) {
 	svc.modelManagerConstructor = fn
 }

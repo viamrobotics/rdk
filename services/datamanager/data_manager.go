@@ -217,6 +217,7 @@ func (svc *dataManagerService) Close(_ context.Context) error {
 
 	svc.cancelSyncBackgroundRoutine()
 	svc.backgroundWorkers.Wait()
+	svc.modelManager.Close()
 	return nil
 }
 
@@ -496,8 +497,8 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	}
 
 	// Check that we have models to download and appropriate credentials.
-	if svcConfig.ModelsToDeploy != nil && cfg.Cloud == nil {
-		svc.logger.Error("cannot download models when cloud is empty")
+	if svcConfig.ModelsToDeploy != nil && cfg.Cloud == nil { // make sure this is the right logic to have in this conditional
+		svc.logger.Error("You must have credentials to deploy a model.")
 	} else {
 		if svc.modelManager == nil {
 			modelManager, err := svc.modelManagerConstructor(svc.logger, cfg)
@@ -506,7 +507,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 			}
 			svc.modelManager = modelManager
 		}
-		svc.partID = cfg.Cloud.ID
+		svc.partID = cfg.Cloud.ID // i do not think i need this?
 
 		// Download models from models_on_robot.
 		modelsToDeploy := svcConfig.ModelsToDeploy
@@ -515,7 +516,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		if err != nil {
 			svc.logger.Errorf("can't download models_on_robot in config", "error", err)
 		}
-		svc.modelManager.Close()
 	}
 
 	toggledCaptureOff := (svc.captureDisabled != svcConfig.CaptureDisabled) && svcConfig.CaptureDisabled

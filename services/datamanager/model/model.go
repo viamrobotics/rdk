@@ -23,7 +23,7 @@ import (
 
 const appAddress = "app.viam.com:443"
 
-// Standard file compression file type for Unix/Linux/MacOS.
+// Standard file compression file type for Unix/Linux/MacOS. -- update comment
 const zipExtension = ".zip"
 
 // Model describes a model we want to download to the robot.
@@ -45,7 +45,6 @@ type HTTPClient interface {
 // Manager is responsible for deploying model files.
 type Manager interface {
 	DownloadModels(cfg *config.Config, modelsToDeploy []*Model) error
-	// Deploy(ctx context.Context, req *v1.DeployRequest) (*v1.DeployResponse, error)
 	Close()
 }
 
@@ -112,7 +111,7 @@ func (m *modelManager) deploy(ctx context.Context, req *v1.DeployRequest) (*v1.D
 	return resp, nil
 }
 
-// Close closes all resources (goroutines) associated with m.
+// Close closes all resources (goroutines) associated with modelManger.
 func (m *modelManager) Close() {
 	m.cancelFunc()
 	m.backgroundWorkers.Wait()
@@ -142,42 +141,40 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 	m.cancelFunc = cancelFn
 
 	m.backgroundWorkers.Add(len(modelsToDownload))
-	for _, deployModel := range modelsToDownload {
-		defer m.backgroundWorkers.Done()
-		deployRequest := &v1.DeployRequest{
-			Metadata: &v1.DeployMetadata{
-				ModelName: deployModel.Name,
-			},
-		}
-		deployResp, err := m.deploy(cancelCtx, deployRequest)
-		if err != nil {
-			m.logger.Error(err)
-		} else {
-			url := deployResp.Message
-			filePath := filepath.Join(deployModel.Destination, deployModel.Name)
-			err := downloadFile(cancelCtx, m.httpClient, filePath, url, m.logger)
+	for _, model := range modelsToDownload {
+		go func(model *Model) {
+			defer m.backgroundWorkers.Done()
+			deployRequest := &v1.DeployRequest{
+				Metadata: &v1.DeployMetadata{
+					ModelName: model.Name,
+				},
+			}
+			deployResp, err := m.deploy(cancelCtx, deployRequest)
 			if err != nil {
 				m.logger.Error(err)
-				return err // Do not try to unzip if we can't download.
+			} else {
+				url := deployResp.Message
+				filePath := filepath.Join(model.Destination, model.Name)
+				err := downloadFile(cancelCtx, m.httpClient, filePath, url, m.logger)
+				if err != nil {
+					m.logger.Error(err)
+				}
+				// A download from a GCS signed URL only returns one file.
+				modelFileToUnzip := model.Name + zipExtension
+				if err = unzipSource(modelFileToUnzip, model.Destination, m.logger); err != nil {
+					m.logger.Error(err)
+				}
 			}
-			// A download from a GCS signed URL only returns one file.
-			modelFileToUnzip := deployModel.Name + zipExtension
-			if err = unzipSource(deployModel.Destination, modelFileToUnzip, m.logger); err != nil {
-				m.logger.Error(err)
-			}
-		}
+		}(model)
 	}
+	m.backgroundWorkers.Wait()
 	return nil
 }
 
 // GetModelsToDownload fetches the models that need to be downloaded according to the
 // provided config.
 func getModelsToDownload(models []*Model) ([]*Model, error) {
-	// Right now, this may not act as expected. It currently checks
-	// if the model folder is empty. If it is, then we proceed to download the model.
-	// I can imagine a scenario where the user specifies a local folder to dump
-	// all their models in. In that case, this wouldn't work as expected.
-	// TODO: Fix.
+	// TODO: DATA-405
 	modelsToDownload := make([]*Model, 0)
 	for _, model := range models {
 		if model.Destination == "" {
@@ -224,9 +221,7 @@ func downloadFile(cancelCtx context.Context, client HTTPClient, filepath, url st
 		}
 	}()
 
-	// QUESTION: should I extract out to be a constant as well?
 	s := filepath + zipExtension
-	// //nolint:gosec
 	out, err := os.Create(s)
 	if err != nil {
 		return err
@@ -243,7 +238,7 @@ func downloadFile(cancelCtx context.Context, client HTTPClient, filepath, url st
 }
 
 // UnzipSource unzips all files inside a zip file.
-func unzipSource(destination, fileName string, logger golog.Logger) error {
+func unzipSource(fileName, destination string, logger golog.Logger) error {
 	zipReader, err := zip.OpenReader(filepath.Join(destination, fileName))
 	if err != nil {
 		return err
@@ -256,7 +251,7 @@ func unzipSource(destination, fileName string, logger golog.Logger) error {
 	if err = zipReader.Close(); err != nil {
 		return err
 	}
-	// question: should I remove the .gz file once we have unzipped?
+	os.Remove(filepath.Join(destination, fileName))
 	return nil
 }
 
@@ -322,7 +317,7 @@ func unzipFile(f *zip.File, destination string, logger golog.Logger) error {
 	}
 
 	if err = destinationFile.Close(); err != nil {
-		logger.Error(err)
+		return err
 	}
 
 	return nil
