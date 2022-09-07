@@ -41,11 +41,11 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
-	basepb "go.viam.com/rdk/proto/api/component/base/v1"
-	boardpb "go.viam.com/rdk/proto/api/component/board/v1"
-	camerapb "go.viam.com/rdk/proto/api/component/camera/v1"
-	gripperpb "go.viam.com/rdk/proto/api/component/gripper/v1"
+	armpb "go.viam.com/rdk/proto/api/components/arm/v1"
+	basepb "go.viam.com/rdk/proto/api/components/base/v1"
+	boardpb "go.viam.com/rdk/proto/api/components/board/v1"
+	camerapb "go.viam.com/rdk/proto/api/components/camera/v1"
+	gripperpb "go.viam.com/rdk/proto/api/components/gripper/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -654,7 +654,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               "fake",
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                motor.SubtypeName,
-				ConvertedAttributes: &motor.Config{},
+				ConvertedAttributes: &fakemotor.Config{},
 				DependsOn:           []string{"board1"},
 			},
 			{
@@ -662,7 +662,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               "fake",
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                motor.SubtypeName,
-				ConvertedAttributes: &motor.Config{},
+				ConvertedAttributes: &fakemotor.Config{},
 				DependsOn:           []string{"board2"},
 			},
 			{
@@ -670,7 +670,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               "fake",
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                motor.SubtypeName,
-				ConvertedAttributes: &motor.Config{},
+				ConvertedAttributes: &fakemotor.Config{},
 				DependsOn:           []string{"board3"},
 			},
 			{
