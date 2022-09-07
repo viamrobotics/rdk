@@ -2,6 +2,8 @@ package spatialmath
 
 import "github.com/pkg/errors"
 
+// ErrGeometryTypeUnsupported is an error that is returned when an unsupported GeometryType is specified
+// (either implicitly or explicitly) in a GeometryConfig.
 var ErrGeometryTypeUnsupported = errors.New("unsupported Geometry type")
 
 func newBadGeometryDimensionsError(g Geometry) error {

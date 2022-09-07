@@ -64,7 +64,7 @@ const (
 )
 
 var defaultArmPlannerOptions = map[string]interface{}{
-	"motion_profile": "linear",
+	"motion_profile": motionplan.LinearMotionProfile,
 }
 
 // Subtype is a constant that identifies the component resource subtype.

@@ -260,7 +260,7 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 	opts := []*PlannerOptions{}
 
 	// linear motion profile has known intermediate points, so solving can be broken up and sped up
-	if profile, ok := motionConfig["motion_profile"]; ok && profile == "linear" {
+	if profile, ok := motionConfig["motion_profile"]; ok && profile == LinearMotionProfile {
 		pathStepSize, ok := motionConfig["path_step_size"].(float64)
 		if !ok {
 			pathStepSize = defaultPathStepSize
