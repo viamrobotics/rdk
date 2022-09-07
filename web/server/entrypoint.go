@@ -12,7 +12,6 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/opus"
 	"github.com/edaniels/gostream/codec/x264"
-	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
@@ -26,14 +25,15 @@ import (
 
 // Arguments for the command.
 type Arguments struct {
-	AllowInsecureCreds bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
-	ConfigFile         string `flag:"config,usage=robot config file"`
-	CPUProfile         string `flag:"cpuprofile,usage=write cpu profile to file"`
-	Debug              bool   `flag:"debug"`
-	SharedDir          string `flag:"shareddir,usage=web resource directory"`
-	Version            bool   `flag:"version,usage=print version"`
-	WebProfile         bool   `flag:"webprofile,usage=include profiler in http server"`
-	WebRTC             bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
+	AllowInsecureCreds         bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
+	ConfigFile                 string `flag:"config,usage=robot config file"`
+	CPUProfile                 string `flag:"cpuprofile,usage=write cpu profile to file"`
+	Debug                      bool   `flag:"debug"`
+	SharedDir                  string `flag:"shareddir,usage=web resource directory"`
+	Version                    bool   `flag:"version,usage=print version"`
+	WebProfile                 bool   `flag:"webprofile,usage=include profiler in http server"`
+	WebRTC                     bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
+	revealSensitiveConfigDiffs bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
 }
 
 // RunServer is an entry point to starting the web server that can be called by main in a code
@@ -68,9 +68,11 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 		defer pprof.StopCPUProfile()
 	}
 
-	exp := perf.NewNiceLoggingSpanExporter()
-	trace.RegisterExporter(exp)
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+	exporter := perf.NewDevelopmentExporter()
+	if err := exporter.Start(); err != nil {
+		return err
+	}
+	defer exporter.Stop()
 
 	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
 	cfg, err := config.Read(initialReadCtx, argsParsed.ConfigFile, logger)
@@ -183,12 +185,12 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	streamConfig.AudioEncoderFactory = opus.NewEncoderFactory()
 	streamConfig.VideoEncoderFactory = x264.NewEncoderFactory()
 
-	myRobot, err := robotimpl.New(
-		ctx,
-		processedConfig,
-		logger,
-		robotimpl.WithWebOptions(web.WithStreamConfig(streamConfig)),
-	)
+	robotOptions := []robotimpl.Option{robotimpl.WithWebOptions(web.WithStreamConfig(streamConfig))}
+	if argsParsed.revealSensitiveConfigDiffs {
+		robotOptions = append(robotOptions, robotimpl.WithRevealSensitiveConfigDiffs())
+	}
+
+	myRobot, err := robotimpl.New(ctx, processedConfig, logger, robotOptions...)
 	if err != nil {
 		return err
 	}
@@ -225,7 +227,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 				myRobot.Reconfigure(ctx, processedConfig)
 
 				// restart web service if necessary
-				diff, err := config.DiffConfigs(*oldCfg, *processedConfig)
+				diff, err := config.DiffConfigs(*oldCfg, *processedConfig, argsParsed.revealSensitiveConfigDiffs)
 				if err != nil {
 					logger.Errorw("error diffing config", "error", err)
 					continue

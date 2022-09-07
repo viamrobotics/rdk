@@ -22,9 +22,9 @@ import (
 	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"
 
-	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/rimage"

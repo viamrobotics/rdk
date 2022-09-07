@@ -22,6 +22,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type VisionServiceClient interface {
+	// GetModelParameterSchema takes the model name and returns the parameters needed to add one to the vision registry.
+	GetModelParameterSchema(ctx context.Context, in *GetModelParameterSchemaRequest, opts ...grpc.CallOption) (*GetModelParameterSchemaResponse, error)
 	// GetDetectorNames returns the list of detectors in the registry.
 	GetDetectorNames(ctx context.Context, in *GetDetectorNamesRequest, opts ...grpc.CallOption) (*GetDetectorNamesResponse, error)
 	// AddDetector adds a new detector to the registry.
@@ -44,8 +46,10 @@ type VisionServiceClient interface {
 	GetClassifications(ctx context.Context, in *GetClassificationsRequest, opts ...grpc.CallOption) (*GetClassificationsResponse, error)
 	// GetSegmenterNames returns the list of segmenters in the registry.
 	GetSegmenterNames(ctx context.Context, in *GetSegmenterNamesRequest, opts ...grpc.CallOption) (*GetSegmenterNamesResponse, error)
-	// GetSegmenterParameters returns the parameter fields needed for the given segmenter.
-	GetSegmenterParameters(ctx context.Context, in *GetSegmenterParametersRequest, opts ...grpc.CallOption) (*GetSegmenterParametersResponse, error)
+	// AddSegmenter adds a new segmenter to the registry.
+	AddSegmenter(ctx context.Context, in *AddSegmenterRequest, opts ...grpc.CallOption) (*AddSegmenterResponse, error)
+	// RemoveSegmenter removes a segmenter from the registry.
+	RemoveSegmenter(ctx context.Context, in *RemoveSegmenterRequest, opts ...grpc.CallOption) (*RemoveSegmenterResponse, error)
 	// GetObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
 	// as well as the 3-vector center of each of the found objects.
 	// A specific MIME type can be requested but may not necessarily be the same one returned.
@@ -58,6 +62,15 @@ type visionServiceClient struct {
 
 func NewVisionServiceClient(cc grpc.ClientConnInterface) VisionServiceClient {
 	return &visionServiceClient{cc}
+}
+
+func (c *visionServiceClient) GetModelParameterSchema(ctx context.Context, in *GetModelParameterSchemaRequest, opts ...grpc.CallOption) (*GetModelParameterSchemaResponse, error) {
+	out := new(GetModelParameterSchemaResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/GetModelParameterSchema", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *visionServiceClient) GetDetectorNames(ctx context.Context, in *GetDetectorNamesRequest, opts ...grpc.CallOption) (*GetDetectorNamesResponse, error) {
@@ -159,9 +172,18 @@ func (c *visionServiceClient) GetSegmenterNames(ctx context.Context, in *GetSegm
 	return out, nil
 }
 
-func (c *visionServiceClient) GetSegmenterParameters(ctx context.Context, in *GetSegmenterParametersRequest, opts ...grpc.CallOption) (*GetSegmenterParametersResponse, error) {
-	out := new(GetSegmenterParametersResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/GetSegmenterParameters", in, out, opts...)
+func (c *visionServiceClient) AddSegmenter(ctx context.Context, in *AddSegmenterRequest, opts ...grpc.CallOption) (*AddSegmenterResponse, error) {
+	out := new(AddSegmenterResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/AddSegmenter", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *visionServiceClient) RemoveSegmenter(ctx context.Context, in *RemoveSegmenterRequest, opts ...grpc.CallOption) (*RemoveSegmenterResponse, error) {
+	out := new(RemoveSegmenterResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/RemoveSegmenter", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -181,6 +203,8 @@ func (c *visionServiceClient) GetObjectPointClouds(ctx context.Context, in *GetO
 // All implementations must embed UnimplementedVisionServiceServer
 // for forward compatibility
 type VisionServiceServer interface {
+	// GetModelParameterSchema takes the model name and returns the parameters needed to add one to the vision registry.
+	GetModelParameterSchema(context.Context, *GetModelParameterSchemaRequest) (*GetModelParameterSchemaResponse, error)
 	// GetDetectorNames returns the list of detectors in the registry.
 	GetDetectorNames(context.Context, *GetDetectorNamesRequest) (*GetDetectorNamesResponse, error)
 	// AddDetector adds a new detector to the registry.
@@ -203,8 +227,10 @@ type VisionServiceServer interface {
 	GetClassifications(context.Context, *GetClassificationsRequest) (*GetClassificationsResponse, error)
 	// GetSegmenterNames returns the list of segmenters in the registry.
 	GetSegmenterNames(context.Context, *GetSegmenterNamesRequest) (*GetSegmenterNamesResponse, error)
-	// GetSegmenterParameters returns the parameter fields needed for the given segmenter.
-	GetSegmenterParameters(context.Context, *GetSegmenterParametersRequest) (*GetSegmenterParametersResponse, error)
+	// AddSegmenter adds a new segmenter to the registry.
+	AddSegmenter(context.Context, *AddSegmenterRequest) (*AddSegmenterResponse, error)
+	// RemoveSegmenter removes a segmenter from the registry.
+	RemoveSegmenter(context.Context, *RemoveSegmenterRequest) (*RemoveSegmenterResponse, error)
 	// GetObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
 	// as well as the 3-vector center of each of the found objects.
 	// A specific MIME type can be requested but may not necessarily be the same one returned.
@@ -216,6 +242,9 @@ type VisionServiceServer interface {
 type UnimplementedVisionServiceServer struct {
 }
 
+func (UnimplementedVisionServiceServer) GetModelParameterSchema(context.Context, *GetModelParameterSchemaRequest) (*GetModelParameterSchemaResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetModelParameterSchema not implemented")
+}
 func (UnimplementedVisionServiceServer) GetDetectorNames(context.Context, *GetDetectorNamesRequest) (*GetDetectorNamesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDetectorNames not implemented")
 }
@@ -249,8 +278,11 @@ func (UnimplementedVisionServiceServer) GetClassifications(context.Context, *Get
 func (UnimplementedVisionServiceServer) GetSegmenterNames(context.Context, *GetSegmenterNamesRequest) (*GetSegmenterNamesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSegmenterNames not implemented")
 }
-func (UnimplementedVisionServiceServer) GetSegmenterParameters(context.Context, *GetSegmenterParametersRequest) (*GetSegmenterParametersResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetSegmenterParameters not implemented")
+func (UnimplementedVisionServiceServer) AddSegmenter(context.Context, *AddSegmenterRequest) (*AddSegmenterResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddSegmenter not implemented")
+}
+func (UnimplementedVisionServiceServer) RemoveSegmenter(context.Context, *RemoveSegmenterRequest) (*RemoveSegmenterResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveSegmenter not implemented")
 }
 func (UnimplementedVisionServiceServer) GetObjectPointClouds(context.Context, *GetObjectPointCloudsRequest) (*GetObjectPointCloudsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetObjectPointClouds not implemented")
@@ -266,6 +298,24 @@ type UnsafeVisionServiceServer interface {
 
 func RegisterVisionServiceServer(s grpc.ServiceRegistrar, srv VisionServiceServer) {
 	s.RegisterService(&VisionService_ServiceDesc, srv)
+}
+
+func _VisionService_GetModelParameterSchema_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetModelParameterSchemaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VisionServiceServer).GetModelParameterSchema(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.service.vision.v1.VisionService/GetModelParameterSchema",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VisionServiceServer).GetModelParameterSchema(ctx, req.(*GetModelParameterSchemaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _VisionService_GetDetectorNames_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -466,20 +516,38 @@ func _VisionService_GetSegmenterNames_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _VisionService_GetSegmenterParameters_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetSegmenterParametersRequest)
+func _VisionService_AddSegmenter_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddSegmenterRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(VisionServiceServer).GetSegmenterParameters(ctx, in)
+		return srv.(VisionServiceServer).AddSegmenter(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.service.vision.v1.VisionService/GetSegmenterParameters",
+		FullMethod: "/proto.api.service.vision.v1.VisionService/AddSegmenter",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(VisionServiceServer).GetSegmenterParameters(ctx, req.(*GetSegmenterParametersRequest))
+		return srv.(VisionServiceServer).AddSegmenter(ctx, req.(*AddSegmenterRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VisionService_RemoveSegmenter_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveSegmenterRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VisionServiceServer).RemoveSegmenter(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.service.vision.v1.VisionService/RemoveSegmenter",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VisionServiceServer).RemoveSegmenter(ctx, req.(*RemoveSegmenterRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -509,6 +577,10 @@ var VisionService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "proto.api.service.vision.v1.VisionService",
 	HandlerType: (*VisionServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetModelParameterSchema",
+			Handler:    _VisionService_GetModelParameterSchema_Handler,
+		},
 		{
 			MethodName: "GetDetectorNames",
 			Handler:    _VisionService_GetDetectorNames_Handler,
@@ -554,8 +626,12 @@ var VisionService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _VisionService_GetSegmenterNames_Handler,
 		},
 		{
-			MethodName: "GetSegmenterParameters",
-			Handler:    _VisionService_GetSegmenterParameters_Handler,
+			MethodName: "AddSegmenter",
+			Handler:    _VisionService_AddSegmenter_Handler,
+		},
+		{
+			MethodName: "RemoveSegmenter",
+			Handler:    _VisionService_RemoveSegmenter_Handler,
 		},
 		{
 			MethodName: "GetObjectPointClouds",

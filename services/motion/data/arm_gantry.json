@@ -1,6 +1,5 @@
 {
-    "components":
-    [
+    "components": [
         {
             "name": "arm1",
             "type": "arm",
@@ -8,12 +7,14 @@
             "frame": {
                 "parent": "gantry1",
                 "translation": {
-                  "x": 0,
-                  "y": 0,
-                  "z": 0
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
                 }
             },
-            "depends_on": ["gantry1"]
+            "depends_on": [
+                "gantry1"
+            ]
         },
         {
             "name": "gantry1",
@@ -22,9 +23,9 @@
             "frame": {
                 "parent": "world",
                 "translation": {
-                  "x": 0,
-                  "y": 0,
-                  "z": 0
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
                 }
             }
         }

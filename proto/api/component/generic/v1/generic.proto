@@ -10,19 +10,19 @@ option java_package = "com.viam.rdk.proto.api.component.generic.v1";
 
 // GenericService services all generic commands associated with a robot
 service GenericService {
-  // Do sends/recieves arbitrary commands
-  rpc Do(DoRequest) returns (DoResponse) {
+  // DoCommand sends/recieves arbitrary commands
+  rpc DoCommand(DoCommandRequest) returns (DoCommandResponse) {
     option (google.api.http) = {
-      post: "/viam/api/v1/component/generic/{name}/do"
+      post: "/viam/api/v1/component/generic/{name}/do_command"
     };
   }
 }
 
-message DoRequest {
+message DoCommandRequest {
   string name = 1;
   google.protobuf.Struct command = 2;
 }
 
-message DoResponse {
+message DoCommandResponse {
   google.protobuf.Struct result = 1;
 }
