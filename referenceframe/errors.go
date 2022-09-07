@@ -4,7 +4,7 @@ import "github.com/pkg/errors"
 
 // NewParentFrameMissingError returns an error indicating that the parent frame is nil.
 func NewParentFrameMissingError() error {
-	return errors.Errorf("parent frame is nil")
+	return errors.New("parent frame is nil")
 }
 
 // NewFrameMissingError returns an error indicating that the given frame is missing from the framesystem.

@@ -46,8 +46,8 @@ func getStepData(model referenceframe.Frame, worldState *pb.WorldState, inputs [
 		}
 	}
 	if model != nil && inputs != nil {
-		modelGeometries, err := model.Geometries(inputs)
-		if err != nil {
+		modelGeometries, _ := model.Geometries(inputs)
+		if modelGeometries != nil {
 			entities["model"] = getVertices(modelGeometries)
 		}
 	}
