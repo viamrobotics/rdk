@@ -3,7 +3,6 @@ package keypoints
 import (
 	"encoding/json"
 	"image"
-	"image/color"
 	"math"
 	"os"
 	"path/filepath"
@@ -22,6 +21,60 @@ const (
 	normal                      // 1
 	fixed                       // 2
 )
+
+// SamplePairs are N pairs of points used to create the BRIEF Descriptors of a patch.
+type SamplePairs struct {
+	P0 []image.Point
+	P1 []image.Point
+	N  int
+}
+
+// GenerateSamplePairs generates n samples for a patch size with the chosen Sampling Type.
+func GenerateSamplePairs(dist SamplingType, n, patchSize int) *SamplePairs {
+	// sample positions
+	var xs0, ys0, xs1, ys1 []int
+	if dist == fixed {
+		xs0 = sampleIntegers(patchSize, n, dist)
+		ys0 = sampleIntegers(patchSize, n, dist)
+		xs1 = sampleIntegers(patchSize, n, dist)
+		for i := 0; i < n; i++ {
+			ys1 = append(ys1, -ys0[i])
+			if i%2 == 0 {
+				xs0[i] = 2 * xs0[i] / 3
+				xs1[i] = -2 * xs1[i] / 3
+				ys1[i] = ys0[i]
+			}
+		}
+	} else {
+		xs0 = sampleIntegers(patchSize, n, dist)
+		ys0 = sampleIntegers(patchSize, n, dist)
+		xs1 = sampleIntegers(patchSize, n, dist)
+		ys1 = sampleIntegers(patchSize, n, dist)
+	}
+	p0 := make([]image.Point, 0, n)
+	p1 := make([]image.Point, 0, n)
+	for i := 0; i < n; i++ {
+		p0 = append(p0, image.Point{X: xs0[i], Y: ys0[i]})
+		p1 = append(p1, image.Point{X: xs1[i], Y: ys1[i]})
+	}
+
+	return &SamplePairs{P0: p0, P1: p1, N: n}
+}
+
+func sampleIntegers(patchSize, n int, sampling SamplingType) []int {
+	vMin := math.Round(-(float64(patchSize) - 2) / 2.)
+	vMax := math.Round(float64(patchSize) / 2.)
+	switch sampling {
+	case uniform:
+		return utils.SampleNIntegersUniform(n, vMin, vMax)
+	case normal:
+		return utils.SampleNIntegersNormal(n, vMin, vMax)
+	case fixed:
+		return utils.SampleNRegularlySpaced(n, vMin, vMax)
+	default:
+		return utils.SampleNIntegersUniform(n, vMin, vMax)
+	}
+}
 
 // BRIEFConfig stores the parameters.
 type BRIEFConfig struct {
@@ -48,23 +101,8 @@ func LoadBRIEFConfiguration(file string) *BRIEFConfig {
 	return &config
 }
 
-func sampleIntegers(patchSize, n int, sampling SamplingType) []int {
-	vMin := math.Round(-(float64(patchSize) - 2) / 2.)
-	vMax := math.Round(float64(patchSize) / 2.)
-	switch sampling {
-	case uniform:
-		return utils.SampleNIntegersUniform(n, vMin, vMax)
-	case normal:
-		return utils.SampleNIntegersNormal(n, vMin, vMax)
-	case fixed:
-		return utils.SampleNRegularlySpaced(n, vMin, vMax)
-	default:
-		return utils.SampleNIntegersUniform(n, vMin, vMax)
-	}
-}
-
 // ComputeBRIEFDescriptors computes BRIEF descriptors on image img at keypoints kps.
-func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConfig) (Descriptors, error) {
+func ComputeBRIEFDescriptors(img *image.Gray, sp *SamplePairs, kps *FASTKeypoints, cfg *BRIEFConfig) ([]Descriptor, error) {
 	// blur image
 	kernel := rimage.GetGaussian5()
 	normalized := kernel.Normalize()
@@ -72,21 +110,22 @@ func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConf
 	if err != nil {
 		return nil, err
 	}
-	// sample positions
-	xs0 := sampleIntegers(cfg.PatchSize, cfg.N, cfg.Sampling)
-	ys0 := utils.CycleIntSliceByN(sampleIntegers(cfg.PatchSize, cfg.N, cfg.Sampling), cfg.N/4)
-	xs1 := utils.CycleIntSliceByN(sampleIntegers(cfg.PatchSize, cfg.N, cfg.Sampling), cfg.N/2)
-	ys1 := utils.CycleIntSliceByN(sampleIntegers(cfg.PatchSize, cfg.N, cfg.Sampling), 3*cfg.N/4)
-
 	// compute descriptors
-	descriptors := make(Descriptors, len(kps.Points))
-	padded, err := rimage.PaddingGray(blurred, image.Point{17, 17}, image.Point{8, 8}, rimage.BorderConstant)
-	if err != nil {
-		return nil, err
-	}
+
+	descs := make([]Descriptor, len(kps.Points))
+	bnd := blurred.Bounds()
+	halfSize := cfg.PatchSize / 2
 	for k, kp := range kps.Points {
-		paddedKp := image.Point{kp.X + 8, kp.Y + 8}
-		descriptor := make(Descriptor, cfg.N)
+		p1 := image.Point{kp.X + halfSize, kp.Y + halfSize}
+		p2 := image.Point{kp.X + halfSize, kp.Y - halfSize}
+		p3 := image.Point{kp.X - halfSize, kp.Y + halfSize}
+		p4 := image.Point{kp.X - halfSize, kp.Y - halfSize}
+		// Divide by 64 since we store a descriptor as a uint64 array.
+		descriptor := make([]uint64, sp.N/64)
+		if !p1.In(bnd) || !p2.In(bnd) || !p3.In(bnd) || !p4.In(bnd) {
+			descs[k] = descriptor
+			continue
+		}
 		cosTheta := 1.0
 		sinTheta := 0.0
 		// if use orientation and keypoints are oriented, compute rotation matrix
@@ -95,20 +134,26 @@ func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConf
 			cosTheta = math.Cos(angle)
 			sinTheta = math.Sin(angle)
 		}
-		for i := 0; i < cfg.N; i++ {
-			x0, y0 := float64(xs0[i]), float64(ys0[i])
-			x1, y1 := float64(xs1[i]), float64(ys1[i])
+		for i := 0; i < sp.N; i++ {
+			x0, y0 := float64(sp.P0[i].X), float64(sp.P0[i].Y)
+			x1, y1 := float64(sp.P1[i].X), float64(sp.P1[i].Y)
 			// compute rotated sampled coordinates (Identity matrix if no orientation s)
 			outx0 := int(math.Round(cosTheta*x0 - sinTheta*y0))
 			outy0 := int(math.Round(sinTheta*x0 + cosTheta*y0))
 			outx1 := int(math.Round(cosTheta*x1 - sinTheta*y1))
 			outy1 := int(math.Round(sinTheta*x1 + cosTheta*y1))
 			// fill BRIEF descriptor
-			if padded.At(paddedKp.X+outx0, paddedKp.Y+outy0).(color.Gray).Y < padded.At(paddedKp.X+outx1, paddedKp.Y+outy1).(color.Gray).Y {
-				descriptor[i] = 1.
+			p0Val := blurred.GrayAt(kp.X+outx0, kp.Y+outy0).Y
+			p1Val := blurred.GrayAt(kp.X+outx1, kp.Y+outy1).Y
+			if p0Val > p1Val {
+				// Casting to an int truncates the float, which is what we want.
+				descriptorIndex := int64(i / 64)
+				numPos := i % 64
+				// This flips the bit at numPos to 1.
+				descriptor[descriptorIndex] |= (1 << numPos)
 			}
 		}
-		descriptors[k] = descriptor
+		descs[k] = descriptor
 	}
-	return descriptors, nil
+	return descs, nil
 }
