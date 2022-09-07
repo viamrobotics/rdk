@@ -44,7 +44,11 @@ type VisionServiceClient interface {
 	GetClassifications(ctx context.Context, in *GetClassificationsRequest, opts ...grpc.CallOption) (*GetClassificationsResponse, error)
 	// GetSegmenterNames returns the list of segmenters in the registry.
 	GetSegmenterNames(ctx context.Context, in *GetSegmenterNamesRequest, opts ...grpc.CallOption) (*GetSegmenterNamesResponse, error)
-	// GetSegmenterParameters returns the parameter fields needed for the given segmenter.
+	// AddSegmenter adds a new segmenter to the registry.
+	AddSegmenter(ctx context.Context, in *AddSegmenterRequest, opts ...grpc.CallOption) (*AddSegmenterResponse, error)
+	// RemoveSegmenter removes a segmenter from the registry.
+	RemoveSegmenter(ctx context.Context, in *RemoveSegmenterRequest, opts ...grpc.CallOption) (*RemoveSegmenterResponse, error)
+	// GetSegmenterParameters returns the parameter fields needed for the given type of segmenter.
 	GetSegmenterParameters(ctx context.Context, in *GetSegmenterParametersRequest, opts ...grpc.CallOption) (*GetSegmenterParametersResponse, error)
 	// GetObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
 	// as well as the 3-vector center of each of the found objects.
@@ -159,6 +163,24 @@ func (c *visionServiceClient) GetSegmenterNames(ctx context.Context, in *GetSegm
 	return out, nil
 }
 
+func (c *visionServiceClient) AddSegmenter(ctx context.Context, in *AddSegmenterRequest, opts ...grpc.CallOption) (*AddSegmenterResponse, error) {
+	out := new(AddSegmenterResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/AddSegmenter", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *visionServiceClient) RemoveSegmenter(ctx context.Context, in *RemoveSegmenterRequest, opts ...grpc.CallOption) (*RemoveSegmenterResponse, error) {
+	out := new(RemoveSegmenterResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/RemoveSegmenter", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *visionServiceClient) GetSegmenterParameters(ctx context.Context, in *GetSegmenterParametersRequest, opts ...grpc.CallOption) (*GetSegmenterParametersResponse, error) {
 	out := new(GetSegmenterParametersResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/GetSegmenterParameters", in, out, opts...)
@@ -203,7 +225,11 @@ type VisionServiceServer interface {
 	GetClassifications(context.Context, *GetClassificationsRequest) (*GetClassificationsResponse, error)
 	// GetSegmenterNames returns the list of segmenters in the registry.
 	GetSegmenterNames(context.Context, *GetSegmenterNamesRequest) (*GetSegmenterNamesResponse, error)
-	// GetSegmenterParameters returns the parameter fields needed for the given segmenter.
+	// AddSegmenter adds a new segmenter to the registry.
+	AddSegmenter(context.Context, *AddSegmenterRequest) (*AddSegmenterResponse, error)
+	// RemoveSegmenter removes a segmenter from the registry.
+	RemoveSegmenter(context.Context, *RemoveSegmenterRequest) (*RemoveSegmenterResponse, error)
+	// GetSegmenterParameters returns the parameter fields needed for the given type of segmenter.
 	GetSegmenterParameters(context.Context, *GetSegmenterParametersRequest) (*GetSegmenterParametersResponse, error)
 	// GetObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
 	// as well as the 3-vector center of each of the found objects.
@@ -248,6 +274,12 @@ func (UnimplementedVisionServiceServer) GetClassifications(context.Context, *Get
 }
 func (UnimplementedVisionServiceServer) GetSegmenterNames(context.Context, *GetSegmenterNamesRequest) (*GetSegmenterNamesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSegmenterNames not implemented")
+}
+func (UnimplementedVisionServiceServer) AddSegmenter(context.Context, *AddSegmenterRequest) (*AddSegmenterResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddSegmenter not implemented")
+}
+func (UnimplementedVisionServiceServer) RemoveSegmenter(context.Context, *RemoveSegmenterRequest) (*RemoveSegmenterResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveSegmenter not implemented")
 }
 func (UnimplementedVisionServiceServer) GetSegmenterParameters(context.Context, *GetSegmenterParametersRequest) (*GetSegmenterParametersResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSegmenterParameters not implemented")
@@ -466,6 +498,42 @@ func _VisionService_GetSegmenterNames_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _VisionService_AddSegmenter_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddSegmenterRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VisionServiceServer).AddSegmenter(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.service.vision.v1.VisionService/AddSegmenter",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VisionServiceServer).AddSegmenter(ctx, req.(*AddSegmenterRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _VisionService_RemoveSegmenter_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveSegmenterRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VisionServiceServer).RemoveSegmenter(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.service.vision.v1.VisionService/RemoveSegmenter",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VisionServiceServer).RemoveSegmenter(ctx, req.(*RemoveSegmenterRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _VisionService_GetSegmenterParameters_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetSegmenterParametersRequest)
 	if err := dec(in); err != nil {
@@ -552,6 +620,14 @@ var VisionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetSegmenterNames",
 			Handler:    _VisionService_GetSegmenterNames_Handler,
+		},
+		{
+			MethodName: "AddSegmenter",
+			Handler:    _VisionService_AddSegmenter_Handler,
+		},
+		{
+			MethodName: "RemoveSegmenter",
+			Handler:    _VisionService_RemoveSegmenter_Handler,
 		},
 		{
 			MethodName: "GetSegmenterParameters",

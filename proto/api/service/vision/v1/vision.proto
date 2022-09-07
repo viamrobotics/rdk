@@ -92,7 +92,22 @@ service VisionService {
       get: "/viam/api/v1/service/vision/{name}/segmenter_names"
     };
   }
-  // GetSegmenterParameters returns the parameter fields needed for the given segmenter.
+
+  // AddSegmenter adds a new segmenter to the registry.
+  rpc AddSegmenter(AddSegmenterRequest) returns (AddSegmenterResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/service/vision/{name}/add_segmenter"
+    };
+  }
+
+  // RemoveSegmenter removes a segmenter from the registry.
+  rpc RemoveSegmenter(RemoveSegmenterRequest) returns (RemoveSegmenterResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/service/vision/{name}/remove_segmenter"
+    };
+  }
+
+  // GetSegmenterParameters returns the parameter fields needed for the given type of segmenter.
   rpc GetSegmenterParameters(GetSegmenterParametersRequest) returns (GetSegmenterParametersResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/service/vision/{name}/segmenter_parameters"
@@ -265,10 +280,32 @@ message GetSegmenterNamesResponse {
   repeated string segmenter_names = 1;
 }
 
+message AddSegmenterRequest {
+  // name of the vision service
+  string name = 1;
+  // name of the segmenter
+  string segmenter_name = 2;
+  // name of the segmenter model
+  string segmenter_model_type = 3;
+  // parameters of the segmenter model
+  google.protobuf.Struct segmenter_parameters = 4;
+}
+
+message AddSegmenterResponse {}
+
+message RemoveSegmenterRequest {
+  // name of the vision service
+  string name = 1;
+  // name of segmenter in registry
+  string segmenter_name = 2;
+}
+
+message RemoveSegmenterResponse {}
+
 message GetSegmenterParametersRequest {
   string name = 1;
   // Name of the segmentation algo
-  string segmenter_name = 2;
+  string segmenter_model_type = 2;
 }
 
 message TypedParameter {
@@ -277,8 +314,8 @@ message TypedParameter {
 }
 
 message GetSegmenterParametersResponse {
-  // parameter names of the segmenter in the request
-  repeated TypedParameter segmenter_parameters = 1;
+  // parameter names of the segmenter model from the request
+  repeated TypedParameter segmenter_model_parameters = 1;
 }
 
 message GetObjectPointCloudsRequest {
@@ -289,8 +326,6 @@ message GetObjectPointCloudsRequest {
   string segmenter_name = 3;
   // Requested MIME type of response
   string mime_type = 4;
-  // parameters for the chosen segmenter
-  google.protobuf.Struct parameters = 5;
 }
 
 message GetObjectPointCloudsResponse {

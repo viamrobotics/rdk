@@ -10,7 +10,6 @@ import (
 	"go.opencensus.io/trace"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/vision/v1"
@@ -256,21 +255,47 @@ func (c *client) GetSegmenterParameters(ctx context.Context, segmenterName strin
 	return params, nil
 }
 
+func (c *client) AddSegmenter(ctx context.Context, cfg VisModelConfig) error {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::AddSegmenter")
+	defer span.End()
+	params, err := protoutils.StructToStructPb(cfg.Parameters)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.AddSegmenter(ctx, &pb.AddSegmenterRequest{
+		Name:                c.name,
+		SegmenterName:       cfg.Name,
+		SegmenterModelType:  cfg.Type,
+		SegmenterParameters: params,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *client) RemoveSegmenter(ctx context.Context, segmenterName string) error {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::RemoveSegmenter")
+	defer span.End()
+	_, err := c.client.RemoveSegmenter(ctx, &pb.RemoveSegmenterRequest{
+		Name:          c.name,
+		SegmenterName: segmenterName,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *client) GetObjectPointClouds(ctx context.Context,
 	cameraName string,
 	segmenterName string,
-	params config.AttributeMap,
 ) ([]*vision.Object, error) {
-	conf, err := protoutils.StructToStructPb(params)
-	if err != nil {
-		return nil, err
-	}
 	resp, err := c.client.GetObjectPointClouds(ctx, &pb.GetObjectPointCloudsRequest{
 		Name:          c.name,
 		CameraName:    cameraName,
 		SegmenterName: segmenterName,
 		MimeType:      utils.MimeTypePCD,
-		Parameters:    conf,
 	})
 	if err != nil {
 		return nil, err
