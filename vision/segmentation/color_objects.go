@@ -69,7 +69,7 @@ func ColorObjects(params config.AttributeMap) (Segmenter, error) {
 		return nil, err
 	}
 	// turn the detector into a segmentor
-	segmenter, _, err := DetectionSegmenter(detector, cfg.MeanK, cfg.Sigma)
+	segmenter, err := DetectionSegmenter(detector, cfg.MeanK, cfg.Sigma)
 	if err != nil {
 		return nil, err
 	}
