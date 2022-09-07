@@ -28,7 +28,7 @@ type Geometry interface {
 	EncompassedBy(Geometry) (bool, error)
 }
 
-// GeometryCreatorType defines what geometry creator representations are known.
+// GeometryType defines what geometry creator representations are known.
 type GeometryType string
 
 // The set of allowed representations for orientation.

@@ -12,7 +12,12 @@ func NewFrameMissingError(frameName string) error {
 	return errors.Errorf("frame with name %q not in frame system", frameName)
 }
 
-// NewFrameAlreadyExistsError returns an error indicating that a frame of the given name already exists
+// NewFrameAlreadyExistsError returns an error indicating that a frame of the given name already exists.
 func NewFrameAlreadyExistsError(frameName string) error {
 	return errors.Errorf("frame with name %q already in frame system", frameName)
+}
+
+// NewIncorrectInputLengthError returns an error indicating that the length of the Innput array does not match the DoF of the frame
+func NewIncorrectInputLengthError(actual, expected int) error {
+	return errors.Errorf("incorrect number of inputs to transform, expected %d but got %d", expected, actual)
 }

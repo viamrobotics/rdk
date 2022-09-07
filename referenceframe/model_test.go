@@ -68,6 +68,21 @@ func TestTransform(t *testing.T) {
 	test.That(t, firstJov.OZ, test.ShouldAlmostEqual, firstJovExpect.OZ)
 }
 
+func TestIncorrectInputs(t *testing.T) {
+	m, err := ParseModelJSONFile(utils.ResolveFile("component/arm/trossen/wx250s_kinematics.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	// test incorrect number of inputs
+	pose, err := m.Transform(make([]Input, len(m.DoF())+1))
+	test.That(t, pose, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// test incorrect number of inputs to Geometries
+	gf, err := m.Geometries(make([]Input, len(m.DoF())-1))
+	test.That(t, gf, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
+}
+
 func TestModelGeometries(t *testing.T) {
 	// build a test model
 	offset := spatial.NewPoseFromPoint(r3.Vector{0, 0, 10})

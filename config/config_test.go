@@ -18,7 +18,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/spatialmath"
 	// board attribute converters.
 	_ "go.viam.com/rdk/component/board/fake"
 	// motor attribute converters.
@@ -27,6 +26,7 @@ import (
 	_ "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -42,7 +42,7 @@ func TestConfigRobot(t *testing.T) {
 
 	// test that gripper geometry is being added correctly
 	component := cfg.FindComponent("pieceGripper")
-	bc, err := spatialmath.NewBoxCreator(r3.Vector{1, 2, 3}, spatialmath.NewPoseFromPoint(r3.Vector{4, 5, 6}))
+	bc, _ := spatialmath.NewBoxCreator(r3.Vector{1, 2, 3}, spatialmath.NewPoseFromPoint(r3.Vector{4, 5, 6}))
 	test.That(t, component.Frame.Geometry, test.ShouldResemble, bc)
 }
 

@@ -56,7 +56,7 @@ func NewOrientationConfig(o Orientation) (*OrientationConfig, error) {
 func (config *OrientationConfig) ParseConfig() (Orientation, error) {
 	var err error
 	// use the type to unmarshal the value
-	switch OrientationType(config.Type) {
+	switch config.Type {
 	case NoOrientationType:
 		return NewZeroOrientation(), nil
 	case OrientationVectorDegreesType:
