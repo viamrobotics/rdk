@@ -186,7 +186,7 @@ func (sf *staticFrame) Name() string {
 // Transform returns the pose associated with this static referenceframe.
 func (sf *staticFrame) Transform(input []Input) (spatial.Pose, error) {
 	if len(input) != 0 {
-		return nil, fmt.Errorf("given input length %q does not match frame DoF 0", len(input))
+		return nil, NewIncorrectInputLengthError(len(input), 0)
 	}
 	return sf.transform, nil
 }
@@ -207,7 +207,7 @@ func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", sf)
 	}
 	if len(input) != 0 {
-		return nil, fmt.Errorf("given input length %q does not match frame DoF 0", len(input))
+		return nil, NewIncorrectInputLengthError(len(input), 0)
 	}
 	m := make(map[string]spatial.Geometry)
 	m[sf.Name()] = sf.geometryCreator.NewGeometry(spatial.NewZeroPose())
@@ -268,7 +268,7 @@ func (pf *translationalFrame) Name() string {
 func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	var err error
 	if len(input) != 1 {
-		return nil, fmt.Errorf("given input length %d does not match frame DoF %d", len(input), 1)
+		return nil, NewIncorrectInputLengthError(len(input), 1)
 	}
 
 	// We allow out-of-bounds calculations, but will return a non-nil error
@@ -354,7 +354,7 @@ func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, err
 func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	var err error
 	if len(input) != 1 {
-		return nil, fmt.Errorf("given input length %d does not match frame DoF 1", len(input))
+		return nil, NewIncorrectInputLengthError(len(input), 1)
 	}
 	// We allow out-of-bounds calculations, but will return a non-nil error
 	if input[0].Value < rf.limit[0].Min || input[0].Value > rf.limit[0].Max {
@@ -438,7 +438,7 @@ func (mf *mobile2DFrame) Name() string {
 func (mf *mobile2DFrame) Transform(input []Input) (spatial.Pose, error) {
 	var errAll error
 	if len(input) != len(mf.limit) {
-		return nil, fmt.Errorf("given input length %d does not match frame DoF %d", len(input), len(mf.limit))
+		return nil, NewIncorrectInputLengthError(len(input), len(mf.limit))
 	}
 	// We allow out-of-bounds calculations, but will return a non-nil error
 	for i, lim := range mf.limit {
