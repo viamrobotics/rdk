@@ -160,7 +160,7 @@ func TestMovementWithGripper(t *testing.T) {
 
 	// linearly plan with the gripper
 	motionConfig := make(map[string]interface{})
-	motionConfig["motion_profile"] = "linear"
+	motionConfig["motion_profile"] = LinearMotionProfile
 	solution, err := sf.planSingleWaypoint(context.Background(), zeroPosition, goal, nil, motionConfig)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
