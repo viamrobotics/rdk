@@ -43,17 +43,31 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
+var (
+	cameraValidationMaxTimeoutSec = 30 // reconfigurable for testing
+	dialMaxTimeoutSec             = 5  // reconfigurable for testing
+)
+
 const (
-	defaultDataRateMs             = 200
-	defaultMapRateSec             = 60
-	cameraValidationMaxTimeoutSec = 30
-	cameraValidationIntervalSec   = 1.
-	dialMaxTimeoutSec             = 5
+	defaultDataRateMs           = 200
+	minDataRateMs               = 200
+	defaultMapRateSec           = 60
+	cameraValidationIntervalSec = 1.
 	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	// time format for the slam service.
 	slamTimeFormat        = "2006-01-02T15_04_05.0000"
 	opTimeoutErrorMessage = "bad scan: OpTimeout"
 )
+
+// SetCameraValidationMaxTimeoutSecForTesting sets cameraValidationMaxTimeoutSec for testing.
+func SetCameraValidationMaxTimeoutSecForTesting(val int) {
+	cameraValidationMaxTimeoutSec = val
+}
+
+// SetDialMaxTimeoutSecForTesting sets dialMaxTimeoutSec for testing.
+func SetDialMaxTimeoutSecForTesting(val int) {
+	dialMaxTimeoutSec = val
+}
 
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
 func init() {
@@ -178,6 +192,10 @@ func runtimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) (mode, 
 		}
 	}
 
+	if svcConfig.DataRateMs != 0 && svcConfig.DataRateMs < minDataRateMs {
+		return "", errors.Errorf("cannot specify data_rate_ms less than %v", minDataRateMs)
+	}
+
 	return slamMode, nil
 }
 
@@ -221,7 +239,7 @@ func runtimeServiceValidation(
 		}
 
 		// This takes about 5 seconds, so the timeout should be sufficient.
-		if time.Since(startTime) >= cameraValidationMaxTimeoutSec*time.Second {
+		if time.Since(startTime) >= time.Duration(cameraValidationMaxTimeoutSec)*time.Second {
 			return errors.Wrap(err, "error getting data in desired mode")
 		}
 		if !goutils.SelectContextOrWait(ctx, cameraValidationIntervalSec*time.Second) {
@@ -353,7 +371,7 @@ func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) 
 	defer span.End()
 
 	// This takes about 1 second, so the timeout should be sufficient.
-	ctx, timeoutCancel := context.WithTimeout(ctx, dialMaxTimeoutSec*time.Second)
+	ctx, timeoutCancel := context.WithTimeout(ctx, time.Duration(dialMaxTimeoutSec)*time.Second)
 	defer timeoutCancel()
 	// The 'port' provided in the config is already expected to include "localhost:", if needed, so that it doesn't need to be
 	// added anywhere in the code. This will allow cloud-based SLAM processing to exist in the future.
@@ -574,6 +592,7 @@ func (slamSvc *slamService) StartDataProcess(
 		if !errors.Is(err, context.Canceled) {
 			slamSvc.logger.Errorw("unexpected error in SLAM service", "error", err)
 		}
+		slamSvc.activeBackgroundWorkers.Done()
 		return
 	}
 	goutils.PanicCapturingGo(func() {
@@ -593,18 +612,29 @@ func (slamSvc *slamService) StartDataProcess(
 			case <-cancelCtx.Done():
 				return
 			case <-ticker.C:
-				switch slamSvc.slamLib.AlgoType {
-				case dense:
-					if _, err := slamSvc.getAndSaveDataDense(cancelCtx, cams); err != nil {
-						slamSvc.logger.Warn(err)
+				slamSvc.activeBackgroundWorkers.Add(1)
+				if err := cancelCtx.Err(); err != nil {
+					if !errors.Is(err, context.Canceled) {
+						slamSvc.logger.Errorw("unexpected error in SLAM service", "error", err)
 					}
-				case sparse:
-					if _, err := slamSvc.getAndSaveDataSparse(cancelCtx, cams, camStreams); err != nil {
-						slamSvc.logger.Warn(err)
-					}
-				default:
-					slamSvc.logger.Warnw("warning invalid algorithm specified", "algorithm", slamSvc.slamLib.AlgoType)
+					slamSvc.activeBackgroundWorkers.Done()
+					return
 				}
+				goutils.PanicCapturingGo(func() {
+					defer slamSvc.activeBackgroundWorkers.Done()
+					switch slamSvc.slamLib.AlgoType {
+					case dense:
+						if _, err := slamSvc.getAndSaveDataDense(cancelCtx, cams); err != nil {
+							slamSvc.logger.Warn(err)
+						}
+					case sparse:
+						if _, err := slamSvc.getAndSaveDataSparse(cancelCtx, cams, camStreams); err != nil {
+							slamSvc.logger.Warn(err)
+						}
+					default:
+						slamSvc.logger.Warnw("warning invalid algorithm specified", "algorithm", slamSvc.slamLib.AlgoType)
+					}
+				})
 			}
 		}
 	})
@@ -751,6 +781,7 @@ func (slamSvc *slamService) getSimultaneousColorAndDepth(
 			if !errors.Is(err, context.Canceled) {
 				slamSvc.logger.Errorw("unexpected error in SLAM service", "error", err)
 			}
+			slamSvc.activeBackgroundWorkers.Done()
 			return images, err
 		}
 		iLoop := i
