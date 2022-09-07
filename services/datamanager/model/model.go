@@ -23,7 +23,7 @@ import (
 
 const appAddress = "app.viam.com:443"
 
-// Standard file compression file type for Unix/Linux/MacOS. -- update comment
+// Standard file compression file type for Unix/Linux/MacOS. -- update comment.
 const zipExtension = ".zip"
 
 // Model describes a model we want to download to the robot.
@@ -161,7 +161,7 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 				}
 				// A download from a GCS signed URL only returns one file.
 				modelFileToUnzip := model.Name + zipExtension
-				if err = unzipSource(modelFileToUnzip, model.Destination, m.logger); err != nil {
+				if err = unzipSource(modelFileToUnzip, model.Destination); err != nil {
 					m.logger.Error(err)
 				}
 			}
@@ -222,6 +222,7 @@ func downloadFile(cancelCtx context.Context, client HTTPClient, filepath, url st
 	}()
 
 	s := filepath + zipExtension
+	//nolint:gosec
 	out, err := os.Create(s)
 	if err != nil {
 		return err
@@ -238,24 +239,26 @@ func downloadFile(cancelCtx context.Context, client HTTPClient, filepath, url st
 }
 
 // UnzipSource unzips all files inside a zip file.
-func unzipSource(fileName, destination string, logger golog.Logger) error {
+func unzipSource(fileName, destination string) error {
 	zipReader, err := zip.OpenReader(filepath.Join(destination, fileName))
 	if err != nil {
 		return err
 	}
 	for _, f := range zipReader.File {
-		if err := unzipFile(f, destination, logger); err != nil {
+		if err := unzipFile(f, destination); err != nil {
 			return err
 		}
 	}
 	if err = zipReader.Close(); err != nil {
 		return err
 	}
-	os.Remove(filepath.Join(destination, fileName))
+	if err = os.Remove(filepath.Join(destination, fileName)); err != nil {
+		return err
+	}
 	return nil
 }
 
-func unzipFile(f *zip.File, destination string, logger golog.Logger) error {
+func unzipFile(f *zip.File, destination string) error {
 	// TODO: DATA-307, We should be passing in the context to any operations that can take several seconds,
 	// which includes unzipFile. As written, this can block .Close for an unbounded amount of time.
 	//nolint:gosec
