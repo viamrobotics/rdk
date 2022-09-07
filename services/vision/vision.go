@@ -75,8 +75,10 @@ type Service interface {
 	GetClassifications(ctx context.Context, img image.Image, classifierName string, n int) (classification.Classifications, error)
 	// segmenter methods
 	GetSegmenterNames(ctx context.Context) ([]string, error)
+	AddSegmenter(ctx context.Context, cfg VisModelConfig) error
+	RemoveSegmenter(ctx context.Context, segmenterName string) error
 	GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
-	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string, params config.AttributeMap) ([]*viz.Object, error)
+	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string) ([]*viz.Object, error)
 }
 
 var (
@@ -345,7 +347,22 @@ func (vs *visionService) GetSegmenterNames(ctx context.Context) ([]string, error
 	return vs.modReg.SegmenterNames(), nil
 }
 
-// GetSegmenterParameters returns a list of parameter name and type for the necessary parameters of the chosen segmenter.
+// AddSegmenter adds a new segmenter from an Attribute config struct.
+func (vs *visionService) AddSegmenter(ctx context.Context, cfg VisModelConfig) error {
+	ctx, span := trace.StartSpan(ctx, "service::vision::AddSegmenter")
+	defer span.End()
+	attrs := &Attributes{ModelRegistry: []VisModelConfig{cfg}}
+	return registerNewVisModels(ctx, vs.modReg, attrs, vs.logger)
+}
+
+// RemoveSegmenter removes a segmenter from the registry.
+func (vs *visionService) RemoveSegmenter(ctx context.Context, segmenterName string) error {
+	_, span := trace.StartSpan(ctx, "service::vision::RemoveSegmenter")
+	defer span.End()
+	return vs.modReg.removeVisModel(segmenterName, vs.logger)
+}
+
+// GetSegmenterParameters returns a list of parameter name and type for the necessary parameters of the chosen segmenter type.
 func (vs *visionService) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::GetSegmenterParameters")
 	defer span.End()
@@ -359,8 +376,8 @@ func (vs *visionService) GetSegmenterParameters(ctx context.Context, segmenterNa
 // GetObjectPointClouds returns all the found objects in a 3D image according to the chosen segmenter.
 func (vs *visionService) GetObjectPointClouds(
 	ctx context.Context,
-	cameraName, segmenterName string,
-	params config.AttributeMap,
+	cameraName string,
+	segmenterName string,
 ) ([]*viz.Object, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetObjectPointClouds")
 	defer span.End()
@@ -376,7 +393,7 @@ func (vs *visionService) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	return segmenter(ctx, cam, params)
+	return segmenter(ctx, cam)
 }
 
 // Helpers
@@ -492,14 +509,25 @@ func (svc *reconfigurableVision) GetSegmenterParameters(ctx context.Context, seg
 	return svc.actual.GetSegmenterParameters(ctx, segmenterName)
 }
 
+func (svc *reconfigurableVision) AddSegmenter(ctx context.Context, cfg VisModelConfig) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.AddSegmenter(ctx, cfg)
+}
+
+func (svc *reconfigurableVision) RemoveSegmenter(ctx context.Context, segmenterName string) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.RemoveSegmenter(ctx, segmenterName)
+}
+
 func (svc *reconfigurableVision) GetObjectPointClouds(ctx context.Context,
 	cameraName,
 	segmenterName string,
-	params config.AttributeMap,
 ) ([]*viz.Object, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetObjectPointClouds(ctx, cameraName, segmenterName, params)
+	return svc.actual.GetObjectPointClouds(ctx, cameraName, segmenterName)
 }
 
 func (svc *reconfigurableVision) Close(ctx context.Context) error {

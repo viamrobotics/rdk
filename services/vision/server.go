@@ -336,6 +336,46 @@ func (server *subtypeServer) GetSegmenterParameters(
 	}, nil
 }
 
+func (server *subtypeServer) AddSegmenter(
+	ctx context.Context,
+	req *pb.AddSegmenterRequest,
+) (*pb.AddSegmenterResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::AddSegmenter")
+	defer span.End()
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	params := config.AttributeMap(req.SegmenterParameters.AsMap())
+	cfg := VisModelConfig{
+		Name:       req.SegmenterName,
+		Type:       req.SegmenterModelType,
+		Parameters: params,
+	}
+	err = svc.AddSegmenter(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.AddSegmenterResponse{}, nil
+}
+
+func (server *subtypeServer) RemoveSegmenter(
+	ctx context.Context,
+	req *pb.RemoveSegmenterRequest,
+) (*pb.RemoveSegmenterResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::RemoveSegmenter")
+	defer span.End()
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	err = svc.RemoveSegmenter(ctx, req.SegmenterName)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.RemoveSegmenterResponse{}, nil
+}
+
 // GetObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned. Also returns a Vector3 array of the center points of each object.
 func (server *subtypeServer) GetObjectPointClouds(
@@ -346,8 +386,7 @@ func (server *subtypeServer) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	conf := config.AttributeMap(req.Parameters.AsMap())
-	objects, err := svc.GetObjectPointClouds(ctx, req.CameraName, req.SegmenterName, conf)
+	objects, err := svc.GetObjectPointClouds(ctx, req.CameraName, req.SegmenterName)
 	if err != nil {
 		return nil, err
 	}
