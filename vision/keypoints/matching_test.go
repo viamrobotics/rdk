@@ -4,11 +4,10 @@ import (
 	"image"
 	"image/draw"
 	"math"
-	"sort"
+	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
@@ -41,58 +40,75 @@ func TestRangeInt(t *testing.T) {
 	test.That(t, r3[2], test.ShouldEqual, 6)
 }
 
-func TestMatchKeypoints(t *testing.T) {
+func TestMatchDescriptors(t *testing.T) {
 	logger := golog.NewTestLogger(t)
+	tempDir, err := os.MkdirTemp("", "matching_keypoints")
+	test.That(t, err, test.ShouldBeNil)
+
+	logger.Infof("writing sample points to %s", tempDir)
 	// load config
 	cfg := LoadFASTConfiguration("kpconfig.json")
 	// load image from artifacts and convert to gray image
 	im, err := rimage.NewImageFromFile(artifact.MustPath("vision/keypoints/chess3.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 	// Convert to grayscale image
-	bounds := im.Bounds()
-	w, h := bounds.Max.X, bounds.Max.Y
-	imGray := image.NewGray(image.Rect(0, 0, w, h))
-	draw.Draw(imGray, imGray.Bounds(), im, im.Bounds().Min, draw.Src)
+	imGray := rimage.MakeGray(im)
 	fastKps := NewFASTKeypointsFromImage(imGray, cfg)
-
-	// load BRIEF cfg
-	cfgBrief := LoadBRIEFConfiguration("brief.json")
-	briefDescriptors, err := ComputeBRIEFDescriptors(imGray, fastKps, cfgBrief)
+	t.Logf("number of keypoints in img 1: %d", len(fastKps.Points))
+	keyPtsImg := PlotKeypoints(imGray, fastKps.Points)
+	err = rimage.WriteImageToFile(tempDir+"/chessKps_1.png", keyPtsImg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(briefDescriptors), test.ShouldEqual, len(fastKps.Points))
 
 	// image 2
 	// load image from artifacts and convert to gray image
 	im2, err := rimage.NewImageFromFile(artifact.MustPath("vision/keypoints/chess.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 	// Convert to grayscale image
-	bounds2 := im2.Bounds()
-	w2, h2 := bounds2.Max.X, bounds2.Max.Y
-	imGray2 := image.NewGray(image.Rect(0, 0, w2, h2))
-	draw.Draw(imGray2, imGray2.Bounds(), im2, im2.Bounds().Min, draw.Src)
+	imGray2 := rimage.MakeGray(im2)
 	fastKps2 := NewFASTKeypointsFromImage(imGray2, cfg)
+	t.Logf("number of keypoints in img 2: %d", len(fastKps2.Points))
+	keyPtsImg2 := PlotKeypoints(imGray2, fastKps2.Points)
+	err = rimage.WriteImageToFile(tempDir+"/chessKps_2.png", keyPtsImg2)
+	test.That(t, err, test.ShouldBeNil)
 
 	// load BRIEF cfg
-	briefDescriptors2, err := ComputeBRIEFDescriptors(imGray2, fastKps2, cfgBrief)
+	cfgBrief := LoadBRIEFConfiguration("brief.json")
+	samplePoints := GenerateSamplePairs(cfgBrief.Sampling, cfgBrief.N, cfgBrief.PatchSize)
+
+	briefDescriptors, err := ComputeBRIEFDescriptors(imGray, samplePoints, fastKps, cfgBrief)
+	t.Logf("number of descriptors in img 1: %d", len(briefDescriptors))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(briefDescriptors), test.ShouldEqual, len(fastKps.Points))
+
+	briefDescriptors2, err := ComputeBRIEFDescriptors(imGray2, samplePoints, fastKps2, cfgBrief)
+	t.Logf("number of descriptors in img 2: %d", len(briefDescriptors2))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(briefDescriptors2), test.ShouldEqual, len(fastKps2.Points))
 	// matches
 	cfgMatch := MatchingConfig{
-		false,
-		1000,
+		true,
+		400,
 	}
 	// test matches with itself
-	matches := MatchKeypoints(briefDescriptors, briefDescriptors, &cfgMatch, logger)
-	for _, match := range matches.Indices {
+	matches := MatchDescriptors(briefDescriptors, briefDescriptors, &cfgMatch, logger)
+	t.Logf("number of matches in img 1: %d", len(matches))
+	matchedKps1, matchedKps2, err := GetMatchingKeyPoints(matches, fastKps.Points, fastKps.Points)
+	test.That(t, err, test.ShouldBeNil)
+	matchedLinesImg := PlotMatchedLines(imGray, imGray, matchedKps1, matchedKps2, false)
+	err = rimage.WriteImageToFile(tempDir+"/matched_chess.png", matchedLinesImg)
+	test.That(t, err, test.ShouldBeNil)
+	for _, match := range matches {
 		test.That(t, match.Idx1, test.ShouldEqual, match.Idx2)
 	}
-	// test matches with bigger image
-	matches2 := MatchKeypoints(briefDescriptors, briefDescriptors2, &cfgMatch, logger)
-	test.That(t, len(matches2.Indices), test.ShouldEqual, len(matches2.Descriptors1))
 	// test matches with bigger image and cross-check; #matches <= #kps2
-	cfgMatch.DoCrossCheck = true
-	matches3 := MatchKeypoints(briefDescriptors, briefDescriptors2, &cfgMatch, logger)
-	test.That(t, len(matches3.Indices), test.ShouldBeLessThanOrEqualTo, len(fastKps2.Points))
+	matches = MatchDescriptors(briefDescriptors, briefDescriptors2, &cfgMatch, logger)
+	t.Logf("number of matches in img 1 vs img 2: %d", len(matches))
+	test.That(t, len(matches), test.ShouldBeLessThanOrEqualTo, len(fastKps2.Points))
+	matchedKps1, matchedKps2, err = GetMatchingKeyPoints(matches, fastKps.Points, fastKps2.Points)
+	test.That(t, err, test.ShouldBeNil)
+	matchedLinesImg = PlotMatchedLines(imGray, imGray2, matchedKps1, matchedKps2, false)
+	err = rimage.WriteImageToFile(tempDir+"/bigger_matched_chess.png", matchedLinesImg)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestGetMatchingKeyPoints(t *testing.T) {
@@ -108,10 +124,11 @@ func TestGetMatchingKeyPoints(t *testing.T) {
 	w, h := bounds.Max.X, bounds.Max.Y
 	imGray := image.NewGray(image.Rect(0, 0, w, h))
 	draw.Draw(imGray, imGray.Bounds(), im, im.Bounds().Min, draw.Src)
-	descs, kps, err := ComputeORBKeypoints(imGray, cfg)
+	samplePoints := GenerateSamplePairs(cfg.BRIEFConf.Sampling, cfg.BRIEFConf.N, cfg.BRIEFConf.PatchSize)
+	descs, kps, err := ComputeORBKeypoints(imGray, samplePoints, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(descs), test.ShouldEqual, 137)
-	test.That(t, len(kps), test.ShouldEqual, 137)
+	test.That(t, len(descs), test.ShouldEqual, 58)
+	test.That(t, len(kps), test.ShouldEqual, 58)
 
 	// get matches
 	cfgMatch := MatchingConfig{
@@ -119,14 +136,13 @@ func TestGetMatchingKeyPoints(t *testing.T) {
 		1000,
 	}
 	// test matches with itself
-	matches := MatchKeypoints(descs, descs, &cfgMatch, logger)
+	matches := MatchDescriptors(descs, descs, &cfgMatch, logger)
 
 	kps1, kps2, err := GetMatchingKeyPoints(matches, kps, kps)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(kps1), test.ShouldEqual, len(kps2))
 	for i, pt1 := range kps1 {
 		pt2 := kps2[i]
-		// test.That(t, pt1, test.ShouldResemble, pt2)
 		test.That(t, math.Abs(float64(pt1.X-pt2.X)), test.ShouldBeLessThan, 1)
 		test.That(t, math.Abs(float64(pt1.Y-pt2.Y)), test.ShouldBeLessThan, 1)
 	}
@@ -140,15 +156,15 @@ func TestOrbMatching(t *testing.T) {
 		FastConf: &FASTConfig{
 			NMatchesCircle: 9,
 			NMSWinSize:     7,
-			Threshold:      .10,
+			Threshold:      20,
 			Oriented:       true,
 			Radius:         16,
 		},
 		BRIEFConf: &BRIEFConfig{
-			N:              256,
+			N:              512,
 			Sampling:       2,
 			UseOrientation: true,
-			PatchSize:      16,
+			PatchSize:      48,
 		},
 	}
 	matchingConf := &MatchingConfig{
@@ -161,44 +177,14 @@ func TestOrbMatching(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	im1 := rimage.MakeGray(img1)
 	im2 := rimage.MakeGray(img2)
+	samplePoints := GenerateSamplePairs(orbConf.BRIEFConf.Sampling, orbConf.BRIEFConf.N, orbConf.BRIEFConf.PatchSize)
 	// image 1
-	orb1, kps1, err := ComputeORBKeypoints(im1, orbConf)
-	test.That(t, err, test.ShouldBeNil)
-	orb1, err = sortDescriptorsByPoint(orb1, kps1)
+	orb1, _, err := ComputeORBKeypoints(im1, samplePoints, orbConf)
 	test.That(t, err, test.ShouldBeNil)
 	// image 2
-	orb2, kps2, err := ComputeORBKeypoints(im2, orbConf)
+	orb2, _, err := ComputeORBKeypoints(im2, samplePoints, orbConf)
 	test.That(t, err, test.ShouldBeNil)
-	orb2, err = sortDescriptorsByPoint(orb2, kps2)
-	test.That(t, err, test.ShouldBeNil)
-	matches := MatchKeypoints(orb1, orb2, matchingConf, logger)
-	test.That(t, len(matches.Indices), test.ShouldBeGreaterThan, 300)
-	test.That(t, len(matches.Indices), test.ShouldBeLessThan, 350)
-}
-
-func sortDescriptorsByPoint(desc Descriptors, kps KeyPoints) (Descriptors, error) {
-	if len(desc) != len(kps) {
-		return nil, errors.Errorf("number of descriptors (%d) does not equal number of keypoints (%d)", len(desc), len(kps))
-	}
-	// sort by point order
-	type ptdesc struct {
-		Kp  image.Point
-		Des Descriptor
-	}
-
-	sorted := make([]ptdesc, 0, len(kps))
-	for i := range kps {
-		sorted = append(sorted, ptdesc{kps[i], desc[i]})
-	}
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].Kp.X > sorted[j].Kp.X
-	})
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].Kp.Y > sorted[j].Kp.Y
-	})
-	sortedDesc := make(Descriptors, 0, len(desc))
-	for i := range sorted {
-		sortedDesc = append(sortedDesc, sorted[i].Des)
-	}
-	return sortedDesc, nil
+	matches := MatchDescriptors(orb1, orb2, matchingConf, logger)
+	test.That(t, len(matches), test.ShouldBeGreaterThan, 300)
+	test.That(t, len(matches), test.ShouldBeLessThan, 350)
 }
