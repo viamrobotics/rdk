@@ -18,7 +18,7 @@ func TestRGBDToPointCloud(t *testing.T) {
 	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("transform/align-test-1615761793.png"))
 	test.That(t, err, test.ShouldBeNil)
 
-	// from robots/config/gripper-cam.json
+	// from experimentation
 	config := &AlignConfig{
 		ColorInputSize:  image.Point{1024, 768},
 		ColorWarpPoints: []image.Point{{604, 575}, {695, 115}},
@@ -61,7 +61,7 @@ func TestWarpPointsTo3D(t *testing.T) {
 	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("transform/align-test-1615761793.png"))
 	test.That(t, err, test.ShouldBeNil)
 
-	// from robots/config/gripper-cam.json
+	// from experimentation
 	config := &AlignConfig{
 		ColorInputSize:  image.Point{1024, 768},
 		ColorWarpPoints: []image.Point{{604, 575}, {695, 115}},

@@ -10,7 +10,7 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/service/sensors/v1"
 	"go.viam.com/rdk/registry"

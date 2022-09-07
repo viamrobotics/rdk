@@ -26,7 +26,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	pc "go.viam.com/rdk/pointcloud"
 	v1 "go.viam.com/rdk/proto/api/common/v1"
@@ -45,7 +45,7 @@ import (
 
 var (
 	cameraValidationMaxTimeoutSec = 30 // reconfigurable for testing
-	dialMaxTimeoutSec             = 5  // reconfigurable for testing
+	dialMaxTimeoutSec             = 30 // reconfigurable for testing
 )
 
 const (
