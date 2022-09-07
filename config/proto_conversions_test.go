@@ -3,6 +3,7 @@ package config
 import (
 	"testing"
 
+	pb "go.viam.com/api/proto/viam/app/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -74,67 +75,83 @@ func TestComponentConfigToProto(t *testing.T) {
 }
 
 func TestRemoteConfigToProto(t *testing.T) {
-	remote := Remote{
-		Name:    "some-name",
-		Address: "localohst:8080",
-		Prefix:  true,
-		Frame: &Frame{
-			Parent: "world",
-			Translation: spatial.TranslationConfig{
-				X: 1,
-				Y: 2,
-				Z: 3,
+	t.Run("With RemoteAuth", func(t *testing.T) {
+		remote := Remote{
+			Name:    "some-name",
+			Address: "localohst:8080",
+			Prefix:  true,
+			Frame: &Frame{
+				Parent: "world",
+				Translation: spatial.TranslationConfig{
+					X: 1,
+					Y: 2,
+					Z: 3,
+				},
+				Orientation: spatial.NewOrientationVector(),
 			},
-			Orientation: spatial.NewOrientationVector(),
-		},
-		Auth: RemoteAuth{
-			Entity: "some-entity",
-			Credentials: &rpc.Credentials{
-				Type:    rpc.CredentialsTypeAPIKey,
-				Payload: "payload",
-			},
-		},
-		ManagedBy:               "managed-by",
-		Insecure:                true,
-		ConnectionCheckInterval: 1000000000,
-		ReconnectInterval:       2000000000,
-		ServiceConfig: []ResourceLevelServiceConfig{
-			{
-				Type: "some-type-1",
-				Attributes: AttributeMap{
-					"attr1": 1,
+			Auth: RemoteAuth{
+				Entity: "some-entity",
+				Credentials: &rpc.Credentials{
+					Type:    rpc.CredentialsTypeAPIKey,
+					Payload: "payload",
 				},
 			},
-			{
-				Type: "some-type-2",
-				Attributes: AttributeMap{
-					"attr1": 1,
+			ManagedBy:               "managed-by",
+			Insecure:                true,
+			ConnectionCheckInterval: 1000000000,
+			ReconnectInterval:       2000000000,
+			ServiceConfig: []ResourceLevelServiceConfig{
+				{
+					Type: "some-type-1",
+					Attributes: AttributeMap{
+						"attr1": 1,
+					},
+				},
+				{
+					Type: "some-type-2",
+					Attributes: AttributeMap{
+						"attr1": 1,
+					},
 				},
 			},
-		},
-	}
+		}
 
-	proto, err := RemoteConfigToProto(&remote)
-	test.That(t, err, test.ShouldBeNil)
+		proto, err := RemoteConfigToProto(&remote)
+		test.That(t, err, test.ShouldBeNil)
 
-	out, err := RemoteConfigFromProto(proto)
-	test.That(t, err, test.ShouldBeNil)
+		out, err := RemoteConfigFromProto(proto)
+		test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, out.Name, test.ShouldEqual, remote.Name)
-	test.That(t, out.Address, test.ShouldEqual, remote.Address)
-	test.That(t, out.Prefix, test.ShouldEqual, remote.Prefix)
-	test.That(t, out.ManagedBy, test.ShouldEqual, remote.ManagedBy)
-	test.That(t, out.Insecure, test.ShouldEqual, remote.Insecure)
-	test.That(t, out.ReconnectInterval, test.ShouldEqual, remote.ReconnectInterval)
-	test.That(t, out.ConnectionCheckInterval, test.ShouldEqual, remote.ConnectionCheckInterval)
-	test.That(t, out.Auth, test.ShouldResemble, remote.Auth)
-	test.That(t, out.Frame, test.ShouldResemble, remote.Frame)
+		test.That(t, out.Name, test.ShouldEqual, remote.Name)
+		test.That(t, out.Address, test.ShouldEqual, remote.Address)
+		test.That(t, out.Prefix, test.ShouldEqual, remote.Prefix)
+		test.That(t, out.ManagedBy, test.ShouldEqual, remote.ManagedBy)
+		test.That(t, out.Insecure, test.ShouldEqual, remote.Insecure)
+		test.That(t, out.ReconnectInterval, test.ShouldEqual, remote.ReconnectInterval)
+		test.That(t, out.ConnectionCheckInterval, test.ShouldEqual, remote.ConnectionCheckInterval)
+		test.That(t, out.Auth, test.ShouldResemble, remote.Auth)
+		test.That(t, out.Frame, test.ShouldResemble, remote.Frame)
 
-	test.That(t, out.ServiceConfig, test.ShouldHaveLength, 2)
-	test.That(t, out.ServiceConfig[0].Type, test.ShouldEqual, remote.ServiceConfig[0].Type)
-	test.That(t, out.ServiceConfig[0].Attributes.Int("attr1", 0), test.ShouldEqual, remote.ServiceConfig[0].Attributes.Int("attr1", -1))
-	test.That(t, out.ServiceConfig[1].Type, test.ShouldEqual, remote.ServiceConfig[1].Type)
-	test.That(t, out.ServiceConfig[1].Attributes.Int("attr1", 0), test.ShouldEqual, remote.ServiceConfig[1].Attributes.Int("attr1", -1))
+		test.That(t, out.ServiceConfig, test.ShouldHaveLength, 2)
+		test.That(t, out.ServiceConfig[0].Type, test.ShouldEqual, remote.ServiceConfig[0].Type)
+		test.That(t, out.ServiceConfig[0].Attributes.Int("attr1", 0), test.ShouldEqual, remote.ServiceConfig[0].Attributes.Int("attr1", -1))
+		test.That(t, out.ServiceConfig[1].Type, test.ShouldEqual, remote.ServiceConfig[1].Type)
+		test.That(t, out.ServiceConfig[1].Attributes.Int("attr1", 0), test.ShouldEqual, remote.ServiceConfig[1].Attributes.Int("attr1", -1))
+	})
+
+	t.Run("Without RemoteAuth", func(t *testing.T) {
+		proto := pb.RemoteConfig{
+			Name:    "some-name",
+			Address: "localohst:8080",
+		}
+
+		out, err := RemoteConfigFromProto(&proto)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, out.Name, test.ShouldEqual, proto.Name)
+		test.That(t, out.Address, test.ShouldEqual, proto.Address)
+		test.That(t, out.Auth, test.ShouldResemble, RemoteAuth{})
+	})
 }
 
 func TestServiceConfigToProto(t *testing.T) {
