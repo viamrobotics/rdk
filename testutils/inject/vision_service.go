@@ -4,7 +4,6 @@ import (
 	"context"
 	"image"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
@@ -33,9 +32,7 @@ type VisionService struct {
 	// segmentation functions
 	GetSegmenterNamesFunc      func(ctx context.Context) ([]string, error)
 	GetSegmenterParametersFunc func(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
-	GetObjectPointCloudsFunc   func(ctx context.Context,
-		cameraName, segmenterName string,
-		params config.AttributeMap) ([]*viz.Object, error)
+	GetObjectPointCloudsFunc   func(ctx context.Context, cameraName, segmenterName string) ([]*viz.Object, error)
 }
 
 // GetDetectorNames calls the injected DetectorNames or the real variant.
@@ -129,12 +126,11 @@ func (vs *VisionService) GetClassifications(ctx context.Context, img image.Image
 func (vs *VisionService) GetObjectPointClouds(
 	ctx context.Context,
 	cameraName, segmenterName string,
-	params config.AttributeMap,
 ) ([]*viz.Object, error) {
 	if vs.GetObjectPointCloudsFunc == nil {
-		return vs.Service.GetObjectPointClouds(ctx, cameraName, segmenterName, params)
+		return vs.Service.GetObjectPointClouds(ctx, cameraName, segmenterName)
 	}
-	return vs.GetObjectPointCloudsFunc(ctx, cameraName, segmenterName, params)
+	return vs.GetObjectPointCloudsFunc(ctx, cameraName, segmenterName)
 }
 
 // GetSegmenterNames calls the injected GetSegmenterNames or the real variant.
