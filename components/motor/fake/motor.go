@@ -25,13 +25,16 @@ const modelName = "fake"
 
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
-	PWM string `json:"pwm"`
+	Direction string `json:"dir"`
+	PWM       string `json:"pwm"`
 }
 
 // Config describes the configuration of a motor.
 type Config struct {
 	Pins             PinConfig `json:"pins"`
 	BoardName        string    `json:"board"`
+	MinPowerPct      float64   `json:"min_power_pct,omitempty"`
+	MaxPowerPct      float64   `json:"max_power_pct,omitempty"`
 	PWMFreq          uint      `json:"pwm_freq,omitempty"`
 	Encoder          string    `json:"encoder,omitempty"`
 	MaxRPM           float64   `json:"max_rpm,omitempty"`
