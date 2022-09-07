@@ -323,7 +323,7 @@ func (server *subtypeServer) GetSegmenterParameters(
 	if err != nil {
 		return nil, err
 	}
-	params, err := svc.GetSegmenterParameters(ctx, req.SegmenterName)
+	params, err := svc.GetSegmenterParameters(ctx, req.SegmenterModelType)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +332,7 @@ func (server *subtypeServer) GetSegmenterParameters(
 		typedParams[i] = &pb.TypedParameter{Name: p.Name, Type: p.Type}
 	}
 	return &pb.GetSegmenterParametersResponse{
-		SegmenterParameters: typedParams,
+		SegmenterModelParameters: typedParams,
 	}, nil
 }
 

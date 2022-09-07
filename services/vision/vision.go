@@ -24,7 +24,6 @@ import (
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	objdet "go.viam.com/rdk/vision/objectdetection"
-	"go.viam.com/rdk/vision/segmentation"
 )
 
 func init() {
@@ -141,22 +140,13 @@ type Attributes struct {
 // New registers new detectors from the config and returns a new object detection service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
 	modMap := make(modelMap)
-	// register default segmenters
-	defSeg := registeredModel{
-		model:     segmentation.Segmenter(segmentation.RadiusClustering),
-		modelType: RCSegmenter, SegParams: utils.JSONTags(segmentation.RadiusClusteringConfig{}),
-	}
-	err := modMap.registerVisModel(RadiusClusteringSegmenter, &defSeg, logger)
-	if err != nil {
-		return nil, err
-	}
 	// register detectors and user defined things if config is defined
 	if config.ConvertedAttributes != nil {
 		attrs, ok := config.ConvertedAttributes.(*Attributes)
 		if !ok {
 			return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 		}
-		err = registerNewVisModels(ctx, modMap, attrs, logger)
+		err := registerNewVisModels(ctx, modMap, attrs, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -165,13 +155,6 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		r:      r,
 		modReg: modMap,
 		logger: logger,
-	}
-	// turn detectors into segmenters
-	for _, detName := range service.modReg.DetectorNames() {
-		err := service.registerSegmenterFromDetector(detName, logger)
-		if err != nil {
-			return nil, err
-		}
 	}
 	return service, nil
 }
@@ -195,12 +178,7 @@ func (vs *visionService) AddDetector(ctx context.Context, cfg VisModelConfig) er
 	ctx, span := trace.StartSpan(ctx, "service::vision::AddDetector")
 	defer span.End()
 	attrs := &Attributes{ModelRegistry: []VisModelConfig{cfg}}
-	err := registerNewVisModels(ctx, vs.modReg, attrs, vs.logger)
-	if err != nil {
-		return err
-	}
-	// also create a new segmenter from the detector
-	return vs.registerSegmenterFromDetector(cfg.Name, vs.logger)
+	return registerNewVisModels(ctx, vs.modReg, attrs, vs.logger)
 }
 
 // RemoveDetector removes a detector from the registry.
@@ -394,25 +372,6 @@ func (vs *visionService) GetObjectPointClouds(
 		return nil, err
 	}
 	return segmenter(ctx, cam)
-}
-
-// Helpers
-// registerSegmenterFromDetector creates and registers a segmenter from an already registered detector.
-func (vs *visionService) registerSegmenterFromDetector(detName string, logger golog.Logger) error {
-	d, err := vs.modReg.modelLookup(detName)
-	if err != nil {
-		return err
-	}
-	det, err := d.toDetector()
-	if err != nil {
-		return err
-	}
-	detSegmenter, params, err := segmentation.DetectionSegmenter(det)
-	if err != nil {
-		return err
-	}
-	regSegmenter := registeredModel{model: detSegmenter, modelType: ObjectSegmenter, SegParams: params}
-	return vs.modReg.registerVisModel(detName+"_segmenter", &regSegmenter, logger)
 }
 
 // Close removes all existing detectors from the vision service.
