@@ -25,7 +25,7 @@ func createTestImage() *image.Gray {
 func TestLoadFASTConfiguration(t *testing.T) {
 	cfg := LoadFASTConfiguration("kpconfig.json")
 	test.That(t, cfg, test.ShouldNotBeNil)
-	test.That(t, cfg.Threshold, test.ShouldEqual, 0.15)
+	test.That(t, cfg.Threshold, test.ShouldEqual, 20)
 	test.That(t, cfg.NMatchesCircle, test.ShouldEqual, 9)
 	test.That(t, cfg.NMSWinSize, test.ShouldEqual, 7)
 }
@@ -151,9 +151,9 @@ func TestComputeFAST(t *testing.T) {
 	}
 	// compute kps
 	kpsChess := ComputeFAST(imGray, cfg)
-	test.That(t, len(kpsChess), test.ShouldEqual, 100)
-	err = PlotKeypoints(imGray, kpsChess, "/tmp/keypoints2.png")
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(kpsChess), test.ShouldEqual, 28)
+	keyImg := PlotKeypoints(imGray, kpsChess)
+	test.That(t, keyImg, test.ShouldNotBeNil)
 	// test with rectangle image
 	rectImage := createTestImage()
 	kps := ComputeFAST(rectImage, cfg)
@@ -179,17 +179,15 @@ func TestNewFASTKeypointsFromImage(t *testing.T) {
 		}
 	}
 	fastKps := NewFASTKeypointsFromImage(imGray, cfg)
-	test.That(t, len(fastKps.Points), test.ShouldEqual, 100)
-	test.That(t, len(fastKps.Orientations), test.ShouldEqual, 100)
-	// value from opencv FAST orientation computation
-	test.That(t, fastKps.Orientations[0], test.ShouldAlmostEqual, 0.058798250129)
+	test.That(t, len(fastKps.Points), test.ShouldEqual, 28)
+	test.That(t, len(fastKps.Orientations), test.ShouldEqual, 28)
 	isOriented1 := fastKps.IsOriented()
 	test.That(t, isOriented1, test.ShouldBeTrue)
 
 	// test no orientation
 	cfg.Oriented = false
 	fastKpsNoOrientation := NewFASTKeypointsFromImage(imGray, cfg)
-	test.That(t, len(fastKpsNoOrientation.Points), test.ShouldEqual, 100)
+	test.That(t, len(fastKpsNoOrientation.Points), test.ShouldEqual, 28)
 	test.That(t, fastKpsNoOrientation.Orientations, test.ShouldBeNil)
 	isOriented2 := fastKpsNoOrientation.IsOriented()
 	test.That(t, isOriented2, test.ShouldBeFalse)
