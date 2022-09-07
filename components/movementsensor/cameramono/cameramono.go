@@ -84,7 +84,7 @@ func newCameraMono(
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
 	logger.Info(
-		"visual odometry with a single camera implements GetPosition, Get Orientation,GetLinearVelocity and GetAngularVelocity",
+		"visual odometry using one camera implements GetPosition, GetOrientation, GetLinearVelocity and GetAngularVelocity",
 	)
 
 	conf, ok := config.ConvertedAttributes.(*AttrConfig)
