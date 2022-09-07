@@ -149,7 +149,7 @@ func TestLineFollow(t *testing.T) {
 	// Create a frame to solve for, and an IK solver with that frame.
 	sf, err := newSolverFrame(
 		fss,
-		sFrames, 
+		sFrames,
 		goalFrame.Name(),
 		frame.StartPositions(fss),
 	)

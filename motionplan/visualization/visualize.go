@@ -35,7 +35,7 @@ func VisualizeStep(frame referenceframe.Frame, worldState *pb.WorldState, inputs
 	return visualize([]stepData{getStepData(frame, worldState, inputs)})
 }
 
-func getStepData(model referenceframe.Frame, worldState *pb.WorldState, inputs []referenceframe.Input) stepData {
+func getStepData(robot referenceframe.Frame, worldState *pb.WorldState, inputs []referenceframe.Input) stepData {
 	entities := make(map[string][][]r3.Vector)
 	if worldState != nil {
 		for i, obstacles := range worldState.Obstacles {
@@ -45,10 +45,11 @@ func getStepData(model referenceframe.Frame, worldState *pb.WorldState, inputs [
 			}
 		}
 	}
-	if model != nil && inputs != nil {
-		modelGeometries, _ := model.Geometries(inputs)
+	if robot != nil && inputs != nil {
+		modelGeometries, err := robot.Geometries(inputs)
 		if modelGeometries != nil {
 			entities["model"] = getVertices(modelGeometries)
+			_ = err
 		}
 	}
 	return entities
