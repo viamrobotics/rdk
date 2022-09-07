@@ -25,13 +25,16 @@ const modelName = "fake"
 
 // PinConfig defines the mapping of where motor are wired.
 type PinConfig struct {
-	PWM string `json:"pwm"`
+	Direction string `json:"dir"`
+	PWM       string `json:"pwm"`
 }
 
 // Config describes the configuration of a motor.
 type Config struct {
 	Pins             PinConfig `json:"pins"`
-	BoardName        string    `json:"board"` // used to get encoders
+	BoardName        string    `json:"board"`                   // used to get encoders
+	MinPowerPct      float64   `json:"min_power_pct,omitempty"` // min power percentage to allow for this motor default is 0.0
+	MaxPowerPct      float64   `json:"max_power_pct,omitempty"` // max power percentage to allow for this motor (0.06 - 1.0)
 	PWMFreq          uint      `json:"pwm_freq,omitempty"`
 	Encoder          string    `json:"encoder,omitempty"` // name of encoder
 	MaxRPM           float64   `json:"max_rpm,omitempty"` // RPM
