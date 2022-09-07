@@ -145,13 +145,28 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 
 func (c *client) Projector(ctx context.Context) (rimage.Projector, error) {
 	var proj rimage.Projector
+	props, err := c.GetProperties(ctx)
+	if err != nil {
+		return nil, err
+	}
+	intrinsics := props.IntrinsicParams
+	err = intrinsics.CheckValid()
+	if err != nil {
+		return nil, err
+	}
+	proj = intrinsics
+	return proj, nil
+}
+
+func (c *client) GetProperties(ctx context.Context) (Properties, error) {
+	result := Properties{}
 	resp, err := c.client.GetProperties(ctx, &pb.GetPropertiesRequest{
 		Name: c.name,
 	})
 	if err != nil {
-		return nil, err
+		return Properties{}, err
 	}
-	intrinsics := &transform.PinholeCameraIntrinsics{
+	result.IntrinsicParams = &transform.PinholeCameraIntrinsics{
 		Width:      int(resp.IntrinsicParameters.WidthPx),
 		Height:     int(resp.IntrinsicParameters.HeightPx),
 		Fx:         resp.IntrinsicParameters.FocalXPx,
@@ -160,12 +175,8 @@ func (c *client) Projector(ctx context.Context) (rimage.Projector, error) {
 		Ppy:        resp.IntrinsicParameters.CenterYPx,
 		Distortion: transform.DistortionModel{},
 	}
-	err = intrinsics.CheckValid()
-	if err != nil {
-		return nil, err
-	}
-	proj = intrinsics
-	return proj, nil
+	result.SupportsPCD = resp.SupportsPcd
+	return result, nil
 }
 
 func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
