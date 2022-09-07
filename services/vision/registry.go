@@ -50,6 +50,12 @@ var visModelToOpMap = map[VisModelType]VisOperation{
 	ObjectSegmenter:  VisSegmentation,
 }
 
+// modelParameters maps the segmenter types to their necessary parameters.
+var modelParameters = map[VisModelType][]utils.TypedName{
+	RCSegmenter:     utils.JSONTags(segmentation.RadiusClusteringConfig{}),
+	ObjectSegmenter: utils.JSONTags(segmentation.DetectionSegmenterConfig{}),
+}
+
 // newVisModelTypeNotImplemented is used when the model type is not implemented.
 func newVisModelTypeNotImplemented(name string) error {
 	return errors.Errorf("vision model type %q is not implemented", name)
@@ -69,7 +75,6 @@ type registeredModel struct {
 	model     interface{}
 	modelType VisModelType
 	closer    io.Closer
-	SegParams []utils.TypedName
 }
 
 func (m *registeredModel) toDetector() (objectdetection.Detector, error) {
@@ -181,8 +186,7 @@ func (mm modelMap) registerVisModel(name string, m *registeredModel, logger golo
 	}
 	if m.closer != nil {
 		mm[name] = registeredModel{
-			model: m.model, modelType: m.modelType,
-			closer: m.closer, SegParams: m.SegParams,
+			model: m.model, modelType: m.modelType, closer: m.closer,
 		}
 		return nil
 	}
@@ -191,8 +195,7 @@ func (mm modelMap) registerVisModel(name string, m *registeredModel, logger golo
 	}
 
 	mm[name] = registeredModel{
-		model: m.model, modelType: m.modelType,
-		closer: nil, SegParams: m.SegParams,
+		model: m.model, modelType: m.modelType, closer: nil,
 	}
 	return nil
 }
@@ -204,7 +207,7 @@ func registerNewVisModels(ctx context.Context, mm modelMap, attrs *Attributes, l
 	defer span.End()
 	for _, attr := range attrs.ModelRegistry {
 		logger.Debugf("adding vision model %q of type %q", attr.Name, attr.Type)
-		switch VisModelType(attr.Type) { //nolint: exhaustive
+		switch VisModelType(attr.Type) {
 		case TFLiteDetector:
 			return registerTfliteDetector(ctx, mm, &attr, logger)
 		case TFLiteClassifier:
@@ -217,7 +220,8 @@ func registerNewVisModels(ctx context.Context, mm modelMap, attrs *Attributes, l
 			return registerColorDetector(ctx, mm, &attr, logger)
 		case RCSegmenter:
 			return registerRCSegmenter(ctx, mm, &attr, logger)
-		// ObjectSegmenters are registered directly from detectors in vision.registerSegmenterFromDetector
+		case ObjectSegmenter:
+			return registerSegmenterFromDetector(ctx, mm, &attr, logger)
 		default:
 			return newVisModelTypeNotImplemented(attr.Type)
 		}

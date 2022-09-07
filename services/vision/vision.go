@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -341,14 +342,14 @@ func (vs *visionService) RemoveSegmenter(ctx context.Context, segmenterName stri
 }
 
 // GetSegmenterParameters returns a list of parameter name and type for the necessary parameters of the chosen segmenter type.
-func (vs *visionService) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
+func (vs *visionService) GetSegmenterParameters(ctx context.Context, segmenterModel string) ([]utils.TypedName, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::GetSegmenterParameters")
 	defer span.End()
-	s, err := vs.modReg.modelLookup(segmenterName)
-	if err != nil {
-		return nil, err
+	params, ok := modelParameters[VisModelType(segmenterModel)]
+	if !ok {
+		return nil, errors.Errorf("segmenter model type %s not known", segmenterModel)
 	}
-	return s.SegParams, nil
+	return params, nil
 }
 
 // GetObjectPointClouds returns all the found objects in a 3D image according to the chosen segmenter.
