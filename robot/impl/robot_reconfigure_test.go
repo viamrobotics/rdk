@@ -32,11 +32,11 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/vision"
 	rdktestutils "go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/robottestutils"
 )
 
 var serviceNames = resource.DefaultServices
@@ -2384,22 +2384,14 @@ func TestRemoteRobotsGold(t *testing.T) {
 		test.That(t, remote1.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	listener1 := testutils.ReserveRandomListener(t)
-	addr1 := listener1.Addr().String()
-	options.Network.Listener = listener1
+	options, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
 	err = remote1.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	remote2, err := New(ctx, cfg, loggerR)
 	test.That(t, err, test.ShouldBeNil)
 
-	options = weboptions.New()
-	options.Network.BindAddress = ""
-	var listener2 net.Listener = testutils.ReserveRandomListener(t)
-	addr2 := listener2.Addr().String()
-	options.Network.Listener = listener2
+	options, listener2, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
 
 	localConfig := &config.Config{
 		Components: []config.Component{

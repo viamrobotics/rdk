@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/testutils/inject"
@@ -35,7 +36,7 @@ const (
 
 var (
 	// Robot config which specifies data manager service.
-	configPath = "robots/configs/fake_robot_with_data_manager.json"
+	configPath = "services/datamanager/data/fake_robot_with_data_manager.json"
 
 	// 0.0041 mins is 246 milliseconds, this is the interval waiting time in the config file used for testing.
 	configSyncIntervalMins = 0.0041
@@ -149,6 +150,14 @@ func TestNewDataManager(t *testing.T) {
 	oldSize := oldInfo.Size()
 	test.That(t, oldSize, test.ShouldBeGreaterThan, emptyFileBytesSize)
 
+	// Check that dummy tags "a" and "b" are being wrote to metadata.
+	captureFileName := filesInArmDir[0].Name()
+	file, err := os.Open(armDir + "/" + captureFileName)
+	test.That(t, err, test.ShouldBeNil)
+	md, err := datacapture.ReadDataCaptureMetadata(file)
+	test.That(t, md.Tags[0], test.ShouldEqual, "a")
+	test.That(t, md.Tags[1], test.ShouldEqual, "b")
+
 	// When Close returns all background processes in svc should be closed, but still sleep for 100ms to verify
 	// that there's not a resource leak causing writes to still happens after Close() returns.
 	time.Sleep(captureTime)
@@ -218,7 +227,7 @@ func TestNewRemoteDataManager(t *testing.T) {
 	dmsvc := newTestDataManager(t, "localArm", "remoteArm")
 
 	// Set capture parameters in Update.
-	conf := setupConfig(t, "robots/configs/fake_robot_with_remote_and_data_manager.json")
+	conf := setupConfig(t, "services/datamanager/data/fake_robot_with_remote_and_data_manager.json")
 	defer resetFolder(t, captureDir)
 	err := dmsvc.Update(context.Background(), conf)
 	test.That(t, err, test.ShouldBeNil)

@@ -33,8 +33,7 @@ func TestPC1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// get camera matrix parameters
-	jsonFilePath := "../../robots/configs/intel515_parameters.json"
-	cameraMatrices, err := NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonFilePath)
+	cameraMatrices, err := NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)
 
 	pcCrop, err := cameraMatrices.RGBDToPointCloud(img, dm, image.Rectangle{image.Point{30, 30}, image.Point{50, 50}})
@@ -60,8 +59,7 @@ func TestPC2(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// get camera matrix parameters
-	jsonFilePath := "../../robots/configs/intel515_parameters.json"
-	colorIntrinsics, err := NewPinholeCameraIntrinsicsFromJSONFile(jsonFilePath, "color")
+	colorIntrinsics, err := NewPinholeCameraIntrinsicsFromJSONFile(intel515ParamsPath, "color")
 	test.That(t, err, test.ShouldBeNil)
 
 	pixel2meter := 0.001
@@ -79,8 +77,7 @@ func TestCameraMatrixTo3D(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// get and set camera matrix parameters
-	jsonFilePath := "../../robots/configs/intel515_parameters.json"
-	cameraMatrices, err := NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonFilePath)
+	cameraMatrices, err := NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)
 
 	// test To3D

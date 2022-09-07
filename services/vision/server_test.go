@@ -103,7 +103,7 @@ func TestServerAddDetector(t *testing.T) {
 	_, err = server.AddDetector(context.Background(), &pb.AddDetectorRequest{
 		Name:               testVisionServiceName,
 		DetectorName:       "test",
-		DetectorModelType:  "color",
+		DetectorModelType:  "color_detector",
 		DetectorParameters: params,
 	})
 	test.That(t, err, test.ShouldBeNil)
@@ -116,7 +116,20 @@ func TestServerAddDetector(t *testing.T) {
 	segRequest := &pb.GetSegmenterNamesRequest{Name: testVisionServiceName}
 	segResp, err := server.GetSegmenterNames(context.Background(), segRequest)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, segResp.GetSegmenterNames(), test.ShouldContain, "test")
+	test.That(t, segResp.GetSegmenterNames(), test.ShouldContain, "test_segmenter")
+
+	// now remove it
+	_, err = server.RemoveDetector(context.Background(), &pb.RemoveDetectorRequest{
+		Name:         testVisionServiceName,
+		DetectorName: "test",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	// check that it is gone
+	detRequest = &pb.GetDetectorNamesRequest{Name: testVisionServiceName}
+	detResp, err = server.GetDetectorNames(context.Background(), detRequest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, detResp.GetDetectorNames(), test.ShouldNotContain, "test")
+
 	// failure
 	resp, err := server.AddDetector(context.Background(), &pb.AddDetectorRequest{
 		Name:               testVisionServiceName,
@@ -169,7 +182,7 @@ func TestServerGetDetections(t *testing.T) {
 	addDetResp, err := server.AddDetector(context.Background(), &pb.AddDetectorRequest{
 		Name:               visName,
 		DetectorName:       "test",
-		DetectorModelType:  "tflite",
+		DetectorModelType:  "tflite_detector",
 		DetectorParameters: params,
 	})
 	test.That(t, err, test.ShouldBeNil)
@@ -294,4 +307,134 @@ func TestServerObjectSegmentation(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
 	}
+}
+
+func TestServerAddRemoveClassifier(t *testing.T) {
+	srv, r := createService(t, "data/empty.json")
+	m := map[resource.Name]interface{}{
+		vision.Named(testVisionServiceName): srv,
+	}
+	server, err := newServer(m)
+	test.That(t, err, test.ShouldBeNil)
+	params, err := protoutils.StructToStructPb(config.AttributeMap{
+		"model_path":  artifact.MustPath("vision/tflite/effnet0.tflite"),
+		"label_path":  "",
+		"num_threads": 2,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	// success
+	_, err = server.AddClassifier(context.Background(), &pb.AddClassifierRequest{
+		Name:                 testVisionServiceName,
+		ClassifierName:       "test",
+		ClassifierModelType:  "tflite_classifier",
+		ClassifierParameters: params,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	// did it add the classifier
+	classRequest := &pb.GetClassifierNamesRequest{Name: testVisionServiceName}
+	classResp, err := server.GetClassifierNames(context.Background(), classRequest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, classResp.GetClassifierNames(), test.ShouldContain, "test")
+
+	// now remove it
+	_, err = server.RemoveClassifier(context.Background(), &pb.RemoveClassifierRequest{
+		Name:           testVisionServiceName,
+		ClassifierName: "test",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	// check that it is gone
+	classRequest = &pb.GetClassifierNamesRequest{Name: testVisionServiceName}
+	classResp, err = server.GetClassifierNames(context.Background(), classRequest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, classResp.GetClassifierNames(), test.ShouldNotContain, "test")
+
+	// failure
+	resp, err := server.AddClassifier(context.Background(), &pb.AddClassifierRequest{
+		Name:                 testVisionServiceName,
+		ClassifierName:       "failing",
+		ClassifierModelType:  "no_such_type",
+		ClassifierParameters: params,
+	})
+	test.That(t, err.Error(), test.ShouldContainSubstring, "is not implemented")
+	test.That(t, resp, test.ShouldBeNil)
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+}
+
+func TestServerGetClassifications(t *testing.T) {
+	r := buildRobotWithFakeCamera(t)
+	visName := vision.FindFirstName(r)
+	srv, err := vision.FromRobot(r, visName)
+	test.That(t, err, test.ShouldBeNil)
+	m := map[resource.Name]interface{}{
+		vision.Named(visName): srv,
+	}
+	server, err := newServer(m)
+	test.That(t, err, test.ShouldBeNil)
+	// add a classifier
+	params, err := protoutils.StructToStructPb(config.AttributeMap{
+		"model_path":  artifact.MustPath("vision/tflite/effnet0.tflite"),
+		"label_path":  "",
+		"num_threads": 2,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	// success
+	_, err = server.AddClassifier(context.Background(), &pb.AddClassifierRequest{
+		Name:                 testVisionServiceName,
+		ClassifierName:       "test_classifier",
+		ClassifierModelType:  "tflite_classifier",
+		ClassifierParameters: params,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	// success
+	resp, err := server.GetClassificationsFromCamera(context.Background(), &pb.GetClassificationsFromCameraRequest{
+		Name:           visName,
+		CameraName:     "fake_cam2",
+		ClassifierName: "test_classifier",
+		N:              5,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Classifications, test.ShouldHaveLength, 5)
+	test.That(t, resp.Classifications[0].Confidence, test.ShouldBeGreaterThan, 0.82)
+	test.That(t, resp.Classifications[0].ClassName, test.ShouldResemble, "291")
+
+	// failure - empty request
+	_, err = server.GetClassificationsFromCamera(context.Background(), &pb.GetClassificationsFromCameraRequest{Name: testVisionServiceName})
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+
+	// test new getclassifications straight from image
+	modelLoc := artifact.MustPath("vision/tflite/effnet0.tflite")
+	params, err = protoutils.StructToStructPb(config.AttributeMap{
+		"model_path":  modelLoc,
+		"num_threads": 1,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	// success
+	addClassResp, err := server.AddClassifier(context.Background(), &pb.AddClassifierRequest{
+		Name:                 visName,
+		ClassifierName:       "test",
+		ClassifierModelType:  "tflite_classifier",
+		ClassifierParameters: params,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, addClassResp, test.ShouldNotBeNil)
+	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/lion.jpeg"))
+	test.That(t, err, test.ShouldBeNil)
+	imgBytes, err := rimage.EncodeImage(context.Background(), img, utils.MimeTypeJPEG)
+	test.That(t, err, test.ShouldBeNil)
+
+	resp2, err := server.GetClassifications(context.Background(), &pb.GetClassificationsRequest{
+		Name:           visName,
+		Image:          imgBytes,
+		Width:          int32(img.Width()),
+		Height:         int32(img.Height()),
+		MimeType:       utils.MimeTypeJPEG,
+		ClassifierName: "test",
+		N:              10,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp2.Classifications, test.ShouldNotBeNil)
+	test.That(t, resp2.Classifications, test.ShouldHaveLength, 10)
+	test.That(t, resp2.Classifications[0].ClassName, test.ShouldResemble, "291")
+	test.That(t, resp2.Classifications[0].Confidence, test.ShouldBeGreaterThan, 0.82)
 }

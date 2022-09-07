@@ -94,7 +94,7 @@ func applyAlignment(
 //nolint:dupl
 func TestAlignIntrinsics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
+	conf, err := config.Read(context.Background(), utils.ResolveFile("component/camera/videosource/data/intel.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 	c := conf.FindComponent("front")
 	test.That(t, c, test.ShouldNotBeNil)
@@ -116,7 +116,7 @@ func TestAlignIntrinsics(t *testing.T) {
 
 func TestAlignWarp(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
+	conf, err := config.Read(context.Background(), utils.ResolveFile("component/camera/videosource/data/gripper_cam.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 	c := conf.FindComponent("combined")
 	test.That(t, c, test.ShouldNotBeNil)
@@ -129,7 +129,7 @@ func TestAlignWarp(t *testing.T) {
 	attrs.Width = 448
 
 	warpParams, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
-		utils.ResolveFile("robots/configs/gripper_combo_parameters.json"), "color",
+		utils.ResolveFile("component/camera/videosource/data/gripper_combo_parameters.json"), "color",
 	)
 	test.That(t, err, test.ShouldBeNil)
 	attrs.CameraParameters = warpParams
@@ -145,7 +145,7 @@ func TestAlignWarp(t *testing.T) {
 //nolint:dupl
 func TestAlignHomography(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
+	conf, err := config.Read(context.Background(), utils.ResolveFile("component/camera/videosource/data/gripper_cam.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	c := conf.FindComponent("combined")
@@ -206,7 +206,7 @@ func (h *alignTestHelper) Process(
 func TestAlignIntelIntrinsics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	debugVideoSourceOrSkip(t)
-	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
+	config, err := config.Read(context.Background(), utils.ResolveFile("component/camera/videosource/data/intel.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("front").ConvertedAttributes.(*alignAttrs)
@@ -222,7 +222,7 @@ func TestAlignIntelIntrinsics(t *testing.T) {
 func TestAlignGripperWarp(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	debugVideoSourceOrSkip(t)
-	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
+	config, err := config.Read(context.Background(), utils.ResolveFile("component/camera/videosource/data/gripper_cam.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("combined").ConvertedAttributes.(*alignAttrs)
@@ -231,7 +231,7 @@ func TestAlignGripperWarp(t *testing.T) {
 	c.IntrinsicExtrinsic = nil
 	c.Homography = nil
 	warpParams, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
-		utils.ResolveFile("robots/configs/gripper_combo_parameters.json"), "color",
+		utils.ResolveFile("component/camera/videosource/data/gripper_combo_parameters.json"), "color",
 	)
 	test.That(t, err, test.ShouldBeNil)
 	c.CameraParameters = warpParams
@@ -243,7 +243,7 @@ func TestAlignGripperWarp(t *testing.T) {
 func TestAlignGripperHomography(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	debugVideoSourceOrSkip(t)
-	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
+	config, err := config.Read(context.Background(), utils.ResolveFile("component/camera/videosource/data/gripper_cam.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("combined").ConvertedAttributes.(*alignAttrs)

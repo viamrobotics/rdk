@@ -106,11 +106,7 @@ func TestConfigRemote(t *testing.T) {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	listener := testutils.ReserveRandomListener(t)
-	addr := listener.Addr().String()
-	options.Network.Listener = listener
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -315,11 +311,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 			}()
 
-			options := weboptions.New()
-			options.Network.BindAddress = ""
-			listener := testutils.ReserveRandomListener(t)
-			addr := listener.Addr().String()
-			options.Network.Listener = listener
+			options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 			options.Managed = tc.Managed
 			options.FQDN = tc.EntityName
 			options.LocalFQDN = primitive.NewObjectID().Hex()
@@ -546,11 +538,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	leaf, err := x509.ParseCertificate(cert.Certificate[0])
 	test.That(t, err, test.ShouldBeNil)
 
-	listener := testutils.ReserveRandomListener(t)
-	addr := listener.Addr().String()
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	options.Network.Listener = listener
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	options.Network.TLSConfig = &tls.Config{
 		RootCAs:      certPool,
 		ClientCAs:    certPool,
@@ -811,11 +799,7 @@ func TestStopAll(t *testing.T) {
 	test.That(t, dummyArm2.extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
 	// Test OPID cancellation
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	listener := testutils.ReserveRandomListener(t)
-	addr := listener.Addr().String()
-	options.Network.Listener = listener
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1266,10 +1250,7 @@ func TestGetStatusRemote(t *testing.T) {
 
 func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	// set up remotes
-	listener1 := testutils.ReserveRandomListener(t)
-	addr1 := listener1.Addr().String()
-	listener2 := testutils.ReserveRandomListener(t)
-	addr2 := listener2.Addr().String()
+	options, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
 
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
@@ -1304,9 +1285,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	defer func() {
 		test.That(t, r0.Close(context.Background()), test.ShouldBeNil)
 	}()
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	options.Network.Listener = listener1
+
 	err = r0.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1320,6 +1299,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	p0Arm1, err := r0Arm.GetJointPositions(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 
+	options, _, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
 	remoteConfig := &config.Config{
 		Remotes: []config.Remote{
 			{
@@ -1340,9 +1320,6 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	defer func() {
 		test.That(t, r1.Close(context.Background()), test.ShouldBeNil)
 	}()
-	options = weboptions.New()
-	options.Network.BindAddress = ""
-	options.Network.Listener = listener2
 	err = r1.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1483,10 +1460,9 @@ func TestConfigProcess(t *testing.T) {
 
 func TestReconnectRemote(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	// start the first robot
 	ctx := context.Background()
-	var listener net.Listener = testutils.ReserveRandomListener(t)
 	armConfig := config.Component{
 		Namespace: resource.ResourceNamespaceRDK,
 		Name:      "arm1",
@@ -1497,28 +1473,32 @@ func TestReconnectRemote(t *testing.T) {
 		Components: []config.Component{armConfig},
 	}
 
-	robot, options := robottestutils.StartBaseRobot(ctx, t, logger, listener, &cfg)
+	robot, err := robotimpl.New(ctx, &cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, robot, test.ShouldNotBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
 	}()
-	err := robot.StartWeb(ctx, options)
+	err = robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	// start the second robot
 	ctx1 := context.Background()
-	var listener1 net.Listener = testutils.ReserveRandomListener(t)
+	options1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
+
 	remoteConf := config.Remote{
 		Name:     "remote",
 		Insecure: true,
-		Address:  listener.Addr().String(),
+		Address:  addr,
 	}
 
 	cfg1 := config.Config{
 		Remotes: []config.Remote{remoteConf},
 	}
 
-	robot1, options1 := robottestutils.StartBaseRobot(ctx, t, logger, listener1, &cfg1)
-	addr1 := listener1.Addr().String()
+	robot1, err := robotimpl.New(ctx, &cfg1, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, robot, test.ShouldNotBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), robot1), test.ShouldBeNil)
 	}()
@@ -1564,7 +1544,7 @@ func TestReconnectRemote(t *testing.T) {
 
 	// reconnect the first robot
 	ctx2 := context.Background()
-	listener, err = net.Listen("tcp", listener.Addr().String())
+	listener, err := net.Listen("tcp", addr)
 	test.That(t, err, test.ShouldBeNil)
 
 	options.Network.Listener = listener
@@ -1594,7 +1574,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 
 	// start the first robot
 	ctx := context.Background()
-	var listener net.Listener = testutils.ReserveRandomListener(t)
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	armConfig := config.Component{
 		Namespace: resource.ResourceNamespaceRDK,
 		Name:      "arm1",
@@ -1605,28 +1585,31 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 		Components: []config.Component{armConfig},
 	}
 
-	robot, options := robottestutils.StartBaseRobot(ctx, t, logger, listener, &cfg)
+	robot, err := robotimpl.New(ctx, &cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, robot, test.ShouldNotBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), robot), test.ShouldBeNil)
 	}()
-	err := robot.StartWeb(ctx, options)
+	err = robot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	// start the second robot
 	ctx1 := context.Background()
-	var listener1 net.Listener = testutils.ReserveRandomListener(t)
+	options1, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
 	remoteConf := config.Remote{
 		Name:     "remote",
 		Insecure: true,
-		Address:  listener.Addr().String(),
+		Address:  addr,
 	}
 
 	cfg1 := config.Config{
 		Remotes: []config.Remote{remoteConf},
 	}
 
-	robot1, options1 := robottestutils.StartBaseRobot(ctx, t, logger, listener1, &cfg1)
-	addr1 := listener1.Addr().String()
+	robot1, err := robotimpl.New(ctx, &cfg1, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, robot, test.ShouldNotBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), robot1), test.ShouldBeNil)
 	}()
@@ -1672,7 +1655,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 
 	// reconnect the first robot
 	ctx2 := context.Background()
-	listener, err = net.Listen("tcp", listener.Addr().String())
+	listener, err := net.Listen("tcp", addr)
 	test.That(t, err, test.ShouldBeNil)
 	baseConfig := config.Component{
 		Namespace: resource.ResourceNamespaceRDK,
@@ -1684,7 +1667,12 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 		Components: []config.Component{baseConfig},
 	}
 
-	robot, options = robottestutils.StartBaseRobot(ctx2, t, logger, listener, &cfg)
+	options = weboptions.New()
+	options.Network.BindAddress = ""
+	options.Network.Listener = listener
+	robot, err = robotimpl.New(ctx, &cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, robot, test.ShouldNotBeNil)
 	err = robot.StartWeb(ctx2, options)
 	test.That(t, err, test.ShouldBeNil)
 

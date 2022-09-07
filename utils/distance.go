@@ -59,6 +59,40 @@ func GetArgMinDistancesPerRow(distances *mat.Dense) []int {
 	return indices
 }
 
+// Transpose transposes the slice of slice of ints.
+func Transpose(slice [][]int) [][]int {
+	xl := len(slice[0])
+	yl := len(slice)
+	result := make([][]int, xl)
+	for i := range result {
+		result[i] = make([]int, yl)
+	}
+	for i := 0; i < xl; i++ {
+		for j := 0; j < yl; j++ {
+			result[i][j] = slice[j][i]
+		}
+	}
+	return result
+}
+
+// GetArgMinDistancesPerRowInt returns in a slice of int the index of the point with minimum distance for each row.
+func GetArgMinDistancesPerRowInt(distances [][]int) []int {
+	nRows := len(distances)
+	indices := make([]int, nRows)
+	for j := 0; j < nRows; j++ {
+		m := 0
+		mIndex := 0
+		for i, e := range distances[j] {
+			if i == 0 || e < m {
+				m = e
+				mIndex = i
+			}
+		}
+		indices[j] = mIndex
+	}
+	return indices
+}
+
 // HammingDistance computes the hamming distance between two vectors that only contain zeros and ones.
 func HammingDistance(p1, p2 []float64) (float64, error) {
 	distance := 0
