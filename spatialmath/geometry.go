@@ -71,7 +71,7 @@ func NewGeometryConfig(gc GeometryCreator) (*GeometryConfig, error) {
 	case *pointCreator:
 		config.Type = PointType
 	default:
-		return nil, newGeometryTypeUnsupportedError(fmt.Sprintf("%T", gcType))
+		return nil, fmt.Errorf("%w %s", ErrGeometryTypeUnsupported, fmt.Sprintf("%T", gcType))
 	}
 	offset := gc.Offset()
 	o := offset.Orientation()
@@ -111,7 +111,7 @@ func (config *GeometryConfig) ParseConfig() (GeometryCreator, error) {
 		}
 		// never try to infer point geometry if nothing is specified
 	}
-	return nil, newGeometryTypeUnsupportedError(string(config.Type))
+	return nil, fmt.Errorf("%w %s", ErrGeometryTypeUnsupported, string(config.Type))
 }
 
 // NewGeometryFromProto instatiates a new Geometry from a protobuf Geometry message.
@@ -126,5 +126,5 @@ func NewGeometryFromProto(geometry *commonpb.Geometry) (Geometry, error) {
 		}
 		return NewSphere(pose.Point(), sphere.RadiusMm)
 	}
-	return nil, newGeometryTypeUnsupportedError("")
+	return nil, ErrGeometryTypeUnsupported
 }

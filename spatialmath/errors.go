@@ -1,8 +1,8 @@
 package spatialmath
 
-import (
-	"github.com/pkg/errors"
-)
+import "github.com/pkg/errors"
+
+var ErrGeometryTypeUnsupported = errors.New("unsupported Geometry type")
 
 func newBadGeometryDimensionsError(g Geometry) error {
 	return errors.Errorf("Invalid dimension(s) for Geometry type %T", g)
@@ -10,10 +10,6 @@ func newBadGeometryDimensionsError(g Geometry) error {
 
 func newCollisionTypeUnsupportedError(g1, g2 Geometry) error {
 	return errors.Errorf("Collisions between %T and %T are not supported", g1, g2)
-}
-
-func newGeometryTypeUnsupportedError(geometryType string) error {
-	return errors.Errorf("Unsupported Geometry type: %s", geometryType)
 }
 
 func newOrientationTypeUnsupportedError(orientationType string) error {
