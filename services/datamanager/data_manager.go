@@ -217,7 +217,9 @@ func (svc *dataManagerService) Close(_ context.Context) error {
 
 	svc.cancelSyncBackgroundRoutine()
 	svc.backgroundWorkers.Wait()
-	svc.modelManager.Close()
+	if svc.modelManager != nil {
+		svc.modelManager.Close()
+	}
 	return nil
 }
 
@@ -497,9 +499,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	}
 
 	// Check that we have models to download and appropriate credentials.
-	if svcConfig.ModelsToDeploy != nil && cfg.Cloud == nil { // make sure this is the right logic to have in this conditional
-		svc.logger.Error("You must have credentials to deploy a model.")
-	} else {
+	if svcConfig.ModelsToDeploy != nil && cfg.Cloud != nil {
 		if svc.modelManager == nil {
 			modelManager, err := svc.modelManagerConstructor(svc.logger, cfg)
 			if err != nil {
@@ -507,12 +507,11 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 			}
 			svc.modelManager = modelManager
 		}
-		svc.partID = cfg.Cloud.ID // i do not think i need this?
+		svc.partID = cfg.Cloud.ID // I do not think I need this - requesting permission to remove.
 
 		// Download models from models_on_robot.
 		modelsToDeploy := svcConfig.ModelsToDeploy
 		err := svc.modelManager.DownloadModels(cfg, modelsToDeploy)
-		// err := svc.downloadModels(cfg, modelsToDeploy) // augmented call happens here
 		if err != nil {
 			svc.logger.Errorf("can't download models_on_robot in config", "error", err)
 		}

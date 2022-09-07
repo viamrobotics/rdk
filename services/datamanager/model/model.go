@@ -23,7 +23,6 @@ import (
 
 const appAddress = "app.viam.com:443"
 
-// Standard file compression file type for Unix/Linux/MacOS. -- update comment.
 const zipExtension = ".zip"
 
 // Model describes a model we want to download to the robot.
@@ -32,13 +31,10 @@ type Model struct {
 	Destination string `json:"destination"`
 }
 
-var (
-	viamModelDotDir = filepath.Join(os.Getenv("HOME"), "models", ".viam")
-	httpClient      HTTPClient // Client is implementation of HTTPClient interface.
-)
+var viamModelDotDir = filepath.Join(os.Getenv("HOME"), "models", ".viam")
 
 // HTTPClient allows us to mock a connection.
-type HTTPClient interface {
+type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
@@ -57,7 +53,7 @@ type modelManager struct {
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancelFunc        func()
-	httpClient        HTTPClient
+	httpClient        httpClient
 }
 
 // ManagerConstructor is a function for building a Manager.
@@ -82,12 +78,12 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 		return nil, err
 	}
 	client := NewClient(conn)
-	return NewManager(logger, cfg.Cloud.ID, client, conn, httpClient)
+	return NewManager(logger, cfg.Cloud.ID, client, conn, &http.Client{})
 }
 
 // NewManager returns a new modelr.
 func NewManager(logger golog.Logger, partID string, client v1.ModelServiceClient,
-	conn rpc.ClientConn, httpClient HTTPClient,
+	conn rpc.ClientConn, httpClient httpClient,
 ) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := modelManager{
@@ -140,9 +136,10 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	m.cancelFunc = cancelFn
 
+	out := make(chan error)
 	m.backgroundWorkers.Add(len(modelsToDownload))
 	for _, model := range modelsToDownload {
-		go func(model *Model) {
+		go func(model *Model, out chan error) {
 			defer m.backgroundWorkers.Done()
 			deployRequest := &v1.DeployRequest{
 				Metadata: &v1.DeployMetadata{
@@ -152,29 +149,33 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 			deployResp, err := m.deploy(cancelCtx, deployRequest)
 			if err != nil {
 				m.logger.Error(err)
+				out <- err
 			} else {
 				url := deployResp.Message
 				filePath := filepath.Join(model.Destination, model.Name)
 				err := downloadFile(cancelCtx, m.httpClient, filePath, url, m.logger)
 				if err != nil {
 					m.logger.Error(err)
+					out <- err
 				}
 				// A download from a GCS signed URL only returns one file.
 				modelFileToUnzip := model.Name + zipExtension
 				if err = unzipSource(modelFileToUnzip, model.Destination); err != nil {
 					m.logger.Error(err)
+					out <- err
 				}
 			}
-		}(model)
+		}(model, out)
 	}
 	m.backgroundWorkers.Wait()
-	return nil
+	return <-out
 }
 
 // GetModelsToDownload fetches the models that need to be downloaded according to the
 // provided config.
 func getModelsToDownload(models []*Model) ([]*Model, error) {
-	// TODO: DATA-405
+	// TODO: DATA-405, if the user specifies one destination to deploy their models into
+	// this function will not work as expected.
 	modelsToDownload := make([]*Model, 0)
 	for _, model := range models {
 		if model.Destination == "" {
@@ -205,7 +206,7 @@ func getModelsToDownload(models []*Model) ([]*Model, error) {
 
 // DownloadFile will download a url to a local file. It writes as it
 // downloads and doesn't load the whole file into memory.
-func downloadFile(cancelCtx context.Context, client HTTPClient, filepath, url string, logger golog.Logger) error {
+func downloadFile(cancelCtx context.Context, client httpClient, filepath, url string, logger golog.Logger) error {
 	getReq, err := http.NewRequestWithContext(cancelCtx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -250,9 +251,6 @@ func unzipSource(fileName, destination string) error {
 		}
 	}
 	if err = zipReader.Close(); err != nil {
-		return err
-	}
-	if err = os.Remove(filepath.Join(destination, fileName)); err != nil {
 		return err
 	}
 	return nil
@@ -320,6 +318,11 @@ func unzipFile(f *zip.File, destination string) error {
 	}
 
 	if err = destinationFile.Close(); err != nil {
+		return err
+	}
+
+	// Remove the .zip file now that its contents have been written
+	if err = os.Remove(filePath); err != nil {
 		return err
 	}
 
