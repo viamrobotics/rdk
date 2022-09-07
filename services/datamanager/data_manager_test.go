@@ -334,7 +334,9 @@ func TestDeployModels(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	}()
 
-	models := populateModels()
+	// Generate a fake model.
+	m := &model.Model{Name: "m1", Destination: ""}
+	models := []*model.Model{m}
 	defer resetFolder(t, filepath.Join(defaultModelDir, models[0].Name)) // <- i do not think I need this
 
 	testCfg := setupConfig(t, configPath)
@@ -357,7 +359,7 @@ func TestDeployModels(t *testing.T) {
 	// Validate that model was deployed at startup.
 	_ = dmsvc.Close(context.Background())
 	files := func() int {
-		files, err := ioutil.ReadDir(defaultModelDir + "/m1")
+		files, err := ioutil.ReadDir(defaultModelDir + "/m1") // should I do think instead with filepath.join()
 		if err != nil {
 			return 0
 		}
@@ -401,14 +403,6 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	_ = dmsvc.Close(context.TODO())
 	_, err = os.Stat(td)
 	test.That(t, errors.Is(err, nil), test.ShouldBeTrue)
-}
-
-// Generates a fake model. Used to simulate testing deploying a model in the service's models_on_robot.
-func populateModels() []*model.Model {
-	// Setting destination as nil forces adoption of
-	// the default model directory in data_manager.go
-	m := &model.Model{Name: "m1", Destination: ""}
-	return []*model.Model{m}
 }
 
 // Generates and populates a directory structure of files that contain arbitrary file data. Used to simulate testing
