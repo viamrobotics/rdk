@@ -20,9 +20,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// OOBErrString is a string that all OOB errors should contain, so that they can be checked for distinct from other Transform errors.
-const OOBErrString = "input out of bounds"
-
 // Limit represents the limits of motion for a referenceframe.
 type Limit struct {
 	Min float64
@@ -136,7 +133,7 @@ type staticFrame struct {
 // Pose is not allowed to be nil.
 func NewStaticFrame(name string, pose spatial.Pose) (Frame, error) {
 	if pose == nil {
-		return nil, errors.New("pose is not allowed to be nil")
+		return nil, NilPoseError
 	}
 	return &staticFrame{name, pose, nil}, nil
 }
@@ -150,7 +147,7 @@ func NewZeroStaticFrame(name string) Frame {
 // It also has an associated geometryCreator representing the space that it occupies in 3D space.  Pose is not allowed to be nil.
 func NewStaticFrameWithGeometry(name string, pose spatial.Pose, geometryCreator spatial.GeometryCreator) (Frame, error) {
 	if pose == nil {
-		return nil, errors.New("pose is not allowed to be nil")
+		return nil, NilPoseError
 	}
 	return &staticFrame{name, pose, geometryCreator}, nil
 }
@@ -159,7 +156,7 @@ func NewStaticFrameWithGeometry(name string, pose spatial.Pose, geometryCreator 
 // It inherits its name and geometryCreator properties from the specified Frame. Pose is not allowed to be nil.
 func NewStaticFrameFromFrame(frame Frame, pose spatial.Pose) (Frame, error) {
 	if pose == nil {
-		return nil, errors.New("pose is not allowed to be nil")
+		return nil, NilPoseError
 	}
 	if tf, ok := frame.(*translationalFrame); ok {
 		return &staticFrame{tf.Name(), pose, tf.geometryCreator}, nil
@@ -186,7 +183,7 @@ func (sf *staticFrame) Name() string {
 // Transform returns the pose associated with this static referenceframe.
 func (sf *staticFrame) Transform(input []Input) (spatial.Pose, error) {
 	if len(input) != 0 {
-		return nil, fmt.Errorf("given input length %q does not match frame DoF 0", len(input))
+		return nil, NewIncorrectInputLengthError(len(input), 0)
 	}
 	return sf.transform, nil
 }
@@ -204,10 +201,10 @@ func (sf *staticFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
 func (sf *staticFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	if sf.geometryCreator == nil {
-		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", sf)
+		return nil, NewNilGeometryCreatorError(sf)
 	}
 	if len(input) != 0 {
-		return nil, fmt.Errorf("given input length %q does not match frame DoF 0", len(input))
+		return nil, NewIncorrectInputLengthError(len(input), 0)
 	}
 	m := make(map[string]spatial.Geometry)
 	m[sf.Name()] = sf.geometryCreator.NewGeometry(spatial.NewZeroPose())
@@ -268,12 +265,12 @@ func (pf *translationalFrame) Name() string {
 func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	var err error
 	if len(input) != 1 {
-		return nil, fmt.Errorf("given input length %d does not match frame DoF %d", len(input), 1)
+		return nil, NewIncorrectInputLengthError(len(input), 1)
 	}
 
 	// We allow out-of-bounds calculations, but will return a non-nil error
 	if input[0].Value < pf.limit[0].Min || input[0].Value > pf.limit[0].Max {
-		err = fmt.Errorf("%.5f %s %v", input[0].Value, OOBErrString, pf.limit[0])
+		err = fmt.Errorf("%.5f %s %v", input[0].Value, OOBError, pf.limit[0])
 	}
 	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0].Value)), err
 }
@@ -299,10 +296,10 @@ func (pf *translationalFrame) ProtobufFromInput(input []Input) *pb.JointPosition
 // Geometries returns an object representing the 3D space associeted with the translationalFrame.
 func (pf *translationalFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	if pf.geometryCreator == nil {
-		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", pf)
+		return nil, NewNilGeometryCreatorError(pf)
 	}
 	pose, err := pf.Transform(input)
-	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
+	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBError.Error())) {
 		return nil, err
 	}
 	m := make(map[string]spatial.Geometry)
@@ -354,11 +351,11 @@ func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, err
 func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	var err error
 	if len(input) != 1 {
-		return nil, fmt.Errorf("given input length %d does not match frame DoF 1", len(input))
+		return nil, NewIncorrectInputLengthError(len(input), 1)
 	}
 	// We allow out-of-bounds calculations, but will return a non-nil error
 	if input[0].Value < rf.limit[0].Min || input[0].Value > rf.limit[0].Max {
-		err = fmt.Errorf("%.5f %s %.5f", input[0].Value, OOBErrString, rf.limit[0])
+		err = fmt.Errorf("%.5f %s %.5f", input[0].Value, OOBError, rf.limit[0])
 	}
 	// Create a copy of the r4aa for thread safety
 	return spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, &spatial.R4AA{input[0].Value, rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), err
@@ -438,12 +435,12 @@ func (mf *mobile2DFrame) Name() string {
 func (mf *mobile2DFrame) Transform(input []Input) (spatial.Pose, error) {
 	var errAll error
 	if len(input) != len(mf.limit) {
-		return nil, fmt.Errorf("given input length %d does not match frame DoF %d", len(input), len(mf.limit))
+		return nil, NewIncorrectInputLengthError(len(input), len(mf.limit))
 	}
 	// We allow out-of-bounds calculations, but will return a non-nil error
 	for i, lim := range mf.limit {
 		if input[i].Value < lim.Min || input[i].Value > lim.Max {
-			multierr.AppendInto(&errAll, fmt.Errorf("%.5f %s %.5f", input[i].Value, OOBErrString, mf.limit[i]))
+			multierr.AppendInto(&errAll, fmt.Errorf("%.5f %s %.5f", input[i].Value, OOBError, mf.limit[i]))
 		}
 	}
 	return spatial.NewPoseFromPoint(r3.Vector{input[0].Value, input[1].Value, 0}), errAll
@@ -469,10 +466,10 @@ func (mf *mobile2DFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 
 func (mf *mobile2DFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 	if mf.geometryCreator == nil {
-		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", mf)
+		return nil, NewNilGeometryCreatorError(mf)
 	}
 	pose, err := mf.Transform(input)
-	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
+	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBError.Error())) {
 		return nil, err
 	}
 	m := make(map[string]spatial.Geometry)

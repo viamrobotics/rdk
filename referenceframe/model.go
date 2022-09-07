@@ -231,7 +231,7 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 
 		pose, errNew := transform.Transform(input)
 		// Fail if inputs are incorrect and pose is nil, but allow querying out-of-bounds positions
-		if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
+		if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBError.Error())) {
 			return nil, err
 		}
 		multierr.AppendInto(&err, errNew)

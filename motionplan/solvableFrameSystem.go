@@ -260,7 +260,7 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 	opts := []*PlannerOptions{}
 
 	// linear motion profile has known intermediate points, so solving can be broken up and sped up
-	if profile, ok := motionConfig["motion_profile"]; ok && profile == "linear" {
+	if profile, ok := motionConfig["motion_profile"]; ok && profile == LinearMotionProfile {
 		pathStepSize, ok := motionConfig["path_step_size"].(float64)
 		if !ok {
 			pathStepSize = defaultPathStepSize
@@ -310,7 +310,7 @@ func (sf *solverFrame) Name() string {
 // Transform returns the pose between the two frames of this solver for a given set of inputs.
 func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	if len(inputs) != len(sf.DoF()) {
-		return nil, NewIncorrectInputLengthError(len(inputs), len(sf.DoF()))
+		return nil, frame.NewIncorrectInputLengthError(len(inputs), len(sf.DoF()))
 	}
 	pf := frame.NewPoseInFrame(sf.solveFrame.Name(), spatial.NewZeroPose())
 	solveName := sf.goalFrame.Name()
@@ -354,7 +354,7 @@ func (sf *solverFrame) ProtobufFromInput(input []frame.Input) *pb.JointPositions
 // geometries in the solverFrame in the reference frame of the World frame.
 func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFrame, error) {
 	if len(inputs) != len(sf.DoF()) {
-		return nil, NewIncorrectInputLengthError(len(inputs), len(sf.DoF()))
+		return nil, frame.NewIncorrectInputLengthError(len(inputs), len(sf.DoF()))
 	}
 	var errAll error
 	inputMap := sf.sliceToMap(inputs)
@@ -444,7 +444,7 @@ func uniqInPlaceSlice(s []frame.Frame) []frame.Frame {
 	return s[:j]
 }
 
-// findPivotFrame finds the first common frame in two ordered lists of frames
+// findPivotFrame finds the first common frame in two ordered lists of frames.
 func findPivotFrame(frameList1, frameList2 []frame.Frame) (frame.Frame, error) {
 	// find shorter list
 	shortList := frameList1

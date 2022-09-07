@@ -18,7 +18,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/spatialmath"
 	// board attribute converters.
 	_ "go.viam.com/rdk/component/board/fake"
 	// motor attribute converters.
@@ -27,6 +26,7 @@ import (
 	_ "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
