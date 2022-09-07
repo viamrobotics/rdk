@@ -36,7 +36,7 @@ const (
 
 var (
 	// Robot config which specifies data manager service.
-	configPath = "robots/configs/fake_robot_with_data_manager.json"
+	configPath = "services/datamanager/data/fake_robot_with_data_manager.json"
 
 	// 0.0041 mins is 246 milliseconds, this is the interval waiting time in the config file used for testing.
 	configSyncIntervalMins = 0.0041
@@ -227,7 +227,7 @@ func TestNewRemoteDataManager(t *testing.T) {
 	dmsvc := newTestDataManager(t, "localArm", "remoteArm")
 
 	// Set capture parameters in Update.
-	conf := setupConfig(t, "robots/configs/fake_robot_with_remote_and_data_manager.json")
+	conf := setupConfig(t, "services/datamanager/data/fake_robot_with_remote_and_data_manager.json")
 	defer resetFolder(t, captureDir)
 	err := dmsvc.Update(context.Background(), conf)
 	test.That(t, err, test.ShouldBeNil)
