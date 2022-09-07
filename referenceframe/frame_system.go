@@ -82,7 +82,7 @@ func (sfs *simpleFrameSystem) Parent(frame Frame) (Frame, error) {
 	if parent := sfs.parents[frame]; parent != nil {
 		return parent, nil
 	}
-	return nil, NewParentFrameMissingError()
+	return nil, ParentMissingError
 }
 
 // frameExists is a helper function to see if a frame with a given name already exists in the system.
@@ -149,7 +149,7 @@ func (sfs *simpleFrameSystem) FrameNames() []string {
 func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
 	// check to see if parent is in system
 	if parent == nil {
-		return NewParentFrameMissingError()
+		return ParentMissingError
 	}
 
 	if !sfs.frameExists(parent.Name()) {
@@ -222,7 +222,7 @@ func (sfs *simpleFrameSystem) MergeFrameSystem(systemToMerge FrameSystem, attach
 		child := systemToMerge.GetFrame(name)
 		parent, err := systemToMerge.Parent(child)
 		if err != nil {
-			if errors.Is(err, NewParentFrameMissingError()) {
+			if errors.Is(err, ParentMissingError) {
 				continue
 			}
 			return err

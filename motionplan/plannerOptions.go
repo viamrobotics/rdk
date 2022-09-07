@@ -9,6 +9,9 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
+// MotionProfileType defines what motion profiles are supported
+type MotionProfileType string
+
 const (
 	// max linear deviation from straight-line between start and goal, in mm.
 	defaultLinearDeviation = 0.1
@@ -34,6 +37,12 @@ const (
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultPathStepSize = 10
+
+	// The set of supported Motion Profiles.
+	FreeMotionProfile         = MotionProfileType("free")
+	LinearMotionProfile       = MotionProfileType("linear")
+	PseudolinearMotionProfile = MotionProfileType("pseudolinear")
+	OrientationMotionProfile  = MotionProfileType("orientation")
 )
 
 func plannerSetupFromMoveRequest(
@@ -54,7 +63,7 @@ func plannerSetupFromMoveRequest(
 	opt.AddConstraint(defaultCollisionConstraintName, collisionConstraint)
 
 	switch planningOpts["motion_profile"] {
-	case "linear":
+	case LinearMotionProfile:
 		// Linear constraints
 		linTol, ok := planningOpts["line_tolerance"].(float64)
 		if !ok {
@@ -69,7 +78,7 @@ func plannerSetupFromMoveRequest(
 		constraint, pathDist := NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
 		opt.AddConstraint(defaultLinearConstraintName, constraint)
 		opt.pathDist = pathDist
-	case "pseudolinear":
+	case PseudolinearMotionProfile:
 		tolerance, ok := planningOpts["tolerance"].(float64)
 		if !ok {
 			// Default
@@ -78,7 +87,7 @@ func plannerSetupFromMoveRequest(
 		constraint, pathDist := NewProportionalLinearInterpolatingConstraint(from, to, tolerance)
 		opt.AddConstraint(defaultPseudolinearConstraintName, constraint)
 		opt.pathDist = pathDist
-	case "orientation":
+	case OrientationMotionProfile:
 		tolerance, ok := planningOpts["tolerance"].(float64)
 		if !ok {
 			// Default
@@ -87,7 +96,7 @@ func plannerSetupFromMoveRequest(
 		constraint, pathDist := NewSlerpOrientationConstraint(from, to, tolerance)
 		opt.AddConstraint(defaultOrientationConstraintName, constraint)
 		opt.pathDist = pathDist
-	case "free":
+	case FreeMotionProfile:
 		// No restrictions on motion
 	default:
 		// TODO(pl): once RRT* is workable, use here. Also, update to try pseudolinear first, and fall back to orientation, then to free

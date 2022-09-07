@@ -28,8 +28,10 @@ type MotionPlanner interface {
 	Frame() frame.Frame // Frame will return the frame used for planning
 }
 
-type plannerConstructor func(frame.Frame, int, golog.Logger) (MotionPlanner, error)
-type plannerConstructorWithSeed func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error)
+type (
+	plannerConstructor         func(frame.Frame, int, golog.Logger) (MotionPlanner, error)
+	plannerConstructorWithSeed func(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (MotionPlanner, error)
+)
 
 // needed to wrap slices so we can use them as map keys.
 type configuration struct {

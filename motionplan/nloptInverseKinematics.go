@@ -98,7 +98,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		// Thus we check if eePos is nil, and if not, continue as normal and ignore errors.
 		// As confirmation, the "input out of bounds" string is checked for in the error text.
 		eePos, err := ik.model.Transform(referenceframe.FloatsToInputs(x))
-		if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
+		if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBError.Error())) {
 			ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
 			err = opt.ForceStop()
 			ik.logger.Errorw("forcestop error", "error", err)
@@ -113,7 +113,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				xBak[i] += ik.jump
 				eePos, err := ik.model.Transform(referenceframe.FloatsToInputs(xBak))
 				xBak[i] -= ik.jump
-				if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
+				if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBError.Error())) {
 					ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
 					err = opt.ForceStop()
 					ik.logger.Errorw("forcestop error", "error", err)
