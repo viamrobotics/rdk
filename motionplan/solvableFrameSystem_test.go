@@ -164,7 +164,7 @@ func TestMovementWithGripper(t *testing.T) {
 	solution, err := sf.planSingleWaypoint(context.Background(), zeroPosition, goal, nil, motionConfig)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
-	// visualization.VisualizePlan(context.Background(), solution, sf, nil)
+	visualization.VisualizePlan(context.Background(), solution, sf, nil)
 
 	// plan around the obstacle with the gripper
 	obstacle, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{300, 0, -400}), r3.Vector{50, 500, 500})
@@ -192,7 +192,7 @@ func TestMovementWithGripper(t *testing.T) {
 	solution, err = sf.planSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, solution, test.ShouldNotBeNil)
-	// visualization.VisualizePlan(context.Background(), solution, sf, worldState)
+	visualization.VisualizePlan(context.Background(), solution, sf, worldState)
 
 	// remove gripper and try with linear constraint
 	solver.RemoveFrame(solver.GetFrame("xArmVgripper"))
@@ -203,5 +203,5 @@ func TestMovementWithGripper(t *testing.T) {
 	zeroPosition = sf.sliceToMap(make([]frame.Input, len(sf.DoF())))
 	solution, err = sf.planSingleWaypoint(context.Background(), zeroPosition, goal, worldState, motionConfig)
 	test.That(t, err, test.ShouldBeNil)
-	// visualization.VisualizePlan(context.Background(), solution, sf, worldState)
+	visualization.VisualizePlan(context.Background(), solution, sf, worldState)
 }
