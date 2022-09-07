@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/golang/geo/r3"
 
@@ -63,11 +64,11 @@ func (f *Frame) UnmarshalJSON(b []byte) error {
 	f.Translation = temp.Translation.ParseConfig()
 	f.Orientation, err = temp.Orientation.ParseConfig()
 	if err != nil {
-		return newUnmarshallingError(b, err)
+		return fmt.Errorf("cannot unmarshal %s because of %w", string(b), err)
 	}
 	f.Geometry, err = temp.Geometry.ParseConfig()
-	if err != nil {
-		return newUnmarshallingError(b, err)
+	if !strings.Contains(err.Error(), spatial.ErrGeometryTypeUnsupported.Error()) {
+		return err
 	}
 	return nil
 }
@@ -123,8 +124,4 @@ func MergeFrameSystems(toFS, fromFS referenceframe.FrameSystem, cfg *Frame) erro
 		return err
 	}
 	return nil
-}
-
-func newUnmarshallingError(b []byte, err error) error {
-	return fmt.Errorf("cannot unmarshal %s because of %w", string(b), err)
 }

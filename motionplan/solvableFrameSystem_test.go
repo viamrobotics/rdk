@@ -50,7 +50,7 @@ func makeTestFS(t *testing.T) *SolvableFrameSystem {
 	fs.AddFrame(urCamera, modelUR5e)
 
 	// Add static frame for the gripper
-	bc, err := spatial.NewBoxCreator(r3.Vector{200, 200, 200}, spatial.NewPoseFromPoint(r3.Vector{Z: 100}))
+	bc, _ := spatial.NewBoxCreator(r3.Vector{200, 200, 200}, spatial.NewPoseFromPoint(r3.Vector{Z: 100}))
 	xArmVgripper, err := frame.NewStaticFrameWithGeometry("xArmVgripper", spatial.NewPoseFromPoint(r3.Vector{Z: 200}), bc)
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(xArmVgripper, modelXarm)
@@ -141,7 +141,7 @@ func TestSolverFrameGeometries(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	// visualization.VisualizePlan(context.Background(), position, sf, nil)
-	gf, err := sf.Geometries(position[len(position)-1])
+	gf, _ := sf.Geometries(position[len(position)-1])
 	test.That(t, gf, test.ShouldNotBeNil)
 	gripperCenter := gf.Geometries()["xArmVgripper"].Pose().Point()
 	test.That(t, spatial.R3VectorAlmostEqual(gripperCenter, r3.Vector{300, 300, 0}, 1e-2), test.ShouldBeTrue)
