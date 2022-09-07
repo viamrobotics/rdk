@@ -22,7 +22,7 @@ func TestMainCalibrate(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	// get a file with known extrinsic parameters
-	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
+	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("rimage/transform/data/intel515_parameters.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// create many points from a known extrinsic file

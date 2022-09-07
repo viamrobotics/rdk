@@ -1,0 +1,16 @@
+{
+  "network": {
+    "bind_address": "localhost:8081"
+  },
+  "remotes": [
+    {
+      "name": "robot1",
+      "address": "something-unique"
+    },
+    {
+      "name": "robot2",
+      "address": "localhost:8080",
+      "prefix": true
+    }
+  ]
+}
