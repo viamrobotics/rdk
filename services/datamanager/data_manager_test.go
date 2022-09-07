@@ -328,7 +328,7 @@ func TestDeployModels(t *testing.T) {
 	deployModelWaitTime := time.Millisecond * 100
 
 	// Register mock model service with a mock server.
-	modelServer, mockModelService := buildAndStartLocalModelServer(t)
+	modelServer, _ := buildAndStartLocalModelServer(t)
 	defer func() {
 		err := modelServer.Stop()
 		test.That(t, err, test.ShouldBeNil)
@@ -350,9 +350,7 @@ func TestDeployModels(t *testing.T) {
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
-
 	dmsvc.SetModelManagerConstructor(getTestModelrConstructor(t, modelServer))
-	// dmsvc.SetClient(&MockClient{})
 
 	err = dmsvc.Update(context.Background(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
@@ -360,9 +358,15 @@ func TestDeployModels(t *testing.T) {
 	time.Sleep(deployModelWaitTime)
 
 	// Validate that model was deployed at startup.
-	err = dmsvc.Close(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mockModelService.getDeployedModels(), test.ShouldEqual, len(models))
+	_ = dmsvc.Close(context.Background())
+	files := func() int {
+		files, err := ioutil.ReadDir(defaultModelDir + "/m1")
+		if err != nil {
+			return 0
+		}
+		return len(files)
+	}
+	test.That(t, files(), test.ShouldEqual, 1)
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
@@ -755,8 +759,7 @@ type mockDataSyncServiceServer struct {
 }
 
 type mockModelServiceServer struct {
-	deployedModels *[]model.Model
-	lock           *sync.Mutex
+	lock *sync.Mutex
 	m1.UnimplementedModelServiceServer
 }
 
@@ -764,25 +767,6 @@ func (m mockDataSyncServiceServer) getUploadedFiles() []string {
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
 	return *m.uploadedFiles
-}
-
-func (m mockModelServiceServer) getDeployedModels() int {
-	(*m.lock).Lock()
-	defer (*m.lock).Unlock()
-	// all we do is check if $Home/models exists and how many subdirs it has
-	// as each model has its own subdir.
-	_, err := os.Stat(defaultModelDir)
-	if errors.Is(err, os.ErrNotExist) {
-		return 0
-	}
-	files, err := ioutil.ReadDir(defaultModelDir + "/m1") // should this be extracted?
-	if err != nil {
-		return 0
-	}
-	if len(files) > 0 {
-		return 1
-	}
-	return 0
 }
 
 // mockClient is the mock client.
@@ -795,14 +779,14 @@ func (m *mockClient) Do(req *http.Request) (*http.Response, error) {
 	zipWriter := zip.NewWriter(buf)
 	w, err := zipWriter.Create("README.md")
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	if _, err := io.Copy(w, r); err != nil {
-		panic(err)
+		return nil, err
 	}
 	err = zipWriter.Close()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	response := &http.Response{
@@ -871,7 +855,6 @@ func buildAndStartLocalModelServer(t *testing.T) (rpc.Server, mockModelServiceSe
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 	mockService := mockModelServiceServer{
-		deployedModels:                  &[]model.Model{},
 		lock:                            &sync.Mutex{},
 		UnimplementedModelServiceServer: m1.UnimplementedModelServiceServer{},
 	}
