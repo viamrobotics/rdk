@@ -48,8 +48,8 @@ const doCommand = (name: string, command: string) => {
 
 <template>
   <v-collapse
-    title="Do()"
-    class="do"
+    title="DoCommand()"
+    class="doCommand"
   >
     <div class="h-full w-full border border-t-0 border-black p-4">
       <v-select
