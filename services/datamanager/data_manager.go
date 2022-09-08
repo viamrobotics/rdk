@@ -1004,7 +1004,7 @@ func retrieveData(resourceSvcConfig config.ResourceLevelServiceConfig) error {
 	// 	svc.logger.Error(err)
 	// 	return // Don't try to unzip the file if we can't download it.
 	// }
-	// // A download from a GCS signed URL only returns one file.
+	// A download from a GCS signed URL only returns one file.
 	// modelFileToUnzip := model.Name + ".zip" // TODO: For now, hardcode.
 	// if err = unzipSource(cancelCtx, model.Destination, model.Name, modelFileToUnzip, svc.logger); err != nil {
 	// 	sv
@@ -1029,13 +1029,19 @@ func getAttrsFromServiceConfig(resourceSvcConfig config.ResourceLevelServiceConf
 // Build the component configs associated with the data manager service.
 func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	var componentDataCaptureConfigs []dataCaptureConfig
+	// create empty string list L
 	for _, c := range cfg.Components {
 		// Iterate over all component-level service configs of type data_manager.
+		// here we can access depends_on.
+		// if any of the memebers of depends_on are not in L
+		// then we know we do not want to run retrieveData()
 		for _, componentSvcConfig := range c.ServiceConfig {
 
 			err := retrieveData(componentSvcConfig)
 			if err != nil {
-				return componentDataCaptureConfigs, err
+				fmt.Println(err)
+				// here we add the component to the list of names that did not properly sync
+				// log the error?
 			}
 
 			if componentSvcConfig.Type == SubtypeName {
