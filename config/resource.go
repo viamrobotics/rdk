@@ -83,7 +83,7 @@ type Component struct {
 	ImplicitDependsOn   []string     `json:"-"`
 }
 
-// might need to edit this instead of validate()
+// might need to use this instead of validate()
 // Dependencies returns the deduplicated union of user-defined and implicit dependencies.
 func (config *Component) Dependencies() []string {
 	result := make([]string, 0, len(config.DependsOn)+len(config.ImplicitDependsOn))

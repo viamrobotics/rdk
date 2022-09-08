@@ -24,7 +24,7 @@
             }
         },
      {
-             "name": "modelsync",
+            "name": "modelsync",
             "type": "ModelSync"
      }
     ],
@@ -34,19 +34,6 @@
             "type": "camera",
             "model": "webcam",
             "service_config": [
-                {
-                    "attributes": {
-                        "capture_methods": [
-                            {
-                                "method": "getFrame",
-                                "capture_interval_ms": 500,
-                                "parameters": {
-                                    "resolution": "640x480"
-                                }
-                            }
-                        ]
-                    }
-                },
                 {
                     "models": {
                         "files_to_sync": {

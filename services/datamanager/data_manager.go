@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -158,7 +159,7 @@ type dataManagerService struct {
 	partID                    string
 	waitAfterLastModifiedSecs int
 
-	additionalSyncPaths []string
+	additionalSyncPaths []string // this is important for this PR
 	syncDisabled        bool
 	syncIntervalMins    float64
 	syncer              datasync.Manager
@@ -513,10 +514,10 @@ func (svc *dataManagerService) syncAdditionalSyncPaths() {
 // TODO: DATA-304, create a way for other services to check when their specified models
 // are ready to be used.
 
-// need to edit here as well..?
+// edit needed? maybe not
 // Update updates the data manager service when the config has changed.
 func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) error {
-	svcConfig, ok, err := getServiceConfig(cfg)
+	svcConfig, ok, err := getServiceConfig(cfg) // interesting!
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
 	// Close any collectors.
 	if !ok {
@@ -547,6 +548,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	if err != nil {
 		return err
 	}
+	// do thing here
 
 	if len(allComponentAttributes) == 0 {
 		svc.logger.Warn("Could not find any components with data_manager service configuration")
@@ -974,6 +976,42 @@ func getServiceConfig(cfg *config.Config) (*Config, bool, error) {
 	return &Config{}, false, nil
 }
 
+// func downloadFile(cancelCtx context.Context, filepath, url string, logger golog.Logger) error
+// filepath is what we write to
+
+// retreiveData retrieves data specified in files_to_sync
+func retrieveData(resourceSvcConfig config.ResourceLevelServiceConfig) error {
+
+	_, err := ioutil.ReadDir(resourceSvcConfig.Models.FilesToSync.Dest)
+	// First we check that the location on disk we want to sync to exists.
+	if errors.Is(err, os.ErrNotExist) {
+		// this means the file we are trying to sync needs to be deployed?? --> Q here
+		// need to create path to dir here
+		err := os.MkdirAll(resourceSvcConfig.Models.FilesToSync.Dest, os.ModePerm)
+		if err != nil {
+			return err
+		}
+	}
+	// This is the case where the location on disk exists.
+	// We want to sync the file
+	// sync means we take the data that is in resourceSvcConfig.Models.FilesToSync.Dest
+	// and then write it to the existing file at resourceSvcConfig.Models.FilesToSync.Source
+	// doing the above is recycling code that already exists in model/model.go
+	// error if unable to sync -> this means the connection was lost
+
+	// err := downloadFile(cancelCtx, dotFilepath, url, svc.logger)
+	// if err != nil {
+	// 	svc.logger.Error(err)
+	// 	return // Don't try to unzip the file if we can't download it.
+	// }
+	// // A download from a GCS signed URL only returns one file.
+	// modelFileToUnzip := model.Name + ".zip" // TODO: For now, hardcode.
+	// if err = unzipSource(cancelCtx, model.Destination, model.Name, modelFileToUnzip, svc.logger); err != nil {
+	// 	sv
+
+	return nil
+}
+
 func getAttrsFromServiceConfig(resourceSvcConfig config.ResourceLevelServiceConfig) (dataCaptureConfigs, error) {
 	var attrs dataCaptureConfigs
 	configs, err := config.TransformAttributeMapToStruct(&attrs, resourceSvcConfig.Attributes)
@@ -987,13 +1025,19 @@ func getAttrsFromServiceConfig(resourceSvcConfig config.ResourceLevelServiceConf
 	return *convertedConfigs, nil
 }
 
-// maybe something here?
+// here
 // Build the component configs associated with the data manager service.
 func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	var componentDataCaptureConfigs []dataCaptureConfig
 	for _, c := range cfg.Components {
 		// Iterate over all component-level service configs of type data_manager.
 		for _, componentSvcConfig := range c.ServiceConfig {
+
+			err := retrieveData(componentSvcConfig)
+			if err != nil {
+				return componentDataCaptureConfigs, err
+			}
+
 			if componentSvcConfig.Type == SubtypeName {
 				attrs, err := getAttrsFromServiceConfig(componentSvcConfig)
 				if err != nil {
@@ -1013,6 +1057,12 @@ func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	for _, r := range cfg.Remotes {
 		// Iterate over all remote-level service configs of type data_manager.
 		for _, resourceSvcConfig := range r.ServiceConfig {
+
+			err := retrieveData(resourceSvcConfig)
+			if err != nil {
+				return componentDataCaptureConfigs, err
+			}
+
 			if resourceSvcConfig.Type == SubtypeName {
 				attrs, err := getAttrsFromServiceConfig(resourceSvcConfig)
 				if err != nil {
