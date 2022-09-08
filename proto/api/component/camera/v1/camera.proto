@@ -10,7 +10,7 @@ option java_package = "com.viam.rdk.proto.api.component.camera.v1";
 
 // A CameraService services all cameras associated with a robot
 service CameraService {
-  // GetFrame returns a frame from a camera of the underlying robot. A specific MIME type
+  // GetImage returns a frame from a camera of the underlying robot. A specific MIME type
   // can be requested but may not necessarily be the same one returned.
   rpc GetImage(GetImageRequest) returns (GetImageResponse) {
     option (google.api.http) = {
