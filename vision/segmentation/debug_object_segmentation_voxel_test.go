@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/segmentation"
 )
 
@@ -91,7 +90,7 @@ func TestGripperVoxelObjectSegmentation(t *testing.T) {
 		t.Skipf("set environmental variable %q to run this test", debugObjSeg)
 	}
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/gripper/color", "*.png", "segmentation/gripper/depth")
-	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/gripper_combo_parameters.json"))
+	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(gripperComboParamsPath)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = d.Process(t, &gripperVoxelSegmentTestHelper{camera})
