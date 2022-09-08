@@ -512,6 +512,7 @@ func (svc *dataManagerService) syncAdditionalSyncPaths() {
 
 // TODO: DATA-304, create a way for other services to check when their specified models
 // are ready to be used.
+// this means code for data 304 would go here outside the update function
 
 // Update updates the data manager service when the config has changed.
 func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) error {
