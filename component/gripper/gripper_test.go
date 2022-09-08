@@ -296,6 +296,6 @@ func (m *mockLocal) Stop(ctx context.Context) error {
 
 func (m *mockLocal) Close() { m.reconfCount++ }
 
-func (m *mockLocal) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (m *mockLocal) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }
