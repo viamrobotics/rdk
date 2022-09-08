@@ -20,6 +20,11 @@ import (
 
 const debugObjSeg = "VIAM_DEBUG"
 
+var (
+	gripperComboParamsPath = utils.ResolveFile("vision/segmentation/data/gripper_combo_parameters.json")
+	intel515ParamsPath     = utils.ResolveFile("vision/segmentation/data/intel515_parameters.json")
+)
+
 // Test finding the objects in an aligned intel image.
 type segmentObjectTestHelper struct {
 	cameraParams *transform.DepthColorIntrinsicsExtrinsics
@@ -84,7 +89,7 @@ func TestObjectSegmentationAlignedIntel(t *testing.T) {
 		t.Skipf("set environmental variable %q to run this test", debugObjSeg)
 	}
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/aligned_intel/color", "*.png", "segmentation/aligned_intel/depth")
-	aligner, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
+	aligner, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = d.Process(t, &segmentObjectTestHelper{aligner})
@@ -160,7 +165,7 @@ func TestGripperObjectSegmentation(t *testing.T) {
 		t.Skipf("set environmental variable %v to run this test", debugObjSeg)
 	}
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/gripper/color", "*.png", "segmentation/gripper/depth")
-	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/gripper_combo_parameters.json"))
+	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(gripperComboParamsPath)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = d.Process(t, &gripperSegmentTestHelper{camera})
