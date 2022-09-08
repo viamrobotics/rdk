@@ -20,14 +20,14 @@ const output = ref();
 const executing = ref(false);
 
 const doCommand = (name: string, command: string) => {
-  const request = new genericApi.DoRequest();
+  const request = new genericApi.DoCommandRequest();
 
   request.setName(name);
   request.setCommand(Struct.fromJavaScript(JSON.parse(command)));
 
   executing.value = true;
 
-  window.genericService.do(request, (error, response) => {
+  window.genericService.doCommand(request, (error, response) => {
     if (error) {
       toast.error(`Error executing command on ${name}: ${error}`);
       executing.value = false;
