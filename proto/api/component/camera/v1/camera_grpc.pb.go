@@ -23,7 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CameraServiceClient interface {
-	// GetFrame returns a frame from a camera of the underlying robot. A specific MIME type
+	// GetImage returns a frame from a camera of the underlying robot. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
 	GetImage(ctx context.Context, in *GetImageRequest, opts ...grpc.CallOption) (*GetImageResponse, error)
 	// RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
@@ -84,7 +84,7 @@ func (c *cameraServiceClient) GetProperties(ctx context.Context, in *GetProperti
 // All implementations must embed UnimplementedCameraServiceServer
 // for forward compatibility
 type CameraServiceServer interface {
-	// GetFrame returns a frame from a camera of the underlying robot. A specific MIME type
+	// GetImage returns a frame from a camera of the underlying robot. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
 	GetImage(context.Context, *GetImageRequest) (*GetImageResponse, error)
 	// RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
