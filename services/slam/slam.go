@@ -59,6 +59,7 @@ const (
 	// time format for the slam service.
 	slamTimeFormat        = "2006-01-02T15_04_05.0000"
 	opTimeoutErrorMessage = "bad scan: OpTimeout"
+	localhost0            = "localhost:0"
 )
 
 // SetCameraValidationMaxTimeoutSecForTesting sets cameraValidationMaxTimeoutSec for testing.
@@ -477,7 +478,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 	var port string
 	if svcConfig.Port == "" {
-		port = "localhost:0"
+		port = localhost0
 	} else {
 		port = svcConfig.Port
 	}
@@ -668,7 +669,7 @@ func (slamSvc *slamService) StartSLAMProcess(ctx context.Context) error {
 
 	var logReader io.ReadCloser
 	var logWriter io.WriteCloser
-	if slamSvc.port == "localhost:0" {
+	if slamSvc.port == localhost0 {
 		logReader, logWriter = io.Pipe()
 		var w io.Writer = logWriter
 		processConfig.LogWriter = &w
@@ -685,10 +686,12 @@ func (slamSvc *slamService) StartSLAMProcess(ctx context.Context) error {
 		return errors.Wrap(err, "problem starting slam process")
 	}
 
-	if slamSvc.port == "localhost:0" {
+	if slamSvc.port == localhost0 {
 		timeoutCtx, timeoutCancel := context.WithTimeout(ctx, parsePortMaxTimeoutSec*time.Second)
 		defer timeoutCancel()
+		//nolint:errcheck
 		defer logReader.Close()
+		//nolint:errcheck
 		defer logWriter.Close()
 
 		bufferedLogReader := bufio.NewReader(logReader)
