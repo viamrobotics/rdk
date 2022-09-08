@@ -17,13 +17,7 @@
 			"model": "acme:test:anvil",
 			"depends_on": ["beepbeep"],
 			"attributes": {
-				"attr1": "foo",
-				"attr2": 42,
-				"attr3": [ "foo", "bar" ],
-				"attr4": {
-					"sub1": "long",
-					"sub2": 55
-				}
+				"motor": "rdk:component:motor/beepbeep"
 			}
 		},
 		{

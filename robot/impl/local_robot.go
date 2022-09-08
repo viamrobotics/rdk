@@ -20,7 +20,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc/client"
-	"go.viam.com/rdk/module"
+	"go.viam.com/rdk/module/manager"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -50,7 +50,7 @@ type localRobot struct {
 	manager    *resourceManager
 	config     *config.Config
 	operations *operation.Manager
-	modules    *module.Manager
+	modules    *manager.Manager
 	logger     golog.Logger
 
 	// services internal to a localRobot. Currently just web, more to come.
@@ -146,7 +146,7 @@ func (r *localRobot) OperationManager() *operation.Manager {
 }
 
 // ModuleManager returns the module manager for the robot.
-func (r *localRobot) ModuleManager() *module.Manager {
+func (r *localRobot) ModuleManager() *manager.Manager {
 	return r.modules
 }
 
@@ -370,7 +370,7 @@ func newWithResources(
 		opt.apply(&rOpts)
 	}
 	closeCtx, cancel := context.WithCancel(ctx)
-	modMgr, err := module.NewManager(cfg.Modules, logger)
+	modMgr, err := manager.NewManager(cfg.Modules, logger)
 	if err != nil {
 		return nil, err
 	}
