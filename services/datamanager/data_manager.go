@@ -544,7 +544,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		return nil
 	}
 
-	allComponentAttributes, err := buildDataCaptureConfigs(cfg)
+	allComponentAttributes, err := buildDataCaptureConfigs(cfg) //hmm
 	if err != nil {
 		return err
 	}
@@ -986,6 +986,7 @@ func retrieveData(resourceSvcConfig config.ResourceLevelServiceConfig) error {
 	// First we check that the location on disk we want to sync to exists.
 	if errors.Is(err, os.ErrNotExist) {
 		// this means the file we are trying to sync needs to be deployed?? --> Q here
+		// is there a scenario where the directory would not exist though?
 		// need to create path to dir here
 		err := os.MkdirAll(resourceSvcConfig.Models.FilesToSync.Dest, os.ModePerm)
 		if err != nil {
@@ -997,7 +998,7 @@ func retrieveData(resourceSvcConfig config.ResourceLevelServiceConfig) error {
 	// sync means we take the data that is in resourceSvcConfig.Models.FilesToSync.Dest
 	// and then write it to the existing file at resourceSvcConfig.Models.FilesToSync.Source
 	// doing the above is recycling code that already exists in model/model.go
-	// error if unable to sync -> this means the connection was lost
+	// error if unable to sync -> this means the connection was 'lost'
 
 	// err := downloadFile(cancelCtx, dotFilepath, url, svc.logger)
 	// if err != nil {
@@ -1007,7 +1008,6 @@ func retrieveData(resourceSvcConfig config.ResourceLevelServiceConfig) error {
 	// A download from a GCS signed URL only returns one file.
 	// modelFileToUnzip := model.Name + ".zip" // TODO: For now, hardcode.
 	// if err = unzipSource(cancelCtx, model.Destination, model.Name, modelFileToUnzip, svc.logger); err != nil {
-	// 	sv
 
 	return nil
 }
@@ -1025,42 +1025,53 @@ func getAttrsFromServiceConfig(resourceSvcConfig config.ResourceLevelServiceConf
 	return *convertedConfigs, nil
 }
 
-// here
+// here!
 // Build the component configs associated with the data manager service.
 func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	var componentDataCaptureConfigs []dataCaptureConfig
-	// create empty string list L
+	var notSynced []string // might be better to do this with map , easier to check member inclusion then.
 	for _, c := range cfg.Components {
-		// Iterate over all component-level service configs of type data_manager.
-		// here we can access depends_on.
-		// if any of the memebers of depends_on are not in L
-		// then we know we do not want to run retrieveData()
-		for _, componentSvcConfig := range c.ServiceConfig {
 
-			err := retrieveData(componentSvcConfig)
-			if err != nil {
-				fmt.Println(err)
-				// here we add the component to the list of names that did not properly sync
-				// log the error?
+		for d := range c.DependsOn {
+			for n := range notSynced {
+				if n == d {
+					notSynced = append(notSynced, c.Name) // <- c.Name correct?
+					// then we know we do not want to initialize this component
+					// log here?
+					// there is then no point in syncing files for this component because of dep issues
+				}
 			}
+		}
+		if notSynced[len(notSynced)-1] != c.Name {
+			for _, componentSvcConfig := range c.ServiceConfig {
 
-			if componentSvcConfig.Type == SubtypeName {
-				attrs, err := getAttrsFromServiceConfig(componentSvcConfig)
+				err := retrieveData(componentSvcConfig)
 				if err != nil {
-					return componentDataCaptureConfigs, err
+					notSynced = append(notSynced, componentSvcConfig.ResourceName().Name)
+					// log the error?
 				}
 
-				for _, attrs := range attrs.Attributes {
-					attrs.Name = c.Name
-					attrs.Model = c.Model
-					attrs.Type = c.Type
-					componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
+				if componentSvcConfig.Type == SubtypeName {
+					attrs, err := getAttrsFromServiceConfig(componentSvcConfig)
+					if err != nil {
+						return componentDataCaptureConfigs, err
+					}
+
+					for _, attrs := range attrs.Attributes {
+						attrs.Name = c.Name
+						attrs.Model = c.Model
+						attrs.Type = c.Type
+						componentDataCaptureConfigs = append(componentDataCaptureConfigs, attrs)
+					}
 				}
 			}
 		}
 	}
 
 	for _, r := range cfg.Remotes {
+		// !!!
+		// UNDERSTAND REMOTE DEPENDENCIES BETTER
+		// !!!
 		// Iterate over all remote-level service configs of type data_manager.
 		for _, resourceSvcConfig := range r.ServiceConfig {
 

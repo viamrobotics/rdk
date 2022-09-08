@@ -49,6 +49,7 @@ type ResourceConfig interface {
 	Set(val string) error
 }
 
+// TODO: add comment explaining this field as it is exported!
 type Model struct {
 	FilesToSync fileInfo `json:"files_to_sync"`
 }
@@ -123,7 +124,6 @@ func (config *Component) ResourceName() resource.Name {
 	return resource.NewName(config.Namespace, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
 }
 
-// might need to edit here to add to dependencies
 // Validate ensures all parts of the config are valid and returns dependencies.
 func (config *Component) Validate(path string) ([]string, error) {
 	var deps []string
