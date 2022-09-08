@@ -375,7 +375,7 @@ func TestModelsAfterKilled(t *testing.T) {
 	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 1+numArbitraryFilesToSync)
 }
 
-// TEST FILE SYNCING FUNCTION HERE
+// TEST FILE SYNCING FUNCTION HERE!!!!
 func TestFileSync(t *testing.T) {
 	// i do not think we need a mock server
 	// only need a mock http client
