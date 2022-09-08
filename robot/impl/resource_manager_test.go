@@ -1418,10 +1418,6 @@ func (fp *fakeProcess) Stop() error {
 	return nil
 }
 
-func (fp *fakeProcess) GetLogLine(ctx context.Context) (string, error) {
-	return "log line", nil
-}
-
 func TestManagerResourceRPCSubtypes(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := &inject.Robot{}

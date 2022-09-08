@@ -7,6 +7,7 @@ import (
 	"context"
 	"image"
 	"image/jpeg"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -664,6 +665,15 @@ func (slamSvc *slamService) StartSLAMProcess(ctx context.Context) error {
 	defer span.End()
 
 	processConfig := slamSvc.GetSLAMProcessConfig()
+
+	var logReader io.ReadCloser
+	var logWriter io.WriteCloser
+	if slamSvc.port == "localhost:0" {
+		logReader, logWriter = io.Pipe()
+		var w io.Writer = logWriter
+		processConfig.LogWriter = &w
+	}
+
 	_, err := slamSvc.slamProcess.AddProcessFromConfig(ctx, processConfig)
 	if err != nil {
 		return errors.Wrap(err, "problem adding slam process")
@@ -678,12 +688,16 @@ func (slamSvc *slamService) StartSLAMProcess(ctx context.Context) error {
 	if slamSvc.port == "localhost:0" {
 		timeoutCtx, timeoutCancel := context.WithTimeout(ctx, parsePortMaxTimeoutSec*time.Second)
 		defer timeoutCancel()
-		process, ok := slamSvc.slamProcess.ProcessByID(processConfig.ID)
-		if !ok {
-			return errors.New("error getting slam process from process manager")
-		}
+		defer logReader.Close()
+		defer logWriter.Close()
+
+		bufferedLogReader := bufio.NewReader(logReader)
 		for {
-			line, err := process.GetLogLine(timeoutCtx)
+			if err := timeoutCtx.Err(); err != nil {
+				return errors.Wrapf(err, "error getting port from slam process")
+			}
+
+			line, err := bufferedLogReader.ReadString('\n')
 			if err != nil {
 				return errors.Wrapf(err, "error getting port from slam process")
 			}
@@ -692,7 +706,7 @@ func (slamSvc *slamService) StartSLAMProcess(ctx context.Context) error {
 				if len(linePieces) != 2 {
 					return errors.Errorf("failed to parse port from slam process log line: %v", line)
 				}
-				slamSvc.port = "localhost:" + linePieces[1]
+				slamSvc.port = "localhost:" + strings.TrimRight(linePieces[1], "\n")
 				break
 			}
 		}
