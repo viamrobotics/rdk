@@ -1,38 +1,25 @@
 {
-    "services": [
-        {
-            "name": "datacap",
-            "type": "data_manager",
-            "attributes":
-            {
-                "disabled": false, 
-                "auto_delete": true,
-                "capture_dir": "/path/to/capture/root",
-                "additional_sync_paths": ["/path/to/file/to/capture"],
-                "max_storage_percent":90, 
-                "tags": ["sunny", "locationA"]
-            }
-        },
-        {
-            "name": "datasync",
-            "type": "data_synchronizer",
-            "attributes":
-            {
-                "disabled": false, 
-                "sync_interval_mins":60,
-                "max_storage_percent":90
-            }
-        },
-     {
-            "name": "modelsync",
-            "type": "ModelSync"
-     }
-    ],
     "components":[
         {
-            "name": "myCamera",
+            "name": "c1",
             "type": "camera",
             "model": "webcam",
+            "service_config": [
+                {
+                    "models": {
+                        "files_to_sync": {
+                            "source": "https://app.viam.com/org/models/model_name/model.xyz",
+                            "dest": "/home/example_user/model.xyz"
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "c2",
+            "type": "camera",
+            "model": "webcam",
+            "depends_on": ["c1"],
             "service_config": [
                 {
                     "models": {

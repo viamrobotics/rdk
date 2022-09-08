@@ -375,6 +375,30 @@ func TestModelsAfterKilled(t *testing.T) {
 	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 1+numArbitraryFilesToSync)
 }
 
+// TEST FILE SYNCING FUNCTION HERE
+func TestFileSync(t *testing.T) {
+	// i do not think we need a mock server
+	// only need a mock http client
+	testCfg := setupConfig(t, "robots/configs/fakest.json")
+	_, err := getDataManagerConfig(testCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Initialize the data manager and update it with our config.
+	dmsvc := newTestDataManager(t, "arm1", "")
+	// set to 0 so we do not use the datasync service
+	dmsvc.SetWaitAfterLastModifiedSecs(0)
+	err = dmsvc.Update(context.TODO(), testCfg)
+	// it is within the update that we do the files_to_sync bolshevik
+	// oop! need to remember to set fake http client here
+	test.That(t, err, test.ShouldBeNil)
+
+	// Simulate turning off the service.?
+	// just turn off the service..
+	err = dmsvc.Close(context.TODO())
+	test.That(t, err, test.ShouldBeNil)
+
+}
+
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
 // that directory is created (and can be synced on subsequent iterations of syncing).
 func TestCreatesAdditionalSyncPaths(t *testing.T) {
