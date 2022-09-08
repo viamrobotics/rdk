@@ -671,8 +671,7 @@ func (slamSvc *slamService) StartSLAMProcess(ctx context.Context) error {
 	var logWriter io.WriteCloser
 	if slamSvc.port == localhost0 {
 		logReader, logWriter = io.Pipe()
-		var w io.Writer = logWriter
-		processConfig.LogWriter = &w
+		processConfig.LogWriter = logWriter
 	}
 
 	_, err := slamSvc.slamProcess.AddProcessFromConfig(ctx, processConfig)
