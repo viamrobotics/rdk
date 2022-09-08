@@ -31,6 +31,7 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	mycomppb "go.viam.com/rdk/samples/mycomponent/proto/api/component/mycomponent/v1"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -72,11 +73,7 @@ func TestWebStartOptions(t *testing.T) {
 
 	svc := web.New(ctx, injectRobot, logger)
 
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	listener := testutils.ReserveRandomListener(t)
-	addr := listener.Addr().String()
-	options.Network.Listener = listener
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 
 	options.Network.BindAddress = "woop"
 	err := svc.Start(ctx, options)
@@ -117,11 +114,7 @@ func TestWebWithAuth(t *testing.T) {
 		t.Run(tc.Case, func(t *testing.T) {
 			svc := web.New(ctx, injectRobot, logger)
 
-			options := weboptions.New()
-			options.Network.BindAddress = ""
-			listener := testutils.ReserveRandomListener(t)
-			addr := listener.Addr().String()
-			options.Network.Listener = listener
+			options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 			options.Managed = tc.Managed
 			options.FQDN = tc.EntityName
 			options.LocalFQDN = primitive.NewObjectID().Hex()
@@ -266,11 +259,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	leaf, err := x509.ParseCertificate(cert.Certificate[0])
 	test.That(t, err, test.ShouldBeNil)
 
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	listener := testutils.ReserveRandomListener(t)
-	addr := listener.Addr().String()
-	options.Network.Listener = listener
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	options.Network.TLSConfig = &tls.Config{
 		RootCAs:      certPool,
 		ClientCAs:    certPool,
@@ -418,10 +407,7 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 
 	svc := web.New(ctx, injectRobot, logger)
 
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	listener := testutils.ReserveRandomListener(t)
-	options.Network.Listener = listener
+	options, _, _ := robottestutils.CreateBaseOptionsAndListener(t)
 	options.Auth.Handlers = []config.AuthHandlerConfig{
 		{
 			Type: "unknown",
@@ -436,10 +422,7 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 
 	svc = web.New(ctx, injectRobot, logger)
 
-	options = weboptions.New()
-	options.Network.BindAddress = ""
-	listener = testutils.ReserveRandomListener(t)
-	options.Network.Listener = listener
+	options, _, _ = robottestutils.CreateBaseOptionsAndListener(t)
 	options.Auth.Handlers = []config.AuthHandlerConfig{
 		{
 			Type: rpc.CredentialsTypeAPIKey,
@@ -459,11 +442,7 @@ func TestWebUpdate(t *testing.T) {
 
 	svc := web.New(ctx, robot, logger)
 
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	listener := testutils.ReserveRandomListener(t)
-	addr := listener.Addr().String()
-	options.Network.Listener = listener
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -509,7 +488,7 @@ func TestWebUpdate(t *testing.T) {
 
 	svc2 := web.New(ctx, robot2, logger)
 
-	listener = testutils.ReserveRandomListener(t)
+	listener := testutils.ReserveRandomListener(t)
 	addr = listener.Addr().String()
 	options.Network.Listener = listener
 
@@ -577,11 +556,7 @@ func TestWebWithStreams(t *testing.T) {
 
 	// Start service
 	logger := golog.NewTestLogger(t)
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	listener := testutils.ReserveRandomListener(t)
-	addr := listener.Addr().String()
-	options.Network.Listener = listener
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	svc := web.New(ctx, robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -634,11 +609,7 @@ func TestWebAddFirstStream(t *testing.T) {
 
 	// Start service
 	logger := golog.NewTestLogger(t)
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	listener := testutils.ReserveRandomListener(t)
-	addr := listener.Addr().String()
-	options.Network.Listener = listener
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	svc := web.New(ctx, robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -697,11 +668,7 @@ func TestForeignResource(t *testing.T) {
 
 	svc := web.New(ctx, robot, logger)
 
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	listener := testutils.ReserveRandomListener(t)
-	addr := listener.Addr().String()
-	options.Network.Listener = listener
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -752,7 +719,7 @@ func TestForeignResource(t *testing.T) {
 		return foreignRes, nil
 	}
 
-	listener = testutils.ReserveRandomListener(t)
+	listener := testutils.ReserveRandomListener(t)
 	addr = listener.Addr().String()
 	options.Network.Listener = listener
 	svc = web.New(ctx, injectRobot, logger)

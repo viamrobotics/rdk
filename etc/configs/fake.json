@@ -1,0 +1,154 @@
+{
+    "network": {
+        "fqdn": "something-unique",
+        "bind_address": ":8080"
+    },
+    "components":
+    [
+        {
+            "model": "fake",
+            "name": "arm1",
+            "type": "arm"
+        },
+        {
+            "model": "fake",
+            "name": "base1",
+            "type": "base"
+        },
+        {
+            "model": "fake",
+            "name": "gripper1",
+            "type": "gripper"
+        },
+        {
+            "model": "fake",
+            "name": "camera1",
+            "type": "camera"
+        },
+        {
+            "model": "fake",
+            "name": "mic1",
+            "type": "audio_input"
+        },
+        {
+            "model": "fake",
+            "name": "audioinput1",
+            "type": "audio_input"
+        },
+        {
+            "model": "fake",
+            "name": "board1",
+            "type": "board",
+            "attributes":
+            {
+                "analogs":
+                [
+                    {
+                        "name": "analog1",
+                        "pin": "0"
+                    }
+                ],
+                "digital_interrupts":
+                [
+                    {
+                        "name": "di1",
+                        "pin": "14"
+                    }
+                ]
+            }
+        },
+        {
+            "model": "fake",
+            "name": "servo1",
+            "type": "servo"
+        },
+        {
+            "name": "g",
+            "type": "motor",
+            "model": "fake",
+            "attributes":
+            {
+                "encoder": "encoder1",
+                "pins":
+                {
+                    "a": "1",
+                    "b": "2",
+                    "pwm": "3"
+                },
+                "ticks_per_rotation": 100,
+                "max_rpm": 100
+            },
+            "depends_on": ["board1", "encoder1"]
+        },
+        {
+            "name": "encoder1",
+            "type": "encoder",
+            "model": "fake"
+        }, 
+        {
+            "name": "movement_sensor1",
+            "type": "movement_sensor",
+            "model": "fake"
+        }, 
+        {
+            "name": "gantry1",
+            "type": "gantry",
+            "model": "fake"
+        },
+        {
+            "name": "sensor1",
+            "type": "sensor",
+            "model": "fake"
+        },
+        {
+            "name": "input1",
+            "model": "fake",
+            "type": "input_controller"
+        }
+    ],
+    "processes":
+    [
+        {
+            "id": "1",
+            "name": "echo",
+            "args":
+            [
+                "hello",
+                "world"
+            ],
+            "one_shot": true
+        },
+        {
+            "id": "2",
+            "name": "bash",
+            "args":
+            [
+                "-c",
+                "trap \"exit 0\" SIGINT; while true; do echo hey; sleep 2; done"
+            ],
+            "log": true
+        }
+    ],
+    "services":
+    [
+        {
+            "name": "nav1",
+            "type": "navigation",
+            "attributes": {
+                "store": {
+                    "type": "memory"
+                },
+                "movement_sensor": "movement_sensor1",
+                "base": "base1"
+            }
+        },
+        {
+            "name": "vis1",
+            "type": "vision"
+        },
+        {
+            "name": "motion1",
+            "type": "motion"
+        }
+    ]
+}

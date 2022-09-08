@@ -9,7 +9,6 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/gripper"
@@ -22,9 +21,9 @@ import (
 	"go.viam.com/rdk/robot/framesystem"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/testutils/robottestutils"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -286,11 +285,8 @@ func TestServiceWithRemote(t *testing.T) {
 	defer func() {
 		test.That(t, remoteRobot.Close(context.Background()), test.ShouldBeNil)
 	}()
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	listener := testutils.ReserveRandomListener(t)
-	addr := listener.Addr().String()
-	options.Network.Listener = listener
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err = remoteRobot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
