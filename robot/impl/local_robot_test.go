@@ -811,7 +811,7 @@ func TestStopAll(t *testing.T) {
 	go func() {
 		<-channel
 		for _, opid := range r.OperationManager().All() {
-			if opid.Method == "/proto.api.component.generic.v1.GenericService/Do" {
+			if opid.Method == "/proto.api.component.generic.v1.GenericService/DoCommand" {
 				foundOPID = true
 				stopAllErrCh <- r.StopAll(ctx, nil)
 			}
