@@ -1025,23 +1025,24 @@ func getAttrsFromServiceConfig(resourceSvcConfig config.ResourceLevelServiceConf
 	return *convertedConfigs, nil
 }
 
-// here!
+// here!!!!!!!
 // Build the component configs associated with the data manager service.
 func buildDataCaptureConfigs(cfg *config.Config) ([]dataCaptureConfig, error) {
 	var componentDataCaptureConfigs []dataCaptureConfig
 	var notSynced []string // might be better to do this with map , easier to check member inclusion then.
 	for _, c := range cfg.Components {
-
+		// iterate thru all dependencies, d, of c
 		for d := range c.DependsOn {
+			// iterate thru all notSynced component names, n
 			for n := range notSynced {
+				// check if d is in notSynced
 				if n == d {
 					notSynced = append(notSynced, c.Name) // <- c.Name correct?
-					// then we know we do not want to initialize this component
 					// log here?
-					// there is then no point in syncing files for this component because of dep issues
 				}
 			}
 		}
+		// check that we are not attempting to start a component whose dependencies are not started
 		if notSynced[len(notSynced)-1] != c.Name {
 			for _, componentSvcConfig := range c.ServiceConfig {
 
