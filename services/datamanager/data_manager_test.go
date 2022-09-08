@@ -337,7 +337,7 @@ func TestDeployModels(t *testing.T) {
 	// Generate a fake model.
 	m := &model.Model{Name: "m1", Destination: ""}
 	models := []*model.Model{m}
-	defer resetFolder(t, filepath.Join(defaultModelDir, models[0].Name)) // <- i do not think I need this
+	defer resetFolder(t, filepath.Join(defaultModelDir, models[0].Name))
 
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig(testCfg)
@@ -349,23 +349,18 @@ func TestDeployModels(t *testing.T) {
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetModelManagerConstructor(getTestModelrConstructor(t, modelServer))
+	dmsvc.SetModelManagerConstructor(getTestModelManagerConstructor(t, modelServer))
 
 	err = dmsvc.Update(context.Background(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	time.Sleep(deployModelWaitTime)
 
-	// Validate that model was deployed at startup.
+	// Validate that model was deployed.
 	_ = dmsvc.Close(context.Background())
-	files := func() int {
-		files, err := ioutil.ReadDir(defaultModelDir + "/m1") // should I do think instead with filepath.join()
-		if err != nil {
-			return 0
-		}
-		return len(files)
-	}
-	test.That(t, files(), test.ShouldEqual, 1)
+	files, err := ioutil.ReadDir(filepath.Join(defaultModelDir, models[0].Name))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(files), test.ShouldEqual, 1)
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
@@ -885,7 +880,7 @@ func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerC
 }
 
 //nolint:thelper
-func getTestModelrConstructor(t *testing.T, server rpc.Server) model.ManagerConstructor {
+func getTestModelManagerConstructor(t *testing.T, server rpc.Server) model.ManagerConstructor {
 	return func(logger golog.Logger, cfg *config.Config) (model.Manager, error) {
 		conn, err := getLocalServerConn(server, logger)
 		test.That(t, err, test.ShouldBeNil)
