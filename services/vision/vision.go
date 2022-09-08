@@ -43,19 +43,6 @@ func init() {
 		},
 		Reconfigurable: WrapWithReconfigurable,
 	})
-	registry.RegisterService(Subtype, resource.DefaultModelName, registry.Service{
-		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return New(ctx, r, c, logger)
-		},
-	})
-	cType := config.ServiceType(SubtypeName)
-	config.RegisterServiceAttributeMapConverter(cType, func(attributeMap config.AttributeMap) (interface{}, error) {
-		var attrs Attributes
-		return config.TransformAttributeMapToStruct(&attrs, attributeMap)
-	},
-		&Attributes{},
-	)
-
 	resource.AddDefaultService(Named(resource.DefaultServiceName))
 }
 
@@ -138,13 +125,13 @@ type Attributes struct {
 
 // New registers new detectors from the config and returns a new object detection service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	modMap := make(modelMap)
+	modMap := make(ModelMap)
 	// register default segmenters
-	defSeg := registeredModel{
-		model:     segmentation.Segmenter(segmentation.RadiusClustering),
-		modelType: RCSegmenter, SegParams: utils.JSONTags(segmentation.RadiusClusteringConfig{}),
+	defSeg := RegisteredModel{
+		Model:     segmentation.Segmenter(segmentation.RadiusClustering),
+		ModelType: RCSegmenter, SegParams: utils.JSONTags(segmentation.RadiusClusteringConfig{}),
 	}
-	err := modMap.registerVisModel(RadiusClusteringSegmenter, &defSeg, logger)
+	err := modMap.RegisterVisModel(RadiusClusteringSegmenter, &defSeg, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +141,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		if !ok {
 			return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 		}
-		err = registerNewVisModels(ctx, modMap, attrs, logger)
+		err = RegisterNewVisModels(ctx, modMap, attrs, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -176,7 +163,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 type visionService struct {
 	r      robot.Robot
-	modReg modelMap
+	modReg ModelMap
 	logger golog.Logger
 }
 
@@ -193,7 +180,7 @@ func (vs *visionService) AddDetector(ctx context.Context, cfg VisModelConfig) er
 	ctx, span := trace.StartSpan(ctx, "service::vision::AddDetector")
 	defer span.End()
 	attrs := &Attributes{ModelRegistry: []VisModelConfig{cfg}}
-	err := registerNewVisModels(ctx, vs.modReg, attrs, vs.logger)
+	err := RegisterNewVisModels(ctx, vs.modReg, attrs, vs.logger)
 	if err != nil {
 		return err
 	}
@@ -205,7 +192,7 @@ func (vs *visionService) AddDetector(ctx context.Context, cfg VisModelConfig) er
 func (vs *visionService) RemoveDetector(ctx context.Context, detectorName string) error {
 	_, span := trace.StartSpan(ctx, "service::vision::RemoveDetector")
 	defer span.End()
-	err := vs.modReg.removeVisModel(detectorName, vs.logger)
+	err := vs.modReg.RemoveVisModel(detectorName, vs.logger)
 	if err != nil {
 		return err
 	}
@@ -220,11 +207,11 @@ func (vs *visionService) GetDetectionsFromCamera(ctx context.Context, cameraName
 	if err != nil {
 		return nil, err
 	}
-	d, err := vs.modReg.modelLookup(detectorName)
+	d, err := vs.modReg.ModelLookup(detectorName)
 	if err != nil {
 		return nil, err
 	}
-	detector, err := d.toDetector()
+	detector, err := d.ToDetector()
 	if err != nil {
 		return nil, err
 	}
@@ -243,11 +230,11 @@ func (vs *visionService) GetDetections(ctx context.Context, img image.Image, det
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetDetections")
 	defer span.End()
 
-	d, err := vs.modReg.modelLookup(detectorName)
+	d, err := vs.modReg.ModelLookup(detectorName)
 	if err != nil {
 		return nil, err
 	}
-	detector, err := d.toDetector()
+	detector, err := d.ToDetector()
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +254,7 @@ func (vs *visionService) AddClassifier(ctx context.Context, cfg VisModelConfig) 
 	ctx, span := trace.StartSpan(ctx, "service::vision::AddClassifier")
 	defer span.End()
 	attrs := &Attributes{ModelRegistry: []VisModelConfig{cfg}}
-	err := registerNewVisModels(ctx, vs.modReg, attrs, vs.logger)
+	err := RegisterNewVisModels(ctx, vs.modReg, attrs, vs.logger)
 	if err != nil {
 		return err
 	}
@@ -278,7 +265,7 @@ func (vs *visionService) AddClassifier(ctx context.Context, cfg VisModelConfig) 
 func (vs *visionService) RemoveClassifier(ctx context.Context, classifierName string) error {
 	_, span := trace.StartSpan(ctx, "service::vision::RemoveClassifier")
 	defer span.End()
-	err := vs.modReg.removeVisModel(classifierName, vs.logger)
+	err := vs.modReg.RemoveVisModel(classifierName, vs.logger)
 	if err != nil {
 		return err
 	}
@@ -295,11 +282,11 @@ func (vs *visionService) GetClassificationsFromCamera(ctx context.Context, camer
 	if err != nil {
 		return nil, err
 	}
-	c, err := vs.modReg.modelLookup(classifierName)
+	c, err := vs.modReg.ModelLookup(classifierName)
 	if err != nil {
 		return nil, err
 	}
-	classifier, err := c.toClassifier()
+	classifier, err := c.ToClassifier()
 	if err != nil {
 		return nil, err
 	}
@@ -322,11 +309,11 @@ func (vs *visionService) GetClassifications(ctx context.Context, img image.Image
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetClassifications")
 	defer span.End()
 
-	c, err := vs.modReg.modelLookup(classifierName)
+	c, err := vs.modReg.ModelLookup(classifierName)
 	if err != nil {
 		return nil, err
 	}
-	classifier, err := c.toClassifier()
+	classifier, err := c.ToClassifier()
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +336,7 @@ func (vs *visionService) GetSegmenterNames(ctx context.Context) ([]string, error
 func (vs *visionService) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::GetSegmenterParameters")
 	defer span.End()
-	s, err := vs.modReg.modelLookup(segmenterName)
+	s, err := vs.modReg.ModelLookup(segmenterName)
 	if err != nil {
 		return nil, err
 	}
@@ -368,11 +355,11 @@ func (vs *visionService) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	s, err := vs.modReg.modelLookup(segmenterName)
+	s, err := vs.modReg.ModelLookup(segmenterName)
 	if err != nil {
 		return nil, err
 	}
-	segmenter, err := s.toSegmenter()
+	segmenter, err := s.ToSegmenter()
 	if err != nil {
 		return nil, err
 	}
@@ -382,11 +369,11 @@ func (vs *visionService) GetObjectPointClouds(
 // Helpers
 // registerSegmenterFromDetector creates and registers a segmenter from an already registered detector.
 func (vs *visionService) registerSegmenterFromDetector(detName string, logger golog.Logger) error {
-	d, err := vs.modReg.modelLookup(detName)
+	d, err := vs.modReg.ModelLookup(detName)
 	if err != nil {
 		return err
 	}
-	det, err := d.toDetector()
+	det, err := d.ToDetector()
 	if err != nil {
 		return err
 	}
@@ -394,15 +381,15 @@ func (vs *visionService) registerSegmenterFromDetector(detName string, logger go
 	if err != nil {
 		return err
 	}
-	regSegmenter := registeredModel{model: detSegmenter, modelType: ObjectSegmenter, SegParams: params}
-	return vs.modReg.registerVisModel(detName+"_segmenter", &regSegmenter, logger)
+	regSegmenter := RegisteredModel{Model: detSegmenter, ModelType: ObjectSegmenter, SegParams: params}
+	return vs.modReg.RegisterVisModel(detName+"_segmenter", &regSegmenter, logger)
 }
 
 // Close removes all existing detectors from the vision service.
 func (vs *visionService) Close() error {
-	models := vs.modReg.modelNames()
+	models := vs.modReg.ModelNames()
 	for _, detectorName := range models {
-		err := vs.modReg.removeVisModel(detectorName, vs.logger)
+		err := vs.modReg.RemoveVisModel(detectorName, vs.logger)
 		if err != nil {
 			return err
 		}

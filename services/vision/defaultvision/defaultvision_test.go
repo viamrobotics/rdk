@@ -1,4 +1,4 @@
-package vision
+package defaultvision
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/services/vision"
 	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
@@ -17,7 +18,7 @@ func TestCloseService(t *testing.T) {
 	ctx := context.Background()
 	srv := createService(ctx, t)
 	// success
-	cfg := VisModelConfig{
+	cfg := vision.VisModelConfig{
 		Name: "test",
 		Type: "color_detector",
 		Parameters: config.AttributeMap{
@@ -28,13 +29,13 @@ func TestCloseService(t *testing.T) {
 	}
 	err := srv.AddDetector(ctx, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	vService := srv.(*visionService)
+	vService := srv.(*visionDefaultService)
 	fakeStruct := newStruct()
 	det := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{}, nil
 	}
 	// registeredFn := registeredDetector{detector: det, closer: fakeStruct}
-	registeredFn := RegisteredModel{Model: det, Closer: fakeStruct}
+	registeredFn := vision.RegisteredModel{Model: det, Closer: fakeStruct}
 	logger := golog.NewTestLogger(t)
 	err = vService.modReg.RegisterVisModel("fake", &registeredFn, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -60,10 +61,10 @@ func (s *fakeClosingStruct) Close() error {
 	return nil
 }
 
-func createService(ctx context.Context, t *testing.T) Service {
+func createService(ctx context.Context, t *testing.T) vision.Service {
 	t.Helper()
 	logger := golog.NewTestLogger(t)
-	srv, err := New(ctx, nil, config.Service{}, logger)
+	srv, err := NewDefault(ctx, nil, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	return srv
 }

@@ -1,7 +1,7 @@
-// Package register registers all relevant cameras and also subtype specific functions
+// Package register registers all relevant motion services and also subtype specific functions
 package register
 
 import (
-	// for cameras.
+	// for motion models.
 	_ "go.viam.com/rdk/services/motion/defaultmotion"
 )
