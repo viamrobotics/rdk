@@ -143,7 +143,6 @@ type dataManagerService struct {
 	lock                      sync.Mutex
 	backgroundWorkers         sync.WaitGroup
 	updateCollectorsCancelFn  func()
-	partID                    string
 	waitAfterLastModifiedSecs int
 
 	additionalSyncPaths []string
@@ -507,11 +506,11 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 			}
 			svc.modelManager = modelManager
 		}
-		svc.partID = cfg.Cloud.ID // I do not think I need this - requesting permission to remove.
 
 		// Download models from models_on_robot.
 		modelsToDeploy := svcConfig.ModelsToDeploy
 		err := svc.modelManager.DownloadModels(cfg, modelsToDeploy)
+		fmt.Println("err: ", err)
 		if err != nil {
 			svc.logger.Errorf("can't download models_on_robot in config", "error", err)
 		}
