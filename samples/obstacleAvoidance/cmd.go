@@ -7,10 +7,10 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/viamrobotics/visualization"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"github.com/viamrobotics/visualization"
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/arm/fake"
 	"go.viam.com/rdk/component/arm/wrapper"
