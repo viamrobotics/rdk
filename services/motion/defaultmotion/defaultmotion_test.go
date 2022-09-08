@@ -1,4 +1,4 @@
-package defaultmotion
+package defaultmotion_test
 
 import (
 	"context"
@@ -20,6 +20,7 @@ import (
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/motion/defaultmotion"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -32,7 +33,7 @@ func setupMotionServiceFromConfig(t *testing.T, configFilename string) motion.Se
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer myRobot.Close(context.Background())
-	svc, err := NewDefault(ctx, myRobot, config.Service{}, logger)
+	svc, err := defaultmotion.NewDefault(ctx, myRobot, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	return svc
 }

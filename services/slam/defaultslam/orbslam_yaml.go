@@ -1,4 +1,4 @@
-package slam
+package defaultslam
 
 import (
 	"context"
@@ -22,7 +22,7 @@ const (
 )
 
 // orbCamMaker takes in the camera intrinsics and config params for orbslam and constructs a ORBsettings struct to use with yaml.Marshal.
-func (slamSvc *slamService) orbCamMaker(intrinsics *transform.PinholeCameraIntrinsics) (*ORBsettings, error) {
+func (slamSvc *slamDefaultService) orbCamMaker(intrinsics *transform.PinholeCameraIntrinsics) (*ORBsettings, error) {
 	var err error
 
 	orbslam := &ORBsettings{
@@ -104,7 +104,7 @@ type ORBsettings struct {
 }
 
 // generate a .yaml file to be used with orbslam.
-func (slamSvc *slamService) orbGenYAML(ctx context.Context, cam camera.Camera) error {
+func (slamSvc *slamDefaultService) orbGenYAML(ctx context.Context, cam camera.Camera) error {
 	// Get the camera and check if the properties are valid
 	proj, err := cam.Projector(ctx)
 	if err != nil {
@@ -165,7 +165,7 @@ func (slamSvc *slamService) orbGenYAML(ctx context.Context, cam camera.Camera) e
 	return outfile.Close()
 }
 
-func (slamSvc *slamService) orbConfigToInt(key string, def int) (int, error) {
+func (slamSvc *slamDefaultService) orbConfigToInt(key string, def int) (int, error) {
 	valStr, ok := slamSvc.configParams[key]
 	if !ok {
 		slamSvc.logger.Debugf("Parameter %s not found, using default value %d", key, def)
@@ -180,7 +180,7 @@ func (slamSvc *slamService) orbConfigToInt(key string, def int) (int, error) {
 	return val, nil
 }
 
-func (slamSvc *slamService) orbConfigToFloat(key string, def float64) (float64, error) {
+func (slamSvc *slamDefaultService) orbConfigToFloat(key string, def float64) (float64, error) {
 	valStr, ok := slamSvc.configParams[key]
 	if !ok {
 		slamSvc.logger.Debugf("Parameter %s not found, using default value %f", key, def)
@@ -197,7 +197,7 @@ func (slamSvc *slamService) orbConfigToFloat(key string, def float64) (float64, 
 // Checks the map folder within the data directory for an existing map.
 // Will grab the most recently generated map, if one exists.
 
-func (slamSvc *slamService) checkMaps() (string, string, error) {
+func (slamSvc *slamDefaultService) checkMaps() (string, string, error) {
 	root := filepath.Join(slamSvc.dataDirectory, "map")
 	mapExt := ".osa"
 	mapTimestamp := time.Time{}

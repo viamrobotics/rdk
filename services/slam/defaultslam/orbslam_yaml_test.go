@@ -1,4 +1,4 @@
-package slam_test
+package defaultslam_test
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/services/slam/defaultslam"
 )
 
 func TestOrbslamYAMLNew(t *testing.T) {
@@ -19,7 +19,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 
 	createFakeSLAMLibraries()
 	dataRateMs := 200
-	attrCfgGood := &slam.AttrConfig{
+	attrCfgGood := &defaultslam.AttrConfig{
 		Algorithm: "fake_orbslamv3",
 		Sensors:   []string{"good_camera"},
 		ConfigParams: map[string]string{
@@ -34,7 +34,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		DataRateMs:    dataRateMs,
 		Port:          "localhost:4445",
 	}
-	attrCfgBadCam := &slam.AttrConfig{
+	attrCfgBadCam := &defaultslam.AttrConfig{
 		Algorithm: "fake_orbslamv3",
 		Sensors:   []string{"bad_camera_intrinsics"},
 		ConfigParams: map[string]string{
@@ -71,7 +71,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 
 	t.Run("New orbslamv3 service with camera that errors from bad orbslam params", func(t *testing.T) {
 		// check if a param is empty
-		attrCfgBadParam1 := &slam.AttrConfig{
+		attrCfgBadParam1 := &defaultslam.AttrConfig{
 			Algorithm: "fake_orbslamv3",
 			Sensors:   []string{"good_camera"},
 			ConfigParams: map[string]string{
@@ -91,7 +91,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		_, err := createSLAMService(t, attrCfgBadParam1, logger, false)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "Parameter orb_n_features has an invalid definition")
 
-		attrCfgBadParam2 := &slam.AttrConfig{
+		attrCfgBadParam2 := &defaultslam.AttrConfig{
 			Algorithm: "fake_orbslamv3",
 			Sensors:   []string{"good_camera"},
 			ConfigParams: map[string]string{

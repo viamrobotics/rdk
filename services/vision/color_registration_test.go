@@ -22,11 +22,11 @@ func TestColorDetector(t *testing.T) {
 		},
 	}
 	ctx := context.Background()
-	reg := make(modelMap)
+	reg := make(ModelMap)
 	testlog := golog.NewLogger("testlog")
 	err := registerColorDetector(ctx, reg, inp, testlog)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = reg.modelLookup("my_color_detector")
+	_, err = reg.ModelLookup("my_color_detector")
 	test.That(t, err, test.ShouldBeNil)
 
 	// with error - bad parameters
