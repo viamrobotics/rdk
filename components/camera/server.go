@@ -40,13 +40,13 @@ func (s *subtypeServer) getCamera(name string) (Camera, error) {
 	return cam, nil
 }
 
-// GetFrame returns a frame from a camera of the underlying robot. If a specific MIME type
+// GetImage returns an image from a camera of the underlying robot. If a specific MIME type
 // is requested and is not available, an error is returned.
-func (s *subtypeServer) GetFrame(
+func (s *subtypeServer) GetImage(
 	ctx context.Context,
-	req *pb.GetFrameRequest,
-) (*pb.GetFrameResponse, error) {
-	ctx, span := trace.StartSpan(ctx, "camera::server::GetFrame")
+	req *pb.GetImageRequest,
+) (*pb.GetImageResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::server::GetImage")
 	defer span.End()
 	cam, err := s.getCamera(req.Name)
 	if err != nil {
@@ -69,7 +69,7 @@ func (s *subtypeServer) GetFrame(
 
 	bounds := img.Bounds()
 	actualMIME, _ := utils.CheckLazyMIMEType(req.MimeType)
-	resp := pb.GetFrameResponse{
+	resp := pb.GetImageResponse{
 		MimeType: actualMIME,
 		WidthPx:  int64(bounds.Dx()),
 		HeightPx: int64(bounds.Dy()),
@@ -93,7 +93,7 @@ func (s *subtypeServer) RenderFrame(
 	if req.MimeType == "" {
 		req.MimeType = utils.MimeTypeJPEG // default rendering
 	}
-	resp, err := s.GetFrame(ctx, (*pb.GetFrameRequest)(req))
+	resp, err := s.GetImage(ctx, (*pb.GetImageRequest)(req))
 	if err != nil {
 		return nil, err
 	}
