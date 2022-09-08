@@ -74,6 +74,109 @@ func TestComponentConfigToProto(t *testing.T) {
 	test.That(t, out.Frame, test.ShouldResemble, component.Frame)
 }
 
+func TestFrameConfigFromProto(t *testing.T) {
+	expectedFrameWithOrientation := func(or spatial.Orientation) *Frame {
+		return &Frame{
+			Parent: "world",
+			Translation: spatial.TranslationConfig{
+				X: 1,
+				Y: 2,
+				Z: 3,
+			},
+			Orientation: or,
+		}
+	}
+	createNewFrame := func(or *pb.Orientation) *pb.Frame {
+		return &pb.Frame{
+			Parent: "world",
+			Translation: &pb.Translation{
+				X: 1,
+				Y: 2,
+				Z: 3,
+			},
+			Orientation: or,
+		}
+	}
+
+	orRadians := spatial.NewOrientationVector()
+	orRadians.OX = 1
+	orRadians.OY = 2
+	orRadians.OZ = 3
+	orRadians.Theta = 4
+
+	orDegress := spatial.NewOrientationVectorDegrees()
+	orDegress.OX = 1
+	orDegress.OY = 2
+	orDegress.OZ = 3
+	orDegress.Theta = 4
+
+	orR4AA := spatial.NewR4AA()
+	orR4AA.RX = 1
+	orR4AA.RY = 2
+	orR4AA.RZ = 3
+	orR4AA.Theta = 4
+
+	orEulerAngles := spatial.NewEulerAngles()
+	orEulerAngles.Roll = 1
+	orEulerAngles.Pitch = 2
+	orEulerAngles.Yaw = 3
+
+	testCases := []struct {
+		name          string
+		expectedFrame *Frame
+		inputFrame    *pb.Frame
+	}{
+		{
+			"with orientation vector radians",
+			expectedFrameWithOrientation(orRadians),
+			createNewFrame(&pb.Orientation{
+				Type: &pb.Orientation_VectorRadians{VectorRadians: &pb.Orientation_OrientationVectorRadians{Theta: 4, X: 1, Y: 2, Z: 3}},
+			}),
+		},
+		{
+			"with orientation vector degrees",
+			expectedFrameWithOrientation(orDegress),
+			createNewFrame(&pb.Orientation{
+				Type: &pb.Orientation_VectorDegrees{VectorDegrees: &pb.Orientation_OrientationVectorDegrees{Theta: 4, X: 1, Y: 2, Z: 3}},
+			}),
+		},
+		{
+			"with orientation R4AA",
+			expectedFrameWithOrientation(orR4AA),
+			createNewFrame(&pb.Orientation{
+				Type: &pb.Orientation_AxisAngles_{AxisAngles: &pb.Orientation_AxisAngles{Theta: 4, X: 1, Y: 2, Z: 3}},
+			}),
+		},
+		{
+			"with orientation EulerAngles",
+			expectedFrameWithOrientation(orEulerAngles),
+			createNewFrame(&pb.Orientation{
+				Type: &pb.Orientation_EulerAngles_{EulerAngles: &pb.Orientation_EulerAngles{Roll: 1, Pitch: 2, Yaw: 3}},
+			}),
+		},
+		{
+			"with orientation Quaternion",
+			expectedFrameWithOrientation(&spatial.Quaternion{Real: 1, Imag: 2, Jmag: 3, Kmag: 4}),
+			createNewFrame(&pb.Orientation{
+				Type: &pb.Orientation_Quaternion_{Quaternion: &pb.Orientation_Quaternion{W: 1, X: 2, Y: 3, Z: 4}},
+			}),
+		},
+		{
+			"with no orientation",
+			expectedFrameWithOrientation(nil),
+			createNewFrame(nil),
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			frameOut, err := FrameConfigFromProto(testCase.inputFrame)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, frameOut, test.ShouldResemble, testCase.expectedFrame)
+		})
+	}
+}
+
 func TestRemoteConfigToProto(t *testing.T) {
 	t.Run("With RemoteAuth", func(t *testing.T) {
 		remote := Remote{
