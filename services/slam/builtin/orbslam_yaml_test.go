@@ -35,7 +35,7 @@ const (
 	slamTimeFormat = "2006-01-02T15_04_05.0000"
 )
 
-// function to search a SLAM data dir for a .yaml file. returns the timestamp and filepath
+// function to search a SLAM data dir for a .yaml file. returns the timestamp and filepath.
 func findLastYAML(folderName string) (string, string, error) {
 	root := filepath.Join(folderName, "config")
 	yamlExt := ".yaml"
