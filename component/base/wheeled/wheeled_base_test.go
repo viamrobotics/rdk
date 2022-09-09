@@ -29,26 +29,19 @@ func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
 	return result
 }
 
-func TestFourWheelBase1(t *testing.T) {
+func TestWheelBaseMath(t *testing.T) {
 	ctx := context.Background()
-
-	cfg := &FourWheelConfig{}
-	_, err := cfg.Validate("path")
-	test.That(t, err, test.ShouldNotBeNil)
-
-	cfg = &FourWheelConfig{
+	cfg := &Config{
 		WidthMM:              100,
 		WheelCircumferenceMM: 1000,
-		FrontRight:           "fr-m",
-		FrontLeft:            "fl-m",
-		BackRight:            "br-m",
-		BackLeft:             "bl-m",
+		Left:                 []string{"fl-m", "bl-m"},
+		Right:                []string{"fr-m", "br-m"},
 	}
 	deps, err := cfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := CreateFourWheelBase(context.Background(), motorDeps, cfg, rlog.Logger)
+	baseBase, err := CreateWheeledBase(context.Background(), motorDeps, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
 	base, ok := baseBase.(*wheeledBase)
