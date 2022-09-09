@@ -245,7 +245,10 @@ func TestFullClientServerLoop(t *testing.T) {
 		"clustering_radius_mm":  5.,
 		"mean_k_filtering":      10.,
 	}
-	err = client.AddSegmenter(context.Background(), vision.VisModelConfig{vision.RadiusClusteringSegmenter, string(vision.RCSegmenter), params})
+	err = client.AddSegmenter(
+		context.Background(),
+		vision.VisModelConfig{vision.RadiusClusteringSegmenter, string(vision.RCSegmenter), params},
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	segs, err := client.GetObjectPointClouds(context.Background(), "fakeCamera", vision.RadiusClusteringSegmenter)

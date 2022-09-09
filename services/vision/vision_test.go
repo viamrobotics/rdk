@@ -15,7 +15,7 @@ import (
 
 func TestCloseService(t *testing.T) {
 	ctx := context.Background()
-	srv := createService(ctx, t)
+	srv := makeService(ctx, t)
 	// success
 	cfg := VisModelConfig{
 		Name: "test",
@@ -60,7 +60,7 @@ func (s *fakeClosingStruct) Close() error {
 	return nil
 }
 
-func createService(ctx context.Context, t *testing.T) Service {
+func makeService(ctx context.Context, t *testing.T) Service {
 	t.Helper()
 	logger := golog.NewTestLogger(t)
 	srv, err := New(ctx, nil, config.Service{}, logger)

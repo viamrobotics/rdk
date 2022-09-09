@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
-// DetectionSegmenterConfig are the optional parameters to turn a detector into a segmenter
+// DetectionSegmenterConfig are the optional parameters to turn a detector into a segmenter.
 type DetectionSegmenterConfig struct {
 	DetectorName string  `json:"detector_name"`
 	MeanK        int     `json:"mean_k"`

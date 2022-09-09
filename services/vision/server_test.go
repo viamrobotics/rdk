@@ -264,7 +264,7 @@ func TestServerSegmentationGetObjects(t *testing.T) {
 	}
 	segmenter, err := segmentation.NewRadiusClustering(params)
 	test.That(t, err, test.ShouldBeNil)
-	//fake camera and vision service
+
 	_cam := &cloudSource{}
 	cam, err := camera.NewFromReader(_cam, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -310,7 +310,7 @@ func TestServerSegmentationGetObjects(t *testing.T) {
 }
 
 func TestServerSegmentationAddRemove(t *testing.T) {
-	srv, _ := createService(t, "data/empty.json")
+	srv, r := createService(t, "data/empty.json")
 	m := map[resource.Name]interface{}{
 		vision.Named(testVisionServiceName): srv,
 	}
@@ -354,6 +354,7 @@ func TestServerSegmentationAddRemove(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, segResp.SegmenterNames, test.ShouldHaveLength, 0)
 
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestServerAddRemoveClassifier(t *testing.T) {
