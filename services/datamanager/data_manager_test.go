@@ -219,6 +219,19 @@ func TestCaptureDisabled(t *testing.T) {
 	info, err = filesInArmDir[1].Info()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, info.Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
+
+	// Verify that session IDs in metadata are different
+	captureFileName0 := filesInArmDir[0].Name()
+	file0, err := os.Open(armDir + "/" + captureFileName0)
+	test.That(t, err, test.ShouldBeNil)
+	md0, err := datacapture.ReadDataCaptureMetadata(file0)
+	test.That(t, err, test.ShouldBeNil)
+	captureFileName1 := filesInArmDir[1].Name()
+	file1, err := os.Open(armDir + "/" + captureFileName1)
+	test.That(t, err, test.ShouldBeNil)
+	md1, err := datacapture.ReadDataCaptureMetadata(file1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, md0.SessionId, test.ShouldNotEqual, md1.SessionId)
 }
 
 func TestNewRemoteDataManager(t *testing.T) {
@@ -605,6 +618,8 @@ func TestReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSvc1, test.ShouldResemble, reconfSvc2)
 	test.That(t, actualSvc1.reconfCount, test.ShouldEqual, 1)
+
+	// Verify that session IDs should be different after reconfiguration
 
 	err = reconfSvc1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)

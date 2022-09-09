@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
@@ -149,6 +150,8 @@ type dataManagerService struct {
 	syncIntervalMins    float64
 	syncer              datasync.Manager
 	syncerConstructor   datasync.ManagerConstructor
+
+	sessionID string
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
@@ -168,6 +171,7 @@ func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger
 		additionalSyncPaths:       []string{},
 		waitAfterLastModifiedSecs: 10,
 		syncerConstructor:         datasync.NewDefaultManager,
+		sessionID:                 uuid.NewString(),
 	}
 
 	return dataManagerSvc, nil
@@ -271,7 +275,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	}
 	// Build metadata.
 	captureMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
-		attributes.Model, attributes.Method, attributes.AdditionalParams, attributes.Tags)
+		attributes.Model, attributes.Method, attributes.AdditionalParams, attributes.Tags, svc.sessionID)
 
 	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
 		collector := storedCollectorParams.Collector
@@ -424,7 +428,7 @@ func (svc *dataManagerService) syncDataCaptureFiles() {
 		// Create new target and set it.
 		attributes := collector.Attributes
 		captureMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
-			attributes.Model, attributes.Method, attributes.AdditionalParams, attributes.Tags)
+			attributes.Model, attributes.Method, attributes.AdditionalParams, attributes.Tags, svc.sessionID)
 
 		nextTarget, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
 		if err != nil {
@@ -535,6 +539,9 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 			return err
 		}
 	}
+
+	// Update session ID since capture configuration has changed
+	svc.sessionID = uuid.NewString()
 
 	// Initialize or add a collector based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)

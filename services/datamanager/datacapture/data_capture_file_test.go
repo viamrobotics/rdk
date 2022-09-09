@@ -21,6 +21,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 		dataType         v1.DataType
 		fileExtension    string
 		tags             []string
+		sessionID        string
 	}{
 		{
 			name:             "Metadata for arm positions stored in a tabular .csv file",
@@ -32,6 +33,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			dataType:         v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			fileExtension:    ".csv",
 			tags:             []string{"tagA", "tagB"},
+			sessionID:        "",
 		},
 		{
 			name:             "Metadata for a camera Next() image stored as a binary .jpeg file",
@@ -43,6 +45,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			fileExtension:    ".jpeg",
 			tags:             []string{},
+			sessionID:        "1",
 		},
 		{
 			name:             "Metadata for a LiDAR Next() point cloud stored as a binary .pcd file",
@@ -54,6 +57,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			fileExtension:    ".pcd",
 			tags:             []string{},
+			sessionID:        "1",
 		},
 		{
 			name:             "Metadata for a LiDAR NextPointCloud() stored as a binary .pcd file",
@@ -65,13 +69,14 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			fileExtension:    ".pcd",
 			tags:             []string{},
+			sessionID:        "1",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Log(tc.name)
 		actualMetadata := BuildCaptureMetadata(
-			tc.componentType, tc.componentName, tc.componentModel, tc.method, tc.additionalParams, tc.tags)
+			tc.componentType, tc.componentName, tc.componentModel, tc.method, tc.additionalParams, tc.tags, tc.sessionID)
 		expectedMetadata := v1.DataCaptureMetadata{
 			ComponentType:    string(tc.componentType),
 			ComponentName:    tc.componentName,
@@ -81,6 +86,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			MethodParameters: tc.additionalParams,
 			FileExtension:    tc.fileExtension,
 			Tags:             tc.tags,
+			SessionId:        tc.sessionID,
 		}
 		test.That(t, actualMetadata.String(), test.ShouldEqual, expectedMetadata.String())
 	}

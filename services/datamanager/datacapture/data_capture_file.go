@@ -47,7 +47,7 @@ func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.F
 
 // BuildCaptureMetadata builds a DataCaptureMetadata object.
 func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, method string,
-	additionalParams map[string]string, tags []string,
+	additionalParams map[string]string, tags []string, sessionID string,
 ) *v1.DataCaptureMetadata {
 	dataType := getDataType(string(compType), method)
 	return &v1.DataCaptureMetadata{
@@ -59,6 +59,7 @@ func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, me
 		MethodParameters: additionalParams,
 		FileExtension:    GetFileExt(dataType, method, additionalParams),
 		Tags:             tags,
+		SessionId:        sessionID,
 	}
 }
 
