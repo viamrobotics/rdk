@@ -160,7 +160,7 @@ func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger
 	dataManagerSvc := &dataManagerService{
 		r:                         r,
 		logger:                    logger,
-		captureDir:                viamCaptureDotDir,
+		captureDir:                "",
 		collectors:                make(map[componentMethodMetadata]collectorAndConfig),
 		backgroundWorkers:         sync.WaitGroup{},
 		lock:                      sync.Mutex{},
@@ -514,6 +514,11 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
 	toggledSyncOff := toggledSync && svc.syncDisabled
 	toggledSyncOn := toggledSync && !svc.syncDisabled
+
+	// If capture directory not specified in config file, set to default directory
+	if svcConfig.CaptureDir == "" {
+		svc.captureDir = viamCaptureDotDir
+	}
 
 	// If sync has been toggled on, sync previously captured files and update the capture directory.
 	updateCaptureDir := (svc.captureDir != svcConfig.CaptureDir) || toggledSyncOn
