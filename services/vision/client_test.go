@@ -25,6 +25,8 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	viz "go.viam.com/rdk/vision"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 const (
@@ -194,18 +196,6 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, names, test.ShouldContain, "new_segmenter")
 
-		segs, err := client.GetObjectPointClouds(context.Background(), "cloud_cam", "new_segmenter")
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(segs), test.ShouldEqual, 2)
-
-		expectedBoxes := makeExpectedBoxes(t)
-		for _, seg := range segs {
-			box, err := pointcloud.BoundingBoxFromPointCloud(seg)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, box, test.ShouldNotBeNil)
-			test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
-		}
-
 		err = client.RemoveClassifier(context.Background(), "new_segmenter")
 		test.That(t, err, test.ShouldBeNil)
 
@@ -311,6 +301,80 @@ func TestClient(t *testing.T) {
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
+func TestInjectedServiceClient(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+
+	injectVision := &inject.VisionService{}
+	osMap := map[resource.Name]interface{}{
+		vision.Named(testVisionServiceName): injectVision,
+	}
+	svc, err := subtype.New(osMap)
+	test.That(t, err, test.ShouldBeNil)
+	resourceSubtype := registry.ResourceSubtypeLookup(vision.Subtype)
+	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
+
+	go rpcServer.Serve(listener1)
+	defer rpcServer.Stop()
+
+	t.Run("dialed client test config for working vision service", func(t *testing.T) {
+		injectVision.GetSegmenterNamesFunc = func(ctx context.Context) ([]string, error) {
+			return []string{vision.RadiusClusteringSegmenter}, nil
+		}
+
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		workingDialedClient := vision.NewClientFromConn(context.Background(), conn, testVisionServiceName, logger)
+		segmenterNames, err := workingDialedClient.GetSegmenterNames(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, segmenterNames, test.ShouldHaveLength, 1)
+
+		test.That(t, utils.TryClose(context.Background(), workingDialedClient), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+	t.Run("test segmentation", func(t *testing.T) {
+		params := config.AttributeMap{
+			"min_points_in_plane":   100,
+			"min_points_in_segment": 3,
+			"clustering_radius_mm":  5.,
+			"mean_k_filtering":      10.,
+		}
+		segmenter, err := segmentation.NewRadiusClustering(params)
+		test.That(t, err, test.ShouldBeNil)
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		client := vision.NewClientFromConn(context.Background(), conn, testVisionServiceName, logger)
+
+		_cam := &cloudSource{}
+		injCam, err := camera.NewFromReader(_cam, nil)
+		test.That(t, err, test.ShouldBeNil)
+		injectVision.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName, segmenterName string,
+		) ([]*viz.Object, error) {
+			segments, err := segmenter(ctx, injCam)
+			if err != nil {
+				return nil, err
+			}
+			return segments, nil
+		}
+
+		segs, err := client.GetObjectPointClouds(context.Background(), "cloud_cam", vision.RadiusClusteringSegmenter)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(segs), test.ShouldEqual, 2)
+
+		expectedBoxes := makeExpectedBoxes(t)
+		for _, seg := range segs {
+			box, err := pointcloud.BoundingBoxFromPointCloud(seg)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, box, test.ShouldNotBeNil)
+			test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
+		}
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+}
 func TestClientDialerOption(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")

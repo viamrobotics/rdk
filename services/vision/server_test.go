@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/components/camera"
 	_ "go.viam.com/rdk/components/camera/register"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/pointcloud"
 	pb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -22,6 +21,8 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
+	viz "go.viam.com/rdk/vision"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 func newServer(m map[resource.Name]interface{}) (pb.VisionServiceServer, error) {
@@ -254,22 +255,64 @@ func TestServerAddRemoveSegmenter(t *testing.T) {
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
-func TestServerObjectSegmentation(t *testing.T) {
-	srv, _ := createService(t, "data/empty.json")
-	ptCloudCam := &inject.Camera{}
-	ptCloudCam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		pcA := pointcloud.New()
-		for _, pt := range testPointCloud {
-			err := pcA.Set(pt, nil)
-			if err != nil {
-				return nil, err
-			}
+func TestServerSegmentationGetObjects(t *testing.T) {
+	params := config.AttributeMap{
+		"min_points_in_plane":   100,
+		"min_points_in_segment": 3,
+		"clustering_radius_mm":  5.,
+		"mean_k_filtering":      10.,
+	}
+	segmenter, err := segmentation.NewRadiusClustering(params)
+	test.That(t, err, test.ShouldBeNil)
+	//fake camera and vision service
+	_cam := &cloudSource{}
+	cam, err := camera.NewFromReader(_cam, nil)
+	test.That(t, err, test.ShouldBeNil)
+	injectVision := &inject.VisionService{}
+	injectVision.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName, segmenterName string,
+	) ([]*viz.Object, error) {
+		if segmenterName == vision.RadiusClusteringSegmenter {
+			return segmenter(ctx, cam)
 		}
-		return pcA, nil
+		return nil, errors.Errorf("no segmenter with name %s", segmenterName)
 	}
 	m := map[resource.Name]interface{}{
+		vision.Named(testVisionServiceName): injectVision,
+	}
+	server, err := newServer(m)
+	test.That(t, err, test.ShouldBeNil)
+
+	// no such segmenter in registry
+	_, err = server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
+		Name:          testVisionServiceName,
+		CameraName:    "fakeCamera",
+		SegmenterName: "no_such_segmenter",
+		MimeType:      utils.MimeTypePCD,
+	})
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no segmenter with name")
+
+	// successful request
+	segs, err := server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
+		Name:          testVisionServiceName,
+		CameraName:    "fakeCamera",
+		SegmenterName: vision.RadiusClusteringSegmenter,
+		MimeType:      utils.MimeTypePCD,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(segs.Objects), test.ShouldEqual, 2)
+
+	expectedBoxes := makeExpectedBoxes(t)
+	for _, object := range segs.Objects {
+		box, err := spatialmath.NewGeometryFromProto(object.Geometries.Geometries[0])
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
+	}
+}
+
+func TestServerSegmentationAddRemove(t *testing.T) {
+	srv, _ := createService(t, "data/empty.json")
+	m := map[resource.Name]interface{}{
 		vision.Named(testVisionServiceName): srv,
-		camera.Named("fakeCamera"):          ptCloudCam,
 	}
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
@@ -289,7 +332,7 @@ func TestServerObjectSegmentation(t *testing.T) {
 		SegmenterParameters: params,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	// request segmenters
+	// segmenter names
 	segReq := &pb.GetSegmenterNamesRequest{
 		Name: testVisionServiceName,
 	}
@@ -297,32 +340,20 @@ func TestServerObjectSegmentation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, segResp.SegmenterNames, test.ShouldHaveLength, 1)
 	test.That(t, segResp.SegmenterNames[0], test.ShouldEqual, vision.RadiusClusteringSegmenter)
-
-	// no such segmenter in registry
-	_, err = server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
+	// remove segmenter
+	_, err = server.RemoveSegmenter(context.Background(), &pb.RemoveSegmenterRequest{
 		Name:          testVisionServiceName,
-		CameraName:    "fakeCamera",
-		SegmenterName: "no_such_segmenter",
-		MimeType:      utils.MimeTypePCD,
-	})
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
-
-	// successful request
-	segs, err := server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
-		Name:          testVisionServiceName,
-		CameraName:    "fakeCamera",
 		SegmenterName: vision.RadiusClusteringSegmenter,
-		MimeType:      utils.MimeTypePCD,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(segs.Objects), test.ShouldEqual, 2)
-
-	expectedBoxes := makeExpectedBoxes(t)
-	for _, object := range segs.Objects {
-		box, err := spatialmath.NewGeometryFromProto(object.Geometries.Geometries[0])
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
+	// test that it was removed
+	segReq = &pb.GetSegmenterNamesRequest{
+		Name: testVisionServiceName,
 	}
+	segResp, err = server.GetSegmenterNames(context.Background(), segReq)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, segResp.SegmenterNames, test.ShouldHaveLength, 0)
+
 }
 
 func TestServerAddRemoveClassifier(t *testing.T) {
