@@ -11,42 +11,19 @@
                     "key": "${RDK_AUTH_API_KEY}"
                 }
             }
-        ] 
+        ]
     },
-    "components":
-    [
+    "components": [
         {
-            "model": "fake",
-            "name": "arm1",
-            "type": "arm"
+            "name": "arm1",            
+            "type": "arm",
+            "model": "fake"
         },
         {
-            "model": "fake",
             "name": "servo1",
-            "type": "servo"
-        }
-    ],
-    "processes":
-    [
-        {
-            "id": "1",
-            "name": "echo",
-            "args":
-            [
-                "hello",
-                "world"
-            ],
-            "one_shot": true
-        },
-        {
-            "id": "2",
-            "name": "bash",
-            "args":
-            [
-                "-c",
-                "trap \"exit 0\" SIGINT; while true; do echo hey; sleep 2; done"
-            ],
-            "log": true
+            "type": "servo",
+            "model": "fake"
+
         }
     ]
 }
