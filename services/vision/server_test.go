@@ -113,6 +113,11 @@ func TestServerAddDetector(t *testing.T) {
 	detResp, err := server.GetDetectorNames(context.Background(), detRequest)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, detResp.GetDetectorNames(), test.ShouldContain, "test")
+	// was a segmenter added too
+	segRequest := &pb.GetSegmenterNamesRequest{Name: testVisionServiceName}
+	segResp, err := server.GetSegmenterNames(context.Background(), segRequest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, segResp.GetSegmenterNames(), test.ShouldContain, "test_segmenter")
 
 	// now remove it
 	_, err = server.RemoveDetector(context.Background(), &pb.RemoveDetectorRequest{
@@ -125,6 +130,11 @@ func TestServerAddDetector(t *testing.T) {
 	detResp, err = server.GetDetectorNames(context.Background(), detRequest)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, detResp.GetDetectorNames(), test.ShouldNotContain, "test")
+	// checkt to see that segmenter is gone too
+	segRequest = &pb.GetSegmenterNamesRequest{Name: testVisionServiceName}
+	segResp, err = server.GetSegmenterNames(context.Background(), segRequest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, segResp.GetSegmenterNames(), test.ShouldNotContain, "test_segmenter")
 
 	// failure
 	resp, err := server.AddDetector(context.Background(), &pb.AddDetectorRequest{
@@ -139,7 +149,8 @@ func TestServerAddDetector(t *testing.T) {
 }
 
 func TestServerGetDetections(t *testing.T) {
-	r := buildRobotWithFakeCamera(t)
+	r, err := buildRobotWithFakeCamera(t)
+	test.That(t, err, test.ShouldBeNil)
 	visName := vision.FindFirstName(r)
 	srv, err := vision.FromRobot(r, visName)
 	test.That(t, err, test.ShouldBeNil)
@@ -409,7 +420,8 @@ func TestServerAddRemoveClassifier(t *testing.T) {
 }
 
 func TestServerGetClassifications(t *testing.T) {
-	r := buildRobotWithFakeCamera(t)
+	r, err := buildRobotWithFakeCamera(t)
+	test.That(t, err, test.ShouldBeNil)
 	visName := vision.FindFirstName(r)
 	srv, err := vision.FromRobot(r, visName)
 	test.That(t, err, test.ShouldBeNil)

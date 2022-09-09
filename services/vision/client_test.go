@@ -40,7 +40,8 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	r := buildRobotWithFakeCamera(t)
+	r, err := buildRobotWithFakeCamera(t)
+	test.That(t, err, test.ShouldBeNil)
 	visName := vision.FindFirstName(r)
 	srv, err := vision.FromRobot(r, visName)
 	test.That(t, err, test.ShouldBeNil)
@@ -163,7 +164,7 @@ func TestClient(t *testing.T) {
 
 		names, err := client.GetSegmenterNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, names, test.ShouldBeEmpty)
+		test.That(t, names, test.ShouldNotContain, "new_segmenter")
 
 		cfg := vision.VisModelConfig{
 			Name: "new_segmenter",

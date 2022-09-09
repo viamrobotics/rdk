@@ -48,12 +48,14 @@ func writeTempConfig(t *testing.T, cfg *config.Config) string {
 	return tmpFile.Name()
 }
 
-func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
+func buildRobotWithFakeCamera(t *testing.T) (robot.Robot, error) {
 	t.Helper()
 	// add a fake camera to the config
 	logger := golog.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/empty.json", logger)
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		return nil, err
+	}
 	cameraComp := config.Component{
 		Name:  "fake_cam",
 		Type:  camera.SubtypeName,
@@ -75,20 +77,26 @@ func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
 		},
 	}
 
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		return nil, err
+	}
 	cfg.Components = append(cfg.Components, cameraComp)
 	cfg.Components = append(cfg.Components, cameraComp2)
 	newConfFile := writeTempConfig(t, cfg)
 	defer os.Remove(newConfFile)
 	// make the robot from new config and get the service
 	r, err := robotimpl.RobotFromConfigPath(context.Background(), newConfFile, logger)
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		return nil, err
+	}
 	srv, err := vision.FirstFromRobot(r)
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		return nil, err
+	}
 	// add the detector
 	detConf := vision.VisModelConfig{
 		Name: "detect_red",
-		Type: "color_detector",
+		Type: string(vision.ColorDetector),
 		Parameters: config.AttributeMap{
 			"detect_color": "#C9131F", // look for red
 			"tolerance":    0.05,
@@ -96,8 +104,10 @@ func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
 		},
 	}
 	err = srv.AddDetector(context.Background(), detConf)
-	test.That(t, err, test.ShouldBeNil)
-	return r
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
 var testPointCloud = []r3.Vector{
