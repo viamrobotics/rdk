@@ -1,17 +1,17 @@
 // export_test.go adds functionality to the datamanager that we only want to use and expose during testing.
-package datamanager
+package defaultdatamanager
 
 import (
 	"go.viam.com/rdk/services/datamanager/datasync"
 )
 
 // SetSyncerConstructor sets the syncer constructor for the data manager to use when creating its syncer.
-func (svc *dataManagerService) SetSyncerConstructor(fn datasync.ManagerConstructor) {
+func (svc *dataManagerDefaultService) SetSyncerConstructor(fn datasync.ManagerConstructor) {
 	svc.syncerConstructor = fn
 }
 
 // SetWaitAfterLastModifiedSecs sets the wait time for the syncer to use when initialized/changed in Service.Update.
-func (svc *dataManagerService) SetWaitAfterLastModifiedSecs(s int) {
+func (svc *dataManagerDefaultService) SetWaitAfterLastModifiedSecs(s int) {
 	svc.waitAfterLastModifiedSecs = s
 }
 
