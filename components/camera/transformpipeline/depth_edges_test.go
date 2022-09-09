@@ -114,7 +114,7 @@ func (h *depthSourceTestHelper) Process(
 func TestDepthSourceGripper(t *testing.T) {
 	debugVideoTransformOrSkip(t)
 	proj, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(
-		utils.ResolveFile("component/camera/transformpipeline/data/gripper_parameters.json"),
+		utils.ResolveFile("components/camera/transformpipeline/data/gripper_parameters.json"),
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -126,7 +126,7 @@ func TestDepthSourceGripper(t *testing.T) {
 func TestDepthSourceIntel(t *testing.T) {
 	debugVideoTransformOrSkip(t)
 	proj, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(
-		utils.ResolveFile("component/camera/transformpipeline/data/intel515_parameters.json"),
+		utils.ResolveFile("components/camera/transformpipeline/data/intel515_parameters.json"),
 	)
 	test.That(t, err, test.ShouldBeNil)
 
