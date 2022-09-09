@@ -5,9 +5,9 @@
     },
     "components": [
         {
+            "name": "localArm",
             "type": "arm",
             "model": "fake",
-            "name": "localArm",
             "service_config": [
                 {
                     "type": "data_manager",

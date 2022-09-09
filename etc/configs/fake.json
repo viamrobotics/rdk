@@ -5,24 +5,24 @@
     },
     "components": [
         {
+            "name": "arm1",
             "type": "arm",
-            "model": "fake",
-            "name": "arm1"
+            "model": "fake"
         },
         {
+            "name": "audio_input1",
             "type": "audio_input",
-            "model": "fake",
-            "name": "audio_input1"
+            "model": "fake"
         },
         {
+            "name": "base1",
             "type": "base",
-            "model": "fake",
-            "name": "base1"
+            "model": "fake"
         },
         {
+            "name": "board1",
             "type": "board",
             "model": "fake",
-            "name": "board1",
             "attributes": {
                 "analogs": [
                     {
@@ -39,34 +39,34 @@
             }
         },
         {
+            "name": "camera1",
             "type": "camera",
-            "model": "fake",
-            "name": "camera1"
+            "model": "fake"
         },
         {
+            "name": "encoder1",
             "type": "encoder",
-            "model": "fake",
-            "name": "encoder1"
+            "model": "fake"
         },
         {
+            "name": "gantry1",
             "type": "gantry",
-            "model": "fake",
-            "name": "gantry1"
+            "model": "fake"
         },
         {
+            "name": "gripper1",
             "type": "gripper",
-            "model": "fake",
-            "name": "gripper1"
+            "model": "fake"
         },
         {
+            "name": "input_controller1",
             "type": "input_controller",
-            "model": "fake",
-            "name": "input_controller1"
+            "model": "fake"
         },
         {
+            "name": "motor1",
             "type": "motor",
             "model": "fake",
-            "name": "motor1",
             "attributes": {
                 "encoder": "encoder1",
                 "pins": {
@@ -83,19 +83,19 @@
             ]
         },
         {
+            "name": "movement_sensor1",
             "type": "movement_sensor",
-            "model": "fake",
-            "name": "movement_sensor1"
+            "model": "fake"
         },
         {
+            "name": "sensor1",
             "type": "sensor",
-            "model": "fake",
-            "name": "sensor1"
+            "model": "fake"
         },
         {
+            "name": "servo1",
             "type": "servo",
-            "model": "fake",
-            "name": "servo1"
+            "model": "fake"
         }
     ],
     "processes": [
@@ -120,8 +120,8 @@
     ],
     "services": [
         {
-            "type": "navigation",
             "name": "navigation1",
+            "type": "navigation",
             "attributes": {
                 "store": {
                     "type": "memory"
