@@ -255,6 +255,9 @@ func unzipSource(fileName, destination string) error {
 		return err
 	}
 
+	// this causes error sometimes because it is trying to remove a file which is not there
+	// however this is no other place where we rmeove the .zip file
+	// this is what makes me think there might be a goroutine issue that is not surfaced properly
 	if err = os.Remove(filepath.Join(destination, fileName)); err != nil {
 		return err
 	}
