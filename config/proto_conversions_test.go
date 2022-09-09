@@ -16,7 +16,6 @@ func TestComponentConfigToProto(t *testing.T) {
 		Name:      "some-name",
 		Type:      "some-type",
 		Namespace: "some-namespace",
-		SubType:   "some-sub-type",
 		Model:     "some-model",
 		DependsOn: []string{"dep1", "dep2"},
 		Attributes: AttributeMap{
@@ -58,7 +57,6 @@ func TestComponentConfigToProto(t *testing.T) {
 	test.That(t, out.Name, test.ShouldEqual, component.Name)
 	test.That(t, out.Type, test.ShouldEqual, component.Type)
 	test.That(t, out.Namespace, test.ShouldEqual, component.Namespace)
-	test.That(t, out.SubType, test.ShouldEqual, component.SubType)
 	test.That(t, out.Model, test.ShouldEqual, component.Model)
 	test.That(t, out.DependsOn, test.ShouldResemble, component.DependsOn)
 	test.That(t, out.Attributes.Int("attr1", 0), test.ShouldEqual, component.Attributes.Int("attr1", -1))
@@ -182,7 +180,6 @@ func TestRemoteConfigToProto(t *testing.T) {
 		remote := Remote{
 			Name:    "some-name",
 			Address: "localohst:8080",
-			Prefix:  true,
 			Frame: &Frame{
 				Parent: "world",
 				Translation: spatial.TranslationConfig{
@@ -227,7 +224,6 @@ func TestRemoteConfigToProto(t *testing.T) {
 
 		test.That(t, out.Name, test.ShouldEqual, remote.Name)
 		test.That(t, out.Address, test.ShouldEqual, remote.Address)
-		test.That(t, out.Prefix, test.ShouldEqual, remote.Prefix)
 		test.That(t, out.ManagedBy, test.ShouldEqual, remote.ManagedBy)
 		test.That(t, out.Insecure, test.ShouldEqual, remote.Insecure)
 		test.That(t, out.ReconnectInterval, test.ShouldEqual, remote.ReconnectInterval)
