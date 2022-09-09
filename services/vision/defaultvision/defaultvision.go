@@ -30,20 +30,15 @@ func init() {
 	})
 	cType := config.ServiceType(vision.SubtypeName)
 	config.RegisterServiceAttributeMapConverter(cType, func(attributeMap config.AttributeMap) (interface{}, error) {
-		var attrs Attributes
+		var attrs vision.Attributes
 		return config.TransformAttributeMapToStruct(&attrs, attributeMap)
 	},
-		&Attributes{},
+		&vision.Attributes{},
 	)
 }
 
 // RadiusClusteringSegmenter is  the name of a segmenter that finds well separated objects on a flat plane.
 const RadiusClusteringSegmenter = "radius_clustering"
-
-// Attributes contains a list of the user-provided details necessary to register a new vision service.
-type Attributes struct {
-	ModelRegistry []vision.VisModelConfig `json:"register_models"`
-}
 
 // NewDefault registers new detectors from the config and returns a new object detection service for the given robot.
 func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (vision.Service, error) {

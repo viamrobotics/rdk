@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
