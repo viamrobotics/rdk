@@ -12,6 +12,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.uber.org/zap"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/component/camera"
@@ -171,14 +172,33 @@ func TestGetFunctions(t *testing.T) {
 }
 
 func TestMathHelpers(t *testing.T) {
-	tMotion := &odometry.Motion3D{
-		Rotation:    mat.NewDense(3, 3, []float64{1, 2, 3, 4, 5, 6, 7, 8, 9}),
-		Translation: mat.NewDense(3, 1, []float64{12, 14, 16}),
-	}
-	dt := 2.0
-	lVout := calculateLinVel(tMotion, dt)
-	test.That(t, lVout, test.ShouldResemble, r3.Vector{X: 6, Y: 7, Z: 8})
+	t.Run("test package math", func(t *testing.T) {
+		tMotion := &odometry.Motion3D{
+			Rotation:    mat.NewDense(3, 3, []float64{1, 2, 3, 4, 5, 6, 7, 8, 9}),
+			Translation: mat.NewDense(3, 1, []float64{12, 14, 16}),
+		}
+		dt := 2.0
+		lVout := calculateLinVel(tMotion, dt)
+		test.That(t, lVout, test.ShouldResemble, r3.Vector{X: 6, Y: 7, Z: 8})
 
-	r3Out := translationToR3(tMotion)
-	test.That(t, r3Out, test.ShouldResemble, r3.Vector{X: 12, Y: 14, Z: 16})
+		r3Out := translationToR3(tMotion)
+		test.That(t, r3Out, test.ShouldResemble, r3.Vector{X: 12, Y: 14, Z: 16})
+	})
+
+	t.Run("test extract images", func(t *testing.T) {
+		// logger := golog.NewTestLogger(t)
+		// load cfg
+		cfg, err := odometry.LoadMotionEstimationConfig(artifact.MustPath("vision/odometry/vo_config.json"))
+		test.That(t, err, test.ShouldBeNil)
+		// load images
+		im1, err := rimage.NewImageFromFile(artifact.MustPath("vision/odometry/000001.png"))
+		test.That(t, err, test.ShouldBeNil)
+		im2, err := rimage.NewImageFromFile(artifact.MustPath("vision/odometry/000002.png"))
+		test.That(t, err, test.ShouldBeNil)
+		motion, err := tCo.extractMovementFromOdometer(im1, im2, 0.1, cfg)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, motion.Translation.At(2, 0), test.ShouldBeLessThan, -0.8)
+		test.That(t, motion.Translation.At(1, 0), test.ShouldBeLessThan, 0.2)
+	})
+
 }
