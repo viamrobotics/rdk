@@ -1490,7 +1490,6 @@ func TestRemoteClientDuplicate(t *testing.T) {
 		return pose1, nil
 	}
 
-	// for these, just need to double check type (main tests should be in the respective grpc client and server files)
 	armSvc1, err := subtype.New(map[resource.Name]interface{}{arm.Named("remote1:arm1"): injectArm, arm.Named("remote2:arm1"): injectArm})
 	test.That(t, err, test.ShouldBeNil)
 	armpb.RegisterArmServiceServer(gServer1, arm.NewServer(armSvc1))
