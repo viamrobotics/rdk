@@ -13,7 +13,7 @@ service GenericService {
   // DoCommand sends/recieves arbitrary commands
   rpc DoCommand(DoCommandRequest) returns (DoCommandResponse) {
     option (google.api.http) = {
-      post: "/viam/api/v1/component/generic/{name}/docommand"
+      post: "/viam/api/v1/component/generic/{name}/do_command"
     };
   }
 }
