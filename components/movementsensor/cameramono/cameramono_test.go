@@ -21,8 +21,10 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/vision/keypoints"
 	"go.viam.com/rdk/vision/odometry"
 )
 
@@ -47,15 +49,60 @@ func TestInit(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "single camera")
 	conf.Camera = camName
 	err = conf.Validate()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "motion_estimation_config")
+	conf.MotionConfig = &odometry.MotionEstimationConfig{
+		KeyPointCfg: &keypoints.ORBConfig{
+			Layers:          1,
+			DownscaleFactor: 1,
+			FastConf: &keypoints.FASTConfig{
+				NMatchesCircle: 1,
+				NMSWinSize:     1,
+				Threshold:      1,
+				Oriented:       true,
+				Radius:         1,
+			},
+			BRIEFConf: &keypoints.BRIEFConfig{
+				N:              1,
+				Sampling:       1,
+				UseOrientation: true,
+				PatchSize:      1,
+			},
+		},
+		MatchingCfg: &keypoints.MatchingConfig{
+			DoCrossCheck: true,
+			MaxDist:      1,
+		},
+		CamIntrinsics: &transform.PinholeCameraIntrinsics{
+			Width:  300,
+			Height: 240,
+			Fx:     1,
+			Fy:     1,
+			Ppx:    1,
+			Ppy:    1,
+			Distortion: transform.DistortionModel{
+				RadialK1:     0,
+				RadialK2:     0,
+				RadialK3:     0,
+				TangentialP1: 0,
+				TangentialP2: 0,
+			},
+		},
+		ScaleEstimatorCfg: &odometry.ScaleEstimatorConfig{
+			ThresholdNormalAngle: 0.1,
+			ThresholdPlaneInlier: 0.1,
+		},
+		CamHeightGround: 0.1,
+	}
+	err = conf.Validate()
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
 	logger := golog.NewDevelopmentLogger("test")
 	_, err = newCameraMono(ctx, nil, config.Component{}, logger)
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "AttrConfig")
 	goodC := config.Component{ConvertedAttributes: conf}
 	_, err = newCameraMono(ctx, nil, goodC, logger)
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "missing from dependencies")
 	deps := make(registry.Dependencies)
 
 	deps[camera.Named(camName)] = &inject.Camera{
