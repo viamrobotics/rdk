@@ -987,7 +987,7 @@ func TestClientResources(t *testing.T) {
 	test.That(t, rpcSubtypes, test.ShouldHaveLength, len(respWith))
 	for idx, rpcType := range rpcSubtypes {
 		otherT := respWith[idx]
-		test.That(t, rpcType.Subtype, test.ShouldResemble, otherT.Subtype)
+		test.That(t, rpcType.Subtype, test.ShouldResembleProto, otherT.Subtype)
 		test.That(t, cmp.Equal(rpcType.Desc.AsProto(), otherT.Desc.AsProto(), protocmp.Transform()), test.ShouldBeTrue)
 	}
 

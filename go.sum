@@ -1533,8 +1533,8 @@ go.viam.com/api v0.0.0-20220831182546-9196a7bf1ae5 h1:yQDXl3eETdR7WGX8ycsJ5aTK1W
 go.viam.com/api v0.0.0-20220831182546-9196a7bf1ae5/go.mod h1:xTPwiXAfGJaDRLF0se2nOponLnFQBOPRap74SfROY28=
 go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb h1:qXL9ae27upOyWn//rVGFJt90nDzT7Gz5WOaNe+9PJb8=
 go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb/go.mod h1:bVVm3GcP8koFgCYKWJkCU0r+lkOvTQLeLaFcw8AFghE=
-go.viam.com/test v1.1.0 h1:KXf8crEwt0bHn5iMsjmXg0vPio/yzKGrfd20sWhe/t4=
-go.viam.com/test v1.1.0/go.mod h1:iULewngKZCHSB2QJa1xGSR6+0ICZIHbEfTUGqw0blLs=
+go.viam.com/test v1.1.1-0.20220909202921-54fa53cab4ee h1:7VA6C7ItvmzVN3rAUBBGzOgKpoHAFbWFfKyXPVAFALo=
+go.viam.com/test v1.1.1-0.20220909202921-54fa53cab4ee/go.mod h1:XM0tej6riszsiNLT16uoyq1YjuYPWlRBweTPRDanIts=
 go.viam.com/utils v0.0.5 h1:wnTX69vSaRiL2RsVBWMRS6BnYLx4vAuYBIsriqZpQSA=
 go.viam.com/utils v0.0.5/go.mod h1:ks6dA5SjtuMzgrPKthc4C3QXyPAAbK8rMVQthHM/xew=
 go4.org v0.0.0-20180809161055-417644f6feb5/go.mod h1:MkTOUMDaeVYJUOUsaDXIhWPZYa1yOyC1qaOBpL57BhE=

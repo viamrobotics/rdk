@@ -72,7 +72,7 @@ require (
 	go.uber.org/zap v1.22.0
 	go.viam.com/api v0.0.0-20220831182546-9196a7bf1ae5
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
-	go.viam.com/test v1.1.0
+	go.viam.com/test v1.1.1-0.20220909202921-54fa53cab4ee
 	go.viam.com/utils v0.0.5
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
