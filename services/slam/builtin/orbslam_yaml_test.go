@@ -104,7 +104,6 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		grpcServer.Stop()
 		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
-
 		yamlFileTimeStampGood, yamlFilePathGood, err := findLastYAML(name)
 
 		fakeMapTimestamp = yamlFileTimeStampGood
@@ -127,7 +126,6 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		test.That(t, orbslam.NLevels, test.ShouldEqual, 8)
 		test.That(t, orbslam.ScaleFactor, test.ShouldEqual, 1.2)
 		test.That(t, orbslam.LoadMapLoc, test.ShouldEqual, "")
-
 
 		fakeMap = filepath.Join(name, "map", attrCfgGood.Sensors[0]+"_data_"+yamlFileTimeStampGood)
 		outfile, err := os.Create(fakeMap + ".osa")
