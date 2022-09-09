@@ -14,11 +14,12 @@ import (
 )
 
 func TestGetDetectorNames(t *testing.T) {
-	srv, _ := createService(t, "data/fake.json")
+	srv, r := createService(t, "data/fake.json")
 	names, err := srv.GetDetectorNames(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	t.Logf("names %v", names)
 	test.That(t, names, test.ShouldContain, "detector_3")
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestGetDetections(t *testing.T) {

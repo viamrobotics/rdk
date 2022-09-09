@@ -375,6 +375,7 @@ func TestInjectedServiceClient(t *testing.T) {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
+
 func TestClientDialerOption(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
