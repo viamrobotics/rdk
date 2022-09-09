@@ -30,7 +30,7 @@ type TMC5072Config struct {
 	BoardName        string    `json:"board"`                      // used to get encoders
 	MaxRPM           float64   `json:"max_rpm,omitempty"`          // RPM
 	MaxAcceleration  float64   `json:"max_acceleration,omitempty"` // RPM per second
-	TicksPerRotation int       `json:"ticks_per_rotation,omitempty"`
+	TicksPerRotation int       `json:"ticks_per_rotation"`
 	SPIBus           string    `json:"spi_bus"`
 	ChipSelect       string    `json:"chip_select"`
 	Index            int       `json:"index"`
@@ -147,8 +147,7 @@ func NewMotor(ctx context.Context, deps registry.Dependencies, c TMC5072Config, 
 	}
 
 	if c.TicksPerRotation == 0 {
-		logger.Warn("ticks_per_rotation isn't set: defaulting to 200")
-		c.TicksPerRotation = 200
+		return nil, errors.New("ticks_per_rotation isn't set")
 	}
 
 	if c.HomeRPM == 0 {

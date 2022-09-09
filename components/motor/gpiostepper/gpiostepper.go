@@ -37,7 +37,7 @@ type Config struct {
 	Pins             PinConfig `json:"pins"`
 	BoardName        string    `json:"board"`
 	StepperDelay     uint      `json:"stepper_delay,omitempty"` // When using stepper motors, the time to remain high
-	TicksPerRotation int       `json:"ticks_per_rotation,omitempty"`
+	TicksPerRotation int       `json:"ticks_per_rotation"`
 }
 
 func init() {
@@ -79,6 +79,10 @@ func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component
 }
 
 func newGPIOStepper(ctx context.Context, b board.Board, mc Config, logger golog.Logger) (motor.Motor, error) {
+	if mc.TicksPerRotation == 0 {
+		return nil, errors.New("expected ticks_per_rotation in config for motor")
+	}
+
 	m := &gpioStepper{
 		theBoard:         b,
 		stepsPerRotation: mc.TicksPerRotation,
@@ -150,7 +154,7 @@ func (m *gpioStepper) Validate() error {
 	}
 
 	if m.stepsPerRotation == 0 {
-		m.stepsPerRotation = 200
+		return errors.New("need to set 'steps per rotation' for gpioStepper")
 	}
 
 	if m.stepperDelay == 0 {

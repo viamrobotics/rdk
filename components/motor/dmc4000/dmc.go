@@ -68,7 +68,7 @@ type Config struct {
 	DirectionFlip    bool    `json:"dir_flip,omitempty"`         // Flip the direction of the signal sent if there is a Dir pin
 	MaxRPM           float64 `json:"max_rpm,omitempty"`          // RPM
 	MaxAcceleration  float64 `json:"max_acceleration,omitempty"` // RPM per second
-	TicksPerRotation int     `json:"ticks_per_rotation,omitempty"`
+	TicksPerRotation int     `json:"ticks_per_rotation"`
 	SerialDevice     string  `json:"serial_device"`   // path to /dev/ttyXXXX file
 	Axis             string  `json:"controller_axis"` // A-H
 	HomeRPM          float64 `json:"home_rpm"`        // Speed for Home()
@@ -154,6 +154,10 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 	}
 	ctrl.activeAxes[c.Axis] = true
 
+	if c.TicksPerRotation == 0 {
+		return nil, errors.New("expected ticks_per_rotation in config for motor")
+	}
+
 	m := &Motor{
 		c:                ctrl,
 		Axis:             c.Axis,
@@ -161,10 +165,6 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 		MaxRPM:           c.MaxRPM,
 		MaxAcceleration:  c.MaxAcceleration,
 		HomeRPM:          c.HomeRPM,
-	}
-
-	if m.StepsPerRotation <= 0 {
-		m.StepsPerRotation = 200 // standard for most steppers
 	}
 
 	if m.MaxRPM <= 0 {
