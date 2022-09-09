@@ -73,7 +73,7 @@ require (
 	go.viam.com/api v0.0.0-20220831182546-9196a7bf1ae5
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.0
-	go.viam.com/utils v0.0.4-0.20220822204702-4791559eb3fe
+	go.viam.com/utils v0.0.5
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
 	golang.org/x/net v0.0.0-20220809012201-f428fae20770
@@ -93,8 +93,12 @@ require (
 	4d63.com/gochecknoglobals v0.1.0 // indirect
 	cloud.google.com/go v0.102.1 // indirect
 	cloud.google.com/go/compute v1.7.0 // indirect
+	cloud.google.com/go/container v1.3.1 // indirect
 	cloud.google.com/go/iam v0.3.0 // indirect
+	cloud.google.com/go/monitoring v1.6.0 // indirect
 	cloud.google.com/go/storage v1.23.0 // indirect
+	cloud.google.com/go/trace v1.2.0 // indirect
+	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
 	git.sr.ht/~sbinet/gg v0.3.1 // indirect
 	github.com/Antonboom/errname v0.1.7 // indirect
 	github.com/Antonboom/nilnil v0.1.1 // indirect
@@ -339,7 +343,7 @@ require (
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.12 // indirect
 	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
-	google.golang.org/api v0.85.0 // indirect
+	google.golang.org/api v0.91.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
