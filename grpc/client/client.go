@@ -3,6 +3,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -351,11 +352,9 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 
 	// see if a remote name matches the name if so then return the remote client
 	if val, ok := rc.remoteNameMap[name]; ok {
-		val.Remote = ""
-		if client, ok := rc.resourceClients[val]; ok {
-			return client, nil
-		}
+		name = val
 	}
+	fmt.Printf("rc.resourceClients: %v\n", rc.resourceClients)
 	if client, ok := rc.resourceClients[name]; ok {
 		rc.mu.RUnlock()
 		return client, nil
