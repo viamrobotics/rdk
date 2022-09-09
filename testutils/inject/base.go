@@ -5,7 +5,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/components/base"
 )
 
 // Base is an injected base.

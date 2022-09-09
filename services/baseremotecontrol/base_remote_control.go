@@ -12,8 +12,8 @@ import (
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
-	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"

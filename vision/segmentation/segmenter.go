@@ -3,7 +3,7 @@ package segmentation
 import (
 	"context"
 
-	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/vision"
 )

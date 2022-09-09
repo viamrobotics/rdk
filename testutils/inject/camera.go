@@ -6,7 +6,7 @@ import (
 	"github.com/edaniels/gostream"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 )
