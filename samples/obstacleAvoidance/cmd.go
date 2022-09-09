@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/viamrobotics/visualization"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -15,7 +16,6 @@ import (
 	"go.viam.com/rdk/component/arm/wrapper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
-	"go.viam.com/rdk/motionplan/visualization"
 	pb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
