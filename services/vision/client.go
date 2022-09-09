@@ -240,21 +240,6 @@ func (c *client) GetSegmenterNames(ctx context.Context) ([]string, error) {
 	return resp.SegmenterNames, nil
 }
 
-func (c *client) GetSegmenterParameters(ctx context.Context, segmenterModel string) ([]utils.TypedName, error) {
-	resp, err := c.client.GetSegmenterParameters(ctx, &pb.GetSegmenterParametersRequest{
-		Name:               c.name,
-		SegmenterModelType: segmenterModel,
-	})
-	if err != nil {
-		return nil, err
-	}
-	params := make([]utils.TypedName, len(resp.SegmenterModelParameters))
-	for i, p := range resp.SegmenterModelParameters {
-		params[i] = utils.TypedName{p.Name, p.Type}
-	}
-	return params, nil
-}
-
 func (c *client) AddSegmenter(ctx context.Context, cfg VisModelConfig) error {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::AddSegmenter")
 	defer span.End()

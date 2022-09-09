@@ -9,8 +9,10 @@ import (
 	"go.viam.com/utils/artifact"
 
 	// register cameras for testing.
+	"go.viam.com/rdk/components/camera"
 	_ "go.viam.com/rdk/components/camera/register"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/pointcloud"
 	pb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -20,8 +22,6 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
-	viz "go.viam.com/rdk/vision"
-	"go.viam.com/rdk/vision/segmentation"
 )
 
 func newServer(m map[resource.Name]interface{}) (pb.VisionServiceServer, error) {
@@ -112,11 +112,6 @@ func TestServerAddDetector(t *testing.T) {
 	detResp, err := server.GetDetectorNames(context.Background(), detRequest)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, detResp.GetDetectorNames(), test.ShouldContain, "test")
-	// did it also add the segmenter
-	segRequest := &pb.GetSegmenterNamesRequest{Name: testVisionServiceName}
-	segResp, err := server.GetSegmenterNames(context.Background(), segRequest)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, segResp.GetSegmenterNames(), test.ShouldContain, "test_segmenter")
 
 	// now remove it
 	_, err = server.RemoveDetector(context.Background(), &pb.RemoveDetectorRequest{
@@ -207,43 +202,92 @@ func TestServerGetDetections(t *testing.T) {
 	test.That(t, resp2.Detections[1].Confidence, test.ShouldBeGreaterThan, 0.73)
 }
 
-func TestServerObjectSegmentation(t *testing.T) {
-	// create a working segmenter
-	injCam := &cloudSource{}
+func TestServerAddRemoveSegmenter(t *testing.T) {
+	srv, r := createService(t, "data/empty.json")
+	m := map[resource.Name]interface{}{
+		vision.Named(testVisionServiceName): srv,
+	}
+	server, err := newServer(m)
+	test.That(t, err, test.ShouldBeNil)
+	params, err := protoutils.StructToStructPb(config.AttributeMap{
+		"min_points_in_plane":   100,
+		"min_points_in_segment": 3,
+		"clustering_radius_mm":  5.,
+		"mean_k_filtering":      10.,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	// add segmenter
+	_, err = server.AddSegmenter(context.Background(), &pb.AddSegmenterRequest{
+		Name:                testVisionServiceName,
+		SegmenterName:       "test",
+		SegmenterModelType:  string(vision.RCSegmenter),
+		SegmenterParameters: params,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	// success
+	request := &pb.GetSegmenterNamesRequest{Name: testVisionServiceName}
+	resp, err := server.GetSegmenterNames(context.Background(), request)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.GetSegmenterNames(), test.ShouldContain, "test")
 
-	injectOSS := &inject.VisionService{}
-	injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context,
-		cameraName string,
-		segmenterName string,
-		params config.AttributeMap,
-	) ([]*viz.Object, error) {
-		switch segmenterName {
-		case vision.RadiusClusteringSegmenter:
-			segments, err := segmentation.RadiusClustering(ctx, injCam, params)
+	// remove it
+	_, err = server.RemoveSegmenter(context.Background(), &pb.RemoveSegmenterRequest{
+		Name:          testVisionServiceName,
+		SegmenterName: "test",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	// check that it is gone
+	request = &pb.GetSegmenterNamesRequest{Name: testVisionServiceName}
+	resp, err = server.GetSegmenterNames(context.Background(), request)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.GetSegmenterNames(), test.ShouldNotContain, "test")
+
+	// failure
+	respAdd, err := server.AddSegmenter(context.Background(), &pb.AddSegmenterRequest{
+		Name:                testVisionServiceName,
+		SegmenterName:       "failing",
+		SegmenterModelType:  "no_such_type",
+		SegmenterParameters: params,
+	})
+	test.That(t, err.Error(), test.ShouldContainSubstring, "is not implemented")
+	test.That(t, respAdd, test.ShouldBeNil)
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+}
+
+func TestServerObjectSegmentation(t *testing.T) {
+	srv, _ := createService(t, "data/empty.json")
+	ptCloudCam := &inject.Camera{}
+	ptCloudCam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		pcA := pointcloud.New()
+		for _, pt := range testPointCloud {
+			err := pcA.Set(pt, nil)
 			if err != nil {
 				return nil, err
 			}
-			return segments, nil
-		default:
-			return nil, errors.Errorf("no Segmenter with name %s", segmenterName)
 		}
+		return pcA, nil
 	}
-	injectOSS.GetSegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
-		switch segmenterName {
-		case vision.RadiusClusteringSegmenter:
-			return utils.JSONTags(segmentation.RadiusClusteringConfig{}), nil
-		default:
-			return nil, errors.Errorf("no Segmenter with name %s", segmenterName)
-		}
-	}
-	injectOSS.GetSegmenterNamesFunc = func(ctx context.Context) ([]string, error) {
-		return []string{vision.RadiusClusteringSegmenter}, nil
-	}
-	// make server
 	m := map[resource.Name]interface{}{
-		vision.Named(testVisionServiceName): injectOSS,
+		vision.Named(testVisionServiceName): srv,
+		camera.Named("fakeCamera"):          ptCloudCam,
 	}
 	server, err := newServer(m)
+	test.That(t, err, test.ShouldBeNil)
+	// add a segmenter
+	params, err := protoutils.StructToStructPb(config.AttributeMap{
+		"min_points_in_plane":   100,
+		"min_points_in_segment": 3,
+		"clustering_radius_mm":  5.,
+		"mean_k_filtering":      10.,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	// add segmenter
+	_, err = server.AddSegmenter(context.Background(), &pb.AddSegmenterRequest{
+		Name:                testVisionServiceName,
+		SegmenterName:       vision.RadiusClusteringSegmenter,
+		SegmenterModelType:  string(vision.RCSegmenter),
+		SegmenterParameters: params,
+	})
 	test.That(t, err, test.ShouldBeNil)
 	// request segmenters
 	segReq := &pb.GetSegmenterNamesRequest{
@@ -255,48 +299,20 @@ func TestServerObjectSegmentation(t *testing.T) {
 	test.That(t, segResp.SegmenterNames[0], test.ShouldEqual, vision.RadiusClusteringSegmenter)
 
 	// no such segmenter in registry
-	_, err = server.GetSegmenterParameters(context.Background(), &pb.GetSegmenterParametersRequest{
-		Name:          testVisionServiceName,
-		SegmenterName: "no_such_segmenter",
-	})
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
-
-	params, err := protoutils.StructToStructPb(config.AttributeMap{})
-	test.That(t, err, test.ShouldBeNil)
 	_, err = server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
 		Name:          testVisionServiceName,
 		CameraName:    "fakeCamera",
 		SegmenterName: "no_such_segmenter",
 		MimeType:      utils.MimeTypePCD,
-		Parameters:    params,
 	})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
 
 	// successful request
-	paramNamesResp, err := server.GetSegmenterParameters(context.Background(), &pb.GetSegmenterParametersRequest{
-		Name:          testVisionServiceName,
-		SegmenterName: vision.RadiusClusteringSegmenter,
-	})
-	test.That(t, err, test.ShouldBeNil)
-	paramNames := paramNamesResp.SegmenterParameters
-	test.That(t, paramNames[0].Type, test.ShouldEqual, "int")
-	test.That(t, paramNames[1].Type, test.ShouldEqual, "int")
-	test.That(t, paramNames[2].Type, test.ShouldEqual, "float64")
-	test.That(t, paramNames[3].Type, test.ShouldEqual, "int")
-
-	params, err = protoutils.StructToStructPb(config.AttributeMap{
-		paramNames[0].Name: 100, // min points in plane
-		paramNames[1].Name: 3,   // min points in segment
-		paramNames[2].Name: 5.,  //  clustering radius
-		paramNames[3].Name: 10,  //  mean_k_filtering
-	})
-	test.That(t, err, test.ShouldBeNil)
 	segs, err := server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
 		Name:          testVisionServiceName,
 		CameraName:    "fakeCamera",
 		SegmenterName: vision.RadiusClusteringSegmenter,
 		MimeType:      utils.MimeTypePCD,
-		Parameters:    params,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(segs.Objects), test.ShouldEqual, 2)
