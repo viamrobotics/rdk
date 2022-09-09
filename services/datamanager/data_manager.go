@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -512,7 +513,38 @@ func (svc *dataManagerService) syncAdditionalSyncPaths() {
 
 // TODO: DATA-304, create a way for other services to check when their specified models
 // are ready to be used.
-// this means code for data 304 would go here outside the update function
+
+type smm struct {
+	location string `json:"location"`
+}
+
+func check(ctx context.Context, cfg *config.Config) {
+	for _, c := range cfg.Services {
+		fmt.Println("c:", c)
+		// check that the type of service is not data_manager
+		if c.Type != "data_manager" {
+			fmt.Println("we know the service we are dealing with is not data_manager")
+			// we now check if the location of of the model? contains the file we are looking for?
+			// this is interesting because the remainder of the fields are within the attributes section of the json
+			// understand attribute map better
+			// smth := c.Attributes.Has("location")
+
+			smth, ok := c.ConvertedAttributes.(smm)
+			if !ok {
+				fmt.Println("something happens here")
+			}
+			// check that the directory has been created first?
+			files, err := ioutil.ReadDir(smth.location)
+			if err != nil {
+				fmt.Println("something happens here")
+			}
+			// now we check that files contains the file we want
+			// if yes then we know the desired model has been deployed
+		}
+
+	}
+
+}
 
 // Update updates the data manager service when the config has changed.
 func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) error {
