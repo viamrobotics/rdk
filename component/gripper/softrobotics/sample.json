@@ -1,12 +1,10 @@
 {
-    "components":
-    [
+    "components": [
         {
             "name": "srg1",
             "type": "gripper",
             "model": "softrobotics",
-            "attributes":
-            {
+            "attributes": {
                 "open": "40",
                 "close": "38",
                 "power": "36"
@@ -16,10 +14,8 @@
             "name": "local",
             "type": "board",
             "model": "pi",
-            "attributes":
-            {
-                "analogs":
-                [
+            "attributes": {
+                "analogs": [
                     {
                         "name": "psi",
                         "pin": "0"

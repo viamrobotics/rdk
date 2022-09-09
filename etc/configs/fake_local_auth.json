@@ -15,14 +15,15 @@
     },
     "components": [
         {
+            "name": "arm1",            
             "type": "arm",
-            "model": "fake",
-            "name": "arm1"
+            "model": "fake"
         },
         {
+            "name": "servo1",
             "type": "servo",
-            "model": "fake",
-            "name": "servo1"
+            "model": "fake"
+
         }
     ]
 }

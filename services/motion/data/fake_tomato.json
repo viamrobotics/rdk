@@ -7,35 +7,35 @@
     ],
     "components": [
         {
+            "name": "c",
             "type": "camera",
             "model": "fake",
-            "name": "c",
-            "frame" : {
-                "parent" : "gr"
+            "frame": {
+                "parent": "gr"
             }
         },
         {
+            "name": "gr",
             "type": "gripper",
             "model": "fake",
-            "name": "gr",
-            "frame" : {
-                "parent" : "a"
+            "frame": {
+                "parent": "a"
             }
         },
         {
+            "name": "a",
             "type": "arm",
             "model": "fake_ik",
-            "name": "a",
-            "frame" : {
-                "parent" : "ga"
+            "frame": {
+                "parent": "ga"
             }
         },
         {
+            "name": "ga",
             "type": "gantry",
             "model": "fake",
-            "name": "ga",
-            "frame" : {
-                "parent" : "world"
+            "frame": {
+                "parent": "world"
             }
         }
     ]
