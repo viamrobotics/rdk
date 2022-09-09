@@ -515,14 +515,14 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	toggledSyncOff := toggledSync && svc.syncDisabled
 	toggledSyncOn := toggledSync && !svc.syncDisabled
 
+	// If sync has been toggled on, sync previously captured files and update the capture directory.
+	updateCaptureDir := (svc.captureDir != svcConfig.CaptureDir) || toggledSyncOn
 	// If capture directory not specified in config file, set to default directory
 	if svcConfig.CaptureDir == "" {
 		svc.captureDir = viamCaptureDotDir
+	} else {
+		svc.captureDir = svcConfig.CaptureDir
 	}
-
-	// If sync has been toggled on, sync previously captured files and update the capture directory.
-	updateCaptureDir := (svc.captureDir != svcConfig.CaptureDir) || toggledSyncOn
-	svc.captureDir = svcConfig.CaptureDir
 
 	// Stop syncing if newly disabled in the config.
 	if toggledSyncOff {
