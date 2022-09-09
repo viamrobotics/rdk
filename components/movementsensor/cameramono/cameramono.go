@@ -113,13 +113,11 @@ func newCameraMono(
 	}
 
 	co.backgroundWorker(cam, gostream.NewEmbeddedVideoStream(cam), conf.MotionConfig)
-	co.logger.Error(co.lastErr)
 	return co, co.lastErr
 }
 
 func (co *cameramono) backgroundWorker(cam camera.Camera, stream gostream.VideoStream, cfg *odometry.MotionEstimationConfig) error {
 	defer func() { utils.UncheckedError(stream.Close(context.Background())) }()
-	idx := 0
 	co.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		sImg, sT, err := co.getReadImage(cam)
@@ -136,15 +134,10 @@ func (co *cameramono) backgroundWorker(cam camera.Camera, stream gostream.VideoS
 			}
 
 			dt, moreThanZero := co.getDt(sT, eT)
-			// dt = 0.1
 			if moreThanZero {
-				idx = idx + 1
 				co.motion, err = co.extractMovementFromOdometer(sImg, eImg, dt, cfg)
-				// co.output <- motion
 				if err != nil {
-					// motion = <-co.output
 					co.lastErr = err
-					co.logger.Error(err.Error())
 					continue
 				}
 				select {
