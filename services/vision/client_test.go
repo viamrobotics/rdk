@@ -44,21 +44,8 @@ func TestClient(t *testing.T) {
 	visName := vision.FindFirstName(r)
 	srv, err := vision.FromRobot(r, visName)
 	test.That(t, err, test.ShouldBeNil)
-	// make a fake camera that returns pointclouds
-	ptCloudCam := &inject.Camera{}
-	ptCloudCam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		pcA := pointcloud.New()
-		for _, pt := range testPointCloud {
-			err := pcA.Set(pt, nil)
-			if err != nil {
-				return nil, err
-			}
-		}
-		return pcA, nil
-	}
 	m := map[resource.Name]interface{}{
-		vision.Named(visName):     srv,
-		camera.Named("cloud_cam"): ptCloudCam,
+		vision.Named(visName): srv,
 	}
 	svc, err := subtype.New(m)
 	test.That(t, err, test.ShouldBeNil)
