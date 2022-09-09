@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/arm/xarm"
 	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
@@ -21,6 +22,11 @@ import (
 //go:embed arm_model.json
 var armikModelJSON []byte
 
+// AttrConfig is used for converting config attributes.
+type AttrConfig struct {
+	ArmModel string `json:"arm_model"`
+}
+
 func init() {
 	registry.RegisterComponent(arm.Subtype, "fake_ik", registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
@@ -30,12 +36,28 @@ func init() {
 			return NewArmIK(ctx, config, logger)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, "fake",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&AttrConfig{},
+	)
 }
 
 // NewArmIK returns a new fake arm.
 func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
-	name := cfg.Name
-	model, err := referenceframe.UnmarshalModelJSON(armikModelJSON, "")
+	var model referenceframe.Model
+	var err error
+	modelType := cfg.ConvertedAttributes.(*AttrConfig).ArmModel
+	switch modelType {
+	case "":
+		model, err = referenceframe.UnmarshalModelJSON(armModelJSON, "")
+
+	case xarm.ModelName(6):
+		model, err = xarm.Model(6)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +66,7 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 		return nil, err
 	}
 	return &ArmIK{
-		Name:     name,
+		Name:     cfg.Name,
 		position: &commonpb.Pose{},
 		joints:   &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 0}},
 		mp:       mp,
