@@ -1,12 +1,10 @@
 {
-    "components":
-    [
+    "components": [
         {
             "name": "color",
             "type": "camera",
             "model": "webcam",
-            "attributes":
-            {
+            "attributes": {
                 "path_pattern": "video0",
                 "width": 1024
             }
@@ -15,8 +13,7 @@
             "name": "depth",
             "type": "camera",
             "model": "single_stream",
-            "attributes":
-            {
+            "attributes": {
                 "host": "127.0.0.1",
                 "stream": "both",
                 "args": "both?num=0",
@@ -27,8 +24,7 @@
             "name": "depth-pretty-awkward",
             "type": "camera",
             "model": "depth_to_pretty",
-            "attributes":
-            {
+            "attributes": {
                 "source": "depth"
             }
         },
@@ -36,8 +32,7 @@
             "name": "depth-pretty",
             "type": "camera",
             "model": "resize",
-            "attributes":
-            {
+            "attributes": {
                 "source": "depth-pretty-awkward",
                 "width": 448,
                 "height": 342
@@ -47,8 +42,7 @@
             "name": "combined",
             "type": "camera",
             "model": "align_color_depth",
-            "attributes":
-            {
+            "attributes": {
                 "debug": false,
                 "color": "color",
                 "depth": "depth",
@@ -61,8 +55,7 @@
                     "fy": 821.68607359,
                     "ppx": 494.95941428,
                     "ppy": 370.70529534,
-                    "distortion":
-                    {
+                    "distortion": {
                         "rk1": 0.11297234,
                         "rk2": -0.21375332,
                         "rk3": -0.01584774,
@@ -70,18 +63,15 @@
                         "tp2": 0.19969297
                     }
                 },
-                "homography":
-                {
-                    "color":
-                    {
+                "homography": {
+                    "color": {
                         "height": 768,
                         "width": 1024,
                         "fx": 821.32642889,
                         "fy": 821.68607359,
                         "ppx": 494.95941428,
                         "ppy": 370.70529534,
-                        "distortion":
-                        {
+                        "distortion": {
                             "rk1": 0.11297234,
                             "rk2": -0.21375332,
                             "rk3": -0.01584774,
@@ -89,8 +79,7 @@
                             "tp2": 0.19969297
                         }
                     },
-                    "transform":
-                    [
+                    "transform": [
                         0.232700501,
                         -0.00833535395,
                         -36.1894025,
@@ -104,18 +93,15 @@
                     "depth_to_color": false,
                     "rotate_depth": -90
                 },
-                "intrinsic_extrinsic":
-                {
-                    "color":
-                    {
+                "intrinsic_extrinsic": {
+                    "color": {
                         "height": 768,
                         "width": 1024,
                         "fx": 821.32642889,
                         "fy": 821.68607359,
                         "ppx": 494.95941428,
                         "ppy": 370.70529534,
-                        "distortion":
-                        {
+                        "distortion": {
                             "rk1": 0.11297234,
                             "rk2": -0.21375332,
                             "rk3": -0.01584774,
@@ -123,16 +109,14 @@
                             "tp2": 0.19969297
                         }
                     },
-                    "depth":
-                    {
+                    "depth": {
                         "height": 171,
                         "width": 224,
                         "fx": 216.583,
                         "fy": 216.583,
                         "ppx": 116.385,
                         "ppy": 87.7112,
-                        "distortion":
-                        {
+                        "distortion": {
                             "rk1": 0.10837,
                             "rk2": -3.06437,
                             "rk3": 5.76528,
@@ -140,10 +124,8 @@
                             "tp2": 6.04658E-16
                         }
                     },
-                    "extrinsics_depth_to_color":
-                    {
-                        "rotation":
-                        [
+                    "extrinsics_depth_to_color": {
+                        "rotation": [
                             1.0,
                             0.0,
                             0.0,
@@ -154,23 +136,19 @@
                             0.0,
                             1.0
                         ],
-                        "translation":
-                        [
+                        "translation": [
                             0.0,
                             0.0,
                             0.0
                         ]
                     }
                 },
-                "warp":
-                {
-                    "ColorInputSize":
-                    {
+                "warp": {
+                    "ColorInputSize": {
                         "X": 1024,
                         "Y": 768
                     },
-                    "ColorWarpPoints":
-                    [
+                    "ColorWarpPoints": [
                         {
                             "X": 604,
                             "Y": 575
@@ -180,13 +158,11 @@
                             "Y": 115
                         }
                     ],
-                    "DepthInputSize":
-                    {
+                    "DepthInputSize": {
                         "X": 224,
                         "Y": 171
                     },
-                    "DepthWarpPoints":
-                    [
+                    "DepthWarpPoints": [
                         {
                             "X": 89,
                             "Y": 109
@@ -197,13 +173,11 @@
                         }
                     ],
                     "WarpFromCommon": true,
-                    "OutputSize":
-                    {
+                    "OutputSize": {
                         "X": 448,
                         "Y": 342
                     },
-                    "OutputOrigin":
-                    {
+                    "OutputOrigin": {
                         "X": 227,
                         "Y": 160
                     }
@@ -214,8 +188,7 @@
             "name": "depth-after-align",
             "type": "camera",
             "model": "depth_to_pretty",
-            "attributes":
-            {
+            "attributes": {
                 "source": "combined"
             }
         },
@@ -223,17 +196,15 @@
             "name": "overlay",
             "type": "camera",
             "model": "overlay",
-            "attributes":
-            {
+            "attributes": {
                 "source": "combined"
             }
         }
     ],
-    "processes":
-    [
+    "processes": [
         {
             "id": "tof1",
-            "name": "/home/erh/rdk/etc/camera_servers/royaleserver",
+            "name": "/etc/camera_servers/royaleserver",
             "log": true
         }
     ]

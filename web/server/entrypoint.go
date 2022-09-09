@@ -12,7 +12,6 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/opus"
 	"github.com/edaniels/gostream/codec/x264"
-	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
@@ -68,9 +67,11 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 		defer pprof.StopCPUProfile()
 	}
 
-	exp := perf.NewNiceLoggingSpanExporter()
-	trace.RegisterExporter(exp)
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+	exporter := perf.NewDevelopmentExporter()
+	if err := exporter.Start(); err != nil {
+		return err
+	}
+	defer exporter.Stop()
 
 	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
 	cfg, err := config.Read(initialReadCtx, argsParsed.ConfigFile, logger)

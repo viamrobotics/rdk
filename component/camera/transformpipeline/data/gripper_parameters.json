@@ -1,14 +1,12 @@
 {
-    "color":
-    {
+    "color": {
         "height": 768,
         "width": 1024,
         "fx": 821.32642889,
         "fy": 821.68607359,
         "ppx": 494.95941428,
         "ppy": 370.70529534,
-        "distortion":
-        {
+        "distortion": {
             "rk1": 0.11297234,
             "rk2": -0.21375332,
             "rk3": -0.01584774,
@@ -16,16 +14,14 @@
             "tp2": 0.19969297
         }
     },
-    "depth":
-    {
+    "depth": {
         "height": 171,
         "width": 224,
         "fx": 216.583,
         "fy": 216.583,
         "ppx": 116.385,
         "ppy": 87.7112,
-        "distortion":
-        {
+        "distortion": {
             "rk1": 0.10837,
             "rk2": -3.06437,
             "rk3": 5.76528,
@@ -33,10 +29,8 @@
             "tp2": 6.04658E-16
         }
     },
-    "extrinsics_depth_to_color":
-    {
-        "rotation":
-        [
+    "extrinsics_depth_to_color": {
+        "rotation": [
             1.0,
             0.0,
             0.0,
@@ -47,8 +41,7 @@
             0.0,
             1.0
         ],
-        "translation":
-        [
+        "translation": [
             0.0,
             0.0,
             0.0

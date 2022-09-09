@@ -2,7 +2,6 @@ package keypoints
 
 import (
 	"image"
-	"math/rand"
 	"testing"
 
 	"go.viam.com/test"
@@ -28,23 +27,16 @@ func TestComputeBRIEFDescriptors(t *testing.T) {
 		}
 	}
 	fastKps := NewFASTKeypointsFromImage(imGray, cfg)
-	test.That(t, len(fastKps.Points), test.ShouldEqual, 100)
-	test.That(t, len(fastKps.Orientations), test.ShouldEqual, 100)
-	// value from opencv FAST orientation computation
-	test.That(t, fastKps.Orientations[0], test.ShouldAlmostEqual, 0.058798250129)
+	test.That(t, len(fastKps.Points), test.ShouldEqual, 28)
+	test.That(t, len(fastKps.Orientations), test.ShouldEqual, 28)
 	isOriented1 := fastKps.IsOriented()
 	test.That(t, isOriented1, test.ShouldBeTrue)
 
 	// load BRIEF cfg
 	cfgBrief := LoadBRIEFConfiguration("brief.json")
 	test.That(t, cfgBrief, test.ShouldNotBeNil)
-	briefDescriptors, err := ComputeBRIEFDescriptors(imGray, fastKps, cfgBrief)
+	samplePoints := GenerateSamplePairs(cfgBrief.Sampling, cfgBrief.N, cfgBrief.PatchSize)
+	briefDescriptors, err := ComputeBRIEFDescriptors(imGray, samplePoints, fastKps, cfgBrief)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(briefDescriptors), test.ShouldEqual, len(fastKps.Points))
-
-	// test that for any descriptor (random index in descriptor), all values are either 0 or 1 (square of value is equal to value)
-	randIdx := rand.Intn(len(briefDescriptors))
-	for _, desc := range briefDescriptors[randIdx] {
-		test.That(t, desc*desc, test.ShouldEqual, desc)
-	}
 }

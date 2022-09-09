@@ -1,8 +1,8 @@
 {
-  "services": [
-    {
-      "name": "vision1",
-      "type": "vision"
-    }
-  ]
+    "services": [
+        {
+            "name": "vision1",
+            "type": "vision"
+        }
+    ]
 }

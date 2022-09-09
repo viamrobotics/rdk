@@ -18,7 +18,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	createFakeSLAMLibraries()
-	dataRateMs := 100
+	dataRateMs := 200
 	attrCfgGood := &slam.AttrConfig{
 		Algorithm: "fake_orbslamv3",
 		Sensors:   []string{"good_camera"},

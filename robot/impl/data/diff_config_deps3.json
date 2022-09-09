@@ -1,85 +1,81 @@
 {
-  "components":
-  [
-    {
-      "model": "fake",
-      "name": "arm1",
-      "type": "arm"
-    },
-    {
-      "model": "fake",
-      "name": "arm2",
-      "type": "arm"
-    },
-    {
-      "model": "fake",
-      "name": "m1",
-      "type": "motor"
-    },
-    {
-      "model": "fake",
-      "name": "m2",
-      "type": "motor",
-      "attributes" : {
-        "board" : "board1",
-        "pins" : {
-          "pwm" : "5"
+    "components": [
+        {
+            "name": "arm1",
+            "type": "arm",
+            "model": "fake"
         },
-        "pwm_freq" : 4000
-      },
-      "depends_on":["board1"]
-    },
-    {
-      "model": "fake",
-      "name": "m3",
-      "type": "motor"
-    },
-    {
-      "model": "fake",
-      "name": "m4",
-      "type": "motor"
-    },
-    {
-      "model": "fake",
-      "name": "base1",
-      "type": "base"
-    },
-    {
-      "model": "fake",
-      "name": "base2",
-      "type": "base"
-    },
-    {
-      "model": "fake",
-      "name": "board1",
-      "type": "board",
-      "attributes":
-      {
-      }
-    }
-  ],
-  "processes":
-  [
-    {
-      "id": "1",
-      "name": "echo",
-      "args":
-      [
-        "hello",
-        "world"
-      ],
-      "one_shot": true
-    },
-    {
-      "id": "2",
-      "name": "echo",
-      "args":
-      [
-        "hello",
-        "world",
-        "again"
-      ],
-      "one_shot": true
-    }
-  ]
+        {
+            "name": "arm2",
+            "type": "arm",
+            "model": "fake"
+        },
+        {
+            "name": "m1",
+            "type": "motor",
+            "model": "fake"
+        },
+        {
+            "name": "m2",
+            "type": "motor",
+            "model": "fake",
+            "attributes": {
+                "board": "board1",
+                "pins": {
+                    "pwm": "5"
+                },
+                "pwm_freq": 4000
+            },
+            "depends_on": [
+                "board1"
+            ]
+        },
+        {
+            "name": "m3",
+            "type": "motor",
+            "model": "fake"
+        },
+        {
+            "name": "m4",
+            "type": "motor",
+            "model": "fake"
+        },
+        {
+            "name": "base1",
+            "type": "base",
+            "model": "fake"
+        },
+        {
+            "name": "base2",
+            "type": "base",
+            "model": "fake"
+        },
+        {
+            "name": "board1",
+            "type": "board",
+            "model": "fake",
+            "attributes": {}
+        }
+    ],
+    "processes": [
+        {
+            "id": "1",
+            "name": "echo",
+            "args": [
+                "hello",
+                "world"
+            ],
+            "one_shot": true
+        },
+        {
+            "id": "2",
+            "name": "echo",
+            "args": [
+                "hello",
+                "world",
+                "again"
+            ],
+            "one_shot": true
+        }
+    ]
 }

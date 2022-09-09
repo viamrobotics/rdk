@@ -1,21 +1,18 @@
 {
-    "components":
-    [
+    "components": [
         {
             "name": "front-color",
             "type": "camera",
             "model": "webcam",
-            "attributes":
-            {
-                    "camera_parameters": {
+            "attributes": {
+                "camera_parameters": {
                     "height": 720,
                     "width": 1280,
                     "fx": 900.538000,
                     "fy": 900.818000,
                     "ppx": 648.934000,
                     "ppy": 367.736000,
-                    "distortion":
-                    {
+                    "distortion": {
                         "rk1": 0.158701,
                         "rk2": -0.485405,
                         "rk3": 0.435342,
@@ -34,8 +31,7 @@
             "name": "front-depth",
             "type": "camera",
             "model": "webcam",
-            "attributes":
-            {
+            "attributes": {
                 "format": "Z16",
                 "width": 768,
                 "debug": true
@@ -45,8 +41,7 @@
             "name": "front",
             "type": "camera",
             "model": "align_color_depth",
-            "attributes":
-            {
+            "attributes": {
                 "color": "front-color",
                 "depth": "front-depth",
                 "height": 720,
@@ -60,8 +55,7 @@
                     "fy": 900.818000,
                     "ppx": 648.934000,
                     "ppy": 367.736000,
-                    "distortion":
-                    {
+                    "distortion": {
                         "rk1": 0.158701,
                         "rk2": -0.485405,
                         "rk3": 0.435342,
@@ -69,18 +63,15 @@
                         "tp2": -0.000705919
                     }
                 },
-                "intrinsic_extrinsic":
-                {
-                    "color":
-                    {
+                "intrinsic_extrinsic": {
+                    "color": {
                         "height": 720,
                         "width": 1280,
                         "fx": 900.538000,
                         "fy": 900.818000,
                         "ppx": 648.934000,
                         "ppy": 367.736000,
-                        "distortion":
-                        {
+                        "distortion": {
                             "rk1": 0.158701,
                             "rk2": -0.485405,
                             "rk3": 0.435342,
@@ -88,16 +79,14 @@
                             "tp2": -0.000705919
                         }
                     },
-                    "depth":
-                    {
+                    "depth": {
                         "height": 768,
                         "width": 1024,
                         "fx": 734.938,
                         "fy": 735.516,
                         "ppx": 542.078,
                         "ppy": 398.016,
-                        "distortion":
-                        {
+                        "distortion": {
                             "rk1": 0.0,
                             "rk2": 0.0,
                             "rk3": 0.0,
@@ -105,10 +94,8 @@
                             "tp2": 0.0
                         }
                     },
-                    "extrinsics_depth_to_color":
-                    {
-                        "rotation":
-                        [
+                    "extrinsics_depth_to_color": {
+                        "rotation": [
                             0.999958,
                             -0.00838489,
                             0.00378392,
@@ -119,8 +106,7 @@
                             -0.0350407,
                             0.999378
                         ],
-                        "translation":
-                        [
+                        "translation": [
                             -0.000828434,
                             0.0139185,
                             -0.0033418
@@ -133,8 +119,7 @@
             "name": "front-overlay",
             "type": "camera",
             "model": "overlay",
-            "attributes":
-            {
+            "attributes": {
                 "source": "front"
             }
         }
