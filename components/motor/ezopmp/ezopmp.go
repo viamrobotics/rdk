@@ -81,6 +81,7 @@ const (
 func NewMotor(ctx context.Context, deps registry.Dependencies, c *Config, logger golog.Logger) (motor.LocalMotor, error) {
 	b, err := board.FromDependencies(deps, c.BoardName)
 	if err != nil {
+		logger.Fatal("DIED")
 		return nil, err
 	}
 
