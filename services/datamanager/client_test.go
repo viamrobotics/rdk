@@ -22,6 +22,8 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+const testDataManagerServiceName = "DataManager1"
+
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")

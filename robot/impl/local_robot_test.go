@@ -49,6 +49,7 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
+	"go.viam.com/rdk/services/datamanager/defaultdatamanager"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
@@ -1410,7 +1411,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "fake1",
 				Type:                config.ServiceType(datamanager.SubtypeName),
-				ConvertedAttributes: &datamanager.Config{},
+				ConvertedAttributes: &defaultdatamanager.Config{},
 			},
 		},
 		Cloud: &config.Cloud{},
