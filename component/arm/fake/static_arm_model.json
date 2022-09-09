@@ -10,8 +10,8 @@
                 "z": 300.0
             },
             "orientation": {
-                "type" : "ov_degrees",
-                "value" : {
+                "type": "ov_degrees",
+                "value": {
                     "x": 1.0,
                     "y": 0.0,
                     "z": 0.0,

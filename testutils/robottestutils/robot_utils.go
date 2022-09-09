@@ -9,31 +9,21 @@ import (
 
 	"go.uber.org/zap"
 	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
-	"go.viam.com/rdk/robot"
-	robotimpl "go.viam.com/rdk/robot/impl"
 	weboptions "go.viam.com/rdk/robot/web/options"
 )
 
-// StartBaseRobot creates a new local robot with a listener attached.
-func StartBaseRobot(ctx context.Context,
-	t *testing.T,
-	logger *zap.SugaredLogger,
-	listener net.Listener,
-	cfg *config.Config,
-) (robot.LocalRobot, weboptions.Options) {
+// CreateBaseOptionsAndListener creates a new web options with random port as listener.
+func CreateBaseOptionsAndListener(t *testing.T) (weboptions.Options, net.Listener, string) {
 	t.Helper()
+	var listener net.Listener = testutils.ReserveRandomListener(t)
 	options := weboptions.New()
 	options.Network.BindAddress = ""
 	options.Network.Listener = listener
-
-	// start robot
-	robot, err := robotimpl.New(ctx, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, robot, test.ShouldNotBeNil)
-	return robot, options
+	addr := listener.Addr().String()
+	return options, listener, addr
 }
 
 // NewRobotClient creates a new robot client with a certain address.
