@@ -113,7 +113,6 @@ func RenameRemoteParts(
 		p.Name = remoteName + "." + p.Name
 		if p.FrameConfig.Parent != connectionName {
 			p.FrameConfig.Parent = remoteName + "." + p.FrameConfig.Parent
-
 		}
 	}
 	return remoteParts
