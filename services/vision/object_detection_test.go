@@ -23,7 +23,8 @@ func TestGetDetectorNames(t *testing.T) {
 }
 
 func TestGetDetections(t *testing.T) {
-	r := buildRobotWithFakeCamera(t)
+	r, err := buildRobotWithFakeCamera(t)
+	test.That(t, err, test.ShouldBeNil)
 	srv, err := vision.FirstFromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 	dets, err := srv.GetDetectionsFromCamera(context.Background(), "fake_cam", "detect_red")
@@ -42,7 +43,7 @@ func TestGetDetections(t *testing.T) {
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
-func TestAddDetector(t *testing.T) {
+func TestAddRemoveDetector(t *testing.T) {
 	srv, r := createService(t, "data/empty.json")
 	// success
 	cfg := vision.VisModelConfig{
@@ -69,6 +70,10 @@ func TestAddDetector(t *testing.T) {
 	names, err := srv.GetDetectorNames(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, names, test.ShouldContain, "test")
+	// check if associated segmenter was added
+	namesSeg, err := srv.GetSegmenterNames(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, namesSeg, test.ShouldContain, "test_segmenter")
 	// failure
 	cfg.Name = "will_fail"
 	cfg.Type = "wrong_type"
@@ -88,4 +93,14 @@ func TestAddDetector(t *testing.T) {
 	test.That(t, dets, test.ShouldNotBeNil)
 	test.That(t, dets[0].Label(), test.ShouldResemble, "17")
 	test.That(t, dets[0].Score(), test.ShouldBeGreaterThan, 0.79)
+	// remove detector
+	err = srv.RemoveDetector(context.Background(), "test")
+	test.That(t, err, test.ShouldBeNil)
+	names, err = srv.GetDetectorNames(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, names, test.ShouldNotContain, "test")
+	// check if associated segmenter was removed
+	namesSeg, err = srv.GetSegmenterNames(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, namesSeg, test.ShouldNotContain, "test_segmenter")
 }

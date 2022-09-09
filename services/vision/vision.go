@@ -177,7 +177,17 @@ func (vs *visionService) AddDetector(ctx context.Context, cfg VisModelConfig) er
 	ctx, span := trace.StartSpan(ctx, "service::vision::AddDetector")
 	defer span.End()
 	attrs := &Attributes{ModelRegistry: []VisModelConfig{cfg}}
-	return registerNewVisModels(ctx, vs.modReg, attrs, vs.logger)
+	err := registerNewVisModels(ctx, vs.modReg, attrs, vs.logger)
+	if err != nil {
+		return err
+	}
+	// automatically add a segmenter version of detector
+	segmenterConf := VisModelConfig{
+		Name:       cfg.Name + "_segmenter",
+		Type:       string(DetectorSegmenter),
+		Parameters: config.AttributeMap{"detector_name": cfg.Name, "mean_k": 0, "sigma": 0.0},
+	}
+	return vs.AddSegmenter(ctx, segmenterConf)
 }
 
 // RemoveDetector removes a detector from the registry.
@@ -188,7 +198,8 @@ func (vs *visionService) RemoveDetector(ctx context.Context, detectorName string
 	if err != nil {
 		return err
 	}
-	return nil
+	// remove the associated segmenter as well (if there is one)
+	return vs.RemoveSegmenter(ctx, detectorName+"_segmenter")
 }
 
 // GetDetectionsFromCamera returns the detections of the next image from the given camera and the given detector.

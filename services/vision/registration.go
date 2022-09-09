@@ -109,6 +109,6 @@ func registerSegmenterFromDetector(ctx context.Context, mm modelMap, conf *VisMo
 	if err != nil {
 		return err
 	}
-	regModel := registeredModel{model: segmenter, modelType: ObjectSegmenter, closer: nil}
+	regModel := registeredModel{model: segmenter, modelType: DetectorSegmenter, closer: nil}
 	return mm.registerVisModel(conf.Name, &regModel, logger)
 }

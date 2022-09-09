@@ -22,19 +22,19 @@ type VisOperation string
 
 // The set of allowed vision model types.
 const (
-	TFLiteDetector   = VisModelType("tflite_detector")
-	TFDetector       = VisModelType("tf_detector")
-	ColorDetector    = VisModelType("color_detector")
-	TFLiteClassifier = VisModelType("tflite_classifier")
-	TFClassifier     = VisModelType("tf_classifier")
-	RCSegmenter      = VisModelType("radius_clustering_segmenter")
-	ObjectSegmenter  = VisModelType("object_segmenter")
+	TFLiteDetector    = VisModelType("tflite_detector")
+	TFDetector        = VisModelType("tf_detector")
+	ColorDetector     = VisModelType("color_detector")
+	TFLiteClassifier  = VisModelType("tflite_classifier")
+	TFClassifier      = VisModelType("tf_classifier")
+	RCSegmenter       = VisModelType("radius_clustering_segmenter")
+	DetectorSegmenter = VisModelType("detector_segmenter")
 )
 
 // RegisteredSegmenterParameters maps the segmenter types to their necessary parameters.
 var RegisteredSegmenterParameters = map[VisModelType]interface{}{
-	RCSegmenter:     &segmentation.RadiusClusteringConfig{},
-	ObjectSegmenter: &segmentation.DetectionSegmenterConfig{},
+	RCSegmenter:       &segmentation.RadiusClusteringConfig{},
+	DetectorSegmenter: &segmentation.DetectionSegmenterConfig{},
 }
 
 // The set of operations supported by the vision model types.
@@ -46,13 +46,13 @@ const (
 
 // visModelToOpMap maps the vision model type with the corresponding vision operation.
 var visModelToOpMap = map[VisModelType]VisOperation{
-	TFLiteDetector:   VisDetection,
-	TFDetector:       VisDetection,
-	ColorDetector:    VisDetection,
-	TFLiteClassifier: VisClassification,
-	TFClassifier:     VisClassification,
-	RCSegmenter:      VisSegmentation,
-	ObjectSegmenter:  VisSegmentation,
+	TFLiteDetector:    VisDetection,
+	TFDetector:        VisDetection,
+	ColorDetector:     VisDetection,
+	TFLiteClassifier:  VisClassification,
+	TFClassifier:      VisClassification,
+	RCSegmenter:       VisSegmentation,
+	DetectorSegmenter: VisSegmentation,
 }
 
 // newVisModelTypeNotImplemented is used when the model type is not implemented.
@@ -219,7 +219,7 @@ func registerNewVisModels(ctx context.Context, mm modelMap, attrs *Attributes, l
 			return registerColorDetector(ctx, mm, &attr, logger)
 		case RCSegmenter:
 			return registerRCSegmenter(ctx, mm, &attr, logger)
-		case ObjectSegmenter:
+		case DetectorSegmenter:
 			return registerSegmenterFromDetector(ctx, mm, &attr, logger)
 		default:
 			return newVisModelTypeNotImplemented(attr.Type)
