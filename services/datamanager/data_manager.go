@@ -115,6 +115,7 @@ type dataCaptureConfig struct {
 	AdditionalParams   map[string]string    `json:"additional_params"`
 	Disabled           bool                 `json:"disabled"`
 	RemoteRobotName    string               // Empty if this component is locally accessed
+	Tags               []string             `json:"tags"`
 }
 
 type dataCaptureConfigs struct {
@@ -270,7 +271,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 	}
 	// Build metadata.
 	captureMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
-		attributes.Model, attributes.Method, attributes.AdditionalParams)
+		attributes.Model, attributes.Method, attributes.AdditionalParams, attributes.Tags)
 
 	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
 		collector := storedCollectorParams.Collector
@@ -423,7 +424,7 @@ func (svc *dataManagerService) syncDataCaptureFiles() {
 		// Create new target and set it.
 		attributes := collector.Attributes
 		captureMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
-			attributes.Model, attributes.Method, attributes.AdditionalParams)
+			attributes.Model, attributes.Method, attributes.AdditionalParams, attributes.Tags)
 
 		nextTarget, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
 		if err != nil {
