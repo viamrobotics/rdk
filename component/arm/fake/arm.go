@@ -3,6 +3,8 @@ package fake
 
 import (
 	"context"
+	"fmt"
+
 	// used to import model referenceframe.
 	_ "embed"
 
@@ -22,6 +24,7 @@ import (
 var armModelJSON []byte
 
 func init() {
+	fmt.Printf("\"registering\": %v\n", "registering")
 	registry.RegisterComponent(arm.Subtype, "fake", registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			if config.Attributes.Bool("fail_new", false) {
