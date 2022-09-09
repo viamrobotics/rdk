@@ -138,7 +138,7 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 	out := make(chan error)
 	m.backgroundWorkers.Add(len(modelsToDownload))
 	for _, model := range modelsToDownload {
-		go func(model *Model, out chan error) {
+		go func(model *Model) {
 			defer m.backgroundWorkers.Done()
 			deployRequest := &v1.DeployRequest{
 				Metadata: &v1.DeployMetadata{
@@ -164,14 +164,12 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 					out <- err
 				}
 			}
-		}(model, out)
+		}(model)
 	}
 	m.backgroundWorkers.Wait()
-	x := <-out
+	err = <-out
 	close(out)
-	fmt.Println("hi")
-	fmt.Println("x: ", x)
-	return x
+	return err
 }
 
 // GetModelsToDownload fetches the models that need to be downloaded according to the
@@ -210,7 +208,6 @@ func getModelsToDownload(models []*Model) ([]*Model, error) {
 // DownloadFile will download a url to a local file. It writes as it
 // downloads and doesn't load the whole file into memory.
 func downloadFile(cancelCtx context.Context, client httpClient, filepath, url string, logger golog.Logger) error {
-	fmt.Println("so are we here?00")
 	getReq, err := http.NewRequestWithContext(cancelCtx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -245,27 +242,20 @@ func downloadFile(cancelCtx context.Context, client httpClient, filepath, url st
 
 // UnzipSource unzips all files inside a zip file.
 func unzipSource(fileName, destination string) error {
-	fmt.Println("so are we here?0")
 	zipReader, err := zip.OpenReader(filepath.Join(destination, fileName))
 	if err != nil {
-		fmt.Println("uh o1")
-		fmt.Println("filepath.Join(destination, fileName): ", filepath.Join(destination, fileName))
 		return err
 	}
 	for _, f := range zipReader.File {
 		if err := unzipFile(f, destination); err != nil {
-			fmt.Println("uh o2")
 			return err
 		}
 	}
 	if err = zipReader.Close(); err != nil {
-		fmt.Println("uh o3")
 		return err
 	}
 
 	if err = os.Remove(filepath.Join(destination, fileName)); err != nil {
-		fmt.Println("uh o4")
-		fmt.Println("filepath.Join(destination, fileName): ", filepath.Join(destination, fileName))
 		return err
 	}
 
@@ -301,7 +291,6 @@ func unzipFile(f *zip.File, destination string) error {
 		// os.Remove returns a path error which likely means that we don't have write permissions
 		// or the file we're removing doesn't exist. In either case,
 		// the file was never written to so don't need to remove it.
-		fmt.Println("so are we here?")
 		//nolint:errcheck,gosec
 		os.Remove(destinationFile.Name())
 		return err

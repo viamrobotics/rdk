@@ -16,6 +16,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	m1 "go.viam.com/api/proto/viam/model/v1"
 	"go.viam.com/test"
@@ -361,6 +362,50 @@ func TestDeployModels(t *testing.T) {
 	files, err := ioutil.ReadDir(filepath.Join(defaultModelDir, models[0].Name))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(files), test.ShouldEqual, 1)
+	b, _ := deepCompare(filepath.Join(defaultModelDir, models[0].Name, "READYOU.txt"), "README.txt")
+	test.That(t, b, test.ShouldBeTrue)
+	err = os.Remove("README.txt")
+	test.That(t, err, test.ShouldBeNil)
+}
+
+// the function below was taken from:
+// https://stackoverflow.com/questions/29505089/how-can-i-compare-two-files-in-golang
+const chunkSize = 64000
+
+func deepCompare(file1, file2 string) (bool, error) {
+	f1, err := os.Open(file1)
+	if err != nil {
+		return false, err
+	}
+	defer f1.Close()
+
+	f2, err := os.Open(file2)
+	if err != nil {
+		return false, err
+	}
+	defer f2.Close()
+
+	for {
+		b1 := make([]byte, chunkSize)
+		_, err1 := f1.Read(b1)
+
+		b2 := make([]byte, chunkSize)
+		_, err2 := f2.Read(b2)
+
+		if err1 != nil || err2 != nil {
+			switch {
+			case err1 == io.EOF && err2 == io.EOF:
+				return true, nil
+			case err1 == io.EOF || err2 == io.EOF:
+				return false, nil
+			}
+			return false, multierr.Combine(err1, err2)
+		}
+
+		if !bytes.Equal(b1, b2) {
+			return false, err
+		}
+	}
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
@@ -760,10 +805,23 @@ type mockClient struct{}
 
 // Do is mockClient's `Do` func.
 func (m *mockClient) Do(req *http.Request) (*http.Response, error) {
-	r := bytes.NewReader([]byte("mocked response readme"))
+	f, err := os.Create("README.txt")
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	_, err = f.WriteString("mocked response")
+
+	if err != nil {
+		return nil, err
+	}
+
+	r := bytes.NewReader([]byte("mocked response"))
+	// r := bytes.NewReader([]byte(""))
 	buf := new(bytes.Buffer)
 	zipWriter := zip.NewWriter(buf)
-	w, err := zipWriter.Create("README.md")
+	w, err := zipWriter.Create("READYOU.txt")
 	if err != nil {
 		return nil, err
 	}
