@@ -39,7 +39,7 @@ func TestDepthSource(t *testing.T) {
 		"low_threshold":  0.40,
 		"blur_radius":    3.0,
 	}
-	ds, err := newDepthEdgesTransform(gostream.NewVideoSource(source, prop.Video{}), am)
+	ds, err := newDepthEdgesTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}), am)
 	test.That(t, err, test.ShouldBeNil)
 	_, _, err = camera.ReadImage(context.Background(), ds)
 	test.That(t, err, test.ShouldBeNil)
@@ -70,7 +70,7 @@ func (h *depthSourceTestHelper) Process(
 		"low_threshold":  0.40,
 		"blur_radius":    3.0,
 	}
-	ds, err := newDepthEdgesTransform(gostream.NewVideoSource(source, prop.Video{}), am)
+	ds, err := newDepthEdgesTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}), am)
 	test.That(t, err, test.ShouldBeNil)
 	edges, _, err := camera.ReadImage(context.Background(), ds)
 	test.That(t, err, test.ShouldBeNil)
@@ -85,7 +85,7 @@ func (h *depthSourceTestHelper) Process(
 
 	// preprocess depth map
 	source = &videosource.StaticSource{DepthImg: dm}
-	rs, err := newDepthPreprocessTransform(gostream.NewVideoSource(source, prop.Video{}))
+	rs, err := newDepthPreprocessTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}))
 	test.That(t, err, test.ShouldBeNil)
 
 	output, _, err := camera.ReadImage(context.Background(), rs)
@@ -100,7 +100,7 @@ func (h *depthSourceTestHelper) Process(
 	pCtx.GotDebugPointCloud(preprocessedPointCloud, "preprocessed-aligned-pointcloud")
 
 	source = &videosource.StaticSource{DepthImg: preprocessed}
-	ds, err = newDepthEdgesTransform(gostream.NewVideoSource(source, prop.Video{}), am)
+	ds, err = newDepthEdgesTransform(context.Background(), gostream.NewVideoSource(source, prop.Video{}), am)
 	test.That(t, err, test.ShouldBeNil)
 	processedEdges, _, err := camera.ReadImage(context.Background(), ds)
 	test.That(t, err, test.ShouldBeNil)

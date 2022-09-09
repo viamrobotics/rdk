@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
@@ -92,13 +93,17 @@ func newTransformPipeline(
 		lastSource = src
 	}
 	lastSourceStream := gostream.NewEmbeddedVideoStream(lastSource)
-	proj, _ := camera.GetProjector(ctx, cfg.AttrConfig, nil)
-	return camera.NewFromReader(transformPipeline{pipeline, lastSourceStream}, proj)
+	var props *transform.PinholeCameraIntrinsics
+	if cfg.AttrConfig != nil {
+		props = cfg.AttrConfig.CameraParameters
+	}
+	return camera.NewFromReader(ctx, transformPipeline{pipeline, lastSourceStream, props}, props, camera.StreamType(cfg.Stream))
 }
 
 type transformPipeline struct {
-	pipeline []gostream.VideoSource
-	stream   gostream.VideoStream
+	pipeline            []gostream.VideoSource
+	stream              gostream.VideoStream
+	intrinsicParameters *transform.PinholeCameraIntrinsics
 }
 
 func (tp transformPipeline) Read(ctx context.Context) (image.Image, func(), error) {
