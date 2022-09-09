@@ -9,8 +9,8 @@ import (
 	"github.com/edaniels/gostream/codec/x264"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/input"
-	_ "go.viam.com/rdk/component/input/register"
+	"go.viam.com/rdk/components/input"
+	_ "go.viam.com/rdk/components/input/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"

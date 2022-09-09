@@ -3,7 +3,7 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/rdk/component/posetracker"
+	"go.viam.com/rdk/components/posetracker"
 )
 
 // PoseTracker is an injected pose tracker.

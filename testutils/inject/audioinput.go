@@ -7,7 +7,7 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/audioinput"
+	"go.viam.com/rdk/components/audioinput"
 )
 
 // AudioInput is an injected audio input.

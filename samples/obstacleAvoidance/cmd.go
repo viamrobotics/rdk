@@ -11,9 +11,9 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/arm/fake"
-	"go.viam.com/rdk/component/arm/wrapper"
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/arm/fake"
+	"go.viam.com/rdk/components/arm/wrapper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
 	pb "go.viam.com/rdk/proto/api/common/v1"

@@ -5,7 +5,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/components/arm"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 )

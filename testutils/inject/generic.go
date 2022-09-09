@@ -3,7 +3,7 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/rdk/component/generic"
+	"go.viam.com/rdk/components/generic"
 )
 
 // Generic is an injectable Generic component.
