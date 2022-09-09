@@ -23,12 +23,10 @@ func TestDiffConfigs(t *testing.T) {
 			{
 				Name:    "remote1",
 				Address: "addr1",
-				Prefix:  false,
 			},
 			{
 				Name:    "remote2",
 				Address: "addr2",
-				Prefix:  false,
 			},
 		},
 		Components: []config.Component{
@@ -91,12 +89,10 @@ func TestDiffConfigs(t *testing.T) {
 			{
 				Name:    "remote1",
 				Address: "addr3",
-				Prefix:  false,
 			},
 			{
 				Name:    "remote2",
 				Address: "addr4",
-				Prefix:  false,
 			},
 		},
 		Components: []config.Component{

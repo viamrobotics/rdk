@@ -189,8 +189,6 @@ func ParseComponentFlag(flag string) (Component, error) {
 			cmp.Name = keyVal[1]
 		case "type":
 			cmp.Type = resource.SubtypeName(keyVal[1])
-		case "subtype":
-			cmp.SubType = keyVal[1]
 		case "model":
 			cmp.Model = keyVal[1]
 		case "depends_on":

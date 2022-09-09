@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/gripper"
+
 	// register.
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
@@ -316,7 +317,6 @@ func TestServiceWithRemote(t *testing.T) {
 			{
 				Name:    "bar",
 				Address: addr,
-				Prefix:  true,
 				Frame: &config.Frame{
 					Parent:      "foo",
 					Translation: spatialmath.TranslationConfig{100, 200, 300},
@@ -325,7 +325,6 @@ func TestServiceWithRemote(t *testing.T) {
 			},
 			{
 				Name:    "squee",
-				Prefix:  false,
 				Address: addr,
 				Frame: &config.Frame{
 					Parent:      referenceframe.World,
@@ -335,7 +334,6 @@ func TestServiceWithRemote(t *testing.T) {
 			},
 			{
 				Name:    "dontAddMe", // no frame info, should be skipped
-				Prefix:  true,
 				Address: addr,
 			},
 		},

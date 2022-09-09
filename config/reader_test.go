@@ -38,7 +38,7 @@ func TestStoreToCache(t *testing.T) {
 	test.That(t, cloudCfg, test.ShouldResemble, cfg)
 
 	// Modify our config
-	newRemote := Remote{Name: "test", Address: "foo", Prefix: true}
+	newRemote := Remote{Name: "test", Address: "foo"}
 	cfg.Remotes = append(cfg.Remotes, newRemote)
 
 	// read config from cloud again, confirm that the cached config differs from cfg
