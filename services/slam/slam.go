@@ -703,8 +703,9 @@ func (slamSvc *slamService) StartSLAMProcess(ctx context.Context) error {
 			if err != nil {
 				return errors.Wrapf(err, "error getting port from slam process")
 			}
-			if strings.Contains(line, "Server listening on ") {
-				linePieces := strings.Split(line, "Server listening on ")
+			portLogLinePrefix := "Server listening on "
+			if strings.Contains(line, portLogLinePrefix) {
+				linePieces := strings.Split(line, portLogLinePrefix)
 				if len(linePieces) != 2 {
 					return errors.Errorf("failed to parse port from slam process log line: %v", line)
 				}
