@@ -107,12 +107,6 @@ service VisionService {
     };
   }
 
-  // GetSegmenterParameters returns the parameter fields needed for the given type of segmenter.
-  rpc GetSegmenterParameters(GetSegmenterParametersRequest) returns (GetSegmenterParametersResponse) {
-    option (google.api.http) = {
-      get: "/viam/api/v1/service/vision/{name}/segmenter_parameters"
-    };
-  }
   // GetObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
   // as well as the 3-vector center of each of the found objects.
   // A specific MIME type can be requested but may not necessarily be the same one returned.
@@ -301,22 +295,6 @@ message RemoveSegmenterRequest {
 }
 
 message RemoveSegmenterResponse {}
-
-message GetSegmenterParametersRequest {
-  string name = 1;
-  // Name of the segmentation algo
-  string segmenter_model_type = 2;
-}
-
-message TypedParameter {
-  string name = 1;
-  string type = 2;
-}
-
-message GetSegmenterParametersResponse {
-  // parameter names of the segmenter model from the request
-  repeated TypedParameter segmenter_model_parameters = 1;
-}
 
 message GetObjectPointCloudsRequest {
   string name = 1;

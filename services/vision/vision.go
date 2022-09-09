@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -77,7 +76,6 @@ type Service interface {
 	GetSegmenterNames(ctx context.Context) ([]string, error)
 	AddSegmenter(ctx context.Context, cfg VisModelConfig) error
 	RemoveSegmenter(ctx context.Context, segmenterName string) error
-	GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
 	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string) ([]*viz.Object, error)
 }
 
@@ -341,17 +339,6 @@ func (vs *visionService) RemoveSegmenter(ctx context.Context, segmenterName stri
 	return vs.modReg.removeVisModel(segmenterName, vs.logger)
 }
 
-// GetSegmenterParameters returns a list of parameter name and type for the necessary parameters of the chosen segmenter type.
-func (vs *visionService) GetSegmenterParameters(ctx context.Context, segmenterModel string) ([]utils.TypedName, error) {
-	_, span := trace.StartSpan(ctx, "service::vision::GetSegmenterParameters")
-	defer span.End()
-	params, ok := modelParameters[VisModelType(segmenterModel)]
-	if !ok {
-		return nil, errors.Errorf("segmenter model type %s not known", segmenterModel)
-	}
-	return params, nil
-}
-
 // GetObjectPointClouds returns all the found objects in a 3D image according to the chosen segmenter.
 func (vs *visionService) GetObjectPointClouds(
 	ctx context.Context,
@@ -461,12 +448,6 @@ func (svc *reconfigurableVision) GetSegmenterNames(ctx context.Context) ([]strin
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.actual.GetSegmenterNames(ctx)
-}
-
-func (svc *reconfigurableVision) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	return svc.actual.GetSegmenterParameters(ctx, segmenterName)
 }
 
 func (svc *reconfigurableVision) AddSegmenter(ctx context.Context, cfg VisModelConfig) error {

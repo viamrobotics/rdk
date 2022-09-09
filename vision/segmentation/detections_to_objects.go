@@ -40,7 +40,7 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma floa
 	filter := func(pc pointcloud.PointCloud) (pointcloud.PointCloud, error) {
 		return pc, nil
 	}
-	if cfg.MeanK > 0 && cfg.Sigma > 0.0 {
+	if meanK > 0 && sigma > 0.0 {
 		filter, err = pointcloud.StatisticalOutlierFilter(meanK, sigma)
 		if err != nil {
 			return nil, err

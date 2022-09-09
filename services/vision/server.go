@@ -315,27 +315,6 @@ func (server *subtypeServer) GetSegmenterNames(
 	}, nil
 }
 
-func (server *subtypeServer) GetSegmenterParameters(
-	ctx context.Context,
-	req *pb.GetSegmenterParametersRequest,
-) (*pb.GetSegmenterParametersResponse, error) {
-	svc, err := server.service(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	params, err := svc.GetSegmenterParameters(ctx, req.SegmenterModelType)
-	if err != nil {
-		return nil, err
-	}
-	typedParams := make([]*pb.TypedParameter, len(params))
-	for i, p := range params {
-		typedParams[i] = &pb.TypedParameter{Name: p.Name, Type: p.Type}
-	}
-	return &pb.GetSegmenterParametersResponse{
-		SegmenterModelParameters: typedParams,
-	}, nil
-}
-
 func (server *subtypeServer) AddSegmenter(
 	ctx context.Context,
 	req *pb.AddSegmenterRequest,

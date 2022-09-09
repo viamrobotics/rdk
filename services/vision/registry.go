@@ -9,7 +9,6 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/segmentation"
@@ -32,6 +31,12 @@ const (
 	ObjectSegmenter  = VisModelType("object_segmenter")
 )
 
+// RegisteredSegmenterParameters maps the segmenter types to their necessary parameters.
+var RegisteredSegmenterParameters = map[VisModelType]interface{}{
+	RCSegmenter:     &segmentation.RadiusClusteringConfig{},
+	ObjectSegmenter: &segmentation.DetectionSegmenterConfig{},
+}
+
 // The set of operations supported by the vision model types.
 const (
 	VisDetection      = VisOperation("detection")
@@ -48,12 +53,6 @@ var visModelToOpMap = map[VisModelType]VisOperation{
 	TFClassifier:     VisClassification,
 	RCSegmenter:      VisSegmentation,
 	ObjectSegmenter:  VisSegmentation,
-}
-
-// modelParameters maps the segmenter types to their necessary parameters.
-var modelParameters = map[VisModelType][]utils.TypedName{
-	RCSegmenter:     utils.JSONTags(segmentation.RadiusClusteringConfig{}),
-	ObjectSegmenter: utils.JSONTags(segmentation.DetectionSegmenterConfig{}),
 }
 
 // newVisModelTypeNotImplemented is used when the model type is not implemented.
