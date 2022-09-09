@@ -37,7 +37,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, "fake",
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, "fake_ik",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
