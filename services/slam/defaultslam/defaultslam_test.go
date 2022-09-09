@@ -443,7 +443,7 @@ func TestORBSLAMNew(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		_, err := createSLAMService(t, attrCfg, logger, false)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
-			errors.Errorf("expected 2 cameras for rgbd slam, found %v", len(attrCfg.Sensors)).Error())
+			errors.Errorf("expected 2 cameras for Rgbd slam, found %v", len(attrCfg.Sensors)).Error())
 	})
 
 	t.Run("New orbslamv3 service in slam mode rgbd that errors due cameras in the wrong order", func(t *testing.T) {

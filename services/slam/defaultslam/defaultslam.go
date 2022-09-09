@@ -243,7 +243,7 @@ type AttrConfig struct {
 	Port             string            `json:"port"`
 }
 
-// SlamService is the structure of the slam service.
+// SlamDefaultService is the structure of the slam service.
 type slamDefaultService struct {
 	cameraName      string
 	slamLib         slam.LibraryMetadata
@@ -323,7 +323,7 @@ func configureCameras(ctx context.Context, svcConfig *AttrConfig, r robot.Robot,
 
 // setupGRPCConnection uses the defined port to create a GRPC client for communicating with the SLAM algorithms.
 func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) (pb.SLAMServiceClient, func() error, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::slamService::setupGRPCConnection")
+	ctx, span := trace.StartSpan(ctx, "slam::slamDefaultService::setupGRPCConnection")
 	defer span.End()
 
 	// This takes about 1 second, so the timeout should be sufficient.
@@ -343,7 +343,7 @@ func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) 
 // GetPosition forwards the request for positional data to the slam library's gRPC service. Once a response is received,
 // it is unpacked into a PoseInFrame.
 func (slamSvc *slamDefaultService) GetPosition(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::slamService::GetPosition")
+	ctx, span := trace.StartSpan(ctx, "slam::slamDefaultService::GetPosition")
 	defer span.End()
 
 	req := &pb.GetPositionRequest{Name: name}
@@ -361,7 +361,7 @@ func (slamSvc *slamDefaultService) GetPosition(ctx context.Context, name string)
 func (slamSvc *slamDefaultService) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame, include bool) (
 	string, image.Image, *vision.Object, error,
 ) {
-	ctx, span := trace.StartSpan(ctx, "slam::slamService::GetMap")
+	ctx, span := trace.StartSpan(ctx, "slam::slamDefaultService::GetMap")
 	defer span.End()
 
 	var cameraPosition *v1.Pose
@@ -411,7 +411,7 @@ func (slamSvc *slamDefaultService) GetMap(ctx context.Context, name, mimeType st
 
 // NewDefault returns a new slam service for the given robot.
 func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (slam.Service, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::slamService::New")
+	ctx, span := trace.StartSpan(ctx, "slam::slamDefaultService::NewDefault")
 	defer span.End()
 
 	svcConfig, ok := config.ConvertedAttributes.(*AttrConfig)
@@ -619,7 +619,7 @@ func (slamSvc *slamDefaultService) GetSLAMProcessConfig() pexec.ProcessConfig {
 
 // startSLAMProcess starts up the SLAM library process by calling the executable binary and giving it the necessary arguments.
 func (slamSvc *slamDefaultService) StartSLAMProcess(ctx context.Context) error {
-	ctx, span := trace.StartSpan(ctx, "slam::slamService::StartSLAMProcess")
+	ctx, span := trace.StartSpan(ctx, "slam::slamDefaultService::StartSLAMProcess")
 	defer span.End()
 
 	_, err := slamSvc.slamProcess.AddProcessFromConfig(ctx, slamSvc.GetSLAMProcessConfig())
@@ -651,7 +651,7 @@ func (slamSvc *slamDefaultService) getAndSaveDataSparse(
 	cams []camera.Camera,
 	camStreams []gostream.VideoStream,
 ) ([]string, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::slamService::getAndSaveDataSparse")
+	ctx, span := trace.StartSpan(ctx, "slam::slamDefaultService::getAndSaveDataSparse")
 	defer span.End()
 
 	switch slamSvc.slamMode {
@@ -782,7 +782,7 @@ func (slamSvc *slamDefaultService) getSimultaneousColorAndDepth(
 // getAndSaveDataDense implements the data extraction for dense algos and saving to the directory path (data subfolder) specified in
 // the config. It returns the full filepath for each file saved along with any error associated with the data creation or saving.
 func (slamSvc *slamDefaultService) getAndSaveDataDense(ctx context.Context, cams []camera.Camera) (string, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::slamService::getAndSaveDataDense")
+	ctx, span := trace.StartSpan(ctx, "slam::slamDefaultService::getAndSaveDataDense")
 	defer span.End()
 
 	if len(cams) != 1 {
