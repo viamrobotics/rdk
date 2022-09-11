@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -546,37 +547,36 @@ func (svc *dataManagerService) syncAdditionalSyncPaths() {
 // TODO: DATA-304, create a way for other services to check when their specified models
 // are ready to be used.
 
-// maybe this function should return an error that is then logged in the return within Uppdate()
+// maybe this function should return an error that is then logged in the return within Update()
 func check(ctx context.Context, cfg *config.Config, logger *zap.SugaredLogger) {
-	// var result map[string]interface{}
-	// var dects DetectorRegistry
-	for _, c := range cfg.Services {
-		fmt.Println("cfg.Services:", c)
-		fmt.Println("check service type: ", c.Type)
-
-		if c.Type != "data_manager" {
-			fmt.Println("c.Attributes: ", c.Attributes)
-			fmt.Println("c.Attributes[detector_registry]: ", c.Attributes["detector_registry"])
-			cfg, ok := c.ConvertedAttributes.(*Config)
-			// configs, err := config.TransformAttributeMapToStruct(&dects, c.Attributes)
-			// if err != nil {
-			// 	logger.Info("something went WRONG here")
-			// }
-			// convertedConfigs, ok := configs.(*DetectorRegistry)
-			if !ok {
-				logger.Info("something went WRONG here")
-			}
-			fmt.Println(cfg)
-			// smth, ok := c.ConvertedAttributes.(*DetectorRegistry)
-			// if !ok {
-			// 	fmt.Println(ok)
-			// 	logger.Info("something went WRONG here")
-			// }
-			// fmt.Println("gonna check out our info now")
-			// fmt.Println("smth: ", smth)
+	fmt.Println("check()")
+	otherSvcConfig, _, _ := getOtherServiceConfig(cfg) // check things here
+	fmt.Println("otherSvcConfig: ", *otherSvcConfig.Detectors[0])
+	locationCheck := otherSvcConfig.Detectors[0].Parameters.Location
+	fmt.Println("locationCheck: ", locationCheck)
+	// this checks if a model has been deployed for a given service?
+	// so I guess we first want to check if the location exists
+	fmt.Println("check if location exists first")
+	_, err := os.Stat(locationCheck)
+	if errors.Is(err, os.ErrNotExist) {
+		fmt.Println("does not")
+		logger.Warn("location does not even exist yet")
+		return
+	} else if err != nil {
+		panic("can't access files: " + err.Error())
+	} else {
+		fmt.Println("location exists lets print files")
+		files, _ := ioutil.ReadDir(locationCheck)
+		if len(files) == 0 {
+			logger.Warn("There was a partial download. Model not yet available.")
+			return
 		}
-		fmt.Println("")
+		logger.Infof("success")
 	}
+
+	// if it exists we want to ensure there is a file in the location
+	// if yes then we know the service's model is ready to be used
+	// if no then we know that the services model is not ready to be used
 
 }
 
@@ -591,9 +591,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		svc.closeCollectors()
 		return err
 	}
-
-	otherSvcConfig, _, _ := getOtherServiceConfig(cfg)
-	fmt.Println("otherSvcConfig: ", *&otherSvcConfig.Detectors[0].Parameters.Location)
 	// fmt.Println("do we make it here?2")
 	if cfg.Cloud != nil {
 		svc.partID = cfg.Cloud.ID
