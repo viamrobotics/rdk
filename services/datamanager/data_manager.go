@@ -69,18 +69,7 @@ func init() {
 		}
 		return &conf, nil
 	}, &Config{})
-	cType = config.ServiceType(OtherSubtypeName)
-	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
-		var conf Config
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return &conf, nil
-	}, &Config{})
+	// might need to edit here?
 
 	resource.AddDefaultService(Named(resource.DefaultServiceName))
 }
@@ -107,7 +96,7 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// OtherSubtype is a constant that identifies the data manager service resource subtype.
+// OtherSubtype is a constant that identifies the object detection service resource subtype.
 var OtherSubtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeService,
@@ -151,22 +140,21 @@ type dataCaptureConfigs struct {
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir            string   `json:"capture_dir"`
-	AdditionalSyncPaths   []string `json:"additional_sync_paths"`
-	SyncIntervalMins      float64  `json:"sync_interval_mins"`
-	CaptureDisabled       bool     `json:"capture_disabled"`
-	ScheduledSyncDisabled bool     `json:"sync_disabled"`
-	ModelsToDeploy        []*Model `json:"models_on_robot"`
+	CaptureDir            string              `json:"capture_dir"`
+	AdditionalSyncPaths   []string            `json:"additional_sync_paths"`
+	SyncIntervalMins      float64             `json:"sync_interval_mins"`
+	CaptureDisabled       bool                `json:"capture_disabled"`
+	ScheduledSyncDisabled bool                `json:"sync_disabled"`
+	ModelsToDeploy        []*Model            `json:"models_on_robot"`
+	Detectors             []*DetectorRegistry `json:"detector_registry"`
 }
 
-type DectorRegistry struct {
-	Name       string  `json:"name"`
-	Type       string  `json:"type"`
-	Parameters *Params `json:"parameters"`
-}
-
-type Params struct {
-	Location string `json:"location"`
+type DetectorRegistry struct {
+	Name       string `json:"name"`
+	Type       string `json:"type"`
+	Parameters struct {
+		Location string `json:"location"`
+	}
 }
 
 // Model describes an ML model we want to download to the robot.
@@ -543,47 +531,52 @@ func (svc *dataManagerService) syncAdditionalSyncPaths() {
 // TODO: DATA-304, create a way for other services to check when their specified models
 // are ready to be used.
 
-type smm struct {
-	location string `json:"location"`
-}
-
-func check(ctx context.Context, cfg *config.Config) {
+// maybe this function should return an error that is then logged in the return within Uppdate()
+func check(ctx context.Context, cfg *config.Config, logger *zap.SugaredLogger) {
+	// var result map[string]interface{}
+	// var dects DetectorRegistry
 	for _, c := range cfg.Services {
-		fmt.Println("c:", c)
-		// check that the type of service is not data_manager
+		fmt.Println("cfg.Services:", c)
+		fmt.Println("check service type: ", c.Type)
+
 		if c.Type != "data_manager" {
-			fmt.Println("we know the service we are dealing with is not data_manager")
-			// we now check if the location of of the model? contains the file we are looking for?
-			// this is interesting because the remainder of the fields are within the attributes section of the json
-			// understand attribute map better
-			// smth := c.Attributes.Has("location")
-
-			smth, ok := c.ConvertedAttributes.(smm)
-			if !ok {
-				fmt.Println("something happens here")
-			}
-			// check that the directory has been created first?
-			// files, err := ioutil.ReadDir(smth.location)
+			fmt.Println("c.Attributes: ", c.Attributes)
+			fmt.Println("c.Attributes[detector_registry]: ", c.Attributes["detector_registry"])
+			cfg, ok := c.ConvertedAttributes.(*Config)
+			// configs, err := config.TransformAttributeMapToStruct(&dects, c.Attributes)
 			// if err != nil {
-			// 	fmt.Println("something happens here")
+			// 	logger.Info("something went WRONG here")
 			// }
-			// now we check that files contains the file we want
-			// if yes then we know the desired model has been deployed
+			// convertedConfigs, ok := configs.(*DetectorRegistry)
+			if !ok {
+				logger.Info("something went WRONG here")
+			}
+			fmt.Println(cfg)
+			// smth, ok := c.ConvertedAttributes.(*DetectorRegistry)
+			// if !ok {
+			// 	fmt.Println(ok)
+			// 	logger.Info("something went WRONG here")
+			// }
+			// fmt.Println("gonna check out our info now")
+			// fmt.Println("smth: ", smth)
 		}
-
+		fmt.Println("")
 	}
 
 }
 
 // Update updates the data manager service when the config has changed.
 func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) error {
+	// fmt.Println("do we make it here?0")
 	svcConfig, ok, err := getServiceConfig(cfg)
+	// fmt.Println("do we make it here?1")
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
 	// Close any collectors.
 	if !ok {
 		svc.closeCollectors()
 		return err
 	}
+	// fmt.Println("do we make it here?2")
 	if cfg.Cloud != nil {
 		svc.partID = cfg.Cloud.ID
 
@@ -594,6 +587,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 			svc.logger.Errorf("can't download models_on_robot in config", "error", err)
 		}
 	}
+	check(ctx, cfg, svc.logger)
 
 	toggledCaptureOff := (svc.captureDisabled != svcConfig.CaptureDisabled) && svcConfig.CaptureDisabled
 	svc.captureDisabled = svcConfig.CaptureDisabled
