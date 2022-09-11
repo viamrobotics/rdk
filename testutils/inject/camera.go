@@ -21,6 +21,7 @@ type Camera struct {
 	) (gostream.VideoStream, error)
 	NextPointCloudFunc func(ctx context.Context) (pointcloud.PointCloud, error)
 	ProjectorFunc      func(ctx context.Context) (rimage.Projector, error)
+	GetPropertiesFunc  func(ctx context.Context) (camera.Properties, error)
 	CloseFunc          func(ctx context.Context) error
 }
 
@@ -49,6 +50,14 @@ func (c *Camera) Projector(ctx context.Context) (rimage.Projector, error) {
 		return c.Camera.Projector(ctx)
 	}
 	return c.ProjectorFunc(ctx)
+}
+
+// GetProperties calls the injected GetProperties or the real version.
+func (c *Camera) GetProperties(ctx context.Context) (camera.Properties, error) {
+	if c.GetPropertiesFunc == nil {
+		return c.Camera.GetProperties(ctx)
+	}
+	return c.GetPropertiesFunc(ctx)
 }
 
 // Close calls the injected Close or the real version.
