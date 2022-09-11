@@ -375,6 +375,18 @@ func TestModelsAfterKilled(t *testing.T) {
 	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 1+numArbitraryFilesToSync)
 }
 
+func TestService(t *testing.T) {
+	testCfg := setupConfig(t, "etc/configs/fakest.json")
+	// dmCfg, err := getDataManagerConfig(testCfg)
+	// test.That(t, err, test.ShouldBeNil)
+	// dmCfg.SyncIntervalMins = 0
+
+	dmsvc := newTestDataManager(t, "arm1", "")
+
+	err := dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+}
+
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
 // that directory is created (and can be synced on subsequent iterations of syncing).
 func TestCreatesAdditionalSyncPaths(t *testing.T) {
