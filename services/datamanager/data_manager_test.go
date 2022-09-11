@@ -403,7 +403,6 @@ func TestService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = os.Remove(filepath.Join(os.Getenv("HOME"), "models", ".viam", "model_1"))
 	test.That(t, err, test.ShouldBeNil)
-
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
