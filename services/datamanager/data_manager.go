@@ -549,35 +549,23 @@ func (svc *dataManagerService) syncAdditionalSyncPaths() {
 
 // maybe this function should return an error that is then logged in the return within Update()
 func check(ctx context.Context, cfg *config.Config, logger *zap.SugaredLogger) {
-	fmt.Println("check()")
 	otherSvcConfig, _, _ := getOtherServiceConfig(cfg) // check things here
-	fmt.Println("otherSvcConfig: ", *otherSvcConfig.Detectors[0])
-	locationCheck := otherSvcConfig.Detectors[0].Parameters.Location
-	fmt.Println("locationCheck: ", locationCheck)
-	// this checks if a model has been deployed for a given service?
-	// so I guess we first want to check if the location exists
-	fmt.Println("check if location exists first")
-	_, err := os.Stat(locationCheck)
-	if errors.Is(err, os.ErrNotExist) {
-		fmt.Println("does not")
-		logger.Warn("location does not even exist yet")
-		return
-	} else if err != nil {
-		panic("can't access files: " + err.Error())
-	} else {
-		fmt.Println("location exists lets print files")
+	for i := range otherSvcConfig.Detectors {
+		locationCheck := otherSvcConfig.Detectors[i].Parameters.Location
+		// check if service model location exists
+		_, err := os.Stat(locationCheck)
+		if errors.Is(err, os.ErrNotExist) {
+			logger.Warn("Please deploy model first.")
+			return
+		}
+		// check for partial download
 		files, _ := ioutil.ReadDir(locationCheck)
 		if len(files) == 0 {
 			logger.Warn("There was a partial download. Model not yet available.")
 			return
 		}
-		logger.Infof("success")
+		logger.Infof(otherSvcConfig.Detectors[i].Name, "has been downloaded and is ready to use.")
 	}
-
-	// if it exists we want to ensure there is a file in the location
-	// if yes then we know the service's model is ready to be used
-	// if no then we know that the services model is not ready to be used
-
 }
 
 // Update updates the data manager service when the config has changed.
