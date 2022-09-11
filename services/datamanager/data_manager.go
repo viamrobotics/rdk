@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -70,6 +69,18 @@ func init() {
 		}
 		return &conf, nil
 	}, &Config{})
+	cType = config.ServiceType(OtherSubtypeName)
+	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
+		var conf Config
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+		if err != nil {
+			return nil, err
+		}
+		if err := decoder.Decode(attributes); err != nil {
+			return nil, err
+		}
+		return &conf, nil
+	}, &Config{})
 
 	resource.AddDefaultService(Named(resource.DefaultServiceName))
 }
@@ -87,12 +98,20 @@ var (
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("data_manager")
+const OtherSubtypeName = resource.SubtypeName("object_detection")
 
 // Subtype is a constant that identifies the data manager service resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeService,
 	SubtypeName,
+)
+
+// OtherSubtype is a constant that identifies the data manager service resource subtype.
+var OtherSubtype = resource.NewSubtype(
+	resource.ResourceNamespaceRDK,
+	resource.ResourceTypeService,
+	OtherSubtypeName,
 )
 
 // Named is a helper for getting the named datamanager's typed resource name.
@@ -138,6 +157,16 @@ type Config struct {
 	CaptureDisabled       bool     `json:"capture_disabled"`
 	ScheduledSyncDisabled bool     `json:"sync_disabled"`
 	ModelsToDeploy        []*Model `json:"models_on_robot"`
+}
+
+type DectorRegistry struct {
+	Name       string  `json:"name"`
+	Type       string  `json:"type"`
+	Parameters *Params `json:"parameters"`
+}
+
+type Params struct {
+	Location string `json:"location"`
 }
 
 // Model describes an ML model we want to download to the robot.
@@ -534,10 +563,10 @@ func check(ctx context.Context, cfg *config.Config) {
 				fmt.Println("something happens here")
 			}
 			// check that the directory has been created first?
-			files, err := ioutil.ReadDir(smth.location)
-			if err != nil {
-				fmt.Println("something happens here")
-			}
+			// files, err := ioutil.ReadDir(smth.location)
+			// if err != nil {
+			// 	fmt.Println("something happens here")
+			// }
 			// now we check that files contains the file we want
 			// if yes then we know the desired model has been deployed
 		}
