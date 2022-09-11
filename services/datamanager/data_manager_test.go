@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -377,14 +378,32 @@ func TestModelsAfterKilled(t *testing.T) {
 
 func TestService(t *testing.T) {
 	testCfg := setupConfig(t, "etc/configs/fakest.json")
-	// dmCfg, err := getDataManagerConfig(testCfg)
-	// test.That(t, err, test.ShouldBeNil)
-	// dmCfg.SyncIntervalMins = 0
-
 	dmsvc := newTestDataManager(t, "arm1", "")
-
 	err := dmsvc.Update(context.TODO(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
+	// here we log the location of the services specified model does not exist
+
+	// now we create the directory but no file within it to simulate a partial download
+	err = os.MkdirAll(filepath.Join(os.Getenv("HOME"), "models", ".viam", "model_1"), os.ModePerm)
+	test.That(t, err, test.ShouldBeNil)
+	// check other log
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// create file within directory
+	f, err := os.Create(filepath.Join(os.Getenv("HOME"), "models", ".viam", "model_1", "README.txt"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = f.WriteString("mocked response man")
+	test.That(t, err, test.ShouldBeNil)
+	f.Close()
+	// successful check
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+	err = os.Remove(filepath.Join(os.Getenv("HOME"), "models", ".viam", "model_1", "README.txt"))
+	test.That(t, err, test.ShouldBeNil)
+	err = os.Remove(filepath.Join(os.Getenv("HOME"), "models", ".viam", "model_1"))
+	test.That(t, err, test.ShouldBeNil)
+
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,

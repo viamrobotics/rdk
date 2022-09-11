@@ -1,0 +1,27 @@
+{"services":
+   [
+        {
+            "name": "data_manager1",
+            "type": "data_manager",
+            "attributes": {
+                "capture_dir": "/tmp/capture"
+            }
+        },
+        {
+            "name": "object_detection1",
+            "type": "object_detection",
+            "attributes":
+            {
+            "detector_registry": [
+                {
+                    "name": "detector_1",
+                    "type": "tflite",
+                    "parameters": {
+                    "location": "$HOME/models/.viam/model_1"
+                    }
+                }
+            ]
+        }
+    }
+   ]
+}
