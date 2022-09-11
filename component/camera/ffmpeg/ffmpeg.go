@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
 
@@ -90,7 +91,6 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return nil, err
 	}
-
 	// parse attributes into ffmpeg keyword maps
 	outArgs := make(map[string]interface{}, len(attrs.OutputKWArgs))
 	for key, value := range attrs.OutputKWArgs {
@@ -172,8 +172,13 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 	})
 
 	ffCam.VideoReader = reader
-	proj, _ := camera.GetProjector(ctx, attrs.AttrConfig, nil)
-	return camera.NewFromReader(ffCam, proj)
+	streamType := camera.UnspecifiedStream
+	var intrinsics *transform.PinholeCameraIntrinsics
+	if attrs.AttrConfig != nil {
+		streamType = camera.StreamType(attrs.Stream)
+		intrinsics = attrs.CameraParameters
+	}
+	return camera.NewFromReader(ctx, ffCam, intrinsics, streamType)
 }
 
 func (fc *ffmpegCamera) Close(ctx context.Context) error {

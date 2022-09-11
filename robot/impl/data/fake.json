@@ -1,22 +1,22 @@
 {
     "components": [
         {
-            "model": "fake",
             "name": "pieceGripper",
             "type": "gripper",
+            "model": "fake",
             "frame": {
-                "parent" : "pieceArm"
+                "parent": "pieceArm"
             }
         },
         {
-            "model": "fake",
             "name": "mic1",
-            "type": "audio_input"
+            "type": "audio_input",
+            "model": "fake"
         },
         {
-            "model": "file",
             "name": "cameraOver",
             "type": "camera",
+            "model": "file",
             "attributes": {
                 "color": "artifact_data/vision/chess/board3.png",
                 "depth": "artifact_data/vision/chess/board3.dat.gz",
@@ -31,21 +31,21 @@
                 },
                 "orientation": {
                     "type": "ov_degrees",
-                   "value": { 
+                    "value": {
                         "x": 0,
                         "y": 0,
                         "z": 1,
                         "th": 180
-                   }
+                    }
                 }
             }
         },
         {
-            "model": "fake",
-            "name": "pieceArm",
+           "name": "pieceArm",
             "type": "arm",
+            "model": "fake",
             "frame": {
-                "parent" : "world",
+                "parent": "world",
                 "translation": {
                     "x": 500,
                     "y": 500,
@@ -54,20 +54,20 @@
             }
         },
         {
-          "model": "fake",
-          "name": "movement_sensor1",
-          "type": "movement_sensor"
+            "name": "movement_sensor1",
+            "type": "movement_sensor",
+            "model": "fake"
         },
         {
-          "model": "fake",
-          "name": "movement_sensor2",
-          "type": "movement_sensor",
-          "frame": {
-              "parent": "pieceArm"
-          },
-          "attributes": {
-            "relative": true
-          }
+            "name": "movement_sensor2",
+            "type": "movement_sensor",
+            "model": "fake",
+            "frame": {
+                "parent": "pieceArm"
+            },
+            "attributes": {
+                "relative": true
+            }
         }
     ]
 }

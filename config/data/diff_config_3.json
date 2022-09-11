@@ -1,6 +1,5 @@
 {
-    "remotes":
-    [
+    "remotes": [
         {
             "name": "remote1",
             "address": "addr3"
@@ -10,30 +9,26 @@
             "address": "addr4"
         }
     ],
-    "components":
-    [
+    "components": [
         {
-            "model": "fake",
             "name": "arm1",
             "type": "arm",
-            "attributes":
-            {
+            "model": "fake",
+            "attributes": {
                 "two": 2
             }
         },
         {
-            "model": "fake",
             "name": "base2",
-            "type": "base"
+            "type": "base",
+            "model": "fake"
         },
         {
-            "model": "fake",
             "name": "board1",
             "type": "board",
-            "attributes":
-            {
-                "analogs":
-                [
+            "model": "fake",
+            "attributes": {
+                "analogs": [
                     {
                         "name": "analog1",
                         "pin": "1"
@@ -42,13 +37,11 @@
             }
         },
         {
-            "model": "fake",
             "name": "board2",
             "type": "board",
-            "attributes":
-            {
-                "digital_interrupts":
-                [
+            "model": "fake",
+            "attributes": {
+                "digital_interrupts": [
                     {
                         "name": "encoder2",
                         "pin": "16"
@@ -57,13 +50,11 @@
             }
         }
     ],
-    "processes":
-    [
+    "processes": [
         {
             "id": "1",
             "name": "echo",
-            "args":
-            [
+            "args": [
                 "hello",
                 "world",
                 "again"
@@ -73,8 +64,7 @@
         {
             "id": "3",
             "name": "bash",
-            "args":
-            [
+            "args": [
                 "-c",
                 "trap \"exit 0\" SIGINT; while true; do echo world; sleep 2; done"
             ],

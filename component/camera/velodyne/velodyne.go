@@ -128,7 +128,7 @@ func New(ctx context.Context, logger golog.Logger, port, ttlMilliseconds int) (c
 		c.run(cancelCtx, listener)
 	})
 
-	return camera.NewFromReader(c, nil)
+	return camera.NewFromReader(ctx, c, nil, camera.DepthStream)
 }
 
 func (c *client) setLastError(err error) {
