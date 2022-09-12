@@ -19,9 +19,6 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
-//go:embed arm_model.json
-var armikModelJSON []byte
-
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
 	ArmModel string `json:"arm_model"`

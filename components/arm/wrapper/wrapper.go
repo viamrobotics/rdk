@@ -24,7 +24,7 @@ type AttrConfig struct {
 	ArmName   string `json:"arm-name"`
 }
 
-// ModelName defines the model name to be used when specifying wrapper arms in configs
+// ModelName defines the model name to be used when specifying wrapper arms in configs.
 const ModelName = "wrapper_arm"
 
 func init() {

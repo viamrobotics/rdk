@@ -3,14 +3,13 @@ package xarm
 
 import (
 	"context"
-	"strconv"
-
 	// for embedding model file.
 	_ "embed"
 	"errors"
 	"math"
 	"net"
 	"runtime"
+	"strconv"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -59,10 +58,12 @@ var xArm6modeljson []byte
 //go:embed xarm7_kinematics.json
 var xArm7modeljson []byte
 
+// ModelName returns the xArm model name
 func ModelName(dof int) string {
 	return "xArm" + strconv.Itoa(dof)
 }
 
+// Model returns the xArm model
 func Model(dof int) (referenceframe.Model, error) {
 	switch dof {
 	case 6:
