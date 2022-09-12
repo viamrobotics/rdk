@@ -12,9 +12,9 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/generic"
-	"go.viam.com/rdk/component/movementsensor"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
