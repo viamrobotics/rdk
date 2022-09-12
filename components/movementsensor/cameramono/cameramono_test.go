@@ -15,9 +15,9 @@ import (
 	"go.viam.com/utils/artifact"
 	"gonum.org/v1/gonum/mat"
 
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/generic"
-	"go.viam.com/rdk/component/movementsensor"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
