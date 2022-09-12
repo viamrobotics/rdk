@@ -75,6 +75,12 @@ func TestServer(t *testing.T) {
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
+	injectCamera.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{
+			SupportsPCD:     true,
+			IntrinsicParams: intrinsics,
+		}, nil
+	}
 	injectCamera.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return projA, nil
 	}
@@ -111,6 +117,12 @@ func TestServer(t *testing.T) {
 	injectCameraDepth.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
+	injectCameraDepth.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{
+			SupportsPCD:     true,
+			IntrinsicParams: intrinsics,
+		}, nil
+	}
 	injectCameraDepth.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return projA, nil
 	}
@@ -125,6 +137,9 @@ func TestServer(t *testing.T) {
 	// bad camera
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return nil, errors.New("can't generate next point cloud")
+	}
+	injectCamera2.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, errors.New("can't get camera properties")
 	}
 	injectCamera2.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return nil, errors.New("can't get camera properties")
@@ -336,6 +351,7 @@ func TestServer(t *testing.T) {
 
 		resp, err := cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: testCameraName})
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.SupportsPcd, test.ShouldBeTrue)
 		test.That(t, resp.IntrinsicParameters.WidthPx, test.ShouldEqual, 1280)
 		test.That(t, resp.IntrinsicParameters.HeightPx, test.ShouldEqual, 720)
 		test.That(t, resp.IntrinsicParameters.FocalXPx, test.ShouldEqual, 200)

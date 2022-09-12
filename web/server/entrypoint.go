@@ -12,7 +12,6 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/opus"
 	"github.com/edaniels/gostream/codec/x264"
-	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
@@ -68,9 +67,11 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 		defer pprof.StopCPUProfile()
 	}
 
-	exp := perf.NewNiceLoggingSpanExporter()
-	trace.RegisterExporter(exp)
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+	exporter := perf.NewDevelopmentExporter()
+	if err := exporter.Start(); err != nil {
+		return err
+	}
+	defer exporter.Stop()
 
 	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
 	cfg, err := config.Read(initialReadCtx, argsParsed.ConfigFile, logger)
@@ -103,7 +104,7 @@ func createWebOptions(cfg *config.Config, argsParsed Arguments, logger golog.Log
 	}
 	options.Pprof = argsParsed.WebProfile
 	options.SharedDir = argsParsed.SharedDir
-	options.Debug = argsParsed.Debug
+	options.Debug = argsParsed.Debug || cfg.Debug
 	options.WebRTC = argsParsed.WebRTC
 	if cfg.Cloud != nil && argsParsed.AllowInsecureCreds {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
@@ -136,7 +137,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		if err != nil {
 			return nil, err
 		}
-		out.Debug = argsParsed.Debug
+		out.Debug = argsParsed.Debug || cfg.Debug
 		out.FromCommand = true
 		out.AllowInsecureCreds = argsParsed.AllowInsecureCreds
 		return out, nil

@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/discovery"
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/utils"
 )
@@ -255,6 +256,9 @@ func tryWebcamOpen(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	proj, _ := camera.GetProjector(ctx, attrs.AttrConfig, nil)
-	return camera.NewFromSource(source, proj)
+	var intrinsics *transform.PinholeCameraIntrinsics
+	if attrs.AttrConfig != nil {
+		intrinsics = attrs.AttrConfig.CameraParameters
+	}
+	return camera.NewFromSource(ctx, source, intrinsics, camera.StreamType(attrs.Stream))
 }
