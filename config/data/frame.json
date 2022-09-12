@@ -1,5 +1,5 @@
 {
-    "test" : {
+    "test": {
         "parent": "world",
         "translation": {
             "x": 1,

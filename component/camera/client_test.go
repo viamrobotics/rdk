@@ -68,6 +68,12 @@ func TestClient(t *testing.T) {
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
+	injectCamera.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{
+			SupportsPCD:     true,
+			IntrinsicParams: intrinsics,
+		}, nil
+	}
 	injectCamera.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return projA, nil
 	}
@@ -90,6 +96,12 @@ func TestClient(t *testing.T) {
 	injectCameraDepth.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
+	injectCameraDepth.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{
+			SupportsPCD:     true,
+			IntrinsicParams: intrinsics,
+		}, nil
+	}
 	injectCameraDepth.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return projA, nil
 	}
@@ -105,6 +117,9 @@ func TestClient(t *testing.T) {
 	injectCamera2 := &inject.Camera{}
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return nil, errors.New("can't generate next point cloud")
+	}
+	injectCamera2.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, errors.New("can't get camera properties")
 	}
 	injectCamera2.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return nil, errors.New("can't get camera properties")
@@ -159,6 +174,11 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, projB, test.ShouldNotBeNil)
 
+		propsB, err := camera1Client.GetProperties(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, propsB.SupportsPCD, test.ShouldBeTrue)
+		test.That(t, propsB.IntrinsicParams, test.ShouldResemble, intrinsics)
+
 		// Do
 		resp, err := camera1Client.Do(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
@@ -204,6 +224,10 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next point cloud")
 
 		_, err = camera2Client.Projector(context.Background())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get camera properties")
+
+		_, err = camera2Client.GetProperties(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get camera properties")
 

@@ -138,10 +138,19 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, l golog.Logger,
 	joinSource.mergeMethod = MergeMethodType(attrs.MergeMethod)
 
 	if idx, ok := contains(joinSource.sourceNames, joinSource.targetName); ok {
-		proj, _ := camera.GetProjector(ctx, nil, joinSource.sourceCameras[idx])
-		return camera.NewFromReader(joinSource, proj)
+		parentCamera := joinSource.sourceCameras[idx]
+		var intrinsicParams *transform.PinholeCameraIntrinsics
+		if parentCamera != nil {
+			props, err := parentCamera.GetProperties(ctx)
+			if err != nil {
+				return nil, camera.NewGetPropertiesError(
+					fmt.Sprintf("point cloud source at index %d for target %s", idx, attrs.TargetFrame))
+			}
+			intrinsicParams = props.IntrinsicParams
+		}
+		return camera.NewFromReader(ctx, joinSource, intrinsicParams, joinSource.stream)
 	}
-	return camera.NewFromReader(joinSource, nil)
+	return camera.NewFromReader(ctx, joinSource, nil, joinSource.stream)
 }
 
 // NextPointCloud gets all the point clouds from the source cameras,

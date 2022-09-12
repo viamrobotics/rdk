@@ -27,7 +27,7 @@ type depthEdgesSource struct {
 	blurRadius float64
 }
 
-func newDepthEdgesTransform(source gostream.VideoSource, am config.AttributeMap) (gostream.VideoSource, error) {
+func newDepthEdgesTransform(ctx context.Context, source gostream.VideoSource, am config.AttributeMap) (gostream.VideoSource, error) {
 	conf, err := config.TransformAttributeMapToStruct(&(depthEdgesAttrs{}), am)
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func newDepthEdgesTransform(source gostream.VideoSource, am config.AttributeMap)
 	}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(attrs.HiThresh, attrs.LoThresh, true)
 	videoSrc := &depthEdgesSource{gostream.NewEmbeddedVideoStream(source), canny, 3.0}
-	return camera.NewFromReader(videoSrc, nil)
+	return camera.NewFromReader(ctx, videoSrc, nil, camera.DepthStream)
 }
 
 // Next applies a canny edge detector on the depth map of the next image.

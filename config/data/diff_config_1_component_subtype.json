@@ -1,6 +1,5 @@
 {
-    "remotes":
-    [
+    "remotes": [
         {
             "name": "remote1",
             "address": "addr1"
@@ -10,42 +9,36 @@
             "address": "addr2"
         }
     ],
-    "components":
-    [
+    "components": [
         {
-            "model": "fake",
             "name": "arm1",
             "type": "arm",
+            "model": "fake",
             "subtype": "something",
-            "attributes":
-            {
+            "attributes": {
                 "one": 1
             }
         },
         {
-            "model": "fake",
             "name": "base1",
             "type": "base",
-            "attributes":
-            {
+            "model": "fake",
+            "attributes": {
                 "two": 2
             }
         },
         {
-            "model": "fake",
             "name": "board1",
             "type": "board",
-            "attributes":
-            {
-                "analogs":
-                [
+            "model": "fake",
+            "attributes": {
+                "analogs": [
                     {
                         "name": "analog1",
                         "pin": "0"
                     }
                 ],
-                "digital_interrupts":
-                [
+                "digital_interrupts": [
                     {
                         "name": "encoder",
                         "pin": "14"
@@ -54,13 +47,11 @@
             }
         }
     ],
-    "processes":
-    [
+    "processes": [
         {
             "id": "1",
             "name": "echo",
-            "args":
-            [
+            "args": [
                 "hello",
                 "world"
             ],
@@ -69,8 +60,7 @@
         {
             "id": "2",
             "name": "bash",
-            "args":
-            [
+            "args": [
                 "-c",
                 "trap \"exit 0\" SIGINT; while true; do echo hey; sleep 2; done"
             ],
