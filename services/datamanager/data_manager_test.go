@@ -325,7 +325,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 }
 
 // Validates that models can be deployed onto a robot.
-func TestDeployModels(t *testing.T) {
+func TestModelDeploy(t *testing.T) {
 	deployModelWaitTime := time.Millisecond * 100
 
 	// Register mock model service with a mock server.
