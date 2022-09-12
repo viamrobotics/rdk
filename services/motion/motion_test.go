@@ -9,11 +9,11 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/gripper"
 	// register.
-	_ "go.viam.com/rdk/component/register"
+	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
