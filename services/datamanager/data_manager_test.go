@@ -1,13 +1,9 @@
 package datamanager_test
 
 import (
-	"archive/zip"
-	"bytes"
 	"context"
 	"io"
 	"io/fs"
-	"io/ioutil"
-	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
@@ -16,9 +12,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	v1 "go.viam.com/api/proto/viam/datasync/v1"
-	m1 "go.viam.com/api/proto/viam/model/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
@@ -32,7 +26,6 @@ import (
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
 	"go.viam.com/rdk/services/datamanager/internal"
-	"go.viam.com/rdk/services/datamanager/model"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -48,14 +41,12 @@ var (
 
 	// 0.0041 mins is 246 milliseconds, this is the interval waiting time in the config file used for testing.
 	configSyncIntervalMins = 0.0041
-
-	syncIntervalMins   = 0.0041 // 250ms
-	captureDir         = "/tmp/capture"
-	armDir             = captureDir + "/arm/arm1/GetEndPosition"
-	defaultModelDir    = filepath.Join(os.Getenv("HOME"), "models", ".viam")
-	emptyFileBytesSize = 30 // size of leading metadata message
-	testSvcName1       = "svc1"
-	testSvcName2       = "svc2"
+	syncIntervalMins       = 0.0041 // 250ms
+	captureDir             = "/tmp/capture"
+	armDir                 = captureDir + "/arm/arm1/GetEndPosition"
+	emptyFileBytesSize     = 30 // size of leading metadata message
+	testSvcName1           = "svc1"
+	testSvcName2           = "svc2"
 )
 
 const (
@@ -322,91 +313,6 @@ func TestRecoversAfterKilled(t *testing.T) {
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 1+numArbitraryFilesToSync)
-}
-
-// Validates that models can be deployed onto a robot.
-func TestDeployModels(t *testing.T) {
-	deployModelWaitTime := time.Millisecond * 100
-
-	// Register mock model service with a mock server.
-	modelServer, _ := buildAndStartLocalModelServer(t)
-	defer func() {
-		err := modelServer.Stop()
-		test.That(t, err, test.ShouldBeNil)
-	}()
-
-	// Generate a fake model.
-	m := &model.Model{Name: "m1", Destination: ""}
-	models := []*model.Model{m}
-	defer resetFolder(t, filepath.Join(defaultModelDir, models[0].Name))
-
-	testCfg := setupConfig(t, configPath)
-	dmCfg, err := getDataManagerConfig(testCfg)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Set SyncIntervalMins equal to zero so we do not enable syncing.
-	dmCfg.SyncIntervalMins = 0
-	dmCfg.ModelsToDeploy = append(dmCfg.ModelsToDeploy, models...)
-
-	// Initialize the data manager and update it with our config.
-	dmsvc := newTestDataManager(t, "arm1", "")
-	dmsvc.SetModelManagerConstructor(getTestModelManagerConstructor(t, modelServer))
-
-	err = dmsvc.Update(context.Background(), testCfg)
-	test.That(t, err, test.ShouldBeNil)
-
-	time.Sleep(deployModelWaitTime)
-
-	// Validate that model was deployed.
-	_ = dmsvc.Close(context.Background())
-	files, err := ioutil.ReadDir(filepath.Join(defaultModelDir, models[0].Name))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(files), test.ShouldEqual, 1)
-	b, err := deepCompare(filepath.Join(defaultModelDir, models[0].Name, "READYOU.txt"), "README.txt")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, b, test.ShouldBeTrue)
-	err = os.Remove("README.txt")
-	test.That(t, err, test.ShouldBeNil)
-}
-
-// the function below was taken from:
-// https://stackoverflow.com/questions/29505089/how-can-i-compare-two-files-in-golang
-const chunkSize = 64000
-
-func deepCompare(file1, file2 string) (bool, error) {
-	f1, err := os.Open(file1)
-	if err != nil {
-		return false, err
-	}
-	defer f1.Close()
-
-	f2, err := os.Open(file2)
-	if err != nil {
-		return false, err
-	}
-	defer f2.Close()
-
-	for {
-		b1 := make([]byte, chunkSize)
-		_, err1 := f1.Read(b1)
-
-		b2 := make([]byte, chunkSize)
-		_, err2 := f2.Read(b2)
-
-		if err1 != nil || err2 != nil {
-			switch {
-			case err1 == io.EOF && err2 == io.EOF:
-				return true, nil
-			case err1 == io.EOF || err2 == io.EOF:
-				return false, nil
-			}
-			return false, multierr.Combine(err1, err2)
-		}
-
-		if !bytes.Equal(b1, b2) {
-			return false, err
-		}
-	}
 }
 
 // Checks if a services specified model has been deployed.
@@ -820,62 +726,10 @@ type mockDataSyncServiceServer struct {
 	v1.UnimplementedDataSyncServiceServer
 }
 
-type mockModelServiceServer struct {
-	lock *sync.Mutex
-	m1.UnimplementedModelServiceServer
-}
-
 func (m mockDataSyncServiceServer) getUploadedFiles() []string {
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
 	return *m.uploadedFiles
-}
-
-// mockClient is the mock client.
-type mockClient struct{}
-
-// Do is mockClient's `Do` func.
-func (m *mockClient) Do(req *http.Request) (*http.Response, error) {
-	f, err := os.Create("README.txt")
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	_, err = f.WriteString("mocked response")
-
-	if err != nil {
-		return nil, err
-	}
-
-	r := bytes.NewReader([]byte("mocked response"))
-	// r := bytes.NewReader([]byte(""))
-	buf := new(bytes.Buffer)
-	zipWriter := zip.NewWriter(buf)
-	w, err := zipWriter.Create("READYOU.txt")
-	if err != nil {
-		return nil, err
-	}
-	if _, err := io.Copy(w, r); err != nil {
-		return nil, err
-	}
-	err = zipWriter.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &http.Response{
-		StatusCode: http.StatusOK, // Q: Can I get rid of this?
-		Body:       io.NopCloser(buf),
-	}
-	return response, nil
-}
-
-func (m mockModelServiceServer) Deploy(ctx context.Context, req *m1.DeployRequest) (*m1.DeployResponse, error) {
-	(*m.lock).Lock()
-	defer (*m.lock).Unlock()
-	depResp := &m1.DeployResponse{Message: ""}
-	return depResp, nil
 }
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
@@ -924,31 +778,6 @@ func buildAndStartLocalServer(t *testing.T) (rpc.Server, *mockDataSyncServiceSer
 	return rpcServer, &mockService
 }
 
-//nolint:thelper
-func buildAndStartLocalModelServer(t *testing.T) (rpc.Server, mockModelServiceServer) {
-	logger, _ := golog.NewObservedTestLogger(t)
-	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
-	test.That(t, err, test.ShouldBeNil)
-	mockService := mockModelServiceServer{
-		lock:                            &sync.Mutex{},
-		UnimplementedModelServiceServer: m1.UnimplementedModelServiceServer{},
-	}
-	err = rpcServer.RegisterServiceServer(
-		context.Background(),
-		&m1.ModelService_ServiceDesc,
-		mockService,
-		m1.RegisterModelServiceHandlerFromEndpoint,
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Stand up the server. Defer stopping the server.
-	go func() {
-		err := rpcServer.Start()
-		test.That(t, err, test.ShouldBeNil)
-	}()
-	return rpcServer, mockService
-}
-
 func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientConn, error) {
 	return rpc.DialDirectGRPC(
 		context.Background(),
@@ -965,15 +794,5 @@ func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerC
 		test.That(t, err, test.ShouldBeNil)
 		client := datasync.NewClient(conn)
 		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn)
-	}
-}
-
-//nolint:thelper
-func getTestModelManagerConstructor(t *testing.T, server rpc.Server) model.ManagerConstructor {
-	return func(logger golog.Logger, cfg *config.Config) (model.Manager, error) {
-		conn, err := getLocalServerConn(server, logger)
-		test.That(t, err, test.ShouldBeNil)
-		client := model.NewClient(conn)
-		return model.NewManager(logger, cfg.Cloud.ID, client, conn, &mockClient{})
 	}
 }
