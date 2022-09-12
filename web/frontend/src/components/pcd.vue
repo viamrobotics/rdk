@@ -32,6 +32,7 @@ const container = $ref<HTMLDivElement>();
 let cube: THREE.LineSegments;
 let displayGrid = true;
 
+let download = $ref<HTMLLinkElement>()
 let segmenterParameterNames = $ref<TypedParameter[]>();
 let objects = $ref<PointCloudObject[]>([]);
 let segmenterNames = $ref<string[]>([]);
@@ -158,6 +159,10 @@ const findSegments = () => {
     }
 
     objects = response!.getObjectsList();
+
+    if (objects.length === 0) {
+      toast.info('Found no segments.');
+    }
   });
 };
 
@@ -363,11 +368,6 @@ const handleSelectObject = (selection: string) => {
   }
 };
 
-const handleDownload = () => {
-  console.log(props.pointcloud);
-  window.open(url);
-};
-
 const handleToggleGrid = () => {
   if (displayGrid) {
     scene.remove(gridHelper);
@@ -397,11 +397,7 @@ const handlePointsResize = (event: CustomEvent) => {
 
 const color = new THREE.Color();
 
-const update = (cloud?: Uint8Array) => {
-  if (!cloud) {
-    return;
-  }
-
+const update = (cloud: Uint8Array) => {
   const points = loader.parse(cloud.buffer, '');
   points.name = 'points';
   const positions = points.geometry.attributes.position.array;
@@ -445,12 +441,25 @@ const update = (cloud?: Uint8Array) => {
   }
 };
 
+const init = (pointcloud: Uint8Array) => {
+  update(pointcloud);
+
+  // eslint-disable-next-line unicorn/text-encoding-identifier-case
+  const decoder = new TextDecoder('utf-8')
+  const file = new File([decoder.decode(pointcloud)], 'pointcloud.txt');
+  download.href = URL.createObjectURL(file);
+
+  if (props.cameraName) {
+    getSegmenterNames();
+  }
+};
+
 onMounted(() => {
   container.append(renderer.domElement);
   renderer.setAnimationLoop(animate);
 
   if (props.pointcloud) {
-    update(props.pointcloud);
+    init(props.pointcloud);
   }
 });
 
@@ -459,10 +468,8 @@ onUnmounted(() => {
 });
 
 watch(() => props.pointcloud, (updated?: Uint8Array) => {
-  update(updated);
-
-  if (props.cameraName) {
-    getSegmenterNames();
+  if (updated) {
+    init(updated);
   }
 });
 
@@ -476,11 +483,16 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
         label="Center"
         @click="handleCenter"
       />
-      <v-button
-        icon="download"
-        label="Download Raw Data"
-        @click="handleDownload"
-      />
+      <a
+        ref="download"
+        download="pointcloud.txt"
+      >
+        <v-button
+          icon="download"
+          label="Download Raw Data"
+          @click="() => {}"
+        />
+      </a>
     </div>
 
     <div

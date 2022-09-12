@@ -1,13 +1,14 @@
 
 <script setup lang="ts">
 
-import { nextTick } from 'vue';
+import { defineAsyncComponent, nextTick } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import type { Resource } from '../lib/resource';
 import slamApi from '../gen/proto/api/service/slam/v1/slam_pb.esm';
 import { toast } from '../lib/toast';
-import PCD from './pcd.vue';
-  
+
+const PCD = defineAsyncComponent(() => import('./pcd.vue'));
+
 interface Props {
   name: string
   resources: Resource[]

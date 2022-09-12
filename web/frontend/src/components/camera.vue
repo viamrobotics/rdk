@@ -21,8 +21,6 @@ interface Emits {
   (event: 'toggle-camera', camera: boolean): void
   (event: 'selected-camera-view', value: string): void
   (event: 'refresh-camera', value: string): void
-  (event: 'find-segments', value: string, params: Record<string, unknown>): void
-  (event: 'select-object', e: string, object: string): void
 }
 
 const props = defineProps<Props>();
@@ -64,7 +62,6 @@ const renderPCD = () => {
       return;
     }
 
-    console.log(response!.getPointCloud_asU8())
     pointcloud = response!.getPointCloud_asU8();
   });
 };
