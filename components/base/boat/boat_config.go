@@ -112,16 +112,11 @@ func (bc *boatConfig) computePowerOutput(powers []float64) motorWeights {
 // angularPercent: -1 -> 1 percent of power you want applied to move angularly
 //
 //	note only z is relevant here
-func (bc *boatConfig) computePower(linear, angular r3.Vector) []float64 {
+func (bc *boatConfig) computePower(linear, angular r3.Vector) ([]float64, error) {
 	goal := bc.computeGoal(linear, angular)
-
-	// TODO(RSDK-548): we have a deferred memory-releasing clean-up function after a
-	// panic. The nlopt.NewNLopt source code indicates this function does not allocate
-	// memory if it returns an error. Still, instead make this code return an error
-	// instead of panicking?
 	opt, err := nlopt.NewNLopt(nlopt.GN_DIRECT, 6)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	defer opt.Destroy()
 
@@ -141,7 +136,7 @@ func (bc *boatConfig) computePower(linear, angular r3.Vector) []float64 {
 		opt.SetMaxTime(.25),
 	)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	myfunc := func(x, gradient []float64) float64 {
@@ -151,12 +146,12 @@ func (bc *boatConfig) computePower(linear, angular r3.Vector) []float64 {
 
 	err = opt.SetMinObjective(myfunc)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	powers, _, err := opt.Optimize(make([]float64, 6))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return powers
+	return powers, nil
 }
