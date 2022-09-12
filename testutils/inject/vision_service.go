@@ -5,6 +5,7 @@ import (
 	"image"
 
 	"github.com/invopop/jsonschema"
+
 	"go.viam.com/rdk/services/vision"
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
