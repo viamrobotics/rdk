@@ -5,8 +5,8 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/movementsensor"
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/resource"
 )
 
@@ -214,9 +214,9 @@ func TestResourceNameNewFromString(t *testing.T) {
 	}{
 		{
 			"malformed name",
-			"rdk/component/arm/arm1",
+			"rdk/components/arm/arm1",
 			resource.Name{},
-			"string \"rdk/component/arm/arm1\" is not a valid resource name",
+			"string \"rdk/components/arm/arm1\" is not a valid resource name",
 		},
 		{
 			"too many colons",

@@ -15,11 +15,11 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/gripper"
-	"go.viam.com/rdk/component/gripper/vgripper/v1"
-	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/component/motor/tmcstepper"
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/gripper"
+	"go.viam.com/rdk/components/gripper/vgripper/v1"
+	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/components/motor/tmcstepper"
 	"go.viam.com/rdk/grpc/client"
 	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/robot"
@@ -124,7 +124,7 @@ func (a *LinearAxis) Home(ctx context.Context) error {
 	errPath := make(chan error, len(a.m))
 	for _, m := range a.m {
 		go func(m motor.Motor) {
-			_, err := m.Do(ctx, map[string]interface{}{tmcstepper.Command: tmcstepper.Home})
+			_, err := m.DoCommand(ctx, map[string]interface{}{tmcstepper.Command: tmcstepper.Home})
 			errPath <- err
 		}(m)
 	}
@@ -357,7 +357,7 @@ func (b *ResetBox) home(ctx context.Context) error {
 	}()
 	go func() {
 		errPath <- b.gate.Home(ctx)
-		_, err := b.hammer.Do(ctx, map[string]interface{}{tmcstepper.Command: tmcstepper.Home})
+		_, err := b.hammer.DoCommand(ctx, map[string]interface{}{tmcstepper.Command: tmcstepper.Home})
 		errPath <- err
 	}()
 	go func() {
@@ -715,7 +715,7 @@ func (b *ResetBox) armHome(ctx context.Context) error {
 func (b *ResetBox) waitForGripperRecovery(ctx context.Context) error {
 	startTime := time.Now()
 	for {
-		ret, err := b.gripper.Do(ctx, map[string]interface{}{vgripper.Command: vgripper.GetPressure})
+		ret, err := b.gripper.DoCommand(ctx, map[string]interface{}{vgripper.Command: vgripper.GetPressure})
 		if err != nil {
 			return err
 		}

@@ -19,7 +19,7 @@ require (
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
 	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
 	github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e
-	github.com/edaniels/gostream v0.0.0-20220826053353-c2e09c686134
+	github.com/edaniels/gostream v0.0.0-20220909193600-edaf0134e353
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
@@ -72,7 +72,7 @@ require (
 	go.uber.org/zap v1.22.0
 	go.viam.com/api v0.0.0-20220909155115-d50e6024907c
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
-	go.viam.com/test v1.1.0
+	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
 	go.viam.com/utils v0.0.5
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539

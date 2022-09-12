@@ -8,7 +8,7 @@ import (
 	"github.com/edaniels/gostream"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/components/camera"
 )
 
 // Service in the internal package includes additional exported functions relating to the data and

@@ -11,8 +11,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/camera/videosource"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/vision/objectdetection"
 )
@@ -43,7 +43,7 @@ func main() {
 	}
 	if *imgPtr != "" {
 		src := &simpleSource{*imgPtr}
-		cam, err := camera.NewFromReader(src, nil)
+		cam, err := camera.NewFromReader(context.Background(), src, nil, camera.UnspecifiedStream)
 		if err != nil {
 			logger.Fatal(err)
 		}
