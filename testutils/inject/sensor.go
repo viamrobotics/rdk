@@ -3,7 +3,7 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/components/sensor"
 )
 
 // Sensor is an injected sensor.
