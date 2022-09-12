@@ -391,7 +391,7 @@ func Plan(
 	}
 	armName := a.ModelFrame().Name()
 
-	destination := referenceframe.NewPoseInFrame(armName+"_offset", spatialmath.NewPoseFromProtobuf(dst))
+	destination := referenceframe.NewPoseInFrame(armName+"_origin", spatialmath.NewPoseFromProtobuf(dst))
 
 	solutionMap, err := motionplan.PlanRobotMotion(ctx, destination, a.ModelFrame(), r, fs, worldState, defaultArmPlannerOptions)
 	if err != nil {
