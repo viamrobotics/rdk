@@ -3,7 +3,6 @@ package builtin
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"image"
 	"os"
 	"runtime"
@@ -190,10 +189,12 @@ func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb, aa uint8) {
 	return
 }
 
-// unpackTensors2 takes the model's output tensors as input and reshapes them into objdet.Detections.
+// unpackTensors takes the model's output tensors as input and reshapes them into objdet.Detections.
 func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLiteStruct,
 	labelMap []string, logger golog.Logger, origW, origH int,
 ) []objectdetection.Detection {
+	_, span := trace.StartSpan(ctx, "service::vision::unpackTensors")
+	defer span.End()
 	var hasMetadata bool
 	var boxOrder []int
 
@@ -375,12 +376,6 @@ func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLite
 		}
 	}
 
-	fmt.Printf("len bboxes %v\n", len(bboxes))
-	fmt.Printf("len scores %v\n", len(scores))
-	fmt.Printf("len labels %v\n", len(labels))
-	fmt.Printf("some bboxes %v\n", bboxes[0:10])
-	fmt.Printf("some scores %v\n", scores[0:10])
-
 	// Gather detections such that if something is empty, it'll be empty.
 	detections := make([]objectdetection.Detection, count)
 	for i := 0; i < count; i++ {
@@ -411,99 +406,6 @@ func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLite
 		d := objectdetection.NewDetection(rect, score, label)
 		detections[i] = d
 	}
-	return detections
-
-}
-
-// unpackTensors takes the model's output tensors as input and reshapes them into objdet.Detections.
-func unpackTensors2(ctx context.Context, tensors []interface{}, model *inf.TFLiteStruct, labelMap []string,
-	logger golog.Logger, origW, origH int,
-) []objectdetection.Detection {
-	_, span := trace.StartSpan(ctx, "service::vision::unpackTensors")
-	defer span.End()
-	// Gather slices for the bboxes, scores, and labels, using TensorOrder
-	var labels []int
-	var bboxes []float64
-	var scores []float64
-
-	var hasMetadata bool
-	var tensorOrder []int
-	var boxOrder []int
-
-	m, err := model.GetMetadata()
-	if err != nil {
-		hasMetadata = false
-		// If you could not access the metadata
-		logger.Warnf("could not find tensor order. %v Using default order: location, category, score", err)
-		tensorOrder = []int{0, 1, 2}
-	} else {
-		hasMetadata = true
-		// But if you can
-		tensorOrder, _ = getTensorOrder(m) // location = 0 , category = 1, score = 2 for tensor order
-		boxOrder, err = getBboxOrder(m)
-		if err != nil {
-			hasMetadata = false
-		}
-	}
-
-	// Populate bboxes, labels, and scores from tensorOrder
-	bb := tensors[getIndex(tensorOrder, 0)]
-	ll := tensors[getIndex(tensorOrder, 1)]
-	ss := tensors[getIndex(tensorOrder, 2)]
-
-	for _, b := range bb.([]float32) {
-		bboxes = append(bboxes, float64(b))
-	}
-	for _, l := range ll.([]float32) {
-		labels = append(labels, int(l))
-	}
-	for _, s := range ss.([]float32) {
-		scores = append(scores, float64(s))
-	}
-	if !hasMetadata {
-		// If you could not access the metadata
-		logger.Warn("assuming bounding box tensor is in the default order: [x x y y]")
-		boxOrder = []int{1, 0, 3, 2}
-		if bboxes[0] > bboxes[1] {
-			boxOrder[0] = 1
-			boxOrder[1] = 0
-		} else {
-			boxOrder[1] = 1
-			boxOrder[0] = 0
-		}
-		if bboxes[2] > bboxes[3] {
-			boxOrder[2] = 3
-			boxOrder[3] = 2
-		} else {
-			boxOrder[2] = 2
-			boxOrder[3] = 3
-		}
-	}
-
-	// Detection gathering
-	detections := make([]objectdetection.Detection, len(scores))
-	for i := 0; i < len(scores); i++ {
-		// Gather box
-		xmin, ymin, xmax, ymax := utils.Clamp(bboxes[4*i+getIndex(boxOrder, 0)], 0.0, 1.0)*float64(origW),
-			utils.Clamp(bboxes[4*i+getIndex(boxOrder, 1)], 0.0, 1.0)*float64(origH),
-			utils.Clamp(bboxes[4*i+getIndex(boxOrder, 2)], 0.0, 1.0)*float64(origW),
-			utils.Clamp(bboxes[4*i+getIndex(boxOrder, 3)], 0.0, 1.0)*float64(origH)
-
-		rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
-
-		// Gather label
-		var label string
-		if labelMap == nil {
-			label = strconv.Itoa(labels[i])
-		} else {
-			label = labelMap[labels[i]]
-		}
-
-		// Gather score and package it
-		d := objectdetection.NewDetection(rect, scores[i], label)
-		detections[i] = d
-	}
-
 	return detections
 }
 
