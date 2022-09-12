@@ -3,7 +3,7 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/rdk/component/servo"
+	"go.viam.com/rdk/components/servo"
 )
 
 // Servo is an injected servo.

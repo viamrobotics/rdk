@@ -13,8 +13,8 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"

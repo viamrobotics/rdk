@@ -15,8 +15,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/movementsensor"
+	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"

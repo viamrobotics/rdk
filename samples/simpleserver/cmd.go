@@ -8,8 +8,8 @@ import (
 	"github.com/edaniels/gostream/codec/x264"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/arm/fake"
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
