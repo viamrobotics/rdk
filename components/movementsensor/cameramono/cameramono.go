@@ -166,7 +166,7 @@ func (co *cameramono) backgroundWorker(cam camera.Camera, stream gostream.VideoS
 	defer func() { utils.UncheckedError(stream.Close(context.Background())) }()
 	co.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		sImg, sT, err := co.getReadImage(cam)
+		sImg, sT, err := co.getStreamedImage(stream)
 		if err != nil {
 			co.lastErr = err
 			return
