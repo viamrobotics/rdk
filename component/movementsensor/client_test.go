@@ -100,8 +100,8 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		gps1Client := movementsensor.NewClientFromConn(context.Background(), conn, testMovementSensorName, logger)
 
-		// Do
-		resp, err := gps1Client.Do(context.Background(), generic.TestCommand)
+		// DoCommand
+		resp, err := gps1Client.DoCommand(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])

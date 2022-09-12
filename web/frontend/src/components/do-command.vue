@@ -20,14 +20,14 @@ const output = ref();
 const executing = ref(false);
 
 const doCommand = (name: string, command: string) => {
-  const request = new genericApi.DoRequest();
+  const request = new genericApi.DoCommandRequest();
 
   request.setName(name);
   request.setCommand(Struct.fromJavaScript(JSON.parse(command)));
 
   executing.value = true;
 
-  window.genericService.do(request, (error, response) => {
+  window.genericService.doCommand(request, (error, response) => {
     if (error) {
       toast.error(`Error executing command on ${name}: ${error}`);
       executing.value = false;
@@ -48,8 +48,8 @@ const doCommand = (name: string, command: string) => {
 
 <template>
   <v-collapse
-    title="Do()"
-    class="do"
+    title="DoCommand()"
+    class="doCommand"
   >
     <div class="h-full w-full border border-t-0 border-black p-4">
       <v-select

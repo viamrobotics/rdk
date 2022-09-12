@@ -84,10 +84,10 @@ func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bo
 	return m.IsPoweredFunc(ctx, extra)
 }
 
-// Do calls the injected Do or the real version.
-func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand calls the injected DoCommand or the real version.
+func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if m.DoFunc == nil {
-		return m.Motor.Do(ctx, cmd)
+		return m.Motor.DoCommand(ctx, cmd)
 	}
 	return m.DoFunc(ctx, cmd)
 }
