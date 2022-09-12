@@ -288,7 +288,7 @@ func ConvertProtoToOrientation(o *commonpb.Orientation) spatialmath.Orientation 
 	}
 }
 
-// ConvertStringMapToAnyPb takes a string map and parses each value to an Any pb type
+// ConvertStringMapToAnyPb takes a string map and parses each value to an Any pb type.
 func ConvertStringMapToAnyPb(params map[string]string) (map[string]*anypb.Any, error) {
 	methodParams := map[string]*anypb.Any{}
 	var wrappedVal protoreflect.ProtoMessage
