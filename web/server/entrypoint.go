@@ -185,13 +185,12 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	streamConfig.AudioEncoderFactory = opus.NewEncoderFactory()
 	streamConfig.VideoEncoderFactory = x264.NewEncoderFactory()
 
-	myRobot, err := robotimpl.New(
-		ctx,
-		processedConfig,
-		logger,
-		argsParsed.ShowConfigDiff,
-		robotimpl.WithWebOptions(web.WithStreamConfig(streamConfig)),
-	)
+	robotOptions := []robotimpl.Option{robotimpl.WithWebOptions(web.WithStreamConfig(streamConfig))}
+	if argsParsed.ShowConfigDiff {
+		robotOptions = append(robotOptions, robotimpl.WithRevealSensitiveDiffs())
+	}
+
+	myRobot, err := robotimpl.New(ctx, processedConfig, logger, robotOptions...)
 	if err != nil {
 		return err
 	}

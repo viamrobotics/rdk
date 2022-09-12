@@ -6,6 +6,10 @@ import "go.viam.com/rdk/robot/web"
 type options struct {
 	// webOptions are used to initially configure the web service.
 	webOptions []web.Option
+
+	// allowRevealSensitiveDiffs will display config diffs - which may contain secret
+	// information - in log statements
+	allowRevealSensitiveDiffs bool
 }
 
 // Option configures how we set up the web service.
@@ -35,5 +39,14 @@ func newFuncOption(f func(*options)) *funcOption {
 func WithWebOptions(opts ...web.Option) Option {
 	return newFuncOption(func(o *options) {
 		o.webOptions = opts
+	})
+}
+
+// WithRevealSensitiveDiffs returns an Option which causes config
+// diffs - which may contain sensitive information - to be displayed
+// in logs
+func WithRevealSensitiveDiffs() Option {
+	return newFuncOption(func(o *options) {
+		o.allowRevealSensitiveDiffs = true
 	})
 }
