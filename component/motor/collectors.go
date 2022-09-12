@@ -3,8 +3,9 @@ package motor
 import (
 	"context"
 
-	"go.viam.com/rdk/data"
 	"google.golang.org/protobuf/types/known/anypb"
+
+	"go.viam.com/rdk/data"
 )
 
 type method int64

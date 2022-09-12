@@ -46,7 +46,7 @@ require (
 	github.com/kellydunn/golang-geo v0.7.0
 	github.com/lmittmann/ppm v1.0.0
 	github.com/lucasb-eyer/go-colorful v1.2.0
-	github.com/mattn/go-tflite v1.0.2
+	github.com/mattn/go-tflite v1.0.4
 	github.com/matttproud/golang_protobuf_extensions v1.0.1
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/mapstructure v1.5.0
