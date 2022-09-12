@@ -49,10 +49,10 @@ func (s *InputController) RegisterControlCallback(
 	return s.RegisterControlCallbackFunc(ctx, control, triggers, ctrlFunc)
 }
 
-// Do calls the injected Do or the real version.
-func (s *InputController) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand calls the injected DoCommand or the real version.
+func (s *InputController) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if s.DoFunc == nil {
-		return s.Controller.Do(ctx, cmd)
+		return s.Controller.DoCommand(ctx, cmd)
 	}
 	return s.DoFunc(ctx, cmd)
 }

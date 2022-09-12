@@ -68,10 +68,10 @@ func (b *Base) Close(ctx context.Context) error {
 	return b.CloseFunc(ctx)
 }
 
-// Do calls the injected Do or the real version.
-func (b *Base) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand calls the injected DoCommand or the real version.
+func (b *Base) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if b.DoFunc == nil {
-		return b.LocalBase.Do(ctx, cmd)
+		return b.LocalBase.DoCommand(ctx, cmd)
 	}
 	return b.DoFunc(ctx, cmd)
 }
