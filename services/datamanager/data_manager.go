@@ -66,9 +66,9 @@ func init() {
 		return &conf, nil
 	}, &Config{})
 	// might need to edit here?
-	cType = config.ServiceType(OtherSubtypeName)
+	cType = config.ServiceType(otherSubtypeName)
 	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
-		var conf OtherConfig
+		var conf otherConfig
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 		if err != nil {
 			return nil, err
@@ -77,7 +77,7 @@ func init() {
 			return nil, err
 		}
 		return &conf, nil
-	}, &OtherConfig{})
+	}, &otherConfig{})
 
 	resource.AddDefaultService(Named(resource.DefaultServiceName))
 }
@@ -95,7 +95,9 @@ var (
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("data_manager")
-const OtherSubtypeName = resource.SubtypeName("object_detection")
+
+// otherSubtypeName is the name of the type of service that is not data_manager.
+const otherSubtypeName = resource.SubtypeName("object_detection")
 
 // Subtype is a constant that identifies the data manager service resource subtype.
 var Subtype = resource.NewSubtype(
@@ -108,7 +110,7 @@ var Subtype = resource.NewSubtype(
 var OtherSubtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeService,
-	OtherSubtypeName,
+	otherSubtypeName,
 )
 
 // Named is a helper for getting the named datamanager's typed resource name.
@@ -148,20 +150,22 @@ type dataCaptureConfigs struct {
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir            string              `json:"capture_dir"`
-	AdditionalSyncPaths   []string            `json:"additional_sync_paths"`
-	SyncIntervalMins      float64             `json:"sync_interval_mins"`
-	CaptureDisabled       bool                `json:"capture_disabled"`
-	ScheduledSyncDisabled bool                `json:"sync_disabled"`
-	ModelsToDeploy        []*model.Model      `json:"models_on_robot"`
-	Detectors             []*DetectorRegistry `json:"detector_registry"`
+	CaptureDir            string         `json:"capture_dir"`
+	AdditionalSyncPaths   []string       `json:"additional_sync_paths"`
+	SyncIntervalMins      float64        `json:"sync_interval_mins"`
+	CaptureDisabled       bool           `json:"capture_disabled"`
+	ScheduledSyncDisabled bool           `json:"sync_disabled"`
+	ModelsToDeploy        []*model.Model `json:"models_on_robot"`
 }
 
-type OtherConfig struct {
-	Detectors []*DetectorRegistry `json:"detector_registry"`
+// comment: choosing to put Detectors in struct OtherConfig
+// Detector is a field that exists in the service part part of the config
+// only for types that are not data_manager.
+type otherConfig struct {
+	Detectors []*detectorRegistry `json:"detector_registry"`
 }
 
-type DetectorRegistry struct {
+type detectorRegistry struct {
 	Name       string `json:"name"`
 	Type       string `json:"type"`
 	Parameters struct {
@@ -522,26 +526,28 @@ func (svc *dataManagerService) syncAdditionalSyncPaths() {
 
 // TODO: DATA-304, create a way for other services to check when their specified models
 // are ready to be used.
-func modelServiceCheck(ctx context.Context, cfg *OtherConfig, logger *zap.SugaredLogger) {
-
+func modelServiceCheck(cfg *otherConfig, logger *zap.SugaredLogger) error {
 	for i := range cfg.Detectors {
 		locationCheck := cfg.Detectors[i].Parameters.Location
 		// check if service model location exists
 		_, err := os.Stat(locationCheck)
-		if errors.Is(err, os.ErrNotExist) {
-			logger.Warn("Please deploy model first.")
-			// should we error instead?
-			return
+		if err != nil {
+			logger.Info("Please deploy model first.")
+			return err
 		}
 		// check for partial download
-		files, _ := ioutil.ReadDir(locationCheck)
-		if len(files) == 0 {
-			// should we error instead?
-			logger.Warn("There was a partial download. Model not yet available.")
-			return
+		files, err := ioutil.ReadDir(locationCheck)
+		if err != nil {
+			// there was an error reading the directory
+			return err
 		}
-		logger.Infof(cfg.Detectors[i].Name, "has been downloaded and is ready to use.")
+		if len(files) == 0 {
+			logger.Info("There was a partial download. Model not yet available.")
+			return errors.Errorf("There was a partial download. Model not yet available.")
+		}
+		logger.Info(cfg.Detectors[i].Name, " has been downloaded and is ready to use.")
 	}
+	return nil
 }
 
 // Update updates the data manager service when the config has changed.
@@ -577,7 +583,10 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		svc.closeCollectors()
 		return err
 	}
-	modelServiceCheck(ctx, otherSvcConfig, svc.logger)
+	err = modelServiceCheck(otherSvcConfig, svc.logger)
+	if err != nil {
+		return err
+	}
 
 	toggledCaptureOff := (svc.captureDisabled != svcConfig.CaptureDisabled) && svcConfig.CaptureDisabled
 	svc.captureDisabled = svcConfig.CaptureDisabled
@@ -745,7 +754,6 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 	return &reconfigurableDataManager{actual: svc}, nil
 }
 
-//here
 // Get the config associated with the data manager service.
 // Returns a boolean for whether a config is returned and an error if the
 // config was incorrectly formatted.
@@ -766,20 +774,20 @@ func getServiceConfig(cfg *config.Config) (*Config, bool, error) {
 	return &Config{}, false, nil
 }
 
-func getOtherServiceConfig(cfg *config.Config) (*OtherConfig, bool, error) {
+func getOtherServiceConfig(cfg *config.Config) (*otherConfig, bool, error) {
 	for _, c := range cfg.Services {
 		// Compare service type and name.
-		if c.ResourceName().ResourceSubtype == OtherSubtypeName {
-			svcConfig, ok := c.ConvertedAttributes.(*OtherConfig)
+		if c.ResourceName().ResourceSubtype == otherSubtypeName {
+			svcConfig, ok := c.ConvertedAttributes.(*otherConfig)
 			// Incorrect configuration is an error.
 			if !ok {
-				return &OtherConfig{}, false, utils.NewUnexpectedTypeError(svcConfig, c.ConvertedAttributes)
+				return &otherConfig{}, false, utils.NewUnexpectedTypeError(svcConfig, c.ConvertedAttributes)
 			}
 			return svcConfig, true, nil
 		}
 	}
 
-	return &OtherConfig{}, false, nil
+	return &otherConfig{}, false, nil
 }
 
 func getAttrsFromServiceConfig(resourceSvcConfig config.ResourceLevelServiceConfig) (dataCaptureConfigs, error) {

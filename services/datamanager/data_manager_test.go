@@ -409,29 +409,29 @@ func deepCompare(file1, file2 string) (bool, error) {
 	}
 }
 
-// Explanation of function here
+// Checks if a services specified model has been deployed.
 func TestService(t *testing.T) {
 	testCfg := setupConfig(t, "etc/configs/fakest.json")
 	dmsvc := newTestDataManager(t, "arm1", "")
-	err := dmsvc.Update(context.TODO(), testCfg)
-	// here we log the location of the services specified model does not exist
-	test.That(t, err, test.ShouldBeNil)
+	// the location of the deployed model does not exist
+	err := dmsvc.Update(context.Background(), testCfg)
+	test.That(t, err, test.ShouldNotBeNil)
 
 	// now we create the directory but no file within it to simulate a partial download
 	err = os.MkdirAll(filepath.Join(os.Getenv("HOME"), "models", ".viam", "model_1"), os.ModePerm)
 	test.That(t, err, test.ShouldBeNil)
-	// check other log
-	err = dmsvc.Update(context.TODO(), testCfg)
-	test.That(t, err, test.ShouldBeNil)
+	// should error as partial download
+	err = dmsvc.Update(context.Background(), testCfg)
+	test.That(t, err, test.ShouldNotBeNil)
 
 	// create file within directory
 	f, err := os.Create(filepath.Join(os.Getenv("HOME"), "models", ".viam", "model_1", "README.txt"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = f.WriteString("mocked response man")
+	_, err = f.WriteString("mocked response goes here")
 	test.That(t, err, test.ShouldBeNil)
 	f.Close()
 	// successful check
-	err = dmsvc.Update(context.TODO(), testCfg)
+	err = dmsvc.Update(context.Background(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 	err = os.Remove(filepath.Join(os.Getenv("HOME"), "models", ".viam", "model_1", "README.txt"))
 	test.That(t, err, test.ShouldBeNil)
