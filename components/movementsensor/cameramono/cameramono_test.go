@@ -5,6 +5,7 @@ import (
 	"image"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -35,22 +36,29 @@ var tCo = &cameramono{
 	cancelCtx:               context.Background(),
 	cancelFunc: func() {
 	},
-	output:        make(chan *odometry.Motion3D),
-	logger:        &zap.SugaredLogger{},
-	trackedPos:    r3.Vector{X: 4, Y: 5, Z: 6},
-	trackedOrient: &spatialmath.OrientationVector{Theta: 90, OX: 1, OY: 2, OZ: 3},
-	angVel:        spatialmath.AngularVelocity{X: 10, Y: 20, Z: 30},
-	linVel:        r3.Vector{X: 40, Y: 50, Z: 60},
+	output: make(chan *odometry.Motion3D),
+	logger: &zap.SugaredLogger{},
+	result: Result{
+		trackedPos:    r3.Vector{X: 4, Y: 5, Z: 6},
+		trackedOrient: &spatialmath.OrientationVector{Theta: 90, OX: 1, OY: 2, OZ: 3},
+		angVel:        spatialmath.AngularVelocity{X: 10, Y: 20, Z: 30},
+		linVel:        r3.Vector{X: 40, Y: 50, Z: 60},
+	},
 }
 
 func TestInit(t *testing.T) {
 	camName := "cam"
 	conf := &AttrConfig{}
-	err := conf.Validate()
+	err := conf.Validate("")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "single camera")
 	conf.Camera = camName
-	err = conf.Validate()
+	err = conf.Validate("")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "motion_estimation_config")
+
+	// conf.MotionConfig
+	// err = conf.Validate()
+	// test.That(t, err, test.ShouldNotBeNil)
+
 	conf.MotionConfig = &odometry.MotionEstimationConfig{
 		KeyPointCfg: &keypoints.ORBConfig{
 			Layers:          1,
@@ -94,7 +102,7 @@ func TestInit(t *testing.T) {
 		},
 		CamHeightGround: 0.1,
 	}
-	err = conf.Validate()
+	err = conf.Validate("")
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
@@ -183,6 +191,14 @@ func TestMathHelpers(t *testing.T) {
 
 		r3Out := translationToR3(tMotion)
 		test.That(t, r3Out, test.ShouldResemble, r3.Vector{X: 12, Y: 14, Z: 16})
+
+		start := time.Now()
+		time.Sleep(500 * time.Millisecond)
+		end := time.Now()
+		dt, moreThanZero := tCo.getDt(start, end)
+		test.That(t, dt, test.ShouldAlmostEqual, 0.5)
+		test.That(t, moreThanZero, test.ShouldBeTrue)
+
 	})
 
 	t.Run("test extract images", func(t *testing.T) {

@@ -33,13 +33,50 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate() error {
-	if config.Camera == "" {
-		return errors.New("single camera missing for visual odometry")
+func (cfg *AttrConfig) Validate(path string) error {
+	if cfg.Camera == "" {
+		return utils.NewConfigValidationError(path,
+			errors.New("single camera missing for visual odometry"))
 	}
-	if config.MotionConfig == nil {
-		return errors.New("empty motion_estimation_config for visual odometry algorithm")
+	if cfg.MotionConfig == nil {
+		return utils.NewConfigValidationError(path,
+			errors.New("no motion_estimation_config for visual odometry algorithm"))
 	}
+
+	if &cfg.MotionConfig.KeyPointCfg == nil {
+		return utils.NewConfigValidationError(path,
+			errors.New("no kps config found in motion_estimation_config"))
+	}
+
+	if &cfg.MotionConfig.MatchingCfg == nil {
+		return utils.NewConfigValidationError(path,
+			errors.New("no matching config found in motion_estimation_config"))
+	}
+
+	if &cfg.MotionConfig.CamIntrinsics == nil {
+		return utils.NewConfigValidationError(path,
+			errors.New("no camera_instrinsics config found in motion_estimation_config"))
+	}
+
+	if &cfg.MotionConfig.ScaleEstimatorCfg == nil {
+		return utils.NewConfigValidationError(path,
+			errors.New("no scale_estimator config found in motion_estimation_config"))
+	}
+
+	if &cfg.MotionConfig.CamHeightGround == nil {
+		return utils.NewConfigValidationError(path,
+			errors.New("no camera_height from gorund specified in motion_estimation_config"))
+	}
+	if &cfg.MotionConfig.KeyPointCfg.BRIEFConf == nil {
+		return utils.NewConfigValidationError(path,
+			errors.New("no BRIEF Config found in motion_estimation_config"))
+	}
+
+	if cfg.MotionConfig.KeyPointCfg.DownscaleFactor <= 1 {
+		return utils.NewConfigValidationError(path,
+			errors.New("downscale_factor in motion_estimation_config should be greater than 1"))
+	}
+
 	return nil
 }
 
@@ -75,11 +112,15 @@ type cameramono struct {
 	motion                  *odometry.Motion3D
 	output                  chan *odometry.Motion3D
 	logger                  golog.Logger
-	trackedPos              r3.Vector
-	trackedOrient           spatialmath.Orientation
-	angVel                  spatialmath.AngularVelocity
-	linVel                  r3.Vector
+	result                  Result
 	lastErr                 error
+}
+
+type Result struct {
+	trackedPos    r3.Vector
+	trackedOrient spatialmath.Orientation
+	angVel        spatialmath.AngularVelocity
+	linVel        r3.Vector
 }
 
 func newCameraMono(
@@ -105,11 +146,13 @@ func newCameraMono(
 	ctx = context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	co := &cameramono{
-		cancelCtx:     cancelCtx,
-		cancelFunc:    cancelFunc,
-		logger:        logger,
-		trackedPos:    r3.Vector{X: 0, Y: 0, Z: 0},
-		trackedOrient: spatialmath.NewOrientationVector(),
+		cancelCtx:  cancelCtx,
+		cancelFunc: cancelFunc,
+		logger:     logger,
+		result: Result{
+			trackedPos:    r3.Vector{X: 0, Y: 0, Z: 0},
+			trackedOrient: spatialmath.NewOrientationVector(),
+		},
 	}
 
 	co.backgroundWorker(cam, gostream.NewEmbeddedVideoStream(cam), conf.MotionConfig)
@@ -120,7 +163,7 @@ func (co *cameramono) backgroundWorker(cam camera.Camera, stream gostream.VideoS
 	defer func() { utils.UncheckedError(stream.Close(context.Background())) }()
 	co.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		sImg, sT, err := co.getReadImage(cam)
+		sImg, sT, err := co.getStreamedImage(stream, cam)
 		if err != nil {
 			co.lastErr = err
 			return
@@ -175,11 +218,11 @@ func (co *cameramono) extractMovementFromOdometer(start, end *rimage.Image, dt f
 	if err != nil {
 		return nil, err
 	}
-	co.trackedPos = co.trackedPos.Add(translationToR3(motion)) // most drift occurs here due to deadreckoning
-	co.trackedOrient = co.trackedOrient.RotationMatrix().MatMul(*rotMat)
+	co.result.trackedPos = co.result.trackedPos.Add(translationToR3(motion)) // most drift occurs here due to deadreckoning
+	co.result.trackedOrient = co.result.trackedOrient.RotationMatrix().MatMul(*rotMat)
 	// Future improvements: output linear and angular velocity from the odometry algorithm itself?
-	co.linVel = calculateLinVel(motion, dt)
-	co.angVel = *co.angVel.OrientationToAngularVel(rotMat, dt)
+	co.result.linVel = calculateLinVel(motion, dt)
+	co.result.angVel = *co.result.angVel.OrientationToAngularVel(rotMat, dt)
 
 	return motion, err
 }
@@ -206,7 +249,7 @@ func (co *cameramono) getStreamedImage(stream gostream.VideoStream, cam camera.C
 
 func (co *cameramono) getDt(startTime, endTime time.Time) (float64, bool) {
 	duration := endTime.Sub(startTime)
-	dt := float64(duration / time.Millisecond)
+	dt := float64(duration/time.Millisecond) / 1000
 	moreThanZero := dt > 0
 	return dt, moreThanZero
 }
@@ -219,11 +262,11 @@ func (co *cameramono) Close() {
 
 func (co *cameramono) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
 	// co.logger.Info("getting pos")
-	return geo.NewPoint(co.trackedPos.X, co.trackedPos.Y), co.trackedPos.Z, nil
+	return geo.NewPoint(co.result.trackedPos.X, co.result.trackedPos.Y), co.result.trackedPos.Z, nil
 }
 
 func (co *cameramono) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
-	return co.trackedOrient, nil
+	return co.result.trackedOrient, nil
 }
 
 func (co *cameramono) GetReadings(ctx context.Context) (map[string]interface{}, error) {
@@ -231,11 +274,11 @@ func (co *cameramono) GetReadings(ctx context.Context) (map[string]interface{}, 
 }
 
 func (co *cameramono) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
-	return co.linVel, nil
+	return co.result.linVel, nil
 }
 
 func (co *cameramono) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
-	return co.angVel, nil
+	return co.result.angVel, nil
 }
 
 func (co *cameramono) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
