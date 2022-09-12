@@ -136,11 +136,12 @@ func CreateFramesFromPart(part *FrameSystemPart, logger golog.Logger) (reference
 		part.ModelFrame.ChangeName(part.Name)
 		modelFrame = part.ModelFrame
 	}
-	// static frame defines an offset from the parent part-- if it is empty, a 0 offset frame will be applied.
-	staticOffsetName := part.Name + "_offset"
-	staticOffsetFrame, err := part.FrameConfig.StaticFrame(staticOffsetName)
+	// staticOriginFrame defines a change in origin from the parent part.
+	// If it is empty, the new frame will have the same origin as the parent.
+	staticOriginName := part.Name + "_origin"
+	staticOriginFrame, err := part.FrameConfig.StaticFrame(staticOriginName)
 	if err != nil {
 		return nil, nil, err
 	}
-	return modelFrame, staticOffsetFrame, nil
+	return modelFrame, staticOriginFrame, nil
 }
