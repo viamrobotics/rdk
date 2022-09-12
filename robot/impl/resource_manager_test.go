@@ -1333,7 +1333,7 @@ func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 
 	ctx := context.Background()
 
-	r, err := New(ctx, cfg, logger, true)
+	r, err := New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
@@ -1591,7 +1591,7 @@ func TestUpdateConfig(t *testing.T) {
 
 	ctx := context.Background()
 
-	r, err := New(ctx, cfg, logger, true)
+	r, err := New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r, test.ShouldNotBeNil)
 

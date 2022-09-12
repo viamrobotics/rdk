@@ -104,7 +104,7 @@ func TestRobotReconfigure(t *testing.T) {
 		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
 
 		ctx := context.Background()
-		robot, err := New(ctx, conf1, logger, true)
+		robot, err := New(ctx, conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		defer func() {
@@ -223,7 +223,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
 		conf3 := ConfigFromFile(t, "data/diff_config_4_bad.json")
-		robot, err := New(context.Background(), conf1, logger, true)
+		robot, err := New(context.Background(), conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
@@ -368,7 +368,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_deps1.json")
 		conf2 := ConfigFromFile(t, "data/diff_config_deps10.json")
-		robot, err := New(context.Background(), conf1, logger, true)
+		robot, err := New(context.Background(), conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
@@ -524,7 +524,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		conf3 := ConfigFromFile(t, "data/diff_config_deps3.json")
 		conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
-		robot, err := New(context.Background(), conf3, logger, true)
+		robot, err := New(context.Background(), conf3, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
@@ -690,7 +690,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
 		conf4 := ConfigFromFile(t, "data/diff_config_deps4.json")
-		robot, err := New(context.Background(), conf2, logger, true)
+		robot, err := New(context.Background(), conf2, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
@@ -825,7 +825,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		conf2 := ConfigFromFile(t, "data/diff_config_deps2.json")
 		conf6 := ConfigFromFile(t, "data/diff_config_deps6.json")
-		robot, err := New(context.Background(), conf2, logger, true)
+		robot, err := New(context.Background(), conf2, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
@@ -1147,7 +1147,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		conf4 := ConfigFromFile(t, "data/diff_config_deps4.json")
 		conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
-		robot, err := New(context.Background(), conf4, logger, true)
+		robot, err := New(context.Background(), conf4, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
@@ -1350,7 +1350,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
 		conf8 := ConfigFromFile(t, "data/diff_config_deps8.json")
-		robot, err := New(context.Background(), conf7, logger, true)
+		robot, err := New(context.Background(), conf7, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
@@ -1626,7 +1626,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		conf7 := ConfigFromFile(t, "data/diff_config_deps7.json")
 		conf9 := ConfigFromFile(t, "data/diff_config_deps9_bad.json")
-		robot, err := New(context.Background(), conf7, logger, true)
+		robot, err := New(context.Background(), conf7, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
@@ -2003,7 +2003,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_deps11.json")
 		conf2 := ConfigFromFile(t, "data/diff_config_deps12.json")
-		robot, err := New(context.Background(), conf1, logger, true)
+		robot, err := New(context.Background(), conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
@@ -2054,7 +2054,7 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("test processes", func(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		tempDir := testutils.TempDirT(t, ".", "")
-		robot, err := New(context.Background(), &config.Config{}, logger, true)
+		robot, err := New(context.Background(), &config.Config{}, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
@@ -2233,7 +2233,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 	sensorNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
 
 	t.Run("empty to two sensors", func(t *testing.T) {
-		robot, err := New(context.Background(), emptyCfg, logger, true)
+		robot, err := New(context.Background(), emptyCfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
@@ -2254,7 +2254,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 	})
 
 	t.Run("two sensors to empty", func(t *testing.T) {
-		robot, err := New(context.Background(), cfg, logger, true)
+		robot, err := New(context.Background(), cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
@@ -2275,7 +2275,7 @@ func TestSensorsServiceUpdate(t *testing.T) {
 	})
 
 	t.Run("two sensors to two sensors", func(t *testing.T) {
-		robot, err := New(context.Background(), cfg, logger, true)
+		robot, err := New(context.Background(), cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
@@ -2311,7 +2311,7 @@ func TestStatusServiceUpdate(t *testing.T) {
 	}
 
 	t.Run("empty to not empty", func(t *testing.T) {
-		robot, err := New(context.Background(), emptyCfg, logger, true)
+		robot, err := New(context.Background(), emptyCfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
@@ -2330,7 +2330,7 @@ func TestStatusServiceUpdate(t *testing.T) {
 	})
 
 	t.Run("not empty to empty", func(t *testing.T) {
-		robot, err := New(context.Background(), cfg, logger, true)
+		robot, err := New(context.Background(), cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
@@ -2349,7 +2349,7 @@ func TestStatusServiceUpdate(t *testing.T) {
 	})
 
 	t.Run("no change", func(t *testing.T) {
-		robot, err := New(context.Background(), cfg, logger, true)
+		robot, err := New(context.Background(), cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)

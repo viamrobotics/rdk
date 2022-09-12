@@ -624,12 +624,7 @@ func (r *localRobot) TransformPose(
 }
 
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
-func RobotFromConfigPath(
-	ctx context.Context,
-	cfgPath string,
-	logger golog.Logger,
-	opts ...Option,
-) (robot.LocalRobot, error) {
+func RobotFromConfigPath(ctx context.Context, cfgPath string, logger golog.Logger, opts ...Option) (robot.LocalRobot, error) {
 	cfg, err := config.Read(ctx, cfgPath, logger)
 	if err != nil {
 		logger.Error("cannot read config")
@@ -639,12 +634,7 @@ func RobotFromConfigPath(
 }
 
 // RobotFromConfig is a helper to process a config and then create a robot based on it.
-func RobotFromConfig(
-	ctx context.Context,
-	cfg *config.Config,
-	logger golog.Logger,
-	opts ...Option,
-) (robot.LocalRobot, error) {
+func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...Option) (robot.LocalRobot, error) {
 	tlsConfig := config.NewTLSConfig(cfg)
 	processedCfg, err := config.ProcessConfig(cfg, tlsConfig)
 	if err != nil {
