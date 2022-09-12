@@ -473,8 +473,9 @@ func (rc *RobotClient) updateRemoteNameMap() {
 	tempMap := make(map[resource.Name]resource.Name)
 	dupMap := make(map[resource.Name]bool)
 	for _, n := range rc.resourceNames {
-		if n.Name == "" {
-			rc.Logger().Errorw("Error found resource in resourceNames with empty name")
+		err := n.Validate()
+		if err != nil {
+			rc.Logger().Error(err)
 			continue
 		}
 		tempName := resource.RemoveRemoteName(n)
