@@ -31,8 +31,10 @@ import (
 //go:embed dofbot.json
 var modeljson []byte
 
-func dofbotModel() (referenceframe.Model, error) {
-	return referenceframe.UnmarshalModelJSON(modeljson, "yahboom-dofbot")
+const ModelName = "yahboom-dofbot"
+
+func Model() (referenceframe.Model, error) {
+	return referenceframe.UnmarshalModelJSON(modeljson, ModelName)
 }
 
 type jointConfig struct {
@@ -67,7 +69,7 @@ func (jc jointConfig) toHw(degrees float64) int {
 }
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, "yahboom-dofbot", registry.Component{
+	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newDofBot(ctx, r, config, logger)
 		},
@@ -109,7 +111,7 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 		return nil, err
 	}
 
-	a.model, err = dofbotModel()
+	a.model, err = Model()
 	if err != nil {
 		return nil, err
 	}

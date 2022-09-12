@@ -31,6 +31,11 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
+const (
+	ModelNameWX250S = "wx250s"
+	ModelNameVX300S = "vx300s"
+)
+
 // SleepAngles are the angles we go to to prepare to turn off torque.
 var SleepAngles = map[string]float64{
 	"Waist":       2048,
@@ -118,12 +123,12 @@ var wx250smodeljson []byte
 var vx300smodeljson []byte
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, "wx250s", registry.Component{
+	registry.RegisterComponent(arm.Subtype, ModelNameWX250S, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewArm(r, config.Attributes, logger, wx250smodeljson)
 		},
 	})
-	registry.RegisterComponent(arm.Subtype, "vx300s", registry.Component{
+	registry.RegisterComponent(arm.Subtype, ModelNameVX300S, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewArm(r, config.Attributes, logger, vx300smodeljson)
 		},
