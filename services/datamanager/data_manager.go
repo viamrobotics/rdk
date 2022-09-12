@@ -27,7 +27,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
-	"go.viam.com/rdk/services/datamanager/model"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -150,12 +149,11 @@ type dataCaptureConfigs struct {
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir            string         `json:"capture_dir"`
-	AdditionalSyncPaths   []string       `json:"additional_sync_paths"`
-	SyncIntervalMins      float64        `json:"sync_interval_mins"`
-	CaptureDisabled       bool           `json:"capture_disabled"`
-	ScheduledSyncDisabled bool           `json:"sync_disabled"`
-	ModelsToDeploy        []*model.Model `json:"models_on_robot"`
+	CaptureDir            string   `json:"capture_dir"`
+	AdditionalSyncPaths   []string `json:"additional_sync_paths"`
+	SyncIntervalMins      float64  `json:"sync_interval_mins"`
+	CaptureDisabled       bool     `json:"capture_disabled"`
+	ScheduledSyncDisabled bool     `json:"sync_disabled"`
 }
 
 // comment: choosing to put Detectors in struct OtherConfig
@@ -190,9 +188,6 @@ type dataManagerService struct {
 	syncIntervalMins    float64
 	syncer              datasync.Manager
 	syncerConstructor   datasync.ManagerConstructor
-
-	modelManager            model.Manager
-	modelManagerConstructor model.ManagerConstructor
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
@@ -212,7 +207,6 @@ func New(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger
 		additionalSyncPaths:       []string{},
 		waitAfterLastModifiedSecs: 10,
 		syncerConstructor:         datasync.NewDefaultManager,
-		modelManagerConstructor:   model.NewDefaultManager,
 	}
 
 	return dataManagerSvc, nil
@@ -256,9 +250,6 @@ func (svc *dataManagerService) Close(_ context.Context) error {
 
 	svc.cancelSyncBackgroundRoutine()
 	svc.backgroundWorkers.Wait()
-	if svc.modelManager != nil {
-		svc.modelManager.Close()
-	}
 	return nil
 }
 
@@ -560,23 +551,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		return err
 	}
 
-	// Check that we have models to download and appropriate credentials.
-	if svcConfig.ModelsToDeploy != nil && cfg.Cloud != nil {
-		if svc.modelManager == nil {
-			modelManager, err := svc.modelManagerConstructor(svc.logger, cfg)
-			if err != nil {
-				return errors.Wrap(err, "failed to initialize new modelManager")
-			}
-			svc.modelManager = modelManager
-		}
-
-		// Download models from models_on_robot.
-		modelsToDeploy := svcConfig.ModelsToDeploy
-		err := svc.modelManager.DownloadModels(cfg, modelsToDeploy)
-		if err != nil {
-			svc.logger.Errorf("can't download models_on_robot in config", "error", err)
-		}
-	}
 	// other services check if their specified models are ready to be used.
 	otherSvcConfig, ok, err := getOtherServiceConfig(cfg)
 	if !ok {
