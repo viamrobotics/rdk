@@ -78,8 +78,6 @@ export default {
       resources: [],
       sensorNames: [],
       cameraFrameIntervalId: null,
-      slamImageIntervalId: null,
-      slamPCDIntervalId: null,
       objects: null,
       armToggle: {},
       value: 0,
