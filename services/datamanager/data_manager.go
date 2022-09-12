@@ -181,8 +181,8 @@ type dataManagerService struct {
 	lock                      sync.Mutex
 	backgroundWorkers         sync.WaitGroup
 	updateCollectorsCancelFn  func()
-	waitAfterLastModifiedSecs int
 	partID                    string
+	waitAfterLastModifiedSecs int
 
 	additionalSyncPaths []string
 	syncDisabled        bool
