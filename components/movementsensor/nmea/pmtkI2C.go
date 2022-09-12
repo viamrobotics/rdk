@@ -45,7 +45,7 @@ func (config *I2CAttrConfig) ValidateI2C(path string) error {
 func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
-		"gps_nmeapmtkI2C",
+		"nmea-pmtkI2C",
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,

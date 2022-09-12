@@ -125,7 +125,7 @@ func (imu *wit) GetProperties(ctx context.Context) (*movementsensor.Properties, 
 // NewWit creates a new Wit IMU.
 func NewWit(deps registry.Dependencies, config config.Component, logger golog.Logger) (movementsensor.MovementSensor, error) {
 	options := slib.OpenOptions{
-		BaudRate:        115200,
+		BaudRate:        9600,
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,
