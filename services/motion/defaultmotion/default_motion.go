@@ -32,19 +32,19 @@ func init() {
 
 // NewDefault returns a new move and grab service for the given robot.
 func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (motion.Service, error) {
-	return &defaultMotionService{
+	return &motionDefaultService{
 		r:      r,
 		logger: logger,
 	}, nil
 }
 
-type defaultMotionService struct {
+type motionDefaultService struct {
 	r      robot.Robot
 	logger golog.Logger
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
-func (ms *defaultMotionService) Move(
+func (ms *motionDefaultService) Move(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
@@ -111,7 +111,7 @@ func (ms *defaultMotionService) Move(
 // component that supports this. This method will transform the destination pose, given in an arbitrary frame, into the pose of the arm.
 // The arm will then move its most distal link to that pose. If you instead wish to move any other component than the arm end to that pose,
 // then you must manually adjust the given destination by the transform from the arm end to the intended component.
-func (ms *defaultMotionService) MoveSingleComponent(
+func (ms *motionDefaultService) MoveSingleComponent(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
@@ -162,7 +162,7 @@ func (ms *defaultMotionService) MoveSingleComponent(
 	return false, err
 }
 
-func (ms *defaultMotionService) GetPose(
+func (ms *motionDefaultService) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
