@@ -1,7 +1,10 @@
 <script setup lang="ts">
 
+import { grpc } from '@improbable-eng/grpc-web';
 import { ref, defineAsyncComponent } from 'vue';
 import { normalizeRemoteName, type Resource } from '../lib/resource';
+import cameraApi from '../gen/proto/api/component/camera/v1/camera_pb.esm';
+import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
 
 const PCD = defineAsyncComponent(() => import('./pcd.vue'));
@@ -10,7 +13,6 @@ interface Props {
   cameraName: string
   crumbs: string[]
   resources: Resource[]
-  pointcloud?: Uint8Array
 }
 
 interface Emits {
@@ -27,6 +29,7 @@ const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
 let pcdExpanded = $ref(false);
+let pointcloud = $ref<Uint8Array | undefined>();
 
 const camera = ref(false);
 const selectedValue = ref('live');
@@ -46,6 +49,24 @@ const refreshCamera = () => {
 
 const togglePCDExpand = () => {
   pcdExpanded = !pcdExpanded;
+  if (pcdExpanded) {
+    renderPCD();
+  }
+};
+
+const renderPCD = () => {
+  const request = new cameraApi.GetPointCloudRequest();
+  request.setName(props.cameraName);
+  request.setMimeType('pointcloud/pcd');
+  window.cameraService.getPointCloud(request, new grpc.Metadata(), (error, response) => {
+    if (error) {
+      toast.error(`Error getting point cloud: ${error}`);
+      return;
+    }
+
+    console.log(response!.getPointCloud_asU8())
+    pointcloud = response!.getPointCloud_asU8();
+  });
 };
 
 </script>

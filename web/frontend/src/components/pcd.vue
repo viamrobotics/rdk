@@ -14,7 +14,6 @@ import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { filterResources, type Resource } from '../lib/resource';
 import { toast } from '../lib/toast';
 import type { PointCloudObject, RectangularPrism } from '../gen/proto/api/common/v1/common_pb';
-import cameraApi from '../gen/proto/api/component/camera/v1/camera_pb.esm';
 import motionApi from '../gen/proto/api/service/motion/v1/motion_pb.esm';
 import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
 import visionApi, { type TypedParameter } from '../gen/proto/api/service/vision/v1/vision_pb.esm';
@@ -23,7 +22,7 @@ import InfoButton from './info-button.vue';
 interface Props {
   resources: Resource[]
   pointcloud?: Uint8Array
-  cameraName: string
+  cameraName?: string
 }
 
 const props = defineProps<Props>();
@@ -82,40 +81,6 @@ const divisions = 10;
 const gridHelper = new THREE.GridHelper(size, divisions);
 const gridMaterial = gridHelper.material as THREE.MeshBasicMaterial;
 gridMaterial.color.set('black');
-
-const renderPCD = () => {
-  const request = new cameraApi.GetPointCloudRequest();
-  request.setName(props.cameraName);
-  request.setMimeType('pointcloud/pcd');
-  window.cameraService.getPointCloud(request, new grpc.Metadata(), (error, response) => {
-    if (error) {
-      toast.error(`Error getting point cloud: ${error}`);
-      return;
-    }
-
-    update(response!.getPointCloud_asU8());
-  });
-
-  getSegmenterNames();
-};
-
-const getSegmenterNames = () => {
-  const request = new visionApi.GetSegmenterNamesRequest();
-  // We are deliberately just getting the first vision service to ensure this will not break.
-  // May want to allow for more services in the future
-  const [vision] = filterResources(props.resources, 'rdk', 'service', 'vision');
-
-  request.setName(vision.name);
-
-  window.visionService.getSegmenterNames(request, new grpc.Metadata(), (error, response) => {
-    if (error) {
-      toast.error(`Error getting segmenter names: ${error}`);
-      return;
-    }
-
-    segmenterNames = response!.getSegmenterNamesList();
-  });
-};
 
 const getSegmenterParameters = () => {
   const req = new visionApi.GetSegmenterParametersRequest();
@@ -181,7 +146,7 @@ const findSegments = () => {
   const [vision] = filterResources(props.resources, 'rdk', 'service', 'vision');
   
   req.setName(vision.name);
-  req.setCameraName(props.cameraName);
+  req.setCameraName(props.cameraName!);
   req.setSegmenterName(selectedSegmenter);
   req.setParameters(Struct.fromJavaScript(segmenterParameters));
   req.setMimeType('pointcloud/pcd');
@@ -193,6 +158,24 @@ const findSegments = () => {
     }
 
     objects = response!.getObjectsList();
+  });
+};
+
+const getSegmenterNames = () => {
+  const request = new visionApi.GetSegmenterNamesRequest();
+  // We are deliberately just getting the first vision service to ensure this will not break.
+  // May want to allow for more services in the future
+  const [vision] = filterResources(props.resources, 'rdk', 'service', 'vision');
+
+  request.setName(vision.name);
+
+  window.visionService.getSegmenterNames(request, new grpc.Metadata(), (error, response) => {
+    if (error) {
+      toast.error(`Error getting segmenter names: ${error}`);
+      return;
+    }
+
+    segmenterNames = response!.getSegmenterNamesList();
   });
 };
 
@@ -336,20 +319,15 @@ const handleMove = () => {
     return toast.error('No motion service detected.');
   }
 
-  const cameraName = props.cameraName;
-  const cameraPointX = click.x;
-  const cameraPointY = click.y;
-  const cameraPointZ = click.z;
-
   const req = new motionApi.MoveRequest();
   const cameraPoint = new commonApi.Pose();
 
-  cameraPoint.setX(cameraPointX);
-  cameraPoint.setY(cameraPointY);
-  cameraPoint.setZ(cameraPointZ);
+  cameraPoint.setX(click.x);
+  cameraPoint.setY(click.y);
+  cameraPoint.setZ(click.z);
 
   const pose = new commonApi.PoseInFrame();
-  pose.setReferenceFrame(cameraName);
+  pose.setReferenceFrame(props.cameraName!);
   pose.setPose(cameraPoint);
   req.setDestination(pose);
   req.setName(motion.name);
@@ -386,7 +364,7 @@ const handleSelectObject = (selection: string) => {
 };
 
 const handleDownload = () => {
-  console.log(props.pointcloud)
+  console.log(props.pointcloud);
   window.open(url);
 };
 
@@ -419,7 +397,7 @@ const handlePointsResize = (event: CustomEvent) => {
 
 const color = new THREE.Color();
 
-const update = (cloud: Uint8Array) => {
+const update = (cloud?: Uint8Array) => {
   if (!cloud) {
     return;
   }
@@ -465,22 +443,27 @@ const update = (cloud: Uint8Array) => {
   if (cube) {
     scene.add(cube);
   }
-
-  animate();
 };
 
 onMounted(() => {
   container.append(renderer.domElement);
   renderer.setAnimationLoop(animate);
-  renderPCD();
+
+  if (props.pointcloud) {
+    update(props.pointcloud);
+  }
 });
 
 onUnmounted(() => {
   renderer.setAnimationLoop(null);
 });
 
-watch(() => props.pointcloud!, (updated: Uint8Array) => {
+watch(() => props.pointcloud, (updated?: Uint8Array) => {
   update(updated);
+
+  if (props.cameraName) {
+    getSegmenterNames();
+  }
 });
 
 </script>
@@ -539,138 +522,134 @@ watch(() => props.pointcloud!, (updated: Uint8Array) => {
       </label>
     </div>
   
-    <div class="clear-both grid grid-cols-1 divide-y">
-      <div>
-        <div class="container mx-auto pt-4">
-          <h2>Segmentation Settings</h2>
-          <div class="relative">
-            <select
-              v-model="selectedSegmenter"
-              placeholder="Choose"
-              class="m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
-              aria-label="Select segmenter"
-              @change="getSegmenterParameters"
-            >
-              <option
-                v-for="segmenter in segmenterNames"
-                :key="segmenter"
-                :value="segmenter"
-              >
-                {{ segmenter }}
-              </option>
-            </select>
-            <div
-              class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
-            >
-              <svg
-                class="h-4 w-4 stroke-2 text-gray-700"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-linejoin="round"
-                stroke-linecap="round"
-                fill="none"
-              >
-                <path d="M18 16L12 22L6 16" />
-              </svg>
-            </div>
-          </div>
+    <div
+      v-if="cameraName"
+      class="container mx-auto pt-4"
+    >
+      <h2>Segmentation Settings</h2>
+      <div class="relative">
+        <select
+          v-model="selectedSegmenter"
+          placeholder="Choose"
+          class="m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
+          aria-label="Select segmenter"
+          @change="getSegmenterParameters"
+        >
+          <option
+            v-for="segmenter in segmenterNames"
+            :key="segmenter"
+            :value="segmenter"
+          >
+            {{ segmenter }}
+          </option>
+        </select>
+        <div
+          class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
+        >
+          <svg
+            class="h-4 w-4 stroke-2 text-gray-700"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-linejoin="round"
+            stroke-linecap="round"
+            fill="none"
+          >
+            <path d="M18 16L12 22L6 16" />
+          </svg>
+        </div>
+      </div>
 
-          <div class="flex items-end gap-4">
-            <v-input
-              v-for="param in segmenterParameterNames"
-              :key="param.getName()"
-              :type="parameterType(param.getType())"
-              :label="param.getName()"
-              :value="segmenterParameters[param.getName()]"
-              @input="(event: CustomEvent) => {
-                segmenterParameters[param.getName()] = Number(event.detail.value)
-              }"
-            />
-          </div>
+      <div class="flex items-end gap-4">
+        <v-input
+          v-for="param in segmenterParameterNames"
+          :key="param.getName()"
+          :type="parameterType(param.getType())"
+          :label="param.getName()"
+          :value="segmenterParameters[param.getName()]"
+          @input="(event: CustomEvent) => {
+            segmenterParameters[param.getName()] = Number(event.detail.value)
+          }"
+        />
+      </div>
 
-          <v-button
-            :disabled="selectedSegmenter === ''"
-            class="mt-2 block"
-            label="Find Segments"
-            @click="findSegments"
+      <v-button
+        :disabled="selectedSegmenter === ''"
+        class="mt-2 block"
+        label="Find Segments"
+        @click="findSegments"
+      />
+    </div>
+    <div class="pt-4">
+      <div class="pb-1 text-xs">
+        Selected Point Position
+      </div>
+      <div class="flex gap-3">
+        <v-input
+          readonly
+          label="X"
+          labelposition="left"
+          :value="click.x"
+        />
+        <v-input
+          readonly
+          label="Y"
+          labelposition="left"
+          :value="click.y"
+        />
+        <v-input
+          readonly
+          labelposition="left"
+          label="Z"
+          :value="click.z"
+        />
+        <v-button
+          label="Move"
+          @click="handleMove"
+        />
+      </div>
+
+      <div class="pt-4 text-xs">
+        Distance From Camera: {{ distanceFromCamera }}mm
+      </div>
+      <div class="flex pt-4 pb-8">
+        <div class="column">
+          <v-radio
+            label="Selection Type"
+            options="Center Point, Bounding Box, Cropped"
+            @input="handleSelectObject($event.detail.value)"
           />
         </div>
-        <div class="pt-4">
-          <div>
-            <div class="pb-1 text-xs">
-              Selected Point Position
-            </div>
-            <div class="flex gap-3">
-              <v-input
-                readonly
-                label="X"
-                labelposition="left"
-                :value="click.x"
-              />
-              <v-input
-                readonly
-                label="Y"
-                labelposition="left"
-                :value="click.y"
-              />
-              <v-input
-                readonly
-                labelposition="left"
-                label="Z"
-                :value="click.z"
-              />
-              <v-button
-                label="Move"
-                @click="handleMove"
-              />
-            </div>
-          </div>
-          <div class="pt-4 text-xs">
-            Distance From Camera: {{ distanceFromCamera }}mm
-          </div>
-          <div class="flex pt-4 pb-8">
-            <div class="column">
-              <v-radio
-                label="Selection Type"
-                options="Center Point, Bounding Box, Cropped"
-                @input="handleSelectObject($event.detail.value)"
-              />
-            </div>
-            <div class="pl-8">
-              <p class="text-xs">
-                Segmented Objects
-              </p>
-              <select
-                v-model="selectedObject"
-                class="m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
-                :class="['py-2 pl-2']"
-                @change="handleSelectObject(($event.currentTarget as HTMLSelectElement).value)"
-              >
-                <option
-                  disabled
-                  selected
-                  value=""
-                >
-                  Select Object
-                </option>
-                <option
-                  v-for="(seg, index) in objects"
-                  :key="index"
-                  :value="index"
-                >
-                  Object {{ index }}
-                </option>
-              </select>
-            </div>
-            <div class="pl-8">
-              <div class="grid grid-cols-1">
-                <span class="text-xs">Object Points</span>
-                <span class="pt-2">
-                  {{ objects ? objects.length : "null" }}
-                </span>
-              </div>
-            </div>
-          </div>
+        <div class="pl-8">
+          <p class="text-xs">
+            Segmented Objects
+          </p>
+          <select
+            v-model="selectedObject"
+            class="m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
+            :class="['py-2 pl-2']"
+            @change="handleSelectObject(($event.currentTarget as HTMLSelectElement).value)"
+          >
+            <option
+              disabled
+              selected
+              value=""
+            >
+              Select Object
+            </option>
+            <option
+              v-for="(seg, index) in objects"
+              :key="index"
+              :value="index"
+            >
+              Object {{ index }}
+            </option>
+          </select>
+        </div>
+        <div class="pl-8">
+          <span class="text-xs">Object Points</span>
+          <span>
+            {{ objects ? objects.length : "null" }}
+          </span>
         </div>
       </div>
     </div>

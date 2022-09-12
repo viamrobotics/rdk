@@ -13,7 +13,6 @@ import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
 import movementsensorApi from './gen/proto/api/component/movementsensor/v1/movementsensor_pb.esm';
 import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
 import servoApi from './gen/proto/api/component/servo/v1/servo_pb.esm';
-import slamApi from './gen/proto/api/service/slam/v1/slam_pb.esm';
 import streamApi from './gen/proto/stream/v1/stream_pb.esm';
 
 import {
@@ -81,7 +80,6 @@ export default {
       cameraFrameIntervalId: null,
       slamImageIntervalId: null,
       slamPCDIntervalId: null,
-      pointcloud: undefined,
       objects: null,
       armToggle: {},
       value: 0,
@@ -91,7 +89,6 @@ export default {
       getPin: '',
       pwm: '',
       pwmFrequency: '',
-      imageMapTemp: '',
       connectionManager: null,
       errors: {},
     };
@@ -613,62 +610,6 @@ export default {
           streamContainer.append(image);
         });
       }, Number(time) * 1000);
-    },
-    updateSLAMImageRefreshFrequency(name, time) {
-      clearInterval(this.slamImageIntervalId);
-      if (time === 'manual') {
-        this.viewSLAMImageMap(name);
-      } else if (time === 'off') {
-        // do nothing
-      } else {
-        this.viewSLAMImageMap(name);
-        this.slamImageIntervalId = window.setInterval(() => {
-          this.viewSLAMImageMap(name);
-        }, Number(time) * 1000);
-      }
-    },
-    viewSLAMImageMap(name) {
-      const req = new slamApi.GetMapRequest();
-      req.setName(name);
-      req.setMimeType('image/jpeg');
-      req.setIncludeRobotMarker(true);
-      window.slamService.getMap(req, new grpc.Metadata(), (err, resp) => {
-        this.grpcCallback(err, resp, false);
-        if (err) {
-          return;
-        }
-        const blob = new Blob([resp.getImage_asU8()], { type: 'image/jpeg' });
-        this.imageMapTemp = URL.createObjectURL(blob);
-      });
-    },
-    updateSLAMPCDRefreshFrequency(name, time) {
-      clearInterval(this.slamPCDIntervalId);
-      if (time === 'manual') {
-        this.viewSLAMPCDMap(name);
-      } else if (time === 'off') {
-        // do nothing
-      } else {
-        this.viewSLAMPCDMap(name);
-        this.slamPCDIntervalId = window.setInterval(() => {
-          this.viewSLAMPCDMap();
-        }, Number(time) * 1000);
-      }
-    },
-    viewSLAMPCDMap(name) {
-      this.$nextTick(() => {
-        const req = new slamApi.GetMapRequest();
-        req.setName(name);
-        req.setMimeType('pointcloud/pcd');
-
-        window.slamService.getMap(req, new grpc.Metadata(), (err, resp) => {
-          this.grpcCallback(err, resp, false);
-          if (err) {
-            return;
-          }
-          const pcObject = resp.getPointCloud();
-          this.pointcloud = pcObject.getPointCloud_asU8();
-        });
-      });
     },
     getReadings(sensorNames) {
       const req = new sensorsApi.GetReadingsRequest();
@@ -1961,7 +1902,6 @@ let lastStatusTS = Date.now();
       :key="camera.name"
       :camera-name="camera.name"
       :crumbs="[camera.name]"
-      :pointcloud="pointcloud"
       :resources="resources"
       @toggle-camera="isOn => { viewCamera(camera.name, isOn) }"
       @refresh-camera="t => { viewCameraFrame(camera.name, t) }"
@@ -2056,9 +1996,7 @@ let lastStatusTS = Date.now();
       v-for="slam in filterResources(resources, 'rdk', 'service', 'slam')"
       :key="slam.name"
       :name="slam.name"
-      :image-map="imageMapTemp"
-      @update-slam-image-refresh-frequency="updateSLAMImageRefreshFrequency"
-      @update-slam-pcd-refresh-frequency="updateSLAMPCDRefreshFrequency"
+      :resources="resources"
     />
 
     <!-- ******* DO ******* -->
