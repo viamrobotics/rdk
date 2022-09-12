@@ -33,7 +33,7 @@ func TestMyComponent(t *testing.T) {
 
 	cfgServer, err := config.Read(ctx, utils.ResolveFile("./samples/mycomponent/server/config.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
-	r0, err := robotimpl.New(ctx, cfgServer, logger, true)
+	r0, err := robotimpl.New(ctx, cfgServer, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r0.Close(context.Background()), test.ShouldBeNil)
@@ -77,7 +77,7 @@ func TestMyComponent(t *testing.T) {
 			},
 		},
 	}
-	r2, err := robotimpl.New(ctx, remoteConfig, logger, true)
+	r2, err := robotimpl.New(ctx, remoteConfig, logger)
 	defer func() {
 		test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 	}()

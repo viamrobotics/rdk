@@ -103,7 +103,7 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	}
 	defer os.Remove(newConfFile)
 	// make the robot from new config
-	return robotimpl.RobotFromConfigPath(context.Background(), newConfFile, logger, true)
+	return robotimpl.RobotFromConfigPath(context.Background(), newConfFile, logger)
 }
 
 func TestColorDetectionSource(t *testing.T) {

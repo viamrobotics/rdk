@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
+
 	// register.
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
@@ -38,7 +39,7 @@ func setupMotionServiceFromConfig(t *testing.T, configFilename string) motion.Se
 	logger := golog.NewTestLogger(t)
 	cfg, err := config.Read(ctx, configFilename, logger)
 	test.That(t, err, test.ShouldBeNil)
-	myRobot, err := robotimpl.New(ctx, cfg, logger, true)
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer myRobot.Close(context.Background())
 	svc, err := motion.New(ctx, myRobot, config.Service{}, logger)

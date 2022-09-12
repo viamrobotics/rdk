@@ -337,7 +337,6 @@ func newWithResources(
 	cfg *config.Config,
 	resources map[resource.Name]interface{},
 	logger golog.Logger,
-	allowRevealSensitiveDiffs bool,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
 	var rOpts options
@@ -364,7 +363,7 @@ func newWithResources(
 		defaultServicesNames:    make(map[resource.Subtype]resource.Name),
 		triggerConfig:           make(chan bool),
 		configTimer:             nil,
-		displayDiffs:            allowRevealSensitiveDiffs,
+		displayDiffs:            rOpts.allowRevealSensitiveDiffs,
 	}
 
 	var successful bool
@@ -481,10 +480,9 @@ func New(
 	ctx context.Context,
 	cfg *config.Config,
 	logger golog.Logger,
-	allowRevealSensitiveDiffs bool,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
-	return newWithResources(ctx, cfg, nil, logger, allowRevealSensitiveDiffs, opts...)
+	return newWithResources(ctx, cfg, nil, logger, opts...)
 }
 
 func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
@@ -630,7 +628,6 @@ func RobotFromConfigPath(
 	ctx context.Context,
 	cfgPath string,
 	logger golog.Logger,
-	allowRevealSensitiveDiffs bool,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
 	cfg, err := config.Read(ctx, cfgPath, logger)
@@ -638,7 +635,7 @@ func RobotFromConfigPath(
 		logger.Error("cannot read config")
 		return nil, err
 	}
-	return RobotFromConfig(ctx, cfg, logger, allowRevealSensitiveDiffs, opts...)
+	return RobotFromConfig(ctx, cfg, logger, opts...)
 }
 
 // RobotFromConfig is a helper to process a config and then create a robot based on it.
@@ -646,7 +643,6 @@ func RobotFromConfig(
 	ctx context.Context,
 	cfg *config.Config,
 	logger golog.Logger,
-	allowRevealSensitiveDiffs bool,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
 	tlsConfig := config.NewTLSConfig(cfg)
@@ -654,7 +650,7 @@ func RobotFromConfig(
 	if err != nil {
 		return nil, err
 	}
-	return New(ctx, processedCfg, logger, allowRevealSensitiveDiffs, opts...)
+	return New(ctx, processedCfg, logger, opts...)
 }
 
 // RobotFromResources creates a new robot consisting of the given resources. Using RobotFromConfig is preferred
@@ -663,10 +659,9 @@ func RobotFromResources(
 	ctx context.Context,
 	resources map[resource.Name]interface{},
 	logger golog.Logger,
-	allowRevealSensitiveDiffs bool,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
-	return newWithResources(ctx, &config.Config{}, resources, logger, allowRevealSensitiveDiffs, opts...)
+	return newWithResources(ctx, &config.Config{}, resources, logger, opts...)
 }
 
 // DiscoverComponents takes a list of discovery queries and returns corresponding
