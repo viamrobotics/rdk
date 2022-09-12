@@ -3,6 +3,7 @@ package builtin
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"image"
 	"os"
 	"runtime"
@@ -189,8 +190,233 @@ func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb, aa uint8) {
 	return
 }
 
+// unpackTensors2 takes the model's output tensors as input and reshapes them into objdet.Detections.
+func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLiteStruct,
+	labelMap []string, logger golog.Logger, origW, origH int,
+) []objectdetection.Detection {
+	var hasMetadata bool
+	var boxOrder []int
+
+	// Read metadata
+	m, err := model.GetMetadata()
+	if err != nil {
+		hasMetadata = false
+	} else {
+		hasMetadata = true
+	}
+
+	// Figure out bounding box order. If we can't find it, should be empty [] (not nil)
+	if hasMetadata {
+		boxOrder, err = getBboxOrder(m)
+		if err != nil {
+			logger.Warn("assuming bounding box tensor is in the default order: [x x y y]")
+		}
+	}
+
+	var labels []int
+	var bboxes []float64
+	var scores []float64
+	var count int
+
+	if !hasMetadata {
+		switch model.Info.OutputTensorCount {
+		case 1:
+			// there's only one thing so assume it's bounding boxes
+			T0, _ := tensors[0].([]float32)
+			for _, b := range T0 {
+				bboxes = append(bboxes, float64(b))
+			}
+			count = len(T0) / 4
+
+		case 2:
+			// See which is longer, that's bboxes. Then check for the other's first value
+			// to determine whether score/label
+			T0, _ := tensors[0].([]float32)
+			T1, _ := tensors[1].([]float32)
+			if len(T0) > len(T1) {
+				for _, b := range T0 {
+					bboxes = append(bboxes, float64(b))
+				}
+				count = len(T1)
+				if T1[0] >= 1 || T1[0] == 0 {
+					for _, l := range T1 {
+						labels = append(labels, int(l))
+					}
+				} else {
+					for _, s := range T1 {
+						scores = append(scores, float64(s))
+					}
+				}
+			} else {
+				for _, b := range T1 {
+					bboxes = append(bboxes, float64(b))
+				}
+				count = len(T0)
+				if T0[0] >= 1 || T0[0] == 0 {
+					for _, l := range T0 {
+						labels = append(labels, int(l))
+					}
+				} else {
+					for _, s := range T0 {
+						scores = append(scores, float64(s))
+					}
+				}
+			}
+		default: // case 3+
+			// See which is longer, that's bboxes. Then check for the other's first value
+			// to determine whether score/label. Assign the last one the last remaining thing
+			T0, _ := tensors[0].([]float32)
+			T1, _ := tensors[1].([]float32)
+			T2, _ := tensors[2].([]float32)
+			if (len(T0) > len(T1)) && (len(T0) > len(T2)) { // T0 is bboxes
+				for _, b := range T0 {
+					bboxes = append(bboxes, float64(b))
+				}
+				count = len(T1)
+
+				if T1[0] >= 1 || T1[0] == 0 {
+					for _, l := range T1 {
+						labels = append(labels, int(l))
+					}
+					for _, s := range T2 {
+						scores = append(scores, float64(s))
+					}
+				} else {
+					for _, s := range T1 {
+						scores = append(scores, float64(s))
+					}
+					for _, l := range T2 {
+						labels = append(labels, int(l))
+					}
+				}
+			}
+			if (len(T1) > len(T0)) && (len(T1) > len(T2)) { // T1 is bboxes
+				for _, b := range T1 {
+					bboxes = append(bboxes, float64(b))
+				}
+				count = len(T0)
+
+				if T0[0] >= 1 || T0[0] == 0 {
+					for _, l := range T0 {
+						labels = append(labels, int(l))
+					}
+					for _, s := range T2 {
+						scores = append(scores, float64(s))
+					}
+				} else {
+					for _, s := range T0 {
+						scores = append(scores, float64(s))
+					}
+					for _, l := range T2 {
+						labels = append(labels, int(l))
+					}
+				}
+			}
+			if (len(T2) > len(T0)) && (len(T2) > len(T1)) { // T2 is bboxes
+				for _, b := range T2 {
+					bboxes = append(bboxes, float64(b))
+				}
+				count = len(T0)
+
+				if T0[0] >= 1 || T0[0] == 0 {
+					for _, l := range T0 {
+						labels = append(labels, int(l))
+					}
+					for _, s := range T1 {
+						scores = append(scores, float64(s))
+					}
+				} else {
+					for _, s := range T0 {
+						scores = append(scores, float64(s))
+					}
+					for _, l := range T1 {
+						labels = append(labels, int(l))
+					}
+				}
+			}
+		} // end of switch to populate bboxes, labels, scores w/o metadata
+	} else { // with metadata is smoother
+		tensorOrder, found := getTensorOrder(m)
+		if found[0] {
+			for _, b := range tensors[getIndex(tensorOrder, 0)].([]float32) {
+				bboxes = append(bboxes, float64(b))
+			}
+		}
+		if found[1] {
+			for _, l := range tensors[getIndex(tensorOrder, 1)].([]float32) {
+				labels = append(labels, int(l))
+			}
+		}
+		if found[2] {
+			for _, s := range tensors[getIndex(tensorOrder, 2)].([]float32) {
+				scores = append(scores, float64(s))
+			}
+		}
+		count = len(tensors[getIndex(tensorOrder, 0)].([]float32)) / 4
+	}
+
+	// If we don't know box order, finesse it from the values
+	if len(boxOrder) == 0 {
+		logger.Warn("assuming bounding box tensor is in the default order: [x x y y]")
+		boxOrder = []int{1, 0, 3, 2}
+		if bboxes[0] > bboxes[1] {
+			boxOrder[0] = 1
+			boxOrder[1] = 0
+		} else {
+			boxOrder[1] = 1
+			boxOrder[0] = 0
+		}
+		if bboxes[2] > bboxes[3] {
+			boxOrder[2] = 3
+			boxOrder[3] = 2
+		} else {
+			boxOrder[2] = 2
+			boxOrder[3] = 3
+		}
+	}
+
+	fmt.Printf("len bboxes %v\n", len(bboxes))
+	fmt.Printf("len scores %v\n", len(scores))
+	fmt.Printf("len labels %v\n", len(labels))
+	fmt.Printf("some bboxes %v\n", bboxes[0:10])
+	fmt.Printf("some scores %v\n", scores[0:10])
+
+	// Gather detections such that if something is empty, it'll be empty.
+	detections := make([]objectdetection.Detection, count)
+	for i := 0; i < count; i++ {
+		// Gather box
+		xmin, ymin, xmax, ymax := utils.Clamp(bboxes[4*i+getIndex(boxOrder, 0)], 0.0, 1.0)*float64(origW),
+			utils.Clamp(bboxes[4*i+getIndex(boxOrder, 1)], 0.0, 1.0)*float64(origH),
+			utils.Clamp(bboxes[4*i+getIndex(boxOrder, 2)], 0.0, 1.0)*float64(origW),
+			utils.Clamp(bboxes[4*i+getIndex(boxOrder, 3)], 0.0, 1.0)*float64(origH)
+		rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
+
+		var label string
+		var score float64
+		if len(labels) > 0 {
+			if labelMap != nil {
+				if labels[i] < len(labelMap) && labels[i] >= 0 {
+					label = labelMap[labels[i]]
+				}
+			} else {
+				label = strconv.Itoa(labels[i])
+			}
+		} // else label = ""
+
+		if len(scores) > 0 {
+			score = scores[i]
+		} // else score = 0
+
+		// Add detection
+		d := objectdetection.NewDetection(rect, score, label)
+		detections[i] = d
+	}
+	return detections
+
+}
+
 // unpackTensors takes the model's output tensors as input and reshapes them into objdet.Detections.
-func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLiteStruct, labelMap []string,
+func unpackTensors2(ctx context.Context, tensors []interface{}, model *inf.TFLiteStruct, labelMap []string,
 	logger golog.Logger, origW, origH int,
 ) []objectdetection.Detection {
 	_, span := trace.StartSpan(ctx, "service::vision::unpackTensors")
@@ -234,7 +460,6 @@ func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLite
 	for _, s := range ss.([]float32) {
 		scores = append(scores, float64(s))
 	}
-
 	if !hasMetadata {
 		// If you could not access the metadata
 		logger.Warn("assuming bounding box tensor is in the default order: [x x y y]")
@@ -340,7 +565,7 @@ func getBboxOrder(m *tflite_metadata.ModelMetadataT) ([]int, error) {
 // getTensorOrder checks the metadata for the order of the output tensors
 // returned as []int where 0=bounding box location, 1=class/category/label, 2= confidence score.
 func getTensorOrder(m *tflite_metadata.ModelMetadataT) ([]int, []bool) {
-	tensorOrder := make([]int, 4) // location = 0 , category = 1, score = 2
+	tensorOrder := make([]int, 3) // location = 0 , category = 1, score = 2
 
 	tensorData := m.SubgraphMetadata[0].OutputTensorMetadata
 
