@@ -36,9 +36,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/component/audioinput"
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/generic"
+	"go.viam.com/rdk/components/audioinput"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	grpcserver "go.viam.com/rdk/grpc/server"

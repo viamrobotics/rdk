@@ -9,7 +9,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
 
-	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"

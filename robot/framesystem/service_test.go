@@ -10,10 +10,10 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/gripper"
 	// register.
-	_ "go.viam.com/rdk/component/register"
+	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"

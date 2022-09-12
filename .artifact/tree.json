@@ -2881,7 +2881,7 @@
       }
     }
   },
-  "component": {
+  "components": {
     "camera": {
       "ffmpeg": {
         "testsrc.mpg": {

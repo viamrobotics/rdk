@@ -7,7 +7,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/movementsensor"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/spatialmath"
 )
 

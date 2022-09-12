@@ -29,7 +29,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	inputSteps := []*configuration{}
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm7_kinematics.json"), "")
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
