@@ -8,8 +8,8 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/camera/videosource"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/vision/objectdetection"
 )
