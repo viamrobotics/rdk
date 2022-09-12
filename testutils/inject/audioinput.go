@@ -49,10 +49,10 @@ func (ai *AudioInput) Close(ctx context.Context) error {
 	return ai.CloseFunc(ctx)
 }
 
-// Do calls the injected Do or the real version.
-func (ai *AudioInput) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand calls the injected DoCommand or the real version.
+func (ai *AudioInput) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if ai.DoFunc == nil {
-		return ai.AudioInput.Do(ctx, cmd)
+		return ai.AudioInput.DoCommand(ctx, cmd)
 	}
 	return ai.DoFunc(ctx, cmd)
 }

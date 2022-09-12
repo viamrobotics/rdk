@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -142,29 +141,26 @@ func (s *subtypeServer) GetProperties(
 	ctx context.Context,
 	req *pb.GetPropertiesRequest,
 ) (*pb.GetPropertiesResponse, error) {
+	result := &pb.GetPropertiesResponse{}
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	proj, err := camera.Projector(ctx) // will be nil if no intrinsics
+	props, err := camera.GetProperties(ctx)
 	if err != nil {
 		return nil, err
 	}
-	intrinsics := proj.(*transform.PinholeCameraIntrinsics)
-	err = intrinsics.CheckValid()
-	if err != nil {
-		return nil, err
+	intrinsics := props.IntrinsicParams
+	if intrinsics != nil {
+		result.IntrinsicParameters = &pb.IntrinsicParameters{
+			WidthPx:   uint32(intrinsics.Width),
+			HeightPx:  uint32(intrinsics.Height),
+			FocalXPx:  intrinsics.Fx,
+			FocalYPx:  intrinsics.Fy,
+			CenterXPx: intrinsics.Ppx,
+			CenterYPx: intrinsics.Ppy,
+		}
 	}
-
-	camIntrinsics := &pb.IntrinsicParameters{
-		WidthPx:   uint32(intrinsics.Width),
-		HeightPx:  uint32(intrinsics.Height),
-		FocalXPx:  intrinsics.Fx,
-		FocalYPx:  intrinsics.Fy,
-		CenterXPx: intrinsics.Ppx,
-		CenterYPx: intrinsics.Ppy,
-	}
-	return &pb.GetPropertiesResponse{
-		IntrinsicParameters: camIntrinsics,
-	}, nil
+	result.SupportsPcd = props.SupportsPCD
+	return result, nil
 }

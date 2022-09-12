@@ -26,8 +26,11 @@ func init() {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			videoSrc := &fileSource{attrs.Color, attrs.Depth, attrs.CameraParameters}
-			proj, _ := camera.GetProjector(ctx, attrs.AttrConfig, nil)
-			return camera.NewFromReader(videoSrc, proj)
+			var intrinsics *transform.PinholeCameraIntrinsics
+			if attrs.AttrConfig != nil {
+				intrinsics = attrs.AttrConfig.CameraParameters
+			}
+			return camera.NewFromReader(ctx, videoSrc, intrinsics, camera.StreamType(attrs.Stream))
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "file",

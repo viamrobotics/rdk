@@ -185,7 +185,7 @@ func (c *client) ModelAttributes() ModelAttributes {
 	return ModelAttributes{Remote: true}
 }
 
-func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return generic.DoFromConnection(ctx, c.conn, c.info.name, cmd)
 }
 

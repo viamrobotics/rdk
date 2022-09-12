@@ -30,7 +30,10 @@ type detectorSource struct {
 	r            robot.Robot
 }
 
-func newDetectionsTransform(source gostream.VideoSource, r robot.Robot, am config.AttributeMap) (gostream.VideoSource, error) {
+func newDetectionsTransform(
+	ctx context.Context,
+	source gostream.VideoSource, r robot.Robot, am config.AttributeMap,
+) (gostream.VideoSource, error) {
 	conf, err := config.TransformAttributeMapToStruct(&(detectorAttrs{}), am)
 	if err != nil {
 		return nil, err
@@ -46,7 +49,7 @@ func newDetectionsTransform(source gostream.VideoSource, r robot.Robot, am confi
 		confFilter,
 		r,
 	}
-	return camera.NewFromReader(detector, nil)
+	return camera.NewFromReader(ctx, detector, nil, camera.ColorStream)
 }
 
 // Next returns the image overlaid with the detection bounding boxes.

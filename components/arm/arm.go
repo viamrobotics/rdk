@@ -180,10 +180,10 @@ type reconfigurableArm struct {
 	actual Arm
 }
 
-func (r *reconfigurableArm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (r *reconfigurableArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Do(ctx, cmd)
+	return r.actual.DoCommand(ctx, cmd)
 }
 
 func (r *reconfigurableArm) ProxyFor() interface{} {

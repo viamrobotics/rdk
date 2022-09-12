@@ -124,7 +124,7 @@ func (a *LinearAxis) Home(ctx context.Context) error {
 	errPath := make(chan error, len(a.m))
 	for _, m := range a.m {
 		go func(m motor.Motor) {
-			_, err := m.Do(ctx, map[string]interface{}{tmcstepper.Command: tmcstepper.Home})
+			_, err := m.DoCommand(ctx, map[string]interface{}{tmcstepper.Command: tmcstepper.Home})
 			errPath <- err
 		}(m)
 	}
@@ -357,7 +357,7 @@ func (b *ResetBox) home(ctx context.Context) error {
 	}()
 	go func() {
 		errPath <- b.gate.Home(ctx)
-		_, err := b.hammer.Do(ctx, map[string]interface{}{tmcstepper.Command: tmcstepper.Home})
+		_, err := b.hammer.DoCommand(ctx, map[string]interface{}{tmcstepper.Command: tmcstepper.Home})
 		errPath <- err
 	}()
 	go func() {
@@ -715,7 +715,7 @@ func (b *ResetBox) armHome(ctx context.Context) error {
 func (b *ResetBox) waitForGripperRecovery(ctx context.Context) error {
 	startTime := time.Now()
 	for {
-		ret, err := b.gripper.Do(ctx, map[string]interface{}{vgripper.Command: vgripper.GetPressure})
+		ret, err := b.gripper.DoCommand(ctx, map[string]interface{}{vgripper.Command: vgripper.GetPressure})
 		if err != nil {
 			return err
 		}

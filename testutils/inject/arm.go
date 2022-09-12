@@ -79,10 +79,10 @@ func (a *Arm) Close(ctx context.Context) error {
 	return a.CloseFunc(ctx)
 }
 
-// Do calls the injected Do or the real version.
-func (a *Arm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand calls the injected DoCommand or the real version.
+func (a *Arm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if a.DoFunc == nil {
-		return a.LocalArm.Do(ctx, cmd)
+		return a.LocalArm.DoCommand(ctx, cmd)
 	}
 	return a.DoFunc(ctx, cmd)
 }

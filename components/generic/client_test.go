@@ -68,7 +68,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		workingGenericClient := generic.NewClientFromConn(context.Background(), conn, testGenericName, logger)
 
-		resp, err := workingGenericClient.Do(context.Background(), generic.TestCommand)
+		resp, err := workingGenericClient.DoCommand(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["cmd"], test.ShouldEqual, generic.TestCommand["cmd"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
@@ -83,7 +83,7 @@ func TestClient(t *testing.T) {
 		failingGenericClient := generic.NewClientFromConn(context.Background(), conn, failGenericName, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = failingGenericClient.Do(context.Background(), generic.TestCommand)
+		_, err = failingGenericClient.DoCommand(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldNotBeNil)
 
 		test.That(t, utils.TryClose(context.Background(), failingGenericClient), test.ShouldBeNil)
@@ -97,7 +97,7 @@ func TestClient(t *testing.T) {
 		workingGenericDialedClient, ok := client.(generic.Generic)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		resp, err := workingGenericDialedClient.Do(context.Background(), generic.TestCommand)
+		resp, err := workingGenericDialedClient.DoCommand(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["cmd"], test.ShouldEqual, generic.TestCommand["cmd"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
