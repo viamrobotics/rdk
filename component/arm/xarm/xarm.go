@@ -63,7 +63,7 @@ func ModelName(dof int) string {
 	return "xArm" + strconv.Itoa(dof)
 }
 
-func Model(dof int) (referenceframe.Model, error) {
+func xarmModel(dof int) (referenceframe.Model, error) {
 	switch dof {
 	case 6:
 		return referenceframe.UnmarshalModelJSON(xArm6modeljson, "")
@@ -118,7 +118,7 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 		return nil, err
 	}
 
-	model, err := Model(dof)
+	model, err := xarmModel(dof)
 	if err != nil {
 		return nil, err
 	}

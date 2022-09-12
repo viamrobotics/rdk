@@ -125,25 +125,33 @@ var vx300smodeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, ModelNameWX250S, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewArm(r, config.Attributes, logger, wx250smodeljson)
+			return NewArm(r, config.Attributes, logger, ModelNameWX250S)
 		},
 	})
 	registry.RegisterComponent(arm.Subtype, ModelNameVX300S, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewArm(r, config.Attributes, logger, vx300smodeljson)
+			return NewArm(r, config.Attributes, logger, ModelNameWX250S)
 		},
 	})
 }
 
 // NewArm returns an instance of Arm given a model json.
-func NewArm(r robot.Robot, attributes config.AttributeMap, logger golog.Logger, json []byte) (arm.LocalArm, error) {
+func NewArm(r robot.Robot, attributes config.AttributeMap, logger golog.Logger, modelType string) (arm.LocalArm, error) {
 	usbPort := attributes.String("usb_port")
 	servos, err := findServos(usbPort, attributes.String("baud_rate"), attributes.String("arm_servo_count"))
 	if err != nil {
 		return nil, err
 	}
 
-	model, err := referenceframe.UnmarshalModelJSON(json, "")
+	var model referenceframe.Model
+	switch modelType {
+	case ModelNameWX250S:
+		model, err = referenceframe.UnmarshalModelJSON(wx250smodeljson, "")
+	case ModelNameVX300S:
+		model, err = referenceframe.UnmarshalModelJSON(vx300smodeljson, "")
+	default:
+		return nil, errors.Errorf("unknown kinematics model specified, supported models are %s and %s", ModelNameWX250S, ModelNameVX300S)
+	}
 	if err != nil {
 		return nil, err
 	}

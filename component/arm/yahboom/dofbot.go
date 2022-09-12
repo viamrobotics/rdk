@@ -33,7 +33,7 @@ var modeljson []byte
 
 const ModelName = "yahboom-dofbot"
 
-func Model() (referenceframe.Model, error) {
+func dofbotModel() (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(modeljson, ModelName)
 }
 
@@ -71,7 +71,7 @@ func (jc jointConfig) toHw(degrees float64) int {
 func init() {
 	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newDofBot(ctx, r, config, logger)
+			return NewDofBot(ctx, r, config, logger)
 		},
 	})
 }
@@ -88,7 +88,7 @@ type Dofbot struct {
 	opMgr  operation.SingleOperationManager
 }
 
-func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.LocalArm, error) {
+func NewDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	var err error
 
 	a := Dofbot{}
@@ -111,7 +111,7 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 		return nil, err
 	}
 
-	a.model, err = Model()
+	a.model, err = dofbotModel()
 	if err != nil {
 		return nil, err
 	}
