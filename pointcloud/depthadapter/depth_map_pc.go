@@ -1,4 +1,4 @@
-package rimage
+package depthadapter
 
 import (
 	"image"
@@ -9,14 +9,21 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 )
+
+// ToPointCloud returns a lazy read only pointcloud.
+func ToPointCloud(dm *rimage.DepthMap, p transform.Projector) pointcloud.PointCloud {
+	return newDMPointCloudAdapter(dm, p)
+}
 
 const numThreadsDmPointCloudAdapter = 8 // TODO This should probably become a parameter at some point
 
-func newDMPointCloudAdapter(dm *DepthMap, p Projector) *dmPointCloudAdapter {
+func newDMPointCloudAdapter(dm *rimage.DepthMap, p transform.Projector) *dmPointCloudAdapter {
 	var wg sync.WaitGroup
 	wg.Add(2)
-	var newDm *DepthMap
+	var newDm *rimage.DepthMap
 	utils.PanicCapturingGo(func() {
 		defer wg.Done()
 		newDm = dm.Clone()
@@ -71,8 +78,8 @@ func newDMPointCloudAdapter(dm *DepthMap, p Projector) *dmPointCloudAdapter {
 }
 
 type dmPointCloudAdapter struct {
-	dm        *DepthMap
-	p         Projector
+	dm        *rimage.DepthMap
+	p         transform.Projector
 	size      int
 	cache     pointcloud.PointCloud
 	cached    bool

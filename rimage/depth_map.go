@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 
-	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/utils"
 )
 
@@ -407,11 +406,6 @@ func (dm *DepthMap) InterestingPixels(t float64) *image.Gray {
 	}
 
 	return out
-}
-
-// ToPointCloud returns a lazy read only pointcloud.
-func (dm *DepthMap) ToPointCloud(p Projector) pointcloud.PointCloud {
-	return newDMPointCloudAdapter(dm, p)
 }
 
 type dmWarpConnector struct {

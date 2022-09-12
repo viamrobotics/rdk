@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/pointcloud/depthadapter"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -88,7 +89,7 @@ func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud
 		if err != nil {
 			return nil, err
 		}
-		return img.ToPointCloud(fs.Intrinsics), nil
+		return depthadapter.ToPointCloud(img, fs.Intrinsics), nil
 	}
 	img, err := rimage.NewImageFromFile(fs.ColorFN)
 	if err != nil {

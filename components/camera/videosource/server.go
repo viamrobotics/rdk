@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/pointcloud/depthadapter"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -231,7 +232,7 @@ func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 		if err != nil {
 			return nil, err
 		}
-		return depth.(*rimage.DepthMap).ToPointCloud(s.Intrinsics), nil
+		return depthadapter.ToPointCloud(depth.(*rimage.DepthMap), s.Intrinsics), nil
 	}
 	return nil,
 		errors.Errorf("no depth information in stream %q, cannot project to point cloud", s.stream)
