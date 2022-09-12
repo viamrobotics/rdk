@@ -277,7 +277,7 @@ func TestServerSegmentationGetObjects(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_cam := &cloudSource{}
-	cam, err := camera.NewFromReader(_cam, nil)
+	cam, err := camera.NewFromReader(context.Background(), _cam, nil, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
 	injectVision := &inject.VisionService{}
 	injectVision.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName, segmenterName string,

@@ -337,7 +337,7 @@ func TestInjectedServiceClient(t *testing.T) {
 		client := vision.NewClientFromConn(context.Background(), conn, testVisionServiceName, logger)
 
 		_cam := &cloudSource{}
-		injCam, err := camera.NewFromReader(_cam, nil)
+		injCam, err := camera.NewFromReader(context.Background(), _cam, nil, camera.ColorStream)
 		test.That(t, err, test.ShouldBeNil)
 		injectVision.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName, segmenterName string,
 		) ([]*viz.Object, error) {
