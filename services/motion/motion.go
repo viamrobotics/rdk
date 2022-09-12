@@ -223,7 +223,7 @@ func (ms *motionService) MoveSingleComponent(
 		logger.Debugf("frame system inputs: %v", fsInputs)
 
 		// re-evaluate goalPose to be in the frame we're going to move in
-		tf, err := frameSys.Transform(fsInputs, destination, componentName.Name+"_offset")
+		tf, err := frameSys.Transform(fsInputs, destination, componentName.Name+"_origin")
 		if err != nil {
 			return false, err
 		}
