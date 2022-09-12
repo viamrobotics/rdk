@@ -2,8 +2,10 @@ package vision_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
+	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
@@ -66,6 +68,27 @@ func TestVisionServerFailures(t *testing.T) {
 	}
 	_, err = server.GetDetectorNames(context.Background(), nameRequest)
 	test.That(t, err, test.ShouldBeError, passedErr)
+}
+
+func TestServerGetParameterSchema(t *testing.T) {
+	srv, r := createService(t, "data/empty.json")
+	m := map[resource.Name]interface{}{
+		vision.Named(testVisionServiceName): srv,
+	}
+	server, err := newServer(m)
+	test.That(t, err, test.ShouldBeNil)
+	paramsRequest := &pb.GetModelParameterSchemaRequest{Name: testVisionServiceName, ModelType: string(vision.RCSegmenter)}
+	params, err := server.GetModelParameterSchema(context.Background(), paramsRequest)
+	test.That(t, err, test.ShouldBeNil)
+	outp := &jsonschema.Schema{}
+	err = json.Unmarshal(params.ModelParameterSchema, outp)
+	test.That(t, err, test.ShouldBeNil)
+	parameterNames := outp.Definitions["RadiusClusteringConfig"].Required
+	test.That(t, parameterNames, test.ShouldContain, "min_points_in_plane")
+	test.That(t, parameterNames, test.ShouldContain, "min_points_in_segment")
+	test.That(t, parameterNames, test.ShouldContain, "clustering_radius_mm")
+	test.That(t, parameterNames, test.ShouldContain, "mean_k_filtering")
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestServerGetDetectorNames(t *testing.T) {

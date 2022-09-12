@@ -64,6 +64,23 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
+	t.Run("model schema", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		client := vision.NewClientFromConn(context.Background(), conn, visName, logger)
+
+		params, err := client.GetModelParameterSchema(context.Background(), vision.RCSegmenter)
+		test.That(t, err, test.ShouldBeNil)
+		parameterNames := params.Definitions["RadiusClusteringConfig"].Required
+		test.That(t, parameterNames, test.ShouldContain, "min_points_in_plane")
+		test.That(t, parameterNames, test.ShouldContain, "min_points_in_segment")
+		test.That(t, parameterNames, test.ShouldContain, "clustering_radius_mm")
+		test.That(t, parameterNames, test.ShouldContain, "mean_k_filtering")
+
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
 	t.Run("detector names", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)

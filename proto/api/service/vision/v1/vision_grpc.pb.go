@@ -22,8 +22,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type VisionServiceClient interface {
-	// GetModelParameters takes the model name and returns the parameters needed to add one to the vision registry.
-	GetModelParameters(ctx context.Context, in *GetModelParametersRequest, opts ...grpc.CallOption) (*GetModelParametersResponse, error)
+	// GetModelParameterSchema takes the model name and returns the parameters needed to add one to the vision registry.
+	GetModelParameterSchema(ctx context.Context, in *GetModelParameterSchemaRequest, opts ...grpc.CallOption) (*GetModelParameterSchemaResponse, error)
 	// GetDetectorNames returns the list of detectors in the registry.
 	GetDetectorNames(ctx context.Context, in *GetDetectorNamesRequest, opts ...grpc.CallOption) (*GetDetectorNamesResponse, error)
 	// AddDetector adds a new detector to the registry.
@@ -64,9 +64,9 @@ func NewVisionServiceClient(cc grpc.ClientConnInterface) VisionServiceClient {
 	return &visionServiceClient{cc}
 }
 
-func (c *visionServiceClient) GetModelParameters(ctx context.Context, in *GetModelParametersRequest, opts ...grpc.CallOption) (*GetModelParametersResponse, error) {
-	out := new(GetModelParametersResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/GetModelParameters", in, out, opts...)
+func (c *visionServiceClient) GetModelParameterSchema(ctx context.Context, in *GetModelParameterSchemaRequest, opts ...grpc.CallOption) (*GetModelParameterSchemaResponse, error) {
+	out := new(GetModelParameterSchemaResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/GetModelParameterSchema", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -203,8 +203,8 @@ func (c *visionServiceClient) GetObjectPointClouds(ctx context.Context, in *GetO
 // All implementations must embed UnimplementedVisionServiceServer
 // for forward compatibility
 type VisionServiceServer interface {
-	// GetModelParameters takes the model name and returns the parameters needed to add one to the vision registry.
-	GetModelParameters(context.Context, *GetModelParametersRequest) (*GetModelParametersResponse, error)
+	// GetModelParameterSchema takes the model name and returns the parameters needed to add one to the vision registry.
+	GetModelParameterSchema(context.Context, *GetModelParameterSchemaRequest) (*GetModelParameterSchemaResponse, error)
 	// GetDetectorNames returns the list of detectors in the registry.
 	GetDetectorNames(context.Context, *GetDetectorNamesRequest) (*GetDetectorNamesResponse, error)
 	// AddDetector adds a new detector to the registry.
@@ -242,8 +242,8 @@ type VisionServiceServer interface {
 type UnimplementedVisionServiceServer struct {
 }
 
-func (UnimplementedVisionServiceServer) GetModelParameters(context.Context, *GetModelParametersRequest) (*GetModelParametersResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetModelParameters not implemented")
+func (UnimplementedVisionServiceServer) GetModelParameterSchema(context.Context, *GetModelParameterSchemaRequest) (*GetModelParameterSchemaResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetModelParameterSchema not implemented")
 }
 func (UnimplementedVisionServiceServer) GetDetectorNames(context.Context, *GetDetectorNamesRequest) (*GetDetectorNamesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDetectorNames not implemented")
@@ -300,20 +300,20 @@ func RegisterVisionServiceServer(s grpc.ServiceRegistrar, srv VisionServiceServe
 	s.RegisterService(&VisionService_ServiceDesc, srv)
 }
 
-func _VisionService_GetModelParameters_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetModelParametersRequest)
+func _VisionService_GetModelParameterSchema_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetModelParameterSchemaRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(VisionServiceServer).GetModelParameters(ctx, in)
+		return srv.(VisionServiceServer).GetModelParameterSchema(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.service.vision.v1.VisionService/GetModelParameters",
+		FullMethod: "/proto.api.service.vision.v1.VisionService/GetModelParameterSchema",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(VisionServiceServer).GetModelParameters(ctx, req.(*GetModelParametersRequest))
+		return srv.(VisionServiceServer).GetModelParameterSchema(ctx, req.(*GetModelParameterSchemaRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -578,8 +578,8 @@ var VisionService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*VisionServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetModelParameters",
-			Handler:    _VisionService_GetModelParameters_Handler,
+			MethodName: "GetModelParameterSchema",
+			Handler:    _VisionService_GetModelParameterSchema_Handler,
 		},
 		{
 			MethodName: "GetDetectorNames",

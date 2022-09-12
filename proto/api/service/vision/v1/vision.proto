@@ -11,10 +11,10 @@ option java_package = "com.viam.rdk.proto.api.service.vision.v1";
 
 // VisionService declares the gRPC contract for a vision service
 service VisionService {
-  // GetModelParameters takes the model name and returns the parameters needed to add one to the vision registry.
-  rpc GetModelParameters(GetModelParametersRequest) returns (GetModelParametersResponse) {
+  // GetModelParameterSchema takes the model name and returns the parameters needed to add one to the vision registry.
+  rpc GetModelParameterSchema(GetModelParameterSchemaRequest) returns (GetModelParameterSchemaResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/service/vision/{name}/model_parameters"
+      get: "/viam/api/v1/service/vision/{name}/model_parameter_schema"
     };
   }
   // Detection methods
@@ -124,16 +124,16 @@ service VisionService {
   }
 }
 
-message GetModelParametersRequest {
+message GetModelParameterSchemaRequest {
   // name of the vision service
   string name = 1;
   // name of the type of vision model
   string model_type = 2;
 }
 
-message GetModelParametersResponse {
+message GetModelParameterSchemaResponse {
   // the parameters as JSON bytes of a jsonschema.Schema
-  bytes model_parameters = 1;
+  bytes model_parameter_schema = 1;
 }
 
 message GetDetectorNamesRequest {

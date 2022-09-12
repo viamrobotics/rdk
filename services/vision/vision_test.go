@@ -13,6 +13,23 @@ import (
 	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
+func TestModelParameterSchema(t *testing.T) {
+	ctx := context.Background()
+	srv := makeService(ctx, t)
+	// get parameters that exist
+	params, err := srv.GetModelParameterSchema(ctx, RCSegmenter)
+	test.That(t, err, test.ShouldBeNil)
+	parameterNames := params.Definitions["RadiusClusteringConfig"].Required
+	test.That(t, parameterNames, test.ShouldContain, "min_points_in_plane")
+	test.That(t, parameterNames, test.ShouldContain, "min_points_in_segment")
+	test.That(t, parameterNames, test.ShouldContain, "clustering_radius_mm")
+	test.That(t, parameterNames, test.ShouldContain, "mean_k_filtering")
+	// attempt to get parameters that dont exist
+	_, err = srv.GetModelParameterSchema(ctx, VisModelType("not_a_model"))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "do not have a schema for model type")
+}
+
 func TestCloseService(t *testing.T) {
 	ctx := context.Background()
 	srv := makeService(ctx, t)
@@ -33,7 +50,6 @@ func TestCloseService(t *testing.T) {
 	det := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{}, nil
 	}
-	// registeredFn := registeredDetector{detector: det, closer: fakeStruct}
 	registeredFn := registeredModel{model: det, closer: fakeStruct}
 	logger := golog.NewTestLogger(t)
 	err = vService.modReg.registerVisModel("fake", &registeredFn, logger)

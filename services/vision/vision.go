@@ -63,7 +63,7 @@ func init() {
 // A Service that implements various computer vision algorithms like detection and segmentation.
 type Service interface {
 	// model parameters
-	GetModelParameters(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error)
+	GetModelParameterSchema(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error)
 	// detector methods
 	GetDetectorNames(ctx context.Context) ([]string, error)
 	AddDetector(ctx context.Context, cfg VisModelConfig) error
@@ -168,9 +168,9 @@ type visionService struct {
 	logger golog.Logger
 }
 
-// GetModelParameters takes the model name and returns the parameters needed to add one to the vision registry.
-func (vs *visionService) GetModelParameters(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error) {
-	if modelSchema, ok := RegisteredModelParameters[modelType]; ok {
+// GetModelParameterSchema takes the model name and returns the parameters needed to add one to the vision registry.
+func (vs *visionService) GetModelParameterSchema(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error) {
+	if modelSchema, ok := RegisteredModelParameterSchemas[modelType]; ok {
 		if modelSchema == nil {
 			return nil, errors.Errorf("do not have a schema for model type %q", modelType)
 		}
@@ -405,10 +405,10 @@ type reconfigurableVision struct {
 	actual Service
 }
 
-func (svc *reconfigurableVision) GetModelParameters(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error) {
+func (svc *reconfigurableVision) GetModelParameterSchema(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetModelParameters(ctx, modelType)
+	return svc.actual.GetModelParameterSchema(ctx, modelType)
 }
 
 func (svc *reconfigurableVision) GetDetectorNames(ctx context.Context) ([]string, error) {

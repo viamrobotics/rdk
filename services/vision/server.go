@@ -41,17 +41,17 @@ func (server *subtypeServer) service(serviceName string) (Service, error) {
 	return svc, nil
 }
 
-func (server *subtypeServer) GetModelParameters(
+func (server *subtypeServer) GetModelParameterSchema(
 	ctx context.Context,
-	req *pb.GetModelParametersRequest,
-) (*pb.GetModelParametersResponse, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetModelParameters")
+	req *pb.GetModelParameterSchemaRequest,
+) (*pb.GetModelParameterSchemaResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetModelParameterSchema")
 	defer span.End()
 	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	params, err := svc.GetModelParameters(ctx, VisModelType(req.ModelType))
+	params, err := svc.GetModelParameterSchema(ctx, VisModelType(req.ModelType))
 	if err != nil {
 		return nil, err
 	}
@@ -59,8 +59,8 @@ func (server *subtypeServer) GetModelParameters(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetModelParametersResponse{
-		ModelParameters: data,
+	return &pb.GetModelParameterSchemaResponse{
+		ModelParameterSchema: data,
 	}, nil
 }
 
