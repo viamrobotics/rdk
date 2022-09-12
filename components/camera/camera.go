@@ -252,6 +252,11 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 	return utils.NewUnimplementedInterfaceError((Camera)(nil), actual)
 }
 
+// DependencyTypeError is used when a resource doesn't implement the expected interface.
+func DependencyTypeError(name, actual interface{}) error {
+	return utils.DependencyTypeError(name, (Camera)(nil), actual)
+}
+
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	c, ok := r.(Camera)
@@ -284,7 +289,7 @@ func FromDependencies(deps registry.Dependencies, name string) (Camera, error) {
 	}
 	part, ok := res.(Camera)
 	if !ok {
-		return nil, utils.DependencyTypeError(name, "Camera", res)
+		return nil, DependencyTypeError(name, res)
 	}
 	return part, nil
 }

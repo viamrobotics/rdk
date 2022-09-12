@@ -107,7 +107,7 @@ func FromDependencies(deps registry.Dependencies, name string) (Base, error) {
 	}
 	part, ok := res.(Base)
 	if !ok {
-		return nil, utils.DependencyTypeError(name, "Base", res)
+		return nil, DependencyTypeError(name, res)
 	}
 	return part, nil
 }
@@ -120,6 +120,11 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 // NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
 func NewUnimplementedLocalInterfaceError(actual interface{}) error {
 	return utils.NewUnimplementedInterfaceError((LocalBase)(nil), actual)
+}
+
+// DependencyTypeError is used when a resource doesn't implement the expected interface.
+func DependencyTypeError(name, actual interface{}) error {
+	return utils.DependencyTypeError(name, (Base)(nil), actual)
 }
 
 // FromRobot is a helper for getting the named base from the given Robot.
