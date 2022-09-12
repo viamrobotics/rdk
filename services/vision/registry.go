@@ -32,8 +32,8 @@ const (
 	DetectorSegmenter = VisModelType("detector_segmenter")
 )
 
-// RegisteredModelParameters maps the vision model types to their necessary parameters.
-var RegisteredModelParameters = map[VisModelType]*jsonschema.Schema{
+// RegisteredModelParameterSchemas maps the vision model types to the necessary parameters needed to create them.
+var RegisteredModelParameterSchemas = map[VisModelType]*jsonschema.Schema{
 	TFLiteDetector:    jsonschema.Reflect(&TFLiteDetectorConfig{}),
 	ColorDetector:     jsonschema.Reflect(&objectdetection.ColorDetectorConfig{}),
 	TFLiteClassifier:  jsonschema.Reflect(&TFLiteClassifierConfig{}),

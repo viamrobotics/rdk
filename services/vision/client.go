@@ -43,15 +43,15 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return c
 }
 
-func (c *client) GetModelParameters(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetModelParameters")
+func (c *client) GetModelParameterSchema(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetModelParameterSchema")
 	defer span.End()
-	resp, err := c.client.GetModelParameters(ctx, &pb.GetModelParametersRequest{Name: c.name, ModelType: string(modelType)})
+	resp, err := c.client.GetModelParameterSchema(ctx, &pb.GetModelParameterSchemaRequest{Name: c.name, ModelType: string(modelType)})
 	if err != nil {
 		return nil, err
 	}
 	outp := &jsonschema.Schema{}
-	err = json.Unmarshal(resp.ModelParameters, outp)
+	err = json.Unmarshal(resp.ModelParameterSchema, outp)
 	if err != nil {
 		return nil, err
 	}
