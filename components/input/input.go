@@ -153,6 +153,11 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 	return utils.NewUnimplementedInterfaceError((Controller)(nil), actual)
 }
 
+// DependencyTypeError is used when a resource doesn't implement the expected interface.
+func DependencyTypeError(name, actual interface{}) error {
+	return utils.DependencyTypeError(name, (Controller)(nil), actual)
+}
+
 // WrapWithReconfigurable wraps a Controller with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	c, ok := r.(Controller)
@@ -180,7 +185,7 @@ func FromDependencies(deps registry.Dependencies, name string) (Controller, erro
 	}
 	part, ok := res.(Controller)
 	if !ok {
-		return nil, utils.DependencyTypeError(name, "input.Controller", res)
+		return nil, DependencyTypeError(name, res)
 	}
 	return part, nil
 }

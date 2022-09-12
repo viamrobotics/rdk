@@ -82,7 +82,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, pose1, test.ShouldResemble, pose)
 
 	a, err = arm.FromDependencies(deps, fakeArmName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeArmName, "Arm", "string"))
+	test.That(t, err, test.ShouldBeError, arm.DependencyTypeError(fakeArmName, "string"))
 	test.That(t, a, test.ShouldBeNil)
 
 	a, err = arm.FromDependencies(deps, missingArmName)

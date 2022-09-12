@@ -29,6 +29,11 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 	return utils.NewUnimplementedInterfaceError((Board)(nil), actual)
 }
 
+// DependencyTypeError is used when a resource doesn't implement the expected interface.
+func DependencyTypeError(name, actual interface{}) error {
+	return utils.DependencyTypeError(name, (Board)(nil), actual)
+}
+
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
@@ -179,7 +184,7 @@ func FromDependencies(deps registry.Dependencies, name string) (Board, error) {
 	}
 	part, ok := res.(Board)
 	if !ok {
-		return nil, utils.DependencyTypeError(name, "Board", res)
+		return nil, DependencyTypeError(name, res)
 	}
 	return part, nil
 }
