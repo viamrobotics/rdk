@@ -318,16 +318,16 @@ func TestDiffConfigs(t *testing.T) {
 			},
 		},
 	} {
-		// test with showDiffs = true
+		// test with revealSensitiveConfigDiffs = true
 		t.Run(tc.Name, func(t *testing.T) {
-			showDiff := true
+			revealSensitiveConfigDiffs := true
 			logger := golog.NewTestLogger(t)
 			left, err := config.Read(context.Background(), tc.LeftFile, logger)
 			test.That(t, err, test.ShouldBeNil)
 			right, err := config.Read(context.Background(), tc.RightFile, logger)
 			test.That(t, err, test.ShouldBeNil)
 
-			diff, err := config.DiffConfigs(*left, *right, showDiff)
+			diff, err := config.DiffConfigs(*left, *right, revealSensitiveConfigDiffs)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, diff.Left, test.ShouldResemble, left)
 			test.That(t, diff.Right, test.ShouldResemble, right)
@@ -343,16 +343,16 @@ func TestDiffConfigs(t *testing.T) {
 			test.That(t, diff, test.ShouldResemble, &tc.Expected)
 		})
 
-		// test with showDiffs = false
+		// test with revealSensitiveConfigDiffss = false
 		t.Run(tc.Name, func(t *testing.T) {
-			showDiff := false
+			revealSensitiveConfigDiffs := false
 			logger := golog.NewTestLogger(t)
 			left, err := config.Read(context.Background(), tc.LeftFile, logger)
 			test.That(t, err, test.ShouldBeNil)
 			right, err := config.Read(context.Background(), tc.RightFile, logger)
 			test.That(t, err, test.ShouldBeNil)
 
-			diff, err := config.DiffConfigs(*left, *right, showDiff)
+			diff, err := config.DiffConfigs(*left, *right, revealSensitiveConfigDiffs)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, diff.Left, test.ShouldResemble, left)
 			test.That(t, diff.Right, test.ShouldResemble, right)

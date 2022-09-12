@@ -34,9 +34,9 @@ type ModifiedConfigDiff struct {
 
 // DiffConfigs returns the difference between the two given configs
 // from left to right.
-func DiffConfigs(left, right Config, showDiffs bool) (_ *Diff, err error) {
+func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, err error) {
 	var PrettyDiff string
-	if showDiffs {
+	if revealSensitiveConfigDiffs {
 		PrettyDiff, err = prettyDiff(left, right)
 		if err != nil {
 			return nil, err

@@ -7,9 +7,9 @@ type options struct {
 	// webOptions are used to initially configure the web service.
 	webOptions []web.Option
 
-	// allowRevealSensitiveDiffs will display config diffs - which may contain secret
+	// revealSensitiveConfigDiffs will display config diffs - which may contain secret
 	// information - in log statements
-	allowRevealSensitiveDiffs bool
+	revealSensitiveConfigDiffs bool
 }
 
 // Option configures how we set up the web service.
@@ -42,11 +42,11 @@ func WithWebOptions(opts ...web.Option) Option {
 	})
 }
 
-// WithRevealSensitiveDiffs returns an Option which causes config
+// WithRevealSensitiveConfigDiffs returns an Option which causes config
 // diffs - which may contain sensitive information - to be displayed
 // in logs.
-func WithRevealSensitiveDiffs() Option {
+func WithRevealSensitiveConfigDiffs() Option {
 	return newFuncOption(func(o *options) {
-		o.allowRevealSensitiveDiffs = true
+		o.revealSensitiveConfigDiffs = true
 	})
 }
