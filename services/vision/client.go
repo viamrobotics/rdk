@@ -8,10 +8,10 @@ import (
 	"image"
 
 	"github.com/edaniels/golog"
+	"github.com/invopop/jsonschema"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils/rpc"
 
-	"github.com/invopop/jsonschema"
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/vision/v1"
