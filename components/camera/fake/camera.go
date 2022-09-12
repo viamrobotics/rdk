@@ -28,7 +28,7 @@ func init() {
 		) (interface{}, error) {
 			color := config.Attributes.String("color")
 			cam := &Camera{Name: config.Name, color: color}
-			return camera.NewFromReader(cam, nil)
+			return camera.NewFromReader(ctx, cam, nil, camera.ColorStream)
 		}})
 }
 

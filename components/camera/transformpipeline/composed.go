@@ -18,22 +18,21 @@ import (
 // depthToPretty takes a depth image and turns into a colorful image, with blue being
 // farther away, and red being closest. Actual depth information is lost in the transform.
 type depthToPretty struct {
-	colorStream gostream.VideoStream
-	depthStream gostream.VideoStream
-	source      gostream.VideoSource
-	proj        rimage.Projector // keep a local copy for faster use
+	colorStream         gostream.VideoStream
+	depthStream         gostream.VideoStream
+	source              gostream.VideoSource
+	intrinsicParameters *transform.PinholeCameraIntrinsics
 }
 
 func newDepthToPrettyTransform(ctx context.Context, source gostream.VideoSource, attrs *camera.AttrConfig) (gostream.VideoSource, error) {
-	proj, _ := camera.GetProjector(ctx, attrs, nil)
 	depthStream := gostream.NewEmbeddedVideoStream(source)
 	reader := &depthToPretty{
-		depthStream: depthStream,
-		source:      source,
-		proj:        proj,
+		depthStream:         depthStream,
+		source:              source,
+		intrinsicParameters: attrs.CameraParameters,
 	}
 	reader.colorStream = gostream.NewEmbeddedVideoStreamFromReader(reader)
-	return camera.NewFromReader(reader, proj)
+	return camera.NewFromReader(ctx, reader, reader.intrinsicParameters, camera.StreamType(attrs.Stream))
 }
 
 func (dtp *depthToPretty) Read(ctx context.Context) (image.Image, func(), error) {
@@ -57,7 +56,7 @@ func (dtp *depthToPretty) Close(ctx context.Context) error {
 func (dtp *depthToPretty) PointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::depthToPretty::PointCloud")
 	defer span.End()
-	if dtp.proj == nil {
+	if dtp.intrinsicParameters == nil {
 		return nil, errors.Wrapf(transform.ErrNoIntrinsics, "depthToPretty transform cannot project to pointcloud")
 	}
 	// get the original depth map and colorful output
@@ -65,25 +64,24 @@ func (dtp *depthToPretty) PointCloud(ctx context.Context) (pointcloud.PointCloud
 	if col == nil || dm == nil {
 		return nil, errors.New("requested color or depth image from camera is nil")
 	}
-	return dtp.proj.RGBDToPointCloud(rimage.ConvertImage(col), dm)
+	return dtp.intrinsicParameters.RGBDToPointCloud(rimage.ConvertImage(col), dm)
 }
 
 // overlaySource overlays the depth and color 2D images in order to debug the alignment of the two images.
 type overlaySource struct {
-	src  gostream.VideoSource
-	proj rimage.Projector
+	src                    gostream.VideoSource
+	srcIntrinsicParameters *transform.PinholeCameraIntrinsics
 }
 
 func newOverlayTransform(ctx context.Context, src gostream.VideoSource, attrs *camera.AttrConfig) (gostream.VideoSource, error) {
-	proj, _ := camera.GetProjector(ctx, attrs, nil)
-	reader := &overlaySource{src, proj}
-	return camera.NewFromReader(reader, proj)
+	reader := &overlaySource{src, attrs.CameraParameters}
+	return camera.NewFromReader(ctx, reader, reader.srcIntrinsicParameters, camera.StreamType(attrs.Stream))
 }
 
 func (os *overlaySource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::overlay::Read")
 	defer span.End()
-	if os.proj == nil {
+	if os.srcIntrinsicParameters == nil {
 		return nil, nil, transform.ErrNoIntrinsics
 	}
 	srcPointCloud, ok := os.src.(camera.PointCloudSource)
@@ -94,7 +92,7 @@ func (os *overlaySource) Read(ctx context.Context) (image.Image, func(), error) 
 	if err != nil {
 		return nil, nil, err
 	}
-	col, dm, err := os.proj.PointCloudToRGBD(pc)
+	col, dm, err := os.srcIntrinsicParameters.PointCloudToRGBD(pc)
 	if err != nil {
 		return nil, nil, err
 	}

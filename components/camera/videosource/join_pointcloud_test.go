@@ -40,6 +40,9 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam1.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc1, nil
 	}
+	cam1.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
+	}
 	cam1.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
@@ -50,6 +53,9 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc2, nil
 	}
+	cam2.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
+	}
 	cam2.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
@@ -59,6 +65,9 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	test.That(t, err, test.ShouldBeNil)
 	cam3.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc3, nil
+	}
+	cam3.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
 	}
 	cam3.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
@@ -229,6 +238,12 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	cam1.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return startPC, nil
 	}
+	cam1.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
+	}
+	cam1.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+		return nil, transform.NewNoIntrinsicsError("")
+	}
 	cam2 := &inject.Camera{}
 	transformedPC := pointcloud.NewWithPrealloc(100)
 	transformPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 100})
@@ -250,6 +265,12 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	}
 	cam2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return transformedPC, nil
+	}
+	cam2.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
+	}
+	cam2.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+		return nil, transform.NewNoIntrinsicsError("")
 	}
 
 	cam3 := &inject.Camera{}

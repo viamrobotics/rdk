@@ -616,7 +616,7 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 	)
 }
 
-// Do() related constants.
+// DoCommand() related constants.
 const (
 	Command = "command"
 	Home    = "home"
@@ -624,8 +624,8 @@ const (
 	RPMVal  = "rpm"
 )
 
-// Do executes additional commands beyond the Motor{} interface.
-func (m *Motor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand executes additional commands beyond the Motor{} interface.
+func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	name, ok := cmd["command"]
 	if !ok {
 		return nil, errors.Errorf("missing %s value", Command)

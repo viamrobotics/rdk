@@ -43,7 +43,7 @@ func main() {
 	}
 	if *imgPtr != "" {
 		src := &simpleSource{*imgPtr}
-		cam, err := camera.NewFromReader(src, nil)
+		cam, err := camera.NewFromReader(context.Background(), src, nil, camera.UnspecifiedStream)
 		if err != nil {
 			logger.Fatal(err)
 		}

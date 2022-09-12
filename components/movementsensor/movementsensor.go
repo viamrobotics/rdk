@@ -171,10 +171,10 @@ func (r *reconfigurableMovementSensor) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableMovementSensor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (r *reconfigurableMovementSensor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Do(ctx, cmd)
+	return r.actual.DoCommand(ctx, cmd)
 }
 
 func (r *reconfigurableMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, error) {

@@ -121,8 +121,8 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		arm1Client := arm.NewClientFromConn(context.Background(), conn, testArmName, logger)
 
-		// Do
-		resp, err := arm1Client.Do(context.Background(), generic.TestCommand)
+		// DoCommand
+		resp, err := arm1Client.DoCommand(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
