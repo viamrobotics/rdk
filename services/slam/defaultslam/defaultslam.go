@@ -43,7 +43,7 @@ import (
 
 var (
 	cameraValidationMaxTimeoutSec = 30 // reconfigurable for testing
-	dialMaxTimeoutSec             = 5  // reconfigurable for testing
+	dialMaxTimeoutSec             = 30 // reconfigurable for testing
 )
 
 const (
