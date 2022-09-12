@@ -17,9 +17,9 @@ type preprocessDepthTransform struct {
 	stream gostream.VideoStream
 }
 
-func newDepthPreprocessTransform(source gostream.VideoSource) (gostream.VideoSource, error) {
+func newDepthPreprocessTransform(ctx context.Context, source gostream.VideoSource) (gostream.VideoSource, error) {
 	reader := &preprocessDepthTransform{gostream.NewEmbeddedVideoStream(source)}
-	return camera.NewFromReader(reader, nil)
+	return camera.NewFromReader(ctx, reader, nil, camera.DepthStream)
 }
 
 // Next applies depth preprocessing to the next image.

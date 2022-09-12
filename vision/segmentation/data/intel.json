@@ -1,142 +1,127 @@
 {
-  "components":
-  [
-      {
-          "name": "front-color",
-          "type": "camera",
-          "model": "webcam",
-          "attributes":
-          {
-                  "camera_parameters": {
-                  "height": 720,
-                  "width": 1280,
-                  "fx": 900.538000,
-                  "fy": 900.818000,
-                  "ppx": 648.934000,
-                  "ppy": 367.736000,
-                  "distortion":
-                  {
-                      "rk1": 0.158701,
-                      "rk2": -0.485405,
-                      "rk3": 0.435342,
-                      "tp1": -0.00143327,
-                      "tp2": -0.000705919
-                  }
-              },
-              "path_pattern": "usb",
-              "width": 1280,
-              "height": 720,
-              "rotate": true,
-              "debug": true
-          }
-      },
-      {
-          "name": "front-depth",
-          "type": "camera",
-          "model": "webcam",
-          "attributes":
-          {
-              "format": "Z16",
-              "width": 768,
-              "debug": true
-          }
-      },
-      {
-          "name": "front",
-          "type": "camera",
-          "model": "align_color_depth",
-          "attributes":
-          {
-              "color": "front-color",
-              "depth": "front-depth",
-              "height": 720,
-              "width": 1280,
-              "make": "intel515",
-              "debug": false,
-              "camera_parameters": {
-                  "height": 720,
-                  "width": 1280,
-                  "fx": 900.538000,
-                  "fy": 900.818000,
-                  "ppx": 648.934000,
-                  "ppy": 367.736000,
-                  "distortion":
-                  {
-                      "rk1": 0.158701,
-                      "rk2": -0.485405,
-                      "rk3": 0.435342,
-                      "tp1": -0.00143327,
-                      "tp2": -0.000705919
-                  }
-              },
-              "intrinsic_extrinsic":
-              {
-                  "color":
-                  {
-                      "height": 720,
-                      "width": 1280,
-                      "fx": 900.538000,
-                      "fy": 900.818000,
-                      "ppx": 648.934000,
-                      "ppy": 367.736000,
-                      "distortion":
-                      {
-                          "rk1": 0.158701,
-                          "rk2": -0.485405,
-                          "rk3": 0.435342,
-                          "tp1": -0.00143327,
-                          "tp2": -0.000705919
-                      }
-                  },
-                  "depth":
-                  {
-                      "height": 768,
-                      "width": 1024,
-                      "fx": 734.938,
-                      "fy": 735.516,
-                      "ppx": 542.078,
-                      "ppy": 398.016,
-                      "distortion":
-                      {
-                          "rk1": 0.0,
-                          "rk2": 0.0,
-                          "rk3": 0.0,
-                          "tp1": 0.0,
-                          "tp2": 0.0
-                      }
-                  },
-                  "extrinsics_depth_to_color":
-                  {
-                      "rotation":
-                      [
-                          0.999958,
-                          -0.00838489,
-                          0.00378392,
-                          0.00824708,
-                          0.999351,
-                          0.0350734,
-                          -0.00407554,
-                          -0.0350407,
-                          0.999378
-                      ],
-                      "translation":
-                      [
-                          -0.000828434,
-                          0.0139185,
-                          -0.0033418
-                      ]
-                  }
-              }
-          }
-      },
-      {
-          "name": "front-overlay",
-          "type": "camera",
-          "model": "overlay",
-          "attributes":
-          {
-              "source": "front"
-          }
-      }
-  ]
+    "components": [
+        {
+            "name": "front-color",
+            "type": "camera",
+            "model": "webcam",
+            "attributes": {
+                "camera_parameters": {
+                    "height": 720,
+                    "width": 1280,
+                    "fx": 900.538000,
+                    "fy": 900.818000,
+                    "ppx": 648.934000,
+                    "ppy": 367.736000,
+                    "distortion": {
+                        "rk1": 0.158701,
+                        "rk2": -0.485405,
+                        "rk3": 0.435342,
+                        "tp1": -0.00143327,
+                        "tp2": -0.000705919
+                    }
+                },
+                "path_pattern": "usb",
+                "width": 1280,
+                "height": 720,
+                "rotate": true,
+                "debug": true
+            }
+        },
+        {
+            "name": "front-depth",
+            "type": "camera",
+            "model": "webcam",
+            "attributes": {
+                "format": "Z16",
+                "width": 768,
+                "debug": true
+            }
+        },
+        {
+            "name": "front",
+            "type": "camera",
+            "model": "align_color_depth",
+            "attributes": {
+                "color": "front-color",
+                "depth": "front-depth",
+                "height": 720,
+                "width": 1280,
+                "make": "intel515",
+                "debug": false,
+                "camera_parameters": {
+                    "height": 720,
+                    "width": 1280,
+                    "fx": 900.538000,
+                    "fy": 900.818000,
+                    "ppx": 648.934000,
+                    "ppy": 367.736000,
+                    "distortion": {
+                        "rk1": 0.158701,
+                        "rk2": -0.485405,
+                        "rk3": 0.435342,
+                        "tp1": -0.00143327,
+                        "tp2": -0.000705919
+                    }
+                },
+                "intrinsic_extrinsic": {
+                    "color": {
+                        "height": 720,
+                        "width": 1280,
+                        "fx": 900.538000,
+                        "fy": 900.818000,
+                        "ppx": 648.934000,
+                        "ppy": 367.736000,
+                        "distortion": {
+                            "rk1": 0.158701,
+                            "rk2": -0.485405,
+                            "rk3": 0.435342,
+                            "tp1": -0.00143327,
+                            "tp2": -0.000705919
+                        }
+                    },
+                    "depth": {
+                        "height": 768,
+                        "width": 1024,
+                        "fx": 734.938,
+                        "fy": 735.516,
+                        "ppx": 542.078,
+                        "ppy": 398.016,
+                        "distortion": {
+                            "rk1": 0.0,
+                            "rk2": 0.0,
+                            "rk3": 0.0,
+                            "tp1": 0.0,
+                            "tp2": 0.0
+                        }
+                    },
+                    "extrinsics_depth_to_color": {
+                        "rotation": [
+                            0.999958,
+                            -0.00838489,
+                            0.00378392,
+                            0.00824708,
+                            0.999351,
+                            0.0350734,
+                            -0.00407554,
+                            -0.0350407,
+                            0.999378
+                        ],
+                        "translation": [
+                            -0.000828434,
+                            0.0139185,
+                            -0.0033418
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "name": "front-overlay",
+            "type": "camera",
+            "model": "overlay",
+            "attributes": {
+                "source": "front"
+            }
+        }
+    ]
 }
