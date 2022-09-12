@@ -24,12 +24,6 @@ func init() {
 	})
 }
 
-// A Readings ties both the sensor name and its reading together.
-type Readings struct {
-	Name     resource.Name
-	Readings map[string]interface{}
-}
-
 // NewDefault returns a new default sensor service for the given robot.
 func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (sensors.Service, error) {
 	s := &sensorsDefaultService{
