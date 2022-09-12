@@ -426,8 +426,8 @@ func (base *limoBase) IsMoving(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-// Do executes additional commands beyond the Base{} interface.
-func (base *limoBase) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand executes additional commands beyond the Base{} interface.
+func (base *limoBase) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	name, ok := cmd["command"]
 	if !ok {
 		return nil, errors.New("missing 'command' value")
