@@ -156,7 +156,6 @@ func ComponentLookup(subtype resource.Subtype, model string) *Component {
 	for k := range RegisteredComponents() {
 		keys = append(keys, k)
 	}
-	fmt.Printf("keys: %v\n", keys)
 	qName := fmt.Sprintf("%s/%s", subtype, model)
 	if registration, ok := RegisteredComponents()[qName]; ok {
 		return &registration

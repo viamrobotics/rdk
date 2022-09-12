@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestMainSimulation(t *testing.T) {
+func TestMainSimulation(_ *testing.T) {
 	os.Args = append([]string{""}, []string{"--simulation", "--visualize"}...)
 	main()
 }
