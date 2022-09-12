@@ -1,4 +1,4 @@
-package rimage_test
+package depthadapter_test
 
 import (
 	"sync"
@@ -23,7 +23,7 @@ func genIntrinsics() *transform.PinholeCameraIntrinsics {
 		Fy:     821.68607359,
 		Ppx:    494.95941428,
 		Ppy:    370.70529534,
-		Distortion: transform.DistortionModel{
+		Distortion: transform.BrownConrady{
 			RadialK1:     0.11297234,
 			RadialK2:     -0.21375332,
 			RadialK3:     -0.01584774,
@@ -37,7 +37,7 @@ func TestDMPointCloudAdapter(t *testing.T) {
 	m, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 
-	adapter := m.ToPointCloud(genIntrinsics())
+	adapter := depthadapter.ToPointCloud(m, genIntrinsics())
 	test.That(t, adapter, test.ShouldNotBeNil)
 	test.That(t, adapter.Size(), test.ShouldEqual, 812049)
 
@@ -67,8 +67,8 @@ func TestDMPointCloudAdapterRace(t *testing.T) {
 	m, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 
-	baseAdapter := m.ToPointCloud(genIntrinsics())
-	raceAdapter := m.ToPointCloud(genIntrinsics())
+	baseAdapter := depthadapter.ToPointCloud(m, genIntrinsics())
+	raceAdapter := depthadapter.ToPointCloud(m, genIntrinsics())
 
 	var wg sync.WaitGroup
 	wg.Add(2)

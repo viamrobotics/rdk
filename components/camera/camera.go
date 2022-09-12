@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/pointcloud/depthadapter"
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -214,7 +215,7 @@ func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot project to a point cloud")
 	}
-	return dm.ToPointCloud(vs.intrinsicParameters), nil
+	return depthadapter.ToPointCloud(dm, vs.intrinsicParameters), nil
 }
 
 func (vs *videoSource) Projector(ctx context.Context) (rimage.Projector, error) {
