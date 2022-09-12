@@ -37,7 +37,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	r, err := robotimpl.New(context.Background(), cfg, logger, true)
+	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer r.Close(context.Background())
 
