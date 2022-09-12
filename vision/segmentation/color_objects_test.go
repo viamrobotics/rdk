@@ -35,7 +35,9 @@ func TestColorObjects(t *testing.T) {
 		"min_points_in_segment": 1000,
 	}
 	// run segmenter
-	objects, err := segmentation.ColorObjects(context.Background(), cam, cfg)
+	segmenter, err := segmentation.ColorObjects(cfg)
+	test.That(t, err, test.ShouldBeNil)
+	objects, err := segmenter(context.Background(), cam)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, objects, test.ShouldHaveLength, 1)
 	// create config with no mean_k filtering
@@ -47,7 +49,9 @@ func TestColorObjects(t *testing.T) {
 		"min_points_in_segment": 1000,
 	}
 	// run segmenter
-	objects, err = segmentation.ColorObjects(context.Background(), cam, cfg)
+	segmenter, err = segmentation.ColorObjects(cfg)
+	test.That(t, err, test.ShouldBeNil)
+	objects, err = segmenter(context.Background(), cam)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, objects, test.ShouldHaveLength, 1)
 }
