@@ -58,11 +58,11 @@ type localRobot struct {
 	activeBackgroundWorkers *sync.WaitGroup
 	cancelBackgroundWorkers func()
 
-	remotesChanged chan string
-	closeContext   context.Context
-	triggerConfig  chan bool
-	configTimer    *time.Ticker
-	displayDiffs   bool
+	remotesChanged             chan string
+	closeContext               context.Context
+	triggerConfig              chan bool
+	configTimer                *time.Ticker
+	revealSensitiveConfigDiffs bool
 }
 
 // webService returns the localRobot's web service. Raises if the service has not been initialized.
@@ -354,16 +354,16 @@ func newWithResources(
 			},
 			logger,
 		),
-		operations:              operation.NewManager(),
-		logger:                  logger,
-		remotesChanged:          make(chan string),
-		activeBackgroundWorkers: &sync.WaitGroup{},
-		closeContext:            closeCtx,
-		cancelBackgroundWorkers: cancel,
-		defaultServicesNames:    make(map[resource.Subtype]resource.Name),
-		triggerConfig:           make(chan bool),
-		configTimer:             nil,
-		displayDiffs:            rOpts.allowRevealSensitiveDiffs,
+		operations:                 operation.NewManager(),
+		logger:                     logger,
+		remotesChanged:             make(chan string),
+		activeBackgroundWorkers:    &sync.WaitGroup{},
+		closeContext:               closeCtx,
+		cancelBackgroundWorkers:    cancel,
+		defaultServicesNames:       make(map[resource.Subtype]resource.Name),
+		triggerConfig:              make(chan bool),
+		configTimer:                nil,
+		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
 	}
 
 	var successful bool
@@ -715,7 +715,7 @@ func dialRobotClient(ctx context.Context,
 // possibly leak resources.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
 	var allErrs error
-	diff, err := config.DiffConfigs(*r.config, *newConfig, r.displayDiffs)
+	diff, err := config.DiffConfigs(*r.config, *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.Errorw("error diffing the configs", "error", err)
 		return
@@ -724,7 +724,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		return
 	}
 
-	if r.displayDiffs {
+	if r.revealSensitiveConfigDiffs {
 		r.logger.Debugf("(re)configuring with %+v", diff)
 	}
 	// First we remove resources and their children that are not in the graph.
