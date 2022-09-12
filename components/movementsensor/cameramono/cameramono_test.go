@@ -38,7 +38,7 @@ var tCo = &cameramono{
 	},
 	output: make(chan *odometry.Motion3D),
 	logger: &zap.SugaredLogger{},
-	result: Result{
+	result: result{
 		trackedPos:    r3.Vector{X: 4, Y: 5, Z: 6},
 		trackedOrient: &spatialmath.OrientationVector{Theta: 90, OX: 1, OY: 2, OZ: 3},
 		angVel:        spatialmath.AngularVelocity{X: 10, Y: 20, Z: 30},
@@ -55,14 +55,10 @@ func TestInit(t *testing.T) {
 	err = conf.Validate("")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "motion_estimation_config")
 
-	// conf.MotionConfig
-	// err = conf.Validate()
-	// test.That(t, err, test.ShouldNotBeNil)
-
 	conf.MotionConfig = &odometry.MotionEstimationConfig{
 		KeyPointCfg: &keypoints.ORBConfig{
 			Layers:          1,
-			DownscaleFactor: 1,
+			DownscaleFactor: 2,
 			FastConf: &keypoints.FASTConfig{
 				NMatchesCircle: 1,
 				NMSWinSize:     1,
@@ -105,12 +101,11 @@ func TestInit(t *testing.T) {
 	err = conf.Validate("")
 	test.That(t, err, test.ShouldBeNil)
 
-	ctx := context.Background()
 	logger := golog.NewDevelopmentLogger("test")
-	_, err = newCameraMono(ctx, nil, config.Component{}, logger)
+	_, err = newCameraMono(nil, config.Component{}, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "AttrConfig")
 	goodC := config.Component{ConvertedAttributes: conf}
-	_, err = newCameraMono(ctx, nil, goodC, logger)
+	_, err = newCameraMono(nil, goodC, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "missing from dependencies")
 	deps := make(registry.Dependencies)
 
@@ -131,7 +126,7 @@ func TestInit(t *testing.T) {
 			return nil
 		},
 	}
-	co, err := newCameraMono(ctx, deps, goodC, logger)
+	co, err := newCameraMono(deps, goodC, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, co, test.ShouldHaveSameTypeAs, &cameramono{})
 }
@@ -198,7 +193,6 @@ func TestMathHelpers(t *testing.T) {
 		dt, moreThanZero := tCo.getDt(start, end)
 		test.That(t, dt, test.ShouldAlmostEqual, 0.5)
 		test.That(t, moreThanZero, test.ShouldBeTrue)
-
 	})
 
 	t.Run("test extract images", func(t *testing.T) {
@@ -216,5 +210,4 @@ func TestMathHelpers(t *testing.T) {
 		test.That(t, motion.Translation.At(2, 0), test.ShouldBeLessThan, -0.8)
 		test.That(t, motion.Translation.At(1, 0), test.ShouldBeLessThan, 0.2)
 	})
-
 }

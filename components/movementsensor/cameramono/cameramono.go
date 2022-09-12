@@ -11,6 +11,7 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
@@ -21,7 +22,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/odometry"
-	"go.viam.com/utils"
 )
 
 const modelname = "camera_mono"
@@ -43,31 +43,31 @@ func (cfg *AttrConfig) Validate(path string) error {
 			errors.New("no motion_estimation_config for visual odometry algorithm"))
 	}
 
-	if &cfg.MotionConfig.KeyPointCfg == nil {
+	if cfg.MotionConfig.KeyPointCfg == nil {
 		return utils.NewConfigValidationError(path,
 			errors.New("no kps config found in motion_estimation_config"))
 	}
 
-	if &cfg.MotionConfig.MatchingCfg == nil {
+	if cfg.MotionConfig.MatchingCfg == nil {
 		return utils.NewConfigValidationError(path,
 			errors.New("no matching config found in motion_estimation_config"))
 	}
 
-	if &cfg.MotionConfig.CamIntrinsics == nil {
+	if cfg.MotionConfig.CamIntrinsics == nil {
 		return utils.NewConfigValidationError(path,
 			errors.New("no camera_instrinsics config found in motion_estimation_config"))
 	}
 
-	if &cfg.MotionConfig.ScaleEstimatorCfg == nil {
+	if cfg.MotionConfig.ScaleEstimatorCfg == nil {
 		return utils.NewConfigValidationError(path,
 			errors.New("no scale_estimator config found in motion_estimation_config"))
 	}
 
-	if &cfg.MotionConfig.CamHeightGround == nil {
+	if cfg.MotionConfig.CamHeightGround == 0 {
 		return utils.NewConfigValidationError(path,
-			errors.New("no camera_height from gorund specified in motion_estimation_config"))
+			errors.New("set camera_height from ground to 0 by default"))
 	}
-	if &cfg.MotionConfig.KeyPointCfg.BRIEFConf == nil {
+	if cfg.MotionConfig.KeyPointCfg.BRIEFConf == nil {
 		return utils.NewConfigValidationError(path,
 			errors.New("no BRIEF Config found in motion_estimation_config"))
 	}
@@ -91,7 +91,7 @@ func init() {
 				config config.Component,
 				logger golog.Logger,
 			) (interface{}, error) {
-				return newCameraMono(ctx, deps, config, logger)
+				return newCameraMono(deps, config, logger)
 			},
 		})
 	config.RegisterComponentAttributeMapConverter(
@@ -112,11 +112,11 @@ type cameramono struct {
 	motion                  *odometry.Motion3D
 	output                  chan *odometry.Motion3D
 	logger                  golog.Logger
-	result                  Result
+	result                  result
 	lastErr                 error
 }
 
-type Result struct {
+type result struct {
 	trackedPos    r3.Vector
 	trackedOrient spatialmath.Orientation
 	angVel        spatialmath.AngularVelocity
@@ -124,7 +124,6 @@ type Result struct {
 }
 
 func newCameraMono(
-	ctx context.Context,
 	deps registry.Dependencies,
 	config config.Component,
 	logger golog.Logger,
@@ -143,19 +142,23 @@ func newCameraMono(
 		return nil, err
 	}
 
-	ctx = context.Background()
+	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	co := &cameramono{
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
-		result: Result{
+		result: result{
 			trackedPos:    r3.Vector{X: 0, Y: 0, Z: 0},
 			trackedOrient: spatialmath.NewOrientationVector(),
 		},
 	}
 
-	co.backgroundWorker(cam, gostream.NewEmbeddedVideoStream(cam), conf.MotionConfig)
+	err = co.backgroundWorker(cam, gostream.NewEmbeddedVideoStream(cam), conf.MotionConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	return co, co.lastErr
 }
 
@@ -163,14 +166,13 @@ func (co *cameramono) backgroundWorker(cam camera.Camera, stream gostream.VideoS
 	defer func() { utils.UncheckedError(stream.Close(context.Background())) }()
 	co.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		sImg, sT, err := co.getStreamedImage(stream, cam)
+		sImg, sT, err := co.getReadImage(cam)
 		if err != nil {
 			co.lastErr = err
 			return
 		}
 		for {
-
-			eImg, eT, err := co.getStreamedImage(stream, cam)
+			eImg, eT, err := co.getStreamedImage(stream)
 			if err != nil {
 				co.lastErr = err
 				return
@@ -192,13 +194,16 @@ func (co *cameramono) backgroundWorker(cam camera.Camera, stream gostream.VideoS
 
 			sImg = eImg
 			sT = eT
-
 		}
 	}, co.activeBackgroundWorkers.Done)
 	return co.lastErr
 }
 
-func (co *cameramono) extractMovementFromOdometer(start, end *rimage.Image, dt float64, cfg *odometry.MotionEstimationConfig) (*odometry.Motion3D, error) {
+func (co *cameramono) extractMovementFromOdometer(
+	start, end *rimage.Image,
+	dt float64,
+	cfg *odometry.MotionEstimationConfig,
+) (*odometry.Motion3D, error) {
 	motion, _, err := odometry.EstimateMotionFrom2Frames(start, end, cfg, co.logger)
 	if err != nil {
 		motion = co.motion
@@ -237,9 +242,10 @@ func (co *cameramono) getReadImage(cam camera.Camera) (*rimage.Image, time.Time,
 	return rimg, t, err
 }
 
-func (co *cameramono) getStreamedImage(stream gostream.VideoStream, cam camera.Camera) (*rimage.Image, time.Time, error) {
+func (co *cameramono) getStreamedImage(stream gostream.VideoStream) (*rimage.Image, time.Time, error) {
 	t := time.Now()
-	img, _, err := stream.Next(co.cancelCtx)
+	img, release, err := stream.Next(co.cancelCtx)
+	defer release()
 	if err != nil && errors.Is(err, context.Canceled) {
 		return nil, t, err
 	}
