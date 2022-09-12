@@ -44,7 +44,8 @@ func TestBoatConfig(t *testing.T) {
 	test.That(t, g.linearY, test.ShouldBeGreaterThan, .9)
 	test.That(t, g.angular, test.ShouldBeLessThan, .1)
 
-	powers := cfg.computePower(r3.Vector{0, 1, 0}, r3.Vector{})
+	powers, err := cfg.computePower(r3.Vector{0, 1, 0}, r3.Vector{})
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, powers[0], test.ShouldAlmostEqual, 1, testTheta)
 	test.That(t, powers[1], test.ShouldAlmostEqual, 1, testTheta)
 	test.That(t, powers[2], test.ShouldAlmostEqual, 1, testTheta)
@@ -52,7 +53,8 @@ func TestBoatConfig(t *testing.T) {
 	test.That(t, powers[4], test.ShouldAlmostEqual, 0, testTheta)
 	test.That(t, powers[5], test.ShouldAlmostEqual, 0, testTheta)
 
-	powers = cfg.computePower(r3.Vector{0, -1, 0}, r3.Vector{})
+	powers, err = cfg.computePower(r3.Vector{0, -1, 0}, r3.Vector{})
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, powers[0], test.ShouldAlmostEqual, -1, testTheta)
 	test.That(t, powers[1], test.ShouldAlmostEqual, -1, testTheta)
 	test.That(t, powers[2], test.ShouldAlmostEqual, -1, testTheta)
@@ -60,7 +62,8 @@ func TestBoatConfig(t *testing.T) {
 	test.That(t, powers[4], test.ShouldAlmostEqual, 0, testTheta)
 	test.That(t, powers[5], test.ShouldAlmostEqual, 0, testTheta)
 
-	powers = cfg.computePower(r3.Vector{0, 0, 0}, r3.Vector{Z: 1})
+	powers, err = cfg.computePower(r3.Vector{0, 0, 0}, r3.Vector{Z: 1})
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, powers[0], test.ShouldAlmostEqual, 1, testTheta)
 	test.That(t, powers[1], test.ShouldAlmostEqual, -1, testTheta)
 	test.That(t, powers[2], test.ShouldAlmostEqual, 0, testTheta)
@@ -68,7 +71,8 @@ func TestBoatConfig(t *testing.T) {
 	test.That(t, powers[4], test.ShouldAlmostEqual, 0, testTheta)
 	test.That(t, powers[5], test.ShouldAlmostEqual, 0, testTheta)
 
-	powers = cfg.computePower(r3.Vector{0, 0, 0}, r3.Vector{Z: -1})
+	powers, err = cfg.computePower(r3.Vector{0, 0, 0}, r3.Vector{Z: -1})
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, powers[0], test.ShouldAlmostEqual, -1, testTheta)
 	test.That(t, powers[1], test.ShouldAlmostEqual, 1, testTheta)
 	test.That(t, powers[2], test.ShouldAlmostEqual, 0, testTheta)
@@ -91,42 +95,51 @@ func TestBoatConfig(t *testing.T) {
 	})
 
 	l, a := r3.Vector{1, 0, 0}, r3.Vector{}
-	powers = cfg.computePower(l, a)
+	powers, err = cfg.computePower(l, a)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg.computePowerOutput(powers), weightsAlmostEqual, cfg.computeGoal(l, a))
 
 	l, a = r3.Vector{0, 1, 0}, r3.Vector{}
-	powers = cfg.computePower(l, a)
+	powers, err = cfg.computePower(l, a)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg.computePowerOutput(powers), weightsAlmostEqual, cfg.computeGoal(l, a))
 
 	l, a = r3.Vector{-.5, 1, 0}, r3.Vector{}
-	powers = cfg.computePower(l, a)
+	powers, err = cfg.computePower(l, a)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg.computePowerOutput(powers), weightsAlmostEqual, cfg.computeGoal(l, a))
 
 	l, a = r3.Vector{}, r3.Vector{Z: .125}
-	powers = cfg.computePower(l, a)
+	powers, err = cfg.computePower(l, a)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg.computePowerOutput(powers), weightsAlmostEqual, cfg.computeGoal(l, a))
 
 	l, a = r3.Vector{X: 1, Y: 1}, r3.Vector{}
-	powers = cfg.computePower(l, a)
+	powers, err = cfg.computePower(l, a)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg.computePowerOutput(powers), weightsAlmostEqual, cfg.computeGoal(l, a))
 	test.That(t, powers[0]+powers[1]+powers[2]+-1*powers[3], test.ShouldAlmostEqual, powers[4]+-1*powers[5], .01)
 
 	l, a = r3.Vector{X: .2, Y: 1}, r3.Vector{}
-	powers = cfg.computePower(l, a)
+	powers, err = cfg.computePower(l, a)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg.computePowerOutput(powers), weightsAlmostEqual, cfg.computeGoal(l, a))
 
 	l, a = r3.Vector{X: -1, Y: -1}, r3.Vector{}
-	powers = cfg.computePower(l, a)
+	powers, err = cfg.computePower(l, a)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg.computePowerOutput(powers), weightsAlmostEqual, cfg.computeGoal(l, a))
 	test.That(t, powers[0]+powers[1]+powers[2]+-1*powers[3], test.ShouldAlmostEqual, powers[4]+-1*powers[5], .01)
 
 	l, a = r3.Vector{X: -.9, Y: -.9}, r3.Vector{}
-	powers = cfg.computePower(l, a)
+	powers, err = cfg.computePower(l, a)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfg.computePowerOutput(powers), weightsAlmostEqual, cfg.computeGoal(l, a))
 	test.That(t, powers[0]+powers[1]+powers[2]+-1*powers[3], test.ShouldAlmostEqual, powers[4]+-1*powers[5], .01)
 
 	l, a = r3.Vector{X: 0, Y: 1}, r3.Vector{Z: .05}
-	powers = cfg.computePower(l, a)
+	powers, err = cfg.computePower(l, a)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, powers[4]+powers[5], test.ShouldAlmostEqual, 0, .0001)
 	test.That(t, powers[0]+powers[1]+powers[2]+-1*powers[3], test.ShouldBeGreaterThan, 3.5)
 }

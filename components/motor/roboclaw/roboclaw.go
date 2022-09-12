@@ -4,6 +4,7 @@ package roboclaw
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/CPRT/roboclaw"
@@ -25,6 +26,10 @@ type roboclawConfig struct {
 	Number           int // this is 1 or 2
 	Address          int `json:"address,omitempty"`
 	TicksPerRotation int `json:"ticks_per_rotation"`
+}
+
+func (mc *roboclawConfig) wrongNumberError() error {
+	return fmt.Errorf("roboclawConfig Number has to be 1 or 2, but is %d", mc.Number)
 }
 
 func init() {
@@ -78,7 +83,7 @@ func newRoboClaw(deps registry.Dependencies, config config.Component, logger gol
 	}
 
 	if motorConfig.Number < 1 || motorConfig.Number > 2 {
-		return nil, errors.New("roboclawConfig Number has to be 1 or 2")
+		return nil, motorConfig.wrongNumberError()
 	}
 
 	if motorConfig.Address == 0 {
@@ -120,7 +125,7 @@ func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra ma
 	case 2:
 		return m.conn.DutyM2(m.addr, int16(powerPct*32767))
 	default:
-		panic("impossible")
+		return m.conf.wrongNumberError()
 	}
 }
 
@@ -139,7 +144,7 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 	case 2:
 		err = m.conn.SpeedDistanceM2(m.addr, ticksPerSecond, ticks, true)
 	default:
-		panic("impossible")
+		return m.conf.wrongNumberError()
 	}
 	if err != nil {
 		return err
@@ -163,7 +168,7 @@ func (m *roboclawMotor) ResetZeroPosition(ctx context.Context, offset float64, e
 	case 2:
 		return m.conn.SetEncM2(m.addr, newTicks)
 	default:
-		panic("impossible")
+		return m.conf.wrongNumberError()
 	}
 }
 
@@ -177,7 +182,7 @@ func (m *roboclawMotor) GetPosition(ctx context.Context, extra map[string]interf
 	case 2:
 		ticks, _, err = m.conn.ReadEncM2(m.addr)
 	default:
-		panic("impossible")
+		return 0, m.conf.wrongNumberError()
 	}
 	if err != nil {
 		return 0, err
@@ -210,7 +215,7 @@ func (m *roboclawMotor) IsPowered(ctx context.Context, extra map[string]interfac
 	case 2:
 		return pow2 == 0, nil
 	default:
-		panic("impossible")
+		return false, m.conf.wrongNumberError()
 	}
 }
 
