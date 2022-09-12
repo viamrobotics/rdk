@@ -521,33 +521,31 @@ func (svc *dataManagerService) syncAdditionalSyncPaths() {
 
 // TODO: DATA-304, create a way for other services to check when their specified models
 // are ready to be used.
-// edit here
-// maybe this function should return an error that is then logged in the return within Update()
-func check(ctx context.Context, cfg *config.Config, logger *zap.SugaredLogger) {
-	otherSvcConfig, _, _ := getOtherServiceConfig(cfg) // check things here
-	for i := range otherSvcConfig.Detectors {
-		locationCheck := otherSvcConfig.Detectors[i].Parameters.Location
+func modelServiceCheck(ctx context.Context, cfg *OtherConfig, logger *zap.SugaredLogger) {
+
+	for i := range cfg.Detectors {
+		locationCheck := cfg.Detectors[i].Parameters.Location
 		// check if service model location exists
 		_, err := os.Stat(locationCheck)
 		if errors.Is(err, os.ErrNotExist) {
 			logger.Warn("Please deploy model first.")
+			// should we error instead?
 			return
 		}
 		// check for partial download
 		files, _ := ioutil.ReadDir(locationCheck)
 		if len(files) == 0 {
+			// should we error instead?
 			logger.Warn("There was a partial download. Model not yet available.")
 			return
 		}
-		logger.Infof(otherSvcConfig.Detectors[i].Name, "has been downloaded and is ready to use.")
+		logger.Infof(cfg.Detectors[i].Name, "has been downloaded and is ready to use.")
 	}
 }
 
 // Update updates the data manager service when the config has changed.
 func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) error {
-	// fmt.Println("do we make it here?0")
 	svcConfig, ok, err := getServiceConfig(cfg)
-	// fmt.Println("do we make it here?1")
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
 	// Close any collectors.
 	if !ok {
@@ -572,7 +570,13 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 			svc.logger.Errorf("can't download models_on_robot in config", "error", err)
 		}
 	}
-	check(ctx, cfg, svc.logger)
+	// other services check if their specified models are ready to be used.
+	otherSvcConfig, ok, err := getOtherServiceConfig(cfg)
+	if !ok {
+		svc.closeCollectors()
+		return err
+	}
+	modelServiceCheck(ctx, otherSvcConfig, svc.logger)
 
 	toggledCaptureOff := (svc.captureDisabled != svcConfig.CaptureDisabled) && svcConfig.CaptureDisabled
 	svc.captureDisabled = svcConfig.CaptureDisabled
@@ -740,6 +744,7 @@ func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 	return &reconfigurableDataManager{actual: svc}, nil
 }
 
+//here
 // Get the config associated with the data manager service.
 // Returns a boolean for whether a config is returned and an error if the
 // config was incorrectly formatted.

@@ -362,7 +362,8 @@ func TestDeployModels(t *testing.T) {
 	files, err := ioutil.ReadDir(filepath.Join(defaultModelDir, models[0].Name))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(files), test.ShouldEqual, 1)
-	b, _ := deepCompare(filepath.Join(defaultModelDir, models[0].Name, "READYOU.txt"), "README.txt")
+	b, err := deepCompare(filepath.Join(defaultModelDir, models[0].Name, "READYOU.txt"), "README.txt")
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, b, test.ShouldBeTrue)
 	err = os.Remove("README.txt")
 	test.That(t, err, test.ShouldBeNil)
@@ -408,6 +409,7 @@ func deepCompare(file1, file2 string) (bool, error) {
 	}
 }
 
+// Explanation of function here
 func TestService(t *testing.T) {
 	testCfg := setupConfig(t, "etc/configs/fakest.json")
 	dmsvc := newTestDataManager(t, "arm1", "")
