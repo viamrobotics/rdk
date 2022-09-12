@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/eva"
+	ur "go.viam.com/rdk/components/arm/universalrobots"
 	"go.viam.com/rdk/components/arm/xarm"
 	"go.viam.com/rdk/components/arm/yahboom"
 	"go.viam.com/rdk/components/generic"
@@ -26,7 +27,7 @@ import (
 // ModelName is the string used to refer to the fake arm model.
 const ModelName = "fake"
 
-//go:embed arm_model.json
+//go:embed fake_model.json
 var fakeModelJSON []byte
 
 // AttrConfig is used for converting config attributes.
