@@ -75,7 +75,6 @@ func (g *Gantry) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel()
 	f, err := referenceframe.NewTranslationalFrame(g.name, g.axis, referenceframe.Limit{0, g.lengthMeters})
 	if err != nil {
-		// TODO(RSDK-548): can we return an error instead of panicking?
 		panic(fmt.Errorf("error creating frame: %w", err))
 	}
 	m.OrdTransforms = append(m.OrdTransforms, f)
