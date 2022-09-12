@@ -7,6 +7,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/gripper"
+
 	// register.
 	_ "go.viam.com/rdk/components/register"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
