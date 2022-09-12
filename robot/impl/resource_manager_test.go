@@ -724,7 +724,7 @@ func TestManagerNewComponent(t *testing.T) {
 		logger:  logger,
 		config:  cfg,
 	}
-	diff, err := config.DiffConfigs(config.Config{}, *cfg)
+	diff, err := config.DiffConfigs(config.Config{}, *cfg, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robotForRemote.manager.updateResources(context.Background(), diff, func(name string) (resource.Name, bool) {
 		for _, c := range cfg.Components {
@@ -1333,7 +1333,7 @@ func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 
 	ctx := context.Background()
 
-	r, err := New(ctx, cfg, logger)
+	r, err := New(ctx, cfg, logger, true)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
@@ -1591,7 +1591,7 @@ func TestUpdateConfig(t *testing.T) {
 
 	ctx := context.Background()
 
-	r, err := New(ctx, cfg, logger)
+	r, err := New(ctx, cfg, logger, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r, test.ShouldNotBeNil)
 

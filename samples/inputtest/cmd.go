@@ -34,6 +34,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		ctx,
 		cfg,
 		logger,
+		true,
 		robotimpl.WithWebOptions(web.WithStreamConfig(x264.DefaultStreamConfig)),
 	)
 	if err != nil {

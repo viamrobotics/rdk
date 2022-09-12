@@ -114,7 +114,7 @@ func connect(ctx context.Context, simulation bool) (robotClient robot.Robot, xAr
 		robotClient, err = robotimpl.RobotFromResources(ctx, map[resource.Name]interface{}{
 			arm.Named(armName):  xArm,
 			arm.Named(fakeName): fakeArm,
-		}, logger)
+		}, logger, true)
 		if err != nil {
 			return nil, nil, err
 		}

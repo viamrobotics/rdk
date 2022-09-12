@@ -23,7 +23,7 @@ func setupNewLocalRobot(t *testing.T) robot.LocalRobot {
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	r, err := robotimpl.New(context.Background(), cfg, logger)
+	r, err := robotimpl.New(context.Background(), cfg, logger, true)
 	test.That(t, err, test.ShouldBeNil)
 	return r
 }

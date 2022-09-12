@@ -25,7 +25,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
-	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
+	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger, true)
 	if err != nil {
 		return err
 	}

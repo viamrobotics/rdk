@@ -27,7 +27,7 @@ import (
 func createService(t *testing.T, filePath string) (vision.Service, robot.Robot) {
 	t.Helper()
 	logger := golog.NewTestLogger(t)
-	r, err := robotimpl.RobotFromConfigPath(context.Background(), filePath, logger)
+	r, err := robotimpl.RobotFromConfigPath(context.Background(), filePath, logger, true)
 	test.That(t, err, test.ShouldBeNil)
 	srv, err := vision.FirstFromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
@@ -81,7 +81,7 @@ func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
 	newConfFile := writeTempConfig(t, cfg)
 	defer os.Remove(newConfFile)
 	// make the robot from new config and get the service
-	r, err := robotimpl.RobotFromConfigPath(context.Background(), newConfFile, logger)
+	r, err := robotimpl.RobotFromConfigPath(context.Background(), newConfFile, logger, true)
 	test.That(t, err, test.ShouldBeNil)
 	srv, err := vision.FirstFromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
