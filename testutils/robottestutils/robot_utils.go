@@ -11,7 +11,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/robot/client"
 	weboptions "go.viam.com/rdk/robot/web/options"
 )
 
