@@ -264,9 +264,6 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		MethodName: attributes.Method,
 	}
 
-	fmt.Println("what does Sprintf prints out")
-	fmt.Println(fmt.Sprintf("%v", attributes.AdditionalParams))
-
 	componentMetadata := componentMethodMetadata{
 		ComponentName:  attributes.Name,
 		ComponentModel: attributes.Model,
@@ -439,7 +436,6 @@ func (svc *dataManagerService) syncDataCaptureFiles() error {
 		attributes := collector.Attributes
 		captureMetadata, err := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
 			attributes.Model, attributes.Method, attributes.AdditionalParams, attributes.Tags)
-
 		if err != nil {
 			return err
 		}
