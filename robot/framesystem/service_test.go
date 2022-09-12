@@ -36,7 +36,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	r, err := robotimpl.New(context.Background(), cfg, logger)
+	r, err := robotimpl.New(context.Background(), cfg, logger, true)
 	test.That(t, err, test.ShouldBeNil)
 	defer r.Close(context.Background())
 
@@ -253,7 +253,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	cfg, err = config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	r, err := robotimpl.New(context.Background(), cfg, logger)
+	r, err := robotimpl.New(context.Background(), cfg, logger, true)
 	test.That(t, err, test.ShouldBeNil)
 	defer r.Close(context.Background())
 
@@ -280,7 +280,7 @@ func TestServiceWithRemote(t *testing.T) {
 	remoteConfig, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 	ctx := context.Background()
-	remoteRobot, err := robotimpl.New(ctx, remoteConfig, logger)
+	remoteRobot, err := robotimpl.New(ctx, remoteConfig, logger, true)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, remoteRobot.Close(context.Background()), test.ShouldBeNil)
@@ -385,7 +385,7 @@ func TestServiceWithRemote(t *testing.T) {
 		},
 	}
 
-	r2, err := robotimpl.New(context.Background(), localConfig, logger)
+	r2, err := robotimpl.New(context.Background(), localConfig, logger, true)
 	test.That(t, err, test.ShouldBeNil)
 	fs, err := framesystem.RobotFrameSystem(context.Background(), r2, transformMsgs)
 	test.That(t, err, test.ShouldBeNil)

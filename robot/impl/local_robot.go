@@ -62,6 +62,7 @@ type localRobot struct {
 	closeContext   context.Context
 	triggerConfig  chan bool
 	configTimer    *time.Ticker
+	displayDiffs   bool
 }
 
 // webService returns the localRobot's web service. Raises if the service has not been initialized.
@@ -336,6 +337,7 @@ func newWithResources(
 	cfg *config.Config,
 	resources map[resource.Name]interface{},
 	logger golog.Logger,
+	allowRevealSensitiveDiffs bool,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
 	var rOpts options
@@ -362,6 +364,7 @@ func newWithResources(
 		defaultServicesNames:    make(map[resource.Subtype]resource.Name),
 		triggerConfig:           make(chan bool),
 		configTimer:             nil,
+		displayDiffs:            allowRevealSensitiveDiffs,
 	}
 
 	var successful bool
@@ -474,8 +477,14 @@ func newWithResources(
 }
 
 // New returns a new robot with parts sourced from the given config.
-func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...Option) (robot.LocalRobot, error) {
-	return newWithResources(ctx, cfg, nil, logger, opts...)
+func New(
+	ctx context.Context,
+	cfg *config.Config,
+	logger golog.Logger,
+	allowRevealSensitiveDiffs bool,
+	opts ...Option,
+) (robot.LocalRobot, error) {
+	return newWithResources(ctx, cfg, nil, logger, allowRevealSensitiveDiffs, opts...)
 }
 
 func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
@@ -617,23 +626,35 @@ func (r *localRobot) TransformPose(
 }
 
 // RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
-func RobotFromConfigPath(ctx context.Context, cfgPath string, logger golog.Logger, opts ...Option) (robot.LocalRobot, error) {
+func RobotFromConfigPath(
+	ctx context.Context,
+	cfgPath string,
+	logger golog.Logger,
+	allowRevealSensitiveDiffs bool,
+	opts ...Option,
+) (robot.LocalRobot, error) {
 	cfg, err := config.Read(ctx, cfgPath, logger)
 	if err != nil {
 		logger.Error("cannot read config")
 		return nil, err
 	}
-	return RobotFromConfig(ctx, cfg, logger, opts...)
+	return RobotFromConfig(ctx, cfg, logger, allowRevealSensitiveDiffs, opts...)
 }
 
 // RobotFromConfig is a helper to process a config and then create a robot based on it.
-func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...Option) (robot.LocalRobot, error) {
+func RobotFromConfig(
+	ctx context.Context,
+	cfg *config.Config,
+	logger golog.Logger,
+	allowRevealSensitiveDiffs bool,
+	opts ...Option,
+) (robot.LocalRobot, error) {
 	tlsConfig := config.NewTLSConfig(cfg)
 	processedCfg, err := config.ProcessConfig(cfg, tlsConfig)
 	if err != nil {
 		return nil, err
 	}
-	return New(ctx, processedCfg, logger, opts...)
+	return New(ctx, processedCfg, logger, allowRevealSensitiveDiffs, opts...)
 }
 
 // RobotFromResources creates a new robot consisting of the given resources. Using RobotFromConfig is preferred
@@ -642,9 +663,10 @@ func RobotFromResources(
 	ctx context.Context,
 	resources map[resource.Name]interface{},
 	logger golog.Logger,
+	allowRevealSensitiveDiffs bool,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
-	return newWithResources(ctx, &config.Config{}, resources, logger)
+	return newWithResources(ctx, &config.Config{}, resources, logger, allowRevealSensitiveDiffs, opts...)
 }
 
 // DiscoverComponents takes a list of discovery queries and returns corresponding
@@ -708,7 +730,7 @@ func dialRobotClient(ctx context.Context,
 // possibly leak resources.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
 	var allErrs error
-	diff, err := config.DiffConfigs(*r.config, *newConfig)
+	diff, err := config.DiffConfigs(*r.config, *newConfig, r.displayDiffs)
 	if err != nil {
 		r.logger.Errorw("error diffing the configs", "error", err)
 		return
@@ -716,7 +738,10 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if diff.ResourcesEqual {
 		return
 	}
-	r.logger.Debugf("(re)configuring with %+v", diff)
+
+	if r.displayDiffs {
+		r.logger.Debugf("(re)configuring with %+v", diff)
+	}
 	// First we remove resources and their children that are not in the graph.
 	filtered, err := r.manager.FilterFromConfig(ctx, diff.Removed, r.logger)
 	if err != nil {

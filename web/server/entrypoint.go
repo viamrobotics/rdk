@@ -33,6 +33,7 @@ type Arguments struct {
 	Version            bool   `flag:"version,usage=print version"`
 	WebProfile         bool   `flag:"webprofile,usage=include profiler in http server"`
 	WebRTC             bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
+	ShowConfigDiff     bool   `flag:"show-diff,usage=show config diffs"`
 }
 
 // RunServer is an entry point to starting the web server that can be called by main in a code
@@ -188,6 +189,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		ctx,
 		processedConfig,
 		logger,
+		argsParsed.ShowConfigDiff,
 		robotimpl.WithWebOptions(web.WithStreamConfig(streamConfig)),
 	)
 	if err != nil {
@@ -226,7 +228,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 				myRobot.Reconfigure(ctx, processedConfig)
 
 				// restart web service if necessary
-				diff, err := config.DiffConfigs(*oldCfg, *processedConfig)
+				diff, err := config.DiffConfigs(*oldCfg, *processedConfig, argsParsed.ShowConfigDiff)
 				if err != nil {
 					logger.Errorw("error diffing config", "error", err)
 					continue
