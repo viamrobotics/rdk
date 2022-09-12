@@ -58,10 +58,11 @@ type localRobot struct {
 	activeBackgroundWorkers *sync.WaitGroup
 	cancelBackgroundWorkers func()
 
-	remotesChanged chan string
-	closeContext   context.Context
-	triggerConfig  chan bool
-	configTimer    *time.Ticker
+	remotesChanged             chan string
+	closeContext               context.Context
+	triggerConfig              chan bool
+	configTimer                *time.Ticker
+	revealSensitiveConfigDiffs bool
 }
 
 // webService returns the localRobot's web service. Raises if the service has not been initialized.
@@ -353,15 +354,16 @@ func newWithResources(
 			},
 			logger,
 		),
-		operations:              operation.NewManager(),
-		logger:                  logger,
-		remotesChanged:          make(chan string),
-		activeBackgroundWorkers: &sync.WaitGroup{},
-		closeContext:            closeCtx,
-		cancelBackgroundWorkers: cancel,
-		defaultServicesNames:    make(map[resource.Subtype]resource.Name),
-		triggerConfig:           make(chan bool),
-		configTimer:             nil,
+		operations:                 operation.NewManager(),
+		logger:                     logger,
+		remotesChanged:             make(chan string),
+		activeBackgroundWorkers:    &sync.WaitGroup{},
+		closeContext:               closeCtx,
+		cancelBackgroundWorkers:    cancel,
+		defaultServicesNames:       make(map[resource.Subtype]resource.Name),
+		triggerConfig:              make(chan bool),
+		configTimer:                nil,
+		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
 	}
 
 	var successful bool
@@ -474,7 +476,12 @@ func newWithResources(
 }
 
 // New returns a new robot with parts sourced from the given config.
-func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...Option) (robot.LocalRobot, error) {
+func New(
+	ctx context.Context,
+	cfg *config.Config,
+	logger golog.Logger,
+	opts ...Option,
+) (robot.LocalRobot, error) {
 	return newWithResources(ctx, cfg, nil, logger, opts...)
 }
 
@@ -644,7 +651,7 @@ func RobotFromResources(
 	logger golog.Logger,
 	opts ...Option,
 ) (robot.LocalRobot, error) {
-	return newWithResources(ctx, &config.Config{}, resources, logger)
+	return newWithResources(ctx, &config.Config{}, resources, logger, opts...)
 }
 
 // DiscoverComponents takes a list of discovery queries and returns corresponding
@@ -708,7 +715,7 @@ func dialRobotClient(ctx context.Context,
 // possibly leak resources.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
 	var allErrs error
-	diff, err := config.DiffConfigs(*r.config, *newConfig)
+	diff, err := config.DiffConfigs(*r.config, *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.Errorw("error diffing the configs", "error", err)
 		return
@@ -716,7 +723,10 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if diff.ResourcesEqual {
 		return
 	}
-	r.logger.Debugf("(re)configuring with %+v", diff)
+
+	if r.revealSensitiveConfigDiffs {
+		r.logger.Debugf("(re)configuring with %+v", diff)
+	}
 	// First we remove resources and their children that are not in the graph.
 	filtered, err := r.manager.FilterFromConfig(ctx, diff.Removed, r.logger)
 	if err != nil {
