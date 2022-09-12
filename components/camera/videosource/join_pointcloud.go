@@ -360,7 +360,7 @@ func (jpcs *joinPointCloudSource) initializeInputs(
 	inputs := referenceframe.StartPositions(fs)
 
 	for k, original := range inputs {
-		if strings.HasSuffix(k, "_offset") {
+		if strings.HasSuffix(k, "_origin") {
 			continue
 		}
 		if len(original) == 0 {
