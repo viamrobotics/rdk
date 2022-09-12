@@ -248,8 +248,6 @@ func (b *boat) setPowerInternal(ctx context.Context, linear, angular r3.Vector) 
 		return err
 	}
 
-	// b.logger.Debugf("setPowerInternal %0.2f %0.2f %0.2f computePower: %v", linear.X, linear.Y, angular.Z, power)
-
 	for idx, p := range power {
 		err := b.motors[idx].SetPower(ctx, p, nil)
 		if err != nil {
