@@ -1005,7 +1005,7 @@ func TestRobotReconfigure(t *testing.T) {
 		cempty := ConfigFromFile(t, "data/diff_config_empty.json")
 		conf6 := ConfigFromFile(t, "data/diff_config_deps6.json")
 		ctx := context.Background()
-		robot, err := New(ctx, cempty, logger, true)
+		robot, err := New(ctx, cempty, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
@@ -2378,7 +2378,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 
 	ctx := context.Background()
 
-	remote1, err := New(ctx, cfg, loggerR, true)
+	remote1, err := New(ctx, cfg, loggerR)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, remote1.Close(context.Background()), test.ShouldBeNil)
@@ -2388,7 +2388,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 	err = remote1.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	remote2, err := New(ctx, cfg, loggerR, true)
+	remote2, err := New(ctx, cfg, loggerR)
 	test.That(t, err, test.ShouldBeNil)
 
 	options, listener2, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -2423,7 +2423,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 		},
 	}
 	logger := golog.NewDevelopmentLogger("local")
-	r, err := New(ctx, localConfig, logger, true)
+	r, err := New(ctx, localConfig, logger)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), r), test.ShouldBeNil)
 	}()
@@ -2508,7 +2508,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 		),
 	)
 
-	remote3, err := New(ctx, cfg, loggerR, true)
+	remote3, err := New(ctx, cfg, loggerR)
 	test.That(t, err, test.ShouldBeNil)
 
 	defer func() {
