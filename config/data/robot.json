@@ -1,45 +1,45 @@
 {
-  "remotes": [
-    {
-      "name": "one",
-      "address": "foo",
-      "prefix": true
-    },
-    {
-      "name": "two",
-      "address": "bar"
-    }
-  ],
-  "components": [
-    {
-      "host": "10.237.115.65",
-      "model": "ur",
-      "name": "pieceArm",
-      "type": "arm"
-    },
-    {
-      "host": "10.237.115.65",
-      "model": "robotiq",
-      "name": "pieceGripper",
-      "type": "gripper"
-    },
-    {
-      "model": "single_stream",
-      "name": "cameraOver",
-      "type": "camera",
-      "attributes": {
-          "host": "10.237.115.131",
-          "port": 8181,
-          "stream": "both"
-      }
-    },
-    {
-      "attributes": {
-        "color": "http://10.237.115.65:4242/current.jpg"
-      },
-      "model": "url",
-      "name": "wristCam",
-      "type": "camera"
-    }
-  ]
+    "remotes": [
+        {
+            "name": "one",
+            "address": "foo",
+            "prefix": true
+        },
+        {
+            "name": "two",
+            "address": "bar"
+        }
+    ],
+    "components": [
+        {
+            "name": "pieceArm",
+            "type": "arm",
+            "model": "ur",
+            "host": "10.237.115.65"
+        },
+        {
+            "name": "pieceGripper",
+            "type": "gripper",
+            "model": "robotiq",
+            "host": "10.237.115.65"
+        },
+        {
+            "name": "cameraOver",
+            "type": "camera",
+            "model": "single_stream",
+            "attributes": {
+                "host": "10.237.115.131",
+                "port": 8181,
+                "stream": "both"
+            }
+        },
+        {
+            "name": "wristCam",
+            "type": "camera",
+            "model": "url",
+            "attributes": {
+                "color": "http://10.237.115.65:4242/current.jpg"
+            }
+        }
+    ]
 }

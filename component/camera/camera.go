@@ -72,6 +72,14 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
+// Properties is a lookup for a camera's features and settings.
+type Properties struct {
+	// SupportsPCD indicates that the Camera supports a valid
+	// implementation of NextPointCloud
+	SupportsPCD     bool
+	IntrinsicParams *transform.PinholeCameraIntrinsics
+}
+
 // A Camera represents anything that can capture frames.
 type Camera interface {
 	generic.Generic
@@ -84,6 +92,9 @@ type Camera interface {
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
 	// a part of a sequence. In the future, there could be streaming of point clouds.
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
+	// GetProperties returns properties that are intrinsic to the particular
+	// implementation of a camera
+	GetProperties(ctx context.Context) (Properties, error)
 	Close(ctx context.Context) error
 }
 
@@ -101,91 +112,83 @@ type PointCloudSource interface {
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
 }
 
-// GetProjector either gets the camera parameters from the config, or if the camera has a parent source,
-// can copy over the projector from there. If the camera doesn't have a projector, will return false.
-func GetProjector(ctx context.Context, attrs *AttrConfig, parentSource Camera) (rimage.Projector, bool) {
-	// if the camera parameters are specified in the config, those get priority.
-	if attrs != nil && attrs.CameraParameters != nil {
-		return attrs.CameraParameters, true
-	}
-	// inherit camera parameters from source camera if possible.
-	if parentSource != nil {
-		proj, err := parentSource.Projector(ctx)
-		if errors.Is(err, transform.ErrNoIntrinsics) {
-			return nil, false
-		} else if err != nil {
-			panic(err)
-		}
-		return proj, true
-	}
-	return nil, false
-}
-
-// NewFromReader creates a Camera either with or without a projector.
-func NewFromReader(reader gostream.VideoReader, proj rimage.Projector) (Camera, error) {
+// NewFromReader creates a Camera either with or without a projector. The stream type
+// argument is for detecting whether or not the resulting camera supports return
+// of pointcloud data in the absence of an implemented NextPointCloud function.
+// If this is unknown or not applicable, a value of camera.Unspecified stream can be supplied.
+func NewFromReader(
+	ctx context.Context,
+	reader gostream.VideoReader,
+	proj *transform.PinholeCameraIntrinsics, streamType StreamType,
+) (Camera, error) {
 	if reader == nil {
 		return nil, errors.New("cannot have a nil reader")
 	}
 	vs := gostream.NewVideoSource(reader, prop.Video{})
-	var projectorFunc func(ctx context.Context) (rimage.Projector, error)
-	if proj == nil {
-		projectorFunc = detectProjectorFunc(reader)
-	} else {
-		projectorFunc = func(_ context.Context) (rimage.Projector, error) {
-			return proj, nil
+	actualProj := proj
+	if actualProj == nil {
+		srcCam, ok := reader.(Camera)
+		if ok {
+			props, err := srcCam.GetProperties(ctx)
+			if err != nil {
+				return nil, NewGetPropertiesError("source camera")
+			}
+			actualProj = props.IntrinsicParams
 		}
 	}
 	return &videoSource{
-		projectorFunc: projectorFunc,
-		videoSource:   vs,
-		videoStream:   gostream.NewEmbeddedVideoStream(vs),
-		actualSource:  reader,
+		intrinsicParameters: actualProj,
+		videoSource:         vs,
+		videoStream:         gostream.NewEmbeddedVideoStream(vs),
+		actualSource:        reader,
+		streamType:          streamType,
 	}, nil
 }
 
-// NewFromSource creates a Camera either with or without a projector.
-func NewFromSource(source gostream.VideoSource, proj rimage.Projector) (Camera, error) {
+// NewGetPropertiesError returns an error specific to a failure in GetProperties.
+func NewGetPropertiesError(cameraIdentifier string) error {
+	return errors.Errorf("failed to get properties from %s", cameraIdentifier)
+}
+
+// NewFromSource creates a Camera either with or without a projector. The stream type
+// argument is for detecting whether or not the resulting camera supports return
+// of pointcloud data in the absence of an implemented NextPointCloud function.
+// If this is unknown or not applicable, a value of camera.Unspecified stream can be supplied.
+func NewFromSource(
+	ctx context.Context,
+	source gostream.VideoSource,
+	proj *transform.PinholeCameraIntrinsics, streamType StreamType,
+) (Camera, error) {
 	if source == nil {
 		return nil, errors.New("cannot have a nil source")
 	}
-	var projectorFunc func(ctx context.Context) (rimage.Projector, error)
-	if proj == nil {
-		projectorFunc = detectProjectorFunc(source)
-	} else {
-		projectorFunc = func(_ context.Context) (rimage.Projector, error) {
-			return proj, nil
+	actualProj := proj
+	if actualProj == nil {
+		srcCam, ok := source.(Camera)
+		if ok {
+			props, err := srcCam.GetProperties(ctx)
+			if err != nil {
+				return nil, NewGetPropertiesError("source camera")
+			}
+			actualProj = props.IntrinsicParams
 		}
 	}
 	return &videoSource{
-		projectorFunc: projectorFunc,
-		videoSource:   source,
-		videoStream:   gostream.NewEmbeddedVideoStream(source),
-		actualSource:  source,
+		intrinsicParameters: actualProj,
+		videoSource:         source,
+		videoStream:         gostream.NewEmbeddedVideoStream(source),
+		actualSource:        source,
+		streamType:          streamType,
 	}, nil
-}
-
-func detectProjectorFunc(from interface{}) func(ctx context.Context) (rimage.Projector, error) {
-	projProv, ok := from.(projectorProvider)
-	if !ok {
-		return nil
-	}
-	var getPropsOnce sync.Once
-	var props rimage.Projector
-	var propsErr error
-	return func(ctx context.Context) (rimage.Projector, error) {
-		getPropsOnce.Do(func() {
-			props, propsErr = projProv.Projector(ctx)
-		})
-		return props, propsErr
-	}
 }
 
 // videoSource implements a Camera with a gostream.VideoSource.
 type videoSource struct {
-	videoSource   gostream.VideoSource
-	videoStream   gostream.VideoStream
-	actualSource  interface{}
-	projectorFunc func(ctx context.Context) (rimage.Projector, error)
+	videoSource         gostream.VideoSource
+	videoStream         gostream.VideoStream
+	actualSource        interface{}
+	intrinsicParameters *transform.PinholeCameraIntrinsics
+	streamType          StreamType
 }
 
 func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
@@ -199,15 +202,8 @@ func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	if c, ok := vs.actualSource.(PointCloudSource); ok {
 		return c.NextPointCloud(ctx)
 	}
-	if vs.projectorFunc == nil {
+	if vs.intrinsicParameters == nil {
 		return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")
-	}
-	proj, err := vs.projectorFunc(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if proj == nil {
-		return nil, errors.New("cannot have a nil projector")
 	}
 	img, release, err := vs.videoStream.Next(ctx)
 	defer release()
@@ -218,12 +214,12 @@ func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot project to a point cloud")
 	}
-	return dm.ToPointCloud(proj), nil
+	return dm.ToPointCloud(vs.intrinsicParameters), nil
 }
 
 func (vs *videoSource) Projector(ctx context.Context) (rimage.Projector, error) {
-	if vs.projectorFunc != nil {
-		return vs.projectorFunc(ctx)
+	if vs.intrinsicParameters != nil {
+		return vs.intrinsicParameters, nil
 	}
 	return nil, transform.NewNoIntrinsicsError("No features in config")
 }
@@ -233,6 +229,18 @@ func (vs *videoSource) Do(ctx context.Context, cmd map[string]interface{}) (map[
 		return doer.Do(ctx, cmd)
 	}
 	return nil, generic.ErrUnimplemented
+}
+
+func (vs *videoSource) GetProperties(ctx context.Context) (Properties, error) {
+	_, supportsPCD := vs.actualSource.(PointCloudSource)
+	result := Properties{
+		SupportsPCD: supportsPCD,
+	}
+	if (vs.intrinsicParameters != nil) && (vs.streamType == DepthStream) {
+		result.SupportsPCD = true
+	}
+	result.IntrinsicParams = vs.intrinsicParameters
+	return result, nil
 }
 
 func (vs *videoSource) Close(ctx context.Context) error {
@@ -378,6 +386,12 @@ func (c *reconfigurableCamera) Projector(ctx context.Context) (rimage.Projector,
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.actual.Projector(ctx)
+}
+
+func (c *reconfigurableCamera) GetProperties(ctx context.Context) (Properties, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.actual.GetProperties(ctx)
 }
 
 func (c *reconfigurableCamera) Close(ctx context.Context) error {

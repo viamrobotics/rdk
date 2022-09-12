@@ -171,12 +171,23 @@ func newAlignColorDepth(ctx context.Context, color, depth camera.Camera, attrs *
 	}
 	// get the projector for the alignment camera
 	stream := camera.StreamType(attrs.Stream)
-	var proj rimage.Projector
-	switch stream {
-	case camera.ColorStream, camera.UnspecifiedStream:
-		proj, _ = camera.GetProjector(ctx, attrs.AttrConfig, color)
-	case camera.DepthStream:
-		proj, _ = camera.GetProjector(ctx, attrs.AttrConfig, depth)
+	var props camera.Properties
+	var intrinsicParams *transform.PinholeCameraIntrinsics
+	switch {
+	case attrs.AttrConfig != nil && attrs.AttrConfig.CameraParameters != nil:
+		intrinsicParams = attrs.AttrConfig.CameraParameters
+	case stream == camera.ColorStream, stream == camera.UnspecifiedStream:
+		props, err = color.GetProperties(ctx)
+		if err != nil {
+			return nil, camera.NewGetPropertiesError("color camera")
+		}
+		intrinsicParams = props.IntrinsicParams
+	case stream == camera.DepthStream:
+		props, err = depth.GetProperties(ctx)
+		if err != nil {
+			return nil, camera.NewGetPropertiesError("depth camera")
+		}
+		intrinsicParams = props.IntrinsicParams
 	default:
 		return nil, camera.NewUnsupportedStreamError(stream)
 	}
@@ -185,14 +196,14 @@ func newAlignColorDepth(ctx context.Context, color, depth camera.Camera, attrs *
 		color:     gostream.NewEmbeddedVideoStream(color),
 		depth:     gostream.NewEmbeddedVideoStream(depth),
 		aligner:   alignCamera,
-		projector: proj,
+		projector: intrinsicParams,
 		stream:    stream,
 		height:    attrs.Height,
 		width:     attrs.Width,
 		debug:     attrs.Debug,
 		logger:    logger,
 	}
-	return camera.NewFromReader(videoSrc, proj)
+	return camera.NewFromReader(ctx, videoSrc, intrinsicParams, stream)
 }
 
 // Read aligns the next images from the color and the depth sources to the frame of the color camera.

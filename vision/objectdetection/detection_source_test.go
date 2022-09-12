@@ -18,7 +18,7 @@ func TestDetectionSource(t *testing.T) {
 	// make the original source
 	sourceImg, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
-	src, err := camera.NewFromReader(&videosource.StaticSource{ColorImg: sourceImg}, nil)
+	src, err := camera.NewFromReader(context.Background(), &videosource.StaticSource{ColorImg: sourceImg}, nil, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
 	// make the preprocessing function
 	p, err := objectdetection.RemoveColorChannel("b")

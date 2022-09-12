@@ -43,21 +43,21 @@ func buildTransform(
 	case transformTypeUnspecified, transformTypeIdentity:
 		return source, nil
 	case transformTypeRotate:
-		return newRotateTransform(source, stream)
+		return newRotateTransform(ctx, source, stream)
 	case transformTypeResize:
-		return newResizeTransform(source, stream, tr.Attributes)
+		return newResizeTransform(ctx, source, stream, tr.Attributes)
 	case transformTypeDepthPretty:
 		return newDepthToPrettyTransform(ctx, source, cfg.AttrConfig)
 	case transformTypeOverlay:
 		return newOverlayTransform(ctx, source, cfg.AttrConfig)
 	case transformTypeUndistort:
-		return newUndistortTransform(source, stream, tr.Attributes)
+		return newUndistortTransform(ctx, source, stream, tr.Attributes)
 	case transformTypeDetections:
-		return newDetectionsTransform(source, r, tr.Attributes)
+		return newDetectionsTransform(ctx, source, r, tr.Attributes)
 	case transformTypeDepthEdges:
-		return newDepthEdgesTransform(source, tr.Attributes)
+		return newDepthEdgesTransform(ctx, source, tr.Attributes)
 	case transformTypeDepthPreprocess:
-		return newDepthPreprocessTransform(source)
+		return newDepthPreprocessTransform(ctx, source)
 	default:
 		return nil, errors.Errorf("do not know camera transform of type %q", tr.Type)
 	}
