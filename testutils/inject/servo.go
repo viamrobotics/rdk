@@ -40,10 +40,10 @@ func (s *Servo) Stop(ctx context.Context) error {
 	return s.StopFunc(ctx)
 }
 
-// Do calls the injected Do or the real version.
-func (s *Servo) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand calls the injected DoCommand or the real version.
+func (s *Servo) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if s.DoFunc == nil {
-		return s.LocalServo.Do(ctx, cmd)
+		return s.LocalServo.DoCommand(ctx, cmd)
 	}
 	return s.DoFunc(ctx, cmd)
 }

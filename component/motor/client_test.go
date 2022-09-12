@@ -123,8 +123,8 @@ func TestClient(t *testing.T) {
 	workingMotorClient := motor.NewClientFromConn(context.Background(), conn, testMotorName, logger)
 
 	t.Run("client tests for working motor", func(t *testing.T) {
-		// Do
-		resp, err := workingMotorClient.Do(context.Background(), generic.TestCommand)
+		// DoCommand
+		resp, err := workingMotorClient.DoCommand(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])

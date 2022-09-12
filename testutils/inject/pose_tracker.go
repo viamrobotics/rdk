@@ -23,10 +23,10 @@ func (pT *PoseTracker) GetPoses(
 	return pT.GetPosesFunc(ctx, bodyNames)
 }
 
-// Do calls the injected Do or the real version.
-func (pT *PoseTracker) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand calls the injected DoCommand or the real version.
+func (pT *PoseTracker) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if pT.DoFunc == nil {
-		return pT.PoseTracker.Do(ctx, cmd)
+		return pT.PoseTracker.DoCommand(ctx, cmd)
 	}
 	return pT.DoFunc(ctx, cmd)
 }

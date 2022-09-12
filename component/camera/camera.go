@@ -224,9 +224,9 @@ func (vs *videoSource) Projector(ctx context.Context) (rimage.Projector, error) 
 	return nil, transform.NewNoIntrinsicsError("No features in config")
 }
 
-func (vs *videoSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (vs *videoSource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if doer, ok := vs.videoSource.(generic.Generic); ok {
-		return doer.Do(ctx, cmd)
+		return doer.DoCommand(ctx, cmd)
 	}
 	return nil, generic.ErrUnimplemented
 }
@@ -400,10 +400,10 @@ func (c *reconfigurableCamera) Close(ctx context.Context) error {
 	return c.actual.Close(ctx)
 }
 
-func (c *reconfigurableCamera) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *reconfigurableCamera) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.actual.Do(ctx, cmd)
+	return c.actual.DoCommand(ctx, cmd)
 }
 
 // Reconfigure reconfigures the resource.
