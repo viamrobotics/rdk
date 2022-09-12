@@ -112,12 +112,11 @@ func (bc *boatConfig) computePowerOutput(powers []float64) motorWeights {
 // angularPercent: -1 -> 1 percent of power you want applied to move angularly
 //
 //	note only z is relevant here
-func (bc *boatConfig) computePower(linear, angular r3.Vector) []float64 {
+func (bc *boatConfig) computePower(linear, angular r3.Vector) ([]float64, error) {
 	goal := bc.computeGoal(linear, angular)
-
 	opt, err := nlopt.NewNLopt(nlopt.GN_DIRECT, 6)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	defer opt.Destroy()
 
@@ -137,7 +136,7 @@ func (bc *boatConfig) computePower(linear, angular r3.Vector) []float64 {
 		opt.SetMaxTime(.25),
 	)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	myfunc := func(x, gradient []float64) float64 {
@@ -147,12 +146,12 @@ func (bc *boatConfig) computePower(linear, angular r3.Vector) []float64 {
 
 	err = opt.SetMinObjective(myfunc)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	powers, _, err := opt.Optimize(make([]float64, 6))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return powers
+	return powers, nil
 }
