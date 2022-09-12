@@ -60,6 +60,11 @@ var (
 	_ = utils.ContextCloser(&reconfigurableShell{})
 )
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return rdkutils.NewUnimplementedInterfaceError((Service)(nil), actual)
+}
+
 // Output reflects an instance of shell output on either stdout or stderr.
 type Output struct {
 	Output string // reflects stdout
@@ -229,7 +234,7 @@ func (svc *reconfigurableShell) Reconfigure(ctx context.Context, newSvc resource
 func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 	svc, ok := s.(Service)
 	if !ok {
-		return nil, rdkutils.NewUnimplementedInterfaceError("shell.Service", s)
+		return nil, NewUnimplementedInterfaceError(s)
 	}
 
 	if reconfigurable, ok := s.(*reconfigurableShell); ok {

@@ -24,13 +24,18 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Board)(nil), actual)
+}
+
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
 		Status: func(ctx context.Context, resource interface{}) (interface{}, error) {
 			board, ok := resource.(Board)
 			if !ok {
-				return nil, utils.NewUnimplementedInterfaceError("Board", resource)
+				return nil, NewUnimplementedInterfaceError(resource)
 			}
 			return board.Status(ctx, nil)
 		},
@@ -187,7 +192,7 @@ func FromRobot(r robot.Robot, name string) (Board, error) {
 	}
 	part, ok := res.(Board)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Board", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }
@@ -446,7 +451,7 @@ func (r *reconfigurableLocalBoard) Reconfigure(ctx context.Context, newBoard res
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	board, ok := r.(Board)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Board", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 
 	if reconfigurable, ok := board.(*reconfigurableBoard); ok {
