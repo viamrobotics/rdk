@@ -81,8 +81,8 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		workingServoClient := servo.NewClientFromConn(context.Background(), conn, testServoName, logger)
 
-		// Do
-		resp, err := workingServoClient.Do(context.Background(), generic.TestCommand)
+		// DoCommand
+		resp, err := workingServoClient.DoCommand(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])

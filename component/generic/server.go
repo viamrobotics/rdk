@@ -35,13 +35,13 @@ func (s *subtypeServer) getGeneric(name string) (Generic, error) {
 	return generic, nil
 }
 
-// Do returns an arbitrary command and returns arbitrary results.
-func (s *subtypeServer) Do(ctx context.Context, req *pb.DoRequest) (*pb.DoResponse, error) {
+// DoCommand returns an arbitrary command and returns arbitrary results.
+func (s *subtypeServer) DoCommand(ctx context.Context, req *pb.DoCommandRequest) (*pb.DoCommandResponse, error) {
 	genericDevice, err := s.getGeneric(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	result, err := genericDevice.Do(ctx, req.Command.AsMap())
+	result, err := genericDevice.DoCommand(ctx, req.Command.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -49,5 +49,5 @@ func (s *subtypeServer) Do(ctx context.Context, req *pb.DoRequest) (*pb.DoRespon
 	if err != nil {
 		return nil, err
 	}
-	return &pb.DoResponse{Result: res}, nil
+	return &pb.DoCommandResponse{Result: res}, nil
 }

@@ -79,8 +79,8 @@ func TestClient(t *testing.T) {
 		gripper1Client := gripper.NewClientFromConn(context.Background(), conn, testGripperName, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Do
-		resp, err := gripper1Client.Do(context.Background(), generic.TestCommand)
+		// DoCommand
+		resp, err := gripper1Client.DoCommand(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])

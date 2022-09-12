@@ -202,10 +202,10 @@ func (r *reconfigurableMotor) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableMotor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (r *reconfigurableMotor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Do(ctx, cmd)
+	return r.actual.DoCommand(ctx, cmd)
 }
 
 func (r *reconfigurableMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {

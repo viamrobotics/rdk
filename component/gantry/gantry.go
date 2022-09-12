@@ -188,10 +188,10 @@ func (g *reconfigurableGantry) ProxyFor() interface{} {
 	return g.actual
 }
 
-func (g *reconfigurableGantry) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (g *reconfigurableGantry) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.actual.Do(ctx, cmd)
+	return g.actual.DoCommand(ctx, cmd)
 }
 
 // GetPosition returns the position in meters.

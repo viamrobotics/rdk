@@ -56,20 +56,20 @@ func TestGenericDo(t *testing.T) {
 	commandStruct, err := protoutils.StructToStructPb(generic.TestCommand)
 	test.That(t, err, test.ShouldBeNil)
 
-	req := pb.DoRequest{Name: testGenericName, Command: commandStruct}
-	resp, err := genericServer.Do(context.Background(), &req)
+	req := pb.DoCommandRequest{Name: testGenericName, Command: commandStruct}
+	resp, err := genericServer.DoCommand(context.Background(), &req)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, resp.Result.AsMap()["cmd"], test.ShouldEqual, generic.TestCommand["cmd"])
 	test.That(t, resp.Result.AsMap()["data"], test.ShouldEqual, generic.TestCommand["data"])
 
-	req = pb.DoRequest{Name: failGenericName, Command: commandStruct}
-	resp, err = genericServer.Do(context.Background(), &req)
+	req = pb.DoCommandRequest{Name: failGenericName, Command: commandStruct}
+	resp, err = genericServer.DoCommand(context.Background(), &req)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resp, test.ShouldBeNil)
 
-	req = pb.DoRequest{Name: fakeGenericName, Command: commandStruct}
-	resp, err = genericServer.Do(context.Background(), &req)
+	req = pb.DoCommandRequest{Name: fakeGenericName, Command: commandStruct}
+	resp, err = genericServer.DoCommand(context.Background(), &req)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resp, test.ShouldBeNil)
 }

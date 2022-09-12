@@ -156,10 +156,10 @@ func (g *reconfigurableGripper) ProxyFor() interface{} {
 	return g.actual
 }
 
-func (g *reconfigurableGripper) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (g *reconfigurableGripper) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.actual.Do(ctx, cmd)
+	return g.actual.DoCommand(ctx, cmd)
 }
 
 func (g *reconfigurableGripper) Open(ctx context.Context) error {

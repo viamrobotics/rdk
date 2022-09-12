@@ -63,7 +63,7 @@ func TestGenericDo(t *testing.T) {
 	test.That(t, g, test.ShouldNotBeNil)
 
 	command := map[string]interface{}{"cmd": "test", "data1": 500}
-	ret, err := g.Do(context.Background(), command)
+	ret, err := g.DoCommand(context.Background(), command)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ret, test.ShouldEqual, command)
 }
@@ -373,6 +373,6 @@ func (m *mockLocal) Stop(ctx context.Context, extra map[string]interface{}) erro
 
 func (m *mockLocal) Close() { m.reconfCount++ }
 
-func (m *mockLocal) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (m *mockLocal) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }

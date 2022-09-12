@@ -48,7 +48,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
 
-	result, err := s.Do(context.Background(), generic.TestCommand)
+	result, err := s.DoCommand(context.Background(), generic.TestCommand)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, generic.TestCommand)
 
@@ -134,7 +134,7 @@ func TestReconfigurableGeneric(t *testing.T) {
 
 	test.That(t, actualGeneric1.doCount, test.ShouldEqual, 0)
 	test.That(t, actualGeneric2.doCount, test.ShouldEqual, 0)
-	result, err := reconfGeneric1.(generic.Generic).Do(context.Background(), generic.TestCommand)
+	result, err := reconfGeneric1.(generic.Generic).DoCommand(context.Background(), generic.TestCommand)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, generic.TestCommand)
 	test.That(t, actualGeneric1.doCount, test.ShouldEqual, 0)
@@ -164,7 +164,7 @@ type mock struct {
 
 func (mGeneric *mock) Close() { mGeneric.reconfCount++ }
 
-func (mGeneric *mock) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (mGeneric *mock) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	mGeneric.doCount++
 	return cmd, nil
 }

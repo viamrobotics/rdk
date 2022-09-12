@@ -59,10 +59,10 @@ func (g *Gripper) Close(ctx context.Context) error {
 	return g.CloseFunc(ctx)
 }
 
-// Do calls the injected Do or the real version.
-func (g *Gripper) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand calls the injected DoCommand or the real version.
+func (g *Gripper) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if g.DoFunc == nil {
-		return g.LocalGripper.Do(ctx, cmd)
+		return g.LocalGripper.DoCommand(ctx, cmd)
 	}
 	return g.DoFunc(ctx, cmd)
 }

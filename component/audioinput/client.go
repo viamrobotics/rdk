@@ -168,7 +168,7 @@ func (c *client) MediaProperties(ctx context.Context) (prop.Audio, error) {
 	}, nil
 }
 
-func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }
 

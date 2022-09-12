@@ -180,7 +180,7 @@ func TestClient(t *testing.T) {
 		test.That(t, propsB.IntrinsicParams, test.ShouldResemble, intrinsics)
 
 		// Do
-		resp, err := camera1Client.Do(context.Background(), generic.TestCommand)
+		resp, err := camera1Client.DoCommand(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
