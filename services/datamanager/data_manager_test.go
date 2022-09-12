@@ -41,12 +41,13 @@ var (
 
 	// 0.0041 mins is 246 milliseconds, this is the interval waiting time in the config file used for testing.
 	configSyncIntervalMins = 0.0041
-	syncIntervalMins       = 0.0041 // 250ms
-	captureDir             = "/tmp/capture"
-	armDir                 = captureDir + "/arm/arm1/GetEndPosition"
-	emptyFileBytesSize     = 30 // size of leading metadata message
-	testSvcName1           = "svc1"
-	testSvcName2           = "svc2"
+
+	syncIntervalMins   = 0.0041 // 250ms
+	captureDir         = "/tmp/capture"
+	armDir             = captureDir + "/arm/arm1/GetEndPosition"
+	emptyFileBytesSize = 30 // size of leading metadata message
+	testSvcName1       = "svc1"
+	testSvcName2       = "svc2"
 )
 
 const (
