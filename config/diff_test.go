@@ -10,9 +10,9 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 )

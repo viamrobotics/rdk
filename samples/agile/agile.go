@@ -16,7 +16,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/motionplan"
 	frame "go.viam.com/rdk/referenceframe"

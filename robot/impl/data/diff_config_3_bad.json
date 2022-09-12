@@ -1,40 +1,34 @@
 {
-    "components":
-    [
+    "components": [
         {
-            "model": "fake",
             "name": "arm1",
             "type": "arm",
-            "attributes":
-            {
+            "model": "fake",
+            "attributes": {
                 "fail_new": true,
                 "one": 2
             }
         },
         {
-            "model": "fake",
             "name": "base2",
             "type": "base",
-            "attributes":
-            {
+            "model": "fake",
+            "attributes": {
                 "three": 4
             }
         },
         {
-            "model": "fake",
             "name": "board1",
             "type": "board",
-            "attributes":
-            {
-                "analogs":
-                [
+            "model": "fake",
+            "attributes": {
+                "analogs": [
                     {
                         "name": "analog1",
                         "pin": "1"
                     }
                 ],
-                "digital_interrupts":
-                [
+                "digital_interrupts": [
                     {
                         "name": "encoder",
                         "pin": "15"
@@ -43,13 +37,11 @@
             }
         },
         {
-            "model": "fake",
             "name": "board2",
             "type": "board",
-            "attributes":
-            {
-                "digital_interrupts":
-                [
+            "model": "fake",
+            "attributes": {
+                "digital_interrupts": [
                     {
                         "name": "encoder2",
                         "pin": "16"
@@ -58,13 +50,11 @@
             }
         }
     ],
-    "processes":
-    [
+    "processes": [
         {
             "id": "1",
             "name": "echo",
-            "args":
-            [
+            "args": [
                 "hello",
                 "world",
                 "again"
@@ -74,8 +64,7 @@
         {
             "id": "3",
             "name": "echo",
-            "args":
-            [
+            "args": [
                 "hello",
                 "world",
                 "again",

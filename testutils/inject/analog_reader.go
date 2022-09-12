@@ -3,7 +3,7 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/components/board"
 )
 
 // AnalogReader is an injected analog reader.

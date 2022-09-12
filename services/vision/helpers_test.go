@@ -13,7 +13,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
@@ -126,7 +126,7 @@ func (s *simpleSource) Read(ctx context.Context) (image.Image, func(), error) {
 	return img, nil, nil
 }
 
-func (s *simpleSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (s *simpleSource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }
 
@@ -158,21 +158,30 @@ func (c *cloudSource) Stream(
 
 func (c *cloudSource) Projector(ctx context.Context) (rimage.Projector, error) {
 	var proj rimage.Projector
-	intrinsics := &transform.PinholeCameraIntrinsics{
-		Width:      1280,
-		Height:     720,
-		Fx:         200,
-		Fy:         200,
-		Ppx:        100,
-		Ppy:        100,
-		Distortion: transform.DistortionModel{},
+	props, err := c.GetProperties(ctx)
+	if err != nil {
+		return nil, err
 	}
-
-	proj = intrinsics
+	proj = props.IntrinsicParams
 	return proj, nil
 }
 
-func (c *cloudSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *cloudSource) GetProperties(ctx context.Context) (camera.Properties, error) {
+	return camera.Properties{
+		SupportsPCD: true,
+		IntrinsicParams: &transform.PinholeCameraIntrinsics{
+			Width:      1280,
+			Height:     720,
+			Fx:         200,
+			Fy:         200,
+			Ppx:        100,
+			Ppy:        100,
+			Distortion: transform.DistortionModel{},
+		},
+	}, nil
+}
+
+func (c *cloudSource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }
 

@@ -26,7 +26,6 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils"
-	"go.viam.com/utils/perf"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
@@ -37,9 +36,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/component/audioinput"
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/generic"
+	"go.viam.com/rdk/components/audioinput"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	grpcserver "go.viam.com/rdk/grpc/server"
@@ -701,9 +700,6 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 		}),
 	}
 	if options.Debug {
-		trace.RegisterExporter(perf.NewNiceLoggingSpanExporter())
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
-
 		rpcOpts = append(rpcOpts,
 			rpc.WithDebug(),
 			rpc.WithUnaryServerInterceptor(func(
