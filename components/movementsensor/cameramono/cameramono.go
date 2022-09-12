@@ -12,6 +12,7 @@ import (
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
+	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
@@ -110,9 +111,9 @@ type cameramono struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	motion                  *odometry.Motion3D
-	output                  chan *odometry.Motion3D
 	logger                  golog.Logger
 	result                  result
+	stream                  gostream.VideoStream
 	lastErr                 error
 }
 
@@ -144,20 +145,22 @@ func newCameraMono(
 
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
+
 	co := &cameramono{
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
+		motion: &odometry.Motion3D{
+			Rotation:    mat.NewDense(3, 3, []float64{1, 0, 0, 0, 1, 0, 0, 0, 1}),
+			Translation: mat.NewDense(3, 1, []float64{0, 0, 0}),
+		},
 		result: result{
 			trackedPos:    r3.Vector{X: 0, Y: 0, Z: 0},
 			trackedOrient: spatialmath.NewOrientationVector(),
 		},
 	}
-
-	err = co.backgroundWorker(cam, gostream.NewEmbeddedVideoStream(cam), conf.MotionConfig)
-	if err != nil {
-		return nil, err
-	}
+	co.stream = gostream.NewEmbeddedVideoStream(cam)
+	co.lastErr = co.backgroundWorker(cam, co.stream, conf.MotionConfig)
 
 	return co, co.lastErr
 }
@@ -166,13 +169,15 @@ func (co *cameramono) backgroundWorker(cam camera.Camera, stream gostream.VideoS
 	defer func() { utils.UncheckedError(stream.Close(context.Background())) }()
 	co.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		sImg, sT, err := co.getStreamedImage(stream)
-		if err != nil {
+		sT := time.Now()
+		sImg, _, err := stream.Next(co.cancelCtx)
+		if err != nil && errors.Is(err, context.Canceled) {
 			co.lastErr = err
 			return
 		}
 		for {
-			eImg, eT, err := co.getStreamedImage(stream)
+			eT := time.Now()
+			eImg, _, err := stream.Next(co.cancelCtx)
 			if err != nil {
 				co.lastErr = err
 				return
@@ -180,9 +185,10 @@ func (co *cameramono) backgroundWorker(cam camera.Camera, stream gostream.VideoS
 
 			dt, moreThanZero := co.getDt(sT, eT)
 			if moreThanZero {
-				co.motion, err = co.extractMovementFromOdometer(sImg, eImg, dt, cfg)
+				co.motion, err = co.extractMovementFromOdometer(rimage.ConvertImage(sImg), rimage.ConvertImage(eImg), dt, cfg)
 				if err != nil {
 					co.lastErr = err
+					co.logger.Error(err)
 					continue
 				}
 				select {
@@ -207,8 +213,9 @@ func (co *cameramono) extractMovementFromOdometer(
 	motion, _, err := odometry.EstimateMotionFrom2Frames(start, end, cfg, co.logger)
 	if err != nil {
 		motion = co.motion
-		// return nil, err
+		return motion, err
 	}
+
 	rAng, cAng := motion.Rotation.Dims() // maybe not needed because of rotation matrix check?
 	if rAng != 3 || cAng != 3 {
 		return nil, errors.New("rotation dims are not 3,3")
@@ -219,38 +226,16 @@ func (co *cameramono) extractMovementFromOdometer(
 		return nil, errors.New("lin dims are not 3,1")
 	}
 
-	rotMat, err := spatialmath.NewRotationMatrix(motion.Rotation.RawMatrix().Data)
+	rotMat, err := spatialmath.NewRotationMatrix(co.motion.Rotation.RawMatrix().Data)
 	if err != nil {
 		return nil, err
 	}
-	co.result.trackedPos = co.result.trackedPos.Add(translationToR3(motion)) // most drift occurs here due to deadreckoning
 	co.result.trackedOrient = co.result.trackedOrient.RotationMatrix().MatMul(*rotMat)
 	// Future improvements: output linear and angular velocity from the odometry algorithm itself?
 	co.result.linVel = calculateLinVel(motion, dt)
 	co.result.angVel = *co.result.angVel.OrientationToAngularVel(rotMat, dt)
 
 	return motion, err
-}
-
-func (co *cameramono) getReadImage(cam camera.Camera) (*rimage.Image, time.Time, error) {
-	t := time.Now()
-	img, _, err := gostream.ReadImage(co.cancelCtx, cam)
-	if err != nil && errors.Is(err, context.Canceled) {
-		return nil, t, err
-	}
-	rimg := rimage.ConvertImage(img)
-	return rimg, t, err
-}
-
-func (co *cameramono) getStreamedImage(stream gostream.VideoStream) (*rimage.Image, time.Time, error) {
-	t := time.Now()
-	img, release, err := stream.Next(co.cancelCtx)
-	defer release()
-	if err != nil && errors.Is(err, context.Canceled) {
-		return nil, t, err
-	}
-	rimg := rimage.ConvertImage(img)
-	return rimg, t, err
 }
 
 func (co *cameramono) getDt(startTime, endTime time.Time) (float64, bool) {
@@ -264,10 +249,11 @@ func (co *cameramono) getDt(startTime, endTime time.Time) (float64, bool) {
 func (co *cameramono) Close() {
 	co.cancelFunc()
 	co.activeBackgroundWorkers.Wait()
+	co.stream.Close(co.cancelCtx)
 }
 
 func (co *cameramono) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
-	// co.logger.Info("getting pos")
+	co.result.trackedPos = co.result.trackedPos.Add(translationToR3(co.motion)) // most drift occurs here due to deadreckoning
 	return geo.NewPoint(co.result.trackedPos.X, co.result.trackedPos.Y), co.result.trackedPos.Z, nil
 }
 

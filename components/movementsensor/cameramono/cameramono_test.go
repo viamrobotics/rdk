@@ -36,7 +36,6 @@ var tCo = &cameramono{
 	cancelCtx:               context.Background(),
 	cancelFunc: func() {
 	},
-	output: make(chan *odometry.Motion3D),
 	logger: &zap.SugaredLogger{},
 	result: result{
 		trackedPos:    r3.Vector{X: 4, Y: 5, Z: 6},
