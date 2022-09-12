@@ -8,6 +8,8 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/invopop/jsonschema"
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -60,6 +62,8 @@ func init() {
 
 // A Service that implements various computer vision algorithms like detection and segmentation.
 type Service interface {
+	// model parameters
+	GetModelParameters(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error)
 	// detector methods
 	GetDetectorNames(ctx context.Context) ([]string, error)
 	AddDetector(ctx context.Context, cfg VisModelConfig) error
@@ -162,6 +166,17 @@ type visionService struct {
 	r      robot.Robot
 	modReg modelMap
 	logger golog.Logger
+}
+
+// GetModelParameters takes the model name and returns the parameters needed to add one to the vision registry.
+func (vs *visionService) GetModelParameters(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error) {
+	if modelSchema, ok := RegisteredModelParameters[modelType]; ok {
+		if modelSchema == nil {
+			return nil, errors.Errorf("do not have a schema for model type %q", modelType)
+		}
+		return modelSchema, nil
+	}
+	return nil, errors.Errorf("do not have a schema for model type %q", modelType)
 }
 
 // Detection Methods
@@ -388,6 +403,12 @@ func (vs *visionService) Close() error {
 type reconfigurableVision struct {
 	mu     sync.RWMutex
 	actual Service
+}
+
+func (svc *reconfigurableVision) GetModelParameters(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetModelParameters(ctx, modelType)
 }
 
 func (svc *reconfigurableVision) GetDetectorNames(ctx context.Context) ([]string, error) {

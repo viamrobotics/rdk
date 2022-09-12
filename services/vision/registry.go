@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/edaniels/golog"
+	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
@@ -31,10 +32,13 @@ const (
 	DetectorSegmenter = VisModelType("detector_segmenter")
 )
 
-// RegisteredSegmenterParameters maps the segmenter types to their necessary parameters.
-var RegisteredSegmenterParameters = map[VisModelType]interface{}{
-	RCSegmenter:       &segmentation.RadiusClusteringConfig{},
-	DetectorSegmenter: &segmentation.DetectionSegmenterConfig{},
+// RegisteredModelParameters maps the vision model types to their necessary parameters.
+var RegisteredModelParameters = map[VisModelType]*jsonschema.Schema{
+	TFLiteDetector:    jsonschema.Reflect(&TFLiteDetectorConfig{}),
+	ColorDetector:     jsonschema.Reflect(&objectdetection.ColorDetectorConfig{}),
+	TFLiteClassifier:  jsonschema.Reflect(&TFLiteClassifierConfig{}),
+	RCSegmenter:       jsonschema.Reflect(&segmentation.RadiusClusteringConfig{}),
+	DetectorSegmenter: jsonschema.Reflect(&segmentation.DetectionSegmenterConfig{}),
 }
 
 // The set of operations supported by the vision model types.
