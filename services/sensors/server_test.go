@@ -8,7 +8,7 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"go.viam.com/rdk/component/movementsensor"
+	"go.viam.com/rdk/components/movementsensor"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/sensors/v1"
 	"go.viam.com/rdk/protoutils"
