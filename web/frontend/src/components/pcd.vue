@@ -32,7 +32,7 @@ const container = $ref<HTMLDivElement>();
 let cube: THREE.LineSegments;
 let displayGrid = true;
 
-let download = $ref<HTMLLinkElement>()
+const download = $ref<HTMLLinkElement>();
 let segmenterParameterNames = $ref<TypedParameter[]>();
 let objects = $ref<PointCloudObject[]>([]);
 let segmenterNames = $ref<string[]>([]);
@@ -445,7 +445,7 @@ const init = (pointcloud: Uint8Array) => {
   update(pointcloud);
 
   // eslint-disable-next-line unicorn/text-encoding-identifier-case
-  const decoder = new TextDecoder('utf-8')
+  const decoder = new TextDecoder('utf-8');
   const file = new File([decoder.decode(pointcloud)], 'pointcloud.txt');
   download.href = URL.createObjectURL(file);
 
