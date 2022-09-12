@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
-
 	// register.
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"

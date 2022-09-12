@@ -44,7 +44,7 @@ func WithWebOptions(opts ...web.Option) Option {
 
 // WithRevealSensitiveDiffs returns an Option which causes config
 // diffs - which may contain sensitive information - to be displayed
-// in logs
+// in logs.
 func WithRevealSensitiveDiffs() Option {
 	return newFuncOption(func(o *options) {
 		o.allowRevealSensitiveDiffs = true
