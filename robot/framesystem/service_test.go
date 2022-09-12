@@ -97,9 +97,9 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{500, 0, 300})
 
-	t.Log("pieceArm_offset")
-	test.That(t, fs.GetFrame("pieceArm_offset"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("pieceArm_offset").Transform(emptyIn)
+	t.Log("pieceArm_origin")
+	test.That(t, fs.GetFrame("pieceArm_origin"), test.ShouldNotBeNil)
+	pose, err = fs.GetFrame("pieceArm_origin").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{500, 500, 1000})
 
@@ -109,9 +109,9 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 200})
 
-	t.Log("pieceGripper_offset")
-	test.That(t, fs.GetFrame("pieceGripper_offset"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("pieceGripper_offset").Transform(emptyIn)
+	t.Log("pieceGripper_origin")
+	test.That(t, fs.GetFrame("pieceGripper_origin"), test.ShouldNotBeNil)
+	pose, err = fs.GetFrame("pieceGripper_origin").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
@@ -121,9 +121,9 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
-	t.Log("movement_sensor2_offset")
-	test.That(t, fs.GetFrame("movement_sensor2_offset"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("movement_sensor2_offset").Transform(emptyIn)
+	t.Log("movement_sensor2_origin")
+	test.That(t, fs.GetFrame("movement_sensor2_origin"), test.ShouldNotBeNil)
+	pose, err = fs.GetFrame("movement_sensor2_origin").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
@@ -133,9 +133,9 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
-	t.Log("cameraOver_offset")
-	test.That(t, fs.GetFrame("cameraOver_offset"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("cameraOver_offset").Transform(emptyIn)
+	t.Log("cameraOver_origin")
+	test.That(t, fs.GetFrame("cameraOver_origin"), test.ShouldNotBeNil)
+	pose, err = fs.GetFrame("cameraOver_origin").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{2000, 500, 1300})
 
