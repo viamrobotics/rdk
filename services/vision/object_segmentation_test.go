@@ -11,7 +11,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
@@ -47,7 +47,7 @@ func TestObjectSegmentationFailures(t *testing.T) {
 	// fails since camera cannot generate point clouds (no depth in image)
 	r = &inject.Robot{}
 	_cam := &simpleSource{}
-	cam, err := camera.NewFromReader(_cam, nil)
+	cam, err := camera.NewFromReader(context.Background(), _cam, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
 	r.LoggerFunc = func() golog.Logger {
 		return logger
@@ -82,7 +82,7 @@ func TestGetObjectPointClouds(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	r := &inject.Robot{}
 	_cam := &cloudSource{}
-	cam, err := camera.NewFromReader(_cam, nil)
+	cam, err := camera.NewFromReader(context.Background(), _cam, nil, camera.UnspecifiedStream)
 	test.That(t, err, test.ShouldBeNil)
 	r.LoggerFunc = func() golog.Logger {
 		return logger
@@ -198,7 +198,7 @@ func TestFullClientServerLoop(t *testing.T) {
 	// create the robot, camera, and service
 	r := &inject.Robot{}
 	_cam := &cloudSource{}
-	cam, err := camera.NewFromReader(_cam, nil)
+	cam, err := camera.NewFromReader(context.Background(), _cam, nil, camera.UnspecifiedStream)
 	test.That(t, err, test.ShouldBeNil)
 	r.LoggerFunc = func() golog.Logger {
 		return logger
