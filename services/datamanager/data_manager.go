@@ -148,12 +148,13 @@ type dataCaptureConfigs struct {
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir            string         `json:"capture_dir"`
-	AdditionalSyncPaths   []string       `json:"additional_sync_paths"`
-	SyncIntervalMins      float64        `json:"sync_interval_mins"`
-	CaptureDisabled       bool           `json:"capture_disabled"`
-	ScheduledSyncDisabled bool           `json:"sync_disabled"`
-	ModelsToDeploy        []*model.Model `json:"models_on_robot"`
+	CaptureDir            string              `json:"capture_dir"`
+	AdditionalSyncPaths   []string            `json:"additional_sync_paths"`
+	SyncIntervalMins      float64             `json:"sync_interval_mins"`
+	CaptureDisabled       bool                `json:"capture_disabled"`
+	ScheduledSyncDisabled bool                `json:"sync_disabled"`
+	ModelsToDeploy        []*model.Model      `json:"models_on_robot"`
+	Detectors             []*DetectorRegistry `json:"detector_registry"`
 }
 
 type OtherConfig struct {
