@@ -182,6 +182,7 @@ type dataManagerService struct {
 	backgroundWorkers         sync.WaitGroup
 	updateCollectorsCancelFn  func()
 	waitAfterLastModifiedSecs int
+	partID                    string
 
 	additionalSyncPaths []string
 	syncDisabled        bool
@@ -549,6 +550,9 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 	if !ok {
 		svc.closeCollectors()
 		return err
+	}
+	if cfg.Cloud != nil {
+		svc.partID = cfg.Cloud.ID
 	}
 
 	// other services check if their specified models are ready to be used.
