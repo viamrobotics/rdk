@@ -115,9 +115,10 @@ func (bc *boatConfig) computePowerOutput(powers []float64) motorWeights {
 func (bc *boatConfig) computePower(linear, angular r3.Vector) []float64 {
 	goal := bc.computeGoal(linear, angular)
 
-	// TODO(RSDK-548): we have a defer after this panic, but underlying source code
-	// indicates that we do not allocate memory if `err` is returned. Still, instead make
-	// this code return errors instead of panicking?
+	// TODO(RSDK-548): we have a deferred memory-releasing clean-up function after a
+	// panic. The nlopt.NewNLopt source code indicates this function does not allocate
+	// memory if it returns an error. Still, instead make this code return an error
+	// instead of panicking?
 	opt, err := nlopt.NewNLopt(nlopt.GN_DIRECT, 6)
 	if err != nil {
 		panic(err)
