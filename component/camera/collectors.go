@@ -7,6 +7,8 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
@@ -39,7 +41,7 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::NextPointCloud")
 		defer span.End()
 
@@ -67,14 +69,18 @@ func newNextCollector(resource interface{}, params data.CollectorParams) (data.C
 	}
 	// choose the best/fastest representation
 	mimeType := params.MethodParams["mime_type"]
-	if mimeType == "" {
+	if mimeType == nil {
 		// TODO: Potentially log the actual mime type at collector instantiation or include in response.
-		mimeType = utils.MimeTypeRawRGBA
+		strWrapper := wrapperspb.String(utils.MimeTypeRawRGBA)
+		mimeType, err = anypb.New(strWrapper)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	stream := gostream.NewEmbeddedVideoStream(camera)
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::Next")
 		defer span.End()
 
@@ -88,7 +94,7 @@ func newNextCollector(resource interface{}, params data.CollectorParams) (data.C
 			}
 		}()
 
-		outBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+		outBytes, err := rimage.EncodeImage(ctx, img, mimeType.String())
 		if err != nil {
 			return nil, err
 		}
