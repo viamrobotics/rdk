@@ -3,6 +3,7 @@ package vision
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -38,6 +39,29 @@ func (server *subtypeServer) service(serviceName string) (Service, error) {
 		return nil, utils.NewUnimplementedInterfaceError("vision.Service", resource)
 	}
 	return svc, nil
+}
+
+func (server *subtypeServer) GetModelParameters(
+	ctx context.Context,
+	req *pb.GetModelParametersRequest,
+) (*pb.GetModelParametersResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetModelParameters")
+	defer span.End()
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	params, err := svc.GetModelParameters(ctx, VisModelType(req.ModelType))
+	if err != nil {
+		return nil, err
+	}
+	data, err := json.Marshal(params)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetModelParametersResponse{
+		ModelParameters: data,
+	}, nil
 }
 
 func (server *subtypeServer) GetDetectorNames(

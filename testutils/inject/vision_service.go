@@ -4,6 +4,7 @@ import (
 	"context"
 	"image"
 
+	"github.com/invopop/jsonschema"
 	"go.viam.com/rdk/services/vision"
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
@@ -13,6 +14,7 @@ import (
 // VisionService represents a fake instance of a vision service.
 type VisionService struct {
 	vision.Service
+	GetModelParametersFunc func(ctx context.Context, modelType vision.VisModelType) (*jsonschema.Schema, error)
 	// detection functions
 	GetDetectorNamesFunc        func(ctx context.Context) ([]string, error)
 	AddDetectorFunc             func(ctx context.Context, cfg vision.VisModelConfig) error
@@ -33,6 +35,14 @@ type VisionService struct {
 	AddSegmenterFunc         func(ctx context.Context, cfg vision.VisModelConfig) error
 	RemoveSegmenterFunc      func(ctx context.Context, segmenterName string) error
 	GetObjectPointCloudsFunc func(ctx context.Context, cameraName, segmenterName string) ([]*viz.Object, error)
+}
+
+// GetModelParameters calls the injected ModelParameters or the real variant.
+func (vs *VisionService) GetModelParameters(ctx context.Context, modelType vision.VisModelType) (*jsonschema.Schema, error) {
+	if vs.GetDetectorNamesFunc == nil {
+		return vs.Service.GetModelParameters(ctx, modelType)
+	}
+	return vs.GetModelParameters(ctx, modelType)
 }
 
 // GetDetectorNames calls the injected DetectorNames or the real variant.

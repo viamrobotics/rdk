@@ -22,6 +22,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type VisionServiceClient interface {
+	// GetModelParameters takes the model name and returns the parameters needed to add one to the vision registry.
+	GetModelParameters(ctx context.Context, in *GetModelParametersRequest, opts ...grpc.CallOption) (*GetModelParametersResponse, error)
 	// GetDetectorNames returns the list of detectors in the registry.
 	GetDetectorNames(ctx context.Context, in *GetDetectorNamesRequest, opts ...grpc.CallOption) (*GetDetectorNamesResponse, error)
 	// AddDetector adds a new detector to the registry.
@@ -60,6 +62,15 @@ type visionServiceClient struct {
 
 func NewVisionServiceClient(cc grpc.ClientConnInterface) VisionServiceClient {
 	return &visionServiceClient{cc}
+}
+
+func (c *visionServiceClient) GetModelParameters(ctx context.Context, in *GetModelParametersRequest, opts ...grpc.CallOption) (*GetModelParametersResponse, error) {
+	out := new(GetModelParametersResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.vision.v1.VisionService/GetModelParameters", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *visionServiceClient) GetDetectorNames(ctx context.Context, in *GetDetectorNamesRequest, opts ...grpc.CallOption) (*GetDetectorNamesResponse, error) {
@@ -192,6 +203,8 @@ func (c *visionServiceClient) GetObjectPointClouds(ctx context.Context, in *GetO
 // All implementations must embed UnimplementedVisionServiceServer
 // for forward compatibility
 type VisionServiceServer interface {
+	// GetModelParameters takes the model name and returns the parameters needed to add one to the vision registry.
+	GetModelParameters(context.Context, *GetModelParametersRequest) (*GetModelParametersResponse, error)
 	// GetDetectorNames returns the list of detectors in the registry.
 	GetDetectorNames(context.Context, *GetDetectorNamesRequest) (*GetDetectorNamesResponse, error)
 	// AddDetector adds a new detector to the registry.
@@ -229,6 +242,9 @@ type VisionServiceServer interface {
 type UnimplementedVisionServiceServer struct {
 }
 
+func (UnimplementedVisionServiceServer) GetModelParameters(context.Context, *GetModelParametersRequest) (*GetModelParametersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetModelParameters not implemented")
+}
 func (UnimplementedVisionServiceServer) GetDetectorNames(context.Context, *GetDetectorNamesRequest) (*GetDetectorNamesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDetectorNames not implemented")
 }
@@ -282,6 +298,24 @@ type UnsafeVisionServiceServer interface {
 
 func RegisterVisionServiceServer(s grpc.ServiceRegistrar, srv VisionServiceServer) {
 	s.RegisterService(&VisionService_ServiceDesc, srv)
+}
+
+func _VisionService_GetModelParameters_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetModelParametersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(VisionServiceServer).GetModelParameters(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.service.vision.v1.VisionService/GetModelParameters",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(VisionServiceServer).GetModelParameters(ctx, req.(*GetModelParametersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _VisionService_GetDetectorNames_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -543,6 +577,10 @@ var VisionService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "proto.api.service.vision.v1.VisionService",
 	HandlerType: (*VisionServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetModelParameters",
+			Handler:    _VisionService_GetModelParameters_Handler,
+		},
 		{
 			MethodName: "GetDetectorNames",
 			Handler:    _VisionService_GetDetectorNames_Handler,

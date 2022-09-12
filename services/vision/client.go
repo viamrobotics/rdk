@@ -3,6 +3,7 @@ package vision
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"image"
 
@@ -10,6 +11,7 @@ import (
 	"go.opencensus.io/trace"
 	"go.viam.com/utils/rpc"
 
+	"github.com/invopop/jsonschema"
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/vision/v1"
@@ -39,6 +41,21 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 		logger: logger,
 	}
 	return c
+}
+
+func (c *client) GetModelParameters(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetModelParameters")
+	defer span.End()
+	resp, err := c.client.GetModelParameters(ctx, &pb.GetModelParametersRequest{Name: c.name, ModelType: string(modelType)})
+	if err != nil {
+		return nil, err
+	}
+	outp := &jsonschema.Schema{}
+	err = json.Unmarshal(resp.ModelParameters, outp)
+	if err != nil {
+		return nil, err
+	}
+	return outp, nil
 }
 
 func (c *client) GetDetectorNames(ctx context.Context) ([]string, error) {
