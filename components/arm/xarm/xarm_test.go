@@ -32,28 +32,28 @@ func TestWriteViam(t *testing.T) {
 	err = fs.AddFrame(m, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
-	markerOffFrame, err := frame.NewStaticFrame(
-		"marker_offset",
+	markerOriginFrame, err := frame.NewStaticFrame(
+		"marker_origin",
 		spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.OrientationVectorDegrees{OY: -1, OZ: 1}),
 	)
 	test.That(t, err, test.ShouldBeNil)
 	markerFrame, err := frame.NewStaticFrame("marker", spatial.NewPoseFromPoint(r3.Vector{0, 0, 160}))
 	test.That(t, err, test.ShouldBeNil)
-	err = fs.AddFrame(markerOffFrame, m)
+	err = fs.AddFrame(markerOriginFrame, m)
 	test.That(t, err, test.ShouldBeNil)
-	err = fs.AddFrame(markerFrame, markerOffFrame)
+	err = fs.AddFrame(markerFrame, markerOriginFrame)
 	test.That(t, err, test.ShouldBeNil)
 
-	eraserOffFrame, err := frame.NewStaticFrame(
-		"eraser_offset",
+	eraserOriginFrame, err := frame.NewStaticFrame(
+		"eraser_origin",
 		spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.OrientationVectorDegrees{OY: 1, OZ: 1}),
 	)
 	test.That(t, err, test.ShouldBeNil)
 	eraserFrame, err := frame.NewStaticFrame("eraser", spatial.NewPoseFromPoint(r3.Vector{0, 0, 160}))
 	test.That(t, err, test.ShouldBeNil)
-	err = fs.AddFrame(eraserOffFrame, m)
+	err = fs.AddFrame(eraserOriginFrame, m)
 	test.That(t, err, test.ShouldBeNil)
-	err = fs.AddFrame(eraserFrame, eraserOffFrame)
+	err = fs.AddFrame(eraserFrame, eraserOriginFrame)
 	test.That(t, err, test.ShouldBeNil)
 
 	moveFrame := eraserFrame
