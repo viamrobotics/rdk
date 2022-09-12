@@ -80,8 +80,8 @@ func (pp *ParallelProjection) PointCloudToRGBD(cloud pointcloud.PointCloud) (*ri
 		// if point has color and is inside the RGB image bounds, add it to the images
 		if x >= 0 && x < width && y >= 0 && y < height && data != nil && data.HasColor() {
 			r, g, b := data.RGB255()
-			color.Set(image.Point{x, y}, NewColor(r, g, b))
-			depth.Set(x, y, Depth(z))
+			color.Set(image.Point{x, y}, rimage.NewColor(r, g, b))
+			depth.Set(x, y, rimage.Depth(z))
 		}
 		return true
 	})

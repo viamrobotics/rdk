@@ -36,17 +36,17 @@ func newDMPointCloudAdapter(dm *rimage.DepthMap, p transform.Projector) *dmPoint
 		var sizeWg sync.WaitGroup
 		sizeWg.Add(numThreadsDmPointCloudAdapter)
 		// Round up to avoid missing points
-		batchSize := ((dm.width * dm.height) + numThreadsDmPointCloudAdapter - 1) / numThreadsDmPointCloudAdapter
+		batchSize := ((dm.Width() * dm.Height()) + numThreadsDmPointCloudAdapter - 1) / numThreadsDmPointCloudAdapter
 		for loop := 0; loop < numThreadsDmPointCloudAdapter; loop++ {
 			f := func(loop int) {
 				defer sizeWg.Done()
 				sizeBuf := 0
 				for i := 0; i < batchSize; i++ {
 					x := loop*batchSize + i
-					if x >= dm.width*dm.height {
+					if x >= dm.Width()*dm.Height() {
 						break
 					}
-					depth := dm.GetDepth(x%dm.width, x/dm.width)
+					depth := dm.GetDepth(x%dm.Width(), x/dm.Width())
 					if depth == 0 {
 						continue
 					}
@@ -137,11 +137,11 @@ func (dm *dmPointCloudAdapter) Iterate(numBatches, myBatch int, fn func(pt r3.Ve
 		dm.cache.Iterate(numBatches, myBatch, fn)
 		return
 	}
-	for y := 0; y < dm.dm.height; y++ {
+	for y := 0; y < dm.dm.Height(); y++ {
 		if numBatches > 0 && y%numBatches != myBatch {
 			continue
 		}
-		for x := 0; x < dm.dm.width; x++ {
+		for x := 0; x < dm.dm.Width(); x++ {
 			depth := dm.dm.GetDepth(x, y)
 			if depth == 0 {
 				continue

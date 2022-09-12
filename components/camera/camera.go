@@ -105,7 +105,7 @@ func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func
 }
 
 type projectorProvider interface {
-	Projector(ctx context.Context) (rimage.Projector, error)
+	Projector(ctx context.Context) (transform.Projector, error)
 }
 
 // A PointCloudSource is a source that can generate pointclouds.
@@ -218,7 +218,7 @@ func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	return depthadapter.ToPointCloud(dm, vs.intrinsicParameters), nil
 }
 
-func (vs *videoSource) Projector(ctx context.Context) (rimage.Projector, error) {
+func (vs *videoSource) Projector(ctx context.Context) (transform.Projector, error) {
 	if vs.intrinsicParameters != nil {
 		return vs.intrinsicParameters, nil
 	}
@@ -393,7 +393,7 @@ func (c *reconfigurableCamera) NextPointCloud(ctx context.Context) (pointcloud.P
 	return c.actual.NextPointCloud(ctx)
 }
 
-func (c *reconfigurableCamera) Projector(ctx context.Context) (rimage.Projector, error) {
+func (c *reconfigurableCamera) Projector(ctx context.Context) (transform.Projector, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.actual.Projector(ctx)
