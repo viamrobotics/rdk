@@ -1,4 +1,4 @@
-// Package camera defines a frame capturing device.
+// Package camera defines an image capturing device.
 package camera
 
 import (
