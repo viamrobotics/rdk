@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.viam.com/rdk/data"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type method int64
@@ -29,7 +30,7 @@ func newGetEndPositionCollector(resource interface{}, params data.CollectorParam
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		v, err := arm.GetEndPosition(ctx, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, getEndPosition.String(), err)
@@ -45,7 +46,7 @@ func newGetJointPositionsCollector(resource interface{}, params data.CollectorPa
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		v, err := arm.GetJointPositions(ctx, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, getJointPositions.String(), err)
