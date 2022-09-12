@@ -41,7 +41,7 @@ func TestUndistortSetup(t *testing.T) {
 
 	// no camera parameters
 	am := config.AttributeMap{}
-	_, err = newUndistortTransform(source, camera.ColorStream, am)
+	_, err = newUndistortTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
@@ -49,7 +49,7 @@ func TestUndistortSetup(t *testing.T) {
 	// bad stream type
 	source = gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
 	am = config.AttributeMap{"camera_parameters": undistortTestParams}
-	us, err := newUndistortTransform(source, camera.StreamType("fake"), am)
+	us, err := newUndistortTransform(context.Background(), source, camera.StreamType("fake"), am)
 	test.That(t, err, test.ShouldBeNil)
 	_, _, err = camera.ReadImage(context.Background(), us)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -57,7 +57,7 @@ func TestUndistortSetup(t *testing.T) {
 	test.That(t, us.Close(context.Background()), test.ShouldBeNil)
 
 	// success - attrs has camera parameters
-	us, err = newUndistortTransform(source, camera.ColorStream, am)
+	us, err = newUndistortTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	_, _, err = camera.ReadImage(context.Background(), us)
 	test.That(t, err, test.ShouldBeNil)
@@ -73,7 +73,7 @@ func TestUndistortImage(t *testing.T) {
 
 	// success
 	am := config.AttributeMap{"camera_parameters": undistortTestParams}
-	us, err := newUndistortTransform(source, camera.ColorStream, am)
+	us, err := newUndistortTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	corrected, _, err := camera.ReadImage(context.Background(), us)
 	test.That(t, err, test.ShouldBeNil)
@@ -90,7 +90,7 @@ func TestUndistortImage(t *testing.T) {
 
 	// bad source
 	source = gostream.NewVideoSource(&videosource.StaticSource{ColorImg: rimage.NewImage(10, 10)}, prop.Video{})
-	us, err = newUndistortTransform(source, camera.ColorStream, am)
+	us, err = newUndistortTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	_, _, err = camera.ReadImage(context.Background(), us)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "img dimension and intrinsics don't match")
@@ -104,7 +104,7 @@ func TestUndistortDepthMap(t *testing.T) {
 
 	// success
 	am := config.AttributeMap{"camera_parameters": undistortTestParams}
-	us, err := newUndistortTransform(source, camera.DepthStream, am)
+	us, err := newUndistortTransform(context.Background(), source, camera.DepthStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	corrected, _, err := camera.ReadImage(context.Background(), us)
 	test.That(t, err, test.ShouldBeNil)
@@ -121,7 +121,7 @@ func TestUndistortDepthMap(t *testing.T) {
 
 	// bad source
 	source = gostream.NewVideoSource(&videosource.StaticSource{DepthImg: rimage.NewEmptyDepthMap(10, 10)}, prop.Video{})
-	us, err = newUndistortTransform(source, camera.DepthStream, am)
+	us, err = newUndistortTransform(context.Background(), source, camera.DepthStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	_, _, err = camera.ReadImage(context.Background(), us)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "img dimension and intrinsics don't match")
@@ -129,7 +129,7 @@ func TestUndistortDepthMap(t *testing.T) {
 
 	// can't convert image to depth map
 	source = gostream.NewVideoSource(&videosource.StaticSource{ColorImg: rimage.NewImage(10, 10)}, prop.Video{})
-	us, err = newUndistortTransform(source, camera.DepthStream, am)
+	us, err = newUndistortTransform(context.Background(), source, camera.DepthStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	_, _, err = camera.ReadImage(context.Background(), us)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "don't know how to make DepthMap")

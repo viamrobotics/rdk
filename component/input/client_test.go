@@ -96,8 +96,8 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		inputController1Client := input.NewClientFromConn(context.Background(), conn, testInputControllerName, logger)
 
-		// Do
-		resp, err := inputController1Client.Do(context.Background(), generic.TestCommand)
+		// DoCommand
+		resp, err := inputController1Client.DoCommand(context.Background(), generic.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])

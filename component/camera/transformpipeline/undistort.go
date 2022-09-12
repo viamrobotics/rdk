@@ -28,7 +28,7 @@ type undistortSource struct {
 }
 
 func newUndistortTransform(
-	source gostream.VideoSource, stream camera.StreamType, am config.AttributeMap,
+	ctx context.Context, source gostream.VideoSource, stream camera.StreamType, am config.AttributeMap,
 ) (gostream.VideoSource, error) {
 	conf, err := config.TransformAttributeMapToStruct(&(undistortConfig{}), am)
 	if err != nil {
@@ -42,7 +42,7 @@ func newUndistortTransform(
 		return nil, errors.Wrapf(transform.ErrNoIntrinsics, "cannot create undistort transform")
 	}
 	reader := &undistortSource{gostream.NewEmbeddedVideoStream(source), stream, attrs.CameraParams}
-	return camera.NewFromReader(reader, nil)
+	return camera.NewFromReader(ctx, reader, nil, stream)
 }
 
 // Read undistorts the original image according to the camera parameters.

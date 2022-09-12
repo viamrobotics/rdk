@@ -30,7 +30,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return DoFromConnection(ctx, c.conn, c.name, cmd)
 }
 
@@ -42,7 +42,7 @@ func DoFromConnection(ctx context.Context, conn rpc.ClientConn, name string, cmd
 		return nil, err
 	}
 
-	resp, err := gclient.Do(ctx, &pb.DoRequest{
+	resp, err := gclient.DoCommand(ctx, &pb.DoCommandRequest{
 		Name:    name,
 		Command: command,
 	})

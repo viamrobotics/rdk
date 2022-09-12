@@ -87,7 +87,10 @@ message GetPropertiesRequest {
 }
 
 message GetPropertiesResponse {
-  IntrinsicParameters intrinsic_parameters = 1;
+  // A boolean property determining whether the camera supports the return of pointcloud data
+  bool supports_pcd = 1;
+  // Parameters for doing a perspective of a 3D scene to a 2D plane
+  IntrinsicParameters intrinsic_parameters = 2;
 }
 
 message Webcams {

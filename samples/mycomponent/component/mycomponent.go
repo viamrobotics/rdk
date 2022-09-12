@@ -440,6 +440,6 @@ func (c *client) DoTwo(ctx context.Context, arg1 bool) (string, error) {
 	return resp.Ret1, nil
 }
 
-func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }
