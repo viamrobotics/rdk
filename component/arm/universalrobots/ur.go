@@ -30,6 +30,7 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
+// ModelName is the string used to refer to the universalrobots arm model.
 const ModelName = "ur"
 
 // AttrConfig is used for converting config attributes.

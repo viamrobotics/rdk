@@ -152,11 +152,6 @@ func RegisterComponent(subtype resource.Subtype, model string, creator Component
 // ComponentLookup looks up a creator by the given subtype and model. nil is returned if
 // there is no creator registered.
 func ComponentLookup(subtype resource.Subtype, model string) *Component {
-	keys := make([]string, 0, len(RegisteredComponents()))
-	for k := range RegisteredComponents() {
-		keys = append(keys, k)
-	}
-	fmt.Printf("keys: %v\n", keys)
 	qName := fmt.Sprintf("%s/%s", subtype, model)
 	if registration, ok := RegisteredComponents()[qName]; ok {
 		return &registration

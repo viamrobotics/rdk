@@ -1,3 +1,4 @@
+// Package fake implements a fake arm.
 package fake
 
 import (
@@ -23,6 +24,7 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+// ModelName is the string used to refer to the fake arm model.
 const ModelName = "fake"
 
 //go:embed arm_model.json
@@ -52,7 +54,7 @@ func init() {
 	)
 }
 
-// NewArmIK returns a new fake arm.
+// NewArm returns a new fake arm.
 func NewArm(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	// create a fake robot to make an arm component to derive kinematics from
 	fakeRobot := &inject.Robot{}

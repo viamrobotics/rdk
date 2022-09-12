@@ -18,7 +18,7 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
-// ModelName defines the model name to be used when specifying wrapper arms in configs
+// ModelName defines the model name to be used when specifying wrapper arms in configs.
 const ModelName = "wrapper_arm"
 
 // AttrConfig is used for converting config attributes.

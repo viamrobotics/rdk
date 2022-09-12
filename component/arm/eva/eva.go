@@ -4,7 +4,6 @@ package eva
 import (
 	"bytes"
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"encoding/json"
@@ -32,6 +31,7 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
+// ModelName is the string used to refer to the eva arm model.
 const ModelName = "eva"
 
 // AttrConfig is used for converting config attributes.

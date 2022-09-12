@@ -3,14 +3,13 @@ package xarm
 
 import (
 	"context"
-	"strconv"
-
 	// for embedding model file.
 	_ "embed"
 	"errors"
 	"math"
 	"net"
 	"runtime"
+	"strconv"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -59,6 +58,7 @@ var xArm6modeljson []byte
 //go:embed xarm7_kinematics.json
 var xArm7modeljson []byte
 
+// ModelName is a function used to get the string used to refer to the xarm model of specified dof.
 func ModelName(dof int) string {
 	return "xArm" + strconv.Itoa(dof)
 }

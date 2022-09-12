@@ -31,6 +31,7 @@ import (
 //go:embed dofbot.json
 var modeljson []byte
 
+// ModelName is the string used to refer to the yahboom arm model.
 const ModelName = "yahboom-dofbot"
 
 func dofbotModel() (referenceframe.Model, error) {
@@ -88,6 +89,7 @@ type Dofbot struct {
 	opMgr  operation.SingleOperationManager
 }
 
+// NewDofBot is a constructor to create a new dofbot arm.
 func NewDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	var err error
 
