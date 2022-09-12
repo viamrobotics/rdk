@@ -68,6 +68,11 @@ func FromDependencies(deps registry.Dependencies, name string) (Encoder, error) 
 	return part, nil
 }
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Encoder)(nil), actual)
+}
+
 // FromRobot is a helper for getting the named encoder from the given Robot.
 func FromRobot(r robot.Robot, name string) (Encoder, error) {
 	res, err := r.ResourceByName(Named(name))
@@ -76,7 +81,7 @@ func FromRobot(r robot.Robot, name string) (Encoder, error) {
 	}
 	part, ok := res.(Encoder)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Encoder", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }
@@ -144,7 +149,7 @@ func (r *reconfigurableEncoder) reconfigure(ctx context.Context, newEncoder reso
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	m, ok := r.(Encoder)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Encoder", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := m.(*reconfigurableEncoder); ok {
 		return reconfigurable, nil

@@ -118,7 +118,7 @@ type MyComponent interface {
 func wrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	mc, ok := r.(MyComponent)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("MyComponent", r)
+		return nil, NewUnimplementedInterfaceError("MyComponent", r)
 	}
 	if reconfigurable, ok := mc.(*reconfigurableMyComponent); ok {
 		return reconfigurable, nil

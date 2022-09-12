@@ -247,11 +247,16 @@ func (vs *videoSource) Close(ctx context.Context) error {
 	return multierr.Combine(vs.videoStream.Close(ctx), vs.videoSource.Close(ctx))
 }
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Camera)(nil), actual)
+}
+
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	c, ok := r.(Camera)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Camera", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := c.(*reconfigurableCamera); ok {
 		return reconfigurable, nil
@@ -292,7 +297,7 @@ func FromRobot(r robot.Robot, name string) (Camera, error) {
 	}
 	part, ok := res.(Camera)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Camera", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }

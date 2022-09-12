@@ -70,7 +70,7 @@ type AudioInput interface {
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	i, ok := r.(AudioInput)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("AudioInput", r)
+		return nil, generic.NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := i.(*reconfigurableAudioInput); ok {
 		return reconfigurable, nil
@@ -111,7 +111,7 @@ func FromRobot(r robot.Robot, name string) (AudioInput, error) {
 	}
 	part, ok := res.(AudioInput)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("AudioInput", res)
+		return nil, generic.NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }

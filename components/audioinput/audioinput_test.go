@@ -103,7 +103,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, res.Close(context.Background()), test.ShouldBeNil)
 
 	res, err = audioinput.FromRobot(r, fakeAudioInputName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("AudioInput", "string"))
+	test.That(t, err, test.ShouldBeError, rNewUnimplementedInterfaceError("AudioInput", "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = audioinput.FromRobot(r, missingAudioInputName)
@@ -160,7 +160,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = audioinput.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("AudioInput", nil))
+	test.That(t, err, test.ShouldBeError, rNewUnimplementedInterfaceError("AudioInput", nil))
 
 	reconfAudioInput2, err := audioinput.WrapWithReconfigurable(reconfaudioInput1)
 	test.That(t, err, test.ShouldBeNil)
