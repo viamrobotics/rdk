@@ -22,7 +22,7 @@ func DependencyNotFoundError(name string) error {
 }
 
 // DependencyTypeError is used when a resource doesn't implement the expected interface.
-func DependencyTypeError(name, expected interface{}, actual interface{}) error {
+func DependencyTypeError(name, expected, actual interface{}) error {
 	return errors.Errorf("dependency %q should an implementation of %T but it was a %T", name, expected, actual)
 }
 
@@ -32,6 +32,6 @@ func NewUnexpectedTypeError(expected, actual interface{}) error {
 }
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
-func NewUnimplementedInterfaceError(expected interface{}, actual interface{}) error {
+func NewUnimplementedInterfaceError(expected, actual interface{}) error {
 	return errors.Errorf("expected implementation of %T but got %T", expected, actual)
 }
