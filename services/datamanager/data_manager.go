@@ -546,7 +546,7 @@ func (svc *dataManagerService) syncAdditionalSyncPaths() {
 
 // TODO: DATA-304, create a way for other services to check when their specified models
 // are ready to be used.
-
+// edit here
 // maybe this function should return an error that is then logged in the return within Update()
 func check(ctx context.Context, cfg *config.Config, logger *zap.SugaredLogger) {
 	otherSvcConfig, _, _ := getOtherServiceConfig(cfg) // check things here

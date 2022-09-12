@@ -380,8 +380,8 @@ func TestService(t *testing.T) {
 	testCfg := setupConfig(t, "etc/configs/fakest.json")
 	dmsvc := newTestDataManager(t, "arm1", "")
 	err := dmsvc.Update(context.TODO(), testCfg)
-	test.That(t, err, test.ShouldBeNil)
 	// here we log the location of the services specified model does not exist
+	test.That(t, err, test.ShouldBeNil)
 
 	// now we create the directory but no file within it to simulate a partial download
 	err = os.MkdirAll(filepath.Join(os.Getenv("HOME"), "models", ".viam", "model_1"), os.ModePerm)
