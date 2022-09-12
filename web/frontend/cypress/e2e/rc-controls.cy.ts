@@ -16,6 +16,6 @@ describe('should load the page', () => {
     cy.contains('h2', 'test_navigation').should('exist');
     cy.contains('h2', 'Sensors').should('exist');
     cy.contains('h2', 'Current Operations').should('exist');
-    cy.contains('h2', 'Do()').should('exist');
+    cy.contains('h2', 'DoCommand()').should('exist');
   })
 })

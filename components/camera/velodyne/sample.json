@@ -1,0 +1,12 @@
+{
+    "components": [
+        {
+            "name": "velodyne",
+            "type": "camera",
+            "model": "velodyne",
+            "attributes": {
+                "ttl_ms": 5000
+            }
+        }
+    ]
+}
