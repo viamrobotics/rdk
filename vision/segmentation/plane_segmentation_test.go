@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	pc "go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/pointcloud/depthadapter"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 )
@@ -67,14 +68,12 @@ func TestSegmentPlane(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Pixel to Meter
-	pixel2meter := 0.001
 	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
 		intel515ParamsPath,
 		"depth",
 	)
 	test.That(t, err, test.ShouldBeNil)
-	depthMin, depthMax := rimage.Depth(100), rimage.Depth(2000)
-	cloud, err := transform.DepthMapToPointCloud(d, pixel2meter, depthIntrinsics, depthMin, depthMax)
+	cloud := depthadapter.ToPointCloud(d, depthIntrinsics)
 	test.That(t, err, test.ShouldBeNil)
 	// Segment Plane
 	nIter := 3000
@@ -97,14 +96,12 @@ func TestSegmentPlane(t *testing.T) {
 func TestDepthMapToPointCloud(t *testing.T) {
 	d, err := rimage.NewDepthMapFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
 	test.That(t, err, test.ShouldBeNil)
-	pixel2meter := 0.001
 	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
 		intel515ParamsPath,
 		"depth",
 	)
 	test.That(t, err, test.ShouldBeNil)
-	depthMin, depthMax := rimage.Depth(0), rimage.Depth(math.MaxUint16)
-	pc, err := transform.DepthMapToPointCloud(d, pixel2meter, depthIntrinsics, depthMin, depthMax)
+	pc := depthadapter.ToPointCloud(d, depthIntrinsics)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 456371)
 }
@@ -116,17 +113,13 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	h, w := rgb.Height(), rgb.Width()
 
-	// Pixel to Meter
-	pixel2meter := 0.001
-	// Select depth range
 	// Get 3D Points
 	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
 		intel515ParamsPath,
 		"depth",
 	)
 	test.That(t, err, test.ShouldBeNil)
-	depthMin, depthMax := rimage.Depth(200), rimage.Depth(2000)
-	pts, err := transform.DepthMapToPointCloud(d, pixel2meter, depthIntrinsics, depthMin, depthMax)
+	pts := depthadapter.ToPointCloud(d, depthIntrinsics)
 	test.That(t, err, test.ShouldBeNil)
 	// Get rigid body transform between Depth and RGB sensor
 	sensorParams, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
@@ -169,7 +162,7 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 	)
 	test.That(b, err, test.ShouldBeNil)
 	depthMin, depthMax := rimage.Depth(100), rimage.Depth(2000)
-	pts, err := transform.DepthMapToPointCloud(d, pixel2meter, depthIntrinsics, depthMin, depthMax)
+	pts := depthadapter.ToPointCloud(d, depthIntrinsics)
 	test.That(b, err, test.ShouldBeNil)
 	for i := 0; i < b.N; i++ {
 		// Segment Plane

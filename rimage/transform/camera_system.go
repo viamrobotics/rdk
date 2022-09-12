@@ -14,7 +14,7 @@ type DistortionType string
 
 const (
 	NoneDistortionType          = DistortionType("no_distortion")  // applies no distortion
-	BrownConradyDistortionType  = DistortionType("brown_conrady")  // for simple lenses
+	BrownConradyDistortionType  = DistortionType("brown_conrady")  // for simple lenses not far from a pinhole camera model
 	KannalaBrandtDistortionType = DistortionType("kannala_brandt") // for wide-angle and fisheye lenses
 )
 
