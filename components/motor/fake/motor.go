@@ -21,11 +21,31 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+const modelName = "fake"
+
+// PinConfig defines the mapping of where motor are wired.
+type PinConfig struct {
+	Direction string `json:"dir"`
+	PWM       string `json:"pwm"`
+}
+
+// Config describes the configuration of a motor.
+type Config struct {
+	Pins             PinConfig `json:"pins"`
+	BoardName        string    `json:"board"`
+	MinPowerPct      float64   `json:"min_power_pct,omitempty"`
+	MaxPowerPct      float64   `json:"max_power_pct,omitempty"`
+	PWMFreq          uint      `json:"pwm_freq,omitempty"`
+	Encoder          string    `json:"encoder,omitempty"`
+	MaxRPM           float64   `json:"max_rpm,omitempty"`
+	TicksPerRotation int       `json:"ticks_per_rotation,omitempty"`
+}
+
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			m := &Motor{Name: config.Name, Logger: logger}
-			if mcfg, ok := config.ConvertedAttributes.(*motor.Config); ok {
+			if mcfg, ok := config.ConvertedAttributes.(*Config); ok {
 				if mcfg.BoardName != "" {
 					m.Board = mcfg.BoardName
 					b, err := board.FromDependencies(deps, m.Board)
@@ -64,9 +84,16 @@ func init() {
 			return m, nil
 		},
 	}
-	registry.RegisterComponent(motor.Subtype, "fake", _motor)
-
-	motor.RegisterConfigAttributeConverter("fake")
+	registry.RegisterComponent(motor.Subtype, modelName, _motor)
+	config.RegisterComponentAttributeMapConverter(
+		motor.SubtypeName,
+		modelName,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&Config{},
+	)
 }
 
 var _ motor.LocalMotor = &Motor{}

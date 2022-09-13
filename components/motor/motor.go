@@ -9,8 +9,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/control"
 	"go.viam.com/rdk/data"
 	pb "go.viam.com/rdk/proto/api/component/motor/v1"
 	"go.viam.com/rdk/registry"
@@ -335,50 +333,4 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	}
 
 	return &reconfigurableLocalMotor{actual: mLocal, reconfigurableMotor: rMotor}, nil
-}
-
-// PinConfig defines the mapping of where motor are wired.
-// Standard Configurations:
-// - A/B       [EnablePinHigh/EnablePinLow]
-// - A/B + PWM [EnablePinHigh/EnablePinLow]
-// - Dir + PWM [EnablePinHigh/EnablePinLow].
-type PinConfig struct {
-	A             string `json:"a"`
-	B             string `json:"b"`
-	Direction     string `json:"dir"`
-	PWM           string `json:"pwm"`
-	EnablePinHigh string `json:"en_high,omitempty"`
-	EnablePinLow  string `json:"en_low,omitempty"`
-	Step          string `json:"step,omitempty"`
-}
-
-// Config describes the configuration of a motor.
-type Config struct {
-	Pins          PinConfig      `json:"pins"`
-	BoardName     string         `json:"board"`                   // used to get encoders
-	MinPowerPct   float64        `json:"min_power_pct,omitempty"` // min power percentage to allow for this motor default is 0.0
-	MaxPowerPct   float64        `json:"max_power_pct,omitempty"` // max power percentage to allow for this motor (0.06 - 1.0)
-	PWMFreq       uint           `json:"pwm_freq,omitempty"`
-	DirectionFlip bool           `json:"dir_flip,omitempty"`       // Flip the direction of the signal sent if there is a Dir pin
-	StepperDelay  uint           `json:"stepper_delay,omitempty"`  // When using stepper motors, the time to remain high
-	ControlLoop   control.Config `json:"control_config,omitempty"` // Optional control loop
-
-	Encoder          string  `json:"encoder,omitempty"`          // name of encoder
-	RampRate         float64 `json:"ramp_rate,omitempty"`        // how fast to ramp power to motor when using rpm control
-	MaxRPM           float64 `json:"max_rpm,omitempty"`          // RPM
-	MaxAcceleration  float64 `json:"max_acceleration,omitempty"` // RPM per second
-	TicksPerRotation int     `json:"ticks_per_rotation,omitempty"`
-}
-
-// RegisterConfigAttributeConverter registers a Config converter.
-// Note(erd): This probably shouldn't exist since not all motors have the same config requirements.
-func RegisterConfigAttributeConverter(model string) {
-	config.RegisterComponentAttributeMapConverter(
-		SubtypeName,
-		model,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&Config{})
 }
