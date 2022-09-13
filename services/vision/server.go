@@ -3,6 +3,7 @@ package vision
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
@@ -38,6 +39,29 @@ func (server *subtypeServer) service(serviceName string) (Service, error) {
 		return nil, utils.NewUnimplementedInterfaceError("vision.Service", resource)
 	}
 	return svc, nil
+}
+
+func (server *subtypeServer) GetModelParameterSchema(
+	ctx context.Context,
+	req *pb.GetModelParameterSchemaRequest,
+) (*pb.GetModelParameterSchemaResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetModelParameterSchema")
+	defer span.End()
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	params, err := svc.GetModelParameterSchema(ctx, VisModelType(req.ModelType))
+	if err != nil {
+		return nil, err
+	}
+	data, err := json.Marshal(params)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetModelParameterSchemaResponse{
+		ModelParameterSchema: data,
+	}, nil
 }
 
 func (server *subtypeServer) GetDetectorNames(
@@ -315,25 +339,44 @@ func (server *subtypeServer) GetSegmenterNames(
 	}, nil
 }
 
-func (server *subtypeServer) GetSegmenterParameters(
+func (server *subtypeServer) AddSegmenter(
 	ctx context.Context,
-	req *pb.GetSegmenterParametersRequest,
-) (*pb.GetSegmenterParametersResponse, error) {
+	req *pb.AddSegmenterRequest,
+) (*pb.AddSegmenterResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::AddSegmenter")
+	defer span.End()
 	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	params, err := svc.GetSegmenterParameters(ctx, req.SegmenterName)
+	params := config.AttributeMap(req.SegmenterParameters.AsMap())
+	cfg := VisModelConfig{
+		Name:       req.SegmenterName,
+		Type:       req.SegmenterModelType,
+		Parameters: params,
+	}
+	err = svc.AddSegmenter(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	typedParams := make([]*pb.TypedParameter, len(params))
-	for i, p := range params {
-		typedParams[i] = &pb.TypedParameter{Name: p.Name, Type: p.Type}
+	return &pb.AddSegmenterResponse{}, nil
+}
+
+func (server *subtypeServer) RemoveSegmenter(
+	ctx context.Context,
+	req *pb.RemoveSegmenterRequest,
+) (*pb.RemoveSegmenterResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::RemoveSegmenter")
+	defer span.End()
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
 	}
-	return &pb.GetSegmenterParametersResponse{
-		SegmenterParameters: typedParams,
-	}, nil
+	err = svc.RemoveSegmenter(ctx, req.SegmenterName)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.RemoveSegmenterResponse{}, nil
 }
 
 // GetObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
@@ -346,8 +389,7 @@ func (server *subtypeServer) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	conf := config.AttributeMap(req.Parameters.AsMap())
-	objects, err := svc.GetObjectPointClouds(ctx, req.CameraName, req.SegmenterName, conf)
+	objects, err := svc.GetObjectPointClouds(ctx, req.CameraName, req.SegmenterName)
 	if err != nil {
 		return nil, err
 	}

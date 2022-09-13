@@ -41,7 +41,7 @@ func TestObjectSegmentationFailures(t *testing.T) {
 	obs, err := vision.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", "", config.AttributeMap{})
+	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", "")
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// fails since camera cannot generate point clouds (no depth in image)
@@ -73,7 +73,10 @@ func TestObjectSegmentationFailures(t *testing.T) {
 		"clustering_radius_mm":  5.,
 		"mean_k_filtering":      10.,
 	}
-	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", vision.RadiusClusteringSegmenter, params)
+
+	err = obs.AddSegmenter(context.Background(), vision.VisModelConfig{vision.RadiusClusteringSegmenter, string(vision.RCSegmenter), params})
+	test.That(t, err, test.ShouldBeNil)
+	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", vision.RadiusClusteringSegmenter)
 	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
 }
 
@@ -99,29 +102,25 @@ func TestGetObjectPointClouds(t *testing.T) {
 		}
 	}
 
-	// from a camera that has a PointCloud func -- apply default
 	obs, err := vision.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
+	// add segmenter to service
+	params := config.AttributeMap{
+		"min_points_in_plane":   100,
+		"min_points_in_segment": 3,
+		"clustering_radius_mm":  5.,
+		"mean_k_filtering":      10.,
+	}
+	err = obs.AddSegmenter(context.Background(), vision.VisModelConfig{vision.RadiusClusteringSegmenter, string(vision.RCSegmenter), params})
+	test.That(t, err, test.ShouldBeNil)
+
+	// see if it ws registered
 	segmenterNames, err := obs.GetSegmenterNames(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, segmenterNames, test.ShouldContain, vision.RadiusClusteringSegmenter)
 
-	// fail at getting parameter names
-	_, err = obs.GetSegmenterParameters(context.Background(), "no such segmenter")
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no such segmenter")
-
-	// successfully get parameter names
-	paramNames, err := obs.GetSegmenterParameters(context.Background(), vision.RadiusClusteringSegmenter)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, paramNames, test.ShouldHaveLength, 4)
-	cfg := config.AttributeMap{
-		paramNames[0].Name: 100, // min points in plane
-		paramNames[1].Name: 3,   // min points in segment
-		paramNames[2].Name: 5.,  // clustering radius
-		paramNames[3].Name: 10., // mean k filtering
-	}
-	segs, err := obs.GetObjectPointClouds(context.Background(), "fakeCamera", vision.RadiusClusteringSegmenter, cfg)
+	// successfully get object point clouds
+	segs, err := obs.GetObjectPointClouds(context.Background(), "fakeCamera", vision.RadiusClusteringSegmenter)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(segs), test.ShouldEqual, 2)
 
@@ -132,6 +131,13 @@ func TestGetObjectPointClouds(t *testing.T) {
 		test.That(t, box, test.ShouldNotBeNil)
 		test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
 	}
+
+	// remove segmenter from service
+	err = obs.RemoveSegmenter(context.Background(), vision.RadiusClusteringSegmenter)
+	test.That(t, err, test.ShouldBeNil)
+	segmenterNames, err = obs.GetSegmenterNames(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, segmenterNames, test.ShouldHaveLength, 0)
 }
 
 func setupInjectRobot() (*inject.Robot, *mock) {
@@ -150,7 +156,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc, test.ShouldNotBeNil)
 
-	result, err := svc.GetObjectPointClouds(context.Background(), "", "", config.AttributeMap{})
+	result, err := svc.GetObjectPointClouds(context.Background(), "", "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldHaveLength, 2)
 	test.That(t, svc1.timesCalled, test.ShouldEqual, 1)
@@ -182,7 +188,6 @@ type mock struct {
 func (m *mock) GetObjectPointClouds(ctx context.Context,
 	cameraName string,
 	segmenterName string,
-	params config.AttributeMap,
 ) ([]*viz.Object, error) {
 	m.timesCalled++
 	return []*viz.Object{viz.NewEmptyObject(), viz.NewEmptyObject()}, nil
@@ -234,22 +239,19 @@ func TestFullClientServerLoop(t *testing.T) {
 	client := vision.NewClientFromConn(context.Background(), conn, testVisionServiceName, logger)
 
 	test.That(t, err, test.ShouldBeNil)
-	paramNames, err := client.GetSegmenterParameters(context.Background(), vision.RadiusClusteringSegmenter)
-	test.That(t, err, test.ShouldBeNil)
-	expParams := []rdkutils.TypedName{
-		{"min_points_in_plane", "int"},
-		{"min_points_in_segment", "int"},
-		{"clustering_radius_mm", "float64"},
-		{"mean_k_filtering", "int"},
-	}
-	test.That(t, paramNames, test.ShouldResemble, expParams)
 	params := config.AttributeMap{
-		paramNames[0].Name: 100, // min points in plane
-		paramNames[1].Name: 3,   // min points in segment
-		paramNames[2].Name: 5.,  // clustering radius
-		paramNames[3].Name: 10,  // mean k filtering
+		"min_points_in_plane":   100,
+		"min_points_in_segment": 3,
+		"clustering_radius_mm":  5.,
+		"mean_k_filtering":      10.,
 	}
-	segs, err := client.GetObjectPointClouds(context.Background(), "fakeCamera", vision.RadiusClusteringSegmenter, params)
+	err = client.AddSegmenter(
+		context.Background(),
+		vision.VisModelConfig{vision.RadiusClusteringSegmenter, string(vision.RCSegmenter), params},
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	segs, err := client.GetObjectPointClouds(context.Background(), "fakeCamera", vision.RadiusClusteringSegmenter)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(segs), test.ShouldEqual, 2)
 

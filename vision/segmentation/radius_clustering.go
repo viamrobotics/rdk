@@ -48,10 +48,10 @@ func (rcc *RadiusClusteringConfig) ConvertAttributes(am config.AttributeMap) err
 	return err
 }
 
-// RadiusClustering is a Segmenter that removes the planes (if any) and returns
+// NewRadiusClustering returns a Segmenter that removes the planes (if any) and returns
 // a segmentation of the objects in a point cloud using a radius based clustering algo
 // described in the paper "A Clustering Method for Efficient Segmentation of 3D Laser Data" by Klasing et al. 2008.
-func RadiusClustering(ctx context.Context, c camera.Camera, params config.AttributeMap) ([]*vision.Object, error) {
+func NewRadiusClustering(params config.AttributeMap) (Segmenter, error) {
 	// convert attributes to appropriate struct
 	if params == nil {
 		return nil, errors.New("config for radius clustering segmentation cannot be nil")
@@ -61,25 +61,25 @@ func RadiusClustering(ctx context.Context, c camera.Camera, params config.Attrib
 	if err != nil {
 		return nil, err
 	}
+	return cfg.RadiusClustering, nil
+}
+
+// RadiusClustering applies the radius clustering algorithm directly on a given point cloud.
+func (rcc *RadiusClusteringConfig) RadiusClustering(ctx context.Context, c camera.Camera) ([]*vision.Object, error) {
 	// get next point cloud
 	cloud, err := c.NextPointCloud(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return RadiusClusteringOnPointCloud(ctx, cloud, cfg)
-}
-
-// RadiusClusteringOnPointCloud applies the radius clustering algorithm directly on a given point cloud.
-func RadiusClusteringOnPointCloud(ctx context.Context, cloud pc.PointCloud, cfg *RadiusClusteringConfig) ([]*vision.Object, error) {
-	ps := NewPointCloudPlaneSegmentation(cloud, 10, cfg.MinPtsInPlane)
+	ps := NewPointCloudPlaneSegmentation(cloud, 10, rcc.MinPtsInPlane)
 	// if there are found planes, remove them, and keep all the non-plane points
 	_, nonPlane, err := ps.FindPlanes(ctx)
 	if err != nil {
 		return nil, err
 	}
 	// filter out the noise on the point cloud if mean K is greater than 0
-	if cfg.MeanKFiltering > 0.0 {
-		filter, err := pc.StatisticalOutlierFilter(cfg.MeanKFiltering, 1.25)
+	if rcc.MeanKFiltering > 0.0 {
+		filter, err := pc.StatisticalOutlierFilter(rcc.MeanKFiltering, 1.25)
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +89,7 @@ func RadiusClusteringOnPointCloud(ctx context.Context, cloud pc.PointCloud, cfg 
 		}
 	}
 	// do the segmentation
-	segments, err := segmentPointCloudObjects(nonPlane, cfg.ClusteringRadiusMm, cfg.MinPtsInSegment)
+	segments, err := segmentPointCloudObjects(nonPlane, rcc.ClusteringRadiusMm, rcc.MinPtsInSegment)
 	if err != nil {
 		return nil, err
 	}

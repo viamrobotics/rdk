@@ -318,14 +318,16 @@ func TestDiffConfigs(t *testing.T) {
 			},
 		},
 	} {
+		// test with revealSensitiveConfigDiffs = true
 		t.Run(tc.Name, func(t *testing.T) {
+			revealSensitiveConfigDiffs := true
 			logger := golog.NewTestLogger(t)
 			left, err := config.Read(context.Background(), tc.LeftFile, logger)
 			test.That(t, err, test.ShouldBeNil)
 			right, err := config.Read(context.Background(), tc.RightFile, logger)
 			test.That(t, err, test.ShouldBeNil)
 
-			diff, err := config.DiffConfigs(*left, *right)
+			diff, err := config.DiffConfigs(*left, *right, revealSensitiveConfigDiffs)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, diff.Left, test.ShouldResemble, left)
 			test.That(t, diff.Right, test.ShouldResemble, right)
@@ -333,6 +335,30 @@ func TestDiffConfigs(t *testing.T) {
 				test.That(t, diff.PrettyDiff, test.ShouldBeEmpty)
 			} else {
 				test.That(t, diff.PrettyDiff, test.ShouldNotBeEmpty)
+			}
+			diff.PrettyDiff = ""
+			tc.Expected.Left = diff.Left
+			tc.Expected.Right = diff.Right
+
+			test.That(t, diff, test.ShouldResemble, &tc.Expected)
+		})
+
+		// test with revealSensitiveConfigDiffss = false
+		t.Run(tc.Name, func(t *testing.T) {
+			revealSensitiveConfigDiffs := false
+			logger := golog.NewTestLogger(t)
+			left, err := config.Read(context.Background(), tc.LeftFile, logger)
+			test.That(t, err, test.ShouldBeNil)
+			right, err := config.Read(context.Background(), tc.RightFile, logger)
+			test.That(t, err, test.ShouldBeNil)
+
+			diff, err := config.DiffConfigs(*left, *right, revealSensitiveConfigDiffs)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, diff.Left, test.ShouldResemble, left)
+			test.That(t, diff.Right, test.ShouldResemble, right)
+			// even when we expect different resources, we should see an empty prettyDiff
+			if !tc.Expected.ResourcesEqual {
+				test.That(t, diff.PrettyDiff, test.ShouldBeEmpty)
 			}
 			diff.PrettyDiff = ""
 			tc.Expected.Left = diff.Left
@@ -376,7 +402,7 @@ func TestDiffConfigHeterogenousTypes(t *testing.T) {
 			right, err := config.Read(context.Background(), tc.RightFile, logger)
 			test.That(t, err, test.ShouldBeNil)
 
-			_, err = config.DiffConfigs(*left, *right)
+			_, err = config.DiffConfigs(*left, *right, true)
 			if tc.Expected == "" {
 				test.That(t, err, test.ShouldBeNil)
 				return
@@ -500,7 +526,7 @@ func TestDiffNetworkingCfg(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			diff, err := config.DiffConfigs(tc.LeftCfg, tc.RightCfg)
+			diff, err := config.DiffConfigs(tc.LeftCfg, tc.RightCfg, true)
 			test.That(t, err, test.ShouldBeNil)
 
 			test.That(t, diff.NetworkEqual, test.ShouldEqual, tc.NetworkEqual)
@@ -571,7 +597,7 @@ func TestDiffSanitize(t *testing.T) {
 		Remotes: remotes1,
 	}
 
-	diff, err := config.DiffConfigs(left, right)
+	diff, err := config.DiffConfigs(left, right, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	// verify secrets did not change

@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	inf "go.viam.com/rdk/ml/inference"
-	"go.viam.com/rdk/utils"
 	vis "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	objdet "go.viam.com/rdk/vision/objectdetection"
@@ -273,22 +272,18 @@ func TestRegisterTensorFlowClassifier(t *testing.T) {
 }
 
 func TestSegmenterMap(t *testing.T) {
-	fn := func(ctx context.Context, c camera.Camera, parameters config.AttributeMap) ([]*vis.Object, error) {
+	fn := func(ctx context.Context, c camera.Camera) ([]*vis.Object, error) {
 		return []*vis.Object{vis.NewEmptyObject()}, nil
 	}
-	params := struct {
-		VariableOne int    `json:"int_var"`
-		VariableTwo string `json:"string_var"`
-	}{}
 	fnName := "x"
 	segMap := make(modelMap)
 	testlog := golog.NewLogger("testlog")
 	// no segmenter
-	noSeg := registeredModel{model: nil, SegParams: []utils.TypedName{}, modelType: RCSegmenter}
+	noSeg := registeredModel{model: nil, modelType: RCSegmenter}
 	err := segMap.registerVisModel(fnName, &noSeg, testlog)
 	test.That(t, err, test.ShouldNotBeNil)
 	// success
-	realSeg := registeredModel{model: fn, SegParams: utils.JSONTags(params), modelType: RCSegmenter}
+	realSeg := registeredModel{model: fn, modelType: RCSegmenter}
 	err = segMap.registerVisModel(fnName, &realSeg, testlog)
 	test.That(t, err, test.ShouldBeNil)
 	// segmenter names
@@ -299,7 +294,6 @@ func TestSegmenterMap(t *testing.T) {
 	creator, err := segMap.modelLookup(fnName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, creator.model, test.ShouldEqual, fn)
-	test.That(t, creator.SegParams, test.ShouldResemble, []utils.TypedName{{"int_var", "int"}, {"string_var", "string"}})
 	creator, err = segMap.modelLookup("z")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no such vision model with name")
 	test.That(t, creator.model, test.ShouldBeNil)

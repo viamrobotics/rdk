@@ -3,38 +3,51 @@ package segmentation
 import (
 	"context"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
+// DetectionSegmenterConfig are the optional parameters to turn a detector into a segmenter.
+type DetectionSegmenterConfig struct {
+	DetectorName string  `json:"detector_name"`
+	MeanK        int     `json:"mean_k"`
+	Sigma        float64 `json:"sigma"`
+}
+
+// ConvertAttributes changes the AttributeMap input into a DetectionSegmenterConfig.
+func (dsc *DetectionSegmenterConfig) ConvertAttributes(am config.AttributeMap) error {
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: dsc})
+	if err != nil {
+		return err
+	}
+	return decoder.Decode(am)
+}
+
 // DetectionSegmenter will take an objectdetector.Detector and turn it into a Segementer.
 // The params for the segmenter are "mean_k" and "sigma" for the statistical filter on the point clouds.
-func DetectionSegmenter(detector objectdetection.Detector) (Segmenter, []utils.TypedName, error) {
+func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma float64) (Segmenter, error) {
+	var err error
 	if detector == nil {
-		return nil, nil, errors.New("detector cannot be nil")
+		return nil, errors.New("detector cannot be nil")
 	}
-	parameters := []utils.TypedName{{"mean_k", "int"}, {"sigma", "float64"}}
+	filter := func(pc pointcloud.PointCloud) (pointcloud.PointCloud, error) {
+		return pc, nil
+	}
+	if meanK > 0 && sigma > 0.0 {
+		filter, err = pointcloud.StatisticalOutlierFilter(meanK, sigma)
+		if err != nil {
+			return nil, err
+		}
+	}
 	// return the segmenter
-	seg := func(ctx context.Context, cam camera.Camera, params config.AttributeMap) ([]*vision.Object, error) {
-		meanK := params.Int("mean_k", 0)
-		sigma := params.Float64("sigma", 1.5)
-		var err error
-		filter := func(pc pointcloud.PointCloud) (pointcloud.PointCloud, error) {
-			return pc, nil
-		}
-		if meanK > 0 && sigma > 0.0 {
-			filter, err = pointcloud.StatisticalOutlierFilter(meanK, sigma)
-			if err != nil {
-				return nil, err
-			}
-		}
+	seg := func(ctx context.Context, cam camera.Camera) ([]*vision.Object, error) {
 		proj, err := cam.Projector(ctx)
 		if err != nil {
 			return nil, err
@@ -77,7 +90,7 @@ func DetectionSegmenter(detector objectdetection.Detector) (Segmenter, []utils.T
 		}
 		return objects, nil
 	}
-	return seg, parameters, nil
+	return seg, nil
 }
 
 // detectionsToPointClouds turns 2D detections into 3D point clodus using the intrinsic camera projection parameters and the image.

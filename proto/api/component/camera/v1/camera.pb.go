@@ -22,7 +22,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type GetFrameRequest struct {
+type GetImageRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -33,8 +33,8 @@ type GetFrameRequest struct {
 	MimeType string `protobuf:"bytes,2,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
 }
 
-func (x *GetFrameRequest) Reset() {
-	*x = GetFrameRequest{}
+func (x *GetImageRequest) Reset() {
+	*x = GetImageRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_proto_api_component_camera_v1_camera_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -42,13 +42,13 @@ func (x *GetFrameRequest) Reset() {
 	}
 }
 
-func (x *GetFrameRequest) String() string {
+func (x *GetImageRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetFrameRequest) ProtoMessage() {}
+func (*GetImageRequest) ProtoMessage() {}
 
-func (x *GetFrameRequest) ProtoReflect() protoreflect.Message {
+func (x *GetImageRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_proto_api_component_camera_v1_camera_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -60,26 +60,26 @@ func (x *GetFrameRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetFrameRequest.ProtoReflect.Descriptor instead.
-func (*GetFrameRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetImageRequest.ProtoReflect.Descriptor instead.
+func (*GetImageRequest) Descriptor() ([]byte, []int) {
 	return file_proto_api_component_camera_v1_camera_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *GetFrameRequest) GetName() string {
+func (x *GetImageRequest) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *GetFrameRequest) GetMimeType() string {
+func (x *GetImageRequest) GetMimeType() string {
 	if x != nil {
 		return x.MimeType
 	}
 	return ""
 }
 
-type GetFrameResponse struct {
+type GetImageResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -94,8 +94,8 @@ type GetFrameResponse struct {
 	HeightPx int64 `protobuf:"varint,4,opt,name=height_px,json=heightPx,proto3" json:"height_px,omitempty"`
 }
 
-func (x *GetFrameResponse) Reset() {
-	*x = GetFrameResponse{}
+func (x *GetImageResponse) Reset() {
+	*x = GetImageResponse{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_proto_api_component_camera_v1_camera_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -103,13 +103,13 @@ func (x *GetFrameResponse) Reset() {
 	}
 }
 
-func (x *GetFrameResponse) String() string {
+func (x *GetImageResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetFrameResponse) ProtoMessage() {}
+func (*GetImageResponse) ProtoMessage() {}
 
-func (x *GetFrameResponse) ProtoReflect() protoreflect.Message {
+func (x *GetImageResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_proto_api_component_camera_v1_camera_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -121,33 +121,33 @@ func (x *GetFrameResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetFrameResponse.ProtoReflect.Descriptor instead.
-func (*GetFrameResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetImageResponse.ProtoReflect.Descriptor instead.
+func (*GetImageResponse) Descriptor() ([]byte, []int) {
 	return file_proto_api_component_camera_v1_camera_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *GetFrameResponse) GetMimeType() string {
+func (x *GetImageResponse) GetMimeType() string {
 	if x != nil {
 		return x.MimeType
 	}
 	return ""
 }
 
-func (x *GetFrameResponse) GetImage() []byte {
+func (x *GetImageResponse) GetImage() []byte {
 	if x != nil {
 		return x.Image
 	}
 	return nil
 }
 
-func (x *GetFrameResponse) GetWidthPx() int64 {
+func (x *GetImageResponse) GetWidthPx() int64 {
 	if x != nil {
 		return x.WidthPx
 	}
 	return 0
 }
 
-func (x *GetFrameResponse) GetHeightPx() int64 {
+func (x *GetImageResponse) GetHeightPx() int64 {
 	if x != nil {
 		return x.HeightPx
 	}
@@ -755,12 +755,12 @@ var file_proto_api_component_camera_v1_camera_proto_rawDesc = []byte{
 	0x67, 0x6c, 0x65, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x61, 0x6e, 0x6e, 0x6f, 0x74, 0x61, 0x74, 0x69,
 	0x6f, 0x6e, 0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x19, 0x67, 0x6f, 0x6f, 0x67, 0x6c,
 	0x65, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x68, 0x74, 0x74, 0x70, 0x62, 0x6f, 0x64, 0x79, 0x2e, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x22, 0x42, 0x0a, 0x0f, 0x47, 0x65, 0x74, 0x46, 0x72, 0x61, 0x6d, 0x65,
+	0x72, 0x6f, 0x74, 0x6f, 0x22, 0x42, 0x0a, 0x0f, 0x47, 0x65, 0x74, 0x49, 0x6d, 0x61, 0x67, 0x65,
 	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18,
 	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x1b, 0x0a, 0x09, 0x6d,
 	0x69, 0x6d, 0x65, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08,
-	0x6d, 0x69, 0x6d, 0x65, 0x54, 0x79, 0x70, 0x65, 0x22, 0x7d, 0x0a, 0x10, 0x47, 0x65, 0x74, 0x46,
-	0x72, 0x61, 0x6d, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1b, 0x0a, 0x09,
+	0x6d, 0x69, 0x6d, 0x65, 0x54, 0x79, 0x70, 0x65, 0x22, 0x7d, 0x0a, 0x10, 0x47, 0x65, 0x74, 0x49,
+	0x6d, 0x61, 0x67, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1b, 0x0a, 0x09,
 	0x6d, 0x69, 0x6d, 0x65, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
 	0x08, 0x6d, 0x69, 0x6d, 0x65, 0x54, 0x79, 0x70, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x69, 0x6d, 0x61,
 	0x67, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x69, 0x6d, 0x61, 0x67, 0x65, 0x12,
@@ -832,12 +832,12 @@ var file_proto_api_component_camera_v1_camera_proto_rawDesc = []byte{
 	0x74, 0x65, 0x72, 0x5f, 0x79, 0x5f, 0x70, 0x78, 0x18, 0x06, 0x20, 0x01, 0x28, 0x01, 0x52, 0x09,
 	0x63, 0x65, 0x6e, 0x74, 0x65, 0x72, 0x59, 0x50, 0x78, 0x32, 0xb2, 0x05, 0x0a, 0x0d, 0x43, 0x61,
 	0x6d, 0x65, 0x72, 0x61, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x9f, 0x01, 0x0a, 0x08,
-	0x47, 0x65, 0x74, 0x46, 0x72, 0x61, 0x6d, 0x65, 0x12, 0x2e, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x47, 0x65, 0x74, 0x49, 0x6d, 0x61, 0x67, 0x65, 0x12, 0x2e, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
 	0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x2e, 0x63,
-	0x61, 0x6d, 0x65, 0x72, 0x61, 0x2e, 0x76, 0x31, 0x2e, 0x47, 0x65, 0x74, 0x46, 0x72, 0x61, 0x6d,
+	0x61, 0x6d, 0x65, 0x72, 0x61, 0x2e, 0x76, 0x31, 0x2e, 0x47, 0x65, 0x74, 0x49, 0x6d, 0x61, 0x67,
 	0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
 	0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x2e, 0x63,
-	0x61, 0x6d, 0x65, 0x72, 0x61, 0x2e, 0x76, 0x31, 0x2e, 0x47, 0x65, 0x74, 0x46, 0x72, 0x61, 0x6d,
+	0x61, 0x6d, 0x65, 0x72, 0x61, 0x2e, 0x76, 0x31, 0x2e, 0x47, 0x65, 0x74, 0x49, 0x6d, 0x61, 0x67,
 	0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x32, 0x82, 0xd3, 0xe4, 0x93, 0x02,
 	0x2c, 0x12, 0x2a, 0x2f, 0x76, 0x69, 0x61, 0x6d, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f,
 	0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x2f, 0x63, 0x61, 0x6d, 0x65, 0x72, 0x61,
@@ -897,8 +897,8 @@ func file_proto_api_component_camera_v1_camera_proto_rawDescGZIP() []byte {
 
 var file_proto_api_component_camera_v1_camera_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_proto_api_component_camera_v1_camera_proto_goTypes = []interface{}{
-	(*GetFrameRequest)(nil),       // 0: proto.api.component.camera.v1.GetFrameRequest
-	(*GetFrameResponse)(nil),      // 1: proto.api.component.camera.v1.GetFrameResponse
+	(*GetImageRequest)(nil),       // 0: proto.api.component.camera.v1.GetImageRequest
+	(*GetImageResponse)(nil),      // 1: proto.api.component.camera.v1.GetImageResponse
 	(*RenderFrameRequest)(nil),    // 2: proto.api.component.camera.v1.RenderFrameRequest
 	(*GetPointCloudRequest)(nil),  // 3: proto.api.component.camera.v1.GetPointCloudRequest
 	(*GetPointCloudResponse)(nil), // 4: proto.api.component.camera.v1.GetPointCloudResponse
@@ -916,11 +916,11 @@ var file_proto_api_component_camera_v1_camera_proto_depIdxs = []int32{
 	8,  // 1: proto.api.component.camera.v1.Webcams.webcams:type_name -> proto.api.component.camera.v1.Webcam
 	9,  // 2: proto.api.component.camera.v1.Webcam.properties:type_name -> proto.api.component.camera.v1.Property
 	10, // 3: proto.api.component.camera.v1.Property.video:type_name -> proto.api.component.camera.v1.Video
-	0,  // 4: proto.api.component.camera.v1.CameraService.GetFrame:input_type -> proto.api.component.camera.v1.GetFrameRequest
+	0,  // 4: proto.api.component.camera.v1.CameraService.GetImage:input_type -> proto.api.component.camera.v1.GetImageRequest
 	2,  // 5: proto.api.component.camera.v1.CameraService.RenderFrame:input_type -> proto.api.component.camera.v1.RenderFrameRequest
 	3,  // 6: proto.api.component.camera.v1.CameraService.GetPointCloud:input_type -> proto.api.component.camera.v1.GetPointCloudRequest
 	5,  // 7: proto.api.component.camera.v1.CameraService.GetProperties:input_type -> proto.api.component.camera.v1.GetPropertiesRequest
-	1,  // 8: proto.api.component.camera.v1.CameraService.GetFrame:output_type -> proto.api.component.camera.v1.GetFrameResponse
+	1,  // 8: proto.api.component.camera.v1.CameraService.GetImage:output_type -> proto.api.component.camera.v1.GetImageResponse
 	12, // 9: proto.api.component.camera.v1.CameraService.RenderFrame:output_type -> google.api.HttpBody
 	4,  // 10: proto.api.component.camera.v1.CameraService.GetPointCloud:output_type -> proto.api.component.camera.v1.GetPointCloudResponse
 	6,  // 11: proto.api.component.camera.v1.CameraService.GetProperties:output_type -> proto.api.component.camera.v1.GetPropertiesResponse
@@ -938,7 +938,7 @@ func file_proto_api_component_camera_v1_camera_proto_init() {
 	}
 	if !protoimpl.UnsafeEnabled {
 		file_proto_api_component_camera_v1_camera_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetFrameRequest); i {
+			switch v := v.(*GetImageRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -950,7 +950,7 @@ func file_proto_api_component_camera_v1_camera_proto_init() {
 			}
 		}
 		file_proto_api_component_camera_v1_camera_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetFrameResponse); i {
+			switch v := v.(*GetImageResponse); i {
 			case 0:
 				return &v.state
 			case 1:
