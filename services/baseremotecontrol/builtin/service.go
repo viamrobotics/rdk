@@ -1,4 +1,4 @@
-// Package builtIn implements a remote control for a base.
+// Package builtin implements a remote control for a base.
 package builtin
 
 import (
@@ -37,7 +37,7 @@ const (
 func init() {
 	registry.RegisterService(baseremotecontrol.Subtype, resource.DefaultModelName, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBultin(ctx, r, c, logger)
+			return NewBuiltIn(ctx, r, c, logger)
 		},
 	})
 	cType := config.ServiceType(SubtypeName)

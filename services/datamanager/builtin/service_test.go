@@ -1,4 +1,4 @@
-package builtin_test
+package builtin
 
 import (
 	"context"
@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
-	"go.viam.com/rdk/services/datamanager/defaultdatamanager"
 	"go.viam.com/rdk/services/datamanager/internal"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -84,7 +83,7 @@ func getInjectedRobotWithArm(armKey string) *inject.Robot {
 
 func newTestDataManager(t *testing.T, localArmKey, remoteArmKey string) internal.DMService {
 	t.Helper()
-	dmCfg := &defaultdatamanager.Config{}
+	dmCfg := &Config{}
 	cfgService := config.Service{
 		Type:                "data_manager",
 		ConvertedAttributes: dmCfg,
@@ -103,7 +102,7 @@ func newTestDataManager(t *testing.T, localArmKey, remoteArmKey string) internal
 		}
 	}
 
-	svc, err := defaultdatamanager.NewDefault(context.Background(), r, cfgService, logger)
+	svc, err := NewBuiltIn(context.Background(), r, cfgService, logger)
 	if err != nil {
 		t.Log(err)
 	}
@@ -612,15 +611,15 @@ func TestSyncDisabled(t *testing.T) {
 }
 
 func TestGetDurationFromHz(t *testing.T) {
-	test.That(t, defaultdatamanager.GetDurationFromHz(0.1), test.ShouldEqual, time.Second*10)
-	test.That(t, defaultdatamanager.GetDurationFromHz(0.5), test.ShouldEqual, time.Second*2)
-	test.That(t, defaultdatamanager.GetDurationFromHz(1), test.ShouldEqual, time.Second)
-	test.That(t, defaultdatamanager.GetDurationFromHz(1000), test.ShouldEqual, time.Millisecond)
-	test.That(t, defaultdatamanager.GetDurationFromHz(0), test.ShouldEqual, 0)
+	test.That(t, GetDurationFromHz(0.1), test.ShouldEqual, time.Second*10)
+	test.That(t, GetDurationFromHz(0.5), test.ShouldEqual, time.Second*2)
+	test.That(t, GetDurationFromHz(1), test.ShouldEqual, time.Second)
+	test.That(t, GetDurationFromHz(1000), test.ShouldEqual, time.Millisecond)
+	test.That(t, GetDurationFromHz(0), test.ShouldEqual, 0)
 }
 
-func getDataManagerConfig(config *config.Config) (*defaultdatamanager.Config, error) {
-	svcConfig, ok, err := defaultdatamanager.GetServiceConfig(config)
+func getDataManagerConfig(config *config.Config) (*Config, error) {
+	svcConfig, ok, err := GetServiceConfig(config)
 	if err != nil {
 		return nil, err
 	}
