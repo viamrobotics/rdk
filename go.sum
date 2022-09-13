@@ -317,8 +317,6 @@ github.com/eapache/queue v1.1.0/go.mod h1:6eCeP0CKFpHLu8blIFXhExK/dRa7WDZfr6jVFP
 github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848 h1:JVz0wMVFlh5ziW4aZcGnet1IxRfrQjf9IaLRh/2rAhA=
 github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848/go.mod h1:FXvLMxXtMPU+U9Kp8kDOrEW258kzh6PKlRkHEW5h9CY=
 github.com/edaniels/golinters v0.0.4/go.mod h1:KzjC7OrCrRlFxufhH+kQ1Sdyzuj2eanHHzPaWxD3lgk=
-github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19 h1:H1ItaK5N1mCc2bp8pN70EM8i4TvHR0Bd6LYN/aNParw=
-github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19/go.mod h1:i/zcokIKs893VZA41BS8jTOHW23PlqiiZEa7Y+4Nujk=
 github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742 h1:ZoFlzcasiB47esGHs8W0GzTKUDUfIa94ZUWzBqEI1fw=
 github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742/go.mod h1:i/zcokIKs893VZA41BS8jTOHW23PlqiiZEa7Y+4Nujk=
 github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e h1:K3N0Zm7JySHjvThqKBWO294ZnEPUK2W3os647RVTJB8=
