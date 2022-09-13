@@ -42,20 +42,6 @@ func (config *I2CAttrConfig) ValidateI2C(path string) error {
 	return nil
 }
 
-func init() {
-	registry.RegisterComponent(
-		movementsensor.Subtype,
-		"gps-nmea-i2c",
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			return newPmtkI2CNMEAMovementSensor(ctx, deps, config, logger)
-		}})
-}
-
 // PmtkI2CNMEAMovementSensor allows the use of any MovementSensor chip that communicates over I2C using the PMTK protocol.
 type PmtkI2CNMEAMovementSensor struct {
 	generic.Unimplemented

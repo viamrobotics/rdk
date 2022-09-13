@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -37,20 +36,6 @@ func (config *SerialAttrConfig) ValidateSerial(path string) error {
 	}
 
 	return nil
-}
-
-func init() {
-	registry.RegisterComponent(
-		movementsensor.Subtype,
-		"gps-nmea",
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			_ registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			return newSerialNMEAMovementSensor(ctx, config, logger)
-		}})
 }
 
 // SerialNMEAMovementSensor allows the use of any MovementSensor chip that communicates over serial.

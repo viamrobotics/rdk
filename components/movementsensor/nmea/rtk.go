@@ -24,7 +24,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// RTKAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
+// RTKAttrConfig is used for converting NMEA MovementSensor with RTK capabilities config attributes.
 type RTKAttrConfig struct {
 	// Serial
 	SerialPath     string `json:"path"`

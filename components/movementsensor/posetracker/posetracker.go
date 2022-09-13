@@ -1,4 +1,4 @@
-// package posetracker implements a wrapper for a posetracker for the movement sensor interface
+// Package posetracker implements a wrapper for a posetracker for the movement sensor interface
 package posetracker
 
 import (
@@ -36,6 +36,7 @@ func newPoseTracker(
 	return &posetracker{}, nil
 }
 
+// BodyToPoseInFrame is used in the pose tracker to find a body and get its pose in the world frame.
 type BodyToPoseInFrame map[string]*referenceframe.PoseInFrame
 
 type posetracker struct {
