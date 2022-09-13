@@ -9,9 +9,9 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/arm"
-	fakearm "go.viam.com/rdk/component/arm/fake"
-	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/components/arm"
+	fakearm "go.viam.com/rdk/components/arm/fake"
+	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
