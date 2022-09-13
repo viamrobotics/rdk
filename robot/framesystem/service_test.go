@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/gripper"
+
 	// register.
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
@@ -308,7 +309,7 @@ func TestServiceWithRemote(t *testing.T) {
 				Type:      gripper.SubtypeName,
 				Model:     "fake",
 				Frame: &config.Frame{
-					Parent: "bar.pieceArm",
+					Parent: "bar:pieceArm",
 				},
 			},
 		},
@@ -348,14 +349,14 @@ func TestServiceWithRemote(t *testing.T) {
 		{
 			ReferenceFrame: "frame1",
 			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "bar.pieceArm",
+				ReferenceFrame: "bar:pieceArm",
 				Pose:           spatialmath.PoseToProtobuf(testPose),
 			},
 		},
 		{
 			ReferenceFrame: "frame2",
 			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "bar.pieceGripper",
+				ReferenceFrame: "bar:pieceGripper",
 				Pose:           spatialmath.PoseToProtobuf(testPose),
 			},
 		},
