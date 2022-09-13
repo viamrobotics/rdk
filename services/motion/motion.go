@@ -153,10 +153,18 @@ func (ms *motionService) Move(
 
 	logger.Debugf("frame system inputs: %v", fsInputs)
 
+	// re-evaluate goalPose to be in the frame we're going to move in
+	solvingFrame := referenceframe.World // TODO(erh): this should really be the parent of rootName
+	tf, err := solver.Transform(fsInputs, destination, solvingFrame)
+	if err != nil {
+		return false, err
+	}
+	goalPose, _ := tf.(*referenceframe.PoseInFrame)
+
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 	output, err := solver.SolveWaypointsWithOptions(ctx,
 		fsInputs,
-		[]*referenceframe.PoseInFrame{destination},
+		[]*referenceframe.PoseInFrame{goalPose},
 		componentName.Name,
 		worldState,
 		[]map[string]interface{}{},
