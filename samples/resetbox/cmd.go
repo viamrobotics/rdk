@@ -20,9 +20,9 @@ import (
 	"go.viam.com/rdk/components/gripper/vgripper/v1"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/tmcstepper"
-	"go.viam.com/rdk/grpc/client"
 	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
