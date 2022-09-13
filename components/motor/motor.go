@@ -133,9 +133,24 @@ func FromDependencies(deps registry.Dependencies, name string) (Motor, error) {
 	}
 	part, ok := res.(Motor)
 	if !ok {
-		return nil, utils.DependencyTypeError(name, "Motor", res)
+		return nil, DependencyTypeError(name, res)
 	}
 	return part, nil
+}
+
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Motor)(nil), actual)
+}
+
+// NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
+func NewUnimplementedLocalInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((LocalMotor)(nil), actual)
+}
+
+// DependencyTypeError is used when a resource doesn't implement the expected interface.
+func DependencyTypeError(name, actual interface{}) error {
+	return utils.DependencyTypeError(name, (Motor)(nil), actual)
 }
 
 // FromRobot is a helper for getting the named motor from the given Robot.
@@ -146,7 +161,7 @@ func FromRobot(r robot.Robot, name string) (Motor, error) {
 	}
 	part, ok := res.(Motor)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Motor", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }
@@ -160,7 +175,7 @@ func NamesFromRobot(r robot.Robot) []string {
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
 	motor, ok := resource.(LocalMotor)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalMotor", resource)
+		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
 	isPowered, err := motor.IsPowered(ctx, nil)
 	if err != nil {
@@ -318,7 +333,7 @@ func (r *reconfigurableLocalMotor) IsMoving(ctx context.Context) (bool, error) {
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	m, ok := r.(Motor)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Motor", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := m.(*reconfigurableMotor); ok {
 		return reconfigurable, nil

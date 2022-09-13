@@ -104,7 +104,7 @@ func newEncodedMotor(
 ) (*EncodedMotor, error) {
 	localReal, ok := realMotor.(motor.LocalMotor)
 	if !ok {
-		return nil, rutils.NewUnimplementedInterfaceError("LocalMotor", realMotor)
+		return nil, motor.NewUnimplementedLocalInterfaceError(realMotor)
 	}
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	em := &EncodedMotor{
