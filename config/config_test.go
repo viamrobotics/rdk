@@ -17,13 +17,12 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/components/board"
 	// board attribute converters.
-	_ "go.viam.com/rdk/component/board/fake"
+	_ "go.viam.com/rdk/components/board/fake"
 	// motor attribute converters.
-	"go.viam.com/rdk/component/encoder"
-	"go.viam.com/rdk/component/motor"
-	_ "go.viam.com/rdk/component/motor/fake"
+	"go.viam.com/rdk/components/encoder"
+	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -91,8 +90,8 @@ func TestConfig3(t *testing.T) {
 			{Name: "encoder", Pin: "14"},
 		},
 	})
-	test.That(t, cfg.Components[2].ConvertedAttributes, test.ShouldResemble, &motor.Config{
-		Pins: motor.PinConfig{
+	test.That(t, cfg.Components[2].ConvertedAttributes, test.ShouldResemble, &fakemotor.Config{
+		Pins: fakemotor.PinConfig{
 			Direction: "io17",
 			PWM:       "io18",
 		},

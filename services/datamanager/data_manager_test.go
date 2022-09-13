@@ -15,7 +15,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
@@ -36,7 +36,7 @@ const (
 
 var (
 	// Robot config which specifies data manager service.
-	configPath = "robots/configs/fake_robot_with_data_manager.json"
+	configPath = "services/datamanager/data/fake_robot_with_data_manager.json"
 
 	// 0.0041 mins is 246 milliseconds, this is the interval waiting time in the config file used for testing.
 	configSyncIntervalMins = 0.0041
@@ -227,7 +227,7 @@ func TestNewRemoteDataManager(t *testing.T) {
 	dmsvc := newTestDataManager(t, "localArm", "remoteArm")
 
 	// Set capture parameters in Update.
-	conf := setupConfig(t, "robots/configs/fake_robot_with_remote_and_data_manager.json")
+	conf := setupConfig(t, "services/datamanager/data/fake_robot_with_remote_and_data_manager.json")
 	defer resetFolder(t, captureDir)
 	err := dmsvc.Update(context.Background(), conf)
 	test.That(t, err, test.ShouldBeNil)
@@ -582,7 +582,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = datamanager.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("data_manager.Service", nil))
+	test.That(t, err, test.ShouldBeError, datamanager.NewUnimplementedInterfaceError(nil))
 
 	reconfSvc2, err := datamanager.WrapWithReconfigurable(reconfSvc1)
 	test.That(t, err, test.ShouldBeNil)
