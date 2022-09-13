@@ -19,7 +19,7 @@ import (
 func TestIKTolerances(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/varm/v1.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("motionplan/testjson/varm.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := NewCBiRRTMotionPlanner(m, nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -34,13 +34,14 @@ func TestIKTolerances(t *testing.T) {
 		OZ: -1.11,
 	}
 	opt := NewBasicPlannerOptions()
-	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}), opt)
+	seed := frame.FloatsToInputs([]float64{0, 0})
+	_, err = mp.Plan(context.Background(), pos, seed, opt)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
 	opt.SetMetric(NewPositionOnlyMetric())
-	opt.SetMaxSolutions(50)
-	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}), opt)
+	opt.SetMaxSolutions(10)
+	_, err = mp.Plan(context.Background(), pos, seed, opt)
 	test.That(t, err, test.ShouldBeNil)
 }
 
