@@ -22,7 +22,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-const model = "imu_vectornav"
+const model = "imu-vectornav"
 
 func init() {
 	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{
@@ -520,4 +520,3 @@ func (vn *vectornav) Close() {
 	vn.busClosed = true
 	vn.activeBackgroundWorkers.Wait()
 }
-
