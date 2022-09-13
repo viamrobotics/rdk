@@ -513,6 +513,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		if err != nil {
 			svc.logger.Errorf("can't download models_on_robot in config", "error", err)
 		}
+		fmt.Println("everything works")
 	}
 
 	toggledCaptureOff := (svc.captureDisabled != svcConfig.CaptureDisabled) && svcConfig.CaptureDisabled

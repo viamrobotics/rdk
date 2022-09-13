@@ -136,10 +136,12 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	m.cancelFunc = cancelFn
 	out := make(chan error)
+	// check := make(chan string)
+	fmt.Println("len(modelsToDownload): ", len(modelsToDownload))
 	m.backgroundWorkers.Add(len(modelsToDownload))
 	for _, model := range modelsToDownload {
 		go func(model *Model) {
-			defer m.backgroundWorkers.Done()
+			// defer m.backgroundWorkers.Done()
 			deployRequest := &v1.DeployRequest{
 				Metadata: &v1.DeployMetadata{
 					ModelName: model.Name,
@@ -163,12 +165,16 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 					m.logger.Error(err)
 					out <- err
 				}
+				fmt.Println("what about here?")
 			}
+			m.backgroundWorkers.Done()
 		}(model)
 	}
+	fmt.Println("do we ever make it here?")
 	m.backgroundWorkers.Wait()
 	err = <-out
 	close(out)
+	// close(check)
 	return err
 }
 
@@ -183,23 +189,31 @@ func getModelsToDownload(models []*Model) ([]*Model, error) {
 			// Set the model destination to default if it's not specified in the config.
 			model.Destination = filepath.Join(viamModelDotDir, model.Name)
 		}
+		fmt.Println("checking existence of: ", model.Destination)
 		_, err := os.Stat(model.Destination)
-		if errors.Is(err, os.ErrNotExist) {
+		switch {
+		case errors.Is(err, os.ErrNotExist):
+			// we know we have never attempted to deploy the model
+			fmt.Println("in first deployment case")
 			modelsToDownload = append(modelsToDownload, model)
 			// create model.Destination directory
 			err := os.MkdirAll(model.Destination, os.ModePerm)
 			if err != nil {
 				return nil, err
 			}
-		} else if err != nil {
+		case err != nil:
 			return nil, err
-		}
-		files, err := ioutil.ReadDir(model.Destination)
-		if err != nil {
-			return nil, err
-		}
-		if len(files) == 0 {
-			modelsToDownload = append(modelsToDownload, model)
+		default:
+			fmt.Println("in default case")
+			files, err := ioutil.ReadDir(model.Destination)
+			if err != nil {
+				return nil, err
+			}
+			if len(files) == 0 {
+				fmt.Println("testing partial download")
+				// know there was a partial download
+				modelsToDownload = append(modelsToDownload, model)
+			}
 		}
 	}
 	return modelsToDownload, nil
@@ -255,21 +269,25 @@ func unzipSource(fileName, destination string) error {
 		return err
 	}
 
-	// this causes error sometimes because it is trying to remove a file which is not there
-	// however this is no other place where we rmeove the .zip file
-	// this is what makes me think there might be a goroutine issue that is not surfaced properly
-	if err = os.Remove(filepath.Join(destination, fileName)); err != nil {
-		// this is the hacky solution I came up with..
-		// I do not think it is the appropriate solution
-		// I am confused about how this file could be removed if this is the only place in
-		// the code where this removal happens
-		// this makes me think it is a goroutine issue but I am unsure about how to remedy it
+	fmt.Println("everything works, now we proceed to remove the .zip file")
+	files, _ := ioutil.ReadDir(filepath.Join(destination))
+	for i := range files {
+		fmt.Println("files[i]: ", files[i])
+	}
+
+	//check again
+	fmt.Println("now we remove: ", filepath.Join(destination, fileName))
+	err = os.Remove(filepath.Join(destination, fileName))
+	fmt.Println("err check now")
+	fmt.Println("err: ", err)
+	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil
+			fmt.Println("SPECIAL CASE")
+			return err
 		}
 		return err
 	}
-
+	fmt.Println("made it past")
 	return nil
 }
 
