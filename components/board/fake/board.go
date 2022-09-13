@@ -39,9 +39,18 @@ func init() {
 	board.RegisterConfigAttributeConverter(modelName)
 }
 
+// A Config describes the configuration of a board and all of its connected parts.
+type Config struct {
+	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
+	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
+	Analogs           []board.AnalogConfig           `json:"analogs,omitempty"`
+	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
+	Attributes        config.AttributeMap      `json:"attributes,omitempty"`
+}
+
 // NewBoard returns a new fake board.
 func NewBoard(ctx context.Context, config config.Component, logger golog.Logger) (*Board, error) {
-	boardConfig, ok := config.ConvertedAttributes.(*board.Config)
+	boardConfig, ok := config.ConvertedAttributes.(*Config)
 	if !ok {
 		return nil, errors.Errorf("expected converted attributes to be a *board.Config but got %T", config.ConvertedAttributes)
 	}
