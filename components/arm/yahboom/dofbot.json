@@ -1,0 +1,91 @@
+{
+    "name": "dofbot",
+    "kinematic_param_type": "DH",
+    "dhParams": [
+        {
+            "id": "j1",
+            "parent": "world",
+            "a": 0,
+            "d": 115,
+            "alpha": -1.57079632679,
+            "max": 180,
+            "min": -180,
+            "geometry": {
+                "x": 80,
+                "y": 80,
+                "z": 120,
+                "translation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 60
+                }
+            }
+        },
+        {
+            "id": "j2",
+            "parent": "j1",
+            "a": 82.85,
+            "d": 0,
+            "alpha": 0,
+            "max": 180,
+            "min": -180,
+            "geometry": {
+                "x": 110,
+                "y": 45,
+                "z": 45,
+                "translation": {
+                    "x": 40,
+                    "y": 0,
+                    "z": 0
+                }
+            }
+        },
+        {
+            "id": "j3",
+            "parent": "j2",
+            "a": 82.85,
+            "d": 0,
+            "alpha": 0,
+            "max": 180,
+            "min": -180,
+            "geometry": {
+                "x": 110,
+                "y": 45,
+                "z": 45,
+                "translation": {
+                    "x": 40,
+                    "y": 0,
+                    "z": 0
+                }
+            }
+        },
+        {
+            "id": "j4",
+            "parent": "j3",
+            "d": 0,
+            "a": 82.85,
+            "alpha": 0,
+            "max": 180,
+            "min": -180,
+            "geometry": {
+                "x": 110,
+                "y": 45,
+                "z": 45,
+                "translation": {
+                    "x": 40,
+                    "y": 0,
+                    "z": 0
+                }
+            }
+        },
+        {
+            "id": "j5",
+            "parent": "j4",
+            "a": 0,
+            "d": 0,
+            "alpha": 1.57079632679,
+            "max": 180,
+            "min": -180
+        }
+    ]
+}

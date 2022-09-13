@@ -9,12 +9,11 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
-	"go.viam.com/utils/testutils"
 
-	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/gripper"
 	// register.
-	_ "go.viam.com/rdk/component/register"
+	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -22,9 +21,9 @@ import (
 	"go.viam.com/rdk/robot/framesystem"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/testutils/robottestutils"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -98,9 +97,9 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{500, 0, 300})
 
-	t.Log("pieceArm_offset")
-	test.That(t, fs.GetFrame("pieceArm_offset"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("pieceArm_offset").Transform(emptyIn)
+	t.Log("pieceArm_origin")
+	test.That(t, fs.GetFrame("pieceArm_origin"), test.ShouldNotBeNil)
+	pose, err = fs.GetFrame("pieceArm_origin").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{500, 500, 1000})
 
@@ -110,9 +109,9 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 200})
 
-	t.Log("pieceGripper_offset")
-	test.That(t, fs.GetFrame("pieceGripper_offset"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("pieceGripper_offset").Transform(emptyIn)
+	t.Log("pieceGripper_origin")
+	test.That(t, fs.GetFrame("pieceGripper_origin"), test.ShouldNotBeNil)
+	pose, err = fs.GetFrame("pieceGripper_origin").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
@@ -122,9 +121,9 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
-	t.Log("movement_sensor2_offset")
-	test.That(t, fs.GetFrame("movement_sensor2_offset"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("movement_sensor2_offset").Transform(emptyIn)
+	t.Log("movement_sensor2_origin")
+	test.That(t, fs.GetFrame("movement_sensor2_origin"), test.ShouldNotBeNil)
+	pose, err = fs.GetFrame("movement_sensor2_origin").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
@@ -134,9 +133,9 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
-	t.Log("cameraOver_offset")
-	test.That(t, fs.GetFrame("cameraOver_offset"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("cameraOver_offset").Transform(emptyIn)
+	t.Log("cameraOver_origin")
+	test.That(t, fs.GetFrame("cameraOver_origin"), test.ShouldNotBeNil)
+	pose, err = fs.GetFrame("cameraOver_origin").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{2000, 500, 1300})
 
@@ -286,11 +285,8 @@ func TestServiceWithRemote(t *testing.T) {
 	defer func() {
 		test.That(t, remoteRobot.Close(context.Background()), test.ShouldBeNil)
 	}()
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	listener := testutils.ReserveRandomListener(t)
-	addr := listener.Addr().String()
-	options.Network.Listener = listener
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err = remoteRobot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 

@@ -19,7 +19,7 @@ To see more examples, check out the [Wiki](https://github.com/viamrobotics/rdk/w
 
 ### First time run
 
-* Try out `go run web/cmd/server/main.go -config robots/configs/fake.json` and visit http://localhost:8080
+* Try out `go run web/cmd/server/main.go -config etc/configs/fake.json` and visit http://localhost:8080
 
 ## Development
 
@@ -87,16 +87,9 @@ Some guidelines on using these:
 1. Follow the [Protobuf style guide](https://docs.buf.build/style-guide/).
 1. After making changes to a `.proto` file, make sure to run `make buf` to generate new files. Make sure `protoc-gen-go-grpc` and `protoc-gen-go`, usually located in `~/go/bin`, are in your `$PATH`.
 
-#### gRPC Language Samples
-
-* [Go](./grpc) - See `client` and `server`.
-* [Python](./grpc/python)
-* [Java](./grpc/java)
-* [C++](./grpc/cpp)
-
 ### Frontend
 
-To start the client development environment, first run the same `go run` command mentioned in getting started, but with the environmental variable `ENV=development` (like: `ENV=development go run web/cmd/server/main.go -config robots/configs/fake.json`). Then navigate to `web/frontend` and run `npm start` in a new terminal tab.
+To start the client development environment, first run the same `go run` command mentioned in getting started, but with the environmental variable `ENV=development` (like: `ENV=development go run web/cmd/server/main.go -config etc/configs/fake.json`). Then navigate to `web/frontend` and run `npm start` in a new terminal tab.
 
 Note that you should still visit `localhost:8080` to view the app, not `localhost:5173`. The latter is a hot module replacement server that rebuilds frontend asset changes.
 

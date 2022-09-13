@@ -66,7 +66,7 @@ func calculateBiquadCoefficient(fc float64, p, n int, rp float64, hp bool) ([]fl
 }
 
 // calculateABCoeffs calculate the a,b coefficient for the recursive filter function.
-// To simplify the algebra we use a cascade of biquad filters for filters for order > 2
+// To simplify the algebra we use a cascade of biquad filters for order > 2
 // hence we can only build even order filters.
 func (f *iirFilter) calculateABCoeffs() error {
 	fc := 2.0 * f.cutOffFreq / f.smpFreq

@@ -29,7 +29,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	inputSteps := []*node{}
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm7_kinematics.json"), "")
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	mp, err := NewCBiRRTMotionPlannerWithSeed(m, 1, rand.New(rand.NewSource(42)), logger)

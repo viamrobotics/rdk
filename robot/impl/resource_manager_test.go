@@ -19,23 +19,23 @@ import (
 	"go.viam.com/utils/testutils"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	"go.viam.com/rdk/component/arm"
-	fakearm "go.viam.com/rdk/component/arm/fake"
-	"go.viam.com/rdk/component/base"
-	fakebase "go.viam.com/rdk/component/base/fake"
-	"go.viam.com/rdk/component/board"
-	fakeboard "go.viam.com/rdk/component/board/fake"
-	"go.viam.com/rdk/component/camera"
-	fakecamera "go.viam.com/rdk/component/camera/fake"
-	"go.viam.com/rdk/component/gripper"
-	fakegripper "go.viam.com/rdk/component/gripper/fake"
-	"go.viam.com/rdk/component/input"
-	fakeinput "go.viam.com/rdk/component/input/fake"
-	"go.viam.com/rdk/component/motor"
-	fakemotor "go.viam.com/rdk/component/motor/fake"
-	"go.viam.com/rdk/component/sensor"
-	"go.viam.com/rdk/component/servo"
-	fakeservo "go.viam.com/rdk/component/servo/fake"
+	"go.viam.com/rdk/components/arm"
+	fakearm "go.viam.com/rdk/components/arm/fake"
+	"go.viam.com/rdk/components/base"
+	fakebase "go.viam.com/rdk/components/base/fake"
+	"go.viam.com/rdk/components/board"
+	fakeboard "go.viam.com/rdk/components/board/fake"
+	"go.viam.com/rdk/components/camera"
+	fakecamera "go.viam.com/rdk/components/camera/fake"
+	"go.viam.com/rdk/components/gripper"
+	fakegripper "go.viam.com/rdk/components/gripper/fake"
+	"go.viam.com/rdk/components/input"
+	fakeinput "go.viam.com/rdk/components/input/fake"
+	"go.viam.com/rdk/components/motor"
+	fakemotor "go.viam.com/rdk/components/motor/fake"
+	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/components/servo"
+	fakeservo "go.viam.com/rdk/components/servo/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
@@ -51,11 +51,11 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
-	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/vision"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
 )
@@ -504,7 +504,6 @@ func TestManagerAdd(t *testing.T) {
 	injectVisionService.GetObjectPointCloudsFunc = func(
 		ctx context.Context,
 		cameraName, segmenterName string,
-		parameters config.AttributeMap,
 	) ([]*viz.Object, error) {
 		return []*viz.Object{viz.NewEmptyObject()}, nil
 	}
@@ -724,7 +723,7 @@ func TestManagerNewComponent(t *testing.T) {
 		logger:  logger,
 		config:  cfg,
 	}
-	diff, err := config.DiffConfigs(config.Config{}, *cfg)
+	diff, err := config.DiffConfigs(config.Config{}, *cfg, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robotForRemote.manager.updateResources(context.Background(), diff, func(name string) (resource.Name, bool) {
 		for _, c := range cfg.Components {
@@ -1346,11 +1345,7 @@ func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 	leaf, err := x509.ParseCertificate(cert.Certificate[0])
 	test.That(t, err, test.ShouldBeNil)
 
-	options := weboptions.New()
-	options.Network.BindAddress = ""
-	listener := testutils.ReserveRandomListener(t)
-	addr := listener.Addr().String()
-	options.Network.Listener = listener
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	options.Network.TLSConfig = &tls.Config{
 		RootCAs:      certPool,
 		ClientCAs:    certPool,

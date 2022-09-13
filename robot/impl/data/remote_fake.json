@@ -1,17 +1,17 @@
 {
     "components": [
         {
-            "model": "fake",
             "name": "pieceGripper",
             "type": "gripper",
+            "model": "fake",
             "frame": {
-                "parent" : ""
+                "parent": ""
             }
         },
         {
-            "model": "file",
             "name": "cameraOver",
             "type": "camera",
+            "model": "file",
             "attributes": {
                 "color": "artifact_data/vision/chess/board3.png",
                 "depth": "artifact_data/vision/chess/board3.dat.gz",
