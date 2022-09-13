@@ -176,6 +176,11 @@ func (c *client) GetProperties(ctx context.Context) (Properties, error) {
 		Ppy:    resp.IntrinsicParameters.CenterYPx,
 	}
 	result.SupportsPCD = resp.SupportsPcd
+	// if no distortion model present, return result with no model
+	if resp.DistortionParameters == nil {
+		result.DistortionParams = &transform.NoDistortion{}
+		return result, nil
+	}
 	// switch distortion model based on model name
 	model := resp.DistortionParameters.Model
 	switch transform.DistortionType(model) {
