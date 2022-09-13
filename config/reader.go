@@ -18,7 +18,7 @@ import (
 	"github.com/mitchellh/copystructure"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	apppb "go.viam.com/api/app/v1"
+	apppb "go.viam.com/api/proto/viam/app/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"

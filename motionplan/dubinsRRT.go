@@ -33,6 +33,7 @@ type DubinsRRTMotionPlanner struct {
 func NewDubinsRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger, d Dubins) (MotionPlanner, error) {
 	mp := &DubinsRRTMotionPlanner{frame: frame, logger: logger, nCPU: nCPU, D: d}
 
+	// TODO(rb): this should support PlannerOptions in the way the other planners do
 	mp.iter = defaultPlanIter
 	mp.stepSize = defaultResolution
 
@@ -57,25 +58,21 @@ func (mp *DubinsRRTMotionPlanner) Resolution() float64 {
 func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
-	opt *PlannerOptions,
+	planOpts *PlannerOptions,
 ) ([][]referenceframe.Input, error) {
 	solutionChan := make(chan *planReturn, 1)
-	if opt == nil {
-		opt = NewBasicPlannerOptions()
+	if planOpts == nil {
+		planOpts = NewBasicPlannerOptions()
 	}
 
 	utils.PanicCapturingGo(func() {
-		mp.planRunner(ctx, goal, seed, opt, solutionChan, 0.1)
+		mp.planRunner(ctx, goal, seed, planOpts, solutionChan, 0.1)
 	})
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
-		finalSteps := make([][]referenceframe.Input, 0, len(plan.steps))
-		for _, step := range plan.steps {
-			finalSteps = append(finalSteps, step.inputs)
-		}
-		return finalSteps, plan.err
+		return plan.toInputs(), plan.err
 	}
 }
 
@@ -84,30 +81,30 @@ func (mp *DubinsRRTMotionPlanner) Plan(ctx context.Context,
 func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
-	opt *PlannerOptions,
+	planOpts *PlannerOptions,
 	solutionChan chan *planReturn,
 	goalRate float64,
 ) {
 	defer close(solutionChan)
-	inputSteps := []*configuration{}
+	inputSteps := []*node{}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	seedConfig := &configuration{seed}
-	seedMap := make(map[*configuration]*configuration)
-	childMap := make(map[*configuration][]*configuration)
+	seedConfig := &node{q: seed}
+	seedMap := make(map[*node]*node)
+	childMap := make(map[*node][]*node)
 	seedMap[seedConfig] = nil
-	childMap[seedConfig] = make([]*configuration, 0)
+	childMap[seedConfig] = make([]*node, 0)
 
-	pathLenMap := make(map[*configuration]float64)
+	pathLenMap := make(map[*node]float64)
 	pathLenMap[seedConfig] = 0
 
 	goalInputs := make([]referenceframe.Input, 3)
 	goalInputs[0] = referenceframe.Input{Value: goal.X}
 	goalInputs[1] = referenceframe.Input{Value: goal.Y}
 	goalInputs[2] = referenceframe.Input{Value: goal.Theta}
-	goalConfig := &configuration{goalInputs}
+	goalConfig := &node{q: goalInputs}
 
 	dm := &dubinPathAttrManager{nCPU: mp.nCPU, d: mp.D}
 
@@ -119,7 +116,7 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 		default:
 		}
 
-		var target *configuration
+		var target *node
 		//nolint:gosec
 		if (rand.Float64() > 1-goalRate) || i == 0 {
 			target = goalConfig
@@ -127,24 +124,24 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 			inputDubins := referenceframe.RandomFrameInputs(mp.frame, mp.randseed)
 			//nolint:gosec
 			inputDubins = append(inputDubins, referenceframe.Input{Value: rand.Float64() * 2 * math.Pi})
-			target = &configuration{inputDubins}
+			target = &node{q: inputDubins}
 		}
 
 		targetConnected := false
 		options := dm.selectOptions(ctxWithCancel, target, seedMap, 10)
-		for node, o := range options {
+		for n, o := range options {
 			if o.TotalLen == math.Inf(1) {
 				break
 			}
 
-			if mp.checkPath(node, target, opt, dm, o) {
-				seedMap[target] = node
+			if mp.checkPath(n, target, planOpts, dm, o) {
+				seedMap[target] = n
 				if o.TotalLen < 0 {
 					continue
 				}
-				pathLenMap[target] = pathLenMap[node] + o.TotalLen
-				childMap[node] = append(childMap[node], target)
-				childMap[target] = make([]*configuration, 0)
+				pathLenMap[target] = pathLenMap[n] + o.TotalLen
+				childMap[n] = append(childMap[n], target)
+				childMap[target] = make([]*node, 0)
 				targetConnected = true
 				break
 			}
@@ -154,8 +151,8 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 			// reroute near neighbors through new node if it shortens the path
 			neighbors := findNearNeighbors(target, seedMap, 10)
 			for _, n := range neighbors {
-				start := configuration2slice(target)
-				end := configuration2slice(n)
+				start := nodeToSlice(target)
+				end := nodeToSlice(n)
 
 				bestOption := dm.d.AllPaths(start, end, true)[0]
 				if bestOption.TotalLen < 0 {
@@ -215,9 +212,9 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 }
 
 func updateChildren(
-	relinkedNode *configuration,
-	pathLenMap map[*configuration]float64,
-	childMap map[*configuration][]*configuration,
+	relinkedNode *node,
+	pathLenMap map[*node]float64,
+	childMap map[*node][]*node,
 	diff float64,
 ) {
 	pathLenMap[relinkedNode] -= diff
@@ -227,13 +224,13 @@ func updateChildren(
 }
 
 func (mp *DubinsRRTMotionPlanner) checkPath(
-	from, to *configuration,
-	opt *PlannerOptions,
+	from, to *node,
+	planOpts *PlannerOptions,
 	dm *dubinPathAttrManager,
 	o DubinPathAttr,
 ) bool {
-	start := configuration2slice(from)
-	end := configuration2slice(to)
+	start := nodeToSlice(from)
+	end := nodeToSlice(to)
 	path := dm.d.generatePoints(start, end, o.DubinsPath, o.Straight)
 
 	pathOk := true
@@ -265,7 +262,7 @@ func (mp *DubinsRRTMotionPlanner) checkPath(
 			Frame:      mp.frame,
 		}
 
-		if ok, _ := opt.CheckConstraintPath(ci, mp.Resolution()); !ok {
+		if ok, _ := planOpts.CheckConstraintPath(ci, mp.Resolution()); !ok {
 			pathOk = false
 			break
 		}
@@ -278,17 +275,17 @@ func (mp *DubinsRRTMotionPlanner) checkPath(
 
 // Used for coordinating parallel computations of dubins path options.
 type dubinPathAttrManager struct {
-	optKeys chan *configuration
+	optKeys chan *node
 	options chan *nodeToOptionList
 	optLock sync.RWMutex
-	sample  *configuration
+	sample  *node
 	ready   bool
 	nCPU    int
 	d       Dubins
 }
 
 type nodeToOption struct {
-	key   *configuration
+	key   *node
 	value DubinPathAttr
 }
 
@@ -300,10 +297,10 @@ func (p nodeToOptionList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 func (dm *dubinPathAttrManager) selectOptions(
 	ctx context.Context,
-	sample *configuration,
-	rrtMap map[*configuration]*configuration,
+	sample *node,
+	rrtMap map[*node]*node,
 	nbOptions int,
-) map[*configuration]DubinPathAttr {
+) map[*node]DubinPathAttr {
 	if len(rrtMap) < 1 {
 		// If the map is large, calculate distances in parallel
 		return dm.parallelselectOptions(ctx, sample, rrtMap, nbOptions)
@@ -312,8 +309,8 @@ func (dm *dubinPathAttrManager) selectOptions(
 	// get all options from all nodes
 	pl := make(nodeToOptionList, 0)
 	for node := range rrtMap {
-		start := configuration2slice(node)
-		end := configuration2slice(sample)
+		start := nodeToSlice(node)
+		end := nodeToSlice(sample)
 		bestOpt := dm.d.AllPaths(start, end, true)[0]
 
 		if bestOpt.TotalLen != math.Inf(1) {
@@ -323,7 +320,7 @@ func (dm *dubinPathAttrManager) selectOptions(
 	sort.Sort(pl)
 
 	// Sort and choose best nbOptions options
-	options := make(map[*configuration]DubinPathAttr)
+	options := make(map[*node]DubinPathAttr)
 	topn := nbOptions
 	if len(pl) < nbOptions {
 		topn = len(pl)
@@ -338,10 +335,10 @@ func (dm *dubinPathAttrManager) selectOptions(
 
 func (dm *dubinPathAttrManager) parallelselectOptions(
 	ctx context.Context,
-	sample *configuration,
-	rrtMap map[*configuration]*configuration,
+	sample *node,
+	rrtMap map[*node]*node,
 	nbOptions int,
-) map[*configuration]DubinPathAttr {
+) map[*node]DubinPathAttr {
 	dm.ready = false
 	dm.startOptWorkers(ctx)
 	defer close(dm.optKeys)
@@ -375,7 +372,7 @@ func (dm *dubinPathAttrManager) parallelselectOptions(
 
 	// Sort and choose best nbOptions options
 	sort.Sort(pl)
-	options := make(map[*configuration]DubinPathAttr)
+	options := make(map[*node]DubinPathAttr)
 	topn := nbOptions
 	if len(pl) < nbOptions {
 		topn = len(pl)
@@ -389,7 +386,7 @@ func (dm *dubinPathAttrManager) parallelselectOptions(
 
 func (dm *dubinPathAttrManager) startOptWorkers(ctx context.Context) {
 	dm.options = make(chan *nodeToOptionList, dm.nCPU)
-	dm.optKeys = make(chan *configuration, dm.nCPU)
+	dm.optKeys = make(chan *node, dm.nCPU)
 	for i := 0; i < dm.nCPU; i++ {
 		utils.PanicCapturingGo(func() {
 			dm.optWorker(ctx)
@@ -411,8 +408,8 @@ func (dm *dubinPathAttrManager) optWorker(ctx context.Context) {
 		case node := <-dm.optKeys:
 			if node != nil {
 				dm.optLock.RLock()
-				start := configuration2slice(node)
-				end := configuration2slice(dm.sample)
+				start := nodeToSlice(node)
+				end := nodeToSlice(dm.sample)
 				bestOpt := dm.d.AllPaths(start, end, true)[0]
 				dm.optLock.RUnlock()
 
@@ -432,13 +429,13 @@ func (dm *dubinPathAttrManager) optWorker(ctx context.Context) {
 	}
 }
 
-func mobile2DConfigDist(from, to *configuration) float64 {
-	return math.Pow(from.inputs[0].Value-to.inputs[0].Value, 2) + math.Pow(from.inputs[1].Value-to.inputs[1].Value, 2)
+func mobile2DConfigDist(from, to *node) float64 {
+	return math.Pow(from.q[0].Value-to.q[0].Value, 2) + math.Pow(from.q[1].Value-to.q[1].Value, 2)
 }
 
 // TODO: Update nearestNeighbor.go to take a custom distance function, so then everything can use the same function (rh pl rb).
-func findNearNeighbors(sample *configuration, rrtMap map[*configuration]*configuration, nbNeighbors int) []*configuration {
-	keys := make([]*configuration, 0, len(rrtMap))
+func findNearNeighbors(sample *node, rrtMap map[*node]*node, nbNeighbors int) []*node {
+	keys := make([]*node, 0, len(rrtMap))
 
 	for key := range rrtMap {
 		if key == sample {
@@ -459,9 +456,9 @@ func findNearNeighbors(sample *configuration, rrtMap map[*configuration]*configu
 	return keys[:topn]
 }
 
-func configuration2slice(c *configuration) []float64 {
+func nodeToSlice(c *node) []float64 {
 	s := make([]float64, 0)
-	for _, v := range c.inputs {
+	for _, v := range c.q {
 		s = append(s, v.Value)
 	}
 	return s

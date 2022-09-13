@@ -71,7 +71,7 @@ func TestFromRobot(t *testing.T) {
 		poseTracker, err := posetracker.FromRobot(robot, notPTName)
 		test.That(
 			t, err, test.ShouldBeError,
-			utils.NewUnimplementedInterfaceError("PoseTracker", "string"),
+			posetracker.NewUnimplementedInterfaceError("string"),
 		)
 		test.That(t, poseTracker, test.ShouldBeNil)
 	})
@@ -127,7 +127,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	reconfPT, err := posetracker.WrapWithReconfigurable(poseTracker)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = posetracker.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, utils.NewUnimplementedInterfaceError("PoseTracker", nil))
+	test.That(t, err, test.ShouldBeError, posetracker.NewUnimplementedInterfaceError(nil))
 	reconfPT2, err := posetracker.WrapWithReconfigurable(reconfPT)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfPT2, test.ShouldEqual, reconfPT)

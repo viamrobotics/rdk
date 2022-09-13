@@ -38,6 +38,7 @@
                     "pwm": "5"
                 },
                 "pwm_freq": 4000,
+                "max_rpm": 60,
                 "ticks_per_rotation": 1
             }
         },
