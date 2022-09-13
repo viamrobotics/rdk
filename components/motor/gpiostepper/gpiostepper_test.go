@@ -39,6 +39,11 @@ func Test1(t *testing.T) {
 
 	mc.Pins.Step = "c"
 
+	_, err = newGPIOStepper(ctx, b, mc, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	mc.TicksPerRotation = 200
+
 	mm, err := newGPIOStepper(ctx, b, mc, logger)
 	test.That(t, err, test.ShouldBeNil)
 
