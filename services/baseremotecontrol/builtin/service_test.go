@@ -52,7 +52,7 @@ func TestBaseRemoteControl(t *testing.T) {
 
 	// New base_remote_control check
 	cfg.ControlModeName = "joystickControl"
-	tmpSvc, err := NewBuildIn(ctx, fakeRobot,
+	tmpSvc, err := NewBuiltIn(ctx, fakeRobot,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -64,7 +64,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	cfg.ControlModeName = "triggerSpeedControl"
-	tmpSvc1, err := NewBuildIn(ctx, fakeRobot,
+	tmpSvc1, err := NewBuiltIn(ctx, fakeRobot,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -76,7 +76,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	cfg.ControlModeName = "arrowControl"
-	tmpSvc2, err := NewBuildIn(ctx, fakeRobot,
+	tmpSvc2, err := NewBuiltIn(ctx, fakeRobot,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -88,7 +88,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	cfg.ControlModeName = "buttonControl"
-	tmpSvc3, err := NewBuildIn(ctx, fakeRobot,
+	tmpSvc3, err := NewBuiltIn(ctx, fakeRobot,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -100,7 +100,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	cfg.ControlModeName = "fail"
-	tmpSvc4, err := NewBuildIn(ctx, fakeRobot,
+	tmpSvc4, err := NewBuiltIn(ctx, fakeRobot,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -119,7 +119,7 @@ func TestBaseRemoteControl(t *testing.T) {
 		return nil, rutils.NewResourceNotFoundError(name)
 	}
 
-	_, err = NewBuildIn(ctx, fakeRobot,
+	_, err = NewBuiltIn(ctx, fakeRobot,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -136,7 +136,7 @@ func TestBaseRemoteControl(t *testing.T) {
 		return nil, rutils.NewResourceNotFoundError(name)
 	}
 
-	_, err = NewBuildIn(ctx, fakeRobot,
+	_, err = NewBuiltIn(ctx, fakeRobot,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",

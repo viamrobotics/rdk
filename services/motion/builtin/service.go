@@ -25,13 +25,13 @@ import (
 func init() {
 	registry.RegisterService(motion.Subtype, resource.DefaultModelName, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuildIn(ctx, r, c, logger)
+			return NewBuiltIn(ctx, r, c, logger)
 		},
 	})
 }
 
-// NewBuildIn returns a new move and grab service for the given robot.
-func NewBuildIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (motion.Service, error) {
+// NewBuiltIn returns a new move and grab service for the given robot.
+func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (motion.Service, error) {
 	return &builtIn{
 		r:      r,
 		logger: logger,

@@ -1,5 +1,5 @@
-// Package builtIn contains a service type that can be used to capture data from a robot's components.
-package builtIn
+// Package builtin contains a service type that can be used to capture data from a robot's components.
+package builtin
 
 import (
 	"context"
@@ -29,7 +29,7 @@ import (
 func init() {
 	registry.RegisterService(datamanager.Subtype, resource.DefaultModelName, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewDefault(ctx, r, c, logger)
+			return NewBuiltIn(ctx, r, c, logger)
 		},
 	})
 	cType := config.ServiceType(datamanager.SubtypeName)
@@ -106,7 +106,7 @@ type builtIn struct {
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
-// NewDefault returns a new data manager service for the given robot.
+// NewBuiltIn returns a new data manager service for the given robot.
 func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger) (datamanager.Service, error) {
 	// Set syncIntervalMins = -1 as we rely on initOrUpdateSyncer to instantiate a syncer
 	// on first call to Update, even if syncIntervalMins value is 0, and the default value for int64 is 0.
