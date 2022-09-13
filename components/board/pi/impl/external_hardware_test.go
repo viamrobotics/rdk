@@ -14,8 +14,8 @@ import (
 	"go.viam.com/rdk/components/board"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/components/motor" // for gpio motor.
-	_ "go.viam.com/rdk/components/motor/gpio"
+	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/components/motor/gpio"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -160,8 +160,8 @@ func TestPiHardware(t *testing.T) {
 	motorDeps = append(motorDeps, "encoder1")
 
 	motorInt, err := motorReg.Constructor(ctx, deps, config.Component{
-		Name: "motor1", ConvertedAttributes: &motor.Config{
-			Pins: motor.PinConfig{
+		Name: "motor1", ConvertedAttributes: &gpio.Config{
+			Pins: gpio.PinConfig{
 				A:   "13", // bcom 27
 				B:   "40", // bcom 21
 				PWM: "7",  // bcom 4

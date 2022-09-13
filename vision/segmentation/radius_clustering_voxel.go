@@ -61,8 +61,8 @@ func (rcc *RadiusClusteringVoxelConfig) ConvertAttributes(am config.AttributeMap
 	return rcc.CheckValid()
 }
 
-// RadiusClusteringFromVoxels removes the planes (if any) and returns a segmentation of the objects in a point cloud.
-func RadiusClusteringFromVoxels(ctx context.Context, c camera.Camera, params config.AttributeMap) ([]*vision.Object, error) {
+// NewRadiusClusteringFromVoxels removes the planes (if any) and returns a segmentation of the objects in a point cloud.
+func NewRadiusClusteringFromVoxels(params config.AttributeMap) (Segmenter, error) {
 	// convert attributes to appropriate struct
 	if params == nil {
 		return nil, errors.New("config for radius clustering segmentation cannot be nil")
@@ -72,23 +72,20 @@ func RadiusClusteringFromVoxels(ctx context.Context, c camera.Camera, params con
 	if err != nil {
 		return nil, err
 	}
+	return cfg.RadiusClusteringVoxels, nil
+}
+
+// RadiusClusteringVoxels turns the cloud into a voxel grid and then does radius clustering  to segment it.
+func (rcc *RadiusClusteringVoxelConfig) RadiusClusteringVoxels(ctx context.Context, c camera.Camera) ([]*vision.Object, error) {
 	// get next point cloud and convert it to a  VoxelGrid
 	// NOTE(bh): Maybe one day cameras will return voxel grids directly.
 	cloud, err := c.NextPointCloud(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return ApplyRadiusClusteringVoxels(ctx, cloud, cfg)
-}
-
-// ApplyRadiusClusteringVoxels turns the cloud into a voxel grid and then does radius clustering  to segment it.
-func ApplyRadiusClusteringVoxels(ctx context.Context,
-	cloud pc.PointCloud,
-	cfg *RadiusClusteringVoxelConfig,
-) ([]*vision.Object, error) {
 	// turn the point cloud into a voxel grid
-	vg := pc.NewVoxelGridFromPointCloud(cloud, cfg.VoxelSize, cfg.Lambda)
-	planeConfig := VoxelGridPlaneConfig{cfg.WeightThresh, cfg.AngleThresh, cfg.CosineThresh, cfg.DistanceThresh}
+	vg := pc.NewVoxelGridFromPointCloud(cloud, rcc.VoxelSize, rcc.Lambda)
+	planeConfig := VoxelGridPlaneConfig{rcc.WeightThresh, rcc.AngleThresh, rcc.CosineThresh, rcc.DistanceThresh}
 	ps := NewVoxelGridPlaneSegmentation(vg, planeConfig)
 	planes, nonPlane, err := ps.FindPlanes(ctx)
 	if err != nil {
@@ -102,11 +99,11 @@ func ApplyRadiusClusteringVoxels(ctx context.Context,
 		}
 	}
 	objVoxGrid := pc.NewVoxelGridFromPointCloud(nonPlane, vg.VoxelSize(), vg.Lambda())
-	objects, err := voxelBasedNearestNeighbors(objVoxGrid, cfg.ClusteringRadiusMm)
+	objects, err := voxelBasedNearestNeighbors(objVoxGrid, rcc.ClusteringRadiusMm)
 	if err != nil {
 		return nil, err
 	}
-	objects = pc.PrunePointClouds(objects, cfg.MinPtsInSegment)
+	objects = pc.PrunePointClouds(objects, rcc.MinPtsInSegment)
 	segments, err := NewSegmentsFromSlice(objects)
 	if err != nil {
 		return nil, err

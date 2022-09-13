@@ -15,13 +15,14 @@ import (
 	"go.viam.com/rdk/components/arm/fake"
 	"go.viam.com/rdk/components/arm/wrapper"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/motionplan"
 	pb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	math "go.viam.com/rdk/spatialmath"
+	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -45,17 +46,17 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 	// setup planning problem - the idea is to move from one position to the other while avoiding obstalces
 	position1 := r3.Vector{0, -600, 100}
-	position2 := r3.Vector{0, -600, 300}
-	// position2 := r3.Vector{-600, -300, 100}
-	box, _ := math.NewBox(math.NewPoseFromPoint(r3.Vector{-400, -550, 150}), r3.Vector{300, 300, 300})
-	table, _ := math.NewBox(math.NewPoseFromPoint(r3.Vector{0, 0, 0}), r3.Vector{1500, 1500, 50})
-	ws, _ := math.NewBox(math.NewPoseFromPoint(r3.Vector{0, 0, 0}), r3.Vector{1500, 1500, 1000})
+	// position2 := r3.Vector{0, -600, 300}
+	position2 := r3.Vector{-600, -300, 100}
+	box, _ := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{-400, -550, 150}), r3.Vector{300, 300, 300})
+	table, _ := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{0, 0, 0}), r3.Vector{1500, 1500, 50})
+	ws, _ := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{0, 0, 0}), r3.Vector{1500, 1500, 1500})
 
 	// construct world state message
-	obstacles := make(map[string]math.Geometry)
+	obstacles := make(map[string]spatial.Geometry)
 	obstacles["box"] = box
 	obstacles["table"] = table
-	workspace := make(map[string]math.Geometry)
+	workspace := make(map[string]spatial.Geometry)
 	workspace["workspace"] = ws
 	worldState := &pb.WorldState{
 		Obstacles:         []*pb.GeometriesInFrame{frame.GeometriesInFrameToProtobuf(frame.NewGeometriesInFrame(frame.World, obstacles))},
@@ -67,29 +68,37 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	if err != nil {
 		return err
 	}
-	eePosition := math.NewPoseFromProtobuf(currentPose).Point()
+	eePosition := spatial.NewPoseFromProtobuf(currentPose).Point()
 	delta1 := eePosition.Sub(position1).Norm()
 	delta2 := eePosition.Sub(position2).Norm()
-	start := math.PoseToProtobuf(math.NewPoseFromPoint(position1))
-	goal := math.PoseToProtobuf(math.NewPoseFromPoint(position2))
+	start := spatial.PoseToProtobuf(spatial.NewPoseFromPoint(position1))
+	goal := spatial.PoseToProtobuf(spatial.NewPoseFromPoint(position2))
 	start.OZ = -1
 	goal.OZ = -1
 	if delta1 > delta2 {
 		start, goal = goal, start
 	}
 
-	// ensure that the arm starts in the correct position
-	inputs, err := xArm.GetJointPositions(ctx, nil)
-	if err != nil {
-		return err
-	}
-	visualization.VisualizeStep(xArm.ModelFrame(), worldState, xArm.ModelFrame().InputFromProtobuf(inputs))
-	if err := xArm.MoveToPosition(ctx, start, worldState, nil); err != nil {
+	// move it to the start
+	if err := arm.Move(ctx, robotClient, xArm, start, nil); err != nil {
 		return err
 	}
 
+	// setup planner options
+	opt := motionplan.NewBasicPlannerOptions()
+	opt.AddConstraint("collision", motionplan.NewCollisionConstraint(xArm.ModelFrame(), obstacles, workspace))
+	// opt.AddConstraint("collision", motionplan.NewCollisionConstraint(xArm.ModelFrame(), obstacles, workspace))
+
 	// move it to the goal
-	solution, err := arm.Plan(ctx, robotClient, xArm, goal, nil)
+	inputs, err := xArm.CurrentInputs(ctx)
+	if err != nil {
+		return err
+	}
+	planner, err := motionplan.NewRRTStarConnectMotionPlanner(xArm.ModelFrame(), 1, logger)
+	if err != nil {
+		return err
+	}
+	solution, err := planner.Plan(ctx, goal, inputs, opt)
 	if err != nil {
 		return err
 	}

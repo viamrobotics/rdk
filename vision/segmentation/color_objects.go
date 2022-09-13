@@ -1,15 +1,12 @@
 package segmentation
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
@@ -54,8 +51,8 @@ func (csc *ColorObjectsConfig) ConvertAttributes(am config.AttributeMap) error {
 	return err
 }
 
-// ColorObjects is a Segmenter that turns the bounding boxes found by the ColorDetector into 3D objects.
-func ColorObjects(ctx context.Context, cam camera.Camera, params config.AttributeMap) ([]*vision.Object, error) {
+// ColorObjects returns a Segmenter that turns the bounding boxes found by the ColorDetector into 3D objects.
+func ColorObjects(params config.AttributeMap) (Segmenter, error) {
 	cfg := &ColorObjectsConfig{}
 	err := cfg.ConvertAttributes(params)
 	if err != nil {
@@ -72,9 +69,9 @@ func ColorObjects(ctx context.Context, cam camera.Camera, params config.Attribut
 		return nil, err
 	}
 	// turn the detector into a segmentor
-	segmenter, _, err := DetectionSegmenter(detector)
+	segmenter, err := DetectionSegmenter(detector, cfg.MeanK, cfg.Sigma)
 	if err != nil {
 		return nil, err
 	}
-	return segmenter(ctx, cam, config.AttributeMap{"mean_k": cfg.MeanK, "sigma": cfg.Sigma})
+	return segmenter, nil
 }

@@ -148,18 +148,18 @@ func TestServer(t *testing.T) {
 		return nil, errors.New("can't generate stream")
 	}
 	// does a depth camera transfer its depth image properly
-	t.Run("GetFrame", func(t *testing.T) {
-		_, err := cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{Name: missingCameraName})
+	t.Run("GetImage", func(t *testing.T) {
+		_, err := cameraServer.GetImage(context.Background(), &pb.GetImageRequest{Name: missingCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
 
-		_, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{Name: fakeCameraName})
+		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{Name: fakeCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not a camera")
 		// color camera
-		resp, err := cameraServer.GetFrame(
+		resp, err := cameraServer.GetImage(
 			context.Background(),
-			&pb.GetFrameRequest{Name: testCameraName, MimeType: utils.MimeTypeRawRGBA},
+			&pb.GetImageRequest{Name: testCameraName, MimeType: utils.MimeTypeRawRGBA},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		imageReleasedMu.Lock()
@@ -168,9 +168,9 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypeRawRGBA)
 		test.That(t, resp.Image, test.ShouldResemble, img.Pix)
 
-		resp, err = cameraServer.GetFrame(
+		resp, err = cameraServer.GetImage(
 			context.Background(),
-			&pb.GetFrameRequest{Name: testCameraName, MimeType: ""},
+			&pb.GetImageRequest{Name: testCameraName, MimeType: ""},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		imageReleasedMu.Lock()
@@ -182,7 +182,7 @@ func TestServer(t *testing.T) {
 		imageReleasedMu.Lock()
 		imageReleased = false
 		imageReleasedMu.Unlock()
-		resp, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{
+		resp, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
 			Name:     testCameraName,
 			MimeType: "image/png",
 		})
@@ -196,7 +196,7 @@ func TestServer(t *testing.T) {
 		imageReleasedMu.Lock()
 		imageReleased = false
 		imageReleasedMu.Unlock()
-		_, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{
+		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
 			Name:     testCameraName,
 			MimeType: "image/who",
 		})
@@ -209,9 +209,9 @@ func TestServer(t *testing.T) {
 		imageReleasedMu.Lock()
 		imageReleased = false
 		imageReleasedMu.Unlock()
-		resp, err = cameraServer.GetFrame(
+		resp, err = cameraServer.GetImage(
 			context.Background(),
-			&pb.GetFrameRequest{Name: depthCameraName, MimeType: ""},
+			&pb.GetImageRequest{Name: depthCameraName, MimeType: ""},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		imageReleasedMu.Lock()
@@ -233,7 +233,7 @@ func TestServer(t *testing.T) {
 		imageReleasedMu.Lock()
 		imageReleased = false
 		imageReleasedMu.Unlock()
-		resp, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{
+		resp, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
 			Name:     depthCameraName,
 			MimeType: "image/png",
 		})
@@ -244,14 +244,14 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.MimeType, test.ShouldEqual, utils.MimeTypePNG)
 		test.That(t, resp.Image, test.ShouldResemble, depthBuf.Bytes())
 		// bad camera
-		_, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{Name: failCameraName})
+		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{Name: failCameraName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate stream")
 	})
 
-	t.Run("GetFrame with lazy", func(t *testing.T) {
+	t.Run("GetImage with lazy", func(t *testing.T) {
 		// we know its lazy if it's a mime we can't actually handle internally
-		resp, err := cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{
+		resp, err := cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
 			Name:     testCameraName,
 			MimeType: utils.WithLazyMIMEType(wooMIME),
 		})
@@ -261,7 +261,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.WidthPx, test.ShouldEqual, 2)
 		test.That(t, resp.HeightPx, test.ShouldEqual, 4)
 
-		_, err = cameraServer.GetFrame(context.Background(), &pb.GetFrameRequest{
+		_, err = cameraServer.GetImage(context.Background(), &pb.GetImageRequest{
 			Name:     testCameraName,
 			MimeType: "image/notwoo",
 		})
