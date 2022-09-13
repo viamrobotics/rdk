@@ -1,7 +1,7 @@
 package inject
 
 import (
-	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/components/board"
 )
 
 // SPI is an injected SPI.

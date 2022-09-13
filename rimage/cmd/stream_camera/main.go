@@ -10,8 +10,8 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/camera/videosource"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/config"
 )
 

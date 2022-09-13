@@ -7,7 +7,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/movementsensor"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -32,10 +32,10 @@ func (i *MovementSensor) Close(ctx context.Context) error {
 	return i.CloseFunc(ctx)
 }
 
-// Do calls the injected Do or the real version.
-func (i *MovementSensor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand calls the injected DoCommand or the real version.
+func (i *MovementSensor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if i.DoFunc == nil {
-		return i.MovementSensor.Do(ctx, cmd)
+		return i.MovementSensor.DoCommand(ctx, cmd)
 	}
 	return i.DoFunc(ctx, cmd)
 }

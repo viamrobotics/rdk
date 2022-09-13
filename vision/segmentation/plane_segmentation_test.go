@@ -14,7 +14,6 @@ import (
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -70,7 +69,7 @@ func TestSegmentPlane(t *testing.T) {
 	// Pixel to Meter
 	pixel2meter := 0.001
 	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
-		utils.ResolveFile("robots/configs/intel515_parameters.json"),
+		intel515ParamsPath,
 		"depth",
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -100,7 +99,7 @@ func TestDepthMapToPointCloud(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pixel2meter := 0.001
 	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
-		utils.ResolveFile("robots/configs/intel515_parameters.json"),
+		intel515ParamsPath,
 		"depth",
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -122,7 +121,7 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	// Select depth range
 	// Get 3D Points
 	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
-		utils.ResolveFile("robots/configs/intel515_parameters.json"),
+		intel515ParamsPath,
 		"depth",
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -130,14 +129,14 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	pts, err := transform.DepthMapToPointCloud(d, pixel2meter, depthIntrinsics, depthMin, depthMax)
 	test.That(t, err, test.ShouldBeNil)
 	// Get rigid body transform between Depth and RGB sensor
-	sensorParams, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
+	sensorParams, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)
 	// Apply RBT
 	transformedPoints, err := transform.ApplyRigidBodyTransform(pts, &sensorParams.ExtrinsicD2C)
 	test.That(t, err, test.ShouldBeNil)
 	// Re-project 3D Points in RGB Plane
 	colorIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
-		utils.ResolveFile("robots/configs/intel515_parameters.json"), "color")
+		intel515ParamsPath, "color")
 	test.That(t, err, test.ShouldBeNil)
 	coordinatesRGB, err := transform.ProjectPointCloudToRGBPlane(transformedPoints, h, w, *colorIntrinsics, pixel2meter)
 	test.That(t, err, test.ShouldBeNil)
@@ -165,7 +164,7 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 	// Pixel to Meter
 	pixel2meter := 0.001
 	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
-		utils.ResolveFile("robots/configs/intel515_parameters.json"),
+		intel515ParamsPath,
 		"depth",
 	)
 	test.That(b, err, test.ShouldBeNil)

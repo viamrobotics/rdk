@@ -1,27 +1,27 @@
 {
     "components": [
         {
+            "name": "c",
             "type": "camera",
             "model": "fake",
-            "name": "c",
-            "frame" : {
-                "parent" : "pieceGripper"
+            "frame": {
+                "parent": "pieceGripper"
             }
         },
         {
-            "model": "fake",
             "name": "pieceGripper",
             "type": "gripper",
-            "frame" : {
-                "parent" : "pieceArm"
+            "model": "fake",
+            "frame": {
+                "parent": "pieceArm"
             }
         },
         {
-            "model": "fake_ik",
             "name": "pieceArm",
             "type": "arm",
-            "frame" : {
-                "parent" : "world"
+            "model": "fake_ik",
+            "frame": {
+                "parent": "world"
             }
         }
     ]

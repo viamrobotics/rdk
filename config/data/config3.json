@@ -1,18 +1,15 @@
 {
-    "components":
-    [
+    "components": [
         {
             "name": "thing",
-            "model": "eliot",
             "type": "foo",
-            "attributes":
-            {
+            "model": "eliot",
+            "attributes": {
                 "foo": ${TEST_THING_FOO},
                 "foo2": true,
                 "foo3": false,
                 "foo4": "no",
-                "bar":
-                {
+                "bar": {
                     "x": 6,
                     "y": "eliot"
                 },
@@ -20,20 +17,17 @@
             }
         },
         {
-            "model": "fake",
             "name": "board1",
             "type": "board",
-            "attributes":
-            {
-                "analogs":
-                [
+            "model": "fake",
+            "attributes": {
+                "analogs": [
                     {
                         "name": "analog1",
                         "pin": "0"
                     }
                 ],
-                "digital_interrupts":
-                [
+                "digital_interrupts": [
                     {
                         "name": "encoder",
                         "pin": "14"
@@ -45,10 +39,8 @@
             "name": "steering",
             "type": "motor",
             "model": "fake",
-            "attributes":
-            {
-                "pins":
-                {
+            "attributes": {
+                "pins": {
                     "dir": "io17",
                     "pwm": "io18"
                 },
@@ -61,10 +53,8 @@
             "name": "encoder1",
             "type": "encoder",
             "model": "hall",
-            "attributes":
-            {
-                "pins":
-                {
+            "attributes": {
+                "pins": {
                     "A": "encoder-steering-b",
                     "B": "encoder-steering-a"
                 },

@@ -12,7 +12,7 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/generic"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -115,10 +115,15 @@ type MyComponent interface {
 	DoTwo(ctx context.Context, arg1 bool) (string, error)
 }
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((MyComponent)(nil), actual)
+}
+
 func wrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	mc, ok := r.(MyComponent)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("MyComponent", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := mc.(*reconfigurableMyComponent); ok {
 		return reconfigurable, nil
@@ -440,6 +445,6 @@ func (c *client) DoTwo(ctx context.Context, arg1 bool) (string, error) {
 	return resp.Ret1, nil
 }
 
-func (c *client) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return generic.DoFromConnection(ctx, c.conn, c.name, cmd)
 }

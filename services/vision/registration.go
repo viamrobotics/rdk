@@ -75,8 +75,40 @@ func registerRCSegmenter(ctx context.Context, mm modelMap, conf *VisModelConfig,
 	if conf == nil {
 		return errors.New("config for radius clustering segmenter cannot be nil")
 	}
-	segmenter := segmentation.Segmenter(segmentation.RadiusClustering)
+	segmenter, err := segmentation.NewRadiusClustering(conf.Parameters)
+	if err != nil {
+		return err
+	}
 
 	regModel := registeredModel{model: segmenter, modelType: RCSegmenter, closer: nil}
+	return mm.registerVisModel(conf.Name, &regModel, logger)
+}
+
+func registerSegmenterFromDetector(ctx context.Context, mm modelMap, conf *VisModelConfig, logger golog.Logger) error {
+	_, span := trace.StartSpan(ctx, "service::vision::registerSegmenterFromDetector")
+	defer span.End()
+	if conf == nil {
+		return errors.New("config for segmenter from detector cannot be nil")
+	}
+	cfg := &segmentation.DetectionSegmenterConfig{}
+	err := cfg.ConvertAttributes(conf.Parameters)
+	if err != nil {
+		return err
+	}
+	// check if detector name is in registry
+	d, err := mm.modelLookup(cfg.DetectorName)
+	if err != nil {
+		return err
+	}
+	detector, err := d.toDetector()
+	if err != nil {
+		return err
+	}
+	// convert numbers from parameters
+	segmenter, err := segmentation.DetectionSegmenter(detector, cfg.MeanK, cfg.Sigma)
+	if err != nil {
+		return err
+	}
+	regModel := registeredModel{model: segmenter, modelType: DetectorSegmenter, closer: nil}
 	return mm.registerVisModel(conf.Name, &regModel, logger)
 }

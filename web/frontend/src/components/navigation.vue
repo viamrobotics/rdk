@@ -79,7 +79,7 @@ const setNavigationLocation = () => {
     })
   );
   
-  window.genericService.do(req, new grpc.Metadata(), grpcCallback);
+  window.genericService.doCommand(req, new grpc.Metadata(), grpcCallback);
 };
 
 const grpcCallback = (error: ServiceError | null, response: jspb.Message | Struct | null, stringify = true) => {

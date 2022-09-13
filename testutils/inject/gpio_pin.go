@@ -3,7 +3,7 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/components/board"
 )
 
 // GPIOPin is an injected GPIOPin.

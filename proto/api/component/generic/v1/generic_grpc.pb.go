@@ -22,8 +22,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type GenericServiceClient interface {
-	// Do sends/recieves arbitrary commands
-	Do(ctx context.Context, in *DoRequest, opts ...grpc.CallOption) (*DoResponse, error)
+	// DoCommand sends/recieves arbitrary commands
+	DoCommand(ctx context.Context, in *DoCommandRequest, opts ...grpc.CallOption) (*DoCommandResponse, error)
 }
 
 type genericServiceClient struct {
@@ -34,9 +34,9 @@ func NewGenericServiceClient(cc grpc.ClientConnInterface) GenericServiceClient {
 	return &genericServiceClient{cc}
 }
 
-func (c *genericServiceClient) Do(ctx context.Context, in *DoRequest, opts ...grpc.CallOption) (*DoResponse, error) {
-	out := new(DoResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.generic.v1.GenericService/Do", in, out, opts...)
+func (c *genericServiceClient) DoCommand(ctx context.Context, in *DoCommandRequest, opts ...grpc.CallOption) (*DoCommandResponse, error) {
+	out := new(DoCommandResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.generic.v1.GenericService/DoCommand", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -47,8 +47,8 @@ func (c *genericServiceClient) Do(ctx context.Context, in *DoRequest, opts ...gr
 // All implementations must embed UnimplementedGenericServiceServer
 // for forward compatibility
 type GenericServiceServer interface {
-	// Do sends/recieves arbitrary commands
-	Do(context.Context, *DoRequest) (*DoResponse, error)
+	// DoCommand sends/recieves arbitrary commands
+	DoCommand(context.Context, *DoCommandRequest) (*DoCommandResponse, error)
 	mustEmbedUnimplementedGenericServiceServer()
 }
 
@@ -56,8 +56,8 @@ type GenericServiceServer interface {
 type UnimplementedGenericServiceServer struct {
 }
 
-func (UnimplementedGenericServiceServer) Do(context.Context, *DoRequest) (*DoResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Do not implemented")
+func (UnimplementedGenericServiceServer) DoCommand(context.Context, *DoCommandRequest) (*DoCommandResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DoCommand not implemented")
 }
 func (UnimplementedGenericServiceServer) mustEmbedUnimplementedGenericServiceServer() {}
 
@@ -72,20 +72,20 @@ func RegisterGenericServiceServer(s grpc.ServiceRegistrar, srv GenericServiceSer
 	s.RegisterService(&GenericService_ServiceDesc, srv)
 }
 
-func _GenericService_Do_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DoRequest)
+func _GenericService_DoCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DoCommandRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GenericServiceServer).Do(ctx, in)
+		return srv.(GenericServiceServer).DoCommand(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.generic.v1.GenericService/Do",
+		FullMethod: "/proto.api.component.generic.v1.GenericService/DoCommand",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GenericServiceServer).Do(ctx, req.(*DoRequest))
+		return srv.(GenericServiceServer).DoCommand(ctx, req.(*DoCommandRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -98,8 +98,8 @@ var GenericService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*GenericServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Do",
-			Handler:    _GenericService_Do_Handler,
+			MethodName: "DoCommand",
+			Handler:    _GenericService_DoCommand_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -1,12 +1,13 @@
 {
-    "components" : [
-        { "name" : "c1",
-          "type" : "camera",
-          "model" : "fake",
-          "attributes" : {
-              "bar" : "a${HOME}b${HOME}c",
-              "aligned" : false
-          }
+    "components": [
+        {
+            "name": "c1",
+            "type": "camera",
+            "model": "fake",
+            "attributes": {
+                "bar": "a${HOME}b${HOME}c",
+                "aligned": false
+            }
         }
     ]
 }

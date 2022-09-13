@@ -1,41 +1,46 @@
 {
-    "components":
-    [
+    "components": [
         {
             "name": "pierre",
-            "model": "wheeled",
             "type": "base",
-            "attributes":
-            {
+            "model": "wheeled",
+            "attributes": {
                 "board": "local",
                 "width_mm": 600,
                 "wheel_circumference_mm": 470,
                 "spin_slip_factor": 2.0,
-                "left": ["fl-m", "bl-m"],
-                "right": ["fr-m", "br-m"]
+                "left": [
+                    "fl-m",
+                    "bl-m"
+                ],
+                "right": [
+                    "fr-m",
+                    "br-m"
+                ]
             },
-            "depends_on":
-            [
-                "local", "fl-m", "fr-m","bl-m","br-m"
+            "depends_on": [
+                "local",
+                "fl-m",
+                "fr-m",
+                "bl-m",
+                "br-m"
             ]
         },
         {
             "name": "controller",
-            "model": "gamepad",
             "type": "input_controller",
+            "model": "gamepad",
             "attributes": {
-              "dev_file": "",
-              "auto_reconnect": true
+                "dev_file": "",
+                "auto_reconnect": true
             }
         },
         {
             "name": "local",
-            "model": "pi",
             "type": "board",
-            "attributes":
-            {
-                "digital_interrupts":
-                [
+            "model": "pi",
+            "attributes": {
+                "digital_interrupts": [
                     {
                         "name": "fl-e",
                         "pin": "36"
@@ -59,11 +64,9 @@
             "name": "fl-m",
             "type": "motor",
             "model": "pi",
-            "attributes":
-            {
+            "attributes": {
                 "board": "local",
-                "pins":
-                {
+                "pins": {
                     "a": "38",
                     "b": "40",
                     "pwm": "11"
@@ -71,8 +74,7 @@
                 "encoder": "fl-e",
                 "ticks_per_rotation": 1000
             },
-            "depends_on":
-            [
+            "depends_on": [
                 "local"
             ]
         },
@@ -80,11 +82,9 @@
             "name": "fr-m",
             "type": "motor",
             "model": "pi",
-            "attributes":
-            {
+            "attributes": {
                 "board": "local",
-                "pins":
-                {
+                "pins": {
                     "a": "22",
                     "b": "32",
                     "pwm": "7"
@@ -92,8 +92,7 @@
                 "encoder": "fr-e",
                 "ticks_per_rotation": 1000
             },
-            "depends_on":
-            [
+            "depends_on": [
                 "local"
             ]
         },
@@ -101,11 +100,9 @@
             "name": "bl-m",
             "type": "motor",
             "model": "pi",
-            "attributes":
-            {
+            "attributes": {
                 "board": "local",
-                "pins":
-                {
+                "pins": {
                     "a": "37",
                     "b": "33",
                     "pwm": "13"
@@ -113,8 +110,7 @@
                 "encoder": "bl-e",
                 "ticks_per_rotation": 1000
             },
-            "depends_on":
-            [
+            "depends_on": [
                 "local"
             ]
         },
@@ -122,11 +118,9 @@
             "name": "br-m",
             "type": "motor",
             "model": "pi",
-            "attributes":
-            {
+            "attributes": {
                 "board": "local",
-                "pins":
-                {
+                "pins": {
                     "a": "29",
                     "b": "35",
                     "pwm": "15"
@@ -134,20 +128,18 @@
                 "encoder": "br-e",
                 "ticks_per_rotation": 1000
             },
-            "depends_on":
-            [
+            "depends_on": [
                 "local"
             ]
         }
     ],
-    "services":
-    [
+    "services": [
         {
             "name": "base_remote_control",
             "type": "base_remote_control",
             "attributes": {
                 "base": "pierre",
-                "input_controller" : "controller"
+                "input_controller": "controller"
             }
         }
     ]

@@ -30,15 +30,17 @@ func TestNewMotion3DFromRotationTranslation(t *testing.T) {
 func TestEstimateMotionFrom2Frames(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	// load cfg
-	cfg := LoadMotionEstimationConfig(artifact.MustPath("vision/odometry/vo_config.json"))
+	cfg, err := LoadMotionEstimationConfig(artifact.MustPath("vision/odometry/vo_config.json"))
+	test.That(t, err, test.ShouldBeNil)
 	// load images
 	im1, err := rimage.NewImageFromFile(artifact.MustPath("vision/odometry/000001.png"))
 	test.That(t, err, test.ShouldBeNil)
 	im2, err := rimage.NewImageFromFile(artifact.MustPath("vision/odometry/000002.png"))
 	test.That(t, err, test.ShouldBeNil)
 	// Estimate motion
-	motion, err := EstimateMotionFrom2Frames(im1, im2, cfg, logger, true)
+	motion, matchedLines, err := EstimateMotionFrom2Frames(im1, im2, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, matchedLines, test.ShouldNotBeNil)
 	test.That(t, motion.Translation.At(2, 0), test.ShouldBeLessThan, -0.8)
 	test.That(t, motion.Translation.At(1, 0), test.ShouldBeLessThan, 0.2)
 }

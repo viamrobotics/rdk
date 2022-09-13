@@ -1,63 +1,61 @@
 {
-    "components":
-    [
+    "components": [
         {
-            "model": "fake",
             "name": "test_arm",
-            "type": "arm"
+            "type": "arm",
+            "model": "fake"
         },
         {
-            "model": "fake",
             "name": "test_base",
-            "type": "base"
+            "type": "base",
+            "model": "fake"
         },
         {
-            "model": "fake",
             "name": "test_sensor",
-            "type": "sensor"
+            "type": "sensor",
+            "model": "fake"
         },
         {
-            "model": "fake",
             "name": "test_gripper",
-            "type": "gripper"
+            "type": "gripper",
+            "model": "fake"
         },
         {
-            "model": "fake",
             "name": "test_camera",
-            "type": "camera"
+            "type": "camera",
+            "model": "fake"
         },
         {
-            "model": "fake",
             "name": "test_gantry",
-            "type": "gantry"
+            "type": "gantry",
+            "model": "fake"
         },
         {
-            "model": "fake",
             "name": "test_movement",
-            "type": "movement_sensor"
+            "type": "movement_sensor",
+            "model": "fake"
         },
         {
-            "model": "fake",
             "name": "test_board",
             "type": "board",
+            "model": "fake",
             "attributes": {}
         },
         {
-            "model": "fake",
             "name": "test_input",
-            "type": "input_controller"
+            "type": "input_controller",
+            "model": "fake"
         },
         {
-            "model": "fake",
             "name": "WebGamepad",
-            "type": "input_controller"
+            "type": "input_controller",
+            "model": "fake"
         },
         {
-            "model": "fake",
             "name": "test_servo",
             "type": "servo",
-            "attributes":
-            {
+            "model": "fake",
+            "attributes": {
                 "pin": "12"
             }
         },
@@ -65,10 +63,8 @@
             "name": "test_motor",
             "type": "motor",
             "model": "fake",
-            "attributes":
-            {
-                "pins":
-                {
+            "attributes": {
+                "pins": {
                     "a": "1",
                     "b": "2",
                     "pwm": "3"

@@ -1,60 +1,59 @@
-{ 
-    "wrong" : {
+{
+    "wrong": {
         "type": "oiler_angles",
-        "value" : {
+        "value": {
             "yaw": 45,
             "roll": 0
         }
     },
-    "wrongvalue" : {
+    "wrongvalue": {
         "type": "ov_degrees",
-        "value" : {
+        "value": {
             "th": "word",
             "x": "another",
             "y": 4,
             "z": 12
         }
     },
-    "empty" : {
+    "empty": {},
+    "ovdegrees": {
+        "type": "ov_degrees",
+        "value": {
+            "th": 45,
+            "x": 0,
+            "y": 0,
+            "z": 1
+        }
     },
-    "ovdegrees" : {
-            "type": "ov_degrees",
-            "value" : {
-                "th": 45,
-                "x": 0,
-                "y": 0,
-                "z": 1
-            }
+    "ovradians": {
+        "type": "ov_radians",
+        "value": {
+            "th": 0.78539816,
+            "x": 0,
+            "y": 1,
+            "z": 0
+        }
     },
-    "ovradians" : {
-            "type": "ov_radians",
-            "value" : {
-                "th": 0.78539816,
-                "x": 0,
-                "y": 1,
-                "z": 0
-            }
+    "euler": {
+        "type": "euler_angles",
+        "value": {
+            "yaw": 45,
+            "roll": 0
+        }
     },
-    "euler" : {
-            "type": "euler_angles",
-            "value" : {
-                "yaw": 45,
-                "roll": 0
-            }
+    "axisangle": {
+        "type": "axis_angles",
+        "value": {
+            "th": 0.78539816,
+            "x": 1,
+            "y": 0,
+            "z": 0
+        }
     },
-    "axisangle" : {
-            "type": "axis_angles",
-            "value" : {
-                "th": 0.78539816,
-                "x": 1,
-                "y": 0,
-                "z": 0
-            }
-    },
-    "quaternion" : {
+    "quaternion": {
         "type": "quaternion",
-        "value" : {
-            "w" : 0.4,
+        "value": {
+            "w": 0.4,
             "x": 0.1,
             "y": 0.2,
             "z": 0.3
