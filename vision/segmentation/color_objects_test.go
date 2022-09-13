@@ -7,12 +7,11 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/camera/videosource"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/segmentation"
 )
 
@@ -22,12 +21,10 @@ func TestColorObjects(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("segmentation/aligned_intel/depth/desktop2.png"))
 	test.That(t, err, test.ShouldBeNil)
-	params, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "color")
+	params, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(intel515ParamsPath, "color")
 	test.That(t, err, test.ShouldBeNil)
-	cameraAttrs := &camera.AttrConfig{CameraParameters: params}
 	c := &videosource.StaticSource{img, dm, params}
-	proj, _ := camera.GetProjector(context.Background(), cameraAttrs, nil)
-	cam, err := camera.NewFromReader(c, proj)
+	cam, err := camera.NewFromReader(context.Background(), c, params, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
 	// create config
 	cfg := config.AttributeMap{
@@ -38,7 +35,9 @@ func TestColorObjects(t *testing.T) {
 		"min_points_in_segment": 1000,
 	}
 	// run segmenter
-	objects, err := segmentation.ColorObjects(context.Background(), cam, cfg)
+	segmenter, err := segmentation.ColorObjects(cfg)
+	test.That(t, err, test.ShouldBeNil)
+	objects, err := segmenter(context.Background(), cam)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, objects, test.ShouldHaveLength, 1)
 	// create config with no mean_k filtering
@@ -50,7 +49,9 @@ func TestColorObjects(t *testing.T) {
 		"min_points_in_segment": 1000,
 	}
 	// run segmenter
-	objects, err = segmentation.ColorObjects(context.Background(), cam, cfg)
+	segmenter, err = segmentation.ColorObjects(cfg)
+	test.That(t, err, test.ShouldBeNil)
+	objects, err = segmenter(context.Background(), cam)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, objects, test.ShouldHaveLength, 1)
 }

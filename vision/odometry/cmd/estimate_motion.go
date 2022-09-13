@@ -14,6 +14,7 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/vision/keypoints"
 	"go.viam.com/rdk/vision/odometry"
 )
 
@@ -21,8 +22,7 @@ var (
 	logger        = golog.NewLogger("visual-odometry")
 	imageTemplate = `<!DOCTYPE html>
 <html lang="en"><head></head>
-<body><img src="data:image/jpg;base64,{{.Image1}}"></body>
-<body><img src="data:image/jpg;base64,{{.Image2}}"></body>
+<body><img src="data:image/jpg;base64,{{.img}}"></body>
 `
 )
 
@@ -30,51 +30,98 @@ func main() {
 	image1Path := os.Args[1]
 	image2Path := os.Args[2]
 	configPath := os.Args[3]
-	im1, im2, _, err := RunMotionEstimation(image1Path, image2Path, configPath)
+	// get orb points for each image
+	imOrb1, imOrb2, err := RunOrbPointFinding(image1Path, image2Path, configPath)
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
+	// get matched lines
+	_, matchedLines, err := RunMotionEstimation(image1Path, image2Path, configPath)
+	if err != nil {
+		logger.Error(err.Error())
+	}
 	http.HandleFunc("/orb/", func(w http.ResponseWriter, r *http.Request) {
-		writeImageWithTemplate(w, &im1, "Image1")
-		writeImageWithTemplate(w, &im2, "Image2")
+		writeImageWithTemplate(w, imOrb1, "img")
+		writeImageWithTemplate(w, imOrb2, "img")
+		writeImageWithTemplate(w, matchedLines, "img")
 	})
 	http.Handle("/", http.FileServer(http.Dir(".")))
 	logger.Info("Listening on 8080...")
 	logger.Info("Images can be visualized at http://localhost:8080/orb/")
-	//nolint:gosec
-	err = http.ListenAndServe(":8080", nil)
+	err = http.ListenAndServe(":8080", nil) //nolint:gosec
 	if err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}
 }
 
-// RunMotionEstimation runs motion estimation between the two frames in artifacts.
-func RunMotionEstimation(imagePath1, imagePath2, configPath string) (image.Image, image.Image, *odometry.Motion3D, error) {
-	// load cfg
-	cfg := odometry.LoadMotionEstimationConfig(configPath)
+// RunOrbPointFinding gets the orb points for each image.
+func RunOrbPointFinding(image1Path, image2Path, configPath string) (image.Image, image.Image, error) {
 	// load images
-	im1, err := rimage.NewImageFromFile(imagePath1)
+	img1, err := rimage.NewImageFromFile(image1Path)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	im2, err := rimage.NewImageFromFile(imagePath2)
+	img2, err := rimage.NewImageFromFile(image2Path)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
+	}
+	im1 := rimage.MakeGray(rimage.ConvertImage(img1))
+	im2 := rimage.MakeGray(rimage.ConvertImage(img2))
+	// load cfg
+	cfg, err := odometry.LoadMotionEstimationConfig(configPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	sampleMethod := cfg.KeyPointCfg.BRIEFConf.Sampling
+	sampleN := cfg.KeyPointCfg.BRIEFConf.N
+	samplePatchSize := cfg.KeyPointCfg.BRIEFConf.PatchSize
+	samplePoints := keypoints.GenerateSamplePairs(sampleMethod, sampleN, samplePatchSize)
+	_, kps1, err := keypoints.ComputeORBKeypoints(im1, samplePoints, cfg.KeyPointCfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	_, kps2, err := keypoints.ComputeORBKeypoints(im2, samplePoints, cfg.KeyPointCfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	orbPts1 := keypoints.PlotKeypoints(im1, kps1)
+	orbPts2 := keypoints.PlotKeypoints(im2, kps2)
+	return orbPts1, orbPts2, nil
+}
+
+// RunMotionEstimation runs motion estimation between the two frames in artifacts.
+func RunMotionEstimation(image1Path, image2Path, configPath string) (*odometry.Motion3D, image.Image, error) {
+	// load images
+	img1, err := rimage.NewImageFromFile(image1Path)
+	if err != nil {
+		return nil, nil, err
+	}
+	img2, err := rimage.NewImageFromFile(image2Path)
+	if err != nil {
+		return nil, nil, err
+	}
+	im1 := rimage.ConvertImage(img1)
+	im2 := rimage.ConvertImage(img2)
+	// load cfg
+	cfg, err := odometry.LoadMotionEstimationConfig(configPath)
+	if err != nil {
+		return nil, nil, err
 	}
 	// Estimate motion
-	motion, err := odometry.EstimateMotionFrom2Frames(im1, im2, cfg, logger, true)
+	motion, matchedLines, err := odometry.EstimateMotionFrom2Frames(im1, im2, cfg, logger)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, matchedLines, err
 	}
 	logger.Info(motion.Rotation)
 	logger.Info(motion.Translation)
-	return im1, im2, motion, nil
+
+	return motion, matchedLines, nil
 }
 
 // writeImageWithTemplate encodes an image 'img' in jpeg format and writes it into ResponseWriter using a template.
-func writeImageWithTemplate(w http.ResponseWriter, img *image.Image, templ string) {
+func writeImageWithTemplate(w http.ResponseWriter, img image.Image, templ string) {
 	buffer := new(bytes.Buffer)
-	if err := jpeg.Encode(buffer, *img, nil); err != nil {
+	if err := jpeg.Encode(buffer, img, nil); err != nil {
 		log.Fatalln("unable to encode image.")
 	}
 

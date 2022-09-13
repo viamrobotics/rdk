@@ -95,9 +95,36 @@ func TestConstrainedMotion(t *testing.T) {
 	}
 }
 
+<<<<<<< HEAD
+func TestConstrainedMotion(t *testing.T) {
+	planners := []seededPlannerConstructor{
+		NewCBiRRTMotionPlannerWithSeed,
+	}
+	testCases := []struct {
+		name   string
+		config planConfigConstructor
+	}{
+		{"linear motion, no-spill", constrainedXArmMotion},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			for _, planner := range planners {
+				testPlanner(t, planner, testCase.config, 1)
+			}
+		})
+	}
+}
+=======
+// TestConstrainedArmMotion tests a simple linear motion on a longer path, with a no-spill constraint.
+func TestConstrainedArmMotion(t *testing.T) {
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+>>>>>>> 0ca43183865de3f21388bbf1537376f4e4455db0
+
 // TestConstrainedArmMotion tests a simple linear motion on a longer path, with a no-spill constraint.
 func constrainedXArmMotion() (*planConfig, error) {
-	model, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm7_kinematics.json"), "")
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +209,7 @@ func simple2DMap() (*planConfig, error) {
 
 // simpleArmMotion tests moving an xArm7.
 func simpleXArmMotion() (*planConfig, error) {
-	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm7_kinematics.json"), "")
+	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +228,7 @@ func simpleXArmMotion() (*planConfig, error) {
 
 // simpleUR5eMotion tests a simple motion for a UR5e.
 func simpleUR5eMotion() (*planConfig, error) {
-	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
+	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
 	if err != nil {
 		return nil, err
 	}

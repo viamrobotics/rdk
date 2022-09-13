@@ -17,8 +17,8 @@ import (
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/perf"
 
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/servo"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
@@ -215,9 +215,11 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	exp := perf.NewNiceLoggingSpanExporter()
-	trace.RegisterExporter(exp)
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+	exporter := perf.NewDevelopmentExporter()
+	if err := exporter.Start(); err != nil {
+		return err
+	}
+	defer exporter.Stop()
 
 	cfg, err := config.Read(ctx, "samples/minirover/config.json", logger)
 	if err != nil {
