@@ -55,7 +55,7 @@ type controller struct {
 type Motor struct {
 	c                *controller
 	Axis             string
-	StepsPerRotation int
+	TicksPerRotation int
 	MaxRPM           float64
 	MaxAcceleration  float64
 	HomeRPM          float64
@@ -161,7 +161,7 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 	m := &Motor{
 		c:                ctrl,
 		Axis:             c.Axis,
-		StepsPerRotation: c.TicksPerRotation,
+		TicksPerRotation: c.TicksPerRotation,
 		MaxRPM:           c.MaxRPM,
 		MaxAcceleration:  c.MaxAcceleration,
 		HomeRPM:          c.HomeRPM,
@@ -305,7 +305,7 @@ func (m *Motor) configure(c *Config) error {
 
 	switch amp {
 	case "44140":
-		m.StepsPerRotation *= 64 // fixed microstepping
+		m.TicksPerRotation *= 64 // fixed microstepping
 
 		// Stepper type, with optional reversing
 		motorType := "2" // string because no trailing zeros
@@ -409,7 +409,7 @@ func (m *Motor) rpmToV(rpm float64) int {
 	if rpm > m.MaxRPM {
 		rpm = m.MaxRPM
 	}
-	speed := rpm * float64(m.StepsPerRotation) / 60
+	speed := rpm * float64(m.TicksPerRotation) / 60
 
 	// Hard limits from controller
 	if speed > 3000000 {
@@ -424,7 +424,7 @@ func (m *Motor) rpmsToA(rpms float64) int {
 	if rpms > m.MaxAcceleration {
 		rpms = m.MaxAcceleration
 	}
-	acc := rpms * float64(m.StepsPerRotation) / 60
+	acc := rpms * float64(m.TicksPerRotation) / 60
 
 	// Hard limits from controller
 	if acc > 1073740800 {
@@ -437,7 +437,7 @@ func (m *Motor) rpmsToA(rpms float64) int {
 
 // Convert revolutions to steps.
 func (m *Motor) posToSteps(pos float64) int32 {
-	goal := int32(pos * float64(m.StepsPerRotation))
+	goal := int32(pos * float64(m.TicksPerRotation))
 
 	// Hard limits from controller
 	if goal > 2147483647 {
@@ -591,7 +591,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
-	_, err := m.c.sendCmd(fmt.Sprintf("DP%s=%d", m.Axis, int(offset*float64(m.StepsPerRotation))))
+	_, err := m.c.sendCmd(fmt.Sprintf("DP%s=%d", m.Axis, int(offset*float64(m.TicksPerRotation))))
 	return err
 }
 
@@ -796,7 +796,7 @@ func (m *Motor) doPosition() (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return position / float64(m.StepsPerRotation), nil
+	return position / float64(m.TicksPerRotation), nil
 }
 
 // DoCommand executes additional commands beyond the Motor{} interface.
