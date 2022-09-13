@@ -114,4 +114,5 @@ General workflow:
 3. `artifact pull` to download all the files that are in the `tree.json` file
 
 ## License
+Copyright 2021-2022 Viam Inc.
 AGPLv3 - See [LICENSE](https://github.com/viamrobotics/rdk/blob/main/LICENSE) file
