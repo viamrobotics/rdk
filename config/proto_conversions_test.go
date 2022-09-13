@@ -74,12 +74,8 @@ func TestComponentConfigToProto(t *testing.T) {
 func TestFrameConfigFromProto(t *testing.T) {
 	expectedFrameWithOrientation := func(or spatial.Orientation) *Frame {
 		return &Frame{
-			Parent: "world",
-			Translation: spatial.TranslationConfig{
-				X: 1,
-				Y: 2,
-				Z: 3,
-			},
+			Parent:      "world",
+			Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 			Orientation: or,
 		}
 	}
@@ -175,41 +171,42 @@ func TestFrameConfigFromProto(t *testing.T) {
 }
 
 func TestRemoteConfigToProto(t *testing.T) {
-	remote := Remote{
-		Name:    "some-name",
-		Address: "localohst:8080",
-		Prefix:  true,
-		Frame: &Frame{
-			Parent:      "world",
-			Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-			Orientation: spatial.NewOrientationVector(),
-		},
-		Auth: RemoteAuth{
-			Entity: "some-entity",
-			Credentials: &rpc.Credentials{
-				Type:    rpc.CredentialsTypeAPIKey,
-				Payload: "payload",
+	t.Run("With RemoteAuth", func(t *testing.T) {
+		remote := Remote{
+			Name:    "some-name",
+			Address: "localohst:8080",
+			Prefix:  true,
+			Frame: &Frame{
+				Parent:      "world",
+				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+				Orientation: spatial.NewOrientationVector(),
 			},
-		},
-		ManagedBy:               "managed-by",
-		Insecure:                true,
-		ConnectionCheckInterval: 1000000000,
-		ReconnectInterval:       2000000000,
-		ServiceConfig: []ResourceLevelServiceConfig{
-			{
-				Type: "some-type-1",
-				Attributes: AttributeMap{
-					"attr1": 1,
+			Auth: RemoteAuth{
+				Entity: "some-entity",
+				Credentials: &rpc.Credentials{
+					Type:    rpc.CredentialsTypeAPIKey,
+					Payload: "payload",
 				},
 			},
-			{
-				Type: "some-type-2",
-				Attributes: AttributeMap{
-					"attr1": 1,
+			ManagedBy:               "managed-by",
+			Insecure:                true,
+			ConnectionCheckInterval: 1000000000,
+			ReconnectInterval:       2000000000,
+			ServiceConfig: []ResourceLevelServiceConfig{
+				{
+					Type: "some-type-1",
+					Attributes: AttributeMap{
+						"attr1": 1,
+					},
+				},
+				{
+					Type: "some-type-2",
+					Attributes: AttributeMap{
+						"attr1": 1,
+					},
 				},
 			},
-		},
-	}
+		}
 
 		proto, err := RemoteConfigToProto(&remote)
 		test.That(t, err, test.ShouldBeNil)

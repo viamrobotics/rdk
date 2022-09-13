@@ -28,6 +28,8 @@ type MotionPlanner interface {
 	Frame() frame.Frame // Frame will return the frame used for planning
 }
 
+type plannerConstructor func(frame.Frame, int, golog.Logger) (MotionPlanner, error)
+
 type planner struct {
 	solver InverseKinematics
 	frame  frame.Frame
