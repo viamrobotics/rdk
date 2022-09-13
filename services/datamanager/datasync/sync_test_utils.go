@@ -14,7 +14,7 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
-	v1 "go.viam.com/api/app/datasync/v1"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"

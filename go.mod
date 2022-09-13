@@ -40,7 +40,6 @@ require (
 	github.com/google/go-cmp v0.5.8
 	github.com/google/uuid v1.3.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.2
-	github.com/invopop/jsonschema v0.6.0
 	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4
 	github.com/jedib0t/go-pretty/v6 v6.3.3
 	github.com/jhump/protoreflect v1.12.1-0.20220417024638-438db461d753
@@ -71,7 +70,7 @@ require (
 	go.uber.org/atomic v1.9.0
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.22.0
-	go.viam.com/api v0.0.0-20220913162026-f42bfd739310
+	go.viam.com/api v0.0.0-20220909155115-d50e6024907c
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
 	go.viam.com/utils v0.0.5
@@ -210,6 +209,7 @@ require (
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/improbable-eng/grpc-web v0.15.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/invopop/jsonschema v0.6.0 // indirect
 	github.com/jdxcode/netrc v0.0.0-20210204082910-926c7f70242a // indirect
 	github.com/jgautheron/goconst v1.5.1 // indirect
 	github.com/jhump/protocompile v0.0.0-20220216033700-d705409f108f // indirect

@@ -3,7 +3,7 @@ package config
 import (
 	"testing"
 
-	pb "go.viam.com/api/app/v1"
+	pb "go.viam.com/api/proto/viam/app/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
