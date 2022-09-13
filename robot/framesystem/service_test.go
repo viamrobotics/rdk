@@ -349,14 +349,14 @@ func TestServiceWithRemote(t *testing.T) {
 		{
 			ReferenceFrame: "frame1",
 			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "pieceArm",
+				ReferenceFrame: "bar.pieceArm",
 				Pose:           spatialmath.PoseToProtobuf(testPose),
 			},
 		},
 		{
 			ReferenceFrame: "frame2",
 			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "pieceGripper",
+				ReferenceFrame: "bar.pieceGripper",
 				Pose:           spatialmath.PoseToProtobuf(testPose),
 			},
 		},
