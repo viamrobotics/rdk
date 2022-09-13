@@ -126,7 +126,7 @@ func TestConfigRemote(t *testing.T) {
 				Type:      base.SubtypeName,
 				Model:     "fake",
 				Frame: &config.Frame{
-					Parent: "cameraOver",
+					Parent: "foo.cameraOver",
 				},
 			},
 		},
