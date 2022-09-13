@@ -81,14 +81,15 @@ func TestUndistortImage(t *testing.T) {
 		Fy:     886.579955,
 		Ppx:    382.80075175,
 		Ppy:    302.75546742,
-		Distortion: DistortionModel{
-			RadialK1:     -0.42333866,
-			RadialK2:     0.25696641,
-			TangentialP1: 0.00142052,
-			TangentialP2: -0.00116427,
-			RadialK3:     -0.06468911,
-		},
 	}
+	distortion800 := &BrownConrady{
+		RadialK1:     -0.42333866,
+		RadialK2:     0.25696641,
+		TangentialP1: 0.00142052,
+		TangentialP2: -0.00116427,
+		RadialK3:     -0.06468911,
+	}
+	pinhole800 := &PinholeCameraModel{params800, distortion800}
 	params1280 := &PinholeCameraIntrinsics{
 		Width:  1280,
 		Height: 720,
@@ -96,21 +97,22 @@ func TestUndistortImage(t *testing.T) {
 		Fy:     1067.64416,
 		Ppx:    629.229310,
 		Ppy:    387.990797,
-		Distortion: DistortionModel{
-			RadialK1:     -4.27329870e-01,
-			RadialK2:     2.41688942e-01,
-			TangentialP1: 9.33797688e-04,
-			TangentialP2: -2.65675762e-04,
-			RadialK3:     -6.51379008e-02,
-		},
 	}
+	distortion1280 := &BrownConrady{
+		RadialK1:     -4.27329870e-01,
+		RadialK2:     2.41688942e-01,
+		TangentialP1: 9.33797688e-04,
+		TangentialP2: -2.65675762e-04,
+		RadialK3:     -6.51379008e-02,
+	}
+	pinhole1280 := &PinholeCameraModel{params1280, distortion1280}
 	// nil input
-	_, err := params800.UndistortImage(nil)
+	_, err := pinhole800.UndistortImage(nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "input image is nil")
 	// wrong size error
 	img1280, err := rimage.NewImageFromFile(artifact.MustPath("transform/undistort/distorted_1280x720.jpg"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = params800.UndistortImage(img1280)
+	_, err = pinhole800.UndistortImage(img1280)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "img dimension and intrinsics don't match")
 
 	// correct undistortion
@@ -119,12 +121,12 @@ func TestUndistortImage(t *testing.T) {
 	// 800x600
 	img800, err := rimage.NewImageFromFile(artifact.MustPath("transform/undistort/distorted_800x600.jpg"))
 	test.That(t, err, test.ShouldBeNil)
-	corrected800, err := params800.UndistortImage(img800)
+	corrected800, err := pinhole800.UndistortImage(img800)
 	test.That(t, err, test.ShouldBeNil)
 	err = rimage.WriteImageToFile(outDir+"/corrected_800x600.jpg", corrected800)
 	test.That(t, err, test.ShouldBeNil)
 	// 1280x720
-	corrected1280, err := params1280.UndistortImage(img1280)
+	corrected1280, err := pinhole1280.UndistortImage(img1280)
 	test.That(t, err, test.ShouldBeNil)
 	err = rimage.WriteImageToFile(outDir+"/corrected_1280x720.jpg", corrected1280)
 	test.That(t, err, test.ShouldBeNil)
@@ -138,22 +140,23 @@ func TestUndistortDepthMap(t *testing.T) {
 		Fy:     1067.64416,
 		Ppx:    629.229310,
 		Ppy:    387.990797,
-		Distortion: DistortionModel{
-			RadialK1:     0.,
-			RadialK2:     0.,
-			TangentialP1: 0.,
-			TangentialP2: 0.,
-			RadialK3:     0.,
-		},
 	}
+	distortion := &BrownConrady{
+		RadialK1:     0.,
+		RadialK2:     0.,
+		TangentialP1: 0.,
+		TangentialP2: 0.,
+		RadialK3:     0.,
+	}
+	pinhole := &PinholeCameraModel{params, distortion}
 	// nil input
-	_, err := params.UndistortDepthMap(nil)
+	_, err := pinhole.UndistortDepthMap(nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "input DepthMap is nil")
 
 	// wrong size error
 	dmWrong, err := rimage.NewDepthMapFromFile(artifact.MustPath("transform/align-test-1615761793.png"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = params.UndistortDepthMap(dmWrong)
+	_, err = pinhole.UndistortDepthMap(dmWrong)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "img dimension and intrinsics don't match")
 
 	// correct undistortion
@@ -161,7 +164,7 @@ func TestUndistortDepthMap(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
-	corrected, err := params.UndistortDepthMap(img)
+	corrected, err := pinhole.UndistortDepthMap(img)
 	test.That(t, err, test.ShouldBeNil)
 	// should not have changed the values at all, as distortion parameters are all 0
 	test.That(t, corrected.GetDepth(200, 300), test.ShouldEqual, img.GetDepth(200, 300))
@@ -171,13 +174,12 @@ func TestUndistortDepthMap(t *testing.T) {
 
 func TestGetCameraMatrix(t *testing.T) {
 	intrinsics := &PinholeCameraIntrinsics{
-		Width:      0,
-		Height:     0,
-		Fx:         50,
-		Fy:         55,
-		Ppx:        320,
-		Ppy:        160,
-		Distortion: DistortionModel{},
+		Width:  0,
+		Height: 0,
+		Fx:     50,
+		Fy:     55,
+		Ppx:    320,
+		Ppy:    160,
 	}
 	intrinsicsK := intrinsics.GetCameraMatrix()
 	test.That(t, intrinsicsK, test.ShouldNotBeNil)

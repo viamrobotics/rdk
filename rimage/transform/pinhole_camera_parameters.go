@@ -27,15 +27,15 @@ func NewNoIntrinsicsError(msg string) error {
 	return errors.Wrapf(ErrNoIntrinsics, msg)
 }
 
-// PinholeCamera is the model of a pinhole camera.
-type PinholeCamera struct {
-	PinholeCameraIntrinsics `json:"intrinsics"`
-	Distortion              DistortionModel `json:"distortion"`
+// PinholeCameraModel is the model of a pinhole camera.
+type PinholeCameraModel struct {
+	*PinholeCameraIntrinsics `json:"intrinsics"`
+	Distortion               DistortionModel `json:"distortion"`
 }
 
 // DistortionMap is a function that transforms the undistorted input points (u,v) to the distorted points (x,y)
-// according to the model in PinholeCamera.Distortion.
-func (params *PinholeCamera) DistortionMap() func(u, v float64) (float64, float64) {
+// according to the model in PinholeCameraModel.Distortion.
+func (params *PinholeCameraModel) DistortionMap() func(u, v float64) (float64, float64) {
 	return func(u, v float64) (float64, float64) {
 		x := (u - params.Ppx) / params.Fx
 		y := (v - params.Ppy) / params.Fy
@@ -47,12 +47,12 @@ func (params *PinholeCamera) DistortionMap() func(u, v float64) (float64, float6
 }
 
 // UndistortImage takes an input image and creates a new image the same size with the same camera parameters
-// as the original image, but undistorted according to the distortion model in PinholeCamera. A bilinear
+// as the original image, but undistorted according to the distortion model in PinholeCameraModel. A bilinear
 // interpolation is used to interpolate values between image pixels.
 // NOTE(bh): potentially a use case for generics
 //
 //nolint:dupl
-func (params *PinholeCamera) UndistortImage(img *rimage.Image) (*rimage.Image, error) {
+func (params *PinholeCameraModel) UndistortImage(img *rimage.Image) (*rimage.Image, error) {
 	if img == nil {
 		return nil, errors.New("input image is nil")
 	}
@@ -78,12 +78,12 @@ func (params *PinholeCamera) UndistortImage(img *rimage.Image) (*rimage.Image, e
 }
 
 // UndistortDepthMap takes an input depth map and creates a new depth map the same size with the same camera parameters
-// as the original depth map, but undistorted according to the distortion model in PinholeCameraIntrinsics. A nearest neighbor
+// as the original depth map, but undistorted according to the distortion model in PinholeCameraModel. A nearest neighbor
 // interpolation is used to interpolate values between depth pixels.
 // NOTE(bh): potentially a use case for generics
 //
 //nolint:dupl
-func (params *PinholeCamera) UndistortDepthMap(dm *rimage.DepthMap) (*rimage.DepthMap, error) {
+func (params *PinholeCameraModel) UndistortDepthMap(dm *rimage.DepthMap) (*rimage.DepthMap, error) {
 	if dm == nil {
 		return nil, errors.New("input DepthMap is nil")
 	}
