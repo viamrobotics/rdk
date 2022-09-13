@@ -48,7 +48,24 @@ func init() {
 			}
 			return newArduino(boardConfig, logger)
 		}})
-	board.RegisterConfigAttributeConverter(modelName)
+	config.RegisterComponentAttributeMapConverter(
+		board.SubtypeName,
+		modelName,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&Config{})
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) error {
+	for idx, conf := range config.Analogs {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func getSerialConfig(cfg *Config) (slib.OpenOptions, error) {

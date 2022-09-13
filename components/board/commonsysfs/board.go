@@ -31,9 +31,9 @@ var _ = board.LocalBoard(&sysfsBoard{})
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
-	Analogs           []board.AnalogConfig           `json:"analogs,omitempty"`
-	Attributes        config.AttributeMap            `json:"attributes,omitempty"`
+	SPIs       []board.SPIConfig    `json:"spis,omitempty"`
+	Analogs    []board.AnalogConfig `json:"analogs,omitempty"`
+	Attributes config.AttributeMap  `json:"attributes,omitempty"`
 }
 
 // RegisterBoard registers a sysfs based board of the given model.
@@ -88,7 +88,29 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
 				cancelFunc:   cancelFunc,
 			}, nil
 		}})
-	board.RegisterConfigAttributeConverter(modelName)
+	config.RegisterComponentAttributeMapConverter(
+		board.SubtypeName,
+		modelName,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&Config{})
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) error {
+	for idx, conf := range config.SPIs {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "spis", idx)); err != nil {
+			return err
+		}
+	}
+	for idx, conf := range config.Analogs {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func init() {
