@@ -44,7 +44,7 @@
         {
             "name": "e1",
             "type": "encoder",
-            "model": "hall",
+            "model": "dual-wire",
             "depends_on": [
                 "board1"
             ],

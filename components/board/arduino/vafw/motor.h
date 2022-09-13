@@ -21,9 +21,9 @@ class Motor {
 
     void checkEncoder(long unsigned int now);
 
-    HallEncoder* encoder() { return _encoder; }
-    const HallEncoder* encoder() const { return _encoder; }
-    void setHallEncoder(HallEncoder* e) { _encoder = e; }
+    DualEncoder* encoder() { return _encoder; }
+    const DualEncoder* encoder() const { return _encoder; }
+    void setDualEncoder(DualEncoder* e) { _encoder = e; }
 
     bool moving() const { return _moving != 0; }
 
@@ -40,7 +40,7 @@ class Motor {
     int _moving;  // 0: no, -1: backwards, 1: forwards
     int _power;   // 0 -> 255
 
-    HallEncoder* _encoder;
+    DualEncoder* _encoder;
 
     bool _regulated;
     EncoderCount _goal;
