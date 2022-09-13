@@ -18,28 +18,28 @@ import (
 func init() {
 	registry.RegisterComponent(
 		Subtype,
-		"hall",
+		"dual-wire",
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return NewHallEncoder(ctx, deps, config, logger)
+			return NewDualEncoder(ctx, deps, config, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
 		SubtypeName,
-		"hall",
+		"dual-wire",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf HallConfig
+			var conf DualConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&HallConfig{})
+		&DualConfig{})
 }
 
-// HallEncoder keeps track of a motor position using a rotary hall encoder.
-type HallEncoder struct {
+// DualEncoder keeps track of a motor position using a rotary dual-wire encoder.
+type DualEncoder struct {
 	A, B     board.DigitalInterrupt
 	position int64
 	pRaw     int64
@@ -53,20 +53,20 @@ type HallEncoder struct {
 	generic.Unimplemented
 }
 
-// HallPins describes the configuration of Pins for a Hall encoder.
-type HallPins struct {
+// DualPins describes the configuration of Pins for a dual-wire encoder.
+type DualPins struct {
 	A string `json:"a"`
 	B string `json:"b"`
 }
 
-// HallConfig describes the configuration of a Hall encoder.
-type HallConfig struct {
-	Pins      HallPins `json:"pins"`
+// DualConfig describes the configuration of a dual-wire encoder.
+type DualConfig struct {
+	Pins      DualPins `json:"pins"`
 	BoardName string   `json:"board"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *HallConfig) Validate(path string) ([]string, error) {
+func (config *DualConfig) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if config.Pins.A == "" {
@@ -84,11 +84,11 @@ func (config *HallConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-// NewHallEncoder creates a new HallEncoder.
-func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (*HallEncoder, error) {
+// NewDualEncoder creates a new DualEncoder.
+func NewDualEncoder(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (*DualEncoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	e := &HallEncoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0, pRaw: 0, pState: 0}
-	if cfg, ok := config.ConvertedAttributes.(*HallConfig); ok {
+	e := &DualEncoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0, pRaw: 0, pState: 0}
+	if cfg, ok := config.ConvertedAttributes.(*DualConfig); ok {
 		board, err := board.FromDependencies(deps, cfg.BoardName)
 		if err != nil {
 			return nil, err
@@ -96,11 +96,11 @@ func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config conf
 
 		e.A, ok = board.DigitalInterruptByName(cfg.Pins.A)
 		if !ok {
-			return nil, errors.Errorf("cannot find pin (%s) for HallEncoder", cfg.Pins.A)
+			return nil, errors.Errorf("cannot find pin (%s) for dual-wire Encoder", cfg.Pins.A)
 		}
 		e.B, ok = board.DigitalInterruptByName(cfg.Pins.B)
 		if !ok {
-			return nil, errors.Errorf("cannot find pin (%s) for HallEncoder", cfg.Pins.B)
+			return nil, errors.Errorf("cannot find pin (%s) for dual-wire Encoder", cfg.Pins.B)
 		}
 
 		e.Start(ctx)
@@ -108,11 +108,11 @@ func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config conf
 		return e, nil
 	}
 
-	return nil, errors.New("encoder config for HallEncoder is not valid")
+	return nil, errors.New("encoder config for dual-wire Encoder is not valid")
 }
 
-// Start starts the HallEncoder background thread.
-func (e *HallEncoder) Start(ctx context.Context) {
+// Start starts the DualEncoder background thread.
+func (e *DualEncoder) Start(ctx context.Context) {
 	/**
 	  a rotary encoder looks like
 
@@ -221,34 +221,34 @@ func (e *HallEncoder) Start(ctx context.Context) {
 }
 
 // GetTicksCount returns number of ticks since last zeroing.
-func (e *HallEncoder) GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
+func (e *DualEncoder) GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 
 // Reset sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position..
-func (e *HallEncoder) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {
+func (e *DualEncoder) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	atomic.StoreInt64(&e.position, offset)
 	atomic.StoreInt64(&e.pRaw, (offset<<1)|atomic.LoadInt64(&e.pRaw)&0x1)
 	return nil
 }
 
 // RawPosition returns the raw position of the encoder.
-func (e *HallEncoder) RawPosition() int64 {
+func (e *DualEncoder) RawPosition() int64 {
 	return atomic.LoadInt64(&e.pRaw)
 }
 
-func (e *HallEncoder) inc() {
+func (e *DualEncoder) inc() {
 	atomic.AddInt64(&e.pRaw, 1)
 }
 
-func (e *HallEncoder) dec() {
+func (e *DualEncoder) dec() {
 	atomic.AddInt64(&e.pRaw, -1)
 }
 
-// Close shuts down the HallEncoder.
-func (e *HallEncoder) Close() error {
-	e.logger.Debug("Closing HallEncoder")
+// Close shuts down the DualEncoder.
+func (e *DualEncoder) Close() error {
+	e.logger.Debug("Closing dual-wire Encoder")
 	e.cancelFunc()
 	e.activeBackgroundWorkers.Wait()
 	return nil

@@ -57,7 +57,7 @@ void configureMotorDC(Buffer* b, const char* name, PinNumber pwm, PinNumber pinA
     motors[motor].encA = encA;
     motors[motor].encB = encB;
 
-    motors[motor].motor->setHallEncoder(new HallEncoder(encA, encB));
+    motors[motor].motor->setDualEncoder(new DualEncoder(encA, encB));
 
     if (!setupInterruptForMotor(encA) || !setupInterruptForMotor(encB)) {
         b->println("#encoder setup fail");

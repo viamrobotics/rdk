@@ -44,7 +44,7 @@ type DirectionAware interface {
 	DirectionMoving() int64
 }
 
-// SingleEncoder keeps track of a motor position using a rotary hall encoder.
+// SingleEncoder keeps track of a motor position using a rotary encoder.
 type SingleEncoder struct {
 	generic.Unimplemented
 	I        board.DigitalInterrupt

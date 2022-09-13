@@ -17,19 +17,19 @@
 // 0 -> same state
 // x -> impossible state
 
-HallEncoder::HallEncoder(int pinA, int pinB)
+DualEncoder::DualEncoder(int pinA, int pinB)
     : _pinA(pinA), _pinB(pinB), _position(0), _praw(0) {
     pinMode(_pinA, INPUT_PULLUP);
     pinMode(_pinB, INPUT_PULLUP);
     _pState = digitalRead(_pinA) | (digitalRead(_pinB) << 1);
 }
 
-void HallEncoder::zero(long offset) {
+void DualEncoder::zero(long offset) {
     _position = offset;
     _praw = (offset << 1) | (_praw & 0x1);
 }
 
-void HallEncoder::encoderTick() {
+void DualEncoder::encoderTick() {
     uint16_t nState = digitalRead(_pinA) | (digitalRead(_pinB) << 1);
     if (nState == _pState) {
         return;
