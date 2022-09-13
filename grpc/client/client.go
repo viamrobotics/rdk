@@ -473,8 +473,7 @@ func (rc *RobotClient) updateRemoteNameMap() {
 	tempMap := make(map[resource.Name]resource.Name)
 	dupMap := make(map[resource.Name]bool)
 	for _, n := range rc.resourceNames {
-		err := n.Validate()
-		if err != nil {
+		if err := n.Validate(); err != nil {
 			rc.Logger().Error(err)
 			continue
 		}
