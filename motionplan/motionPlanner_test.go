@@ -65,7 +65,7 @@ func TestUnconstrainedMotion(t *testing.T) {
 
 // TestConstrainedArmMotion tests a simple linear motion on a longer path, with a no-spill constraint.
 func TestConstrainedArmMotion(t *testing.T) {
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm7_kinematics.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	mp, err := NewCBiRRTMotionPlanner(m, nCPU/4, logger.Sugar())
@@ -194,7 +194,7 @@ func simple2DMap(t *testing.T) planConfig {
 // simpleArmMotion tests moving an xArm7.
 func simpleXArmMotion(t *testing.T) planConfig {
 	t.Helper()
-	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm7_kinematics.json"), "")
+	xarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	return planConfig{
@@ -208,7 +208,7 @@ func simpleXArmMotion(t *testing.T) planConfig {
 // simpleUR5eMotion tests a simple motion for a UR5e.
 func simpleUR5eMotion(t *testing.T) planConfig {
 	t.Helper()
-	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
+	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	return planConfig{

@@ -7,7 +7,7 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/components/gripper"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/motion/v1"
 	"go.viam.com/rdk/protoutils"

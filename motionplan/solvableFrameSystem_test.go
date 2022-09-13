@@ -34,11 +34,11 @@ func makeTestFS(t *testing.T) *SolvableFrameSystem {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantryY, gantryX)
 
-	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm6_kinematics.json"), "")
+	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelXarm, gantryY)
 
-	modelUR5e, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
+	modelUR5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelUR5e, urOffset)
 

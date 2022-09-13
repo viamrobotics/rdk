@@ -11,7 +11,14 @@ option java_package = "com.viam.rdk.proto.api.service.vision.v1";
 
 // VisionService declares the gRPC contract for a vision service
 service VisionService {
+  // GetModelParameterSchema takes the model name and returns the parameters needed to add one to the vision registry.
+  rpc GetModelParameterSchema(GetModelParameterSchemaRequest) returns (GetModelParameterSchemaResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/service/vision/{name}/model_parameter_schema"
+    };
+  }
   // Detection methods
+
 
   // GetDetectorNames returns the list of detectors in the registry.
   rpc GetDetectorNames(GetDetectorNamesRequest) returns (GetDetectorNamesResponse) {
@@ -92,12 +99,21 @@ service VisionService {
       get: "/viam/api/v1/service/vision/{name}/segmenter_names"
     };
   }
-  // GetSegmenterParameters returns the parameter fields needed for the given segmenter.
-  rpc GetSegmenterParameters(GetSegmenterParametersRequest) returns (GetSegmenterParametersResponse) {
+
+  // AddSegmenter adds a new segmenter to the registry.
+  rpc AddSegmenter(AddSegmenterRequest) returns (AddSegmenterResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/service/vision/{name}/segmenter_parameters"
+      post: "/viam/api/v1/service/vision/{name}/add_segmenter"
     };
   }
+
+  // RemoveSegmenter removes a segmenter from the registry.
+  rpc RemoveSegmenter(RemoveSegmenterRequest) returns (RemoveSegmenterResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/service/vision/{name}/remove_segmenter"
+    };
+  }
+
   // GetObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
   // as well as the 3-vector center of each of the found objects.
   // A specific MIME type can be requested but may not necessarily be the same one returned.
@@ -106,6 +122,18 @@ service VisionService {
       post: "/viam/api/v1/service/vision/{name}/object_point_clouds"
     };
   }
+}
+
+message GetModelParameterSchemaRequest {
+  // name of the vision service
+  string name = 1;
+  // name of the type of vision model
+  string model_type = 2;
+}
+
+message GetModelParameterSchemaResponse {
+  // the parameters as JSON bytes of a jsonschema.Schema
+  bytes model_parameter_schema = 1;
 }
 
 message GetDetectorNamesRequest {
@@ -265,21 +293,27 @@ message GetSegmenterNamesResponse {
   repeated string segmenter_names = 1;
 }
 
-message GetSegmenterParametersRequest {
+message AddSegmenterRequest {
+  // name of the vision service
   string name = 1;
-  // Name of the segmentation algo
+  // name of the segmenter
+  string segmenter_name = 2;
+  // name of the segmenter model
+  string segmenter_model_type = 3;
+  // parameters of the segmenter model
+  google.protobuf.Struct segmenter_parameters = 4;
+}
+
+message AddSegmenterResponse {}
+
+message RemoveSegmenterRequest {
+  // name of the vision service
+  string name = 1;
+  // name of segmenter in registry
   string segmenter_name = 2;
 }
 
-message TypedParameter {
-  string name = 1;
-  string type = 2;
-}
-
-message GetSegmenterParametersResponse {
-  // parameter names of the segmenter in the request
-  repeated TypedParameter segmenter_parameters = 1;
-}
+message RemoveSegmenterResponse {}
 
 message GetObjectPointCloudsRequest {
   string name = 1;
@@ -289,8 +323,6 @@ message GetObjectPointCloudsRequest {
   string segmenter_name = 3;
   // Requested MIME type of response
   string mime_type = 4;
-  // parameters for the chosen segmenter
-  google.protobuf.Struct parameters = 5;
 }
 
 message GetObjectPointCloudsResponse {

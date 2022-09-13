@@ -7,13 +7,13 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
@@ -25,7 +25,6 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	rdkutils "go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/segmentation"
 )
@@ -41,7 +40,8 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	r := buildRobotWithFakeCamera(t)
+	r, err := buildRobotWithFakeCamera(t)
+	test.That(t, err, test.ShouldBeNil)
 	visName := vision.FindFirstName(r)
 	srv, err := vision.FromRobot(r, visName)
 	test.That(t, err, test.ShouldBeNil)
@@ -64,6 +64,23 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
+	t.Run("model schema", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		client := vision.NewClientFromConn(context.Background(), conn, visName, logger)
+
+		params, err := client.GetModelParameterSchema(context.Background(), vision.RCSegmenter)
+		test.That(t, err, test.ShouldBeNil)
+		parameterNames := params.Definitions["RadiusClusteringConfig"].Required
+		test.That(t, parameterNames, test.ShouldContain, "min_points_in_plane")
+		test.That(t, parameterNames, test.ShouldContain, "min_points_in_segment")
+		test.That(t, parameterNames, test.ShouldContain, "clustering_radius_mm")
+		test.That(t, parameterNames, test.ShouldContain, "mean_k_filtering")
+
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
 	t.Run("detector names", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -73,10 +90,6 @@ func TestClient(t *testing.T) {
 		names, err := client.GetDetectorNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, names, test.ShouldContain, "detect_red")
-		// detector was turned into segmenter
-		segNames, err := client.GetSegmenterNames(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, segNames, test.ShouldContain, "detect_red_segmenter")
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -104,11 +117,6 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, names, test.ShouldContain, "detect_red")
 		test.That(t, names, test.ShouldContain, "new_detector")
-		// segmenter should also be added
-		segNames, err := client.GetSegmenterNames(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, segNames, test.ShouldContain, "detect_red_segmenter")
-		test.That(t, segNames, test.ShouldContain, "new_detector_segmenter")
 		// tries to add a detector again
 		err = client.AddDetector(context.Background(), cfg)
 		test.That(t, err, test.ShouldBeNil)
@@ -161,6 +169,44 @@ func TestClient(t *testing.T) {
 		test.That(t, dets, test.ShouldNotBeNil)
 		test.That(t, dets[0].Label(), test.ShouldResemble, "17")
 		test.That(t, dets[0].Score(), test.ShouldBeGreaterThan, 0.79)
+
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+	t.Run("segmenters", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		client := vision.NewClientFromConn(context.Background(), conn, visName, logger)
+
+		names, err := client.GetSegmenterNames(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, names, test.ShouldNotContain, "new_segmenter")
+
+		cfg := vision.VisModelConfig{
+			Name: "new_segmenter",
+			Type: string(vision.RCSegmenter),
+			Parameters: config.AttributeMap{
+				"min_points_in_plane":   100,
+				"min_points_in_segment": 3,
+				"clustering_radius_mm":  5.,
+				"mean_k_filtering":      10.,
+			},
+		}
+
+		err = client.AddSegmenter(context.Background(), cfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		names, err = client.GetSegmenterNames(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, names, test.ShouldContain, "new_segmenter")
+
+		err = client.RemoveClassifier(context.Background(), "new_segmenter")
+		test.That(t, err, test.ShouldBeNil)
+
+		names, err = client.GetClassifierNames(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, names, test.ShouldNotContain, "new_segmenter")
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -290,64 +336,36 @@ func TestInjectedServiceClient(t *testing.T) {
 		segmenterNames, err := workingDialedClient.GetSegmenterNames(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, segmenterNames, test.ShouldHaveLength, 1)
+
+		test.That(t, utils.TryClose(context.Background(), workingDialedClient), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 	t.Run("test segmentation", func(t *testing.T) {
+		params := config.AttributeMap{
+			"min_points_in_plane":   100,
+			"min_points_in_segment": 3,
+			"clustering_radius_mm":  5.,
+			"mean_k_filtering":      10.,
+		}
+		segmenter, err := segmentation.NewRadiusClustering(params)
+		test.That(t, err, test.ShouldBeNil)
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-
 		client := vision.NewClientFromConn(context.Background(), conn, testVisionServiceName, logger)
 
-		injCam := &cloudSource{}
-
-		injectVision.GetSegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]rdkutils.TypedName, error) {
-			return rdkutils.JSONTags(segmentation.RadiusClusteringConfig{}), nil
-		}
-		injectVision.GetObjectPointCloudsFunc = func(ctx context.Context,
-			cameraName string,
-			segmenterName string,
-			params config.AttributeMap,
+		_cam := &cloudSource{}
+		injCam, err := camera.NewFromReader(context.Background(), _cam, nil, camera.ColorStream)
+		test.That(t, err, test.ShouldBeNil)
+		injectVision.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName, segmenterName string,
 		) ([]*viz.Object, error) {
-			segments, err := segmentation.RadiusClustering(ctx, injCam, params)
+			segments, err := segmenter(ctx, injCam)
 			if err != nil {
 				return nil, err
 			}
 			return segments, nil
 		}
-		// SegmenterNames error
-		injectVision.GetSegmenterNamesFunc = func(ctx context.Context) ([]string, error) {
-			return nil, errors.New("segmenter names error")
-		}
-		_, err = client.GetSegmenterNames(context.Background())
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "segmenter names error")
 
-		// SegmenterNames success
-		injectVision.GetSegmenterNamesFunc = func(ctx context.Context) ([]string, error) {
-			return []string{vision.RadiusClusteringSegmenter}, nil
-		}
-
-		segNames, err := client.GetSegmenterNames(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, segNames, test.ShouldHaveLength, 1)
-		test.That(t, segNames[0], test.ShouldEqual, vision.RadiusClusteringSegmenter)
-
-		paramNames, err := client.GetSegmenterParameters(context.Background(), segNames[0])
-		test.That(t, err, test.ShouldBeNil)
-		expParams := []rdkutils.TypedName{
-			{"min_points_in_plane", "int"},
-			{"min_points_in_segment", "int"},
-			{"clustering_radius_mm", "float64"},
-			{"mean_k_filtering", "int"},
-		}
-		test.That(t, paramNames, test.ShouldResemble, expParams)
-		params := config.AttributeMap{
-			paramNames[0].Name: 100,
-			paramNames[1].Name: 3,
-			paramNames[2].Name: 5.0,
-			paramNames[3].Name: 10,
-		}
-		segs, err := client.GetObjectPointClouds(context.Background(), "", segNames[0], params)
+		segs, err := client.GetObjectPointClouds(context.Background(), "cloud_cam", vision.RadiusClusteringSegmenter)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(segs), test.ShouldEqual, 2)
 
@@ -358,7 +376,6 @@ func TestInjectedServiceClient(t *testing.T) {
 			test.That(t, box, test.ShouldNotBeNil)
 			test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
 		}
-
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
