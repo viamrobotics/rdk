@@ -319,6 +319,8 @@ github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848/go.mod h1:FXvLMxX
 github.com/edaniels/golinters v0.0.4/go.mod h1:KzjC7OrCrRlFxufhH+kQ1Sdyzuj2eanHHzPaWxD3lgk=
 github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19 h1:H1ItaK5N1mCc2bp8pN70EM8i4TvHR0Bd6LYN/aNParw=
 github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19/go.mod h1:i/zcokIKs893VZA41BS8jTOHW23PlqiiZEa7Y+4Nujk=
+github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742 h1:ZoFlzcasiB47esGHs8W0GzTKUDUfIa94ZUWzBqEI1fw=
+github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742/go.mod h1:i/zcokIKs893VZA41BS8jTOHW23PlqiiZEa7Y+4Nujk=
 github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e h1:K3N0Zm7JySHjvThqKBWO294ZnEPUK2W3os647RVTJB8=
 github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e/go.mod h1:nsP/KxpaFaTriZlxPlULlPKf7F3LS0J4BgoxZN8QJAU=
 github.com/edaniels/gostream v0.0.0-20220909193600-edaf0134e353 h1:txwc0j080kJVp6cfX68+z0It372YwLHeYmg6Bh4uhbg=
