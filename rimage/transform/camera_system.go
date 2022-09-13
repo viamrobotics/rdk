@@ -21,15 +21,21 @@ const (
 // DistortionModel defines a Transform that takes an undistorted image and distorts it according to the model
 type DistortionModel interface {
 	ModelType() DistortionType
+	Parameters() []float64
 	Transform(x, y float64) (float64, float64)
 }
 
-// applies no Distortion to the camera
-type noDistortion struct{}
+// NoDistortion applies no Distortion to the camera
+type NoDistortion struct{}
 
-func (nd *noDistortion) ModelType() DistortionType { return NoneDistortionType }
+// ModelType returns the name of the model
+func (nd *NoDistortion) ModelType() DistortionType { return NoneDistortionType }
 
-func (nd *noDistortion) Transform(x, y float64) (float64, float64) { return x, y }
+// Parameters returns nothing, because there is no distortion
+func (nd *NoDistortion) Parameters() []float64 { return []float64{} }
+
+// Transform is the identity transform
+func (nd *NoDistortion) Transform(x, y float64) (float64, float64) { return x, y }
 
 // Aligner aligns a color and depth image together.
 type Aligner interface {

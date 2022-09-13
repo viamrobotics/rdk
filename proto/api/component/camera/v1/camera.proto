@@ -138,7 +138,6 @@ message IntrinsicParameters {
 }
 
 message DistortionParameters {
-  string distortion_model = 1;
+  string model = 1;
   repeated double parameters = 2;
 }
-
