@@ -3,5 +3,5 @@ package register
 
 import (
 	// for sensors models.
-	_ "go.viam.com/rdk/services/sensors/defaultsensors"
+	_ "go.viam.com/rdk/services/sensors/builtin"
 )

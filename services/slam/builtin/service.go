@@ -1,5 +1,5 @@
-// Package defaultslam implements simultaneous localization and mapping
-package defaultslam
+// Package builtin implements simultaneous localization and mapping
+package builtin
 
 import (
 	"bufio"
@@ -69,9 +69,9 @@ func SetDialMaxTimeoutSecForTesting(val int) {
 
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
 func init() {
-	registry.RegisterService(slam.Subtype, resource.BuiltIntModelName, registry.Service{
+	registry.RegisterService(slam.Subtype, resource.DefaultModelName, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewDefault(ctx, r, c, logger)
+			return NewBuiltIn(ctx, r, c, logger)
 		},
 	})
 	cType := config.ServiceType(slam.SubtypeName)
@@ -174,7 +174,7 @@ func runtimeServiceValidation(
 	ctx context.Context,
 	cams []camera.Camera,
 	camStreams []gostream.VideoStream,
-	slamSvc *slamDefaultService,
+	slamSvc *builtIn,
 ) error {
 	if len(cams) == 0 {
 		return nil
@@ -243,8 +243,8 @@ type AttrConfig struct {
 	Port             string            `json:"port"`
 }
 
-// SlamDefaultService is the structure of the slam service.
-type slamDefaultService struct {
+// builtIn is the structure of the slam service.
+type builtIn struct {
 	cameraName      string
 	slamLib         slam.LibraryMetadata
 	slamMode        slam.Mode
@@ -323,7 +323,7 @@ func configureCameras(ctx context.Context, svcConfig *AttrConfig, r robot.Robot,
 
 // setupGRPCConnection uses the defined port to create a GRPC client for communicating with the SLAM algorithms.
 func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) (pb.SLAMServiceClient, func() error, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::slamDefaultService::setupGRPCConnection")
+	ctx, span := trace.StartSpan(ctx, "slam::builtIn::setupGRPCConnection")
 	defer span.End()
 
 	// This takes about 1 second, so the timeout should be sufficient.
@@ -342,8 +342,8 @@ func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) 
 
 // GetPosition forwards the request for positional data to the slam library's gRPC service. Once a response is received,
 // it is unpacked into a PoseInFrame.
-func (slamSvc *slamDefaultService) GetPosition(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::slamDefaultService::GetPosition")
+func (slamSvc *builtIn) GetPosition(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPosition")
 	defer span.End()
 
 	req := &pb.GetPositionRequest{Name: name}
@@ -358,10 +358,10 @@ func (slamSvc *slamDefaultService) GetPosition(ctx context.Context, name string)
 
 // GetMap forwards the request for map data to the slam library's gRPC service. Once a response is received it is unpacked
 // into a mimeType and either a vision.Object or image.Image.
-func (slamSvc *slamDefaultService) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame, include bool) (
+func (slamSvc *builtIn) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame, include bool) (
 	string, image.Image, *vision.Object, error,
 ) {
-	ctx, span := trace.StartSpan(ctx, "slam::slamDefaultService::GetMap")
+	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetMap")
 	defer span.End()
 
 	var cameraPosition *v1.Pose
@@ -409,9 +409,9 @@ func (slamSvc *slamDefaultService) GetMap(ctx context.Context, name, mimeType st
 	return resp.MimeType, imData, vObj, nil
 }
 
-// NewDefault returns a new slam service for the given robot.
-func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (slam.Service, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::slamDefaultService::NewDefault")
+// NewBuiltIn returns a new slam service for the given robot.
+func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (slam.Service, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::builtIn::NewBuiltIn")
 	defer span.End()
 
 	svcConfig, ok := config.ConvertedAttributes.(*AttrConfig)
@@ -462,7 +462,7 @@ func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logge
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	// SLAM Service Object
-	slamSvc := &slamDefaultService{
+	slamSvc := &builtIn{
 		cameraName:       cameraName,
 		slamLib:          slam.SLAMLibraries[svcConfig.Algorithm],
 		slamMode:         slamMode,
@@ -509,7 +509,7 @@ func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logge
 }
 
 // Close out of all slam related processes.
-func (slamSvc *slamDefaultService) Close() error {
+func (slamSvc *builtIn) Close() error {
 	defer func() {
 		if slamSvc.clientAlgoClose != nil {
 			goutils.UncheckedErrorFunc(slamSvc.clientAlgoClose)
@@ -534,7 +534,7 @@ func (slamSvc *slamDefaultService) Close() error {
 
 // TODO 05/10/2022: Remove from SLAM service once GRPC data transfer is available.
 // startDataProcess is the background control loop for sending data from camera to the data directory for processing.
-func (slamSvc *slamDefaultService) StartDataProcess(
+func (slamSvc *builtIn) StartDataProcess(
 	cancelCtx context.Context,
 	cams []camera.Camera,
 	camStreams []gostream.VideoStream,
@@ -597,7 +597,7 @@ func (slamSvc *slamDefaultService) StartDataProcess(
 }
 
 // GetSLAMProcessConfig returns the process config for the SLAM process.
-func (slamSvc *slamDefaultService) GetSLAMProcessConfig() pexec.ProcessConfig {
+func (slamSvc *builtIn) GetSLAMProcessConfig() pexec.ProcessConfig {
 	var args []string
 
 	args = append(args, "-sensors="+slamSvc.cameraName)
@@ -618,8 +618,8 @@ func (slamSvc *slamDefaultService) GetSLAMProcessConfig() pexec.ProcessConfig {
 }
 
 // startSLAMProcess starts up the SLAM library process by calling the executable binary and giving it the necessary arguments.
-func (slamSvc *slamDefaultService) StartSLAMProcess(ctx context.Context) error {
-	ctx, span := trace.StartSpan(ctx, "slam::slamDefaultService::StartSLAMProcess")
+func (slamSvc *builtIn) StartSLAMProcess(ctx context.Context) error {
+	ctx, span := trace.StartSpan(ctx, "slam::builtIn::StartSLAMProcess")
 	defer span.End()
 
 	_, err := slamSvc.slamProcess.AddProcessFromConfig(ctx, slamSvc.GetSLAMProcessConfig())
@@ -637,7 +637,7 @@ func (slamSvc *slamDefaultService) StartSLAMProcess(ctx context.Context) error {
 }
 
 // stopSLAMProcess uses the process manager to stop the created slam process from running.
-func (slamSvc *slamDefaultService) StopSLAMProcess() error {
+func (slamSvc *builtIn) StopSLAMProcess() error {
 	if err := slamSvc.slamProcess.Stop(); err != nil {
 		return errors.Wrap(err, "problem stopping slam process")
 	}
@@ -646,12 +646,12 @@ func (slamSvc *slamDefaultService) StopSLAMProcess() error {
 
 // getAndSaveDataSparse implements the data extraction for sparse algos and saving to the directory path (data subfolder) specified in
 // the config. It returns the full filepath for each file saved along with any error associated with the data creation or saving.
-func (slamSvc *slamDefaultService) getAndSaveDataSparse(
+func (slamSvc *builtIn) getAndSaveDataSparse(
 	ctx context.Context,
 	cams []camera.Camera,
 	camStreams []gostream.VideoStream,
 ) ([]string, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::slamDefaultService::getAndSaveDataSparse")
+	ctx, span := trace.StartSpan(ctx, "slam::builtIn::getAndSaveDataSparse")
 	defer span.End()
 
 	switch slamSvc.slamMode {
@@ -722,7 +722,7 @@ func (slamSvc *slamDefaultService) getAndSaveDataSparse(
 }
 
 // Gets the color image and depth image from the cameras as close to simultaneously as possible.
-func (slamSvc *slamDefaultService) getSimultaneousColorAndDepth(
+func (slamSvc *builtIn) getSimultaneousColorAndDepth(
 	ctx context.Context,
 	cams []camera.Camera,
 ) ([2][]byte, error) {
@@ -781,8 +781,8 @@ func (slamSvc *slamDefaultService) getSimultaneousColorAndDepth(
 
 // getAndSaveDataDense implements the data extraction for dense algos and saving to the directory path (data subfolder) specified in
 // the config. It returns the full filepath for each file saved along with any error associated with the data creation or saving.
-func (slamSvc *slamDefaultService) getAndSaveDataDense(ctx context.Context, cams []camera.Camera) (string, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::slamDefaultService::getAndSaveDataDense")
+func (slamSvc *builtIn) getAndSaveDataDense(ctx context.Context, cams []camera.Camera) (string, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::builtIn::getAndSaveDataDense")
 	defer span.End()
 
 	if len(cams) != 1 {

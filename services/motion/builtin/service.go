@@ -1,5 +1,5 @@
-// Package defaultmotion implements an motion service.
-package defaultmotion
+// Package builtin implements an motion service.
+package builtin
 
 import (
 	"context"
@@ -23,28 +23,28 @@ import (
 )
 
 func init() {
-	registry.RegisterService(motion.Subtype, resource.BuiltIntModelName, registry.Service{
+	registry.RegisterService(motion.Subtype, resource.DefaultModelName, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewDefault(ctx, r, c, logger)
+			return NewBuildIn(ctx, r, c, logger)
 		},
 	})
 }
 
-// NewDefault returns a new move and grab service for the given robot.
-func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (motion.Service, error) {
-	return &motionDefaultService{
+// NewBuildIn returns a new move and grab service for the given robot.
+func NewBuildIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (motion.Service, error) {
+	return &builtIn{
 		r:      r,
 		logger: logger,
 	}, nil
 }
 
-type motionDefaultService struct {
+type builtIn struct {
 	r      robot.Robot
 	logger golog.Logger
 }
 
 // Move takes a goal location and will plan and execute a movement to move a component specified by its name to that destination.
-func (ms *motionDefaultService) Move(
+func (ms *builtIn) Move(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
@@ -111,7 +111,7 @@ func (ms *motionDefaultService) Move(
 // component that supports this. This method will transform the destination pose, given in an arbitrary frame, into the pose of the arm.
 // The arm will then move its most distal link to that pose. If you instead wish to move any other component than the arm end to that pose,
 // then you must manually adjust the given destination by the transform from the arm end to the intended component.
-func (ms *motionDefaultService) MoveSingleComponent(
+func (ms *builtIn) MoveSingleComponent(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
@@ -162,7 +162,7 @@ func (ms *motionDefaultService) MoveSingleComponent(
 	return false, err
 }
 
-func (ms *motionDefaultService) GetPose(
+func (ms *builtIn) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,

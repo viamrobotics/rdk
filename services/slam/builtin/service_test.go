@@ -1,7 +1,7 @@
-// Package defaultslam_test tests the functions that required injected components (such as robot and camera)
+// Package builtin_test tests the functions that required injected components (such as robot and camera)
 // in order to be run. It utilizes the internal package located in slam_test_helper.go to access
 // certain exported functions which we do not want to make available to the user.
-package defaultslam_test
+package builtin_test
 
 import (
 	"bytes"
@@ -33,7 +33,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/slam"
-	"go.viam.com/rdk/services/slam/defaultslam"
+	"go.viam.com/rdk/services/slam/builtin"
 	"go.viam.com/rdk/services/slam/internal"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -220,7 +220,7 @@ func setupInjectRobot() *inject.Robot {
 	return r
 }
 
-func createSLAMService(t *testing.T, attrCfg *defaultslam.AttrConfig, logger golog.Logger, success bool) (slam.Service, error) {
+func createSLAMService(t *testing.T, attrCfg *builtin.AttrConfig, logger golog.Logger, success bool) (slam.Service, error) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -229,10 +229,10 @@ func createSLAMService(t *testing.T, attrCfg *defaultslam.AttrConfig, logger gol
 
 	r := setupInjectRobot()
 
-	defaultslam.SetCameraValidationMaxTimeoutSecForTesting(1)
-	defaultslam.SetDialMaxTimeoutSecForTesting(1)
+	builtin.SetCameraValidationMaxTimeoutSecForTesting(1)
+	builtin.SetDialMaxTimeoutSecForTesting(1)
 
-	svc, err := defaultslam.NewDefault(ctx, r, cfgService, logger)
+	svc, err := builtin.NewBuiltIn(ctx, r, cfgService, logger)
 
 	if success {
 		if err != nil {
@@ -254,7 +254,7 @@ func TestGeneralNew(t *testing.T) {
 
 	t.Run("New slam service blank config", func(t *testing.T) {
 		logger := golog.NewTestLogger(t)
-		attrCfg := &defaultslam.AttrConfig{}
+		attrCfg := &builtin.AttrConfig{}
 		_, err := createSLAMService(t, attrCfg, logger, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.Errorf("runtime slam config error: "+
@@ -262,7 +262,7 @@ func TestGeneralNew(t *testing.T) {
 	})
 
 	t.Run("New slam service with no camera", func(t *testing.T) {
-		attrCfg := &defaultslam.AttrConfig{
+		attrCfg := &builtin.AttrConfig{
 			Algorithm:     "fake_cartographer",
 			Sensors:       []string{},
 			ConfigParams:  map[string]string{"mode": "2d"},
@@ -281,7 +281,7 @@ func TestGeneralNew(t *testing.T) {
 	})
 
 	t.Run("New slam service with bad camera", func(t *testing.T) {
-		attrCfg := &defaultslam.AttrConfig{
+		attrCfg := &builtin.AttrConfig{
 			Algorithm:     "fake_cartographer",
 			Sensors:       []string{"gibberish"},
 			ConfigParams:  map[string]string{"mode": "2d"},
@@ -298,7 +298,7 @@ func TestGeneralNew(t *testing.T) {
 	})
 
 	t.Run("New slam service with invalid slam algo type", func(t *testing.T) {
-		attrCfg := &defaultslam.AttrConfig{
+		attrCfg := &builtin.AttrConfig{
 			Algorithm:     "test",
 			Sensors:       []string{},
 			ConfigParams:  map[string]string{"mode": "2d"},
@@ -322,7 +322,7 @@ func TestGeneralNew(t *testing.T) {
 	})
 
 	t.Run("New slam service the fails at slam process due to binary location", func(t *testing.T) {
-		attrCfg := &defaultslam.AttrConfig{
+		attrCfg := &builtin.AttrConfig{
 			Algorithm:     "orbslamv3",
 			Sensors:       []string{"good_camera"},
 			ConfigParams:  map[string]string{"mode": "mono"},
@@ -347,7 +347,7 @@ func TestCartographerNew(t *testing.T) {
 	createFakeSLAMLibraries()
 
 	t.Run("New cartographer service with good lidar in slam mode 2d", func(t *testing.T) {
-		attrCfg := &defaultslam.AttrConfig{
+		attrCfg := &builtin.AttrConfig{
 			Algorithm:     "fake_cartographer",
 			Sensors:       []string{"good_lidar"},
 			ConfigParams:  map[string]string{"mode": "2d"},
@@ -367,7 +367,7 @@ func TestCartographerNew(t *testing.T) {
 	})
 
 	t.Run("New cartographer service with lidar that errors during call to NextPointCloud", func(t *testing.T) {
-		attrCfg := &defaultslam.AttrConfig{
+		attrCfg := &builtin.AttrConfig{
 			Algorithm:     "fake_cartographer",
 			Sensors:       []string{"bad_lidar"},
 			ConfigParams:  map[string]string{"mode": "2d"},
@@ -384,7 +384,7 @@ func TestCartographerNew(t *testing.T) {
 	})
 
 	t.Run("New cartographer service with camera without NextPointCloud implementation", func(t *testing.T) {
-		attrCfg := &defaultslam.AttrConfig{
+		attrCfg := &builtin.AttrConfig{
 			Algorithm:     "fake_cartographer",
 			Sensors:       []string{"good_camera"},
 			ConfigParams:  map[string]string{"mode": "2d"},
@@ -410,7 +410,7 @@ func TestORBSLAMNew(t *testing.T) {
 	createFakeSLAMLibraries()
 
 	t.Run("New orbslamv3 service with good camera in slam mode rgbd", func(t *testing.T) {
-		attrCfg := &defaultslam.AttrConfig{
+		attrCfg := &builtin.AttrConfig{
 			Algorithm:     "fake_orbslamv3",
 			Sensors:       []string{"good_color_camera", "good_depth_camera"},
 			ConfigParams:  map[string]string{"mode": "rgbd"},
@@ -430,7 +430,7 @@ func TestORBSLAMNew(t *testing.T) {
 	})
 
 	t.Run("New orbslamv3 service in slam mode rgbd that errors due to a single camera", func(t *testing.T) {
-		attrCfg := &defaultslam.AttrConfig{
+		attrCfg := &builtin.AttrConfig{
 			Algorithm:     "fake_orbslamv3",
 			Sensors:       []string{"good_color_camera"},
 			ConfigParams:  map[string]string{"mode": "rgbd"},
@@ -447,7 +447,7 @@ func TestORBSLAMNew(t *testing.T) {
 	})
 
 	t.Run("New orbslamv3 service in slam mode rgbd that errors due cameras in the wrong order", func(t *testing.T) {
-		attrCfg := &defaultslam.AttrConfig{
+		attrCfg := &builtin.AttrConfig{
 			Algorithm:     "fake_orbslamv3",
 			Sensors:       []string{"good_depth_camera", "good_color_camera"},
 			ConfigParams:  map[string]string{"mode": "rgbd"},
@@ -464,7 +464,7 @@ func TestORBSLAMNew(t *testing.T) {
 	})
 
 	t.Run("New orbslamv3 service with good camera in slam mode mono", func(t *testing.T) {
-		attrCfg := &defaultslam.AttrConfig{
+		attrCfg := &builtin.AttrConfig{
 			Algorithm:     "fake_orbslamv3",
 			Sensors:       []string{"good_camera"},
 			ConfigParams:  map[string]string{"mode": "mono"},
@@ -484,7 +484,7 @@ func TestORBSLAMNew(t *testing.T) {
 	})
 
 	t.Run("New orbslamv3 service with camera that errors during call to Next", func(t *testing.T) {
-		attrCfg := &defaultslam.AttrConfig{
+		attrCfg := &builtin.AttrConfig{
 			Algorithm:     "fake_orbslamv3",
 			Sensors:       []string{"bad_camera"},
 			ConfigParams:  map[string]string{"mode": "mono"},
@@ -501,7 +501,7 @@ func TestORBSLAMNew(t *testing.T) {
 	})
 
 	t.Run("New orbslamv3 service with camera that errors from bad intrinsics", func(t *testing.T) {
-		attrCfg := &defaultslam.AttrConfig{
+		attrCfg := &builtin.AttrConfig{
 			Algorithm:     "fake_orbslamv3",
 			Sensors:       []string{"bad_camera_intrinsics"},
 			ConfigParams:  map[string]string{"mode": "mono"},
@@ -518,7 +518,7 @@ func TestORBSLAMNew(t *testing.T) {
 	})
 
 	t.Run("New orbslamv3 service with lidar without Next implementation", func(t *testing.T) {
-		attrCfg := &defaultslam.AttrConfig{
+		attrCfg := &builtin.AttrConfig{
 			Algorithm:     "fake_orbslamv3",
 			Sensors:       []string{"good_lidar"},
 			ConfigParams:  map[string]string{"mode": "mono"},
@@ -541,7 +541,7 @@ func TestCartographerDataProcess(t *testing.T) {
 
 	createFakeSLAMLibraries()
 
-	attrCfg := &defaultslam.AttrConfig{
+	attrCfg := &builtin.AttrConfig{
 		Algorithm:     "fake_cartographer",
 		Sensors:       []string{"good_lidar"},
 		ConfigParams:  map[string]string{"mode": "2d"},
@@ -621,7 +621,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 
 	createFakeSLAMLibraries()
 
-	attrCfg := &defaultslam.AttrConfig{
+	attrCfg := &builtin.AttrConfig{
 		Algorithm:     "fake_orbslamv3",
 		Sensors:       []string{"good_camera"},
 		ConfigParams:  map[string]string{"mode": "mono"},
@@ -703,7 +703,7 @@ func TestGetMapAndPosition(t *testing.T) {
 
 	createFakeSLAMLibraries()
 
-	attrCfg := &defaultslam.AttrConfig{
+	attrCfg := &builtin.AttrConfig{
 		Algorithm:        "fake_orbslamv3",
 		Sensors:          []string{"good_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
@@ -745,7 +745,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 
 	createFakeSLAMLibraries()
 
-	attrCfg := &defaultslam.AttrConfig{
+	attrCfg := &builtin.AttrConfig{
 		Algorithm:        "fake_orbslamv3",
 		Sensors:          []string{"good_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
@@ -795,7 +795,7 @@ func TestSLAMProcessFail(t *testing.T) {
 
 	createFakeSLAMLibraries()
 
-	attrCfg := &defaultslam.AttrConfig{
+	attrCfg := &builtin.AttrConfig{
 		Algorithm:        "fake_orbslamv3",
 		Sensors:          []string{"good_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
@@ -847,7 +847,7 @@ func TestGRPCConnection(t *testing.T) {
 
 	createFakeSLAMLibraries()
 
-	attrCfg := &defaultslam.AttrConfig{
+	attrCfg := &builtin.AttrConfig{
 		Algorithm:        "fake_orbslamv3",
 		Sensors:          []string{"good_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},

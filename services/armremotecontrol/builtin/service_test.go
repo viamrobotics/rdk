@@ -94,7 +94,7 @@ func TestArmRemoteControl(t *testing.T) {
 		rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	svc, ok := tmpSvc.(*BuiltIn)
+	svc, ok := tmpSvc.(*builtIn)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Controller import failure

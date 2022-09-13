@@ -1,5 +1,5 @@
-// Package defaultnavigation contains the default navigation service, along with a gRPC server and client
-package defaultnavigation
+// Package builtIn contains the default navigation service, along with a gRPC server and client
+package builtin
 
 import (
 	"context"
@@ -31,9 +31,9 @@ const (
 )
 
 func init() {
-	registry.RegisterService(navigation.Subtype, resource.BuiltIntModelName, registry.Service{
+	registry.RegisterService(navigation.Subtype, resource.DefaultModelName, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewDefault(ctx, r, c, logger)
+			return NewBuiltIn(ctx, r, c, logger)
 		},
 	},
 	)
@@ -61,8 +61,8 @@ type Config struct {
 	MMPerSecDefault  float64 `json:"mm_per_sec"`
 }
 
-// NewDefault returns a new navigation service for the given robot.
-func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (navigation.Service, error) {
+// NewBuiltIn returns a new navigation service for the given robot.
+func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (navigation.Service, error) {
 	svcConfig, ok := config.ConvertedAttributes.(*Config)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
@@ -101,7 +101,7 @@ func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logge
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	navSvc := &navDefaultService{
+	navSvc := &builtIn{
 		r:                r,
 		store:            store,
 		base:             base1,
@@ -115,7 +115,7 @@ func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logge
 	return navSvc, nil
 }
 
-type navDefaultService struct {
+type builtIn struct {
 	mu    sync.RWMutex
 	r     robot.Robot
 	store navigation.NavStore
@@ -132,13 +132,13 @@ type navDefaultService struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func (svc *navDefaultService) GetMode(ctx context.Context) (navigation.Mode, error) {
+func (svc *builtIn) GetMode(ctx context.Context) (navigation.Mode, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.mode, nil
 }
 
-func (svc *navDefaultService) SetMode(ctx context.Context, mode navigation.Mode) error {
+func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	if svc.mode == mode {
@@ -162,7 +162,7 @@ func (svc *navDefaultService) SetMode(ctx context.Context, mode navigation.Mode)
 	return nil
 }
 
-func (svc *navDefaultService) startWaypoint() error {
+func (svc *builtIn) startWaypoint() error {
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
@@ -236,7 +236,7 @@ func (svc *navDefaultService) startWaypoint() error {
 	return nil
 }
 
-func (svc *navDefaultService) waypointDirectionAndDistanceToGo(ctx context.Context, currentLoc *geo.Point) (float64, float64, error) {
+func (svc *builtIn) waypointDirectionAndDistanceToGo(ctx context.Context, currentLoc *geo.Point) (float64, float64, error) {
 	wp, err := svc.nextWaypoint(ctx)
 	if err != nil {
 		return 0, 0, err
@@ -247,7 +247,7 @@ func (svc *navDefaultService) waypointDirectionAndDistanceToGo(ctx context.Conte
 	return fixAngle(currentLoc.BearingTo(goal)), currentLoc.GreatCircleDistance(goal), nil
 }
 
-func (svc *navDefaultService) GetLocation(ctx context.Context) (*geo.Point, error) {
+func (svc *builtIn) GetLocation(ctx context.Context) (*geo.Point, error) {
 	if svc.movementSensor == nil {
 		return nil, errors.New("no way to get location")
 	}
@@ -255,7 +255,7 @@ func (svc *navDefaultService) GetLocation(ctx context.Context) (*geo.Point, erro
 	return loc, err
 }
 
-func (svc *navDefaultService) GetWaypoints(ctx context.Context) ([]navigation.Waypoint, error) {
+func (svc *builtIn) GetWaypoints(ctx context.Context) ([]navigation.Waypoint, error) {
 	wps, err := svc.store.Waypoints(ctx)
 	if err != nil {
 		return nil, err
@@ -265,20 +265,20 @@ func (svc *navDefaultService) GetWaypoints(ctx context.Context) ([]navigation.Wa
 	return wpsCopy, nil
 }
 
-func (svc *navDefaultService) AddWaypoint(ctx context.Context, point *geo.Point) error {
+func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point) error {
 	_, err := svc.store.AddWaypoint(ctx, point)
 	return err
 }
 
-func (svc *navDefaultService) RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error {
+func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error {
 	return svc.store.RemoveWaypoint(ctx, id)
 }
 
-func (svc *navDefaultService) nextWaypoint(ctx context.Context) (navigation.Waypoint, error) {
+func (svc *builtIn) nextWaypoint(ctx context.Context) (navigation.Waypoint, error) {
 	return svc.store.NextWaypoint(ctx)
 }
 
-func (svc *navDefaultService) waypointReached(ctx context.Context) error {
+func (svc *builtIn) waypointReached(ctx context.Context) error {
 	wp, err := svc.nextWaypoint(ctx)
 	if err != nil {
 		return fmt.Errorf("can't mark waypoint reached: %w", err)
@@ -286,7 +286,7 @@ func (svc *navDefaultService) waypointReached(ctx context.Context) error {
 	return svc.store.WaypointVisited(ctx, wp.ID)
 }
 
-func (svc *navDefaultService) Close(ctx context.Context) error {
+func (svc *builtIn) Close(ctx context.Context) error {
 	svc.cancelFunc()
 	svc.activeBackgroundWorkers.Wait()
 	return utils.TryClose(ctx, svc.store)

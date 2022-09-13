@@ -3,5 +3,5 @@ package register
 
 import (
 	// for shell models.
-	_ "go.viam.com/rdk/services/shell/defaultshell"
+	_ "go.viam.com/rdk/services/shell/builtin"
 )

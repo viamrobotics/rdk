@@ -1,6 +1,6 @@
-// Package defaultvision is the service that allows you to access various computer vision algorithms
+// Package builtin is the service that allows you to access various computer vision algorithms
 // (like detection, segmentation, tracking, etc) that usually only require a camera or image input.
-package defaultvision
+package builtin
 
 import (
 	"context"
@@ -23,9 +23,9 @@ import (
 )
 
 func init() {
-	registry.RegisterService(vision.Subtype, resource.BuiltIntModelName, registry.Service{
+	registry.RegisterService(vision.Subtype, resource.DefaultModelName, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewDefault(ctx, r, c, logger)
+			return NewBuiltIn(ctx, r, c, logger)
 		},
 	})
 	cType := config.ServiceType(vision.SubtypeName)
@@ -40,8 +40,8 @@ func init() {
 // RadiusClusteringSegmenter is  the name of a segmenter that finds well separated objects on a flat plane.
 const RadiusClusteringSegmenter = "radius_clustering"
 
-// NewDefault registers new detectors from the config and returns a new object detection service for the given robot.
-func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (vision.Service, error) {
+// NewBuiltIn registers new detectors from the config and returns a new object detection service for the given robot.
+func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (vision.Service, error) {
 	modMap := make(vision.ModelMap)
 	// register default segmenters
 	defSeg := vision.RegisteredModel{
@@ -63,7 +63,7 @@ func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logge
 			return nil, err
 		}
 	}
-	service := &visionDefaultService{
+	service := &builtIn{
 		r:      r,
 		modReg: modMap,
 		logger: logger,
@@ -78,7 +78,7 @@ func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logge
 	return service, nil
 }
 
-type visionDefaultService struct {
+type builtIn struct {
 	r      robot.Robot
 	modReg vision.ModelMap
 	logger golog.Logger
@@ -86,14 +86,14 @@ type visionDefaultService struct {
 
 // Detection Methods
 // GetDetectorNames returns a list of the all the names of the detectors in the registry.
-func (vs *visionDefaultService) GetDetectorNames(ctx context.Context) ([]string, error) {
+func (vs *builtIn) GetDetectorNames(ctx context.Context) ([]string, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::GetDetectorNames")
 	defer span.End()
 	return vs.modReg.DetectorNames(), nil
 }
 
 // AddDetector adds a new detector from an Attribute config struct.
-func (vs *visionDefaultService) AddDetector(ctx context.Context, cfg vision.VisModelConfig) error {
+func (vs *builtIn) AddDetector(ctx context.Context, cfg vision.VisModelConfig) error {
 	ctx, span := trace.StartSpan(ctx, "service::vision::AddDetector")
 	defer span.End()
 	attrs := &vision.Attributes{ModelRegistry: []vision.VisModelConfig{cfg}}
@@ -106,7 +106,7 @@ func (vs *visionDefaultService) AddDetector(ctx context.Context, cfg vision.VisM
 }
 
 // RemoveDetector removes a detector from the registry.
-func (vs *visionDefaultService) RemoveDetector(ctx context.Context, detectorName string) error {
+func (vs *builtIn) RemoveDetector(ctx context.Context, detectorName string) error {
 	_, span := trace.StartSpan(ctx, "service::vision::RemoveDetector")
 	defer span.End()
 	err := vs.modReg.RemoveVisModel(detectorName, vs.logger)
@@ -117,7 +117,7 @@ func (vs *visionDefaultService) RemoveDetector(ctx context.Context, detectorName
 }
 
 // GetDetectionsFromCamera returns the detections of the next image from the given camera and the given detector.
-func (vs *visionDefaultService) GetDetectionsFromCamera(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
+func (vs *builtIn) GetDetectionsFromCamera(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetDetectionsFromCamera")
 	defer span.End()
 	cam, err := camera.FromRobot(vs.r, cameraName)
@@ -142,7 +142,7 @@ func (vs *visionDefaultService) GetDetectionsFromCamera(ctx context.Context, cam
 }
 
 // GetDetections returns the detections of given image using the given detector.
-func (vs *visionDefaultService) GetDetections(ctx context.Context, img image.Image, detectorName string,
+func (vs *builtIn) GetDetections(ctx context.Context, img image.Image, detectorName string,
 ) ([]objdet.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetDetections")
 	defer span.End()
@@ -160,14 +160,14 @@ func (vs *visionDefaultService) GetDetections(ctx context.Context, img image.Ima
 }
 
 // GetClassifierNames returns a list of the all the names of the classifiers in the registry.
-func (vs *visionDefaultService) GetClassifierNames(ctx context.Context) ([]string, error) {
+func (vs *builtIn) GetClassifierNames(ctx context.Context) ([]string, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::GetClassifierNames")
 	defer span.End()
 	return vs.modReg.ClassifierNames(), nil
 }
 
 // AddClassifier adds a new classifier from an Attribute config struct.
-func (vs *visionDefaultService) AddClassifier(ctx context.Context, cfg vision.VisModelConfig) error {
+func (vs *builtIn) AddClassifier(ctx context.Context, cfg vision.VisModelConfig) error {
 	ctx, span := trace.StartSpan(ctx, "service::vision::AddClassifier")
 	defer span.End()
 	attrs := &vision.Attributes{ModelRegistry: []vision.VisModelConfig{cfg}}
@@ -179,7 +179,7 @@ func (vs *visionDefaultService) AddClassifier(ctx context.Context, cfg vision.Vi
 }
 
 // Remove classifier removes a classifier from the registry.
-func (vs *visionDefaultService) RemoveClassifier(ctx context.Context, classifierName string) error {
+func (vs *builtIn) RemoveClassifier(ctx context.Context, classifierName string) error {
 	_, span := trace.StartSpan(ctx, "service::vision::RemoveClassifier")
 	defer span.End()
 	err := vs.modReg.RemoveVisModel(classifierName, vs.logger)
@@ -190,7 +190,7 @@ func (vs *visionDefaultService) RemoveClassifier(ctx context.Context, classifier
 }
 
 // GetClassificationsFromCamera returns the classifications of the next image from the given camera and the given detector.
-func (vs *visionDefaultService) GetClassificationsFromCamera(ctx context.Context, cameraName,
+func (vs *builtIn) GetClassificationsFromCamera(ctx context.Context, cameraName,
 	classifierName string, n int,
 ) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetClassificationsFromCamera")
@@ -220,7 +220,7 @@ func (vs *visionDefaultService) GetClassificationsFromCamera(ctx context.Context
 }
 
 // GetClassifications returns the classifications of given image using the given classifier.
-func (vs *visionDefaultService) GetClassifications(ctx context.Context, img image.Image,
+func (vs *builtIn) GetClassifications(ctx context.Context, img image.Image,
 	classifierName string, n int,
 ) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetClassifications")
@@ -243,14 +243,14 @@ func (vs *visionDefaultService) GetClassifications(ctx context.Context, img imag
 
 // Segmentation Methods
 // GetSegmenterNames returns a list of all the names of the segmenters in the segmenter map.
-func (vs *visionDefaultService) GetSegmenterNames(ctx context.Context) ([]string, error) {
+func (vs *builtIn) GetSegmenterNames(ctx context.Context) ([]string, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::GetSegmenterNames")
 	defer span.End()
 	return vs.modReg.SegmenterNames(), nil
 }
 
 // GetSegmenterParameters returns a list of parameter name and type for the necessary parameters of the chosen segmenter.
-func (vs *visionDefaultService) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
+func (vs *builtIn) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::GetSegmenterParameters")
 	defer span.End()
 	s, err := vs.modReg.ModelLookup(segmenterName)
@@ -261,7 +261,7 @@ func (vs *visionDefaultService) GetSegmenterParameters(ctx context.Context, segm
 }
 
 // GetObjectPointClouds returns all the found objects in a 3D image according to the chosen segmenter.
-func (vs *visionDefaultService) GetObjectPointClouds(
+func (vs *builtIn) GetObjectPointClouds(
 	ctx context.Context,
 	cameraName, segmenterName string,
 	params config.AttributeMap,
@@ -285,7 +285,7 @@ func (vs *visionDefaultService) GetObjectPointClouds(
 
 // Helpers
 // registerSegmenterFromDetector creates and registers a segmenter from an already registered detector.
-func (vs *visionDefaultService) registerSegmenterFromDetector(detName string, logger golog.Logger) error {
+func (vs *builtIn) registerSegmenterFromDetector(detName string, logger golog.Logger) error {
 	d, err := vs.modReg.ModelLookup(detName)
 	if err != nil {
 		return err
@@ -303,7 +303,7 @@ func (vs *visionDefaultService) registerSegmenterFromDetector(detName string, lo
 }
 
 // Close removes all existing detectors from the vision service.
-func (vs *visionDefaultService) Close() error {
+func (vs *builtIn) Close() error {
 	models := vs.modReg.ModelNames()
 	for _, detectorName := range models {
 		err := vs.modReg.RemoveVisModel(detectorName, vs.logger)

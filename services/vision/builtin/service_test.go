@@ -1,4 +1,4 @@
-package defaultvision
+package builtin
 
 import (
 	"context"
@@ -29,7 +29,7 @@ func TestCloseService(t *testing.T) {
 	}
 	err := srv.AddDetector(ctx, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	vService := srv.(*visionDefaultService)
+	vService := srv.(*builtIn)
 	fakeStruct := newStruct()
 	det := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{}, nil
@@ -64,7 +64,7 @@ func (s *fakeClosingStruct) Close() error {
 func createService(ctx context.Context, t *testing.T) vision.Service {
 	t.Helper()
 	logger := golog.NewTestLogger(t)
-	srv, err := NewDefault(ctx, nil, config.Service{}, logger)
+	srv, err := NewBuiltIn(ctx, nil, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	return srv
 }

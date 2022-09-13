@@ -1,5 +1,5 @@
-// Package defaultsensors implements the default sensors service.
-package defaultsensors
+// Package builtin implements the default sensors service.
+package builtin
 
 import (
 	"context"
@@ -17,30 +17,30 @@ import (
 )
 
 func init() {
-	registry.RegisterService(sensors.Subtype, resource.BuiltIntModelName, registry.Service{
+	registry.RegisterService(sensors.Subtype, resource.DefaultModelName, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewDefault(ctx, r, c, logger)
+			return NewBuiltIn(ctx, r, c, logger)
 		},
 	})
 }
 
-// NewDefault returns a new default sensor service for the given robot.
-func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (sensors.Service, error) {
-	s := &sensorsDefaultService{
+// NewBuiltIn returns a new default sensor service for the given robot.
+func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (sensors.Service, error) {
+	s := &builtIn{
 		sensors: map[resource.Name]sensor.Sensor{},
 		logger:  logger,
 	}
 	return s, nil
 }
 
-type sensorsDefaultService struct {
+type builtIn struct {
 	mu      sync.RWMutex
 	sensors map[resource.Name]sensor.Sensor
 	logger  golog.Logger
 }
 
 // GetSensors returns all sensors in the robot.
-func (s *sensorsDefaultService) GetSensors(ctx context.Context) ([]resource.Name, error) {
+func (s *builtIn) GetSensors(ctx context.Context) ([]resource.Name, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -52,7 +52,7 @@ func (s *sensorsDefaultService) GetSensors(ctx context.Context) ([]resource.Name
 }
 
 // GetReadings returns the readings of the resources specified.
-func (s *sensorsDefaultService) GetReadings(ctx context.Context, sensorNames []resource.Name) ([]sensors.Readings, error) {
+func (s *builtIn) GetReadings(ctx context.Context, sensorNames []resource.Name) ([]sensors.Readings, error) {
 	s.mu.RLock()
 	// make a copy of sensors and then unlock
 	sensorsMap := make(map[resource.Name]sensor.Sensor, len(s.sensors))
@@ -83,7 +83,7 @@ func (s *sensorsDefaultService) GetReadings(ctx context.Context, sensorNames []r
 }
 
 // Update updates the sensors service when the robot has changed.
-func (s *sensorsDefaultService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
+func (s *builtIn) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

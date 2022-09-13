@@ -1,4 +1,4 @@
-// Package defaultarmremotecontrol implements a remote control for a arm.
+// Package builtin implements a remote control for a arm.
 package builtin
 
 import (
@@ -40,7 +40,7 @@ const (
 )
 
 func init() {
-	registry.RegisterService(armremotecontrol.Subtype, resource.BuiltIntModelName, registry.Service{Constructor: NewBuiltIn})
+	registry.RegisterService(armremotecontrol.Subtype, resource.DefaultModelName, registry.Service{Constructor: NewBuiltIn})
 	cType := config.ServiceType(armremotecontrol.SubtypeName)
 	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf ServiceConfig
@@ -197,7 +197,7 @@ type builtIn struct {
 }
 
 // NewDefault returns a new remote control service for the given robot.
-func NewbuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
+func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
 	svcConfig, ok := config.ConvertedAttributes.(*ServiceConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)

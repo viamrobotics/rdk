@@ -3,5 +3,5 @@ package register
 
 import (
 	// for datamanager models.
-	_ "go.viam.com/rdk/services/datamanager/defaultdatamanager"
+	_ "go.viam.com/rdk/services/datamanager/builtin"
 )

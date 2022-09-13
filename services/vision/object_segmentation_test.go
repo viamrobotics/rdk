@@ -19,7 +19,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/services/vision"
-	"go.viam.com/rdk/services/vision/defaultvision"
+	"go.viam.com/rdk/services/vision/builtin"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
@@ -39,7 +39,7 @@ func TestObjectSegmentationFailures(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, rdkutils.NewResourceNotFoundError(vision.Named(testVisionServiceName)))
 
 	// fails on not finding camera
-	obs, err := defaultvision.NewDefault(context.Background(), r, cfgService, logger)
+	obs, err := builtin.NewBuiltIn(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", "", config.AttributeMap{})
@@ -65,7 +65,7 @@ func TestObjectSegmentationFailures(t *testing.T) {
 		}
 	}
 
-	obs, err = defaultvision.NewDefault(context.Background(), r, cfgService, logger)
+	obs, err = builtin.NewBuiltIn(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	params := config.AttributeMap{
@@ -101,7 +101,7 @@ func TestGetObjectPointClouds(t *testing.T) {
 	}
 
 	// from a camera that has a PointCloud func -- apply default
-	obs, err := defaultvision.NewDefault(context.Background(), r, cfgService, logger)
+	obs, err := builtin.NewBuiltIn(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 	segmenterNames, err := obs.GetSegmenterNames(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -215,7 +215,7 @@ func TestFullClientServerLoop(t *testing.T) {
 			return nil, rdkutils.NewResourceNotFoundError(n)
 		}
 	}
-	oss, err := defaultvision.NewDefault(context.Background(), r, cfgService, logger)
+	oss, err := builtin.NewBuiltIn(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 	osMap := map[resource.Name]interface{}{
 		vision.Named(testVisionServiceName): oss,
