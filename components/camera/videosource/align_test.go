@@ -71,7 +71,7 @@ func applyAlignment(
 	dm *rimage.DepthMap,
 	attrs *alignAttrs,
 	logger golog.Logger,
-) (pointcloud.PointCloud, rimage.Projector) {
+) (pointcloud.PointCloud, transform.Projector) {
 	t.Helper()
 	colorSrc := &StaticSource{ColorImg: img}
 	colorCam, err := camera.NewFromReader(context.Background(), colorSrc, nil, camera.ColorStream)

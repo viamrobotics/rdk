@@ -123,7 +123,7 @@ func newDualServerSource(ctx context.Context, cfg *dualServerAttrs) (camera.Came
 	if cfg.AttrConfig != nil {
 		props = cfg.AttrConfig.CameraParameters
 	}
-	return camera.NewFromReader(ctx, videoSrc, props, videoSrc.Stream)
+	return camera.NewFromReader(ctx, videoSrc, &transform.PinholeCameraModel{props, nil}, videoSrc.Stream)
 }
 
 // Read requests either the color or depth frame, depending on what the config specifies.
@@ -255,5 +255,5 @@ func NewServerSource(ctx context.Context, cfg *ServerAttrs, logger golog.Logger)
 	if cfg.AttrConfig != nil {
 		intrinsics = cfg.AttrConfig.CameraParameters
 	}
-	return camera.NewFromReader(ctx, videoSrc, intrinsics, videoSrc.stream)
+	return camera.NewFromReader(ctx, videoSrc, &transform.PinholeCameraModel{intrinsics, nil}, videoSrc.stream)
 }

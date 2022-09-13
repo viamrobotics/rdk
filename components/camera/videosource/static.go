@@ -31,7 +31,7 @@ func init() {
 			if attrs.AttrConfig != nil {
 				intrinsics = attrs.AttrConfig.CameraParameters
 			}
-			return camera.NewFromReader(ctx, videoSrc, intrinsics, camera.StreamType(attrs.Stream))
+			return camera.NewFromReader(ctx, videoSrc, &transform.PinholeCameraModel{intrinsics, nil}, camera.StreamType(attrs.Stream))
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "file",
@@ -106,7 +106,7 @@ func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud
 type StaticSource struct {
 	ColorImg image.Image
 	DepthImg image.Image
-	Proj     rimage.Projector
+	Proj     transform.Projector
 }
 
 // Read returns the stored image.
