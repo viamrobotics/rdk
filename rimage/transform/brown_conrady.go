@@ -1,5 +1,7 @@
 package transform
 
+import "github.com/pkg/errors"
+
 // BrownConrady is a struct for some terms of a modified Brown-Conrady model of distortion.
 type BrownConrady struct {
 	RadialK1     float64 `json:"rk1"`
@@ -9,9 +11,28 @@ type BrownConrady struct {
 	TangentialP2 float64 `json:"tp2"`
 }
 
+// NewBrownConrady takes in a slice of floats that will be passed into the struct in order.
+func NewBrownConrady(inp []float64) (*BrownConrady, error) {
+	if len(inp) > 5 {
+		return nil, errors.Errorf("list of parameters too long, expected max 5, got %d", len(inp))
+	}
+	if len(inp) == 0 {
+		return &BrownConrady{}, nil
+	}
+	for i := len(inp); i < 5; i++ { // fill missing values with 0.0
+		inp = append(inp, 0.0)
+	}
+	return &BrownConrady{inp[0], inp[1], inp[2], inp[3], inp[4]}, nil
+}
+
 // ModelType returns the type of distortion model
 func (bc *BrownConrady) ModelType() DistortionType {
 	return BrownConradyDistortionType
+}
+
+// Parameters returns the parameters of the distortion model as a list of floats
+func (bc *BrownConrady) Parameters() []float64 {
+	return []float64{bc.RadialK1, bc.RadialK2, bc.RadialK3, bc.TangentialP1, bc.TangentialP2}
 }
 
 // Transform distorts the input points x,y according to a modified Brown-Conrady model as described by OpenCV
