@@ -23,7 +23,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-const model = "imu_wit"
+const model = "imu-wit"
 
 func init() {
 	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{

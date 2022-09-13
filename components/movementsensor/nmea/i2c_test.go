@@ -52,7 +52,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 
 	cfig := config.Component{
 		Name:  "movementsensor1",
-		Model: "nmea-pmtkI2C",
+		Model: "gps-nmea-i2c",
 		Type:  movementsensor.SubtypeName,
 		Attributes: config.AttributeMap{
 			"board":    "",
@@ -70,7 +70,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 
 	cfig = config.Component{
 		Name:  "movementsensor1",
-		Model: "nmea-serial",
+		Model: "gps-nmea",
 		Type:  movementsensor.SubtypeName,
 		Attributes: config.AttributeMap{
 			"board":    testBoardName,

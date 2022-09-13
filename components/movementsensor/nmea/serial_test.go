@@ -40,7 +40,7 @@ func TestNewSerialMovementSensor(t *testing.T) {
 
 	cfig := config.Component{
 		Name:  "movementsensor1",
-		Model: "nmea-serial",
+		Model: "gps-nmea",
 		Type:  movementsensor.SubtypeName,
 		Attributes: config.AttributeMap{
 			"path":            "",
@@ -57,7 +57,7 @@ func TestNewSerialMovementSensor(t *testing.T) {
 
 	cfig = config.Component{
 		Name:  "movementsensor1",
-		Model: "nmea-serial",
+		Model: "gps-nmea",
 		Type:  movementsensor.SubtypeName,
 		Attributes: config.AttributeMap{
 			"path":            path,
