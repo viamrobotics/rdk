@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/pointcloud/depthadapter"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 )
@@ -23,13 +24,6 @@ func genIntrinsics() *transform.PinholeCameraIntrinsics {
 		Fy:     821.68607359,
 		Ppx:    494.95941428,
 		Ppy:    370.70529534,
-		Distortion: transform.BrownConrady{
-			RadialK1:     0.11297234,
-			RadialK2:     -0.21375332,
-			RadialK3:     -0.01584774,
-			TangentialP1: -0.00302002,
-			TangentialP2: 0.19969297,
-		},
 	}
 }
 
