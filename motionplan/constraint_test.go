@@ -19,7 +19,11 @@ import (
 func TestIKTolerances(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
+<<<<<<< HEAD
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("motionplan/testjson/varm.json"), "")
+=======
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/varm/v1.json"), "")
+>>>>>>> c59516e7b516ee489512669cb6f0564e308643c1
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := NewCBiRRTMotionPlanner(m, nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)

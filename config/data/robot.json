@@ -14,7 +14,11 @@
         {
             "name": "pieceArm",
             "type": "arm",
+<<<<<<< HEAD
             "model": "ur5e",
+=======
+            "model": "ur",
+>>>>>>> c59516e7b516ee489512669cb6f0564e308643c1
             "host": "10.237.115.65"
         },
         {
