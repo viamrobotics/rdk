@@ -9,6 +9,7 @@ import (
 	"math"
 	"net"
 	"runtime"
+	"strconv"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -57,31 +58,41 @@ var xArm6modeljson []byte
 //go:embed xarm7_kinematics.json
 var xArm7modeljson []byte
 
+// ModelName is a function used to get the string used to refer to the xarm model of specified dof.
+func ModelName(dof int) string {
+	return "xArm" + strconv.Itoa(dof)
+}
+
+func xarmModel(dof int) (referenceframe.Model, error) {
+	switch dof {
+	case 6:
+		return referenceframe.UnmarshalModelJSON(xArm6modeljson, "")
+	case 7:
+		return referenceframe.UnmarshalModelJSON(xArm7modeljson, "")
+	default:
+		return nil, errors.New("no kinematics model for xarm with specified degrees of freedom")
+	}
+}
+
 func init() {
-	registry.RegisterComponent(arm.Subtype, "xArm6", registry.Component{
-		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewxArm(ctx, r, config, logger, 6)
-		},
-	})
-	registry.RegisterComponent(arm.Subtype, "xArm7", registry.Component{
-		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewxArm(ctx, r, config, logger, 7)
-		},
-	})
+	registerXArm := func(dof int) {
+		registry.RegisterComponent(arm.Subtype, ModelName(dof), registry.Component{
+			RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+				return NewxArm(ctx, r, config, logger, dof)
+			},
+		})
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, "xArm6",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&AttrConfig{})
+		config.RegisterComponentAttributeMapConverter(arm.SubtypeName, ModelName(dof),
+			func(attributes config.AttributeMap) (interface{}, error) {
+				var conf AttrConfig
+				return config.TransformAttributeMapToStruct(&conf, attributes)
+			},
+			&AttrConfig{},
+		)
+	}
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, "xArm7",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&AttrConfig{})
+	registerXArm(6)
+	registerXArm(7)
 }
 
 // NewxArm returns a new xArm with the specified dof.
@@ -107,15 +118,7 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 		return nil, err
 	}
 
-	var model referenceframe.Model
-	switch dof {
-	case 6:
-		model, err = referenceframe.UnmarshalModelJSON(xArm6modeljson, "")
-	case 7:
-		model, err = referenceframe.UnmarshalModelJSON(xArm7modeljson, "")
-	default:
-		err = errors.New("no kinematics model for xarm with specified degrees of freedom")
-	}
+	model, err := xarmModel(dof)
 	if err != nil {
 		return nil, err
 	}

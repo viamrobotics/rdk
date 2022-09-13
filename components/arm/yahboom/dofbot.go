@@ -31,8 +31,11 @@ import (
 //go:embed dofbot.json
 var modeljson []byte
 
+// ModelName is the string used to refer to the yahboom arm model.
+const ModelName = "yahboom-dofbot"
+
 func dofbotModel() (referenceframe.Model, error) {
-	return referenceframe.UnmarshalModelJSON(modeljson, "yahboom-dofbot")
+	return referenceframe.UnmarshalModelJSON(modeljson, ModelName)
 }
 
 type jointConfig struct {
@@ -67,9 +70,9 @@ func (jc jointConfig) toHw(degrees float64) int {
 }
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, "yahboom-dofbot", registry.Component{
+	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newDofBot(ctx, r, config, logger)
+			return NewDofBot(ctx, r, config, logger)
 		},
 	})
 }
@@ -86,7 +89,8 @@ type Dofbot struct {
 	opMgr  operation.SingleOperationManager
 }
 
-func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.LocalArm, error) {
+// NewDofBot is a constructor to create a new dofbot arm.
+func NewDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	var err error
 
 	a := Dofbot{}

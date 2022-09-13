@@ -31,9 +31,8 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
-const (
-	modelname = "eva"
-)
+// ModelName is the string used to refer to the eva arm model.
+const ModelName = "eva"
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
@@ -45,13 +44,13 @@ type AttrConfig struct {
 var evamodeljson []byte
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
+	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewEva(ctx, r, config, logger)
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, modelname,
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, ModelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

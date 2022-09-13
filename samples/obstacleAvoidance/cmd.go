@@ -13,7 +13,7 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
-	"go.viam.com/rdk/components/arm/wrapper"
+	"go.viam.com/rdk/components/arm/xarm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
 	pb "go.viam.com/rdk/proto/api/common/v1"
@@ -25,7 +25,10 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var logger = golog.NewDevelopmentLogger("client")
+var (
+	logger  = golog.NewDevelopmentLogger("client")
+	armName = xarm.ModelName(6)
+)
 
 func main() {
 	utils.ContextualMain(mainWithArgs, logger)
@@ -33,20 +36,23 @@ func main() {
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	// parse command line input
-	simulation := flag.Bool("simulation", false, "choose to run in simulation")
+	hardware := flag.Bool("hardware", false, "choose to run on hardware")
 	visualize := flag.Bool("visualize", false, "choose to display visualization")
 	flag.Parse()
 
 	// connect to the robot and get arm
-	robotClient, xArm, err := connect(ctx, *simulation)
+	robotClient, err := connect(ctx, *hardware)
+	if err != nil {
+		return err
+	}
+	xArm, err := arm.FromRobot(robotClient, armName)
 	if err != nil {
 		return err
 	}
 
 	// setup planning problem - the idea is to move from one position to the other while avoiding obstalces
 	position1 := r3.Vector{0, -600, 100}
-	position2 := r3.Vector{0, -600, 300}
-	// position2 := r3.Vector{-600, -300, 100}
+	position2 := r3.Vector{-600, -300, 100}
 	box, _ := math.NewBox(math.NewPoseFromPoint(r3.Vector{-400, -550, 150}), r3.Vector{300, 300, 300})
 	table, _ := math.NewBox(math.NewPoseFromPoint(r3.Vector{0, 0, 0}), r3.Vector{1500, 1500, 50})
 	ws, _ := math.NewBox(math.NewPoseFromPoint(r3.Vector{0, 0, 0}), r3.Vector{1500, 1500, 1000})
@@ -103,39 +109,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	return nil
 }
 
-func connect(ctx context.Context, simulation bool) (robotClient robot.Robot, xArm arm.Arm, err error) {
-	armName := "xarm6"
-	if simulation {
-		fakeName := "fake"
-		fakeArm, err := fake.NewArmIK(ctx, config.Component{Name: fakeName}, logger)
-		if err != nil {
-			return nil, nil, err
-		}
-		robotClient, err = robotimpl.RobotFromResources(ctx, map[resource.Name]interface{}{
-			arm.Named(armName):  xArm,
-			arm.Named(fakeName): fakeArm,
-		}, logger)
-		if err != nil {
-			return nil, nil, err
-		}
-		defer robotClient.Close(ctx)
-		names := robotClient.ResourceNames()
-		_ = names
-		xArm, err = wrapper.NewWrapperArm(
-			config.Component{
-				ConvertedAttributes: &wrapper.AttrConfig{
-					ModelPath: rdkutils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"),
-					ArmName:   "fake",
-				},
-			},
-			robotClient,
-			logger,
-		)
-		if err != nil {
-			return nil, nil, err
-		}
-	} else {
-		robotClient, err := client.New(
+func connect(ctx context.Context, hardware bool) (robotClient robot.Robot, err error) {
+	if hardware {
+		return client.New(
 			context.Background(),
 			"ray-pi-main.tcz8zh8cf6.viam.cloud",
 			logger,
@@ -144,14 +120,17 @@ func connect(ctx context.Context, simulation bool) (robotClient robot.Robot, xAr
 				Payload: "ewvmwn3qs6wqcrbnewwe1g231nvzlx5k5r5g34c31n6f7hs8",
 			})),
 		)
-		if err != nil {
-			return nil, nil, err
-		}
-		defer robotClient.Close(ctx)
-		xArm, err = arm.FromRobot(robotClient, "xarm6")
-		if err != nil {
-			return nil, nil, err
-		}
 	}
-	return robotClient, xArm, err
+	return robotimpl.RobotFromConfig(
+		ctx,
+		&config.Config{Components: []config.Component{{
+			Name:                armName,
+			Namespace:           resource.ResourceNamespaceRDK,
+			Type:                arm.SubtypeName,
+			Model:               "fake_ik",
+			Frame:               &config.Frame{Parent: frame.World},
+			ConvertedAttributes: &fake.AttrConfig{ArmModel: armName},
+		}}},
+		logger,
+	)
 }

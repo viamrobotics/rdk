@@ -65,7 +65,7 @@ func TestArmRemoteControl(t *testing.T) {
 		case input.Subtype:
 			return fakeController, nil
 		case arm.Subtype:
-			return fakearm.NewArmIK(ctx, config.Component{Name: "arm"}, rlog.Logger)
+			return fakearm.NewArm(ctx, config.Component{Name: "arm"}, rlog.Logger)
 		}
 		return nil, rdkutils.NewResourceNotFoundError(name)
 	}
