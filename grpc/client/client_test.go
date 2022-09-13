@@ -14,7 +14,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/mitchellh/mapstructure"
@@ -26,18 +25,17 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
-	"google.golang.org/protobuf/testing/protocmp"
 
-	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gripper"
-	"go.viam.com/rdk/component/input"
-	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/component/movementsensor"
-	"go.viam.com/rdk/component/sensor"
-	"go.viam.com/rdk/component/servo"
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/gripper"
+	"go.viam.com/rdk/components/input"
+	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	rgrpc "go.viam.com/rdk/grpc"
@@ -988,7 +986,7 @@ func TestClientResources(t *testing.T) {
 	for idx, rpcType := range rpcSubtypes {
 		otherT := respWith[idx]
 		test.That(t, rpcType.Subtype, test.ShouldResemble, otherT.Subtype)
-		test.That(t, cmp.Equal(rpcType.Desc.AsProto(), otherT.Desc.AsProto(), protocmp.Transform()), test.ShouldBeTrue)
+		test.That(t, rpcType.Desc.AsProto(), test.ShouldResemble, otherT.Desc.AsProto())
 	}
 
 	err = client.Close(context.Background())
