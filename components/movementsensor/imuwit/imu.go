@@ -85,8 +85,7 @@ func (imu *wit) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
 }
 
 func (imu *wit) GetCompassHeading(ctx context.Context) (float64, error) {
-	// TODO(erh): is this right? I don't think so
-	return imu.magnetometer.Z, imu.lastError
+	return 0, imu.lastError
 }
 
 func (imu *wit) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
