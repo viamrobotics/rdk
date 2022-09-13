@@ -17,7 +17,7 @@ func TestParseJSONFile(t *testing.T) {
 		"components/arm/trossen/wx250s_kinematics.json",
 		"components/arm/trossen/wx250s_test.json",
 		"components/arm/universalrobots/ur5e_DH.json",
-		"components/arm/varm/v1.json",
+		"motionplan/testjson/varm.json",
 	}
 
 	badFiles := []string{
