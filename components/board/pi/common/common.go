@@ -43,26 +43,6 @@ type Config struct {
 	Attributes        config.AttributeMap            `json:"attributes,omitempty"`
 }
 
-func init() {
-	config.RegisterComponentAttributeMapConverter(
-		board.SubtypeName,
-		ModelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&Config{})
-
-	config.RegisterComponentAttributeMapConverter(
-		servo.SubtypeName,
-		ModelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf ServoConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&ServoConfig{})
-}
-
 // Validate ensures all parts of the config are valid.
 func (config *Config) Validate(path string) error {
 	for idx, conf := range config.SPIs {
@@ -86,4 +66,24 @@ func (config *Config) Validate(path string) error {
 		}
 	}
 	return nil
+}
+
+func init() {
+	config.RegisterComponentAttributeMapConverter(
+		board.SubtypeName,
+		ModelName,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&Config{})
+
+	config.RegisterComponentAttributeMapConverter(
+		servo.SubtypeName,
+		ModelName,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf ServoConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&ServoConfig{})
 }

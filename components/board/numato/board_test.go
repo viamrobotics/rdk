@@ -109,3 +109,16 @@ func TestNumato1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res2, test.ShouldBeLessThan, 100)
 }
+
+func TestConfigValidate(t *testing.T) {
+	validConfig := Config{}
+
+	validConfig.Analogs = []board.AnalogConfig{{}}
+	err := validConfig.Validate("path")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+
+	validConfig.Analogs = []board.AnalogConfig{{Name: "bar"}}
+	test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+}

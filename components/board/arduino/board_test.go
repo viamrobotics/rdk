@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/gpio"
@@ -525,4 +526,17 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, -2.0)
 	})
+}
+
+func TestConfigValidate(t *testing.T) {
+	validConfig := Config{}
+
+	validConfig.Analogs = []board.AnalogConfig{{}}
+	err := validConfig.Validate("path")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+
+	validConfig.Analogs = []board.AnalogConfig{{Name: "bar"}}
+	test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
 }
