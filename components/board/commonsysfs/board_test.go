@@ -155,7 +155,8 @@ func TestCommonSysFs(t *testing.T) {
 	})
 
 	t.Run("test software pwm loop", func(t *testing.T) {
-		newCtx, _ := context.WithTimeout(ctx, time.Duration(10))
+		newCtx, cancel := context.WithTimeout(ctx, time.Duration(10))
+		defer cancel()
 		gp2.b.softwarePWMLoop(newCtx, *gp2)
 
 		gp2.b.pwms = map[string]pwmSetting{
