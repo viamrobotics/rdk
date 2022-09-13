@@ -48,7 +48,7 @@ func TestDepthSource(t *testing.T) {
 }
 
 type depthSourceTestHelper struct {
-	proj rimage.Projector
+	proj transform.Projector
 }
 
 func (h *depthSourceTestHelper) Process(
