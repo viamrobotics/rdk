@@ -3,5 +3,5 @@ package register
 
 import (
 	// for navigation models.
-	_ "go.viam.com/rdk/services/navigation/defaultnavigation"
+	_ "go.viam.com/rdk/services/navigation/builtin"
 )

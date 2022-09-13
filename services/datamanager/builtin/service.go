@@ -1,5 +1,5 @@
-// Package defaultdatamanager contains a service type that can be used to capture data from a robot's components.
-package defaultdatamanager
+// Package builtIn contains a service type that can be used to capture data from a robot's components.
+package builtIn
 
 import (
 	"context"
@@ -27,7 +27,7 @@ import (
 )
 
 func init() {
-	registry.RegisterService(datamanager.Subtype, resource.BuiltIntModelName, registry.Service{
+	registry.RegisterService(datamanager.Subtype, resource.DefaultModelName, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return NewDefault(ctx, r, c, logger)
 		},
@@ -84,8 +84,8 @@ type Config struct {
 	ScheduledSyncDisabled bool     `json:"sync_disabled"`
 }
 
-// dataManagerDefaultService initializes and orchestrates data capture collectors for registered component/methods.
-type dataManagerDefaultService struct {
+// builtIn initializes and orchestrates data capture collectors for registered component/methods.
+type builtIn struct {
 	r                         robot.Robot
 	logger                    golog.Logger
 	captureDir                string
@@ -107,10 +107,10 @@ type dataManagerDefaultService struct {
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
 // NewDefault returns a new data manager service for the given robot.
-func NewDefault(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger) (datamanager.Service, error) {
+func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger) (datamanager.Service, error) {
 	// Set syncIntervalMins = -1 as we rely on initOrUpdateSyncer to instantiate a syncer
 	// on first call to Update, even if syncIntervalMins value is 0, and the default value for int64 is 0.
-	dataManagerSvc := &dataManagerDefaultService{
+	dataManagerSvc := &builtIn{
 		r:                         r,
 		logger:                    logger,
 		captureDir:                viamCaptureDotDir,
@@ -127,7 +127,7 @@ func NewDefault(_ context.Context, r robot.Robot, _ config.Service, logger golog
 }
 
 // Close releases all resources managed by data_manager.
-func (svc *dataManagerDefaultService) Close(_ context.Context) error {
+func (svc *builtIn) Close(_ context.Context) error {
 	svc.lock.Lock()
 	defer svc.lock.Unlock()
 	svc.closeCollectors()
@@ -140,7 +140,7 @@ func (svc *dataManagerDefaultService) Close(_ context.Context) error {
 	return nil
 }
 
-func (svc *dataManagerDefaultService) closeCollectors() {
+func (svc *builtIn) closeCollectors() {
 	wg := sync.WaitGroup{}
 	for md, collector := range svc.collectors {
 		currCollector := collector
@@ -179,7 +179,7 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
-func (svc *dataManagerDefaultService) initializeOrUpdateCollector(
+func (svc *builtIn) initializeOrUpdateCollector(
 	attributes dataCaptureConfig, updateCaptureDir bool) (
 	*componentMethodMetadata, error,
 ) {
@@ -290,7 +290,7 @@ func (svc *dataManagerDefaultService) initializeOrUpdateCollector(
 	return &componentMetadata, nil
 }
 
-func (svc *dataManagerDefaultService) initOrUpdateSyncer(_ context.Context, intervalMins float64, cfg *config.Config) error {
+func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, cfg *config.Config) error {
 	// If user updates sync config while a sync is occurring, the running sync will be cancelled.
 	// TODO DATA-235: fix that
 	if svc.syncer != nil {
@@ -334,7 +334,7 @@ func (svc *dataManagerDefaultService) initOrUpdateSyncer(_ context.Context, inte
 }
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
-func (svc *dataManagerDefaultService) Sync(_ context.Context) error {
+func (svc *builtIn) Sync(_ context.Context) error {
 	if svc.syncer == nil {
 		return errors.New("called Sync on data manager service with nil syncer")
 	}
@@ -343,7 +343,7 @@ func (svc *dataManagerDefaultService) Sync(_ context.Context) error {
 	return nil
 }
 
-func (svc *dataManagerDefaultService) syncDataCaptureFiles() {
+func (svc *builtIn) syncDataCaptureFiles() {
 	svc.lock.Lock()
 	oldFiles := make([]string, 0, len(svc.collectors))
 	for _, collector := range svc.collectors {
@@ -363,7 +363,7 @@ func (svc *dataManagerDefaultService) syncDataCaptureFiles() {
 	svc.syncer.Sync(oldFiles)
 }
 
-func (svc *dataManagerDefaultService) buildAdditionalSyncPaths() []string {
+func (svc *builtIn) buildAdditionalSyncPaths() []string {
 	svc.lock.Lock()
 	var filepathsToSync []string
 	// Loop through additional sync paths and add files from each to the syncer.
@@ -400,12 +400,12 @@ func (svc *dataManagerDefaultService) buildAdditionalSyncPaths() []string {
 }
 
 // Syncs files under svc.additionalSyncPaths. If any of the directories do not exist, creates them.
-func (svc *dataManagerDefaultService) syncAdditionalSyncPaths() {
+func (svc *builtIn) syncAdditionalSyncPaths() {
 	svc.syncer.Sync(svc.buildAdditionalSyncPaths())
 }
 
 // Update updates the data manager service when the config has changed.
-func (svc *dataManagerDefaultService) Update(ctx context.Context, cfg *config.Config) error {
+func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	svcConfig, ok, err := getServiceConfig(cfg)
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
 	// Close any collectors.
@@ -487,7 +487,7 @@ func (svc *dataManagerDefaultService) Update(ctx context.Context, cfg *config.Co
 	return nil
 }
 
-func (svc *dataManagerDefaultService) uploadData(cancelCtx context.Context, intervalMins float64) {
+func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) {
 	svc.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer svc.backgroundWorkers.Done()
@@ -514,13 +514,13 @@ func (svc *dataManagerDefaultService) uploadData(cancelCtx context.Context, inte
 	})
 }
 
-func (svc *dataManagerDefaultService) startSyncBackgroundRoutine(intervalMins float64) {
+func (svc *builtIn) startSyncBackgroundRoutine(intervalMins float64) {
 	cancelCtx, fn := context.WithCancel(context.Background())
 	svc.updateCollectorsCancelFn = fn
 	svc.uploadData(cancelCtx, intervalMins)
 }
 
-func (svc *dataManagerDefaultService) cancelSyncBackgroundRoutine() {
+func (svc *builtIn) cancelSyncBackgroundRoutine() {
 	if svc.updateCollectorsCancelFn != nil {
 		svc.updateCollectorsCancelFn()
 		svc.updateCollectorsCancelFn = nil

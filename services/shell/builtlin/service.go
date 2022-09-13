@@ -1,5 +1,5 @@
-// Package defaultshell contains a shell service, along with a gRPC server and client
-package defaultshell
+// Package builtin contains a shell service, along with a gRPC server and client
+package builtin
 
 import (
 	"context"
@@ -22,25 +22,25 @@ import (
 )
 
 func init() {
-	registry.RegisterService(shell.Subtype, resource.BuiltIntModelName, registry.Service{
+	registry.RegisterService(shell.Subtype, resource.DefaultModelName, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewDefault(logger)
+			return NewBuiltIn(logger)
 		},
 	},
 	)
 }
 
-// NewDefault returns a new shell service for the given robot.
-func NewDefault(logger golog.Logger) (shell.Service, error) {
-	return &shellDefaultService{logger: logger}, nil
+// NewBuiltIn returns a new shell service for the given robot.
+func NewBuiltIn(logger golog.Logger) (shell.Service, error) {
+	return &builtIn{logger: logger}, nil
 }
 
-type shellDefaultService struct {
+type builtIn struct {
 	logger                  golog.Logger
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func (svc *shellDefaultService) Shell(ctx context.Context) (chan<- string, <-chan shell.Output, error) {
+func (svc *builtIn) Shell(ctx context.Context) (chan<- string, <-chan shell.Output, error) {
 	if runtime.GOOS == "windows" {
 		return nil, nil, errors.New("shell not supported on windows yet; sorry")
 	}
@@ -137,6 +137,6 @@ func (svc *shellDefaultService) Shell(ctx context.Context) (chan<- string, <-cha
 	return input, output, nil
 }
 
-func (svc *shellDefaultService) Close() {
+func (svc *builtIn) Close() {
 	svc.activeBackgroundWorkers.Wait()
 }

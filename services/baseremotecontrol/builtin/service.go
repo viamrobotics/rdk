@@ -1,5 +1,5 @@
-// Package defaultbaseremotecontrol implements a remote control for a base.
-package defaultbaseremotecontrol
+// Package builtIn implements a remote control for a base.
+package builtin
 
 import (
 	"context"
@@ -35,9 +35,9 @@ const (
 )
 
 func init() {
-	registry.RegisterService(baseremotecontrol.Subtype, resource.BuiltIntModelName, registry.Service{
+	registry.RegisterService(baseremotecontrol.Subtype, resource.DefaultModelName, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewDefault(ctx, r, c, logger)
+			return NewBultin(ctx, r, c, logger)
 		},
 	})
 	cType := config.ServiceType(SubtypeName)
@@ -66,8 +66,8 @@ type Config struct {
 	MaxLinearVelocity   float64 `json:"max_linear"`
 }
 
-// remoteDefaultService is the structure of the remote service.
-type remoteDefaultService struct {
+// builtIn is the structure of the remote service.
+type builtIn struct {
 	base            base.Base
 	inputController input.Controller
 	controlMode     controlMode
@@ -78,7 +78,7 @@ type remoteDefaultService struct {
 }
 
 // NewDefault returns a new remote control service for the given robot.
-func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (baseremotecontrol.Service, error) {
+func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (baseremotecontrol.Service, error) {
 	svcConfig, ok := config.ConvertedAttributes.(*Config)
 	if !ok {
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
@@ -106,7 +106,7 @@ func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logge
 		controlMode1 = arrowControl
 	}
 
-	remoteSvc := &remoteDefaultService{
+	remoteSvc := &builtIn{
 		base:            base1,
 		inputController: controller,
 		controlMode:     controlMode1,
@@ -122,7 +122,7 @@ func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logge
 }
 
 // Start is the main control loops for sending events from controller to base.
-func (svc *remoteDefaultService) start(ctx context.Context) error {
+func (svc *builtIn) start(ctx context.Context) error {
 	state := &throttleState{}
 	state.init()
 
@@ -163,13 +163,13 @@ func (svc *remoteDefaultService) start(ctx context.Context) error {
 }
 
 // Close out of all remote control related systems.
-func (svc *remoteDefaultService) Close(ctx context.Context) error {
+func (svc *builtIn) Close(ctx context.Context) error {
 	svc.closed = true
 	return nil
 }
 
 // ControllerInputs returns the list of inputs from the controller that are being monitored for that control mode.
-func (svc *remoteDefaultService) ControllerInputs() []input.Control {
+func (svc *builtIn) ControllerInputs() []input.Control {
 	switch svc.controlMode {
 	case triggerSpeedControl:
 		return []input.Control{input.AbsoluteX, input.AbsoluteZ, input.AbsoluteRZ}
@@ -185,7 +185,7 @@ func (svc *remoteDefaultService) ControllerInputs() []input.Control {
 	return []input.Control{}
 }
 
-func (svc *remoteDefaultService) processEvent(ctx context.Context, state *throttleState, event input.Event) error {
+func (svc *builtIn) processEvent(ctx context.Context, state *throttleState, event input.Event) error {
 	newLinear, newAngular := parseEvent(svc.controlMode, state, event)
 
 	if similar(newLinear, state.linearThrottle, .05) && similar(newAngular, state.angularThrottle, .05) {

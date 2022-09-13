@@ -116,7 +116,7 @@ func TestServiceRegistry(t *testing.T) {
 	rf := func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
 		return 1, nil
 	}
-	modelName := resource.BuiltIntModelName
+	modelName := resource.DefaultModelName
 	test.That(t, func() { RegisterService(testService.Subtype, modelName, Service{}) }, test.ShouldPanic)
 	RegisterService(testService.Subtype, modelName, Service{Constructor: rf})
 

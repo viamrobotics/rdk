@@ -3,5 +3,5 @@ package register
 
 import (
 	// for baseremotecontrol models.
-	_ "go.viam.com/rdk/services/baseremotecontrol/defaultbaseremotecontrol"
+	_ "go.viam.com/rdk/services/baseremotecontrol/builtin"
 )

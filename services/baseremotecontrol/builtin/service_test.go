@@ -1,4 +1,4 @@
-package defaultbaseremotecontrol
+package builtin
 
 import (
 	"context"
@@ -52,7 +52,7 @@ func TestBaseRemoteControl(t *testing.T) {
 
 	// New base_remote_control check
 	cfg.ControlModeName = "joystickControl"
-	tmpSvc, err := NewDefault(ctx, fakeRobot,
+	tmpSvc, err := NewBuildIn(ctx, fakeRobot,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -60,11 +60,11 @@ func TestBaseRemoteControl(t *testing.T) {
 		},
 		rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
-	svc, ok := tmpSvc.(*remoteDefaultService)
+	svc, ok := tmpSvc.(*builtIn)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	cfg.ControlModeName = "triggerSpeedControl"
-	tmpSvc1, err := NewDefault(ctx, fakeRobot,
+	tmpSvc1, err := NewBuildIn(ctx, fakeRobot,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -72,11 +72,11 @@ func TestBaseRemoteControl(t *testing.T) {
 		},
 		rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
-	svc1, ok := tmpSvc1.(*remoteDefaultService)
+	svc1, ok := tmpSvc1.(*builtIn)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	cfg.ControlModeName = "arrowControl"
-	tmpSvc2, err := NewDefault(ctx, fakeRobot,
+	tmpSvc2, err := NewBuildIn(ctx, fakeRobot,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -84,11 +84,11 @@ func TestBaseRemoteControl(t *testing.T) {
 		},
 		rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
-	svc2, ok := tmpSvc2.(*remoteDefaultService)
+	svc2, ok := tmpSvc2.(*builtIn)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	cfg.ControlModeName = "buttonControl"
-	tmpSvc3, err := NewDefault(ctx, fakeRobot,
+	tmpSvc3, err := NewBuildIn(ctx, fakeRobot,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -96,11 +96,11 @@ func TestBaseRemoteControl(t *testing.T) {
 		},
 		rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
-	svc3, ok := tmpSvc3.(*remoteDefaultService)
+	svc3, ok := tmpSvc3.(*builtIn)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	cfg.ControlModeName = "fail"
-	tmpSvc4, err := NewDefault(ctx, fakeRobot,
+	tmpSvc4, err := NewBuildIn(ctx, fakeRobot,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -108,7 +108,7 @@ func TestBaseRemoteControl(t *testing.T) {
 		},
 		rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
-	svc4, ok := tmpSvc4.(*remoteDefaultService)
+	svc4, ok := tmpSvc4.(*builtIn)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Controller import failure
@@ -119,7 +119,7 @@ func TestBaseRemoteControl(t *testing.T) {
 		return nil, rutils.NewResourceNotFoundError(name)
 	}
 
-	_, err = NewDefault(ctx, fakeRobot,
+	_, err = NewBuildIn(ctx, fakeRobot,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -136,7 +136,7 @@ func TestBaseRemoteControl(t *testing.T) {
 		return nil, rutils.NewResourceNotFoundError(name)
 	}
 
-	_, err = NewDefault(ctx, fakeRobot,
+	_, err = NewBuildIn(ctx, fakeRobot,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",

@@ -3,5 +3,5 @@ package register
 
 import (
 	// for motion models.
-	_ "go.viam.com/rdk/services/motion/defaultmotion"
+	_ "go.viam.com/rdk/services/motion/builtin"
 )
