@@ -343,7 +343,7 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		captureBufferSize = defaultCaptureBufferSize
 	}
 
-	methodParams, err := protoutils.ConvertStringMapToAnyPb(attributes.AdditionalParams)
+	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(attributes.AdditionalParams)
 	if err != nil {
 		return nil, err
 	}

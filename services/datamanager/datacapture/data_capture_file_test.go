@@ -75,7 +75,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			tc.componentType, tc.componentName, tc.componentModel, tc.method, tc.additionalParams, tc.tags)
 		test.That(t, err, test.ShouldEqual, nil)
 
-		methodParams, err := protoutils.ConvertStringMapToAnyPb(tc.additionalParams)
+		methodParams, err := protoutils.ConvertStringMapToAnyPBMap(tc.additionalParams)
 		test.That(t, err, test.ShouldEqual, nil)
 
 		expectedMetadata := v1.DataCaptureMetadata{

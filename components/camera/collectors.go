@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -78,13 +77,11 @@ func newNextCollector(resource interface{}, params data.CollectorParams) (data.C
 		}
 	}
 
-	stream := gostream.NewEmbeddedVideoStream(camera)
-
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::Next")
 		defer span.End()
 
-		img, release, err := stream.Next(ctx)
+		img, release, err := ReadImage(ctx, camera)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, next.String(), err)
 		}
@@ -94,7 +91,12 @@ func newNextCollector(resource interface{}, params data.CollectorParams) (data.C
 			}
 		}()
 
-		outBytes, err := rimage.EncodeImage(ctx, img, mimeType.String())
+		mimeStr := new(wrapperspb.StringValue)
+		if err := mimeType.UnmarshalTo(mimeStr); err != nil {
+			return nil, err
+		}
+
+		outBytes, err := rimage.EncodeImage(ctx, img, mimeStr.Value)
 		if err != nil {
 			return nil, err
 		}
