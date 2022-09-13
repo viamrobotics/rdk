@@ -325,7 +325,7 @@ func (config *Service) Validate(path string) error {
 	}
 	if config.Model == "" {
 		rlog.Logger.Warnw("no model given, defaulting to default model")
-		config.Model = resource.DefaultModelName
+		config.Model = resource.BuiltIntModelName
 	}
 	if config.Namespace == "" {
 		// NOTE: This should never be removed in order to ensure RDK is the

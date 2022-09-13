@@ -1,4 +1,4 @@
-package defaultarmremotecontrol
+package builtin
 
 import (
 	"context"
@@ -85,7 +85,7 @@ func TestArmRemoteControl(t *testing.T) {
 	}
 
 	// New arm_remote_control check
-	tmpSvc, err := NewDefault(ctx, fakeRobot,
+	tmpSvc, err := NewBuiltIn(ctx, fakeRobot,
 		config.Service{
 			Name:                "arm_remote_control",
 			Type:                "arm_remote_control",
@@ -94,7 +94,7 @@ func TestArmRemoteControl(t *testing.T) {
 		rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	svc, ok := tmpSvc.(*armRemoteDefaultService)
+	svc, ok := tmpSvc.(*BuiltIn)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Controller import failure
@@ -105,7 +105,7 @@ func TestArmRemoteControl(t *testing.T) {
 		return nil, rdkutils.NewResourceNotFoundError(name)
 	}
 
-	_, err = NewDefault(ctx, fakeRobot,
+	_, err = NewBuiltIn(ctx, fakeRobot,
 		config.Service{
 			Name:                "arm_remote_control",
 			Type:                "arm_remote_control",
@@ -122,7 +122,7 @@ func TestArmRemoteControl(t *testing.T) {
 		return nil, rdkutils.NewResourceNotFoundError(name)
 	}
 
-	_, err = NewDefault(ctx, fakeRobot,
+	_, err = NewBuiltIn(ctx, fakeRobot,
 		config.Service{
 			Name:                "arm_remote_control",
 			Type:                "arm_remote_control",

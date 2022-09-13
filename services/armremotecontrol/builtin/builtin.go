@@ -1,5 +1,5 @@
 // Package defaultarmremotecontrol implements a remote control for a arm.
-package defaultarmremotecontrol
+package builtin
 
 import (
 	"context"
@@ -40,7 +40,7 @@ const (
 )
 
 func init() {
-	registry.RegisterService(armremotecontrol.Subtype, resource.DefaultModelName, registry.Service{Constructor: NewDefault})
+	registry.RegisterService(armremotecontrol.Subtype, resource.BuiltIntModelName, registry.Service{Constructor: NewBuiltIn})
 	cType := config.ServiceType(armremotecontrol.SubtypeName)
 	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf ServiceConfig
@@ -188,8 +188,8 @@ func (cs *controllerState) reset() {
 	}
 }
 
-// armRemoteDefaultService is the structure of the arm remote service.
-type armRemoteDefaultService struct {
+// BuiltIn is the structure of the arm remote service.
+type builtIn struct {
 	arm             arm.Arm
 	inputController input.Controller
 	config          *ServiceConfig
@@ -197,7 +197,7 @@ type armRemoteDefaultService struct {
 }
 
 // NewDefault returns a new remote control service for the given robot.
-func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
+func NewbuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
 	svcConfig, ok := config.ConvertedAttributes.(*ServiceConfig)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
@@ -244,7 +244,7 @@ func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logge
 		}
 	}
 
-	armRemoteSvc := &armRemoteDefaultService{
+	armRemoteSvc := &builtIn{
 		arm:             armComponent,
 		inputController: controller,
 		config:          svcConfig,
@@ -259,7 +259,7 @@ func NewDefault(ctx context.Context, r robot.Robot, config config.Service, logge
 }
 
 // Start is the main control loops for sending events from controller to arm.
-func (svc *armRemoteDefaultService) start(ctx context.Context) error {
+func (svc *builtIn) start(ctx context.Context) error {
 	state := &controllerState{}
 	state.init()
 
@@ -302,7 +302,7 @@ func (svc *armRemoteDefaultService) start(ctx context.Context) error {
 }
 
 // Close out of all remote control related systems.
-func (svc *armRemoteDefaultService) Close(ctx context.Context) error {
+func (svc *builtIn) Close(ctx context.Context) error {
 	controls, err := svc.inputController.GetControls(ctx)
 	if err != nil {
 		return err
@@ -322,7 +322,7 @@ func (svc *armRemoteDefaultService) Close(ctx context.Context) error {
 	return nil
 }
 
-func (svc *armRemoteDefaultService) processEvent(ctx context.Context, state *controllerState, event input.Event) error {
+func (svc *builtIn) processEvent(ctx context.Context, state *controllerState, event input.Event) error {
 	// set state to be executed
 	state.set(event, *svc.config)
 	defer state.reset()
@@ -340,7 +340,7 @@ func isInvalid(sensitivity, val float64) bool {
 }
 
 // processCommandEvent should properly map to arm control functions.
-func processCommandEvent(ctx context.Context, svc *armRemoteDefaultService, state *controllerState) error {
+func processCommandEvent(ctx context.Context, svc *builtIn, state *controllerState) error {
 	switch {
 	case state.buttons[input.ButtonSouth]:
 		svc.logger.Debug("stopping arm")
@@ -362,7 +362,7 @@ func getEventValue(event input.Event, control input.Control, step float64) float
 	return 0.0
 }
 
-func processArmEndPointEvent(ctx context.Context, svc *armRemoteDefaultService, state *controllerState, event input.Event) error {
+func processArmEndPointEvent(ctx context.Context, svc *builtIn, state *controllerState, event input.Event) error {
 	if isInvalid(svc.config.ControllerSensitivity, event.Value) {
 		return nil
 	}
@@ -409,7 +409,7 @@ func processArmEndPointEvent(ctx context.Context, svc *armRemoteDefaultService, 
 	return nil
 }
 
-func processArmJointEvent(ctx context.Context, svc *armRemoteDefaultService, state *controllerState, event input.Event) error {
+func processArmJointEvent(ctx context.Context, svc *builtIn, state *controllerState, event input.Event) error {
 	if isInvalid(svc.config.ControllerSensitivity, event.Value) {
 		return nil
 	}
@@ -437,7 +437,7 @@ func processArmJointEvent(ctx context.Context, svc *armRemoteDefaultService, sta
 	return nil
 }
 
-func processArmControllerEvent(ctx context.Context, svc *armRemoteDefaultService, state *controllerState, event input.Event) error {
+func processArmControllerEvent(ctx context.Context, svc *builtIn, state *controllerState, event input.Event) error {
 	//exhaustive:ignore
 	switch state.event {
 	case endPointEvent:
