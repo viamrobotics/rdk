@@ -63,7 +63,9 @@ func TestVoxelSegmentMeans(t *testing.T) {
 		"distance_threshold":    0.1,
 	}
 
-	voxSegments, err := segmentation.RadiusClusteringFromVoxels(context.Background(), cam, voxObjConfig)
+	segmenter, err := segmentation.NewRadiusClusteringFromVoxels(voxObjConfig)
+	test.That(t, err, test.ShouldBeNil)
+	voxSegments, err := segmenter(context.Background(), cam)
 	test.That(t, err, test.ShouldBeNil)
 	testSegmentation(t, voxSegments)
 }

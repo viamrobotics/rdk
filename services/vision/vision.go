@@ -8,6 +8,8 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/invopop/jsonschema"
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -24,7 +26,6 @@ import (
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	objdet "go.viam.com/rdk/vision/objectdetection"
-	"go.viam.com/rdk/vision/segmentation"
 )
 
 func init() {
@@ -61,6 +62,8 @@ func init() {
 
 // A Service that implements various computer vision algorithms like detection and segmentation.
 type Service interface {
+	// model parameters
+	GetModelParameterSchema(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error)
 	// detector methods
 	GetDetectorNames(ctx context.Context) ([]string, error)
 	AddDetector(ctx context.Context, cfg VisModelConfig) error
@@ -75,8 +78,9 @@ type Service interface {
 	GetClassifications(ctx context.Context, img image.Image, classifierName string, n int) (classification.Classifications, error)
 	// segmenter methods
 	GetSegmenterNames(ctx context.Context) ([]string, error)
-	GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
-	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string, params config.AttributeMap) ([]*viz.Object, error)
+	AddSegmenter(ctx context.Context, cfg VisModelConfig) error
+	RemoveSegmenter(ctx context.Context, segmenterName string) error
+	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string) ([]*viz.Object, error)
 }
 
 var (
@@ -139,22 +143,13 @@ type Attributes struct {
 // New registers new detectors from the config and returns a new object detection service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
 	modMap := make(modelMap)
-	// register default segmenters
-	defSeg := registeredModel{
-		model:     segmentation.Segmenter(segmentation.RadiusClustering),
-		modelType: RCSegmenter, SegParams: utils.JSONTags(segmentation.RadiusClusteringConfig{}),
-	}
-	err := modMap.registerVisModel(RadiusClusteringSegmenter, &defSeg, logger)
-	if err != nil {
-		return nil, err
-	}
 	// register detectors and user defined things if config is defined
 	if config.ConvertedAttributes != nil {
 		attrs, ok := config.ConvertedAttributes.(*Attributes)
 		if !ok {
 			return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 		}
-		err = registerNewVisModels(ctx, modMap, attrs, logger)
+		err := registerNewVisModels(ctx, modMap, attrs, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -164,13 +159,6 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		modReg: modMap,
 		logger: logger,
 	}
-	// turn detectors into segmenters
-	for _, detName := range service.modReg.DetectorNames() {
-		err := service.registerSegmenterFromDetector(detName, logger)
-		if err != nil {
-			return nil, err
-		}
-	}
 	return service, nil
 }
 
@@ -178,6 +166,17 @@ type visionService struct {
 	r      robot.Robot
 	modReg modelMap
 	logger golog.Logger
+}
+
+// GetModelParameterSchema takes the model name and returns the parameters needed to add one to the vision registry.
+func (vs *visionService) GetModelParameterSchema(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error) {
+	if modelSchema, ok := RegisteredModelParameterSchemas[modelType]; ok {
+		if modelSchema == nil {
+			return nil, errors.Errorf("do not have a schema for model type %q", modelType)
+		}
+		return modelSchema, nil
+	}
+	return nil, errors.Errorf("do not have a schema for model type %q", modelType)
 }
 
 // Detection Methods
@@ -197,8 +196,13 @@ func (vs *visionService) AddDetector(ctx context.Context, cfg VisModelConfig) er
 	if err != nil {
 		return err
 	}
-	// also create a new segmenter from the detector
-	return vs.registerSegmenterFromDetector(cfg.Name, vs.logger)
+	// automatically add a segmenter version of detector
+	segmenterConf := VisModelConfig{
+		Name:       cfg.Name + "_segmenter",
+		Type:       string(DetectorSegmenter),
+		Parameters: config.AttributeMap{"detector_name": cfg.Name, "mean_k": 0, "sigma": 0.0},
+	}
+	return vs.AddSegmenter(ctx, segmenterConf)
 }
 
 // RemoveDetector removes a detector from the registry.
@@ -209,7 +213,8 @@ func (vs *visionService) RemoveDetector(ctx context.Context, detectorName string
 	if err != nil {
 		return err
 	}
-	return nil
+	// remove the associated segmenter as well (if there is one)
+	return vs.RemoveSegmenter(ctx, detectorName+"_segmenter")
 }
 
 // GetDetectionsFromCamera returns the detections of the next image from the given camera and the given detector.
@@ -345,22 +350,26 @@ func (vs *visionService) GetSegmenterNames(ctx context.Context) ([]string, error
 	return vs.modReg.SegmenterNames(), nil
 }
 
-// GetSegmenterParameters returns a list of parameter name and type for the necessary parameters of the chosen segmenter.
-func (vs *visionService) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
-	_, span := trace.StartSpan(ctx, "service::vision::GetSegmenterParameters")
+// AddSegmenter adds a new segmenter from an Attribute config struct.
+func (vs *visionService) AddSegmenter(ctx context.Context, cfg VisModelConfig) error {
+	ctx, span := trace.StartSpan(ctx, "service::vision::AddSegmenter")
 	defer span.End()
-	s, err := vs.modReg.modelLookup(segmenterName)
-	if err != nil {
-		return nil, err
-	}
-	return s.SegParams, nil
+	attrs := &Attributes{ModelRegistry: []VisModelConfig{cfg}}
+	return registerNewVisModels(ctx, vs.modReg, attrs, vs.logger)
+}
+
+// RemoveSegmenter removes a segmenter from the registry.
+func (vs *visionService) RemoveSegmenter(ctx context.Context, segmenterName string) error {
+	_, span := trace.StartSpan(ctx, "service::vision::RemoveSegmenter")
+	defer span.End()
+	return vs.modReg.removeVisModel(segmenterName, vs.logger)
 }
 
 // GetObjectPointClouds returns all the found objects in a 3D image according to the chosen segmenter.
 func (vs *visionService) GetObjectPointClouds(
 	ctx context.Context,
-	cameraName, segmenterName string,
-	params config.AttributeMap,
+	cameraName string,
+	segmenterName string,
 ) ([]*viz.Object, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetObjectPointClouds")
 	defer span.End()
@@ -376,26 +385,7 @@ func (vs *visionService) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	return segmenter(ctx, cam, params)
-}
-
-// Helpers
-// registerSegmenterFromDetector creates and registers a segmenter from an already registered detector.
-func (vs *visionService) registerSegmenterFromDetector(detName string, logger golog.Logger) error {
-	d, err := vs.modReg.modelLookup(detName)
-	if err != nil {
-		return err
-	}
-	det, err := d.toDetector()
-	if err != nil {
-		return err
-	}
-	detSegmenter, params, err := segmentation.DetectionSegmenter(det)
-	if err != nil {
-		return err
-	}
-	regSegmenter := registeredModel{model: detSegmenter, modelType: ObjectSegmenter, SegParams: params}
-	return vs.modReg.registerVisModel(detName+"_segmenter", &regSegmenter, logger)
+	return segmenter(ctx, cam)
 }
 
 // Close removes all existing detectors from the vision service.
@@ -413,6 +403,12 @@ func (vs *visionService) Close() error {
 type reconfigurableVision struct {
 	mu     sync.RWMutex
 	actual Service
+}
+
+func (svc *reconfigurableVision) GetModelParameterSchema(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetModelParameterSchema(ctx, modelType)
 }
 
 func (svc *reconfigurableVision) GetDetectorNames(ctx context.Context) ([]string, error) {
@@ -486,20 +482,25 @@ func (svc *reconfigurableVision) GetSegmenterNames(ctx context.Context) ([]strin
 	return svc.actual.GetSegmenterNames(ctx)
 }
 
-func (svc *reconfigurableVision) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
+func (svc *reconfigurableVision) AddSegmenter(ctx context.Context, cfg VisModelConfig) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetSegmenterParameters(ctx, segmenterName)
+	return svc.actual.AddSegmenter(ctx, cfg)
+}
+
+func (svc *reconfigurableVision) RemoveSegmenter(ctx context.Context, segmenterName string) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.RemoveSegmenter(ctx, segmenterName)
 }
 
 func (svc *reconfigurableVision) GetObjectPointClouds(ctx context.Context,
 	cameraName,
 	segmenterName string,
-	params config.AttributeMap,
 ) ([]*viz.Object, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetObjectPointClouds(ctx, cameraName, segmenterName, params)
+	return svc.actual.GetObjectPointClouds(ctx, cameraName, segmenterName)
 }
 
 func (svc *reconfigurableVision) Close(ctx context.Context) error {
