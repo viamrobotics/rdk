@@ -14,7 +14,7 @@
         {
             "name": "pieceArm",
             "type": "arm",
-            "model": "ur",
+            "model": "ur5e",
             "host": "10.237.115.65"
         },
         {
