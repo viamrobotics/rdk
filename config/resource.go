@@ -324,7 +324,7 @@ func (config *Service) Validate(path string) error {
 		config.Name = resource.DefaultServiceName
 	}
 	if config.Model == "" {
-		rlog.Logger.Warnw("no model given, defaulting to default model")
+		rlog.Logger.Warnw("no model given; using default")
 		config.Model = resource.DefaultModelName
 	}
 	if config.Namespace == "" {
