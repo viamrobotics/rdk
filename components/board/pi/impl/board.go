@@ -31,15 +31,6 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// A Config describes the configuration of a board and all of its connected parts.
-type Config struct {
-	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
-	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
-	Analogs           []board.AnalogConfig           `json:"analogs,omitempty"`
-	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
-	Attributes        config.AttributeMap            `json:"attributes,omitempty"`
-}
-
 // init registers a pi board based on pigpio.
 func init() {
 	registry.RegisterComponent(
@@ -51,7 +42,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			boardConfig, ok := config.ConvertedAttributes.(*Config)
+			boardConfig, ok := config.ConvertedAttributes.(*picommon.Config)
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(boardConfig, config.ConvertedAttributes)
 			}
@@ -64,7 +55,7 @@ func init() {
 type piPigpio struct {
 	generic.Unimplemented
 	mu            sync.Mutex
-	cfg           *Config
+	cfg           *picommon.Config
 	duty          int // added for mutex
 	gpioConfigSet map[int]bool
 	analogs       map[string]board.AnalogReader
@@ -82,7 +73,7 @@ var (
 )
 
 // NewPigpio makes a new pigpio based Board using the given config.
-func NewPigpio(ctx context.Context, cfg *Config, logger golog.Logger) (board.LocalBoard, error) {
+func NewPigpio(ctx context.Context, cfg *picommon.Config, logger golog.Logger) (board.LocalBoard, error) {
 	// this is so we can run it inside a daemon
 	internals := C.gpioCfgGetInternals()
 	internals |= C.PI_CFG_NOSIGHANDLER

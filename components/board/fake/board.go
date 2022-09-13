@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -36,7 +37,39 @@ func init() {
 			}
 			return NewBoard(ctx, config, logger)
 		}})
-	board.RegisterConfigAttributeConverter(modelName)
+	config.RegisterComponentAttributeMapConverter(
+		board.SubtypeName,
+		modelName,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&Config{})
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) error {
+	for idx, conf := range config.SPIs {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "spis", idx)); err != nil {
+			return err
+		}
+	}
+	for idx, conf := range config.I2Cs {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "i2cs", idx)); err != nil {
+			return err
+		}
+	}
+	for idx, conf := range config.Analogs {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
+			return err
+		}
+	}
+	for idx, conf := range config.DigitalInterrupts {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // A Config describes the configuration of a board and all of its connected parts.
@@ -45,7 +78,7 @@ type Config struct {
 	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
 	Analogs           []board.AnalogConfig           `json:"analogs,omitempty"`
 	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
-	Attributes        config.AttributeMap      `json:"attributes,omitempty"`
+	Attributes        config.AttributeMap            `json:"attributes,omitempty"`
 }
 
 // NewBoard returns a new fake board.
@@ -90,7 +123,7 @@ func NewBoard(ctx context.Context, config config.Component, logger golog.Logger)
 // UpdateAction helps hinting the reconfiguration process on what strategy to use given a modified config.
 // See config.UpdateActionType for more information.
 func (b *Board) UpdateAction(c *config.Component) config.UpdateActionType {
-	_, ok := c.ConvertedAttributes.(*board.Config)
+	_, ok := c.ConvertedAttributes.(*Config)
 	if !ok {
 		return config.Rebuild
 	}
