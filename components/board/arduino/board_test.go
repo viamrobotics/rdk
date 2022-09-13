@@ -10,7 +10,6 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/gpio"
@@ -160,7 +159,7 @@ func TestArduinoPWM(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			b, err := newArduino(&board.Config{}, logger)
+			b, err := newArduino(&Config{}, logger)
 			if err != nil && strings.HasPrefix(err.Error(), "found ") {
 				t.Skip()
 				return
@@ -240,7 +239,7 @@ func TestArduinoMotorABPWM(t *testing.T) {
 			},
 		},
 	}
-	b, err := newArduino(&board.Config{}, logger)
+	b, err := newArduino(&Config{}, logger)
 	if err != nil && strings.HasPrefix(err.Error(), "found ") {
 		t.Skip()
 		return
@@ -299,7 +298,7 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 			},
 		},
 	}
-	b, err := newArduino(&board.Config{}, logger)
+	b, err := newArduino(&Config{}, logger)
 	if err != nil && strings.HasPrefix(err.Error(), "found ") {
 		t.Skip()
 		return
@@ -358,7 +357,7 @@ func TestArduinoMotorAB(t *testing.T) {
 			},
 		},
 	}
-	b, err := newArduino(&board.Config{}, logger)
+	b, err := newArduino(&Config{}, logger)
 	if err != nil && strings.HasPrefix(err.Error(), "found ") {
 		t.Skip()
 		return
