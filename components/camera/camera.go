@@ -216,14 +216,14 @@ func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot project to a point cloud")
 	}
-	return depthadapter.ToPointCloud(dm, vs.system.PinholeCameraParameters), nil
+	return depthadapter.ToPointCloud(dm, vs.system.PinholeCameraIntrinsics), nil
 }
 
 func (vs *videoSource) Projector(ctx context.Context) (transform.Projector, error) {
-	if vs.system == nil || vs.system.PinholeCameraParameters != nil {
+	if vs.system == nil || vs.system.PinholeCameraIntrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("No features in config")
 	}
-	return vs.system.PinholeCameraParameters, nil
+	return vs.system.PinholeCameraIntrinsics, nil
 }
 
 func (vs *videoSource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
@@ -239,12 +239,12 @@ func (vs *videoSource) GetProperties(ctx context.Context) (Properties, error) {
 		SupportsPCD: supportsPCD,
 	}
 	if vs.system == nil {
-		return result
+		return result, nil
 	}
-	if (vs.system.PinholeCameraParameters != nil) && (vs.streamType == DepthStream) {
+	if (vs.system.PinholeCameraIntrinsics != nil) && (vs.streamType == DepthStream) {
 		result.SupportsPCD = true
 	}
-	result.IntrinsicParams = vs.system.PinholeCameraParameters
+	result.IntrinsicParams = vs.system.PinholeCameraIntrinsics
 	result.DistortionParams = vs.system.Distortion
 	return result, nil
 }

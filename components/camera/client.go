@@ -182,13 +182,13 @@ func (c *client) GetProperties(ctx context.Context) (Properties, error) {
 	case transform.BrownConradyDistortionType:
 		brownConrady, err := transform.NewBrownConrady(resp.DistortionParameters.Parameters)
 		if err != nil {
-			return nil, err
+			return Properties{}, err
 		}
 		result.DistortionParams = brownConrady
 	case transform.NoneDistortionType, transform.DistortionType(""):
 		result.DistortionParams = &transform.NoDistortion{}
 	default:
-		return nil, errors.Errorf("do no know how to parse %q distortion model", model)
+		return Properties{}, errors.Errorf("do no know how to parse %q distortion model", model)
 	}
 	return result, nil
 }
