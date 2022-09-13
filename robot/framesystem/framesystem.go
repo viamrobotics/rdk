@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
-	"go.viam.com/rdk/utils"
 )
 
 // SubtypeName is the name of the type of service.
@@ -213,7 +212,7 @@ func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
 	seen := make(map[string]bool)
 	local, ok := svc.r.(robot.LocalRobot)
 	if !ok {
-		return utils.NewUnimplementedInterfaceError("robot.LocalRobot", svc.r)
+		return robot.NewUnimplementedLocalInterfaceError(svc.r)
 	}
 	cfg, err := local.Config(ctx) // Eventually there will be another function that gathers the frame system config
 	if err != nil {
@@ -246,7 +245,7 @@ func (svc *frameSystemService) updateOffsetParts(ctx context.Context) error {
 	defer span.End()
 	local, ok := svc.r.(robot.LocalRobot)
 	if !ok {
-		return utils.NewUnimplementedInterfaceError("robot.LocalRobot", svc.r)
+		return robot.NewUnimplementedLocalInterfaceError(svc.r)
 	}
 	conf, err := local.Config(ctx)
 	if err != nil {

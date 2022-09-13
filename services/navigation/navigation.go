@@ -430,11 +430,16 @@ func (svc *reconfigurableNavigation) Reconfigure(ctx context.Context, newSvc res
 	return nil
 }
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return rdkutils.NewUnimplementedInterfaceError((Service)(nil), actual)
+}
+
 // WrapWithReconfigurable wraps a navigation service as a Reconfigurable.
 func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 	svc, ok := s.(Service)
 	if !ok {
-		return nil, rdkutils.NewUnimplementedInterfaceError("navigation.Service", s)
+		return nil, NewUnimplementedInterfaceError(s)
 	}
 
 	if reconfigurable, ok := s.(*reconfigurableNavigation); ok {

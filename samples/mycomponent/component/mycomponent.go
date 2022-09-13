@@ -115,10 +115,15 @@ type MyComponent interface {
 	DoTwo(ctx context.Context, arg1 bool) (string, error)
 }
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((MyComponent)(nil), actual)
+}
+
 func wrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	mc, ok := r.(MyComponent)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("MyComponent", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := mc.(*reconfigurableMyComponent); ok {
 		return reconfigurable, nil
