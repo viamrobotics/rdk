@@ -32,7 +32,7 @@ const (
 	ResourceTypeComponent = TypeName("component")
 	ResourceTypeService   = TypeName("service")
 	DefaultServiceName    = "builtin"
-	DefaultModelName      = "default"
+	BuiltIntModelName     = "builtin"
 )
 
 var (

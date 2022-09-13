@@ -31,7 +31,7 @@ const (
 )
 
 func init() {
-	registry.RegisterService(navigation.Subtype, resource.DefaultModelName, registry.Service{
+	registry.RegisterService(navigation.Subtype, resource.BuiltIntModelName, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return NewDefault(ctx, r, c, logger)
 		},

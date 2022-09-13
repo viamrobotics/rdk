@@ -3,5 +3,5 @@ package register
 
 import (
 	// for armremotecontrol models.
-	_ "go.viam.com/rdk/services/armremotecontrol/defaultarmremotecontrol"
+	_ "go.viam.com/rdk/services/armremotecontrol/builtin"
 )
