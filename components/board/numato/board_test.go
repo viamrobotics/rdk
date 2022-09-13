@@ -44,7 +44,7 @@ func TestNumato1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	b, err := connect(
 		ctx,
-		&board.Config{
+		&Config{
 			Attributes: config.AttributeMap{"pins": 128},
 			Analogs:    []board.AnalogConfig{{Name: "foo", Pin: "01"}},
 		},
