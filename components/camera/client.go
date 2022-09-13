@@ -52,7 +52,7 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	defer span.End()
 	mimeType := gostream.MIMETypeHint(ctx, utils.MimeTypeRawRGBALazy)
 	actualType, _ := utils.CheckLazyMIMEType(mimeType)
-	resp, err := c.client.GetFrame(ctx, &pb.GetFrameRequest{
+	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
 		Name:     c.name,
 		MimeType: mimeType,
 	})
