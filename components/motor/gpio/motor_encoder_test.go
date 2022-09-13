@@ -562,7 +562,11 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		m, err := WrapMotorWithEncoder(
 			context.Background(),
 			e,
-			config.Component{Name: "motor1"}, Config{TicksPerRotation: 100},
+			config.Component{Name: "motor1"},
+			Config{
+				TicksPerRotation: 100,
+				MaxRPM:           60,
+			},
 			fakeMotor,
 			logger,
 		)
@@ -584,7 +588,11 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		m, err := WrapMotorWithEncoder(
 			context.Background(),
 			e,
-			config.Component{Name: "motor1"}, Config{TicksPerRotation: 100},
+			config.Component{Name: "motor1"},
+			Config{
+				TicksPerRotation: 100,
+				MaxRPM:           60,
+			},
 			fakeMotor,
 			logger,
 		)
