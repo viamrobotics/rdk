@@ -399,7 +399,7 @@ func TestServiceValidate(t *testing.T) {
 			Type:      "thingy",
 		}
 		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
-		test.That(t, validConfig.Model, test.ShouldEqual, "default")
+		test.That(t, validConfig.Model, test.ShouldEqual, "builtin")
 	})
 }
 
