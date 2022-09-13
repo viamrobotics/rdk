@@ -11,7 +11,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"go.uber.org/zap/zapcore"
-	v1 "go.viam.com/api/app/datasync/v1"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"

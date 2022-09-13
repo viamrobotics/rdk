@@ -11,7 +11,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	v1 "go.viam.com/api/app/datasync/v1"
+	v1 "go.viam.com/api/proto/viam/datasync/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
@@ -582,7 +582,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = datamanager.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("data_manager.Service", nil))
+	test.That(t, err, test.ShouldBeError, datamanager.NewUnimplementedInterfaceError(nil))
 
 	reconfSvc2, err := datamanager.WrapWithReconfigurable(reconfSvc1)
 	test.That(t, err, test.ShouldBeNil)

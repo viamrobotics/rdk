@@ -19,7 +19,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
-	apppb "go.viam.com/api/app/v1"
+	apppb "go.viam.com/api/proto/viam/app/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
