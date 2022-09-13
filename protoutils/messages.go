@@ -288,33 +288,36 @@ func ConvertProtoToOrientation(o *commonpb.Orientation) spatialmath.Orientation 
 	}
 }
 
-// ConvertStringMapToAnyPb takes a string map and parses each value to an Any pb type.
-func ConvertStringMapToAnyPb(params map[string]string) (map[string]*anypb.Any, error) {
-	methodParams := map[string]*anypb.Any{}
+// ConvertStringToAnyPB takes a string and parses it to an Any pb type.
+func ConvertStringToAnyPB(str string) (*anypb.Any, error) {
 	var wrappedVal protoreflect.ProtoMessage
+	if boolVal, err := strconv.ParseBool(str); err == nil {
+		wrappedVal = wrapperspb.Bool(boolVal)
+	} else if int64Val, err := strconv.ParseInt(str, 10, 64); err == nil {
+		wrappedVal = wrapperspb.Int64(int64Val)
+	} else if uint64Val, err := strconv.ParseUint(str, 10, 64); err == nil {
+		wrappedVal = wrapperspb.UInt64(uint64Val)
+	} else if float64Val, err := strconv.ParseFloat(str, 64); err == nil {
+		wrappedVal = wrapperspb.Double(float64Val)
+	} else {
+		wrappedVal = wrapperspb.String(str)
+	}
+	anyVal, err := anypb.New(wrappedVal)
+	if err != nil {
+		return nil, err
+	}
+	return anyVal, nil
+}
+
+// ConvertStringMapToAnyPBMap takes a string map and parses each value to an Any proto type.
+func ConvertStringMapToAnyPBMap(params map[string]string) (map[string]*anypb.Any, error) {
+	methodParams := map[string]*anypb.Any{}
 	for key, paramVal := range params {
-		if boolVal, err := strconv.ParseBool(paramVal); err == nil {
-			wrappedVal = wrapperspb.Bool(boolVal)
-		} else if int32Val, err := strconv.ParseInt(paramVal, 10, 32); err == nil {
-			wrappedVal = wrapperspb.Int32(int32(int32Val))
-		} else if int64Val, err := strconv.ParseInt(paramVal, 10, 64); err == nil {
-			wrappedVal = wrapperspb.Int64(int64Val)
-		} else if uint32Val, err := strconv.ParseUint(paramVal, 10, 32); err == nil {
-			wrappedVal = wrapperspb.UInt32(uint32(uint32Val))
-		} else if uint64Val, err := strconv.ParseUint(paramVal, 10, 64); err == nil {
-			wrappedVal = wrapperspb.UInt64(uint64Val)
-		} else if float32Val, err := strconv.ParseFloat(paramVal, 32); err == nil {
-			wrappedVal = wrapperspb.Float(float32(float32Val))
-		} else if float64Val, err := strconv.ParseFloat(paramVal, 64); err == nil {
-			wrappedVal = wrapperspb.Double(float64Val)
-		} else {
-			wrappedVal = wrapperspb.String(paramVal)
-		}
-		paramVal, err := anypb.New(wrappedVal)
+		anyVal, err := ConvertStringToAnyPB(paramVal)
 		if err != nil {
 			return nil, err
 		}
-		methodParams[key] = paramVal
+		methodParams[key] = anyVal
 	}
 	return methodParams, nil
 }

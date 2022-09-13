@@ -50,10 +50,11 @@ func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.F
 func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, method string,
 	additionalParams map[string]string, tags []string,
 ) (*v1.DataCaptureMetadata, error) {
-	methodParams, err := protoutils.ConvertStringMapToAnyPb(additionalParams)
+	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(additionalParams)
 	if err != nil {
 		return nil, err
 	}
+
 	dataType := getDataType(string(compType), method)
 	return &v1.DataCaptureMetadata{
 		ComponentType:    string(compType),
