@@ -33,7 +33,7 @@ type Arguments struct {
 	Version                    bool   `flag:"version,usage=print version"`
 	WebProfile                 bool   `flag:"webprofile,usage=include profiler in http server"`
 	WebRTC                     bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
-	revealSensitiveConfigDiffs bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
+	RevealSensitiveConfigDiffs bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
 }
 
 // RunServer is an entry point to starting the web server that can be called by main in a code
@@ -186,7 +186,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	streamConfig.VideoEncoderFactory = x264.NewEncoderFactory()
 
 	robotOptions := []robotimpl.Option{robotimpl.WithWebOptions(web.WithStreamConfig(streamConfig))}
-	if argsParsed.revealSensitiveConfigDiffs {
+	if argsParsed.RevealSensitiveConfigDiffs {
 		robotOptions = append(robotOptions, robotimpl.WithRevealSensitiveConfigDiffs())
 	}
 
@@ -227,7 +227,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 				myRobot.Reconfigure(ctx, processedConfig)
 
 				// restart web service if necessary
-				diff, err := config.DiffConfigs(*oldCfg, *processedConfig, argsParsed.revealSensitiveConfigDiffs)
+				diff, err := config.DiffConfigs(*oldCfg, *processedConfig, argsParsed.RevealSensitiveConfigDiffs)
 				if err != nil {
 					logger.Errorw("error diffing config", "error", err)
 					continue
