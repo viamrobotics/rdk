@@ -119,7 +119,7 @@ func TestServer(t *testing.T) {
 	slamServer = slam.NewServer(injectSubtypeSvc)
 
 	t.Run("failing on improper service interface", func(t *testing.T) {
-		improperImplErr := utils.NewUnimplementedInterfaceError("slam.Service", "string")
+		improperImplErr := slam.NewUnimplementedInterfaceError("string")
 
 		getPositionReq := &pb.GetPositionRequest{Name: testSlamServiceName}
 		getModeResp, err := slamServer.GetPosition(context.Background(), getPositionReq)

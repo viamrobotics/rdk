@@ -29,7 +29,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = vision.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("vision.Service", nil))
+	test.That(t, err, test.ShouldBeError, vision.NewUnimplementedInterfaceError(nil))
 
 	reconfSvc2, err := vision.WrapWithReconfigurable(reconfSvc1)
 	test.That(t, err, test.ShouldBeNil)

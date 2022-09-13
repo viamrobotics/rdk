@@ -23,15 +23,15 @@ func TestMotorABPWM(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	t.Run("motor (A/B/PWM) initialization errors", func(t *testing.T) {
-		m, err := NewMotor(b, motor.Config{
-			Pins: motor.PinConfig{A: "1", B: "2", PWM: "3"}, MaxPowerPct: 100, PWMFreq: 4000,
+		m, err := NewMotor(b, Config{
+			Pins: PinConfig{A: "1", B: "2", PWM: "3"}, MaxPowerPct: 100, PWMFreq: 4000,
 		}, logger)
 		test.That(t, m, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New("max_power_pct must be between 0.06 and 1.0"))
 	})
 
-	m, err := NewMotor(b, motor.Config{
-		Pins:   motor.PinConfig{A: "1", B: "2", PWM: "3"},
+	m, err := NewMotor(b, Config{
+		Pins:   PinConfig{A: "1", B: "2", PWM: "3"},
 		MaxRPM: maxRPM, PWMFreq: 4000,
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -127,21 +127,21 @@ func TestMotorDirPWM(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	t.Run("motor (DIR/PWM) initialization errors", func(t *testing.T) {
-		m, err := NewMotor(b, motor.Config{Pins: motor.PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"}, PWMFreq: 4000}, logger)
+		m, err := NewMotor(b, Config{Pins: PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"}, PWMFreq: 4000}, logger)
 
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, m.GoFor(ctx, 50, 10, nil), test.ShouldBeError, errors.New("not supported, define max_rpm attribute != 0"))
 
 		_, err = NewMotor(
 			b,
-			motor.Config{Pins: motor.PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"}, MaxPowerPct: 100, PWMFreq: 4000},
+			Config{Pins: PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"}, MaxPowerPct: 100, PWMFreq: 4000},
 			logger,
 		)
 		test.That(t, err, test.ShouldBeError, errors.New("max_power_pct must be between 0.06 and 1.0"))
 	})
 
-	m, err := NewMotor(b, motor.Config{
-		Pins:   motor.PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"},
+	m, err := NewMotor(b, Config{
+		Pins:   PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"},
 		MaxRPM: maxRPM, PWMFreq: 4000,
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -203,8 +203,8 @@ func TestMotorAB(t *testing.T) {
 	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
 	logger := golog.NewTestLogger(t)
 
-	m, err := NewMotor(b, motor.Config{
-		Pins:   motor.PinConfig{A: "1", B: "2", EnablePinLow: "3"},
+	m, err := NewMotor(b, Config{
+		Pins:   PinConfig{A: "1", B: "2", EnablePinLow: "3"},
 		MaxRPM: maxRPM, PWMFreq: 4000,
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -271,8 +271,8 @@ func TestMotorABNoEncoder(t *testing.T) {
 	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
 	logger := golog.NewTestLogger(t)
 
-	m, err := NewMotor(b, motor.Config{
-		Pins:    motor.PinConfig{A: "1", B: "2", EnablePinLow: "3"},
+	m, err := NewMotor(b, Config{
+		Pins:    PinConfig{A: "1", B: "2", EnablePinLow: "3"},
 		PWMFreq: 4000,
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
