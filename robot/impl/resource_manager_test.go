@@ -504,7 +504,6 @@ func TestManagerAdd(t *testing.T) {
 	injectVisionService.GetObjectPointCloudsFunc = func(
 		ctx context.Context,
 		cameraName, segmenterName string,
-		parameters config.AttributeMap,
 	) ([]*viz.Object, error) {
 		return []*viz.Object{viz.NewEmptyObject()}, nil
 	}
