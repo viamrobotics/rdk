@@ -654,7 +654,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               "fake",
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                motor.SubtypeName,
-				ConvertedAttributes: &motor.Config{},
+				ConvertedAttributes: &fakemotor.Config{},
 				DependsOn:           []string{"board1"},
 			},
 			{
@@ -662,7 +662,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               "fake",
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                motor.SubtypeName,
-				ConvertedAttributes: &motor.Config{},
+				ConvertedAttributes: &fakemotor.Config{},
 				DependsOn:           []string{"board2"},
 			},
 			{
@@ -670,7 +670,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               "fake",
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                motor.SubtypeName,
-				ConvertedAttributes: &motor.Config{},
+				ConvertedAttributes: &fakemotor.Config{},
 				DependsOn:           []string{"board3"},
 			},
 			{

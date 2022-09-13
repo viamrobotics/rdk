@@ -52,7 +52,7 @@ func WrapMotorWithEncoder(
 	ctx context.Context,
 	e encoder.Encoder,
 	c config.Component,
-	mc motor.Config,
+	mc Config,
 	m motor.Motor,
 	logger golog.Logger,
 ) (motor.Motor, error) {
@@ -60,8 +60,12 @@ func WrapMotorWithEncoder(
 		return m, nil
 	}
 
-	if mc.TicksPerRotation == 0 {
-		return nil, errors.Errorf("need a TicksPerRotation for motor (%s)", c.Name)
+	if mc.MaxRPM <= 0 {
+		return nil, errors.Errorf("need a positive MaxRPM for motor (%s)", c.Name)
+	}
+
+	if mc.TicksPerRotation <= 0 {
+		return nil, errors.Errorf("need a positive TicksPerRotation for motor (%s)", c.Name)
 	}
 
 	mm, err := newEncodedMotor(c, mc, m, e, logger)
@@ -83,7 +87,7 @@ func WrapMotorWithEncoder(
 // NewEncodedMotor creates a new motor that supports an arbitrary source of encoder information.
 func NewEncodedMotor(
 	config config.Component,
-	motorConfig motor.Config,
+	motorConfig Config,
 	realMotor motor.Motor,
 	encoder encoder.Encoder,
 	logger golog.Logger,
@@ -93,7 +97,7 @@ func NewEncodedMotor(
 
 func newEncodedMotor(
 	config config.Component,
-	motorConfig motor.Config,
+	motorConfig Config,
 	realMotor motor.Motor,
 	realEncoder encoder.Encoder,
 	logger golog.Logger,
@@ -156,7 +160,7 @@ func newEncodedMotor(
 // EncodedMotor is a motor that utilizes an encoder to track its position.
 type EncodedMotor struct {
 	activeBackgroundWorkers *sync.WaitGroup
-	cfg                     motor.Config
+	cfg                     Config
 	real                    motor.LocalMotor
 	encoder                 encoder.Encoder
 
