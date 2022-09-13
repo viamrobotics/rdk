@@ -110,9 +110,9 @@ func RenameRemoteParts(
 			p.FrameConfig.Parent = connectionName
 		}
 		// rename each non-world part with prefix
-		p.Name = remoteName + "." + p.Name
+		p.Name = remoteName + ":" + p.Name
 		if p.FrameConfig.Parent != connectionName {
-			p.FrameConfig.Parent = remoteName + "." + p.FrameConfig.Parent
+			p.FrameConfig.Parent = remoteName + ":" + p.FrameConfig.Parent
 		}
 	}
 	return remoteParts

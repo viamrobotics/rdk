@@ -33,6 +33,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
+
 	// registers all components.
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
@@ -125,7 +126,7 @@ func TestConfigRemote(t *testing.T) {
 				Type:      base.SubtypeName,
 				Model:     "fake",
 				Frame: &config.Frame{
-					Parent: "foo.cameraOver",
+					Parent: "foo:cameraOver",
 				},
 			},
 		},
