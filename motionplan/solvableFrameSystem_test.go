@@ -7,9 +7,9 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/viamrobotics/visualization"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/motionplan/visualization"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
