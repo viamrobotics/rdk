@@ -167,7 +167,7 @@ func TestFromRobot(t *testing.T) {
 
 	svc, err = vision.FromRobot(r, testVisionServiceName)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of vision.Service")
+	test.That(t, err, test.ShouldBeError, vision.NewUnimplementedInterfaceError("string"))
 	test.That(t, svc, test.ShouldBeNil)
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {

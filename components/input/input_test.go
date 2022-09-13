@@ -82,7 +82,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, controls)
 
 	res, err = input.FromDependencies(deps, fakeInputControllerName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeInputControllerName, "input.Controller", "string"))
+	test.That(t, err, test.ShouldBeError, input.DependencyTypeError(fakeInputControllerName, "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = input.FromDependencies(deps, missingInputControllerName)
@@ -102,7 +102,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, controls)
 
 	res, err = input.FromRobot(r, fakeInputControllerName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("input.Controller", "string"))
+	test.That(t, err, test.ShouldBeError, input.NewUnimplementedInterfaceError("string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = input.FromRobot(r, missingInputControllerName)
@@ -150,7 +150,7 @@ func TestStatusValid(t *testing.T) {
 
 func TestCreateStatus(t *testing.T) {
 	_, err := input.CreateStatus(context.Background(), "not an input")
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("input.Controller", "string"))
+	test.That(t, err, test.ShouldBeError, input.NewUnimplementedInterfaceError("string"))
 
 	timestamp := time.Now()
 	event := input.Event{Time: timestamp, Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
@@ -224,7 +224,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = input.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Controller", nil))
+	test.That(t, err, test.ShouldBeError, input.NewUnimplementedInterfaceError(nil))
 
 	reconfInput2, err := input.WrapWithReconfigurable(reconfInput1)
 	test.That(t, err, test.ShouldBeNil)

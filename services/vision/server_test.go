@@ -52,7 +52,7 @@ func TestVisionServerFailures(t *testing.T) {
 	server, err = newServer(m)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.GetDetectorNames(context.Background(), nameRequest)
-	test.That(t, err, test.ShouldBeError, utils.NewUnimplementedInterfaceError("vision.Service", "string"))
+	test.That(t, err, test.ShouldBeError, vision.NewUnimplementedInterfaceError("string"))
 
 	// correct server
 	injectODS := &inject.VisionService{}
