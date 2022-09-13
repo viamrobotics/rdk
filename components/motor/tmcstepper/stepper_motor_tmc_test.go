@@ -58,16 +58,14 @@ func TestTMCStepperMotor(t *testing.T) {
 	deps := registry.Dependencies(map[resource.Name]interface{}{board.Named(b.Name): b})
 
 	mc := tmcstepper.TMC5072Config{
-		SPIBus:     "main",
-		ChipSelect: "40",
-		Index:      0,
-		SGThresh:   0,
-		CalFactor:  1.0,
-		Config: motor.Config{
-			MaxAcceleration:  500,
-			MaxRPM:           maxRpm,
-			TicksPerRotation: 200,
-		},
+		SPIBus:           "main",
+		ChipSelect:       "40",
+		Index:            0,
+		SGThresh:         0,
+		CalFactor:        1.0,
+		MaxAcceleration:  500,
+		MaxRPM:           maxRpm,
+		TicksPerRotation: 200,
 	}
 
 	motorReg := registry.ComponentLookup(motor.Subtype, "TMC5072")

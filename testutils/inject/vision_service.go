@@ -4,9 +4,9 @@ import (
 	"context"
 	"image"
 
-	"go.viam.com/rdk/config"
+	"github.com/invopop/jsonschema"
+
 	"go.viam.com/rdk/services/vision"
-	"go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
@@ -15,6 +15,7 @@ import (
 // VisionService represents a fake instance of a vision service.
 type VisionService struct {
 	vision.Service
+	GetModelParameterSchemaFunc func(ctx context.Context, modelType vision.VisModelType) (*jsonschema.Schema, error)
 	// detection functions
 	GetDetectorNamesFunc        func(ctx context.Context) ([]string, error)
 	AddDetectorFunc             func(ctx context.Context, cfg vision.VisModelConfig) error
@@ -31,11 +32,18 @@ type VisionService struct {
 		n int) (classification.Classifications, error)
 
 	// segmentation functions
-	GetSegmenterNamesFunc      func(ctx context.Context) ([]string, error)
-	GetSegmenterParametersFunc func(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
-	GetObjectPointCloudsFunc   func(ctx context.Context,
-		cameraName, segmenterName string,
-		params config.AttributeMap) ([]*viz.Object, error)
+	GetSegmenterNamesFunc    func(ctx context.Context) ([]string, error)
+	AddSegmenterFunc         func(ctx context.Context, cfg vision.VisModelConfig) error
+	RemoveSegmenterFunc      func(ctx context.Context, segmenterName string) error
+	GetObjectPointCloudsFunc func(ctx context.Context, cameraName, segmenterName string) ([]*viz.Object, error)
+}
+
+// GetModelParameterSchema calls the injected ModelParameters or the real variant.
+func (vs *VisionService) GetModelParameterSchema(ctx context.Context, modelType vision.VisModelType) (*jsonschema.Schema, error) {
+	if vs.GetDetectorNamesFunc == nil {
+		return vs.Service.GetModelParameterSchema(ctx, modelType)
+	}
+	return vs.GetModelParameterSchema(ctx, modelType)
 }
 
 // GetDetectorNames calls the injected DetectorNames or the real variant.
@@ -129,12 +137,11 @@ func (vs *VisionService) GetClassifications(ctx context.Context, img image.Image
 func (vs *VisionService) GetObjectPointClouds(
 	ctx context.Context,
 	cameraName, segmenterName string,
-	params config.AttributeMap,
 ) ([]*viz.Object, error) {
 	if vs.GetObjectPointCloudsFunc == nil {
-		return vs.Service.GetObjectPointClouds(ctx, cameraName, segmenterName, params)
+		return vs.Service.GetObjectPointClouds(ctx, cameraName, segmenterName)
 	}
-	return vs.GetObjectPointCloudsFunc(ctx, cameraName, segmenterName, params)
+	return vs.GetObjectPointCloudsFunc(ctx, cameraName, segmenterName)
 }
 
 // GetSegmenterNames calls the injected GetSegmenterNames or the real variant.
@@ -145,13 +152,18 @@ func (vs *VisionService) GetSegmenterNames(ctx context.Context) ([]string, error
 	return vs.GetSegmenterNamesFunc(ctx)
 }
 
-// GetSegmenterParameters calls the injected GetSegmenterParameters or the real variant.
-func (vs *VisionService) GetSegmenterParameters(
-	ctx context.Context,
-	segmenterName string,
-) ([]utils.TypedName, error) {
-	if vs.GetSegmenterParametersFunc == nil {
-		return vs.Service.GetSegmenterParameters(ctx, segmenterName)
+// AddSegmenter calls the injected AddSegmenter or the real variant.
+func (vs *VisionService) AddSegmenter(ctx context.Context, cfg vision.VisModelConfig) error {
+	if vs.AddSegmenterFunc == nil {
+		return vs.Service.AddSegmenter(ctx, cfg)
 	}
-	return vs.GetSegmenterParametersFunc(ctx, segmenterName)
+	return vs.AddSegmenterFunc(ctx, cfg)
+}
+
+// RemoveSegmenter calls the injected RemoveSegmenter or the real variant.
+func (vs *VisionService) RemoveSegmenter(ctx context.Context, segmenterName string) error {
+	if vs.RemoveSegmenterFunc == nil {
+		return vs.Service.RemoveSegmenter(ctx, segmenterName)
+	}
+	return vs.RemoveSegmenterFunc(ctx, segmenterName)
 }

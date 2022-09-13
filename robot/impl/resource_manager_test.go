@@ -504,7 +504,6 @@ func TestManagerAdd(t *testing.T) {
 	injectVisionService.GetObjectPointCloudsFunc = func(
 		ctx context.Context,
 		cameraName, segmenterName string,
-		parameters config.AttributeMap,
 	) ([]*viz.Object, error) {
 		return []*viz.Object{viz.NewEmptyObject()}, nil
 	}
@@ -655,7 +654,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               "fake",
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                motor.SubtypeName,
-				ConvertedAttributes: &motor.Config{},
+				ConvertedAttributes: &fakemotor.Config{},
 				DependsOn:           []string{"board1"},
 			},
 			{
@@ -663,7 +662,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               "fake",
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                motor.SubtypeName,
-				ConvertedAttributes: &motor.Config{},
+				ConvertedAttributes: &fakemotor.Config{},
 				DependsOn:           []string{"board2"},
 			},
 			{
@@ -671,7 +670,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               "fake",
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                motor.SubtypeName,
-				ConvertedAttributes: &motor.Config{},
+				ConvertedAttributes: &fakemotor.Config{},
 				DependsOn:           []string{"board3"},
 			},
 			{

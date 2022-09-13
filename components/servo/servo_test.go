@@ -71,7 +71,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldEqual, pos)
 
 	s, err = servo.FromRobot(r, fakeServoName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Servo", "string"))
+	test.That(t, err, test.ShouldBeError, servo.NewUnimplementedInterfaceError("string"))
 	test.That(t, s, test.ShouldBeNil)
 
 	s, err = servo.FromRobot(r, missingServoName)
@@ -102,7 +102,7 @@ func TestStatusValid(t *testing.T) {
 
 func TestCreateStatus(t *testing.T) {
 	_, err := servo.CreateStatus(context.Background(), "not a servo")
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalServo", "string"))
+	test.That(t, err, test.ShouldBeError, servo.NewUnimplementedLocalInterfaceError("string"))
 
 	status := &pb.Status{PositionDeg: uint32(8), IsMoving: true}
 
@@ -188,7 +188,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = servo.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Servo", nil))
+	test.That(t, err, test.ShouldBeError, servo.NewUnimplementedInterfaceError(nil))
 
 	reconfServo2, err := servo.WrapWithReconfigurable(reconfServo1)
 	test.That(t, err, test.ShouldBeNil)

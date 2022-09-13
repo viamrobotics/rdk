@@ -59,14 +59,14 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 	seed []referenceframe.Input,
 	m Metric,
 ) error {
-	ik.logger.Debugf("starting joint positions: %v", seed)
+	ik.logger.Debugf("starting inputs: %v", seed)
 	startPos, err := ik.model.Transform(seed)
 	if err != nil {
 		return err
 	}
 	// This will adjust the goal position to make movements more intuitive when using incrementation near poles
-	ik.logger.Debugf("starting 6d position: %v", spatialmath.PoseToProtobuf(startPos))
-	ik.logger.Debugf("goal 6d position: %v", spatialmath.PoseToProtobuf(newGoal))
+	ik.logger.Debugf("starting pose: %v", spatialmath.PoseToProtobuf(startPos))
+	ik.logger.Debugf("goal pose: %v", spatialmath.PoseToProtobuf(newGoal))
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()

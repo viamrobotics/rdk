@@ -80,7 +80,7 @@ func TestFromBase(t *testing.T) {
 	test.That(t, result, test.ShouldEqual, width)
 
 	res, err = base.FromDependencies(deps, fakeBaseName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeBaseName, "Base", "string"))
+	test.That(t, err, test.ShouldBeError, base.DependencyTypeError(fakeBaseName, "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = base.FromDependencies(deps, missingBaseName)
@@ -100,7 +100,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldEqual, width)
 
 	res, err = base.FromRobot(r, fakeBaseName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Base", "string"))
+	test.That(t, err, test.ShouldBeError, base.NewUnimplementedInterfaceError("string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = base.FromRobot(r, missingBaseName)
@@ -146,7 +146,7 @@ func TestStatusValid(t *testing.T) {
 
 func TestCreateStatus(t *testing.T) {
 	_, err := base.CreateStatus(context.Background(), "not a base")
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalBase", "string"))
+	test.That(t, err, test.ShouldBeError, base.NewUnimplementedLocalInterfaceError("string"))
 
 	t.Run("is moving", func(t *testing.T) {
 		status := &commonpb.ActuatorStatus{
@@ -188,7 +188,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = base.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Base", nil))
+	test.That(t, err, test.ShouldBeError, base.NewUnimplementedInterfaceError(nil))
 
 	reconfBase2, err := base.WrapWithReconfigurable(reconfBase1)
 	test.That(t, err, test.ShouldBeNil)

@@ -3,14 +3,15 @@ package vision
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"image"
 
 	"github.com/edaniels/golog"
+	"github.com/invopop/jsonschema"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/vision/v1"
@@ -40,6 +41,21 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 		logger: logger,
 	}
 	return c
+}
+
+func (c *client) GetModelParameterSchema(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetModelParameterSchema")
+	defer span.End()
+	resp, err := c.client.GetModelParameterSchema(ctx, &pb.GetModelParameterSchemaRequest{Name: c.name, ModelType: string(modelType)})
+	if err != nil {
+		return nil, err
+	}
+	outp := &jsonschema.Schema{}
+	err = json.Unmarshal(resp.ModelParameterSchema, outp)
+	if err != nil {
+		return nil, err
+	}
+	return outp, nil
 }
 
 func (c *client) GetDetectorNames(ctx context.Context) ([]string, error) {
@@ -241,36 +257,47 @@ func (c *client) GetSegmenterNames(ctx context.Context) ([]string, error) {
 	return resp.SegmenterNames, nil
 }
 
-func (c *client) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
-	resp, err := c.client.GetSegmenterParameters(ctx, &pb.GetSegmenterParametersRequest{
+func (c *client) AddSegmenter(ctx context.Context, cfg VisModelConfig) error {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::AddSegmenter")
+	defer span.End()
+	params, err := protoutils.StructToStructPb(cfg.Parameters)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.AddSegmenter(ctx, &pb.AddSegmenterRequest{
+		Name:                c.name,
+		SegmenterName:       cfg.Name,
+		SegmenterModelType:  cfg.Type,
+		SegmenterParameters: params,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *client) RemoveSegmenter(ctx context.Context, segmenterName string) error {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::RemoveSegmenter")
+	defer span.End()
+	_, err := c.client.RemoveSegmenter(ctx, &pb.RemoveSegmenterRequest{
 		Name:          c.name,
 		SegmenterName: segmenterName,
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	params := make([]utils.TypedName, len(resp.SegmenterParameters))
-	for i, p := range resp.SegmenterParameters {
-		params[i] = utils.TypedName{p.Name, p.Type}
-	}
-	return params, nil
+	return nil
 }
 
 func (c *client) GetObjectPointClouds(ctx context.Context,
 	cameraName string,
 	segmenterName string,
-	params config.AttributeMap,
 ) ([]*vision.Object, error) {
-	conf, err := protoutils.StructToStructPb(params)
-	if err != nil {
-		return nil, err
-	}
 	resp, err := c.client.GetObjectPointClouds(ctx, &pb.GetObjectPointCloudsRequest{
 		Name:          c.name,
 		CameraName:    cameraName,
 		SegmenterName: segmenterName,
 		MimeType:      utils.MimeTypePCD,
-		Parameters:    conf,
 	})
 	if err != nil {
 		return nil, err
