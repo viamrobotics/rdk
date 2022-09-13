@@ -17,7 +17,7 @@ require (
 	github.com/de-bkg/gognss v0.0.0-20220601150219-24ccfdcdbb5d
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
-	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
+	github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742
 	github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e
 	github.com/edaniels/gostream v0.0.0-20220909193600-edaf0134e353
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
