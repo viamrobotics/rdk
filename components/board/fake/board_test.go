@@ -12,7 +12,7 @@ import (
 )
 
 func TestFakeBoard(t *testing.T) {
-	boardConfig := board.Config{
+	boardConfig := Config{
 		I2Cs: []board.I2CConfig{
 			{Name: "main", Bus: "0"},
 		},
