@@ -28,8 +28,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/shell"
 	rdkutils "go.viam.com/rdk/utils"
 )
