@@ -773,6 +773,10 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Services config from proto")
 	}
 
+	if res.Config.Debug != nil {
+		cfg.Debug = *res.Config.Debug
+	}
+
 	return &cfg, false, nil
 }
 

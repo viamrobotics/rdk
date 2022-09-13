@@ -93,6 +93,11 @@ var (
 	_ = viamutils.ContextCloser(&reconfigurableGeneric{})
 )
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Generic)(nil), actual)
+}
+
 // FromRobot is a helper for getting the named Generic from the given Robot.
 func FromRobot(r robot.Robot, name string) (Generic, error) {
 	res, err := r.ResourceByName(Named(name))
@@ -101,7 +106,7 @@ func FromRobot(r robot.Robot, name string) (Generic, error) {
 	}
 	part, ok := res.(Generic)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Generic", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }
@@ -153,7 +158,7 @@ func (r *reconfigurableGeneric) Reconfigure(ctx context.Context, newGeneric reso
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	Generic, ok := r.(Generic)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Generic", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := Generic.(*reconfigurableGeneric); ok {
 		return reconfigurable, nil

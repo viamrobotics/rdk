@@ -387,7 +387,7 @@ func TestFromRobot(t *testing.T) {
 	}
 
 	svc, err = motion.FromRobot(r, testMotionServiceName2)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("motion.Service", "string"))
+	test.That(t, err, test.ShouldBeError, motion.NewUnimplementedInterfaceError("string"))
 	test.That(t, svc, test.ShouldBeNil)
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
@@ -412,7 +412,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = motion.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("motion.Service", nil))
+	test.That(t, err, test.ShouldBeError, motion.NewUnimplementedInterfaceError(nil))
 
 	reconfSvc2, err := motion.WrapWithReconfigurable(reconfSvc1)
 	test.That(t, err, test.ShouldBeNil)

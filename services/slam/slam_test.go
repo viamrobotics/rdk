@@ -139,9 +139,11 @@ func setupInjectRobot() *inject.Robot {
 			return cam, nil
 		case camera.Named("good_camera"):
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-				return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-					return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
-				})), nil
+				return gostream.NewEmbeddedVideoStreamFromReader(
+					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+						return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
+					}),
+				), nil
 			}
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
@@ -167,9 +169,11 @@ func setupInjectRobot() *inject.Robot {
 					return nil, err
 				}
 				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, img.Bounds().Dx(), img.Bounds().Dy())
-				return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-					return lazy, func() {}, nil
-				})), nil
+				return gostream.NewEmbeddedVideoStreamFromReader(
+					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+						return lazy, func() {}, nil
+					}),
+				), nil
 			}
 			return cam, nil
 		case camera.Named("good_depth_camera"):
@@ -189,9 +193,11 @@ func setupInjectRobot() *inject.Robot {
 					return nil, err
 				}
 				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, img.Bounds().Dx(), img.Bounds().Dy())
-				return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-					return lazy, func() {}, nil
-				})), nil
+				return gostream.NewEmbeddedVideoStreamFromReader(
+					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+						return lazy, func() {}, nil
+					}),
+				), nil
 			}
 			return cam, nil
 		case camera.Named("bad_camera"):
@@ -207,9 +213,11 @@ func setupInjectRobot() *inject.Robot {
 			return cam, nil
 		case camera.Named("bad_camera_intrinsics"):
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-				return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-					return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
-				})), nil
+				return gostream.NewEmbeddedVideoStreamFromReader(
+					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+						return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
+					}),
+				), nil
 			}
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
@@ -649,9 +657,11 @@ func TestORBSLAMDataProcess(t *testing.T) {
 	t.Run("ORBSLAM3 Data Process with camera in slam mode mono", func(t *testing.T) {
 		goodCam := &inject.Camera{}
 		goodCam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-			return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-				return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
-			})), nil
+			return gostream.NewEmbeddedVideoStreamFromReader(
+				gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+					return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
+				}),
+			), nil
 		}
 		cams := []camera.Camera{goodCam}
 		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(goodCam)}
@@ -907,7 +917,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = slam.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rdkutils.NewUnimplementedInterfaceError("slam.Service", nil))
+	test.That(t, err, test.ShouldBeError, slam.NewUnimplementedInterfaceError(nil))
 
 	reconfSvc2, err := slam.WrapWithReconfigurable(reconfSvc1)
 	test.That(t, err, test.ShouldBeNil)
