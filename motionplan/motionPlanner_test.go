@@ -129,6 +129,26 @@ func constrainedXArmMotion() (*planConfig, error) {
 	}, nil
 }
 
+func TestPlanningWithGripper(t *testing.T) {
+	fs := frame.NewEmptySimpleFrameSystem("")
+	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "ur")
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(ur5e, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+	bc, _ := spatial.NewBoxCreator(r3.Vector{200, 200, 200}, spatial.NewPoseFromPoint(r3.Vector{Z: 75}))
+	gripper, err := frame.NewStaticFrameWithGeometry("gripper", spatial.NewPoseFromPoint(r3.Vector{Z: 150}), bc)
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(gripper, ur5e)
+	test.That(t, err, test.ShouldBeNil)
+	fss := NewSolvableFrameSystem(fs, logger.Sugar())
+	zeroPos := frame.StartPositions(fss)
+
+	newPose := frame.NewPoseInFrame("gripper", spatial.NewPoseFromPoint(r3.Vector{100, 100, 0}))
+	solutionMap, err := fss.SolvePose(context.Background(), zeroPos, newPose, gripper.Name())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(solutionMap), test.ShouldBeGreaterThanOrEqualTo, 2)
+}
+
 // simple2DMapConfig returns a planConfig with the following map
 //		- start at (-9, 9) and end at (9, 9)
 //      - bounds are from (-10, -10) to (10, 10)
