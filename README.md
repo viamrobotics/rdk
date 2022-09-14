@@ -87,13 +87,6 @@ Some guidelines on using these:
 1. Follow the [Protobuf style guide](https://docs.buf.build/style-guide/).
 1. After making changes to a `.proto` file, make sure to run `make buf` to generate new files. Make sure `protoc-gen-go-grpc` and `protoc-gen-go`, usually located in `~/go/bin`, are in your `$PATH`.
 
-#### gRPC Language Samples
-
-* [Go](./grpc) - See `client` and `server`.
-* [Python](./grpc/python)
-* [Java](./grpc/java)
-* [C++](./grpc/cpp)
-
 ### Frontend
 
 To start the client development environment, first run the same `go run` command mentioned in getting started, but with the environmental variable `ENV=development` (like: `ENV=development go run web/cmd/server/main.go -config etc/configs/fake.json`). Then navigate to `web/frontend` and run `npm start` in a new terminal tab.
@@ -121,4 +114,6 @@ General workflow:
 3. `artifact pull` to download all the files that are in the `tree.json` file
 
 ## License
+Copyright 2021-2022 Viam Inc.
+
 AGPLv3 - See [LICENSE](https://github.com/viamrobotics/rdk/blob/main/LICENSE) file
