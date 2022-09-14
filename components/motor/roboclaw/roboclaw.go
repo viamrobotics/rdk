@@ -9,6 +9,7 @@ import (
 
 	"github.com/CPRT/roboclaw"
 	"github.com/edaniels/golog"
+	vuitls "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
@@ -20,16 +21,33 @@ import (
 
 const modelname = "roboclaw"
 
-type roboclawConfig struct {
+// AttrConfig is used for converting motor config attributes.
+type AttrConfig struct {
 	SerialPort       string `json:"serial_port"`
-	Baud             int
-	Number           int // this is 1 or 2
-	Address          int `json:"address,omitempty"`
-	TicksPerRotation int `json:"ticks_per_rotation"`
+	Baud             int    `json:"baud_rate"`
+	Number           int    `json:"number_of_motors"` // this is 1 or 2
+	Address          int    `json:"address,omitempty"`
+	TicksPerRotation int    `json:"ticks_per_rotation,omitempty"`
 }
 
-func (mc *roboclawConfig) wrongNumberError() error {
-	return fmt.Errorf("roboclawConfig Number has to be 1 or 2, but is %d", mc.Number)
+// Validate ensures all parts of the config are valid.
+func (config *AttrConfig) Validate(path string) error {
+	if config.Number < 1 || config.Number > 2 {
+		return config.wrongNumberError()
+	}
+	if config.SerialPort == "" {
+		return vuitls.NewConfigValidationFieldRequiredError(path, "serial_port")
+	}
+
+	if config.Baud <= 0 {
+		return vuitls.NewConfigValidationFieldRequiredError(path, "baud")
+	}
+
+	return nil
+}
+
+func (config *AttrConfig) wrongNumberError() error {
+	return fmt.Errorf("roboclawConfig Number has to be 1 or 2, but is %d", config.Number)
 }
 
 func init() {
@@ -47,14 +65,14 @@ func init() {
 		motor.SubtypeName,
 		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf roboclawConfig
+			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&roboclawConfig{},
+		&AttrConfig{},
 	)
 }
 
-func getOrCreateConnection(deps registry.Dependencies, config *roboclawConfig) (*roboclaw.Roboclaw, error) {
+func getOrCreateConnection(deps registry.Dependencies, config *AttrConfig) (*roboclaw.Roboclaw, error) {
 	for _, res := range deps {
 		m, ok := utils.UnwrapProxy(res).(*roboclawMotor)
 		if !ok {
@@ -77,7 +95,7 @@ func getOrCreateConnection(deps registry.Dependencies, config *roboclawConfig) (
 }
 
 func newRoboClaw(deps registry.Dependencies, config config.Component, logger golog.Logger) (motor.Motor, error) {
-	motorConfig, ok := config.ConvertedAttributes.(*roboclawConfig)
+	motorConfig, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, utils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
 	}
@@ -106,7 +124,7 @@ var _ = motor.LocalMotor(&roboclawMotor{})
 
 type roboclawMotor struct {
 	conn *roboclaw.Roboclaw
-	conf *roboclawConfig
+	conf *AttrConfig
 
 	addr uint8
 
