@@ -89,7 +89,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, res.Close(context.Background()), test.ShouldBeNil)
 
 	res, err = camera.FromDependencies(deps, fakeCameraName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeCameraName, "Camera", "string"))
+	test.That(t, err, test.ShouldBeError, camera.DependencyTypeError(fakeCameraName, "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = camera.FromDependencies(deps, missingCameraName)
@@ -112,7 +112,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, res.Close(context.Background()), test.ShouldBeNil)
 
 	res, err = camera.FromRobot(r, fakeCameraName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Camera", "string"))
+	test.That(t, err, test.ShouldBeError, camera.NewUnimplementedInterfaceError("string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = camera.FromRobot(r, missingCameraName)
@@ -169,7 +169,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = camera.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Camera", nil))
+	test.That(t, err, test.ShouldBeError, camera.NewUnimplementedInterfaceError(nil))
 
 	reconfCamera2, err := camera.WrapWithReconfigurable(reconfCamera1)
 	test.That(t, err, test.ShouldBeNil)

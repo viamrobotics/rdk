@@ -26,20 +26,15 @@ var interp = referenceframe.FloatsToInputs([]float64{
 // This should test a simple linear motion.
 func TestSimpleLinearMotion(t *testing.T) {
 	nSolutions := 5
-	inputSteps := []*configuration{}
+	inputSteps := []*node{}
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
+	mp, err := NewCBiRRTMotionPlannerWithSeed(m, 1, rand.New(rand.NewSource(42)), logger)
 	test.That(t, err, test.ShouldBeNil)
-	nlopt, err := CreateNloptIKSolver(m, logger, 1)
-	test.That(t, err, test.ShouldBeNil)
-	// nlopt should try only once
-	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: m, logger: logger}
-
-	mp.randseed = rand.New(rand.NewSource(42))
+	cbirrt, _ := mp.(*cBiRRTMotionPlanner)
 
 	opt := NewBasicPlannerOptions()
 
@@ -49,24 +44,24 @@ func TestSimpleLinearMotion(t *testing.T) {
 		Z:  120.5,
 		OY: -1,
 	}
-	corners := map[*configuration]bool{}
+	corners := map[*node]bool{}
 
-	solutions, err := getSolutions(ctx, opt, mp.solver, pos, home7, mp.Frame())
+	solutions, err := getSolutions(ctx, opt, cbirrt.solver, pos, home7, mp.Frame())
 	test.That(t, err, test.ShouldBeNil)
 
-	near1 := &configuration{home7}
-	seedMap := make(map[*configuration]*configuration)
+	near1 := &node{q: home7}
+	seedMap := make(map[*node]*node)
 	seedMap[near1] = nil
-	target := &configuration{interp}
+	target := interp
 
-	goalMap := make(map[*configuration]*configuration)
+	goalMap := make(map[*node]*node)
 
 	if len(solutions) < nSolutions {
 		nSolutions = len(solutions)
 	}
 
 	for _, solution := range solutions[:nSolutions] {
-		goalMap[&configuration{solution}] = nil
+		goalMap[solution] = nil
 	}
 	nn := &neighborManager{nCPU: nCPU}
 
@@ -74,13 +69,13 @@ func TestSimpleLinearMotion(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
-	seedReached := mp.constrainedExtend(ctx, cOpt, seedMap, near1, target)
+	seedReached := cbirrt.constrainedExtend(ctx, cOpt, seedMap, near1, &node{q: target})
 	// Find the nearest point in goalMap to the furthest point reached in seedMap
-	near2 := nn.nearestNeighbor(ctx, seedReached, goalMap)
+	near2 := nn.nearestNeighbor(ctx, opt, seedReached.q, goalMap)
 	// extend goalMap towards the point in seedMap
-	goalReached := mp.constrainedExtend(ctx, cOpt, goalMap, near2, seedReached)
-
-	test.That(t, inputDist(seedReached.inputs, goalReached.inputs) < cOpt.JointSolveDist, test.ShouldBeTrue)
+	goalReached := cbirrt.constrainedExtend(ctx, cOpt, goalMap, near2, seedReached)
+	_, dist := opt.DistanceFunc(&ConstraintInput{StartInput: seedReached.q, EndInput: goalReached.q})
+	test.That(t, dist < cOpt.JointSolveDist, test.ShouldBeTrue)
 
 	corners[seedReached] = true
 	corners[goalReached] = true
@@ -102,6 +97,6 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 	// Test that smoothing succeeds and does not lengthen the path (it may be the same length)
 	unsmoothLen := len(inputSteps)
-	finalSteps := mp.SmoothPath(ctx, cOpt, inputSteps, corners)
+	finalSteps := cbirrt.SmoothPath(ctx, cOpt, inputSteps, corners)
 	test.That(t, len(finalSteps), test.ShouldBeLessThanOrEqualTo, unsmoothLen)
 }
