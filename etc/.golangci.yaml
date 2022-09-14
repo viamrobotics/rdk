@@ -79,7 +79,7 @@ issues:
   exclude:
     - composites
   exclude-rules:
-    - path: _test\.go$|^tests/|^samples/
+    - path: _test\.go$|^tests/|^examples/
       linters:
         - errcheck
         - exhaustive

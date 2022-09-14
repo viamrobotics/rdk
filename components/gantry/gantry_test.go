@@ -80,7 +80,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, lengths1, test.ShouldResemble, lengths)
 
 	res, err = gantry.FromDependencies(deps, fakeGantryName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeGantryName, "Gantry", "string"))
+	test.That(t, err, test.ShouldBeError, gantry.DependencyTypeError(fakeGantryName, "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = gantry.FromDependencies(deps, missingGantryName)
@@ -100,7 +100,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, lengths1, test.ShouldResemble, lengths)
 
 	res, err = gantry.FromRobot(r, fakeGantryName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gantry", "string"))
+	test.That(t, err, test.ShouldBeError, gantry.NewUnimplementedInterfaceError("string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = gantry.FromRobot(r, missingGantryName)
@@ -144,7 +144,7 @@ func TestStatusValid(t *testing.T) {
 
 func TestCreateStatus(t *testing.T) {
 	_, err := gantry.CreateStatus(context.Background(), "not a gantry")
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalGantry", "string"))
+	test.That(t, err, test.ShouldBeError, gantry.NewUnimplementedLocalInterfaceError("string"))
 
 	status := &pb.Status{
 		PositionsMm: []float64{1.1, 2.2, 3.3},
@@ -250,7 +250,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = gantry.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gantry", nil))
+	test.That(t, err, test.ShouldBeError, gantry.NewUnimplementedInterfaceError(nil))
 
 	reconfGantry2, err := gantry.WrapWithReconfigurable(reconfGantry1)
 	test.That(t, err, test.ShouldBeNil)
