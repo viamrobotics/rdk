@@ -7,6 +7,8 @@ import (
 	"image"
 
 	"github.com/edaniels/golog"
+	"github.com/invopop/jsonschema"
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/components/camera"
@@ -19,7 +21,6 @@ import (
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	objdet "go.viam.com/rdk/vision/objectdetection"
-	"go.viam.com/rdk/vision/segmentation"
 )
 
 func init() {
@@ -43,22 +44,13 @@ const RadiusClusteringSegmenter = "radius_clustering"
 // NewBuiltIn registers new detectors from the config and returns a new object detection service for the given robot.
 func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (vision.Service, error) {
 	modMap := make(vision.ModelMap)
-	// register default segmenters
-	defSeg := vision.RegisteredModel{
-		Model:     segmentation.Segmenter(segmentation.RadiusClustering),
-		ModelType: vision.RCSegmenter, SegParams: utils.JSONTags(segmentation.RadiusClusteringConfig{}),
-	}
-	err := modMap.RegisterVisModel(RadiusClusteringSegmenter, &defSeg, logger)
-	if err != nil {
-		return nil, err
-	}
 	// register detectors and user defined things if config is defined
 	if config.ConvertedAttributes != nil {
 		attrs, ok := config.ConvertedAttributes.(*vision.Attributes)
 		if !ok {
 			return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 		}
-		err = vision.RegisterNewVisModels(ctx, modMap, attrs, logger)
+		err := vision.RegisterNewVisModels(ctx, modMap, attrs, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -68,13 +60,6 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 		modReg: modMap,
 		logger: logger,
 	}
-	// turn detectors into segmenters
-	for _, detName := range service.modReg.DetectorNames() {
-		err := service.registerSegmenterFromDetector(detName, logger)
-		if err != nil {
-			return nil, err
-		}
-	}
 	return service, nil
 }
 
@@ -82,6 +67,17 @@ type builtIn struct {
 	r      robot.Robot
 	modReg vision.ModelMap
 	logger golog.Logger
+}
+
+// GetModelParameterSchema takes the model name and returns the parameters needed to add one to the vision registry.
+func (vs *builtIn) GetModelParameterSchema(ctx context.Context, modelType vision.VisModelType) (*jsonschema.Schema, error) {
+	if modelSchema, ok := vision.RegisteredModelParameterSchemas[modelType]; ok {
+		if modelSchema == nil {
+			return nil, errors.Errorf("do not have a schema for model type %q", modelType)
+		}
+		return modelSchema, nil
+	}
+	return nil, errors.Errorf("do not have a schema for model type %q", modelType)
 }
 
 // Detection Methods
@@ -101,8 +97,13 @@ func (vs *builtIn) AddDetector(ctx context.Context, cfg vision.VisModelConfig) e
 	if err != nil {
 		return err
 	}
-	// also create a new segmenter from the detector
-	return vs.registerSegmenterFromDetector(cfg.Name, vs.logger)
+	// automatically add a segmenter version of detector
+	segmenterConf := vision.VisModelConfig{
+		Name:       cfg.Name + "_segmenter",
+		Type:       string(vision.DetectorSegmenter),
+		Parameters: config.AttributeMap{"detector_name": cfg.Name, "mean_k": 0, "sigma": 0.0},
+	}
+	return vs.AddSegmenter(ctx, segmenterConf)
 }
 
 // RemoveDetector removes a detector from the registry.
@@ -113,7 +114,8 @@ func (vs *builtIn) RemoveDetector(ctx context.Context, detectorName string) erro
 	if err != nil {
 		return err
 	}
-	return nil
+	// remove the associated segmenter as well (if there is one)
+	return vs.RemoveSegmenter(ctx, detectorName+"_segmenter")
 }
 
 // GetDetectionsFromCamera returns the detections of the next image from the given camera and the given detector.
@@ -249,22 +251,26 @@ func (vs *builtIn) GetSegmenterNames(ctx context.Context) ([]string, error) {
 	return vs.modReg.SegmenterNames(), nil
 }
 
-// GetSegmenterParameters returns a list of parameter name and type for the necessary parameters of the chosen segmenter.
-func (vs *builtIn) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
-	_, span := trace.StartSpan(ctx, "service::vision::GetSegmenterParameters")
+// AddSegmenter adds a new segmenter from an Attribute config struct.
+func (vs *builtIn) AddSegmenter(ctx context.Context, cfg vision.VisModelConfig) error {
+	ctx, span := trace.StartSpan(ctx, "service::vision::AddSegmenter")
 	defer span.End()
-	s, err := vs.modReg.ModelLookup(segmenterName)
-	if err != nil {
-		return nil, err
-	}
-	return s.SegParams, nil
+	attrs := &vision.Attributes{ModelRegistry: []vision.VisModelConfig{cfg}}
+	return vision.RegisterNewVisModels(ctx, vs.modReg, attrs, vs.logger)
+}
+
+// RemoveSegmenter removes a segmenter from the registry.
+func (vs *builtIn) RemoveSegmenter(ctx context.Context, segmenterName string) error {
+	_, span := trace.StartSpan(ctx, "service::vision::RemoveSegmenter")
+	defer span.End()
+	return vs.modReg.RemoveVisModel(segmenterName, vs.logger)
 }
 
 // GetObjectPointClouds returns all the found objects in a 3D image according to the chosen segmenter.
 func (vs *builtIn) GetObjectPointClouds(
 	ctx context.Context,
-	cameraName, segmenterName string,
-	params config.AttributeMap,
+	cameraName string,
+	segmenterName string,
 ) ([]*viz.Object, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::GetObjectPointClouds")
 	defer span.End()
@@ -280,26 +286,7 @@ func (vs *builtIn) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	return segmenter(ctx, cam, params)
-}
-
-// Helpers
-// registerSegmenterFromDetector creates and registers a segmenter from an already registered detector.
-func (vs *builtIn) registerSegmenterFromDetector(detName string, logger golog.Logger) error {
-	d, err := vs.modReg.ModelLookup(detName)
-	if err != nil {
-		return err
-	}
-	det, err := d.ToDetector()
-	if err != nil {
-		return err
-	}
-	detSegmenter, params, err := segmentation.DetectionSegmenter(det)
-	if err != nil {
-		return err
-	}
-	regSegmenter := vision.RegisteredModel{Model: detSegmenter, ModelType: vision.ObjectSegmenter, SegParams: params}
-	return vs.modReg.RegisterVisModel(detName+"_segmenter", &regSegmenter, logger)
+	return segmenter(ctx, cam)
 }
 
 // Close removes all existing detectors from the vision service.

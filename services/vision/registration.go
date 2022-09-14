@@ -84,7 +84,7 @@ func registerRCSegmenter(ctx context.Context, mm ModelMap, conf *VisModelConfig,
 	return mm.RegisterVisModel(conf.Name, &regModel, logger)
 }
 
-func registerSegmenterFromDetector(ctx context.Context, mm modelMap, conf *VisModelConfig, logger golog.Logger) error {
+func registerSegmenterFromDetector(ctx context.Context, mm ModelMap, conf *VisModelConfig, logger golog.Logger) error {
 	_, span := trace.StartSpan(ctx, "service::vision::registerSegmenterFromDetector")
 	defer span.End()
 	if conf == nil {
@@ -96,11 +96,11 @@ func registerSegmenterFromDetector(ctx context.Context, mm modelMap, conf *VisMo
 		return err
 	}
 	// check if detector name is in registry
-	d, err := mm.modelLookup(cfg.DetectorName)
+	d, err := mm.ModelLookup(cfg.DetectorName)
 	if err != nil {
 		return err
 	}
-	detector, err := d.toDetector()
+	detector, err := d.ToDetector()
 	if err != nil {
 		return err
 	}
@@ -109,6 +109,6 @@ func registerSegmenterFromDetector(ctx context.Context, mm modelMap, conf *VisMo
 	if err != nil {
 		return err
 	}
-	regModel := registeredModel{model: segmenter, modelType: DetectorSegmenter, closer: nil}
-	return mm.registerVisModel(conf.Name, &regModel, logger)
+	regModel := RegisteredModel{Model: segmenter, ModelType: DetectorSegmenter, Closer: nil}
+	return mm.RegisterVisModel(conf.Name, &regModel, logger)
 }

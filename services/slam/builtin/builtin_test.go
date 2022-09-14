@@ -134,9 +134,11 @@ func setupInjectRobot() *inject.Robot {
 			return cam, nil
 		case camera.Named("good_camera"):
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-				return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-					return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
-				})), nil
+				return gostream.NewEmbeddedVideoStreamFromReader(
+					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+						return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
+					}),
+				), nil
 			}
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
@@ -162,9 +164,11 @@ func setupInjectRobot() *inject.Robot {
 					return nil, err
 				}
 				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, img.Bounds().Dx(), img.Bounds().Dy())
-				return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-					return lazy, func() {}, nil
-				})), nil
+				return gostream.NewEmbeddedVideoStreamFromReader(
+					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+						return lazy, func() {}, nil
+					}),
+				), nil
 			}
 			return cam, nil
 		case camera.Named("good_depth_camera"):
@@ -184,9 +188,11 @@ func setupInjectRobot() *inject.Robot {
 					return nil, err
 				}
 				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, img.Bounds().Dx(), img.Bounds().Dy())
-				return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-					return lazy, func() {}, nil
-				})), nil
+				return gostream.NewEmbeddedVideoStreamFromReader(
+					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+						return lazy, func() {}, nil
+					}),
+				), nil
 			}
 			return cam, nil
 		case camera.Named("bad_camera"):
@@ -202,9 +208,11 @@ func setupInjectRobot() *inject.Robot {
 			return cam, nil
 		case camera.Named("bad_camera_intrinsics"):
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-				return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-					return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
-				})), nil
+				return gostream.NewEmbeddedVideoStreamFromReader(
+					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+						return image.NewNRGBA(image.Rect(0, 0, 1024, 1024)), nil, nil
+					}),
+				), nil
 			}
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
