@@ -14,10 +14,10 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	pb "go.viam.com/rdk/examples/mycomponent/proto/api/component/mycomponent/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
-	pb "go.viam.com/rdk/samples/mycomponent/proto/api/component/mycomponent/v1"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
