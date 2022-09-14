@@ -13,9 +13,9 @@ import (
 )
 
 func TestModelLoading(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/wx250s_kinematics.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, m.Name(), test.ShouldEqual, "wx250s")
+	test.That(t, m.Name(), test.ShouldEqual, "trossen-wx250s")
 	simpleM, ok := m.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
 
@@ -34,13 +34,13 @@ func TestModelLoading(t *testing.T) {
 	randpos := GenerateRandomConfiguration(m, rand.New(rand.NewSource(1)))
 	test.That(t, IsConfigurationValid(simpleM, randpos), test.ShouldBeTrue)
 
-	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/wx250s_kinematics.json"), "foo")
+	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_kinematics.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "foo")
 }
 
 func TestTransform(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/wx250s_kinematics.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	simpleM, ok := m.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -66,6 +66,22 @@ func TestTransform(t *testing.T) {
 	test.That(t, firstJov.OX, test.ShouldAlmostEqual, firstJovExpect.OX)
 	test.That(t, firstJov.OY, test.ShouldAlmostEqual, firstJovExpect.OY)
 	test.That(t, firstJov.OZ, test.ShouldAlmostEqual, firstJovExpect.OZ)
+}
+
+func TestIncorrectInputs(t *testing.T) {
+	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_kinematics.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	dof := len(m.DoF())
+
+	// test incorrect number of inputs
+	pose, err := m.Transform(make([]Input, dof+1))
+	test.That(t, pose, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, NewIncorrectInputLengthError(dof+1, dof).Error())
+
+	// test incorrect number of inputs to Geometries
+	gf, err := m.Geometries(make([]Input, dof-1))
+	test.That(t, gf, test.ShouldBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, NewIncorrectInputLengthError(dof-1, dof).Error())
 }
 
 func TestModelGeometries(t *testing.T) {

@@ -24,7 +24,7 @@ import (
 
 // Config is user config inputs for ezopmp.
 type Config struct {
-	motor.Config
+	BoardName   string `json:"board"`
 	BusName     string `json:"bus_name"`
 	I2CAddress  byte   `json:"i2c_address"`
 	MaxReadBits int    `json:"max_read_bits"`

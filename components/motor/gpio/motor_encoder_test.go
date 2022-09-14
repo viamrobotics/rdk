@@ -37,7 +37,7 @@ func TestMotorEncoder1(t *testing.T) {
 	undo := SetRPMSleepDebug(1, false)
 	defer undo()
 
-	cfg := motor.Config{TicksPerRotation: 100, MaxRPM: 100}
+	cfg := Config{TicksPerRotation: 100, MaxRPM: 100}
 	fakeMotor := &fakemotor.Motor{
 		MaxRPM:           100,
 		Logger:           logger,
@@ -257,7 +257,7 @@ func TestMotorEncoderHall(t *testing.T) {
 	}
 	setup := func(t *testing.T) testHarness {
 		t.Helper()
-		cfg := motor.Config{TicksPerRotation: 100, MaxRPM: 100}
+		cfg := Config{TicksPerRotation: 100, MaxRPM: 100}
 		fakeMotor := &fakemotor.Motor{
 			MaxRPM:           100,
 			Logger:           logger,
@@ -541,7 +541,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		m, err := WrapMotorWithEncoder(
 			context.Background(),
 			nil,
-			config.Component{Name: "motor1"}, motor.Config{},
+			config.Component{Name: "motor1"}, Config{},
 			fakeMotor,
 			logger,
 		)
@@ -562,7 +562,11 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		m, err := WrapMotorWithEncoder(
 			context.Background(),
 			e,
-			config.Component{Name: "motor1"}, motor.Config{TicksPerRotation: 100},
+			config.Component{Name: "motor1"},
+			Config{
+				TicksPerRotation: 100,
+				MaxRPM:           60,
+			},
 			fakeMotor,
 			logger,
 		)
@@ -584,7 +588,11 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		m, err := WrapMotorWithEncoder(
 			context.Background(),
 			e,
-			config.Component{Name: "motor1"}, motor.Config{TicksPerRotation: 100},
+			config.Component{Name: "motor1"},
+			Config{
+				TicksPerRotation: 100,
+				MaxRPM:           60,
+			},
 			fakeMotor,
 			logger,
 		)
