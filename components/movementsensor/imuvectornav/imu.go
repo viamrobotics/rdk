@@ -30,6 +30,7 @@ type AttrConfig struct {
 	SPI   string `json:"spi"`
 	Speed *int   `json:"speed"`
 	Pfreq *int   `json:"polling_freq"`
+	CSPin string `json:"cs_pin"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -48,6 +49,10 @@ func (cfg *AttrConfig) Validate(path string) error {
 
 	if cfg.Pfreq == nil {
 		return rdkutils.NewConfigValidationFieldRequiredError(path, "polling_freq")
+	}
+
+	if cfg.CSPin == "" {
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "cs_pin (chip select pin)")
 	}
 
 	return nil
@@ -125,12 +130,14 @@ func NewVectorNav(
 	cfg config.Component,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	boardName := cfg.ConvertedAttributes.(*AttrConfig).Board
+	conf, ok := cfg.ConvertedAttributes.(*AttrConfig)
+
+	boardName := conf.Board
 	b, err := board.FromDependencies(deps, boardName)
 	if err != nil {
 		return nil, errors.Wrap(err, "vectornav init failed")
 	}
-	spiName := cfg.ConvertedAttributes.(*AttrConfig).SPI
+	spiName := conf.SPI
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
 		return nil, errors.Errorf("vectornav: board %q is not local", boardName)
@@ -139,17 +146,14 @@ func NewVectorNav(
 	if !ok {
 		return nil, errors.Errorf("vectornav: couldn't get spi bus %q", spiName)
 	}
-	cs := cfg.Attributes.String("cs_pin")
-	if cs == "" {
-		return nil, errors.New("vectornav: need chip select pin")
-	}
+	cs := conf.CSPin
 
-	speed := *cfg.ConvertedAttributes.(*AttrConfig).Speed
+	speed := *conf.Speed
 	if speed == 0 {
 		speed = 8000000
 	}
 
-	pfreq := *cfg.ConvertedAttributes.(*AttrConfig).Pfreq
+	pfreq := *conf.Pfreq
 	v := &vectornav{
 		bus:       spiBus,
 		logger:    logger,

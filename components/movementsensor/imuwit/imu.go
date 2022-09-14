@@ -4,7 +4,6 @@ package imuwit
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -138,9 +137,6 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 	}
 
 	options.PortName = cfg.ConvertedAttributes.(*AttrConfig).Port
-	if options.PortName == "" {
-		return nil, errors.New("wit imu needs a port")
-	}
 
 	port, err := slib.Open(options)
 	if err != nil {
