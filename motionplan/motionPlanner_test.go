@@ -131,7 +131,7 @@ func constrainedXArmMotion() (*planConfig, error) {
 
 func TestPlanningWithGripper(t *testing.T) {
 	fs := frame.NewEmptySimpleFrameSystem("")
-	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "ur")
+	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "ur")
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(ur5e, fs.World())
 	test.That(t, err, test.ShouldBeNil)

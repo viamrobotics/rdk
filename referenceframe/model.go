@@ -218,7 +218,7 @@ func (m *SimpleModel) AlmostEquals(otherFrame Frame) bool {
 // cartesian position of each of the links up to and including the end effector. This is useful for when conversions
 // between quaternions and OV are not needed.
 func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*staticFrame, error) {
-	if len(m.limits) != len(inputs) {
+	if len(m.DoF()) != len(inputs) {
 		return nil, NewIncorrectInputLengthError(len(inputs), len(m.limits))
 	}
 	var err error
