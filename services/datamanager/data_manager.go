@@ -150,9 +150,10 @@ type dataManagerService struct {
 	syncIntervalMins    float64
 	syncer              datasync.Manager
 	syncerConstructor   datasync.ManagerConstructor
-
-	sessionID string
+	sessionID           string
 }
+
+var updateSessionID = false
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
@@ -255,6 +256,10 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 	return time.Duration(float32(time.Second) / captureFrequencyHz)
 }
 
+func (svc *dataManagerService) getSessionID() *string {
+	return &svc.sessionID
+}
+
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
 func (svc *dataManagerService) initializeOrUpdateCollector(
@@ -295,6 +300,12 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 
 		// Otherwise, close the current collector and instantiate a new one below.
 		collector.Close()
+	}
+
+	// If sessionId has not already been updated in looping through collectors
+	if !updateSessionID {
+		svc.sessionID = uuid.NewString()
+		updateSessionID = true
 	}
 
 	// Get the resource corresponding to the component subtype and name.
@@ -497,6 +508,8 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 
 	toggledCaptureOff := (svc.captureDisabled != svcConfig.CaptureDisabled) && svcConfig.CaptureDisabled
 	svc.captureDisabled = svcConfig.CaptureDisabled
+	updateSessionID = false
+
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if toggledCaptureOff {
 		svc.closeCollectors()
@@ -539,9 +552,6 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 			return err
 		}
 	}
-
-	// Update session ID since capture configuration has changed
-	svc.sessionID = uuid.NewString()
 
 	// Initialize or add a collector based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)

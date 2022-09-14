@@ -18,4 +18,5 @@ type DMService interface {
 	Close(ctx context.Context) error
 	SetSyncerConstructor(fn datasync.ManagerConstructor)
 	SetWaitAfterLastModifiedSecs(s int)
+	GetSessionID() string
 }

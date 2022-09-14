@@ -303,6 +303,9 @@ func TestRecoversAfterKilled(t *testing.T) {
 	err = dmsvc.Update(context.TODO(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 
+	// Save session ID
+	sessionID0 := dmsvc.GetSessionID()
+
 	// We set sync_interval_mins to be about 250ms in the config, so wait 150ms so data is captured but not synced.
 	time.Sleep(time.Millisecond * 150)
 
@@ -320,11 +323,17 @@ func TestRecoversAfterKilled(t *testing.T) {
 	err = dmsvc.Update(context.TODO(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 
+	// Save session ID
+	sessionID1 := dmsvc.GetSessionID()
+
 	// Validate that the previously captured file was uploaded at startup.
 	time.Sleep(syncWaitTime)
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 1+numArbitraryFilesToSync)
+
+	// Verify that session IDs in metadata are different
+	test.That(t, sessionID0, test.ShouldNotEqual, sessionID1)
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
@@ -619,8 +628,6 @@ func TestReconfigurable(t *testing.T) {
 	test.That(t, reconfSvc1, test.ShouldResemble, reconfSvc2)
 	test.That(t, actualSvc1.reconfCount, test.ShouldEqual, 1)
 
-	// Verify that session IDs should be different after reconfiguration
-
 	err = reconfSvc1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeError, rutils.NewUnexpectedTypeError(reconfSvc1, nil))
@@ -683,6 +690,51 @@ func TestSyncDisabled(t *testing.T) {
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 3)
+}
+
+func TestSessionIDAfterUpdate(t *testing.T) {
+	rpcServer, _ := buildAndStartLocalServer(t)
+	defer func() {
+		err := rpcServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	testCfg := setupConfig(t, configPath)
+	dmCfg, err := getDataManagerConfig(testCfg)
+	test.That(t, err, test.ShouldBeNil)
+	dmCfg.SyncIntervalMins = syncIntervalMins
+
+	// Make the captureDir where we're logging data for our arm.
+	captureDir := "/tmp/capture"
+	armDir := captureDir + "/arm/arm1/"
+	defer resetFolder(t, armDir)
+
+	// Initialize the data manager and update it with our config.
+	dmsvc := newTestDataManager(t, "arm1", "")
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Verify SessionID is the same after reconfiguration of something in the config,
+	// but the data manager service config is the same
+	sessionID0 := dmsvc.GetSessionID()
+	dmCfg.SyncIntervalMins *= 2
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+	sessionID1 := dmsvc.GetSessionID()
+	test.That(t, sessionID0, test.ShouldEqual, sessionID1)
+
+	// Checks the session is different after data manager service configuration has changed
+	// Get and change capture frequency
+	mp := testCfg.Components[0].ServiceConfig[0].Attributes["capture_methods"].([]interface{})[0]
+	mp.(map[string]interface{})["capture_frequency_hz"] = 200
+	err = dmsvc.Update(context.TODO(), testCfg)
+	test.That(t, err, test.ShouldBeNil)
+	sessionID2 := dmsvc.GetSessionID()
+	test.That(t, sessionID1, test.ShouldNotEqual, sessionID2)
+
+	err = dmsvc.Close(context.TODO())
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestGetDurationFromHz(t *testing.T) {

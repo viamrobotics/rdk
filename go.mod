@@ -70,7 +70,7 @@ require (
 	go.uber.org/atomic v1.9.0
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.22.0
-	go.viam.com/api v0.0.0-20220831182546-9196a7bf1ae5
+	go.viam.com/api v0.0.0-20220913140814-ab64ccb022d8
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.0
 	go.viam.com/utils v0.0.5
@@ -365,5 +365,3 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 )
-
-replace go.viam.com/api => /Users/tahiyasalam/viam/api
