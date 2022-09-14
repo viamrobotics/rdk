@@ -3,8 +3,9 @@ package picommon
 import (
 	"testing"
 
-	"go.viam.com/rdk/components/board"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/components/board"
 )
 
 func TestConfigValidate(t *testing.T) {
