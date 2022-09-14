@@ -179,7 +179,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 		// calculate the solution and log status of planner
 		if i%defaultSolutionCalculationPeriod == 0 {
 			solution := shortestPath(startMap, goalMap, shared)
-			solutionCost = EvaluatePlan(solution.toInputs(), planOpts)
+			solutionCost = EvaluatePlan(solution, planOpts)
 			mp.logger.Debugf("RRT* progress: %d%%\tpath cost: %.3f", 100*i/algOpts.PlanIter, solutionCost)
 
 			// check if an early exit is possible
