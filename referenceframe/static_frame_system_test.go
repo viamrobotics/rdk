@@ -1,7 +1,6 @@
 package referenceframe
 
 import (
-	"errors"
 	"math"
 	"testing"
 
@@ -58,23 +57,20 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 	frames = fs.FrameNames()
 	test.That(t, len(frames), test.ShouldEqual, 1)
 
-	e2 := errors.New("parent frame with name \"foo\" not in frame system")
-	e3 := errors.New("frame with name \"frame2\" already in frame system")
-	e4 := errors.New("frame with name \"frame1\" not in frame system")
-	if sfs, ok := fs.(*simpleFrameSystem); ok {
-		err = sfs.AddFrame(f2, nil)
-		test.That(t, err, test.ShouldBeError, NewParentFrameMissingError())
+	err = fs.AddFrame(f2, nil)
+	test.That(t, err, test.ShouldBeError, NewParentFrameMissingError())
 
-		fFoo := NewZeroStaticFrame("foo")
-		err = sfs.checkName("bar", fFoo)
-		test.That(t, err, test.ShouldBeError, e2)
+	err = fs.AddFrame(NewZeroStaticFrame("bar"), NewZeroStaticFrame("foo"))
+	test.That(t, err, test.ShouldBeError, NewFrameMissingError("foo"))
 
-		err = sfs.checkName("frame2", fs.World())
-		test.That(t, err, test.ShouldBeError, e3)
-	}
+	err = fs.AddFrame(NewZeroStaticFrame("bar"), nil)
+	test.That(t, err, test.ShouldBeError, NewParentFrameMissingError())
+
+	err = fs.AddFrame(NewZeroStaticFrame("frame2"), fs.World())
+	test.That(t, err, test.ShouldBeError, NewFrameAlreadyExistsError("frame2"))
 
 	_, err = fs.TracebackFrame(f1)
-	test.That(t, err, test.ShouldBeError, e4)
+	test.That(t, err, test.ShouldBeError, NewFrameMissingError("frame1"))
 }
 
 // A simple Frame translation from the world frame to a frame right above it at (0, 3, 0)
@@ -367,9 +363,7 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Put frame3 back where it was
-	err = fs.AddFrame(frame3, fs.World())
-	test.That(t, err, test.ShouldBeNil)
-	err = fs.MergeFrameSystem(fs2, frame3)
+	err = fs.MergeFrameSystem(fs2, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
 	// Comfirm that fs2 is empty now
