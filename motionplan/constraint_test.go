@@ -145,12 +145,15 @@ func TestLineFollow(t *testing.T) {
 
 	sFrames, err := fss.TracebackFrame(solveFrame)
 	test.That(t, err, test.ShouldBeNil)
-	gFrames, err := fss.TracebackFrame(goalFrame)
-	test.That(t, err, test.ShouldBeNil)
-	frames := uniqInPlaceSlice(append(sFrames, gFrames...))
 
 	// Create a frame to solve for, and an IK solver with that frame.
-	sf := &solverFrame{solveFrame.Name() + "_" + goalFrame.Name(), fss, frames, solveFrame, goalFrame}
+	sf, err := newSolverFrame(
+		fss,
+		sFrames,
+		goalFrame.Name(),
+		frame.StartPositions(fss),
+	)
+	test.That(t, err, test.ShouldBeNil)
 
 	opt := NewBasicPlannerOptions()
 	opt.SetPathDist(gradFunc)
