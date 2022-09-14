@@ -52,7 +52,7 @@ func (f *Frame) StaticFrame(name string) (referenceframe.Frame, error) {
 	return referenceframe.NewStaticFrameWithGeometry(name, f.Pose(), f.Geometry)
 }
 
-// UnmarshalJSON will parse the Orientation field into a spatial.Orientation object from a json.rawMessage.
+// UnmarshalJSON will parse unmarshall json corresponding to a frame config
 func (f *Frame) UnmarshalJSON(b []byte) error {
 	temp := frameConfig{}
 	err := json.Unmarshal(b, &temp)
@@ -67,7 +67,7 @@ func (f *Frame) UnmarshalJSON(b []byte) error {
 		return fmt.Errorf("cannot unmarshal %s because of %w", string(b), err)
 	}
 	f.Geometry, err = temp.Geometry.ParseConfig()
-	if !strings.Contains(err.Error(), spatial.ErrGeometryTypeUnsupported.Error()) {
+	if err != nil && !strings.Contains(err.Error(), spatial.ErrGeometryTypeUnsupported.Error()) {
 		return err
 	}
 	return nil
