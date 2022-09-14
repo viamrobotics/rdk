@@ -516,7 +516,7 @@ func (svc *dataManagerService) Update(ctx context.Context, cfg *config.Config) e
 		modelsToDeploy := svcConfig.ModelsToDeploy
 		err := svc.modelManager.DownloadModels(cfg, modelsToDeploy)
 		if err != nil {
-			svc.logger.Errorf("can't download models_on_robot in config", "error", err)
+			return errors.Wrap(err, "can't download models_on_robot in config")
 		}
 	}
 

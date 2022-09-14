@@ -14,7 +14,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	v1 "go.viam.com/api/proto/viam/model/v1"
+	v1 "go.viam.com/api/app/model/v1"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -25,13 +25,13 @@ const appAddress = "app.viam.com:443"
 
 const zipExtension = ".zip"
 
+var ViamModelDotDir = filepath.Join(os.Getenv("HOME"), "models", ".viam")
+
 // Model describes a model we want to download to the robot.
 type Model struct {
 	Name        string `json:"source_model_name"`
 	Destination string `json:"destination"`
 }
-
-var viamModelDotDir = filepath.Join(os.Getenv("HOME"), "models", ".viam")
 
 // HTTPClient allows us to mock a connection.
 type httpClient interface {
@@ -83,8 +83,7 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 
 // NewManager returns a new modelr.
 func NewManager(logger golog.Logger, partID string, client v1.ModelServiceClient,
-	conn rpc.ClientConn, httpClient httpClient,
-) (Manager, error) {
+	conn rpc.ClientConn, httpClient httpClient) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := modelManager{
 		conn:              conn,
@@ -189,7 +188,7 @@ func getModelsToDownload(models []*Model) ([]*Model, error) {
 	for _, model := range models {
 		if model.Destination == "" {
 			// Set the model destination to default if it's not specified in the config.
-			model.Destination = filepath.Join(viamModelDotDir, model.Name)
+			model.Destination = filepath.Join(ViamModelDotDir, model.Name)
 		}
 		_, err := os.Stat(model.Destination)
 		switch {
