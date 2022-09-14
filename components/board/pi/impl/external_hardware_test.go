@@ -30,7 +30,6 @@ func TestPiHardware(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	cfg := picommon.Config{
-		// Analogs: []board.AnalogConfig{{Name: "blue", Pin: "0"}},
 		DigitalInterrupts: []board.DigitalInterruptConfig{
 			{Name: "i1", Pin: "11"},                     // plug physical 12(18) into this (17)
 			{Name: "servo-i", Pin: "22", Type: "servo"}, // bcom-25
