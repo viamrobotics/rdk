@@ -21,7 +21,20 @@
             "name": "pieceGripper",
             "type": "gripper",
             "model": "robotiq",
-            "host": "10.237.115.65"
+            "host": "10.237.115.65",
+            "frame" : {
+                "parent": "world",
+                "geometry": {
+                  "x": 1,
+                  "y": 2,
+                  "z": 3,
+                  "translation": {
+                      "x": 4,
+                      "y": 5,
+                      "z": 6
+                  }
+                }
+              }
         },
         {
             "name": "cameraOver",

@@ -68,6 +68,38 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 		defer pprof.StopCPUProfile()
 	}
 
+	// Read the config from disk and use it to initialize the remote logger.
+	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+	cfgFromDisk, err := config.ReadLocalConfig(initialReadCtx, argsParsed.ConfigFile, logger)
+	if err != nil {
+		cancel()
+		return err
+	}
+	cancel()
+
+	// Start remote logging with config from disk.
+	// This is to ensure we make our best effort to write logs for failures loading the remote config.
+	if cfgFromDisk.Cloud != nil && (cfgFromDisk.Cloud.LogPath != "" || cfgFromDisk.Cloud.AppAddress != "") {
+		var closer func()
+		logger, closer, err = addCloudLogger(logger, cfgFromDisk.Cloud)
+		if err != nil {
+			return err
+		}
+		defer closer()
+	}
+
+	// Run the server with remote logging enabled.
+	err = runServerWithLogging(ctx, argsParsed, logger)
+	if err != nil {
+		logger.Error("Fatal error running server, existing now: ", err)
+	}
+
+	return err
+}
+
+// RunServer is an entry point to starting the web server after the local config is read. Once the local config
+// is read the logger may be initialized to remote log. This ensure we capture errors starting up the server and report to the cloud.
+func runServerWithLogging(ctx context.Context, argsParsed Arguments, logger golog.Logger) (err error) {
 	exporter := perf.NewDevelopmentExporter()
 	if err := exporter.Start(); err != nil {
 		return err
@@ -82,19 +114,11 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 	}
 	cancel()
 
-	if cfg.Cloud != nil && (cfg.Cloud.LogPath != "" || cfg.Cloud.AppAddress != "") {
-		var closer func()
-		logger, closer, err = addCloudLogger(logger, cfg.Cloud)
-		if err != nil {
-			return err
-		}
-		defer closer()
-	}
-
 	err = serveWeb(ctx, cfg, argsParsed, logger)
 	if err != nil {
 		logger.Errorw("error serving web", "error", err)
 	}
+
 	return err
 }
 
