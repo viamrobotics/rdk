@@ -415,7 +415,7 @@ func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointClou
 		ps := &commonpb.PointCloudObject{
 			PointCloud: buf.Bytes(),
 			Geometries: &commonpb.GeometriesInFrame{
-				Geometries:     []*commonpb.Geometry{seg.BoundingBox.ToProtobuf()},
+				Geometries:     []*commonpb.Geometry{seg.Geometry.ToProtobuf()},
 				ReferenceFrame: frame,
 			},
 		}
