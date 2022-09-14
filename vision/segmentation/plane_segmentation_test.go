@@ -68,11 +68,9 @@ func TestSegmentPlane(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Pixel to Meter
-	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
-		intel515ParamsPath,
-		"depth",
-	)
+	sensorParams, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)
+	depthIntrinsics := &sensorParams.DepthCamera
 	cloud := depthadapter.ToPointCloud(d, depthIntrinsics)
 	test.That(t, err, test.ShouldBeNil)
 	// Segment Plane
@@ -96,11 +94,9 @@ func TestSegmentPlane(t *testing.T) {
 func TestDepthMapToPointCloud(t *testing.T) {
 	d, err := rimage.NewDepthMapFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.png"))
 	test.That(t, err, test.ShouldBeNil)
-	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
-		intel515ParamsPath,
-		"depth",
-	)
+	sensorParams, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)
+	depthIntrinsics := &sensorParams.DepthCamera
 	pc := depthadapter.ToPointCloud(d, depthIntrinsics)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 456370)
@@ -114,25 +110,17 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	h, w := rgb.Height(), rgb.Width()
 
 	// Get 3D Points
-	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
-		intel515ParamsPath,
-		"depth",
-	)
-	test.That(t, err, test.ShouldBeNil)
-	pts := depthadapter.ToPointCloud(d, depthIntrinsics)
-	test.That(t, err, test.ShouldBeNil)
-	// Get rigid body transform between Depth and RGB sensor
 	sensorParams, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)
+	pts := depthadapter.ToPointCloud(d, &sensorParams.DepthCamera)
+	test.That(t, err, test.ShouldBeNil)
+	// Get rigid body transform between Depth and RGB sensor
 	// Apply RBT
 	transformedPoints, err := sensorParams.ApplyRigidBodyTransform(pts)
 	test.That(t, err, test.ShouldBeNil)
 	// Re-project 3D Points in RGB Plane
-	colorIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
-		intel515ParamsPath, "color")
-	test.That(t, err, test.ShouldBeNil)
 	pixel2meter := 0.001
-	coordinatesRGB, err := transform.ProjectPointCloudToRGBPlane(transformedPoints, h, w, *colorIntrinsics, pixel2meter)
+	coordinatesRGB, err := transform.ProjectPointCloudToRGBPlane(transformedPoints, h, w, sensorParams.ColorCamera, pixel2meter)
 	test.That(t, err, test.ShouldBeNil)
 	// fill image
 	upLeft := image.Point{0, 0}
@@ -156,10 +144,9 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 
 	// Pixel to Meter
-	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
-		intel515ParamsPath,
-		"depth",
-	)
+	sensorParams, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
+	test.That(b, err, test.ShouldBeNil)
+	depthIntrinsics := &sensorParams.DepthCamera
 	test.That(b, err, test.ShouldBeNil)
 	pts := depthadapter.ToPointCloud(d, depthIntrinsics)
 	test.That(b, err, test.ShouldBeNil)
