@@ -52,7 +52,7 @@ func (f *Frame) StaticFrame(name string) (referenceframe.Frame, error) {
 	return referenceframe.NewStaticFrameWithGeometry(name, f.Pose(), f.Geometry)
 }
 
-// UnmarshalJSON will parse unmarshall json corresponding to a frame config
+// UnmarshalJSON will parse unmarshall json corresponding to a frame config.
 func (f *Frame) UnmarshalJSON(b []byte) error {
 	temp := frameConfig{}
 	err := json.Unmarshal(b, &temp)
