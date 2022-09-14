@@ -771,12 +771,12 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 }
 
-// CheckMaxInstance checks to see if the local robot has reached the maximum number of a specific service type
+// CheckMaxInstance checks to see if the local robot has reached the maximum number of a specific service type.
 func (r *localRobot) CheckMaxInstance(f *registry.Service, name resource.Name) error {
 	maxInstance := 0
 	for _, n := range r.ResourceNames() {
 		if n.Subtype == name.Subtype {
-			maxInstance += 1
+			maxInstance++
 			if maxInstance == f.MaxInstance {
 				return errors.Errorf("Max instance number reached for service type: %s", name.Subtype)
 			}
