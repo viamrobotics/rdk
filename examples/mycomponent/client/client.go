@@ -6,8 +6,8 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/rdk/grpc/client"
-	myc "go.viam.com/rdk/samples/mycomponent/component"
+	myc "go.viam.com/rdk/examples/mycomponent/component"
+	"go.viam.com/rdk/robot/client"
 )
 
 func main() {

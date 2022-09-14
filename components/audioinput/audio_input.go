@@ -66,11 +66,21 @@ type AudioInput interface {
 	generic.Generic
 }
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((AudioInput)(nil), actual)
+}
+
+// DependencyTypeError is used when a resource doesn't implement the expected interface.
+func DependencyTypeError(name, actual interface{}) error {
+	return utils.DependencyTypeError(name, (AudioInput)(nil), actual)
+}
+
 // WrapWithReconfigurable wraps an audio input with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	i, ok := r.(AudioInput)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("AudioInput", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := i.(*reconfigurableAudioInput); ok {
 		return reconfigurable, nil
@@ -98,7 +108,7 @@ func FromDependencies(deps registry.Dependencies, name string) (AudioInput, erro
 	}
 	part, ok := res.(AudioInput)
 	if !ok {
-		return nil, utils.DependencyTypeError(name, "AudioInput", res)
+		return nil, DependencyTypeError(name, res)
 	}
 	return part, nil
 }
@@ -111,7 +121,7 @@ func FromRobot(r robot.Robot, name string) (AudioInput, error) {
 	}
 	part, ok := res.(AudioInput)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("AudioInput", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }

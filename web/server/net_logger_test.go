@@ -10,8 +10,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	mockapppb "go.viam.com/api/proto/viam/app/mock_v1"
-	apppb "go.viam.com/api/proto/viam/app/v1"
+	mockapppb "go.viam.com/api/app/mock_v1"
+	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"

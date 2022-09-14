@@ -53,7 +53,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldEqual, generic.TestCommand)
 
 	s, err = generic.FromRobot(r, fakeGenericName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Generic", "string"))
+	test.That(t, err, test.ShouldBeError, generic.NewUnimplementedInterfaceError("string"))
 	test.That(t, s, test.ShouldBeNil)
 
 	s, err = generic.FromRobot(r, missingGenericName)
@@ -110,7 +110,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = generic.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Generic", nil))
+	test.That(t, err, test.ShouldBeError, generic.NewUnimplementedInterfaceError(nil))
 
 	reconfGeneric2, err := generic.WrapWithReconfigurable(reconfGeneric1)
 	test.That(t, err, test.ShouldBeNil)

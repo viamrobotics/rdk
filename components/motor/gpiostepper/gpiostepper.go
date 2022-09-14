@@ -24,6 +24,22 @@ import (
 
 const modelName = "gpiostepper"
 
+// PinConfig defines the mapping of where motor are wired.
+type PinConfig struct {
+	Step          string `json:"step"`
+	Direction     string `json:"dir"`
+	EnablePinHigh string `json:"en_high,omitempty"`
+	EnablePinLow  string `json:"en_low,omitempty"`
+}
+
+// Config describes the configuration of a motor.
+type Config struct {
+	Pins             PinConfig `json:"pins"`
+	BoardName        string    `json:"board"`
+	StepperDelay     uint      `json:"stepper_delay,omitempty"` // When using stepper motors, the time to remain high
+	TicksPerRotation int       `json:"ticks_per_rotation"`
+}
+
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
@@ -36,11 +52,19 @@ func init() {
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
-	motor.RegisterConfigAttributeConverter(modelName)
+	config.RegisterComponentAttributeMapConverter(
+		motor.SubtypeName,
+		modelName,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&Config{},
+	)
 }
 
-func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component) (board.Board, *motor.Config, error) {
-	motorConfig, ok := config.ConvertedAttributes.(*motor.Config)
+func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component) (board.Board, *Config, error) {
+	motorConfig, ok := config.ConvertedAttributes.(*Config)
 	if !ok {
 		return nil, nil, rdkutils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
 	}
@@ -54,7 +78,11 @@ func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component
 	return b, motorConfig, nil
 }
 
-func newGPIOStepper(ctx context.Context, b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor, error) {
+func newGPIOStepper(ctx context.Context, b board.Board, mc Config, logger golog.Logger) (motor.Motor, error) {
+	if mc.TicksPerRotation == 0 {
+		return nil, errors.New("expected ticks_per_rotation in config for motor")
+	}
+
 	m := &gpioStepper{
 		theBoard:         b,
 		stepsPerRotation: mc.TicksPerRotation,
@@ -126,7 +154,7 @@ func (m *gpioStepper) Validate() error {
 	}
 
 	if m.stepsPerRotation == 0 {
-		m.stepsPerRotation = 200
+		return errors.New("need to set 'steps per rotation' for gpioStepper")
 	}
 
 	if m.stepperDelay == 0 {
