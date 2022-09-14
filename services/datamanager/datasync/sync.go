@@ -10,6 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.uber.org/atomic"
 	v1 "go.viam.com/api/app/datasync/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -34,7 +35,7 @@ const (
 )
 
 var (
-	initialWaitTime        = time.Second
+	initialWaitTimeMillis  = atomic.NewInt32(1000)
 	retryExponentialFactor = 2
 	maxRetryInterval       = time.Hour
 	// Chunk size set at 32 kiB, this is 32768 Bytes.
@@ -182,7 +183,7 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 	}
 
 	// First call failed, so begin exponentialRetry with a factor of retryExponentialFactor
-	nextWait := initialWaitTime
+	nextWait := time.Millisecond * time.Duration(initialWaitTimeMillis.Load())
 	ticker := time.NewTicker(nextWait)
 	for {
 		if err := cancelCtx.Err(); err != nil {
@@ -215,7 +216,7 @@ func exponentialRetry(cancelCtx context.Context, fn func(cancelCtx context.Conte
 
 func getNextWait(lastWait time.Duration) time.Duration {
 	if lastWait == time.Duration(0) {
-		return initialWaitTime
+		return time.Millisecond * time.Duration(initialWaitTimeMillis.Load())
 	}
 	nextWait := lastWait * time.Duration(retryExponentialFactor)
 	if nextWait > maxRetryInterval {
