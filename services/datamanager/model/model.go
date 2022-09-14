@@ -137,12 +137,10 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	m.cancelFunc = cancelFn
-	// out := make(chan error)
 	checkMe := make(chan error, len(modelsToDownload))
 	m.backgroundWorkers.Add(len(modelsToDownload))
 	for _, model := range modelsToDownload {
-		// defer close(checkMe) // hmm is this correct?
-		inner := func(model *Model) error {
+		modelDeploy := func(model *Model) error {
 			defer m.backgroundWorkers.Done()
 			deployRequest := &v1.DeployRequest{
 				Metadata: &v1.DeployMetadata{
@@ -173,11 +171,10 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 
 			return nil
 		}
-		checkMe <- inner(model)
+		checkMe <- modelDeploy(model)
 	}
 	m.backgroundWorkers.Wait()
 	close(checkMe)
-	// err = <-checkMe
 
 	return <-checkMe
 }
