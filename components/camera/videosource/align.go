@@ -2,6 +2,7 @@ package videosource
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"image"
 
@@ -75,15 +76,15 @@ func init() {
 
 	config.RegisterComponentAttributeConverter(camera.SubtypeName, "align_color_depth", "intrinsic_extrinsic",
 		func(val interface{}) (interface{}, error) {
-			matrices := &transform.DepthColorIntrinsicsExtrinsics{}
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: matrices})
+			b, err := json.Marshal(val)
 			if err != nil {
 				return nil, err
 			}
-			err = decoder.Decode(val)
-			if err == nil {
-				err = matrices.CheckValid()
+			matrices, err := transform.NewDepthColorIntrinsicsExtrinsicsFromBytes(b)
+			if err != nil {
+				return nil, err
 			}
+			err = matrices.CheckValid()
 			return matrices, err
 		})
 
