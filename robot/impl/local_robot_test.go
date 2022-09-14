@@ -33,7 +33,6 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
-
 	// registers all components.
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
@@ -1732,7 +1731,7 @@ func TestCheckMaxInstanceValid(t *testing.T) {
 }
 
 // The max allowed datamanager services is 1 so only one of the datamanager services
-// from this config should build
+// from this config should build.
 func TestCheckMaxInstanceInvalid(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cfg := &config.Config{Services: []config.Service{
@@ -1760,9 +1759,8 @@ func TestCheckMaxInstanceInvalid(t *testing.T) {
 	maxInstance := 0
 	for _, name := range r.ResourceNames() {
 		if name.Subtype == datamanager.Subtype {
-			maxInstance += 1
+			maxInstance++
 		}
 	}
 	test.That(t, maxInstance, test.ShouldEqual, 1)
-
 }
