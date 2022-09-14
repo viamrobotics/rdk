@@ -141,15 +141,13 @@
   - :who:
     :why: https://github.com/goburrow/modbus/blob/606c02f4eef527a1d4cf7d8733d5fd7ba34f91d8/LICENSE
     :versions: []
-    :when: 2022-08-30 15:40:18.342840322 Z
-- - :ignore
+    :when: 2022-09-14 16:27:17.872831000 Z
+- - :approve
   - github.com/ziutek/mymysql
   - :who:
-    :why:
-      'TODO(RSDK-580): temporarily ignoring to pass CI - it has an unnamed license
-      that looks like New BSD'
+    :why: 'license language is compatible with AGPL'
     :versions: []
-    :when: 2022-08-30 15:57:05.777568049 Z
+    :when: 2022-09-14 16:27:17.872831000 Z
     :license_links: https://github.com/ziutek/mymysql/blob/fffb8880277462abe6f4526dbd69a1982f9437b6/LICENSE
 - - :license
   - github.com/golang/freetype
