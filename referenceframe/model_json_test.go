@@ -14,8 +14,8 @@ import (
 // So we'll just check that we read in the right number of joints.
 func TestParseJSONFile(t *testing.T) {
 	goodFiles := []string{
-		"components/arm/trossen/wx250s_kinematics.json",
-		"components/arm/trossen/wx250s_test.json",
+		"components/arm/trossen/trossen_wx250s_kinematics.json",
+		"components/arm/trossen/trossen_wx250s_test.json",
 		"components/arm/universalrobots/ur5e_DH.json",
 		"motionplan/testjson/varm.json",
 	}
