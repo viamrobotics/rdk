@@ -31,7 +31,6 @@ import (
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
 	"goji.io"
 	"goji.io/pat"
-	"golang.org/x/net/http2/h2c"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -880,24 +879,15 @@ func (svc *webService) initHTTPServer(listenerTCPAddr *net.TCPAddr, options webo
 		return nil, err
 	}
 
-	httpServer := &http.Server{
-		ReadTimeout:    10 * time.Second,
+	httpServer, err := utils.NewPossiblySecureHTTPServer(mux, utils.HTTPServerOptions{
+		Secure:         options.Secure,
 		MaxHeaderBytes: rpc.MaxMessageSize,
-		TLSConfig:      options.Network.TLSConfig.Clone(),
+		Addr:           listenerTCPAddr.String(),
+	})
+	if err != nil {
+		return httpServer, err
 	}
-	httpServer.Addr = listenerTCPAddr.String()
-	httpServer.Handler = mux
-
-	if !options.Secure {
-		http2Server, err := utils.NewHTTP2Server()
-		if err != nil {
-			return nil, err
-		}
-		httpServer.RegisterOnShutdown(func() {
-			utils.UncheckedErrorFunc(http2Server.Close)
-		})
-		httpServer.Handler = h2c.NewHandler(httpServer.Handler, http2Server.HTTP2)
-	}
+	httpServer.TLSConfig = options.Network.TLSConfig.Clone()
 
 	return httpServer, nil
 }
