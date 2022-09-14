@@ -51,7 +51,7 @@ var (
 	syncIntervalMins = 0.0041 // 250ms
 	captureDir       = "/tmp/capture"
 	armDir           = captureDir + "/arm/arm1/GetEndPosition"
-	// defaultModelDir    = filepath.Join(os.Getenv("HOME"), "models", ".viam")
+	// defaultModelDir    = filepath.Join(os.Getenv("HOME"), "models", ".viam").
 	defaultModelDir    = model.ViamModelDotDir
 	emptyFileBytesSize = 30 // size of leading metadata message
 	testSvcName1       = "svc1"
