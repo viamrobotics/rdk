@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
@@ -46,7 +47,7 @@ func TestNewFrameSystemFromParts(t *testing.T) {
 			Name: "frame1",
 			FrameConfig: &config.Frame{
 				Parent:      referenceframe.World,
-				Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
+				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
 			},
 		},
@@ -54,7 +55,7 @@ func TestNewFrameSystemFromParts(t *testing.T) {
 			Name: "frame2",
 			FrameConfig: &config.Frame{
 				Parent:      "frame1",
-				Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
+				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 			},
 		},
 	}
@@ -86,7 +87,7 @@ func TestNewFrameSystemFromPartsBadConfig(t *testing.T) {
 		{
 			Name: "frame1",
 			FrameConfig: &config.Frame{
-				Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
+				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
 			},
 		},
