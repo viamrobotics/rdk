@@ -282,6 +282,8 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		return nil, err
 	}
 
+	// TODO: DATA-451 https://viam.atlassian.net/browse/DATA-451 (validate method params)
+
 	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
 		collector := storedCollectorParams.Collector
 		previousAttributes := storedCollectorParams.Attributes
