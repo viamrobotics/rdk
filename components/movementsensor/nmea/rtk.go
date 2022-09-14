@@ -42,7 +42,7 @@ type RTKAttrConfig struct {
 	NtripPass            string `json:"ntrip_password,omitempty"`
 	NtripUser            string `json:"ntrip_username,omitempty"`
 	NtripPath            string `json:"ntrip_path,omitempty"`
-	NtripBaud            string `json:"ntrip_baud,omitempty"`
+	NtripBaud            int    `json:"ntrip_baud,omitempty"`
 	NtripInputProtocol   string `json:"ntrip_input_protocol,omitempty"`
 }
 
@@ -162,6 +162,10 @@ func newRTKMovementSensor(
 	config config.Component,
 	logger golog.Logger,
 ) (nmeaMovementSensor, error) {
+	conf, ok := config.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, errors.New("error converting attribute")
+	}
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	g := &RTKMovementSensor{
@@ -170,7 +174,7 @@ func newRTKMovementSensor(
 		logger:     logger,
 	}
 
-	g.ntripInputProtocol = config.Attributes.String(ntripInputProtocolAttrName)
+	g.ntripInputProtocol = conf.NtripInputProtocol
 
 	// Init NMEAMovementSensor
 	switch g.ntripInputProtocol {

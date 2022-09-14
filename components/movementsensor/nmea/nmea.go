@@ -17,6 +17,7 @@ import (
 // AttrConfig is used for converting NMEA Movement Sensor attibutes.
 type AttrConfig struct {
 	ConnectionType string `json:"connection_type"`
+	DisableNMEA    bool   `json:"disable_nmea"`
 
 	// Serial
 	*SerialAttrConfig

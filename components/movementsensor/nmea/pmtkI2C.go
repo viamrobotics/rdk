@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -68,24 +69,34 @@ func newPmtkI2CNMEAMovementSensor(
 	config config.Component,
 	logger golog.Logger,
 ) (nmeaMovementSensor, error) {
-	b, err := board.FromDependencies(deps, config.Attributes.String("board"))
+	conf, ok := config.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, errors.New("could not convert attributes from config")
+	}
+
+	b, err := board.FromDependencies(deps, conf.I2CAttrConfig.Board)
 	if err != nil {
 		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
-		return nil, fmt.Errorf("board %s is not local", config.Attributes.String("board"))
+		return nil, fmt.Errorf("board %s is not local", conf.I2CAttrConfig.Board)
 	}
-	i2cbus, ok := localB.I2CByName(config.Attributes.String("bus"))
+	i2cbus, ok := localB.I2CByName(conf.I2CAttrConfig.Bus)
 	if !ok {
-		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", config.Attributes.String("bus"))
+		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", conf.I2CAttrConfig.Bus)
 	}
-	addr := config.Attributes.Int("i2c_addr", -1)
+	addr := conf.I2CAttrConfig.I2cAddr
 	if addr == -1 {
 		return nil, errors.New("must specify gps i2c address")
 	}
-	wbaud := config.Attributes.Int("ntrip_baud", 38400)
-	disableNmea := config.Attributes.Bool(disableNmeaName, false)
+	wbaud, err := strconv.Atoi(conf.NtripBaud) // check later
+	if err != nil {
+		wbaud = 38400
+		logger.Warnf("ntrip")
+	}
+
+	disableNmea := conf.DisableNMEA
 	if disableNmea {
 		logger.Info("SerialNMEAMovementSensor: NMEA reading disabled")
 	}
