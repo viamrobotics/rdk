@@ -183,7 +183,7 @@ func (c *client) GetProperties(ctx context.Context) (Properties, error) {
 	}
 	// switch distortion model based on model name
 	model := resp.DistortionParameters.Model
-	switch transform.DistortionType(model) {
+	switch transform.DistortionType(model) { //nolint:exhaustive
 	case transform.BrownConradyDistortionType:
 		brownConrady, err := transform.NewBrownConrady(resp.DistortionParameters.Parameters)
 		if err != nil {

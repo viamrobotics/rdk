@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 )
@@ -16,7 +17,11 @@ import (
 type ParallelProjection struct{}
 
 // RGBDToPointCloud take a 2D image with depth and project to a 3D point cloud.
-func (pp *ParallelProjection) RGBDToPointCloud(img *rimage.Image, dm *rimage.DepthMap, crop ...image.Rectangle) (pointcloud.PointCloud, error) {
+func (pp *ParallelProjection) RGBDToPointCloud(
+	img *rimage.Image,
+	dm *rimage.DepthMap,
+	crop ...image.Rectangle,
+) (pointcloud.PointCloud, error) {
 	if img == nil {
 		return nil, errors.New("no rgb image to project to pointcloud")
 	}
