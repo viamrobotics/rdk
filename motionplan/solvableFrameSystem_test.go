@@ -17,7 +17,7 @@ import (
 
 func makeTestFS(t *testing.T) *SolvableFrameSystem {
 	t.Helper()
-	logger := golog.NewTestLogger(t)
+	logger := golog.NewDevelopmentLogger("test")
 	fs := frame.NewEmptySimpleFrameSystem("test")
 
 	urOffset, err := frame.NewStaticFrame("urOffset", spatial.NewPoseFromPoint(r3.Vector{100, 100, 200}))
@@ -49,7 +49,8 @@ func makeTestFS(t *testing.T) *SolvableFrameSystem {
 	fs.AddFrame(urCamera, modelUR5e)
 
 	// Add static frame for the gripper
-	xArmVgripper, err := frame.NewStaticFrame("xArmVgripper", spatial.NewPoseFromPoint(r3.Vector{0, 0, 200}))
+	bc, _ := spatial.NewBoxCreator(r3.Vector{200, 200, 200}, spatial.NewPoseFromPoint(r3.Vector{Z: 100}))
+	xArmVgripper, err := frame.NewStaticFrameWithGeometry("xArmVgripper", spatial.NewPoseFromPoint(r3.Vector{Z: 200}), bc)
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(xArmVgripper, modelXarm)
 
@@ -123,30 +124,83 @@ func TestSliceUniq(t *testing.T) {
 	test.That(t, len(uniqd), test.ShouldEqual, 3)
 }
 
-func TestSolverFrame(t *testing.T) {
+func TestSolverFrameGeometries(t *testing.T) {
 	solver := makeTestFS(t)
-	goalFrame, err := frame.NewStaticFrame("goal", spatial.NewPoseFromPoint(r3.Vector{100, 100, 200}))
+	sFrames, err := solver.TracebackFrame(solver.GetFrame("xArmVgripper"))
 	test.That(t, err, test.ShouldBeNil)
-	solver.AddFrame(goalFrame, solver.World())
-	sFrames, err := solver.TracebackFrame(goalFrame)
+	sf, err := newSolverFrame(solver, sFrames, frame.World, frame.StartPositions(solver))
 	test.That(t, err, test.ShouldBeNil)
-	solveFrame := solver.GetFrame("UR5e")
-	test.That(t, solveFrame, test.ShouldNotBeNil)
-	gFrames, err := solver.TracebackFrame(solveFrame)
-	test.That(t, err, test.ShouldBeNil)
-	frames := uniqInPlaceSlice(append(sFrames, gFrames...))
-	sf := &solverFrame{"", solver, frames, solveFrame, goalFrame}
 
-	// get the Geometry at the zero position and test that the output is correct
-	inputs := sf.mapToSlice(frame.StartPositions(solver))
-	tf, err := sf.Transform(inputs)
+	position, err := sf.planSingleWaypoint(
+		context.Background(),
+		sf.sliceToMap(make([]frame.Input, len(sf.DoF()))),
+		spatial.NewPoseFromPoint(r3.Vector{300, 300, 100}),
+		nil,
+		nil,
+	)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.R3VectorAlmostEqual(tf.Point(), r3.Vector{-817.2, -232.9, 62.8}, 1e-8), test.ShouldBeTrue)
-	geometries, _ := sf.Geometries(inputs)
-	test.That(t, geometries, test.ShouldNotBeNil)
-	jointExpected := spatial.NewPoseFromPoint(r3.Vector{-425, 0, 162.5})
-	linkOffset := spatial.NewPoseFromPoint(r3.Vector{-190, 0, 0})
-	poseExpect := spatial.Compose(spatial.Compose(jointExpected, linkOffset), spatial.NewPoseFromPoint(r3.Vector{100, 100, 200}))
-	test.That(t, geometries.FrameName(), test.ShouldResemble, frame.World)
-	test.That(t, spatial.PoseAlmostCoincident(geometries.Geometries()["UR5e:forearm_link"].Pose(), poseExpect), test.ShouldBeTrue)
+	// visualization.VisualizePlan(context.Background(), position, sf, nil)
+	gf, _ := sf.Geometries(position[len(position)-1])
+	test.That(t, gf, test.ShouldNotBeNil)
+	gripperCenter := gf.Geometries()["xArmVgripper"].Pose().Point()
+	test.That(t, spatial.R3VectorAlmostEqual(gripperCenter, r3.Vector{300, 300, 0}, 1e-2), test.ShouldBeTrue)
+}
+
+func TestMovementWithGripper(t *testing.T) {
+	// TODO(rb): move these tests to a separate repo eventually, as they take up too much time for general CI pipeline
+	t.Skip()
+
+	// setup solverFrame and planning query
+	solver := makeTestFS(t)
+	solver.RemoveFrame(solver.GetFrame("urOffset"))
+	sFrames, err := solver.TracebackFrame(solver.GetFrame("xArmVgripper"))
+	test.That(t, err, test.ShouldBeNil)
+	sf, err := newSolverFrame(solver, sFrames, frame.World, frame.StartPositions(solver))
+	test.That(t, err, test.ShouldBeNil)
+	goal := spatial.NewPoseFromOrientation(r3.Vector{500, 0, -300}, &spatial.OrientationVector{OZ: -1})
+	zeroPosition := sf.sliceToMap(make([]frame.Input, len(sf.DoF())))
+
+	// linearly plan with the gripper
+	motionConfig := make(map[string]interface{})
+	motionConfig["motion_profile"] = LinearMotionProfile
+	solution, err := sf.planSingleWaypoint(context.Background(), zeroPosition, goal, nil, motionConfig)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, solution, test.ShouldNotBeNil)
+
+	// plan around the obstacle with the gripper
+	obstacle, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{300, 0, -400}), r3.Vector{50, 500, 500})
+	test.That(t, err, test.ShouldBeNil)
+	geometries := make(map[string]spatial.Geometry)
+	geometries["obstacle"] = obstacle
+	obstacles := []*commonpb.GeometriesInFrame{frame.GeometriesInFrameToProtobuf(frame.NewGeometriesInFrame(frame.World, geometries))}
+	worldState := &commonpb.WorldState{Obstacles: obstacles}
+	solution, err = sf.planSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, solution, test.ShouldNotBeNil)
+
+	// plan with end of arm with gripper attached - this will fail
+	sFrames, err = solver.TracebackFrame(solver.GetFrame("xArm6"))
+	test.That(t, err, test.ShouldBeNil)
+	sf, err = newSolverFrame(solver, sFrames, frame.World, frame.StartPositions(solver))
+	test.That(t, err, test.ShouldBeNil)
+	goal = spatial.NewPoseFromOrientation(r3.Vector{500, 0, -100}, &spatial.OrientationVector{OZ: -1})
+	zeroPosition = sf.sliceToMap(make([]frame.Input, len(sf.DoF())))
+	_, err = sf.planSingleWaypoint(context.Background(), zeroPosition, goal, worldState, motionConfig)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// remove linear constraint and try again
+	solution, err = sf.planSingleWaypoint(context.Background(), zeroPosition, goal, worldState, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, solution, test.ShouldNotBeNil)
+
+	// remove gripper and try with linear constraint
+	solver.RemoveFrame(solver.GetFrame("xArmVgripper"))
+	sFrames, err = solver.TracebackFrame(solver.GetFrame("xArm6"))
+	test.That(t, err, test.ShouldBeNil)
+	sf, err = newSolverFrame(solver, sFrames, frame.World, frame.StartPositions(solver))
+	test.That(t, err, test.ShouldBeNil)
+	zeroPosition = sf.sliceToMap(make([]frame.Input, len(sf.DoF())))
+	solution, err = sf.planSingleWaypoint(context.Background(), zeroPosition, goal, worldState, motionConfig)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, solution, test.ShouldNotBeNil)
 }

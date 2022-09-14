@@ -78,19 +78,19 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	fsParts := framesystemparts.Parts{
 		{
 			Name:        "base1",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{0, 0, 0}},
+			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
 		},
 		{
 			Name:        "cam1",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{100, 0, 0}},
+			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{100, 0, 0}},
 		},
 		{
 			Name:        "cam2",
-			FrameConfig: &config.Frame{Parent: "cam1", Translation: spatialmath.TranslationConfig{0, 0, 100}},
+			FrameConfig: &config.Frame{Parent: "cam1", Translation: r3.Vector{0, 0, 100}},
 		},
 		{
 			Name:        "cam3",
-			FrameConfig: &config.Frame{Parent: "cam2", Translation: spatialmath.TranslationConfig{0, 100, 0}},
+			FrameConfig: &config.Frame{Parent: "cam2", Translation: r3.Vector{0, 100, 0}},
 		},
 	}
 	r.FrameSystemConfigFunc = func(
@@ -309,31 +309,31 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	fsParts := framesystemparts.Parts{
 		{
 			Name:        "base1",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{0, 0, 0}},
+			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
 		},
 		{
 			Name:        "cam1",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{0, 0, 0}},
+			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
 		},
 		{
 			Name:        "cam2",
-			FrameConfig: &config.Frame{Parent: "cam1", Translation: spatialmath.TranslationConfig{0, 0, -100}},
+			FrameConfig: &config.Frame{Parent: "cam1", Translation: r3.Vector{0, 0, -100}},
 		},
 		{
 			Name:        "cam3",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{0, 0, 0}},
+			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
 		},
 		{
 			Name: "cam4",
 			FrameConfig: &config.Frame{
-				Parent: "cam3", Translation: spatialmath.TranslationConfig{-60, 0, -10},
+				Parent: "cam3", Translation: r3.Vector{-60, 0, -10},
 				Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: 0},
 			},
 		},
 		{
 			Name: "cam5",
 			FrameConfig: &config.Frame{
-				Parent: "cam4", Translation: spatialmath.TranslationConfig{-60, 0, 10},
+				Parent: "cam4", Translation: r3.Vector{-60, 0, 10},
 				Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: -0.3},
 			},
 		},
