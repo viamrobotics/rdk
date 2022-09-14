@@ -5,9 +5,9 @@ import (
 )
 
 type Module struct {
-	Name   string `json:"name"`
-	Path   string `json:"path"`
-	Type   string `json:"type"`
+	Name   string           `json:"name"`
+	Path   string           `json:"path"`
+	Type   string           `json:"type"`
 	Models []resource.Model `json:"models"`
 }
 

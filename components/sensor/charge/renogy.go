@@ -27,6 +27,7 @@ const (
 	baudDefault     = 9600
 	modbusIDDefault = 1
 )
+
 var modelname = resource.NewDefaultModel("renogy")
 
 // AttrConfig is used for converting config attributes.

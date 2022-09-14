@@ -2,7 +2,7 @@
 	"modules": [
 		{
 			"name": "MyModule",
-			"path": "samples/mymodule/mymodule",
+			"path": "examples/mymodule/mymodule",
 			"type": "component",
 			"models": [
 				"acme:test:anvil"

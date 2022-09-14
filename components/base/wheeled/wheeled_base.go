@@ -23,7 +23,7 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var modelname  = resource.NewDefaultModel("wheeled")
+var modelname = resource.NewDefaultModel("wheeled")
 
 func init() {
 	wheeledBaseComp := registry.Component{

@@ -70,7 +70,7 @@ func (s *server) AddComponent(ctx context.Context, cfg *config.Component, depLis
 	return nil
 }
 
-func (s *server) Do(ctx context.Context, req *pbgeneric.DoRequest) (*pbgeneric.DoResponse, error) {
+func (s *server) Do(ctx context.Context, req *pbgeneric.DoCommandRequest) (*pbgeneric.DoCommandResponse, error) {
 	cmd := req.Command.AsMap()
 	c, ok := s.components[req.Name]
 	if !ok {
@@ -95,7 +95,7 @@ func (s *server) Do(ctx context.Context, req *pbgeneric.DoRequest) (*pbgeneric.D
 		return nil, err
 	}
 
-	return &pbgeneric.DoResponse{Result: res}, nil
+	return &pbgeneric.DoCommandResponse{Result: res}, nil
 }
 
 

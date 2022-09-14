@@ -11,24 +11,20 @@ import (
 	"github.com/edaniels/golog"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/pkg/errors"
-
 	"go.uber.org/multierr"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-
+	pb "go.viam.com/api/module/v1"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-
-	pb "go.viam.com/api/module/v1"
 )
 
-// NewManager returns a Manager
+// NewManager returns a Manager.
 func NewManager(cfgs []config.Module, logger golog.Logger) (*Manager, error) {
 	mgr := &Manager{
 		mu:         sync.RWMutex{},
@@ -105,8 +101,8 @@ func (mgr *Manager) AddModule(cfg config.Module) error {
 	pcfg := pexec.ProcessConfig{
 		ID:   string(cfg.Name),
 		Name: string(cfg.Path),
-		Args: []string{ string(mgr.modules[cfg.Name].addr) },
-		Log: true,
+		Args: []string{string(mgr.modules[cfg.Name].addr)},
+		Log:  true,
 		// CWD string
 		// OneShot bool
 	}
@@ -118,7 +114,7 @@ func (mgr *Manager) AddModule(cfg config.Module) error {
 	}
 
 	conn, err := grpc.Dial(
-		string("unix://" + mgr.modules[cfg.Name].addr),
+		string("unix://"+mgr.modules[cfg.Name].addr),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
 		grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor()),
@@ -190,7 +186,7 @@ func (mgr *Manager) AddService(ctx context.Context, cfg config.Service) (interfa
 	return nil, nil
 }
 
-func depsToNames (deps registry.Dependencies) []string {
+func depsToNames(deps registry.Dependencies) []string {
 	var depStrings []string
 	for dep := range deps {
 		depStrings = append(depStrings, dep.String())
@@ -199,7 +195,7 @@ func depsToNames (deps registry.Dependencies) []string {
 }
 
 func ping(ctx context.Context, client pb.ModuleServiceClient) error {
-	ctxTimeout, cancelFunc := context.WithTimeout(ctx, time.Second * 10)
+	ctxTimeout, cancelFunc := context.WithTimeout(ctx, time.Second*10)
 	defer cancelFunc()
 	for {
 		// TODO (@Otterverse) test if this actually fails on context.Done()

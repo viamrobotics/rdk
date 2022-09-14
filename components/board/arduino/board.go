@@ -24,13 +24,13 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var modelName = resource.NewDefaultModel("arduino")
+var model = resource.NewDefaultModel("arduino")
 
 // init registers an arduino board.
 func init() {
 	registry.RegisterComponent(
 		board.Subtype,
-		modelName,
+		model,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			_ registry.Dependencies,
@@ -43,7 +43,7 @@ func init() {
 			}
 			return newArduino(boardConfig, logger)
 		}})
-	board.RegisterConfigAttributeConverter(string(modelName.Name))
+	board.RegisterConfigAttributeConverter(string(model.Name))
 }
 
 func getSerialConfig(cfg *board.Config) (slib.OpenOptions, error) {

@@ -153,7 +153,6 @@ func (r *localRobot) ModuleManager() *manager.Manager {
 
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
-
 	// Signal logic and service modules to stop before components are closed.
 	err := r.modules.Stop(ctx)
 

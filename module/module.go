@@ -15,10 +15,9 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/client"
 )
-
 
 type (
 	AddComponentFunc func(ctx context.Context, cfg *config.Component, depList []string) error
@@ -45,22 +44,20 @@ func (s *modserver) AddComponent(ctx context.Context, req *pb.AddComponentReques
 	return &pb.AddComponentResponse{}, s.module.addComponent(ctx, cfg, req.Dependencies)
 }
 
-
-
 type Module struct {
-	name       string
-	parent     *client.RobotClient
-	modServer  *modserver
-	grpcServer *grpc.Server
-	logger     *zap.SugaredLogger
-	mu         sync.Mutex
-	ready      bool
-	addr       string
+	name                    string
+	parent                  *client.RobotClient
+	modServer               *modserver
+	grpcServer              *grpc.Server
+	logger                  *zap.SugaredLogger
+	mu                      sync.Mutex
+	ready                   bool
+	addr                    string
 	activeBackgroundWorkers sync.WaitGroup
-	addComponent AddComponentFunc
+	addComponent            AddComponentFunc
 }
 
-func (m *Module) SetReady(ready bool)  {
+func (m *Module) SetReady(ready bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.ready = ready
@@ -106,7 +103,6 @@ func (m *Module) RegisterAddComponent(componentFunc AddComponentFunc) {
 	m.addComponent = componentFunc
 }
 
-
 func (m *Module) GetParentComponent(name string) (interface{}, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -127,10 +123,10 @@ func (m *Module) GetParentComponent(name string) (interface{}, error) {
 
 func NewModule(address string, logger *zap.SugaredLogger) *Module {
 	m := &Module{
-		logger: logger,
-		addr: address,
+		logger:     logger,
+		addr:       address,
 		grpcServer: grpc.NewServer(),
-		ready: true,
+		ready:      true,
 	}
 
 	m.modServer = &modserver{module: m}

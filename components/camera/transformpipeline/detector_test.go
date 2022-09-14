@@ -13,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -50,7 +51,7 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	cameraComp := config.Component{
 		Name:  "fake_cam",
 		Type:  camera.SubtypeName,
-		Model: "file",
+		Model: resource.NewDefaultModel("file"),
 		Attributes: config.AttributeMap{
 			"color": artifact.MustPath("vision/objectdetection/detection_test.jpg"),
 			"depth": "",
@@ -61,7 +62,7 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	detectorComp := config.Component{
 		Name:  "color_detect",
 		Type:  camera.SubtypeName,
-		Model: "transform",
+		Model: resource.NewDefaultModel("transform"),
 		Attributes: config.AttributeMap{
 			"source": "fake_cam",
 			"pipeline": []config.AttributeMap{
@@ -81,7 +82,7 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 	tfliteComp := config.Component{
 		Name:  "tflite_detect",
 		Type:  camera.SubtypeName,
-		Model: "transform",
+		Model: resource.NewDefaultModel("transform"),
 		Attributes: config.AttributeMap{
 			"source": "fake_cam",
 			"pipeline": []config.AttributeMap{

@@ -15,10 +15,7 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/gpio"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/resource"
 )
-
-var model = resource.NewDefaultModel("arduino")
 
 func TestArduinoPWM(t *testing.T) {
 	ctx := context.Background()
