@@ -44,7 +44,7 @@ var (
 	dummyBytesReading       = []byte("I sure am bytes")
 	queueSize               = 250
 	bufferSize              = 4096
-	fakeVal, _              = anypb.New(nil)
+	fakeVal                 = &anypb.Any{}
 )
 
 func TestNewCollector(t *testing.T) {

@@ -726,6 +726,13 @@ func TestAdditionalParamsInConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(captureWaitTime)
 
+	filesInCamDir, err := readDir(t, captureDir+"/camera/c1/Next")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(filesInCamDir), test.ShouldEqual, 1)
+	info, err := filesInCamDir[0].Info()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, info.Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
+
 	// Verify that after close is called, the collector is no longer writing.
 	err = dmsvc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
