@@ -69,7 +69,7 @@ func TestTransform(t *testing.T) {
 }
 
 func TestIncorrectInputs(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("component/arm/trossen/wx250s_kinematics.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	dof := len(m.DoF())
 
