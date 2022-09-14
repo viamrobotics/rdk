@@ -122,6 +122,21 @@ var (
 	ErrStopUnimplemented = errors.New("Stop() unimplemented")
 )
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Arm)(nil), actual)
+}
+
+// NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
+func NewUnimplementedLocalInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((LocalArm)(nil), actual)
+}
+
+// DependencyTypeError is used when a resource doesn't implement the expected interface.
+func DependencyTypeError(name, actual interface{}) error {
+	return utils.DependencyTypeError(name, (Arm)(nil), actual)
+}
+
 // FromDependencies is a helper for getting the named arm from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (Arm, error) {
@@ -131,7 +146,7 @@ func FromDependencies(deps registry.Dependencies, name string) (Arm, error) {
 	}
 	part, ok := res.(Arm)
 	if !ok {
-		return nil, utils.DependencyTypeError(name, "Arm", res)
+		return nil, DependencyTypeError(name, res)
 	}
 	return part, nil
 }
@@ -144,7 +159,7 @@ func FromRobot(r robot.Robot, name string) (Arm, error) {
 	}
 	part, ok := res.(Arm)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Arm", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }
@@ -158,7 +173,7 @@ func NamesFromRobot(r robot.Robot) []string {
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
 	arm, ok := resource.(LocalArm)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalArm", resource)
+		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
 	endPosition, err := arm.GetEndPosition(ctx, nil)
 	if err != nil {
@@ -311,7 +326,7 @@ func (r *reconfigurableLocalArm) Reconfigure(ctx context.Context, newArm resourc
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	arm, ok := r.(Arm)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Arm", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 
 	if reconfigurable, ok := arm.(*reconfigurableArm); ok {

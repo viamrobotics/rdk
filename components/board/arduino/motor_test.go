@@ -8,6 +8,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/components/motor/gpio"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 )
@@ -21,7 +22,7 @@ func TestArduinoMotorInit(t *testing.T) {
 		emptyConfig := config.Component{
 			Model:               "arduino",
 			SubType:             motor.Subtype.String(),
-			ConvertedAttributes: &motor.Config{},
+			ConvertedAttributes: &gpio.Config{},
 		}
 		deps := make(registry.Dependencies)
 		_motor, err := motorReg.Constructor(
@@ -34,7 +35,7 @@ func TestArduinoMotorInit(t *testing.T) {
 		badBoardConfig := config.Component{
 			Model:   "arduino",
 			SubType: motor.Subtype.String(),
-			ConvertedAttributes: &motor.Config{
+			ConvertedAttributes: &gpio.Config{
 				BoardName: "oops no board",
 			},
 		}
@@ -49,7 +50,7 @@ func TestArduinoMotorInit(t *testing.T) {
 		badBoardConfig := config.Component{
 			Model:   "arduino",
 			SubType: motor.Subtype.String(),
-			ConvertedAttributes: &motor.Config{
+			ConvertedAttributes: &gpio.Config{
 				BoardName: "non-arduino",
 			},
 		}

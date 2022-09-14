@@ -82,7 +82,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, res.Close(context.Background()), test.ShouldBeNil)
 
 	res, err = audioinput.FromDependencies(deps, fakeAudioInputName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeAudioInputName, "AudioInput", "string"))
+	test.That(t, err, test.ShouldBeError, audioinput.DependencyTypeError(fakeAudioInputName, "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = audioinput.FromDependencies(deps, missingAudioInputName)
@@ -103,7 +103,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, res.Close(context.Background()), test.ShouldBeNil)
 
 	res, err = audioinput.FromRobot(r, fakeAudioInputName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("AudioInput", "string"))
+	test.That(t, err, test.ShouldBeError, audioinput.NewUnimplementedInterfaceError("string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = audioinput.FromRobot(r, missingAudioInputName)
@@ -160,7 +160,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = audioinput.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("AudioInput", nil))
+	test.That(t, err, test.ShouldBeError, audioinput.NewUnimplementedInterfaceError(nil))
 
 	reconfAudioInput2, err := audioinput.WrapWithReconfigurable(reconfaudioInput1)
 	test.That(t, err, test.ShouldBeNil)
