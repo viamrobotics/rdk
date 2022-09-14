@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"encoding/json"
+	"errors"
 	"math"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -9,6 +10,7 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
+// default values for planning options.
 const (
 	// max linear deviation from straight-line between start and goal, in mm.
 	defaultLinearDeviation = 0.1
@@ -43,6 +45,14 @@ const (
 	defaultPathStepSize = 10
 )
 
+// the set of supported motion profiles.
+const (
+	FreeMotionProfile         = "free"
+	LinearMotionProfile       = "linear"
+	PseudolinearMotionProfile = "pseudolinear"
+	OrientationMotionProfile  = "orientation"
+)
+
 // defaultDistanceFunc returns the square of the two-norm between the StartInput and EndInput vectors in the given ConstraintInput.
 func defaultDistanceFunc(ci *ConstraintInput) (bool, float64) {
 	dist := 0.
@@ -69,8 +79,18 @@ func plannerSetupFromMoveRequest(
 	}
 	opt.AddConstraint(defaultCollisionConstraintName, collisionConstraint)
 
-	switch planningOpts["motion_profile"] {
-	case "linear":
+	// error handling around extracting motion_profile information from map[string]interface{}
+	var motionProfile string
+	profile, ok := planningOpts["motion_profile"]
+	if ok {
+		motionProfile, ok = profile.(string)
+		if !ok {
+			return nil, errors.New("could not interpret motion_profile field as string")
+		}
+	}
+
+	switch motionProfile {
+	case LinearMotionProfile:
 		// Linear constraints
 		linTol, ok := planningOpts["line_tolerance"].(float64)
 		if !ok {
@@ -85,7 +105,7 @@ func plannerSetupFromMoveRequest(
 		constraint, pathDist := NewAbsoluteLinearInterpolatingConstraint(from, to, linTol, orientTol)
 		opt.AddConstraint(defaultLinearConstraintName, constraint)
 		opt.pathDist = pathDist
-	case "pseudolinear":
+	case PseudolinearMotionProfile:
 		tolerance, ok := planningOpts["tolerance"].(float64)
 		if !ok {
 			// Default
@@ -94,7 +114,7 @@ func plannerSetupFromMoveRequest(
 		constraint, pathDist := NewProportionalLinearInterpolatingConstraint(from, to, tolerance)
 		opt.AddConstraint(defaultPseudolinearConstraintName, constraint)
 		opt.pathDist = pathDist
-	case "orientation":
+	case OrientationMotionProfile:
 		tolerance, ok := planningOpts["tolerance"].(float64)
 		if !ok {
 			// Default
@@ -103,7 +123,7 @@ func plannerSetupFromMoveRequest(
 		constraint, pathDist := NewSlerpOrientationConstraint(from, to, tolerance)
 		opt.AddConstraint(defaultOrientationConstraintName, constraint)
 		opt.pathDist = pathDist
-	case "free":
+	case FreeMotionProfile:
 		// No restrictions on motion
 	default:
 		// TODO(pl): once RRT* is workable, use here. Also, update to try pseudolinear first, and fall back to orientation, then to free

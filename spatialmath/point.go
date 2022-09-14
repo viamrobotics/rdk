@@ -30,12 +30,15 @@ func (pc *pointCreator) NewGeometry(pose Pose) Geometry {
 	return &point{Compose(pc.offset, pose)}
 }
 
+func (pc *pointCreator) Offset() Pose {
+	return pc.offset
+}
+
 func (pc *pointCreator) MarshalJSON() ([]byte, error) {
-	config, err := NewGeometryConfig(pc.offset)
+	config, err := NewGeometryConfig(pc)
 	if err != nil {
 		return nil, err
 	}
-	config.Type = "point"
 	return json.Marshal(config)
 }
 
