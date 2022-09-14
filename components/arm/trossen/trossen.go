@@ -111,10 +111,10 @@ func (config *AttrConfig) Validate(path string) error {
 	return nil
 }
 
-//go:embed wx250s_kinematics.json
+//go:embed trossen_wx250s_kinematics.json
 var wx250smodeljson []byte
 
-//go:embed vx300s_kinematics.json
+//go:embed trossen_vx300s_kinematics.json
 var vx300smodeljson []byte
 
 func init() {
