@@ -147,6 +147,9 @@ func TestSolverFrameGeometries(t *testing.T) {
 }
 
 func TestMovementWithGripper(t *testing.T) {
+	// TODO(rb): move these tests to a separate repo eventually, as they take up too much time for general CI pipeline
+	t.Skip()
+
 	// setup solverFrame and planning query
 	solver := makeTestFS(t)
 	solver.RemoveFrame(solver.GetFrame("urOffset"))
