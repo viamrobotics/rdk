@@ -96,21 +96,11 @@ func setupInjectRobot() *inject.Robot {
 		Height: 720,
 		Fx:     200,
 		Fy:     200,
-		Ppx:    100,
-		Ppy:    100,
+		Ppx:    640,
+		Ppy:    360,
 	}
+	distortionsA := &transform.BrownConrady{RadialK1: 0.001, RadialK2: 0.00004}
 	projA = intrinsicsA
-
-	var projB transform.Projector
-	intrinsicsB := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
-		Width:  0,
-		Height: 0,
-		Fx:     0,
-		Fy:     0,
-		Ppx:    0,
-		Ppy:    0,
-	}
-	projB = intrinsicsB
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		cam := &inject.Camera{}
@@ -140,7 +130,6 @@ func setupInjectRobot() *inject.Robot {
 				return nil, transform.NewNoIntrinsicsError("")
 			}
 			return cam, nil
-		//nolint:dupl
 		case camera.Named("good_camera"):
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 				return gostream.NewEmbeddedVideoStreamFromReader(
@@ -156,7 +145,7 @@ func setupInjectRobot() *inject.Robot {
 				return projA, nil
 			}
 			cam.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
-				return camera.Properties{IntrinsicParams: intrinsicsA}, nil
+				return camera.Properties{IntrinsicParams: intrinsicsA, DistortionParams: distortionsA}, nil
 			}
 			return cam, nil
 		case camera.Named("good_color_camera"):
@@ -167,7 +156,7 @@ func setupInjectRobot() *inject.Robot {
 				return projA, nil
 			}
 			cam.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
-				return camera.Properties{IntrinsicParams: intrinsicsA}, nil
+				return camera.Properties{IntrinsicParams: intrinsicsA, DistortionParams: distortionsA}, nil
 			}
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 				imgBytes, err := os.ReadFile(artifact.MustPath("rimage/board1.png"))
@@ -224,7 +213,6 @@ func setupInjectRobot() *inject.Robot {
 				return nil, transform.NewNoIntrinsicsError("")
 			}
 			return cam, nil
-		//nolint:dupl
 		case camera.Named("bad_camera_intrinsics"):
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 				return gostream.NewEmbeddedVideoStreamFromReader(
@@ -237,10 +225,13 @@ func setupInjectRobot() *inject.Robot {
 				return nil, errors.New("camera not lidar")
 			}
 			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
-				return projB, nil
+				return &transform.PinholeCameraIntrinsics{}, nil
 			}
 			cam.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
-				return camera.Properties{IntrinsicParams: intrinsicsB}, nil
+				return camera.Properties{
+					IntrinsicParams:  &transform.PinholeCameraIntrinsics{},
+					DistortionParams: &transform.BrownConrady{},
+				}, nil
 			}
 			return cam, nil
 		default:
