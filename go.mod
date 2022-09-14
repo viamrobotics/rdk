@@ -59,7 +59,6 @@ require (
 	github.com/pseudomuto/protoc-gen-doc v1.5.1
 	github.com/sergi/go-diff v1.2.0
 	github.com/sjwhitworth/golearn v0.0.0-20211014193759-a8b69c276cd8
-	github.com/tonyOreglia/glee v0.0.0-20210610071128-503a6e4b07d7
 	github.com/u2takey/ffmpeg-go v0.4.1
 	github.com/urfave/cli/v2 v2.10.3
 	github.com/viamrobotics/evdev v0.1.3
@@ -363,7 +362,6 @@ require (
 	github.com/goburrow/modbus v0.1.0
 	github.com/kylelemons/go-gypsy v1.0.0 // indirect
 	github.com/pkg/errors v0.9.1
-	github.com/viamrobotics/visualization v0.0.0-20220906213601-4538653ba717
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 )
