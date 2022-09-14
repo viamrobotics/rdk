@@ -47,6 +47,7 @@ type RobotClient struct {
 	refClient       *grpcreflect.Client
 	dialOptions     []rpc.DialOption
 	resourceClients map[resource.Name]interface{}
+	remoteNameMap   map[resource.Name]resource.Name
 
 	mu                  *sync.RWMutex
 	resourceNames       []resource.Name
@@ -83,6 +84,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		dialOptions:             rOpts.dialOptions,
 		notifyParent:            nil,
 		resourceClients:         make(map[resource.Name]interface{}),
+		remoteNameMap:           make(map[resource.Name]resource.Name),
 	}
 	if err := rc.connect(ctx); err != nil {
 		return nil, err
@@ -347,6 +349,10 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 		return nil, err
 	}
 
+	// see if a remote name matches the name if so then return the remote client
+	if val, ok := rc.remoteNameMap[name]; ok {
+		name = val
+	}
 	if client, ok := rc.resourceClients[name]; ok {
 		rc.mu.RUnlock()
 		return client, nil
@@ -458,7 +464,31 @@ func (rc *RobotClient) updateResources(ctx context.Context, reason updateReason)
 		rc.resourceRPCSubtypes = rpcSubtypes
 	}
 
+	rc.updateRemoteNameMap()
+
 	return rc.updateResourceClients(ctx, reason)
+}
+
+func (rc *RobotClient) updateRemoteNameMap() {
+	tempMap := make(map[resource.Name]resource.Name)
+	dupMap := make(map[resource.Name]bool)
+	for _, n := range rc.resourceNames {
+		if err := n.Validate(); err != nil {
+			rc.Logger().Error(err)
+			continue
+		}
+		tempName := resource.RemoveRemoteName(n)
+		// If the short name already exists in the map then there is a collision and we make the long name empty.
+		if _, ok := tempMap[tempName]; ok {
+			dupMap[tempName] = true
+		} else {
+			tempMap[tempName] = n
+		}
+	}
+	for key := range dupMap {
+		delete(tempMap, key)
+	}
+	rc.remoteNameMap = tempMap
 }
 
 // RemoteNames returns the names of all known remotes.

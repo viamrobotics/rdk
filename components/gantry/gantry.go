@@ -95,7 +95,7 @@ func FromDependencies(deps registry.Dependencies, name string) (Gantry, error) {
 	}
 	part, ok := res.(Gantry)
 	if !ok {
-		return nil, utils.DependencyTypeError(name, "Gantry", res)
+		return nil, DependencyTypeError(name, res)
 	}
 	return part, nil
 }
@@ -107,6 +107,21 @@ type LocalGantry interface {
 	resource.MovingCheckable
 }
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Gantry)(nil), actual)
+}
+
+// NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
+func NewUnimplementedLocalInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Gantry)(nil), actual)
+}
+
+// DependencyTypeError is used when a resource doesn't implement the expected interface.
+func DependencyTypeError(name, actual interface{}) error {
+	return utils.DependencyTypeError(name, (Gantry)(nil), actual)
+}
+
 // FromRobot is a helper for getting the named gantry from the given Robot.
 func FromRobot(r robot.Robot, name string) (Gantry, error) {
 	res, err := r.ResourceByName(Named(name))
@@ -115,7 +130,7 @@ func FromRobot(r robot.Robot, name string) (Gantry, error) {
 	}
 	part, ok := res.(Gantry)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Gantry", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }
@@ -129,7 +144,7 @@ func NamesFromRobot(r robot.Robot) []string {
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
 	gantry, ok := resource.(LocalGantry)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalGantry", resource)
+		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
 	positions, err := gantry.GetPosition(ctx, nil)
 	if err != nil {
@@ -152,7 +167,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	g, ok := r.(Gantry)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Gantry", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := g.(*reconfigurableGantry); ok {
 		return reconfigurable, nil

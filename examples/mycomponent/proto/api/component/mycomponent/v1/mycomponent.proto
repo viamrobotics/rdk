@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package proto.api.component.mycomponent.v1;
+
+import "google/api/annotations.proto";
+
+option go_package = "go.acme.com/proto/api/component/mycomponent/v1";
+
+service MyComponentService {
+  rpc DoOne(DoOneRequest) returns (DoOneResponse) {
+    option (google.api.http) = {
+      post: "/acme/api/v1/component/mycomponent/{name}/do_one"
+    };
+  }
+
+  rpc DoOneClientStream(stream DoOneClientStreamRequest) returns (DoOneClientStreamResponse);
+
+  rpc DoOneServerStream(DoOneServerStreamRequest) returns (stream DoOneServerStreamResponse);
+
+  rpc DoOneBiDiStream(stream DoOneBiDiStreamRequest) returns (stream DoOneBiDiStreamResponse);
+
+  rpc DoTwo(DoTwoRequest) returns (DoTwoResponse) {
+    option (google.api.http) = {
+      post: "/acme/api/v1/component/mycomponent/{name}/do_two"
+    };
+  }
+}
+
+message DoOneRequest {
+  string name = 1;
+  string arg1 = 2;
+}
+
+message DoOneResponse {
+  bool ret1 = 1;
+}
+
+message DoOneServerStreamRequest {
+  string name = 1;
+  string arg1 = 2;
+}
+
+message DoOneServerStreamResponse {
+  bool ret1 = 1;
+}
+
+message DoOneClientStreamRequest {
+  string name = 1;
+  string arg1 = 2;
+}
+
+message DoOneClientStreamResponse {
+  bool ret1 = 1;
+}
+
+message DoOneBiDiStreamRequest {
+  string name = 1;
+  string arg1 = 2;
+}
+
+message DoOneBiDiStreamResponse {
+  bool ret1 = 1;
+}
+
+message DoTwoRequest {
+  string name = 1;
+  bool arg1 = 2;
+}
+
+message DoTwoResponse {
+  string ret1 = 1;
+}
