@@ -6,7 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/robot/client"
 	myc "go.viam.com/rdk/samples/mycomponent/component"
 )
 
