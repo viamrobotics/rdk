@@ -22,7 +22,7 @@ func TestPiPigpio(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	cfg := Config{
+	cfg := picommon.Config{
 		DigitalInterrupts: []board.DigitalInterruptConfig{
 			{Name: "i1", Pin: "11"}, // bcom 17
 			{Name: "servo-i", Pin: "22", Type: "servo"},
