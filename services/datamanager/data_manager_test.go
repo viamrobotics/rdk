@@ -336,9 +336,14 @@ func TestModelDeploy(t *testing.T) {
 	}()
 
 	// Generate a fake model.
+	var all []*model.Model
 	m := &model.Model{Name: "m1", Destination: ""}
-	models := []*model.Model{m}
-	defer resetFolder(t, filepath.Join(defaultModelDir, models[0].Name))
+	all = append(all, m)
+	m2 := &model.Model{Name: "m2", Destination: ""}
+	all = append(all, m2)
+	// models := []*model.Model{m}
+	defer resetFolder(t, filepath.Join(defaultModelDir, all[0].Name))
+	defer resetFolder(t, filepath.Join(defaultModelDir, all[1].Name))
 
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig(testCfg)
@@ -346,7 +351,7 @@ func TestModelDeploy(t *testing.T) {
 
 	// Set SyncIntervalMins equal to zero so we do not enable syncing.
 	dmCfg.SyncIntervalMins = 0
-	dmCfg.ModelsToDeploy = append(dmCfg.ModelsToDeploy, models...)
+	dmCfg.ModelsToDeploy = append(dmCfg.ModelsToDeploy, all...)
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
@@ -359,10 +364,15 @@ func TestModelDeploy(t *testing.T) {
 
 	// Validate that model was deployed.
 	_ = dmsvc.Close(context.Background())
-	files, err := ioutil.ReadDir(filepath.Join(defaultModelDir, models[0].Name))
+	files, err := ioutil.ReadDir(filepath.Join(defaultModelDir, all[0].Name))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(files), test.ShouldEqual, 1)
-	b, _ := deepCompare(filepath.Join(defaultModelDir, models[0].Name, "READYOU.txt"), "README.txt")
+	files, err = ioutil.ReadDir(filepath.Join(defaultModelDir, all[1].Name))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(files), test.ShouldEqual, 1)
+	b, _ := deepCompare(filepath.Join(defaultModelDir, all[0].Name, "READYOU.txt"), "README.txt")
+	test.That(t, b, test.ShouldBeTrue)
+	b, _ = deepCompare(filepath.Join(defaultModelDir, all[1].Name, "READYOU.txt"), "README.txt")
 	test.That(t, b, test.ShouldBeTrue)
 	err = os.Remove("README.txt")
 	test.That(t, err, test.ShouldBeNil)
