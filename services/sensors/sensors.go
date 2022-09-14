@@ -80,6 +80,11 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Service)(nil), actual)
+}
+
 // FromRobot is a helper for getting the named sensor service from the given Robot.
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	resource, err := r.ResourceByName(Named(name))
@@ -88,7 +93,7 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 	}
 	svc, ok := resource.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("sensors.Service", resource)
+		return nil, NewUnimplementedInterfaceError(resource)
 	}
 	return svc, nil
 }
@@ -228,7 +233,7 @@ func (svc *reconfigurableSensors) Reconfigure(ctx context.Context, newSvc resour
 func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 	svc, ok := s.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("sensors.Service", s)
+		return nil, NewUnimplementedInterfaceError(s)
 	}
 
 	if reconfigurable, ok := s.(*reconfigurableSensors); ok {

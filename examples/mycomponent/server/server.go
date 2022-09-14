@@ -8,9 +8,9 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
+	_ "go.viam.com/rdk/examples/mycomponent/component"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
-	_ "go.viam.com/rdk/samples/mycomponent/component"
 	"go.viam.com/rdk/utils"
 )
 
@@ -21,7 +21,7 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
-	cfg, err := config.Read(ctx, utils.ResolveFile("./samples/mycomponent/server/config.json"), logger)
+	cfg, err := config.Read(ctx, utils.ResolveFile("./examples/mycomponent/server/config.json"), logger)
 	if err != nil {
 		return err
 	}

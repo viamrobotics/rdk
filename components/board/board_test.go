@@ -79,7 +79,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, result, test.ShouldEqual, mockGPIO)
 
 	res, err = board.FromDependencies(deps, fakeBoardName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeBoardName, "Board", "string"))
+	test.That(t, err, test.ShouldBeError, board.DependencyTypeError(fakeBoardName, "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = board.FromDependencies(deps, missingBoardName)
@@ -101,7 +101,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldEqual, mockGPIO)
 
 	res, err = board.FromRobot(r, fakeBoardName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Board", "string"))
+	test.That(t, err, test.ShouldBeError, board.NewUnimplementedInterfaceError("string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = board.FromRobot(r, missingBoardName)
@@ -164,7 +164,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = board.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Board", nil))
+	test.That(t, err, test.ShouldBeError, board.NewUnimplementedInterfaceError(nil))
 
 	reconfBoard2, err := board.WrapWithReconfigurable(reconfBoard1)
 	test.That(t, err, test.ShouldBeNil)

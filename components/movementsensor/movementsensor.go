@@ -93,9 +93,19 @@ func FromDependencies(deps registry.Dependencies, name string) (MovementSensor, 
 	}
 	part, ok := res.(MovementSensor)
 	if !ok {
-		return nil, utils.DependencyTypeError(name, "MovementSensor", res)
+		return nil, DependencyTypeError(name, res)
 	}
 	return part, nil
+}
+
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((MovementSensor)(nil), actual)
+}
+
+// DependencyTypeError is used when a resource doesn't implement the expected interface.
+func DependencyTypeError(name, actual interface{}) error {
+	return utils.DependencyTypeError(name, (MovementSensor)(nil), actual)
 }
 
 // FromRobot is a helper for getting the named MovementSensor from the given Robot.
@@ -106,7 +116,7 @@ func FromRobot(r robot.Robot, name string) (MovementSensor, error) {
 	}
 	part, ok := res.(MovementSensor)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("MovementSensor", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }
@@ -248,7 +258,7 @@ func (r *reconfigurableMovementSensor) reconfigure(ctx context.Context, newMovem
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	ms, ok := r.(MovementSensor)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("MovementSensor", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := ms.(*reconfigurableMovementSensor); ok {
 		return reconfigurable, nil

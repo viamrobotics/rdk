@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/components/motor/gpio"
 	"go.viam.com/rdk/config"
 )
 
@@ -31,8 +32,8 @@ func TestArduinoPWM(t *testing.T) {
 						Name:  "m1",
 						Model: "arduino",
 						Type:  motor.SubtypeName,
-						ConvertedAttributes: &motor.Config{
-							Pins: motor.PinConfig{
+						ConvertedAttributes: &gpio.Config{
+							Pins: gpio.PinConfig{
 								PWM:          "5",
 								A:            "6",
 								B:            "7",
@@ -65,8 +66,8 @@ func TestArduinoPWM(t *testing.T) {
 						Name:  "m1",
 						Model: "arduino",
 						Type:  motor.SubtypeName,
-						ConvertedAttributes: &motor.Config{
-							Pins: motor.PinConfig{
+						ConvertedAttributes: &gpio.Config{
+							Pins: gpio.PinConfig{
 								A:            "6",
 								B:            "7",
 								EnablePinLow: "8",
@@ -98,8 +99,8 @@ func TestArduinoPWM(t *testing.T) {
 						Name:  "m1",
 						Model: "arduino",
 						Type:  motor.SubtypeName,
-						ConvertedAttributes: &motor.Config{
-							Pins: motor.PinConfig{
+						ConvertedAttributes: &gpio.Config{
+							Pins: gpio.PinConfig{
 								PWM:       "5",
 								Direction: "10",
 							},
@@ -130,8 +131,8 @@ func TestArduinoPWM(t *testing.T) {
 						Name:  "m1",
 						Model: "arduino",
 						Type:  motor.SubtypeName,
-						ConvertedAttributes: &motor.Config{
-							Pins: motor.PinConfig{
+						ConvertedAttributes: &gpio.Config{
+							Pins: gpio.PinConfig{
 								PWM:          "35",
 								A:            "6",
 								B:            "7",
@@ -173,7 +174,7 @@ func TestArduinoPWM(t *testing.T) {
 				ctx,
 				b,
 				tc.conf.Components[0],
-				tc.conf.Components[0].ConvertedAttributes.(*motor.Config),
+				tc.conf.Components[0].ConvertedAttributes.(*gpio.Config),
 				&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName},
 			)
 
@@ -215,8 +216,8 @@ func TestArduinoMotorABPWM(t *testing.T) {
 				Name:  "m1",
 				Model: "arduino",
 				Type:  motor.SubtypeName,
-				ConvertedAttributes: &motor.Config{
-					Pins: motor.PinConfig{
+				ConvertedAttributes: &gpio.Config{
+					Pins: gpio.PinConfig{
 						PWM:          "11",
 						A:            "37",
 						B:            "39",
@@ -255,7 +256,7 @@ func TestArduinoMotorABPWM(t *testing.T) {
 		context.Background(),
 		b,
 		cfg.Components[0],
-		cfg.Components[0].ConvertedAttributes.(*motor.Config),
+		cfg.Components[0].ConvertedAttributes.(*gpio.Config),
 		&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName},
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -275,8 +276,8 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 				Name:  "m1",
 				Model: "arduino",
 				Type:  motor.SubtypeName,
-				ConvertedAttributes: &motor.Config{
-					Pins: motor.PinConfig{
+				ConvertedAttributes: &gpio.Config{
+					Pins: gpio.PinConfig{
 						PWM:          "5",
 						Direction:    "6",
 						EnablePinLow: "7",
@@ -314,7 +315,7 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 		context.Background(),
 		b,
 		cfg.Components[0],
-		cfg.Components[0].ConvertedAttributes.(*motor.Config),
+		cfg.Components[0].ConvertedAttributes.(*gpio.Config),
 		&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName},
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -334,8 +335,8 @@ func TestArduinoMotorAB(t *testing.T) {
 				Name:  "m1",
 				Model: "arduino",
 				Type:  motor.SubtypeName,
-				ConvertedAttributes: &motor.Config{
-					Pins: motor.PinConfig{
+				ConvertedAttributes: &gpio.Config{
+					Pins: gpio.PinConfig{
 						A:            "5",
 						B:            "6",
 						EnablePinLow: "7",
@@ -373,7 +374,7 @@ func TestArduinoMotorAB(t *testing.T) {
 		context.Background(),
 		b,
 		cfg.Components[0],
-		cfg.Components[0].ConvertedAttributes.(*motor.Config),
+		cfg.Components[0].ConvertedAttributes.(*gpio.Config),
 		&Encoder{board: b, A: ePins.A, B: ePins.B, name: ecfg.MotorName},
 	)
 	test.That(t, err, test.ShouldBeNil)

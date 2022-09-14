@@ -107,9 +107,24 @@ func FromDependencies(deps registry.Dependencies, name string) (Base, error) {
 	}
 	part, ok := res.(Base)
 	if !ok {
-		return nil, utils.DependencyTypeError(name, "Base", res)
+		return nil, DependencyTypeError(name, res)
 	}
 	return part, nil
+}
+
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Base)(nil), actual)
+}
+
+// NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
+func NewUnimplementedLocalInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((LocalBase)(nil), actual)
+}
+
+// DependencyTypeError is used when a resource doesn't implement the expected interface.
+func DependencyTypeError(name, actual interface{}) error {
+	return utils.DependencyTypeError(name, (Base)(nil), actual)
 }
 
 // FromRobot is a helper for getting the named base from the given Robot.
@@ -120,7 +135,7 @@ func FromRobot(r robot.Robot, name string) (Base, error) {
 	}
 	part, ok := res.(Base)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Base", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }
@@ -134,7 +149,7 @@ func NamesFromRobot(r robot.Robot) []string {
 func CreateStatus(ctx context.Context, resource interface{}) (*commonpb.ActuatorStatus, error) {
 	base, ok := resource.(LocalBase)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalBase", resource)
+		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
 	isMoving, err := base.IsMoving(ctx)
 	if err != nil {
@@ -261,7 +276,7 @@ func (r *reconfigurableLocalBase) Reconfigure(ctx context.Context, newBase resou
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	base, ok := r.(Base)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Base", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := base.(*reconfigurableBase); ok {
 		return reconfigurable, nil

@@ -29,7 +29,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = shell.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("shell.Service", nil))
+	test.That(t, err, test.ShouldBeError, shell.NewUnimplementedInterfaceError(nil))
 
 	reconfSvc2, err := shell.WrapWithReconfigurable(reconfSvc1)
 	test.That(t, err, test.ShouldBeNil)

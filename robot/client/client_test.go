@@ -173,7 +173,6 @@ func TestStatusClient(t *testing.T) {
 		return 5, nil
 	}
 
-	// for these, just need to double check type (main tests should be in the respective grpc client and server files)
 	armSvc1, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	armpb.RegisterArmServiceServer(gServer1, arm.NewServer(armSvc1))
@@ -1420,6 +1419,96 @@ func TestClientStopAll(t *testing.T) {
 	err = client.StopAll(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stopAllCalled, test.ShouldBeTrue)
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestRemoteClientMatch(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer1 := grpc.NewServer()
+	validResources := []resource.Name{arm.Named("remote:arm1")}
+	injectRobot1 := &inject.Robot{
+		ResourceNamesFunc:       func() []resource.Name { return validResources },
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
+	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
+
+	injectArm := &inject.Arm{}
+	injectArm.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+		return pose1, nil
+	}
+
+	armSvc1, err := subtype.New(map[resource.Name]interface{}{arm.Named("remote:arm1"): injectArm})
+	test.That(t, err, test.ShouldBeNil)
+	armpb.RegisterArmServiceServer(gServer1, arm.NewServer(armSvc1))
+
+	go gServer1.Serve(listener1)
+	defer gServer1.Stop()
+
+	// working
+	dur := 100 * time.Millisecond
+	client, err := New(
+		context.Background(),
+		listener1.Addr().String(),
+		logger,
+		WithRefreshEvery(dur),
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	resource1, err := client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, client.resourceClients[arm.Named("remote:arm1")], test.ShouldEqual, resource1)
+	pos, err := resource1.(arm.Arm).GetEndPosition(context.Background(), nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos.String(), test.ShouldResemble, pose1.String())
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestRemoteClientDuplicate(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer1 := grpc.NewServer()
+	validResources := []resource.Name{arm.Named("remote1:arm1"), arm.Named("remote2:arm1")}
+	injectRobot1 := &inject.Robot{
+		ResourceNamesFunc:       func() []resource.Name { return validResources },
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
+	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
+
+	injectArm := &inject.Arm{}
+	injectArm.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+		return pose1, nil
+	}
+
+	armSvc1, err := subtype.New(map[resource.Name]interface{}{arm.Named("remote1:arm1"): injectArm, arm.Named("remote2:arm1"): injectArm})
+	test.That(t, err, test.ShouldBeNil)
+	armpb.RegisterArmServiceServer(gServer1, arm.NewServer(armSvc1))
+
+	go gServer1.Serve(listener1)
+	defer gServer1.Stop()
+
+	// working
+	dur := 100 * time.Millisecond
+	client, err := New(
+		context.Background(),
+		listener1.Addr().String(),
+		logger,
+		WithRefreshEvery(dur),
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	resource1, err := client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, client.resourceClients[arm.Named("arm1")], test.ShouldEqual, resource1)
+	pos, err := resource1.(arm.Arm).GetEndPosition(context.Background(), nil)
+	test.That(t, err.Error(), test.ShouldEqual, "rpc error: code = Unknown desc = no arm with name (arm1)")
+	test.That(t, pos, test.ShouldBeNil)
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
