@@ -12,14 +12,22 @@ import (
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // DepthColorIntrinsicsExtrinsics holds the intrinsics for a color camera, a depth camera, and the pose transformation that
 // transforms a point from being in the reference frame of the depth camera to the reference frame of the color camera.
 type DepthColorIntrinsicsExtrinsics struct {
+	ColorCamera  PinholeCameraIntrinsics
+	DepthCamera  PinholeCameraIntrinsics
+	ExtrinsicD2C spatialmath.Pose
+}
+
+// DepthColorIntrinsicsExtrinsicsConfig is the config file that will be parsed into the proper interface
+type DepthColorIntrinsicsExtrinsicsConfig struct {
 	ColorCamera  PinholeCameraIntrinsics `json:"color"`
 	DepthCamera  PinholeCameraIntrinsics `json:"depth"`
-	ExtrinsicD2C Extrinsics              `json:"extrinsics_depth_to_color"`
+	ExtrinsicD2C json.RawMessage         `json:"extrinsics_depth_to_color"`
 }
 
 // NewEmptyDepthColorIntrinsicsExtrinsics creates an zero initialized DepthColorIntrinsicsExtrinsics.
@@ -27,19 +35,40 @@ func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 	return &DepthColorIntrinsicsExtrinsics{
 		ColorCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0},
 		DepthCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0},
-		ExtrinsicD2C: Extrinsics{[]float64{1, 0, 0, 0, 1, 0, 0, 0, 1}, []float64{0, 0, 0}},
+		ExtrinsicD2C: spatialmath.NewZeroPose(),
 	}
 }
 
 // NewDepthColorIntrinsicsExtrinsicsFromBytes reads a JSON byte stream and turns it into DepthColorIntrinsicsExtrinsics.
 func NewDepthColorIntrinsicsExtrinsicsFromBytes(byteJSON []byte) (*DepthColorIntrinsicsExtrinsics, error) {
-	intrinsics := NewEmptyDepthColorIntrinsicsExtrinsics()
+	intrinExtrin := &DepthColorIntrinsicsExtrinsicsConfig{}
 	// Parse into map
-	err := json.Unmarshal(byteJSON, intrinsics)
+	err := json.Unmarshal(byteJSON, intrinExtrin)
 	if err != nil {
 		err = errors.Wrap(err, "error parsing byte array")
 		return nil, err
 	}
+	temp := struct {
+		R []float64 `json:"rotation"`
+		T []float64 `json:"translation"`
+	}{}
+	err = json.Unmarshal(intrinExtrin.ExtrinsicD2C, &temp)
+	if err != nil {
+		err = errors.Wrap(err, "error parsing byte array")
+		return nil, err
+	}
+	if len(temp.T) != 3 {
+		return nil, errors.Errorf("length of translation is %d, should be 3", len(temp.T))
+	}
+	orientation, err := spatialmath.NewRotationMatrix(temp.R)
+	if err != nil {
+		return nil, err
+	}
+	pose := spatialmath.NewPoseFromOrientation(r3.Vector{temp.T[0], temp.T[1], temp.T[2]}, orientation)
+	intrinsics := NewEmptyDepthColorIntrinsicsExtrinsics()
+	intrinsics.ColorCamera = intrinExtrin.ColorCamera
+	intrinsics.DepthCamera = intrinExtrin.DepthCamera
+	intrinsics.ExtrinsicD2C = pose
 	return intrinsics, nil
 }
 
@@ -166,8 +195,40 @@ func (dcie *DepthColorIntrinsicsExtrinsics) DepthPixelToColorPixel(dx, dy, dz fl
 	m2mm := 1000.0
 	x, y, z := dcie.DepthCamera.PixelToPoint(dx, dy, dz)
 	x, y, z = x/m2mm, y/m2mm, z/m2mm
-	x, y, z = dcie.ExtrinsicD2C.TransformPointToPoint(x, y, z)
+	x, y, z = dcie.TransformPointToPoint(x, y, z)
 	x, y, z = x*m2mm, y*m2mm, z*m2mm
 	cx, cy := dcie.ColorCamera.PointToPixel(x, y, z)
 	return cx, cy, z
+}
+
+// TransformPointToPoint applies a rigid body transform specified as a Pose to two points.
+func (dcie *DepthColorIntrinsicsExtrinsics) TransformPointToPoint(x, y, z float64) (float64, float64, float64) {
+	pose := dcie.ExtrinsicD2C
+	rotationMatrix := pose.Orientation().RotationMatrix()
+	translationVector := pose.Point()
+	xTransformed := rotationMatrix.At(0, 0)*x + rotationMatrix.At(0, 1)*y + rotationMatrix.At(0, 2)*z + translationVector.X
+	yTransformed := rotationMatrix.At(1, 0)*x + rotationMatrix.At(1, 1)*y + rotationMatrix.At(1, 2)*z + translationVector.Y
+	zTransformed := rotationMatrix.At(2, 0)*x + rotationMatrix.At(2, 1)*y + rotationMatrix.At(2, 2)*z + translationVector.Z
+
+	return xTransformed, yTransformed, zTransformed
+}
+
+// ApplyRigidBodyTransform projects a 3D point in a given camera image plane and return a
+// new point cloud leaving the original unchanged.
+func (dcie *DepthColorIntrinsicsExtrinsics) ApplyRigidBodyTransform(pts pointcloud.PointCloud) (pointcloud.PointCloud, error) {
+	transformedPoints := pointcloud.New()
+	var err error
+	pts.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
+		x, y, z := dcie.TransformPointToPoint(pt.X, pt.Y, pt.Z)
+		err = transformedPoints.Set(pointcloud.NewVector(x, y, z), data)
+		if err != nil {
+			err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", x, y, z)
+			return false
+		}
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+	return transformedPoints, nil
 }

@@ -136,8 +136,7 @@ func (params *PinholeCameraIntrinsics) CheckValid() error {
 }
 
 // NewPinholeCameraIntrinsicsFromJSONFile takes in a file path to a JSON and turns it into PinholeCameraIntrinsics.
-func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*PinholeCameraIntrinsics, error) {
-	intrinsics := NewEmptyDepthColorIntrinsicsExtrinsics()
+func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath string) (*PinholeCameraIntrinsics, error) {
 	// open json file
 	//nolint:gosec
 	jsonFile, err := os.Open(jsonPath)
@@ -153,15 +152,13 @@ func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*Pinho
 		return nil, err2
 	}
 	// Parse into map
+	intrinsics := &PinholeCameraIntrinsics{}
 	err = json.Unmarshal(byteValue, intrinsics)
 	if err != nil {
 		err = errors.Wrap(err, "error parsing JSON string")
 		return nil, err
 	}
-	if cameraName == "depth" {
-		return &intrinsics.DepthCamera, nil
-	}
-	return &intrinsics.ColorCamera, nil
+	return intrinsics, nil
 }
 
 // PixelToPoint transforms a pixel with depth to a 3D point cloud.

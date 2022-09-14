@@ -3,74 +3,86 @@ package transform
 import (
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
-func TestDepthColorIntrinsicsExtrinsics(t *testing.T) {
-	// check depth sensor parameters values
-	depthIntrinsics, err := NewPinholeCameraIntrinsicsFromJSONFile(intel515ParamsPath, "depth")
+func TestIntrinsicsJSON(t *testing.T) {
+	colorIntrinsics, err := NewPinholeCameraIntrinsicsFromJSONFile(
+		utils.ResolveFile("rimage/transform/data/intel515_color_camera.json"),
+	)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, colorIntrinsics.Height, test.ShouldEqual, 720)
+	test.That(t, colorIntrinsics.Width, test.ShouldEqual, 1280)
+	test.That(t, colorIntrinsics.Fx, test.ShouldEqual, 900.538)
+	test.That(t, colorIntrinsics.Fy, test.ShouldEqual, 900.818)
+}
+
+func TestDepthColorIntrinsicsExtrinsics(t *testing.T) {
+	sensorParams, err := NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
+	test.That(t, err, test.ShouldBeNil)
+	// check depth sensor parameters values
+	depthIntrinsics := sensorParams.DepthCamera
 	test.That(t, depthIntrinsics.Height, test.ShouldEqual, 768)
 	test.That(t, depthIntrinsics.Width, test.ShouldEqual, 1024)
 	test.That(t, depthIntrinsics.Fx, test.ShouldEqual, 734.938)
 	test.That(t, depthIntrinsics.Fy, test.ShouldEqual, 735.516)
 
 	// check color sensor parameters values
-	colorIntrinsics, err2 := NewPinholeCameraIntrinsicsFromJSONFile(intel515ParamsPath, "color")
-	test.That(t, err2, test.ShouldBeNil)
+	colorIntrinsics := sensorParams.ColorCamera
 	test.That(t, colorIntrinsics.Height, test.ShouldEqual, 720)
 	test.That(t, colorIntrinsics.Width, test.ShouldEqual, 1280)
 	test.That(t, colorIntrinsics.Fx, test.ShouldEqual, 900.538)
 	test.That(t, colorIntrinsics.Fy, test.ShouldEqual, 900.818)
 
 	// check sensorParams sensor parameters values
-	sensorParams, err3 := NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
-	test.That(t, err3, test.ShouldBeNil)
-	gtRotation := []float64{0.999958, -0.00838489, 0.00378392, 0.00824708, 0.999351, 0.0350734, -0.00407554, -0.0350407, 0.999378}
+	gtRotation, err := spatialmath.NewRotationMatrix([]float64{
+		0.999958, -0.00838489, 0.00378392,
+		0.00824708, 0.999351, 0.0350734,
+		-0.00407554, -0.0350407, 0.999378,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	gtTranslation := r3.Vector{-0.000828434, 0.0139185, -0.0033418}
 
-	test.That(t, sensorParams.ExtrinsicD2C.RotationMatrix, test.ShouldHaveLength, 9)
-	test.That(t, sensorParams.ExtrinsicD2C.RotationMatrix, test.ShouldResemble, gtRotation)
-	test.That(t, sensorParams.ExtrinsicD2C.TranslationVector, test.ShouldHaveLength, 3)
+	rotationMatrix := sensorParams.ExtrinsicD2C.Orientation().RotationMatrix()
+	translationVector := sensorParams.ExtrinsicD2C.Point()
+	test.That(t, spatialmath.OrientationAlmostEqual(rotationMatrix, gtRotation), test.ShouldBeTrue)
+	test.That(t, translationVector.X, test.ShouldAlmostEqual, gtTranslation.X)
+	test.That(t, translationVector.Y, test.ShouldAlmostEqual, gtTranslation.Y)
+	test.That(t, translationVector.Z, test.ShouldAlmostEqual, gtTranslation.Z)
 }
 
 func TestTransformPointToPoint(t *testing.T) {
+	dcie := NewEmptyDepthColorIntrinsicsExtrinsics()
 	x1, y1, z1 := 0., 0., 1.
-	rot1 := []float64{1, 0, 0, 0, 1, 0, 0, 0, 1}
-
-	t1 := []float64{0, 0, 1}
+	t1 := r3.Vector{0, 0, 1}
 	// Get rigid body transform between Depth and RGB sensor
-	extrinsics1 := Extrinsics{
-		RotationMatrix:    rot1,
-		TranslationVector: t1,
-	}
-	x2, y2, z2 := extrinsics1.TransformPointToPoint(x1, y1, z1)
+	dcie.ExtrinsicD2C = spatialmath.NewPoseFromPoint(t1)
+	x2, y2, z2 := dcie.TransformPointToPoint(x1, y1, z1)
 	test.That(t, x2, test.ShouldEqual, 0.)
 	test.That(t, y2, test.ShouldEqual, 0.)
 	test.That(t, z2, test.ShouldEqual, 2.)
 
-	t2 := []float64{0, 2, 0}
-	extrinsics2 := Extrinsics{
-		RotationMatrix:    rot1,
-		TranslationVector: t2,
-	}
-	x3, y3, z3 := extrinsics2.TransformPointToPoint(x1, y1, z1)
+	t2 := r3.Vector{0, 2, 0}
+	dcie.ExtrinsicD2C = spatialmath.NewPoseFromPoint(t2)
+	x3, y3, z3 := dcie.TransformPointToPoint(x1, y1, z1)
 	test.That(t, x3, test.ShouldEqual, 0.)
 	test.That(t, y3, test.ShouldEqual, 2.)
 	test.That(t, z3, test.ShouldEqual, 1.)
 	// Rotation in the (z,x) plane of 90 degrees
-	rot2 := []float64{0, 0, 1, 0, 1, 0, 0, 0, -1}
-	extrinsics3 := Extrinsics{
-		RotationMatrix:    rot2,
-		TranslationVector: t2,
-	}
-	x4, y4, z4 := extrinsics3.TransformPointToPoint(x1, y1, z1)
-	test.That(t, x4, test.ShouldEqual, 1.)
-	test.That(t, y4, test.ShouldEqual, 2.)
-	test.That(t, z4, test.ShouldEqual, -1.)
+	rot, err := spatialmath.NewRotationMatrix([]float64{0, 0, 1, 0, 1, 0, -1, 0, 0})
+	test.That(t, err, test.ShouldBeNil)
+	dcie.ExtrinsicD2C = spatialmath.NewPoseFromOrientation(t2, rot)
+	x4, y4, z4 := dcie.TransformPointToPoint(x1, y1, z1)
+	test.That(t, x4, test.ShouldAlmostEqual, 1.)
+	test.That(t, y4, test.ShouldAlmostEqual, 2.)
+	test.That(t, z4, test.ShouldAlmostEqual, 0.)
 }
 
 func TestUndistortImage(t *testing.T) {
