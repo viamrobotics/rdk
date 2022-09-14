@@ -75,6 +75,11 @@ type PoseTracker interface {
 	generic.Generic
 }
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((PoseTracker)(nil), actual)
+}
+
 // FromRobot is a helper for getting the named force matrix sensor from the given Robot.
 func FromRobot(r robot.Robot, name string) (PoseTracker, error) {
 	res, err := r.ResourceByName(Named(name))
@@ -83,7 +88,7 @@ func FromRobot(r robot.Robot, name string) (PoseTracker, error) {
 	}
 	part, ok := res.(PoseTracker)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("PoseTracker", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }
@@ -161,7 +166,7 @@ func (r *reconfigurablePoseTracker) Reconfigure(
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	poseTracker, ok := r.(PoseTracker)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("PoseTracker", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := poseTracker.(*reconfigurablePoseTracker); ok {
 		return reconfigurable, nil

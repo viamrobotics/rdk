@@ -3,11 +3,12 @@ package motionplan
 
 import (
 	"context"
-	"errors"
 	"math"
+	"math/rand"
 	"sort"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -27,14 +28,82 @@ type MotionPlanner interface {
 	Frame() frame.Frame // Frame will return the frame used for planning
 }
 
-// needed to wrap slices so we can use them as map keys.
-type configuration struct {
-	inputs []frame.Input
+type planner struct {
+	solver InverseKinematics
+	frame  frame.Frame
+	logger golog.Logger
+	nCPU   int
+	// TODO(pl): As we move to per-segment planner instantiation, this should move to the options struct
+	randseed *rand.Rand
 }
 
+func newPlanner(frame frame.Frame, nCPU int, seed *rand.Rand, logger golog.Logger) (*planner, error) {
+	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
+	if err != nil {
+		return nil, err
+	}
+	mp := &planner{
+		solver:   ik,
+		frame:    frame,
+		logger:   logger,
+		nCPU:     nCPU,
+		randseed: seed,
+	}
+	return mp, nil
+}
+
+func (mp *planner) Frame() frame.Frame {
+	return mp.frame
+}
+
+func (mp *planner) checkInputs(planOpts *PlannerOptions, inputs []frame.Input) bool {
+	frame := mp.Frame()
+	position, err := frame.Transform(inputs)
+	if err != nil {
+		return false
+	}
+	ok, _ := planOpts.CheckConstraints(&ConstraintInput{
+		StartPos:   position,
+		EndPos:     position,
+		StartInput: inputs,
+		EndInput:   inputs,
+		Frame:      frame,
+	})
+	return ok
+}
+
+func (mp *planner) checkPath(planOpts *PlannerOptions, seedInputs, target []frame.Input) bool {
+	ok, _ := planOpts.CheckConstraintPath(
+		&ConstraintInput{
+			StartInput: seedInputs,
+			EndInput:   target,
+			Frame:      mp.Frame(),
+		},
+		planOpts.Resolution,
+	)
+	return ok
+}
+
+// needed to wrap slices so we can use them as map keys.
+type node struct {
+	q []frame.Input
+	// TODO(rb): do not add extra fields to this parameter, if the need arises
+	cost float64
+}
+
+type nodePair struct{ a, b *node }
+
 type planReturn struct {
-	steps []*configuration
+	steps []*node
 	err   error
+}
+
+func (plan *planReturn) toInputs() [][]frame.Input {
+	inputs := make([][]frame.Input, 0, len(plan.steps))
+	for _, step := range plan.steps {
+		inputs = append(inputs, step.q)
+	}
+	return inputs
 }
 
 // PlanRobotMotion plans a motion to destination for a given frame. A robot object is passed in and current position inputs are determined.
@@ -86,7 +155,16 @@ func PlanWaypoints(ctx context.Context,
 	return solvableFS.SolveWaypointsWithOptions(ctx, seedMap, dst, f.Name(), worldState, planningOpts)
 }
 
-// runPlannerWithWaypoints will plan to each of a list of goals in order, optionally also taking a new planner option for each goal.
+// EvaluatePlan assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
+func EvaluatePlan(plan [][]frame.Input, planOpts *PlannerOptions) (totalCost float64) {
+	for i := 0; i < len(plan)-1; i++ {
+		_, cost := planOpts.DistanceFunc(&ConstraintInput{StartInput: plan[i], EndInput: plan[i+1]})
+		totalCost += cost
+	}
+	return totalCost
+}
+
+// runPlannerWithWaypoints will plan to each of a list of goals in oder, optionally also taking a new planner option for each goal.
 func runPlannerWithWaypoints(ctx context.Context,
 	planner MotionPlanner,
 	goals []spatial.Pose,
@@ -104,7 +182,7 @@ func runPlannerWithWaypoints(ctx context.Context,
 	if cbert, ok := planner.(*cBiRRTMotionPlanner); ok {
 		// cBiRRT supports solution look-ahead for parallel waypoint solving
 		// TODO(pl): other planners will support lookaheads, so this should be made to be an interface
-		endpointPreview := make(chan *configuration, 1)
+		endpointPreview := make(chan *node, 1)
 		solutionChan := make(chan *planReturn, 1)
 		utils.PanicCapturingGo(func() {
 			// TODO(rb) fix me
@@ -129,7 +207,7 @@ func runPlannerWithWaypoints(ctx context.Context,
 				if iter+1 < len(goals) {
 					// In this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it.
-					remainingSteps, err = runPlannerWithWaypoints(ctx, planner, goals, nextSeed.inputs, opts, iter+1)
+					remainingSteps, err = runPlannerWithWaypoints(ctx, planner, goals, nextSeed.q, opts, iter+1)
 					if err != nil {
 						return nil, err
 					}
@@ -147,11 +225,7 @@ func runPlannerWithWaypoints(ctx context.Context,
 						if finalSteps.err != nil {
 							return nil, finalSteps.err
 						}
-						results := make([][]frame.Input, 0, len(finalSteps.steps)+len(remainingSteps))
-						for _, step := range finalSteps.steps {
-							results = append(results, step.inputs)
-						}
-						results = append(results, remainingSteps...)
+						results := append(finalSteps.toInputs(), remainingSteps...)
 						return results, nil
 					default:
 					}
@@ -164,16 +238,19 @@ func runPlannerWithWaypoints(ctx context.Context,
 				if iter+1 < len(goals) {
 					// in this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it
-					remainingSteps, err = runPlannerWithWaypoints(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps)-1].inputs, opts, iter+1)
+					remainingSteps, err = runPlannerWithWaypoints(
+						ctx,
+						planner,
+						goals,
+						finalSteps.steps[len(finalSteps.steps)-1].q,
+						opts,
+						iter+1,
+					)
 					if err != nil {
 						return nil, err
 					}
 				}
-				results := make([][]frame.Input, 0, len(finalSteps.steps)+len(remainingSteps))
-				for _, step := range finalSteps.steps {
-					results = append(results, step.inputs)
-				}
-				results = append(results, remainingSteps...)
+				results := append(finalSteps.toInputs(), remainingSteps...)
 				return results, nil
 			default:
 			}
@@ -211,74 +288,18 @@ func GetSteps(seedPos, goalPos spatial.Pose, stepSize float64) int {
 	return int(nSteps) + 1
 }
 
-// fixOvIncrement will detect whether the given goal position is a precise orientation increment of the current
-// position, in which case it will detect whether we are leaving a pole. If we are an OV increment and leaving a pole,
-// then Theta will be adjusted to give an expected smooth movement. The adjusted goal will be returned. Otherwise the
-// original goal is returned.
-// Rationale: if clicking the increment buttons in the interface, the user likely wants the most intuitive motion
-// posible. If setting values manually, the user likely wants exactly what they requested.
-func fixOvIncrement(pos, seed *commonpb.Pose) *commonpb.Pose {
-	epsilon := 0.0001
-	// Nothing to do for spatial translations or theta increments
-	if pos.X != seed.X || pos.Y != seed.Y || pos.Z != seed.Z || pos.Theta != seed.Theta {
-		return pos
-	}
-	// Check if seed is pointing directly at pole
-	if 1-math.Abs(seed.OZ) > epsilon || pos.OZ != seed.OZ {
-		return pos
-	}
-
-	// we only care about negative xInc
-	xInc := pos.OX - seed.OX
-	yInc := math.Abs(pos.OY - seed.OY)
-	var adj float64
-	if pos.OX == seed.OX {
-		// no OX movement
-		if yInc != 0.1 && yInc != 0.01 {
-			// nonstandard increment
-			return pos
-		}
-		// If wanting to point towards +Y and OZ<0, add 90 to theta, otherwise subtract 90
-		if pos.OY-seed.OY > 0 {
-			adj = 90
-		} else {
-			adj = -90
-		}
-	} else {
-		if (xInc != -0.1 && xInc != -0.01) || pos.OY != seed.OY {
-			return pos
-		}
-		// If wanting to point towards -X, increment by 180. Values over 180 or under -180 will be automatically wrapped
-		adj = 180
-	}
-	if pos.OZ > 0 {
-		adj *= -1
-	}
-
-	return &commonpb.Pose{
-		X:     pos.X,
-		Y:     pos.Y,
-		Z:     pos.Z,
-		Theta: pos.Theta + adj,
-		OX:    pos.OX,
-		OY:    pos.OY,
-		OZ:    pos.OZ,
-	}
-}
-
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and score them by constraints.
 // If maxSolutions is positive, once that many solutions have been collected, the solver will terminate and return that many solutions.
 // If minScore is positive, if a solution scoring below that amount is found, the solver will terminate and return that one solution.
 func getSolutions(ctx context.Context,
-	opt *PlannerOptions,
+	planOpts *PlannerOptions,
 	solver InverseKinematics,
 	goal *commonpb.Pose,
 	seed []frame.Input,
 	f frame.Frame,
-) ([][]frame.Input, error) {
+) ([]*node, error) {
 	// Linter doesn't properly handle loop labels
-
-	nSolutions := opt.MaxSolutions
+	nSolutions := planOpts.MaxSolutions
 	if nSolutions == 0 {
 		nSolutions = defaultSolutionsToSeed
 	}
@@ -299,7 +320,7 @@ func getSolutions(ctx context.Context,
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
-		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goalPos, seed, opt.metric)
+		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goalPos, seed, planOpts.metric)
 	})
 
 	solutions := map[float64][]frame.Input{}
@@ -315,14 +336,14 @@ IK:
 
 		select {
 		case step := <-solutionGen:
-			cPass, cScore := opt.CheckConstraints(&ConstraintInput{
+			cPass, cScore := planOpts.CheckConstraints(&ConstraintInput{
 				seedPos,
 				goalPos,
 				seed,
 				step,
 				f,
 			})
-			endPass, _ := opt.CheckConstraints(&ConstraintInput{
+			endPass, _ := planOpts.CheckConstraints(&ConstraintInput{
 				goalPos,
 				goalPos,
 				step,
@@ -331,7 +352,7 @@ IK:
 			})
 
 			if cPass && endPass {
-				if cScore < opt.MinScore && opt.MinScore > 0 {
+				if cScore < planOpts.MinScore && planOpts.MinScore > 0 {
 					solutions = map[float64][]frame.Input{}
 					solutions[cScore] = step
 					// good solution, stopping early
@@ -358,7 +379,7 @@ IK:
 		}
 	}
 	if len(solutions) == 0 {
-		return nil, errors.New("unable to solve for position")
+		return nil, newIKError()
 	}
 
 	keys := make([]float64, 0, len(solutions))
@@ -367,17 +388,59 @@ IK:
 	}
 	sort.Float64s(keys)
 
-	orderedSolutions := make([][]frame.Input, 0)
+	orderedSolutions := make([]*node, 0)
 	for _, key := range keys {
-		orderedSolutions = append(orderedSolutions, solutions[key])
+		orderedSolutions = append(orderedSolutions, &node{q: solutions[key], cost: key})
 	}
 	return orderedSolutions, nil
 }
 
-func inputDist(from, to []frame.Input) float64 {
-	dist := 0.
-	for i, f := range from {
-		dist += math.Pow(to[i].Value-f.Value, 2)
+func extractPath(startMap, goalMap map[*node]*node, pair *nodePair) []*node {
+	// need to figure out which of the two nodes is in the start map
+	var startReached, goalReached *node
+	if _, ok := startMap[pair.a]; ok {
+		startReached, goalReached = pair.a, pair.b
+	} else {
+		startReached, goalReached = pair.b, pair.a
 	}
-	return dist
+
+	// extract the path to the seed
+	path := make([]*node, 0)
+	for startReached != nil {
+		path = append(path, startReached)
+		startReached = startMap[startReached]
+	}
+
+	// reverse the slice
+	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
+		path[i], path[j] = path[j], path[i]
+	}
+
+	// skip goalReached node and go directly to its parent in order to not repeat this node
+	goalReached = goalMap[goalReached]
+
+	// extract the path to the goal
+	for goalReached != nil {
+		path = append(path, goalReached)
+		goalReached = goalMap[goalReached]
+	}
+	return path
+}
+
+func shortestPath(startMap, goalMap map[*node]*node, nodePairs []*nodePair) *planReturn {
+	if len(nodePairs) == 0 {
+		return &planReturn{err: newPlannerFailedError()}
+	}
+	pairCost := func(pair *nodePair) float64 {
+		return pair.a.cost + pair.b.cost
+	}
+	minIdx := 0
+	minDist := pairCost(nodePairs[0])
+	for i := 1; i < len(nodePairs); i++ {
+		if dist := pairCost(nodePairs[i]); dist < minDist {
+			minDist = dist
+			minIdx = i
+		}
+	}
+	return &planReturn{steps: extractPath(startMap, goalMap, nodePairs[minIdx])}
 }

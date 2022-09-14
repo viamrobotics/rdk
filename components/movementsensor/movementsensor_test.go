@@ -81,7 +81,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, loc)
 
 	s, err = movementsensor.FromDependencies(deps, fakeMovementSensorName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeMovementSensorName, "MovementSensor", "string"))
+	test.That(t, err, test.ShouldBeError, movementsensor.DependencyTypeError(fakeMovementSensorName, "string"))
 	test.That(t, s, test.ShouldBeNil)
 
 	s, err = movementsensor.FromDependencies(deps, missingMovementSensorName)
@@ -101,7 +101,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, loc)
 
 	s, err = movementsensor.FromRobot(r, fakeMovementSensorName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("MovementSensor", "string"))
+	test.That(t, err, test.ShouldBeError, movementsensor.NewUnimplementedInterfaceError("string"))
 	test.That(t, s, test.ShouldBeNil)
 
 	s, err = movementsensor.FromRobot(r, missingMovementSensorName)
@@ -158,7 +158,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = movementsensor.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("MovementSensor", nil))
+	test.That(t, err, test.ShouldBeError, movementsensor.NewUnimplementedInterfaceError(nil))
 
 	reconfMovementSensor2, err := movementsensor.WrapWithReconfigurable(reconfMovementSensor1)
 	test.That(t, err, test.ShouldBeNil)

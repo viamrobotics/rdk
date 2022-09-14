@@ -307,7 +307,7 @@ func RegisterCameraServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.camera.v1.CameraService/GetImage", runtime.WithHTTPPathPattern("/viam/api/v1/component/camera/{name}/frame"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.camera.v1.CameraService/GetImage", runtime.WithHTTPPathPattern("/viam/api/v1/component/camera/{name}/image"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -446,7 +446,7 @@ func RegisterCameraServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.camera.v1.CameraService/GetImage", runtime.WithHTTPPathPattern("/viam/api/v1/component/camera/{name}/frame"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.camera.v1.CameraService/GetImage", runtime.WithHTTPPathPattern("/viam/api/v1/component/camera/{name}/image"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -532,7 +532,7 @@ func RegisterCameraServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 }
 
 var (
-	pattern_CameraService_GetImage_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "camera", "name", "frame"}, ""))
+	pattern_CameraService_GetImage_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "camera", "name", "image"}, ""))
 
 	pattern_CameraService_RenderFrame_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "camera", "name", "render_frame"}, ""))
 

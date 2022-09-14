@@ -148,11 +148,21 @@ type Triggerable interface {
 	TriggerEvent(ctx context.Context, event Event) error
 }
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Controller)(nil), actual)
+}
+
+// DependencyTypeError is used when a resource doesn't implement the expected interface.
+func DependencyTypeError(name, actual interface{}) error {
+	return utils.DependencyTypeError(name, (Controller)(nil), actual)
+}
+
 // WrapWithReconfigurable wraps a Controller with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	c, ok := r.(Controller)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Controller", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := c.(*reconfigurableInputController); ok {
 		return reconfigurable, nil
@@ -175,7 +185,7 @@ func FromDependencies(deps registry.Dependencies, name string) (Controller, erro
 	}
 	part, ok := res.(Controller)
 	if !ok {
-		return nil, utils.DependencyTypeError(name, "input.Controller", res)
+		return nil, DependencyTypeError(name, res)
 	}
 	return part, nil
 }
@@ -188,7 +198,7 @@ func FromRobot(r robot.Robot, name string) (Controller, error) {
 	}
 	part, ok := res.(Controller)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("input.Controller", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }
@@ -202,7 +212,7 @@ func NamesFromRobot(r robot.Robot) []string {
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
 	controller, ok := resource.(Controller)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("input.Controller", resource)
+		return nil, NewUnimplementedInterfaceError(resource)
 	}
 	eventsIn, err := controller.GetEvents(ctx)
 	if err != nil {
