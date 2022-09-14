@@ -89,6 +89,11 @@ var (
 	_ = goutils.ContextCloser(&reconfigurableVision{})
 )
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Service)(nil), actual)
+}
+
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("vision")
 
@@ -116,7 +121,7 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 	}
 	svc, ok := resource.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("vision.Service", resource)
+		return nil, NewUnimplementedInterfaceError(resource)
 	}
 	return svc, nil
 }
@@ -533,7 +538,7 @@ func (svc *reconfigurableVision) Reconfigure(ctx context.Context, newSvc resourc
 func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 	svc, ok := s.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("vision.Service", s)
+		return nil, NewUnimplementedInterfaceError(s)
 	}
 
 	if reconfigurable, ok := s.(*reconfigurableVision); ok {
