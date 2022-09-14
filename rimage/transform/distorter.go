@@ -21,6 +21,7 @@ type Distorter interface {
 	Transform(x, y float64) (float64, float64)
 }
 
+// NewDistorter returns a Distorter given a valid DistortionType and its parameters.
 func NewDistorter(distortionType DistortionType, parameters []float64) (Distorter, error) {
 	switch distortionType { //nolint:exhaustive
 	case BrownConradyDistortionType:
