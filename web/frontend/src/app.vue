@@ -43,7 +43,7 @@ import { addResizeListeners } from './lib/resize';
 import BaseComponent from './components/base.vue';
 import Camera from './components/camera.vue';
 import AudioInput from './components/audio-input.vue';
-import Do from './components/do.vue';
+import DoCommand from './components/do-command.vue';
 import Gamepad from './components/gamepad.vue';
 import InputController from './components/input-controller.vue';
 import MotorDetail from './components/motor-detail.vue';
@@ -65,7 +65,7 @@ export default {
     BaseComponent,
     Camera,
     AudioInput,
-    Do,
+    DoCommand,
     Gamepad,
     InputController,
     MotorDetail,
@@ -2408,7 +2408,7 @@ function setBoundingBox(box, centerPoint) {
     />
 
     <!-- ******* DO ******* -->
-    <Do :resources="filterResourcesWithNames(resources)" />
+    <DoCommand :resources="filterResourcesWithNames(resources)" />
 
     <!-- ******* CURRENT OPERATIONS ******* -->
     <v-collapse

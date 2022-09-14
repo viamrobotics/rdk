@@ -12,8 +12,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/movementsensor"
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc/server"
