@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
@@ -42,16 +43,18 @@ func (config *AttrConfig) Validate(path string) error {
 	}
 
 	if config == nil {
-		return errors.New("no config found")
+		return utils.NewConfigValidationError(path, errors.New("no config found"))
 	}
 
 	return nil
 }
 
+const modelname = "gps-nmea"
+
 func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
-		"gps-nmea",
+		modelname,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -60,6 +63,13 @@ func init() {
 		) (interface{}, error) {
 			return newNMEAGPS(ctx, deps, cfg, logger)
 		}})
+
+	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&AttrConfig{})
 }
 
 const (

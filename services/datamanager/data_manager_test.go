@@ -582,7 +582,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = datamanager.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("data_manager.Service", nil))
+	test.That(t, err, test.ShouldBeError, datamanager.NewUnimplementedInterfaceError(nil))
 
 	reconfSvc2, err := datamanager.WrapWithReconfigurable(reconfSvc1)
 	test.That(t, err, test.ShouldBeNil)

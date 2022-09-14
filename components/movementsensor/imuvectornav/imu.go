@@ -24,12 +24,47 @@ import (
 
 const model = "imu-vectornav"
 
+// AttrConfig is used for converting a vectornav IMU MovementSensor config attributes.
+type AttrConfig struct {
+	Board string `json:"board"`
+	SPI   string `json:"spi"`
+	Speed *int   `json:"speed"`
+	Pfreq *int   `json:"polling_freq"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (cfg *AttrConfig) Validate(path string) error {
+	if cfg.Board == "" {
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+
+	if cfg.SPI == "" {
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "spi")
+	}
+
+	if cfg.Speed == nil {
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "speed")
+	}
+
+	if cfg.Pfreq == nil {
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "polling_freq")
+	}
+
+	return nil
+}
+
 func init() {
 	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewVectorNav(ctx, deps, config, logger)
 		},
 	})
+	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, model,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&AttrConfig{})
 }
 
 type vectornav struct {
@@ -87,15 +122,15 @@ const (
 func NewVectorNav(
 	ctx context.Context,
 	deps registry.Dependencies,
-	config config.Component,
+	cfg config.Component,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	boardName := config.Attributes.String("board")
+	boardName := cfg.ConvertedAttributes.(*AttrConfig).Board
 	b, err := board.FromDependencies(deps, boardName)
 	if err != nil {
 		return nil, errors.Wrap(err, "vectornav init failed")
 	}
-	spiName := config.Attributes.String("spi")
+	spiName := cfg.ConvertedAttributes.(*AttrConfig).SPI
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
 		return nil, errors.Errorf("vectornav: board %q is not local", boardName)
@@ -104,12 +139,17 @@ func NewVectorNav(
 	if !ok {
 		return nil, errors.Errorf("vectornav: couldn't get spi bus %q", spiName)
 	}
-	cs := config.Attributes.String("cs_pin")
+	cs := cfg.Attributes.String("cs_pin")
 	if cs == "" {
 		return nil, errors.New("vectornav: need chip select pin")
 	}
-	speed := config.Attributes.Int("speed", 8000000)
-	pfreq := config.Attributes.Int("polling_freq", 0)
+
+	speed := *cfg.ConvertedAttributes.(*AttrConfig).Speed
+	if speed == 0 {
+		speed = 8000000
+	}
+
+	pfreq := *cfg.ConvertedAttributes.(*AttrConfig).Pfreq
 	v := &vectornav{
 		bus:       spiBus,
 		logger:    logger,
