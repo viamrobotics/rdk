@@ -135,13 +135,12 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	m.cancelFunc = cancelFn
-	out := make(chan error)
-	// check := make(chan string)
-	fmt.Println("len(modelsToDownload): ", len(modelsToDownload))
+	out := make(chan error, len(modelsToDownload))
 	m.backgroundWorkers.Add(len(modelsToDownload))
 	for _, model := range modelsToDownload {
+		defer close(out) // hmm is this correct?
 		go func(model *Model) {
-			// defer m.backgroundWorkers.Done()
+			defer m.backgroundWorkers.Done()
 			deployRequest := &v1.DeployRequest{
 				Metadata: &v1.DeployMetadata{
 					ModelName: model.Name,
@@ -151,30 +150,37 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 			if err != nil {
 				m.logger.Error(err)
 				out <- err
-			} else {
-				url := deployResp.Message
-				filePath := filepath.Join(model.Destination, model.Name)
-				err := downloadFile(cancelCtx, m.httpClient, filePath, url, m.logger)
-				if err != nil {
-					m.logger.Error(err)
-					out <- err
-				}
-				// A download from a GCS signed URL only returns one file.
-				modelFileToUnzip := model.Name + zipExtension
-				if err = unzipSource(modelFileToUnzip, model.Destination); err != nil {
-					m.logger.Error(err)
-					out <- err
-				}
-				fmt.Println("what about here?")
+				return
 			}
-			m.backgroundWorkers.Done()
+			url := deployResp.Message
+			filePath := filepath.Join(model.Destination, model.Name)
+			err = downloadFile(cancelCtx, m.httpClient, filePath, url, m.logger)
+			if err != nil {
+				m.logger.Error(err)
+				out <- err
+				return
+			}
+			// A download from a GCS signed URL only returns one file.
+			modelFileToUnzip := model.Name + zipExtension
+			if err = unzipSource(modelFileToUnzip, model.Destination); err != nil {
+				m.logger.Error(err)
+				out <- err
+				return
+			}
+			out <- nil
 		}(model)
+		// check for errors after each iteration
+		// 	err := <-out
+		// 	if err != nil {
+		// 		// need to put the value back into the chan
+		// 		out <- err
+		// 		break
+		// 	}
 	}
-	fmt.Println("do we ever make it here?")
 	m.backgroundWorkers.Wait()
+	fmt.Println(len(out))
 	err = <-out
-	close(out)
-	// close(check)
+
 	return err
 }
 
@@ -189,12 +195,10 @@ func getModelsToDownload(models []*Model) ([]*Model, error) {
 			// Set the model destination to default if it's not specified in the config.
 			model.Destination = filepath.Join(viamModelDotDir, model.Name)
 		}
-		fmt.Println("checking existence of: ", model.Destination)
 		_, err := os.Stat(model.Destination)
 		switch {
 		case errors.Is(err, os.ErrNotExist):
 			// we know we have never attempted to deploy the model
-			fmt.Println("in first deployment case")
 			modelsToDownload = append(modelsToDownload, model)
 			// create model.Destination directory
 			err := os.MkdirAll(model.Destination, os.ModePerm)
@@ -204,13 +208,11 @@ func getModelsToDownload(models []*Model) ([]*Model, error) {
 		case err != nil:
 			return nil, err
 		default:
-			fmt.Println("in default case")
 			files, err := ioutil.ReadDir(model.Destination)
 			if err != nil {
 				return nil, err
 			}
 			if len(files) == 0 {
-				fmt.Println("testing partial download")
 				// know there was a partial download
 				modelsToDownload = append(modelsToDownload, model)
 			}
@@ -269,25 +271,9 @@ func unzipSource(fileName, destination string) error {
 		return err
 	}
 
-	fmt.Println("everything works, now we proceed to remove the .zip file")
-	files, _ := ioutil.ReadDir(filepath.Join(destination))
-	for i := range files {
-		fmt.Println("files[i]: ", files[i])
-	}
-
-	//check again
-	fmt.Println("now we remove: ", filepath.Join(destination, fileName))
-	err = os.Remove(filepath.Join(destination, fileName))
-	fmt.Println("err check now")
-	fmt.Println("err: ", err)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			fmt.Println("SPECIAL CASE")
-			return err
-		}
+	if err = os.Remove(filepath.Join(destination, fileName)); err != nil {
 		return err
 	}
-	fmt.Println("made it past")
 	return nil
 }
 
