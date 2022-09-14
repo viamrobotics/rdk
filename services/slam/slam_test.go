@@ -90,7 +90,7 @@ func setupTestGRPCServer(port string) *grpc.Server {
 
 func setupInjectRobot() *inject.Robot {
 	r := &inject.Robot{}
-	var projA rimage.Projector
+	var projA transform.Projector
 	intrinsicsA := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
 		Width:  1280,
 		Height: 720,
@@ -101,7 +101,7 @@ func setupInjectRobot() *inject.Robot {
 	}
 	projA = intrinsicsA
 
-	var projB rimage.Projector
+	var projB transform.Projector
 	intrinsicsB := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
 		Width:  0,
 		Height: 0,
@@ -122,8 +122,11 @@ func setupInjectRobot() *inject.Robot {
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 				return nil, errors.New("lidar not camera")
 			}
-			cam.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 				return nil, transform.NewNoIntrinsicsError("")
+			}
+			cam.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+				return camera.Properties{}, nil
 			}
 			return cam, nil
 		case camera.Named("bad_lidar"):
@@ -133,10 +136,11 @@ func setupInjectRobot() *inject.Robot {
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 				return nil, errors.New("lidar not camera")
 			}
-			cam.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 				return nil, transform.NewNoIntrinsicsError("")
 			}
 			return cam, nil
+		//nolint:dupl
 		case camera.Named("good_camera"):
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 				return gostream.NewEmbeddedVideoStreamFromReader(
@@ -148,16 +152,22 @@ func setupInjectRobot() *inject.Robot {
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
-			cam.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 				return projA, nil
+			}
+			cam.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+				return camera.Properties{IntrinsicParams: intrinsicsA}, nil
 			}
 			return cam, nil
 		case camera.Named("good_color_camera"):
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
-			cam.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 				return projA, nil
+			}
+			cam.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+				return camera.Properties{IntrinsicParams: intrinsicsA}, nil
 			}
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 				imgBytes, err := os.ReadFile(artifact.MustPath("rimage/board1.png"))
@@ -180,8 +190,11 @@ func setupInjectRobot() *inject.Robot {
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
-			cam.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 				return nil, transform.NewNoIntrinsicsError("")
+			}
+			cam.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+				return camera.Properties{}, nil
 			}
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 				imgBytes, err := os.ReadFile(artifact.MustPath("rimage/board1_gray.png"))
@@ -207,10 +220,11 @@ func setupInjectRobot() *inject.Robot {
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
-			cam.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 				return nil, transform.NewNoIntrinsicsError("")
 			}
 			return cam, nil
+		//nolint:dupl
 		case camera.Named("bad_camera_intrinsics"):
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
 				return gostream.NewEmbeddedVideoStreamFromReader(
@@ -222,8 +236,11 @@ func setupInjectRobot() *inject.Robot {
 			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 				return nil, errors.New("camera not lidar")
 			}
-			cam.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 				return projB, nil
+			}
+			cam.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+				return camera.Properties{IntrinsicParams: intrinsicsB}, nil
 			}
 			return cam, nil
 		default:
@@ -579,6 +596,9 @@ func TestCartographerDataProcess(t *testing.T) {
 		goodCam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 			return pointcloud.New(), nil
 		}
+		goodCam.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+			return camera.Properties{}, nil
+		}
 		cams := []camera.Camera{goodCam}
 		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(goodCam)}
 		defer func() {
@@ -604,6 +624,9 @@ func TestCartographerDataProcess(t *testing.T) {
 		badCam := &inject.Camera{}
 		badCam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 			return nil, errors.New("bad_lidar")
+		}
+		badCam.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+			return camera.Properties{}, nil
 		}
 		cams := []camera.Camera{badCam}
 		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(badCam)}

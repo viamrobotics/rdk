@@ -25,12 +25,12 @@ func NewBrownConrady(inp []float64) (*BrownConrady, error) {
 	return &BrownConrady{inp[0], inp[1], inp[2], inp[3], inp[4]}, nil
 }
 
-// ModelType returns the type of distortion model
+// ModelType returns the type of distortion model.
 func (bc *BrownConrady) ModelType() DistortionType {
 	return BrownConradyDistortionType
 }
 
-// Parameters returns the parameters of the distortion model as a list of floats
+// Parameters returns the parameters of the distortion model as a list of floats.
 func (bc *BrownConrady) Parameters() []float64 {
 	return []float64{bc.RadialK1, bc.RadialK2, bc.RadialK3, bc.TangentialP1, bc.TangentialP2}
 }

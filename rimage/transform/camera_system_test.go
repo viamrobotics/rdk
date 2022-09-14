@@ -6,9 +6,10 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/rimage"
 )
 
 func TestParallelProjection(t *testing.T) {

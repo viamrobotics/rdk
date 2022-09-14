@@ -103,7 +103,7 @@ func TestDepthMapToPointCloud(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pc := depthadapter.ToPointCloud(d, depthIntrinsics)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pc.Size(), test.ShouldEqual, 456371)
+	test.That(t, pc.Size(), test.ShouldEqual, 456370)
 }
 
 func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
@@ -131,6 +131,7 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	colorIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
 		intel515ParamsPath, "color")
 	test.That(t, err, test.ShouldBeNil)
+	pixel2meter := 0.001
 	coordinatesRGB, err := transform.ProjectPointCloudToRGBPlane(transformedPoints, h, w, *colorIntrinsics, pixel2meter)
 	test.That(t, err, test.ShouldBeNil)
 	// fill image
@@ -155,13 +156,11 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 
 	// Pixel to Meter
-	pixel2meter := 0.001
 	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
 		intel515ParamsPath,
 		"depth",
 	)
 	test.That(b, err, test.ShouldBeNil)
-	depthMin, depthMax := rimage.Depth(100), rimage.Depth(2000)
 	pts := depthadapter.ToPointCloud(d, depthIntrinsics)
 	test.That(b, err, test.ShouldBeNil)
 	for i := 0; i < b.N; i++ {

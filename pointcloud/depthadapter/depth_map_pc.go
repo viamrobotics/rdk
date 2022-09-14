@@ -1,3 +1,4 @@
+// Package depthadapter is a simple package that turns a DepthMap into a point cloud using intrinsic parameters of a camera.
 package depthadapter
 
 import (

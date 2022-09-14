@@ -9,32 +9,35 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
-// DistortionType is the name of the distortion model
+// DistortionType is the name of the distortion model.
 type DistortionType string
 
 const (
-	NoneDistortionType          = DistortionType("no_distortion")  // applies no distortion
-	BrownConradyDistortionType  = DistortionType("brown_conrady")  // for simple lenses not far from a pinhole camera model
-	KannalaBrandtDistortionType = DistortionType("kannala_brandt") // for wide-angle and fisheye lenses
+	// NoneDistortionType applies no distortion to an input image. Essentially an identity transform.
+	NoneDistortionType = DistortionType("no_distortion")
+	// BrownConradyDistortionType is for simple lenses of narrow field easily modeled as a pinhole camera.
+	BrownConradyDistortionType = DistortionType("brown_conrady")
+	// KannalaBrandtDistortionType is for wide-angle and fisheye lense distortion.
+	KannalaBrandtDistortionType = DistortionType("kannala_brandt")
 )
 
-// DistortionModel defines a Transform that takes an undistorted image and distorts it according to the model
+// DistortionModel defines a Transform that takes an undistorted image and distorts it according to the model.
 type DistortionModel interface {
 	ModelType() DistortionType
 	Parameters() []float64
 	Transform(x, y float64) (float64, float64)
 }
 
-// NoDistortion applies no Distortion to the camera
+// NoDistortion applies no Distortion to the camera.
 type NoDistortion struct{}
 
-// ModelType returns the name of the model
+// ModelType returns the name of the model.
 func (nd *NoDistortion) ModelType() DistortionType { return NoneDistortionType }
 
-// Parameters returns nothing, because there is no distortion
+// Parameters returns nothing, because there is no distortion.
 func (nd *NoDistortion) Parameters() []float64 { return []float64{} }
 
-// Transform is the identity transform
+// Transform is the identity transform.
 func (nd *NoDistortion) Transform(x, y float64) (float64, float64) { return x, y }
 
 // Aligner aligns a color and depth image together.
