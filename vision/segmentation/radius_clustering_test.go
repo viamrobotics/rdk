@@ -84,6 +84,6 @@ func testSegmentation(t *testing.T, segments []*vision.Object) {
 		}
 		test.That(t, box, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, box.AlmostEqual(seg.BoundingBox), test.ShouldBeTrue)
+		test.That(t, box.AlmostEqual(seg.Geometry), test.ShouldBeTrue)
 	}
 }
