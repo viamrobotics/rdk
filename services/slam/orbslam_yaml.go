@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -40,13 +41,15 @@ func (slamSvc *slamService) orbCamMaker(camProperties *transform.PinholeCameraMo
 		FPSCamera:   int16(slamSvc.dataRateMs),
 		FileVersion: fileVersion,
 	}
-	if distortion, ok := camProperties.Distortion.(*transform.BrownConrady); ok {
-		orbslam.RadialK1 = distortion.RadialK1
-		orbslam.RadialK2 = distortion.RadialK2
-		orbslam.RadialK3 = distortion.RadialK3
-		orbslam.TangentialP1 = distortion.TangentialP1
-		orbslam.TangentialP2 = distortion.TangentialP2
+	distortion, ok := camProperties.Distortion.(*transform.BrownConrady)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError(distortion, camProperties.Distortion)
 	}
+	orbslam.RadialK1 = distortion.RadialK1
+	orbslam.RadialK2 = distortion.RadialK2
+	orbslam.RadialK3 = distortion.RadialK3
+	orbslam.TangentialP1 = distortion.TangentialP1
+	orbslam.TangentialP2 = distortion.TangentialP2
 	if orbslam.NFeatures, err = slamSvc.orbConfigToInt("orb_n_features", 1250); err != nil {
 		return nil, err
 	}
@@ -121,6 +124,9 @@ func (slamSvc *slamService) orbGenYAML(ctx context.Context, cam camera.Camera) e
 	}
 	if err = props.IntrinsicParams.CheckValid(); err != nil {
 		return err
+	}
+	if props.DistortionParams == nil {
+		return transform.NewNoIntrinsicsError("Distortion parameters do not exist")
 	}
 	// create orbslam struct to generate yaml file with
 	orbslam, err := slamSvc.orbCamMaker(&transform.PinholeCameraModel{props.IntrinsicParams, props.DistortionParams})
