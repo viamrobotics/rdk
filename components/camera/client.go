@@ -9,7 +9,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -182,19 +181,12 @@ func (c *client) GetProperties(ctx context.Context) (Properties, error) {
 		return result, nil
 	}
 	// switch distortion model based on model name
-	model := resp.DistortionParameters.Model
-	switch transform.DistortionType(model) { //nolint:exhaustive
-	case transform.BrownConradyDistortionType:
-		brownConrady, err := transform.NewBrownConrady(resp.DistortionParameters.Parameters)
-		if err != nil {
-			return Properties{}, err
-		}
-		result.DistortionParams = brownConrady
-	case transform.NoneDistortionType, transform.DistortionType(""):
-		result.DistortionParams = &transform.NoDistortion{}
-	default:
-		return Properties{}, errors.Errorf("do no know how to parse %q distortion model", model)
+	model := transform.DistortionType(resp.DistortionParameters.Model)
+	distorter, err := transform.NewDistorter(model, resp.DistortionParameters.Parameters)
+	if err != nil {
+		return nil, err
 	}
+	result.DistortionParams = distorter
 	return result, nil
 }
 
