@@ -140,7 +140,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 
 	// setup planner options
 	if planOpts == nil {
-		solutionChan <- &planReturn{err: newPlannerOptionsError()}
+		solutionChan <- &planReturn{err: errNoPlannerOptions}
 		return
 	}
 	algOpts, err := newCbirrtOptions(planOpts, mp.frame)
@@ -217,7 +217,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		map1, map2 = map2, map1
 	}
 
-	solutionChan <- &planReturn{err: newPlannerFailedError()}
+	solutionChan <- &planReturn{err: errPlannerFailed}
 }
 
 func (mp *cBiRRTMotionPlanner) sample(algOpts *cbirrtOptions, rSeed *node, sampleNum int) []referenceframe.Input {
