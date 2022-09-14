@@ -10,12 +10,12 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	pb "go.viam.com/api/proto/viam/module/v1"
+	pb "go.viam.com/api/module/v1"
 	"go.viam.com/utils"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/resource"
 )
 

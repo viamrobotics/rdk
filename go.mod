@@ -17,9 +17,9 @@ require (
 	github.com/de-bkg/gognss v0.0.0-20220601150219-24ccfdcdbb5d
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
-	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
+	github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742
 	github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e
-	github.com/edaniels/gostream v0.0.0-20220826053353-c2e09c686134
+	github.com/edaniels/gostream v0.0.0-20220909193600-edaf0134e353
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
@@ -41,6 +41,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.11.2
+	github.com/invopop/jsonschema v0.6.0
 	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4
 	github.com/jedib0t/go-pretty/v6 v6.3.3
 	github.com/jhump/protoreflect v1.12.1-0.20220417024638-438db461d753
@@ -59,7 +60,6 @@ require (
 	github.com/pseudomuto/protoc-gen-doc v1.5.1
 	github.com/sergi/go-diff v1.2.0
 	github.com/sjwhitworth/golearn v0.0.0-20211014193759-a8b69c276cd8
-	github.com/tonyOreglia/glee v0.0.0-20210610071128-503a6e4b07d7
 	github.com/u2takey/ffmpeg-go v0.4.1
 	github.com/urfave/cli/v2 v2.10.3
 	github.com/viamrobotics/evdev v0.1.3
@@ -71,10 +71,10 @@ require (
 	go.uber.org/atomic v1.9.0
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.22.0
-	go.viam.com/api v0.0.0-20220831182546-9196a7bf1ae5
+	go.viam.com/api v0.0.0-20220913163720-50ee808ad4b8
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
-	go.viam.com/test v1.1.0
-	go.viam.com/utils v0.0.4-0.20220822204702-4791559eb3fe
+	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
+	go.viam.com/utils v0.0.5
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
 	golang.org/x/net v0.0.0-20220809012201-f428fae20770
@@ -94,8 +94,12 @@ require (
 	4d63.com/gochecknoglobals v0.1.0 // indirect
 	cloud.google.com/go v0.102.1 // indirect
 	cloud.google.com/go/compute v1.7.0 // indirect
+	cloud.google.com/go/container v1.3.1 // indirect
 	cloud.google.com/go/iam v0.3.0 // indirect
+	cloud.google.com/go/monitoring v1.6.0 // indirect
 	cloud.google.com/go/storage v1.23.0 // indirect
+	cloud.google.com/go/trace v1.2.0 // indirect
+	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
 	git.sr.ht/~sbinet/gg v0.3.1 // indirect
 	github.com/Antonboom/errname v0.1.7 // indirect
 	github.com/Antonboom/nilnil v0.1.1 // indirect
@@ -201,6 +205,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
+	github.com/iancoleman/orderedmap v0.0.0-20190318233801-ac98e3ecb4b0 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/improbable-eng/grpc-web v0.15.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
@@ -339,7 +344,7 @@ require (
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.12 // indirect
 	golang.org/x/xerrors v0.0.0-20220609144429-65e65417b02f // indirect
-	google.golang.org/api v0.85.0 // indirect
+	google.golang.org/api v0.91.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

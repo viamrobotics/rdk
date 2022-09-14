@@ -3,30 +3,31 @@
         "fqdn": "something-unique",
         "bind_address": ":8080"
     },
-    "components":
-    [
+    "components": [
         {
-            "model": "fake",
             "name": "arm1",
             "type": "arm",
+            "model": "fake",
             "service_config": [
                 {
-                  "type": "data_manager",
-                  "attributes": {
-                    "capture_methods": [
-                        {
-                            "method": "GetEndPosition",
-                            "capture_frequency_hz": 100,
-                            "tags": ["a", "b"]
-                        }
-                    ]
-                  }
+                    "type": "data_manager",
+                    "attributes": {
+                        "capture_methods": [
+                            {
+                                "method": "GetEndPosition",
+                                "capture_frequency_hz": 100,
+                                "tags": [
+                                    "a",
+                                    "b"
+                                ]
+                            }
+                        ]
+                    }
                 }
             ]
         }
     ],
-    "services":
-    [
+    "services": [
         {
             "name": "data_manager1",
             "type": "data_manager",

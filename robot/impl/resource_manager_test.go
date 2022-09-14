@@ -19,23 +19,23 @@ import (
 	"go.viam.com/utils/testutils"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	"go.viam.com/rdk/component/arm"
-	fakearm "go.viam.com/rdk/component/arm/fake"
-	"go.viam.com/rdk/component/base"
-	fakebase "go.viam.com/rdk/component/base/fake"
-	"go.viam.com/rdk/component/board"
-	fakeboard "go.viam.com/rdk/component/board/fake"
-	"go.viam.com/rdk/component/camera"
-	fakecamera "go.viam.com/rdk/component/camera/fake"
-	"go.viam.com/rdk/component/gripper"
-	fakegripper "go.viam.com/rdk/component/gripper/fake"
-	"go.viam.com/rdk/component/input"
-	fakeinput "go.viam.com/rdk/component/input/fake"
-	"go.viam.com/rdk/component/motor"
-	fakemotor "go.viam.com/rdk/component/motor/fake"
-	"go.viam.com/rdk/component/sensor"
-	"go.viam.com/rdk/component/servo"
-	fakeservo "go.viam.com/rdk/component/servo/fake"
+	"go.viam.com/rdk/components/arm"
+	fakearm "go.viam.com/rdk/components/arm/fake"
+	"go.viam.com/rdk/components/base"
+	fakebase "go.viam.com/rdk/components/base/fake"
+	"go.viam.com/rdk/components/board"
+	fakeboard "go.viam.com/rdk/components/board/fake"
+	"go.viam.com/rdk/components/camera"
+	fakecamera "go.viam.com/rdk/components/camera/fake"
+	"go.viam.com/rdk/components/gripper"
+	fakegripper "go.viam.com/rdk/components/gripper/fake"
+	"go.viam.com/rdk/components/input"
+	fakeinput "go.viam.com/rdk/components/input/fake"
+	"go.viam.com/rdk/components/motor"
+	fakemotor "go.viam.com/rdk/components/motor/fake"
+	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/components/servo"
+	fakeservo "go.viam.com/rdk/components/servo/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
@@ -504,7 +504,6 @@ func TestManagerAdd(t *testing.T) {
 	injectVisionService.GetObjectPointCloudsFunc = func(
 		ctx context.Context,
 		cameraName, segmenterName string,
-		parameters config.AttributeMap,
 	) ([]*viz.Object, error) {
 		return []*viz.Object{viz.NewEmptyObject()}, nil
 	}
@@ -656,7 +655,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               fakeModel,
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                motor.SubtypeName,
-				ConvertedAttributes: &motor.Config{},
+				ConvertedAttributes: &fakemotor.Config{},
 				DependsOn:           []string{"board1"},
 			},
 			{
@@ -664,7 +663,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               fakeModel,
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                motor.SubtypeName,
-				ConvertedAttributes: &motor.Config{},
+				ConvertedAttributes: &fakemotor.Config{},
 				DependsOn:           []string{"board2"},
 			},
 			{
@@ -672,7 +671,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               fakeModel,
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                motor.SubtypeName,
-				ConvertedAttributes: &motor.Config{},
+				ConvertedAttributes: &fakemotor.Config{},
 				DependsOn:           []string{"board3"},
 			},
 			{
@@ -725,7 +724,7 @@ func TestManagerNewComponent(t *testing.T) {
 		logger:  logger,
 		config:  cfg,
 	}
-	diff, err := config.DiffConfigs(config.Config{}, *cfg)
+	diff, err := config.DiffConfigs(config.Config{}, *cfg, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robotForRemote.manager.updateResources(context.Background(), diff, func(name string) (resource.Name, bool) {
 		for _, c := range cfg.Components {

@@ -11,7 +11,7 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
@@ -94,6 +94,11 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Service)(nil), actual)
+}
+
 // FromRobot is a helper for getting the named motion service from the given Robot.
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	resource, err := r.ResourceByName(Named(name))
@@ -102,7 +107,7 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 	}
 	svc, ok := resource.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("motion.Service", resource)
+		return nil, NewUnimplementedInterfaceError(resource)
 	}
 	return svc, nil
 }
@@ -223,7 +228,7 @@ func (ms *motionService) MoveSingleComponent(
 		logger.Debugf("frame system inputs: %v", fsInputs)
 
 		// re-evaluate goalPose to be in the frame we're going to move in
-		tf, err := frameSys.Transform(fsInputs, destination, componentName.Name+"_offset")
+		tf, err := frameSys.Transform(fsInputs, destination, componentName.Name+"_origin")
 		if err != nil {
 			return false, err
 		}
@@ -322,7 +327,7 @@ func (svc *reconfigurableMotionService) Reconfigure(ctx context.Context, newSvc 
 func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 	svc, ok := s.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("motion.Service", s)
+		return nil, NewUnimplementedInterfaceError(s)
 	}
 
 	if reconfigurable, ok := s.(*reconfigurableMotionService); ok {

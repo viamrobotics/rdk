@@ -20,12 +20,12 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/generic"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 
-	pb "go.viam.com/api/proto/viam/module/v1"
+	pb "go.viam.com/api/module/v1"
 )
 
 // NewManager returns a Manager

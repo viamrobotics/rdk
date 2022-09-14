@@ -7,6 +7,7 @@ import (
 	"context"
 	"image"
 	"image/jpeg"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -26,7 +27,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	pc "go.viam.com/rdk/pointcloud"
 	v1 "go.viam.com/rdk/proto/api/common/v1"
@@ -45,7 +46,7 @@ import (
 
 var (
 	cameraValidationMaxTimeoutSec = 30 // reconfigurable for testing
-	dialMaxTimeoutSec             = 5  // reconfigurable for testing
+	dialMaxTimeoutSec             = 30 // reconfigurable for testing
 )
 
 const (
@@ -53,10 +54,12 @@ const (
 	minDataRateMs               = 200
 	defaultMapRateSec           = 60
 	cameraValidationIntervalSec = 1.
+	parsePortMaxTimeoutSec      = 30
 	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	// time format for the slam service.
 	slamTimeFormat        = "2006-01-02T15_04_05.0000"
 	opTimeoutErrorMessage = "bad scan: OpTimeout"
+	localhost0            = "localhost:0"
 )
 
 // SetCameraValidationMaxTimeoutSecForTesting sets cameraValidationMaxTimeoutSec for testing.
@@ -103,6 +106,11 @@ func init() {
 		}
 		return &conf, nil
 	}, &AttrConfig{})
+}
+
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Service)(nil), actual)
 }
 
 // SubtypeName is the name of the type of service.
@@ -475,11 +483,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 	var port string
 	if svcConfig.Port == "" {
-		p, err := goutils.TryReserveRandomPort()
-		if err != nil {
-			return nil, errors.Wrap(err, "error trying to return a random port")
-		}
-		port = "localhost:" + strconv.Itoa(p)
+		port = localhost0
 	} else {
 		port = svcConfig.Port
 	}
@@ -541,7 +545,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		return nil, errors.Wrap(err, "error with slam service slam process")
 	}
 
-	client, clientClose, err := setupGRPCConnection(ctx, port, logger)
+	client, clientClose, err := setupGRPCConnection(ctx, slamSvc.port, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "error with initial grpc client to slam algorithm")
 	}
@@ -666,7 +670,16 @@ func (slamSvc *slamService) StartSLAMProcess(ctx context.Context) error {
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::StartSLAMProcess")
 	defer span.End()
 
-	_, err := slamSvc.slamProcess.AddProcessFromConfig(ctx, slamSvc.GetSLAMProcessConfig())
+	processConfig := slamSvc.GetSLAMProcessConfig()
+
+	var logReader io.ReadCloser
+	var logWriter io.WriteCloser
+	if slamSvc.port == localhost0 {
+		logReader, logWriter = io.Pipe()
+		processConfig.LogWriter = logWriter
+	}
+
+	_, err := slamSvc.slamProcess.AddProcessFromConfig(ctx, processConfig)
 	if err != nil {
 		return errors.Wrap(err, "problem adding slam process")
 	}
@@ -675,6 +688,36 @@ func (slamSvc *slamService) StartSLAMProcess(ctx context.Context) error {
 
 	if err = slamSvc.slamProcess.Start(ctx); err != nil {
 		return errors.Wrap(err, "problem starting slam process")
+	}
+
+	if slamSvc.port == localhost0 {
+		timeoutCtx, timeoutCancel := context.WithTimeout(ctx, parsePortMaxTimeoutSec*time.Second)
+		defer timeoutCancel()
+		//nolint:errcheck
+		defer logReader.Close()
+		//nolint:errcheck
+		defer logWriter.Close()
+
+		bufferedLogReader := bufio.NewReader(logReader)
+		for {
+			if err := timeoutCtx.Err(); err != nil {
+				return errors.Wrapf(err, "error getting port from slam process")
+			}
+
+			line, err := bufferedLogReader.ReadString('\n')
+			if err != nil {
+				return errors.Wrapf(err, "error getting port from slam process")
+			}
+			portLogLinePrefix := "Server listening on "
+			if strings.Contains(line, portLogLinePrefix) {
+				linePieces := strings.Split(line, portLogLinePrefix)
+				if len(linePieces) != 2 {
+					return errors.Errorf("failed to parse port from slam process log line: %v", line)
+				}
+				slamSvc.port = "localhost:" + strings.TrimRight(linePieces[1], "\n")
+				break
+			}
+		}
 	}
 
 	return nil
@@ -915,7 +958,7 @@ func (svc *reconfigurableSlam) Reconfigure(ctx context.Context, newSvc resource.
 func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 	svc, ok := s.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("slam.Service", s)
+		return nil, NewUnimplementedInterfaceError(s)
 	}
 
 	if reconfigurable, ok := s.(*reconfigurableSlam); ok {

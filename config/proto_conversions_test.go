@@ -3,6 +3,7 @@ package config
 import (
 	"testing"
 
+	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -72,68 +73,187 @@ func TestComponentConfigToProto(t *testing.T) {
 	test.That(t, out.Frame, test.ShouldResemble, component.Frame)
 }
 
-func TestRemoteConfigToProto(t *testing.T) {
-	remote := Remote{
-		Name:    "some-name",
-		Address: "localohst:8080",
-		Prefix:  true,
-		Frame: &Frame{
+func TestFrameConfigFromProto(t *testing.T) {
+	expectedFrameWithOrientation := func(or spatial.Orientation) *Frame {
+		return &Frame{
 			Parent: "world",
 			Translation: spatial.TranslationConfig{
 				X: 1,
 				Y: 2,
 				Z: 3,
 			},
-			Orientation: spatial.NewOrientationVector(),
+			Orientation: or,
+		}
+	}
+	createNewFrame := func(or *pb.Orientation) *pb.Frame {
+		return &pb.Frame{
+			Parent: "world",
+			Translation: &pb.Translation{
+				X: 1,
+				Y: 2,
+				Z: 3,
+			},
+			Orientation: or,
+		}
+	}
+
+	orRadians := spatial.NewOrientationVector()
+	orRadians.OX = 1
+	orRadians.OY = 2
+	orRadians.OZ = 3
+	orRadians.Theta = 4
+
+	orDegress := spatial.NewOrientationVectorDegrees()
+	orDegress.OX = 1
+	orDegress.OY = 2
+	orDegress.OZ = 3
+	orDegress.Theta = 4
+
+	orR4AA := spatial.NewR4AA()
+	orR4AA.RX = 1
+	orR4AA.RY = 2
+	orR4AA.RZ = 3
+	orR4AA.Theta = 4
+
+	orEulerAngles := spatial.NewEulerAngles()
+	orEulerAngles.Roll = 1
+	orEulerAngles.Pitch = 2
+	orEulerAngles.Yaw = 3
+
+	testCases := []struct {
+		name          string
+		expectedFrame *Frame
+		inputFrame    *pb.Frame
+	}{
+		{
+			"with orientation vector radians",
+			expectedFrameWithOrientation(orRadians),
+			createNewFrame(&pb.Orientation{
+				Type: &pb.Orientation_VectorRadians{VectorRadians: &pb.Orientation_OrientationVectorRadians{Theta: 4, X: 1, Y: 2, Z: 3}},
+			}),
 		},
-		Auth: RemoteAuth{
-			Entity: "some-entity",
-			Credentials: &rpc.Credentials{
-				Type:    rpc.CredentialsTypeAPIKey,
-				Payload: "payload",
-			},
+		{
+			"with orientation vector degrees",
+			expectedFrameWithOrientation(orDegress),
+			createNewFrame(&pb.Orientation{
+				Type: &pb.Orientation_VectorDegrees{VectorDegrees: &pb.Orientation_OrientationVectorDegrees{Theta: 4, X: 1, Y: 2, Z: 3}},
+			}),
 		},
-		ManagedBy:               "managed-by",
-		Insecure:                true,
-		ConnectionCheckInterval: 1000000000,
-		ReconnectInterval:       2000000000,
-		ServiceConfig: []ResourceLevelServiceConfig{
-			{
-				Type: "some-type-1",
-				Attributes: AttributeMap{
-					"attr1": 1,
-				},
-			},
-			{
-				Type: "some-type-2",
-				Attributes: AttributeMap{
-					"attr1": 1,
-				},
-			},
+		{
+			"with orientation R4AA",
+			expectedFrameWithOrientation(orR4AA),
+			createNewFrame(&pb.Orientation{
+				Type: &pb.Orientation_AxisAngles_{AxisAngles: &pb.Orientation_AxisAngles{Theta: 4, X: 1, Y: 2, Z: 3}},
+			}),
+		},
+		{
+			"with orientation EulerAngles",
+			expectedFrameWithOrientation(orEulerAngles),
+			createNewFrame(&pb.Orientation{
+				Type: &pb.Orientation_EulerAngles_{EulerAngles: &pb.Orientation_EulerAngles{Roll: 1, Pitch: 2, Yaw: 3}},
+			}),
+		},
+		{
+			"with orientation Quaternion",
+			expectedFrameWithOrientation(&spatial.Quaternion{Real: 1, Imag: 2, Jmag: 3, Kmag: 4}),
+			createNewFrame(&pb.Orientation{
+				Type: &pb.Orientation_Quaternion_{Quaternion: &pb.Orientation_Quaternion{W: 1, X: 2, Y: 3, Z: 4}},
+			}),
+		},
+		{
+			"with no orientation",
+			expectedFrameWithOrientation(nil),
+			createNewFrame(nil),
 		},
 	}
 
-	proto, err := RemoteConfigToProto(&remote)
-	test.That(t, err, test.ShouldBeNil)
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			frameOut, err := FrameConfigFromProto(testCase.inputFrame)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, frameOut, test.ShouldResemble, testCase.expectedFrame)
+		})
+	}
+}
 
-	out, err := RemoteConfigFromProto(proto)
-	test.That(t, err, test.ShouldBeNil)
+func TestRemoteConfigToProto(t *testing.T) {
+	t.Run("With RemoteAuth", func(t *testing.T) {
+		remote := Remote{
+			Name:    "some-name",
+			Address: "localohst:8080",
+			Prefix:  true,
+			Frame: &Frame{
+				Parent: "world",
+				Translation: spatial.TranslationConfig{
+					X: 1,
+					Y: 2,
+					Z: 3,
+				},
+				Orientation: spatial.NewOrientationVector(),
+			},
+			Auth: RemoteAuth{
+				Entity: "some-entity",
+				Credentials: &rpc.Credentials{
+					Type:    rpc.CredentialsTypeAPIKey,
+					Payload: "payload",
+				},
+			},
+			ManagedBy:               "managed-by",
+			Insecure:                true,
+			ConnectionCheckInterval: 1000000000,
+			ReconnectInterval:       2000000000,
+			ServiceConfig: []ResourceLevelServiceConfig{
+				{
+					Type: "some-type-1",
+					Attributes: AttributeMap{
+						"attr1": 1,
+					},
+				},
+				{
+					Type: "some-type-2",
+					Attributes: AttributeMap{
+						"attr1": 1,
+					},
+				},
+			},
+		}
 
-	test.That(t, out.Name, test.ShouldEqual, remote.Name)
-	test.That(t, out.Address, test.ShouldEqual, remote.Address)
-	test.That(t, out.Prefix, test.ShouldEqual, remote.Prefix)
-	test.That(t, out.ManagedBy, test.ShouldEqual, remote.ManagedBy)
-	test.That(t, out.Insecure, test.ShouldEqual, remote.Insecure)
-	test.That(t, out.ReconnectInterval, test.ShouldEqual, remote.ReconnectInterval)
-	test.That(t, out.ConnectionCheckInterval, test.ShouldEqual, remote.ConnectionCheckInterval)
-	test.That(t, out.Auth, test.ShouldResemble, remote.Auth)
-	test.That(t, out.Frame, test.ShouldResemble, remote.Frame)
+		proto, err := RemoteConfigToProto(&remote)
+		test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, out.ServiceConfig, test.ShouldHaveLength, 2)
-	test.That(t, out.ServiceConfig[0].Type, test.ShouldEqual, remote.ServiceConfig[0].Type)
-	test.That(t, out.ServiceConfig[0].Attributes.Int("attr1", 0), test.ShouldEqual, remote.ServiceConfig[0].Attributes.Int("attr1", -1))
-	test.That(t, out.ServiceConfig[1].Type, test.ShouldEqual, remote.ServiceConfig[1].Type)
-	test.That(t, out.ServiceConfig[1].Attributes.Int("attr1", 0), test.ShouldEqual, remote.ServiceConfig[1].Attributes.Int("attr1", -1))
+		out, err := RemoteConfigFromProto(proto)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, out.Name, test.ShouldEqual, remote.Name)
+		test.That(t, out.Address, test.ShouldEqual, remote.Address)
+		test.That(t, out.Prefix, test.ShouldEqual, remote.Prefix)
+		test.That(t, out.ManagedBy, test.ShouldEqual, remote.ManagedBy)
+		test.That(t, out.Insecure, test.ShouldEqual, remote.Insecure)
+		test.That(t, out.ReconnectInterval, test.ShouldEqual, remote.ReconnectInterval)
+		test.That(t, out.ConnectionCheckInterval, test.ShouldEqual, remote.ConnectionCheckInterval)
+		test.That(t, out.Auth, test.ShouldResemble, remote.Auth)
+		test.That(t, out.Frame, test.ShouldResemble, remote.Frame)
+
+		test.That(t, out.ServiceConfig, test.ShouldHaveLength, 2)
+		test.That(t, out.ServiceConfig[0].Type, test.ShouldEqual, remote.ServiceConfig[0].Type)
+		test.That(t, out.ServiceConfig[0].Attributes.Int("attr1", 0), test.ShouldEqual, remote.ServiceConfig[0].Attributes.Int("attr1", -1))
+		test.That(t, out.ServiceConfig[1].Type, test.ShouldEqual, remote.ServiceConfig[1].Type)
+		test.That(t, out.ServiceConfig[1].Attributes.Int("attr1", 0), test.ShouldEqual, remote.ServiceConfig[1].Attributes.Int("attr1", -1))
+	})
+
+	t.Run("Without RemoteAuth", func(t *testing.T) {
+		proto := pb.RemoteConfig{
+			Name:    "some-name",
+			Address: "localohst:8080",
+		}
+
+		out, err := RemoteConfigFromProto(&proto)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, out.Name, test.ShouldEqual, proto.Name)
+		test.That(t, out.Address, test.ShouldEqual, proto.Address)
+		test.That(t, out.Auth, test.ShouldResemble, RemoteAuth{})
+	})
 }
 
 func TestServiceConfigToProto(t *testing.T) {

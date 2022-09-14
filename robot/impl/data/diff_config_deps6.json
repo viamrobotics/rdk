@@ -1,127 +1,131 @@
 {
-  "components":
-  [
-    {
-      "model": "fake",
-      "name": "arm1",
-      "type": "arm",
-      "depends_on" : ["base2"]
-    },
-    {
-      "model": "fake",
-      "name": "arm3",
-      "type": "arm",
-      "depends_on" : ["base2"]
-    },
-    {
-      "model": "fake",
-      "name": "m2",
-      "type": "motor",
-      "depends_on" : ["base1"]
-    },
-    {
-      "model": "fake",
-      "name": "m1",
-      "type": "motor",
-      "attributes":{
-        "pwm_freq" : 4000
-      }
-    },
-    {
-      "model": "fake",
-      "name": "m4",
-      "type": "motor",
-      "depends_on" : ["board3"],
-      "attributes":{
-        "blab":"blob"
-      }
-    },
-    {
-      "model": "fake",
-      "name": "m5",
-      "type": "motor",
-      "depends_on" : ["arm3", "board1"],
-      "attributes" : {
-        "board" : "board1",
-        "pins" : {
-          "pwm" : "5"
+    "components": [
+        {
+            "name": "arm1",
+            "type": "arm",
+            "model": "fake",
+            "depends_on": [
+                "base2"
+            ]
         },
-        "pwm_freq" : 4000
-      }
-    },
-    {
-      "model": "fake",
-      "name": "base1",
-      "type": "base",
-      "depends_on" : ["board2"]
-    },
-    {
-      "model": "fake",
-      "name": "base2",
-      "type": "base",
-      "depends_on" : ["board1"]
-    },
-    {
-      "model": "fake",
-      "name": "board1",
-      "type": "board",
-      "attributes":
-      {
-        "analogs":
-        [
-          {
-            "name": "analog1",
-            "pin": "4"
-          }
-        ],
-        "digital_interrupts":
-        [
-          {
-            "name": "encoderC",
-            "pin": "22"
-          }
-        ]
-      }
-    },
-    {
-      "model": "fake",
-      "name": "board2",
-      "type": "board",
-      "attributes":
-      {
-      }
-    },
-    {
-      "model": "fake",
-      "name": "board3",
-      "type": "board",
-      "attributes":
-      {
-      }
-    }
-  ],
-  "processes":
-  [
-    {
-      "id": "1",
-      "name": "echo",
-      "args":
-      [
-        "hello",
-        "world"
-      ],
-      "one_shot": true
-    },
-    {
-      "id": "2",
-      "name": "echo",
-      "args":
-      [
-        "hello",
-        "world",
-        "again"
-      ],
-      "one_shot": true
-    }
-  ]
+        {
+            "name": "arm3",
+            "type": "arm",
+            "model": "fake",
+            "depends_on": [
+                "base2"
+            ]
+        },
+        {
+            "name": "m2",
+            "type": "motor",
+            "model": "fake",
+            "depends_on": [
+                "base1"
+            ]
+        },
+        {
+            "name": "m1",
+            "type": "motor",
+            "model": "fake",
+            "attributes": {
+                "pwm_freq": 4000
+            }
+        },
+        {
+            "name": "m4",
+            "type": "motor",
+            "model": "fake",
+            "depends_on": [
+                "board3"
+            ],
+            "attributes": {
+                "blab": "blob"
+            }
+        },
+        {
+            "name": "m5",
+            "type": "motor",
+            "model": "fake",
+            "depends_on": [
+                "arm3",
+                "board1"
+            ],
+            "attributes": {
+                "board": "board1",
+                "pins": {
+                    "pwm": "5"
+                },
+                "pwm_freq": 4000
+            }
+        },
+        {
+            "name": "base1",
+            "type": "base",
+            "model": "fake",
+            "depends_on": [
+                "board2"
+            ]
+        },
+        {
+            "name": "base2",
+            "type": "base",
+            "model": "fake",
+            "depends_on": [
+                "board1"
+            ]
+        },
+        {
+            "name": "board1",
+            "type": "board",
+            "model": "fake",
+            "attributes": {
+                "analogs": [
+                    {
+                        "name": "analog1",
+                        "pin": "4"
+                    }
+                ],
+                "digital_interrupts": [
+                    {
+                        "name": "encoderC",
+                        "pin": "22"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "board2",
+            "type": "board",
+            "model": "fake",
+            "attributes": {}
+        },
+        {
+            "name": "board3",
+            "type": "board",
+            "model": "fake",
+            "attributes": {}
+        }
+    ],
+    "processes": [
+        {
+            "id": "1",
+            "name": "echo",
+            "args": [
+                "hello",
+                "world"
+            ],
+            "one_shot": true
+        },
+        {
+            "id": "2",
+            "name": "echo",
+            "args": [
+                "hello",
+                "world",
+                "again"
+            ],
+            "one_shot": true
+        }
+    ]
 }

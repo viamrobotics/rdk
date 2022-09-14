@@ -26,19 +26,17 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/audioinput"
-	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gripper"
-	"go.viam.com/rdk/component/movementsensor"
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/audioinput"
+	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/gripper"
+	"go.viam.com/rdk/components/movementsensor"
 	// registers all components.
-	_ "go.viam.com/rdk/component/register"
+	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	rgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/grpc/client"
-	"go.viam.com/rdk/grpc/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
@@ -46,7 +44,9 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/robot/server"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/sensors"
@@ -730,7 +730,7 @@ func (da *dummyArm) Stop(ctx context.Context, extra map[string]interface{}) erro
 	return nil
 }
 
-func (da *dummyArm) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (da *dummyArm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	close(da.channel)
 	<-ctx.Done()
 	return nil, ctx.Err()
@@ -812,13 +812,13 @@ func TestStopAll(t *testing.T) {
 	go func() {
 		<-channel
 		for _, opid := range r.OperationManager().All() {
-			if opid.Method == "/proto.api.component.generic.v1.GenericService/Do" {
+			if opid.Method == "/proto.api.component.generic.v1.GenericService/DoCommand" {
 				foundOPID = true
 				stopAllErrCh <- r.StopAll(ctx, nil)
 			}
 		}
 	}()
-	_, err = arm1.Do(ctx, map[string]interface{}{})
+	_, err = arm1.DoCommand(ctx, map[string]interface{}{})
 	s, isGRPCErr := status.FromError(err)
 	test.That(t, isGRPCErr, test.ShouldBeTrue)
 	test.That(t, s.Code(), test.ShouldEqual, codes.Canceled)

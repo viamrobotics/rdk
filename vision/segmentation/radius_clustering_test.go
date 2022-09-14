@@ -51,7 +51,9 @@ func TestPixelSegmentation(t *testing.T) {
 		"extra_uneeded_param":   4444,
 		"another_extra_one":     "hey",
 	}
-	segments, err := segmentation.RadiusClustering(context.Background(), injectCamera, objConfig)
+	segmenter, err := segmentation.NewRadiusClustering(objConfig)
+	test.That(t, err, test.ShouldBeNil)
+	segments, err := segmenter(context.Background(), injectCamera)
 	test.That(t, err, test.ShouldBeNil)
 	testSegmentation(t, segments)
 	// do segmentation with no mean k filtering
@@ -63,7 +65,9 @@ func TestPixelSegmentation(t *testing.T) {
 		"extra_uneeded_param":   4444,
 		"another_extra_one":     "hey",
 	}
-	segments, err = segmentation.RadiusClustering(context.Background(), injectCamera, objConfig)
+	segmenter, err = segmentation.NewRadiusClustering(objConfig)
+	test.That(t, err, test.ShouldBeNil)
+	segments, err = segmenter(context.Background(), injectCamera)
 	test.That(t, err, test.ShouldBeNil)
 	testSegmentation(t, segments)
 }

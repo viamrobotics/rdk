@@ -19,7 +19,7 @@ import (
 func TestIKTolerances(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/varm/v1.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/varm/v1.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := NewCBiRRTMotionPlanner(m, nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -48,7 +48,7 @@ func TestConstraintPath(t *testing.T) {
 	homePos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	toPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 1})
 
-	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm6_kinematics.json"), "")
+	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 
 	test.That(t, err, test.ShouldBeNil)
 	ci := &ConstraintInput{StartInput: homePos, EndInput: toPos, Frame: modelXarm}
@@ -128,7 +128,7 @@ func TestLineFollow(t *testing.T) {
 
 	fs := frame.NewEmptySimpleFrameSystem("test")
 
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm7_kinematics.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	err = fs.AddFrame(m, fs.World())
@@ -193,7 +193,7 @@ func TestCollisionConstraint(t *testing.T) {
 	obstacles["obstacle2"] = bc.NewGeometry(spatial.NewPoseFromPoint(r3.Vector{-130, 0, 300}))
 
 	// setup zero position as reference CollisionGraph and use it in handler
-	model, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm6_kinematics.json"), "")
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
 	handler.AddConstraint("collision", NewCollisionConstraint(model, obstacles, map[string]spatial.Geometry{}))

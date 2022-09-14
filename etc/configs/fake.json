@@ -3,53 +3,34 @@
         "fqdn": "something-unique",
         "bind_address": ":8080"
     },
-    "components":
-    [
+    "components": [
         {
-            "model": "fake",
             "name": "arm1",
-            "type": "arm"
+            "type": "arm",
+            "model": "fake"
         },
         {
-            "model": "fake",
+            "name": "audio_input1",
+            "type": "audio_input",
+            "model": "fake"
+        },
+        {
             "name": "base1",
-            "type": "base"
+            "type": "base",
+            "model": "fake"
         },
         {
-            "model": "fake",
-            "name": "gripper1",
-            "type": "gripper"
-        },
-        {
-            "model": "fake",
-            "name": "camera1",
-            "type": "camera"
-        },
-        {
-            "model": "fake",
-            "name": "mic1",
-            "type": "audio_input"
-        },
-        {
-            "model": "fake",
-            "name": "audioinput1",
-            "type": "audio_input"
-        },
-        {
-            "model": "fake",
             "name": "board1",
             "type": "board",
-            "attributes":
-            {
-                "analogs":
-                [
+            "model": "fake",
+            "attributes": {
+                "analogs": [
                     {
                         "name": "analog1",
                         "pin": "0"
                     }
                 ],
-                "digital_interrupts":
-                [
+                "digital_interrupts": [
                     {
                         "name": "di1",
                         "pin": "14"
@@ -58,19 +39,37 @@
             }
         },
         {
-            "model": "fake",
-            "name": "servo1",
-            "type": "servo"
+            "name": "camera1",
+            "type": "camera",
+            "model": "fake"
         },
         {
-            "name": "g",
+            "name": "encoder1",
+            "type": "encoder",
+            "model": "fake"
+        },
+        {
+            "name": "gantry1",
+            "type": "gantry",
+            "model": "fake"
+        },
+        {
+            "name": "gripper1",
+            "type": "gripper",
+            "model": "fake"
+        },
+        {
+            "name": "input_controller1",
+            "type": "input_controller",
+            "model": "fake"
+        },
+        {
+            "name": "motor1",
             "type": "motor",
             "model": "fake",
-            "attributes":
-            {
+            "attributes": {
                 "encoder": "encoder1",
-                "pins":
-                {
+                "pins": {
                     "a": "1",
                     "b": "2",
                     "pwm": "3"
@@ -78,21 +77,14 @@
                 "ticks_per_rotation": 100,
                 "max_rpm": 100
             },
-            "depends_on": ["board1", "encoder1"]
+            "depends_on": [
+                "board1",
+                "encoder1"
+            ]
         },
-        {
-            "name": "encoder1",
-            "type": "encoder",
-            "model": "fake"
-        }, 
         {
             "name": "movement_sensor1",
             "type": "movement_sensor",
-            "model": "fake"
-        }, 
-        {
-            "name": "gantry1",
-            "type": "gantry",
             "model": "fake"
         },
         {
@@ -101,18 +93,16 @@
             "model": "fake"
         },
         {
-            "name": "input1",
-            "model": "fake",
-            "type": "input_controller"
+            "name": "servo1",
+            "type": "servo",
+            "model": "fake"
         }
     ],
-    "processes":
-    [
+    "processes": [
         {
             "id": "1",
             "name": "echo",
-            "args":
-            [
+            "args": [
                 "hello",
                 "world"
             ],
@@ -121,18 +111,16 @@
         {
             "id": "2",
             "name": "bash",
-            "args":
-            [
+            "args": [
                 "-c",
                 "trap \"exit 0\" SIGINT; while true; do echo hey; sleep 2; done"
             ],
             "log": true
         }
     ],
-    "services":
-    [
+    "services": [
         {
-            "name": "nav1",
+            "name": "navigation1",
             "type": "navigation",
             "attributes": {
                 "store": {
@@ -141,14 +129,6 @@
                 "movement_sensor": "movement_sensor1",
                 "base": "base1"
             }
-        },
-        {
-            "name": "vis1",
-            "type": "vision"
-        },
-        {
-            "name": "motion1",
-            "type": "motion"
         }
     ]
 }
