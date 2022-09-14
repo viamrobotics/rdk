@@ -14,6 +14,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/mitchellh/mapstructure"
@@ -262,7 +263,7 @@ func TestStatusClient(t *testing.T) {
 				Type: arm.SubtypeName,
 				Frame: &config.Frame{
 					Parent:      "b",
-					Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
+					Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 					Orientation: &spatialmath.OrientationVectorDegrees{OX: 0, OY: 0, OZ: 1.0000000000000002, Theta: 7},
 				},
 			},
@@ -1087,7 +1088,7 @@ func TestClientConfig(t *testing.T) {
 			Name: "frame1",
 			FrameConfig: &config.Frame{
 				Parent:      referenceframe.World,
-				Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
+				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
 			},
 		},
@@ -1095,7 +1096,7 @@ func TestClientConfig(t *testing.T) {
 			Name: "frame2",
 			FrameConfig: &config.Frame{
 				Parent:      "frame1",
-				Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
+				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 			},
 		},
 	}

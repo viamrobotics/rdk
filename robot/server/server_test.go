@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
@@ -161,7 +162,7 @@ func TestServerFrameSystemConfig(t *testing.T) {
 				Name: "frame1",
 				FrameConfig: &config.Frame{
 					Parent:      referenceframe.World,
-					Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
+					Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 					Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
 				},
 			},
@@ -169,7 +170,7 @@ func TestServerFrameSystemConfig(t *testing.T) {
 				Name: "frame2",
 				FrameConfig: &config.Frame{
 					Parent:      "frame1",
-					Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
+					Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 				},
 			},
 		}
