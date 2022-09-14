@@ -9,7 +9,7 @@ import (
 // NOTE(bh):Can potentially add category or pose information to this struct.
 type Object struct {
 	pc.PointCloud
-	BoundingBox spatialmath.Geometry
+	Geometry spatialmath.Geometry
 }
 
 // NewObject calculates the metadata for an input pointcloud.

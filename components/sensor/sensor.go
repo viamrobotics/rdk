@@ -66,6 +66,11 @@ var (
 	_ = viamutils.ContextCloser(&reconfigurableSensor{})
 )
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Sensor)(nil), actual)
+}
+
 // FromRobot is a helper for getting the named Sensor from the given Robot.
 func FromRobot(r robot.Robot, name string) (Sensor, error) {
 	res, err := r.ResourceByName(Named(name))
@@ -74,7 +79,7 @@ func FromRobot(r robot.Robot, name string) (Sensor, error) {
 	}
 	part, ok := res.(Sensor)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Sensor", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }
@@ -133,7 +138,7 @@ func (r *reconfigurableSensor) Reconfigure(ctx context.Context, newSensor resour
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	Sensor, ok := r.(Sensor)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Sensor", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := Sensor.(*reconfigurableSensor); ok {
 		return reconfigurable, nil
