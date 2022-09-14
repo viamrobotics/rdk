@@ -23,13 +23,13 @@ import (
 )
 
 func init() {
-	registry.RegisterComponent(gripper.Subtype, "wx250s", registry.Component{
+	registry.RegisterComponent(gripper.Subtype, "trossen-wx250s", registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newGripper(config.Attributes, logger)
 		},
 	})
 
-	registry.RegisterComponent(gripper.Subtype, "vx300s", registry.Component{
+	registry.RegisterComponent(gripper.Subtype, "trossen-vx300s", registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newGripper(config.Attributes, logger)
 		},
