@@ -65,7 +65,9 @@ func (h *segmentObjectTestHelper) Process(
 	}
 
 	// Do object segmentation with point clouds
-	segments, err := segmentation.RadiusClustering(context.Background(), injectCamera, objConfig)
+	segmenter, err := segmentation.NewRadiusClustering(objConfig)
+	test.That(t, err, test.ShouldBeNil)
+	segments, err := segmenter(context.Background(), injectCamera)
 	test.That(t, err, test.ShouldBeNil)
 
 	objectClouds := []pc.PointCloud{}
@@ -140,7 +142,9 @@ func (h *gripperSegmentTestHelper) Process(
 	}
 
 	// Do object segmentation with point clouds
-	segments, err := segmentation.RadiusClustering(context.Background(), injectCamera, objConfig)
+	segmenter, err := segmentation.NewRadiusClustering(objConfig)
+	test.That(t, err, test.ShouldBeNil)
+	segments, err := segmenter(context.Background(), injectCamera)
 	test.That(t, err, test.ShouldBeNil)
 
 	objectClouds := []pc.PointCloud{}

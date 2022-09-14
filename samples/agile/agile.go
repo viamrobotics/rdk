@@ -17,10 +17,10 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/motionplan"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/client"
 	spatial "go.viam.com/rdk/spatialmath"
 	utilsrdk "go.viam.com/rdk/utils"
 )

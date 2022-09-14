@@ -49,7 +49,7 @@ func TestFromRobot(t *testing.T) {
 		}
 
 		svc, err := sensors.FromRobot(r, testSvcName1)
-		test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("sensors.Service", "string"))
+		test.That(t, err, test.ShouldBeError, sensors.NewUnimplementedInterfaceError("string"))
 		test.That(t, svc, test.ShouldBeNil)
 	})
 
@@ -79,7 +79,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = sensors.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("sensors.Service", nil))
+	test.That(t, err, test.ShouldBeError, sensors.NewUnimplementedInterfaceError(nil))
 
 	reconfSvc2, err := sensors.WrapWithReconfigurable(reconfSvc1)
 	test.That(t, err, test.ShouldBeNil)

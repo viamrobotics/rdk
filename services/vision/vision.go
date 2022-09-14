@@ -8,6 +8,9 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/invopop/jsonschema"
+	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -45,6 +48,8 @@ func init() {
 
 // A Service that implements various computer vision algorithms like detection and segmentation.
 type Service interface {
+	// model parameters
+	GetModelParameterSchema(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error)
 	// detector methods
 	GetDetectorNames(ctx context.Context) ([]string, error)
 	AddDetector(ctx context.Context, cfg VisModelConfig) error
@@ -59,8 +64,9 @@ type Service interface {
 	GetClassifications(ctx context.Context, img image.Image, classifierName string, n int) (classification.Classifications, error)
 	// segmenter methods
 	GetSegmenterNames(ctx context.Context) ([]string, error)
-	GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
-	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string, params config.AttributeMap) ([]*viz.Object, error)
+	AddSegmenter(ctx context.Context, cfg VisModelConfig) error
+	RemoveSegmenter(ctx context.Context, segmenterName string) error
+	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string) ([]*viz.Object, error)
 }
 
 var (
@@ -68,6 +74,11 @@ var (
 	_ = resource.Reconfigurable(&reconfigurableVision{})
 	_ = goutils.ContextCloser(&reconfigurableVision{})
 )
+
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Service)(nil), actual)
+}
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("vision")
@@ -96,7 +107,7 @@ func FromRobot(r robot.Robot, name string) (Service, error) {
 	}
 	svc, ok := resource.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("vision.Service", resource)
+		return nil, NewUnimplementedInterfaceError(resource)
 	}
 	return svc, nil
 }
@@ -123,6 +134,12 @@ type Attributes struct {
 type reconfigurableVision struct {
 	mu     sync.RWMutex
 	actual Service
+}
+
+func (svc *reconfigurableVision) GetModelParameterSchema(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.GetModelParameterSchema(ctx, modelType)
 }
 
 func (svc *reconfigurableVision) GetDetectorNames(ctx context.Context) ([]string, error) {
@@ -196,20 +213,25 @@ func (svc *reconfigurableVision) GetSegmenterNames(ctx context.Context) ([]strin
 	return svc.actual.GetSegmenterNames(ctx)
 }
 
-func (svc *reconfigurableVision) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
+func (svc *reconfigurableVision) AddSegmenter(ctx context.Context, cfg VisModelConfig) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetSegmenterParameters(ctx, segmenterName)
+	return svc.actual.AddSegmenter(ctx, cfg)
+}
+
+func (svc *reconfigurableVision) RemoveSegmenter(ctx context.Context, segmenterName string) error {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+	return svc.actual.RemoveSegmenter(ctx, segmenterName)
 }
 
 func (svc *reconfigurableVision) GetObjectPointClouds(ctx context.Context,
 	cameraName,
 	segmenterName string,
-	params config.AttributeMap,
 ) ([]*viz.Object, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetObjectPointClouds(ctx, cameraName, segmenterName, params)
+	return svc.actual.GetObjectPointClouds(ctx, cameraName, segmenterName)
 }
 
 func (svc *reconfigurableVision) Close(ctx context.Context) error {
@@ -242,7 +264,7 @@ func (svc *reconfigurableVision) Reconfigure(ctx context.Context, newSvc resourc
 func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 	svc, ok := s.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("vision.Service", s)
+		return nil, NewUnimplementedInterfaceError(s)
 	}
 
 	if reconfigurable, ok := s.(*reconfigurableVision); ok {

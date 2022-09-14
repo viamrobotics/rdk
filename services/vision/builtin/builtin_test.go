@@ -14,9 +14,26 @@ import (
 	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
+func TestModelParameterSchema(t *testing.T) {
+	ctx := context.Background()
+	srv := makeService(ctx, t)
+	// get parameters that exist
+	params, err := srv.GetModelParameterSchema(ctx, vision.RCSegmenter)
+	test.That(t, err, test.ShouldBeNil)
+	parameterNames := params.Definitions["RadiusClusteringConfig"].Required
+	test.That(t, parameterNames, test.ShouldContain, "min_points_in_plane")
+	test.That(t, parameterNames, test.ShouldContain, "min_points_in_segment")
+	test.That(t, parameterNames, test.ShouldContain, "clustering_radius_mm")
+	test.That(t, parameterNames, test.ShouldContain, "mean_k_filtering")
+	// attempt to get parameters that dont exist
+	_, err = srv.GetModelParameterSchema(ctx, vision.VisModelType("not_a_model"))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "do not have a schema for model type")
+}
+
 func TestCloseService(t *testing.T) {
 	ctx := context.Background()
-	srv := createService(ctx, t)
+	srv := makeService(ctx, t)
 	// success
 	cfg := vision.VisModelConfig{
 		Name: "test",
@@ -29,15 +46,14 @@ func TestCloseService(t *testing.T) {
 	}
 	err := srv.AddDetector(ctx, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	vService := srv.(*builtIn)
+	vService := srv.(*visionService)
 	fakeStruct := newStruct()
 	det := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{}, nil
 	}
-	// registeredFn := registeredDetector{detector: det, closer: fakeStruct}
 	registeredFn := vision.RegisteredModel{Model: det, Closer: fakeStruct}
 	logger := golog.NewTestLogger(t)
-	err = vService.modReg.RegisterVisModel("fake", &registeredFn, logger)
+	err = vService.modReg.registerVisModel("fake", &registeredFn, logger)
 	test.That(t, err, test.ShouldBeNil)
 	err = viamutils.TryClose(ctx, srv)
 	test.That(t, err, test.ShouldBeNil)
@@ -61,7 +77,7 @@ func (s *fakeClosingStruct) Close() error {
 	return nil
 }
 
-func createService(ctx context.Context, t *testing.T) vision.Service {
+func makeService(ctx context.Context, t *testing.T) vision.Service {
 	t.Helper()
 	logger := golog.NewTestLogger(t)
 	srv, err := NewBuiltIn(ctx, nil, config.Service{}, logger)

@@ -14,7 +14,7 @@ service CameraService {
   // can be requested but may not necessarily be the same one returned.
   rpc GetImage(GetImageRequest) returns (GetImageResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/component/camera/{name}/frame"
+      get: "/viam/api/v1/component/camera/{name}/image"
     };
   }
 

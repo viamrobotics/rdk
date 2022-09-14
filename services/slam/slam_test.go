@@ -32,7 +32,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = slam.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rdkutils.NewUnimplementedInterfaceError("slam.Service", nil))
+	test.That(t, err, test.ShouldBeError, slam.NewUnimplementedInterfaceError(nil))
 
 	reconfSvc2, err := slam.WrapWithReconfigurable(reconfSvc1)
 	test.That(t, err, test.ShouldBeNil)
