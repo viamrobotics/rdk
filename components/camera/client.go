@@ -184,7 +184,7 @@ func (c *client) GetProperties(ctx context.Context) (Properties, error) {
 	model := transform.DistortionType(resp.DistortionParameters.Model)
 	distorter, err := transform.NewDistorter(model, resp.DistortionParameters.Parameters)
 	if err != nil {
-		return nil, err
+		return Properties{}, err
 	}
 	result.DistortionParams = distorter
 	return result, nil
