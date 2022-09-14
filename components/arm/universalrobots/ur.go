@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	modelname = "ur"
+	modelname = "ur5e"
 )
 
 // AttrConfig is used for converting config attributes.
