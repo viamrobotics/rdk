@@ -10,9 +10,37 @@ import (
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/control"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/utils"
 )
+
+const modelName = "gpio"
+
+// PinConfig defines the mapping of where motor are wired.
+type PinConfig struct {
+	A             string `json:"a"`
+	B             string `json:"b"`
+	Direction     string `json:"dir"`
+	PWM           string `json:"pwm"`
+	EnablePinHigh string `json:"en_high,omitempty"`
+	EnablePinLow  string `json:"en_low,omitempty"`
+}
+
+// Config describes the configuration of a motor.
+type Config struct {
+	Pins             PinConfig      `json:"pins"`
+	BoardName        string         `json:"board"`                   // used to get encoders
+	MinPowerPct      float64        `json:"min_power_pct,omitempty"` // min power percentage to allow for this motor default is 0.0
+	MaxPowerPct      float64        `json:"max_power_pct,omitempty"` // max power percentage to allow for this motor (0.06 - 1.0)
+	PWMFreq          uint           `json:"pwm_freq,omitempty"`
+	DirectionFlip    bool           `json:"dir_flip,omitempty"`       // Flip the direction of the signal sent if there is a Dir pin
+	ControlLoop      control.Config `json:"control_config,omitempty"` // Optional control loop
+	Encoder          string         `json:"encoder,omitempty"`        // name of encoder
+	RampRate         float64        `json:"ramp_rate,omitempty"`      // how fast to ramp power to motor when using rpm control
+	MaxRPM           float64        `json:"max_rpm,omitempty"`        // RPM
+	TicksPerRotation int            `json:"ticks_per_rotation,omitempty"`
+}
 
 // init registers a pi motor based on pigpio.
 func init() {
@@ -49,12 +77,20 @@ func init() {
 		},
 	}
 
-	registry.RegisterComponent(motor.Subtype, "gpio", comp)
-	motor.RegisterConfigAttributeConverter("gpio")
+	registry.RegisterComponent(motor.Subtype, modelName, comp)
+	config.RegisterComponentAttributeMapConverter(
+		motor.SubtypeName,
+		modelName,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&Config{},
+	)
 }
 
-func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component) (board.Board, *motor.Config, error) {
-	motorConfig, ok := config.ConvertedAttributes.(*motor.Config)
+func getBoardFromRobotConfig(deps registry.Dependencies, config config.Component) (board.Board, *Config, error) {
+	motorConfig, ok := config.ConvertedAttributes.(*Config)
 	if !ok {
 		return nil, nil, utils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
 	}

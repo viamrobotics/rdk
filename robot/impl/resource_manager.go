@@ -16,10 +16,10 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 	rutils "go.viam.com/rdk/utils"
 )
 

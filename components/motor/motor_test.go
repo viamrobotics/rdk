@@ -80,7 +80,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, position)
 
 	res, err = motor.FromDependencies(deps, fakeMotorName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeMotorName, "Motor", "string"))
+	test.That(t, err, test.ShouldBeError, motor.DependencyTypeError(fakeMotorName, "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = motor.FromDependencies(deps, missingMotorName)
@@ -100,7 +100,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, position)
 
 	res, err = motor.FromRobot(r, fakeMotorName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Motor", "string"))
+	test.That(t, err, test.ShouldBeError, motor.NewUnimplementedInterfaceError("string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = motor.FromRobot(r, missingMotorName)
@@ -148,7 +148,7 @@ func TestStatusValid(t *testing.T) {
 
 func TestCreateStatus(t *testing.T) {
 	_, err := motor.CreateStatus(context.Background(), "not a motor")
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalMotor", "string"))
+	test.That(t, err, test.ShouldBeError, motor.NewUnimplementedLocalInterfaceError("string"))
 
 	status := &pb.Status{IsPowered: true, PositionReporting: true, Position: 7.7, IsMoving: true}
 
@@ -268,7 +268,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = motor.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Motor", nil))
+	test.That(t, err, test.ShouldBeError, motor.NewUnimplementedInterfaceError(nil))
 
 	reconfMotor2, err := motor.WrapWithReconfigurable(reconfMotor1)
 	test.That(t, err, test.ShouldBeNil)

@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
-	rutils "go.viam.com/rdk/utils"
 )
 
 func newServer(omMap map[resource.Name]interface{}) (pb.MotionServiceServer, error) {
@@ -46,7 +45,7 @@ func TestServerMove(t *testing.T) {
 	server, err = newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Move(context.Background(), grabRequest)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("motion.Service", "string"))
+	test.That(t, err, test.ShouldBeError, motion.NewUnimplementedInterfaceError("string"))
 
 	// error
 	injectMS := &inject.MotionService{}

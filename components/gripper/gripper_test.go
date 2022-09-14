@@ -69,7 +69,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldEqual, grabbed)
 
 	res, err = gripper.FromRobot(r, fakeGripperName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gripper", "string"))
+	test.That(t, err, test.ShouldBeError, gripper.NewUnimplementedInterfaceError("string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = gripper.FromRobot(r, missingGripperName)
@@ -109,7 +109,7 @@ func TestStatusValid(t *testing.T) {
 
 func TestCreateStatus(t *testing.T) {
 	_, err := gripper.CreateStatus(context.Background(), "not a gripper")
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalGripper", "string"))
+	test.That(t, err, test.ShouldBeError, gripper.NewUnimplementedLocalInterfaceError("string"))
 
 	t.Run("is moving", func(t *testing.T) {
 		status := &commonpb.ActuatorStatus{
@@ -187,7 +187,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = gripper.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gripper", nil))
+	test.That(t, err, test.ShouldBeError, gripper.NewUnimplementedInterfaceError(nil))
 
 	reconfGripper2, err := gripper.WrapWithReconfigurable(reconfGripper1)
 	test.That(t, err, test.ShouldBeNil)

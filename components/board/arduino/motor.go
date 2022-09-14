@@ -28,7 +28,7 @@ const SetPowerZeroThreshold = .0001
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			motorConfig, ok := config.ConvertedAttributes.(*motor.Config)
+			motorConfig, ok := config.ConvertedAttributes.(*gpio.Config)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
 			}
@@ -64,14 +64,22 @@ func init() {
 
 	registry.RegisterComponent(motor.Subtype, "arduino", _motor)
 
-	motor.RegisterConfigAttributeConverter("arduino")
+	config.RegisterComponentAttributeMapConverter(
+		motor.SubtypeName,
+		"arduino",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf gpio.Config
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&gpio.Config{},
+	)
 }
 
 func configureMotorForBoard(
 	ctx context.Context,
 	b *arduinoBoard,
 	config config.Component,
-	motorConfig *motor.Config,
+	motorConfig *gpio.Config,
 	e *Encoder,
 ) (motor.LocalMotor, error) {
 	if !((motorConfig.Pins.PWM != "" && motorConfig.Pins.Direction != "") || (motorConfig.Pins.A != "" || motorConfig.Pins.B != "")) {
@@ -166,7 +174,7 @@ func configureMotorForBoard(
 type arduinoMotor struct {
 	generic.Unimplemented
 	b                 *arduinoBoard
-	cfg               motor.Config
+	cfg               gpio.Config
 	name              string
 	positionReporting bool
 }

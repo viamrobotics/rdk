@@ -13,9 +13,9 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	myc "go.viam.com/rdk/examples/mycomponent/component"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	weboptions "go.viam.com/rdk/robot/web/options"
-	myc "go.viam.com/rdk/samples/mycomponent/component"
 	"go.viam.com/rdk/utils"
 )
 
@@ -31,7 +31,7 @@ func TestMyComponent(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewDevelopmentLogger("mycomponent.server")
 
-	cfgServer, err := config.Read(ctx, utils.ResolveFile("./samples/mycomponent/server/config.json"), logger)
+	cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/mycomponent/server/config.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 	r0, err := robotimpl.New(ctx, cfgServer, logger)
 	test.That(t, err, test.ShouldBeNil)
