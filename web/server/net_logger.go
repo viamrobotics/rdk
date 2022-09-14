@@ -371,12 +371,17 @@ type remoteLogWriterGRPC struct {
 }
 
 func (w *remoteLogWriterGRPC) write(logs []*apppb.LogEntry) error {
-	client, err := w.getOrCreateClient()
+	// we specifically don't use a parented cancellable context here so we can make sure we finish writing but
+	// we will only give it up to 5 seconds to do so in case we are trying to shutdown.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	client, err := w.getOrCreateClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	_, err = client.Log(context.Background(), &apppb.LogRequest{Id: w.cfg.ID, Logs: logs})
+	_, err = client.Log(ctx, &apppb.LogRequest{Id: w.cfg.ID, Logs: logs})
 	if err != nil {
 		return err
 	}
@@ -384,12 +389,12 @@ func (w *remoteLogWriterGRPC) write(logs []*apppb.LogEntry) error {
 	return nil
 }
 
-func (w *remoteLogWriterGRPC) getOrCreateClient() (apppb.RobotServiceClient, error) {
+func (w *remoteLogWriterGRPC) getOrCreateClient(ctx context.Context) (apppb.RobotServiceClient, error) {
 	if w.service == nil {
 		w.clientMutex.Lock()
 		defer w.clientMutex.Unlock()
 
-		client, err := config.CreateNewGRPCClient(context.Background(), w.cfg, w.logger)
+		client, err := config.CreateNewGRPCClient(ctx, w.cfg, w.logger)
 		if err != nil {
 			return nil, err
 		}
