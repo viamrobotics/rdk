@@ -1,0 +1,13 @@
+{
+    "network": {
+        "bind_address": "localhost:8081"
+    },
+    "components": [
+        {
+            "name": "comp1",
+            "namespace": "acme",
+            "type": "mycomponent",
+            "model": "myActualComponent"
+        }
+    ]
+}
