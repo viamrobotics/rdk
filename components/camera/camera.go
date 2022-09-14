@@ -79,7 +79,7 @@ type Properties struct {
 	// implementation of NextPointCloud
 	SupportsPCD      bool
 	IntrinsicParams  *transform.PinholeCameraIntrinsics
-	DistortionParams transform.DistortionModel
+	DistortionParams transform.Distorter
 }
 
 // A Camera represents anything that can capture frames.

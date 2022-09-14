@@ -30,7 +30,7 @@ func NewNoIntrinsicsError(msg string) error {
 // PinholeCameraModel is the model of a pinhole camera.
 type PinholeCameraModel struct {
 	*PinholeCameraIntrinsics `json:"intrinsics"`
-	Distortion               DistortionModel `json:"distortion"`
+	Distortion               Distorter `json:"distortion"`
 }
 
 // DistortionMap is a function that transforms the undistorted input points (u,v) to the distorted points (x,y)
@@ -108,8 +108,7 @@ func (params *PinholeCameraModel) UndistortDepthMap(dm *rimage.DepthMap) (*rimag
 	return undistortedDm, nil
 }
 
-// PinholeCameraIntrinsics holds the parameters necessary to do a perspective projection of a 3D scene to the 2D plane,
-// as well as the DistortionModel necessary to do corrections.
+// PinholeCameraIntrinsics holds the parameters necessary to do a perspective projection of a 3D scene to the 2D plane.
 type PinholeCameraIntrinsics struct {
 	Width  int     `json:"width"`
 	Height int     `json:"height"`

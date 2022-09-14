@@ -21,8 +21,8 @@ const (
 	KannalaBrandtDistortionType = DistortionType("kannala_brandt")
 )
 
-// DistortionModel defines a Transform that takes an undistorted image and distorts it according to the model.
-type DistortionModel interface {
+// Distorter defines a Transform that takes an undistorted image and distorts it according to the model.
+type Distorter interface {
 	ModelType() DistortionType
 	Parameters() []float64
 	Transform(x, y float64) (float64, float64)
@@ -59,5 +59,5 @@ type Projector interface {
 // and the distortion model.
 type CameraSystem interface {
 	Projector
-	DistortionModel
+	Distorter
 }
