@@ -219,10 +219,12 @@ func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLite
 	var scores []float64
 	var count int
 
+	// Based on the number of output tensors and their content, make a guess about which output tensors
+	// are bounding boxes, which are labels, and which are scores
 	if !hasMetadata {
 		switch model.Info.OutputTensorCount {
 		case 1:
-			// there's only one thing so assume it's bounding boxes
+			// There's only one thing so assume it's bounding boxes
 			T0, _ := tensors[0].([]float32)
 			for _, b := range T0 {
 				bboxes = append(bboxes, float64(b))
@@ -230,7 +232,7 @@ func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLite
 			count = len(T0) / 4
 
 		case 2:
-			// See which is longer, that's bboxes. Then check for the other's first value
+			// See which is longer --> that's bboxes. Then check for the other's first value
 			// to determine whether score/label
 			T0, _ := tensors[0].([]float32)
 			T1, _ := tensors[1].([]float32)
@@ -264,7 +266,7 @@ func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLite
 				}
 			}
 		default: // case 3+
-			// See which is longer, that's bboxes. Then check for the other's first value
+			// See which is longer --> that's bboxes. Then check for the other's first value
 			// to determine whether score/label. Assign the last one the last remaining thing
 			T0, _ := tensors[0].([]float32)
 			T1, _ := tensors[1].([]float32)
@@ -335,8 +337,8 @@ func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLite
 					}
 				}
 			}
-		} // end of switch to populate bboxes, labels, scores w/o metadata
-	} else { // with metadata is smoother
+		}
+	} else { // if we do have metadata, just read the tensor order from there.
 		tensorOrder, found := getTensorOrder(m)
 		if found[0] {
 			for _, b := range tensors[getIndex(tensorOrder, 0)].([]float32) {
@@ -356,7 +358,8 @@ func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLite
 		count = len(tensors[getIndex(tensorOrder, 0)].([]float32)) / 4
 	}
 
-	// If we don't know box order, finesse it from the values
+	// If we don't know the bounding box order, assume the first two are x-values
+	// and the last two are y-values
 	if len(boxOrder) == 0 {
 		logger.Warn("assuming bounding box tensor is in the default order: [x x y y]")
 		boxOrder = []int{1, 0, 3, 2}
@@ -376,7 +379,7 @@ func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLite
 		}
 	}
 
-	// Gather detections such that if something is empty, it'll be empty.
+	// Gather detections
 	detections := make([]objectdetection.Detection, count)
 	for i := 0; i < count; i++ {
 		// Gather box
