@@ -11,7 +11,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	v1 "go.viam.com/api/proto/viam/datasync/v1"
+	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
