@@ -135,11 +135,13 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	m.cancelFunc = cancelFn
-	out := make(chan error, len(modelsToDownload))
+	// out := make(chan error)
+	fmt.Println("len(modelsToDownload): ", len(modelsToDownload))
+	checkMe := make(chan error, len(modelsToDownload))
 	m.backgroundWorkers.Add(len(modelsToDownload))
 	for _, model := range modelsToDownload {
-		defer close(out) // hmm is this correct?
-		go func(model *Model) {
+		// defer close(checkMe) // hmm is this correct?
+		inner := func(model *Model) error {
 			defer m.backgroundWorkers.Done()
 			deployRequest := &v1.DeployRequest{
 				Metadata: &v1.DeployMetadata{
@@ -149,26 +151,28 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 			deployResp, err := m.deploy(cancelCtx, deployRequest)
 			if err != nil {
 				m.logger.Error(err)
-				out <- err
-				return
+				// out <- err
+				return err
 			}
 			url := deployResp.Message
 			filePath := filepath.Join(model.Destination, model.Name)
 			err = downloadFile(cancelCtx, m.httpClient, filePath, url, m.logger)
 			if err != nil {
 				m.logger.Error(err)
-				out <- err
-				return
+				// out <- err
+				return err
 			}
 			// A download from a GCS signed URL only returns one file.
 			modelFileToUnzip := model.Name + zipExtension
 			if err = unzipSource(modelFileToUnzip, model.Destination); err != nil {
 				m.logger.Error(err)
-				out <- err
-				return
+				// out <- err
+				return err
 			}
-			out <- nil
-		}(model)
+
+			return nil
+		}
+		checkMe <- inner(model)
 		// check for errors after each iteration
 		// 	err := <-out
 		// 	if err != nil {
@@ -178,10 +182,11 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 		// 	}
 	}
 	m.backgroundWorkers.Wait()
-	fmt.Println(len(out))
-	err = <-out
+	close(checkMe)
+	fmt.Println("len(checkMe): ", len(checkMe))
+	// err = <-checkMe
 
-	return err
+	return <-checkMe
 }
 
 // GetModelsToDownload fetches the models that need to be downloaded according to the
