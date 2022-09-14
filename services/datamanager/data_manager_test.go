@@ -345,7 +345,6 @@ func TestModelDeploy(t *testing.T) {
 	all = append(all, m)
 	m2 := &model.Model{Name: "m2", Destination: ""}
 	all = append(all, m2)
-	// models := []*model.Model{m}
 	defer resetFolder(t, filepath.Join(defaultModelDir, all[0].Name))
 	defer resetFolder(t, filepath.Join(defaultModelDir, all[1].Name))
 

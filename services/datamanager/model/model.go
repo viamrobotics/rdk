@@ -140,7 +140,7 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 	checkMe := make(chan error, len(modelsToDownload))
 	m.backgroundWorkers.Add(len(modelsToDownload))
 	for _, model := range modelsToDownload {
-		modelDeploy := func(model *Model) error {
+		go func(model *Model) {
 			defer m.backgroundWorkers.Done()
 			deployRequest := &v1.DeployRequest{
 				Metadata: &v1.DeployMetadata{
@@ -150,28 +150,26 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 			deployResp, err := m.deploy(cancelCtx, deployRequest)
 			if err != nil {
 				m.logger.Error(err)
-				// out <- err
-				return err
+				checkMe <- err
+				return
 			}
 			url := deployResp.Message
 			filePath := filepath.Join(model.Destination, model.Name)
 			err = downloadFile(cancelCtx, m.httpClient, filePath, url, m.logger)
 			if err != nil {
 				m.logger.Error(err)
-				// out <- err
-				return err
+				checkMe <- err
+				return
 			}
 			// A download from a GCS signed URL only returns one file.
 			modelFileToUnzip := model.Name + zipExtension
 			if err = unzipSource(modelFileToUnzip, model.Destination); err != nil {
 				m.logger.Error(err)
-				// out <- err
-				return err
+				checkMe <- err
+				return
 			}
-
-			return nil
-		}
-		checkMe <- modelDeploy(model)
+			checkMe <- nil
+		}(model)
 	}
 	m.backgroundWorkers.Wait()
 	close(checkMe)
