@@ -25,8 +25,8 @@ const appAddress = "app.viam.com:443"
 
 const zipExtension = ".zip"
 
-// This is the default model directory a model will deployed into, unless
-// otherwise specified.
+// ViamModelDotDir is the default model directory a model will deployed into,
+// unless otherwise specified.
 var ViamModelDotDir = filepath.Join(os.Getenv("HOME"), "models", ".viam")
 
 // Model describes a model we want to download to the robot.
