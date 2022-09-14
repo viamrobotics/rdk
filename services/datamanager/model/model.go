@@ -25,6 +25,8 @@ const appAddress = "app.viam.com:443"
 
 const zipExtension = ".zip"
 
+// This is the default model directory a model will deployed into, unless
+// otherwise specified.
 var ViamModelDotDir = filepath.Join(os.Getenv("HOME"), "models", ".viam")
 
 // Model describes a model we want to download to the robot.
@@ -83,7 +85,8 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 
 // NewManager returns a new modelr.
 func NewManager(logger golog.Logger, partID string, client v1.ModelServiceClient,
-	conn rpc.ClientConn, httpClient httpClient) (Manager, error) {
+	conn rpc.ClientConn, httpClient httpClient,
+) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := modelManager{
 		conn:              conn,
