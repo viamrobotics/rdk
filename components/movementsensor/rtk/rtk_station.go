@@ -92,10 +92,12 @@ func (config *AttrConfig) Validate(path string) error {
 	return nil
 }
 
+const modelname = "rtk-station"
+
 func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
-		"rtk-station",
+		modelname,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -104,6 +106,13 @@ func init() {
 		) (interface{}, error) {
 			return newRTKStation(ctx, deps, config, logger)
 		}})
+
+	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&AttrConfig{})
 }
 
 type rtkStation struct {

@@ -25,6 +25,19 @@ import (
 
 const model = "imu-wit"
 
+// AttrConfig is used for converting a witmotion IMU MovementSensor config attributes.
+type AttrConfig struct {
+	Port string `json:"port"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (cfg *AttrConfig) Validate(path string) error {
+	if cfg.Port == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "port")
+	}
+	return nil
+}
+
 func init() {
 	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{
 		Constructor: func(
@@ -36,6 +49,13 @@ func init() {
 			return NewWit(deps, config, logger)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, model,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&AttrConfig{})
 }
 
 type wit struct {
@@ -109,7 +129,7 @@ func (imu *wit) GetProperties(ctx context.Context) (*movementsensor.Properties, 
 }
 
 // NewWit creates a new Wit IMU.
-func NewWit(deps registry.Dependencies, config config.Component, logger golog.Logger) (movementsensor.MovementSensor, error) {
+func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logger) (movementsensor.MovementSensor, error) {
 	options := slib.OpenOptions{
 		BaudRate:        9600,
 		DataBits:        8,
@@ -117,7 +137,7 @@ func NewWit(deps registry.Dependencies, config config.Component, logger golog.Lo
 		MinimumReadSize: 1,
 	}
 
-	options.PortName = config.Attributes.String("port")
+	options.PortName = cfg.ConvertedAttributes.(*AttrConfig).Port
 	if options.PortName == "" {
 		return nil, errors.New("wit imu needs a port")
 	}

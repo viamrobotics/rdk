@@ -19,18 +19,27 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
-// TMC5072Config extends motor.Config, mainly for RegisterComponentAttributeMapConverter.
+// PinConfig defines the mapping of where motor are wired.
+type PinConfig struct {
+	EnablePinLow string `json:"en_low,omitempty"`
+}
+
+// TMC5072Config describes the configuration of a motor.
 type TMC5072Config struct {
-	motor.Config
-	SPIBus      string  `json:"spi_bus"`
-	ChipSelect  string  `json:"chip_select"`
-	Index       int     `json:"index"`
-	SGThresh    int32   `json:"sg_thresh"`
-	HomeRPM     float64 `json:"home_rpm"`
-	CalFactor   float64 `json:"cal_factor"`
-	RunCurrent  int32   `json:"run_current"`  // 1-32 as a percentage of rsense voltage, 15 default
-	HoldCurrent int32   `json:"hold_current"` // 1-32 as a percentage of rsense voltage, 8 default
-	HoldDelay   int32   `json:"hold_delay"`   // 0=instant powerdown, 1-15=delay * 2^18 clocks, 6 default
+	Pins             PinConfig `json:"pins"`
+	BoardName        string    `json:"board"`                      // used to get encoders
+	MaxRPM           float64   `json:"max_rpm,omitempty"`          // RPM
+	MaxAcceleration  float64   `json:"max_acceleration,omitempty"` // RPM per second
+	TicksPerRotation int       `json:"ticks_per_rotation"`
+	SPIBus           string    `json:"spi_bus"`
+	ChipSelect       string    `json:"chip_select"`
+	Index            int       `json:"index"`
+	SGThresh         int32     `json:"sg_thresh,omitempty"`
+	HomeRPM          float64   `json:"home_rpm,omitempty"`
+	CalFactor        float64   `json:"cal_factor,omitempty"`
+	RunCurrent       int32     `json:"run_current,omitempty"`  // 1-32 as a percentage of rsense voltage, 15 default
+	HoldCurrent      int32     `json:"hold_current,omitempty"` // 1-32 as a percentage of rsense voltage, 8 default
+	HoldDelay        int32     `json:"hold_delay,omitempty"`   // 0=instant powerdown, 1-15=delay * 2^18 clocks, 6 default
 }
 
 const (
@@ -138,8 +147,7 @@ func NewMotor(ctx context.Context, deps registry.Dependencies, c TMC5072Config, 
 	}
 
 	if c.TicksPerRotation == 0 {
-		logger.Warn("ticks_per_rotation isn't set: defaulting to 200")
-		c.TicksPerRotation = 200
+		return nil, errors.New("ticks_per_rotation isn't set")
 	}
 
 	if c.HomeRPM == 0 {

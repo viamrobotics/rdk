@@ -108,6 +108,11 @@ func init() {
 	}, &AttrConfig{})
 }
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Service)(nil), actual)
+}
+
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("slam")
 
@@ -953,7 +958,7 @@ func (svc *reconfigurableSlam) Reconfigure(ctx context.Context, newSvc resource.
 func WrapWithReconfigurable(s interface{}) (resource.Reconfigurable, error) {
 	svc, ok := s.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("slam.Service", s)
+		return nil, NewUnimplementedInterfaceError(s)
 	}
 
 	if reconfigurable, ok := s.(*reconfigurableSlam); ok {
