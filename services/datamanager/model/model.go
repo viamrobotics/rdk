@@ -136,7 +136,6 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	m.cancelFunc = cancelFn
 	// out := make(chan error)
-	fmt.Println("len(modelsToDownload): ", len(modelsToDownload))
 	checkMe := make(chan error, len(modelsToDownload))
 	m.backgroundWorkers.Add(len(modelsToDownload))
 	for _, model := range modelsToDownload {
@@ -173,17 +172,9 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 			return nil
 		}
 		checkMe <- inner(model)
-		// check for errors after each iteration
-		// 	err := <-out
-		// 	if err != nil {
-		// 		// need to put the value back into the chan
-		// 		out <- err
-		// 		break
-		// 	}
 	}
 	m.backgroundWorkers.Wait()
 	close(checkMe)
-	fmt.Println("len(checkMe): ", len(checkMe))
 	// err = <-checkMe
 
 	return <-checkMe
