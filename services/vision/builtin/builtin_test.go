@@ -46,14 +46,14 @@ func TestCloseService(t *testing.T) {
 	}
 	err := srv.AddDetector(ctx, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	vService := srv.(*visionService)
+	vService := srv.(*builtIn)
 	fakeStruct := newStruct()
 	det := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{}, nil
 	}
 	registeredFn := vision.RegisteredModel{Model: det, Closer: fakeStruct}
 	logger := golog.NewTestLogger(t)
-	err = vService.modReg.registerVisModel("fake", &registeredFn, logger)
+	err = vService.modReg.RegisterVisModel("fake", &registeredFn, logger)
 	test.That(t, err, test.ShouldBeNil)
 	err = viamutils.TryClose(ctx, srv)
 	test.That(t, err, test.ShouldBeNil)

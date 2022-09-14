@@ -39,7 +39,7 @@ func TestObjectSegmentationFailures(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, rdkutils.NewResourceNotFoundError(vision.Named(testVisionServiceName)))
 
 	// fails on not finding camera
-	obs, err := builtin.NewBuiltIn()(context.Background(), r, cfgService, logger)
+	obs, err := builtin.NewBuiltIn(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", "")
