@@ -76,7 +76,7 @@ func TestGeometryToFromProtobuf(t *testing.T) {
 
 	// test that bad message does not generate error
 	_, err := NewGeometryFromProto(&commonpb.Geometry{Center: PoseToProtobuf(NewZeroPose())})
-	test.That(t, err.Error(), test.ShouldContainSubstring, newGeometryTypeUnsupportedError("").Error())
+	test.That(t, err.Error(), test.ShouldContainSubstring, ErrGeometryTypeUnsupported.Error())
 }
 
 type geometryComparisonTestCase struct {
