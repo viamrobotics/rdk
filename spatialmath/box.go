@@ -13,7 +13,7 @@ import (
 // BoxCreator implements the GeometryCreator interface for box structs.
 type boxCreator struct {
 	halfSize r3.Vector
-	offset   Pose
+	pointCreator
 }
 
 // box is a collision geometry that represents a 3D rectangular prism, it has a pose and half size that fully define it.
@@ -28,7 +28,7 @@ func NewBoxCreator(dims r3.Vector, offset Pose) (GeometryCreator, error) {
 	if dims.X <= 0 || dims.Y <= 0 || dims.Z <= 0 {
 		return nil, newBadGeometryDimensionsError(&box{})
 	}
-	return &boxCreator{dims.Mul(0.5), offset}, nil
+	return &boxCreator{dims.Mul(0.5), pointCreator{offset}}, nil
 }
 
 // NewGeometry instantiates a new box from a BoxCreator class.
@@ -37,14 +37,10 @@ func (bc *boxCreator) NewGeometry(pose Pose) Geometry {
 }
 
 func (bc *boxCreator) MarshalJSON() ([]byte, error) {
-	config, err := NewGeometryConfig(bc.offset)
+	config, err := NewGeometryConfig(bc)
 	if err != nil {
 		return nil, err
 	}
-	config.Type = "box"
-	config.X = 2 * bc.halfSize.X
-	config.Y = 2 * bc.halfSize.Y
-	config.Z = 2 * bc.halfSize.Z
 	return json.Marshal(config)
 }
 

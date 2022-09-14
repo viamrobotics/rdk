@@ -64,7 +64,7 @@ func TestFrameModelPart(t *testing.T) {
 	// fully specified part
 	part = &FrameSystemPart{
 		Name:        "test",
-		FrameConfig: &Frame{Parent: "world", Translation: spatial.TranslationConfig{1, 2, 3}, Orientation: spatial.NewZeroOrientation()},
+		FrameConfig: &Frame{Parent: "world", Translation: r3.Vector{1, 2, 3}, Orientation: spatial.NewZeroOrientation()},
 		ModelFrame:  model,
 	}
 	result, err = part.ToProtobuf()
@@ -125,7 +125,7 @@ func TestFramesFromPart(t *testing.T) {
 	// fully specified part
 	part = &FrameSystemPart{
 		Name:        "test",
-		FrameConfig: &Frame{Parent: "world", Translation: spatial.TranslationConfig{1, 2, 3}, Orientation: spatial.NewZeroOrientation()},
+		FrameConfig: &Frame{Parent: "world", Translation: r3.Vector{1, 2, 3}, Orientation: spatial.NewZeroOrientation()},
 		ModelFrame:  model,
 	}
 	modelFrame, originFrame, err = CreateFramesFromPart(part, logger)

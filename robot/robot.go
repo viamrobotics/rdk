@@ -15,7 +15,13 @@ import (
 	"go.viam.com/rdk/resource"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	"go.viam.com/rdk/utils"
 )
+
+// NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
+func NewUnimplementedLocalInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((LocalRobot)(nil), actual)
+}
 
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.

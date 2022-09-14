@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
@@ -16,7 +17,6 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
-	"go.viam.com/rdk/grpc/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
@@ -25,6 +25,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -161,7 +162,7 @@ func TestServerFrameSystemConfig(t *testing.T) {
 				Name: "frame1",
 				FrameConfig: &config.Frame{
 					Parent:      referenceframe.World,
-					Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
+					Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 					Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
 				},
 			},
@@ -169,7 +170,7 @@ func TestServerFrameSystemConfig(t *testing.T) {
 				Name: "frame2",
 				FrameConfig: &config.Frame{
 					Parent:      "frame1",
-					Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
+					Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 				},
 			},
 		}
