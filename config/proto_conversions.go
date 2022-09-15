@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/utils/pexec"
@@ -235,7 +236,7 @@ func FrameConfigToProto(frame Frame) (*pb.Frame, error) {
 func FrameConfigFromProto(proto *pb.Frame) (*Frame, error) {
 	frame := Frame{
 		Parent: proto.GetParent(),
-		Translation: spatial.TranslationConfig{
+		Translation: r3.Vector{
 			X: proto.GetTranslation().GetX(),
 			Y: proto.GetTranslation().GetY(),
 			Z: proto.GetTranslation().GetZ(),
