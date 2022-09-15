@@ -2,6 +2,7 @@ package datamanager_test
 
 import (
 	"context"
+	"image"
 	"io"
 	"io/fs"
 	"os"
@@ -10,12 +11,14 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
@@ -84,6 +87,28 @@ func getInjectedRobotWithArm(armKey string) *inject.Robot {
 		return &commonpb.Pose{X: 1, Y: 2, Z: 3}, nil
 	}
 	rs[arm.Named(armKey)] = injectedArm
+	r.MockResourcesFromMap(rs)
+	return r
+}
+
+func getInjectedRobotWithCamera(t *testing.T) *inject.Robot {
+	t.Helper()
+	r := &inject.Robot{}
+	rs := map[resource.Name]interface{}{}
+
+	img := image.NewNRGBA64(image.Rect(0, 0, 4, 4))
+	injectCamera := &inject.Camera{}
+	var imageReleasedMu sync.Mutex
+	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+			imageReleasedMu.Lock()
+			time.Sleep(10 * time.Nanosecond)
+			imageReleasedMu.Unlock()
+			return img, func() {}, nil
+		})), nil
+	}
+
+	rs[camera.Named("c1")] = injectCamera
 	r.MockResourcesFromMap(rs)
 	return r
 }
@@ -676,6 +701,43 @@ func TestGetDurationFromHz(t *testing.T) {
 	test.That(t, datamanager.GetDurationFromHz(1), test.ShouldEqual, time.Second)
 	test.That(t, datamanager.GetDurationFromHz(1000), test.ShouldEqual, time.Millisecond)
 	test.That(t, datamanager.GetDurationFromHz(0), test.ShouldEqual, 0)
+}
+
+func TestAdditionalParamsInConfig(t *testing.T) {
+	conf := setupConfig(t, "services/datamanager/data/robot_with_cam_capture.json")
+	r := getInjectedRobotWithCamera(t)
+
+	dmCfg := &datamanager.Config{}
+	cfgService := config.Service{
+		Type:                "data_manager",
+		ConvertedAttributes: dmCfg,
+	}
+	logger := golog.NewTestLogger(t)
+	svc, err := datamanager.New(context.Background(), r, cfgService, logger)
+	if err != nil {
+		t.Log(err)
+	}
+
+	dmsvc := svc.(internal.DMService)
+
+	defer resetFolder(t, captureDir)
+
+	err = dmsvc.Update(context.Background(), conf)
+	test.That(t, err, test.ShouldBeNil)
+	time.Sleep(captureWaitTime)
+
+	filesInCamDir, err := readDir(t, captureDir+"/camera/c1/Next")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(filesInCamDir), test.ShouldEqual, 1)
+	info, err := filesInCamDir[0].Info()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, info.Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
+
+	// Verify that after close is called, the collector is no longer writing.
+	err = dmsvc.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	err = r.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func getDataManagerConfig(config *config.Config) (*datamanager.Config, error) {
