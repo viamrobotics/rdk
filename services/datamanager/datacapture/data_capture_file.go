@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
@@ -45,10 +46,16 @@ func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.F
 	return f, nil
 }
 
-// BuildCaptureMetadata builds a DataCaptureMetadata object.
+// BuildCaptureMetadata builds a DataCaptureMetadata object and returns error if
+// additionalParams fails to convert to anypb map.
 func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, method string,
 	additionalParams map[string]string, tags []string,
-) *v1.DataCaptureMetadata {
+) (*v1.DataCaptureMetadata, error) {
+	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(additionalParams)
+	if err != nil {
+		return nil, err
+	}
+
 	dataType := getDataType(string(compType), method)
 	return &v1.DataCaptureMetadata{
 		ComponentType:    string(compType),
@@ -56,10 +63,10 @@ func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, me
 		ComponentModel:   compModel,
 		MethodName:       method,
 		Type:             dataType,
-		MethodParameters: additionalParams,
+		MethodParameters: methodParams,
 		FileExtension:    GetFileExt(dataType, method, additionalParams),
 		Tags:             tags,
-	}
+	}, nil
 }
 
 // ReadDataCaptureMetadata reads the DataCaptureMetadata from the beginning of the capture file.

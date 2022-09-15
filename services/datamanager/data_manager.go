@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	servicepb "go.viam.com/rdk/proto/api/service/datamanager/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
@@ -275,8 +276,13 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		MethodMetadata: metadata,
 	}
 	// Build metadata.
-	captureMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
+	captureMetadata, err := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
 		attributes.Model, attributes.Method, attributes.AdditionalParams, attributes.Tags)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: DATA-451 https://viam.atlassian.net/browse/DATA-451 (validate method params)
 
 	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
 		collector := storedCollectorParams.Collector
@@ -307,7 +313,6 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 
 	// Get the resource from the local or remote robot.
 	var res interface{}
-	var err error
 	if attributes.RemoteRobotName != "" {
 		remoteRobot, exists := svc.r.RemoteByName(attributes.RemoteRobotName)
 		if !exists {
@@ -345,11 +350,16 @@ func (svc *dataManagerService) initializeOrUpdateCollector(
 		captureBufferSize = defaultCaptureBufferSize
 	}
 
+	methodParams, err := protoutils.ConvertStringMapToAnyPBMap(attributes.AdditionalParams)
+	if err != nil {
+		return nil, err
+	}
+
 	// Create a collector for this resource and method.
 	params := data.CollectorParams{
 		ComponentName: attributes.Name,
 		Interval:      interval,
-		MethodParams:  attributes.AdditionalParams,
+		MethodParams:  methodParams,
 		Target:        targetFile,
 		QueueSize:     captureQueueSize,
 		BufferSize:    captureBufferSize,
@@ -417,19 +427,25 @@ func (svc *dataManagerService) Sync(_ context.Context) error {
 	if svc.syncer == nil {
 		return errors.New("called Sync on data manager service with nil syncer")
 	}
-	svc.syncDataCaptureFiles()
+	err := svc.syncDataCaptureFiles()
+	if err != nil {
+		return err
+	}
 	svc.syncAdditionalSyncPaths()
 	return nil
 }
 
-func (svc *dataManagerService) syncDataCaptureFiles() {
+func (svc *dataManagerService) syncDataCaptureFiles() error {
 	svc.lock.Lock()
 	oldFiles := make([]string, 0, len(svc.collectors))
 	for _, collector := range svc.collectors {
 		// Create new target and set it.
 		attributes := collector.Attributes
-		captureMetadata := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
+		captureMetadata, err := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
 			attributes.Model, attributes.Method, attributes.AdditionalParams, attributes.Tags)
+		if err != nil {
+			return err
+		}
 
 		nextTarget, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
 		if err != nil {
@@ -440,6 +456,7 @@ func (svc *dataManagerService) syncDataCaptureFiles() {
 	}
 	svc.lock.Unlock()
 	svc.syncer.Sync(oldFiles)
+	return nil
 }
 
 func (svc *dataManagerService) buildAdditionalSyncPaths() []string {
@@ -586,7 +603,10 @@ func (svc *dataManagerService) uploadData(cancelCtx context.Context, intervalMin
 			case <-cancelCtx.Done():
 				return
 			case <-ticker.C:
-				svc.syncDataCaptureFiles()
+				err := svc.syncDataCaptureFiles()
+				if err != nil {
+					svc.logger.Errorw("data capture files failed to sync", "error", err)
+				}
 				svc.syncAdditionalSyncPaths()
 			}
 		}
