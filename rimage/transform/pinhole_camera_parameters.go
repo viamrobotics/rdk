@@ -132,10 +132,10 @@ func (params *PinholeCameraIntrinsics) CheckValid() error {
 	if params.Fy <= 0 {
 		return NewNoIntrinsicsError(fmt.Sprintf("Invalid focal length Fy = %#v", params.Fy))
 	}
-	if params.Ppx <= 0 {
+	if params.Ppx < 0 {
 		return NewNoIntrinsicsError(fmt.Sprintf("Invalid principal X point Ppx = %#v", params.Ppx))
 	}
-	if params.Ppy <= 0 {
+	if params.Ppy < 0 {
 		return NewNoIntrinsicsError(fmt.Sprintf("Invalid principal Y point Ppy = %#v", params.Ppy))
 	}
 	return nil
