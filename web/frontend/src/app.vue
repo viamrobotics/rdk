@@ -1417,11 +1417,8 @@ export default {
       setTimeout(this.checkLastStatus, checkIntervalMillis);
     },
     handleSelectCamera (event, cameras) {
-      const values = event.detail.value.split(',');
-
       for (const camera of cameras) {
-        console.log(camera.name, values.includes(camera.name));
-        this.viewCamera(camera.name, values.includes(camera.name));
+        this.viewCamera(camera.name, event.includes(camera.name));
       }
     },
   },
@@ -1529,31 +1526,10 @@ function setBoundingBox(box, centerPoint) {
       :key="base.name"
     >
       <BaseComponent
-        v-if="filterResources(resources, 'rdk', 'component', 'camera').length === 0"
         :name="base.name"
+        :resources="resources"
+        @showcamera="handleSelectCamera($event, filterResources(resources, 'rdk', 'component', 'camera'))"
       />
-      <BaseComponent
-        v-else-if="base"
-        :name="base.name"
-      >
-        <v-select
-          class="mb-4"
-          variant="multiple"
-          placeholder="Select Cameras"
-          :options="filterResources(resources, 'rdk', 'component', 'camera').map(({ name }) => name).join(',')"
-          @input="handleSelectCamera($event, filterResources(resources, 'rdk', 'component', 'camera'))"
-        />
-        <template 
-          v-for="basecamera in filterResources(resources, 'rdk', 'component', 'camera')"
-          :key="basecamera.name"
-        >
-          <div
-            v-if="basecamera"
-            :id="`stream-preview-${basecamera.name}`"
-            class="mb-4 border border-white"
-          />
-        </template>
-      </BaseComponent>
     </template>
 
     <!-- ******* GANTRY *******  -->
