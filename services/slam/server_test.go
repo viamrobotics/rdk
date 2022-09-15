@@ -23,6 +23,11 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
+const (
+	testSlamServiceName  = "slam1"
+	testSlamServiceName2 = "slam2"
+)
+
 func TestServer(t *testing.T) {
 	injectSvc := &inject.SLAMService{}
 	resourceMap := map[resource.Name]interface{}{
