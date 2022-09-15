@@ -9,7 +9,7 @@
 * [Development](#development)
 
 ### API Documentation & more devices
-To see more examples, check out the [Wiki](https://github.com/viamrobotics/rdk/wiki)
+To see more examples, check out the [Wiki](https://docs.viam.com)
 
 ## Dependencies
 
@@ -25,26 +25,21 @@ To see more examples, check out the [Wiki](https://github.com/viamrobotics/rdk/w
 
 ### Conventions
 * Write tests!
-* Work in your own fork, not a fork of the company repository.
+* Work in your own fork, not a fork of the viamrobotics repository.
 * Follow this [Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md)
 * Always run `make lint` and test before pushing. `make build` should be run if `control.js` or proto files have changed. `make setup` should be run if any dependencies have changed, but does not need to be run otherwise.
 * If `control.js`, `app.vue` or proto files have changed, double check the UI still works through the instructions in [here](#first-time-run)
-* Usually merge and squash your PRs and more rarely do merge commits with each commit being a logical unit of work.
-* If you add a new package, please add it to this README.
-* If you add a new sample or command, please add it to this README.
-* Experiments should go in examples or any subdirectory with /samples/ in it. As "good" pieces get abstracted, put into a real package command directory.
 * Use imperative mood for commits (see [Git Documentation](https://git.kernel.org/pub/scm/git/git.git/tree/Documentation/SubmittingPatches?id=a5828ae6b52137b913b978e16cd2334482eb4c1f#n136)).
 * Try to avoid large merges unless you're really doing a big merge. Try to rebase (e.g. `git pull --rebase`).
-* Delete any non-release branches ASAP when done, or use a personal fork
 * Prefer metric SI prefixes where possible (e.g. millis) https://www.nist.gov/pml/weights-and-measures/metric-si-prefixes. The type of measurement (e.g. meters) is not necessary if it is implied (e.g. rulerLengthMillis).
 
 ### Getting Started
-* Fork the main repository to your own account and create feature branch(es) there for any code you want to submit. Unless you have specific reasons, do not create branches on the company repository.
+* Fork the main repository to your own account and create feature branch(es) there for any code you want to submit. Unless you have specific reasons, do not create branches on the viamrobotics repository.
 * If you haven't already done so, run `make setup` to install development environment tools.
   * This is somewhat optional. See "Canon Tooling" below.
 * After making your changes, make sure to rebuild/lint/test before preparing to submit a Pull Request. Run `make clean-all build lint test` as a final check to build and test "from scratch."
   * Note that building and linting will often modify files or even create new ones. *Always* check `git status` to see if there are any automated modifications you need to commit. Only if this step passes without any modifications will your PR pass testing.
-* When ready, submit a PR from your branch against the "main" branch of the company repo.
+* When ready, submit a PR from your branch against the "main" branch of the viamrobotics repo.
 * Automated workflows in GitHub run tests against all PRs, and this will begin automatically on PR submission.
 * If you need to modify the code in your PR after submitting it, simply push your changes to your (source) branch and testing will automatically re-run, canceling any previously in-progress tests. There is no need to open a new PR or close your existing one.
 * If you'd like an AppImage (the distributable binary "viam-server") built for your PR, add the "appimage" label to the PR, and you'll get a notice/link when it's ready. You can use this in place of the normal viam-server binary to test your changes on real hardware.
@@ -75,9 +70,9 @@ If while running setup, you see brew hanging on update, you may be getting rate 
   * Ex: You can run `make build lint test` here without ever having run `make setup` and when you exit, only changes made within the rdk codebase itself will persist. Nothing will be modified in the rest of your home directory or system.
   * This also has the benefit that all tools and such will have the exact same versions as will be used during automated PR testing.
 
-### Resources
+### Resource Drivers/Implementations
 
-All resources implemented within the RDK follow the pattern of registering themselves within an `func init()` block. This requires the package they are implemented in be imported, but typically not explicitly used. The place where we currently put blank imports (`_ "pkgpath"`) is in the corresponding resource's register package.
+All resource drivers implemented within the RDK follow the pattern of registering themselves within an `func init()` block. This requires the package they are implemented in to be imported, even if it is not directly used. The place where we currently put blank imports (`_ "pkgpath"`) is in the corresponding resource subtypes's register package.
 
 ### Protocol Buffers/gRPC
 
@@ -98,7 +93,7 @@ Note that you should still visit `localhost:8080` to view the app, not `localhos
 Let's assume big data is > 10KiB. This kind of data is annoying to slow to pull down with git and is typically not needed except for certain tests. In order to add large data test artifacts, you need to do the following:
 
 ```
-# get ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS by talking to Eliot or Eric
+# get ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS by talking to maintainers
 # export the path with the json file as an environment variable: 
 export ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS=/path/to/your/json/credentials
 go install go.viam.com/utils/artifact/cmd/artifact
