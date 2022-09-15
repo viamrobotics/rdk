@@ -23,9 +23,9 @@ interface Props {
 
 const props = defineProps<Props>();
 
-let googleMapsInitResolve: () => void;
+let osmInitResolve: () => void;
 const mapReady = new Promise<void>((resolve) => {
-  googleMapsInitResolve = resolve;
+  osmInitResolve = resolve;
 });
 
 let map: google.maps.Map;
@@ -101,21 +101,43 @@ const grpcCallback = (error: ServiceError | null, response: jspb.Message | Struc
 };
 
 const loadMaps = () => {
-  if (document.querySelector('#google-maps')) {
+  if (document.querySelector('#osm')) {
     return initNavigation();
   }
-  const script = document.createElement('script');
-  script.id = 'google-maps';
-  // TODO(RSDK-51): remove api key once going into production
-  script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBn72TEqFOVWoj06cvua0Dc0pz2uvq90nY&callback=googleMapsInit&libraries=&v=weekly';
-  script.async = true;
-  document.head.append(script);
+
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'https://unpkg.com/leaflet@1.8.0/dist/leaflet.css';
+  link.crossOrigin = '';
+  link.integrity = 'sha512-hoalWLoI8r4UszCkZ5kL8vayOGVae1oxXe/2A4AO6J9+580uKHDO3JdHb7NzwwzK5xr/Fs0W40kiNHxM9vyTtQ==';
+
+  // paranoid load of css and then js. prob not needed but bear with me
+  link.addEventListener('load', function() {
+    console.log('OSM css is ready');
+    const script = document.createElement('script');
+    script.id = 'osm';
+    script.src = 'https://unpkg.com/leaflet@1.8.0/dist/leaflet.js';
+    script.crossOrigin = '';
+    script.integrity = 'sha512-BB3hKbKWOc9Ez/TAwyWxNXeoV9c1v6FIeYiBieIWkpLjauysF18NzgR1MBNBXf8/KABdlkX68nAhlwcDFLGPCQ==';
+
+    script.addEventListener('load', function() {
+      console.log('OSM is ready but window.L wont be there!');
+      osmInitResolve();
+    });
+
+    document.head.append(script);
+  });
+
+  document.head.append(link);
 };
 
 const initNavigation = async () => {
+  console.log("hello?")
   await mapReady;
 
-  map = new window.google.maps.Map(container.value!, { zoom: 18 });
+  console.log("ready to go")
+  map = window.L.map(container.value!).setView([0,0], 18);
+  console.log("map is", map)
   map.addListener('click', (event: google.maps.MapMouseEvent) => {
     const lat = event.latLng?.lat();
     const lng = event.latLng?.lng();
@@ -235,11 +257,6 @@ const initNavigation = async () => {
     });
   };
   updateLocation();
-};
-
-window.googleMapsInit = () => {
-  console.log('google maps is ready');
-  googleMapsInitResolve();
 };
 
 onMounted(() => {
