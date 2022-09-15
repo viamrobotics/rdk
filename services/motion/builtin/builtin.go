@@ -1,4 +1,4 @@
-// Package builtin implements an motion service.
+// Package builtin implements a motion service.
 package builtin
 
 import (
