@@ -97,8 +97,8 @@ func (m *registeredModel) toSegmenter() (segmentation.Segmenter, error) {
 	return toReturn, nil
 }
 
-// detectorNames returns list copy of all detector names.
-func (mm modelMap) detectorNames() []string {
+// DetectorNames returns list copy of all detector names.
+func (mm modelMap) DetectorNames() []string {
 	names := make([]string, 0, len(mm))
 	for name := range mm {
 		thisType, err := mm.getModelType(name)
@@ -156,8 +156,8 @@ func (mm modelMap) modelLookup(name string) (registeredModel, error) {
 	return m, nil
 }
 
-// modelNames returns an array copy of all model names.
-func (mm modelMap) modelNames() []string {
+// ModelNames returns an array copy of all model names.
+func (mm modelMap) ModelNames() []string {
 	names := make([]string, 0, len(mm))
 	for name := range mm {
 		names = append(names, name)
