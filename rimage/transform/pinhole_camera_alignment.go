@@ -23,7 +23,7 @@ type DepthColorIntrinsicsExtrinsics struct {
 	ExtrinsicD2C spatialmath.Pose
 }
 
-// DepthColorIntrinsicsExtrinsicsConfig is the config file that will be parsed into the proper interface
+// DepthColorIntrinsicsExtrinsicsConfig is the config file that will be parsed into the proper interface.
 type DepthColorIntrinsicsExtrinsicsConfig struct {
 	ColorCamera  PinholeCameraIntrinsics `json:"color"`
 	DepthCamera  PinholeCameraIntrinsics `json:"depth"`
