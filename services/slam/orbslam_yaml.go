@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -21,26 +22,34 @@ const (
 	fileVersion = "1.0"
 )
 
-// orbCamMaker takes in the camera intrinsics and config params for orbslam and constructs a ORBsettings struct to use with yaml.Marshal.
-func (slamSvc *slamService) orbCamMaker(intrinsics *transform.PinholeCameraIntrinsics) (*ORBsettings, error) {
+// orbCamMaker takes in the camera properties and config params for orbslam and constructs a ORBsettings struct to use with yaml.Marshal.
+func (slamSvc *slamService) orbCamMaker(camProperties *transform.PinholeCameraModel) (*ORBsettings, error) {
 	var err error
 
-	orbslam := &ORBsettings{
-		CamType:      "PinHole",
-		Width:        intrinsics.Width,
-		Height:       intrinsics.Height,
-		Fx:           intrinsics.Fx,
-		Fy:           intrinsics.Fy,
-		Ppx:          intrinsics.Ppx,
-		Ppy:          intrinsics.Ppy,
-		RadialK1:     intrinsics.Distortion.RadialK1,
-		RadialK2:     intrinsics.Distortion.RadialK2,
-		RadialK3:     intrinsics.Distortion.RadialK3,
-		TangentialP1: intrinsics.Distortion.TangentialP1,
-		TangentialP2: intrinsics.Distortion.TangentialP2,
-		FPSCamera:    int16(slamSvc.dataRateMs),
-		FileVersion:  fileVersion,
+	if camProperties.PinholeCameraIntrinsics == nil {
+		return nil, transform.NewNoIntrinsicsError("Intrinsics do not exist")
 	}
+	intrinsics := camProperties.PinholeCameraIntrinsics
+	orbslam := &ORBsettings{
+		CamType:     "PinHole",
+		Width:       intrinsics.Width,
+		Height:      intrinsics.Height,
+		Fx:          intrinsics.Fx,
+		Fy:          intrinsics.Fy,
+		Ppx:         intrinsics.Ppx,
+		Ppy:         intrinsics.Ppy,
+		FPSCamera:   int16(slamSvc.dataRateMs),
+		FileVersion: fileVersion,
+	}
+	distortion, ok := camProperties.Distortion.(*transform.BrownConrady)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError(distortion, camProperties.Distortion)
+	}
+	orbslam.RadialK1 = distortion.RadialK1
+	orbslam.RadialK2 = distortion.RadialK2
+	orbslam.RadialK3 = distortion.RadialK3
+	orbslam.TangentialP1 = distortion.TangentialP1
+	orbslam.TangentialP2 = distortion.TangentialP2
 	if orbslam.NFeatures, err = slamSvc.orbConfigToInt("orb_n_features", 1250); err != nil {
 		return nil, err
 	}
@@ -106,19 +115,21 @@ type ORBsettings struct {
 // generate a .yaml file to be used with orbslam.
 func (slamSvc *slamService) orbGenYAML(ctx context.Context, cam camera.Camera) error {
 	// Get the camera and check if the properties are valid
-	proj, err := cam.Projector(ctx)
+	props, err := cam.GetProperties(ctx)
 	if err != nil {
 		return err
 	}
-	intrinsics, ok := proj.(*transform.PinholeCameraIntrinsics)
-	if !ok {
+	if props.IntrinsicParams == nil {
 		return transform.NewNoIntrinsicsError("Intrinsics do not exist")
 	}
-	if err = intrinsics.CheckValid(); err != nil {
+	if err = props.IntrinsicParams.CheckValid(); err != nil {
 		return err
 	}
+	if props.DistortionParams == nil {
+		return transform.NewNoIntrinsicsError("Distortion parameters do not exist")
+	}
 	// create orbslam struct to generate yaml file with
-	orbslam, err := slamSvc.orbCamMaker(intrinsics)
+	orbslam, err := slamSvc.orbCamMaker(&transform.PinholeCameraModel{props.IntrinsicParams, props.DistortionParams})
 	if err != nil {
 		return err
 	}

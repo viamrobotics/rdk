@@ -16,6 +16,7 @@ import (
 	"go.opencensus.io/trace"
 	"go.viam.com/api/app/datasync/v1"
 	"go.viam.com/utils"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/protoutils"
@@ -27,14 +28,14 @@ var sleepCaptureCutoff = 2 * time.Millisecond
 
 // Capturer provides a function for capturing a single protobuf reading from the underlying component.
 type Capturer interface {
-	Capture(ctx context.Context, params map[string]string) (interface{}, error)
+	Capture(ctx context.Context, params map[string]*anypb.Any) (interface{}, error)
 }
 
 // CaptureFunc allows the creation of simple Capturers with anonymous functions.
-type CaptureFunc func(ctx context.Context, params map[string]string) (interface{}, error)
+type CaptureFunc func(ctx context.Context, params map[string]*anypb.Any) (interface{}, error)
 
 // Capture allows any CaptureFunc to conform to the Capturer interface.
-func (cf CaptureFunc) Capture(ctx context.Context, params map[string]string) (interface{}, error) {
+func (cf CaptureFunc) Capture(ctx context.Context, params map[string]*anypb.Any) (interface{}, error) {
 	return cf(ctx, params)
 }
 
@@ -49,7 +50,7 @@ type Collector interface {
 type collector struct {
 	queue             chan *v1.SensorData
 	interval          time.Duration
-	params            map[string]string
+	params            map[string]*anypb.Any
 	lock              *sync.Mutex
 	logger            golog.Logger
 	target            *os.File

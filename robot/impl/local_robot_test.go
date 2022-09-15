@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -49,6 +50,7 @@ import (
 	"go.viam.com/rdk/robot/server"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
@@ -137,7 +139,7 @@ func TestConfigRemote(t *testing.T) {
 				Prefix:  true,
 				Frame: &config.Frame{
 					Parent:      "foo",
-					Translation: spatialmath.TranslationConfig{100, 200, 300},
+					Translation: r3.Vector{100, 200, 300},
 					Orientation: &spatialmath.R4AA{math.Pi / 2., 0, 0, 1},
 				},
 			},
@@ -152,7 +154,7 @@ func TestConfigRemote(t *testing.T) {
 				Address: addr,
 				Frame: &config.Frame{
 					Parent:      referenceframe.World,
-					Translation: spatialmath.TranslationConfig{100, 200, 300},
+					Translation: r3.Vector{100, 200, 300},
 					Orientation: &spatialmath.R4AA{math.Pi / 2., 0, 0, 1},
 				},
 			},
@@ -1700,4 +1702,66 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(robotClient.ResourceNames()), test.ShouldEqual, 7)
+}
+
+func TestCheckMaxInstanceValid(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg := &config.Config{Services: []config.Service{
+		{
+			Namespace: resource.ResourceNamespaceRDK,
+			Name:      "fake1",
+			Type:      config.ServiceType(motion.SubtypeName),
+		},
+		{
+			Namespace: resource.ResourceNamespaceRDK,
+			Name:      "fake2",
+			Type:      config.ServiceType(motion.SubtypeName),
+		},
+	}}
+	r, err := robotimpl.New(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+	resourceName, err := r.ResourceByName(motion.Named("fake1"))
+	test.That(t, resourceName, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	resourceName, err = r.ResourceByName(motion.Named("fake2"))
+	test.That(t, resourceName, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+// The max allowed datamanager services is 1 so only one of the datamanager services
+// from this config should build.
+func TestCheckMaxInstanceInvalid(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg := &config.Config{Services: []config.Service{
+		{
+			Namespace: resource.ResourceNamespaceRDK,
+			Name:      "fake1",
+			Type:      config.ServiceType(datamanager.SubtypeName),
+		},
+		{
+			Namespace: resource.ResourceNamespaceRDK,
+			Name:      "fake2",
+			Type:      config.ServiceType(datamanager.SubtypeName),
+		},
+		{
+			Namespace: resource.ResourceNamespaceRDK,
+			Name:      "fake3",
+			Type:      config.ServiceType(datamanager.SubtypeName),
+		},
+	}}
+	r, err := robotimpl.New(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+	maxInstance := 0
+	for _, name := range r.ResourceNames() {
+		if name.Subtype == datamanager.Subtype {
+			maxInstance++
+		}
+	}
+	test.That(t, maxInstance, test.ShouldEqual, 1)
 }
