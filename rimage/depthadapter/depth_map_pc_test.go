@@ -10,8 +10,8 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/pointcloud/depthadapter"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
 )
 
