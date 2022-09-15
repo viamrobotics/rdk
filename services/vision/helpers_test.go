@@ -20,12 +20,15 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/services/vision/builtin"
 	"go.viam.com/rdk/spatialmath"
 )
 
-func createService(t *testing.T, filePath string) (vision.Service, robot.Robot) {
+func createService(t *testing.T) (vision.Service, robot.Robot) {
 	t.Helper()
+	filePath := "data/empty.json"
 	logger := golog.NewTestLogger(t)
 	r, err := robotimpl.RobotFromConfigPath(context.Background(), filePath, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -96,7 +99,7 @@ func buildRobotWithFakeCamera(t *testing.T) (robot.Robot, error) {
 	// add the detector
 	detConf := vision.VisModelConfig{
 		Name: "detect_red",
-		Type: string(vision.ColorDetector),
+		Type: string(builtin.ColorDetector),
 		Parameters: config.AttributeMap{
 			"detect_color": "#C9131F", // look for red
 			"tolerance":    0.05,
@@ -126,18 +129,6 @@ func makeExpectedBoxes(t *testing.T) []spatialmath.Geometry {
 	box2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: 5, Y: 5, Z: 5}), r3.Vector{X: 0, Y: 0, Z: 2})
 	test.That(t, err, test.ShouldBeNil)
 	return []spatialmath.Geometry{box1, box2}
-}
-
-type simpleSource struct{}
-
-func (s *simpleSource) Read(ctx context.Context) (image.Image, func(), error) {
-	img := rimage.NewImage(100, 200)
-	img.SetXY(20, 10, rimage.Red)
-	return img, nil, nil
-}
-
-func (s *simpleSource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return cmd, nil
 }
 
 type cloudSource struct{}

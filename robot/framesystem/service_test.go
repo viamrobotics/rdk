@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/robot/framesystem"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"

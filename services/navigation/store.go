@@ -19,7 +19,8 @@ import (
 
 var errNoMoreWaypoints = errors.New("no more waypoints")
 
-type navStore interface {
+// NavStore handles the waypoints for a navigation service.
+type NavStore interface {
 	Waypoints(ctx context.Context) ([]Waypoint, error)
 	AddWaypoint(ctx context.Context, point *geo.Point) (Waypoint, error)
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error
@@ -30,8 +31,10 @@ type navStore interface {
 type storeType string
 
 const (
-	storeTypeMemory  = "memory"
-	storeTypeMongoDB = "mongodb"
+	// StoreTypeMemory is the constant for the memory store type.
+	StoreTypeMemory = "memory"
+	// StoreTypeMongoDB is the constant for the mongodb store type.
+	StoreTypeMongoDB = "mongodb"
 )
 
 // StoreConfig describes how to configure data storage.
@@ -43,7 +46,7 @@ type StoreConfig struct {
 // Validate ensures all parts of the config are valid.
 func (config *StoreConfig) Validate(path string) error {
 	switch config.Type {
-	case storeTypeMemory, storeTypeMongoDB:
+	case StoreTypeMemory, StoreTypeMongoDB:
 	default:
 		return errors.Errorf("unknown store type %q", config.Type)
 	}
@@ -64,16 +67,19 @@ func (wp *Waypoint) ToPoint() *geo.Point {
 	return geo.NewPoint(wp.Lat, wp.Long)
 }
 
-func newMemoryNavigationStore() *memoryNavigationStore {
-	return &memoryNavigationStore{}
+// NewMemoryNavigationStore returns and empty MemoryNavigationStore.
+func NewMemoryNavigationStore() *MemoryNavigationStore {
+	return &MemoryNavigationStore{}
 }
 
-type memoryNavigationStore struct {
+// MemoryNavigationStore holds the waypoints for the navigation service.
+type MemoryNavigationStore struct {
 	mu        sync.RWMutex
 	waypoints []*Waypoint
 }
 
-func (store *memoryNavigationStore) Waypoints(ctx context.Context) ([]Waypoint, error) {
+// Waypoints returns a copy of all of the waypoints in the MemoryNavigationStore.
+func (store *MemoryNavigationStore) Waypoints(ctx context.Context) ([]Waypoint, error) {
 	store.mu.RLock()
 	defer store.mu.RUnlock()
 	wps := make([]Waypoint, 0, len(store.waypoints))
@@ -87,7 +93,8 @@ func (store *memoryNavigationStore) Waypoints(ctx context.Context) ([]Waypoint, 
 	return wps, nil
 }
 
-func (store *memoryNavigationStore) AddWaypoint(ctx context.Context, point *geo.Point) (Waypoint, error) {
+// AddWaypoint adds a waypoint to the MemoryNavigationStore.
+func (store *MemoryNavigationStore) AddWaypoint(ctx context.Context, point *geo.Point) (Waypoint, error) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	newPoint := Waypoint{
@@ -99,7 +106,8 @@ func (store *memoryNavigationStore) AddWaypoint(ctx context.Context, point *geo.
 	return newPoint, nil
 }
 
-func (store *memoryNavigationStore) RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error {
+// RemoveWaypoint removes a waypoint from the MemoryNavigationStore.
+func (store *MemoryNavigationStore) RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	newWps := make([]*Waypoint, 0, len(store.waypoints)-1)
@@ -113,7 +121,8 @@ func (store *memoryNavigationStore) RemoveWaypoint(ctx context.Context, id primi
 	return nil
 }
 
-func (store *memoryNavigationStore) NextWaypoint(ctx context.Context) (Waypoint, error) {
+// NextWaypoint gets the next waypoint that has not been visited.
+func (store *MemoryNavigationStore) NextWaypoint(ctx context.Context) (Waypoint, error) {
 	store.mu.RLock()
 	defer store.mu.RUnlock()
 	for _, wp := range store.waypoints {
@@ -124,7 +133,8 @@ func (store *memoryNavigationStore) NextWaypoint(ctx context.Context) (Waypoint,
 	return Waypoint{}, errNoMoreWaypoints
 }
 
-func (store *memoryNavigationStore) WaypointVisited(ctx context.Context, id primitive.ObjectID) error {
+// WaypointVisited sets that a waypoint has been visited.
+func (store *MemoryNavigationStore) WaypointVisited(ctx context.Context, id primitive.ObjectID) error {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	for _, wp := range store.waypoints {
@@ -136,7 +146,7 @@ func (store *memoryNavigationStore) WaypointVisited(ctx context.Context, id prim
 	return nil
 }
 
-// Database and collection names used by the mongoDBNavigationStore.
+// Database and collection names used by the MongoDBNavigationStore.
 var (
 	defaultMongoDBURI                = "mongodb://127.0.0.1:27017"
 	MongoDBNavStoreDBName            = "navigation"
@@ -151,7 +161,8 @@ var (
 	}
 )
 
-func newMongoDBNavigationStore(ctx context.Context, config map[string]interface{}) (*mongoDBNavigationStore, error) {
+// NewMongoDBNavigationStore creates a new navigation store using MongoDB.
+func NewMongoDBNavigationStore(ctx context.Context, config map[string]interface{}) (*MongoDBNavigationStore, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -173,22 +184,25 @@ func newMongoDBNavigationStore(ctx context.Context, config map[string]interface{
 		return nil, err
 	}
 
-	return &mongoDBNavigationStore{
+	return &MongoDBNavigationStore{
 		mongoClient:   mongoClient,
 		waypointsColl: waypoints,
 	}, nil
 }
 
-type mongoDBNavigationStore struct {
+// MongoDBNavigationStore holds the mongodb client and waypoints collection.
+type MongoDBNavigationStore struct {
 	mongoClient   *mongo.Client
 	waypointsColl *mongo.Collection
 }
 
-func (store *mongoDBNavigationStore) Close(ctx context.Context) error {
+// Close closes the connection with the mongodb client.
+func (store *MongoDBNavigationStore) Close(ctx context.Context) error {
 	return store.mongoClient.Disconnect(ctx)
 }
 
-func (store *mongoDBNavigationStore) Waypoints(ctx context.Context) ([]Waypoint, error) {
+// Waypoints returns a copy of all the waypoints in the MongoDBNavigationStore.
+func (store *MongoDBNavigationStore) Waypoints(ctx context.Context) ([]Waypoint, error) {
 	filter := bson.D{{"visited", false}}
 	cursor, err := store.waypointsColl.Find(
 		ctx,
@@ -206,7 +220,8 @@ func (store *mongoDBNavigationStore) Waypoints(ctx context.Context) ([]Waypoint,
 	return all, nil
 }
 
-func (store *mongoDBNavigationStore) AddWaypoint(ctx context.Context, point *geo.Point) (Waypoint, error) {
+// AddWaypoint adds a waypoint to the MongoDBNavigationStore.
+func (store *MongoDBNavigationStore) AddWaypoint(ctx context.Context, point *geo.Point) (Waypoint, error) {
 	newPoint := Waypoint{
 		ID:   primitive.NewObjectID(),
 		Lat:  point.Lat(),
@@ -218,12 +233,14 @@ func (store *mongoDBNavigationStore) AddWaypoint(ctx context.Context, point *geo
 	return newPoint, nil
 }
 
-func (store *mongoDBNavigationStore) RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error {
+// RemoveWaypoint removes a waypoint from the MongoDBNavigationStore.
+func (store *MongoDBNavigationStore) RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error {
 	_, err := store.waypointsColl.DeleteOne(ctx, bson.D{{"_id", id}})
 	return err
 }
 
-func (store *mongoDBNavigationStore) NextWaypoint(ctx context.Context) (Waypoint, error) {
+// NextWaypoint gets the next waypoint that has not been visited.
+func (store *MongoDBNavigationStore) NextWaypoint(ctx context.Context) (Waypoint, error) {
 	filter := bson.D{{"visited", false}}
 	result := store.waypointsColl.FindOne(
 		ctx,
@@ -241,7 +258,8 @@ func (store *mongoDBNavigationStore) NextWaypoint(ctx context.Context) (Waypoint
 	return wp, nil
 }
 
-func (store *mongoDBNavigationStore) WaypointVisited(ctx context.Context, id primitive.ObjectID) error {
+// WaypointVisited sets that a waypoint has been visited.
+func (store *MongoDBNavigationStore) WaypointVisited(ctx context.Context, id primitive.ObjectID) error {
 	_, err := store.waypointsColl.UpdateOne(ctx, bson.D{{"_id", id}}, bson.D{{"$set", bson.D{{"visited", true}}}})
 	return err
 }

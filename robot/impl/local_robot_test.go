@@ -50,7 +50,9 @@ import (
 	"go.viam.com/rdk/robot/server"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
+	"go.viam.com/rdk/services/datamanager/builtin"
 	"go.viam.com/rdk/services/motion"
+	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
@@ -1412,7 +1414,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "fake1",
 				Type:                config.ServiceType(datamanager.SubtypeName),
-				ConvertedAttributes: &datamanager.Config{},
+				ConvertedAttributes: &builtin.Config{},
 			},
 		},
 		Cloud: &config.Cloud{},
@@ -1710,11 +1712,13 @@ func TestCheckMaxInstanceValid(t *testing.T) {
 		{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake1",
+			Model:     resource.DefaultModelName,
 			Type:      config.ServiceType(motion.SubtypeName),
 		},
 		{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake2",
+			Model:     resource.DefaultModelName,
 			Type:      config.ServiceType(motion.SubtypeName),
 		},
 	}}
@@ -1739,16 +1743,19 @@ func TestCheckMaxInstanceInvalid(t *testing.T) {
 		{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake1",
+			Model:     resource.DefaultModelName,
 			Type:      config.ServiceType(datamanager.SubtypeName),
 		},
 		{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake2",
+			Model:     resource.DefaultModelName,
 			Type:      config.ServiceType(datamanager.SubtypeName),
 		},
 		{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake3",
+			Model:     resource.DefaultModelName,
 			Type:      config.ServiceType(datamanager.SubtypeName),
 		},
 	}}
