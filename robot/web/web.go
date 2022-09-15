@@ -803,13 +803,17 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 		for _, handler := range options.Auth.Handlers {
 			switch handler.Type {
 			case rpc.CredentialsTypeAPIKey:
-				apiKey := handler.Config.String("key")
-				if apiKey == "" {
-					return nil, errors.Errorf("%q handler requires non-empty API key", handler.Type)
+				apiKeys := handler.Config.StringSlice("keys")
+				if len(apiKeys) == 0 {
+					apiKey := handler.Config.String("key")
+					if apiKey == "" {
+						return nil, errors.Errorf("%q handler requires non-empty API key or keys", handler.Type)
+					}
+					apiKeys = []string{apiKey}
 				}
 				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(
 					handler.Type,
-					rpc.MakeSimpleAuthHandler(authEntities, apiKey),
+					rpc.MakeSimpleMultiAuthHandler(authEntities, apiKeys),
 				))
 			case rutils.CredentialsTypeRobotLocationSecret:
 				secret := handler.Config.String("secret")
