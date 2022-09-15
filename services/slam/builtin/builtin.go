@@ -414,7 +414,7 @@ func (slamSvc *builtIn) GetMap(ctx context.Context, name, mimeType string, cp *r
 
 // NewBuiltIn returns a new slam service for the given robot.
 func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (slam.Service, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::builtIn::NewBuiltIn")
+	ctx, span := trace.StartSpan(ctx, "slam::slamService::New")
 	defer span.End()
 
 	svcConfig, ok := config.ConvertedAttributes.(*AttrConfig)
@@ -447,8 +447,12 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 	}
 
 	var mapRate int
-	if svcConfig.MapRateSec == 0 {
-		mapRate = defaultMapRateSec
+	if svcConfig.MapRateSec <= 0 {
+		if svcConfig.MapRateSec == -1 {
+			mapRate = 0
+		} else {
+			mapRate = defaultMapRateSec
+		}
 	} else {
 		mapRate = svcConfig.MapRateSec
 	}
