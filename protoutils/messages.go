@@ -4,11 +4,15 @@ package protoutils
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
@@ -282,4 +286,38 @@ func ConvertProtoToOrientation(o *commonpb.Orientation) spatialmath.Orientation 
 		OZ:    o.OZ,
 		Theta: o.Theta,
 	}
+}
+
+// ConvertStringToAnyPB takes a string and parses it to an Any pb type.
+func ConvertStringToAnyPB(str string) (*anypb.Any, error) {
+	var wrappedVal protoreflect.ProtoMessage
+	if boolVal, err := strconv.ParseBool(str); err == nil {
+		wrappedVal = wrapperspb.Bool(boolVal)
+	} else if int64Val, err := strconv.ParseInt(str, 10, 64); err == nil {
+		wrappedVal = wrapperspb.Int64(int64Val)
+	} else if uint64Val, err := strconv.ParseUint(str, 10, 64); err == nil {
+		wrappedVal = wrapperspb.UInt64(uint64Val)
+	} else if float64Val, err := strconv.ParseFloat(str, 64); err == nil {
+		wrappedVal = wrapperspb.Double(float64Val)
+	} else {
+		wrappedVal = wrapperspb.String(str)
+	}
+	anyVal, err := anypb.New(wrappedVal)
+	if err != nil {
+		return nil, err
+	}
+	return anyVal, nil
+}
+
+// ConvertStringMapToAnyPBMap takes a string map and parses each value to an Any proto type.
+func ConvertStringMapToAnyPBMap(params map[string]string) (map[string]*anypb.Any, error) {
+	methodParams := map[string]*anypb.Any{}
+	for key, paramVal := range params {
+		anyVal, err := ConvertStringToAnyPB(paramVal)
+		if err != nil {
+			return nil, err
+		}
+		methodParams[key] = anyVal
+	}
+	return methodParams, nil
 }
