@@ -21,13 +21,14 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-const appAddress = "app.viam.com:443"
-
-const zipExtension = ".zip"
+const (
+	appAddress   = "app.viam.com:443"
+	zipExtension = ".zip"
+)
 
 // ViamModelDotDir is the default model directory a model will deployed into,
 // unless otherwise specified.
-var ViamModelDotDir = filepath.Join(os.Getenv("HOME"), "models", ".viam")
+var ViamModelDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "models")
 
 // Model describes a model we want to download to the robot.
 type Model struct {
@@ -83,7 +84,7 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 	return NewManager(logger, cfg.Cloud.ID, client, conn, &http.Client{})
 }
 
-// NewManager returns a new modelr.
+// NewManager returns a new model Manager.
 func NewManager(logger golog.Logger, partID string, client v1.ModelServiceClient,
 	conn rpc.ClientConn, httpClient httpClient,
 ) (Manager, error) {
@@ -109,7 +110,7 @@ func (m *modelManager) deploy(ctx context.Context, req *v1.DeployRequest) (*v1.D
 	return resp, nil
 }
 
-// Close closes all resources (goroutines) associated with modelManger.
+// Close all resources (goroutines) associated with modelManger.
 func (m *modelManager) Close() {
 	m.cancelFunc()
 	m.backgroundWorkers.Wait()
@@ -120,6 +121,7 @@ func (m *modelManager) Close() {
 	}
 }
 
+// DownloadModels handles deploying models into their specified destination.
 func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Model) error {
 	modelsToDownload, err := getModelsToDownload(modelsToDeploy)
 	if err != nil {
@@ -137,7 +139,7 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	m.cancelFunc = cancelFn
-	checkMe := make(chan error, len(modelsToDownload))
+	errorChannel := make(chan error, len(modelsToDownload))
 	m.backgroundWorkers.Add(len(modelsToDownload))
 	for _, model := range modelsToDownload {
 		go func(model *Model) {
@@ -150,7 +152,7 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 			deployResp, err := m.deploy(cancelCtx, deployRequest)
 			if err != nil {
 				m.logger.Error(err)
-				checkMe <- err
+				errorChannel <- err
 				return
 			}
 			url := deployResp.Message
@@ -158,26 +160,26 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 			err = downloadFile(cancelCtx, m.httpClient, filePath, url, m.logger)
 			if err != nil {
 				m.logger.Error(err)
-				checkMe <- err
+				errorChannel <- err
 				return
 			}
 			// A download from a GCS signed URL only returns one file.
 			modelFileToUnzip := model.Name + zipExtension
 			if err = unzipSource(modelFileToUnzip, model.Destination); err != nil {
 				m.logger.Error(err)
-				checkMe <- err
+				errorChannel <- err
 				return
 			}
-			checkMe <- nil
+			errorChannel <- nil
 		}(model)
 	}
 	m.backgroundWorkers.Wait()
-	close(checkMe)
+	close(errorChannel)
 
-	return <-checkMe
+	return <-errorChannel
 }
 
-// GetModelsToDownload fetches the models that need to be downloaded according to the
+// getModelsToDownload fetches the models that need to be downloaded according to the
 // provided config.
 func getModelsToDownload(models []*Model) ([]*Model, error) {
 	// TODO: DATA-405, if the user specifies one destination to deploy their models into
@@ -214,7 +216,7 @@ func getModelsToDownload(models []*Model) ([]*Model, error) {
 	return modelsToDownload, nil
 }
 
-// DownloadFile will download a url to a local file. It writes as it
+// downloadFile will download a url to a local file. It writes as it
 // downloads and doesn't load the whole file into memory.
 func downloadFile(cancelCtx context.Context, client httpClient, filepath, url string, logger golog.Logger) error {
 	getReq, err := http.NewRequestWithContext(cancelCtx, http.MethodGet, url, nil)
@@ -232,9 +234,8 @@ func downloadFile(cancelCtx context.Context, client httpClient, filepath, url st
 		}
 	}()
 
-	s := filepath + zipExtension
 	//nolint:gosec
-	out, err := os.Create(s)
+	out, err := os.Create(filepath + zipExtension)
 	if err != nil {
 		return err
 	}
@@ -249,8 +250,9 @@ func downloadFile(cancelCtx context.Context, client httpClient, filepath, url st
 	return ioutil.WriteFile(out.Name(), bodyBytes, os.ModePerm)
 }
 
-// UnzipSource unzips all files inside a zip file.
+// unzipSource unzips all files inside a zip file.
 func unzipSource(fileName, destination string) error {
+	// open zip file
 	zipReader, err := zip.OpenReader(filepath.Join(destination, fileName))
 	if err != nil {
 		return err
@@ -263,13 +265,13 @@ func unzipSource(fileName, destination string) error {
 	if err = zipReader.Close(); err != nil {
 		return err
 	}
-
 	if err = os.Remove(filepath.Join(destination, fileName)); err != nil {
 		return err
 	}
 	return nil
 }
 
+// unzipFile unzips f and writes the contents to destination.
 func unzipFile(f *zip.File, destination string) error {
 	// TODO: DATA-307, We should be passing in the context to any operations that can take several seconds,
 	// which includes unzipFile. As written, this can block .Close for an unbounded amount of time.
