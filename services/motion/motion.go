@@ -58,18 +58,21 @@ type Service interface {
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		worldState *commonpb.WorldState,
+		extra map[string]interface{},
 	) (bool, error)
 	MoveSingleComponent(
 		ctx context.Context,
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		worldState *commonpb.WorldState,
+		extra map[string]interface{},
 	) (bool, error)
 	GetPose(
 		ctx context.Context,
 		componentName resource.Name,
 		destinationFrame string,
 		supplementalTransforms []*commonpb.Transform,
+		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
 }
 
@@ -131,6 +134,7 @@ func (ms *motionService) Move(
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
+	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")
 	logger := ms.r.Logger()
@@ -167,7 +171,7 @@ func (ms *motionService) Move(
 		[]*referenceframe.PoseInFrame{goalPose},
 		componentName.Name,
 		worldState,
-		[]map[string]interface{}{},
+		[]map[string]interface{}{extra},
 	)
 	if err != nil {
 		return false, err
@@ -198,6 +202,7 @@ func (ms *motionService) MoveSingleComponent(
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
+	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")
 	logger := ms.r.Logger()
@@ -237,7 +242,7 @@ func (ms *motionService) MoveSingleComponent(
 		logger.Debugf("converted goal pose %q", spatialmath.PoseToProtobuf(goalPose))
 	}
 
-	err := movableArm.MoveToPosition(ctx, spatialmath.PoseToProtobuf(goalPose), worldState, nil)
+	err := movableArm.MoveToPosition(ctx, spatialmath.PoseToProtobuf(goalPose), worldState, extra)
 	if err == nil {
 		return true, nil
 	}
@@ -249,6 +254,7 @@ func (ms *motionService) GetPose(
 	componentName resource.Name,
 	destinationFrame string,
 	supplementalTransforms []*commonpb.Transform,
+	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	if destinationFrame == "" {
 		destinationFrame = referenceframe.World
@@ -274,10 +280,11 @@ func (svc *reconfigurableMotionService) Move(
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
+	extra map[string]interface{},
 ) (bool, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.Move(ctx, componentName, destination, worldState)
+	return svc.actual.Move(ctx, componentName, destination, worldState, extra)
 }
 
 func (svc *reconfigurableMotionService) MoveSingleComponent(
@@ -285,10 +292,11 @@ func (svc *reconfigurableMotionService) MoveSingleComponent(
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
+	extra map[string]interface{},
 ) (bool, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.MoveSingleComponent(ctx, componentName, destination, worldState)
+	return svc.actual.MoveSingleComponent(ctx, componentName, destination, worldState, extra)
 }
 
 func (svc *reconfigurableMotionService) GetPose(
@@ -296,10 +304,11 @@ func (svc *reconfigurableMotionService) GetPose(
 	componentName resource.Name,
 	destinationFrame string,
 	supplementalTransforms []*commonpb.Transform,
+	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetPose(ctx, componentName, destinationFrame, supplementalTransforms)
+	return svc.actual.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
 }
 
 func (svc *reconfigurableMotionService) Close(ctx context.Context) error {
