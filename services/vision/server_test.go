@@ -306,7 +306,7 @@ func TestServerSegmentationGetObjects(t *testing.T) {
 	injectVision := &inject.VisionService{}
 	injectVision.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName, segmenterName string,
 	) ([]*viz.Object, error) {
-		if segmenterName == vision.RadiusClusteringSegmenter {
+		if segmenterName == RadiusClusteringSegmenter {
 			return segmenter(ctx, cam)
 		}
 		return nil, errors.Errorf("no segmenter with name %s", segmenterName)
@@ -330,7 +330,7 @@ func TestServerSegmentationGetObjects(t *testing.T) {
 	segs, err := server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
 		Name:          testVisionServiceName,
 		CameraName:    "fakeCamera",
-		SegmenterName: vision.RadiusClusteringSegmenter,
+		SegmenterName: RadiusClusteringSegmenter,
 		MimeType:      utils.MimeTypePCD,
 	})
 	test.That(t, err, test.ShouldBeNil)
@@ -362,7 +362,7 @@ func TestServerSegmentationAddRemove(t *testing.T) {
 	// add segmenter
 	_, err = server.AddSegmenter(context.Background(), &pb.AddSegmenterRequest{
 		Name:                testVisionServiceName,
-		SegmenterName:       vision.RadiusClusteringSegmenter,
+		SegmenterName:       RadiusClusteringSegmenter,
 		SegmenterModelType:  string(builtin.RCSegmenter),
 		SegmenterParameters: params,
 	})
@@ -374,11 +374,11 @@ func TestServerSegmentationAddRemove(t *testing.T) {
 	segResp, err := server.GetSegmenterNames(context.Background(), segReq)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, segResp.SegmenterNames, test.ShouldHaveLength, 1)
-	test.That(t, segResp.SegmenterNames[0], test.ShouldEqual, vision.RadiusClusteringSegmenter)
+	test.That(t, segResp.SegmenterNames[0], test.ShouldEqual, RadiusClusteringSegmenter)
 	// remove segmenter
 	_, err = server.RemoveSegmenter(context.Background(), &pb.RemoveSegmenterRequest{
 		Name:          testVisionServiceName,
-		SegmenterName: vision.RadiusClusteringSegmenter,
+		SegmenterName: RadiusClusteringSegmenter,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	// test that it was removed

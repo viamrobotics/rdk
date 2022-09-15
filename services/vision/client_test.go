@@ -32,7 +32,8 @@ import (
 )
 
 const (
-	testVisionServiceName = "vision1"
+	testVisionServiceName     = "vision1"
+	RadiusClusteringSegmenter = "radius_clustering"
 )
 
 func TestClient(t *testing.T) {
@@ -329,7 +330,7 @@ func TestInjectedServiceClient(t *testing.T) {
 
 	t.Run("dialed client test config for working vision service", func(t *testing.T) {
 		injectVision.GetSegmenterNamesFunc = func(ctx context.Context) ([]string, error) {
-			return []string{vision.RadiusClusteringSegmenter}, nil
+			return []string{RadiusClusteringSegmenter}, nil
 		}
 
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
@@ -367,7 +368,7 @@ func TestInjectedServiceClient(t *testing.T) {
 			return segments, nil
 		}
 
-		segs, err := client.GetObjectPointClouds(context.Background(), "cloud_cam", vision.RadiusClusteringSegmenter)
+		segs, err := client.GetObjectPointClouds(context.Background(), "cloud_cam", RadiusClusteringSegmenter)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(segs), test.ShouldEqual, 2)
 

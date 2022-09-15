@@ -81,9 +81,6 @@ func NewUnimplementedInterfaceError(actual interface{}) error {
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("vision")
 
-// RadiusClusteringSegmenter is  the name of a segmenter that finds well separated objects on a flat plane.
-const RadiusClusteringSegmenter = "radius_clustering"
-
 // Subtype is a constant that identifies the vision service resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
