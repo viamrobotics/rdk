@@ -234,108 +234,72 @@ func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLite
 		case 2:
 			// See which is longer --> that's bboxes. Then check for the other's first value
 			// to determine whether score/label
+			var guessedBboxes []float32
+			var guessedScoresLabels []float32
 			T0, _ := tensors[0].([]float32)
 			T1, _ := tensors[1].([]float32)
 			if len(T0) > len(T1) {
-				for _, b := range T0 {
-					bboxes = append(bboxes, float64(b))
-				}
-				count = len(T1)
-				if T1[0] >= 1 || T1[0] == 0 {
-					for _, l := range T1 {
-						labels = append(labels, int(l))
-					}
-				} else {
-					for _, s := range T1 {
-						scores = append(scores, float64(s))
-					}
+				guessedBboxes = T0
+				guessedScoresLabels = T1
+			} else {
+				guessedBboxes = T1
+				guessedScoresLabels = T0
+			}
+			count = len(guessedScoresLabels)
+			for _, b := range guessedBboxes {
+				bboxes = append(bboxes, float64(b))
+			}
+			if guessedScoresLabels[0] >= 1 || guessedScoresLabels[0] == 0 {
+				for _, l := range guessedScoresLabels {
+					labels = append(labels, int(l))
 				}
 			} else {
-				for _, b := range T1 {
-					bboxes = append(bboxes, float64(b))
-				}
-				count = len(T0)
-				if T0[0] >= 1 || T0[0] == 0 {
-					for _, l := range T0 {
-						labels = append(labels, int(l))
-					}
-				} else {
-					for _, s := range T0 {
-						scores = append(scores, float64(s))
-					}
+				for _, s := range guessedScoresLabels {
+					scores = append(scores, float64(s))
 				}
 			}
 		default: // case 3+
 			// See which is longer --> that's bboxes. Then check for the other's first value
 			// to determine whether score/label. Assign the last one the last remaining thing
+			var guessedBboxes []float32
+			var guessedScores []float32
+			var guessedLabels []float32
 			T0, _ := tensors[0].([]float32)
 			T1, _ := tensors[1].([]float32)
 			T2, _ := tensors[2].([]float32)
 			if (len(T0) > len(T1)) && (len(T0) > len(T2)) { // T0 is bboxes
-				for _, b := range T0 {
-					bboxes = append(bboxes, float64(b))
-				}
-				count = len(T1)
-
-				if T1[0] >= 1 || T1[0] == 0 {
-					for _, l := range T1 {
-						labels = append(labels, int(l))
-					}
-					for _, s := range T2 {
-						scores = append(scores, float64(s))
-					}
-				} else {
-					for _, s := range T1 {
-						scores = append(scores, float64(s))
-					}
-					for _, l := range T2 {
-						labels = append(labels, int(l))
-					}
+				guessedBboxes = T0
+				guessedScores = T1
+				if guessedScores[0] >= 1 || guessedScores[0] == 0 {
+					guessedLabels = T1
+					guessedScores = T2
 				}
 			}
 			if (len(T1) > len(T0)) && (len(T1) > len(T2)) { // T1 is bboxes
-				for _, b := range T1 {
-					bboxes = append(bboxes, float64(b))
-				}
-				count = len(T0)
-
-				if T0[0] >= 1 || T0[0] == 0 {
-					for _, l := range T0 {
-						labels = append(labels, int(l))
-					}
-					for _, s := range T2 {
-						scores = append(scores, float64(s))
-					}
-				} else {
-					for _, s := range T0 {
-						scores = append(scores, float64(s))
-					}
-					for _, l := range T2 {
-						labels = append(labels, int(l))
-					}
+				guessedBboxes = T1
+				guessedScores = T0
+				if guessedScores[0] >= 1 || guessedScores[0] == 0 {
+					guessedLabels = T0
+					guessedScores = T2
 				}
 			}
 			if (len(T2) > len(T0)) && (len(T2) > len(T1)) { // T2 is bboxes
-				for _, b := range T2 {
-					bboxes = append(bboxes, float64(b))
+				guessedBboxes = T2
+				guessedScores = T0
+				if guessedScores[0] >= 1 || guessedScores[0] == 0 {
+					guessedLabels = T0
+					guessedScores = T1
 				}
-				count = len(T0)
-
-				if T0[0] >= 1 || T0[0] == 0 {
-					for _, l := range T0 {
-						labels = append(labels, int(l))
-					}
-					for _, s := range T1 {
-						scores = append(scores, float64(s))
-					}
-				} else {
-					for _, s := range T0 {
-						scores = append(scores, float64(s))
-					}
-					for _, l := range T1 {
-						labels = append(labels, int(l))
-					}
-				}
+			}
+			count = len(guessedScores)
+			for _, b := range guessedBboxes {
+				bboxes = append(bboxes, float64(b))
+			}
+			for _, l := range guessedLabels {
+				labels = append(labels, int(l))
+			}
+			for _, s := range guessedScores {
+				scores = append(scores, float64(s))
 			}
 		}
 	} else { // if we do have metadata, just read the tensor order from there.
@@ -390,7 +354,7 @@ func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLite
 		rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
 
 		var label string
-		var score float64
+		score := 1.0
 		if len(labels) > 0 {
 			if labelMap != nil {
 				if labels[i] < len(labelMap) && labels[i] >= 0 {
@@ -403,7 +367,7 @@ func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLite
 
 		if len(scores) > 0 {
 			score = scores[i]
-		} // else score = 0
+		} // else score = 1
 
 		// Add detection
 		d := objectdetection.NewDetection(rect, score, label)
