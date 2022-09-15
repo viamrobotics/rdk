@@ -18,7 +18,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
 	github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742
-	github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e
+	github.com/edaniels/golog v0.0.0-20220915145146-2d6da6d2e52a
 	github.com/edaniels/gostream v0.0.0-20220909193600-edaf0134e353
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
@@ -67,9 +67,9 @@ require (
 	go.einride.tech/vlp16 v0.7.0
 	go.mongodb.org/mongo-driver v1.10.1
 	go.opencensus.io v0.23.0
-	go.uber.org/atomic v1.9.0
+	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.8.0
-	go.uber.org/zap v1.22.0
+	go.uber.org/zap v1.23.0
 	go.viam.com/api v0.0.0-20220915061959-268e3cddc194
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
