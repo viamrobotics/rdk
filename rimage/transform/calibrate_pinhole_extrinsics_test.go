@@ -10,7 +10,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -21,9 +20,8 @@ func TestExtrinsicCalibration(t *testing.T) {
 	// get a file with known extrinsic parameters and make expected pose
 	cam, err := NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)
-	expRotation, err := spatialmath.NewRotationMatrix(cam.ExtrinsicD2C.RotationMatrix)
-	test.That(t, err, test.ShouldBeNil)
-	expTranslation := cam.ExtrinsicD2C.TranslationVector
+	expRotation := cam.ExtrinsicD2C.Orientation().RotationMatrix()
+	expTranslation := cam.ExtrinsicD2C.Point()
 
 	// get points and intrinsics from test file
 	jsonFile, err := os.Open(utils.ResolveFile("rimage/transform/data/example_extrinsic_calib.json"))
@@ -46,9 +44,9 @@ func TestExtrinsicCalibration(t *testing.T) {
 	rotation := pose.Orientation()
 
 	// only test to 3 digits for found translation and rotation
-	test.That(t, fmt.Sprintf("%.3f", translation.X), test.ShouldEqual, fmt.Sprintf("%.3f", expTranslation[0]))
-	test.That(t, fmt.Sprintf("%.3f", translation.Y), test.ShouldEqual, fmt.Sprintf("%.3f", expTranslation[1]))
-	test.That(t, fmt.Sprintf("%.3f", translation.Z), test.ShouldEqual, fmt.Sprintf("%.3f", expTranslation[2]))
+	test.That(t, fmt.Sprintf("%.3f", translation.X), test.ShouldEqual, fmt.Sprintf("%.3f", expTranslation.X))
+	test.That(t, fmt.Sprintf("%.3f", translation.Y), test.ShouldEqual, fmt.Sprintf("%.3f", expTranslation.Y))
+	test.That(t, fmt.Sprintf("%.3f", translation.Z), test.ShouldEqual, fmt.Sprintf("%.3f", expTranslation.Z))
 	q, expq := rotation.Quaternion(), expRotation.Quaternion()
 	test.That(t, fmt.Sprintf("%.3f", q.Real), test.ShouldEqual, fmt.Sprintf("%.3f", expq.Real))
 	test.That(t, fmt.Sprintf("%.3f", q.Imag), test.ShouldEqual, fmt.Sprintf("%.3f", expq.Imag))

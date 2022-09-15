@@ -297,6 +297,27 @@ func TestConfigEnsure(t *testing.T) {
 		validAPIKeyHandler,
 	}
 	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
+
+	validAPIKeyHandler.Config = config.AttributeMap{
+		"keys": []string{},
+	}
+	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
+		validAPIKeyHandler,
+	}
+	err = invalidAuthConfig.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
+
+	validAPIKeyHandler.Config = config.AttributeMap{
+		"keys": []string{"one", "two"},
+	}
+	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
+		validAPIKeyHandler,
+	}
+
+	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
 }
 
 func TestCopyOnlyPublicFields(t *testing.T) {

@@ -405,8 +405,8 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 	}
 	switch config.Type {
 	case rpc.CredentialsTypeAPIKey:
-		if config.Config.String("key") == "" {
-			return utils.NewConfigValidationFieldRequiredError(fmt.Sprintf("%s.config", path), "key")
+		if config.Config.String("key") == "" && len(config.Config.StringSlice("keys")) == 0 {
+			return utils.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("key or keys is required"))
 		}
 	default:
 		return utils.NewConfigValidationError(path, errors.Errorf("do not know how to handle auth for %q", config.Type))

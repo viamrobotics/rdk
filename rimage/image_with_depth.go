@@ -5,7 +5,6 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 )
@@ -81,21 +80,6 @@ func (i *imageWithDepth) At(x, y int) color.Color {
 // IsAligned returns if the image and depth are aligned.
 func (i *imageWithDepth) IsAligned() bool {
 	return i.aligned
-}
-
-// To3D takes an image pixel coordinate and returns the 3D coordinate in the world.
-func (i *imageWithDepth) To3D(p image.Point, proj Projector) (r3.Vector, error) {
-	if proj == nil {
-		return r3.Vector{}, errors.New("the Projector cannot be nil")
-	}
-	if i.Depth == nil {
-		return r3.Vector{}, errors.New("no depth channel in imageWithDepth")
-	}
-	if !p.In(i.Bounds()) {
-		return r3.Vector{}, errors.Errorf("point (%d,%d) not within image bounds", p.X, p.Y)
-	}
-	d := i.Depth.Get(p)
-	return proj.ImagePointTo3DPoint(p, d)
 }
 
 // Width returns the horizontal width of the image.

@@ -32,6 +32,7 @@ import (
 
 func init() {
 	registry.RegisterService(Subtype, registry.Service{
+		MaxInstance: resource.DefaultMaxInstance,
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
 		},
