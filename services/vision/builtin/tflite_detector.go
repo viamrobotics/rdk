@@ -1,4 +1,4 @@
-package vision
+package builtin
 
 import (
 	"bufio"
@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/config"
 	inf "go.viam.com/rdk/ml/inference"
 	"go.viam.com/rdk/ml/inference/tflite_metadata"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
 )
@@ -33,7 +34,7 @@ type TFLiteDetectorConfig struct {
 // NewTFLiteDetector creates an RDK detector given a DetectorConfig. In other words, this
 // function returns a function from image-->[]objectdetection.Detection. It does this by making calls to
 // an inference package and wrapping the result.
-func NewTFLiteDetector(ctx context.Context, cfg *VisModelConfig, logger golog.Logger) (objectdetection.Detector, *inf.TFLiteStruct, error) {
+func NewTFLiteDetector(ctx context.Context, cfg *vision.VisModelConfig, logger golog.Logger) (objectdetection.Detector, *inf.TFLiteStruct, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::NewTFLiteDetector")
 	defer span.End()
 
