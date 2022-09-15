@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
@@ -30,7 +31,7 @@ func init() {
 			if attrs.AttrConfig != nil {
 				intrinsics = attrs.AttrConfig.CameraParameters
 			}
-			return camera.NewFromReader(ctx, videoSrc, intrinsics, camera.StreamType(attrs.Stream))
+			return camera.NewFromReader(ctx, videoSrc, &transform.PinholeCameraModel{intrinsics, nil}, camera.StreamType(attrs.Stream))
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "file",
@@ -88,7 +89,7 @@ func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud
 		if err != nil {
 			return nil, err
 		}
-		return img.ToPointCloud(fs.Intrinsics), nil
+		return depthadapter.ToPointCloud(img, fs.Intrinsics), nil
 	}
 	img, err := rimage.NewImageFromFile(fs.ColorFN)
 	if err != nil {
@@ -105,7 +106,7 @@ func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud
 type StaticSource struct {
 	ColorImg image.Image
 	DepthImg image.Image
-	Proj     rimage.Projector
+	Proj     transform.Projector
 }
 
 // Read returns the stored image.

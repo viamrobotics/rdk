@@ -91,6 +91,8 @@ message GetPropertiesResponse {
   bool supports_pcd = 1;
   // Parameters for doing a perspective of a 3D scene to a 2D plane
   IntrinsicParameters intrinsic_parameters = 2;
+  // Parameters for modeling lens distortion in cameras
+  DistortionParameters distortion_parameters = 3;
 }
 
 message Webcams {
@@ -133,4 +135,9 @@ message IntrinsicParameters {
   double focal_y_px = 4;
   double center_x_px = 5;
   double center_y_px = 6;
+}
+
+message DistortionParameters {
+  string model = 1;
+  repeated double parameters = 2;
 }
