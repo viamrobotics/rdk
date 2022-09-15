@@ -21,7 +21,6 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
@@ -43,7 +42,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam1.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
-	cam1.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	cam1.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	cam2 := &inject.Camera{}
@@ -56,7 +55,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam2.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
-	cam2.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	cam2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	cam3 := &inject.Camera{}
@@ -69,7 +68,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam3.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
-	cam3.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	cam3.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	base1 := &inject.Base{}
@@ -241,7 +240,7 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	cam1.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
-	cam1.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	cam1.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	cam2 := &inject.Camera{}
@@ -269,7 +268,7 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	cam2.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
-	cam2.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	cam2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 

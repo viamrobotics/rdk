@@ -166,8 +166,8 @@ func (c *cloudSource) Stream(
 	panic("unimplemented")
 }
 
-func (c *cloudSource) Projector(ctx context.Context) (rimage.Projector, error) {
-	var proj rimage.Projector
+func (c *cloudSource) Projector(ctx context.Context) (transform.Projector, error) {
+	var proj transform.Projector
 	props, err := c.GetProperties(ctx)
 	if err != nil {
 		return nil, err
@@ -180,13 +180,12 @@ func (c *cloudSource) GetProperties(ctx context.Context) (camera.Properties, err
 	return camera.Properties{
 		SupportsPCD: true,
 		IntrinsicParams: &transform.PinholeCameraIntrinsics{
-			Width:      1280,
-			Height:     720,
-			Fx:         200,
-			Fy:         200,
-			Ppx:        100,
-			Ppy:        100,
-			Distortion: transform.DistortionModel{},
+			Width:  1280,
+			Height: 720,
+			Fx:     200,
+			Fy:     200,
+			Ppx:    100,
+			Ppy:    100,
 		},
 	}, nil
 }

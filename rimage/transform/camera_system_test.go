@@ -1,4 +1,4 @@
-package rimage
+package transform
 
 import (
 	"image"
@@ -8,17 +8,19 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/rimage"
 )
 
 func TestParallelProjection(t *testing.T) {
 	pp := ParallelProjection{}
 
 	// load the images
-	img, err := NewImageFromFile(artifact.MustPath("rimage/board2.png"))
+	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2.png"))
 	test.That(t, err, test.ShouldBeNil)
-	img2, err := NewImageFromFile(artifact.MustPath("rimage/circle.png"))
+	img2, err := rimage.NewImageFromFile(artifact.MustPath("rimage/circle.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
+	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 	// no image error
 	_, err = pp.RGBDToPointCloud(nil, dm)
@@ -39,14 +41,14 @@ func TestParallelProjection(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	data, got := pc.At(140, 500, float64(dm.GetDepth(140, 500)))
 	test.That(t, got, test.ShouldBeTrue)
-	test.That(t, NewColorFromColor(data.Color()), test.ShouldResemble, img.GetXY(140, 500))
+	test.That(t, rimage.NewColorFromColor(data.Color()), test.ShouldResemble, img.GetXY(140, 500))
 
 	pc2, err := pp.RGBDToPointCloud(img, dm, image.Rectangle{image.Point{130, 490}, image.Point{150, 510}})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc2.Size(), test.ShouldEqual, 400)
 	data, got = pc2.At(140, 500, float64(dm.GetDepth(140, 500)))
 	test.That(t, got, test.ShouldBeTrue)
-	test.That(t, NewColorFromColor(data.Color()), test.ShouldResemble, img.GetXY(140, 500))
+	test.That(t, rimage.NewColorFromColor(data.Color()), test.ShouldResemble, img.GetXY(140, 500))
 
 	_, err = pp.RGBDToPointCloud(img, dm, image.Rectangle{image.Point{130, 490}, image.Point{150, 510}}, image.Rectangle{})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "more than one cropping rectangle")

@@ -51,7 +51,7 @@ func TestClient(t *testing.T) {
 	err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	var projA rimage.Projector
+	var projA transform.Projector
 	intrinsics := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
 		Width:  1280,
 		Height: 720,
@@ -74,7 +74,7 @@ func TestClient(t *testing.T) {
 			IntrinsicParams: intrinsics,
 		}, nil
 	}
-	injectCamera.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	injectCamera.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil
 	}
 	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
@@ -102,7 +102,7 @@ func TestClient(t *testing.T) {
 			IntrinsicParams: intrinsics,
 		}, nil
 	}
-	injectCameraDepth.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	injectCameraDepth.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil
 	}
 	injectCameraDepth.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
@@ -121,7 +121,7 @@ func TestClient(t *testing.T) {
 	injectCamera2.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, errors.New("can't get camera properties")
 	}
-	injectCamera2.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	injectCamera2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, errors.New("can't get camera properties")
 	}
 	injectCamera2.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {

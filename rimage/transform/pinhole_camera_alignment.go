@@ -1,15 +1,109 @@
 package transform
 
 import (
+	"encoding/json"
 	"image"
-	"math"
+	"io"
+	"os"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/spatialmath"
 )
+
+// DepthColorIntrinsicsExtrinsics holds the intrinsics for a color camera, a depth camera, and the pose transformation that
+// transforms a point from being in the reference frame of the depth camera to the reference frame of the color camera.
+type DepthColorIntrinsicsExtrinsics struct {
+	ColorCamera  PinholeCameraIntrinsics
+	DepthCamera  PinholeCameraIntrinsics
+	ExtrinsicD2C spatialmath.Pose
+}
+
+// DepthColorIntrinsicsExtrinsicsConfig is the config file that will be parsed into the proper interface.
+type DepthColorIntrinsicsExtrinsicsConfig struct {
+	ColorCamera  PinholeCameraIntrinsics `json:"color"`
+	DepthCamera  PinholeCameraIntrinsics `json:"depth"`
+	ExtrinsicD2C json.RawMessage         `json:"extrinsics_depth_to_color"`
+}
+
+// NewEmptyDepthColorIntrinsicsExtrinsics creates an zero initialized DepthColorIntrinsicsExtrinsics.
+func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
+	return &DepthColorIntrinsicsExtrinsics{
+		ColorCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0},
+		DepthCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0},
+		ExtrinsicD2C: spatialmath.NewZeroPose(),
+	}
+}
+
+// NewDepthColorIntrinsicsExtrinsicsFromBytes reads a JSON byte stream and turns it into DepthColorIntrinsicsExtrinsics.
+func NewDepthColorIntrinsicsExtrinsicsFromBytes(byteJSON []byte) (*DepthColorIntrinsicsExtrinsics, error) {
+	intrinExtrin := &DepthColorIntrinsicsExtrinsicsConfig{}
+	// Parse into map
+	err := json.Unmarshal(byteJSON, intrinExtrin)
+	if err != nil {
+		err = errors.Wrap(err, "error parsing byte array")
+		return nil, err
+	}
+	temp := struct {
+		R []float64 `json:"rotation"`
+		T []float64 `json:"translation"`
+	}{}
+	err = json.Unmarshal(intrinExtrin.ExtrinsicD2C, &temp)
+	if err != nil {
+		err = errors.Wrap(err, "error parsing byte array")
+		return nil, err
+	}
+	if len(temp.T) != 3 {
+		return nil, errors.Errorf("length of translation is %d, should be 3", len(temp.T))
+	}
+	orientation, err := spatialmath.NewRotationMatrix(temp.R)
+	if err != nil {
+		return nil, err
+	}
+	pose := spatialmath.NewPoseFromOrientation(r3.Vector{temp.T[0], temp.T[1], temp.T[2]}, orientation)
+	intrinsics := NewEmptyDepthColorIntrinsicsExtrinsics()
+	intrinsics.ColorCamera = intrinExtrin.ColorCamera
+	intrinsics.DepthCamera = intrinExtrin.DepthCamera
+	intrinsics.ExtrinsicD2C = pose
+	return intrinsics, nil
+}
+
+// NewDepthColorIntrinsicsExtrinsicsFromJSONFile takes in a file path to a JSON and turns it into DepthColorIntrinsicsExtrinsics.
+func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColorIntrinsicsExtrinsics, error) {
+	// open json file
+	//nolint:gosec
+	jsonFile, err := os.Open(jsonPath)
+	if err != nil {
+		err = errors.Wrap(err, "error opening JSON file")
+		return nil, err
+	}
+	defer utils.UncheckedErrorFunc(jsonFile.Close)
+	// read our opened jsonFile as a byte array.
+	byteValue, err := io.ReadAll(jsonFile)
+	if err != nil {
+		err = errors.Wrap(err, "error reading JSON data")
+		return nil, err
+	}
+	return NewDepthColorIntrinsicsExtrinsicsFromBytes(byteValue)
+}
+
+// CheckValid checks if the fields for DepthColorIntrinsicsExtrinsics have valid inputs.
+func (dcie *DepthColorIntrinsicsExtrinsics) CheckValid() error {
+	if dcie == nil {
+		return errors.New("pointer to DepthColorIntrinsicsExtrinsics is nil")
+	}
+	if dcie.ColorCamera.Width == 0 || dcie.ColorCamera.Height == 0 {
+		return errors.Errorf("invalid ColorSize (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height)
+	}
+	if dcie.DepthCamera.Width == 0 || dcie.DepthCamera.Height == 0 {
+		return errors.Errorf("invalid DepthSize (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height)
+	}
+	return nil
+}
 
 // AlignColorAndDepthImage takes in a RGB image and Depth map and aligns them according to the Aligner,
 // returning a new Image and DepthMap.
@@ -101,54 +195,31 @@ func (dcie *DepthColorIntrinsicsExtrinsics) DepthPixelToColorPixel(dx, dy, dz fl
 	m2mm := 1000.0
 	x, y, z := dcie.DepthCamera.PixelToPoint(dx, dy, dz)
 	x, y, z = x/m2mm, y/m2mm, z/m2mm
-	x, y, z = dcie.ExtrinsicD2C.TransformPointToPoint(x, y, z)
+	x, y, z = dcie.TransformPointToPoint(x, y, z)
 	x, y, z = x*m2mm, y*m2mm, z*m2mm
 	cx, cy := dcie.ColorCamera.PointToPixel(x, y, z)
 	return cx, cy, z
 }
 
-// DepthMapToPointCloud converts a Depth Map to a PointCloud using the depth camera parameters.
-func DepthMapToPointCloud(
-	depthImage *rimage.DepthMap,
-	pixel2meter float64,
-	params *PinholeCameraIntrinsics,
-	depthMin, depthMax rimage.Depth,
-) (pointcloud.PointCloud, error) {
-	// create new point cloud
-	pcOut := pointcloud.New()
-	// go through depth map pixels and get 3D Points
-	for y := 0; y < depthImage.Height(); y++ {
-		for x := 0; x < depthImage.Width(); x++ {
-			// get depth value
-			d := depthImage.Get(image.Point{x, y})
-			if d >= depthMin && d < depthMax {
-				// get z distance to meter for unit uniformity
-				z := float64(d) * pixel2meter
-				// get x and y of 3D point
-				xPoint, yPoint, z := params.PixelToPoint(float64(x), float64(y), z)
-				// Get point in PointCloud format
-				xPoint /= pixel2meter
-				yPoint /= pixel2meter
-				z /= pixel2meter
-				pt := pointcloud.NewVector(xPoint, yPoint, z)
-				err := pcOut.Set(pt, nil)
-				if err != nil {
-					err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", xPoint, yPoint, z)
-					return nil, err
-				}
-			}
-		}
-	}
-	return pcOut, nil
+// TransformPointToPoint applies a rigid body transform specified as a Pose to two points.
+func (dcie *DepthColorIntrinsicsExtrinsics) TransformPointToPoint(x, y, z float64) (float64, float64, float64) {
+	pose := dcie.ExtrinsicD2C
+	rotationMatrix := pose.Orientation().RotationMatrix()
+	translationVector := pose.Point()
+	xTransformed := rotationMatrix.At(0, 0)*x + rotationMatrix.At(0, 1)*y + rotationMatrix.At(0, 2)*z + translationVector.X
+	yTransformed := rotationMatrix.At(1, 0)*x + rotationMatrix.At(1, 1)*y + rotationMatrix.At(1, 2)*z + translationVector.Y
+	zTransformed := rotationMatrix.At(2, 0)*x + rotationMatrix.At(2, 1)*y + rotationMatrix.At(2, 2)*z + translationVector.Z
+
+	return xTransformed, yTransformed, zTransformed
 }
 
 // ApplyRigidBodyTransform projects a 3D point in a given camera image plane and return a
 // new point cloud leaving the original unchanged.
-func ApplyRigidBodyTransform(pts pointcloud.PointCloud, params *Extrinsics) (pointcloud.PointCloud, error) {
+func (dcie *DepthColorIntrinsicsExtrinsics) ApplyRigidBodyTransform(pts pointcloud.PointCloud) (pointcloud.PointCloud, error) {
 	transformedPoints := pointcloud.New()
 	var err error
 	pts.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
-		x, y, z := params.TransformPointToPoint(pt.X, pt.Y, pt.Z)
+		x, y, z := dcie.TransformPointToPoint(pt.X, pt.Y, pt.Z)
 		err = transformedPoints.Set(pointcloud.NewVector(x, y, z), data)
 		if err != nil {
 			err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", x, y, z)
@@ -161,35 +232,3 @@ func ApplyRigidBodyTransform(pts pointcloud.PointCloud, params *Extrinsics) (poi
 	}
 	return transformedPoints, nil
 }
-
-// ProjectPointCloudToRGBPlane projects points in a pointcloud to a given camera image plane.
-func ProjectPointCloudToRGBPlane(
-	pts pointcloud.PointCloud,
-	h, w int,
-	params PinholeCameraIntrinsics,
-	pixel2meter float64,
-) (pointcloud.PointCloud, error) {
-	coordinates := pointcloud.New()
-	var err error
-	pts.Iterate(0, 0, func(pt r3.Vector, d pointcloud.Data) bool {
-		j, i := params.PointToPixel(pt.X, pt.Y, pt.Z)
-		j = math.Round(j)
-		i = math.Round(i)
-		// if point has color is inside the RGB image bounds, add it to the new pointcloud
-		if j >= 0 && j < float64(w) && i >= 0 && i < float64(h) && d != nil && d.HasColor() {
-			pt2d := pointcloud.NewVector(j, i, pt.Z)
-			err = coordinates.Set(pt2d, d)
-			if err != nil {
-				err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", j, i, pt.Z)
-				return false
-			}
-		}
-		return true
-	})
-	if err != nil {
-		return nil, err
-	}
-	return coordinates, nil
-}
-
-// TODO(louise): Add Depth Map dilation function as in the librealsense library
