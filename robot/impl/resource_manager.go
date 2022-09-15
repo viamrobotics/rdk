@@ -137,7 +137,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 		iface, err := rr.ResourceByName(rrName) // this returns a remote known OR foreign resource client
 		if err != nil {
-			if err == client.ErrMissingClientRegistration {
+			if errors.Is(err, client.ErrMissingClientRegistration) {
 				manager.logger.Debugw("couldn't obtain remote resource interface",
 					"name", rrName,
 					"reason", err)

@@ -34,11 +34,14 @@ import (
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 )
 
-// errUnimplemented is used for any unimplemented methods that should
-// eventually be implemented server side or faked client side.
-var errUnimplemented = errors.New("unimplemented")
+var (
+	// ErrMissingClientRegistration is used when there is no resource client registered for the subtype.
+	ErrMissingClientRegistration = errors.New("resource client registration doesn't exist")
 
-var ErrMissingClientRegistration = errors.New("resource client registration doesn't exist")
+	// errUnimplemented is used for any unimplemented methods that should
+	// eventually be implemented server side or faked client side.
+	errUnimplemented = errors.New("unimplemented")
+)
 
 // RobotClient satisfies the robot.Robot interface through a gRPC based
 // client conforming to the robot.proto contract.
