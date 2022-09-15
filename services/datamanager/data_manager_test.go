@@ -2,23 +2,10 @@ package datamanager_test
 
 import (
 	"context"
-	"image"
-	"io"
-	"io/fs"
-	"os"
-	"sync"
 	"testing"
 
-	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
-	"github.com/pkg/errors"
-	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/config"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/services/datamanager"
 	rutils "go.viam.com/rdk/utils"

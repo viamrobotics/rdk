@@ -72,7 +72,7 @@ func TestVisionServerFailures(t *testing.T) {
 }
 
 func TestServerGetParameterSchema(t *testing.T) {
-	srv, r := createService(t, "data/empty.json")
+	srv, r := createService(t)
 	m := map[resource.Name]interface{}{
 		vision.Named(testVisionServiceName): srv,
 	}
@@ -112,7 +112,7 @@ func TestServerGetDetectorNames(t *testing.T) {
 }
 
 func TestServerAddDetector(t *testing.T) {
-	srv, r := createService(t, "data/empty.json")
+	srv, r := createService(t)
 	m := map[resource.Name]interface{}{
 		vision.Named(testVisionServiceName): srv,
 	}
@@ -239,7 +239,7 @@ func TestServerGetDetections(t *testing.T) {
 }
 
 func TestServerAddRemoveSegmenter(t *testing.T) {
-	srv, r := createService(t, "data/empty.json")
+	srv, r := createService(t)
 	m := map[resource.Name]interface{}{
 		vision.Named(testVisionServiceName): srv,
 	}
@@ -345,7 +345,7 @@ func TestServerSegmentationGetObjects(t *testing.T) {
 }
 
 func TestServerSegmentationAddRemove(t *testing.T) {
-	srv, r := createService(t, "data/empty.json")
+	srv, r := createService(t)
 	m := map[resource.Name]interface{}{
 		vision.Named(testVisionServiceName): srv,
 	}
@@ -393,7 +393,7 @@ func TestServerSegmentationAddRemove(t *testing.T) {
 }
 
 func TestServerAddRemoveClassifier(t *testing.T) {
-	srv, r := createService(t, "data/empty.json")
+	srv, r := createService(t)
 	m := map[resource.Name]interface{}{
 		vision.Named(testVisionServiceName): srv,
 	}
