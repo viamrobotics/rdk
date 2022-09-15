@@ -86,7 +86,7 @@ func (vs *builtIn) GetModelParameterSchema(ctx context.Context, modelType vision
 func (vs *builtIn) GetDetectorNames(ctx context.Context) ([]string, error) {
 	_, span := trace.StartSpan(ctx, "service::vision::GetDetectorNames")
 	defer span.End()
-	return vs.modReg.detectorNames(), nil
+	return vs.modReg.DetectorNames(), nil
 }
 
 // AddDetector adds a new detector from an Attribute config struct.
@@ -292,7 +292,7 @@ func (vs *builtIn) GetObjectPointClouds(
 
 // Close removes all existing detectors from the vision service.
 func (vs *builtIn) Close() error {
-	models := vs.modReg.modelNames()
+	models := vs.modReg.ModelNames()
 	for _, detectorName := range models {
 		err := vs.modReg.removeVisModel(detectorName, vs.logger)
 		if err != nil {
