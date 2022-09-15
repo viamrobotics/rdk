@@ -19,9 +19,9 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/pointcloud/depthadapter"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
