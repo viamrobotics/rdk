@@ -1,4 +1,4 @@
-package vision
+package builtin
 
 import (
 	"context"
@@ -9,31 +9,28 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 
-	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/segmentation"
 )
-
-// VisModelType defines what vision models are known by the vision service.
-type VisModelType string
 
 // VisOperation defines what types of operations are allowed by the vision service.
 type VisOperation string
 
 // The set of allowed vision model types.
 const (
-	TFLiteDetector    = VisModelType("tflite_detector")
-	TFDetector        = VisModelType("tf_detector")
-	ColorDetector     = VisModelType("color_detector")
-	TFLiteClassifier  = VisModelType("tflite_classifier")
-	TFClassifier      = VisModelType("tf_classifier")
-	RCSegmenter       = VisModelType("radius_clustering_segmenter")
-	DetectorSegmenter = VisModelType("detector_segmenter")
+	TFLiteDetector    = vision.VisModelType("tflite_detector")
+	TFDetector        = vision.VisModelType("tf_detector")
+	ColorDetector     = vision.VisModelType("color_detector")
+	TFLiteClassifier  = vision.VisModelType("tflite_classifier")
+	TFClassifier      = vision.VisModelType("tf_classifier")
+	RCSegmenter       = vision.VisModelType("radius_clustering_segmenter")
+	DetectorSegmenter = vision.VisModelType("detector_segmenter")
 )
 
-// RegisteredModelParameterSchemas maps the vision model types to the necessary parameters needed to create them.
-var RegisteredModelParameterSchemas = map[VisModelType]*jsonschema.Schema{
+// registeredModelParameterSchemas maps the vision model types to the necessary parameters needed to create them.
+var registeredModelParameterSchemas = map[vision.VisModelType]*jsonschema.Schema{
 	TFLiteDetector:    jsonschema.Reflect(&TFLiteDetectorConfig{}),
 	ColorDetector:     jsonschema.Reflect(&objectdetection.ColorDetectorConfig{}),
 	TFLiteClassifier:  jsonschema.Reflect(&TFLiteClassifierConfig{}),
@@ -49,7 +46,7 @@ const (
 )
 
 // visModelToOpMap maps the vision model type with the corresponding vision operation.
-var visModelToOpMap = map[VisModelType]VisOperation{
+var visModelToOpMap = map[vision.VisModelType]VisOperation{
 	TFLiteDetector:    VisDetection,
 	TFDetector:        VisDetection,
 	ColorDetector:     VisDetection,
@@ -64,26 +61,17 @@ func newVisModelTypeNotImplemented(name string) error {
 	return errors.Errorf("vision model type %q is not implemented", name)
 }
 
-// VisModelConfig specifies the name of the detector, the type of detector,
-// and the necessary parameters needed to build the detector.
-type VisModelConfig struct {
-	Name       string              `json:"name"`
-	Type       string              `json:"type"`
-	Parameters config.AttributeMap `json:"parameters"`
-}
+type modelMap map[string]registeredModel
 
-// ModelMap is a map that holds registered models.
-type ModelMap map[string]RegisteredModel
-
-// RegisteredModel struct that holds models parameters.
-type RegisteredModel struct {
+// registeredModel struct that holds models parameters.
+type registeredModel struct {
 	Model     interface{}
-	ModelType VisModelType
+	ModelType vision.VisModelType
 	Closer    io.Closer
 }
 
 // ToDetector converts model to a dectector.
-func (m *RegisteredModel) ToDetector() (objectdetection.Detector, error) {
+func (m *registeredModel) toDetector() (objectdetection.Detector, error) {
 	toReturn, ok := m.Model.(objectdetection.Detector)
 	if !ok {
 		return nil, errors.New("couldn't convert model to detector")
@@ -92,7 +80,7 @@ func (m *RegisteredModel) ToDetector() (objectdetection.Detector, error) {
 }
 
 // ToClassifier converts model to a classifier.
-func (m *RegisteredModel) ToClassifier() (classification.Classifier, error) {
+func (m *registeredModel) toClassifier() (classification.Classifier, error) {
 	toReturn, ok := m.Model.(classification.Classifier)
 	if !ok {
 		return nil, errors.New("couldn't convert model to classifier")
@@ -101,7 +89,7 @@ func (m *RegisteredModel) ToClassifier() (classification.Classifier, error) {
 }
 
 // ToSegmenter concerts model to a segmenter.
-func (m *RegisteredModel) ToSegmenter() (segmentation.Segmenter, error) {
+func (m *registeredModel) toSegmenter() (segmentation.Segmenter, error) {
 	toReturn, ok := m.Model.(segmentation.Segmenter)
 	if !ok {
 		return nil, errors.New("couldn't convert model to segmenter")
@@ -109,8 +97,8 @@ func (m *RegisteredModel) ToSegmenter() (segmentation.Segmenter, error) {
 	return toReturn, nil
 }
 
-// DetectorNames returns list copy of all detector names.
-func (mm ModelMap) DetectorNames() []string {
+// detectorNames returns list copy of all detector names.
+func (mm modelMap) detectorNames() []string {
 	names := make([]string, 0, len(mm))
 	for name := range mm {
 		thisType, err := mm.getModelType(name)
@@ -124,7 +112,7 @@ func (mm ModelMap) DetectorNames() []string {
 }
 
 // ClassifierNames returns a list copy of all classifier names.
-func (mm ModelMap) ClassifierNames() []string {
+func (mm modelMap) ClassifierNames() []string {
 	names := make([]string, 0, len(mm))
 	for name := range mm {
 		thisType, err := mm.getModelType(name)
@@ -138,7 +126,7 @@ func (mm ModelMap) ClassifierNames() []string {
 }
 
 // SegmenterNames returns a list copy of all segmenter names.
-func (mm ModelMap) SegmenterNames() []string {
+func (mm modelMap) SegmenterNames() []string {
 	names := make([]string, 0, len(mm))
 	for name := range mm {
 		thisType, err := mm.getModelType(name)
@@ -151,7 +139,7 @@ func (mm ModelMap) SegmenterNames() []string {
 	return names
 }
 
-func (mm ModelMap) getModelType(name string) (VisModelType, error) {
+func (mm modelMap) getModelType(name string) (vision.VisModelType, error) {
 	m, ok := mm[name]
 	if !ok {
 		return "", errors.Errorf("no such vision model with name %q", name)
@@ -159,17 +147,17 @@ func (mm ModelMap) getModelType(name string) (VisModelType, error) {
 	return m.ModelType, nil
 }
 
-// ModelLookup checks to see if model is valid.
-func (mm ModelMap) ModelLookup(name string) (RegisteredModel, error) {
+// modelLookup checks to see if model is valid.
+func (mm modelMap) modelLookup(name string) (registeredModel, error) {
 	m, ok := mm[name]
 	if !ok {
-		return RegisteredModel{}, errors.Errorf("no such vision model with name %q", name)
+		return registeredModel{}, errors.Errorf("no such vision model with name %q", name)
 	}
 	return m, nil
 }
 
-// ModelNames returns an array copy of all model names.
-func (mm ModelMap) ModelNames() []string {
+// modelNames returns an array copy of all model names.
+func (mm modelMap) modelNames() []string {
 	names := make([]string, 0, len(mm))
 	for name := range mm {
 		names = append(names, name)
@@ -177,8 +165,8 @@ func (mm ModelMap) ModelNames() []string {
 	return names
 }
 
-// RemoveVisModel removes models from valid models.
-func (mm ModelMap) RemoveVisModel(name string, logger golog.Logger) error {
+// removeVisModel removes models from valid models.
+func (mm modelMap) removeVisModel(name string, logger golog.Logger) error {
 	if _, ok := mm[name]; !ok {
 		logger.Infof("no such vision model with name %s", name)
 		return nil
@@ -195,12 +183,12 @@ func (mm ModelMap) RemoveVisModel(name string, logger golog.Logger) error {
 }
 
 // RegisterVisModel registers a new model.
-func (mm ModelMap) RegisterVisModel(name string, m *RegisteredModel, logger golog.Logger) error {
+func (mm modelMap) RegisterVisModel(name string, m *registeredModel, logger golog.Logger) error {
 	if m == nil || m.Model == nil {
 		return errors.Errorf("cannot register a nil model: %s", name)
 	}
 	if m.Closer != nil {
-		mm[name] = RegisteredModel{
+		mm[name] = registeredModel{
 			Model: m.Model, ModelType: m.ModelType, Closer: m.Closer,
 		}
 		return nil
@@ -209,20 +197,20 @@ func (mm ModelMap) RegisterVisModel(name string, m *RegisteredModel, logger golo
 		logger.Infof("overwriting the model with name: %s", name)
 	}
 
-	mm[name] = RegisteredModel{
+	mm[name] = registeredModel{
 		Model: m.Model, ModelType: m.ModelType, Closer: nil,
 	}
 	return nil
 }
 
-// RegisterNewVisModels take an attributes struct and parses each element by type to create an RDK Detector
+// registerNewVisModels take an attributes struct and parses each element by type to create an RDK Detector
 // and register it to the detector map.
-func RegisterNewVisModels(ctx context.Context, mm ModelMap, attrs *Attributes, logger golog.Logger) error {
+func registerNewVisModels(ctx context.Context, mm modelMap, attrs *vision.Attributes, logger golog.Logger) error {
 	_, span := trace.StartSpan(ctx, "service::vision::registerNewVisModels")
 	defer span.End()
 	for _, attr := range attrs.ModelRegistry {
 		logger.Debugf("adding vision model %q of type %q", attr.Name, attr.Type)
-		switch VisModelType(attr.Type) {
+		switch vision.VisModelType(attr.Type) {
 		case TFLiteDetector:
 			return registerTfliteDetector(ctx, mm, &attr, logger)
 		case TFLiteClassifier:

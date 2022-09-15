@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/services/vision/builtin"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -71,7 +72,7 @@ func TestClient(t *testing.T) {
 
 		client := vision.NewClientFromConn(context.Background(), conn, visName, logger)
 
-		params, err := client.GetModelParameterSchema(context.Background(), vision.RCSegmenter)
+		params, err := client.GetModelParameterSchema(context.Background(), builtin.RCSegmenter)
 		test.That(t, err, test.ShouldBeNil)
 		parameterNames := params.Definitions["RadiusClusteringConfig"].Required
 		test.That(t, parameterNames, test.ShouldContain, "min_points_in_plane")
@@ -186,7 +187,7 @@ func TestClient(t *testing.T) {
 
 		cfg := vision.VisModelConfig{
 			Name: "new_segmenter",
-			Type: string(vision.RCSegmenter),
+			Type: string(builtin.RCSegmenter),
 			Parameters: config.AttributeMap{
 				"min_points_in_plane":   100,
 				"min_points_in_segment": 3,

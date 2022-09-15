@@ -1,4 +1,4 @@
-package vision
+package builtin
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
 	objdet "go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/segmentation"
@@ -15,7 +16,7 @@ import (
 
 // registerColorDetector parses the Parameter field from the config into ColorDetectorConfig,
 // creates the ColorDetector, and registers it to the detector map.
-func registerColorDetector(ctx context.Context, mm ModelMap, conf *VisModelConfig, logger golog.Logger) error {
+func registerColorDetector(ctx context.Context, mm modelMap, conf *vision.VisModelConfig, logger golog.Logger) error {
 	_, span := trace.StartSpan(ctx, "service::vision::registerColorDetector")
 	defer span.End()
 	if conf == nil {
@@ -35,11 +36,11 @@ func registerColorDetector(ctx context.Context, mm ModelMap, conf *VisModelConfi
 	if err != nil {
 		return errors.Wrapf(err, "register color detector %s", conf.Name)
 	}
-	regModel := RegisteredModel{Model: detector, ModelType: ColorDetector, Closer: nil}
+	regModel := registeredModel{Model: detector, ModelType: ColorDetector, Closer: nil}
 	return mm.RegisterVisModel(conf.Name, &regModel, logger)
 }
 
-func registerTfliteClassifier(ctx context.Context, mm ModelMap, conf *VisModelConfig, logger golog.Logger) error {
+func registerTfliteClassifier(ctx context.Context, mm modelMap, conf *vision.VisModelConfig, logger golog.Logger) error {
 	ctx, span := trace.StartSpan(ctx, "service::vision::registerTfliteClassifier")
 	defer span.End()
 	if conf == nil {
@@ -50,11 +51,11 @@ func registerTfliteClassifier(ctx context.Context, mm ModelMap, conf *VisModelCo
 		return errors.Wrapf(err, "could not register tflite classifier %s", conf.Name)
 	}
 
-	regModel := RegisteredModel{Model: classifier, ModelType: TFLiteClassifier, Closer: model}
+	regModel := registeredModel{Model: classifier, ModelType: TFLiteClassifier, Closer: model}
 	return mm.RegisterVisModel(conf.Name, &regModel, logger)
 }
 
-func registerTfliteDetector(ctx context.Context, mm ModelMap, conf *VisModelConfig, logger golog.Logger) error {
+func registerTfliteDetector(ctx context.Context, mm modelMap, conf *vision.VisModelConfig, logger golog.Logger) error {
 	ctx, span := trace.StartSpan(ctx, "service::vision::registerTfliteDetector")
 	defer span.End()
 	if conf == nil {
@@ -65,11 +66,11 @@ func registerTfliteDetector(ctx context.Context, mm ModelMap, conf *VisModelConf
 		return errors.Wrapf(err, "could not register tflite detector %s", conf.Name)
 	}
 
-	regModel := RegisteredModel{Model: detector, ModelType: TFLiteDetector, Closer: model}
+	regModel := registeredModel{Model: detector, ModelType: TFLiteDetector, Closer: model}
 	return mm.RegisterVisModel(conf.Name, &regModel, logger)
 }
 
-func registerRCSegmenter(ctx context.Context, mm ModelMap, conf *VisModelConfig, logger golog.Logger) error {
+func registerRCSegmenter(ctx context.Context, mm modelMap, conf *vision.VisModelConfig, logger golog.Logger) error {
 	_, span := trace.StartSpan(ctx, "service::vision::registerRCSegmenter")
 	defer span.End()
 	if conf == nil {
@@ -80,11 +81,11 @@ func registerRCSegmenter(ctx context.Context, mm ModelMap, conf *VisModelConfig,
 		return err
 	}
 
-	regModel := RegisteredModel{Model: segmenter, ModelType: RCSegmenter, Closer: nil}
+	regModel := registeredModel{Model: segmenter, ModelType: RCSegmenter, Closer: nil}
 	return mm.RegisterVisModel(conf.Name, &regModel, logger)
 }
 
-func registerSegmenterFromDetector(ctx context.Context, mm ModelMap, conf *VisModelConfig, logger golog.Logger) error {
+func registerSegmenterFromDetector(ctx context.Context, mm modelMap, conf *vision.VisModelConfig, logger golog.Logger) error {
 	_, span := trace.StartSpan(ctx, "service::vision::registerSegmenterFromDetector")
 	defer span.End()
 	if conf == nil {
@@ -96,11 +97,11 @@ func registerSegmenterFromDetector(ctx context.Context, mm ModelMap, conf *VisMo
 		return err
 	}
 	// check if detector name is in registry
-	d, err := mm.ModelLookup(cfg.DetectorName)
+	d, err := mm.modelLookup(cfg.DetectorName)
 	if err != nil {
 		return err
 	}
-	detector, err := d.ToDetector()
+	detector, err := d.toDetector()
 	if err != nil {
 		return err
 	}
@@ -109,6 +110,6 @@ func registerSegmenterFromDetector(ctx context.Context, mm ModelMap, conf *VisMo
 	if err != nil {
 		return err
 	}
-	regModel := RegisteredModel{Model: segmenter, ModelType: DetectorSegmenter, Closer: nil}
+	regModel := registeredModel{Model: segmenter, ModelType: DetectorSegmenter, Closer: nil}
 	return mm.RegisterVisModel(conf.Name, &regModel, logger)
 }
