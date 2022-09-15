@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/resource"
 )
@@ -18,7 +19,7 @@ type CollectorConstructor func(resource interface{}, params CollectorParams) (Co
 type CollectorParams struct {
 	ComponentName string
 	Interval      time.Duration
-	MethodParams  map[string]string
+	MethodParams  map[string]*anypb.Any
 	Target        *os.File
 	QueueSize     int
 	BufferSize    int
