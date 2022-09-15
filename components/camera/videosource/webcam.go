@@ -263,5 +263,5 @@ func tryWebcamOpen(ctx context.Context,
 	if attrs.AttrConfig != nil {
 		intrinsics = attrs.AttrConfig.CameraParameters
 	}
-	return camera.NewFromSource(ctx, source, intrinsics, camera.StreamType(attrs.Stream))
+	return camera.NewFromSource(ctx, source, &transform.PinholeCameraModel{intrinsics, nil}, camera.StreamType(attrs.Stream))
 }
