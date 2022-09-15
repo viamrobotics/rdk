@@ -45,18 +45,21 @@ type Service interface {
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		worldState *commonpb.WorldState,
+		extra map[string]interface{},
 	) (bool, error)
 	MoveSingleComponent(
 		ctx context.Context,
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		worldState *commonpb.WorldState,
+		extra map[string]interface{},
 	) (bool, error)
 	GetPose(
 		ctx context.Context,
 		componentName resource.Name,
 		destinationFrame string,
 		supplementalTransforms []*commonpb.Transform,
+		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
 }
 
@@ -109,10 +112,11 @@ func (svc *reconfigurableMotionService) Move(
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
+	extra map[string]interface{},
 ) (bool, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.Move(ctx, componentName, destination, worldState)
+	return svc.actual.Move(ctx, componentName, destination, worldState, extra)
 }
 
 func (svc *reconfigurableMotionService) MoveSingleComponent(
@@ -120,10 +124,11 @@ func (svc *reconfigurableMotionService) MoveSingleComponent(
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
+	extra map[string]interface{},
 ) (bool, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.MoveSingleComponent(ctx, componentName, destination, worldState)
+	return svc.actual.MoveSingleComponent(ctx, componentName, destination, worldState, extra)
 }
 
 func (svc *reconfigurableMotionService) GetPose(
@@ -131,10 +136,11 @@ func (svc *reconfigurableMotionService) GetPose(
 	componentName resource.Name,
 	destinationFrame string,
 	supplementalTransforms []*commonpb.Transform,
+	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetPose(ctx, componentName, destinationFrame, supplementalTransforms)
+	return svc.actual.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
 }
 
 func (svc *reconfigurableMotionService) Close(ctx context.Context) error {

@@ -49,6 +49,7 @@ func (ms *builtIn) Move(
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
+	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")
 	logger := ms.r.Logger()
@@ -85,7 +86,7 @@ func (ms *builtIn) Move(
 		[]*referenceframe.PoseInFrame{goalPose},
 		componentName.Name,
 		worldState,
-		[]map[string]interface{}{},
+		[]map[string]interface{}{extra},
 	)
 	if err != nil {
 		return false, err
@@ -116,6 +117,7 @@ func (ms *builtIn) MoveSingleComponent(
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
+	extra map[string]interface{},
 ) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, "motion-service")
 	logger := ms.r.Logger()
@@ -155,7 +157,7 @@ func (ms *builtIn) MoveSingleComponent(
 		logger.Debugf("converted goal pose %q", spatialmath.PoseToProtobuf(goalPose))
 	}
 
-	err := movableArm.MoveToPosition(ctx, spatialmath.PoseToProtobuf(goalPose), worldState, nil)
+	err := movableArm.MoveToPosition(ctx, spatialmath.PoseToProtobuf(goalPose), worldState, extra)
 	if err == nil {
 		return true, nil
 	}
@@ -167,6 +169,7 @@ func (ms *builtIn) GetPose(
 	componentName resource.Name,
 	destinationFrame string,
 	supplementalTransforms []*commonpb.Transform,
+	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	if destinationFrame == "" {
 		destinationFrame = referenceframe.World
