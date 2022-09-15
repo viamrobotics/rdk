@@ -10,13 +10,18 @@ import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
 import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
 import streamApi from '../gen/proto/stream/v1/stream_pb.esm';
 import { toast } from '../lib/toast';
+import { filterResources } from '../lib/resource';
 import KeyboardInput from './keyboard-input.vue';
 
 interface Props {
-  name: string
+  name: string,
+  resources: [],
 }
 
 const props = defineProps<Props>();
+
+const emit = defineEmits(['showcamera']);
+
 const selectedItem = ref<'Keyboard' | 'Discrete'>('Keyboard');
 const movementMode = ref('Straight');
 const movementType = ref('Continuous');
@@ -77,7 +82,7 @@ const baseRun = () => {
       distance: increment.value,
     });
   } else {
-    console.log(`Unrecognized discrete movement mode: ${movementMode.value}`);
+    handleError(`Unrecognized discrete movement mode: ${movementMode.value}`);
   }
 };
 
@@ -89,7 +94,7 @@ const handleError = (error) => {
 
 const baseKeyboardCtl = (name: string, controls) => {
   if (Object.values(controls).every((item) => item === false)) {
-    console.log('All keyboard inputs false, stopping base.');
+    handleError('All keyboard inputs false, stopping base.');
     handleBaseActionStop(name);
     return;
   } 
@@ -151,6 +156,10 @@ const viewPreviewCamera = (name: string, isOn: boolean) => {
   });
 };
 
+const handleSelectCamera = (event: event) => {
+  emit('showcamera', event);
+};
+
 </script>
 
 <template>
@@ -188,8 +197,24 @@ const viewPreviewCamera = (name: string, isOn: boolean) => {
               @keyboard-ctl="baseKeyboardCtl(name, $event)"
             />
           </div>
-          <div>
-            <slot />
+          <div v-if="filterResources(resources, 'rdk', 'component', 'camera')">
+            <v-select
+              class="mb-4"
+              variant="multiple"
+              placeholder="Select Cameras"
+              :options="filterResources(resources, 'rdk', 'component', 'camera').map(({ name }) => name).join(',')"
+              @input="handleSelectCamera($event.detail.value)"
+            />
+            <template 
+              v-for="basecamera in filterResources(resources, 'rdk', 'component', 'camera')"
+              :key="basecamera.name"
+            >
+              <div
+                v-if="basecamera"
+                :id="`stream-preview-${basecamera.name}`"
+                class="mb-4 border border-white"
+              />
+            </template>
           </div>
         </div>
       </div>
