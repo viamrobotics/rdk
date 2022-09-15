@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
@@ -122,7 +123,7 @@ func newDualServerSource(ctx context.Context, cfg *dualServerAttrs) (camera.Came
 	if cfg.AttrConfig != nil {
 		props = cfg.AttrConfig.CameraParameters
 	}
-	return camera.NewFromReader(ctx, videoSrc, props, videoSrc.Stream)
+	return camera.NewFromReader(ctx, videoSrc, &transform.PinholeCameraModel{props, nil}, videoSrc.Stream)
 }
 
 // Read requests either the color or depth frame, depending on what the config specifies.
@@ -231,7 +232,7 @@ func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 		if err != nil {
 			return nil, err
 		}
-		return depth.(*rimage.DepthMap).ToPointCloud(s.Intrinsics), nil
+		return depthadapter.ToPointCloud(depth.(*rimage.DepthMap), s.Intrinsics), nil
 	}
 	return nil,
 		errors.Errorf("no depth information in stream %q, cannot project to point cloud", s.stream)
@@ -254,5 +255,5 @@ func NewServerSource(ctx context.Context, cfg *ServerAttrs, logger golog.Logger)
 	if cfg.AttrConfig != nil {
 		intrinsics = cfg.AttrConfig.CameraParameters
 	}
-	return camera.NewFromReader(ctx, videoSrc, intrinsics, videoSrc.stream)
+	return camera.NewFromReader(ctx, videoSrc, &transform.PinholeCameraModel{intrinsics, nil}, videoSrc.stream)
 }

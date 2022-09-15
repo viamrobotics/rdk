@@ -8,7 +8,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 )
 
 // Camera is an injected camera.
@@ -20,7 +20,7 @@ type Camera struct {
 		errHandlers ...gostream.ErrorHandler,
 	) (gostream.VideoStream, error)
 	NextPointCloudFunc func(ctx context.Context) (pointcloud.PointCloud, error)
-	ProjectorFunc      func(ctx context.Context) (rimage.Projector, error)
+	ProjectorFunc      func(ctx context.Context) (transform.Projector, error)
 	GetPropertiesFunc  func(ctx context.Context) (camera.Properties, error)
 	CloseFunc          func(ctx context.Context) error
 }
@@ -45,7 +45,7 @@ func (c *Camera) Stream(
 }
 
 // Projector calls the injected Projector or the real version.
-func (c *Camera) Projector(ctx context.Context) (rimage.Projector, error) {
+func (c *Camera) Projector(ctx context.Context) (transform.Projector, error) {
 	if c.ProjectorFunc == nil {
 		return c.Camera.Projector(ctx)
 	}

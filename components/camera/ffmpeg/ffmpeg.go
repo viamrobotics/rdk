@@ -178,7 +178,7 @@ func NewFFMPEGCamera(ctx context.Context, attrs *AttrConfig, logger golog.Logger
 		streamType = camera.StreamType(attrs.Stream)
 		intrinsics = attrs.CameraParameters
 	}
-	return camera.NewFromReader(ctx, ffCam, intrinsics, streamType)
+	return camera.NewFromReader(ctx, ffCam, &transform.PinholeCameraModel{intrinsics, nil}, streamType)
 }
 
 func (fc *ffmpegCamera) Close(ctx context.Context) error {

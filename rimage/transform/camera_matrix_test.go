@@ -2,7 +2,6 @@ package transform
 
 import (
 	"image"
-	"math"
 	"os"
 	"testing"
 
@@ -52,22 +51,6 @@ func TestPC1(t *testing.T) {
 	defer file.Close()
 
 	pointcloud.ToPCD(pc, file, pointcloud.PCDAscii)
-}
-
-func TestPC2(t *testing.T) {
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
-	test.That(t, err, test.ShouldBeNil)
-
-	// get camera matrix parameters
-	colorIntrinsics, err := NewPinholeCameraIntrinsicsFromJSONFile(intel515ParamsPath, "color")
-	test.That(t, err, test.ShouldBeNil)
-
-	pixel2meter := 0.001
-	pc, err := DepthMapToPointCloud(dm, pixel2meter, colorIntrinsics, rimage.Depth(0), rimage.Depth(math.MaxUint16))
-	test.That(t, err, test.ShouldBeNil)
-
-	err = pointcloud.WriteToLASFile(pc, outDir+"/board2.las")
-	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestCameraMatrixTo3D(t *testing.T) {

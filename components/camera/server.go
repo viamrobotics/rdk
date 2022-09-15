@@ -162,5 +162,11 @@ func (s *subtypeServer) GetProperties(
 		}
 	}
 	result.SupportsPcd = props.SupportsPCD
+	if props.DistortionParams != nil {
+		result.DistortionParameters = &pb.DistortionParameters{
+			Model:      string(props.DistortionParams.ModelType()),
+			Parameters: props.DistortionParams.Parameters(),
+		}
+	}
 	return result, nil
 }
