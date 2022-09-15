@@ -143,8 +143,8 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	}()
 }
 
-func (c *client) Projector(ctx context.Context) (rimage.Projector, error) {
-	var proj rimage.Projector
+func (c *client) Projector(ctx context.Context) (transform.Projector, error) {
+	var proj transform.Projector
 	props, err := c.GetProperties(ctx)
 	if err != nil {
 		return nil, err
@@ -167,15 +167,26 @@ func (c *client) GetProperties(ctx context.Context) (Properties, error) {
 		return Properties{}, err
 	}
 	result.IntrinsicParams = &transform.PinholeCameraIntrinsics{
-		Width:      int(resp.IntrinsicParameters.WidthPx),
-		Height:     int(resp.IntrinsicParameters.HeightPx),
-		Fx:         resp.IntrinsicParameters.FocalXPx,
-		Fy:         resp.IntrinsicParameters.FocalYPx,
-		Ppx:        resp.IntrinsicParameters.CenterXPx,
-		Ppy:        resp.IntrinsicParameters.CenterYPx,
-		Distortion: transform.DistortionModel{},
+		Width:  int(resp.IntrinsicParameters.WidthPx),
+		Height: int(resp.IntrinsicParameters.HeightPx),
+		Fx:     resp.IntrinsicParameters.FocalXPx,
+		Fy:     resp.IntrinsicParameters.FocalYPx,
+		Ppx:    resp.IntrinsicParameters.CenterXPx,
+		Ppy:    resp.IntrinsicParameters.CenterYPx,
 	}
 	result.SupportsPCD = resp.SupportsPcd
+	// if no distortion model present, return result with no model
+	if resp.DistortionParameters == nil {
+		result.DistortionParams = &transform.NoDistortion{}
+		return result, nil
+	}
+	// switch distortion model based on model name
+	model := transform.DistortionType(resp.DistortionParameters.Model)
+	distorter, err := transform.NewDistorter(model, resp.DistortionParameters.Parameters)
+	if err != nil {
+		return Properties{}, err
+	}
+	result.DistortionParams = distorter
 	return result, nil
 }
 
