@@ -71,7 +71,7 @@ func applyAlignment(
 	dm *rimage.DepthMap,
 	attrs *alignAttrs,
 	logger golog.Logger,
-) (pointcloud.PointCloud, rimage.Projector) {
+) (pointcloud.PointCloud, transform.Projector) {
 	t.Helper()
 	colorSrc := &StaticSource{ColorImg: img}
 	colorCam, err := camera.NewFromReader(context.Background(), colorSrc, nil, camera.ColorStream)
@@ -129,11 +129,11 @@ func TestAlignWarp(t *testing.T) {
 	attrs.Height = 342
 	attrs.Width = 448
 
-	warpParams, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
-		utils.ResolveFile("components/camera/videosource/data/gripper_combo_parameters.json"), "color",
+	warpParams, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(
+		utils.ResolveFile("components/camera/videosource/data/gripper_combo_parameters.json"),
 	)
 	test.That(t, err, test.ShouldBeNil)
-	attrs.CameraParameters = warpParams
+	attrs.CameraParameters = &warpParams.ColorCamera
 
 	im, err := rimage.NewImageFromFile(artifact.MustPath("align/gripper1/chess1_color.png"))
 	test.That(t, err, test.ShouldBeNil)
@@ -231,11 +231,11 @@ func TestAlignGripperWarp(t *testing.T) {
 
 	c.IntrinsicExtrinsic = nil
 	c.Homography = nil
-	warpParams, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
-		utils.ResolveFile("components/camera/videosource/data/gripper_combo_parameters.json"), "color",
+	warpParams, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(
+		utils.ResolveFile("components/camera/videosource/data/gripper_combo_parameters.json"),
 	)
 	test.That(t, err, test.ShouldBeNil)
-	c.CameraParameters = warpParams
+	c.CameraParameters = &warpParams.ColorCamera
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1/color", "*.png", "align/gripper1/depth")
 	d.Process(t, &alignTestHelper{c, "warp"})
 	test.That(t, err, test.ShouldBeNil)
