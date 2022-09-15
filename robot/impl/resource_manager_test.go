@@ -1456,8 +1456,6 @@ func TestManagerResourceRPCSubtypes(t *testing.T) {
 
 	resName1 := resource.NameFromSubtype(subtype1, "thing1")
 	resName2 := resource.NameFromSubtype(subtype2, "thing2")
-	// resName3 := resource.NameFromSubtype(subtype1, "thing3")
-	// resName4 := resource.NameFromSubtype(subtype2, "thing4")
 
 	injectRobotRemote1 := &inject.Robot{}
 	injectRobotRemote1.LoggerFunc = func() golog.Logger {
@@ -1572,6 +1570,34 @@ func TestManagerResourceRPCSubtypes(t *testing.T) {
 			subtypesM[subtype2].AsProto(), cameraDesc.AsProto(), protocmp.Transform()) ||
 			cmp.Equal(subtypesM[subtype2].AsProto(), gripperDesc.AsProto(), protocmp.Transform()),
 		test.ShouldBeTrue)
+}
+
+func TestManagerEmptyResourceDesc(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	injectRobot := &inject.Robot{}
+	injectRobot.LoggerFunc = func() golog.Logger {
+		return logger
+	}
+	subtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, "mockDesc")
+	registry.RegisterResourceSubtype(
+		subtype,
+		registry.ResourceSubtype{Reconfigurable: func(resource interface{}) (resource.Reconfigurable, error) { return nil, nil }},
+	)
+
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{resource.NameFromSubtype(subtype, "mock1")}
+	}
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return 1, nil
+	}
+
+	manager := managerForDummyRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
+
+	subtypes := manager.ResourceRPCSubtypes()
+	test.That(t, subtypes, test.ShouldHaveLength, 0)
 }
 
 func TestUpdateConfig(t *testing.T) {
