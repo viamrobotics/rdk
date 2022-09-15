@@ -111,6 +111,9 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webca
 
 		for _, prop := range props {
 			pbProp := &pb.Property{
+				Width:       int32(prop.Video.Width),
+				Height:      int32(prop.Video.Height),
+				FrameFormat: string(prop.Video.FrameFormat),
 				Video: &pb.Video{
 					Width:       int32(prop.Video.Width),
 					Height:      int32(prop.Video.Height),
