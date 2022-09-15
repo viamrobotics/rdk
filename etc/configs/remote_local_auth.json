@@ -7,9 +7,10 @@
             "name": "robot1",
             "address": "localhost:8080",
             "auth": {
+                "entity": "something-unique",
                 "credentials": {
                     "type": "api-key",
-                    "payload": "${RDK_AUTH_API_KEY}"
+                    "payload": "${RDK_AUTH_API_KEY}2"
                 }
             }
         },
@@ -18,6 +19,7 @@
             "address": "localhost:8080",
             "prefix": true,
             "auth": {
+                "entity": "something-unique",
                 "credentials": {
                     "type": "api-key",
                     "payload": "${RDK_AUTH_API_KEY}"
