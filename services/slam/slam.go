@@ -496,7 +496,9 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	}
 
 	var mapRate int
-	if svcConfig.MapRateSec == 0 {
+	if svcConfig.MapRateSec == -1 {
+		mapRate = 0
+	} else if svcConfig.MapRateSec <= 0 {
 		mapRate = defaultMapRateSec
 	} else {
 		mapRate = svcConfig.MapRateSec
