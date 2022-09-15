@@ -1,4 +1,4 @@
-// export_test.go adds functionality to the datamanager that we only want to use and expose during testing.
+// export_test.go adds functionality to the builtin package that we only want to use and expose during testing.
 package builtin
 
 import (
