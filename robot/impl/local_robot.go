@@ -496,6 +496,13 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s use one of the following valid models: %s",
 			rName.Subtype, config.Model, strings.Join(validModels, ", "))
 	}
+	// If MaxInstance equals zero then there is not limit on the number of services
+	if f.MaxInstance != 0 {
+		err := r.CheckMaxInstance(f, rName)
+		if err != nil {
+			return nil, err
+		}
+	}
 	svc, err := f.Constructor(ctx, r, config, r.logger)
 	if err != nil {
 		return nil, err
@@ -767,4 +774,18 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if allErrs != nil {
 		r.logger.Errorw("the following errors were gathered during reconfiguration", "errors", allErrs)
 	}
+}
+
+// CheckMaxInstance checks to see if the local robot has reached the maximum number of a specific service type.
+func (r *localRobot) CheckMaxInstance(f *registry.Service, name resource.Name) error {
+	maxInstance := 0
+	for _, n := range r.ResourceNames() {
+		if n.Subtype == name.Subtype {
+			maxInstance++
+			if maxInstance == f.MaxInstance {
+				return errors.Errorf("Max instance number reached for service type: %s", name.Subtype)
+			}
+		}
+	}
+	return nil
 }
