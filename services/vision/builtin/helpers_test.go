@@ -1,4 +1,4 @@
-package vision_test
+package builtin_test
 
 import (
 	"context"
@@ -54,7 +54,7 @@ func buildRobotWithFakeCamera(t *testing.T) (robot.Robot, error) {
 	t.Helper()
 	// add a fake camera to the config
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/empty.json", logger)
+	cfg, err := config.Read(context.Background(), "../data/empty.json", logger)
 	if err != nil {
 		return nil, err
 	}

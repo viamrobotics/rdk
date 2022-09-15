@@ -1,4 +1,4 @@
-package vision
+package builtin
 
 import (
 	"context"
@@ -8,10 +8,11 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/services/vision"
 )
 
 func TestColorDetector(t *testing.T) {
-	inp := &VisModelConfig{
+	inp := &vision.VisModelConfig{
 		Name: "my_color_detector",
 		Type: "color_detector",
 		Parameters: config.AttributeMap{
@@ -22,11 +23,11 @@ func TestColorDetector(t *testing.T) {
 		},
 	}
 	ctx := context.Background()
-	reg := make(ModelMap)
+	reg := make(modelMap)
 	testlog := golog.NewLogger("testlog")
 	err := registerColorDetector(ctx, reg, inp, testlog)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = reg.ModelLookup("my_color_detector")
+	_, err = reg.modelLookup("my_color_detector")
 	test.That(t, err, test.ShouldBeNil)
 
 	// with error - bad parameters

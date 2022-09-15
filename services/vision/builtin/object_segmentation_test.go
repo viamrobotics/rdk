@@ -1,4 +1,4 @@
-package vision_test
+package builtin_test
 
 import (
 	"context"
@@ -24,6 +24,10 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
 	viz "go.viam.com/rdk/vision"
+)
+
+const (
+	testVisionServiceName = "vision1"
 )
 
 func TestObjectSegmentationFailures(t *testing.T) {
@@ -75,7 +79,7 @@ func TestObjectSegmentationFailures(t *testing.T) {
 		"mean_k_filtering":      10.,
 	}
 
-	err = obs.AddSegmenter(context.Background(), vision.VisModelConfig{vision.RadiusClusteringSegmenter, string(vision.RCSegmenter), params})
+	err = obs.AddSegmenter(context.Background(), vision.VisModelConfig{vision.RadiusClusteringSegmenter, string(builtin.RCSegmenter), params})
 	test.That(t, err, test.ShouldBeNil)
 	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", vision.RadiusClusteringSegmenter)
 	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
@@ -112,7 +116,7 @@ func TestGetObjectPointClouds(t *testing.T) {
 		"clustering_radius_mm":  5.,
 		"mean_k_filtering":      10.,
 	}
-	err = obs.AddSegmenter(context.Background(), vision.VisModelConfig{vision.RadiusClusteringSegmenter, string(vision.RCSegmenter), params})
+	err = obs.AddSegmenter(context.Background(), vision.VisModelConfig{vision.RadiusClusteringSegmenter, string(builtin.RCSegmenter), params})
 	test.That(t, err, test.ShouldBeNil)
 
 	// see if it ws registered
@@ -248,7 +252,7 @@ func TestFullClientServerLoop(t *testing.T) {
 	}
 	err = client.AddSegmenter(
 		context.Background(),
-		vision.VisModelConfig{vision.RadiusClusteringSegmenter, string(vision.RCSegmenter), params},
+		vision.VisModelConfig{vision.RadiusClusteringSegmenter, string(builtin.RCSegmenter), params},
 	)
 	test.That(t, err, test.ShouldBeNil)
 

@@ -12,6 +12,7 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/config"
 	servicepb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -121,6 +122,17 @@ func FindFirstName(r robot.Robot) string {
 func FirstFromRobot(r robot.Robot) (Service, error) {
 	name := FindFirstName(r)
 	return FromRobot(r, name)
+}
+
+// VisModelType defines what vision models are known by the vision service.
+type VisModelType string
+
+// VisModelConfig specifies the name of the detector, the type of detector,
+// and the necessary parameters needed to build the detector.
+type VisModelConfig struct {
+	Name       string              `json:"name"`
+	Type       string              `json:"type"`
+	Parameters config.AttributeMap `json:"parameters"`
 }
 
 // Attributes contains a list of the user-provided details necessary to register a new vision service.

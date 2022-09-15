@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/services/vision/builtin"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -77,7 +78,7 @@ func TestServerGetParameterSchema(t *testing.T) {
 	}
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
-	paramsRequest := &pb.GetModelParameterSchemaRequest{Name: testVisionServiceName, ModelType: string(vision.RCSegmenter)}
+	paramsRequest := &pb.GetModelParameterSchemaRequest{Name: testVisionServiceName, ModelType: string(builtin.RCSegmenter)}
 	params, err := server.GetModelParameterSchema(context.Background(), paramsRequest)
 	test.That(t, err, test.ShouldBeNil)
 	outp := &jsonschema.Schema{}
@@ -255,7 +256,7 @@ func TestServerAddRemoveSegmenter(t *testing.T) {
 	_, err = server.AddSegmenter(context.Background(), &pb.AddSegmenterRequest{
 		Name:                testVisionServiceName,
 		SegmenterName:       "test",
-		SegmenterModelType:  string(vision.RCSegmenter),
+		SegmenterModelType:  string(builtin.RCSegmenter),
 		SegmenterParameters: params,
 	})
 	test.That(t, err, test.ShouldBeNil)
@@ -362,7 +363,7 @@ func TestServerSegmentationAddRemove(t *testing.T) {
 	_, err = server.AddSegmenter(context.Background(), &pb.AddSegmenterRequest{
 		Name:                testVisionServiceName,
 		SegmenterName:       vision.RadiusClusteringSegmenter,
-		SegmenterModelType:  string(vision.RCSegmenter),
+		SegmenterModelType:  string(builtin.RCSegmenter),
 		SegmenterParameters: params,
 	})
 	test.That(t, err, test.ShouldBeNil)

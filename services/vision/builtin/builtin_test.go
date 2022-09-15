@@ -18,7 +18,7 @@ func TestModelParameterSchema(t *testing.T) {
 	ctx := context.Background()
 	srv := makeService(ctx, t)
 	// get parameters that exist
-	params, err := srv.GetModelParameterSchema(ctx, vision.RCSegmenter)
+	params, err := srv.GetModelParameterSchema(ctx, RCSegmenter)
 	test.That(t, err, test.ShouldBeNil)
 	parameterNames := params.Definitions["RadiusClusteringConfig"].Required
 	test.That(t, parameterNames, test.ShouldContain, "min_points_in_plane")
@@ -51,7 +51,7 @@ func TestCloseService(t *testing.T) {
 	det := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{}, nil
 	}
-	registeredFn := vision.RegisteredModel{Model: det, Closer: fakeStruct}
+	registeredFn := registeredModel{Model: det, Closer: fakeStruct}
 	logger := golog.NewTestLogger(t)
 	err = vService.modReg.RegisterVisModel("fake", &registeredFn, logger)
 	test.That(t, err, test.ShouldBeNil)
