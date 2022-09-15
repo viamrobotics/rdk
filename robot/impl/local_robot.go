@@ -397,6 +397,8 @@ func newWithResources(
 			continue
 		}
 		cfg := config.Service{
+			Name:      name.Name,
+			Model:     resource.DefaultModelName,
 			Namespace: name.Namespace,
 			Type:      config.ServiceType(name.ResourceSubtype),
 		}
@@ -487,9 +489,12 @@ func New(
 
 func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
 	rName := config.ResourceName()
-	f := registry.ServiceLookup(rName.Subtype)
+	f := registry.ServiceLookup(rName.Subtype, config.Model)
+	// If service model/type not found then print list of valid models they can choose from
 	if f == nil {
-		return nil, errors.Errorf("unknown service type: %s", rName.Subtype)
+		validModels := registry.FindValidServiceModels(rName)
+		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s use one of the following valid models: %s",
+			rName.Subtype, config.Model, strings.Join(validModels, ", "))
 	}
 	// If MaxInstance equals zero then there is not limit on the number of services
 	if f.MaxInstance != 0 {
