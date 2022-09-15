@@ -1,4 +1,4 @@
-package vision
+package builtin
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	inf "go.viam.com/rdk/ml/inference"
+	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/classification"
 )
@@ -28,7 +29,7 @@ type TFLiteClassifierConfig struct {
 // NewTFLiteClassifier creates an RDK classifier given a VisModelConfig. In other words, this
 // function returns a function from image-->[]classifier.Classifications. It does this by making calls to
 // an inference package and wrapping the result.
-func NewTFLiteClassifier(ctx context.Context, conf *VisModelConfig,
+func NewTFLiteClassifier(ctx context.Context, conf *vision.VisModelConfig,
 	logger golog.Logger,
 ) (classification.Classifier, *inf.TFLiteStruct, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::NewTFLiteDetector")

@@ -46,6 +46,7 @@ func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb
 		protoutils.ResourceNameFromProto(req.GetComponentName()),
 		referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
 		req.GetWorldState(),
+		req.Extra.AsMap(),
 	)
 	return &pb.MoveResponse{Success: success}, err
 }
@@ -63,6 +64,7 @@ func (server *subtypeServer) MoveSingleComponent(
 		protoutils.ResourceNameFromProto(req.GetComponentName()),
 		referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
 		req.GetWorldState(),
+		req.Extra.AsMap(),
 	)
 	return &pb.MoveSingleComponentResponse{Success: success}, err
 }
@@ -80,6 +82,7 @@ func (server *subtypeServer) GetPose(ctx context.Context, req *pb.GetPoseRequest
 		ctx,
 		protoutils.ResourceNameFromProto(req.ComponentName),
 		req.DestinationFrame, req.GetSupplementalTransforms(),
+		req.Extra.AsMap(),
 	)
 	if err != nil {
 		return nil, err

@@ -4,17 +4,25 @@ package slam
 // TODO 05/12/2022: Both type and constants will be deprecated when data ingestion via GRPC is available
 // only being used now for linter issues.
 type (
-	slamLibrary uint8
-	mode        string
+	// Library type used for slam.
+	Library uint8
+	// Mode holds the modes a slam model can use.
+	Mode string
 )
 
 const (
-	dense = slamLibrary(iota)
-	sparse
-	mono  = mode("mono")
-	rgbd  = mode("rgbd")
-	dim2d = mode("2d")
-	dim3d = mode("3d")
+	// Dense is a Library type.
+	Dense = Library(iota)
+	// Sparse is a Library type.
+	Sparse
+	// Mono is a mode a slam model can use.
+	Mono = Mode("mono")
+	// Rgbd is a mode a slam model can use.
+	Rgbd = Mode("rgbd")
+	// Dim2d is a mode a slam model can use.
+	Dim2d = Mode("2d")
+	// Dim3d is a mode a slam model can use.
+	Dim3d = Mode("3d")
 )
 
 // SLAMLibraries contains a map of available slam libraries.
@@ -26,23 +34,23 @@ var SLAMLibraries = map[string]LibraryMetadata{
 // Define currently implemented slam libraries.
 var cartographerMetadata = LibraryMetadata{
 	AlgoName:       "cartographer",
-	AlgoType:       dense,
-	SlamMode:       map[string]mode{"2d": dim2d},
+	AlgoType:       Dense,
+	SlamMode:       map[string]Mode{"2d": Dim2d},
 	BinaryLocation: "",
 }
 
 var orbslamv3Metadata = LibraryMetadata{
 	AlgoName:       "orbslamv3",
-	AlgoType:       sparse,
-	SlamMode:       map[string]mode{"mono": mono, "rgbd": rgbd},
+	AlgoType:       Sparse,
+	SlamMode:       map[string]Mode{"mono": Mono, "rgbd": Rgbd},
 	BinaryLocation: "orb_grpc_server",
 }
 
 // LibraryMetadata contains all pertinent information for defining a SLAM library/algorithm including the
-// sparse/dense definition.
+// Sparse/Dense definition.
 type LibraryMetadata struct {
 	AlgoName       string
-	AlgoType       slamLibrary
-	SlamMode       map[string]mode
+	AlgoType       Library
+	SlamMode       map[string]Mode
 	BinaryLocation string
 }

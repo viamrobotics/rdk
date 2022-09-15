@@ -60,6 +60,7 @@ func TestServerMove(t *testing.T) {
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		worldState *commonpb.WorldState,
+		extra map[string]interface{},
 	) (bool, error) {
 		return false, passedErr
 	}
@@ -73,6 +74,7 @@ func TestServerMove(t *testing.T) {
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		worldState *commonpb.WorldState,
+		extra map[string]interface{},
 	) (bool, error) {
 		return true, nil
 	}
@@ -92,6 +94,7 @@ func TestServerMove(t *testing.T) {
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		worldState *commonpb.WorldState,
+		extra map[string]interface{},
 	) (bool, error) {
 		return true, nil
 	}

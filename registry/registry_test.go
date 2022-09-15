@@ -13,12 +13,15 @@ import (
 	"go.viam.com/rdk/discovery"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 )
 
 var (
-	button = resource.SubtypeName("button")
-	acme   = resource.NewName(resource.Namespace("acme"), resource.ResourceTypeComponent, button, "button1")
+	button      = resource.SubtypeName("button")
+	acme        = resource.NewName(resource.Namespace("acme"), resource.ResourceTypeComponent, button, "button1")
+	nav         = resource.SubtypeName("navigation")
+	testService = resource.NewName(resource.Namespace("rdk"), resource.ResourceTypeComponent, nav, "nav1")
 )
 
 func TestComponentRegistry(t *testing.T) {
@@ -107,4 +110,29 @@ func TestDiscoveryFunctionRegistry(t *testing.T) {
 	acmeDF, ok := DiscoveryFunctionLookup(validSubtypeQuery)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, acmeDF, test.ShouldEqual, df)
+}
+
+func TestServiceRegistry(t *testing.T) {
+	rf := func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
+		return 1, nil
+	}
+	modelName := resource.DefaultModelName
+	test.That(t, func() { RegisterService(testService.Subtype, modelName, Service{}) }, test.ShouldPanic)
+	RegisterService(testService.Subtype, modelName, Service{Constructor: rf})
+
+	creator := ServiceLookup(testService.Subtype, modelName)
+	test.That(t, creator, test.ShouldNotBeNil)
+	test.That(t, ServiceLookup(testService.Subtype, "z"), test.ShouldBeNil)
+	test.That(t, creator.Constructor, test.ShouldEqual, rf)
+}
+
+func TestFindValidServiceModels(t *testing.T) {
+	rf := func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
+		return 1, nil
+	}
+	RegisterService(testService.Subtype, "testModel1", Service{Constructor: rf})
+	RegisterService(testService.Subtype, "testModel2", Service{Constructor: rf})
+	modelList := FindValidServiceModels(testService)
+	test.That(t, modelList, test.ShouldContain, "testModel1")
+	test.That(t, modelList, test.ShouldContain, "testModel2")
 }

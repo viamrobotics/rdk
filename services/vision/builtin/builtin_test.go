@@ -1,4 +1,4 @@
-package vision
+package builtin
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/services/vision"
 	objdet "go.viam.com/rdk/vision/objectdetection"
 )
 
@@ -25,7 +26,7 @@ func TestModelParameterSchema(t *testing.T) {
 	test.That(t, parameterNames, test.ShouldContain, "clustering_radius_mm")
 	test.That(t, parameterNames, test.ShouldContain, "mean_k_filtering")
 	// attempt to get parameters that dont exist
-	_, err = srv.GetModelParameterSchema(ctx, VisModelType("not_a_model"))
+	_, err = srv.GetModelParameterSchema(ctx, vision.VisModelType("not_a_model"))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "do not have a schema for model type")
 }
@@ -34,7 +35,7 @@ func TestCloseService(t *testing.T) {
 	ctx := context.Background()
 	srv := makeService(ctx, t)
 	// success
-	cfg := VisModelConfig{
+	cfg := vision.VisModelConfig{
 		Name: "test",
 		Type: "color_detector",
 		Parameters: config.AttributeMap{
@@ -45,14 +46,14 @@ func TestCloseService(t *testing.T) {
 	}
 	err := srv.AddDetector(ctx, cfg)
 	test.That(t, err, test.ShouldBeNil)
-	vService := srv.(*visionService)
+	vService := srv.(*builtIn)
 	fakeStruct := newStruct()
 	det := func(context.Context, image.Image) ([]objdet.Detection, error) {
 		return []objdet.Detection{}, nil
 	}
-	registeredFn := registeredModel{model: det, closer: fakeStruct}
+	registeredFn := registeredModel{Model: det, Closer: fakeStruct}
 	logger := golog.NewTestLogger(t)
-	err = vService.modReg.registerVisModel("fake", &registeredFn, logger)
+	err = vService.modReg.RegisterVisModel("fake", &registeredFn, logger)
 	test.That(t, err, test.ShouldBeNil)
 	err = viamutils.TryClose(ctx, srv)
 	test.That(t, err, test.ShouldBeNil)
@@ -76,10 +77,10 @@ func (s *fakeClosingStruct) Close() error {
 	return nil
 }
 
-func makeService(ctx context.Context, t *testing.T) Service {
+func makeService(ctx context.Context, t *testing.T) vision.Service {
 	t.Helper()
 	logger := golog.NewTestLogger(t)
-	srv, err := New(ctx, nil, config.Service{}, logger)
+	srv, err := NewBuiltIn(ctx, nil, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	return srv
 }
