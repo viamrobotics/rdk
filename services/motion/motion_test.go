@@ -51,7 +51,7 @@ func TestMoveFailures(t *testing.T) {
 	ms := setupMotionServiceFromConfig(t, "data/arm_gantry.json")
 	t.Run("fail on not finding gripper", func(t *testing.T) {
 		grabPose := referenceframe.NewPoseInFrame("fakeCamera", spatialmath.NewPoseFromPoint(r3.Vector{10.0, 10.0, 10.0}))
-		_, err = ms.Move(context.Background(), camera.Named("fake"), grabPose, &commonpb.WorldState{})
+		_, err = ms.Move(context.Background(), camera.Named("fake"), grabPose, &commonpb.WorldState{}, map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -73,7 +73,7 @@ func TestMoveFailures(t *testing.T) {
 			Transforms: transformMsgs,
 		}
 		poseInFrame := referenceframe.NewPoseInFrame("frame2", spatialmath.NewZeroPose())
-		_, err = ms.Move(context.Background(), arm.Named("arm1"), poseInFrame, worldState)
+		_, err = ms.Move(context.Background(), arm.Named("arm1"), poseInFrame, worldState, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("frame2", "noParent"))
 	})
 }
@@ -84,19 +84,19 @@ func TestMove1(t *testing.T) {
 
 	t.Run("succeeds when all frame info in config", func(t *testing.T) {
 		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
-		_, err = ms.Move(context.Background(), gripper.Named("pieceGripper"), grabPose, &commonpb.WorldState{})
+		_, err = ms.Move(context.Background(), gripper.Named("pieceGripper"), grabPose, &commonpb.WorldState{}, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("succeeds when mobile component can be solved for destinations in own frame", func(t *testing.T) {
 		grabPose := referenceframe.NewPoseInFrame("pieceArm", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
-		_, err = ms.Move(context.Background(), gripper.Named("pieceArm"), grabPose, &commonpb.WorldState{})
+		_, err = ms.Move(context.Background(), gripper.Named("pieceArm"), grabPose, &commonpb.WorldState{}, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("succeeds when immobile component can be solved for destinations in own frame", func(t *testing.T) {
 		grabPose := referenceframe.NewPoseInFrame("pieceGripper", spatialmath.NewPoseFromPoint(r3.Vector{0, -30, -50}))
-		_, err = ms.Move(context.Background(), gripper.Named("pieceGripper"), grabPose, &commonpb.WorldState{})
+		_, err = ms.Move(context.Background(), gripper.Named("pieceGripper"), grabPose, &commonpb.WorldState{}, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -126,7 +126,7 @@ func TestMove1(t *testing.T) {
 			Transforms: transformMsgs,
 		}
 		grabPose := referenceframe.NewPoseInFrame("testFrame2", spatialmath.NewPoseFromPoint(r3.Vector{-20, -130, -40}))
-		_, err = ms.Move(context.Background(), gripper.Named("pieceGripper"), grabPose, worldState)
+		_, err = ms.Move(context.Background(), gripper.Named("pieceGripper"), grabPose, worldState, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
@@ -173,7 +173,13 @@ func TestMoveWithObstacles(t *testing.T) {
 			},
 		}
 		_ = obsMsgs
-		_, err = ms.Move(context.Background(), gripper.Named("pieceArm"), grabPose, &commonpb.WorldState{Obstacles: obsMsgs})
+		_, err = ms.Move(
+			context.Background(),
+			gripper.Named("pieceArm"),
+			grabPose,
+			&commonpb.WorldState{Obstacles: obsMsgs},
+			map[string]interface{}{},
+		)
 		// This fails due to a large obstacle being in the way
 		test.That(t, err, test.ShouldNotBeNil)
 	})
@@ -185,13 +191,25 @@ func TestMoveSingleComponent(t *testing.T) {
 
 	t.Run("succeeds when all frame info in config", func(t *testing.T) {
 		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-25, 30, -200}))
-		_, err = ms.MoveSingleComponent(context.Background(), arm.Named("pieceArm"), grabPose, &commonpb.WorldState{})
+		_, err = ms.MoveSingleComponent(
+			context.Background(),
+			arm.Named("pieceArm"),
+			grabPose,
+			&commonpb.WorldState{},
+			map[string]interface{}{},
+		)
 		// Gripper is not an arm and cannot move
 		test.That(t, err, test.ShouldBeNil)
 	})
 	t.Run("fails due to gripper not being an arm", func(t *testing.T) {
 		grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
-		_, err = ms.MoveSingleComponent(context.Background(), gripper.Named("pieceGripper"), grabPose, &commonpb.WorldState{})
+		_, err = ms.MoveSingleComponent(
+			context.Background(),
+			gripper.Named("pieceGripper"),
+			grabPose,
+			&commonpb.WorldState{},
+			map[string]interface{}{},
+		)
 		// Gripper is not an arm and cannot move
 		test.That(t, err, test.ShouldNotBeNil)
 	})
@@ -223,7 +241,7 @@ func TestMoveSingleComponent(t *testing.T) {
 		)
 
 		grabPose := referenceframe.NewPoseInFrame("testFrame2", poseToGrab)
-		_, err = ms.MoveSingleComponent(context.Background(), arm.Named("pieceArm"), grabPose, worldState)
+		_, err = ms.MoveSingleComponent(context.Background(), arm.Named("pieceArm"), grabPose, worldState, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
@@ -232,7 +250,7 @@ func TestMultiplePieces(t *testing.T) {
 	var err error
 	ms := setupMotionServiceFromConfig(t, "data/fake_tomato.json")
 	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-0, -30, -50}))
-	_, err = ms.Move(context.Background(), gripper.Named("gr"), grabPose, &commonpb.WorldState{})
+	_, err = ms.Move(context.Background(), gripper.Named("gr"), grabPose, &commonpb.WorldState{}, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -240,35 +258,35 @@ func TestGetPose(t *testing.T) {
 	var err error
 	ms := setupMotionServiceFromConfig(t, "data/arm_gantry.json")
 
-	pose, err := ms.GetPose(context.Background(), arm.Named("gantry1"), "", nil)
+	pose, err := ms.GetPose(context.Background(), arm.Named("gantry1"), "", nil, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.FrameName(), test.ShouldEqual, referenceframe.World)
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 1.2)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 0)
 
-	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "", nil)
+	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "", nil, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.FrameName(), test.ShouldEqual, referenceframe.World)
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 501.2)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 300)
 
-	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "gantry1", nil)
+	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "gantry1", nil, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.FrameName(), test.ShouldEqual, "gantry1")
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 500)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 300)
 
-	pose, err = ms.GetPose(context.Background(), arm.Named("gantry1"), "gantry1", nil)
+	pose, err = ms.GetPose(context.Background(), arm.Named("gantry1"), "gantry1", nil, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.FrameName(), test.ShouldEqual, "gantry1")
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 0)
 
-	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "arm1", nil)
+	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "arm1", nil, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.FrameName(), test.ShouldEqual, "arm1")
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 0)
@@ -295,7 +313,7 @@ func TestGetPose(t *testing.T) {
 			},
 		},
 	}
-	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame2", transformMsgs)
+	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame2", transformMsgs, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, -501.2)
 	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
@@ -314,7 +332,7 @@ func TestGetPose(t *testing.T) {
 			},
 		},
 	}
-	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame", transformMsgs)
+	pose, err = ms.GetPose(context.Background(), arm.Named("arm1"), "testFrame", transformMsgs, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError, framesystemparts.NewMissingParentError("testFrame", "noParent"))
 	test.That(t, pose, test.ShouldBeNil)
 }
@@ -340,6 +358,7 @@ func (m *mock) Move(
 	gripperName resource.Name,
 	grabPose *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
+	extra map[string]interface{},
 ) (bool, error) {
 	m.grabCount++
 	return false, nil
@@ -350,6 +369,7 @@ func (m *mock) MoveSingleComponent(
 	gripperName resource.Name,
 	grabPose *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
+	extra map[string]interface{},
 ) (bool, error) {
 	m.grabCount++
 	return false, nil
@@ -360,6 +380,7 @@ func (m *mock) GetPose(
 	componentName resource.Name,
 	destinationFrame string,
 	supplementalTransforms []*commonpb.Transform,
+	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	return &referenceframe.PoseInFrame{}, nil
 }
@@ -377,7 +398,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, svc, test.ShouldNotBeNil)
 
 	grabPose := referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())
-	result, err := svc.Move(context.Background(), gripper.Named("fake"), grabPose, &commonpb.WorldState{})
+	result, err := svc.Move(context.Background(), gripper.Named("fake"), grabPose, &commonpb.WorldState{}, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, false)
 	test.That(t, svc1.grabCount, test.ShouldEqual, 1)
