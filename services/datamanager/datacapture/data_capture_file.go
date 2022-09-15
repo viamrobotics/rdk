@@ -46,7 +46,8 @@ func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.F
 	return f, nil
 }
 
-// BuildCaptureMetadata builds a DataCaptureMetadata object.
+// BuildCaptureMetadata builds a DataCaptureMetadata object and returns error if
+// additionalParams fails to convert to anypb map.
 func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, method string,
 	additionalParams map[string]string, tags []string,
 ) (*v1.DataCaptureMetadata, error) {
