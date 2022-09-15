@@ -33,7 +33,7 @@ func TestDetectorMap(t *testing.T) {
 	// success
 	reg.RegisterVisModel(fnName, &registeredFn, testlog)
 	// detector names
-	names := reg.detectorNames()
+	names := reg.DetectorNames()
 	test.That(t, names, test.ShouldNotBeNil)
 	test.That(t, names, test.ShouldContain, fnName)
 	// look up
@@ -46,12 +46,12 @@ func TestDetectorMap(t *testing.T) {
 	// duplicate
 	err = reg.RegisterVisModel(fnName, &registeredFn, testlog)
 	test.That(t, err, test.ShouldBeNil)
-	names = reg.detectorNames()
+	names = reg.DetectorNames()
 	test.That(t, names, test.ShouldContain, fnName)
 	// remove
 	err = reg.removeVisModel(fnName, testlog)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reg.detectorNames(), test.ShouldNotContain, fnName)
+	test.That(t, reg.DetectorNames(), test.ShouldNotContain, fnName)
 }
 
 func TestCloser(t *testing.T) {
@@ -98,7 +98,7 @@ func TestDetectorRemoval(t *testing.T) {
 	test.That(t, got, test.ShouldContainSubstring, "no such vision model with name")
 	err = reg.removeVisModel("x", logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reg.detectorNames(), test.ShouldNotContain, "x")
+	test.That(t, reg.DetectorNames(), test.ShouldNotContain, "x")
 }
 
 func TestRegisterTFLiteDetector(t *testing.T) {
