@@ -2,8 +2,6 @@ module go.viam.com/rdk
 
 go 1.18
 
-replace go.viam.com/api => /Users/njooma/Developer/api
-
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
 	github.com/CPRT/roboclaw v0.0.0-20190825181223-76871438befc
