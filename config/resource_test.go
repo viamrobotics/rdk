@@ -263,7 +263,6 @@ func TestParseComponentFlag(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, comp.Name, test.ShouldEqual, "baz")
 	test.That(t, comp.Type, test.ShouldEqual, resource.SubtypeName("foo"))
-	test.That(t, comp.SubType, test.ShouldEqual, "who")
 	test.That(t, comp.Model, test.ShouldEqual, "bar")
 	test.That(t, comp.DependsOn, test.ShouldResemble, []string{"foo", "bar"})
 	test.That(t, comp.Attributes, test.ShouldResemble, config.AttributeMap{

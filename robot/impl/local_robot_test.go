@@ -129,7 +129,7 @@ func TestConfigRemote(t *testing.T) {
 				Type:      base.SubtypeName,
 				Model:     "fake",
 				Frame: &config.Frame{
-					Parent: "cameraOver",
+					Parent: "foo:cameraOver",
 				},
 			},
 		},
@@ -138,7 +138,6 @@ func TestConfigRemote(t *testing.T) {
 			{
 				Name:    "foo",
 				Address: addr,
-				Prefix:  true,
 				Frame: &config.Frame{
 					Parent:      "foo",
 					Translation: r3.Vector{100, 200, 300},
@@ -148,11 +147,9 @@ func TestConfigRemote(t *testing.T) {
 			{
 				Name:    "bar",
 				Address: addr,
-				Prefix:  true,
 			},
 			{
 				Name:    "squee",
-				Prefix:  false,
 				Address: addr,
 				Frame: &config.Frame{
 					Parent:      referenceframe.World,
@@ -356,7 +353,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 						Auth: config.RemoteAuth{
 							Managed: tc.Managed,
 						},
-						Prefix: true,
 					},
 					{
 						Name:    "bar",
@@ -1209,12 +1205,10 @@ func TestGetStatusRemote(t *testing.T) {
 			{
 				Name:    "foo",
 				Address: addr1,
-				Prefix:  false,
 			},
 			{
 				Name:    "bar",
 				Address: addr2,
-				Prefix:  true,
 			},
 		},
 	}

@@ -62,7 +62,6 @@ type Component struct {
 
 	Namespace     resource.Namespace           `json:"namespace"`
 	Type          resource.SubtypeName         `json:"type"`
-	SubType       string                       `json:"subtype"`
 	Model         string                       `json:"model"`
 	Frame         *Frame                       `json:"frame,omitempty"`
 	DependsOn     []string                     `json:"depends_on"`
@@ -190,8 +189,6 @@ func ParseComponentFlag(flag string) (Component, error) {
 			cmp.Name = keyVal[1]
 		case "type":
 			cmp.Type = resource.SubtypeName(keyVal[1])
-		case "subtype":
-			cmp.SubType = keyVal[1]
 		case "model":
 			cmp.Model = keyVal[1]
 		case "depends_on":
