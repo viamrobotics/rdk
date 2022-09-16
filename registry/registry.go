@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/edaniels/golog"
 	"github.com/jhump/protoreflect/desc"
@@ -52,23 +53,24 @@ func getCallerName() string {
 }
 
 // RegisterService registers a service type to a registration.
-func RegisterService(subtype resource.Subtype, creator Service) {
+func RegisterService(subtype resource.Subtype, model string, creator Service) {
 	creator.RegistrarLoc = getCallerName()
-	_, old := serviceRegistry[subtype.String()]
+	qName := fmt.Sprintf("%s/%s", subtype, model)
+	_, old := serviceRegistry[qName]
 	if old {
-		panic(errors.Errorf("trying to register two services with same subtype: %s", subtype))
+		panic(errors.Errorf("trying to register two services with same subtype:%s, model:%s", subtype, model))
 	}
 	if creator.Constructor == nil {
 		panic(errors.Errorf("cannot register a nil constructor for subtype: %s", subtype))
 	}
-	serviceRegistry[subtype.String()] = creator
+	serviceRegistry[qName] = creator
 }
 
 // ServiceLookup looks up a service registration by the given type. nil is returned if
 // there is no registration.
-func ServiceLookup(subtype resource.Subtype) *Service {
-	registration, ok := RegisteredServices()[subtype.String()]
-	if ok {
+func ServiceLookup(subtype resource.Subtype, model string) *Service {
+	qName := fmt.Sprintf("%s/%s", subtype, model)
+	if registration, ok := RegisteredServices()[qName]; ok {
 		return &registration
 	}
 	return nil
@@ -248,4 +250,16 @@ func lookupSubtype(subtypeName resource.SubtypeName) (*resource.Subtype, bool) {
 		}
 	}
 	return nil, false
+}
+
+// FindValidServiceModels returns a list of valid models for a specified service.
+func FindValidServiceModels(rName resource.Name) []string {
+	validModels := make([]string, 0)
+	for key := range RegisteredServices() {
+		if strings.Contains(key, rName.Subtype.String()) {
+			splitName := strings.Split(key, "/")
+			validModels = append(validModels, splitName[1])
+		}
+	}
+	return validModels
 }

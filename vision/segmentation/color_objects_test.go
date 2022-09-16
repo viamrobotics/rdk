@@ -21,10 +21,15 @@ func TestColorObjects(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("segmentation/aligned_intel/depth/desktop2.png"))
 	test.That(t, err, test.ShouldBeNil)
-	params, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(intel515ParamsPath, "color")
+	params, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)
-	c := &videosource.StaticSource{img, dm, params}
-	cam, err := camera.NewFromReader(context.Background(), c, params, camera.DepthStream)
+	c := &videosource.StaticSource{img, dm, &params.ColorCamera}
+	cam, err := camera.NewFromReader(
+		context.Background(),
+		c,
+		&transform.PinholeCameraModel{&params.ColorCamera, nil},
+		camera.DepthStream,
+	)
 	test.That(t, err, test.ShouldBeNil)
 	// create config
 	cfg := config.AttributeMap{
