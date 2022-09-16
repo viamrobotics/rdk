@@ -36,7 +36,7 @@ func TestGetSensors(t *testing.T) {
 		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
-		names, err := svc.GetSensors(context.Background())
+		names, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, names, test.ShouldBeEmpty)
 	})
@@ -48,7 +48,7 @@ func TestGetSensors(t *testing.T) {
 		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
-		sNames1, err := svc.GetSensors(context.Background())
+		sNames1, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(
 			t,
@@ -68,7 +68,7 @@ func TestGetSensors(t *testing.T) {
 		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
-		sNames1, err := svc.GetSensors(context.Background())
+		sNames1, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
 	})
@@ -182,7 +182,7 @@ func TestUpdate(t *testing.T) {
 		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
-		sNames1, err := svc.GetSensors(context.Background())
+		sNames1, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
 
@@ -192,7 +192,7 @@ func TestUpdate(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		sNames1, err = svc.GetSensors(context.Background())
+		sNames1, err = svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sNames1, test.ShouldBeEmpty)
 	})
@@ -203,7 +203,7 @@ func TestUpdate(t *testing.T) {
 		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
-		sNames1, err := svc.GetSensors(context.Background())
+		sNames1, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
 
@@ -213,7 +213,7 @@ func TestUpdate(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		sNames1, err = svc.GetSensors(context.Background())
+		sNames1, err = svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(
 			t,
@@ -229,7 +229,7 @@ func TestUpdate(t *testing.T) {
 		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
-		sNames1, err := svc.GetSensors(context.Background())
+		sNames1, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
 
@@ -239,7 +239,7 @@ func TestUpdate(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		sNames1, err = svc.GetSensors(context.Background())
+		sNames1, err = svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
 	})

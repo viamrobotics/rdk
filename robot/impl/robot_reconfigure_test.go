@@ -2242,13 +2242,13 @@ func TestSensorsServiceUpdate(t *testing.T) {
 		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
-		foundSensors, err := svc.GetSensors(context.Background())
+		foundSensors, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, foundSensors, test.ShouldBeEmpty)
 
 		robot.Reconfigure(context.Background(), cfg)
 
-		foundSensors, err = svc.GetSensors(context.Background())
+		foundSensors, err = svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rdktestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rdktestutils.NewResourceNameSet(sensorNames...))
 	})
@@ -2263,13 +2263,13 @@ func TestSensorsServiceUpdate(t *testing.T) {
 		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
-		foundSensors, err := svc.GetSensors(context.Background())
+		foundSensors, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rdktestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rdktestutils.NewResourceNameSet(sensorNames...))
 
 		robot.Reconfigure(context.Background(), emptyCfg)
 
-		foundSensors, err = svc.GetSensors(context.Background())
+		foundSensors, err = svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, foundSensors, test.ShouldBeEmpty)
 	})
@@ -2284,13 +2284,13 @@ func TestSensorsServiceUpdate(t *testing.T) {
 		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
-		foundSensors, err := svc.GetSensors(context.Background())
+		foundSensors, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rdktestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rdktestutils.NewResourceNameSet(sensorNames...))
 
 		robot.Reconfigure(context.Background(), cfg)
 
-		foundSensors, err = svc.GetSensors(context.Background())
+		foundSensors, err = svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rdktestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rdktestutils.NewResourceNameSet(sensorNames...))
 	})
