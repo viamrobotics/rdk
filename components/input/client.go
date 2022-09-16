@@ -62,7 +62,7 @@ func (c *client) Controls(ctx context.Context) ([]Control, error) {
 	return controls, nil
 }
 
-func (c *client) GetEvents(ctx context.Context) (map[Control]Event, error) {
+func (c *client) Events(ctx context.Context) (map[Control]Event, error) {
 	resp, err := c.client.GetEvents(ctx, &pb.GetEventsRequest{
 		Controller: c.name,
 	})

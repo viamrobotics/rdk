@@ -11,7 +11,7 @@ type InputController struct {
 	input.Controller
 	DoFunc                      func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	ControlsFunc                func(ctx context.Context) ([]input.Control, error)
-	GetEventsFunc               func(ctx context.Context) (map[input.Control]input.Event, error)
+	EventsFunc                  func(ctx context.Context) (map[input.Control]input.Event, error)
 	RegisterControlCallbackFunc func(
 		ctx context.Context,
 		control input.Control,
@@ -28,12 +28,12 @@ func (s *InputController) Controls(ctx context.Context) ([]input.Control, error)
 	return s.ControlsFunc(ctx)
 }
 
-// GetEvents calls the injected function or the real version.
-func (s *InputController) GetEvents(ctx context.Context) (map[input.Control]input.Event, error) {
-	if s.GetEventsFunc == nil {
-		return s.Controller.GetEvents(ctx)
+// Events calls the injected function or the real version.
+func (s *InputController) Events(ctx context.Context) (map[input.Control]input.Event, error) {
+	if s.EventsFunc == nil {
+		return s.Controller.Events(ctx)
 	}
-	return s.GetEventsFunc(ctx)
+	return s.EventsFunc(ctx)
 }
 
 // RegisterControlCallback calls the injected function or the real version.

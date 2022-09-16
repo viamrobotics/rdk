@@ -64,8 +64,8 @@ type Controller interface {
 	// Controls returns a list of Controls provided by the Controller
 	Controls(ctx context.Context) ([]Control, error)
 
-	// LastEvent returns most recent Event for each input (which should be the current state)
-	GetEvents(ctx context.Context) (map[Control]Event, error)
+	// Events returns most recent Event for each input (which should be the current state)
+	Events(ctx context.Context) (map[Control]Event, error)
 
 	// RegisterCallback registers a callback that will fire on given EventTypes for a given Control
 	RegisterControlCallback(ctx context.Context, control Control, triggers []EventType, ctrlFunc ControlFunction) error
@@ -214,7 +214,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(resource)
 	}
-	eventsIn, err := controller.GetEvents(ctx)
+	eventsIn, err := controller.Events(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -254,10 +254,10 @@ func (c *reconfigurableInputController) Controls(ctx context.Context) ([]Control
 	return c.actual.Controls(ctx)
 }
 
-func (c *reconfigurableInputController) GetEvents(ctx context.Context) (map[Control]Event, error) {
+func (c *reconfigurableInputController) Events(ctx context.Context) (map[Control]Event, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.actual.GetEvents(ctx)
+	return c.actual.Events(ctx)
 }
 
 // TriggerEvent allows directly sending an Event (such as a button press) from external code.

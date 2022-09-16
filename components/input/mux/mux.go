@@ -147,13 +147,13 @@ func (m *mux) Controls(ctx context.Context) ([]input.Control, error) {
 	return controlsOut, nil
 }
 
-// GetEvents returns the last input.Event (the current state).
-func (m *mux) GetEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+// Events returns the last input.Event (the current state).
+func (m *mux) Events(ctx context.Context) (map[input.Control]input.Event, error) {
 	eventsOut := make(map[input.Control]input.Event)
 	var ok bool
 	var errs error
 	for _, c := range m.sources {
-		eventList, err := c.GetEvents(ctx)
+		eventList, err := c.Events(ctx)
 		if err != nil {
 			errs = multierr.Combine(errs, err)
 			continue
