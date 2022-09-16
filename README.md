@@ -27,15 +27,16 @@ Example with a dummy configuration: `go run web/cmd/server/main.go -config etc/c
 
 Multiple SDKs are available for writing client applications that interface with the Viam RDK.
 
-Go: Provided by this repository (see https://github.com/viamrobotics/rdk/robot/client)
-Python: https://github.com/viamrobotics/viam-python-sdk
-Rust: https://github.com/viamrobotics/viam-rust-sdk
+* Go: Provided by this repository (see https://github.com/viamrobotics/rdk/robot/client)
+* Python: [Docs](https://python.viam.dev), [Repository](https://github.com/viamrobotics/viam-python-sdk)
+* Rust: https://github.com/viamrobotics/viam-rust-sdk
 
 ## Development
 
 Sign the Contribution Agreement before submitting pull requests.
 
 ### API
+
 The API is defined with Protocol Buffers/gRPC which can be found at https://github.com/viamrobotics/api.
 
 ### Conventions
@@ -55,7 +56,8 @@ Then navigate to `web/frontend` and run `npm start` in a new terminal tab. Visit
 
 ## Contact
 
-Slack: https://viamrobotics.slack.com
+Slack: https://join.slack.com/t/viamrobotics/shared_invite/zt-1f5xf1qk5-TECJc1MIY1MW0d6ZCg~Wnw
+
 Support: https://support.viam.com
 
 ## License
