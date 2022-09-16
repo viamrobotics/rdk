@@ -120,25 +120,26 @@ var vx300smodeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, "trossen-wx250s", registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewArm(r, config.Attributes, logger, wx250smodeljson)
+			return NewArm(r, config, logger, wx250smodeljson)
 		},
 	})
 	registry.RegisterComponent(arm.Subtype, "trossen-vx300s", registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewArm(r, config.Attributes, logger, vx300smodeljson)
+			return NewArm(r, config, logger, vx300smodeljson)
 		},
 	})
 }
 
 // NewArm returns an instance of Arm given a model json.
-func NewArm(r robot.Robot, attributes config.AttributeMap, logger golog.Logger, json []byte) (arm.LocalArm, error) {
+func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger, json []byte) (arm.LocalArm, error) {
+	attributes := cfg.Attributes
 	usbPort := attributes.String("usb_port")
 	servos, err := findServos(usbPort, attributes.String("baud_rate"), attributes.String("arm_servo_count"))
 	if err != nil {
 		return nil, err
 	}
 
-	model, err := referenceframe.UnmarshalModelJSON(json, "")
+	model, err := referenceframe.UnmarshalModelJSON(json, cfg.Name)
 	if err != nil {
 		return nil, err
 	}

@@ -3,11 +3,11 @@ package arm
 
 import (
 	"context"
+	"errors"
 	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -405,10 +405,29 @@ func Plan(
 		return nil, err
 	}
 	armName := a.ModelFrame().Name()
-
 	destination := referenceframe.NewPoseInFrame(armName+"_origin", spatialmath.NewPoseFromProtobuf(dst))
 
-	solutionMap, err := motionplan.PlanRobotMotion(ctx, destination, a.ModelFrame(), r, fs, worldState, defaultArmPlannerOptions)
+	var solutionMap []map[string][]referenceframe.Input
+
+	// PlanRobotMotion needs a frame system which contains the frame being solved for
+	armFrame := fs.GetFrame(armName)
+	if armFrame == nil {
+		if worldState != nil {
+			if len(worldState.Obstacles) != 0 || len(worldState.InteractionSpaces) != 0 || len(worldState.Transforms) != 0 {
+				return nil, errors.New("arm must be in frame system to use worldstate")
+			}
+		}
+
+		// ephemerally create a framesystem containing just the arm for the solve
+		fs = referenceframe.NewEmptySimpleFrameSystem("")
+		err := fs.AddFrame(a.ModelFrame(), fs.World())
+		if err != nil {
+			return nil, err
+		}
+		destination = referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromProtobuf(dst))
+	}
+
+	solutionMap, err = motionplan.PlanRobotMotion(ctx, destination, a.ModelFrame(), r, fs, worldState, defaultArmPlannerOptions)
 	if err != nil {
 		return nil, err
 	}
