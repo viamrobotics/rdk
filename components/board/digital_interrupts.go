@@ -54,7 +54,7 @@ func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error
 	var i DigitalInterrupt
 	switch cfg.Type {
 	case "basic":
-		iActual := &BasicDigitalInterrupt{cfg: cfg, mu: sync.RWMutex{}}
+		iActual := &BasicDigitalInterrupt{cfg: cfg}
 		i = iActual
 	case "servo":
 		iActual := &ServoDigitalInterrupt{cfg: cfg, ra: utils.NewRollingAverage(ServoRollingAverageWindow)}
@@ -141,7 +141,11 @@ func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, not uint64)
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 	for _, c := range i.callbacks {
-		c <- high
+		select {
+		case <-ctx.Done():
+			return errors.New("context cancelled")
+		case c <- high:
+		}
 	}
 	return nil
 }

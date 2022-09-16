@@ -135,7 +135,7 @@ func (s *Sensor) GetReadings(ctx context.Context) (map[string]interface{}, error
 }
 
 // Close remove interrupt callback of ultrasonic sensor.
-func (s *Sensor) Close(ctx context.Context) error {
+func (s *Sensor) Close() error {
 	s.echoInterrupt.RemoveCallback(s.intChan)
 	return nil
 }
