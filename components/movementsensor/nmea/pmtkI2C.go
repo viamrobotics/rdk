@@ -264,8 +264,8 @@ func (g *PmtkI2CNMEAMovementSensor) GetOrientation(ctx context.Context) (spatial
 	return nil, g.lastError
 }
 
-// GetProperties what can I do!
-func (g *PmtkI2CNMEAMovementSensor) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+// Properties what can I do!
+func (g *PmtkI2CNMEAMovementSensor) Properties(ctx context.Context) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,

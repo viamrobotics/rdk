@@ -178,15 +178,15 @@ func newAlignColorDepth(ctx context.Context, color, depth camera.Camera, attrs *
 	case attrs.AttrConfig != nil && attrs.AttrConfig.CameraParameters != nil:
 		intrinsicParams = attrs.AttrConfig.CameraParameters
 	case stream == camera.ColorStream, stream == camera.UnspecifiedStream:
-		props, err = color.GetProperties(ctx)
+		props, err = color.Properties(ctx)
 		if err != nil {
-			return nil, camera.NewGetPropertiesError("color camera")
+			return nil, camera.NewPropertiesError("color camera")
 		}
 		intrinsicParams = props.IntrinsicParams
 	case stream == camera.DepthStream:
-		props, err = depth.GetProperties(ctx)
+		props, err = depth.Properties(ctx)
 		if err != nil {
-			return nil, camera.NewGetPropertiesError("depth camera")
+			return nil, camera.NewPropertiesError("depth camera")
 		}
 		intrinsicParams = props.IntrinsicParams
 	default:

@@ -269,7 +269,7 @@ func (vn *vectornav) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
 	return vn.magnetometer, nil
 }
 
-func (vn *vectornav) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+func (vn *vectornav) Properties(ctx context.Context) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		AngularVelocitySupported: true,
 		OrientationSupported:     true,
@@ -520,4 +520,3 @@ func (vn *vectornav) Close() {
 	vn.busClosed = true
 	vn.activeBackgroundWorkers.Wait()
 }
-

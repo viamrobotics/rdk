@@ -15,7 +15,7 @@ type Motor struct {
 	GoToFunc              func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error
 	ResetZeroPositionFunc func(ctx context.Context, offset float64, extra map[string]interface{}) error
 	GetPositionFunc       func(ctx context.Context, extra map[string]interface{}) (float64, error)
-	GetPropertiesFunc     func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error)
+	PropertiesFunc        func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error)
 	StopFunc              func(ctx context.Context, extra map[string]interface{}) error
 	IsPoweredFunc         func(ctx context.Context, extra map[string]interface{}) (bool, error)
 }
@@ -60,12 +60,12 @@ func (m *Motor) GetPosition(ctx context.Context, extra map[string]interface{}) (
 	return m.GetPositionFunc(ctx, extra)
 }
 
-// GetProperties calls the injected GetProperties or the real version.
-func (m *Motor) GetProperties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
-	if m.GetPropertiesFunc == nil {
-		return m.Motor.GetProperties(ctx, extra)
+// Properties calls the injected Properties or the real version.
+func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+	if m.PropertiesFunc == nil {
+		return m.Motor.Properties(ctx, extra)
 	}
-	return m.GetPropertiesFunc(ctx, extra)
+	return m.PropertiesFunc(ctx, extra)
 }
 
 // Stop calls the injected Off or the real version.

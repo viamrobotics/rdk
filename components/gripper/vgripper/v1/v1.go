@@ -116,7 +116,7 @@ func newGripperV1(
 	if vg.motor == nil {
 		return nil, errors.New("gripper needs a motor named 'g'")
 	}
-	supportedProperties, err := vg.motor.GetProperties(ctx, nil)
+	supportedProperties, err := vg.motor.Properties(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -222,8 +222,8 @@ func (m *EncodedMotor) directionMovingInLock() int64 {
 	return -1
 }
 
-// GetProperties returns the status of whether the motor supports certain optional features.
-func (m *EncodedMotor) GetProperties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+// Properties returns the status of whether the motor supports certain optional features.
+func (m *EncodedMotor) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: true,
 	}, nil

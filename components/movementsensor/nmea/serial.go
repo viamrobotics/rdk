@@ -252,8 +252,8 @@ func (g *SerialNMEAMovementSensor) GetReadings(ctx context.Context) (map[string]
 	return readings, g.lastError
 }
 
-// GetProperties what do I do!
-func (g *SerialNMEAMovementSensor) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+// Properties what do I do!
+func (g *SerialNMEAMovementSensor) Properties(ctx context.Context) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,

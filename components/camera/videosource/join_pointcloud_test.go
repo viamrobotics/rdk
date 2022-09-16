@@ -39,7 +39,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam1.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc1, nil
 	}
-	cam1.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	cam1.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
 	cam1.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
@@ -52,7 +52,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc2, nil
 	}
-	cam2.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	cam2.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
 	cam2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
@@ -65,7 +65,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam3.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc3, nil
 	}
-	cam3.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	cam3.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
 	cam3.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
@@ -237,7 +237,7 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	cam1.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return startPC, nil
 	}
-	cam1.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	cam1.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
 	cam1.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
@@ -265,7 +265,7 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	cam2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return transformedPC, nil
 	}
-	cam2.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	cam2.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
 	cam2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {

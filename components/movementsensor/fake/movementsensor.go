@@ -63,7 +63,7 @@ func (f *fakeMovementSensor) GetReadings(ctx context.Context) (map[string]interf
 	return movementsensor.GetReadings(ctx, f)
 }
 
-func (f *fakeMovementSensor) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+func (f *fakeMovementSensor) Properties(ctx context.Context) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		LinearVelocitySupported:  true,
 		AngularVelocitySupported: true,

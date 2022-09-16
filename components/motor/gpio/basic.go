@@ -114,8 +114,8 @@ func (m *Motor) GetPosition(ctx context.Context, extra map[string]interface{}) (
 	return 0, nil
 }
 
-// GetProperties returns the status of whether the motor supports certain optional features.
-func (m *Motor) GetProperties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+// Properties returns the status of whether the motor supports certain optional features.
+func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: false,
 	}, nil
