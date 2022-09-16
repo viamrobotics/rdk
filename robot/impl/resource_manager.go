@@ -137,9 +137,15 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 		iface, err := rr.ResourceByName(rrName) // this returns a remote known OR foreign resource client
 		if err != nil {
-			manager.logger.Errorw("couldn't obtain remote resource interface",
-				"name", rrName,
-				"reason", err)
+			if errors.Is(err, client.ErrMissingClientRegistration) {
+				manager.logger.Debugw("couldn't obtain remote resource interface",
+					"name", rrName,
+					"reason", err)
+			} else {
+				manager.logger.Errorw("couldn't obtain remote resource interface",
+					"name", rrName,
+					"reason", err)
+			}
 			continue
 		}
 		asUnknown := resource.NewName(resource.ResourceNamespaceRDK,
@@ -282,7 +288,9 @@ func (manager *resourceManager) ResourceRPCSubtypes() []resource.RPCSubtype {
 			continue
 		}
 
-		types[k.Subtype] = st.ReflectRPCServiceDesc
+		if st.RPCServiceDesc != nil {
+			types[k.Subtype] = st.ReflectRPCServiceDesc
+		}
 	}
 	typesList := make([]resource.RPCSubtype, 0, len(types))
 	for k, v := range types {

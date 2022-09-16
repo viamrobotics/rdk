@@ -25,13 +25,14 @@ var undistortTestParams = &transform.PinholeCameraIntrinsics{
 	Fy:     1.,
 	Ppx:    0.,
 	Ppy:    0.,
-	Distortion: transform.DistortionModel{
-		RadialK1:     0.,
-		RadialK2:     0.,
-		TangentialP1: 0.,
-		TangentialP2: 0.,
-		RadialK3:     0.,
-	},
+}
+
+var undistortTestBC = &transform.BrownConrady{
+	RadialK1:     0.,
+	RadialK2:     0.,
+	TangentialP1: 0.,
+	TangentialP2: 0.,
+	RadialK3:     0.,
 }
 
 func TestUndistortSetup(t *testing.T) {
@@ -48,7 +49,7 @@ func TestUndistortSetup(t *testing.T) {
 
 	// bad stream type
 	source = gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
-	am = config.AttributeMap{"camera_parameters": undistortTestParams}
+	am = config.AttributeMap{"camera_parameters": undistortTestParams, "distortion_parameters": undistortTestBC}
 	us, err := newUndistortTransform(context.Background(), source, camera.StreamType("fake"), am)
 	test.That(t, err, test.ShouldBeNil)
 	_, _, err = camera.ReadImage(context.Background(), us)
@@ -72,7 +73,7 @@ func TestUndistortImage(t *testing.T) {
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
 
 	// success
-	am := config.AttributeMap{"camera_parameters": undistortTestParams}
+	am := config.AttributeMap{"camera_parameters": undistortTestParams, "distortion_parameters": undistortTestBC}
 	us, err := newUndistortTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	corrected, _, err := camera.ReadImage(context.Background(), us)
@@ -103,7 +104,7 @@ func TestUndistortDepthMap(t *testing.T) {
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: img}, prop.Video{})
 
 	// success
-	am := config.AttributeMap{"camera_parameters": undistortTestParams}
+	am := config.AttributeMap{"camera_parameters": undistortTestParams, "distortion_parameters": undistortTestBC}
 	us, err := newUndistortTransform(context.Background(), source, camera.DepthStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	corrected, _, err := camera.ReadImage(context.Background(), us)

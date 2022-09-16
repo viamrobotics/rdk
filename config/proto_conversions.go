@@ -30,7 +30,6 @@ func ComponentConfigToProto(component *Component) (*pb.ComponentConfig, error) {
 		Name:           component.Name,
 		Namespace:      string(component.Namespace),
 		Type:           string(component.Type),
-		SubType:        component.SubType,
 		Model:          component.Model,
 		DependsOn:      component.DependsOn,
 		ServiceConfigs: serviceConfigs,
@@ -59,7 +58,6 @@ func ComponentConfigFromProto(proto *pb.ComponentConfig) (*Component, error) {
 		Name:          proto.GetName(),
 		Type:          resource.SubtypeName(proto.GetType()),
 		Namespace:     resource.Namespace(proto.GetNamespace()),
-		SubType:       proto.GetSubType(),
 		Model:         proto.GetModel(),
 		Attributes:    proto.GetAttributes().AsMap(),
 		DependsOn:     proto.GetDependsOn(),
@@ -304,7 +302,6 @@ func RemoteConfigToProto(remote *Remote) (*pb.RemoteConfig, error) {
 	proto := pb.RemoteConfig{
 		Name:                    remote.Name,
 		Address:                 remote.Address,
-		Prefix:                  remote.Prefix,
 		ManagedBy:               remote.ManagedBy,
 		Insecure:                remote.Insecure,
 		ConnectionCheckInterval: durationpb.New(remote.ConnectionCheckInterval),
@@ -335,7 +332,6 @@ func RemoteConfigFromProto(proto *pb.RemoteConfig) (*Remote, error) {
 	remote := Remote{
 		Name:                    proto.GetName(),
 		Address:                 proto.GetAddress(),
-		Prefix:                  proto.GetPrefix(),
 		ManagedBy:               proto.GetManagedBy(),
 		Insecure:                proto.GetInsecure(),
 		ConnectionCheckInterval: proto.ConnectionCheckInterval.AsDuration(),

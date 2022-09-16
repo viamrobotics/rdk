@@ -16,7 +16,8 @@ import (
 )
 
 type undistortConfig struct {
-	CameraParams *transform.PinholeCameraIntrinsics `json:"camera_parameters"`
+	CameraParams     *transform.PinholeCameraIntrinsics `json:"camera_parameters"`
+	DistortionParams *transform.BrownConrady            `json:"distortion_parameters"`
 }
 
 // undistortSource will undistort the original image according to the Distortion parameters
@@ -24,7 +25,7 @@ type undistortConfig struct {
 type undistortSource struct {
 	originalStream gostream.VideoStream
 	stream         camera.StreamType
-	cameraParams   *transform.PinholeCameraIntrinsics
+	cameraParams   *transform.PinholeCameraModel
 }
 
 func newUndistortTransform(
@@ -41,7 +42,11 @@ func newUndistortTransform(
 	if attrs.CameraParams == nil {
 		return nil, errors.Wrapf(transform.ErrNoIntrinsics, "cannot create undistort transform")
 	}
-	reader := &undistortSource{gostream.NewEmbeddedVideoStream(source), stream, attrs.CameraParams}
+	reader := &undistortSource{
+		gostream.NewEmbeddedVideoStream(source),
+		stream,
+		&transform.PinholeCameraModel{attrs.CameraParams, attrs.DistortionParams},
+	}
 	return camera.NewFromReader(ctx, reader, nil, stream)
 }
 

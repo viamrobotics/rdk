@@ -36,7 +36,7 @@ func TestConfigRobot(t *testing.T) {
 
 	test.That(t, cfg.Components, test.ShouldHaveLength, 4)
 	test.That(t, len(cfg.Remotes), test.ShouldEqual, 2)
-	test.That(t, cfg.Remotes[0], test.ShouldResemble, config.Remote{Name: "one", Address: "foo", Prefix: true})
+	test.That(t, cfg.Remotes[0], test.ShouldResemble, config.Remote{Name: "one", Address: "foo"})
 	test.That(t, cfg.Remotes[1], test.ShouldResemble, config.Remote{Name: "two", Address: "bar"})
 
 	// test that gripper geometry is being added correctly
@@ -296,6 +296,27 @@ func TestConfigEnsure(t *testing.T) {
 	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
 		validAPIKeyHandler,
 	}
+	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
+
+	validAPIKeyHandler.Config = config.AttributeMap{
+		"keys": []string{},
+	}
+	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
+		validAPIKeyHandler,
+	}
+	err = invalidAuthConfig.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
+
+	validAPIKeyHandler.Config = config.AttributeMap{
+		"keys": []string{"one", "two"},
+	}
+	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
+		validAPIKeyHandler,
+	}
+
 	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
 }
 

@@ -23,12 +23,10 @@ func TestDiffConfigs(t *testing.T) {
 			{
 				Name:    "remote1",
 				Address: "addr1",
-				Prefix:  false,
 			},
 			{
 				Name:    "remote2",
 				Address: "addr2",
-				Prefix:  false,
 			},
 		},
 		Components: []config.Component{
@@ -91,12 +89,10 @@ func TestDiffConfigs(t *testing.T) {
 			{
 				Name:    "remote1",
 				Address: "addr3",
-				Prefix:  false,
 			},
 			{
 				Name:    "remote2",
 				Address: "addr4",
-				Prefix:  false,
 			},
 		},
 		Components: []config.Component{
@@ -380,12 +376,6 @@ func TestDiffConfigHeterogenousTypes(t *testing.T) {
 			"component type",
 			"data/diff_config_1.json",
 			"data/diff_config_1_component_type.json",
-			"cannot modify type of existing component",
-		},
-		{
-			"component subtype",
-			"data/diff_config_1.json",
-			"data/diff_config_1_component_subtype.json",
 			"cannot modify type of existing component",
 		},
 		{
