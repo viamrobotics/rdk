@@ -83,7 +83,7 @@ func (server *subtypeServer) SetMode(ctx context.Context, req *pb.SetModeRequest
 	return &pb.SetModeResponse{}, nil
 }
 
-func (server *subtypeServer) Location(ctx context.Context, req *pb.GetLocationRequest) (
+func (server *subtypeServer) GetLocation(ctx context.Context, req *pb.GetLocationRequest) (
 	*pb.GetLocationResponse, error,
 ) {
 	svc, err := server.service(req.Name)
