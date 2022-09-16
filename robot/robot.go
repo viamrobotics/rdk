@@ -64,8 +64,8 @@ type Robot interface {
 		additionalTransforms []*commonpb.Transform,
 	) (*referenceframe.PoseInFrame, error)
 
-	// GetStatus takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
-	GetStatus(ctx context.Context, resourceNames []resource.Name) ([]Status, error)
+	// Status takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
+	Status(ctx context.Context, resourceNames []resource.Name) ([]Status, error)
 
 	// Close attempts to cleanly close down all constituent parts of the robot.
 	Close(ctx context.Context) error

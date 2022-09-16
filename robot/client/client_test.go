@@ -1230,7 +1230,7 @@ func TestClientStatus(t *testing.T) {
 			gStatus.Name: gStatus,
 			aStatus.Name: aStatus,
 		}
-		injectRobot.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 			statuses := make([]robot.Status, 0, len(resourceNames))
 			for _, n := range resourceNames {
 				statuses = append(statuses, statusMap[n])
@@ -1241,7 +1241,7 @@ func TestClientStatus(t *testing.T) {
 			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
 			aStatus.Name: map[string]interface{}{},
 		}
-		resp, err := client.GetStatus(context.Background(), []resource.Name{aStatus.Name})
+		resp, err := client.Status(context.Background(), []resource.Name{aStatus.Name})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 1)
 		test.That(t, resp[0].Status, test.ShouldResemble, expected[resp[0].Name])
@@ -1253,7 +1253,7 @@ func TestClientStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldResemble, aStatus.Status)
 
-		resp, err = client.GetStatus(context.Background(), []resource.Name{gStatus.Name, aStatus.Name})
+		resp, err = client.Status(context.Background(), []resource.Name{gStatus.Name, aStatus.Name})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 2)
 
@@ -1272,10 +1272,10 @@ func TestClientStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		passedErr := errors.New("can't get status")
-		injectRobot2.GetStatusFunc = func(ctx context.Context, status []resource.Name) ([]robot.Status, error) {
+		injectRobot2.StatusFunc = func(ctx context.Context, status []resource.Name) ([]robot.Status, error) {
 			return nil, passedErr
 		}
-		_, err = client2.GetStatus(context.Background(), []resource.Name{})
+		_, err = client2.Status(context.Background(), []resource.Name{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 
 		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)
