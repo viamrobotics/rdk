@@ -40,8 +40,8 @@
         },
         {
             "attributes": {
-                "color": "/Users/micheal/Documents/GitHub/micheal-rdk/.artifact/data/rimage/board2.png",
-                "depth": "/Users/micheal/Documents/GitHub/micheal-rdk/.artifact/data/rimage/board2_gray.png",
+                "color": "./.artifact/data/rimage/board2.png",
+                "depth": "./.artifact/data/rimage/board2_gray.png",
                 "aligned": true,
                 "camera_parameters": {
                     "distortion": {
@@ -60,7 +60,7 @@
                 }
             },
             "model": "file",
-            "name": "testing",
+            "name": "camera1",
             "type": "camera"
         },
         {

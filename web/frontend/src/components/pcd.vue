@@ -33,6 +33,7 @@ const container = $ref<HTMLDivElement>();
 let cube: THREE.LineSegments;
 let displayGrid = true;
 
+let transformEnabled = $ref(false);
 const download = $ref<HTMLLinkElement>();
 let segmenterParameterNames = $ref<TypedParameter[]>();
 let objects = $ref<PointCloudObject[]>([]);
@@ -70,22 +71,21 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
 const transformControls = new TransformControls(camera, renderer.domElement);
-transformControls.setSize(0.1);
+transformControls.setSize(1);
 transformControls.setMode('translate');
-transformControls.setTranslationSnap(0.01);
+transformControls.enabled = false;
+
 transformControls.addEventListener('dragging-changed', (event) => {
   controls.enabled = !event.value;
 });
-transformControls.addEventListener('change', () => {
-  console.log(mesh.position);
-})
-scene.add(transformControls);
 
 const matrix = new THREE.Matrix4();
 const vec3 = new THREE.Vector3();
 const sphereGeometry = new THREE.SphereGeometry(0.01, 16, 16);
 const sphereWireframe = new THREE.WireframeGeometry(sphereGeometry);
 const sphere = new THREE.LineSegments(sphereWireframe);
+scene.add(sphere);
+
 const sphereMaterial = sphere.material as THREE.MeshBasicMaterial;
 sphereMaterial.color.set('black');
 sphereMaterial.transparent = true;
@@ -94,6 +94,8 @@ sphereMaterial.opacity = 0.4;
 const size = 10;
 const divisions = 10;
 const gridHelper = new THREE.GridHelper(size, divisions);
+scene.add(gridHelper);
+
 const gridMaterial = gridHelper.material as THREE.MeshBasicMaterial;
 gridMaterial.color.set('black');
 
@@ -414,6 +416,23 @@ const handleToggleGrid = () => {
   displayGrid = !displayGrid;
 };
 
+const handleToggleTransformControls = () => {
+  transformControls.enabled = !transformControls.enabled;
+  transformEnabled = transformControls.enabled;
+
+  if (transformControls.enabled) {
+    scene.add(transformControls);
+  } else {
+    scene.remove(transformControls);
+  }
+};
+
+const handleTransformModeChange = (event: CustomEvent) => {
+  const { value } = event.detail;
+
+  transformControls.setMode(value.toLowerCase());
+};
+
 const handlePointsResize = (event: CustomEvent) => {
   const mesh = scene.getObjectByName('points') as THREE.InstancedMesh;
   const scale = event.detail.value;
@@ -436,10 +455,11 @@ let mesh: THREE.InstancedMesh;
 
 const update = (cloud: Uint8Array) => {
   // dispose old resources
-  // if (mesh) {
-  //   mesh.geometry.dispose();
-  //   (mesh.material as THREE.MeshBasicMaterial).dispose();
-  // }
+  if (mesh) {
+    scene.remove(mesh)
+    mesh.geometry.dispose();
+    (mesh.material as THREE.MeshBasicMaterial).dispose();
+  }
 
   const points = loader.parse(cloud.buffer, '');
   points.name = 'points';
@@ -451,8 +471,6 @@ const update = (cloud: Uint8Array) => {
   mesh = new THREE.InstancedMesh(geometry, material, count);
   mesh.position.set(0.01, 0.01, 0.01);
   mesh.name = 'points';
-
-  transformControls.attach(mesh);
 
   console.log(positions.length, colors.length);
 
@@ -472,13 +490,11 @@ const update = (cloud: Uint8Array) => {
 
   mesh.instanceMatrix.needsUpdate = true;
 
-  scene.clear();
   scene.add(mesh);
   camera.position.set(0.5, 0.5, 1);
   camera.lookAt(0, 0, 0);
 
-  scene.add(sphere);
-  scene.add(gridHelper);
+  transformControls.attach(mesh);
 
   if (cube) {
     scene.add(cube);
@@ -569,6 +585,24 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
         />
       </div>
 
+      <label class="text-xs flex flex-col gap-1">
+        <div class="flex items-center gap-1.5">
+          Transform controls
+          <v-switch
+            value="off"
+            @input="handleToggleTransformControls"
+          />
+        </div>
+
+        <v-radio
+          v-if="transformEnabled"
+          class="w-full"
+          options="Translate, Rotate, Scale"
+          selected="Translate"
+          @input="handleTransformModeChange"
+        />
+      </label>
+
       <label class="flex items-center gap-1.5 text-xs">
         Grid
         <v-switch
@@ -577,10 +611,9 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
         />
       </label>
     </div>
-  
+
     <div
-      v-if="cameraName"
-      hidden
+      v-if="false"
       class="container mx-auto pt-4"
     >
       <h2>Segmentation Settings</h2>
