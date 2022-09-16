@@ -1,11 +1,7 @@
 <script setup lang="ts">
-
 import { grpc } from '@improbable-eng/grpc-web';
 import { ref } from 'vue';
-import {
-  computeKeyboardBaseControls,
-  BaseControlHelper,
-} from '../rc/control_helpers';
+import { computeKeyboardBaseControls, BaseControlHelper } from '../rc/control_helpers';
 import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
 import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
 import streamApi from '../gen/proto/stream/v1/stream_pb.esm';
@@ -14,13 +10,17 @@ import { filterResources } from '../lib/resource';
 import KeyboardInput from './keyboard-input.vue';
 
 interface Props {
-  name: string,
-  resources: [],
+  name: string;
+  resources: [];
 }
 
 const props = defineProps<Props>();
 
-const emit = defineEmits(['showcamera']);
+interface Emits {
+  (event: 'showcamera', value: string): void
+}
+
+const emit = defineEmits<Emits>();
 
 const selectedItem = ref<'Keyboard' | 'Discrete'>('Keyboard');
 const movementMode = ref('Straight');
@@ -69,7 +69,8 @@ const setDirection = (dir: string) => {
 
 const baseRun = () => {
   if (movementMode.value === 'Spin') {
-    BaseControlHelper.spin(props.name, 
+    BaseControlHelper.spin(
+      props.name,
       angle.value * (spinType.value === 'Clockwise' ? -1 : 1),
       spinSpeed.value,
       handleError
@@ -94,10 +95,10 @@ const handleError = (error) => {
 
 const baseKeyboardCtl = (name: string, controls) => {
   if (Object.values(controls).every((item) => item === false)) {
-    handleError('All keyboard inputs false, stopping base.');
+    toast.info('All keyboard inputs false, stopping base.');
     handleBaseActionStop(name);
     return;
-  } 
+  }
 
   const inputs = computeKeyboardBaseControls(controls);
   const linear = new commonApi.Vector3();
@@ -119,15 +120,16 @@ const handleBaseStraight = (name: string, event) => {
     linear.setY(event.speed * event.direction);
 
     BaseControlHelper.setVelocity(
-      name, 
+      name,
       linear, // linear
       new commonApi.Vector3(), // angular
       handleError
     );
   } else {
-    BaseControlHelper.moveStraight(name,
-      event.distance, 
-      event.speed * event.direction, 
+    BaseControlHelper.moveStraight(
+      name,
+      event.distance,
+      event.speed * event.direction,
       handleError
     );
   }
@@ -159,7 +161,6 @@ const viewPreviewCamera = (name: string, isOn: boolean) => {
 const handleSelectCamera = (event: event) => {
   emit('showcamera', event);
 };
-
 </script>
 
 <template>
@@ -193,20 +194,27 @@ const handleSelectCamera = (event: event) => {
       >
         <div class="grid grid-cols-2">
           <div class="mt-2">
-            <KeyboardInput
-              @keyboard-ctl="baseKeyboardCtl(name, $event)"
-            />
+            <KeyboardInput @keyboard-ctl="baseKeyboardCtl(name, $event)" />
           </div>
           <div v-if="filterResources(resources, 'rdk', 'component', 'camera')">
             <v-select
               class="mb-4"
               variant="multiple"
               placeholder="Select Cameras"
-              :options="filterResources(resources, 'rdk', 'component', 'camera').map(({ name }) => name).join(',')"
+              :options="
+                filterResources(resources, 'rdk', 'component', 'camera')
+                  .map(({ name }) => name)
+                  .join(',')
+              "
               @input="handleSelectCamera($event.detail.value)"
             />
-            <template 
-              v-for="basecamera in filterResources(resources, 'rdk', 'component', 'camera')"
+            <template
+              v-for="basecamera in filterResources(
+                resources,
+                'rdk',
+                'component',
+                'camera'
+              )"
               :key="basecamera.name"
             >
               <div
