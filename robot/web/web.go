@@ -697,7 +697,7 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 			InternalSignalingHosts:    hosts.Internal,
 			Config:                    &grpc.DefaultWebRTCConfiguration,
 			OnPeerAdded:               options.WebRTCOnPeerAdded,
-			OnPeerRemoved:             options.WebRTCOnPeerAdded,
+			OnPeerRemoved:             options.WebRTCOnPeerRemoved,
 		}),
 	}
 	if options.Debug {
