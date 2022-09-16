@@ -17,14 +17,12 @@
         {
             "name": "robot2",
             "address": "localhost:8080",
-            "prefix": true,
             "auth": {
                 "entity": "something-unique",
                 "credentials": {
                     "type": "api-key",
                     "payload": "${RDK_AUTH_API_KEY}"
-                },
-                "entity": "127.0.0.1:8080"
+                }
             }
         }
     ]
