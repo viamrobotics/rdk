@@ -12,61 +12,166 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-func TestComponentConfigToProto(t *testing.T) {
-	component := Component{
-		Name:      "some-name",
-		Type:      "some-type",
-		Namespace: "some-namespace",
-		Model:     "some-model",
-		DependsOn: []string{"dep1", "dep2"},
-		Attributes: AttributeMap{
-			"attr1": 1,
-			"attr2": "attr-string",
-		},
-		ServiceConfig: []ResourceLevelServiceConfig{
-			{
-				Type: "some-type-1",
-				Attributes: AttributeMap{
-					"attr1": 1,
-				},
-			},
-			{
-				Type: "some-type-2",
-				Attributes: AttributeMap{
-					"attr1": 1,
-				},
+var testComponent = Component{
+	Name:      "some-name",
+	Type:      "some-type",
+	Namespace: "some-namespace",
+	Model:     "some-model",
+	DependsOn: []string{"dep1", "dep2"},
+	Attributes: AttributeMap{
+		"attr1": 1,
+		"attr2": "attr-string",
+	},
+	ServiceConfig: []ResourceLevelServiceConfig{
+		{
+			Type: "some-type-1",
+			Attributes: AttributeMap{
+				"attr1": 1,
 			},
 		},
-		Frame: &Frame{
-			Parent:      "world",
-			Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-			Orientation: spatial.NewOrientationVector(),
+		{
+			Type: "some-type-2",
+			Attributes: AttributeMap{
+				"attr1": 1,
+			},
 		},
-	}
+	},
+	Frame: &Frame{
+		Parent:      "world",
+		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+		Orientation: spatial.NewOrientationVector(),
+	},
+}
 
-	proto, err := ComponentConfigToProto(&component)
+var testFrame = Frame{
+	Parent: "world",
+	Translation: r3.Vector{
+		X: 1,
+		Y: 2,
+		Z: 3,
+	},
+	Orientation: spatial.NewEulerAngles(),
+}
+
+var testRemote = Remote{
+	Name:    "some-name",
+	Address: "localohst:8080",
+	Frame: &Frame{
+		Parent:      "world",
+		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+		Orientation: spatial.NewOrientationVector(),
+	},
+	Auth: RemoteAuth{
+		Entity: "some-entity",
+		Credentials: &rpc.Credentials{
+			Type:    rpc.CredentialsTypeAPIKey,
+			Payload: "payload",
+		},
+	},
+	ManagedBy:               "managed-by",
+	Insecure:                true,
+	ConnectionCheckInterval: 1000000000,
+	ReconnectInterval:       2000000000,
+	ServiceConfig: []ResourceLevelServiceConfig{
+		{
+			Type: "some-type-1",
+			Attributes: AttributeMap{
+				"attr1": 1,
+			},
+		},
+		{
+			Type: "some-type-2",
+			Attributes: AttributeMap{
+				"attr1": 1,
+			},
+		},
+	},
+}
+
+var testService = Service{
+	Name:      "some-name",
+	Namespace: "some-namespace",
+	Type:      "some-type",
+	Attributes: AttributeMap{
+		"attr1": 1,
+	},
+}
+
+var testProcessConfig = pexec.ProcessConfig{
+	ID:      "Some-id",
+	Name:    "Some-name",
+	Args:    []string{"arg1", "arg2"},
+	CWD:     "/home",
+	OneShot: true,
+	Log:     true,
+}
+
+var testNetworkConfig = NetworkConfig{
+	NetworkConfigData: NetworkConfigData{
+		FQDN:        "some.fqdn",
+		BindAddress: "0.0.0.0:1234",
+		TLSCertFile: "./cert.pub",
+		TLSKeyFile:  "./cert.private",
+	},
+}
+
+var testAuthConfig = AuthConfig{
+	Handlers: []AuthHandlerConfig{
+		{
+			Type: rpc.CredentialsTypeAPIKey,
+			Config: AttributeMap{
+				"config-1": 1,
+			},
+		},
+		{
+			Type: rpc.CredentialsTypeAPIKey,
+			Config: AttributeMap{
+				"config-2": 2,
+			},
+		},
+	},
+	TLSAuthEntities: []string{"tls1", "tls2"},
+}
+
+var testCloudConfig = Cloud{
+	ID:                "some-id",
+	Secret:            "some-secret",
+	LocationSecret:    "other-secret",
+	ManagedBy:         "managed-by",
+	FQDN:              "some.fqdn",
+	LocalFQDN:         "local.fqdn",
+	SignalingAddress:  "0.0.0.0:8080",
+	SignalingInsecure: true,
+}
+
+//nolint:thelper
+func validateComponent(t *testing.T, actual, expected Component) {
+	test.That(t, actual.Name, test.ShouldEqual, expected.Name)
+	test.That(t, actual.Type, test.ShouldEqual, expected.Type)
+	test.That(t, actual.Namespace, test.ShouldEqual, expected.Namespace)
+	test.That(t, actual.Model, test.ShouldEqual, expected.Model)
+	test.That(t, actual.DependsOn, test.ShouldResemble, expected.DependsOn)
+	test.That(t, actual.Attributes.Int("attr1", 0), test.ShouldEqual, expected.Attributes.Int("attr1", -1))
+	test.That(t, actual.Attributes.String("attr2"), test.ShouldEqual, expected.Attributes.String("attr2"))
+
+	test.That(t, actual.ServiceConfig, test.ShouldHaveLength, 2)
+	test.That(t, actual.ServiceConfig[0].Type, test.ShouldEqual, expected.ServiceConfig[0].Type)
+	test.That(t, actual.ServiceConfig[0].Attributes.Int("attr1", 0), test.ShouldEqual, expected.ServiceConfig[0].Attributes.Int("attr1", -1))
+	test.That(t, actual.ServiceConfig[1].Type, test.ShouldEqual, expected.ServiceConfig[1].Type)
+	test.That(t, actual.ServiceConfig[1].Attributes.Int("attr1", 0), test.ShouldEqual, expected.ServiceConfig[1].Attributes.Int("attr1", -1))
+
+	test.That(t, actual.Frame, test.ShouldResemble, testComponent.Frame)
+}
+
+func TestComponentConfigToProto(t *testing.T) {
+	proto, err := ComponentConfigToProto(&testComponent)
 	test.That(t, err, test.ShouldBeNil)
 
 	out, err := ComponentConfigFromProto(proto)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out, test.ShouldNotBeNil)
 
-	test.That(t, out.Name, test.ShouldEqual, component.Name)
-	test.That(t, out.Type, test.ShouldEqual, component.Type)
-	test.That(t, out.Namespace, test.ShouldEqual, component.Namespace)
-	test.That(t, out.Model, test.ShouldEqual, component.Model)
-	test.That(t, out.DependsOn, test.ShouldResemble, component.DependsOn)
-	test.That(t, out.Attributes.Int("attr1", 0), test.ShouldEqual, component.Attributes.Int("attr1", -1))
-	test.That(t, out.Attributes.String("attr2"), test.ShouldEqual, component.Attributes.String("attr2"))
-
-	test.That(t, out.ServiceConfig, test.ShouldHaveLength, 2)
-	test.That(t, out.ServiceConfig[0].Type, test.ShouldEqual, component.ServiceConfig[0].Type)
-	test.That(t, out.ServiceConfig[0].Attributes.Int("attr1", 0), test.ShouldEqual, component.ServiceConfig[0].Attributes.Int("attr1", -1))
-	test.That(t, out.ServiceConfig[1].Type, test.ShouldEqual, component.ServiceConfig[1].Type)
-	test.That(t, out.ServiceConfig[1].Attributes.Int("attr1", 0), test.ShouldEqual, component.ServiceConfig[1].Attributes.Int("attr1", -1))
-
-	test.That(t, out.Frame, test.ShouldResemble, component.Frame)
-	test.That(t, out.Frame, test.ShouldResemble, component.Frame)
+	validateComponent(t, *out, testComponent)
 }
 
 func TestFrameConfigFromProto(t *testing.T) {
@@ -168,63 +273,33 @@ func TestFrameConfigFromProto(t *testing.T) {
 	}
 }
 
+//nolint:thelper
+func validateRemote(t *testing.T, actual, expected Remote) {
+	test.That(t, actual.Name, test.ShouldEqual, expected.Name)
+	test.That(t, actual.Address, test.ShouldEqual, expected.Address)
+	test.That(t, actual.ManagedBy, test.ShouldEqual, expected.ManagedBy)
+	test.That(t, actual.Insecure, test.ShouldEqual, expected.Insecure)
+	test.That(t, actual.ReconnectInterval, test.ShouldEqual, expected.ReconnectInterval)
+	test.That(t, actual.ConnectionCheckInterval, test.ShouldEqual, expected.ConnectionCheckInterval)
+	test.That(t, actual.Auth, test.ShouldResemble, expected.Auth)
+	test.That(t, actual.Frame, test.ShouldResemble, expected.Frame)
+
+	test.That(t, actual.ServiceConfig, test.ShouldHaveLength, 2)
+	test.That(t, actual.ServiceConfig[0].Type, test.ShouldEqual, expected.ServiceConfig[0].Type)
+	test.That(t, actual.ServiceConfig[0].Attributes.Int("attr1", 0), test.ShouldEqual, expected.ServiceConfig[0].Attributes.Int("attr1", -1))
+	test.That(t, actual.ServiceConfig[1].Type, test.ShouldEqual, expected.ServiceConfig[1].Type)
+	test.That(t, actual.ServiceConfig[1].Attributes.Int("attr1", 0), test.ShouldEqual, expected.ServiceConfig[1].Attributes.Int("attr1", -1))
+}
+
 func TestRemoteConfigToProto(t *testing.T) {
 	t.Run("With RemoteAuth", func(t *testing.T) {
-		remote := Remote{
-			Name:    "some-name",
-			Address: "localohst:8080",
-			Frame: &Frame{
-				Parent:      "world",
-				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
-				Orientation: spatial.NewOrientationVector(),
-			},
-			Auth: RemoteAuth{
-				Entity: "some-entity",
-				Credentials: &rpc.Credentials{
-					Type:    rpc.CredentialsTypeAPIKey,
-					Payload: "payload",
-				},
-			},
-			ManagedBy:               "managed-by",
-			Insecure:                true,
-			ConnectionCheckInterval: 1000000000,
-			ReconnectInterval:       2000000000,
-			ServiceConfig: []ResourceLevelServiceConfig{
-				{
-					Type: "some-type-1",
-					Attributes: AttributeMap{
-						"attr1": 1,
-					},
-				},
-				{
-					Type: "some-type-2",
-					Attributes: AttributeMap{
-						"attr1": 1,
-					},
-				},
-			},
-		}
-
-		proto, err := RemoteConfigToProto(&remote)
+		proto, err := RemoteConfigToProto(&testRemote)
 		test.That(t, err, test.ShouldBeNil)
 
 		out, err := RemoteConfigFromProto(proto)
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, out.Name, test.ShouldEqual, remote.Name)
-		test.That(t, out.Address, test.ShouldEqual, remote.Address)
-		test.That(t, out.ManagedBy, test.ShouldEqual, remote.ManagedBy)
-		test.That(t, out.Insecure, test.ShouldEqual, remote.Insecure)
-		test.That(t, out.ReconnectInterval, test.ShouldEqual, remote.ReconnectInterval)
-		test.That(t, out.ConnectionCheckInterval, test.ShouldEqual, remote.ConnectionCheckInterval)
-		test.That(t, out.Auth, test.ShouldResemble, remote.Auth)
-		test.That(t, out.Frame, test.ShouldResemble, remote.Frame)
-
-		test.That(t, out.ServiceConfig, test.ShouldHaveLength, 2)
-		test.That(t, out.ServiceConfig[0].Type, test.ShouldEqual, remote.ServiceConfig[0].Type)
-		test.That(t, out.ServiceConfig[0].Attributes.Int("attr1", 0), test.ShouldEqual, remote.ServiceConfig[0].Attributes.Int("attr1", -1))
-		test.That(t, out.ServiceConfig[1].Type, test.ShouldEqual, remote.ServiceConfig[1].Type)
-		test.That(t, out.ServiceConfig[1].Attributes.Int("attr1", 0), test.ShouldEqual, remote.ServiceConfig[1].Attributes.Int("attr1", -1))
+		validateRemote(t, *out, testRemote)
 	})
 
 	t.Run("Without RemoteAuth", func(t *testing.T) {
@@ -242,112 +317,114 @@ func TestRemoteConfigToProto(t *testing.T) {
 	})
 }
 
-func TestServiceConfigToProto(t *testing.T) {
-	service := Service{
-		Name:      "some-name",
-		Namespace: "some-namespace",
-		Type:      "some-type",
-		Attributes: AttributeMap{
-			"attr1": 1,
-		},
-	}
+//nolint:thelper
+func validateService(t *testing.T, actual, expected Service) {
+	test.That(t, actual.Name, test.ShouldEqual, expected.Name)
+	test.That(t, actual.Namespace, test.ShouldEqual, expected.Namespace)
+	test.That(t, actual.Type, test.ShouldEqual, expected.Type)
+	test.That(t, actual.Attributes.Int("attr1", 0), test.ShouldEqual, expected.Attributes.Int("attr1", -1))
+}
 
-	proto, err := ServiceConfigToProto(&service)
+func TestServiceConfigToProto(t *testing.T) {
+	proto, err := ServiceConfigToProto(&testService)
 	test.That(t, err, test.ShouldBeNil)
 
 	out, err := ServiceConfigFromProto(proto)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, out.Name, test.ShouldEqual, service.Name)
-	test.That(t, out.Namespace, test.ShouldEqual, service.Namespace)
-	test.That(t, out.Type, test.ShouldEqual, service.Type)
-	test.That(t, out.Attributes.Int("attr1", 0), test.ShouldEqual, service.Attributes.Int("attr1", -1))
+	validateService(t, *out, testService)
 }
 
 func TestProcessConfigToProto(t *testing.T) {
-	service := pexec.ProcessConfig{
-		ID:      "Some-id",
-		Name:    "Some-name",
-		Args:    []string{"arg1", "arg2"},
-		CWD:     "/home",
-		OneShot: true,
-		Log:     true,
-	}
-
-	proto, err := ProcessConfigToProto(&service)
+	proto, err := ProcessConfigToProto(&testProcessConfig)
 	test.That(t, err, test.ShouldBeNil)
 	out, err := ProcessConfigFromProto(proto)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, *out, test.ShouldResemble, service)
+	test.That(t, *out, test.ShouldResemble, testProcessConfig)
 }
 
 func TestNetworkConfigToProto(t *testing.T) {
-	in := NetworkConfig{
-		NetworkConfigData: NetworkConfigData{
-			FQDN:        "some.fqdn",
-			BindAddress: "0.0.0.0:1234",
-			TLSCertFile: "./cert.pub",
-			TLSKeyFile:  "./cert.private",
-		},
-	}
-
-	proto, err := NetworkConfigToProto(&in)
+	proto, err := NetworkConfigToProto(&testNetworkConfig)
 	test.That(t, err, test.ShouldBeNil)
 	out, err := NetworkConfigFromProto(proto)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, *out, test.ShouldResemble, in)
+	test.That(t, *out, test.ShouldResemble, testNetworkConfig)
+}
+
+//nolint:thelper
+func validateAuthConfig(t *testing.T, actual, expected AuthConfig) {
+	test.That(t, actual.TLSAuthEntities, test.ShouldResemble, expected.TLSAuthEntities)
+	test.That(t, actual.Handlers, test.ShouldHaveLength, 2)
+	test.That(t, actual.Handlers[0].Type, test.ShouldEqual, expected.Handlers[0].Type)
+	test.That(t, actual.Handlers[0].Config.Int("config-1", 0), test.ShouldEqual, expected.Handlers[0].Config.Int("config-1", -1))
+	test.That(t, actual.Handlers[1].Type, test.ShouldEqual, expected.Handlers[1].Type)
+	test.That(t, actual.Handlers[1].Config.Int("config-2", 0), test.ShouldEqual, expected.Handlers[1].Config.Int("config-2", -1))
 }
 
 func TestAuthConfigToProto(t *testing.T) {
-	in := AuthConfig{
-		Handlers: []AuthHandlerConfig{
-			{
-				Type: rpc.CredentialsTypeAPIKey,
-				Config: AttributeMap{
-					"config-1": 1,
-				},
-			},
-			{
-				Type: rpc.CredentialsTypeAPIKey,
-				Config: AttributeMap{
-					"config-2": 2,
-				},
-			},
-		},
-		TLSAuthEntities: []string{"tls1", "tls2"},
-	}
-
-	proto, err := AuthConfigToProto(&in)
+	proto, err := AuthConfigToProto(&testAuthConfig)
 	test.That(t, err, test.ShouldBeNil)
 	out, err := AuthConfigFromProto(proto)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, out.TLSAuthEntities, test.ShouldResemble, in.TLSAuthEntities)
-	test.That(t, out.Handlers, test.ShouldHaveLength, 2)
-	test.That(t, out.Handlers[0].Type, test.ShouldEqual, in.Handlers[0].Type)
-	test.That(t, out.Handlers[0].Config.Int("config-1", 0), test.ShouldEqual, out.Handlers[0].Config.Int("config-1", -1))
-	test.That(t, out.Handlers[1].Type, test.ShouldEqual, in.Handlers[1].Type)
-	test.That(t, out.Handlers[1].Config.Int("config-2", 0), test.ShouldEqual, out.Handlers[1].Config.Int("config-2", -1))
+	validateAuthConfig(t, *out, testAuthConfig)
 }
 
 func TestCloudConfigToProto(t *testing.T) {
-	in := Cloud{
-		ID:                "some-id",
-		Secret:            "some-secret",
-		LocationSecret:    "other-secret",
-		ManagedBy:         "managed-by",
-		FQDN:              "some.fqdn",
-		LocalFQDN:         "local.fqdn",
-		SignalingAddress:  "0.0.0.0:8080",
-		SignalingInsecure: true,
-	}
-
-	proto, err := CloudConfigToProto(&in)
+	proto, err := CloudConfigToProto(&testCloudConfig)
 	test.That(t, err, test.ShouldBeNil)
 	out, err := CloudConfigFromProto(proto)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, *out, test.ShouldResemble, in)
+	test.That(t, *out, test.ShouldResemble, testCloudConfig)
+}
+
+func TestFromProto(t *testing.T) {
+	cloudConfig, err := CloudConfigToProto(&testCloudConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	remoteConfig, err := RemoteConfigToProto(&testRemote)
+	test.That(t, err, test.ShouldBeNil)
+
+	componentConfig, err := ComponentConfigToProto(&testComponent)
+	test.That(t, err, test.ShouldBeNil)
+
+	processConfig, err := ProcessConfigToProto(&testProcessConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	serviceConfig, err := ServiceConfigToProto(&testService)
+	test.That(t, err, test.ShouldBeNil)
+
+	networkConfig, err := NetworkConfigToProto(&testNetworkConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	authConfig, err := AuthConfigToProto(&testAuthConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	debug := true
+
+	input := &pb.RobotConfig{
+		Cloud:      cloudConfig,
+		Remotes:    []*pb.RemoteConfig{remoteConfig},
+		Components: []*pb.ComponentConfig{componentConfig},
+		Processes:  []*pb.ProcessConfig{processConfig},
+		Services:   []*pb.ServiceConfig{serviceConfig},
+		Network:    networkConfig,
+		Auth:       authConfig,
+		Debug:      &debug,
+	}
+
+	out, err := FromProto(input)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, *out.Cloud, test.ShouldResemble, testCloudConfig)
+	validateRemote(t, out.Remotes[0], testRemote)
+	validateComponent(t, out.Components[0], testComponent)
+	test.That(t, out.Processes[0], test.ShouldResemble, testProcessConfig)
+	validateService(t, out.Services[0], testService)
+	test.That(t, out.Network, test.ShouldResemble, testNetworkConfig)
+	validateAuthConfig(t, out.Auth, testAuthConfig)
+	test.That(t, out.Debug, test.ShouldEqual, debug)
 }
