@@ -49,13 +49,13 @@ const (
 
 // A Service controls the navigation for a robot.
 type Service interface {
-	GetMode(ctx context.Context) (Mode, error)
+	Mode(ctx context.Context) (Mode, error)
 	SetMode(ctx context.Context, mode Mode) error
 
-	GetLocation(ctx context.Context) (*geo.Point, error)
+	Location(ctx context.Context) (*geo.Point, error)
 
 	// Waypoint
-	GetWaypoints(ctx context.Context) ([]Waypoint, error)
+	Waypoints(ctx context.Context) ([]Waypoint, error)
 	AddWaypoint(ctx context.Context, point *geo.Point) error
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error
 }
@@ -110,10 +110,10 @@ type reconfigurableNavigation struct {
 	actual Service
 }
 
-func (svc *reconfigurableNavigation) GetMode(ctx context.Context) (Mode, error) {
+func (svc *reconfigurableNavigation) Mode(ctx context.Context) (Mode, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetMode(ctx)
+	return svc.actual.Mode(ctx)
 }
 
 func (svc *reconfigurableNavigation) SetMode(ctx context.Context, mode Mode) error {
@@ -122,17 +122,17 @@ func (svc *reconfigurableNavigation) SetMode(ctx context.Context, mode Mode) err
 	return svc.actual.SetMode(ctx, mode)
 }
 
-func (svc *reconfigurableNavigation) GetLocation(ctx context.Context) (*geo.Point, error) {
+func (svc *reconfigurableNavigation) Location(ctx context.Context) (*geo.Point, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetLocation(ctx)
+	return svc.actual.Location(ctx)
 }
 
 // Waypoint.
-func (svc *reconfigurableNavigation) GetWaypoints(ctx context.Context) ([]Waypoint, error) {
+func (svc *reconfigurableNavigation) Waypoints(ctx context.Context) ([]Waypoint, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetWaypoints(ctx)
+	return svc.actual.Waypoints(ctx)
 }
 
 func (svc *reconfigurableNavigation) AddWaypoint(ctx context.Context, point *geo.Point) error {
