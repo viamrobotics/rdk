@@ -209,12 +209,12 @@ func TestPosition(t *testing.T) {
 	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 1)
 }
 
-func TestGetLinearVelocity(t *testing.T) {
+func TestLinearVelocity(t *testing.T) {
 	actualMovementSensor1 := &mock{Name: testMovementSensorName}
 	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
 
 	test.That(t, actualMovementSensor1.velocityCount, test.ShouldEqual, 0)
-	speed1, err := reconfMovementSensor1.(movementsensor.MovementSensor).GetLinearVelocity(context.Background())
+	speed1, err := reconfMovementSensor1.(movementsensor.MovementSensor).LinearVelocity(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, speed1, test.ShouldResemble, speed)
 	test.That(t, actualMovementSensor1.velocityCount, test.ShouldEqual, 1)
@@ -282,20 +282,20 @@ func (m *mock) Position(ctx context.Context) (*geo.Point, float64, error) {
 	return loc, alt, nil
 }
 
-func (m *mock) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (m *mock) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	m.velocityCount++
 	return speed, nil
 }
 
-func (m *mock) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (m *mock) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	return ang, nil
 }
 
-func (m *mock) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (m *mock) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	return orie, nil
 }
 
-func (m *mock) GetCompassHeading(ctx context.Context) (float64, error) {
+func (m *mock) CompassHeading(ctx context.Context) (float64, error) {
 	return compass, nil
 }
 

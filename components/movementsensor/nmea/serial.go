@@ -195,34 +195,34 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context) (*geo.Point, fl
 	return g.data.location, g.data.alt, g.lastError
 }
 
-// GetAccuracy returns the accuracy, hDOP and vDOP.
-func (g *SerialNMEAMovementSensor) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+// Accuracy returns the accuracy, hDOP and vDOP.
+func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context) (map[string]float32, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return map[string]float32{"hDOP": float32(g.data.hDOP), "vDOP": float32(g.data.vDOP)}, g.lastError
 }
 
-// GetLinearVelocity linear velocity.
-func (g *SerialNMEAMovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+// LinearVelocity linear velocity.
+func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return r3.Vector{0, g.data.speed, 0}, g.lastError
 }
 
-// GetAngularVelocity angularvelocity.
-func (g *SerialNMEAMovementSensor) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+// AngularVelocity angularvelocity.
+func (g *SerialNMEAMovementSensor) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return spatialmath.AngularVelocity{}, g.lastError
 }
 
-// GetOrientation orientation.
-func (g *SerialNMEAMovementSensor) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+// Orientation orientation.
+func (g *SerialNMEAMovementSensor) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	return nil, g.lastError
 }
 
-// GetCompassHeading 0->360.
-func (g *SerialNMEAMovementSensor) GetCompassHeading(ctx context.Context) (float64, error) {
+// CompassHeading 0->360.
+func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return 0, g.lastError
