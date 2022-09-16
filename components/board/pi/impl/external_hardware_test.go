@@ -12,6 +12,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/commonsysfs"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/motor"
@@ -29,8 +30,7 @@ func TestPiHardware(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	cfg := board.Config{
-		// Analogs: []board.AnalogConfig{{Name: "blue", Pin: "0"}},
+	cfg := commonsysfs.Config{
 		DigitalInterrupts: []board.DigitalInterruptConfig{
 			{Name: "i1", Pin: "11"},                     // plug physical 12(18) into this (17)
 			{Name: "servo-i", Pin: "22", Type: "servo"}, // bcom-25

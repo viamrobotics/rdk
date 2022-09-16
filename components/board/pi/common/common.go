@@ -6,6 +6,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/commonsysfs"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
 )
@@ -33,7 +34,14 @@ func (config *ServoConfig) Validate(path string) error {
 }
 
 func init() {
-	board.RegisterConfigAttributeConverter(ModelName)
+	config.RegisterComponentAttributeMapConverter(
+		board.SubtypeName,
+		ModelName,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf commonsysfs.Config
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&commonsysfs.Config{})
 
 	config.RegisterComponentAttributeMapConverter(
 		servo.SubtypeName,

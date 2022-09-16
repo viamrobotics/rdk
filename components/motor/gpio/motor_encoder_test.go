@@ -551,7 +551,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 	})
 
 	t.Run("wrap motor with single encoder", func(t *testing.T) {
-		b, err := fakeboard.NewBoard(context.Background(), config.Component{ConvertedAttributes: &board.Config{}}, rlog.Logger)
+		b, err := fakeboard.NewBoard(context.Background(), config.Component{ConvertedAttributes: &fakeboard.Config{}}, rlog.Logger)
 		test.That(t, err, test.ShouldBeNil)
 		fakeMotor := &fakemotor.Motor{}
 		b.Digitals["a"] = &board.BasicDigitalInterrupt{}
@@ -577,7 +577,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 	})
 
 	t.Run("wrap motor with hall encoder", func(t *testing.T) {
-		b, err := fakeboard.NewBoard(context.Background(), config.Component{ConvertedAttributes: &board.Config{}}, rlog.Logger)
+		b, err := fakeboard.NewBoard(context.Background(), config.Component{ConvertedAttributes: &fakeboard.Config{}}, rlog.Logger)
 		test.That(t, err, test.ShouldBeNil)
 		fakeMotor := &fakemotor.Motor{}
 		b.Digitals["a"] = &board.BasicDigitalInterrupt{}
