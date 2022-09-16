@@ -54,7 +54,7 @@ func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error
 	var i DigitalInterrupt
 	switch cfg.Type {
 	case "basic":
-		iActual := &BasicDigitalInterrupt{cfg: cfg, mu: &sync.RWMutex{}}
+		iActual := &BasicDigitalInterrupt{cfg: cfg, mu: sync.RWMutex{}}
 		i = iActual
 	case "servo":
 		iActual := &ServoDigitalInterrupt{cfg: cfg, ra: utils.NewRollingAverage(ServoRollingAverageWindow)}
@@ -105,7 +105,7 @@ type BasicDigitalInterrupt struct {
 	callbacks []chan bool
 
 	pp PostProcessor
-	mu *sync.RWMutex
+	mu sync.RWMutex
 }
 
 // Config returns the config used to create this interrupt.
