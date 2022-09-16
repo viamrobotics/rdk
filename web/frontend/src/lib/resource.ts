@@ -50,7 +50,6 @@ export const filterResources = (resources: Resource[], namespace: string, type: 
 };
 
 export const filterRdkComponentsWithStatus = (resources: Resource[], status: any, subtype: string) => {
-  console.log('status', status);
   return resources
     .filter((resource) =>
       resource.namespace === 'rdk' &&
