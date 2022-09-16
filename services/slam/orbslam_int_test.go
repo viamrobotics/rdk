@@ -87,6 +87,22 @@ func getMockDepthCamera(t *testing.T, logger golog.Logger) (camera.Camera, *http
 	return cam, svr
 }
 
+// Tests that the next image read from the camera is the same as the image stored at 'path'.
+func testImage(t *testing.T, cam camera.Camera, path string) {
+	t.Helper()
+
+	img, release, err := camera.ReadImage(
+		gostream.WithMIMETypeHint(context.Background(), utils.WithLazyMIMEType(utils.MimeTypePNG)), cam)
+	test.That(t, err, test.ShouldBeNil)
+	defer release()
+	lazyImg, ok := img.(*rimage.LazyEncodedImage)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, lazyImg.MIMEType(), test.ShouldEqual, utils.MimeTypePNG)
+	bytes, err := os.ReadFile(path)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, lazyImg.RawData(), test.ShouldResemble, bytes)
+}
+
 func TestMockCameraServer(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
@@ -102,17 +118,8 @@ func TestMockCameraServer(t *testing.T) {
 
 		for i := 0; i < 15; i++ {
 			t.Run(fmt.Sprintf("Test color image %v", i), func(t *testing.T) {
-				img, release, err := camera.ReadImage(
-					gostream.WithMIMETypeHint(context.Background(), utils.WithLazyMIMEType(utils.MimeTypePNG)), colorCam)
-				test.That(t, err, test.ShouldBeNil)
-				defer release()
-				lazyImg, ok := img.(*rimage.LazyEncodedImage)
-				test.That(t, ok, test.ShouldBeTrue)
-				test.That(t, lazyImg.MIMEType(), test.ShouldEqual, utils.MimeTypePNG)
 				path := artifact.MustPath("slam/temp_mock_camera/color/" + strconv.Itoa(i) + ".png")
-				bytes, err := os.ReadFile(path)
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, lazyImg.RawData(), test.ShouldResemble, bytes)
+				testImage(t, colorCam, path)
 			})
 		}
 	})
@@ -122,17 +129,8 @@ func TestMockCameraServer(t *testing.T) {
 		defer depthSvr.Close()
 		for i := 0; i < 15; i++ {
 			t.Run(fmt.Sprintf("Test depth image %v", i), func(t *testing.T) {
-				img, release, err := camera.ReadImage(
-					gostream.WithMIMETypeHint(context.Background(), utils.WithLazyMIMEType(utils.MimeTypePNG)), depthCam)
-				test.That(t, err, test.ShouldBeNil)
-				defer release()
-				lazyImg, ok := img.(*rimage.LazyEncodedImage)
-				test.That(t, ok, test.ShouldBeTrue)
-				test.That(t, lazyImg.MIMEType(), test.ShouldEqual, utils.MimeTypePNG)
 				path := artifact.MustPath("slam/temp_mock_camera/depth/" + strconv.Itoa(i) + ".png")
-				bytes, err := os.ReadFile(path)
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, lazyImg.RawData(), test.ShouldResemble, bytes)
+				testImage(t, depthCam, path)
 			})
 		}
 	})
