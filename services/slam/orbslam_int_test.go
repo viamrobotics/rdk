@@ -28,6 +28,7 @@ var (
 
 // Creates a mock camera server that serves 'pattern' using the files in 'path'.
 // Assumes the files are named 0.png, 1.png, 2.png, etc.
+//nolint:dupl
 func getMockCameraServer(t *testing.T, path, pattern string) *http.ServeMux {
 	t.Helper()
 
@@ -35,6 +36,32 @@ func getMockCameraServer(t *testing.T, path, pattern string) *http.ServeMux {
 
 	handle := func(w http.ResponseWriter, r *http.Request) {
 		i := atomic.AddUint64(&index, 1) - 1
+		t.Logf("Handle called with pattern %v and image %v", pattern, i)
+		if pattern == "/color.png" {
+			test.That(t, i, test.ShouldEqual, atomic.LoadUint64(&colorIndex))
+		} else {
+			test.That(t, i, test.ShouldEqual, atomic.LoadUint64(&depthIndex))
+		}
+
+		path := artifact.MustPath(path + strconv.FormatUint(i, 10) + ".png")
+		bytes, err := os.ReadFile(path)
+		test.That(t, err, test.ShouldBeNil)
+		w.Write(bytes)
+	}
+
+	router := http.NewServeMux()
+	router.HandleFunc(pattern, handle)
+	return router
+}
+
+//nolint:dupl
+func getMockDepthCameraServer(t *testing.T, path, pattern string) *http.ServeMux {
+	t.Helper()
+
+	var index2 uint64
+
+	handle := func(w http.ResponseWriter, r *http.Request) {
+		i := atomic.AddUint64(&index2, 1) - 1
 		t.Logf("Handle called with pattern %v and image %v", pattern, i)
 		if pattern == "/color.png" {
 			test.That(t, i, test.ShouldEqual, atomic.LoadUint64(&colorIndex))
@@ -85,7 +112,7 @@ func getMockColorCamera(t *testing.T, logger golog.Logger) (camera.Camera, *http
 func getMockDepthCamera(t *testing.T, logger golog.Logger) (camera.Camera, *httptest.Server) {
 	t.Helper()
 
-	router := getMockCameraServer(t, "slam/temp_mock_camera/depth/", "/depth.png")
+	router := getMockDepthCameraServer(t, "slam/temp_mock_camera/depth/", "/depth.png")
 	svr := httptest.NewServer(router)
 	attrs := videosource.ServerAttrs{
 		URL: svr.URL + "/depth.png",
