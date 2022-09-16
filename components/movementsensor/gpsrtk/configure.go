@@ -82,7 +82,7 @@ type configCommand struct {
 
 // ConfigureBaseRTKStation configures an RTK chip to act as a base station and send correction data.
 func ConfigureBaseRTKStation(config config.Component) error {
-	correctionType := config.Attributes.String(correctionSourceName)
+	correctionType := config.ConvertedAttributes.(*AttrConfig).CorrectionSource
 
 	surveyIn := config.Attributes.String(svinConfig)
 	requiredAcc := config.Attributes.Float64(requiredAccuracyConfig, 10)
@@ -132,7 +132,7 @@ func ConfigureBaseRTKStation(config config.Component) error {
 
 // ConfigureRoverDefault sets up an RTK chip to act as a rover and receive correction data.
 func ConfigureRoverDefault(config config.Component) error {
-	correctionType := config.Attributes.String(correctionSourceName)
+	correctionType := config.ConvertedAttributes.(*AttrConfig).CorrectionSource
 
 	c := &configCommand{
 		correctionType: correctionType,

@@ -59,9 +59,17 @@ func TestNewSerialMovementSensor(t *testing.T) {
 		Name:  "movementsensor1",
 		Model: "gps-nmea",
 		Type:  movementsensor.SubtypeName,
-		Attributes: config.AttributeMap{
-			"path":            path,
-			"correction_path": "",
+		ConvertedAttributes: &AttrConfig{
+			ConnectionType: "serial",
+			Board:          "local",
+			DisableNMEA:    false,
+			SerialAttrConfig: &SerialAttrConfig{
+				SerialPath:         path,
+				BaudRate:           0,
+				CorrectionPath:     path,
+				CorrectionBaudRate: 0,
+			},
+			I2CAttrConfig: &I2CAttrConfig{},
 		},
 	}
 	g, err = NewSerialNMEAMovementSensor(ctx, cfig, logger)

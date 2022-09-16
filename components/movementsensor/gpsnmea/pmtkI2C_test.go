@@ -7,6 +7,8 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -21,21 +23,18 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 	t.Helper()
 
 	deps := make(registry.Dependencies)
+	// i2c := &fake.I2C{}
+	deps[board.Named(testBoardName)] = &fake.Board{
+		Name: testBoardName,
+	}
 	return deps
 }
 
 func TestValidateI2C(t *testing.T) {
-	fakecfg := &I2CAttrConfig{}
+	fakecfg := &I2CAttrConfig{Bus: "some-bus"}
+
 	err := fakecfg.ValidateI2C("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty board")
-
-	fakecfg.Board = "some-board"
-	err = fakecfg.ValidateI2C("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty bus")
-
-	fakecfg.Bus = "some-bus"
-	err = fakecfg.ValidateI2C("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty i2c address")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "i2c_addr")
 
 	fakecfg.I2cAddr = 66
 	err = fakecfg.ValidateI2C("path")
@@ -47,7 +46,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 
 	cfig := config.Component{
 		Name:  "movementsensor1",
-		Model: "gps-nmea-i2c",
+		Model: "gps-nmea",
 		Type:  movementsensor.SubtypeName,
 		Attributes: config.AttributeMap{
 			"board":    "",
@@ -64,7 +63,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	cfig = config.Component{
-		Name:  "movementsensor1",
+		Name:  "movementsensor2",
 		Model: "gps-nmea",
 		Type:  movementsensor.SubtypeName,
 		Attributes: config.AttributeMap{
@@ -72,9 +71,15 @@ func TestNewI2CMovementSensor(t *testing.T) {
 			"bus":      testBusName,
 			"i2c_addr": "",
 		},
+		ConvertedAttributes: &AttrConfig{
+			ConnectionType: "i2c",
+			Board:          testBoardName,
+			DisableNMEA:    false,
+			I2CAttrConfig:  &I2CAttrConfig{Bus: testBusName, I2cAddr: 0, BaudRate: 0},
+		},
 	}
 	g, err = NewPmtkI2CNMEAMovementSensor(ctx, deps, cfig, logger)
-	passErr := "board " + cfig.Attributes.String("board") + " is not local"
+	passErr := "gps init: failed to find board: " + cfig.Attributes.String("board") + " missing from dependencies"
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, g, test.ShouldNotBeNil)

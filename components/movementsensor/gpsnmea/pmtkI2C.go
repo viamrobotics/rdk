@@ -22,7 +22,6 @@ import (
 // I2CAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
 type I2CAttrConfig struct {
 	// I2C
-	Board    string `json:"board"`
 	Bus      string `json:"bus"`
 	I2cAddr  int    `json:"i2c_addr"`
 	BaudRate int    `json:"baud_rate,omitempty"`
@@ -30,14 +29,11 @@ type I2CAttrConfig struct {
 
 // ValidateI2C ensures all parts of the config are valid.
 func (config *I2CAttrConfig) ValidateI2C(path string) error {
-	if len(config.Board) == 0 {
-		return errors.New("expected nonempty board")
-	}
-	if len(config.Bus) == 0 {
-		return errors.New("expected nonempty bus")
+	if config.Bus == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "bus")
 	}
 	if config.I2cAddr == 0 {
-		return errors.New("expected nonempty i2c address")
+		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
 	}
 
 	return nil
@@ -73,13 +69,13 @@ func NewPmtkI2CNMEAMovementSensor(
 		return nil, errors.New("could not convert attributes from config")
 	}
 
-	b, err := board.FromDependencies(deps, conf.I2CAttrConfig.Board)
+	b, err := board.FromDependencies(deps, conf.Board)
 	if err != nil {
 		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
-		return nil, fmt.Errorf("board %s is not local", conf.I2CAttrConfig.Board)
+		return nil, fmt.Errorf("board %s is not local", conf.Board)
 	}
 	i2cbus, ok := localB.I2CByName(conf.I2CAttrConfig.Bus)
 	if !ok {
