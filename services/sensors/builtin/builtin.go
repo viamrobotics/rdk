@@ -40,8 +40,8 @@ type builtIn struct {
 	logger  golog.Logger
 }
 
-// GetSensors returns all sensors in the robot.
-func (s *builtIn) GetSensors(ctx context.Context) ([]resource.Name, error) {
+// Sensors returns all sensors in the robot.
+func (s *builtIn) Sensors(ctx context.Context) ([]resource.Name, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 

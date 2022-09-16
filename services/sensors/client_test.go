@@ -61,7 +61,7 @@ func TestClient(t *testing.T) {
 		injectSensors.GetSensorsFunc = func(ctx context.Context) ([]resource.Name, error) {
 			return names, nil
 		}
-		sensorNames, err := client.GetSensors(context.Background())
+		sensorNames, err := client.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sensorNames, test.ShouldResemble, names)
 
@@ -100,7 +100,7 @@ func TestClient(t *testing.T) {
 			return nil, passedErr
 		}
 
-		_, err = client2.GetSensors(context.Background())
+		_, err = client2.Sensors(context.Background())
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 
 		passedErr = errors.New("can't get readings")

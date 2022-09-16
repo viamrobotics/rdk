@@ -43,7 +43,7 @@ func (server *subtypeServer) GetSensors(
 	if err != nil {
 		return nil, err
 	}
-	names, err := svc.GetSensors(ctx)
+	names, err := svc.Sensors(ctx)
 	if err != nil {
 		return nil, err
 	}

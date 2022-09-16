@@ -33,7 +33,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return c
 }
 
-func (c *client) GetSensors(ctx context.Context) ([]resource.Name, error) {
+func (c *client) Sensors(ctx context.Context) ([]resource.Name, error) {
 	resp, err := c.client.GetSensors(ctx, &pb.GetSensorsRequest{Name: c.name})
 	if err != nil {
 		return nil, err

@@ -15,10 +15,10 @@ type SensorsService struct {
 	ReadingsFunc   func(ctx context.Context, resources []resource.Name) ([]sensors.Readings, error)
 }
 
-// GetSensors call the injected GetSensors or the real one.
-func (s *SensorsService) GetSensors(ctx context.Context) ([]resource.Name, error) {
+// Sensors call the injected Sensors or the real one.
+func (s *SensorsService) Sensors(ctx context.Context) ([]resource.Name, error) {
 	if s.GetSensorsFunc == nil {
-		return s.Service.GetSensors(ctx)
+		return s.Service.Sensors(ctx)
 	}
 	return s.GetSensorsFunc(ctx)
 }
