@@ -31,7 +31,6 @@ linters:
     - goimports
     - golint
     - gomnd
-    - gomoddirectives
     - ifshort
     - importas
     - interfacebloat
