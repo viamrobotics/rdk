@@ -1,4 +1,4 @@
-package nmea
+package gpsnmea
 
 import (
 	"context"
@@ -51,7 +51,7 @@ func TestNewSerialMovementSensor(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
-	g, err := newSerialNMEAMovementSensor(ctx, cfig, logger)
+	g, err := NewSerialNMEAMovementSensor(ctx, cfig, logger)
 	test.That(t, g, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -64,7 +64,7 @@ func TestNewSerialMovementSensor(t *testing.T) {
 			"correction_path": "",
 		},
 	}
-	g, err = newSerialNMEAMovementSensor(ctx, cfig, logger)
+	g, err = NewSerialNMEAMovementSensor(ctx, cfig, logger)
 	passErr := "open " + path + ": no such file or directory"
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
@@ -81,7 +81,7 @@ func TestReadingsSerial(t *testing.T) {
 		cancelFunc: cancelFunc,
 		logger:     logger,
 	}
-	g.data = gpsData{
+	g.data = GpsData{
 		location:   loc,
 		alt:        alt,
 		speed:      speed,

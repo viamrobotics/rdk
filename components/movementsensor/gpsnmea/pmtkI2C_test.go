@@ -1,4 +1,4 @@
-package nmea
+package gpsnmea
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -22,10 +21,6 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 	t.Helper()
 
 	deps := make(registry.Dependencies)
-
-	actualBoard := newBoard(testBoardName)
-	deps[board.Named(testBoardName)] = actualBoard
-
 	return deps
 }
 
@@ -64,7 +59,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
-	g, err := newPmtkI2CNMEAMovementSensor(ctx, deps, cfig, logger)
+	g, err := NewPmtkI2CNMEAMovementSensor(ctx, deps, cfig, logger)
 	test.That(t, g, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -78,7 +73,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 			"i2c_addr": "",
 		},
 	}
-	g, err = newPmtkI2CNMEAMovementSensor(ctx, deps, cfig, logger)
+	g, err = NewPmtkI2CNMEAMovementSensor(ctx, deps, cfig, logger)
 	passErr := "board " + cfig.Attributes.String("board") + " is not local"
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
@@ -95,7 +90,7 @@ func TestReadingsI2C(t *testing.T) {
 		cancelFunc: cancelFunc,
 		logger:     logger,
 	}
-	g.data = gpsData{
+	g.data = GpsData{
 		location:   loc,
 		alt:        alt,
 		speed:      speed,

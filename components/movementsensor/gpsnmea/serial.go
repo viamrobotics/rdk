@@ -1,5 +1,5 @@
 // Package nmea implements an NMEA serial gps.
-package nmea
+package gpsnmea
 
 import (
 	"bufio"
@@ -25,8 +25,12 @@ import (
 // SerialAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
 type SerialAttrConfig struct {
 	// Serial
-	SerialPath     string `json:"path"`
-	CorrectionPath string `json:"correction_path"`
+	SerialPath         string `json:"path"`
+	BaudRate           int    `json:"baud_rate,omitempty"`
+	CorrectionPath     string `json:"correction_path,omitempty"`
+	CorrectionBaudRate int    `json:"correction_baud_rate,omitempty"`
+
+	// *RTKAttrConfig `json:"rtk_attributes"`
 }
 
 // ValidateSerial ensures all parts of the config are valid.
@@ -41,53 +45,50 @@ func (config *SerialAttrConfig) ValidateSerial(path string) error {
 // SerialNMEAMovementSensor allows the use of any MovementSensor chip that communicates over serial.
 type SerialNMEAMovementSensor struct {
 	generic.Unimplemented
-	mu                 sync.RWMutex
-	dev                io.ReadWriteCloser
-	logger             golog.Logger
-	path               string
-	correctionPath     string
-	baudRate           uint
-	correctionBaudRate uint
-	disableNmea        bool
-
-	data                    gpsData
+	mu                      sync.RWMutex
 	cancelCtx               context.Context
 	cancelFunc              func()
+	logger                  golog.Logger
+	data                    GpsData
 	activeBackgroundWorkers sync.WaitGroup
 
-	errMu     sync.Mutex
-	lastError error
+	disableNmea bool
+	errMu       sync.Mutex
+	lastError   error
+
+	dev                io.ReadWriteCloser
+	path               string
+	baudRate           uint
+	correctionBaudRate uint
+	correctionPath     string
 }
 
-const (
-	pathAttrName           = "path"
-	correctionAttrName     = "correction_path"
-	baudRateName           = "baud_rate"
-	correctionBaudRateName = "correction_baud"
-	disableNmeaName        = "disable_nmea"
-)
-
-func newSerialNMEAMovementSensor(ctx context.Context, config config.Component, logger golog.Logger) (nmeaMovementSensor, error) {
-	serialPath := config.Attributes.String(pathAttrName)
-	if serialPath == "" {
-		return nil, fmt.Errorf("SerialNMEAMovementSensor expected non-empty string for %q", pathAttrName)
+func NewSerialNMEAMovementSensor(ctx context.Context, config config.Component, logger golog.Logger) (NmeaMovementSensor, error) {
+	conf, ok := config.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, errors.New("could not convert attributes from config")
 	}
-	correctionPath := config.Attributes.String(correctionAttrName)
+
+	serialPath := conf.SerialAttrConfig.SerialPath
+	if serialPath == "" {
+		return nil, fmt.Errorf("SerialNMEAMovementSensor expected non-empty string for %q", conf.SerialAttrConfig.SerialPath)
+	}
+	correctionPath := conf.SerialAttrConfig.CorrectionPath
 	if correctionPath == "" {
 		correctionPath = serialPath
 		logger.Info("SerialNMEAMovementSensor: correction_path using path")
 	}
-	baudRate := config.Attributes.Int(baudRateName, 0)
+	baudRate := conf.SerialAttrConfig.BaudRate
 	if baudRate == 0 {
 		baudRate = 9600
 		logger.Info("SerialNMEAMovementSensor: baud_rate using default 9600")
 	}
-	correctionBaudRate := config.Attributes.Int(correctionBaudRateName, 0)
+	correctionBaudRate := conf.SerialAttrConfig.CorrectionBaudRate
 	if correctionBaudRate == 0 {
 		correctionBaudRate = baudRate
 		logger.Info("SerialNMEAMovementSensor: correction_baud using baud_rate")
 	}
-	disableNmea := config.Attributes.Bool(disableNmeaName, false)
+	disableNmea := conf.DisableNMEA
 	if disableNmea {
 		logger.Info("SerialNMEAMovementSensor: NMEA reading disabled")
 	}
@@ -117,7 +118,7 @@ func newSerialNMEAMovementSensor(ctx context.Context, config config.Component, l
 		baudRate:           uint(baudRate),
 		correctionBaudRate: uint(correctionBaudRate),
 		disableNmea:        disableNmea,
-		data:               gpsData{},
+		data:               GpsData{},
 	}
 
 	if err := g.Start(ctx); err != nil {
@@ -191,7 +192,7 @@ func (g *SerialNMEAMovementSensor) GetAccuracy(ctx context.Context) (map[string]
 func (g *SerialNMEAMovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return r3.Vector{0, g.data.speed, 0}, g.lastError
+	return r3.Vector{X: 0, Y: g.data.speed, Z: 0}, g.lastError
 }
 
 // GetAngularVelocity angularvelocity.

@@ -1,5 +1,5 @@
 // Package nmea implements an NMEA serial gps.
-package nmea
+package gpsnmea
 
 import (
 	"context"
@@ -25,8 +25,8 @@ type AttrConfig struct {
 	// I2C
 	*I2CAttrConfig
 
-	// RTK
-	*RTKAttrConfig
+	// // RTK
+	// *RTKAttrConfig
 }
 
 // Validate ensures all parts of the config are valid.
@@ -39,9 +39,9 @@ func (config *AttrConfig) Validate(path string) error {
 		return config.I2CAttrConfig.ValidateI2C(path)
 	}
 
-	if config.RTKAttrConfig != nil {
-		return config.RTKAttrConfig.ValidateRTK(path)
-	}
+	// if config.RTKAttrConfig != nil {
+	// 	return config.RTKAttrConfig.ValidateRTK(path)
+	// }
 
 	if config == nil {
 		return utils.NewConfigValidationError(path, errors.New("no config found"))
@@ -51,6 +51,13 @@ func (config *AttrConfig) Validate(path string) error {
 }
 
 const modelname = "gps-nmea"
+
+type NmeaMovementSensor interface {
+	movementsensor.MovementSensor
+	Start(ctx context.Context) error          // Initialize and run MovementSensor
+	Close() error                             // Close MovementSensor
+	ReadFix(ctx context.Context) (int, error) // Returns the fix quality of the current MovementSensor measurements
+}
 
 func init() {
 	registry.RegisterComponent(
@@ -90,14 +97,12 @@ func newNMEAGPS(
 
 	switch connectionType {
 	case serialStr:
-		serialGPS, err := newSerialNMEAMovementSensor(ctx, cfg, logger)
-		return serialGPS, err
+		return NewSerialNMEAMovementSensor(ctx, cfg, logger)
 	case i2cStr:
-		i2cGPS, err := newPmtkI2CNMEAMovementSensor(ctx, deps, cfg, logger)
-		return i2cGPS, err
-	case rtkStr:
-		rtkStr, err := newRTKMovementSensor(ctx, deps, cfg, logger) // check subtypes
-		return rtkStr, err
+		return NewPmtkI2CNMEAMovementSensor(ctx, deps, cfg, logger)
+	// case rtkStr:
+	// 	rtkStr, err := newRTKMovementSensor(ctx, deps, cfg, logger) // check subtypes
+	// 	return rtkStr, err
 	default:
 		return nil, fmt.Errorf("%s is not a valid connection type", connectionType)
 	}

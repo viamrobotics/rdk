@@ -1,0 +1,12 @@
+scratch
+
+
+	conf, ok := config.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, errors.New("could not convert attributes from config")
+	}
+
+
+// AttrConfig is used for converting Serial NMEA MovementSensor config attributes.
+
+// Validate ensures all parts of the config are valid.

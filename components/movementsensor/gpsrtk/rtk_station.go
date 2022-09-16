@@ -1,6 +1,6 @@
 // Package rtk defines the rtk correction receiver
 // which sends rtcm data to child gps's
-package rtk
+package gpsrtk
 
 import (
 	"context"
@@ -18,7 +18,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/components/movementsensor/nmea"
+	"go.viam.com/rdk/components/movementsensor/gpsnmea"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
@@ -158,6 +158,7 @@ func newRTKStation(
 	config config.Component,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
+
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	r := &rtkStation{
@@ -211,7 +212,7 @@ func newRTKStation(
 		}
 
 		switch t := localmovementsensor.(type) {
-		case *nmea.SerialNMEAMovementSensor:
+		case *gpsnmea.SerialNMEAMovementSensor:
 			path, br := t.GetCorrectionInfo()
 
 			options := serial.OpenOptions{
@@ -229,13 +230,13 @@ func newRTKStation(
 
 			r.serialPorts = append(r.serialPorts, port)
 
-		case *nmea.PmtkI2CNMEAMovementSensor:
+		case *gpsnmea.PmtkI2CNMEAMovementSensor:
 			bus, addr := t.GetBusAddr()
 			busAddr := i2cBusAddr{bus: bus, addr: addr}
 
 			r.i2cPaths = append(r.i2cPaths, busAddr)
 		default:
-			return nil, errors.New("child is not valid nmeaMovementSensor type")
+			return nil, errors.New("child is not valid gpsnmeaMovementSensor type")
 		}
 	}
 

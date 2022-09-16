@@ -1,4 +1,4 @@
-package rtk
+package gpsrtk
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/movementsensor/nmea"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 )
@@ -196,11 +195,11 @@ func TestClose(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestConnect(t *testing.T) {
+func TestRTKStationConnect(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	info := &nmea.NtripInfo{
+	info := &NtripInfo{
 		URL:                "invalidurl",
 		Username:           "user",
 		Password:           "pwd",
@@ -233,37 +232,37 @@ func TestConnect(t *testing.T) {
 // Helpers
 
 // mock ntripinfo client.
-func makeMockNtripClient() *nmea.NtripInfo {
-	return &nmea.NtripInfo{}
-}
+// func makeMockNtripClient() *gpsrtk.NtripInfo {
+// 	return &gpsnmea.NtripInfo{}
+// }
 
-type mock struct {
-	board.LocalBoard
-	Name string
+// type mock struct {
+// 	board.LocalBoard
+// 	Name string
 
-	i2cs []string
-	i2c  *mockI2C
-}
+// 	i2cs []string
+// 	i2c  *mockI2C
+// }
 
-func newBoard(name string) *mock {
-	return &mock{
-		Name: name,
-		i2cs: []string{"i2c1"},
-		i2c:  &mockI2C{1},
-	}
-}
+// func newBoard(name string) *mock {
+// 	return &mock{
+// 		Name: name,
+// 		i2cs: []string{"i2c1"},
+// 		i2c:  &mockI2C{1},
+// 	}
+// }
 
 // Mock I2C
 
-type mockI2C struct{ handleCount int }
+// type mockI2C struct{ handleCount int }
 
-func (m *mock) I2CNames() []string {
-	return m.i2cs
-}
+// func (m *mock) I2CNames() []string {
+// 	return m.i2cs
+// }
 
-func (m *mock) I2CByName(name string) (*mockI2C, bool) {
-	if len(m.i2cs) == 0 {
-		return nil, false
-	}
-	return m.i2c, true
-}
+// func (m *mock) I2CByName(name string) (*mockI2C, bool) {
+// 	if len(m.i2cs) == 0 {
+// 		return nil, false
+// 	}
+// 	return m.i2c, true
+// }
