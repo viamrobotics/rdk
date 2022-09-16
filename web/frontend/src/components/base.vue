@@ -1,29 +1,27 @@
 <script setup lang="ts">
-
+import { grpc } from '@improbable-eng/grpc-web';
 import { ref } from 'vue';
+import { computeKeyboardBaseControls, BaseControlHelper } from '../rc/control_helpers';
+import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
+import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
+import streamApi from '../gen/proto/stream/v1/stream_pb.esm';
+import { toast } from '../lib/toast';
+import { filterResources } from '../lib/resource';
 import KeyboardInput from './keyboard-input.vue';
 
 interface Props {
-  streamName: string
-  baseName: string
-  crumbs: string[]
-  connectedCamera: boolean
-}
-
-interface Emits {
-  (event: 'base-stop'): void
-  (event: 'show-base-camera'): void
-  (event: 'base-change-tab', isOn: boolean): void
-  (event: 'base-spin', data: { direction: 1 | -1, speed: number, angle: number }): void
-  (event: 'base-straight', data: { movementType: string, direction: 1 | -1, speed: number, distance: number }): void
-  (event: 'keyboard-ctl', data: Record<string, boolean>): void
+  name: string;
+  resources: [];
 }
 
 const props = defineProps<Props>();
+
+interface Emits {
+  (event: 'showcamera', value: string): void
+}
+
 const emit = defineEmits<Emits>();
 
-const camera = ref(props.connectedCamera);
-const selectedValue = ref('NoCamera');
 const selectedItem = ref<'Keyboard' | 'Discrete'>('Keyboard');
 const movementMode = ref('Straight');
 const movementType = ref('Continuous');
@@ -34,18 +32,13 @@ const speed = ref(200); // straight mm/s
 const spinSpeed = ref(90); // spin deg/s
 const angle = ref(0);
 
-const cameraOptions = [
-  { value: 'NoCamera', label: 'No Camera' },
-  { value: 'Camera1', label: 'Camera1' },
-];
-
 const handleTabSelect = (tab: 'Keyboard' | 'Discrete') => {
   selectedItem.value = tab;
 
   if (tab === 'Keyboard') {
-    emit('base-change-tab', true);
+    viewPreviewCamera(props.name, true);
   } else {
-    emit('base-change-tab', false);
+    viewPreviewCamera(props.name, false);
     resetDiscreteState();
   }
 };
@@ -76,42 +69,108 @@ const setDirection = (dir: string) => {
 
 const baseRun = () => {
   if (movementMode.value === 'Spin') {
-    emit('base-spin', {
-      direction: spinType.value === 'Clockwise' ? -1 : 1,
-      speed: spinSpeed.value,
-      angle: angle.value,
-    });
+    BaseControlHelper.spin(
+      props.name,
+      angle.value * (spinType.value === 'Clockwise' ? -1 : 1),
+      spinSpeed.value,
+      handleError
+    );
   } else if (movementMode.value === 'Straight') {
-    emit('base-straight', {
+    handleBaseStraight(props.name, {
       movementType: movementType.value,
       direction: direction.value === 'Forwards' ? 1 : -1,
       speed: speed.value,
       distance: increment.value,
     });
   } else {
-    console.log(`Unrecognized discrete movement mode: ${movementMode.value}`);
+    handleError(`Unrecognized discrete movement mode: ${movementMode.value}`);
   }
 };
 
-const keyboardCtl = (keysPressed: Record<string, boolean>) => {
-  emit('keyboard-ctl', keysPressed);
+const handleError = (error) => {
+  if (error) {
+    toast.error(JSON.stringify(error));
+  }
 };
 
-const handleCameraOptionsInput = (event: CustomEvent) => {
-  selectedValue.value = event.detail.value;
-  emit('show-base-camera');
+const baseKeyboardCtl = (name: string, controls) => {
+  if (Object.values(controls).every((item) => item === false)) {
+    toast.info('All keyboard inputs false, stopping base.');
+    handleBaseActionStop(name);
+    return;
+  }
+
+  const inputs = computeKeyboardBaseControls(controls);
+  const linear = new commonApi.Vector3();
+  const angular = new commonApi.Vector3();
+  linear.setY(inputs.linear);
+  angular.setZ(inputs.angular);
+  BaseControlHelper.setPower(name, linear, angular, handleError);
 };
 
+const handleBaseActionStop = (name: string) => {
+  const req = new baseApi.StopRequest();
+  req.setName(name);
+  window.baseService.stop(req, new grpc.Metadata(), handleError);
+};
+
+const handleBaseStraight = (name: string, event) => {
+  if (event.movementType === 'Continuous') {
+    const linear = new commonApi.Vector3();
+    linear.setY(event.speed * event.direction);
+
+    BaseControlHelper.setVelocity(
+      name,
+      linear, // linear
+      new commonApi.Vector3(), // angular
+      handleError
+    );
+  } else {
+    BaseControlHelper.moveStraight(
+      name,
+      event.distance,
+      event.speed * event.direction,
+      handleError
+    );
+  }
+};
+
+const viewPreviewCamera = (name: string, isOn: boolean) => {
+  if (isOn) {
+    const req = new streamApi.AddStreamRequest();
+    req.setName(name);
+    window.streamService.addStream(req, new grpc.Metadata(), (error) => {
+      if (error) {
+        toast.error('no live camera device found');
+        handleError(error);
+      }
+    });
+    return;
+  }
+
+  const req = new streamApi.RemoveStreamRequest();
+  req.setName(name);
+  window.streamService.removeStream(req, new grpc.Metadata(), (error) => {
+    if (error) {
+      toast.error('no live camera device found');
+      handleError(error);
+    }
+  });
+};
+
+const handleSelectCamera = (event: event) => {
+  emit('showcamera', event);
+};
 </script>
 
 <template>
   <v-collapse
-    :title="baseName"
+    :title="name"
     class="base"
   >
     <v-breadcrumbs
       slot="title"
-      :crumbs="crumbs.join(',')"
+      crumbs="base"
     />
 
     <v-button
@@ -119,10 +178,10 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
       variant="danger"
       icon="stop-circle"
       label="STOP"
-      @click="emit('base-stop')"
+      @click="handleBaseActionStop(name)"
     />
 
-    <div class="border border-t-0 border-black pt-2 pb-4">
+    <div class="border border-t-0 border-black pt-2">
       <v-tabs
         tabs="Keyboard, Discrete"
         :selected="selectedItem"
@@ -134,34 +193,42 @@ const handleCameraOptionsInput = (event: CustomEvent) => {
         class="h-auto p-4"
       >
         <div class="grid grid-cols-2">
-          <div class="flex pt-6">
-            <KeyboardInput
-              @keyboard-ctl="keyboardCtl"
-            />
+          <div class="mt-2">
+            <KeyboardInput @keyboard-ctl="baseKeyboardCtl(name, $event)" />
           </div>
-          <div
-            v-if="camera"
-            class="flex"
-          >
-            <div class="w-64 pr-4">
-              <v-select
-                label="Select Camera"
-                :options="cameraOptions.map(option => option.label).join(',')"
-                :selected="selectedValue"
-                @input="handleCameraOptionsInput"
-              />
-            </div>
-            <div
-              v-if="selectedValue !== 'NoCamera'"
-              :id="`stream-preview-${props.streamName}`"
-              class="h-48 w-48 transition-all duration-300 ease-in-out"
+          <div v-if="filterResources(resources, 'rdk', 'component', 'camera')">
+            <v-select
+              class="mb-4"
+              variant="multiple"
+              placeholder="Select Cameras"
+              :options="
+                filterResources(resources, 'rdk', 'component', 'camera')
+                  .map(({ name }) => name)
+                  .join(',')
+              "
+              @input="handleSelectCamera($event.detail.value)"
             />
+            <template
+              v-for="basecamera in filterResources(
+                resources,
+                'rdk',
+                'component',
+                'camera'
+              )"
+              :key="basecamera.name"
+            >
+              <div
+                v-if="basecamera"
+                :id="`stream-preview-${basecamera.name}`"
+                class="mb-4 border border-white"
+              />
+            </template>
           </div>
         </div>
       </div>
       <div
         v-if="selectedItem === 'Discrete'"
-        class="flex h-auto px-4 pt-4"
+        class="flex h-auto p-4"
       >
         <div class="grow">
           <v-radio
