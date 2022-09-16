@@ -2,8 +2,7 @@
     "remotes": [
         {
             "name": "one",
-            "address": "foo",
-            "prefix": true
+            "address": "foo"
         },
         {
             "name": "two",

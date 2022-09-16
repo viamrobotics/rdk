@@ -9,8 +9,7 @@
         },
         {
             "name": "robot2",
-            "address": "localhost:8080",
-            "prefix": true
+            "address": "localhost:8080"
         }
     ]
 }
