@@ -44,7 +44,7 @@ func init() {
 	})
 
 	registerCollector("GetPosition", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
-		p, _, err := ms.GetPosition(ctx)
+		p, _, err := ms.Position(ctx)
 		return p, err
 	})
 }
@@ -66,7 +66,7 @@ func Named(name string) resource.Name {
 
 // A MovementSensor reports information about the robot's direction, position and speed.
 type MovementSensor interface {
-	GetPosition(ctx context.Context) (*geo.Point, float64, error)                // (lat, long), altitide (mm)
+	Position(ctx context.Context) (*geo.Point, float64, error)                   // (lat, long), altitide (mm)
 	GetLinearVelocity(ctx context.Context) (r3.Vector, error)                    // mm / sec
 	GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) // radians / sec
 	GetCompassHeading(ctx context.Context) (float64, error)                      // [0->360)
@@ -130,7 +130,7 @@ func NamesFromRobot(r robot.Robot) []string {
 func GetReadings(ctx context.Context, g MovementSensor) (map[string]interface{}, error) {
 	readings := map[string]interface{}{}
 
-	pos, altitide, err := g.GetPosition(ctx)
+	pos, altitide, err := g.Position(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -187,10 +187,10 @@ func (r *reconfigurableMovementSensor) DoCommand(ctx context.Context, cmd map[st
 	return r.actual.DoCommand(ctx, cmd)
 }
 
-func (r *reconfigurableMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+func (r *reconfigurableMovementSensor) Position(ctx context.Context) (*geo.Point, float64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetPosition(ctx)
+	return r.actual.Position(ctx)
 }
 
 func (r *reconfigurableMovementSensor) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {

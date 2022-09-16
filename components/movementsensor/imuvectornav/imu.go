@@ -255,7 +255,7 @@ func (vn *vectornav) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
 	return r3.Vector{}, nil
 }
 
-func (vn *vectornav) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+func (vn *vectornav) Position(ctx context.Context) (*geo.Point, float64, error) {
 	return nil, 0, nil
 }
 

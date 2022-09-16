@@ -115,8 +115,8 @@ type Motor struct {
 	generic.Echo
 }
 
-// GetPosition returns motor position in rotations.
-func (m *Motor) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+// Position returns motor position in rotations.
+func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -229,7 +229,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 
 	var finalPos float64
 	if m.Encoder != nil {
-		curPos, err := m.GetPosition(ctx, nil)
+		curPos, err := m.Position(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -268,7 +268,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 		return errors.New("not supported, define max_rpm attribute != 0")
 	}
 
-	curPos, err := m.GetPosition(ctx, nil)
+	curPos, err := m.Position(ctx, nil)
 	if err != nil {
 		return err
 	}

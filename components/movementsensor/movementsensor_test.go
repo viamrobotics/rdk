@@ -76,7 +76,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
 
-	result, _, err := s.GetPosition(context.Background())
+	result, _, err := s.Position(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, loc)
 
@@ -96,7 +96,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
 
-	result, _, err := s.GetPosition(context.Background())
+	result, _, err := s.Position(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, loc)
 
@@ -182,7 +182,7 @@ func TestReconfigurableMovementSensor(t *testing.T) {
 
 	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 0)
 	test.That(t, actualMovementSensor2.positionCount, test.ShouldEqual, 0)
-	result, _, err := reconfMovementSensor1.(movementsensor.MovementSensor).GetPosition(context.Background())
+	result, _, err := reconfMovementSensor1.(movementsensor.MovementSensor).Position(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, loc)
 	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 0)
@@ -198,12 +198,12 @@ func TestReconfigurableMovementSensor(t *testing.T) {
 	test.That(t, reconfMovementSensor3, test.ShouldNotBeNil)
 }
 
-func TestGetPosition(t *testing.T) {
+func TestPosition(t *testing.T) {
 	actualMovementSensor1 := &mock{Name: testMovementSensorName}
 	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
 
 	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 0)
-	loc1, _, err := reconfMovementSensor1.(movementsensor.MovementSensor).GetPosition(context.Background())
+	loc1, _, err := reconfMovementSensor1.(movementsensor.MovementSensor).Position(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, loc1, test.ShouldResemble, geo.NewPoint(90, 1))
 	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 1)
@@ -277,7 +277,7 @@ func (m *mock) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 	return cmd, nil
 }
 
-func (m *mock) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+func (m *mock) Position(ctx context.Context) (*geo.Point, float64, error) {
 	m.positionCount++
 	return loc, alt, nil
 }

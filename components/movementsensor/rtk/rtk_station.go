@@ -342,7 +342,7 @@ func (r *rtkStation) Close() error {
 	return r.lastError
 }
 
-func (r *rtkStation) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+func (r *rtkStation) Position(ctx context.Context) (*geo.Point, float64, error) {
 	return &geo.Point{}, 0, r.lastError
 }
 

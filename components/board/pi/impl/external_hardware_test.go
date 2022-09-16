@@ -125,7 +125,7 @@ func TestPiHardware(t *testing.T) {
 		err = servo1.Move(ctx, 90)
 		test.That(t, err, test.ShouldBeNil)
 
-		v, err := servo1.GetPosition(ctx)
+		v, err := servo1.Position(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, int(v), test.ShouldEqual, 90)
 
@@ -176,7 +176,7 @@ func TestPiHardware(t *testing.T) {
 	motor1 := motorInt.(motor.Motor)
 
 	t.Run("motor forward", func(t *testing.T) {
-		pos, err := motor1.GetPosition(ctx, nil)
+		pos, err := motor1.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldAlmostEqual, .0, 0o1)
 
@@ -204,7 +204,7 @@ func TestPiHardware(t *testing.T) {
 
 			loops++
 			if loops > 100 {
-				pos, err = motor1.GetPosition(ctx, nil)
+				pos, err = motor1.Position(ctx, nil)
 				test.That(t, err, test.ShouldBeNil)
 				aVal, err := hallA.Value(context.Background(), nil)
 				test.That(t, err, test.ShouldBeNil)

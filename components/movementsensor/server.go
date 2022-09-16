@@ -42,7 +42,7 @@ func (s *subtypeServer) GetPosition(
 	if err != nil {
 		return nil, err
 	}
-	loc, altitide, err := msDevice.GetPosition(ctx)
+	loc, altitide, err := msDevice.Position(ctx)
 	if err != nil {
 		return nil, err
 	}

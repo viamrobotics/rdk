@@ -14,7 +14,7 @@ type Motor struct {
 	GoForFunc             func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error
 	GoToFunc              func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error
 	ResetZeroPositionFunc func(ctx context.Context, offset float64, extra map[string]interface{}) error
-	GetPositionFunc       func(ctx context.Context, extra map[string]interface{}) (float64, error)
+	PositionFunc          func(ctx context.Context, extra map[string]interface{}) (float64, error)
 	PropertiesFunc        func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error)
 	StopFunc              func(ctx context.Context, extra map[string]interface{}) error
 	IsPoweredFunc         func(ctx context.Context, extra map[string]interface{}) (bool, error)
@@ -52,12 +52,12 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 	return m.ResetZeroPositionFunc(ctx, offset, extra)
 }
 
-// GetPosition calls the injected Position or the real version.
-func (m *Motor) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	if m.GetPositionFunc == nil {
-		return m.Motor.GetPosition(ctx, extra)
+// Position calls the injected Position or the real version.
+func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	if m.PositionFunc == nil {
+		return m.Motor.Position(ctx, extra)
 	}
-	return m.GetPositionFunc(ctx, extra)
+	return m.PositionFunc(ctx, extra)
 }
 
 // Properties calls the injected Properties or the real version.

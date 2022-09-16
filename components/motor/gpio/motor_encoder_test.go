@@ -116,7 +116,7 @@ func TestMotorEncoder1(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			pos, err := _motor.GetPosition(context.Background(), nil)
+			pos, err := _motor.Position(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, math.Abs(pos-20.99), test.ShouldBeLessThan, 0.01)
 		})

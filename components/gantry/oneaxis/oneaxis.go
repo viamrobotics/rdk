@@ -286,7 +286,7 @@ func (g *oneAxis) homeOneLimSwitch(ctx context.Context) error {
 func (g *oneAxis) homeEncoder(ctx context.Context) error {
 	revPerLength := g.lengthMm / g.mmPerRevolution
 
-	positionA, err := g.motor.GetPosition(ctx, nil)
+	positionA, err := g.motor.Position(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -345,7 +345,7 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 		}
 	}
 
-	return g.motor.GetPosition(ctx, nil)
+	return g.motor.Position(ctx, nil)
 }
 
 func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
@@ -362,9 +362,9 @@ func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
 	return high == g.limitHigh, err
 }
 
-// GetPosition returns the position in millimeters.
-func (g *oneAxis) GetPosition(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	pos, err := g.motor.GetPosition(ctx, extra)
+// Position returns the position in millimeters.
+func (g *oneAxis) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	pos, err := g.motor.Position(ctx, extra)
 	if err != nil {
 		return []float64{}, err
 	}
@@ -473,7 +473,7 @@ func (g *oneAxis) ModelFrame() referenceframe.Model {
 
 // CurrentInputs returns the current inputs of the Gantry frame.
 func (g *oneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := g.GetPosition(ctx, nil)
+	res, err := g.Position(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

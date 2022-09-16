@@ -170,7 +170,7 @@ func TestStatusClient(t *testing.T) {
 		capServoAngle = angle
 		return nil
 	}
-	injectServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
+	injectServo.PositionFunc = func(ctx context.Context) (uint8, error) {
 		return 5, nil
 	}
 
@@ -346,7 +346,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
-	_, err = servo1.GetPosition(context.Background())
+	_, err = servo1.Position(context.Background())
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
 	resource1, err := client.ResourceByName(arm.Named("arm1"))
@@ -435,7 +435,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capServoAngle, test.ShouldEqual, 4)
 
-	currentVal, err := servo1.GetPosition(context.Background())
+	currentVal, err := servo1.Position(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, currentVal, test.ShouldEqual, 5)
 

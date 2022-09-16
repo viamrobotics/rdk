@@ -109,8 +109,8 @@ type Motor struct {
 	generic.Unimplemented
 }
 
-// GetPosition always returns 0.
-func (m *Motor) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+// Position always returns 0.
+func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	return 0, nil
 }
 

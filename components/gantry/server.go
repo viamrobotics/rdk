@@ -44,7 +44,7 @@ func (s *subtypeServer) GetPosition(
 	if err != nil {
 		return nil, err
 	}
-	pos, err := gantry.GetPosition(ctx, req.Extra.AsMap())
+	pos, err := gantry.Position(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}

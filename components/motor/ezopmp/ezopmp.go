@@ -290,8 +290,8 @@ func (m *Ezopmp) ResetZeroPosition(ctx context.Context, offset float64, extra ma
 	return m.writeRegWithCheck(ctx, command)
 }
 
-// GetPosition will return the total volume dispensed.
-func (m *Ezopmp) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+// Position will return the total volume dispensed.
+func (m *Ezopmp) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	command := []byte(totVolDispensed)
 	writeErr := m.writeReg(ctx, command)
 	if writeErr != nil {

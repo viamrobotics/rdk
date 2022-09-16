@@ -521,12 +521,12 @@ func (g *RTKMovementSensor) NtripStatus() (bool, error) {
 	return g.ntripStatus, g.lastError
 }
 
-// GetPosition returns the current geographic location of the MOVEMENTSENSOR.
-func (g *RTKMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+// Position returns the current geographic location of the MOVEMENTSENSOR.
+func (g *RTKMovementSensor) Position(ctx context.Context) (*geo.Point, float64, error) {
 	if g.lastError != nil {
 		return &geo.Point{}, 0, g.lastError
 	}
-	return g.nmeamovementsensor.GetPosition(ctx)
+	return g.nmeamovementsensor.Position(ctx)
 }
 
 // GetLinearVelocity passthrough.

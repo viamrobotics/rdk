@@ -40,7 +40,7 @@ func TestServer(t *testing.T) {
 	pos1 := []float64{1.0, 2.0, 3.0}
 	len1 := []float64{2.0, 3.0, 4.0}
 	extra1 := map[string]interface{}{}
-	injectGantry.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	injectGantry.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		extra1 = extra
 		return pos1, nil
 	}
@@ -64,7 +64,7 @@ func TestServer(t *testing.T) {
 	}
 
 	pos2 := []float64{4.0, 5.0, 6.0}
-	injectGantry2.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	injectGantry2.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return nil, errors.New("can't get position")
 	}
 	injectGantry2.MoveToPositionFunc = func(
