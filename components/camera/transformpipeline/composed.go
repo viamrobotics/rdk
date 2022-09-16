@@ -32,7 +32,12 @@ func newDepthToPrettyTransform(ctx context.Context, source gostream.VideoSource,
 		intrinsicParameters: attrs.CameraParameters,
 	}
 	reader.colorStream = gostream.NewEmbeddedVideoStreamFromReader(reader)
-	return camera.NewFromReader(ctx, reader, reader.intrinsicParameters, camera.StreamType(attrs.Stream))
+	return camera.NewFromReader(
+		ctx,
+		reader,
+		&transform.PinholeCameraModel{reader.intrinsicParameters, nil},
+		camera.StreamType(attrs.Stream),
+	)
 }
 
 func (dtp *depthToPretty) Read(ctx context.Context) (image.Image, func(), error) {
@@ -75,7 +80,12 @@ type overlaySource struct {
 
 func newOverlayTransform(ctx context.Context, src gostream.VideoSource, attrs *camera.AttrConfig) (gostream.VideoSource, error) {
 	reader := &overlaySource{src, attrs.CameraParameters}
-	return camera.NewFromReader(ctx, reader, reader.srcIntrinsicParameters, camera.StreamType(attrs.Stream))
+	return camera.NewFromReader(
+		ctx,
+		reader,
+		&transform.PinholeCameraModel{reader.srcIntrinsicParameters, nil},
+		camera.StreamType(attrs.Stream),
+	)
 }
 
 func (os *overlaySource) Read(ctx context.Context) (image.Image, func(), error) {

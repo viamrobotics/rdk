@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	rutils "go.viam.com/rdk/utils"
 )
 
 func newServer(sMap map[resource.Name]interface{}) (pb.SensorsServiceServer, error) {
@@ -42,7 +41,7 @@ func TestServerGetSensors(t *testing.T) {
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{Name: testSvcName1})
-		test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("sensors.Service", "string"))
+		test.That(t, err, test.ShouldBeError, sensors.NewUnimplementedInterfaceError("string"))
 	})
 
 	t.Run("failed GetSensors", func(t *testing.T) {
@@ -97,7 +96,7 @@ func TestServerGetReadings(t *testing.T) {
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = server.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: testSvcName1})
-		test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("sensors.Service", "string"))
+		test.That(t, err, test.ShouldBeError, sensors.NewUnimplementedInterfaceError("string"))
 	})
 
 	t.Run("failed GetReadings", func(t *testing.T) {

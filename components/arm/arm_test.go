@@ -82,7 +82,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, pose1, test.ShouldResemble, pose)
 
 	a, err = arm.FromDependencies(deps, fakeArmName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeArmName, "Arm", "string"))
+	test.That(t, err, test.ShouldBeError, arm.DependencyTypeError(fakeArmName, "string"))
 	test.That(t, a, test.ShouldBeNil)
 
 	a, err = arm.FromDependencies(deps, missingArmName)
@@ -102,7 +102,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, pose1, test.ShouldResemble, pose)
 
 	a, err = arm.FromRobot(r, fakeArmName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Arm", "string"))
+	test.That(t, err, test.ShouldBeError, arm.NewUnimplementedInterfaceError("string"))
 	test.That(t, a, test.ShouldBeNil)
 
 	a, err = arm.FromRobot(r, missingArmName)
@@ -146,7 +146,7 @@ func TestStatusValid(t *testing.T) {
 
 func TestCreateStatus(t *testing.T) {
 	_, err := arm.CreateStatus(context.Background(), "not an arm")
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalArm", "string"))
+	test.That(t, err, test.ShouldBeError, arm.NewUnimplementedLocalInterfaceError("string"))
 
 	status := &pb.Status{
 		EndPosition:    pose,
@@ -252,7 +252,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = arm.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Arm", nil))
+	test.That(t, err, test.ShouldBeError, arm.NewUnimplementedInterfaceError(nil))
 
 	reconfArm2, err := arm.WrapWithReconfigurable(reconfArm1)
 	test.That(t, err, test.ShouldBeNil)

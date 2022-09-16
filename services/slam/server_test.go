@@ -23,6 +23,11 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
+const (
+	testSlamServiceName  = "slam1"
+	testSlamServiceName2 = "slam2"
+)
+
 func TestServer(t *testing.T) {
 	injectSvc := &inject.SLAMService{}
 	resourceMap := map[resource.Name]interface{}{
@@ -119,7 +124,7 @@ func TestServer(t *testing.T) {
 	slamServer = slam.NewServer(injectSubtypeSvc)
 
 	t.Run("failing on improper service interface", func(t *testing.T) {
-		improperImplErr := utils.NewUnimplementedInterfaceError("slam.Service", "string")
+		improperImplErr := slam.NewUnimplementedInterfaceError("string")
 
 		getPositionReq := &pb.GetPositionRequest{Name: testSlamServiceName}
 		getModeResp, err := slamServer.GetPosition(context.Background(), getPositionReq)

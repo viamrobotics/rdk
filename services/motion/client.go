@@ -39,12 +39,18 @@ func (c *client) Move(
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
+	extra map[string]interface{},
 ) (bool, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return false, err
+	}
 	resp, err := c.client.Move(ctx, &pb.MoveRequest{
 		Name:          c.name,
 		ComponentName: protoutils.ResourceNameToProto(componentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
 		WorldState:    worldState,
+		Extra:         ext,
 	})
 	if err != nil {
 		return false, err
@@ -57,12 +63,18 @@ func (c *client) MoveSingleComponent(
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
+	extra map[string]interface{},
 ) (bool, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return false, err
+	}
 	resp, err := c.client.MoveSingleComponent(ctx, &pb.MoveSingleComponentRequest{
 		Name:          c.name,
 		ComponentName: protoutils.ResourceNameToProto(componentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
 		WorldState:    worldState,
+		Extra:         ext,
 	})
 	if err != nil {
 		return false, err
@@ -75,12 +87,18 @@ func (c *client) GetPose(
 	componentName resource.Name,
 	destinationFrame string,
 	supplementalTransforms []*commonpb.Transform,
+	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.client.GetPose(ctx, &pb.GetPoseRequest{
 		Name:                   c.name,
 		ComponentName:          protoutils.ResourceNameToProto(componentName),
 		DestinationFrame:       destinationFrame,
 		SupplementalTransforms: supplementalTransforms,
+		Extra:                  ext,
 	})
 	if err != nil {
 		return nil, err

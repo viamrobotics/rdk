@@ -3,7 +3,8 @@ package config
 import (
 	"testing"
 
-	pb "go.viam.com/api/proto/viam/app/v1"
+	"github.com/golang/geo/r3"
+	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -37,12 +38,8 @@ func TestComponentConfigToProto(t *testing.T) {
 			},
 		},
 		Frame: &Frame{
-			Parent: "world",
-			Translation: spatial.TranslationConfig{
-				X: 1,
-				Y: 2,
-				Z: 3,
-			},
+			Parent:      "world",
+			Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 			Orientation: spatial.NewOrientationVector(),
 		},
 	}
@@ -75,12 +72,8 @@ func TestComponentConfigToProto(t *testing.T) {
 func TestFrameConfigFromProto(t *testing.T) {
 	expectedFrameWithOrientation := func(or spatial.Orientation) *Frame {
 		return &Frame{
-			Parent: "world",
-			Translation: spatial.TranslationConfig{
-				X: 1,
-				Y: 2,
-				Z: 3,
-			},
+			Parent:      "world",
+			Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 			Orientation: or,
 		}
 	}
@@ -181,12 +174,8 @@ func TestRemoteConfigToProto(t *testing.T) {
 			Name:    "some-name",
 			Address: "localohst:8080",
 			Frame: &Frame{
-				Parent: "world",
-				Translation: spatial.TranslationConfig{
-					X: 1,
-					Y: 2,
-					Z: 3,
-				},
+				Parent:      "world",
+				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 				Orientation: spatial.NewOrientationVector(),
 			},
 			Auth: RemoteAuth{
