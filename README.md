@@ -5,11 +5,12 @@
 </p>
 
 Viam provides an open source robot architecture that provides robotics functionality via simple APIs
-Website: [viam.com](https://www.viam.com)
 
-Documentation: [docs.viam.com](https://docs.viam.com)
+*Website*: [viam.com](https://www.viam.com)
 
-Cloud App: [app.viam.com](https://app.viam.com)
+*Documentation*: [docs.viam.com](https://docs.viam.com)
+
+*Cloud App*: [app.viam.com](https://app.viam.com)
 
 
 ## Building and Using
