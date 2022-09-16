@@ -2317,12 +2317,12 @@ func TestStatusServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		_, err = robot.GetStatus(context.Background(), resourceNames)
+		_, err = robot.Status(context.Background(), resourceNames)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		robot.Reconfigure(context.Background(), cfg)
 
-		statuses, err := robot.GetStatus(context.Background(), resourceNames)
+		statuses, err := robot.Status(context.Background(), resourceNames)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(statuses), test.ShouldEqual, 2)
 		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
@@ -2336,7 +2336,7 @@ func TestStatusServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		statuses, err := robot.GetStatus(context.Background(), resourceNames)
+		statuses, err := robot.Status(context.Background(), resourceNames)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(statuses), test.ShouldEqual, 2)
 		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
@@ -2344,7 +2344,7 @@ func TestStatusServiceUpdate(t *testing.T) {
 
 		robot.Reconfigure(context.Background(), emptyCfg)
 
-		_, err = robot.GetStatus(context.Background(), resourceNames)
+		_, err = robot.Status(context.Background(), resourceNames)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	})
 
@@ -2355,7 +2355,7 @@ func TestStatusServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		statuses, err := robot.GetStatus(context.Background(), resourceNames)
+		statuses, err := robot.Status(context.Background(), resourceNames)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(statuses), test.ShouldEqual, 2)
 		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
@@ -2363,7 +2363,7 @@ func TestStatusServiceUpdate(t *testing.T) {
 
 		robot.Reconfigure(context.Background(), cfg)
 
-		statuses, err = robot.GetStatus(context.Background(), resourceNames)
+		statuses, err = robot.Status(context.Background(), resourceNames)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(statuses), test.ShouldEqual, 2)
 		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
