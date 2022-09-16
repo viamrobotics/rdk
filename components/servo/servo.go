@@ -5,11 +5,11 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	pb "go.viam.com/api/component/servo/v1"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
-	pb "go.viam.com/rdk/proto/api/component/servo/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"

@@ -2,6 +2,8 @@ module go.viam.com/rdk
 
 go 1.18
 
+replace go.viam.com/api => /Users/njooma/Developer/api
+
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
 	github.com/CPRT/roboclaw v0.0.0-20190825181223-76871438befc
@@ -78,7 +80,7 @@ require (
 	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
 	gonum.org/v1/gonum v0.11.0
 	gonum.org/v1/plot v0.11.0
-	google.golang.org/genproto v0.0.0-20220808204814-fd01256a5276
+	google.golang.org/genproto v0.0.0-20220914142337-ca0e39ece12f
 	google.golang.org/grpc v1.48.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	google.golang.org/protobuf v1.28.1

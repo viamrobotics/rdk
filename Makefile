@@ -54,7 +54,7 @@ buf-web: tool-install
 	npm ci --audit=false --prefix web/frontend
 	npm run rollup --prefix web/frontend
 
-lint: lint-buf lint-go
+lint: lint-go
 
 lint-buf: tool-install
 	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s lint
