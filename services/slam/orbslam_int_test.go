@@ -2,7 +2,6 @@ package slam_test
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -31,6 +30,8 @@ func getMockCameraServer(t *testing.T, path, pattern string) *http.ServeMux {
 
 	handle := func(w http.ResponseWriter, r *http.Request) {
 		i := atomic.AddUint64(&index, 1) - 1
+		t.Logf("Handle called with pattern %v and image %v", pattern, i)
+
 		path := artifact.MustPath(path + strconv.FormatUint(i, 10) + ".png")
 		bytes, err := os.ReadFile(path)
 		test.That(t, err, test.ShouldBeNil)
@@ -117,10 +118,9 @@ func TestMockCameraServer(t *testing.T) {
 		test.That(t, intrinsics.CheckValid(), test.ShouldBeNil)
 
 		for i := 0; i < 15; i++ {
-			t.Run(fmt.Sprintf("Test color image %v", i), func(t *testing.T) {
-				path := artifact.MustPath("slam/temp_mock_camera/color/" + strconv.Itoa(i) + ".png")
-				testImage(t, colorCam, path)
-			})
+			t.Logf("Test color image %v", i)
+			path := artifact.MustPath("slam/temp_mock_camera/color/" + strconv.Itoa(i) + ".png")
+			testImage(t, colorCam, path)
 		}
 	})
 
@@ -128,10 +128,9 @@ func TestMockCameraServer(t *testing.T) {
 		depthCam, depthSvr := getMockDepthCamera(t, logger)
 		defer depthSvr.Close()
 		for i := 0; i < 15; i++ {
-			t.Run(fmt.Sprintf("Test depth image %v", i), func(t *testing.T) {
-				path := artifact.MustPath("slam/temp_mock_camera/depth/" + strconv.Itoa(i) + ".png")
-				testImage(t, depthCam, path)
-			})
+			t.Logf("Test depth image %v", i)
+			path := artifact.MustPath("slam/temp_mock_camera/depth/" + strconv.Itoa(i) + ".png")
+			testImage(t, depthCam, path)
 		}
 	})
 }
