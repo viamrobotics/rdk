@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
@@ -47,7 +48,7 @@ func TestDepthSource(t *testing.T) {
 }
 
 type depthSourceTestHelper struct {
-	proj rimage.Projector
+	proj transform.Projector
 }
 
 func (h *depthSourceTestHelper) Process(
@@ -79,7 +80,7 @@ func (h *depthSourceTestHelper) Process(
 	pCtx.GotDebugImage(edges, "edges-aligned-depth")
 
 	// make point cloud
-	fixedPointCloud := dm.ToPointCloud(h.proj)
+	fixedPointCloud := depthadapter.ToPointCloud(dm, h.proj)
 	test.That(t, fixedPointCloud.MetaData().HasColor, test.ShouldBeFalse)
 	pCtx.GotDebugPointCloud(fixedPointCloud, "aligned-pointcloud")
 
@@ -95,7 +96,7 @@ func (h *depthSourceTestHelper) Process(
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
 	pCtx.GotDebugImage(preprocessed.ToPrettyPicture(0, rimage.MaxDepth), "preprocessed-aligned-depth")
-	preprocessedPointCloud := preprocessed.ToPointCloud(h.proj)
+	preprocessedPointCloud := depthadapter.ToPointCloud(preprocessed, h.proj)
 	test.That(t, preprocessedPointCloud.MetaData().HasColor, test.ShouldBeFalse)
 	pCtx.GotDebugPointCloud(preprocessedPointCloud, "preprocessed-aligned-pointcloud")
 

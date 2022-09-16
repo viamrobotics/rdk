@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/robot/framesystem"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
@@ -308,7 +309,7 @@ func TestServiceWithRemote(t *testing.T) {
 				Type:      gripper.SubtypeName,
 				Model:     "fake",
 				Frame: &config.Frame{
-					Parent: "bar.pieceArm",
+					Parent: "bar:pieceArm",
 				},
 			},
 		},
@@ -316,7 +317,6 @@ func TestServiceWithRemote(t *testing.T) {
 			{
 				Name:    "bar",
 				Address: addr,
-				Prefix:  true,
 				Frame: &config.Frame{
 					Parent:      "foo",
 					Translation: r3.Vector{100, 200, 300},
@@ -325,7 +325,6 @@ func TestServiceWithRemote(t *testing.T) {
 			},
 			{
 				Name:    "squee",
-				Prefix:  false,
 				Address: addr,
 				Frame: &config.Frame{
 					Parent:      referenceframe.World,
@@ -335,7 +334,6 @@ func TestServiceWithRemote(t *testing.T) {
 			},
 			{
 				Name:    "dontAddMe", // no frame info, should be skipped
-				Prefix:  true,
 				Address: addr,
 			},
 		},
@@ -351,14 +349,14 @@ func TestServiceWithRemote(t *testing.T) {
 		{
 			ReferenceFrame: "frame1",
 			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "pieceArm",
+				ReferenceFrame: "bar:pieceArm",
 				Pose:           spatialmath.PoseToProtobuf(testPose),
 			},
 		},
 		{
 			ReferenceFrame: "frame2",
 			PoseInObserverFrame: &commonpb.PoseInFrame{
-				ReferenceFrame: "pieceGripper",
+				ReferenceFrame: "bar:pieceGripper",
 				Pose:           spatialmath.PoseToProtobuf(testPose),
 			},
 		},
