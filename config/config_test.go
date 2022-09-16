@@ -36,7 +36,7 @@ func TestConfigRobot(t *testing.T) {
 
 	test.That(t, cfg.Components, test.ShouldHaveLength, 4)
 	test.That(t, len(cfg.Remotes), test.ShouldEqual, 2)
-	test.That(t, cfg.Remotes[0], test.ShouldResemble, config.Remote{Name: "one", Address: "foo", Prefix: true})
+	test.That(t, cfg.Remotes[0], test.ShouldResemble, config.Remote{Name: "one", Address: "foo"})
 	test.That(t, cfg.Remotes[1], test.ShouldResemble, config.Remote{Name: "two", Address: "bar"})
 
 	// test that gripper geometry is being added correctly

@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/services/vision/builtin"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -71,13 +72,13 @@ func TestVisionServerFailures(t *testing.T) {
 }
 
 func TestServerGetParameterSchema(t *testing.T) {
-	srv, r := createService(t, "data/empty.json")
+	srv, r := createService(t)
 	m := map[resource.Name]interface{}{
 		vision.Named(testVisionServiceName): srv,
 	}
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
-	paramsRequest := &pb.GetModelParameterSchemaRequest{Name: testVisionServiceName, ModelType: string(vision.RCSegmenter)}
+	paramsRequest := &pb.GetModelParameterSchemaRequest{Name: testVisionServiceName, ModelType: string(builtin.RCSegmenter)}
 	params, err := server.GetModelParameterSchema(context.Background(), paramsRequest)
 	test.That(t, err, test.ShouldBeNil)
 	outp := &jsonschema.Schema{}
@@ -111,7 +112,7 @@ func TestServerGetDetectorNames(t *testing.T) {
 }
 
 func TestServerAddDetector(t *testing.T) {
-	srv, r := createService(t, "data/empty.json")
+	srv, r := createService(t)
 	m := map[resource.Name]interface{}{
 		vision.Named(testVisionServiceName): srv,
 	}
@@ -238,7 +239,7 @@ func TestServerGetDetections(t *testing.T) {
 }
 
 func TestServerAddRemoveSegmenter(t *testing.T) {
-	srv, r := createService(t, "data/empty.json")
+	srv, r := createService(t)
 	m := map[resource.Name]interface{}{
 		vision.Named(testVisionServiceName): srv,
 	}
@@ -255,7 +256,7 @@ func TestServerAddRemoveSegmenter(t *testing.T) {
 	_, err = server.AddSegmenter(context.Background(), &pb.AddSegmenterRequest{
 		Name:                testVisionServiceName,
 		SegmenterName:       "test",
-		SegmenterModelType:  string(vision.RCSegmenter),
+		SegmenterModelType:  string(builtin.RCSegmenter),
 		SegmenterParameters: params,
 	})
 	test.That(t, err, test.ShouldBeNil)
@@ -305,7 +306,7 @@ func TestServerSegmentationGetObjects(t *testing.T) {
 	injectVision := &inject.VisionService{}
 	injectVision.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName, segmenterName string,
 	) ([]*viz.Object, error) {
-		if segmenterName == vision.RadiusClusteringSegmenter {
+		if segmenterName == RadiusClusteringSegmenter {
 			return segmenter(ctx, cam)
 		}
 		return nil, errors.Errorf("no segmenter with name %s", segmenterName)
@@ -329,7 +330,7 @@ func TestServerSegmentationGetObjects(t *testing.T) {
 	segs, err := server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
 		Name:          testVisionServiceName,
 		CameraName:    "fakeCamera",
-		SegmenterName: vision.RadiusClusteringSegmenter,
+		SegmenterName: RadiusClusteringSegmenter,
 		MimeType:      utils.MimeTypePCD,
 	})
 	test.That(t, err, test.ShouldBeNil)
@@ -344,7 +345,7 @@ func TestServerSegmentationGetObjects(t *testing.T) {
 }
 
 func TestServerSegmentationAddRemove(t *testing.T) {
-	srv, r := createService(t, "data/empty.json")
+	srv, r := createService(t)
 	m := map[resource.Name]interface{}{
 		vision.Named(testVisionServiceName): srv,
 	}
@@ -361,8 +362,8 @@ func TestServerSegmentationAddRemove(t *testing.T) {
 	// add segmenter
 	_, err = server.AddSegmenter(context.Background(), &pb.AddSegmenterRequest{
 		Name:                testVisionServiceName,
-		SegmenterName:       vision.RadiusClusteringSegmenter,
-		SegmenterModelType:  string(vision.RCSegmenter),
+		SegmenterName:       RadiusClusteringSegmenter,
+		SegmenterModelType:  string(builtin.RCSegmenter),
 		SegmenterParameters: params,
 	})
 	test.That(t, err, test.ShouldBeNil)
@@ -373,11 +374,11 @@ func TestServerSegmentationAddRemove(t *testing.T) {
 	segResp, err := server.GetSegmenterNames(context.Background(), segReq)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, segResp.SegmenterNames, test.ShouldHaveLength, 1)
-	test.That(t, segResp.SegmenterNames[0], test.ShouldEqual, vision.RadiusClusteringSegmenter)
+	test.That(t, segResp.SegmenterNames[0], test.ShouldEqual, RadiusClusteringSegmenter)
 	// remove segmenter
 	_, err = server.RemoveSegmenter(context.Background(), &pb.RemoveSegmenterRequest{
 		Name:          testVisionServiceName,
-		SegmenterName: vision.RadiusClusteringSegmenter,
+		SegmenterName: RadiusClusteringSegmenter,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	// test that it was removed
@@ -392,7 +393,7 @@ func TestServerSegmentationAddRemove(t *testing.T) {
 }
 
 func TestServerAddRemoveClassifier(t *testing.T) {
-	srv, r := createService(t, "data/empty.json")
+	srv, r := createService(t)
 	m := map[resource.Name]interface{}{
 		vision.Named(testVisionServiceName): srv,
 	}

@@ -1,4 +1,4 @@
-package vision_test
+package builtin_test
 
 import (
 	"context"
@@ -8,13 +8,14 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	_ "go.viam.com/rdk/components/camera/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
 )
 
 func TestGetDetectorNames(t *testing.T) {
-	srv, r := createService(t, "data/fake.json")
+	srv, r := createService(t, "../data/fake.json")
 	names, err := srv.GetDetectorNames(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	t.Logf("names %v", names)
@@ -44,7 +45,7 @@ func TestGetDetections(t *testing.T) {
 }
 
 func TestAddRemoveDetector(t *testing.T) {
-	srv, r := createService(t, "data/empty.json")
+	srv, r := createService(t, "../data/empty.json")
 	// success
 	cfg := vision.VisModelConfig{
 		Name: "test",

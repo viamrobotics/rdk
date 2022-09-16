@@ -205,7 +205,6 @@ func (c *Config) CopyOnlyPublicFields() (*Config, error) {
 type Remote struct {
 	Name                    string                       `json:"name"`
 	Address                 string                       `json:"address"`
-	Prefix                  bool                         `json:"prefix"`
 	Frame                   *Frame                       `json:"frame,omitempty"`
 	Auth                    RemoteAuth                   `json:"auth"`
 	ManagedBy               string                       `json:"managed_by"`
