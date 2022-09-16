@@ -14,6 +14,59 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+// FromProto converts the RobotConfig to the internal rdk equivalent.
+func FromProto(proto *pb.RobotConfig) (*Config, error) {
+	cfg := Config{}
+
+	var err error
+	cfg.Cloud, err = CloudConfigFromProto(proto.Cloud)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting Cloud config from proto")
+	}
+
+	if proto.Network != nil {
+		network, err := NetworkConfigFromProto(proto.Network)
+		if err != nil {
+			return nil, errors.Wrap(err, "error converting Network config from proto")
+		}
+		cfg.Network = *network
+	}
+
+	if proto.Auth != nil {
+		auth, err := AuthConfigFromProto(proto.Auth)
+		if err != nil {
+			return nil, errors.Wrap(err, "error converting Auth config from proto")
+		}
+		cfg.Auth = *auth
+	}
+
+	cfg.Components, err = toRDKSlice(proto.Components, ComponentConfigFromProto)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting Components config from proto")
+	}
+
+	cfg.Remotes, err = toRDKSlice(proto.Remotes, RemoteConfigFromProto)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting Remotes config from proto")
+	}
+
+	cfg.Processes, err = toRDKSlice(proto.Processes, ProcessConfigFromProto)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting Processes config from proto")
+	}
+
+	cfg.Services, err = toRDKSlice(proto.Services, ServiceConfigFromProto)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting Services config from proto")
+	}
+
+	if proto.Debug != nil {
+		cfg.Debug = *proto.Debug
+	}
+
+	return &cfg, nil
+}
+
 // ComponentConfigToProto converts Component to proto equivalent.
 func ComponentConfigToProto(component *Component) (*pb.ComponentConfig, error) {
 	attributes, err := protoutils.StructToStructPb(component.Attributes)
@@ -554,4 +607,16 @@ func mapSliceWithErrors[T, U any](a []T, f func(T) (U, error)) ([]U, error) {
 		n = append(n, x)
 	}
 	return n, nil
+}
+
+func toRDKSlice[PT, RT any](protoList []*PT, toRDK func(*PT) (*RT, error)) ([]RT, error) {
+	out := make([]RT, len(protoList))
+	for i, proto := range protoList {
+		rdk, err := toRDK(proto)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = *rdk
+	}
+	return out, nil
 }

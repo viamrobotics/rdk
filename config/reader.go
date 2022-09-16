@@ -756,66 +756,13 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 		return nil, shouldCheckCacheOnFailure, err
 	}
 
-	cfg := Config{}
-
-	cfg.Cloud, err = CloudConfigFromProto(res.Config.Cloud)
+	cfg, err := FromProto(res.Config)
 	if err != nil {
-		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Cloud config from proto")
+		// Check cache?
+		return nil, shouldCheckCacheOnFailure, err
 	}
 
-	if res.Config.Network != nil {
-		network, err := NetworkConfigFromProto(res.Config.Network)
-		if err != nil {
-			return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Network config from proto")
-		}
-		cfg.Network = *network
-	}
-
-	if res.Config.Auth != nil {
-		auth, err := AuthConfigFromProto(res.Config.Auth)
-		if err != nil {
-			return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Auth config from proto")
-		}
-		cfg.Auth = *auth
-	}
-
-	cfg.Components, err = toRDKSlice(res.Config.Components, ComponentConfigFromProto)
-	if err != nil {
-		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Components config from proto")
-	}
-
-	cfg.Remotes, err = toRDKSlice(res.Config.Remotes, RemoteConfigFromProto)
-	if err != nil {
-		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Remotes config from proto")
-	}
-
-	cfg.Processes, err = toRDKSlice(res.Config.Processes, ProcessConfigFromProto)
-	if err != nil {
-		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Processes config from proto")
-	}
-
-	cfg.Services, err = toRDKSlice(res.Config.Services, ServiceConfigFromProto)
-	if err != nil {
-		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Services config from proto")
-	}
-
-	if res.Config.Debug != nil {
-		cfg.Debug = *res.Config.Debug
-	}
-
-	return &cfg, false, nil
-}
-
-func toRDKSlice[PT, RT any](protoList []*PT, toRDK func(*PT) (*RT, error)) ([]RT, error) {
-	out := make([]RT, len(protoList))
-	for i, proto := range protoList {
-		rdk, err := toRDK(proto)
-		if err != nil {
-			return nil, err
-		}
-		out[i] = *rdk
-	}
-	return out, nil
+	return cfg, false, nil
 }
 
 // CreateNewGRPCClient creates a new grpc cloud configured to communicate with the robot service based on the cloud config given.
