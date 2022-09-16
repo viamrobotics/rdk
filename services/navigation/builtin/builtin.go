@@ -132,7 +132,7 @@ type builtIn struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func (svc *builtIn) GetMode(ctx context.Context) (navigation.Mode, error) {
+func (svc *builtIn) Mode(ctx context.Context) (navigation.Mode, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.mode, nil
@@ -247,7 +247,7 @@ func (svc *builtIn) waypointDirectionAndDistanceToGo(ctx context.Context, curren
 	return fixAngle(currentLoc.BearingTo(goal)), currentLoc.GreatCircleDistance(goal), nil
 }
 
-func (svc *builtIn) GetLocation(ctx context.Context) (*geo.Point, error) {
+func (svc *builtIn) Location(ctx context.Context) (*geo.Point, error) {
 	if svc.movementSensor == nil {
 		return nil, errors.New("no way to get location")
 	}
@@ -255,7 +255,7 @@ func (svc *builtIn) GetLocation(ctx context.Context) (*geo.Point, error) {
 	return loc, err
 }
 
-func (svc *builtIn) GetWaypoints(ctx context.Context) ([]navigation.Waypoint, error) {
+func (svc *builtIn) Waypoints(ctx context.Context) ([]navigation.Waypoint, error) {
 	wps, err := svc.store.Waypoints(ctx)
 	if err != nil {
 		return nil, err
