@@ -367,7 +367,7 @@ func processArmEndPointEvent(ctx context.Context, svc *builtIn, state *controlle
 		return nil
 	}
 
-	currentPoseBuf, err := svc.arm.GetEndPosition(ctx, nil)
+	currentPoseBuf, err := svc.arm.EndPosition(ctx, nil)
 	if err != nil {
 		return err
 	}

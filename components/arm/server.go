@@ -45,7 +45,7 @@ func (s *subtypeServer) GetEndPosition(
 	if err != nil {
 		return nil, err
 	}
-	pos, err := arm.GetEndPosition(ctx, req.Extra.AsMap())
+	pos, err := arm.EndPosition(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}

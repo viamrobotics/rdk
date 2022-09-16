@@ -4,6 +4,7 @@ package eva
 import (
 	"bytes"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/json"
@@ -110,8 +111,8 @@ func (e *eva) GetJointPositions(ctx context.Context, extra map[string]interface{
 	return referenceframe.JointPositionsFromRadians(data.ServosPosition), nil
 }
 
-// GetEndPosition computes and returns the current cartesian position.
-func (e *eva) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+// EndPosition computes and returns the current cartesian position.
+func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 	joints, err := e.GetJointPositions(ctx, extra)
 	if err != nil {
 		return nil, err

@@ -68,8 +68,8 @@ func (a *ArmIK) ModelFrame() referenceframe.Model {
 	return a.model
 }
 
-// GetEndPosition returns the set position.
-func (a *ArmIK) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+// EndPosition returns the set position.
+func (a *ArmIK) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 	joints, err := a.GetJointPositions(ctx, extra)
 	if err != nil {
 		return nil, err

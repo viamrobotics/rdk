@@ -125,8 +125,8 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 	return &a, nil
 }
 
-// GetEndPosition returns the current position of the arm.
-func (a *Dofbot) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+// EndPosition returns the current position of the arm.
+func (a *Dofbot) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 	joints, err := a.GetJointPositions(ctx, extra)
 	if err != nil {
 		return nil, fmt.Errorf("error getting joint positions: %w", err)

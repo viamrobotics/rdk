@@ -50,8 +50,8 @@ func init() {
 
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    SubtypeName,
-		MethodName: getEndPosition.String(),
-	}, newGetEndPositionCollector)
+		MethodName: endPosition.String(),
+	}, newEndPositionCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    SubtypeName,
 		MethodName: getJointPositions.String(),
@@ -81,8 +81,8 @@ func Named(name string) resource.Name {
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 type Arm interface {
-	// GetEndPosition returns the current position of the arm.
-	GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error)
+	// EndPosition returns the current position of the arm.
+	EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
 	// The worldState argument should be treated as optional by all implementing drivers
@@ -175,7 +175,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if !ok {
 		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
-	endPosition, err := arm.GetEndPosition(ctx, nil)
+	endPosition, err := arm.EndPosition(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -207,10 +207,10 @@ func (r *reconfigurableArm) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableArm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (r *reconfigurableArm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetEndPosition(ctx, extra)
+	return r.actual.EndPosition(ctx, extra)
 }
 
 func (r *reconfigurableArm) MoveToPosition(
