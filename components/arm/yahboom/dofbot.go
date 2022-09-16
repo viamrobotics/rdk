@@ -31,8 +31,8 @@ import (
 //go:embed dofbot.json
 var modeljson []byte
 
-func dofbotModel() (referenceframe.Model, error) {
-	return referenceframe.UnmarshalModelJSON(modeljson, "yahboom-dofbot")
+func dofbotModel(name string) (referenceframe.Model, error) {
+	return referenceframe.UnmarshalModelJSON(modeljson, name)
 }
 
 type jointConfig struct {
@@ -109,7 +109,7 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 		return nil, err
 	}
 
-	a.model, err = dofbotModel()
+	a.model, err = dofbotModel(config.Name)
 	if err != nil {
 		return nil, err
 	}
