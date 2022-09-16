@@ -1,4 +1,4 @@
-package rtk
+package gpsrtk
 
 import (
 	"context"
@@ -10,13 +10,12 @@ import (
 	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/components/movementsensor/nmea"
 	"go.viam.com/rdk/config"
 )
 
 type ntripCorrectionSource struct {
 	correctionReader io.ReadCloser
-	info             *nmea.NtripInfo
+	info             *NtripInfo
 	logger           golog.Logger
 	ntripStatus      bool
 
@@ -28,7 +27,23 @@ type ntripCorrectionSource struct {
 	lastError error
 }
 
+// NtripInfo contains the information necessary to connect to a mountpoint.
+type NtripInfo struct {
+	URL                string
+	Username           string
+	Password           string
+	MountPoint         string
+	Client             *ntrip.Client
+	Stream             io.ReadCloser
+	MaxConnectAttempts int
+}
+
 func newNtripCorrectionSource(ctx context.Context, config config.Component, logger golog.Logger) (correctionSource, error) {
+	conf, ok := config.ConvertedAttributes.(*RTKAttrConfig)
+	if !ok {
+		return nil, errors.New("could not convert attributes")
+	}
+
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	n := &ntripCorrectionSource{
@@ -38,7 +53,7 @@ func newNtripCorrectionSource(ctx context.Context, config config.Component, logg
 	}
 
 	// Init ntripInfo from attributes
-	ntripInfoComp, err := nmea.NewNtripInfo(ctx, config, logger)
+	ntripInfoComp, err := NewNtripInfo(ctx, , logger)
 	if err != nil {
 		return nil, err
 	}

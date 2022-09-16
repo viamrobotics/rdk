@@ -1,10 +1,9 @@
-package nmea
+package gpsnmea
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -23,9 +22,10 @@ import (
 // I2CAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
 type I2CAttrConfig struct {
 	// I2C
-	Board   string `json:"board"`
-	Bus     string `json:"bus"`
-	I2cAddr int    `json:"i2c_addr"`
+	Board    string `json:"board"`
+	Bus      string `json:"bus"`
+	I2cAddr  int    `json:"i2c_addr"`
+	BaudRate int    `json:"baud_rate,omitempty"`
 }
 
 // ValidateI2C ensures all parts of the config are valid.
@@ -46,29 +46,28 @@ func (config *I2CAttrConfig) ValidateI2C(path string) error {
 // PmtkI2CNMEAMovementSensor allows the use of any MovementSensor chip that communicates over I2C using the PMTK protocol.
 type PmtkI2CNMEAMovementSensor struct {
 	generic.Unimplemented
-	mu          sync.RWMutex
-	bus         board.I2C
-	addr        byte
-	wbaud       int
-	logger      golog.Logger
-	disableNmea bool
-
-	data gpsData
-
+	mu                      sync.RWMutex
 	cancelCtx               context.Context
 	cancelFunc              func()
+	logger                  golog.Logger
+	data                    GpsData
 	activeBackgroundWorkers sync.WaitGroup
 
-	errMu     sync.Mutex
-	lastError error
+	disableNmea bool
+	errMu       sync.Mutex
+	lastError   error
+
+	bus   board.I2C
+	addr  byte
+	wbaud int
 }
 
-func newPmtkI2CNMEAMovementSensor(
+func NewPmtkI2CNMEAMovementSensor(
 	ctx context.Context,
 	deps registry.Dependencies,
 	config config.Component,
 	logger golog.Logger,
-) (nmeaMovementSensor, error) {
+) (NmeaMovementSensor, error) {
 	conf, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, errors.New("could not convert attributes from config")
@@ -90,10 +89,9 @@ func newPmtkI2CNMEAMovementSensor(
 	if addr == -1 {
 		return nil, errors.New("must specify gps i2c address")
 	}
-	wbaud, err := strconv.Atoi(conf.NtripBaud) // check later
-	if err != nil {
-		wbaud = 38400
-		logger.Warnf("ntrip")
+	if conf.I2CAttrConfig.BaudRate == 0 {
+		conf.I2CAttrConfig.BaudRate = 38400
+		logger.Warnf("using default baudrate : 38400")
 	}
 
 	disableNmea := conf.DisableNMEA
@@ -106,7 +104,7 @@ func newPmtkI2CNMEAMovementSensor(
 	g := &PmtkI2CNMEAMovementSensor{
 		bus:         i2cbus,
 		addr:        byte(addr),
-		wbaud:       wbaud,
+		wbaud:       conf.I2CAttrConfig.BaudRate,
 		cancelCtx:   cancelCtx,
 		cancelFunc:  cancelFunc,
 		logger:      logger,
@@ -237,7 +235,7 @@ func (g *PmtkI2CNMEAMovementSensor) GetAccuracy(ctx context.Context) (map[string
 func (g *PmtkI2CNMEAMovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return r3.Vector{0, g.data.speed, 0}, g.lastError
+	return r3.Vector{X: 0, Y: g.data.speed, Z: 0}, g.lastError
 }
 
 // GetAngularVelocity not supported.

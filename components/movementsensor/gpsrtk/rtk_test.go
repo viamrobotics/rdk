@@ -1,4 +1,4 @@
-package nmea
+package gpsrtk
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/components/movementsensor/gpsnmea"
 	"go.viam.com/rdk/config"
 )
 
@@ -17,7 +18,7 @@ func TestValidateRTK(t *testing.T) {
 	err := fakecfg.ValidateRTK("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty ntrip address")
 
-	fakecfg.NtripAddr = "http://fakeurl"
+	fakecfg.NtripUrl = "http://fakeurl"
 	err = fakecfg.ValidateRTK("path")
 	test.That(
 		t,
@@ -188,7 +189,7 @@ func TestReadingsRTK(t *testing.T) {
 		cancelFunc: cancelFunc,
 		logger:     logger,
 	}
-	nmeamovementsensor := &SerialNMEAMovementSensor{
+	nmeamovementsensor := &gpsnmea.SerialNMEAMovementSensor{
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
@@ -234,7 +235,7 @@ func TestCloseRTK(t *testing.T) {
 		logger:     logger,
 	}
 	g.ntripClient = makeMockNtripClient()
-	g.nmeamovementsensor = &SerialNMEAMovementSensor{
+	g.nmeamovementsensor = &gpsnmea.SerialNMEAMovementSensor{
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
 		logger:     logger,
