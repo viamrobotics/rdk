@@ -260,8 +260,15 @@ func tryWebcamOpen(ctx context.Context,
 		return nil, err
 	}
 	var intrinsics *transform.PinholeCameraIntrinsics
+	var distortion transform.Distorter
 	if attrs.AttrConfig != nil {
 		intrinsics = attrs.AttrConfig.CameraParameters
+		distortion = attrs.AttrConfig.DistortionParameters
 	}
-	return camera.NewFromSource(ctx, source, &transform.PinholeCameraModel{intrinsics, nil}, camera.StreamType(attrs.Stream))
+	return camera.NewFromSource(
+		ctx,
+		source,
+		&transform.PinholeCameraModel{intrinsics, distortion},
+		camera.StreamType(attrs.Stream),
+	)
 }

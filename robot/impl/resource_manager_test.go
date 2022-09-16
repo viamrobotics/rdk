@@ -134,7 +134,7 @@ func setupInjectRobot(logger golog.Logger) *inject.Robot {
 				case board.Subtype:
 					fakeBoard, err := fakeboard.NewBoard(context.Background(), config.Component{
 						Name: name.Name,
-						ConvertedAttributes: &board.Config{
+						ConvertedAttributes: &fakeboard.Config{
 							Analogs: []board.AnalogConfig{
 								{Name: "analog1"},
 								{Name: "analog2"},
@@ -565,7 +565,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               "fake",
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                board.SubtypeName,
-				ConvertedAttributes: &board.Config{},
+				ConvertedAttributes: &fakeboard.Config{},
 				DependsOn:           []string{},
 			},
 			{
@@ -573,7 +573,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               "fake",
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                board.SubtypeName,
-				ConvertedAttributes: &board.Config{},
+				ConvertedAttributes: &fakeboard.Config{},
 				DependsOn:           []string{},
 			},
 			{
@@ -581,7 +581,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               "fake",
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                board.SubtypeName,
-				ConvertedAttributes: &board.Config{},
+				ConvertedAttributes: &fakeboard.Config{},
 				DependsOn:           []string{},
 			},
 			{
@@ -751,7 +751,7 @@ func TestManagerNewComponent(t *testing.T) {
 		Model:               "fake",
 		Namespace:           resource.ResourceNamespaceRDK,
 		Type:                board.SubtypeName,
-		ConvertedAttributes: &board.Config{},
+		ConvertedAttributes: &fakeboard.Config{},
 		DependsOn:           []string{"arm3"},
 	})
 	err = robotForRemote.manager.updateResources(context.Background(), diff, func(name string) (resource.Name, bool) {
