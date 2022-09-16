@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
+	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 )
@@ -53,7 +54,7 @@ func TestDiffConfigs(t *testing.T) {
 				Name:      "board1",
 				Model:     "fake",
 				Type:      board.SubtypeName,
-				ConvertedAttributes: &board.Config{
+				ConvertedAttributes: &fakeboard.Config{
 					Analogs: []board.AnalogConfig{
 						{
 							Name: "analog1",
@@ -119,7 +120,7 @@ func TestDiffConfigs(t *testing.T) {
 				Name:      "board1",
 				Model:     "fake",
 				Type:      board.SubtypeName,
-				ConvertedAttributes: &board.Config{
+				ConvertedAttributes: &fakeboard.Config{
 					Analogs: []board.AnalogConfig{
 						{
 							Name: "analog1",
@@ -234,7 +235,7 @@ func TestDiffConfigs(t *testing.T) {
 							Name:      "board2",
 							Type:      board.SubtypeName,
 							Model:     "fake",
-							ConvertedAttributes: &board.Config{
+							ConvertedAttributes: &fakeboard.Config{
 								DigitalInterrupts: []board.DigitalInterruptConfig{{Name: "encoder2", Pin: "16"}},
 							},
 						},
@@ -274,7 +275,7 @@ func TestDiffConfigs(t *testing.T) {
 							Name:      "board1",
 							Type:      board.SubtypeName,
 							Model:     "fake",
-							ConvertedAttributes: &board.Config{
+							ConvertedAttributes: &fakeboard.Config{
 								Analogs: []board.AnalogConfig{{Name: "analog1", Pin: "1"}},
 							},
 						},
