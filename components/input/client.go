@@ -48,7 +48,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) GetControls(ctx context.Context) ([]Control, error) {
+func (c *client) Controls(ctx context.Context) ([]Control, error) {
 	resp, err := c.client.GetControls(ctx, &pb.GetControlsRequest{
 		Controller: c.name,
 	})

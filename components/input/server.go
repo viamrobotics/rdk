@@ -45,7 +45,7 @@ func (s *subtypeServer) GetControls(
 		return nil, err
 	}
 
-	controlList, err := controller.GetControls(ctx)
+	controlList, err := controller.Controls(ctx)
 	if err != nil {
 		return nil, err
 	}

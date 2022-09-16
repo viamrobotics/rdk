@@ -10,7 +10,7 @@ import (
 type InputController struct {
 	input.Controller
 	DoFunc                      func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	GetControlsFunc             func(ctx context.Context) ([]input.Control, error)
+	ControlsFunc                func(ctx context.Context) ([]input.Control, error)
 	GetEventsFunc               func(ctx context.Context) (map[input.Control]input.Event, error)
 	RegisterControlCallbackFunc func(
 		ctx context.Context,
@@ -20,12 +20,12 @@ type InputController struct {
 	) error
 }
 
-// GetControls calls the injected function or the real version.
-func (s *InputController) GetControls(ctx context.Context) ([]input.Control, error) {
-	if s.GetControlsFunc == nil {
-		return s.Controller.GetControls(ctx)
+// Controls calls the injected function or the real version.
+func (s *InputController) Controls(ctx context.Context) ([]input.Control, error) {
+	if s.ControlsFunc == nil {
+		return s.Controller.Controls(ctx)
 	}
-	return s.GetControlsFunc(ctx)
+	return s.ControlsFunc(ctx)
 }
 
 // GetEvents calls the injected function or the real version.

@@ -281,7 +281,7 @@ func (svc *builtIn) start(ctx context.Context) error {
 		}
 	}
 
-	controls, err := svc.inputController.GetControls(ctx)
+	controls, err := svc.inputController.Controls(ctx)
 	if err != nil {
 		return err
 	}
@@ -303,7 +303,7 @@ func (svc *builtIn) start(ctx context.Context) error {
 
 // Close out of all remote control related systems.
 func (svc *builtIn) Close(ctx context.Context) error {
-	controls, err := svc.inputController.GetControls(ctx)
+	controls, err := svc.inputController.Controls(ctx)
 	if err != nil {
 		return err
 	}

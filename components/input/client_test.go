@@ -32,7 +32,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	injectInputController := &inject.TriggerableInputController{}
-	injectInputController.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	injectInputController.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
 	injectInputController.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
@@ -61,7 +61,7 @@ func TestClient(t *testing.T) {
 	}
 
 	injectInputController2 := &inject.InputController{}
-	injectInputController2.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	injectInputController2.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return nil, errors.New("can't get controls")
 	}
 	injectInputController2.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
@@ -102,7 +102,7 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
-		controlList, err := inputController1Client.GetControls(context.Background())
+		controlList, err := inputController1Client.Controls(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
 
@@ -231,7 +231,7 @@ func TestClient(t *testing.T) {
 		inputController2Client, ok := client.(input.Controller)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		_, err = inputController2Client.GetControls(context.Background())
+		_, err = inputController2Client.Controls(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get controls")
 
