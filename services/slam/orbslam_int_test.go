@@ -2,6 +2,7 @@ package slam_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -33,7 +34,6 @@ func getMockCameraServer(t *testing.T, path, pattern string) *http.ServeMux {
 		path := artifact.MustPath(path + strconv.FormatUint(i, 10) + ".png")
 		bytes, err := os.ReadFile(path)
 		test.That(t, err, test.ShouldBeNil)
-		w.Header().Add("Content-Type", "image/png")
 		w.Write(bytes)
 	}
 
@@ -101,17 +101,19 @@ func TestMockCameraServer(t *testing.T) {
 		test.That(t, intrinsics.CheckValid(), test.ShouldBeNil)
 
 		for i := 0; i < 15; i++ {
-			img, release, err := camera.ReadImage(
-				gostream.WithMIMETypeHint(context.Background(), utils.WithLazyMIMEType(utils.MimeTypePNG)), colorCam)
-			test.That(t, err, test.ShouldBeNil)
-			defer release()
-			lazyImg, ok := img.(*rimage.LazyEncodedImage)
-			test.That(t, ok, test.ShouldBeTrue)
-			test.That(t, lazyImg.MIMEType(), test.ShouldEqual, utils.MimeTypePNG)
-			path := artifact.MustPath("slam/temp_mock_camera/color/" + strconv.Itoa(i) + ".png")
-			bytes, err := os.ReadFile(path)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, lazyImg.RawData(), test.ShouldResemble, bytes)
+			t.Run(fmt.Sprintf("Test color image %v", i), func(t *testing.T) {
+				img, release, err := camera.ReadImage(
+					gostream.WithMIMETypeHint(context.Background(), utils.WithLazyMIMEType(utils.MimeTypePNG)), colorCam)
+				test.That(t, err, test.ShouldBeNil)
+				defer release()
+				lazyImg, ok := img.(*rimage.LazyEncodedImage)
+				test.That(t, ok, test.ShouldBeTrue)
+				test.That(t, lazyImg.MIMEType(), test.ShouldEqual, utils.MimeTypePNG)
+				path := artifact.MustPath("slam/temp_mock_camera/color/" + strconv.Itoa(i) + ".png")
+				bytes, err := os.ReadFile(path)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, lazyImg.RawData(), test.ShouldResemble, bytes)
+			})
 		}
 	})
 
@@ -119,17 +121,19 @@ func TestMockCameraServer(t *testing.T) {
 		depthCam, depthSvr := getMockDepthCamera(t, logger)
 		defer depthSvr.Close()
 		for i := 0; i < 15; i++ {
-			img, release, err := camera.ReadImage(
-				gostream.WithMIMETypeHint(context.Background(), utils.WithLazyMIMEType(utils.MimeTypePNG)), depthCam)
-			test.That(t, err, test.ShouldBeNil)
-			defer release()
-			lazyImg, ok := img.(*rimage.LazyEncodedImage)
-			test.That(t, ok, test.ShouldBeTrue)
-			test.That(t, lazyImg.MIMEType(), test.ShouldEqual, utils.MimeTypePNG)
-			path := artifact.MustPath("slam/temp_mock_camera/depth/" + strconv.Itoa(i) + ".png")
-			bytes, err := os.ReadFile(path)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, lazyImg.RawData(), test.ShouldResemble, bytes)
+			t.Run(fmt.Sprintf("Test depth image %v", i), func(t *testing.T) {
+				img, release, err := camera.ReadImage(
+					gostream.WithMIMETypeHint(context.Background(), utils.WithLazyMIMEType(utils.MimeTypePNG)), depthCam)
+				test.That(t, err, test.ShouldBeNil)
+				defer release()
+				lazyImg, ok := img.(*rimage.LazyEncodedImage)
+				test.That(t, ok, test.ShouldBeTrue)
+				test.That(t, lazyImg.MIMEType(), test.ShouldEqual, utils.MimeTypePNG)
+				path := artifact.MustPath("slam/temp_mock_camera/depth/" + strconv.Itoa(i) + ".png")
+				bytes, err := os.ReadFile(path)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, lazyImg.RawData(), test.ShouldResemble, bytes)
+			})
 		}
 	})
 }
