@@ -7,7 +7,7 @@ mkdir -p src/gen
 cd src/gen
 mkdir tmp
 cd tmp
-git clone --filter=blob:none --no-checkout --depth 1 --sparse -b RSDK-626/proto-package-names git@github.com:njooma/viam-api.git api
+git clone --filter=blob:none --no-checkout --depth 1 --sparse -b main git@github.com:viamrobotics/api.git
 cd api
 git sparse-checkout init --cone
 git sparse-checkout add gen/js
