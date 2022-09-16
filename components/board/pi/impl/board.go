@@ -21,12 +21,12 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/commonsysfs"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rlog"
 	rdkutils "go.viam.com/rdk/utils"

@@ -5,10 +5,10 @@ import (
 	"errors"
 	"testing"
 
+	pb "go.viam.com/api/component/gripper/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/gripper"
-	pb "go.viam.com/rdk/proto/api/component/gripper/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"

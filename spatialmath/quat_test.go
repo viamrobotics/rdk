@@ -4,10 +4,9 @@ import (
 	"math"
 	"testing"
 
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/quat"
-
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
 func TestAngleAxisConversion1(t *testing.T) {

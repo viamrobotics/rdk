@@ -7,9 +7,9 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 
-	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )

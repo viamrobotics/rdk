@@ -8,10 +8,10 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.opencensus.io/trace"
+	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/pointcloud"
-	pb "go.viam.com/rdk/proto/api/service/slam/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"

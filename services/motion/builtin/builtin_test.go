@@ -14,9 +14,9 @@ import (
 	"go.viam.com/rdk/components/gripper"
 
 	// register.
+	commonpb "go.viam.com/api/common/v1"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	robotimpl "go.viam.com/rdk/robot/impl"

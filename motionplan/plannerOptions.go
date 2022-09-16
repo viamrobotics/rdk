@@ -5,7 +5,8 @@ import (
 	"errors"
 	"math"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	commonpb "go.viam.com/api/common/v1"
+
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
