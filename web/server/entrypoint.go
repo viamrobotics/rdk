@@ -34,7 +34,7 @@ type Arguments struct {
 	Version                    bool   `flag:"version,usage=print version"`
 	WebProfile                 bool   `flag:"webprofile,usage=include profiler in http server"`
 	WebRTC                     bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
-	revealSensitiveConfigDiffs bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
+	RevealSensitiveConfigDiffs bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
 }
 
 type robotServer struct {
@@ -234,7 +234,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	streamConfig.VideoEncoderFactory = x264.NewEncoderFactory()
 
 	robotOptions := []robotimpl.Option{robotimpl.WithWebOptions(web.WithStreamConfig(streamConfig))}
-	if s.args.revealSensitiveConfigDiffs {
+	if s.args.RevealSensitiveConfigDiffs {
 		robotOptions = append(robotOptions, robotimpl.WithRevealSensitiveConfigDiffs())
 	}
 
@@ -275,7 +275,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				myRobot.Reconfigure(ctx, processedConfig)
 
 				// restart web service if necessary
-				diff, err := config.DiffConfigs(*oldCfg, *processedConfig, s.args.revealSensitiveConfigDiffs)
+				diff, err := config.DiffConfigs(*oldCfg, *processedConfig, s.args.RevealSensitiveConfigDiffs)
 				if err != nil {
 					s.logger.Errorw("error diffing config", "error", err)
 					continue
