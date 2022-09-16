@@ -16,7 +16,7 @@ type Gantry struct {
 	DoFunc             func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	PositionFunc       func(ctx context.Context, extra map[string]interface{}) ([]float64, error)
 	MoveToPositionFunc func(ctx context.Context, positions []float64, worldState *commonpb.WorldState, extra map[string]interface{}) error
-	GetLengthsFunc     func(ctx context.Context, extra map[string]interface{}) ([]float64, error)
+	LengthsFunc        func(ctx context.Context, extra map[string]interface{}) ([]float64, error)
 	StopFunc           func(ctx context.Context, extra map[string]interface{}) error
 	IsMovingFunc       func(context.Context) (bool, error)
 	CloseFunc          func(ctx context.Context) error
@@ -44,12 +44,12 @@ func (g *Gantry) MoveToPosition(
 	return g.MoveToPositionFunc(ctx, positions, worldState, extra)
 }
 
-// GetLengths calls the injected GetLengths or the real version.
-func (g *Gantry) GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	if g.GetLengthsFunc == nil {
-		return g.LocalGantry.GetLengths(ctx, extra)
+// Lengths calls the injected Lengths or the real version.
+func (g *Gantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	if g.LengthsFunc == nil {
+		return g.LocalGantry.Lengths(ctx, extra)
 	}
-	return g.GetLengthsFunc(ctx, extra)
+	return g.LengthsFunc(ctx, extra)
 }
 
 // Stop calls the injected Stop or the real version.

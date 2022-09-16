@@ -48,7 +48,7 @@ func (c *client) Position(ctx context.Context, extra map[string]interface{}) ([]
 	return resp.PositionsMm, nil
 }
 
-func (c *client) GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+func (c *client) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err

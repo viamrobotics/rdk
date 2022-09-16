@@ -54,7 +54,7 @@ func TestServer(t *testing.T) {
 		extra1 = extra
 		return nil
 	}
-	injectGantry.GetLengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	injectGantry.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		extra1 = extra
 		return len1, nil
 	}
@@ -76,7 +76,7 @@ func TestServer(t *testing.T) {
 		gantryPos = pos
 		return errors.New("can't move to position")
 	}
-	injectGantry2.GetLengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	injectGantry2.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return nil, errors.New("can't get lengths")
 	}
 	injectGantry2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {

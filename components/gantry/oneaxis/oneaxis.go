@@ -375,8 +375,8 @@ func (g *oneAxis) Position(ctx context.Context, extra map[string]interface{}) ([
 	return []float64{x}, nil
 }
 
-// GetLengths returns the physical lengths of an axis of a Gantry.
-func (g *oneAxis) GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+// Lengths returns the physical lengths of an axis of a Gantry.
+func (g *oneAxis) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	return []float64{g.lengthMm}, nil
 }
 

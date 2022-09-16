@@ -60,7 +60,7 @@ func (s *subtypeServer) GetLengths(
 	if err != nil {
 		return nil, err
 	}
-	lengthsMm, err := gantry.GetLengths(ctx, req.Extra.AsMap())
+	lengthsMm, err := gantry.Lengths(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
