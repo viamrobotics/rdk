@@ -126,8 +126,8 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
 }
 
-// GetReadings is a helper for getting all readings from a MovementSensor.
-func GetReadings(ctx context.Context, g MovementSensor) (map[string]interface{}, error) {
+// Readings is a helper for getting all readings from a MovementSensor.
+func Readings(ctx context.Context, g MovementSensor) (map[string]interface{}, error) {
 	readings := map[string]interface{}{}
 
 	pos, altitide, err := g.Position(ctx)
@@ -229,10 +229,10 @@ func (r *reconfigurableMovementSensor) Accuracy(ctx context.Context) (map[string
 	return r.actual.Accuracy(ctx)
 }
 
-func (r *reconfigurableMovementSensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
+func (r *reconfigurableMovementSensor) Readings(ctx context.Context) (map[string]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetReadings(ctx)
+	return r.actual.Readings(ctx)
 }
 
 func (r *reconfigurableMovementSensor) Reconfigure(ctx context.Context, newMovementSensor resource.Reconfigurable) error {

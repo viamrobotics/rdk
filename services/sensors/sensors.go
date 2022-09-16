@@ -46,7 +46,7 @@ type Readings struct {
 // A Service centralizes all sensors into one place.
 type Service interface {
 	GetSensors(ctx context.Context) ([]resource.Name, error)
-	GetReadings(ctx context.Context, sensorNames []resource.Name) ([]Readings, error)
+	Readings(ctx context.Context, sensorNames []resource.Name) ([]Readings, error)
 }
 
 var (
@@ -120,10 +120,10 @@ func (svc *reconfigurableSensors) GetSensors(ctx context.Context) ([]resource.Na
 	return svc.actual.GetSensors(ctx)
 }
 
-func (svc *reconfigurableSensors) GetReadings(ctx context.Context, sensorNames []resource.Name) ([]Readings, error) {
+func (svc *reconfigurableSensors) Readings(ctx context.Context, sensorNames []resource.Name) ([]Readings, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetReadings(ctx, sensorNames)
+	return svc.actual.Readings(ctx, sensorNames)
 }
 
 func (svc *reconfigurableSensors) Close(ctx context.Context) error {

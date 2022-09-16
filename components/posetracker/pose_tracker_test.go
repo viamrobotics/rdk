@@ -149,8 +149,8 @@ func (m *mock) Poses(ctx context.Context, bodyNames []string) (posetracker.BodyT
 	}, nil
 }
 
-func (m *mock) GetReadings(ctx context.Context) (map[string]interface{}, error) {
-	return posetracker.GetReadings(ctx, m)
+func (m *mock) Readings(ctx context.Context) (map[string]interface{}, error) {
+	return posetracker.Readings(ctx, m)
 }
 
 func (m *mock) Close() { m.reconfCount++ }
@@ -189,14 +189,14 @@ func TestReconfigurablePoseTracker(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
-func TestGetReadings(t *testing.T) {
+func TestReadings(t *testing.T) {
 	actualPT1 := &mock{Name: workingPTName}
 	reconfPT1, err := posetracker.WrapWithReconfigurable(actualPT1)
 	test.That(t, err, test.ShouldBeNil)
 	sensorPT1, isSensor := reconfPT1.(sensor.Sensor)
 	test.That(t, isSensor, test.ShouldBeTrue)
 
-	receivedReadings, err := sensorPT1.GetReadings(context.Background())
+	receivedReadings, err := sensorPT1.Readings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, receivedReadings["body1"], test.ShouldResemble, referenceframe.NewPoseInFrame("world", spatialmath.NewZeroPose()))

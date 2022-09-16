@@ -93,8 +93,8 @@ func FromRobot(r robot.Robot, name string) (PoseTracker, error) {
 	return part, nil
 }
 
-// GetReadings is a helper for getting all readings from a PoseTracker.
-func GetReadings(ctx context.Context, poseTracker PoseTracker) (map[string]interface{}, error) {
+// Readings is a helper for getting all readings from a PoseTracker.
+func Readings(ctx context.Context, poseTracker PoseTracker) (map[string]interface{}, error) {
 	poseLookup, err := poseTracker.Poses(ctx, []string{})
 	if err != nil {
 		return nil, err
@@ -132,11 +132,11 @@ func (r *reconfigurablePoseTracker) Poses(
 	return r.actual.Poses(ctx, bodyNames)
 }
 
-// GetReadings returns the PoseTrack readings.
-func (r *reconfigurablePoseTracker) GetReadings(ctx context.Context) (map[string]interface{}, error) {
+// Readings returns the PoseTrack readings.
+func (r *reconfigurablePoseTracker) Readings(ctx context.Context) (map[string]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetReadings(ctx)
+	return r.actual.Readings(ctx)
 }
 
 func (r *reconfigurablePoseTracker) Close(ctx context.Context) error {

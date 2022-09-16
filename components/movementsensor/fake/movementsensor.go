@@ -59,8 +59,8 @@ func (f *fakeMovementSensor) Accuracy(ctx context.Context) (map[string]float32, 
 	return map[string]float32{}, nil
 }
 
-func (f *fakeMovementSensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
-	return movementsensor.GetReadings(ctx, f)
+func (f *fakeMovementSensor) Readings(ctx context.Context) (map[string]interface{}, error) {
+	return movementsensor.Readings(ctx, f)
 }
 
 func (f *fakeMovementSensor) Properties(ctx context.Context) (*movementsensor.Properties, error) {

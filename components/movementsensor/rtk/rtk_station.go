@@ -362,7 +362,7 @@ func (r *rtkStation) CompassHeading(ctx context.Context) (float64, error) {
 	return 0, r.lastError
 }
 
-func (r *rtkStation) GetReadings(ctx context.Context) (map[string]interface{}, error) {
+func (r *rtkStation) Readings(ctx context.Context) (map[string]interface{}, error) {
 	return map[string]interface{}{}, r.lastError
 }
 
