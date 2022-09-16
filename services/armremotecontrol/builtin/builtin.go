@@ -417,7 +417,7 @@ func processArmJointEvent(ctx context.Context, svc *builtIn, state *controllerSt
 	mappings := svc.config.ControllerModes[state.curModeIdx].ControlMapping
 	jointStep := svc.config.JointStep
 
-	jointPositions, err := svc.arm.GetJointPositions(ctx, nil)
+	jointPositions, err := svc.arm.JointPositions(ctx, nil)
 	if err != nil {
 		return err
 	}

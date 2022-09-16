@@ -55,7 +55,7 @@ func init() {
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    SubtypeName,
 		MethodName: getJointPositions.String(),
-	}, newGetJointPositionsCollector)
+	}, newJointPositionsCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "arm".
@@ -93,8 +93,8 @@ type Arm interface {
 	// This will block until done or a new operation cancels this one
 	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions, extra map[string]interface{}) error
 
-	// GetJointPositions returns the current joint positions of the arm.
-	GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
+	// JointPositions returns the current joint positions of the arm.
+	JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
 
 	// Stop stops the arm. It is assumed the arm stops immediately.
 	Stop(ctx context.Context, extra map[string]interface{}) error
@@ -179,7 +179,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if err != nil {
 		return nil, err
 	}
-	jointPositions, err := arm.GetJointPositions(ctx, nil)
+	jointPositions, err := arm.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -230,10 +230,10 @@ func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, positionDe
 	return r.actual.MoveToJointPositions(ctx, positionDegs, extra)
 }
 
-func (r *reconfigurableArm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (r *reconfigurableArm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetJointPositions(ctx, extra)
+	return r.actual.JointPositions(ctx, extra)
 }
 
 func (r *reconfigurableArm) Stop(ctx context.Context, extra map[string]interface{}) error {

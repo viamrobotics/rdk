@@ -158,7 +158,7 @@ func TestCreateStatus(t *testing.T) {
 	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return pose, nil
 	}
-	injectArm.GetJointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+	injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 		return &pb.JointPositions{Values: status.JointPositions.Values}, nil
 	}
 	injectArm.IsMovingFunc = func(context.Context) (bool, error) {
@@ -191,9 +191,9 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, status1, test.ShouldResemble, status2)
 	})
 
-	t.Run("fail on GetJointPositions", func(t *testing.T) {
+	t.Run("fail on JointPositions", func(t *testing.T) {
 		errFail := errors.New("can't get joint positions")
-		injectArm.GetJointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 			return nil, errFail
 		}
 		_, err = arm.CreateStatus(context.Background(), injectArm)

@@ -719,7 +719,7 @@ func (da *dummyArm) MoveToJointPositions(ctx context.Context, positionDegs *armp
 	return nil
 }
 
-func (da *dummyArm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*armpb.JointPositions, error) {
+func (da *dummyArm) JointPositions(ctx context.Context, extra map[string]interface{}) (*armpb.JointPositions, error) {
 	return nil, errors.New("fake error")
 }
 
@@ -1294,7 +1294,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	tPos := referenceframe.JointPositionsFromRadians([]float64{10.0})
 	err = r0Arm.MoveToJointPositions(context.Background(), tPos, nil)
 	test.That(t, err, test.ShouldBeNil)
-	p0Arm1, err := r0Arm.GetJointPositions(context.Background(), nil)
+	p0Arm1, err := r0Arm.JointPositions(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -1353,7 +1353,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	rrArm1, ok := arm1.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
-	pos, err := rrArm1.GetJointPositions(ctx, nil)
+	pos, err := rrArm1.JointPositions(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.Values, test.ShouldResemble, p0Arm1.Values)
 
@@ -1361,7 +1361,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	rrArm1, ok = arm1.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
-	pos, err = rrArm1.GetJointPositions(ctx, nil)
+	pos, err = rrArm1.JointPositions(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.Values, test.ShouldResemble, p0Arm1.Values)
 
