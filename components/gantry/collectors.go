@@ -12,14 +12,14 @@ type method int64
 
 const (
 	position method = iota
-	getLengths
+	lengths
 )
 
 func (m method) String() string {
 	switch m {
 	case position:
 		return "GetPosition"
-	case getLengths:
+	case lengths:
 		return "GetLengths"
 	}
 	return "Unknown"
@@ -51,16 +51,16 @@ type Lengths struct {
 	Lengths []float64
 }
 
-func newGetLengthsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newLengthsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	gantry, err := assertGantry(resource)
 	if err != nil {
 		return nil, err
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		v, err := gantry.GetLengths(ctx, nil)
+		v, err := gantry.Lengths(ctx, nil)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, getLengths.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, lengths.String(), err)
 		}
 		return Lengths{Lengths: v}, nil
 	})

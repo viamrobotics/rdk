@@ -51,7 +51,7 @@ func TestClient(t *testing.T) {
 		extra1 = extra
 		return nil
 	}
-	injectGantry.GetLengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	injectGantry.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		extra1 = extra
 		return len1, nil
 	}
@@ -78,7 +78,7 @@ func TestClient(t *testing.T) {
 		extra2 = extra
 		return nil
 	}
-	injectGantry2.GetLengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	injectGantry2.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		extra2 = extra
 		return len2, nil
 	}
@@ -131,7 +131,7 @@ func TestClient(t *testing.T) {
 		test.That(t, gantryPos, test.ShouldResemble, pos2)
 		test.That(t, extra1, test.ShouldResemble, map[string]interface{}{"foo": 234., "bar": "345"})
 
-		lens, err := gantry1Client.GetLengths(context.Background(), map[string]interface{}{"foo": 345, "bar": "456"})
+		lens, err := gantry1Client.Lengths(context.Background(), map[string]interface{}{"foo": 345, "bar": "456"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, lens, test.ShouldResemble, len1)
 		test.That(t, extra1, test.ShouldResemble, map[string]interface{}{"foo": 345., "bar": "456"})

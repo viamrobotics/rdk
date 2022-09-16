@@ -606,12 +606,12 @@ func TestPosition(t *testing.T) {
 	}
 }
 
-func TestGetLengths(t *testing.T) {
+func TestLengths(t *testing.T) {
 	fakegantry := &oneAxis{
 		lengthMm: float64(1.0),
 	}
 	ctx := context.Background()
-	fakelengths, err := fakegantry.GetLengths(ctx, nil)
+	fakelengths, err := fakegantry.Lengths(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.ShouldHaveLength(t, fakelengths, test.ShouldEqual(float64(1.0)))
 }

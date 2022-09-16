@@ -26,7 +26,7 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 		MoveToPositionFunc: func(ctx context.Context, positions []float64, worldState *commonpb.WorldState, extra map[string]interface{}) error {
 			return nil
 		},
-		GetLengthsFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+		LengthsFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 			return []float64{length}, nil
 		},
 		StopFunc: func(ctx context.Context, extra map[string]interface{}) error {
@@ -44,7 +44,7 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 
 func createFakeDeps() registry.Dependencies {
 	fakeGantry := &inject.Gantry{
-		GetLengthsFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+		LengthsFunc: func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 			return []float64{1}, nil
 		},
 	}
@@ -161,21 +161,21 @@ func TestPosition(t *testing.T) {
 	test.That(t, pos, test.ShouldResemble, []float64{1, 5})
 }
 
-func TestGetLengths(t *testing.T) {
+func TestLengths(t *testing.T) {
 	ctx := context.Background()
 	fakemultiaxis := &multiAxis{}
-	lengths, err := fakemultiaxis.GetLengths(ctx, nil)
+	lengths, err := fakemultiaxis.Lengths(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths, test.ShouldResemble, []float64{})
 
 	fakemultiaxis = &multiAxis{subAxes: threeAxes}
-	lengths, err = fakemultiaxis.GetLengths(ctx, nil)
+	lengths, err = fakemultiaxis.Lengths(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths, test.ShouldResemble, []float64{1, 2, 3})
 
 	fakemultiaxis = &multiAxis{subAxes: twoAxes}
 
-	lengths, err = fakemultiaxis.GetLengths(ctx, nil)
+	lengths, err = fakemultiaxis.Lengths(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths, test.ShouldResemble, []float64{5, 6})
 }
