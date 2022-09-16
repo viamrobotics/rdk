@@ -17,7 +17,7 @@ type Arm struct {
 	EndPositionFunc          func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error)
 	MoveToPositionFunc       func(ctx context.Context, to *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error
 	MoveToJointPositionsFunc func(ctx context.Context, pos *pb.JointPositions, extra map[string]interface{}) error
-	GetJointPositionsFunc    func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
+	JointPositionsFunc       func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
 	StopFunc                 func(ctx context.Context, extra map[string]interface{}) error
 	IsMovingFunc             func(context.Context) (bool, error)
 	CloseFunc                func(ctx context.Context) error
@@ -47,12 +47,12 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, e
 	return a.MoveToJointPositionsFunc(ctx, jp, extra)
 }
 
-// GetJointPositions calls the injected GetJointPositions or the real version.
-func (a *Arm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-	if a.GetJointPositionsFunc == nil {
-		return a.LocalArm.GetJointPositions(ctx, extra)
+// JointPositions calls the injected JointPositions or the real version.
+func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+	if a.JointPositionsFunc == nil {
+		return a.LocalArm.JointPositions(ctx, extra)
 	}
-	return a.GetJointPositionsFunc(ctx, extra)
+	return a.JointPositionsFunc(ctx, extra)
 }
 
 // Stop calls the injected Stop or the real version.

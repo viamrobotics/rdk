@@ -64,7 +64,7 @@ func (s *subtypeServer) GetJointPositions(
 	if err != nil {
 		return nil, err
 	}
-	pos, err := arm.GetJointPositions(ctx, req.Extra.AsMap())
+	pos, err := arm.JointPositions(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}

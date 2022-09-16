@@ -41,14 +41,14 @@ func newEndPositionCollector(resource interface{}, params data.CollectorParams) 
 	return data.NewCollector(cFunc, params)
 }
 
-func newGetJointPositionsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newJointPositionsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	arm, err := assertArm(resource)
 	if err != nil {
 		return nil, err
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		v, err := arm.GetJointPositions(ctx, nil)
+		v, err := arm.JointPositions(ctx, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, getJointPositions.String(), err)
 		}
