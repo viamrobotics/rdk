@@ -21,6 +21,11 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+var (
+	colorIndex uint64
+	depthIndex uint64
+)
+
 // Creates a mock camera server that serves 'pattern' using the files in 'path'.
 // Assumes the files are named 0.png, 1.png, 2.png, etc.
 func getMockCameraServer(t *testing.T, path, pattern string) *http.ServeMux {
@@ -31,6 +36,11 @@ func getMockCameraServer(t *testing.T, path, pattern string) *http.ServeMux {
 	handle := func(w http.ResponseWriter, r *http.Request) {
 		i := atomic.AddUint64(&index, 1) - 1
 		t.Logf("Handle called with pattern %v and image %v", pattern, i)
+		if pattern == "/color.png" {
+			test.That(t, i, test.ShouldEqual, atomic.LoadUint64(&colorIndex))
+		} else {
+			test.That(t, i, test.ShouldEqual, atomic.LoadUint64(&depthIndex))
+		}
 
 		path := artifact.MustPath(path + strconv.FormatUint(i, 10) + ".png")
 		bytes, err := os.ReadFile(path)
@@ -120,6 +130,7 @@ func TestMockCameraServer(t *testing.T) {
 			t.Logf("Test color image %v", i)
 			path := artifact.MustPath("slam/temp_mock_camera/color/" + strconv.Itoa(i) + ".png")
 			testImage(t, colorCam, path)
+			t.Logf("Test iteration %v incremented colorIndex to %v", i, atomic.AddUint64(&colorIndex, 1))
 		}
 	})
 
@@ -130,6 +141,7 @@ func TestMockCameraServer(t *testing.T) {
 			t.Logf("Test depth image %v", i)
 			path := artifact.MustPath("slam/temp_mock_camera/depth/" + strconv.Itoa(i) + ".png")
 			testImage(t, depthCam, path)
+			t.Logf("Test iteration %v incremented depthIndex to %v", i, atomic.AddUint64(&depthIndex, 1))
 		}
 	})
 }
