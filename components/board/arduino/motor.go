@@ -227,8 +227,8 @@ func (m *arduinoMotor) GetPosition(ctx context.Context, extra map[string]interfa
 	return float64(ticks) / float64(m.cfg.TicksPerRotation), nil
 }
 
-// GetProperties returns the status of optional features supported by the motor.
-func (m *arduinoMotor) GetProperties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+// Properties returns the status of optional features supported by the motor.
+func (m *arduinoMotor) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: m.positionReporting,
 	}, nil

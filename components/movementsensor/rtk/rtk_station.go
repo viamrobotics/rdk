@@ -370,6 +370,6 @@ func (r *rtkStation) GetAccuracy(ctx context.Context) (map[string]float32, error
 	return map[string]float32{}, r.lastError
 }
 
-func (r *rtkStation) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+func (r *rtkStation) Properties(ctx context.Context) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{}, r.lastError
 }

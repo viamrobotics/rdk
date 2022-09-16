@@ -569,12 +569,12 @@ func (g *RTKMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	return g.nmeamovementsensor.ReadFix(ctx)
 }
 
-// GetProperties passthrough.
-func (g *RTKMovementSensor) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+// Properties passthrough.
+func (g *RTKMovementSensor) Properties(ctx context.Context) (*movementsensor.Properties, error) {
 	if g.lastError != nil {
 		return &movementsensor.Properties{}, g.lastError
 	}
-	return g.nmeamovementsensor.GetProperties(ctx)
+	return g.nmeamovementsensor.Properties(ctx)
 }
 
 // GetAccuracy passthrough.

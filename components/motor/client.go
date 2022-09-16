@@ -102,7 +102,7 @@ func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) 
 	return resp.GetPosition(), nil
 }
 
-func (c *client) GetProperties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error) {
+func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err

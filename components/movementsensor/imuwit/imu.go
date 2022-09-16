@@ -101,7 +101,7 @@ func (imu *wit) GetReadings(ctx context.Context) (map[string]interface{}, error)
 	return movementsensor.GetReadings(ctx, imu)
 }
 
-func (imu *wit) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+func (imu *wit) Properties(ctx context.Context) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		AngularVelocitySupported: true,
 		OrientationSupported:     true,

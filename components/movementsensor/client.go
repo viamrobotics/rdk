@@ -104,7 +104,7 @@ func (c *client) GetAccuracy(ctx context.Context) (map[string]float32, error) {
 	return resp.AccuracyMm, nil
 }
 
-func (c *client) GetProperties(ctx context.Context) (*Properties, error) {
+func (c *client) Properties(ctx context.Context) (*Properties, error) {
 	resp, err := c.client.GetProperties(ctx, &pb.GetPropertiesRequest{
 		Name: c.name,
 	})

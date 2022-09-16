@@ -128,6 +128,6 @@ func (s *subtypeServer) GetProperties(
 	if err != nil {
 		return nil, err
 	}
-	prop, err := msDevice.GetProperties(ctx)
+	prop, err := msDevice.Properties(ctx)
 	return (*pb.GetPropertiesResponse)(prop), err
 }

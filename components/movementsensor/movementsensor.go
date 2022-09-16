@@ -71,7 +71,7 @@ type MovementSensor interface {
 	GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) // radians / sec
 	GetCompassHeading(ctx context.Context) (float64, error)                      // [0->360)
 	GetOrientation(ctx context.Context) (spatialmath.Orientation, error)
-	GetProperties(ctx context.Context) (*Properties, error)
+	Properties(ctx context.Context) (*Properties, error)
 	GetAccuracy(ctx context.Context) (map[string]float32, error) // in mm
 	generic.Generic
 	sensor.Sensor
@@ -217,10 +217,10 @@ func (r *reconfigurableMovementSensor) GetCompassHeading(ctx context.Context) (f
 	return r.actual.GetCompassHeading(ctx)
 }
 
-func (r *reconfigurableMovementSensor) GetProperties(ctx context.Context) (*Properties, error) {
+func (r *reconfigurableMovementSensor) Properties(ctx context.Context) (*Properties, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetProperties(ctx)
+	return r.actual.Properties(ctx)
 }
 
 func (r *reconfigurableMovementSensor) GetAccuracy(ctx context.Context) (map[string]float32, error) {
