@@ -77,7 +77,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	result, err := res.GetControls(context.Background())
+	result, err := res.Controls(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, controls)
 
@@ -97,7 +97,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	result, err := res.GetControls(context.Background())
+	result, err := res.Controls(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, controls)
 
@@ -248,7 +248,7 @@ func TestReconfigurableInputController(t *testing.T) {
 
 	test.That(t, actualInput1.controlsCount, test.ShouldEqual, 0)
 	test.That(t, actualInput2.controlsCount, test.ShouldEqual, 0)
-	result, err := reconfInput1.(input.Controller).GetControls(context.Background())
+	result, err := reconfInput1.(input.Controller).Controls(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, controls)
 	test.That(t, actualInput1.controlsCount, test.ShouldEqual, 0)
@@ -278,7 +278,7 @@ type mock struct {
 	reconfCount   int
 }
 
-func (m *mock) GetControls(ctx context.Context) ([]input.Control, error) {
+func (m *mock) Controls(ctx context.Context) ([]input.Control, error) {
 	m.controlsCount++
 	return controls, nil
 }

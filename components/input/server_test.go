@@ -58,7 +58,7 @@ func TestServer(t *testing.T) {
 	inputControllerServer, injectInputController, injectInputController2, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	injectInputController.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	injectInputController.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
 	injectInputController.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
@@ -78,7 +78,7 @@ func TestServer(t *testing.T) {
 		return nil
 	}
 
-	injectInputController2.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	injectInputController2.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return nil, errors.New("can't get controls")
 	}
 	injectInputController2.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {

@@ -366,8 +366,8 @@ func (g *gamepad) Close() {
 	}
 }
 
-// GetControls lists the inputs of the gamepad.
-func (g *gamepad) GetControls(ctx context.Context) ([]input.Control, error) {
+// Controls lists the inputs of the gamepad.
+func (g *gamepad) Controls(ctx context.Context) ([]input.Control, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	if g.dev == nil && len(g.controls) == 0 {

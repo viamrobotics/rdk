@@ -110,8 +110,8 @@ type Controller struct {
 	generic.Unimplemented
 }
 
-// GetControls lists the inputs.
-func (c *Controller) GetControls(ctx context.Context) ([]input.Control, error) {
+// Controls lists the inputs.
+func (c *Controller) Controls(ctx context.Context) ([]input.Control, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	out := append([]input.Control(nil), c.controls...)
