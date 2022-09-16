@@ -103,18 +103,16 @@ func TopologicallySort(parts Parts) (Parts, error) {
 func RenameRemoteParts(
 	remoteParts Parts,
 	remoteName string,
-	remotePrefix bool,
 	connectionName string,
 ) Parts {
 	for _, p := range remoteParts {
 		if p.FrameConfig.Parent == referenceframe.World { // rename World of remote parts
 			p.FrameConfig.Parent = connectionName
 		}
-		if remotePrefix { // rename each non-world part with prefix
-			p.Name = remoteName + "." + p.Name
-			if p.FrameConfig.Parent != connectionName {
-				p.FrameConfig.Parent = remoteName + "." + p.FrameConfig.Parent
-			}
+		// rename each non-world part with prefix
+		p.Name = remoteName + ":" + p.Name
+		if p.FrameConfig.Parent != connectionName {
+			p.FrameConfig.Parent = remoteName + ":" + p.FrameConfig.Parent
 		}
 	}
 	return remoteParts
