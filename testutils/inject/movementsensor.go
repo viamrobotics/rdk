@@ -14,7 +14,7 @@ import (
 // MovementSensor is an injected MovementSensor.
 type MovementSensor struct {
 	movementsensor.MovementSensor
-	GetPositionFunc        func(ctx context.Context) (*geo.Point, float64, error)
+	PositionFunc           func(ctx context.Context) (*geo.Point, float64, error)
 	GetLinearVelocityFunc  func(ctx context.Context) (r3.Vector, error)
 	GetAngularVelocityFunc func(ctx context.Context) (spatialmath.AngularVelocity, error)
 	GetCompassHeadingFunc  func(ctx context.Context) (float64, error)
@@ -40,17 +40,17 @@ func (i *MovementSensor) DoCommand(ctx context.Context, cmd map[string]interface
 	return i.DoFunc(ctx, cmd)
 }
 
-// GetPosition func or passthrough.
-func (i *MovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
-	if i.GetPositionFunc == nil {
-		return i.MovementSensor.GetPosition(ctx)
+// Position func or passthrough.
+func (i *MovementSensor) Position(ctx context.Context) (*geo.Point, float64, error) {
+	if i.PositionFunc == nil {
+		return i.MovementSensor.Position(ctx)
 	}
-	return i.GetPositionFunc(ctx)
+	return i.PositionFunc(ctx)
 }
 
 // GetLinearVelocity func or passthrough.
 func (i *MovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
-	if i.GetPositionFunc == nil {
+	if i.PositionFunc == nil {
 		return i.MovementSensor.GetLinearVelocity(ctx)
 	}
 	return i.GetLinearVelocityFunc(ctx)
@@ -58,7 +58,7 @@ func (i *MovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, erro
 
 // GetAngularVelocity func or passthrough.
 func (i *MovementSensor) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
-	if i.GetPositionFunc == nil {
+	if i.PositionFunc == nil {
 		return i.MovementSensor.GetAngularVelocity(ctx)
 	}
 	return i.GetAngularVelocityFunc(ctx)
@@ -66,7 +66,7 @@ func (i *MovementSensor) GetAngularVelocity(ctx context.Context) (spatialmath.An
 
 // GetOrientation func or passthrough.
 func (i *MovementSensor) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
-	if i.GetPositionFunc == nil {
+	if i.PositionFunc == nil {
 		return i.MovementSensor.GetOrientation(ctx)
 	}
 	return i.GetOrientationFunc(ctx)
@@ -74,7 +74,7 @@ func (i *MovementSensor) GetOrientation(ctx context.Context) (spatialmath.Orient
 
 // GetCompassHeading func or passthrough.
 func (i *MovementSensor) GetCompassHeading(ctx context.Context) (float64, error) {
-	if i.GetPositionFunc == nil {
+	if i.PositionFunc == nil {
 		return i.MovementSensor.GetCompassHeading(ctx)
 	}
 	return i.GetCompassHeadingFunc(ctx)

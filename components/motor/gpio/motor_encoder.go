@@ -196,8 +196,8 @@ type EncodedMotorState struct {
 	setPoint     int64
 }
 
-// GetPosition returns the position of the motor.
-func (m *EncodedMotor) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+// Position returns the position of the motor.
+func (m *EncodedMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	ticks, err := m.encoder.TicksCount(ctx, extra)
 	if err != nil {
 		return 0, err
@@ -547,7 +547,7 @@ func (m *EncodedMotor) Close() {
 // at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target.
 func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, extra map[string]interface{}) error {
-	curPos, err := m.GetPosition(ctx, extra)
+	curPos, err := m.Position(ctx, extra)
 	if err != nil {
 		return err
 	}

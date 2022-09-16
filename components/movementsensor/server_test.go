@@ -40,17 +40,17 @@ func TestServer(t *testing.T) {
 	alt := 50.5
 	speed := 5.4
 
-	injectMovementSensor.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, error) { return loc, alt, nil }
+	injectMovementSensor.PositionFunc = func(ctx context.Context) (*geo.Point, float64, error) { return loc, alt, nil }
 	injectMovementSensor.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{0, speed, 0}, nil }
 
-	injectMovementSensor2.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, error) {
+	injectMovementSensor2.PositionFunc = func(ctx context.Context) (*geo.Point, float64, error) {
 		return nil, 0, errors.New("can't get location")
 	}
 	injectMovementSensor2.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) {
 		return r3.Vector{}, errors.New("can't get speed")
 	}
 
-	t.Run("GetPosition", func(t *testing.T) {
+	t.Run("Position", func(t *testing.T) {
 		resp, err := gpsServer.GetPosition(context.Background(), &pb.GetPositionRequest{Name: testMovementSensorName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Coordinate, test.ShouldResemble, &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()})

@@ -152,11 +152,11 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 	return nil
 }
 
-// GetPosition returns the position in millimeters.
-func (g *multiAxis) GetPosition(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+// Position returns the position in millimeters.
+func (g *multiAxis) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	positions := []float64{}
 	for _, subAx := range g.subAxes {
-		pos, err := subAx.GetPosition(ctx, extra)
+		pos, err := subAx.Position(ctx, extra)
 		if err != nil {
 			return nil, err
 		}
@@ -207,7 +207,7 @@ func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 	}
 	inputs := []float64{}
 	for _, subAx := range g.subAxes {
-		in, err := subAx.GetPosition(ctx, nil)
+		in, err := subAx.Position(ctx, nil)
 		if err != nil {
 			return nil, err
 		}

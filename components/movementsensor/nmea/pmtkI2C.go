@@ -222,8 +222,8 @@ func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (board.I2C, byte) {
 	return g.bus, g.addr
 }
 
-// GetPosition returns the current geographic location of the MovementSensor.
-func (g *PmtkI2CNMEAMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+// Position returns the current geographic location of the MovementSensor.
+func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context) (*geo.Point, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.location, g.data.alt, g.lastError

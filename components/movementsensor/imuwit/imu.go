@@ -89,7 +89,7 @@ func (imu *wit) GetCompassHeading(ctx context.Context) (float64, error) {
 	return imu.magnetometer.Z, imu.lastError
 }
 
-func (imu *wit) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+func (imu *wit) Position(ctx context.Context) (*geo.Point, float64, error) {
 	return nil, 0, nil
 }
 

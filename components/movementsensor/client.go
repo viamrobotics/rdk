@@ -37,7 +37,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+func (c *client) Position(ctx context.Context) (*geo.Point, float64, error) {
 	resp, err := c.client.GetPosition(ctx, &pb.GetPositionRequest{
 		Name: c.name,
 	})

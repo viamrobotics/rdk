@@ -188,8 +188,8 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 	return g.correctionPath, g.correctionBaudRate
 }
 
-// GetPosition position, altitide.
-func (g *SerialNMEAMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+// Position position, altitide.
+func (g *SerialNMEAMovementSensor) Position(ctx context.Context) (*geo.Point, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.location, g.data.alt, g.lastError

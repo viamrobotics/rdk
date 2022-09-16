@@ -153,7 +153,7 @@ func TestCreateStatus(t *testing.T) {
 	}
 
 	injectGantry := &inject.Gantry{}
-	injectGantry.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	injectGantry.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return status.PositionsMm, nil
 	}
 	injectGantry.GetLengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
@@ -198,9 +198,9 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, errFail)
 	})
 
-	t.Run("fail on GetPositions", func(t *testing.T) {
+	t.Run("fail on Positions", func(t *testing.T) {
 		errFail := errors.New("can't get positions")
-		injectGantry.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+		injectGantry.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 			return nil, errFail
 		}
 		_, err = gantry.CreateStatus(context.Background(), injectGantry)

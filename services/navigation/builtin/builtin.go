@@ -173,7 +173,7 @@ func (svc *builtIn) startWaypoint() error {
 				return
 			}
 
-			currentLoc, _, err := svc.movementSensor.GetPosition(svc.cancelCtx)
+			currentLoc, _, err := svc.movementSensor.Position(svc.cancelCtx)
 			if err != nil {
 				svc.logger.Errorw("failed to get gps location", "error", err)
 				continue
@@ -251,7 +251,7 @@ func (svc *builtIn) GetLocation(ctx context.Context) (*geo.Point, error) {
 	if svc.movementSensor == nil {
 		return nil, errors.New("no way to get location")
 	}
-	loc, _, err := svc.movementSensor.GetPosition(ctx)
+	loc, _, err := svc.movementSensor.Position(ctx)
 	return loc, err
 }
 

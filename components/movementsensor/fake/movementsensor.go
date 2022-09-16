@@ -30,7 +30,7 @@ func init() {
 
 type fakeMovementSensor struct{}
 
-func (f *fakeMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+func (f *fakeMovementSensor) Position(ctx context.Context) (*geo.Point, float64, error) {
 	p := geo.NewPoint(40.7, -73.98)
 	return p, 0, nil
 }

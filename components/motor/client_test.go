@@ -51,7 +51,7 @@ func TestClient(t *testing.T) {
 		actualExtra = extra
 		return nil
 	}
-	workingMotor.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	workingMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 		actualExtra = extra
 		return 42.0, nil
 	}
@@ -82,7 +82,7 @@ func TestClient(t *testing.T) {
 	failingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]interface{}) error {
 		return errors.New("set to zero failed")
 	}
-	failingMotor.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	failingMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 		return 0, errors.New("position unavailable")
 	}
 	failingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
@@ -141,7 +141,7 @@ func TestClient(t *testing.T) {
 		err = workingMotorClient.ResetZeroPosition(context.Background(), 0.5, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		pos, err := workingMotorClient.GetPosition(context.Background(), nil)
+		pos, err := workingMotorClient.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 42.0)
 
@@ -173,7 +173,7 @@ func TestClient(t *testing.T) {
 		err = failingMotorClient.ResetZeroPosition(context.Background(), 0.5, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		pos, err := failingMotorClient.GetPosition(context.Background(), nil)
+		pos, err := failingMotorClient.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
@@ -202,7 +202,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		workingMotorDialedClient := motor.NewClientFromConn(context.Background(), conn, testMotorName, logger)
 
-		pos, err := workingMotorDialedClient.GetPosition(context.Background(), nil)
+		pos, err := workingMotorDialedClient.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 42.0)
 

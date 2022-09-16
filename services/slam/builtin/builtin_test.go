@@ -742,7 +742,7 @@ func TestGetMapAndPosition(t *testing.T) {
 	svc, err := createSLAMService(t, attrCfg, logger, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	p, err := svc.GetPosition(context.Background(), "hi")
+	p, err := svc.Position(context.Background(), "hi")
 	test.That(t, p, test.ShouldBeNil)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM position")
 

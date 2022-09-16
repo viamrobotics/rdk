@@ -40,8 +40,8 @@ func init() {
 	})
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    SubtypeName,
-		MethodName: getPosition.String(),
-	}, newGetPositionCollector)
+		MethodName: position.String(),
+	}, newPositionCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    SubtypeName,
 		MethodName: isPowered.String(),
@@ -81,10 +81,10 @@ type Motor interface {
 	// Set the current position (+/- offset) to be the new zero (home) position.
 	ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error
 
-	// GetPosition reports the position of the motor based on its encoder. If it's not supported, the returned
+	// Position reports the position of the motor based on its encoder. If it's not supported, the returned
 	// data is undefined. The unit returned is the number of revolutions which is intended to be fed
 	// back into calls of GoFor.
-	GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error)
+	Position(ctx context.Context, extra map[string]interface{}) (float64, error)
 
 	// Properties returns whether or not the motor supports certain optional features.
 	Properties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error)
@@ -187,7 +187,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	}
 	var position float64
 	if features[PositionReporting] {
-		position, err = motor.GetPosition(ctx, nil)
+		position, err = motor.Position(ctx, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -245,10 +245,10 @@ func (r *reconfigurableMotor) ResetZeroPosition(ctx context.Context, offset floa
 	return r.actual.ResetZeroPosition(ctx, offset, extra)
 }
 
-func (r *reconfigurableMotor) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (r *reconfigurableMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetPosition(ctx, extra)
+	return r.actual.Position(ctx, extra)
 }
 
 func (r *reconfigurableMotor) Properties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error) {
