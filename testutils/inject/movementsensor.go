@@ -21,7 +21,7 @@ type MovementSensor struct {
 	GetOrientationFunc     func(ctx context.Context) (spatialmath.Orientation, error)
 
 	DoFunc    func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	CloseFunc func(ctx context.Context) error
+	CloseFunc func() error
 }
 
 // Close calls the injected Close or the real version.

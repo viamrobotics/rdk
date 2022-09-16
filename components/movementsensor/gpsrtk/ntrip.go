@@ -2,6 +2,7 @@ package gpsrtk
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 
@@ -39,10 +40,6 @@ type NtripInfo struct {
 }
 
 func newNtripCorrectionSource(ctx context.Context, config config.Component, logger golog.Logger) (correctionSource, error) {
-	conf, ok := config.ConvertedAttributes.(*RTKAttrConfig)
-	if !ok {
-		return nil, errors.New("could not convert attributes")
-	}
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
@@ -53,7 +50,7 @@ func newNtripCorrectionSource(ctx context.Context, config config.Component, logg
 	}
 
 	// Init ntripInfo from attributes
-	ntripInfoComp, err := NewNtripInfo(ctx, , logger)
+	ntripInfoComp, err := NewNtripInfo(ctx, config.ConvertedAttributes.(*RTKAttrConfig), logger)
 	if err != nil {
 		return nil, err
 	}
@@ -61,6 +58,35 @@ func newNtripCorrectionSource(ctx context.Context, config config.Component, logg
 
 	n.logger.Debug("Returning n")
 	return n, n.lastError
+}
+
+func NewNtripInfo(ctx context.Context, config *RTKAttrConfig, logger golog.Logger) (*NtripInfo, error) {
+	n := &NtripInfo{}
+
+	// Init NtripInfo from attributes
+	n.URL = config.NtripUrl
+	if n.URL == "" {
+		return nil, fmt.Errorf("NTRIP expected non-empty string for %q", config.NtripUrl)
+	}
+	n.Username = config.NtripUser
+	if n.Username == "" {
+		logger.Info("ntrip_username set to empty")
+	}
+	n.Password = config.NtripPass
+	if n.Password == "" {
+		logger.Info("ntrip_password set to empty")
+	}
+	n.MountPoint = config.NtripMountpoint
+	if n.MountPoint == "" {
+		logger.Info("ntrip_mountpoint set to empty")
+	}
+	n.MaxConnectAttempts = config.NtripConnectAttempts
+	if n.MaxConnectAttempts == 10 {
+		logger.Info("ntrip_connect_attempts using default 10")
+	}
+
+	logger.Debug("Returning n")
+	return n, nil
 }
 
 // Connect attempts to connect to ntrip client until successful connection or timeout.

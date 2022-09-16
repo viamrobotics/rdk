@@ -17,20 +17,24 @@ import (
 // AttrConfig is used for converting NMEA Movement Sensor attibutes.
 type AttrConfig struct {
 	ConnectionType string `json:"connection_type"`
-	DisableNMEA    bool   `json:"disable_nmea"`
+	Board          string `json:"board"`
+	DisableNMEA    bool   `json:"disable_nmea,omitempty"`
 
-	// Serial
 	*SerialAttrConfig
 
-	// I2C
 	*I2CAttrConfig
-
-	// // RTK
-	// *RTKAttrConfig
 }
 
 // Validate ensures all parts of the config are valid.
 func (config *AttrConfig) Validate(path string) error {
+	if config.Board == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+
+	if config.ConnectionType == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "connection_type")
+	}
+
 	if config.SerialAttrConfig != nil {
 		return config.SerialAttrConfig.ValidateSerial(path)
 	}
@@ -69,7 +73,7 @@ func init() {
 			cfg config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newNMEAGPS(ctx, deps, cfg, logger)
+			return NewNMEAGPS(ctx, deps, cfg, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, modelname,
@@ -87,22 +91,19 @@ const (
 	rtkStr         = "rtk"
 )
 
-func newNMEAGPS(
+func NewNMEAGPS(
 	ctx context.Context,
 	deps registry.Dependencies,
 	cfg config.Component,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	connectionType := cfg.Attributes.String(connectionType)
+	connectionType := cfg.ConvertedAttributes.(*AttrConfig).ConnectionType
 
 	switch connectionType {
 	case serialStr:
 		return NewSerialNMEAMovementSensor(ctx, cfg, logger)
 	case i2cStr:
 		return NewPmtkI2CNMEAMovementSensor(ctx, deps, cfg, logger)
-	// case rtkStr:
-	// 	rtkStr, err := newRTKMovementSensor(ctx, deps, cfg, logger) // check subtypes
-	// 	return rtkStr, err
 	default:
 		return nil, fmt.Errorf("%s is not a valid connection type", connectionType)
 	}

@@ -28,6 +28,9 @@ import (
 // AttrConfig is used for converting RTK MovementSensor config attributes.
 type AttrConfig struct {
 	CorrectionSource string `json:"correction_source"`
+
+	Children []string `json:"children,omitempty`
+
 	// ntrip
 	NtripAddr            string `json:"ntrip_addr"`
 	NtripConnectAttempts int    `json:"ntrip_connect_attempts,omitempty"`
@@ -45,6 +48,12 @@ type AttrConfig struct {
 	Bus     string `json:"bus"`
 	I2cAddr int    `json:"i2c_addr"`
 }
+
+const (
+	i2cStr    = "I2C"
+	serialStr = "serial"
+	ntripStr  = "ntrip"
+)
 
 // Validate ensures all parts of the config are valid.
 func (config *AttrConfig) Validate(path string) error {
@@ -144,20 +153,16 @@ type i2cBusAddr struct {
 	addr byte
 }
 
-const (
-	correctionSourceName = "correction_source"
-	childrenName         = "children"
-	i2cStr               = "I2C"
-	serialStr            = "serial"
-	ntripStr             = "ntrip"
-)
-
 func newRTKStation(
 	ctx context.Context,
 	deps registry.Dependencies,
 	config config.Component,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
+	conf, ok := config.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, errors.New("error converting attribute")
+	}
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
@@ -167,7 +172,7 @@ func newRTKStation(
 		logger:     logger,
 	}
 
-	r.correctionType = config.Attributes.String(correctionSourceName)
+	r.correctionType = conf.CorrectionSource
 
 	// Init correction source
 	var err error
@@ -192,7 +197,7 @@ func newRTKStation(
 		return nil, fmt.Errorf("%s is not a valid correction source", r.correctionType)
 	}
 
-	r.movementsensorNames = config.Attributes.StringSlice(childrenName)
+	r.movementsensorNames = conf.Children
 
 	err = ConfigureBaseRTKStation(config)
 	if err != nil {
