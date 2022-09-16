@@ -14,7 +14,7 @@ import (
 type Arm struct {
 	arm.LocalArm
 	DoFunc                   func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	GetEndPositionFunc       func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error)
+	EndPositionFunc          func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error)
 	MoveToPositionFunc       func(ctx context.Context, to *commonpb.Pose, worldState *commonpb.WorldState, extra map[string]interface{}) error
 	MoveToJointPositionsFunc func(ctx context.Context, pos *pb.JointPositions, extra map[string]interface{}) error
 	GetJointPositionsFunc    func(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
@@ -23,12 +23,12 @@ type Arm struct {
 	CloseFunc                func(ctx context.Context) error
 }
 
-// GetEndPosition calls the injected GetEndPosition or the real version.
-func (a *Arm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-	if a.GetEndPositionFunc == nil {
-		return a.LocalArm.GetEndPosition(ctx, extra)
+// EndPosition calls the injected EndPosition or the real version.
+func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	if a.EndPositionFunc == nil {
+		return a.LocalArm.EndPosition(ctx, extra)
 	}
-	return a.GetEndPositionFunc(ctx, extra)
+	return a.EndPositionFunc(ctx, extra)
 }
 
 // MoveToPosition calls the injected MoveToPosition or the real version.

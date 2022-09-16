@@ -75,8 +75,8 @@ func (wrapper *Arm) ModelFrame() referenceframe.Model {
 	return wrapper.model
 }
 
-// GetEndPosition returns the set position.
-func (wrapper *Arm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+// EndPosition returns the set position.
+func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 	joints, err := wrapper.GetJointPositions(ctx, extra)
 	if err != nil {
 		return nil, err

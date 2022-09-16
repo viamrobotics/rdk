@@ -159,8 +159,8 @@ func NewArm(r robot.Robot, attributes config.AttributeMap, logger golog.Logger, 
 	}, nil
 }
 
-// GetEndPosition computes and returns the current cartesian position.
-func (a *Arm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+// EndPosition computes and returns the current cartesian position.
+func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 	joints, err := a.GetJointPositions(ctx, extra)
 	if err != nil {
 		return nil, err

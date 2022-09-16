@@ -220,11 +220,11 @@ func TestConfigRemote(t *testing.T) {
 
 	arm1, err := r2.ResourceByName(arm.Named("bar:pieceArm"))
 	test.That(t, err, test.ShouldBeNil)
-	pos1, err := arm1.(arm.Arm).GetEndPosition(ctx, nil)
+	pos1, err := arm1.(arm.Arm).EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	arm2, err := r2.ResourceByName(arm.Named("foo:pieceArm"))
 	test.That(t, err, test.ShouldBeNil)
-	pos2, err := arm2.(arm.Arm).GetEndPosition(ctx, nil)
+	pos2, err := arm2.(arm.Arm).EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm.PositionGridDiff(pos1, pos2), test.ShouldAlmostEqual, 0)
 
@@ -702,7 +702,7 @@ type dummyArm struct {
 	channel   chan struct{}
 }
 
-func (da *dummyArm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (da *dummyArm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 	return nil, errors.New("fake error")
 }
 
@@ -1525,7 +1525,7 @@ func TestReconnectRemote(t *testing.T) {
 	test.That(t, a, test.ShouldNotBeNil)
 	anArm, ok := a.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err = anArm.GetEndPosition(context.Background(), map[string]interface{}{})
+	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 
 	// close/disconnect the robot
@@ -1537,7 +1537,7 @@ func TestReconnectRemote(t *testing.T) {
 		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 3)
 	})
 	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 3)
-	_, err = anArm.GetEndPosition(context.Background(), map[string]interface{}{})
+	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError)
 
 	// reconnect the first robot
@@ -1563,7 +1563,7 @@ func TestReconnectRemote(t *testing.T) {
 
 	_, err = robotClient.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = anArm.GetEndPosition(context.Background(), map[string]interface{}{})
+	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -1636,7 +1636,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	test.That(t, a, test.ShouldNotBeNil)
 	anArm, ok := a.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err = anArm.GetEndPosition(context.Background(), map[string]interface{}{})
+	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 
 	// close/disconnect the robot
@@ -1648,7 +1648,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 3)
 	})
 	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 3)
-	_, err = anArm.GetEndPosition(context.Background(), map[string]interface{}{})
+	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError)
 
 	// reconnect the first robot
@@ -1683,7 +1683,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 7)
 	})
 	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 7)
-	_, err = anArm.GetEndPosition(context.Background(), map[string]interface{}{})
+	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError)
 
 	// check that base is now instantiated
