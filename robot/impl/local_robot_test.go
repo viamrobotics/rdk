@@ -34,6 +34,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
+
 	// registers all components.
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
@@ -963,13 +964,13 @@ func TestSensorsService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rtestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rtestutils.NewResourceNameSet(sensorNames...))
 
-	readings, err := svc.GetReadings(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")})
+	readings, err := svc.Readings(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(readings), test.ShouldEqual, 1)
 	test.That(t, readings[0].Name, test.ShouldResemble, movementsensor.Named("movement_sensor1"))
 	test.That(t, len(readings[0].Readings), test.ShouldBeGreaterThan, 3)
 
-	readings, err = svc.GetReadings(context.Background(), sensorNames)
+	readings, err = svc.Readings(context.Background(), sensorNames)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(readings), test.ShouldEqual, 2)
 

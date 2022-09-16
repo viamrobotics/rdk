@@ -279,9 +279,9 @@ func (g *PmtkI2CNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	return g.data.fixQuality, g.lastError
 }
 
-// GetReadings will use return all of the MovementSensor Readings.
-func (g *PmtkI2CNMEAMovementSensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
-	readings, err := movementsensor.GetReadings(ctx, g)
+// Readings will use return all of the MovementSensor Readings.
+func (g *PmtkI2CNMEAMovementSensor) Readings(ctx context.Context) (map[string]interface{}, error) {
+	readings, err := movementsensor.Readings(ctx, g)
 	if err != nil {
 		return nil, err
 	}

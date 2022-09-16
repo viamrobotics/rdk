@@ -9,16 +9,16 @@ import (
 // Sensor is an injected sensor.
 type Sensor struct {
 	sensor.Sensor
-	DoFunc          func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	GetReadingsFunc func(ctx context.Context) (map[string]interface{}, error)
+	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	ReadingsFunc func(ctx context.Context) (map[string]interface{}, error)
 }
 
-// GetReadings calls the injected GetReadings or the real version.
-func (s *Sensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
-	if s.GetReadingsFunc == nil {
-		return s.Sensor.GetReadings(ctx)
+// Readings calls the injected Readings or the real version.
+func (s *Sensor) Readings(ctx context.Context) (map[string]interface{}, error) {
+	if s.ReadingsFunc == nil {
+		return s.Sensor.Readings(ctx)
 	}
-	return s.GetReadingsFunc(ctx)
+	return s.ReadingsFunc(ctx)
 }
 
 // DoCommand calls the injected DoCommand or the real version.

@@ -220,11 +220,11 @@ func TestLinearVelocity(t *testing.T) {
 	test.That(t, actualMovementSensor1.velocityCount, test.ShouldEqual, 1)
 }
 
-func TestGetReadings(t *testing.T) {
+func TestReadings(t *testing.T) {
 	actualMovementSensor1 := &mock{Name: testMovementSensorName}
 	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
 
-	readings1, err := movementsensor.GetReadings(context.Background(), actualMovementSensor1)
+	readings1, err := movementsensor.Readings(context.Background(), actualMovementSensor1)
 	allReadings := map[string]interface{}{
 		"altitide":         alt,
 		"angular_velocity": ang,
@@ -236,7 +236,7 @@ func TestGetReadings(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings1, test.ShouldResemble, allReadings)
 
-	result, err := reconfMovementSensor1.(sensor.Sensor).GetReadings(context.Background())
+	result, err := reconfMovementSensor1.(sensor.Sensor).Readings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, readings1)
 
@@ -299,8 +299,8 @@ func (m *mock) CompassHeading(ctx context.Context) (float64, error) {
 	return compass, nil
 }
 
-func (m *mock) GetReadings(ctx context.Context) (map[string]interface{}, error) {
-	return movementsensor.GetReadings(ctx, m)
+func (m *mock) Readings(ctx context.Context) (map[string]interface{}, error) {
+	return movementsensor.Readings(ctx, m)
 }
 
 func (m *mock) Close() { m.reconfCount++ }

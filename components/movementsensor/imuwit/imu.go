@@ -97,8 +97,8 @@ func (imu *wit) Accuracy(ctx context.Context) (map[string]float32, error) {
 	return map[string]float32{}, nil
 }
 
-func (imu *wit) GetReadings(ctx context.Context) (map[string]interface{}, error) {
-	return movementsensor.GetReadings(ctx, imu)
+func (imu *wit) Readings(ctx context.Context) (map[string]interface{}, error) {
+	return movementsensor.Readings(ctx, imu)
 }
 
 func (imu *wit) Properties(ctx context.Context) (*movementsensor.Properties, error) {
