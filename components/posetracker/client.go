@@ -30,7 +30,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) GetPoses(
+func (c *client) Poses(
 	ctx context.Context, bodyNames []string,
 ) (BodyToPoseInFrame, error) {
 	req := &pb.GetPosesRequest{

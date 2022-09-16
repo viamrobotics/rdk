@@ -139,7 +139,7 @@ type mock struct {
 	reconfCount int
 }
 
-func (m *mock) GetPoses(ctx context.Context, bodyNames []string) (posetracker.BodyToPoseInFrame, error) {
+func (m *mock) Poses(ctx context.Context, bodyNames []string) (posetracker.BodyToPoseInFrame, error) {
 	return posetracker.BodyToPoseInFrame{
 		"body1": referenceframe.NewPoseInFrame("world", spatialmath.NewZeroPose()),
 		"body2": referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromOrientation(
@@ -181,7 +181,7 @@ func TestReconfigurablePoseTracker(t *testing.T) {
 			&spatialmath.R4AA{Theta: math.Pi, RX: 0, RY: 0, RZ: 1},
 		)),
 	}
-	poses, err := reconfPT1.(posetracker.PoseTracker).GetPoses(context.Background(), []string{})
+	poses, err := reconfPT1.(posetracker.PoseTracker).Poses(context.Background(), []string{})
 	test.That(t, poses, test.ShouldResemble, expectedPoses)
 	test.That(t, err, test.ShouldBeNil)
 
