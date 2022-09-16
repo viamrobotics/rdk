@@ -125,7 +125,7 @@ type rtkStation struct {
 }
 
 type correctionSource interface {
-	GetReader() (io.ReadCloser, error)
+	Reader() (io.ReadCloser, error)
 	Start(ready chan<- bool)
 	Close() error
 }
@@ -256,7 +256,7 @@ func (r *rtkStation) Start(ctx context.Context) {
 		go r.correction.Start(ready)
 
 		<-ready
-		stream, err := r.correction.GetReader()
+		stream, err := r.correction.Reader()
 		if err != nil {
 			r.logger.Errorf("Unable to get reader: %s", err)
 			r.setLastError(err)
