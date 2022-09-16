@@ -281,7 +281,7 @@ func (b *boat) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return err
 }
 
-func (b *boat) GetWidth(ctx context.Context) (int, error) {
+func (b *boat) Width(ctx context.Context) (int, error) {
 	return int(b.cfg.WidthMM), nil
 }
 

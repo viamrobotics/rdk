@@ -59,8 +59,8 @@ func (b *Base) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra
 	return nil
 }
 
-// GetWidth returns some arbitrary width.
-func (b *Base) GetWidth(ctx context.Context) (int, error) {
+// Width returns some arbitrary width.
+func (b *Base) Width(ctx context.Context) (int, error) {
 	return 600, nil
 }
 
