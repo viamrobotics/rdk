@@ -14,11 +14,11 @@ import (
 // MovementSensor is an injected MovementSensor.
 type MovementSensor struct {
 	movementsensor.MovementSensor
-	PositionFunc           func(ctx context.Context) (*geo.Point, float64, error)
-	GetLinearVelocityFunc  func(ctx context.Context) (r3.Vector, error)
-	GetAngularVelocityFunc func(ctx context.Context) (spatialmath.AngularVelocity, error)
-	GetCompassHeadingFunc  func(ctx context.Context) (float64, error)
-	GetOrientationFunc     func(ctx context.Context) (spatialmath.Orientation, error)
+	PositionFunc        func(ctx context.Context) (*geo.Point, float64, error)
+	LinearVelocityFunc  func(ctx context.Context) (r3.Vector, error)
+	AngularVelocityFunc func(ctx context.Context) (spatialmath.AngularVelocity, error)
+	CompassHeadingFunc  func(ctx context.Context) (float64, error)
+	OrientationFunc     func(ctx context.Context) (spatialmath.Orientation, error)
 
 	DoFunc    func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc func(ctx context.Context) error
@@ -48,34 +48,34 @@ func (i *MovementSensor) Position(ctx context.Context) (*geo.Point, float64, err
 	return i.PositionFunc(ctx)
 }
 
-// GetLinearVelocity func or passthrough.
-func (i *MovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+// LinearVelocity func or passthrough.
+func (i *MovementSensor) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	if i.PositionFunc == nil {
-		return i.MovementSensor.GetLinearVelocity(ctx)
+		return i.MovementSensor.LinearVelocity(ctx)
 	}
-	return i.GetLinearVelocityFunc(ctx)
+	return i.LinearVelocityFunc(ctx)
 }
 
-// GetAngularVelocity func or passthrough.
-func (i *MovementSensor) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+// AngularVelocity func or passthrough.
+func (i *MovementSensor) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	if i.PositionFunc == nil {
-		return i.MovementSensor.GetAngularVelocity(ctx)
+		return i.MovementSensor.AngularVelocity(ctx)
 	}
-	return i.GetAngularVelocityFunc(ctx)
+	return i.AngularVelocityFunc(ctx)
 }
 
-// GetOrientation func or passthrough.
-func (i *MovementSensor) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+// Orientation func or passthrough.
+func (i *MovementSensor) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	if i.PositionFunc == nil {
-		return i.MovementSensor.GetOrientation(ctx)
+		return i.MovementSensor.Orientation(ctx)
 	}
-	return i.GetOrientationFunc(ctx)
+	return i.OrientationFunc(ctx)
 }
 
-// GetCompassHeading func or passthrough.
-func (i *MovementSensor) GetCompassHeading(ctx context.Context) (float64, error) {
+// CompassHeading func or passthrough.
+func (i *MovementSensor) CompassHeading(ctx context.Context) (float64, error) {
 	if i.PositionFunc == nil {
-		return i.MovementSensor.GetCompassHeading(ctx)
+		return i.MovementSensor.CompassHeading(ctx)
 	}
-	return i.GetCompassHeadingFunc(ctx)
+	return i.CompassHeadingFunc(ctx)
 }

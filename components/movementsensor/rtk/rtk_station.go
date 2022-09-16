@@ -346,19 +346,19 @@ func (r *rtkStation) Position(ctx context.Context) (*geo.Point, float64, error) 
 	return &geo.Point{}, 0, r.lastError
 }
 
-func (r *rtkStation) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (r *rtkStation) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	return r3.Vector{}, r.lastError
 }
 
-func (r *rtkStation) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (r *rtkStation) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	return spatialmath.AngularVelocity{}, r.lastError
 }
 
-func (r *rtkStation) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (r *rtkStation) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	return spatialmath.NewZeroOrientation(), r.lastError
 }
 
-func (r *rtkStation) GetCompassHeading(ctx context.Context) (float64, error) {
+func (r *rtkStation) CompassHeading(ctx context.Context) (float64, error) {
 	return 0, r.lastError
 }
 
@@ -366,7 +366,7 @@ func (r *rtkStation) GetReadings(ctx context.Context) (map[string]interface{}, e
 	return map[string]interface{}{}, r.lastError
 }
 
-func (r *rtkStation) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+func (r *rtkStation) Accuracy(ctx context.Context) (map[string]float32, error) {
 	return map[string]float32{}, r.lastError
 }
 

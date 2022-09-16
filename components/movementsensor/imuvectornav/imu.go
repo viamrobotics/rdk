@@ -227,7 +227,7 @@ func NewVectorNav(
 	return v, nil
 }
 
-func (vn *vectornav) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (vn *vectornav) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return vn.angularVelocity, nil
@@ -239,19 +239,19 @@ func (vn *vectornav) GetAcceleration(ctx context.Context) (r3.Vector, error) {
 	return vn.acceleration, nil
 }
 
-func (vn *vectornav) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (vn *vectornav) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return &vn.orientation, nil
 }
 
-func (vn *vectornav) GetCompassHeading(ctx context.Context) (float64, error) {
+func (vn *vectornav) CompassHeading(ctx context.Context) (float64, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return vn.orientation.Yaw, nil
 }
 
-func (vn *vectornav) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (vn *vectornav) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	return r3.Vector{}, nil
 }
 
@@ -259,7 +259,7 @@ func (vn *vectornav) Position(ctx context.Context) (*geo.Point, float64, error) 
 	return nil, 0, nil
 }
 
-func (vn *vectornav) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+func (vn *vectornav) Accuracy(ctx context.Context) (map[string]float32, error) {
 	return map[string]float32{}, nil
 }
 
