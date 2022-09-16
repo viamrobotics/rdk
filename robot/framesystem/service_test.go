@@ -319,7 +319,7 @@ func TestServiceWithRemote(t *testing.T) {
 				Prefix:  true,
 				Frame: &config.Frame{
 					Parent:      "foo",
-					Translation: spatialmath.TranslationConfig{100, 200, 300},
+					Translation: r3.Vector{100, 200, 300},
 					Orientation: &spatialmath.R4AA{math.Pi / 2., 0, 0, 1},
 				},
 			},
@@ -329,7 +329,7 @@ func TestServiceWithRemote(t *testing.T) {
 				Address: addr,
 				Frame: &config.Frame{
 					Parent:      referenceframe.World,
-					Translation: spatialmath.TranslationConfig{500, 600, 700},
+					Translation: r3.Vector{500, 600, 700},
 					Orientation: &spatialmath.R4AA{math.Pi / 2., 1, 0, 0},
 				},
 			},

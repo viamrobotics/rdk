@@ -32,6 +32,7 @@ const (
 	ResourceTypeComponent = TypeName("component")
 	ResourceTypeService   = TypeName("service")
 	DefaultServiceName    = "builtin"
+	DefaultMaxInstance    = 1
 )
 
 var (
@@ -186,6 +187,13 @@ func (n Name) PopRemote() Name {
 // ContainsRemoteNames return true if the resource is a remote resource.
 func (n Name) ContainsRemoteNames() bool {
 	return len(n.Remote) > 0
+}
+
+// RemoveRemoteName returns a new name with remote removed.
+func RemoveRemoteName(n Name) Name {
+	tempName := NameFromSubtype(n.Subtype, n.Name)
+	tempName.Remote = ""
+	return tempName
 }
 
 // ShortName returns the short name on Name n in the form of <remote>:<name>.

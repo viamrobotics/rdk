@@ -10,10 +10,11 @@ import { onMounted, onUnmounted, watch } from 'vue';
 import * as THREE from 'three';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { filterResources, type Resource } from '../lib/resource';
 import { toast } from '../lib/toast';
-import type { PointCloudObject, RectangularPrism } from '../gen/proto/api/common/v1/common_pb';
+import { PointCloudObject, RectangularPrism } from '../gen/proto/api/common/v1/common_pb';
 import motionApi from '../gen/proto/api/service/motion/v1/motion_pb.esm';
 import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
 import visionApi, { type TypedParameter } from '../gen/proto/api/service/vision/v1/vision_pb.esm';
@@ -64,8 +65,21 @@ const renderer = new THREE.WebGLRenderer({
 renderer.domElement.style.width = '100%';
 renderer.setClearColor('white');
 const raycaster = new THREE.Raycaster();
+
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
+
+const transformControls = new TransformControls(camera, renderer.domElement);
+transformControls.setSize(0.1);
+transformControls.setMode('translate');
+transformControls.setTranslationSnap(0.01);
+transformControls.addEventListener('dragging-changed', (event) => {
+  controls.enabled = !event.value;
+});
+transformControls.addEventListener('change', () => {
+  console.log(mesh.position);
+})
+scene.add(transformControls);
 
 const matrix = new THREE.Matrix4();
 const vec3 = new THREE.Vector3();
@@ -167,6 +181,20 @@ const findSegments = () => {
 };
 
 const getSegmenterNames = () => {
+  // radius_clustering_segmenter
+  // detector_segmenter
+  // window.visionService.getModelParameterSchema()
+  // -> returns json.schema
+
+  // take input values and send them to:
+  // window.visionService.addSegmenter()
+  // now you have a segmenter
+
+  // now you can inspect what segmenters are available
+  // window.visionService.getSegmenterNames()
+
+  // getObjectPointClouds
+
   const request = new visionApi.GetSegmenterNamesRequest();
   // We are deliberately just getting the first vision service to ensure this will not break.
   // May want to allow for more services in the future
@@ -281,10 +309,18 @@ const mousedown = new THREE.Vector2();
 const mouseup = new THREE.Vector2();
 
 const handleCanvasMouseDown = (event: MouseEvent) => {
+  if (controls.enabled === false) {
+    return;
+  }
+
   mousedown.set(event.clientX, event.clientY);
 };
 
 const handleCanvasMouseUp = (event: MouseEvent) => {
+  if (controls.enabled === false) {
+    return;
+  }
+
   mouseup.set(event.clientX, event.clientY);
 
   // Don't fire on drag events
@@ -396,30 +432,38 @@ const handlePointsResize = (event: CustomEvent) => {
 };
 
 const color = new THREE.Color();
+let mesh: THREE.InstancedMesh;
 
 const update = (cloud: Uint8Array) => {
+  // dispose old resources
+  // if (mesh) {
+  //   mesh.geometry.dispose();
+  //   (mesh.material as THREE.MeshBasicMaterial).dispose();
+  // }
+
   const points = loader.parse(cloud.buffer, '');
   points.name = 'points';
   const positions = points.geometry.attributes.position.array;
-  const colors = points.geometry.attributes.colors;
+  const colors = points.geometry.attributes.color.array;
   const count = positions.length / 3;
-  const material = new THREE.MeshStandardMaterial({ color: 'red' });
-  const geometry = new THREE.BoxGeometry(0.01, 0.01, 0.01);
-  const mesh = new THREE.InstancedMesh(geometry, material, count);
+  const material = new THREE.MeshBasicMaterial();
+  const geometry = new THREE.BoxGeometry(0.005, 0.005, 0.005);
+  mesh = new THREE.InstancedMesh(geometry, material, count);
+  mesh.position.set(0.01, 0.01, 0.01);
   mesh.name = 'points';
+
+  transformControls.attach(mesh);
+
+  console.log(positions.length, colors.length);
 
   for (let i = 0, j = 0; i < count; i += 1, j += 3) {
     matrix.setPosition(positions[j + 0], positions[j + 1], positions[j + 2]);
     mesh.setMatrixAt(i, matrix);
 
     if (colors) {
-      const r = colors.getX(i);
-      const g = colors.getY(i);
-      const b = colors.getZ(i);
-      color.setRGB(r, g, b);
+      color.setRGB(colors[j + 0], colors[j + 1], colors[j + 2]);
       mesh.setColorAt(i, color);
     }
-    
   }
 
   if (mesh.instanceColor) {
@@ -505,11 +549,11 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
     <div class="relative flex w-full items-center justify-between gap-12">
       <div class="w-40">
         <v-slider
-          label="Points Size"
-          min="0.25"
+          label="Points Scaling"
+          min="0.1"
           value="1"
-          max="10"
-          step="0.25"
+          max="3"
+          step="0.05"
           @input="handlePointsResize"
         />
       </div>
@@ -536,6 +580,7 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
   
     <div
       v-if="cameraName"
+      hidden
       class="container mx-auto pt-4"
     >
       <h2>Segmentation Settings</h2>
@@ -623,7 +668,10 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
       <div class="pt-4 text-xs">
         Distance From Camera: {{ distanceFromCamera }}mm
       </div>
-      <div class="flex pt-4 pb-8">
+      <div
+        v-if="false"
+        class="flex pt-4 pb-8"
+      >
         <div class="column">
           <v-radio
             label="Selection Type"
