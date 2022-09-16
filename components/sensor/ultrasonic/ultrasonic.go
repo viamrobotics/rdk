@@ -133,3 +133,9 @@ func (s *Sensor) GetReadings(ctx context.Context) (map[string]interface{}, error
 	dist := timeA.Sub(timeB).Seconds() * 340 / 2
 	return map[string]interface{}{"distance": dist}, nil
 }
+
+// Close remove interrupt callback of ultrasonic sensor.
+func (s *Sensor) Close() error {
+	s.echoInterrupt.RemoveCallback(s.intChan)
+	return nil
+}
