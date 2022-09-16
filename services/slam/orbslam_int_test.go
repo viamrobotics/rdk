@@ -101,7 +101,6 @@ func testImage(t *testing.T, cam camera.Camera, path string) {
 	test.That(t, lazyImg.MIMEType(), test.ShouldEqual, utils.MimeTypePNG)
 	_, err = os.ReadFile(path)
 	test.That(t, err, test.ShouldBeNil)
-
 }
 
 func TestMockCameraServer(t *testing.T) {
