@@ -222,8 +222,8 @@ func (e *HallEncoder) Start(ctx context.Context) {
 	}, e.activeBackgroundWorkers.Done)
 }
 
-// GetTicksCount returns number of ticks since last zeroing.
-func (e *HallEncoder) GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
+// TicksCount returns number of ticks since last zeroing.
+func (e *HallEncoder) TicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 

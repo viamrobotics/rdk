@@ -149,8 +149,8 @@ func (e *SingleEncoder) Start(ctx context.Context) {
 	}, e.activeBackgroundWorkers.Done)
 }
 
-// GetTicksCount returns the current position.
-func (e *SingleEncoder) GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
+// TicksCount returns the current position.
+func (e *SingleEncoder) TicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 
