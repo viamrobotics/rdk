@@ -31,9 +31,11 @@ var _ = board.LocalBoard(&sysfsBoard{})
 
 // A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
-	SPIs       []board.SPIConfig    `json:"spis,omitempty"`
-	Analogs    []board.AnalogConfig `json:"analogs,omitempty"`
-	Attributes config.AttributeMap  `json:"attributes,omitempty"`
+	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
+	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
+	Analogs           []board.AnalogConfig           `json:"analogs,omitempty"`
+	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
+	Attributes        config.AttributeMap            `json:"attributes,omitempty"`
 }
 
 // RegisterBoard registers a sysfs based board of the given model.
@@ -105,8 +107,18 @@ func (config *Config) Validate(path string) error {
 			return err
 		}
 	}
+	for idx, conf := range config.I2Cs {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "i2cs", idx)); err != nil {
+			return err
+		}
+	}
 	for idx, conf := range config.Analogs {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
+			return err
+		}
+	}
+	for idx, conf := range config.DigitalInterrupts {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
 			return err
 		}
 	}
