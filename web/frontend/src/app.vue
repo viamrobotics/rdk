@@ -9,7 +9,6 @@ import { toast } from './lib/toast';
 import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
 import commonApi from './gen/proto/api/common/v1/common_pb.esm';
 import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
-import baseApi from './gen/proto/api/component/base/v1/base_pb.esm';
 import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
 import gantryApi from './gen/proto/api/component/gantry/v1/gantry_pb.esm';
 import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
@@ -31,11 +30,9 @@ import {
 } from './lib/resource';
 
 import {
-  BaseControlHelper,
   MotorControlHelper,
   BoardControlHelper,
   ServoControlHelper,
-  computeKeyboardBaseControls,
 } from './rc/control_helpers';
 
 import { addResizeListeners } from './lib/resize';
@@ -551,51 +548,6 @@ export default {
       req.setId(id);
       window.robotService.cancelOperation(req, new grpc.Metadata(), this.grpcCallback);
     },
-    baseKeyboardCtl(name, controls) {
-      if (Object.values(controls).every((item) => item === false)) {
-        console.log('All keyboard inputs false, stopping base.');
-        this.handleBaseActionStop(name);
-        return;
-      } 
-
-      const inputs = computeKeyboardBaseControls(controls);
-      const linear = new commonApi.Vector3();
-      const angular = new commonApi.Vector3();
-      linear.setY(inputs.linear);
-      angular.setZ(inputs.angular);
-      BaseControlHelper.setPower(name, linear, angular, this.grpcCallback);
-    },
-    handleBaseActionStop(name) {
-      const req = new baseApi.StopRequest();
-      req.setName(name);
-      window.baseService.stop(req, new grpc.Metadata(), this.grpcCallback);
-    },
-    handleBaseSpin(name, event) {
-      BaseControlHelper.spin(name, 
-        event.angle * event.direction,
-        event.speed,
-        this.grpcCallback
-      );
-    },
-    handleBaseStraight(name, event) {
-      if (event.movementType === 'Continuous') {
-        const linear = new commonApi.Vector3();
-        linear.setY(event.speed * event.direction);
-
-        BaseControlHelper.setVelocity(
-          name, 
-          linear, // linear
-          new commonApi.Vector3(), // angular
-          this.grpcCallback
-        );
-      } else {
-        BaseControlHelper.moveStraight(name,
-          event.distance, 
-          event.speed * event.direction, 
-          this.grpcCallback
-        );
-      }
-    },
     renderFrame(cameraName) {
       const req = new cameraApi.RenderFrameRequest();
       req.setName(cameraName);
@@ -988,8 +940,11 @@ export default {
             
           }
         });
+        document.querySelector(`#stream-preview-${name}`)?.removeAttribute('hidden');
         return;
       }
+
+      document.querySelector(`#stream-preview-${name}`)?.setAttribute('hidden', true);
 
       const req = new streamApi.RemoveStreamRequest();
       req.setName(name);
@@ -998,28 +953,6 @@ export default {
         if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
           streamContainer.querySelectorAll('img')[0].remove();
         }
-        if (err) {
-          this.error = 'no live camera device found';
-        }
-      });
-    },
-    viewPreviewCamera(name, isOn) {
-      if (isOn) {
-        const req = new streamApi.AddStreamRequest();
-        req.setName(name);
-        window.streamService.addStream(req, new grpc.Metadata(), (err, resp) => {
-          this.grpcCallback(err, resp, false);
-          if (err) {
-            this.error = 'no live camera device found';
-            
-          }
-        });
-        return;
-      }
-      const req = new streamApi.RemoveStreamRequest();
-      req.setName(name);
-      window.streamService.removeStream(req, new grpc.Metadata(), (err, resp) => {
-        this.grpcCallback(err, resp, false);
         if (err) {
           this.error = 'no live camera device found';
         }
@@ -1420,7 +1353,6 @@ export default {
           rawStatus[nameStr] = statusJs;
           status[nameStr] = fixed;
         } catch (error) {
-          console.log(error)
           toast.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`, error);
         }
       }
@@ -1483,6 +1415,11 @@ export default {
         return;
       }
       setTimeout(this.checkLastStatus, checkIntervalMillis);
+    },
+    handleSelectCamera (event, cameras) {
+      for (const camera of cameras) {
+        this.viewCamera(camera.name, event.includes(camera.name));
+      }
     },
   },
 };
@@ -1588,33 +1525,11 @@ function setBoundingBox(box, centerPoint) {
       v-for="base in filterResources(resources, 'rdk', 'component', 'base')"
       :key="base.name"
     >
-      <template v-if="filterResources(resources, 'rdk', 'component', 'camera').length === 0">
-        <BaseComponent
-          :base-name="base.name"
-          :connected-camera="false"
-          :crumbs="['base']"
-          @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
-          @base-spin="handleBaseSpin(base.name, $event)"
-          @base-straight="handleBaseStraight(base.name, $event)"
-          @base-stop="handleBaseActionStop(base.name)"
-        />
-      </template>
-      <template v-else>
-        <BaseComponent
-          v-for="camera in filterResources(resources, 'rdk', 'component', 'camera')"
-          :key="camera.name"
-          :base-name="base.name"
-          :stream-name="camera.name"
-          :crumbs="['base']"
-          :connected-camera="true"
-          @base-change-tab="viewPreviewCamera(camera.name)"
-          @keyboard-ctl="baseKeyboardCtl(base.name, $event)"
-          @base-spin="handleBaseSpin(base.name, $event)"
-          @base-straight="handleBaseStraight(base.name, $event)"
-          @base-stop="handleBaseActionStop(base.name)"
-          @show-base-camera="viewPreviewCamera(camera.name)"
-        />
-      </template>
+      <BaseComponent
+        :name="base.name"
+        :resources="resources"
+        @showcamera="handleSelectCamera($event, filterResources(resources, 'rdk', 'component', 'camera'))"
+      />
     </template>
 
     <!-- ******* GANTRY *******  -->
