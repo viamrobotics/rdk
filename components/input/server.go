@@ -68,7 +68,7 @@ func (s *subtypeServer) GetEvents(
 		return nil, err
 	}
 
-	eventsIn, err := controller.GetEvents(ctx)
+	eventsIn, err := controller.Events(ctx)
 	if err != nil {
 		return nil, err
 	}

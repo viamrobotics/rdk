@@ -69,8 +69,8 @@ func (c *InputController) Controls(ctx context.Context) ([]input.Control, error)
 	return c.controls, nil
 }
 
-// GetEvents returns the last input.Event (the current state) of each control.
-func (c *InputController) GetEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+// Events returns the last input.Event (the current state) of each control.
+func (c *InputController) Events(ctx context.Context) (map[input.Control]input.Event, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	eventsOut := make(map[input.Control]input.Event)
