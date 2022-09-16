@@ -145,15 +145,16 @@
 - - :approve
   - github.com/ziutek/mymysql
   - :who:
-    :why: 'license language is compatible with AGPL'
+    :why: license language is compatible with AGPL
     :versions: []
     :when: 2022-09-14 16:27:17.872831000 Z
     :license_links: https://github.com/ziutek/mymysql/blob/fffb8880277462abe6f4526dbd69a1982f9437b6/LICENSE
 - - :license
   - github.com/golang/freetype
-  - GPLv3
+  - GPLv2+
   - :who:
-    :why: 'we are allowed to choose one of two licenses (freetype or GPL version 2 or higher) - we are choosing GPL version 3'
+    :why: we are allowed to choose one of two licenses (freetype or GPL version 2
+      or higher) - we are choosing the latter
     :versions: []
     :when: 2022-08-30 16:08:52.919938114 Z
     :license_links: https://github.com/golang/freetype/blob/e2365dfdc4a05e4b8299a783240d4a7d5a65d4e4/LICENSE
@@ -209,3 +210,9 @@
     :license_links: 'https://github.com/viamrobotics/evdev/blob/5a415229fba9557cca9bfedc7ba89cb48f28fab0/LICENSE'
     :versions: []
     :when: 2022-08-31 20:13:08.147340927 Z
+- - :permit
+  - GPLv2+
+  - :who:
+    :why:
+    :versions: []
+    :when: 2022-09-16 15:13:54.129990412 Z
