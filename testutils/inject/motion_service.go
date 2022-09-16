@@ -18,12 +18,14 @@ type MotionService struct {
 		componentName resource.Name,
 		grabPose *referenceframe.PoseInFrame,
 		worldState *commonpb.WorldState,
+		extra map[string]interface{},
 	) (bool, error)
 	GetPoseFunc func(
 		ctx context.Context,
 		componentName resource.Name,
 		destinationFrame string,
 		supplementalTransforms []*commonpb.Transform,
+		extra map[string]interface{},
 	) (*referenceframe.PoseInFrame, error)
 }
 
@@ -33,11 +35,12 @@ func (mgs *MotionService) Move(
 	componentName resource.Name,
 	grabPose *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
+	extra map[string]interface{},
 ) (bool, error) {
 	if mgs.MoveFunc == nil {
-		return mgs.Service.Move(ctx, componentName, grabPose, worldState)
+		return mgs.Service.Move(ctx, componentName, grabPose, worldState, extra)
 	}
-	return mgs.MoveFunc(ctx, componentName, grabPose, worldState)
+	return mgs.MoveFunc(ctx, componentName, grabPose, worldState, extra)
 }
 
 // MoveSingleComponent calls the injected MoveSingleComponent or the real variant. It uses the same function as Move.
@@ -46,11 +49,12 @@ func (mgs *MotionService) MoveSingleComponent(
 	componentName resource.Name,
 	grabPose *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
+	extra map[string]interface{},
 ) (bool, error) {
 	if mgs.MoveFunc == nil {
-		return mgs.Service.MoveSingleComponent(ctx, componentName, grabPose, worldState)
+		return mgs.Service.MoveSingleComponent(ctx, componentName, grabPose, worldState, extra)
 	}
-	return mgs.MoveFunc(ctx, componentName, grabPose, worldState)
+	return mgs.MoveFunc(ctx, componentName, grabPose, worldState, extra)
 }
 
 // GetPose calls the injected GetPose or the real variant.
@@ -59,9 +63,10 @@ func (mgs *MotionService) GetPose(
 	componentName resource.Name,
 	destinationFrame string,
 	supplementalTransforms []*commonpb.Transform,
+	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
 	if mgs.GetPoseFunc == nil {
-		return mgs.Service.GetPose(ctx, componentName, destinationFrame, supplementalTransforms)
+		return mgs.Service.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
 	}
-	return mgs.GetPoseFunc(ctx, componentName, destinationFrame, supplementalTransforms)
+	return mgs.GetPoseFunc(ctx, componentName, destinationFrame, supplementalTransforms, extra)
 }

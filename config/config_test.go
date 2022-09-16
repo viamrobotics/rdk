@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -21,10 +22,10 @@ import (
 	_ "go.viam.com/rdk/components/board/fake"
 	// motor attribute converters.
 	"go.viam.com/rdk/components/encoder"
-	"go.viam.com/rdk/components/motor"
-	_ "go.viam.com/rdk/components/motor/fake"
+	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -37,6 +38,11 @@ func TestConfigRobot(t *testing.T) {
 	test.That(t, len(cfg.Remotes), test.ShouldEqual, 2)
 	test.That(t, cfg.Remotes[0], test.ShouldResemble, config.Remote{Name: "one", Address: "foo"})
 	test.That(t, cfg.Remotes[1], test.ShouldResemble, config.Remote{Name: "two", Address: "bar"})
+
+	// test that gripper geometry is being added correctly
+	component := cfg.FindComponent("pieceGripper")
+	bc, _ := spatialmath.NewBoxCreator(r3.Vector{1, 2, 3}, spatialmath.NewPoseFromPoint(r3.Vector{4, 5, 6}))
+	test.That(t, component.Frame.Geometry, test.ShouldResemble, bc)
 }
 
 func TestConfig3(t *testing.T) {
@@ -84,8 +90,8 @@ func TestConfig3(t *testing.T) {
 			{Name: "encoder", Pin: "14"},
 		},
 	})
-	test.That(t, cfg.Components[2].ConvertedAttributes, test.ShouldResemble, &motor.Config{
-		Pins: motor.PinConfig{
+	test.That(t, cfg.Components[2].ConvertedAttributes, test.ShouldResemble, &fakemotor.Config{
+		Pins: fakemotor.PinConfig{
 			Direction: "io17",
 			PWM:       "io18",
 		},
@@ -290,6 +296,27 @@ func TestConfigEnsure(t *testing.T) {
 	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
 		validAPIKeyHandler,
 	}
+	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
+
+	validAPIKeyHandler.Config = config.AttributeMap{
+		"keys": []string{},
+	}
+	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
+		validAPIKeyHandler,
+	}
+	err = invalidAuthConfig.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
+
+	validAPIKeyHandler.Config = config.AttributeMap{
+		"keys": []string{"one", "two"},
+	}
+	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
+		validAPIKeyHandler,
+	}
+
 	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
 }
 
