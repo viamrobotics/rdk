@@ -56,7 +56,7 @@ Then navigate to `web/frontend` and run `npm start` in a new terminal tab. Visit
 
 ## Contact
 
-* Slack: https://join.slack.com/t/viamrobotics/shared_invite/zt-1f5xf1qk5-TECJc1MIY1MW0d6ZCg~Wnw
+* Community Slack: [join](https://join.slack.com/t/viamrobotics/shared_invite/zt-1f5xf1qk5-TECJc1MIY1MW0d6ZCg~Wnw)
 * Support: https://support.viam.com
 
 ## License
