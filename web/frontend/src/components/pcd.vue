@@ -456,7 +456,7 @@ let mesh: THREE.InstancedMesh;
 const update = (cloud: Uint8Array) => {
   // dispose old resources
   if (mesh) {
-    scene.remove(mesh)
+    scene.remove(mesh);
     mesh.geometry.dispose();
     (mesh.material as THREE.MeshBasicMaterial).dispose();
   }
@@ -585,7 +585,7 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
         />
       </div>
 
-      <label class="text-xs flex flex-col gap-1">
+      <label class="flex flex-col gap-1 text-xs">
         <div class="flex items-center gap-1.5">
           Transform controls
           <v-switch
