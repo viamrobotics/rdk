@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -42,36 +41,31 @@ type PmtkI2CNMEAMovementSensor struct {
 func NewPmtkI2CGPSNMEA(
 	ctx context.Context,
 	deps registry.Dependencies,
-	config config.Component,
+	attr *AttrConfig,
 	logger golog.Logger,
 ) (NmeaMovementSensor, error) {
-	conf, ok := config.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, errors.New("could not convert attributes from config")
-	}
-
-	b, err := board.FromDependencies(deps, conf.Board)
+	b, err := board.FromDependencies(deps, attr.Board)
 	if err != nil {
 		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
-		return nil, fmt.Errorf("board %s is not local", conf.Board)
+		return nil, fmt.Errorf("board %s is not local", attr.Board)
 	}
-	i2cbus, ok := localB.I2CByName(conf.I2CAttrConfig.I2CBus)
+	i2cbus, ok := localB.I2CByName(attr.I2CAttrConfig.I2CBus)
 	if !ok {
-		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", conf.I2CAttrConfig.I2CBus)
+		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", attr.I2CAttrConfig.I2CBus)
 	}
-	addr := conf.I2CAttrConfig.I2cAddr
+	addr := attr.I2CAttrConfig.I2cAddr
 	if addr == -1 {
 		return nil, errors.New("must specify gps i2c address")
 	}
-	if conf.I2CAttrConfig.I2CBaudRate == 0 {
-		conf.I2CAttrConfig.I2CBaudRate = 38400
+	if attr.I2CAttrConfig.I2CBaudRate == 0 {
+		attr.I2CAttrConfig.I2CBaudRate = 38400
 		logger.Warnf("using default baudrate : 38400")
 	}
 
-	disableNmea := conf.DisableNMEA
+	disableNmea := attr.DisableNMEA
 	if disableNmea {
 		logger.Info("SerialNMEAMovementSensor: NMEA reading disabled")
 	}
@@ -81,7 +75,7 @@ func NewPmtkI2CGPSNMEA(
 	g := &PmtkI2CNMEAMovementSensor{
 		bus:         i2cbus,
 		addr:        byte(addr),
-		wbaud:       conf.I2CAttrConfig.I2CBaudRate,
+		wbaud:       attr.I2CAttrConfig.I2CBaudRate,
 		cancelCtx:   cancelCtx,
 		cancelFunc:  cancelFunc,
 		logger:      logger,

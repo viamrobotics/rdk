@@ -54,6 +54,7 @@ func TestValidate(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "ntrip_addr")
 
 	fakecfg.NtripAttrConfig.NtripAddr = "some-ntrip-address"
+	fakecfg.NtripPath = "some-ntrip-path"
 	err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 

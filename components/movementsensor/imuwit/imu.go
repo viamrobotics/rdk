@@ -42,17 +42,17 @@ func init() {
 		Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
-			config config.Component,
+			cfg config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return NewWit(deps, config, logger)
+			return NewWit(deps, cfg, logger)
 		},
 	})
 
 	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
+			var attr AttrConfig
+			return config.TransformAttributeMapToStruct(&attr, attributes)
 		},
 		&AttrConfig{})
 }

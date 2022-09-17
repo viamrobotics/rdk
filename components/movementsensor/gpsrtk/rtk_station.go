@@ -50,35 +50,35 @@ const (
 )
 
 // Validate ensures all parts of the config are valid.
-func (config *StationConfig) Validate(path string) error {
-	if config.CorrectionSource == "" {
+func (cfg *StationConfig) Validate(path string) error {
+	if cfg.CorrectionSource == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "correction_source")
 	}
 
-	if config.CorrectionSource != serialStr && config.CorrectionSource != ntripStr && config.CorrectionSource != i2cStr {
+	if cfg.CorrectionSource != serialStr && cfg.CorrectionSource != ntripStr && cfg.CorrectionSource != i2cStr {
 		return errors.New("only serial, I2C, and ntrip are supported correction sources")
 	}
 
 	// not ntrip, using serial or i2c for correction source
-	if config.SurveyIn == timeMode {
-		if config.RequiredAccuracy == 0 {
+	if cfg.SurveyIn == timeMode {
+		if cfg.RequiredAccuracy == 0 {
 			return utils.NewConfigValidationFieldRequiredError(path, "required_accuracy")
 		}
-		if config.RequiredTime == 0 {
+		if cfg.RequiredTime == 0 {
 			return utils.NewConfigValidationFieldRequiredError(path, "required_time")
 		}
 	}
 
-	switch config.CorrectionSource {
+	switch cfg.CorrectionSource {
 	case ntripStr:
-		return config.NtripAttrConfig.ValidateNtrip(path)
+		return cfg.NtripAttrConfig.ValidateNtrip(path)
 	case i2cStr:
-		if config.Board == "" {
+		if cfg.Board == "" {
 			return utils.NewConfigValidationFieldRequiredError(path, "board")
 		}
-		return config.I2CAttrConfig.ValidateI2C(path)
+		return cfg.I2CAttrConfig.ValidateI2C(path)
 	case serialStr:
-		if config.SerialAttrConfig.SerialCorrectionPath == "" {
+		if cfg.SerialAttrConfig.SerialCorrectionPath == "" {
 			return utils.NewConfigValidationFieldRequiredError(path, "serial_correction_path")
 		}
 	default:
@@ -96,16 +96,16 @@ func init() {
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
-			config config.Component,
+			cfg config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newRTKStation(ctx, deps, config, logger)
+			return newRTKStation(ctx, deps, cfg, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, stationModel,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf StationConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
+			var attr StationConfig
+			return config.TransformAttributeMapToStruct(&attr, attributes)
 		},
 		&StationConfig{})
 }
@@ -142,12 +142,12 @@ type i2cBusAddr struct {
 func newRTKStation(
 	ctx context.Context,
 	deps registry.Dependencies,
-	config config.Component,
+	cfg config.Component,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	attr, ok := config.ConvertedAttributes.(*StationConfig)
+	attr, ok := cfg.ConvertedAttributes.(*StationConfig)
 	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
@@ -164,17 +164,17 @@ func newRTKStation(
 	var err error
 	switch r.correctionType {
 	case ntripStr:
-		r.correction, err = newNtripCorrectionSource(ctx, config, logger)
+		r.correction, err = newNtripCorrectionSource(ctx, cfg, logger)
 		if err != nil {
 			return nil, err
 		}
 	case serialStr:
-		r.correction, err = newSerialCorrectionSource(ctx, config, logger)
+		r.correction, err = newSerialCorrectionSource(ctx, cfg, logger)
 		if err != nil {
 			return nil, err
 		}
 	case i2cStr:
-		r.correction, err = newI2CCorrectionSource(ctx, deps, config, logger)
+		r.correction, err = newI2CCorrectionSource(ctx, deps, cfg, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -185,7 +185,7 @@ func newRTKStation(
 
 	r.movementsensorNames = attr.Children
 
-	err = ConfigureBaseRTKStation(config)
+	err = ConfigureBaseRTKStation(cfg)
 	if err != nil {
 		r.logger.Info("rtk base station could not be configured")
 		return r, err

@@ -40,10 +40,10 @@ type NtripInfo struct {
 	MaxConnectAttempts int
 }
 
-func newNtripCorrectionSource(ctx context.Context, config config.Component, logger golog.Logger) (correctionSource, error) {
-	attr, ok := config.ConvertedAttributes.(*StationConfig)
+func newNtripCorrectionSource(ctx context.Context, cfg config.Component, logger golog.Logger) (correctionSource, error) {
+	attr, ok := cfg.ConvertedAttributes.(*StationConfig)
 	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
 	}
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
@@ -64,27 +64,27 @@ func newNtripCorrectionSource(ctx context.Context, config config.Component, logg
 	return n, n.lastError
 }
 
-func newNtripInfo(config *NtripAttrConfig, logger golog.Logger) (*NtripInfo, error) {
+func newNtripInfo(cfg *NtripAttrConfig, logger golog.Logger) (*NtripInfo, error) {
 	n := &NtripInfo{}
 
 	// Init NtripInfo from attributes
-	n.URL = config.NtripAddr
+	n.URL = cfg.NtripAddr
 	if n.URL == "" {
-		return nil, fmt.Errorf("NTRIP expected non-empty string for %q", config.NtripAddr)
+		return nil, fmt.Errorf("NTRIP expected non-empty string for %q", cfg.NtripAddr)
 	}
-	n.Username = config.NtripUser
+	n.Username = cfg.NtripUser
 	if n.Username == "" {
 		logger.Info("ntrip_username set to empty")
 	}
-	n.Password = config.NtripPass
+	n.Password = cfg.NtripPass
 	if n.Password == "" {
 		logger.Info("ntrip_password set to empty")
 	}
-	n.MountPoint = config.NtripMountpoint
+	n.MountPoint = cfg.NtripMountpoint
 	if n.MountPoint == "" {
 		logger.Info("ntrip_mountpoint set to empty")
 	}
-	n.MaxConnectAttempts = config.NtripConnectAttempts
+	n.MaxConnectAttempts = cfg.NtripConnectAttempts
 	if n.MaxConnectAttempts == 10 {
 		logger.Info("ntrip_connect_attempts using default 10")
 	}

@@ -27,7 +27,7 @@ func init() {
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
-			config config.Component,
+			cfg config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
 			return movementsensor.MovementSensor(&MovementSensor{}), nil
@@ -35,8 +35,8 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
+			var attr AttrConfig
+			return config.TransformAttributeMapToStruct(&attr, attributes)
 		},
 		&AttrConfig{})
 }

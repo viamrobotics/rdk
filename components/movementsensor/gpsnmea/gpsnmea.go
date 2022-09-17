@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // AttrConfig is used for converting NMEA Movement Sensor attibutes.
@@ -39,34 +40,34 @@ type I2CAttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) error {
-	if config.Board == "" {
+func (cfg *AttrConfig) Validate(path string) error {
+	if cfg.Board == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 
-	if config.ConnectionType == "" {
+	if cfg.ConnectionType == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "connection_type")
 	}
 
-	switch config.ConnectionType {
+	switch cfg.ConnectionType {
 	case i2cStr:
-		if config.Board == "" {
+		if cfg.Board == "" {
 			return utils.NewConfigValidationFieldRequiredError(path, "board")
 		}
-		return config.I2CAttrConfig.ValidateI2C(path)
+		return cfg.I2CAttrConfig.ValidateI2C(path)
 	case serialStr:
-		return config.SerialAttrConfig.ValidateSerial(path)
+		return cfg.SerialAttrConfig.ValidateSerial(path)
 	default:
 		return utils.NewConfigValidationFieldRequiredError(path, "connection_type")
 	}
 }
 
 // ValidateI2C ensures all parts of the config are valid.
-func (config *I2CAttrConfig) ValidateI2C(path string) error {
-	if config.I2CBus == "" {
+func (cfg *I2CAttrConfig) ValidateI2C(path string) error {
+	if cfg.I2CBus == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
-	if config.I2cAddr == 0 {
+	if cfg.I2cAddr == 0 {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
 	}
 
@@ -74,8 +75,8 @@ func (config *I2CAttrConfig) ValidateI2C(path string) error {
 }
 
 // ValidateSerial ensures all parts of the config are valid.
-func (config *SerialAttrConfig) ValidateSerial(path string) error {
-	if config.SerialPath == "" {
+func (cfg *SerialAttrConfig) ValidateSerial(path string) error {
+	if cfg.SerialPath == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 	return nil
@@ -106,8 +107,8 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
+			var attr AttrConfig
+			return config.TransformAttributeMapToStruct(&attr, attributes)
 		},
 		&AttrConfig{})
 }
@@ -125,14 +126,20 @@ func newNMEAGPS(
 	cfg config.Component,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	connectionType := cfg.ConvertedAttributes.(*AttrConfig).ConnectionType
+	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
+	}
 
-	switch connectionType {
+	switch attr.ConnectionType {
 	case serialStr:
-		return NewSerialGPSNMEA(ctx, cfg, logger)
+		return NewSerialGPSNMEA(ctx, attr, logger)
 	case i2cStr:
-		return NewPmtkI2CGPSNMEA(ctx, deps, cfg, logger)
+		return NewPmtkI2CGPSNMEA(ctx, deps, attr, logger)
 	default:
-		return nil, fmt.Errorf("%s is not a valid connection type", connectionType)
+		return nil, fmt.Errorf("%s is not a valid connection_type of %s, %s",
+			attr.ConnectionType,
+			i2cStr,
+			serialStr)
 	}
 }

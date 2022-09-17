@@ -27,8 +27,8 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// RTKAttrConfig is used for converting NMEA MovementSensor with RTK capabilities config attributes.
-type RTKAttrConfig struct {
+// AttrConfig is used for converting NMEA MovementSensor with RTK capabilities config attributes.
+type AttrConfig struct {
 	CorrectionSource string `json:"correction_source"`
 	Board            string `json:"board,omitempty"`
 	ConnectionType   string `json:"connection_type,omitempty"`
@@ -66,17 +66,17 @@ type I2CAttrConfig struct {
 }
 
 // ValidateRTK ensures all parts of the config are valid.
-func (config *RTKAttrConfig) ValidateRTK(path string) error {
-	switch config.CorrectionSource {
+func (cfg *AttrConfig) ValidateRTK(path string) error {
+	switch cfg.CorrectionSource {
 	case ntripStr:
-		return config.NtripAttrConfig.ValidateNtrip(path)
+		return cfg.NtripAttrConfig.ValidateNtrip(path)
 	case i2cStr:
-		if config.Board == "" {
+		if cfg.Board == "" {
 			return utils.NewConfigValidationFieldRequiredError(path, "board")
 		}
-		return config.I2CAttrConfig.ValidateI2C(path)
+		return cfg.I2CAttrConfig.ValidateI2C(path)
 	case serialStr:
-		return config.SerialAttrConfig.ValidateSerial(path)
+		return cfg.SerialAttrConfig.ValidateSerial(path)
 	case "":
 		return utils.NewConfigValidationFieldRequiredError(path, "correction_source")
 	default:
@@ -85,11 +85,11 @@ func (config *RTKAttrConfig) ValidateRTK(path string) error {
 }
 
 // ValidateI2C ensures all parts of the config are valid.
-func (config *I2CAttrConfig) ValidateI2C(path string) error {
-	if config.I2CBus == "" {
+func (cfg *I2CAttrConfig) ValidateI2C(path string) error {
+	if cfg.I2CBus == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
 	}
-	if config.I2cAddr == 0 {
+	if cfg.I2cAddr == 0 {
 		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
 	}
 
@@ -97,19 +97,19 @@ func (config *I2CAttrConfig) ValidateI2C(path string) error {
 }
 
 // ValidateSerial ensures all parts of the config are valid.
-func (config *SerialAttrConfig) ValidateSerial(path string) error {
-	if config.SerialPath == "" {
+func (cfg *SerialAttrConfig) ValidateSerial(path string) error {
+	if cfg.SerialPath == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 	return nil
 }
 
 // ValidateNtrip ensures all parts of the config are valid.
-func (config *NtripAttrConfig) ValidateNtrip(path string) error {
-	if config.NtripAddr == "" {
+func (cfg *NtripAttrConfig) ValidateNtrip(path string) error {
+	if cfg.NtripAddr == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr")
 	}
-	if config.NtripPath == "" {
+	if cfg.NtripPath == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_path")
 	}
 	return nil
@@ -124,38 +124,18 @@ func init() {
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
-			config config.Component,
+			cfg config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newRTKStation(ctx, deps, config, logger)
+			return newRTKStation(ctx, deps, cfg, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, roverModel,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf StationConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
+			var attr StationConfig
+			return config.TransformAttributeMapToStruct(&attr, attributes)
 		},
 		&StationConfig{})
-}
-
-func makeNMEAAttrConfig(cfg RTKAttrConfig) (*gpsnmea.AttrConfig, error) {
-	return &gpsnmea.AttrConfig{
-		ConnectionType: cfg.ConnectionType,
-		Board:          cfg.Board,
-		DisableNMEA:    false,
-		SerialAttrConfig: &gpsnmea.SerialAttrConfig{
-			SerialPath:               cfg.SerialAttrConfig.SerialPath,
-			SerialBaudRate:           cfg.SerialAttrConfig.SerialBaudRate,
-			SerialCorrectionPath:     cfg.SerialAttrConfig.SerialCorrectionPath,
-			SerialCorrectionBaudRate: cfg.SerialAttrConfig.SerialBaudRate,
-		},
-		I2CAttrConfig: &gpsnmea.I2CAttrConfig{
-			I2CBus:      cfg.I2CAttrConfig.I2CBus,
-			I2cAddr:     cfg.I2CAttrConfig.I2cAddr,
-			I2CBaudRate: cfg.I2CAttrConfig.I2CBaudRate,
-		},
-	}, nil
-
 }
 
 type nmeaMovementSensor interface {
@@ -191,12 +171,12 @@ type RTKMovementSensor struct {
 func newRTKMovementSensor(
 	ctx context.Context,
 	deps registry.Dependencies,
-	config config.Component,
+	cfg config.Component,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	attr, ok := config.ConvertedAttributes.(*RTKAttrConfig)
+	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
 	}
 
 	logger.Debug("Returning n")
@@ -211,22 +191,25 @@ func newRTKMovementSensor(
 
 	g.inputProtocol = attr.CorrectionSource
 
-	nmeaCfg, err := makeNMEAAttrConfig(*attr)
-	if err != nil {
-		return nil, rdkutils.NewUnexpectedTypeError(&gpsnmea.AttrConfig{}, nmeaCfg)
+	nmeaAttr := &gpsnmea.AttrConfig{
+		ConnectionType: attr.ConnectionType,
+		Board:          attr.Board,
+		DisableNMEA:    false,
 	}
 
 	// Init NMEAMovementSensor
 	switch g.inputProtocol {
 	case serialStr:
 		var err error
-		g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, nmeaCfg, logger)
+		nmeaAttr.SerialAttrConfig = (*gpsnmea.SerialAttrConfig)(attr.SerialAttrConfig)
+		g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, nmeaAttr, logger)
 		if err != nil {
 			return nil, err
 		}
 	case i2cStr:
 		var err error
-		g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, nmeaCfg, logger)
+		nmeaAttr.I2CAttrConfig = (*gpsnmea.I2CAttrConfig)(attr.I2CAttrConfig)
+		g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, nmeaAttr, logger)
 		if err != nil {
 			return nil, err
 		}

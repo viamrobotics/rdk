@@ -32,12 +32,12 @@ type i2cCorrectionSource struct {
 func newI2CCorrectionSource(
 	ctx context.Context,
 	deps registry.Dependencies,
-	config config.Component,
+	cfg config.Component,
 	logger golog.Logger,
 ) (correctionSource, error) {
-	attr, ok := config.ConvertedAttributes.(*StationConfig)
+	attr, ok := cfg.ConvertedAttributes.(*StationConfig)
 	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
 	}
 	b, err := board.FromDependencies(deps, attr.Board)
 	if err != nil {
