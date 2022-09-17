@@ -84,7 +84,7 @@ func (cfg *SerialAttrConfig) ValidateSerial(path string) error {
 
 const modelname = "gps-nmea"
 
-// NmeaMovementSensor implements a gps that sends nmea messages for movement data
+// NmeaMovementSensor implements a gps that sends nmea messages for movement data.
 type NmeaMovementSensor interface {
 	movementsensor.MovementSensor
 	Start(ctx context.Context) error          // Initialize and run MovementSensor

@@ -138,13 +138,6 @@ func init() {
 		&StationConfig{})
 }
 
-type nmeaMovementSensor interface {
-	movementsensor.MovementSensor
-	Start(ctx context.Context) error          // Initialize and run MovementSensor
-	Close() error                             // Close MovementSensor
-	ReadFix(ctx context.Context) (int, error) // Returns the fix quality of the current MovementSensor measurements
-}
-
 // A RTKMovementSensor is an NMEA MovementSensor model that can intake RTK correction data.
 type RTKMovementSensor struct {
 	generic.Unimplemented

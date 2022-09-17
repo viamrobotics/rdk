@@ -15,15 +15,9 @@ import (
 )
 
 var (
-	loc        = geo.NewPoint(40.7, -73.98)
-	alt        = 50.5
-	speed      = 5.4
-	activeSats = 1
-	totalSats  = 2
-	hAcc       = 0.7
-	vAcc       = 0.8
-	valid      = true
-	fix        = 1
+	alt   = 50.5
+	speed = 5.4
+	fix   = 1
 )
 
 func TestValidateRTK(t *testing.T) {
@@ -190,7 +184,6 @@ func TestNewRTKMovementSensor(t *testing.T) {
 		}
 		_, err := newRTKMovementSensor(ctx, deps, cfig, logger)
 		test.That(t, err, test.ShouldNotBeNil)
-
 	})
 
 	t.Run("no ntrip address", func(t *testing.T) {

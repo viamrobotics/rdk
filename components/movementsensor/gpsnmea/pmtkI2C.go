@@ -37,7 +37,7 @@ type PmtkI2CNMEAMovementSensor struct {
 	wbaud int
 }
 
-// NewPmtkI2CGPSNMEA implements a gps that communicates over serial.
+// NewPmtkI2CGPSNMEA implements a gps that communicates over i2c.
 func NewPmtkI2CGPSNMEA(
 	ctx context.Context,
 	deps registry.Dependencies,
@@ -62,7 +62,7 @@ func NewPmtkI2CGPSNMEA(
 	}
 	if attr.I2CAttrConfig.I2CBaudRate == 0 {
 		attr.I2CAttrConfig.I2CBaudRate = 38400
-		logger.Warnf("using default baudrate : 38400")
+		logger.Warn("using default baudrate : 38400")
 	}
 
 	disableNmea := attr.DisableNMEA

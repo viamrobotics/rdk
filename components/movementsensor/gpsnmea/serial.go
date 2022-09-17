@@ -41,6 +41,7 @@ type SerialNMEAMovementSensor struct {
 	correctionPath     string
 }
 
+// NewSerialGPSNMEA gps that communicates over serial.
 func NewSerialGPSNMEA(ctx context.Context, attr *AttrConfig, logger golog.Logger) (NmeaMovementSensor, error) {
 	serialPath := attr.SerialAttrConfig.SerialPath
 	if serialPath == "" {
