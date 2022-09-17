@@ -27,7 +27,6 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 	deps[board.Named(testBoardName)] = actualBoard
 
 	return deps
-
 }
 
 func TestValidateI2C(t *testing.T) {
@@ -140,7 +139,7 @@ func newBoard(name string) *mock {
 	}
 }
 
-// Mock I2C
+// Mock I2C.
 type mock struct {
 	board.LocalBoard
 	Name string
