@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/config"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 type ntripCorrectionSource struct {
@@ -40,7 +41,10 @@ type NtripInfo struct {
 }
 
 func newNtripCorrectionSource(ctx context.Context, config config.Component, logger golog.Logger) (correctionSource, error) {
-
+	attr, ok := config.ConvertedAttributes.(*StationConfig)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+	}
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	n := &ntripCorrectionSource{
@@ -50,7 +54,7 @@ func newNtripCorrectionSource(ctx context.Context, config config.Component, logg
 	}
 
 	// Init ntripInfo from attributes
-	ntripInfoComp, err := NewNtripInfo(ctx, config.ConvertedAttributes.(*RTKAttrConfig), logger)
+	ntripInfoComp, err := newNtripInfo(attr.NtripAttrConfig, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -60,13 +64,13 @@ func newNtripCorrectionSource(ctx context.Context, config config.Component, logg
 	return n, n.lastError
 }
 
-func NewNtripInfo(ctx context.Context, config *RTKAttrConfig, logger golog.Logger) (*NtripInfo, error) {
+func newNtripInfo(config *NtripAttrConfig, logger golog.Logger) (*NtripInfo, error) {
 	n := &NtripInfo{}
 
 	// Init NtripInfo from attributes
-	n.URL = config.NtripUrl
+	n.URL = config.NtripAddr
 	if n.URL == "" {
-		return nil, fmt.Errorf("NTRIP expected non-empty string for %q", config.NtripUrl)
+		return nil, fmt.Errorf("NTRIP expected non-empty string for %q", config.NtripAddr)
 	}
 	n.Username = config.NtripUser
 	if n.Username == "" {

@@ -31,9 +31,18 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 }
 
 func TestValidate(t *testing.T) {
-	fakecfg := &AttrConfig{}
+	fakecfg := &StationConfig{
+		CorrectionSource: "",
+		Children:         []string{},
+		SurveyIn:         "",
+		RequiredAccuracy: 0,
+		RequiredTime:     0,
+		SerialAttrConfig: &SerialAttrConfig{},
+		I2CAttrConfig:    &I2CAttrConfig{},
+		NtripAttrConfig:  &NtripAttrConfig{},
+	}
 	err := fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty correction source")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "correction_source")
 
 	fakecfg.CorrectionSource = "notvalid"
 	err = fakecfg.Validate("path")
@@ -42,25 +51,25 @@ func TestValidate(t *testing.T) {
 	// ntrip
 	fakecfg.CorrectionSource = "ntrip"
 	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty ntrip address")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "ntrip_addr")
 
-	fakecfg.NtripAddr = "some-ntrip-address"
+	fakecfg.NtripAttrConfig.NtripAddr = "some-ntrip-address"
 	err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 
 	// serial
 	fakecfg.CorrectionSource = "serial"
 	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "must specify serial path")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "serial_correction_path")
 
-	fakecfg.CorrectionPath = "some-serial-path"
+	fakecfg.SerialAttrConfig.SerialCorrectionPath = "some-serial-path"
 	err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 
 	// I2C
 	fakecfg.CorrectionSource = "I2C"
 	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find board for rtk station")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "board")
 }
 
 func TestRTK(t *testing.T) {
@@ -73,13 +82,16 @@ func TestRTK(t *testing.T) {
 		Name:  "rtk1",
 		Model: "rtk-station",
 		Type:  "gps",
-		Attributes: config.AttributeMap{
-			"correction_source":      "ntrip",
-			"ntrip_addr":             "some_ntrip_address",
-			"ntrip_username":         "",
-			"ntrip_password":         "",
-			"ntrip_mountpoint":       "NJI2",
-			"ntrip_connect_attempts": 10,
+		ConvertedAttributes: &StationConfig{
+			CorrectionSource: "ntrip",
+			Board:            testBoardName,
+			NtripAttrConfig: &NtripAttrConfig{
+				NtripAddr:            "some_ntrip_address",
+				NtripConnectAttempts: 10,
+				NtripMountpoint:      "NJI2",
+				NtripPass:            "",
+				NtripUser:            "",
+			},
 		},
 	}
 
@@ -93,9 +105,11 @@ func TestRTK(t *testing.T) {
 		Name:  "rtk1",
 		Model: "rtk-station",
 		Type:  "gps",
-		Attributes: config.AttributeMap{
-			"correction_source": "serial",
-			"correction_path":   path,
+		ConvertedAttributes: &StationConfig{
+			CorrectionSource: "serial",
+			SerialAttrConfig: &SerialAttrConfig{
+				SerialCorrectionPath: path,
+			},
 		},
 	}
 
@@ -108,23 +122,30 @@ func TestRTK(t *testing.T) {
 
 	// test I2C correction source
 	cfig = config.Component{
-		Name:  "rtk1",
-		Model: "rtk-station",
-		Type:  "gps",
-		Attributes: config.AttributeMap{
-			"correction_source":      "I2C",
-			"ntrip_addr":             "some_ntrip_address",
-			"ntrip_username":         "",
-			"ntrip_password":         "",
-			"ntrip_mountpoint":       "NJI2",
-			"ntrip_connect_attempts": 10,
-			"board":                  testBoardName,
-			"bus":                    testBusName,
+		Name:       "rtk1",
+		Model:      "rtk-station",
+		Type:       "gps",
+		Attributes: config.AttributeMap{},
+		ConvertedAttributes: &StationConfig{
+			CorrectionSource: "I2C",
+			Board:            testBoardName,
+			SurveyIn:         "",
+			I2CAttrConfig: &I2CAttrConfig{
+				I2CBus: testBusName,
+			},
+			NtripAttrConfig: &NtripAttrConfig{
+				NtripAddr:            "some_ntrip_address",
+				NtripConnectAttempts: 10,
+				NtripMountpoint:      "NJI2",
+				NtripPass:            "",
+				NtripUser:            "",
+				NtripPath:            path,
+			},
 		},
 	}
 
 	g, err = newRTKStation(ctx, deps, cfig, logger)
-	passErr = "board " + cfig.Attributes.String("board") + " is not local"
+	passErr = "board " + testBoardName + " is not local"
 
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
@@ -146,6 +167,9 @@ func TestRTK(t *testing.T) {
 			"children":               "gps1",
 			"board":                  testBoardName,
 			"bus":                    testBusName,
+		},
+		ConvertedAttributes: &StationConfig{
+			CorrectionSource: "invalid",
 		},
 	}
 	_, err = newRTKStation(ctx, deps, cfig, logger)

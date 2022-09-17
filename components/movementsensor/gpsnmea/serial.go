@@ -1,10 +1,9 @@
-// Package nmea implements an NMEA serial gps.
+// Package gpsnmea implements an NMEA serial gps.
 package gpsnmea
 
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -14,6 +13,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
+	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
@@ -22,26 +22,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// SerialAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
-type SerialAttrConfig struct {
-	// Serial
-	SerialPath         string `json:"path"`
-	BaudRate           int    `json:"baud_rate,omitempty"`
-	CorrectionPath     string `json:"correction_path,omitempty"`
-	CorrectionBaudRate int    `json:"correction_baud_rate,omitempty"`
-
-	// *RTKAttrConfig `json:"rtk_attributes"`
-}
-
-// ValidateSerial ensures all parts of the config are valid.
-func (config *SerialAttrConfig) ValidateSerial(path string) error {
-	if len(config.SerialPath) == 0 {
-		return errors.New("expected nonempty path")
-	}
-
-	return nil
-}
-
 // SerialNMEAMovementSensor allows the use of any MovementSensor chip that communicates over serial.
 type SerialNMEAMovementSensor struct {
 	generic.Unimplemented
@@ -49,7 +29,7 @@ type SerialNMEAMovementSensor struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	logger                  golog.Logger
-	data                    GpsData
+	data                    gpsData
 	activeBackgroundWorkers sync.WaitGroup
 
 	disableNmea bool
@@ -63,27 +43,27 @@ type SerialNMEAMovementSensor struct {
 	correctionPath     string
 }
 
-func NewSerialNMEAMovementSensor(ctx context.Context, config config.Component, logger golog.Logger) (NmeaMovementSensor, error) {
+func NewSerialGPSNMEA(ctx context.Context, config config.Component, logger golog.Logger) (NmeaMovementSensor, error) {
 	conf, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
-		return nil, errors.New("could not convert attributes from config")
+		return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
 	}
 
 	serialPath := conf.SerialAttrConfig.SerialPath
 	if serialPath == "" {
 		return nil, fmt.Errorf("SerialNMEAMovementSensor expected non-empty string for %q", conf.SerialAttrConfig.SerialPath)
 	}
-	correctionPath := conf.SerialAttrConfig.CorrectionPath
+	correctionPath := conf.SerialAttrConfig.SerialCorrectionPath
 	if correctionPath == "" {
 		correctionPath = serialPath
 		logger.Info("SerialNMEAMovementSensor: correction_path using path")
 	}
-	baudRate := conf.SerialAttrConfig.BaudRate
+	baudRate := conf.SerialAttrConfig.SerialBaudRate
 	if baudRate == 0 {
 		baudRate = 9600
 		logger.Info("SerialNMEAMovementSensor: baud_rate using default 9600")
 	}
-	correctionBaudRate := conf.SerialAttrConfig.CorrectionBaudRate
+	correctionBaudRate := conf.SerialAttrConfig.SerialCorrectionBaudRate
 	if correctionBaudRate == 0 {
 		correctionBaudRate = baudRate
 		logger.Info("SerialNMEAMovementSensor: correction_baud using baud_rate")
@@ -118,7 +98,7 @@ func NewSerialNMEAMovementSensor(ctx context.Context, config config.Component, l
 		baudRate:           uint(baudRate),
 		correctionBaudRate: uint(correctionBaudRate),
 		disableNmea:        disableNmea,
-		data:               GpsData{},
+		data:               gpsData{},
 	}
 
 	if err := g.Start(ctx); err != nil {

@@ -19,26 +19,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// I2CAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
-type I2CAttrConfig struct {
-	// I2C
-	Bus      string `json:"bus"`
-	I2cAddr  int    `json:"i2c_addr"`
-	BaudRate int    `json:"baud_rate,omitempty"`
-}
-
-// ValidateI2C ensures all parts of the config are valid.
-func (config *I2CAttrConfig) ValidateI2C(path string) error {
-	if config.Bus == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "bus")
-	}
-	if config.I2cAddr == 0 {
-		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
-	}
-
-	return nil
-}
-
 // PmtkI2CNMEAMovementSensor allows the use of any MovementSensor chip that communicates over I2C using the PMTK protocol.
 type PmtkI2CNMEAMovementSensor struct {
 	generic.Unimplemented
@@ -46,7 +26,7 @@ type PmtkI2CNMEAMovementSensor struct {
 	cancelCtx               context.Context
 	cancelFunc              func()
 	logger                  golog.Logger
-	data                    GpsData
+	data                    gpsData
 	activeBackgroundWorkers sync.WaitGroup
 
 	disableNmea bool
@@ -58,7 +38,8 @@ type PmtkI2CNMEAMovementSensor struct {
 	wbaud int
 }
 
-func NewPmtkI2CNMEAMovementSensor(
+// NewPmtkI2CGPSNMEA implements a gps that communicates over serial.
+func NewPmtkI2CGPSNMEA(
 	ctx context.Context,
 	deps registry.Dependencies,
 	config config.Component,
@@ -77,16 +58,16 @@ func NewPmtkI2CNMEAMovementSensor(
 	if !ok {
 		return nil, fmt.Errorf("board %s is not local", conf.Board)
 	}
-	i2cbus, ok := localB.I2CByName(conf.I2CAttrConfig.Bus)
+	i2cbus, ok := localB.I2CByName(conf.I2CAttrConfig.I2CBus)
 	if !ok {
-		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", conf.I2CAttrConfig.Bus)
+		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", conf.I2CAttrConfig.I2CBus)
 	}
 	addr := conf.I2CAttrConfig.I2cAddr
 	if addr == -1 {
 		return nil, errors.New("must specify gps i2c address")
 	}
-	if conf.I2CAttrConfig.BaudRate == 0 {
-		conf.I2CAttrConfig.BaudRate = 38400
+	if conf.I2CAttrConfig.I2CBaudRate == 0 {
+		conf.I2CAttrConfig.I2CBaudRate = 38400
 		logger.Warnf("using default baudrate : 38400")
 	}
 
@@ -100,7 +81,7 @@ func NewPmtkI2CNMEAMovementSensor(
 	g := &PmtkI2CNMEAMovementSensor{
 		bus:         i2cbus,
 		addr:        byte(addr),
-		wbaud:       conf.I2CAttrConfig.BaudRate,
+		wbaud:       conf.I2CAttrConfig.I2CBaudRate,
 		cancelCtx:   cancelCtx,
 		cancelFunc:  cancelFunc,
 		logger:      logger,

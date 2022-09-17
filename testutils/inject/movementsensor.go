@@ -29,7 +29,7 @@ func (i *MovementSensor) Close(ctx context.Context) error {
 	if i.CloseFunc == nil {
 		return utils.TryClose(ctx, i.MovementSensor)
 	}
-	return i.CloseFunc(ctx)
+	return i.CloseFunc()
 }
 
 // DoCommand calls the injected DoCommand or the real version.
