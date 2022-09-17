@@ -7,7 +7,7 @@ import (
 )
 
 func TestParsing(t *testing.T) {
-	var data GpsData
+	var data gpsData
 	// Test a GGA sentence
 	nmeaSentence := "$GNGGA,191351.000,4403.4655,N,12118.7950,W,1,6,1.72,1094.5,M,-19.6,M,,*47"
 	err := data.parseAndUpdate(nmeaSentence)

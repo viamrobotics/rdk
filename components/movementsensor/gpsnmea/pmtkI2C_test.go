@@ -8,7 +8,6 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -23,15 +22,16 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 	t.Helper()
 
 	deps := make(registry.Dependencies)
-	// i2c := &fake.I2C{}
-	deps[board.Named(testBoardName)] = &fake.Board{
-		Name: testBoardName,
-	}
+
+	actualBoard := newBoard(testBoardName)
+	deps[board.Named(testBoardName)] = actualBoard
+
 	return deps
+
 }
 
 func TestValidateI2C(t *testing.T) {
-	fakecfg := &I2CAttrConfig{Bus: "some-bus"}
+	fakecfg := &I2CAttrConfig{I2CBus: "some-bus"}
 
 	err := fakecfg.ValidateI2C("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "i2c_addr")
@@ -58,7 +58,7 @@ func TestNewI2CMovementSensor(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
-	g, err := NewPmtkI2CNMEAMovementSensor(ctx, deps, cfig, logger)
+	g, err := NewPmtkI2CGPSNMEA(ctx, deps, cfig, logger)
 	test.That(t, g, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -75,11 +75,11 @@ func TestNewI2CMovementSensor(t *testing.T) {
 			ConnectionType: "i2c",
 			Board:          testBoardName,
 			DisableNMEA:    false,
-			I2CAttrConfig:  &I2CAttrConfig{Bus: testBusName, I2cAddr: 0, BaudRate: 0},
+			I2CAttrConfig:  &I2CAttrConfig{I2CBus: testBusName},
 		},
 	}
-	g, err = NewPmtkI2CNMEAMovementSensor(ctx, deps, cfig, logger)
-	passErr := "gps init: failed to find board: " + cfig.Attributes.String("board") + " missing from dependencies"
+	g, err = NewPmtkI2CGPSNMEA(ctx, deps, cfig, logger)
+	passErr := "board " + cfig.Attributes.String("board") + " is not local"
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, g, test.ShouldNotBeNil)
@@ -95,7 +95,7 @@ func TestReadingsI2C(t *testing.T) {
 		cancelFunc: cancelFunc,
 		logger:     logger,
 	}
-	g.data = GpsData{
+	g.data = gpsData{
 		location:   loc,
 		alt:        alt,
 		speed:      speed,
@@ -140,4 +140,34 @@ func TestCloseI2C(t *testing.T) {
 
 	err := g.Close()
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func newBoard(name string) *mock {
+	return &mock{
+		Name: name,
+		i2cs: []string{"i2c1"},
+		i2c:  &mockI2C{1},
+	}
+}
+
+// Mock I2C
+type mock struct {
+	board.LocalBoard
+	Name string
+
+	i2cs []string
+	i2c  *mockI2C
+}
+
+type mockI2C struct{ handleCount int }
+
+func (m *mock) I2CNames() []string {
+	return m.i2cs
+}
+
+func (m *mock) I2CByName(name string) (*mockI2C, bool) {
+	if len(m.i2cs) == 0 {
+		return nil, false
+	}
+	return m.i2c, true
 }

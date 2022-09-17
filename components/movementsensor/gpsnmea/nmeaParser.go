@@ -13,7 +13,7 @@ const (
 	kphToMmPerSec   = 277.78
 )
 
-type GpsData struct {
+type gpsData struct {
 	location   *geo.Point
 	alt        float64
 	speed      float64 // ground speed in mm per sec
@@ -27,7 +27,7 @@ type GpsData struct {
 
 // parseAndUpdate will attempt to parse a line to an NMEA sentence, and if valid, will try to update the given struct
 // with the values for that line. Nothing will be updated if there is not a valid gps fix.
-func (g *GpsData) parseAndUpdate(line string) error {
+func (g *gpsData) parseAndUpdate(line string) error {
 	// add parsing to filter out corrupted data
 	ind := strings.Index(line, "$G")
 	if ind == -1 {

@@ -1,9 +1,8 @@
-// Package nmea implements an NMEA serial gps.
+// Package gpsnmea implements an NMEA serial gps.
 package gpsnmea
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/edaniels/golog"
@@ -17,12 +16,26 @@ import (
 // AttrConfig is used for converting NMEA Movement Sensor attibutes.
 type AttrConfig struct {
 	ConnectionType string `json:"connection_type"`
-	Board          string `json:"board"`
+	Board          string `json:"board,omitempty"`
 	DisableNMEA    bool   `json:"disable_nmea,omitempty"`
 
-	*SerialAttrConfig
+	*SerialAttrConfig `json:"serial_attributes,omitempty"`
+	*I2CAttrConfig    `json:"i2c_attributes,omitempty"`
+}
 
-	*I2CAttrConfig
+// SerialAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
+type SerialAttrConfig struct {
+	SerialPath               string `json:"path"`
+	SerialBaudRate           int    `json:"baud_rate,omitempty"`
+	SerialCorrectionPath     string `json:"serial_correction_path,omitempty"`
+	SerialCorrectionBaudRate int    `json:"serial_correction_baud_rate,omitempty"`
+}
+
+// I2CAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
+type I2CAttrConfig struct {
+	I2CBus      string `json:"i2c_bus"`
+	I2cAddr     int    `json:"i2c_addr"`
+	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -35,27 +48,42 @@ func (config *AttrConfig) Validate(path string) error {
 		return utils.NewConfigValidationFieldRequiredError(path, "connection_type")
 	}
 
-	if config.SerialAttrConfig != nil {
-		return config.SerialAttrConfig.ValidateSerial(path)
-	}
-
-	if config.I2CAttrConfig != nil {
+	switch config.ConnectionType {
+	case i2cStr:
+		if config.Board == "" {
+			return utils.NewConfigValidationFieldRequiredError(path, "board")
+		}
 		return config.I2CAttrConfig.ValidateI2C(path)
+	case serialStr:
+		return config.SerialAttrConfig.ValidateSerial(path)
+	default:
+		return utils.NewConfigValidationFieldRequiredError(path, "connection_type")
 	}
+}
 
-	// if config.RTKAttrConfig != nil {
-	// 	return config.RTKAttrConfig.ValidateRTK(path)
-	// }
-
-	if config == nil {
-		return utils.NewConfigValidationError(path, errors.New("no config found"))
+// ValidateI2C ensures all parts of the config are valid.
+func (config *I2CAttrConfig) ValidateI2C(path string) error {
+	if config.I2CBus == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+	}
+	if config.I2cAddr == 0 {
+		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
 	}
 
 	return nil
 }
 
+// ValidateSerial ensures all parts of the config are valid.
+func (config *SerialAttrConfig) ValidateSerial(path string) error {
+	if config.SerialPath == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
+	}
+	return nil
+}
+
 const modelname = "gps-nmea"
 
+// NmeaMovementSensor implements a gps that sends nmea messages for movement data
 type NmeaMovementSensor interface {
 	movementsensor.MovementSensor
 	Start(ctx context.Context) error          // Initialize and run MovementSensor
@@ -73,7 +101,7 @@ func init() {
 			cfg config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return NewNMEAGPS(ctx, deps, cfg, logger)
+			return newNMEAGPS(ctx, deps, cfg, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, modelname,
@@ -91,7 +119,7 @@ const (
 	rtkStr         = "rtk"
 )
 
-func NewNMEAGPS(
+func newNMEAGPS(
 	ctx context.Context,
 	deps registry.Dependencies,
 	cfg config.Component,
@@ -101,9 +129,9 @@ func NewNMEAGPS(
 
 	switch connectionType {
 	case serialStr:
-		return NewSerialNMEAMovementSensor(ctx, cfg, logger)
+		return NewSerialGPSNMEA(ctx, cfg, logger)
 	case i2cStr:
-		return NewPmtkI2CNMEAMovementSensor(ctx, deps, cfg, logger)
+		return NewPmtkI2CGPSNMEA(ctx, deps, cfg, logger)
 	default:
 		return nil, fmt.Errorf("%s is not a valid connection type", connectionType)
 	}

@@ -28,7 +28,7 @@ var (
 func TestValidateSerial(t *testing.T) {
 	fakecfg := &SerialAttrConfig{}
 	err := fakecfg.ValidateSerial("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty path")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "serial_path")
 
 	fakecfg.SerialPath = "some-path"
 	err = fakecfg.ValidateSerial("path")
@@ -51,7 +51,7 @@ func TestNewSerialMovementSensor(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
-	g, err := NewSerialNMEAMovementSensor(ctx, cfig, logger)
+	g, err := NewSerialGPSNMEA(ctx, cfig, logger)
 	test.That(t, g, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -64,15 +64,15 @@ func TestNewSerialMovementSensor(t *testing.T) {
 			Board:          "local",
 			DisableNMEA:    false,
 			SerialAttrConfig: &SerialAttrConfig{
-				SerialPath:         path,
-				BaudRate:           0,
-				CorrectionPath:     path,
-				CorrectionBaudRate: 0,
+				SerialPath:               path,
+				SerialBaudRate:           0,
+				SerialCorrectionPath:     path,
+				SerialCorrectionBaudRate: 0,
 			},
 			I2CAttrConfig: &I2CAttrConfig{},
 		},
 	}
-	g, err = NewSerialNMEAMovementSensor(ctx, cfig, logger)
+	g, err = NewSerialGPSNMEA(ctx, cfig, logger)
 	passErr := "open " + path + ": no such file or directory"
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
@@ -89,7 +89,7 @@ func TestReadingsSerial(t *testing.T) {
 		cancelFunc: cancelFunc,
 		logger:     logger,
 	}
-	g.data = GpsData{
+	g.data = gpsData{
 		location:   loc,
 		alt:        alt,
 		speed:      speed,

@@ -38,12 +38,6 @@ const (
 
 	svinModeEnable  = 0x01
 	svinModeDisable = 0x00
-
-	// configuration constants.
-	requiredAccuracyConfig = "loc_accuracy"
-	observationTimeConfig  = "time_accuracy"
-	timeMode               = "time"
-	svinConfig             = "svin"
 )
 
 var rtcmMsgs = map[int]int{
@@ -82,11 +76,10 @@ type configCommand struct {
 
 // ConfigureBaseRTKStation configures an RTK chip to act as a base station and send correction data.
 func ConfigureBaseRTKStation(config config.Component) error {
-	correctionType := config.ConvertedAttributes.(*AttrConfig).CorrectionSource
-
-	surveyIn := config.Attributes.String(svinConfig)
-	requiredAcc := config.Attributes.Float64(requiredAccuracyConfig, 10)
-	observationTime := config.Attributes.Int(observationTimeConfig, 60)
+	correctionType := config.ConvertedAttributes.(*StationConfig).CorrectionSource
+	surveyIn := config.ConvertedAttributes.(*StationConfig).SurveyIn
+	requiredAcc := config.ConvertedAttributes.(*StationConfig).RequiredAccuracy
+	observationTime := config.ConvertedAttributes.(*StationConfig).RequiredTime
 
 	c := &configCommand{
 		correctionType:  correctionType,
@@ -132,7 +125,7 @@ func ConfigureBaseRTKStation(config config.Component) error {
 
 // ConfigureRoverDefault sets up an RTK chip to act as a rover and receive correction data.
 func ConfigureRoverDefault(config config.Component) error {
-	correctionType := config.ConvertedAttributes.(*AttrConfig).CorrectionSource
+	correctionType := config.ConvertedAttributes.(*RTKAttrConfig).CorrectionSource
 
 	c := &configCommand{
 		correctionType: correctionType,
@@ -169,13 +162,13 @@ func ConfigureRoverDefault(config config.Component) error {
 }
 
 func (c *configCommand) serialConfigure(config config.Component) error {
-	portName := config.Attributes.String("correction_path")
+	portName := config.ConvertedAttributes.(*RTKAttrConfig).SerialAttrConfig.SerialCorrectionPath
 	if portName == "" {
 		return fmt.Errorf("serialCorrectionSource expected non-empty string for %q", correctionPathName)
 	}
 	c.portName = portName
 
-	baudRate := config.Attributes.Int("correction_baud", 0)
+	baudRate := config.ConvertedAttributes.(*RTKAttrConfig).SerialAttrConfig.SerialCorrectionBaudRate
 	if baudRate == 0 {
 		baudRate = 9600
 	}

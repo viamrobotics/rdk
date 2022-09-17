@@ -127,17 +127,20 @@ const (
 func NewVectorNav(
 	ctx context.Context,
 	deps registry.Dependencies,
-	cfg config.Component,
+	config config.Component,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	conf, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	attr, ok := config.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, rutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+	}
 
-	boardName := conf.Board
+	boardName := attr.Board
 	b, err := board.FromDependencies(deps, boardName)
 	if err != nil {
 		return nil, errors.Wrap(err, "vectornav init failed")
 	}
-	spiName := conf.SPI
+	spiName := attr.SPI
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
 		return nil, errors.Errorf("vectornav: board %q is not local", boardName)
@@ -146,14 +149,14 @@ func NewVectorNav(
 	if !ok {
 		return nil, errors.Errorf("vectornav: couldn't get spi bus %q", spiName)
 	}
-	cs := conf.CSPin
+	cs := attr.CSPin
 
-	speed := *conf.Speed
+	speed := *attr.Speed
 	if speed == 0 {
 		speed = 8000000
 	}
 
-	pfreq := *conf.Pfreq
+	pfreq := *attr.Pfreq
 	v := &vectornav{
 		bus:       spiBus,
 		logger:    logger,
