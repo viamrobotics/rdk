@@ -13,12 +13,10 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
-	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -43,32 +41,27 @@ type SerialNMEAMovementSensor struct {
 	correctionPath     string
 }
 
-func NewSerialGPSNMEA(ctx context.Context, config config.Component, logger golog.Logger) (NmeaMovementSensor, error) {
-	conf, ok := config.ConvertedAttributes.(*AttrConfig)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
-	}
-
-	serialPath := conf.SerialAttrConfig.SerialPath
+func NewSerialGPSNMEA(ctx context.Context, attr *AttrConfig, logger golog.Logger) (NmeaMovementSensor, error) {
+	serialPath := attr.SerialAttrConfig.SerialPath
 	if serialPath == "" {
-		return nil, fmt.Errorf("SerialNMEAMovementSensor expected non-empty string for %q", conf.SerialAttrConfig.SerialPath)
+		return nil, fmt.Errorf("SerialNMEAMovementSensor expected non-empty string for %q", attr.SerialAttrConfig.SerialPath)
 	}
-	correctionPath := conf.SerialAttrConfig.SerialCorrectionPath
+	correctionPath := attr.SerialAttrConfig.SerialCorrectionPath
 	if correctionPath == "" {
 		correctionPath = serialPath
 		logger.Info("SerialNMEAMovementSensor: correction_path using path")
 	}
-	baudRate := conf.SerialAttrConfig.SerialBaudRate
+	baudRate := attr.SerialAttrConfig.SerialBaudRate
 	if baudRate == 0 {
 		baudRate = 9600
 		logger.Info("SerialNMEAMovementSensor: baud_rate using default 9600")
 	}
-	correctionBaudRate := conf.SerialAttrConfig.SerialCorrectionBaudRate
+	correctionBaudRate := attr.SerialAttrConfig.SerialCorrectionBaudRate
 	if correctionBaudRate == 0 {
 		correctionBaudRate = baudRate
 		logger.Info("SerialNMEAMovementSensor: correction_baud using baud_rate")
 	}
-	disableNmea := conf.DisableNMEA
+	disableNmea := attr.DisableNMEA
 	if disableNmea {
 		logger.Info("SerialNMEAMovementSensor: NMEA reading disabled")
 	}

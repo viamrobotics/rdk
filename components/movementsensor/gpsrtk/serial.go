@@ -57,10 +57,10 @@ const (
 	baudRateName       = "correction_baud"
 )
 
-func newSerialCorrectionSource(ctx context.Context, config config.Component, logger golog.Logger) (correctionSource, error) {
-	attr, ok := config.ConvertedAttributes.(*StationConfig)
+func newSerialCorrectionSource(ctx context.Context, cfg config.Component, logger golog.Logger) (correctionSource, error) {
+	attr, ok := cfg.ConvertedAttributes.(*StationConfig)
 	if !ok {
-		return nil, utils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+		return nil, utils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
 	}
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 

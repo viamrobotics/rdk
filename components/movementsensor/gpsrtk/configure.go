@@ -75,11 +75,11 @@ type configCommand struct {
 }
 
 // ConfigureBaseRTKStation configures an RTK chip to act as a base station and send correction data.
-func ConfigureBaseRTKStation(config config.Component) error {
-	correctionType := config.ConvertedAttributes.(*StationConfig).CorrectionSource
-	surveyIn := config.ConvertedAttributes.(*StationConfig).SurveyIn
-	requiredAcc := config.ConvertedAttributes.(*StationConfig).RequiredAccuracy
-	observationTime := config.ConvertedAttributes.(*StationConfig).RequiredTime
+func ConfigureBaseRTKStation(cfg config.Component) error {
+	correctionType := cfg.ConvertedAttributes.(*StationConfig).CorrectionSource
+	surveyIn := cfg.ConvertedAttributes.(*StationConfig).SurveyIn
+	requiredAcc := cfg.ConvertedAttributes.(*StationConfig).RequiredAccuracy
+	observationTime := cfg.ConvertedAttributes.(*StationConfig).RequiredTime
 
 	c := &configCommand{
 		correctionType:  correctionType,
@@ -97,7 +97,7 @@ func ConfigureBaseRTKStation(config config.Component) error {
 
 	switch c.correctionType {
 	case serialStr:
-		err := c.serialConfigure(config)
+		err := c.serialConfigure(cfg)
 		if err != nil {
 			return err
 		}
@@ -124,8 +124,8 @@ func ConfigureBaseRTKStation(config config.Component) error {
 }
 
 // ConfigureRoverDefault sets up an RTK chip to act as a rover and receive correction data.
-func ConfigureRoverDefault(config config.Component) error {
-	correctionType := config.ConvertedAttributes.(*RTKAttrConfig).CorrectionSource
+func ConfigureRoverDefault(cfg config.Component) error {
+	correctionType := cfg.ConvertedAttributes.(*AttrConfig).CorrectionSource
 
 	c := &configCommand{
 		correctionType: correctionType,
@@ -135,7 +135,7 @@ func ConfigureRoverDefault(config config.Component) error {
 
 	switch correctionType {
 	case serialStr:
-		err := c.serialConfigure(config)
+		err := c.serialConfigure(cfg)
 		if err != nil {
 			return err
 		}
@@ -161,14 +161,14 @@ func ConfigureRoverDefault(config config.Component) error {
 	return nil
 }
 
-func (c *configCommand) serialConfigure(config config.Component) error {
-	portName := config.ConvertedAttributes.(*RTKAttrConfig).SerialAttrConfig.SerialCorrectionPath
+func (c *configCommand) serialConfigure(cfg config.Component) error {
+	portName := cfg.ConvertedAttributes.(*AttrConfig).SerialAttrConfig.SerialCorrectionPath
 	if portName == "" {
 		return fmt.Errorf("serialCorrectionSource expected non-empty string for %q", correctionPathName)
 	}
 	c.portName = portName
 
-	baudRate := config.ConvertedAttributes.(*RTKAttrConfig).SerialAttrConfig.SerialCorrectionBaudRate
+	baudRate := cfg.ConvertedAttributes.(*AttrConfig).SerialAttrConfig.SerialCorrectionBaudRate
 	if baudRate == 0 {
 		baudRate = 9600
 	}

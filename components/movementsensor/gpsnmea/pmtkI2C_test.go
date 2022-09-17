@@ -48,17 +48,12 @@ func TestNewI2CMovementSensor(t *testing.T) {
 		Name:  "movementsensor1",
 		Model: "gps-nmea",
 		Type:  movementsensor.SubtypeName,
-		Attributes: config.AttributeMap{
-			"board":    "",
-			"bus":      "",
-			"i2c_addr": "",
-		},
 	}
 
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
-	g, err := NewPmtkI2CGPSNMEA(ctx, deps, cfig, logger)
+	g, err := newNMEAGPS(ctx, deps, cfig, logger)
 	test.That(t, g, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -66,20 +61,15 @@ func TestNewI2CMovementSensor(t *testing.T) {
 		Name:  "movementsensor2",
 		Model: "gps-nmea",
 		Type:  movementsensor.SubtypeName,
-		Attributes: config.AttributeMap{
-			"board":    testBoardName,
-			"bus":      testBusName,
-			"i2c_addr": "",
-		},
 		ConvertedAttributes: &AttrConfig{
-			ConnectionType: "i2c",
+			ConnectionType: "I2C",
 			Board:          testBoardName,
 			DisableNMEA:    false,
 			I2CAttrConfig:  &I2CAttrConfig{I2CBus: testBusName},
 		},
 	}
-	g, err = NewPmtkI2CGPSNMEA(ctx, deps, cfig, logger)
-	passErr := "board " + cfig.Attributes.String("board") + " is not local"
+	g, err = newNMEAGPS(ctx, deps, cfig, logger)
+	passErr := "board " + testBoardName + " is not local"
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, g, test.ShouldNotBeNil)

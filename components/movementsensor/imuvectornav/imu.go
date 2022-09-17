@@ -60,14 +60,14 @@ func (cfg *AttrConfig) Validate(path string) error {
 
 func init() {
 	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewVectorNav(ctx, deps, config, logger)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
+			return NewVectorNav(ctx, deps, cfg, logger)
 		},
 	})
 	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
+			var attr AttrConfig
+			return config.TransformAttributeMapToStruct(&attr, attributes)
 		},
 		&AttrConfig{})
 }
@@ -127,12 +127,12 @@ const (
 func NewVectorNav(
 	ctx context.Context,
 	deps registry.Dependencies,
-	config config.Component,
+	cfg config.Component,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	attr, ok := config.ConvertedAttributes.(*AttrConfig)
+	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	if !ok {
-		return nil, rutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+		return nil, rutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
 	}
 
 	boardName := attr.Board

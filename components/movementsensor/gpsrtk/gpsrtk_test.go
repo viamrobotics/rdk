@@ -27,7 +27,7 @@ var (
 )
 
 func TestValidateRTK(t *testing.T) {
-	fakecfg := &RTKAttrConfig{NtripAttrConfig: &NtripAttrConfig{}}
+	fakecfg := &AttrConfig{NtripAttrConfig: &NtripAttrConfig{}}
 	err := fakecfg.ValidateRTK("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "correction_source")
 
@@ -98,9 +98,15 @@ func TestNewRTKMovementSensor(t *testing.T) {
 				"correction_input_protocol": "serial",
 				"path":                      path,
 			},
-			ConvertedAttributes: &RTKAttrConfig{
+			ConvertedAttributes: &AttrConfig{
 				CorrectionSource: "serial",
 				Board:            "",
+				SerialAttrConfig: &SerialAttrConfig{
+					SerialPath:               path,
+					SerialBaudRate:           0,
+					SerialCorrectionPath:     path,
+					SerialCorrectionBaudRate: 0,
+				},
 				NtripAttrConfig: &NtripAttrConfig{
 					NtripAddr:            "some_ntrip_address",
 					NtripConnectAttempts: 10,
@@ -142,9 +148,9 @@ func TestNewRTKMovementSensor(t *testing.T) {
 				"board":                     testBoardName,
 				"bus":                       testBusName,
 			},
-			ConvertedAttributes: &RTKAttrConfig{
-				CorrectionSource: "i2c",
-				Board:            "",
+			ConvertedAttributes: &AttrConfig{
+				CorrectionSource: "I2C",
+				Board:            testBoardName,
 				I2CAttrConfig: &I2CAttrConfig{
 					I2CBus:      testBusName,
 					I2cAddr:     0,
@@ -154,7 +160,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 		}
 
 		g, err := newRTKMovementSensor(ctx, deps, cfig, logger)
-		passErr := "board " + cfig.Attributes.String("board") + " is not local"
+		passErr := "board " + testBoardName + " is not local"
 
 		if err == nil || err.Error() != passErr {
 			test.That(t, err, test.ShouldBeNil)
@@ -180,7 +186,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 				"correction_input_protocol": "notserial",
 				"path":                      path,
 			},
-			ConvertedAttributes: &RTKAttrConfig{},
+			ConvertedAttributes: &AttrConfig{},
 		}
 		_, err := newRTKMovementSensor(ctx, deps, cfig, logger)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -204,7 +210,7 @@ func TestNewRTKMovementSensor(t *testing.T) {
 				"correction_input_protocol": "serial",
 				"path":                      path,
 			},
-			ConvertedAttributes: &RTKAttrConfig{},
+			ConvertedAttributes: &AttrConfig{},
 		}
 
 		_, err := newRTKMovementSensor(ctx, deps, cfig, logger)

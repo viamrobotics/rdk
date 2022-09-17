@@ -36,6 +36,7 @@ func TestValidateSerial(t *testing.T) {
 }
 
 func TestNewSerialMovementSensor(t *testing.T) {
+	deps := setupDependencies(t)
 	path := "somepath"
 
 	cfig := config.Component{
@@ -51,7 +52,7 @@ func TestNewSerialMovementSensor(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
-	g, err := NewSerialGPSNMEA(ctx, cfig, logger)
+	g, err := newNMEAGPS(ctx, deps, cfig, logger)
 	test.That(t, g, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -72,7 +73,7 @@ func TestNewSerialMovementSensor(t *testing.T) {
 			I2CAttrConfig: &I2CAttrConfig{},
 		},
 	}
-	g, err = NewSerialGPSNMEA(ctx, cfig, logger)
+	g, err = newNMEAGPS(ctx, deps, cfig, logger)
 	passErr := "open " + path + ": no such file or directory"
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
