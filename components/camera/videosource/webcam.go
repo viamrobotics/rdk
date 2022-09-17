@@ -111,6 +111,9 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webca
 
 		for _, prop := range props {
 			pbProp := &pb.Property{
+				Width:       int32(prop.Video.Width),
+				Height:      int32(prop.Video.Height),
+				FrameFormat: string(prop.Video.FrameFormat),
 				Video: &pb.Video{
 					Width:       int32(prop.Video.Width),
 					Height:      int32(prop.Video.Height),
@@ -257,8 +260,15 @@ func tryWebcamOpen(ctx context.Context,
 		return nil, err
 	}
 	var intrinsics *transform.PinholeCameraIntrinsics
+	var distortion transform.Distorter
 	if attrs.AttrConfig != nil {
 		intrinsics = attrs.AttrConfig.CameraParameters
+		distortion = attrs.AttrConfig.DistortionParameters
 	}
-	return camera.NewFromSource(ctx, source, intrinsics, camera.StreamType(attrs.Stream))
+	return camera.NewFromSource(
+		ctx,
+		source,
+		&transform.PinholeCameraModel{intrinsics, distortion},
+		camera.StreamType(attrs.Stream),
+	)
 }

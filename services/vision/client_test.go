@@ -21,7 +21,9 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/services/vision/builtin"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -30,7 +32,8 @@ import (
 )
 
 const (
-	testVisionServiceName = "vision1"
+	testVisionServiceName     = "vision1"
+	RadiusClusteringSegmenter = "radius_clustering"
 )
 
 func TestClient(t *testing.T) {
@@ -70,7 +73,7 @@ func TestClient(t *testing.T) {
 
 		client := vision.NewClientFromConn(context.Background(), conn, visName, logger)
 
-		params, err := client.GetModelParameterSchema(context.Background(), vision.RCSegmenter)
+		params, err := client.GetModelParameterSchema(context.Background(), builtin.RCSegmenter)
 		test.That(t, err, test.ShouldBeNil)
 		parameterNames := params.Definitions["RadiusClusteringConfig"].Required
 		test.That(t, parameterNames, test.ShouldContain, "min_points_in_plane")
@@ -185,7 +188,7 @@ func TestClient(t *testing.T) {
 
 		cfg := vision.VisModelConfig{
 			Name: "new_segmenter",
-			Type: string(vision.RCSegmenter),
+			Type: string(builtin.RCSegmenter),
 			Parameters: config.AttributeMap{
 				"min_points_in_plane":   100,
 				"min_points_in_segment": 3,
@@ -327,7 +330,7 @@ func TestInjectedServiceClient(t *testing.T) {
 
 	t.Run("dialed client test config for working vision service", func(t *testing.T) {
 		injectVision.GetSegmenterNamesFunc = func(ctx context.Context) ([]string, error) {
-			return []string{vision.RadiusClusteringSegmenter}, nil
+			return []string{RadiusClusteringSegmenter}, nil
 		}
 
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
@@ -365,7 +368,7 @@ func TestInjectedServiceClient(t *testing.T) {
 			return segments, nil
 		}
 
-		segs, err := client.GetObjectPointClouds(context.Background(), "cloud_cam", vision.RadiusClusteringSegmenter)
+		segs, err := client.GetObjectPointClouds(context.Background(), "cloud_cam", RadiusClusteringSegmenter)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(segs), test.ShouldEqual, 2)
 

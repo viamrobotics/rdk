@@ -111,19 +111,19 @@ func (config *AttrConfig) Validate(path string) error {
 	return nil
 }
 
-//go:embed wx250s_kinematics.json
+//go:embed trossen_wx250s_kinematics.json
 var wx250smodeljson []byte
 
-//go:embed vx300s_kinematics.json
+//go:embed trossen_vx300s_kinematics.json
 var vx300smodeljson []byte
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, "wx250s", registry.Component{
+	registry.RegisterComponent(arm.Subtype, "trossen-wx250s", registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewArm(r, config.Attributes, logger, wx250smodeljson)
 		},
 	})
-	registry.RegisterComponent(arm.Subtype, "vx300s", registry.Component{
+	registry.RegisterComponent(arm.Subtype, "trossen-vx300s", registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewArm(r, config.Attributes, logger, vx300smodeljson)
 		},

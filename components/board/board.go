@@ -643,6 +643,12 @@ func (r *reconfigurableDigitalInterrupt) AddCallback(c chan bool) {
 	r.actual.AddCallback(c)
 }
 
+func (r *reconfigurableDigitalInterrupt) RemoveCallback(c chan bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	r.actual.RemoveCallback(c)
+}
+
 func (r *reconfigurableDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

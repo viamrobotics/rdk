@@ -21,7 +21,6 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
@@ -43,7 +42,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam1.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
-	cam1.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	cam1.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	cam2 := &inject.Camera{}
@@ -56,7 +55,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam2.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
-	cam2.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	cam2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	cam3 := &inject.Camera{}
@@ -69,7 +68,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam3.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
-	cam3.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	cam3.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	base1 := &inject.Base{}
@@ -78,19 +77,19 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	fsParts := framesystemparts.Parts{
 		{
 			Name:        "base1",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{0, 0, 0}},
+			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
 		},
 		{
 			Name:        "cam1",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{100, 0, 0}},
+			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{100, 0, 0}},
 		},
 		{
 			Name:        "cam2",
-			FrameConfig: &config.Frame{Parent: "cam1", Translation: spatialmath.TranslationConfig{0, 0, 100}},
+			FrameConfig: &config.Frame{Parent: "cam1", Translation: r3.Vector{0, 0, 100}},
 		},
 		{
 			Name:        "cam3",
-			FrameConfig: &config.Frame{Parent: "cam2", Translation: spatialmath.TranslationConfig{0, 100, 0}},
+			FrameConfig: &config.Frame{Parent: "cam2", Translation: r3.Vector{0, 100, 0}},
 		},
 	}
 	r.FrameSystemConfigFunc = func(
@@ -241,7 +240,7 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	cam1.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
-	cam1.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	cam1.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	cam2 := &inject.Camera{}
@@ -269,7 +268,7 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	cam2.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
-	cam2.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	cam2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 
@@ -309,31 +308,31 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	fsParts := framesystemparts.Parts{
 		{
 			Name:        "base1",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{0, 0, 0}},
+			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
 		},
 		{
 			Name:        "cam1",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{0, 0, 0}},
+			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
 		},
 		{
 			Name:        "cam2",
-			FrameConfig: &config.Frame{Parent: "cam1", Translation: spatialmath.TranslationConfig{0, 0, -100}},
+			FrameConfig: &config.Frame{Parent: "cam1", Translation: r3.Vector{0, 0, -100}},
 		},
 		{
 			Name:        "cam3",
-			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: spatialmath.TranslationConfig{0, 0, 0}},
+			FrameConfig: &config.Frame{Parent: referenceframe.World, Translation: r3.Vector{0, 0, 0}},
 		},
 		{
 			Name: "cam4",
 			FrameConfig: &config.Frame{
-				Parent: "cam3", Translation: spatialmath.TranslationConfig{-60, 0, -10},
+				Parent: "cam3", Translation: r3.Vector{-60, 0, -10},
 				Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: 0},
 			},
 		},
 		{
 			Name: "cam5",
 			FrameConfig: &config.Frame{
-				Parent: "cam4", Translation: spatialmath.TranslationConfig{-60, 0, 10},
+				Parent: "cam4", Translation: r3.Vector{-60, 0, 10},
 				Orientation: &spatialmath.EulerAngles{Roll: 0, Pitch: 0.6, Yaw: -0.3},
 			},
 		},

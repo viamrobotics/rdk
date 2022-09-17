@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/pion/webrtc/v3"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -59,6 +60,9 @@ type Options struct {
 	// baked information when managed to make local UI simpler
 	BakedAuthEntity string
 	BakedAuthCreds  rpc.Credentials
+
+	WebRTCOnPeerAdded   func(pc *webrtc.PeerConnection)
+	WebRTCOnPeerRemoved func(pc *webrtc.PeerConnection)
 }
 
 // New returns a default set of options which will have the

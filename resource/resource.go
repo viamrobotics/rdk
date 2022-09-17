@@ -32,6 +32,8 @@ const (
 	ResourceTypeComponent = TypeName("component")
 	ResourceTypeService   = TypeName("service")
 	DefaultServiceName    = "builtin"
+	DefaultModelName      = "builtin"
+	DefaultMaxInstance    = 1
 )
 
 var (
