@@ -709,4 +709,5 @@ func (m *mockDigitalInterrupt) Tick(ctx context.Context, high bool, nanos uint64
 	return nil
 }
 func (m *mockDigitalInterrupt) AddCallback(c chan bool)                 {}
+func (m *mockDigitalInterrupt) RemoveCallback(c chan bool)              {}
 func (m *mockDigitalInterrupt) AddPostProcessor(pp board.PostProcessor) {}

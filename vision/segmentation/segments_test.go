@@ -123,7 +123,7 @@ func TestMergeCluster(t *testing.T) {
 		test.That(t, clusters.Indices[pt], test.ShouldEqual, 1)
 		return true
 	})
-	test.That(t, clusters.Objects[0].BoundingBox, test.ShouldBeNil)
+	test.That(t, clusters.Objects[0].Geometry, test.ShouldBeNil)
 	testPointCloudBoundingBox(t, clusters.Objects[1].PointCloud, r3.Vector{15, 0.5, 0.5}, r3.Vector{30, 1, 1})
 	testPointCloudBoundingBox(t, clusters.Objects[2].PointCloud, r3.Vector{0.5, 30, 0.5}, r3.Vector{1, 0, 1})
 
@@ -135,9 +135,9 @@ func TestMergeCluster(t *testing.T) {
 	test.That(t, clusters.Objects[1].Size(), test.ShouldEqual, 8)
 	test.That(t, clusters.Objects[2].Size(), test.ShouldEqual, 0)
 	test.That(t, clusters.Objects[3].Size(), test.ShouldEqual, 5)
-	test.That(t, clusters.Objects[0].BoundingBox, test.ShouldBeNil)
+	test.That(t, clusters.Objects[0].Geometry, test.ShouldBeNil)
 	testPointCloudBoundingBox(t, clusters.Objects[1].PointCloud, r3.Vector{15, 0.5, 0.5}, r3.Vector{30, 1, 1})
-	test.That(t, clusters.Objects[2].BoundingBox, test.ShouldBeNil)
+	test.That(t, clusters.Objects[2].Geometry, test.ShouldBeNil)
 	testPointCloudBoundingBox(t, clusters.Objects[3].PointCloud, r3.Vector{0.5, 30, 0.5}, r3.Vector{1, 0, 1})
 }
 

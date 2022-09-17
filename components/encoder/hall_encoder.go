@@ -167,6 +167,8 @@ func (e *HallEncoder) Start(ctx context.Context) {
 	e.activeBackgroundWorkers.Add(1)
 
 	utils.ManagedGo(func() {
+		defer e.A.RemoveCallback(chanA)
+		defer e.B.RemoveCallback(chanB)
 		for {
 			select {
 			case <-e.CancelCtx.Done():
