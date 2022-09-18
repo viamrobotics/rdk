@@ -84,12 +84,11 @@ func New(ctx context.Context, r robot.Robot, logger golog.Logger) Service {
 // the frame system service collects all the relevant parts that make up the frame system from the robot
 // configs, and the remote robot configs.
 type frameSystemService struct {
-	mu           sync.RWMutex
-	r            robot.Robot
-	localParts   framesystemparts.Parts             // gotten from the local robot's config.Config
-	offsetParts  map[string]*config.FrameSystemPart // gotten from local robot's config.Remote
-	remotePrefix map[string]bool                    // gotten from local robot's config.Remote
-	logger       golog.Logger
+	mu          sync.RWMutex
+	r           robot.Robot
+	localParts  framesystemparts.Parts             // gotten from the local robot's config.Config
+	offsetParts map[string]*config.FrameSystemPart // gotten from local robot's config.Remote
+	logger      golog.Logger
 }
 
 // Update will rebuild the frame system from the newly updated robot.
@@ -253,7 +252,6 @@ func (svc *frameSystemService) updateOffsetParts(ctx context.Context) error {
 	}
 	remoteNames := local.RemoteNames()
 	offsetParts := make(map[string]*config.FrameSystemPart)
-	remotePrefix := make(map[string]bool)
 	for _, remoteName := range remoteNames {
 		rConf, err := getRemoteRobotConfig(remoteName, conf)
 		if err != nil {
@@ -270,10 +268,8 @@ func (svc *frameSystemService) updateOffsetParts(ctx context.Context) error {
 			FrameConfig: rConf.Frame,
 		}
 		offsetParts[remoteName] = connection
-		remotePrefix[remoteName] = rConf.Prefix
 	}
 	svc.offsetParts = offsetParts
-	svc.remotePrefix = remotePrefix
 	return nil
 }
 
@@ -297,7 +293,7 @@ func (svc *frameSystemService) updateRemoteParts(ctx context.Context) (map[strin
 			return nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
 		connectionName := remoteName + "_" + referenceframe.World
-		rParts = framesystemparts.RenameRemoteParts(rParts, remoteName, svc.remotePrefix[remoteName], connectionName)
+		rParts = framesystemparts.RenameRemoteParts(rParts, remoteName, connectionName)
 		remoteParts[remoteName] = rParts
 	}
 	return remoteParts, nil

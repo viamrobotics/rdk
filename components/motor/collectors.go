@@ -3,6 +3,8 @@ package motor
 import (
 	"context"
 
+	"google.golang.org/protobuf/types/known/anypb"
+
 	"go.viam.com/rdk/data"
 )
 
@@ -34,7 +36,7 @@ func newGetPositionCollector(resource interface{}, params data.CollectorParams) 
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		v, err := motor.GetPosition(ctx, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, getPosition.String(), err)
@@ -55,7 +57,7 @@ func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (d
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		v, err := motor.IsPowered(ctx, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, isPowered.String(), err)

@@ -28,6 +28,8 @@ type MotionPlanner interface {
 	Frame() frame.Frame // Frame will return the frame used for planning
 }
 
+type plannerConstructor func(frame.Frame, int, golog.Logger) (MotionPlanner, error)
+
 type planner struct {
 	solver InverseKinematics
 	frame  frame.Frame
@@ -156,9 +158,13 @@ func PlanWaypoints(ctx context.Context,
 }
 
 // EvaluatePlan assigns a numeric score to a plan that corresponds to the cumulative distance between input waypoints in the plan.
-func EvaluatePlan(plan [][]frame.Input, planOpts *PlannerOptions) (totalCost float64) {
-	for i := 0; i < len(plan)-1; i++ {
-		_, cost := planOpts.DistanceFunc(&ConstraintInput{StartInput: plan[i], EndInput: plan[i+1]})
+func EvaluatePlan(plan *planReturn, planOpts *PlannerOptions) (totalCost float64) {
+	if errors.Is(plan.err, errPlannerFailed) {
+		return math.Inf(1)
+	}
+	steps := plan.toInputs()
+	for i := 0; i < len(steps)-1; i++ {
+		_, cost := planOpts.DistanceFunc(&ConstraintInput{StartInput: steps[i], EndInput: steps[i+1]})
 		totalCost += cost
 	}
 	return totalCost
@@ -379,7 +385,7 @@ IK:
 		}
 	}
 	if len(solutions) == 0 {
-		return nil, newIKError()
+		return nil, errIKSolve
 	}
 
 	keys := make([]float64, 0, len(solutions))
@@ -429,7 +435,7 @@ func extractPath(startMap, goalMap map[*node]*node, pair *nodePair) []*node {
 
 func shortestPath(startMap, goalMap map[*node]*node, nodePairs []*nodePair) *planReturn {
 	if len(nodePairs) == 0 {
-		return &planReturn{err: newPlannerFailedError()}
+		return &planReturn{err: errPlannerFailed}
 	}
 	pairCost := func(pair *nodePair) float64 {
 		return pair.a.cost + pair.b.cost
