@@ -4,9 +4,9 @@
 
 typedef long EncoderCount;
 
-class DualEncoder {
+class IncrementalEncoder {
    public:
-    DualEncoder(int pinA, int pinB);
+    IncrementalEncoder(int pinA, int pinB);
 
     void encoderTick();
     void zero(long offset);

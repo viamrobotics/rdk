@@ -15,10 +15,12 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
+const singlemodelname = "single-wire"
+
 func init() {
 	registry.RegisterComponent(
 		Subtype,
-		"single",
+		singlemodelname,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -30,12 +32,12 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(
 		SubtypeName,
-		"single",
+		singlemodelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf SingleConfig
+			var conf SingleWireConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&SingleConfig{})
+		&SingleWireConfig{})
 }
 
 // DirectionAware lets you ask what direction something is moving. Only used for SingleEncoder for now, unclear future.
@@ -44,8 +46,8 @@ type DirectionAware interface {
 	DirectionMoving() int64
 }
 
-// SingleEncoder keeps track of a motor position using a rotary encoder.
-type SingleEncoder struct {
+// SingleWire keeps track of a motor position using a rotary encoder.
+type SingleWire struct {
 	generic.Unimplemented
 	I        board.DigitalInterrupt
 	position int64
@@ -57,35 +59,35 @@ type SingleEncoder struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// SinglePins describes the configuration of Pins for a Single encoder.
-type SinglePins struct {
+// SingleWirePin describes the configuration of Pins for a Single encoder.
+type SingleWirePin struct {
 	I string `json:"i"`
 }
 
-// SingleConfig describes the configuration of a single encoder.
-type SingleConfig struct {
-	Pins      SinglePins `json:"pins"`
-	BoardName string     `json:"board"`
+// SingleWireConfig describes the configuration of a single encoder.
+type SingleWireConfig struct {
+	Pins      SingleWirePin `json:"pins"`
+	BoardName string        `json:"board"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *SingleConfig) Validate(path string) ([]string, error) {
+func (cfg *SingleWireConfig) Validate(path string) ([]string, error) {
 	var deps []string
 
-	if config.Pins.I == "" {
+	if cfg.Pins.I == "" {
 		return nil, errors.New("expected nonempty string for i")
 	}
 
-	if len(config.BoardName) == 0 {
+	if len(cfg.BoardName) == 0 {
 		return nil, errors.New("expected nonempty board")
 	}
-	deps = append(deps, config.BoardName)
+	deps = append(deps, cfg.BoardName)
 
 	return deps, nil
 }
 
 // AttachDirectionalAwareness to pre-created encoder.
-func (e *SingleEncoder) AttachDirectionalAwareness(da DirectionAware) {
+func (e *SingleWire) AttachDirectionalAwareness(da DirectionAware) {
 	e.m = da
 }
 
@@ -93,12 +95,12 @@ func (e *SingleEncoder) AttachDirectionalAwareness(da DirectionAware) {
 func NewSingleEncoder(
 	ctx context.Context,
 	deps registry.Dependencies,
-	config config.Component,
+	cfg config.Component,
 	logger golog.Logger,
-) (*SingleEncoder, error) {
+) (*SingleWire, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	e := &SingleEncoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0}
-	if cfg, ok := config.ConvertedAttributes.(*SingleConfig); ok {
+	e := &SingleWire{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0}
+	if cfg, ok := cfg.ConvertedAttributes.(*SingleWireConfig); ok {
 		board, err := board.FromDependencies(deps, cfg.BoardName)
 		if err != nil {
 			return nil, err
@@ -120,7 +122,7 @@ func NewSingleEncoder(
 }
 
 // Start starts the SingleEncoder background thread.
-func (e *SingleEncoder) Start(ctx context.Context) {
+func (e *SingleWire) Start(ctx context.Context) {
 	encoderChannel := make(chan bool)
 	e.I.AddCallback(encoderChannel)
 	e.activeBackgroundWorkers.Add(1)
@@ -150,19 +152,19 @@ func (e *SingleEncoder) Start(ctx context.Context) {
 }
 
 // GetTicksCount returns the current position.
-func (e *SingleEncoder) GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
+func (e *SingleWire) GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 
 // Reset sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
-func (e *SingleEncoder) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {
+func (e *SingleWire) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	atomic.StoreInt64(&e.position, offset)
 	return nil
 }
 
 // Close shuts down the SingleEncoder.
-func (e *SingleEncoder) Close() error {
+func (e *SingleWire) Close() error {
 	e.logger.Debug("Closing SingleEncoder")
 	e.cancelFunc()
 	e.activeBackgroundWorkers.Wait()

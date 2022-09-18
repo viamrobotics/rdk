@@ -15,31 +15,33 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
+const incrModelName = "incremental"
+
 func init() {
 	registry.RegisterComponent(
 		Subtype,
-		"dual-wire",
+		incrModelName,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return NewDualEncoder(ctx, deps, config, logger)
+			return NewIncrementalEncoder(ctx, deps, config, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
 		SubtypeName,
-		"dual-wire",
+		incrModelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf DualConfig
+			var conf IncrementalConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&DualConfig{})
+		&IncrementalConfig{})
 }
 
-// DualEncoder keeps track of a motor position using a rotary dual-wire encoder.
-type DualEncoder struct {
+// IncrementalEncoder keeps track of a motor position using a rotary dual-wire encoder.
+type IncrementalEncoder struct {
 	A, B     board.DigitalInterrupt
 	position int64
 	pRaw     int64
@@ -53,20 +55,20 @@ type DualEncoder struct {
 	generic.Unimplemented
 }
 
-// DualPins describes the configuration of Pins for a dual-wire encoder.
-type DualPins struct {
+// IncrementalPins describes the configuration of Pins for a quadrature encoder.
+type IncrementalPins struct {
 	A string `json:"a"`
 	B string `json:"b"`
 }
 
-// DualConfig describes the configuration of a dual-wire encoder.
-type DualConfig struct {
-	Pins      DualPins `json:"pins"`
-	BoardName string   `json:"board"`
+// IncrementalConfig describes the configuration of a quadrature encoder.
+type IncrementalConfig struct {
+	Pins      IncrementalPins `json:"pins"`
+	BoardName string          `json:"board"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *DualConfig) Validate(path string) ([]string, error) {
+func (config *IncrementalConfig) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if config.Pins.A == "" {
@@ -84,11 +86,16 @@ func (config *DualConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-// NewDualEncoder creates a new DualEncoder.
-func NewDualEncoder(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (*DualEncoder, error) {
+// NewIncrementalEncoder creates a new IncrementalEncoder.
+func NewIncrementalEncoder(
+	ctx context.Context,
+	deps registry.Dependencies,
+	cfg config.Component,
+	logger golog.Logger,
+) (*IncrementalEncoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	e := &DualEncoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0, pRaw: 0, pState: 0}
-	if cfg, ok := config.ConvertedAttributes.(*DualConfig); ok {
+	e := &IncrementalEncoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0, pRaw: 0, pState: 0}
+	if cfg, ok := cfg.ConvertedAttributes.(*IncrementalConfig); ok {
 		board, err := board.FromDependencies(deps, cfg.BoardName)
 		if err != nil {
 			return nil, err
@@ -111,8 +118,8 @@ func NewDualEncoder(ctx context.Context, deps registry.Dependencies, config conf
 	return nil, errors.New("encoder config for dual-wire Encoder is not valid")
 }
 
-// Start starts the DualEncoder background thread.
-func (e *DualEncoder) Start(ctx context.Context) {
+// Start starts the IncrementalEncoder background thread.
+func (e *IncrementalEncoder) Start(ctx context.Context) {
 	/**
 	  a rotary encoder looks like
 
@@ -223,33 +230,33 @@ func (e *DualEncoder) Start(ctx context.Context) {
 }
 
 // GetTicksCount returns number of ticks since last zeroing.
-func (e *DualEncoder) GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
+func (e *IncrementalEncoder) GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 
 // Reset sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position..
-func (e *DualEncoder) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {
+func (e *IncrementalEncoder) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	atomic.StoreInt64(&e.position, offset)
 	atomic.StoreInt64(&e.pRaw, (offset<<1)|atomic.LoadInt64(&e.pRaw)&0x1)
 	return nil
 }
 
 // RawPosition returns the raw position of the encoder.
-func (e *DualEncoder) RawPosition() int64 {
+func (e *IncrementalEncoder) RawPosition() int64 {
 	return atomic.LoadInt64(&e.pRaw)
 }
 
-func (e *DualEncoder) inc() {
+func (e *IncrementalEncoder) inc() {
 	atomic.AddInt64(&e.pRaw, 1)
 }
 
-func (e *DualEncoder) dec() {
+func (e *IncrementalEncoder) dec() {
 	atomic.AddInt64(&e.pRaw, -1)
 }
 
-// Close shuts down the DualEncoder.
-func (e *DualEncoder) Close() error {
+// Close shuts down the IncrementalEncoder.
+func (e *IncrementalEncoder) Close() error {
 	e.logger.Debug("Closing dual-wire Encoder")
 	e.cancelFunc()
 	e.activeBackgroundWorkers.Wait()
