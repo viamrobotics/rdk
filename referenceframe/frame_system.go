@@ -2,7 +2,6 @@ package referenceframe
 
 import (
 	"errors"
-	"fmt"
 
 	"go.uber.org/multierr"
 
@@ -43,8 +42,12 @@ type FrameSystem interface {
 	// is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
 	Transform(positions map[string][]Input, object Transformable, dst string) (Transformable, error)
 
-	// DivideFrameSystem will take a frame system and a frame in that system, and return two frame systems- one being rooted
-	// at the given frame and containing all descendents of it, the other with the original world with the frame and its
+	// GetFrameSystemSubset will take a frame system and a frame in that system, and return a new frame system rooted
+	// at the given frame and containing all descendents of it. The original frame system is unchanged.
+	GetFrameSystemSubset(newRoot Frame) (FrameSystem, error)
+
+	// DivideFrameSystem will take a frame system and a frame in that system, and return a new frame system rooted
+	// at the given frame and containing all descendents of it, while the original has the frame and its
 	// descendents removed.
 	DivideFrameSystem(newRoot Frame) (FrameSystem, error)
 
@@ -71,17 +74,15 @@ func (sfs *simpleFrameSystem) World() Frame {
 	return sfs.world
 }
 
-var errNoParent = errors.New("no parent")
-
 // Parent returns the parent frame of the input referenceframe. nil if input is World.
 func (sfs *simpleFrameSystem) Parent(frame Frame) (Frame, error) {
 	if !sfs.frameExists(frame.Name()) {
-		return nil, fmt.Errorf("frame with name %q not in frame system", frame.Name())
+		return nil, NewFrameMissingError(frame.Name())
 	}
-	if frame == sfs.world {
-		return nil, errNoParent
+	if parent := sfs.parents[frame]; parent != nil {
+		return parent, nil
 	}
-	return sfs.parents[frame], nil
+	return nil, NewParentFrameMissingError()
 }
 
 // frameExists is a helper function to see if a frame with a given name already exists in the system.
@@ -120,10 +121,10 @@ func (sfs *simpleFrameSystem) GetFrame(name string) Frame {
 }
 
 // TracebackFrame traces the parentage of the given frame up to the world, and returns the full list of frames in between.
-// The list will include both the query frame and the world referenceframe.
+// The list will include both the query frame and the world referenceframe, and is ordered from query to world.
 func (sfs *simpleFrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
 	if !sfs.frameExists(query.Name()) {
-		return nil, fmt.Errorf("frame with name %q not in frame system", query.Name())
+		return nil, NewFrameMissingError(query.Name())
 	}
 	if query == sfs.world {
 		return []Frame{query}, nil
@@ -144,27 +145,23 @@ func (sfs *simpleFrameSystem) FrameNames() []string {
 	return frameNames
 }
 
-func (sfs *simpleFrameSystem) checkName(name string, parent Frame) error {
-	// check to see if parent is in system
-	if !sfs.frameExists(parent.Name()) {
-		return fmt.Errorf("parent frame with name %q not in frame system", parent.Name())
-	}
-	// check if frame with that name is already in system
-	if sfs.frameExists(name) {
-		return fmt.Errorf("frame with name %q already in frame system", name)
-	}
-	return nil
-}
-
 // AddFrame sets an already defined Frame into the system.
 func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
+	// check to see if parent is in system
 	if parent == nil {
 		return NewParentFrameMissingError()
 	}
-	err := sfs.checkName(frame.Name(), parent)
-	if err != nil {
-		return err
+
+	if !sfs.frameExists(parent.Name()) {
+		return NewFrameMissingError(parent.Name())
 	}
+
+	// check if frame with that name is already in system
+	if sfs.frameExists(frame.Name()) {
+		return NewFrameAlreadyExistsError(frame.Name())
+	}
+
+	// add to frame system
 	sfs.frames[frame.Name()] = frame
 	sfs.parents[frame] = parent
 	return nil
@@ -178,11 +175,11 @@ func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Tra
 		return object, nil
 	}
 	if !sfs.frameExists(src) {
-		return nil, fmt.Errorf("source frame %s not found in FrameSystem", src)
+		return nil, NewFrameMissingError(src)
 	}
 	srcFrame := sfs.GetFrame(src)
 	if !sfs.frameExists(dst) {
-		return nil, fmt.Errorf("destination frame %s not found in FrameSystem", dst)
+		return nil, NewFrameMissingError(dst)
 	}
 
 	var tfParent *PoseInFrame
@@ -216,7 +213,7 @@ func (sfs *simpleFrameSystem) Name() string {
 func (sfs *simpleFrameSystem) MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error {
 	attachFrame := sfs.GetFrame(attachTo.Name())
 	if attachFrame == nil {
-		return fmt.Errorf("frame to attach to, %q, not in target frame system %q", attachTo.Name(), sfs.Name())
+		return NewFrameMissingError(attachTo.Name())
 	}
 
 	// make a map where the parent frame is the key and the slice of children frames is the value
@@ -225,13 +222,14 @@ func (sfs *simpleFrameSystem) MergeFrameSystem(systemToMerge FrameSystem, attach
 		child := systemToMerge.GetFrame(name)
 		parent, err := systemToMerge.Parent(child)
 		if err != nil {
-			if errors.Is(err, errNoParent) {
+			if errors.Is(err, NewParentFrameMissingError()) {
 				continue
 			}
 			return err
 		}
 		childrenMap[parent] = append(childrenMap[parent], child)
 	}
+
 	// add every frame from systemToMerge to the base frame system.
 	queue := []Frame{systemToMerge.World()}
 	for len(queue) != 0 {
@@ -256,21 +254,18 @@ func (sfs *simpleFrameSystem) MergeFrameSystem(systemToMerge FrameSystem, attach
 	return nil
 }
 
-// DivideFrameSystem will take a frame system and a frame in that system, and return two frame systems- one being rooted
-// at the given frame and containing all descendents of it, the other with the original world with the frame and its
-// descendents removed. For example, if there is a frame system with two independent rovers, and one rover goes offline,
-// A user could divide the frame system to remove the offline rover and have the rest of the frame system unaffected.
-func (sfs *simpleFrameSystem) DivideFrameSystem(newRoot Frame) (FrameSystem, error) {
+// GetFrameSystemSubset will take a frame system and a frame in that system, and return a new frame system rooted
+// at the given frame and containing all descendents of it. The original frame system is unchanged.
+func (sfs *simpleFrameSystem) GetFrameSystemSubset(newRoot Frame) (FrameSystem, error) {
 	newWorld := NewZeroStaticFrame(World)
 	newFS := &simpleFrameSystem{newRoot.Name() + "_FS", newWorld, map[string]Frame{}, map[Frame]Frame{}}
 
 	rootFrame := sfs.GetFrame(newRoot.Name())
 	if rootFrame == nil {
-		return nil, fmt.Errorf("newRoot frame not in fs %s", newRoot.Name())
+		return nil, NewFrameMissingError(newRoot.Name())
 	}
-
-	delete(sfs.frames, newRoot.Name())
-	delete(sfs.parents, newRoot)
+	newFS.frames[newRoot.Name()] = newRoot
+	newFS.parents[newRoot] = newWorld
 
 	var traceParent func(Frame) bool
 	traceParent = func(parent Frame) bool {
@@ -288,7 +283,6 @@ func (sfs *simpleFrameSystem) DivideFrameSystem(newRoot Frame) (FrameSystem, err
 	for frame, parent := range sfs.parents {
 		var addNew bool
 		if parent == newRoot {
-			parent = newWorld
 			addNew = true
 		} else {
 			addNew = traceParent(parent)
@@ -299,8 +293,19 @@ func (sfs *simpleFrameSystem) DivideFrameSystem(newRoot Frame) (FrameSystem, err
 		}
 	}
 
-	sfs.RemoveFrame(rootFrame)
+	return newFS, nil
+}
 
+// DivideFrameSystem will take a frame system and a frame in that system, and return a new frame system rooted
+// at the given frame and containing all descendents of it, while the original has the frame and its
+// descendents removed. For example, if there is a frame system with two independent rovers, and one rover goes offline,
+// A user could divide the frame system to remove the offline rover and have the rest of the frame system unaffected.
+func (sfs *simpleFrameSystem) DivideFrameSystem(newRoot Frame) (FrameSystem, error) {
+	newFS, err := sfs.GetFrameSystemSubset(newRoot)
+	if err != nil {
+		return nil, err
+	}
+	sfs.RemoveFrame(newRoot)
 	return newFS, nil
 }
 
@@ -318,7 +323,7 @@ func StartPositions(fs FrameSystem) map[string][]Input {
 
 func (sfs *simpleFrameSystem) getFrameToWorldTransform(inputMap map[string][]Input, src Frame) (spatial.Pose, error) {
 	if !sfs.frameExists(src.Name()) {
-		return nil, fmt.Errorf("source frame %s not found in FrameSystem", src.Name())
+		return nil, NewFrameMissingError(src.Name())
 	}
 
 	// If src is nil it is interpreted as the world frame

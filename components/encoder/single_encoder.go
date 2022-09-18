@@ -125,6 +125,7 @@ func (e *SingleEncoder) Start(ctx context.Context) {
 	e.I.AddCallback(encoderChannel)
 	e.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
+		defer e.I.RemoveCallback(encoderChannel)
 		for {
 			select {
 			case <-e.CancelCtx.Done():

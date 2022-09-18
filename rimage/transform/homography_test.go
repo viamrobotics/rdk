@@ -72,15 +72,13 @@ func TestNewHomography(t *testing.T) {
 
 func TestDepthColorHomography(t *testing.T) {
 	intrinsics := &PinholeCameraIntrinsics{ // color camera intrinsic parameters
-		Width:      1024,
-		Height:     768,
-		Fx:         821.32642889,
-		Fy:         821.68607359,
-		Ppx:        494.95941428,
-		Ppy:        370.70529534,
-		Distortion: DistortionModel{0.11297234, -0.21375332, -0.01584774, -0.00302002, 0.19969297},
+		Width:  1024,
+		Height: 768,
+		Fx:     821.32642889,
+		Fy:     821.68607359,
+		Ppx:    494.95941428,
+		Ppy:    370.70529534,
 	}
-
 	conf := &RawDepthColorHomography{
 		Homography: []float64{
 			2.32700501e-01,
