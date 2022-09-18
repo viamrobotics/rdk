@@ -73,7 +73,7 @@ func WrapMotorWithEncoder(
 		return nil, err
 	}
 
-	single, isSingle := rutils.UnwrapProxy(e).(*encoder.SingleEncoder)
+	single, isSingle := rutils.UnwrapProxy(e).(*encoder.SingleWire)
 	if isSingle {
 		single.AttachDirectionalAwareness(mm)
 		logger.Info("direction attached to single encoder from encoded motor")

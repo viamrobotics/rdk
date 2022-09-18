@@ -146,8 +146,8 @@ func TestPiHardware(t *testing.T) {
 
 	deps := make(registry.Dependencies)
 	_, err = encoderReg.Constructor(ctx, deps, config.Component{
-		Name: "encoder1", ConvertedAttributes: &encoder.DualConfig{
-			Pins: encoder.DualPins{
+		Name: "encoder1", ConvertedAttributes: &encoder.IncrementalConfig{
+			Pins: encoder.IncrementalPins{
 				A: "a",
 				B: "b",
 			},
