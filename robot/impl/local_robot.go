@@ -498,7 +498,7 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	}
 	// If MaxInstance equals zero then there is not limit on the number of services
 	if f.MaxInstance != 0 {
-		err := r.CheckMaxInstance(f, rName)
+		err := r.checkMaxInstance(f, rName)
 		if err != nil {
 			return nil, err
 		}
@@ -776,11 +776,11 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 }
 
-// CheckMaxInstance checks to see if the local robot has reached the maximum number of a specific service type.
-func (r *localRobot) CheckMaxInstance(f *registry.Service, name resource.Name) error {
+// checkMaxInstance checks to see if the local robot has reached the maximum number of a specific service type that are local.
+func (r *localRobot) checkMaxInstance(f *registry.Service, name resource.Name) error {
 	maxInstance := 0
 	for _, n := range r.ResourceNames() {
-		if n.Subtype == name.Subtype {
+		if n.Subtype == name.Subtype && !n.ContainsRemoteNames() {
 			maxInstance++
 			if maxInstance == f.MaxInstance {
 				return errors.Errorf("Max instance number reached for service type: %s", name.Subtype)
