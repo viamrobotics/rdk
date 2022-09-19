@@ -115,8 +115,8 @@ type Motor struct {
 	generic.Echo
 }
 
-// GetPosition returns motor position in rotations.
-func (m *Motor) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+// Position returns motor position in rotations.
+func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -124,7 +124,7 @@ func (m *Motor) GetPosition(ctx context.Context, extra map[string]interface{}) (
 		return 0, errors.New("encoder is not defined")
 	}
 
-	ticks, err := m.Encoder.GetTicksCount(ctx, extra)
+	ticks, err := m.Encoder.TicksCount(ctx, extra)
 	if err != nil {
 		return 0, err
 	}
@@ -136,8 +136,8 @@ func (m *Motor) GetPosition(ctx context.Context, extra map[string]interface{}) (
 	return float64(ticks) / float64(m.TicksPerRotation), nil
 }
 
-// GetProperties returns the status of whether the motor supports certain optional features.
-func (m *Motor) GetProperties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+// Properties returns the status of whether the motor supports certain optional features.
+func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: m.PositionReporting,
 	}, nil
@@ -229,7 +229,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 
 	var finalPos float64
 	if m.Encoder != nil {
-		curPos, err := m.GetPosition(ctx, nil)
+		curPos, err := m.Position(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -268,7 +268,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 		return errors.New("not supported, define max_rpm attribute != 0")
 	}
 
-	curPos, err := m.GetPosition(ctx, nil)
+	curPos, err := m.Position(ctx, nil)
 	if err != nil {
 		return err
 	}

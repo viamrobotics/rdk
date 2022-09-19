@@ -595,8 +595,8 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map
 	return err
 }
 
-// GetPosition reports the position in revolutions.
-func (m *Motor) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+// Position reports the position in revolutions.
+func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 	return m.doPosition()
@@ -833,7 +833,7 @@ func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[
 	}
 }
 
-// GetProperties returns the additional features supported by this motor.
-func (m *Motor) GetProperties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+// Properties returns the additional features supported by this motor.
+func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{motor.PositionReporting: true}, nil
 }

@@ -59,10 +59,10 @@ func TestServoMove(t *testing.T) {
 func TestServoGetPosition(t *testing.T) {
 	servoServer, workingServo, failingServo, _ := newServer()
 
-	workingServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
+	workingServo.PositionFunc = func(ctx context.Context) (uint8, error) {
 		return 20, nil
 	}
-	failingServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
+	failingServo.PositionFunc = func(ctx context.Context) (uint8, error) {
 		return 0, errors.New("current angle not readable")
 	}
 

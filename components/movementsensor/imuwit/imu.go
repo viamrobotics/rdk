@@ -52,19 +52,19 @@ type wit struct {
 	generic.Unimplemented
 }
 
-func (imu *wit) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (imu *wit) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return imu.angularVelocity, imu.lastError
 }
 
-func (imu *wit) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (imu *wit) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return r3.Vector{}, imu.lastError
 }
 
-func (imu *wit) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (imu *wit) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return &imu.orientation, imu.lastError
@@ -84,24 +84,24 @@ func (imu *wit) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
 	return imu.magnetometer, imu.lastError
 }
 
-func (imu *wit) GetCompassHeading(ctx context.Context) (float64, error) {
+func (imu *wit) CompassHeading(ctx context.Context) (float64, error) {
 	// TODO(erh): is this right? I don't think so
 	return imu.magnetometer.Z, imu.lastError
 }
 
-func (imu *wit) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+func (imu *wit) Position(ctx context.Context) (*geo.Point, float64, error) {
 	return nil, 0, nil
 }
 
-func (imu *wit) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+func (imu *wit) Accuracy(ctx context.Context) (map[string]float32, error) {
 	return map[string]float32{}, nil
 }
 
-func (imu *wit) GetReadings(ctx context.Context) (map[string]interface{}, error) {
-	return movementsensor.GetReadings(ctx, imu)
+func (imu *wit) Readings(ctx context.Context) (map[string]interface{}, error) {
+	return movementsensor.Readings(ctx, imu)
 }
 
-func (imu *wit) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+func (imu *wit) Properties(ctx context.Context) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		AngularVelocitySupported: true,
 		OrientationSupported:     true,

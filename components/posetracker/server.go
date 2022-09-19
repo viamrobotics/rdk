@@ -49,7 +49,7 @@ func (server *subtypeServer) GetPoses(
 	if err != nil {
 		return nil, err
 	}
-	framedPoses, err := poseTracker.GetPoses(ctx, req.GetBodyNames())
+	framedPoses, err := poseTracker.Poses(ctx, req.GetBodyNames())
 	if err != nil {
 		return nil, err
 	}

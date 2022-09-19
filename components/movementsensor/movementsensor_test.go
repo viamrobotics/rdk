@@ -76,7 +76,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
 
-	result, _, err := s.GetPosition(context.Background())
+	result, _, err := s.Position(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, loc)
 
@@ -96,7 +96,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
 
-	result, _, err := s.GetPosition(context.Background())
+	result, _, err := s.Position(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, loc)
 
@@ -182,7 +182,7 @@ func TestReconfigurableMovementSensor(t *testing.T) {
 
 	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 0)
 	test.That(t, actualMovementSensor2.positionCount, test.ShouldEqual, 0)
-	result, _, err := reconfMovementSensor1.(movementsensor.MovementSensor).GetPosition(context.Background())
+	result, _, err := reconfMovementSensor1.(movementsensor.MovementSensor).Position(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, loc)
 	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 0)
@@ -198,33 +198,33 @@ func TestReconfigurableMovementSensor(t *testing.T) {
 	test.That(t, reconfMovementSensor3, test.ShouldNotBeNil)
 }
 
-func TestGetPosition(t *testing.T) {
+func TestPosition(t *testing.T) {
 	actualMovementSensor1 := &mock{Name: testMovementSensorName}
 	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
 
 	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 0)
-	loc1, _, err := reconfMovementSensor1.(movementsensor.MovementSensor).GetPosition(context.Background())
+	loc1, _, err := reconfMovementSensor1.(movementsensor.MovementSensor).Position(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, loc1, test.ShouldResemble, geo.NewPoint(90, 1))
 	test.That(t, actualMovementSensor1.positionCount, test.ShouldEqual, 1)
 }
 
-func TestGetLinearVelocity(t *testing.T) {
+func TestLinearVelocity(t *testing.T) {
 	actualMovementSensor1 := &mock{Name: testMovementSensorName}
 	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
 
 	test.That(t, actualMovementSensor1.velocityCount, test.ShouldEqual, 0)
-	speed1, err := reconfMovementSensor1.(movementsensor.MovementSensor).GetLinearVelocity(context.Background())
+	speed1, err := reconfMovementSensor1.(movementsensor.MovementSensor).LinearVelocity(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, speed1, test.ShouldResemble, speed)
 	test.That(t, actualMovementSensor1.velocityCount, test.ShouldEqual, 1)
 }
 
-func TestGetReadings(t *testing.T) {
+func TestReadings(t *testing.T) {
 	actualMovementSensor1 := &mock{Name: testMovementSensorName}
 	reconfMovementSensor1, _ := movementsensor.WrapWithReconfigurable(actualMovementSensor1)
 
-	readings1, err := movementsensor.GetReadings(context.Background(), actualMovementSensor1)
+	readings1, err := movementsensor.Readings(context.Background(), actualMovementSensor1)
 	allReadings := map[string]interface{}{
 		"altitide":         alt,
 		"angular_velocity": ang,
@@ -236,7 +236,7 @@ func TestGetReadings(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings1, test.ShouldResemble, allReadings)
 
-	result, err := reconfMovementSensor1.(sensor.Sensor).GetReadings(context.Background())
+	result, err := reconfMovementSensor1.(sensor.Sensor).Readings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, readings1)
 
@@ -277,30 +277,30 @@ func (m *mock) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[s
 	return cmd, nil
 }
 
-func (m *mock) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+func (m *mock) Position(ctx context.Context) (*geo.Point, float64, error) {
 	m.positionCount++
 	return loc, alt, nil
 }
 
-func (m *mock) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (m *mock) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	m.velocityCount++
 	return speed, nil
 }
 
-func (m *mock) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (m *mock) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	return ang, nil
 }
 
-func (m *mock) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (m *mock) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	return orie, nil
 }
 
-func (m *mock) GetCompassHeading(ctx context.Context) (float64, error) {
+func (m *mock) CompassHeading(ctx context.Context) (float64, error) {
 	return compass, nil
 }
 
-func (m *mock) GetReadings(ctx context.Context) (map[string]interface{}, error) {
-	return movementsensor.GetReadings(ctx, m)
+func (m *mock) Readings(ctx context.Context) (map[string]interface{}, error) {
+	return movementsensor.Readings(ctx, m)
 }
 
 func (m *mock) Close() { m.reconfCount++ }

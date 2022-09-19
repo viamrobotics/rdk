@@ -59,7 +59,7 @@ func TestCloseService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeStruct.val, test.ShouldEqual, 1)
 
-	detectors, err := srv.GetDetectorNames(ctx)
+	detectors, err := srv.DetectorNames(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(detectors), test.ShouldEqual, 0)
 }

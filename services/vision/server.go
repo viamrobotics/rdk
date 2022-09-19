@@ -74,7 +74,7 @@ func (server *subtypeServer) GetDetectorNames(
 	if err != nil {
 		return nil, err
 	}
-	names, err := svc.GetDetectorNames(ctx)
+	names, err := svc.DetectorNames(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (server *subtypeServer) GetDetections(
 	if err != nil {
 		return nil, err
 	}
-	detections, err := svc.GetDetections(ctx, img, req.DetectorName)
+	detections, err := svc.Detections(ctx, img, req.DetectorName)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +176,7 @@ func (server *subtypeServer) GetDetectionsFromCamera(
 	if err != nil {
 		return nil, err
 	}
-	detections, err := svc.GetDetectionsFromCamera(ctx, req.CameraName, req.DetectorName)
+	detections, err := svc.DetectionsFromCamera(ctx, req.CameraName, req.DetectorName)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +215,7 @@ func (server *subtypeServer) GetClassifierNames(
 	if err != nil {
 		return nil, err
 	}
-	names, err := svc.GetClassifierNames(ctx)
+	names, err := svc.ClassifierNames(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +278,7 @@ func (server *subtypeServer) GetClassifications(
 	if err != nil {
 		return nil, err
 	}
-	classifications, err := svc.GetClassifications(ctx, img, req.ClassifierName, int(req.N))
+	classifications, err := svc.Classifications(ctx, img, req.ClassifierName, int(req.N))
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +305,7 @@ func (server *subtypeServer) GetClassificationsFromCamera(
 	if err != nil {
 		return nil, err
 	}
-	classifications, err := svc.GetClassificationsFromCamera(ctx, req.CameraName, req.ClassifierName, int(req.N))
+	classifications, err := svc.ClassificationsFromCamera(ctx, req.CameraName, req.ClassifierName, int(req.N))
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +330,7 @@ func (server *subtypeServer) GetSegmenterNames(
 	if err != nil {
 		return nil, err
 	}
-	names, err := svc.GetSegmenterNames(ctx)
+	names, err := svc.SegmenterNames(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -150,8 +150,8 @@ func (s *serialCorrectionSource) Start(ready chan<- bool) {
 	}
 }
 
-// GetReader returns the serialCorrectionSource's correctionReader if it exists.
-func (s *serialCorrectionSource) GetReader() (io.ReadCloser, error) {
+// Reader returns the serialCorrectionSource's correctionReader if it exists.
+func (s *serialCorrectionSource) Reader() (io.ReadCloser, error) {
 	if s.correctionReader == nil {
 		return nil, errors.New("no stream")
 	}

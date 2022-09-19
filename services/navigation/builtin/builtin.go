@@ -132,7 +132,7 @@ type builtIn struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func (svc *builtIn) GetMode(ctx context.Context) (navigation.Mode, error) {
+func (svc *builtIn) Mode(ctx context.Context) (navigation.Mode, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.mode, nil
@@ -173,7 +173,7 @@ func (svc *builtIn) startWaypoint() error {
 				return
 			}
 
-			currentLoc, _, err := svc.movementSensor.GetPosition(svc.cancelCtx)
+			currentLoc, _, err := svc.movementSensor.Position(svc.cancelCtx)
 			if err != nil {
 				svc.logger.Errorw("failed to get gps location", "error", err)
 				continue
@@ -247,15 +247,15 @@ func (svc *builtIn) waypointDirectionAndDistanceToGo(ctx context.Context, curren
 	return fixAngle(currentLoc.BearingTo(goal)), currentLoc.GreatCircleDistance(goal), nil
 }
 
-func (svc *builtIn) GetLocation(ctx context.Context) (*geo.Point, error) {
+func (svc *builtIn) Location(ctx context.Context) (*geo.Point, error) {
 	if svc.movementSensor == nil {
 		return nil, errors.New("no way to get location")
 	}
-	loc, _, err := svc.movementSensor.GetPosition(ctx)
+	loc, _, err := svc.movementSensor.Position(ctx)
 	return loc, err
 }
 
-func (svc *builtIn) GetWaypoints(ctx context.Context) ([]navigation.Waypoint, error) {
+func (svc *builtIn) Waypoints(ctx context.Context) ([]navigation.Waypoint, error) {
 	wps, err := svc.store.Waypoints(ctx)
 	if err != nil {
 		return nil, err

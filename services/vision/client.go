@@ -58,8 +58,8 @@ func (c *client) GetModelParameterSchema(ctx context.Context, modelType VisModel
 	return outp, nil
 }
 
-func (c *client) GetDetectorNames(ctx context.Context) ([]string, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetDetectorNames")
+func (c *client) DetectorNames(ctx context.Context) ([]string, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::DetectorNames")
 	defer span.End()
 	resp, err := c.client.GetDetectorNames(ctx, &pb.GetDetectorNamesRequest{Name: c.name})
 	if err != nil {
@@ -100,8 +100,8 @@ func (c *client) RemoveDetector(ctx context.Context, detectorName string) error 
 	return nil
 }
 
-func (c *client) GetDetectionsFromCamera(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetDetectionsFromCamera")
+func (c *client) DetectionsFromCamera(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::DetectionsFromCamera")
 	defer span.End()
 	resp, err := c.client.GetDetectionsFromCamera(ctx, &pb.GetDetectionsFromCameraRequest{
 		Name:         c.name,
@@ -123,9 +123,9 @@ func (c *client) GetDetectionsFromCamera(ctx context.Context, cameraName, detect
 	return detections, nil
 }
 
-func (c *client) GetDetections(ctx context.Context, img image.Image, detectorName string,
+func (c *client) Detections(ctx context.Context, img image.Image, detectorName string,
 ) ([]objdet.Detection, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetDetections")
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::Detections")
 	defer span.End()
 	mimeType := utils.MimeTypeRawRGBA
 	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
@@ -155,8 +155,8 @@ func (c *client) GetDetections(ctx context.Context, img image.Image, detectorNam
 	return detections, nil
 }
 
-func (c *client) GetClassifierNames(ctx context.Context) ([]string, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetClassifierNames")
+func (c *client) ClassifierNames(ctx context.Context) ([]string, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::ClassifierNames")
 	defer span.End()
 	resp, err := c.client.GetClassifierNames(ctx, &pb.GetClassifierNamesRequest{Name: c.name})
 	if err != nil {
@@ -197,10 +197,10 @@ func (c *client) RemoveClassifier(ctx context.Context, classifierName string) er
 	return nil
 }
 
-func (c *client) GetClassificationsFromCamera(ctx context.Context, cameraName,
+func (c *client) ClassificationsFromCamera(ctx context.Context, cameraName,
 	classifierName string, n int,
 ) (classification.Classifications, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetClassificationsFromCamera")
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::ClassificationsFromCamera")
 	defer span.End()
 	resp, err := c.client.GetClassificationsFromCamera(ctx, &pb.GetClassificationsFromCameraRequest{
 		Name:           c.name,
@@ -219,10 +219,10 @@ func (c *client) GetClassificationsFromCamera(ctx context.Context, cameraName,
 	return classifications, nil
 }
 
-func (c *client) GetClassifications(ctx context.Context, img image.Image,
+func (c *client) Classifications(ctx context.Context, img image.Image,
 	classifierName string, n int,
 ) (classification.Classifications, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetClassifications")
+	ctx, span := trace.StartSpan(ctx, "service::vision::client::Classifications")
 	defer span.End()
 	mimeType := utils.MimeTypeRawRGBA
 	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
@@ -249,7 +249,7 @@ func (c *client) GetClassifications(ctx context.Context, img image.Image,
 	return classifications, nil
 }
 
-func (c *client) GetSegmenterNames(ctx context.Context) ([]string, error) {
+func (c *client) SegmenterNames(ctx context.Context) ([]string, error) {
 	resp, err := c.client.GetSegmenterNames(ctx, &pb.GetSegmenterNamesRequest{Name: c.name})
 	if err != nil {
 		return nil, err

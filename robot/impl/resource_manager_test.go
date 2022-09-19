@@ -1742,7 +1742,7 @@ func (rr *dummyRobot) TransformPose(
 	panic("change to return nil")
 }
 
-func (rr *dummyRobot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+func (rr *dummyRobot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	panic("change to return nil")
 }
 

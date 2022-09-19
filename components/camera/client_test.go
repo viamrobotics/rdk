@@ -68,7 +68,7 @@ func TestClient(t *testing.T) {
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
-	injectCamera.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{
 			SupportsPCD:     true,
 			IntrinsicParams: intrinsics,
@@ -96,7 +96,7 @@ func TestClient(t *testing.T) {
 	injectCameraDepth.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
-	injectCameraDepth.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	injectCameraDepth.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{
 			SupportsPCD:     true,
 			IntrinsicParams: intrinsics,
@@ -118,7 +118,7 @@ func TestClient(t *testing.T) {
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return nil, errors.New("can't generate next point cloud")
 	}
-	injectCamera2.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	injectCamera2.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, errors.New("can't get camera properties")
 	}
 	injectCamera2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
@@ -174,7 +174,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, projB, test.ShouldNotBeNil)
 
-		propsB, err := camera1Client.GetProperties(context.Background())
+		propsB, err := camera1Client.Properties(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, propsB.SupportsPCD, test.ShouldBeTrue)
 		test.That(t, propsB.IntrinsicParams, test.ShouldResemble, intrinsics)
@@ -227,7 +227,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get camera properties")
 
-		_, err = camera2Client.GetProperties(context.Background())
+		_, err = camera2Client.Properties(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get camera properties")
 

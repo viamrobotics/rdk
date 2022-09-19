@@ -102,7 +102,7 @@ type eva struct {
 	opMgr operation.SingleOperationManager
 }
 
-func (e *eva) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (e *eva) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	data, err := e.DataSnapshot(ctx)
 	if err != nil {
 		return &pb.JointPositions{}, err
@@ -110,9 +110,9 @@ func (e *eva) GetJointPositions(ctx context.Context, extra map[string]interface{
 	return referenceframe.JointPositionsFromRadians(data.ServosPosition), nil
 }
 
-// GetEndPosition computes and returns the current cartesian position.
-func (e *eva) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-	joints, err := e.GetJointPositions(ctx, extra)
+// EndPosition computes and returns the current cartesian position.
+func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := e.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -342,7 +342,7 @@ func (e *eva) ModelFrame() referenceframe.Model {
 }
 
 func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := e.GetJointPositions(ctx, nil)
+	res, err := e.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
