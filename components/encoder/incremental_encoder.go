@@ -15,31 +15,33 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
+const incrModelName = "incremental"
+
 func init() {
 	registry.RegisterComponent(
 		Subtype,
-		"hall",
+		incrModelName,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return NewHallEncoder(ctx, deps, config, logger)
+			return NewIncrementalEncoder(ctx, deps, config, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
 		SubtypeName,
-		"hall",
+		incrModelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf HallConfig
+			var conf IncrementalConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&HallConfig{})
+		&IncrementalConfig{})
 }
 
-// HallEncoder keeps track of a motor position using a rotary hall encoder.
-type HallEncoder struct {
+// IncrementalEncoder keeps track of a motor position using a rotary incremental encoder.
+type IncrementalEncoder struct {
 	A, B     board.DigitalInterrupt
 	position int64
 	pRaw     int64
@@ -53,20 +55,20 @@ type HallEncoder struct {
 	generic.Unimplemented
 }
 
-// HallPins describes the configuration of Pins for a Hall encoder.
-type HallPins struct {
+// IncrementalPins describes the configuration of Pins for a quadrature encoder.
+type IncrementalPins struct {
 	A string `json:"a"`
 	B string `json:"b"`
 }
 
-// HallConfig describes the configuration of a Hall encoder.
-type HallConfig struct {
-	Pins      HallPins `json:"pins"`
-	BoardName string   `json:"board"`
+// IncrementalConfig describes the configuration of a quadrature encoder.
+type IncrementalConfig struct {
+	Pins      IncrementalPins `json:"pins"`
+	BoardName string          `json:"board"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *HallConfig) Validate(path string) ([]string, error) {
+func (config *IncrementalConfig) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if config.Pins.A == "" {
@@ -84,11 +86,16 @@ func (config *HallConfig) Validate(path string) ([]string, error) {
 	return deps, nil
 }
 
-// NewHallEncoder creates a new HallEncoder.
-func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (*HallEncoder, error) {
+// NewIncrementalEncoder creates a new IncrementalEncoder.
+func NewIncrementalEncoder(
+	ctx context.Context,
+	deps registry.Dependencies,
+	cfg config.Component,
+	logger golog.Logger,
+) (*IncrementalEncoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	e := &HallEncoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0, pRaw: 0, pState: 0}
-	if cfg, ok := config.ConvertedAttributes.(*HallConfig); ok {
+	e := &IncrementalEncoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0, pRaw: 0, pState: 0}
+	if cfg, ok := cfg.ConvertedAttributes.(*IncrementalConfig); ok {
 		board, err := board.FromDependencies(deps, cfg.BoardName)
 		if err != nil {
 			return nil, err
@@ -96,11 +103,11 @@ func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config conf
 
 		e.A, ok = board.DigitalInterruptByName(cfg.Pins.A)
 		if !ok {
-			return nil, errors.Errorf("cannot find pin (%s) for HallEncoder", cfg.Pins.A)
+			return nil, errors.Errorf("cannot find pin (%s) for incremental Encoder", cfg.Pins.A)
 		}
 		e.B, ok = board.DigitalInterruptByName(cfg.Pins.B)
 		if !ok {
-			return nil, errors.Errorf("cannot find pin (%s) for HallEncoder", cfg.Pins.B)
+			return nil, errors.Errorf("cannot find pin (%s) for incremental Encoder", cfg.Pins.B)
 		}
 
 		e.Start(ctx)
@@ -108,11 +115,11 @@ func NewHallEncoder(ctx context.Context, deps registry.Dependencies, config conf
 		return e, nil
 	}
 
-	return nil, errors.New("encoder config for HallEncoder is not valid")
+	return nil, errors.New("encoder config for incremental Encoder is not valid")
 }
 
-// Start starts the HallEncoder background thread.
-func (e *HallEncoder) Start(ctx context.Context) {
+// Start starts the IncrementalEncoder background thread.
+func (e *IncrementalEncoder) Start(ctx context.Context) {
 	/**
 	  a rotary encoder looks like
 
@@ -223,34 +230,34 @@ func (e *HallEncoder) Start(ctx context.Context) {
 }
 
 // TicksCount returns number of ticks since last zeroing.
-func (e *HallEncoder) TicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
+func (e *IncrementalEncoder) TicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 
 // Reset sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position..
-func (e *HallEncoder) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {
+func (e *IncrementalEncoder) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	atomic.StoreInt64(&e.position, offset)
 	atomic.StoreInt64(&e.pRaw, (offset<<1)|atomic.LoadInt64(&e.pRaw)&0x1)
 	return nil
 }
 
 // RawPosition returns the raw position of the encoder.
-func (e *HallEncoder) RawPosition() int64 {
+func (e *IncrementalEncoder) RawPosition() int64 {
 	return atomic.LoadInt64(&e.pRaw)
 }
 
-func (e *HallEncoder) inc() {
+func (e *IncrementalEncoder) inc() {
 	atomic.AddInt64(&e.pRaw, 1)
 }
 
-func (e *HallEncoder) dec() {
+func (e *IncrementalEncoder) dec() {
 	atomic.AddInt64(&e.pRaw, -1)
 }
 
-// Close shuts down the HallEncoder.
-func (e *HallEncoder) Close() error {
-	e.logger.Debug("Closing HallEncoder")
+// Close shuts down the IncrementalEncoder.
+func (e *IncrementalEncoder) Close() error {
+	e.logger.Debug("Closing incremental Encoder")
 	e.cancelFunc()
 	e.activeBackgroundWorkers.Wait()
 	return nil

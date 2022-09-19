@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	pb "go.viam.com/rdk/proto/api/component/arm/v1"
+	pb "go.viam.com/api/component/arm/v1"
+
 	"go.viam.com/rdk/utils"
 )
 
