@@ -40,7 +40,7 @@ func init() {
 		&IncrementalConfig{})
 }
 
-// IncrementalEncoder keeps track of a motor position using a rotary dual-wire encoder.
+// IncrementalEncoder keeps track of a motor position using a rotary incremental encoder.
 type IncrementalEncoder struct {
 	A, B     board.DigitalInterrupt
 	position int64
@@ -103,11 +103,11 @@ func NewIncrementalEncoder(
 
 		e.A, ok = board.DigitalInterruptByName(cfg.Pins.A)
 		if !ok {
-			return nil, errors.Errorf("cannot find pin (%s) for dual-wire Encoder", cfg.Pins.A)
+			return nil, errors.Errorf("cannot find pin (%s) for incremental Encoder", cfg.Pins.A)
 		}
 		e.B, ok = board.DigitalInterruptByName(cfg.Pins.B)
 		if !ok {
-			return nil, errors.Errorf("cannot find pin (%s) for dual-wire Encoder", cfg.Pins.B)
+			return nil, errors.Errorf("cannot find pin (%s) for incremental Encoder", cfg.Pins.B)
 		}
 
 		e.Start(ctx)
@@ -115,7 +115,7 @@ func NewIncrementalEncoder(
 		return e, nil
 	}
 
-	return nil, errors.New("encoder config for dual-wire Encoder is not valid")
+	return nil, errors.New("encoder config for incremental Encoder is not valid")
 }
 
 // Start starts the IncrementalEncoder background thread.
@@ -257,7 +257,7 @@ func (e *IncrementalEncoder) dec() {
 
 // Close shuts down the IncrementalEncoder.
 func (e *IncrementalEncoder) Close() error {
-	e.logger.Debug("Closing dual-wire Encoder")
+	e.logger.Debug("Closing incremental Encoder")
 	e.cancelFunc()
 	e.activeBackgroundWorkers.Wait()
 	return nil
