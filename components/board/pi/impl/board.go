@@ -19,9 +19,9 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/board/commonsysfs"
 	picommon "go.viam.com/rdk/components/board/pi/common"
