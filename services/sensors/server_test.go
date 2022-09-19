@@ -107,7 +107,7 @@ func TestServerGetReadings(t *testing.T) {
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 		passedErr := errors.New("can't get readings")
-		injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
+		injectSensors.ReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
 			return nil, passedErr
 		}
 		req := &pb.GetReadingsRequest{
@@ -132,7 +132,7 @@ func TestServerGetReadings(t *testing.T) {
 			iReading.Name: iReading.Readings,
 			gReading.Name: gReading.Readings,
 		}
-		injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
+		injectSensors.ReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
 			return readings, nil
 		}
 		req := &pb.GetReadingsRequest{

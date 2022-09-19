@@ -75,7 +75,7 @@ func TestFromBase(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	result, err := res.(base.LocalBase).GetWidth(context.Background())
+	result, err := res.(base.LocalBase).Width(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, width)
 
@@ -95,7 +95,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	result, err := res.(base.LocalBase).GetWidth(context.Background())
+	result, err := res.(base.LocalBase).Width(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, width)
 
@@ -223,7 +223,7 @@ func TestReconfigurableBase(t *testing.T) {
 
 	test.That(t, actualBase1.widthCount, test.ShouldEqual, 0)
 	test.That(t, actualBase2.widthCount, test.ShouldEqual, 0)
-	result, err := reconfBase1.(base.LocalBase).GetWidth(context.Background())
+	result, err := reconfBase1.(base.LocalBase).Width(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, width)
 	test.That(t, actualBase1.widthCount, test.ShouldEqual, 0)
@@ -279,7 +279,7 @@ type mockLocal struct {
 	reconfCount int
 }
 
-func (m *mockLocal) GetWidth(ctx context.Context) (int, error) {
+func (m *mockLocal) Width(ctx context.Context) (int, error) {
 	m.widthCount++
 	return width, nil
 }
@@ -292,7 +292,7 @@ func (m *mockLocal) DoCommand(ctx context.Context, cmd map[string]interface{}) (
 
 func TestDoMove(t *testing.T) {
 	dev := &inject.Base{}
-	dev.GetWidthFunc = func(ctx context.Context) (int, error) {
+	dev.WidthFunc = func(ctx context.Context) (int, error) {
 		return 600, nil
 	}
 	err := base.DoMove(context.Background(), base.Move{}, dev)

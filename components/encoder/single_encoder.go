@@ -46,8 +46,8 @@ type DirectionAware interface {
 	DirectionMoving() int64
 }
 
-// SingleWire keeps track of a motor position using a rotary encoder.
-type SingleWire struct {
+// SingleEncoder keeps track of a motor position using a rotary encoder.
+type SingleEncoder struct {
 	generic.Unimplemented
 	I        board.DigitalInterrupt
 	position int64
@@ -87,7 +87,7 @@ func (cfg *SingleWireConfig) Validate(path string) ([]string, error) {
 }
 
 // AttachDirectionalAwareness to pre-created encoder.
-func (e *SingleWire) AttachDirectionalAwareness(da DirectionAware) {
+func (e *SingleEncoder) AttachDirectionalAwareness(da DirectionAware) {
 	e.m = da
 }
 
@@ -97,9 +97,9 @@ func NewSingleEncoder(
 	deps registry.Dependencies,
 	cfg config.Component,
 	logger golog.Logger,
-) (*SingleWire, error) {
+) (*SingleEncoder, error) {
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	e := &SingleWire{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0}
+	e := &SingleEncoder{logger: logger, CancelCtx: cancelCtx, cancelFunc: cancelFunc, position: 0}
 	if cfg, ok := cfg.ConvertedAttributes.(*SingleWireConfig); ok {
 		board, err := board.FromDependencies(deps, cfg.BoardName)
 		if err != nil {
@@ -122,7 +122,7 @@ func NewSingleEncoder(
 }
 
 // Start starts the SingleEncoder background thread.
-func (e *SingleWire) Start(ctx context.Context) {
+func (e *SingleEncoder) Start(ctx context.Context) {
 	encoderChannel := make(chan bool)
 	e.I.AddCallback(encoderChannel)
 	e.activeBackgroundWorkers.Add(1)
@@ -151,20 +151,20 @@ func (e *SingleWire) Start(ctx context.Context) {
 	}, e.activeBackgroundWorkers.Done)
 }
 
-// GetTicksCount returns the current position.
-func (e *SingleWire) GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
+// TicksCount returns the current position.
+func (e *SingleEncoder) TicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 
 // Reset sets the current position of the motor (adjusted by a given offset)
 // to be its new zero position.
-func (e *SingleWire) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {
+func (e *SingleEncoder) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {
 	atomic.StoreInt64(&e.position, offset)
 	return nil
 }
 
 // Close shuts down the SingleEncoder.
-func (e *SingleWire) Close() error {
+func (e *SingleEncoder) Close() error {
 	e.logger.Debug("Closing SingleEncoder")
 	e.cancelFunc()
 	e.activeBackgroundWorkers.Wait()

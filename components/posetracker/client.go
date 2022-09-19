@@ -30,7 +30,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) GetPoses(
+func (c *client) Poses(
 	ctx context.Context, bodyNames []string,
 ) (BodyToPoseInFrame, error) {
 	req := &pb.GetPosesRequest{
@@ -48,8 +48,8 @@ func (c *client) GetPoses(
 	return result, nil
 }
 
-func (c *client) GetReadings(ctx context.Context) (map[string]interface{}, error) {
-	return GetReadings(ctx, c)
+func (c *client) Readings(ctx context.Context) (map[string]interface{}, error) {
+	return Readings(ctx, c)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

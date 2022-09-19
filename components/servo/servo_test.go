@@ -66,7 +66,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
 
-	result, err := s.GetPosition(context.Background())
+	result, err := s.Position(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, pos)
 
@@ -107,7 +107,7 @@ func TestCreateStatus(t *testing.T) {
 	status := &pb.Status{PositionDeg: uint32(8), IsMoving: true}
 
 	injectServo := &inject.Servo{}
-	injectServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
+	injectServo.PositionFunc = func(ctx context.Context) (uint8, error) {
 		return uint8(status.PositionDeg), nil
 	}
 	injectServo.IsMovingFunc = func(context.Context) (bool, error) {
@@ -136,9 +136,9 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, status1, test.ShouldResemble, status2)
 	})
 
-	t.Run("fail on GetPosition", func(t *testing.T) {
+	t.Run("fail on Position", func(t *testing.T) {
 		errFail := errors.New("can't get position")
-		injectServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
+		injectServo.PositionFunc = func(ctx context.Context) (uint8, error) {
 			return 0, errFail
 		}
 		_, err = servo.CreateStatus(context.Background(), injectServo)
@@ -223,7 +223,7 @@ func TestReconfigurableServo(t *testing.T) {
 
 	test.That(t, actualServo1.posCount, test.ShouldEqual, 0)
 	test.That(t, actualServo2.posCount, test.ShouldEqual, 0)
-	result, err := reconfServo1.(servo.Servo).GetPosition(context.Background())
+	result, err := reconfServo1.(servo.Servo).Position(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, pos)
 	test.That(t, actualServo1.posCount, test.ShouldEqual, 0)
@@ -301,7 +301,7 @@ func (mServo *mockLocal) Move(ctx context.Context, angleDegs uint8) error {
 	return nil
 }
 
-func (mServo *mockLocal) GetPosition(ctx context.Context) (uint8, error) {
+func (mServo *mockLocal) Position(ctx context.Context) (uint8, error) {
 	mServo.posCount++
 	return pos, nil
 }

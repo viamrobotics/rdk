@@ -45,7 +45,7 @@ func TestGetPoses(t *testing.T) {
 	ptServer, workingPT, failingPT, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	workingPT.GetPosesFunc = func(ctx context.Context, bodyNames []string) (
+	workingPT.PosesFunc = func(ctx context.Context, bodyNames []string) (
 		posetracker.BodyToPoseInFrame, error,
 	) {
 		zeroPose := spatialmath.NewZeroPose()
@@ -54,7 +54,7 @@ func TestGetPoses(t *testing.T) {
 		}, nil
 	}
 	poseFailureErr := errors.New("failure to get poses")
-	failingPT.GetPosesFunc = func(ctx context.Context, bodyNames []string) (
+	failingPT.PosesFunc = func(ctx context.Context, bodyNames []string) (
 		posetracker.BodyToPoseInFrame, error,
 	) {
 		return nil, poseFailureErr

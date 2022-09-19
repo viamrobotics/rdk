@@ -75,7 +75,7 @@ func TestServer(t *testing.T) {
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
-	injectCamera.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{
 			SupportsPCD:     true,
 			IntrinsicParams: intrinsics,
@@ -117,7 +117,7 @@ func TestServer(t *testing.T) {
 	injectCameraDepth.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
-	injectCameraDepth.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	injectCameraDepth.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{
 			SupportsPCD:     true,
 			IntrinsicParams: intrinsics,
@@ -138,7 +138,7 @@ func TestServer(t *testing.T) {
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return nil, errors.New("can't generate next point cloud")
 	}
-	injectCamera2.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	injectCamera2.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, errors.New("can't get camera properties")
 	}
 	injectCamera2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {

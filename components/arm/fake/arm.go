@@ -62,8 +62,8 @@ func (a *Arm) ModelFrame() referenceframe.Model {
 	return a.model
 }
 
-// GetEndPosition returns the set position.
-func (a *Arm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+// EndPosition returns the set position.
+func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 	return a.position, nil
 }
 
@@ -79,8 +79,8 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosition
 	return nil
 }
 
-// GetJointPositions returns the set joints.
-func (a *Arm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+// JointPositions returns the set joints.
+func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	return a.joints, nil
 }
 
@@ -96,7 +96,7 @@ func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
 
 // CurrentInputs TODO.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.GetJointPositions(ctx, nil)
+	res, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

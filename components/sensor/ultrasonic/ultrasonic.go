@@ -103,8 +103,8 @@ type Sensor struct {
 	generic.Unimplemented
 }
 
-// GetReadings returns the calculated distance.
-func (s *Sensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
+// Readings returns the calculated distance.
+func (s *Sensor) Readings(ctx context.Context) (map[string]interface{}, error) {
 	if err := s.triggerPin.Set(ctx, true, nil); err != nil {
 		return nil, errors.Wrap(err, "ultrasonic cannot set trigger pin to high")
 	}

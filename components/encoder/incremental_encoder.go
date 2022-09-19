@@ -229,8 +229,8 @@ func (e *IncrementalEncoder) Start(ctx context.Context) {
 	}, e.activeBackgroundWorkers.Done)
 }
 
-// GetTicksCount returns number of ticks since last zeroing.
-func (e *IncrementalEncoder) GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
+// TicksCount returns number of ticks since last zeroing.
+func (e *IncrementalEncoder) TicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 

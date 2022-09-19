@@ -55,7 +55,7 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	steps := make([]map[string][]frame.Input, 0, len(goals)*2)
 
 	// Get parentage of solver frame. This will also verify the frame is in the frame system
-	solveFrame := fss.GetFrame(solveFrameName)
+	solveFrame := fss.Frame(solveFrameName)
 	if solveFrame == nil {
 		return nil, fmt.Errorf("frame with name %s not found in frame system", solveFrameName)
 	}
@@ -148,7 +148,7 @@ func newSolverFrame(
 	worldRooted := false
 
 	// get goal frame
-	goalFrame := fss.GetFrame(goalFrameName)
+	goalFrame := fss.Frame(goalFrameName)
 	if goalFrame == nil {
 		return nil, frame.NewFrameMissingError(goalFrameName)
 	}
@@ -196,7 +196,7 @@ func newSolverFrame(
 			frames = solveFrameList
 		} else {
 			// Get all child nodes of pivot node
-			movingFs, err = fss.GetFrameSystemSubset(pivotFrame)
+			movingFs, err = fss.FrameSystemSubset(pivotFrame)
 			if err != nil {
 				return nil, err
 			}
@@ -360,7 +360,7 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 	inputMap := sf.sliceToMap(inputs)
 	sfGeometries := make(map[string]spatial.Geometry)
 	for _, fName := range sf.movingFs.FrameNames() {
-		f := sf.movingFs.GetFrame(fName)
+		f := sf.movingFs.Frame(fName)
 		if f == nil {
 			return nil, frame.NewFrameMissingError(fName)
 		}

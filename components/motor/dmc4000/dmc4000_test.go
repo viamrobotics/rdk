@@ -128,7 +128,7 @@ func TestDMC4000Motor(t *testing.T) {
 	waitTx(t, resChan)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
-		features, err := _motor.GetProperties(ctx, nil)
+		features, err := _motor.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
 	})
@@ -177,7 +177,7 @@ func TestDMC4000Motor(t *testing.T) {
 			[]string{"RPA"},
 			[]string{" 51200\r\n:"},
 		)
-		pos, err := _motor.GetPosition(ctx, nil)
+		pos, err := _motor.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 4.0)
 		waitTx(t, resChan)
