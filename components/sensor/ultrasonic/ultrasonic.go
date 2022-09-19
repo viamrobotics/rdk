@@ -102,8 +102,8 @@ type Sensor struct {
 	generic.Unimplemented
 }
 
-// GetReadings returns the calculated distance.
-func (s *Sensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
+// Readings returns the calculated distance.
+func (s *Sensor) Readings(ctx context.Context) (map[string]interface{}, error) {
 	if err := s.triggerPin.Set(ctx, true, nil); err != nil {
 		return nil, errors.Wrap(err, "ultrasonic cannot set trigger pin to high")
 	}
@@ -131,4 +131,10 @@ func (s *Sensor) GetReadings(ctx context.Context) (map[string]interface{}, error
 	}
 	dist := timeA.Sub(timeB).Seconds() * 340 / 2
 	return map[string]interface{}{"distance": dist}, nil
+}
+
+// Close remove interrupt callback of ultrasonic sensor.
+func (s *Sensor) Close() error {
+	s.echoInterrupt.RemoveCallback(s.intChan)
+	return nil
 }

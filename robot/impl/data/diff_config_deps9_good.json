@@ -45,7 +45,7 @@
         {
             "name": "e1",
             "type": "encoder",
-            "model": "hall",
+            "model": "incremental",
             "depends_on": [
                 "board1"
             ],

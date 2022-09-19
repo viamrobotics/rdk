@@ -9,9 +9,9 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.uber.org/zap"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -129,10 +129,31 @@ func constrainedXArmMotion() (*planConfig, error) {
 	}, nil
 }
 
+func TestPlanningWithGripper(t *testing.T) {
+	fs := frame.NewEmptySimpleFrameSystem("")
+	ur5e, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "ur")
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(ur5e, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+	bc, _ := spatial.NewBoxCreator(r3.Vector{200, 200, 200}, spatial.NewPoseFromPoint(r3.Vector{Z: 75}))
+	gripper, err := frame.NewStaticFrameWithGeometry("gripper", spatial.NewPoseFromPoint(r3.Vector{Z: 150}), bc)
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(gripper, ur5e)
+	test.That(t, err, test.ShouldBeNil)
+	fss := NewSolvableFrameSystem(fs, logger.Sugar())
+	zeroPos := frame.StartPositions(fss)
+
+	newPose := frame.NewPoseInFrame("gripper", spatial.NewPoseFromPoint(r3.Vector{100, 100, 0}))
+	solutionMap, err := fss.SolvePose(context.Background(), zeroPos, newPose, gripper.Name())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(solutionMap), test.ShouldBeGreaterThanOrEqualTo, 2)
+}
+
 // simple2DMapConfig returns a planConfig with the following map
-//		- start at (-9, 9) and end at (9, 9)
-//      - bounds are from (-10, -10) to (10, 10)
-//      - obstacle from (-4, 2) to (4, 10)
+//   - start at (-9, 9) and end at (9, 9)
+//   - bounds are from (-10, -10) to (10, 10)
+//   - obstacle from (-4, 2) to (4, 10)
+//
 // ------------------------
 // | +      |    |      + |
 // |        |    |        |

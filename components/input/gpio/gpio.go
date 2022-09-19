@@ -111,16 +111,16 @@ type Controller struct {
 	generic.Unimplemented
 }
 
-// GetControls lists the inputs.
-func (c *Controller) GetControls(ctx context.Context) ([]input.Control, error) {
+// Controls lists the inputs.
+func (c *Controller) Controls(ctx context.Context) ([]input.Control, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	out := append([]input.Control(nil), c.controls...)
 	return out, nil
 }
 
-// GetEvents returns the last input.Event (the current state) of each control.
-func (c *Controller) GetEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+// Events returns the last input.Event (the current state) of each control.
+func (c *Controller) Events(ctx context.Context) (map[input.Control]input.Event, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	out := make(map[input.Control]input.Event)
@@ -229,6 +229,7 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, intName str
 
 	c.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
+		defer interrupt.RemoveCallback(intChan)
 		debounced := debounce.New(time.Millisecond * time.Duration(cfg.DebounceMs))
 		for {
 			var val bool

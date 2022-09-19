@@ -40,7 +40,7 @@ func init() {
 		&EncoderConfig{})
 }
 
-// NewEncoder creates a new HallEncoder.
+// NewEncoder creates a new incremental Encoder.
 func NewEncoder(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (*Encoder, error) {
 	e := &Encoder{}
 	if cfg, ok := config.ConvertedAttributes.(*EncoderConfig); ok {
@@ -91,8 +91,8 @@ type EncoderConfig struct {
 	MotorName string      `json:"motor_name"`
 }
 
-// GetTicksCount returns number of ticks since last zeroing.
-func (e *Encoder) GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
+// TicksCount returns number of ticks since last zeroing.
+func (e *Encoder) TicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	res, err := e.board.runCommand("motor-position " + e.name)
 	if err != nil {
 		return 0, err

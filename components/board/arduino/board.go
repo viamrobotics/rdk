@@ -13,18 +13,24 @@ import (
 	slib "github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
 var model = resource.NewDefaultModel("arduino")
+
+// A Config describes the configuration of a board and all of its connected parts.
+type Config struct {
+	Analogs    []board.AnalogConfig `json:"analogs,omitempty"`
+	Attributes config.AttributeMap  `json:"attributes,omitempty"`
+}
 
 // init registers an arduino board.
 func init() {
@@ -37,16 +43,33 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			boardConfig, ok := config.ConvertedAttributes.(*board.Config)
+			boardConfig, ok := config.ConvertedAttributes.(*Config)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(boardConfig, config.ConvertedAttributes)
 			}
 			return newArduino(boardConfig, logger)
 		}})
-	board.RegisterConfigAttributeConverter(string(model.Name))
+	config.RegisterComponentAttributeMapConverter(
+		board.Subtype,
+		model,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&Config{})
 }
 
-func getSerialConfig(cfg *board.Config) (slib.OpenOptions, error) {
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) error {
+	for idx, conf := range config.Analogs {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func getSerialConfig(cfg *Config) (slib.OpenOptions, error) {
 	options := slib.OpenOptions{
 		PortName:        cfg.Attributes.String("port"),
 		BaudRate:        230400,
@@ -66,7 +89,7 @@ func getSerialConfig(cfg *board.Config) (slib.OpenOptions, error) {
 	return options, nil
 }
 
-func newArduino(cfg *board.Config, logger golog.Logger) (*arduinoBoard, error) {
+func newArduino(cfg *Config, logger golog.Logger) (*arduinoBoard, error) {
 	options, err := getSerialConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -93,7 +116,7 @@ func newArduino(cfg *board.Config, logger golog.Logger) (*arduinoBoard, error) {
 
 type arduinoBoard struct {
 	generic.Unimplemented
-	cfg        *board.Config
+	cfg        *Config
 	port       io.ReadWriteCloser
 	portReader *bufio.Reader
 	logger     golog.Logger
@@ -162,7 +185,7 @@ func (b *arduinoBoard) resetBoard() error {
 	return nil
 }
 
-func (b *arduinoBoard) configure(cfg *board.Config) error {
+func (b *arduinoBoard) configure(cfg *Config) error {
 	err := b.resetBoard()
 	if err != nil {
 		return err
@@ -182,18 +205,6 @@ func (b *arduinoBoard) configure(cfg *board.Config) error {
 		if err != nil {
 			return err
 		}
-	}
-
-	for _, c := range cfg.DigitalInterrupts {
-		return fmt.Errorf("arduino doesn't support DigitalInterrupts yet %v", c)
-	}
-
-	for _, c := range cfg.SPIs {
-		return fmt.Errorf("arduino doesn't support SPI yet %v", c)
-	}
-
-	for _, c := range cfg.I2Cs {
-		return fmt.Errorf("arduino doesn't support I2C yet %v", c)
 	}
 
 	return nil

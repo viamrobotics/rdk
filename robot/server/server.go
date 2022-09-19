@@ -9,14 +9,14 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -212,7 +212,7 @@ func (s *Server) GetStatus(ctx context.Context, req *pb.GetStatusRequest) (*pb.G
 		resourceNames = append(resourceNames, protoutils.ResourceNameFromProto(name))
 	}
 
-	statuses, err := s.r.GetStatus(ctx, resourceNames)
+	statuses, err := s.r.Status(ctx, resourceNames)
 	if err != nil {
 		return nil, err
 	}

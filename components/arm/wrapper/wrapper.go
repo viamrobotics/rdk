@@ -5,14 +5,14 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -78,9 +78,9 @@ func (wrapper *Arm) ModelFrame() referenceframe.Model {
 	return wrapper.model
 }
 
-// GetEndPosition returns the set position.
-func (wrapper *Arm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-	joints, err := wrapper.GetJointPositions(ctx, extra)
+// EndPosition returns the set position.
+func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := wrapper.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -107,9 +107,9 @@ func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPo
 	return wrapper.actual.MoveToJointPositions(ctx, joints, extra)
 }
 
-// GetJointPositions returns the set joints.
-func (wrapper *Arm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-	joints, err := wrapper.actual.GetJointPositions(ctx, extra)
+// JointPositions returns the set joints.
+func (wrapper *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+	joints, err := wrapper.actual.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func (wrapper *Arm) IsMoving(ctx context.Context) (bool, error) {
 
 // CurrentInputs returns the current inputs of the arm.
 func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := wrapper.actual.GetJointPositions(ctx, nil)
+	res, err := wrapper.actual.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

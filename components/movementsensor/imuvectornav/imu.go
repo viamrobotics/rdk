@@ -23,14 +23,54 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.NewDefaultModel("imu_vectornav")
+var model = resource.NewDefaultModel("imu-vectornav")
+
+// AttrConfig is used for converting a vectornav IMU MovementSensor config attributes.
+type AttrConfig struct {
+	Board string `json:"board"`
+	SPI   string `json:"spi"`
+	Speed *int   `json:"speed"`
+	Pfreq *int   `json:"polling_freq"`
+	CSPin string `json:"cs_pin"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (cfg *AttrConfig) Validate(path string) error {
+	if cfg.Board == "" {
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+
+	if cfg.SPI == "" {
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "spi")
+	}
+
+	if cfg.Speed == nil {
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "speed")
+	}
+
+	if cfg.Pfreq == nil {
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "polling_freq")
+	}
+
+	if cfg.CSPin == "" {
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "cs_pin (chip select pin)")
+	}
+
+	return nil
+}
 
 func init() {
 	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewVectorNav(ctx, deps, config, logger)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
+			return NewVectorNav(ctx, deps, cfg, logger)
 		},
 	})
+	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, model,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var attr AttrConfig
+			return config.TransformAttributeMapToStruct(&attr, attributes)
+		},
+		&AttrConfig{})
 }
 
 type vectornav struct {
@@ -88,15 +128,20 @@ const (
 func NewVectorNav(
 	ctx context.Context,
 	deps registry.Dependencies,
-	config config.Component,
+	cfg config.Component,
 	logger golog.Logger,
 ) (movementsensor.MovementSensor, error) {
-	boardName := config.Attributes.String("board")
+	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, rutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
+	}
+
+	boardName := attr.Board
 	b, err := board.FromDependencies(deps, boardName)
 	if err != nil {
 		return nil, errors.Wrap(err, "vectornav init failed")
 	}
-	spiName := config.Attributes.String("spi")
+	spiName := attr.SPI
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
 		return nil, errors.Errorf("vectornav: board %q is not local", boardName)
@@ -105,12 +150,14 @@ func NewVectorNav(
 	if !ok {
 		return nil, errors.Errorf("vectornav: couldn't get spi bus %q", spiName)
 	}
-	cs := config.Attributes.String("cs_pin")
-	if cs == "" {
-		return nil, errors.New("vectornav: need chip select pin")
+	cs := attr.CSPin
+
+	speed := *attr.Speed
+	if speed == 0 {
+		speed = 8000000
 	}
-	speed := config.Attributes.Int("speed", 8000000)
-	pfreq := config.Attributes.Int("polling_freq", 0)
+
+	pfreq := *attr.Pfreq
 	v := &vectornav{
 		bus:       spiBus,
 		logger:    logger,
@@ -228,7 +275,7 @@ func NewVectorNav(
 	return v, nil
 }
 
-func (vn *vectornav) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (vn *vectornav) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return vn.angularVelocity, nil
@@ -240,27 +287,27 @@ func (vn *vectornav) GetAcceleration(ctx context.Context) (r3.Vector, error) {
 	return vn.acceleration, nil
 }
 
-func (vn *vectornav) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (vn *vectornav) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return &vn.orientation, nil
 }
 
-func (vn *vectornav) GetCompassHeading(ctx context.Context) (float64, error) {
+func (vn *vectornav) CompassHeading(ctx context.Context) (float64, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return vn.orientation.Yaw, nil
 }
 
-func (vn *vectornav) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (vn *vectornav) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	return r3.Vector{}, nil
 }
 
-func (vn *vectornav) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+func (vn *vectornav) Position(ctx context.Context) (*geo.Point, float64, error) {
 	return nil, 0, nil
 }
 
-func (vn *vectornav) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+func (vn *vectornav) Accuracy(ctx context.Context) (map[string]float32, error) {
 	return map[string]float32{}, nil
 }
 
@@ -270,15 +317,15 @@ func (vn *vectornav) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
 	return vn.magnetometer, nil
 }
 
-func (vn *vectornav) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+func (vn *vectornav) Properties(ctx context.Context) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		AngularVelocitySupported: true,
 		OrientationSupported:     true,
 	}, nil
 }
 
-func (vn *vectornav) GetReadings(ctx context.Context) (map[string]interface{}, error) {
-	return movementsensor.GetReadings(ctx, vn)
+func (vn *vectornav) Readings(ctx context.Context) (map[string]interface{}, error) {
+	return movementsensor.Readings(ctx, vn)
 }
 
 func (vn *vectornav) getReadings(ctx context.Context) error {

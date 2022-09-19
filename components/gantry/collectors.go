@@ -3,21 +3,23 @@ package gantry
 import (
 	"context"
 
+	"google.golang.org/protobuf/types/known/anypb"
+
 	"go.viam.com/rdk/data"
 )
 
 type method int64
 
 const (
-	getPosition method = iota
-	getLengths
+	position method = iota
+	lengths
 )
 
 func (m method) String() string {
 	switch m {
-	case getPosition:
+	case position:
 		return "GetPosition"
-	case getLengths:
+	case lengths:
 		return "GetLengths"
 	}
 	return "Unknown"
@@ -28,16 +30,16 @@ type Position struct {
 	Position []float64
 }
 
-func newGetPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	gantry, err := assertGantry(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		v, err := gantry.GetPosition(ctx, nil)
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+		v, err := gantry.Position(ctx, nil)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, getPosition.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
 		return Position{Position: v}, nil
 	})
@@ -49,16 +51,16 @@ type Lengths struct {
 	Lengths []float64
 }
 
-func newGetLengthsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newLengthsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	gantry, err := assertGantry(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		v, err := gantry.GetLengths(ctx, nil)
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+		v, err := gantry.Lengths(ctx, nil)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, getLengths.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, lengths.String(), err)
 		}
 		return Lengths{Lengths: v}, nil
 	})

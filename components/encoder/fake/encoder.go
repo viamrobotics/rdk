@@ -16,17 +16,42 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+var fakeModel = resource.NewDefaultModel("fake")
+
 func init() {
 	_encoder := registry.Component{
-		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
+		Constructor: func(
+			ctx context.Context,
+			deps registry.Dependencies,
+			cfg config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
 			e := &Encoder{}
-			e.updateRate = int64(config.Attributes.Int("update_rate", 0))
+			e.updateRate = cfg.ConvertedAttributes.(*AttrConfig).UpdateRate
 
 			e.Start(ctx)
 			return e, nil
 		},
 	}
-	registry.RegisterComponent(encoder.Subtype, resource.NewDefaultModel("fake"), _encoder)
+	registry.RegisterComponent(encoder.Subtype, fakeModel, _encoder)
+
+	config.RegisterComponentAttributeMapConverter(
+		encoder.Subtype,
+		fakeModel,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var attr AttrConfig
+			return config.TransformAttributeMapToStruct(&attr, attributes)
+		}, &AttrConfig{})
+}
+
+// AttrConfig describes the configuration of a fake encoder.
+type AttrConfig struct {
+	UpdateRate int64 `json:"update_rate"`
+}
+
+// Validate ensures all parts of a config is valid.
+func (cfg *AttrConfig) Validate(path string) error {
+	return nil
 }
 
 // Encoder keeps track of a fake motor position.
@@ -40,8 +65,8 @@ type Encoder struct {
 	generic.Unimplemented
 }
 
-// GetTicksCount returns the current position in terms of ticks.
-func (e *Encoder) GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
+// TicksCount returns the current position in terms of ticks.
+func (e *Encoder) TicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.position, nil

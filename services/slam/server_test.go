@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
+	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/pointcloud"
-	pb "go.viam.com/rdk/proto/api/service/slam/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
@@ -21,6 +21,11 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
+)
+
+const (
+	testSlamServiceName  = "slam1"
+	testSlamServiceName2 = "slam2"
 )
 
 func TestServer(t *testing.T) {
@@ -36,7 +41,7 @@ func TestServer(t *testing.T) {
 		pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 		pSucc := referenceframe.NewPoseInFrame("frame", pose)
 
-		injectSvc.GetPositionFunc = func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
+		injectSvc.PositionFunc = func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
 			return pSucc, nil
 		}
 
@@ -85,7 +90,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("failing get position function", func(t *testing.T) {
-		injectSvc.GetPositionFunc = func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
+		injectSvc.PositionFunc = func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
 			return nil, errors.New("failure to get position")
 		}
 
@@ -152,7 +157,7 @@ func TestServer(t *testing.T) {
 		slamServer = slam.NewServer(injectSubtypeSvc)
 		pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 		pSucc := referenceframe.NewPoseInFrame("frame", pose)
-		injectSvc.GetPositionFunc = func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
+		injectSvc.PositionFunc = func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
 			return pSucc, nil
 		}
 

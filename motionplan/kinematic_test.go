@@ -10,11 +10,11 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/quat"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -32,7 +32,7 @@ func poseToSlice(p *commonpb.Pose) []float64 {
 // This should test forward kinematics functions.
 func TestForwardKinematics(t *testing.T) {
 	// Test fake 5DOF arm to confirm kinematics works with non-6dof arms
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/wx250s_test.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 300, 0, 360.25
@@ -44,7 +44,7 @@ func TestForwardKinematics(t *testing.T) {
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
 
 	// Test the 6dof arm we actually have
-	m, err = frame.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/wx250s_kinematics.json"), "")
+	m, err = frame.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 365, 0, 360.25
@@ -274,7 +274,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 
 func TestCombinedIKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/wx250s_kinematics.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
@@ -349,7 +349,7 @@ func TestSVAvsDH(t *testing.T) {
 
 func TestCombinedCPUs(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/wx250s_test.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, runtime.NumCPU()/400000)
 	test.That(t, err, test.ShouldBeNil)

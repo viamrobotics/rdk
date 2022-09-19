@@ -5,11 +5,11 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/gantry/v1"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 )
@@ -33,7 +33,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+func (c *client) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) 
 	return resp.PositionsMm, nil
 }
 
-func (c *client) GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+func (c *client) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -97,7 +97,7 @@ func (c *client) ModelFrame() referenceframe.Model {
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := c.GetPosition(ctx, nil)
+	res, err := c.Position(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

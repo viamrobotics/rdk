@@ -13,10 +13,15 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+	// registers all components.
+	commonpb "go.viam.com/api/common/v1"
+	armpb "go.viam.com/api/component/arm/v1"
+	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -33,13 +38,9 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/components/movementsensor"
-	// registers all components.
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	rgrpc "go.viam.com/rdk/grpc"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
-	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -49,6 +50,9 @@ import (
 	"go.viam.com/rdk/robot/server"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
+	"go.viam.com/rdk/services/datamanager/builtin"
+	"go.viam.com/rdk/services/motion"
+	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
@@ -127,7 +131,7 @@ func TestConfigRemote(t *testing.T) {
 				Type:      base.SubtypeName,
 				Model:     fakeModel,
 				Frame: &config.Frame{
-					Parent: "cameraOver",
+					Parent: "foo:cameraOver",
 				},
 			},
 		},
@@ -136,25 +140,22 @@ func TestConfigRemote(t *testing.T) {
 			{
 				Name:    "foo",
 				Address: addr,
-				Prefix:  true,
 				Frame: &config.Frame{
 					Parent:      "foo",
-					Translation: spatialmath.TranslationConfig{100, 200, 300},
+					Translation: r3.Vector{100, 200, 300},
 					Orientation: &spatialmath.R4AA{math.Pi / 2., 0, 0, 1},
 				},
 			},
 			{
 				Name:    "bar",
 				Address: addr,
-				Prefix:  true,
 			},
 			{
 				Name:    "squee",
-				Prefix:  false,
 				Address: addr,
 				Frame: &config.Frame{
 					Parent:      referenceframe.World,
-					Translation: spatialmath.TranslationConfig{100, 200, 300},
+					Translation: r3.Vector{100, 200, 300},
 					Orientation: &spatialmath.R4AA{math.Pi / 2., 0, 0, 1},
 				},
 			},
@@ -220,15 +221,15 @@ func TestConfigRemote(t *testing.T) {
 
 	arm1, err := r2.ResourceByName(arm.Named("bar:pieceArm"))
 	test.That(t, err, test.ShouldBeNil)
-	pos1, err := arm1.(arm.Arm).GetEndPosition(ctx, nil)
+	pos1, err := arm1.(arm.Arm).EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	arm2, err := r2.ResourceByName(arm.Named("foo:pieceArm"))
 	test.That(t, err, test.ShouldBeNil)
-	pos2, err := arm2.(arm.Arm).GetEndPosition(ctx, nil)
+	pos2, err := arm2.(arm.Arm).EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm.PositionGridDiff(pos1, pos2), test.ShouldAlmostEqual, 0)
 
-	statuses, err := r2.GetStatus(
+	statuses, err := r2.Status(
 		context.Background(),
 		[]resource.Name{
 			movementsensor.Named("squee:movement_sensor1"),
@@ -245,7 +246,7 @@ func TestConfigRemote(t *testing.T) {
 		test.That(t, statuses[idx].Status, test.ShouldResemble, map[string]interface{}{})
 	}
 
-	statuses, err = r2.GetStatus(
+	statuses, err = r2.Status(
 		context.Background(),
 		[]resource.Name{arm.Named("squee:pieceArm"), arm.Named("foo:pieceArm"), arm.Named("bar:pieceArm")},
 	)
@@ -354,7 +355,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 						Auth: config.RemoteAuth{
 							Managed: tc.Managed,
 						},
-						Prefix: true,
 					},
 					{
 						Name:    "bar",
@@ -480,7 +480,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				utils.NewStringSet(expectedRemotes...),
 			)
 
-			statuses, err := r2.GetStatus(
+			statuses, err := r2.Status(
 				context.Background(), []resource.Name{movementsensor.Named("bar:movement_sensor1"), movementsensor.Named("foo:movement_sensor1")},
 			)
 			test.That(t, err, test.ShouldBeNil)
@@ -488,7 +488,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, statuses[0].Status, test.ShouldResemble, map[string]interface{}{})
 			test.That(t, statuses[1].Status, test.ShouldResemble, map[string]interface{}{})
 
-			statuses, err = r2.GetStatus(
+			statuses, err = r2.Status(
 				context.Background(), []resource.Name{arm.Named("bar:pieceArm"), arm.Named("foo:pieceArm")},
 			)
 			test.That(t, err, test.ShouldBeNil)
@@ -672,12 +672,12 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		utils.NewStringSet(expectedRemotes...),
 	)
 
-	statuses, err := r2.GetStatus(context.Background(), []resource.Name{movementsensor.Named("foo:movement_sensor1")})
+	statuses, err := r2.Status(context.Background(), []resource.Name{movementsensor.Named("foo:movement_sensor1")})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 1)
 	test.That(t, statuses[0].Status, test.ShouldResemble, map[string]interface{}{})
 
-	statuses, err = r2.GetStatus(context.Background(), []resource.Name{arm.Named("foo:pieceArm")})
+	statuses, err = r2.Status(context.Background(), []resource.Name{arm.Named("foo:pieceArm")})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 1)
 
@@ -703,7 +703,7 @@ type dummyArm struct {
 	channel   chan struct{}
 }
 
-func (da *dummyArm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (da *dummyArm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 	return nil, errors.New("fake error")
 }
 
@@ -720,7 +720,7 @@ func (da *dummyArm) MoveToJointPositions(ctx context.Context, positionDegs *armp
 	return nil
 }
 
-func (da *dummyArm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*armpb.JointPositions, error) {
+func (da *dummyArm) JointPositions(ctx context.Context, extra map[string]interface{}) (*armpb.JointPositions, error) {
 	return nil, errors.New("fake error")
 }
 
@@ -812,7 +812,7 @@ func TestStopAll(t *testing.T) {
 	go func() {
 		<-channel
 		for _, opid := range r.OperationManager().All() {
-			if opid.Method == "/proto.api.component.generic.v1.GenericService/DoCommand" {
+			if opid.Method == "/viam.component.generic.v1.GenericService/DoCommand" {
 				foundOPID = true
 				stopAllErrCh <- r.StopAll(ctx, nil)
 			}
@@ -960,17 +960,17 @@ func TestSensorsService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	sensorNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
-	foundSensors, err := svc.GetSensors(context.Background())
+	foundSensors, err := svc.Sensors(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rtestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rtestutils.NewResourceNameSet(sensorNames...))
 
-	readings, err := svc.GetReadings(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")})
+	readings, err := svc.Readings(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(readings), test.ShouldEqual, 1)
 	test.That(t, readings[0].Name, test.ShouldResemble, movementsensor.Named("movement_sensor1"))
 	test.That(t, len(readings[0].Readings), test.ShouldBeGreaterThan, 3)
 
-	readings, err = svc.GetReadings(context.Background(), sensorNames)
+	readings, err = svc.Readings(context.Background(), sensorNames)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(readings), test.ShouldEqual, 2)
 
@@ -995,13 +995,13 @@ func TestStatusService(t *testing.T) {
 		movementsensor.Named("movement_sensor1"): map[string]interface{}{},
 	}
 
-	statuses, err := r.GetStatus(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")})
+	statuses, err := r.Status(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 1)
 	test.That(t, statuses[0].Name, test.ShouldResemble, movementsensor.Named("movement_sensor1"))
 	test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
 
-	statuses, err = r.GetStatus(context.Background(), resourceNames)
+	statuses, err = r.Status(context.Background(), resourceNames)
 	test.That(t, err, test.ShouldBeNil)
 
 	expectedStatusLength := 2
@@ -1013,7 +1013,7 @@ func TestStatusService(t *testing.T) {
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
-func TestGetStatus(t *testing.T) {
+func TestStatus(t *testing.T) {
 	buttonSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("button"))
 	button1 := resource.NameFromSubtype(buttonSubtype, "button1")
 	button2 := resource.NameFromSubtype(buttonSubtype, "button2")
@@ -1054,7 +1054,7 @@ func TestGetStatus(t *testing.T) {
 
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = r.GetStatus(context.Background(), []resource.Name{button2})
+		_, err = r.Status(context.Background(), []resource.Name{button2})
 		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(button2))
 	})
 
@@ -1065,7 +1065,7 @@ func TestGetStatus(t *testing.T) {
 		}()
 		test.That(t, err, test.ShouldBeNil)
 
-		resp, err := r.GetStatus(context.Background(), []resource.Name{button1})
+		resp, err := r.Status(context.Background(), []resource.Name{button1})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, statuses)
 	})
@@ -1077,7 +1077,7 @@ func TestGetStatus(t *testing.T) {
 		}()
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = r.GetStatus(context.Background(), []resource.Name{fail1})
+		_, err = r.Status(context.Background(), []resource.Name{fail1})
 		test.That(t, err, test.ShouldBeError, errors.Wrapf(errFailed, "failed to get status from %q", fail1))
 	})
 
@@ -1092,30 +1092,30 @@ func TestGetStatus(t *testing.T) {
 		defer func() {
 			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 		}()
-		_, err = r.GetStatus(context.Background(), []resource.Name{button2})
+		_, err = r.Status(context.Background(), []resource.Name{button2})
 		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(button2))
 
-		resp, err := r.GetStatus(context.Background(), []resource.Name{working1})
+		resp, err := r.Status(context.Background(), []resource.Name{working1})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 1)
 		status := resp[0]
 		test.That(t, status.Name, test.ShouldResemble, working1)
 		test.That(t, status.Status, test.ShouldResemble, workingStatus)
 
-		resp, err = r.GetStatus(context.Background(), []resource.Name{working1, working1, working1})
+		resp, err = r.Status(context.Background(), []resource.Name{working1, working1, working1})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 1)
 		status = resp[0]
 		test.That(t, status.Name, test.ShouldResemble, working1)
 		test.That(t, status.Status, test.ShouldResemble, workingStatus)
 
-		resp, err = r.GetStatus(context.Background(), []resource.Name{working1, button1})
+		resp, err = r.Status(context.Background(), []resource.Name{working1, button1})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 2)
 		test.That(t, resp[0].Status, test.ShouldResemble, expected[resp[0].Name])
 		test.That(t, resp[1].Status, test.ShouldResemble, expected[resp[1].Name])
 
-		_, err = r.GetStatus(context.Background(), resourceNames)
+		_, err = r.Status(context.Background(), resourceNames)
 		test.That(t, err, test.ShouldBeError, errors.Wrapf(errFailed, "failed to get status from %q", fail1))
 	})
 
@@ -1131,7 +1131,7 @@ func TestGetStatus(t *testing.T) {
 		}()
 		test.That(t, err, test.ShouldBeNil)
 
-		resp, err := r.GetStatus(context.Background(), []resource.Name{})
+		resp, err := r.Status(context.Background(), []resource.Name{})
 		test.That(t, err, test.ShouldBeNil)
 		// 5 because the 3 default services are always added to a local_robot. We only care
 		// about the first two (working1 and button1) however.
@@ -1152,7 +1152,7 @@ func TestGetStatus(t *testing.T) {
 	})
 }
 
-func TestGetStatusRemote(t *testing.T) {
+func TestStatusRemote(t *testing.T) {
 	// set up remotes
 	listener1 := testutils.ReserveRandomListener(t)
 	addr1 := listener1.Addr().String()
@@ -1173,7 +1173,7 @@ func TestGetStatusRemote(t *testing.T) {
 		EndPosition:    &commonpb.Pose{},
 		JointPositions: &armpb.JointPositions{Values: []float64{1.0, 2.0, 3.0, 4.0, 5.0, 6.0}},
 	}
-	injectRobot1.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+	injectRobot1.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 		statusCallCount++
 		statuses := make([]robot.Status, 0, len(resourceNames))
 		for _, n := range resourceNames {
@@ -1185,7 +1185,7 @@ func TestGetStatusRemote(t *testing.T) {
 		ResourceNamesFunc:       resourcesFunc,
 		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
 	}
-	injectRobot2.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+	injectRobot2.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 		statusCallCount++
 		statuses := make([]robot.Status, 0, len(resourceNames))
 		for _, n := range resourceNames {
@@ -1206,12 +1206,10 @@ func TestGetStatusRemote(t *testing.T) {
 			{
 				Name:    "foo",
 				Address: addr1,
-				Prefix:  false,
 			},
 			{
 				Name:    "bar",
 				Address: addr2,
-				Prefix:  true,
 			},
 		},
 	}
@@ -1231,7 +1229,7 @@ func TestGetStatusRemote(t *testing.T) {
 			arm.Named("foo:arm1"), arm.Named("foo:arm2"), arm.Named("bar:arm1"), arm.Named("bar:arm2"),
 		),
 	)
-	statuses, err := r.GetStatus(
+	statuses, err := r.Status(
 		ctx, []resource.Name{arm.Named("foo:arm1"), arm.Named("foo:arm2"), arm.Named("bar:arm1"), arm.Named("bar:arm2")},
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -1296,7 +1294,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	tPos := referenceframe.JointPositionsFromRadians([]float64{10.0})
 	err = r0Arm.MoveToJointPositions(context.Background(), tPos, nil)
 	test.That(t, err, test.ShouldBeNil)
-	p0Arm1, err := r0Arm.GetJointPositions(context.Background(), nil)
+	p0Arm1, err := r0Arm.JointPositions(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
@@ -1355,7 +1353,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	rrArm1, ok := arm1.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
-	pos, err := rrArm1.GetJointPositions(ctx, nil)
+	pos, err := rrArm1.JointPositions(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.Values, test.ShouldResemble, p0Arm1.Values)
 
@@ -1363,7 +1361,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	rrArm1, ok = arm1.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
-	pos, err = rrArm1.GetJointPositions(ctx, nil)
+	pos, err = rrArm1.JointPositions(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.Values, test.ShouldResemble, p0Arm1.Values)
 
@@ -1411,7 +1409,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "fake1",
 				Type:                config.ServiceType(datamanager.SubtypeName),
-				ConvertedAttributes: &datamanager.Config{},
+				ConvertedAttributes: &builtin.Config{},
 			},
 		},
 		Cloud: &config.Cloud{},
@@ -1527,7 +1525,7 @@ func TestReconnectRemote(t *testing.T) {
 	test.That(t, a, test.ShouldNotBeNil)
 	anArm, ok := a.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err = anArm.GetEndPosition(context.Background(), map[string]interface{}{})
+	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 
 	// close/disconnect the robot
@@ -1539,7 +1537,7 @@ func TestReconnectRemote(t *testing.T) {
 		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 3)
 	})
 	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 3)
-	_, err = anArm.GetEndPosition(context.Background(), map[string]interface{}{})
+	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError)
 
 	// reconnect the first robot
@@ -1565,7 +1563,7 @@ func TestReconnectRemote(t *testing.T) {
 
 	_, err = robotClient.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = anArm.GetEndPosition(context.Background(), map[string]interface{}{})
+	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -1638,7 +1636,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	test.That(t, a, test.ShouldNotBeNil)
 	anArm, ok := a.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err = anArm.GetEndPosition(context.Background(), map[string]interface{}{})
+	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 
 	// close/disconnect the robot
@@ -1650,7 +1648,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 3)
 	})
 	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 3)
-	_, err = anArm.GetEndPosition(context.Background(), map[string]interface{}{})
+	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError)
 
 	// reconnect the first robot
@@ -1685,7 +1683,7 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 7)
 	})
 	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 7)
-	_, err = anArm.GetEndPosition(context.Background(), map[string]interface{}{})
+	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError)
 
 	// check that base is now instantiated
@@ -1701,4 +1699,71 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(robotClient.ResourceNames()), test.ShouldEqual, 7)
+}
+
+func TestCheckMaxInstanceValid(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg := &config.Config{Services: []config.Service{
+		{
+			Namespace: resource.ResourceNamespaceRDK,
+			Name:      "fake1",
+			Model:     resource.DefaultModelName,
+			Type:      config.ServiceType(motion.SubtypeName),
+		},
+		{
+			Namespace: resource.ResourceNamespaceRDK,
+			Name:      "fake2",
+			Model:     resource.DefaultModelName,
+			Type:      config.ServiceType(motion.SubtypeName),
+		},
+	}}
+	r, err := robotimpl.New(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+	resourceName, err := r.ResourceByName(motion.Named("fake1"))
+	test.That(t, resourceName, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+	resourceName, err = r.ResourceByName(motion.Named("fake2"))
+	test.That(t, resourceName, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+// The max allowed datamanager services is 1 so only one of the datamanager services
+// from this config should build.
+func TestCheckMaxInstanceInvalid(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg := &config.Config{Services: []config.Service{
+		{
+			Namespace: resource.ResourceNamespaceRDK,
+			Name:      "fake1",
+			Model:     resource.DefaultModelName,
+			Type:      config.ServiceType(datamanager.SubtypeName),
+		},
+		{
+			Namespace: resource.ResourceNamespaceRDK,
+			Name:      "fake2",
+			Model:     resource.DefaultModelName,
+			Type:      config.ServiceType(datamanager.SubtypeName),
+		},
+		{
+			Namespace: resource.ResourceNamespaceRDK,
+			Name:      "fake3",
+			Model:     resource.DefaultModelName,
+			Type:      config.ServiceType(datamanager.SubtypeName),
+		},
+	}}
+	r, err := robotimpl.New(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+	maxInstance := 0
+	for _, name := range r.ResourceNames() {
+		if name.Subtype == datamanager.Subtype {
+			maxInstance++
+		}
+	}
+	test.That(t, maxInstance, test.ShouldEqual, 1)
 }

@@ -14,11 +14,11 @@ import (
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/camera/v1"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
-	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
@@ -112,6 +112,9 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webca
 
 		for _, prop := range props {
 			pbProp := &pb.Property{
+				Width:       int32(prop.Video.Width),
+				Height:      int32(prop.Video.Height),
+				FrameFormat: string(prop.Video.FrameFormat),
 				Video: &pb.Video{
 					Width:       int32(prop.Video.Width),
 					Height:      int32(prop.Video.Height),
@@ -258,8 +261,15 @@ func tryWebcamOpen(ctx context.Context,
 		return nil, err
 	}
 	var intrinsics *transform.PinholeCameraIntrinsics
+	var distortion transform.Distorter
 	if attrs.AttrConfig != nil {
 		intrinsics = attrs.AttrConfig.CameraParameters
+		distortion = attrs.AttrConfig.DistortionParameters
 	}
-	return camera.NewFromSource(ctx, source, intrinsics, camera.StreamType(attrs.Stream))
+	return camera.NewFromSource(
+		ctx,
+		source,
+		&transform.PinholeCameraModel{intrinsics, distortion},
+		camera.StreamType(attrs.Stream),
+	)
 }

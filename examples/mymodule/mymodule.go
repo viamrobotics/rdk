@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/module"
-	pbgeneric "go.viam.com/rdk/proto/api/component/generic/v1"
+	pbgeneric "go.viam.com/api/component/generic/v1"
 )
 
 type myComponent struct {

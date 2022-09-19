@@ -212,7 +212,6 @@ func (c *Config) CopyOnlyPublicFields() (*Config, error) {
 type Remote struct {
 	Name                    string                       `json:"name"`
 	Address                 string                       `json:"address"`
-	Prefix                  bool                         `json:"prefix"`
 	Frame                   *Frame                       `json:"frame,omitempty"`
 	Auth                    RemoteAuth                   `json:"auth"`
 	ManagedBy               string                       `json:"managed_by"`
@@ -412,8 +411,8 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 	}
 	switch config.Type {
 	case rpc.CredentialsTypeAPIKey:
-		if config.Config.String("key") == "" {
-			return utils.NewConfigValidationFieldRequiredError(fmt.Sprintf("%s.config", path), "key")
+		if config.Config.String("key") == "" && len(config.Config.StringSlice("keys")) == 0 {
+			return utils.NewConfigValidationError(fmt.Sprintf("%s.config", path), errors.New("key or keys is required"))
 		}
 	default:
 		return utils.NewConfigValidationError(path, errors.Errorf("do not know how to handle auth for %q", config.Type))

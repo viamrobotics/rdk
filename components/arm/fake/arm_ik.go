@@ -7,13 +7,13 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -71,9 +71,9 @@ func (a *ArmIK) ModelFrame() referenceframe.Model {
 	return a.model
 }
 
-// GetEndPosition returns the set position.
-func (a *ArmIK) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-	joints, err := a.GetJointPositions(ctx, extra)
+// EndPosition returns the set position.
+func (a *ArmIK) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := a.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (a *ArmIK) MoveToPosition(
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) error {
-	joints, err := a.GetJointPositions(ctx, extra)
+	joints, err := a.JointPositions(ctx, extra)
 	if err != nil {
 		return err
 	}
@@ -110,8 +110,8 @@ func (a *ArmIK) MoveToJointPositions(ctx context.Context, joints *pb.JointPositi
 	return nil
 }
 
-// GetJointPositions returns joints.
-func (a *ArmIK) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+// JointPositions returns joints.
+func (a *ArmIK) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	retJoint := &pb.JointPositions{Values: a.joints.Values}
 	return retJoint, nil
 }
@@ -128,7 +128,7 @@ func (a *ArmIK) IsMoving(ctx context.Context) (bool, error) {
 
 // CurrentInputs TODO.
 func (a *ArmIK) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.GetJointPositions(ctx, nil)
+	res, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

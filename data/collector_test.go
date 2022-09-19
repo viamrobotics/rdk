@@ -14,6 +14,7 @@ import (
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/protoutils"
@@ -32,10 +33,10 @@ func (r *structReading) toProto() *structpb.Struct {
 }
 
 var (
-	dummyStructCapturer = CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
+	dummyStructCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		return dummyStructReading, nil
 	})
-	dummyBinaryCapturer = CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
+	dummyBinaryCapturer = CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		return dummyBytesReading, nil
 	})
 	dummyStructReading      = structReading{}
@@ -43,6 +44,7 @@ var (
 	dummyBytesReading       = []byte("I sure am bytes")
 	queueSize               = 250
 	bufferSize              = 4096
+	fakeVal                 = &anypb.Any{}
 )
 
 func TestNewCollector(t *testing.T) {
@@ -87,7 +89,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			params: CollectorParams{
 				ComponentName: "testComponent",
 				Interval:      tickerInterval,
-				MethodParams:  map[string]string{"name": "test"},
+				MethodParams:  map[string]*anypb.Any{"name": fakeVal},
 				QueueSize:     queueSize,
 				BufferSize:    bufferSize,
 				Logger:        l,
@@ -101,7 +103,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			params: CollectorParams{
 				ComponentName: "testComponent",
 				Interval:      sleepInterval,
-				MethodParams:  map[string]string{"name": "test"},
+				MethodParams:  map[string]*anypb.Any{"name": fakeVal},
 				QueueSize:     queueSize,
 				BufferSize:    bufferSize,
 				Logger:        l,
@@ -115,7 +117,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			params: CollectorParams{
 				ComponentName: "testComponent",
 				Interval:      tickerInterval,
-				MethodParams:  map[string]string{"name": "test"},
+				MethodParams:  map[string]*anypb.Any{"name": fakeVal},
 				QueueSize:     queueSize,
 				BufferSize:    bufferSize,
 				Logger:        l,
@@ -129,7 +131,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			params: CollectorParams{
 				ComponentName: "testComponent",
 				Interval:      sleepInterval,
-				MethodParams:  map[string]string{"name": "test"},
+				MethodParams:  map[string]*anypb.Any{"name": fakeVal},
 				QueueSize:     queueSize,
 				BufferSize:    bufferSize,
 				Logger:        l,
@@ -169,7 +171,7 @@ func TestClose(t *testing.T) {
 	params := CollectorParams{
 		ComponentName: "testComponent",
 		Interval:      time.Millisecond * 15,
-		MethodParams:  map[string]string{"name": "test"},
+		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
 		Target:        target1,
 		QueueSize:     queueSize,
 		BufferSize:    bufferSize,
@@ -198,7 +200,7 @@ func TestSetTarget(t *testing.T) {
 	params := CollectorParams{
 		ComponentName: "testComponent",
 		Interval:      time.Millisecond * 15,
-		MethodParams:  map[string]string{"name": "test"},
+		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
 		Target:        target1,
 		QueueSize:     queueSize,
 		BufferSize:    bufferSize,
@@ -225,13 +227,14 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 	logger, logs := golog.NewObservedTestLogger(t)
 	target1, _ := os.CreateTemp("", "whatever")
 	defer os.Remove(target1.Name())
-	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
+	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		return nil, fmt.Errorf("arbitrary wrapping message: %w", context.Canceled)
 	})
+
 	params := CollectorParams{
 		ComponentName: "testComponent",
 		Interval:      time.Millisecond * 10,
-		MethodParams:  map[string]string{"name": "test"},
+		MethodParams:  map[string]*anypb.Any{"name": fakeVal},
 		Target:        target1,
 		QueueSize:     queueSize,
 		BufferSize:    bufferSize,

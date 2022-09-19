@@ -24,8 +24,8 @@ import (
 )
 
 var (
-	modelname250 = resource.NewDefaultModel("wx250s")
-	modelname300 = resource.NewDefaultModel("vx300s")
+	modelname250 = resource.NewDefaultModel("trossen-wx250s")
+	modelname300 = resource.NewDefaultModel("trossen-vx300s")
 )
 
 func init() {

@@ -233,6 +233,7 @@ type ServiceType string
 // A Service describes the configuration of a service.
 type Service struct {
 	Name                string             `json:"name"`
+	Model               string             `json:"model"`
 	Namespace           resource.Namespace `json:"namespace"`
 	Type                ServiceType        `json:"type"`
 	Attributes          AttributeMap       `json:"attributes"`
@@ -327,6 +328,10 @@ func (config *Service) Validate(path string) error {
 	if config.Name == "" {
 		rlog.Logger.Warnw("no name given, defaulting name to builtin")
 		config.Name = resource.DefaultServiceName
+	}
+	if config.Model == "" {
+		rlog.Logger.Warnw("no model given; using default")
+		config.Model = resource.DefaultModelName
 	}
 	if config.Namespace == "" {
 		// NOTE: This should never be removed in order to ensure RDK is the

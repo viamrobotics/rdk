@@ -147,8 +147,8 @@ func (s *piPigpioServo) pigpioErrors(res int) error {
 	}
 }
 
-// GetPosition returns the current set angle (degrees) of the servo.
-func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
+// Position returns the current set angle (degrees) of the servo.
+func (s *piPigpioServo) Position(ctx context.Context) (uint8, error) {
 	res := C.gpioGetServoPulsewidth(s.pin)
 	err := s.pigpioErrors(int(res))
 	if int(res) != 0 {

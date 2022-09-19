@@ -7,13 +7,13 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -91,7 +91,7 @@ func newMultiAxis(
 	}
 
 	var err error
-	mAx.lengthsMm, err = mAx.GetLengths(ctx, nil)
+	mAx.lengthsMm, err = mAx.Lengths(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (g *multiAxis) MoveToPosition(
 
 	idx := 0
 	for _, subAx := range g.subAxes {
-		subAxNum, err := subAx.GetLengths(ctx, extra)
+		subAxNum, err := subAx.Lengths(ctx, extra)
 		if err != nil {
 			return err
 		}
@@ -139,7 +139,7 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 
 	idx := 0
 	for _, subAx := range g.subAxes {
-		subAxNum, err := subAx.GetLengths(ctx, nil)
+		subAxNum, err := subAx.Lengths(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -153,11 +153,11 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 	return nil
 }
 
-// GetPosition returns the position in millimeters.
-func (g *multiAxis) GetPosition(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+// Position returns the position in millimeters.
+func (g *multiAxis) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	positions := []float64{}
 	for _, subAx := range g.subAxes {
-		pos, err := subAx.GetPosition(ctx, extra)
+		pos, err := subAx.Position(ctx, extra)
 		if err != nil {
 			return nil, err
 		}
@@ -166,11 +166,11 @@ func (g *multiAxis) GetPosition(ctx context.Context, extra map[string]interface{
 	return positions, nil
 }
 
-// GetLengths returns the physical lengths of all axes of a multi-axis Gantry.
-func (g *multiAxis) GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+// Lengths returns the physical lengths of all axes of a multi-axis Gantry.
+func (g *multiAxis) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	lengths := []float64{}
 	for _, subAx := range g.subAxes {
-		lng, err := subAx.GetLengths(ctx, extra)
+		lng, err := subAx.Lengths(ctx, extra)
 		if err != nil {
 			return nil, err
 		}
@@ -208,7 +208,7 @@ func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 	}
 	inputs := []float64{}
 	for _, subAx := range g.subAxes {
-		in, err := subAx.GetPosition(ctx, nil)
+		in, err := subAx.Position(ctx, nil)
 		if err != nil {
 			return nil, err
 		}

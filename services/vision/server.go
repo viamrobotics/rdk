@@ -7,11 +7,11 @@ import (
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/service/vision/v1"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -74,7 +74,7 @@ func (server *subtypeServer) GetDetectorNames(
 	if err != nil {
 		return nil, err
 	}
-	names, err := svc.GetDetectorNames(ctx)
+	names, err := svc.DetectorNames(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (server *subtypeServer) GetDetections(
 	if err != nil {
 		return nil, err
 	}
-	detections, err := svc.GetDetections(ctx, img, req.DetectorName)
+	detections, err := svc.Detections(ctx, img, req.DetectorName)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +176,7 @@ func (server *subtypeServer) GetDetectionsFromCamera(
 	if err != nil {
 		return nil, err
 	}
-	detections, err := svc.GetDetectionsFromCamera(ctx, req.CameraName, req.DetectorName)
+	detections, err := svc.DetectionsFromCamera(ctx, req.CameraName, req.DetectorName)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +215,7 @@ func (server *subtypeServer) GetClassifierNames(
 	if err != nil {
 		return nil, err
 	}
-	names, err := svc.GetClassifierNames(ctx)
+	names, err := svc.ClassifierNames(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +278,7 @@ func (server *subtypeServer) GetClassifications(
 	if err != nil {
 		return nil, err
 	}
-	classifications, err := svc.GetClassifications(ctx, img, req.ClassifierName, int(req.N))
+	classifications, err := svc.Classifications(ctx, img, req.ClassifierName, int(req.N))
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +305,7 @@ func (server *subtypeServer) GetClassificationsFromCamera(
 	if err != nil {
 		return nil, err
 	}
-	classifications, err := svc.GetClassificationsFromCamera(ctx, req.CameraName, req.ClassifierName, int(req.N))
+	classifications, err := svc.ClassificationsFromCamera(ctx, req.CameraName, req.ClassifierName, int(req.N))
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +330,7 @@ func (server *subtypeServer) GetSegmenterNames(
 	if err != nil {
 		return nil, err
 	}
-	names, err := svc.GetSegmenterNames(ctx)
+	names, err := svc.SegmenterNames(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +415,7 @@ func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointClou
 		ps := &commonpb.PointCloudObject{
 			PointCloud: buf.Bytes(),
 			Geometries: &commonpb.GeometriesInFrame{
-				Geometries:     []*commonpb.Geometry{seg.BoundingBox.ToProtobuf()},
+				Geometries:     []*commonpb.Geometry{seg.Geometry.ToProtobuf()},
 				ReferenceFrame: frame,
 			},
 		}

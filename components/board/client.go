@@ -8,11 +8,11 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/board/v1"
 	"go.viam.com/rdk/protoutils"
 )
 
@@ -242,6 +242,10 @@ func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanos ui
 }
 
 func (dic *digitalInterruptClient) AddCallback(c chan bool) {
+	panic(errUnimplemented)
+}
+
+func (dic *digitalInterruptClient) RemoveCallback(c chan bool) {
 	panic(errUnimplemented)
 }
 

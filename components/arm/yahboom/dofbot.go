@@ -12,6 +12,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
+	componentpb "go.viam.com/api/component/arm/v1"
 	gutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
@@ -21,8 +23,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -117,7 +117,7 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 
 	// sanity check if init succeeded
 	var pos *componentpb.JointPositions
-	pos, err = a.GetJointPositions(ctx, nil)
+	pos, err = a.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error reading joint positions during init: %w", err)
 	}
@@ -126,9 +126,9 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 	return &a, nil
 }
 
-// GetEndPosition returns the current position of the arm.
-func (a *Dofbot) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-	joints, err := a.GetJointPositions(ctx, extra)
+// EndPosition returns the current position of the arm.
+func (a *Dofbot) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := a.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, fmt.Errorf("error getting joint positions: %w", err)
 	}
@@ -223,8 +223,8 @@ func (a *Dofbot) moveJointInLock(ctx context.Context, joint int, degrees float64
 	return a.handle.Write(ctx, buf)
 }
 
-// GetJointPositions returns the current joint positions of the arm.
-func (a *Dofbot) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*componentpb.JointPositions, error) {
+// JointPositions returns the current joint positions of the arm.
+func (a *Dofbot) JointPositions(ctx context.Context, extra map[string]interface{}) (*componentpb.JointPositions, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -366,7 +366,7 @@ func (a *Dofbot) Grab(ctx context.Context) (bool, error) {
 
 // CurrentInputs returns the current inputs of the arm.
 func (a *Dofbot) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.GetJointPositions(ctx, nil)
+	res, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

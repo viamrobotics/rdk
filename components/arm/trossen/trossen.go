@@ -14,6 +14,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/dynamixel/network"
 	"go.viam.com/dynamixel/servo"
 	"go.viam.com/dynamixel/servo/s_model"
@@ -24,8 +26,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -112,15 +112,15 @@ func (config *AttrConfig) Validate(path string) error {
 	return nil
 }
 
-//go:embed wx250s_kinematics.json
+//go:embed trossen_wx250s_kinematics.json
 var wx250smodeljson []byte
 
-//go:embed vx300s_kinematics.json
+//go:embed trossen_vx300s_kinematics.json
 var vx300smodeljson []byte
 
 var (
-	modelname250 = resource.NewDefaultModel("wx250s")
-	modelname300 = resource.NewDefaultModel("vx300s")
+	modelname250 = resource.NewDefaultModel("trossen-wx250s")
+	modelname300 = resource.NewDefaultModel("trossen-vx300s")
 )
 
 func init() {
@@ -165,9 +165,9 @@ func NewArm(r robot.Robot, attributes config.AttributeMap, logger golog.Logger, 
 	}, nil
 }
 
-// GetEndPosition computes and returns the current cartesian position.
-func (a *Arm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-	joints, err := a.GetJointPositions(ctx, extra)
+// EndPosition computes and returns the current cartesian position.
+func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := a.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -201,8 +201,8 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, e
 	return a.WaitForMovement(ctx)
 }
 
-// GetJointPositions returns an empty struct, because the wx250s should use joint angles from kinematics.
-func (a *Arm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+// JointPositions returns an empty struct, because the wx250s should use joint angles from kinematics.
+func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	angleMap, err := a.GetAllAngles()
 	if err != nil {
 		return &pb.JointPositions{}, err
@@ -413,7 +413,7 @@ func (a *Arm) HomePosition(ctx context.Context) error {
 
 // CurrentInputs TODO.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.GetJointPositions(ctx, nil)
+	res, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

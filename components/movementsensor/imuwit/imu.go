@@ -4,7 +4,6 @@ package imuwit
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -24,19 +23,39 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var model = resource.NewDefaultModel("imu_wit")
+var model = resource.NewDefaultModel("imu-wit")
+
+// AttrConfig is used for converting a witmotion IMU MovementSensor config attributes.
+type AttrConfig struct {
+	Port string `json:"port"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (cfg *AttrConfig) Validate(path string) error {
+	if cfg.Port == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "port")
+	}
+	return nil
+}
 
 func init() {
 	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{
 		Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
-			config config.Component,
+			cfg config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return NewWit(deps, config, logger)
+			return NewWit(deps, cfg, logger)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(movementsensor.Subtype, model,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var attr AttrConfig
+			return config.TransformAttributeMapToStruct(&attr, attributes)
+		},
+		&AttrConfig{})
 }
 
 type wit struct {
@@ -53,19 +72,19 @@ type wit struct {
 	generic.Unimplemented
 }
 
-func (imu *wit) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (imu *wit) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return imu.angularVelocity, imu.lastError
 }
 
-func (imu *wit) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (imu *wit) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return r3.Vector{}, imu.lastError
 }
 
-func (imu *wit) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (imu *wit) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return &imu.orientation, imu.lastError
@@ -85,24 +104,23 @@ func (imu *wit) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
 	return imu.magnetometer, imu.lastError
 }
 
-func (imu *wit) GetCompassHeading(ctx context.Context) (float64, error) {
-	// TODO(erh): is this right? I don't think so
-	return imu.magnetometer.Z, imu.lastError
+func (imu *wit) CompassHeading(ctx context.Context) (float64, error) {
+	return 0, imu.lastError
 }
 
-func (imu *wit) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+func (imu *wit) Position(ctx context.Context) (*geo.Point, float64, error) {
 	return nil, 0, nil
 }
 
-func (imu *wit) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+func (imu *wit) Accuracy(ctx context.Context) (map[string]float32, error) {
 	return map[string]float32{}, nil
 }
 
-func (imu *wit) GetReadings(ctx context.Context) (map[string]interface{}, error) {
-	return movementsensor.GetReadings(ctx, imu)
+func (imu *wit) Readings(ctx context.Context) (map[string]interface{}, error) {
+	return movementsensor.Readings(ctx, imu)
 }
 
-func (imu *wit) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+func (imu *wit) Properties(ctx context.Context) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		AngularVelocitySupported: true,
 		OrientationSupported:     true,
@@ -111,7 +129,7 @@ func (imu *wit) GetProperties(ctx context.Context) (*movementsensor.Properties, 
 }
 
 // NewWit creates a new Wit IMU.
-func NewWit(deps registry.Dependencies, config config.Component, logger golog.Logger) (movementsensor.MovementSensor, error) {
+func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logger) (movementsensor.MovementSensor, error) {
 	options := slib.OpenOptions{
 		BaudRate:        9600,
 		DataBits:        8,
@@ -119,10 +137,7 @@ func NewWit(deps registry.Dependencies, config config.Component, logger golog.Lo
 		MinimumReadSize: 1,
 	}
 
-	options.PortName = config.Attributes.String("port")
-	if options.PortName == "" {
-		return nil, errors.New("wit imu needs a port")
-	}
+	options.PortName = cfg.ConvertedAttributes.(*AttrConfig).Port
 
 	port, err := slib.Open(options)
 	if err != nil {

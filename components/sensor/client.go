@@ -5,10 +5,10 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	pb "go.viam.com/api/component/sensor/v1"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
-	pb "go.viam.com/rdk/proto/api/component/sensor/v1"
 	"go.viam.com/rdk/protoutils"
 )
 
@@ -31,7 +31,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) GetReadings(ctx context.Context) (map[string]interface{}, error) {
+func (c *client) Readings(ctx context.Context) (map[string]interface{}, error) {
 	resp, err := c.client.GetReadings(ctx, &pb.GetReadingsRequest{
 		Name: c.name,
 	})

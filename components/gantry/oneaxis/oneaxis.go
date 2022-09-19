@@ -10,6 +10,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	commonpb "go.viam.com/api/common/v1"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -18,7 +19,6 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -152,7 +152,7 @@ func newOneAxis(ctx context.Context, deps registry.Dependencies, config config.C
 	if err != nil {
 		return nil, err
 	}
-	features, err := _motor.GetProperties(ctx, nil)
+	features, err := _motor.Properties(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +287,7 @@ func (g *oneAxis) homeOneLimSwitch(ctx context.Context) error {
 func (g *oneAxis) homeEncoder(ctx context.Context) error {
 	revPerLength := g.lengthMm / g.mmPerRevolution
 
-	positionA, err := g.motor.GetPosition(ctx, nil)
+	positionA, err := g.motor.Position(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -346,7 +346,7 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 		}
 	}
 
-	return g.motor.GetPosition(ctx, nil)
+	return g.motor.Position(ctx, nil)
 }
 
 func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
@@ -363,9 +363,9 @@ func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
 	return high == g.limitHigh, err
 }
 
-// GetPosition returns the position in millimeters.
-func (g *oneAxis) GetPosition(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-	pos, err := g.motor.GetPosition(ctx, extra)
+// Position returns the position in millimeters.
+func (g *oneAxis) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	pos, err := g.motor.Position(ctx, extra)
 	if err != nil {
 		return []float64{}, err
 	}
@@ -376,8 +376,8 @@ func (g *oneAxis) GetPosition(ctx context.Context, extra map[string]interface{})
 	return []float64{x}, nil
 }
 
-// GetLengths returns the physical lengths of an axis of a Gantry.
-func (g *oneAxis) GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+// Lengths returns the physical lengths of an axis of a Gantry.
+func (g *oneAxis) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	return []float64{g.lengthMm}, nil
 }
 
@@ -474,7 +474,7 @@ func (g *oneAxis) ModelFrame() referenceframe.Model {
 
 // CurrentInputs returns the current inputs of the Gantry frame.
 func (g *oneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := g.GetPosition(ctx, nil)
+	res, err := g.Position(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -7,9 +7,9 @@ import (
 	"math/rand"
 
 	"github.com/edaniels/golog"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 )
 
@@ -179,7 +179,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 		// calculate the solution and log status of planner
 		if i%defaultSolutionCalculationPeriod == 0 {
 			solution := shortestPath(startMap, goalMap, shared)
-			solutionCost = EvaluatePlan(solution.toInputs(), planOpts)
+			solutionCost = EvaluatePlan(solution, planOpts)
 			mp.logger.Debugf("RRT* progress: %d%%\tpath cost: %.3f", 100*i/algOpts.PlanIter, solutionCost)
 
 			// check if an early exit is possible

@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
@@ -144,14 +143,14 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, l golog.Logger,
 		parentCamera := joinSource.sourceCameras[idx]
 		var intrinsicParams *transform.PinholeCameraIntrinsics
 		if parentCamera != nil {
-			props, err := parentCamera.GetProperties(ctx)
+			props, err := parentCamera.Properties(ctx)
 			if err != nil {
-				return nil, camera.NewGetPropertiesError(
+				return nil, camera.NewPropertiesError(
 					fmt.Sprintf("point cloud source at index %d for target %s", idx, attrs.TargetFrame))
 			}
 			intrinsicParams = props.IntrinsicParams
 		}
-		return camera.NewFromReader(ctx, joinSource, intrinsicParams, joinSource.stream)
+		return camera.NewFromReader(ctx, joinSource, &transform.PinholeCameraModel{intrinsicParams, nil}, joinSource.stream)
 	}
 	return camera.NewFromReader(ctx, joinSource, nil, joinSource.stream)
 }
@@ -391,7 +390,7 @@ func (jpcs *joinPointCloudSource) initializeInputs(
 
 // Read gets the merged point cloud from all sources, and then uses a projection to turn it into a 2D image.
 func (jpcs *joinPointCloudSource) Read(ctx context.Context) (image.Image, func(), error) {
-	var proj rimage.Projector
+	var proj transform.Projector
 	var err error
 	if idx, ok := contains(jpcs.sourceNames, jpcs.targetName); ok {
 		proj, err = jpcs.sourceCameras[idx].Projector(ctx)
@@ -400,7 +399,7 @@ func (jpcs *joinPointCloudSource) Read(ctx context.Context) (image.Image, func()
 		}
 	}
 	if proj == nil { // use a default projector if target frame doesn't have one
-		proj = &rimage.ParallelProjection{}
+		proj = &transform.ParallelProjection{}
 	}
 
 	pc, err := jpcs.NextPointCloud(ctx)

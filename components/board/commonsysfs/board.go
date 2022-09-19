@@ -12,6 +12,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	commonpb "go.viam.com/api/common/v1"
 	goutils "go.viam.com/utils"
 	"periph.io/x/conn/v3/gpio"
 	"periph.io/x/conn/v3/gpio/gpioreg"
@@ -22,13 +23,21 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
 var _ = board.LocalBoard(&sysfsBoard{})
+
+// A Config describes the configuration of a board and all of its connected parts.
+type Config struct {
+	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
+	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
+	Analogs           []board.AnalogConfig           `json:"analogs,omitempty"`
+	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
+	Attributes        config.AttributeMap            `json:"attributes,omitempty"`
+}
 
 // RegisterBoard registers a sysfs based board of the given model.
 func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
@@ -41,15 +50,9 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			conf, ok := config.ConvertedAttributes.(*board.Config)
+			conf, ok := config.ConvertedAttributes.(*Config)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
-			}
-			if len(conf.DigitalInterrupts) != 0 {
-				return nil, errors.New("digital interrupts unsupported")
-			}
-			if len(conf.I2Cs) != 0 {
-				return nil, errors.New("i2c unsupported")
 			}
 			var spis map[string]*spiBus
 			if len(conf.SPIs) != 0 {
@@ -88,7 +91,39 @@ func RegisterBoard(modelName string, gpioMappings map[int]GPIOBoardMapping) {
 				cancelFunc:   cancelFunc,
 			}, nil
 		}})
-	board.RegisterConfigAttributeConverter(modelName)
+	config.RegisterComponentAttributeMapConverter(
+		board.Subtype,
+		resource.NewDefaultModel(resource.ModelName(modelName)),
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&Config{})
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) error {
+	for idx, conf := range config.SPIs {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "spis", idx)); err != nil {
+			return err
+		}
+	}
+	for idx, conf := range config.I2Cs {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "i2cs", idx)); err != nil {
+			return err
+		}
+	}
+	for idx, conf := range config.Analogs {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
+			return err
+		}
+	}
+	for idx, conf := range config.DigitalInterrupts {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func init() {
@@ -310,7 +345,9 @@ func (b *sysfsBoard) softwarePWMLoop(ctx context.Context, gp gpioPin) {
 				b.logger.Errorw("error setting pin", "pin_name", gp.pinName, "error", err)
 				return true
 			}
-			onPeriod := time.Duration(int64((float64(pwmSetting.dutyCycle) / float64(gpio.DutyMax)) * float64(pwmSetting.frequency.Period())))
+			onPeriod := time.Duration(
+				int64((float64(pwmSetting.dutyCycle) / float64(gpio.DutyMax)) * float64(pwmSetting.frequency.Period())),
+			)
 			if !goutils.SelectContextOrWait(ctx, onPeriod) {
 				return false
 			}

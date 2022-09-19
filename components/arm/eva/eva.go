@@ -17,6 +17,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
@@ -24,8 +26,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -101,7 +101,7 @@ type eva struct {
 	opMgr operation.SingleOperationManager
 }
 
-func (e *eva) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (e *eva) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	data, err := e.DataSnapshot(ctx)
 	if err != nil {
 		return &pb.JointPositions{}, err
@@ -109,9 +109,9 @@ func (e *eva) GetJointPositions(ctx context.Context, extra map[string]interface{
 	return referenceframe.JointPositionsFromRadians(data.ServosPosition), nil
 }
 
-// GetEndPosition computes and returns the current cartesian position.
-func (e *eva) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-	joints, err := e.GetJointPositions(ctx, extra)
+// EndPosition computes and returns the current cartesian position.
+func (e *eva) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := e.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -341,7 +341,7 @@ func (e *eva) ModelFrame() referenceframe.Model {
 }
 
 func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := e.GetJointPositions(ctx, nil)
+	res, err := e.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

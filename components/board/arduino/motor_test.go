@@ -22,7 +22,6 @@ func TestArduinoMotorInit(t *testing.T) {
 	t.Run("initialization failure on config without board name", func(t *testing.T) {
 		emptyConfig := config.Component{
 			Model:               model,
-			Type:                motor.SubtypeName,
 			ConvertedAttributes: &gpio.Config{},
 		}
 		deps := make(registry.Dependencies)
@@ -35,7 +34,6 @@ func TestArduinoMotorInit(t *testing.T) {
 	t.Run("initialization failure when unable to retrieve board", func(t *testing.T) {
 		badBoardConfig := config.Component{
 			Model: model,
-			Type:  motor.SubtypeName,
 			ConvertedAttributes: &gpio.Config{
 				BoardName: "oops no board",
 			},
@@ -50,7 +48,6 @@ func TestArduinoMotorInit(t *testing.T) {
 	t.Run("initialization failure when board is not an arduino", func(t *testing.T) {
 		badBoardConfig := config.Component{
 			Model: model,
-			Type:  motor.SubtypeName,
 			ConvertedAttributes: &gpio.Config{
 				BoardName: "non-arduino",
 			},

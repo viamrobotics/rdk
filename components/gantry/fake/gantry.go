@@ -7,11 +7,11 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
 
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -40,13 +40,13 @@ type Gantry struct {
 	generic.Echo
 }
 
-// GetPosition returns the position in meters.
-func (g *Gantry) GetPosition(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+// Position returns the position in meters.
+func (g *Gantry) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	return g.positionsMm, nil
 }
 
-// GetLengths returns the position in meters.
-func (g *Gantry) GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+// Lengths returns the position in meters.
+func (g *Gantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	return g.lengths, nil
 }
 
@@ -84,7 +84,7 @@ func (g *Gantry) ModelFrame() referenceframe.Model {
 
 // CurrentInputs returns positions in the Gantry frame model..
 func (g *Gantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := g.GetPosition(ctx, nil)
+	res, err := g.Position(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

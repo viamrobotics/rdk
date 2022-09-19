@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -17,13 +18,12 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/board"
-	// board attribute converters.
-	_ "go.viam.com/rdk/components/board/fake"
-	// motor attribute converters.
+	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/encoder"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -34,8 +34,13 @@ func TestConfigRobot(t *testing.T) {
 
 	test.That(t, cfg.Components, test.ShouldHaveLength, 4)
 	test.That(t, len(cfg.Remotes), test.ShouldEqual, 2)
-	test.That(t, cfg.Remotes[0], test.ShouldResemble, config.Remote{Name: "one", Address: "foo", Prefix: true})
+	test.That(t, cfg.Remotes[0], test.ShouldResemble, config.Remote{Name: "one", Address: "foo"})
 	test.That(t, cfg.Remotes[1], test.ShouldResemble, config.Remote{Name: "two", Address: "bar"})
+
+	// test that gripper geometry is being added correctly
+	component := cfg.FindComponent("pieceGripper")
+	bc, _ := spatialmath.NewBoxCreator(r3.Vector{1, 2, 3}, spatialmath.NewPoseFromPoint(r3.Vector{4, 5, 6}))
+	test.That(t, component.Frame.Geometry, test.ShouldResemble, bc)
 }
 
 func TestConfig3(t *testing.T) {
@@ -76,7 +81,7 @@ func TestConfig3(t *testing.T) {
 	test.That(t, cfg.Components[0].Attributes.Float64("bar5", 1.1), test.ShouldEqual, 5.17)
 	test.That(t, cfg.Components[0].Attributes.Float64("bar5-no", 1.1), test.ShouldEqual, 1.1)
 
-	test.That(t, cfg.Components[1].ConvertedAttributes, test.ShouldResemble, &board.Config{
+	test.That(t, cfg.Components[1].ConvertedAttributes, test.ShouldResemble, &fakeboard.Config{
 		Analogs: []board.AnalogConfig{
 			{Name: "analog1", Pin: "0"},
 		},
@@ -93,8 +98,8 @@ func TestConfig3(t *testing.T) {
 		MaxPowerPct:      0.5,
 		TicksPerRotation: 10000,
 	})
-	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &encoder.HallConfig{
-		Pins: encoder.HallPins{
+	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &encoder.IncrementalConfig{
+		Pins: encoder.IncrementalPins{
 			A: "encoder-steering-b",
 			B: "encoder-steering-a",
 		},
@@ -305,6 +310,27 @@ func TestConfigEnsure(t *testing.T) {
 	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
 		validAPIKeyHandler,
 	}
+	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
+
+	validAPIKeyHandler.Config = config.AttributeMap{
+		"keys": []string{},
+	}
+	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
+		validAPIKeyHandler,
+	}
+	err = invalidAuthConfig.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
+
+	validAPIKeyHandler.Config = config.AttributeMap{
+		"keys": []string{"one", "two"},
+	}
+	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
+		validAPIKeyHandler,
+	}
+
 	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
 }
 

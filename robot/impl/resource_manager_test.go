@@ -12,6 +12,12 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	commonpb "go.viam.com/api/common/v1"
+	armpb "go.viam.com/api/component/arm/v1"
+	basepb "go.viam.com/api/component/base/v1"
+	boardpb "go.viam.com/api/component/board/v1"
+	camerapb "go.viam.com/api/component/camera/v1"
+	gripperpb "go.viam.com/api/component/gripper/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -40,12 +46,6 @@ import (
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
-	basepb "go.viam.com/rdk/proto/api/component/base/v1"
-	boardpb "go.viam.com/rdk/proto/api/component/board/v1"
-	camerapb "go.viam.com/rdk/proto/api/component/camera/v1"
-	gripperpb "go.viam.com/rdk/proto/api/component/gripper/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -134,7 +134,7 @@ func setupInjectRobot(logger golog.Logger) *inject.Robot {
 				case board.Subtype:
 					fakeBoard, err := fakeboard.NewBoard(context.Background(), config.Component{
 						Name: name.Name,
-						ConvertedAttributes: &board.Config{
+						ConvertedAttributes: &fakeboard.Config{
 							Analogs: []board.AnalogConfig{
 								{Name: "analog1"},
 								{Name: "analog2"},
@@ -491,6 +491,7 @@ func TestManagerAdd(t *testing.T) {
 		componentName resource.Name,
 		grabPose *referenceframe.PoseInFrame,
 		worldState *commonpb.WorldState,
+		extra map[string]interface{},
 	) (bool, error) {
 		return false, nil
 	}
@@ -565,7 +566,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               fakeModel,
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                board.SubtypeName,
-				ConvertedAttributes: &board.Config{},
+				ConvertedAttributes: &fakeboard.Config{},
 				DependsOn:           []string{},
 			},
 			{
@@ -573,7 +574,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               fakeModel,
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                board.SubtypeName,
-				ConvertedAttributes: &board.Config{},
+				ConvertedAttributes: &fakeboard.Config{},
 				DependsOn:           []string{},
 			},
 			{
@@ -581,7 +582,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               fakeModel,
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                board.SubtypeName,
-				ConvertedAttributes: &board.Config{},
+				ConvertedAttributes: &fakeboard.Config{},
 				DependsOn:           []string{},
 			},
 			{
@@ -751,7 +752,7 @@ func TestManagerNewComponent(t *testing.T) {
 		Model:               fakeModel,
 		Namespace:           resource.ResourceNamespaceRDK,
 		Type:                board.SubtypeName,
-		ConvertedAttributes: &board.Config{},
+		ConvertedAttributes: &fakeboard.Config{},
 		DependsOn:           []string{"arm3"},
 	})
 	err = robotForRemote.manager.updateResources(context.Background(), diff, func(name string) (resource.Name, bool) {
@@ -1457,8 +1458,6 @@ func TestManagerResourceRPCSubtypes(t *testing.T) {
 
 	resName1 := resource.NameFromSubtype(subtype1, "thing1")
 	resName2 := resource.NameFromSubtype(subtype2, "thing2")
-	// resName3 := resource.NameFromSubtype(subtype1, "thing3")
-	// resName4 := resource.NameFromSubtype(subtype2, "thing4")
 
 	injectRobotRemote1 := &inject.Robot{}
 	injectRobotRemote1.LoggerFunc = func() golog.Logger {
@@ -1575,6 +1574,34 @@ func TestManagerResourceRPCSubtypes(t *testing.T) {
 		test.ShouldBeTrue)
 }
 
+func TestManagerEmptyResourceDesc(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	injectRobot := &inject.Robot{}
+	injectRobot.LoggerFunc = func() golog.Logger {
+		return logger
+	}
+	subtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, "mockDesc")
+	registry.RegisterResourceSubtype(
+		subtype,
+		registry.ResourceSubtype{Reconfigurable: func(resource interface{}) (resource.Reconfigurable, error) { return nil, nil }},
+	)
+
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{resource.NameFromSubtype(subtype, "mock1")}
+	}
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return 1, nil
+	}
+
+	manager := managerForDummyRobot(injectRobot)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), manager), test.ShouldBeNil)
+	}()
+
+	subtypes := manager.ResourceRPCSubtypes()
+	test.That(t, subtypes, test.ShouldHaveLength, 0)
+}
+
 func TestUpdateConfig(t *testing.T) {
 	// given a service subtype is reconfigurable, check if it has been reconfigured
 	const SubtypeName = resource.SubtypeName("testSubType")
@@ -1599,7 +1626,7 @@ func TestUpdateConfig(t *testing.T) {
 		Reconfigurable: WrapWithReconfigurable,
 	})
 
-	registry.RegisterService(Subtype, registry.Service{
+	registry.RegisterService(Subtype, resource.DefaultModelName, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return &mock{}, nil
 		},
@@ -1610,7 +1637,7 @@ func TestUpdateConfig(t *testing.T) {
 		test.That(t, utils.TryClose(ctx, manager), test.ShouldBeNil)
 	}()
 
-	svc1 := config.Service{Name: "", Namespace: resource.ResourceNamespaceRDK, Type: "testSubType"}
+	svc1 := config.Service{Name: "", Model: resource.DefaultModelName, Namespace: resource.ResourceNamespaceRDK, Type: "testSubType"}
 
 	local, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -1716,7 +1743,7 @@ func (rr *dummyRobot) TransformPose(
 	panic("change to return nil")
 }
 
-func (rr *dummyRobot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+func (rr *dummyRobot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	panic("change to return nil")
 }
 

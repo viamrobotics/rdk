@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/utils/pexec"
@@ -12,6 +13,59 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
+
+// FromProto converts the RobotConfig to the internal rdk equivalent.
+func FromProto(proto *pb.RobotConfig) (*Config, error) {
+	cfg := Config{}
+
+	var err error
+	cfg.Cloud, err = CloudConfigFromProto(proto.Cloud)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting Cloud config from proto")
+	}
+
+	if proto.Network != nil {
+		network, err := NetworkConfigFromProto(proto.Network)
+		if err != nil {
+			return nil, errors.Wrap(err, "error converting Network config from proto")
+		}
+		cfg.Network = *network
+	}
+
+	if proto.Auth != nil {
+		auth, err := AuthConfigFromProto(proto.Auth)
+		if err != nil {
+			return nil, errors.Wrap(err, "error converting Auth config from proto")
+		}
+		cfg.Auth = *auth
+	}
+
+	cfg.Components, err = toRDKSlice(proto.Components, ComponentConfigFromProto)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting Components config from proto")
+	}
+
+	cfg.Remotes, err = toRDKSlice(proto.Remotes, RemoteConfigFromProto)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting Remotes config from proto")
+	}
+
+	cfg.Processes, err = toRDKSlice(proto.Processes, ProcessConfigFromProto)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting Processes config from proto")
+	}
+
+	cfg.Services, err = toRDKSlice(proto.Services, ServiceConfigFromProto)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting Services config from proto")
+	}
+
+	if proto.Debug != nil {
+		cfg.Debug = *proto.Debug
+	}
+
+	return &cfg, nil
+}
 
 // ComponentConfigToProto converts Component to proto equivalent.
 func ComponentConfigToProto(component *Component) (*pb.ComponentConfig, error) {
@@ -273,7 +327,7 @@ func FrameConfigToProto(frame Frame) (*pb.Frame, error) {
 func FrameConfigFromProto(proto *pb.Frame) (*Frame, error) {
 	frame := Frame{
 		Parent: proto.GetParent(),
-		Translation: spatial.TranslationConfig{
+		Translation: r3.Vector{
 			X: proto.GetTranslation().GetX(),
 			Y: proto.GetTranslation().GetY(),
 			Z: proto.GetTranslation().GetZ(),
@@ -341,7 +395,6 @@ func RemoteConfigToProto(remote *Remote) (*pb.RemoteConfig, error) {
 	proto := pb.RemoteConfig{
 		Name:                    remote.Name,
 		Address:                 remote.Address,
-		Prefix:                  remote.Prefix,
 		ManagedBy:               remote.ManagedBy,
 		Insecure:                remote.Insecure,
 		ConnectionCheckInterval: durationpb.New(remote.ConnectionCheckInterval),
@@ -372,7 +425,6 @@ func RemoteConfigFromProto(proto *pb.RemoteConfig) (*Remote, error) {
 	remote := Remote{
 		Name:                    proto.GetName(),
 		Address:                 proto.GetAddress(),
-		Prefix:                  proto.GetPrefix(),
 		ManagedBy:               proto.GetManagedBy(),
 		Insecure:                proto.GetInsecure(),
 		ConnectionCheckInterval: proto.ConnectionCheckInterval.AsDuration(),
@@ -595,4 +647,16 @@ func mapSliceWithErrors[T, U any](a []T, f func(T) (U, error)) ([]U, error) {
 		n = append(n, x)
 	}
 	return n, nil
+}
+
+func toRDKSlice[PT, RT any](protoList []*PT, toRDK func(*PT) (*RT, error)) ([]RT, error) {
+	out := make([]RT, len(protoList))
+	for i, proto := range protoList {
+		rdk, err := toRDK(proto)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = *rdk
+	}
+	return out, nil
 }
