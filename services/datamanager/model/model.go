@@ -54,7 +54,6 @@ type modelManager struct {
 	client            v1.ModelServiceClient
 	logger            golog.Logger
 	backgroundWorkers sync.WaitGroup
-	cancelCtx         context.Context
 	cancelFunc        func()
 	httpClient        httpClient
 }
@@ -88,13 +87,12 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 func NewManager(logger golog.Logger, partID string, client v1.ModelServiceClient,
 	conn rpc.ClientConn, httpClient httpClient,
 ) (Manager, error) {
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	_, cancelFunc := context.WithCancel(context.Background())
 	ret := modelManager{
 		conn:              conn,
 		client:            client,
 		logger:            logger,
 		backgroundWorkers: sync.WaitGroup{},
-		cancelCtx:         cancelCtx,
 		cancelFunc:        cancelFunc,
 		partID:            partID,
 		httpClient:        httpClient,
@@ -164,19 +162,27 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 				return
 			}
 			// A download from a GCS signed URL only returns one file.
-			modelFileToUnzip := model.Name + zipExtension
-			if err = unzipSource(modelFileToUnzip, model.Destination); err != nil {
+			modelFileToUnzipPath := filepath.Join(model.Destination, model.Name+zipExtension)
+			if err = unzipSource(modelFileToUnzipPath, model.Destination); err != nil {
 				m.logger.Error(err)
 				errorChannel <- err
 				return
 			}
-			errorChannel <- nil
 		}(model)
 	}
 	m.backgroundWorkers.Wait()
 	close(errorChannel)
 
-	return <-errorChannel
+	// check that we have errors to return
+	if len(errorChannel) != 0 {
+		var s string
+		for i := 0; i < len(errorChannel); i++ {
+			currentError := <-errorChannel
+			s = s + "\n" + currentError.Error()
+		}
+		return errors.New(s)
+	}
+	return nil
 }
 
 // getModelsToDownload fetches the models that need to be downloaded according to the
@@ -251,9 +257,9 @@ func downloadFile(cancelCtx context.Context, client httpClient, filepath, url st
 }
 
 // unzipSource unzips all files inside a zip file.
-func unzipSource(fileName, destination string) error {
+func unzipSource(fileNamePath, destination string) error {
 	// open zip file
-	zipReader, err := zip.OpenReader(filepath.Join(destination, fileName))
+	zipReader, err := zip.OpenReader(fileNamePath)
 	if err != nil {
 		return err
 	}
@@ -265,7 +271,7 @@ func unzipSource(fileName, destination string) error {
 	if err = zipReader.Close(); err != nil {
 		return err
 	}
-	if err = os.Remove(filepath.Join(destination, fileName)); err != nil {
+	if err = os.Remove(fileNamePath); err != nil {
 		return err
 	}
 	return nil
