@@ -44,7 +44,7 @@ func TestNumato1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	b, err := connect(
 		ctx,
-		&board.Config{
+		&Config{
 			Attributes: config.AttributeMap{"pins": 128},
 			Analogs:    []board.AnalogConfig{{Name: "foo", Pin: "01"}},
 		},
@@ -108,4 +108,17 @@ func TestNumato1(t *testing.T) {
 	res2, err = ar.Read(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res2, test.ShouldBeLessThan, 100)
+}
+
+func TestConfigValidate(t *testing.T) {
+	validConfig := Config{}
+
+	validConfig.Analogs = []board.AnalogConfig{{}}
+	err := validConfig.Validate("path")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+
+	validConfig.Analogs = []board.AnalogConfig{{Name: "bar"}}
+	test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
 }

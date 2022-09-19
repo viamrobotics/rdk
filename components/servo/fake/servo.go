@@ -34,8 +34,8 @@ func (s *Servo) Move(ctx context.Context, angleDeg uint8) error {
 	return nil
 }
 
-// GetPosition returns the set angle.
-func (s *Servo) GetPosition(ctx context.Context) (uint8, error) {
+// Position returns the set angle.
+func (s *Servo) Position(ctx context.Context) (uint8, error) {
 	return s.angle, nil
 }
 

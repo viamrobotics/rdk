@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
-import { normalizeRemoteName } from '../lib/resource';
 import { ref } from 'vue';
+import { normalizeRemoteName } from '../lib/resource';
 
 interface Props {
   streamName: string

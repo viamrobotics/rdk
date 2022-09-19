@@ -48,7 +48,7 @@ func setupWorkingBase(
 		return nil
 	}
 
-	workingBase.GetWidthFunc = func(ctx context.Context) (int, error) {
+	workingBase.WidthFunc = func(ctx context.Context) (int, error) {
 		return width, nil
 	}
 }
@@ -73,7 +73,7 @@ func setupBrokenBase(brokenBase *inject.Base) string {
 	brokenBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return errors.New(errMsg)
 	}
-	brokenBase.GetWidthFunc = func(ctx context.Context) (int, error) {
+	brokenBase.WidthFunc = func(ctx context.Context) (int, error) {
 		return 0, errors.New(errMsg)
 	}
 	return errMsg

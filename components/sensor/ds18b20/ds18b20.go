@@ -83,8 +83,8 @@ func (s *Sensor) ReadTemperatureCelsius(ctx context.Context) (float64, error) {
 	return math.NaN(), errors.New("temperature could not be read")
 }
 
-// GetReadings returns a list containing single item (current temperature).
-func (s *Sensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
+// Readings returns a list containing single item (current temperature).
+func (s *Sensor) Readings(ctx context.Context) (map[string]interface{}, error) {
 	temp, err := s.ReadTemperatureCelsius(ctx)
 	if err != nil {
 		return nil, err

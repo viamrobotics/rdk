@@ -8,7 +8,7 @@
             {
                 "type": "api-key",
                 "config": {
-                    "key": "${RDK_AUTH_API_KEY}"
+                    "keys": ["${RDK_AUTH_API_KEY}", "${RDK_AUTH_API_KEY}2"]
                 }
             }
         ]

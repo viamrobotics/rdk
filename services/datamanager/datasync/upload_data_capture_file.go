@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	v1 "go.viam.com/api/proto/viam/datasync/v1"
+	v1 "go.viam.com/api/app/datasync/v1"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/services/datamanager/datacapture"

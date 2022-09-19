@@ -18,7 +18,7 @@ func Test1(t *testing.T) {
 
 	b := &fakeboard.Board{GPIOPins: make(map[string]*fakeboard.GPIOPin)}
 
-	mc := motor.Config{}
+	mc := Config{}
 
 	// Create motor with no board and default config
 	t.Run("gpiostepper initializing test with no board and default config", func(t *testing.T) {
@@ -32,12 +32,17 @@ func Test1(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	mc.Pins = motor.PinConfig{Direction: "b"}
+	mc.Pins = PinConfig{Direction: "b"}
 
 	_, err := newGPIOStepper(ctx, b, mc, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	mc.Pins.Step = "c"
+
+	_, err = newGPIOStepper(ctx, b, mc, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	mc.TicksPerRotation = 200
 
 	mm, err := newGPIOStepper(ctx, b, mc, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -45,7 +50,7 @@ func Test1(t *testing.T) {
 	m := mm.(*gpioStepper)
 
 	t.Run("motor test supports position reporting", func(t *testing.T) {
-		features, err := m.GetProperties(ctx, nil)
+		features, err := m.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
 	})
@@ -71,7 +76,7 @@ func Test1(t *testing.T) {
 			test.That(tb, on, test.ShouldEqual, false)
 		})
 
-		pos, err := m.GetPosition(ctx, nil)
+		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 2)
 	})
@@ -91,7 +96,7 @@ func Test1(t *testing.T) {
 			test.That(tb, on, test.ShouldEqual, false)
 		})
 
-		pos, err := m.GetPosition(ctx, nil)
+		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0)
 	})
@@ -111,7 +116,7 @@ func Test1(t *testing.T) {
 			test.That(tb, on, test.ShouldEqual, false)
 		})
 
-		pos, err := m.GetPosition(ctx, nil)
+		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, -2)
 	})
@@ -131,7 +136,7 @@ func Test1(t *testing.T) {
 			test.That(tb, on, test.ShouldEqual, false)
 		})
 
-		pos, err := m.GetPosition(ctx, nil)
+		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0)
 	})
@@ -146,7 +151,7 @@ func Test1(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			pos, err := m.GetPosition(ctx, nil)
+			pos, err := m.Position(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, pos, test.ShouldBeGreaterThan, 2)
 		})
@@ -154,7 +159,7 @@ func Test1(t *testing.T) {
 		err = m.Stop(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		pos, err := m.GetPosition(ctx, nil)
+		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldBeGreaterThan, 2)
 		test.That(t, pos, test.ShouldBeLessThan, 202)

@@ -9,7 +9,7 @@ build:
     - node_modules
     - rpc/examples/echo/frontend/node_modules
     - rpc/js/node_modules
-    - samples
+    - examples
     - vendor
     - web
 breaking:

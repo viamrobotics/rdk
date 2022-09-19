@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/objectdetection"
 )
@@ -96,7 +97,7 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma floa
 // detectionsToPointClouds turns 2D detections into 3D point clodus using the intrinsic camera projection parameters and the image.
 func detectionsToPointClouds(dets []objectdetection.Detection,
 	im *rimage.Image, dm *rimage.DepthMap,
-	proj rimage.Projector,
+	proj transform.Projector,
 ) ([]pointcloud.PointCloud, error) {
 	// project 2D detections to 3D pointclouds
 	pcs := make([]pointcloud.PointCloud, 0, len(dets))

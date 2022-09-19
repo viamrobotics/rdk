@@ -33,10 +33,10 @@ func TestClient(t *testing.T) {
 	rs := map[string]interface{}{"a": 1.1, "b": 2.2}
 
 	injectSensor := &inject.Sensor{}
-	injectSensor.GetReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) { return rs, nil }
+	injectSensor.ReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) { return rs, nil }
 
 	injectSensor2 := &inject.Sensor{}
-	injectSensor2.GetReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
+	injectSensor2.ReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
 		return nil, errors.New("can't get readings")
 	}
 
@@ -74,7 +74,7 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
-		rs1, err := sensor1Client.GetReadings(context.Background())
+		rs1, err := sensor1Client.Readings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
 
@@ -89,7 +89,7 @@ func TestClient(t *testing.T) {
 		sensor2Client, ok := client.(sensor.Sensor)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		_, err = sensor2Client.GetReadings(context.Background())
+		_, err = sensor2Client.Readings(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get readings")
 

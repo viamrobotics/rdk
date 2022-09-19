@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import jspb from 'google-protobuf';
@@ -10,9 +10,9 @@ import { filterResources, type Resource } from '../lib/resource';
 import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
 import robotApi from '../gen/proto/api/robot/v1/robot_pb.esm';
 import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
-import navigationApi, { 
-  type GetLocationResponse, 
-  type GetWaypointsResponse, 
+import navigationApi, {
+  type GetLocationResponse,
+  type GetWaypointsResponse,
   type Waypoint,
 } from '../gen/proto/api/service/navigation/v1/navigation_pb.esm';
 
@@ -31,6 +31,8 @@ const mapReady = new Promise<void>((resolve) => {
 let map: google.maps.Map;
 let updateTimerId: number;
 
+const mapInit = ref(false);
+const googleApiKey = ref('');
 const location = ref('');
 const res = ref();
 const container = ref<HTMLElement>();
@@ -78,7 +80,7 @@ const setNavigationLocation = () => {
       longitude: lng,
     })
   );
-  
+
   window.genericService.doCommand(req, new grpc.Metadata(), grpcCallback);
 };
 
@@ -104,10 +106,10 @@ const loadMaps = () => {
   if (document.querySelector('#google-maps')) {
     return initNavigation();
   }
+
   const script = document.createElement('script');
   script.id = 'google-maps';
-  // TODO(RSDK-51): remove api key once going into production
-  script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBn72TEqFOVWoj06cvua0Dc0pz2uvq90nY&callback=googleMapsInit&libraries=&v=weekly';
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${googleApiKey.value}&callback=googleMapsInit&libraries=&v=weekly`;
   script.async = true;
   document.head.append(script);
 };
@@ -138,7 +140,7 @@ const initNavigation = async () => {
   let centered = false;
   const knownWaypoints: Record<string, google.maps.Marker> = {};
   let localLabelCounter = 0;
-  
+
   const updateWaypoints = () => {
     const req = new navigationApi.GetWaypointsRequest();
     req.setName(props.name);
@@ -242,15 +244,15 @@ window.googleMapsInit = () => {
   googleMapsInitResolve();
 };
 
-onMounted(() => {
+const initNavigationView = () => {
+  mapInit.value = true;
   loadMaps();
   initNavigation();
-});
+};
 
 onUnmounted(() => {
   clearTimeout(updateTimerId);
 });
-
 </script>
 
 <template>
@@ -263,30 +265,45 @@ onUnmounted(() => {
       :crumbs="['navigation'].join(',')"
     />
     <div class="flex flex-col gap-2 border border-t-0 border-black p-4">
-      <v-radio
-        label="Navigation mode"
-        options="Manual, Waypoint"
-        @input="setNavigationMode($event.detail.value.toLowerCase())"
-      />
+      <div class="flex h-full w-full flex-row items-end gap-2">
+        <v-input
+          label="Google Map API Key"
+          :value="googleApiKey"
+          @input="googleApiKey = $event.detail.value"
+        />
+        <div class="flex h-[30px]">
+          <v-button
+            label="Go"
+            @click="initNavigationView"
+          />
+        </div>
+      </div>
+      <div v-show="mapInit">
+        <v-radio
+          label="Navigation mode"
+          options="Manual, Waypoint"
+          @input="setNavigationMode($event.detail.value.toLowerCase())"
+        />
 
-      <div>
-        <v-button
-          label="Try Set Location"
-          @click="setNavigationLocation()"
+        <div>
+          <v-button
+            label="Try Set Location"
+            @click="setNavigationLocation()"
+          />
+        </div>
+
+        <div
+          id="map"
+          ref="container"
+          class="mb-2 h-[400px] w-full"
+        />
+
+        <v-input
+          label="Location"
+          :value="location"
+          @input="location = $event.detail.value"
         />
       </div>
-
-      <div
-        id="map"
-        ref="container"
-        class="mb-2 h-[400px] w-full"
-      />
-
-      <v-input
-        label="Location"
-        :value="location"
-        @input="location = $event.detail.value"
-      />
     </div>
   </v-collapse>
 </template>

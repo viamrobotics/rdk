@@ -33,7 +33,7 @@ func (server *subtypeServer) service(serviceName string) (Service, error) {
 	}
 	svc, ok := resource.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("slam.Service", resource)
+		return nil, NewUnimplementedInterfaceError(resource)
 	}
 	return svc, nil
 }
@@ -51,7 +51,7 @@ func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositio
 		return nil, err
 	}
 
-	p, err := svc.GetPosition(ctx, req.Name)
+	p, err := svc.Position(ctx, req.Name)
 	if err != nil {
 		return nil, err
 	}

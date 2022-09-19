@@ -95,7 +95,7 @@ func TestServerPosition(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	failingMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 		return 0, errors.New("position unavailable")
 	}
 	req = pb.GetPositionRequest{Name: failMotorName}
@@ -103,7 +103,7 @@ func TestServerPosition(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	workingMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 		return 42.0, nil
 	}
 	req = pb.GetPositionRequest{Name: testMotorName}
@@ -121,7 +121,7 @@ func TestServerGetProperties(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+	failingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 		return nil, errors.New("unable to get supported features")
 	}
 	req = pb.GetPropertiesRequest{Name: failMotorName}
@@ -129,7 +129,7 @@ func TestServerGetProperties(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+	workingMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 		return map[motor.Feature]bool{
 			motor.PositionReporting: true,
 		}, nil
