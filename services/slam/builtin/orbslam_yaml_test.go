@@ -119,7 +119,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		yamlDataAll, err := os.ReadFile(yamlFilePathGood)
 		test.That(t, err, test.ShouldBeNil)
 		yamlData := bytes.Replace(yamlDataAll, []byte("%YAML:1.0\n"), []byte(""), 1)
-		orbslam := slam.ORBsettings{}
+		orbslam := builtin.ORBsettings{}
 		err = yaml.Unmarshal(yamlData, &orbslam)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, orbslam.Width, test.ShouldEqual, 1280)
@@ -153,7 +153,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		yamlDataAll2, err := os.ReadFile(yamlFilePathGood2)
 		test.That(t, err, test.ShouldBeNil)
 		yamlData2 := bytes.Replace(yamlDataAll2, []byte("%YAML:1.0\n"), []byte(""), 1)
-		orbslam2 := slam.ORBsettings{}
+		orbslam2 := builtin.ORBsettings{}
 		err = yaml.Unmarshal(yamlData2, &orbslam2)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, orbslam2.LoadMapLoc, test.ShouldEqual, fakeMap)
