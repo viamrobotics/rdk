@@ -77,7 +77,7 @@ func (c *Segments) AssignCluster(point r3.Vector, data pc.Data, index int) error
 	if c.Objects[index].Size() == 0 {
 		return nil
 	}
-	c.Objects[index].BoundingBox, err = pc.BoundingBoxFromPointCloud(c.Objects[index])
+	c.Objects[index].Geometry, err = pc.BoundingBoxFromPointCloud(c.Objects[index])
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (c *Segments) MergeClusters(from, to int) error {
 		return err
 	}
 	c.Objects[from] = vision.NewEmptyObject()
-	c.Objects[to].BoundingBox, err = pc.BoundingBoxFromPointCloud(c.Objects[to])
+	c.Objects[to].Geometry, err = pc.BoundingBoxFromPointCloud(c.Objects[to])
 	if err != nil {
 		return err
 	}

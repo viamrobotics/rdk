@@ -246,7 +246,7 @@ func diffComponent(left, right Component, diff *Diff) (bool, error) {
 	if reflect.DeepEqual(left, right) {
 		return false, nil
 	}
-	if left.Type != right.Type || left.SubType != right.SubType {
+	if left.Type != right.Type {
 		return false, fmt.Errorf("cannot modify type of existing component %q", left.Name)
 	}
 	diff.Modified.Components = append(diff.Modified.Components, right)

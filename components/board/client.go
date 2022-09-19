@@ -245,6 +245,10 @@ func (dic *digitalInterruptClient) AddCallback(c chan bool) {
 	panic(errUnimplemented)
 }
 
+func (dic *digitalInterruptClient) RemoveCallback(c chan bool) {
+	panic(errUnimplemented)
+}
+
 func (dic *digitalInterruptClient) AddPostProcessor(pp PostProcessor) {
 	panic(errUnimplemented)
 }
