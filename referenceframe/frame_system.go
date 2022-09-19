@@ -22,8 +22,8 @@ type FrameSystem interface {
 	// FrameNames returns the names of all of the frames that exist in the FrameSystem
 	FrameNames() []string
 
-	// GetFrame returns the Frame in the FrameSystem corresponding to
-	GetFrame(name string) Frame
+	// Frame returns the Frame in the FrameSystem corresponding to
+	Frame(name string) Frame
 
 	// AddFrame inserts a given Frame into the FrameSystem as a child of the parent Frame
 	AddFrame(frame, parent Frame) error
@@ -42,9 +42,9 @@ type FrameSystem interface {
 	// is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
 	Transform(positions map[string][]Input, object Transformable, dst string) (Transformable, error)
 
-	// GetFrameSystemSubset will take a frame system and a frame in that system, and return a new frame system rooted
+	// FrameSystemSubset will take a frame system and a frame in that system, and return a new frame system rooted
 	// at the given frame and containing all descendents of it. The original frame system is unchanged.
-	GetFrameSystemSubset(newRoot Frame) (FrameSystem, error)
+	FrameSystemSubset(newRoot Frame) (FrameSystem, error)
 
 	// DivideFrameSystem will take a frame system and a frame in that system, and return a new frame system rooted
 	// at the given frame and containing all descendents of it, while the original has the frame and its
@@ -109,8 +109,8 @@ func (sfs *simpleFrameSystem) RemoveFrame(frame Frame) {
 	}
 }
 
-// GetFrame returns the frame given the name of the referenceframe. Returns nil if the frame is not found.
-func (sfs *simpleFrameSystem) GetFrame(name string) Frame {
+// Frame returns the frame given the name of the referenceframe. Returns nil if the frame is not found.
+func (sfs *simpleFrameSystem) Frame(name string) Frame {
 	if !sfs.frameExists(name) {
 		return nil
 	}
@@ -177,7 +177,7 @@ func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Tra
 	if !sfs.frameExists(src) {
 		return nil, NewFrameMissingError(src)
 	}
-	srcFrame := sfs.GetFrame(src)
+	srcFrame := sfs.Frame(src)
 	if !sfs.frameExists(dst) {
 		return nil, NewFrameMissingError(dst)
 	}
@@ -190,9 +190,9 @@ func (sfs *simpleFrameSystem) Transform(positions map[string][]Input, object Tra
 		// A frame is assigned a pose and a geometry and the two are not coupled together. This way you do can define everything relative
 		// to the parent frame. So geometries are tied to the frame they are assigned to but we do not want to actually transform them
 		// along the final transformation.
-		tfParent, err = sfs.transformFromParent(positions, sfs.parents[srcFrame], sfs.GetFrame(dst))
+		tfParent, err = sfs.transformFromParent(positions, sfs.parents[srcFrame], sfs.Frame(dst))
 	} else {
-		tfParent, err = sfs.transformFromParent(positions, srcFrame, sfs.GetFrame(dst))
+		tfParent, err = sfs.transformFromParent(positions, srcFrame, sfs.Frame(dst))
 	}
 	if err != nil {
 		return nil, err
@@ -211,7 +211,7 @@ func (sfs *simpleFrameSystem) Name() string {
 // has already been initialized. For example, two independent rovers, each with their own frame system, need to now know where
 // they are in relation to each other and need to have their frame systems combined.
 func (sfs *simpleFrameSystem) MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error {
-	attachFrame := sfs.GetFrame(attachTo.Name())
+	attachFrame := sfs.Frame(attachTo.Name())
 	if attachFrame == nil {
 		return NewFrameMissingError(attachTo.Name())
 	}
@@ -219,7 +219,7 @@ func (sfs *simpleFrameSystem) MergeFrameSystem(systemToMerge FrameSystem, attach
 	// make a map where the parent frame is the key and the slice of children frames is the value
 	childrenMap := map[Frame][]Frame{}
 	for _, name := range systemToMerge.FrameNames() {
-		child := systemToMerge.GetFrame(name)
+		child := systemToMerge.Frame(name)
 		parent, err := systemToMerge.Parent(child)
 		if err != nil {
 			if errors.Is(err, NewParentFrameMissingError()) {
@@ -254,13 +254,13 @@ func (sfs *simpleFrameSystem) MergeFrameSystem(systemToMerge FrameSystem, attach
 	return nil
 }
 
-// GetFrameSystemSubset will take a frame system and a frame in that system, and return a new frame system rooted
+// FrameSystemSubset will take a frame system and a frame in that system, and return a new frame system rooted
 // at the given frame and containing all descendents of it. The original frame system is unchanged.
-func (sfs *simpleFrameSystem) GetFrameSystemSubset(newRoot Frame) (FrameSystem, error) {
+func (sfs *simpleFrameSystem) FrameSystemSubset(newRoot Frame) (FrameSystem, error) {
 	newWorld := NewZeroStaticFrame(World)
 	newFS := &simpleFrameSystem{newRoot.Name() + "_FS", newWorld, map[string]Frame{}, map[Frame]Frame{}}
 
-	rootFrame := sfs.GetFrame(newRoot.Name())
+	rootFrame := sfs.Frame(newRoot.Name())
 	if rootFrame == nil {
 		return nil, NewFrameMissingError(newRoot.Name())
 	}
@@ -301,7 +301,7 @@ func (sfs *simpleFrameSystem) GetFrameSystemSubset(newRoot Frame) (FrameSystem, 
 // descendents removed. For example, if there is a frame system with two independent rovers, and one rover goes offline,
 // A user could divide the frame system to remove the offline rover and have the rest of the frame system unaffected.
 func (sfs *simpleFrameSystem) DivideFrameSystem(newRoot Frame) (FrameSystem, error) {
-	newFS, err := sfs.GetFrameSystemSubset(newRoot)
+	newFS, err := sfs.FrameSystemSubset(newRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -313,7 +313,7 @@ func (sfs *simpleFrameSystem) DivideFrameSystem(newRoot Frame) (FrameSystem, err
 func StartPositions(fs FrameSystem) map[string][]Input {
 	positions := make(map[string][]Input)
 	for _, fn := range fs.FrameNames() {
-		frame := fs.GetFrame(fn)
+		frame := fs.Frame(fn)
 		if frame != nil {
 			positions[fn] = make([]Input, len(frame.DoF()))
 		}

@@ -39,8 +39,8 @@ type Encoder struct {
 	generic.Unimplemented
 }
 
-// GetTicksCount returns the current position in terms of ticks.
-func (e *Encoder) GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
+// TicksCount returns the current position in terms of ticks.
+func (e *Encoder) TicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.position, nil

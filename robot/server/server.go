@@ -208,7 +208,7 @@ func (s *Server) GetStatus(ctx context.Context, req *pb.GetStatusRequest) (*pb.G
 		resourceNames = append(resourceNames, protoutils.ResourceNameFromProto(name))
 	}
 
-	statuses, err := s.r.GetStatus(ctx, resourceNames)
+	statuses, err := s.r.Status(ctx, resourceNames)
 	if err != nil {
 		return nil, err
 	}

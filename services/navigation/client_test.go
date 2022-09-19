@@ -130,10 +130,10 @@ func TestClient(t *testing.T) {
 
 	t.Run("client tests for working navigation service", func(t *testing.T) {
 		// test mode
-		mode, err := workingNavClient.GetMode(context.Background())
+		mode, err := workingNavClient.Mode(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mode, test.ShouldEqual, navigation.ModeManual)
-		mode, err = workingNavClient.GetMode(context.Background())
+		mode, err = workingNavClient.Mode(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mode, test.ShouldEqual, navigation.ModeWaypoint)
 
@@ -156,7 +156,7 @@ func TestClient(t *testing.T) {
 		workingDialedClient := navigation.NewClientFromConn(context.Background(), conn, testSvcName1, logger)
 
 		// test location
-		loc, err := workingDialedClient.GetLocation(context.Background())
+		loc, err := workingDialedClient.Location(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, loc, test.ShouldResemble, expectedLoc)
 
@@ -176,7 +176,7 @@ func TestClient(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		// test waypoints
-		receivedWpts, err := workingDialedClient.GetWaypoints(context.Background())
+		receivedWpts, err := workingDialedClient.Waypoints(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, receivedWpts, test.ShouldResemble, waypoints)
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -191,7 +191,7 @@ func TestClient(t *testing.T) {
 		failingNavClient := navigation.NewClientFromConn(context.Background(), conn, testSvcName1, logger)
 
 		// test mode
-		_, err := failingNavClient.GetMode(context.Background())
+		_, err := failingNavClient.Mode(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// test set mode
@@ -217,11 +217,11 @@ func TestClient(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		// test waypoints
-		_, err = failingDialedClient.GetWaypoints(context.Background())
+		_, err = failingDialedClient.Waypoints(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// test location
-		loc, err := failingDialedClient.GetLocation(context.Background())
+		loc, err := failingDialedClient.Location(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, loc, test.ShouldBeNil)
 

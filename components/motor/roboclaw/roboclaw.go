@@ -153,7 +153,7 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 }
 
 func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
-	pos, err := m.GetPosition(ctx, extra)
+	pos, err := m.Position(ctx, extra)
 	if err != nil {
 		return err
 	}
@@ -172,7 +172,7 @@ func (m *roboclawMotor) ResetZeroPosition(ctx context.Context, offset float64, e
 	}
 }
 
-func (m *roboclawMotor) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (m *roboclawMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	var ticks uint32
 	var err error
 
@@ -190,7 +190,7 @@ func (m *roboclawMotor) GetPosition(ctx context.Context, extra map[string]interf
 	return float64(ticks) / float64(m.conf.TicksPerRotation), nil
 }
 
-func (m *roboclawMotor) GetProperties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+func (m *roboclawMotor) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: true,
 	}, nil

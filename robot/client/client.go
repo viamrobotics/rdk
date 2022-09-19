@@ -624,8 +624,8 @@ func (rc *RobotClient) TransformPose(
 	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
 }
 
-// GetStatus takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
-func (rc *RobotClient) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+// Status takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
+func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	names := make([]*commonpb.ResourceName, 0, len(resourceNames))
 	for _, name := range resourceNames {
 		names = append(names, protoutils.ResourceNameToProto(name))

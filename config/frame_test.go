@@ -71,7 +71,7 @@ func TestMergeFrameSystems(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	frame2, err := referenceframe.NewStaticFrame("frame2", spatial.NewPoseFromPoint(r3.Vector{0, 0, 10}))
 	test.That(t, err, test.ShouldBeNil)
-	err = fs1.AddFrame(frame2, fs1.GetFrame("frame1"))
+	err = fs1.AddFrame(frame2, fs1.Frame("frame1"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// frame3 - pure translation
@@ -84,7 +84,7 @@ func TestMergeFrameSystems(t *testing.T) {
 		"frame4",
 		spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.R4AA{math.Pi / 2, 0., 1., 0.}))
 	test.That(t, err, test.ShouldBeNil)
-	err = fs2.AddFrame(frame4, fs2.GetFrame("frame3"))
+	err = fs2.AddFrame(frame4, fs2.Frame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// merge to fs1 with zero offset
@@ -100,7 +100,7 @@ func TestMergeFrameSystems(t *testing.T) {
 	fs1 = referenceframe.NewEmptySimpleFrameSystem("test1")
 	err = fs1.AddFrame(frame1, fs1.World())
 	test.That(t, err, test.ShouldBeNil)
-	err = fs1.AddFrame(frame2, fs1.GetFrame("frame1"))
+	err = fs1.AddFrame(frame2, fs1.Frame("frame1"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// merge to fs1 with an offset and rotation

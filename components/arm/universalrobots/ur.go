@@ -210,8 +210,8 @@ func (ua *URArm) State() (RobotState, error) {
 	return ua.state, nil
 }
 
-// GetJointPositions TODO.
-func (ua *URArm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+// JointPositions TODO.
+func (ua *URArm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	radians := []float64{}
 	state, err := ua.State()
 	if err != nil {
@@ -223,9 +223,9 @@ func (ua *URArm) GetJointPositions(ctx context.Context, extra map[string]interfa
 	return referenceframe.JointPositionsFromRadians(radians), nil
 }
 
-// GetEndPosition computes and returns the current cartesian position.
-func (ua *URArm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-	joints, err := ua.GetJointPositions(ctx, extra)
+// EndPosition computes and returns the current cartesian position.
+func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := ua.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +345,7 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 
 // CurrentInputs TODO.
 func (ua *URArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := ua.GetJointPositions(ctx, nil)
+	res, err := ua.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
