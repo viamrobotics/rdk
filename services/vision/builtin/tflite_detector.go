@@ -190,53 +190,141 @@ func rgbaTo8Bit(r, g, b, a uint32) (rr, gg, bb, aa uint8) {
 }
 
 // unpackTensors takes the model's output tensors as input and reshapes them into objdet.Detections.
-func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLiteStruct, labelMap []string,
-	logger golog.Logger, origW, origH int,
+func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLiteStruct,
+	labelMap []string, logger golog.Logger, origW, origH int,
 ) []objectdetection.Detection {
 	_, span := trace.StartSpan(ctx, "service::vision::unpackTensors")
 	defer span.End()
-	// Gather slices for the bboxes, scores, and labels, using TensorOrder
-	var labels []int
-	var bboxes []float64
-	var scores []float64
-
 	var hasMetadata bool
-	var tensorOrder []int
 	var boxOrder []int
 
+	// Read metadata
 	m, err := model.GetMetadata()
 	if err != nil {
 		hasMetadata = false
-		// If you could not access the metadata
-		logger.Warnf("could not find tensor order. %v Using default order: location, category, score", err)
-		tensorOrder = []int{0, 1, 2}
 	} else {
 		hasMetadata = true
-		// But if you can
-		tensorOrder, _ = getTensorOrder(m) // location = 0 , category = 1, score = 2 for tensor order
+	}
+
+	// Figure out bounding box order. If we can't find it, should be empty [] (not nil)
+	if hasMetadata {
 		boxOrder, err = getBboxOrder(m)
 		if err != nil {
-			hasMetadata = false
+			logger.Warn("assuming bounding box tensor is in the default order: [x x y y]")
 		}
 	}
 
-	// Populate bboxes, labels, and scores from tensorOrder
-	bb := tensors[getIndex(tensorOrder, 0)]
-	ll := tensors[getIndex(tensorOrder, 1)]
-	ss := tensors[getIndex(tensorOrder, 2)]
+	var labels []int
+	var bboxes []float64
+	var scores []float64
+	var count int
 
-	for _, b := range bb.([]float32) {
-		bboxes = append(bboxes, float64(b))
-	}
-	for _, l := range ll.([]float32) {
-		labels = append(labels, int(l))
-	}
-	for _, s := range ss.([]float32) {
-		scores = append(scores, float64(s))
-	}
-
+	// Based on the number of output tensors and their content, make a guess about which output tensors
+	// are bounding boxes, which are labels, and which are scores
 	if !hasMetadata {
-		// If you could not access the metadata
+		switch model.Info.OutputTensorCount {
+		case 1:
+			// There's only one thing so assume it's bounding boxes
+			T0, _ := tensors[0].([]float32)
+			for _, b := range T0 {
+				bboxes = append(bboxes, float64(b))
+			}
+			count = len(T0) / 4
+
+		case 2:
+			// See which is longer --> that's bboxes. Then check for the other's first value
+			// to determine whether score/label
+			var guessedBboxes []float32
+			var guessedScoresLabels []float32
+			T0, _ := tensors[0].([]float32)
+			T1, _ := tensors[1].([]float32)
+			if len(T0) > len(T1) {
+				guessedBboxes = T0
+				guessedScoresLabels = T1
+			} else {
+				guessedBboxes = T1
+				guessedScoresLabels = T0
+			}
+			count = len(guessedScoresLabels)
+			for _, b := range guessedBboxes {
+				bboxes = append(bboxes, float64(b))
+			}
+			if guessedScoresLabels[0] >= 1 || guessedScoresLabels[0] == 0 {
+				for _, l := range guessedScoresLabels {
+					labels = append(labels, int(l))
+				}
+			} else {
+				for _, s := range guessedScoresLabels {
+					scores = append(scores, float64(s))
+				}
+			}
+		default: // case 3+
+			// See which is longer --> that's bboxes. Then check for the other's first value
+			// to determine whether score/label. Assign the last one the last remaining thing
+			var guessedBboxes []float32
+			var guessedScores []float32
+			var guessedLabels []float32
+			T0, _ := tensors[0].([]float32)
+			T1, _ := tensors[1].([]float32)
+			T2, _ := tensors[2].([]float32)
+			if (len(T0) > len(T1)) && (len(T0) > len(T2)) { // T0 is bboxes
+				guessedBboxes = T0
+				guessedScores = T1
+				if guessedScores[0] >= 1 || guessedScores[0] == 0 {
+					guessedLabels = T1
+					guessedScores = T2
+				}
+			}
+			if (len(T1) > len(T0)) && (len(T1) > len(T2)) { // T1 is bboxes
+				guessedBboxes = T1
+				guessedScores = T0
+				if guessedScores[0] >= 1 || guessedScores[0] == 0 {
+					guessedLabels = T0
+					guessedScores = T2
+				}
+			}
+			if (len(T2) > len(T0)) && (len(T2) > len(T1)) { // T2 is bboxes
+				guessedBboxes = T2
+				guessedScores = T0
+				if guessedScores[0] >= 1 || guessedScores[0] == 0 {
+					guessedLabels = T0
+					guessedScores = T1
+				}
+			}
+			count = len(guessedScores)
+			for _, b := range guessedBboxes {
+				bboxes = append(bboxes, float64(b))
+			}
+			for _, l := range guessedLabels {
+				labels = append(labels, int(l))
+			}
+			for _, s := range guessedScores {
+				scores = append(scores, float64(s))
+			}
+		}
+	} else { // if we do have metadata, just read the tensor order from there.
+		tensorOrder, found := getTensorOrder(m)
+		if found[0] {
+			for _, b := range tensors[getIndex(tensorOrder, 0)].([]float32) {
+				bboxes = append(bboxes, float64(b))
+			}
+		}
+		if found[1] {
+			for _, l := range tensors[getIndex(tensorOrder, 1)].([]float32) {
+				labels = append(labels, int(l))
+			}
+		}
+		if found[2] {
+			for _, s := range tensors[getIndex(tensorOrder, 2)].([]float32) {
+				scores = append(scores, float64(s))
+			}
+		}
+		count = len(tensors[getIndex(tensorOrder, 0)].([]float32)) / 4
+	}
+
+	// If we don't know the bounding box order, assume the first two are x-values
+	// and the last two are y-values
+	if len(boxOrder) == 0 {
 		logger.Warn("assuming bounding box tensor is in the default order: [x x y y]")
 		boxOrder = []int{1, 0, 3, 2}
 		if bboxes[0] > bboxes[1] {
@@ -255,30 +343,36 @@ func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLite
 		}
 	}
 
-	// Detection gathering
-	detections := make([]objectdetection.Detection, len(scores))
-	for i := 0; i < len(scores); i++ {
+	// Gather detections
+	detections := make([]objectdetection.Detection, count)
+	for i := 0; i < count; i++ {
 		// Gather box
 		xmin, ymin, xmax, ymax := utils.Clamp(bboxes[4*i+getIndex(boxOrder, 0)], 0.0, 1.0)*float64(origW),
 			utils.Clamp(bboxes[4*i+getIndex(boxOrder, 1)], 0.0, 1.0)*float64(origH),
 			utils.Clamp(bboxes[4*i+getIndex(boxOrder, 2)], 0.0, 1.0)*float64(origW),
 			utils.Clamp(bboxes[4*i+getIndex(boxOrder, 3)], 0.0, 1.0)*float64(origH)
-
 		rect := image.Rect(int(xmin), int(ymin), int(xmax), int(ymax))
 
-		// Gather label
 		var label string
-		if labelMap == nil {
-			label = strconv.Itoa(labels[i])
-		} else {
-			label = labelMap[labels[i]]
-		}
+		score := 1.0
+		if len(labels) > 0 {
+			if labelMap != nil {
+				if labels[i] < len(labelMap) && labels[i] >= 0 {
+					label = labelMap[labels[i]]
+				}
+			} else {
+				label = strconv.Itoa(labels[i])
+			}
+		} // else label = ""
 
-		// Gather score and package it
-		d := objectdetection.NewDetection(rect, scores[i], label)
+		if len(scores) > 0 {
+			score = scores[i]
+		} // else score = 1
+
+		// Add detection
+		d := objectdetection.NewDetection(rect, score, label)
 		detections[i] = d
 	}
-
 	return detections
 }
 
@@ -340,7 +434,7 @@ func getBboxOrder(m *tflite_metadata.ModelMetadataT) ([]int, error) {
 // getTensorOrder checks the metadata for the order of the output tensors
 // returned as []int where 0=bounding box location, 1=class/category/label, 2= confidence score.
 func getTensorOrder(m *tflite_metadata.ModelMetadataT) ([]int, []bool) {
-	tensorOrder := make([]int, 4) // location = 0 , category = 1, score = 2
+	tensorOrder := make([]int, 3) // location = 0 , category = 1, score = 2
 
 	tensorData := m.SubgraphMetadata[0].OutputTensorMetadata
 
