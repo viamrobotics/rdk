@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
-const singlemodelname = "single-wire"
+const singlemodelname = "single"
 
 func init() {
 	registry.RegisterComponent(
