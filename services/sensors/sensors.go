@@ -6,10 +6,10 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	pb "go.viam.com/api/service/sensors/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	pb "go.viam.com/rdk/proto/api/service/sensors/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"

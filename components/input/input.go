@@ -8,12 +8,12 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/inputcontroller/v1"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/components/generic"
-	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"

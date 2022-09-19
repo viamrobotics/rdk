@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
+	pb "go.viam.com/api/component/camera/v1"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -19,7 +20,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
-	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"

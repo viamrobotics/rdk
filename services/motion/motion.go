@@ -6,11 +6,11 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	commonpb "go.viam.com/api/common/v1"
+	servicepb "go.viam.com/api/service/motion/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	servicepb "go.viam.com/rdk/proto/api/service/motion/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
