@@ -8,6 +8,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/config"
@@ -41,17 +42,19 @@ func TestValidate(t *testing.T) {
 		I2CAttrConfig:    &I2CAttrConfig{},
 		NtripAttrConfig:  &NtripAttrConfig{},
 	}
-	err := fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "correction_source")
+	path := "path"
+	err := fakecfg.Validate(path)
+	test.That(t, err, test.ShouldBeError,
+		utils.NewConfigValidationFieldRequiredError(path, "correction_source"))
 
 	fakecfg.CorrectionSource = "notvalid"
 	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "only serial, I2C, and ntrip are supported correction sources")
+	test.That(t, err, test.ShouldBeError, "only serial, I2C, and ntrip are supported correction sources")
 
 	// ntrip
 	fakecfg.CorrectionSource = "ntrip"
-	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "ntrip_addr")
+	err = fakecfg.Validate(path)
+	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr"))
 
 	fakecfg.NtripAttrConfig.NtripAddr = "some-ntrip-address"
 	fakecfg.NtripPath = "some-ntrip-path"
@@ -60,8 +63,8 @@ func TestValidate(t *testing.T) {
 
 	// serial
 	fakecfg.CorrectionSource = "serial"
-	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "serial_correction_path")
+	err = fakecfg.Validate(path)
+	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "serial_correction_path"))
 
 	fakecfg.SerialAttrConfig.SerialCorrectionPath = "some-serial-path"
 	err = fakecfg.Validate("path")
@@ -70,7 +73,7 @@ func TestValidate(t *testing.T) {
 	// I2C
 	fakecfg.CorrectionSource = "I2C"
 	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "board")
+	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "board"))
 }
 
 func TestRTK(t *testing.T) {

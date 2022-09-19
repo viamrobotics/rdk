@@ -3,9 +3,9 @@ package gpsnmea
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
@@ -13,6 +13,13 @@ import (
 	"go.viam.com/rdk/registry"
 	rdkutils "go.viam.com/rdk/utils"
 )
+
+func connectionTypeError(connType, serialConn, i2cConn string) error {
+	return errors.Errorf("%s is not a valid connection_type of %s, %s",
+		connType,
+		serialConn,
+		i2cConn)
+}
 
 // AttrConfig is used for converting NMEA Movement Sensor attibutes.
 type AttrConfig struct {
@@ -137,7 +144,7 @@ func newNMEAGPS(
 	case i2cStr:
 		return NewPmtkI2CGPSNMEA(ctx, deps, attr, logger)
 	default:
-		return nil, fmt.Errorf("%s is not a valid connection_type of %s, %s",
+		return nil, connectionTypeError(
 			attr.ConnectionType,
 			i2cStr,
 			serialStr)
