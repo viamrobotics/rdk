@@ -75,6 +75,7 @@ func TestClient(t *testing.T) {
 			componentName resource.Name,
 			destination *referenceframe.PoseInFrame,
 			worldState *commonpb.WorldState,
+			extra map[string]interface{},
 		) (bool, error) {
 			return success, nil
 		}
@@ -83,6 +84,7 @@ func TestClient(t *testing.T) {
 			componentName resource.Name,
 			destinationFrame string,
 			supplementalTransforms []*commonpb.Transform,
+			extra map[string]interface{},
 		) (*referenceframe.PoseInFrame, error) {
 			for _, msg := range supplementalTransforms {
 				receivedTransforms[msg.GetReferenceFrame()] = msg
@@ -93,7 +95,7 @@ func TestClient(t *testing.T) {
 
 		result, err := client.Move(
 			context.Background(), resourceName, grabPose,
-			&commonpb.WorldState{},
+			&commonpb.WorldState{}, map[string]interface{}{},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
@@ -122,7 +124,7 @@ func TestClient(t *testing.T) {
 		for _, msg := range transformMsgs {
 			msgMap[msg.GetReferenceFrame()] = msg
 		}
-		poseResult, err := client.GetPose(context.Background(), arm.Named("arm1"), "foo", transformMsgs)
+		poseResult, err := client.GetPose(context.Background(), arm.Named("arm1"), "foo", transformMsgs, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, poseResult.FrameName(), test.ShouldEqual, "fooarm1")
 		test.That(t, poseResult.Pose().Point().X, test.ShouldEqual, 1)
@@ -163,6 +165,7 @@ func TestClient(t *testing.T) {
 			componentName resource.Name,
 			grabPose *referenceframe.PoseInFrame,
 			worldState *commonpb.WorldState,
+			extra map[string]interface{},
 		) (bool, error) {
 			return false, passedErr
 		}
@@ -172,14 +175,15 @@ func TestClient(t *testing.T) {
 			componentName resource.Name,
 			destinationFrame string,
 			supplementalTransform []*commonpb.Transform,
+			extra map[string]interface{},
 		) (*referenceframe.PoseInFrame, error) {
 			return nil, passedErr
 		}
 
-		resp, err := client2.Move(context.Background(), resourceName, grabPose, &commonpb.WorldState{})
+		resp, err := client2.Move(context.Background(), resourceName, grabPose, &commonpb.WorldState{}, map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)
-		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", nil)
+		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", nil, map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

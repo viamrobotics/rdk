@@ -521,6 +521,20 @@ func Read(
 	return FromReader(ctx, filePath, bytes.NewReader(buf), logger)
 }
 
+// ReadLocalConfig reads a config from the given file but does not fetch any config from the remote servers.
+func ReadLocalConfig(
+	ctx context.Context,
+	filePath string,
+	logger golog.Logger,
+) (*Config, error) {
+	buf, err := envsubst.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, false)
+}
+
 // FromReader reads a config from the given reader and specifies
 // where, if applicable, the file the reader originated from.
 func FromReader(
@@ -528,6 +542,18 @@ func FromReader(
 	originalPath string,
 	r io.Reader,
 	logger golog.Logger,
+) (*Config, error) {
+	return fromReader(ctx, originalPath, r, logger, true)
+}
+
+// FromReader reads a config from the given reader and specifies
+// where, if applicable, the file the reader originated from.
+func fromReader(
+	ctx context.Context,
+	originalPath string,
+	r io.Reader,
+	logger golog.Logger,
+	shouldReadFromCloud bool,
 ) (*Config, error) {
 	// First read and processes config from disk
 	unprocessedConfig := Config{
@@ -542,7 +568,7 @@ func FromReader(
 		return nil, errors.Wrapf(err, "failed to process Config")
 	}
 
-	if cfgFromDisk.Cloud != nil {
+	if shouldReadFromCloud && cfgFromDisk.Cloud != nil {
 		cfg, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger)
 		return cfg, err
 	}
@@ -730,66 +756,13 @@ func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger golog.Logger)
 		return nil, shouldCheckCacheOnFailure, err
 	}
 
-	cfg := Config{}
-
-	cfg.Cloud, err = CloudConfigFromProto(res.Config.Cloud)
+	cfg, err := FromProto(res.Config)
 	if err != nil {
-		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Cloud config from proto")
+		// Check cache?
+		return nil, shouldCheckCacheOnFailure, err
 	}
 
-	if res.Config.Network != nil {
-		network, err := NetworkConfigFromProto(res.Config.Network)
-		if err != nil {
-			return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Network config from proto")
-		}
-		cfg.Network = *network
-	}
-
-	if res.Config.Auth != nil {
-		auth, err := AuthConfigFromProto(res.Config.Auth)
-		if err != nil {
-			return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Auth config from proto")
-		}
-		cfg.Auth = *auth
-	}
-
-	cfg.Components, err = toRDKSlice(res.Config.Components, ComponentConfigFromProto)
-	if err != nil {
-		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Components config from proto")
-	}
-
-	cfg.Remotes, err = toRDKSlice(res.Config.Remotes, RemoteConfigFromProto)
-	if err != nil {
-		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Remotes config from proto")
-	}
-
-	cfg.Processes, err = toRDKSlice(res.Config.Processes, ProcessConfigFromProto)
-	if err != nil {
-		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Processes config from proto")
-	}
-
-	cfg.Services, err = toRDKSlice(res.Config.Services, ServiceConfigFromProto)
-	if err != nil {
-		return nil, shouldCheckCacheOnFailure, errors.Wrap(err, "error converting Services config from proto")
-	}
-
-	if res.Config.Debug != nil {
-		cfg.Debug = *res.Config.Debug
-	}
-
-	return &cfg, false, nil
-}
-
-func toRDKSlice[PT, RT any](protoList []*PT, toRDK func(*PT) (*RT, error)) ([]RT, error) {
-	out := make([]RT, len(protoList))
-	for i, proto := range protoList {
-		rdk, err := toRDK(proto)
-		if err != nil {
-			return nil, err
-		}
-		out[i] = *rdk
-	}
-	return out, nil
+	return cfg, false, nil
 }
 
 // CreateNewGRPCClient creates a new grpc cloud configured to communicate with the robot service based on the cloud config given.
