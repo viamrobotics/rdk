@@ -9,8 +9,8 @@ import (
 type Controllable interface {
 	// SetPower set the power and direction of the motor
 	SetPower(ctx context.Context, power float64, extra map[string]interface{}) error
-	// GetPosition returns the current encoder count value
-	GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error)
+	// Position returns the current encoder count value
+	Position(ctx context.Context, extra map[string]interface{}) (float64, error)
 }
 
 // Config configuration of the control loop.

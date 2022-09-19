@@ -30,24 +30,24 @@ func init() {
 
 type fakeMovementSensor struct{}
 
-func (f *fakeMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+func (f *fakeMovementSensor) Position(ctx context.Context) (*geo.Point, float64, error) {
 	p := geo.NewPoint(40.7, -73.98)
 	return p, 0, nil
 }
 
-func (f *fakeMovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (f *fakeMovementSensor) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	return r3.Vector{}, nil
 }
 
-func (f *fakeMovementSensor) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (f *fakeMovementSensor) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	return spatialmath.AngularVelocity{}, nil
 }
 
-func (f *fakeMovementSensor) GetCompassHeading(ctx context.Context) (float64, error) {
+func (f *fakeMovementSensor) CompassHeading(ctx context.Context) (float64, error) {
 	return 0, nil
 }
 
-func (f *fakeMovementSensor) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (f *fakeMovementSensor) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	return spatialmath.NewZeroOrientation(), nil
 }
 
@@ -55,15 +55,15 @@ func (f *fakeMovementSensor) DoCommand(ctx context.Context, cmd map[string]inter
 	return map[string]interface{}{}, nil
 }
 
-func (f *fakeMovementSensor) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+func (f *fakeMovementSensor) Accuracy(ctx context.Context) (map[string]float32, error) {
 	return map[string]float32{}, nil
 }
 
-func (f *fakeMovementSensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
-	return movementsensor.GetReadings(ctx, f)
+func (f *fakeMovementSensor) Readings(ctx context.Context) (map[string]interface{}, error) {
+	return movementsensor.Readings(ctx, f)
 }
 
-func (f *fakeMovementSensor) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+func (f *fakeMovementSensor) Properties(ctx context.Context) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		LinearVelocitySupported:  true,
 		AngularVelocitySupported: true,

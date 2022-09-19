@@ -122,7 +122,7 @@ func TestStatusClient(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
 
 	injectArm := &inject.Arm{}
-	injectArm.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return pose1, nil
 	}
 
@@ -148,7 +148,7 @@ func TestStatusClient(t *testing.T) {
 	}
 
 	injectInputDev := &inject.InputController{}
-	injectInputDev.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	injectInputDev.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
 
@@ -170,7 +170,7 @@ func TestStatusClient(t *testing.T) {
 		capServoAngle = angle
 		return nil
 	}
-	injectServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
+	injectServo.PositionFunc = func(ctx context.Context) (uint8, error) {
 		return 5, nil
 	}
 
@@ -282,11 +282,11 @@ func TestStatusClient(t *testing.T) {
 
 	arm1, err := arm.FromRobot(client, "arm1")
 	test.That(t, err, test.ShouldBeNil)
-	_, err = arm1.GetEndPosition(context.Background(), nil)
+	_, err = arm1.EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	_, err = arm1.GetJointPositions(context.Background(), nil)
+	_, err = arm1.JointPositions(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -336,7 +336,7 @@ func TestStatusClient(t *testing.T) {
 
 	sensorDevice, err := sensor.FromRobot(client, "sensor1")
 	test.That(t, err, test.ShouldBeNil)
-	_, err = sensorDevice.GetReadings(context.Background())
+	_, err = sensorDevice.Readings(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
 
@@ -346,16 +346,16 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
-	_, err = servo1.GetPosition(context.Background())
+	_, err = servo1.Position(context.Background())
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
 	resource1, err := client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = resource1.(arm.Arm).GetEndPosition(context.Background(), nil)
+	_, err = resource1.(arm.Arm).EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	_, err = resource1.(arm.Arm).GetJointPositions(context.Background(), nil)
+	_, err = resource1.(arm.Arm).JointPositions(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -378,7 +378,7 @@ func TestStatusClient(t *testing.T) {
 
 	arm1, err = arm.FromRobot(client, "arm1")
 	test.That(t, err, test.ShouldBeNil)
-	pos, err := arm1.GetEndPosition(context.Background(), nil)
+	pos, err := arm1.EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, pose1.String())
 
@@ -417,7 +417,7 @@ func TestStatusClient(t *testing.T) {
 
 	inputDev, err := input.FromRobot(client, "inputController1")
 	test.That(t, err, test.ShouldBeNil)
-	controlList, err := inputDev.GetControls(context.Background())
+	controlList, err := inputDev.Controls(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
 
@@ -435,13 +435,13 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capServoAngle, test.ShouldEqual, 4)
 
-	currentVal, err := servo1.GetPosition(context.Background())
+	currentVal, err := servo1.Position(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, currentVal, test.ShouldEqual, 5)
 
 	resource1, err = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	pos, err = resource1.(arm.Arm).GetEndPosition(context.Background(), nil)
+	pos, err = resource1.(arm.Arm).EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, pose1.String())
 
@@ -765,7 +765,7 @@ func TestClientReconnect(t *testing.T) {
 	go gServer.Serve(listener)
 
 	injectArm := &inject.Arm{}
-	injectArm.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return pose1, nil
 	}
 
@@ -791,7 +791,7 @@ func TestClientReconnect(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	a, err := client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = a.(arm.Arm).GetEndPosition(context.Background(), map[string]interface{}{})
+	_, err = a.(arm.Arm).EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, atomic.LoadInt64(&called), test.ShouldEqual, 1)
@@ -820,7 +820,7 @@ func TestClientReconnect(t *testing.T) {
 	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 2)
 	_, err = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = a.(arm.Arm).GetEndPosition(context.Background(), map[string]interface{}{})
+	_, err = a.(arm.Arm).EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, atomic.LoadInt64(&called), test.ShouldEqual, 2)
@@ -1230,7 +1230,7 @@ func TestClientStatus(t *testing.T) {
 			gStatus.Name: gStatus,
 			aStatus.Name: aStatus,
 		}
-		injectRobot.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 			statuses := make([]robot.Status, 0, len(resourceNames))
 			for _, n := range resourceNames {
 				statuses = append(statuses, statusMap[n])
@@ -1241,7 +1241,7 @@ func TestClientStatus(t *testing.T) {
 			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
 			aStatus.Name: map[string]interface{}{},
 		}
-		resp, err := client.GetStatus(context.Background(), []resource.Name{aStatus.Name})
+		resp, err := client.Status(context.Background(), []resource.Name{aStatus.Name})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 1)
 		test.That(t, resp[0].Status, test.ShouldResemble, expected[resp[0].Name])
@@ -1253,7 +1253,7 @@ func TestClientStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldResemble, aStatus.Status)
 
-		resp, err = client.GetStatus(context.Background(), []resource.Name{gStatus.Name, aStatus.Name})
+		resp, err = client.Status(context.Background(), []resource.Name{gStatus.Name, aStatus.Name})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 2)
 
@@ -1272,10 +1272,10 @@ func TestClientStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		passedErr := errors.New("can't get status")
-		injectRobot2.GetStatusFunc = func(ctx context.Context, status []resource.Name) ([]robot.Status, error) {
+		injectRobot2.StatusFunc = func(ctx context.Context, status []resource.Name) ([]robot.Status, error) {
 			return nil, passedErr
 		}
-		_, err = client2.GetStatus(context.Background(), []resource.Name{})
+		_, err = client2.Status(context.Background(), []resource.Name{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 
 		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)
@@ -1438,7 +1438,7 @@ func TestRemoteClientMatch(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 
 	injectArm := &inject.Arm{}
-	injectArm.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return pose1, nil
 	}
 
@@ -1462,7 +1462,7 @@ func TestRemoteClientMatch(t *testing.T) {
 	resource1, err := client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, client.resourceClients[arm.Named("remote:arm1")], test.ShouldEqual, resource1)
-	pos, err := resource1.(arm.Arm).GetEndPosition(context.Background(), nil)
+	pos, err := resource1.(arm.Arm).EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, pose1.String())
 
@@ -1483,7 +1483,7 @@ func TestRemoteClientDuplicate(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 
 	injectArm := &inject.Arm{}
-	injectArm.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return pose1, nil
 	}
 
@@ -1507,7 +1507,7 @@ func TestRemoteClientDuplicate(t *testing.T) {
 	resource1, err := client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, client.resourceClients[arm.Named("arm1")], test.ShouldEqual, resource1)
-	pos, err := resource1.(arm.Arm).GetEndPosition(context.Background(), nil)
+	pos, err := resource1.(arm.Arm).EndPosition(context.Background(), nil)
 	test.That(t, err.Error(), test.ShouldEqual, "rpc error: code = Unknown desc = no arm with name (arm1)")
 	test.That(t, pos, test.ShouldBeNil)
 

@@ -31,7 +31,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) GetReadings(ctx context.Context) (map[string]interface{}, error) {
+func (c *client) Readings(ctx context.Context) (map[string]interface{}, error) {
 	resp, err := c.client.GetReadings(ctx, &pb.GetReadingsRequest{
 		Name: c.name,
 	})

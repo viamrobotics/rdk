@@ -300,7 +300,7 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 // at a specific RPM. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target.
 func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
-	curPos, err := m.GetPosition(ctx, extra)
+	curPos, err := m.Position(ctx, extra)
 	if err != nil {
 		return err
 	}
@@ -346,14 +346,14 @@ func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64, ext
 // Position reports the position of the motor based on its encoder. If it's not supported, the returned
 // data is undefined. The unit returned is the number of revolutions which is intended to be fed
 // back into calls of GoFor.
-func (m *gpioStepper) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (m *gpioStepper) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return float64(m.stepPosition) / float64(m.stepsPerRotation), nil
 }
 
-// GetProperties returns the status of whether the motor supports certain optional features.
-func (m *gpioStepper) GetProperties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+// Properties returns the status of whether the motor supports certain optional features.
+func (m *gpioStepper) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: true,
 	}, nil

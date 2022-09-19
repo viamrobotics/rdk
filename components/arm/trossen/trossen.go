@@ -159,9 +159,9 @@ func NewArm(r robot.Robot, attributes config.AttributeMap, logger golog.Logger, 
 	}, nil
 }
 
-// GetEndPosition computes and returns the current cartesian position.
-func (a *Arm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-	joints, err := a.GetJointPositions(ctx, extra)
+// EndPosition computes and returns the current cartesian position.
+func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := a.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -195,8 +195,8 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, e
 	return a.WaitForMovement(ctx)
 }
 
-// GetJointPositions returns an empty struct, because the wx250s should use joint angles from kinematics.
-func (a *Arm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+// JointPositions returns an empty struct, because the wx250s should use joint angles from kinematics.
+func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	angleMap, err := a.GetAllAngles()
 	if err != nil {
 		return &pb.JointPositions{}, err
@@ -407,7 +407,7 @@ func (a *Arm) HomePosition(ctx context.Context) error {
 
 // CurrentInputs TODO.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.GetJointPositions(ctx, nil)
+	res, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

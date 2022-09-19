@@ -146,8 +146,8 @@ func (s *i2cCorrectionSource) Start(ready chan<- bool) {
 	}
 }
 
-// GetReader returns the i2cCorrectionSource's correctionReader if it exists.
-func (s *i2cCorrectionSource) GetReader() (io.ReadCloser, error) {
+// Reader returns the i2cCorrectionSource's correctionReader if it exists.
+func (s *i2cCorrectionSource) Reader() (io.ReadCloser, error) {
 	if s.correctionReader == nil {
 		return nil, errors.New("no stream")
 	}

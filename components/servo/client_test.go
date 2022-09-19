@@ -36,7 +36,7 @@ func TestClient(t *testing.T) {
 	workingServo.MoveFunc = func(ctx context.Context, angle uint8) error {
 		return nil
 	}
-	workingServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
+	workingServo.PositionFunc = func(ctx context.Context) (uint8, error) {
 		return 20, nil
 	}
 	workingServo.StopFunc = func(ctx context.Context) error {
@@ -46,7 +46,7 @@ func TestClient(t *testing.T) {
 	failingServo.MoveFunc = func(ctx context.Context, angle uint8) error {
 		return errors.New("move failed")
 	}
-	failingServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
+	failingServo.PositionFunc = func(ctx context.Context) (uint8, error) {
 		return 0, errors.New("current angle not readable")
 	}
 	failingServo.StopFunc = func(ctx context.Context) error {
@@ -90,7 +90,7 @@ func TestClient(t *testing.T) {
 		err = workingServoClient.Move(context.Background(), 20)
 		test.That(t, err, test.ShouldBeNil)
 
-		currentDeg, err := workingServoClient.GetPosition(context.Background())
+		currentDeg, err := workingServoClient.Position(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, currentDeg, test.ShouldEqual, 20)
 
@@ -109,7 +109,7 @@ func TestClient(t *testing.T) {
 		err = failingServoClient.Move(context.Background(), 20)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err = failingServoClient.GetPosition(context.Background())
+		_, err = failingServoClient.Position(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 
 		err = failingServoClient.Stop(context.Background())
@@ -130,7 +130,7 @@ func TestClient(t *testing.T) {
 		err = workingServoDialedClient.Move(context.Background(), 20)
 		test.That(t, err, test.ShouldBeNil)
 
-		currentDeg, err := workingServoDialedClient.GetPosition(context.Background())
+		currentDeg, err := workingServoDialedClient.Position(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, currentDeg, test.ShouldEqual, 20)
 

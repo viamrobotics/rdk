@@ -85,8 +85,8 @@ type Base interface {
 // A LocalBase represents a physical base of a robot that can report the width of itself.
 type LocalBase interface {
 	Base
-	// GetWidth returns the width of the base in millimeters.
-	GetWidth(ctx context.Context) (int, error)
+	// Width returns the width of the base in millimeters.
+	Width(ctx context.Context) (int, error)
 	resource.MovingCheckable
 }
 
@@ -244,10 +244,10 @@ type reconfigurableLocalBase struct {
 	actual LocalBase
 }
 
-func (r *reconfigurableLocalBase) GetWidth(ctx context.Context) (int, error) {
+func (r *reconfigurableLocalBase) Width(ctx context.Context) (int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetWidth(ctx)
+	return r.actual.Width(ctx)
 }
 
 func (r *reconfigurableLocalBase) IsMoving(ctx context.Context) (bool, error) {
