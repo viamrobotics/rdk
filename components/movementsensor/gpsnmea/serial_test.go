@@ -1,4 +1,4 @@
-package nmea
+package gpsnmea
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
@@ -27,20 +28,22 @@ var (
 
 func TestValidateSerial(t *testing.T) {
 	fakecfg := &SerialAttrConfig{}
-	err := fakecfg.ValidateSerial("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty path")
+	path := "path"
+	err := fakecfg.ValidateSerial(path)
+	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "serial_path"))
 
 	fakecfg.SerialPath = "some-path"
-	err = fakecfg.ValidateSerial("path")
+	err = fakecfg.ValidateSerial(path)
 	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestNewSerialMovementSensor(t *testing.T) {
+	deps := setupDependencies(t)
 	path := "somepath"
 
 	cfig := config.Component{
 		Name:  "movementsensor1",
-		Model: "nmea-serial",
+		Model: "gps-nmea",
 		Type:  movementsensor.SubtypeName,
 		Attributes: config.AttributeMap{
 			"path":            "",
@@ -51,20 +54,28 @@ func TestNewSerialMovementSensor(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
-	g, err := newSerialNMEAMovementSensor(ctx, cfig, logger)
+	g, err := newNMEAGPS(ctx, deps, cfig, logger)
 	test.That(t, g, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	cfig = config.Component{
 		Name:  "movementsensor1",
-		Model: "nmea-serial",
+		Model: "gps-nmea",
 		Type:  movementsensor.SubtypeName,
-		Attributes: config.AttributeMap{
-			"path":            path,
-			"correction_path": "",
+		ConvertedAttributes: &AttrConfig{
+			ConnectionType: "serial",
+			Board:          "local",
+			DisableNMEA:    false,
+			SerialAttrConfig: &SerialAttrConfig{
+				SerialPath:               path,
+				SerialBaudRate:           0,
+				SerialCorrectionPath:     path,
+				SerialCorrectionBaudRate: 0,
+			},
+			I2CAttrConfig: &I2CAttrConfig{},
 		},
 	}
-	g, err = newSerialNMEAMovementSensor(ctx, cfig, logger)
+	g, err = newNMEAGPS(ctx, deps, cfig, logger)
 	passErr := "open " + path + ": no such file or directory"
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)

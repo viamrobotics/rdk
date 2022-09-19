@@ -1,4 +1,4 @@
-package rtk
+package gpsrtk
 
 import (
 	"fmt"
@@ -38,12 +38,6 @@ const (
 
 	svinModeEnable  = 0x01
 	svinModeDisable = 0x00
-
-	// configuration constants.
-	requiredAccuracyConfig = "loc_accuracy"
-	observationTimeConfig  = "time_accuracy"
-	timeMode               = "time"
-	svinConfig             = "svin"
 )
 
 var rtcmMsgs = map[int]int{
@@ -81,12 +75,11 @@ type configCommand struct {
 }
 
 // ConfigureBaseRTKStation configures an RTK chip to act as a base station and send correction data.
-func ConfigureBaseRTKStation(config config.Component) error {
-	correctionType := config.Attributes.String(correctionSourceName)
-
-	surveyIn := config.Attributes.String(svinConfig)
-	requiredAcc := config.Attributes.Float64(requiredAccuracyConfig, 10)
-	observationTime := config.Attributes.Int(observationTimeConfig, 60)
+func ConfigureBaseRTKStation(cfg config.Component) error {
+	correctionType := cfg.ConvertedAttributes.(*StationConfig).CorrectionSource
+	surveyIn := cfg.ConvertedAttributes.(*StationConfig).SurveyIn
+	requiredAcc := cfg.ConvertedAttributes.(*StationConfig).RequiredAccuracy
+	observationTime := cfg.ConvertedAttributes.(*StationConfig).RequiredTime
 
 	c := &configCommand{
 		correctionType:  correctionType,
@@ -104,7 +97,7 @@ func ConfigureBaseRTKStation(config config.Component) error {
 
 	switch c.correctionType {
 	case serialStr:
-		err := c.serialConfigure(config)
+		err := c.serialConfigure(cfg)
 		if err != nil {
 			return err
 		}
@@ -131,8 +124,8 @@ func ConfigureBaseRTKStation(config config.Component) error {
 }
 
 // ConfigureRoverDefault sets up an RTK chip to act as a rover and receive correction data.
-func ConfigureRoverDefault(config config.Component) error {
-	correctionType := config.Attributes.String(correctionSourceName)
+func ConfigureRoverDefault(cfg config.Component) error {
+	correctionType := cfg.ConvertedAttributes.(*AttrConfig).CorrectionSource
 
 	c := &configCommand{
 		correctionType: correctionType,
@@ -142,7 +135,7 @@ func ConfigureRoverDefault(config config.Component) error {
 
 	switch correctionType {
 	case serialStr:
-		err := c.serialConfigure(config)
+		err := c.serialConfigure(cfg)
 		if err != nil {
 			return err
 		}
@@ -168,14 +161,14 @@ func ConfigureRoverDefault(config config.Component) error {
 	return nil
 }
 
-func (c *configCommand) serialConfigure(config config.Component) error {
-	portName := config.Attributes.String("correction_path")
+func (c *configCommand) serialConfigure(cfg config.Component) error {
+	portName := cfg.ConvertedAttributes.(*AttrConfig).SerialAttrConfig.SerialCorrectionPath
 	if portName == "" {
 		return fmt.Errorf("serialCorrectionSource expected non-empty string for %q", correctionPathName)
 	}
 	c.portName = portName
 
-	baudRate := config.Attributes.Int("correction_baud", 0)
+	baudRate := cfg.ConvertedAttributes.(*AttrConfig).SerialAttrConfig.SerialCorrectionBaudRate
 	if baudRate == 0 {
 		baudRate = 9600
 	}

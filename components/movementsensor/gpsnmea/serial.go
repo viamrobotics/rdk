@@ -1,10 +1,9 @@
-// Package nmea implements an NMEA serial gps.
-package nmea
+// Package gpsnmea implements an NMEA serial gps.
+package gpsnmea
 
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -18,91 +17,52 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
 )
-
-// SerialAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
-type SerialAttrConfig struct {
-	// Serial
-	SerialPath     string `json:"path"`
-	CorrectionPath string `json:"correction_path"`
-}
-
-// ValidateSerial ensures all parts of the config are valid.
-func (config *SerialAttrConfig) ValidateSerial(path string) error {
-	if len(config.SerialPath) == 0 {
-		return errors.New("expected nonempty path")
-	}
-
-	return nil
-}
-
-func init() {
-	registry.RegisterComponent(
-		movementsensor.Subtype,
-		"nmea-serial",
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			_ registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			return newSerialNMEAMovementSensor(ctx, config, logger)
-		}})
-}
 
 // SerialNMEAMovementSensor allows the use of any MovementSensor chip that communicates over serial.
 type SerialNMEAMovementSensor struct {
 	generic.Unimplemented
-	mu                 sync.RWMutex
-	dev                io.ReadWriteCloser
-	logger             golog.Logger
-	path               string
-	correctionPath     string
-	baudRate           uint
-	correctionBaudRate uint
-	disableNmea        bool
-
-	data                    gpsData
+	mu                      sync.RWMutex
 	cancelCtx               context.Context
 	cancelFunc              func()
+	logger                  golog.Logger
+	data                    gpsData
 	activeBackgroundWorkers sync.WaitGroup
 
-	errMu     sync.Mutex
-	lastError error
+	disableNmea bool
+	errMu       sync.Mutex
+	lastError   error
+
+	dev                io.ReadWriteCloser
+	path               string
+	baudRate           uint
+	correctionBaudRate uint
+	correctionPath     string
 }
 
-const (
-	pathAttrName           = "path"
-	correctionAttrName     = "correction_path"
-	baudRateName           = "baud_rate"
-	correctionBaudRateName = "correction_baud"
-	disableNmeaName        = "disable_nmea"
-)
-
-func newSerialNMEAMovementSensor(ctx context.Context, config config.Component, logger golog.Logger) (nmeaMovementSensor, error) {
-	serialPath := config.Attributes.String(pathAttrName)
+// NewSerialGPSNMEA gps that communicates over serial.
+func NewSerialGPSNMEA(ctx context.Context, attr *AttrConfig, logger golog.Logger) (NmeaMovementSensor, error) {
+	serialPath := attr.SerialAttrConfig.SerialPath
 	if serialPath == "" {
-		return nil, fmt.Errorf("SerialNMEAMovementSensor expected non-empty string for %q", pathAttrName)
+		return nil, fmt.Errorf("SerialNMEAMovementSensor expected non-empty string for %q", attr.SerialAttrConfig.SerialPath)
 	}
-	correctionPath := config.Attributes.String(correctionAttrName)
+	correctionPath := attr.SerialAttrConfig.SerialCorrectionPath
 	if correctionPath == "" {
 		correctionPath = serialPath
-		logger.Info("SerialNMEAMovementSensor: correction_path using path")
+		logger.Infof("SerialNMEAMovementSensor: correction_path using path: %s", correctionPath)
 	}
-	baudRate := config.Attributes.Int(baudRateName, 0)
+	baudRate := attr.SerialAttrConfig.SerialBaudRate
 	if baudRate == 0 {
 		baudRate = 9600
 		logger.Info("SerialNMEAMovementSensor: baud_rate using default 9600")
 	}
-	correctionBaudRate := config.Attributes.Int(correctionBaudRateName, 0)
+	correctionBaudRate := attr.SerialAttrConfig.SerialCorrectionBaudRate
 	if correctionBaudRate == 0 {
 		correctionBaudRate = baudRate
-		logger.Info("SerialNMEAMovementSensor: correction_baud using baud_rate")
+		logger.Infof("SerialNMEAMovementSensor: correction_baud using baud_rate: %d", baudRate)
 	}
-	disableNmea := config.Attributes.Bool(disableNmeaName, false)
+	disableNmea := attr.DisableNMEA
 	if disableNmea {
 		logger.Info("SerialNMEAMovementSensor: NMEA reading disabled")
 	}
@@ -206,7 +166,7 @@ func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context) (map[string]flo
 func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return r3.Vector{0, g.data.speed, 0}, g.lastError
+	return r3.Vector{X: 0, Y: g.data.speed, Z: 0}, g.lastError
 }
 
 // AngularVelocity angularvelocity.

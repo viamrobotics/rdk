@@ -1,4 +1,4 @@
-package rtk
+package gpsrtk
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/utils"
 )
 
 type serialCorrectionSource struct {
@@ -56,7 +57,11 @@ const (
 	baudRateName       = "correction_baud"
 )
 
-func newSerialCorrectionSource(ctx context.Context, config config.Component, logger golog.Logger) (correctionSource, error) {
+func newSerialCorrectionSource(ctx context.Context, cfg config.Component, logger golog.Logger) (correctionSource, error) {
+	attr, ok := cfg.ConvertedAttributes.(*StationConfig)
+	if !ok {
+		return nil, utils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
+	}
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	s := &serialCorrectionSource{
@@ -65,12 +70,12 @@ func newSerialCorrectionSource(ctx context.Context, config config.Component, log
 		logger:     logger,
 	}
 
-	serialPath := config.Attributes.String(correctionPathName)
+	serialPath := attr.SerialCorrectionPath
 	if serialPath == "" {
 		return nil, fmt.Errorf("serialCorrectionSource expected non-empty string for %q", correctionPathName)
 	}
 
-	baudRate := config.Attributes.Int(baudRateName, 0)
+	baudRate := attr.SerialCorrectionBaudRate
 	if baudRate == 0 {
 		baudRate = 9600
 		s.logger.Info("SerialCorrectionSource: correction_baud using default 9600")

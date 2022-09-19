@@ -1,4 +1,7 @@
-package nmea
+// Package gpsrtk defines a gps and an rtk correction source
+// which sends rtcm data to a child gps
+// Experimental package
+package gpsrtk
 
 import (
 	"bufio"
@@ -15,79 +18,143 @@ import (
 	"github.com/golang/geo/r3"
 	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
+	gpsnmea "go.viam.com/rdk/components/movementsensor/gpsnmea"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
-// RTKAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
-type RTKAttrConfig struct {
-	// Serial
-	SerialPath     string `json:"path"`
-	CorrectionPath string `json:"correction_path"`
+// AttrConfig is used for converting NMEA MovementSensor with RTK capabilities config attributes.
+type AttrConfig struct {
+	CorrectionSource string `json:"correction_source"`
+	Board            string `json:"board,omitempty"`
+	ConnectionType   string `json:"connection_type,omitempty"`
 
-	// I2C
-	Board   string `json:"board"`
-	Bus     string `json:"bus"`
-	I2cAddr int    `json:"i2c_addr"`
+	*SerialAttrConfig `json:"serial_attributes,omitempty"`
+	*I2CAttrConfig    `json:"i2c_attributes,omitempty"`
+	*NtripAttrConfig  `json:"ntrip_attributes,omitempty"`
+}
 
-	// Ntrip
+// NtripAttrConfig is used for converting attributes for a correction source.
+type NtripAttrConfig struct {
 	NtripAddr            string `json:"ntrip_addr"`
 	NtripConnectAttempts int    `json:"ntrip_connect_attempts,omitempty"`
 	NtripMountpoint      string `json:"ntrip_mountpoint,omitempty"`
 	NtripPass            string `json:"ntrip_password,omitempty"`
 	NtripUser            string `json:"ntrip_username,omitempty"`
 	NtripPath            string `json:"ntrip_path,omitempty"`
-	NtripBaud            string `json:"ntrip_baud,omitempty"`
+	NtripBaud            int    `json:"ntrip_baud,omitempty"`
 	NtripInputProtocol   string `json:"ntrip_input_protocol,omitempty"`
 }
 
-// ValidateRTK ensures all parts of the config are valid.
-func (config *RTKAttrConfig) ValidateRTK(path string) error {
-	if len(config.NtripAddr) == 0 {
-		return errors.New("expected nonempty ntrip address")
-	}
+// SerialAttrConfig is used for converting attributes for a correction source.
+type SerialAttrConfig struct {
+	SerialPath               string `json:"serial_path"`
+	SerialBaudRate           int    `json:"serial_baud_rate,omitempty"`
+	SerialCorrectionPath     string `json:"serial_correction_path,omitempty"`
+	SerialCorrectionBaudRate int    `json:"serial_correction_baud_rate,omitempty"`
+}
 
-	if (len(config.NtripPath) == 0 && len(config.SerialPath) == 0) &&
-		(len(config.Board) == 0 || len(config.Bus) == 0 || config.I2cAddr == 0) {
-		return errors.New("expected either nonempty ntrip path, serial path, or I2C board, bus, and address")
+// I2CAttrConfig is used for converting attributes for a correction source.
+type I2CAttrConfig struct {
+	I2CBus      string `json:"i2c_bus"`
+	I2cAddr     int    `json:"i2c_addr"`
+	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
+}
+
+// ValidateRTK ensures all parts of the config are valid.
+func (cfg *AttrConfig) ValidateRTK(path string) error {
+	switch cfg.CorrectionSource {
+	case ntripStr:
+		return cfg.NtripAttrConfig.ValidateNtrip(path)
+	case i2cStr:
+		if cfg.Board == "" {
+			return utils.NewConfigValidationFieldRequiredError(path, "board")
+		}
+		return cfg.I2CAttrConfig.ValidateI2C(path)
+	case serialStr:
+		return cfg.SerialAttrConfig.ValidateSerial(path)
+	case "":
+		return utils.NewConfigValidationFieldRequiredError(path, "correction_source")
+	default:
+		return utils.NewConfigValidationFieldRequiredError(path, "correction_source")
+	}
+}
+
+// ValidateI2C ensures all parts of the config are valid.
+func (cfg *I2CAttrConfig) ValidateI2C(path string) error {
+	if cfg.I2CBus == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "i2c_bus")
+	}
+	if cfg.I2cAddr == 0 {
+		return utils.NewConfigValidationFieldRequiredError(path, "i2c_addr")
 	}
 
 	return nil
 }
 
+// ValidateSerial ensures all parts of the config are valid.
+func (cfg *SerialAttrConfig) ValidateSerial(path string) error {
+	if cfg.SerialPath == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
+	}
+	return nil
+}
+
+// ValidateNtrip ensures all parts of the config are valid.
+func (cfg *NtripAttrConfig) ValidateNtrip(path string) error {
+	if cfg.NtripAddr == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr")
+	}
+	if cfg.NtripPath == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "ntrip_path")
+	}
+	return nil
+}
+
+const roverModel = "gps-rtk"
+
 func init() {
 	registry.RegisterComponent(
 		movementsensor.Subtype,
-		"rtk",
+		roverModel,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
-			config config.Component,
+			cfg config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newRTKMovementSensor(ctx, deps, config, logger)
+			return newRTKStation(ctx, deps, cfg, logger)
 		}})
-}
 
-type nmeaMovementSensor interface {
-	movementsensor.MovementSensor
-	Start(ctx context.Context) error          // Initialize and run MovementSensor
-	Close() error                             // Close MovementSensor
-	ReadFix(ctx context.Context) (int, error) // Returns the fix quality of the current MovementSensor measurements
+	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, roverModel,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var attr StationConfig
+			return config.TransformAttributeMapToStruct(&attr, attributes)
+		},
+		&StationConfig{})
 }
 
 // A RTKMovementSensor is an NMEA MovementSensor model that can intake RTK correction data.
 type RTKMovementSensor struct {
 	generic.Unimplemented
-	nmeamovementsensor nmeaMovementSensor
-	ntripInputProtocol string
+	logger     golog.Logger
+	cancelCtx  context.Context
+	cancelFunc func()
+
+	activeBackgroundWorkers sync.WaitGroup
+	errMu                   sync.Mutex
+	lastError               error
+
+	nmeamovementsensor gpsnmea.NmeaMovementSensor
+	inputProtocol      string
 	ntripClient        *NtripInfo
-	logger             golog.Logger
 	correctionWriter   io.ReadWriteCloser
 	ntripStatus        bool
 
@@ -95,73 +162,21 @@ type RTKMovementSensor struct {
 	wbaud     int
 	addr      byte // for i2c only
 	writepath string
-
-	cancelCtx               context.Context
-	cancelFunc              func()
-	activeBackgroundWorkers sync.WaitGroup
-
-	errMu     sync.Mutex
-	lastError error
-}
-
-// NtripInfo contains the information necessary to connect to a mountpoint.
-type NtripInfo struct {
-	URL                string
-	Username           string
-	Password           string
-	MountPoint         string
-	Client             *ntrip.Client
-	Stream             io.ReadCloser
-	MaxConnectAttempts int
-}
-
-const (
-	ntripAddrAttrName          = "ntrip_addr"
-	ntripUserAttrName          = "ntrip_username"
-	ntripPassAttrName          = "ntrip_password"
-	ntripMountPointAttrName    = "ntrip_mountpoint"
-	ntripConnectAttemptsName   = "ntrip_connect_attempts"
-	ntripPathAttrName          = "ntrip_path"
-	ntripInputProtocolAttrName = "correction_input_protocol"
-	baudAttrName               = "ntrip_baud"
-)
-
-// NewNtripInfo creates a new NtripInfo object given ntrip information in the configuration.
-func NewNtripInfo(ctx context.Context, config config.Component, logger golog.Logger) (*NtripInfo, error) {
-	n := &NtripInfo{}
-
-	// Init NtripInfo from attributes
-	n.URL = config.Attributes.String(ntripAddrAttrName)
-	if n.URL == "" {
-		return nil, fmt.Errorf("NTRIP expected non-empty string for %q", ntripAddrAttrName)
-	}
-	n.Username = config.Attributes.String(ntripUserAttrName)
-	if n.Username == "" {
-		logger.Info("ntrip_username set to empty")
-	}
-	n.Password = config.Attributes.String(ntripPassAttrName)
-	if n.Password == "" {
-		logger.Info("ntrip_password set to empty")
-	}
-	n.MountPoint = config.Attributes.String(ntripMountPointAttrName)
-	if n.MountPoint == "" {
-		logger.Info("ntrip_mountpoint set to empty")
-	}
-	n.MaxConnectAttempts = config.Attributes.Int(ntripConnectAttemptsName, 10)
-	if n.MaxConnectAttempts == 10 {
-		logger.Info("ntrip_connect_attempts using default 10")
-	}
-
-	logger.Debug("Returning n")
-	return n, nil
 }
 
 func newRTKMovementSensor(
 	ctx context.Context,
 	deps registry.Dependencies,
-	config config.Component,
+	cfg config.Component,
 	logger golog.Logger,
-) (nmeaMovementSensor, error) {
+) (movementsensor.MovementSensor, error) {
+	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
+	}
+
+	logger.Debug("Returning n")
+
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	g := &RTKMovementSensor{
@@ -170,48 +185,60 @@ func newRTKMovementSensor(
 		logger:     logger,
 	}
 
-	g.ntripInputProtocol = config.Attributes.String(ntripInputProtocolAttrName)
+	g.inputProtocol = attr.CorrectionSource
+
+	nmeaAttr := &gpsnmea.AttrConfig{
+		ConnectionType: attr.ConnectionType,
+		Board:          attr.Board,
+		DisableNMEA:    false,
+	}
 
 	// Init NMEAMovementSensor
-	switch g.ntripInputProtocol {
-	case "serial":
+	switch g.inputProtocol {
+	case serialStr:
 		var err error
-		g.nmeamovementsensor, err = newSerialNMEAMovementSensor(ctx, config, logger)
+		nmeaAttr.SerialAttrConfig = (*gpsnmea.SerialAttrConfig)(attr.SerialAttrConfig)
+		g.nmeamovementsensor, err = gpsnmea.NewSerialGPSNMEA(ctx, nmeaAttr, logger)
 		if err != nil {
 			return nil, err
 		}
-	case "I2C":
+	case i2cStr:
 		var err error
-		g.nmeamovementsensor, err = newPmtkI2CNMEAMovementSensor(ctx, deps, config, logger)
+		nmeaAttr.I2CAttrConfig = (*gpsnmea.I2CAttrConfig)(attr.I2CAttrConfig)
+		g.nmeamovementsensor, err = gpsnmea.NewPmtkI2CGPSNMEA(ctx, deps, nmeaAttr, logger)
 		if err != nil {
 			return nil, err
 		}
 	default:
 		// Invalid protocol
-		return nil, fmt.Errorf("%s is not a valid protocol", g.ntripInputProtocol)
+		return nil, fmt.Errorf("%s is not a valid protocol", g.inputProtocol)
 	}
 
 	// Init ntripInfo from attributes
-	ntripInfoComp, err := NewNtripInfo(ctx, config, logger)
-	if err != nil {
-		return nil, err
+
+	g.ntripClient = &NtripInfo{
+		URL:                attr.NtripAddr,
+		Username:           attr.NtripUser,
+		Password:           attr.NtripPass,
+		MountPoint:         attr.NtripMountpoint,
+		Client:             &ntrip.Client{},
+		Stream:             nil,
+		MaxConnectAttempts: 0,
 	}
-	g.ntripClient = ntripInfoComp
 
 	// baud rate
-	g.wbaud = config.Attributes.Int(baudAttrName, 38400)
+	g.wbaud = attr.NtripBaud
 	if g.wbaud == 38400 {
 		g.logger.Info("ntrip_baud using default baud rate 38400")
 	}
 
-	g.writepath = config.Attributes.String(ntripPathAttrName)
-	if g.writepath == "" {
+	if g.writepath != "" {
 		g.logger.Info("ntrip_path will use same path for writing RCTM messages to gps")
-		g.writepath = config.Attributes.String(pathAttrName)
+		g.writepath = attr.NtripPath
 	}
 
 	// I2C address only, assumes address is correct since this was checked when gps was initialized
-	g.addr = byte(config.Attributes.Int("i2c_addr", -1))
+	g.addr = byte(attr.I2cAddr)
 
 	if err := g.Start(ctx); err != nil {
 		return nil, err
@@ -228,10 +255,10 @@ func (g *RTKMovementSensor) setLastError(err error) {
 
 // Start begins NTRIP receiver with specified protocol and begins reading/updating MovementSensor measurements.
 func (g *RTKMovementSensor) Start(ctx context.Context) error {
-	switch g.ntripInputProtocol {
-	case "serial":
+	switch g.inputProtocol {
+	case serialStr:
 		go g.ReceiveAndWriteSerial()
-	case "I2C":
+	case i2cStr:
 		go g.ReceiveAndWriteI2C(ctx)
 	}
 	if err := g.nmeamovementsensor.Start(ctx); err != nil {

@@ -1,7 +1,8 @@
-package rtk
+package gpsrtk
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 
@@ -10,13 +11,13 @@ import (
 	"github.com/go-gnss/rtcm/rtcm3"
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/components/movementsensor/nmea"
 	"go.viam.com/rdk/config"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 type ntripCorrectionSource struct {
 	correctionReader io.ReadCloser
-	info             *nmea.NtripInfo
+	info             *NtripInfo
 	logger           golog.Logger
 	ntripStatus      bool
 
@@ -28,7 +29,22 @@ type ntripCorrectionSource struct {
 	lastError error
 }
 
-func newNtripCorrectionSource(ctx context.Context, config config.Component, logger golog.Logger) (correctionSource, error) {
+// NtripInfo contains the information necessary to connect to a mountpoint.
+type NtripInfo struct {
+	URL                string
+	Username           string
+	Password           string
+	MountPoint         string
+	Client             *ntrip.Client
+	Stream             io.ReadCloser
+	MaxConnectAttempts int
+}
+
+func newNtripCorrectionSource(ctx context.Context, cfg config.Component, logger golog.Logger) (correctionSource, error) {
+	attr, ok := cfg.ConvertedAttributes.(*StationConfig)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
+	}
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	n := &ntripCorrectionSource{
@@ -38,7 +54,7 @@ func newNtripCorrectionSource(ctx context.Context, config config.Component, logg
 	}
 
 	// Init ntripInfo from attributes
-	ntripInfoComp, err := nmea.NewNtripInfo(ctx, config, logger)
+	ntripInfoComp, err := newNtripInfo(attr.NtripAttrConfig, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -46,6 +62,35 @@ func newNtripCorrectionSource(ctx context.Context, config config.Component, logg
 
 	n.logger.Debug("Returning n")
 	return n, n.lastError
+}
+
+func newNtripInfo(cfg *NtripAttrConfig, logger golog.Logger) (*NtripInfo, error) {
+	n := &NtripInfo{}
+
+	// Init NtripInfo from attributes
+	n.URL = cfg.NtripAddr
+	if n.URL == "" {
+		return nil, fmt.Errorf("NTRIP expected non-empty string for %q", cfg.NtripAddr)
+	}
+	n.Username = cfg.NtripUser
+	if n.Username == "" {
+		logger.Info("ntrip_username set to empty")
+	}
+	n.Password = cfg.NtripPass
+	if n.Password == "" {
+		logger.Info("ntrip_password set to empty")
+	}
+	n.MountPoint = cfg.NtripMountpoint
+	if n.MountPoint == "" {
+		logger.Info("ntrip_mountpoint set to empty")
+	}
+	n.MaxConnectAttempts = cfg.NtripConnectAttempts
+	if n.MaxConnectAttempts == 10 {
+		logger.Info("ntrip_connect_attempts using default 10")
+	}
+
+	logger.Debug("Returning n")
+	return n, nil
 }
 
 // Connect attempts to connect to ntrip client until successful connection or timeout.

@@ -1,4 +1,4 @@
-package rtk
+package gpsrtk
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 type i2cCorrectionSource struct {
@@ -31,22 +32,26 @@ type i2cCorrectionSource struct {
 func newI2CCorrectionSource(
 	ctx context.Context,
 	deps registry.Dependencies,
-	config config.Component,
+	cfg config.Component,
 	logger golog.Logger,
 ) (correctionSource, error) {
-	b, err := board.FromDependencies(deps, config.Attributes.String("board"))
+	attr, ok := cfg.ConvertedAttributes.(*StationConfig)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
+	}
+	b, err := board.FromDependencies(deps, attr.Board)
 	if err != nil {
 		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
-		return nil, fmt.Errorf("board %s is not local", config.Attributes.String("board"))
+		return nil, fmt.Errorf("board %s is not local", attr.Board)
 	}
-	i2cbus, ok := localB.I2CByName(config.Attributes.String("bus"))
+	i2cbus, ok := localB.I2CByName(attr.I2CBus)
 	if !ok {
-		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", config.Attributes.String("bus"))
+		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", attr.I2CBus)
 	}
-	addr := config.Attributes.Int("i2c_addr", -1)
+	addr := attr.I2cAddr
 	if addr == -1 {
 		return nil, errors.New("must specify gps i2c address")
 	}
@@ -169,4 +174,22 @@ func (s *i2cCorrectionSource) Close() error {
 	}
 
 	return s.lastError
+}
+
+// PMTK checksums commands by XORing together each byte.
+func addChk(data []byte) []byte {
+	chk := checksum(data)
+	newCmd := []byte("$")
+	newCmd = append(newCmd, data...)
+	newCmd = append(newCmd, []byte("*")...)
+	newCmd = append(newCmd, chk)
+	return newCmd
+}
+
+func checksum(data []byte) byte {
+	var chk byte
+	for _, b := range data {
+		chk ^= b
+	}
+	return chk
 }
