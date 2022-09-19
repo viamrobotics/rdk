@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
+	pb "go.viam.com/api/service/slam/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/pointcloud"
-	pb "go.viam.com/rdk/proto/api/service/slam/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"

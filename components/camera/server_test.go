@@ -11,11 +11,11 @@ import (
 	"testing"
 
 	"github.com/edaniels/gostream"
+	pb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
-	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
