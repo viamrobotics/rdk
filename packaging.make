@@ -1,6 +1,6 @@
 BUILD_CHANNEL?=local
 
-appimage: buf-go server
+appimage: server
 	cd etc/packaging/appimages && BUILD_CHANNEL=${BUILD_CHANNEL} appimage-builder --recipe viam-server-`uname -m`.yml
 	cd etc/packaging/appimages && ./package_release.sh
 	mkdir -p etc/packaging/appimages/deploy/
@@ -22,4 +22,3 @@ appimage-arm64: canon-update
 
 appimage-deploy:
 	gsutil -m -h "Cache-Control: no-cache" cp etc/packaging/appimages/deploy/* gs://packages.viam.com/apps/viam-server/
-
