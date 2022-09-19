@@ -9,18 +9,18 @@ import (
 // PoseTracker is an injected pose tracker.
 type PoseTracker struct {
 	posetracker.PoseTracker
-	GetPosesFunc func(ctx context.Context, bodyNames []string) (posetracker.BodyToPoseInFrame, error)
-	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	PosesFunc func(ctx context.Context, bodyNames []string) (posetracker.BodyToPoseInFrame, error)
+	DoFunc    func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 }
 
-// GetPoses calls the injected GetPoses or the real version.
-func (pT *PoseTracker) GetPoses(
+// Poses calls the injected Poses or the real version.
+func (pT *PoseTracker) Poses(
 	ctx context.Context, bodyNames []string,
 ) (posetracker.BodyToPoseInFrame, error) {
-	if pT.GetPosesFunc == nil {
-		return pT.PoseTracker.GetPoses(ctx, bodyNames)
+	if pT.PosesFunc == nil {
+		return pT.PoseTracker.Poses(ctx, bodyNames)
 	}
-	return pT.GetPosesFunc(ctx, bodyNames)
+	return pT.PosesFunc(ctx, bodyNames)
 }
 
 // DoCommand calls the injected DoCommand or the real version.

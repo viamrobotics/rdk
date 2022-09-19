@@ -9,11 +9,11 @@ import (
 // Servo is an injected servo.
 type Servo struct {
 	servo.LocalServo
-	DoFunc          func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	MoveFunc        func(ctx context.Context, angleDeg uint8) error
-	GetPositionFunc func(ctx context.Context) (uint8, error)
-	StopFunc        func(ctx context.Context) error
-	IsMovingFunc    func(context.Context) (bool, error)
+	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	MoveFunc     func(ctx context.Context, angleDeg uint8) error
+	PositionFunc func(ctx context.Context) (uint8, error)
+	StopFunc     func(ctx context.Context) error
+	IsMovingFunc func(context.Context) (bool, error)
 }
 
 // Move calls the injected Move or the real version.
@@ -24,12 +24,12 @@ func (s *Servo) Move(ctx context.Context, angleDeg uint8) error {
 	return s.MoveFunc(ctx, angleDeg)
 }
 
-// GetPosition calls the injected Current or the real version.
-func (s *Servo) GetPosition(ctx context.Context) (uint8, error) {
-	if s.GetPositionFunc == nil {
-		return s.LocalServo.GetPosition(ctx)
+// Position calls the injected Current or the real version.
+func (s *Servo) Position(ctx context.Context) (uint8, error) {
+	if s.PositionFunc == nil {
+		return s.LocalServo.Position(ctx)
 	}
-	return s.GetPositionFunc(ctx)
+	return s.PositionFunc(ctx)
 }
 
 // Stop calls the injected Stop or the real version.

@@ -52,7 +52,7 @@ func TestClientWorkingService(t *testing.T) {
 
 	workingSLAMService := &inject.SLAMService{}
 
-	workingSLAMService.GetPositionFunc = func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
+	workingSLAMService.PositionFunc = func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
 		return pSucc, nil
 	}
 
@@ -88,7 +88,7 @@ func TestClientWorkingService(t *testing.T) {
 
 		workingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameSucc).String(), logger)
 		// test get position
-		pInFrame, err := workingSLAMClient.GetPosition(context.Background(), nameSucc)
+		pInFrame, err := workingSLAMClient.Position(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pInFrame.FrameName(), test.ShouldEqual, pSucc.FrameName())
 
@@ -114,7 +114,7 @@ func TestClientWorkingService(t *testing.T) {
 		workingDialedClient := slam.NewClientFromConn(context.Background(), conn, nameSucc, logger)
 
 		// test get position
-		pInFrame, err := workingDialedClient.GetPosition(context.Background(), nameSucc)
+		pInFrame, err := workingDialedClient.Position(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pInFrame.FrameName(), test.ShouldEqual, pSucc.FrameName())
 
@@ -136,7 +136,7 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		// test get position
-		p, err := workingDialedClient.GetPosition(context.Background(), nameSucc)
+		p, err := workingDialedClient.Position(context.Background(), nameSucc)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, p.FrameName(), test.ShouldEqual, pSucc.FrameName())
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -161,7 +161,7 @@ func TestClientFailingService(t *testing.T) {
 
 	failingSLAMService := &inject.SLAMService{}
 
-	failingSLAMService.GetPositionFunc = func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
+	failingSLAMService.PositionFunc = func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
 		return pFail, errors.New("failure to get position")
 	}
 
@@ -188,7 +188,7 @@ func TestClientFailingService(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// test get position
-		p, err := failingSLAMClient.GetPosition(context.Background(), nameFail)
+		p, err := failingSLAMClient.Position(context.Background(), nameFail)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, p, test.ShouldBeNil)
 

@@ -52,6 +52,6 @@ m.ForwardPosition()
 fmt.Println(m.Get6dPosition(0))
 
 // Print the []float64 list of current joint positions in radians
-fmt.Println(m.GetPosition())
+fmt.Println(m.Position())
 ```
 Currently this has only been tested with 6dof robots.

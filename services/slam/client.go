@@ -37,9 +37,9 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return c
 }
 
-// GetPosition creates a request, calls the slam service GetPosition, and parses the response into the desired PoseInFrame.
-func (c *client) GetPosition(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::client::GetPosition")
+// Position creates a request, calls the slam service Position, and parses the response into the desired PoseInFrame.
+func (c *client) Position(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::client::Position")
 	defer span.End()
 
 	req := &pb.GetPositionRequest{

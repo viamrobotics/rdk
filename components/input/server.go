@@ -45,7 +45,7 @@ func (s *subtypeServer) GetControls(
 		return nil, err
 	}
 
-	controlList, err := controller.GetControls(ctx)
+	controlList, err := controller.Controls(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (s *subtypeServer) GetEvents(
 		return nil, err
 	}
 
-	eventsIn, err := controller.GetEvents(ctx)
+	eventsIn, err := controller.Events(ctx)
 	if err != nil {
 		return nil, err
 	}

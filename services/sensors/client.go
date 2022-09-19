@@ -33,7 +33,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return c
 }
 
-func (c *client) GetSensors(ctx context.Context) ([]resource.Name, error) {
+func (c *client) Sensors(ctx context.Context) ([]resource.Name, error) {
 	resp, err := c.client.GetSensors(ctx, &pb.GetSensorsRequest{Name: c.name})
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func (c *client) GetSensors(ctx context.Context) ([]resource.Name, error) {
 	return sensorNames, nil
 }
 
-func (c *client) GetReadings(ctx context.Context, sensorNames []resource.Name) ([]Readings, error) {
+func (c *client) Readings(ctx context.Context, sensorNames []resource.Name) ([]Readings, error) {
 	names := make([]*commonpb.ResourceName, 0, len(sensorNames))
 	for _, name := range sensorNames {
 		names = append(names, protoutils.ResourceNameToProto(name))

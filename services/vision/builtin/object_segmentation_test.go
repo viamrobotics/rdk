@@ -120,7 +120,7 @@ func TestGetObjectPointClouds(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// see if it ws registered
-	segmenterNames, err := obs.GetSegmenterNames(context.Background())
+	segmenterNames, err := obs.SegmenterNames(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, segmenterNames, test.ShouldContain, builtin.RadiusClusteringSegmenter)
 
@@ -140,7 +140,7 @@ func TestGetObjectPointClouds(t *testing.T) {
 	// remove segmenter from service
 	err = obs.RemoveSegmenter(context.Background(), builtin.RadiusClusteringSegmenter)
 	test.That(t, err, test.ShouldBeNil)
-	segmenterNames, err = obs.GetSegmenterNames(context.Background())
+	segmenterNames, err = obs.SegmenterNames(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, segmenterNames, test.ShouldHaveLength, 0)
 }

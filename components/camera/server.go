@@ -146,7 +146,7 @@ func (s *subtypeServer) GetProperties(
 	if err != nil {
 		return nil, err
 	}
-	props, err := camera.GetProperties(ctx)
+	props, err := camera.Properties(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -68,9 +68,9 @@ func (a *ArmIK) ModelFrame() referenceframe.Model {
 	return a.model
 }
 
-// GetEndPosition returns the set position.
-func (a *ArmIK) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-	joints, err := a.GetJointPositions(ctx, extra)
+// EndPosition returns the set position.
+func (a *ArmIK) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := a.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (a *ArmIK) MoveToPosition(
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) error {
-	joints, err := a.GetJointPositions(ctx, extra)
+	joints, err := a.JointPositions(ctx, extra)
 	if err != nil {
 		return err
 	}
@@ -107,8 +107,8 @@ func (a *ArmIK) MoveToJointPositions(ctx context.Context, joints *pb.JointPositi
 	return nil
 }
 
-// GetJointPositions returns joints.
-func (a *ArmIK) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+// JointPositions returns joints.
+func (a *ArmIK) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	retJoint := &pb.JointPositions{Values: a.joints.Values}
 	return retJoint, nil
 }
@@ -125,7 +125,7 @@ func (a *ArmIK) IsMoving(ctx context.Context) (bool, error) {
 
 // CurrentInputs TODO.
 func (a *ArmIK) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.GetJointPositions(ctx, nil)
+	res, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

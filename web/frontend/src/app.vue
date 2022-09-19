@@ -1097,11 +1097,8 @@ export default {
       });
     },
     querySensors() {
-      // We are deliberately just getting the first sensors service to ensure this will not break.
-      // May want to allow for more services in the future
-      const sensorsName = filterResources(this.resources, 'rdk', 'service', 'sensors')[0];
       const req = new sensorsApi.GetSensorsRequest();
-      req.setName(sensorsName.name);
+      req.setName("builtin");
       window.sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {

@@ -116,7 +116,7 @@ func newGripperV1(
 	if vg.motor == nil {
 		return nil, errors.New("gripper needs a motor named 'g'")
 	}
-	supportedProperties, err := vg.motor.GetProperties(ctx, nil)
+	supportedProperties, err := vg.motor.Properties(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +173,7 @@ func (vg *gripperV1) Home(ctx context.Context) error {
 		} else {
 			localTest.nonPressureCount++
 			// Capture the last position BEFORE pressure is detected
-			localTest.pressurePos, err = vg.motor.GetPosition(ctx, nil)
+			localTest.pressurePos, err = vg.motor.Position(ctx, nil)
 			if err != nil {
 				vg.logger.Error(err)
 				return true
@@ -201,7 +201,7 @@ func (vg *gripperV1) Home(ctx context.Context) error {
 		hasPressureA = true
 		posA = localTest.pressurePos
 	} else {
-		posA, err = vg.motor.GetPosition(ctx, nil)
+		posA, err = vg.motor.Position(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -217,7 +217,7 @@ func (vg *gripperV1) Home(ctx context.Context) error {
 		hasPressureB = true
 		posB = localTest.pressurePos
 	} else {
-		posB, err = vg.motor.GetPosition(ctx, nil)
+		posB, err = vg.motor.Position(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -235,7 +235,7 @@ func (vg *gripperV1) Home(ctx context.Context) error {
 			hasPressureA = true
 			posA = localTest.pressurePos
 		} else {
-			posA, err = vg.motor.GetPosition(ctx, nil)
+			posA, err = vg.motor.Position(ctx, nil)
 			if err != nil {
 				return err
 			}
@@ -274,7 +274,7 @@ func (vg *gripperV1) Home(ctx context.Context) error {
 
 	vg.logger.Debugf("init: orig openPos: %f, closePos: %f", vg.openPos, vg.closePos)
 	// Zero to closed position
-	curPos, err := vg.motor.GetPosition(ctx, nil)
+	curPos, err := vg.motor.Position(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -314,7 +314,7 @@ func (vg *gripperV1) Open(ctx context.Context) error {
 		return err
 	}
 
-	pos, err := vg.motor.GetPosition(ctx, nil)
+	pos, err := vg.motor.Position(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -355,7 +355,7 @@ func (vg *gripperV1) Open(ctx context.Context) error {
 
 		total += msPer
 		if total > 5000 {
-			now, err := vg.motor.GetPosition(ctx, nil)
+			now, err := vg.motor.Position(ctx, nil)
 			return vg.stopAfterError(ctx, multierr.Combine(errors.Errorf("open timed out, wanted: %f at: %f", vg.openPos, now), err))
 		}
 	}
@@ -371,7 +371,7 @@ func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
 		return false, err
 	}
 
-	pos, err := vg.motor.GetPosition(ctx, nil)
+	pos, err := vg.motor.Position(ctx, nil)
 	if err != nil {
 		return false, err
 	}
@@ -412,7 +412,7 @@ func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
 		}
 
 		if pressure {
-			now, err := vg.motor.GetPosition(ctx, nil)
+			now, err := vg.motor.Position(ctx, nil)
 			if err != nil {
 				return false, err
 			}
@@ -427,7 +427,7 @@ func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
 			if err != nil {
 				return false, vg.stopAfterError(ctx, err)
 			}
-			now, err := vg.motor.GetPosition(ctx, nil)
+			now, err := vg.motor.Position(ctx, nil)
 			if err != nil {
 				return false, vg.stopAfterError(ctx, err)
 			}

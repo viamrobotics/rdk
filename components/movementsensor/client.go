@@ -37,7 +37,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+func (c *client) Position(ctx context.Context) (*geo.Point, float64, error) {
 	resp, err := c.client.GetPosition(ctx, &pb.GetPositionRequest{
 		Name: c.name,
 	})
@@ -49,7 +49,7 @@ func (c *client) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
 		nil
 }
 
-func (c *client) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (c *client) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	resp, err := c.client.GetLinearVelocity(ctx, &pb.GetLinearVelocityRequest{
 		Name: c.name,
 	})
@@ -59,7 +59,7 @@ func (c *client) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
 	return protoutils.ConvertVectorProtoToR3(resp.LinearVelocity), nil
 }
 
-func (c *client) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (c *client) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	resp, err := c.client.GetAngularVelocity(ctx, &pb.GetAngularVelocityRequest{
 		Name: c.name,
 	})
@@ -69,7 +69,7 @@ func (c *client) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVel
 	return spatialmath.AngularVelocity(protoutils.ConvertVectorProtoToR3(resp.AngularVelocity)), nil
 }
 
-func (c *client) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (c *client) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	resp, err := c.client.GetOrientation(ctx, &pb.GetOrientationRequest{
 		Name: c.name,
 	})
@@ -79,7 +79,7 @@ func (c *client) GetOrientation(ctx context.Context) (spatialmath.Orientation, e
 	return protoutils.ConvertProtoToOrientation(resp.Orientation), nil
 }
 
-func (c *client) GetCompassHeading(ctx context.Context) (float64, error) {
+func (c *client) CompassHeading(ctx context.Context) (float64, error) {
 	resp, err := c.client.GetCompassHeading(ctx, &pb.GetCompassHeadingRequest{
 		Name: c.name,
 	})
@@ -89,12 +89,12 @@ func (c *client) GetCompassHeading(ctx context.Context) (float64, error) {
 	return resp.Value, nil
 }
 
-func (c *client) GetReadings(ctx context.Context) (map[string]interface{}, error) {
+func (c *client) Readings(ctx context.Context) (map[string]interface{}, error) {
 	// TODO(erh): should this go over the network?
-	return GetReadings(ctx, c)
+	return Readings(ctx, c)
 }
 
-func (c *client) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+func (c *client) Accuracy(ctx context.Context) (map[string]float32, error) {
 	resp, err := c.client.GetAccuracy(ctx, &pb.GetAccuracyRequest{
 		Name: c.name,
 	})
@@ -104,7 +104,7 @@ func (c *client) GetAccuracy(ctx context.Context) (map[string]float32, error) {
 	return resp.AccuracyMm, nil
 }
 
-func (c *client) GetProperties(ctx context.Context) (*Properties, error) {
+func (c *client) Properties(ctx context.Context) (*Properties, error) {
 	resp, err := c.client.GetProperties(ctx, &pb.GetPropertiesRequest{
 		Name: c.name,
 	})
