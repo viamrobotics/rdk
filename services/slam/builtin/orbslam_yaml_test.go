@@ -26,15 +26,6 @@ const (
 	slamTimeFormat      = "2006-01-02T15_04_05.0000"
 )
 
-const (
-	yamlFilePrefixBytes = "%YAML:1.0\n"
-	slamTimeFormat      = "2006-01-02T15_04_05.0000"
-)
-
-const (
-	slamTimeFormat = "2006-01-02T15_04_05.0000"
-)
-
 // function to search a SLAM data dir for a .yaml file. returns the timestamp and filepath.
 func findLastYAML(folderName string) (string, string, error) {
 	root := filepath.Join(folderName, "config")
@@ -161,7 +152,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		// check if map was specified to load
 		yamlDataAll, err := os.ReadFile(yamlFilePathGood)
 		test.That(t, err, test.ShouldBeNil)
-		yamlData := bytes.Replace(yamlDataAll, []byte("%YAML:1.0\n"), []byte(""), 1)
+		yamlData := bytes.Replace(yamlDataAll, []byte(yamlFilePrefixBytes), []byte(""), 1)
 		orbslam := builtin.ORBsettings{}
 		err = yaml.Unmarshal(yamlData, &orbslam)
 		test.That(t, err, test.ShouldBeNil)
