@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
@@ -21,21 +22,24 @@ var (
 )
 
 func TestValidateRTK(t *testing.T) {
+	path := "path"
 	fakecfg := &AttrConfig{NtripAttrConfig: &NtripAttrConfig{}}
-	err := fakecfg.ValidateRTK("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "correction_source")
+	err := fakecfg.ValidateRTK(path)
+	test.That(t, err, test.ShouldBeError,
+		utils.NewConfigValidationFieldRequiredError(path, "correction_source"))
 
 	fakecfg.CorrectionSource = "ntrip"
-	err = fakecfg.ValidateRTK("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "ntrip_addr")
+	err = fakecfg.ValidateRTK(path)
+	test.That(t, err, test.ShouldBeError,
+		utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr"))
 
 	fakecfg.NtripAttrConfig.NtripAddr = "http://fakeurl"
-	err = fakecfg.ValidateRTK("path")
+	err = fakecfg.ValidateRTK(path)
 	test.That(
 		t,
-		err.Error(),
-		test.ShouldContainSubstring,
-		"ntrip_path",
+		err,
+		test.ShouldBeError,
+		utils.NewConfigValidationFieldRequiredError(path, "ntrip_path"),
 	)
 
 	fakecfg.NtripAttrConfig.NtripPath = "some-ntrip-path"

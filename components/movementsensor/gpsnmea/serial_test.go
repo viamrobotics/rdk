@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
@@ -27,11 +28,12 @@ var (
 
 func TestValidateSerial(t *testing.T) {
 	fakecfg := &SerialAttrConfig{}
-	err := fakecfg.ValidateSerial("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "serial_path")
+	path := "path"
+	err := fakecfg.ValidateSerial(path)
+	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "serial_path"))
 
 	fakecfg.SerialPath = "some-path"
-	err = fakecfg.ValidateSerial("path")
+	err = fakecfg.ValidateSerial(path)
 	test.That(t, err, test.ShouldBeNil)
 }
 

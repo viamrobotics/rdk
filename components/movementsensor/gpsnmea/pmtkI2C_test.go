@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	gutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
@@ -32,11 +33,13 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 func TestValidateI2C(t *testing.T) {
 	fakecfg := &I2CAttrConfig{I2CBus: "some-bus"}
 
-	err := fakecfg.ValidateI2C("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "i2c_addr")
+	path := "path"
+	err := fakecfg.ValidateI2C(path)
+	test.That(t, err, test.ShouldBeError,
+		gutils.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
 
 	fakecfg.I2cAddr = 66
-	err = fakecfg.ValidateI2C("path")
+	err = fakecfg.ValidateI2C(path)
 	test.That(t, err, test.ShouldBeNil)
 }
 
