@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 
 	"github.com/erh/scheme"
@@ -38,6 +39,9 @@ type DigitalInterrupt interface {
 	// AddPostProcessor adds a post processor that should be used to modify
 	// what is returned by Value.
 	AddPostProcessor(pp PostProcessor)
+
+	// RemoveCallback removes a listener for interrupts
+	RemoveCallback(c chan bool)
 }
 
 // CreateDigitalInterrupt is a factory method for creating a specific DigitalInterrupt based
@@ -101,6 +105,7 @@ type BasicDigitalInterrupt struct {
 	callbacks []chan bool
 
 	pp PostProcessor
+	mu sync.RWMutex
 }
 
 // Config returns the config used to create this interrupt.
@@ -133,16 +138,36 @@ func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, not uint64)
 		atomic.AddInt64(&i.count, 1)
 	}
 
+	i.mu.RLock()
+	defer i.mu.RUnlock()
 	for _, c := range i.callbacks {
-		c <- high
+		select {
+		case <-ctx.Done():
+			return errors.New("context cancelled")
+		case c <- high:
+		}
 	}
-
 	return nil
 }
 
 // AddCallback adds a listener for interrupts.
 func (i *BasicDigitalInterrupt) AddCallback(c chan bool) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	i.callbacks = append(i.callbacks, c)
+}
+
+// RemoveCallback removes a listener for interrupts.
+func (i *BasicDigitalInterrupt) RemoveCallback(c chan bool) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	for id := range i.callbacks {
+		if i.callbacks[id] == c {
+			i.callbacks[id] = i.callbacks[len(i.callbacks)-1]
+			i.callbacks = i.callbacks[:len(i.callbacks)-1]
+			break
+		}
+	}
 }
 
 // AddPostProcessor sets the post processor that will modify the value that
@@ -198,6 +223,11 @@ func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint64)
 
 // AddCallback currently panics.
 func (i *ServoDigitalInterrupt) AddCallback(c chan bool) {
+	panic("servos can't have callback")
+}
+
+// RemoveCallback currently panics.
+func (i *ServoDigitalInterrupt) RemoveCallback(c chan bool) {
 	panic("servos can't have callback")
 }
 

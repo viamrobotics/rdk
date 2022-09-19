@@ -105,8 +105,8 @@ type Sensor struct {
 	generic.Unimplemented
 }
 
-// GetReadings returns a list containing single item (current temperature).
-func (s *Sensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
+// Readings returns a list containing single item (current temperature).
+func (s *Sensor) Readings(ctx context.Context) (map[string]interface{}, error) {
 	readings, err := s.GetControllerOutput(ctx)
 	if err != nil {
 		return nil, err

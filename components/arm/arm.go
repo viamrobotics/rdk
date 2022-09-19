@@ -50,12 +50,12 @@ func init() {
 
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    SubtypeName,
-		MethodName: getEndPosition.String(),
-	}, newGetEndPositionCollector)
+		MethodName: endPosition.String(),
+	}, newEndPositionCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    SubtypeName,
 		MethodName: getJointPositions.String(),
-	}, newGetJointPositionsCollector)
+	}, newJointPositionsCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "arm".
@@ -64,7 +64,7 @@ const (
 )
 
 var defaultArmPlannerOptions = map[string]interface{}{
-	"motion_profile": "linear",
+	"motion_profile": motionplan.LinearMotionProfile,
 }
 
 // Subtype is a constant that identifies the component resource subtype.
@@ -81,8 +81,8 @@ func Named(name string) resource.Name {
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 type Arm interface {
-	// GetEndPosition returns the current position of the arm.
-	GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error)
+	// EndPosition returns the current position of the arm.
+	EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
 	// The worldState argument should be treated as optional by all implementing drivers
@@ -93,8 +93,8 @@ type Arm interface {
 	// This will block until done or a new operation cancels this one
 	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions, extra map[string]interface{}) error
 
-	// GetJointPositions returns the current joint positions of the arm.
-	GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
+	// JointPositions returns the current joint positions of the arm.
+	JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error)
 
 	// Stop stops the arm. It is assumed the arm stops immediately.
 	Stop(ctx context.Context, extra map[string]interface{}) error
@@ -122,6 +122,21 @@ var (
 	ErrStopUnimplemented = errors.New("Stop() unimplemented")
 )
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Arm)(nil), actual)
+}
+
+// NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
+func NewUnimplementedLocalInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((LocalArm)(nil), actual)
+}
+
+// DependencyTypeError is used when a resource doesn't implement the expected interface.
+func DependencyTypeError(name, actual interface{}) error {
+	return utils.DependencyTypeError(name, (Arm)(nil), actual)
+}
+
 // FromDependencies is a helper for getting the named arm from a collection of
 // dependencies.
 func FromDependencies(deps registry.Dependencies, name string) (Arm, error) {
@@ -131,7 +146,7 @@ func FromDependencies(deps registry.Dependencies, name string) (Arm, error) {
 	}
 	part, ok := res.(Arm)
 	if !ok {
-		return nil, utils.DependencyTypeError(name, "Arm", res)
+		return nil, DependencyTypeError(name, res)
 	}
 	return part, nil
 }
@@ -144,7 +159,7 @@ func FromRobot(r robot.Robot, name string) (Arm, error) {
 	}
 	part, ok := res.(Arm)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Arm", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }
@@ -158,13 +173,13 @@ func NamesFromRobot(r robot.Robot) []string {
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
 	arm, ok := resource.(LocalArm)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalArm", resource)
+		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
-	endPosition, err := arm.GetEndPosition(ctx, nil)
+	endPosition, err := arm.EndPosition(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	jointPositions, err := arm.GetJointPositions(ctx, nil)
+	jointPositions, err := arm.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -192,10 +207,10 @@ func (r *reconfigurableArm) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableArm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (r *reconfigurableArm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetEndPosition(ctx, extra)
+	return r.actual.EndPosition(ctx, extra)
 }
 
 func (r *reconfigurableArm) MoveToPosition(
@@ -215,10 +230,10 @@ func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, positionDe
 	return r.actual.MoveToJointPositions(ctx, positionDegs, extra)
 }
 
-func (r *reconfigurableArm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (r *reconfigurableArm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetJointPositions(ctx, extra)
+	return r.actual.JointPositions(ctx, extra)
 }
 
 func (r *reconfigurableArm) Stop(ctx context.Context, extra map[string]interface{}) error {
@@ -311,7 +326,7 @@ func (r *reconfigurableLocalArm) Reconfigure(ctx context.Context, newArm resourc
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	arm, ok := r.(Arm)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Arm", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 
 	if reconfigurable, ok := arm.(*reconfigurableArm); ok {

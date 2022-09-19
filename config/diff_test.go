@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
+	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 )
@@ -23,12 +24,10 @@ func TestDiffConfigs(t *testing.T) {
 			{
 				Name:    "remote1",
 				Address: "addr1",
-				Prefix:  false,
 			},
 			{
 				Name:    "remote2",
 				Address: "addr2",
-				Prefix:  false,
 			},
 		},
 		Components: []config.Component{
@@ -55,7 +54,7 @@ func TestDiffConfigs(t *testing.T) {
 				Name:      "board1",
 				Model:     "fake",
 				Type:      board.SubtypeName,
-				ConvertedAttributes: &board.Config{
+				ConvertedAttributes: &fakeboard.Config{
 					Analogs: []board.AnalogConfig{
 						{
 							Name: "analog1",
@@ -91,12 +90,10 @@ func TestDiffConfigs(t *testing.T) {
 			{
 				Name:    "remote1",
 				Address: "addr3",
-				Prefix:  false,
 			},
 			{
 				Name:    "remote2",
 				Address: "addr4",
-				Prefix:  false,
 			},
 		},
 		Components: []config.Component{
@@ -123,7 +120,7 @@ func TestDiffConfigs(t *testing.T) {
 				Name:      "board1",
 				Model:     "fake",
 				Type:      board.SubtypeName,
-				ConvertedAttributes: &board.Config{
+				ConvertedAttributes: &fakeboard.Config{
 					Analogs: []board.AnalogConfig{
 						{
 							Name: "analog1",
@@ -238,7 +235,7 @@ func TestDiffConfigs(t *testing.T) {
 							Name:      "board2",
 							Type:      board.SubtypeName,
 							Model:     "fake",
-							ConvertedAttributes: &board.Config{
+							ConvertedAttributes: &fakeboard.Config{
 								DigitalInterrupts: []board.DigitalInterruptConfig{{Name: "encoder2", Pin: "16"}},
 							},
 						},
@@ -278,7 +275,7 @@ func TestDiffConfigs(t *testing.T) {
 							Name:      "board1",
 							Type:      board.SubtypeName,
 							Model:     "fake",
-							ConvertedAttributes: &board.Config{
+							ConvertedAttributes: &fakeboard.Config{
 								Analogs: []board.AnalogConfig{{Name: "analog1", Pin: "1"}},
 							},
 						},
@@ -380,12 +377,6 @@ func TestDiffConfigHeterogenousTypes(t *testing.T) {
 			"component type",
 			"data/diff_config_1.json",
 			"data/diff_config_1_component_type.json",
-			"cannot modify type of existing component",
-		},
-		{
-			"component subtype",
-			"data/diff_config_1.json",
-			"data/diff_config_1_component_subtype.json",
 			"cannot modify type of existing component",
 		},
 		{

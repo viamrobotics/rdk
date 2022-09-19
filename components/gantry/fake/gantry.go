@@ -39,13 +39,13 @@ type Gantry struct {
 	generic.Echo
 }
 
-// GetPosition returns the position in meters.
-func (g *Gantry) GetPosition(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+// Position returns the position in meters.
+func (g *Gantry) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	return g.positionsMm, nil
 }
 
-// GetLengths returns the position in meters.
-func (g *Gantry) GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+// Lengths returns the position in meters.
+func (g *Gantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	return g.lengths, nil
 }
 
@@ -83,7 +83,7 @@ func (g *Gantry) ModelFrame() referenceframe.Model {
 
 // CurrentInputs returns positions in the Gantry frame model..
 func (g *Gantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := g.GetPosition(ctx, nil)
+	res, err := g.Position(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

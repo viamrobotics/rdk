@@ -146,7 +146,7 @@ func (s *subtypeServer) GetProperties(
 	if err != nil {
 		return nil, err
 	}
-	props, err := camera.GetProperties(ctx)
+	props, err := camera.Properties(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -162,5 +162,11 @@ func (s *subtypeServer) GetProperties(
 		}
 	}
 	result.SupportsPcd = props.SupportsPCD
+	if props.DistortionParams != nil {
+		result.DistortionParameters = &pb.DistortionParameters{
+			Model:      string(props.DistortionParams.ModelType()),
+			Parameters: props.DistortionParams.Parameters(),
+		}
+	}
 	return result, nil
 }

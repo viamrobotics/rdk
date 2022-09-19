@@ -15,7 +15,13 @@ import (
 	"go.viam.com/rdk/resource"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	"go.viam.com/rdk/utils"
 )
+
+// NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
+func NewUnimplementedLocalInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((LocalRobot)(nil), actual)
+}
 
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.
@@ -58,8 +64,8 @@ type Robot interface {
 		additionalTransforms []*commonpb.Transform,
 	) (*referenceframe.PoseInFrame, error)
 
-	// GetStatus takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
-	GetStatus(ctx context.Context, resourceNames []resource.Name) ([]Status, error)
+	// Status takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
+	Status(ctx context.Context, resourceNames []resource.Name) ([]Status, error)
 
 	// Close attempts to cleanly close down all constituent parts of the robot.
 	Close(ctx context.Context) error

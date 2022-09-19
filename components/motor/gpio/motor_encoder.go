@@ -52,7 +52,7 @@ func WrapMotorWithEncoder(
 	ctx context.Context,
 	e encoder.Encoder,
 	c config.Component,
-	mc motor.Config,
+	mc Config,
 	m motor.Motor,
 	logger golog.Logger,
 ) (motor.Motor, error) {
@@ -60,8 +60,12 @@ func WrapMotorWithEncoder(
 		return m, nil
 	}
 
-	if mc.TicksPerRotation == 0 {
-		return nil, errors.Errorf("need a TicksPerRotation for motor (%s)", c.Name)
+	if mc.MaxRPM <= 0 {
+		return nil, errors.Errorf("need a positive MaxRPM for motor (%s)", c.Name)
+	}
+
+	if mc.TicksPerRotation <= 0 {
+		return nil, errors.Errorf("need a positive TicksPerRotation for motor (%s)", c.Name)
 	}
 
 	mm, err := newEncodedMotor(c, mc, m, e, logger)
@@ -83,7 +87,7 @@ func WrapMotorWithEncoder(
 // NewEncodedMotor creates a new motor that supports an arbitrary source of encoder information.
 func NewEncodedMotor(
 	config config.Component,
-	motorConfig motor.Config,
+	motorConfig Config,
 	realMotor motor.Motor,
 	encoder encoder.Encoder,
 	logger golog.Logger,
@@ -93,14 +97,14 @@ func NewEncodedMotor(
 
 func newEncodedMotor(
 	config config.Component,
-	motorConfig motor.Config,
+	motorConfig Config,
 	realMotor motor.Motor,
 	realEncoder encoder.Encoder,
 	logger golog.Logger,
 ) (*EncodedMotor, error) {
 	localReal, ok := realMotor.(motor.LocalMotor)
 	if !ok {
-		return nil, rutils.NewUnimplementedInterfaceError("LocalMotor", realMotor)
+		return nil, motor.NewUnimplementedLocalInterfaceError(realMotor)
 	}
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	em := &EncodedMotor{
@@ -156,7 +160,7 @@ func newEncodedMotor(
 // EncodedMotor is a motor that utilizes an encoder to track its position.
 type EncodedMotor struct {
 	activeBackgroundWorkers *sync.WaitGroup
-	cfg                     motor.Config
+	cfg                     Config
 	real                    motor.LocalMotor
 	encoder                 encoder.Encoder
 
@@ -192,9 +196,9 @@ type EncodedMotorState struct {
 	setPoint     int64
 }
 
-// GetPosition returns the position of the motor.
-func (m *EncodedMotor) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	ticks, err := m.encoder.GetTicksCount(ctx, extra)
+// Position returns the position of the motor.
+func (m *EncodedMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	ticks, err := m.encoder.TicksCount(ctx, extra)
 	if err != nil {
 		return 0, err
 	}
@@ -218,8 +222,8 @@ func (m *EncodedMotor) directionMovingInLock() int64 {
 	return -1
 }
 
-// GetProperties returns the status of whether the motor supports certain optional features.
-func (m *EncodedMotor) GetProperties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+// Properties returns the status of whether the motor supports certain optional features.
+func (m *EncodedMotor) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: true,
 	}, nil
@@ -296,7 +300,7 @@ func (m *EncodedMotor) rpmMonitor() {
 	m.startedRPMMonitor = true
 	m.startedRPMMonitorMu.Unlock()
 
-	lastPos, err := m.encoder.GetTicksCount(m.cancelCtx, nil)
+	lastPos, err := m.encoder.TicksCount(m.cancelCtx, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -312,7 +316,7 @@ func (m *EncodedMotor) rpmMonitor() {
 		case <-timer.C:
 		}
 
-		pos, err := m.encoder.GetTicksCount(m.cancelCtx, nil)
+		pos, err := m.encoder.TicksCount(m.cancelCtx, nil)
 		if err != nil {
 			m.logger.Info("error getting encoder position, sleeping then continuing: %w", err)
 			if !utils.SelectContextOrWait(m.cancelCtx, 100*time.Millisecond) {
@@ -473,7 +477,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 
 	numTicks := int64(revolutions * float64(m.cfg.TicksPerRotation))
 
-	pos, err := m.encoder.GetTicksCount(ctx, nil)
+	pos, err := m.encoder.TicksCount(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -543,7 +547,7 @@ func (m *EncodedMotor) Close() {
 // at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target.
 func (m *EncodedMotor) GoTo(ctx context.Context, rpm, targetPosition float64, extra map[string]interface{}) error {
-	curPos, err := m.GetPosition(ctx, extra)
+	curPos, err := m.Position(ctx, extra)
 	if err != nil {
 		return err
 	}

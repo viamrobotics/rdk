@@ -19,13 +19,13 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
-	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
 	"go.viam.com/rdk/robot/web"
@@ -233,7 +233,7 @@ func remoteNameByResource(resourceName resource.Name) (string, bool) {
 	return remote[0], true
 }
 
-func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	r.mu.Lock()
 	resources := make(map[resource.Name]interface{}, len(r.manager.resources.Names()))
 	for _, name := range r.ResourceNames() {
@@ -288,7 +288,7 @@ func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Nam
 			remoteRNames = append(remoteRNames, n)
 		}
 
-		s, err := remote.GetStatus(ctx, remoteRNames)
+		s, err := remote.Status(ctx, remoteRNames)
 		if err != nil {
 			return nil, err
 		}
@@ -397,6 +397,8 @@ func newWithResources(
 			continue
 		}
 		cfg := config.Service{
+			Name:      name.Name,
+			Model:     resource.DefaultModelName,
 			Namespace: name.Namespace,
 			Type:      config.ServiceType(name.ResourceSubtype),
 		}
@@ -487,9 +489,19 @@ func New(
 
 func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
 	rName := config.ResourceName()
-	f := registry.ServiceLookup(rName.Subtype)
+	f := registry.ServiceLookup(rName.Subtype, config.Model)
+	// If service model/type not found then print list of valid models they can choose from
 	if f == nil {
-		return nil, errors.Errorf("unknown service type: %s", rName.Subtype)
+		validModels := registry.FindValidServiceModels(rName)
+		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s use one of the following valid models: %s",
+			rName.Subtype, config.Model, strings.Join(validModels, ", "))
+	}
+	// If MaxInstance equals zero then there is not limit on the number of services
+	if f.MaxInstance != 0 {
+		err := r.CheckMaxInstance(f, rName)
+		if err != nil {
+			return nil, err
+		}
 	}
 	svc, err := f.Constructor(ctx, r, config, r.logger)
 	if err != nil {
@@ -762,4 +774,18 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if allErrs != nil {
 		r.logger.Errorw("the following errors were gathered during reconfiguration", "errors", allErrs)
 	}
+}
+
+// CheckMaxInstance checks to see if the local robot has reached the maximum number of a specific service type.
+func (r *localRobot) CheckMaxInstance(f *registry.Service, name resource.Name) error {
+	maxInstance := 0
+	for _, n := range r.ResourceNames() {
+		if n.Subtype == name.Subtype {
+			maxInstance++
+			if maxInstance == f.MaxInstance {
+				return errors.Errorf("Max instance number reached for service type: %s", name.Subtype)
+			}
+		}
+	}
+	return nil
 }

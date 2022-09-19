@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
@@ -46,7 +47,7 @@ func TestNewFrameSystemFromParts(t *testing.T) {
 			Name: "frame1",
 			FrameConfig: &config.Frame{
 				Parent:      referenceframe.World,
-				Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
+				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
 			},
 		},
@@ -54,17 +55,17 @@ func TestNewFrameSystemFromParts(t *testing.T) {
 			Name: "frame2",
 			FrameConfig: &config.Frame{
 				Parent:      "frame1",
-				Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
+				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 			},
 		},
 	}
 	frameSys, err := framesystem.NewFrameSystemFromParts("", "", fsConfigs, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, frameSys, test.ShouldNotBeNil)
-	frame1 := frameSys.GetFrame("frame1")
-	frame1Origin := frameSys.GetFrame("frame1_origin")
-	frame2 := frameSys.GetFrame("frame2")
-	frame2Origin := frameSys.GetFrame("frame2_origin")
+	frame1 := frameSys.Frame("frame1")
+	frame1Origin := frameSys.Frame("frame1_origin")
+	frame2 := frameSys.Frame("frame2")
+	frame2Origin := frameSys.Frame("frame2_origin")
 
 	resFrame, err := frameSys.Parent(frame2)
 	test.That(t, err, test.ShouldBeNil)
@@ -86,7 +87,7 @@ func TestNewFrameSystemFromPartsBadConfig(t *testing.T) {
 		{
 			Name: "frame1",
 			FrameConfig: &config.Frame{
-				Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
+				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
 				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
 			},
 		},
