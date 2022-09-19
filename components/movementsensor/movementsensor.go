@@ -44,7 +44,7 @@ func init() {
 	})
 
 	registerCollector("GetPosition", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
-		p, _, err := ms.GetPosition(ctx)
+		p, _, err := ms.Position(ctx)
 		return p, err
 	})
 }
@@ -66,13 +66,13 @@ func Named(name string) resource.Name {
 
 // A MovementSensor reports information about the robot's direction, position and speed.
 type MovementSensor interface {
-	GetPosition(ctx context.Context) (*geo.Point, float64, error)                // (lat, long), altitide (mm)
-	GetLinearVelocity(ctx context.Context) (r3.Vector, error)                    // mm / sec
-	GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) // radians / sec
-	GetCompassHeading(ctx context.Context) (float64, error)                      // [0->360)
-	GetOrientation(ctx context.Context) (spatialmath.Orientation, error)
-	GetProperties(ctx context.Context) (*Properties, error)
-	GetAccuracy(ctx context.Context) (map[string]float32, error) // in mm
+	Position(ctx context.Context) (*geo.Point, float64, error)                // (lat, long), altitide (mm)
+	LinearVelocity(ctx context.Context) (r3.Vector, error)                    // mm / sec
+	AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) // radians / sec
+	CompassHeading(ctx context.Context) (float64, error)                      // [0->360)
+	Orientation(ctx context.Context) (spatialmath.Orientation, error)
+	Properties(ctx context.Context) (*Properties, error)
+	Accuracy(ctx context.Context) (map[string]float32, error) // in mm
 	generic.Generic
 	sensor.Sensor
 }
@@ -126,36 +126,36 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
 }
 
-// GetReadings is a helper for getting all readings from a MovementSensor.
-func GetReadings(ctx context.Context, g MovementSensor) (map[string]interface{}, error) {
+// Readings is a helper for getting all readings from a MovementSensor.
+func Readings(ctx context.Context, g MovementSensor) (map[string]interface{}, error) {
 	readings := map[string]interface{}{}
 
-	pos, altitide, err := g.GetPosition(ctx)
+	pos, altitide, err := g.Position(ctx)
 	if err != nil {
 		return nil, err
 	}
 	readings["position"] = pos
 	readings["altitide"] = altitide
 
-	vel, err := g.GetLinearVelocity(ctx)
+	vel, err := g.LinearVelocity(ctx)
 	if err != nil {
 		return nil, err
 	}
 	readings["linear_velocity"] = vel
 
-	avel, err := g.GetAngularVelocity(ctx)
+	avel, err := g.AngularVelocity(ctx)
 	if err != nil {
 		return nil, err
 	}
 	readings["angular_velocity"] = avel
 
-	compass, err := g.GetCompassHeading(ctx)
+	compass, err := g.CompassHeading(ctx)
 	if err != nil {
 		return nil, err
 	}
 	readings["compass"] = compass
 
-	ori, err := g.GetOrientation(ctx)
+	ori, err := g.Orientation(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -187,52 +187,52 @@ func (r *reconfigurableMovementSensor) DoCommand(ctx context.Context, cmd map[st
 	return r.actual.DoCommand(ctx, cmd)
 }
 
-func (r *reconfigurableMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+func (r *reconfigurableMovementSensor) Position(ctx context.Context) (*geo.Point, float64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetPosition(ctx)
+	return r.actual.Position(ctx)
 }
 
-func (r *reconfigurableMovementSensor) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (r *reconfigurableMovementSensor) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetAngularVelocity(ctx)
+	return r.actual.AngularVelocity(ctx)
 }
 
-func (r *reconfigurableMovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (r *reconfigurableMovementSensor) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetLinearVelocity(ctx)
+	return r.actual.LinearVelocity(ctx)
 }
 
-func (r *reconfigurableMovementSensor) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (r *reconfigurableMovementSensor) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetOrientation(ctx)
+	return r.actual.Orientation(ctx)
 }
 
-func (r *reconfigurableMovementSensor) GetCompassHeading(ctx context.Context) (float64, error) {
+func (r *reconfigurableMovementSensor) CompassHeading(ctx context.Context) (float64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetCompassHeading(ctx)
+	return r.actual.CompassHeading(ctx)
 }
 
-func (r *reconfigurableMovementSensor) GetProperties(ctx context.Context) (*Properties, error) {
+func (r *reconfigurableMovementSensor) Properties(ctx context.Context) (*Properties, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetProperties(ctx)
+	return r.actual.Properties(ctx)
 }
 
-func (r *reconfigurableMovementSensor) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+func (r *reconfigurableMovementSensor) Accuracy(ctx context.Context) (map[string]float32, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetAccuracy(ctx)
+	return r.actual.Accuracy(ctx)
 }
 
-func (r *reconfigurableMovementSensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
+func (r *reconfigurableMovementSensor) Readings(ctx context.Context) (map[string]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetReadings(ctx)
+	return r.actual.Readings(ctx)
 }
 
 func (r *reconfigurableMovementSensor) Reconfigure(ctx context.Context, newMovementSensor resource.Reconfigurable) error {

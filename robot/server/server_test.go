@@ -252,7 +252,7 @@ func TestServerGetStatus(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		server := server.New(injectRobot)
 		passedErr := errors.New("can't get status")
-		injectRobot.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 			return nil, passedErr
 		}
 		_, err := server.GetStatus(context.Background(), &pb.GetStatusRequest{})
@@ -264,7 +264,7 @@ func TestServerGetStatus(t *testing.T) {
 		server := server.New(injectRobot)
 		aStatus := robot.Status{Name: arm.Named("arm"), Status: 1}
 		readings := []robot.Status{aStatus}
-		injectRobot.GetStatusFunc = func(ctx context.Context, status []resource.Name) ([]robot.Status, error) {
+		injectRobot.StatusFunc = func(ctx context.Context, status []resource.Name) ([]robot.Status, error) {
 			return readings, nil
 		}
 		req := &pb.GetStatusRequest{
@@ -291,7 +291,7 @@ func TestServerGetStatus(t *testing.T) {
 		expected := map[resource.Name]interface{}{
 			aStatus.Name: map[string]interface{}{},
 		}
-		injectRobot.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 			test.That(
 				t,
 				testutils.NewResourceNameSet(resourceNames...),
@@ -324,7 +324,7 @@ func TestServerGetStatus(t *testing.T) {
 			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
 			aStatus.Name: map[string]interface{}{},
 		}
-		injectRobot.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 			test.That(
 				t,
 				testutils.NewResourceNameSet(resourceNames...),
@@ -355,7 +355,7 @@ func TestServerGetStatus(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		server := server.New(injectRobot)
 		err1 := errors.New("whoops")
-		injectRobot.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 			return nil, err1
 		}
 
@@ -373,7 +373,7 @@ func TestServerGetStatus(t *testing.T) {
 	t.Run("failed StreamStatus server send", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		server := server.New(injectRobot)
-		injectRobot.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 			return []robot.Status{{arm.Named("arm"), struct{}{}}}, nil
 		}
 
@@ -394,7 +394,7 @@ func TestServerGetStatus(t *testing.T) {
 	t.Run("timed out StreamStatus", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		server := server.New(injectRobot)
-		injectRobot.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 			return []robot.Status{{arm.Named("arm"), struct{}{}}}, nil
 		}
 
@@ -413,7 +413,7 @@ func TestServerGetStatus(t *testing.T) {
 	t.Run("working StreamStatus", func(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		server := server.New(injectRobot)
-		injectRobot.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+		injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 			return []robot.Status{{arm.Named("arm"), struct{}{}}}, nil
 		}
 

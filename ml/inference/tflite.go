@@ -224,8 +224,8 @@ func (model *TFLiteStruct) Infer(inputTensor interface{}) ([]interface{}, error)
 	return output, nil
 }
 
-// GetMetadata provides the metadata information based on the model flatbuffer file.
-func (model *TFLiteStruct) GetMetadata() (*metadata.ModelMetadataT, error) {
+// Metadata provides the metadata information based on the model flatbuffer file.
+func (model *TFLiteStruct) Metadata() (*metadata.ModelMetadataT, error) {
 	b, err := getTFLiteMetadataBytes(model.modelPath)
 	if err != nil {
 		return nil, err

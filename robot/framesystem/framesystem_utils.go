@@ -85,7 +85,7 @@ func NewFrameSystemFromParts(
 			return nil, err
 		}
 		// attach static offset frame to parent, attach model frame to static offset frame
-		err = fs.AddFrame(staticOffsetFrame, fs.GetFrame(part.FrameConfig.Parent))
+		err = fs.AddFrame(staticOffsetFrame, fs.Frame(part.FrameConfig.Parent))
 		if err != nil {
 			return nil, err
 		}
@@ -152,7 +152,7 @@ func frameNamesWithDof(sys referenceframe.FrameSystem) []string {
 	names := sys.FrameNames()
 	nameDoFs := make([]string, len(names))
 	for i, f := range names {
-		fr := sys.GetFrame(f)
+		fr := sys.Frame(f)
 		nameDoFs[i] = fmt.Sprintf("%s(%d)", fr.Name(), len(fr.DoF()))
 	}
 	return nameDoFs

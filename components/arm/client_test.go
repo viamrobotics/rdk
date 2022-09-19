@@ -39,11 +39,11 @@ func TestClient(t *testing.T) {
 	pos1 := &commonpb.Pose{X: 1, Y: 2, Z: 3}
 	jointPos1 := &componentpb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
 	injectArm := &inject.Arm{}
-	injectArm.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		extraOptions = extra
 		return pos1, nil
 	}
-	injectArm.GetJointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*componentpb.JointPositions, error) {
+	injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*componentpb.JointPositions, error) {
 		extraOptions = extra
 		return jointPos1, nil
 	}
@@ -71,10 +71,10 @@ func TestClient(t *testing.T) {
 	pos2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
 	jointPos2 := &componentpb.JointPositions{Values: []float64{4.0, 5.0, 6.0}}
 	injectArm2 := &inject.Arm{}
-	injectArm2.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return pos2, nil
 	}
-	injectArm2.GetJointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*componentpb.JointPositions, error) {
+	injectArm2.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (*componentpb.JointPositions, error) {
 		return jointPos2, nil
 	}
 	injectArm2.MoveToPositionFunc = func(
@@ -127,15 +127,15 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
-		pos, err := arm1Client.GetEndPosition(context.Background(), map[string]interface{}{"foo": "GetEndPosition"})
+		pos, err := arm1Client.EndPosition(context.Background(), map[string]interface{}{"foo": "EndPosition"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos.String(), test.ShouldResemble, pos1.String())
-		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "GetEndPosition"})
+		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "EndPosition"})
 
-		jointPos, err := arm1Client.GetJointPositions(context.Background(), map[string]interface{}{"foo": "GetJointPositions"})
+		jointPos, err := arm1Client.JointPositions(context.Background(), map[string]interface{}{"foo": "JointPositions"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, jointPos.String(), test.ShouldResemble, jointPos1.String())
-		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "GetJointPositions"})
+		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "JointPositions"})
 
 		err = arm1Client.MoveToPosition(context.Background(), pos2, &commonpb.WorldState{}, map[string]interface{}{"foo": "MoveToPosition"})
 		test.That(t, err, test.ShouldBeNil)
@@ -163,7 +163,7 @@ func TestClient(t *testing.T) {
 		arm2Client, ok := client.(arm.Arm)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		pos, err := arm2Client.GetEndPosition(context.Background(), nil)
+		pos, err := arm2Client.EndPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos.String(), test.ShouldResemble, pos2.String())
 

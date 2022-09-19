@@ -61,13 +61,13 @@ func TestClient(t *testing.T) {
 		test.That(t, poseEqualToExpected, test.ShouldBeTrue)
 	}
 
-	workingPT.GetPosesFunc = func(ctx context.Context, bodyNames []string) (
+	workingPT.PosesFunc = func(ctx context.Context, bodyNames []string) (
 		posetracker.BodyToPoseInFrame, error,
 	) {
 		return allBodiesToPoseInFrames, nil
 	}
 
-	failingPT.GetPosesFunc = func(ctx context.Context, bodyNames []string) (
+	failingPT.PosesFunc = func(ctx context.Context, bodyNames []string) (
 		posetracker.BodyToPoseInFrame, error,
 	) {
 		return nil, errors.New("failure to get poses")
@@ -101,7 +101,7 @@ func TestClient(t *testing.T) {
 	workingPTClient := posetracker.NewClientFromConn(context.Background(), conn, workingPTName, logger)
 
 	t.Run("client tests for working pose tracker", func(t *testing.T) {
-		bodyToPoseInFrame, err := workingPTClient.GetPoses(
+		bodyToPoseInFrame, err := workingPTClient.Poses(
 			context.Background(), []string{zeroPoseBody, nonZeroPoseBody})
 		test.That(t, err, test.ShouldBeNil)
 
@@ -122,7 +122,7 @@ func TestClient(t *testing.T) {
 		client := resourceSubtype.RPCClient(context.Background(), conn, workingPTName, logger)
 		workingPTDialedClient, ok := client.(posetracker.PoseTracker)
 		test.That(t, ok, test.ShouldBeTrue)
-		bodyToPoseInFrame, err := workingPTDialedClient.GetPoses(context.Background(), []string{})
+		bodyToPoseInFrame, err := workingPTDialedClient.Poses(context.Background(), []string{})
 		test.That(t, err, test.ShouldBeNil)
 
 		poseTester(t, bodyToPoseInFrame, nonZeroPoseBody2)
@@ -138,7 +138,7 @@ func TestClient(t *testing.T) {
 			context.Background(), conn, failingPTName, logger,
 		)
 
-		bodyToPoseInFrame, err := failingPTDialedClient.GetPoses(context.Background(), []string{})
+		bodyToPoseInFrame, err := failingPTDialedClient.Poses(context.Background(), []string{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, bodyToPoseInFrame, test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

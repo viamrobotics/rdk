@@ -51,7 +51,7 @@ func (server *subtypeServer) GetPosition(
 	if err != nil {
 		return nil, err
 	}
-	angleDeg, err := servo.GetPosition(ctx)
+	angleDeg, err := servo.Position(ctx)
 	if err != nil {
 		return nil, err
 	}
