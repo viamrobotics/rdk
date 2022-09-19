@@ -286,7 +286,9 @@ func readFromCache(id string) (*Config, error) {
 	}
 
 	if err := json.NewDecoder(r).Decode(unprocessedConfig); err != nil {
-		return nil, errors.Wrap(err, "cannot parse cloud config")
+		// clear the cache if we cannot parse the file.
+		clearCache(id)
+		return nil, errors.Wrap(err, "cannot parse the cached config as json")
 	}
 	return unprocessedConfig, nil
 }
@@ -305,6 +307,12 @@ func storeToCache(id string, cfg *Config) error {
 	path := getCloudCacheFilePath(id)
 
 	return artifact.AtomicStore(path, reader, id)
+}
+
+func clearCache(id string) {
+	utils.UncheckedErrorFunc(func() error {
+		return os.Remove(getCloudCacheFilePath(id))
+	})
 }
 
 // readCertificateDataFromCloud returns the certificate from the app. It returns it as properties of a new Cloud config.
@@ -420,6 +428,12 @@ func readFromCloud(
 	// process the config
 	cfg, err := processConfigFromCloud(unprocessedConfig)
 	if err != nil {
+		// If we cannot process the config from the cache we should clear it.
+		if cached {
+			// clear cache
+			logger.Warn("Detected failure to process the cached config, clearing cache.")
+			clearCache(cloudCfg.ID)
+		}
 		return nil, err
 	}
 	if cfg.Cloud == nil {
@@ -437,6 +451,9 @@ func readFromCloud(
 		if err == nil {
 			cachedConfig, err := processConfigFromCloud(unproccessedCachedConfig)
 			if err != nil {
+				// clear cache
+				logger.Warn("Detected failure to process the cached config when retrieving TLS config, clearing cache.")
+				clearCache(cloudCfg.ID)
 				return nil, err
 			}
 

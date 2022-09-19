@@ -1,4 +1,4 @@
-package nmea
+package gpsnmea
 
 import (
 	"context"
@@ -6,11 +6,13 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	gutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -30,20 +32,15 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 }
 
 func TestValidateI2C(t *testing.T) {
-	fakecfg := &I2CAttrConfig{}
-	err := fakecfg.ValidateI2C("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty board")
+	fakecfg := &I2CAttrConfig{I2CBus: "some-bus"}
 
-	fakecfg.Board = "some-board"
-	err = fakecfg.ValidateI2C("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty bus")
-
-	fakecfg.Bus = "some-bus"
-	err = fakecfg.ValidateI2C("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty i2c address")
+	path := "path"
+	err := fakecfg.ValidateI2C(path)
+	test.That(t, err, test.ShouldBeError,
+		gutils.NewConfigValidationFieldRequiredError(path, "i2c_addr"))
 
 	fakecfg.I2cAddr = 66
-	err = fakecfg.ValidateI2C("path")
+	err = fakecfg.ValidateI2C(path)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -52,34 +49,32 @@ func TestNewI2CMovementSensor(t *testing.T) {
 
 	cfig := config.Component{
 		Name:  "movementsensor1",
-		Model: "nmea-pmtkI2C",
+		Model: "gps-nmea",
 		Type:  movementsensor.SubtypeName,
-		Attributes: config.AttributeMap{
-			"board":    "",
-			"bus":      "",
-			"i2c_addr": "",
-		},
 	}
 
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 
-	g, err := newPmtkI2CNMEAMovementSensor(ctx, deps, cfig, logger)
+	g, err := newNMEAGPS(ctx, deps, cfig, logger)
 	test.That(t, g, test.ShouldBeNil)
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError,
+		utils.NewUnexpectedTypeError(&AttrConfig{},
+			cfig.ConvertedAttributes))
 
 	cfig = config.Component{
-		Name:  "movementsensor1",
-		Model: "nmea-serial",
+		Name:  "movementsensor2",
+		Model: "gps-nmea",
 		Type:  movementsensor.SubtypeName,
-		Attributes: config.AttributeMap{
-			"board":    testBoardName,
-			"bus":      testBusName,
-			"i2c_addr": "",
+		ConvertedAttributes: &AttrConfig{
+			ConnectionType: "I2C",
+			Board:          testBoardName,
+			DisableNMEA:    false,
+			I2CAttrConfig:  &I2CAttrConfig{I2CBus: testBusName},
 		},
 	}
-	g, err = newPmtkI2CNMEAMovementSensor(ctx, deps, cfig, logger)
-	passErr := "board " + cfig.Attributes.String("board") + " is not local"
+	g, err = newNMEAGPS(ctx, deps, cfig, logger)
+	passErr := "board " + testBoardName + " is not local"
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, g, test.ShouldNotBeNil)
@@ -140,4 +135,34 @@ func TestCloseI2C(t *testing.T) {
 
 	err := g.Close()
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func newBoard(name string) *mock {
+	return &mock{
+		Name: name,
+		i2cs: []string{"i2c1"},
+		i2c:  &mockI2C{1},
+	}
+}
+
+// Mock I2C.
+type mock struct {
+	board.LocalBoard
+	Name string
+
+	i2cs []string
+	i2c  *mockI2C
+}
+
+type mockI2C struct{ handleCount int }
+
+func (m *mock) I2CNames() []string {
+	return m.i2cs
+}
+
+func (m *mock) I2CByName(name string) (*mockI2C, bool) {
+	if len(m.i2cs) == 0 {
+		return nil, false
+	}
+	return m.i2c, true
 }
