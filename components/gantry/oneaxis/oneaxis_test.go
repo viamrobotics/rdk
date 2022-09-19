@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
@@ -14,7 +15,6 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	spatial "go.viam.com/rdk/spatialmath"

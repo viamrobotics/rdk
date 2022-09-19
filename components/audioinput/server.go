@@ -15,12 +15,12 @@ import (
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	pb "go.viam.com/api/component/audioinput/v1"
 	"go.viam.com/utils"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 
-	pb "go.viam.com/rdk/proto/api/component/audioinput/v1"
 	"go.viam.com/rdk/subtype"
 )
 

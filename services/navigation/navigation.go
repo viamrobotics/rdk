@@ -9,10 +9,10 @@ import (
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	servicepb "go.viam.com/api/service/navigation/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	servicepb "go.viam.com/rdk/proto/api/service/navigation/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"

@@ -5,10 +5,10 @@ import (
 	"errors"
 	"testing"
 
+	pb "go.viam.com/api/component/motor/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/motor"
-	pb "go.viam.com/rdk/proto/api/component/motor/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"

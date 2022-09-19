@@ -4,11 +4,11 @@ import (
 	"math"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/arm/v1"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/num/quat"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )

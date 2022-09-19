@@ -2,10 +2,12 @@ package config
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/google/uuid"
 	"go.viam.com/test"
 )
 
@@ -54,6 +56,22 @@ func TestStoreToCache(t *testing.T) {
 	cloudCfg3, err := readFromCloud(ctx, cfg, nil, true, true, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloudCfg3, test.ShouldResemble, cfg)
+}
+
+func TestCacheInvalidation(t *testing.T) {
+	id := uuid.New().String()
+	// store invalid config in cache
+	cachePath := getCloudCacheFilePath(id)
+	err := os.WriteFile(cachePath, []byte("invalid-json"), 0o750)
+	test.That(t, err, test.ShouldBeNil)
+
+	// read from cache, should return parse error and remove file
+	_, err = readFromCache(id)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot parse the cached config as json")
+
+	// read from cache again and file should not exist
+	_, err = readFromCache(id)
+	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
 }
 
 func TestShouldCheckForCert(t *testing.T) {

@@ -10,12 +10,12 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"go.opencensus.io/trace"
+	pb "go.viam.com/api/component/camera/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/pointcloud"
-	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
