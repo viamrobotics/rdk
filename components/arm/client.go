@@ -36,7 +36,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func (c *client) MoveToJointPositions(ctx context.Context, positions *pb.JointPo
 	return err
 }
 
-func (c *client) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (c *client) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err

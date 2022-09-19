@@ -182,8 +182,8 @@ func (n *ntripCorrectionSource) Start(ready chan<- bool) {
 	}
 }
 
-// GetReader returns the ntripCorrectionSource's correctionReader if it exists.
-func (n *ntripCorrectionSource) GetReader() (io.ReadCloser, error) {
+// Reader returns the ntripCorrectionSource's correctionReader if it exists.
+func (n *ntripCorrectionSource) Reader() (io.ReadCloser, error) {
 	if n.correctionReader == nil {
 		return nil, errors.New("no stream")
 	}

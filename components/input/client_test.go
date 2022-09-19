@@ -32,10 +32,10 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	injectInputController := &inject.TriggerableInputController{}
-	injectInputController.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	injectInputController.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
-	injectInputController.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+	injectInputController.EventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
 		eventsOut := make(map[input.Control]input.Event)
 		eventsOut[input.AbsoluteX] = input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
 		eventsOut[input.ButtonStart] = input.Event{Time: time.Now(), Event: input.ButtonPress, Control: input.ButtonStart, Value: 1.0}
@@ -61,10 +61,10 @@ func TestClient(t *testing.T) {
 	}
 
 	injectInputController2 := &inject.InputController{}
-	injectInputController2.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	injectInputController2.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return nil, errors.New("can't get controls")
 	}
-	injectInputController2.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+	injectInputController2.EventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
 		return nil, errors.New("can't get last events")
 	}
 
@@ -102,12 +102,12 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
-		controlList, err := inputController1Client.GetControls(context.Background())
+		controlList, err := inputController1Client.Controls(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
 
 		startTime := time.Now()
-		outState, err := inputController1Client.GetEvents(context.Background())
+		outState, err := inputController1Client.Events(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, outState[input.ButtonStart].Event, test.ShouldEqual, input.ButtonPress)
 		test.That(t, outState[input.ButtonStart].Control, test.ShouldEqual, input.ButtonStart)
@@ -231,11 +231,11 @@ func TestClient(t *testing.T) {
 		inputController2Client, ok := client.(input.Controller)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		_, err = inputController2Client.GetControls(context.Background())
+		_, err = inputController2Client.Controls(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get controls")
 
-		_, err = inputController2Client.GetEvents(context.Background())
+		_, err = inputController2Client.Events(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get last events")
 

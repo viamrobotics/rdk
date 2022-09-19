@@ -82,9 +82,9 @@ func (vs *builtIn) GetModelParameterSchema(ctx context.Context, modelType vision
 }
 
 // Detection Methods
-// GetDetectorNames returns a list of the all the names of the detectors in the registry.
-func (vs *builtIn) GetDetectorNames(ctx context.Context) ([]string, error) {
-	_, span := trace.StartSpan(ctx, "service::vision::GetDetectorNames")
+// DetectorNames returns a list of the all the names of the detectors in the registry.
+func (vs *builtIn) DetectorNames(ctx context.Context) ([]string, error) {
+	_, span := trace.StartSpan(ctx, "service::vision::DetectorNames")
 	defer span.End()
 	return vs.modReg.DetectorNames(), nil
 }
@@ -119,9 +119,9 @@ func (vs *builtIn) RemoveDetector(ctx context.Context, detectorName string) erro
 	return vs.RemoveSegmenter(ctx, detectorName+"_segmenter")
 }
 
-// GetDetectionsFromCamera returns the detections of the next image from the given camera and the given detector.
-func (vs *builtIn) GetDetectionsFromCamera(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::GetDetectionsFromCamera")
+// DetectionsFromCamera returns the detections of the next image from the given camera and the given detector.
+func (vs *builtIn) DetectionsFromCamera(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::DetectionsFromCamera")
 	defer span.End()
 	cam, err := camera.FromRobot(vs.r, cameraName)
 	if err != nil {
@@ -144,10 +144,10 @@ func (vs *builtIn) GetDetectionsFromCamera(ctx context.Context, cameraName, dete
 	return detector(ctx, img)
 }
 
-// GetDetections returns the detections of given image using the given detector.
-func (vs *builtIn) GetDetections(ctx context.Context, img image.Image, detectorName string,
+// Detections returns the detections of given image using the given detector.
+func (vs *builtIn) Detections(ctx context.Context, img image.Image, detectorName string,
 ) ([]objdet.Detection, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::GetDetections")
+	ctx, span := trace.StartSpan(ctx, "service::vision::Detections")
 	defer span.End()
 
 	d, err := vs.modReg.modelLookup(detectorName)
@@ -162,9 +162,9 @@ func (vs *builtIn) GetDetections(ctx context.Context, img image.Image, detectorN
 	return detector(ctx, img)
 }
 
-// GetClassifierNames returns a list of the all the names of the classifiers in the registry.
-func (vs *builtIn) GetClassifierNames(ctx context.Context) ([]string, error) {
-	_, span := trace.StartSpan(ctx, "service::vision::GetClassifierNames")
+// ClassifierNames returns a list of the all the names of the classifiers in the registry.
+func (vs *builtIn) ClassifierNames(ctx context.Context) ([]string, error) {
+	_, span := trace.StartSpan(ctx, "service::vision::ClassifierNames")
 	defer span.End()
 	return vs.modReg.ClassifierNames(), nil
 }
@@ -192,11 +192,11 @@ func (vs *builtIn) RemoveClassifier(ctx context.Context, classifierName string) 
 	return nil
 }
 
-// GetClassificationsFromCamera returns the classifications of the next image from the given camera and the given detector.
-func (vs *builtIn) GetClassificationsFromCamera(ctx context.Context, cameraName,
+// ClassificationsFromCamera returns the classifications of the next image from the given camera and the given detector.
+func (vs *builtIn) ClassificationsFromCamera(ctx context.Context, cameraName,
 	classifierName string, n int,
 ) (classification.Classifications, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::GetClassificationsFromCamera")
+	ctx, span := trace.StartSpan(ctx, "service::vision::ClassificationsFromCamera")
 	defer span.End()
 	cam, err := camera.FromRobot(vs.r, cameraName)
 	if err != nil {
@@ -222,11 +222,11 @@ func (vs *builtIn) GetClassificationsFromCamera(ctx context.Context, cameraName,
 	return fullClassifications.TopN(n)
 }
 
-// GetClassifications returns the classifications of given image using the given classifier.
-func (vs *builtIn) GetClassifications(ctx context.Context, img image.Image,
+// Classifications returns the classifications of given image using the given classifier.
+func (vs *builtIn) Classifications(ctx context.Context, img image.Image,
 	classifierName string, n int,
 ) (classification.Classifications, error) {
-	ctx, span := trace.StartSpan(ctx, "service::vision::GetClassifications")
+	ctx, span := trace.StartSpan(ctx, "service::vision::Classifications")
 	defer span.End()
 
 	c, err := vs.modReg.modelLookup(classifierName)
@@ -245,9 +245,9 @@ func (vs *builtIn) GetClassifications(ctx context.Context, img image.Image,
 }
 
 // Segmentation Methods
-// GetSegmenterNames returns a list of all the names of the segmenters in the segmenter map.
-func (vs *builtIn) GetSegmenterNames(ctx context.Context) ([]string, error) {
-	_, span := trace.StartSpan(ctx, "service::vision::GetSegmenterNames")
+// SegmenterNames returns a list of all the names of the segmenters in the segmenter map.
+func (vs *builtIn) SegmenterNames(ctx context.Context) ([]string, error) {
+	_, span := trace.StartSpan(ctx, "service::vision::SegmenterNames")
 	defer span.End()
 	return vs.modReg.SegmenterNames(), nil
 }

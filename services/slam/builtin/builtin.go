@@ -343,10 +343,10 @@ func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) 
 	return pb.NewSLAMServiceClient(connLib), connLib.Close, err
 }
 
-// GetPosition forwards the request for positional data to the slam library's gRPC service. Once a response is received,
+// Position forwards the request for positional data to the slam library's gRPC service. Once a response is received,
 // it is unpacked into a PoseInFrame.
-func (slamSvc *builtIn) GetPosition(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
-	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetPosition")
+func (slamSvc *builtIn) Position(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
+	ctx, span := trace.StartSpan(ctx, "slam::builtIn::Position")
 	defer span.End()
 
 	req := &pb.GetPositionRequest{Name: name}
