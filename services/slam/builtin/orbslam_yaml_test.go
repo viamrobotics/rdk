@@ -26,6 +26,16 @@ const (
 	slamTimeFormat      = "2006-01-02T15_04_05.0000"
 )
 
+const (
+	yamlFilePrefixBytes = "%YAML:1.0\n"
+	slamTimeFormat      = "2006-01-02T15_04_05.0000"
+)
+
+const (
+	slamTimeFormat = "2006-01-02T15_04_05.0000"
+)
+
+// function to search a SLAM data dir for a .yaml file. returns the timestamp and filepath
 func findLastYAML(folderName string) (string, string, error) {
 	root := filepath.Join(folderName, "config")
 	yamlExt := ".yaml"
@@ -52,7 +62,6 @@ func findLastYAML(folderName string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	// do not error out here, instead orbslam will build a yaml from scratch
 	if yamlTimestamp.IsZero() {
 		return "", "", errors.New("No yaml file found")
 	}
@@ -127,6 +136,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 
 		//save a fake map for the next map using the previous timestamp
 		fakeMap = filepath.Join(name, "map", attrCfgGood.Sensors[0]+"_data_"+yamlFileTimeStampGood)
+		test.That(t, orbslam.SaveMapLoc, test.ShouldEqual, fakeMap)
 		outfile, err := os.Create(fakeMap + ".osa")
 		test.That(t, err, test.ShouldBeNil)
 		err = outfile.Close()
