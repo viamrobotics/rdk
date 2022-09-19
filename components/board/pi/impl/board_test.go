@@ -121,9 +121,9 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		time.Sleep(5 * time.Millisecond)
-		_, ok := p.DigitalInterruptByName("some")
+		_, ok = p.DigitalInterruptByName("some")
 		test.That(t, ok, test.ShouldBeFalse)
-		i2, ok = p.DigitalInterruptByName("13")
+		i2, ok := p.DigitalInterruptByName("13")
 		test.That(t, ok, test.ShouldBeTrue)
 		before, err = i2.Value(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
