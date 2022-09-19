@@ -145,7 +145,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 
 func (c *client) Projector(ctx context.Context) (transform.Projector, error) {
 	var proj transform.Projector
-	props, err := c.GetProperties(ctx)
+	props, err := c.Properties(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +158,7 @@ func (c *client) Projector(ctx context.Context) (transform.Projector, error) {
 	return proj, nil
 }
 
-func (c *client) GetProperties(ctx context.Context) (Properties, error) {
+func (c *client) Properties(ctx context.Context) (Properties, error) {
 	result := Properties{}
 	resp, err := c.client.GetProperties(ctx, &pb.GetPropertiesRequest{
 		Name: c.name,

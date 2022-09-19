@@ -125,7 +125,7 @@ type rtkStation struct {
 }
 
 type correctionSource interface {
-	GetReader() (io.ReadCloser, error)
+	Reader() (io.ReadCloser, error)
 	Start(ready chan<- bool)
 	Close() error
 }
@@ -256,7 +256,7 @@ func (r *rtkStation) Start(ctx context.Context) {
 		go r.correction.Start(ready)
 
 		<-ready
-		stream, err := r.correction.GetReader()
+		stream, err := r.correction.Reader()
 		if err != nil {
 			r.logger.Errorf("Unable to get reader: %s", err)
 			r.setLastError(err)
@@ -342,34 +342,34 @@ func (r *rtkStation) Close() error {
 	return r.lastError
 }
 
-func (r *rtkStation) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+func (r *rtkStation) Position(ctx context.Context) (*geo.Point, float64, error) {
 	return &geo.Point{}, 0, r.lastError
 }
 
-func (r *rtkStation) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (r *rtkStation) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	return r3.Vector{}, r.lastError
 }
 
-func (r *rtkStation) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (r *rtkStation) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	return spatialmath.AngularVelocity{}, r.lastError
 }
 
-func (r *rtkStation) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (r *rtkStation) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	return spatialmath.NewZeroOrientation(), r.lastError
 }
 
-func (r *rtkStation) GetCompassHeading(ctx context.Context) (float64, error) {
+func (r *rtkStation) CompassHeading(ctx context.Context) (float64, error) {
 	return 0, r.lastError
 }
 
-func (r *rtkStation) GetReadings(ctx context.Context) (map[string]interface{}, error) {
+func (r *rtkStation) Readings(ctx context.Context) (map[string]interface{}, error) {
 	return map[string]interface{}{}, r.lastError
 }
 
-func (r *rtkStation) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+func (r *rtkStation) Accuracy(ctx context.Context) (map[string]float32, error) {
 	return map[string]float32{}, r.lastError
 }
 
-func (r *rtkStation) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+func (r *rtkStation) Properties(ctx context.Context) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{}, r.lastError
 }

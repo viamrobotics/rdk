@@ -85,7 +85,7 @@ func (server *subtypeServer) GetPosition(
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
 
-	pos, err := motor.GetPosition(ctx, req.Extra.AsMap())
+	pos, err := motor.Position(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (server *subtypeServer) GetProperties(
 	if err != nil {
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
-	features, err := motor.GetProperties(ctx, req.Extra.AsMap())
+	features, err := motor.Properties(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}

@@ -213,7 +213,7 @@ func (m *arduinoMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 // Position reports the position of the motor based on its encoder. If it's not supported, the returned
 // data is undefined. The unit returned is the number of revolutions which is intended to be fed
 // back into calls of GoFor.
-func (m *arduinoMotor) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (m *arduinoMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	res, err := m.b.runCommand("motor-position " + m.name)
 	if err != nil {
 		return 0, err
@@ -227,8 +227,8 @@ func (m *arduinoMotor) GetPosition(ctx context.Context, extra map[string]interfa
 	return float64(ticks) / float64(m.cfg.TicksPerRotation), nil
 }
 
-// GetProperties returns the status of optional features supported by the motor.
-func (m *arduinoMotor) GetProperties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+// Properties returns the status of optional features supported by the motor.
+func (m *arduinoMotor) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: m.positionReporting,
 	}, nil

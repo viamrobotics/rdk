@@ -290,8 +290,8 @@ func (m *Ezopmp) ResetZeroPosition(ctx context.Context, offset float64, extra ma
 	return m.writeRegWithCheck(ctx, command)
 }
 
-// GetPosition will return the total volume dispensed.
-func (m *Ezopmp) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+// Position will return the total volume dispensed.
+func (m *Ezopmp) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	command := []byte(totVolDispensed)
 	writeErr := m.writeReg(ctx, command)
 	if writeErr != nil {
@@ -306,8 +306,8 @@ func (m *Ezopmp) GetPosition(ctx context.Context, extra map[string]interface{}) 
 	return floatVal, err
 }
 
-// GetProperties returns the status of optional features on the motor.
-func (m *Ezopmp) GetProperties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+// Properties returns the status of optional features on the motor.
+func (m *Ezopmp) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: true,
 	}, nil

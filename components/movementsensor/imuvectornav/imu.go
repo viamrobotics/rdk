@@ -227,7 +227,7 @@ func NewVectorNav(
 	return v, nil
 }
 
-func (vn *vectornav) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (vn *vectornav) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return vn.angularVelocity, nil
@@ -239,27 +239,27 @@ func (vn *vectornav) GetAcceleration(ctx context.Context) (r3.Vector, error) {
 	return vn.acceleration, nil
 }
 
-func (vn *vectornav) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (vn *vectornav) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return &vn.orientation, nil
 }
 
-func (vn *vectornav) GetCompassHeading(ctx context.Context) (float64, error) {
+func (vn *vectornav) CompassHeading(ctx context.Context) (float64, error) {
 	vn.mu.Lock()
 	defer vn.mu.Unlock()
 	return vn.orientation.Yaw, nil
 }
 
-func (vn *vectornav) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+func (vn *vectornav) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	return r3.Vector{}, nil
 }
 
-func (vn *vectornav) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+func (vn *vectornav) Position(ctx context.Context) (*geo.Point, float64, error) {
 	return nil, 0, nil
 }
 
-func (vn *vectornav) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+func (vn *vectornav) Accuracy(ctx context.Context) (map[string]float32, error) {
 	return map[string]float32{}, nil
 }
 
@@ -269,15 +269,15 @@ func (vn *vectornav) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
 	return vn.magnetometer, nil
 }
 
-func (vn *vectornav) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+func (vn *vectornav) Properties(ctx context.Context) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		AngularVelocitySupported: true,
 		OrientationSupported:     true,
 	}, nil
 }
 
-func (vn *vectornav) GetReadings(ctx context.Context) (map[string]interface{}, error) {
-	return movementsensor.GetReadings(ctx, vn)
+func (vn *vectornav) Readings(ctx context.Context) (map[string]interface{}, error) {
+	return movementsensor.Readings(ctx, vn)
 }
 
 func (vn *vectornav) getReadings(ctx context.Context) error {
@@ -520,4 +520,3 @@ func (vn *vectornav) Close() {
 	vn.busClosed = true
 	vn.activeBackgroundWorkers.Wait()
 }
-
