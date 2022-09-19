@@ -60,7 +60,6 @@ type Encoder struct {
 	speed                   float64 // ticks per minute
 	updateRate              int64   // update position in start every updateRate ms
 	activeBackgroundWorkers sync.WaitGroup
-	logger                  golog.Logger
 
 	generic.Unimplemented
 }
