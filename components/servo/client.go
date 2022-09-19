@@ -38,7 +38,7 @@ func (c *client) Move(ctx context.Context, angleDeg uint8) error {
 	return nil
 }
 
-func (c *client) GetPosition(ctx context.Context) (uint8, error) {
+func (c *client) Position(ctx context.Context) (uint8, error) {
 	req := &pb.GetPositionRequest{Name: c.name}
 	resp, err := c.client.GetPosition(ctx, req)
 	if err != nil {

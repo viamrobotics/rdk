@@ -349,7 +349,7 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointP
 		}
 	}
 	to := x.model.InputFromProtobuf(newPositions)
-	curPos, err := x.GetJointPositions(ctx, extra)
+	curPos, err := x.JointPositions(ctx, extra)
 	if err != nil {
 		return err
 	}
@@ -385,9 +385,9 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointP
 	return nil
 }
 
-// GetEndPosition computes and returns the current cartesian position.
-func (x *xArm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-	joints, err := x.GetJointPositions(ctx, extra)
+// EndPosition computes and returns the current cartesian position.
+func (x *xArm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := x.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -418,8 +418,8 @@ func (x *xArm) MoveToPosition(
 	)
 }
 
-// GetJointPositions returns the current positions of all joints.
-func (x *xArm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+// JointPositions returns the current positions of all joints.
+func (x *xArm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	c := x.newCmd(regMap["JointPos"])
 
 	jData, err := x.send(ctx, c, true)

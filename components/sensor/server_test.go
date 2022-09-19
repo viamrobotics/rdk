@@ -36,9 +36,9 @@ func TestServer(t *testing.T) {
 
 	rs := map[string]interface{}{"a": 1.1, "b": 2.2}
 
-	injectSensor.GetReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) { return rs, nil }
+	injectSensor.ReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) { return rs, nil }
 
-	injectSensor2.GetReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
+	injectSensor2.ReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
 		return nil, errors.New("can't get readings")
 	}
 

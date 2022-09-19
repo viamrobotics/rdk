@@ -90,58 +90,58 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 18)
 
 	// see if all frames are present and if their frames are correct
-	test.That(t, fs.GetFrame("world"), test.ShouldNotBeNil)
+	test.That(t, fs.Frame("world"), test.ShouldNotBeNil)
 
 	t.Log("pieceArm")
-	test.That(t, fs.GetFrame("pieceArm"), test.ShouldNotBeNil)
-	pose, err := fs.GetFrame("pieceArm").Transform(emptyIn)
+	test.That(t, fs.Frame("pieceArm"), test.ShouldNotBeNil)
+	pose, err := fs.Frame("pieceArm").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{500, 0, 300})
 
 	t.Log("pieceArm_origin")
-	test.That(t, fs.GetFrame("pieceArm_origin"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("pieceArm_origin").Transform(emptyIn)
+	test.That(t, fs.Frame("pieceArm_origin"), test.ShouldNotBeNil)
+	pose, err = fs.Frame("pieceArm_origin").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{500, 500, 1000})
 
 	t.Log("pieceGripper")
-	test.That(t, fs.GetFrame("pieceGripper"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("pieceGripper").Transform(emptyIn)
+	test.That(t, fs.Frame("pieceGripper"), test.ShouldNotBeNil)
+	pose, err = fs.Frame("pieceGripper").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 200})
 
 	t.Log("pieceGripper_origin")
-	test.That(t, fs.GetFrame("pieceGripper_origin"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("pieceGripper_origin").Transform(emptyIn)
+	test.That(t, fs.Frame("pieceGripper_origin"), test.ShouldNotBeNil)
+	pose, err = fs.Frame("pieceGripper_origin").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
 	t.Log("movement_sensor2")
-	test.That(t, fs.GetFrame("movement_sensor2"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("movement_sensor2").Transform(emptyIn)
+	test.That(t, fs.Frame("movement_sensor2"), test.ShouldNotBeNil)
+	pose, err = fs.Frame("movement_sensor2").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
 	t.Log("movement_sensor2_origin")
-	test.That(t, fs.GetFrame("movement_sensor2_origin"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("movement_sensor2_origin").Transform(emptyIn)
+	test.That(t, fs.Frame("movement_sensor2_origin"), test.ShouldNotBeNil)
+	pose, err = fs.Frame("movement_sensor2_origin").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
 	t.Log("cameraOver")
-	test.That(t, fs.GetFrame("cameraOver"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("cameraOver").Transform(emptyIn)
+	test.That(t, fs.Frame("cameraOver"), test.ShouldNotBeNil)
+	pose, err = fs.Frame("cameraOver").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
 	t.Log("cameraOver_origin")
-	test.That(t, fs.GetFrame("cameraOver_origin"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("cameraOver_origin").Transform(emptyIn)
+	test.That(t, fs.Frame("cameraOver_origin"), test.ShouldNotBeNil)
+	pose, err = fs.Frame("cameraOver_origin").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{2000, 500, 1300})
 
 	t.Log("movement_sensor1")
-	test.That(t, fs.GetFrame("movement_sensor1"), test.ShouldBeNil) // movement_sensor1 is not registered
+	test.That(t, fs.Frame("movement_sensor1"), test.ShouldBeNil) // movement_sensor1 is not registered
 
 	// There is a point at (1500, 500, 1300) in the world referenceframe. See if it transforms correctly in each referenceframe.
 	worldPose := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{1500, 500, 1300}))

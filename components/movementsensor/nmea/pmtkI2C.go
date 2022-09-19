@@ -222,50 +222,50 @@ func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (board.I2C, byte) {
 	return g.bus, g.addr
 }
 
-// GetPosition returns the current geographic location of the MovementSensor.
-func (g *PmtkI2CNMEAMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+// Position returns the current geographic location of the MovementSensor.
+func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context) (*geo.Point, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.location, g.data.alt, g.lastError
 }
 
-// GetAccuracy returns the accuracy, hDOP and vDOP.
-func (g *PmtkI2CNMEAMovementSensor) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+// Accuracy returns the accuracy, hDOP and vDOP.
+func (g *PmtkI2CNMEAMovementSensor) Accuracy(ctx context.Context) (map[string]float32, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return map[string]float32{"hDOP": float32(g.data.hDOP), "vDOP": float32(g.data.vDOP)}, g.lastError
 }
 
-// GetLinearVelocity returns the current speed of the MovementSensor.
-func (g *PmtkI2CNMEAMovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+// LinearVelocity returns the current speed of the MovementSensor.
+func (g *PmtkI2CNMEAMovementSensor) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return r3.Vector{0, g.data.speed, 0}, g.lastError
 }
 
-// GetAngularVelocity not supported.
-func (g *PmtkI2CNMEAMovementSensor) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+// AngularVelocity not supported.
+func (g *PmtkI2CNMEAMovementSensor) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return spatialmath.AngularVelocity{}, g.lastError
 }
 
-// GetCompassHeading not supported.
-func (g *PmtkI2CNMEAMovementSensor) GetCompassHeading(ctx context.Context) (float64, error) {
+// CompassHeading not supported.
+func (g *PmtkI2CNMEAMovementSensor) CompassHeading(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return 0, g.lastError
 }
 
-// GetOrientation not supporter.
-func (g *PmtkI2CNMEAMovementSensor) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+// Orientation not supporter.
+func (g *PmtkI2CNMEAMovementSensor) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return nil, g.lastError
 }
 
-// GetProperties what can I do!
-func (g *PmtkI2CNMEAMovementSensor) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+// Properties what can I do!
+func (g *PmtkI2CNMEAMovementSensor) Properties(ctx context.Context) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,
@@ -279,9 +279,9 @@ func (g *PmtkI2CNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	return g.data.fixQuality, g.lastError
 }
 
-// GetReadings will use return all of the MovementSensor Readings.
-func (g *PmtkI2CNMEAMovementSensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
-	readings, err := movementsensor.GetReadings(ctx, g)
+// Readings will use return all of the MovementSensor Readings.
+func (g *PmtkI2CNMEAMovementSensor) Readings(ctx context.Context) (map[string]interface{}, error) {
+	readings, err := movementsensor.Readings(ctx, g)
 	if err != nil {
 		return nil, err
 	}
