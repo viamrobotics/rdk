@@ -494,6 +494,9 @@ func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt,
 	if !ok {
 		var err error
 		if bcom, have := broadcomPinFromHardwareLabel(name); have {
+			if d, ok := pi.interruptsHW[bcom]; ok {
+				return d, ok
+			}
 			d, err = board.CreateDigitalInterrupt(board.DigitalInterruptConfig{
 				Name: name,
 				Pin:  name,
