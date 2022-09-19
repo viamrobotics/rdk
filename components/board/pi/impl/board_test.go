@@ -121,7 +121,7 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		time.Sleep(5 * time.Millisecond)
-		i2, ok := p.DigitalInterruptByName("some")
+		_, ok := p.DigitalInterruptByName("some")
 		test.That(t, ok, test.ShouldBeFalse)
 		i2, ok = p.DigitalInterruptByName("13")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -137,7 +137,7 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, after-before, test.ShouldEqual, int64(1))
 
-		i2, ok = p.DigitalInterruptByName("11")
+		_, ok = p.DigitalInterruptByName("11")
 		test.That(t, ok, test.ShouldBeTrue)
 	})
 
