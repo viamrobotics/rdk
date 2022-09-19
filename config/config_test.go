@@ -97,8 +97,8 @@ func TestConfig3(t *testing.T) {
 		MaxPowerPct:      0.5,
 		TicksPerRotation: 10000,
 	})
-	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &encoder.HallConfig{
-		Pins: encoder.HallPins{
+	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &encoder.IncrementalConfig{
+		Pins: encoder.IncrementalPins{
 			A: "encoder-steering-b",
 			B: "encoder-steering-a",
 		},
