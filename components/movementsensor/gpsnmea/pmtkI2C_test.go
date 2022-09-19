@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -57,7 +58,9 @@ func TestNewI2CMovementSensor(t *testing.T) {
 
 	g, err := newNMEAGPS(ctx, deps, cfig, logger)
 	test.That(t, g, test.ShouldBeNil)
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError,
+		utils.NewUnexpectedTypeError(&AttrConfig{},
+			cfig.ConvertedAttributes))
 
 	cfig = config.Component{
 		Name:  "movementsensor2",
