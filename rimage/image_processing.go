@@ -220,7 +220,7 @@ type EdgeDetector interface {
 	// returns either a map of edges with magnitude or probability or a binary image
 	DetectEdges(*Image, ...float64) *image.Gray
 	// Edge binary image
-	GetEdgeMap(*Image, ...float64) *Image
+	EdgeMap(*Image, ...float64) *Image
 }
 
 // CannyEdgeDetector TODO.

@@ -366,8 +366,8 @@ func (g *gamepad) Close() {
 	}
 }
 
-// GetControls lists the inputs of the gamepad.
-func (g *gamepad) GetControls(ctx context.Context) ([]input.Control, error) {
+// Controls lists the inputs of the gamepad.
+func (g *gamepad) Controls(ctx context.Context) ([]input.Control, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	if g.dev == nil && len(g.controls) == 0 {
@@ -377,8 +377,8 @@ func (g *gamepad) GetControls(ctx context.Context) ([]input.Control, error) {
 	return out, nil
 }
 
-// GetEvents returns the last input.Event (the current state).
-func (g *gamepad) GetEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+// Events returns the last input.Event (the current state).
+func (g *gamepad) Events(ctx context.Context) (map[input.Control]input.Event, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	out := make(map[input.Control]input.Event)

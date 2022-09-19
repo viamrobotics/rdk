@@ -313,13 +313,13 @@ func TestNewCamera(t *testing.T) {
 	// camera with no camera parameters
 	cam1, err := camera.NewFromReader(context.Background(), videoSrc, nil, camera.UnspecifiedStream)
 	test.That(t, err, test.ShouldBeNil)
-	props, err := cam1.GetProperties(context.Background())
+	props, err := cam1.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, props.SupportsPCD, test.ShouldBeFalse)
 	test.That(t, props.IntrinsicParams, test.ShouldBeNil)
 	cam1, err = camera.NewFromReader(context.Background(), videoSrcPCD, nil, camera.UnspecifiedStream)
 	test.That(t, err, test.ShouldBeNil)
-	props, err = cam1.GetProperties(context.Background())
+	props, err = cam1.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, props.SupportsPCD, test.ShouldBeTrue)
 	test.That(t, props.IntrinsicParams, test.ShouldBeNil)
@@ -332,12 +332,12 @@ func TestNewCamera(t *testing.T) {
 		camera.DepthStream,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	props, err = cam2.GetProperties(context.Background())
+	props, err = cam2.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, *(props.IntrinsicParams), test.ShouldResemble, *intrinsics1)
 
 	// camera with camera parameters inherited  from other camera
-	cam2props, err := cam2.GetProperties(context.Background())
+	cam2props, err := cam2.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	cam3, err := camera.NewFromReader(
 		context.Background(),
@@ -346,7 +346,7 @@ func TestNewCamera(t *testing.T) {
 		camera.DepthStream,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	cam3props, err := cam3.GetProperties(context.Background())
+	cam3props, err := cam3.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, *(cam3props.IntrinsicParams), test.ShouldResemble, *(cam2props.IntrinsicParams))
 
@@ -358,7 +358,7 @@ func TestNewCamera(t *testing.T) {
 		camera.DepthStream,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	cam4props, err := cam4.GetProperties(context.Background())
+	cam4props, err := cam4.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cam4props.IntrinsicParams, test.ShouldNotBeNil)
 	test.That(t, *(cam4props.IntrinsicParams), test.ShouldNotResemble, *(cam2props.IntrinsicParams))
@@ -367,7 +367,7 @@ func TestNewCamera(t *testing.T) {
 	reconfig, err := camera.WrapWithReconfigurable(cam4)
 	test.That(t, err, test.ShouldBeNil)
 	fakeCamera := reconfig.(camera.Camera)
-	props, _ = fakeCamera.GetProperties(context.Background())
+	props, _ = fakeCamera.Properties(context.Background())
 	cam5, err := camera.NewFromReader(
 		context.Background(),
 		videoSrc,
@@ -375,7 +375,7 @@ func TestNewCamera(t *testing.T) {
 		camera.DepthStream,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	cam5props, err := cam5.GetProperties(context.Background())
+	cam5props, err := cam5.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, *(cam5props.IntrinsicParams), test.ShouldResemble, *(cam4props.IntrinsicParams))
 }
@@ -448,7 +448,7 @@ func TestCameraWithProjector(t *testing.T) {
 
 	// camera with a point cloud function
 	videoSrc2 := &cloudSource{videoSrc, generic.Unimplemented{}}
-	props, err := cam.GetProperties(context.Background())
+	props, err := cam.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	cam2, err := camera.NewFromReader(
 		context.Background(),

@@ -41,7 +41,7 @@ type Robot struct {
 		dst string,
 		additionalTransforms []*commonpb.Transform,
 	) (*referenceframe.PoseInFrame, error)
-	GetStatusFunc func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
+	StatusFunc func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error)
 
 	ops     *operation.Manager
 	opsLock sync.Mutex
@@ -197,10 +197,10 @@ func (r *Robot) TransformPose(
 	return r.TransformPoseFunc(ctx, pose, dst, additionalTransforms)
 }
 
-// GetStatus call the injected GetStatus or the real one.
-func (r *Robot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
-	if r.GetStatusFunc == nil {
-		return r.LocalRobot.GetStatus(ctx, resourceNames)
+// Status call the injected Status or the real one.
+func (r *Robot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+	if r.StatusFunc == nil {
+		return r.LocalRobot.Status(ctx, resourceNames)
 	}
-	return r.GetStatusFunc(ctx, resourceNames)
+	return r.StatusFunc(ctx, resourceNames)
 }
