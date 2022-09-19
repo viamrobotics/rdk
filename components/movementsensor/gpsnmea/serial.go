@@ -50,7 +50,7 @@ func NewSerialGPSNMEA(ctx context.Context, attr *AttrConfig, logger golog.Logger
 	correctionPath := attr.SerialAttrConfig.SerialCorrectionPath
 	if correctionPath == "" {
 		correctionPath = serialPath
-		logger.Info("SerialNMEAMovementSensor: correction_path using path")
+		logger.Infof("SerialNMEAMovementSensor: correction_path using path: %s", correctionPath)
 	}
 	baudRate := attr.SerialAttrConfig.SerialBaudRate
 	if baudRate == 0 {
@@ -60,7 +60,7 @@ func NewSerialGPSNMEA(ctx context.Context, attr *AttrConfig, logger golog.Logger
 	correctionBaudRate := attr.SerialAttrConfig.SerialCorrectionBaudRate
 	if correctionBaudRate == 0 {
 		correctionBaudRate = baudRate
-		logger.Info("SerialNMEAMovementSensor: correction_baud using baud_rate")
+		logger.Infof("SerialNMEAMovementSensor: correction_baud using baud_rate: %d", baudRate)
 	}
 	disableNmea := attr.DisableNMEA
 	if disableNmea {
