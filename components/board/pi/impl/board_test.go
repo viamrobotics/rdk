@@ -136,6 +136,9 @@ func TestPiPigpio(t *testing.T) {
 		after, err = i2.Value(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, after-before, test.ShouldEqual, int64(1))
+
+		i2, ok = p.DigitalInterruptByName("11")
+		test.That(t, ok, test.ShouldBeTrue)
 	})
 
 	t.Run("servo in/out", func(t *testing.T) {
