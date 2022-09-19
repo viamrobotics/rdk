@@ -20,7 +20,7 @@ import (
 const (
 	// file version needed by ORBSLAM.
 	fileVersion         = "1.0"
-	YamlFilePrefixBytes = "%YAML:1.0\n"
+	yamlFilePrefixBytes = "%YAML:1.0\n"
 )
 
 // orbCamMaker takes in the camera properties and config params for orbslam and constructs a ORBsettings struct to use with yaml.Marshal.
@@ -167,7 +167,7 @@ func (slamSvc *builtIn) orbGenYAML(ctx context.Context, cam camera.Camera) error
 		return err
 	}
 
-	if _, err = outfile.WriteString(YamlFilePrefixBytes); err != nil {
+	if _, err = outfile.WriteString(yamlFilePrefixBytes); err != nil {
 		return err
 	}
 
