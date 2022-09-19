@@ -1,7 +1,6 @@
 package builtin_test
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -22,11 +21,15 @@ import (
 	"go.viam.com/rdk/services/slam/builtin"
 )
 
+const (
+	yamlFilePrefixBytes = "%YAML:1.0\n"
+	slamTimeFormat      = "2006-01-02T15_04_05.0000"
+)
+
 func findLastYAML(folderName string) (string, string, error) {
 	root := filepath.Join(folderName, "config")
 	yamlExt := ".yaml"
 	yamlTimestamp := time.Time{}
-	slamTimeFormat := "2006-01-02T15_04_05.0000"
 	var yamlPath string
 
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
@@ -109,16 +112,11 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		fakeMapTimestamp = yamlFileTimeStampGood
 		test.That(t, err, test.ShouldBeNil)
 
-		yamlFile, err := os.Open(yamlFilePathGood)
-		test.That(t, err, test.ShouldBeNil)
-		scanner := bufio.NewScanner(yamlFile)
-		scanner.Scan()
-		test.That(t, scanner.Text(), test.ShouldEqual, "%YAML:1.0")
-		err = yamlFile.Close()
-		test.That(t, err, test.ShouldBeNil)
 		yamlDataAll, err := os.ReadFile(yamlFilePathGood)
 		test.That(t, err, test.ShouldBeNil)
-		yamlData := bytes.Replace(yamlDataAll, []byte("%YAML:1.0\n"), []byte(""), 1)
+		test.That(t, yamlDataAll[:len(yamlFilePrefixBytes)], test.ShouldResemble, []byte(yamlFilePrefixBytes))
+
+		yamlData := bytes.Replace(yamlDataAll, []byte(yamlFilePrefixBytes), []byte(""), 1)
 		orbslam := builtin.ORBsettings{}
 		err = yaml.Unmarshal(yamlData, &orbslam)
 		test.That(t, err, test.ShouldBeNil)
@@ -127,6 +125,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		test.That(t, orbslam.ScaleFactor, test.ShouldEqual, 1.2)
 		test.That(t, orbslam.LoadMapLoc, test.ShouldEqual, "")
 
+		//save a fake map for the next map using the previous timestamp
 		fakeMap = filepath.Join(name, "map", attrCfgGood.Sensors[0]+"_data_"+yamlFileTimeStampGood)
 		outfile, err := os.Create(fakeMap + ".osa")
 		test.That(t, err, test.ShouldBeNil)
@@ -145,18 +144,26 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 
 		// Should have the same name due to map being found
-		yamlFileTimeStampGood2, yamlFilePathGood2, err := findLastYAML(name)
+		yamlFileTimeStampGood, yamlFilePathGood, err := findLastYAML(name)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, yamlFileTimeStampGood2, test.ShouldEqual, fakeMapTimestamp)
+		test.That(t, yamlFileTimeStampGood, test.ShouldEqual, fakeMapTimestamp)
 
 		// check if map was specified to load
-		yamlDataAll2, err := os.ReadFile(yamlFilePathGood2)
+		yamlDataAll, err := os.ReadFile(yamlFilePathGood)
 		test.That(t, err, test.ShouldBeNil)
-		yamlData2 := bytes.Replace(yamlDataAll2, []byte("%YAML:1.0\n"), []byte(""), 1)
-		orbslam2 := builtin.ORBsettings{}
-		err = yaml.Unmarshal(yamlData2, &orbslam2)
+		yamlData := bytes.Replace(yamlDataAll, []byte("%YAML:1.0\n"), []byte(""), 1)
+		orbslam := builtin.ORBsettings{}
+		err = yaml.Unmarshal(yamlData, &orbslam)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, orbslam2.LoadMapLoc, test.ShouldEqual, fakeMap)
+		test.That(t, orbslam.LoadMapLoc, test.ShouldEqual, fakeMap)
+
+		// compare timestamps, saveTimeStamp should be more recent than oldTimeStamp
+		saveTimestampLoc := strings.Index(orbslam.SaveMapLoc, "_data_") + len("_data_")
+		saveTimeStamp, err := time.Parse(slamTimeFormat, orbslam.SaveMapLoc[saveTimestampLoc:])
+		test.That(t, err, test.ShouldBeNil)
+		oldTimeStamp, err := time.Parse(slamTimeFormat, fakeMapTimestamp)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, saveTimeStamp.After(oldTimeStamp), test.ShouldBeTrue)
 	})
 
 	t.Run("New orbslamv3 service with camera that errors from bad intrinsics", func(t *testing.T) {
