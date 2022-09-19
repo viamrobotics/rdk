@@ -9,14 +9,14 @@ import (
 
 	"github.com/CPRT/roboclaw"
 	"github.com/edaniels/golog"
-	vuitls "go.viam.com/utils"
+	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/utils"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 const modelname = "roboclaw"
@@ -36,11 +36,11 @@ func (config *AttrConfig) Validate(path string) error {
 		return config.wrongNumberError()
 	}
 	if config.SerialPort == "" {
-		return vuitls.NewConfigValidationFieldRequiredError(path, "serial_port")
+		return utils.NewConfigValidationFieldRequiredError(path, "serial_port")
 	}
 
 	if config.Baud <= 0 {
-		return vuitls.NewConfigValidationFieldRequiredError(path, "baud")
+		return utils.NewConfigValidationFieldRequiredError(path, "baud")
 	}
 
 	return nil
@@ -74,7 +74,7 @@ func init() {
 
 func getOrCreateConnection(deps registry.Dependencies, config *AttrConfig) (*roboclaw.Roboclaw, error) {
 	for _, res := range deps {
-		m, ok := utils.UnwrapProxy(res).(*roboclawMotor)
+		m, ok := rdkutils.UnwrapProxy(res).(*roboclawMotor)
 		if !ok {
 			continue
 		}
@@ -97,7 +97,7 @@ func getOrCreateConnection(deps registry.Dependencies, config *AttrConfig) (*rob
 func newRoboClaw(deps registry.Dependencies, config config.Component, logger golog.Logger) (motor.Motor, error) {
 	motorConfig, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
-		return nil, utils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
+		return nil, rdkutils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
 	}
 
 	if motorConfig.Number < 1 || motorConfig.Number > 2 {
