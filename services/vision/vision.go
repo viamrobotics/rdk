@@ -49,19 +49,19 @@ type Service interface {
 	// model parameters
 	GetModelParameterSchema(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error)
 	// detector methods
-	GetDetectorNames(ctx context.Context) ([]string, error)
+	DetectorNames(ctx context.Context) ([]string, error)
 	AddDetector(ctx context.Context, cfg VisModelConfig) error
 	RemoveDetector(ctx context.Context, detectorName string) error
-	GetDetectionsFromCamera(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error)
-	GetDetections(ctx context.Context, img image.Image, detectorName string) ([]objdet.Detection, error)
+	DetectionsFromCamera(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error)
+	Detections(ctx context.Context, img image.Image, detectorName string) ([]objdet.Detection, error)
 	// classifier methods
-	GetClassifierNames(ctx context.Context) ([]string, error)
+	ClassifierNames(ctx context.Context) ([]string, error)
 	AddClassifier(ctx context.Context, cfg VisModelConfig) error
 	RemoveClassifier(ctx context.Context, classifierName string) error
-	GetClassificationsFromCamera(ctx context.Context, cameraName, classifierName string, n int) (classification.Classifications, error)
-	GetClassifications(ctx context.Context, img image.Image, classifierName string, n int) (classification.Classifications, error)
+	ClassificationsFromCamera(ctx context.Context, cameraName, classifierName string, n int) (classification.Classifications, error)
+	Classifications(ctx context.Context, img image.Image, classifierName string, n int) (classification.Classifications, error)
 	// segmenter methods
-	GetSegmenterNames(ctx context.Context) ([]string, error)
+	SegmenterNames(ctx context.Context) ([]string, error)
 	AddSegmenter(ctx context.Context, cfg VisModelConfig) error
 	RemoveSegmenter(ctx context.Context, segmenterName string) error
 	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string) ([]*viz.Object, error)
@@ -148,10 +148,10 @@ func (svc *reconfigurableVision) GetModelParameterSchema(ctx context.Context, mo
 	return svc.actual.GetModelParameterSchema(ctx, modelType)
 }
 
-func (svc *reconfigurableVision) GetDetectorNames(ctx context.Context) ([]string, error) {
+func (svc *reconfigurableVision) DetectorNames(ctx context.Context) ([]string, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetDetectorNames(ctx)
+	return svc.actual.DetectorNames(ctx)
 }
 
 func (svc *reconfigurableVision) AddDetector(ctx context.Context, cfg VisModelConfig) error {
@@ -166,23 +166,23 @@ func (svc *reconfigurableVision) RemoveDetector(ctx context.Context, detectorNam
 	return svc.actual.RemoveDetector(ctx, detectorName)
 }
 
-func (svc *reconfigurableVision) GetDetectionsFromCamera(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
+func (svc *reconfigurableVision) DetectionsFromCamera(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetDetectionsFromCamera(ctx, cameraName, detectorName)
+	return svc.actual.DetectionsFromCamera(ctx, cameraName, detectorName)
 }
 
-func (svc *reconfigurableVision) GetDetections(ctx context.Context, img image.Image, detectorName string,
+func (svc *reconfigurableVision) Detections(ctx context.Context, img image.Image, detectorName string,
 ) ([]objdet.Detection, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetDetections(ctx, img, detectorName)
+	return svc.actual.Detections(ctx, img, detectorName)
 }
 
-func (svc *reconfigurableVision) GetClassifierNames(ctx context.Context) ([]string, error) {
+func (svc *reconfigurableVision) ClassifierNames(ctx context.Context) ([]string, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetClassifierNames(ctx)
+	return svc.actual.ClassifierNames(ctx)
 }
 
 func (svc *reconfigurableVision) AddClassifier(ctx context.Context, cfg VisModelConfig) error {
@@ -197,26 +197,26 @@ func (svc *reconfigurableVision) RemoveClassifier(ctx context.Context, classifie
 	return svc.actual.RemoveDetector(ctx, classifierName)
 }
 
-func (svc *reconfigurableVision) GetClassificationsFromCamera(ctx context.Context, cameraName,
+func (svc *reconfigurableVision) ClassificationsFromCamera(ctx context.Context, cameraName,
 	classifierName string, n int,
 ) (classification.Classifications, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetClassificationsFromCamera(ctx, cameraName, classifierName, n)
+	return svc.actual.ClassificationsFromCamera(ctx, cameraName, classifierName, n)
 }
 
-func (svc *reconfigurableVision) GetClassifications(ctx context.Context, img image.Image,
+func (svc *reconfigurableVision) Classifications(ctx context.Context, img image.Image,
 	classifierName string, n int,
 ) (classification.Classifications, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetClassifications(ctx, img, classifierName, n)
+	return svc.actual.Classifications(ctx, img, classifierName, n)
 }
 
-func (svc *reconfigurableVision) GetSegmenterNames(ctx context.Context) ([]string, error) {
+func (svc *reconfigurableVision) SegmenterNames(ctx context.Context) ([]string, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetSegmenterNames(ctx)
+	return svc.actual.SegmenterNames(ctx)
 }
 
 func (svc *reconfigurableVision) AddSegmenter(ctx context.Context, cfg VisModelConfig) error {

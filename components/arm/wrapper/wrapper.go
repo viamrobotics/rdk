@@ -75,9 +75,9 @@ func (wrapper *Arm) ModelFrame() referenceframe.Model {
 	return wrapper.model
 }
 
-// GetEndPosition returns the set position.
-func (wrapper *Arm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-	joints, err := wrapper.GetJointPositions(ctx, extra)
+// EndPosition returns the set position.
+func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := wrapper.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -104,9 +104,9 @@ func (wrapper *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPo
 	return wrapper.actual.MoveToJointPositions(ctx, joints, extra)
 }
 
-// GetJointPositions returns the set joints.
-func (wrapper *Arm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
-	joints, err := wrapper.actual.GetJointPositions(ctx, extra)
+// JointPositions returns the set joints.
+func (wrapper *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+	joints, err := wrapper.actual.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func (wrapper *Arm) IsMoving(ctx context.Context) (bool, error) {
 
 // CurrentInputs returns the current inputs of the arm.
 func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := wrapper.actual.GetJointPositions(ctx, nil)
+	res, err := wrapper.actual.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -115,7 +115,7 @@ type ORBsettings struct {
 // generate a .yaml file to be used with orbslam.
 func (slamSvc *builtIn) orbGenYAML(ctx context.Context, cam camera.Camera) error {
 	// Get the camera and check if the properties are valid
-	props, err := cam.GetProperties(ctx)
+	props, err := cam.Properties(ctx)
 	if err != nil {
 		return err
 	}

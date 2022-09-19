@@ -273,7 +273,7 @@ func (base *wheeledBase) Close(ctx context.Context) error {
 	return base.Stop(ctx, nil)
 }
 
-func (base *wheeledBase) GetWidth(ctx context.Context) (int, error) {
+func (base *wheeledBase) Width(ctx context.Context) (int, error) {
 	return base.widthMm, nil
 }
 
