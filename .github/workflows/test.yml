@@ -90,7 +90,7 @@ jobs:
 
     - name: Mark appimage label
       if: contains(github.event.pull_request.labels.*.name, 'appimage')
-      run |
+      run: |
         echo "APPIMAGE=true" >> pr.env
 
     - name: Upload code coverage
