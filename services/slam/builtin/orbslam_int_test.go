@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -31,8 +32,13 @@ func createVocabularyFile(name string) error {
 }
 
 func TestOrbslamIntegrationExample(t *testing.T) {
-	// TODO DATA-364: enable integration tests in CI
-	t.Skip()
+	// TODO DATA-364: remove this check
+	_, err := exec.LookPath("orb_grpc_server")
+	if err != nil {
+		t.Log("Skipping test because orb_grpc_server binary was not found")
+		t.Skip()
+	}
+
 	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 	createVocabularyFile(name)
