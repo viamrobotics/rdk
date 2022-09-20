@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	componentpb "go.viam.com/api/component/generic/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -14,7 +15,6 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
-	componentpb "go.viam.com/rdk/proto/api/component/generic/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"

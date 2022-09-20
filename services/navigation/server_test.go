@@ -8,10 +8,10 @@ import (
 
 	geo "github.com/kellydunn/golang-geo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/service/navigation/v1"
 	"go.viam.com/test"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/navigation/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/subtype"

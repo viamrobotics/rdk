@@ -7,14 +7,14 @@ import (
 
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
+	// register cameras for testing.
+	pb "go.viam.com/api/service/vision/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	// register cameras for testing.
 	"go.viam.com/rdk/components/camera"
 	_ "go.viam.com/rdk/components/camera/register"
 	"go.viam.com/rdk/config"
-	pb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"

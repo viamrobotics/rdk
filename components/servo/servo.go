@@ -5,12 +5,12 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	pb "go.viam.com/api/component/servo/v1"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/data"
-	pb "go.viam.com/rdk/proto/api/component/servo/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
@@ -60,8 +60,8 @@ type Servo interface {
 	// This will block until done or a new operation cancels this one
 	Move(ctx context.Context, angleDeg uint8) error
 
-	// GetPosition returns the current set angle (degrees) of the servo.
-	GetPosition(ctx context.Context) (uint8, error)
+	// Position returns the current set angle (degrees) of the servo.
+	Position(ctx context.Context) (uint8, error)
 
 	// Stop stops the servo. It is assumed the servo stops immediately.
 	Stop(ctx context.Context) error
@@ -122,7 +122,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if !ok {
 		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
-	position, err := servo.GetPosition(ctx)
+	position, err := servo.Position(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -157,10 +157,10 @@ func (r *reconfigurableServo) Move(ctx context.Context, angleDeg uint8) error {
 	return r.actual.Move(ctx, angleDeg)
 }
 
-func (r *reconfigurableServo) GetPosition(ctx context.Context) (uint8, error) {
+func (r *reconfigurableServo) Position(ctx context.Context) (uint8, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetPosition(ctx)
+	return r.actual.Position(ctx)
 }
 
 func (r *reconfigurableServo) Stop(ctx context.Context) error {

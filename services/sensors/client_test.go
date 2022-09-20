@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/service/sensors/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -14,7 +15,6 @@ import (
 
 	"go.viam.com/rdk/components/movementsensor"
 	viamgrpc "go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/service/sensors/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors"
@@ -61,7 +61,7 @@ func TestClient(t *testing.T) {
 		injectSensors.GetSensorsFunc = func(ctx context.Context) ([]resource.Name, error) {
 			return names, nil
 		}
-		sensorNames, err := client.GetSensors(context.Background())
+		sensorNames, err := client.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sensorNames, test.ShouldResemble, names)
 
@@ -71,11 +71,11 @@ func TestClient(t *testing.T) {
 			gReading.Name: gReading.Readings,
 		}
 
-		injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
+		injectSensors.ReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
 			return readings, nil
 		}
 
-		readings, err = client.GetReadings(context.Background(), []resource.Name{})
+		readings, err = client.Readings(context.Background(), []resource.Name{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(readings), test.ShouldEqual, 1)
 		observed := map[resource.Name]interface{}{
@@ -100,14 +100,14 @@ func TestClient(t *testing.T) {
 			return nil, passedErr
 		}
 
-		_, err = client2.GetSensors(context.Background())
+		_, err = client2.Sensors(context.Background())
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 
 		passedErr = errors.New("can't get readings")
-		injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
+		injectSensors.ReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
 			return nil, passedErr
 		}
-		_, err = client2.GetReadings(context.Background(), []resource.Name{})
+		_, err = client2.Readings(context.Background(), []resource.Name{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 
 		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)

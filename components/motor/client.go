@@ -5,10 +5,10 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	pb "go.viam.com/api/component/motor/v1"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
-	pb "go.viam.com/rdk/proto/api/component/motor/v1"
 	"go.viam.com/rdk/protoutils"
 )
 
@@ -89,7 +89,7 @@ func (c *client) ResetZeroPosition(ctx context.Context, offset float64, extra ma
 	return err
 }
 
-func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (c *client) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return 0, err
@@ -102,7 +102,7 @@ func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) 
 	return resp.GetPosition(), nil
 }
 
-func (c *client) GetProperties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error) {
+func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (map[Feature]bool, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err

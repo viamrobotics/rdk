@@ -468,6 +468,6 @@ func (base *limoBase) Close(ctx context.Context) error {
 	return nil
 }
 
-func (base *limoBase) GetWidth(ctx context.Context) (int, error) {
+func (base *limoBase) Width(ctx context.Context) (int, error) {
 	return base.width, nil
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	commonpb "go.viam.com/api/common/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -20,7 +21,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/operation"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -233,7 +233,7 @@ func remoteNameByResource(resourceName resource.Name) (string, bool) {
 	return remote[0], true
 }
 
-func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	r.mu.Lock()
 	resources := make(map[resource.Name]interface{}, len(r.manager.resources.Names()))
 	for _, name := range r.ResourceNames() {
@@ -288,7 +288,7 @@ func (r *localRobot) GetStatus(ctx context.Context, resourceNames []resource.Nam
 			remoteRNames = append(remoteRNames, n)
 		}
 
-		s, err := remote.GetStatus(ctx, remoteRNames)
+		s, err := remote.Status(ctx, remoteRNames)
 		if err != nil {
 			return nil, err
 		}
