@@ -69,17 +69,15 @@ func TestDMC4000Motor(t *testing.T) {
 	deps := make(registry.Dependencies)
 
 	mc := dmc4000.Config{
-		SerialDevice:  "testchan",
-		Axis:          "A",
-		HomeRPM:       50,
-		AmplifierGain: 3,
-		LowCurrent:    -1,
-		TestChan:      c,
-		Config: motor.Config{
-			MaxAcceleration:  5000,
-			MaxRPM:           300,
-			TicksPerRotation: 200,
-		},
+		SerialDevice:     "testchan",
+		Axis:             "A",
+		HomeRPM:          50,
+		AmplifierGain:    3,
+		LowCurrent:       -1,
+		TestChan:         c,
+		MaxAcceleration:  5000,
+		MaxRPM:           300,
+		TicksPerRotation: 200,
 	}
 
 	motorReg := registry.ComponentLookup(motor.Subtype, "DMC4000")
@@ -130,7 +128,7 @@ func TestDMC4000Motor(t *testing.T) {
 	waitTx(t, resChan)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
-		features, err := _motor.GetProperties(ctx, nil)
+		features, err := _motor.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
 	})
@@ -179,7 +177,7 @@ func TestDMC4000Motor(t *testing.T) {
 			[]string{"RPA"},
 			[]string{" 51200\r\n:"},
 		)
-		pos, err := _motor.GetPosition(ctx, nil)
+		pos, err := _motor.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 4.0)
 		waitTx(t, resChan)

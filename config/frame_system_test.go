@@ -8,10 +8,10 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
+	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	robotpb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
@@ -64,7 +64,7 @@ func TestFrameModelPart(t *testing.T) {
 	// fully specified part
 	part = &FrameSystemPart{
 		Name:        "test",
-		FrameConfig: &Frame{Parent: "world", Translation: spatial.TranslationConfig{1, 2, 3}, Orientation: spatial.NewZeroOrientation()},
+		FrameConfig: &Frame{Parent: "world", Translation: r3.Vector{1, 2, 3}, Orientation: spatial.NewZeroOrientation()},
 		ModelFrame:  model,
 	}
 	result, err = part.ToProtobuf()
@@ -125,7 +125,7 @@ func TestFramesFromPart(t *testing.T) {
 	// fully specified part
 	part = &FrameSystemPart{
 		Name:        "test",
-		FrameConfig: &Frame{Parent: "world", Translation: spatial.TranslationConfig{1, 2, 3}, Orientation: spatial.NewZeroOrientation()},
+		FrameConfig: &Frame{Parent: "world", Translation: r3.Vector{1, 2, 3}, Orientation: spatial.NewZeroOrientation()},
 		ModelFrame:  model,
 	}
 	modelFrame, originFrame, err = CreateFramesFromPart(part, logger)

@@ -4,9 +4,8 @@ import (
 	"math"
 	"testing"
 
+	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
-
-	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 )
 
 func TestJointPositions(t *testing.T) {

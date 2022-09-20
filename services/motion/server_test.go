@@ -5,11 +5,11 @@ import (
 	"errors"
 	"testing"
 
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/gripper"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/motion/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
-	rutils "go.viam.com/rdk/utils"
 )
 
 func newServer(omMap map[resource.Name]interface{}) (pb.MotionServiceServer, error) {
@@ -46,7 +45,7 @@ func TestServerMove(t *testing.T) {
 	server, err = newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Move(context.Background(), grabRequest)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("motion.Service", "string"))
+	test.That(t, err, test.ShouldBeError, motion.NewUnimplementedInterfaceError("string"))
 
 	// error
 	injectMS := &inject.MotionService{}
@@ -61,6 +60,7 @@ func TestServerMove(t *testing.T) {
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		worldState *commonpb.WorldState,
+		extra map[string]interface{},
 	) (bool, error) {
 		return false, passedErr
 	}
@@ -74,6 +74,7 @@ func TestServerMove(t *testing.T) {
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		worldState *commonpb.WorldState,
+		extra map[string]interface{},
 	) (bool, error) {
 		return true, nil
 	}
@@ -93,6 +94,7 @@ func TestServerMove(t *testing.T) {
 		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		worldState *commonpb.WorldState,
+		extra map[string]interface{},
 	) (bool, error) {
 		return true, nil
 	}

@@ -5,9 +5,8 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	pb "go.viam.com/api/service/datamanager/v1"
 	"go.viam.com/utils/rpc"
-
-	pb "go.viam.com/rdk/proto/api/service/datamanager/v1"
 )
 
 // client implements DataManagerServiceClient.

@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/inputcontroller/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/components/input"
-	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -58,10 +58,10 @@ func TestServer(t *testing.T) {
 	inputControllerServer, injectInputController, injectInputController2, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	injectInputController.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	injectInputController.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
-	injectInputController.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+	injectInputController.EventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
 		eventsOut := make(map[input.Control]input.Event)
 		eventsOut[input.AbsoluteX] = input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
 		eventsOut[input.ButtonStart] = input.Event{Time: time.Now(), Event: input.ButtonPress, Control: input.ButtonStart, Value: 1.0}
@@ -78,10 +78,10 @@ func TestServer(t *testing.T) {
 		return nil
 	}
 
-	injectInputController2.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	injectInputController2.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return nil, errors.New("can't get controls")
 	}
-	injectInputController2.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+	injectInputController2.EventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
 		return nil, errors.New("can't get last events")
 	}
 	injectInputController2.RegisterControlCallbackFunc = func(

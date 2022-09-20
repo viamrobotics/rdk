@@ -5,13 +5,13 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/gantry/v1"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/data"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -42,12 +42,12 @@ func init() {
 	})
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    SubtypeName,
-		MethodName: getPosition.String(),
-	}, newGetPositionCollector)
+		MethodName: position.String(),
+	}, newPositionCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    SubtypeName,
-		MethodName: getLengths.String(),
-	}, newGetLengthsCollector)
+		MethodName: lengths.String(),
+	}, newLengthsCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "gantry".
@@ -67,16 +67,16 @@ func Named(name string) resource.Name {
 
 // Gantry is used for controlling gantries of N axis.
 type Gantry interface {
-	// GetPosition returns the position in meters
-	GetPosition(ctx context.Context, extra map[string]interface{}) ([]float64, error)
+	// Position returns the position in meters
+	Position(ctx context.Context, extra map[string]interface{}) ([]float64, error)
 
 	// MoveToPosition is in meters
 	// The worldState argument should be treated as optional by all implementing drivers
 	// This will block until done or a new operation cancels this one
 	MoveToPosition(ctx context.Context, positionsMm []float64, worldState *commonpb.WorldState, extra map[string]interface{}) error
 
-	// GetLengths is the length of gantries in meters
-	GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error)
+	// Lengths is the length of gantries in meters
+	Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error)
 
 	// Stop stops the gantry. It is assumed the gantry stops immediately.
 	Stop(ctx context.Context, extra map[string]interface{}) error
@@ -95,7 +95,7 @@ func FromDependencies(deps registry.Dependencies, name string) (Gantry, error) {
 	}
 	part, ok := res.(Gantry)
 	if !ok {
-		return nil, utils.DependencyTypeError(name, "Gantry", res)
+		return nil, DependencyTypeError(name, res)
 	}
 	return part, nil
 }
@@ -107,6 +107,21 @@ type LocalGantry interface {
 	resource.MovingCheckable
 }
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Gantry)(nil), actual)
+}
+
+// NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
+func NewUnimplementedLocalInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Gantry)(nil), actual)
+}
+
+// DependencyTypeError is used when a resource doesn't implement the expected interface.
+func DependencyTypeError(name, actual interface{}) error {
+	return utils.DependencyTypeError(name, (Gantry)(nil), actual)
+}
+
 // FromRobot is a helper for getting the named gantry from the given Robot.
 func FromRobot(r robot.Robot, name string) (Gantry, error) {
 	res, err := r.ResourceByName(Named(name))
@@ -115,7 +130,7 @@ func FromRobot(r robot.Robot, name string) (Gantry, error) {
 	}
 	part, ok := res.(Gantry)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Gantry", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }
@@ -129,14 +144,14 @@ func NamesFromRobot(r robot.Robot) []string {
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
 	gantry, ok := resource.(LocalGantry)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalGantry", resource)
+		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
-	positions, err := gantry.GetPosition(ctx, nil)
+	positions, err := gantry.Position(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	lengths, err := gantry.GetLengths(ctx, nil)
+	lengths, err := gantry.Lengths(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +167,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	g, ok := r.(Gantry)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Gantry", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := g.(*reconfigurableGantry); ok {
 		return reconfigurable, nil
@@ -194,18 +209,18 @@ func (g *reconfigurableGantry) DoCommand(ctx context.Context, cmd map[string]int
 	return g.actual.DoCommand(ctx, cmd)
 }
 
-// GetPosition returns the position in meters.
-func (g *reconfigurableGantry) GetPosition(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+// Position returns the position in meters.
+func (g *reconfigurableGantry) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.actual.GetPosition(ctx, extra)
+	return g.actual.Position(ctx, extra)
 }
 
-// GetLengths returns the position in meters.
-func (g *reconfigurableGantry) GetLengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+// Lengths returns the position in meters.
+func (g *reconfigurableGantry) Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.actual.GetLengths(ctx, extra)
+	return g.actual.Lengths(ctx, extra)
 }
 
 // position is in meters.

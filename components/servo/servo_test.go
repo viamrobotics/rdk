@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/mitchellh/mapstructure"
+	pb "go.viam.com/api/component/servo/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/servo"
-	pb "go.viam.com/rdk/proto/api/component/servo/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -66,12 +66,12 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
 
-	result, err := s.GetPosition(context.Background())
+	result, err := s.Position(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, pos)
 
 	s, err = servo.FromRobot(r, fakeServoName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Servo", "string"))
+	test.That(t, err, test.ShouldBeError, servo.NewUnimplementedInterfaceError("string"))
 	test.That(t, s, test.ShouldBeNil)
 
 	s, err = servo.FromRobot(r, missingServoName)
@@ -102,12 +102,12 @@ func TestStatusValid(t *testing.T) {
 
 func TestCreateStatus(t *testing.T) {
 	_, err := servo.CreateStatus(context.Background(), "not a servo")
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalServo", "string"))
+	test.That(t, err, test.ShouldBeError, servo.NewUnimplementedLocalInterfaceError("string"))
 
 	status := &pb.Status{PositionDeg: uint32(8), IsMoving: true}
 
 	injectServo := &inject.Servo{}
-	injectServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
+	injectServo.PositionFunc = func(ctx context.Context) (uint8, error) {
 		return uint8(status.PositionDeg), nil
 	}
 	injectServo.IsMovingFunc = func(context.Context) (bool, error) {
@@ -136,9 +136,9 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, status1, test.ShouldResemble, status2)
 	})
 
-	t.Run("fail on GetPosition", func(t *testing.T) {
+	t.Run("fail on Position", func(t *testing.T) {
 		errFail := errors.New("can't get position")
-		injectServo.GetPositionFunc = func(ctx context.Context) (uint8, error) {
+		injectServo.PositionFunc = func(ctx context.Context) (uint8, error) {
 			return 0, errFail
 		}
 		_, err = servo.CreateStatus(context.Background(), injectServo)
@@ -188,7 +188,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = servo.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Servo", nil))
+	test.That(t, err, test.ShouldBeError, servo.NewUnimplementedInterfaceError(nil))
 
 	reconfServo2, err := servo.WrapWithReconfigurable(reconfServo1)
 	test.That(t, err, test.ShouldBeNil)
@@ -223,7 +223,7 @@ func TestReconfigurableServo(t *testing.T) {
 
 	test.That(t, actualServo1.posCount, test.ShouldEqual, 0)
 	test.That(t, actualServo2.posCount, test.ShouldEqual, 0)
-	result, err := reconfServo1.(servo.Servo).GetPosition(context.Background())
+	result, err := reconfServo1.(servo.Servo).Position(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, pos)
 	test.That(t, actualServo1.posCount, test.ShouldEqual, 0)
@@ -301,7 +301,7 @@ func (mServo *mockLocal) Move(ctx context.Context, angleDegs uint8) error {
 	return nil
 }
 
-func (mServo *mockLocal) GetPosition(ctx context.Context) (uint8, error) {
+func (mServo *mockLocal) Position(ctx context.Context) (uint8, error) {
 	mServo.posCount++
 	return pos, nil
 }
