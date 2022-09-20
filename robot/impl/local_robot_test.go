@@ -1766,3 +1766,59 @@ func TestCheckMaxInstanceInvalid(t *testing.T) {
 	}
 	test.That(t, maxInstance, test.ShouldEqual, 1)
 }
+
+func TestCheckMaxInstanceSkipRemote(t *testing.T) {
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	r0, err := robotimpl.New(ctx, &config.Config{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r0.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	err = r0.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	remoteConfig := &config.Config{
+		Services: []config.Service{
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "fake1",
+				Model:     resource.DefaultModelName,
+				Type:      config.ServiceType(datamanager.SubtypeName),
+			},
+			{
+				Namespace: resource.ResourceNamespaceRDK,
+				Name:      "fake2",
+				Model:     resource.DefaultModelName,
+				Type:      config.ServiceType(datamanager.SubtypeName),
+			},
+		},
+		Remotes: []config.Remote{
+			{
+				Name:    "remote",
+				Address: addr,
+			},
+		},
+	}
+
+	r, err := robotimpl.New(ctx, remoteConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	maxInstance := 0
+	for _, name := range r.ResourceNames() {
+		if name.Subtype == datamanager.Subtype {
+			maxInstance++
+		}
+	}
+	test.That(t, maxInstance, test.ShouldEqual, 2)
+
+	_, err = r.ResourceByName(datamanager.Named("remote:builtin"))
+	test.That(t, err, test.ShouldBeNil)
+}
