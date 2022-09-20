@@ -33,6 +33,7 @@ func init() {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 		Reconfigurable: WrapWithReconfigurable,
+		MaxInstance:    resource.DefaultMaxInstance,
 	})
 	resource.AddDefaultService(Named(resource.DefaultServiceName))
 }
