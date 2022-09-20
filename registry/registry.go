@@ -36,9 +36,6 @@ type RegDebugInfo struct {
 // Service stores a Service constructor (mandatory) and an attribute converter.
 type Service struct {
 	RegDebugInfo
-	// MaxInstance sets a limit on the number of services allowed on a robot.
-	// If MaxInstance is not set then it will default to 0 and there will be no limit.
-	MaxInstance           int
 	Constructor           CreateService
 	AttributeMapConverter config.AttributeMapConverter
 }
@@ -128,6 +125,10 @@ type ResourceSubtype struct {
 	RPCServiceDesc        *grpc.ServiceDesc
 	ReflectRPCServiceDesc *desc.ServiceDescriptor `copy:"shallow"`
 	RPCClient             CreateRPCClient
+
+	// MaxInstance sets a limit on the number of this subtype allowed on a robot.
+	// If MaxInstance is not set then it will default to 0 and there will be no limit.
+	MaxInstance int
 }
 
 // SubtypeGrpc stores functions necessary for a resource subtype to be accessible through grpc.

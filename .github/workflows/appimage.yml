@@ -6,10 +6,6 @@ on:
     secrets:
       GCP_CREDENTIALS:
         required: true
-      REPO_READ_TOKEN:
-        required: true
-      GIT_ACCESS_TOKEN:
-        required: true
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
@@ -40,9 +36,8 @@ jobs:
       with: 
         fetch-depth: 2
 
-    - name: Clean and configure git for private repos
+    - name: Clean
       run: |
-        echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc
         make clean-all
 
     - name: Authorize GCP Upload
@@ -83,27 +78,6 @@ jobs:
         glob: '*'
         parent: false
         gzip: false
-
-  appimage_comment:
-    name: Add AppImage Links
-    if: contains(github.event.pull_request.labels.*.name, 'appimage')
-    needs: appimage
-    runs-on: [x64, qemu-host]
-    container:
-      image: ghcr.io/viamrobotics/canon:amd64-cache
-      options: --platform linux/amd64
-    timeout-minutes: 5
-
-    steps:
-    - name: Add links
-      uses: marocchino/sticky-pull-request-comment@v2.2.0
-      with:
-        recreate: true
-        GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
-        message: |
-          AppImages ready!
-          <http://packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-x86_64.AppImage>
-          <http://packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-aarch64.AppImage>
 
   appimage_test:
     name: AppImage Test
