@@ -88,6 +88,11 @@ jobs:
       run: |
         echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> pr.env
 
+    - name: Mark appimage label
+      if: contains(github.event.pull_request.labels.*.name, 'appimage')
+      run |
+        echo "APPIMAGE=true" >> pr.env
+
     - name: Upload code coverage
       uses: actions/upload-artifact@v3
       with:

@@ -31,3 +31,13 @@ jobs:
           number: ${{ env.PR_NUMBER }}
           recreate: true
           path: code-coverage-results.md
+
+      - name: Add AppImage Links
+        if: ${{ env.APPIMAGE }}
+        uses: marocchino/sticky-pull-request-comment@v2.2.0
+        with:
+          recreate: true
+          message: |
+            AppImages ready!
+            <http://packages.viam.com/apps/viam-server/viam-server-pr-${{ env.PR_NUMBER }}-x86_64.AppImage>
+            <http://packages.viam.com/apps/viam-server/viam-server-pr-${{ env.PR_NUMBER }}-aarch64.AppImage>
