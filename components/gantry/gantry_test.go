@@ -6,12 +6,12 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/gantry/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/sensor"
-	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"

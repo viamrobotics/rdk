@@ -10,6 +10,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	commonpb "go.viam.com/api/common/v1"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -18,7 +19,6 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/operation"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	spatial "go.viam.com/rdk/spatialmath"

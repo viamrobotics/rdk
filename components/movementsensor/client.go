@@ -6,11 +6,11 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	pb "go.viam.com/api/component/movementsensor/v1"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
-	pb "go.viam.com/rdk/proto/api/component/movementsensor/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/spatialmath"
 )

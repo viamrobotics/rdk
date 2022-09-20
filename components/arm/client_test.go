@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	commonpb "go.viam.com/api/common/v1"
+	componentpb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -14,8 +16,6 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"

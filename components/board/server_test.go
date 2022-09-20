@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/board/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"

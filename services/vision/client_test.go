@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	servicepb "go.viam.com/api/service/vision/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
@@ -17,7 +18,6 @@ import (
 	"go.viam.com/rdk/config"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
-	servicepb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"

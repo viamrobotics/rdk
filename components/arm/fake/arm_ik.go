@@ -7,13 +7,13 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 )

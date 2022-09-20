@@ -7,10 +7,10 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	pb "go.viam.com/api/component/camera/v1"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
 	"go.viam.com/rdk/pointcloud"
-	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
