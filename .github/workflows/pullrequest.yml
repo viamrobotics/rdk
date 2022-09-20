@@ -18,7 +18,6 @@ jobs:
   test:
     uses: viamrobotics/rdk/.github/workflows/test.yml@testfix
     secrets:
-      REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}
       ARTIFACT_READ_ONLY_GCP_CREDENTIALS: ${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}
 
   # This lets people add an "appimage" tag to have appimages built for the PR
@@ -28,4 +27,3 @@ jobs:
     uses: viamrobotics/rdk/.github/workflows/appimage.yml@testfix
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-      REPO_READ_TOKEN: ${{ secrets.REPO_READ_TOKEN }}

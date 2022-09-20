@@ -4,8 +4,6 @@ on:
   workflow_dispatch:
   workflow_call:
     secrets:
-      REPO_READ_TOKEN:
-        required: true
       ARTIFACT_READ_ONLY_GCP_CREDENTIALS:
         required: true
 
@@ -44,10 +42,6 @@ jobs:
         GOOGLE_APPLICATION_CREDENTIALS=`pwd`/${GOOGLE_APPLICATION_CREDENTIALS_FILENAME}
         echo "${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}" >> ${GOOGLE_APPLICATION_CREDENTIALS}
         echo "GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
-
-    - name: Configure git for private repos
-      run: |
-        sudo -u testbot bash -lc 'echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc'
 
     - name: Verify no uncommitted changes from "${{ matrix.build_lint }}"
       run: |
@@ -112,10 +106,6 @@ jobs:
         echo "${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}" >> ${GOOGLE_APPLICATION_CREDENTIALS}
         echo "GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
 
-    - name: Configure git for private repos
-      run: |
-        echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc
-
     - name: Test
       run: make test-pi
 
@@ -149,10 +139,6 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS=`pwd`/${GOOGLE_APPLICATION_CREDENTIALS_FILENAME}
           echo "${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}" >> ${GOOGLE_APPLICATION_CREDENTIALS}
           echo "GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
-
-      - name: Configure git for private repos
-        run: |
-          sudo -u testbot bash -lc 'echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc'
 
       - name: Install dependencies
         run: |
