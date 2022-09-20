@@ -10,8 +10,8 @@ import (
 )
 
 func TestFakeCamera(t *testing.T) {
-	cam_ori := &Camera{Name: "test", Model: fakeModel}
-	cam, err := camera.NewFromReader(context.Background(), cam_ori, fakeModel, camera.ColorStream)
+	camOri := &Camera{Name: "test", Model: fakeModel}
+	cam, err := camera.NewFromReader(context.Background(), camOri, fakeModel, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
 	stream, err := cam.Stream(context.Background())
 	test.That(t, err, test.ShouldBeNil)
