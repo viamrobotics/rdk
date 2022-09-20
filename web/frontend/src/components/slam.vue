@@ -171,7 +171,6 @@ interface Emits {
 
 const props = defineProps<Props>();
 
-
 const emit = defineEmits<Emits>();
 
 const showImage = ref(false);
@@ -184,7 +183,7 @@ const toggleImageExpand = () => {
   if (showImage.value) {
     emit('update-slam-image-refresh-frequency', props.name, selectedImageValue.value);
   } else {
-    emit('update-slam-image-refresh-frequency', props.name, "off");
+    emit('update-slam-image-refresh-frequency', props.name, 'off');
   }
 };
 
@@ -193,7 +192,7 @@ const togglePCDExpand = () => {
   if (showPCD.value) {
     emit('update-slam-pcd-refresh-frequency', props.name, selectedPCDValue.value, true);
   } else {
-    emit('update-slam-pcd-refresh-frequency', props.name, "off", false);
+    emit('update-slam-pcd-refresh-frequency', props.name, 'off', false);
   }
 };
 

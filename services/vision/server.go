@@ -3,14 +3,15 @@ package vision
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/service/vision/v1"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/vision/v1"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -35,9 +36,32 @@ func (server *subtypeServer) service(serviceName string) (Service, error) {
 	}
 	svc, ok := resource.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("vision.Service", resource)
+		return nil, NewUnimplementedInterfaceError(resource)
 	}
 	return svc, nil
+}
+
+func (server *subtypeServer) GetModelParameterSchema(
+	ctx context.Context,
+	req *pb.GetModelParameterSchemaRequest,
+) (*pb.GetModelParameterSchemaResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetModelParameterSchema")
+	defer span.End()
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	params, err := svc.GetModelParameterSchema(ctx, VisModelType(req.ModelType))
+	if err != nil {
+		return nil, err
+	}
+	data, err := json.Marshal(params)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetModelParameterSchemaResponse{
+		ModelParameterSchema: data,
+	}, nil
 }
 
 func (server *subtypeServer) GetDetectorNames(
@@ -50,7 +74,7 @@ func (server *subtypeServer) GetDetectorNames(
 	if err != nil {
 		return nil, err
 	}
-	names, err := svc.GetDetectorNames(ctx)
+	names, err := svc.DetectorNames(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +137,7 @@ func (server *subtypeServer) GetDetections(
 	if err != nil {
 		return nil, err
 	}
-	detections, err := svc.GetDetections(ctx, img, req.DetectorName)
+	detections, err := svc.Detections(ctx, img, req.DetectorName)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +176,7 @@ func (server *subtypeServer) GetDetectionsFromCamera(
 	if err != nil {
 		return nil, err
 	}
-	detections, err := svc.GetDetectionsFromCamera(ctx, req.CameraName, req.DetectorName)
+	detections, err := svc.DetectionsFromCamera(ctx, req.CameraName, req.DetectorName)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +215,7 @@ func (server *subtypeServer) GetClassifierNames(
 	if err != nil {
 		return nil, err
 	}
-	names, err := svc.GetClassifierNames(ctx)
+	names, err := svc.ClassifierNames(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +278,7 @@ func (server *subtypeServer) GetClassifications(
 	if err != nil {
 		return nil, err
 	}
-	classifications, err := svc.GetClassifications(ctx, img, req.ClassifierName, int(req.N))
+	classifications, err := svc.Classifications(ctx, img, req.ClassifierName, int(req.N))
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +305,7 @@ func (server *subtypeServer) GetClassificationsFromCamera(
 	if err != nil {
 		return nil, err
 	}
-	classifications, err := svc.GetClassificationsFromCamera(ctx, req.CameraName, req.ClassifierName, int(req.N))
+	classifications, err := svc.ClassificationsFromCamera(ctx, req.CameraName, req.ClassifierName, int(req.N))
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +330,7 @@ func (server *subtypeServer) GetSegmenterNames(
 	if err != nil {
 		return nil, err
 	}
-	names, err := svc.GetSegmenterNames(ctx)
+	names, err := svc.SegmenterNames(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -315,25 +339,44 @@ func (server *subtypeServer) GetSegmenterNames(
 	}, nil
 }
 
-func (server *subtypeServer) GetSegmenterParameters(
+func (server *subtypeServer) AddSegmenter(
 	ctx context.Context,
-	req *pb.GetSegmenterParametersRequest,
-) (*pb.GetSegmenterParametersResponse, error) {
+	req *pb.AddSegmenterRequest,
+) (*pb.AddSegmenterResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::AddSegmenter")
+	defer span.End()
 	svc, err := server.service(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	params, err := svc.GetSegmenterParameters(ctx, req.SegmenterName)
+	params := config.AttributeMap(req.SegmenterParameters.AsMap())
+	cfg := VisModelConfig{
+		Name:       req.SegmenterName,
+		Type:       req.SegmenterModelType,
+		Parameters: params,
+	}
+	err = svc.AddSegmenter(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	typedParams := make([]*pb.TypedParameter, len(params))
-	for i, p := range params {
-		typedParams[i] = &pb.TypedParameter{Name: p.Name, Type: p.Type}
+	return &pb.AddSegmenterResponse{}, nil
+}
+
+func (server *subtypeServer) RemoveSegmenter(
+	ctx context.Context,
+	req *pb.RemoveSegmenterRequest,
+) (*pb.RemoveSegmenterResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::RemoveSegmenter")
+	defer span.End()
+	svc, err := server.service(req.Name)
+	if err != nil {
+		return nil, err
 	}
-	return &pb.GetSegmenterParametersResponse{
-		SegmenterParameters: typedParams,
-	}, nil
+	err = svc.RemoveSegmenter(ctx, req.SegmenterName)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.RemoveSegmenterResponse{}, nil
 }
 
 // GetObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
@@ -346,8 +389,7 @@ func (server *subtypeServer) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	conf := config.AttributeMap(req.Parameters.AsMap())
-	objects, err := svc.GetObjectPointClouds(ctx, req.CameraName, req.SegmenterName, conf)
+	objects, err := svc.GetObjectPointClouds(ctx, req.CameraName, req.SegmenterName)
 	if err != nil {
 		return nil, err
 	}
@@ -373,7 +415,7 @@ func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointClou
 		ps := &commonpb.PointCloudObject{
 			PointCloud: buf.Bytes(),
 			Geometries: &commonpb.GeometriesInFrame{
-				Geometries:     []*commonpb.Geometry{seg.BoundingBox.ToProtobuf()},
+				Geometries:     []*commonpb.Geometry{seg.Geometry.ToProtobuf()},
 				ReferenceFrame: frame,
 			},
 		}

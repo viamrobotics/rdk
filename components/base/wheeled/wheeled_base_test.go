@@ -48,7 +48,7 @@ func TestWheelBaseMath(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("basics", func(t *testing.T) {
-		temp, err := base.GetWidth(ctx)
+		temp, err := base.Width(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, temp, test.ShouldEqual, 100)
 	})

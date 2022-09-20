@@ -6,12 +6,12 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/motor/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/motor"
-	pb "go.viam.com/rdk/proto/api/component/motor/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -75,12 +75,12 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	result, err := res.GetPosition(context.Background(), nil)
+	result, err := res.Position(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, position)
 
 	res, err = motor.FromDependencies(deps, fakeMotorName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeMotorName, "Motor", "string"))
+	test.That(t, err, test.ShouldBeError, motor.DependencyTypeError(fakeMotorName, "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = motor.FromDependencies(deps, missingMotorName)
@@ -95,12 +95,12 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	result, err := res.GetPosition(context.Background(), nil)
+	result, err := res.Position(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, position)
 
 	res, err = motor.FromRobot(r, fakeMotorName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Motor", "string"))
+	test.That(t, err, test.ShouldBeError, motor.NewUnimplementedInterfaceError("string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = motor.FromRobot(r, missingMotorName)
@@ -148,7 +148,7 @@ func TestStatusValid(t *testing.T) {
 
 func TestCreateStatus(t *testing.T) {
 	_, err := motor.CreateStatus(context.Background(), "not a motor")
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalMotor", "string"))
+	test.That(t, err, test.ShouldBeError, motor.NewUnimplementedLocalInterfaceError("string"))
 
 	status := &pb.Status{IsPowered: true, PositionReporting: true, Position: 7.7, IsMoving: true}
 
@@ -156,10 +156,10 @@ func TestCreateStatus(t *testing.T) {
 	injectMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		return status.IsPowered, nil
 	}
-	injectMotor.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+	injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 		return map[motor.Feature]bool{motor.PositionReporting: status.PositionReporting}, nil
 	}
-	injectMotor.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	injectMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 		return status.Position, nil
 	}
 	injectMotor.IsMovingFunc = func(context.Context) (bool, error) {
@@ -188,9 +188,9 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, status1, test.ShouldResemble, status2)
 	})
 
-	t.Run("fail on GetPosition", func(t *testing.T) {
+	t.Run("fail on Position", func(t *testing.T) {
 		errFail := errors.New("can't get position")
-		injectMotor.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		injectMotor.PositionFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
 			return 0, errFail
 		}
 		_, err = motor.CreateStatus(context.Background(), injectMotor)
@@ -198,7 +198,7 @@ func TestCreateStatus(t *testing.T) {
 	})
 
 	t.Run("position not supported", func(t *testing.T) {
-		injectMotor.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+		injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 			return map[motor.Feature]bool{motor.PositionReporting: false}, nil
 		}
 
@@ -207,9 +207,9 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, status1, test.ShouldResemble, &pb.Status{IsPowered: true, PositionReporting: false})
 	})
 
-	t.Run("fail on GetProperties", func(t *testing.T) {
+	t.Run("fail on Properties", func(t *testing.T) {
 		errFail := errors.New("can't get features")
-		injectMotor.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+		injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 			return nil, errFail
 		}
 		_, err = motor.CreateStatus(context.Background(), injectMotor)
@@ -268,7 +268,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = motor.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Motor", nil))
+	test.That(t, err, test.ShouldBeError, motor.NewUnimplementedInterfaceError(nil))
 
 	reconfMotor2, err := motor.WrapWithReconfigurable(reconfMotor1)
 	test.That(t, err, test.ShouldBeNil)
@@ -303,7 +303,7 @@ func TestReconfigurableMotor(t *testing.T) {
 
 	test.That(t, actualMotor1.posCount, test.ShouldEqual, 0)
 	test.That(t, actualMotor2.posCount, test.ShouldEqual, 0)
-	result, err := reconfMotor1.(motor.Motor).GetPosition(context.Background(), nil)
+	result, err := reconfMotor1.(motor.Motor).Position(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, position)
 	test.That(t, actualMotor1.posCount, test.ShouldEqual, 0)
@@ -381,25 +381,25 @@ func TestResetZeroPosition(t *testing.T) {
 	test.That(t, actualMotor1.zeroCount, test.ShouldEqual, 1)
 }
 
-func TestGetPosition(t *testing.T) {
+func TestPosition(t *testing.T) {
 	actualMotor1 := &mock{Name: testMotorName}
 	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.posCount, test.ShouldEqual, 0)
-	pos1, err := reconfMotor1.(motor.Motor).GetPosition(context.Background(), nil)
+	pos1, err := reconfMotor1.(motor.Motor).Position(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos1, test.ShouldResemble, position)
 	test.That(t, actualMotor1.posCount, test.ShouldEqual, 1)
 }
 
-func TestGetProperties(t *testing.T) {
+func TestProperties(t *testing.T) {
 	actualMotor1 := &mock{Name: testMotorName}
 	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.featuresCount, test.ShouldEqual, 0)
-	feat1, err := reconfMotor1.(motor.Motor).GetProperties(context.Background(), nil)
+	feat1, err := reconfMotor1.(motor.Motor).Properties(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, feat1, test.ShouldResemble, features)
 	test.That(t, actualMotor1.featuresCount, test.ShouldEqual, 1)
@@ -505,13 +505,13 @@ func (m *mock) ResetZeroPosition(ctx context.Context, offset float64, extra map[
 	return nil
 }
 
-func (m *mock) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (m *mock) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	m.posCount++
 	m.extra = extra
 	return position, nil
 }
 
-func (m *mock) GetProperties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+func (m *mock) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	m.featuresCount++
 	m.extra = extra
 	return features, nil

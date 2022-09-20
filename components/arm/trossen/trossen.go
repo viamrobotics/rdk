@@ -14,6 +14,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/dynamixel/network"
 	"go.viam.com/dynamixel/servo"
 	"go.viam.com/dynamixel/servo/s_model"
@@ -24,8 +26,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -119,42 +119,35 @@ func (config *AttrConfig) Validate(path string) error {
 	return nil
 }
 
-//go:embed wx250s_kinematics.json
+//go:embed trossen_wx250s_kinematics.json
 var wx250smodeljson []byte
 
-//go:embed vx300s_kinematics.json
+//go:embed trossen_vx300s_kinematics.json
 var vx300smodeljson []byte
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, ModelNameWX250S, registry.Component{
+	registry.RegisterComponent(arm.Subtype, "trossen-wx250s", registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewArm(r, config.Attributes, logger, ModelNameWX250S)
+			return NewArm(r, config, logger, wx250smodeljson)
 		},
 	})
-	registry.RegisterComponent(arm.Subtype, ModelNameVX300S, registry.Component{
+	registry.RegisterComponent(arm.Subtype, "trossen-vx300s", registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewArm(r, config.Attributes, logger, ModelNameWX250S)
+			return NewArm(r, config, logger, vx300smodeljson)
 		},
 	})
 }
 
 // NewArm returns an instance of Arm given a model json.
-func NewArm(r robot.Robot, attributes config.AttributeMap, logger golog.Logger, modelType string) (arm.LocalArm, error) {
+func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger, json []byte) (arm.LocalArm, error) {
+	attributes := cfg.Attributes
 	usbPort := attributes.String("usb_port")
 	servos, err := findServos(usbPort, attributes.String("baud_rate"), attributes.String("arm_servo_count"))
 	if err != nil {
 		return nil, err
 	}
 
-	var model referenceframe.Model
-	switch modelType {
-	case ModelNameWX250S:
-		model, err = referenceframe.UnmarshalModelJSON(wx250smodeljson, "")
-	case ModelNameVX300S:
-		model, err = referenceframe.UnmarshalModelJSON(vx300smodeljson, "")
-	default:
-		return nil, errors.Errorf("unknown kinematics model specified, supported models are %s and %s", ModelNameWX250S, ModelNameVX300S)
-	}
+	model, err := referenceframe.UnmarshalModelJSON(json, cfg.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -175,9 +168,9 @@ func NewArm(r robot.Robot, attributes config.AttributeMap, logger golog.Logger, 
 	}, nil
 }
 
-// GetEndPosition computes and returns the current cartesian position.
-func (a *Arm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-	joints, err := a.GetJointPositions(ctx, extra)
+// EndPosition computes and returns the current cartesian position.
+func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := a.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -211,8 +204,8 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions, e
 	return a.WaitForMovement(ctx)
 }
 
-// GetJointPositions returns an empty struct, because the wx250s should use joint angles from kinematics.
-func (a *Arm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+// JointPositions returns an empty struct, because the wx250s should use joint angles from kinematics.
+func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	angleMap, err := a.GetAllAngles()
 	if err != nil {
 		return &pb.JointPositions{}, err
@@ -423,7 +416,7 @@ func (a *Arm) HomePosition(ctx context.Context) error {
 
 // CurrentInputs TODO.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.GetJointPositions(ctx, nil)
+	res, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

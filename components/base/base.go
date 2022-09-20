@@ -7,13 +7,13 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/base/v1"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/base/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
@@ -85,8 +85,8 @@ type Base interface {
 // A LocalBase represents a physical base of a robot that can report the width of itself.
 type LocalBase interface {
 	Base
-	// GetWidth returns the width of the base in millimeters.
-	GetWidth(ctx context.Context) (int, error)
+	// Width returns the width of the base in millimeters.
+	Width(ctx context.Context) (int, error)
 	resource.MovingCheckable
 }
 
@@ -107,9 +107,24 @@ func FromDependencies(deps registry.Dependencies, name string) (Base, error) {
 	}
 	part, ok := res.(Base)
 	if !ok {
-		return nil, utils.DependencyTypeError(name, "Base", res)
+		return nil, DependencyTypeError(name, res)
 	}
 	return part, nil
+}
+
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Base)(nil), actual)
+}
+
+// NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
+func NewUnimplementedLocalInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((LocalBase)(nil), actual)
+}
+
+// DependencyTypeError is used when a resource doesn't implement the expected interface.
+func DependencyTypeError(name, actual interface{}) error {
+	return utils.DependencyTypeError(name, (Base)(nil), actual)
 }
 
 // FromRobot is a helper for getting the named base from the given Robot.
@@ -120,7 +135,7 @@ func FromRobot(r robot.Robot, name string) (Base, error) {
 	}
 	part, ok := res.(Base)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Base", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }
@@ -134,7 +149,7 @@ func NamesFromRobot(r robot.Robot) []string {
 func CreateStatus(ctx context.Context, resource interface{}) (*commonpb.ActuatorStatus, error) {
 	base, ok := resource.(LocalBase)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalBase", resource)
+		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
 	isMoving, err := base.IsMoving(ctx)
 	if err != nil {
@@ -229,10 +244,10 @@ type reconfigurableLocalBase struct {
 	actual LocalBase
 }
 
-func (r *reconfigurableLocalBase) GetWidth(ctx context.Context) (int, error) {
+func (r *reconfigurableLocalBase) Width(ctx context.Context) (int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetWidth(ctx)
+	return r.actual.Width(ctx)
 }
 
 func (r *reconfigurableLocalBase) IsMoving(ctx context.Context) (bool, error) {
@@ -261,7 +276,7 @@ func (r *reconfigurableLocalBase) Reconfigure(ctx context.Context, newBase resou
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	base, ok := r.(Base)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Base", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := base.(*reconfigurableBase); ok {
 		return reconfigurable, nil

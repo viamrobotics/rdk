@@ -18,13 +18,13 @@ import (
 	"github.com/edaniels/golog"
 	goserial "github.com/jacobsa/go-serial/serial"
 	"go.uber.org/multierr"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -32,6 +32,12 @@ import (
 const modelName = "numato"
 
 var errNoBoard = errors.New("no numato boards found")
+
+// A Config describes the configuration of a board and all of its connected parts.
+type Config struct {
+	Analogs    []board.AnalogConfig `json:"analogs,omitempty"`
+	Attributes config.AttributeMap  `json:"attributes,omitempty"`
+}
 
 func init() {
 	registry.RegisterComponent(
@@ -43,24 +49,31 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			conf, ok := config.ConvertedAttributes.(*board.Config)
+			conf, ok := config.ConvertedAttributes.(*Config)
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
 			}
 
-			if len(conf.DigitalInterrupts) != 0 {
-				return nil, errors.New("digital interrupts unsupported")
-			}
-			if len(conf.I2Cs) != 0 {
-				return nil, errors.New("i2c unsupported")
-			}
-			if len(conf.SPIs) != 0 {
-				return nil, errors.New("spi unsupported")
-			}
-
 			return connect(ctx, conf, logger)
 		}})
-	board.RegisterConfigAttributeConverter(modelName)
+	config.RegisterComponentAttributeMapConverter(
+		board.SubtypeName,
+		modelName,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&Config{})
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) error {
+	for idx, conf := range config.Analogs {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type mask []byte
@@ -347,7 +360,7 @@ func (ar *analogReader) Read(ctx context.Context, extra map[string]interface{}) 
 	return strconv.Atoi(res)
 }
 
-func connect(ctx context.Context, conf *board.Config, logger golog.Logger) (board.LocalBoard, error) {
+func connect(ctx context.Context, conf *Config, logger golog.Logger) (board.LocalBoard, error) {
 	pins := conf.Attributes.Int("pins", 0)
 	if pins <= 0 {
 		return nil, errors.New("numato board needs pins set in attributes")

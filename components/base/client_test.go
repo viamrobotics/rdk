@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/base/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -15,7 +16,6 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/generic"
 	viamgrpc "go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/component/base/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
@@ -48,7 +48,7 @@ func setupWorkingBase(
 		return nil
 	}
 
-	workingBase.GetWidthFunc = func(ctx context.Context) (int, error) {
+	workingBase.WidthFunc = func(ctx context.Context) (int, error) {
 		return width, nil
 	}
 }
@@ -73,7 +73,7 @@ func setupBrokenBase(brokenBase *inject.Base) string {
 	brokenBase.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return errors.New(errMsg)
 	}
-	brokenBase.GetWidthFunc = func(ctx context.Context) (int, error) {
+	brokenBase.WidthFunc = func(ctx context.Context) (int, error) {
 		return 0, errors.New(errMsg)
 	}
 	return errMsg

@@ -7,13 +7,13 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/inputcontroller/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/input"
-	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -77,12 +77,12 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	result, err := res.GetControls(context.Background())
+	result, err := res.Controls(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, controls)
 
 	res, err = input.FromDependencies(deps, fakeInputControllerName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeInputControllerName, "input.Controller", "string"))
+	test.That(t, err, test.ShouldBeError, input.DependencyTypeError(fakeInputControllerName, "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = input.FromDependencies(deps, missingInputControllerName)
@@ -97,12 +97,12 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	result, err := res.GetControls(context.Background())
+	result, err := res.Controls(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, controls)
 
 	res, err = input.FromRobot(r, fakeInputControllerName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("input.Controller", "string"))
+	test.That(t, err, test.ShouldBeError, input.NewUnimplementedInterfaceError("string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = input.FromRobot(r, missingInputControllerName)
@@ -150,7 +150,7 @@ func TestStatusValid(t *testing.T) {
 
 func TestCreateStatus(t *testing.T) {
 	_, err := input.CreateStatus(context.Background(), "not an input")
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("input.Controller", "string"))
+	test.That(t, err, test.ShouldBeError, input.NewUnimplementedInterfaceError("string"))
 
 	timestamp := time.Now()
 	event := input.Event{Time: timestamp, Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
@@ -160,7 +160,7 @@ func TestCreateStatus(t *testing.T) {
 		},
 	}
 	injectInputController := &inject.InputController{}
-	injectInputController.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+	injectInputController.EventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
 		eventsOut := make(map[input.Control]input.Event)
 		eventsOut[input.AbsoluteX] = event
 		return eventsOut, nil
@@ -172,9 +172,9 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, status1, test.ShouldResemble, status)
 	})
 
-	t.Run("fail on GetEvents", func(t *testing.T) {
+	t.Run("fail on Events", func(t *testing.T) {
 		errFail := errors.New("can't get events")
-		injectInputController.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+		injectInputController.EventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
 			return nil, errFail
 		}
 		_, err = input.CreateStatus(context.Background(), injectInputController)
@@ -224,7 +224,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = input.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Controller", nil))
+	test.That(t, err, test.ShouldBeError, input.NewUnimplementedInterfaceError(nil))
 
 	reconfInput2, err := input.WrapWithReconfigurable(reconfInput1)
 	test.That(t, err, test.ShouldBeNil)
@@ -248,7 +248,7 @@ func TestReconfigurableInputController(t *testing.T) {
 
 	test.That(t, actualInput1.controlsCount, test.ShouldEqual, 0)
 	test.That(t, actualInput2.controlsCount, test.ShouldEqual, 0)
-	result, err := reconfInput1.(input.Controller).GetControls(context.Background())
+	result, err := reconfInput1.(input.Controller).Controls(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, controls)
 	test.That(t, actualInput1.controlsCount, test.ShouldEqual, 0)
@@ -278,7 +278,7 @@ type mock struct {
 	reconfCount   int
 }
 
-func (m *mock) GetControls(ctx context.Context) ([]input.Control, error) {
+func (m *mock) Controls(ctx context.Context) ([]input.Control, error) {
 	m.controlsCount++
 	return controls, nil
 }

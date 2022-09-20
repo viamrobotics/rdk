@@ -7,10 +7,10 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	pb "go.viam.com/api/component/camera/v1"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
 	"go.viam.com/rdk/pointcloud"
-	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -146,7 +146,7 @@ func (s *subtypeServer) GetProperties(
 	if err != nil {
 		return nil, err
 	}
-	props, err := camera.GetProperties(ctx)
+	props, err := camera.Properties(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -162,5 +162,11 @@ func (s *subtypeServer) GetProperties(
 		}
 	}
 	result.SupportsPcd = props.SupportsPCD
+	if props.DistortionParams != nil {
+		result.DistortionParameters = &pb.DistortionParameters{
+			Model:      string(props.DistortionParams.ModelType()),
+			Parameters: props.DistortionParams.Parameters(),
+		}
+	}
 	return result, nil
 }
