@@ -3,7 +3,7 @@ package motionplan
 import (
 	"math"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	commonpb "go.viam.com/api/common/v1"
 )
 
 // fixOvIncrement will detect whether the given goal position is a precise orientation increment of the current

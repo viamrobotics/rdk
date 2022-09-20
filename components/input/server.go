@@ -5,9 +5,9 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/inputcontroller/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
 	"go.viam.com/rdk/subtype"
 )
 

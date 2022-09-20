@@ -110,9 +110,9 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 	var model referenceframe.Model
 	switch dof {
 	case 6:
-		model, err = referenceframe.UnmarshalModelJSON(xArm6modeljson, "")
+		model, err = referenceframe.UnmarshalModelJSON(xArm6modeljson, cfg.Name)
 	case 7:
-		model, err = referenceframe.UnmarshalModelJSON(xArm7modeljson, "")
+		model, err = referenceframe.UnmarshalModelJSON(xArm7modeljson, cfg.Name)
 	default:
 		err = errors.New("no kinematics model for xarm with specified degrees of freedom")
 	}

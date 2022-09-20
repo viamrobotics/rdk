@@ -4,7 +4,8 @@ package datamanager
 import (
 	"context"
 
-	pb "go.viam.com/rdk/proto/api/service/datamanager/v1"
+	pb "go.viam.com/api/service/datamanager/v1"
+
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
