@@ -141,8 +141,8 @@ type alignAttrs struct {
 	*camera.AttrConfig
 	Color              string      `json:"color"`
 	Depth              string      `json:"depth"`
-	Height             int         `json:"height"`
-	Width              int         `json:"width"`
+	Height             int         `json:"height_px"`
+	Width              int         `json:"width_px"`
 	IntrinsicExtrinsic interface{} `json:"intrinsic_extrinsic"`
 	Homography         interface{} `json:"homography"`
 	Warp               interface{} `json:"warp"`
