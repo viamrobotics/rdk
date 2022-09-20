@@ -44,8 +44,8 @@ func init() {
 	})
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    SubtypeName,
-		MethodName: getControls.String(),
-	}, newGetControlsCollector)
+		MethodName: controls.String(),
+	}, newControlsCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string input.
