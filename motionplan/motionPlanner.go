@@ -110,7 +110,7 @@ func newCostNode(q []frame.Input, cost float64) *costNode {
 }
 
 // nodePair groups together nodes in a tuple
-// TODO(rb): in the future we might think about making this into a list of nodes
+// TODO(rb): in the future we might think about making this into a list of nodes.
 type nodePair struct{ a, b node }
 
 func (np *nodePair) sumCosts() float64 {
