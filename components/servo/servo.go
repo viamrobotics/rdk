@@ -40,8 +40,8 @@ func init() {
 	})
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    SubtypeName,
-		MethodName: getPosition.String(),
-	}, newGetPositionCollector)
+		MethodName: position.String(),
+	}, newPositionCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "servo".

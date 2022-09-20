@@ -11,13 +11,13 @@ import (
 type method int64
 
 const (
-	getControls method = iota
+	controls method = iota
 )
 
 func (m method) String() string {
 	switch m {
-	case getControls:
-		return "GetControls"
+	case controls:
+		return "controls"
 	}
 	return "Unknown"
 }
@@ -27,16 +27,16 @@ type Controls struct {
 	Controls []Control
 }
 
-func newGetControlsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newControlsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	controller, err := assertController(resource)
 	if err != nil {
 		return nil, err
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		v, err := controller.GetControls(ctx)
+		v, err := controller.Controls(ctx)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, getControls.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, controls.String(), err)
 		}
 		return Controls{Controls: v}, nil
 	})

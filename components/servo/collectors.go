@@ -11,13 +11,13 @@ import (
 type method int64
 
 const (
-	getPosition method = iota
+	position method = iota
 )
 
 func (m method) String() string {
 	switch m {
-	case getPosition:
-		return "GetPosition"
+	case position:
+		return "Position"
 	}
 	return "Unknown"
 }
@@ -34,9 +34,9 @@ func newGetPositionCollector(resource interface{}, params data.CollectorParams) 
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		v, err := servo.GetPosition(ctx)
+		v, err := servo.Position(ctx)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, getPosition.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
 		return Position{Position: v}, nil
 	})
