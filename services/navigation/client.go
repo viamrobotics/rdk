@@ -7,10 +7,9 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/service/navigation/v1"
 	"go.viam.com/utils/rpc"
-
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/navigation/v1"
 )
 
 // client implements NavigationServiceClient.

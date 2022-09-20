@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"periph.io/x/conn/v3/gpio/gpiotest"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
 func TestRegisterBoard(t *testing.T) {

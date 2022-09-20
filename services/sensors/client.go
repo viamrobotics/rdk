@@ -5,10 +5,10 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/service/sensors/v1"
 	"go.viam.com/utils/rpc"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/sensors/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
