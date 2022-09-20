@@ -6,6 +6,7 @@ import (
 	"image"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
@@ -14,7 +15,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/utils/artifact"
 )
 
 func init() {
