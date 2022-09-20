@@ -6,8 +6,6 @@ on:
     secrets:
       REPO_READ_TOKEN:
         required: true
-      GIT_ACCESS_TOKEN:
-        required: true
       ARTIFACT_READ_ONLY_GCP_CREDENTIALS:
         required: true
 
@@ -90,7 +88,6 @@ jobs:
       with:
         recreate: true
         path: code-coverage-results.md
-        GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
 
   test_pi:
     name: Test Raspberry Pi Code
