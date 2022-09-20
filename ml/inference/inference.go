@@ -13,8 +13,8 @@ type MLModel interface {
 	// and makes an inference on the model, returning an output tensor map
 	Infer(inputTensor interface{}) (config.AttributeMap, error)
 
-	// GetMetadata gets the entire model metadata structure from file
-	GetMetadata() (interface{}, error)
+	// Metadata gets the entire model metadata structure from file
+	Metadata() (interface{}, error)
 
 	// Close closes the model and interpreter that allows inferences to be made, opens up space in memory.
 	// All models must be closed when done using

@@ -33,8 +33,8 @@ var Subtype = resource.NewSubtype(
 
 // A Encoder turns a position into a signal.
 type Encoder interface {
-	// GetTicksCount returns number of ticks since last zeroing
-	GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error)
+	// TicksCount returns number of ticks since last zeroing
+	TicksCount(ctx context.Context, extra map[string]interface{}) (int64, error)
 
 	// Reset sets the current position of the motor (adjusted by a given offset)
 	// to be its new zero position.
@@ -113,10 +113,10 @@ func (r *reconfigurableEncoder) DoCommand(ctx context.Context, cmd map[string]in
 	return r.actual.DoCommand(ctx, cmd)
 }
 
-func (r *reconfigurableEncoder) GetTicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
+func (r *reconfigurableEncoder) TicksCount(ctx context.Context, extra map[string]interface{}) (int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetTicksCount(ctx, extra)
+	return r.actual.TicksCount(ctx, extra)
 }
 
 func (r *reconfigurableEncoder) Reset(ctx context.Context, offset int64, extra map[string]interface{}) error {

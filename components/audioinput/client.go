@@ -11,11 +11,11 @@ import (
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/audioinput/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
-	pb "go.viam.com/rdk/proto/api/component/audioinput/v1"
 )
 
 // client is an audio input client.

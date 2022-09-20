@@ -17,10 +17,10 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager/datacapture"
@@ -76,7 +76,7 @@ func getInjectedRobotWithArm(armKey string) *inject.Robot {
 	r := &inject.Robot{}
 	rs := map[resource.Name]interface{}{}
 	injectedArm := &inject.Arm{}
-	injectedArm.GetEndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	injectedArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return &commonpb.Pose{X: 1, Y: 2, Z: 3}, nil
 	}
 	rs[arm.Named(armKey)] = injectedArm
@@ -371,7 +371,7 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 
 // Generates and populates a directory structure of files that contain arbitrary file data. Used to simulate testing
 // syncing of data in the service's additional_sync_paths.
-//nolint
+// nolint
 func populateAdditionalSyncPaths() ([]string, int, error) {
 	var additionalSyncPaths []string
 	numArbitraryFilesToSync := 0

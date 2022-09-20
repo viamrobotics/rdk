@@ -7,9 +7,9 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -116,17 +116,17 @@ func TestFrameSystemSolver(t *testing.T) {
 func TestSliceUniq(t *testing.T) {
 	solver := makeTestFS(t)
 	slice := []frame.Frame{}
-	slice = append(slice, solver.GetFrame("urCamera"))
-	slice = append(slice, solver.GetFrame("gantryOffset"))
-	slice = append(slice, solver.GetFrame("xArmVgripper"))
-	slice = append(slice, solver.GetFrame("urCamera"))
+	slice = append(slice, solver.Frame("urCamera"))
+	slice = append(slice, solver.Frame("gantryOffset"))
+	slice = append(slice, solver.Frame("xArmVgripper"))
+	slice = append(slice, solver.Frame("urCamera"))
 	uniqd := uniqInPlaceSlice(slice)
 	test.That(t, len(uniqd), test.ShouldEqual, 3)
 }
 
 func TestSolverFrameGeometries(t *testing.T) {
 	solver := makeTestFS(t)
-	sFrames, err := solver.TracebackFrame(solver.GetFrame("xArmVgripper"))
+	sFrames, err := solver.TracebackFrame(solver.Frame("xArmVgripper"))
 	test.That(t, err, test.ShouldBeNil)
 	sf, err := newSolverFrame(solver, sFrames, frame.World, frame.StartPositions(solver))
 	test.That(t, err, test.ShouldBeNil)
@@ -152,8 +152,8 @@ func TestMovementWithGripper(t *testing.T) {
 
 	// setup solverFrame and planning query
 	solver := makeTestFS(t)
-	solver.RemoveFrame(solver.GetFrame("urOffset"))
-	sFrames, err := solver.TracebackFrame(solver.GetFrame("xArmVgripper"))
+	solver.RemoveFrame(solver.Frame("urOffset"))
+	sFrames, err := solver.TracebackFrame(solver.Frame("xArmVgripper"))
 	test.That(t, err, test.ShouldBeNil)
 	sf, err := newSolverFrame(solver, sFrames, frame.World, frame.StartPositions(solver))
 	test.That(t, err, test.ShouldBeNil)
@@ -179,7 +179,7 @@ func TestMovementWithGripper(t *testing.T) {
 	test.That(t, solution, test.ShouldNotBeNil)
 
 	// plan with end of arm with gripper attached - this will fail
-	sFrames, err = solver.TracebackFrame(solver.GetFrame("xArm6"))
+	sFrames, err = solver.TracebackFrame(solver.Frame("xArm6"))
 	test.That(t, err, test.ShouldBeNil)
 	sf, err = newSolverFrame(solver, sFrames, frame.World, frame.StartPositions(solver))
 	test.That(t, err, test.ShouldBeNil)
@@ -194,8 +194,8 @@ func TestMovementWithGripper(t *testing.T) {
 	test.That(t, solution, test.ShouldNotBeNil)
 
 	// remove gripper and try with linear constraint
-	solver.RemoveFrame(solver.GetFrame("xArmVgripper"))
-	sFrames, err = solver.TracebackFrame(solver.GetFrame("xArm6"))
+	solver.RemoveFrame(solver.Frame("xArmVgripper"))
+	sFrames, err = solver.TracebackFrame(solver.Frame("xArm6"))
 	test.That(t, err, test.ShouldBeNil)
 	sf, err = newSolverFrame(solver, sFrames, frame.World, frame.StartPositions(solver))
 	test.That(t, err, test.ShouldBeNil)

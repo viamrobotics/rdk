@@ -160,7 +160,7 @@ func TestArduinoPWM(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			b, err := newArduino(&board.Config{}, logger)
+			b, err := newArduino(&Config{}, logger)
 			if err != nil && strings.HasPrefix(err.Error(), "found ") {
 				t.Skip()
 				return
@@ -240,7 +240,7 @@ func TestArduinoMotorABPWM(t *testing.T) {
 			},
 		},
 	}
-	b, err := newArduino(&board.Config{}, logger)
+	b, err := newArduino(&Config{}, logger)
 	if err != nil && strings.HasPrefix(err.Error(), "found ") {
 		t.Skip()
 		return
@@ -299,7 +299,7 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 			},
 		},
 	}
-	b, err := newArduino(&board.Config{}, logger)
+	b, err := newArduino(&Config{}, logger)
 	if err != nil && strings.HasPrefix(err.Error(), "found ") {
 		t.Skip()
 		return
@@ -358,7 +358,7 @@ func TestArduinoMotorAB(t *testing.T) {
 			},
 		},
 	}
-	b, err := newArduino(&board.Config{}, logger)
+	b, err := newArduino(&Config{}, logger)
 	if err != nil && strings.HasPrefix(err.Error(), "found ") {
 		t.Skip()
 		return
@@ -386,13 +386,13 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 	t.Helper()
 
 	t.Run("arduino motor features include position support", func(t *testing.T) {
-		features, err := m.GetProperties(ctx, nil)
+		features, err := m.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
 	})
 
 	t.Run("ardunio motor Go positive powerPct", func(t *testing.T) {
-		startPos, err := m.GetPosition(ctx, nil)
+		startPos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = m.SetPower(ctx, 0.9, nil)
@@ -400,7 +400,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			pos, err := m.GetPosition(ctx, nil)
+			pos, err := m.Position(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, pos-startPos, test.ShouldBeGreaterThan, 10)
 		})
@@ -409,7 +409,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 	})
 
 	t.Run("ardunio motor Go negtive powerPct", func(t *testing.T) {
-		startPos, err := m.GetPosition(ctx, nil)
+		startPos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = m.SetPower(ctx, -0.9, nil)
@@ -417,7 +417,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			pos, err := m.GetPosition(ctx, nil)
+			pos, err := m.Position(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, pos-startPos, test.ShouldBeLessThan, -10)
 		})
@@ -426,7 +426,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 	})
 
 	t.Run("ardunio motor GoFor with positive rpm and positive revolutions", func(t *testing.T) {
-		startPos, err := m.GetPosition(ctx, nil)
+		startPos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = m.GoFor(ctx, 20, 1.5, nil)
@@ -438,7 +438,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldBeFalse)
 
-			pos, err := m.GetPosition(ctx, nil)
+			pos, err := m.Position(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, pos-startPos, test.ShouldBeGreaterThan, 1)
 		})
@@ -447,7 +447,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 	})
 
 	t.Run("ardunio motor GoFor with negative rpm and positive revolutions", func(t *testing.T) {
-		startPos, err := m.GetPosition(ctx, nil)
+		startPos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = m.GoFor(ctx, -20, 1.5, nil)
@@ -459,7 +459,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldBeFalse)
 
-			pos, err := m.GetPosition(ctx, nil)
+			pos, err := m.Position(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, pos-startPos, test.ShouldBeLessThan, -1)
 		})
@@ -468,7 +468,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 	})
 
 	t.Run("ardunio motor GoFor with positive rpm and negative revolutions", func(t *testing.T) {
-		startPos, err := m.GetPosition(ctx, nil)
+		startPos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = m.GoFor(ctx, 20, -1.5, nil)
@@ -480,7 +480,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldBeFalse)
 
-			pos, err := m.GetPosition(ctx, nil)
+			pos, err := m.Position(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, pos-startPos, test.ShouldBeLessThan, -1)
 		})
@@ -489,7 +489,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 	})
 
 	t.Run("ardunio motor GoFor with negative rpm and negative revolutions", func(t *testing.T) {
-		startPos, err := m.GetPosition(ctx, nil)
+		startPos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = m.GoFor(ctx, -20, -1.5, nil)
@@ -501,7 +501,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldBeFalse)
 
-			pos, err := m.GetPosition(ctx, nil)
+			pos, err := m.Position(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, pos-startPos, test.ShouldBeGreaterThan, 1)
 		})
@@ -513,7 +513,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 		err := m.ResetZeroPosition(ctx, 2.0, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		pos, err := m.GetPosition(ctx, nil)
+		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 2.0)
 	})
@@ -522,8 +522,21 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 		err := m.ResetZeroPosition(ctx, -2.0, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		pos, err := m.GetPosition(ctx, nil)
+		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, -2.0)
 	})
+}
+
+func TestConfigValidate(t *testing.T) {
+	validConfig := Config{}
+
+	validConfig.Analogs = []board.AnalogConfig{{}}
+	err := validConfig.Validate("path")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+
+	validConfig.Analogs = []board.AnalogConfig{{Name: "bar"}}
+	test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
 }

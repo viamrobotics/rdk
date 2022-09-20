@@ -37,7 +37,7 @@ func TestFromRobot(t *testing.T) {
 		test.That(t, svc, test.ShouldNotBeNil)
 
 		test.That(t, svc1.sensorsCount, test.ShouldEqual, 0)
-		result, err := svc.GetSensors(context.Background())
+		result, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldResemble, names)
 		test.That(t, svc1.sensorsCount, test.ShouldEqual, 1)
@@ -116,7 +116,7 @@ type mock struct {
 	reconfCount  int
 }
 
-func (m *mock) GetSensors(ctx context.Context) ([]resource.Name, error) {
+func (m *mock) Sensors(ctx context.Context) ([]resource.Name, error) {
 	m.sensorsCount++
 	return names, nil
 }

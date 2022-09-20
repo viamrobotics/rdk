@@ -36,7 +36,7 @@ func TestGetSensors(t *testing.T) {
 		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
-		names, err := svc.GetSensors(context.Background())
+		names, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, names, test.ShouldBeEmpty)
 	})
@@ -48,7 +48,7 @@ func TestGetSensors(t *testing.T) {
 		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
-		sNames1, err := svc.GetSensors(context.Background())
+		sNames1, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(
 			t,
@@ -68,13 +68,13 @@ func TestGetSensors(t *testing.T) {
 		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
-		sNames1, err := svc.GetSensors(context.Background())
+		sNames1, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
 	})
 }
 
-func TestGetReadings(t *testing.T) {
+func TestReadings(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	sensorNames := []resource.Name{movementsensor.Named("imu"), movementsensor.Named("gps"), movementsensor.Named("gps2")}
 
@@ -87,14 +87,14 @@ func TestGetReadings(t *testing.T) {
 		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = svc.GetReadings(context.Background(), []resource.Name{movementsensor.Named("imu")})
+		_, err = svc.Readings(context.Background(), []resource.Name{movementsensor.Named("imu")})
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not a registered sensor")
 	})
 
 	t.Run("failing sensor", func(t *testing.T) {
 		injectSensor := &inject.Sensor{}
 		passedErr := errors.New("can't get readings")
-		injectSensor.GetReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		injectSensor.ReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
 			return nil, passedErr
 		}
 		failMap := map[resource.Name]interface{}{
@@ -105,24 +105,24 @@ func TestGetReadings(t *testing.T) {
 		err = svc.(resource.Updateable).Update(context.Background(), failMap)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = svc.GetReadings(context.Background(), []resource.Name{movementsensor.Named("imu")})
+		_, err = svc.Readings(context.Background(), []resource.Name{movementsensor.Named("imu")})
 		test.That(t, err, test.ShouldBeError, errors.Wrapf(passedErr, "failed to get reading from %q", movementsensor.Named("imu")))
 	})
 
 	t.Run("many sensors", func(t *testing.T) {
 		readings1 := map[string]interface{}{"a": 1.1, "b": 2.2}
 		injectSensor := &inject.Sensor{}
-		injectSensor.GetReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		injectSensor.ReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
 			return readings1, nil
 		}
 		readings2 := map[string]interface{}{"a": 2.2, "b": 3.3}
 		injectSensor2 := &inject.Sensor{}
-		injectSensor2.GetReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		injectSensor2.ReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
 			return readings2, nil
 		}
 		injectSensor3 := &inject.Sensor{}
 		passedErr := errors.New("can't read")
-		injectSensor3.GetReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		injectSensor3.ReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
 			return nil, passedErr
 		}
 		expected := map[resource.Name]interface{}{
@@ -137,17 +137,17 @@ func TestGetReadings(t *testing.T) {
 		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = svc.GetReadings(context.Background(), []resource.Name{movementsensor.Named("imu2")})
+		_, err = svc.Readings(context.Background(), []resource.Name{movementsensor.Named("imu2")})
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not a registered sensor")
 
-		readings, err := svc.GetReadings(context.Background(), []resource.Name{movementsensor.Named("imu")})
+		readings, err := svc.Readings(context.Background(), []resource.Name{movementsensor.Named("imu")})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(readings), test.ShouldEqual, 1)
 		reading := readings[0]
 		test.That(t, reading.Name, test.ShouldResemble, movementsensor.Named("imu"))
 		test.That(t, reading.Readings, test.ShouldResemble, readings1)
 
-		readings, err = svc.GetReadings(
+		readings, err = svc.Readings(
 			context.Background(),
 			[]resource.Name{movementsensor.Named("imu"), movementsensor.Named("imu"), movementsensor.Named("imu")},
 		)
@@ -157,13 +157,13 @@ func TestGetReadings(t *testing.T) {
 		test.That(t, reading.Name, test.ShouldResemble, movementsensor.Named("imu"))
 		test.That(t, reading.Readings, test.ShouldResemble, readings1)
 
-		readings, err = svc.GetReadings(context.Background(), []resource.Name{movementsensor.Named("imu"), movementsensor.Named("gps")})
+		readings, err = svc.Readings(context.Background(), []resource.Name{movementsensor.Named("imu"), movementsensor.Named("gps")})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(readings), test.ShouldEqual, 2)
 		test.That(t, readings[0].Readings, test.ShouldResemble, expected[readings[0].Name])
 		test.That(t, readings[1].Readings, test.ShouldResemble, expected[readings[1].Name])
 
-		_, err = svc.GetReadings(context.Background(), sensorNames)
+		_, err = svc.Readings(context.Background(), sensorNames)
 		test.That(t, err, test.ShouldBeError, errors.Wrapf(passedErr, "failed to get reading from %q", movementsensor.Named("gps2")))
 	})
 }
@@ -182,7 +182,7 @@ func TestUpdate(t *testing.T) {
 		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
-		sNames1, err := svc.GetSensors(context.Background())
+		sNames1, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
 
@@ -192,7 +192,7 @@ func TestUpdate(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		sNames1, err = svc.GetSensors(context.Background())
+		sNames1, err = svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sNames1, test.ShouldBeEmpty)
 	})
@@ -203,7 +203,7 @@ func TestUpdate(t *testing.T) {
 		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
-		sNames1, err := svc.GetSensors(context.Background())
+		sNames1, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
 
@@ -213,7 +213,7 @@ func TestUpdate(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		sNames1, err = svc.GetSensors(context.Background())
+		sNames1, err = svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(
 			t,
@@ -229,7 +229,7 @@ func TestUpdate(t *testing.T) {
 		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
 
-		sNames1, err := svc.GetSensors(context.Background())
+		sNames1, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
 
@@ -239,7 +239,7 @@ func TestUpdate(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		sNames1, err = svc.GetSensors(context.Background())
+		sNames1, err = svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
 	})

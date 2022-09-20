@@ -6,10 +6,10 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	servicepb "go.viam.com/api/service/shell/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	servicepb "go.viam.com/rdk/proto/api/service/shell/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"

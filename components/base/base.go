@@ -7,13 +7,13 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/base/v1"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/base/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
@@ -85,8 +85,8 @@ type Base interface {
 // A LocalBase represents a physical base of a robot that can report the width of itself.
 type LocalBase interface {
 	Base
-	// GetWidth returns the width of the base in millimeters.
-	GetWidth(ctx context.Context) (int, error)
+	// Width returns the width of the base in millimeters.
+	Width(ctx context.Context) (int, error)
 	resource.MovingCheckable
 }
 
@@ -244,10 +244,10 @@ type reconfigurableLocalBase struct {
 	actual LocalBase
 }
 
-func (r *reconfigurableLocalBase) GetWidth(ctx context.Context) (int, error) {
+func (r *reconfigurableLocalBase) Width(ctx context.Context) (int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetWidth(ctx)
+	return r.actual.Width(ctx)
 }
 
 func (r *reconfigurableLocalBase) IsMoving(ctx context.Context) (bool, error) {

@@ -5,10 +5,9 @@ import (
 
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
-
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
 const radToDeg = 180 / math.Pi

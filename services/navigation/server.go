@@ -6,9 +6,9 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/service/navigation/v1"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/navigation/v1"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -43,7 +43,7 @@ func (server *subtypeServer) GetMode(ctx context.Context, req *pb.GetModeRequest
 	if err != nil {
 		return nil, err
 	}
-	mode, err := svc.GetMode(ctx)
+	mode, err := svc.Mode(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func (server *subtypeServer) GetLocation(ctx context.Context, req *pb.GetLocatio
 	if err != nil {
 		return nil, err
 	}
-	loc, err := svc.GetLocation(ctx)
+	loc, err := svc.Location(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (server *subtypeServer) GetWaypoints(ctx context.Context, req *pb.GetWaypoi
 	if err != nil {
 		return nil, err
 	}
-	waypoints, err := svc.GetWaypoints(ctx)
+	waypoints, err := svc.Waypoints(ctx)
 	if err != nil {
 		return nil, err
 	}

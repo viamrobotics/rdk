@@ -111,7 +111,7 @@ func getFileTimestampName() string {
 }
 
 // TODO DATA-246: Implement this in some more robust, programmatic way.
-// TODO: support GetFrame. This is why image stuff isn't working.
+// TODO: support GetImage. This is why image stuff isn't working.
 func getDataType(_, methodName string) v1.DataType {
 	switch methodName {
 	case nextPointCloud, next:

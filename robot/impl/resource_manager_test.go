@@ -12,6 +12,12 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	commonpb "go.viam.com/api/common/v1"
+	armpb "go.viam.com/api/component/arm/v1"
+	basepb "go.viam.com/api/component/base/v1"
+	boardpb "go.viam.com/api/component/board/v1"
+	camerapb "go.viam.com/api/component/camera/v1"
+	gripperpb "go.viam.com/api/component/gripper/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -40,12 +46,6 @@ import (
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
-	basepb "go.viam.com/rdk/proto/api/component/base/v1"
-	boardpb "go.viam.com/rdk/proto/api/component/board/v1"
-	camerapb "go.viam.com/rdk/proto/api/component/camera/v1"
-	gripperpb "go.viam.com/rdk/proto/api/component/gripper/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -134,7 +134,7 @@ func setupInjectRobot(logger golog.Logger) *inject.Robot {
 				case board.Subtype:
 					fakeBoard, err := fakeboard.NewBoard(context.Background(), config.Component{
 						Name: name.Name,
-						ConvertedAttributes: &board.Config{
+						ConvertedAttributes: &fakeboard.Config{
 							Analogs: []board.AnalogConfig{
 								{Name: "analog1"},
 								{Name: "analog2"},
@@ -565,7 +565,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               "fake",
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                board.SubtypeName,
-				ConvertedAttributes: &board.Config{},
+				ConvertedAttributes: &fakeboard.Config{},
 				DependsOn:           []string{},
 			},
 			{
@@ -573,7 +573,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               "fake",
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                board.SubtypeName,
-				ConvertedAttributes: &board.Config{},
+				ConvertedAttributes: &fakeboard.Config{},
 				DependsOn:           []string{},
 			},
 			{
@@ -581,7 +581,7 @@ func TestManagerNewComponent(t *testing.T) {
 				Model:               "fake",
 				Namespace:           resource.ResourceNamespaceRDK,
 				Type:                board.SubtypeName,
-				ConvertedAttributes: &board.Config{},
+				ConvertedAttributes: &fakeboard.Config{},
 				DependsOn:           []string{},
 			},
 			{
@@ -751,7 +751,7 @@ func TestManagerNewComponent(t *testing.T) {
 		Model:               "fake",
 		Namespace:           resource.ResourceNamespaceRDK,
 		Type:                board.SubtypeName,
-		ConvertedAttributes: &board.Config{},
+		ConvertedAttributes: &fakeboard.Config{},
 		DependsOn:           []string{"arm3"},
 	})
 	err = robotForRemote.manager.updateResources(context.Background(), diff, func(name string) (resource.Name, bool) {
@@ -1742,7 +1742,7 @@ func (rr *dummyRobot) TransformPose(
 	panic("change to return nil")
 }
 
-func (rr *dummyRobot) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+func (rr *dummyRobot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	panic("change to return nil")
 }
 

@@ -28,10 +28,17 @@ func init() {
 			}
 			videoSrc := &fileSource{attrs.Color, attrs.Depth, attrs.CameraParameters}
 			var intrinsics *transform.PinholeCameraIntrinsics
+			var distortion transform.Distorter
 			if attrs.AttrConfig != nil {
 				intrinsics = attrs.AttrConfig.CameraParameters
+				distortion = attrs.AttrConfig.DistortionParameters
 			}
-			return camera.NewFromReader(ctx, videoSrc, &transform.PinholeCameraModel{intrinsics, nil}, camera.StreamType(attrs.Stream))
+			return camera.NewFromReader(
+				ctx,
+				videoSrc,
+				&transform.PinholeCameraModel{intrinsics, distortion},
+				camera.StreamType(attrs.Stream),
+			)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "file",
