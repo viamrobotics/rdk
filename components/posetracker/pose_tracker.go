@@ -7,10 +7,10 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	pb "go.viam.com/api/component/posetracker/v1"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	pb "go.viam.com/api/component/posetracker/v1"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/referenceframe"
