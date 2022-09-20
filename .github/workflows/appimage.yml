@@ -6,10 +6,6 @@ on:
     secrets:
       GCP_CREDENTIALS:
         required: true
-      REPO_READ_TOKEN:
-        required: true
-      GIT_ACCESS_TOKEN:
-        required: true
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
@@ -40,9 +36,8 @@ jobs:
       with: 
         fetch-depth: 2
 
-    - name: Clean and configure git for private repos
+    - name: Clean
       run: |
-        echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc
         make clean-all
 
     - name: Authorize GCP Upload
@@ -99,7 +94,6 @@ jobs:
       uses: marocchino/sticky-pull-request-comment@v2.2.0
       with:
         recreate: true
-        GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
         message: |
           AppImages ready!
           <http://packages.viam.com/apps/viam-server/viam-server-pr-${{ github.event.pull_request.number }}-x86_64.AppImage>
