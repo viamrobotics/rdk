@@ -28,8 +28,8 @@ const model = "imu-vectornav"
 type AttrConfig struct {
 	Board string `json:"board"`
 	SPI   string `json:"spi"`
-	Speed *int   `json:"speed"`
-	Pfreq *int   `json:"polling_freq"`
+	Speed *int   `json:"speed"`        // TODO(RSDK-568) units?
+	Pfreq *int   `json:"polling_freq"` // TODO(RSDK-568) units?
 	CSPin string `json:"cs_pin"`
 }
 
