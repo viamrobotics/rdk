@@ -26,7 +26,7 @@ var interp = referenceframe.FloatsToInputs([]float64{
 // This should test a simple linear motion.
 func TestSimpleLinearMotion(t *testing.T) {
 	nSolutions := 5
-	inputSteps := []Node{}
+	inputSteps := []node{}
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
@@ -44,17 +44,17 @@ func TestSimpleLinearMotion(t *testing.T) {
 		Z:  120.5,
 		OY: -1,
 	}
-	corners := map[Node]bool{}
+	corners := map[node]bool{}
 
 	solutions, err := getSolutions(ctx, opt, cbirrt.solver, pos, home7, mp.Frame())
 	test.That(t, err, test.ShouldBeNil)
 
 	near1 := &basicNode{q: home7}
-	seedMap := make(map[Node]Node)
+	seedMap := make(map[node]node)
 	seedMap[near1] = nil
 	target := interp
 
-	goalMap := make(map[Node]Node)
+	goalMap := make(map[node]node)
 
 	if len(solutions) < nSolutions {
 		nSolutions = len(solutions)

@@ -133,7 +133,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
 	planOpts *PlannerOptions,
-	endpointPreview chan Node,
+	endpointPreview chan node,
 	solutionChan chan *planReturn,
 ) {
 	defer close(solutionChan)
@@ -163,12 +163,12 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	}
 
 	// initialize maps
-	goalMap := make(map[Node]Node, len(solutions))
+	goalMap := make(map[node]node, len(solutions))
 	for _, solution := range solutions {
 		goalMap[solution] = nil
 	}
-	corners := map[Node]bool{}
-	seedMap := make(map[Node]Node)
+	corners := map[node]bool{}
+	seedMap := make(map[node]node)
 	seedMap[&basicNode{q: seed}] = nil
 
 	// Create a reference to the two maps so that we can alternate which one is grown
@@ -220,7 +220,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	solutionChan <- &planReturn{err: errPlannerFailed}
 }
 
-func (mp *cBiRRTMotionPlanner) sample(algOpts *cbirrtOptions, rSeed Node, sampleNum int) []referenceframe.Input {
+func (mp *cBiRRTMotionPlanner) sample(algOpts *cbirrtOptions, rSeed node, sampleNum int) []referenceframe.Input {
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
 	if sampleNum >= algOpts.IterBeforeRand && sampleNum%4 >= 2 {
@@ -239,9 +239,9 @@ func (mp *cBiRRTMotionPlanner) sample(algOpts *cbirrtOptions, rSeed Node, sample
 func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	ctx context.Context,
 	algOpts *cbirrtOptions,
-	rrtMap map[Node]Node,
-	near, target Node,
-) Node {
+	rrtMap map[node]node,
+	near, target node,
+) node {
 	oldNear := near
 	for i := 0; true; i++ {
 		_, dist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: near.Q(), EndInput: target.Q()})
@@ -351,9 +351,9 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 func (mp *cBiRRTMotionPlanner) SmoothPath(
 	ctx context.Context,
 	algOpts *cbirrtOptions,
-	inputSteps []Node,
-	corners map[Node]bool,
-) []Node {
+	inputSteps []node,
+	corners map[node]bool,
+) []node {
 	toIter := int(math.Min(float64(len(inputSteps)*len(inputSteps)), float64(algOpts.SmoothIter)))
 
 	for iter := 0; iter < toIter && len(inputSteps) > 4; iter++ {
@@ -373,7 +373,7 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 			continue
 		}
 
-		shortcutGoal := make(map[Node]Node)
+		shortcutGoal := make(map[node]node)
 
 		iSol := inputSteps[i]
 		jSol := inputSteps[j]
@@ -392,7 +392,7 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 			for _, hitCorner := range hitCorners {
 				corners[hitCorner] = false
 			}
-			newInputSteps := append([]Node{}, inputSteps[:i]...)
+			newInputSteps := append([]node{}, inputSteps[:i]...)
 			for reached != nil {
 				newInputSteps = append(newInputSteps, reached)
 				reached = shortcutGoal[reached]
@@ -406,12 +406,12 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 }
 
 // Check if there is more than one joint direction change. If not, then not a good candidate for smoothing.
-func smoothable(inputSteps []Node, i, j int, corners map[Node]bool) (bool, []Node) {
+func smoothable(inputSteps []node, i, j int, corners map[node]bool) (bool, []node) {
 	startPos := inputSteps[i]
 	nextPos := inputSteps[i+1]
 	// Whether joints are increasing
 	incDir := make([]int, 0, len(startPos.Q()))
-	hitCorners := []Node{}
+	hitCorners := []node{}
 
 	if corners[startPos] {
 		hitCorners = append(hitCorners, startPos)
