@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
+	pb "go.viam.com/api/component/posetracker/v1"
 	"go.viam.com/test"
 
-	pb "go.viam.com/api/component/posetracker/v1"
 	"go.viam.com/rdk/components/posetracker"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"

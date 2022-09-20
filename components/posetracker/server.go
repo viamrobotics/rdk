@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/posetracker/v1"
+
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
