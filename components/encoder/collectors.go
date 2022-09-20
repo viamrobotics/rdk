@@ -10,13 +10,13 @@ import (
 type method int64
 
 const (
-	getTicksCount method = iota
+	ticksCount method = iota
 )
 
 func (m method) String() string {
 	switch m {
-	case getTicksCount:
-		return "GetTicksCount"
+	case ticksCount:
+		return "TicksCount"
 	}
 	return "Unknown"
 }
@@ -26,16 +26,16 @@ type Ticks struct {
 	Ticks int64
 }
 
-func newGetTicksCountCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newTicksCountCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	encoder, err := assertEncoder(resource)
 	if err != nil {
 		return nil, err
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		v, err := encoder.GetTicksCount(ctx, nil)
+		v, err := encoder.TicksCount(ctx, nil)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, getTicksCount.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, ticksCount.String(), err)
 		}
 		return Ticks{Ticks: v}, nil
 	})

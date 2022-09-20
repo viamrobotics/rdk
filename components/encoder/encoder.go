@@ -22,8 +22,8 @@ func init() {
 	})
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    SubtypeName,
-		MethodName: getTicksCount.String(),
-	}, newGetTicksCountCollector)
+		MethodName: ticksCount.String(),
+	}, newTicksCountCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "encoder".
