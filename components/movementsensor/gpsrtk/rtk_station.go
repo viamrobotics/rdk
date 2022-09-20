@@ -34,8 +34,8 @@ type StationConfig struct {
 
 	// non ntrip
 	SurveyIn         string  `json:"svin,omitempty"`
-	RequiredAccuracy float64 `json:"required_accuracy,omitempty"`
-	RequiredTime     int     `json:"required_time,omitempty"`
+	RequiredAccuracy float64 `json:"required_accuracy,omitempty"` // TODO(RSDK-568) units?
+	RequiredTime     int     `json:"required_time,omitempty"`     // TODO(RSDK-568) units?
 
 	*SerialAttrConfig `json:"serial_attributes,omitempty"`
 	*I2CAttrConfig    `json:"i2c_attributes,omitempty"`
