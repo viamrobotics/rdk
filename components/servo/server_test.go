@@ -5,10 +5,10 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/servo/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/servo"
-	pb "go.viam.com/rdk/proto/api/component/servo/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"

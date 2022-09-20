@@ -5,9 +5,9 @@ import (
 	"io"
 
 	"go.uber.org/multierr"
+	pb "go.viam.com/api/service/shell/v1"
 	goutils "go.viam.com/utils"
 
-	pb "go.viam.com/rdk/proto/api/service/shell/v1"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )

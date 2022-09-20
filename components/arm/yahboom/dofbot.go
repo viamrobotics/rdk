@@ -12,6 +12,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
+	componentpb "go.viam.com/api/component/arm/v1"
 	gutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
@@ -21,8 +23,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
