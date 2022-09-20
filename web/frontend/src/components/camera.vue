@@ -1,13 +1,12 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { ref, defineAsyncComponent } from 'vue';
+import { ref } from 'vue';
 import { normalizeRemoteName, type Resource } from '../lib/resource';
 import cameraApi from '../gen/proto/api/component/camera/v1/camera_pb.esm';
 import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
-
-const PCD = defineAsyncComponent(() => import('./pcd.vue'));
+import PCD from './pcd.vue';
 
 interface Props {
   cameraName: string
