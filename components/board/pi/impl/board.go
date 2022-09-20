@@ -488,7 +488,29 @@ func (pi *piPigpio) I2CByName(name string) (board.I2C, bool) {
 }
 
 func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
 	d, ok := pi.interrupts[name]
+	if !ok {
+		var err error
+		if bcom, have := broadcomPinFromHardwareLabel(name); have {
+			if d, ok := pi.interruptsHW[bcom]; ok {
+				return d, ok
+			}
+			d, err = board.CreateDigitalInterrupt(board.DigitalInterruptConfig{
+				Name: name,
+				Pin:  name,
+				Type: "basic",
+			})
+			if err != nil {
+				return nil, false
+			}
+			pi.interrupts[name] = d
+			pi.interruptsHW[bcom] = d
+			C.setupInterrupt(C.int(bcom))
+			return d, true
+		}
+	}
 	return d, ok
 }
 
