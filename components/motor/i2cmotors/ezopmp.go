@@ -13,6 +13,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
@@ -22,12 +23,33 @@ import (
 	"go.viam.com/rdk/registry"
 )
 
-// Config is user config inputs for ezopmp.
-type Config struct {
+// AttrConfig is user config inputs for ezopmp.
+type AttrConfig struct {
 	BoardName   string `json:"board"`
 	BusName     string `json:"bus_name"`
-	I2CAddress  byte   `json:"i2c_address"`
-	MaxReadBits int    `json:"max_read_bits"`
+	I2CAddress  *byte  `json:"i2c_address"`
+	MaxReadBits *int   `json:"max_read_bits"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *AttrConfig) Validate(path string) error {
+	if config.BoardName == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+
+	if config.BusName == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "bus_name")
+	}
+
+	if config.I2CAddress == nil {
+		return utils.NewConfigValidationFieldRequiredError(path, "i2c_address")
+	}
+
+	if config.MaxReadBits == nil {
+		return utils.NewConfigValidationFieldRequiredError(path, "max_read_bits")
+	}
+
+	return nil
 }
 
 const modelName = "ezopmp"
@@ -35,7 +57,7 @@ const modelName = "ezopmp"
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewMotor(ctx, deps, config.ConvertedAttributes.(*Config), logger)
+			return NewMotor(ctx, deps, config.ConvertedAttributes.(*AttrConfig), logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
@@ -43,7 +65,7 @@ func init() {
 		motor.SubtypeName,
 		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
+			var conf AttrConfig
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
 			if err != nil {
 				return nil, err
@@ -52,7 +74,7 @@ func init() {
 				return nil, err
 			}
 			return &conf, nil
-		}, &Config{})
+		}, &AttrConfig{})
 }
 
 // Ezopmp represents a motor connected via the I2C protocol.
@@ -78,7 +100,7 @@ const (
 )
 
 // NewMotor returns a motor(Ezopmp) with I2C protocol.
-func NewMotor(ctx context.Context, deps registry.Dependencies, c *Config, logger golog.Logger) (motor.LocalMotor, error) {
+func NewMotor(ctx context.Context, deps registry.Dependencies, c *AttrConfig, logger golog.Logger) (motor.LocalMotor, error) {
 	b, err := board.FromDependencies(deps, c.BoardName)
 	if err != nil {
 		return nil, err
@@ -96,8 +118,8 @@ func NewMotor(ctx context.Context, deps registry.Dependencies, c *Config, logger
 	m := &Ezopmp{
 		board:       b,
 		bus:         bus,
-		I2CAddress:  c.I2CAddress,
-		maxReadBits: c.MaxReadBits,
+		I2CAddress:  *c.I2CAddress,
+		maxReadBits: *c.MaxReadBits,
 		logger:      logger,
 		maxPowerPct: 1.0,
 	}
