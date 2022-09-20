@@ -95,14 +95,14 @@ func (w *webGamepad) Close() {
 	w.activeBackgroundWorkers.Wait()
 }
 
-// GetControls lists the inputs of the gamepad.
-func (w *webGamepad) GetControls(ctx context.Context) ([]input.Control, error) {
+// Controls lists the inputs of the gamepad.
+func (w *webGamepad) Controls(ctx context.Context) ([]input.Control, error) {
 	out := append([]input.Control(nil), w.controls...)
 	return out, nil
 }
 
-// GetEvents returns the last input.Event (the current state).
-func (w *webGamepad) GetEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+// Events returns the last input.Event (the current state).
+func (w *webGamepad) Events(ctx context.Context) (map[input.Control]input.Event, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	out := make(map[input.Control]input.Event)

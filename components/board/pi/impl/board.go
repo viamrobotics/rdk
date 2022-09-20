@@ -19,13 +19,14 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/commonsysfs"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rlog"
 	rdkutils "go.viam.com/rdk/utils"
@@ -42,7 +43,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			boardConfig, ok := config.ConvertedAttributes.(*board.Config)
+			boardConfig, ok := config.ConvertedAttributes.(*commonsysfs.Config)
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(boardConfig, config.ConvertedAttributes)
 			}
@@ -55,7 +56,7 @@ func init() {
 type piPigpio struct {
 	generic.Unimplemented
 	mu            sync.Mutex
-	cfg           *board.Config
+	cfg           *commonsysfs.Config
 	duty          int // added for mutex
 	gpioConfigSet map[int]bool
 	analogs       map[string]board.AnalogReader
@@ -73,7 +74,7 @@ var (
 )
 
 // NewPigpio makes a new pigpio based Board using the given config.
-func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (board.LocalBoard, error) {
+func NewPigpio(ctx context.Context, cfg *commonsysfs.Config, logger golog.Logger) (board.LocalBoard, error) {
 	// this is so we can run it inside a daemon
 	internals := C.gpioCfgGetInternals()
 	internals |= C.PI_CFG_NOSIGHANDLER
@@ -487,7 +488,29 @@ func (pi *piPigpio) I2CByName(name string) (board.I2C, bool) {
 }
 
 func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
 	d, ok := pi.interrupts[name]
+	if !ok {
+		var err error
+		if bcom, have := broadcomPinFromHardwareLabel(name); have {
+			if d, ok := pi.interruptsHW[bcom]; ok {
+				return d, ok
+			}
+			d, err = board.CreateDigitalInterrupt(board.DigitalInterruptConfig{
+				Name: name,
+				Pin:  name,
+				Type: "basic",
+			})
+			if err != nil {
+				return nil, false
+			}
+			pi.interrupts[name] = d
+			pi.interruptsHW[bcom] = d
+			C.setupInterrupt(C.int(bcom))
+			return d, true
+		}
+	}
 	return d, ok
 }
 

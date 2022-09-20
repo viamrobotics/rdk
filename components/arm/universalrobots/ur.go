@@ -16,6 +16,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/arm/v1"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
@@ -23,8 +25,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -210,8 +210,8 @@ func (ua *URArm) State() (RobotState, error) {
 	return ua.state, nil
 }
 
-// GetJointPositions TODO.
-func (ua *URArm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+// JointPositions TODO.
+func (ua *URArm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	radians := []float64{}
 	state, err := ua.State()
 	if err != nil {
@@ -223,9 +223,9 @@ func (ua *URArm) GetJointPositions(ctx context.Context, extra map[string]interfa
 	return referenceframe.JointPositionsFromRadians(radians), nil
 }
 
-// GetEndPosition computes and returns the current cartesian position.
-func (ua *URArm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-	joints, err := ua.GetJointPositions(ctx, extra)
+// EndPosition computes and returns the current cartesian position.
+func (ua *URArm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := ua.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +345,7 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 
 // CurrentInputs TODO.
 func (ua *URArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := ua.GetJointPositions(ctx, nil)
+	res, err := ua.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

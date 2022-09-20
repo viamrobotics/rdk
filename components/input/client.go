@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	pb "go.viam.com/api/component/inputcontroller/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/components/generic"
-	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
 )
 
 // client implements InputControllerServiceClient.
@@ -48,7 +48,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) GetControls(ctx context.Context) ([]Control, error) {
+func (c *client) Controls(ctx context.Context) ([]Control, error) {
 	resp, err := c.client.GetControls(ctx, &pb.GetControlsRequest{
 		Controller: c.name,
 	})
@@ -62,7 +62,7 @@ func (c *client) GetControls(ctx context.Context) ([]Control, error) {
 	return controls, nil
 }
 
-func (c *client) GetEvents(ctx context.Context) (map[Control]Event, error) {
+func (c *client) Events(ctx context.Context) (map[Control]Event, error) {
 	resp, err := c.client.GetEvents(ctx, &pb.GetEventsRequest{
 		Controller: c.name,
 	})

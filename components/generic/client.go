@@ -5,9 +5,9 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	pb "go.viam.com/api/component/generic/v1"
 	"go.viam.com/utils/rpc"
 
-	pb "go.viam.com/rdk/proto/api/component/generic/v1"
 	"go.viam.com/rdk/protoutils"
 )
 

@@ -18,9 +18,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/board"
-	// board attribute converters.
-	_ "go.viam.com/rdk/components/board/fake"
-	// motor attribute converters.
+	fakeboard "go.viam.com/rdk/components/board/fake"
 	"go.viam.com/rdk/components/encoder"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
@@ -82,7 +80,7 @@ func TestConfig3(t *testing.T) {
 	test.That(t, cfg.Components[0].Attributes.Float64("bar5", 1.1), test.ShouldEqual, 5.17)
 	test.That(t, cfg.Components[0].Attributes.Float64("bar5-no", 1.1), test.ShouldEqual, 1.1)
 
-	test.That(t, cfg.Components[1].ConvertedAttributes, test.ShouldResemble, &board.Config{
+	test.That(t, cfg.Components[1].ConvertedAttributes, test.ShouldResemble, &fakeboard.Config{
 		Analogs: []board.AnalogConfig{
 			{Name: "analog1", Pin: "0"},
 		},
@@ -99,8 +97,8 @@ func TestConfig3(t *testing.T) {
 		MaxPowerPct:      0.5,
 		TicksPerRotation: 10000,
 	})
-	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &encoder.HallConfig{
-		Pins: encoder.HallPins{
+	test.That(t, cfg.Components[3].ConvertedAttributes, test.ShouldResemble, &encoder.IncrementalConfig{
+		Pins: encoder.IncrementalPins{
 			A: "encoder-steering-b",
 			B: "encoder-steering-a",
 		},

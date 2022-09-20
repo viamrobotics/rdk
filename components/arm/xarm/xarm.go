@@ -148,7 +148,7 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 }
 
 func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := x.GetJointPositions(ctx, nil)
+	res, err := x.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

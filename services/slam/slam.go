@@ -7,10 +7,10 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	pb "go.viam.com/api/service/slam/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	pb "go.viam.com/rdk/proto/api/service/slam/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -67,7 +67,7 @@ var (
 
 // Service describes the functions that are available to the service.
 type Service interface {
-	GetPosition(context.Context, string) (*referenceframe.PoseInFrame, error)
+	Position(context.Context, string) (*referenceframe.PoseInFrame, error)
 	GetMap(context.Context, string, string, *referenceframe.PoseInFrame, bool) (string, image.Image, *vision.Object, error)
 }
 
@@ -76,10 +76,10 @@ type reconfigurableSlam struct {
 	actual Service
 }
 
-func (svc *reconfigurableSlam) GetPosition(ctx context.Context, val string) (*referenceframe.PoseInFrame, error) {
+func (svc *reconfigurableSlam) Position(ctx context.Context, val string) (*referenceframe.PoseInFrame, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetPosition(ctx, val)
+	return svc.actual.Position(ctx, val)
 }
 
 func (svc *reconfigurableSlam) GetMap(ctx context.Context,

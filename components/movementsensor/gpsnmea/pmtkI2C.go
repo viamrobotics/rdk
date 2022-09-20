@@ -1,4 +1,4 @@
-package nmea
+package gpsnmea
 
 import (
 	"context"
@@ -14,92 +14,58 @@ import (
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
 )
 
-// I2CAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
-type I2CAttrConfig struct {
-	// I2C
-	Board   string `json:"board"`
-	Bus     string `json:"bus"`
-	I2cAddr int    `json:"i2c_addr"`
-}
-
-// ValidateI2C ensures all parts of the config are valid.
-func (config *I2CAttrConfig) ValidateI2C(path string) error {
-	if len(config.Board) == 0 {
-		return errors.New("expected nonempty board")
-	}
-	if len(config.Bus) == 0 {
-		return errors.New("expected nonempty bus")
-	}
-	if config.I2cAddr == 0 {
-		return errors.New("expected nonempty i2c address")
-	}
-
-	return nil
-}
-
-func init() {
-	registry.RegisterComponent(
-		movementsensor.Subtype,
-		"nmea-pmtkI2C",
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			return newPmtkI2CNMEAMovementSensor(ctx, deps, config, logger)
-		}})
-}
-
 // PmtkI2CNMEAMovementSensor allows the use of any MovementSensor chip that communicates over I2C using the PMTK protocol.
 type PmtkI2CNMEAMovementSensor struct {
 	generic.Unimplemented
-	mu          sync.RWMutex
-	bus         board.I2C
-	addr        byte
-	wbaud       int
-	logger      golog.Logger
-	disableNmea bool
-
-	data gpsData
-
+	mu                      sync.RWMutex
 	cancelCtx               context.Context
 	cancelFunc              func()
+	logger                  golog.Logger
+	data                    gpsData
 	activeBackgroundWorkers sync.WaitGroup
 
-	errMu     sync.Mutex
-	lastError error
+	disableNmea bool
+	errMu       sync.Mutex
+	lastError   error
+
+	bus   board.I2C
+	addr  byte
+	wbaud int
 }
 
-func newPmtkI2CNMEAMovementSensor(
+// NewPmtkI2CGPSNMEA implements a gps that communicates over i2c.
+func NewPmtkI2CGPSNMEA(
 	ctx context.Context,
 	deps registry.Dependencies,
-	config config.Component,
+	attr *AttrConfig,
 	logger golog.Logger,
-) (nmeaMovementSensor, error) {
-	b, err := board.FromDependencies(deps, config.Attributes.String("board"))
+) (NmeaMovementSensor, error) {
+	b, err := board.FromDependencies(deps, attr.Board)
 	if err != nil {
 		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
-		return nil, fmt.Errorf("board %s is not local", config.Attributes.String("board"))
+		return nil, fmt.Errorf("board %s is not local", attr.Board)
 	}
-	i2cbus, ok := localB.I2CByName(config.Attributes.String("bus"))
+	i2cbus, ok := localB.I2CByName(attr.I2CAttrConfig.I2CBus)
 	if !ok {
-		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", config.Attributes.String("bus"))
+		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", attr.I2CAttrConfig.I2CBus)
 	}
-	addr := config.Attributes.Int("i2c_addr", -1)
+	addr := attr.I2CAttrConfig.I2cAddr
 	if addr == -1 {
 		return nil, errors.New("must specify gps i2c address")
 	}
-	wbaud := config.Attributes.Int("ntrip_baud", 38400)
-	disableNmea := config.Attributes.Bool(disableNmeaName, false)
+	if attr.I2CAttrConfig.I2CBaudRate == 0 {
+		attr.I2CAttrConfig.I2CBaudRate = 38400
+		logger.Warn("using default baudrate : 38400")
+	}
+
+	disableNmea := attr.DisableNMEA
 	if disableNmea {
 		logger.Info("SerialNMEAMovementSensor: NMEA reading disabled")
 	}
@@ -109,7 +75,7 @@ func newPmtkI2CNMEAMovementSensor(
 	g := &PmtkI2CNMEAMovementSensor{
 		bus:         i2cbus,
 		addr:        byte(addr),
-		wbaud:       wbaud,
+		wbaud:       attr.I2CAttrConfig.I2CBaudRate,
 		cancelCtx:   cancelCtx,
 		cancelFunc:  cancelFunc,
 		logger:      logger,
@@ -222,50 +188,50 @@ func (g *PmtkI2CNMEAMovementSensor) GetBusAddr() (board.I2C, byte) {
 	return g.bus, g.addr
 }
 
-// GetPosition returns the current geographic location of the MovementSensor.
-func (g *PmtkI2CNMEAMovementSensor) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
+// Position returns the current geographic location of the MovementSensor.
+func (g *PmtkI2CNMEAMovementSensor) Position(ctx context.Context) (*geo.Point, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.location, g.data.alt, g.lastError
 }
 
-// GetAccuracy returns the accuracy, hDOP and vDOP.
-func (g *PmtkI2CNMEAMovementSensor) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+// Accuracy returns the accuracy, hDOP and vDOP.
+func (g *PmtkI2CNMEAMovementSensor) Accuracy(ctx context.Context) (map[string]float32, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return map[string]float32{"hDOP": float32(g.data.hDOP), "vDOP": float32(g.data.vDOP)}, g.lastError
 }
 
-// GetLinearVelocity returns the current speed of the MovementSensor.
-func (g *PmtkI2CNMEAMovementSensor) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+// LinearVelocity returns the current speed of the MovementSensor.
+func (g *PmtkI2CNMEAMovementSensor) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return r3.Vector{0, g.data.speed, 0}, g.lastError
+	return r3.Vector{X: 0, Y: g.data.speed, Z: 0}, g.lastError
 }
 
-// GetAngularVelocity not supported.
-func (g *PmtkI2CNMEAMovementSensor) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+// AngularVelocity not supported.
+func (g *PmtkI2CNMEAMovementSensor) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return spatialmath.AngularVelocity{}, g.lastError
 }
 
-// GetCompassHeading not supported.
-func (g *PmtkI2CNMEAMovementSensor) GetCompassHeading(ctx context.Context) (float64, error) {
+// CompassHeading not supported.
+func (g *PmtkI2CNMEAMovementSensor) CompassHeading(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return 0, g.lastError
 }
 
-// GetOrientation not supporter.
-func (g *PmtkI2CNMEAMovementSensor) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+// Orientation not supporter.
+func (g *PmtkI2CNMEAMovementSensor) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return nil, g.lastError
 }
 
-// GetProperties what can I do!
-func (g *PmtkI2CNMEAMovementSensor) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+// Properties what can I do!
+func (g *PmtkI2CNMEAMovementSensor) Properties(ctx context.Context) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		LinearVelocitySupported: true,
 		PositionSupported:       true,
@@ -279,9 +245,9 @@ func (g *PmtkI2CNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	return g.data.fixQuality, g.lastError
 }
 
-// GetReadings will use return all of the MovementSensor Readings.
-func (g *PmtkI2CNMEAMovementSensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
-	readings, err := movementsensor.GetReadings(ctx, g)
+// Readings will use return all of the MovementSensor Readings.
+func (g *PmtkI2CNMEAMovementSensor) Readings(ctx context.Context) (map[string]interface{}, error) {
+	readings, err := movementsensor.Readings(ctx, g)
 	if err != nil {
 		return nil, err
 	}
