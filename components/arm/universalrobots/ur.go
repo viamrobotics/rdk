@@ -36,7 +36,7 @@ const (
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	Speed float64 `json:"speed"`
+	Speed float64 `json:"speed"` // TODO(RSDK-568): units?
 	Host  string  `json:"host"`
 }
 
