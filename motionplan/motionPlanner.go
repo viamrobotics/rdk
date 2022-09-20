@@ -113,8 +113,11 @@ type nodePair struct{ a, b Node }
 
 func (np *nodePair) sumCosts() float64 {
 	a, aok := np.a.(*costNode)
+	if !aok {
+		return 0
+	}
 	b, bok := np.b.(*costNode)
-	if !aok || !bok {
+	if !bok {
 		return 0
 	}
 	return a.cost + b.cost
