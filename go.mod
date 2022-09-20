@@ -1,5 +1,7 @@
 module go.viam.com/rdk
 
+//SMURF
+
 go 1.18
 
 require (
