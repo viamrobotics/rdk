@@ -245,10 +245,10 @@ func (pcps *pointCloudPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.P
 
 // VoxelGridPlaneConfig contains the parameters needed to create a Plane from a VoxelGrid.
 type VoxelGridPlaneConfig struct {
-	WeightThresh   float64 `json:"weight_threshold"`
-	AngleThresh    float64 `json:"angle_threshold"` // in degrees
-	CosineThresh   float64 `json:"cosine_threshold"`
-	DistanceThresh float64 `json:"distance_threshold"`
+	WeightThresh   float64 `json:"weight_threshold"` // TODO(RSDK-586): unit?
+	AngleThresh    float64 `json:"angle_threshold_degs"`
+	CosineThresh   float64 `json:"cosine_threshold"`   // TODO(RSDK-586): unit (rads)?
+	DistanceThresh float64 `json:"distance_threshold"` // TODO(RSDK-586): unit?
 }
 
 // CheckValid checks to see in the inputs values are valid.
