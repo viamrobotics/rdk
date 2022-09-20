@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/mitchellh/mapstructure"
+	pb "go.viam.com/api/component/servo/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/servo"
-	pb "go.viam.com/rdk/proto/api/component/servo/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
