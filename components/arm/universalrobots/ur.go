@@ -62,8 +62,8 @@ func init() {
 }
 
 // Ur5eModel() returns the kinematics model of the xArm, also has all Frame information.
-func ur5eModel() (referenceframe.Model, error) {
-	return referenceframe.UnmarshalModelJSON(ur5modeljson, "")
+func ur5eModel(name string) (referenceframe.Model, error) {
+	return referenceframe.UnmarshalModelJSON(ur5modeljson, name)
 }
 
 // URArm TODO.
@@ -123,7 +123,7 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
 	}
 
-	model, err := ur5eModel()
+	model, err := ur5eModel(cfg.Name)
 	if err != nil {
 		return nil, err
 	}
