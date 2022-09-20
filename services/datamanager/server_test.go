@@ -5,9 +5,9 @@ import (
 	"errors"
 	"testing"
 
+	pb "go.viam.com/api/service/datamanager/v1"
 	"go.viam.com/test"
 
-	pb "go.viam.com/rdk/proto/api/service/datamanager/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/subtype"

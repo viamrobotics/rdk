@@ -12,6 +12,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
+	componentpb "go.viam.com/api/component/arm/v1"
 	gutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
@@ -21,8 +23,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/operation"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -31,8 +31,8 @@ import (
 //go:embed dofbot.json
 var modeljson []byte
 
-func dofbotModel() (referenceframe.Model, error) {
-	return referenceframe.UnmarshalModelJSON(modeljson, "yahboom-dofbot")
+func dofbotModel(name string) (referenceframe.Model, error) {
+	return referenceframe.UnmarshalModelJSON(modeljson, name)
 }
 
 type jointConfig struct {
@@ -109,7 +109,7 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 		return nil, err
 	}
 
-	a.model, err = dofbotModel()
+	a.model, err = dofbotModel(config.Name)
 	if err != nil {
 		return nil, err
 	}

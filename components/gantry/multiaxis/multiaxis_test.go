@@ -5,13 +5,13 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/components/motor"
 	fm "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/testutils/inject"

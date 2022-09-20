@@ -39,7 +39,7 @@ func init() {
 		&EncoderConfig{})
 }
 
-// NewEncoder creates a new HallEncoder.
+// NewEncoder creates a new incremental Encoder.
 func NewEncoder(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (*Encoder, error) {
 	e := &Encoder{}
 	if cfg, ok := config.ConvertedAttributes.(*EncoderConfig); ok {

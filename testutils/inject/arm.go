@@ -3,11 +3,11 @@ package inject
 import (
 	"context"
 
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 )
 
 // Arm is an injected arm.

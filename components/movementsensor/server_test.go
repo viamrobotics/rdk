@@ -7,11 +7,11 @@ import (
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/movementsensor/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/movementsensor"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/movementsensor/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
