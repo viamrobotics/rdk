@@ -65,17 +65,17 @@ type Motor struct {
 
 // Config adds DMC-specific config options.
 type Config struct {
-	DirectionFlip    bool    `json:"dir_flip,omitempty"`         // Flip the direction of the signal sent if there is a Dir pin
-	MaxRPM           float64 `json:"max_rpm,omitempty"`          // RPM
-	MaxAcceleration  float64 `json:"max_acceleration,omitempty"` // RPM per second
+	DirectionFlip    bool    `json:"dir_flip,omitempty"`                     // Flip the direction of the signal sent if there is a Dir pin
+	MaxRPM           float64 `json:"max_rpm,omitempty"`                      // TODO(RSDK-568): revs_per_min?
+	MaxAcceleration  float64 `json:"max_acceleration_rpm_per_sec,omitempty"` // TODO(RSDK-568): revs_per_min_per_sec?
 	TicksPerRotation int     `json:"ticks_per_rotation"`
 	SerialDevice     string  `json:"serial_device"`   // path to /dev/ttyXXXX file
 	Axis             string  `json:"controller_axis"` // A-H
-	HomeRPM          float64 `json:"home_rpm"`        // Speed for Home()
+	HomeRPM          float64 `json:"home_rpm"`        // Speed for Home() // TODO(RSDK-568): revs_per_min?
 
 	// Set the per phase current (when using stepper amp)
 	// https://www.galil.com/download/comref/com4103/index.html#amplifier_gain.html
-	AmplifierGain int `json:"amplifier_gain"`
+	AmplifierGain int `json:"amplifier_gain"` // TODO(RSDK-568): units?
 	// Can reduce current when holding
 	// https://www.galil.com/download/comref/com4103/index.html#low_current_stepper_mode.html
 	LowCurrent int `json:"low_current"`
