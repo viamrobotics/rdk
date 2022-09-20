@@ -3,10 +3,10 @@ package inject
 import (
 	"context"
 
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
 // Board is an injected board.
@@ -29,7 +29,6 @@ type Board struct {
 	DigitalInterruptNamesFunc  func() []string
 	GPIOPinNamesFunc           func() []string
 	CloseFunc                  func(ctx context.Context) error
-	ConfigFunc                 func(ctx context.Context) (board.Config, error)
 	StatusFunc                 func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error)
 	statusCap                  []interface{}
 }

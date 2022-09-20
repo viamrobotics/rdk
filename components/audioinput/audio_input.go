@@ -10,12 +10,12 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/mediadevices/pkg/wave"
+	pb "go.viam.com/api/component/audioinput/v1"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
-	pb "go.viam.com/rdk/proto/api/component/audioinput/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
@@ -66,11 +66,21 @@ type AudioInput interface {
 	generic.Generic
 }
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((AudioInput)(nil), actual)
+}
+
+// DependencyTypeError is used when a resource doesn't implement the expected interface.
+func DependencyTypeError(name, actual interface{}) error {
+	return utils.DependencyTypeError(name, (AudioInput)(nil), actual)
+}
+
 // WrapWithReconfigurable wraps an audio input with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	i, ok := r.(AudioInput)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("AudioInput", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := i.(*reconfigurableAudioInput); ok {
 		return reconfigurable, nil
@@ -98,7 +108,7 @@ func FromDependencies(deps registry.Dependencies, name string) (AudioInput, erro
 	}
 	part, ok := res.(AudioInput)
 	if !ok {
-		return nil, utils.DependencyTypeError(name, "AudioInput", res)
+		return nil, DependencyTypeError(name, res)
 	}
 	return part, nil
 }
@@ -111,7 +121,7 @@ func FromRobot(r robot.Robot, name string) (AudioInput, error) {
 	}
 	part, ok := res.(AudioInput)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("AudioInput", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }

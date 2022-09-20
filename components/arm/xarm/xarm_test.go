@@ -6,10 +6,10 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	pb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/motionplan"
-	pb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -74,7 +74,7 @@ func TestWriteViam(t *testing.T) {
 	steps, err := fss.SolvePose(ctx, seedMap, frame.NewPoseInFrame(fs.World().Name(), goal), moveFrame.Name())
 	test.That(t, err, test.ShouldBeNil)
 
-	opt := []map[string]interface{}{{"motion_profile": "linear"}}
+	opt := []map[string]interface{}{{"motion_profile": motionplan.LinearMotionProfile}}
 
 	goToGoal := func(seedMap map[string][]frame.Input, goal spatial.Pose) map[string][]frame.Input {
 		goalPiF := frame.NewPoseInFrame(fs.World().Name(), goal)

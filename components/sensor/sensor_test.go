@@ -61,12 +61,12 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
 
-	result, err := s.GetReadings(context.Background())
+	result, err := s.Readings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, map[string]interface{}{"a": reading})
 
 	s, err = sensor.FromRobot(r, fakeSensorName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Sensor", "string"))
+	test.That(t, err, test.ShouldBeError, sensor.NewUnimplementedInterfaceError("string"))
 	test.That(t, s, test.ShouldBeNil)
 
 	s, err = sensor.FromRobot(r, missingSensorName)
@@ -123,7 +123,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = sensor.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Sensor", nil))
+	test.That(t, err, test.ShouldBeError, sensor.NewUnimplementedInterfaceError(nil))
 
 	reconfSensor2, err := sensor.WrapWithReconfigurable(reconfSensor1)
 	test.That(t, err, test.ShouldBeNil)
@@ -147,7 +147,7 @@ func TestReconfigurableSensor(t *testing.T) {
 
 	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 0)
 	test.That(t, actualSensor2.readingsCount, test.ShouldEqual, 0)
-	result, err := reconfSensor1.(sensor.Sensor).GetReadings(context.Background())
+	result, err := reconfSensor1.(sensor.Sensor).Readings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, map[string]interface{}{"a": reading})
 	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 0)
@@ -158,12 +158,12 @@ func TestReconfigurableSensor(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *sensor.reconfigurableSensor")
 }
 
-func TestGetReadings(t *testing.T) {
+func TestReadings(t *testing.T) {
 	actualSensor1 := &mock{Name: testSensorName}
 	reconfSensor1, _ := sensor.WrapWithReconfigurable(actualSensor1)
 
 	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 0)
-	result, err := reconfSensor1.(sensor.Sensor).GetReadings(context.Background())
+	result, err := reconfSensor1.(sensor.Sensor).Readings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, map[string]interface{}{"a": reading})
 	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 1)
@@ -187,7 +187,7 @@ type mock struct {
 	reconfCount   int
 }
 
-func (m *mock) GetReadings(ctx context.Context) (map[string]interface{}, error) {
+func (m *mock) Readings(ctx context.Context) (map[string]interface{}, error) {
 	m.readingsCount++
 	return map[string]interface{}{"a": reading}, nil
 }

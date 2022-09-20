@@ -7,12 +7,12 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/gripper/v1"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/gripper/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -83,11 +83,21 @@ type LocalGripper interface {
 	resource.MovingCheckable
 }
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Gripper)(nil), actual)
+}
+
+// NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
+func NewUnimplementedLocalInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((LocalGripper)(nil), actual)
+}
+
 // WrapWithReconfigurable wraps a gripper with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	g, ok := r.(Gripper)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Gripper", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := g.(*reconfigurableGripper); ok {
 		return reconfigurable, nil
@@ -122,7 +132,7 @@ func FromRobot(r robot.Robot, name string) (Gripper, error) {
 	}
 	part, ok := res.(Gripper)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Gripper", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }
@@ -136,7 +146,7 @@ func NamesFromRobot(r robot.Robot) []string {
 func CreateStatus(ctx context.Context, resource interface{}) (*commonpb.ActuatorStatus, error) {
 	gripper, ok := resource.(LocalGripper)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalGripper", resource)
+		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
 	isMoving, err := gripper.IsMoving(ctx)
 	if err != nil {

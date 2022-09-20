@@ -1421,7 +1421,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err := motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err := m.GetPosition(context.Background(), nil)
+		c, err := m.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
@@ -1431,7 +1431,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background(), nil)
+			c, err = m.Position(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 1)
 		})
@@ -1556,7 +1556,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err = motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err = m.GetPosition(context.Background(), nil)
+		c, err = m.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
@@ -1566,7 +1566,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background(), nil)
+			c, err = m.Position(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 1)
 		})
@@ -1679,7 +1679,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err := motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err := m.GetPosition(context.Background(), nil)
+		c, err := m.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
@@ -1689,7 +1689,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background(), nil)
+			c, err = m.Position(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 1)
 		})
@@ -1803,7 +1803,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err = motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err = m.GetPosition(context.Background(), nil)
+		c, err = m.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 0)
 
@@ -1813,7 +1813,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background(), nil)
+			c, err = m.Position(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 1)
 		})
@@ -1914,7 +1914,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		m, err = motor.FromRobot(robot, "m1")
 		test.That(t, err, test.ShouldBeNil)
-		c, err = m.GetPosition(context.Background(), nil)
+		c, err = m.Position(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, c, test.ShouldEqual, 1)
 
@@ -1924,7 +1924,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			c, err = m.GetPosition(context.Background(), nil)
+			c, err = m.Position(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, c, test.ShouldEqual, 2)
 		})
@@ -2242,13 +2242,13 @@ func TestSensorsServiceUpdate(t *testing.T) {
 		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
-		foundSensors, err := svc.GetSensors(context.Background())
+		foundSensors, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, foundSensors, test.ShouldBeEmpty)
 
 		robot.Reconfigure(context.Background(), cfg)
 
-		foundSensors, err = svc.GetSensors(context.Background())
+		foundSensors, err = svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rdktestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rdktestutils.NewResourceNameSet(sensorNames...))
 	})
@@ -2263,13 +2263,13 @@ func TestSensorsServiceUpdate(t *testing.T) {
 		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
-		foundSensors, err := svc.GetSensors(context.Background())
+		foundSensors, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rdktestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rdktestutils.NewResourceNameSet(sensorNames...))
 
 		robot.Reconfigure(context.Background(), emptyCfg)
 
-		foundSensors, err = svc.GetSensors(context.Background())
+		foundSensors, err = svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, foundSensors, test.ShouldBeEmpty)
 	})
@@ -2284,13 +2284,13 @@ func TestSensorsServiceUpdate(t *testing.T) {
 		svc, err := sensors.FromRobot(robot, resource.DefaultServiceName)
 		test.That(t, err, test.ShouldBeNil)
 
-		foundSensors, err := svc.GetSensors(context.Background())
+		foundSensors, err := svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rdktestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rdktestutils.NewResourceNameSet(sensorNames...))
 
 		robot.Reconfigure(context.Background(), cfg)
 
-		foundSensors, err = svc.GetSensors(context.Background())
+		foundSensors, err = svc.Sensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rdktestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rdktestutils.NewResourceNameSet(sensorNames...))
 	})
@@ -2317,12 +2317,12 @@ func TestStatusServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		_, err = robot.GetStatus(context.Background(), resourceNames)
+		_, err = robot.Status(context.Background(), resourceNames)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 		robot.Reconfigure(context.Background(), cfg)
 
-		statuses, err := robot.GetStatus(context.Background(), resourceNames)
+		statuses, err := robot.Status(context.Background(), resourceNames)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(statuses), test.ShouldEqual, 2)
 		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
@@ -2336,7 +2336,7 @@ func TestStatusServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		statuses, err := robot.GetStatus(context.Background(), resourceNames)
+		statuses, err := robot.Status(context.Background(), resourceNames)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(statuses), test.ShouldEqual, 2)
 		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
@@ -2344,7 +2344,7 @@ func TestStatusServiceUpdate(t *testing.T) {
 
 		robot.Reconfigure(context.Background(), emptyCfg)
 
-		_, err = robot.GetStatus(context.Background(), resourceNames)
+		_, err = robot.Status(context.Background(), resourceNames)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	})
 
@@ -2355,7 +2355,7 @@ func TestStatusServiceUpdate(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		statuses, err := robot.GetStatus(context.Background(), resourceNames)
+		statuses, err := robot.Status(context.Background(), resourceNames)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(statuses), test.ShouldEqual, 2)
 		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
@@ -2363,7 +2363,7 @@ func TestStatusServiceUpdate(t *testing.T) {
 
 		robot.Reconfigure(context.Background(), cfg)
 
-		statuses, err = robot.GetStatus(context.Background(), resourceNames)
+		statuses, err = robot.Status(context.Background(), resourceNames)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(statuses), test.ShouldEqual, 2)
 		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])

@@ -5,9 +5,9 @@ import (
 	"io"
 
 	"go.uber.org/multierr"
+	pb "go.viam.com/api/service/shell/v1"
 	goutils "go.viam.com/utils"
 
-	pb "go.viam.com/rdk/proto/api/service/shell/v1"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -30,7 +30,7 @@ func (server *subtypeServer) service(serviceName string) (Service, error) {
 	}
 	svc, ok := resource.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("shell.Service", resource)
+		return nil, NewUnimplementedInterfaceError(resource)
 	}
 	return svc, nil
 }

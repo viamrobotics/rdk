@@ -6,12 +6,12 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -75,12 +75,12 @@ func TestFromBase(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	result, err := res.(base.LocalBase).GetWidth(context.Background())
+	result, err := res.(base.LocalBase).Width(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, width)
 
 	res, err = base.FromDependencies(deps, fakeBaseName)
-	test.That(t, err, test.ShouldBeError, rutils.DependencyTypeError(fakeBaseName, "Base", "string"))
+	test.That(t, err, test.ShouldBeError, base.DependencyTypeError(fakeBaseName, "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = base.FromDependencies(deps, missingBaseName)
@@ -95,12 +95,12 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	result, err := res.(base.LocalBase).GetWidth(context.Background())
+	result, err := res.(base.LocalBase).Width(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, width)
 
 	res, err = base.FromRobot(r, fakeBaseName)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Base", "string"))
+	test.That(t, err, test.ShouldBeError, base.NewUnimplementedInterfaceError("string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = base.FromRobot(r, missingBaseName)
@@ -146,7 +146,7 @@ func TestStatusValid(t *testing.T) {
 
 func TestCreateStatus(t *testing.T) {
 	_, err := base.CreateStatus(context.Background(), "not a base")
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalBase", "string"))
+	test.That(t, err, test.ShouldBeError, base.NewUnimplementedLocalInterfaceError("string"))
 
 	t.Run("is moving", func(t *testing.T) {
 		status := &commonpb.ActuatorStatus{
@@ -188,7 +188,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = base.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Base", nil))
+	test.That(t, err, test.ShouldBeError, base.NewUnimplementedInterfaceError(nil))
 
 	reconfBase2, err := base.WrapWithReconfigurable(reconfBase1)
 	test.That(t, err, test.ShouldBeNil)
@@ -223,7 +223,7 @@ func TestReconfigurableBase(t *testing.T) {
 
 	test.That(t, actualBase1.widthCount, test.ShouldEqual, 0)
 	test.That(t, actualBase2.widthCount, test.ShouldEqual, 0)
-	result, err := reconfBase1.(base.LocalBase).GetWidth(context.Background())
+	result, err := reconfBase1.(base.LocalBase).Width(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, width)
 	test.That(t, actualBase1.widthCount, test.ShouldEqual, 0)
@@ -279,7 +279,7 @@ type mockLocal struct {
 	reconfCount int
 }
 
-func (m *mockLocal) GetWidth(ctx context.Context) (int, error) {
+func (m *mockLocal) Width(ctx context.Context) (int, error) {
 	m.widthCount++
 	return width, nil
 }
@@ -292,7 +292,7 @@ func (m *mockLocal) DoCommand(ctx context.Context, cmd map[string]interface{}) (
 
 func TestDoMove(t *testing.T) {
 	dev := &inject.Base{}
-	dev.GetWidthFunc = func(ctx context.Context) (int, error) {
+	dev.WidthFunc = func(ctx context.Context) (int, error) {
 		return 600, nil
 	}
 	err := base.DoMove(context.Background(), base.Move{}, dev)

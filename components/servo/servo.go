@@ -5,11 +5,11 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	pb "go.viam.com/api/component/servo/v1"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
-	pb "go.viam.com/rdk/proto/api/component/servo/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
@@ -55,8 +55,8 @@ type Servo interface {
 	// This will block until done or a new operation cancels this one
 	Move(ctx context.Context, angleDeg uint8) error
 
-	// GetPosition returns the current set angle (degrees) of the servo.
-	GetPosition(ctx context.Context) (uint8, error)
+	// Position returns the current set angle (degrees) of the servo.
+	Position(ctx context.Context) (uint8, error)
 
 	// Stop stops the servo. It is assumed the servo stops immediately.
 	Stop(ctx context.Context) error
@@ -83,6 +83,16 @@ var (
 	_ = resource.Reconfigurable(&reconfigurableLocalServo{})
 )
 
+// NewUnimplementedInterfaceError is used when there is a failed interface check.
+func NewUnimplementedInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((Servo)(nil), actual)
+}
+
+// NewUnimplementedLocalInterfaceError is used when there is a failed interface check.
+func NewUnimplementedLocalInterfaceError(actual interface{}) error {
+	return utils.NewUnimplementedInterfaceError((LocalServo)(nil), actual)
+}
+
 // FromRobot is a helper for getting the named servo from the given Robot.
 func FromRobot(r robot.Robot, name string) (Servo, error) {
 	res, err := r.ResourceByName(Named(name))
@@ -91,7 +101,7 @@ func FromRobot(r robot.Robot, name string) (Servo, error) {
 	}
 	part, ok := res.(Servo)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Servo", res)
+		return nil, NewUnimplementedInterfaceError(res)
 	}
 	return part, nil
 }
@@ -105,9 +115,9 @@ func NamesFromRobot(r robot.Robot) []string {
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
 	servo, ok := resource.(LocalServo)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalServo", resource)
+		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
-	position, err := servo.GetPosition(ctx)
+	position, err := servo.Position(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -142,10 +152,10 @@ func (r *reconfigurableServo) Move(ctx context.Context, angleDeg uint8) error {
 	return r.actual.Move(ctx, angleDeg)
 }
 
-func (r *reconfigurableServo) GetPosition(ctx context.Context) (uint8, error) {
+func (r *reconfigurableServo) Position(ctx context.Context) (uint8, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetPosition(ctx)
+	return r.actual.Position(ctx)
 }
 
 func (r *reconfigurableServo) Stop(ctx context.Context) error {
@@ -209,7 +219,7 @@ func (r *reconfigurableLocalServo) Reconfigure(ctx context.Context, newServo res
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	servo, ok := r.(Servo)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Servo", r)
+		return nil, NewUnimplementedInterfaceError(r)
 	}
 	if reconfigurable, ok := servo.(*reconfigurableServo); ok {
 		return reconfigurable, nil

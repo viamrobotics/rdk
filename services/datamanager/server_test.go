@@ -5,14 +5,13 @@ import (
 	"errors"
 	"testing"
 
+	pb "go.viam.com/api/service/datamanager/v1"
 	"go.viam.com/test"
 
-	pb "go.viam.com/rdk/proto/api/service/datamanager/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
-	rutils "go.viam.com/rdk/utils"
 )
 
 func newServer(resourceMap map[resource.Name]interface{}) (pb.DataManagerServiceServer, error) {
@@ -36,7 +35,7 @@ func TestServerSync(t *testing.T) {
 			resourceMap: map[resource.Name]interface{}{
 				datamanager.Named(testDataManagerServiceName): "not datamanager",
 			},
-			expectedError: rutils.NewUnimplementedInterfaceError("datamanager.Service", "string"),
+			expectedError: datamanager.NewUnimplementedInterfaceError("string"),
 		},
 		"returns error": {
 			resourceMap: map[resource.Name]interface{}{

@@ -11,22 +11,22 @@ import (
 type SensorsService struct {
 	sensors.Service
 
-	GetSensorsFunc  func(ctx context.Context) ([]resource.Name, error)
-	GetReadingsFunc func(ctx context.Context, resources []resource.Name) ([]sensors.Readings, error)
+	GetSensorsFunc func(ctx context.Context) ([]resource.Name, error)
+	ReadingsFunc   func(ctx context.Context, resources []resource.Name) ([]sensors.Readings, error)
 }
 
-// GetSensors call the injected GetSensors or the real one.
-func (s *SensorsService) GetSensors(ctx context.Context) ([]resource.Name, error) {
+// Sensors call the injected Sensors or the real one.
+func (s *SensorsService) Sensors(ctx context.Context) ([]resource.Name, error) {
 	if s.GetSensorsFunc == nil {
-		return s.Service.GetSensors(ctx)
+		return s.Service.Sensors(ctx)
 	}
 	return s.GetSensorsFunc(ctx)
 }
 
-// GetReadings call the injected GetReadings or the real one.
-func (s *SensorsService) GetReadings(ctx context.Context, names []resource.Name) ([]sensors.Readings, error) {
-	if s.GetReadingsFunc == nil {
-		return s.Service.GetReadings(ctx, names)
+// Readings call the injected Readings or the real one.
+func (s *SensorsService) Readings(ctx context.Context, names []resource.Name) ([]sensors.Readings, error) {
+	if s.ReadingsFunc == nil {
+		return s.Service.Readings(ctx, names)
 	}
-	return s.GetReadingsFunc(ctx, names)
+	return s.ReadingsFunc(ctx, names)
 }

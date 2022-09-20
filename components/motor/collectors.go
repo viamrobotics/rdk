@@ -3,19 +3,21 @@ package motor
 import (
 	"context"
 
+	"google.golang.org/protobuf/types/known/anypb"
+
 	"go.viam.com/rdk/data"
 )
 
 type method int64
 
 const (
-	getPosition method = iota
+	position method = iota
 	isPowered
 )
 
 func (m method) String() string {
 	switch m {
-	case getPosition:
+	case position:
 		return "GetPosition"
 	case isPowered:
 		return "IsPowered"
@@ -28,16 +30,16 @@ type Position struct {
 	Position float64
 }
 
-func newGetPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	motor, err := assertMotor(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		v, err := motor.GetPosition(ctx, nil)
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+		v, err := motor.Position(ctx, nil)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, getPosition.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, position.String(), err)
 		}
 		return Position{Position: v}, nil
 	})
@@ -55,7 +57,7 @@ func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (d
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		v, err := motor.IsPowered(ctx, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, isPowered.String(), err)

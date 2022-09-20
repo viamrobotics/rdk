@@ -2,7 +2,7 @@
 package motor
 
 import (
-	pb "go.viam.com/rdk/proto/api/component/motor/v1"
+	pb "go.viam.com/api/component/motor/v1"
 )
 
 // Feature is an enum representing an optional motor feature.

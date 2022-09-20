@@ -52,7 +52,7 @@
         {
             "name": "encoder1",
             "type": "encoder",
-            "model": "hall",
+            "model": "incremental",
             "attributes": {
                 "pins": {
                     "A": "encoder-steering-b",

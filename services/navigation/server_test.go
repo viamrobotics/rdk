@@ -8,10 +8,10 @@ import (
 
 	geo "github.com/kellydunn/golang-geo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/service/navigation/v1"
 	"go.viam.com/test"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/navigation/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/subtype"
@@ -294,7 +294,7 @@ func TestServer(t *testing.T) {
 	navServer = navigation.NewServer(injectSubtypeSvc)
 
 	t.Run("failing on improper service interface", func(t *testing.T) {
-		improperImplErr := utils.NewUnimplementedInterfaceError("navigation.Service", "string")
+		improperImplErr := navigation.NewUnimplementedInterfaceError("string")
 
 		getModeReq := &pb.GetModeRequest{Name: testSvcName1}
 		getModeResp, err := navServer.GetMode(context.Background(), getModeReq)

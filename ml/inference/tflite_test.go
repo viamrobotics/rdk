@@ -147,7 +147,7 @@ func TestHasMetadata(t *testing.T) {
 	test.That(t, tfliteStruct, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
 
-	meta, err := tfliteStruct.GetMetadata()
+	meta, err := tfliteStruct.Metadata()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, meta, test.ShouldNotBeNil)
 	test.That(t, meta.SubgraphMetadata[0].OutputTensorGroups[0].TensorNames, test.ShouldResemble, []string{"location", "category", "score"})
@@ -163,7 +163,7 @@ func TestNoMetadata(t *testing.T) {
 	test.That(t, tfliteStruct, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
 
-	fizzMeta, err := tfliteStruct.GetMetadata()
+	fizzMeta, err := tfliteStruct.Metadata()
 	test.That(t, err, test.ShouldBeError, MetadataDoesNotExistError())
 	test.That(t, fizzMeta, test.ShouldBeNil)
 

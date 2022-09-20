@@ -3,9 +3,9 @@ package config
 import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/robot/v1"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -66,11 +66,9 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 		Theta: poseMsg.Theta,
 	}
 	pose := spatialmath.NewPoseFromProtobuf(convertedPose)
-	point := pose.Point()
-	translation := spatialmath.TranslationConfig{X: point.X, Y: point.Y, Z: point.Z}
 	frameConfig := &Frame{
 		Parent:      fsc.PoseInParentFrame.ReferenceFrame,
-		Translation: translation,
+		Translation: pose.Point(),
 		Orientation: pose.Orientation(),
 	}
 	part := &FrameSystemPart{
@@ -108,11 +106,9 @@ func ConvertTransformProtobufToFrameSystemPart(transformMsg *commonpb.Transform)
 	}
 	poseMsg := poseInObserverFrame.GetPose()
 	pose := spatialmath.NewPoseFromProtobuf(poseMsg)
-	point := pose.Point()
-	translation := spatialmath.NewTranslationConfig(point)
 	frameConfig := &Frame{
 		Parent:      parentFrame,
-		Translation: *translation,
+		Translation: pose.Point(),
 		Orientation: pose.Orientation(),
 	}
 	part := &FrameSystemPart{

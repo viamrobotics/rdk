@@ -28,7 +28,7 @@ const SetPowerZeroThreshold = .0001
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			motorConfig, ok := config.ConvertedAttributes.(*motor.Config)
+			motorConfig, ok := config.ConvertedAttributes.(*gpio.Config)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
 			}
@@ -64,14 +64,22 @@ func init() {
 
 	registry.RegisterComponent(motor.Subtype, "arduino", _motor)
 
-	motor.RegisterConfigAttributeConverter("arduino")
+	config.RegisterComponentAttributeMapConverter(
+		motor.SubtypeName,
+		"arduino",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf gpio.Config
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&gpio.Config{},
+	)
 }
 
 func configureMotorForBoard(
 	ctx context.Context,
 	b *arduinoBoard,
 	config config.Component,
-	motorConfig *motor.Config,
+	motorConfig *gpio.Config,
 	e *Encoder,
 ) (motor.LocalMotor, error) {
 	if !((motorConfig.Pins.PWM != "" && motorConfig.Pins.Direction != "") || (motorConfig.Pins.A != "" || motorConfig.Pins.B != "")) {
@@ -166,7 +174,7 @@ func configureMotorForBoard(
 type arduinoMotor struct {
 	generic.Unimplemented
 	b                 *arduinoBoard
-	cfg               motor.Config
+	cfg               gpio.Config
 	name              string
 	positionReporting bool
 }
@@ -205,7 +213,7 @@ func (m *arduinoMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 // Position reports the position of the motor based on its encoder. If it's not supported, the returned
 // data is undefined. The unit returned is the number of revolutions which is intended to be fed
 // back into calls of GoFor.
-func (m *arduinoMotor) GetPosition(ctx context.Context, extra map[string]interface{}) (float64, error) {
+func (m *arduinoMotor) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
 	res, err := m.b.runCommand("motor-position " + m.name)
 	if err != nil {
 		return 0, err
@@ -219,8 +227,8 @@ func (m *arduinoMotor) GetPosition(ctx context.Context, extra map[string]interfa
 	return float64(ticks) / float64(m.cfg.TicksPerRotation), nil
 }
 
-// GetProperties returns the status of optional features supported by the motor.
-func (m *arduinoMotor) GetProperties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
+// Properties returns the status of optional features supported by the motor.
+func (m *arduinoMotor) Properties(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
 		motor.PositionReporting: m.positionReporting,
 	}, nil

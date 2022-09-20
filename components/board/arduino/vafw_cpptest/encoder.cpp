@@ -13,7 +13,7 @@
 #define ASSERT(EXPRESSION) ASSERT_TRUE(EXPRESSION)
 
 int main() {
-    HallEncoder e;
+    IncrementalEncoder e;
 
     CHECK(0 == e.position());
 

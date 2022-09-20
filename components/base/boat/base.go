@@ -151,7 +151,7 @@ func (b *boat) startVelocityThread() error {
 }
 
 func (b *boat) velocityThreadLoop(ctx context.Context) error {
-	av, err := b.imu.GetAngularVelocity(ctx)
+	av, err := b.imu.AngularVelocity(ctx)
 	if err != nil {
 		return err
 	}
@@ -281,7 +281,7 @@ func (b *boat) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return err
 }
 
-func (b *boat) GetWidth(ctx context.Context) (int, error) {
+func (b *boat) Width(ctx context.Context) (int, error) {
 	return int(b.cfg.WidthMM), nil
 }
 

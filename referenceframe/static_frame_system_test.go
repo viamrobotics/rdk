@@ -1,7 +1,6 @@
 package referenceframe
 
 import (
-	"errors"
 	"math"
 	"testing"
 
@@ -30,7 +29,7 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 	frame1Pt := r3.Vector{0., 3., 0.} // location of frame1 with respect to frame3
 	f1, err := FrameFromPoint("frame1", frame1Pt)
 	test.That(t, err, test.ShouldBeNil)
-	err = fs.AddFrame(f1, fs.GetFrame("frame3"))
+	err = fs.AddFrame(f1, fs.Frame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
 	frame2Pt := r3.Vector{5., 1., 0.} // location of frame2 with respect to world frame
 	f2, err := FrameFromPoint("frame2", frame2Pt)
@@ -46,35 +45,32 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 	test.That(t, len(f1Parents), test.ShouldEqual, 3)
 	test.That(t, frameNames(f1Parents), test.ShouldResemble, []string{"frame1", "frame3", "world"})
 
-	parent, err := fs.Parent(fs.GetFrame("frame1"))
+	parent, err := fs.Parent(fs.Frame("frame1"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, parent, test.ShouldResemble, fs.GetFrame("frame3"))
+	test.That(t, parent, test.ShouldResemble, fs.Frame("frame3"))
 
-	parent, err = fs.Parent(fs.GetFrame("frame3"))
+	parent, err = fs.Parent(fs.Frame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, parent, test.ShouldResemble, fs.World())
 	// Pruning frame3 should also remove frame1
-	fs.RemoveFrame(fs.GetFrame("frame3"))
+	fs.RemoveFrame(fs.Frame("frame3"))
 	frames = fs.FrameNames()
 	test.That(t, len(frames), test.ShouldEqual, 1)
 
-	e2 := errors.New("parent frame with name \"foo\" not in frame system")
-	e3 := errors.New("frame with name \"frame2\" already in frame system")
-	e4 := errors.New("frame with name \"frame1\" not in frame system")
-	if sfs, ok := fs.(*simpleFrameSystem); ok {
-		err = sfs.AddFrame(f2, nil)
-		test.That(t, err, test.ShouldBeError, NewParentFrameMissingError())
+	err = fs.AddFrame(f2, nil)
+	test.That(t, err, test.ShouldBeError, NewParentFrameMissingError())
 
-		fFoo := NewZeroStaticFrame("foo")
-		err = sfs.checkName("bar", fFoo)
-		test.That(t, err, test.ShouldBeError, e2)
+	err = fs.AddFrame(NewZeroStaticFrame("bar"), NewZeroStaticFrame("foo"))
+	test.That(t, err, test.ShouldBeError, NewFrameMissingError("foo"))
 
-		err = sfs.checkName("frame2", fs.World())
-		test.That(t, err, test.ShouldBeError, e3)
-	}
+	err = fs.AddFrame(NewZeroStaticFrame("bar"), nil)
+	test.That(t, err, test.ShouldBeError, NewParentFrameMissingError())
+
+	err = fs.AddFrame(NewZeroStaticFrame("frame2"), fs.World())
+	test.That(t, err, test.ShouldBeError, NewFrameAlreadyExistsError("frame2"))
 
 	_, err = fs.TracebackFrame(f1)
-	test.That(t, err, test.ShouldBeError, e4)
+	test.That(t, err, test.ShouldBeError, NewFrameMissingError("frame1"))
 }
 
 // A simple Frame translation from the world frame to a frame right above it at (0, 3, 0)
@@ -145,7 +141,7 @@ func TestFrameTranslation(t *testing.T) {
 	frame1Pt := r3.Vector{0., 3., 0.} // location of frame1 with respect to frame3
 	f1, err := FrameFromPoint("frame1", frame1Pt)
 	test.That(t, err, test.ShouldBeNil)
-	err = fs.AddFrame(f1, fs.GetFrame("frame3"))
+	err = fs.AddFrame(f1, fs.Frame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
 	frame2Pt := r3.Vector{5., 1., 0.} // location of frame2 with respect to world frame
 	f2, err := FrameFromPoint("frame2", frame2Pt)
@@ -192,7 +188,7 @@ func TestFrameTransform(t *testing.T) {
 	frame1Pt := r3.Vector{0., 3., 0.} // location of frame1 with respect to frame3
 	f1, err := FrameFromPoint("frame1", frame1Pt)
 	test.That(t, err, test.ShouldBeNil)
-	err = fs.AddFrame(f1, fs.GetFrame("frame3"))
+	err = fs.AddFrame(f1, fs.Frame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
 	frame2Pose := spatial.NewPoseFromOrientation(r3.Vector{5., 1., 0.}, &spatial.R4AA{math.Pi / 2, 0., 0., 1.})
 	f2, err := NewStaticFrame("frame2", frame2Pose)
@@ -237,7 +233,7 @@ func TestGeomtriesTransform(t *testing.T) {
 	frame1Pt := r3.Vector{0., 3., 0.} // location of frame1 with respect to frame3
 	f1, err := FrameFromPoint("frame1", frame1Pt)
 	test.That(t, err, test.ShouldBeNil)
-	err = fs.AddFrame(f1, fs.GetFrame("frame3"))
+	err = fs.AddFrame(f1, fs.Frame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
 	frame2Pose := spatial.NewPoseFromOrientation(r3.Vector{5., 1., 0.}, &spatial.R4AA{math.Pi / 2, 0., 0., 1.})
 	f2, err := NewStaticFrame("frame2", frame2Pose)
@@ -285,7 +281,7 @@ func TestComplicatedFrameTransform(t *testing.T) {
 	frame2, err := NewStaticFrame("frame2",
 		spatial.NewPoseFromOrientation(r3.Vector{2. * math.Sqrt(2), 0., 0.}, &spatial.R4AA{math.Pi / 4, 0., 0., 1.}))
 	test.That(t, err, test.ShouldBeNil)
-	err = fs.AddFrame(frame2, fs.GetFrame("frame1"))
+	err = fs.AddFrame(frame2, fs.Frame("frame1"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// test out a transform from world to frame
@@ -303,7 +299,7 @@ func TestComplicatedFrameTransform(t *testing.T) {
 	// frame4 - pure translation
 	frame4, err := NewStaticFrame("frame4", spatial.NewPoseFromPoint(r3.Vector{-2., 7., 1.}))
 	test.That(t, err, test.ShouldBeNil)
-	err = fs.AddFrame(frame4, fs.GetFrame("frame3"))
+	err = fs.AddFrame(frame4, fs.Frame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
 
 	poseStart = NewPoseInFrame("frame2", spatial.NewPoseFromPoint(r3.Vector{3, 0, 0})) // the point from PoV of frame 2
@@ -329,7 +325,7 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	frame2, err := NewStaticFrame("frame2",
 		spatial.NewPoseFromOrientation(r3.Vector{2. * math.Sqrt(2), 0., 0.}, &spatial.R4AA{math.Pi / 4, 0., 0., 1.}))
 	test.That(t, err, test.ShouldBeNil)
-	err = fs.AddFrame(frame2, fs.GetFrame("frame1"))
+	err = fs.AddFrame(frame2, fs.Frame("frame1"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// frame3 - pure rotation around y 90 degrees
@@ -341,7 +337,7 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	// frame4 - pure translation
 	frame4, err := NewStaticFrame("frame4", spatial.NewPoseFromPoint(r3.Vector{-2., 7., 1.}))
 	test.That(t, err, test.ShouldBeNil)
-	err = fs.AddFrame(frame4, fs.GetFrame("frame3"))
+	err = fs.AddFrame(frame4, fs.Frame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// complete fs
@@ -353,23 +349,21 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	t.Logf("frames in fs after divide: %v", fs.FrameNames())
 	t.Logf("frames in fs2 after divide: %v", fs2.FrameNames())
 
-	f4 := fs.GetFrame("frame4")
+	f4 := fs.Frame("frame4")
 	test.That(t, f4, test.ShouldBeNil)
-	f1 := fs.GetFrame("frame1")
+	f1 := fs.Frame("frame1")
 	test.That(t, f1, test.ShouldNotBeNil)
 
-	f4 = fs2.GetFrame("frame4")
+	f4 = fs2.Frame("frame4")
 	test.That(t, f4, test.ShouldNotBeNil)
-	f1 = fs2.GetFrame("frame1")
+	f1 = fs2.Frame("frame1")
 	test.That(t, f1, test.ShouldBeNil)
 
 	_, err = fs.Transform(map[string][]Input{}, NewPoseInFrame("frame4", spatial.NewPoseFromPoint(r3.Vector{2, 0, 0})), "frame2")
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Put frame3 back where it was
-	err = fs.AddFrame(frame3, fs.World())
-	test.That(t, err, test.ShouldBeNil)
-	err = fs.MergeFrameSystem(fs2, frame3)
+	err = fs.MergeFrameSystem(fs2, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
 	// Comfirm that fs2 is empty now

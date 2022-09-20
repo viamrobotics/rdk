@@ -11,11 +11,11 @@ import (
 	"testing"
 
 	"github.com/edaniels/gostream"
+	pb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/pointcloud"
-	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -56,7 +56,7 @@ func TestServer(t *testing.T) {
 	imgJpeg, err := jpeg.Decode(bytes.NewReader(imgBufJpeg.Bytes()))
 	test.That(t, err, test.ShouldBeNil)
 
-	var projA rimage.Projector
+	var projA transform.Projector
 	intrinsics := &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
 		Width:  1280,
 		Height: 720,
@@ -75,13 +75,13 @@ func TestServer(t *testing.T) {
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
-	injectCamera.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{
 			SupportsPCD:     true,
 			IntrinsicParams: intrinsics,
 		}, nil
 	}
-	injectCamera.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	injectCamera.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil
 	}
 	wooMIME := "image/woohoo"
@@ -117,13 +117,13 @@ func TestServer(t *testing.T) {
 	injectCameraDepth.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
-	injectCameraDepth.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	injectCameraDepth.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{
 			SupportsPCD:     true,
 			IntrinsicParams: intrinsics,
 		}, nil
 	}
-	injectCameraDepth.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	injectCameraDepth.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil
 	}
 	injectCameraDepth.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
@@ -138,10 +138,10 @@ func TestServer(t *testing.T) {
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return nil, errors.New("can't generate next point cloud")
 	}
-	injectCamera2.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	injectCamera2.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, errors.New("can't get camera properties")
 	}
-	injectCamera2.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	injectCamera2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, errors.New("can't get camera properties")
 	}
 	injectCamera2.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {

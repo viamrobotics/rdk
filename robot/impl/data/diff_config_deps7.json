@@ -38,13 +38,14 @@
                     "pwm": "5"
                 },
                 "pwm_freq": 4000,
+                "max_rpm": 60,
                 "ticks_per_rotation": 1
             }
         },
         {
             "name": "e1",
             "type": "encoder",
-            "model": "hall",
+            "model": "incremental",
             "depends_on": [
                 "board1"
             ],
