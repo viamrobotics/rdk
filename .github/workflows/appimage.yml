@@ -6,8 +6,6 @@ on:
     secrets:
       GCP_CREDENTIALS:
         required: true
-      REPO_READ_TOKEN:
-        required: true
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
@@ -38,9 +36,8 @@ jobs:
       with: 
         fetch-depth: 2
 
-    - name: Clean and configure git for private repos
+    - name: Clean
       run: |
-        echo "machine github.com login viambot password ${{ secrets.REPO_READ_TOKEN }}" > ~/.netrc
         make clean-all
 
     - name: Authorize GCP Upload
