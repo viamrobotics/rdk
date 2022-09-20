@@ -106,7 +106,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
 	planOpts *PlannerOptions,
-	endpointPreview chan Node,
+	endpointPreview chan node,
 	solutionChan chan *planReturn,
 ) {
 	defer close(solutionChan)
@@ -137,11 +137,11 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	optimalCost := solutions[0].cost
 
 	// initialize maps
-	goalMap := make(map[Node]Node, len(solutions))
+	goalMap := make(map[node]node, len(solutions))
 	for _, solution := range solutions {
 		goalMap[newCostNode(solution.Q(), 0)] = nil
 	}
-	startMap := make(map[Node]Node)
+	startMap := make(map[node]node)
 	startMap[newCostNode(seed, 0)] = nil
 
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
@@ -194,7 +194,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	solutionChan <- shortestPath(startMap, goalMap, shared)
 }
 
-func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tree map[Node]Node, target []referenceframe.Input) Node {
+func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tree map[node]node, target []referenceframe.Input) node {
 	if validTarget := mp.checkInputs(algOpts.planOpts, target); !validTarget {
 		return nil
 	}

@@ -86,18 +86,18 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 	goalRate float64,
 ) {
 	defer close(solutionChan)
-	inputSteps := []Node{}
+	inputSteps := []node{}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	seedConfig := &basicNode{q: seed}
-	seedMap := make(map[Node]Node)
-	childMap := make(map[Node][]Node)
+	seedMap := make(map[node]node)
+	childMap := make(map[node][]node)
 	seedMap[seedConfig] = nil
-	childMap[seedConfig] = make([]Node, 0)
+	childMap[seedConfig] = make([]node, 0)
 
-	pathLenMap := make(map[Node]float64)
+	pathLenMap := make(map[node]float64)
 	pathLenMap[seedConfig] = 0
 
 	goalInputs := make([]referenceframe.Input, 3)
@@ -116,7 +116,7 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 		default:
 		}
 
-		var target Node
+		var target node
 		//nolint:gosec
 		if (rand.Float64() > 1-goalRate) || i == 0 {
 			target = goalConfig
@@ -141,7 +141,7 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 				}
 				pathLenMap[target] = pathLenMap[n] + o.TotalLen
 				childMap[n] = append(childMap[n], target)
-				childMap[target] = make([]Node, 0)
+				childMap[target] = make([]node, 0)
 				targetConnected = true
 				break
 			}
@@ -212,9 +212,9 @@ func (mp *DubinsRRTMotionPlanner) planRunner(ctx context.Context,
 }
 
 func updateChildren(
-	relinkedNode Node,
-	pathLenMap map[Node]float64,
-	childMap map[Node][]Node,
+	relinkedNode node,
+	pathLenMap map[node]float64,
+	childMap map[node][]node,
 	diff float64,
 ) {
 	pathLenMap[relinkedNode] -= diff
@@ -224,7 +224,7 @@ func updateChildren(
 }
 
 func (mp *DubinsRRTMotionPlanner) checkPath(
-	from, to Node,
+	from, to node,
 	planOpts *PlannerOptions,
 	dm *dubinPathAttrManager,
 	o DubinPathAttr,
@@ -275,17 +275,17 @@ func (mp *DubinsRRTMotionPlanner) checkPath(
 
 // Used for coordinating parallel computations of dubins path options.
 type dubinPathAttrManager struct {
-	optKeys chan Node
+	optKeys chan node
 	options chan *nodeToOptionList
 	optLock sync.RWMutex
-	sample  Node
+	sample  node
 	ready   bool
 	nCPU    int
 	d       Dubins
 }
 
 type nodeToOption struct {
-	key   Node
+	key   node
 	value DubinPathAttr
 }
 
@@ -297,10 +297,10 @@ func (p nodeToOptionList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 func (dm *dubinPathAttrManager) selectOptions(
 	ctx context.Context,
-	sample Node,
-	rrtMap map[Node]Node,
+	sample node,
+	rrtMap map[node]node,
 	nbOptions int,
-) map[Node]DubinPathAttr {
+) map[node]DubinPathAttr {
 	if len(rrtMap) < 1 {
 		// If the map is large, calculate distances in parallel
 		return dm.parallelselectOptions(ctx, sample, rrtMap, nbOptions)
@@ -320,7 +320,7 @@ func (dm *dubinPathAttrManager) selectOptions(
 	sort.Sort(pl)
 
 	// Sort and choose best nbOptions options
-	options := make(map[Node]DubinPathAttr)
+	options := make(map[node]DubinPathAttr)
 	topn := nbOptions
 	if len(pl) < nbOptions {
 		topn = len(pl)
@@ -335,10 +335,10 @@ func (dm *dubinPathAttrManager) selectOptions(
 
 func (dm *dubinPathAttrManager) parallelselectOptions(
 	ctx context.Context,
-	sample Node,
-	rrtMap map[Node]Node,
+	sample node,
+	rrtMap map[node]node,
 	nbOptions int,
-) map[Node]DubinPathAttr {
+) map[node]DubinPathAttr {
 	dm.ready = false
 	dm.startOptWorkers(ctx)
 	defer close(dm.optKeys)
@@ -372,7 +372,7 @@ func (dm *dubinPathAttrManager) parallelselectOptions(
 
 	// Sort and choose best nbOptions options
 	sort.Sort(pl)
-	options := make(map[Node]DubinPathAttr)
+	options := make(map[node]DubinPathAttr)
 	topn := nbOptions
 	if len(pl) < nbOptions {
 		topn = len(pl)
@@ -386,7 +386,7 @@ func (dm *dubinPathAttrManager) parallelselectOptions(
 
 func (dm *dubinPathAttrManager) startOptWorkers(ctx context.Context) {
 	dm.options = make(chan *nodeToOptionList, dm.nCPU)
-	dm.optKeys = make(chan Node, dm.nCPU)
+	dm.optKeys = make(chan node, dm.nCPU)
 	for i := 0; i < dm.nCPU; i++ {
 		utils.PanicCapturingGo(func() {
 			dm.optWorker(ctx)
@@ -429,13 +429,13 @@ func (dm *dubinPathAttrManager) optWorker(ctx context.Context) {
 	}
 }
 
-func mobile2DConfigDist(from, to Node) float64 {
+func mobile2DConfigDist(from, to node) float64 {
 	return math.Pow(from.Q()[0].Value-to.Q()[0].Value, 2) + math.Pow(from.Q()[1].Value-to.Q()[1].Value, 2)
 }
 
 // TODO: Update nearestNeighbor.go to take a custom distance function, so then everything can use the same function (rh pl rb).
-func findNearNeighbors(sample Node, rrtMap map[Node]Node, nbNeighbors int) []Node {
-	keys := make([]Node, 0, len(rrtMap))
+func findNearNeighbors(sample node, rrtMap map[node]node, nbNeighbors int) []node {
+	keys := make([]node, 0, len(rrtMap))
 
 	for key := range rrtMap {
 		if key == sample {
@@ -456,7 +456,7 @@ func findNearNeighbors(sample Node, rrtMap map[Node]Node, nbNeighbors int) []Nod
 	return keys[:topn]
 }
 
-func nodeToSlice(c Node) []float64 {
+func nodeToSlice(c node) []float64 {
 	s := make([]float64, 0)
 	for _, v := range c.Q() {
 		s = append(s, v.Value)

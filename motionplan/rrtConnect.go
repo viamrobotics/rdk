@@ -57,7 +57,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
 	planOpts *PlannerOptions,
-	endpointPreview chan Node,
+	endpointPreview chan node,
 	solutionChan chan *planReturn,
 ) {
 	defer close(solutionChan)
@@ -82,11 +82,11 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	}
 
 	// initialize maps
-	goalMap := make(map[Node]Node, len(solutions))
+	goalMap := make(map[node]node, len(solutions))
 	for _, solution := range solutions {
 		goalMap[solution] = nil
 	}
-	startMap := make(map[Node]Node)
+	startMap := make(map[node]node)
 	startMap[&basicNode{q: seed}] = nil
 
 	// TODO(rb) package neighborManager better

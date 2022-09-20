@@ -11,7 +11,7 @@ import (
 
 func TestNearestNeighbor(t *testing.T) {
 	nm := &neighborManager{nCPU: 2}
-	rrtMap := map[Node]Node{}
+	rrtMap := map[node]node{}
 
 	j := &basicNode{q: []referenceframe.Input{{0.0}}}
 	for i := 1.0; i < 110.0; i++ {

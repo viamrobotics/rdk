@@ -86,8 +86,8 @@ func (mp *planner) checkPath(planOpts *PlannerOptions, seedInputs, target []fram
 	return ok
 }
 
-// Node interface is used to wrap a configuration for planning purposes.
-type Node interface {
+// node interface is used to wrap a configuration for planning purposes.
+type node interface {
 	// return the configuration associated with the node
 	Q() []frame.Input
 }
@@ -101,7 +101,7 @@ func (n *basicNode) Q() []frame.Input {
 }
 
 type costNode struct {
-	Node
+	node
 	cost float64
 }
 
@@ -109,7 +109,9 @@ func newCostNode(q []frame.Input, cost float64) *costNode {
 	return &costNode{&basicNode{q: q}, cost}
 }
 
-type nodePair struct{ a, b Node }
+// nodePair groups together nodes in a tuple
+// TODO(rb): in the future we might think about making this into a list of nodes
+type nodePair struct{ a, b node }
 
 func (np *nodePair) sumCosts() float64 {
 	a, aok := np.a.(*costNode)
@@ -124,7 +126,7 @@ func (np *nodePair) sumCosts() float64 {
 }
 
 type planReturn struct {
-	steps []Node
+	steps []node
 	err   error
 }
 
@@ -216,7 +218,7 @@ func runPlannerWithWaypoints(ctx context.Context,
 	if cbert, ok := planner.(*cBiRRTMotionPlanner); ok {
 		// cBiRRT supports solution look-ahead for parallel waypoint solving
 		// TODO(pl): other planners will support lookaheads, so this should be made to be an interface
-		endpointPreview := make(chan Node, 1)
+		endpointPreview := make(chan node, 1)
 		solutionChan := make(chan *planReturn, 1)
 		utils.PanicCapturingGo(func() {
 			// TODO(rb) fix me
@@ -429,9 +431,9 @@ IK:
 	return orderedSolutions, nil
 }
 
-func extractPath(startMap, goalMap map[Node]Node, pair *nodePair) []Node {
+func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
 	// need to figure out which of the two nodes is in the start map
-	var startReached, goalReached Node
+	var startReached, goalReached node
 	if _, ok := startMap[pair.a]; ok {
 		startReached, goalReached = pair.a, pair.b
 	} else {
@@ -439,7 +441,7 @@ func extractPath(startMap, goalMap map[Node]Node, pair *nodePair) []Node {
 	}
 
 	// extract the path to the seed
-	path := make([]Node, 0)
+	path := make([]node, 0)
 	for startReached != nil {
 		path = append(path, startReached)
 		startReached = startMap[startReached]
@@ -461,7 +463,7 @@ func extractPath(startMap, goalMap map[Node]Node, pair *nodePair) []Node {
 	return path
 }
 
-func shortestPath(startMap, goalMap map[Node]Node, nodePairs []*nodePair) *planReturn {
+func shortestPath(startMap, goalMap map[node]node, nodePairs []*nodePair) *planReturn {
 	if len(nodePairs) == 0 {
 		return &planReturn{err: errPlannerFailed}
 	}
