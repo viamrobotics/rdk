@@ -106,7 +106,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
 	planOpts *PlannerOptions,
-	endpointPreview chan *node,
+	endpointPreview chan node,
 	solutionChan chan *planReturn,
 ) {
 	defer close(solutionChan)
@@ -137,15 +137,15 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	optimalCost := solutions[0].cost
 
 	// initialize maps
-	goalMap := make(map[*node]*node, len(solutions))
+	goalMap := make(map[node]node, len(solutions))
 	for _, solution := range solutions {
-		goalMap[&node{q: solution.q, cost: 0}] = nil
+		goalMap[newCostNode(solution.Q(), 0)] = nil
 	}
-	startMap := make(map[*node]*node)
-	startMap[&node{q: seed}] = nil
+	startMap := make(map[node]node)
+	startMap[newCostNode(seed, 0)] = nil
 
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
-	target := referenceframe.InterpolateInputs(seed, solutions[0].q, 0.5)
+	target := referenceframe.InterpolateInputs(seed, solutions[0].Q(), 0.5)
 
 	// Create a reference to the two maps so that we can alternate which one is grown
 	map1, map2 := startMap, goalMap
@@ -194,7 +194,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	solutionChan <- shortestPath(startMap, goalMap, shared)
 }
 
-func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tree map[*node]*node, target []referenceframe.Input) *node {
+func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tree map[node]node, target []referenceframe.Input) node {
 	if validTarget := mp.checkInputs(algOpts.planOpts, target); !validTarget {
 		return nil
 	}
@@ -204,15 +204,16 @@ func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tr
 	minCost := math.Inf(1)
 	var minIndex int
 	for i, neighbor := range neighbors {
-		cost := neighbor.node.cost + neighbor.dist
-		if cost < minCost && mp.checkPath(algOpts.planOpts, neighbor.node.q, target) {
+		neighborNode := neighbor.node.(*costNode)
+		cost := neighborNode.cost + neighbor.dist
+		if cost < minCost && mp.checkPath(algOpts.planOpts, neighborNode.Q(), target) {
 			minIndex = i
 			minCost = cost
 		}
 	}
 
 	// add new node to tree as a child of the minimum cost neighbor node
-	targetNode := &node{q: target, cost: minCost}
+	targetNode := newCostNode(target, minCost)
 	tree[targetNode] = neighbors[minIndex].node
 
 	// rewire the tree
@@ -223,14 +224,15 @@ func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tr
 		}
 
 		// check to see if a shortcut is possible, and rewire the node if it is
+		neighborNode := neighbor.node.(*costNode)
 		_, connectionCost := algOpts.planOpts.DistanceFunc(&ConstraintInput{
-			StartInput: neighbor.node.q,
-			EndInput:   targetNode.q,
+			StartInput: neighborNode.Q(),
+			EndInput:   targetNode.Q(),
 		})
 		cost := connectionCost + targetNode.cost
-		if cost < neighbor.node.cost && mp.checkPath(algOpts.planOpts, target, neighbor.node.q) {
-			neighbor.node.cost = cost
-			tree[neighbor.node] = targetNode
+		if cost < neighborNode.cost && mp.checkPath(algOpts.planOpts, target, neighborNode.Q()) {
+			neighborNode.cost = cost
+			tree[neighborNode] = targetNode
 		}
 	}
 	return targetNode
