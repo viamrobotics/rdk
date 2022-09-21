@@ -1,4 +1,4 @@
-package nmea
+package gpsnmea
 
 import (
 	"strconv"

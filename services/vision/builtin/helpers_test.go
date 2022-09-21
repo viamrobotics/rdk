@@ -170,7 +170,7 @@ func (c *cloudSource) Stream(
 
 func (c *cloudSource) Projector(ctx context.Context) (transform.Projector, error) {
 	var proj transform.Projector
-	props, err := c.GetProperties(ctx)
+	props, err := c.Properties(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +178,7 @@ func (c *cloudSource) Projector(ctx context.Context) (transform.Projector, error
 	return proj, nil
 }
 
-func (c *cloudSource) GetProperties(ctx context.Context) (camera.Properties, error) {
+func (c *cloudSource) Properties(ctx context.Context) (camera.Properties, error) {
 	return camera.Properties{
 		SupportsPCD: true,
 		IntrinsicParams: &transform.PinholeCameraIntrinsics{

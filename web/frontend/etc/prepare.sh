@@ -2,11 +2,20 @@
 
 rm -rf src/gen
 
-# Ours
 mkdir -p src/gen
-cp -R ../../dist/js/proto src/gen
 
-# Third-Party
-mkdir -p src/gen/google
-cp -R ../../dist/js/google/api src/gen/google
+cd src/gen
+mkdir tmp
+cd tmp
+git clone --filter=blob:none --no-checkout --depth 1 --sparse -b main https://github.com/viamrobotics/api.git
+cd api
+git sparse-checkout init --cone
+git sparse-checkout add gen/js
+git checkout
+cd ../..
+mkdir -p proto/api
+mv tmp/api/gen/js/* proto/api
+rm -rf tmp
+cd ../..
 
+cp -R ../../dist/js/proto/stream src/gen/proto

@@ -4,8 +4,9 @@ package sensors
 import (
 	"context"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/sensors/v1"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/service/sensors/v1"
+
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
@@ -43,7 +44,7 @@ func (server *subtypeServer) GetSensors(
 	if err != nil {
 		return nil, err
 	}
-	names, err := svc.GetSensors(ctx)
+	names, err := svc.Sensors(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +69,7 @@ func (server *subtypeServer) GetReadings(
 		sensorNames = append(sensorNames, protoutils.ResourceNameFromProto(name))
 	}
 
-	readings, err := svc.GetReadings(ctx, sensorNames)
+	readings, err := svc.Readings(ctx, sensorNames)
 	if err != nil {
 		return nil, err
 	}
