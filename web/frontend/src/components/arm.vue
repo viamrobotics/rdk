@@ -6,18 +6,49 @@ import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
 import { displayError } from '../lib/error';
 import { roundTo2Decimals } from '../lib/math';
 
+interface ArmStatus {
+  pos_pieces: {
+    endPosition: number[]
+    endPositionValue: number
+  }[]
+  
+  joint_pieces: {
+    joint: number
+    jointValue: number
+  }[]
+}
+
+interface RawArmStatus extends ArmStatus {
+  joint_positions: {
+    values: number[]
+  }[]
+  end_position: {
+
+  }
+}
+
 interface Props {
   name: string
-  status?: {
-    pos_pieces: {}
-    joint_pieces: {}
-  },
-  rawStatus?: {}
+  status?: ArmStatus,
+  rawStatus?: RawArmStatus
 }
+
+type GetterKeys = 'getX' | 'getY' | 'getZ' | 'getOX' | 'getOY' | 'getOZ' | 'getTheta'
+type SetterKeys = 'setX' | 'setY' | 'setZ' | 'setOX' | 'setOY' | 'setOZ' | 'setTheta'
+
+const fieldSetters = [
+  ['x', 'X'],
+  ['y', 'Y'],
+  ['z', 'Z'],
+  ['theta', 'Theta'],
+  ['o_x', 'OX'],
+  ['o_y', 'OY'],
+  ['o_z', 'OZ'],
+];
 
 const props = defineProps<Props>();
 
-const toggle = $ref({});
+const toggle = $ref<Record<string, ArmStatus>>({});
 
 const stop = () => {
   const request = new armApi.StopRequest();
@@ -31,7 +62,7 @@ const armModifyAllDoEndPosition = () => {
 
   for (const newPiece of newPieces) {
     const getterSetter = newPiece.endPosition[1];
-    const setter = `set${getterSetter}`;
+    const setter = `set${getterSetter}` as SetterKeys;
     newPose[setter](newPiece.endPositionValue);
   }
 
@@ -48,15 +79,17 @@ const armModifyAllCancel = () => {
 };
 
 const armModifyAllDoJoint = () => {
-  const arm = props.rawStatus;
+  const arm = props.rawStatus!;
   const newPositionDegs = new armApi.JointPositions();
   const newList = arm.joint_positions.values;
   const newPieces = toggle[props.name].joint_pieces;
+
   for (let i = 0; i < newPieces.length && i < newList.length; i++) {
     newList[newPieces[i].joint] = newPieces[i].jointValue;
   }
 
   newPositionDegs.setValuesList(newList);
+
   const req = new armApi.MoveToJointPositionsRequest();
   req.setName(props.name);
   req.setPositions(newPositionDegs);
@@ -64,20 +97,11 @@ const armModifyAllDoJoint = () => {
   delete toggle[props.name];
 };
 
-const armEndPositionInc = (getterSetter: string, amount: number) => {
+const armEndPositionInc = (getterSetter: number, amount: number) => {
   const adjustedAmount = getterSetter[0] === 'o' || getterSetter[0] === 'O' ? amount / 100 : amount;
-  const arm = props.rawStatus;
+  const arm = props.rawStatus!;
   const old = arm.end_position;
   const newPose = new commonApi.Pose();
-  const fieldSetters = [
-    ['x', 'X'],
-    ['y', 'Y'],
-    ['z', 'Z'],
-    ['theta', 'Theta'],
-    ['o_x', 'OX'],
-    ['o_y', 'OY'],
-    ['o_z', 'OZ'],
-  ];
 
   for (const fieldSetter of fieldSetters) {
     const endPositionField = fieldSetter[0];
@@ -86,8 +110,8 @@ const armEndPositionInc = (getterSetter: string, amount: number) => {
     newPose[setter](endPositionValue);
   }
 
-  const getter = `get${getterSetter}`;
-  const setter = `set${getterSetter}`;
+  const getter = `get${getterSetter}` as GetterKeys;
+  const setter = `set${getterSetter}` as SetterKeys;
   newPose[setter](newPose[getter]() + adjustedAmount);
   const req = new armApi.MoveToPositionRequest();
   req.setName(props.name);
@@ -95,8 +119,8 @@ const armEndPositionInc = (getterSetter: string, amount: number) => {
   window.armService.moveToPosition(req, new grpc.Metadata(), displayError);
 };
 
-const armJointInc = (field, amount: number) => {
-  const arm = props.rawStatus;
+const armJointInc = (field: number, amount: number) => {
+  const arm = props.rawStatus!;
   const newPositionDegs = new armApi.JointPositions();
   const newList = arm.joint_positions.values;
   newList[field] += amount;
@@ -109,7 +133,7 @@ const armJointInc = (field, amount: number) => {
 };
 
 const armHome = () => {
-  const arm = props.rawStatus;
+  const arm = props.rawStatus!;
   const newPositionDegs = new armApi.JointPositions();
   const newList = arm.joint_positions.values;
 
@@ -126,8 +150,8 @@ const armHome = () => {
 };
 
 const armModifyAll = () => {
-  const arm = props.rawStatus;
-  const n = {
+  const arm = props.rawStatus!;
+  const n: ArmStatus = {
     pos_pieces: [],
     joint_pieces: [],
   };
