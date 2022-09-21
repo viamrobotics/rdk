@@ -7,8 +7,6 @@ import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
 import commonApi from './gen/proto/api/common/v1/common_pb.esm';
 import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
 import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
-import gantryApi from './gen/proto/api/component/gantry/v1/gantry_pb.esm';
-import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
 import movementsensorApi from './gen/proto/api/component/movementsensor/v1/movementsensor_pb.esm';
 import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
 import servoApi from './gen/proto/api/component/servo/v1/servo_pb.esm';
@@ -35,9 +33,12 @@ import BaseComponent from './components/base.vue';
 import Camera from './components/camera.vue';
 import AudioInput from './components/audio-input.vue';
 import DoCommand from './components/do-command.vue';
+import Gantry from './components/gantry.vue';
+import Gripper from './components/gripper.vue';
 import Gamepad from './components/gamepad.vue';
 import InputController from './components/input-controller.vue';
 import MotorDetail from './components/motor-detail.vue';
+import MovementSensor from './components/movement-sensor.vue';
 import Navigation from './components/navigation.vue';
 import ServoComponent from './components/servo.vue';
 import Slam from './components/slam.vue';
@@ -57,9 +58,12 @@ export default {
     Camera,
     AudioInput,
     DoCommand,
+    Gantry,
     Gamepad,
+    Gripper,
     InputController,
     MotorDetail,
+    MovementSensor,
     Navigation,
     ServoComponent,
     Slam,
@@ -279,24 +283,6 @@ export default {
     rawResourceStatusByName(name) {
       return this.rawStatus[resourceNameToString(name)];
     },
-    gantryInc(name, axis, amount) {
-      const g = this.resourceStatusByName(name);
-      const pos = [];
-      for (let i = 0; i < g.parts.length; i++) {
-        pos[i] = g.parts[i].pos;
-      }
-      pos[axis] += amount;
-
-      const req = new gantryApi.MoveToPositionRequest();
-      req.setName(name.name);
-      req.setPositionsMmList(pos);
-      window.gantryService.moveToPosition(req, new grpc.Metadata(), this.grpcCallback);
-    },
-    gantryStop(name) {
-      const request = new gantryApi.StopRequest();
-      request.setName(name);
-      window.gantryService.stop(request, new grpc.Metadata(), this.grpcCallback);
-    },
     armEndPositionInc(name, getterSetter, amount) {
       const adjustedAmount = getterSetter[0] === 'o' || getterSetter[0] === 'O' ? amount / 100 : amount;
       const arm = this.rawResourceStatusByName(name);
@@ -409,26 +395,6 @@ export default {
       const request = new armApi.StopRequest();
       request.setName(name);
       window.armService.stop(request, new grpc.Metadata(), this.grpcCallback);
-    },
-    gripperAction(name, action) {
-      let req;
-      switch (action) {
-        case 'open':
-          req = new gripperApi.OpenRequest();
-          req.setName(name);
-          window.gripperService.open(req, new grpc.Metadata(), this.grpcCallback);
-          break;
-        case 'grab':
-          req = new gripperApi.GrabRequest();
-          req.setName(name);
-          window.gripperService.grab(req, new grpc.Metadata(), this.grpcCallback);
-          break;
-      }
-    },
-    gripperStop(name) {
-      const request = new gripperApi.StopRequest();
-      request.setName(name);
-      window.gripperService.stop(request, new grpc.Metadata(), this.grpcCallback);
     },
     servoMove(name, amount) {
       const servo = this.rawResourceStatusByName(name);
@@ -1134,278 +1100,29 @@ let lastStatusTS = Date.now();
     </div>
 
     <!-- ******* BASE *******  -->
-    <template
+    <BaseComponent
       v-for="base in filterResources(resources, 'rdk', 'component', 'base')"
       :key="base.name"
-    >
-      <BaseComponent
-        :name="base.name"
-        :resources="resources"
-        @showcamera="handleSelectCamera($event, filterResources(resources, 'rdk', 'component', 'camera'))"
-      />
-    </template>
+      :name="base.name"
+      :resources="resources"
+      @showcamera="handleSelectCamera($event, filterResources(resources, 'rdk', 'component', 'camera'))"
+    />
 
     <!-- ******* GANTRY *******  -->
-    <v-collapse
+    <Gantry
       v-for="gantry in filterRdkComponentsWithStatus(resources, status, 'gantry')"
       :key="gantry.name"
-      :title="gantry.name"
-      class="gantry"
-    >
-      <v-breadcrumbs
-        slot="title"
-        :crumbs="['gantry'].join(',')"
-      />
-      <div
-        slot="header"
-        class="flex items-center justify-between gap-2"
-      >
-        <v-button
-          variant="danger"
-          icon="stop-circle"
-          label="STOP"
-          @click.stop="gantryStop(gantry.name)"
-        />
-      </div>
-      <div class="border border-t-0 border-black p-4">
-        <table class="border border-t-0 border-black p-4">
-          <thead>
-            <tr>
-              <th class="border border-black p-2">
-                axis
-              </th>
-              <th
-                class="border border-black p-2"
-                colspan="2"
-              >
-                position
-              </th>
-              <th class="border border-black p-2">
-                length
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="pp in resourceStatusByName(gantry).parts"
-              :key="pp.axis"
-            >
-              <th class="border border-black p-2">
-                {{ pp.axis }}
-              </th>
-              <td class="flex p-2">
-                <v-button
-                  label="--"
-                  @click="gantryInc( gantry, pp.axis, -10 )"
-                />
-                <v-button
-                  label="-"
-                  @click="gantryInc( gantry, pp.axis, -1 )"
-                />
-                <v-button
-                  label="+"
-                  @click="gantryInc( gantry, pp.axis, 1 )"
-                />
-                <v-button
-                  label="++"
-                  @click="gantryInc( gantry, pp.axis, 10 )"
-                />
-              </td>
-              <td class="border border-black p-2">
-                {{ pp.pos.toFixed(2) }}
-              </td>
-              <td class="border border-black p-2">
-                {{ pp.length }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </v-collapse>
+      :name="gantry.name"
+      :status="resourceStatusByName(gantry)"
+    />
 
     <!-- ******* MovementSensor *******  -->
-    <v-collapse
-      v-for="movementsensor in filterResources(resources, 'rdk', 'component', 'movement_sensor')"
-      :key="movementsensor.name"
-      :title="movementsensor.name"
-      class="movement"
-    >
-      <v-breadcrumbs
-        slot="title"
-        :crumbs="['movement_sensor'].join(',')"
-      />
-      <div class="flex items-end border border-t-0 border-black p-4">
-        <template v-if="movementsensorData[movementsensor.name] && movementsensorData[movementsensor.name].properties">
-          <div
-            v-if="movementsensorData[movementsensor.name].properties.positionSupported"
-            class="mr-4 w-1/4"
-          >
-            <h3 class="mb-1">
-              Position
-            </h3>
-            <table class="w-full border border-t-0 border-black p-4">
-              <tr>
-                <th class="border border-black p-2">
-                  Latitude
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].coordinate?.latitude.toFixed(6) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Longitude
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].coordinate?.longitude.toFixed(6) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Altitide
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].altitudeMm?.toFixed(2) }}
-                </td>
-              </tr>
-            </table>
-            <a :href="'https://www.google.com/maps/search/' + movementsensorData[movementsensor.name].coordinate?.latitude + ',' + movementsensorData[movementsensor.name].coordinate?.longitude">google maps</a>
-          </div>
-
-          <div
-            v-if="movementsensorData[movementsensor.name].properties.orientationSupported"
-            class="mr-4 w-1/4"
-          >
-            <h3 class="mb-1">
-              Orientation (degrees)
-            </h3>
-            <table class="w-full border border-t-0 border-black p-4">
-              <tr>
-                <th class="border border-black p-2">
-                  OX
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].orientation?.oX.toFixed(2) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  OY
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].orientation?.oY.toFixed(2) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  OZ
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].orientation?.oZ.toFixed(2) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Theta
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].orientation?.theta.toFixed(2) }}
-                </td>
-              </tr>
-            </table>
-          </div>
-                
-          <div
-            v-if="movementsensorData[movementsensor.name].properties.angularVelocitySupported"
-            class="mr-4 w-1/4"
-          >
-            <h3 class="mb-1">
-              Angular Velocity (degrees/second)
-            </h3>
-            <table class="w-full border border-t-0 border-black p-4">
-              <tr>
-                <th class="border border-black p-2">
-                  X
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].angularVelocity?.x.toFixed(2) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Y
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].angularVelocity?.y.toFixed(2) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Z
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].angularVelocity?.z.toFixed(2) }}
-                </td>
-              </tr>
-            </table>
-          </div>
-
-          <div
-            v-if="movementsensorData[movementsensor.name].properties.linearVelocitySupported"
-            class="mr-4 w-1/4"
-          >
-            <h3 class="mb-1">
-              Linear Velocity
-            </h3>
-            <table class="w-full border border-t-0 border-black p-4">
-              <tr>
-                <th class="border border-black p-2">
-                  X
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].linearVelocity?.x.toFixed(2) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Y
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].linearVelocity?.y.toFixed(2) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Z
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].linearVelocity?.z.toFixed(2) }}
-                </td>
-              </tr>
-            </table>
-          </div>
-
-          <div
-            v-if="movementsensorData[movementsensor.name].properties.compassHeadingSupported"
-            class="mr-4 w-1/4"
-          >
-            <h3 class="mb-1">
-              Compass Heading
-            </h3>
-            <table class="w-full border border-t-0 border-black p-4">
-              <tr>
-                <th class="border border-black p-2">
-                  Compass
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].compassHeading?.toFixed(2) }}
-                </td>
-              </tr>
-            </table>
-          </div>
-        </template>
-      </div>
-    </v-collapse>
+    <MovementSensor
+      v-for="sensor in filterResources(resources, 'rdk', 'component', 'movement_sensor')"
+      :key="sensor.name"
+      :name="sensor.name"
+      :data="movementsensorData[sensor.name]"
+    />
 
     <!-- ******* ARM *******  -->
     <v-collapse
@@ -1602,38 +1319,11 @@ let lastStatusTS = Date.now();
     </v-collapse>
 
     <!-- ******* GRIPPER *******  -->
-    <v-collapse
+    <Gripper
       v-for="gripper in filterResources(resources, 'rdk', 'component', 'gripper')"
       :key="gripper.name"
-      :title="gripper.name"
-      class="gripper"
-    >
-      <v-breadcrumbs
-        slot="title"
-        :crumbs="['gripper'].join(',')"
-      />
-      <div
-        slot="header"
-        class="flex items-center justify-between gap-2"
-      >
-        <v-button
-          variant="danger"
-          icon="stop-circle"
-          label="STOP"
-          @click.stop="gripperStop(gripper.name)"
-        />
-      </div>
-      <div class="flex gap-2 border border-t-0 border-black p-4">
-        <v-button
-          label="Open"
-          @click="gripperAction( gripper.name, 'open')"
-        />
-        <v-button
-          label="Grab"
-          @click="gripperAction( gripper.name, 'grab')"
-        />
-      </div>
-    </v-collapse>
+      :name="gripper.name"
+    />
 
     <!-- ******* SERVO *******  -->
     <ServoComponent
