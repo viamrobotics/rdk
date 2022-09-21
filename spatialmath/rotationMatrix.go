@@ -98,9 +98,8 @@ func (rm *RotationMatrix) Mul(v r3.Vector) r3.Vector {
 	}
 }
 
-// MatMul returns the product of two rotation matrices.
-func (rm *RotationMatrix) MatMul(mm RotationMatrix) *RotationMatrix {
-	// do we want an equivalent ot the matrix library functionality? The alternative is to convert
+// RighMatMul returns the right side multiplication a matrix A by matrix B, AB
+func (rm *RotationMatrix) RightMatMul(mm RotationMatrix) *RotationMatrix {
 	mat := [9]float64{
 		rm.mat[0]*mm.mat[0] + rm.mat[1]*mm.mat[3] + rm.mat[2]*mm.mat[6],
 		rm.mat[0]*mm.mat[1] + rm.mat[1]*mm.mat[4] + rm.mat[2]*mm.mat[7],
@@ -112,6 +111,21 @@ func (rm *RotationMatrix) MatMul(mm RotationMatrix) *RotationMatrix {
 		rm.mat[6]*mm.mat[1] + rm.mat[7]*mm.mat[4] + rm.mat[8]*mm.mat[7],
 		rm.mat[6]*mm.mat[2] + rm.mat[7]*mm.mat[5] + rm.mat[8]*mm.mat[8],
 	}
+	return &RotationMatrix{mat: mat}
+}
 
+// LeftMatMul returns the left side multiplication a matrix A by matrix B, BA
+func (rm *RotationMatrix) LeftMatMul(mm RotationMatrix) *RotationMatrix {
+	mat := [9]float64{
+		rm.mat[0]*mm.mat[0] + rm.mat[3]*mm.mat[1] + rm.mat[6]*mm.mat[2],
+		rm.mat[1]*mm.mat[0] + rm.mat[4]*mm.mat[1] + rm.mat[7]*mm.mat[2],
+		rm.mat[2]*mm.mat[0] + rm.mat[5]*mm.mat[1] + rm.mat[8]*mm.mat[2],
+		rm.mat[0]*mm.mat[3] + rm.mat[3]*mm.mat[4] + rm.mat[6]*mm.mat[5],
+		rm.mat[1]*mm.mat[3] + rm.mat[4]*mm.mat[4] + rm.mat[7]*mm.mat[5],
+		rm.mat[2]*mm.mat[3] + rm.mat[5]*mm.mat[4] + rm.mat[8]*mm.mat[5],
+		rm.mat[0]*mm.mat[6] + rm.mat[3]*mm.mat[7] + rm.mat[6]*mm.mat[8],
+		rm.mat[1]*mm.mat[6] + rm.mat[4]*mm.mat[7] + rm.mat[7]*mm.mat[8],
+		rm.mat[2]*mm.mat[6] + rm.mat[5]*mm.mat[7] + rm.mat[8]*mm.mat[8],
+	}
 	return &RotationMatrix{mat: mat}
 }
