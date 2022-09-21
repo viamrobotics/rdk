@@ -25,6 +25,7 @@ type PinConfig struct {
 }
 
 // TMC5072Config describes the configuration of a motor.
+//nolint:lll
 type TMC5072Config struct {
 	Pins             PinConfig `json:"pins"`
 	BoardName        string    `json:"board"` // used to get encoders
