@@ -48,7 +48,7 @@ type GeometryConfig struct {
 	Z float64 `json:"z_mm"`
 
 	// parameter used for defining a sphere's radius'
-	R float64 `json:"r_mm"` // TODO(RSDK-568): unit?
+	R float64 `json:"r_mm"`
 
 	// define an offset to position the geometry
 	TranslationOffset TranslationConfig `json:"translation"` // TODO(RSDK-568): unit?
