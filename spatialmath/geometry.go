@@ -43,16 +43,16 @@ type GeometryConfig struct {
 	Type GeometryType `json:"type"`
 
 	// parameters used for defining a box's rectangular cross section
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-	Z float64 `json:"z"`
+	X float64 `json:"x_mm"`
+	Y float64 `json:"y_mm"`
+	Z float64 `json:"z_mm"`
 
 	// parameter used for defining a sphere's radius'
-	R float64 `json:"r"`
+	R float64 `json:"r_mm"` // TODO(RSDK-568): unit?
 
 	// define an offset to position the geometry
-	TranslationOffset TranslationConfig `json:"translation"`
-	OrientationOffset OrientationConfig `json:"orientation"`
+	TranslationOffset TranslationConfig `json:"translation"` // TODO(RSDK-568): unit?
+	OrientationOffset OrientationConfig `json:"orientation"` // TODO(RSDK-568): unit?
 }
 
 // NewGeometryConfig creates a config for a Geometry from an offset Pose.

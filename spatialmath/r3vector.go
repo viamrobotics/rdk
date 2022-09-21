@@ -7,9 +7,9 @@ import (
 )
 
 type r3VectorConfig struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-	Z float64 `json:"z"`
+	X float64 `json:"x_mm"`
+	Y float64 `json:"y_mm"`
+	Z float64 `json:"z_mm"`
 }
 
 // R3VectorAlmostEqual compares two r3.Vector objects and returns if the all elementwise differences are less than epsilon.
