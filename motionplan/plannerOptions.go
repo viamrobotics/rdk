@@ -174,10 +174,10 @@ type PlannerOptions struct {
 	MinScore float64 `json:"min_ik_score"`
 
 	// Check constraints are still met every this many mm/degrees of movement.
-	Resolution float64 `json:"resolution"`
+	Resolution float64 `json:"resolution_mm_per_degs"`
 
 	// Percentage interval of max iterations after which to print debug logs
-	LoggingInterval float64 `json:"logging_interval"`
+	LoggingInterval float64 `json:"logging_interval_pct"`
 
 	// Function to use to measure distance between two inputs
 	// TODO(rb): this should really become a Metric once we change the way the constraint system works, its awkward to return 2 values here
