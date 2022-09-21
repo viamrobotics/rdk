@@ -5,7 +5,6 @@ import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from './lib/toast';
 import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
 import commonApi from './gen/proto/api/common/v1/common_pb.esm';
-import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
 import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
 import movementsensorApi from './gen/proto/api/component/movementsensor/v1/movementsensor_pb.esm';
 import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
@@ -23,15 +22,16 @@ import {
 
 import {
   MotorControlHelper,
-  BoardControlHelper,
   ServoControlHelper,
 } from './rc/control_helpers';
 
 import { addResizeListeners } from './lib/resize';
-
-import BaseComponent from './components/base.vue';
-import Camera from './components/camera.vue';
+import Arm from './components/arm.vue';
 import AudioInput from './components/audio-input.vue';
+import BaseComponent from './components/base.vue';
+import Board from './components/board.vue';
+import Camera from './components/camera.vue';
+import CurrentOperations from './components/current-operations.vue';
 import DoCommand from './components/do-command.vue';
 import Gantry from './components/gantry.vue';
 import Gripper from './components/gripper.vue';
@@ -41,8 +41,8 @@ import MotorDetail from './components/motor-detail.vue';
 import MovementSensor from './components/movement-sensor.vue';
 import Navigation from './components/navigation.vue';
 import ServoComponent from './components/servo.vue';
+import Sensors from './components/sensors.vue';
 import Slam from './components/slam.vue';
-import { roundTo2Decimals } from './lib/math';
 import {
   fixArmStatus,
   fixBoardStatus,
@@ -54,9 +54,12 @@ import {
 
 export default {
   components: {
-    BaseComponent,
-    Camera,
+    Arm,
     AudioInput,
+    BaseComponent,
+    Board,
+    Camera,
+    CurrentOperations,
     DoCommand,
     Gantry,
     Gamepad,
@@ -66,6 +69,7 @@ export default {
     MovementSensor,
     Navigation,
     ServoComponent,
+    Sensors,
     Slam,
   },
   data() {
@@ -75,19 +79,13 @@ export default {
       res: {},
       rawStatus: {},
       status: {},
-      sensorReadings: {},
       resources: [],
       sensorNames: [],
       cameraFrameIntervalId: null,
       objects: null,
-      armToggle: {},
       value: 0,
       movementsensorData: {},
       currentOps: [],
-      setPin: '',
-      getPin: '',
-      pwm: '',
-      pwmFrequency: '',
       connectionManager: null,
       errors: {},
     };
@@ -283,119 +281,6 @@ export default {
     rawResourceStatusByName(name) {
       return this.rawStatus[resourceNameToString(name)];
     },
-    armEndPositionInc(name, getterSetter, amount) {
-      const adjustedAmount = getterSetter[0] === 'o' || getterSetter[0] === 'O' ? amount / 100 : amount;
-      const arm = this.rawResourceStatusByName(name);
-      const old = arm.end_position;
-      const newPose = new commonApi.Pose();
-      const fieldSetters = [
-        ['x', 'X'],
-        ['y', 'Y'],
-        ['z', 'Z'],
-        ['theta', 'Theta'],
-        ['o_x', 'OX'],
-        ['o_y', 'OY'],
-        ['o_z', 'OZ'],
-      ];
-      for (const fieldSetter of fieldSetters) {
-        const endPositionField = fieldSetter[0];
-        const endPositionValue = old[endPositionField] || 0;
-        const setter = `set${fieldSetter[1]}`;
-        newPose[setter](endPositionValue);
-      }
-
-      const getter = `get${getterSetter}`;
-      const setter = `set${getterSetter}`;
-      newPose[setter](newPose[getter]() + adjustedAmount);
-      const req = new armApi.MoveToPositionRequest();
-      req.setName(name.name);
-      req.setTo(newPose);
-      window.armService.moveToPosition(req, new grpc.Metadata(), this.grpcCallback);
-    },
-    armJointInc(name, field, amount) {
-      const arm = this.rawResourceStatusByName(name);
-      const newPositionDegs = new armApi.JointPositions();
-      const newList = arm.joint_positions.values;
-      newList[field] += amount;
-      newPositionDegs.setValuesList(newList);
-      const req = new armApi.MoveToJointPositionsRequest();
-      req.setName(name.name);
-      req.setPositions(newPositionDegs);
-      window.armService.moveToJointPositions(req, new grpc.Metadata(), this.grpcCallback);
-    },
-    armHome(name) {
-      const arm = this.rawResourceStatusByName(name);
-      const newPositionDegs = new armApi.JointPositions();
-      const newList = arm.joint_positions.values;
-      for (let i = 0; i < newList.length; i++) {
-        newList[i] = 0;
-      }
-      newPositionDegs.setValuesList(newList);
-      const req = new armApi.MoveToJointPositionsRequest();
-      req.setName(name.name);
-      req.setPositions(newPositionDegs);
-      window.armService.moveToJointPositions(req, {}, this.grpcCallback);
-    },
-    armModifyAll(name) {
-      const arm = this.resourceStatusByName(name);
-      const n = {
-        pos_pieces: [],
-        joint_pieces: [],
-      };
-      for (let i = 0; i < arm.pos_pieces.length; i++) {
-        n.pos_pieces.push({
-          endPosition: arm.pos_pieces[i].endPosition,
-          endPositionValue: roundTo2Decimals(arm.pos_pieces[i].endPositionValue),
-        });
-      }
-      for (let i = 0; i < arm.joint_pieces.length; i++) {
-        n.joint_pieces.push({
-          joint: arm.joint_pieces[i].joint,
-          jointValue: roundTo2Decimals(arm.joint_pieces[i].jointValue),
-        });
-      }
-      this.armToggle[name.name] = n;
-    },
-    armModifyAllCancel(name) {
-      delete this.armToggle[name.name];
-    },
-    armModifyAllDoEndPosition(name) {
-      const newPose = new commonApi.Pose();
-      const newPieces = this.armToggle[name.name].pos_pieces;
-
-      for (const newPiece of newPieces) {
-        const getterSetter = newPiece.endPosition[1];
-        const setter = `set${getterSetter}`;
-        newPose[setter](newPiece.endPositionValue);
-      }
-
-      const req = new armApi.MoveToPositionRequest();
-      req.setName(name.name);
-      req.setTo(newPose);
-      armService.moveToPosition(req, {}, this.grpcCallback);
-      delete this.armToggle[name.name];
-    },
-    armModifyAllDoJoint(name) {
-      const arm = this.rawResourceStatusByName(name);
-      const newPositionDegs = new armApi.JointPositions();
-      const newList = arm.joint_positions.values;
-      const newPieces = this.armToggle[name.name].joint_pieces;
-      for (let i = 0; i < newPieces.length && i < newList.length; i++) {
-        newList[newPieces[i].joint] = newPieces[i].jointValue;
-      }
-
-      newPositionDegs.setValuesList(newList);
-      const req = new armApi.MoveToJointPositionsRequest();
-      req.setName(name.name);
-      req.setPositions(newPositionDegs);
-      window.armService.moveToJointPositions(req, new grpc.Metadata(), this.grpcCallback);
-      delete this.armToggle[name.name];
-    },
-    armStop(name) {
-      const request = new armApi.StopRequest();
-      request.setName(name);
-      window.armService.stop(request, new grpc.Metadata(), this.grpcCallback);
-    },
     servoMove(name, amount) {
       const servo = this.rawResourceStatusByName(name);
       const oldAngle = servo.position_deg || 0;
@@ -446,11 +331,6 @@ export default {
     },
     inputInject(req) {
       window.inputControllerService.triggerEvent(req, new grpc.Metadata(), this.grpcCallback);
-    },
-    killOp(id) {
-      const req = new robotApi.CancelOperationRequest();
-      req.setId(id);
-      window.robotService.cancelOperation(req, new grpc.Metadata(), this.grpcCallback);
     },
     renderFrame(cameraName) {
       const req = new cameraApi.RenderFrameRequest();
@@ -526,37 +406,6 @@ export default {
           streamContainer.append(image);
         });
       }, Number(time) * 1000);
-    },
-    getReadings(sensorNames) {
-      const req = new sensorsApi.GetReadingsRequest();
-      const sensorsName = filterResources(this.resources, 'rdk', 'service', 'sensors')[0];
-      const names = sensorNames.map((name) => {
-        const resourceName = new commonApi.ResourceName();
-        resourceName.setNamespace(name.namespace);
-        resourceName.setType(name.type);
-        resourceName.setSubtype(name.subtype);
-        resourceName.setName(name.name);
-        return resourceName;
-      });
-      req.setName(sensorsName.name);
-      req.setSensorNamesList(names);
-      window.sensorsService.getReadings(req, new grpc.Metadata(), (err, resp) => {
-        this.grpcCallback(err, resp, false);
-        if (err) {
-          return;
-        }
-
-        for (const r of resp.getReadingsList()) {
-          const readings = r.getReadingsMap();
-          const rr = {};
-
-          for (const [k, v] of readings.entries()) {
-            rr[k] = v.toJavaScript();
-          }
-          
-          this.sensorReadings[resourceNameToString(r.getName().toObject())] = rr;
-        }
-      });
     },
     processFunctionResults(err, resp) {
       const el = document.querySelector('#function_results');
@@ -670,54 +519,6 @@ export default {
       }
       return d.toFixed(1);
     },
-    getGPIO (boardName) {
-      const pin = this.getPin;
-      BoardControlHelper.getGPIO(boardName, pin, (err, resp) => {
-        if (err) {
-          toast.error(err);
-          return;
-        }
-        const x = resp.toObject();
-        document.querySelector(`#get_pin_value_${boardName}`).innerHTML = `Pin: ${pin} is ${x.high ? 'high' : 'low'}`;
-      });
-    },
-    setGPIO (boardName) {
-      const pin = this.setPin;
-      const v = document.querySelector(`#set_pin_v_${boardName}`).value;
-      BoardControlHelper.setGPIO(boardName, pin, v === 'high', this.grpcCallback);
-    },
-    getPWM (boardName) {
-      const pin = this.getPin;
-      BoardControlHelper.getPWM(boardName, pin, (err, resp) => {
-        if (err) {
-          toast.error(err);
-          return;
-        }
-        const { dutyCyclePct } = resp.toObject();
-        document.querySelector(`#get_pin_value_${boardName}`).innerHTML = `Pin ${pin}'s duty cycle is ${dutyCyclePct * 100}%.`;
-      });
-    },
-    setPWM (boardName) {
-      const pin = this.setPin;
-      const v = this.pwm / 100;
-      BoardControlHelper.setPWM(boardName, pin, v, this.grpcCallback);
-    },
-    getPWMFrequency (boardName) {
-      const pin = this.getPin;
-      BoardControlHelper.getPWMFrequency(boardName, pin, (err, resp) => {
-        if (err) {
-          toast.error(err);
-          return;
-        }
-        const { frequencyHz } = resp.toObject();
-        document.querySelector(`#get_pin_value_${boardName}`).innerHTML = `Pin ${pin}'s frequency is ${frequencyHz}Hz.`;
-      });
-    },
-    setPWMFrequency (boardName) {
-      const pin = this.setPin;
-      const v = this.pwmFrequency;
-      BoardControlHelper.setPWMFrequency(boardName, pin, v, this.grpcCallback);
-    },
     isWebRtcEnabled() {
       return window.webrtcEnabled;
     },
@@ -778,7 +579,7 @@ export default {
     },
     querySensors() {
       const req = new sensorsApi.GetSensorsRequest();
-      req.setName("builtin");
+      req.setName('builtin');
       window.sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
         this.grpcCallback(err, resp, false);
         if (err) {
@@ -1125,198 +926,13 @@ let lastStatusTS = Date.now();
     />
 
     <!-- ******* ARM *******  -->
-    <v-collapse
+    <Arm
       v-for="arm in filterResources(resources, 'rdk', 'component', 'arm')"
       :key="arm.name"
-      :title="arm.name"
-      class="arm"
-    >
-      <v-breadcrumbs
-        slot="title"
-        :crumbs="['arm'].join(',')"
-      />
-      <div
-        slot="header"
-        class="flex items-center justify-between gap-2"
-      >
-        <v-button
-          variant="danger"
-          icon="stop-circle"
-          label="STOP"
-          @click.stop="armStop(arm.name)"
-        />
-      </div>
-      <div class="mt-2 flex">
-        <div
-          v-if="armToggle[arm.name]"
-          class="mr-4 w-1/2 border border-black p-4"
-        >
-          <h3 class="mb-2">
-            END POSITION (mms)
-          </h3>
-          <div class="inline-grid grid-cols-2 gap-1 pb-1">
-            <template
-              v-for="cc in armToggle[arm.name].pos_pieces"
-              :key="cc.endPosition[0]"
-            >
-              <label class="py-1 pr-2 text-right">{{ cc.endPosition[1] }}</label>
-              <input
-                v-model="cc.endPositionValue"
-                class="border border-black py-1 px-4"
-              >
-            </template>
-          </div>
-          <div class="mt-2 flex gap-2">
-            <v-button
-              class="mr-4 whitespace-nowrap"
-              label="Go To End Position"
-              @click="armModifyAllDoEndPosition(arm)"
-            />
-            <div class="flex-auto text-right">
-              <v-button
-                label="Cancel"
-                @click="armModifyAllCancel(arm)"
-              />
-            </div>
-          </div>
-        </div>
-        <div
-          v-if="armToggle[arm.name]"
-          class="w-1/2 border border-black p-4"
-        >
-          <h3 class="mb-2">
-            JOINTS (degrees)
-          </h3>
-          <div class="grid grid-cols-2 gap-1 pb-1">
-            <template
-              v-for="bb in armToggle[arm.name].joint_pieces"
-              :key="bb.joint"
-            >
-              <label class="py-1 pr-2 text-right">Joint {{ bb.joint }}</label>
-              <input
-                v-model="bb.jointValue"
-                class="border border-black py-1 px-4"
-              >
-            </template>
-          </div>
-          <div class="mt-2 flex gap-2">
-            <v-button
-              label="Go To Joints"
-              @click="armModifyAllDoJoint(arm)"
-            />
-            <div class="flex-auto text-right">
-              <v-button
-                label="Cancel"
-                @click="armModifyAllCancel(arm)"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="mb-2 flex">
-        <div
-          v-if="resourceStatusByName(arm)"
-          class="mr-4 w-1/2 border border-black p-4"
-        >
-          <h3 class="mb-2">
-            END POSITION (mms)
-          </h3>
-          <div class="inline-grid grid-cols-6 gap-1 pb-1">
-            <template
-              v-for="aa in resourceStatusByName(arm).pos_pieces"
-              :key="aa.endPosition[0]"
-            >
-              <h4 class="py-1 pr-2 text-right">
-                {{ aa.endPosition[1] }}
-              </h4>
-              <v-button
-                label="--"
-                @click="armEndPositionInc( arm, aa.endPosition[1], -10 )"
-              />
-              <v-button
-                label="-"
-                @click="armEndPositionInc( arm, aa.endPosition[1], -1 )"
-              />
-              <v-button
-                label="+"
-                @click="armEndPositionInc( arm, aa.endPosition[1], 1 )"
-              />
-              <v-button
-                label="++"
-                @click="armEndPositionInc( arm, aa.endPosition[1], 10 )"
-              />
-              <h4 class="py-1">
-                {{ aa.endPositionValue.toFixed(2) }}
-              </h4>
-            </template>
-          </div>
-          <div class="mt-2 flex gap-2">
-            <v-button
-              label="Home"
-              @click="armHome(arm)"
-            />
-            <div class="flex-auto text-right">
-              <v-button
-                class="whitespace-nowrap"
-                label="Modify All"
-                @click="armModifyAll(arm)"
-              />
-            </div>
-          </div>
-        </div>
-        <div
-          v-if="resourceStatusByName(arm)"
-          class="w-1/2 border border-black p-4"
-        >
-          <h3 class="mb-2">
-            JOINTS (degrees)
-          </h3>
-          <div class="inline-grid grid-cols-6 gap-1 pb-1">
-            <template
-              v-for="aa in resourceStatusByName(arm).joint_pieces"
-              :key="aa.joint"
-            >
-              <h4 class="whitespace-nowrap py-1 pr-2 text-right">
-                Joint {{ aa.joint }}
-              </h4>
-              <v-button
-                label="--"
-                @click="armJointInc( arm, aa.joint, -10 )"
-              />
-              <v-button
-                label="-"
-                @click="armJointInc( arm, aa.joint, -1 )"
-              />
-              <v-button
-                label="+"
-                @click="armJointInc( arm, aa.joint, 1 )"
-              />
-              <v-button
-                label="++"
-                @click="armJointInc( arm, aa.joint, 10 )"
-              />
-              <h4 class="py-1 pl-2">
-                {{ aa.jointValue.toFixed(2) }}
-              </h4>
-            </template>
-          </div>
-          <div class="mt-2 flex gap-2">
-            <v-button
-              label="Home"
-              @click="armHome(arm)"
-            />
-            <div class="flex-auto text-right">
-              <v-button
-                class="whitespace-nowrap"
-                label="Modify All"
-                @click="armModifyAll(arm)"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </v-collapse>
+      :name="arm.name"
+      :status="resourceStatusByName(arm)"
+      :raw-status="rawResourceStatusByName(arm)"
+    />
 
     <!-- ******* GRIPPER *******  -->
     <Gripper
@@ -1365,137 +981,12 @@ let lastStatusTS = Date.now();
     />
 
     <!-- ******* BOARD *******  -->
-    <v-collapse
+    <Board
       v-for="board in filterRdkComponentsWithStatus(resources, status, 'board')"
       :key="board.name"
-      :title="board.name"
-      class="board"
-    >
-      <v-breadcrumbs
-        slot="title"
-        :crumbs="['board'].join(',')"
-      />
-      <div class="border border-t-0 border-black p-4">
-        <h3 class="mb-2">
-          Analogs
-        </h3>
-        <table class="mb-4 table-auto border border-black">
-          <tr
-            v-for="(analog, name) in resourceStatusByName(board).analogsMap"
-            :key="name"
-          >
-            <th class="border border-black p-2">
-              {{ name }}
-            </th>
-            <td class="border border-black p-2">
-              {{ analog.value || 0 }}
-            </td>
-          </tr>
-        </table>
-        <h3 class="mb-2">
-          Digital Interrupts
-        </h3>
-        <table class="mb-4 w-full table-auto border border-black">
-          <tr
-            v-for="(di, name) in resourceStatusByName(board).digitalInterruptsMap"
-            :key="name"
-          >
-            <th class="border border-black p-2">
-              {{ name }}
-            </th>
-            <td class="border border-black p-2">
-              {{ di.value || 0 }}
-            </td>
-          </tr>
-        </table>
-        <h3 class="mb-2">
-          GPIO
-        </h3>
-        <table class="mb-4 w-full table-auto border border-black">
-          <tr>
-            <th class="border border-black p-2">
-              Get
-            </th>
-            <td class="border border-black p-2">
-              <div class="flex items-end gap-2">
-                <v-input
-                  label="Pin"
-                  type="number"
-                  :value="getPin"
-                  @input="getPin = $event.detail.value"
-                />
-                <v-button
-                  label="Get Pin State"
-                  @click="getGPIO(board.name)"
-                />
-                <v-button
-                  label="Get PWM"
-                  @click="getPWM(board.name)"
-                />
-                <v-button
-                  label="Get PWM Frequency"
-                  @click="getPWMFrequency(board.name)"
-                />
-                <span
-                  :id="'get_pin_value_' + board.name"
-                  class="py-2"
-                />
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <th class="border border-black p-2">
-              Set
-            </th>
-            <td class="p-2">
-              <div class="flex items-end gap-2">
-                <v-input
-                  type="number"
-                  class="mr-2"
-                  label="Pin"
-                  :value="setPin"
-                  @input="setPin = $event.detail.value"
-                />
-                <select
-                  :id="'set_pin_v_' + board.name"
-                  class="mr-2 h-[30px] border border-black bg-white text-sm"
-                >
-                  <option>low</option>
-                  <option>high</option>
-                </select>
-                <v-button
-                  class="mr-2"
-                  label="Set Pin State"
-                  @click="setGPIO(board.name)"
-                />
-                <v-input
-                  v-model="pwm"
-                  label="PWM"
-                  type="number"
-                  class="mr-2"
-                />
-                <v-button
-                  class="mr-2"
-                  label="Set PWM"
-                  @click="setPWM(board.name)"
-                />
-                <v-input
-                  v-model="pwmFrequency"
-                  label="PWM Frequency"
-                  type="number"
-                  class="mr-2"
-                />
-                <v-button
-                  class="mr-2"
-                  label="Set PWM Frequency"
-                  @click="setPWMFrequency(board.name)"
-                />
-              </div>
-            </td>
-          </tr>
-        </table>
-      </div>
-    </v-collapse>
+      :name="board.name"
+      :status="resourceStatusByName(board)"
+    />
 
     <!-- ******* CAMERAS *******  -->
     <Camera
@@ -1519,69 +1010,11 @@ let lastStatusTS = Date.now();
     />
 
     <!-- ******* SENSORS ******* -->
-    <v-collapse
+    <Sensors
       v-if="nonEmpty(sensorNames)"
-      title="Sensors"
-      class="sensors"
-    >
-      <div class="border border-t-0 border-black p-4">
-        <table class="w-full table-auto border border-black">
-          <tr>
-            <th class="border border-black p-2">
-              Name
-            </th>
-            <th class="border border-black p-2">
-              Type
-            </th>
-            <th class="border border-black p-2">
-              Readings
-            </th>
-            <th class="border border-black p-2 text-center">
-              <v-button
-                group
-                label="Get All Readings"
-                @click="getReadings(sensorNames)"
-              />
-            </th>
-          </tr>
-          <tr
-            v-for="name in sensorNames"
-            :key="name.name"
-          >
-            <td class="border border-black p-2">
-              {{ name.name }}
-            </td>
-            <td class="border border-black p-2">
-              {{ name.subtype }}
-            </td>
-            <td class="border border-black p-2">
-              <table style="font-size:.7em; text-align: left;">
-                <tr
-                  v-for="(sensorValue, sensorField) in sensorReadings[resourceNameToString(name)]"
-                  :key="sensorField"
-                >
-                  <th>{{ sensorField }}</th>
-                  <td>
-                    {{ sensorValue }}
-                    <a
-                      v-if="sensorValue._type == 'geopoint'"
-                      :href="'https://www.google.com/maps/search/' + sensorValue.lat + ',' + sensorValue.lng"
-                    >google maps</a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-            <td class="border border-black p-2 text-center">
-              <v-button
-                group
-                label="Get Readings"
-                @click="getReadings([name])"
-              />
-            </td>
-          </tr>
-        </table>
-      </div>
-    </v-collapse>
+      :name="filterResources(resources, 'rdk', 'service', 'sensors')[0]?.name"
+      :sensor-names="sensorNames"
+    />
 
     <!-- ******* AUDIO INPUTS *******  -->
     <AudioInput
@@ -1604,47 +1037,9 @@ let lastStatusTS = Date.now();
     <DoCommand :resources="filterResourcesWithNames(resources)" />
 
     <!-- ******* CURRENT OPERATIONS ******* -->
-    <v-collapse
-      title="Current Operations"
-      class="operations"
-    >
-      <div class="border border-t-0 border-black p-4">
-        <table class="w-full table-auto border border-black">
-          <tr>
-            <th class="border border-black p-2">
-              id
-            </th>
-            <th class="border border-black p-2">
-              method
-            </th>
-            <th class="border border-black p-2">
-              elapsed time
-            </th>
-            <th class="border border-black p-2" />
-          </tr>
-          <tr
-            v-for="o in currentOps"
-            :key="o.id"
-          >
-            <td class="border border-black p-2">
-              {{ o.id }}
-            </td>
-            <td class="border border-black p-2">
-              {{ o.method }}
-            </td>
-            <td class="border border-black p-2">
-              {{ o.elapsed }}ms
-            </td>
-            <td class="border border-black p-2 text-center">
-              <v-button
-                label="Kill"
-                @click="killOp(o.id)"
-              />
-            </td>
-          </tr>
-        </table>
-      </div>
-    </v-collapse>
+    <CurrentOperations
+      :operations="currentOps"
+    />
   </div>
 </template>
 
