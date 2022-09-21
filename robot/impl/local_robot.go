@@ -496,10 +496,12 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s use one of the following valid models: %s",
 			rName.Subtype, config.Model, strings.Join(validModels, ", "))
 	}
+
+	c := registry.ResourceSubtypeLookup(rName.Subtype)
+
 	// If MaxInstance equals zero then there is not limit on the number of services
-	if f.MaxInstance != 0 {
-		err := r.CheckMaxInstance(f, rName)
-		if err != nil {
+	if c.MaxInstance != 0 {
+		if err := r.checkMaxInstance(rName.Subtype, c.MaxInstance); err != nil {
 			return nil, err
 		}
 	}
@@ -507,7 +509,7 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	if err != nil {
 		return nil, err
 	}
-	c := registry.ResourceSubtypeLookup(rName.Subtype)
+
 	if c == nil || c.Reconfigurable == nil {
 		return svc, nil
 	}
@@ -776,14 +778,14 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 }
 
-// CheckMaxInstance checks to see if the local robot has reached the maximum number of a specific service type.
-func (r *localRobot) CheckMaxInstance(f *registry.Service, name resource.Name) error {
+// checkMaxInstance checks to see if the local robot has reached the maximum number of a specific service type that are local.
+func (r *localRobot) checkMaxInstance(subtype resource.Subtype, max int) error {
 	maxInstance := 0
 	for _, n := range r.ResourceNames() {
-		if n.Subtype == name.Subtype {
+		if n.Subtype == subtype && !n.ContainsRemoteNames() {
 			maxInstance++
-			if maxInstance == f.MaxInstance {
-				return errors.Errorf("Max instance number reached for service type: %s", name.Subtype)
+			if maxInstance == max {
+				return errors.Errorf("Max instance number reached for service type: %s", subtype)
 			}
 		}
 	}

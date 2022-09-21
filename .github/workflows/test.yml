@@ -76,12 +76,26 @@ jobs:
         output: both
         thresholds: '50 70'
 
-    - name: Add Coverage PR Comment
-      uses: marocchino/sticky-pull-request-comment@v2.2.0
-      if: matrix.platform == 'linux/amd64' && github.event_name == 'pull_request'
+    # Now that RDK is public, can't directly comment without token having full read/write access
+    # pullrequestcomment.yml will trigger seperately and post the actual comments
+
+    - name: Prepare code comment
+      run: |
+        echo "PR_NUMBER=${{ github.event.pull_request.number }}" >> pr.env
+
+    - name: Mark appimage label
+      if: contains(github.event.pull_request.labels.*.name, 'appimage')
+      run: |
+        echo "APPIMAGE=true" >> pr.env
+
+    - name: Upload code coverage
+      uses: actions/upload-artifact@v3
       with:
-        recreate: true
-        path: code-coverage-results.md
+        name: pr-code-coverage
+        path: |
+         pr.env
+         code-coverage-results.md
+        retention-days: 1
 
   test_pi:
     name: Test Raspberry Pi Code
