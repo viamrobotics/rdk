@@ -4,11 +4,11 @@ import "github.com/pkg/errors"
 
 // BrownConrady is a struct for some terms of a modified Brown-Conrady model of distortion.
 type BrownConrady struct {
-	RadialK1     float64 `json:"rk1"`
-	RadialK2     float64 `json:"rk2"`
-	RadialK3     float64 `json:"rk3"`
-	TangentialP1 float64 `json:"tp1"`
-	TangentialP2 float64 `json:"tp2"`
+	RadialK1     float64 `json:"rk1"` // TODO(RSDK-568): unit (rads)?
+	RadialK2     float64 `json:"rk2"` // TODO(RSDK-568): unit (rads)?
+	RadialK3     float64 `json:"rk3"` // TODO(RSDK-568): unit (rads)?
+	TangentialP1 float64 `json:"tp1"` // TODO(RSDK-568): unit?
+	TangentialP2 float64 `json:"tp2"` // TODO(RSDK-568): unit?
 }
 
 // NewBrownConrady takes in a slice of floats that will be passed into the struct in order.
