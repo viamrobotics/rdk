@@ -1,9 +1,6 @@
 <!-- eslint-disable require-atomic-updates -->
 <script>
 
-import * as THREE from 'three';
-import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from './lib/toast';
 import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
@@ -13,11 +10,8 @@ import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
 import gantryApi from './gen/proto/api/component/gantry/v1/gantry_pb.esm';
 import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
 import movementsensorApi from './gen/proto/api/component/movementsensor/v1/movementsensor_pb.esm';
-import motionApi from './gen/proto/api/service/motion/v1/motion_pb.esm';
-import visionApi from './gen/proto/api/service/vision/v1/vision_pb.esm';
 import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
 import servoApi from './gen/proto/api/component/servo/v1/servo_pb.esm';
-import slamApi from './gen/proto/api/service/slam/v1/slam_pb.esm';
 import streamApi from './gen/proto/stream/v1/stream_pb.esm';
 
 import {
@@ -77,18 +71,10 @@ export default {
       res: {},
       rawStatus: {},
       status: {},
-      pcdClick: {},
       sensorReadings: {},
       resources: [],
       sensorNames: [],
       cameraFrameIntervalId: null,
-      slamImageIntervalId: null,
-      slamPCDIntervalId: null,
-      segmenterNames: [],
-      segmenterParameterNames: [],
-      segmenterParameters: {},
-      segmentAlgo: '',
-      fullcloud: null,
       objects: null,
       armToggle: {},
       value: 0,
@@ -98,7 +84,6 @@ export default {
       getPin: '',
       pwm: '',
       pwmFrequency: '',
-      imageMapTemp: '',
       connectionManager: null,
       errors: {},
     };
@@ -139,7 +124,7 @@ export default {
         ops: true,
       };
 
-      let interval = null;
+      let interval = -1;
       let connectionRestablished = false;
 
       const handleCallErrors = (errors) => {
@@ -270,53 +255,6 @@ export default {
           this.error = err;
         }
       }
-    },
-    parameterType(typeName) {
-      if (typeName === 'int' || typeName === 'float64') {
-        return 'number';
-      } else if (typeName === 'string' || typeName === 'char') {
-        return 'text';
-      }
-      return '';
-    },
-    getSegmenterNames() {
-      const req = new visionApi.GetSegmenterNamesRequest();
-      // We are deliberately just getting the first vision service to ensure this will not break.
-      // May want to allow for more services in the future
-      const visionName = filterResources(this.resources, 'rdk', 'services', 'vision')[0];
-      
-      req.setName(visionName);
-
-      window.visionService.getSegmenterNames(req, new grpc.Metadata(), (err, resp) => {
-        this.grpcCallback(err, resp, false);
-        if (err) {
-          console.log('error getting segmenter names');
-          console.log(err);
-          return;
-        }
-        this.segmenterNames = resp.getSegmenterNamesList();
-      });
-    },
-    getSegmenterParameters(name) {
-      this.segmentAlgo = name;
-      const req = new visionApi.GetSegmenterParametersRequest();
-      // We are deliberately just getting the first vision service to ensure this will not break.
-      // May want to allow for more services in the future
-      const visionName = filterResources(this.resources, 'rdk', 'services', 'vision')[0];
-
-      req.setName(visionName);
-      req.setSegmenterName(name);
-      
-      window.visionService.getSegmenterParameters(req, new grpc.Metadata(), (err, resp) => {
-        this.grpcCallback(err, resp, false);
-        if (err) {
-          console.log(`error getting segmenter parameters for ${name}`);
-          console.log(err);
-          return;
-        }
-        this.segmenterParameterNames = resp.getSegmenterParametersList();
-        this.segmenterParameters = {};
-      });
     },
     stringToResourceName(nameStr) {
       const nameParts = nameStr.split('/');
@@ -623,88 +561,6 @@ export default {
         });
       }, Number(time) * 1000);
     },
-    renderPCD(cameraName) {
-      this.$nextTick(() => {
-        this.pcdClick.pcdloaded = false;
-        this.pcdClick.foundSegments = false;
-        this.initPCDIfNeeded();
-        pcdGlobal.cameraName = cameraName;
-
-        const req = new cameraApi.GetPointCloudRequest();
-        req.setName(cameraName);
-        req.setMimeType('pointcloud/pcd');
-        window.cameraService.getPointCloud(req, new grpc.Metadata(), (err, resp) => {
-          this.grpcCallback(err, resp, false);
-          if (err) {
-            return;
-          }
-          console.log('loading pcd');
-          this.fullcloud = resp.getPointCloud_asB64();
-          this.pcdLoad(`data:pointcloud/pcd;base64,${this.fullcloud}`);
-        });
-      });
-
-      this.getSegmenterNames();
-    },
-    updateSLAMImageRefreshFrequency(name, time) {
-      clearInterval(this.slamImageIntervalId);
-      if (time === 'manual') {
-        this.viewSLAMImageMap(name);
-      } else if (time === 'off') {
-        // do nothing
-      } else {
-        this.viewSLAMImageMap(name);
-        this.slamImageIntervalId = window.setInterval(() => {
-          this.viewSLAMImageMap(name);
-        }, Number(time) * 1000);
-      }
-    },
-    viewSLAMImageMap(name) {
-      const req = new slamApi.GetMapRequest();
-      req.setName(name);
-      req.setMimeType('image/jpeg');
-      req.setIncludeRobotMarker(true);
-      window.slamService.getMap(req, new grpc.Metadata(), (err, resp) => {
-        this.grpcCallback(err, resp, false);
-        if (err) {
-          return;
-        }
-        const blob = new Blob([resp.getImage_asU8()], { type: 'image/jpeg' });
-        this.imageMapTemp = URL.createObjectURL(blob);
-      });
-    },
-    updateSLAMPCDRefreshFrequency(name, time, load) {
-      clearInterval(this.slamPCDIntervalId);
-      if (time === 'manual') {
-        this.viewSLAMPCDMap(name, load);
-      } else if (time === 'off') {
-        // do nothing
-      } else {
-        this.viewSLAMPCDMap(name, load);
-        this.slamPCDIntervalId = window.setInterval(() => {
-          this.viewSLAMPCDMap();
-        }, Number(time) * 1000);
-      }
-    },
-    viewSLAMPCDMap(name, load) {
-      this.$nextTick(() => {
-        const req = new slamApi.GetMapRequest();
-        req.setName(name);
-        req.setMimeType('pointcloud/pcd');
-        if (load) {
-          this.initPCD();
-        }
-        window.slamService.getMap(req, new grpc.Metadata(), (err, resp) => {
-          this.grpcCallback(err, resp, false);
-          if (err) {
-            return;
-          }
-          const pcObject = resp.getPointCloud();
-          this.fullcloud = pcObject.getPointCloud_asB64();
-          this.pcdLoad(`data:pointcloud/pcd;base64,${this.fullcloud}`);
-        });
-      });
-    },
     getReadings(sensorNames) {
       const req = new sensorsApi.GetReadingsRequest();
       const sensorsName = filterResources(this.resources, 'rdk', 'service', 'sensors')[0];
@@ -780,149 +636,7 @@ export default {
       }
       return d.hasOwn(key);
     },
-    grabClick(e) {
-      const mouse = new THREE.Vector2();
-      mouse.x = (e.offsetX / e.srcElement.offsetWidth) * 2 - 1;
-      mouse.y = (e.offsetY / e.srcElement.offsetHeight) * -2 + 1;
 
-      pcdGlobal.raycaster.setFromCamera(mouse, pcdGlobal.camera);
-
-      const intersects = pcdGlobal.raycaster.intersectObjects(pcdGlobal.scene.children);
-      const p = intersects.length > 0 ? intersects[0] : null;
-
-      if (p !== null) {
-        console.log(p.point);
-        this.setPoint(p.point);
-      } else {
-        console.log('no point intersected');
-      }
-    },
-    doPCDMove() {
-      const gripperName = filterResources(this.resources, 'rdk', 'component', 'gripper')[0];
-      const cameraName = pcdGlobal.cameraName;
-      const cameraPointX = this.pcdClick.x;
-      const cameraPointY = this.pcdClick.y;
-      const cameraPointZ = this.pcdClick.z;
-
-      const req = new motionApi.MoveRequest();
-      const cameraPoint = new commonApi.Pose();
-      // We are deliberately just getting the first motion service to ensure this will not break.
-      // May want to allow for more services in the future
-      const motionName = filterResources(this.resources, 'rdk', 'services', 'motion')[0];
-      cameraPoint.setX(cameraPointX);
-      cameraPoint.setY(cameraPointY);
-      cameraPoint.setZ(cameraPointZ);
-
-      const pose = new commonApi.PoseInFrame();
-      pose.setReferenceFrame(cameraName);
-      pose.setPose(cameraPoint);
-      req.setDestination(pose);
-      req.setName(motionName);
-      const componentName = new commonApi.ResourceName();
-      componentName.setNamespace(gripperName.namespace);
-      componentName.setType(gripperName.type);
-      componentName.setSubtype(gripperName.subtype);
-      componentName.setName(gripperName.name);
-      req.setComponentName(componentName);
-      console.log(`making move attempt using ${gripperName}`);
-
-      window.motionService.move(req, new grpc.Metadata(), (err, resp) => {
-        this.grpcCallback(err, resp);
-        if (err) {
-          return Promise.reject(err);
-        }
-        return Promise.resolve(resp).then(() => console.log(`move success: ${resp.getSuccess()}`));
-      });
-    },
-    findSegments(segmenterName, segmenterParams) {
-      console.log('parameters for segmenter below:');
-      console.log(segmenterParams);
-      this.pcdClick.calculatingSegments = true;
-      this.pcdClick.foundSegments = false;
-      const req = new visionApi.GetObjectPointCloudsRequest();
-      // We are deliberately just getting the first vision service to ensure this will not break.
-      // May want to allow for more services in the future
-      const visionName = filterResources(this.resources, 'rdk', 'services', 'vision')[0];
-      
-      req.setName(visionName);
-      req.setCameraName(pcdGlobal.cameraName);
-      req.setSegmenterName(segmenterName);
-      req.setParameters(proto.google.protobuf.Struct.fromJavaScript(segmenterParams));
-      const mimeType = 'pointcloud/pcd';
-      req.setMimeType(mimeType);
-      console.log('finding object segments...');
-      window.visionService.getObjectPointClouds(req, new grpc.Metadata(), (err, resp) => {
-        this.grpcCallback(err, resp, false);
-        if (err) {
-          console.log('error getting segments');
-          console.log(err);
-          this.pcdClick.calculatingSegments = false;
-          return;
-        }
-        console.log('got pcd segments');
-        this.pcdClick.foundSegments = true;
-        this.objects = resp.getObjectsList();
-        this.pcdClick.calculatingSegments = false;
-      });
-    },
-    doSegmentLoad (i) {
-      const segment = this.objects[i];
-      const data = segment.getPointCloud_asB64();
-      const center = segment.getGeometries().getGeometriesList()[0].getCenter();
-      const box = segment.getGeometries().getGeometriesList()[0].getBox();
-      const p = { x: center.getX() / 1000, y: center.getY() / 1000, z: center.getZ() / 1000 };
-      console.log(p);
-      this.setPoint(p);
-      setBoundingBox(box, p);
-      this.pcdLoad(`data:pointcloud/pcd;base64,${data}`);
-    },
-    doPointLoad (i) {
-      const segment = this.objects[i];
-      const center = segment.getGeometries().getGeometriesList()[0].getCenter();
-      this.setPoint({
-        x: center.getX() / 1000,
-        y: center.getY() / 1000,
-        z: center.getZ() / 1000,
-      });
-    },
-    doBoundingBoxLoad (i) {
-      const segment = this.objects[i];
-      const center = segment.getGeometries().getGeometriesList()[0].getCenter();
-      const box = segment.getGeometries().getGeometriesList()[0].getBox();
-      const centerP = {
-        x: center.getX() / 1000,
-        y: center.getY() / 1000,
-        z: center.getZ() / 1000,
-      };
-      setBoundingBox(box, centerP);
-    },
-    doPCDLoad (data) {
-      this.pcdLoad(`data:pointcloud/pcd;base64,${data}`);
-    },
-    doCenterPCDLoad (data) {
-      this.pcdLoad(`data:pointcloud/pcd;base64,${data}`);
-      const p = { x: 0 / 1000, y: 0 / 1000, z: 0 / 1000 };
-      console.log(p);
-      this.setPoint(p);
-    },
-    doPCDDownload(data) {
-      window.open(`data:pointcloud/pcd;base64,${data}`);
-    },
-    doSelectObject(selection, index) {
-      switch (selection) {
-        case 'Center Point':
-          this.doSegmentLoad(index);
-          break;
-        case 'Bounding Box':
-          this.doBoundingBoxLoad(index);
-          break;
-        case 'Cropped':
-          this.doPointLoad(index);
-          break;
-        default:
-          break;
-      }
-    },
     viewCamera(name, isOn) {
       const streamName = normalizeRemoteName(name);
       const streamContainer = document.querySelector(`#stream-${streamName}`);
@@ -1185,64 +899,6 @@ export default {
         });
       }
     },
-    initPCDIfNeeded() {
-      if (pcdGlobal) {
-        return;
-      }
-      
-      this.initPCD();
-    },
-    initPCD() {
-      this.pcdClick.enable = true;
-
-      const sphereGeometry = new THREE.SphereGeometry(0.009, 32, 32);
-      const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xFF_00_00 });
-
-      pcdGlobal = {
-        scene: new THREE.Scene(),
-        camera: new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000),
-        renderer: new THREE.WebGLRenderer(),
-        raycaster: new THREE.Raycaster(),
-        sphere: new THREE.Mesh(sphereGeometry, sphereMaterial),
-      };
-
-      pcdGlobal.renderer.setSize(window.innerWidth / 2, window.innerHeight / 2);
-      document.querySelector('#pcd').append(pcdGlobal.renderer.domElement);
-
-      pcdGlobal.controls = new OrbitControls(pcdGlobal.camera, pcdGlobal.renderer.domElement);
-      pcdGlobal.camera.position.set(0, 0, 0);
-      pcdGlobal.controls.target.set(0, 0, -1);
-      pcdGlobal.controls.update();
-      pcdGlobal.camera.updateMatrix();
-    },
-    pcdLoad(path) {
-      const loader = new PCDLoader();
-      loader.load(
-        path,
-
-        // called when the resource is loaded
-        (mesh) => {
-          pcdGlobal.scene.clear();
-          pcdGlobal.scene.add(mesh);
-          pcdGlobal.scene.add(pcdGlobal.sphere);
-          if (pcdGlobal.cube) {
-            pcdGlobal.scene.add(pcdGlobal.cube);
-          }
-          pcdAnimate();
-        },
-        // called when loading is in progresses
-        () => { /* noop */ },
-        // called when loading has errors
-        (_error) => { /* noop */ }
-      );
-      this.pcdClick.pcdloaded = true;
-    },
-    setPoint(point) {
-      this.pcdClick.x = r(point.x);
-      this.pcdClick.y = r(point.y);
-      this.pcdClick.z = r(point.z);
-      pcdGlobal.sphere.position.copy(point);
-    },
     movementsensorRefresh() {
       for (const x of filterResources(this.resources, 'rdk', 'component', 'movement_sensor')) {
         const name = x.name;
@@ -1426,46 +1082,6 @@ const relevantSubtypesForStatus = ['arm', 'gantry', 'board', 'servo', 'motor', '
 let statusStream;
 let lastStatusTS = Date.now();
 
-let pcdGlobal = null;
-
-function resizeRendererToDisplaySize(renderer) {
-  const canvas = renderer.domElement;
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
-  const needResize = canvas.width !== width || canvas.height !== height;
-  if (needResize) {
-    renderer.setSize(width, height, false);
-  }
-  return needResize;
-}
-
-function pcdAnimate() {
-  if (resizeRendererToDisplaySize(pcdGlobal.renderer)) {
-    const canvas = pcdGlobal.renderer.domElement;
-    pcdGlobal.camera.aspect = canvas.clientWidth / canvas.clientHeight;
-    pcdGlobal.camera.updateProjectionMatrix();
-  }
-  pcdGlobal.renderer.render(pcdGlobal.scene, pcdGlobal.camera);
-  pcdGlobal.controls.update();
-  requestAnimationFrame(pcdAnimate);
-}
-
-function r(n) {
-  return Math.round(n * 1000);
-}
-
-function setBoundingBox(box, centerPoint) {
-  const geometry = new THREE.BoxGeometry(box.getWidthMm() / 1000, box.getLengthMm() / 1000, box.getDepthMm() / 1000);
-  const edges = new THREE.EdgesGeometry(geometry);
-  const material = new THREE.LineBasicMaterial({ color: 0xFF_00_00 });
-  const cube = new THREE.LineSegments(edges, material);
-  cube.position.copy(centerPoint);
-  cube.name = 'bounding-box';
-  pcdGlobal.scene.remove(pcdGlobal.scene.getObjectByName('bounding-box'));
-  pcdGlobal.cube = cube;
-  pcdGlobal.scene.add(cube);
-}
-
 </script>
 
 <template>
@@ -1497,7 +1113,7 @@ function setBoundingBox(box, centerPoint) {
         class="w-96"
       >
         <input
-          class="mb-2 block w-full appearance-none border p-2 text-gray-700 transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none dark:text-gray-200 dark:placeholder:text-gray-500"
+          class="mb-2 block w-full appearance-none border p-2 text-gray-700 transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none"
           type="password"
         >
         <button
@@ -2195,36 +1811,13 @@ function setBoundingBox(box, centerPoint) {
     <Camera
       v-for="camera in filterResources(resources, 'rdk', 'component', 'camera')"
       :key="camera.name"
-      :stream-name="camera.name"
+      :camera-name="camera.name"
       :crumbs="[camera.name]"
-      :x="pcdClick.x"
-      :y="pcdClick.y"
-      :z="pcdClick.z"
-      :pcd-click="pcdClick"
-      :segmenter-names="segmenterNames"
-      :segmenter-parameters="segmenterParameters"
-      :segmenter-parameter-names="segmenterParameterNames"
-      :parameter-type="parameterType"
-      :segment-algo="segmentAlgo"
-      :segment-objects="objects"
-      :find-status="pcdClick.calculatingSegments"
-      @full-image="doPCDLoad(fullcloud)"
-      @center-pcd="doCenterPCDLoad(fullcloud)"
-      @find-segments="findSegments(segmentAlgo, segmenterParameters)"
-      @change-segmenter="getSegmenterParameters"
+      :resources="resources"
       @toggle-camera="isOn => { viewCamera(camera.name, isOn) }"
       @refresh-camera="t => { viewCameraFrame(camera.name, t) }"
       @selected-camera-view="t => { viewCameraFrame(camera.name, t) }"
-      @toggle-pcd="renderPCD(camera.name)"
-      @pcd-click="grabClick"
-      @pcd-move="doPCDMove"
-      @point-load="doPointLoad"
-      @segment-load="doSegmentLoad"
-      @bounding-box-load="doBoundingBoxLoad"
       @download-screenshot="renderFrame(camera.name)"
-      @download-raw-data="doPCDDownload(fullcloud)"
-      @select-object="doSelectObject"
-      @segmenter-parameters-input="(name, value) => segmenterParameters[name] = Number(value)"
     />
 
     <!-- ******* NAVIGATION ******* -->
@@ -2314,9 +1907,7 @@ function setBoundingBox(box, centerPoint) {
       v-for="slam in filterResources(resources, 'rdk', 'service', 'slam')"
       :key="slam.name"
       :name="slam.name"
-      :image-map="imageMapTemp"
-      @update-slam-image-refresh-frequency="updateSLAMImageRefreshFrequency"
-      @update-slam-pcd-refresh-frequency="updateSLAMPCDRefreshFrequency"
+      :resources="resources"
     />
 
     <!-- ******* DO ******* -->

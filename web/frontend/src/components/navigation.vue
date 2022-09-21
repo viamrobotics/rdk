@@ -17,7 +17,7 @@ import navigationApi, {
 } from '../gen/proto/api/service/navigation/v1/navigation_pb.esm';
 
 interface Props {
-  resources: Resource[]
+  resources?: Resource[]
   name:string
 }
 
@@ -64,7 +64,7 @@ const setNavigationLocation = () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const req = new (robotApi as any).ResourceRunCommandRequest();
   let gpsName = '';
-  const gpses = filterResources(props.resources, 'rdk', 'component', 'gps');
+  const gpses = filterResources(props.resources ?? [], 'rdk', 'component', 'gps');
   if (gpses.length > 0) {
     gpsName = gpses[0].name;
   } else {
