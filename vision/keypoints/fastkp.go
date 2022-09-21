@@ -22,10 +22,11 @@ import (
 // FASTConfig holds the parameters necessary to compute the FAST keypoints.
 type FASTConfig struct {
 	NMatchesCircle int  `json:"n_matches"`
-	NMSWinSize     int  `json:"nms_win_size"`
-	Threshold      int  `json:"threshold"`
-	Oriented       bool `json:"oriented"`
-	Radius         int  `json:"radius"`
+	NMSWinSize     int  `json:"nms_win_size"` // TODO(RSDK-586): unit (px)?
+	Threshold      int  `json:"threshold"`    // TODO(RSDK-586): unit (px)?
+	Oriented       bool `json:"oriented"`     // TODO(RSDK-586): unit (px)?
+	Radius         int  `json:"radius"`       // TODO(RSDK-586): unit (px)?
+
 }
 
 // PixelType stores 0 if a pixel is darker than center pixel, and 1 if brighter.
