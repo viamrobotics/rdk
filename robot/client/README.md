@@ -1,5 +1,5 @@
-/*
-Package client implements a Go client for the Viam RDK and can function as an SDK to connect to a robot.
+# Go client
+The Go client for the Viam RDK can function as an SDK to connect to a robot.
 
 # Install
 
@@ -55,6 +55,3 @@ You can then query resources and also grab a resource by its name.
 Remember to close the client at the end!
 
 	robot.Close(context.Background())
-
-*/
-package client
