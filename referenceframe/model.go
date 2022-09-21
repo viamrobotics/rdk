@@ -27,11 +27,10 @@ type Model interface {
 
 // SimpleModel TODO.
 type SimpleModel struct {
-	name string // the name of the model
+	*baseFrame
 	// OrdTransforms is the list of transforms ordered from end effector to base
 	OrdTransforms []Frame
 	poseCache     *sync.Map
-	limits        []Limit
 	lock          sync.RWMutex
 }
 
@@ -145,10 +144,10 @@ func (m *SimpleModel) CachedTransform(inputs []Input) (spatialmath.Pose, error) 
 }
 
 // IsConfigurationValid checks whether the given array of joint positions violates any joint limits.
-func IsConfigurationValid(inputs []Input) bool {
+func IsConfigurationValid(m Model, configuration []float64) bool {
 	limits := m.DoF()
 	for i := 0; i < len(limits); i++ {
-		if limits[i].Within(inputs[i]) {
+		if configuration[i] < limits[i].Min || configuration[i] > limits[i].Max {
 			return false
 		}
 	}
@@ -248,7 +247,7 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 		composedTransformation = spatialmath.Compose(composedTransformation, pose)
 	}
 	// TODO(rb) as written this will return one too many frames, no need to return zeroth frame
-	poses = append(poses, &staticFrame{"", composedTransformation, nil})
+	poses = append(poses, &staticFrame{&baseFrame{"", []Limit{}}, composedTransformation, nil})
 	return poses, err
 }
 

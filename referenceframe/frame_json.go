@@ -58,7 +58,7 @@ func (config FrameMapConfig) ParseConfig() (Frame, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = mapstructure.Decode(config["limit"], &f.limit)
+		err = mapstructure.Decode(config["limit"], &f.limits)
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +89,7 @@ func (config FrameMapConfig) ParseConfig() (Frame, error) {
 			return nil, utils.NewUnexpectedTypeError(f.rotAxis.Z, rotAxis["Z"])
 		}
 
-		err = mapstructure.Decode(config["limit"], &f.limit)
+		err = mapstructure.Decode(config["limit"], &f.limits)
 		if err != nil {
 			return nil, err
 		}
