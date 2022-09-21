@@ -10,12 +10,9 @@ import (
 // AngularVelocity contains angular velocity in deg/s across x/y/z axes.
 type AngularVelocity r3.Vector
 
-// TODO (rh) figure out if from to orientation actually makes more sense for these functions, and if they should be
-// function taking in a general orientation or specific orientations
-
 // OrientationToAngularVel calculates an angular velocity based on an orientation change over a time differnce.
-func (av *AngularVelocity) OrientationToAngularVel(o Orientation, dt float64) *AngularVelocity {
-	axA := o.AxisAngles()
+func OrientationToAngularVel(diffO Orientation, dt float64) *AngularVelocity {
+	axA := diffO.AxisAngles()
 
 	return &AngularVelocity{
 		X: axA.RX * axA.Theta / dt,
@@ -25,10 +22,12 @@ func (av *AngularVelocity) OrientationToAngularVel(o Orientation, dt float64) *A
 }
 
 // QuatToAngVel calculates an angular velocity based on an orientation change expressed in quaternions over a time differnce.
-func (av *AngularVelocity) QuatToAngVel(diffQ quat.Number, dt float64) *AngularVelocity {
+func QuatToAngVel(diffQ quat.Number, dt float64) *AngularVelocity {
+	ndQ := Normalize(diffQ)
 	// todo (rh) check if normalisation needs to be performed at each step
 	dqdt := quat.Number{Real: diffQ.Real / dt, Imag: diffQ.Imag / dt, Jmag: diffQ.Jmag / dt, Kmag: diffQ.Kmag / dt}
-	w := quat.Scale(2, quat.Mul(quat.Conj(diffQ), dqdt))
+	ndqdt := Normalize(dqdt)
+	w := quat.Scale(2, quat.Mul(quat.Conj(ndQ), ndqdt))
 	return &AngularVelocity{
 		X: w.Imag,
 		Y: w.Jmag,
@@ -37,8 +36,7 @@ func (av *AngularVelocity) QuatToAngVel(diffQ quat.Number, dt float64) *AngularV
 }
 
 // EulerToAngVel calculates an angular velocity based on an orientation change expressed in euler angles over a time differnce.
-func (av *AngularVelocity) EulerToAngVel(diffEu EulerAngles, dt float64) *AngularVelocity {
-	// TODO (rh) check order for tait bryan
+func EulerToAngVel(diffEu EulerAngles, dt float64) *AngularVelocity {
 	return &AngularVelocity{
 		X: diffEu.Roll/dt - math.Sin(diffEu.Pitch)*diffEu.Yaw/dt,
 		Y: math.Cos(diffEu.Roll)*diffEu.Pitch/dt + math.Cos(diffEu.Pitch)*math.Sin(diffEu.Roll)*diffEu.Yaw/dt,
@@ -47,7 +45,20 @@ func (av *AngularVelocity) EulerToAngVel(diffEu EulerAngles, dt float64) *Angula
 }
 
 // RotMatToAngVel calculates an angular velocity based on an orientation change expressed in rotation matrices over a time differnce.
-func (av *AngularVelocity) RotMatToAngVel(diffRm RotationMatrix, dt float64) *AngularVelocity {
-	// I did this for homework once and refuse to do it again
-	return av.OrientationToAngularVel(diffRm.AxisAngles(), dt)
+func RotMatToAngVel(diffRm RotationMatrix, dt float64) *AngularVelocity {
+	return OrientationToAngularVel(diffRm.AxisAngles(), dt)
+}
+
+// Multiply scales the angular velocity by a single scalar value
+func (av *AngularVelocity) MulAngVel(t float64) *AngularVelocity {
+	return &AngularVelocity{
+		X: t * av.X,
+		Y: t * av.Y,
+		Z: t * av.Z,
+	}
+}
+
+// R3ToAngVel converts an r3Vector to an angular velocity
+func R3ToAngVel(vec r3.Vector) *AngularVelocity {
+	return &AngularVelocity{X: vec.X, Y: vec.Y, Z: vec.Z}
 }

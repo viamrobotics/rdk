@@ -37,19 +37,6 @@ func (cfg *AttrConfig) Validate(path string) error {
 	return nil
 }
 
-// AttrConfig is used for converting config attributes of a witmotion imu movement sensor.
-type AttrConfig struct {
-	Port string `json:"port"`
-}
-
-// Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) error {
-	if config.Port == "" {
-		return errors.New("no usb port found for witmotion imu")
-	}
-	return nil
-}
-
 func init() {
 	registry.RegisterComponent(movementsensor.Subtype, model, registry.Component{
 		Constructor: func(

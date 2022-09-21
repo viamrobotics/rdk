@@ -118,6 +118,7 @@ type cameramono struct {
 }
 
 type result struct {
+	dt            float64
 	trackedPos    r3.Vector
 	trackedOrient spatialmath.Orientation
 	angVel        spatialmath.AngularVelocity
@@ -160,12 +161,12 @@ func newCameraMono(
 		},
 	}
 	co.stream = gostream.NewEmbeddedVideoStream(cam)
-	co.lastErr = co.backgroundWorker(cam, co.stream, conf.MotionConfig)
+	co.lastErr = co.backgroundWorker(co.stream, conf.MotionConfig)
 
 	return co, co.lastErr
 }
 
-func (co *cameramono) backgroundWorker(cam camera.Camera, stream gostream.VideoStream, cfg *odometry.MotionEstimationConfig) error {
+func (co *cameramono) backgroundWorker(stream gostream.VideoStream, cfg *odometry.MotionEstimationConfig) error {
 	defer func() { utils.UncheckedError(stream.Close(context.Background())) }()
 	co.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
@@ -184,6 +185,7 @@ func (co *cameramono) backgroundWorker(cam camera.Camera, stream gostream.VideoS
 			}
 
 			dt, moreThanZero := co.getDt(sT, eT)
+			co.result.dt = dt
 			if moreThanZero {
 				co.motion, err = co.extractMovementFromOdometer(rimage.ConvertImage(sImg), rimage.ConvertImage(eImg), dt, cfg)
 				if err != nil {
@@ -216,7 +218,7 @@ func (co *cameramono) extractMovementFromOdometer(
 		return motion, err
 	}
 
-	rAng, cAng := motion.Rotation.Dims() // maybe not needed because of rotation matrix check?
+	rAng, cAng := motion.Rotation.Dims()
 	if rAng != 3 || cAng != 3 {
 		return nil, errors.New("rotation dims are not 3,3")
 	}
@@ -230,10 +232,10 @@ func (co *cameramono) extractMovementFromOdometer(
 	if err != nil {
 		return nil, err
 	}
-	co.result.trackedOrient = co.result.trackedOrient.RotationMatrix().MatMul(*rotMat)
-	// Future improvements: output linear and angular velocity from the odometry algorithm itself?
+	co.result.trackedOrient = co.result.trackedOrient.RotationMatrix().LeftMatMul(*rotMat)
+	co.result.trackedPos = co.result.trackedPos.Add(translationToR3(co.motion))
 	co.result.linVel = calculateLinVel(motion, dt)
-	co.result.angVel = *co.result.angVel.OrientationToAngularVel(rotMat, dt)
+	co.result.angVel = *spatialmath.OrientationToAngularVel(rotMat, dt)
 
 	return motion, err
 }
@@ -249,31 +251,36 @@ func (co *cameramono) getDt(startTime, endTime time.Time) (float64, bool) {
 func (co *cameramono) Close() {
 	co.cancelFunc()
 	co.activeBackgroundWorkers.Wait()
-	co.stream.Close(co.cancelCtx)
+	co.lastErr = co.stream.Close(co.cancelCtx)
 }
 
-func (co *cameramono) GetPosition(ctx context.Context) (*geo.Point, float64, error) {
-	co.result.trackedPos = co.result.trackedPos.Add(translationToR3(co.motion)) // most drift occurs here due to deadreckoning
+// Position gets the position of the moving object calculated by visual odometry.
+func (co *cameramono) Position(ctx context.Context) (*geo.Point, float64, error) {
 	return geo.NewPoint(co.result.trackedPos.X, co.result.trackedPos.Y), co.result.trackedPos.Z, nil
 }
 
-func (co *cameramono) GetOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+// Oritentation gets the position of the moving object calculated by visual odometry.
+func (co *cameramono) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	return co.result.trackedOrient, nil
 }
 
-func (co *cameramono) GetReadings(ctx context.Context) (map[string]interface{}, error) {
-	return movementsensor.GetReadings(ctx, co)
+// Readings gets the position of the moving object calculated by visual odometry.
+func (co *cameramono) Readings(ctx context.Context) (map[string]interface{}, error) {
+	return movementsensor.Readings(ctx, co)
 }
 
-func (co *cameramono) GetLinearVelocity(ctx context.Context) (r3.Vector, error) {
+// LinearVelocity gets the position of the moving object calculated by visual odometry.
+func (co *cameramono) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	return co.result.linVel, nil
 }
 
-func (co *cameramono) GetAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+// AngularVelocity gets the position of the moving object calculated by visual odometry.
+func (co *cameramono) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	return co.result.angVel, nil
 }
 
-func (co *cameramono) GetProperties(ctx context.Context) (*movementsensor.Properties, error) {
+// Properties gets the position of the moving object calculated by visual odometry.
+func (co *cameramono) Properties(ctx context.Context) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		PositionSupported:        true,
 		OrientationSupported:     true,
@@ -292,7 +299,6 @@ func translationToR3(motion *odometry.Motion3D) r3.Vector {
 }
 
 func calculateLinVel(motion *odometry.Motion3D, dt float64) r3.Vector {
-	/// add dt check here as well? It will never be zero and passe din in this package
 	tVec := translationToR3(motion)
 	return r3.Vector{
 		X: tVec.X / dt,
@@ -302,10 +308,13 @@ func calculateLinVel(motion *odometry.Motion3D, dt float64) r3.Vector {
 }
 
 // unimplemented methods.
-func (co *cameramono) GetAccuracy(ctx context.Context) (map[string]float32, error) {
+
+// Accuracy gets the position of the moving object calculated by visual odometry.
+func (co *cameramono) Accuracy(ctx context.Context) (map[string]float32, error) {
 	return map[string]float32{}, nil
 }
 
-func (co *cameramono) GetCompassHeading(ctx context.Context) (float64, error) {
+// COmpassHeadings gets the position of the moving object calculated by visual odometry.
+func (co *cameramono) CompassHeading(ctx context.Context) (float64, error) {
 	return 0, nil
 }
