@@ -10,6 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
@@ -18,10 +19,8 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
@@ -40,10 +39,10 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam1.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc1, nil
 	}
-	cam1.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	cam1.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
-	cam1.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	cam1.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	cam2 := &inject.Camera{}
@@ -53,10 +52,10 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc2, nil
 	}
-	cam2.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	cam2.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
-	cam2.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	cam2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	cam3 := &inject.Camera{}
@@ -66,10 +65,10 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam3.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc3, nil
 	}
-	cam3.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	cam3.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
-	cam3.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	cam3.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	base1 := &inject.Base{}
@@ -238,10 +237,10 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	cam1.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return startPC, nil
 	}
-	cam1.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	cam1.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
-	cam1.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	cam1.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	cam2 := &inject.Camera{}
@@ -266,10 +265,10 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	cam2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return transformedPC, nil
 	}
-	cam2.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+	cam2.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{}, nil
 	}
-	cam2.ProjectorFunc = func(ctx context.Context) (rimage.Projector, error) {
+	cam2.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 

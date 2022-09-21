@@ -9,13 +9,13 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/board/v1"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/board/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
@@ -641,6 +641,12 @@ func (r *reconfigurableDigitalInterrupt) AddCallback(c chan bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	r.actual.AddCallback(c)
+}
+
+func (r *reconfigurableDigitalInterrupt) RemoveCallback(c chan bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	r.actual.RemoveCallback(c)
 }
 
 func (r *reconfigurableDigitalInterrupt) AddPostProcessor(pp PostProcessor) {

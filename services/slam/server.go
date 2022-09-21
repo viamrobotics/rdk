@@ -6,10 +6,10 @@ import (
 	"image/jpeg"
 
 	"go.opencensus.io/trace"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/service/slam/v1"
 
 	"go.viam.com/rdk/pointcloud"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/slam/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -51,7 +51,7 @@ func (server *subtypeServer) GetPosition(ctx context.Context, req *pb.GetPositio
 		return nil, err
 	}
 
-	p, err := svc.GetPosition(ctx, req.Name)
+	p, err := svc.Position(ctx, req.Name)
 	if err != nil {
 		return nil, err
 	}

@@ -97,7 +97,12 @@ func newTransformPipeline(
 	if cfg.AttrConfig != nil {
 		props = cfg.AttrConfig.CameraParameters
 	}
-	return camera.NewFromReader(ctx, transformPipeline{pipeline, lastSourceStream, props}, props, camera.StreamType(cfg.Stream))
+	return camera.NewFromReader(
+		ctx,
+		transformPipeline{pipeline, lastSourceStream, props},
+		&transform.PinholeCameraModel{props, nil},
+		camera.StreamType(cfg.Stream),
+	)
 }
 
 type transformPipeline struct {

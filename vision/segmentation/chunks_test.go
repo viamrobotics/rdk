@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
 
@@ -118,7 +119,7 @@ func (cid *chunkImageDebug) Process(
 		x2 := dm.InterestingPixels(2)
 		pCtx.GotDebugImage(x2, "depth-interesting")
 
-		pp := rimage.ParallelProjection{}
+		pp := transform.ParallelProjection{}
 		pc, err := pp.RGBDToPointCloud(img, dm)
 		if err != nil {
 			t.Fatal(err)

@@ -12,6 +12,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/board/commonsysfs"
 	picommon "go.viam.com/rdk/components/board/pi/common"
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/components/motor"
@@ -29,13 +30,12 @@ func TestPiHardware(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	cfg := board.Config{
-		// Analogs: []board.AnalogConfig{{Name: "blue", Pin: "0"}},
+	cfg := commonsysfs.Config{
 		DigitalInterrupts: []board.DigitalInterruptConfig{
 			{Name: "i1", Pin: "11"},                     // plug physical 12(18) into this (17)
 			{Name: "servo-i", Pin: "22", Type: "servo"}, // bcom-25
-			{Name: "hall-a", Pin: "33"},                 // bcom 13
-			{Name: "hall-b", Pin: "37"},                 // bcom 26
+			{Name: "a", Pin: "33"},                      // bcom 13
+			{Name: "b", Pin: "37"},                      // bcom 26
 		},
 	}
 
@@ -125,7 +125,7 @@ func TestPiHardware(t *testing.T) {
 		err = servo1.Move(ctx, 90)
 		test.That(t, err, test.ShouldBeNil)
 
-		v, err := servo1.GetPosition(ctx)
+		v, err := servo1.Position(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, int(v), test.ShouldEqual, 90)
 
@@ -141,15 +141,15 @@ func TestPiHardware(t *testing.T) {
 	motorReg := registry.ComponentLookup(motor.Subtype, picommon.ModelName)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
-	encoderReg := registry.ComponentLookup(encoder.Subtype, "hall-encoder")
+	encoderReg := registry.ComponentLookup(encoder.Subtype, "encoder")
 	test.That(t, encoderReg, test.ShouldNotBeNil)
 
 	deps := make(registry.Dependencies)
 	_, err = encoderReg.Constructor(ctx, deps, config.Component{
-		Name: "encoder1", ConvertedAttributes: &encoder.HallConfig{
-			Pins: encoder.HallPins{
-				A: "hall-a",
-				B: "hall-b",
+		Name: "encoder1", ConvertedAttributes: &encoder.IncrementalConfig{
+			Pins: encoder.IncrementalPins{
+				A: "a",
+				B: "b",
 			},
 			BoardName: "test",
 		},
@@ -176,7 +176,7 @@ func TestPiHardware(t *testing.T) {
 	motor1 := motorInt.(motor.Motor)
 
 	t.Run("motor forward", func(t *testing.T) {
-		pos, err := motor1.GetPosition(ctx, nil)
+		pos, err := motor1.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldAlmostEqual, .0, 0o1)
 
@@ -187,9 +187,9 @@ func TestPiHardware(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
 
-		hallA, ok := p.DigitalInterruptByName("hall-a")
+		encA, ok := p.DigitalInterruptByName("a")
 		test.That(t, ok, test.ShouldBeTrue)
-		hallB, ok := p.DigitalInterruptByName("hall-b")
+		encB, ok := p.DigitalInterruptByName("b")
 		test.That(t, ok, test.ShouldBeTrue)
 
 		loops := 0
@@ -204,11 +204,11 @@ func TestPiHardware(t *testing.T) {
 
 			loops++
 			if loops > 100 {
-				pos, err = motor1.GetPosition(ctx, nil)
+				pos, err = motor1.Position(ctx, nil)
 				test.That(t, err, test.ShouldBeNil)
-				aVal, err := hallA.Value(context.Background(), nil)
+				aVal, err := encA.Value(context.Background(), nil)
 				test.That(t, err, test.ShouldBeNil)
-				bVal, err := hallB.Value(context.Background(), nil)
+				bVal, err := encB.Value(context.Background(), nil)
 				test.That(t, err, test.ShouldBeNil)
 				t.Fatalf("motor didn't move enough, a: %v b: %v pos: %v",
 					aVal,
@@ -228,9 +228,9 @@ func TestPiHardware(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
 
-		hallA, ok := p.DigitalInterruptByName("hall-a")
+		encA, ok := p.DigitalInterruptByName("a")
 		test.That(t, ok, test.ShouldBeTrue)
-		hallB, ok := p.DigitalInterruptByName("hall-b")
+		encB, ok := p.DigitalInterruptByName("b")
 		test.That(t, ok, test.ShouldBeTrue)
 
 		loops := 0
@@ -243,9 +243,9 @@ func TestPiHardware(t *testing.T) {
 
 			time.Sleep(100 * time.Millisecond)
 			loops++
-			aVal, err := hallA.Value(context.Background(), nil)
+			aVal, err := encA.Value(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
-			bVal, err := hallB.Value(context.Background(), nil)
+			bVal, err := encB.Value(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
 			if loops > 100 {
 				t.Fatalf("motor didn't move enough, a: %v b: %v",

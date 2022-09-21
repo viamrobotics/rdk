@@ -3,19 +3,21 @@ package arm
 import (
 	"context"
 
+	"google.golang.org/protobuf/types/known/anypb"
+
 	"go.viam.com/rdk/data"
 )
 
 type method int64
 
 const (
-	getEndPosition method = iota
+	endPosition method = iota
 	getJointPositions
 )
 
 func (m method) String() string {
 	switch m {
-	case getEndPosition:
+	case endPosition:
 		return "GetEndPosition"
 	case getJointPositions:
 		return "GetJointPositions"
@@ -23,30 +25,30 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-func newGetEndPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newEndPositionCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	arm, err := assertArm(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		v, err := arm.GetEndPosition(ctx, nil)
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+		v, err := arm.EndPosition(ctx, nil)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, getEndPosition.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, endPosition.String(), err)
 		}
 		return v, nil
 	})
 	return data.NewCollector(cFunc, params)
 }
 
-func newGetJointPositionsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newJointPositionsCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	arm, err := assertArm(resource)
 	if err != nil {
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
-		v, err := arm.GetJointPositions(ctx, nil)
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
+		v, err := arm.JointPositions(ctx, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, getJointPositions.String(), err)
 		}
