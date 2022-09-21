@@ -602,7 +602,6 @@ func TestSyncDisabled(t *testing.T) {
 
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
-	armDir := captureDir + "/arm/arm1/"
 	resetFolder(t, captureDir)
 	defer resetFolder(t, captureDir)
 
