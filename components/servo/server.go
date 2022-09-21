@@ -5,9 +5,9 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/servo/v1"
 
 	"go.viam.com/rdk/operation"
-	pb "go.viam.com/rdk/proto/api/component/servo/v1"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -51,7 +51,7 @@ func (server *subtypeServer) GetPosition(
 	if err != nil {
 		return nil, err
 	}
-	angleDeg, err := servo.GetPosition(ctx)
+	angleDeg, err := servo.Position(ctx)
 	if err != nil {
 		return nil, err
 	}

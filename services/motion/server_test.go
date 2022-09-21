@@ -5,11 +5,11 @@ import (
 	"errors"
 	"testing"
 
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/gripper"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/motion/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"

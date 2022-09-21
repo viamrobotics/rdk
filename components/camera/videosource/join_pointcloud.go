@@ -140,9 +140,9 @@ func newJoinPointCloudSource(ctx context.Context, r robot.Robot, l golog.Logger,
 		parentCamera := joinSource.sourceCameras[idx]
 		var intrinsicParams *transform.PinholeCameraIntrinsics
 		if parentCamera != nil {
-			props, err := parentCamera.GetProperties(ctx)
+			props, err := parentCamera.Properties(ctx)
 			if err != nil {
-				return nil, camera.NewGetPropertiesError(
+				return nil, camera.NewPropertiesError(
 					fmt.Sprintf("point cloud source at index %d for target %s", idx, attrs.TargetFrame))
 			}
 			intrinsicParams = props.IntrinsicParams

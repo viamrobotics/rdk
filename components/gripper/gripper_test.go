@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	"github.com/mitchellh/mapstructure"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/gripper"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"

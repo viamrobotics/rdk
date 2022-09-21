@@ -14,11 +14,11 @@ import (
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/camera/v1"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
-	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/rlog"

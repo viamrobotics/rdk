@@ -18,7 +18,6 @@ import (
 
 func init() {
 	registry.RegisterService(sensors.Subtype, resource.DefaultModelName, registry.Service{
-		MaxInstance: resource.DefaultMaxInstance,
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return NewBuiltIn(ctx, r, c, logger)
 		},
@@ -40,8 +39,8 @@ type builtIn struct {
 	logger  golog.Logger
 }
 
-// GetSensors returns all sensors in the robot.
-func (s *builtIn) GetSensors(ctx context.Context) ([]resource.Name, error) {
+// Sensors returns all sensors in the robot.
+func (s *builtIn) Sensors(ctx context.Context) ([]resource.Name, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -52,8 +51,8 @@ func (s *builtIn) GetSensors(ctx context.Context) ([]resource.Name, error) {
 	return names, nil
 }
 
-// GetReadings returns the readings of the resources specified.
-func (s *builtIn) GetReadings(ctx context.Context, sensorNames []resource.Name) ([]sensors.Readings, error) {
+// Readings returns the readings of the resources specified.
+func (s *builtIn) Readings(ctx context.Context, sensorNames []resource.Name) ([]sensors.Readings, error) {
 	s.mu.RLock()
 	// make a copy of sensors and then unlock
 	sensorsMap := make(map[resource.Name]sensor.Sensor, len(s.sensors))
@@ -74,7 +73,7 @@ func (s *builtIn) GetReadings(ctx context.Context, sensorNames []resource.Name) 
 		if !ok {
 			return nil, errors.Errorf("resource %q not a registered sensor", name)
 		}
-		reading, err := sensor.GetReadings(ctx)
+		reading, err := sensor.Readings(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get reading from %q", name)
 		}

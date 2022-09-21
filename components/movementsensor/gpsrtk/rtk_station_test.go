@@ -1,4 +1,4 @@
-package rtk
+package gpsrtk
 
 import (
 	"context"
@@ -8,9 +8,9 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
-	"go.viam.com/rdk/components/movementsensor/nmea"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 )
@@ -32,36 +32,48 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 }
 
 func TestValidate(t *testing.T) {
-	fakecfg := &AttrConfig{}
-	err := fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty correction source")
+	fakecfg := &StationConfig{
+		CorrectionSource: "",
+		Children:         []string{},
+		SurveyIn:         "",
+		RequiredAccuracy: 0,
+		RequiredTime:     0,
+		SerialAttrConfig: &SerialAttrConfig{},
+		I2CAttrConfig:    &I2CAttrConfig{},
+		NtripAttrConfig:  &NtripAttrConfig{},
+	}
+	path := "path"
+	err := fakecfg.Validate(path)
+	test.That(t, err, test.ShouldBeError,
+		utils.NewConfigValidationFieldRequiredError(path, "correction_source"))
 
 	fakecfg.CorrectionSource = "notvalid"
 	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "only serial, I2C, and ntrip are supported correction sources")
+	test.That(t, err, test.ShouldBeError, "only serial, I2C, and ntrip are supported correction sources")
 
 	// ntrip
 	fakecfg.CorrectionSource = "ntrip"
-	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected nonempty ntrip address")
+	err = fakecfg.Validate(path)
+	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr"))
 
-	fakecfg.NtripAddr = "some-ntrip-address"
+	fakecfg.NtripAttrConfig.NtripAddr = "some-ntrip-address"
+	fakecfg.NtripPath = "some-ntrip-path"
 	err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 
 	// serial
 	fakecfg.CorrectionSource = "serial"
-	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "must specify serial path")
+	err = fakecfg.Validate(path)
+	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "serial_correction_path"))
 
-	fakecfg.CorrectionPath = "some-serial-path"
+	fakecfg.SerialAttrConfig.SerialCorrectionPath = "some-serial-path"
 	err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 
 	// I2C
 	fakecfg.CorrectionSource = "I2C"
 	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find board for rtk station")
+	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "board"))
 }
 
 func TestRTK(t *testing.T) {
@@ -74,13 +86,16 @@ func TestRTK(t *testing.T) {
 		Name:  "rtk1",
 		Model: "rtk-station",
 		Type:  "gps",
-		Attributes: config.AttributeMap{
-			"correction_source":      "ntrip",
-			"ntrip_addr":             "some_ntrip_address",
-			"ntrip_username":         "",
-			"ntrip_password":         "",
-			"ntrip_mountpoint":       "NJI2",
-			"ntrip_connect_attempts": 10,
+		ConvertedAttributes: &StationConfig{
+			CorrectionSource: "ntrip",
+			Board:            testBoardName,
+			NtripAttrConfig: &NtripAttrConfig{
+				NtripAddr:            "some_ntrip_address",
+				NtripConnectAttempts: 10,
+				NtripMountpoint:      "NJI2",
+				NtripPass:            "",
+				NtripUser:            "",
+			},
 		},
 	}
 
@@ -94,9 +109,11 @@ func TestRTK(t *testing.T) {
 		Name:  "rtk1",
 		Model: "rtk-station",
 		Type:  "gps",
-		Attributes: config.AttributeMap{
-			"correction_source": "serial",
-			"correction_path":   path,
+		ConvertedAttributes: &StationConfig{
+			CorrectionSource: "serial",
+			SerialAttrConfig: &SerialAttrConfig{
+				SerialCorrectionPath: path,
+			},
 		},
 	}
 
@@ -109,23 +126,30 @@ func TestRTK(t *testing.T) {
 
 	// test I2C correction source
 	cfig = config.Component{
-		Name:  "rtk1",
-		Model: "rtk-station",
-		Type:  "gps",
-		Attributes: config.AttributeMap{
-			"correction_source":      "I2C",
-			"ntrip_addr":             "some_ntrip_address",
-			"ntrip_username":         "",
-			"ntrip_password":         "",
-			"ntrip_mountpoint":       "NJI2",
-			"ntrip_connect_attempts": 10,
-			"board":                  testBoardName,
-			"bus":                    testBusName,
+		Name:       "rtk1",
+		Model:      "rtk-station",
+		Type:       "gps",
+		Attributes: config.AttributeMap{},
+		ConvertedAttributes: &StationConfig{
+			CorrectionSource: "I2C",
+			Board:            testBoardName,
+			SurveyIn:         "",
+			I2CAttrConfig: &I2CAttrConfig{
+				I2CBus: testBusName,
+			},
+			NtripAttrConfig: &NtripAttrConfig{
+				NtripAddr:            "some_ntrip_address",
+				NtripConnectAttempts: 10,
+				NtripMountpoint:      "NJI2",
+				NtripPass:            "",
+				NtripUser:            "",
+				NtripPath:            path,
+			},
 		},
 	}
 
 	g, err = newRTKStation(ctx, deps, cfig, logger)
-	passErr = "board " + cfig.Attributes.String("board") + " is not local"
+	passErr = "board " + testBoardName + " is not local"
 
 	if err == nil || err.Error() != passErr {
 		test.That(t, err, test.ShouldBeNil)
@@ -147,6 +171,9 @@ func TestRTK(t *testing.T) {
 			"children":               "gps1",
 			"board":                  testBoardName,
 			"bus":                    testBusName,
+		},
+		ConvertedAttributes: &StationConfig{
+			CorrectionSource: "invalid",
 		},
 	}
 	_, err = newRTKStation(ctx, deps, cfig, logger)
@@ -196,11 +223,11 @@ func TestClose(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestConnect(t *testing.T) {
+func TestRTKStationConnect(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	info := &nmea.NtripInfo{
+	info := &NtripInfo{
 		URL:                "invalidurl",
 		Username:           "user",
 		Password:           "pwd",
@@ -228,42 +255,4 @@ func TestConnect(t *testing.T) {
 	g.info.MountPoint = "mp"
 	err = g.GetStream()
 	test.That(t, err.Error(), test.ShouldContainSubstring, "lookup fakeurl")
-}
-
-// Helpers
-
-// mock ntripinfo client.
-func makeMockNtripClient() *nmea.NtripInfo {
-	return &nmea.NtripInfo{}
-}
-
-type mock struct {
-	board.LocalBoard
-	Name string
-
-	i2cs []string
-	i2c  *mockI2C
-}
-
-func newBoard(name string) *mock {
-	return &mock{
-		Name: name,
-		i2cs: []string{"i2c1"},
-		i2c:  &mockI2C{1},
-	}
-}
-
-// Mock I2C
-
-type mockI2C struct{ handleCount int }
-
-func (m *mock) I2CNames() []string {
-	return m.i2cs
-}
-
-func (m *mock) I2CByName(name string) (*mockI2C, bool) {
-	if len(m.i2cs) == 0 {
-		return nil, false
-	}
-	return m.i2c, true
 }

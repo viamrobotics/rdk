@@ -38,8 +38,8 @@ type Sensor struct {
 	generic.Echo
 }
 
-// GetReadings always returns the set values.
-func (s *Sensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
+// Readings always returns the set values.
+func (s *Sensor) Readings(ctx context.Context) (map[string]interface{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return map[string]interface{}{"a": 1, "b": 2, "c": 3}, nil

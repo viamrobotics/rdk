@@ -13,6 +13,8 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -24,8 +26,6 @@ import (
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -624,8 +624,8 @@ func (rc *RobotClient) TransformPose(
 	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
 }
 
-// GetStatus takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
-func (rc *RobotClient) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+// Status takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
+func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	names := make([]*commonpb.ResourceName, 0, len(resourceNames))
 	for _, name := range resourceNames {
 		names = append(names, protoutils.ResourceNameToProto(name))
