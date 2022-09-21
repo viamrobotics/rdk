@@ -82,11 +82,11 @@ type Config struct {
 // AxisConfig is a subconfig for axes.
 type AxisConfig struct {
 	Control       input.Control `json:"control"`
-	Min           int           `json:"min"`
-	Max           int           `json:"max"`
+	Min           int           `json:"min"` // TODO(RSDK-568): units?
+	Max           int           `json:"max"` // TODO(RSDK-568): units?
 	Bidirectional bool          `json:"bidirectional"`
 	Deadzone      int           `json:"deadzone"`
-	MinChange     int           `json:"min_change"`
+	MinChange     int           `json:"min_change"` // TODO(RSDK-568): units?
 	PollHz        float64       `json:"poll_hz"`
 	Invert        bool          `json:"invert"`
 }
@@ -95,7 +95,7 @@ type AxisConfig struct {
 type ButtonConfig struct {
 	Control    input.Control `json:"control"`
 	Invert     bool          `json:"invert"`
-	DebounceMs int           `json:"debounce_ms"` // set to -1 to disable, default=5
+	DebounceMs int           `json:"debounce_msec"` // set to -1 to disable, default=5
 }
 
 // A Controller creates an input.Controller from DigitalInterrupts and AnalogReaders.
