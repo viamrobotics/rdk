@@ -5,8 +5,8 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/utils"
 )
 

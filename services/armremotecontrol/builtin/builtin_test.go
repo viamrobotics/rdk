@@ -78,7 +78,7 @@ func TestArmRemoteControl(t *testing.T) {
 		return nil
 	}
 
-	fakeController.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	fakeController.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		r := make([]input.Control, 1)
 		r[0] = input.ButtonMenu
 		return r, nil

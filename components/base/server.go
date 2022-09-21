@@ -5,9 +5,9 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/base/v1"
 
 	"go.viam.com/rdk/operation"
-	pb "go.viam.com/rdk/proto/api/component/base/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/subtype"
 )

@@ -5,11 +5,11 @@ import (
 	"errors"
 	"testing"
 
+	pb "go.viam.com/api/component/sensor/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/sensor"
-	pb "go.viam.com/rdk/proto/api/component/sensor/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -36,9 +36,9 @@ func TestServer(t *testing.T) {
 
 	rs := map[string]interface{}{"a": 1.1, "b": 2.2}
 
-	injectSensor.GetReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) { return rs, nil }
+	injectSensor.ReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) { return rs, nil }
 
-	injectSensor2.GetReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
+	injectSensor2.ReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
 		return nil, errors.New("can't get readings")
 	}
 

@@ -7,11 +7,11 @@ import (
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/movementsensor/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/movementsensor"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/movementsensor/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -40,13 +40,13 @@ func TestServer(t *testing.T) {
 	alt := 50.5
 	speed := 5.4
 
-	injectMovementSensor.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, error) { return loc, alt, nil }
-	injectMovementSensor.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{0, speed, 0}, nil }
+	injectMovementSensor.PositionFunc = func(ctx context.Context) (*geo.Point, float64, error) { return loc, alt, nil }
+	injectMovementSensor.LinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) { return r3.Vector{0, speed, 0}, nil }
 
-	injectMovementSensor2.GetPositionFunc = func(ctx context.Context) (*geo.Point, float64, error) {
+	injectMovementSensor2.PositionFunc = func(ctx context.Context) (*geo.Point, float64, error) {
 		return nil, 0, errors.New("can't get location")
 	}
-	injectMovementSensor2.GetLinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) {
+	injectMovementSensor2.LinearVelocityFunc = func(ctx context.Context) (r3.Vector, error) {
 		return r3.Vector{}, errors.New("can't get speed")
 	}
 

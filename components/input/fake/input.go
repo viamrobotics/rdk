@@ -59,8 +59,8 @@ type InputController struct {
 	generic.Echo
 }
 
-// GetControls lists the inputs of the gamepad.
-func (c *InputController) GetControls(ctx context.Context) ([]input.Control, error) {
+// Controls lists the inputs of the gamepad.
+func (c *InputController) Controls(ctx context.Context) ([]input.Control, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if len(c.controls) == 0 {
@@ -69,8 +69,8 @@ func (c *InputController) GetControls(ctx context.Context) ([]input.Control, err
 	return c.controls, nil
 }
 
-// GetEvents returns the last input.Event (the current state) of each control.
-func (c *InputController) GetEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+// Events returns the last input.Event (the current state) of each control.
+func (c *InputController) Events(ctx context.Context) (map[input.Control]input.Event, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	eventsOut := make(map[input.Control]input.Event)

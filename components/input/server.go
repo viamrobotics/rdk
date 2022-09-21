@@ -5,9 +5,9 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/component/inputcontroller/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -45,7 +45,7 @@ func (s *subtypeServer) GetControls(
 		return nil, err
 	}
 
-	controlList, err := controller.GetControls(ctx)
+	controlList, err := controller.Controls(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (s *subtypeServer) GetEvents(
 		return nil, err
 	}
 
-	eventsIn, err := controller.GetEvents(ctx)
+	eventsIn, err := controller.Events(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -114,7 +114,7 @@ func MergeFrameSystems(toFS, fromFS referenceframe.FrameSystem, cfg *Frame) erro
 		if err != nil {
 			return err
 		}
-		err = toFS.AddFrame(offsetFrame, toFS.GetFrame(cfg.Parent))
+		err = toFS.AddFrame(offsetFrame, toFS.Frame(cfg.Parent))
 		if err != nil {
 			return err
 		}
