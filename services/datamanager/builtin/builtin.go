@@ -449,9 +449,15 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 
 		// Download models from models_on_robot.
 		modelsToDeploy := svcConfig.ModelsToDeploy
-		err := svc.modelManager.DownloadModels(cfg, modelsToDeploy)
-		if err != nil {
-			return errors.Wrap(err, "can't download models_on_robot in config")
+		errorChannel := make(chan error, len(modelsToDeploy))
+		go svc.modelManager.DownloadModels(cfg, modelsToDeploy, errorChannel)
+		if len(errorChannel) != 0 {
+			var s string
+			for i := 0; i < len(errorChannel); i++ {
+				currentError := <-errorChannel
+				s = s + "\n" + currentError.Error()
+			}
+			return errors.New(s)
 		}
 	}
 

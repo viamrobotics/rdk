@@ -43,7 +43,7 @@ type httpClient interface {
 
 // Manager is responsible for deploying model files.
 type Manager interface {
-	DownloadModels(cfg *config.Config, modelsToDeploy []*Model) error
+	DownloadModels(cfg *config.Config, modelsToDeploy []*Model, errorChannel chan error) chan error
 	Close()
 }
 
@@ -120,10 +120,11 @@ func (m *modelManager) Close() {
 }
 
 // DownloadModels handles deploying models into their specified destination.
-func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Model) error {
+func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Model, errorChannel chan error) chan error {
 	modelsToDownload, err := getModelsToDownload(modelsToDeploy)
 	if err != nil {
-		return err
+		errorChannel <- err
+		return errorChannel
 	}
 	// TODO: DATA-295, delete models in file system that are no longer in the config. If we have no models to download, exit.
 	if len(modelsToDownload) == 0 {
@@ -137,7 +138,6 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	m.cancelFunc = cancelFn
-	errorChannel := make(chan error, len(modelsToDownload))
 	m.backgroundWorkers.Add(len(modelsToDownload))
 	for _, model := range modelsToDownload {
 		go func(model *Model) {
@@ -172,17 +172,7 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 	}
 	m.backgroundWorkers.Wait()
 	close(errorChannel)
-
-	// check that we have errors to return
-	if len(errorChannel) != 0 {
-		var s string
-		for i := 0; i < len(errorChannel); i++ {
-			currentError := <-errorChannel
-			s = s + "\n" + currentError.Error()
-		}
-		return errors.New(s)
-	}
-	return nil
+	return errorChannel
 }
 
 // getModelsToDownload fetches the models that need to be downloaded according to the
