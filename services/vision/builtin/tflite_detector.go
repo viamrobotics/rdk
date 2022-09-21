@@ -34,7 +34,11 @@ type TFLiteDetectorConfig struct {
 // NewTFLiteDetector creates an RDK detector given a DetectorConfig. In other words, this
 // function returns a function from image-->[]objectdetection.Detection. It does this by making calls to
 // an inference package and wrapping the result.
-func NewTFLiteDetector(ctx context.Context, cfg *vision.VisModelConfig, logger golog.Logger) (objectdetection.Detector, *inf.TFLiteStruct, error) {
+func NewTFLiteDetector(
+	ctx context.Context,
+	cfg *vision.VisModelConfig,
+	logger golog.Logger,
+) (objectdetection.Detector, *inf.TFLiteStruct, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::NewTFLiteDetector")
 	defer span.End()
 
@@ -199,7 +203,8 @@ func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLite
 	var boxOrder []int
 
 	// Read metadata
-	m, err := model.GetMetadata()
+	m, err := model.Metadata()
+  
 	if err != nil {
 		hasMetadata = false
 	} else {

@@ -9,9 +9,9 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.uber.org/zap"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -150,9 +150,10 @@ func TestPlanningWithGripper(t *testing.T) {
 }
 
 // simple2DMapConfig returns a planConfig with the following map
-//		- start at (-9, 9) and end at (9, 9)
-//      - bounds are from (-10, -10) to (10, 10)
-//      - obstacle from (-4, 2) to (4, 10)
+//   - start at (-9, 9) and end at (9, 9)
+//   - bounds are from (-10, -10) to (10, 10)
+//   - obstacle from (-4, 2) to (4, 10)
+//
 // ------------------------
 // | +      |    |      + |
 // |        |    |        |

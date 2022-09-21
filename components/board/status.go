@@ -5,8 +5,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	commonpb "go.viam.com/api/common/v1"
 )
 
 // CreateStatus constructs a new up to date status from the given board.

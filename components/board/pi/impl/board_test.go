@@ -116,6 +116,29 @@ func TestPiPigpio(t *testing.T) {
 		after, err := i1.Value(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, after-before, test.ShouldEqual, int64(1))
+
+		err = p.SetGPIOBcom(27, false)
+		test.That(t, err, test.ShouldBeNil)
+
+		time.Sleep(5 * time.Millisecond)
+		_, ok = p.DigitalInterruptByName("some")
+		test.That(t, ok, test.ShouldBeFalse)
+		i2, ok := p.DigitalInterruptByName("13")
+		test.That(t, ok, test.ShouldBeTrue)
+		before, err = i2.Value(context.Background(), nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = p.SetGPIOBcom(27, true)
+		test.That(t, err, test.ShouldBeNil)
+
+		time.Sleep(5 * time.Millisecond)
+
+		after, err = i2.Value(context.Background(), nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, after-before, test.ShouldEqual, int64(1))
+
+		_, ok = p.DigitalInterruptByName("11")
+		test.That(t, ok, test.ShouldBeTrue)
 	})
 
 	t.Run("servo in/out", func(t *testing.T) {
@@ -139,7 +162,7 @@ func TestPiPigpio(t *testing.T) {
 		err = servo1.Move(ctx, 190)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		v, err := servo1.GetPosition(ctx)
+		v, err := servo1.Position(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, int(v), test.ShouldEqual, 90)
 
@@ -183,7 +206,7 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		servo1 := servoInt.(servo.Servo)
-		pos1, err := servo1.GetPosition(ctx)
+		pos1, err := servo1.Position(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos1, test.ShouldEqual, 90)
 	})
@@ -206,7 +229,7 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		servo1 := servoInt.(servo.Servo)
-		pos1, err := servo1.GetPosition(ctx)
+		pos1, err := servo1.Position(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos1, test.ShouldEqual, 33)
 
@@ -279,7 +302,7 @@ func TestServoFunctions(t *testing.T) {
 		err = s.Stop(ctx)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		pos, err := s.GetPosition(ctx)
+		pos, err := s.Position(ctx)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, pos, test.ShouldEqual, 0)
 	})

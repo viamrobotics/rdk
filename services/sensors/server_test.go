@@ -5,12 +5,12 @@ import (
 	"errors"
 	"testing"
 
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/service/sensors/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/movementsensor"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/sensors/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors"
@@ -107,7 +107,7 @@ func TestServerGetReadings(t *testing.T) {
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 		passedErr := errors.New("can't get readings")
-		injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
+		injectSensors.ReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
 			return nil, passedErr
 		}
 		req := &pb.GetReadingsRequest{
@@ -132,7 +132,7 @@ func TestServerGetReadings(t *testing.T) {
 			iReading.Name: iReading.Readings,
 			gReading.Name: gReading.Readings,
 		}
-		injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
+		injectSensors.ReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
 			return readings, nil
 		}
 		req := &pb.GetReadingsRequest{

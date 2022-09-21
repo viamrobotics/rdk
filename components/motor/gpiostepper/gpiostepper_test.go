@@ -50,7 +50,7 @@ func Test1(t *testing.T) {
 	m := mm.(*gpioStepper)
 
 	t.Run("motor test supports position reporting", func(t *testing.T) {
-		features, err := m.GetProperties(ctx, nil)
+		features, err := m.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
 	})
@@ -76,7 +76,7 @@ func Test1(t *testing.T) {
 			test.That(tb, on, test.ShouldEqual, false)
 		})
 
-		pos, err := m.GetPosition(ctx, nil)
+		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 2)
 	})
@@ -96,7 +96,7 @@ func Test1(t *testing.T) {
 			test.That(tb, on, test.ShouldEqual, false)
 		})
 
-		pos, err := m.GetPosition(ctx, nil)
+		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0)
 	})
@@ -116,7 +116,7 @@ func Test1(t *testing.T) {
 			test.That(tb, on, test.ShouldEqual, false)
 		})
 
-		pos, err := m.GetPosition(ctx, nil)
+		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, -2)
 	})
@@ -136,7 +136,7 @@ func Test1(t *testing.T) {
 			test.That(tb, on, test.ShouldEqual, false)
 		})
 
-		pos, err := m.GetPosition(ctx, nil)
+		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0)
 	})
@@ -151,7 +151,7 @@ func Test1(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			pos, err := m.GetPosition(ctx, nil)
+			pos, err := m.Position(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, pos, test.ShouldBeGreaterThan, 2)
 		})
@@ -159,7 +159,7 @@ func Test1(t *testing.T) {
 		err = m.Stop(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		pos, err := m.GetPosition(ctx, nil)
+		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldBeGreaterThan, 2)
 		test.That(t, pos, test.ShouldBeLessThan, 202)

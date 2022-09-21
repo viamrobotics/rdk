@@ -103,12 +103,12 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .45)
 	})
 
-	t.Run("motor (A/B/PWM) GetPosition testing", func(t *testing.T) {
-		pos, err := m.GetPosition(ctx, nil)
+	t.Run("motor (A/B/PWM) Position testing", func(t *testing.T) {
+		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
-		features, err := m.GetProperties(ctx, nil)
+		features, err := m.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeFalse)
 	})
@@ -180,12 +180,12 @@ func TestMotorDirPWM(t *testing.T) {
 		test.That(t, on, test.ShouldBeTrue)
 	})
 
-	t.Run("motor (DIR/PWM) GetPosition testing", func(t *testing.T) {
-		pos, err := m.GetPosition(ctx, nil)
+	t.Run("motor (DIR/PWM) Position testing", func(t *testing.T) {
+		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
-		features, err := m.GetProperties(ctx, nil)
+		features, err := m.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeFalse)
 	})
@@ -249,12 +249,12 @@ func TestMotorAB(t *testing.T) {
 		test.That(t, mustGetGPIOPinByName(b, "2").PWM(context.Background()), test.ShouldEqual, .55)
 	})
 
-	t.Run("motor (A/B) GetPosition testing", func(t *testing.T) {
-		pos, err := m.GetPosition(ctx, nil)
+	t.Run("motor (A/B) Position testing", func(t *testing.T) {
+		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
-		features, err := m.GetProperties(ctx, nil)
+		features, err := m.Properties(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeFalse)
 	})

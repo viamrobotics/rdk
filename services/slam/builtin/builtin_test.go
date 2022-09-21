@@ -110,7 +110,7 @@ func setupInjectRobot() *inject.Robot {
 			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 				return nil, transform.NewNoIntrinsicsError("")
 			}
-			cam.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+			cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 				return camera.Properties{}, nil
 			}
 			return cam, nil
@@ -139,7 +139,7 @@ func setupInjectRobot() *inject.Robot {
 			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 				return projA, nil
 			}
-			cam.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+			cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 				return camera.Properties{IntrinsicParams: intrinsicsA, DistortionParams: distortionsA}, nil
 			}
 			return cam, nil
@@ -150,7 +150,7 @@ func setupInjectRobot() *inject.Robot {
 			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 				return projA, nil
 			}
-			cam.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+			cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 				return camera.Properties{IntrinsicParams: intrinsicsA, DistortionParams: distortionsA}, nil
 			}
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
@@ -177,7 +177,7 @@ func setupInjectRobot() *inject.Robot {
 			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 				return nil, transform.NewNoIntrinsicsError("")
 			}
-			cam.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+			cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 				return camera.Properties{}, nil
 			}
 			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
@@ -222,7 +222,7 @@ func setupInjectRobot() *inject.Robot {
 			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 				return &transform.PinholeCameraIntrinsics{}, nil
 			}
-			cam.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+			cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 				return camera.Properties{
 					IntrinsicParams:  &transform.PinholeCameraIntrinsics{},
 					DistortionParams: &transform.BrownConrady{},
@@ -582,7 +582,7 @@ func TestCartographerDataProcess(t *testing.T) {
 		goodCam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 			return pointcloud.New(), nil
 		}
-		goodCam.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		goodCam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 			return camera.Properties{}, nil
 		}
 		cams := []camera.Camera{goodCam}
@@ -611,7 +611,7 @@ func TestCartographerDataProcess(t *testing.T) {
 		badCam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 			return nil, errors.New("bad_lidar")
 		}
-		badCam.GetPropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		badCam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 			return camera.Properties{}, nil
 		}
 		cams := []camera.Camera{badCam}
@@ -742,7 +742,7 @@ func TestGetMapAndPosition(t *testing.T) {
 	svc, err := createSLAMService(t, attrCfg, logger, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	p, err := svc.GetPosition(context.Background(), "hi")
+	p, err := svc.Position(context.Background(), "hi")
 	test.That(t, p, test.ShouldBeNil)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM position")
 

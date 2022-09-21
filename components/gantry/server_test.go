@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/gantry/v1"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/gantry"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
@@ -40,7 +40,7 @@ func TestServer(t *testing.T) {
 	pos1 := []float64{1.0, 2.0, 3.0}
 	len1 := []float64{2.0, 3.0, 4.0}
 	extra1 := map[string]interface{}{}
-	injectGantry.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	injectGantry.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		extra1 = extra
 		return pos1, nil
 	}
@@ -54,7 +54,7 @@ func TestServer(t *testing.T) {
 		extra1 = extra
 		return nil
 	}
-	injectGantry.GetLengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	injectGantry.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		extra1 = extra
 		return len1, nil
 	}
@@ -64,7 +64,7 @@ func TestServer(t *testing.T) {
 	}
 
 	pos2 := []float64{4.0, 5.0, 6.0}
-	injectGantry2.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	injectGantry2.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return nil, errors.New("can't get position")
 	}
 	injectGantry2.MoveToPositionFunc = func(
@@ -76,7 +76,7 @@ func TestServer(t *testing.T) {
 		gantryPos = pos
 		return errors.New("can't move to position")
 	}
-	injectGantry2.GetLengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+	injectGantry2.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return nil, errors.New("can't get lengths")
 	}
 	injectGantry2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
