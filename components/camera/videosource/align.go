@@ -139,8 +139,8 @@ func getAligner(attrs *alignAttrs, logger golog.Logger) (transform.Aligner, erro
 // alignAttrs is the attribute struct for aligning.
 type alignAttrs struct {
 	*camera.AttrConfig
-	Color              string      `json:"color"`
-	Depth              string      `json:"depth"` // TODO(RSDK-568): units?
+	Color              string      `json:"color_url"`
+	Depth              string      `json:"depth_url"`
 	Height             int         `json:"height_px"`
 	Width              int         `json:"width_px"`
 	IntrinsicExtrinsic interface{} `json:"intrinsic_extrinsic"`
