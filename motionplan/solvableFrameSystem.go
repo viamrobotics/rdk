@@ -11,6 +11,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
+	"go.viam.com/rdk/referenceframe"
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
@@ -397,12 +398,16 @@ func (sf *solverFrame) DoF() []frame.Limit {
 
 // mapToSlice will flatten a map of inputs into a slice suitable for input to inverse kinematics, by concatenating
 // the inputs together in the order of the frames in sf.frames.
-func (sf *solverFrame) mapToSlice(inputMap map[string][]frame.Input) []frame.Input {
+func (sf *solverFrame) mapToSlice(inputMap map[string][]frame.Input) ([]frame.Input, error) {
 	var inputs []frame.Input
 	for _, frame := range sf.frames {
-		inputs = append(inputs, inputMap[frame.Name()]...)
+		input, err := referenceframe.GetFrameInputs(frame, inputMap)
+		if err != nil {
+			return nil, err
+		}
+		inputs = append(inputs, input...)
 	}
-	return inputs
+	return inputs, nil
 }
 
 func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.Input {

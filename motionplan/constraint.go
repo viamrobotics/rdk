@@ -181,7 +181,7 @@ func NewCollisionConstraint(
 
 // NewCollisionConstraintFromWorldState creates a collision constraint from a world state, framesystem, a model and a set of initial states.
 func NewCollisionConstraintFromWorldState(
-	model referenceframe.Frame,
+	frame referenceframe.Frame,
 	fs referenceframe.FrameSystem,
 	worldState *commonpb.WorldState,
 	observationInput map[string][]referenceframe.Input,
@@ -217,7 +217,19 @@ func NewCollisionConstraintFromWorldState(
 	if err != nil {
 		return nil, err
 	}
-	return NewCollisionConstraint(model, obstacles.Geometries(), interactionSpaces.Geometries()), nil
+
+	// extract inputs corresponding to the frame
+	var goodInputs []referenceframe.Input
+	switch f := frame.(type) {
+	case *solverFrame:
+		goodInputs, err = f.mapToSlice(observationInput)
+	default:
+		goodInputs, err = referenceframe.GetFrameInputs(f, observationInput)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return NewCollisionConstraint(frame, goodInputs, obstacles.Geometries(), interactionSpaces.Geometries()), nil
 }
 
 // NewAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold allows a specified amount of deviation from the
