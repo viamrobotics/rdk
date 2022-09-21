@@ -111,9 +111,9 @@ onClickOutside(root, () => {
       <button
         v-for="key in lineKeys"
         :key="key"
-        class="flex items-center gap-1.5 border border-gray-500 bg-white px-3 py-1 dark:bg-gray-900"
+        class="flex items-center gap-1.5 border border-gray-500 bg-white px-3 py-1"
         :class="{
-          'bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 keyboard-button-pressed': pressedKeys[key],
+          'bg-gray-200 text-gray-800 keyboard-button-pressed': pressedKeys[key],
           'keyboard-button-not-pressed': !pressedKeys[key],
         }"
         @pointerdown="setKeyPressed(key, true)"
