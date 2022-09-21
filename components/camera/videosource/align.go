@@ -140,7 +140,7 @@ func getAligner(attrs *alignAttrs, logger golog.Logger) (transform.Aligner, erro
 type alignAttrs struct {
 	*camera.AttrConfig
 	Color              string      `json:"color"`
-	Depth              string      `json:"depth"`
+	Depth              string      `json:"depth"` // TODO(RSDK-568): units?
 	Height             int         `json:"height_px"`
 	Width              int         `json:"width_px"`
 	IntrinsicExtrinsic interface{} `json:"intrinsic_extrinsic"`

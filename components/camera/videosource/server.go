@@ -105,7 +105,7 @@ type dualServerSource struct {
 type dualServerAttrs struct {
 	*camera.AttrConfig
 	Color string `json:"color"`
-	Depth string `json:"depth"`
+	Depth string `json:"depth"` // TODO(RSDK-568): units?
 }
 
 // newDualServerSource creates the VideoSource that streams color/depth data from two external servers, one for each channel.
