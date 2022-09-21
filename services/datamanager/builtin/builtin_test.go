@@ -629,7 +629,7 @@ func TestSyncDisabled(t *testing.T) {
 
 	// We set sync_interval_mins to be about 250ms in the config, so wait 600ms and ensure three files were uploaded:
 	// one from file immediately uploaded when sync was re-enabled and two after.
-	time.Sleep(time.Millisecond * 650)
+	time.Sleep(time.Millisecond * 600)
 	err = dmsvc.Close(context.TODO())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(mockService.getUploadedFiles()), test.ShouldEqual, 3)
