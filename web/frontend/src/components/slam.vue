@@ -1,3 +1,116 @@
+
+<script setup lang="ts">
+
+import { nextTick } from 'vue';
+import { grpc } from '@improbable-eng/grpc-web';
+import type { Resource } from '../lib/resource';
+import slamApi from '../gen/proto/api/service/slam/v1/slam_pb.esm';
+import { toast } from '../lib/toast';
+import PCD from './pcd.vue';
+
+interface Props {
+  name: string
+  resources: Resource[]
+}
+
+const props = defineProps<Props>();
+  
+let showImage = $ref(false);
+let showPCD = $ref(false);
+const selectedImageValue = $ref('manual');
+const selectedPCDValue = $ref('manual');
+let imageMap = $ref('');
+let pointcloud = $ref<Uint8Array | undefined>();
+
+let slamImageIntervalId = -1;
+let slamPCDIntervalId = -1;
+  
+const toggleImageExpand = () => {
+  showImage = !showImage;
+  updateSLAMImageRefreshFrequency(props.name, showImage ? selectedImageValue : 'off');
+};
+  
+const togglePCDExpand = () => {
+  showPCD = !showPCD;
+  updateSLAMPCDRefreshFrequency(props.name, showPCD ? selectedPCDValue : 'off');
+};
+
+const selectSLAMImageRefreshFrequency = () => {
+  updateSLAMImageRefreshFrequency(props.name, selectedImageValue);
+};
+  
+const selectSLAMPCDRefreshFrequency = () => {
+  updateSLAMPCDRefreshFrequency(props.name, selectedPCDValue);
+};
+  
+const refreshImageMap = () => {
+  updateSLAMImageRefreshFrequency(props.name, selectedImageValue);
+};
+  
+const refreshPCDMap = () => {
+  updateSLAMPCDRefreshFrequency(props.name, selectedPCDValue);
+};
+
+const updateSLAMImageRefreshFrequency = (name: string, time: 'manual' | 'off' | string) => {
+  window.clearInterval(slamImageIntervalId);
+  if (time === 'manual') {
+    viewSLAMImageMap(name);
+  } else if (time === 'off') {
+    // do nothing
+  } else {
+    viewSLAMImageMap(name);
+    slamImageIntervalId = window.setInterval(() => {
+      viewSLAMImageMap(name);
+    }, Number.parseFloat(time) * 1000);
+  }
+};
+
+const viewSLAMImageMap = (name: string) => {
+  const req = new slamApi.GetMapRequest();
+  req.setName(name);
+  req.setMimeType('image/jpeg');
+  req.setIncludeRobotMarker(true);
+  window.slamService.getMap(req, new grpc.Metadata(), (error, response) => {
+    if (error) {
+      return toast.error(`${error}`);
+    }
+    const blob = new Blob([response!.getImage_asU8()], { type: 'image/jpeg' });
+    imageMap = URL.createObjectURL(blob);
+  });
+};
+
+const updateSLAMPCDRefreshFrequency = (name: string, time: 'manual' | 'off' | string) => {
+  clearInterval(slamPCDIntervalId);
+  if (time === 'manual') {
+    viewSLAMPCDMap(name);
+  } else if (time === 'off') {
+    // do nothing
+  } else {
+    viewSLAMPCDMap(name);
+    slamPCDIntervalId = window.setInterval(() => {
+      viewSLAMPCDMap(name);
+    }, Number.parseFloat(time) * 1000);
+  }
+};
+
+const viewSLAMPCDMap = (name: string) => {
+  nextTick(() => {
+    const req = new slamApi.GetMapRequest();
+    req.setName(name);
+    req.setMimeType('pointcloud/pcd');
+
+    window.slamService.getMap(req, new grpc.Metadata(), (error, response) => {
+      if (error) {
+        return toast.error(`${error}`);
+      }
+      const pcObject = response!.getPointCloud()!;
+      pointcloud = pcObject.getPointCloud_asU8();
+    });
+  });
+};
+  
+</script>
+  
 <template>
   <v-collapse
     :title="props.name"
@@ -24,7 +137,7 @@
                 v-if="showImage"
                 class="w-64"
               >
-                <p class="font-label mb-1 text-gray-800 dark:text-gray-200">
+                <p class="font-label mb-1 text-gray-800">
                   Refresh frequency
                 </p>
                 <div class="relative">
@@ -51,7 +164,7 @@
                     class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
                   >
                     <svg
-                      class="h-4 w-4 stroke-2 text-gray-700 dark:text-gray-300"
+                      class="h-4 w-4 stroke-2 text-gray-700"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
                       stroke-linejoin="round"
@@ -94,7 +207,7 @@
                 v-if="showPCD"
                 class="w-64"
               >
-                <p class="font-label mb-1 text-gray-800 dark:text-gray-200">
+                <p class="font-label mb-1 text-gray-800">
                   Refresh frequency
                 </p>
                 <div class="relative">
@@ -121,7 +234,7 @@
                     class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
                   >
                     <svg
-                      class="h-4 w-4 stroke-2 text-gray-700 dark:text-gray-300"
+                      class="h-4 w-4 stroke-2 text-gray-700"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
                       stroke-linejoin="round"
@@ -143,73 +256,13 @@
               </div>
             </div>
           </div>
-          <div
+          <PCD
             v-if="showPCD"
-            id="pcd"
-            width="400"
-            height="400"
+            :resources="resources"
+            :pointcloud="pointcloud"
           />
         </div>
       </div>
     </div>
   </v-collapse>
 </template>
-
-<script setup lang="ts">
-
-import { ref } from 'vue';
-
-interface Props {
-  name: string
-  imageMap?: string
-}
-
-interface Emits {
-  (event: 'update-slam-image-refresh-frequency', name: string, value: string): void
-  (event: 'update-slam-pcd-refresh-frequency', name: string, value: string, load: boolean): void
-}
-
-const props = defineProps<Props>();
-
-const emit = defineEmits<Emits>();
-
-const showImage = ref(false);
-const showPCD = ref(false);
-const selectedImageValue = ref('manual');
-const selectedPCDValue = ref('manual');
-
-const toggleImageExpand = () => {
-  showImage.value = !showImage.value;
-  if (showImage.value) {
-    emit('update-slam-image-refresh-frequency', props.name, selectedImageValue.value);
-  } else {
-    emit('update-slam-image-refresh-frequency', props.name, 'off');
-  }
-};
-
-const togglePCDExpand = () => {
-  showPCD.value = !showPCD.value;
-  if (showPCD.value) {
-    emit('update-slam-pcd-refresh-frequency', props.name, selectedPCDValue.value, true);
-  } else {
-    emit('update-slam-pcd-refresh-frequency', props.name, 'off', false);
-  }
-};
-
-const selectSLAMImageRefreshFrequency = () => {
-  emit('update-slam-image-refresh-frequency', props.name, selectedImageValue.value);
-};
-
-const selectSLAMPCDRefreshFrequency = () => {
-  emit('update-slam-pcd-refresh-frequency', props.name, selectedPCDValue.value, false);
-};
-
-const refreshImageMap = () => {
-  emit('update-slam-image-refresh-frequency', props.name, selectedImageValue.value);
-};
-
-const refreshPCDMap = () => {
-  emit('update-slam-pcd-refresh-frequency', props.name, selectedPCDValue.value, false);
-};
-
-</script>
