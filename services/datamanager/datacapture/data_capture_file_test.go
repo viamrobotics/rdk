@@ -77,7 +77,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 	for _, tc := range tests {
 		t.Log(tc.name)
 		actualMetadata, err := BuildCaptureMetadata(
-			tc.componentType, tc.componentName, tc.componentModel, tc.method, tc.additionalParams, tc.tags)
+			tc.componentType, tc.componentName, tc.componentModel, tc.method, tc.additionalParams, tc.tags, tc.sessionID)
 		test.That(t, err, test.ShouldEqual, nil)
 
 		methodParams, err := protoutils.ConvertStringMapToAnyPBMap(tc.additionalParams)
