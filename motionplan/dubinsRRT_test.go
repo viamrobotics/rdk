@@ -57,12 +57,7 @@ func TestCheckPathCollision(t *testing.T) {
 	goalInputs[0] = frame.Input{10}
 	goalInputs[1] = frame.Input{0}
 	goalInputs[2] = frame.Input{0}
-	isValid := dubins.checkPath(&node{q: startInputs},
-		&node{q: goalInputs},
-		opt,
-		dm,
-		o[0],
-	)
+	isValid := dubins.checkPath(&basicNode{q: startInputs}, &basicNode{q: goalInputs}, opt, dm, o[0])
 	test.That(t, isValid, test.ShouldEqual, false)
 }
 
@@ -107,11 +102,6 @@ func TestCheckPathNoCollision(t *testing.T) {
 	goalInputs[0] = frame.Input{10}
 	goalInputs[1] = frame.Input{0}
 	goalInputs[2] = frame.Input{0}
-	isValid := dubins.checkPath(&node{q: startInputs},
-		&node{q: goalInputs},
-		opt,
-		dm,
-		o[0],
-	)
+	isValid := dubins.checkPath(&basicNode{q: startInputs}, &basicNode{q: goalInputs}, opt, dm, o[0])
 	test.That(t, isValid, test.ShouldEqual, true)
 }
