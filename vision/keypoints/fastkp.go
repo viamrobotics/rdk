@@ -26,7 +26,6 @@ type FASTConfig struct {
 	Threshold      int  `json:"threshold"`    // TODO(RSDK-586): unit (px)?
 	Oriented       bool `json:"oriented"`     // TODO(RSDK-586): unit (px)?
 	Radius         int  `json:"radius"`       // TODO(RSDK-586): unit (px)?
-
 }
 
 // PixelType stores 0 if a pixel is darker than center pixel, and 1 if brighter.
