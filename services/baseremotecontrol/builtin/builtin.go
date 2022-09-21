@@ -62,8 +62,8 @@ type Config struct {
 	BaseName            string  `json:"base"`
 	InputControllerName string  `json:"input_controller"`
 	ControlModeName     string  `json:"control_mode"`
-	MaxAngularVelocity  float64 `json:"max_angular"`
-	MaxLinearVelocity   float64 `json:"max_linear"`
+	MaxAngularVelocity  float64 `json:"max_angular"` // TODO(RSDK-568): unit (mm_per_sec)?
+	MaxLinearVelocity   float64 `json:"max_linear"`  // TODO(RSDK-568): unit (mm_per_sec)?
 }
 
 // builtIn is the structure of the remote service.
