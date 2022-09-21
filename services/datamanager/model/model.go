@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"github.com/edaniels/golog"
 	v1 "go.viam.com/api/app/model/v1"
@@ -49,13 +48,12 @@ type Manager interface {
 
 // modelManager is responsible for uploading files in captureDir to the cloud.
 type modelManager struct {
-	partID            string
-	conn              rpc.ClientConn
-	client            v1.ModelServiceClient
-	logger            golog.Logger
-	backgroundWorkers sync.WaitGroup
-	cancelFunc        func()
-	httpClient        httpClient
+	partID     string
+	conn       rpc.ClientConn
+	client     v1.ModelServiceClient
+	logger     golog.Logger
+	cancelFunc func()
+	httpClient httpClient
 }
 
 // ManagerConstructor is a function for building a Manager.
@@ -89,13 +87,12 @@ func NewManager(logger golog.Logger, partID string, client v1.ModelServiceClient
 ) (Manager, error) {
 	_, cancelFunc := context.WithCancel(context.Background())
 	ret := modelManager{
-		conn:              conn,
-		client:            client,
-		logger:            logger,
-		backgroundWorkers: sync.WaitGroup{},
-		cancelFunc:        cancelFunc,
-		partID:            partID,
-		httpClient:        httpClient,
+		conn:       conn,
+		client:     client,
+		logger:     logger,
+		cancelFunc: cancelFunc,
+		partID:     partID,
+		httpClient: httpClient,
 	}
 	return &ret, nil
 }
@@ -111,7 +108,6 @@ func (m *modelManager) deploy(ctx context.Context, req *v1.DeployRequest) (*v1.D
 // Close all resources (goroutines) associated with modelManger.
 func (m *modelManager) Close() {
 	m.cancelFunc()
-	m.backgroundWorkers.Wait()
 	if m.conn != nil {
 		if err := m.conn.Close(); err != nil {
 			m.logger.Errorw("error closing model deploy server connection", "error", err)
@@ -133,44 +129,35 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 	// Stop download of previous models if we're trying to download new ones.
 	if m.cancelFunc != nil {
 		m.cancelFunc()
-		m.backgroundWorkers.Wait()
 	}
 
 	cancelCtx, cancelFn := context.WithCancel(context.Background())
 	m.cancelFunc = cancelFn
-	m.backgroundWorkers.Add(len(modelsToDownload))
 	for _, model := range modelsToDownload {
-		go func(model *Model) {
-			defer m.backgroundWorkers.Done()
-			deployRequest := &v1.DeployRequest{
-				Metadata: &v1.DeployMetadata{
-					ModelName: model.Name,
-				},
-			}
-			deployResp, err := m.deploy(cancelCtx, deployRequest)
-			if err != nil {
-				m.logger.Error(err)
-				errorChannel <- err
-				return
-			}
-			url := deployResp.Message
-			filePath := filepath.Join(model.Destination, model.Name)
-			err = downloadFile(cancelCtx, m.httpClient, filePath, url, m.logger)
-			if err != nil {
-				m.logger.Error(err)
-				errorChannel <- err
-				return
-			}
-			// A download from a GCS signed URL only returns one file.
-			modelFileToUnzipPath := filepath.Join(model.Destination, model.Name+zipExtension)
-			if err = unzipSource(modelFileToUnzipPath, model.Destination); err != nil {
-				m.logger.Error(err)
-				errorChannel <- err
-				return
-			}
-		}(model)
+		deployRequest := &v1.DeployRequest{
+			Metadata: &v1.DeployMetadata{
+				ModelName: model.Name,
+			},
+		}
+		deployResp, err := m.deploy(cancelCtx, deployRequest)
+		if err != nil {
+			m.logger.Error(err)
+			errorChannel <- err
+		}
+		url := deployResp.Message
+		filePath := filepath.Join(model.Destination, model.Name)
+		err = downloadFile(cancelCtx, m.httpClient, filePath, url, m.logger)
+		if err != nil {
+			m.logger.Error(err)
+			errorChannel <- err
+		}
+		// A download from a GCS signed URL only returns one file.
+		modelFileToUnzipPath := filepath.Join(model.Destination, model.Name+zipExtension)
+		if err = unzipSource(modelFileToUnzipPath, model.Destination); err != nil {
+			m.logger.Error(err)
+			errorChannel <- err
+		}
 	}
-	m.backgroundWorkers.Wait()
 	close(errorChannel)
 	return errorChannel
 }
