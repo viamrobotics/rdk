@@ -138,7 +138,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		grpcServer := setupTestGRPCServer(attrCfgGood.Port)
-		svc, err := createSLAMService(t, attrCfgGood, logger, true)
+		svc, err := createSLAMService(t, attrCfgGood, logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
