@@ -73,7 +73,7 @@ type fileSource struct {
 type fileSourceAttrs struct {
 	*camera.AttrConfig
 	Color string `json:"color"`
-	Depth string `json:"depth"`
+	Depth string `json:"depth"` // TODO(RSDK-568): units?
 }
 
 // Read returns just the RGB image if it is present, or the depth map if the RGB image is not present.
