@@ -70,6 +70,7 @@ type dataCaptureConfig struct {
 	Disabled           bool                 `json:"disabled"`
 	RemoteRobotName    string               // Empty if this component is locally accessed
 	Tags               []string             `json:"tags"`
+	SessionId          string               `json:"session_id"`
 }
 
 type dataCaptureConfigs struct {
@@ -198,7 +199,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	}
 	// Build metadata.
 	captureMetadata, err := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
-		attributes.Model, attributes.Method, attributes.AdditionalParams, attributes.Tags)
+		attributes.Model, attributes.Method, attributes.AdditionalParams, attributes.Tags, attributes.SessionId)
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +364,7 @@ func (svc *builtIn) syncDataCaptureFiles() error {
 		// Create new target and set it.
 		attributes := collector.Attributes
 		captureMetadata, err := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
-			attributes.Model, attributes.Method, attributes.AdditionalParams, attributes.Tags)
+			attributes.Model, attributes.Method, attributes.AdditionalParams, attributes.Tags, attributes.SessionId)
 		if err != nil {
 			return err
 		}

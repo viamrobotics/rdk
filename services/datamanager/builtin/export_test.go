@@ -15,11 +15,6 @@ func (svc *builtIn) SetWaitAfterLastModifiedSecs(s int) {
 	svc.waitAfterLastModifiedSecs = s
 }
 
-// Make getSessionId global for tests.
-func (svc *dataManagerService) GetSessionID() string {
-	return *svc.getSessionID()
-}
-
 // Make getServiceConfig global for tests.
 var GetServiceConfig = getServiceConfig
 
