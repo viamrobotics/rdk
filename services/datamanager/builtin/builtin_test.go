@@ -603,8 +603,10 @@ func TestSyncDisabled(t *testing.T) {
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
 	armDir := captureDir + "/arm/arm1/"
+	resetFolder(t, armDir)
+	resetFolder(t, captureDir)
 	defer resetFolder(t, armDir)
-	defer resetFolder(t,captureDir)
+	defer resetFolder(t, captureDir)
 
 	// Initialize the data manager and update it with our config.
 	dmsvc := newTestDataManager(t, "arm1", "")
