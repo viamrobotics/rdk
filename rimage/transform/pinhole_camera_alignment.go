@@ -49,8 +49,8 @@ func NewDepthColorIntrinsicsExtrinsicsFromBytes(byteJSON []byte) (*DepthColorInt
 		return nil, err
 	}
 	temp := struct {
-		R []float64 `json:"rotation"`
-		T []float64 `json:"translation"`
+		R []float64 `json:"rotation"`    // TODO(RSDK-568): unit?
+		T []float64 `json:"translation"` // TODO(RSDK-568): unit?
 	}{}
 	err = json.Unmarshal(intrinExtrin.ExtrinsicD2C, &temp)
 	if err != nil {
