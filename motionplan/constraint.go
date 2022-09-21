@@ -126,9 +126,13 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 
 // NewCollisionConstraint is a helper function for creating a collision Constraint that takes a frame and geometries
 // representing obstacles and interaction spaces and will construct a collision avoidance constraint from them.
-func NewCollisionConstraint(frame referenceframe.Frame, obstacles, interactionSpaces map[string]spatial.Geometry) Constraint {
+func NewCollisionConstraint(
+	frame referenceframe.Frame,
+	goodInput []referenceframe.Input,
+	obstacles, interactionSpaces map[string]spatial.Geometry,
+) Constraint {
 	// Making the assumption that setting all inputs to zero is a valid configuration without extraneous self-collisions
-	zeroVols, err := frame.Geometries(make([]referenceframe.Input, len(frame.DoF())))
+	zeroVols, err := frame.Geometries(goodInput)
 	if err != nil && len(zeroVols.Geometries()) == 0 {
 		return nil // no geometries defined for frame
 	}

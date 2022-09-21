@@ -192,10 +192,11 @@ func simple2DMap() (*planConfig, error) {
 		}
 		return geometryMap
 	}
-	opt.AddConstraint("collision", NewCollisionConstraint(model, toMap([]spatial.Geometry{box}), nil))
+	startInput := frame.FloatsToInputs([]float64{-90., 90.})
+	opt.AddConstraint("collision", NewCollisionConstraint(model, startInput, toMap([]spatial.Geometry{box}), nil))
 
 	return &planConfig{
-		Start:      frame.FloatsToInputs([]float64{-90., 90.}),
+		Start:      startInput,
 		Goal:       spatial.PoseToProtobuf(spatial.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0})),
 		RobotFrame: model,
 		Options:    opt,
@@ -211,7 +212,7 @@ func simpleXArmMotion() (*planConfig, error) {
 
 	// setup planner options
 	opt := NewBasicPlannerOptions()
-	opt.AddConstraint("collision", NewCollisionConstraint(xarm, nil, nil))
+	opt.AddConstraint("collision", NewCollisionConstraint(xarm, home7, nil, nil))
 
 	return &planConfig{
 		Start:      home7,
@@ -230,7 +231,7 @@ func simpleUR5eMotion() (*planConfig, error) {
 
 	// setup planner options
 	opt := NewBasicPlannerOptions()
-	opt.AddConstraint("collision", NewCollisionConstraint(ur5e, nil, nil))
+	opt.AddConstraint("collision", NewCollisionConstraint(ur5e, home6, nil, nil))
 
 	return &planConfig{
 		Start:      home6,

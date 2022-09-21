@@ -145,10 +145,10 @@ func (m *SimpleModel) CachedTransform(inputs []Input) (spatialmath.Pose, error) 
 }
 
 // IsConfigurationValid checks whether the given array of joint positions violates any joint limits.
-func IsConfigurationValid(m Model, configuration []float64) bool {
+func IsConfigurationValid(inputs []Input) bool {
 	limits := m.DoF()
 	for i := 0; i < len(limits); i++ {
-		if configuration[i] < limits[i].Min || configuration[i] > limits[i].Max {
+		if limits[i].Within(inputs[i]) {
 			return false
 		}
 	}
