@@ -50,6 +50,5 @@ func TestConversions(t *testing.T) {
 				test.That(t, rav, test.ShouldResemble, R3ToAngVel(rate.AngularRate))
 			})
 		})
-
 	}
 }

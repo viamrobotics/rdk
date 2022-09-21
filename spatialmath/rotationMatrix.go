@@ -98,34 +98,34 @@ func (rm *RotationMatrix) Mul(v r3.Vector) r3.Vector {
 	}
 }
 
-// RighMatMul returns the right side multiplication a matrix A by matrix B, AB
-func (rm *RotationMatrix) RightMatMul(mm RotationMatrix) *RotationMatrix {
+// LeftMatMul returns the right side multiplication a matrix A by matrix B, AB.
+func (rm *RotationMatrix) LeftMatMul(lmm RotationMatrix) *RotationMatrix {
 	mat := [9]float64{
-		rm.mat[0]*mm.mat[0] + rm.mat[1]*mm.mat[3] + rm.mat[2]*mm.mat[6],
-		rm.mat[0]*mm.mat[1] + rm.mat[1]*mm.mat[4] + rm.mat[2]*mm.mat[7],
-		rm.mat[0]*mm.mat[2] + rm.mat[1]*mm.mat[5] + rm.mat[2]*mm.mat[8],
-		rm.mat[3]*mm.mat[0] + rm.mat[4]*mm.mat[3] + rm.mat[5]*mm.mat[6],
-		rm.mat[3]*mm.mat[1] + rm.mat[4]*mm.mat[4] + rm.mat[5]*mm.mat[7],
-		rm.mat[3]*mm.mat[2] + rm.mat[4]*mm.mat[5] + rm.mat[5]*mm.mat[8],
-		rm.mat[6]*mm.mat[0] + rm.mat[7]*mm.mat[3] + rm.mat[8]*mm.mat[6],
-		rm.mat[6]*mm.mat[1] + rm.mat[7]*mm.mat[4] + rm.mat[8]*mm.mat[7],
-		rm.mat[6]*mm.mat[2] + rm.mat[7]*mm.mat[5] + rm.mat[8]*mm.mat[8],
+		rm.mat[0]*lmm.mat[0] + rm.mat[1]*lmm.mat[3] + rm.mat[2]*lmm.mat[6],
+		rm.mat[0]*lmm.mat[1] + rm.mat[1]*lmm.mat[4] + rm.mat[2]*lmm.mat[7],
+		rm.mat[0]*lmm.mat[2] + rm.mat[1]*lmm.mat[5] + rm.mat[2]*lmm.mat[8],
+		rm.mat[3]*lmm.mat[0] + rm.mat[4]*lmm.mat[3] + rm.mat[5]*lmm.mat[6],
+		rm.mat[3]*lmm.mat[1] + rm.mat[4]*lmm.mat[4] + rm.mat[5]*lmm.mat[7],
+		rm.mat[3]*lmm.mat[2] + rm.mat[4]*lmm.mat[5] + rm.mat[5]*lmm.mat[8],
+		rm.mat[6]*lmm.mat[0] + rm.mat[7]*lmm.mat[3] + rm.mat[8]*lmm.mat[6],
+		rm.mat[6]*lmm.mat[1] + rm.mat[7]*lmm.mat[4] + rm.mat[8]*lmm.mat[7],
+		rm.mat[6]*lmm.mat[2] + rm.mat[7]*lmm.mat[5] + rm.mat[8]*lmm.mat[8],
 	}
 	return &RotationMatrix{mat: mat}
 }
 
-// LeftMatMul returns the left side multiplication a matrix A by matrix B, BA
-func (rm *RotationMatrix) LeftMatMul(mm RotationMatrix) *RotationMatrix {
+// RightMatMul returns the left side multiplication a matrix A by matrix B, BA.
+func (rm *RotationMatrix) RightMatMul(rmm RotationMatrix) *RotationMatrix {
 	mat := [9]float64{
-		rm.mat[0]*mm.mat[0] + rm.mat[3]*mm.mat[1] + rm.mat[6]*mm.mat[2],
-		rm.mat[1]*mm.mat[0] + rm.mat[4]*mm.mat[1] + rm.mat[7]*mm.mat[2],
-		rm.mat[2]*mm.mat[0] + rm.mat[5]*mm.mat[1] + rm.mat[8]*mm.mat[2],
-		rm.mat[0]*mm.mat[3] + rm.mat[3]*mm.mat[4] + rm.mat[6]*mm.mat[5],
-		rm.mat[1]*mm.mat[3] + rm.mat[4]*mm.mat[4] + rm.mat[7]*mm.mat[5],
-		rm.mat[2]*mm.mat[3] + rm.mat[5]*mm.mat[4] + rm.mat[8]*mm.mat[5],
-		rm.mat[0]*mm.mat[6] + rm.mat[3]*mm.mat[7] + rm.mat[6]*mm.mat[8],
-		rm.mat[1]*mm.mat[6] + rm.mat[4]*mm.mat[7] + rm.mat[7]*mm.mat[8],
-		rm.mat[2]*mm.mat[6] + rm.mat[5]*mm.mat[7] + rm.mat[8]*mm.mat[8],
+		rmm.mat[0]*rm.mat[0] + rmm.mat[1]*rm.mat[3] + rmm.mat[2]*rm.mat[6],
+		rmm.mat[0]*rm.mat[1] + rmm.mat[1]*rm.mat[4] + rmm.mat[2]*rm.mat[7],
+		rmm.mat[0]*rm.mat[2] + rmm.mat[1]*rm.mat[5] + rmm.mat[2]*rm.mat[8],
+		rmm.mat[3]*rm.mat[0] + rmm.mat[4]*rm.mat[3] + rmm.mat[5]*rm.mat[6],
+		rmm.mat[3]*rm.mat[1] + rmm.mat[4]*rm.mat[4] + rmm.mat[5]*rm.mat[7],
+		rmm.mat[3]*rm.mat[2] + rmm.mat[4]*rm.mat[5] + rmm.mat[5]*rm.mat[8],
+		rmm.mat[6]*rm.mat[0] + rmm.mat[7]*rm.mat[3] + rmm.mat[8]*rm.mat[6],
+		rmm.mat[6]*rm.mat[1] + rmm.mat[7]*rm.mat[4] + rmm.mat[8]*rm.mat[7],
+		rmm.mat[6]*rm.mat[2] + rmm.mat[7]*rm.mat[5] + rmm.mat[8]*rm.mat[8],
 	}
 	return &RotationMatrix{mat: mat}
 }
