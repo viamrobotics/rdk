@@ -1,6 +1,8 @@
 /* eslint-disable spaced-comment */
 /// <reference types="@types/google.maps" />
 /// <reference types="@cypress" />
+/// <reference types="vite/client" />
+/// <reference types="vue/macros-global" />
 
 declare global {
   interface Window {
@@ -19,6 +21,7 @@ declare global {
     sensorsApi: typeof import('./gen/proto/api/service/sensors/v1/sensors_pb.esm');
     servoApi: typeof import('./gen/proto/api/component/servo/v1/servo_pb.esm');
     streamApi: typeof import('./gen/proto/stream/v1/stream_pb.esm');
+    visionApi: typeof import('./gen/proto/api/service/vision/v1/vision_pb.esm');
 
     // Service Clients
     streamService: import('./gen/proto/stream/v1/stream_pb_service.esm').StreamServiceClient;

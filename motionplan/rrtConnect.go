@@ -57,7 +57,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
 	planOpts *PlannerOptions,
-	endpointPreview chan *node,
+	endpointPreview chan node,
 	solutionChan chan *planReturn,
 ) {
 	defer close(solutionChan)
@@ -82,12 +82,12 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	}
 
 	// initialize maps
-	goalMap := make(map[*node]*node, len(solutions))
+	goalMap := make(map[node]node, len(solutions))
 	for _, solution := range solutions {
 		goalMap[solution] = nil
 	}
-	startMap := make(map[*node]*node)
-	startMap[&node{q: seed}] = nil
+	startMap := make(map[node]node)
+	startMap[&basicNode{q: seed}] = nil
 
 	// TODO(rb) package neighborManager better
 	nm := &neighborManager{nCPU: mp.nCPU}
@@ -95,7 +95,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	defer cancel()
 
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
-	target := referenceframe.InterpolateInputs(seed, solutions[0].q, 0.5)
+	target := referenceframe.InterpolateInputs(seed, solutions[0].Q(), 0.5)
 
 	// Create a reference to the two maps so that we can alternate which one is grown
 	map1, map2 := startMap, goalMap
@@ -113,12 +113,12 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 		nearest2 := nm.nearestNeighbor(nmContext, planOpts, target, map2)
 
 		// attempt to extend the map to connect the target to map 1, then try to connect the maps together
-		map1reached := mp.checkPath(planOpts, nearest1.q, target)
-		targetNode := &node{q: target}
+		map1reached := mp.checkPath(planOpts, nearest1.Q(), target)
+		targetNode := &basicNode{q: target}
 		if map1reached {
 			map1[targetNode] = nearest1
 		}
-		map2reached := mp.checkPath(planOpts, nearest2.q, target)
+		map2reached := mp.checkPath(planOpts, nearest2.Q(), target)
 		if map2reached {
 			map2[targetNode] = nearest2
 		}

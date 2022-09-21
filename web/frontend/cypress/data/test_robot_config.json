@@ -78,6 +78,10 @@
             "type": "vision"
         },
         {
+            "name": "test_slam",
+            "type": "slam"
+        },
+        {
             "name": "test_motion",
             "type": "motion"
         },
