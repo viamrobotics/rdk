@@ -133,7 +133,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
 	planOpts *PlannerOptions,
-	endpointPreview chan *node,
+	endpointPreview chan node,
 	solutionChan chan *planReturn,
 ) {
 	defer close(solutionChan)
@@ -163,13 +163,13 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	}
 
 	// initialize maps
-	goalMap := make(map[*node]*node, len(solutions))
+	goalMap := make(map[node]node, len(solutions))
 	for _, solution := range solutions {
 		goalMap[solution] = nil
 	}
-	corners := map[*node]bool{}
-	seedMap := make(map[*node]*node)
-	seedMap[&node{q: seed}] = nil
+	corners := map[node]bool{}
+	seedMap := make(map[node]node)
+	seedMap[&basicNode{q: seed}] = nil
 
 	// Create a reference to the two maps so that we can alternate which one is grown
 	map1, map2 := seedMap, goalMap
@@ -180,7 +180,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	defer cancel()
 
 	// main sampling loop - for the first sample we try the 0.5 interpolation between seed and goal[0]
-	target := referenceframe.InterpolateInputs(seed, solutions[0].q, 0.5)
+	target := referenceframe.InterpolateInputs(seed, solutions[0].Q(), 0.5)
 	for i := 0; i < algOpts.PlanIter; i++ {
 		select {
 		case <-ctx.Done():
@@ -191,16 +191,16 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 
 		// attempt to extend map1 first
 		nearest1 := nm.nearestNeighbor(nmContext, planOpts, target, map1)
-		map1reached := mp.constrainedExtend(ctx, algOpts, map1, nearest1, &node{q: target})
+		map1reached := mp.constrainedExtend(ctx, algOpts, map1, nearest1, &basicNode{q: target})
 
 		// then attempt to extend map2 towards map 1
-		nearest2 := nm.nearestNeighbor(nmContext, planOpts, map1reached.q, map2)
+		nearest2 := nm.nearestNeighbor(nmContext, planOpts, map1reached.Q(), map2)
 		map2reached := mp.constrainedExtend(ctx, algOpts, map2, nearest2, map1reached)
 
 		corners[map1reached] = true
 		corners[map2reached] = true
 
-		_, reachedDelta := planOpts.DistanceFunc(&ConstraintInput{StartInput: map1reached.q, EndInput: map2reached.q})
+		_, reachedDelta := planOpts.DistanceFunc(&ConstraintInput{StartInput: map1reached.Q(), EndInput: map2reached.Q()})
 		if reachedDelta < algOpts.JointSolveDist {
 			cancel()
 			path := extractPath(seedMap, goalMap, &nodePair{map1reached, map2reached})
@@ -220,7 +220,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	solutionChan <- &planReturn{err: errPlannerFailed}
 }
 
-func (mp *cBiRRTMotionPlanner) sample(algOpts *cbirrtOptions, rSeed *node, sampleNum int) []referenceframe.Input {
+func (mp *cBiRRTMotionPlanner) sample(algOpts *cbirrtOptions, rSeed node, sampleNum int) []referenceframe.Input {
 	// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 	// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
 	if sampleNum >= algOpts.IterBeforeRand && sampleNum%4 >= 2 {
@@ -228,7 +228,7 @@ func (mp *cBiRRTMotionPlanner) sample(algOpts *cbirrtOptions, rSeed *node, sampl
 	}
 	// Seeding nearby to valid points results in much faster convergence in less constrained space
 	q := referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.5)
-	for j, v := range rSeed.q {
+	for j, v := range rSeed.Q() {
 		q[j].Value += v.Value
 	}
 	return q
@@ -239,14 +239,14 @@ func (mp *cBiRRTMotionPlanner) sample(algOpts *cbirrtOptions, rSeed *node, sampl
 func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	ctx context.Context,
 	algOpts *cbirrtOptions,
-	rrtMap map[*node]*node,
-	near, target *node,
-) *node {
+	rrtMap map[node]node,
+	near, target node,
+) node {
 	oldNear := near
 	for i := 0; true; i++ {
-		_, dist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: near.q, EndInput: target.q})
-		_, oldDist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: oldNear.q, EndInput: target.q})
-		_, nearDist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: near.q, EndInput: oldNear.q})
+		_, dist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: near.Q(), EndInput: target.Q()})
+		_, oldDist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: oldNear.Q(), EndInput: target.Q()})
+		_, nearDist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: near.Q(), EndInput: oldNear.Q()})
 		switch {
 		case dist < algOpts.JointSolveDist:
 			return near
@@ -259,14 +259,14 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 
 		oldNear = near
 
-		newNear := make([]referenceframe.Input, 0, len(near.q))
+		newNear := make([]referenceframe.Input, 0, len(near.Q()))
 
 		// alter near to be closer to target
-		for j, nearInput := range near.q {
-			if nearInput.Value == target.q[j].Value {
+		for j, nearInput := range near.Q() {
+			if nearInput.Value == target.Q()[j].Value {
 				newNear = append(newNear, nearInput)
 			} else {
-				v1, v2 := nearInput.Value, target.q[j].Value
+				v1, v2 := nearInput.Value, target.Q()[j].Value
 				newVal := math.Min(algOpts.qstep[j], math.Abs(v2-v1))
 				// get correct sign
 				newVal *= (v2 - v1) / math.Abs(v2-v1)
@@ -274,11 +274,11 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 			}
 		}
 		// if we are not meeting a constraint, gradient descend to the constraint
-		newNear = mp.constrainNear(ctx, algOpts, oldNear.q, newNear)
+		newNear = mp.constrainNear(ctx, algOpts, oldNear.Q(), newNear)
 
 		if newNear != nil {
 			// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
-			near = &node{q: newNear}
+			near = &basicNode{q: newNear}
 			rrtMap[near] = oldNear
 		} else {
 			break
@@ -351,9 +351,9 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 func (mp *cBiRRTMotionPlanner) SmoothPath(
 	ctx context.Context,
 	algOpts *cbirrtOptions,
-	inputSteps []*node,
-	corners map[*node]bool,
-) []*node {
+	inputSteps []node,
+	corners map[node]bool,
+) []node {
 	toIter := int(math.Min(float64(len(inputSteps)*len(inputSteps)), float64(algOpts.SmoothIter)))
 
 	for iter := 0; iter < toIter && len(inputSteps) > 4; iter++ {
@@ -373,7 +373,7 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 			continue
 		}
 
-		shortcutGoal := make(map[*node]*node)
+		shortcutGoal := make(map[node]node)
 
 		iSol := inputSteps[i]
 		jSol := inputSteps[j]
@@ -385,14 +385,14 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 		// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
 		// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
 		// so we allow elongation here.
-		_, dist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: inputSteps[i].q, EndInput: reached.q})
-		if dist < algOpts.JointSolveDist && len(reached.q) < j-i {
+		_, dist := algOpts.planOpts.DistanceFunc(&ConstraintInput{StartInput: inputSteps[i].Q(), EndInput: reached.Q()})
+		if dist < algOpts.JointSolveDist && len(reached.Q()) < j-i {
 			corners[iSol] = true
 			corners[jSol] = true
 			for _, hitCorner := range hitCorners {
 				corners[hitCorner] = false
 			}
-			newInputSteps := append([]*node{}, inputSteps[:i]...)
+			newInputSteps := append([]node{}, inputSteps[:i]...)
 			for reached != nil {
 				newInputSteps = append(newInputSteps, reached)
 				reached = shortcutGoal[reached]
@@ -406,12 +406,12 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 }
 
 // Check if there is more than one joint direction change. If not, then not a good candidate for smoothing.
-func smoothable(inputSteps []*node, i, j int, corners map[*node]bool) (bool, []*node) {
+func smoothable(inputSteps []node, i, j int, corners map[node]bool) (bool, []node) {
 	startPos := inputSteps[i]
 	nextPos := inputSteps[i+1]
 	// Whether joints are increasing
-	incDir := make([]int, 0, len(startPos.q))
-	hitCorners := []*node{}
+	incDir := make([]int, 0, len(startPos.Q()))
+	hitCorners := []node{}
 
 	if corners[startPos] {
 		hitCorners = append(hitCorners, startPos)
@@ -430,16 +430,16 @@ func smoothable(inputSteps []*node, i, j int, corners map[*node]bool) (bool, []*
 	}
 
 	// Get initial directionality
-	for h, v := range startPos.q {
-		incDir = append(incDir, check(v.Value, nextPos.q[h].Value))
+	for h, v := range startPos.Q() {
+		incDir = append(incDir, check(v.Value, nextPos.Q()[h].Value))
 	}
 
 	// Check for any direction changes
 	changes := 0
 	for k := i + 2; k < j; k++ {
-		for h, v := range nextPos.q {
+		for h, v := range nextPos.Q() {
 			// Get 1, 0, or -1 depending on directionality
-			newV := check(v.Value, inputSteps[k].q[h].Value)
+			newV := check(v.Value, inputSteps[k].Q()[h].Value)
 			if incDir[h] == 0 {
 				incDir[h] = newV
 			} else if incDir[h] == newV*-1 {
