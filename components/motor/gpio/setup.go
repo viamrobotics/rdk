@@ -30,15 +30,14 @@ type PinConfig struct {
 // Config describes the configuration of a motor.
 type Config struct {
 	Pins             PinConfig      `json:"pins"`
-	BoardName        string         `json:"board"`                   // used to get encoders
-	MinPowerPct      float64        `json:"min_power_pct,omitempty"` // min power percentage to allow for this motor default is 0.0
-	MaxPowerPct      float64        `json:"max_power_pct,omitempty"` // max power percentage to allow for this motor (0.06 - 1.0)
-	PWMFreq          uint           `json:"pwm_freq,omitempty"`      // TODO(RSDK-568): pwm_freq_hz?
+	BoardName        string         `json:"board"`                    // used to get encoders
+	MinPowerPct      float64        `json:"min_power_pct,omitempty"`  // min power percentage to allow for this motor default is 0.0
+	MaxPowerPct      float64        `json:"max_power_pct,omitempty"`  // max power percentage to allow for this motor (0.06 - 1.0)
+	PWMFreq          uint           `json:"pwm_freq,omitempty"`       // TODO(RSDK-568): pwm_freq_hz?
 	DirectionFlip    bool           `json:"dir_flip,omitempty"`       // Flip the direction of the signal sent if there is a Dir pin
 	ControlLoop      control.Config `json:"control_config,omitempty"` // Optional control loop
 	Encoder          string         `json:"encoder,omitempty"`        // name of encoder
-	// TODO(RSDK-568): units?
-	RampRate         float64        `json:"ramp_rate,omitempty"`      // how fast to ramp power to motor when using rpm control
+	RampRate         float64        `json:"ramp_rate,omitempty"`      // how fast to ramp power to motor when using rpm control // TODO(RSDK-568): units?
 	MaxRPM           float64        `json:"max_rpm,omitempty"`        // TODO(RSDK-568): revs_per_min?
 	TicksPerRotation int            `json:"ticks_per_rotation,omitempty"`
 }
