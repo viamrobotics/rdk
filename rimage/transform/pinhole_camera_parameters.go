@@ -29,7 +29,7 @@ func NewNoIntrinsicsError(msg string) error {
 
 // PinholeCameraModel is the model of a pinhole camera.
 type PinholeCameraModel struct {
-	*PinholeCameraIntrinsics `json:"intrinsics"`
+	*PinholeCameraIntrinsics `json:"intrinsic_parameters"`
 	Distortion               Distorter `json:"distortion"`
 }
 
