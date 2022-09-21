@@ -239,7 +239,7 @@ type AttrConfig struct {
 	Sensors          []string          `json:"sensors"`
 	Algorithm        string            `json:"algorithm"`
 	ConfigParams     map[string]string `json:"config_params"`
-	DataRateMs       int               `json:"data_rate_ms"`
+	DataRateMs       int               `json:"data_rate_msec"`
 	MapRateSec       int               `json:"map_rate_sec"`
 	DataDirectory    string            `json:"data_dir"`
 	InputFilePattern string            `json:"input_file_pattern"`
