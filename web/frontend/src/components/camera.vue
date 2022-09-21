@@ -1,24 +1,17 @@
 <script setup lang="ts">
 
+import { grpc } from '@improbable-eng/grpc-web';
 import { ref } from 'vue';
-import { normalizeRemoteName } from '../lib/resource';
+import { normalizeRemoteName, type Resource } from '../lib/resource';
+import cameraApi from '../gen/proto/api/component/camera/v1/camera_pb.esm';
+import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
+import PCD from './pcd.vue';
 
 interface Props {
-  streamName: string
+  cameraName: string
   crumbs: string[]
-  x: number
-  y: number
-  z: number
-  segmenterNames?: string[]
-  segmentObjects?: Record<string, unknown>[]
-  segmenterParameterNames?: {
-    getName(): string
-    getType(): string
-  }[]
-  parameterType: (type: string) => string
-  segmenterParameters: Record<string, unknown>
-  findStatus?: boolean
+  resources: Resource[]
 }
 
 interface Emits {
@@ -27,47 +20,20 @@ interface Emits {
   (event: 'toggle-camera', camera: boolean): void
   (event: 'selected-camera-view', value: string): void
   (event: 'refresh-camera', value: string): void
-  (event: 'pcd-click', e: Event): void
-  (event: 'pcd-move', e: Event): void
-  (event: 'full-image', e: Event): void
-  (event: 'change-segmenter', value: string): void
-  (event: 'find-segments', value: string, params: Record<string, unknown>): void
-  (event: 'center-pcd', e: Event): void
-  (event: 'select-object', e: string, object: string): void
-  (event: 'segment-load', index: number): void
-  (event: 'bounding-box-load', index: number): void
-  (event: 'toggle-pcd', pcd: boolean): void
-  (event: 'segmenter-parameters-input', name: string, value: string): void
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  x: 0,
-  y: 0,
-  z: 0,
-  findStatus: false,
-});
-
+const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
+let pcdExpanded = $ref(false);
+let pointcloud = $ref<Uint8Array | undefined>();
+
 const camera = ref(false);
-const pcd = ref(false);
 const selectedValue = ref('live');
-const selectedSegmenterValue = ref('');
-const selectedObject = ref('');
 
 const toggleExpand = () => {
   camera.value = !camera.value;
   emit('toggle-camera', camera.value);
-};
-
-const distanceFromCamera = () => {
-  return (
-    Math.round(
-      Math.sqrt(
-        Math.pow(props.x, 2) + Math.pow(props.y, 2) + Math.pow(props.z, 2)
-      )
-    ) || 0
-  );
 };
 
 const selectCameraView = () => {
@@ -78,48 +44,32 @@ const refreshCamera = () => {
   emit('refresh-camera', selectedValue.value);
 };
 
-const pcdMove = (e: Event) => {
-  emit('pcd-move', e);
-};
-
-const changeSegmenter = () => {
-  emit('change-segmenter', selectedSegmenterValue.value);
-};
-
-const findSegments = () => {
-  emit(
-    'find-segments',
-    selectedSegmenterValue.value,
-    props.segmenterParameters
-  );
-};
-
-const fullImage = (event: Event) => {
-  emit('full-image', event);
-};
-
-const centerPCD = (event: Event) => {
-  emit('center-pcd', event);
-};
-
-const selectObject = (event: string) => {
-  emit('select-object', event, selectedObject.value);
-};
-
-const changeObject = (event: Event) => {
-  emit('select-object', (event.currentTarget as HTMLSelectElement).value, 'Center Point');
-};
-
 const togglePCDExpand = () => {
-  pcd.value = !pcd.value;
-  emit('toggle-pcd', pcd.value);
+  pcdExpanded = !pcdExpanded;
+  if (pcdExpanded) {
+    renderPCD();
+  }
+};
+
+const renderPCD = () => {
+  const request = new cameraApi.GetPointCloudRequest();
+  request.setName(props.cameraName);
+  request.setMimeType('pointcloud/pcd');
+  window.cameraService.getPointCloud(request, new grpc.Metadata(), (error, response) => {
+    if (error) {
+      toast.error(`Error getting point cloud: ${error}`);
+      return;
+    }
+
+    pointcloud = response!.getPointCloud_asU8();
+  });
 };
 
 </script>
 
 <template>
   <v-collapse
-    :title="streamName"
+    :title="cameraName"
     class="camera"
   >
     <v-breadcrumbs
@@ -135,7 +85,7 @@ const togglePCDExpand = () => {
               :value="camera ? 'on' : 'off'"
               @input="toggleExpand()"
             />
-            <span class="pr-2">View Camera</span>
+            <span class="pr-2 text-xs">View Camera</span>
           </div>
           
           <div class="float-right pb-4">
@@ -144,7 +94,7 @@ const togglePCDExpand = () => {
                 v-if="camera"
                 class="w-64"
               >
-                <p class="font-label mb-1 text-gray-800 dark:text-gray-200">
+                <p class="font-label mb-1 text-gray-800">
                   Refresh frequency
                 </p>
                 <div class="relative">
@@ -174,7 +124,7 @@ const togglePCDExpand = () => {
                     class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
                   >
                     <svg
-                      class="h-4 w-4 stroke-2 text-gray-700 dark:text-gray-300"
+                      class="h-4 w-4 stroke-2 text-gray-700"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
                       stroke-linejoin="round"
@@ -206,204 +156,26 @@ const togglePCDExpand = () => {
           </div>
           <div
             v-if="camera"
-            :id="`stream-${normalizeRemoteName(props.streamName)}`"
+            :id="`stream-${normalizeRemoteName(props.cameraName)}`"
             class="clear-both h-fit transition-all duration-300 ease-in-out"
           />
         </div>
         <div class="pt-4">
           <div class="flex items-center gap-2">
             <v-switch
-              :value="pcd ? 'on' : 'off'"
+              :value="pcdExpanded ? 'on' : 'off'"
               @input="togglePCDExpand()"
             />
-            <span class="pr-0.5">Point Cloud Data</span>
+            <span class="pr-0.5 text-xs">Point Cloud Data</span>
             <InfoButton :info-rows="['When turned on, point cloud will be recalculated']" />
           </div>
-          <div
-            v-if="pcd"
-            class="flex flex-col gap-4"
-          >
-            <div class="flex justify-end gap-2">
-              <v-button
-                icon="refresh"
-                label="Refresh"
-                @click="fullImage"
-              />
-              <v-button
-                icon="center"
-                label="Center"
-                @click="centerPCD"
-              />
-              <v-button
-                icon="download"
-                label="Download Raw Data"
-                @click="emit('download-raw-data')"
-              />
-            </div>
-            <div
-              id="pcd"
-              class="relative"
-              @click="emit('pcd-click', $event)"
-            />
 
-            <div class="flex items-center gap-1 whitespace-nowrap">
-              <span class="text-xs">Controls</span>
-              <InfoButton
-                :info-rows="[
-                  'Rotate - Left/Click + Drag',
-                  'Pan - Right/Two Finger Click + Drag',
-                  'Zoom - Wheel/Two Finger Scroll',
-                ]"
-              />
-            </div>
-
-            <div class="clear-both grid grid-cols-1 divide-y">
-              <div>
-                <div class="container mx-auto pt-4">
-                  <div>
-                    <h2>Segmentation Settings</h2>
-                    <div class="relative">
-                      <select
-                        v-model="selectedSegmenterValue"
-                        class="m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
-                        aria-label="Select segmenter"
-                        @change="changeSegmenter"
-                      >
-                        <option
-                          value=""
-                          selected
-                          disabled
-                        >
-                          Choose
-                        </option>
-                        <option
-                          v-for="segmenter in segmenterNames"
-                          :key="segmenter"
-                          :value="segmenter"
-                        >
-                          {{ segmenter }}
-                        </option>
-                      </select>
-                      <div
-                        class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2"
-                      >
-                        <svg
-                          class="h-4 w-4 stroke-2 text-gray-700 dark:text-gray-300"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          stroke-linejoin="round"
-                          stroke-linecap="round"
-                          fill="none"
-                        >
-                          <path d="M18 16L12 22L6 16" />
-                        </svg>
-                      </div>
-                    </div>
-                    <div class="row flex">
-                      <div
-                        v-for="param in segmenterParameterNames"
-                        :key="param.getName()"
-                        class="column w-1/3 flex-auto pr-2"
-                      >
-                        <v-input
-                          :id="param.getName()"
-                          :type="parameterType(param.getType())"
-                          :label="param.getName()"
-                          :value="segmenterParameters![param.getName()]"
-                          @input="emit('segmenter-parameters-input', param.getName(), $event.detail.value)"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div class="float-right p-4">
-                    <v-button
-                      :loading="findStatus"
-                      :disabled="selectedSegmenterValue === ''"
-                      label="FIND SEGMENTS"
-                      @click="findSegments"
-                    />
-                  </div>
-                </div>
-                <div class="pt-4">
-                  <div>
-                    <div class="pb-1 text-xs">
-                      Selected Point Position
-                    </div>
-                    <div class="flex gap-3">
-                      <v-input
-                        readonly
-                        label="X"
-                        labelposition="left"
-                        :value="x"
-                      />
-                      <v-input
-                        readonly
-                        label="Y"
-                        labelposition="left"
-                        :value="y"
-                      />
-                      <v-input
-                        readonly
-                        labelposition="left"
-                        label="Z"
-                        :value="z"
-                      />
-                      <v-button
-                        label="Move"
-                        @click="pcdMove"
-                      />
-                    </div>
-                  </div>
-                  <div class="pt-4 text-xs">
-                    Distance From Camera: {{ distanceFromCamera() }}mm
-                  </div>
-                  <div class="flex pt-4 pb-8">
-                    <div class="column">
-                      <v-radio
-                        label="Selection Type"
-                        options="Center Point, Bounding Box, Cropped"
-                        @input="selectObject($event.detail.selected)"
-                      />
-                    </div>
-                    <div class="pl-8">
-                      <p class="text-xs">
-                        Segmented Objects
-                      </p>
-                      <select
-                        v-model="selectedObject"
-                        class="m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
-                        :class="['py-2 pl-2']"
-                        @change="changeObject"
-                      >
-                        <option
-                          disabled
-                          selected
-                          value=""
-                        >
-                          Select Object
-                        </option>
-                        <option
-                          v-for="(seg, index) in segmentObjects"
-                          :key="index"
-                          :value="index"
-                        >
-                          Object {{ index }}
-                        </option>
-                      </select>
-                    </div>
-                    <div class="pl-8">
-                      <div class="grid grid-cols-1">
-                        <span class="text-xs">Object Points</span>
-                        <span class="pt-2">{{
-                          segmentObjects ? segmentObjects.length : "null"
-                        }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <PCD
+            v-if="pcdExpanded"
+            :resources="resources"
+            :pointcloud="pointcloud"
+            :camera-name="cameraName"
+          />
         </div>
       </div>
     </div>
