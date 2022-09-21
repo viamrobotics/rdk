@@ -204,8 +204,9 @@ func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tr
 	minCost := math.Inf(1)
 	var minIndex int
 	for i, neighbor := range neighbors {
-		cost := neighbor.node.(*costNode).cost + neighbor.dist
-		if cost < minCost && mp.checkPath(algOpts.planOpts, neighbor.node.Q(), target) {
+		neighborNode := neighbor.node.(*costNode)
+		cost := neighborNode.cost + neighbor.dist
+		if cost < minCost && mp.checkPath(algOpts.planOpts, neighborNode.Q(), target) {
 			minIndex = i
 			minCost = cost
 		}
@@ -223,14 +224,15 @@ func (mp *rrtStarConnectMotionPlanner) extend(algOpts *rrtStarConnectOptions, tr
 		}
 
 		// check to see if a shortcut is possible, and rewire the node if it is
+		neighborNode := neighbor.node.(*costNode)
 		_, connectionCost := algOpts.planOpts.DistanceFunc(&ConstraintInput{
-			StartInput: neighbor.node.Q(),
+			StartInput: neighborNode.Q(),
 			EndInput:   targetNode.Q(),
 		})
 		cost := connectionCost + targetNode.cost
-		if cost < neighbor.node.(*costNode).cost && mp.checkPath(algOpts.planOpts, target, neighbor.node.Q()) {
-			neighbor.node.(*costNode).cost = cost
-			tree[neighbor.node] = targetNode
+		if cost < neighborNode.cost && mp.checkPath(algOpts.planOpts, target, neighborNode.Q()) {
+			neighborNode.cost = cost
+			tree[neighborNode] = targetNode
 		}
 	}
 	return targetNode
