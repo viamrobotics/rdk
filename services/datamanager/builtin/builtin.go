@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/google/uuid"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
@@ -104,6 +105,7 @@ type builtIn struct {
 	syncIntervalMins    float64
 	syncer              datasync.Manager
 	syncerConstructor   datasync.ManagerConstructor
+	sessionID           string
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
@@ -123,6 +125,7 @@ func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog
 		additionalSyncPaths:       []string{},
 		waitAfterLastModifiedSecs: 10,
 		syncerConstructor:         datasync.NewDefaultManager,
+		sessionID:                 uuid.NewString(),
 	}
 
 	return dataManagerSvc, nil
@@ -177,6 +180,10 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 		return time.Duration(0)
 	}
 	return time.Duration(float32(time.Second) / captureFrequencyHz)
+}
+
+func (svc *builtIn) getSessionID() *string {
+	return &svc.sessionID
 }
 
 // Initialize a collector for the component/method or update it if it has previously been created.

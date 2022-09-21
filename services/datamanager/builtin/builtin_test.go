@@ -684,7 +684,7 @@ func TestSessionIDAfterUpdate(t *testing.T) {
 	// Verify SessionID is the same after reconfiguration of something in the config,
 	// but the data manager service config is the same
 	sessionID0 := dmsvc.GetSessionID()
-	dmCfg.SyncIntervalMins *= 2
+	dmCfg.SyncIntervalMins += 2
 	err = dmsvc.Update(context.TODO(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 	sessionID1 := dmsvc.GetSessionID()

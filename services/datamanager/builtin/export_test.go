@@ -20,3 +20,7 @@ var GetServiceConfig = getServiceConfig
 
 // Make getDurationFromHz global for tests.
 var GetDurationFromHz = getDurationFromHz
+
+func (svc *builtIn) GetSessionID() string {
+	return *svc.getSessionID()
+}
