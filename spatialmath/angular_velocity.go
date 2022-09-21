@@ -49,7 +49,7 @@ func RotMatToAngVel(diffRm RotationMatrix, dt float64) *AngularVelocity {
 	return OrientationToAngularVel(diffRm.AxisAngles(), dt)
 }
 
-// Multiply scales the angular velocity by a single scalar value
+// MulAngVel scales the angular velocity by a single scalar value.
 func (av *AngularVelocity) MulAngVel(t float64) *AngularVelocity {
 	return &AngularVelocity{
 		X: t * av.X,
@@ -58,7 +58,7 @@ func (av *AngularVelocity) MulAngVel(t float64) *AngularVelocity {
 	}
 }
 
-// R3ToAngVel converts an r3Vector to an angular velocity
+// R3ToAngVel converts an r3Vector to an angular velocity.
 func R3ToAngVel(vec r3.Vector) *AngularVelocity {
 	return &AngularVelocity{X: vec.X, Y: vec.Y, Z: vec.Z}
 }

@@ -104,50 +104,45 @@ func TestMatrixAtRowsCols(t *testing.T) {
 }
 
 func TestMatrixMul(t *testing.T) {
-	mat1 := [9]float64{
+	mat1 := []float64{
 		1, 2, 3,
 		4, 5, 6,
 		7, 8, 9,
 	}
-	rm := &RotationMatrix{mat1}
+	rm, err := NewRotationMatrix(mat1)
+	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, R3VectorAlmostEqual(rm.Mul(r3.Vector{1, 0, 0}), r3.Vector{1, 4, 7}, 1e-8), test.ShouldBeTrue)
 	test.That(t, R3VectorAlmostEqual(rm.Mul(r3.Vector{1, 1, 0}), r3.Vector{3, 9, 15}, 1e-8), test.ShouldBeTrue)
 	test.That(t, R3VectorAlmostEqual(rm.Mul(r3.Vector{1, 1, 1}), r3.Vector{6, 15, 24}, 1e-8), test.ShouldBeTrue)
 
-	mat2 := [9]float64{
+	mat2 := []float64{
 		9, 2, 3,
-		4, 5, 6,
-		7, 8, 9,
+		6, 5, 4,
+		3, 2, 1,
 	}
-	mm := &RotationMatrix{mat2}
+	mm, err := NewRotationMatrix(mat2)
 
-	c, d := multiplyAndconvertToFloats()
+	c, d, _ := multiplyAndconvertToFloats(mat1, mat2)
 
 	lMul := rm.LeftMatMul(*mm).mat
 	rMul := rm.RightMatMul(*mm).mat
 
 	test.That(t, lMul, test.ShouldResemble, c)
 	test.That(t, rMul, test.ShouldResemble, d)
-
 }
 
-func multiplyAndconvertToFloats() ([9]float64, [9]float64) {
-	a := mat.NewDense(3, 3, []float64{1, 2, 3, 4, 5, 6, 7, 8, 9})
-	b := mat.NewDense(3, 3, []float64{9, 2, 3, 4, 5, 6, 7, 8, 9})
+func multiplyAndconvertToFloats(in1, in2 []float64) ([9]float64, [9]float64, error) {
+	a := mat.NewDense(3, 3, in1)
+	b := mat.NewDense(3, 3, in2)
 	var c mat.Dense
 	var d mat.Dense
-	c.Mul(b, a) // c is left multiplication
-	d.Mul(a, b) // d is right multiplication
+	c.Mul(a, b) // c is left multiplication
+	d.Mul(b, a) // d is right multiplication
 
 	vecC := c.RawMatrix().Data
 	vecD := d.RawMatrix().Data
-	outC := [9]float64{}
-	outD := [9]float64{}
-	for idx := 0; idx < len(vecD); idx++ {
-		outC[idx] = vecC[idx]
-		outD[idx] = vecD[idx]
-	}
-
-	return outC, outD
+	outC, err := NewRotationMatrix(vecC)
+	outD, err := NewRotationMatrix(vecD)
+	return outC.mat, outD.mat, err
 }
