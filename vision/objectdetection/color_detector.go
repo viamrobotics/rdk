@@ -10,8 +10,8 @@ import (
 
 // ColorDetectorConfig specifies the fields necessary for creating a color detector.
 type ColorDetectorConfig struct {
-	SegmentSize       int     `json:"segment_size"` // TODO(RSDK-586): unit?
-	Tolerance         float64 `json:"tolerance"`    // TODO(RSDK-586): unit?
+	SegmentSize       int     `json:"segment_size_px"`
+	Tolerance         float64 `json:"tolerance_pct"`
 	DetectColorString string  `json:"detect_color"` // hex string "#RRGGBB"
 }
 
