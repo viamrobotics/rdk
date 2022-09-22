@@ -11,7 +11,7 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-func TestDubins(t *testing.T) {
+func TestDubinsRRT(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	robotGeometry, err := spatial.NewBoxCreator(r3.Vector{X: 1, Y: 1, Z: 1}, spatial.NewZeroPose())
 	test.That(t, err, test.ShouldEqual, nil)
@@ -35,7 +35,7 @@ func TestDubins(t *testing.T) {
 		opt := NewBasicPlannerOptions()
 		opt.AddConstraint("collision", NewCollisionConstraint(
 			dubins.Frame(),
-			frame.FloatsToInputs(start),
+			frame.FloatsToInputs(start[0:2]),
 			obstacleGeometries,
 			map[string]spatial.Geometry{},
 		))
