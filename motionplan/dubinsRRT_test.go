@@ -11,7 +11,7 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-func TestCheckPathNoCollision(t *testing.T) {
+func TestDubins(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	robotGeometry, err := spatial.NewBoxCreator(r3.Vector{X: 1, Y: 1, Z: 1}, spatial.NewZeroPose())
 	test.That(t, err, test.ShouldEqual, nil)

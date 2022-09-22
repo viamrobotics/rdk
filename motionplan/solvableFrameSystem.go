@@ -231,7 +231,10 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 	worldState *commonpb.WorldState,
 	motionConfig map[string]interface{},
 ) ([][]frame.Input, error) {
-	seed := sf.mapToSlice(seedMap)
+	seed, err := sf.mapToSlice(seedMap)
+	if err != nil {
+		return nil, err
+	}
 	seedPos, err := sf.Transform(seed)
 	if err != nil {
 		return nil, err
