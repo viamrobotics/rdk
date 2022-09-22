@@ -173,8 +173,8 @@ type PlannerOptions struct {
 	// Movements that score below this amount are considered "good enough" and returned immediately
 	MinScore float64 `json:"min_ik_score"`
 
-	// Check constraints are still met every this many mm/degrees of movement.
-	Resolution float64 `json:"resolution_mm_per_degs"`
+	// Check constraints are still met every this many mm or degrees of movement.
+	Resolution float64 `json:"resolution"`
 
 	// Percentage interval of max iterations after which to print debug logs
 	LoggingInterval float64 `json:"logging_interval_pct"`
