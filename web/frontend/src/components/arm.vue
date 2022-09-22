@@ -8,7 +8,7 @@ import { roundTo2Decimals } from '../lib/math';
 
 interface ArmStatus {
   pos_pieces: {
-    endPosition: number[]
+    endPosition: string
     endPositionValue: number
   }[]
   
@@ -21,10 +21,8 @@ interface ArmStatus {
 interface RawArmStatus extends ArmStatus {
   joint_positions: {
     values: number[]
-  }[]
-  end_position: {
-
   }
+  end_position: Record<string, number>
 }
 
 interface Props {
@@ -44,7 +42,7 @@ const fieldSetters = [
   ['o_x', 'OX'],
   ['o_y', 'OY'],
   ['o_z', 'OZ'],
-];
+] as const;
 
 const props = defineProps<Props>();
 
@@ -97,7 +95,7 @@ const armModifyAllDoJoint = () => {
   delete toggle[props.name];
 };
 
-const armEndPositionInc = (getterSetter: number, amount: number) => {
+const armEndPositionInc = (getterSetter: string, amount: number) => {
   const adjustedAmount = getterSetter[0] === 'o' || getterSetter[0] === 'O' ? amount / 100 : amount;
   const arm = props.rawStatus!;
   const old = arm.end_position;
@@ -106,7 +104,7 @@ const armEndPositionInc = (getterSetter: number, amount: number) => {
   for (const fieldSetter of fieldSetters) {
     const endPositionField = fieldSetter[0];
     const endPositionValue = old[endPositionField] || 0;
-    const setter = `set${fieldSetter[1]}`;
+    const setter = `set${fieldSetter[1]}` as SetterKeys;
     newPose[setter](endPositionValue);
   }
 
