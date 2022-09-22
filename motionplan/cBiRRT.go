@@ -32,7 +32,7 @@ type cbirrtOptions struct {
 	FrameStep float64 `json:"frame_step_pct"`
 
 	// If the dot product between two sets of joint angles is less than this, consider them identical.
-	JointSolveDist float64 `json:"joint_solve_dist"` // TODO(RSDK-568): unit?
+	JointSolveDist float64 `json:"joint_solve_dist"`
 
 	// Number of IK solutions with which to seed the goal side of the bidirectional tree.
 	SolutionsToSeed int `json:"solutions_to_seed"`
