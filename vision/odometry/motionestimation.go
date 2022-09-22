@@ -21,7 +21,7 @@ type MotionEstimationConfig struct {
 	MatchingCfg       *keypoints.MatchingConfig          `json:"matching"`
 	CamIntrinsics     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
 	ScaleEstimatorCfg *ScaleEstimatorConfig              `json:"scale_estimator"`
-	CamHeightGround   float64                            `json:"cam_height_ground"` // TODO(RSDK-568): units?
+	CamHeightGround   float64                            `json:"cam_height_ground_m"`
 }
 
 // LoadMotionEstimationConfig loads a motion estimation configuration from a json file.
