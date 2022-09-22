@@ -1626,7 +1626,7 @@ func TestUpdateConfig(t *testing.T) {
 		Reconfigurable: WrapWithReconfigurable,
 	})
 
-	registry.RegisterService(Subtype, resource.DefaultModelName, registry.Service{
+	registry.RegisterService(Subtype, resource.DefaultServiceModel, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return &mock{}, nil
 		},
@@ -1637,7 +1637,7 @@ func TestUpdateConfig(t *testing.T) {
 		test.That(t, utils.TryClose(ctx, manager), test.ShouldBeNil)
 	}()
 
-	svc1 := config.Service{Name: "", Model: resource.DefaultModelName, Namespace: resource.ResourceNamespaceRDK, Type: "testSubType"}
+	svc1 := config.Service{Name: "", Model: resource.DefaultServiceModel, Namespace: resource.ResourceNamespaceRDK, Type: "testSubType"}
 
 	local, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)

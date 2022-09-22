@@ -415,7 +415,7 @@ func newWithResources(
 	r.logger.Warn("SMURF MODULES")
 	for _, mod := range cfg.Modules {
 		r.logger.Debugf("SMURF MOD10: %+v", mod)
-		r.modules.AddModule(mod)
+		r.modules.AddModule(ctx, mod)
 	}
 
 	// See if default service already exists in the config
@@ -438,7 +438,7 @@ func newWithResources(
 		}
 		cfg := config.Service{
 			Name:      name.Name,
-			Model:     resource.DefaultModelName,
+			Model:     resource.DefaultServiceModel,
 			Namespace: name.Namespace,
 			Type:      config.ServiceType(name.ResourceSubtype),
 		}
@@ -545,7 +545,7 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	if f == nil {
 		validModels := registry.FindValidServiceModels(rName)
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s use one of the following valid models: %s",
-			rName.Subtype, config.Model, strings.Join(validModels, ", "))
+			rName.Subtype, config.Model, validModels)
 	}
 
 	c := registry.ResourceSubtypeLookup(rName.Subtype)

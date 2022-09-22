@@ -74,7 +74,7 @@ func NewModel(namespace Namespace, fName ModelFamilyName, model ModelName) Model
 	return Model{family, model}
 }
 
-// NewDefaultModel creates a new Model in the rdk:default namespace/family based on parameters passed in.
+// NewDefaultModel creates a new Model in the rdk:builtin namespace/family based on parameters passed in.
 func NewDefaultModel(model ModelName) Model {
 	return Model{ModelFamilyDefault, model}
 }

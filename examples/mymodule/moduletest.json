@@ -2,28 +2,24 @@
 	"modules": [
 		{
 			"name": "MyModule",
-			"path": "examples/mymodule/mymodule",
-			"type": "component",
-			"models": [
-				"acme:test:anvil"
-			]
+			"path": "examples/mymodule/mymodule"
 		}
 	],
 	"components": [
 		{
 			"namespace": "rdk",
 			"type": "generic",
-			"name": "heavy",
-			"model": "acme:test:anvil",
-			"depends_on": ["beepbeep"],
+			"name": "zoomers",
+			"model": "acme:rocket:skates",
+			"depends_on": ["wheels"],
 			"attributes": {
-				"motor": "rdk:component:motor/beepbeep"
+				"motor": "wheels"
 			}
 		},
 		{
 			"namespace": "rdk",
 			"type": "motor",
-			"name": "beepbeep",
+			"name": "wheels",
 			"model": "rdk:builtin:fake"
 		}
 	],

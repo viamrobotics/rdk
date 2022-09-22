@@ -28,7 +28,7 @@ import (
 )
 
 func init() {
-	registry.RegisterService(datamanager.Subtype, resource.DefaultModelName, registry.Service{
+	registry.RegisterService(datamanager.Subtype, resource.DefaultServiceModel, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return NewBuiltIn(ctx, r, c, logger)
 		},

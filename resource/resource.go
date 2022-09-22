@@ -32,13 +32,13 @@ const (
 	ResourceTypeComponent = TypeName("component")
 	ResourceTypeService   = TypeName("service")
 	DefaultServiceName    = "builtin"
-	DefaultModelName      = "builtin"
 	DefaultMaxInstance    = 1
 )
 
 var (
-	reservedChars     = [...]string{":"}
-	resRegexValidator = regexp.MustCompile(`^(rdk:\w+:(?:\w+))\/?(\w+:(?:\w+:)*)?(.+)?$`)
+	reservedChars       = [...]string{":"}
+	resRegexValidator   = regexp.MustCompile(`^(rdk:\w+:(?:\w+))\/?(\w+:(?:\w+:)*)?(.+)?$`)
+	DefaultServiceModel = NewDefaultModel("builtin")
 )
 
 // Type represents a known component/service type of a robot.
@@ -157,6 +157,12 @@ func NewFromString(resourceName string) (Name, error) {
 	}
 	return newRemoteName(RemoteName(remote), Namespace(rSubtypeParts[0]),
 		TypeName(rSubtypeParts[1]), SubtypeName(rSubtypeParts[2]), matches[3]), nil
+}
+
+// NewSubtypeFromString creates a new Subtype from string like: %s:%s:%s.
+func NewSubtypeFromString(subtypeName string) (Subtype, error) {
+	tmpName, err := NewFromString(subtypeName + "/ignored")
+	return tmpName.Subtype, err
 }
 
 // PrependRemote returns a Name with a remote prepended.

@@ -150,7 +150,7 @@ func validateComponent(t *testing.T, actual, expected Component) {
 	test.That(t, actual.Name, test.ShouldEqual, expected.Name)
 	test.That(t, actual.Type, test.ShouldEqual, expected.Type)
 	test.That(t, actual.Namespace, test.ShouldEqual, expected.Namespace)
-	test.That(t, actual.Model, test.ShouldEqual, expected.Model)
+	test.That(t, actual.Model, test.ShouldResemble, expected.Model)
 	test.That(t, actual.DependsOn, test.ShouldResemble, expected.DependsOn)
 	test.That(t, actual.Attributes.Int("attr1", 0), test.ShouldEqual, expected.Attributes.Int("attr1", -1))
 	test.That(t, actual.Attributes.String("attr2"), test.ShouldEqual, expected.Attributes.String("attr2"))

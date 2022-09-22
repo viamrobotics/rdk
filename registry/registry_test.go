@@ -116,13 +116,13 @@ func TestServiceRegistry(t *testing.T) {
 	rf := func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
 		return 1, nil
 	}
-	modelName := resource.DefaultModelName
+	modelName := resource.DefaultServiceModel
 	test.That(t, func() { RegisterService(testService.Subtype, modelName, Service{}) }, test.ShouldPanic)
 	RegisterService(testService.Subtype, modelName, Service{Constructor: rf})
 
 	creator := ServiceLookup(testService.Subtype, modelName)
 	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, ServiceLookup(testService.Subtype, "z"), test.ShouldBeNil)
+	test.That(t, ServiceLookup(testService.Subtype, resource.NewDefaultModel("z")), test.ShouldBeNil)
 	test.That(t, creator.Constructor, test.ShouldEqual, rf)
 }
 
@@ -130,9 +130,9 @@ func TestFindValidServiceModels(t *testing.T) {
 	rf := func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error) {
 		return 1, nil
 	}
-	RegisterService(testService.Subtype, "testModel1", Service{Constructor: rf})
-	RegisterService(testService.Subtype, "testModel2", Service{Constructor: rf})
+	RegisterService(testService.Subtype, resource.NewDefaultModel("testModel1"), Service{Constructor: rf})
+	RegisterService(testService.Subtype, resource.NewDefaultModel("testModel2"), Service{Constructor: rf})
 	modelList := FindValidServiceModels(testService)
-	test.That(t, modelList, test.ShouldContain, "testModel1")
-	test.That(t, modelList, test.ShouldContain, "testModel2")
+	test.That(t, modelList, test.ShouldContain, resource.NewDefaultModel("testModel1"))
+	test.That(t, modelList, test.ShouldContain, resource.NewDefaultModel("testModel2"))
 }

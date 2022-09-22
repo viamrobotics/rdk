@@ -50,7 +50,7 @@ func getCallerName() string {
 }
 
 // RegisterService registers a service type to a registration.
-func RegisterService(subtype resource.Subtype, model string, creator Service) {
+func RegisterService(subtype resource.Subtype, model resource.Model, creator Service) {
 	creator.RegistrarLoc = getCallerName()
 	qName := fmt.Sprintf("%s/%s", subtype, model)
 	_, old := serviceRegistry[qName]
@@ -65,7 +65,7 @@ func RegisterService(subtype resource.Subtype, model string, creator Service) {
 
 // ServiceLookup looks up a service registration by the given type. nil is returned if
 // there is no registration.
-func ServiceLookup(subtype resource.Subtype, model string) *Service {
+func ServiceLookup(subtype resource.Subtype, model resource.Model) *Service {
 	qName := fmt.Sprintf("%s/%s", subtype, model)
 	if registration, ok := RegisteredServices()[qName]; ok {
 		return &registration
@@ -256,12 +256,13 @@ func lookupSubtype(subtypeName resource.SubtypeName) (*resource.Subtype, bool) {
 }
 
 // FindValidServiceModels returns a list of valid models for a specified service.
-func FindValidServiceModels(rName resource.Name) []string {
-	validModels := make([]string, 0)
+func FindValidServiceModels(rName resource.Name) []resource.Model {
+	validModels := make([]resource.Model, 0)
 	for key := range RegisteredServices() {
 		if strings.Contains(key, rName.Subtype.String()) {
 			splitName := strings.Split(key, "/")
-			validModels = append(validModels, splitName[1])
+			model, _ := resource.NewModelFromString(splitName[1])
+			validModels = append(validModels, model)
 		}
 	}
 	return validModels

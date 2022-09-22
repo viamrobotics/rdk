@@ -1707,13 +1707,13 @@ func TestCheckMaxInstanceValid(t *testing.T) {
 		{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake1",
-			Model:     resource.DefaultModelName,
+			Model:     resource.DefaultServiceModel,
 			Type:      config.ServiceType(motion.SubtypeName),
 		},
 		{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake2",
-			Model:     resource.DefaultModelName,
+			Model:     resource.DefaultServiceModel,
 			Type:      config.ServiceType(motion.SubtypeName),
 		},
 	}}
@@ -1738,19 +1738,19 @@ func TestCheckMaxInstanceInvalid(t *testing.T) {
 		{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake1",
-			Model:     resource.DefaultModelName,
+			Model:     resource.DefaultServiceModel,
 			Type:      config.ServiceType(datamanager.SubtypeName),
 		},
 		{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake2",
-			Model:     resource.DefaultModelName,
+			Model:     resource.DefaultServiceModel,
 			Type:      config.ServiceType(datamanager.SubtypeName),
 		},
 		{
 			Namespace: resource.ResourceNamespaceRDK,
 			Name:      "fake3",
-			Model:     resource.DefaultModelName,
+			Model:     resource.DefaultServiceModel,
 			Type:      config.ServiceType(datamanager.SubtypeName),
 		},
 	}}
@@ -1788,13 +1788,13 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "fake1",
-				Model:     resource.DefaultModelName,
+				Model:     resource.DefaultServiceModel,
 				Type:      config.ServiceType(datamanager.SubtypeName),
 			},
 			{
 				Namespace: resource.ResourceNamespaceRDK,
 				Name:      "fake2",
-				Model:     resource.DefaultModelName,
+				Model:     resource.DefaultServiceModel,
 				Type:      config.ServiceType(datamanager.SubtypeName),
 			},
 		},

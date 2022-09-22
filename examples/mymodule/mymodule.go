@@ -11,10 +11,12 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	pbgeneric "go.viam.com/api/component/generic/v1"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/module"
-	pbgeneric "go.viam.com/api/component/generic/v1"
+	"go.viam.com/rdk/resource"
 )
 
 type myComponent struct {
@@ -52,25 +54,26 @@ func (s *server) AddComponent(ctx context.Context, cfg *config.Component, depLis
 	logger.Debugf("Config: %+v", cfg)
 	logger.Debugf("Deps: %+v", depList)
 
-	motorname, ok := cfg.Attributes["motor"]
-	if !ok || motorname == "" {
-		return errors.New("motor_name must be set in the config")
+
+	mName, err := resource.NewFromString("rdk:component:motor/" + cfg.Attributes.String("motor"))
+	if err != nil {
+		return err
 	}
 
-	r, err := s.mod.GetParentComponent(motorname.(string))
+	r, err := s.mod.GetParentComponent(mName)
 	if err != nil {
 		return err
 	}
 
 	motor, ok := r.(motor.Motor)
 	if !ok {
-		return errors.Errorf("component %s is not a motor", motorname)
+		return errors.Errorf("component (%s) is not a motor", mName)
 	}
 	s.components[cfg.Name] = &myComponent{name: cfg.Name, myMotor: motor}
 	return nil
 }
 
-func (s *server) Do(ctx context.Context, req *pbgeneric.DoCommandRequest) (*pbgeneric.DoCommandResponse, error) {
+func (s *server) DoCommand(ctx context.Context, req *pbgeneric.DoCommandRequest) (*pbgeneric.DoCommandResponse, error) {
 	cmd := req.Command.AsMap()
 	c, ok := s.components[req.Name]
 	if !ok {
@@ -117,9 +120,12 @@ func main() {
 	signal.Notify(shutdown, syscall.SIGTERM)
 
 	server := &server{components: make(map[string]*myComponent)}
-
 	server.mod = module.NewModule(os.Args[1], logger)
+
+	model, _ := resource.NewModelFromString("acme:rocket:skates")
+	server.mod.RegisterModel(generic.Subtype, model)
 	server.mod.RegisterAddComponent(server.AddComponent)
+
 	pbgeneric.RegisterGenericServiceServer(server.mod.GRPCServer(), server)
 
 	err := server.mod.Start()

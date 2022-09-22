@@ -398,7 +398,7 @@ func TestServiceValidate(t *testing.T) {
 			Type:      "thingy",
 		}
 		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
-		test.That(t, validConfig.Model, test.ShouldEqual, "builtin")
+		test.That(t, validConfig.Model.String(), test.ShouldEqual, "rdk:builtin:builtin")
 	})
 }
 

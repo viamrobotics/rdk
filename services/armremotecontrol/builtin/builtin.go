@@ -40,7 +40,7 @@ const (
 )
 
 func init() {
-	registry.RegisterService(armremotecontrol.Subtype, resource.DefaultModelName, registry.Service{Constructor: NewBuiltIn})
+	registry.RegisterService(armremotecontrol.Subtype, resource.DefaultServiceModel, registry.Service{Constructor: NewBuiltIn})
 	cType := config.ServiceType(armremotecontrol.SubtypeName)
 	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf ServiceConfig

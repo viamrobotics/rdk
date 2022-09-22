@@ -18,10 +18,11 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	modlib "go.viam.com/rdk/module"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 )
 
 // NewManager returns a Manager.
@@ -33,13 +34,12 @@ func NewManager(cfgs []config.Module, logger golog.Logger) (*Manager, error) {
 		serviceMap: map[resource.Name]rpc.ClientConn{},
 	}
 
-	for _, mod := range cfgs {
-		err := mgr.AddModule(mod)
-		logger.Debugf("SMURF98: %+v", mod.Models)
-		if err != nil {
-			return nil, err
-		}
-	}
+	// for _, mod := range cfgs {
+	// 	err := mgr.AddModule(mod)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
 
 	return mgr, nil
 }
@@ -47,8 +47,9 @@ func NewManager(cfgs []config.Module, logger golog.Logger) (*Manager, error) {
 type module struct {
 	name    string
 	process pexec.ManagedProcess
-	serves  []resource.Model
+	handles map[resource.Subtype][]resource.Model
 	conn    rpc.ClientConn
+	client  pb.ModuleServiceClient
 	addr    string
 }
 
@@ -83,20 +84,22 @@ func (mgr *Manager) Close(ctx context.Context) error {
 }
 
 // AddModule adds and starts a new resource module.
-func (mgr *Manager) AddModule(cfg config.Module) error {
+func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 	_, exists := mgr.modules[cfg.Name]
 	if exists {
 		return nil
 	}
-	mgr.modules[cfg.Name] = &module{}
+
+	mod := &module{}
+	mgr.modules[cfg.Name] = mod
 
 	dir, err := os.MkdirTemp("", "viam-module-*")
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")
 	}
-	mgr.modules[cfg.Name].addr = dir + "/module.sock"
+	mod.addr = dir + "/module.sock"
 
 	pcfg := pexec.ProcessConfig{
 		ID:   string(cfg.Name),
@@ -106,15 +109,15 @@ func (mgr *Manager) AddModule(cfg config.Module) error {
 		// CWD string
 		// OneShot bool
 	}
-	mgr.modules[cfg.Name].process = pexec.NewManagedProcess(pcfg, mgr.logger)
+	mod.process = pexec.NewManagedProcess(pcfg, mgr.logger)
 
-	err = mgr.modules[cfg.Name].process.Start(context.Background())
+	err = mod.process.Start(context.Background())
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")
 	}
 
 	conn, err := grpc.Dial(
-		string("unix://"+mgr.modules[cfg.Name].addr),
+		string("unix://"+mod.addr),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
 		grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor()),
@@ -122,23 +125,38 @@ func (mgr *Manager) AddModule(cfg config.Module) error {
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")
 	}
-	mgr.modules[cfg.Name].conn = conn
-	mgr.modules[cfg.Name].serves = cfg.Models
 
-	for _, model := range cfg.Models {
-		switch cfg.Type {
-		case "component":
-			registry.RegisterComponent(generic.Subtype, model, registry.Component{
-				Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
-					return mgr.AddComponent(ctx, cfg, depsToNames(deps))
-				},
-			})
-		case "service":
-			mgr.logger.Warn("modular services not yet supported")
-		case "logic":
+	mod.conn = conn
+	mod.client = pb.NewModuleServiceClient(conn)
+	mod.handles, err = checkReady(ctx, mod.client)
+	if err != nil {
+		return errors.WithMessage(err, "SMURF PING: ")
+	}
+
+	for api, models := range mod.handles {
+		switch api.Type.ResourceType {
+		case resource.ResourceTypeComponent:
+			for _, model := range models {
+				mgr.logger.Warnf("SMURF API: %s MODEL: %s", api, model)
+				registry.RegisterComponent(api, model, registry.Component{
+					Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
+						return mgr.AddComponent(ctx, cfg, depsToNames(deps))
+					},
+				})
+			}
+		case resource.ResourceTypeService:
+			for _, model := range models {
+				mgr.logger.Warnf("SMURF API: %s MODEL: %s", api, model)
+				registry.RegisterService(api, model, registry.Service{
+					Constructor: func(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Logger) (interface{}, error) {
+						return mgr.AddService(ctx, cfg)
+					},
+				})
+			}
+		case resource.TypeName("logic"):
 			mgr.logger.Warn("modular logic not yet supported")
 		default:
-			mgr.logger.Errorf("invalid module type: %s", cfg.Type)
+			mgr.logger.Errorf("invalid module type: %s", api.Type)
 		}
 	}
 
@@ -148,19 +166,18 @@ func (mgr *Manager) AddModule(cfg config.Module) error {
 // AddComponent tells a component module to configure a new component.
 func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component, deps []string) (interface{}, error) {
 	for _, module := range mgr.modules {
-		for _, model := range module.serves {
-			if cfg.Model == model {
-				client := pb.NewModuleServiceClient(module.conn)
-				err := ping(ctx, client)
-				if err != nil {
-					return nil, errors.WithMessage(err, "SMURF PING: ")
-				}
+		models, ok := module.handles[cfg.ResourceName().Subtype]
+		if !ok {
+			continue
+		}
 
+		for _, model := range models {
+			if cfg.Model == model {
 				cfgProto, err := config.ComponentConfigToProto(&cfg)
 				if err != nil {
 					return nil, err
 				}
-				_, err = client.AddComponent(ctx, &pb.AddComponentRequest{Config: cfgProto, Dependencies: deps})
+				_, err = module.client.AddComponent(ctx, &pb.AddComponentRequest{Config: cfgProto, Dependencies: deps})
 				if err != nil {
 					return nil, err
 				}
@@ -177,7 +194,7 @@ func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component, deps
 			}
 		}
 	}
-	return nil, errors.Errorf("no module registered to serve resource model %s", cfg.ResourceName().Model)
+	return nil, errors.Errorf("no module registered to serve resource api %s and model %s", cfg.ResourceName().Subtype, cfg.ResourceName().Model)
 }
 
 // AddService tells a service module to configure a new service.
@@ -194,18 +211,18 @@ func depsToNames(deps registry.Dependencies) []string {
 	return depStrings
 }
 
-func ping(ctx context.Context, client pb.ModuleServiceClient) error {
+func checkReady(ctx context.Context, client pb.ModuleServiceClient) (modlib.HandlerMap, error) {
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, time.Second*10)
 	defer cancelFunc()
 	for {
 		// TODO (@Otterverse) test if this actually fails on context.Done()
 		resp, err := client.Ready(ctxTimeout, &pb.ReadyRequest{}, grpc_retry.WithMax(5000))
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if resp.Ready {
-			return nil
+			return modlib.NewHandlerMapFromProto(resp.Handlermap)
 		}
 	}
 }

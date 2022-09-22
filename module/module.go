@@ -23,13 +23,45 @@ type (
 	AddComponentFunc func(ctx context.Context, cfg *config.Component, depList []string) error
 )
 
+type HandlerMap map[resource.Subtype][]resource.Model
+
+func (h HandlerMap) ToProto() *pb.HandlerMap {
+	pMap := &pb.HandlerMap{}
+	for api, models := range h {
+		handler := &pb.HandlerDefinition{Api: api.String()}
+		for _, m := range models {
+			handler.Models = append(handler.Models, m.String())
+		}
+		pMap.Handlers = append(pMap.Handlers, handler)
+	}
+	return pMap
+}
+
+func NewHandlerMapFromProto(pMap *pb.HandlerMap) (HandlerMap, error) {
+	hMap := make(HandlerMap)
+	for _, h := range pMap.GetHandlers() {
+		api, err := resource.NewSubtypeFromString(h.Api)
+		if err != nil {
+			return nil, err
+		}
+		for _, m := range h.Models {
+			model, err := resource.NewModelFromString(m)
+			if err != nil {
+				return nil, err
+			}
+			hMap[api] = append(hMap[api], model)
+		}
+	}
+	return hMap, nil
+}
+
 type modserver struct {
 	module *Module
 	pb.UnimplementedModuleServiceServer
 }
 
 func (s *modserver) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResponse, error) {
-	return &pb.ReadyResponse{Ready: s.module.ready}, nil
+	return &pb.ReadyResponse{Ready: s.module.ready, Handlermap: s.module.handlers.ToProto()}, nil
 }
 
 func (s *modserver) AddComponent(ctx context.Context, req *pb.AddComponentRequest) (*pb.AddComponentResponse, error) {
@@ -55,6 +87,7 @@ type Module struct {
 	addr                    string
 	activeBackgroundWorkers sync.WaitGroup
 	addComponent            AddComponentFunc
+	handlers                HandlerMap
 }
 
 func (m *Module) SetReady(ready bool) {
@@ -103,7 +136,13 @@ func (m *Module) RegisterAddComponent(componentFunc AddComponentFunc) {
 	m.addComponent = componentFunc
 }
 
-func (m *Module) GetParentComponent(name string) (interface{}, error) {
+func (m *Module) RegisterModel(api resource.Subtype, model resource.Model) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.handlers[api] = append(m.handlers[api], model)
+}
+
+func (m *Module) GetParentComponent(name resource.Name) (interface{}, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.parent == nil {
@@ -113,12 +152,7 @@ func (m *Module) GetParentComponent(name string) (interface{}, error) {
 		}
 		m.parent = rc
 	}
-
-	rName, err := resource.NewFromString(name)
-	if err != nil {
-		return nil, err
-	}
-	return m.parent.ResourceByName(rName)
+	return m.parent.ResourceByName(name)
 }
 
 func NewModule(address string, logger *zap.SugaredLogger) *Module {
@@ -127,6 +161,7 @@ func NewModule(address string, logger *zap.SugaredLogger) *Module {
 		addr:       address,
 		grpcServer: grpc.NewServer(),
 		ready:      true,
+		handlers:   make(HandlerMap),
 	}
 
 	m.modServer = &modserver{module: m}

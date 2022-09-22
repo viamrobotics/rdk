@@ -164,15 +164,9 @@ func ServiceConfigFromProto(proto *pb.ServiceConfig) (*Service, error) {
 
 // ModuleConfigToProto converts Module to proto equivalent.
 func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
-	var models []string
-	for _, m := range module.Models {
-		models = append(models, m.String())
-	}
-
 	proto := pb.ModuleConfig{
-		Path:   module.Path,
-		Type:   module.Type,
-		Models: models,
+		Name: module.Name,
+		Path: module.Path,
 	}
 
 	return &proto, nil
@@ -180,20 +174,10 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 
 // ModuleConfigFromProto creates Module from proto equivalent.
 func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
-	var models []resource.Model
-	for _, m := range proto.GetModels() {
-		model, err := resource.NewModelFromString(m)
-		if err != nil {
-			return nil, err
-		}
-		models = append(models, model)
-	}
 	module := Module{
-		Path:   proto.GetPath(),
-		Type:   proto.GetType(),
-		Models: models,
+		Name: proto.GetName(),
+		Path: proto.GetPath(),
 	}
-
 	return &module, nil
 }
 

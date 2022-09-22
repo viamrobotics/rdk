@@ -72,7 +72,7 @@ func SetDialMaxTimeoutSecForTesting(val int) {
 
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
 func init() {
-	registry.RegisterService(slam.Subtype, resource.DefaultModelName, registry.Service{
+	registry.RegisterService(slam.Subtype, resource.DefaultServiceModel, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return NewBuiltIn(ctx, r, c, logger)
 		},

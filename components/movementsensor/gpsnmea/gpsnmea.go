@@ -91,6 +91,7 @@ func (cfg *SerialAttrConfig) ValidateSerial(path string) error {
 }
 
 var modelname = resource.NewDefaultModel("gps-nmea")
+
 // NmeaMovementSensor implements a gps that sends nmea messages for movement data.
 type NmeaMovementSensor interface {
 	movementsensor.MovementSensor
