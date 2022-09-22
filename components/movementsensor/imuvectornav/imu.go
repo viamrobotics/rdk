@@ -29,7 +29,7 @@ type AttrConfig struct {
 	Board string `json:"board"`
 	SPI   string `json:"spi"`
 	Speed *int   `json:"speed"`        // TODO(RSDK-568) units?
-	Pfreq *int   `json:"polling_freq"` // TODO(RSDK-568) units?
+	Pfreq *int   `json:"polling_freq_hz"`
 	CSPin string `json:"cs_pin"`
 }
 
