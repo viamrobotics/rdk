@@ -51,8 +51,8 @@ type GeometryConfig struct {
 	R float64 `json:"r_mm"`
 
 	// define an offset to position the geometry
-	TranslationOffset TranslationConfig `json:"translation"` // TODO(RSDK-568): unit?
-	OrientationOffset OrientationConfig `json:"orientation"` // TODO(RSDK-568): unit?
+	TranslationOffset TranslationConfig `json:"translation"`
+	OrientationOffset OrientationConfig `json:"orientation"`
 }
 
 // NewGeometryConfig creates a config for a Geometry from an offset Pose.
