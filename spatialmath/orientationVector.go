@@ -21,18 +21,18 @@ import (
 // zero as the north/south pole is circled, the Roll will correct itself to remain in-line.
 type OrientationVector struct {
 	Theta float64 `json:"th_rads"`
-	OX    float64 `json:"x_mm"`
-	OY    float64 `json:"y_mm"`
-	OZ    float64 `json:"z_mm"`
+	OX    float64 `json:"x"`
+	OY    float64 `json:"y"`
+	OZ    float64 `json:"z"`
 }
 
 // OrientationVectorDegrees is the orientation vector between two objects, but expressed in degrees rather than radians.
 // Because protobuf Pose is in degrees, this is necessary.
 type OrientationVectorDegrees struct {
-	Theta float64 `json:"th_rads"`
-	OX    float64 `json:"x_mm"`
-	OY    float64 `json:"y_mm"`
-	OZ    float64 `json:"z_mm"`
+	Theta float64 `json:"th_degs"`
+	OX    float64 `json:"x"`
+	OY    float64 `json:"y"`
+	OZ    float64 `json:"z"`
 }
 
 // NewOrientationVector Creates a zero-initialized OrientationVector.
