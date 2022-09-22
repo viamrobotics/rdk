@@ -25,7 +25,6 @@ type PinConfig struct {
 }
 
 // TMC5072Config describes the configuration of a motor.
-//nolint:lll
 type TMC5072Config struct {
 	Pins             PinConfig `json:"pins"`
 	BoardName        string    `json:"board"` // used to get encoders
@@ -35,12 +34,12 @@ type TMC5072Config struct {
 	SPIBus           string    `json:"spi_bus"`
 	ChipSelect       string    `json:"chip_select"`
 	Index            int       `json:"index"`
-	SGThresh         int32     `json:"sg_thresh,omitempty"` // TODO(RSDK-568): units?
+	SGThresh         int32     `json:"sg_thresh,omitempty"`
 	HomeRPM          float64   `json:"home_rpm,omitempty"`
 	CalFactor        float64   `json:"cal_factor,omitempty"`
-	RunCurrent       int32     `json:"run_current,omitempty"`  // 1-32 as a percentage of rsense voltage, 15 default  // TODO(RSDK-568): units?
-	HoldCurrent      int32     `json:"hold_current,omitempty"` // 1-32 as a percentage of rsense voltage, 8 default  // TODO(RSDK-568): units?
-	HoldDelay        int32     `json:"hold_delay,omitempty"`   // 0=instant powerdown, 1-15=delay * 2^18 clocks, 6 default  // TODO(RSDK-568): units?
+	RunCurrent       int32     `json:"run_current,omitempty"`  // 1-32 as a percentage of rsense voltage, 15 default
+	HoldCurrent      int32     `json:"hold_current,omitempty"` // 1-32 as a percentage of rsense voltage, 8 default
+	HoldDelay        int32     `json:"hold_delay,omitempty"`   // 0=instant powerdown, 1-15=delay * 2^18 clocks, 6 default
 }
 
 const (
