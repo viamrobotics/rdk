@@ -21,10 +21,10 @@ type RadiusClusteringVoxelConfig struct {
 	MinPtsInPlane      int     `json:"min_points_in_plane"`
 	MinPtsInSegment    int     `json:"min_points_in_segment"`
 	ClusteringRadiusMm float64 `json:"clustering_radius_mm"`
-	WeightThresh       float64 `json:"weight_threshold"` // TODO(RSDK-586): unit?
+	WeightThresh       float64 `json:"weight_threshold"`
 	AngleThresh        float64 `json:"angle_threshold_degs"`
-	CosineThresh       float64 `json:"cosine_threshold"`   // TODO(RSDK-586): unit (rads)?
-	DistanceThresh     float64 `json:"distance_threshold"` // TODO(RSDK-586): unit?
+	CosineThresh       float64 `json:"cosine_threshold"` // between -1 and 1, the value after evaluating Cosine(theta)
+	DistanceThresh     float64 `json:"distance_threshold_mm"`
 }
 
 // CheckValid checks to see in the input values are valid.
