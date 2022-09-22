@@ -65,7 +65,7 @@ func TestPrismaticFrame(t *testing.T) {
 	overLimit := 50.0
 	input = FloatsToInputs([]float64{overLimit})
 	_, err = frame.Transform(input)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f %s %v", overLimit, OOBErrString, frame.DoF()[0]))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f %s %.5f", overLimit, OOBErrString, frame.DoF()[0]))
 
 	// gets the correct limits back
 	frameLimits := frame.DoF()

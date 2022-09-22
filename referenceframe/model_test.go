@@ -21,17 +21,17 @@ func TestModelLoading(t *testing.T) {
 
 	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
 
-	isValid := simpleM.validInputs(FloatsToInputs([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}))
-	test.That(t, isValid, test.ShouldBeTrue)
-	isValid = simpleM.validInputs(FloatsToInputs([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 99.1}))
-	test.That(t, isValid, test.ShouldBeFalse)
+	err = simpleM.validInputs(FloatsToInputs([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}))
+	test.That(t, err, test.ShouldBeNil)
+	err = simpleM.validInputs(FloatsToInputs([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 99.1}))
+	test.That(t, err, test.ShouldNotBeNil)
 
 	orig := []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}
 	orig[5] += math.Pi * 2
 	orig[4] -= math.Pi * 4
 
 	randpos := GenerateRandomConfiguration(m, rand.New(rand.NewSource(1)))
-	test.That(t, simpleM.validInputs(FloatsToInputs(randpos)), test.ShouldBeTrue)
+	test.That(t, simpleM.validInputs(FloatsToInputs(randpos)), test.ShouldBeNil)
 
 	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_kinematics.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
@@ -95,8 +95,7 @@ func TestModelGeometries(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	frame3, err := NewStaticFrameWithGeometry("link2", offset, bc)
 	test.That(t, err, test.ShouldBeNil)
-	m := &SimpleModel{OrdTransforms: []Frame{frame1, frame2, frame3}}
-	m.name = "test"
+	m := &SimpleModel{baseFrame: &baseFrame{name: "test"}, OrdTransforms: []Frame{frame1, frame2, frame3}}
 
 	// test zero pose of model
 	inputs := make([]Input, len(m.DoF()))
