@@ -7,40 +7,18 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/dimensionengineering"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/test"
 )
-
-// check is essentially test.That with tb.Error instead of tb.Fatal (Fatal exits and leaves the go routines stuck waiting).
-func check(
-	resChan chan string,
-	actual interface{},
-	assert func(actual interface{}, expected ...interface{}) string, expected ...interface{},
-) {
-	if result := assert(actual, expected...); result != "" {
-		resChan <- result
-	}
-}
 
 var txMu sync.Mutex
 
-func waitTx(tb testing.TB, resChan chan string) {
-	tb.Helper()
-	txMu.Lock()
-	defer txMu.Unlock()
-	for {
-		res := <-resChan
-		if res == "DONE" {
-			return
-		}
-		tb.Error(res)
-	}
-}
-
 func checkTx(t *testing.T, resChan chan string, c chan []byte, expects []byte) {
+	t.Helper()
 	defer txMu.Unlock()
 	message := <-c
 	t.Logf("Expected: %b, Actual %b", expects, message)

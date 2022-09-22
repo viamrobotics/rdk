@@ -39,11 +39,4 @@ const (
 	opSerialBaudRate      opCode = 0x15
 	opRamping             opCode = 0x16
 	opDeadband            opCode = 0x17
-
-	// Valid serial port speeds.
-	baud2400   = 2400
-	baud9600   = 9600
-	baud19200  = 19200
-	baud38400  = 38400
-	baud115200 = 115200
 )
