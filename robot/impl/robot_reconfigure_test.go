@@ -2296,6 +2296,61 @@ func TestSensorsServiceUpdate(t *testing.T) {
 	})
 }
 
+func TestDefaultServiceReconfigure(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	visName := "vis"
+	dmName := "dm"
+	cfg1 := &config.Config{
+		Services: []config.Service{
+			{
+				Name: visName,
+				Type: config.ServiceType(vision.SubtypeName),
+			},
+			{
+				Name: dmName,
+				Type: config.ServiceType(datamanager.SubtypeName),
+			},
+		},
+	}
+	robot, err := New(context.Background(), cfg1, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	test.That(
+		t,
+		rdktestutils.NewResourceNameSet(robot.ResourceNames()...),
+		test.ShouldResemble,
+		rdktestutils.NewResourceNameSet(
+			vision.Named(visName),
+			datamanager.Named(dmName),
+			sensors.Named(resource.DefaultServiceName),
+		),
+	)
+	visName = "vis2"
+	cfg2 := &config.Config{
+		Services: []config.Service{
+			{
+				Name: visName,
+				Type: config.ServiceType(vision.SubtypeName),
+			},
+		},
+	}
+	robot.Reconfigure(context.Background(), cfg2)
+	test.That(
+		t,
+		rdktestutils.NewResourceNameSet(robot.ResourceNames()...),
+		test.ShouldResemble,
+		rdktestutils.NewResourceNameSet(
+			vision.Named(visName),
+			datamanager.Named(resource.DefaultServiceName),
+			sensors.Named(resource.DefaultServiceName),
+		),
+	)
+}
+
 func TestStatusServiceUpdate(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
