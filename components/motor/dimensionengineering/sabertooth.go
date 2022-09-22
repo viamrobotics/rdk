@@ -12,6 +12,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/mitchellh/mapstructure"
+	utils "go.viam.com/utils"
 	"go.viam.com/utils/usb"
 
 	"go.viam.com/rdk/components/motor"
@@ -19,7 +20,6 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	rdkutils "go.viam.com/rdk/utils"
-	utils "go.viam.com/utils"
 )
 
 const (
@@ -72,6 +72,7 @@ type Config struct {
 	Address  int         `json:"address"` // 128-135
 }
 
+// Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) error {
 	if cfg.SerialDevice == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_device")
@@ -256,11 +257,9 @@ func (c *controller) sendCmd(cmd *command) error {
 	if c.testChan != nil {
 		c.testChan <- packet
 		return nil
-	} else {
-		_, err := c.port.Write(packet)
-		return err
 	}
-	// The controller doesn't actually respond, it only accepts writes
+	_, err := c.port.Write(packet)
+	return err
 }
 
 // SetPower instructs the motor to go in a specific direction at a percentage
@@ -327,7 +326,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 
-	ctx, done := m.opMgr.New(ctx)
+	_, done := m.opMgr.New(ctx)
 	defer done()
 
 	m.jogging = false
@@ -351,10 +350,7 @@ func (m *Motor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[
 	if !ok {
 		return nil, errors.New("missing 'command' value")
 	}
-	switch name {
-	default:
-		return nil, fmt.Errorf("no such command: %s", name)
-	}
+	return nil, fmt.Errorf("no such command: %s", name)
 }
 
 // Properties returns the additional features supported by this motor.
