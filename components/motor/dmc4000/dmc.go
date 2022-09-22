@@ -65,13 +65,13 @@ type Motor struct {
 
 // Config adds DMC-specific config options.
 type Config struct {
-	DirectionFlip    bool    `json:"dir_flip,omitempty"`                     // Flip the direction of the signal sent if there is a Dir pin
-	MaxRPM           float64 `json:"max_rpm,omitempty"`                      // TODO(RSDK-568): revs_per_min?
-	MaxAcceleration  float64 `json:"max_acceleration_rpm_per_sec,omitempty"` // TODO(RSDK-568): revs_per_min_per_sec?
+	DirectionFlip    bool    `json:"dir_flip,omitempty"` // Flip the direction of the signal sent if there is a Dir pin
+	MaxRPM           float64 `json:"max_rpm,omitempty"`
+	MaxAcceleration  float64 `json:"max_acceleration_rpm_per_sec,omitempty"`
 	TicksPerRotation int     `json:"ticks_per_rotation"`
 	SerialDevice     string  `json:"serial_device"`   // path to /dev/ttyXXXX file
 	Axis             string  `json:"controller_axis"` // A-H
-	HomeRPM          float64 `json:"home_rpm"`        // Speed for Home() // TODO(RSDK-568): revs_per_min?
+	HomeRPM          float64 `json:"home_rpm"`        // Speed for Home()
 
 	// Set the per phase current (when using stepper amp)
 	// https://www.galil.com/download/comref/com4103/index.html#amplifier_gain.html
