@@ -3,11 +3,11 @@ package config
 import (
 	"crypto/tls"
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"sort"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/utils/pexec"
 )
 
@@ -206,19 +206,19 @@ func diffRemote(left, right Remote, diff *Diff) bool {
 }
 
 func diffComponents(left, right []Component, diff *Diff) (bool, error) {
-	leftIndex := make(map[string]int)
-	leftM := make(map[string]Component)
+	leftIndex := make(map[resource.Name]int)
+	leftM := make(map[resource.Name]Component)
 	for idx, l := range left {
-		leftM[l.Name] = l
-		leftIndex[l.Name] = idx
+		leftM[l.ResourceName()] = l
+		leftIndex[l.ResourceName()] = idx
 	}
 
 	var removed []int
 
 	var different bool
 	for _, r := range right {
-		l, ok := leftM[r.Name]
-		delete(leftM, r.Name)
+		l, ok := leftM[r.ResourceName()]
+		delete(leftM, r.ResourceName())
 		if ok {
 			componentDifferent, err := diffComponent(l, r, diff)
 			if err != nil {
@@ -245,9 +245,6 @@ func diffComponents(left, right []Component, diff *Diff) (bool, error) {
 func diffComponent(left, right Component, diff *Diff) (bool, error) {
 	if reflect.DeepEqual(left, right) {
 		return false, nil
-	}
-	if left.Type != right.Type {
-		return false, fmt.Errorf("cannot modify type of existing component %q", left.Name)
 	}
 	diff.Modified.Components = append(diff.Modified.Components, right)
 	return true, nil
@@ -295,19 +292,19 @@ func diffProcess(left, right pexec.ProcessConfig, diff *Diff) bool {
 }
 
 func diffServices(left, right []Service, diff *Diff) (bool, error) {
-	leftIndex := make(map[string]int)
-	leftM := make(map[string]Service)
+	leftIndex := make(map[resource.Name]int)
+	leftM := make(map[resource.Name]Service)
 	for idx, l := range left {
-		leftM[string(l.Type)] = l
-		leftIndex[string(l.Type)] = idx
+		leftM[l.ResourceName()] = l
+		leftIndex[l.ResourceName()] = idx
 	}
 
 	var removed []int
 
 	var different bool
 	for _, r := range right {
-		l, ok := leftM[string(r.Type)]
-		delete(leftM, string(r.Type))
+		l, ok := leftM[r.ResourceName()]
+		delete(leftM, r.ResourceName())
 		if ok {
 			serviceDifferent, err := diffService(l, r, diff)
 			if err != nil {
@@ -334,9 +331,6 @@ func diffServices(left, right []Service, diff *Diff) (bool, error) {
 func diffService(left, right Service, diff *Diff) (bool, error) {
 	if reflect.DeepEqual(left, right) {
 		return false, nil
-	}
-	if left.Type != right.Type {
-		return false, fmt.Errorf("cannot modify type of existing service %q", left.Name)
 	}
 	diff.Modified.Services = append(diff.Modified.Services, right)
 	return true, nil
