@@ -68,12 +68,12 @@ func TestSabertoothMotor(t *testing.T) {
 
 		// Test 0.5 of max power
 		txMu.Lock()
-		go checkTx(t, resChan, c, []byte{0x80, 0x00, 0x40, 0x2C})
+		go checkTx(t, resChan, c, []byte{0x80, 0x00, 0x3f, 0x3f})
 		test.That(t, _motor.SetPower(ctx, 0.5, nil), test.ShouldBeNil)
 
 		// Test -0.5 of max power
 		txMu.Lock()
-		go checkTx(t, resChan, c, []byte{0x80, 0x01, 0x40, 0x2C})
+		go checkTx(t, resChan, c, []byte{0x80, 0x01, 0x3f, 0x40})
 		test.That(t, _motor.SetPower(ctx, -0.5, nil), test.ShouldBeNil)
 
 		// Test 0 (aka "stop")
