@@ -65,14 +65,15 @@ func TestOrbslamIntegrationExample(t *testing.T) {
 
 	// Wait for orbslam to finish processing images
 	logReader := svc.(internal.Service).GetSLAMProcessBufferedLogReader()
-	for i := 0; i < numOrbslamImages; i++ {
-		t.Logf("Find log line for image %v", i)
-		for {
-			line, err := logReader.ReadString('\n')
-			test.That(t, err, test.ShouldBeNil)
-			if strings.Contains(line, "Passed image to SLAM") {
-				break
-			}
+	// The bug fixed in DATA-182 revealed an issue with this test framework that since
+	// orbslam is running in online mode, it will only consume the most recent image.
+	// TODO DATA-363: ensure all images are found
+	t.Logf("Find log line for image 0")
+	for {
+		line, err := logReader.ReadString('\n')
+		test.That(t, err, test.ShouldBeNil)
+		if strings.Contains(line, "Passed image to SLAM") {
+			break
 		}
 	}
 
