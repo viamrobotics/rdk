@@ -40,7 +40,7 @@ func TestSabertoothMotor(t *testing.T) {
 		Address:      128,
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, "Sabertooth")
+	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	// These are the setup register writes
