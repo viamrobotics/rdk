@@ -124,7 +124,7 @@ type Frame interface {
 	json.Marshaler
 }
 
-// baseFrame contains all the data and methods common to all frames, notably it does not implement the Frame interface itself
+// baseFrame contains all the data and methods common to all frames, notably it does not implement the Frame interface itself.
 type baseFrame struct {
 	name   string
 	limits []Limit
