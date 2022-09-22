@@ -9,7 +9,7 @@ import (
 
 // RawDepthColorHomography is a structure that can be easily serialized and unserialized into JSON.
 type RawDepthColorHomography struct {
-	Homography   []float64 `json:"transform"` // TODO(RSDK-568): unit?
+	Homography   []float64 `json:"transform"`
 	DepthToColor bool      `json:"depth_to_color"`
 	RotateDepth  int       `json:"rotate_depth"`
 }
