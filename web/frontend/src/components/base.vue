@@ -95,7 +95,6 @@ const baseRun = () => {
 
 const baseKeyboardCtl = (name: string, controls: Record<string, boolean>) => {
   if (Object.values(controls).every((item) => item === false)) {
-    toast.info('All keyboard inputs false, stopping base.');
     handleBaseActionStop(name);
     return;
   }
