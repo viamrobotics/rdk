@@ -31,6 +31,7 @@
         {
             "name": "data_manager1",
             "type": "data_manager",
+            "model": "builtin",
             "attributes": {
                 "capture_dir": "/tmp/capture"
             }
