@@ -11,7 +11,7 @@ import (
 type RawDepthColorHomography struct {
 	Homography   []float64 `json:"transform"`
 	DepthToColor bool      `json:"depth_to_color"`
-	RotateDepth  int       `json:"rotate_depth"`
+	RotateDepth  int       `json:"rotate_depth_degs"`
 }
 
 // CheckValid runs checks on the fields of the struct to see if the inputs are valid.
