@@ -690,10 +690,11 @@ func TestSessionIDAfterUpdate(t *testing.T) {
 	sessionID1 := dmsvc.GetSessionID()
 	test.That(t, sessionID0, test.ShouldEqual, sessionID1)
 
-	// Checks the session is different after data manager service configuration has changed
 	// Get and change capture frequency
 	mp := testCfg.Components[0].ServiceConfig[0].Attributes["capture_methods"].([]interface{})[0]
 	mp.(map[string]interface{})["capture_frequency_hz"] = 200
+
+	// Check the session is different after data manager service configuration has changed.
 	err = dmsvc.Update(context.TODO(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 	sessionID2 := dmsvc.GetSessionID()
