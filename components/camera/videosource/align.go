@@ -168,7 +168,11 @@ func newAlignColorDepth(ctx context.Context, color, depth camera.Camera, attrs *
 		return nil, err
 	}
 	if attrs.Height <= 0 || attrs.Width <= 0 {
-		return nil, errors.Errorf("alignColorDepth needs Width and Height fields set. Got illegal dimensions (%d, %d)", attrs.Width, attrs.Height)
+		return nil, errors.Errorf(
+			"alignColorDepth needs Width and Height fields set. Got illegal dimensions (%d, %d)",
+			attrs.Width,
+			attrs.Height,
+		)
 	}
 	// get the projector for the alignment camera
 	stream := camera.StreamType(attrs.Stream)
