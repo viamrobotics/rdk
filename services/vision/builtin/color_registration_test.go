@@ -16,10 +16,10 @@ func TestColorDetector(t *testing.T) {
 		Name: "my_color_detector",
 		Type: "color_detector",
 		Parameters: config.AttributeMap{
-			"segment_size": 150000,
-			"tolerance_pct":    0.44,
-			"detect_color": "#4F3815",
-			"extraneous":   "whatever",
+			"segment_size_px": 150000,
+			"tolerance_pct":   0.44,
+			"detect_color":    "#4F3815",
+			"extraneous":      "whatever",
 		},
 	}
 	ctx := context.Background()
