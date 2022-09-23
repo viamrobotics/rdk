@@ -42,7 +42,7 @@ type httpClient interface {
 
 // Manager is responsible for deploying model files.
 type Manager interface {
-	DownloadModels(cfg *config.Config, modelsToDeploy []*Model, errorChannel chan error) chan error
+	DownloadModels(cfg *config.Config, modelsToDeploy []*Model, errorChannel chan error)
 	Close()
 }
 
@@ -115,16 +115,16 @@ func (m *modelManager) Close() {
 	}
 }
 
-// DownloadModels handles deploying models into their specified destination.
-func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Model, errorChannel chan error) chan error {
+// DownloadModels handles downloading models into their specified destination.
+func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Model, errorChannel chan error) {
 	modelsToDownload, err := getModelsToDownload(modelsToDeploy)
 	if err != nil {
 		errorChannel <- err
-		return errorChannel
+		return
 	}
 	// TODO: DATA-295, delete models in file system that are no longer in the config. If we have no models to download, exit.
 	if len(modelsToDownload) == 0 {
-		return nil
+		return
 	}
 	// Stop download of previous models if we're trying to download new ones.
 	if m.cancelFunc != nil {
@@ -143,6 +143,7 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 		if err != nil {
 			m.logger.Error(err)
 			errorChannel <- err
+			return
 		}
 		url := deployResp.Message
 		filePath := filepath.Join(model.Destination, model.Name)
@@ -150,6 +151,7 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 		if err != nil {
 			m.logger.Error(err)
 			errorChannel <- err
+			return
 		}
 		// A download from a GCS signed URL only returns one file.
 		modelFileToUnzipPath := filepath.Join(model.Destination, model.Name+zipExtension)
@@ -158,8 +160,6 @@ func (m *modelManager) DownloadModels(cfg *config.Config, modelsToDeploy []*Mode
 			errorChannel <- err
 		}
 	}
-	close(errorChannel)
-	return errorChannel
 }
 
 // getModelsToDownload fetches the models that need to be downloaded according to the
@@ -177,23 +177,14 @@ func getModelsToDownload(models []*Model) ([]*Model, error) {
 		switch {
 		case errors.Is(err, os.ErrNotExist):
 			// we know we have never attempted to deploy the model
-			modelsToDownload = append(modelsToDownload, model)
 			// create model.Destination directory
-			err := os.MkdirAll(model.Destination, os.ModePerm)
-			if err != nil {
+			if err := os.MkdirAll(model.Destination, os.ModePerm); err != nil {
 				return nil, err
 			}
+			modelsToDownload = append(modelsToDownload, model)
 		case err != nil:
 			return nil, err
 		default:
-			files, err := ioutil.ReadDir(model.Destination)
-			if err != nil {
-				return nil, err
-			}
-			if len(files) == 0 {
-				// know there was a partial download
-				modelsToDownload = append(modelsToDownload, model)
-			}
 		}
 	}
 	return modelsToDownload, nil
