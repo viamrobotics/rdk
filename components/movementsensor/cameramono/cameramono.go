@@ -235,7 +235,7 @@ func (co *cameramono) extractMovementFromOdometer(
 	co.result.trackedOrient = co.result.trackedOrient.RotationMatrix().LeftMatMul(*rotMat)
 	co.result.trackedPos = co.result.trackedPos.Add(translationToR3(co.motion))
 	co.result.linVel = calculateLinVel(motion, dt)
-	co.result.angVel = *spatialmath.OrientationToAngularVel(rotMat, dt)
+	co.result.angVel = spatialmath.OrientationToAngularVel(rotMat.EulerAngles(), dt)
 
 	return motion, err
 }
