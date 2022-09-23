@@ -50,7 +50,4 @@ func TestDiscoveryWebcam(t *testing.T) {
 	test.That(t, respProps[0].Width, test.ShouldResemble, int32(320))
 	test.That(t, respProps[0].Height, test.ShouldResemble, int32(240))
 	test.That(t, respProps[0].FrameFormat, test.ShouldResemble, "some format")
-	test.That(t, respProps[0].Video.Width, test.ShouldResemble, int32(320))
-	test.That(t, respProps[0].Video.Height, test.ShouldResemble, int32(240))
-	test.That(t, respProps[0].Video.FrameFormat, test.ShouldResemble, "some format")
 }
