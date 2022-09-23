@@ -120,8 +120,8 @@ func TestServerAddDetector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	params, err := protoutils.StructToStructPb(config.AttributeMap{
 		"detect_color": "#112233",
-		"tolerance":    0.4,
-		"segment_size": 200,
+		"tolerance_pct":    0.4,
+		"segment_size_px": 200,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	// success
