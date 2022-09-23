@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -746,7 +745,6 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		r.logger.Debugf("(re)configuring with %+v", diff)
 	}
 	// First we remove resources and their children that are not in the graph.
-	fmt.Printf("diff.Removed: %v\n", diff.Removed.Services)
 	filtered, err := r.manager.FilterFromConfig(ctx, diff.Removed, r.logger)
 	if err != nil {
 		allErrs = multierr.Combine(allErrs, err)

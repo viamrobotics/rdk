@@ -7,8 +7,9 @@ import (
 	"sort"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/utils/pexec"
+
+	"go.viam.com/rdk/resource"
 )
 
 // A Diff is the difference between two configs, left and right
@@ -59,15 +60,11 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 	// If left contains something right does and they are equal => no diff
 	// Note: generics would be nice here!
 	different := diffRemotes(left.Remotes, right.Remotes, &diff)
-	componentsDifferent, err := diffComponents(left.Components, right.Components, &diff)
-	if err != nil {
-		return nil, err
-	}
+	componentsDifferent := diffComponents(left.Components, right.Components, &diff)
+
 	different = componentsDifferent || different
-	servicesDifferent, err := diffServices(left.Services, right.Services, &diff)
-	if err != nil {
-		return nil, err
-	}
+	servicesDifferent := diffServices(left.Services, right.Services, &diff)
+
 	different = servicesDifferent || different
 	different = diffProcesses(left.Processes, right.Processes, &diff) || different
 	diff.ResourcesEqual = !different
@@ -205,7 +202,8 @@ func diffRemote(left, right Remote, diff *Diff) bool {
 	return true
 }
 
-func diffComponents(left, right []Component, diff *Diff) (bool, error) {
+//nolint:dupl
+func diffComponents(left, right []Component, diff *Diff) bool {
 	leftIndex := make(map[resource.Name]int)
 	leftM := make(map[resource.Name]Component)
 	for idx, l := range left {
@@ -220,10 +218,7 @@ func diffComponents(left, right []Component, diff *Diff) (bool, error) {
 		l, ok := leftM[r.ResourceName()]
 		delete(leftM, r.ResourceName())
 		if ok {
-			componentDifferent, err := diffComponent(l, r, diff)
-			if err != nil {
-				return false, err
-			}
+			componentDifferent := diffComponent(l, r, diff)
 			different = componentDifferent || different
 			continue
 		}
@@ -239,15 +234,15 @@ func diffComponents(left, right []Component, diff *Diff) (bool, error) {
 	for _, idx := range removed {
 		diff.Removed.Components = append(diff.Removed.Components, left[idx])
 	}
-	return different, nil
+	return different
 }
 
-func diffComponent(left, right Component, diff *Diff) (bool, error) {
+func diffComponent(left, right Component, diff *Diff) bool {
 	if reflect.DeepEqual(left, right) {
-		return false, nil
+		return false
 	}
 	diff.Modified.Components = append(diff.Modified.Components, right)
-	return true, nil
+	return true
 }
 
 func diffProcesses(left, right []pexec.ProcessConfig, diff *Diff) bool {
@@ -291,7 +286,8 @@ func diffProcess(left, right pexec.ProcessConfig, diff *Diff) bool {
 	return true
 }
 
-func diffServices(left, right []Service, diff *Diff) (bool, error) {
+//nolint:dupl
+func diffServices(left, right []Service, diff *Diff) bool {
 	leftIndex := make(map[resource.Name]int)
 	leftM := make(map[resource.Name]Service)
 	for idx, l := range left {
@@ -306,10 +302,7 @@ func diffServices(left, right []Service, diff *Diff) (bool, error) {
 		l, ok := leftM[r.ResourceName()]
 		delete(leftM, r.ResourceName())
 		if ok {
-			serviceDifferent, err := diffService(l, r, diff)
-			if err != nil {
-				return false, err
-			}
+			serviceDifferent := diffService(l, r, diff)
 			different = serviceDifferent || different
 			continue
 		}
@@ -325,15 +318,15 @@ func diffServices(left, right []Service, diff *Diff) (bool, error) {
 	for _, idx := range removed {
 		diff.Removed.Services = append(diff.Removed.Services, left[idx])
 	}
-	return different, nil
+	return different
 }
 
-func diffService(left, right Service, diff *Diff) (bool, error) {
+func diffService(left, right Service, diff *Diff) bool {
 	if reflect.DeepEqual(left, right) {
-		return false, nil
+		return false
 	}
 	diff.Modified.Services = append(diff.Modified.Services, right)
-	return true, nil
+	return true
 }
 
 // diffNetworkingCfg returns true if any part of the networking config is different.
