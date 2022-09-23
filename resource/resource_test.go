@@ -443,7 +443,7 @@ func TestResourceNameValidate(t *testing.T) {
 					},
 					ResourceSubtype: arm.SubtypeName,
 				},
-				Name:  "arm1",
+				Name: "arm1",
 			},
 			"",
 		},

@@ -21,11 +21,14 @@ import (
 )
 
 type (
+	// AddComponentFunc is the signature of a function to register that will handle new configs.
 	AddComponentFunc func(ctx context.Context, cfg *config.Component, depList []string) error
+
+	// HandlerMap is the format for api->model pairs that the module will service.
+	HandlerMap map[resource.Subtype][]resource.Model
 )
 
-type HandlerMap map[resource.Subtype][]resource.Model
-
+// ToProto converts the HandlerMap to a protobuf reprsentation.
 func (h HandlerMap) ToProto() *pb.HandlerMap {
 	pMap := &pb.HandlerMap{}
 	for api, models := range h {
@@ -38,6 +41,7 @@ func (h HandlerMap) ToProto() *pb.HandlerMap {
 	return pMap
 }
 
+// NewHandlerMapFromProto converts protobuf to HandlerMap.
 func NewHandlerMapFromProto(pMap *pb.HandlerMap) (HandlerMap, error) {
 	hMap := make(HandlerMap)
 	for _, h := range pMap.GetHandlers() {
@@ -61,14 +65,15 @@ type modserver struct {
 	pb.UnimplementedModuleServiceServer
 }
 
+// Ready receives the parent address and reports api/model combos the module is ready to service.
 func (s *modserver) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResponse, error) {
 	s.module.mu.Lock()
 	defer s.module.mu.Unlock()
-	s.module.logger.Info("SMURF100: %+v", req)
 	s.module.parentAddr = req.GetParentAddress()
 	return &pb.ReadyResponse{Ready: s.module.ready, Handlermap: s.module.handlers.ToProto()}, nil
 }
 
+// AddComponent receives the component configuration from the parent.
 func (s *modserver) AddComponent(ctx context.Context, req *pb.AddComponentRequest) (*pb.AddComponentResponse, error) {
 	if s.module.addComponent == nil {
 		return nil, errors.WithStack(errors.New("no AddComponentFunc registered"))
@@ -81,8 +86,8 @@ func (s *modserver) AddComponent(ctx context.Context, req *pb.AddComponentReques
 	return &pb.AddComponentResponse{}, s.module.addComponent(ctx, cfg, req.Dependencies)
 }
 
+// Module represents an external resource module that services components/services.
 type Module struct {
-	name                    string
 	parent                  *client.RobotClient
 	modServer               *modserver
 	grpcServer              *grpc.Server
@@ -96,16 +101,19 @@ type Module struct {
 	handlers                HandlerMap
 }
 
+// SetReady can be set to false if the module is not ready (ex. waiting on hardware).
 func (m *Module) SetReady(ready bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.ready = ready
 }
 
+// GRPCServer returns the underlying grpc.Server instance for the module.
 func (m *Module) GRPCServer() *grpc.Server {
 	return m.grpcServer
 }
 
+// Start starts the module service and grpc server.
 func (m *Module) Start() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -119,7 +127,7 @@ func (m *Module) Start() error {
 	m.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer m.activeBackgroundWorkers.Done()
-		defer os.Remove(m.addr)
+		defer utils.UncheckedErrorFunc(func() error { return os.Remove(m.addr) })
 		m.logger.Infof("server listening at %v", lis.Addr())
 		if err := m.grpcServer.Serve(lis); err != nil {
 			m.logger.Fatalf("failed to serve: %v", err)
@@ -128,6 +136,7 @@ func (m *Module) Start() error {
 	return nil
 }
 
+// Close shuts down the module and grpc server.
 func (m *Module) Close() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -136,24 +145,29 @@ func (m *Module) Close() {
 	m.activeBackgroundWorkers.Wait()
 }
 
+// RegisterAddComponent allows a module to register a function to be called when the parent
+// asks it to handle a new component.
 func (m *Module) RegisterAddComponent(componentFunc AddComponentFunc) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.addComponent = componentFunc
 }
 
+// RegisterModel registers the list of api/model pairs this module will service.
 func (m *Module) RegisterModel(api resource.Subtype, model resource.Model) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.handlers[api] = append(m.handlers[api], model)
 }
 
+// GetParentComponent returns a component from the parent robot by name.
 func (m *Module) GetParentComponent(ctx context.Context, name resource.Name) (interface{}, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.logger.Infof("Address: %s", m.parentAddr)
 	if m.parent == nil {
-		rc, err := client.New(ctx, "unix://"+m.parentAddr, m.logger, client.WithDialOptions(rpc.WithForceDirectGRPC(), rpc.WithDialDebug(), rpc.WithInsecure()))
+		rc, err := client.New(ctx, "unix://"+m.parentAddr, m.logger,
+			client.WithDialOptions(rpc.WithForceDirectGRPC(), rpc.WithDialDebug(), rpc.WithInsecure()))
 		if err != nil {
 			return nil, err
 		}
@@ -162,6 +176,7 @@ func (m *Module) GetParentComponent(ctx context.Context, name resource.Name) (in
 	return m.parent.ResourceByName(name)
 }
 
+// NewModule returns the basic module framework/structure.
 func NewModule(address string, logger *zap.SugaredLogger) *Module {
 	m := &Module{
 		logger:     logger,

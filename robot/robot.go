@@ -106,6 +106,10 @@ type LocalRobot interface {
 
 	// WebAddress returns the address of the web service.
 	LiteAddress() (string, error)
+
+	// TODO (@Otterverse) Break the import loop to expose this.
+	// ModuleManager returns the module manager the robot is using.
+	// ModuleManager() *manager.Manager
 }
 
 // A RemoteRobot is a Robot that was created through a connection.

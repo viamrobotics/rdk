@@ -8,7 +8,6 @@ import (
 	pb "go.viam.com/api/component/motor/v1"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/generic"

@@ -41,6 +41,7 @@ import (
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -260,6 +261,33 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 	return nil
 }
 
+// RunWeb starts the web server on the robot with web options and blocks until we cancel the context.
+func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logger golog.Logger) (err error) {
+	defer func() {
+		if err != nil {
+			err = utils.FilterOutError(err, context.Canceled)
+			if err != nil {
+				logger.Errorw("error running web", "error", err)
+			}
+		}
+	}()
+
+	if err := r.StartWeb(ctx, o); err != nil {
+		return err
+	}
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+// RunWebWithConfig starts the web server on the robot with a robot config and blocks until we cancel the context.
+func RunWebWithConfig(ctx context.Context, r robot.LocalRobot, cfg *config.Config, logger golog.Logger) error {
+	o, err := weboptions.FromConfig(cfg)
+	if err != nil {
+		return err
+	}
+	return RunWeb(ctx, r, o, logger)
+}
+
 // Address returns the address the service is listening on.
 func (svc *webService) Address() string {
 	svc.mu.Lock()
@@ -308,18 +336,15 @@ func (svc *webService) StartLite(ctx context.Context) error {
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
-		defer os.Remove(svc.liteAddr)
+		defer utils.UncheckedErrorFunc(func() error { return os.Remove(svc.liteAddr) })
 		svc.logger.Debugf("lite server listening at %v", lis.Addr())
 		if err := svc.liteServer.Serve(lis); err != nil {
 			svc.logger.Fatalf("failed to serve: %v", err)
 		}
-		os.RemoveAll(filepath.Dir(string(svc.liteAddr)))
+		defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(filepath.Dir(svc.liteAddr)) })
 	})
-
-	svc.logger.Warnf("SMURF 900 %+v", svc.addr)
 	return nil
 }
-
 
 // Update updates the web service when the robot has changed. Not Reconfigure because
 // this should happen at a different point in the lifecycle.

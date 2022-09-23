@@ -3,7 +3,6 @@ package manager
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -14,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
-
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
@@ -34,7 +32,7 @@ func NewManager(cfgs []config.Module, myRobot robot.LocalRobot, logger golog.Log
 		logger:     logger,
 		modules:    map[string]*module{},
 		serviceMap: map[resource.Name]rpc.ClientConn{},
-		r: myRobot,
+		r:          myRobot,
 	}
 
 	// for _, mod := range cfgs {
@@ -81,7 +79,7 @@ func (mgr *Manager) Close(ctx context.Context) error {
 			err,
 			mod.conn.Close(),
 			err, mod.process.Stop(),
-			os.RemoveAll(filepath.Dir(string(mod.addr))),
+			os.RemoveAll(filepath.Dir(mod.addr)),
 		)
 	}
 	return err
@@ -106,9 +104,9 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 	mod.addr = dir + "/module.sock"
 
 	pcfg := pexec.ProcessConfig{
-		ID:   string(cfg.Name),
-		Name: string(cfg.Path),
-		Args: []string{string(mgr.modules[cfg.Name].addr)},
+		ID:   cfg.Name,
+		Name: cfg.Path,
+		Args: []string{mgr.modules[cfg.Name].addr},
 		Log:  true,
 		// CWD string
 		// OneShot bool
@@ -121,7 +119,7 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 	}
 
 	conn, err := grpc.Dial(
-		string("unix://"+mod.addr),
+		"unix://"+mod.addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
 		grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor()),
@@ -139,14 +137,13 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 	}
 	mod.handles, err = checkReady(ctx, mod.client, parentAddr)
 	if err != nil {
-		return errors.WithMessage(err, "SMURF PING: ")
+		return errors.WithMessage(err, "error while waiting for module to start"+mod.name)
 	}
 
 	for api, models := range mod.handles {
 		switch api.Type.ResourceType {
 		case resource.ResourceTypeComponent:
 			for _, model := range models {
-				mgr.logger.Warnf("SMURF API: %s MODEL: %s", api, model)
 				registry.RegisterComponent(api, model, registry.Component{
 					Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
 						return mgr.AddComponent(ctx, cfg, depsToNames(deps))
@@ -155,7 +152,6 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 			}
 		case resource.ResourceTypeService:
 			for _, model := range models {
-				mgr.logger.Warnf("SMURF API: %s MODEL: %s", api, model)
 				registry.RegisterService(api, model, registry.Service{
 					Constructor: func(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Logger) (interface{}, error) {
 						return mgr.AddService(ctx, cfg)
@@ -194,7 +190,6 @@ func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component, deps
 
 				c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
 				nameR := cfg.ResourceName().ShortName()
-				// TODO SMURF proper context
 				resourceClient := c.RPCClient(ctx, module.conn, nameR, mgr.logger)
 				if c.Reconfigurable == nil {
 					return resourceClient, nil
@@ -209,7 +204,7 @@ func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component, deps
 // AddService tells a service module to configure a new service.
 func (mgr *Manager) AddService(ctx context.Context, cfg config.Service) (interface{}, error) {
 	// TODO (@Otterverse) add service support
-	return nil, nil
+	return nil, errors.New("service handling not yet implemented")
 }
 
 func depsToNames(deps registry.Dependencies) []string {
@@ -226,7 +221,6 @@ func checkReady(ctx context.Context, client pb.ModuleServiceClient, addr string)
 	for {
 		// TODO (@Otterverse) test if this actually fails on context.Done()
 		req := &pb.ReadyRequest{ParentAddress: addr}
-		fmt.Printf("SMURF 110: %+v", req)
 		resp, err := client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
 		if err != nil {
 			return nil, err

@@ -143,7 +143,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 	err := r.modules.Stop(ctx)
 
 	for _, svc := range r.internalServices {
-		multierr.Combine(err, goutils.TryClose(ctx, svc))
+		err = multierr.Combine(err, goutils.TryClose(ctx, svc))
 	}
 
 	if r.cancelBackgroundWorkers != nil {
@@ -383,7 +383,6 @@ func newWithResources(
 		opt.apply(&rOpts)
 	}
 	closeCtx, cancel := context.WithCancel(ctx)
-
 	r := &localRobot{
 		manager: newResourceManager(
 			resourceManagerOptions{
@@ -435,7 +434,10 @@ func newWithResources(
 	r.modules = modMgr
 
 	for _, mod := range cfg.Modules {
-		r.modules.AddModule(ctx, mod)
+		err := r.modules.AddModule(ctx, mod)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// See if default service already exists in the config
@@ -517,15 +519,6 @@ func newWithResources(
 		}
 	}, r.activeBackgroundWorkers.Done)
 
-	// TODO SMURF get argsParsed in here somehow (before removing RUNWEB)
-	webOpts, err := weboptions.FromConfig(cfg)
-	if err != nil {
-		logger.Errorw("error creating weboptions", "error", err)
-	}
-	if err := r.StartWeb(ctx, webOpts); err != nil {
-		logger.Errorw("error starting web service while reconfiguring", "error", err)
-	}
-
 	r.config = &config.Config{}
 
 	r.Reconfigure(ctx, cfg)
@@ -599,7 +592,6 @@ func (r *localRobot) getDependencies(rName resource.Name) (registry.Dependencies
 
 func (r *localRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
 	rName := config.ResourceName()
-
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)

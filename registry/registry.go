@@ -12,6 +12,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
@@ -122,13 +123,13 @@ type Component struct {
 
 // ResourceSubtype stores subtype-specific functions and clients.
 type ResourceSubtype struct {
-	Reconfigurable          CreateReconfigurable
-	Status                  CreateStatus
-	RegisterRPCService      RegisterSubtypeRPCService
-	RegisterRPCLiteService  RegisterSubtypeRPCLiteService
-	RPCServiceDesc          *grpc.ServiceDesc
-	ReflectRPCServiceDesc   *desc.ServiceDescriptor `copy:"shallow"`
-	RPCClient               CreateRPCClient
+	Reconfigurable         CreateReconfigurable
+	Status                 CreateStatus
+	RegisterRPCService     RegisterSubtypeRPCService
+	RegisterRPCLiteService RegisterSubtypeRPCLiteService
+	RPCServiceDesc         *grpc.ServiceDesc
+	ReflectRPCServiceDesc  *desc.ServiceDescriptor `copy:"shallow"`
+	RPCClient              CreateRPCClient
 
 	// MaxInstance sets a limit on the number of this subtype allowed on a robot.
 	// If MaxInstance is not set then it will default to 0 and there will be no limit.
@@ -265,7 +266,8 @@ func FindValidServiceModels(rName resource.Name) []resource.Model {
 	for key := range RegisteredServices() {
 		if strings.Contains(key, rName.Subtype.String()) {
 			splitName := strings.Split(key, "/")
-			model, _ := resource.NewModelFromString(splitName[1])
+			model, err := resource.NewModelFromString(splitName[1])
+			utils.UncheckedError(err)
 			validModels = append(validModels, model)
 		}
 	}

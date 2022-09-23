@@ -36,8 +36,9 @@ const (
 )
 
 var (
-	reservedChars       = [...]string{":"}
-	resRegexValidator   = regexp.MustCompile(`^(rdk:\w+:(?:\w+))\/?(\w+:(?:\w+:)*)?(.+)?$`)
+	reservedChars     = [...]string{":"}
+	resRegexValidator = regexp.MustCompile(`^(rdk:\w+:(?:\w+))\/?(\w+:(?:\w+:)*)?(.+)?$`)
+	// DefaultServiceModel is used for builtin services.
 	DefaultServiceModel = NewDefaultModel("builtin")
 )
 

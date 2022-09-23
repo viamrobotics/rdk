@@ -103,13 +103,15 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
-	cfg.Network.BindAddress = ":0"
+
 	r, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
-	addr, err := r.WebAddress()
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err = r.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	remoteConfig := &config.Config{
@@ -304,7 +306,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 	} {
 		t.Run(tc.Case, func(t *testing.T) {
 			ctx := context.Background()
-			cfg.Network.NoListen = true
 			r, err := robotimpl.New(ctx, cfg, logger)
 			test.That(t, err, test.ShouldBeNil)
 			defer func() {
@@ -524,7 +525,6 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	ctx := context.Background()
 
-	cfg.Network.NoListen = true
 	r, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
@@ -587,7 +587,6 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		},
 	}
 
-	remoteConfig.Network.NoListen = true
 	_r, err := robotimpl.New(context.Background(), remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
@@ -778,7 +777,6 @@ func TestStopAll(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
-	cfg.Network.NoListen = true
 	r, err := robotimpl.New(ctx, cfg, logger)
 	defer func() {
 		test.That(t, r.Close(ctx), test.ShouldBeNil)
@@ -1280,7 +1278,6 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		Remotes:  []config.Remote{},
 	}
 
-	remoteRemoteConfig.Network.NoListen = true
 	r0, err := robotimpl.New(ctx, remoteRemoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
@@ -1316,7 +1313,6 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		Name:    "foo",
 		Address: addr1,
 	})
-	cfg.Network.NoListen = true
 	r1, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
@@ -1475,7 +1471,6 @@ func TestReconnectRemote(t *testing.T) {
 		Components: []config.Component{armConfig},
 	}
 
-	cfg.Network.NoListen = true
 	robot, err := robotimpl.New(ctx, &cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robot, test.ShouldNotBeNil)
@@ -1499,7 +1494,6 @@ func TestReconnectRemote(t *testing.T) {
 		Remotes: []config.Remote{remoteConf},
 	}
 
-	cfg1.Network.NoListen = true
 	robot1, err := robotimpl.New(ctx, &cfg1, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robot, test.ShouldNotBeNil)
@@ -1589,7 +1583,6 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 		Components: []config.Component{armConfig},
 	}
 
-	cfg.Network.NoListen = true
 	robot, err := robotimpl.New(ctx, &cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robot, test.ShouldNotBeNil)
@@ -1612,7 +1605,6 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 		Remotes: []config.Remote{remoteConf},
 	}
 
-	cfg1.Network.NoListen = true
 	robot1, err := robotimpl.New(ctx, &cfg1, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robot, test.ShouldNotBeNil)
@@ -1676,7 +1668,6 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	options = weboptions.New()
 	options.Network.BindAddress = ""
 	options.Network.Listener = listener
-	cfg.Network.NoListen = true
 	robot, err = robotimpl.New(ctx, &cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, robot, test.ShouldNotBeNil)
@@ -1783,9 +1774,7 @@ func TestCheckMaxInstanceSkipRemote(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	cfg := &config.Config{}
-	cfg.Network.NoListen = true
-	r0, err := robotimpl.New(ctx, cfg, logger)
+	r0, err := robotimpl.New(ctx, &config.Config{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r0.Close(context.Background()), test.ShouldBeNil)

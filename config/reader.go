@@ -80,7 +80,12 @@ func RegisterComponentAttributeConverter(subtype resource.Subtype, model resourc
 }
 
 // RegisterComponentAttributeMapConverter associates a component type and model with a way to convert all attributes.
-func RegisterComponentAttributeMapConverter(subtype resource.Subtype, model resource.Model, conv AttributeMapConverter, retType interface{}) {
+func RegisterComponentAttributeMapConverter(
+	subtype resource.Subtype,
+	model resource.Model,
+	conv AttributeMapConverter,
+	retType interface{},
+) {
 	if retType == nil {
 		panic("retType should not be nil")
 	}

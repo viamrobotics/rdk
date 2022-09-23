@@ -304,6 +304,9 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		<-onWatchDone
 	}()
 
-	<-ctx.Done()
-	return nil
+	options, err := s.createWebOptions(processedConfig)
+	if err != nil {
+		return err
+	}
+	return web.RunWeb(ctx, myRobot, options, s.logger)
 }
