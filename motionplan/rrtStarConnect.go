@@ -26,7 +26,7 @@ const (
 
 type rrtStarConnectOptions struct {
 	// If a solution is found that is within this percentage of the optimal unconstrained solution, exit early
-	OptimalityThreshold float64 `json:"optimality_threshold_pct"`
+	OptimalityThreshold float64 `json:"optimality_threshold"`
 
 	// The number of nearest neighbors to consider when adding a new sample to the tree
 	NeighborhoodSize int `json:"neighborhood_size"`
