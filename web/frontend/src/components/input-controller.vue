@@ -6,7 +6,6 @@ import type { Status } from '../gen/proto/api/component/inputcontroller/v1/input
 interface Props {
   name: string
   status: Status.AsObject
-  crumbs: string[]
 }
 
 const props = defineProps<Props>();

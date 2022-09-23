@@ -26,8 +26,9 @@
   font-style: italic;
 }
 
-body {
+body, table {
   font-family: Space Mono;
+  font-size: 14px;
 }
 
 @keyframes fadeOut {

@@ -125,7 +125,7 @@ onUnmounted(() => {
       slot="title"
       crumbs="movement_sensor"
     />
-    <div class="flex items-end border border-t-0 border-black p-4">
+    <div class="flex border border-t-0 border-black p-4">
       <template v-if="properties">
         <div
           v-if="properties.positionSupported"
