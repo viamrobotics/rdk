@@ -95,6 +95,9 @@ type (
 	// A RegisterSubtypeRPCService will register the subtype service to the grpc server.
 	RegisterSubtypeRPCService func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error
 
+	// A RegisterSubtypeRPCLiteService will register the subtype service to the grpc server.
+	RegisterSubtypeRPCLiteService func(ctx context.Context, grpcServer *grpc.Server, subtypeSvc subtype.Service) error
+
 	// A CreateRPCClient will create the client for the resource.
 	CreateRPCClient func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{}
 )
@@ -119,12 +122,13 @@ type Component struct {
 
 // ResourceSubtype stores subtype-specific functions and clients.
 type ResourceSubtype struct {
-	Reconfigurable        CreateReconfigurable
-	Status                CreateStatus
-	RegisterRPCService    RegisterSubtypeRPCService
-	RPCServiceDesc        *grpc.ServiceDesc
-	ReflectRPCServiceDesc *desc.ServiceDescriptor `copy:"shallow"`
-	RPCClient             CreateRPCClient
+	Reconfigurable          CreateReconfigurable
+	Status                  CreateStatus
+	RegisterRPCService      RegisterSubtypeRPCService
+	RegisterRPCLiteService  RegisterSubtypeRPCLiteService
+	RPCServiceDesc          *grpc.ServiceDesc
+	ReflectRPCServiceDesc   *desc.ServiceDescriptor `copy:"shallow"`
+	RPCClient               CreateRPCClient
 
 	// MaxInstance sets a limit on the number of this subtype allowed on a robot.
 	// If MaxInstance is not set then it will default to 0 and there will be no limit.

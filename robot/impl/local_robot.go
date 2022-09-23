@@ -226,6 +226,15 @@ func (r *localRobot) StartWeb(ctx context.Context, o weboptions.Options) (err er
 	return webSvc.Start(ctx, o)
 }
 
+// StartLite starts the lite grpc server, will return an error if server is already up.
+func (r *localRobot) StartLite(ctx context.Context) (err error) {
+	webSvc, err := r.webService()
+	if err != nil {
+		return err
+	}
+	return webSvc.StartLite(ctx)
+}
+
 // StopWeb stops the web server, will be a noop if server is not up.
 func (r *localRobot) StopWeb() error {
 	webSvc, err := r.webService()
@@ -242,6 +251,15 @@ func (r *localRobot) WebAddress() (string, error) {
 		return "", err
 	}
 	return webSvc.Address(), nil
+}
+
+// LiteAddress return the lite grpc service's address.
+func (r *localRobot) LiteAddress() (string, error) {
+	webSvc, err := r.webService()
+	if err != nil {
+		return "", err
+	}
+	return webSvc.LiteAddress(), nil
 }
 
 // remoteNameByResource returns the remote the resource is pulled from, if found.
@@ -365,10 +383,6 @@ func newWithResources(
 		opt.apply(&rOpts)
 	}
 	closeCtx, cancel := context.WithCancel(ctx)
-	modMgr, err := manager.NewManager(cfg.Modules, logger)
-	if err != nil {
-		return nil, err
-	}
 
 	r := &localRobot{
 		manager: newResourceManager(
@@ -381,7 +395,6 @@ func newWithResources(
 			logger,
 		),
 		operations:                 operation.NewManager(),
-		modules:                    modMgr,
 		logger:                     logger,
 		remotesChanged:             make(chan string),
 		activeBackgroundWorkers:    &sync.WaitGroup{},
@@ -406,10 +419,21 @@ func newWithResources(
 		return nil, err
 	}
 
-	err = r.modules.StartListener(ctx, r)
+	r.internalServices = make(map[internalServiceName]interface{})
+	r.internalServices[webName] = web.New(ctx, r, logger, rOpts.webOptions...)
+	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
+
+	err := r.StartLite(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	modMgr, err := manager.NewManager(cfg.Modules, r, logger)
+	if err != nil {
+		return nil, err
+	}
+	r.modules = modMgr
+
 	for _, mod := range cfg.Modules {
 		r.modules.AddModule(ctx, mod)
 	}
@@ -492,10 +516,6 @@ func newWithResources(
 			}
 		}
 	}, r.activeBackgroundWorkers.Done)
-
-	r.internalServices = make(map[internalServiceName]interface{})
-	r.internalServices[webName] = web.New(ctx, r, logger, rOpts.webOptions...)
-	r.internalServices[framesystemName] = framesystem.New(ctx, r, logger)
 
 	// TODO SMURF get argsParsed in here somehow (before removing RUNWEB)
 	webOpts, err := weboptions.FromConfig(cfg)

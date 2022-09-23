@@ -12,9 +12,11 @@ import (
 	"net/http/pprof"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/Masterminds/sprig"
@@ -186,8 +188,14 @@ type Service interface {
 	// Start starts the web server
 	Start(context.Context, weboptions.Options) error
 
+	// Start starts the web server
+	StartLite(context.Context) error
+
 	// Returns the address and port the web service listens on.
 	Address() string
+
+	// Returns the address and port the web service listens on.
+	LiteAddress() string
 
 	// Close closes the web server
 	Close() error
@@ -222,10 +230,12 @@ type webService struct {
 	mu           sync.Mutex
 	r            robot.Robot
 	rpcServer    rpc.Server
+	liteServer   *googlegrpc.Server
 	streamServer *StreamServer
 	services     map[resource.Subtype]subtype.Service
 	opts         options
 	addr         string
+	liteAddr     string
 
 	logger                  golog.Logger
 	cancelFunc              func()
@@ -256,6 +266,60 @@ func (svc *webService) Address() string {
 	defer svc.mu.Unlock()
 	return svc.addr
 }
+
+// LiteAddress returns the (unix socket) address the lite service is listening on.
+func (svc *webService) LiteAddress() string {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	return svc.liteAddr
+}
+
+func (svc *webService) StartLite(ctx context.Context) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+
+	dir, err := os.MkdirTemp("", "viam-module-*")
+	if err != nil {
+		return errors.WithMessage(err, "module startup failed")
+	}
+	svc.liteAddr = dir + "/parent.sock"
+	oldMask := syscall.Umask(0o077)
+	lis, err := net.Listen("unix", svc.liteAddr)
+	syscall.Umask(oldMask)
+	if err != nil {
+		return errors.WithMessage(err, "failed to listen")
+	}
+
+	svc.liteServer = googlegrpc.NewServer()
+	svc.liteServer.RegisterService(
+		&pb.RobotService_ServiceDesc,
+		grpcserver.New(svc.r),
+	)
+
+	if err := svc.initResources(); err != nil {
+		return err
+	}
+
+	err = svc.initSubtypeServices(ctx, true)
+	if err != nil {
+		return err
+	}
+
+	svc.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer svc.activeBackgroundWorkers.Done()
+		defer os.Remove(svc.liteAddr)
+		svc.logger.Debugf("lite server listening at %v", lis.Addr())
+		if err := svc.liteServer.Serve(lis); err != nil {
+			svc.logger.Fatalf("failed to serve: %v", err)
+		}
+		os.RemoveAll(filepath.Dir(string(svc.liteAddr)))
+	})
+
+	svc.logger.Warnf("SMURF 900 %+v", svc.addr)
+	return nil
+}
+
 
 // Update updates the web service when the robot has changed. Not Reconfigure because
 // this should happen at a different point in the lifecycle.
@@ -312,6 +376,7 @@ func (svc *webService) Close() error {
 		svc.cancelFunc()
 		svc.cancelFunc = nil
 	}
+	svc.liteServer.GracefulStop()
 	svc.activeBackgroundWorkers.Wait()
 	return nil
 }
@@ -564,7 +629,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
-	if err := svc.initSubtypeServices(ctx); err != nil {
+	if err := svc.initSubtypeServices(ctx, false); err != nil {
 		return err
 	}
 
@@ -837,13 +902,10 @@ func (svc *webService) initResources() error {
 }
 
 // Register every subtype resource grpc service here.
-func (svc *webService) initSubtypeServices(ctx context.Context) error {
+func (svc *webService) initSubtypeServices(ctx context.Context, lite bool) error {
 	// TODO: only register necessary services (#272)
 	subtypeConstructors := registry.RegisteredResourceSubtypes()
 	for s, rs := range subtypeConstructors {
-		if rs.RegisterRPCService == nil {
-			continue
-		}
 		subtypeSvc, ok := svc.services[s]
 		if !ok {
 			newSvc, err := subtype.New(make(map[resource.Name]interface{}))
@@ -853,8 +915,16 @@ func (svc *webService) initSubtypeServices(ctx context.Context) error {
 			subtypeSvc = newSvc
 			svc.services[s] = newSvc
 		}
-		if err := rs.RegisterRPCService(ctx, svc.rpcServer, subtypeSvc); err != nil {
-			return err
+
+		if rs.RegisterRPCService != nil && svc.rpcServer != nil && !lite {
+			if err := rs.RegisterRPCService(ctx, svc.rpcServer, subtypeSvc); err != nil {
+				return err
+			}
+		}
+		if rs.RegisterRPCLiteService != nil && svc.liteServer != nil && lite {
+			if err := rs.RegisterRPCLiteService(ctx, svc.liteServer, subtypeSvc); err != nil {
+				return err
+			}
 		}
 	}
 

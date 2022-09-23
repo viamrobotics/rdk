@@ -95,11 +95,17 @@ type LocalRobot interface {
 	// StartWeb starts the web server, will return an error if server is already up.
 	StartWeb(ctx context.Context, o weboptions.Options) error
 
+	// StartLite starts the local grpc lite server.
+	StartLite(ctx context.Context) error
+
 	// StopWeb stops the web server, will be a noop if server is not up.
 	StopWeb() error
 
 	// WebAddress returns the address of the web service.
 	WebAddress() (string, error)
+
+	// WebAddress returns the address of the web service.
+	LiteAddress() (string, error)
 }
 
 // A RemoteRobot is a Robot that was created through a connection.

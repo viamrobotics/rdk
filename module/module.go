@@ -64,7 +64,7 @@ type modserver struct {
 func (s *modserver) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResponse, error) {
 	s.module.mu.Lock()
 	defer s.module.mu.Unlock()
-	s.module.logger.Warnf("SMURF100: %+v", req)
+	s.module.logger.Info("SMURF100: %+v", req)
 	s.module.parentAddr = req.GetParentAddress()
 	return &pb.ReadyResponse{Ready: s.module.ready, Handlermap: s.module.handlers.ToProto()}, nil
 }
@@ -120,7 +120,7 @@ func (m *Module) Start() error {
 	utils.PanicCapturingGo(func() {
 		defer m.activeBackgroundWorkers.Done()
 		defer os.Remove(m.addr)
-		m.logger.Debugf("server listening at %v", lis.Addr())
+		m.logger.Infof("server listening at %v", lis.Addr())
 		if err := m.grpcServer.Serve(lis); err != nil {
 			m.logger.Fatalf("failed to serve: %v", err)
 		}
@@ -131,7 +131,7 @@ func (m *Module) Start() error {
 func (m *Module) Close() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.logger.Debug("Sutting down gracefully.")
+	m.logger.Info("Sutting down gracefully.")
 	m.grpcServer.GracefulStop()
 	m.activeBackgroundWorkers.Wait()
 }
@@ -151,7 +151,7 @@ func (m *Module) RegisterModel(api resource.Subtype, model resource.Model) {
 func (m *Module) GetParentComponent(ctx context.Context, name resource.Name) (interface{}, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.logger.Warnf("Address: %s", m.parentAddr)
+	m.logger.Infof("Address: %s", m.parentAddr)
 	if m.parent == nil {
 		rc, err := client.New(ctx, "unix://"+m.parentAddr, m.logger, client.WithDialOptions(rpc.WithForceDirectGRPC(), rpc.WithDialDebug(), rpc.WithInsecure()))
 		if err != nil {
