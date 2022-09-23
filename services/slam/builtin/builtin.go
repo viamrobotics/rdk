@@ -74,7 +74,7 @@ func SetDialMaxTimeoutSecForTesting(val int) {
 func init() {
 	registry.RegisterService(slam.Subtype, resource.DefaultModelName, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuiltIn(ctx, r, c, logger)
+			return NewBuiltIn(ctx, r, c, logger, false)
 		},
 	})
 	cType := config.ServiceType(slam.SubtypeName)
@@ -268,6 +268,11 @@ type builtIn struct {
 	cancelFunc              func()
 	logger                  golog.Logger
 	activeBackgroundWorkers sync.WaitGroup
+
+	bufferSLAMProcessLogs        bool
+	slamProcessLogReader         io.ReadCloser
+	slamProcessLogWriter         io.WriteCloser
+	slamProcessBufferedLogReader bufio.Reader
 }
 
 // configureCameras will check the config to see if any cameras are desired and if so, grab the cameras from
@@ -413,7 +418,7 @@ func (slamSvc *builtIn) GetMap(ctx context.Context, name, mimeType string, cp *r
 }
 
 // NewBuiltIn returns a new slam service for the given robot.
-func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (slam.Service, error) {
+func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger, bufferSLAMProcessLogs bool) (slam.Service, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::New")
 	defer span.End()
 
@@ -466,19 +471,20 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 
 	// SLAM Service Object
 	slamSvc := &builtIn{
-		cameraName:       cameraName,
-		slamLib:          slam.SLAMLibraries[svcConfig.Algorithm],
-		slamMode:         slamMode,
-		slamProcess:      pexec.NewProcessManager(logger),
-		configParams:     svcConfig.ConfigParams,
-		dataDirectory:    svcConfig.DataDirectory,
-		inputFilePattern: svcConfig.InputFilePattern,
-		port:             port,
-		dataRateMs:       dataRate,
-		mapRateSec:       mapRate,
-		camStreams:       camStreams,
-		cancelFunc:       cancelFunc,
-		logger:           logger,
+		cameraName:            cameraName,
+		slamLib:               slam.SLAMLibraries[svcConfig.Algorithm],
+		slamMode:              slamMode,
+		slamProcess:           pexec.NewProcessManager(logger),
+		configParams:          svcConfig.ConfigParams,
+		dataDirectory:         svcConfig.DataDirectory,
+		inputFilePattern:      svcConfig.InputFilePattern,
+		port:                  port,
+		dataRateMs:            dataRate,
+		mapRateSec:            mapRate,
+		camStreams:            camStreams,
+		cancelFunc:            cancelFunc,
+		logger:                logger,
+		bufferSLAMProcessLogs: bufferSLAMProcessLogs,
 	}
 
 	var success bool
@@ -519,6 +525,10 @@ func (slamSvc *builtIn) Close() error {
 		}
 	}()
 	slamSvc.cancelFunc()
+	if slamSvc.bufferSLAMProcessLogs {
+		slamSvc.slamProcessLogReader.Close()
+		slamSvc.slamProcessLogWriter.Close()
+	}
 	if err := slamSvc.StopSLAMProcess(); err != nil {
 		return errors.Wrap(err, "error occurred during closeout of process")
 	}
@@ -620,6 +630,10 @@ func (slamSvc *builtIn) GetSLAMProcessConfig() pexec.ProcessConfig {
 	}
 }
 
+func (slamSvc *builtIn) GetSLAMProcessBufferedLogReader() bufio.Reader {
+	return slamSvc.slamProcessBufferedLogReader
+}
+
 // startSLAMProcess starts up the SLAM library process by calling the executable binary and giving it the necessary arguments.
 func (slamSvc *builtIn) StartSLAMProcess(ctx context.Context) error {
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::StartSLAMProcess")
@@ -629,8 +643,10 @@ func (slamSvc *builtIn) StartSLAMProcess(ctx context.Context) error {
 
 	var logReader io.ReadCloser
 	var logWriter io.WriteCloser
-	if slamSvc.port == localhost0 {
+	var bufferedLogReader bufio.Reader
+	if slamSvc.port == localhost0 || slamSvc.bufferSLAMProcessLogs {
 		logReader, logWriter = io.Pipe()
+		bufferedLogReader = *bufio.NewReader(logReader)
 		processConfig.LogWriter = logWriter
 	}
 
@@ -648,12 +664,14 @@ func (slamSvc *builtIn) StartSLAMProcess(ctx context.Context) error {
 	if slamSvc.port == localhost0 {
 		timeoutCtx, timeoutCancel := context.WithTimeout(ctx, parsePortMaxTimeoutSec*time.Second)
 		defer timeoutCancel()
-		//nolint:errcheck
-		defer logReader.Close()
-		//nolint:errcheck
-		defer logWriter.Close()
 
-		bufferedLogReader := bufio.NewReader(logReader)
+		if !slamSvc.bufferSLAMProcessLogs {
+			//nolint:errcheck
+			defer logReader.Close()
+			//nolint:errcheck
+			defer logWriter.Close()
+		}
+
 		for {
 			if err := timeoutCtx.Err(); err != nil {
 				return errors.Wrapf(err, "error getting port from slam process")
@@ -673,6 +691,12 @@ func (slamSvc *builtIn) StartSLAMProcess(ctx context.Context) error {
 				break
 			}
 		}
+	}
+
+	if slamSvc.bufferSLAMProcessLogs {
+		slamSvc.slamProcessLogReader = logReader
+		slamSvc.slamProcessLogWriter = logWriter
+		slamSvc.slamProcessBufferedLogReader = bufferedLogReader
 	}
 
 	return nil
