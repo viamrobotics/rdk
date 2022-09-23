@@ -56,9 +56,8 @@ type Config struct {
 	Store              navigation.StoreConfig `json:"store"`
 	BaseName           string                 `json:"base"`
 	MovementSensorName string                 `json:"movement_sensor"`
-
-	DegPerSecDefault float64 `json:"deg_per_sec"`
-	MMPerSecDefault  float64 `json:"mm_per_sec"`
+	DegPerSecDefault   float64                `json:"degs_per_sec"`
+	MMPerSecDefault    float64                `json:"mm_per_sec"`
 }
 
 // NewBuiltIn returns a new navigation service for the given robot.

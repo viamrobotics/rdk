@@ -72,8 +72,8 @@ type fileSource struct {
 // fileSourceAttrs is the attribute struct for fileSource.
 type fileSourceAttrs struct {
 	*camera.AttrConfig
-	Color string `json:"color"`
-	Depth string `json:"depth"`
+	Color string `json:"color_file_path"`
+	Depth string `json:"depth_file_path"`
 }
 
 // Read returns just the RGB image if it is present, or the depth map if the RGB image is not present.
