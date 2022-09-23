@@ -5,13 +5,13 @@
             "type": "camera",
             "model": "webcam",
             "attributes": {
-                "camera_parameters": {
+                "intrinsic_parameters": {
                     "height": 720,
                     "width": 1280,
-                    "fx": 900.538000,
-                    "fy": 900.818000,
-                    "ppx": 648.934000,
-                    "ppy": 367.736000,
+                    "fx": 900.538,
+                    "fy": 900.818,
+                    "ppx": 648.934,
+                    "ppy": 367.736,
                     "distortion": {
                         "rk1": 0.158701,
                         "rk2": -0.485405,
@@ -42,19 +42,19 @@
             "type": "camera",
             "model": "align_color_depth",
             "attributes": {
-                "color": "front-color",
-                "depth": "front-depth",
+                "color_intrinsics": "front-color",
+                "depth_intrinsics": "front-depth",
                 "height": 720,
                 "width": 1280,
                 "make": "intel515",
                 "debug": false,
-                "camera_parameters": {
+                "intrinsic_parameters": {
                     "height": 720,
                     "width": 1280,
-                    "fx": 900.538000,
-                    "fy": 900.818000,
-                    "ppx": 648.934000,
-                    "ppy": 367.736000,
+                    "fx": 900.538,
+                    "fy": 900.818,
+                    "ppx": 648.934,
+                    "ppy": 367.736,
                     "distortion": {
                         "rk1": 0.158701,
                         "rk2": -0.485405,
@@ -64,13 +64,13 @@
                     }
                 },
                 "intrinsic_extrinsic": {
-                    "color": {
+                    "color_intrinsics": {
                         "height": 720,
                         "width": 1280,
-                        "fx": 900.538000,
-                        "fy": 900.818000,
-                        "ppx": 648.934000,
-                        "ppy": 367.736000,
+                        "fx": 900.538,
+                        "fy": 900.818,
+                        "ppx": 648.934,
+                        "ppy": 367.736,
                         "distortion": {
                             "rk1": 0.158701,
                             "rk2": -0.485405,
@@ -79,7 +79,7 @@
                             "tp2": -0.000705919
                         }
                     },
-                    "depth": {
+                    "depth_intrinsics": {
                         "height": 768,
                         "width": 1024,
                         "fx": 734.938,
@@ -87,11 +87,11 @@
                         "ppx": 542.078,
                         "ppy": 398.016,
                         "distortion": {
-                            "rk1": 0.0,
-                            "rk2": 0.0,
-                            "rk3": 0.0,
-                            "tp1": 0.0,
-                            "tp2": 0.0
+                            "rk1": 0,
+                            "rk2": 0,
+                            "rk3": 0,
+                            "tp1": 0,
+                            "tp2": 0
                         }
                     },
                     "extrinsics_depth_to_color": {

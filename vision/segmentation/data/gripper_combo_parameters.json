@@ -1,5 +1,5 @@
 {
-    "color": {
+    "color_intrinsics": {
         "height": 342,
         "width": 448,
         "fx": 522.9379789,
@@ -14,7 +14,7 @@
             "tp2": 0.0
         }
     },
-    "depth": {
+    "depth_intrinsics": {
         "height": 171,
         "width": 224,
         "fx": 0.0,
