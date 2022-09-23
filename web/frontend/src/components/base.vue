@@ -7,6 +7,7 @@ import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
 import streamApi from '../gen/proto/stream/v1/stream_pb.esm';
 import { toast } from '../lib/toast';
 import { filterResources } from '../lib/resource';
+import { displayError } from '../lib/error';
 import KeyboardInput from './keyboard-input.vue';
 
 interface Props {
@@ -78,7 +79,7 @@ const baseRun = () => {
       props.name,
       angle.value * (spinType.value === 'Clockwise' ? -1 : 1),
       spinSpeed.value,
-      handleError
+      displayError
     );
   } else if (movementMode.value === 'Straight') {
     handleBaseStraight(props.name, {
@@ -88,19 +89,12 @@ const baseRun = () => {
       distance: increment.value,
     });
   } else {
-    handleError(`Unrecognized discrete movement mode: ${movementMode.value}`);
-  }
-};
-
-const handleError = (error: unknown) => {
-  if (error) {
-    toast.error(JSON.stringify(error));
+    toast.error(`Unrecognized discrete movement mode: ${movementMode.value}`);
   }
 };
 
 const baseKeyboardCtl = (name: string, controls: Record<string, boolean>) => {
   if (Object.values(controls).every((item) => item === false)) {
-    toast.info('All keyboard inputs false, stopping base.');
     handleBaseActionStop(name);
     return;
   }
@@ -110,13 +104,13 @@ const baseKeyboardCtl = (name: string, controls: Record<string, boolean>) => {
   const angular = new commonApi.Vector3();
   linear.setY(inputs.linear);
   angular.setZ(inputs.angular);
-  BaseControlHelper.setPower(name, linear, angular, handleError);
+  BaseControlHelper.setPower(name, linear, angular, displayError);
 };
 
 const handleBaseActionStop = (name: string) => {
   const req = new baseApi.StopRequest();
   req.setName(name);
-  window.baseService.stop(req, new grpc.Metadata(), handleError);
+  window.baseService.stop(req, new grpc.Metadata(), displayError);
 };
 
 const handleBaseStraight = (name: string, event: {
@@ -133,14 +127,14 @@ const handleBaseStraight = (name: string, event: {
       name,
       linear, // linear
       new commonApi.Vector3(), // angular
-      handleError
+      displayError
     );
   } else {
     BaseControlHelper.moveStraight(
       name,
       event.distance,
       event.speed * event.direction,
-      handleError
+      displayError
     );
   }
 };
@@ -149,23 +143,13 @@ const viewPreviewCamera = (name: string, isOn: boolean) => {
   if (isOn) {
     const req = new streamApi.AddStreamRequest();
     req.setName(name);
-    window.streamService.addStream(req, new grpc.Metadata(), (error) => {
-      if (error) {
-        toast.error('no live camera device found');
-        handleError(error);
-      }
-    });
+    window.streamService.addStream(req, new grpc.Metadata(), displayError);
     return;
   }
 
   const req = new streamApi.RemoveStreamRequest();
   req.setName(name);
-  window.streamService.removeStream(req, new grpc.Metadata(), (error) => {
-    if (error) {
-      toast.error('no live camera device found');
-      handleError(error);
-    }
-  });
+  window.streamService.removeStream(req, new grpc.Metadata(), displayError);
 };
 
 const handleSelectCamera = (event: string) => {
