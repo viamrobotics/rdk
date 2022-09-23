@@ -26,8 +26,11 @@
   font-style: italic;
 }
 
+* {
+  font-family: Space Mono, monospace;
+}
+
 body, table {
-  font-family: Space Mono;
   font-size: 14px;
 }
 
@@ -95,7 +98,7 @@ body, table {
   padding: 2em;
   overflow: hidden;
   z-index: 1052;
-  pointer-events: none
+  pointer-events: none;
 }
 
 .v-toast__item {

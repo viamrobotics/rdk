@@ -61,6 +61,7 @@ const relevantSubtypesForStatus = [
   'input_controller',
 ];
 
+const passwordInput = $ref<HTMLInputElement>();
 const supportedAuthTypes = $computed(() => window.supportedAuthTypes);
 const rawStatus = $ref<Record<string, Status>>({});
 const status = $ref<Record<string, Status>>({});
@@ -68,11 +69,12 @@ const errors = $ref<Record<string, boolean>>({});
 
 let statusStream: ResponseStream<StreamStatusResponse>;
 let lastStatusTS = Date.now();
+let disableAuthElements = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
 let currentOps = $ref<{ op: Operation.AsObject, elapsed: number }[]>([]);
 let sensorNames = $ref<ResourceName.AsObject[]>([]);
 let resources = $ref<Resource[]>([]);
-let error = $ref<string | null>(null);
+let errorMessage = $ref('');
 let connectionManager = $ref<{
   statuses: {
     resources: boolean;
@@ -178,12 +180,12 @@ const createConnectionManager = () => {
         connectionRestablished = false;
       }
       
-      error = null;
+      errorMessage = '';
       return;
     }
 
     handleCallErrors(statuses, errors);
-    error = 'Connection error, attempting to reconnect ...';
+    errorMessage = 'Connection error, attempting to reconnect ...';
   };
 
   const isConnected = () => {
@@ -514,41 +516,20 @@ const doConnect = async (authEntity: string, creds: Credentials, onError?: () =>
 
   console.debug('connected');
   document.querySelector('#pre-app')!.classList.add('hidden');
+  disableAuthElements = false;
+
+  return true;
+};
+
+const doLogin = (authType: string) => {
+  disableAuthElements = true;
+  const creds = { type: authType, payload: passwordInput.value };
+  doConnect('', creds);
 };
 
 const waitForClientAndStart = async () => {
   if (window.supportedAuthTypes.length === 0) {
     await doConnect(window.bakedAuth.authEntity, window.bakedAuth.creds, waitForClientAndStart);
-    return;
-  }
-
-  const authElems: (HTMLInputElement | HTMLButtonElement)[] = [];
-
-  const disableAll = () => {
-    for (const elem of authElems) {
-      elem.disabled = true;
-    }
-  };
-
-  for (const authType of window.supportedAuthTypes) {
-    const authDiv = document.querySelector(`#auth-${authType}`)!;
-    const input = authDiv.querySelectorAll('input')[0];
-    const button = authDiv.querySelectorAll('button')[0];
-    authElems.push(input, button);
-
-    const doLogin = () => {
-      disableAll();
-      const creds = { type: authType, payload: input.value };
-      doConnect('', creds);
-    };
-
-    button.addEventListener('click', () => doLogin());
-    input.addEventListener('keyup', (event) => {
-      if (event.key.toLowerCase() !== 'enter') {
-        return;
-      }
-      doLogin();
-    });
   }
 };
 
@@ -665,29 +646,29 @@ const handleSelectCamera = (event: string, cameras: Resource[]) => {
       :key="authType"
     >
       <span>{{ authType }}: </span>
-      <div
-        :id="`auth-${authType}`"
-        class="w-96"
-      >
+      <div class="w-96">
         <input
+          ref="passwordInput"
+          :disabled="disableAuthElements"
           class="mb-2 block w-full appearance-none border p-2 text-gray-700 transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none"
           type="password"
+          @keyup.enter="doLogin(authType)"
         >
-        <button
-          class="font-button bg-primary relative cursor-pointer border border-black px-5 py-2 leading-tight text-black shadow-sm transition-colors duration-150 hover:border-black hover:bg-gray-200 focus:bg-gray-400 focus:outline-none active:bg-gray-400"
-        >
-          Login
-        </button>
+        <v-button
+          :disabled="disableAuthElements"
+          label="Login"
+          @click="disableAuthElements ? undefined : doLogin(authType)"
+        />
       </div>
     </template>
   </div>
   
   <div class="flex flex-col gap-4 p-3">
     <div
-      v-if="error"
+      v-if="errorMessage"
       class="border-l-4 border-red-500 bg-gray-100 px-4 py-3"
     >
-      {{ error }}
+      {{ errorMessage }}
     </div>
 
     <!-- ******* BASE *******  -->
@@ -759,7 +740,6 @@ const handleSelectCamera = (event: string, cameras: Resource[]) => {
     <!-- ******* WEB CONTROLS *******  -->
     <Gamepad
       v-if="hasWebGamepad()"
-      style="max-width: 1080px;"
     />
 
     <!-- ******* BOARD *******  -->
