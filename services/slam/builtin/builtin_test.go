@@ -12,7 +12,9 @@ import (
 	"math"
 	"net"
 	"os"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -41,8 +43,9 @@ import (
 )
 
 const (
-	timePadding     = 5
-	validDataRateMS = 200
+	timePadding      = 5
+	validDataRateMS  = 200
+	numOrbslamImages = 15
 )
 
 func createFakeSLAMLibraries() {
@@ -229,6 +232,62 @@ func setupInjectRobot() *inject.Robot {
 				}, nil
 			}
 			return cam, nil
+		case camera.Named("orbslam_int_color_camera"):
+			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+				return nil, errors.New("camera not lidar")
+			}
+			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
+				return projA, nil
+			}
+			cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+				return camera.Properties{IntrinsicParams: intrinsicsA, DistortionParams: distortionsA}, nil
+			}
+			var index uint64
+			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+				i := atomic.AddUint64(&index, 1) - 1
+				if i >= numOrbslamImages {
+					return nil, errors.New("No more orbslam color images")
+				}
+				imgBytes, err := os.ReadFile(artifact.MustPath("slam/temp_mock_camera/color/" + strconv.FormatUint(i, 10) + ".png"))
+				if err != nil {
+					return nil, err
+				}
+				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
+				return gostream.NewEmbeddedVideoStreamFromReader(
+					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+						return lazy, func() {}, nil
+					}),
+				), nil
+			}
+			return cam, nil
+		case camera.Named("orbslam_int_depth_camera"):
+			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+				return nil, errors.New("camera not lidar")
+			}
+			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
+				return nil, transform.NewNoIntrinsicsError("")
+			}
+			cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+				return camera.Properties{}, nil
+			}
+			var index uint64
+			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+				i := atomic.AddUint64(&index, 1) - 1
+				if i >= numOrbslamImages {
+					return nil, errors.New("No more orbslam depth images")
+				}
+				imgBytes, err := os.ReadFile(artifact.MustPath("slam/temp_mock_camera/depth/" + strconv.FormatUint(i, 10) + ".png"))
+				if err != nil {
+					return nil, err
+				}
+				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
+				return gostream.NewEmbeddedVideoStreamFromReader(
+					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+						return lazy, func() {}, nil
+					}),
+				), nil
+			}
+			return cam, nil
 		default:
 			return nil, rdkutils.NewResourceNotFoundError(name)
 		}
@@ -236,7 +295,7 @@ func setupInjectRobot() *inject.Robot {
 	return r
 }
 
-func createSLAMService(t *testing.T, attrCfg *builtin.AttrConfig, logger golog.Logger, success bool) (slam.Service, error) {
+func createSLAMService(t *testing.T, attrCfg *builtin.AttrConfig, logger golog.Logger, bufferSLAMProcessLogs bool, success bool) (slam.Service, error) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -248,7 +307,7 @@ func createSLAMService(t *testing.T, attrCfg *builtin.AttrConfig, logger golog.L
 	builtin.SetCameraValidationMaxTimeoutSecForTesting(1)
 	builtin.SetDialMaxTimeoutSecForTesting(1)
 
-	svc, err := builtin.NewBuiltIn(ctx, r, cfgService, logger)
+	svc, err := builtin.NewBuiltIn(ctx, r, cfgService, logger, bufferSLAMProcessLogs)
 
 	if success {
 		if err != nil {
@@ -271,7 +330,7 @@ func TestGeneralNew(t *testing.T) {
 	t.Run("New slam service blank config", func(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		attrCfg := &builtin.AttrConfig{}
-		_, err := createSLAMService(t, attrCfg, logger, false)
+		_, err := createSLAMService(t, attrCfg, logger, false, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.Errorf("runtime slam config error: "+
 				"%v algorithm specified not in implemented list", attrCfg.Algorithm))
@@ -289,7 +348,7 @@ func TestGeneralNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		grpcServer := setupTestGRPCServer(attrCfg.Port)
-		svc, err := createSLAMService(t, attrCfg, logger, true)
+		svc, err := createSLAMService(t, attrCfg, logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
@@ -307,7 +366,7 @@ func TestGeneralNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false)
+		_, err := createSLAMService(t, attrCfg, logger, false, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.Errorf("configuring camera error: error getting camera %v for slam service: "+
 				"resource \"rdk:component:camera/%v\" not found", attrCfg.Sensors[0], attrCfg.Sensors[0]))
@@ -331,26 +390,10 @@ func TestGeneralNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false)
+		_, err := createSLAMService(t, attrCfg, logger, false, false)
 		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error with slam service slam process:")
 
 		delete(slam.SLAMLibraries, "test")
-	})
-
-	t.Run("New slam service the fails at slam process due to binary location", func(t *testing.T) {
-		attrCfg := &builtin.AttrConfig{
-			Algorithm:     "orbslamv3",
-			Sensors:       []string{"good_camera"},
-			ConfigParams:  map[string]string{"mode": "mono"},
-			DataDirectory: name,
-			DataRateMs:    validDataRateMS,
-			Port:          "localhost:4445",
-		}
-
-		// Create slam service
-		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false)
-		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error with slam service slam process:")
 	})
 
 	closeOutSLAMService(t, name)
@@ -375,7 +418,7 @@ func TestCartographerNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		grpcServer := setupTestGRPCServer(attrCfg.Port)
-		svc, err := createSLAMService(t, attrCfg, logger, true)
+		svc, err := createSLAMService(t, attrCfg, logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
@@ -394,7 +437,7 @@ func TestCartographerNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false)
+		_, err := createSLAMService(t, attrCfg, logger, false, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.Errorf("runtime slam service error: error getting data in desired mode: %v", attrCfg.Sensors[0]))
 	})
@@ -411,7 +454,7 @@ func TestCartographerNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false)
+		_, err := createSLAMService(t, attrCfg, logger, false, false)
 
 		test.That(t, err, test.ShouldBeError,
 			errors.New("runtime slam service error: error getting data in desired mode: camera not lidar"))
@@ -438,7 +481,7 @@ func TestORBSLAMNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		grpcServer := setupTestGRPCServer(attrCfg.Port)
-		svc, err := createSLAMService(t, attrCfg, logger, true)
+		svc, err := createSLAMService(t, attrCfg, logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
@@ -457,7 +500,7 @@ func TestORBSLAMNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false)
+		_, err := createSLAMService(t, attrCfg, logger, false, false)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			errors.Errorf("expected 2 cameras for Rgbd slam, found %v", len(attrCfg.Sensors)).Error())
 	})
@@ -474,7 +517,7 @@ func TestORBSLAMNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false)
+		_, err := createSLAMService(t, attrCfg, logger, false, false)
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			errors.New("Unable to get camera features for first camera, make sure the color camera is listed first").Error())
 	})
@@ -492,7 +535,7 @@ func TestORBSLAMNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		grpcServer := setupTestGRPCServer(attrCfg.Port)
-		svc, err := createSLAMService(t, attrCfg, logger, true)
+		svc, err := createSLAMService(t, attrCfg, logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
@@ -510,7 +553,7 @@ func TestORBSLAMNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false)
+		_, err := createSLAMService(t, attrCfg, logger, false, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.Errorf("runtime slam service error: "+
 				"error getting data in desired mode: %v", attrCfg.Sensors[0]))
@@ -527,7 +570,7 @@ func TestORBSLAMNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false)
+		_, err := createSLAMService(t, attrCfg, logger, false, false)
 
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			transform.NewNoIntrinsicsError(fmt.Sprintf("Invalid size (%#v, %#v)", 0, 0)).Error())
@@ -544,7 +587,7 @@ func TestORBSLAMNew(t *testing.T) {
 
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfg, logger, false)
+		_, err := createSLAMService(t, attrCfg, logger, false, false)
 		test.That(t, err, test.ShouldBeError,
 			errors.New("runtime slam service error: error getting data in desired mode: lidar not camera"))
 	})
@@ -569,7 +612,7 @@ func TestCartographerDataProcess(t *testing.T) {
 	// Create slam service
 	logger, obs := golog.NewObservedTestLogger(t)
 	grpcServer := setupTestGRPCServer(attrCfg.Port)
-	svc, err := createSLAMService(t, attrCfg, logger, true)
+	svc, err := createSLAMService(t, attrCfg, logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	grpcServer.Stop()
@@ -655,7 +698,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 	// Create slam service
 	logger, obs := golog.NewObservedTestLogger(t)
 	grpcServer := setupTestGRPCServer(attrCfg.Port)
-	svc, err := createSLAMService(t, attrCfg, logger, true)
+	svc, err := createSLAMService(t, attrCfg, logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	grpcServer.Stop()
@@ -739,7 +782,7 @@ func TestGetMapAndPosition(t *testing.T) {
 	// Create slam service
 	logger := golog.NewTestLogger(t)
 	grpcServer := setupTestGRPCServer(attrCfg.Port)
-	svc, err := createSLAMService(t, attrCfg, logger, true)
+	svc, err := createSLAMService(t, attrCfg, logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	p, err := svc.Position(context.Background(), "hi")
@@ -781,7 +824,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 	// Create slam service
 	logger := golog.NewTestLogger(t)
 	grpcServer := setupTestGRPCServer(attrCfg.Port)
-	svc, err := createSLAMService(t, attrCfg, logger, true)
+	svc, err := createSLAMService(t, attrCfg, logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	slamSvc := svc.(internal.Service)
@@ -831,7 +874,7 @@ func TestSLAMProcessFail(t *testing.T) {
 	// Create slam service
 	logger := golog.NewTestLogger(t)
 	grpcServer := setupTestGRPCServer(attrCfg.Port)
-	svc, err := createSLAMService(t, attrCfg, logger, true)
+	svc, err := createSLAMService(t, attrCfg, logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	slamSvc := svc.(internal.Service)
@@ -882,7 +925,7 @@ func TestGRPCConnection(t *testing.T) {
 
 	// Create slam service
 	logger := golog.NewTestLogger(t)
-	_, err = createSLAMService(t, attrCfg, logger, false)
+	_, err = createSLAMService(t, attrCfg, logger, false, false)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error with initial grpc client to slam algorithm")
 
 	closeOutSLAMService(t, name)
