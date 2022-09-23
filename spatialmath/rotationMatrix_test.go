@@ -122,12 +122,15 @@ func TestMatrixMul(t *testing.T) {
 		3, 2, 1,
 	}
 	mm, err := NewRotationMatrix(mat2)
+	test.That(t, err, test.ShouldBeNil)
 
 	c, d, _ := multiplyAndconvertToFloats(mat1, mat2)
 
+	mul := MatMul(*rm, *mm)
 	lMul := rm.LeftMatMul(*mm).mat
 	rMul := rm.RightMatMul(*mm).mat
 
+	test.That(t, mul.mat, test.ShouldResemble, c)
 	test.That(t, lMul, test.ShouldResemble, c)
 	test.That(t, rMul, test.ShouldResemble, d)
 }
@@ -143,6 +146,12 @@ func multiplyAndconvertToFloats(in1, in2 []float64) ([9]float64, [9]float64, err
 	vecC := c.RawMatrix().Data
 	vecD := d.RawMatrix().Data
 	outC, err := NewRotationMatrix(vecC)
+	if err != nil {
+		return [9]float64{}, [9]float64{}, err
+	}
 	outD, err := NewRotationMatrix(vecD)
+	if err != nil {
+		return [9]float64{}, [9]float64{}, err
+	}
 	return outC.mat, outD.mat, err
 }
