@@ -73,13 +73,13 @@ type evaData struct {
 	Scheduler map[string]interface{}
 
 	// [0.0008628905634395778 0 0.0002876301878131926 0 -0.00038350690738298 0.0005752603756263852]
-	ServosPosition []float64 `json:"servos.telemetry.position"` // TODO(RSDK-568): do we need units here?
+	ServosPosition []float64 `json:"servos.telemetry.position"`
 
 	// [53.369998931884766 43.75 43.869998931884766 43.869998931884766 51 48.619998931884766]
-	ServosTemperature []float64 `json:"servos.telemetry.temperature"` // TODO(RSDK-568): do we need units here?
+	ServosTemperature []float64 `json:"servos.telemetry.temperature"`
 
 	// [0 0 0 0 0 0]
-	ServosVelocity []float64 `json:"servos.telemetry.velocity"` // TODO(RSDK-568): do we need units here?
+	ServosVelocity []float64 `json:"servos.telemetry.velocity"`
 
 	// map[loop_count:1 loop_target:1 run_mode:not_running state:ready toolpath_hash:4d8 toolpath_name:Uploaded]
 	Control map[string]interface{}
