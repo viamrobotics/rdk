@@ -216,7 +216,7 @@ func TestAlignIntelIntrinsics(t *testing.T) {
 	c.Warp = nil
 	c.Homography = nil
 	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515/color", "*.png", "align/intel515/depth")
-	err = d.Process(t, &alignTestHelper{c, "intrinsics"})
+	err = d.Process(t, &alignTestHelper{c, "intrinsic_parameters"})
 	test.That(t, err, test.ShouldBeNil)
 }
 

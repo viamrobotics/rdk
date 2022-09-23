@@ -25,8 +25,8 @@ type DepthColorIntrinsicsExtrinsics struct {
 
 // DepthColorIntrinsicsExtrinsicsConfig is the config file that will be parsed into the proper interface.
 type DepthColorIntrinsicsExtrinsicsConfig struct {
-	ColorCamera  PinholeCameraIntrinsics `json:"color"`
-	DepthCamera  PinholeCameraIntrinsics `json:"depth"`
+	ColorCamera  PinholeCameraIntrinsics `json:"color_intrinsics"`
+	DepthCamera  PinholeCameraIntrinsics `json:"depth_intrinsics"`
 	ExtrinsicD2C json.RawMessage         `json:"extrinsics_depth_to_color"`
 }
 
@@ -49,8 +49,8 @@ func NewDepthColorIntrinsicsExtrinsicsFromBytes(byteJSON []byte) (*DepthColorInt
 		return nil, err
 	}
 	temp := struct {
-		R []float64 `json:"rotation"`
-		T []float64 `json:"translation"`
+		R []float64 `json:"rotation_rads"`
+		T []float64 `json:"translation_mm"`
 	}{}
 	err = json.Unmarshal(intrinExtrin.ExtrinsicD2C, &temp)
 	if err != nil {
