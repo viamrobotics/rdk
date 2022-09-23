@@ -44,11 +44,11 @@ func (cfg *AttrConfig) Validate(path string) error {
 	}
 
 	if cfg.Speed == nil {
-		return rdkutils.NewConfigValidationFieldRequiredError(path, "speed")
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "speed_bits_per_sec")
 	}
 
 	if cfg.Pfreq == nil {
-		return rdkutils.NewConfigValidationFieldRequiredError(path, "polling_freq")
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "polling_freq_hz")
 	}
 
 	if cfg.CSPin == "" {
