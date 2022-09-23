@@ -1,41 +1,118 @@
 <script setup lang="ts">
 
+import { onMounted, onUnmounted } from 'vue';
+import { grpc } from '@improbable-eng/grpc-web';
+import movementsensorApi, { type GetPropertiesResponse } from '../gen/proto/api/component/movementsensor/v1/movementsensor_pb.esm';
+import type { GeoPoint, Orientation, Vector3 } from '../gen/proto/api/common/v1/common_pb.esm';
+import { displayError } from '../lib/error';
+
 interface Props {
   name: string
-  data?: {
-    altitudeMm: number
-    compassHeading: number
-    linearVelocity?: {
-      x: number
-      y: number
-      z: number
-    }
-    angularVelocity?: {
-      x: number
-      y: number
-      z: number
-    }
-    properties: {
-      compassHeadingSupported: boolean
-      linearVelocitySupported: boolean
-      angularVelocitySupported: boolean
-      positionSupported: boolean
-      orientationSupported: boolean
-    },
-    coordinate?: {
-      latitude: number
-      longitude: number
-    }
-    orientation?: {
-      oX: number
-      oY: number
-      oZ: number
-      theta: number
-    }
-  }
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
+
+let orientation = $ref<Orientation.AsObject | undefined>();
+let angularVelocity = $ref<Vector3.AsObject | undefined>();
+let linearVelocity = $ref<Vector3.AsObject | undefined>();
+let compassHeading = $ref<number | undefined>();
+let coordinate = $ref<GeoPoint.AsObject | undefined>();
+let altitudeMm = $ref<number | undefined>();
+let properties = $ref<GetPropertiesResponse.AsObject | undefined>();
+
+let refreshId = -1;
+
+const refresh = () => {
+  {
+    const req = new movementsensorApi.GetOrientationRequest();
+    req.setName(props.name);
+
+    window.movementsensorService.getOrientation(req, new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        return displayError(err);
+      }
+
+      orientation = resp!.toObject().orientation;
+    });
+  }
+
+  {
+    const req = new movementsensorApi.GetAngularVelocityRequest();
+    req.setName(props.name);
+
+    window.movementsensorService.getAngularVelocity(req, new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        return displayError(err);
+      }
+
+      angularVelocity = resp!.toObject().angularVelocity;
+    });
+  }
+
+  {
+    const req = new movementsensorApi.GetLinearVelocityRequest();
+    req.setName(props.name);
+
+    window.movementsensorService.getLinearVelocity(req, new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        return displayError(err);
+      }
+
+      linearVelocity = resp!.toObject().linearVelocity;
+    });
+  }
+
+  {
+    const req = new movementsensorApi.GetCompassHeadingRequest();
+    req.setName(props.name);
+
+    window.movementsensorService.getCompassHeading(req, new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        return displayError(err);
+      }
+
+      compassHeading = resp!.toObject().value;
+    });
+  }
+
+  {
+    const req = new movementsensorApi.GetPositionRequest();
+    req.setName(props.name);
+
+    window.movementsensorService.getPosition(req, new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        return displayError(err);
+      }
+
+      const temp = resp!.toObject();
+      coordinate = temp.coordinate;
+      altitudeMm = temp.altitudeMm;
+    });
+  }
+
+  {
+    const req = new movementsensorApi.GetPropertiesRequest();
+    req.setName(props.name);
+
+    window.movementsensorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        return displayError(err);
+      }
+
+      properties = resp!.toObject();
+    });
+  }
+
+  refreshId = setTimeout(refresh, 500);
+};
+
+onMounted(() => {
+  refreshId = setTimeout(refresh, 500);
+});
+
+onUnmounted(() => {
+  clearTimeout(refreshId);
+});
 
 </script>
 
@@ -49,9 +126,9 @@ defineProps<Props>();
       crumbs="movement_sensor"
     />
     <div class="flex items-end border border-t-0 border-black p-4">
-      <template v-if="data?.properties">
+      <template v-if="properties">
         <div
-          v-if="data.properties.positionSupported"
+          v-if="properties.positionSupported"
           class="mr-4 w-1/4"
         >
           <h3 class="mb-1">
@@ -63,7 +140,7 @@ defineProps<Props>();
                 Latitude
               </th>
               <td class="border border-black p-2">
-                {{ data.coordinate?.latitude.toFixed(6) }}
+                {{ coordinate?.latitude.toFixed(6) }}
               </td>
             </tr>
             <tr>
@@ -71,7 +148,7 @@ defineProps<Props>();
                 Longitude
               </th>
               <td class="border border-black p-2">
-                {{ data.coordinate?.longitude.toFixed(6) }}
+                {{ coordinate?.longitude.toFixed(6) }}
               </td>
             </tr>
             <tr>
@@ -79,17 +156,17 @@ defineProps<Props>();
                 Altitide
               </th>
               <td class="border border-black p-2">
-                {{ data.altitudeMm?.toFixed(2) }}
+                {{ altitudeMm?.toFixed(2) }}
               </td>
             </tr>
           </table>
-          <a :href="`https://www.google.com/maps/search/${data.coordinate?.latitude},${data.coordinate?.longitude}`">
+          <a :href="`https://www.google.com/maps/search/${coordinate?.latitude},${coordinate?.longitude}`">
             google maps
           </a>
         </div>
 
         <div
-          v-if="data.properties.orientationSupported"
+          v-if="properties.orientationSupported"
           class="mr-4 w-1/4"
         >
           <h3 class="mb-1">
@@ -101,7 +178,7 @@ defineProps<Props>();
                 OX
               </th>
               <td class="border border-black p-2">
-                {{ data.orientation?.oX.toFixed(2) }}
+                {{ orientation?.oX.toFixed(2) }}
               </td>
             </tr>
             <tr>
@@ -109,7 +186,7 @@ defineProps<Props>();
                 OY
               </th>
               <td class="border border-black p-2">
-                {{ data.orientation?.oY.toFixed(2) }}
+                {{ orientation?.oY.toFixed(2) }}
               </td>
             </tr>
             <tr>
@@ -117,7 +194,7 @@ defineProps<Props>();
                 OZ
               </th>
               <td class="border border-black p-2">
-                {{ data.orientation?.oZ.toFixed(2) }}
+                {{ orientation?.oZ.toFixed(2) }}
               </td>
             </tr>
             <tr>
@@ -125,14 +202,14 @@ defineProps<Props>();
                 Theta
               </th>
               <td class="border border-black p-2">
-                {{ data.orientation?.theta.toFixed(2) }}
+                {{ orientation?.theta.toFixed(2) }}
               </td>
             </tr>
           </table>
         </div>
               
         <div
-          v-if="data.properties.angularVelocitySupported"
+          v-if="properties.angularVelocitySupported"
           class="mr-4 w-1/4"
         >
           <h3 class="mb-1">
@@ -144,7 +221,7 @@ defineProps<Props>();
                 X
               </th>
               <td class="border border-black p-2">
-                {{ data.angularVelocity?.x.toFixed(2) }}
+                {{ angularVelocity?.x.toFixed(2) }}
               </td>
             </tr>
             <tr>
@@ -152,7 +229,7 @@ defineProps<Props>();
                 Y
               </th>
               <td class="border border-black p-2">
-                {{ data.angularVelocity?.y.toFixed(2) }}
+                {{ angularVelocity?.y.toFixed(2) }}
               </td>
             </tr>
             <tr>
@@ -160,14 +237,14 @@ defineProps<Props>();
                 Z
               </th>
               <td class="border border-black p-2">
-                {{ data.angularVelocity?.z.toFixed(2) }}
+                {{ angularVelocity?.z.toFixed(2) }}
               </td>
             </tr>
           </table>
         </div>
 
         <div
-          v-if="data.properties.linearVelocitySupported"
+          v-if="properties.linearVelocitySupported"
           class="mr-4 w-1/4"
         >
           <h3 class="mb-1">
@@ -179,7 +256,7 @@ defineProps<Props>();
                 X
               </th>
               <td class="border border-black p-2">
-                {{ data.linearVelocity?.x.toFixed(2) }}
+                {{ linearVelocity?.x.toFixed(2) }}
               </td>
             </tr>
             <tr>
@@ -187,7 +264,7 @@ defineProps<Props>();
                 Y
               </th>
               <td class="border border-black p-2">
-                {{ data.linearVelocity?.y.toFixed(2) }}
+                {{ linearVelocity?.y.toFixed(2) }}
               </td>
             </tr>
             <tr>
@@ -195,14 +272,14 @@ defineProps<Props>();
                 Z
               </th>
               <td class="border border-black p-2">
-                {{ data.linearVelocity?.z.toFixed(2) }}
+                {{ linearVelocity?.z.toFixed(2) }}
               </td>
             </tr>
           </table>
         </div>
 
         <div
-          v-if="data.properties.compassHeadingSupported"
+          v-if="properties.compassHeadingSupported"
           class="mr-4 w-1/4"
         >
           <h3 class="mb-1">
@@ -214,7 +291,7 @@ defineProps<Props>();
                 Compass
               </th>
               <td class="border border-black p-2">
-                {{ data.compassHeading?.toFixed(2) }}
+                {{ compassHeading?.toFixed(2) }}
               </td>
             </tr>
           </table>
