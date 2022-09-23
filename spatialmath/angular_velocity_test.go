@@ -14,9 +14,9 @@ func TestConversions(t *testing.T) {
 		testName string
 		rate     r3.Vector
 	}{
-		// {"unitary roll", r3.Vector{X: 1, Y: 0, Z: 0}},
-		// {"unitary pitch", r3.Vector{X: 0, Y: 1, Z: 0}},
-		// {"unitary yaw", r3.Vector{X: 0, Y: 0, Z: 1}},
+		{"unitary roll", r3.Vector{X: 1, Y: 0, Z: 0}},
+		{"unitary pitch", r3.Vector{X: 0, Y: 1, Z: 0}},
+		{"unitary yaw", r3.Vector{X: 0, Y: 0, Z: 1}},
 		{"roll", r3.Vector{X: 2, Y: 0, Z: 0}},
 		{"pitch", r3.Vector{X: 0, Y: 4, Z: 0}},
 		{"yaw", r3.Vector{X: 0, Y: 0, Z: 5}},
@@ -28,15 +28,14 @@ func TestConversions(t *testing.T) {
 				Pitch: dt * angVs.rate.Y,
 				Yaw:   dt * angVs.rate.Z,
 			}
-
 			oav := OrientationToAngularVel(diffEu, dt)
 			eav := EulerToAngVel(*diffEu, dt)
 
 			t.Run("orientation", func(t *testing.T) {
-				test.That(t, oav, test.ShouldResemble, R3ToAngVel(angVs.rate))
+				test.That(t, oav, test.ShouldResemble, *R3ToAngVel(angVs.rate))
 			})
 			t.Run("euler", func(t *testing.T) {
-				test.That(t, eav, test.ShouldResemble, R3ToAngVel(angVs.rate))
+				test.That(t, eav, test.ShouldResemble, *R3ToAngVel(angVs.rate))
 			})
 		})
 	}
