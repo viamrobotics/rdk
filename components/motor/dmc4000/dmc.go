@@ -75,7 +75,7 @@ type Config struct {
 
 	// Set the per phase current (when using stepper amp)
 	// https://www.galil.com/download/comref/com4103/index.html#amplifier_gain.html
-	AmplifierGain int `json:"amplifier_gain"` // TODO(RSDK-568): units?
+	AmplifierGain int `json:"amplifier_gain"`
 	// Can reduce current when holding
 	// https://www.galil.com/download/comref/com4103/index.html#low_current_stepper_mode.html
 	LowCurrent int `json:"low_current"`
