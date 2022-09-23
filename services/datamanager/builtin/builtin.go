@@ -450,10 +450,11 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		modelsToDeploy := svcConfig.ModelsToDeploy
 		errorChannel := make(chan error, len(modelsToDeploy))
 		go svc.modelManager.DownloadModels(cfg, modelsToDeploy, errorChannel)
+		// close(errorChannel)
 		if len(errorChannel) != 0 {
 			var s string
-			for i := range errorChannel {
-				s = s + "\n" + i.Error()
+			for err := range errorChannel {
+				s = s + "," + err.Error()
 			}
 			return errors.New(s)
 		}

@@ -341,7 +341,6 @@ func TestRecoversAfterKilled(t *testing.T) {
 
 // TODO(DATA-341): Handle partial downloads in order to resume deployment.
 // TODO(DATA-344): Compare checksum of downloaded model to blob to determine whether to redeploy.
-// Want to make sure user can deploy to a custom location
 // Validates that models can be deployed onto a robot.
 func TestModelDeploy(t *testing.T) {
 	deployedZipFileName := "model.zip"
@@ -350,27 +349,26 @@ func TestModelDeploy(t *testing.T) {
 
 	zipper, err := os.Create(deployedZipFileName)
 	test.That(t, err, test.ShouldBeNil)
+	defer zipper.Close()
 
 	// Add content to zip file.
 	b0 := []byte("text representing model.txt internals.")
-	r0 := bytes.NewReader(b0)
 	b1 := []byte("text representing README.md internals.")
-	r1 := bytes.NewReader(b1)
 	zipWriter := zip.NewWriter(zipper)
+	// defer zipWriter.Close()
 
 	zipFile1, err := zipWriter.Create(originalFileName)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = io.Copy(zipFile1, r0)
+	_, err = zipFile1.Write(b0)
 	test.That(t, err, test.ShouldBeNil)
 
 	zipFile2, err := zipWriter.Create(otherOriginalFileName)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = io.Copy(zipFile2, r1)
+	_, err = zipFile2.Write(b1)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Now that we are done editing the zip file we close.
+	// Close zipWriter so we can unzip later
 	zipWriter.Close()
-	zipper.Close()
 
 	defer os.Remove(deployedZipFileName)
 
@@ -419,23 +417,35 @@ func TestModelDeploy(t *testing.T) {
 	files, err := ioutil.ReadDir(allModels[0].Destination)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(files), test.ShouldEqual, 2)
+
 	files, err = ioutil.ReadDir(allModels[1].Destination)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(files), test.ShouldEqual, 2)
 
 	// Validate that the deployed model file equals the dummy file that was zipped.
-	deployedUnzippedFile, err := ioutil.ReadFile(filepath.Join(allModels[0].Destination, originalFileName))
+	similar, err := fileCompareTestHelper(filepath.Join(allModels[0].Destination, originalFileName), b0)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, bytes.Equal(deployedUnzippedFile, b0), test.ShouldBeTrue)
-	deployedUnzippedFile, err = ioutil.ReadFile(filepath.Join(allModels[0].Destination, otherOriginalFileName))
+	test.That(t, similar, test.ShouldBeTrue)
+
+	similar, err = fileCompareTestHelper(filepath.Join(allModels[0].Destination, otherOriginalFileName), b1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, bytes.Equal(deployedUnzippedFile, b1), test.ShouldBeTrue)
-	deployedUnzippedFile, err = ioutil.ReadFile(filepath.Join(allModels[1].Destination, originalFileName))
+	test.That(t, similar, test.ShouldBeTrue)
+
+	similar, err = fileCompareTestHelper(filepath.Join(allModels[1].Destination, originalFileName), b0)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, bytes.Equal(deployedUnzippedFile, b0), test.ShouldBeTrue)
-	deployedUnzippedFile, err = ioutil.ReadFile(filepath.Join(allModels[1].Destination, otherOriginalFileName))
+	test.That(t, similar, test.ShouldBeTrue)
+
+	similar, err = fileCompareTestHelper(filepath.Join(allModels[1].Destination, otherOriginalFileName), b1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, bytes.Equal(deployedUnzippedFile, b1), test.ShouldBeTrue)
+	test.That(t, similar, test.ShouldBeTrue)
+}
+
+func fileCompareTestHelper(path string, info []byte) (bool, error) {
+	deployedUnzippedFile, err := ioutil.ReadFile(path)
+	if err != nil {
+		return false, err
+	}
+	return bytes.Equal(deployedUnzippedFile, info), nil
 }
 
 // Validates that if the robot config file specifies a directory path in additionalSyncPaths that does not exist,
@@ -803,6 +813,8 @@ type mockDataSyncServiceServer struct {
 	v1.UnimplementedDataSyncServiceServer
 }
 
+// TODO(DATA-487): Support zipping multiple files in
+// buildAndStartLocalModelServer and getTestModelManagerConstructor
 type mockModelServiceServer struct {
 	zipFileName string
 	lock        *sync.Mutex
