@@ -119,8 +119,8 @@ func TestServerAddDetector(t *testing.T) {
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
 	params, err := protoutils.StructToStructPb(config.AttributeMap{
-		"detect_color": "#112233",
-		"tolerance_pct":    0.4,
+		"detect_color":    "#112233",
+		"tolerance_pct":   0.4,
 		"segment_size_px": 200,
 	})
 	test.That(t, err, test.ShouldBeNil)
