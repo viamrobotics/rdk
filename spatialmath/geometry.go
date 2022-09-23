@@ -43,12 +43,12 @@ type GeometryConfig struct {
 	Type GeometryType `json:"type"`
 
 	// parameters used for defining a box's rectangular cross section
-	X float64 `json:"x_mm"`
-	Y float64 `json:"y_mm"`
-	Z float64 `json:"z_mm"`
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	Z float64 `json:"z"`
 
 	// parameter used for defining a sphere's radius'
-	R float64 `json:"r_mm"`
+	R float64 `json:"r"`
 
 	// define an offset to position the geometry
 	TranslationOffset TranslationConfig `json:"translation"`

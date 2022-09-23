@@ -9,7 +9,7 @@
     "wrongvalue": {
         "type": "ov_degrees",
         "value": {
-            "th_degs": "word",
+            "th": "word",
             "x": "another",
             "y": 4,
             "z": 12
@@ -19,7 +19,7 @@
     "ovdegrees": {
         "type": "ov_degrees",
         "value": {
-            "th_degs": 45,
+            "th": 45,
             "x": 0,
             "y": 0,
             "z": 1
@@ -28,7 +28,7 @@
     "ovradians": {
         "type": "ov_radians",
         "value": {
-            "th_rads": 0.78539816,
+            "th": 0.78539816,
             "x": 0,
             "y": 1,
             "z": 0
@@ -37,14 +37,14 @@
     "euler": {
         "type": "euler_angles",
         "value": {
-            "yaw_rads": 45,
-            "roll_rads": 0
+            "yaw": 45,
+            "roll": 0
         }
     },
     "axisangle": {
         "type": "axis_angles",
         "value": {
-            "th_rads": 0.78539816,
+            "th": 0.78539816,
             "x": 1,
             "y": 0,
             "z": 0
