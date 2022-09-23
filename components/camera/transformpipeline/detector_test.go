@@ -53,8 +53,8 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 		Type:  camera.SubtypeName,
 		Model: "file",
 		Attributes: config.AttributeMap{
-			"color": artifact.MustPath("vision/objectdetection/detection_test.jpg"),
-			"depth": "",
+			"color_file_path": artifact.MustPath("vision/objectdetection/detection_test.jpg"),
+			"depth_file_path": "",
 		},
 	}
 	cfg.Components = append(cfg.Components, cameraComp)
