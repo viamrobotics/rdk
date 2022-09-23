@@ -28,7 +28,7 @@ func TestOrientation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = ro.ParseConfig()
 	test.That(t, err, test.ShouldBeError,
-		errors.New("json: cannot unmarshal string into Go struct field OrientationVectorDegrees.th of type float64"))
+		errors.New("json: cannot unmarshal string into Go struct field OrientationVectorDegrees.th_degs of type float64"))
 
 	// Empty Config
 	ro = OrientationConfig{}
