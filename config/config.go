@@ -323,6 +323,9 @@ type NetworkConfigData struct {
 	// exclusive with BindAddress.
 	Listener net.Listener `json:"-"`
 
+	// NoListen disables the web/grpc startup (client only robots)
+	NoListen bool `json:"no_listen"`
+
 	// BindAddress is the address that the web server will bind to.
 	// The default behavior is to bind to localhost:8080. This is mutually
 	// exclusive with Listener.

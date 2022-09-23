@@ -39,7 +39,6 @@ import (
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -187,6 +186,9 @@ type Service interface {
 	// Start starts the web server
 	Start(context.Context, weboptions.Options) error
 
+	// Returns the address and port the web service listens on.
+	Address() string
+
 	// Close closes the web server
 	Close() error
 }
@@ -223,6 +225,7 @@ type webService struct {
 	streamServer *StreamServer
 	services     map[resource.Subtype]subtype.Service
 	opts         options
+	addr         string
 
 	logger                  golog.Logger
 	cancelFunc              func()
@@ -247,31 +250,11 @@ func (svc *webService) Start(ctx context.Context, o weboptions.Options) error {
 	return nil
 }
 
-// RunWeb starts the web server on the robot with web options and blocks until we cancel the context.
-func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logger golog.Logger) (err error) {
-	defer func() {
-		if err != nil {
-			err = utils.FilterOutError(err, context.Canceled)
-			if err != nil {
-				logger.Errorw("error running web", "error", err)
-			}
-		}
-	}()
-
-	if err := r.StartWeb(ctx, o); err != nil {
-		return err
-	}
-	<-ctx.Done()
-	return ctx.Err()
-}
-
-// RunWebWithConfig starts the web server on the robot with a robot config and blocks until we cancel the context.
-func RunWebWithConfig(ctx context.Context, r robot.LocalRobot, cfg *config.Config, logger golog.Logger) error {
-	o, err := weboptions.FromConfig(cfg)
-	if err != nil {
-		return err
-	}
-	return RunWeb(ctx, r, o, logger)
+// Address returns the address the service is listening on.
+func (svc *webService) Address() string {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	return svc.addr
 }
 
 // Update updates the web service when the robot has changed. Not Reconfigure because
@@ -546,9 +529,9 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithInsecure())
 	}
 
-	listenerAddr := listenerTCPAddr.String()
+	svc.addr = listenerTCPAddr.String()
 	if options.FQDN == "" {
-		options.FQDN, err = rpc.InstanceNameFromAddress(listenerAddr)
+		options.FQDN, err = rpc.InstanceNameFromAddress(svc.addr)
 		if err != nil {
 			return err
 		}
@@ -565,7 +548,7 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	}
 
 	if options.SignalingAddress == "" {
-		options.SignalingAddress = listenerAddr
+		options.SignalingAddress = svc.addr
 	}
 
 	if err := svc.rpcServer.RegisterServiceServer(
@@ -654,10 +637,10 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	} else {
 		scheme = "http"
 	}
-	if strings.HasPrefix(listenerAddr, "[::]") {
-		listenerAddr = fmt.Sprintf("0.0.0.0:%d", listenerTCPAddr.Port)
+	if strings.HasPrefix(svc.addr, "[::]") {
+		svc.addr = fmt.Sprintf("0.0.0.0:%d", listenerTCPAddr.Port)
 	}
-	listenerURL := fmt.Sprintf("%s://%s", scheme, listenerAddr)
+	listenerURL := fmt.Sprintf("%s://%s", scheme, svc.addr)
 	var urlFields []interface{}
 	if options.LocalFQDN == "" {
 		urlFields = append(urlFields, "url", listenerURL)

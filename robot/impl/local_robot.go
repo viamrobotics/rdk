@@ -95,20 +95,6 @@ func (r *localRobot) fsService() (framesystem.Service, error) {
 	return framesystemSvc, nil
 }
 
-// // moduleService returns the localRobot's module service. Raises if the service has not been initialized.
-// func (r *localRobot) moduleService() (modulesystem.Service, error) {
-// 	svc := r.internalServices[modulesystemName]
-// 	if svc == nil {
-// 		return nil, errors.New("module system service not initialized")
-// 	}
-
-// 	modulesystemSvc, ok := svc.(modulesystem.Service)
-// 	if !ok {
-// 		return nil, errors.New("unexpected service associated with module system internalServiceName")
-// 	}
-// 	return modulesystemSvc, nil
-// }
-
 // RemoteByName returns a remote robot by name. If it does not exist
 // nil is returned.
 func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
@@ -247,6 +233,15 @@ func (r *localRobot) StopWeb() error {
 		return err
 	}
 	return webSvc.Close()
+}
+
+// WebAddress return the web service's address.
+func (r *localRobot) WebAddress() (string, error) {
+	webSvc, err := r.webService()
+	if err != nil {
+		return "", err
+	}
+	return webSvc.Address(), nil
 }
 
 // remoteNameByResource returns the remote the resource is pulled from, if found.
@@ -411,10 +406,11 @@ func newWithResources(
 		return nil, err
 	}
 
-	// TODO (@Otterverse) make this reconfigurable.
-	r.logger.Warn("SMURF MODULES")
+	err = r.modules.StartListener(ctx, r)
+	if err != nil {
+		return nil, err
+	}
 	for _, mod := range cfg.Modules {
-		r.logger.Debugf("SMURF MOD10: %+v", mod)
 		r.modules.AddModule(ctx, mod)
 	}
 
@@ -510,8 +506,6 @@ func newWithResources(
 		logger.Errorw("error starting web service while reconfiguring", "error", err)
 	}
 
-	logger.Debug("SMURF WEB START")
-
 	r.config = &config.Config{}
 
 	r.Reconfigure(ctx, cfg)
@@ -585,14 +579,6 @@ func (r *localRobot) getDependencies(rName resource.Name) (registry.Dependencies
 
 func (r *localRobot) newResource(ctx context.Context, config config.Component) (interface{}, error) {
 	rName := config.ResourceName()
-
-	// if config.Model.String() == "" {
-	// 	model, err := resource.NewModelFromString(config.ModelStr)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	config.Model = model
-	// }
 
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
 	if f == nil {

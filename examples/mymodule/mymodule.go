@@ -3,10 +3,9 @@ package main
 import (
 	"context"
 	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -17,6 +16,8 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
+
+	goutils "go.viam.com/utils"
 )
 
 type myComponent struct {
@@ -60,7 +61,7 @@ func (s *server) AddComponent(ctx context.Context, cfg *config.Component, depLis
 		return err
 	}
 
-	r, err := s.mod.GetParentComponent(mName)
+	r, err := s.mod.GetParentComponent(ctx, mName)
 	if err != nil {
 		return err
 	}
@@ -115,24 +116,27 @@ func NewLogger() (*zap.SugaredLogger) {
 }
 
 func main() {
-	shutdown := make(chan os.Signal, 1)
-	signal.Notify(shutdown, os.Interrupt)
-	signal.Notify(shutdown, syscall.SIGTERM)
+	goutils.ContextualMain(mainWithArgs, logger)
+}
 
-	server := &server{components: make(map[string]*myComponent)}
-	server.mod = module.NewModule(os.Args[1], logger)
-
-	model, _ := resource.NewModelFromString("acme:rocket:skates")
+func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
+	server := &server{
+		components: make(map[string]*myComponent),
+		mod: module.NewModule(os.Args[1], logger),
+	}
+	model, err := resource.NewModelFromString("acme:rocket:skates")
+	if err != nil {
+		return err
+	}
 	server.mod.RegisterModel(generic.Subtype, model)
 	server.mod.RegisterAddComponent(server.AddComponent)
-
 	pbgeneric.RegisterGenericServiceServer(server.mod.GRPCServer(), server)
 
-	err := server.mod.Start()
+	err = server.mod.Start()
 	defer server.mod.Close()
 	if err != nil {
-		logger.Error(err)
-		return
+		return err
 	}
-	<-shutdown
+	<-ctx.Done()
+	return nil
 }

@@ -1334,6 +1334,7 @@ func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 
 	ctx := context.Background()
 
+	cfg.Network.NoListen = true
 	r, err := New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {

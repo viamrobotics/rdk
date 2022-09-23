@@ -7,8 +7,7 @@
             "model": "acme:myfamily:myActualComponent",
             "name": "comp1",
             "namespace": "acme",
-            "type": "mycomponent",
-            "model": "myActualComponent"
+            "type": "mycomponent"
         }
     ]
 }

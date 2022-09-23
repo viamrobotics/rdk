@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"net"
 	"os"
 	"testing"
 	"time"
@@ -2378,20 +2377,22 @@ func TestRemoteRobotsGold(t *testing.T) {
 
 	ctx := context.Background()
 
+	cfg.Network.BindAddress = ":0"
 	remote1, err := New(ctx, cfg, loggerR)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, remote1.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	options, _, addr1 := robottestutils.CreateBaseOptionsAndListener(t)
-	err = remote1.StartWeb(ctx, options)
+	addr1, err:= remote1.WebAddress()
 	test.That(t, err, test.ShouldBeNil)
 
-	remote2, err := New(ctx, cfg, loggerR)
+	cfg2, err := config.Read(context.Background(), "data/fake.json", loggerR)
 	test.That(t, err, test.ShouldBeNil)
-
-	options, listener2, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
+	cfg2.Network.NoListen = true
+	remote2, err := New(ctx, cfg2, loggerR)
+	test.That(t, err, test.ShouldBeNil)
+	options, _, addr2 := robottestutils.CreateBaseOptionsAndListener(t)
 
 	localConfig := &config.Config{
 		Components: []config.Component{
@@ -2446,12 +2447,12 @@ func TestRemoteRobotsGold(t *testing.T) {
 			datamanager.Named("foo:builtin"),
 		),
 	)
-	err = remote2.StartWeb(ctx, options)
-	test.That(t, err, test.ShouldBeNil)
 
 	rr, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
+	err = remote2.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
 	rr.triggerConfig <- true
 
 	utils.SelectContextOrWait(ctx, 2*time.Second)
@@ -2508,20 +2509,15 @@ func TestRemoteRobotsGold(t *testing.T) {
 		),
 	)
 
+	// Note: There's a slight chance this test can fail if someone else
+	// claims the port we just released by closing the server.
+	cfg.Network.BindAddress = addr2
 	remote3, err := New(ctx, cfg, loggerR)
 	test.That(t, err, test.ShouldBeNil)
 
 	defer func() {
 		test.That(t, remote3.Close(context.Background()), test.ShouldBeNil)
 	}()
-
-	// Note: There's a slight chance this test can fail if someone else
-	// claims the port we just released by closing the server.
-	listener2, err = net.Listen("tcp", listener2.Addr().String())
-	test.That(t, err, test.ShouldBeNil)
-	options.Network.Listener = listener2
-	err = remote3.StartWeb(ctx, options)
-	test.That(t, err, test.ShouldBeNil)
 
 	utils.SelectContextOrWait(ctx, 26*time.Second)
 

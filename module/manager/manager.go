@@ -3,9 +3,12 @@ package manager
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -13,6 +16,8 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
+	robotpb "go.viam.com/api/robot/v1"
+	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
@@ -23,6 +28,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	rserver "go.viam.com/rdk/robot/server"
 )
 
 // NewManager returns a Manager.
@@ -59,6 +65,45 @@ type Manager struct {
 	logger     golog.Logger
 	modules    map[string]*module
 	serviceMap map[resource.Name]rpc.ClientConn
+	addr       string
+	grpcServer              *grpc.Server
+	activeBackgroundWorkers sync.WaitGroup
+}
+
+func (mgr *Manager) StartListener(ctx context.Context, r robot.Robot) error {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+
+	dir, err := os.MkdirTemp("", "viam-module-*")
+	if err != nil {
+		return errors.WithMessage(err, "module startup failed")
+	}
+	mgr.addr = dir + "/parent.sock"
+	oldMask := syscall.Umask(0o077)
+	lis, err := net.Listen("unix", mgr.addr)
+	syscall.Umask(oldMask)
+	if err != nil {
+		return errors.WithMessage(err, "failed to listen")
+	}
+
+	mgr.grpcServer = grpc.NewServer()
+	mgr.grpcServer.RegisterService(
+		&robotpb.RobotService_ServiceDesc,
+		rserver.New(r),
+	)
+
+	mgr.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer mgr.activeBackgroundWorkers.Done()
+		defer os.Remove(mgr.addr)
+		mgr.logger.Debugf("server listening at %v", lis.Addr())
+		if err := mgr.grpcServer.Serve(lis); err != nil {
+			mgr.logger.Fatalf("failed to serve: %v", err)
+		}
+	})
+
+	mgr.logger.Warnf("SMURF 900 %+v", mgr.addr)
+	return nil
 }
 
 // Stop signals logic modules to stop operation and release resources.
@@ -80,7 +125,9 @@ func (mgr *Manager) Close(ctx context.Context) error {
 			os.RemoveAll(filepath.Dir(string(mod.addr))),
 		)
 	}
-	return err
+	mgr.grpcServer.GracefulStop()
+	mgr.activeBackgroundWorkers.Wait()
+	return os.RemoveAll(filepath.Dir(string(mgr.addr)))
 }
 
 // AddModule adds and starts a new resource module.
@@ -128,7 +175,10 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 
 	mod.conn = conn
 	mod.client = pb.NewModuleServiceClient(conn)
-	mod.handles, err = checkReady(ctx, mod.client)
+	mgr.logger.Warnf("SMURF 901 %+v", mgr.addr)
+
+
+	mod.handles, err = checkReady(ctx, mod.client, mgr.addr)
 	if err != nil {
 		return errors.WithMessage(err, "SMURF PING: ")
 	}
@@ -194,7 +244,7 @@ func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component, deps
 			}
 		}
 	}
-	return nil, errors.Errorf("no module registered to serve resource api %s and model %s", cfg.ResourceName().Subtype, cfg.ResourceName().Model)
+	return nil, errors.Errorf("no module registered to serve resource api %s and model %s", cfg.ResourceName().Subtype, cfg.Model)
 }
 
 // AddService tells a service module to configure a new service.
@@ -211,12 +261,14 @@ func depsToNames(deps registry.Dependencies) []string {
 	return depStrings
 }
 
-func checkReady(ctx context.Context, client pb.ModuleServiceClient) (modlib.HandlerMap, error) {
+func checkReady(ctx context.Context, client pb.ModuleServiceClient, addr string) (modlib.HandlerMap, error) {
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, time.Second*10)
 	defer cancelFunc()
 	for {
 		// TODO (@Otterverse) test if this actually fails on context.Done()
-		resp, err := client.Ready(ctxTimeout, &pb.ReadyRequest{}, grpc_retry.WithMax(5000))
+		req := &pb.ReadyRequest{ParentAddress: addr}
+		fmt.Printf("SMURF 110: %+v", req)
+		resp, err := client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
 		if err != nil {
 			return nil, err
 		}

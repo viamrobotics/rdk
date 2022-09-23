@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/config"
@@ -61,6 +62,10 @@ type modserver struct {
 }
 
 func (s *modserver) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResponse, error) {
+	s.module.mu.Lock()
+	defer s.module.mu.Unlock()
+	s.module.logger.Warnf("SMURF100: %+v", req)
+	s.module.parentAddr = req.GetParentAddress()
 	return &pb.ReadyResponse{Ready: s.module.ready, Handlermap: s.module.handlers.ToProto()}, nil
 }
 
@@ -85,6 +90,7 @@ type Module struct {
 	mu                      sync.Mutex
 	ready                   bool
 	addr                    string
+	parentAddr              string
 	activeBackgroundWorkers sync.WaitGroup
 	addComponent            AddComponentFunc
 	handlers                HandlerMap
@@ -142,11 +148,12 @@ func (m *Module) RegisterModel(api resource.Subtype, model resource.Model) {
 	m.handlers[api] = append(m.handlers[api], model)
 }
 
-func (m *Module) GetParentComponent(name resource.Name) (interface{}, error) {
+func (m *Module) GetParentComponent(ctx context.Context, name resource.Name) (interface{}, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.logger.Warnf("Address: %s", m.parentAddr)
 	if m.parent == nil {
-		rc, err := client.New(context.Background(), "localhost:8080", m.logger)
+		rc, err := client.New(ctx, "unix://"+m.parentAddr, m.logger, client.WithDialOptions(rpc.WithForceDirectGRPC(), rpc.WithDialDebug(), rpc.WithInsecure()))
 		if err != nil {
 			return nil, err
 		}
