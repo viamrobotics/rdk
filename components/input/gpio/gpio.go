@@ -82,11 +82,11 @@ type Config struct {
 // AxisConfig is a subconfig for axes.
 type AxisConfig struct {
 	Control       input.Control `json:"control"`
-	Min           int           `json:"min"` // TODO(RSDK-568): units?
-	Max           int           `json:"max"` // TODO(RSDK-568): units?
+	Min           int           `json:"min"`
+	Max           int           `json:"max"`
 	Bidirectional bool          `json:"bidirectional"`
 	Deadzone      int           `json:"deadzone"`
-	MinChange     int           `json:"min_change"` // TODO(RSDK-568): units?
+	MinChange     int           `json:"min_change"`
 	PollHz        float64       `json:"poll_hz"`
 	Invert        bool          `json:"invert"`
 }
