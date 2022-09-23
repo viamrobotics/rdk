@@ -237,6 +237,12 @@ func (r *reconfigurableBoard) DigitalInterruptByName(name string) (DigitalInterr
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	d, ok := r.digitals[name]
+	if !ok {
+		if d, ok := r.actual.DigitalInterruptByName(name); ok {
+			r.digitals[name] = &reconfigurableDigitalInterrupt{actual: d}
+			return r.digitals[name], ok
+		}
+	}
 	return d, ok
 }
 

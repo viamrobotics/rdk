@@ -114,11 +114,6 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webca
 				Width:       int32(prop.Video.Width),
 				Height:      int32(prop.Video.Height),
 				FrameFormat: string(prop.Video.FrameFormat),
-				Video: &pb.Video{
-					Width:       int32(prop.Video.Width),
-					Height:      int32(prop.Video.Height),
-					FrameFormat: string(prop.Video.FrameFormat),
-				},
 			}
 			wc.Properties = append(wc.Properties, pbProp)
 		}
