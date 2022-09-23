@@ -526,8 +526,12 @@ func (slamSvc *builtIn) Close() error {
 	}()
 	slamSvc.cancelFunc()
 	if slamSvc.bufferSLAMProcessLogs {
-		slamSvc.slamProcessLogReader.Close()
-		slamSvc.slamProcessLogWriter.Close()
+		if slamSvc.slamProcessLogReader != nil {
+			slamSvc.slamProcessLogReader.Close()
+		}
+		if slamSvc.slamProcessLogWriter != nil {
+			slamSvc.slamProcessLogWriter.Close()
+		}
 	}
 	if err := slamSvc.StopSLAMProcess(); err != nil {
 		return errors.Wrap(err, "error occurred during closeout of process")
