@@ -2304,12 +2304,16 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 	cfg1 := &config.Config{
 		Services: []config.Service{
 			{
-				Name: visName,
-				Type: config.ServiceType(vision.SubtypeName),
+				Name:      visName,
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      config.ServiceType(vision.SubtypeName),
+				Model:     resource.DefaultModelName,
 			},
 			{
-				Name: dmName,
-				Type: config.ServiceType(datamanager.SubtypeName),
+				Name:      dmName,
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      config.ServiceType(datamanager.SubtypeName),
+				Model:     resource.DefaultModelName,
 			},
 		},
 	}
@@ -2330,11 +2334,20 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		),
 	)
 	visName = "vis2"
+	sName := "sensors"
 	cfg2 := &config.Config{
 		Services: []config.Service{
 			{
-				Name: visName,
-				Type: config.ServiceType(vision.SubtypeName),
+				Name:      visName,
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      config.ServiceType(vision.SubtypeName),
+				Model:     resource.DefaultModelName,
+			},
+			{
+				Name:      sName,
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      config.ServiceType(sensors.SubtypeName),
+				Model:     resource.DefaultModelName,
 			},
 		},
 	}
@@ -2346,7 +2359,7 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		rdktestutils.NewResourceNameSet(
 			vision.Named(visName),
 			datamanager.Named(resource.DefaultServiceName),
-			sensors.Named(resource.DefaultServiceName),
+			sensors.Named(sName),
 		),
 	)
 }
