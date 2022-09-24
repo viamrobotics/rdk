@@ -167,7 +167,7 @@ func (m *Module) GetParentComponent(ctx context.Context, name resource.Name) (in
 	m.logger.Infof("Address: %s", m.parentAddr)
 	if m.parent == nil {
 		rc, err := client.New(ctx, "unix://"+m.parentAddr, m.logger,
-			client.WithDialOptions(rpc.WithForceDirectGRPC(), rpc.WithDialDebug(), rpc.WithInsecure()))
+			client.WithDialOptions(rpc.WithForceDirectGRPC(), rpc.WithInsecure()))
 		if err != nil {
 			return nil, err
 		}

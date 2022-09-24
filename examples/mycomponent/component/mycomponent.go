@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
@@ -51,6 +52,13 @@ func init() {
 				newServer(subtypeSvc),
 				pb.RegisterMyComponentServiceHandlerFromEndpoint,
 			)
+		},
+		RegisterRPCLiteService: func(ctx context.Context, grpcServer *grpc.Server, subtypeSvc subtype.Service) error {
+			grpcServer.RegisterService(
+				&pb.MyComponentService_ServiceDesc,
+				newServer(subtypeSvc),
+			)
+			return nil
 		},
 		RPCServiceDesc: &pb.MyComponentService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {

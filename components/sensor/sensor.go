@@ -9,6 +9,7 @@ import (
 	pb "go.viam.com/api/component/sensor/v1"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/registry"
@@ -29,6 +30,13 @@ func init() {
 				NewServer(subtypeSvc),
 				pb.RegisterSensorServiceHandlerFromEndpoint,
 			)
+		},
+		RegisterRPCLiteService: func(ctx context.Context, grpcServer *grpc.Server, subtypeSvc subtype.Service) error {
+			grpcServer.RegisterService(
+				&pb.SensorService_ServiceDesc,
+				NewServer(subtypeSvc),
+			)
+			return nil
 		},
 		RPCServiceDesc: &pb.SensorService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {

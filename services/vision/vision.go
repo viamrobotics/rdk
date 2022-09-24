@@ -12,6 +12,7 @@ import (
 	servicepb "go.viam.com/api/service/vision/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -34,6 +35,13 @@ func init() {
 				NewServer(subtypeSvc),
 				servicepb.RegisterVisionServiceHandlerFromEndpoint,
 			)
+		},
+		RegisterRPCLiteService: func(ctx context.Context, grpcServer *grpc.Server, subtypeSvc subtype.Service) error {
+			grpcServer.RegisterService(
+				&servicepb.VisionService_ServiceDesc,
+				NewServer(subtypeSvc),
+			)
+			return nil
 		},
 		RPCServiceDesc: &servicepb.VisionService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {

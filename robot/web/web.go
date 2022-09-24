@@ -36,6 +36,7 @@ import (
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/audioinput"
@@ -323,7 +324,7 @@ func (svc *webService) StartLite(ctx context.Context) error {
 		&pb.RobotService_ServiceDesc,
 		grpcserver.New(svc.r),
 	)
-
+	reflection.Register(svc.liteServer)
 	if err := svc.initResources(); err != nil {
 		return err
 	}
