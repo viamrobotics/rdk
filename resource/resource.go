@@ -31,7 +31,6 @@ const (
 	ResourceNamespaceRDK  = Namespace("rdk")
 	ResourceTypeComponent = TypeName("component")
 	ResourceTypeService   = TypeName("service")
-	DefaultServiceName    = "builtin"
 	DefaultModelName      = "builtin"
 	DefaultMaxInstance    = 1
 )
