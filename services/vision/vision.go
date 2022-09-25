@@ -42,7 +42,6 @@ func init() {
 		Reconfigurable: WrapWithReconfigurable,
 		MaxInstance:    resource.DefaultMaxInstance,
 	})
-	resource.AddDefaultService(Named(resource.DefaultServiceName))
 }
 
 // A Service that implements various computer vision algorithms like detection and segmentation.

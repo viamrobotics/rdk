@@ -35,7 +35,6 @@ func init() {
 		Reconfigurable: WrapWithReconfigurable,
 		MaxInstance:    resource.DefaultMaxInstance,
 	})
-	resource.AddDefaultService(Named(resource.DefaultServiceName))
 }
 
 // A Readings ties both the sensor name and its reading together.
