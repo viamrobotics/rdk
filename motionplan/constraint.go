@@ -131,7 +131,6 @@ func NewCollisionConstraint(
 	goodInput []referenceframe.Input,
 	obstacles, interactionSpaces map[string]spatial.Geometry,
 ) Constraint {
-	// Making the assumption that setting all inputs to zero is a valid configuration without extraneous self-collisions
 	zeroVols, err := frame.Geometries(goodInput)
 	if err != nil && len(zeroVols.Geometries()) == 0 {
 		return nil // no geometries defined for frame
