@@ -57,6 +57,12 @@ jobs:
             exit 1
         fi
 
+    - name: Get orbslam binary for integration tests
+      if: matrix.platform == 'linux/amd64'
+      run: |
+        sudo curl -o /usr/local/bin/orb_grpc_server http://packages.viam.com/apps/slam-servers/orb_grpc_server-latest-x86_64.AppImage
+        sudo chmod a+rx /usr/local/bin/orb_grpc_server
+
     - name: Test
       if: matrix.platform == 'linux/amd64'
       run: |
