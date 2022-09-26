@@ -3,6 +3,7 @@
 package internal
 
 import (
+	"bufio"
 	"context"
 
 	"github.com/edaniels/gostream"
@@ -20,4 +21,5 @@ type Service interface {
 	StopSLAMProcess() error
 	Close() error
 	GetSLAMProcessConfig() pexec.ProcessConfig
+	GetSLAMProcessBufferedLogReader() bufio.Reader
 }

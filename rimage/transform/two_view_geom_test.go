@@ -18,8 +18,8 @@ var logger = golog.NewLogger("test_cam_pose_estimation")
 type poseGroundTruth struct {
 	Pts1 [][]float64 `json:"pts1"`
 	Pts2 [][]float64 `json:"pts2"`
-	R    [][]float64 `json:"rot"`
-	T    [][]float64 `json:"translation"`
+	R    [][]float64 `json:"rot"`         // TODO(RSDK-568): unit?
+	T    [][]float64 `json:"translation"` // TODO(RSDK-568): unit?
 	K    [][]float64 `json:"cam_mat"`
 	F    [][]float64 `json:"fundamental_matrix"`
 }

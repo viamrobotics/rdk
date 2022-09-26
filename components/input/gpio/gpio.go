@@ -95,7 +95,7 @@ type AxisConfig struct {
 type ButtonConfig struct {
 	Control    input.Control `json:"control"`
 	Invert     bool          `json:"invert"`
-	DebounceMs int           `json:"debounce_ms"` // set to -1 to disable, default=5
+	DebounceMs int           `json:"debounce_msec"` // set to -1 to disable, default=5
 }
 
 // A Controller creates an input.Controller from DigitalInterrupts and AnalogReaders.

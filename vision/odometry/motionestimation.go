@@ -19,9 +19,9 @@ import (
 type MotionEstimationConfig struct {
 	KeyPointCfg       *keypoints.ORBConfig               `json:"kps"`
 	MatchingCfg       *keypoints.MatchingConfig          `json:"matching"`
-	CamIntrinsics     *transform.PinholeCameraIntrinsics `json:"cam_intrinsics"`
+	CamIntrinsics     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
 	ScaleEstimatorCfg *ScaleEstimatorConfig              `json:"scale_estimator"`
-	CamHeightGround   float64                            `json:"cam_height_ground"`
+	CamHeightGround   float64                            `json:"cam_height_ground_m"`
 }
 
 // LoadMotionEstimationConfig loads a motion estimation configuration from a json file.

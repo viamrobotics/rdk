@@ -45,6 +45,7 @@ func init() {
 		}
 		return &conf, nil
 	}, &Config{})
+	resource.AddDefaultService(datamanager.Named(resource.DefaultModelName))
 }
 
 // TODO: re-determine if queue size is optimal given we now support 10khz+ capture rates

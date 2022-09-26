@@ -28,8 +28,8 @@ const model = "imu-vectornav"
 type AttrConfig struct {
 	Board string `json:"board"`
 	SPI   string `json:"spi"`
-	Speed *int   `json:"speed"`
-	Pfreq *int   `json:"polling_freq"`
+	Speed *int   `json:"baud_rate"`
+	Pfreq *int   `json:"polling_freq_hz"`
 	CSPin string `json:"cs_pin"`
 }
 
@@ -44,11 +44,11 @@ func (cfg *AttrConfig) Validate(path string) error {
 	}
 
 	if cfg.Speed == nil {
-		return rdkutils.NewConfigValidationFieldRequiredError(path, "speed")
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "baud_rate")
 	}
 
 	if cfg.Pfreq == nil {
-		return rdkutils.NewConfigValidationFieldRequiredError(path, "polling_freq")
+		return rdkutils.NewConfigValidationFieldRequiredError(path, "polling_freq_hz")
 	}
 
 	if cfg.CSPin == "" {
