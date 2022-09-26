@@ -341,6 +341,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 
 // TODO(DATA-341): Handle partial downloads in order to resume deployment.
 // TODO(DATA-344): Compare checksum of downloaded model to blob to determine whether to redeploy.
+// TODO(DATA-493): Test model deployment from config file.
 // Validates that models can be deployed onto a robot.
 func TestModelDeploy(t *testing.T) {
 	deployModelWaitTime := time.Millisecond * 100
@@ -420,7 +421,7 @@ func TestModelDeploy(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(files), test.ShouldEqual, 2)
 
-	// Validate that the deployed model files equal the dummy files that was zipped.
+	// Validate that the deployed model files equal the dummy files that were zipped.
 	similar, err := fileCompareTestHelper(filepath.Join(allModels[0].Destination, originalFileName), b0)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, similar, test.ShouldBeTrue)
