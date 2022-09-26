@@ -439,7 +439,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	}
 
 	// Check that we have models to download and appropriate credentials.
-	if svcConfig.ModelsToDeploy != nil && cfg.Cloud != nil {
+	if len(svcConfig.ModelsToDeploy) > 0 && cfg.Cloud != nil {
 		if svc.modelManager == nil {
 			modelManager, err := svc.modelManagerConstructor(svc.logger, cfg)
 			if err != nil {
