@@ -1535,6 +1535,8 @@ go.viam.com/api v0.0.0-20220916213024-c0795f3a04fd h1:Q1teDckCuksFJhLA0Gfs10rmyY
 go.viam.com/api v0.0.0-20220916213024-c0795f3a04fd/go.mod h1:VFEOCtDPE+gDOmZNBguh/F217JEmrfXlx2jPkP//Ce4=
 go.viam.com/api v0.0.0-20220919231353-79c32cb2339f h1:QQQDtjcZmg5WTvrwN9bee/wLwQxOnQBLphL4SDVGP+I=
 go.viam.com/api v0.0.0-20220919231353-79c32cb2339f/go.mod h1:VFEOCtDPE+gDOmZNBguh/F217JEmrfXlx2jPkP//Ce4=
+go.viam.com/api v0.0.0-20220922191847-1e4e0f11c3c4 h1:YXexZqKgVCqWcTBmFuOzTpp2TvirlPkHdy7TjHqzCiw=
+go.viam.com/api v0.0.0-20220922191847-1e4e0f11c3c4/go.mod h1:GszZtg1xX/3/rrdjp8jvWAZIeFfCreXwN+LdpHNX+Ek=
 go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb h1:qXL9ae27upOyWn//rVGFJt90nDzT7Gz5WOaNe+9PJb8=
 go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb/go.mod h1:bVVm3GcP8koFgCYKWJkCU0r+lkOvTQLeLaFcw8AFghE=
 go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e h1:1tJIJv/zsobFV5feR2ZiG/+VGZkRPVHqJrSTkXbWfqQ=
