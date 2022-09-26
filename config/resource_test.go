@@ -356,7 +356,7 @@ func TestServiceValidate(t *testing.T) {
 		}
 		err := testConfig.Validate("path")
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, testConfig.Name, test.ShouldEqual, resource.DefaultServiceName)
+		test.That(t, testConfig.Name, test.ShouldEqual, resource.DefaultModelName)
 	})
 
 	t.Run("with namespace", func(t *testing.T) {

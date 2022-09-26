@@ -37,7 +37,6 @@ func init() {
 		Reconfigurable: WrapWithReconfigurable,
 		MaxInstance:    resource.DefaultMaxInstance,
 	})
-	resource.AddDefaultService(Named(resource.DefaultServiceName))
 }
 
 // Service defines what a Data Manager Service should expose to the users.
