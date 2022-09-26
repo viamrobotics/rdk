@@ -1,4 +1,5 @@
 // Package cameramono implements a visual odemetry movement sensor based ona  single camera stream
+// This is an Experimental package
 package cameramono
 
 import (
