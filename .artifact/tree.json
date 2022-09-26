@@ -2881,7 +2881,7 @@
       }
     }
   },
-  "components": {
+  "component": {
     "camera": {
       "ffmpeg": {
         "testsrc.mpg": {
@@ -2893,6 +2893,22 @@
         "vision.json": {
           "hash": "6a08f5990ff4e77de7265facc1518a67",
           "size": 84
+        }
+      }
+    }
+  },
+  "components": {
+    "camera": {
+      "ffmpeg": {
+        "testsrc.mpg": {
+          "hash": "3db8bb7ff7845790c0a770dc19b7dd46",
+          "size": 13914
+        }
+      },
+      "transformpipeline": {
+        "vision.json": {
+          "hash": "6d5137a207e8fa9a5638314db62b30ff",
+          "size": 24
         }
       }
     }
@@ -50942,8 +50958,8 @@
         "size": 274770
       },
       "vo_config.json": {
-        "hash": "ee9f92157fe9c6febc70acc22e43fa24",
-        "size": 747
+        "hash": "40fd7f28d1caa2bb5387d09bff4214e2",
+        "size": 771
       }
     },
     "segmentation": {
