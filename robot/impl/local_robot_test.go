@@ -165,9 +165,9 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
-		vision.Named(resource.DefaultServiceName),
-		sensors.Named(resource.DefaultServiceName),
-		datamanager.Named(resource.DefaultServiceName),
+		vision.Named(resource.DefaultModelName),
+		sensors.Named(resource.DefaultModelName),
+		datamanager.Named(resource.DefaultModelName),
 		arm.Named("squee:pieceArm"),
 		arm.Named("foo:pieceArm"),
 		arm.Named("bar:pieceArm"),
@@ -437,9 +437,9 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, r2, test.ShouldNotBeNil)
 
 			expected := []resource.Name{
-				vision.Named(resource.DefaultServiceName),
-				sensors.Named(resource.DefaultServiceName),
-				datamanager.Named(resource.DefaultServiceName),
+				vision.Named(resource.DefaultModelName),
+				sensors.Named(resource.DefaultModelName),
+				datamanager.Named(resource.DefaultModelName),
 				arm.Named("bar:pieceArm"),
 				arm.Named("foo:pieceArm"),
 				audioinput.Named("bar:mic1"),
@@ -638,9 +638,9 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
-		vision.Named(resource.DefaultServiceName),
-		sensors.Named(resource.DefaultServiceName),
-		datamanager.Named(resource.DefaultServiceName),
+		vision.Named(resource.DefaultModelName),
+		sensors.Named(resource.DefaultModelName),
+		datamanager.Named(resource.DefaultModelName),
 		arm.Named("foo:pieceArm"),
 		audioinput.Named("foo:mic1"),
 		camera.Named("foo:cameraOver"),
@@ -936,9 +936,9 @@ func TestMetadataUpdate(t *testing.T) {
 		gripper.Named("pieceGripper"),
 		movementsensor.Named("movement_sensor1"),
 		movementsensor.Named("movement_sensor2"),
-		vision.Named(resource.DefaultServiceName),
-		sensors.Named(resource.DefaultServiceName),
-		datamanager.Named(resource.DefaultServiceName),
+		vision.Named(resource.DefaultModelName),
+		sensors.Named(resource.DefaultModelName),
+		datamanager.Named(resource.DefaultModelName),
 	}
 
 	resources = r.ResourceNames()
@@ -955,7 +955,7 @@ func TestSensorsService(t *testing.T) {
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	svc, err := sensors.FromRobot(r, resource.DefaultServiceName)
+	svc, err := sensors.FromRobot(r, resource.DefaultModelName)
 	test.That(t, err, test.ShouldBeNil)
 
 	sensorNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
@@ -1224,7 +1224,7 @@ func TestStatusRemote(t *testing.T) {
 		rtestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(
-			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
+			vision.Named(resource.DefaultModelName), sensors.Named(resource.DefaultModelName), datamanager.Named(resource.DefaultModelName),
 			arm.Named("foo:arm1"), arm.Named("foo:arm2"), arm.Named("bar:arm1"), arm.Named("bar:arm2"),
 		),
 	)
@@ -1331,7 +1331,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		rtestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(
-			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
+			vision.Named(resource.DefaultModelName), sensors.Named(resource.DefaultModelName), datamanager.Named(resource.DefaultModelName),
 			arm.Named("remote:foo:arm1"), arm.Named("remote:foo:arm2"),
 			arm.Named("remote:pieceArm"),
 			arm.Named("remote:foo:pieceArm"),
@@ -1431,7 +1431,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, yesBase, test.ShouldNotBeNil)
 
-	yesSvc, err := r.ResourceByName(datamanager.Named(resource.DefaultServiceName))
+	yesSvc, err := r.ResourceByName(datamanager.Named(resource.DefaultModelName))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, yesSvc, test.ShouldNotBeNil)
 }

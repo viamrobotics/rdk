@@ -318,7 +318,7 @@ func (config *Service) Validate(path string) error {
 	// If services do not have a name use the name builtin
 	if config.Name == "" {
 		rlog.Logger.Warnw("no name given, defaulting name to builtin")
-		config.Name = resource.DefaultServiceName
+		config.Name = resource.DefaultModelName
 	}
 	if config.Model == "" {
 		rlog.Logger.Warnw("no model given; using default")
