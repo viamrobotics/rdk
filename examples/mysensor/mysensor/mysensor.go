@@ -31,6 +31,9 @@ func newSensor(name string) sensor.Sensor {
 	return &mySensor{Name: name}
 }
 
+// this checks that the mySensor struct implements the sensor.Sensor interface.
+var _ = sensor.Sensor(&mySensor{})
+
 // mySensor is a sensor device that always returns "hello world".
 type mySensor struct {
 	Name string

@@ -1,4 +1,4 @@
-// Package main is an example of a cu
+// Package main is an example of a custom viam server.
 package main
 
 import (
@@ -22,6 +22,7 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
+	// we set the config here, but it can also be a commandline argument if so desired.
 	cfg, err := config.Read(ctx, utils.ResolveFile("./examples/mysensor/server/config.json"), logger)
 	if err != nil {
 		return err
