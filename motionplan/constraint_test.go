@@ -178,11 +178,12 @@ func TestLineFollow(t *testing.T) {
 }
 
 func TestCollisionConstraint(t *testing.T) {
+	zeroPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	cases := []struct {
 		input    []frame.Input
 		expected bool
 	}{
-		{frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}), true},
+		{zeroPos, true},
 		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 0, 0}), true},
 		{frame.FloatsToInputs([]float64{math.Pi, 0, 0, 0, 0, 0}), false},
 		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 2, 0}), false},
@@ -199,7 +200,7 @@ func TestCollisionConstraint(t *testing.T) {
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	handler.AddConstraint("collision", NewCollisionConstraint(model, obstacles, map[string]spatial.Geometry{}))
+	handler.AddConstraint("collision", NewCollisionConstraint(model, zeroPos, obstacles, map[string]spatial.Geometry{}))
 
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
