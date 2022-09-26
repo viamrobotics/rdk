@@ -160,6 +160,7 @@ func TestFunctions(t *testing.T) {
 	test.That(t, read["linear_velocity"], test.ShouldResemble, r3.Vector{X: 40, Y: 50, Z: 60})
 	test.That(t, err, test.ShouldBeNil)
 
+	tCo.stream = mock{StreamName: "test"}
 	tCo.Close()
 }
 
@@ -201,4 +202,18 @@ func TestMathHelpers(t *testing.T) {
 	})
 
 	t.Run("test apply rotation to results", func(t *testing.T) {})
+}
+
+type mock struct {
+	StreamName string
+}
+
+func (m mock) Close(ctx context.Context) error {
+	return nil
+}
+
+func (m mock) Next(ctx context.Context) (image.Image, func(), error) {
+	x0y0 := image.Point{0, 0}
+	x1y1 := image.Point{1, 1}
+	return image.Rectangle{x0y0, x1y1}, nil, nil
 }
