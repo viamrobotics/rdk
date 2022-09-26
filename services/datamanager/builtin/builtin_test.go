@@ -346,14 +346,14 @@ func TestModelDeploy(t *testing.T) {
 	deployedZipFileName := "model.zip"
 	originalFileName := "model.txt"
 	otherOriginalFileName := "README.md"
+	b0 := []byte("text representing model.txt internals.")
+	b1 := []byte("text representing README.md internals.")
 
 	zipper, err := os.Create(deployedZipFileName)
 	test.That(t, err, test.ShouldBeNil)
 	defer zipper.Close()
+	defer os.Remove(deployedZipFileName)
 
-	// Add content to zip file.
-	b0 := []byte("text representing model.txt internals.")
-	b1 := []byte("text representing README.md internals.")
 	zipWriter := zip.NewWriter(zipper)
 	// defer zipWriter.Close()
 
@@ -369,8 +369,6 @@ func TestModelDeploy(t *testing.T) {
 
 	// Close zipWriter so we can unzip later
 	zipWriter.Close()
-
-	defer os.Remove(deployedZipFileName)
 
 	deployModelWaitTime := time.Millisecond * 100
 

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -450,13 +451,12 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		modelsToDeploy := svcConfig.ModelsToDeploy
 		errorChannel := make(chan error, len(modelsToDeploy))
 		go svc.modelManager.DownloadModels(cfg, modelsToDeploy, errorChannel)
-		// close(errorChannel)
 		if len(errorChannel) != 0 {
-			var s string
+			var errMsgs []string
 			for err := range errorChannel {
-				s = s + "," + err.Error()
+				errMsgs = append(errMsgs, err.Error())
 			}
-			return errors.New(s)
+			return errors.New(strings.Join(errMsgs[:], ", "))
 		}
 	}
 
