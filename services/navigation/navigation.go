@@ -86,9 +86,8 @@ type Config struct {
 	Store              StoreConfig `json:"store"`
 	BaseName           string      `json:"base"`
 	MovementSensorName string      `json:"movement_sensor"`
-
-	DegPerSecDefault float64 `json:"deg_per_sec"`
-	MMPerSecDefault  float64 `json:"mm_per_sec"`
+	DegPerSecDefault   float64     `json:"degs_per_sec"`
+	MMPerSecDefault    float64     `json:"mm_per_sec"`
 }
 
 // Validate ensures all parts of the config are valid.
