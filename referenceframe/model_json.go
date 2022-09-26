@@ -27,8 +27,8 @@ type ModelConfig struct {
 		Type   string             `json:"type"`
 		Parent string             `json:"parent"`
 		Axis   spatial.AxisConfig `json:"axis"`
-		Max    float64            `json:"max"`
-		Min    float64            `json:"min"`
+		Max    float64            `json:"max"` // in mm or degs
+		Min    float64            `json:"min"` // in mm or degs
 	} `json:"joints"`
 	DHParams []struct {
 		ID       string                 `json:"id"`
@@ -36,8 +36,8 @@ type ModelConfig struct {
 		A        float64                `json:"a"`
 		D        float64                `json:"d"`
 		Alpha    float64                `json:"alpha"`
-		Max      float64                `json:"max"`
-		Min      float64                `json:"min"`
+		Max      float64                `json:"max"` // in mm or degs
+		Min      float64                `json:"min"` // in mm or degs
 		Geometry spatial.GeometryConfig `json:"geometry"`
 	} `json:"dhParams"`
 	RawFrames []FrameMapConfig `json:"frames"`
@@ -46,14 +46,11 @@ type ModelConfig struct {
 // ParseConfig converts the ModelConfig struct into a full Model with the name modelName.
 func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 	var err error
-	model := NewSimpleModel()
-
 	if modelName == "" {
-		model.ChangeName(config.Name)
-	} else {
-		model.ChangeName(modelName)
+		modelName = config.Name
 	}
 
+	model := NewSimpleModel(modelName)
 	transforms := map[string]Frame{}
 
 	// Make a map of parents for each element for post-process, to allow items to be processed out of order
