@@ -65,7 +65,7 @@ func TestPrismaticFrame(t *testing.T) {
 	overLimit := 50.0
 	input = FloatsToInputs([]float64{overLimit})
 	_, err = frame.Transform(input)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f %s %v", overLimit, OOBErrString, frame.DoF()[0]))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f %s %.5f", overLimit, OOBErrString, frame.DoF()[0]))
 
 	// gets the correct limits back
 	frameLimits := frame.DoF()
@@ -80,8 +80,8 @@ func TestPrismaticFrame(t *testing.T) {
 }
 
 func TestRevoluteFrame(t *testing.T) {
-	axis := r3.Vector{1, 0, 0}                                                    // axis of rotation is x axis
-	frame := &rotationalFrame{"test", axis, []Limit{{-math.Pi / 2, math.Pi / 2}}} // limits between -90 and 90 degrees
+	axis := r3.Vector{1, 0, 0}                                                                // axis of rotation is x axis
+	frame := &rotationalFrame{&baseFrame{"test", []Limit{{-math.Pi / 2, math.Pi / 2}}}, axis} // limits between -90 and 90 degrees
 	// expected output
 	expPose := spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, &spatial.R4AA{math.Pi / 4, 1, 0, 0}) // 45 degrees
 	// get expected transform back
@@ -111,7 +111,7 @@ func TestRevoluteFrame(t *testing.T) {
 
 func TestMobile2DFrame(t *testing.T) {
 	expLimit := []Limit{{-10, 10}, {-10, 10}}
-	frame := &mobile2DFrame{"test", expLimit, nil}
+	frame := &mobile2DFrame{&baseFrame{"test", expLimit}, nil}
 	// expected output
 	expPose := spatial.NewPoseFromPoint(r3.Vector{3, 5, 0})
 	// get expected transform back
