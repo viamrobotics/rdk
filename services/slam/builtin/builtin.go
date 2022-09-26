@@ -924,7 +924,8 @@ func createTimestampFilenames(cameraName, dataDirectory, fileType string, slamMo
 		colorFilename := filepath.Join(dataDirectory, "data", "rgb", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
 		return []string{colorFilename}, nil
 	case slam.Dim2d, slam.Dim3d:
-		return nil, errors.Errorf("%v slam mode is not implemented yet", slamMode)
+		filename := filepath.Join(dataDirectory, "data", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
+		return []string{filename}, nil
 	default:
 		return nil, errors.Errorf("Invalid slam mode: %v", slamMode)
 	}
