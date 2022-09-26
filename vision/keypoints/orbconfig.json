@@ -3,10 +3,10 @@
     "downscale_factor": 2,
     "fast": {
         "n_matches": 9,
-        "nms_win_size": 7,
+        "nms_win_size_px": 7,
         "threshold": 20,
         "oriented": true,
-        "radius": 16
+        "radius_px": 16
     },
     "brief": {
         "n": 512,

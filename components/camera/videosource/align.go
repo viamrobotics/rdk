@@ -139,10 +139,10 @@ func getAligner(attrs *alignAttrs, logger golog.Logger) (transform.Aligner, erro
 // alignAttrs is the attribute struct for aligning.
 type alignAttrs struct {
 	*camera.AttrConfig
-	Color              string      `json:"color"`
-	Depth              string      `json:"depth"`
-	Height             int         `json:"height"`
-	Width              int         `json:"width"`
+	Color              string      `json:"color_camera_name"`
+	Depth              string      `json:"depth_camera_name"`
+	Height             int         `json:"height_px"`
+	Width              int         `json:"width_px"`
 	IntrinsicExtrinsic interface{} `json:"intrinsic_extrinsic"`
 	Homography         interface{} `json:"homography"`
 	Warp               interface{} `json:"warp"`
@@ -168,7 +168,11 @@ func newAlignColorDepth(ctx context.Context, color, depth camera.Camera, attrs *
 		return nil, err
 	}
 	if attrs.Height <= 0 || attrs.Width <= 0 {
-		return nil, errors.Errorf("alignColorDepth needs Width and Height fields set. Got illegal dimensions (%d, %d)", attrs.Width, attrs.Height)
+		return nil, errors.Errorf(
+			"alignColorDepth needs Width and Height fields set. Got illegal dimensions (%d, %d)",
+			attrs.Width,
+			attrs.Height,
+		)
 	}
 	// get the projector for the alignment camera
 	stream := camera.StreamType(attrs.Stream)

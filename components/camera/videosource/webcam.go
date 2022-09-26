@@ -114,11 +114,6 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webca
 				Width:       int32(prop.Video.Width),
 				Height:      int32(prop.Video.Height),
 				FrameFormat: string(prop.Video.FrameFormat),
-				Video: &pb.Video{
-					Width:       int32(prop.Video.Width),
-					Height:      int32(prop.Video.Height),
-					FrameFormat: string(prop.Video.FrameFormat),
-				},
 			}
 			wc.Properties = append(wc.Properties, pbProp)
 		}
@@ -149,8 +144,8 @@ type WebcamAttrs struct {
 	Format      string `json:"format"`
 	Path        string `json:"path"`
 	PathPattern string `json:"path_pattern"`
-	Width       int    `json:"width"`
-	Height      int    `json:"height"`
+	Width       int    `json:"width_px"`
+	Height      int    `json:"height_px"`
 }
 
 func makeConstraints(attrs *WebcamAttrs, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {

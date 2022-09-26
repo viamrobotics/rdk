@@ -34,7 +34,7 @@ type AttrConfig struct {
 	LimitSwitchPins []string                  `json:"limit_pins,omitempty"`
 	LimitPinEnabled *bool                     `json:"limit_pin_enabled_high,omitempty"`
 	LengthMm        float64                   `json:"length_mm"`
-	MmPerRevolution float64                   `json:"mm_per_revolution,omitempty"`
+	MmPerRevolution float64                   `json:"mm_per_rev,omitempty"`
 	GantryRPM       float64                   `json:"gantry_rpm,omitempty"`
 	Axis            spatial.TranslationConfig `json:"axis"`
 }

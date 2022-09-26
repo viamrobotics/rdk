@@ -36,6 +36,7 @@ func init() {
 	},
 		&vision.Attributes{},
 	)
+	resource.AddDefaultService(vision.Named(resource.DefaultModelName))
 }
 
 // RadiusClusteringSegmenter is  the name of a segmenter that finds well separated objects on a flat plane.

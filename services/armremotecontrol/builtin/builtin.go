@@ -65,8 +65,8 @@ type ServiceConfig struct {
 	ArmName               string  `json:"arm"`
 	InputControllerName   string  `json:"input_controller"`
 	JointStep             float64 `json:"joint_step,omitempty"`   // scale Joint movement in degrees (defaults to 10)
-	DegreeStep            float64 `json:"degree_step,omitempty"`  // scale roll, pitch, yaw default 0.1
-	MMStep                float64 `json:"mm_step,omitempty"`      // scale x, y, z in millimeters (deafaults to 5)
+	DegreeStep            float64 `json:"step_degs,omitempty"`    // scale roll, pitch, yaw default 0.1
+	MMStep                float64 `json:"step_mm,omitempty"`      // scale x, y, z in millimeters (deafaults to 5)
 	ControllerSensitivity float64 `json:"controller_sensitivity"` // joystick sensitivity
 	// only respond to events where: abs(+-1) - sensitivity > 0
 	ControllerModes []ControllerMode `json:"controller_modes"` // modes of operation for arm (joint or endpoint/pose control)
