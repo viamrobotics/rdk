@@ -18,7 +18,7 @@ on:
 
 jobs:
   test:
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    uses: viamrobotics/rdk/.github/workflows/test.yml@DATA-364
     secrets:
       ARTIFACT_READ_ONLY_GCP_CREDENTIALS: ${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}
 
