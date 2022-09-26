@@ -2333,7 +2333,7 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		rdktestutils.NewResourceNameSet(
 			vision.Named(visName),
 			datamanager.Named(dmName),
-			sensors.Named(resource.DefaultServiceName),
+			sensors.Named(resource.DefaultModelName),
 		),
 	)
 	visName = "vis2"
@@ -2361,7 +2361,7 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
 			vision.Named(visName),
-			datamanager.Named(resource.DefaultServiceName),
+			datamanager.Named(resource.DefaultModelName),
 			sensors.Named(sName),
 		),
 	)
