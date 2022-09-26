@@ -3,28 +3,28 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/components/sensor"
 )
 
 // Sensor is an injected sensor.
 type Sensor struct {
 	sensor.Sensor
-	DoFunc          func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	GetReadingsFunc func(ctx context.Context) (map[string]interface{}, error)
+	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	ReadingsFunc func(ctx context.Context) (map[string]interface{}, error)
 }
 
-// GetReadings calls the injected GetReadings or the real version.
-func (s *Sensor) GetReadings(ctx context.Context) (map[string]interface{}, error) {
-	if s.GetReadingsFunc == nil {
-		return s.Sensor.GetReadings(ctx)
+// Readings calls the injected Readings or the real version.
+func (s *Sensor) Readings(ctx context.Context) (map[string]interface{}, error) {
+	if s.ReadingsFunc == nil {
+		return s.Sensor.Readings(ctx)
 	}
-	return s.GetReadingsFunc(ctx)
+	return s.ReadingsFunc(ctx)
 }
 
-// Do calls the injected Do or the real version.
-func (s *Sensor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand calls the injected DoCommand or the real version.
+func (s *Sensor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if s.DoFunc == nil {
-		return s.Sensor.Do(ctx, cmd)
+		return s.Sensor.DoCommand(ctx, cmd)
 	}
 	return s.DoFunc(ctx, cmd)
 }

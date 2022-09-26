@@ -17,7 +17,7 @@ setup:
 
 build: build-web build-go
 
-build-go: buf-go
+build-go:
 	go build $(GO_BUILD_TAGS) ./...
 
 build-web: buf-web
@@ -38,27 +38,15 @@ tool-install:
 		github.com/axw/gocov/gocov \
 		github.com/bufbuild/buf/cmd/buf
 
-buf: buf-go buf-web
-
-buf-go: tool-install
-	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s lint
-	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s format -w
-	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s generate
+buf: buf-web
 
 buf-web: tool-install
 	npm ci --audit=false
-	PATH=$(PATH_WITH_TOOLS) buf lint
-	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml
-	PATH=$(PATH_WITH_TOOLS) buf generate --timeout 5m --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
 	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
 	npm ci --audit=false --prefix web/frontend
 	npm run rollup --prefix web/frontend
 
-lint: lint-buf lint-go
-
-lint-buf: tool-install
-	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s lint
-	PATH=$(PATH_WITH_TOOLS) buf --timeout 5m0s format -w
+lint: lint-go
 
 lint-go: tool-install
 	export pkgs="`go list $(GO_BUILD_TAGS) -f '{{.Dir}}' ./... | grep -v /proto/`" && echo "$$pkgs" | xargs go vet $(GO_BUILD_TAGS) -vettool=$(TOOL_BIN)/combined
@@ -80,7 +68,7 @@ test-web: build-web
 
 # test.short skips tests requiring external hardware (motors/servos)
 test-pi:
-	go test -c -o $(BIN_OUTPUT_PATH)/test-pi go.viam.com/rdk/component/board/pi/impl
+	go test -c -o $(BIN_OUTPUT_PATH)/test-pi go.viam.com/rdk/components/board/pi/impl
 	sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS $(BIN_OUTPUT_PATH)/test-pi -test.short -test.v
 
 test-e2e:

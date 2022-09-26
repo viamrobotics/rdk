@@ -7,9 +7,8 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
-
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
 func TestGeometrySerialization(t *testing.T) {
@@ -76,7 +75,7 @@ func TestGeometryToFromProtobuf(t *testing.T) {
 
 	// test that bad message does not generate error
 	_, err := NewGeometryFromProto(&commonpb.Geometry{Center: PoseToProtobuf(NewZeroPose())})
-	test.That(t, err.Error(), test.ShouldContainSubstring, newGeometryTypeUnsupportedError("").Error())
+	test.That(t, err.Error(), test.ShouldContainSubstring, ErrGeometryTypeUnsupported.Error())
 }
 
 type geometryComparisonTestCase struct {

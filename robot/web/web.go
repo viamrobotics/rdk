@@ -25,28 +25,26 @@ import (
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
-	"go.viam.com/utils/perf"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
 	"goji.io"
 	"goji.io/pat"
-	"golang.org/x/net/http2/h2c"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/component/audioinput"
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/generic"
+	"go.viam.com/rdk/components/audioinput"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
-	grpcserver "go.viam.com/rdk/grpc/server"
-	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	grpcserver "go.viam.com/rdk/robot/server"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	webstream "go.viam.com/rdk/robot/web/stream"
 	"go.viam.com/rdk/subtype"
@@ -698,12 +696,11 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 			ExternalSignalingHosts:    hosts.External,
 			InternalSignalingHosts:    hosts.Internal,
 			Config:                    &grpc.DefaultWebRTCConfiguration,
+			OnPeerAdded:               options.WebRTCOnPeerAdded,
+			OnPeerRemoved:             options.WebRTCOnPeerRemoved,
 		}),
 	}
 	if options.Debug {
-		trace.RegisterExporter(perf.NewNiceLoggingSpanExporter())
-		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
-
 		rpcOpts = append(rpcOpts,
 			rpc.WithDebug(),
 			rpc.WithUnaryServerInterceptor(func(
@@ -808,13 +805,17 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 		for _, handler := range options.Auth.Handlers {
 			switch handler.Type {
 			case rpc.CredentialsTypeAPIKey:
-				apiKey := handler.Config.String("key")
-				if apiKey == "" {
-					return nil, errors.Errorf("%q handler requires non-empty API key", handler.Type)
+				apiKeys := handler.Config.StringSlice("keys")
+				if len(apiKeys) == 0 {
+					apiKey := handler.Config.String("key")
+					if apiKey == "" {
+						return nil, errors.Errorf("%q handler requires non-empty API key or keys", handler.Type)
+					}
+					apiKeys = []string{apiKey}
 				}
 				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(
 					handler.Type,
-					rpc.MakeSimpleAuthHandler(authEntities, apiKey),
+					rpc.MakeSimpleMultiAuthHandler(authEntities, apiKeys),
 				))
 			case rutils.CredentialsTypeRobotLocationSecret:
 				secret := handler.Config.String("secret")
@@ -884,24 +885,15 @@ func (svc *webService) initHTTPServer(listenerTCPAddr *net.TCPAddr, options webo
 		return nil, err
 	}
 
-	httpServer := &http.Server{
-		ReadTimeout:    10 * time.Second,
+	httpServer, err := utils.NewPossiblySecureHTTPServer(mux, utils.HTTPServerOptions{
+		Secure:         options.Secure,
 		MaxHeaderBytes: rpc.MaxMessageSize,
-		TLSConfig:      options.Network.TLSConfig.Clone(),
+		Addr:           listenerTCPAddr.String(),
+	})
+	if err != nil {
+		return httpServer, err
 	}
-	httpServer.Addr = listenerTCPAddr.String()
-	httpServer.Handler = mux
-
-	if !options.Secure {
-		http2Server, err := utils.NewHTTP2Server()
-		if err != nil {
-			return nil, err
-		}
-		httpServer.RegisterOnShutdown(func() {
-			utils.UncheckedErrorFunc(http2Server.Close)
-		})
-		httpServer.Handler = h2c.NewHandler(httpServer.Handler, http2Server.HTTP2)
-	}
+	httpServer.TLSConfig = options.Network.TLSConfig.Clone()
 
 	return httpServer, nil
 }

@@ -5,8 +5,7 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
-
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	commonpb "go.viam.com/api/common/v1"
 )
 
 // PointCreator implements the GeometryCreator interface for point structs.
@@ -30,12 +29,15 @@ func (pc *pointCreator) NewGeometry(pose Pose) Geometry {
 	return &point{Compose(pc.offset, pose)}
 }
 
+func (pc *pointCreator) Offset() Pose {
+	return pc.offset
+}
+
 func (pc *pointCreator) MarshalJSON() ([]byte, error) {
-	config, err := NewGeometryConfig(pc.offset)
+	config, err := NewGeometryConfig(pc)
 	if err != nil {
 		return nil, err
 	}
-	config.Type = "point"
 	return json.Marshal(config)
 }
 

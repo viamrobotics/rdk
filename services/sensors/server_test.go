@@ -5,19 +5,18 @@ import (
 	"errors"
 	"testing"
 
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/service/sensors/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"go.viam.com/rdk/component/movementsensor"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/sensors/v1"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	rutils "go.viam.com/rdk/utils"
 )
 
 func newServer(sMap map[resource.Name]interface{}) (pb.SensorsServiceServer, error) {
@@ -42,7 +41,7 @@ func TestServerGetSensors(t *testing.T) {
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{Name: testSvcName1})
-		test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("sensors.Service", "string"))
+		test.That(t, err, test.ShouldBeError, sensors.NewUnimplementedInterfaceError("string"))
 	})
 
 	t.Run("failed GetSensors", func(t *testing.T) {
@@ -97,7 +96,7 @@ func TestServerGetReadings(t *testing.T) {
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = server.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: testSvcName1})
-		test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("sensors.Service", "string"))
+		test.That(t, err, test.ShouldBeError, sensors.NewUnimplementedInterfaceError("string"))
 	})
 
 	t.Run("failed GetReadings", func(t *testing.T) {
@@ -108,7 +107,7 @@ func TestServerGetReadings(t *testing.T) {
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 		passedErr := errors.New("can't get readings")
-		injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
+		injectSensors.ReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
 			return nil, passedErr
 		}
 		req := &pb.GetReadingsRequest{
@@ -133,7 +132,7 @@ func TestServerGetReadings(t *testing.T) {
 			iReading.Name: iReading.Readings,
 			gReading.Name: gReading.Readings,
 		}
-		injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
+		injectSensors.ReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
 			return readings, nil
 		}
 		req := &pb.GetReadingsRequest{

@@ -13,19 +13,22 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/services/vision/builtin"
 	"go.viam.com/rdk/spatialmath"
 )
 
-func createService(t *testing.T, filePath string) (vision.Service, robot.Robot) {
+func createService(t *testing.T) (vision.Service, robot.Robot) {
 	t.Helper()
+	filePath := "data/empty.json"
 	logger := golog.NewTestLogger(t)
 	r, err := robotimpl.RobotFromConfigPath(context.Background(), filePath, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -48,12 +51,14 @@ func writeTempConfig(t *testing.T, cfg *config.Config) string {
 	return tmpFile.Name()
 }
 
-func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
+func buildRobotWithFakeCamera(t *testing.T) (robot.Robot, error) {
 	t.Helper()
 	// add a fake camera to the config
 	logger := golog.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/empty.json", logger)
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		return nil, err
+	}
 	cameraComp := config.Component{
 		Name:  "fake_cam",
 		Type:  camera.SubtypeName,
@@ -75,20 +80,26 @@ func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
 		},
 	}
 
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		return nil, err
+	}
 	cfg.Components = append(cfg.Components, cameraComp)
 	cfg.Components = append(cfg.Components, cameraComp2)
 	newConfFile := writeTempConfig(t, cfg)
 	defer os.Remove(newConfFile)
 	// make the robot from new config and get the service
 	r, err := robotimpl.RobotFromConfigPath(context.Background(), newConfFile, logger)
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		return nil, err
+	}
 	srv, err := vision.FirstFromRobot(r)
-	test.That(t, err, test.ShouldBeNil)
+	if err != nil {
+		return nil, err
+	}
 	// add the detector
 	detConf := vision.VisModelConfig{
 		Name: "detect_red",
-		Type: "color_detector",
+		Type: string(builtin.ColorDetector),
 		Parameters: config.AttributeMap{
 			"detect_color": "#C9131F", // look for red
 			"tolerance":    0.05,
@@ -96,8 +107,10 @@ func buildRobotWithFakeCamera(t *testing.T) robot.Robot {
 		},
 	}
 	err = srv.AddDetector(context.Background(), detConf)
-	test.That(t, err, test.ShouldBeNil)
-	return r
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
 var testPointCloud = []r3.Vector{
@@ -116,18 +129,6 @@ func makeExpectedBoxes(t *testing.T) []spatialmath.Geometry {
 	box2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: 5, Y: 5, Z: 5}), r3.Vector{X: 0, Y: 0, Z: 2})
 	test.That(t, err, test.ShouldBeNil)
 	return []spatialmath.Geometry{box1, box2}
-}
-
-type simpleSource struct{}
-
-func (s *simpleSource) Read(ctx context.Context) (image.Image, func(), error) {
-	img := rimage.NewImage(100, 200)
-	img.SetXY(20, 10, rimage.Red)
-	return img, nil, nil
-}
-
-func (s *simpleSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return cmd, nil
 }
 
 type cloudSource struct{}
@@ -156,23 +157,31 @@ func (c *cloudSource) Stream(
 	panic("unimplemented")
 }
 
-func (c *cloudSource) Projector(ctx context.Context) (rimage.Projector, error) {
-	var proj rimage.Projector
-	intrinsics := &transform.PinholeCameraIntrinsics{
-		Width:      1280,
-		Height:     720,
-		Fx:         200,
-		Fy:         200,
-		Ppx:        100,
-		Ppy:        100,
-		Distortion: transform.DistortionModel{},
+func (c *cloudSource) Projector(ctx context.Context) (transform.Projector, error) {
+	var proj transform.Projector
+	props, err := c.Properties(ctx)
+	if err != nil {
+		return nil, err
 	}
-
-	proj = intrinsics
+	proj = props.IntrinsicParams
 	return proj, nil
 }
 
-func (c *cloudSource) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *cloudSource) Properties(ctx context.Context) (camera.Properties, error) {
+	return camera.Properties{
+		SupportsPCD: true,
+		IntrinsicParams: &transform.PinholeCameraIntrinsics{
+			Width:  1280,
+			Height: 720,
+			Fx:     200,
+			Fy:     200,
+			Ppx:    100,
+			Ppy:    100,
+		},
+	}, nil
+}
+
+func (c *cloudSource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return cmd, nil
 }
 

@@ -34,10 +34,13 @@ type ModifiedConfigDiff struct {
 
 // DiffConfigs returns the difference between the two given configs
 // from left to right.
-func DiffConfigs(left, right Config) (*Diff, error) {
-	PrettyDiff, err := prettyDiff(left, right)
-	if err != nil {
-		return nil, err
+func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, err error) {
+	var PrettyDiff string
+	if revealSensitiveConfigDiffs {
+		PrettyDiff, err = prettyDiff(left, right)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	diff := Diff{
@@ -243,7 +246,7 @@ func diffComponent(left, right Component, diff *Diff) (bool, error) {
 	if reflect.DeepEqual(left, right) {
 		return false, nil
 	}
-	if left.Type != right.Type || left.SubType != right.SubType {
+	if left.Type != right.Type {
 		return false, fmt.Errorf("cannot modify type of existing component %q", left.Name)
 	}
 	diff.Modified.Components = append(diff.Modified.Components, right)

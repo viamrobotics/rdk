@@ -6,9 +6,9 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/movementsensor"
-	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
@@ -263,7 +263,6 @@ func TestParseComponentFlag(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, comp.Name, test.ShouldEqual, "baz")
 	test.That(t, comp.Type, test.ShouldEqual, resource.SubtypeName("foo"))
-	test.That(t, comp.SubType, test.ShouldEqual, "who")
 	test.That(t, comp.Model, test.ShouldEqual, "bar")
 	test.That(t, comp.DependsOn, test.ShouldResemble, []string{"foo", "bar"})
 	test.That(t, comp.Attributes, test.ShouldResemble, config.AttributeMap{
@@ -390,6 +389,16 @@ func TestServiceValidate(t *testing.T) {
 		err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
+	})
+
+	t.Run("default model to default", func(t *testing.T) {
+		validConfig := config.Service{
+			Namespace: "acme",
+			Name:      "foo",
+			Type:      "thingy",
+		}
+		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+		test.That(t, validConfig.Model, test.ShouldEqual, "builtin")
 	})
 }
 

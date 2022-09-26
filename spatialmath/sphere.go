@@ -5,15 +5,15 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/utils"
 )
 
 // SphereCreator implements the GeometryCreator interface for sphere structs.
 type sphereCreator struct {
 	radius float64
-	offset Pose
+	pointCreator
 }
 
 // sphere is a collision geometry that represents a sphere, it has a pose and a radius that fully define it.
@@ -28,7 +28,7 @@ func NewSphereCreator(radius float64, offset Pose) (GeometryCreator, error) {
 	if radius <= 0 {
 		return nil, newBadGeometryDimensionsError(&sphere{})
 	}
-	return &sphereCreator{radius, offset}, nil
+	return &sphereCreator{radius, pointCreator{offset}}, nil
 }
 
 // NewGeometry instantiates a new sphere from a SphereCreator class.
@@ -37,7 +37,7 @@ func (sc *sphereCreator) NewGeometry(pose Pose) Geometry {
 }
 
 func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
-	config, err := NewGeometryConfig(sc.offset)
+	config, err := NewGeometryConfig(sc)
 	if err != nil {
 		return nil, err
 	}

@@ -3,10 +3,10 @@ package inject
 import (
 	"context"
 
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/board"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/components/board"
 )
 
 // Board is an injected board.
@@ -29,7 +29,6 @@ type Board struct {
 	DigitalInterruptNamesFunc  func() []string
 	GPIOPinNamesFunc           func() []string
 	CloseFunc                  func(ctx context.Context) error
-	ConfigFunc                 func(ctx context.Context) (board.Config, error)
 	StatusFunc                 func(ctx context.Context, extra map[string]interface{}) (*commonpb.BoardStatus, error)
 	statusCap                  []interface{}
 }
@@ -172,10 +171,10 @@ func (b *Board) StatusCap() []interface{} {
 	return b.statusCap
 }
 
-// Do calls the injected Do or the real version.
-func (b *Board) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+// DoCommand calls the injected DoCommand or the real version.
+func (b *Board) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	if b.DoFunc == nil {
-		return b.LocalBoard.Do(ctx, cmd)
+		return b.LocalBoard.DoCommand(ctx, cmd)
 	}
 	return b.DoFunc(ctx, cmd)
 }
