@@ -143,9 +143,9 @@ func TestRegisterColorDetector(t *testing.T) {
 				Name: "my_color_det",
 				Type: "color_detector",
 				Parameters: config.AttributeMap{
-					"segment_size": 150000,
-					"tolerance":    0.44,
-					"detect_color": "#4F3815",
+					"segment_size_px": 150000,
+					"tolerance_pct":   0.44,
+					"detect_color":    "#4F3815",
 				},
 			},
 		},
