@@ -493,7 +493,7 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	// If service model/type not found then print list of valid models they can choose from
 	if f == nil {
 		validModels := registry.FindValidServiceModels(rName)
-		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s use one of the following valid models: %s",
+		return nil, errors.Errorf("unknown service subtype: %s and/or model: %s use one of the following valid models: %s",
 			rName.Subtype, config.Model, strings.Join(validModels, ", "))
 	}
 
