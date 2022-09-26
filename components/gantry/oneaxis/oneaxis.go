@@ -451,7 +451,7 @@ func (g *oneAxis) IsMoving(ctx context.Context) (bool, error) {
 func (g *oneAxis) ModelFrame() referenceframe.Model {
 	if g.model == nil {
 		var errs error
-		m := referenceframe.NewSimpleModel()
+		m := referenceframe.NewSimpleModel("")
 
 		f, err := referenceframe.NewStaticFrame(g.name, spatial.NewZeroPose())
 		errs = multierr.Combine(errs, err)

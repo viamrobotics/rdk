@@ -46,14 +46,11 @@ type ModelConfig struct {
 // ParseConfig converts the ModelConfig struct into a full Model with the name modelName.
 func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 	var err error
-	model := NewSimpleModel()
-
 	if modelName == "" {
-		model.ChangeName(config.Name)
-	} else {
-		model.ChangeName(modelName)
+		modelName = config.Name
 	}
 
+	model := NewSimpleModel(modelName)
 	transforms := map[string]Frame{}
 
 	// Make a map of parents for each element for post-process, to allow items to be processed out of order

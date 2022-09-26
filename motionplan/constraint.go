@@ -126,9 +126,12 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 
 // NewCollisionConstraint is a helper function for creating a collision Constraint that takes a frame and geometries
 // representing obstacles and interaction spaces and will construct a collision avoidance constraint from them.
-func NewCollisionConstraint(frame referenceframe.Frame, obstacles, interactionSpaces map[string]spatial.Geometry) Constraint {
-	// Making the assumption that setting all inputs to zero is a valid configuration without extraneous self-collisions
-	zeroVols, err := frame.Geometries(make([]referenceframe.Input, len(frame.DoF())))
+func NewCollisionConstraint(
+	frame referenceframe.Frame,
+	goodInput []referenceframe.Input,
+	obstacles, interactionSpaces map[string]spatial.Geometry,
+) Constraint {
+	zeroVols, err := frame.Geometries(goodInput)
 	if err != nil && len(zeroVols.Geometries()) == 0 {
 		return nil // no geometries defined for frame
 	}
@@ -177,7 +180,7 @@ func NewCollisionConstraint(frame referenceframe.Frame, obstacles, interactionSp
 
 // NewCollisionConstraintFromWorldState creates a collision constraint from a world state, framesystem, a model and a set of initial states.
 func NewCollisionConstraintFromWorldState(
-	model referenceframe.Frame,
+	frame referenceframe.Frame,
 	fs referenceframe.FrameSystem,
 	worldState *commonpb.WorldState,
 	observationInput map[string][]referenceframe.Input,
@@ -213,7 +216,19 @@ func NewCollisionConstraintFromWorldState(
 	if err != nil {
 		return nil, err
 	}
-	return NewCollisionConstraint(model, obstacles.Geometries(), interactionSpaces.Geometries()), nil
+
+	// extract inputs corresponding to the frame
+	var goodInputs []referenceframe.Input
+	switch f := frame.(type) {
+	case *solverFrame:
+		goodInputs, err = f.mapToSlice(observationInput)
+	default:
+		goodInputs, err = referenceframe.GetFrameInputs(f, observationInput)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return NewCollisionConstraint(frame, goodInputs, obstacles.Geometries(), interactionSpaces.Geometries()), nil
 }
 
 // NewAbsoluteLinearInterpolatingConstraint provides a Constraint whose valid manifold allows a specified amount of deviation from the
