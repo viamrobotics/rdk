@@ -15,9 +15,9 @@ import (
 )
 
 type depthEdgesAttrs struct {
-	HiThresh   float64 `json:"high_threshold"`
-	LoThresh   float64 `json:"low_threshold"`
-	BlurRadius float64 `json:"blur_radius"`
+	HiThresh   float64 `json:"high_threshold_pct"`
+	LoThresh   float64 `json:"low_threshold_pct"`
+	BlurRadius float64 `json:"blur_radius_px"`
 }
 
 // depthEdgesSource applies a Canny Edge Detector to the depth map.

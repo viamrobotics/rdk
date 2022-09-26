@@ -27,9 +27,9 @@ type PinConfig struct {
 // TMC5072Config describes the configuration of a motor.
 type TMC5072Config struct {
 	Pins             PinConfig `json:"pins"`
-	BoardName        string    `json:"board"`                      // used to get encoders
-	MaxRPM           float64   `json:"max_rpm,omitempty"`          // RPM
-	MaxAcceleration  float64   `json:"max_acceleration,omitempty"` // RPM per second
+	BoardName        string    `json:"board"` // used to get encoders
+	MaxRPM           float64   `json:"max_rpm,omitempty"`
+	MaxAcceleration  float64   `json:"max_acceleration_rpm_per_sec,omitempty"`
 	TicksPerRotation int       `json:"ticks_per_rotation"`
 	SPIBus           string    `json:"spi_bus"`
 	ChipSelect       string    `json:"chip_select"`

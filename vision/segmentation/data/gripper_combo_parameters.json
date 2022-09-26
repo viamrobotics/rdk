@@ -1,7 +1,7 @@
 {
-    "color": {
-        "height": 342,
-        "width": 448,
+    "color_intrinsics": {
+        "height_px": 342,
+        "width_px": 448,
         "fx": 522.9379789,
         "fy": 373.3617853,
         "ppx": 217.946713,
@@ -14,9 +14,9 @@
             "tp2": 0.0
         }
     },
-    "depth": {
-        "height": 171,
-        "width": 224,
+    "depth_intrinsics": {
+        "height_px": 171,
+        "width_px": 224,
         "fx": 0.0,
         "fy": 0.0,
         "ppx": 0.0,
@@ -30,7 +30,7 @@
         }
     },
     "extrinsics_depth_to_color": {
-        "rotation": [
+        "rotation_rads": [
             1.0,
             0.0,
             0.0,
@@ -41,7 +41,7 @@
             0.0,
             1.0
         ],
-        "translation": [
+        "translation_mm": [
             0.0,
             0.0,
             0.0
