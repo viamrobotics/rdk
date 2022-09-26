@@ -31,7 +31,7 @@ func rangeInt(u, l, step int) []int {
 // MatchingConfig contains the parameters for matching descriptors.
 type MatchingConfig struct {
 	DoCrossCheck bool `json:"do_cross_check"`
-	MaxDist      int  `json:"max_dist"`
+	MaxDist      int  `json:"max_dist_bits"`
 }
 
 // DescriptorMatch contains the index of a match in the first and second set of descriptors, and their score.

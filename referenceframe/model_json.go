@@ -27,8 +27,8 @@ type ModelConfig struct {
 		Type   string             `json:"type"`
 		Parent string             `json:"parent"`
 		Axis   spatial.AxisConfig `json:"axis"`
-		Max    float64            `json:"max"`
-		Min    float64            `json:"min"`
+		Max    float64            `json:"max"` // in mm or degs
+		Min    float64            `json:"min"` // in mm or degs
 	} `json:"joints"`
 	DHParams []struct {
 		ID       string                 `json:"id"`
@@ -36,8 +36,8 @@ type ModelConfig struct {
 		A        float64                `json:"a"`
 		D        float64                `json:"d"`
 		Alpha    float64                `json:"alpha"`
-		Max      float64                `json:"max"`
-		Min      float64                `json:"min"`
+		Max      float64                `json:"max"` // in mm or degs
+		Min      float64                `json:"min"` // in mm or degs
 		Geometry spatial.GeometryConfig `json:"geometry"`
 	} `json:"dhParams"`
 	RawFrames []FrameMapConfig `json:"frames"`

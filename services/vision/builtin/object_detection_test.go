@@ -51,9 +51,9 @@ func TestAddRemoveDetector(t *testing.T) {
 		Name: "test",
 		Type: "color_detector",
 		Parameters: config.AttributeMap{
-			"detect_color": "#112233",
-			"tolerance":    0.4,
-			"segment_size": 100,
+			"detect_color":    "#112233",
+			"tolerance_pct":   0.4,
+			"segment_size_px": 100,
 		},
 	}
 	modelLoc := artifact.MustPath("vision/tflite/effdet0.tflite")

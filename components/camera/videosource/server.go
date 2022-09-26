@@ -104,8 +104,8 @@ type dualServerSource struct {
 // dualServerAttrs is the attribute struct for dualServerSource.
 type dualServerAttrs struct {
 	*camera.AttrConfig
-	Color string `json:"color"`
-	Depth string `json:"depth"`
+	Color string `json:"color_url"`
+	Depth string `json:"depth_url"`
 }
 
 // newDualServerSource creates the VideoSource that streams color/depth data from two external servers, one for each channel.
@@ -148,7 +148,7 @@ func (ds *dualServerSource) NextPointCloud(ctx context.Context) (pointcloud.Poin
 	ctx, span := trace.StartSpan(ctx, "videosource::dualServerSource::NextPointCloud")
 	defer span.End()
 	if ds.Intrinsics == nil {
-		return nil, transform.NewNoIntrinsicsError("dualServerSource has nil intrinsics")
+		return nil, transform.NewNoIntrinsicsError("dualServerSource has nil intrinsic_parameters")
 	}
 	var color *rimage.Image
 	var depth *rimage.DepthMap
@@ -227,7 +227,7 @@ func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	ctx, span := trace.StartSpan(ctx, "videosource::serverSource::NextPointCloud")
 	defer span.End()
 	if s.Intrinsics == nil {
-		return nil, transform.NewNoIntrinsicsError("single serverSource has nil intrinsics")
+		return nil, transform.NewNoIntrinsicsError("single serverSource has nil intrinsic_parameters")
 	}
 	if s.stream == camera.DepthStream {
 		depth, err := readDepthURL(ctx, s.client, s.URL, true)

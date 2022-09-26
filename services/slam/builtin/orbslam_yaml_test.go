@@ -101,7 +101,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		grpcServer := setupTestGRPCServer(attrCfgGood.Port)
-		svc, err := createSLAMService(t, attrCfgGood, logger, true)
+		svc, err := createSLAMService(t, attrCfgGood, logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
@@ -138,7 +138,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		grpcServer := setupTestGRPCServer(attrCfgGood.Port)
-		svc, err := createSLAMService(t, attrCfgGood, logger, true)
+		svc, err := createSLAMService(t, attrCfgGood, logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
@@ -170,7 +170,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	t.Run("New orbslamv3 service with camera that errors from bad intrinsics", func(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfgBadCam, logger, false)
+		_, err := createSLAMService(t, attrCfgBadCam, logger, false, false)
 
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			transform.NewNoIntrinsicsError(fmt.Sprintf("Invalid size (%#v, %#v)", 0, 0)).Error())
@@ -195,7 +195,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		}
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfgBadParam1, logger, false)
+		_, err := createSLAMService(t, attrCfgBadParam1, logger, false, false)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "Parameter orb_n_features has an invalid definition")
 
 		attrCfgBadParam2 := &builtin.AttrConfig{
@@ -213,7 +213,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 			DataRateMs:    dataRateMs,
 			Port:          "localhost:4445",
 		}
-		_, err = createSLAMService(t, attrCfgBadParam2, logger, false)
+		_, err = createSLAMService(t, attrCfgBadParam2, logger, false, false)
 
 		test.That(t, err.Error(), test.ShouldContainSubstring, "Parameter orb_scale_factor has an invalid definition")
 	})

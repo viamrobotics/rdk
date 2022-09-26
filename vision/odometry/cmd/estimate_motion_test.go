@@ -8,6 +8,9 @@ import (
 )
 
 func TestRun(t *testing.T) {
+	// TODO(RSDK-586): Re-enable after testing new field changes during hack-week.
+	t.Skip()
+
 	path1 := artifact.MustPath("vision/odometry/000001.png")
 	path2 := artifact.MustPath("vision/odometry/000002.png")
 	cfgPath := artifact.MustPath("vision/odometry/vo_config.json")

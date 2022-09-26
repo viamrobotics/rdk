@@ -22,6 +22,7 @@ func init() {
 			return NewBuiltIn(ctx, r, c, logger)
 		},
 	})
+	resource.AddDefaultService(sensors.Named(resource.DefaultModelName))
 }
 
 // NewBuiltIn returns a new default sensor service for the given robot.

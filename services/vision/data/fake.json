@@ -10,8 +10,8 @@
                         "type": "color_detector",
                         "parameters": {
                             "detect_color": "#CD934A",
-                            "tolerance": 0.06,
-                            "segment_size": 1000
+                            "tolerance_pct": 0.06,
+                            "segment_size_px": 1000
                         }
                     }
                 ]
