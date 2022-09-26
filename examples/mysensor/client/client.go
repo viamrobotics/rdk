@@ -21,6 +21,7 @@ func main() {
 		logger.Fatal(err)
 	}
 
+	// we can get the custom sensor here by name and use it like any other sensor.
 	sensor, err := sensor.FromRobot(robot, "sensor1")
 	if err != nil {
 		logger.Error(err)
