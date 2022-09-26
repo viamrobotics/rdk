@@ -219,7 +219,7 @@ func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 // ModelFrame returns the frame model of the Gantry.
 func (g *multiAxis) ModelFrame() referenceframe.Model {
 	if g.model == nil {
-		model := referenceframe.NewSimpleModel()
+		model := referenceframe.NewSimpleModel("")
 		for _, subAx := range g.subAxes {
 			model.OrdTransforms = append(model.OrdTransforms, subAx.ModelFrame())
 		}
