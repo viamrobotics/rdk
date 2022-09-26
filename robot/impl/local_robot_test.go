@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -1408,6 +1409,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 				Namespace:           resource.ResourceNamespaceRDK,
 				Name:                "fake1",
 				Type:                config.ServiceType(datamanager.SubtypeName),
+				Model:               resource.DefaultModelName,
 				ConvertedAttributes: &builtin.Config{},
 			},
 		},
@@ -1421,9 +1423,12 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 	test.That(t, r, test.ShouldNotBeNil)
 
 	noBase, err := r.ResourceByName(base.Named("fake0"))
-	test.That(t, err, test.ShouldBeError)
-	test.That(t, err.Error(), test.ShouldResemble, rutils.NewResourceNotFoundError(base.Named("fake0")).Error())
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(base.Named("fake0")))
 	test.That(t, noBase, test.ShouldBeNil)
+
+	noSvc, err := r.ResourceByName(datamanager.Named("fake1"))
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(datamanager.Named("fake1")))
+	test.That(t, noSvc, test.ShouldBeNil)
 
 	r.Reconfigure(ctx, goodConfig)
 
@@ -1431,7 +1436,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, yesBase, test.ShouldNotBeNil)
 
-	yesSvc, err := r.ResourceByName(datamanager.Named(resource.DefaultModelName))
+	yesSvc, err := r.ResourceByName(datamanager.Named("fake1"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, yesSvc, test.ShouldNotBeNil)
 }
