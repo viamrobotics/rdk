@@ -343,20 +343,22 @@ func TestRecoversAfterKilled(t *testing.T) {
 // TODO(DATA-344): Compare checksum of downloaded model to blob to determine whether to redeploy.
 // Validates that models can be deployed onto a robot.
 func TestModelDeploy(t *testing.T) {
+	deployModelWaitTime := time.Millisecond * 100
 	deployedZipFileName := "model.zip"
 	originalFileName := "model.txt"
 	otherOriginalFileName := "README.md"
 	b0 := []byte("text representing model.txt internals.")
 	b1 := []byte("text representing README.md internals.")
 
-	zipper, err := os.Create(deployedZipFileName)
+	// Create zip file.
+	deployedZipFile, err := os.Create(deployedZipFileName)
 	test.That(t, err, test.ShouldBeNil)
-	defer zipper.Close()
+	zipWriter := zip.NewWriter(deployedZipFile)
+
 	defer os.Remove(deployedZipFileName)
+	defer deployedZipFile.Close()
 
-	zipWriter := zip.NewWriter(zipper)
-	// defer zipWriter.Close()
-
+	// Write zip file contents
 	zipFile1, err := zipWriter.Create(originalFileName)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = zipFile1.Write(b0)
@@ -369,8 +371,6 @@ func TestModelDeploy(t *testing.T) {
 
 	// Close zipWriter so we can unzip later
 	zipWriter.Close()
-
-	deployModelWaitTime := time.Millisecond * 100
 
 	// Register mock model service with a mock server.
 	modelServer, _ := buildAndStartLocalModelServer(t, deployedZipFileName)
