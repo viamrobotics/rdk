@@ -33,7 +33,7 @@ func TestColorObjects(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// create config
 	cfg := config.AttributeMap{
-		"tolerance":             0.025,
+		"tolerance_pct":         0.025,
 		"detect_color":          "#6D2814",
 		"mean_k":                50,
 		"sigma":                 1.5,
@@ -47,7 +47,7 @@ func TestColorObjects(t *testing.T) {
 	test.That(t, objects, test.ShouldHaveLength, 1)
 	// create config with no mean_k filtering
 	cfg = config.AttributeMap{
-		"tolerance":             0.025,
+		"tolerance_pct":         0.025,
 		"detect_color":          "#6D2814",
 		"mean_k":                -1,
 		"sigma":                 1.5,

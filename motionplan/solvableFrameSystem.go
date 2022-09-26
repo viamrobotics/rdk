@@ -230,7 +230,10 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 	worldState *commonpb.WorldState,
 	motionConfig map[string]interface{},
 ) ([][]frame.Input, error) {
-	seed := sf.mapToSlice(seedMap)
+	seed, err := sf.mapToSlice(seedMap)
+	if err != nil {
+		return nil, err
+	}
 	seedPos, err := sf.Transform(seed)
 	if err != nil {
 		return nil, err
@@ -397,12 +400,16 @@ func (sf *solverFrame) DoF() []frame.Limit {
 
 // mapToSlice will flatten a map of inputs into a slice suitable for input to inverse kinematics, by concatenating
 // the inputs together in the order of the frames in sf.frames.
-func (sf *solverFrame) mapToSlice(inputMap map[string][]frame.Input) []frame.Input {
+func (sf *solverFrame) mapToSlice(inputMap map[string][]frame.Input) ([]frame.Input, error) {
 	var inputs []frame.Input
-	for _, frame := range sf.frames {
-		inputs = append(inputs, inputMap[frame.Name()]...)
+	for _, f := range sf.frames {
+		input, err := frame.GetFrameInputs(f, inputMap)
+		if err != nil {
+			return nil, err
+		}
+		inputs = append(inputs, input...)
 	}
-	return inputs
+	return inputs, nil
 }
 
 func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.Input {

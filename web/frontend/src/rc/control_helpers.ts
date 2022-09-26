@@ -5,21 +5,16 @@
 */
 
 import { grpc } from '@improbable-eng/grpc-web';
-import boardApi from '../gen/proto/api/component/board/v1/board_pb.esm';
 import motorApi from '../gen/proto/api/component/motor/v1/motor_pb.esm';
 import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
 import servoApi from '../gen/proto/api/component/servo/v1/servo_pb.esm';
-import type { Vector3 } from '../gen/proto/api/common/v1/common_pb';
+import type { Vector3 } from '../gen/proto/api/common/v1/common_pb.esm';
+import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
+import { rcLogConditionally } from '../lib/log';
 
 window.rcDebug = false;
 
-const rcLogConditionally = (req: unknown) => {
-  if (window.rcDebug) {
-    console.log('gRPC call:', req);
-  }
-};
-
-type Callback = (error: unknown | null, responseMessage: unknown | null) => void
+type Callback = (error: ServiceError | null, responseMessage: unknown | null) => void
 
 // Base control helpers
 export const BaseControlHelper = {
@@ -125,66 +120,6 @@ export const MotorControlHelper = {
 
     rcLogConditionally(req);
     window.motorService.stop(req, new grpc.Metadata(), cb);
-  },
-};
-
-// Simple motor control helpers
-export const BoardControlHelper = {
-  getGPIO (name: string, pin: string, cb: Callback) {
-    const req = new boardApi.GetGPIORequest();
-    req.setName(name);
-    req.setPin(pin);
-
-    rcLogConditionally(req);
-    window.boardService.getGPIO(req, new grpc.Metadata(), cb);
-  },
-
-  setGPIO (name: string, pin: string, value: boolean, cb: Callback) {
-    const req = new boardApi.SetGPIORequest();
-    req.setName(name);
-    req.setPin(pin);
-    req.setHigh(value);
-
-    rcLogConditionally(req);
-    window.boardService.setGPIO(req, new grpc.Metadata(), cb);
-  },
-
-  getPWM (name: string, pin: string, cb: Callback) {
-    const req = new boardApi.PWMRequest();
-    req.setName(name);
-    req.setPin(pin);
-
-    rcLogConditionally(req);
-    window.boardService.pWM(req, new grpc.Metadata(), cb);
-  },
-
-  setPWM (name: string, pin: string, value: number, cb: Callback) {
-    const req = new boardApi.SetPWMRequest();
-    req.setName(name);
-    req.setPin(pin);
-    req.setDutyCyclePct(value);
-
-    rcLogConditionally(req);
-    window.boardService.setPWM(req, new grpc.Metadata(), cb);
-  },
-
-  getPWMFrequency (name: string, pin: string, cb: Callback) {
-    const req = new boardApi.PWMFrequencyRequest();
-    req.setName(name);
-    req.setPin(pin);
-
-    rcLogConditionally(req);
-    window.boardService.pWMFrequency(req, new grpc.Metadata(), cb);
-  },
-
-  setPWMFrequency (name: string, pin: string, value: number, cb: Callback) {
-    const req = new boardApi.SetPWMFrequencyRequest();
-    req.setName(name);
-    req.setPin(pin);
-    req.setFrequencyHz(value);
-
-    rcLogConditionally(req);
-    window.boardService.setPWMFrequency(req, new grpc.Metadata(), cb);
   },
 };
 

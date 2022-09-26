@@ -16,7 +16,7 @@ import (
 )
 
 type undistortConfig struct {
-	CameraParams     *transform.PinholeCameraIntrinsics `json:"camera_parameters"`
+	CameraParams     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
 	DistortionParams *transform.BrownConrady            `json:"distortion_parameters"`
 }
 

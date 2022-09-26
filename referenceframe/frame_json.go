@@ -27,74 +27,58 @@ func UnmarshalFrameJSON(data []byte) (Frame, error) {
 
 // ParseConfig converts a FrameMapConfig to a Frame object.
 func (config FrameMapConfig) ParseConfig() (Frame, error) {
-	var err error
+	name, ok := config["name"].(string)
+	if !ok {
+		return nil, utils.NewUnexpectedTypeError(name, config["name"])
+	}
 
 	switch config["type"] {
 	case "static":
-		f := staticFrame{}
-		var ok bool
-		f.name, ok = config["name"].(string)
-		if !ok {
-			return nil, utils.NewUnexpectedTypeError(f.name, config["name"])
-		}
-
 		pose, ok := config["transform"].(map[string]interface{})
 		if !ok {
 			return nil, utils.NewUnexpectedTypeError(pose, config["transform"])
 		}
-		f.transform, err = decodePose(pose)
+		transform, err := decodePose(pose)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding transform (%v) %w", config["transform"], err)
 		}
-		return &f, nil
+		return NewStaticFrame(name, transform)
 	case "translational":
-		f := translationalFrame{}
-		var ok bool
-		f.name, ok = config["name"].(string)
-		if !ok {
-			return nil, utils.NewUnexpectedTypeError(f.name, config["name"])
-		}
-		err := mapstructure.Decode(config["transAxis"], &f.transAxis)
+		var transAxis r3.Vector
+		err := mapstructure.Decode(config["transAxis"], &transAxis)
 		if err != nil {
 			return nil, err
 		}
-		err = mapstructure.Decode(config["limit"], &f.limit)
+		var limit []Limit
+		err = mapstructure.Decode(config["limit"], &limit)
 		if err != nil {
 			return nil, err
 		}
-		return &f, nil
+		return NewTranslationalFrame(name, transAxis, limit[0])
 	case "rotational":
-		f := rotationalFrame{}
-		var ok bool
-		f.name, ok = config["name"].(string)
-		if !ok {
-			return nil, utils.NewUnexpectedTypeError(f.name, config["name"])
-		}
-
 		rotAxis, ok := config["rotAxis"].(map[string]interface{})
 		if !ok {
 			return nil, utils.NewUnexpectedTypeError(rotAxis, config["rotAxis"])
 		}
-
-		f.rotAxis.X, ok = rotAxis["X"].(float64)
+		var axis spatial.R4AA
+		axis.RX, ok = rotAxis["X"].(float64)
 		if !ok {
-			return nil, utils.NewUnexpectedTypeError(f.rotAxis.X, rotAxis["X"])
+			return nil, utils.NewUnexpectedTypeError(axis.RX, rotAxis["X"])
 		}
-		f.rotAxis.Y, ok = rotAxis["Y"].(float64)
+		axis.RY, ok = rotAxis["Y"].(float64)
 		if !ok {
-			return nil, utils.NewUnexpectedTypeError(f.rotAxis.Y, rotAxis["Y"])
+			return nil, utils.NewUnexpectedTypeError(axis.RY, rotAxis["Y"])
 		}
-		f.rotAxis.Z, ok = rotAxis["Z"].(float64)
+		axis.RZ, ok = rotAxis["Z"].(float64)
 		if !ok {
-			return nil, utils.NewUnexpectedTypeError(f.rotAxis.Z, rotAxis["Z"])
+			return nil, utils.NewUnexpectedTypeError(axis.RZ, rotAxis["Z"])
 		}
-
-		err = mapstructure.Decode(config["limit"], &f.limit)
+		var limit []Limit
+		err := mapstructure.Decode(config["limit"], &limit)
 		if err != nil {
 			return nil, err
 		}
-		return &f, nil
-
+		return NewRotationalFrame(name, axis, limit[0])
 	default:
 		return nil, fmt.Errorf("no frame type: [%v]", config["type"])
 	}

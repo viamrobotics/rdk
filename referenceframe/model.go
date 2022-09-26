@@ -27,19 +27,19 @@ type Model interface {
 
 // SimpleModel TODO.
 type SimpleModel struct {
-	name string // the name of the model
+	*baseFrame
 	// OrdTransforms is the list of transforms ordered from end effector to base
 	OrdTransforms []Frame
 	poseCache     *sync.Map
-	limits        []Limit
 	lock          sync.RWMutex
 }
 
 // NewSimpleModel constructs a new model.
-func NewSimpleModel() *SimpleModel {
-	m := &SimpleModel{}
-	m.poseCache = &sync.Map{}
-	return m
+func NewSimpleModel(name string) *SimpleModel {
+	return &SimpleModel{
+		baseFrame: &baseFrame{name: name},
+		poseCache: &sync.Map{},
+	}
 }
 
 // GenerateRandomConfiguration generates a list of radian joint positions that are random but valid for each joint.
@@ -55,11 +55,6 @@ func GenerateRandomConfiguration(m Model, randSeed *rand.Rand) []float64 {
 		jointPos = append(jointPos, newPos)
 	}
 	return jointPos
-}
-
-// Name returns the name of this model.
-func (m *SimpleModel) Name() string {
-	return m.name
 }
 
 // ChangeName changes the name of this model - necessary for building frame systems.
@@ -142,22 +137,6 @@ func (m *SimpleModel) CachedTransform(inputs []Input) (spatialmath.Pose, error) 
 	m.poseCache.Store(key, poses[len(poses)-1].transform)
 
 	return poses[len(poses)-1].transform, err
-}
-
-// IsConfigurationValid checks whether the given array of joint positions violates any joint limits.
-func IsConfigurationValid(m Model, configuration []float64) bool {
-	limits := m.DoF()
-	for i := 0; i < len(limits); i++ {
-		if configuration[i] < limits[i].Min || configuration[i] > limits[i].Max {
-			return false
-		}
-	}
-	return true
-}
-
-// OperationalDoF returns the number of end effectors. Currently we only support one end effector but will support more.
-func (m *SimpleModel) OperationalDoF() int {
-	return 1
 }
 
 // DoF returns the number of degrees of freedom within a model.
@@ -248,7 +227,7 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 		composedTransformation = spatialmath.Compose(composedTransformation, pose)
 	}
 	// TODO(rb) as written this will return one too many frames, no need to return zeroth frame
-	poses = append(poses, &staticFrame{"", composedTransformation, nil})
+	poses = append(poses, &staticFrame{&baseFrame{"", []Limit{}}, composedTransformation, nil})
 	return poses, err
 }
 

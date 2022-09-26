@@ -45,6 +45,7 @@ func init() {
 		}
 		return &conf, nil
 	}, &Config{})
+	resource.AddDefaultService(datamanager.Named(resource.DefaultModelName))
 }
 
 // TODO: re-determine if queue size is optimal given we now support 10khz+ capture rates
@@ -358,6 +359,7 @@ func (svc *builtIn) Sync(_ context.Context) error {
 
 func (svc *builtIn) syncDataCaptureFiles() error {
 	svc.lock.Lock()
+	defer svc.lock.Unlock()
 	oldFiles := make([]string, 0, len(svc.collectors))
 	for _, collector := range svc.collectors {
 		// Create new target and set it.
@@ -375,13 +377,13 @@ func (svc *builtIn) syncDataCaptureFiles() error {
 		oldFiles = append(oldFiles, collector.Collector.GetTarget().Name())
 		collector.Collector.SetTarget(nextTarget)
 	}
-	svc.lock.Unlock()
 	svc.syncer.Sync(oldFiles)
 	return nil
 }
 
 func (svc *builtIn) buildAdditionalSyncPaths() []string {
 	svc.lock.Lock()
+	defer svc.lock.Unlock()
 	var filepathsToSync []string
 	// Loop through additional sync paths and add files from each to the syncer.
 	for _, asp := range svc.additionalSyncPaths {
@@ -412,7 +414,6 @@ func (svc *builtIn) buildAdditionalSyncPaths() []string {
 			})
 		}
 	}
-	svc.lock.Unlock()
 	return filepathsToSync
 }
 

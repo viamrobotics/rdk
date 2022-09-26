@@ -35,8 +35,8 @@ func TestResizeColor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	am := config.AttributeMap{
-		"height": 200,
-		"width":  300,
+		"height_px": 200,
+		"width_px":  300,
 	}
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
 	out, _, err := camera.ReadImage(context.Background(), source)
@@ -60,8 +60,8 @@ func TestResizeDepth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	am := config.AttributeMap{
-		"height": 400,
-		"width":  600,
+		"height_px": 400,
+		"width_px":  600,
 	}
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: img}, prop.Video{})
 	out, _, err := camera.ReadImage(context.Background(), source)
