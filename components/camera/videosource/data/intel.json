@@ -5,9 +5,9 @@
             "type": "camera",
             "model": "webcam",
             "attributes": {
-                "camera_parameters": {
-                    "height": 720,
-                    "width": 1280,
+                "intrinsic_parameters": {
+                    "height_px": 720,
+                    "width_px": 1280,
                     "fx": 900.538000,
                     "fy": 900.818000,
                     "ppx": 648.934000,
@@ -21,8 +21,8 @@
                     }
                 },
                 "path_pattern": "usb",
-                "width": 1280,
-                "height": 720,
+                "width_px": 1280,
+                "height_px": 720,
                 "rotate": true,
                 "debug": true
             }
@@ -33,7 +33,7 @@
             "model": "webcam",
             "attributes": {
                 "format": "Z16",
-                "width": 768,
+                "width_px": 768,
                 "debug": true
             }
         },
@@ -42,15 +42,15 @@
             "type": "camera",
             "model": "align_color_depth",
             "attributes": {
-                "color": "front-color",
-                "depth": "front-depth",
-                "height": 720,
-                "width": 1280,
+                "color_camera_name": "front-color",
+                "depth_camera_name": "front-depth",
+                "height_px": 720,
+                "width_px": 1280,
                 "make": "intel515",
                 "debug": false,
-                "camera_parameters": {
-                    "height": 720,
-                    "width": 1280,
+                "intrinsic_parameters": {
+                    "height_px": 720,
+                    "width_px": 1280,
                     "fx": 900.538000,
                     "fy": 900.818000,
                     "ppx": 648.934000,
@@ -64,9 +64,9 @@
                     }
                 },
                 "intrinsic_extrinsic": {
-                    "color": {
-                        "height": 720,
-                        "width": 1280,
+                    "color_intrinsics": {
+                        "height_px": 720,
+                        "width_px": 1280,
                         "fx": 900.538000,
                         "fy": 900.818000,
                         "ppx": 648.934000,
@@ -79,9 +79,9 @@
                             "tp2": -0.000705919
                         }
                     },
-                    "depth": {
-                        "height": 768,
-                        "width": 1024,
+                    "depth_intrinsics": {
+                        "height_px": 768,
+                        "width_px": 1024,
                         "fx": 734.938,
                         "fy": 735.516,
                         "ppx": 542.078,
@@ -95,7 +95,7 @@
                         }
                     },
                     "extrinsics_depth_to_color": {
-                        "rotation": [
+                        "rotation_rads": [
                             0.999958,
                             -0.00838489,
                             0.00378392,
@@ -106,7 +106,7 @@
                             -0.0350407,
                             0.999378
                         ],
-                        "translation": [
+                        "translation_mm": [
                             -0.000828434,
                             0.0139185,
                             -0.0033418
