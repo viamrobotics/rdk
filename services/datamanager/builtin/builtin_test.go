@@ -420,7 +420,7 @@ func TestModelDeploy(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(files), test.ShouldEqual, 2)
 
-	// Validate that the deployed model file equals the dummy file that was zipped.
+	// Validate that the deployed model files equal the dummy files that was zipped.
 	similar, err := fileCompareTestHelper(filepath.Join(allModels[0].Destination, originalFileName), b0)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, similar, test.ShouldBeTrue)
