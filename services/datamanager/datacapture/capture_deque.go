@@ -10,17 +10,19 @@ const (
 )
 
 type Deque struct {
-	directory string
-	md        *v1.DataCaptureMetadata
+	Directory string
+	MetaData  *v1.DataCaptureMetadata
 	nextFile  *File
 	lock      *sync.Mutex
 	files     []*File
 }
 
-func (d *Deque) NewDeque(dir string) *Deque {
+func NewDeque(dir string, md *v1.DataCaptureMetadata) *Deque {
 	return &Deque{
 		directory: dir,
 		files:     []*File{},
+		lock:      &sync.Mutex{},
+		md:        md,
 	}
 }
 
@@ -64,4 +66,10 @@ func (d *Deque) Dequeue() *File {
 	d.files = d.files[1:]
 	d.lock.Unlock()
 	return ret
+}
+
+func (d *Deque) Sync() error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	return d.nextFile.Sync()
 }

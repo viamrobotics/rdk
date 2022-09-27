@@ -1,7 +1,7 @@
 package data
 
 import (
-	"os"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -20,7 +20,7 @@ type CollectorParams struct {
 	ComponentName string
 	Interval      time.Duration
 	MethodParams  map[string]*anypb.Any
-	Target        *os.File
+	Target        *datacapture.Deque
 	QueueSize     int
 	BufferSize    int
 	Logger        golog.Logger
