@@ -3,6 +3,7 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	goutils "go.viam.com/utils"
 	"os"
 	"sync"
@@ -118,6 +119,7 @@ func (s *syncer) Sync(queues []*datacapture.Deque) {
 	for _, q := range queues {
 		s.upload(s.cancelCtx, q)
 	}
+	fmt.Println("exiting sync")
 }
 
 func (s *syncer) upload(ctx context.Context, q *datacapture.Deque) {
@@ -126,6 +128,7 @@ func (s *syncer) upload(ctx context.Context, q *datacapture.Deque) {
 		defer s.backgroundWorkers.Done()
 		// TODO: make respect cancellation
 		for {
+			fmt.Println("upload for loop iteration")
 			select {
 			case <-ctx.Done():
 				return
@@ -133,6 +136,7 @@ func (s *syncer) upload(ctx context.Context, q *datacapture.Deque) {
 				next := q.Peek()
 				// We've emptied queue. return.
 				if q.IsClosed() && next == nil {
+					fmt.Println("closed and next is nil")
 					return
 				}
 				if next == nil {

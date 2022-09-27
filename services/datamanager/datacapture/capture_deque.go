@@ -104,5 +104,14 @@ func (d *Deque) IsClosed() bool {
 func (d *Deque) Sync() error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
-	return d.nextFile.Sync()
+	if err := d.nextFile.Sync(); err != nil {
+		return err
+	}
+	d.files = append(d.files, d.nextFile)
+	nextFile, err := NewFile(d.Directory, d.MetaData)
+	if err != nil {
+		return err
+	}
+	d.nextFile = nextFile
+	return nil
 }

@@ -7,10 +7,8 @@ import (
 
 	"github.com/edaniels/golog"
 	v1 "go.viam.com/api/app/datasync/v1"
-	"go.viam.com/test"
-	"google.golang.org/protobuf/types/known/structpb"
-
 	"go.viam.com/rdk/services/datamanager/datacapture"
+	"go.viam.com/test"
 )
 
 const (
@@ -93,24 +91,28 @@ func TestSensorUploadTabular(t *testing.T) {
 	protoMsgTabularStruct := toProto(anyStruct{})
 
 	tests := []struct {
-		name        string
-		toSend      []*v1.SensorData
-		expContents []*v1.SensorData
+		name   string
+		toSend *v1.SensorData
+		count  int
 	}{
 		{
-			name:   "One sensor data.",
-			toSend: createTabularSensorData([]*structpb.Struct{protoMsgTabularStruct}),
-			//expURs:[]*v1.UploadRequest_SensorContents{
-			//	*v1.UploadRequest_SensorContents{
-			//		SensorContents: ,
-			//	},
-			//},
+			name: "One sensor data.",
+			toSend: &v1.SensorData{
+				Data: &v1.SensorData_Struct{
+					Struct: protoMsgTabularStruct,
+				},
+			},
+			count: 1,
 		},
-		//{
-		//	name:    "A stream of sensor data.",
-		//	toSend:  createTabularSensorData([]*structpb.Struct{protoMsgTabularStruct, protoMsgTabularStruct}),
-		//	//expData: []*structpb.Struct{protoMsgTabularStruct, protoMsgTabularStruct},
-		//},
+		{
+			name: "Many sensor data.",
+			toSend: &v1.SensorData{
+				Data: &v1.SensorData_Struct{
+					Struct: protoMsgTabularStruct,
+				},
+			},
+			count: 1000,
+		},
 	}
 
 	for _, tc := range tests {
@@ -130,12 +132,14 @@ func TestSensorUploadTabular(t *testing.T) {
 			Tags:             tags,
 		}
 		q := datacapture.NewDeque(tmpDir, &captureMetadata)
+
 		// Write the data from the test cases into the files to prepare them for reading by the fileUpload function
-		for _, sd := range tc.toSend {
-			err := q.Enqueue(sd)
+		for i := 0; i < tc.count; i++ {
+			err := q.Enqueue(tc.toSend)
 			test.That(t, err, test.ShouldBeNil)
 		}
 		err = q.Sync()
+		q.Close()
 		test.That(t, err, test.ShouldBeNil)
 
 		// Register mock datasync service with a mock server.
@@ -168,10 +172,17 @@ func TestSensorUploadTabular(t *testing.T) {
 			MethodParameters: captureMetadata.GetMethodParameters(),
 			Tags:             tags,
 		}
-		for i, _ := range tc.toSend {
-			test.That(t, act[i].GetMetadata().String(), test.ShouldEqual, expMetadata.String())
-			test.That(t, act[i].GetSensorContents(), test.ShouldEqual, tc.toSend)
+
+		// Validate that all readings were uploaded.
+		written := 0
+		for _, ur := range act {
+			test.That(t, ur.GetMetadata().String(), test.ShouldEqual, expMetadata.String())
+			for _, content := range ur.GetSensorContents() {
+				test.That(t, content.GetStruct().String(), test.ShouldResemble, tc.toSend.GetStruct().String())
+				written += 1
+			}
 		}
+		test.That(t, written, test.ShouldEqual, tc.count)
 	}
 }
 
