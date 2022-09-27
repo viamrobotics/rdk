@@ -44,7 +44,7 @@ import (
 )
 
 const (
-	timePadding      = 30
+	timePadding      = 40
 	validDataRateMS  = 200
 	numOrbslamImages = 29
 )
@@ -785,7 +785,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
 
 		logger.Warnln("--- yo yo 2")
-		n := 4
+		n := 5
 		// Note: timePadding is required to allow the sub processes to be fully completed during test
 		time.Sleep(time.Millisecond * time.Duration((n)*(validDataRateMS+timePadding)))
 		cancelFunc()
