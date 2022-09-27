@@ -93,7 +93,6 @@ export default {
   async mounted() {
     this.grpcCallback = this.grpcCallback.bind(this);
     await this.waitForClientAndStart();
-
     this.movementsensorRefresh();
 
     this.connectionManager = this.createConnectionManager();
@@ -675,6 +674,25 @@ export default {
         }
 
         {
+          const req = new movementsensorApi.GetPropertiesRequest();
+          req.setName(name);
+
+          if (!this.movementsensorData[name].properties) {
+            this.movementsensorData[name].properties = {};
+          }
+
+          window.movementsensorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
+            if (err) {
+              console.log(err);
+              return;
+            }
+            const temp = resp.toObject();
+            this.movementsensorData[name].properties = temp;
+            console.log(this.movementsensorData[name].properties);
+          });
+        }
+
+        if (this.movementsensorData[name].properties.orientationSupported) {
           const req = new movementsensorApi.GetOrientationRequest();
           req.setName(name);
 
@@ -687,7 +705,7 @@ export default {
           });
         }
 
-        {
+        if (this.movementsensorData[name].properties.angularVelocitySupported) {
           const req = new movementsensorApi.GetAngularVelocityRequest();
           req.setName(name);
 
@@ -700,7 +718,7 @@ export default {
           });
         }
 
-        {
+        if (this.movementsensorData[name].properties.linearVelocitySupported) {
           const req = new movementsensorApi.GetLinearVelocityRequest();
           req.setName(name);
 
@@ -713,7 +731,7 @@ export default {
           });
         }
 
-        {
+        if (this.movementsensorData[name].properties.compassHeadingSupported) {
           const req = new movementsensorApi.GetCompassHeadingRequest();
           req.setName(name);
 
@@ -726,7 +744,7 @@ export default {
           });
         }
 
-        {
+        if (this.movementsensorData[name].properties.positionSupported) {
           const req = new movementsensorApi.GetPositionRequest();
           req.setName(name);
 
@@ -740,21 +758,6 @@ export default {
             this.movementsensorData[name].altitudeMm = temp.altitudeMm;
           });
         }
-
-        {
-          const req = new movementsensorApi.GetPropertiesRequest();
-          req.setName(name);
-
-          window.movementsensorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
-            if (err) {
-              console.log(err);
-              return;
-            }
-            const temp = resp.toObject();
-            this.movementsensorData[name].properties = temp;
-          });
-        }
-
       }
 
       setTimeout(this.movementsensorRefresh, 500);
