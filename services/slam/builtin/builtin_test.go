@@ -756,14 +756,17 @@ func TestORBSLAMDataProcess(t *testing.T) {
 	t.Run("ORBSLAM3 Data Process with camera in slam mode mono", func(t *testing.T) {
 		goodCam := &inject.Camera{}
 		goodCam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+			fmt.Println("--- In StreamFunc 1")
 			imgBytes, err := os.ReadFile(artifact.MustPath("rimage/board1.png"))
 			if err != nil {
 				return nil, err
 			}
+			fmt.Println("--- In StreamFunc 2")
 			img, err := png.Decode(bytes.NewReader(imgBytes))
 			if err != nil {
 				return nil, err
 			}
+			fmt.Println("--- In StreamFunc 3")
 			lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, img.Bounds().Dx(), img.Bounds().Dy())
 			return gostream.NewEmbeddedVideoStreamFromReader(
 				gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
@@ -787,7 +790,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		time.Sleep(time.Millisecond * time.Duration((n)*(validDataRateMS+timePadding)))
 		cancelFunc()
 
-		files, err := os.ReadDir(name + "/data/rgb")
+		files, err := os.ReadDir(name + "/data/rgb/")
 		test.That(t, len(files), test.ShouldEqual, n)
 		test.That(t, err, test.ShouldBeNil)
 	})
