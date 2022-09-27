@@ -44,7 +44,7 @@ import (
 )
 
 const (
-	timePadding      = 20
+	timePadding      = 25
 	validDataRateMS  = 200
 	numOrbslamImages = 29
 )
