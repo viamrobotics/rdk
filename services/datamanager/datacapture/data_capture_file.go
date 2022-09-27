@@ -2,9 +2,11 @@
 package datacapture
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
@@ -24,6 +26,89 @@ const (
 	next           = "Next"
 	nextPointCloud = "NextPointCloud"
 )
+
+type File struct {
+	lock   *sync.Mutex
+	file   *os.File
+	writer *bufio.Writer
+	size   int
+}
+
+func NewFile(captureDir string, md *v1.DataCaptureMetadata) (*File, error) {
+	// First create directories and the file in it.
+	fileDir := filepath.Join(captureDir, md.GetComponentType(), md.GetComponentName(), md.GetMethodName())
+	if err := os.MkdirAll(fileDir, 0o700); err != nil {
+		return nil, err
+	}
+	fileName := filepath.Join(fileDir, getFileTimestampName()) + FileExt
+	//nolint:gosec
+	f, err := os.Create(fileName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Then write first metadata message to the file.
+	n, err := pbutil.WriteDelimited(f, md)
+	if err != nil {
+		return nil, err
+	}
+	return &File{
+		writer: bufio.NewWriter(f),
+		file:   f,
+		size:   n,
+	}, nil
+}
+
+func (f *File) ReadMetadata() (*v1.DataCaptureMetadata, error) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if _, err := f.file.Seek(0, 0); err != nil {
+		return nil, err
+	}
+
+	r := &v1.DataCaptureMetadata{}
+	if _, err := pbutil.ReadDelimited(f.file, r); err != nil {
+		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read DataCaptureMetadata from %s", f.file.Name()))
+	}
+
+	if r.GetType() == v1.DataType_DATA_TYPE_UNSPECIFIED {
+		return nil, errors.Errorf("file %s does not contain valid metadata", f.file.Name())
+	}
+
+	return r, nil
+}
+
+func (f *File) ReadNext() (*v1.SensorData, error) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	r := &v1.SensorData{}
+	if _, err := pbutil.ReadDelimited(f.file, r); err != nil {
+		return nil, err
+	}
+
+	return r, nil
+}
+
+func (f *File) WriteNext(data *v1.SensorData) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	n, err := pbutil.WriteDelimited(f.writer, data)
+	if err != nil {
+		return err
+	}
+	f.size += n
+	return nil
+}
+
+func (f *File) Sync() error {
+	return f.writer.Flush()
+}
+
+func (f *File) Size() int {
+	return f.size
+}
 
 // CreateDataCaptureFile creates a timestamped file within the given capture directory.
 func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.File, error) {
