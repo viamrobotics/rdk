@@ -7,6 +7,7 @@ This example demonstrates a user defining a new sensor model.
 
 Models can be added to the viam-server by creating a struct that implements the interface of the subtype we want to register.
 For example, if we want to create a sensor, we would want to make sure that we implement the Sensor interface, which includes the method `Readings` and also `DoCommand` from the `generic.Generic` interface.
+The `generic.Generic` interface allows you to add arbitrary commands with arbitrary input arguments and return messages, which is useful if you want to extend the functionality of a model implementation beyond the subtype interface.
 
 ```
     type Sensor interface {
@@ -16,12 +17,13 @@ For example, if we want to create a sensor, we would want to make sure that we i
     }
 ```
 
-To make sure the struct we create implements the interface, we can check it using the go linter like this.
+To make sure the struct we create implements the interface, we can check it using the go linter inside the go package like this.
 ```
     var _ = sensor.Sensor(&mySensor{})
 ```
 
-The model then has to be registered.
+The model then has to be registered through an init function, which should live in the package implementing the new model.
+Init functions are run on import, so we have to make sure we are importing it somewhere in our code!
 
 ```
     // registering the component model on init is how we make sure the new model is picked up and usable.
@@ -40,13 +42,15 @@ The model then has to be registered.
     }
 ```
 
-After registering the model in the init function, we also have to make sure the viam server is importing it.
+In this case, we would want to import it somewhere in the server code. A good place to put this import is the top of the server file.
 ```
 	// import the custom sensor package to register it properly
 	_ "go.viam.com/rdk/examples/mysensor/mysensor"
 ```
 
 The `server` package can now be built then run (`go build -o main server/server.go` then `./main`) or run directly (`go run server/server.go`)
+
+Check the custom sensor code out [here](https://github.com/viamrobotics/rdk/blob/main/examples/mysensor/mysensor/mysensor.go), the server code [here](https://github.com/viamrobotics/rdk/blob/main/examples/mysensor/server/server.go), and a simple client [here](https://github.com/viamrobotics/rdk/blob/main/examples/mysensor/client/client.go).
 ## Running the example
 
 * Run the server implementing a new sensor `go run server/server.go`. Alternatively, you can build it by `go build server/server.go`.
