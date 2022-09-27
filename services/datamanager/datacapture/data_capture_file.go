@@ -77,6 +77,7 @@ func NewFile(captureDir string, md *v1.DataCaptureMetadata) (*File, error) {
 		writer: bufio.NewWriter(f),
 		file:   f,
 		size:   int64(n),
+		lock:   &sync.Mutex{},
 	}, nil
 }
 

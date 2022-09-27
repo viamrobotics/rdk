@@ -200,11 +200,12 @@ func getLocalServerConn(rpcServer rpc.Server, logger golog.Logger) (rpc.ClientCo
 }
 
 type mockDataSyncServiceServer struct {
-	uploadRequests *[]*v1.UploadRequest
-	callCount      *atomic.Int32
-	failUntilIndex int32
-	failAtIndex    int32
-	errorToReturn  error
+	uploadRequests      *[]*v1.UploadRequest
+	unaryUploadRequests *[]*v1.UnaryUploadRequest
+	callCount           *atomic.Int32
+	failUntilIndex      int32
+	failAtIndex         int32
+	errorToReturn       error
 
 	lock *sync.Mutex
 	v1.UnimplementedDataSyncServiceServer
@@ -219,6 +220,7 @@ type mockDataSyncServiceServer struct {
 func getMockService() *mockDataSyncServiceServer {
 	return &mockDataSyncServiceServer{
 		uploadRequests:                     &[]*v1.UploadRequest{},
+		unaryUploadRequests:                &[]*v1.UnaryUploadRequest{},
 		callCount:                          &atomic.Int32{},
 		failAtIndex:                        -1,
 		lock:                               &sync.Mutex{},
@@ -234,6 +236,12 @@ func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
 	return *m.uploadRequests
+}
+
+func (m mockDataSyncServiceServer) getUnaryUploadRequests() []*v1.UnaryUploadRequest {
+	(*m.lock).Lock()
+	defer (*m.lock).Unlock()
+	return *m.unaryUploadRequests
 }
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
@@ -280,4 +288,14 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 		}
 	}
 	return nil
+}
+
+func (m *mockDataSyncServiceServer) UnaryUpload(ctx context.Context, req *v1.UnaryUploadRequest) (*v1.UnaryUploadResponse, error) {
+	(*m.lock).Lock()
+	*m.unaryUploadRequests = append(*m.unaryUploadRequests, req)
+	(*m.lock).Unlock()
+	return &v1.UnaryUploadResponse{
+		Code:    200,
+		Message: "",
+	}, nil
 }
