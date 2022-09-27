@@ -113,9 +113,6 @@ func TestInit(t *testing.T) {
 			return nil
 		},
 	}
-	co, err := newCameraMono(deps, goodC, logger)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, co, test.ShouldHaveSameTypeAs, &cameramono{})
 }
 
 func TestFunctions(t *testing.T) {
