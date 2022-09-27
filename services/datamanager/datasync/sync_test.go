@@ -204,7 +204,7 @@ func TestSensorUploadBinary(t *testing.T) {
 			count: 1,
 		},
 		{
-			name: "One binary data.",
+			name: "Many binary data.",
 			toSend: &v1.SensorData{
 				Data: &v1.SensorData_Binary{
 					Binary: msgContents,
@@ -285,139 +285,85 @@ func TestSensorUploadBinary(t *testing.T) {
 	}
 }
 
-//func TestSensorUploadBinary(t *testing.T) {
-//	msgEmpty := []byte("")
-//	msgContents := []byte("This is a message. This message is part of testing in datamanager service in RDK.")
-//	msgBin1 := []byte("Robots are really cool.")
-//	msgBin2 := []byte("This work is helping develop the robotics space.")
-//	msgBin3 := []byte("This message is used for testing.")
-//
-//	tests := []struct {
-//		name   string
-//		toSend []*v1.SensorData
-//	}{
-//		{
-//			name:   "empty",
-//			toSend: createBinarySensorData([][]byte{msgEmpty}),
-//		},
-//		{
-//			name:   "one binary sensor data reading",
-//			toSend: createBinarySensorData([][]byte{msgContents}),
-//		},
-//		{
-//			name:   "stream of binary sensor data readings",
-//			toSend: createBinarySensorData([][]byte{msgBin1, msgBin2, msgBin3}),
-//		},
-//	}
-//
-//	for _, tc := range tests {
-//		t.Log(tc.name)
-//
-//		// Create temp file to be used as examples of reading data from the files into buffers and finally to have
-//		// that data be uploaded to the cloud
-//		tf, err := createTmpDataCaptureFile()
-//		if err != nil {
-//			t.Errorf("%s cannot create temporary file to be used for sensorUpload/fileUpload testing: %v",
-//				tc.name, err)
-//		}
-//		defer os.Remove(tf.Name())
-//
-//		// First write metadata to file.
-//		syncMetadata := v1.DataCaptureMetadata{
-//			ComponentType:    componentType,
-//			ComponentName:    componentName,
-//			ComponentModel:   componentModel,
-//			MethodName:       methodName,
-//			Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
-//			MethodParameters: nil,
-//			FileExtension:    datacapture.GetFileExt(v1.DataType_DATA_TYPE_BINARY_SENSOR, methodName, nil),
-//			Tags:             tags,
-//		}
-//		if _, err := pbutil.WriteDelimited(tf, &syncMetadata); err != nil {
-//			t.Errorf("%s cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v",
-//				tc.name, err)
-//		}
-//
-//		// Write the data from the test cases into the files to prepare them for reading by the sensorUpload function.
-//		if err := writeSensorData(tf, tc.toSend); err != nil {
-//			t.Errorf("%s cannot write byte slice to temporary file as part of setup for "+
-//				"sensorUpload/fileUpload testing: %v", tc.name, err)
-//		}
-//
-//		// Upload the contents from the created file.
-//		// Register mock datasync service with a mock server.
-//		logger, _ := golog.NewObservedTestLogger(t)
-//		mockService := getMockService()
-//		rpcServer := buildAndStartLocalServer(t, logger, mockService)
-//		defer func() {
-//			err := rpcServer.Stop()
-//			test.That(t, err, test.ShouldBeNil)
-//		}()
-//
-//		conn, err := getLocalServerConn(rpcServer, logger)
-//		test.That(t, err, test.ShouldBeNil)
-//		client := NewClient(conn)
-//		sut, err := NewManager(logger, partID, client, conn)
-//		test.That(t, err, test.ShouldBeNil)
-//		sut.Sync([]string{tf.Name()})
-//
-//		// Create []v1.UploadRequest object from test case input 'expData []*structpb.Struct'.
-//		expectedMsgs := buildSensorDataUploadRequests(tc.toSend, v1.DataType_DATA_TYPE_BINARY_SENSOR, filepath.Base(tf.Name()))
-//
-//		// The mc.sent value should be the same as the expectedMsgs value.
-//		time.Sleep(syncWaitTime)
-//		sut.Close()
-//		compareTabularUploadRequests(t, mockService.getUploadRequests(), expectedMsgs)
-//	}
-//}
-//
-//// Validates that for some captureDir, files are uploaded exactly once.
-//func TestUploadsOnce(t *testing.T) {
-//	// Register mock datasync service with a mock server.
-//	logger, _ := golog.NewObservedTestLogger(t)
-//	mockService := getMockService()
-//	rpcServer := buildAndStartLocalServer(t, logger, mockService)
-//	defer func() {
-//		err := rpcServer.Stop()
-//		test.That(t, err, test.ShouldBeNil)
-//	}()
-//
-//	conn, err := getLocalServerConn(rpcServer, logger)
-//	test.That(t, err, test.ShouldBeNil)
-//	client := NewClient(conn)
-//	sut, err := NewManager(logger, partID, client, conn)
-//	test.That(t, err, test.ShouldBeNil)
-//
-//	// Put a couple files in captureDir.
-//	file1, _ := ioutil.TempFile("", "whatever")
-//	file2, _ := ioutil.TempFile("", "whatever2")
-//
-//	// Immediately try to Sync same files many times.
-//	for i := 1; i < 10; i++ {
-//		sut.Sync([]string{file1.Name(), file2.Name()})
-//	}
-//
-//	// Verify upload was only called twice.
-//	time.Sleep(syncWaitTime)
-//	sut.Close()
-//	test.That(t, mockService.callCount.Load(), test.ShouldEqual, 2)
-//
-//	// Verify the two upload calls were made on different files.
-//	var metadatas []*v1.UploadMetadata
-//	for _, ur := range mockService.getUploadRequests() {
-//		if ur.GetMetadata() != nil {
-//			metadatas = append(metadatas, ur.GetMetadata())
-//		}
-//	}
-//	test.That(t, len(metadatas), test.ShouldEqual, 2)
-//	test.That(t, metadatas[0].GetFileName(), test.ShouldNotEqual, metadatas[1].GetFileName())
-//
-//	// Verify that the files were deleted after upload.
-//	_, err = os.Stat(file1.Name())
-//	test.That(t, err, test.ShouldNotBeNil)
-//	_, err = os.Stat(file2.Name())
-//	test.That(t, err, test.ShouldNotBeNil)
-//}
+// Validates that for some captureDir, files are uploaded exactly once.
+func TestUploadsOnce(t *testing.T) {
+	protoMsgTabularStruct := toProto(anyStruct{})
+	sd := &v1.SensorData{
+		Data: &v1.SensorData_Struct{
+			Struct: protoMsgTabularStruct,
+		},
+	}
+
+	// Register mock datasync service with a mock server.
+	logger, _ := golog.NewObservedTestLogger(t)
+	mockService := getMockService()
+	rpcServer := buildAndStartLocalServer(t, logger, mockService)
+	defer func() {
+		err := rpcServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	conn, err := getLocalServerConn(rpcServer, logger)
+	test.That(t, err, test.ShouldBeNil)
+	client := NewClient(conn)
+	sut, err := NewManager(logger, partID, client, conn)
+	test.That(t, err, test.ShouldBeNil)
+
+	captureMetadata := v1.DataCaptureMetadata{
+		ComponentType:    componentType,
+		ComponentName:    componentName,
+		ComponentModel:   componentModel,
+		MethodName:       methodName,
+		Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+		MethodParameters: nil,
+		FileExtension:    datacapture.GetFileExt(v1.DataType_DATA_TYPE_TABULAR_SENSOR, methodName, nil),
+		Tags:             tags,
+	}
+
+	// Put a couple files in captureDir.
+	tmpDir, err := ioutil.TempDir("", "")
+	test.That(t, err, test.ShouldBeNil)
+	q := datacapture.NewDeque(tmpDir, &captureMetadata)
+
+	// Write the data from the test cases into the files to prepare them for reading by the fileUpload function
+	for i := 0; i < 100; i++ {
+		err := q.Enqueue(sd)
+		test.That(t, err, test.ShouldBeNil)
+	}
+	err = q.Sync()
+	q.Close()
+	test.That(t, err, test.ShouldBeNil)
+
+	// Immediately try to Sync same files many times.
+	for i := 1; i < 5; i++ {
+		sut.Sync([]*datacapture.Deque{q})
+	}
+	time.Sleep(syncWaitTime)
+	sut.Close()
+
+	act := mockService.getUnaryUploadRequests()
+	expMetadata := &v1.UploadMetadata{
+		PartId:           partID,
+		ComponentType:    captureMetadata.GetComponentType(),
+		ComponentName:    captureMetadata.GetComponentName(),
+		ComponentModel:   captureMetadata.GetComponentModel(),
+		MethodName:       captureMetadata.GetMethodName(),
+		Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+		MethodParameters: captureMetadata.GetMethodParameters(),
+		Tags:             tags,
+	}
+
+	written := 0
+	for _, ur := range act {
+		test.That(t, ur.GetMetadata().String(), test.ShouldResemble, expMetadata.String())
+		for _, content := range ur.GetSensorContents() {
+			test.That(t, content.GetStruct().String(), test.ShouldResemble, sd.GetStruct().String())
+			written += 1
+		}
+	}
+	test.That(t, written, test.ShouldEqual, 100)
+}
+
 //
 //func TestUploadExponentialRetry(t *testing.T) {
 //	// TODO: RSDK-565. Make this work. Bidi broke it.
