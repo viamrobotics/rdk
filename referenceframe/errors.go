@@ -21,3 +21,7 @@ func NewFrameAlreadyExistsError(frameName string) error {
 func NewIncorrectInputLengthError(actual, expected int) error {
 	return errors.Errorf("number of inputs does not match frame DoF, expected %d but got %d", expected, actual)
 }
+
+func NewFrameMethodUnsupportedError(function string, frame Frame) error {
+	return errors.Errorf("function %s unsupported for frame type %T", function, frame)
+}

@@ -20,6 +20,9 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// comparisonDelta is the amount two floats can differ before they are considered different
+const comparisonDelta = 1e-5
+
 // OOBErrString is a string that all OOB errors should contain, so that they can be checked for distinct from other Transform errors.
 const OOBErrString = "input out of bounds"
 
@@ -34,10 +37,9 @@ func limitsAlmostEqual(a, b []Limit) bool {
 		return false
 	}
 
-	const epsilon = 1e-5
 	for idx, x := range a {
-		if !utils.Float64AlmostEqual(x.Min, b[idx].Min, epsilon) ||
-			!utils.Float64AlmostEqual(x.Max, b[idx].Max, epsilon) {
+		if !utils.Float64AlmostEqual(x.Min, b[idx].Min, comparisonDelta) ||
+			!utils.Float64AlmostEqual(x.Max, b[idx].Max, comparisonDelta) {
 			return false
 		}
 	}
@@ -100,6 +102,7 @@ type Frame interface {
 	Name() string
 
 	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's referenceframe.
+	// If input is passed in that is out-of-bounds, the transformation will still be computed but we will return a non-nil error
 	Transform([]Input) (spatial.Pose, error)
 
 	// Geometries returns a map between names and geometries for the reference frame and any intermediate frames that
@@ -140,6 +143,32 @@ func (bf *baseFrame) DoF() []Limit {
 	return bf.limits
 }
 
+// InputFromProtobuf converts pb.JointPosition to inputs.
+func (bf *baseFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
+	n := make([]Input, len(jp.Values))
+	for idx, d := range jp.Values {
+		n[idx] = Input{d}
+	}
+	return n
+}
+
+// ProtobufFromInput converts inputs to pb.JointPosition.
+func (bf *baseFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
+	n := make([]float64, len(input))
+	for idx, a := range input {
+		n[idx] = a.Value
+	}
+	return &pb.JointPositions{Values: n}
+}
+
+func (bf *baseFrame) AlmostEquals(other *baseFrame) bool {
+	return bf.name == other.name && limitsAlmostEqual(bf.limits, other.limits)
+}
+
+func (bf *baseFrame) toConfig() FrameMapConfig {
+	return FrameMapConfig{"name": bf.name, "limit": bf.limits}
+}
+
 // validInputs checks whether the given array of joint positions violates any joint limits.
 func (bf *baseFrame) validInputs(inputs []Input) error {
 	var errAll error
@@ -152,10 +181,6 @@ func (bf *baseFrame) validInputs(inputs []Input) error {
 		}
 	}
 	return errAll
-}
-
-func (bf *baseFrame) AlmostEquals(other *baseFrame) bool {
-	return bf.name == other.name && limitsAlmostEqual(bf.limits, other.limits)
 }
 
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation
@@ -248,12 +273,10 @@ func (sf *staticFrame) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	m := FrameMapConfig{
-		"type":      "static",
-		"name":      sf.name,
-		"transform": transform,
-	}
-	return json.Marshal(m)
+	config := sf.toConfig()
+	config["type"] = "static"
+	config["transform"] = transform
+	return json.Marshal(config)
 }
 
 func (sf *staticFrame) AlmostEquals(otherFrame Frame) bool {
@@ -261,7 +284,6 @@ func (sf *staticFrame) AlmostEquals(otherFrame Frame) bool {
 	return ok && sf.baseFrame.AlmostEquals(other.baseFrame) && spatial.PoseAlmostEqual(sf.transform, other.transform)
 }
 
-// a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions.
 type translationalFrame struct {
 	*baseFrame
 	transAxis       r3.Vector
@@ -289,29 +311,10 @@ func NewTranslationalFrameWithGeometry(name string, axis r3.Vector, limit Limit,
 // Transform returns a pose translated by the amount specified in the inputs.
 func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	err := pf.validInputs(input)
-	// We allow out-of-bounds calculations, but will return a non-nil error
 	if err != nil && !strings.Contains(err.Error(), OOBErrString) {
 		return nil, err
 	}
 	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0].Value)), err
-}
-
-// InputFromProtobuf converts pb.JointPosition to inputs.
-func (pf *translationalFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
-	n := make([]Input, len(jp.Values))
-	for idx, d := range jp.Values {
-		n[idx] = Input{d}
-	}
-	return n
-}
-
-// ProtobufFromInput converts inputs to pb.JointPosition.
-func (pf *translationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
-	n := make([]float64, len(input))
-	for idx, a := range input {
-		n[idx] = a.Value
-	}
-	return &pb.JointPositions{Values: n}
 }
 
 // Geometries returns an object representing the 3D space associeted with the translationalFrame.
@@ -329,13 +332,10 @@ func (pf *translationalFrame) Geometries(input []Input) (*GeometriesInFrame, err
 }
 
 func (pf *translationalFrame) MarshalJSON() ([]byte, error) {
-	m := FrameMapConfig{
-		"type":      "translational",
-		"name":      pf.name,
-		"transAxis": pf.transAxis,
-		"limit":     pf.limits,
-	}
-	return json.Marshal(m)
+	config := pf.toConfig()
+	config["type"] = "translational"
+	config["transAxis"] = pf.transAxis
+	return json.Marshal(config)
 }
 
 func (pf *translationalFrame) AlmostEquals(otherFrame Frame) bool {
@@ -362,7 +362,6 @@ func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, err
 // of inputs that has length equal to the degrees of freedom of the referenceframe.
 func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	err := rf.validInputs(input)
-	// We allow out-of-bounds calculations, but will return a non-nil error
 	if err != nil && !strings.Contains(err.Error(), OOBErrString) {
 		return nil, err
 	}
@@ -391,7 +390,7 @@ func (rf *rotationalFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
 // Geometries will always return (nil, nil) for rotationalFrames, as not allowing rotationalFrames to occupy geometries is a
 // design choice made for simplicity. staticFrame and translationalFrame should be used instead.
 func (rf *rotationalFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
-	return nil, fmt.Errorf("s not implemented for type %T", rf)
+	return nil, NewFrameMethodUnsupportedError("Geometries", rf)
 }
 
 // Name returns the name of the referenceframe.
@@ -400,18 +399,85 @@ func (rf *rotationalFrame) Name() string {
 }
 
 func (rf *rotationalFrame) MarshalJSON() ([]byte, error) {
-	m := FrameMapConfig{
-		"type":    "rotational",
-		"name":    rf.name,
-		"rotAxis": rf.rotAxis,
-		"limit":   rf.limits,
-	}
-	return json.Marshal(m)
+	return json.Marshal(rf.toConfig())
+}
+
+func (rf *rotationalFrame) toConfig() FrameMapConfig {
+	config := rf.baseFrame.toConfig()
+	config["type"] = "rotational"
+	config["rotAxis"] = rf.rotAxis
+	return config
 }
 
 func (rf *rotationalFrame) AlmostEquals(otherFrame Frame) bool {
 	other, ok := otherFrame.(*rotationalFrame)
 	return ok && rf.baseFrame.AlmostEquals(other.baseFrame) && spatial.R3VectorAlmostEqual(rf.rotAxis, other.rotAxis, 1e-8)
+}
+
+type linearlyActuatedRotationalFrame struct {
+	*rotationalFrame
+	a, b float64
+}
+
+// NewLinearlyActuatedRotationalFrame creates a frame that represents a robot mechanism where a linear actuator is used to acheive
+// rotational motion about a passive hinge.  This configuration forms a triangle (visualized below) where the linear actuator length is
+// side c, and the offset along the robot links from the rotation is given by a and b, with a being the length along the link previous in
+// the kinematic chain. The transformation given by this frame maps c to theta, which is the angle between a and b
+//
+//                 |
+//                 |
+//                 *
+//                /|
+//            c  / |
+//              /  | b
+//      _______/___|
+//               a
+//
+func NewLinearlyActuatedRotationalFrame(name string, axis spatial.R4AA, limit Limit, a, b float64) (Frame, error) {
+	if a <= 0 || b <= 0 {
+		return nil, errors.New("cannot create a linearlyActuatedRotationalFrame with values a || b <= 0")
+	}
+	rf, err := NewRotationalFrame(name, axis, limit)
+	if err != nil {
+		return nil, err
+	}
+	return &linearlyActuatedRotationalFrame{rotationalFrame: rf.(*rotationalFrame), a: a, b: b}, nil
+}
+
+func (larf *linearlyActuatedRotationalFrame) Transform(input []Input) (spatial.Pose, error) {
+	err := larf.validInputs(input)
+	if err != nil && !strings.Contains(err.Error(), OOBErrString) {
+		return nil, err
+	}
+
+	// law of cosines to determine theta from a, b and c
+	cosTheta := (larf.a*larf.a + larf.b*larf.b - input[0].Value*input[0].Value) / (2 * larf.a * larf.b)
+	if cosTheta < -1 || cosTheta > 1 {
+		return nil, errors.Errorf("could not transform linearly actuated rotational frame with input %f", input[0].Value)
+	}
+	return spatial.NewPoseFromOrientation(
+		r3.Vector{0, 0, 0},
+		&spatial.R4AA{math.Acos(cosTheta), larf.rotAxis.X, larf.rotAxis.Y, larf.rotAxis.Z},
+	), err
+}
+
+func (larf *linearlyActuatedRotationalFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
+	return nil, NewFrameMethodUnsupportedError("Geometries", larf)
+}
+
+func (larf *linearlyActuatedRotationalFrame) MarshalJSON() ([]byte, error) {
+	config := larf.toConfig()
+	config["a"] = larf.a
+	config["b"] = larf.b
+	return json.Marshal(config)
+}
+
+func (larf *linearlyActuatedRotationalFrame) AlmostEquals(otherFrame Frame) bool {
+	other, ok := otherFrame.(*linearlyActuatedRotationalFrame)
+	return ok &&
+		larf.rotationalFrame.AlmostEquals(other.rotationalFrame) &&
+		utils.Float64AlmostEqual(larf.a, other.a, comparisonDelta) &&
+		utils.Float64AlmostEqual(larf.b, other.b, comparisonDelta)
 }
 
 type mobile2DFrame struct {
@@ -431,29 +497,10 @@ func NewMobile2DFrame(name string, limits []Limit, geometryCreator spatial.Geome
 
 func (mf *mobile2DFrame) Transform(input []Input) (spatial.Pose, error) {
 	err := mf.validInputs(input)
-	// We allow out-of-bounds calculations, but will return a non-nil error
 	if err != nil && !strings.Contains(err.Error(), OOBErrString) {
 		return nil, err
 	}
 	return spatial.NewPoseFromPoint(r3.Vector{input[0].Value, input[1].Value, 0}), err
-}
-
-// InputFromProtobuf converts pb.JointPosition to inputs.
-func (mf *mobile2DFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
-	n := make([]Input, len(jp.Values))
-	for idx, d := range jp.Values {
-		n[idx] = Input{d}
-	}
-	return n
-}
-
-// ProtobufFromInput converts inputs to pb.JointPosition.
-func (mf *mobile2DFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
-	n := make([]float64, len(input))
-	for idx, a := range input {
-		n[idx] = a.Value
-	}
-	return &pb.JointPositions{Values: n}
 }
 
 func (mf *mobile2DFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
@@ -470,11 +517,9 @@ func (mf *mobile2DFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
 }
 
 func (mf *mobile2DFrame) MarshalJSON() ([]byte, error) {
-	return json.Marshal(FrameMapConfig{
-		"type":  "rotational",
-		"name":  mf.name,
-		"limit": mf.limits,
-	})
+	config := mf.toConfig()
+	config["type"] = "mobile2D"
+	return json.Marshal(config)
 }
 
 func (mf *mobile2DFrame) AlmostEquals(otherFrame Frame) bool {

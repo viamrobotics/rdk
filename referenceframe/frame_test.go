@@ -109,6 +109,32 @@ func TestRevoluteFrame(t *testing.T) {
 	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
 }
 
+func TestMappedFrame(t *testing.T) {
+	// mapping function for a three bar linkage frame.  Theta is the output, and is opposite side c on a triangle, with sides a, b, c
+	// side c is the actuated side and corresponds to a linear actuator
+	// sides a and b are the distances the linear actuator is mounted away from the vertex corresponding with theta
+	larf, err := NewLinearlyActuatedRotationalFrame("bar", spatial.R4AA{RZ: 1}, Limit{Min: 2, Max: 6}, 3, 4)
+	test.That(t, err, test.ShouldBeNil)
+
+	// construct model with mappedFrame
+	offset := spatial.NewPoseFromPoint(r3.Vector{X: 10})
+	test.That(t, err, test.ShouldBeNil)
+
+	// this is a 3-4-5 triangle, so making the input 5 will correspond to a right trangle (theta=90 degrees) w/ new pose of X=0, Y=10, Z=0
+	tf, err := larf.Transform([]Input{{5.}})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.PoseAlmostCoincident(spatial.Compose(tf, offset), spatial.NewPoseFromPoint(r3.Vector{Y: 10})), test.ShouldBeTrue)
+
+	// test that entering input outside limits will result in an OOB error
+	tf, err = larf.Transform([]Input{{1.8}})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, OOBErrString)
+	test.That(t,
+		spatial.PoseAlmostCoincidentEps(spatial.Compose(tf, offset), spatial.NewPoseFromPoint(r3.Vector{X: 9, Y: 4.22}), .1),
+		test.ShouldBeTrue,
+	)
+}
+
 func TestMobile2DFrame(t *testing.T) {
 	expLimit := []Limit{{-10, 10}, {-10, 10}}
 	frame := &mobile2DFrame{&baseFrame{"test", expLimit}, nil}

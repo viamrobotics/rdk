@@ -28,7 +28,7 @@ type Model interface {
 // SimpleModel TODO.
 type SimpleModel struct {
 	*baseFrame
-	// OrdTransforms is the list of transforms ordered from end effector to base
+	// OrdTransforms is the list of transforms ordered from base to end effector
 	OrdTransforms []Frame
 	poseCache     *sync.Map
 	lock          sync.RWMutex
