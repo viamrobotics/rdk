@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -1132,11 +1133,11 @@ func TestStatus(t *testing.T) {
 
 		resp, err := r.Status(context.Background(), []resource.Name{})
 		test.That(t, err, test.ShouldBeNil)
-		// 5 because the 3 default services are always added to a local_robot. We only care
+		// 6 because the 4 default services are always added to a local_robot. We only care
 		// about the first two (working1 and button1) however.
-		test.That(t, len(resp), test.ShouldEqual, 5)
+		test.That(t, len(resp), test.ShouldEqual, 6)
 
-		// although the response is length 5, the only thing we actually care about for testing
+		// although the response is length 6, the only thing we actually care about for testing
 		// is consistency with the expected values in the workingResourceMap. So we eliminate
 		// the values that aren't in the workingResourceMap.
 		actual := []robot.Status{}
