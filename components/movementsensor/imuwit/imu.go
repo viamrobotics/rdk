@@ -26,7 +26,8 @@ const model = "imu-wit"
 
 // AttrConfig is used for converting a witmotion IMU MovementSensor config attributes.
 type AttrConfig struct {
-	Port string `json:"port"`
+	Port     string `json:"port"`
+	BaudRate int    `json:"baud_rate,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -128,6 +129,11 @@ func (imu *wit) Properties(ctx context.Context) (*movementsensor.Properties, err
 
 // NewWit creates a new Wit IMU.
 func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logger) (movementsensor.MovementSensor, error) {
+	conf, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, rutils.NewUnexpectedTypeError(conf, cfg.ConvertedAttributes)
+	}
+
 	options := slib.OpenOptions{
 		BaudRate:        9600,
 		DataBits:        8,
@@ -135,7 +141,8 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 		MinimumReadSize: 1,
 	}
 
-	options.PortName = cfg.ConvertedAttributes.(*AttrConfig).Port
+	options.PortName = conf.Port
+	options.BaudRate = uint(conf.BaudRate)
 
 	port, err := slib.Open(options)
 	if err != nil {
@@ -159,6 +166,7 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 			}
 
 			line, err := portReader.ReadString('U')
+			logger.Debugf("line is %s", line)
 
 			func() {
 				i.mu.Lock()
