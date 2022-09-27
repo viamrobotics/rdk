@@ -108,7 +108,7 @@ func (imu *wit) CompassHeading(ctx context.Context) (float64, error) {
 }
 
 func (imu *wit) Position(ctx context.Context) (*geo.Point, float64, error) {
-	return geo.NewPoint(0,0), 0, imu.lastError
+	return geo.NewPoint(0, 0), 0, imu.lastError
 }
 
 func (imu *wit) Accuracy(ctx context.Context) (map[string]float32, error) {
