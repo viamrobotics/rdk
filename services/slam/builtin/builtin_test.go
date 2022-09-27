@@ -759,21 +759,19 @@ func TestORBSLAMDataProcess(t *testing.T) {
 			logger.Warnln("--- In StreamFunc 1")
 			imgBytes, err := os.ReadFile(artifact.MustPath("rimage/board1.png"))
 			if err != nil {
+				logger.Warnln("--- In StreamFunc 1.a, error: ", err)
 				return nil, err
 			}
 			logger.Warnln("--- In StreamFunc 2")
-			img, err := png.Decode(bytes.NewReader(imgBytes))
-			if err != nil {
-				return nil, err
-			}
+			lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
 			logger.Warnln("--- In StreamFunc 3")
-			lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, img.Bounds().Dx(), img.Bounds().Dy())
 			return gostream.NewEmbeddedVideoStreamFromReader(
 				gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 					return lazy, func() {}, nil
 				}),
 			), nil
 		}
+
 		cams := []camera.Camera{goodCam}
 		camStreams := []gostream.VideoStream{gostream.NewEmbeddedVideoStream(goodCam)}
 		defer func() {
