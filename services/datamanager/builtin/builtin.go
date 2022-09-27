@@ -132,7 +132,7 @@ func (svc *builtIn) Close(_ context.Context) error {
 	defer svc.lock.Unlock()
 	svc.closeCollectors()
 	if svc.syncer != nil {
-		svc.syncer.Close()
+		svc.closeSyncer()
 	}
 
 	svc.backgroundWorkers.Wait()

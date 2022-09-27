@@ -24,6 +24,8 @@ const (
 	syncWaitTime = 500 * time.Millisecond
 )
 
+// TODO: update tests
+
 func TestFileUpload(t *testing.T) {
 	uploadChunkSize = 10
 	msgContents := []byte("This is part of testing in datamanager service in RDK.")

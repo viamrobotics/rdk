@@ -3,6 +3,7 @@ package datacapture
 import (
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
+	"path/filepath"
 	"sync"
 )
 
@@ -24,8 +25,9 @@ type Deque struct {
 }
 
 func NewDeque(dir string, md *v1.DataCaptureMetadata) *Deque {
+	queueDir := filepath.Join(dir, getFileTimestampName())
 	return &Deque{
-		Directory: dir,
+		Directory: queueDir,
 		files:     []*File{},
 		lock:      &sync.Mutex{},
 		MetaData:  md,

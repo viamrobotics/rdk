@@ -28,6 +28,7 @@ const (
 )
 
 type File struct {
+	path   string
 	lock   *sync.Mutex
 	file   *os.File
 	writer *bufio.Writer
@@ -44,6 +45,7 @@ func NewFileFromFile(f *os.File) (*File, error) {
 	}
 
 	ret := File{
+		path:   f.Name(),
 		lock:   &sync.Mutex{},
 		file:   f,
 		writer: bufio.NewWriter(f),
@@ -71,6 +73,7 @@ func NewFile(captureDir string, md *v1.DataCaptureMetadata) (*File, error) {
 		return nil, err
 	}
 	return &File{
+		path:   f.Name(),
 		writer: bufio.NewWriter(f),
 		file:   f,
 		size:   int64(n),
@@ -126,6 +129,10 @@ func (f *File) Sync() error {
 
 func (f *File) Size() int64 {
 	return f.size
+}
+
+func (f *File) GetPath() string {
+	return f.path
 }
 
 // BuildCaptureMetadata builds a DataCaptureMetadata object and returns error if
