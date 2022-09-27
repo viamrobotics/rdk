@@ -138,7 +138,8 @@ func (slamSvc *builtIn) orbGenYAML(ctx context.Context, cam camera.Camera) error
 	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	timeStampNow := time.Now().UTC().Format(slamTimeFormat)
 	saveMapName := filepath.Join(slamSvc.dataDirectory, "map", slamSvc.cameraName+"_data_"+timeStampNow)
-	orbslam.SaveMapLoc = saveMapName
+	// timestamp to save at end of run
+	orbslam.SaveMapLoc = "\"" + saveMapName + "\""
 
 	// Check for maps in the specified directory and add map to yaml config
 	loadMapTimeStamp, loadMapName, err := slamSvc.checkMaps()
@@ -148,9 +149,8 @@ func (slamSvc *builtIn) orbGenYAML(ctx context.Context, cam camera.Camera) error
 	if loadMapTimeStamp == "" {
 		loadMapTimeStamp = timeStampNow
 	} else {
-		orbslam.LoadMapLoc = loadMapName
+		orbslam.LoadMapLoc = "\"" + loadMapName + "\""
 	}
-	// timestamp to save at end of run
 
 	// yamlFileName uses the timestamp from the loaded map if one was available
 	// this gives the option to load images into the map if they were generated at a later time
