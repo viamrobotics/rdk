@@ -25,7 +25,7 @@ Viam provides an open source robot architecture that provides robotics functiona
 * Run `make setup` to install dev environment requirements.
 
 ### Build and Run
-* Build: `make server`. Then run `./<your architecture>/server [parameters]`
+* Build: `make server`. Then run `./bin/<your architecture>/server [parameters]`
 * Run without building: `go run web/cmd/server/main.go [parameters]`
 
 Example with a dummy configuration: `go run web/cmd/server/main.go -config etc/configs/fake.json`. Then visit http://localhost:8080 to access remote control.
