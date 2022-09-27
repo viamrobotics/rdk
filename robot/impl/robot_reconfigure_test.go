@@ -2443,7 +2443,6 @@ func TestStatusServiceUpdate(t *testing.T) {
 }
 
 func TestRemoteRobotsGold(t *testing.T) {
-	t.Skip()
 	loggerR := golog.NewDevelopmentLogger("remote")
 	cfg, err := config.Read(context.Background(), "data/fake.json", loggerR)
 	test.That(t, err, test.ShouldBeNil)
