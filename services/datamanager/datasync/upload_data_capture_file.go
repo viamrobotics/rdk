@@ -2,9 +2,10 @@ package datasync
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/rdk/services/datamanager/datacapture"
-	"os"
+	"io"
 )
 
 func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient, f *datacapture.File, partID string) error {
@@ -13,41 +14,47 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 	if err != nil {
 		return err
 	}
-	_ = &v1.UploadRequest{
-		UploadPacket: &v1.UploadRequest_Metadata{
-			Metadata: &v1.UploadMetadata{
-				PartId:           partID,
-				ComponentType:    md.GetComponentType(),
-				ComponentName:    md.GetComponentName(),
-				ComponentModel:   md.GetComponentModel(),
-				MethodName:       md.GetMethodName(),
-				Type:             md.GetType(),
-				MethodParameters: md.GetMethodParameters(),
-				Tags:             md.GetTags(),
-				SessionId:        md.GetSessionId(),
-			},
-		},
+	sensorData, err := getAllSensorData(f)
+	if err != nil {
+		return err
 	}
 
-	// TODO: make unary upload call with whole contents of file. return error if receive error.
+	ur := &v1.UnaryUploadRequest{
+		Metadata: &v1.UploadMetadata{
+			PartId:           partID,
+			ComponentType:    md.GetComponentType(),
+			ComponentName:    md.GetComponentName(),
+			ComponentModel:   md.GetComponentModel(),
+			MethodName:       md.GetMethodName(),
+			Type:             md.GetType(),
+			MethodParameters: md.GetMethodParameters(),
+			Tags:             md.GetTags(),
+			SessionId:        md.GetSessionId(),
+		},
+		SensorContents: sensorData,
+	}
+	resp, err := client.UnaryUpload(ctx, ur)
+	if err != nil {
+		return err
+	}
+	// TODO: real code handling
+	if resp.GetCode() != 200 {
+		return errors.New("error making upload request: " + resp.GetMessage())
+	}
 	return nil
 }
 
-func getNextSensorUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequest, error) {
-	select {
-	case <-ctx.Done():
-		return nil, context.Canceled
-	default:
-		// Get the next sensor data reading from file, check for an error.
-		next, err := datacapture.ReadNextSensorData(f)
+func getAllSensorData(f *datacapture.File) ([]*v1.SensorData, error) {
+	var ret []*v1.SensorData
+	for {
+		next, err := f.ReadNext()
 		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
 			return nil, err
 		}
-		// Otherwise, return an UploadRequest and no error.
-		return &v1.UploadRequest{
-			UploadPacket: &v1.UploadRequest_SensorContents{
-				SensorContents: next,
-			},
-		}, nil
+		ret = append(ret, next)
 	}
+	return ret, nil
 }

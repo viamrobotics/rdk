@@ -99,6 +99,7 @@ func (f *File) ReadMetadata() (*v1.DataCaptureMetadata, error) {
 	return r, nil
 }
 
+// TODO: update to skip metadata if first record is metadata
 func (f *File) ReadNext() (*v1.SensorData, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
