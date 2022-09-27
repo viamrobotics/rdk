@@ -30,11 +30,16 @@ Viam provides an open source robot architecture that provides robotics functiona
 
 Example with a dummy configuration: `go run web/cmd/server/main.go -config etc/configs/fake.json`. Then visit http://localhost:8080 to access remote control.
 
+### Examples
+* [SimpleServer](https://pkg.go.dev/go.viam.com/rdk/examples/simpleserver) - example for creating a simple custom server.
+* [MySensor](https://pkg.go.dev/go.viam.com/rdk/examples/mysensor) - example for creating a custom sensor,
+* [MyComponent](https://pkg.go.dev/go.viam.com/rdk/examples/mycomponent) - example for creating a custom resource subtype.
+
 ### SDKs
 
 Multiple SDKs are available for writing client applications that interface with the Viam RDK.
 
-* Go: Provided by this repository [here](https://github.com/viamrobotics/rdk/tree/main/robot/client)
+* Go: Provided by this repository [here](https://github.com/viamrobotics/rdk/tree/main/robot/client). Docs can be found [here] (https://pkg.go.dev/go.viam.com/rdk/robot/client)
 * Python: [Docs](https://python.viam.dev), [Repository](https://github.com/viamrobotics/viam-python-sdk)
 * Rust: https://github.com/viamrobotics/viam-rust-sdk
 
