@@ -1,6 +1,6 @@
 # MyComponent
 
-This sample demonstrates a user defining a new resource component subtype called MyComponent.
+This example demonstrates a user defining a new component type called MyComponent.
 
 ## Running
 
