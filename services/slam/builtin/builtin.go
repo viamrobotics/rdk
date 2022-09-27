@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"io"
@@ -747,11 +748,14 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 	cams []camera.Camera,
 	camStreams []gostream.VideoStream,
 ) ([]string, error) {
+	fmt.Println("--- In getAndSaveDataSparse 1")
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::getAndSaveDataSparse")
 	defer span.End()
 
+	fmt.Println("--- In getAndSaveDataSparse 2, slamMode: ", slamSvc.slamMode)
 	switch slamSvc.slamMode {
 	case slam.Mono:
+		fmt.Println("--- In getAndSaveDataSparse 2")
 		if len(camStreams) != 1 {
 			return nil, errors.Errorf("expected 1 camera for mono slam, found %v", len(camStreams))
 		}
@@ -764,23 +768,28 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			}
 			return nil, err
 		}
+		fmt.Println("--- In getAndSaveDataSparse 3")
 		filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", slamSvc.slamMode)
 		if err != nil {
 			return nil, err
 		}
+		fmt.Println("--- In getAndSaveDataSparse 4")
 		filename := filenames[0]
 		//nolint:gosec
 		f, err := os.Create(filename)
 		if err != nil {
 			return []string{filename}, err
 		}
+		fmt.Println("--- In getAndSaveDataSparse 5")
 		w := bufio.NewWriter(f)
 		if _, err := w.Write(image); err != nil {
 			return []string{filename}, err
 		}
+		fmt.Println("--- In getAndSaveDataSparse 6")
 		if err := w.Flush(); err != nil {
 			return []string{filename}, err
 		}
+		fmt.Println("--- In getAndSaveDataSparse 7")
 		return []string{filename}, f.Close()
 	case slam.Rgbd:
 		if len(cams) != 2 {
