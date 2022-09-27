@@ -724,24 +724,19 @@ func (slamSvc *builtIn) StopSLAMProcess() error {
 func (slamSvc *builtIn) getLazyPNGImage(ctx context.Context, cam camera.Camera) ([]byte, error) {
 	// We will hint that we want a PNG.
 	// The Camera service server implementation in RDK respects this; others may not.
-	slamSvc.logger.Warnln("--- In getLazyPNGImage 1")
 	img, _, err := camera.ReadImage(
 		gostream.WithMIMETypeHint(ctx, utils.WithLazyMIMEType(utils.MimeTypePNG)), cam)
 	if err != nil {
-		slamSvc.logger.Warnln("--- In getLazyPNGImage 1.a, error: ", err)
 		return nil, err
 	}
 
-	slamSvc.logger.Warnln("--- In getLazyPNGImage 2")
 	lazyImg, ok := img.(*rimage.LazyEncodedImage)
 	if !ok {
 		return nil, errors.Errorf("expected lazily encoded image, got %T", lazyImg)
 	}
-	slamSvc.logger.Warnln("--- In getLazyPNGImage 3")
 	if lazyImg.MIMEType() != utils.MimeTypePNG {
 		return nil, errors.Errorf("expected mime type %v, got %v", utils.MimeTypePNG, lazyImg.MIMEType())
 	}
-	slamSvc.logger.Warnln("--- In getLazyPNGImage 4")
 	return lazyImg.RawData(), nil
 }
 
@@ -752,14 +747,11 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 	cams []camera.Camera,
 	camStreams []gostream.VideoStream,
 ) ([]string, error) {
-	slamSvc.logger.Warnln("--- In getAndSaveDataSparse 1")
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::getAndSaveDataSparse")
 	defer span.End()
 
-	slamSvc.logger.Warnln("--- In getAndSaveDataSparse 2, slamMode: ", slamSvc.slamMode)
 	switch slamSvc.slamMode {
 	case slam.Mono:
-		slamSvc.logger.Warnln("--- In getAndSaveDataSparse 3, len(camStreams): ", len(camStreams))
 		if len(camStreams) != 1 {
 			return nil, errors.Errorf("expected 1 camera for mono slam, found %v", len(camStreams))
 		}
@@ -770,31 +762,25 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 				slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
 				return nil, nil
 			}
-			slamSvc.logger.Warnln("--- In getAndSaveDataSparse 3.a, error: ", err)
 			return nil, err
 		}
-		slamSvc.logger.Warnln("--- In getAndSaveDataSparse 4")
 		filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", slamSvc.slamMode)
 		if err != nil {
 			return nil, err
 		}
-		slamSvc.logger.Warnln("--- In getAndSaveDataSparse 5")
 		filename := filenames[0]
 		//nolint:gosec
 		f, err := os.Create(filename)
 		if err != nil {
 			return []string{filename}, err
 		}
-		slamSvc.logger.Warnln("--- In getAndSaveDataSparse 6")
 		w := bufio.NewWriter(f)
 		if _, err := w.Write(image); err != nil {
 			return []string{filename}, err
 		}
-		slamSvc.logger.Warnln("--- In getAndSaveDataSparse 7")
 		if err := w.Flush(); err != nil {
 			return []string{filename}, err
 		}
-		slamSvc.logger.Warnln("--- In getAndSaveDataSparse 8")
 		return []string{filename}, f.Close()
 	case slam.Rgbd:
 		if len(cams) != 2 {
