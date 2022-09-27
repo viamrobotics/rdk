@@ -31,7 +31,25 @@ type File struct {
 	lock   *sync.Mutex
 	file   *os.File
 	writer *bufio.Writer
-	size   int
+	size   int64
+}
+
+func NewFileFromFile(f *os.File) (*File, error) {
+	if !IsDataCaptureFile(f) {
+		return nil, errors.New(fmt.Sprintf("%s is not a data capture file", f.Name()))
+	}
+	finfo, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	ret := File{
+		lock:   &sync.Mutex{},
+		file:   f,
+		writer: bufio.NewWriter(f),
+		size:   finfo.Size(),
+	}
+	return &ret, nil
 }
 
 func NewFile(captureDir string, md *v1.DataCaptureMetadata) (*File, error) {
@@ -55,7 +73,7 @@ func NewFile(captureDir string, md *v1.DataCaptureMetadata) (*File, error) {
 	return &File{
 		writer: bufio.NewWriter(f),
 		file:   f,
-		size:   n,
+		size:   int64(n),
 	}, nil
 }
 
@@ -98,7 +116,7 @@ func (f *File) WriteNext(data *v1.SensorData) error {
 	if err != nil {
 		return err
 	}
-	f.size += n
+	f.size += int64(n)
 	return nil
 }
 
@@ -106,29 +124,8 @@ func (f *File) Sync() error {
 	return f.writer.Flush()
 }
 
-func (f *File) Size() int {
+func (f *File) Size() int64 {
 	return f.size
-}
-
-// CreateDataCaptureFile creates a timestamped file within the given capture directory.
-func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.File, error) {
-	// First create directories and the file in it.
-	fileDir := filepath.Join(captureDir, md.GetComponentType(), md.GetComponentName(), md.GetMethodName())
-	if err := os.MkdirAll(fileDir, 0o700); err != nil {
-		return nil, err
-	}
-	fileName := filepath.Join(fileDir, getFileTimestampName()) + FileExt
-	//nolint:gosec
-	f, err := os.Create(fileName)
-	if err != nil {
-		return nil, err
-	}
-
-	// Then write first metadata message to the file.
-	if _, err := pbutil.WriteDelimited(f, md); err != nil {
-		return nil, err
-	}
-	return f, nil
 }
 
 // BuildCaptureMetadata builds a DataCaptureMetadata object and returns error if
@@ -154,39 +151,9 @@ func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, me
 	}, nil
 }
 
-// ReadDataCaptureMetadata reads the DataCaptureMetadata from the beginning of the capture file.
-func ReadDataCaptureMetadata(f *os.File) (*v1.DataCaptureMetadata, error) {
-	if _, err := f.Seek(0, 0); err != nil {
-		return nil, err
-	}
-
-	r := &v1.DataCaptureMetadata{}
-	if _, err := pbutil.ReadDelimited(f, r); err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read DataCaptureMetadata from %s", f.Name()))
-	}
-
-	if r.GetType() == v1.DataType_DATA_TYPE_UNSPECIFIED {
-		return nil, errors.Errorf("file %s does not contain valid metadata", f.Name())
-	}
-
-	return r, nil
-}
-
 // IsDataCaptureFile returns whether or not f is a data capture file.
 func IsDataCaptureFile(f *os.File) bool {
 	return filepath.Ext(f.Name()) == FileExt
-}
-
-// ReadNextSensorData reads sensorData sequentially from a data capture file. It assumes the file offset is already
-// pointing at the beginning of series of SensorData in the file. This is accomplished by first calling
-// ReadDataCaptureMetadata.
-func ReadNextSensorData(f *os.File) (*v1.SensorData, error) {
-	r := &v1.SensorData{}
-	if _, err := pbutil.ReadDelimited(f, r); err != nil {
-		return nil, err
-	}
-
-	return r, nil
 }
 
 // Create a filename based on the current time.

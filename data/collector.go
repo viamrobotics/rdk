@@ -41,6 +41,7 @@ func (cf CaptureFunc) Capture(ctx context.Context, params map[string]*anypb.Any)
 type Collector interface {
 	Close()
 	Collect()
+	GetTarget() *datacapture.Deque
 }
 
 type collector struct {
@@ -67,6 +68,7 @@ func (c *collector) Close() {
 	if err := c.target.Sync(); err != nil {
 		c.logger.Errorw("failed to flush writer to disk", "error", err)
 	}
+	c.target.Close()
 }
 
 // Collect starts the Collector, causing it to run c.capturer.Capture every c.interval, and write the results to
@@ -87,6 +89,12 @@ func (c *collector) Collect() {
 			c.logger.Errorw(fmt.Sprintf("failed to write to directory %s", c.target.Directory), "error", err)
 		}
 	})
+}
+
+func (c *collector) GetTarget() *datacapture.Deque {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	return c.target
 }
 
 // Go's time.Ticker has inconsistent performance with durations of below 1ms [0], so we use a time.Sleep based approach

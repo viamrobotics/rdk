@@ -4,6 +4,7 @@ package datasync
 import (
 	"context"
 	goutils "go.viam.com/utils"
+	"os"
 	"sync"
 	"time"
 
@@ -43,6 +44,7 @@ var (
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
 	Sync(queues []*datacapture.Deque)
+	SyncFiles(paths []string)
 	Close()
 }
 
@@ -110,6 +112,8 @@ func (s *syncer) Close() {
 	}
 }
 
+// TODO: expose errors somehow
+// Sync uploads everything in queue until it is closed and emptied.
 func (s *syncer) Sync(queues []*datacapture.Deque) {
 	for _, q := range queues {
 		s.upload(s.cancelCtx, q)
@@ -120,21 +124,76 @@ func (s *syncer) upload(ctx context.Context, q *datacapture.Deque) {
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer s.backgroundWorkers.Done()
-		next := q.Peek()
-		uploadErr := exponentialRetry(
-			ctx,
-			func(ctx context.Context) error {
-				return s.uploadFile(ctx, s.client, next, s.partID)
-			},
-			s.logger,
-		)
-		if uploadErr != nil {
-			s.logger.Error(uploadErr)
-			return
+		// TODO: make respect cancellation
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				next := q.Peek()
+				// We've emptied queue. return.
+				if q.IsClosed() && next == nil {
+					return
+				}
+				if next == nil {
+					// TODO: better way to wait than just sleep?
+					time.Sleep(time.Second)
+					continue
+				}
+				uploadErr := exponentialRetry(
+					ctx,
+					func(ctx context.Context) error {
+						return s.uploadFile(ctx, s.client, next, s.partID)
+					},
+					s.logger,
+				)
+				if uploadErr != nil {
+					s.logger.Error(uploadErr)
+					return
+				}
+				q.Dequeue()
+			}
 		}
-		q.Dequeue()
-		return
 	})
+}
+
+func (s *syncer) SyncFiles(paths []string) {
+	for _, p := range paths {
+		select {
+		case <-s.cancelCtx.Done():
+			return
+		default:
+			//nolint:gosec
+			f, err := os.Open(p)
+			if err != nil {
+				s.logger.Errorw("error opening file", "error", err)
+				return
+			}
+			defer func(f *os.File) {
+				err := f.Close()
+				if err != nil {
+					s.logger.Errorw("error closing file", "error", err)
+				}
+			}(f)
+
+			captureFile, err := datacapture.NewFileFromFile(f)
+			if err != nil {
+				s.logger.Error(err)
+				return
+			}
+			uploadErr := exponentialRetry(
+				s.cancelCtx,
+				func(ctx context.Context) error {
+					return s.uploadFile(ctx, s.client, captureFile, s.partID)
+				},
+				s.logger,
+			)
+			if uploadErr != nil {
+				s.logger.Error(uploadErr)
+				return
+			}
+		}
+	}
 }
 
 // exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
