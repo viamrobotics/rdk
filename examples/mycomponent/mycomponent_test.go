@@ -20,7 +20,6 @@ import (
 )
 
 func TestMyComponent(t *testing.T) {
-	t.Skip()
 	port1, err := goutils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	addr1 := fmt.Sprintf("localhost:%d", port1)
