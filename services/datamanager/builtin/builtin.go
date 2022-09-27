@@ -181,10 +181,7 @@ func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 
 // Initialize a collector for the component/method or update it if it has previously been created.
 // Return the component/method metadata which is used as a key in the collectors map.
-func (svc *builtIn) initializeOrUpdateCollector(
-	attributes dataCaptureConfig, updateCaptureDir bool) (
-	*componentMethodMetadata, error,
-) {
+func (svc *builtIn) initializeOrUpdateCollector(attributes dataCaptureConfig) (*componentMethodMetadata, error) {
 	// Create component/method metadata to check if the collector exists.
 	metadata := data.MethodMetadata{
 		Subtype:    attributes.Type,
@@ -208,21 +205,6 @@ func (svc *builtIn) initializeOrUpdateCollector(
 
 	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
 		collector := storedCollectorParams.Collector
-		previousAttributes := storedCollectorParams.Attributes
-
-		// If the attributes have not changed, keep the current collector and update the target capture file if needed.
-		if reflect.DeepEqual(previousAttributes, attributes) {
-			if updateCaptureDir {
-				targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
-				if err != nil {
-					return nil, err
-				}
-				collector.SetTarget(targetFile)
-			}
-			return &componentMetadata, nil
-		}
-
-		// Otherwise, close the current collector and instantiate a new one below.
 		collector.Close()
 	}
 
@@ -256,7 +238,6 @@ func (svc *builtIn) initializeOrUpdateCollector(
 
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
-	targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -277,12 +258,14 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		return nil, err
 	}
 
+	queue := datacapture.NewDeque(svc.captureDir, captureMetadata)
+
 	// Create a collector for this resource and method.
 	params := data.CollectorParams{
 		ComponentName: attributes.Name,
 		Interval:      interval,
 		MethodParams:  methodParams,
-		Target:        targetFile,
+		Target:        queue,
 		QueueSize:     captureQueueSize,
 		BufferSize:    captureBufferSize,
 		Logger:        svc.logger,

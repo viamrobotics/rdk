@@ -19,16 +19,16 @@ type Deque struct {
 
 func NewDeque(dir string, md *v1.DataCaptureMetadata) *Deque {
 	return &Deque{
-		directory: dir,
+		Directory: dir,
 		files:     []*File{},
 		lock:      &sync.Mutex{},
-		md:        md,
+		MetaData:  md,
 	}
 }
 
 func (d *Deque) Enqueue(item *v1.SensorData) error {
 	if d.nextFile == nil {
-		nextFile, err := NewFile(d.directory, d.md)
+		nextFile, err := NewFile(d.Directory, d.MetaData)
 		if err != nil {
 			return err
 		}
@@ -42,7 +42,7 @@ func (d *Deque) Enqueue(item *v1.SensorData) error {
 		}
 		d.lock.Lock()
 		d.files = append(d.files, d.nextFile)
-		nextFile, err := NewFile(d.directory, d.md)
+		nextFile, err := NewFile(d.Directory, d.MetaData)
 		if err != nil {
 			d.lock.Unlock()
 			return err
@@ -66,6 +66,15 @@ func (d *Deque) Dequeue() *File {
 	d.files = d.files[1:]
 	d.lock.Unlock()
 	return ret
+}
+
+func (d *Deque) Peek() *File {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+	if len(d.files) == 0 {
+		return nil
+	}
+	return d.files[0]
 }
 
 func (d *Deque) Sync() error {

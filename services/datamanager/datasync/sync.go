@@ -3,8 +3,7 @@ package datasync
 
 import (
 	"context"
-	"os"
-	"path/filepath"
+	goutils "go.viam.com/utils"
 	"sync"
 	"time"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	v1 "go.viam.com/api/app/datasync/v1"
-	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -44,7 +42,7 @@ var (
 
 // Manager is responsible for enqueuing files in captureDir and uploading them to the cloud.
 type Manager interface {
-	Sync(paths []string)
+	Sync(queues []*datacapture.Deque)
 	Close()
 }
 
@@ -54,7 +52,6 @@ type syncer struct {
 	conn              rpc.ClientConn
 	client            v1.DataSyncServiceClient
 	logger            golog.Logger
-	progressTracker   progressTracker
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancelFunc        func()
@@ -91,21 +88,13 @@ func NewManager(logger golog.Logger, partID string, client v1.DataSyncServiceCli
 ) (Manager, error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	ret := syncer{
-		conn:   conn,
-		client: client,
-		logger: logger,
-		progressTracker: progressTracker{
-			lock:        &sync.Mutex{},
-			m:           make(map[string]struct{}),
-			progressDir: viamProgressDotDir,
-		},
+		conn:              conn,
+		client:            client,
+		logger:            logger,
 		backgroundWorkers: sync.WaitGroup{},
 		cancelCtx:         cancelCtx,
 		cancelFunc:        cancelFunc,
 		partID:            partID,
-	}
-	if err := ret.progressTracker.initProgressDir(); err != nil {
-		return nil, errors.Wrap(err, "couldn't initialize progress tracking directory")
 	}
 	return &ret, nil
 }
@@ -121,51 +110,31 @@ func (s *syncer) Close() {
 	}
 }
 
-func (s *syncer) upload(ctx context.Context, path string) {
-	if s.progressTracker.inProgress(path) {
-		return
+func (s *syncer) Sync(queues []*datacapture.Deque) {
+	for _, q := range queues {
+		s.upload(s.cancelCtx, q)
 	}
+}
 
-	s.progressTracker.mark(path)
+func (s *syncer) upload(ctx context.Context, q *datacapture.Deque) {
 	s.backgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer s.backgroundWorkers.Done()
-		//nolint:gosec
-		f, err := os.Open(path)
-		if err != nil {
-			s.logger.Errorw("error opening file", "error", err)
-			return
-		}
-		defer func(f *os.File) {
-			err := f.Close()
-			if err != nil {
-				s.logger.Errorw("error closing file", "error", err)
-			}
-		}(f)
-
+		next := q.Peek()
 		uploadErr := exponentialRetry(
 			ctx,
-			func(ctx context.Context) error { return s.uploadFile(ctx, s.client, f, s.partID) },
+			func(ctx context.Context) error {
+				return s.uploadFile(ctx, s.client, next, s.partID)
+			},
 			s.logger,
 		)
 		if uploadErr != nil {
 			s.logger.Error(uploadErr)
 			return
 		}
-
-		// Delete the file and indicate that the upload is done.
-		if err := os.Remove(path); err != nil {
-			s.logger.Errorw("error while deleting file", "error", err)
-		} else {
-			s.progressTracker.unmark(path)
-		}
+		q.Dequeue()
+		return
 	})
-}
-
-func (s *syncer) Sync(paths []string) {
-	for _, p := range paths {
-		s.upload(s.cancelCtx, p)
-	}
 }
 
 // exponentialRetry calls fn, logs any errors, and retries with exponentially increasing waits from initialWait to a
@@ -225,54 +194,7 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
-	var md *v1.UploadMetadata
-	if datacapture.IsDataCaptureFile(f) {
-		captureMD, err := datacapture.ReadDataCaptureMetadata(f)
-		if err != nil {
-			return nil, err
-		}
-		md = &v1.UploadMetadata{
-			PartId:           partID,
-			ComponentType:    captureMD.GetComponentType(),
-			ComponentName:    captureMD.GetComponentName(),
-			ComponentModel:   captureMD.GetComponentModel(),
-			MethodName:       captureMD.GetMethodName(),
-			Type:             captureMD.GetType(),
-			FileName:         filepath.Base(f.Name()),
-			MethodParameters: captureMD.GetMethodParameters(),
-			FileExtension:    captureMD.GetFileExtension(),
-			Tags:             captureMD.GetTags(),
-		}
-	} else {
-		md = &v1.UploadMetadata{
-			PartId:   partID,
-			Type:     v1.DataType_DATA_TYPE_FILE,
-			FileName: filepath.Base(f.Name()),
-		}
-	}
-	return md, nil
-}
-
-func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncServiceClient, f *os.File, partID string) error {
-	// Resets file pointer to ensure we are reading from beginning of file.
-	if _, err := f.Seek(0, 0); err != nil {
-		return err
-	}
-
-	md, err := getMetadata(f, partID)
-	if err != nil {
-		return err
-	}
-
-	switch md.GetType() {
-	case v1.DataType_DATA_TYPE_BINARY_SENSOR, v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		return uploadDataCaptureFile(ctx, s.progressTracker, client, md, f)
-	case v1.DataType_DATA_TYPE_FILE:
-		return uploadArbitraryFile(ctx, client, md, f)
-	case v1.DataType_DATA_TYPE_UNSPECIFIED:
-		return errors.New("no data type specified in upload metadata")
-	default:
-		return errors.New("no data type specified in upload metadata")
-	}
+// TODO: add arbitrary files back
+func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncServiceClient, f *datacapture.File, partID string) error {
+	return uploadDataCaptureFile(ctx, client, f, partID)
 }

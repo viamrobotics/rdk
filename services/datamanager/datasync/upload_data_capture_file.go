@@ -2,86 +2,37 @@ package datasync
 
 import (
 	"context"
+	"github.com/pkg/errors"
+	v1 "go.viam.com/api/app/datasync/v1"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 	"io"
 	"os"
 	"path/filepath"
-	"sync"
-
-	"github.com/pkg/errors"
-	v1 "go.viam.com/api/app/datasync/v1"
-	goutils "go.viam.com/utils"
-
-	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
-func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.DataSyncServiceClient,
-	md *v1.UploadMetadata, f *os.File,
-) error {
-	stream, err := client.Upload(ctx)
-	if err != nil {
-		return err
-	}
-	err = initDataCaptureUpload(ctx, f, pt, f.Name())
-	if errors.Is(err, io.EOF) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-
-	progressFileName := filepath.Join(pt.progressDir, filepath.Base(f.Name()))
-
+func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient, f *datacapture.File, partID string) error {
 	// Send metadata upload request.
-	req := &v1.UploadRequest{
+	md, err := f.ReadMetadata()
+	if err != nil {
+		return err
+	}
+	_ = &v1.UploadRequest{
 		UploadPacket: &v1.UploadRequest_Metadata{
-			Metadata: md,
+			Metadata: &v1.UploadMetadata{
+				PartId:           partID,
+				ComponentType:    md.GetComponentType(),
+				ComponentName:    md.GetComponentName(),
+				ComponentModel:   md.GetComponentModel(),
+				MethodName:       md.GetMethodName(),
+				Type:             md.GetType(),
+				MethodParameters: md.GetMethodParameters(),
+				Tags:             md.GetTags(),
+				SessionId:        md.GetSessionId(),
+			},
 		},
 	}
-	if err := stream.Send(req); err != nil {
-		return errors.Wrap(err, "error while sending upload metadata")
-	}
 
-	activeBackgroundWorkers := &sync.WaitGroup{}
-	errChannel := make(chan error, 1)
-
-	// Create cancelCtx so if either the recv or send goroutines error, we can cancel the other one.
-	cancelCtx, cancelFn := context.WithCancel(ctx)
-	defer cancelFn()
-
-	// Start a goroutine for recving acks back from the server.
-	activeBackgroundWorkers.Add(1)
-	goutils.PanicCapturingGo(func() {
-		defer activeBackgroundWorkers.Done()
-		err := recvStream(cancelCtx, stream, pt, progressFileName)
-		if err != nil {
-			errChannel <- err
-			cancelFn()
-		}
-	})
-
-	// Start a goroutine for sending SensorData to the server.
-	activeBackgroundWorkers.Add(1)
-	goutils.PanicCapturingGo(func() {
-		defer activeBackgroundWorkers.Done()
-		err := sendStream(cancelCtx, stream, f)
-		if err != nil {
-			errChannel <- err
-			cancelFn()
-		}
-	})
-
-	activeBackgroundWorkers.Wait()
-	close(errChannel)
-
-	for err := range errChannel {
-		return err
-	}
-
-	// Upload is complete, delete the corresponding progress file on disk.
-	if err := pt.deleteProgressFile(progressFileName); err != nil {
-		return err
-	}
-
+	// TODO: make unary upload call with whole contents of file. return error if receive error.
 	return nil
 }
 
