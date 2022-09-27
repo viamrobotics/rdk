@@ -756,15 +756,11 @@ func TestORBSLAMDataProcess(t *testing.T) {
 	t.Run("ORBSLAM3 Data Process with camera in slam mode mono", func(t *testing.T) {
 		goodCam := &inject.Camera{}
 		goodCam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
-			logger.Warnln("--- In StreamFunc 1")
 			imgBytes, err := os.ReadFile(artifact.MustPath("rimage/board1.png"))
 			if err != nil {
-				logger.Warnln("--- In StreamFunc 1.a, error: ", err)
 				return nil, err
 			}
-			logger.Warnln("--- In StreamFunc 2")
 			lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
-			logger.Warnln("--- In StreamFunc 3")
 			return gostream.NewEmbeddedVideoStreamFromReader(
 				gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 					return lazy, func() {}, nil
@@ -780,17 +776,14 @@ func TestORBSLAMDataProcess(t *testing.T) {
 			}
 		}()
 
-		logger.Warnln("--- yo yo 1")
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 		slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
 
-		logger.Warnln("--- yo yo 2")
 		n := 5
 		// Note: timePadding is required to allow the sub processes to be fully completed during test
 		time.Sleep(time.Millisecond * time.Duration((n)*(validDataRateMS+timePadding*2)))
 		cancelFunc()
 
-		logger.Warnln("--- yo yo 3")
 		files, err := os.ReadDir(name + "/data/rgb/")
 		test.That(t, len(files), test.ShouldEqual, n)
 		test.That(t, err, test.ShouldBeNil)
