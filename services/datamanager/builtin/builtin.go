@@ -554,7 +554,7 @@ func (svc *builtIn) cancelSyncBackgroundRoutine() {
 func getServiceConfig(cfg *config.Config) (*Config, bool, error) {
 	for _, c := range cfg.Services {
 		// Compare service type and name.
-		if c.ResourceName().ResourceSubtype == datamanager.SubtypeName {
+		if c.ResourceName().ResourceSubtype == datamanager.SubtypeName && c.ConvertedAttributes != nil {
 			svcConfig, ok := c.ConvertedAttributes.(*Config)
 			// Incorrect configuration is an error.
 			if !ok {
