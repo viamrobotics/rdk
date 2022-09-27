@@ -1,7 +1,7 @@
 # RDK (Robot Development Kit)
 
 <p align="center">
-  <a href="https://go.viam.com/pkg/go.viam.com/rdk/"><img src="https://pkg.go.dev/badge/go.viam.com/rdk" alt="PkgGoDev"></a>
+  <a href="https://pkg.go.dev/go.viam.com/rdk"><img src="https://pkg.go.dev/badge/go.viam.com/rdk" alt="PkgGoDev"></a>
 </p>
 
 Viam provides an open source robot architecture that provides robotics functionality via simple APIs
