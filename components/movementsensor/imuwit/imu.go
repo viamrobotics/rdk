@@ -108,11 +108,11 @@ func (imu *wit) CompassHeading(ctx context.Context) (float64, error) {
 }
 
 func (imu *wit) Position(ctx context.Context) (*geo.Point, float64, error) {
-	return nil, 0, nil
+	return geo.NewPoint(0, 0), 0, imu.lastError
 }
 
 func (imu *wit) Accuracy(ctx context.Context) (map[string]float32, error) {
-	return map[string]float32{}, nil
+	return map[string]float32{}, imu.lastError
 }
 
 func (imu *wit) Readings(ctx context.Context) (map[string]interface{}, error) {
@@ -123,7 +123,6 @@ func (imu *wit) Properties(ctx context.Context) (*movementsensor.Properties, err
 	return &movementsensor.Properties{
 		AngularVelocitySupported: true,
 		OrientationSupported:     true,
-		CompassHeadingSupported:  true,
 	}, nil
 }
 
