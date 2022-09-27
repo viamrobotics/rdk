@@ -47,8 +47,8 @@ func (d *Deque) Enqueue(item *v1.SensorData) error {
 		d.nextFile = nextFile
 	}
 
-	// If nextFile is >MAX_SIZE, update nextFile.
-	if d.nextFile.Size() > maxSize {
+	// If nextFile is >MAX_SIZE or it's a binary reading, update nextFile.
+	if d.nextFile.Size() > maxSize || item.GetBinary() != nil {
 		if err := d.nextFile.Sync(); err != nil {
 			return err
 		}

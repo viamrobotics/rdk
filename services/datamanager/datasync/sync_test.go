@@ -186,6 +186,105 @@ func TestSensorUploadTabular(t *testing.T) {
 	}
 }
 
+func TestSensorUploadBinary(t *testing.T) {
+	msgContents := []byte("This is a message. This message is part of testing in datamanager service in RDK.")
+
+	tests := []struct {
+		name   string
+		toSend *v1.SensorData
+		count  int
+	}{
+		{
+			name: "One binary data.",
+			toSend: &v1.SensorData{
+				Data: &v1.SensorData_Binary{
+					Binary: msgContents,
+				},
+			},
+			count: 1,
+		},
+		{
+			name: "One binary data.",
+			toSend: &v1.SensorData{
+				Data: &v1.SensorData_Binary{
+					Binary: msgContents,
+				},
+			},
+			count: 20,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Log(tc.name)
+		tmpDir, err := ioutil.TempDir("", "")
+		test.That(t, err, test.ShouldBeNil)
+
+		// Create temp data capture file.
+		captureMetadata := v1.DataCaptureMetadata{
+			ComponentType:    componentType,
+			ComponentName:    componentName,
+			ComponentModel:   componentModel,
+			MethodName:       methodName,
+			Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			MethodParameters: nil,
+			FileExtension:    datacapture.GetFileExt(v1.DataType_DATA_TYPE_TABULAR_SENSOR, methodName, nil),
+			Tags:             tags,
+		}
+		q := datacapture.NewDeque(tmpDir, &captureMetadata)
+
+		// Write the data from the test cases into the files to prepare them for reading by the fileUpload function
+		for i := 0; i < tc.count; i++ {
+			err := q.Enqueue(tc.toSend)
+			test.That(t, err, test.ShouldBeNil)
+		}
+		err = q.Sync()
+		q.Close()
+		test.That(t, err, test.ShouldBeNil)
+
+		// Register mock datasync service with a mock server.
+		logger, _ := golog.NewObservedTestLogger(t)
+		mockService := getMockService()
+		rpcServer := buildAndStartLocalServer(t, logger, mockService)
+		defer func() {
+			err := rpcServer.Stop()
+			test.That(t, err, test.ShouldBeNil)
+		}()
+
+		conn, err := getLocalServerConn(rpcServer, logger)
+		test.That(t, err, test.ShouldBeNil)
+		client := NewClient(conn)
+		sut, err := NewManager(logger, partID, client, conn)
+		test.That(t, err, test.ShouldBeNil)
+		sut.Sync([]*datacapture.Deque{q})
+		time.Sleep(syncWaitTime)
+		sut.Close()
+
+		// Validate the client sent the expected messages.
+		act := mockService.getUnaryUploadRequests()
+		expMetadata := &v1.UploadMetadata{
+			PartId:           partID,
+			ComponentType:    captureMetadata.GetComponentType(),
+			ComponentName:    captureMetadata.GetComponentName(),
+			ComponentModel:   captureMetadata.GetComponentModel(),
+			MethodName:       captureMetadata.GetMethodName(),
+			Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
+			MethodParameters: captureMetadata.GetMethodParameters(),
+			Tags:             tags,
+		}
+
+		// Validate that all readings were uploaded.
+		written := 0
+		for _, ur := range act {
+			test.That(t, ur.GetMetadata().String(), test.ShouldEqual, expMetadata.String())
+			for _, content := range ur.GetSensorContents() {
+				test.That(t, string(content.GetBinary()), test.ShouldResemble, string(tc.toSend.GetBinary()))
+				written += 1
+			}
+		}
+		test.That(t, written, test.ShouldEqual, tc.count)
+	}
+}
+
 //func TestSensorUploadBinary(t *testing.T) {
 //	msgEmpty := []byte("")
 //	msgContents := []byte("This is a message. This message is part of testing in datamanager service in RDK.")
