@@ -2533,39 +2533,36 @@ func TestRemoteRobotsGold(t *testing.T) {
 
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
-	test.That(
-		t,
-		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
-		test.ShouldResemble,
-		rdktestutils.NewResourceNameSet(
-			motion.Named(resource.DefaultModelName),
-			vision.Named(resource.DefaultModelName),
-			sensors.Named(resource.DefaultModelName),
-			datamanager.Named(resource.DefaultModelName),
-			arm.Named("arm1"),
-			arm.Named("arm2"),
-			arm.Named("foo:pieceArm"),
-			audioinput.Named("foo:mic1"),
-			camera.Named("foo:cameraOver"),
-			movementsensor.Named("foo:movement_sensor1"),
-			movementsensor.Named("foo:movement_sensor2"),
-			gripper.Named("foo:pieceGripper"),
-			motion.Named("foo:builtin"),
-			vision.Named("foo:builtin"),
-			sensors.Named("foo:builtin"),
-			datamanager.Named("foo:builtin"),
-			arm.Named("bar:pieceArm"),
-			audioinput.Named("bar:mic1"),
-			camera.Named("bar:cameraOver"),
-			movementsensor.Named("bar:movement_sensor1"),
-			movementsensor.Named("bar:movement_sensor2"),
-			gripper.Named("bar:pieceGripper"),
-			motion.Named("bar:builtin"),
-			vision.Named("bar:builtin"),
-			sensors.Named("bar:builtin"),
-			datamanager.Named("bar:builtin"),
-		),
+	expectedSet := rdktestutils.NewResourceNameSet(
+		motion.Named(resource.DefaultModelName),
+		vision.Named(resource.DefaultModelName),
+		sensors.Named(resource.DefaultModelName),
+		datamanager.Named(resource.DefaultModelName),
+		arm.Named("arm1"),
+		arm.Named("arm2"),
+		arm.Named("foo:pieceArm"),
+		audioinput.Named("foo:mic1"),
+		camera.Named("foo:cameraOver"),
+		movementsensor.Named("foo:movement_sensor1"),
+		movementsensor.Named("foo:movement_sensor2"),
+		gripper.Named("foo:pieceGripper"),
+		motion.Named("foo:builtin"),
+		vision.Named("foo:builtin"),
+		sensors.Named("foo:builtin"),
+		datamanager.Named("foo:builtin"),
+		arm.Named("bar:pieceArm"),
+		audioinput.Named("bar:mic1"),
+		camera.Named("bar:cameraOver"),
+		movementsensor.Named("bar:movement_sensor1"),
+		movementsensor.Named("bar:movement_sensor2"),
+		gripper.Named("bar:pieceGripper"),
+		motion.Named("bar:builtin"),
+		vision.Named("bar:builtin"),
+		sensors.Named("bar:builtin"),
+		datamanager.Named("bar:builtin"),
 	)
+
+	test.That(t, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
 
 	test.That(t, remote2.Close(context.Background()), test.ShouldBeNil)
 
@@ -2619,38 +2616,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
-	test.That(
-		t,
-		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
-		test.ShouldResemble,
-		rdktestutils.NewResourceNameSet(
-			motion.Named(resource.DefaultModelName),
-			vision.Named(resource.DefaultModelName),
-			sensors.Named(resource.DefaultModelName),
-			datamanager.Named(resource.DefaultModelName),
-			arm.Named("arm1"), arm.Named("arm2"),
-			arm.Named("foo:pieceArm"),
-			audioinput.Named("foo:mic1"),
-			camera.Named("foo:cameraOver"),
-			movementsensor.Named("foo:movement_sensor1"),
-			movementsensor.Named("foo:movement_sensor2"),
-			gripper.Named("foo:pieceGripper"),
-			motion.Named("foo:builtin"),
-			vision.Named("foo:builtin"),
-			sensors.Named("foo:builtin"),
-			datamanager.Named("foo:builtin"),
-			arm.Named("bar:pieceArm"),
-			audioinput.Named("bar:mic1"),
-			camera.Named("bar:cameraOver"),
-			movementsensor.Named("bar:movement_sensor1"),
-			movementsensor.Named("bar:movement_sensor2"),
-			gripper.Named("bar:pieceGripper"),
-			motion.Named("bar:builtin"),
-			vision.Named("bar:builtin"),
-			sensors.Named("bar:builtin"),
-			datamanager.Named("bar:builtin"),
-		),
-	)
+	test.That(t, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
 }
 
 type mockFake struct {
