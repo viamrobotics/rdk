@@ -53,7 +53,7 @@ var OffAngles = map[string]float64{
 
 // Arm TODO.
 type Arm struct {
-	generic.Unimplemented
+	generic.Generic
 	Joints   map[string][]*servo.Servo
 	moveLock *sync.Mutex
 	logger   golog.Logger
@@ -134,7 +134,7 @@ func init() {
 func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger, json []byte) (arm.LocalArm, error) {
 	attributes := cfg.Attributes
 	usbPort := attributes.String("usb_port")
-	servos, err := findServos(usbPort, attributes.String("baud_rate"), attributes.String("arm_servo_count"))
+	servos, err := findServos(usbPort, attributes.String("baud_rate"), "9")
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +152,7 @@ func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger, json []byt
 			"Forearm_rot": {servos[5]},
 			"Wrist":       {servos[6]},
 			"Wrist_rot":   {servos[7]},
+			"Gripper":     {servos[8]},
 		},
 		moveLock: getPortMutex(usbPort),
 		logger:   logger,
