@@ -4,6 +4,7 @@ package imuwit
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"sync"
@@ -142,8 +143,11 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 	}
 
 	options.PortName = conf.Port
-	options.BaudRate = uint(conf.BaudRate)
+	if conf.BaudRate > 0 {
+		options.BaudRate = uint(conf.BaudRate)
+	}
 
+	logger.Debugf("initializing wit serial connection with parameters: %+v", options)
 	port, err := slib.Open(options)
 	if err != nil {
 		return nil, err
@@ -166,7 +170,7 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 			}
 
 			line, err := portReader.ReadString('U')
-			logger.Debugf("line is %s", line)
+			logger.Debugf("read line from wit: %s", hex.EncodeToString([]byte(line)))
 
 			func() {
 				i.mu.Lock()
