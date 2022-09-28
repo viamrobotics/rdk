@@ -34,6 +34,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	_ "go.viam.com/rdk/services/datamanager/builtin"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/sensors"
 	_ "go.viam.com/rdk/services/sensors/builtin"
 	"go.viam.com/rdk/services/vision"
@@ -2331,6 +2332,7 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		rdktestutils.NewResourceNameSet(robot.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
+			motion.Named(resource.DefaultModelName),
 			vision.Named(visName),
 			datamanager.Named(dmName),
 			sensors.Named(resource.DefaultModelName),
@@ -2504,7 +2506,10 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Named(resource.DefaultModelName), sensors.Named(resource.DefaultModelName), datamanager.Named(resource.DefaultModelName),
+			motion.Named(resource.DefaultModelName),
+			vision.Named(resource.DefaultModelName),
+			sensors.Named(resource.DefaultModelName),
+			datamanager.Named(resource.DefaultModelName),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			audioinput.Named("foo:mic1"),
@@ -2512,6 +2517,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			movementsensor.Named("foo:movement_sensor1"),
 			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
+			motion.Named("foo:builtin"),
 			vision.Named("foo:builtin"),
 			sensors.Named("foo:builtin"),
 			datamanager.Named("foo:builtin"),
@@ -2532,14 +2538,19 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Named(resource.DefaultModelName), sensors.Named(resource.DefaultModelName), datamanager.Named(resource.DefaultModelName),
-			arm.Named("arm1"), arm.Named("arm2"),
+			motion.Named(resource.DefaultModelName),
+			vision.Named(resource.DefaultModelName),
+			sensors.Named(resource.DefaultModelName),
+			datamanager.Named(resource.DefaultModelName),
+			arm.Named("arm1"),
+			arm.Named("arm2"),
 			arm.Named("foo:pieceArm"),
 			audioinput.Named("foo:mic1"),
 			camera.Named("foo:cameraOver"),
 			movementsensor.Named("foo:movement_sensor1"),
 			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
+			motion.Named("foo:builtin"),
 			vision.Named("foo:builtin"),
 			sensors.Named("foo:builtin"),
 			datamanager.Named("foo:builtin"),
@@ -2549,6 +2560,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			movementsensor.Named("bar:movement_sensor1"),
 			movementsensor.Named("bar:movement_sensor2"),
 			gripper.Named("bar:pieceGripper"),
+			motion.Named("bar:builtin"),
 			vision.Named("bar:builtin"),
 			sensors.Named("bar:builtin"),
 			datamanager.Named("bar:builtin"),
@@ -2565,7 +2577,10 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Named(resource.DefaultModelName), sensors.Named(resource.DefaultModelName), datamanager.Named(resource.DefaultModelName),
+			motion.Named(resource.DefaultModelName),
+			vision.Named(resource.DefaultModelName),
+			sensors.Named(resource.DefaultModelName),
+			datamanager.Named(resource.DefaultModelName),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			audioinput.Named("foo:mic1"),
@@ -2573,6 +2588,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			movementsensor.Named("foo:movement_sensor1"),
 			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
+			motion.Named("foo:builtin"),
 			vision.Named("foo:builtin"),
 			sensors.Named("foo:builtin"),
 			datamanager.Named("foo:builtin"),
@@ -2608,7 +2624,10 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Named(resource.DefaultModelName), sensors.Named(resource.DefaultModelName), datamanager.Named(resource.DefaultModelName),
+			motion.Named(resource.DefaultModelName),
+			vision.Named(resource.DefaultModelName),
+			sensors.Named(resource.DefaultModelName),
+			datamanager.Named(resource.DefaultModelName),
 			arm.Named("arm1"), arm.Named("arm2"),
 			arm.Named("foo:pieceArm"),
 			audioinput.Named("foo:mic1"),
@@ -2616,6 +2635,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			movementsensor.Named("foo:movement_sensor1"),
 			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
+			motion.Named("foo:builtin"),
 			vision.Named("foo:builtin"),
 			sensors.Named("foo:builtin"),
 			datamanager.Named("foo:builtin"),
@@ -2625,6 +2645,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			movementsensor.Named("bar:movement_sensor1"),
 			movementsensor.Named("bar:movement_sensor2"),
 			gripper.Named("bar:pieceGripper"),
+			motion.Named("bar:builtin"),
 			vision.Named("bar:builtin"),
 			sensors.Named("bar:builtin"),
 			datamanager.Named("bar:builtin"),
