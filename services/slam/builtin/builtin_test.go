@@ -44,7 +44,6 @@ import (
 )
 
 const (
-	timePadding      = 40
 	validDataRateMS  = 200
 	numOrbslamImages = 29
 )
@@ -686,8 +685,7 @@ func TestCartographerDataProcess(t *testing.T) {
 		c := make(chan int)
 		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
 
-		fileSaved := <-c
-		test.That(t, fileSaved, test.ShouldEqual, 1)
+		<-c
 		cancelFunc()
 		files, err := os.ReadDir(name + "/data/")
 		test.That(t, len(files), test.ShouldBeGreaterThanOrEqualTo, 1)
@@ -780,8 +778,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		c := make(chan int)
 		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
 
-		fileSaved := <-c
-		test.That(t, fileSaved, test.ShouldEqual, 1)
+		<-c
 		cancelFunc()
 		files, err := os.ReadDir(name + "/data/rgb/")
 		test.That(t, len(files), test.ShouldBeGreaterThanOrEqualTo, 1)
