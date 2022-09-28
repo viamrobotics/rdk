@@ -58,7 +58,7 @@ func makeTestFS(t *testing.T) *SolvableFrameSystem {
 }
 
 func TestFrameSystemSolver(t *testing.T) {
-	//TODO(pl): track down increase in runtime for these tests
+
 	t.Skip()
 	solver := makeTestFS(t)
 	positions := frame.StartPositions(solver)
