@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -1669,9 +1670,9 @@ func TestReconnectRemoteChangeConfig(t *testing.T) {
 	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 0)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 3)
+		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 4)
 	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 3)
+	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 4)
 	_, err = anArm.EndPosition(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeError)
 
