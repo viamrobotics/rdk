@@ -332,6 +332,36 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 	return statuses, nil
 }
 
+func (r *localRobot) updateDefaultServiceNames(cfg *config.Config) *config.Config {
+	// See if default service already exists in the config
+	seen := make(map[resource.Subtype]bool)
+	for _, name := range resource.DefaultServices {
+		seen[name.Subtype] = false
+		r.defaultServicesNames[name.Subtype] = name
+	}
+	// Mark default service subtypes in the map as true
+	for _, val := range cfg.Services {
+		if _, ok := seen[val.ResourceName().Subtype]; ok {
+			seen[val.ResourceName().Subtype] = true
+			r.defaultServicesNames[val.ResourceName().Subtype] = val.ResourceName()
+		}
+	}
+	// default services added if they are not already defined in the config
+	for _, name := range resource.DefaultServices {
+		if seen[name.Subtype] {
+			continue
+		}
+		svcCfg := config.Service{
+			Name:      name.Name,
+			Model:     resource.DefaultModelName,
+			Namespace: name.Namespace,
+			Type:      config.ServiceType(name.ResourceSubtype),
+		}
+		cfg.Services = append(cfg.Services, svcCfg)
+	}
+	return cfg
+}
+
 func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
@@ -378,37 +408,8 @@ func newWithResources(
 	if err := r.manager.processManager.Start(ctx); err != nil {
 		return nil, err
 	}
-	// See if default service already exists in the config
-	seen := make(map[resource.Subtype]bool)
-	for _, name := range resource.DefaultServices {
-		seen[name.Subtype] = false
-		r.defaultServicesNames[name.Subtype] = name
-	}
-	// Mark default service subtypes in the map as true
-	for _, val := range cfg.Services {
-		if _, ok := seen[val.ResourceName().Subtype]; ok {
-			seen[val.ResourceName().Subtype] = true
-			r.defaultServicesNames[val.ResourceName().Subtype] = val.ResourceName()
-		}
-	}
-	// default services added if they are not already defined in the config
-	for _, name := range resource.DefaultServices {
-		if seen[name.Subtype] {
-			continue
-		}
-		cfg := config.Service{
-			Name:      name.Name,
-			Model:     resource.DefaultModelName,
-			Namespace: name.Namespace,
-			Type:      config.ServiceType(name.ResourceSubtype),
-		}
-		svc, err := r.newService(ctx, cfg)
-		if err != nil {
-			logger.Errorw("failed to add default service", "error", err, "service", name)
-			continue
-		}
-		r.manager.addResource(name, svc)
-	}
+
+	cfg = r.updateDefaultServiceNames(cfg)
 
 	r.activeBackgroundWorkers.Add(1)
 	// this goroutine listen for changes in connection status of a remote
@@ -729,6 +730,8 @@ func dialRobotClient(ctx context.Context,
 // possibly leak resources.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
 	var allErrs error
+
+	newConfig = r.updateDefaultServiceNames(newConfig)
 	diff, err := config.DiffConfigs(*r.config, *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.Errorw("error diffing the configs", "error", err)

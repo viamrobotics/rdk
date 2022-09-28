@@ -22,7 +22,19 @@ let properties = $ref<GetPropertiesResponse.AsObject | undefined>();
 
 let refreshId = -1;
 
-const refresh = () => {
+const refresh = async () => {
+  properties = await new Promise((resolve) => {
+    const req = new movementsensorApi.GetPropertiesRequest();
+    req.setName(props.name);
+    window.movementsensorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        return displayError(err);
+      }
+
+      resolve(resp!.toObject());
+    });
+  });
+
   {
     const req = new movementsensorApi.GetOrientationRequest();
     req.setName(props.name);
@@ -36,7 +48,7 @@ const refresh = () => {
     });
   }
 
-  {
+  if (properties?.angularVelocitySupported) {
     const req = new movementsensorApi.GetAngularVelocityRequest();
     req.setName(props.name);
 
@@ -49,7 +61,7 @@ const refresh = () => {
     });
   }
 
-  {
+  if (properties?.linearVelocitySupported) {
     const req = new movementsensorApi.GetLinearVelocityRequest();
     req.setName(props.name);
 
@@ -62,7 +74,7 @@ const refresh = () => {
     });
   }
 
-  {
+  if (properties?.compassHeadingSupported) {
     const req = new movementsensorApi.GetCompassHeadingRequest();
     req.setName(props.name);
 
@@ -75,7 +87,7 @@ const refresh = () => {
     });
   }
 
-  {
+  if (properties?.positionSupported) {
     const req = new movementsensorApi.GetPositionRequest();
     req.setName(props.name);
 
@@ -87,19 +99,6 @@ const refresh = () => {
       const temp = resp!.toObject();
       coordinate = temp.coordinate;
       altitudeMm = temp.altitudeMm;
-    });
-  }
-
-  {
-    const req = new movementsensorApi.GetPropertiesRequest();
-    req.setName(props.name);
-
-    window.movementsensorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
-      if (err) {
-        return displayError(err);
-      }
-
-      properties = resp!.toObject();
     });
   }
 
