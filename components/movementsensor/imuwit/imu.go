@@ -175,7 +175,7 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 			// Randomly sampling logging until we have better log level control
 			//nolint:gosec
 			if rand.Intn(100) < 5 {
-				logger.Debugf("read line from wit: %s", hex.EncodeToString([]byte(line)))
+				logger.Debugf("read line from wit [sampled]: %s", hex.EncodeToString([]byte(line)))
 			}
 
 			func() {
