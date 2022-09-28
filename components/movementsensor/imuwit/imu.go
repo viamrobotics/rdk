@@ -117,7 +117,9 @@ func (imu *wit) Accuracy(ctx context.Context) (map[string]float32, error) {
 }
 
 func (imu *wit) Readings(ctx context.Context) (map[string]interface{}, error) {
-	return movementsensor.Readings(ctx, imu)
+	readings, err := movementsensor.Readings(ctx, imu)
+	readings["magnetometer"] = imu.magnetometer
+	return readings, err
 }
 
 func (imu *wit) Properties(ctx context.Context) (*movementsensor.Properties, error) {
