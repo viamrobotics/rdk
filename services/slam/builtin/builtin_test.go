@@ -44,7 +44,7 @@ import (
 )
 
 const (
-	timePadding      = 20
+	timePadding      = 40
 	validDataRateMS  = 200
 	numOrbslamImages = 29
 )
@@ -691,7 +691,7 @@ func TestCartographerDataProcess(t *testing.T) {
 		cancelFunc()
 
 		files, err := os.ReadDir(name + "/data/")
-		test.That(t, len(files), test.ShouldEqual, n)
+		test.That(t, len(files), test.ShouldBeGreaterThanOrEqualTo, 1)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -781,11 +781,11 @@ func TestORBSLAMDataProcess(t *testing.T) {
 
 		n := 5
 		// Note: timePadding is required to allow the sub processes to be fully completed during test
-		time.Sleep(time.Millisecond * time.Duration((n)*(validDataRateMS+timePadding*2)))
+		time.Sleep(time.Millisecond * time.Duration((n)*(validDataRateMS+timePadding)))
 		cancelFunc()
 
 		files, err := os.ReadDir(name + "/data/rgb/")
-		test.That(t, len(files), test.ShouldBeGreaterThanOrEqualTo, n)
+		test.That(t, len(files), test.ShouldBeGreaterThanOrEqualTo, 1)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
