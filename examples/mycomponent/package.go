@@ -1,2 +1,2 @@
-// Package mycomponent contain an example on creating a custom resource subtype.
+// Package mycomponent contains an example on creating a custom resource subtype.
 package mycomponent
