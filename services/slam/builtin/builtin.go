@@ -507,7 +507,7 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 		return nil, errors.Wrap(err, "runtime slam service error")
 	}
 
-	slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
+	slamSvc.StartDataProcess(cancelCtx, cams, camStreams, nil)
 
 	if err := slamSvc.StartSLAMProcess(ctx); err != nil {
 		return nil, errors.Wrap(err, "error with slam service slam process")
@@ -562,6 +562,7 @@ func (slamSvc *builtIn) StartDataProcess(
 	cancelCtx context.Context,
 	cams []camera.Camera,
 	camStreams []gostream.VideoStream,
+	c chan int,
 ) {
 	if len(cams) == 0 {
 		return
@@ -606,10 +607,14 @@ func (slamSvc *builtIn) StartDataProcess(
 					case slam.Dense:
 						if _, err := slamSvc.getAndSaveDataDense(cancelCtx, cams); err != nil {
 							slamSvc.logger.Warn(err)
+						} else if c != nil {
+							c <- 1
 						}
 					case slam.Sparse:
 						if _, err := slamSvc.getAndSaveDataSparse(cancelCtx, cams, camStreams); err != nil {
 							slamSvc.logger.Warn(err)
+						} else if c != nil {
+							c <- 1
 						}
 					default:
 						slamSvc.logger.Warnw("warning invalid algorithm specified", "algorithm", slamSvc.slamLib.AlgoType)
