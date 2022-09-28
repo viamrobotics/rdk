@@ -58,7 +58,6 @@ func makeTestFS(t *testing.T) *SolvableFrameSystem {
 }
 
 func TestFrameSystemSolver(t *testing.T) {
-
 	t.Skip()
 	solver := makeTestFS(t)
 	positions := frame.StartPositions(solver)
