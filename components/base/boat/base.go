@@ -1,5 +1,5 @@
-// Package boat implements a base for a boat with support for N motors in any position or angle
 // This is an Experimental package
+// Package boat implements a base for a boat with support for N motors in any position or angle
 package boat
 
 import (
