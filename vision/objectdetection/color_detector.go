@@ -11,7 +11,9 @@ import (
 // ColorDetectorConfig specifies the fields necessary for creating a color detector.
 type ColorDetectorConfig struct {
 	SegmentSize       int     `json:"segment_size_px"`
-	Tolerance         float64 `json:"tolerance_pct"`
+	HueTolerance      float64 `json:"hue_tolerance_pct"`
+	SaturationCutoff  float64 `json:"saturation_cutoff_pct"`
+	ValueCutoff       float64 `json:"value_cutoff_pct"`
 	DetectColorString string  `json:"detect_color"` // hex string "#RRGGBB"
 }
 
@@ -24,14 +26,24 @@ func NewColorDetector(cfg *ColorDetectorConfig) (Detector, error) {
 		return nil, err
 	}
 	hue, _, _ := col.HsvNormal()
-	tol := cfg.Tolerance
+	tol := cfg.HueTolerance
 	if tol > 1.0 || tol < 0.0 {
 		return nil, errors.Errorf("tolerance must be between 0.0 and 1.0. Got %.5f", tol)
 	}
 
+
+	sat := cfg.SaturationCutoff
+	if sat <= 0.0 {
+		sat = 0.2
+	}
+	val := cfg.SaturationCutoff
+	if val <= 0.0 {
+		val = 0.3
+	}
+
 	var valid validPixelFunc
 	if tol == 1.0 {
-		valid = makeValidColorFunction(0, 360)
+		valid = makeValidColorFunction(0, 360, sat, val)
 	} else {
 		tol = (tol / 2.) * 360.0 // change from percent to degrees
 		hiValid := hue + tol
@@ -42,7 +54,7 @@ func NewColorDetector(cfg *ColorDetectorConfig) (Detector, error) {
 		if loValid < 0. {
 			loValid += 360.
 		}
-		valid = makeValidColorFunction(loValid, hiValid)
+		valid = makeValidColorFunction(loValid, hiValid, sat, val)
 	}
 	cd := connectedComponentDetector{valid, hueToString(hue)}
 	// define the filter
@@ -96,7 +108,7 @@ func hueToString(hue float64) string {
 	}
 }
 
-func makeValidColorFunction(loValid, hiValid float64) validPixelFunc {
+func makeValidColorFunction(loValid, hiValid, sat, val float64) validPixelFunc {
 	valid := func(v float64) bool { return v == loValid }
 	if hiValid > loValid {
 		valid = func(v float64) bool { return v <= hiValid && v >= loValid }
@@ -107,10 +119,10 @@ func makeValidColorFunction(loValid, hiValid float64) validPixelFunc {
 	return func(img image.Image, pt image.Point) bool {
 		c := rimage.NewColorFromColor(img.At(pt.X, pt.Y))
 		h, s, v := c.HsvNormal()
-		if s < 0.2 {
+		if s < sat {
 			return false
 		}
-		if v < 0.3 {
+		if v < val {
 			return false
 		}
 		return valid(h)
