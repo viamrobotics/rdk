@@ -70,3 +70,6 @@ Then navigate to `web/frontend` and run `npm start` in a new terminal tab. Visit
 Copyright 2021-2022 Viam Inc.
 
 AGPLv3 - See [LICENSE](https://github.com/viamrobotics/rdk/blob/main/LICENSE) file
+
+
+## FAKE SECTION
