@@ -4,8 +4,10 @@ package imuwit
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math"
+	"math/rand"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -142,8 +144,11 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 	}
 
 	options.PortName = conf.Port
-	options.BaudRate = uint(conf.BaudRate)
+	if conf.BaudRate > 0 {
+		options.BaudRate = uint(conf.BaudRate)
+	}
 
+	logger.Debugf("initializing wit serial connection with parameters: %+v", options)
 	port, err := slib.Open(options)
 	if err != nil {
 		return nil, err
@@ -166,7 +171,12 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 			}
 
 			line, err := portReader.ReadString('U')
-			logger.Debugf("line is %s", line)
+
+			// Randomly sampling logging until we have better log level control
+			//nolint:gosec
+			if rand.Intn(100) < 5 {
+				logger.Debugf("read line from wit [sampled]: %s", hex.EncodeToString([]byte(line)))
+			}
 
 			func() {
 				i.mu.Lock()
