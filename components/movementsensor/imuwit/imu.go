@@ -170,7 +170,7 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 			}
 
 			line, err := portReader.ReadString('U')
-			logger.Debugf("read line from wit: %s", hex.EncodeToString([]byte(line)))
+			logger.Debugw("read line from wit.", "line", hex.EncodeToString([]byte(line)))
 
 			func() {
 				i.mu.Lock()
