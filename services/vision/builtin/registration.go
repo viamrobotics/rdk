@@ -106,7 +106,7 @@ func registerSegmenterFromDetector(ctx context.Context, mm modelMap, conf *visio
 		return err
 	}
 	// convert numbers from parameters
-	confThresh = 0.5 // default value
+	confThresh := 0.5 // default value
 	if cfg.ConfidenceThresh > 0.0 {
 		confThresh = cfg.ConfidenceThresh
 	}
