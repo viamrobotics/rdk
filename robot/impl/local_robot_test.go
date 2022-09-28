@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -165,6 +166,7 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
+		motion.Named(resource.DefaultModelName),
 		vision.Named(resource.DefaultModelName),
 		sensors.Named(resource.DefaultModelName),
 		datamanager.Named(resource.DefaultModelName),
@@ -188,12 +190,15 @@ func TestConfigRemote(t *testing.T) {
 		gripper.Named("squee:pieceGripper"),
 		gripper.Named("foo:pieceGripper"),
 		gripper.Named("bar:pieceGripper"),
+		motion.Named("squee:builtin"),
 		vision.Named("squee:builtin"),
 		sensors.Named("squee:builtin"),
 		datamanager.Named("squee:builtin"),
+		motion.Named("foo:builtin"),
 		vision.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
 		datamanager.Named("foo:builtin"),
+		motion.Named("bar:builtin"),
 		vision.Named("bar:builtin"),
 		sensors.Named("bar:builtin"),
 		datamanager.Named("bar:builtin"),
@@ -437,6 +442,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, r2, test.ShouldNotBeNil)
 
 			expected := []resource.Name{
+				motion.Named(resource.DefaultModelName),
 				vision.Named(resource.DefaultModelName),
 				sensors.Named(resource.DefaultModelName),
 				datamanager.Named(resource.DefaultModelName),
@@ -452,9 +458,11 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				movementsensor.Named("foo:movement_sensor2"),
 				gripper.Named("bar:pieceGripper"),
 				gripper.Named("foo:pieceGripper"),
+				motion.Named("foo:builtin"),
 				vision.Named("foo:builtin"),
 				sensors.Named("foo:builtin"),
 				datamanager.Named("foo:builtin"),
+				motion.Named("bar:builtin"),
 				vision.Named("bar:builtin"),
 				sensors.Named("bar:builtin"),
 				datamanager.Named("bar:builtin"),
@@ -638,6 +646,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	expected := []resource.Name{
+		motion.Named(resource.DefaultModelName),
 		vision.Named(resource.DefaultModelName),
 		sensors.Named(resource.DefaultModelName),
 		datamanager.Named(resource.DefaultModelName),
@@ -647,6 +656,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		movementsensor.Named("foo:movement_sensor1"),
 		movementsensor.Named("foo:movement_sensor2"),
 		gripper.Named("foo:pieceGripper"),
+		motion.Named("foo:builtin"),
 		vision.Named("foo:builtin"),
 		sensors.Named("foo:builtin"),
 		datamanager.Named("foo:builtin"),
@@ -936,6 +946,7 @@ func TestMetadataUpdate(t *testing.T) {
 		gripper.Named("pieceGripper"),
 		movementsensor.Named("movement_sensor1"),
 		movementsensor.Named("movement_sensor2"),
+		motion.Named(resource.DefaultModelName),
 		vision.Named(resource.DefaultModelName),
 		sensors.Named(resource.DefaultModelName),
 		datamanager.Named(resource.DefaultModelName),
@@ -1224,8 +1235,14 @@ func TestStatusRemote(t *testing.T) {
 		rtestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(
-			vision.Named(resource.DefaultModelName), sensors.Named(resource.DefaultModelName), datamanager.Named(resource.DefaultModelName),
-			arm.Named("foo:arm1"), arm.Named("foo:arm2"), arm.Named("bar:arm1"), arm.Named("bar:arm2"),
+			motion.Named(resource.DefaultModelName),
+			vision.Named(resource.DefaultModelName),
+			sensors.Named(resource.DefaultModelName),
+			datamanager.Named(resource.DefaultModelName),
+			arm.Named("foo:arm1"),
+			arm.Named("foo:arm2"),
+			arm.Named("bar:arm1"),
+			arm.Named("bar:arm2"),
 		),
 	)
 	statuses, err := r.Status(
@@ -1331,7 +1348,10 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		rtestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(
-			vision.Named(resource.DefaultModelName), sensors.Named(resource.DefaultModelName), datamanager.Named(resource.DefaultModelName),
+			motion.Named(resource.DefaultModelName),
+			vision.Named(resource.DefaultModelName),
+			sensors.Named(resource.DefaultModelName),
+			datamanager.Named(resource.DefaultModelName),
 			arm.Named("remote:foo:arm1"), arm.Named("remote:foo:arm2"),
 			arm.Named("remote:pieceArm"),
 			arm.Named("remote:foo:pieceArm"),
@@ -1340,9 +1360,11 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 			movementsensor.Named("remote:movement_sensor1"),
 			movementsensor.Named("remote:movement_sensor2"),
 			gripper.Named("remote:pieceGripper"),
+			motion.Named("remote:builtin"),
 			vision.Named("remote:builtin"),
 			sensors.Named("remote:builtin"),
 			datamanager.Named("remote:builtin"),
+			motion.Named("remote:foo:builtin"),
 			vision.Named("remote:foo:builtin"),
 			sensors.Named("remote:foo:builtin"),
 			datamanager.Named("remote:foo:builtin"),
