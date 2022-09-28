@@ -116,8 +116,15 @@ func RuntimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) (slam.M
 			}
 		}
 	}
-	if slamMode == slam.Rgbd {
-		for _, directoryName := range [2]string{"rgb", "depth"} {
+
+	if slamMode == slam.Rgbd || slamMode == slam.Mono {
+		var directoryNames []string
+		if slamMode == slam.Rgbd {
+			directoryNames = []string{"rgb", "depth"}
+		} else if slamMode == slam.Mono {
+			directoryNames = []string{"rgb"}
+		}
+		for _, directoryName := range directoryNames {
 			directoryPath := filepath.Join(svcConfig.DataDirectory, "data", directoryName)
 			if _, err := os.Stat(directoryPath); os.IsNotExist(err) {
 				logger.Warnf("%v directory does not exist", directoryPath)
@@ -714,6 +721,25 @@ func (slamSvc *builtIn) StopSLAMProcess() error {
 	return nil
 }
 
+func (slamSvc *builtIn) getLazyPNGImage(ctx context.Context, cam camera.Camera) ([]byte, error) {
+	// We will hint that we want a PNG.
+	// The Camera service server implementation in RDK respects this; others may not.
+	img, _, err := camera.ReadImage(
+		gostream.WithMIMETypeHint(ctx, utils.WithLazyMIMEType(utils.MimeTypePNG)), cam)
+	if err != nil {
+		return nil, err
+	}
+
+	lazyImg, ok := img.(*rimage.LazyEncodedImage)
+	if !ok {
+		return nil, errors.Errorf("expected lazily encoded image, got %T", lazyImg)
+	}
+	if lazyImg.MIMEType() != utils.MimeTypePNG {
+		return nil, errors.Errorf("expected mime type %v, got %v", utils.MimeTypePNG, lazyImg.MIMEType())
+	}
+	return lazyImg.RawData(), nil
+}
+
 // getAndSaveDataSparse implements the data extraction for sparse algos and saving to the directory path (data subfolder) specified in
 // the config. It returns the full filepath for each file saved along with any error associated with the data creation or saving.
 func (slamSvc *builtIn) getAndSaveDataSparse(
@@ -729,7 +755,8 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 		if len(camStreams) != 1 {
 			return nil, errors.Errorf("expected 1 camera for mono slam, found %v", len(camStreams))
 		}
-		img, _, err := camStreams[0].Next(ctx)
+
+		image, err := slamSvc.getLazyPNGImage(ctx, cams[0])
 		if err != nil {
 			if err.Error() == opTimeoutErrorMessage {
 				slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
@@ -737,7 +764,10 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			}
 			return nil, err
 		}
-		filenames := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".jpeg", false)
+		filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", slamSvc.slamMode)
+		if err != nil {
+			return nil, err
+		}
 		filename := filenames[0]
 		//nolint:gosec
 		f, err := os.Create(filename)
@@ -745,7 +775,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			return []string{filename}, err
 		}
 		w := bufio.NewWriter(f)
-		if err := jpeg.Encode(w, img, nil); err != nil {
+		if _, err := w.Write(image); err != nil {
 			return []string{filename}, err
 		}
 		if err := w.Flush(); err != nil {
@@ -765,7 +795,10 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			}
 			return nil, err
 		}
-		filenames := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", true)
+		filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", slamSvc.slamMode)
+		if err != nil {
+			return nil, err
+		}
 		for i, filename := range filenames {
 			//nolint:gosec
 			f, err := os.Create(filename)
@@ -814,28 +847,7 @@ func (slamSvc *builtIn) getSimultaneousColorAndDepth(
 		goutils.PanicCapturingGo(func() {
 			defer slamSvc.activeBackgroundWorkers.Done()
 			defer wg.Done()
-			var img image.Image
-			var release func()
-
-			// We will hint that we want a PNG.
-			// The Camera service server implementation in RDK respects this; others may not.
-			img, release, errs[iLoop] = camera.ReadImage(
-				gostream.WithMIMETypeHint(ctx, utils.WithLazyMIMEType(utils.MimeTypePNG)), cams[iLoop])
-			if errs[iLoop] != nil {
-				return
-			}
-			defer release()
-
-			lazyImg, ok := img.(*rimage.LazyEncodedImage)
-			if ok {
-				if lazyImg.MIMEType() == utils.MimeTypePNG {
-					images[iLoop] = lazyImg.RawData()
-					return
-				}
-				errs[iLoop] = errors.Errorf("expected mime type %v, got %v", utils.MimeTypePNG, lazyImg.MIMEType())
-				return
-			}
-			errs[iLoop] = errors.Errorf("expected lazily encoded image, got %T", lazyImg)
+			images[iLoop], errs[iLoop] = slamSvc.getLazyPNGImage(ctx, cams[iLoop])
 		})
 	}
 	wg.Wait()
@@ -875,7 +887,10 @@ func (slamSvc *builtIn) getAndSaveDataDense(ctx context.Context, cams []camera.C
 	case slam.Rgbd, slam.Mono:
 		return "", errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	}
-	filenames := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, fileType, false)
+	filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, fileType, slamSvc.slamMode)
+	if err != nil {
+		return "", err
+	}
 	filename := filenames[0]
 	//nolint:gosec
 	f, err := os.Create(filename)
@@ -896,17 +911,24 @@ func (slamSvc *builtIn) getAndSaveDataDense(ctx context.Context, cams []camera.C
 
 // Creates a file for camera data with the specified sensor name and timestamp written into the filename.
 // For RGBD cameras, two filenames are created with the same timestamp in different directories.
-func createTimestampFilenames(cameraName, dataDirectory, fileType string, rgbd bool) []string {
+func createTimestampFilenames(cameraName, dataDirectory, fileType string, slamMode slam.Mode) ([]string, error) {
 	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	timeStamp := time.Now()
 
-	if rgbd {
+	switch slamMode {
+	case slam.Rgbd:
 		colorFilename := filepath.Join(dataDirectory, "data", "rgb", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
 		depthFilename := filepath.Join(dataDirectory, "data", "depth", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
-		return []string{colorFilename, depthFilename}
+		return []string{colorFilename, depthFilename}, nil
+	case slam.Mono:
+		colorFilename := filepath.Join(dataDirectory, "data", "rgb", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
+		return []string{colorFilename}, nil
+	case slam.Dim2d, slam.Dim3d:
+		filename := filepath.Join(dataDirectory, "data", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
+		return []string{filename}, nil
+	default:
+		return nil, errors.Errorf("Invalid slam mode: %v", slamMode)
 	}
-	filename := filepath.Join(dataDirectory, "data", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
-	return []string{filename}
 }
 
 // Converts a dictionary to a string for so that it can be loaded into an arg for the slam process.
