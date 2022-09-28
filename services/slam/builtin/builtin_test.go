@@ -785,7 +785,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		cancelFunc()
 
 		files, err := os.ReadDir(name + "/data/rgb/")
-		test.That(t, len(files), test.ShouldEqual, n)
+		test.That(t, len(files), test.ShouldBeGreaterThanOrEqualTo, n)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
