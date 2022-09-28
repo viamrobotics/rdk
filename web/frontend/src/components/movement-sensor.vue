@@ -35,7 +35,7 @@ const refresh = async () => {
     });
   });
 
-  {
+  if (properties?.orientationSupported) {
     const req = new movementsensorApi.GetOrientationRequest();
     req.setName(props.name);
 
