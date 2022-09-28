@@ -366,6 +366,6 @@ require (
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 )
 
-replace go.viam.com/api => ../api
+replace go.viam.com/api => github.com/Otterverse/api v0.0.0-20220923180042-7bd74157af09
 
-replace go.viam.com/utils => ../goutils
+replace go.viam.com/utils => github.com/Otterverse/goutils v0.0.4-0.20220924004401-3b0e32a81745

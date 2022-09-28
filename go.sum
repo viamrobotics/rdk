@@ -121,6 +121,10 @@ github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAE
 github.com/OpenPeeDeeP/depguard v1.0.1/go.mod h1:xsIw86fROiiwelg+jB2uM9PiKihMMmUx/1V+TNhjQvM=
 github.com/OpenPeeDeeP/depguard v1.1.1 h1:TSUznLjvp/4IUP+OQ0t/4jF4QUyxIcVX8YnghZdunyA=
 github.com/OpenPeeDeeP/depguard v1.1.1/go.mod h1:JtAMzWkmFEzDPyAd+W0NHl1lvpQKTvT9jnRVsohBKpc=
+github.com/Otterverse/api v0.0.0-20220923180042-7bd74157af09 h1:dbIesXfnzw0UdFw9R5gr3Kh8IhB0Ug+1Va0P1kXkvRQ=
+github.com/Otterverse/api v0.0.0-20220923180042-7bd74157af09/go.mod h1:GszZtg1xX/3/rrdjp8jvWAZIeFfCreXwN+LdpHNX+Ek=
+github.com/Otterverse/goutils v0.0.4-0.20220924004401-3b0e32a81745 h1:52AiTfjeSc99kLiaSeoA0YIJ+0fbCBcoW22yTBWdrkI=
+github.com/Otterverse/goutils v0.0.4-0.20220924004401-3b0e32a81745/go.mod h1:ks6dA5SjtuMzgrPKthc4C3QXyPAAbK8rMVQthHM/xew=
 github.com/Shopify/sarama v1.19.0/go.mod h1:FVkBWblsNy7DGZRfXLU0O9RCGt5g3g3yEuWXgklEdEo=
 github.com/Shopify/toxiproxy v2.1.4+incompatible/go.mod h1:OXgGpZ6Cli1/URJOF1DMxUHB2q5Ap20/P/eIdh4G0pI=
 github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d/go.mod h1:3eOhrUMpNV+6aFIbp5/iudMxNCF27Vw2OZgy4xEx0Fg=
