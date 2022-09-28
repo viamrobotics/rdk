@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	"math/rand"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -170,7 +171,12 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 			}
 
 			line, err := portReader.ReadString('U')
-			logger.Debugw("read line from wit.", "line", hex.EncodeToString([]byte(line)))
+
+			// Randomly sampling logging until we have better log level control
+			//nolint:gosec
+			if rand.Intn(100) < 5 {
+				logger.Debugf("read line from wit: %s", hex.EncodeToString([]byte(line)))
+			}
 
 			func() {
 				i.mu.Lock()
