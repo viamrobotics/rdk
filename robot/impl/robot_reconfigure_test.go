@@ -45,7 +45,7 @@ import (
 var serviceNames = resource.DefaultServices
 
 func TestRobotReconfigure(t *testing.T) {
-	test.That(t, len(resource.DefaultServices), test.ShouldEqual, 3)
+	test.That(t, len(resource.DefaultServices), test.ShouldEqual, 4)
 	ConfigFromFile := func(t *testing.T, filePath string) *config.Config {
 		t.Helper()
 		logger := golog.NewTestLogger(t)
