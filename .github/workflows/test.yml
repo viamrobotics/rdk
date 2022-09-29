@@ -163,14 +163,13 @@ jobs:
           chown -R testbot .
           sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS -u testbot bash -lc 'make build-web test-e2e'
 
-test_integration:
+  test_integration:
     name: Integration Tests Passing
     runs-on: [x64, qemu-host]
     container:
       image: ghcr.io/viamrobotics/canon:amd64-cache
       options: --platform linux/amd64
     timeout-minutes: 30
-
     steps:
     - name: Check out code in rdk directory
       uses: actions/checkout@v3
