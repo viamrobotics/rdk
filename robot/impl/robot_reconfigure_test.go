@@ -2373,6 +2373,7 @@ func TestDefaultServiceReconfigure(t *testing.T) {
 		rdktestutils.NewResourceNameSet(robot.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
+			motion.Named(resource.DefaultModelName),
 			vision.Named(visName),
 			datamanager.Named(resource.DefaultModelName),
 			sensors.Named(sName),
