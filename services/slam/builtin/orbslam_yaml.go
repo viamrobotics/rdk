@@ -137,7 +137,10 @@ func (slamSvc *builtIn) orbGenYAML(ctx context.Context, cam camera.Camera) error
 
 	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	timeStampNow := time.Now().UTC().Format(slamTimeFormat)
-	saveMapName := filepath.Join(slamSvc.dataDirectory, "map", slamSvc.cameraName+"_data_"+timeStampNow)
+
+	// remove colons from camera name(in case of remote)
+	tmpCamName := strings.Replace(slamSvc.cameraName, ":", "", -1)
+	saveMapName := filepath.Join(slamSvc.dataDirectory, "map", tmpCamName+"_data_"+timeStampNow)
 	// timestamp to save at end of run
 	orbslam.SaveMapLoc = "\"" + saveMapName + "\""
 
