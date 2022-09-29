@@ -464,7 +464,11 @@ const update = (cloud: Uint8Array) => {
   const points = loader.parse(cloud.buffer, '');
   points.name = 'points';
   const positions = points.geometry.attributes.position.array;
-  const colors = points.geometry.attributes.color.array;
+
+  // TODO (hackday): colors is not consistently returned, if not just render all points as blue
+  // eslint-disable-next-line unicorn/prefer-spread
+  const colors = points.geometry.attributes.color?.array ?? Array.from(positions).flatMap(() => [0.3, 0.5, 0.7]);
+
   const count = positions.length / 3;
   const material = new THREE.MeshBasicMaterial();
   const geometry = new THREE.BoxGeometry(0.005, 0.005, 0.005);
