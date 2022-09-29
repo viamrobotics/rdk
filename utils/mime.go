@@ -29,7 +29,7 @@ const (
 	MimeTypeSuffixLazy = "lazy"
 
 	// MimeTypeTabular used to indicate tabular data, this is used mainly for filtering data.
-	MimeTypeTabular = "text/tabular"
+	MimeTypeTabular = "x-application/tabular"
 
 	// MimeTypeDefault used if mimetype cannot be inferred.
 	MimeTypeDefault = "application/octet-stream"
