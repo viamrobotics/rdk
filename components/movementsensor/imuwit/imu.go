@@ -1,4 +1,5 @@
-// Package imuwit implements a wit IMU.
+// Package imuwit implements wit imus.
+// Tested on the HWT901B and BWT901CL models. Other WT901-based models may work too.
 package imuwit
 
 import (
@@ -175,10 +176,14 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 
 			line, err := portReader.ReadString('U')
 
-			// Randomly sampling logging until we have better log level control
+			// Randomly sample logging until we have better log level control
 			//nolint:gosec
 			if rand.Intn(100) < 5 {
 				logger.Debugf("read line from wit [sampled]: %s", hex.EncodeToString([]byte(line)))
+			}
+
+			if len(line) != 11 {
+				logger.Debug("read an unexpected number of bytes from serial. expected: 11, read: %v", len(line))
 			}
 
 			func() {
