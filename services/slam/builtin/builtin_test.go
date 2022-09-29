@@ -4,11 +4,9 @@
 package builtin_test
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"image"
-	"image/png"
 	"math"
 	"net"
 	"os"
@@ -185,11 +183,7 @@ func setupInjectRobot() *inject.Robot {
 				if err != nil {
 					return nil, err
 				}
-				img, err := png.Decode(bytes.NewReader(imgBytes))
-				if err != nil {
-					return nil, err
-				}
-				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, img.Bounds().Dx(), img.Bounds().Dy())
+				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
 				return gostream.NewEmbeddedVideoStreamFromReader(
 					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 						return lazy, func() {}, nil
@@ -212,11 +206,7 @@ func setupInjectRobot() *inject.Robot {
 				if err != nil {
 					return nil, err
 				}
-				img, err := png.Decode(bytes.NewReader(imgBytes))
-				if err != nil {
-					return nil, err
-				}
-				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, img.Bounds().Dx(), img.Bounds().Dy())
+				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
 				return gostream.NewEmbeddedVideoStreamFromReader(
 					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
 						return lazy, func() {}, nil
