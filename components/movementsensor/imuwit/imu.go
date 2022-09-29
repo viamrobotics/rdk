@@ -119,7 +119,10 @@ func (imu *wit) Accuracy(ctx context.Context) (map[string]float32, error) {
 }
 
 func (imu *wit) Readings(ctx context.Context) (map[string]interface{}, error) {
-	return movementsensor.Readings(ctx, imu)
+	readings, err := movementsensor.Readings(ctx, imu)
+	readings["magnetometer"] = imu.magnetometer
+	readings["acceleration"] = imu.acceleration
+	return readings, err
 }
 
 func (imu *wit) Properties(ctx context.Context) (*movementsensor.Properties, error) {
@@ -244,9 +247,9 @@ func (imu *wit) parseWIT(line string) error {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu magnetometer %d %v", len(line), line)
 		}
-		imu.magnetometer.X = scalemag(line[1], line[2], 1) * 0.01 // converts to gauss
-		imu.magnetometer.Y = scalemag(line[3], line[4], 1) * 0.01
-		imu.magnetometer.Z = scalemag(line[5], line[6], 1) * 0.01
+		imu.magnetometer.X = scalemag(line[1], line[2], 1) // converts to gauss
+		imu.magnetometer.Y = scalemag(line[3], line[4], 1)
+		imu.magnetometer.Z = scalemag(line[5], line[6], 1)
 	}
 
 	return nil
