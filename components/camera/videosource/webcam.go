@@ -2,6 +2,7 @@ package videosource
 
 import (
 	"context"
+	"image"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -205,7 +206,7 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 	constraints := makeConstraints(attrs, debug, logger)
 
 	if attrs.Path != "" {
-		return tryWebcamOpen(ctx, attrs, attrs.Path, constraints)
+		return tryWebcamOpen(ctx, attrs, attrs.Path, constraints, logger)
 	}
 
 	var pattern *regexp.Regexp
@@ -229,7 +230,7 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 			continue
 		}
 
-		s, err := tryWebcamOpen(ctx, attrs, label, constraints)
+		s, err := tryWebcamOpen(ctx, attrs, label, constraints, logger)
 		if err == nil {
 			if debug {
 				logger.Debug("\t USING")
@@ -249,12 +250,9 @@ func tryWebcamOpen(ctx context.Context,
 	attrs *WebcamAttrs,
 	path string,
 	constraints mediadevices.MediaStreamConstraints,
+	logger golog.Logger,
 ) (camera.Camera, error) {
-	resolvedPath, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return nil, err
-	}
-	source, err := gostream.GetNamedVideoSource(filepath.Base(resolvedPath), constraints)
+	source, err := getNamedVideoSource(path, constraints, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -270,4 +268,23 @@ func tryWebcamOpen(ctx context.Context,
 		&transform.PinholeCameraModel{intrinsics, distortion},
 		camera.StreamType(attrs.Stream),
 	)
+}
+
+// getNamedVideoSource attempts to find a video device (not a screen) by the given name.
+// First it will try to use the path name after evaluating any symbolic links. If
+// evaluation fails, it will try to use the path name as provided.
+func getNamedVideoSource(
+	path string,
+	constraints mediadevices.MediaStreamConstraints,
+	logger golog.Logger,
+) (gostream.MediaSource[image.Image], error) {
+	resolvedPath, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		logger.Warnw(
+			"error evaluating symlink for path - will use path as provided instead",
+			"path", path, "error", err,
+		)
+		return gostream.GetNamedVideoSource(path, constraints)
+	}
+	return gostream.GetNamedVideoSource(filepath.Base(resolvedPath), constraints)
 }
