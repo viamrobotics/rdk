@@ -141,6 +141,7 @@ func (slamSvc *builtIn) orbGenYAML(ctx context.Context, cam camera.Camera) error
 	// remove colons from camera name(in case of remote)
 	tmpCamName := strings.Replace(slamSvc.cameraName, ":", "", -1)
 	saveMapName := filepath.Join(slamSvc.dataDirectory, "map", tmpCamName+"_data_"+timeStampNow)
+
 	// timestamp to save at end of run
 	orbslam.SaveMapLoc = "\"" + saveMapName + "\""
 

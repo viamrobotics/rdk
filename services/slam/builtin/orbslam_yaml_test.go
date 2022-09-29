@@ -67,7 +67,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	dataRateMs := 200
 	attrCfgGood := &builtin.AttrConfig{
 		Algorithm: "fake_orbslamv3",
-		Sensors:   []string{"good_camera"},
+		Sensors:   []string{"good_color_camera"},
 		ConfigParams: map[string]string{
 			"mode":              "mono",
 			"orb_n_features":    "1000",
@@ -180,7 +180,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		// check if a param is empty
 		attrCfgBadParam1 := &builtin.AttrConfig{
 			Algorithm: "fake_orbslamv3",
-			Sensors:   []string{"good_camera"},
+			Sensors:   []string{"good_color_camera"},
 			ConfigParams: map[string]string{
 				"mode":              "mono",
 				"orb_n_features":    "",
@@ -200,7 +200,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 
 		attrCfgBadParam2 := &builtin.AttrConfig{
 			Algorithm: "fake_orbslamv3",
-			Sensors:   []string{"good_camera"},
+			Sensors:   []string{"good_color_camera"},
 			ConfigParams: map[string]string{
 				"mode":              "mono",
 				"orb_n_features":    "1000",
