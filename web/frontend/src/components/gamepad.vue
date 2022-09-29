@@ -1,14 +1,10 @@
 <script setup lang="ts">
 
+import { grpc } from '@improbable-eng/grpc-web';
 import { ref, onMounted, watch } from 'vue';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import InputController from '../gen/proto/api/component/inputcontroller/v1/input_controller_pb.esm';
-
-interface Emits {
-  (event: 'execute', req: unknown): void
-}
-
-const emit = defineEmits<Emits>();
+import { displayError } from '../lib/error';
 
 const gamepad = ref(navigator.getGamepads()[0]);
 const gamepadName = ref('Waiting for gamepad...');
@@ -123,7 +119,7 @@ const sendEvent = (newEvent: InputController.Event) => {
     const req = new InputController.TriggerEventRequest();
     req.setController('WebGamepad');
     req.setEvent(newEvent);
-    emit('execute', req);
+    window.inputControllerService.triggerEvent(req, new grpc.Metadata(), displayError);
   }
 };
 
@@ -185,7 +181,7 @@ const tick = () => {
   >
     <v-breadcrumbs
       slot="title"
-      :crumbs="['input_controller'].join(',')"
+      crumbs="input_controller"
     />
     <div slot="header">
       <span

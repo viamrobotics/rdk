@@ -4,9 +4,8 @@ import { computed } from 'vue';
 import type { Status } from '../gen/proto/api/component/inputcontroller/v1/input_controller_pb.esm';
 
 interface Props {
-  controllerName: string
-  controllerStatus: Status.AsObject
-  crumbs: string[]
+  name: string
+  status: Status.AsObject
 }
 
 const props = defineProps<Props>();
@@ -35,7 +34,7 @@ const controlOrder = [
 ];
 
 const connected = computed(() => {
-  for (const { event } of props.controllerStatus.eventsList) {
+  for (const { event } of props.status.eventsList) {
     if (event !== 'Disconnect') {
       return true;
     }
@@ -44,7 +43,7 @@ const connected = computed(() => {
 });
 
 const getValue = (controlMatch: string) => {
-  for (const { control, value } of props.controllerStatus.eventsList) {
+  for (const { control, value } of props.status.eventsList) {
     if (control === controlMatch) {
       return control.includes('Absolute') ? value.toFixed(4) : value.toFixed(0);
     }
@@ -68,10 +67,10 @@ for (const ctrl of controlOrder) {
 </script>
 
 <template>
-  <v-collapse :title="`${controllerName}`">
+  <v-collapse :title="`${name}`">
     <v-breadcrumbs
       slot="title"
-      :crumbs="crumbs.join(',')"
+      crumbs="input_controller"
     />
     <div
       slot="header"
