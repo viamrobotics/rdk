@@ -3,6 +3,7 @@
 import { grpc } from '@improbable-eng/grpc-web';
 import { ref } from 'vue';
 import { normalizeRemoteName, type Resource } from '../lib/resource';
+import { displayError } from '../lib/error';
 import cameraApi from '../gen/proto/api/component/camera/v1/camera_pb.esm';
 import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
@@ -15,7 +16,6 @@ interface Props {
 }
 
 interface Emits {
-  (event: 'download-screenshot'): void
   (event: 'download-raw-data'): void
   (event: 'toggle-camera', camera: boolean): void
   (event: 'selected-camera-view', value: string): void
@@ -62,6 +62,21 @@ const renderPCD = () => {
     }
 
     pointcloud = response!.getPointCloud_asU8();
+  });
+};
+
+const exportScreenshot = (cameraName: string) => {
+  const req = new cameraApi.RenderFrameRequest();
+  req.setName(cameraName);
+  req.setMimeType('image/jpeg');
+
+  window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
+    if (err) {
+      return displayError(err);
+    }
+
+    const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
+    window.open(URL.createObjectURL(blob), '_blank');
   });
 };
 
@@ -141,7 +156,7 @@ const renderPCD = () => {
                   v-if="camera"
                   icon="refresh"
                   label="Refresh"
-                  @click="refreshCamera()"
+                  @click="refreshCamera"
                 />
               </div>
               <div class="pr-2 pt-7">
@@ -149,7 +164,7 @@ const renderPCD = () => {
                   v-if="camera"
                   icon="camera"
                   label="Export Screenshot"
-                  @click="emit('download-screenshot')"
+                  @click="exportScreenshot"
                 />
               </div>
             </div>

@@ -250,7 +250,11 @@ func tryWebcamOpen(ctx context.Context,
 	path string,
 	constraints mediadevices.MediaStreamConstraints,
 ) (camera.Camera, error) {
-	source, err := gostream.GetNamedVideoSource(filepath.Base(path), constraints)
+	resolvedPath, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return nil, err
+	}
+	source, err := gostream.GetNamedVideoSource(filepath.Base(resolvedPath), constraints)
 	if err != nil {
 		return nil, err
 	}
