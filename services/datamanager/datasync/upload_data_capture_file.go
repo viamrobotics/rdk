@@ -2,6 +2,7 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/rdk/services/datamanager/datacapture"
@@ -35,8 +36,12 @@ func uploadDataCaptureFile(ctx context.Context, client v1.DataSyncServiceClient,
 	}
 	resp, err := client.UnaryUpload(ctx, ur)
 	if err != nil {
+		fmt.Println("received error from server")
+		fmt.Println(err)
 		return err
 	}
+	fmt.Println("did not receive error from server")
+	fmt.Println(err)
 	// TODO: real code handling
 	if resp.GetCode() != 200 {
 		return errors.New("error making upload request: " + resp.GetMessage())

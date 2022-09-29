@@ -291,6 +291,10 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 }
 
 func (m *mockDataSyncServiceServer) UnaryUpload(ctx context.Context, req *v1.UnaryUploadRequest) (*v1.UnaryUploadResponse, error) {
+	defer m.callCount.Add(1)
+	if m.callCount.Load() < m.failUntilIndex {
+		return nil, m.errorToReturn
+	}
 	(*m.lock).Lock()
 	*m.unaryUploadRequests = append(*m.unaryUploadRequests, req)
 	(*m.lock).Unlock()

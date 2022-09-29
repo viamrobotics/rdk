@@ -18,10 +18,11 @@ var (
 type Deque struct {
 	Directory string
 	MetaData  *v1.DataCaptureMetadata
-	nextFile  *File
-	lock      *sync.Mutex
-	files     []*File
-	closed    bool
+	// TODO: should this just be a byte array that we only write when new Next is assigned?
+	nextFile *File
+	lock     *sync.Mutex
+	files    []*File
+	closed   bool
 }
 
 func NewDeque(dir string, md *v1.DataCaptureMetadata) *Deque {
@@ -53,12 +54,12 @@ func (d *Deque) Enqueue(item *v1.SensorData) error {
 			return err
 		}
 		d.lock.Lock()
-		d.files = append(d.files, d.nextFile)
 		nextFile, err := NewFile(d.Directory, d.MetaData)
 		if err != nil {
 			d.lock.Unlock()
 			return err
 		}
+		d.files = append(d.files, d.nextFile)
 		d.nextFile = nextFile
 		d.lock.Unlock()
 	}
@@ -80,15 +81,6 @@ func (d *Deque) Dequeue() *File {
 	return ret
 }
 
-func (d *Deque) Peek() *File {
-	d.lock.Lock()
-	defer d.lock.Unlock()
-	if len(d.files) == 0 {
-		return nil
-	}
-	return d.files[0]
-}
-
 func (d *Deque) Close() {
 	d.lock.Lock()
 	defer d.lock.Unlock()
@@ -108,10 +100,6 @@ func (d *Deque) Sync() error {
 		return err
 	}
 	d.files = append(d.files, d.nextFile)
-	nextFile, err := NewFile(d.Directory, d.MetaData)
-	if err != nil {
-		return err
-	}
-	d.nextFile = nextFile
+	d.nextFile = nil
 	return nil
 }

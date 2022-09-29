@@ -55,6 +55,8 @@ func NewFileFromFile(f *os.File) (*File, error) {
 }
 
 func NewFile(captureDir string, md *v1.DataCaptureMetadata) (*File, error) {
+	fmt.Println("making new file")
+
 	// First create directories and the file in it.
 	fileDir := filepath.Join(captureDir, md.GetComponentType(), md.GetComponentName(), md.GetMethodName())
 	if err := os.MkdirAll(fileDir, 0o700); err != nil {
@@ -135,6 +137,21 @@ func (f *File) Size() int64 {
 
 func (f *File) GetPath() string {
 	return f.path
+}
+
+func (f *File) Close() error {
+	return f.file.Close()
+}
+
+func (f *File) Delete() error {
+	fmt.Println("deleting")
+	fmt.Println(f.path)
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if err := f.file.Close(); err != nil {
+		return err
+	}
+	return os.Remove(f.file.Name())
 }
 
 // BuildCaptureMetadata builds a DataCaptureMetadata object and returns error if

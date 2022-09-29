@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"io"
 	"io/fs"
@@ -155,7 +156,9 @@ func TestNewDataManager(t *testing.T) {
 	captureTime := time.Millisecond * 100
 	time.Sleep(captureTime)
 
+	fmt.Println("closing dm service")
 	err = dmsvc.Close(context.Background())
+	fmt.Println("closed dm service")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Check that a collector wrote to file.

@@ -1,7 +1,12 @@
 package datasync
 
 import (
+	"github.com/pkg/errors"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -183,6 +188,10 @@ func TestSensorUploadTabular(t *testing.T) {
 			}
 		}
 		test.That(t, written, test.ShouldEqual, tc.count)
+
+		// Validate files were deleted after syncing.
+		files := getAllFiles(tmpDir)
+		test.That(t, len(files), test.ShouldEqual, 0)
 	}
 }
 
@@ -282,6 +291,10 @@ func TestSensorUploadBinary(t *testing.T) {
 			}
 		}
 		test.That(t, written, test.ShouldEqual, tc.count)
+
+		// Validate files were deleted after syncing.
+		files := getAllFiles(tmpDir)
+		test.That(t, len(files), test.ShouldEqual, 0)
 	}
 }
 
@@ -362,252 +375,122 @@ func TestUploadsOnce(t *testing.T) {
 		}
 	}
 	test.That(t, written, test.ShouldEqual, 100)
+
+	// Validate files were deleted after syncing.
+	files := getAllFiles(tmpDir)
+	test.That(t, len(files), test.ShouldEqual, 0)
 }
 
-//
-//func TestUploadExponentialRetry(t *testing.T) {
-//	// TODO: RSDK-565. Make this work. Bidi broke it.
-//	t.Skip()
-//	// Set retry related global vars to faster values for test.
-//	initialWaitTimeMillis.Store(50)
-//	maxRetryInterval = time.Millisecond * 150
-//	uploadChunkSize = 10
-//	// Register mock datasync service with a mock server.
-//	logger, _ := golog.NewObservedTestLogger(t)
-//
-//	tests := []struct {
-//		name             string
-//		err              error
-//		waitTime         time.Duration
-//		expCallCount     int32
-//		shouldStillExist bool
-//	}{
-//		{
-//			name:         "Retryable errors should be retried",
-//			err:          errors.New("literally any error here"),
-//			waitTime:     time.Second,
-//			expCallCount: 4,
-//		},
-//		{
-//			name:             "Non-retryable errors should not be retried",
-//			err:              status.Error(codes.InvalidArgument, "bad"),
-//			waitTime:         time.Second,
-//			expCallCount:     1,
-//			shouldStillExist: true,
-//		},
-//	}
-//
-//	for _, tc := range tests {
-//		t.Run(tc.name, func(t *testing.T) {
-//			// Build a mock service that fails 3 times before succeeding.
-//			mockService := getMockService()
-//			mockService.failUntilIndex = 3
-//			mockService.errorToReturn = tc.err
-//			rpcServer := buildAndStartLocalServer(t, logger, mockService)
-//			defer func() {
-//				err := rpcServer.Stop()
-//				test.That(t, err, test.ShouldBeNil)
-//			}()
-//
-//			conn, err := getLocalServerConn(rpcServer, logger)
-//			test.That(t, err, test.ShouldBeNil)
-//			client := NewClient(conn)
-//			sut, err := NewManager(logger, partID, client, conn)
-//			test.That(t, err, test.ShouldBeNil)
-//
-//			// Start file sync.
-//			file1, _ := ioutil.TempFile("", "whatever")
-//			defer os.Remove(file1.Name())
-//			_, _ = file1.Write([]byte("this is some amount of content greater than 10"))
-//			sut.Sync([]string{file1.Name()})
-//
-//			// Let it run so it can retry (or not).
-//			time.Sleep(tc.waitTime)
-//			sut.Close()
-//
-//			// Validate that the client called Upload the correct number of times, and whether or not the file was
-//			// deleted.
-//			test.That(t, mockService.callCount.Load(), test.ShouldEqual, tc.expCallCount)
-//			_, err = os.Stat(file1.Name())
-//			exists := !errors.Is(err, os.ErrNotExist)
-//			test.That(t, exists, test.ShouldEqual, tc.shouldStillExist)
-//		})
-//	}
-//}
-//
-//func TestPartialUpload(t *testing.T) {
-//	// TODO: RSDK-640. Make this work. Bidi broke it.
-//	t.Skip()
-//	initialWaitTimeMillis.Store(1000 * 60)
-//	msg1 := []byte("viam")
-//	msg2 := []byte("robotics")
-//	msg3 := []byte("builds cool software")
-//	msg4 := []byte("yup")
-//	msg5 := []byte("it sure does")
-//	msg6 := toProto(anyStruct{})
-//	msg7 := toProto(anyStruct{Field1: false})
-//	msg8 := toProto(anyStruct{Field1: true, Field2: 2020, Field3: "viam"})
-//	msg9 := toProto(anyStruct{Field1: true, Field2: 2021})
-//
-//	tests := []struct {
-//		name                          string
-//		ackEveryNSensorDatas          int
-//		clientCancelAfterNSensorDatas int
-//		serverErrorAfterNSensorDatas  int32
-//		dataType                      v1.DataType
-//		toSend                        []*v1.SensorData
-//		expSentBeforeRetry            []*v1.SensorData
-//		expSentAfterRetry             []*v1.SensorData
-//	}{
-//		{
-//			name:                          `Binary upload should resume from last ACKed point if the syncer is closed.`,
-//			dataType:                      v1.DataType_DATA_TYPE_BINARY_SENSOR,
-//			ackEveryNSensorDatas:          2,
-//			clientCancelAfterNSensorDatas: 3,
-//			toSend:                        createBinarySensorData([][]byte{msg1, msg2, msg3, msg4, msg5}),
-//			// First two messages should be ACKed, so only 3-5 should be sent after retry.
-//			expSentBeforeRetry: createBinarySensorData([][]byte{msg1, msg2, msg3}),
-//			expSentAfterRetry:  createBinarySensorData([][]byte{msg3, msg4, msg5}),
-//		},
-//		{
-//			name:                          `Tabular upload should resume from last ACKed point if the syncer is closed.`,
-//			dataType:                      v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-//			ackEveryNSensorDatas:          2,
-//			clientCancelAfterNSensorDatas: 3,
-//			toSend:                        createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8, msg9}),
-//			// First two messages should be ACKed, so only msg8-9 should be sent after retry.
-//			expSentBeforeRetry: createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8}),
-//			expSentAfterRetry:  createTabularSensorData([]*structpb.Struct{msg8, msg9}),
-//		},
-//		{
-//			name:                         `Binary upload should resume from last ACKed point after server disconnection.`,
-//			dataType:                     v1.DataType_DATA_TYPE_BINARY_SENSOR,
-//			ackEveryNSensorDatas:         2,
-//			serverErrorAfterNSensorDatas: 3,
-//			toSend:                       createBinarySensorData([][]byte{msg1, msg2, msg3, msg4, msg5}),
-//			// First two messages were ACKed, and third was sent but not acked. Only msg3-5 should be sent after retry.
-//			expSentBeforeRetry: createBinarySensorData([][]byte{msg1, msg2, msg3}),
-//			expSentAfterRetry:  createBinarySensorData([][]byte{msg3, msg4, msg5}),
-//		},
-//		{
-//			name:                         `Tabular upload should resume from last ACKed point after server disconnection.`,
-//			dataType:                     v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-//			ackEveryNSensorDatas:         2,
-//			serverErrorAfterNSensorDatas: 3,
-//			toSend:                       createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8, msg9}),
-//			// First two messages should be ACKed, so only msg8-9 should be sent after retry.
-//			expSentBeforeRetry: createTabularSensorData([]*structpb.Struct{msg6, msg7, msg8}),
-//			expSentAfterRetry:  createTabularSensorData([]*structpb.Struct{msg8, msg9}),
-//		},
-//	}
-//
-//	for _, tc := range tests {
-//		t.Run(tc.name, func(t *testing.T) {
-//			// Create temp data capture file and write the contents of tc.toSend to it.
-//			captureFile, err := createTmpDataCaptureFile()
-//			test.That(t, err, test.ShouldBeNil)
-//			captureMetadata := v1.DataCaptureMetadata{
-//				ComponentType:    componentType,
-//				ComponentName:    componentName,
-//				ComponentModel:   componentModel,
-//				MethodName:       methodName,
-//				Type:             tc.dataType,
-//				MethodParameters: nil,
-//				FileExtension:    datacapture.GetFileExt(tc.dataType, methodName, nil),
-//				Tags:             tags,
-//			}
-//			if _, err := pbutil.WriteDelimited(captureFile, &captureMetadata); err != nil {
-//				t.Errorf("cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v", err)
-//			}
-//			if err := writeSensorData(captureFile, tc.toSend); err != nil {
-//				t.Errorf("%s: cannot write byte slice to temporary file as part of setup for sensorUpload/fileUpload testing: %v", tc.name, err)
-//			}
-//
-//			// Build mock service with configured cancel and ack values.
-//			logger := golog.NewTestLogger(t)
-//			mockService := getMockService()
-//			mockService.messagesPerAck = tc.ackEveryNSensorDatas
-//			if tc.serverErrorAfterNSensorDatas != 0 {
-//				mockService.failAtIndex = tc.serverErrorAfterNSensorDatas + 1
-//			}
-//			if tc.clientCancelAfterNSensorDatas != 0 {
-//				mockService.clientShutdownIndex = tc.clientCancelAfterNSensorDatas
-//			}
-//
-//			// Build and start a local server and client.
-//			rpcServer := buildAndStartLocalServer(t, logger, mockService)
-//			defer func() {
-//				err := rpcServer.Stop()
-//				test.That(t, err, test.ShouldBeNil)
-//			}()
-//			conn, err := getLocalServerConn(rpcServer, logger)
-//			test.That(t, err, test.ShouldBeNil)
-//			client := NewClient(conn)
-//			sut, err := NewManager(logger, partID, client, conn)
-//			test.That(t, err, test.ShouldBeNil)
-//
-//			// Use channels so that we can ensure that client shutdown occurs at the exact time we are intending to
-//			// test (e.g. after the server has received clientShutdownIndex messages).
-//			cancelChannel := make(chan bool)
-//			doneCancelChannel := make(chan bool)
-//			mockService.cancelChannel = cancelChannel
-//			mockService.doneCancelChannel = doneCancelChannel
-//			go func() {
-//				<-cancelChannel
-//				sut.Close()
-//				doneCancelChannel <- true
-//			}()
-//			sut.Sync([]string{captureFile.Name()})
-//			time.Sleep(syncWaitTime)
-//
-//			// Validate client sent mockService the upload requests we would expect before canceling the upload.
-//			var expMsgs []*v1.UploadRequest
-//			var actMsgs []*v1.UploadRequest
-//
-//			// Build all expected messages from before the Upload was cancelled.
-//			expMsgs = buildSensorDataUploadRequests(tc.expSentBeforeRetry, tc.dataType, captureFile.Name())
-//			actMsgs = mockService.getUploadRequests()
-//			compareTabularUploadRequests(t, actMsgs, expMsgs)
-//
-//			// Validate progress file exists and has correct value.
-//			progressFile := filepath.Join(viamProgressDotDir, filepath.Base(captureFile.Name()))
-//			defer os.Remove(progressFile)
-//			_, err = os.Stat(progressFile)
-//			test.That(t, err, test.ShouldBeNil)
-//			bs, err := ioutil.ReadFile(progressFile)
-//			test.That(t, err, test.ShouldBeNil)
-//			i, err := strconv.Atoi(string(bs))
-//			test.That(t, err, test.ShouldBeNil)
-//			test.That(t, i, test.ShouldEqual, tc.ackEveryNSensorDatas)
-//
-//			// Restart the client and server and attempt to sync again.
-//			mockService = getMockService()
-//			mockService.messagesPerAck = tc.ackEveryNSensorDatas
-//			rpcServer = buildAndStartLocalServer(t, logger, mockService)
-//			defer func() {
-//				err := rpcServer.Stop()
-//				test.That(t, err, test.ShouldBeNil)
-//			}()
-//			conn, err = getLocalServerConn(rpcServer, logger)
-//			test.That(t, err, test.ShouldBeNil)
-//			client = NewClient(conn)
-//			sut, err = NewManager(logger, partID, client, conn)
-//			test.That(t, err, test.ShouldBeNil)
-//			sut.Sync([]string{captureFile.Name()})
-//			time.Sleep(syncWaitTime)
-//			sut.Close()
-//
-//			// Validate client sent mockService the upload requests we would expect after resuming upload.
-//			expMsgs = buildSensorDataUploadRequests(tc.expSentAfterRetry, tc.dataType, captureFile.Name())
-//			compareTabularUploadRequests(t, mockService.getUploadRequests(), expMsgs)
-//
-//			// Validate progress file does not exist.
-//			_, err = os.Stat(progressFile)
-//			test.That(t, err, test.ShouldNotBeNil)
-//
-//			// Validate data capture file does not exist.
-//			_, err = os.Stat(captureFile.Name())
-//			test.That(t, err, test.ShouldNotBeNil)
-//		})
-//	}
-//}
+func TestUploadExponentialRetry(t *testing.T) {
+	// Set retry related global vars to faster values for test.
+	initialWaitTimeMillis.Store(50)
+	maxRetryInterval = time.Millisecond * 150
+	// Register mock datasync service with a mock server.
+	logger, _ := golog.NewObservedTestLogger(t)
+
+	tests := []struct {
+		name             string
+		err              error
+		waitTime         time.Duration
+		expCallCount     int32
+		shouldStillExist bool
+	}{
+		{
+			name:         "Retryable errors should be retried",
+			err:          errors.New("literally any error here"),
+			waitTime:     time.Second,
+			expCallCount: 4,
+		},
+		{
+			name:             "Non-retryable errors should not be retried",
+			err:              status.Error(codes.InvalidArgument, "bad"),
+			waitTime:         time.Second,
+			expCallCount:     1,
+			shouldStillExist: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			protoMsgTabularStruct := toProto(anyStruct{})
+			sd := &v1.SensorData{
+				Data: &v1.SensorData_Struct{
+					Struct: protoMsgTabularStruct,
+				},
+			}
+			tmpDir, err := ioutil.TempDir("", "")
+			test.That(t, err, test.ShouldBeNil)
+
+			// Create temp data capture file.
+			captureMetadata := v1.DataCaptureMetadata{
+				ComponentType:    componentType,
+				ComponentName:    componentName,
+				ComponentModel:   componentModel,
+				MethodName:       methodName,
+				Type:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
+				MethodParameters: nil,
+				FileExtension:    datacapture.GetFileExt(v1.DataType_DATA_TYPE_TABULAR_SENSOR, methodName, nil),
+				Tags:             tags,
+			}
+			q := datacapture.NewDeque(tmpDir, &captureMetadata)
+
+			// Write the data from the test cases into the files to prepare them for reading by the fileUpload function
+			for i := 0; i < 5; i++ {
+				err := q.Enqueue(sd)
+				test.That(t, err, test.ShouldBeNil)
+			}
+			q.Close()
+			err = q.Sync()
+			test.That(t, err, test.ShouldBeNil)
+
+			// Build a mock service that fails 3 times before succeeding.
+			mockService := getMockService()
+			mockService.failUntilIndex = 3
+			mockService.errorToReturn = tc.err
+			rpcServer := buildAndStartLocalServer(t, logger, mockService)
+			defer func() {
+				err := rpcServer.Stop()
+				test.That(t, err, test.ShouldBeNil)
+			}()
+
+			conn, err := getLocalServerConn(rpcServer, logger)
+			test.That(t, err, test.ShouldBeNil)
+			client := NewClient(conn)
+			sut, err := NewManager(logger, partID, client, conn)
+			test.That(t, err, test.ShouldBeNil)
+
+			// Start file sync.
+			sut.Sync([]*datacapture.Deque{q})
+
+			// Let it run so it can retry (or not).
+			time.Sleep(tc.waitTime)
+			sut.Close()
+
+			// Validate that the client called Upload the correct number of times, and whether or not the file was
+			// deleted.
+			test.That(t, mockService.callCount.Load(), test.ShouldEqual, tc.expCallCount)
+			// Validate files were deleted after syncing.
+			files := getAllFiles(tmpDir)
+			if tc.shouldStillExist {
+				test.That(t, len(files), test.ShouldNotEqual, 0)
+			} else {
+				test.That(t, len(files), test.ShouldEqual, 0)
+			}
+		})
+	}
+}
+
+func getAllFiles(dir string) []string {
+	var files []string
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		files = append(files, path)
+		return nil
+	})
+	return files
+}

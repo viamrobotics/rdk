@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sync"
 	"time"
 
@@ -290,6 +289,7 @@ func (svc *builtIn) closeSyncer() {
 }
 
 func (svc *builtIn) initSyncer(cfg *config.Config) error {
+	fmt.Println("initting syncer")
 	syncer, err := svc.syncerConstructor(svc.logger, cfg)
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
@@ -298,6 +298,8 @@ func (svc *builtIn) initSyncer(cfg *config.Config) error {
 	return nil
 }
 
+// TODO: when should I call this? Need to make sure it doesn't collide with the normal sync runs.
+//       should basically cancel all previous ones before running this
 func (svc *builtIn) syncPreviouslyCaptured() {
 	// Sync existing files in captureDir.
 	var previouslyCaptured []string
@@ -434,14 +436,10 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		}
 	}
 
-	toggledSync := svc.syncDisabled != svcConfig.ScheduledSyncDisabled
 	svc.syncDisabled = svcConfig.ScheduledSyncDisabled
-	toggledSyncOff := toggledSync && svc.syncDisabled
-	toggledSyncOn := toggledSync && !svc.syncDisabled
-	// Stop syncing if newly disabled in the config.
-	if toggledSyncOff {
-		svc.closeSyncer()
-	} else if toggledSyncOn || !reflect.DeepEqual(svcConfig.AdditionalSyncPaths, svc.additionalSyncPaths) {
+	svc.closeSyncer()
+	if !svc.syncDisabled {
+		fmt.Println("sync sure is not disabled")
 		// If the sync config has changed, update the syncer.
 		svc.lock.Lock()
 		svc.additionalSyncPaths = svcConfig.AdditionalSyncPaths
@@ -449,6 +447,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		if err := svc.initSyncer(cfg); err != nil {
 			return err
 		}
+		svc.syncPreviouslyCaptured()
 		queues := make([]*datacapture.Deque, len(svc.collectors))
 		for _, c := range svc.collectors {
 			queues = append(queues, c.Collector.GetTarget())

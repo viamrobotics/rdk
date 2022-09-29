@@ -133,17 +133,19 @@ func (s *syncer) upload(ctx context.Context, q *datacapture.Deque) {
 			case <-ctx.Done():
 				return
 			default:
-				next := q.Peek()
+				next := q.Dequeue()
 				// We've emptied queue. return.
 				if q.IsClosed() && next == nil {
 					fmt.Println("closed and next is nil")
 					return
 				}
+
 				if next == nil {
 					// TODO: better way to wait than just sleep?
 					time.Sleep(time.Second)
 					continue
 				}
+
 				uploadErr := exponentialRetry(
 					ctx,
 					func(ctx context.Context) error {
@@ -155,7 +157,10 @@ func (s *syncer) upload(ctx context.Context, q *datacapture.Deque) {
 					s.logger.Error(uploadErr)
 					return
 				}
-				q.Dequeue()
+				fmt.Println("going to delete")
+				if err := next.Delete(); err != nil {
+					s.logger.Error(err)
+				}
 			}
 		}
 	})
