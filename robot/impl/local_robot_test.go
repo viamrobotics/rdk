@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -1576,12 +1577,12 @@ func TestReconnectRemote(t *testing.T) {
 	// check if the original arm can still be called
 	test.That(t, <-remoteRobotClient.Changed(), test.ShouldBeTrue)
 	test.That(t, remoteRobotClient.Connected(), test.ShouldBeTrue)
-	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 4)
+	test.That(t, len(remoteRobotClient.ResourceNames()), test.ShouldEqual, 5)
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 7)
+		test.That(tb, len(robotClient.ResourceNames()), test.ShouldEqual, 9)
 	})
-	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 7)
+	test.That(t, len(robot1.ResourceNames()), test.ShouldEqual, 9)
 	_, err = remoteRobotClient.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 
