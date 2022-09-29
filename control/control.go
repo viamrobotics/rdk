@@ -1,5 +1,5 @@
-// Package control package for feedback loop controls
 // This is an Experimental package
+// Package control package for feedback loop controls
 package control
 
 import (
