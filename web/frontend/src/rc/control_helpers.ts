@@ -5,9 +5,7 @@
 */
 
 import { grpc } from '@improbable-eng/grpc-web';
-import motorApi from '../gen/proto/api/component/motor/v1/motor_pb.esm';
 import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
-import servoApi from '../gen/proto/api/component/servo/v1/servo_pb.esm';
 import type { Vector3 } from '../gen/proto/api/common/v1/common_pb.esm';
 import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
 import { rcLogConditionally } from '../lib/log';
@@ -81,56 +79,4 @@ export const computeKeyboardBaseControls = (keysPressed: Record<string, boolean>
   } 
     
   return { linear, angular };
-};
-
-// Simple motor control helpers
-export const MotorControlHelper = {
-  setPower(name: string, powerPct: number, cb: Callback) {
-    const req = new motorApi.SetPowerRequest();
-    req.setName(name);
-    req.setPowerPct(powerPct);
-
-    rcLogConditionally(req);
-    window.motorService.setPower(req, new grpc.Metadata(), cb);
-  },
-  
-  goFor(name: string, rpm: number, revolutions: number, cb: Callback) {
-    const req = new motorApi.GoForRequest();
-    req.setName(name);
-    req.setRpm(rpm);
-    req.setRevolutions(revolutions);
-
-    rcLogConditionally(req);
-    window.motorService.goFor(req, new grpc.Metadata(), cb);
-  },
-
-  goTo(name: string, rpm: number, positionRevolutions: number, cb: Callback) {
-    const req = new motorApi.GoToRequest();
-    req.setName(name);
-    req.setRpm(rpm);
-    req.setPositionRevolutions(positionRevolutions);
-
-    rcLogConditionally(req);
-    window.motorService.goTo(req, new grpc.Metadata(), cb);
-  },
-
-  stop(name: string, cb: Callback) {
-    const req = new motorApi.StopRequest();
-    req.setName(name);
-
-    rcLogConditionally(req);
-    window.motorService.stop(req, new grpc.Metadata(), cb);
-  },
-};
-
-// Servo control helpers
-// todo: add the rest
-export const ServoControlHelper = {
-  stop(name: string, cb: Callback) {
-    const req = new servoApi.StopRequest();
-    req.setName(name);
-
-    rcLogConditionally(req);
-    window.servoService.stop(req, new grpc.Metadata(), cb);
-  },
 };

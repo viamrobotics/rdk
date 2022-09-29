@@ -161,7 +161,7 @@ const setPWMFrequency = () => {
             <div class="flex items-end gap-2">
               <v-input
                 label="Pin"
-                type="number"
+                type="integer"
                 :value="getPin"
                 @input="getPin = $event.detail.value"
               />
@@ -191,7 +191,7 @@ const setPWMFrequency = () => {
             <div class="flex items-end gap-2">
               <v-input
                 v-model="setPin"
-                type="number"
+                type="integer"
                 class="mr-2"
                 label="Pin"
               />

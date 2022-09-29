@@ -26,8 +26,12 @@
   font-style: italic;
 }
 
-body {
-  font-family: Space Mono;
+* {
+  font-family: Space Mono, monospace;
+}
+
+body, table {
+  font-size: 14px;
 }
 
 @keyframes fadeOut {
@@ -94,7 +98,7 @@ body {
   padding: 2em;
   overflow: hidden;
   z-index: 1052;
-  pointer-events: none
+  pointer-events: none;
 }
 
 .v-toast__item {

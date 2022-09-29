@@ -4,8 +4,10 @@ package imuwit
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math"
+	"math/rand"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -26,7 +28,8 @@ const model = "imu-wit"
 
 // AttrConfig is used for converting a witmotion IMU MovementSensor config attributes.
 type AttrConfig struct {
-	Port string `json:"port"`
+	Port     string `json:"port"`
+	BaudRate int    `json:"baud_rate,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -108,11 +111,11 @@ func (imu *wit) CompassHeading(ctx context.Context) (float64, error) {
 }
 
 func (imu *wit) Position(ctx context.Context) (*geo.Point, float64, error) {
-	return nil, 0, nil
+	return geo.NewPoint(0, 0), 0, imu.lastError
 }
 
 func (imu *wit) Accuracy(ctx context.Context) (map[string]float32, error) {
-	return map[string]float32{}, nil
+	return map[string]float32{}, imu.lastError
 }
 
 func (imu *wit) Readings(ctx context.Context) (map[string]interface{}, error) {
@@ -123,12 +126,16 @@ func (imu *wit) Properties(ctx context.Context) (*movementsensor.Properties, err
 	return &movementsensor.Properties{
 		AngularVelocitySupported: true,
 		OrientationSupported:     true,
-		CompassHeadingSupported:  true,
 	}, nil
 }
 
 // NewWit creates a new Wit IMU.
 func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logger) (movementsensor.MovementSensor, error) {
+	conf, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, rutils.NewUnexpectedTypeError(conf, cfg.ConvertedAttributes)
+	}
+
 	options := slib.OpenOptions{
 		BaudRate:        9600,
 		DataBits:        8,
@@ -136,8 +143,12 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 		MinimumReadSize: 1,
 	}
 
-	options.PortName = cfg.ConvertedAttributes.(*AttrConfig).Port
+	options.PortName = conf.Port
+	if conf.BaudRate > 0 {
+		options.BaudRate = uint(conf.BaudRate)
+	}
 
+	logger.Debugf("initializing wit serial connection with parameters: %+v", options)
 	port, err := slib.Open(options)
 	if err != nil {
 		return nil, err
@@ -160,6 +171,12 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 			}
 
 			line, err := portReader.ReadString('U')
+
+			// Randomly sampling logging until we have better log level control
+			//nolint:gosec
+			if rand.Intn(100) < 5 {
+				logger.Debugf("read line from wit [sampled]: %s", hex.EncodeToString([]byte(line)))
+			}
 
 			func() {
 				i.mu.Lock()

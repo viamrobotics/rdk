@@ -6,13 +6,13 @@ import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
 import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
 import streamApi from '../gen/proto/stream/v1/stream_pb.esm';
 import { toast } from '../lib/toast';
-import { filterResources } from '../lib/resource';
+import { filterResources, type Resource } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput from './keyboard-input.vue';
 
 interface Props {
   name: string;
-  resources: [];
+  resources: Resource[];
 }
 
 const props = defineProps<Props>();

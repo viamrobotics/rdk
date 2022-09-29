@@ -1,13 +1,12 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import robotApi from '../gen/proto/api/robot/v1/robot_pb.esm';
+import robotApi, { type Operation } from '../gen/proto/api/robot/v1/robot_pb.esm';
 import { displayError } from '../lib/error';
 
 interface Props {
   operations: {
-    id: string
-    method: string
+    op: Operation.AsObject
     elapsed: number
   }[]
 }
@@ -42,22 +41,22 @@ const killOperation = (id: string) => {
           <th class="border border-black p-2" />
         </tr>
         <tr
-          v-for="operation in operations"
-          :key="operation.id"
+          v-for="{ op, elapsed } in operations"
+          :key="op.id"
         >
           <td class="border border-black p-2">
-            {{ operation.id }}
+            {{ op.id }}
           </td>
           <td class="border border-black p-2">
-            {{ operation.method }}
+            {{ op.method }}
           </td>
           <td class="border border-black p-2">
-            {{ operation.elapsed }}ms
+            {{ elapsed }}ms
           </td>
           <td class="border border-black p-2 text-center">
             <v-button
               label="Kill"
-              @click="killOperation(operation.id)"
+              @click="killOperation(op.id)"
             />
           </td>
         </tr>
