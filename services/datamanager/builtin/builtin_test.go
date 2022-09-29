@@ -144,14 +144,27 @@ func setupConfig(t *testing.T, relativePath string) *config.Config {
 	return testCfg
 }
 
-func TestNewDataManager(t *testing.T) {
-	dmsvc := newTestDataManager(t, "arm1", "")
-	testCfg := setupConfig(t, configPath)
+/**
 
+ */
+
+func TestNewDataManager(t *testing.T) {
 	// Empty config at initialization.
 	captureDir := "/tmp/capture"
 	defer resetFolder(t, captureDir)
+	fmt.Println("updating")
+	resetFolder(t, captureDir)
+	rpcServer, _ := buildAndStartLocalServer(t)
+	defer func() {
+		err := rpcServer.Stop()
+		test.That(t, err, test.ShouldBeNil)
+	}()
+	dmsvc := newTestDataManager(t, "arm1", "")
+	dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+	testCfg := setupConfig(t, configPath)
+
 	err := dmsvc.Update(context.Background(), testCfg)
+	fmt.Println("done updating")
 	test.That(t, err, test.ShouldBeNil)
 	captureTime := time.Millisecond * 100
 	time.Sleep(captureTime)

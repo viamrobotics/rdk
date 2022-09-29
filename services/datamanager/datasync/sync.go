@@ -65,6 +65,8 @@ type ManagerConstructor func(logger golog.Logger, cfg *config.Config) (Manager, 
 
 // NewDefaultManager returns the default Manager that syncs data to app.viam.com.
 func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error) {
+	fmt.Println("building new default manager")
+	defer fmt.Println("done building new default manager")
 	tlsConfig := config.NewTLSConfig(cfg).Config
 	cloudConfig := cfg.Cloud
 	rpcOpts := []rpc.DialOption{
@@ -77,7 +79,9 @@ func NewDefaultManager(logger golog.Logger, cfg *config.Config) (Manager, error)
 			}),
 	}
 
+	fmt.Println("trying to get conn")
 	conn, err := NewConnection(logger, appAddress, rpcOpts)
+	fmt.Println("got conn")
 	if err != nil {
 		return nil, err
 	}
@@ -116,6 +120,7 @@ func (s *syncer) Close() {
 // TODO: expose errors somehow
 // Sync uploads everything in queue until it is closed and emptied.
 func (s *syncer) Sync(queues []*datacapture.Deque) {
+	fmt.Println("entering Sync")
 	for _, q := range queues {
 		s.upload(s.cancelCtx, q)
 	}

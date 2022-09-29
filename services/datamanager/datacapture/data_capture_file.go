@@ -55,7 +55,7 @@ func NewFileFromFile(f *os.File) (*File, error) {
 }
 
 func NewFile(captureDir string, md *v1.DataCaptureMetadata) (*File, error) {
-	fmt.Println("making new file")
+	//fmt.Println("making new file")
 
 	// First create directories and the file in it.
 	fileDir := filepath.Join(captureDir, md.GetComponentType(), md.GetComponentName(), md.GetMethodName())

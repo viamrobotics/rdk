@@ -282,6 +282,7 @@ func (svc *builtIn) initializeOrUpdateCollector(attributes dataCaptureConfig) (*
 
 func (svc *builtIn) closeSyncer() {
 	if svc.syncer != nil {
+		fmt.Println("closing non nil syncer")
 		// If previously we were syncing, close the old syncer and cancel the old updateCollectors goroutine.
 		svc.syncer.Close()
 		svc.syncer = nil
@@ -294,6 +295,7 @@ func (svc *builtIn) initSyncer(cfg *config.Config) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize new syncer")
 	}
+	fmt.Println("done initting syncer")
 	svc.syncer = syncer
 	return nil
 }
@@ -447,7 +449,9 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		if err := svc.initSyncer(cfg); err != nil {
 			return err
 		}
+		fmt.Println("syncing previously captured")
 		svc.syncPreviouslyCaptured()
+		fmt.Println("done syncing previously captured")
 		queues := make([]*datacapture.Deque, len(svc.collectors))
 		for _, c := range svc.collectors {
 			queues = append(queues, c.Collector.GetTarget())
