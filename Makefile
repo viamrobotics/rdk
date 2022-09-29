@@ -76,8 +76,7 @@ test-e2e:
 	./etc/e2e.sh
 
 test-integration:
-	cd services/slam/builtin
-	go test -run TestOrbslamIntegration
+	cd services/slam/builtin && go test -run TestOrbslamIntegration
 
 server:
 	go build $(GO_BUILD_TAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
