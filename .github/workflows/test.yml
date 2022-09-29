@@ -189,4 +189,4 @@ jobs:
 
     - name: Run integration tests
       run: |
-        sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS -u testbot bash -lc 'make test-integration'
+        sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS -u testbot bash -lc 'export APPIMAGE_EXTRACT_AND_RUN=1 && make test-integration'
