@@ -59,6 +59,7 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 		logConfig = golog.NewProductionLoggerConfig()
 	}
 	logger := zap.Must(logConfig.Build()).Sugar().Named("robot_server")
+	golog.ReplaceGloabl(logger)
 
 	// Always log the version, return early if the '-version' flag was provided
 	// fmt.Println would be better but fails linting. Good enough.
@@ -110,6 +111,8 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 			return err
 		}
 		defer closer()
+
+		golog.ReplaceGloabl(logger)
 	}
 
 	server := robotServer{

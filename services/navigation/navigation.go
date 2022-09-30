@@ -15,7 +15,6 @@ import (
 
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/subtype"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -161,7 +160,7 @@ func (svc *reconfigurableNavigation) Reconfigure(ctx context.Context, newSvc res
 		return rdkutils.NewUnexpectedTypeError(svc, newSvc)
 	}
 	if err := utils.TryClose(ctx, svc.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 	svc.actual = rSvc.actual
 	return nil
