@@ -134,7 +134,7 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 				err = g.data.parseAndUpdate(line)
 				g.mu.Unlock()
 				if err != nil {
-					g.logger.Warn("can't parse nmea sentence: %#v", err.Error())
+					g.logger.Warnf("can't parse nmea sentence: %#s", err.Error())
 				}
 			}
 		}
@@ -238,7 +238,7 @@ func (g *SerialNMEAMovementSensor) Close() error {
 		g.dev = nil
 		g.logger.Debug("SerialNMEAMovementSensor Closed")
 	}
-	return nil
+	return g.lastError
 }
 
 // toPoint converts a nmea.GLL to a geo.Point.
