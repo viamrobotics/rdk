@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/rlog"
 )
 
 func fakeMotorDependencies(t *testing.T, deps []string) registry.Dependencies {
@@ -41,7 +40,7 @@ func TestWheelBaseMath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := CreateWheeledBase(context.Background(), motorDeps, cfg, rlog.Logger)
+	baseBase, err := CreateWheeledBase(context.Background(), motorDeps, cfg, golog.Global())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
 	base, ok := baseBase.(*wheeledBase)
@@ -302,7 +301,7 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	motorDeps := fakeMotorDependencies(t, deps)
 
-	baseBase, err := CreateWheeledBase(ctx, motorDeps, cfg, rlog.Logger)
+	baseBase, err := CreateWheeledBase(ctx, motorDeps, cfg, golog.Global())
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*wheeledBase)
 	test.That(t, ok, test.ShouldBeTrue)
