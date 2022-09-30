@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/adrianmo/go-nmea"
-	"github.com/hashicorp/go-multierror"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 )
 
 const (
@@ -45,7 +45,7 @@ func (g *gpsData) parseAndUpdate(line string) error {
 	var errs error
 	s, err := nmea.Parse(line)
 	if err != nil {
-		return multierror.Append(errs, err)
+		return multierr.Append(errs, err)
 	}
 	// Most receivers support at least the following sentence types: GSV, RMC, GSA, GGA, GLL, VTG, GNS
 	if gsv, ok := s.(nmea.GSV); ok {
@@ -57,7 +57,7 @@ func (g *gpsData) parseAndUpdate(line string) error {
 			g.valid = true
 		} else if rmc.Validity == "V" {
 			g.valid = false
-			errs = multierror.Append(errs, errInvalidFix(rmc.Type, rmc.Validity, "A"))
+			errs = multierr.Append(errs, errInvalidFix(rmc.Type, rmc.Validity, "A"))
 		}
 		if g.valid {
 			g.speed = rmc.Speed * knotsToMmPerSec
@@ -69,7 +69,7 @@ func (g *gpsData) parseAndUpdate(line string) error {
 		case "1":
 			// No fix
 			g.valid = false
-			errs = multierror.Append(errs, errInvalidFix(gsa.Type, gsa.FixType, "1 or 2"))
+			errs = multierr.Append(errs, errInvalidFix(gsa.Type, gsa.FixType, "1 or 2"))
 		case "2":
 			// 2d fix, valid lat/lon but invalid alt
 			g.valid = true
@@ -91,7 +91,7 @@ func (g *gpsData) parseAndUpdate(line string) error {
 		}
 		if gga.FixQuality == "0" {
 			g.valid = false
-			errs = multierror.Append(errs, errInvalidFix(gga.Type, gga.FixQuality, "1 to 6"))
+			errs = multierr.Append(errs, errInvalidFix(gga.Type, gga.FixQuality, "1 to 6"))
 		} else {
 			g.valid = true
 			g.location = geo.NewPoint(gga.Latitude, gga.Longitude)
@@ -111,7 +111,7 @@ func (g *gpsData) parseAndUpdate(line string) error {
 		for _, mode := range gns.Mode {
 			if mode == "N" {
 				g.valid = false
-				errs = multierror.Append(errs, errInvalidFix(gns.Type, mode, " A, D, P, R, F, E, M or S"))
+				errs = multierr.Append(errs, errInvalidFix(gns.Type, mode, " A, D, P, R, F, E, M or S"))
 			}
 		}
 		if g.valid {
@@ -124,7 +124,7 @@ func (g *gpsData) parseAndUpdate(line string) error {
 
 	if g.location == nil {
 		g.location = geo.NewPoint(0, 0)
-		errs = multierror.Append(errs, errors.New("no location parsed for nmea gps, using default value of lat:0, long: 0"))
+		errs = multierr.Append(errs, errors.New("no location parsed for nmea gps, using default value of lat:0, long: 0"))
 		return errs
 	}
 	return nil
