@@ -5,6 +5,7 @@ import (
 	"image"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/test"
@@ -15,7 +16,6 @@ import (
 	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rlog"
 )
 
 var outDir string
@@ -26,7 +26,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	rlog.Logger.Debugf("out dir: %q", outDir)
+	golog.Global().Debugf("out dir: %q", outDir)
 }
 
 //nolint:dupl
