@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -14,7 +15,6 @@ import (
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -64,7 +64,7 @@ func TestArmRemoteControl(t *testing.T) {
 		case input.Subtype:
 			return fakeController, nil
 		case arm.Subtype:
-			return fakearm.NewArmIK(ctx, config.Component{Name: "arm"}, rlog.Logger)
+			return fakearm.NewArmIK(ctx, config.Component{Name: "arm"}, golog.Global())
 		}
 		return nil, rdkutils.NewResourceNotFoundError(name)
 	}
@@ -91,7 +91,7 @@ func TestArmRemoteControl(t *testing.T) {
 			Type:                "arm_remote_control",
 			ConvertedAttributes: cfg,
 		},
-		rlog.Logger)
+		golog.Global())
 	test.That(t, err, test.ShouldBeNil)
 
 	svc, ok := tmpSvc.(*builtIn)
@@ -111,7 +111,7 @@ func TestArmRemoteControl(t *testing.T) {
 			Type:                "arm_remote_control",
 			ConvertedAttributes: cfg,
 		},
-		rlog.Logger)
+		golog.Global())
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:input_controller/\" not found"))
 
 	// Arm import failure
@@ -128,7 +128,7 @@ func TestArmRemoteControl(t *testing.T) {
 			Type:                "arm_remote_control",
 			ConvertedAttributes: cfg,
 		},
-		rlog.Logger)
+		golog.Global())
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:arm/\" not found"))
 
 	// Start checks
