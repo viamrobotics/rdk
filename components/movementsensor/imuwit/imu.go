@@ -201,13 +201,6 @@ func NewWit(
 			if rand.Intn(100) < 3 {
 				logger.Debugf("read line from wit [sampled]: %s", hex.EncodeToString([]byte(line)))
 			}
-<<<<<<< HEAD
-			if len(line) != 11 {
-				logger.Warnf("read an unexpected number of bytes from serial. expected: 11, read: %d", len(line))
-				return
-			}
-=======
->>>>>>> a3554e04 (Fix wit imu bugs (#1423))
 
 			func() {
 				i.mu.Lock()
