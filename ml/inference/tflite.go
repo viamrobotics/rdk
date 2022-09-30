@@ -1,4 +1,5 @@
 //go:build !arm
+
 package inference
 
 import (
