@@ -344,6 +344,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 // TODO(DATA-493): Test model deployment from config file.
 // Validates that models can be deployed onto a robot.
 func TestModelDeploy(t *testing.T) {
+	t.Skip()
 	deployModelWaitTime := time.Millisecond * 1000
 	deployedZipFileName := "model.zip"
 	originalFileName := "model.txt"
