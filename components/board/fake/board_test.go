@@ -12,6 +12,7 @@ import (
 )
 
 func TestFakeBoard(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	boardConfig := Config{
 		I2Cs: []board.I2CConfig{
 			{Name: "main", Bus: "0"},
@@ -31,7 +32,7 @@ func TestFakeBoard(t *testing.T) {
 	}
 
 	cfg := config.Component{Name: "board1", ConvertedAttributes: &boardConfig}
-	b, err := NewBoard(context.Background(), cfg, golog.Global())
+	b, err := NewBoard(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, ok := b.I2CByName("main")

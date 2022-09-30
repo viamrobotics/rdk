@@ -54,6 +54,7 @@ func buildCfg(dof int) *ServiceConfig {
 
 func TestArmRemoteControl(t *testing.T) {
 	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
 	cfg := buildCfg(6)
 
 	fakeRobot := &inject.Robot{}
@@ -64,7 +65,7 @@ func TestArmRemoteControl(t *testing.T) {
 		case input.Subtype:
 			return fakeController, nil
 		case arm.Subtype:
-			return fakearm.NewArmIK(ctx, config.Component{Name: "arm"}, golog.Global())
+			return fakearm.NewArmIK(ctx, config.Component{Name: "arm"}, logger)
 		}
 		return nil, rdkutils.NewResourceNotFoundError(name)
 	}
@@ -91,7 +92,7 @@ func TestArmRemoteControl(t *testing.T) {
 			Type:                "arm_remote_control",
 			ConvertedAttributes: cfg,
 		},
-		golog.Global())
+		logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	svc, ok := tmpSvc.(*builtIn)
@@ -111,7 +112,7 @@ func TestArmRemoteControl(t *testing.T) {
 			Type:                "arm_remote_control",
 			ConvertedAttributes: cfg,
 		},
-		golog.Global())
+		logger)
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:input_controller/\" not found"))
 
 	// Arm import failure
@@ -128,7 +129,7 @@ func TestArmRemoteControl(t *testing.T) {
 			Type:                "arm_remote_control",
 			ConvertedAttributes: cfg,
 		},
-		golog.Global())
+		logger)
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:arm/\" not found"))
 
 	// Start checks
