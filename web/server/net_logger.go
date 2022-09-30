@@ -58,7 +58,7 @@ func (l *wrappedLogger) Sync() error {
 	return l.base.Sync()
 }
 
-func newNetLogger(config *config.Cloud, loggerWithoutNet golog.Logger) (*netLogger, error) {
+func newNetLogger(config *config.Cloud, loggerWithoutNet golog.Logger, logLevel zap.AtomicLevel) (*netLogger, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
@@ -84,6 +84,7 @@ func newNetLogger(config *config.Cloud, loggerWithoutNet golog.Logger) (*netLogg
 		remoteWriter:     logWriter,
 		maxQueueSize:     defaultMaxQueueSize,
 		loggerWithoutNet: loggerWithoutNet,
+		logLevel:         logLevel,
 	}
 	nl.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(nl.backgroundWorker, nl.activeBackgroundWorkers.Done)
@@ -105,6 +106,9 @@ type netLogger struct {
 	// Use this logger for library errors that will not be reported through
 	// the netLogger causing a recursive loop.
 	loggerWithoutNet golog.Logger
+
+	// Log level of the rdk system
+	logLevel zap.AtomicLevel
 }
 
 func (nl *netLogger) queueSize() int {
@@ -127,8 +131,8 @@ func (nl *netLogger) Close() {
 	nl.remoteWriter.close()
 }
 
-func (nl *netLogger) Enabled(zapcore.Level) bool {
-	return true
+func (nl *netLogger) Enabled(l zapcore.Level) bool {
+	return nl.logLevel.Enabled(l)
 }
 
 func (nl *netLogger) With(f []zapcore.Field) zapcore.Core {
@@ -136,7 +140,10 @@ func (nl *netLogger) With(f []zapcore.Field) zapcore.Core {
 }
 
 func (nl *netLogger) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
-	return ce.AddCore(e, nl)
+	if nl.logLevel.Enabled(e.Level) {
+		return ce.AddCore(e, nl)
+	}
+	return ce
 }
 
 // Mirrors zapcore.EntryCaller but leaves out the pointer address.
@@ -283,8 +290,8 @@ func (nl *netLogger) Sync() error {
 	}
 }
 
-func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, func(), error) {
-	nl, err := newNetLogger(cfg, logger)
+func addCloudLogger(logger golog.Logger, logLevel zap.AtomicLevel, cfg *config.Cloud) (golog.Logger, func(), error) {
+	nl, err := newNetLogger(cfg, logger, logLevel)
 	if err != nil {
 		return nil, nil, err
 	}
