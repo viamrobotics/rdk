@@ -14,6 +14,7 @@ import (
 
 func TestLimoBaseConstructor(t *testing.T) {
 	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
 
 	fakeRobot := &inject.Robot{}
 	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
@@ -22,7 +23,7 @@ func TestLimoBaseConstructor(t *testing.T) {
 
 	c := make(chan []uint8, 100)
 
-	_, err := CreateLimoBase(context.Background(), &Config{}, golog.Global())
+	_, err := CreateLimoBase(context.Background(), &Config{}, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	cfg := &Config{
@@ -30,7 +31,7 @@ func TestLimoBaseConstructor(t *testing.T) {
 		TestChan:  c,
 	}
 
-	baseBase, err := CreateLimoBase(context.Background(), cfg, golog.Global())
+	baseBase, err := CreateLimoBase(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	base, ok := baseBase.(*limoBase)
 	test.That(t, ok, test.ShouldBeTrue)
