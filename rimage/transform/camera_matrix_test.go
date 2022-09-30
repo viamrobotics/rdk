@@ -5,13 +5,13 @@ import (
 	"os"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rlog"
 )
 
 var outDir string
@@ -22,7 +22,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	rlog.Logger.Debugf("out dir: %q", outDir)
+	golog.Global().Debugf("out dir: %q", outDir)
 }
 
 func TestPC1(t *testing.T) {

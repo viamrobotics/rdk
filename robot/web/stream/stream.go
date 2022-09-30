@@ -7,10 +7,9 @@ import (
 	"math"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"go.viam.com/utils"
-
-	"go.viam.com/rdk/rlog"
 )
 
 // StreamVideoSource starts a stream from a video source with a throttled error handler.
@@ -72,7 +71,7 @@ func (opts *BackoffTuningOptions) getErrorThrottledHandler() func(context.Contex
 		}
 
 		sleep := opts.GetSleepTimeFromErrorCount(errorCount)
-		rlog.Logger.Debugw("error getting media", "error", err, "count", errorCount, "sleep", sleep)
+		golog.Global().Debugw("error getting media", "error", err, "count", errorCount, "sleep", sleep)
 		utils.SelectContextOrWait(ctx, sleep)
 	}
 }

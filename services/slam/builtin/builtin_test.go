@@ -42,7 +42,6 @@ import (
 )
 
 const (
-	timePadding      = 20
 	validDataRateMS  = 200
 	numOrbslamImages = 29
 )
@@ -673,15 +672,13 @@ func TestCartographerDataProcess(t *testing.T) {
 		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
+		c := make(chan int)
+		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
 
-		n := 5
-		// Note: timePadding is required to allow the sub processes to be fully completed during test
-		time.Sleep(time.Millisecond * time.Duration((n)*(validDataRateMS+timePadding)))
+		<-c
 		cancelFunc()
-
 		files, err := os.ReadDir(name + "/data/")
-		test.That(t, len(files), test.ShouldEqual, n)
+		test.That(t, len(files), test.ShouldBeGreaterThanOrEqualTo, 1)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -702,7 +699,7 @@ func TestCartographerDataProcess(t *testing.T) {
 		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
+		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, nil)
 
 		time.Sleep(time.Millisecond * time.Duration(validDataRateMS*2))
 		cancelFunc()
@@ -767,15 +764,14 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
 
-		n := 5
-		// Note: timePadding is required to allow the sub processes to be fully completed during test
-		time.Sleep(time.Millisecond * time.Duration((n)*(validDataRateMS+timePadding*2)))
+		c := make(chan int)
+		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
+
+		<-c
 		cancelFunc()
-
 		files, err := os.ReadDir(name + "/data/rgb/")
-		test.That(t, len(files), test.ShouldBeGreaterThanOrEqualTo, n)
+		test.That(t, len(files), test.ShouldBeGreaterThanOrEqualTo, 1)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -793,7 +789,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
+		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, nil)
 
 		time.Sleep(time.Millisecond * time.Duration(validDataRateMS*2))
 		cancelFunc()

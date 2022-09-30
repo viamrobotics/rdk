@@ -28,7 +28,6 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/rlog"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -592,7 +591,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 	for instance := range instances {
 		i := instance.interruptsHW[uint(gpio)]
 		if i == nil {
-			rlog.Logger.Infof("no DigitalInterrupt configured for gpio %d", gpio)
+			golog.Global().Infof("no DigitalInterrupt configured for gpio %d", gpio)
 			continue
 		}
 		high := true

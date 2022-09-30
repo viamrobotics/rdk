@@ -18,8 +18,8 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
 	github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742
-	github.com/edaniels/golog v0.0.0-20220915145146-2d6da6d2e52a
-	github.com/edaniels/gostream v0.0.0-20220928175405-fbb64fe4efd2
+	github.com/edaniels/golog v0.0.0-20220930140416-6e52e83a97fc
+	github.com/edaniels/gostream v0.0.0-20220930164525-b071849c1ad1
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
@@ -73,7 +73,7 @@ require (
 	go.viam.com/api v0.0.0-20220923190547-06b762859376
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
-	go.viam.com/utils v0.0.6-0.20220927194847-c4a91bb83813
+	go.viam.com/utils v0.0.6-0.20220930162826-7802059812f8
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
 	gonum.org/v1/gonum v0.11.0
@@ -140,7 +140,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/denis-tingaikin/go-header v0.4.3 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
-	github.com/edaniels/zeroconf v0.0.0-20220607181113-3dc7461460c6 // indirect
+	github.com/edaniels/zeroconf v1.0.2 // indirect
 	github.com/envoyproxy/go-control-plane v0.10.2-0.20220325020618-49ff273808a1 // indirect
 	github.com/envoyproxy/protoc-gen-validate v0.6.2 // indirect
 	github.com/esimonov/ifshort v1.0.4 // indirect

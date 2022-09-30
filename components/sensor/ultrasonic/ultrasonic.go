@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/rlog"
 )
 
 const (
@@ -63,7 +62,7 @@ func init() {
 }
 
 func newSensor(ctx context.Context, deps registry.Dependencies, name string, config *AttrConfig) (sensor.Sensor, error) {
-	rlog.Logger.Debug("building ultrasonic sensor")
+	golog.Global().Debug("building ultrasonic sensor")
 	s := &Sensor{Name: name, config: config}
 
 	res, ok := deps[board.Named(config.Board)]

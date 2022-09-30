@@ -18,11 +18,12 @@ import (
 )
 
 func TestNewNetLogger(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	t.Run("with AppConfig should use GRPC", func(t *testing.T) {
 		nl, err := newNetLogger(&config.Cloud{
 			AppAddress: "http://localhost:8080",
 			ID:         "abc-123",
-		})
+		}, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, ok := nl.remoteWriter.(*remoteLogWriterGRPC)
@@ -34,7 +35,7 @@ func TestNewNetLogger(t *testing.T) {
 		nl, err := newNetLogger(&config.Cloud{
 			LogPath: "http://localhost:8080/logs",
 			ID:      "abc-123",
-		})
+		}, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, ok := nl.remoteWriter.(*remoteLogWriterHTTP)
@@ -58,9 +59,9 @@ func TestNewNetBatchWrites(t *testing.T) {
 	}
 
 	logWriter := &remoteLogWriterGRPC{
-		logger:  logger,
-		cfg:     config,
-		service: client,
+		loggerWithoutNet: logger,
+		cfg:              config,
+		service:          client,
 	}
 
 	nl := &netLogger{
@@ -143,9 +144,9 @@ func TestBatchFailureAndRetry(t *testing.T) {
 	}
 
 	logWriter := &remoteLogWriterGRPC{
-		logger:  logger,
-		cfg:     config,
-		service: client,
+		loggerWithoutNet: logger,
+		cfg:              config,
+		service:          client,
 	}
 
 	nl := &netLogger{
@@ -177,6 +178,52 @@ func TestBatchFailureAndRetry(t *testing.T) {
 		Times(1).
 		Return(&apppb.LogResponse{}, nil)
 
+	nl.Sync()
+
+	nl.Close()
+}
+
+func TestUnderlyingLoggerDoesntRecurse(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	client := mockapppb.NewMockRobotServiceClient(ctrl)
+
+	logger := golog.NewTestLogger(t)
+	cancelCtx, cancel := context.WithCancel(context.Background())
+
+	config := &config.Cloud{
+		AppAddress: "http://localhost:8080",
+		ID:         "abc-123",
+	}
+
+	logWriter := &remoteLogWriterGRPC{
+		loggerWithoutNet: logger,
+		cfg:              config,
+		service:          client,
+	}
+
+	nl := &netLogger{
+		hostname:         "hostname",
+		cancelCtx:        cancelCtx,
+		cancel:           cancel,
+		remoteWriter:     logWriter,
+		maxQueueSize:     100,
+		loggerWithoutNet: logger,
+	}
+
+	newLogger := logger.Desugar()
+	newLogger = newLogger.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
+		return zapcore.NewTee(c, nl)
+	}))
+
+	client.EXPECT().
+		Log(gomock.Any(), &expectedLogMatch{nLogs: 1, id: "abc-123"}).
+		Times(1).
+		Return(nil, errors.New("failure"))
+
+	newLogger.Info("should write to network")
+	logger.Info("should not write to network")
 	nl.Sync()
 
 	nl.Close()

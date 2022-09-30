@@ -9,7 +9,6 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rlog"
 )
 
 var outDir string
@@ -20,7 +19,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	rlog.Logger.Debugf("out dir: %q", outDir)
+	golog.Global().Debugf("out dir: %q", outDir)
 }
 
 func TestGetMinChessCorner(t *testing.T) {

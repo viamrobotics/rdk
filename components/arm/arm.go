@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
@@ -278,7 +277,7 @@ func (r *reconfigurableArm) reconfigure(ctx context.Context, newArm resource.Rec
 		return utils.NewUnexpectedTypeError(r, newArm)
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 	r.actual = arm.actual
 	return nil
@@ -313,7 +312,7 @@ func (r *reconfigurableLocalArm) Reconfigure(ctx context.Context, newArm resourc
 		return utils.NewUnexpectedTypeError(r, newArm)
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 
 	r.actual = arm.actual

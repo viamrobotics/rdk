@@ -77,7 +77,6 @@ func testPositionAndMap(t *testing.T, svc slam.Service) {
 }
 
 func TestOrbslamIntegration(t *testing.T) {
-	// TODO DATA-364: remove this check
 	_, err := exec.LookPath("orb_grpc_server")
 	if err != nil {
 		t.Log("Skipping test because orb_grpc_server binary was not found")

@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -182,7 +181,7 @@ func (r *reconfigurableServo) reconfigure(ctx context.Context, newServo resource
 		return utils.NewUnexpectedTypeError(r, newServo)
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
 	return nil
@@ -207,7 +206,7 @@ func (r *reconfigurableLocalServo) Reconfigure(ctx context.Context, newServo res
 		return utils.NewUnexpectedTypeError(r, newServo)
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 
 	r.actual = Servo.actual

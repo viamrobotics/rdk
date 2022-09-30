@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -255,7 +254,7 @@ func (svc *reconfigurableVision) Reconfigure(ctx context.Context, newSvc resourc
 		return utils.NewUnexpectedTypeError(svc, newSvc)
 	}
 	if err := goutils.TryClose(ctx, svc.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 	svc.actual = rSvc.actual
 	/*

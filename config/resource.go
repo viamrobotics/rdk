@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
 )
 
 // UpdateActionType help hint the reconfigure process on whether one should reconfigure a resource or rebuild it.
@@ -317,11 +317,11 @@ func (config *Service) Validate(path string) error {
 	}
 	// If services do not have a name use the name builtin
 	if config.Name == "" {
-		rlog.Logger.Warnw("no name given, defaulting name to builtin")
+		golog.Global().Warnw("no name given, defaulting name to builtin")
 		config.Name = resource.DefaultModelName
 	}
 	if config.Model == "" {
-		rlog.Logger.Warnw("no model given; using default")
+		golog.Global().Warnw("no model given; using default")
 		config.Model = resource.DefaultModelName
 	}
 	if config.Namespace == "" {

@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/utils"
 )
 
@@ -90,15 +89,15 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webca
 
 		props, err := getProperties(d)
 		if len(props) == 0 {
-			rlog.Logger.Debugw("no properties detected for driver, skipping discovery...", "driver", driverInfo.Label)
+			golog.Global().Debugw("no properties detected for driver, skipping discovery...", "driver", driverInfo.Label)
 			continue
 		} else if err != nil {
-			rlog.Logger.Debugw("cannot access driver properties, skipping discovery...", "driver", driverInfo.Label, "error", err)
+			golog.Global().Debugw("cannot access driver properties, skipping discovery...", "driver", driverInfo.Label, "error", err)
 			continue
 		}
 
 		if d.Status() == driver.StateRunning {
-			rlog.Logger.Debugw("driver is in use, skipping discovery...", "driver", driverInfo.Label)
+			golog.Global().Debugw("driver is in use, skipping discovery...", "driver", driverInfo.Label)
 			continue
 		}
 
