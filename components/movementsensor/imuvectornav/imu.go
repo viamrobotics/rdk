@@ -562,8 +562,9 @@ func (vn *vectornav) compensateDVBias(ctx context.Context, smpSize uint) error {
 }
 
 func (vn *vectornav) Close() {
-	vn.logger.Debug("closing vecnav")
+	vn.logger.Debug("closing vecnav imu")
 	vn.cancelFunc()
 	vn.busClosed = true
 	vn.activeBackgroundWorkers.Wait()
+	vn.logger.Debug("closed vecnav imu")
 }

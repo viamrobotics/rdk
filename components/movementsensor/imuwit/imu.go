@@ -73,6 +73,7 @@ type wit struct {
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 	generic.Unimplemented
+	logger golog.Logger
 }
 
 func (imu *wit) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
@@ -157,6 +158,8 @@ func NewWit(
 		options.BaudRate = uint(conf.BaudRate)
 	}
 
+	var i wit
+	i.logger = logger
 	logger.Debugf("initializing wit serial connection with parameters: %+v", options)
 	port, err := slib.Open(options)
 	if err != nil {
@@ -164,8 +167,6 @@ func NewWit(
 	}
 
 	portReader := bufio.NewReader(port)
-
-	var i wit
 
 	ctx, i.cancelFunc = context.WithCancel(context.Background())
 	i.activeBackgroundWorkers.Add(1)
@@ -266,6 +267,8 @@ func (imu *wit) parseWIT(line string) error {
 }
 
 func (imu *wit) Close() {
+	imu.logger.Debug("Closing wit motion imu")
 	imu.cancelFunc()
 	imu.activeBackgroundWorkers.Wait()
+	imu.logger.Debug("Closed wit motion imu")
 }
