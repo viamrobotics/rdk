@@ -5,12 +5,12 @@ import (
 	"context"
 	"sync"
 
+	"github.com/edaniels/golog"
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/utils"
 )
 
@@ -67,7 +67,7 @@ func (svc *reconfigurableBaseRemoteControl) Reconfigure(ctx context.Context, new
 		return utils.NewUnexpectedTypeError(svc, newSvc)
 	}
 	if err := viamutils.TryClose(ctx, svc.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 	svc.actual = rSvc.actual
 	return nil

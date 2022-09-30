@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/rlog"
 )
 
 func TestFakeBoard(t *testing.T) {
@@ -31,7 +31,7 @@ func TestFakeBoard(t *testing.T) {
 	}
 
 	cfg := config.Component{Name: "board1", ConvertedAttributes: &boardConfig}
-	b, err := NewBoard(context.Background(), cfg, rlog.Logger)
+	b, err := NewBoard(context.Background(), cfg, golog.Global())
 	test.That(t, err, test.ShouldBeNil)
 
 	_, ok := b.I2CByName("main")
