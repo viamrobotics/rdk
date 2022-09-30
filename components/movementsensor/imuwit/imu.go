@@ -49,7 +49,7 @@ func init() {
 			cfg config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return NewWit(deps, cfg, logger)
+			return NewWit(ctx, deps, cfg, logger)
 		},
 	})
 
@@ -84,7 +84,7 @@ func (imu *wit) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocit
 func (imu *wit) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
-	return r3.Vector{}, imu.lastError
+	return r3.Vector{}, movementsensor.ErrMethodUnimplemented("LinearVelocity")
 }
 
 func (imu *wit) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
@@ -108,15 +108,15 @@ func (imu *wit) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
 }
 
 func (imu *wit) CompassHeading(ctx context.Context) (float64, error) {
-	return 0, imu.lastError
+	return 0, movementsensor.ErrMethodUnimplemented("CompassHeading")
 }
 
 func (imu *wit) Position(ctx context.Context) (*geo.Point, float64, error) {
-	return geo.NewPoint(0, 0), 0, imu.lastError
+	return geo.NewPoint(0, 0), 0, movementsensor.ErrMethodUnimplemented("Position")
 }
 
 func (imu *wit) Accuracy(ctx context.Context) (map[string]float32, error) {
-	return map[string]float32{}, imu.lastError
+	return map[string]float32{}, movementsensor.ErrMethodUnimplemented("Accuracy")
 }
 
 func (imu *wit) Readings(ctx context.Context) (map[string]interface{}, error) {
@@ -134,7 +134,12 @@ func (imu *wit) Properties(ctx context.Context) (*movementsensor.Properties, err
 }
 
 // NewWit creates a new Wit IMU.
-func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logger) (movementsensor.MovementSensor, error) {
+func NewWit(
+	ctx context.Context,
+	deps registry.Dependencies,
+	cfg config.Component,
+	logger golog.Logger,
+) (movementsensor.MovementSensor, error) {
 	conf, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	if !ok {
 		return nil, rutils.NewUnexpectedTypeError(conf, cfg.ConvertedAttributes)
@@ -162,7 +167,6 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 
 	var i wit
 
-	var ctx context.Context
 	ctx, i.cancelFunc = context.WithCancel(context.Background())
 	i.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -178,12 +182,12 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 
 			// Randomly sample logging until we have better log level control
 			//nolint:gosec
-			if rand.Intn(100) < 5 {
+			if rand.Intn(100) < 3 {
 				logger.Debugf("read line from wit [sampled]: %s", hex.EncodeToString([]byte(line)))
 			}
-
 			if len(line) != 11 {
-				logger.Debug("read an unexpected number of bytes from serial. expected: 11, read: %v", len(line))
+				logger.Warnf("read an unexpected number of bytes from serial. expected: 11, read: %d", len(line))
+				return
 			}
 
 			func() {
@@ -192,6 +196,7 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 
 				if err != nil {
 					i.lastError = err
+					logger.Error(i.lastError)
 				} else {
 					i.lastError = i.parseWIT(line)
 				}

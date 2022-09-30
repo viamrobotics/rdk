@@ -1,9 +1,11 @@
 package movementsensor
 
 import (
+	"errors"
 	"math"
 
 	geo "github.com/kellydunn/golang-geo"
+	errs "github.com/pkg/errors"
 
 	"go.viam.com/rdk/utils"
 )
@@ -46,4 +48,38 @@ func GetHeading(gps1, gps2 *geo.Point, yawOffset float64) (float64, float64, flo
 	}
 
 	return brng, heading, standardBearing
+}
+
+type mStr string
+
+const (
+	posStr      = mStr("Position")
+	oriStr      = mStr("Orientation")
+	angvelStr   = mStr("AngularVelocity")
+	linvelStr   = mStr("LinearVelocity")
+	compStr     = mStr("CompassHeading")
+	accuracyStr = mStr("Accuracy")
+	readStr     = mStr("Readings")
+)
+
+// ErrMethodUnimplemented implements unused method errors.
+func ErrMethodUnimplemented(method mStr) error {
+	switch method {
+	case posStr:
+		return errors.New("Position Unimplemented")
+	case oriStr:
+		return errors.New("Orientation Unimplemented")
+	case angvelStr:
+		return errors.New("LinearVelocity Unimplemented")
+	case linvelStr:
+		return errors.New("AngularVelocity Unimplemented")
+	case compStr:
+		return errors.New("CompassHeading Unimplemented")
+	case accuracyStr:
+		return errors.New("Accuracy Unimplemented")
+	case readStr:
+		return errors.New("Readings Unimplemented")
+	default:
+		return errs.Errorf("unknown method name %s used for creating unimerror", method)
+	}
 }

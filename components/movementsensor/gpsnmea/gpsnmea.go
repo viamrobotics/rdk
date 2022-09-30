@@ -48,7 +48,7 @@ type I2CAttrConfig struct {
 
 // Validate ensures all parts of the config are valid.
 func (cfg *AttrConfig) Validate(path string) error {
-	if cfg.Board == "" {
+	if cfg.Board == "" && cfg.ConnectionType == i2cStr {
 		return utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 
