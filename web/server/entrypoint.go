@@ -58,6 +58,7 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	} else {
 		logConfig = golog.NewProductionLoggerConfig()
 	}
+	rdkLogLevel := logConfig.Level
 	logger := zap.Must(logConfig.Build()).Sugar().Named("robot_server")
 	golog.ReplaceGloabl(logger)
 
@@ -106,7 +107,7 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	// This is to ensure we make our best effort to write logs for failures loading the remote config.
 	if cfgFromDisk.Cloud != nil && (cfgFromDisk.Cloud.LogPath != "" || cfgFromDisk.Cloud.AppAddress != "") {
 		var closer func()
-		logger, closer, err = addCloudLogger(logger, cfgFromDisk.Cloud)
+		logger, closer, err = addCloudLogger(logger, rdkLogLevel, cfgFromDisk.Cloud)
 		if err != nil {
 			return err
 		}
