@@ -342,6 +342,7 @@ func TestRecoversAfterKilled(t *testing.T) {
 // TODO(DATA-341): Handle partial downloads in order to resume deployment.
 // TODO(DATA-344): Compare checksum of downloaded model to blob to determine whether to redeploy.
 // TODO(DATA-493): Test model deployment from config file.
+// TODO(DATA-510): Make TestModelDeploy concurrency safe
 // Validates that models can be deployed onto a robot.
 func TestModelDeploy(t *testing.T) {
 	t.Skip()
