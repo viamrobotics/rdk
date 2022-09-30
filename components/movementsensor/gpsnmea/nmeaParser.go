@@ -28,7 +28,7 @@ type gpsData struct {
 }
 
 func errInvalidFix(sentenceType, badFix, goodFix string) error {
-	return errors.Errorf("type %s sentence fix is not valid have: %s  want %s", sentenceType, badFix, goodFix)
+	return errors.Errorf("\n type %s sentence fix is not valid have: %s  want %s", sentenceType, badFix, goodFix)
 }
 
 // parseAndUpdate will attempt to parse a line to an NMEA sentence, and if valid, will try to update the given struct
@@ -124,7 +124,7 @@ func (g *gpsData) parseAndUpdate(line string) error {
 
 	if g.location == nil {
 		g.location = geo.NewPoint(0, 0)
-		errs = multierr.Append(errs, errors.New("no location parsed for nmea gps, using default value of lat:0, long: 0"))
+		errs = multierr.Append(errs, errors.New("\n no location parsed for nmea gps, using default value of lat:0, long: 0"))
 		return errs
 	}
 	return nil
