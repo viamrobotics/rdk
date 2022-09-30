@@ -238,7 +238,7 @@ func (g *SerialNMEAMovementSensor) Close() error {
 		g.dev = nil
 		g.logger.Debug("SerialNMEAMovementSensor Closed")
 	}
-	return g.lastError
+	return nil
 }
 
 // toPoint converts a nmea.GLL to a geo.Point.
