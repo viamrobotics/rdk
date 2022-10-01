@@ -19,12 +19,12 @@ import (
 func init() {
         registry.RegisterService(vision.Subtype, resource.DefaultModelName, registry.Service{
                 Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-                        return nil, errors.New("not supported on arm6l")
+                        return nil, errors.New("not supported on 32 bit arm")
                 },
         })
         cType := config.ServiceType(vision.SubtypeName)
         config.RegisterServiceAttributeMapConverter(cType, func(attributeMap config.AttributeMap) (interface{}, error) {
-                return nil, errors.New("not supported on arm6l")
+                return nil, errors.New("not supported on 32 bit arm")
         },
                 &vision.Attributes{},
         )
