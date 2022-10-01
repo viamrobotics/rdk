@@ -101,9 +101,9 @@ func buildRobotWithFakeCamera(t *testing.T) (robot.Robot, error) {
 		Name: "detect_red",
 		Type: string(builtin.ColorDetector),
 		Parameters: config.AttributeMap{
-			"detect_color":    "#C9131F", // look for red
-			"tolerance_pct":   0.05,
-			"segment_size_px": 1000,
+			"detect_color":      "#C9131F", // look for red
+			"hue_tolerance_pct": 0.05,
+			"segment_size_px":   1000,
 		},
 	}
 	err = srv.AddDetector(context.Background(), detConf)

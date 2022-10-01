@@ -33,7 +33,7 @@ func TestColorObjects(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// create config
 	cfg := config.AttributeMap{
-		"tolerance_pct":         0.025,
+		"hue_tolerance_pct":     0.025,
 		"detect_color":          "#6D2814",
 		"mean_k":                50,
 		"sigma":                 1.5,
@@ -47,7 +47,7 @@ func TestColorObjects(t *testing.T) {
 	test.That(t, objects, test.ShouldHaveLength, 1)
 	// create config with no mean_k filtering
 	cfg = config.AttributeMap{
-		"tolerance_pct":         0.025,
+		"hue_tolerance_pct":     0.025,
 		"detect_color":          "#6D2814",
 		"mean_k":                -1,
 		"sigma":                 1.5,
@@ -64,11 +64,11 @@ func TestColorObjects(t *testing.T) {
 func TestColorObjectsValidate(t *testing.T) {
 	cfg := segmentation.ColorObjectsConfig{}
 	// tolerance value too big
-	cfg.Tolerance = 10.
+	cfg.HueTolerance = 10.
 	err := cfg.CheckValid()
 	test.That(t, err.Error(), test.ShouldContainSubstring, "tolerance must be between 0.0 and 1.0")
 	// not a valid color
-	cfg.Tolerance = 1.
+	cfg.HueTolerance = 1.
 	cfg.Color = "#GGGGGG"
 	err = cfg.CheckValid()
 	test.That(t, err.Error(), test.ShouldContainSubstring, "couldn't parse hex")

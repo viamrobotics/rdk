@@ -31,7 +31,6 @@ func NewColorDetector(cfg *ColorDetectorConfig) (Detector, error) {
 		return nil, errors.Errorf("tolerance must be between 0.0 and 1.0. Got %.5f", tol)
 	}
 
-
 	sat := cfg.SaturationCutoff
 	if sat <= 0.0 {
 		sat = 0.2
