@@ -13,8 +13,8 @@ import (
 // ColorObjectsConfig specifies the necessary parameters for the color detection and transformation to 3D objects.
 type ColorObjectsConfig struct {
 	HueTolerance     float64 `json:"hue_tolerance_pct"`
-	SaturationCutoff float64 `json:"saturation_cutoff_pct"`
-	ValueCutoff      float64 `json:"value_cutoff_pct"`
+	SaturationCutoff float64 `json:"saturation_cutoff_pct,omitempty"`
+	ValueCutoff      float64 `json:"value_cutoff_pct,omitempty"`
 	Color            string  `json:"detect_color"` // form #RRGGBB
 	MeanK            int     `json:"mean_k"`       // used for StatisticalFilter
 	Sigma            float64 `json:"sigma"`        // used for StatisticalFilter

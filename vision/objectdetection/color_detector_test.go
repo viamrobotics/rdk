@@ -20,13 +20,13 @@ func TestColorDetector(t *testing.T) {
 	// detector with error
 	cfg := &ColorDetectorConfig{
 		SegmentSize:       150000,
-		Tolerance:         8.0,
+		HueTolerance:      8.0,
 		DetectColorString: "#4F3815", // an orange color
 	}
 	_, err = NewColorDetector(cfg)
 	test.That(t, err, test.ShouldBeError, errors.New("tolerance must be between 0.0 and 1.0. Got 8.00000"))
 	// detector with 100% tolerance
-	cfg.Tolerance = 1.
+	cfg.HueTolerance = 1.
 	det, err := NewColorDetector(cfg)
 	test.That(t, err, test.ShouldBeNil)
 	result, err := det(ctx, img)

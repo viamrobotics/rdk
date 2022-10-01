@@ -89,7 +89,6 @@ func registerRCSegmenter(ctx context.Context, mm modelMap, conf *vision.VisModel
 func registerSegmenterFromDetector(ctx context.Context, mm modelMap, conf *vision.VisModelConfig, logger golog.Logger) error {
 	_, span := trace.StartSpan(ctx, "service::vision::registerSegmenterFromDetector")
 	defer span.End()
-
 	if conf == nil {
 		return errors.New("config for segmenter from detector cannot be nil")
 	}
@@ -103,7 +102,6 @@ func registerSegmenterFromDetector(ctx context.Context, mm modelMap, conf *visio
 	if err != nil {
 		return err
 	}
-
 	detector, err := d.toDetector()
 	if err != nil {
 		return err

@@ -215,23 +215,22 @@ func registerNewVisModels(ctx context.Context, mm modelMap, attrs *vision.Attrib
 		logger.Debugf("adding vision model %q of type %q", attr.Name, attr.Type)
 		switch vision.VisModelType(attr.Type) {
 		case TFLiteDetector:
-			multierr.Combine(err, registerTfliteDetector(ctx, mm, &attr, logger))
+			multierr.AppendInto(&err, registerTfliteDetector(ctx, mm, &attr, logger))
 		case TFLiteClassifier:
-			multierr.Combine(err, registerTfliteClassifier(ctx, mm, &attr, logger))
+			multierr.AppendInto(&err, registerTfliteClassifier(ctx, mm, &attr, logger))
 		case TFDetector:
-			multierr.Combine(err, newVisModelTypeNotImplemented(attr.Type))
+			multierr.AppendInto(&err, newVisModelTypeNotImplemented(attr.Type))
 		case TFClassifier:
-			multierr.Combine(err, newVisModelTypeNotImplemented(attr.Type))
+			multierr.AppendInto(&err, newVisModelTypeNotImplemented(attr.Type))
 		case ColorDetector:
-			multierr.Combine(err, registerColorDetector(ctx, mm, &attr, logger))
+			multierr.AppendInto(&err, registerColorDetector(ctx, mm, &attr, logger))
 		case RCSegmenter:
-			multierr.Combine(err, registerRCSegmenter(ctx, mm, &attr, logger))
+			multierr.AppendInto(&err, registerRCSegmenter(ctx, mm, &attr, logger))
 		case DetectorSegmenter:
-			multierr.Combine(err, registerSegmenterFromDetector(ctx, mm, &attr, logger))
+			multierr.AppendInto(&err, registerSegmenterFromDetector(ctx, mm, &attr, logger))
 		default:
-			multierr.Combine(err, newVisModelTypeNotImplemented(attr.Type))
+			multierr.AppendInto(&err, newVisModelTypeNotImplemented(attr.Type))
 		}
 	}
-
 	return err
 }
