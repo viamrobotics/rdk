@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -303,7 +302,7 @@ func (r *reconfigurableBoard) reconfigure(ctx context.Context, newBoard resource
 		return utils.NewUnexpectedTypeError(r, newBoard)
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 
 	var oldAnalogReaderNames map[string]struct{}
@@ -407,7 +406,7 @@ func (r *reconfigurableLocalBoard) Reconfigure(ctx context.Context, newBoard res
 		return utils.NewUnexpectedTypeError(r, newBoard)
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 
 	var oldSPINames map[string]struct{}
@@ -536,7 +535,7 @@ func (r *reconfigurableSPI) reconfigure(ctx context.Context, newSPI SPI) {
 		panic(utils.NewUnexpectedTypeError(r, newSPI))
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
 }
@@ -564,7 +563,7 @@ func (r *reconfigurableI2C) reconfigure(ctx context.Context, newI2C I2C) {
 		panic(utils.NewUnexpectedTypeError(r, newI2C))
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
 }
@@ -586,7 +585,7 @@ func (r *reconfigurableAnalogReader) reconfigure(ctx context.Context, newAnalogR
 		panic(utils.NewUnexpectedTypeError(r, newAnalogReader))
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
 }
@@ -626,7 +625,7 @@ func (r *reconfigurableDigitalInterrupt) reconfigure(ctx context.Context, newDig
 		panic(utils.NewUnexpectedTypeError(r, newDigitalInterrupt))
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
 }

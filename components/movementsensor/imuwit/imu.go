@@ -1,4 +1,5 @@
-// Package imuwit implements a wit IMU.
+// Package imuwit implements wit imus.
+// Tested on the HWT901B and BWT901CL models. Other WT901-based models may work too.
 package imuwit
 
 import (
@@ -119,7 +120,10 @@ func (imu *wit) Accuracy(ctx context.Context) (map[string]float32, error) {
 }
 
 func (imu *wit) Readings(ctx context.Context) (map[string]interface{}, error) {
-	return movementsensor.Readings(ctx, imu)
+	readings, err := movementsensor.Readings(ctx, imu)
+	readings["magnetometer"] = imu.magnetometer
+	readings["acceleration"] = imu.acceleration
+	return readings, err
 }
 
 func (imu *wit) Properties(ctx context.Context) (*movementsensor.Properties, error) {
@@ -172,10 +176,14 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 
 			line, err := portReader.ReadString('U')
 
-			// Randomly sampling logging until we have better log level control
+			// Randomly sample logging until we have better log level control
 			//nolint:gosec
 			if rand.Intn(100) < 5 {
 				logger.Debugf("read line from wit [sampled]: %s", hex.EncodeToString([]byte(line)))
+			}
+
+			if len(line) != 11 {
+				logger.Debug("read an unexpected number of bytes from serial. expected: 11, read: %v", len(line))
 			}
 
 			func() {
@@ -244,9 +252,9 @@ func (imu *wit) parseWIT(line string) error {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu magnetometer %d %v", len(line), line)
 		}
-		imu.magnetometer.X = scalemag(line[1], line[2], 1) * 0.01 // converts to gauss
-		imu.magnetometer.Y = scalemag(line[3], line[4], 1) * 0.01
-		imu.magnetometer.Z = scalemag(line[5], line[6], 1) * 0.01
+		imu.magnetometer.X = scalemag(line[1], line[2], 1) // converts to gauss
+		imu.magnetometer.Y = scalemag(line[3], line[4], 1)
+		imu.magnetometer.Z = scalemag(line[5], line[6], 1)
 	}
 
 	return nil

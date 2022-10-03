@@ -162,3 +162,31 @@ jobs:
         run: |
           chown -R testbot .
           sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS -u testbot bash -lc 'make build-web test-e2e'
+
+  test_integration:
+    name: Integration Tests Passing
+    runs-on: [x64, qemu-host]
+    container:
+      image: ghcr.io/viamrobotics/canon:amd64-cache
+      options: --platform linux/amd64
+    timeout-minutes: 30
+    steps:
+    - name: Check out code in rdk directory
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 2
+
+    - name: Create GCP Credential File from secret
+      run: |
+        GOOGLE_APPLICATION_CREDENTIALS=`pwd`/${GOOGLE_APPLICATION_CREDENTIALS_FILENAME}
+        echo "${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}" >> ${GOOGLE_APPLICATION_CREDENTIALS}
+        echo "GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}" >> $GITHUB_ENV
+
+    - name: Get orbslam binary for integration tests
+      run: |
+        sudo curl -o /usr/local/bin/orb_grpc_server http://packages.viam.com/apps/slam-servers/orb_grpc_server-latest-x86_64.AppImage
+        sudo chmod a+rx /usr/local/bin/orb_grpc_server
+
+    - name: Run integration tests
+      run: |
+        sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS -u testbot bash -lc 'export APPIMAGE_EXTRACT_AND_RUN=1 && make test-integration'
