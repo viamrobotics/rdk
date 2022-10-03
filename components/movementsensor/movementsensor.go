@@ -149,7 +149,7 @@ func Readings(ctx context.Context, g MovementSensor) (map[string]interface{}, er
 	readings["angular_velocity"] = avel
 
 	compass, err := g.CompassHeading(ctx)
-	if err == nil && err.Error() != ErrMethodUnimplemented("CompassHeading").Error() {
+	if err != nil && err.Error() != ErrMethodUnimplemented("CompassHeading").Error() {
 		return nil, err
 	}
 	readings["compass"] = compass
