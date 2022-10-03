@@ -66,6 +66,7 @@ type wit struct {
 	orientation     spatialmath.EulerAngles
 	acceleration    r3.Vector
 	magnetometer    r3.Vector
+	numBadReadings  uint32
 	lastError       error
 
 	mu sync.Mutex
@@ -121,8 +122,22 @@ func (imu *wit) Accuracy(ctx context.Context) (map[string]float32, error) {
 
 func (imu *wit) Readings(ctx context.Context) (map[string]interface{}, error) {
 	readings, err := movementsensor.Readings(ctx, imu)
-	readings["magnetometer"] = imu.magnetometer
-	readings["acceleration"] = imu.acceleration
+	if err != nil {
+		return nil, err
+	}
+
+	mag, err := imu.GetMagnetometer(ctx)
+	if err != nil {
+		return nil, err
+	}
+	readings["magnetometer"] = mag
+
+	acc, err := imu.GetAcceleration(ctx)
+	if err != nil {
+		return nil, err
+	}
+	readings["acceleration"] = acc
+
 	return readings, err
 }
 
@@ -182,10 +197,6 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 				logger.Debugf("read line from wit [sampled]: %s", hex.EncodeToString([]byte(line)))
 			}
 
-			if len(line) != 11 {
-				logger.Debug("read an unexpected number of bytes from serial. expected: 11, read: %v", len(line))
-			}
-
 			func() {
 				i.mu.Lock()
 				defer i.mu.Unlock()
@@ -193,6 +204,11 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 				if err != nil {
 					i.lastError = err
 				} else {
+					if len(line) != 11 {
+						logger.Debug("read an unexpected number of bytes from serial, skipping. expected: 11, read: %v", len(line))
+						i.numBadReadings++
+						return
+					}
 					i.lastError = i.parseWIT(line)
 				}
 			}()
