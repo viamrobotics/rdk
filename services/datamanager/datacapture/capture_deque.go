@@ -1,6 +1,7 @@
 package datacapture
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"path/filepath"
@@ -41,15 +42,15 @@ func (d *Deque) Enqueue(item *v1.SensorData) error {
 	}
 
 	if d.nextFile == nil {
+		fmt.Println("next file was nil")
 		nextFile, err := NewFile(d.Directory, d.MetaData)
 		if err != nil {
 			return err
 		}
 		d.nextFile = nextFile
-	}
-
-	// If nextFile is >MAX_SIZE or it's a binary reading, update nextFile.
-	if d.nextFile.Size() > maxSize || item.GetBinary() != nil {
+	} else if d.nextFile.Size() > maxSize || item.GetBinary() != nil {
+		fmt.Println("item was binary")
+		// If nextFile is >MAX_SIZE or it's a binary reading, update nextFile.
 		if err := d.nextFile.Sync(); err != nil {
 			return err
 		}
@@ -64,10 +65,7 @@ func (d *Deque) Enqueue(item *v1.SensorData) error {
 		d.lock.Unlock()
 	}
 
-	if err := d.nextFile.WriteNext(item); err != nil {
-		return err
-	}
-	return nil
+	return d.nextFile.WriteNext(item)
 }
 
 func (d *Deque) Dequeue() *File {
@@ -96,6 +94,9 @@ func (d *Deque) IsClosed() bool {
 func (d *Deque) Sync() error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
+	if d.nextFile == nil {
+		return nil
+	}
 	if err := d.nextFile.Sync(); err != nil {
 		return err
 	}

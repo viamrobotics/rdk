@@ -6,7 +6,9 @@ import (
 	"image"
 	"io"
 	"io/fs"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -32,19 +34,14 @@ import (
 )
 
 const (
-	captureWaitTime            = time.Millisecond * 25
-	syncWaitTime               = time.Millisecond * 100
-	testDataManagerServiceName = "DataManager1"
+	captureWaitTime = time.Millisecond * 25
+	syncWaitTime    = time.Millisecond * 100
 )
 
 var (
 	// Robot config which specifies data manager service.
-	configPath = "services/datamanager/data/fake_robot_with_data_manager.json"
+	configPath = "services/datamanager/data/data_capture_config.json"
 
-	// 0.0041 mins is 246 milliseconds, this is the interval waiting time in the config file used for testing.
-	configSyncIntervalMins = 0.0041
-
-	syncIntervalMins   = 0.0041 // 250ms
 	captureDir         = "/tmp/capture"
 	armDir             = captureDir + "/arm/arm1/GetEndPosition"
 	emptyFileBytesSize = 30 // size of leading metadata message
@@ -145,8 +142,145 @@ func setupConfig(t *testing.T, relativePath string) *config.Config {
 }
 
 /**
+TODO things:
+- Figure out how to programmatically edit things in config. Would be VERY helpful in many places to be able to manually
+  set things, e.g. disabled, capture directory, etc. Think can do this by editing svcconfig
 
- */
+*/
+
+/**
+New test setup!
+First data capture only tests:
+- Captures what we'd expect. Both contents and amount, to where we expect it.
+- Disabling capture stops it. Re-enabling re-begins it.
+
+*/
+
+func TestDataCapture(t *testing.T) {
+	captureTime := time.Millisecond * 25
+
+	tests := []struct {
+		name                 string
+		initialDisableStatus bool
+		newDisableStatus     bool
+	}{
+		{
+			"Config with data capture disabled should capture nothing.",
+			true,
+			true,
+		},
+		{
+			"Config with data capture enabled should capture data.",
+			false,
+			false,
+		},
+		{
+			"Disabling data capture should cause it to stop.",
+			false,
+			true,
+		},
+		{
+			"Enabling data capture should cause it to begin.",
+			true,
+			false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpDir, err := ioutil.TempDir("", "")
+			test.That(t, err, test.ShouldBeNil)
+
+			rpcServer, _ := buildAndStartLocalServer(t)
+			defer func() {
+				err := rpcServer.Stop()
+				test.That(t, err, test.ShouldBeNil)
+			}()
+			dmsvc := newTestDataManager(t, "arm1", "")
+			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+			testCfg := setupConfig(t, configPath)
+			svcConfig, ok, err := getServiceConfig(testCfg)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ok, test.ShouldBeTrue)
+			svcConfig.CaptureDisabled = tc.initialDisableStatus
+			svcConfig.ScheduledSyncDisabled = true
+			svcConfig.CaptureDir = tmpDir
+			err = dmsvc.Update(context.Background(), testCfg)
+
+			// Let run for a second, then change status.
+			time.Sleep(captureTime)
+			svcConfig.CaptureDisabled = tc.newDisableStatus
+			err = dmsvc.Update(context.Background(), testCfg)
+
+			// Check if data has been captured (or not) as we'd expect.
+			initialCaptureFiles := getAllFiles(tmpDir)
+			if !tc.initialDisableStatus {
+				// TODO: check contents
+				test.That(t, len(initialCaptureFiles), test.ShouldBeGreaterThan, 0)
+			} else {
+				test.That(t, len(initialCaptureFiles), test.ShouldEqual, 0)
+			}
+
+			// Let run for a second.
+			time.Sleep(captureTime)
+			// Check if data has been captured (or not) as we'd expect.
+			updatedCaptureFiles := getAllFiles(tmpDir)
+			if !tc.newDisableStatus {
+				// TODO: check contents
+				test.That(t, len(updatedCaptureFiles), test.ShouldBeGreaterThan, len(initialCaptureFiles))
+			} else {
+				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, len(initialCaptureFiles))
+			}
+			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
+		})
+	}
+}
+
+/**
+Now sync tests
+- Enabling and disabling work.
+- If already captured data is there on start up, it syncs it.
+- Already captured data sync and new data sync don't conflict/can occur simultaneously.
+*/
+func TestSync(t *testing.T) {
+	//tests := []struct {
+	//	name                 string
+	//	initialDisableStatus bool
+	//	newDisableStatus     bool
+	//	alreadyCapturedData  bool
+	//}{
+	//	{
+	//		"Config with sync disabled should sync nothing.",
+	//		false,
+	//		false,
+	//		false,
+	//	},
+	//	{
+	//		"Config with sync enabled should sync data.",
+	//		false,
+	//		false,
+	//		false,
+	//	},
+	//	{
+	//		"Disabling sync should cause it to stop.",
+	//		false,
+	//		false,
+	//		false,
+	//	},
+	//	{
+	//		"Enabling sync should cause it to begin.",
+	//		false,
+	//		false,
+	//		false,
+	//	},
+	//	{
+	//		"Already captured data should be synced at start up.",
+	//		false,
+	//		false,
+	//		false,
+	//	},
+	//}
+}
 
 func TestNewDataManager(t *testing.T) {
 	// Empty config at initialization.
@@ -264,7 +398,7 @@ func TestNewRemoteDataManager(t *testing.T) {
 	dmsvc := newTestDataManager(t, "localArm", "remoteArm")
 
 	// Set capture parameters in Update.
-	conf := setupConfig(t, "services/datamanager/data/fake_robot_with_remote_and_data_manager.json")
+	conf := setupConfig(t, "services/datamanager/data/data_capture_remote_config.json")
 	defer resetFolder(t, captureDir)
 	err := dmsvc.Update(context.Background(), conf)
 	test.That(t, err, test.ShouldBeNil)
@@ -317,7 +451,6 @@ func TestRecoversAfterKilled(t *testing.T) {
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
-	dmCfg.SyncIntervalMins = configSyncIntervalMins
 	dmCfg.AdditionalSyncPaths = dirs
 
 	// Initialize the data manager and update it with our config.
@@ -370,7 +503,6 @@ func TestCreatesAdditionalSyncPaths(t *testing.T) {
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
-	dmCfg.SyncIntervalMins = syncIntervalMins
 	dmCfg.AdditionalSyncPaths = []string{td}
 
 	// Initialize the data manager and update it with our config. The call to Update(ctx, conf) should create the
@@ -466,7 +598,6 @@ func TestManualSync(t *testing.T) {
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
-	dmCfg.SyncIntervalMins = configSyncIntervalMins
 	dmCfg.AdditionalSyncPaths = dirs
 
 	// Initialize the data manager and update it with our config.
@@ -520,7 +651,6 @@ func TestScheduledSync(t *testing.T) {
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
-	dmCfg.SyncIntervalMins = configSyncIntervalMins
 	dmCfg.AdditionalSyncPaths = dirs
 
 	// Make the captureDir where we're logging data for our arm.
@@ -571,7 +701,6 @@ func TestManualAndScheduledSync(t *testing.T) {
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
-	dmCfg.SyncIntervalMins = configSyncIntervalMins
 	dmCfg.AdditionalSyncPaths = dirs
 
 	// Make the captureDir where we're logging data for our arm.
@@ -617,7 +746,6 @@ func TestSyncDisabled(t *testing.T) {
 	testCfg := setupConfig(t, configPath)
 	dmCfg, err := getDataManagerConfig(testCfg)
 	test.That(t, err, test.ShouldBeNil)
-	dmCfg.SyncIntervalMins = syncIntervalMins
 
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
@@ -785,4 +913,19 @@ func getTestSyncerConstructor(t *testing.T, server rpc.Server) datasync.ManagerC
 		client := datasync.NewClient(conn)
 		return datasync.NewManager(logger, cfg.Cloud.ID, client, conn)
 	}
+}
+
+func getAllFiles(dir string) []os.FileInfo {
+	var files []os.FileInfo
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		files = append(files, info)
+		return nil
+	})
+	return files
 }

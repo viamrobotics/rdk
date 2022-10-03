@@ -80,7 +80,6 @@ type dataCaptureConfigs struct {
 type Config struct {
 	CaptureDir            string   `json:"capture_dir"`
 	AdditionalSyncPaths   []string `json:"additional_sync_paths"`
-	SyncIntervalMins      float64  `json:"sync_interval_mins"`
 	CaptureDisabled       bool     `json:"capture_disabled"`
 	ScheduledSyncDisabled bool     `json:"sync_disabled"`
 }
@@ -386,23 +385,24 @@ func (svc *builtIn) syncAdditionalSyncPaths() {
 // Update updates the data manager service when the config has changed.
 func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	svcConfig, ok, err := getServiceConfig(cfg)
+	fmt.Println(svcConfig.CaptureDisabled)
+	fmt.Println(svcConfig.ScheduledSyncDisabled)
 	// Service is not in the config, has been removed from it, or is incorrectly formatted in the config.
 	// Close any collectors.
 	if !ok {
 		svc.closeCollectors()
+		svc.closeSyncer()
 		return err
 	}
 	if cfg.Cloud != nil {
 		svc.partID = cfg.Cloud.ID
 	}
 
-	toggledCaptureOff := (svc.captureDisabled != svcConfig.CaptureDisabled) && svcConfig.CaptureDisabled
 	svc.captureDisabled = svcConfig.CaptureDisabled
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
-	if toggledCaptureOff {
+	if svc.captureDisabled {
 		svc.closeCollectors()
 		svc.collectors = make(map[componentMethodMetadata]collectorAndConfig)
-		return nil
 	}
 
 	allComponentAttributes, err := buildDataCaptureConfigs(cfg)
@@ -410,22 +410,24 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 
-	if len(allComponentAttributes) == 0 {
-		svc.logger.Warn("Could not find any components with data_manager service configuration")
-		return nil
-	}
+	//if len(allComponentAttributes) == 0 {
+	//	svc.logger.Warn("Could not find any components with data_manager service configuration")
+	//	return nil
+	//}
 
 	svc.captureDir = svcConfig.CaptureDir
 
 	// Initialize or add a collector based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
-	for _, attributes := range allComponentAttributes {
-		if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 {
-			componentMetadata, err := svc.initializeOrUpdateCollector(attributes)
-			if err != nil {
-				svc.logger.Errorw("failed to initialize or update collector", "error", err)
-			} else {
-				newCollectorMetadata[*componentMetadata] = true
+	if !svc.captureDisabled {
+		for _, attributes := range allComponentAttributes {
+			if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 {
+				componentMetadata, err := svc.initializeOrUpdateCollector(attributes)
+				if err != nil {
+					svc.logger.Errorw("failed to initialize or update collector", "error", err)
+				} else {
+					newCollectorMetadata[*componentMetadata] = true
+				}
 			}
 		}
 	}
