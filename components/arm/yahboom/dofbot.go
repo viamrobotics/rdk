@@ -28,10 +28,13 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
+// ModelName is the string used to refer to the fake arm model.
+const ModelName = "yahboom-dofbot"
+
 //go:embed dofbot.json
 var modeljson []byte
 
-func dofbotModel(name string) (referenceframe.Model, error) {
+func Model(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(modeljson, name)
 }
 
@@ -110,7 +113,7 @@ func NewDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 		return nil, err
 	}
 
-	a.model, err = dofbotModel(config.Name)
+	a.model, err = Model(config.Name)
 	if err != nil {
 		return nil, err
 	}

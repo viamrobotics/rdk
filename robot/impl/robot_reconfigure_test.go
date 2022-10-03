@@ -19,6 +19,7 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/arm"
+
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"

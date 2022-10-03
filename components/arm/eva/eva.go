@@ -4,6 +4,7 @@ package eva
 import (
 	"bytes"
 	"context"
+
 	// for embedding model file.
 	_ "embed"
 	"encoding/json"
@@ -353,13 +354,13 @@ func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 }
 
 // EvaModel() returns the kinematics model of the Eva, also has all Frame information.
-func evaModel(name string) (referenceframe.Model, error) {
+func Model(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(evamodeljson, name)
 }
 
 // NewEva TODO.
 func NewEva(ctx context.Context, r robot.Robot, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
-	model, err := evaModel(cfg.Name)
+	model, err := Model(cfg.Name)
 	if err != nil {
 		return nil, err
 	}

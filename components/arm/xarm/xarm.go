@@ -63,12 +63,12 @@ func ModelName(dof int) string {
 	return "xArm" + strconv.Itoa(dof)
 }
 
-func xarmModel(dof int) (referenceframe.Model, error) {
+func Model(dof int, name string) (referenceframe.Model, error) {
 	switch dof {
 	case 6:
-		return referenceframe.UnmarshalModelJSON(xArm6modeljson, "")
+		return referenceframe.UnmarshalModelJSON(xArm6modeljson, name)
 	case 7:
-		return referenceframe.UnmarshalModelJSON(xArm7modeljson, "")
+		return referenceframe.UnmarshalModelJSON(xArm7modeljson, name)
 	default:
 		return nil, errors.New("no kinematics model for xarm with specified degrees of freedom")
 	}
@@ -118,15 +118,7 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 		return nil, err
 	}
 
-	var model referenceframe.Model
-	switch dof {
-	case 6:
-		model, err = referenceframe.UnmarshalModelJSON(xArm6modeljson, cfg.Name)
-	case 7:
-		model, err = referenceframe.UnmarshalModelJSON(xArm7modeljson, cfg.Name)
-	default:
-		err = errors.New("no kinematics model for xarm with specified degrees of freedom")
-	}
+	model, err := Model(dof, cfg.Name)
 	if err != nil {
 		return nil, err
 	}

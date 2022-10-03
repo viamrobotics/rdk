@@ -9,6 +9,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/eva"
 	ur "go.viam.com/rdk/components/arm/universalrobots"
@@ -17,11 +19,8 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/testutils/inject"
 )
 
 // ModelName is the string used to refer to the fake arm model.
@@ -32,7 +31,7 @@ var fakeModelJSON []byte
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	ArmModel string `json:"arm_model"`
+	ArmModel string `json:"arm-model"`
 }
 
 func init() {
@@ -56,33 +55,29 @@ func init() {
 
 // NewArm returns a new fake arm.
 func NewArm(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
-	// create a fake robot to make an arm component to derive kinematics from
-	fakeRobot := &inject.Robot{}
-
-	// create a fake arm with the desired kinematic model
-	var arm arm.Arm
+	var model referenceframe.Model
 	var err error
-	switch cfg.ConvertedAttributes.(*AttrConfig).ArmModel {
-	case xarm.ModelName(6):
-		arm, err = xarm.NewxArm(ctx, fakeRobot, cfg, logger, 6)
-	case xarm.ModelName(7):
-		arm, err = xarm.NewxArm(ctx, fakeRobot, cfg, logger, 7)
-	case ur.ModelName:
-		arm, err = ur.URArmConnect(ctx, fakeRobot, cfg, logger)
-	case yahboom.ModelName:
-		arm, err = yahboom.NewDofBot(ctx, fakeRobot, cfg, logger)
-	case eva.ModelName:
-		arm, err = eva.NewEva(ctx, fakeRobot, cfg, logger)
+	if cfg.ConvertedAttributes != nil {
+		switch cfg.ConvertedAttributes.(*AttrConfig).ArmModel {
+		case xarm.ModelName(6):
+			model, err = xarm.Model(6, cfg.Name)
+		case xarm.ModelName(7):
+			model, err = xarm.Model(7, cfg.Name)
+		case ur.ModelName:
+			model, err = ur.Model(cfg.Name)
+		case yahboom.ModelName:
+			model, err = yahboom.Model(cfg.Name)
+		case eva.ModelName:
+			model, err = eva.Model(cfg.Name)
+		case ModelName, "":
+			model, err = referenceframe.UnmarshalModelJSON(fakeModelJSON, cfg.Name)
+		default:
+			return nil, errors.Errorf("fake arm cannot be created, unsupported arm_model: %s", cfg.ConvertedAttributes.(*AttrConfig).ArmModel)
+		}
+	} else {
+		model, err = referenceframe.UnmarshalModelJSON(fakeModelJSON, cfg.Name)
 	}
 	if err != nil {
-		return nil, err
-	}
-
-	// extract the kinematic model
-	var model referenceframe.Model
-	if arm != nil {
-		model = arm.ModelFrame()
-	} else if model, err = referenceframe.UnmarshalModelJSON(fakeModelJSON, ""); err != nil {
 		return nil, err
 	}
 
@@ -90,6 +85,7 @@ func NewArm(ctx context.Context, cfg config.Component, logger golog.Logger) (arm
 	if err != nil {
 		return nil, err
 	}
+
 	return &Arm{
 		Name:     cfg.Name,
 		position: &commonpb.Pose{},
@@ -116,8 +112,8 @@ func (a *Arm) ModelFrame() referenceframe.Model {
 }
 
 // GetEndPosition returns the set position.
-func (a *Arm) GetEndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
-	joints, err := a.GetJointPositions(ctx, extra)
+func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
+	joints, err := a.JointPositions(ctx, extra)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +127,7 @@ func (a *Arm) MoveToPosition(
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) error {
-	joints, err := a.GetJointPositions(ctx, extra)
+	joints, err := a.JointPositions(ctx, extra)
 	if err != nil {
 		return err
 	}
@@ -155,7 +151,7 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosition
 }
 
 // GetJointPositions returns joints.
-func (a *Arm) GetJointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
+func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	retJoint := &pb.JointPositions{Values: a.joints.Values}
 	return retJoint, nil
 }
@@ -172,7 +168,7 @@ func (a *Arm) IsMoving(ctx context.Context) (bool, error) {
 
 // CurrentInputs TODO.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.GetJointPositions(ctx, nil)
+	res, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
