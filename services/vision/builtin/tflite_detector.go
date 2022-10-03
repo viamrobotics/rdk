@@ -5,10 +5,10 @@ import (
 	"context"
 	"image"
 	"os"
+	fp "path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
-	fp "path/filepath"
 
 	"github.com/edaniels/golog"
 	"github.com/nfnt/resize"
@@ -113,12 +113,11 @@ func addTFLiteModel(ctx context.Context, filepath string, numThreads *int) (*inf
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get loader")
 	}
-
-	model, err = loader.Load(filepath)
+	fullpath, err2 := fp.Abs(filepath)
+	model, err = loader.Load(fullpath)
 	if err != nil {
 		if strings.Contains(err.Error(), "failed to load") {
-			fullpath, err2 := fp.Abs(filepath)
-			if err2 != nil{
+			if err2 != nil {
 				return nil, errors.Wrapf(err, "file not found at %s", filepath)
 			}
 			return nil, errors.Wrapf(err, "file not found at %s", fullpath)
