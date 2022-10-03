@@ -316,7 +316,12 @@ func (s *bme280) calculateDewPoint(temp, humid float64) float64 {
 	vp := math.Pow(10, rhs-3) * humid
 	// (2) DEWPOINT = F(Vapor Pressure)
 	t := math.Log(vp / 0.61078) // temp var
-	return (241.88 * t) / (17.558 - t)
+	denominator := 17.558 - t
+	if denominator == 0 {
+		// should be impossible
+		return 999
+	}
+	return (241.88 * t) / denominator
 }
 
 func (s *bme280) reset(ctx context.Context) error {
