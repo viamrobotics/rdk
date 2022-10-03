@@ -45,7 +45,7 @@ func (g *gpsData) parseAndUpdate(line string) error {
 	var errs error
 	s, err := nmea.Parse(line)
 	if err != nil {
-		return multierr.Append(errs, err)
+		return multierr.Combine(errs, err)
 	}
 	// Most receivers support at least the following sentence types: GSV, RMC, GSA, GGA, GLL, VTG, GNS
 	if gsv, ok := s.(nmea.GSV); ok {
