@@ -11,18 +11,24 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
 	modelname      = "bme280"
 	defaultI2Caddr = 0x77
-	defaultBaud    = 100000
+
+	// When mode is set to 0, sensors are off.
+	// When mode is set to 1 or 2, sensors are read once and then turn off again.
+	// When mode is set to 3, sensors are on and continuously read.
+	activeMode = 0b11
 
 	// Addresses of bme280 registers.
 	bme280T1LSBReg           = 0x88
@@ -76,17 +82,20 @@ const (
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	UniqueID string `json:"unique_id"`
-	Board    string `json:"board,omitempty"`
-
-	*I2CAttrConfig `json:"i2c_attributes,omitempty"`
+	Board   string `json:"board"`
+	I2CBus  string `json:"i2c_bus"`
+	I2cAddr int    `json:"i2c_addr,omitempty"`
 }
 
-// I2CAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
-type I2CAttrConfig struct {
-	I2CBus      string `json:"i2c_bus"`
-	I2cAddr     int    `json:"i2c_addr,omitempty"`
-	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
+// Validate ensures all parts of the config are valid.
+func (config *AttrConfig) Validate(path string) error {
+	if len(config.Board) == 0 {
+		return utils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+	if len(config.I2CBus) == 0 {
+		return utils.NewConfigValidationFieldRequiredError(path, "i2c bus")
+	}
+	return nil
 }
 
 func init() {
@@ -99,7 +108,11 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newSensor(ctx, deps, config.Name, config.ConvertedAttributes.(*AttrConfig), logger)
+			attr, ok := config.ConvertedAttributes.(*AttrConfig)
+			if !ok {
+				return nil, rdkutils.NewUnexpectedTypeError(AttrConfig{}, config.ConvertedAttributes)
+			}
+			return newSensor(ctx, deps, config.Name, attr, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(sensor.SubtypeName, modelname,
@@ -124,19 +137,14 @@ func newSensor(
 	if !ok {
 		return nil, fmt.Errorf("board %s is not local", attr.Board)
 	}
-	i2cbus, ok := localB.I2CByName(attr.I2CAttrConfig.I2CBus)
+	i2cbus, ok := localB.I2CByName(attr.I2CBus)
 	if !ok {
-		return nil, fmt.Errorf("bme280 init: failed to find i2c bus %s", attr.I2CAttrConfig.I2CBus)
+		return nil, fmt.Errorf("bme280 init: failed to find i2c bus %s", attr.I2CBus)
 	}
-	addr := attr.I2CAttrConfig.I2cAddr
+	addr := attr.I2cAddr
 	if addr == 0 {
 		addr = defaultI2Caddr
 		logger.Warn("using i2c address : 0x77")
-	}
-	baudrate := attr.I2CAttrConfig.I2CBaudRate
-	if baudrate == 0 {
-		baudrate = defaultBaud
-		logger.Warn("using default baudrate : 100000")
 	}
 
 	s := &bme280{
@@ -144,7 +152,6 @@ func newSensor(
 		logger:   logger,
 		bus:      i2cbus,
 		addr:     byte(addr),
-		wbaud:    baudrate,
 		lastTemp: -999, // initialize to impossible temp
 	}
 
@@ -152,13 +159,14 @@ func newSensor(
 	if err != nil {
 		return nil, err
 	}
-	time.Sleep(50 * time.Millisecond)
+	// After sending the reset signal above, it takes the chip a short time to be ready to receive commands again
+	time.Sleep(100 * time.Millisecond)
 	s.calibration = map[string]int{}
 	err = s.setupCalibration(ctx)
 	if err != nil {
 		return nil, err
 	}
-	err = s.setMode(ctx, 0b11)
+	err = s.setMode(ctx, activeMode)
 	if err != nil {
 		return nil, err
 	}
@@ -172,18 +180,20 @@ func newSensor(
 		return nil, err
 	}
 
+	// Oversample means "read the sensor this many times and average the results". 1 is generally fine.
+	// Chip inits to 0 for all, which means "do not read this sensor"/
 	// humidity
 	err = s.setOverSample(ctx, bme280CTRLHumidityReg, 0, 1) // Default of 1x oversample
 	if err != nil {
 		return nil, err
 	}
-	// temperature
-	err = s.setOverSample(ctx, bme280CTRLMEASReg, 5, 1) // Default of 1x oversample
+	// pressure
+	err = s.setOverSample(ctx, bme280CTRLMEASReg, 2, 1) // Default of 1x oversample
 	if err != nil {
 		return nil, err
 	}
-	// pressure
-	err = s.setOverSample(ctx, bme280CTRLMEASReg, 2, 1) // Default of 1x oversample
+	// temperature
+	err = s.setOverSample(ctx, bme280CTRLMEASReg, 5, 1) // Default of 1x oversample
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +208,6 @@ type bme280 struct {
 
 	bus         board.I2C
 	addr        byte
-	wbaud       int
 	name        string
 	calibration map[string]int
 	lastTemp    float64 // Store raw data from temp for humidity calculations
@@ -326,7 +335,7 @@ func (s *bme280) reset(ctx context.Context) error {
 // 01 and 10 = Forced
 // 11 = Normal mode.
 func (s *bme280) setMode(ctx context.Context, mode int) error {
-	if mode > 0b11 {
+	if mode > activeMode {
 		mode = 0 // Error check. Default to sleep mode
 	}
 
