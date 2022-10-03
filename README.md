@@ -13,7 +13,7 @@ Viam provides an open source robot architecture that provides robotics functiona
 **Cloud App**: [app.viam.com](https://app.viam.com)
 
 ## Contact
-
+HAHA
 * Community Slack: [join](https://join.slack.com/t/viamrobotics/shared_invite/zt-1f5xf1qk5-TECJc1MIY1MW0d6ZCg~Wnw)
 * Support: https://support.viam.com
 
