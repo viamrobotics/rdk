@@ -467,6 +467,7 @@ func (larf *linearlyActuatedRotationalFrame) Geometries(input []Input) (*Geometr
 
 func (larf *linearlyActuatedRotationalFrame) MarshalJSON() ([]byte, error) {
 	config := larf.toConfig()
+	config["type"] = "linearly-actuated-rotational"
 	config["a"] = larf.a
 	config["b"] = larf.b
 	return json.Marshal(config)
