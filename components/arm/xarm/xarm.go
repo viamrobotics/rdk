@@ -63,6 +63,7 @@ func ModelName(dof int) string {
 	return "xArm" + strconv.Itoa(dof)
 }
 
+// Model returns the kinematics model of the xarm arm, also has all Frame information.
 func Model(dof int, name string) (referenceframe.Model, error) {
 	switch dof {
 	case 6:

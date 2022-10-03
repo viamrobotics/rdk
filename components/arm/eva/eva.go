@@ -4,7 +4,6 @@ package eva
 import (
 	"bytes"
 	"context"
-
 	// for embedding model file.
 	_ "embed"
 	"encoding/json"
@@ -353,7 +352,7 @@ func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 	return e.MoveToJointPositions(ctx, e.model.ProtobufFromInput(goal), nil)
 }
 
-// EvaModel() returns the kinematics model of the Eva, also has all Frame information.
+// Model returns the kinematics model of the eva arm, also has all Frame information.
 func Model(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(evamodeljson, name)
 }

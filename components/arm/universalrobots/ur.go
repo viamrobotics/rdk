@@ -60,7 +60,7 @@ func init() {
 		&AttrConfig{})
 }
 
-// Model() returns the kinematics model of the xArm, also has all Frame information.
+// Model returns the kinematics model of the ur arm, also has all Frame information.
 func Model(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(ur5modeljson, name)
 }

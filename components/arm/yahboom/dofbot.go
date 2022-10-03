@@ -28,12 +28,13 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
-// ModelName is the string used to refer to the fake arm model.
+// ModelName is the string used to refer to the yahboom model.
 const ModelName = "yahboom-dofbot"
 
 //go:embed dofbot.json
 var modeljson []byte
 
+// Model returns the kinematics model of the yahboom arm, also has all Frame information.
 func Model(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(modeljson, name)
 }

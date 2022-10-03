@@ -8,9 +8,9 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
+
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/eva"
 	ur "go.viam.com/rdk/components/arm/universalrobots"
@@ -111,7 +111,7 @@ func (a *Arm) ModelFrame() referenceframe.Model {
 	return a.model
 }
 
-// GetEndPosition returns the set position.
+// EndPosition returns the set position.
 func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 	joints, err := a.JointPositions(ctx, extra)
 	if err != nil {
@@ -150,7 +150,7 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosition
 	return nil
 }
 
-// GetJointPositions returns joints.
+// JointPositions returns joints.
 func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) (*pb.JointPositions, error) {
 	retJoint := &pb.JointPositions{Values: a.joints.Values}
 	return retJoint, nil
