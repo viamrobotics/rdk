@@ -135,7 +135,7 @@ func (c *Config) Ensure(fromCloud bool) error {
 	for idx := 0; idx < len(c.Components); idx++ {
 		dependsOn, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx))
 		if err != nil {
-			return err
+			return errors.Errorf("error validating component %s: %s", c.Components[idx].Name, err)
 		}
 		c.Components[idx].ImplicitDependsOn = dependsOn
 	}
