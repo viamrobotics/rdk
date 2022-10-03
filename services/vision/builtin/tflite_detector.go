@@ -6,6 +6,7 @@ import (
 	"context"
 	"image"
 	"os"
+	fp "path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -114,8 +115,20 @@ func addTFLiteModel(ctx context.Context, filepath string, numThreads *int) (*inf
 		return nil, errors.Wrap(err, "could not get loader")
 	}
 
-	model, err = loader.Load(filepath)
+	fullpath, err2 := fp.Abs(filepath)
+	if err2 != nil {
+		model, err = loader.Load(filepath)
+	} else {
+		model, err = loader.Load(fullpath)
+	}
+
 	if err != nil {
+		if strings.Contains(err.Error(), "failed to load") {
+			if err2 != nil {
+				return nil, errors.Wrapf(err, "file not found at %s", filepath)
+			}
+			return nil, errors.Wrapf(err, "file not found at %s", fullpath)
+		}
 		return nil, errors.Wrap(err, "loader could not load model")
 	}
 
@@ -205,7 +218,7 @@ func unpackTensors(ctx context.Context, tensors []interface{}, model *inf.TFLite
 
 	// Read metadata
 	m, err := model.Metadata()
-  
+
 	if err != nil {
 		hasMetadata = false
 	} else {
