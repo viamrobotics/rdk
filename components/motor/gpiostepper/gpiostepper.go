@@ -36,7 +36,7 @@ type PinConfig struct {
 type Config struct {
 	Pins             PinConfig `json:"pins"`
 	BoardName        string    `json:"board"`
-	StepperDelay     uint      `json:"stepper_delay,omitempty"` // When using stepper motors, the time to remain high
+	StepperDelay     uint      `json:"stepper_delay_usec,omitempty"` // When using stepper motors, the time to remain high
 	TicksPerRotation int       `json:"ticks_per_rotation"`
 }
 

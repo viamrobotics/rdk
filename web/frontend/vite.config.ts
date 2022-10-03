@@ -5,10 +5,11 @@ import vue from '@vitejs/plugin-vue';
 export default defineConfig({
   plugins: [
     vue({
+      reactivityTransform: true,
       template: {
         compilerOptions: {
           // treat all tags with a dash as custom elements
-          isCustomElement: (tag) => tag.startsWith('v-'),
+          isCustomElement: (tag) => tag.includes('-'),
         },
       },
     }),

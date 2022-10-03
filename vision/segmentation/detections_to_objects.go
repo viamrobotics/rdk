@@ -17,9 +17,10 @@ import (
 
 // DetectionSegmenterConfig are the optional parameters to turn a detector into a segmenter.
 type DetectionSegmenterConfig struct {
-	DetectorName string  `json:"detector_name"`
-	MeanK        int     `json:"mean_k"`
-	Sigma        float64 `json:"sigma"`
+	DetectorName     string  `json:"detector_name"`
+	ConfidenceThresh float64 `json:"confidence_threshold_pct"`
+	MeanK            int     `json:"mean_k"`
+	Sigma            float64 `json:"sigma"`
 }
 
 // ConvertAttributes changes the AttributeMap input into a DetectionSegmenterConfig.
@@ -33,7 +34,7 @@ func (dsc *DetectionSegmenterConfig) ConvertAttributes(am config.AttributeMap) e
 
 // DetectionSegmenter will take an objectdetector.Detector and turn it into a Segementer.
 // The params for the segmenter are "mean_k" and "sigma" for the statistical filter on the point clouds.
-func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma float64) (Segmenter, error) {
+func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma, confidenceThresh float64) (Segmenter, error) {
 	var err error
 	if detector == nil {
 		return nil, errors.New("detector cannot be nil")
@@ -68,7 +69,7 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma floa
 			return nil, err
 		}
 		// TODO(bhaney): Is there a way to just project the detection boxes themselves?
-		pcs, err := detectionsToPointClouds(dets, img, dm, proj)
+		pcs, err := detectionsToPointClouds(dets, confidenceThresh, img, dm, proj)
 		if err != nil {
 			return nil, err
 		}
@@ -95,13 +96,18 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma floa
 }
 
 // detectionsToPointClouds turns 2D detections into 3D point clodus using the intrinsic camera projection parameters and the image.
-func detectionsToPointClouds(dets []objectdetection.Detection,
+func detectionsToPointClouds(
+	dets []objectdetection.Detection,
+	confidenceThresh float64,
 	im *rimage.Image, dm *rimage.DepthMap,
 	proj transform.Projector,
 ) ([]pointcloud.PointCloud, error) {
 	// project 2D detections to 3D pointclouds
 	pcs := make([]pointcloud.PointCloud, 0, len(dets))
 	for _, d := range dets {
+		if d.Score() < confidenceThresh {
+			continue
+		}
 		bb := d.BoundingBox()
 		if bb == nil {
 			return nil, errors.New("detection bounding box cannot be nil")

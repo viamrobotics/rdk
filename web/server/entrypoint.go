@@ -58,7 +58,9 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	} else {
 		logConfig = golog.NewProductionLoggerConfig()
 	}
+	rdkLogLevel := logConfig.Level
 	logger := zap.Must(logConfig.Build()).Sugar().Named("robot_server")
+	golog.ReplaceGloabl(logger)
 
 	// Always log the version, return early if the '-version' flag was provided
 	// fmt.Println would be better but fails linting. Good enough.
@@ -105,11 +107,13 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	// This is to ensure we make our best effort to write logs for failures loading the remote config.
 	if cfgFromDisk.Cloud != nil && (cfgFromDisk.Cloud.LogPath != "" || cfgFromDisk.Cloud.AppAddress != "") {
 		var closer func()
-		logger, closer, err = addCloudLogger(logger, cfgFromDisk.Cloud)
+		logger, closer, err = addCloudLogger(logger, rdkLogLevel, cfgFromDisk.Cloud)
 		if err != nil {
 			return err
 		}
 		defer closer()
+
+		golog.ReplaceGloabl(logger)
 	}
 
 	server := robotServer{
@@ -121,7 +125,7 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	// Run the server with remote logging enabled.
 	err = server.runServer(ctx)
 	if err != nil {
-		logger.Error("Fatal error running server, existing now: ", err)
+		logger.Error("Fatal error running server, exiting now: ", err)
 	}
 
 	return err

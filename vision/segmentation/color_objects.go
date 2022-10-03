@@ -12,7 +12,7 @@ import (
 
 // ColorObjectsConfig specifies the necessary parameters for the color detection and transformation to 3D objects.
 type ColorObjectsConfig struct {
-	Tolerance      float64 `json:"tolerance"`
+	Tolerance      float64 `json:"tolerance_pct"`
 	Color          string  `json:"detect_color"` // form #RRGGBB
 	MeanK          int     `json:"mean_k"`       // used for StatisticalFilter
 	Sigma          float64 `json:"sigma"`        // used for StatisticalFilter
@@ -69,7 +69,7 @@ func ColorObjects(params config.AttributeMap) (Segmenter, error) {
 		return nil, err
 	}
 	// turn the detector into a segmentor
-	segmenter, err := DetectionSegmenter(detector, cfg.MeanK, cfg.Sigma)
+	segmenter, err := DetectionSegmenter(detector, cfg.MeanK, cfg.Sigma, 1.)
 	if err != nil {
 		return nil, err
 	}

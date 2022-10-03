@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -14,13 +15,13 @@ import (
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
 
 func TestBaseRemoteControl(t *testing.T) {
 	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
 
 	fakeRobot := &inject.Robot{}
 	fakeController := &inject.InputController{}
@@ -58,7 +59,7 @@ func TestBaseRemoteControl(t *testing.T) {
 			Type:                "base_remote_control",
 			ConvertedAttributes: cfg,
 		},
-		rlog.Logger)
+		logger)
 	test.That(t, err, test.ShouldBeNil)
 	svc, ok := tmpSvc.(*builtIn)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -70,7 +71,7 @@ func TestBaseRemoteControl(t *testing.T) {
 			Type:                "base_remote_control",
 			ConvertedAttributes: cfg,
 		},
-		rlog.Logger)
+		logger)
 	test.That(t, err, test.ShouldBeNil)
 	svc1, ok := tmpSvc1.(*builtIn)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -82,7 +83,7 @@ func TestBaseRemoteControl(t *testing.T) {
 			Type:                "base_remote_control",
 			ConvertedAttributes: cfg,
 		},
-		rlog.Logger)
+		logger)
 	test.That(t, err, test.ShouldBeNil)
 	svc2, ok := tmpSvc2.(*builtIn)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -94,7 +95,7 @@ func TestBaseRemoteControl(t *testing.T) {
 			Type:                "base_remote_control",
 			ConvertedAttributes: cfg,
 		},
-		rlog.Logger)
+		logger)
 	test.That(t, err, test.ShouldBeNil)
 	svc3, ok := tmpSvc3.(*builtIn)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -106,7 +107,7 @@ func TestBaseRemoteControl(t *testing.T) {
 			Type:                "base_remote_control",
 			ConvertedAttributes: cfg,
 		},
-		rlog.Logger)
+		logger)
 	test.That(t, err, test.ShouldBeNil)
 	svc4, ok := tmpSvc4.(*builtIn)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -125,7 +126,7 @@ func TestBaseRemoteControl(t *testing.T) {
 			Type:                "base_remote_control",
 			ConvertedAttributes: cfg,
 		},
-		rlog.Logger)
+		logger)
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:input_controller/\" not found"))
 
 	// Base import failure
@@ -142,7 +143,7 @@ func TestBaseRemoteControl(t *testing.T) {
 			Type:                "base_remote_control",
 			ConvertedAttributes: cfg,
 		},
-		rlog.Logger)
+		logger)
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:base/\" not found"))
 
 	// Start checks

@@ -22,9 +22,9 @@ type RadiusClusteringVoxelConfig struct {
 	MinPtsInSegment    int     `json:"min_points_in_segment"`
 	ClusteringRadiusMm float64 `json:"clustering_radius_mm"`
 	WeightThresh       float64 `json:"weight_threshold"`
-	AngleThresh        float64 `json:"angle_threshold"` // in degrees
-	CosineThresh       float64 `json:"cosine_threshold"`
-	DistanceThresh     float64 `json:"distance_threshold"`
+	AngleThresh        float64 `json:"angle_threshold_degs"`
+	CosineThresh       float64 `json:"cosine_threshold"` // between -1 and 1, the value after evaluating Cosine(theta)
+	DistanceThresh     float64 `json:"distance_threshold_mm"`
 }
 
 // CheckValid checks to see in the input values are valid.

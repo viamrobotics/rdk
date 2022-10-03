@@ -106,7 +106,11 @@ func registerSegmenterFromDetector(ctx context.Context, mm modelMap, conf *visio
 		return err
 	}
 	// convert numbers from parameters
-	segmenter, err := segmentation.DetectionSegmenter(detector, cfg.MeanK, cfg.Sigma)
+	confThresh := 0.5 // default value
+	if cfg.ConfidenceThresh > 0.0 {
+		confThresh = cfg.ConfidenceThresh
+	}
+	segmenter, err := segmentation.DetectionSegmenter(detector, cfg.MeanK, cfg.Sigma, confThresh)
 	if err != nil {
 		return err
 	}
