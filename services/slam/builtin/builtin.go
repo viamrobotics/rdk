@@ -735,14 +735,22 @@ func (slamSvc *builtIn) getLazyPNGImage(ctx context.Context, cam camera.Camera) 
 		return nil, nil, err
 	}
 
-	lazyImg, ok := img.(*rimage.LazyEncodedImage)
-	if !ok {
-		return nil, nil, errors.Errorf("expected lazily encoded image, got %T", lazyImg)
+	if lazyImg, ok := img.(*rimage.LazyEncodedImage); ok {
+		if lazyImg.MIMEType() != utils.MimeTypePNG {
+			return nil, nil, errors.Errorf("expected mime type %v, got %T", utils.MimeTypePNG, img)
+		}
+		return lazyImg.RawData(), release, nil
 	}
-	if lazyImg.MIMEType() != utils.MimeTypePNG {
-		return nil, nil, errors.Errorf("expected mime type %v, got %v", utils.MimeTypePNG, lazyImg.MIMEType())
+	
+	if ycbcrImg, ok := img.(*image.YCbCr); ok {
+		pngImage, err := rimage.EncodeImage(ctx, ycbcrImg, utils.MimeTypePNG)
+		if err != nil {
+			return nil, nil, err
+		}
+		return pngImage, release, nil
 	}
-	return lazyImg.RawData(), release, nil
+
+	return nil, nil, errors.Errorf("expected lazily encoded image or ycbcrImg, got %T", img)
 }
 
 // getAndSaveDataSparse implements the data extraction for sparse algos and saving to the directory path (data subfolder) specified in
