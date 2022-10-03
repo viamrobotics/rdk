@@ -1,4 +1,4 @@
-# RDK (Robot Development Kit)
+# RDK (Robot Development Kool)
 
 <p align="center">
   <a href="https://pkg.go.dev/go.viam.com/rdk"><img src="https://pkg.go.dev/badge/go.viam.com/rdk" alt="PkgGoDev"></a>
