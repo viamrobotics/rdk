@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	fp "path/filepath"
 
 	"github.com/edaniels/golog"
 	"github.com/nfnt/resize"
@@ -116,7 +117,11 @@ func addTFLiteModel(ctx context.Context, filepath string, numThreads *int) (*inf
 	model, err = loader.Load(filepath)
 	if err != nil {
 		if strings.Contains(err.Error(), "failed to load") {
-			return nil, errors.Wrapf(err, "file not found at %s", filepath)
+			fullpath, err2 := fp.Abs(filepath)
+			if err2 != nil{
+				return nil, errors.Wrapf(err, "file not found at %s", filepath)
+			}
+			return nil, errors.Wrapf(err, "file not found at %s", fullpath)
 		}
 		return nil, errors.Wrap(err, "loader could not load model")
 	}
