@@ -113,8 +113,14 @@ func addTFLiteModel(ctx context.Context, filepath string, numThreads *int) (*inf
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get loader")
 	}
+
 	fullpath, err2 := fp.Abs(filepath)
-	model, err = loader.Load(fullpath)
+	if err2 != nil {
+		model, err = loader.Load(filepath)
+	} else {
+		model, err = loader.Load(fullpath)
+	}
+
 	if err != nil {
 		if strings.Contains(err.Error(), "failed to load") {
 			if err2 != nil {
