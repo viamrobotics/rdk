@@ -184,7 +184,7 @@ jobs:
 
     - name: Get orbslam binary for integration tests
       run: |
-        sudo curl -o /usr/local/bin/orb_grpc_server http://packages.viam.com/apps/slam-servers/orb_grpc_server-latest-x86_64.AppImage
+        sudo curl -o /usr/local/bin/orb_grpc_server http://packages.viam.com/apps/slam-servers/orb_grpc_server-testing-x86_64.AppImage
         sudo chmod a+rx /usr/local/bin/orb_grpc_server
 
     - name: Run integration tests
