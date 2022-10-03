@@ -227,6 +227,7 @@ func (c *collector) getAndPushNextReading() {
 // NewCollector returns a new Collector with the passed capturer and configuration options. It calls capturer at the
 // specified Interval, and appends the resulting reading to target.
 func NewCollector(capturer Capturer, params CollectorParams) (Collector, error) {
+	fmt.Println("making new collector")
 	if err := params.Validate(); err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("failed to construct collector for %s", params.ComponentName))
 	}
