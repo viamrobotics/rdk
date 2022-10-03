@@ -125,7 +125,7 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	// Run the server with remote logging enabled.
 	err = server.runServer(ctx)
 	if err != nil {
-		logger.Error("Fatal error running server, existing now: ", err)
+		logger.Error("Fatal error running server, exiting now: ", err)
 	}
 
 	return err
