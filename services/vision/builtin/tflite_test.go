@@ -152,6 +152,27 @@ func TestLabelReader(t *testing.T) {
 	test.That(t, len(got), test.ShouldEqual, 12)
 }
 
+func TestFileNotFound(t *testing.T) {
+
+	// Build SSD detector
+	ctx := context.Background()
+
+	cfg := vision.VisModelConfig{
+		Name: "nofile", Type: "tflite_detector",
+		Parameters: config.AttributeMap{
+			"model_path":  "very/fake/path.tflite",
+			"label_path":  "",
+			"num_threads": 2,
+		},
+	}
+	outDet, outModel, err := NewTFLiteDetector(ctx, &cfg, golog.NewTestLogger(t))
+	test.That(t, outDet, test.ShouldBeNil)
+	test.That(t, outModel, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "file not found")
+
+}
+
 func TestNewTfLiteClassifier(t *testing.T) {
 	// Test that empty config gives error about loading model
 	emptyCfg := vision.VisModelConfig{}
