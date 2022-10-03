@@ -176,19 +176,19 @@ func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context) (r3.Vecto
 func (g *SerialNMEAMovementSensor) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplemented("AngularVelocity")
+	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
 
 // Orientation orientation.
 func (g *SerialNMEAMovementSensor) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
-	return nil, movementsensor.ErrMethodUnimplemented("Orientation")
+	return nil, movementsensor.ErrMethodUnimplementedOrientation
 }
 
 // CompassHeading 0->360.
 func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return 0, movementsensor.ErrMethodUnimplemented("CompassHeading")
+	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
 
 // ReadFix returns Fix quality of MovementSensor measurements.

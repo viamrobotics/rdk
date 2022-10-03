@@ -85,7 +85,7 @@ func (imu *wit) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocit
 func (imu *wit) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
-	return r3.Vector{}, movementsensor.ErrMethodUnimplemented("LinearVelocity")
+	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 }
 
 func (imu *wit) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
@@ -109,15 +109,15 @@ func (imu *wit) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
 }
 
 func (imu *wit) CompassHeading(ctx context.Context) (float64, error) {
-	return 0, movementsensor.ErrMethodUnimplemented("CompassHeading")
+	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
 
 func (imu *wit) Position(ctx context.Context) (*geo.Point, float64, error) {
-	return geo.NewPoint(0, 0), 0, movementsensor.ErrMethodUnimplemented("Position")
+	return geo.NewPoint(0, 0), 0, movementsensor.ErrMethodUnimplementedPosition
 }
 
 func (imu *wit) Accuracy(ctx context.Context) (map[string]float32, error) {
-	return map[string]float32{}, movementsensor.ErrMethodUnimplemented("Accuracy")
+	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
 func (imu *wit) Readings(ctx context.Context) (map[string]interface{}, error) {

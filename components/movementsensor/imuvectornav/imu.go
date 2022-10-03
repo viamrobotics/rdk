@@ -299,15 +299,15 @@ func (vn *vectornav) CompassHeading(ctx context.Context) (float64, error) {
 }
 
 func (vn *vectornav) LinearVelocity(ctx context.Context) (r3.Vector, error) {
-	return r3.Vector{}, movementsensor.ErrMethodUnimplemented("LinearVelocity")
+	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 }
 
 func (vn *vectornav) Position(ctx context.Context) (*geo.Point, float64, error) {
-	return nil, 0, movementsensor.ErrMethodUnimplemented("Position")
+	return nil, 0, movementsensor.ErrMethodUnimplementedPosition
 }
 
 func (vn *vectornav) Accuracy(ctx context.Context) (map[string]float32, error) {
-	return map[string]float32{}, movementsensor.ErrMethodUnimplemented("Accuracy")
+	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
 func (vn *vectornav) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
