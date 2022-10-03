@@ -312,7 +312,7 @@ func calculateLinVel(motion *odometry.Motion3D, dt float64) r3.Vector {
 
 // Accuracy gets the position of the moving object calculated by visual odometry.
 func (co *cameramono) Accuracy(ctx context.Context) (map[string]float32, error) {
-	return map[string]float32{}, movementsensor.ErrMethodUnimplemented("Accuracy")
+	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
 // COmpassHeadings gets the position of the moving object calculated by visual odometry.
