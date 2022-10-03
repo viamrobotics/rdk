@@ -554,8 +554,9 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("error building resource %s/%s/%s: %s", config.Model, rName.Subtype, config.Name, err)
 	}
+
 	c := registry.ResourceSubtypeLookup(rName.Subtype)
 	if c == nil || c.Reconfigurable == nil {
 		return newResource, nil
