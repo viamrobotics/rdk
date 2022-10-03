@@ -19,11 +19,13 @@ import (
 
 func TestNewNetLogger(t *testing.T) {
 	logger := golog.NewTestLogger(t)
+	level := zap.NewAtomicLevelAt(zap.InfoLevel)
+
 	t.Run("with AppConfig should use GRPC", func(t *testing.T) {
 		nl, err := newNetLogger(&config.Cloud{
 			AppAddress: "http://localhost:8080",
 			ID:         "abc-123",
-		}, logger)
+		}, logger, level)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, ok := nl.remoteWriter.(*remoteLogWriterGRPC)
@@ -35,7 +37,7 @@ func TestNewNetLogger(t *testing.T) {
 		nl, err := newNetLogger(&config.Cloud{
 			LogPath: "http://localhost:8080/logs",
 			ID:      "abc-123",
-		}, logger)
+		}, logger, level)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, ok := nl.remoteWriter.(*remoteLogWriterHTTP)
@@ -70,6 +72,7 @@ func TestNewNetBatchWrites(t *testing.T) {
 		cancel:       cancel,
 		remoteWriter: logWriter,
 		maxQueueSize: 1000,
+		logLevel:     zap.NewAtomicLevelAt(zap.InfoLevel),
 	}
 
 	l := logger.Desugar()
@@ -155,6 +158,7 @@ func TestBatchFailureAndRetry(t *testing.T) {
 		cancel:       cancel,
 		remoteWriter: logWriter,
 		maxQueueSize: 100,
+		logLevel:     zap.NewAtomicLevelAt(zap.InfoLevel),
 	}
 
 	l := logger.Desugar()
@@ -210,6 +214,7 @@ func TestUnderlyingLoggerDoesntRecurse(t *testing.T) {
 		remoteWriter:     logWriter,
 		maxQueueSize:     100,
 		loggerWithoutNet: logger,
+		logLevel:         zap.NewAtomicLevelAt(zap.InfoLevel),
 	}
 
 	newLogger := logger.Desugar()
@@ -224,6 +229,66 @@ func TestUnderlyingLoggerDoesntRecurse(t *testing.T) {
 
 	newLogger.Info("should write to network")
 	logger.Info("should not write to network")
+	nl.Sync()
+
+	nl.Close()
+}
+
+func TestLogLevel(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	client := mockapppb.NewMockRobotServiceClient(ctrl)
+
+	logger := golog.NewTestLogger(t)
+	cancelCtx, cancel := context.WithCancel(context.Background())
+
+	config := &config.Cloud{
+		AppAddress: "http://localhost:8080",
+		ID:         "abc-123",
+	}
+
+	logWriter := &remoteLogWriterGRPC{
+		loggerWithoutNet: logger,
+		cfg:              config,
+		service:          client,
+	}
+
+	level := zap.NewAtomicLevelAt(zap.InfoLevel)
+
+	nl := &netLogger{
+		hostname:         "hostname",
+		cancelCtx:        cancelCtx,
+		cancel:           cancel,
+		remoteWriter:     logWriter,
+		maxQueueSize:     100,
+		loggerWithoutNet: logger,
+		logLevel:         level,
+	}
+
+	newLogger := logger.Desugar()
+	newLogger = newLogger.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
+		return zapcore.NewTee(c, nl)
+	}))
+
+	client.EXPECT().
+		Log(gomock.Any(), &expectedLogMatch{nLogs: 1, id: "abc-123"}).
+		Times(1).
+		Return(&apppb.LogResponse{}, nil)
+
+	newLogger.Info("info level")
+	newLogger.Debug("debug level")
+	nl.Sync()
+
+	level.SetLevel(zap.DebugLevel)
+
+	client.EXPECT().
+		Log(gomock.Any(), &expectedLogMatch{nLogs: 2, id: "abc-123"}).
+		Times(1).
+		Return(&apppb.LogResponse{}, nil)
+
+	newLogger.Info("info level")
+	newLogger.Debug("debug level")
 	nl.Sync()
 
 	nl.Close()
