@@ -317,5 +317,5 @@ func (co *cameramono) Accuracy(ctx context.Context) (map[string]float32, error) 
 
 // COmpassHeadings gets the position of the moving object calculated by visual odometry.
 func (co *cameramono) CompassHeading(ctx context.Context) (float64, error) {
-	return 0, movementsensor.ErrMethodUnimplemented("CompassHeading")
+	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }

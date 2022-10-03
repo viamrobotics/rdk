@@ -5,7 +5,6 @@ import (
 	"math"
 
 	geo "github.com/kellydunn/golang-geo"
-	errs "github.com/pkg/errors"
 
 	"go.viam.com/rdk/utils"
 )
@@ -50,36 +49,21 @@ func GetHeading(gps1, gps2 *geo.Point, yawOffset float64) (float64, float64, flo
 	return brng, heading, standardBearing
 }
 
-type mStr string
-
-const (
-	posStr      = mStr("Position")
-	oriStr      = mStr("Orientation")
-	angvelStr   = mStr("AngularVelocity")
-	linvelStr   = mStr("LinearVelocity")
-	compStr     = mStr("CompassHeading")
-	accuracyStr = mStr("Accuracy")
-	readStr     = mStr("Readings")
+var (
+	// ErrMethodUnimplementedAccuracy returns error if the Accuracy method is unimplemented.
+	ErrMethodUnimplementedAccuracy = errors.New("Accuracy Unimplemented")
+	// ErrMethodUnimplementedPosition returns error if the Position method is unimplemented.
+	ErrMethodUnimplementedPosition = errors.New("Position Unimplemented")
+	// ErrMethodUnimplementedOrientation returns error if the Orientation method is unimplemented.
+	ErrMethodUnimplementedOrientation = errors.New("Orientation Unimplemented")
+	// ErrMethodUnimplementedLinearVelocity returns error if the LinearVelocity method is unimplemented.
+	ErrMethodUnimplementedLinearVelocity = errors.New("LinearVelocity Unimplemented")
+	// ErrMethodUnimplementedAngularVelocity returns error if the AngularVelocity method is unimplemented.
+	ErrMethodUnimplementedAngularVelocity = errors.New("AngularVelocity Unimplemented")
+	// ErrMethodUnimplementedCompassHeading returns error if the CompassHeading method is unimplemented.
+	ErrMethodUnimplementedCompassHeading = errors.New("CompassHeading Unimplemented")
+	// ErrMethodUnimplementedReadings returns error if the Readings method is unimplemented.
+	ErrMethodUnimplementedReadings = errors.New("Readings Unimplemented")
+	// ErrMethodUnimplementedProperties returns error if the Properties method is unimplemented.
+	ErrMethodUnimplementedProperties = errors.New("Properties Unimplemented")
 )
-
-// ErrMethodUnimplemented implements unused method errors.
-func ErrMethodUnimplemented(method mStr) error {
-	switch method {
-	case posStr:
-		return errors.New("Position Unimplemented")
-	case oriStr:
-		return errors.New("Orientation Unimplemented")
-	case angvelStr:
-		return errors.New("LinearVelocity Unimplemented")
-	case linvelStr:
-		return errors.New("AngularVelocity Unimplemented")
-	case compStr:
-		return errors.New("CompassHeading Unimplemented")
-	case accuracyStr:
-		return errors.New("Accuracy Unimplemented")
-	case readStr:
-		return errors.New("Readings Unimplemented")
-	default:
-		return errs.Errorf("unknown method name %s used for creating unimerror", method)
-	}
-}

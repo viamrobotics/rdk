@@ -344,31 +344,31 @@ func (r *rtkStation) Close() error {
 }
 
 func (r *rtkStation) Position(ctx context.Context) (*geo.Point, float64, error) {
-	return &geo.Point{}, 0, movementsensor.ErrMethodUnimplemented("Position")
+	return &geo.Point{}, 0, movementsensor.ErrMethodUnimplementedPosition
 }
 
 func (r *rtkStation) LinearVelocity(ctx context.Context) (r3.Vector, error) {
-	return r3.Vector{}, movementsensor.ErrMethodUnimplemented("LinearVelocity")
+	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 }
 
 func (r *rtkStation) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
-	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplemented("AngularVelocity")
+	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
 
 func (r *rtkStation) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
-	return spatialmath.NewZeroOrientation(), movementsensor.ErrMethodUnimplemented("Orientation")
+	return spatialmath.NewZeroOrientation(), movementsensor.ErrMethodUnimplementedOrientation
 }
 
 func (r *rtkStation) CompassHeading(ctx context.Context) (float64, error) {
-	return 0, movementsensor.ErrMethodUnimplemented("CompassHeading")
+	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
 
 func (r *rtkStation) Readings(ctx context.Context) (map[string]interface{}, error) {
-	return map[string]interface{}{}, movementsensor.ErrMethodUnimplemented("Readings")
+	return map[string]interface{}{}, movementsensor.ErrMethodUnimplementedReadings
 }
 
 func (r *rtkStation) Accuracy(ctx context.Context) (map[string]float32, error) {
-	return map[string]float32{}, movementsensor.ErrMethodUnimplemented("Accuracy")
+	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
 func (r *rtkStation) Properties(ctx context.Context) (*movementsensor.Properties, error) {

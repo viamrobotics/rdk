@@ -130,32 +130,32 @@ func Readings(ctx context.Context, g MovementSensor) (map[string]interface{}, er
 	readings := map[string]interface{}{}
 
 	pos, altitide, err := g.Position(ctx)
-	if err != nil && err.Error() != ErrMethodUnimplemented("Position").Error() {
+	if err != nil && err.Error() != ErrMethodUnimplementedPosition.Error() {
 		return nil, err
 	}
 	readings["position"] = pos
 	readings["altitide"] = altitide
 
 	vel, err := g.LinearVelocity(ctx)
-	if err != nil && err.Error() != ErrMethodUnimplemented("LinearVelocity").Error() {
+	if err != nil && err.Error() != ErrMethodUnimplementedLinearVelocity.Error() {
 		return nil, err
 	}
 	readings["linear_velocity"] = vel
 
 	avel, err := g.AngularVelocity(ctx)
-	if err != nil && err.Error() != ErrMethodUnimplemented("AngularVelocity").Error() {
+	if err != nil && err.Error() != ErrMethodUnimplementedAngularVelocity.Error() {
 		return nil, err
 	}
 	readings["angular_velocity"] = avel
 
 	compass, err := g.CompassHeading(ctx)
-	if err != nil && err.Error() != ErrMethodUnimplemented("CompassHeading").Error() {
+	if err != nil && err.Error() != ErrMethodUnimplementedCompassHeading.Error() {
 		return nil, err
 	}
 	readings["compass"] = compass
 
 	ori, err := g.Orientation(ctx)
-	if err != nil && err.Error() != ErrMethodUnimplemented("Orientation").Error() {
+	if err != nil && err.Error() != ErrMethodUnimplementedOrientation.Error() {
 		return nil, err
 	}
 	readings["orientation"] = ori
