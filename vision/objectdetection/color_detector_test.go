@@ -20,16 +20,48 @@ func TestColorDetector(t *testing.T) {
 	// detector with error
 	cfg := &ColorDetectorConfig{
 		SegmentSize:       150000,
-		Tolerance:         8.0,
+		HueTolerance:      8.0,
 		DetectColorString: "#4F3815", // an orange color
 	}
 	_, err = NewColorDetector(cfg)
-	test.That(t, err, test.ShouldBeError, errors.New("tolerance must be between 0.0 and 1.0. Got 8.00000"))
-	// detector with 100% tolerance
-	cfg.Tolerance = 1.
+	test.That(t, err, test.ShouldBeError, errors.New("hue_tolerance_pct must be between 0.0 and 1.0. Got 8.00000"))
+
+	cfg.HueTolerance = 1.
+	cfg.SaturationCutoff = 8
+	_, err = NewColorDetector(cfg)
+	test.That(t, err, test.ShouldBeError, errors.New("saturation_cutoff_pct must be between 0.0 and 1.0. Got 8.00000"))
+
+	cfg.SaturationCutoff = 1.
+	cfg.ValueCutoff = 8
+	_, err = NewColorDetector(cfg)
+	test.That(t, err, test.ShouldBeError, errors.New("value_cutoff_pct must be between 0.0 and 1.0. Got 8.00000"))
+
+	cfg.ValueCutoff = 1.
+	_, err = NewColorDetector(cfg)
+	test.That(t, err, test.ShouldBeError,
+		errors.New("requested detect_color has saturation of 0.73333 which is less than saturation_cutoff_pct 1.00000"),
+	)
+
+	cfg.SaturationCutoff = 0.2
+	_, err = NewColorDetector(cfg)
+	test.That(t, err, test.ShouldBeError,
+		errors.New("requested detect_color has value of 0.30980 which is less than value_cutoff_pct 1.00000"),
+	)
+
+	cfg.ValueCutoff = 0.3
 	det, err := NewColorDetector(cfg)
 	test.That(t, err, test.ShouldBeNil)
 	result, err := det(ctx, img)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldHaveLength, 1)
+	test.That(t, result[0].BoundingBox().Min, test.ShouldResemble, image.Point{0, 336})
+
+	// Try with default cutoff values
+	cfg.SaturationCutoff = 0
+	cfg.ValueCutoff = 0
+	det, err = NewColorDetector(cfg)
+	test.That(t, err, test.ShouldBeNil)
+	result, err = det(ctx, img)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldHaveLength, 1)
 	test.That(t, result[0].BoundingBox().Min, test.ShouldResemble, image.Point{0, 336})

@@ -26,7 +26,7 @@ func TestDetectionSource(t *testing.T) {
 	// make the detector
 	detCfg := &objectdetection.ColorDetectorConfig{
 		SegmentSize:       15000,
-		Tolerance:         0.0444444,
+		HueTolerance:      0.0444444,
 		DetectColorString: "#4f3815",
 	}
 	d, err := objectdetection.NewColorDetector(detCfg)
