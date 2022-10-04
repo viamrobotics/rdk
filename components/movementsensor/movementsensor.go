@@ -3,6 +3,7 @@ package movementsensor
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/edaniels/golog"
