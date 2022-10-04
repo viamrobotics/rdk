@@ -501,8 +501,6 @@ func newWithResources(
 		}
 		r.manager.addResource(name, svc)
 	}
-	// SMURF is this needed?
-	cfg = r.updateDefaultServiceNames(cfg)
 
 	r.activeBackgroundWorkers.Add(1)
 	// this goroutine listen for changes in connection status of a remote

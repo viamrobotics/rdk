@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/config"
 	myc "go.viam.com/rdk/examples/mycomponent/component"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/utils"
 )
 
@@ -32,12 +33,15 @@ func TestMyComponent(t *testing.T) {
 
 	cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/mycomponent/server/config.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
-	cfgServer.Network.BindAddress = addr1
 	r0, err := robotimpl.New(ctx, cfgServer, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r0.Close(context.Background()), test.ShouldBeNil)
 	}()
+	options := weboptions.New()
+	options.Network.BindAddress = addr1
+	err = r0.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
 
 	tmpConf, err := os.CreateTemp("", "*.json")
 	test.That(t, err, test.ShouldBeNil)

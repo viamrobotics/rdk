@@ -402,7 +402,9 @@ func (svc *webService) Close() error {
 		svc.cancelFunc()
 		svc.cancelFunc = nil
 	}
-	svc.liteServer.GracefulStop()
+	if svc.liteServer != nil {
+		svc.liteServer.GracefulStop()
+	}
 	svc.activeBackgroundWorkers.Wait()
 	return nil
 }

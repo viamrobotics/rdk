@@ -24,6 +24,7 @@ import (
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/testutils/robottestutils"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -280,13 +281,14 @@ func TestServiceWithRemote(t *testing.T) {
 	remoteConfig, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 	ctx := context.Background()
-	remoteConfig.Network.BindAddress = ":0"
 	remoteRobot, err := robotimpl.New(ctx, remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, remoteRobot.Close(context.Background()), test.ShouldBeNil)
 	}()
-	addr, err := remoteRobot.WebAddress()
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err = remoteRobot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	// make the local robot
