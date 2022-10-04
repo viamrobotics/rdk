@@ -28,9 +28,9 @@ import (
 type AttrConfig struct {
 	*camera.AttrConfig
 	VideoPath    string                 `json:"video_path"`
-	InputKWArgs  map[string]interface{} `json:"input_kw_args"`
-	Filters      []FilterAttrs          `json:"filters"`
-	OutputKWArgs map[string]interface{} `json:"output_kw_args"`
+	InputKWArgs  map[string]interface{} `json:"input_kw_args,omitempty"`
+	Filters      []FilterAttrs          `json:"filters,omitempty"`
+	OutputKWArgs map[string]interface{} `json:"output_kw_args,omitempty"`
 }
 
 // FilterAttrs is a struct to used to configure ffmpeg filters.
