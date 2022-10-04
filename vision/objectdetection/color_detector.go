@@ -12,14 +12,15 @@ import (
 type ColorDetectorConfig struct {
 	SegmentSize       int     `json:"segment_size_px"`
 	HueTolerance      float64 `json:"hue_tolerance_pct"`
-	SaturationCutoff  float64 `json:"saturation_cutoff_pct"`
-	ValueCutoff       float64 `json:"value_cutoff_pct"`
+	SaturationCutoff  float64 `json:"saturation_cutoff_pct,omitempty"`
+	ValueCutoff       float64 `json:"value_cutoff_pct,omitempty"`
 	DetectColorString string  `json:"detect_color"` // hex string "#RRGGBB"
 }
 
 // NewColorDetector is a detector that identifies objects based on color.
 // It takes in a hue value between 0 and 360, and then defines a valid range around the hue of that color
-// based on the tolerance. The color is considered valid if the pixel is between (hue - tol) <= color <= (hue + tol).
+// based on the tolerance. The color is considered valid if the pixel is between (hue - tol) <= color <= (hue + tol)
+// and if the saturation and value level are above their cutoff points.
 func NewColorDetector(cfg *ColorDetectorConfig) (Detector, error) {
 	col, err := rimage.NewColorFromHex(cfg.DetectColorString)
 	if err != nil {
@@ -27,9 +28,6 @@ func NewColorDetector(cfg *ColorDetectorConfig) (Detector, error) {
 	}
 	hue, s, v := col.HsvNormal()
 	tol := cfg.HueTolerance
-	if tol == 0 {
-		tol = 0.05
-	}
 	sat := cfg.SaturationCutoff
 	if sat == 0 {
 		sat = 0.2
@@ -39,7 +37,7 @@ func NewColorDetector(cfg *ColorDetectorConfig) (Detector, error) {
 		val = 0.3
 	}
 
-	if tol > 1.0 || tol < 0.0 {
+	if tol > 1.0 || tol <= 0.0 {
 		return nil, errors.Errorf("hue_tolerance_pct must be between 0.0 and 1.0. Got %.5f", tol)
 	}
 	if sat > 1.0 || sat < 0.0 {
