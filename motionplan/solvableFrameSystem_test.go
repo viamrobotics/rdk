@@ -58,8 +58,6 @@ func makeTestFS(t *testing.T) *SolvableFrameSystem {
 }
 
 func TestFrameSystemSolver(t *testing.T) {
-	// TODO(RSDK-653) - stop skipping this
-	t.Skip()
 	solver := makeTestFS(t)
 	positions := frame.StartPositions(solver)
 	pointXarmGripper := spatial.NewPoseFromPoint(r3.Vector{157., -50, -288})

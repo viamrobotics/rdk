@@ -126,7 +126,7 @@ func (fss *SolvableFrameSystem) SetPlannerGen(mpFunc func(frame.Frame, int, golo
 type solverFrame struct {
 	name       string
 	completeFs *SolvableFrameSystem
-	movingFs   frame.FrameSystem
+	movingGeom []string      // List of names of all frames that could move, used for collision detection
 	frames     []frame.Frame // all frames directly between and including solveFrame and goalFrame. Order not important.
 	solveFrame frame.Frame
 	goalFrame  frame.Frame
@@ -143,7 +143,7 @@ func newSolverFrame(
 	goalFrameName string,
 	seedMap map[string][]frame.Input,
 ) (*solverFrame, error) {
-	var movingFs frame.FrameSystem
+	var movingGeom []string
 	var frames []frame.Frame
 	worldRooted := false
 
@@ -163,23 +163,53 @@ func newSolverFrame(
 	}
 	solveFrame := solveFrameList[0]
 
+	movingGeomNames := func(frameList []frame.Frame) ([]string, error) {
+		// Find first moving frame
+		var moveF frame.Frame
+		for i := len(frameList) - 1; i >= 0; i-- {
+			if len(frameList[i].DoF()) != 0 {
+				moveF = frameList[i]
+				break
+			}
+		}
+		if moveF == nil {
+			return []string{}, nil
+		}
+		movingFs, err := fss.FrameSystemSubset(moveF)
+		if err != nil {
+			return nil, err
+		}
+		return movingFs.FrameNames(), nil
+	}
+
 	// find pivot frame between goal and solve frames
 	pivotFrame, err := findPivotFrame(solveFrameList, goalFrameList)
 	if err != nil {
 		return nil, err
 	}
 	if pivotFrame.Name() == frame.World {
-		movingFs = fss
 		frames = uniqInPlaceSlice(append(solveFrameList, goalFrameList...))
+		movingGeom, err = movingGeomNames(solveFrameList)
+		if err != nil {
+			return nil, err
+		}
+		movingGeom2, err := movingGeomNames(goalFrameList)
+		if err != nil {
+			return nil, err
+		}
+		movingGeom = append(movingGeom, movingGeom2...)
 	} else {
 		// Get minimal set of frames from solve frame to goal frame
 		dof := 0
+		var solveMovingList []frame.Frame
+		var goalMovingList []frame.Frame
 		for _, frame := range solveFrameList {
 			if frame == pivotFrame {
 				break
 			}
 			dof += len(frame.DoF())
 			frames = append(frames, frame)
+			solveMovingList = append(solveMovingList, frame)
 		}
 		for _, frame := range goalFrameList {
 			if frame == pivotFrame {
@@ -187,19 +217,28 @@ func newSolverFrame(
 			}
 			dof += len(frame.DoF())
 			frames = append(frames, frame)
+			goalMovingList = append(goalMovingList, frame)
 		}
 
 		// If shortest path has 0 dof (e.g. a camera attached to a gripper), translate goal to world frame
 		if dof == 0 {
 			worldRooted = true
-			movingFs = fss
 			frames = solveFrameList
-		} else {
-			// Get all child nodes of pivot node
-			movingFs, err = fss.FrameSystemSubset(pivotFrame)
+			movingGeom, err = movingGeomNames(solveFrameList)
 			if err != nil {
 				return nil, err
 			}
+		} else {
+			// Get all child nodes of pivot node
+			movingGeom, err = movingGeomNames(solveMovingList)
+			if err != nil {
+				return nil, err
+			}
+			movingGeom2, err := movingGeomNames(goalMovingList)
+			if err != nil {
+				return nil, err
+			}
+			movingGeom = append(movingGeom, movingGeom2...)
 		}
 	}
 
@@ -215,7 +254,7 @@ func newSolverFrame(
 	return &solverFrame{
 		name:        solveFrame.Name() + "_" + goalFrame.Name(),
 		completeFs:  fss,
-		movingFs:    movingFs,
+		movingGeom:  movingGeom,
 		frames:      frames,
 		solveFrame:  solveFrame,
 		goalFrame:   goalFrame,
@@ -320,7 +359,7 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	if sf.worldRooted {
 		solveName = frame.World
 	}
-	tf, err := sf.movingFs.Transform(sf.sliceToMap(inputs), pf, solveName)
+	tf, err := sf.completeFs.Transform(sf.sliceToMap(inputs), pf, solveName)
 	if err != nil {
 		return nil, err
 	}
@@ -362,8 +401,8 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 	var errAll error
 	inputMap := sf.sliceToMap(inputs)
 	sfGeometries := make(map[string]spatial.Geometry)
-	for _, fName := range sf.movingFs.FrameNames() {
-		f := sf.movingFs.Frame(fName)
+	for _, fName := range sf.movingGeom {
+		f := sf.completeFs.Frame(fName)
 		if f == nil {
 			return nil, frame.NewFrameMissingError(fName)
 		}
