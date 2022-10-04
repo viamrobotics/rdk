@@ -16,10 +16,10 @@ func TestColorDetector(t *testing.T) {
 		Name: "my_color_detector",
 		Type: "color_detector",
 		Parameters: config.AttributeMap{
-			"segment_size": 150000,
-			"tolerance":    0.44,
-			"detect_color": "#4F3815",
-			"extraneous":   "whatever",
+			"segment_size_px": 150000,
+			"hue_tolerance_pct":   0.44,
+			"detect_color":    "#4F3815",
+			"extraneous":      "whatever",
 		},
 	}
 	ctx := context.Background()
@@ -32,9 +32,9 @@ func TestColorDetector(t *testing.T) {
 
 	// with error - bad parameters
 	inp.Name = "will_fail"
-	inp.Parameters["tolerance"] = 4.0 // value out of range
+	inp.Parameters["hue_tolerance_pct"] = 4.0 // value out of range
 	err = registerColorDetector(ctx, reg, inp, testlog)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "tolerance must be between")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "hue_tolerance_pct must be between")
 
 	// with error - nil entry
 	err = registerColorDetector(ctx, reg, nil, testlog)

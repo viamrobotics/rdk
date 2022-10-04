@@ -16,7 +16,6 @@ import (
 
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/subtype"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -94,9 +93,8 @@ type Config struct {
 	Store              StoreConfig `json:"store"`
 	BaseName           string      `json:"base"`
 	MovementSensorName string      `json:"movement_sensor"`
-
-	DegPerSecDefault float64 `json:"deg_per_sec"`
-	MMPerSecDefault  float64 `json:"mm_per_sec"`
+	DegPerSecDefault   float64     `json:"degs_per_sec"`
+	MMPerSecDefault    float64     `json:"mm_per_sec"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -170,7 +168,7 @@ func (svc *reconfigurableNavigation) Reconfigure(ctx context.Context, newSvc res
 		return rdkutils.NewUnexpectedTypeError(svc, newSvc)
 	}
 	if err := utils.TryClose(ctx, svc.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 	svc.actual = rSvc.actual
 	return nil

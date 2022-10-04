@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 	"go.viam.com/rdk/services/datamanager/datasync"
+	"go.viam.com/rdk/services/datamanager/model"
 	"go.viam.com/rdk/utils"
 )
 
@@ -45,6 +47,7 @@ func init() {
 		}
 		return &conf, nil
 	}, &Config{})
+	resource.AddDefaultService(datamanager.Named(resource.DefaultServiceName))
 }
 
 // TODO: re-determine if queue size is optimal given we now support 10khz+ capture rates
@@ -78,11 +81,12 @@ type dataCaptureConfigs struct {
 
 // Config describes how to configure the service.
 type Config struct {
-	CaptureDir            string   `json:"capture_dir"`
-	AdditionalSyncPaths   []string `json:"additional_sync_paths"`
-	SyncIntervalMins      float64  `json:"sync_interval_mins"`
-	CaptureDisabled       bool     `json:"capture_disabled"`
-	ScheduledSyncDisabled bool     `json:"sync_disabled"`
+	CaptureDir            string         `json:"capture_dir"`
+	AdditionalSyncPaths   []string       `json:"additional_sync_paths"`
+	SyncIntervalMins      float64        `json:"sync_interval_mins"`
+	CaptureDisabled       bool           `json:"capture_disabled"`
+	ScheduledSyncDisabled bool           `json:"sync_disabled"`
+	ModelsToDeploy        []*model.Model `json:"models_on_robot"`
 }
 
 // builtIn initializes and orchestrates data capture collectors for registered component/methods.
@@ -95,7 +99,6 @@ type builtIn struct {
 	lock                      sync.Mutex
 	backgroundWorkers         sync.WaitGroup
 	updateCollectorsCancelFn  func()
-	partID                    string
 	waitAfterLastModifiedSecs int
 
 	additionalSyncPaths []string
@@ -103,6 +106,9 @@ type builtIn struct {
 	syncIntervalMins    float64
 	syncer              datasync.Manager
 	syncerConstructor   datasync.ManagerConstructor
+
+	modelManager            model.Manager
+	modelManagerConstructor model.ManagerConstructor
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
@@ -122,6 +128,7 @@ func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog
 		additionalSyncPaths:       []string{},
 		waitAfterLastModifiedSecs: 10,
 		syncerConstructor:         datasync.NewDefaultManager,
+		modelManagerConstructor:   model.NewDefaultManager,
 	}
 
 	return dataManagerSvc, nil
@@ -358,6 +365,7 @@ func (svc *builtIn) Sync(_ context.Context) error {
 
 func (svc *builtIn) syncDataCaptureFiles() error {
 	svc.lock.Lock()
+	defer svc.lock.Unlock()
 	oldFiles := make([]string, 0, len(svc.collectors))
 	for _, collector := range svc.collectors {
 		// Create new target and set it.
@@ -375,13 +383,13 @@ func (svc *builtIn) syncDataCaptureFiles() error {
 		oldFiles = append(oldFiles, collector.Collector.GetTarget().Name())
 		collector.Collector.SetTarget(nextTarget)
 	}
-	svc.lock.Unlock()
 	svc.syncer.Sync(oldFiles)
 	return nil
 }
 
 func (svc *builtIn) buildAdditionalSyncPaths() []string {
 	svc.lock.Lock()
+	defer svc.lock.Unlock()
 	var filepathsToSync []string
 	// Loop through additional sync paths and add files from each to the syncer.
 	for _, asp := range svc.additionalSyncPaths {
@@ -412,7 +420,6 @@ func (svc *builtIn) buildAdditionalSyncPaths() []string {
 			})
 		}
 	}
-	svc.lock.Unlock()
 	return filepathsToSync
 }
 
@@ -430,8 +437,28 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		svc.closeCollectors()
 		return err
 	}
-	if cfg.Cloud != nil {
-		svc.partID = cfg.Cloud.ID
+
+	// Check that we have models to download and appropriate credentials.
+	if len(svcConfig.ModelsToDeploy) > 0 && cfg.Cloud != nil {
+		if svc.modelManager == nil {
+			modelManager, err := svc.modelManagerConstructor(svc.logger, cfg)
+			if err != nil {
+				return errors.Wrap(err, "failed to initialize new modelManager")
+			}
+			svc.modelManager = modelManager
+		}
+
+		// Download models from models_on_robot.
+		modelsToDeploy := svcConfig.ModelsToDeploy
+		errorChannel := make(chan error, len(modelsToDeploy))
+		go svc.modelManager.DownloadModels(cfg, modelsToDeploy, errorChannel)
+		if len(errorChannel) != 0 {
+			var errMsgs []string
+			for err := range errorChannel {
+				errMsgs = append(errMsgs, err.Error())
+			}
+			return errors.New(strings.Join(errMsgs[:], ", "))
+		}
 	}
 
 	toggledCaptureOff := (svc.captureDisabled != svcConfig.CaptureDisabled) && svcConfig.CaptureDisabled
@@ -553,7 +580,7 @@ func (svc *builtIn) cancelSyncBackgroundRoutine() {
 func getServiceConfig(cfg *config.Config) (*Config, bool, error) {
 	for _, c := range cfg.Services {
 		// Compare service type and name.
-		if c.ResourceName().ResourceSubtype == datamanager.SubtypeName {
+		if c.ResourceName().ResourceSubtype == datamanager.SubtypeName && c.ConvertedAttributes != nil {
 			svcConfig, ok := c.ConvertedAttributes.(*Config)
 			// Incorrect configuration is an error.
 			if !ok {

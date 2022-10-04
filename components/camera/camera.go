@@ -26,7 +26,6 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -439,7 +438,7 @@ func (c *reconfigurableCamera) Reconfigure(ctx context.Context, newCamera resour
 		return utils.NewUnexpectedTypeError(c, newCamera)
 	}
 	if err := viamutils.TryClose(ctx, c.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 	c.cancel()
 	// reset

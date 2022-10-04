@@ -2,6 +2,7 @@ package videosource
 
 import (
 	"context"
+	"image"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -22,7 +23,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/utils"
 )
 
@@ -90,15 +90,15 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webca
 
 		props, err := getProperties(d)
 		if len(props) == 0 {
-			rlog.Logger.Debugw("no properties detected for driver, skipping discovery...", "driver", driverInfo.Label)
+			golog.Global().Debugw("no properties detected for driver, skipping discovery...", "driver", driverInfo.Label)
 			continue
 		} else if err != nil {
-			rlog.Logger.Debugw("cannot access driver properties, skipping discovery...", "driver", driverInfo.Label, "error", err)
+			golog.Global().Debugw("cannot access driver properties, skipping discovery...", "driver", driverInfo.Label, "error", err)
 			continue
 		}
 
 		if d.Status() == driver.StateRunning {
-			rlog.Logger.Debugw("driver is in use, skipping discovery...", "driver", driverInfo.Label)
+			golog.Global().Debugw("driver is in use, skipping discovery...", "driver", driverInfo.Label)
 			continue
 		}
 
@@ -112,14 +112,9 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webca
 
 		for _, prop := range props {
 			pbProp := &pb.Property{
-				Width:       int32(prop.Video.Width),
-				Height:      int32(prop.Video.Height),
+				WidthPx:     int32(prop.Video.Width),
+				HeightPx:    int32(prop.Video.Height),
 				FrameFormat: string(prop.Video.FrameFormat),
-				Video: &pb.Video{
-					Width:       int32(prop.Video.Width),
-					Height:      int32(prop.Video.Height),
-					FrameFormat: string(prop.Video.FrameFormat),
-				},
 			}
 			wc.Properties = append(wc.Properties, pbProp)
 		}
@@ -150,8 +145,8 @@ type WebcamAttrs struct {
 	Format      string `json:"format"`
 	Path        string `json:"path"`
 	PathPattern string `json:"path_pattern"`
-	Width       int    `json:"width"`
-	Height      int    `json:"height"`
+	Width       int    `json:"width_px"`
+	Height      int    `json:"height_px"`
 }
 
 func makeConstraints(attrs *WebcamAttrs, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
@@ -211,7 +206,7 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 	constraints := makeConstraints(attrs, debug, logger)
 
 	if attrs.Path != "" {
-		return tryWebcamOpen(ctx, attrs, attrs.Path, constraints)
+		return tryWebcamOpen(ctx, attrs, attrs.Path, constraints, logger)
 	}
 
 	var pattern *regexp.Regexp
@@ -235,7 +230,7 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 			continue
 		}
 
-		s, err := tryWebcamOpen(ctx, attrs, label, constraints)
+		s, err := tryWebcamOpen(ctx, attrs, label, constraints, logger)
 		if err == nil {
 			if debug {
 				logger.Debug("\t USING")
@@ -255,8 +250,9 @@ func tryWebcamOpen(ctx context.Context,
 	attrs *WebcamAttrs,
 	path string,
 	constraints mediadevices.MediaStreamConstraints,
+	logger golog.Logger,
 ) (camera.Camera, error) {
-	source, err := gostream.GetNamedVideoSource(filepath.Base(path), constraints)
+	source, err := getNamedVideoSource(path, constraints, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -272,4 +268,23 @@ func tryWebcamOpen(ctx context.Context,
 		&transform.PinholeCameraModel{intrinsics, distortion},
 		camera.StreamType(attrs.Stream),
 	)
+}
+
+// getNamedVideoSource attempts to find a video device (not a screen) by the given name.
+// First it will try to use the path name after evaluating any symbolic links. If
+// evaluation fails, it will try to use the path name as provided.
+func getNamedVideoSource(
+	path string,
+	constraints mediadevices.MediaStreamConstraints,
+	logger golog.Logger,
+) (gostream.MediaSource[image.Image], error) {
+	resolvedPath, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		logger.Warnw(
+			"error evaluating symlink for path - will use path as provided instead",
+			"path", path, "error", err,
+		)
+		return gostream.GetNamedVideoSource(path, constraints)
+	}
+	return gostream.GetNamedVideoSource(filepath.Base(resolvedPath), constraints)
 }

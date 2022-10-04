@@ -23,7 +23,6 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/rlog"
 )
 
 const (
@@ -59,7 +58,7 @@ func (l *wrappedLogger) Sync() error {
 	return l.base.Sync()
 }
 
-func newNetLogger(config *config.Cloud) (*netLogger, error) {
+func newNetLogger(config *config.Cloud, loggerWithoutNet golog.Logger, logLevel zap.AtomicLevel) (*netLogger, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
@@ -72,18 +71,20 @@ func newNetLogger(config *config.Cloud) (*netLogger, error) {
 		}
 	} else {
 		logWriter = &remoteLogWriterGRPC{
-			logger: rlog.Logger,
-			cfg:    config,
+			loggerWithoutNet: loggerWithoutNet,
+			cfg:              config,
 		}
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	nl := &netLogger{
-		hostname:     hostname,
-		cancelCtx:    cancelCtx,
-		cancel:       cancel,
-		remoteWriter: logWriter,
-		maxQueueSize: defaultMaxQueueSize,
+		hostname:         hostname,
+		cancelCtx:        cancelCtx,
+		cancel:           cancel,
+		remoteWriter:     logWriter,
+		maxQueueSize:     defaultMaxQueueSize,
+		loggerWithoutNet: loggerWithoutNet,
+		logLevel:         logLevel,
 	}
 	nl.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(nl.backgroundWorker, nl.activeBackgroundWorkers.Done)
@@ -101,6 +102,13 @@ type netLogger struct {
 	cancelCtx               context.Context
 	cancel                  func()
 	activeBackgroundWorkers sync.WaitGroup
+
+	// Use this logger for library errors that will not be reported through
+	// the netLogger causing a recursive loop.
+	loggerWithoutNet golog.Logger
+
+	// Log level of the rdk system
+	logLevel zap.AtomicLevel
 }
 
 func (nl *netLogger) queueSize() int {
@@ -123,8 +131,8 @@ func (nl *netLogger) Close() {
 	nl.remoteWriter.close()
 }
 
-func (nl *netLogger) Enabled(zapcore.Level) bool {
-	return true
+func (nl *netLogger) Enabled(l zapcore.Level) bool {
+	return nl.logLevel.Enabled(l)
 }
 
 func (nl *netLogger) With(f []zapcore.Field) zapcore.Core {
@@ -132,7 +140,10 @@ func (nl *netLogger) With(f []zapcore.Field) zapcore.Core {
 }
 
 func (nl *netLogger) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
-	return ce.AddCore(e, nl)
+	if nl.logLevel.Enabled(e.Level) {
+		return ce.AddCore(e, nl)
+	}
+	return ce
 }
 
 // Mirrors zapcore.EntryCaller but leaves out the pointer address.
@@ -236,8 +247,7 @@ func (nl *netLogger) backgroundWorker() {
 		err := nl.Sync()
 		if err != nil && !errors.Is(err, context.Canceled) {
 			interval = abnormalInterval
-			// fall back to regular logging
-			rlog.Logger.Infof("error logging to network: %s", err)
+			nl.loggerWithoutNet.Infof("error logging to network: %s", err)
 		} else {
 			interval = normalInterval
 		}
@@ -280,8 +290,8 @@ func (nl *netLogger) Sync() error {
 	}
 }
 
-func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, func(), error) {
-	nl, err := newNetLogger(cfg)
+func addCloudLogger(logger golog.Logger, logLevel zap.AtomicLevel, cfg *config.Cloud) (golog.Logger, func(), error) {
+	nl, err := newNetLogger(cfg, logger, logLevel)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -367,7 +377,10 @@ type remoteLogWriterGRPC struct {
 	service     apppb.RobotServiceClient
 	rpcClient   rpc.ClientConn
 	clientMutex sync.Mutex
-	logger      golog.Logger
+
+	// Use this logger for library errors that will not be reported through
+	// the netLogger causing a recursive loop.
+	loggerWithoutNet golog.Logger
 }
 
 func (w *remoteLogWriterGRPC) write(logs []*apppb.LogEntry) error {
@@ -394,7 +407,7 @@ func (w *remoteLogWriterGRPC) getOrCreateClient(ctx context.Context) (apppb.Robo
 		w.clientMutex.Lock()
 		defer w.clientMutex.Unlock()
 
-		client, err := config.CreateNewGRPCClient(ctx, w.cfg, w.logger)
+		client, err := config.CreateNewGRPCClient(ctx, w.cfg, w.loggerWithoutNet)
 		if err != nil {
 			return nil, err
 		}

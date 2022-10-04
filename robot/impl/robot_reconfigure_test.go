@@ -33,8 +33,13 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
+	_ "go.viam.com/rdk/services/datamanager/builtin"
+	"go.viam.com/rdk/services/motion"
+	_ "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/sensors"
+	_ "go.viam.com/rdk/services/sensors/builtin"
 	"go.viam.com/rdk/services/vision"
+	_ "go.viam.com/rdk/services/vision/builtin"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
@@ -42,7 +47,7 @@ import (
 var serviceNames = resource.DefaultServices
 
 func TestRobotReconfigure(t *testing.T) {
-	test.That(t, len(resource.DefaultServices), test.ShouldEqual, 3)
+	test.That(t, len(resource.DefaultServices), test.ShouldEqual, 4)
 	ConfigFromFile := func(t *testing.T, filePath string) *config.Config {
 		t.Helper()
 		logger := golog.NewTestLogger(t)
@@ -112,7 +117,7 @@ func TestRobotReconfigure(t *testing.T) {
 		}()
 
 		resources := robot.ResourceNames()
-		test.That(t, len(resources), test.ShouldEqual, 8)
+		test.That(t, len(resources), test.ShouldEqual, 9)
 
 		armNames := []resource.Name{arm.Named("arm1")}
 		baseNames := []resource.Name{base.Named("base1")}
@@ -142,6 +147,16 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		names := rdktestutils.NewResourceNameSet(robot.ResourceNames()...)
+		names2 := rdktestutils.ConcatResourceNames(
+			armNames,
+			baseNames,
+			boardNames,
+			mockNames,
+			serviceNames,
+		)
+		_ = names2
+		_ = names
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				armNames,
@@ -499,22 +514,22 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:8]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:9]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				motorNames,
 				serviceNames,
 				[]resource.Name{mockNamed("mock1")},
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[8:12]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[9:13]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				armNames,
 				[]resource.Name{mockNamed("mock2"), mockNamed("mock3")},
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[12:14]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[13:15]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				baseNames,
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[14]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[15]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				boardNames,
 			)...))
@@ -667,20 +682,20 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
 		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:7]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:8]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				motorNames,
 				serviceNames,
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[7:9]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[8:10]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				armNames,
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[9:11]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[10:12]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				baseNames,
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[11]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[12]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				boardNames,
 			)...))
@@ -973,13 +988,13 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
 		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:8]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:9]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				motorNames,
 				serviceNames,
 				[]resource.Name{arm.Named("arm1")},
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[8:11]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[9:12]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				[]resource.Name{
 					arm.Named("arm3"),
@@ -987,14 +1002,14 @@ func TestRobotReconfigure(t *testing.T) {
 					board.Named("board3"),
 				},
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[11:13]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[12:14]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				[]resource.Name{
 					base.Named("base2"),
 					board.Named("board2"),
 				},
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[13]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[14]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				[]resource.Name{board.Named("board1")},
 			)...))
@@ -1012,7 +1027,7 @@ func TestRobotReconfigure(t *testing.T) {
 		}()
 
 		resources := robot.ResourceNames()
-		test.That(t, len(resources), test.ShouldEqual, 3)
+		test.That(t, len(resources), test.ShouldEqual, 4)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(arm.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldBeEmpty)
@@ -1116,13 +1131,13 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
 		sorted := robot.(*localRobot).manager.resources.TopologicalSort()
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:8]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[0:9]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				motorNames,
 				serviceNames,
 				[]resource.Name{arm.Named("arm1")},
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[8:11]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[9:12]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				[]resource.Name{
 					arm.Named("arm3"),
@@ -1130,14 +1145,14 @@ func TestRobotReconfigure(t *testing.T) {
 					board.Named("board3"),
 				},
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[11:13]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[12:14]...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				[]resource.Name{
 					base.Named("base2"),
 					board.Named("board2"),
 				},
 			)...))
-		test.That(t, rdktestutils.NewResourceNameSet(sorted[13]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
+		test.That(t, rdktestutils.NewResourceNameSet(sorted[14]), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				[]resource.Name{board.Named("board1")},
 			)...))
@@ -2296,6 +2311,76 @@ func TestSensorsServiceUpdate(t *testing.T) {
 	})
 }
 
+func TestDefaultServiceReconfigure(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	visName := "vis"
+	dmName := "dm"
+	cfg1 := &config.Config{
+		Services: []config.Service{
+			{
+				Name:      visName,
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      config.ServiceType(vision.SubtypeName),
+				Model:     resource.DefaultServiceModel,
+			},
+			{
+				Name:      dmName,
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      config.ServiceType(datamanager.SubtypeName),
+				Model:     resource.DefaultServiceModel,
+			},
+		},
+	}
+	robot, err := New(context.Background(), cfg1, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	test.That(
+		t,
+		rdktestutils.NewResourceNameSet(robot.ResourceNames()...),
+		test.ShouldResemble,
+		rdktestutils.NewResourceNameSet(
+			motion.Named(resource.DefaultServiceName),
+			vision.Named(visName),
+			datamanager.Named(dmName),
+			sensors.Named(resource.DefaultServiceName),
+		),
+	)
+	visName = "vis2"
+	sName := "sensors"
+	cfg2 := &config.Config{
+		Services: []config.Service{
+			{
+				Name:      visName,
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      config.ServiceType(vision.SubtypeName),
+				Model:     resource.DefaultServiceModel,
+			},
+			{
+				Name:      sName,
+				Namespace: resource.ResourceNamespaceRDK,
+				Type:      config.ServiceType(sensors.SubtypeName),
+				Model:     resource.DefaultServiceModel,
+			},
+		},
+	}
+	robot.Reconfigure(context.Background(), cfg2)
+	test.That(
+		t,
+		rdktestutils.NewResourceNameSet(robot.ResourceNames()...),
+		test.ShouldResemble,
+		rdktestutils.NewResourceNameSet(
+			motion.Named(resource.DefaultServiceName),
+			vision.Named(visName),
+			datamanager.Named(resource.DefaultServiceName),
+			sensors.Named(sName),
+		),
+	)
+}
+
 func TestStatusServiceUpdate(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
@@ -2433,7 +2518,10 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
+			motion.Named(resource.DefaultServiceName),
+			vision.Named(resource.DefaultServiceName),
+			sensors.Named(resource.DefaultServiceName),
+			datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			audioinput.Named("foo:mic1"),
@@ -2441,6 +2529,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			movementsensor.Named("foo:movement_sensor1"),
 			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
+			motion.Named("foo:builtin"),
 			vision.Named("foo:builtin"),
 			sensors.Named("foo:builtin"),
 			datamanager.Named("foo:builtin"),
@@ -2456,33 +2545,36 @@ func TestRemoteRobotsGold(t *testing.T) {
 
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
-	test.That(
-		t,
-		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
-		test.ShouldResemble,
-		rdktestutils.NewResourceNameSet(
-			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
-			arm.Named("arm1"), arm.Named("arm2"),
-			arm.Named("foo:pieceArm"),
-			audioinput.Named("foo:mic1"),
-			camera.Named("foo:cameraOver"),
-			movementsensor.Named("foo:movement_sensor1"),
-			movementsensor.Named("foo:movement_sensor2"),
-			gripper.Named("foo:pieceGripper"),
-			vision.Named("foo:builtin"),
-			sensors.Named("foo:builtin"),
-			datamanager.Named("foo:builtin"),
-			arm.Named("bar:pieceArm"),
-			audioinput.Named("bar:mic1"),
-			camera.Named("bar:cameraOver"),
-			movementsensor.Named("bar:movement_sensor1"),
-			movementsensor.Named("bar:movement_sensor2"),
-			gripper.Named("bar:pieceGripper"),
-			vision.Named("bar:builtin"),
-			sensors.Named("bar:builtin"),
-			datamanager.Named("bar:builtin"),
-		),
+	expectedSet := rdktestutils.NewResourceNameSet(
+		motion.Named(resource.DefaultServiceName),
+		vision.Named(resource.DefaultServiceName),
+		sensors.Named(resource.DefaultServiceName),
+		datamanager.Named(resource.DefaultServiceName),
+		arm.Named("arm1"),
+		arm.Named("arm2"),
+		arm.Named("foo:pieceArm"),
+		audioinput.Named("foo:mic1"),
+		camera.Named("foo:cameraOver"),
+		movementsensor.Named("foo:movement_sensor1"),
+		movementsensor.Named("foo:movement_sensor2"),
+		gripper.Named("foo:pieceGripper"),
+		motion.Named("foo:builtin"),
+		vision.Named("foo:builtin"),
+		sensors.Named("foo:builtin"),
+		datamanager.Named("foo:builtin"),
+		arm.Named("bar:pieceArm"),
+		audioinput.Named("bar:mic1"),
+		camera.Named("bar:cameraOver"),
+		movementsensor.Named("bar:movement_sensor1"),
+		movementsensor.Named("bar:movement_sensor2"),
+		gripper.Named("bar:pieceGripper"),
+		motion.Named("bar:builtin"),
+		vision.Named("bar:builtin"),
+		sensors.Named("bar:builtin"),
+		datamanager.Named("bar:builtin"),
 	)
+
+	test.That(t, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
 
 	test.That(t, remote2.Close(context.Background()), test.ShouldBeNil)
 
@@ -2494,7 +2586,10 @@ func TestRemoteRobotsGold(t *testing.T) {
 		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(
-			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
+			motion.Named(resource.DefaultServiceName),
+			vision.Named(resource.DefaultServiceName),
+			sensors.Named(resource.DefaultServiceName),
+			datamanager.Named(resource.DefaultServiceName),
 			arm.Named("arm1"),
 			arm.Named("foo:pieceArm"),
 			audioinput.Named("foo:mic1"),
@@ -2502,6 +2597,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			movementsensor.Named("foo:movement_sensor1"),
 			movementsensor.Named("foo:movement_sensor2"),
 			gripper.Named("foo:pieceGripper"),
+			motion.Named("foo:builtin"),
 			vision.Named("foo:builtin"),
 			sensors.Named("foo:builtin"),
 			datamanager.Named("foo:builtin"),
@@ -2532,33 +2628,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 
 	utils.SelectContextOrWait(ctx, 2*time.Second)
 
-	test.That(
-		t,
-		rdktestutils.NewResourceNameSet(r.ResourceNames()...),
-		test.ShouldResemble,
-		rdktestutils.NewResourceNameSet(
-			vision.Named(resource.DefaultServiceName), sensors.Named(resource.DefaultServiceName), datamanager.Named(resource.DefaultServiceName),
-			arm.Named("arm1"), arm.Named("arm2"),
-			arm.Named("foo:pieceArm"),
-			audioinput.Named("foo:mic1"),
-			camera.Named("foo:cameraOver"),
-			movementsensor.Named("foo:movement_sensor1"),
-			movementsensor.Named("foo:movement_sensor2"),
-			gripper.Named("foo:pieceGripper"),
-			vision.Named("foo:builtin"),
-			sensors.Named("foo:builtin"),
-			datamanager.Named("foo:builtin"),
-			arm.Named("bar:pieceArm"),
-			audioinput.Named("bar:mic1"),
-			camera.Named("bar:cameraOver"),
-			movementsensor.Named("bar:movement_sensor1"),
-			movementsensor.Named("bar:movement_sensor2"),
-			gripper.Named("bar:pieceGripper"),
-			vision.Named("bar:builtin"),
-			sensors.Named("bar:builtin"),
-			datamanager.Named("bar:builtin"),
-		),
-	)
+	test.That(t, rdktestutils.NewResourceNameSet(r.ResourceNames()...), test.ShouldResemble, expectedSet)
 }
 
 type mockFake struct {

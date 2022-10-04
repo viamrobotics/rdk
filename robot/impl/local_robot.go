@@ -371,6 +371,36 @@ func (r *localRobot) Status(ctx context.Context, resourceNames []resource.Name) 
 	return statuses, nil
 }
 
+func (r *localRobot) updateDefaultServiceNames(cfg *config.Config) *config.Config {
+	// See if default service already exists in the config
+	seen := make(map[resource.Subtype]bool)
+	for _, name := range resource.DefaultServices {
+		seen[name.Subtype] = false
+		r.defaultServicesNames[name.Subtype] = name
+	}
+	// Mark default service subtypes in the map as true
+	for _, val := range cfg.Services {
+		if _, ok := seen[val.ResourceName().Subtype]; ok {
+			seen[val.ResourceName().Subtype] = true
+			r.defaultServicesNames[val.ResourceName().Subtype] = val.ResourceName()
+		}
+	}
+	// default services added if they are not already defined in the config
+	for _, name := range resource.DefaultServices {
+		if seen[name.Subtype] {
+			continue
+		}
+		svcCfg := config.Service{
+			Name:      name.Name,
+			Model:     resource.DefaultServiceModel,
+			Namespace: name.Namespace,
+			Type:      config.ServiceType(name.ResourceSubtype),
+		}
+		cfg.Services = append(cfg.Services, svcCfg)
+	}
+	return cfg
+}
+
 func newWithResources(
 	ctx context.Context,
 	cfg *config.Config,
@@ -471,6 +501,8 @@ func newWithResources(
 		}
 		r.manager.addResource(name, svc)
 	}
+	// SMURF is this needed?
+	cfg = r.updateDefaultServiceNames(cfg)
 
 	r.activeBackgroundWorkers.Add(1)
 	// this goroutine listen for changes in connection status of a remote
@@ -551,7 +583,7 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	// If service model/type not found then print list of valid models they can choose from
 	if f == nil {
 		validModels := registry.FindValidServiceModels(rName)
-		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s use one of the following valid models: %s",
+		return nil, errors.Errorf("unknown service subtype: %s and/or model: %s use one of the following valid models: %s",
 			rName.Subtype, config.Model, validModels)
 	}
 
@@ -611,8 +643,9 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Errorf("error building resource %s/%s/%s: %s", config.Model, rName.Subtype, config.Name, err)
 	}
+
 	c := registry.ResourceSubtypeLookup(rName.Subtype)
 	if c == nil || c.Reconfigurable == nil {
 		return newResource, nil
@@ -787,6 +820,8 @@ func dialRobotClient(ctx context.Context,
 // possibly leak resources.
 func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) {
 	var allErrs error
+
+	newConfig = r.updateDefaultServiceNames(newConfig)
 	diff, err := config.DiffConfigs(*r.config, *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.Errorw("error diffing the configs", "error", err)

@@ -11,12 +11,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/rlog"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -39,7 +39,7 @@ func SortComponents(components []Component) ([]Component, error) {
 	for name, dps := range dependencies {
 		for _, depName := range dps {
 			if _, ok := componentToConfig[depName]; !ok {
-				rlog.Logger.Warnw(
+				golog.Global().Warnw(
 					"missing dependency on local robot, is this a remote dependency?",
 					"component", name,
 					"dependency", depName,
@@ -142,7 +142,7 @@ func (c *Config) Ensure(fromCloud bool) error {
 	for idx := 0; idx < len(c.Components); idx++ {
 		dependsOn, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx))
 		if err != nil {
-			return err
+			return errors.Errorf("error validating component %s: %s", c.Components[idx].Name, err)
 		}
 		c.Components[idx].ImplicitDependsOn = dependsOn
 	}

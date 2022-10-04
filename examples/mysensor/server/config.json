@@ -1,0 +1,12 @@
+{
+    "network": {
+        "bind_address": "localhost:8081"
+    },
+    "components": [
+        {
+            "name": "sensor1",
+            "type": "sensor",
+            "model": "mySensor"
+        }
+    ]
+}

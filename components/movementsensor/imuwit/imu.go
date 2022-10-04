@@ -1,11 +1,14 @@
-// Package imuwit implements a wit IMU.
+// Package imuwit implements wit imus.
+// Tested on the HWT901B and BWT901CL models. Other WT901-based models may work too.
 package imuwit
 
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math"
+	"math/rand"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -27,13 +30,14 @@ var model = resource.NewDefaultModel("imu-wit")
 
 // AttrConfig is used for converting a witmotion IMU MovementSensor config attributes.
 type AttrConfig struct {
-	Port string `json:"port"`
+	Port     string `json:"serial_path"`
+	BaudRate int    `json:"serial_baud_rate,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (cfg *AttrConfig) Validate(path string) error {
 	if cfg.Port == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "port")
+		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 	return nil
 }
@@ -46,7 +50,7 @@ func init() {
 			cfg config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return NewWit(deps, cfg, logger)
+			return NewWit(ctx, deps, cfg, logger)
 		},
 	})
 
@@ -63,6 +67,7 @@ type wit struct {
 	orientation     spatialmath.EulerAngles
 	acceleration    r3.Vector
 	magnetometer    r3.Vector
+	numBadReadings  uint32
 	lastError       error
 
 	mu sync.Mutex
@@ -70,6 +75,7 @@ type wit struct {
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 	generic.Unimplemented
+	logger golog.Logger
 }
 
 func (imu *wit) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
@@ -81,7 +87,7 @@ func (imu *wit) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocit
 func (imu *wit) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
-	return r3.Vector{}, imu.lastError
+	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 }
 
 func (imu *wit) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
@@ -105,31 +111,57 @@ func (imu *wit) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
 }
 
 func (imu *wit) CompassHeading(ctx context.Context) (float64, error) {
-	return 0, imu.lastError
+	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
 
 func (imu *wit) Position(ctx context.Context) (*geo.Point, float64, error) {
-	return nil, 0, nil
+	return geo.NewPoint(0, 0), 0, movementsensor.ErrMethodUnimplementedPosition
 }
 
 func (imu *wit) Accuracy(ctx context.Context) (map[string]float32, error) {
-	return map[string]float32{}, nil
+	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
 func (imu *wit) Readings(ctx context.Context) (map[string]interface{}, error) {
-	return movementsensor.Readings(ctx, imu)
+	readings, err := movementsensor.Readings(ctx, imu)
+	if err != nil {
+		return nil, err
+	}
+
+	mag, err := imu.GetMagnetometer(ctx)
+	if err != nil {
+		return nil, err
+	}
+	readings["magnetometer"] = mag
+
+	acc, err := imu.GetAcceleration(ctx)
+	if err != nil {
+		return nil, err
+	}
+	readings["acceleration"] = acc
+
+	return readings, err
 }
 
 func (imu *wit) Properties(ctx context.Context) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{
 		AngularVelocitySupported: true,
 		OrientationSupported:     true,
-		CompassHeadingSupported:  true,
 	}, nil
 }
 
 // NewWit creates a new Wit IMU.
-func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logger) (movementsensor.MovementSensor, error) {
+func NewWit(
+	ctx context.Context,
+	deps registry.Dependencies,
+	cfg config.Component,
+	logger golog.Logger,
+) (movementsensor.MovementSensor, error) {
+	conf, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, rutils.NewUnexpectedTypeError(conf, cfg.ConvertedAttributes)
+	}
+
 	options := slib.OpenOptions{
 		BaudRate:        9600,
 		DataBits:        8,
@@ -137,8 +169,14 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 		MinimumReadSize: 1,
 	}
 
-	options.PortName = cfg.ConvertedAttributes.(*AttrConfig).Port
+	options.PortName = conf.Port
+	if conf.BaudRate > 0 {
+		options.BaudRate = uint(conf.BaudRate)
+	}
 
+	var i wit
+	i.logger = logger
+	logger.Debugf("initializing wit serial connection with parameters: %+v", options)
 	port, err := slib.Open(options)
 	if err != nil {
 		return nil, err
@@ -146,9 +184,6 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 
 	portReader := bufio.NewReader(port)
 
-	var i wit
-
-	var ctx context.Context
 	ctx, i.cancelFunc = context.WithCancel(context.Background())
 	i.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -162,13 +197,25 @@ func NewWit(deps registry.Dependencies, cfg config.Component, logger golog.Logge
 
 			line, err := portReader.ReadString('U')
 
+			// Randomly sample logging until we have better log level control
+			//nolint:gosec
+			if rand.Intn(100) < 3 {
+				logger.Debugf("read line from wit [sampled]: %s", hex.EncodeToString([]byte(line)))
+			}
+
 			func() {
 				i.mu.Lock()
 				defer i.mu.Unlock()
 
 				if err != nil {
 					i.lastError = err
+					logger.Error(i.lastError)
 				} else {
+					if len(line) != 11 {
+						logger.Debug("read an unexpected number of bytes from serial, skipping. expected: 11, read: %v", len(line))
+						i.numBadReadings++
+						return
+					}
 					i.lastError = i.parseWIT(line)
 				}
 			}()
@@ -228,15 +275,17 @@ func (imu *wit) parseWIT(line string) error {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu magnetometer %d %v", len(line), line)
 		}
-		imu.magnetometer.X = scalemag(line[1], line[2], 1) * 0.01 // converts to gauss
-		imu.magnetometer.Y = scalemag(line[3], line[4], 1) * 0.01
-		imu.magnetometer.Z = scalemag(line[5], line[6], 1) * 0.01
+		imu.magnetometer.X = scalemag(line[1], line[2], 1) // converts to gauss
+		imu.magnetometer.Y = scalemag(line[3], line[4], 1)
+		imu.magnetometer.Z = scalemag(line[5], line[6], 1)
 	}
 
 	return nil
 }
 
 func (imu *wit) Close() {
+	imu.logger.Debug("Closing wit motion imu")
 	imu.cancelFunc()
 	imu.activeBackgroundWorkers.Wait()
+	imu.logger.Debug("Closed wit motion imu")
 }

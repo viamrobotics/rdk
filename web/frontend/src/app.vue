@@ -1,17 +1,18 @@
 <!-- eslint-disable require-atomic-updates -->
-<script>
+<script setup lang="ts">
 
+import { onMounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
+import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
+import type { Credentials } from '@viamrobotics/rpc';
 import { toast } from './lib/toast';
-import robotApi from './gen/proto/api/robot/v1/robot_pb.esm';
-import commonApi from './gen/proto/api/common/v1/common_pb.esm';
-import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
+import { displayError } from './lib/error';
+import { addResizeListeners } from './lib/resize';
+import robotApi, { type Status, type Operation, type StreamStatusResponse } from './gen/proto/api/robot/v1/robot_pb.esm';
+import type { ResponseStream } from './gen/proto/stream/v1/stream_pb_service.esm';
+import commonApi, { type ResourceName } from './gen/proto/api/common/v1/common_pb.esm';
 import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
-import gantryApi from './gen/proto/api/component/gantry/v1/gantry_pb.esm';
-import gripperApi from './gen/proto/api/component/gripper/v1/gripper_pb.esm';
-import movementsensorApi from './gen/proto/api/component/movementsensor/v1/movementsensor_pb.esm';
 import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
-import servoApi from './gen/proto/api/component/servo/v1/servo_pb.esm';
 import streamApi from './gen/proto/stream/v1/stream_pb.esm';
 
 import {
@@ -21,27 +22,27 @@ import {
   filterResources,
   filterRdkComponentsWithStatus,
   filterResourcesWithNames,
+  type Resource,
 } from './lib/resource';
 
-import {
-  MotorControlHelper,
-  BoardControlHelper,
-  ServoControlHelper,
-} from './rc/control_helpers';
-
-import { addResizeListeners } from './lib/resize';
-
-import BaseComponent from './components/base.vue';
-import Camera from './components/camera.vue';
+import Arm from './components/arm.vue';
 import AudioInput from './components/audio-input.vue';
+import Base from './components/base.vue';
+import Board from './components/board.vue';
+import Camera from './components/camera.vue';
+import CurrentOperations from './components/current-operations.vue';
 import DoCommand from './components/do-command.vue';
+import Gantry from './components/gantry.vue';
+import Gripper from './components/gripper.vue';
 import Gamepad from './components/gamepad.vue';
 import InputController from './components/input-controller.vue';
-import MotorDetail from './components/motor-detail.vue';
+import Motor from './components/motor-detail.vue';
+import MovementSensor from './components/movement-sensor.vue';
 import Navigation from './components/navigation.vue';
 import ServoComponent from './components/servo.vue';
+import Sensors from './components/sensors.vue';
 import Slam from './components/slam.vue';
-import { roundTo2Decimals } from './lib/math';
+
 import {
   fixArmStatus,
   fixBoardStatus,
@@ -51,1036 +52,573 @@ import {
   fixServoStatus,
 } from './lib/fixers';
 
-export default {
-  components: {
-    BaseComponent,
-    Camera,
-    AudioInput,
-    DoCommand,
-    Gamepad,
-    InputController,
-    MotorDetail,
-    Navigation,
-    ServoComponent,
-    Slam,
-  },
-  data() {
-    return {
-      supportedAuthTypes: window.supportedAuthTypes,
-      error: '',
-      res: {},
-      rawStatus: {},
-      status: {},
-      sensorReadings: {},
-      resources: [],
-      sensorNames: [],
-      cameraFrameIntervalId: null,
-      objects: null,
-      armToggle: {},
-      value: 0,
-      movementsensorData: {},
-      currentOps: [],
-      setPin: '',
-      getPin: '',
-      pwm: '',
-      pwmFrequency: '',
-      connectionManager: null,
-      errors: {},
-    };
-  },
-  async mounted() {
-    this.grpcCallback = this.grpcCallback.bind(this);
-    await this.waitForClientAndStart();
-
-    this.movementsensorRefresh();
-
-    this.connectionManager = this.createConnectionManager();
-    this.connectionManager.start();
-
-    addResizeListeners();
-  },
-  methods: {
-    filterResources,
-    filterRdkComponentsWithStatus,
-    resourceNameToString,
-    filterResourcesWithNames,
-
-    handleError(message, error, onceKey) {
-      if (onceKey) {
-        if (this.errors[onceKey]) {
-          return;
-        }
-
-        this.errors[onceKey] = true;
-      }
-
-      toast.error(message);
-      console.error(message, { error });
-    },
-
-    createConnectionManager() {
-      const statuses = {
-        resources: true,
-        ops: true,
-      };
-
-      let interval = -1;
-      let connectionRestablished = false;
-
-      const handleCallErrors = (errors) => {
-        const errorsList = document.createElement('ul');
-        errorsList.classList.add('list-disc', 'pl-4');
-
-        for (const key of Object.keys(statuses)) {
-          switch (key) {
-            case 'resources': {
-              errorsList.innerHTML += '<li>Robot Resources</li>';
-              break;
-            }
-            case 'ops': {
-              errorsList.innerHTML += '<li>Current Operations</li>';
-              break;
-            }
-            case 'streams': {
-              errorsList.innerHTML += '<li>Streams</li>';
-              break;
-            }
-          }
-        }
-
-        this.handleError(
-          `Error fetching the following: ${errorsList.outerHTML}`,
-          errors,
-          'connection'
-        );
-      };
-
-      const makeCalls = async () => {
-        const errors = [];
-
-        try {
-          await this.queryMetadata();
-
-          if (!statuses.resources) {
-            connectionRestablished = true;
-          }
-
-          statuses.resources = true;
-        } catch (error) {
-          statuses.resources = false;
-          errors.push[error];
-        }
-
-        try {
-          await this.loadCurrentOps();
-
-          if (!statuses.ops) {
-            connectionRestablished = true;
-          }
-
-          statuses.ops = true;
-        } catch (error) {
-          statuses.ops = false;
-          errors.push[error];
-        }
-
-        if (isConnected()) {
-          if (connectionRestablished) {
-            toast.success('Connection established');
-            connectionRestablished = false;
-            this.errors.connection = false;
-          }
-          
-          this.error = null;
-          return;
-        }
-
-        handleCallErrors(errors);
-        this.error = 'Connection error, attempting to reconnect ...';
-      };
-
-      const isConnected = () => {
-        return (
-          statuses.resources && 
-          statuses.ops
-        );
-      };
-
-      const stop = () => {
-        window.clearInterval(interval);
-      };
-
-      const start = () => {
-        stop();
-        interval = window.setInterval(makeCalls, 500);
-      };
-
-      return {
-        statuses,
-        interval,
-        stop,
-        start,
-        isConnected,
-      };
-    },
-    
-    fixRawStatus(name, status) {
-      switch (resourceNameToSubtypeString(name)) {
-      // TODO (APP-146): generate these using constants
-        case 'rdk:component:arm':
-          return fixArmStatus(status);
-        case 'rdk:component:board':
-          return fixBoardStatus(status);
-        case 'rdk:component:gantry':
-          return fixGantryStatus(status);
-        case 'rdk:component:input_controller':
-          return fixInputStatus(status);
-        case 'rdk:component:motor':
-          return fixMotorStatus(status);
-        case 'rdk:component:servo':
-          return fixServoStatus(status);
-      }
-
-      return status;
-    },
-    grpcCallback (err, resp, stringify) {
-      if (err) {
-        this.error = err;
-        return;
-      }
-      if (stringify === undefined || stringify) {
-        try {
-          this.res = resp.toJavaScript ? JSON.stringify(resp.toJavaScript()) : JSON.stringify(resp.toObject());
-        } catch {
-          this.error = err;
-        }
-      }
-    },
-    stringToResourceName(nameStr) {
-      const nameParts = nameStr.split('/');
-      let name = '';
-
-      if (nameParts.length === 2) {
-        name = nameParts[1];
-      }
-
-      const subtypeParts = nameParts[0].split(':');
-      if (subtypeParts.length > 3) {
-        throw 'more than 2 colons in resource name string';
-      }
-      if (subtypeParts.length < 3) {
-        throw 'less than 2 colons in resource name string';
-      }
-      return { namespace: subtypeParts[0], type: subtypeParts[1], subtype: subtypeParts[2], name };
-    },
-    resourceStatusByName(name) {
-      return this.status[resourceNameToString(name)];
-    },
-    rawResourceStatusByName(name) {
-      return this.rawStatus[resourceNameToString(name)];
-    },
-    gantryInc(name, axis, amount) {
-      const g = this.resourceStatusByName(name);
-      const pos = [];
-      for (let i = 0; i < g.parts.length; i++) {
-        pos[i] = g.parts[i].pos;
-      }
-      pos[axis] += amount;
-
-      const req = new gantryApi.MoveToPositionRequest();
-      req.setName(name.name);
-      req.setPositionsMmList(pos);
-      window.gantryService.moveToPosition(req, new grpc.Metadata(), this.grpcCallback);
-    },
-    gantryStop(name) {
-      const request = new gantryApi.StopRequest();
-      request.setName(name);
-      window.gantryService.stop(request, new grpc.Metadata(), this.grpcCallback);
-    },
-    armEndPositionInc(name, getterSetter, amount) {
-      const adjustedAmount = getterSetter[0] === 'o' || getterSetter[0] === 'O' ? amount / 100 : amount;
-      const arm = this.rawResourceStatusByName(name);
-      const old = arm.end_position;
-      const newPose = new commonApi.Pose();
-      const fieldSetters = [
-        ['x', 'X'],
-        ['y', 'Y'],
-        ['z', 'Z'],
-        ['theta', 'Theta'],
-        ['o_x', 'OX'],
-        ['o_y', 'OY'],
-        ['o_z', 'OZ'],
-      ];
-      for (const fieldSetter of fieldSetters) {
-        const endPositionField = fieldSetter[0];
-        const endPositionValue = old[endPositionField] || 0;
-        const setter = `set${fieldSetter[1]}`;
-        newPose[setter](endPositionValue);
-      }
-
-      const getter = `get${getterSetter}`;
-      const setter = `set${getterSetter}`;
-      newPose[setter](newPose[getter]() + adjustedAmount);
-      const req = new armApi.MoveToPositionRequest();
-      req.setName(name.name);
-      req.setTo(newPose);
-      window.armService.moveToPosition(req, new grpc.Metadata(), this.grpcCallback);
-    },
-    armJointInc(name, field, amount) {
-      const arm = this.rawResourceStatusByName(name);
-      const newPositionDegs = new armApi.JointPositions();
-      const newList = arm.joint_positions.values;
-      newList[field] += amount;
-      newPositionDegs.setValuesList(newList);
-      const req = new armApi.MoveToJointPositionsRequest();
-      req.setName(name.name);
-      req.setPositions(newPositionDegs);
-      window.armService.moveToJointPositions(req, new grpc.Metadata(), this.grpcCallback);
-    },
-    armHome(name) {
-      const arm = this.rawResourceStatusByName(name);
-      const newPositionDegs = new armApi.JointPositions();
-      const newList = arm.joint_positions.values;
-      for (let i = 0; i < newList.length; i++) {
-        newList[i] = 0;
-      }
-      newPositionDegs.setValuesList(newList);
-      const req = new armApi.MoveToJointPositionsRequest();
-      req.setName(name.name);
-      req.setPositions(newPositionDegs);
-      window.armService.moveToJointPositions(req, {}, this.grpcCallback);
-    },
-    armModifyAll(name) {
-      const arm = this.resourceStatusByName(name);
-      const n = {
-        pos_pieces: [],
-        joint_pieces: [],
-      };
-      for (let i = 0; i < arm.pos_pieces.length; i++) {
-        n.pos_pieces.push({
-          endPosition: arm.pos_pieces[i].endPosition,
-          endPositionValue: roundTo2Decimals(arm.pos_pieces[i].endPositionValue),
-        });
-      }
-      for (let i = 0; i < arm.joint_pieces.length; i++) {
-        n.joint_pieces.push({
-          joint: arm.joint_pieces[i].joint,
-          jointValue: roundTo2Decimals(arm.joint_pieces[i].jointValue),
-        });
-      }
-      this.armToggle[name.name] = n;
-    },
-    armModifyAllCancel(name) {
-      delete this.armToggle[name.name];
-    },
-    armModifyAllDoEndPosition(name) {
-      const newPose = new commonApi.Pose();
-      const newPieces = this.armToggle[name.name].pos_pieces;
-
-      for (const newPiece of newPieces) {
-        const getterSetter = newPiece.endPosition[1];
-        const setter = `set${getterSetter}`;
-        newPose[setter](newPiece.endPositionValue);
-      }
-
-      const req = new armApi.MoveToPositionRequest();
-      req.setName(name.name);
-      req.setTo(newPose);
-      armService.moveToPosition(req, {}, this.grpcCallback);
-      delete this.armToggle[name.name];
-    },
-    armModifyAllDoJoint(name) {
-      const arm = this.rawResourceStatusByName(name);
-      const newPositionDegs = new armApi.JointPositions();
-      const newList = arm.joint_positions.values;
-      const newPieces = this.armToggle[name.name].joint_pieces;
-      for (let i = 0; i < newPieces.length && i < newList.length; i++) {
-        newList[newPieces[i].joint] = newPieces[i].jointValue;
-      }
-
-      newPositionDegs.setValuesList(newList);
-      const req = new armApi.MoveToJointPositionsRequest();
-      req.setName(name.name);
-      req.setPositions(newPositionDegs);
-      window.armService.moveToJointPositions(req, new grpc.Metadata(), this.grpcCallback);
-      delete this.armToggle[name.name];
-    },
-    armStop(name) {
-      const request = new armApi.StopRequest();
-      request.setName(name);
-      window.armService.stop(request, new grpc.Metadata(), this.grpcCallback);
-    },
-    gripperAction(name, action) {
-      let req;
-      switch (action) {
-        case 'open':
-          req = new gripperApi.OpenRequest();
-          req.setName(name);
-          window.gripperService.open(req, new grpc.Metadata(), this.grpcCallback);
-          break;
-        case 'grab':
-          req = new gripperApi.GrabRequest();
-          req.setName(name);
-          window.gripperService.grab(req, new grpc.Metadata(), this.grpcCallback);
-          break;
-      }
-    },
-    gripperStop(name) {
-      const request = new gripperApi.StopRequest();
-      request.setName(name);
-      window.gripperService.stop(request, new grpc.Metadata(), this.grpcCallback);
-    },
-    servoMove(name, amount) {
-      const servo = this.rawResourceStatusByName(name);
-      const oldAngle = servo.position_deg || 0;
-      const angle = oldAngle + amount;
-      const req = new servoApi.MoveRequest();
-      req.setName(name.name);
-      req.setAngleDeg(angle);
-      window.servoService.move(req, {}, this.grpcCallback);
-    },
-    servoStop(name) {
-      ServoControlHelper.stop(name, (err, resp) => this.grpcCallback(err, resp));
-    },
-    motorCommand(name, inputs) {
-      switch (inputs.type) {
-        case 'go':
-          MotorControlHelper.setPower(name, inputs.power * inputs.direction / 100, this.grpcCallback);
-          break;
-        case 'goFor':
-          MotorControlHelper.goFor(name, inputs.rpm * inputs.direction, inputs.revolutions, this.grpcCallback);
-          break;
-        case 'goTo':
-          MotorControlHelper.goTo(name, inputs.rpm, inputs.position, this.grpcCallback);
-          break;
-      }
-    },
-    motorStop(name) {
-      MotorControlHelper.stop(name, this.grpcCallback);
-    },
-    hasWebGamepad() {
-      // TODO (APP-146): replace these with constants
-      return this.resources.some((elem) =>
-        elem.namespace === 'rdk' &&
-        elem.type === 'component' &&
-        elem.subtype === 'input_controller' &&
-        elem.name === 'WebGamepad'
-      );
-    },
-    filteredInputControllerList() {
-      // TODO (APP-146): replace these with constants
-      // filters out WebGamepad
-      return this.resources.filter((elem) =>
-        elem.namespace === 'rdk' &&
-        elem.type === 'component' &&
-        elem.subtype === 'input_controller' &&
-        elem.name !== 'WebGamepad' &&
-        this.resourceStatusByName(elem)
-      );
-    },
-    inputInject(req) {
-      window.inputControllerService.triggerEvent(req, new grpc.Metadata(), this.grpcCallback);
-    },
-    killOp(id) {
-      const req = new robotApi.CancelOperationRequest();
-      req.setId(id);
-      window.robotService.cancelOperation(req, new grpc.Metadata(), this.grpcCallback);
-    },
-    renderFrame(cameraName) {
-      const req = new cameraApi.RenderFrameRequest();
-      req.setName(cameraName);
-      const mimeType = 'image/jpeg';
-      req.setMimeType(mimeType);
-      window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
-        this.grpcCallback(err, resp, false);
-        if (err) {
-          return;
-        }
-        const blob = new Blob([resp.getData_asU8()], { type: mimeType });
-        window.open(URL.createObjectURL(blob), '_blank');
-      });
-    },
-    viewCameraFrame(cameraName, time) {
-      clearInterval(this.cameraFrameIntervalId);
-      if (time === 'manual') {
-        this.viewCamera(cameraName, false);
-        this.viewManualFrame(cameraName);
-      } else if (time === 'live') {
-        this.viewCamera(cameraName, true);
-      } else {
-        this.viewCamera(cameraName, false);
-        this.viewIntervalFrame(cameraName, time);
-      }
-    },
-    viewManualFrame(cameraName) {
-      const req = new cameraApi.RenderFrameRequest();
-      req.setName(cameraName);
-      const mimeType = 'image/jpeg';
-      req.setMimeType(mimeType);
-      window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
-        this.grpcCallback(err, resp, false);
-        if (err) {
-          return;
-        }
-        const streamName = normalizeRemoteName(cameraName);
-        const streamContainer = document.querySelector(`#stream-${streamName}`);
-        if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
-          streamContainer.querySelectorAll('video')[0].remove();
-        }
-        if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
-          streamContainer.querySelectorAll('img')[0].remove();
-        }
-        const image = new Image();
-        const blob = new Blob([resp.getData_asU8()], { type: mimeType });
-        image.src = URL.createObjectURL(blob);
-        streamContainer.append(image);
-      });
-    },
-    viewIntervalFrame(cameraName, time) {
-      this.cameraFrameIntervalId = window.setInterval(() => {
-        const req = new cameraApi.RenderFrameRequest();
-        req.setName(cameraName);
-        req.setMimeType('image/jpeg');
-        window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
-          this.grpcCallback(err, resp, false);
-          if (err) {
-            return;
-          }
-          const streamName = normalizeRemoteName(cameraName);
-          const streamContainer = document.querySelector(`#stream-${streamName}`);
-          if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
-            streamContainer.querySelectorAll('video')[0].remove();
-          }
-          if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
-            streamContainer.querySelectorAll('img')[0].remove();
-          }
-          const image = new Image();
-          const blob = new Blob([resp.getData_asU8()], { type: 'image/jpeg' });
-          image.src = URL.createObjectURL(blob);
-          streamContainer.append(image);
-        });
-      }, Number(time) * 1000);
-    },
-    getReadings(sensorNames) {
-      const req = new sensorsApi.GetReadingsRequest();
-      const sensorsName = filterResources(this.resources, 'rdk', 'service', 'sensors')[0];
-      const names = sensorNames.map((name) => {
-        const resourceName = new commonApi.ResourceName();
-        resourceName.setNamespace(name.namespace);
-        resourceName.setType(name.type);
-        resourceName.setSubtype(name.subtype);
-        resourceName.setName(name.name);
-        return resourceName;
-      });
-      req.setName(sensorsName.name);
-      req.setSensorNamesList(names);
-      window.sensorsService.getReadings(req, new grpc.Metadata(), (err, resp) => {
-        this.grpcCallback(err, resp, false);
-        if (err) {
-          return;
-        }
-
-        for (const r of resp.getReadingsList()) {
-          const readings = r.getReadingsMap();
-          const rr = {};
-
-          for (const [k, v] of readings.entries()) {
-            rr[k] = v.toJavaScript();
-          }
-          
-          this.sensorReadings[resourceNameToString(r.getName().toObject())] = rr;
-        }
-      });
-    },
-    processFunctionResults(err, resp) {
-      const el = document.querySelector('#function_results');
-
-      this.grpcCallback(err, resp, false);
-      if (err) {
-        if (el) {
-          el.value = `${err}`;
-        }
-        return;
-      }
-      const results = resp.getResultsList();
-
-      let resultStr = '';
-      if (results.length > 0) {
-        resultStr += 'Results: \n';
-        for (let i = 0; i < results.length && i < results.length; i++) {
-          const result = results[i];
-          resultStr += `${i}: ${JSON.stringify(result.toJavaScript())}\n`;
-        }
-      }
-      resultStr += `StdOut: ${resp.getStdOut()}\n`;
-      resultStr += `StdErr: ${resp.getStdErr()}\n`;
-      
-      if (el) {
-        el.value = resultStr;
-      }
-    },
-    nonEmpty(object) {
-      return Object.keys(object).length > 0;
-    },
-    hasKey(d, key) {
-      if (!d) {
-        return false;
-      }
-      if (Array.isArray(d)) {
-        for (const element of d) {
-          if (element === key || (element.length > 0 && element.length > 0 && element[0] === key)) {
-            return true;
-          }
-        }
-        return false;
-      }
-      return d.hasOwn(key);
-    },
-
-    viewCamera(name, isOn) {
-      const streamName = normalizeRemoteName(name);
-      const streamContainer = document.querySelector(`#stream-${streamName}`);
-
-      if (isOn) {
-        const req = new streamApi.AddStreamRequest();
-        req.setName(name);
-        window.streamService.addStream(req, new grpc.Metadata(), (err, resp) => {
-          this.grpcCallback(err, resp, false);
-          if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
-            streamContainer.querySelectorAll('img')[0].remove();
-          }
-          if (err) {
-            this.error = 'no live camera device found';
-            
-          }
-        });
-        document.querySelector(`#stream-preview-${name}`)?.removeAttribute('hidden');
-        return;
-      }
-
-      document.querySelector(`#stream-preview-${name}`)?.setAttribute('hidden', true);
-
-      const req = new streamApi.RemoveStreamRequest();
-      req.setName(name);
-      window.streamService.removeStream(req, new grpc.Metadata(), (err, resp) => {
-        this.grpcCallback(err, resp, false);
-        if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
-          streamContainer.querySelectorAll('img')[0].remove();
-        }
-        if (err) {
-          this.error = 'no live camera device found';
-        }
-      });
-    },
-    listenAudioInput(name, isOn) {
-      if (isOn) {
-        const req = new streamApi.AddStreamRequest();
-        req.setName(name);
-        window.streamService.addStream(req, new grpc.Metadata(), (err, resp) => {
-          this.grpcCallback(err, resp, false);
-          if (err) {
-            this.error = 'no live audio input device found';
-          }
-        });
-        return;
-      }
-
-      const req = new streamApi.RemoveStreamRequest();
-      req.setName(name);
-      window.streamService.removeStream(req, new grpc.Metadata(), (err, resp) => {
-        this.grpcCallback(err, resp, false);
-        if (err) {
-          this.error = 'no live audio input device found';
-        }
-      });
-    },
-    displayRadiansInDegrees (r) {
-      let d = r * 180;
-      while (d < 0) {
-        d += 360;
-      }
-      while (d > 360) {
-        d -= 360;
-      }
-      return d.toFixed(1);
-    },
-    getGPIO (boardName) {
-      const pin = this.getPin;
-      BoardControlHelper.getGPIO(boardName, pin, (err, resp) => {
-        if (err) {
-          toast.error(err);
-          return;
-        }
-        const x = resp.toObject();
-        document.querySelector(`#get_pin_value_${boardName}`).innerHTML = `Pin: ${pin} is ${x.high ? 'high' : 'low'}`;
-      });
-    },
-    setGPIO (boardName) {
-      const pin = this.setPin;
-      const v = document.querySelector(`#set_pin_v_${boardName}`).value;
-      BoardControlHelper.setGPIO(boardName, pin, v === 'high', this.grpcCallback);
-    },
-    getPWM (boardName) {
-      const pin = this.getPin;
-      BoardControlHelper.getPWM(boardName, pin, (err, resp) => {
-        if (err) {
-          toast.error(err);
-          return;
-        }
-        const { dutyCyclePct } = resp.toObject();
-        document.querySelector(`#get_pin_value_${boardName}`).innerHTML = `Pin ${pin}'s duty cycle is ${dutyCyclePct * 100}%.`;
-      });
-    },
-    setPWM (boardName) {
-      const pin = this.setPin;
-      const v = this.pwm / 100;
-      BoardControlHelper.setPWM(boardName, pin, v, this.grpcCallback);
-    },
-    getPWMFrequency (boardName) {
-      const pin = this.getPin;
-      BoardControlHelper.getPWMFrequency(boardName, pin, (err, resp) => {
-        if (err) {
-          toast.error(err);
-          return;
-        }
-        const { frequencyHz } = resp.toObject();
-        document.querySelector(`#get_pin_value_${boardName}`).innerHTML = `Pin ${pin}'s frequency is ${frequencyHz}Hz.`;
-      });
-    },
-    setPWMFrequency (boardName) {
-      const pin = this.setPin;
-      const v = this.pwmFrequency;
-      BoardControlHelper.setPWMFrequency(boardName, pin, v, this.grpcCallback);
-    },
-    isWebRtcEnabled() {
-      return window.webrtcEnabled;
-    },
-    // query metadata service every 0.5s
-    queryMetadata() {
-      return new Promise((resolve, reject) => {
-        let resourcesChanged = false;
-        let shouldRestartStatusStream = false;
-
-        window.robotService.resourceNames(new robotApi.ResourceNamesRequest(), new grpc.Metadata(), (err, resp) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-
-          if (!resp) {
-            reject(null);
-            return;
-          }
-
-          const resources = resp.toObject().resourcesList;
-
-          // if resource list has changed, flag that
-          const differences = new Set(this.resources.map((name) => resourceNameToString(name)));
-          const resourceSet = new Set(resources.map((name) => resourceNameToString(name)));
-
-          for (const elem of resourceSet) {
-            if (differences.has(elem)) {
-              differences.delete(elem);
-            } else {
-              differences.add(elem);
-            }
-          }
-
-          if (differences.size > 0) {
-            resourcesChanged = true;
-
-            // restart status stream if resource difference includes a resource we care about
-            for (const elem of differences) {
-              const name = this.stringToResourceName(elem);
-              if (name.namespace === 'rdk' && name.type === 'component' && relevantSubtypesForStatus.includes(name.subtype)) {
-                shouldRestartStatusStream = true;
-                break;
-              }
-            }
-          }
-          
-          this.resources = resources;
-          if (resourcesChanged === true) {
-            this.querySensors();
-            if (shouldRestartStatusStream === true) {
-              this.restartStatusStream();
-            }
-          }
-          resolve(this.resources);
-        });
-      });
-    },
-    querySensors() {
-      const req = new sensorsApi.GetSensorsRequest();
-      req.setName("builtin");
-      window.sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
-        this.grpcCallback(err, resp, false);
-        if (err) {
-          return;
-        }
-        this.sensorNames = resp.toObject().sensorNamesList;
-      });
-    },
-    loadCurrentOps () {
-      return new Promise((resolve, reject) => {  
-        const req = new robotApi.GetOperationsRequest();
-
-        window.robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-
-          if (!resp) {
-            reject(null);
-            return;
-          }
-
-          const lst = resp.toObject().operationsList;
-          this.currentOps = lst;
-
-          const now = Date.now();
-          for (const op of this.currentOps) {
-            op.elapsed = now - (op.started.seconds * 1000);
-          }
-
-          resolve(this.currentOps);
-        });
-      });
-    },
-    async doConnect(authEntity, creds, onError) {
-      console.debug('connecting');
-      document.querySelector('#connecting').classList.remove('hidden');
-      try {
-        await window.connect(authEntity, creds);
-      } catch (error) {
-        toast.error(`failed to connect: ${error}`);
-        if (onError) {
-          setTimeout(onError, 1000);
-        }
-        return;
-      }
-      console.debug('connected');
-      document.querySelector('#pre-app').classList.add('hidden');
-    },
-    async waitForClientAndStart() {
-      if (window.supportedAuthTypes.length === 0) {
-        await this.doConnect(window.bakedAuth.authEntity, window.bakedAuth.creds, this.waitForClientAndStart);
-        return;
-      }
-
-      const authElems = [];
-      const disableAll = () => {
-        for (const elem of authElems) {
-          elem.disabled = true;
-        }
-      };
-      const enableAll = () => {
-        for (const elem of authElems) {
-          elem.disabled = false;
-        }
-      };
-      for (const authType of window.supportedAuthTypes) {
-        const authDiv = document.querySelector(`#auth-${authType}`);
-        const input = authDiv.querySelectorAll('input')[0];
-        const button = authDiv.querySelectorAll('button')[0];
-        authElems.push(input, button);
-        const doLogin = () => {
-          disableAll();
-          const creds = { type: authType, payload: input.value };
-          this.doConnect('', creds, '', '', () => enableAll());
-        };
-        button.addEventListener('click', () => doLogin());
-        input.addEventListener('keyup', (event) => {
-          if (event.key.toLowerCase() !== 'enter') {
-            return;
-          }
-          doLogin();
-        });
-      }
-    },
-    movementsensorRefresh() {
-      for (const x of filterResources(this.resources, 'rdk', 'component', 'movement_sensor')) {
-        const name = x.name;
-
-        if (!this.movementsensorData[name]) {
-          this.movementsensorData[name] = {};
-        }
-
-        {
-          const req = new movementsensorApi.GetOrientationRequest();
-          req.setName(name);
-
-          window.movementsensorService.getOrientation(req, new grpc.Metadata(), (err, resp) => {
-            if (err) {
-              console.log(err);
-              return;
-            }
-            this.movementsensorData[name].orientation = resp.toObject().orientation;
-          });
-        }
-
-        {
-          const req = new movementsensorApi.GetAngularVelocityRequest();
-          req.setName(name);
-
-          window.movementsensorService.getAngularVelocity(req, new grpc.Metadata(), (err, resp) => {
-            if (err) {
-              console.log(err);
-              return;
-            }
-            this.movementsensorData[name].angularVelocity = resp.toObject().angularVelocity;
-          });
-        }
-
-        {
-          const req = new movementsensorApi.GetLinearVelocityRequest();
-          req.setName(name);
-
-          window.movementsensorService.getLinearVelocity(req, new grpc.Metadata(), (err, resp) => {
-            if (err) {
-              console.log(err);
-              return;
-            }
-            this.movementsensorData[name].linearVelocity = resp.toObject().linearVelocity;
-          });
-        }
-
-        {
-          const req = new movementsensorApi.GetCompassHeadingRequest();
-          req.setName(name);
-
-          window.movementsensorService.getCompassHeading(req, new grpc.Metadata(), (err, resp) => {
-            if (err) {
-              console.log(err);
-              return;
-            }
-            this.movementsensorData[name].compassHeading = resp.toObject().value;
-          });
-        }
-
-        {
-          const req = new movementsensorApi.GetPositionRequest();
-          req.setName(name);
-
-          window.movementsensorService.getPosition(req, new grpc.Metadata(), (err, resp) => {
-            if (err) {
-              console.log(err);
-              return;
-            }
-            const temp = resp.toObject();
-            this.movementsensorData[name].coordinate = temp.coordinate;
-            this.movementsensorData[name].altitudeMm = temp.altitudeMm;
-          });
-        }
-
-        {
-          const req = new movementsensorApi.GetPropertiesRequest();
-          req.setName(name);
-
-          window.movementsensorService.getProperties(req, new grpc.Metadata(), (err, resp) => {
-            if (err) {
-              console.log(err);
-              return;
-            }
-            const temp = resp.toObject();
-            this.movementsensorData[name].properties = temp;
-          });
-        }
-
-      }
-
-      setTimeout(this.movementsensorRefresh, 500);
-    },
-    updateStatus(grpcStatuses) {
-      const rawStatus = {};
-      const status = {};
-
-      for (const grpcStatus of grpcStatuses) {
-        const nameObj = grpcStatus.getName().toObject();
-        const statusJs = grpcStatus.getStatus().toJavaScript();
-
-        try {
-          const fixed = this.fixRawStatus(nameObj, statusJs);
-          const nameStr = resourceNameToString(nameObj);
-          rawStatus[nameStr] = statusJs;
-          status[nameStr] = fixed;
-        } catch (error) {
-          toast.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`, error);
-        }
-      }
-
-      this.rawStatus = rawStatus;
-      this.status = status;
-    },
-    async restartStatusStream () {
-      if (statusStream) {
-        statusStream.cancel();
-        try {
-          console.log('reconnecting');
-          await window.connect();
-        } catch (error) {
-          console.error('failed to reconnect; retrying:', error);
-          setTimeout(() => this.restartStatusStream(), 1000);
-        }
-      }
-      let resourceNames = [];
-      // get all relevant resource names
-      for (const subtype of relevantSubtypesForStatus) {
-        resourceNames = [...resourceNames, ...filterResources(this.resources, 'rdk', 'component', subtype)];
-      }
-
-      const names = resourceNames.map((name) => {
-        const resourceName = new commonApi.ResourceName();
-        resourceName.setNamespace(name.namespace);
-        resourceName.setType(name.type);
-        resourceName.setSubtype(name.subtype);
-        resourceName.setName(name.name);
-        return resourceName;
-      });
-      const streamReq = new robotApi.StreamStatusRequest();
-      streamReq.setResourceNamesList(names);
-      streamReq.setEvery(new proto.google.protobuf.Duration().setNanos(500_000_000)); // 500ms
-      statusStream = window.robotService.streamStatus(streamReq);
-      let firstData = true;
-      statusStream.on('data', (response) => {
-        lastStatusTS = Date.now();
-        this.updateStatus(response.getStatusList());
-        if (firstData) {
-          firstData = false;
-          this.checkLastStatus();
-        }
-      });
-      statusStream.on('status', (status) => {
-        console.log('error streaming robot status');
-        console.log(status);
-        console.log(status.code, ' ', status.details);
-      });
-      statusStream.on('end', () => {
-        console.log('done streaming robot status');
-        setTimeout(() => this.restartStatusStream(), 1000);
-      });
-    },
-    checkLastStatus () {
-      const checkIntervalMillis = 3000;
-      if (Date.now() - lastStatusTS > checkIntervalMillis) {
-        this.restartStatusStream();
-        return;
-      }
-      setTimeout(this.checkLastStatus, checkIntervalMillis);
-    },
-    handleSelectCamera (event, cameras) {
-      for (const camera of cameras) {
-        this.viewCamera(camera.name, event.includes(camera.name));
-      }
-    },
-  },
+const relevantSubtypesForStatus = [
+  'arm',
+  'gantry',
+  'board',
+  'servo',
+  'motor',
+  'input_controller',
+];
+
+const passwordInput = $ref<HTMLInputElement>();
+const supportedAuthTypes = $computed(() => window.supportedAuthTypes);
+const rawStatus = $ref<Record<string, Status>>({});
+const status = $ref<Record<string, Status>>({});
+const errors = $ref<Record<string, boolean>>({});
+
+let statusStream: ResponseStream<StreamStatusResponse>;
+let lastStatusTS = Date.now();
+let disableAuthElements = $ref(false);
+let cameraFrameIntervalId = $ref(-1);
+let currentOps = $ref<{ op: Operation.AsObject, elapsed: number }[]>([]);
+let sensorNames = $ref<ResourceName.AsObject[]>([]);
+let resources = $ref<Resource[]>([]);
+let errorMessage = $ref('');
+let connectionManager = $ref<{
+  statuses: {
+    resources: boolean;
+    ops: boolean;
+  };
+  interval: number;
+  stop(): void;
+  start(): void;
+  isConnected(): boolean;
+}>(null!);
+
+onMounted(async () => {
+  await waitForClientAndStart();
+
+  connectionManager = createConnectionManager();
+  connectionManager.start();
+
+  addResizeListeners();
+});
+
+const handleError = (message: string, error: unknown, onceKey: string) => {
+  if (onceKey) {
+    if (errors[onceKey]) {
+      return;
+    }
+
+    errors[onceKey] = true;
+  }
+
+  toast.error(message);
+  console.error(message, { error });
 };
 
-const relevantSubtypesForStatus = ['arm', 'gantry', 'board', 'servo', 'motor', 'input_controller'];
+const handleCallErrors = (statuses: { resources: boolean; ops: boolean }, errors: unknown) => {
+  const errorsList = document.createElement('ul');
+  errorsList.classList.add('list-disc', 'pl-4');
 
-let statusStream;
-let lastStatusTS = Date.now();
+  for (const key of Object.keys(statuses)) {
+    switch (key) {
+      case 'resources': {
+        errorsList.innerHTML += '<li>Robot Resources</li>';
+        break;
+      }
+      case 'ops': {
+        errorsList.innerHTML += '<li>Current Operations</li>';
+        break;
+      }
+      case 'streams': {
+        errorsList.innerHTML += '<li>Streams</li>';
+        break;
+      }
+    }
+  }
+
+  handleError(
+    `Error fetching the following: ${errorsList.outerHTML}`,
+    errors,
+    'connection'
+  );
+};
+
+const createConnectionManager = () => {
+  const statuses = {
+    resources: true,
+    ops: true,
+  };
+
+  let interval = -1;
+  let connectionRestablished = false;
+
+  const makeCalls = async () => {
+    const errors = [];
+
+    try {
+      await queryMetadata();
+
+      if (!statuses.resources) {
+        connectionRestablished = true;
+      }
+
+      statuses.resources = true;
+    } catch (error) {
+      statuses.resources = false;
+      errors.push(error);
+    }
+
+    try {
+      await loadCurrentOps();
+
+      if (!statuses.ops) {
+        connectionRestablished = true;
+      }
+
+      statuses.ops = true;
+    } catch (error) {
+      statuses.ops = false;
+      errors.push(error);
+    }
+
+    if (isConnected()) {
+      if (connectionRestablished) {
+        toast.success('Connection established');
+        connectionRestablished = false;
+      }
+      
+      errorMessage = '';
+      return;
+    }
+
+    handleCallErrors(statuses, errors);
+    errorMessage = 'Connection error, attempting to reconnect ...';
+  };
+
+  const isConnected = () => {
+    return (
+      statuses.resources && 
+      statuses.ops
+    );
+  };
+
+  const stop = () => {
+    window.clearInterval(interval);
+  };
+
+  const start = () => {
+    stop();
+    interval = window.setInterval(makeCalls, 500);
+  };
+
+  return {
+    statuses,
+    interval,
+    stop,
+    start,
+    isConnected,
+  };
+};
+  
+const fixRawStatus = (resource: Resource, status: unknown) => {
+  switch (resourceNameToSubtypeString(resource)) {
+  // TODO (APP-146): generate these using constants
+  // TODO these types need to be fixed.
+    case 'rdk:component:arm':
+      return fixArmStatus(status as never);
+    case 'rdk:component:board':
+      return fixBoardStatus(status as never);
+    case 'rdk:component:gantry':
+      return fixGantryStatus(status as never);
+    case 'rdk:component:input_controller':
+      return fixInputStatus(status as never);
+    case 'rdk:component:motor':
+      return fixMotorStatus(status as never);
+    case 'rdk:component:servo':
+      return fixServoStatus(status as never);
+  }
+
+  return status;
+};
+
+const stringToResourceName = (nameStr: string) => {
+  const nameParts = nameStr.split('/');
+  let name = '';
+
+  if (nameParts.length === 2) {
+    name = nameParts[1];
+  }
+
+  const subtypeParts = nameParts[0].split(':');
+  if (subtypeParts.length > 3) {
+    throw 'more than 2 colons in resource name string';
+  }
+
+  if (subtypeParts.length < 3) {
+    throw 'less than 2 colons in resource name string';
+  }
+
+  return {
+    namespace: subtypeParts[0],
+    type: subtypeParts[1],
+    subtype: subtypeParts[2],
+    name,
+  };
+};
+
+const resourceStatusByName = (resource: Resource) => {
+  return status[resourceNameToString(resource)];
+};
+
+const rawResourceStatusByName = (resource: Resource) => {
+  return rawStatus[resourceNameToString(resource)];
+};
+
+const hasWebGamepad = () => {
+  // TODO (APP-146): replace these with constants
+  return resources.some((elem) =>
+    elem.namespace === 'rdk' &&
+    elem.type === 'component' &&
+    elem.subtype === 'input_controller' &&
+    elem.name === 'WebGamepad'
+  );
+};
+
+const filteredInputControllerList = () => {
+  // TODO (APP-146): replace these with constants
+  // filters out WebGamepad
+  return resources.filter((elem) =>
+    elem.namespace === 'rdk' &&
+    elem.type === 'component' &&
+    elem.subtype === 'input_controller' &&
+    elem.name !== 'WebGamepad' &&
+    resourceStatusByName(elem)
+  );
+};
+
+const viewCameraFrame = (cameraName: string, time: string) => {
+  window.clearInterval(cameraFrameIntervalId);
+  if (time === 'manual') {
+    viewCamera(cameraName, false);
+    viewManualFrame(cameraName);
+  } else if (time === 'live') {
+    viewCamera(cameraName, true);
+  } else {
+    viewCamera(cameraName, false);
+    viewIntervalFrame(cameraName, time);
+  }
+};
+
+const viewManualFrame = (cameraName: string) => {
+  const req = new cameraApi.RenderFrameRequest();
+  req.setName(cameraName);
+  const mimeType = 'image/jpeg';
+  req.setMimeType(mimeType);
+  window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
+    if (err) {
+      return displayError(err);
+    }
+
+    const streamName = normalizeRemoteName(cameraName);
+    const streamContainer = document.querySelector(`#stream-${streamName}`);
+    if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
+      streamContainer.querySelectorAll('video')[0].remove();
+    }
+    if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
+      streamContainer.querySelectorAll('img')[0].remove();
+    }
+    const image = new Image();
+    const blob = new Blob([resp!.getData_asU8()], { type: mimeType });
+    image.src = URL.createObjectURL(blob);
+    streamContainer!.append(image);
+  });
+};
+
+const viewIntervalFrame = (cameraName: string, time: string) => {
+  cameraFrameIntervalId = window.setInterval(() => {
+    const req = new cameraApi.RenderFrameRequest();
+    req.setName(cameraName);
+    req.setMimeType('image/jpeg');
+    window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        return displayError(err);
+      }
+
+      const streamName = normalizeRemoteName(cameraName);
+      const streamContainer = document.querySelector(`#stream-${streamName}`);
+      if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
+        streamContainer.querySelectorAll('video')[0].remove();
+      }
+      if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
+        streamContainer.querySelectorAll('img')[0].remove();
+      }
+      const image = new Image();
+      const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
+      image.src = URL.createObjectURL(blob);
+      streamContainer!.append(image);
+    });
+  }, Number(time) * 1000);
+};
+
+const nonEmpty = (object: object) => {
+  return Object.keys(object).length > 0;
+};
+
+const viewCamera = (name: string, isOn: boolean) => {
+  const streamName = normalizeRemoteName(name);
+  const streamContainer = document.querySelector(`#stream-${streamName}`);
+
+  if (isOn) {
+    const req = new streamApi.AddStreamRequest();
+    req.setName(name);
+    window.streamService.addStream(req, new grpc.Metadata(), (err) => {
+      if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
+        streamContainer.querySelectorAll('img')[0].remove();
+      }
+
+      if (err) {
+        toast.error('No live camera device found.');
+        displayError(err);
+      }
+    });
+    document.querySelector(`#stream-preview-${name}`)?.removeAttribute('hidden');
+    return;
+  }
+
+  document.querySelector(`#stream-preview-${name}`)?.setAttribute('hidden', 'true');
+
+  const req = new streamApi.RemoveStreamRequest();
+  req.setName(name);
+  window.streamService.removeStream(req, new grpc.Metadata(), (err) => {
+    if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
+      streamContainer.querySelectorAll('img')[0].remove();
+    }
+
+    if (err) {
+      toast.error('No live camera device found.');
+      displayError(err);
+    }
+  });
+};
+
+const isWebRtcEnabled = () => {
+  return window.webrtcEnabled;
+};
+
+// query metadata service every 0.5s
+const queryMetadata = () => {
+  return new Promise((resolve, reject) => {
+    let resourcesChanged = false;
+    let shouldRestartStatusStream = false;
+
+    window.robotService.resourceNames(new robotApi.ResourceNamesRequest(), new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+
+      if (!resp) {
+        reject(null);
+        return;
+      }
+
+      const { resourcesList } = resp.toObject();
+
+      // if resource list has changed, flag that
+      const differences = new Set(resources.map((name) => resourceNameToString(name)));
+      const resourceSet = new Set(resourcesList.map((name) => resourceNameToString(name)));
+
+      for (const elem of resourceSet) {
+        if (differences.has(elem)) {
+          differences.delete(elem);
+        } else {
+          differences.add(elem);
+        }
+      }
+
+      if (differences.size > 0) {
+        resourcesChanged = true;
+
+        // restart status stream if resource difference includes a resource we care about
+        for (const elem of differences) {
+          const resource = stringToResourceName(elem);
+          if (
+            resource.namespace === 'rdk' &&
+            resource.type === 'component' &&
+            relevantSubtypesForStatus.includes(resource.subtype)
+          ) {
+            shouldRestartStatusStream = true;
+            break;
+          }
+        }
+      }
+      
+      resources = resourcesList;
+      if (resourcesChanged === true) {
+        querySensors();
+        if (shouldRestartStatusStream === true) {
+          restartStatusStream();
+        }
+      }
+      resolve(resources);
+    });
+  });
+};
+
+const querySensors = () => {
+  const req = new sensorsApi.GetSensorsRequest();
+  req.setName('builtin');
+  window.sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
+    if (err) {
+      return displayError(err);
+    }
+    sensorNames = resp!.toObject().sensorNamesList;
+  });
+};
+
+const loadCurrentOps = () => {
+  return new Promise((resolve, reject) => {  
+    const req = new robotApi.GetOperationsRequest();
+
+    window.robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+
+      if (!resp) {
+        reject(null);
+        return;
+      }
+
+      const list = resp.toObject().operationsList;
+      currentOps = [];
+
+      const now = Date.now();
+      for (const op of list) {
+        currentOps.push({
+          op,
+          elapsed: op.started ? now - (op.started.seconds * 1000) : -1,
+        });
+      }
+
+      resolve(currentOps);
+    });
+  });
+};
+
+const doConnect = async (authEntity: string, creds: Credentials, onError?: () => Promise<void>) => {
+  console.debug('connecting');
+  document.querySelector('#connecting')!.classList.remove('hidden');
+
+  try {
+    await window.connect(authEntity, creds);
+  } catch (error) {
+    toast.error(`failed to connect: ${error}`);
+    if (onError) {
+      setTimeout(onError, 1000);
+    }
+    return;
+  }
+
+  console.debug('connected');
+  document.querySelector('#pre-app')!.classList.add('hidden');
+  disableAuthElements = false;
+
+  return true;
+};
+
+const doLogin = (authType: string) => {
+  disableAuthElements = true;
+  const creds = { type: authType, payload: passwordInput.value };
+  doConnect('', creds);
+};
+
+const waitForClientAndStart = async () => {
+  if (window.supportedAuthTypes.length === 0) {
+    await doConnect(window.bakedAuth.authEntity, window.bakedAuth.creds, waitForClientAndStart);
+  }
+};
+
+const updateStatus = (grpcStatuses: robotApi.Status[]) => {
+  for (const grpcStatus of grpcStatuses) {
+    const nameObj = grpcStatus.getName()!.toObject();
+    const statusJs = grpcStatus.getStatus()!.toJavaScript();
+
+    try {
+      const fixed = fixRawStatus(nameObj, statusJs);
+      const name = resourceNameToString(nameObj);
+      rawStatus[name] = statusJs as unknown as Status;
+      status[name] = fixed as unknown as Status;
+    } catch (error) {
+      toast.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`, error);
+    }
+  }
+};
+
+const restartStatusStream = async () => {
+  if (statusStream) {
+    statusStream.cancel();
+    try {
+      console.log('reconnecting');
+      await window.connect();
+    } catch (error) {
+      console.error('failed to reconnect; retrying:', error);
+      setTimeout(() => restartStatusStream(), 1000);
+    }
+  }
+
+  let resources: Resource[] = [];
+
+  // get all relevant resources
+  for (const subtype of relevantSubtypesForStatus) {
+    resources = [...resources, ...filterResources(resources, 'rdk', 'component', subtype)];
+  }
+
+  const names = resources.map((name) => {
+    const resourceName = new commonApi.ResourceName();
+    resourceName.setNamespace(name.namespace);
+    resourceName.setType(name.type);
+    resourceName.setSubtype(name.subtype);
+    resourceName.setName(name.name);
+    return resourceName;
+  });
+
+  const streamReq = new robotApi.StreamStatusRequest();
+  streamReq.setResourceNamesList(names);
+  streamReq.setEvery(new Duration().setNanos(500_000_000)); // 500ms
+
+  statusStream = window.robotService.streamStatus(streamReq);
+  let firstData = true;
+
+  statusStream.on('data', (response) => {
+    lastStatusTS = Date.now();
+    updateStatus(response.getStatusList());
+    if (firstData) {
+      firstData = false;
+      checkLastStatus();
+    }
+  });
+
+  statusStream.on('status', (status) => {
+    console.log('error streaming robot status');
+    console.log(status);
+    console.log(status.code, ' ', status.details);
+  });
+
+  statusStream.on('end', () => {
+    console.log('done streaming robot status');
+    setTimeout(() => restartStatusStream(), 1000);
+  });
+};
+
+const checkLastStatus = () => {
+  const checkIntervalMillis = 3000;
+  if (Date.now() - lastStatusTS > checkIntervalMillis) {
+    restartStatusStream();
+    return;
+  }
+  setTimeout(checkLastStatus, checkIntervalMillis);
+};
+
+const handleSelectCamera = (event: string, cameras: Resource[]) => {
+  for (const camera of cameras) {
+    viewCamera(camera.name, event.includes(camera.name));
+  }
+};
 
 </script>
 
@@ -1108,704 +646,109 @@ let lastStatusTS = Date.now();
       :key="authType"
     >
       <span>{{ authType }}: </span>
-      <div
-        :id="`auth-${authType}`"
-        class="w-96"
-      >
+      <div class="w-96">
         <input
+          ref="passwordInput"
+          :disabled="disableAuthElements"
           class="mb-2 block w-full appearance-none border p-2 text-gray-700 transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none"
           type="password"
+          @keyup.enter="doLogin(authType)"
         >
-        <button
-          class="font-button bg-primary relative cursor-pointer border border-black px-5 py-2 leading-tight text-black shadow-sm transition-colors duration-150 hover:border-black hover:bg-gray-200 focus:bg-gray-400 focus:outline-none active:bg-gray-400"
-        >
-          Login
-        </button>
+        <v-button
+          :disabled="disableAuthElements"
+          label="Login"
+          @click="disableAuthElements ? undefined : doLogin(authType)"
+        />
       </div>
     </template>
   </div>
   
   <div class="flex flex-col gap-4 p-3">
     <div
-      v-if="error"
+      v-if="errorMessage"
       class="border-l-4 border-red-500 bg-gray-100 px-4 py-3"
     >
-      {{ error }}
+      {{ errorMessage }}
     </div>
 
     <!-- ******* BASE *******  -->
-    <template
+    <Base
       v-for="base in filterResources(resources, 'rdk', 'component', 'base')"
       :key="base.name"
-    >
-      <BaseComponent
-        :name="base.name"
-        :resources="resources"
-        @showcamera="handleSelectCamera($event, filterResources(resources, 'rdk', 'component', 'camera'))"
-      />
-    </template>
+      :name="base.name"
+      :resources="resources"
+      @showcamera="handleSelectCamera($event, filterResources(resources, 'rdk', 'component', 'camera'))"
+    />
 
     <!-- ******* GANTRY *******  -->
-    <v-collapse
+    <Gantry
       v-for="gantry in filterRdkComponentsWithStatus(resources, status, 'gantry')"
       :key="gantry.name"
-      :title="gantry.name"
-      class="gantry"
-    >
-      <v-breadcrumbs
-        slot="title"
-        :crumbs="['gantry'].join(',')"
-      />
-      <div
-        slot="header"
-        class="flex items-center justify-between gap-2"
-      >
-        <v-button
-          variant="danger"
-          icon="stop-circle"
-          label="STOP"
-          @click.stop="gantryStop(gantry.name)"
-        />
-      </div>
-      <div class="border border-t-0 border-black p-4">
-        <table class="border border-t-0 border-black p-4">
-          <thead>
-            <tr>
-              <th class="border border-black p-2">
-                axis
-              </th>
-              <th
-                class="border border-black p-2"
-                colspan="2"
-              >
-                position
-              </th>
-              <th class="border border-black p-2">
-                length
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="pp in resourceStatusByName(gantry).parts"
-              :key="pp.axis"
-            >
-              <th class="border border-black p-2">
-                {{ pp.axis }}
-              </th>
-              <td class="flex p-2">
-                <v-button
-                  label="--"
-                  @click="gantryInc( gantry, pp.axis, -10 )"
-                />
-                <v-button
-                  label="-"
-                  @click="gantryInc( gantry, pp.axis, -1 )"
-                />
-                <v-button
-                  label="+"
-                  @click="gantryInc( gantry, pp.axis, 1 )"
-                />
-                <v-button
-                  label="++"
-                  @click="gantryInc( gantry, pp.axis, 10 )"
-                />
-              </td>
-              <td class="border border-black p-2">
-                {{ pp.pos.toFixed(2) }}
-              </td>
-              <td class="border border-black p-2">
-                {{ pp.length }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </v-collapse>
+      :name="gantry.name"
+      :status="(resourceStatusByName(gantry) as unknown as ReturnType<typeof fixGantryStatus>)"
+    />
 
     <!-- ******* MovementSensor *******  -->
-    <v-collapse
-      v-for="movementsensor in filterResources(resources, 'rdk', 'component', 'movement_sensor')"
-      :key="movementsensor.name"
-      :title="movementsensor.name"
-      class="movement"
-    >
-      <v-breadcrumbs
-        slot="title"
-        :crumbs="['movement_sensor'].join(',')"
-      />
-      <div class="flex items-end border border-t-0 border-black p-4">
-        <template v-if="movementsensorData[movementsensor.name] && movementsensorData[movementsensor.name].properties">
-          <div
-            v-if="movementsensorData[movementsensor.name].properties.positionSupported"
-            class="mr-4 w-1/4"
-          >
-            <h3 class="mb-1">
-              Position
-            </h3>
-            <table class="w-full border border-t-0 border-black p-4">
-              <tr>
-                <th class="border border-black p-2">
-                  Latitude
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].coordinate?.latitude.toFixed(6) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Longitude
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].coordinate?.longitude.toFixed(6) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Altitide
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].altitudeMm?.toFixed(2) }}
-                </td>
-              </tr>
-            </table>
-            <a :href="'https://www.google.com/maps/search/' + movementsensorData[movementsensor.name].coordinate?.latitude + ',' + movementsensorData[movementsensor.name].coordinate?.longitude">google maps</a>
-          </div>
-
-          <div
-            v-if="movementsensorData[movementsensor.name].properties.orientationSupported"
-            class="mr-4 w-1/4"
-          >
-            <h3 class="mb-1">
-              Orientation (degrees)
-            </h3>
-            <table class="w-full border border-t-0 border-black p-4">
-              <tr>
-                <th class="border border-black p-2">
-                  OX
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].orientation?.oX.toFixed(2) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  OY
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].orientation?.oY.toFixed(2) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  OZ
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].orientation?.oZ.toFixed(2) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Theta
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].orientation?.theta.toFixed(2) }}
-                </td>
-              </tr>
-            </table>
-          </div>
-                
-          <div
-            v-if="movementsensorData[movementsensor.name].properties.angularVelocitySupported"
-            class="mr-4 w-1/4"
-          >
-            <h3 class="mb-1">
-              Angular Velocity (degrees/second)
-            </h3>
-            <table class="w-full border border-t-0 border-black p-4">
-              <tr>
-                <th class="border border-black p-2">
-                  X
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].angularVelocity?.x.toFixed(2) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Y
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].angularVelocity?.y.toFixed(2) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Z
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].angularVelocity?.z.toFixed(2) }}
-                </td>
-              </tr>
-            </table>
-          </div>
-
-          <div
-            v-if="movementsensorData[movementsensor.name].properties.linearVelocitySupported"
-            class="mr-4 w-1/4"
-          >
-            <h3 class="mb-1">
-              Linear Velocity
-            </h3>
-            <table class="w-full border border-t-0 border-black p-4">
-              <tr>
-                <th class="border border-black p-2">
-                  X
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].linearVelocity?.x.toFixed(2) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Y
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].linearVelocity?.y.toFixed(2) }}
-                </td>
-              </tr>
-              <tr>
-                <th class="border border-black p-2">
-                  Z
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].linearVelocity?.z.toFixed(2) }}
-                </td>
-              </tr>
-            </table>
-          </div>
-
-          <div
-            v-if="movementsensorData[movementsensor.name].properties.compassHeadingSupported"
-            class="mr-4 w-1/4"
-          >
-            <h3 class="mb-1">
-              Compass Heading
-            </h3>
-            <table class="w-full border border-t-0 border-black p-4">
-              <tr>
-                <th class="border border-black p-2">
-                  Compass
-                </th>
-                <td class="border border-black p-2">
-                  {{ movementsensorData[movementsensor.name].compassHeading?.toFixed(2) }}
-                </td>
-              </tr>
-            </table>
-          </div>
-        </template>
-      </div>
-    </v-collapse>
+    <MovementSensor
+      v-for="sensor in filterResources(resources, 'rdk', 'component', 'movement_sensor')"
+      :key="sensor.name"
+      :name="sensor.name"
+    />
 
     <!-- ******* ARM *******  -->
-    <v-collapse
+    <Arm
       v-for="arm in filterResources(resources, 'rdk', 'component', 'arm')"
       :key="arm.name"
-      :title="arm.name"
-      class="arm"
-    >
-      <v-breadcrumbs
-        slot="title"
-        :crumbs="['arm'].join(',')"
-      />
-      <div
-        slot="header"
-        class="flex items-center justify-between gap-2"
-      >
-        <v-button
-          variant="danger"
-          icon="stop-circle"
-          label="STOP"
-          @click.stop="armStop(arm.name)"
-        />
-      </div>
-      <div class="mt-2 flex">
-        <div
-          v-if="armToggle[arm.name]"
-          class="mr-4 w-1/2 border border-black p-4"
-        >
-          <h3 class="mb-2">
-            END POSITION (mms)
-          </h3>
-          <div class="inline-grid grid-cols-2 gap-1 pb-1">
-            <template
-              v-for="cc in armToggle[arm.name].pos_pieces"
-              :key="cc.endPosition[0]"
-            >
-              <label class="py-1 pr-2 text-right">{{ cc.endPosition[1] }}</label>
-              <input
-                v-model="cc.endPositionValue"
-                class="border border-black py-1 px-4"
-              >
-            </template>
-          </div>
-          <div class="mt-2 flex gap-2">
-            <v-button
-              class="mr-4 whitespace-nowrap"
-              label="Go To End Position"
-              @click="armModifyAllDoEndPosition(arm)"
-            />
-            <div class="flex-auto text-right">
-              <v-button
-                label="Cancel"
-                @click="armModifyAllCancel(arm)"
-              />
-            </div>
-          </div>
-        </div>
-        <div
-          v-if="armToggle[arm.name]"
-          class="w-1/2 border border-black p-4"
-        >
-          <h3 class="mb-2">
-            JOINTS (degrees)
-          </h3>
-          <div class="grid grid-cols-2 gap-1 pb-1">
-            <template
-              v-for="bb in armToggle[arm.name].joint_pieces"
-              :key="bb.joint"
-            >
-              <label class="py-1 pr-2 text-right">Joint {{ bb.joint }}</label>
-              <input
-                v-model="bb.jointValue"
-                class="border border-black py-1 px-4"
-              >
-            </template>
-          </div>
-          <div class="mt-2 flex gap-2">
-            <v-button
-              label="Go To Joints"
-              @click="armModifyAllDoJoint(arm)"
-            />
-            <div class="flex-auto text-right">
-              <v-button
-                label="Cancel"
-                @click="armModifyAllCancel(arm)"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="mb-2 flex">
-        <div
-          v-if="resourceStatusByName(arm)"
-          class="mr-4 w-1/2 border border-black p-4"
-        >
-          <h3 class="mb-2">
-            END POSITION (mms)
-          </h3>
-          <div class="inline-grid grid-cols-6 gap-1 pb-1">
-            <template
-              v-for="aa in resourceStatusByName(arm).pos_pieces"
-              :key="aa.endPosition[0]"
-            >
-              <h4 class="py-1 pr-2 text-right">
-                {{ aa.endPosition[1] }}
-              </h4>
-              <v-button
-                label="--"
-                @click="armEndPositionInc( arm, aa.endPosition[1], -10 )"
-              />
-              <v-button
-                label="-"
-                @click="armEndPositionInc( arm, aa.endPosition[1], -1 )"
-              />
-              <v-button
-                label="+"
-                @click="armEndPositionInc( arm, aa.endPosition[1], 1 )"
-              />
-              <v-button
-                label="++"
-                @click="armEndPositionInc( arm, aa.endPosition[1], 10 )"
-              />
-              <h4 class="py-1">
-                {{ aa.endPositionValue.toFixed(2) }}
-              </h4>
-            </template>
-          </div>
-          <div class="mt-2 flex gap-2">
-            <v-button
-              label="Home"
-              @click="armHome(arm)"
-            />
-            <div class="flex-auto text-right">
-              <v-button
-                class="whitespace-nowrap"
-                label="Modify All"
-                @click="armModifyAll(arm)"
-              />
-            </div>
-          </div>
-        </div>
-        <div
-          v-if="resourceStatusByName(arm)"
-          class="w-1/2 border border-black p-4"
-        >
-          <h3 class="mb-2">
-            JOINTS (degrees)
-          </h3>
-          <div class="inline-grid grid-cols-6 gap-1 pb-1">
-            <template
-              v-for="aa in resourceStatusByName(arm).joint_pieces"
-              :key="aa.joint"
-            >
-              <h4 class="whitespace-nowrap py-1 pr-2 text-right">
-                Joint {{ aa.joint }}
-              </h4>
-              <v-button
-                label="--"
-                @click="armJointInc( arm, aa.joint, -10 )"
-              />
-              <v-button
-                label="-"
-                @click="armJointInc( arm, aa.joint, -1 )"
-              />
-              <v-button
-                label="+"
-                @click="armJointInc( arm, aa.joint, 1 )"
-              />
-              <v-button
-                label="++"
-                @click="armJointInc( arm, aa.joint, 10 )"
-              />
-              <h4 class="py-1 pl-2">
-                {{ aa.jointValue.toFixed(2) }}
-              </h4>
-            </template>
-          </div>
-          <div class="mt-2 flex gap-2">
-            <v-button
-              label="Home"
-              @click="armHome(arm)"
-            />
-            <div class="flex-auto text-right">
-              <v-button
-                class="whitespace-nowrap"
-                label="Modify All"
-                @click="armModifyAll(arm)"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </v-collapse>
+      :name="arm.name"
+      :status="resourceStatusByName(arm)"
+      :raw-status="rawResourceStatusByName(arm)"
+    />
 
     <!-- ******* GRIPPER *******  -->
-    <v-collapse
+    <Gripper
       v-for="gripper in filterResources(resources, 'rdk', 'component', 'gripper')"
       :key="gripper.name"
-      :title="gripper.name"
-      class="gripper"
-    >
-      <v-breadcrumbs
-        slot="title"
-        :crumbs="['gripper'].join(',')"
-      />
-      <div
-        slot="header"
-        class="flex items-center justify-between gap-2"
-      >
-        <v-button
-          variant="danger"
-          icon="stop-circle"
-          label="STOP"
-          @click.stop="gripperStop(gripper.name)"
-        />
-      </div>
-      <div class="flex gap-2 border border-t-0 border-black p-4">
-        <v-button
-          label="Open"
-          @click="gripperAction( gripper.name, 'open')"
-        />
-        <v-button
-          label="Grab"
-          @click="gripperAction( gripper.name, 'grab')"
-        />
-      </div>
-    </v-collapse>
+      :name="gripper.name"
+    />
 
     <!-- ******* SERVO *******  -->
     <ServoComponent
       v-for="servo in filterRdkComponentsWithStatus(resources, status, 'servo')"
       :key="servo.name"
-      :servo-name="servo.name"
-      :servo-angle="resourceStatusByName(servo).positionDeg"
-      :crumbs="['servo']"
-      @servo-move="(amount) => servoMove(servo, amount)"
-      @servo-stop="servoStop(servo.name)"
+      :name="servo.name"
+      :status="resourceStatusByName(servo)"
+      :raw-status="rawResourceStatusByName(servo)"
     />
 
     <!-- ******* MOTOR *******  -->
-    <MotorDetail
+    <Motor
       v-for="motor in filterRdkComponentsWithStatus(resources, status, 'motor')"
-      :key="'new-' + motor.name" 
-      :motor-name="motor.name" 
-      :crumbs="['motor']" 
-      :motor-status="resourceStatusByName(motor)"
-      @motor-run="motorCommand(motor.name, $event)"
-      @motor-stop="motorStop(motor.name)"
+      :key="motor.name" 
+      :name="motor.name" 
+      :status="resourceStatusByName(motor)"
     />
 
     <!-- ******* INPUT VIEW *******  -->
     <InputController
       v-for="controller in filteredInputControllerList()"
-      :key="'new-' + controller.name"
-      :controller-name="controller.name"
-      :controller-status="resourceStatusByName(controller)"
-      :crumbs="['input_controller']"
+      :key="controller.name"
+      :name="controller.name"
+      :status="resourceStatusByName(controller)"
       class="input"
     />
 
     <!-- ******* WEB CONTROLS *******  -->
     <Gamepad
       v-if="hasWebGamepad()"
-      style="max-width: 1080px;"
-      @execute="inputInject($event)"
     />
 
     <!-- ******* BOARD *******  -->
-    <v-collapse
+    <Board
       v-for="board in filterRdkComponentsWithStatus(resources, status, 'board')"
       :key="board.name"
-      :title="board.name"
-      class="board"
-    >
-      <v-breadcrumbs
-        slot="title"
-        :crumbs="['board'].join(',')"
-      />
-      <div class="border border-t-0 border-black p-4">
-        <h3 class="mb-2">
-          Analogs
-        </h3>
-        <table class="mb-4 table-auto border border-black">
-          <tr
-            v-for="(analog, name) in resourceStatusByName(board).analogsMap"
-            :key="name"
-          >
-            <th class="border border-black p-2">
-              {{ name }}
-            </th>
-            <td class="border border-black p-2">
-              {{ analog.value || 0 }}
-            </td>
-          </tr>
-        </table>
-        <h3 class="mb-2">
-          Digital Interrupts
-        </h3>
-        <table class="mb-4 w-full table-auto border border-black">
-          <tr
-            v-for="(di, name) in resourceStatusByName(board).digitalInterruptsMap"
-            :key="name"
-          >
-            <th class="border border-black p-2">
-              {{ name }}
-            </th>
-            <td class="border border-black p-2">
-              {{ di.value || 0 }}
-            </td>
-          </tr>
-        </table>
-        <h3 class="mb-2">
-          GPIO
-        </h3>
-        <table class="mb-4 w-full table-auto border border-black">
-          <tr>
-            <th class="border border-black p-2">
-              Get
-            </th>
-            <td class="border border-black p-2">
-              <div class="flex items-end gap-2">
-                <v-input
-                  label="Pin"
-                  type="number"
-                  :value="getPin"
-                  @input="getPin = $event.detail.value"
-                />
-                <v-button
-                  label="Get Pin State"
-                  @click="getGPIO(board.name)"
-                />
-                <v-button
-                  label="Get PWM"
-                  @click="getPWM(board.name)"
-                />
-                <v-button
-                  label="Get PWM Frequency"
-                  @click="getPWMFrequency(board.name)"
-                />
-                <span
-                  :id="'get_pin_value_' + board.name"
-                  class="py-2"
-                />
-              </div>
-            </td>
-          </tr>
-          <tr>
-            <th class="border border-black p-2">
-              Set
-            </th>
-            <td class="p-2">
-              <div class="flex items-end gap-2">
-                <v-input
-                  type="number"
-                  class="mr-2"
-                  label="Pin"
-                  :value="setPin"
-                  @input="setPin = $event.detail.value"
-                />
-                <select
-                  :id="'set_pin_v_' + board.name"
-                  class="mr-2 h-[30px] border border-black bg-white text-sm"
-                >
-                  <option>low</option>
-                  <option>high</option>
-                </select>
-                <v-button
-                  class="mr-2"
-                  label="Set Pin State"
-                  @click="setGPIO(board.name)"
-                />
-                <v-input
-                  v-model="pwm"
-                  label="PWM"
-                  type="number"
-                  class="mr-2"
-                />
-                <v-button
-                  class="mr-2"
-                  label="Set PWM"
-                  @click="setPWM(board.name)"
-                />
-                <v-input
-                  v-model="pwmFrequency"
-                  label="PWM Frequency"
-                  type="number"
-                  class="mr-2"
-                />
-                <v-button
-                  class="mr-2"
-                  label="Set PWM Frequency"
-                  @click="setPWMFrequency(board.name)"
-                />
-              </div>
-            </td>
-          </tr>
-        </table>
-      </div>
-    </v-collapse>
+      :name="board.name"
+      :status="resourceStatusByName(board)"
+    />
 
     <!-- ******* CAMERAS *******  -->
     <Camera
@@ -1817,7 +760,6 @@ let lastStatusTS = Date.now();
       @toggle-camera="isOn => { viewCamera(camera.name, isOn) }"
       @refresh-camera="t => { viewCameraFrame(camera.name, t) }"
       @selected-camera-view="t => { viewCameraFrame(camera.name, t) }"
-      @download-screenshot="renderFrame(camera.name)"
     />
 
     <!-- ******* NAVIGATION ******* -->
@@ -1829,77 +771,18 @@ let lastStatusTS = Date.now();
     />
 
     <!-- ******* SENSORS ******* -->
-    <v-collapse
+    <Sensors
       v-if="nonEmpty(sensorNames)"
-      title="Sensors"
-      class="sensors"
-    >
-      <div class="border border-t-0 border-black p-4">
-        <table class="w-full table-auto border border-black">
-          <tr>
-            <th class="border border-black p-2">
-              Name
-            </th>
-            <th class="border border-black p-2">
-              Type
-            </th>
-            <th class="border border-black p-2">
-              Readings
-            </th>
-            <th class="border border-black p-2 text-center">
-              <v-button
-                group
-                label="Get All Readings"
-                @click="getReadings(sensorNames)"
-              />
-            </th>
-          </tr>
-          <tr
-            v-for="name in sensorNames"
-            :key="name.name"
-          >
-            <td class="border border-black p-2">
-              {{ name.name }}
-            </td>
-            <td class="border border-black p-2">
-              {{ name.subtype }}
-            </td>
-            <td class="border border-black p-2">
-              <table style="font-size:.7em; text-align: left;">
-                <tr
-                  v-for="(sensorValue, sensorField) in sensorReadings[resourceNameToString(name)]"
-                  :key="sensorField"
-                >
-                  <th>{{ sensorField }}</th>
-                  <td>
-                    {{ sensorValue }}
-                    <a
-                      v-if="sensorValue._type == 'geopoint'"
-                      :href="'https://www.google.com/maps/search/' + sensorValue.lat + ',' + sensorValue.lng"
-                    >google maps</a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-            <td class="border border-black p-2 text-center">
-              <v-button
-                group
-                label="Get Readings"
-                @click="getReadings([name])"
-              />
-            </td>
-          </tr>
-        </table>
-      </div>
-    </v-collapse>
+      :name="filterResources(resources, 'rdk', 'service', 'sensors')[0]?.name"
+      :sensor-names="sensorNames"
+    />
 
     <!-- ******* AUDIO INPUTS *******  -->
     <AudioInput
       v-for="audioInput in filterResources(resources, 'rdk', 'component', 'audio_input')"
       :key="audioInput.name"
-      :stream-name="audioInput.name"
+      :name="audioInput.name"
       :crumbs="[audioInput.name]"
-      @toggle-input="isOn => { listenAudioInput(audioInput.name, isOn) }"
     />
 
     <!-- ******* SLAM *******  -->
@@ -1914,47 +797,9 @@ let lastStatusTS = Date.now();
     <DoCommand :resources="filterResourcesWithNames(resources)" />
 
     <!-- ******* CURRENT OPERATIONS ******* -->
-    <v-collapse
-      title="Current Operations"
-      class="operations"
-    >
-      <div class="border border-t-0 border-black p-4">
-        <table class="w-full table-auto border border-black">
-          <tr>
-            <th class="border border-black p-2">
-              id
-            </th>
-            <th class="border border-black p-2">
-              method
-            </th>
-            <th class="border border-black p-2">
-              elapsed time
-            </th>
-            <th class="border border-black p-2" />
-          </tr>
-          <tr
-            v-for="o in currentOps"
-            :key="o.id"
-          >
-            <td class="border border-black p-2">
-              {{ o.id }}
-            </td>
-            <td class="border border-black p-2">
-              {{ o.method }}
-            </td>
-            <td class="border border-black p-2">
-              {{ o.elapsed }}ms
-            </td>
-            <td class="border border-black p-2 text-center">
-              <v-button
-                label="Kill"
-                @click="killOp(o.id)"
-              />
-            </td>
-          </tr>
-        </table>
-      </div>
-    </v-collapse>
+    <CurrentOperations
+      :operations="currentOps"
+    />
   </div>
 </template>
 

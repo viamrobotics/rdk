@@ -18,8 +18,8 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
 	github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742
-	github.com/edaniels/golog v0.0.0-20220915145146-2d6da6d2e52a
-	github.com/edaniels/gostream v0.0.0-20220916132321-21fe308c63f5
+	github.com/edaniels/golog v0.0.0-20221004200432-5f6b7167aca8
+	github.com/edaniels/gostream v0.0.0-20220930164525-b071849c1ad1
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
@@ -71,10 +71,10 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.23.0
-	go.viam.com/api v0.0.0-20220919231353-79c32cb2339f
+	go.viam.com/api v0.0.0-20221003205706-3eb84cff2681
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
-	go.viam.com/utils v0.0.6-0.20220920201121-47f4f3281a18
+	go.viam.com/utils v0.0.6-0.20221004221920-50405c53c370
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
 	gonum.org/v1/gonum v0.11.0
@@ -141,7 +141,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/denis-tingaikin/go-header v0.4.3 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
-	github.com/edaniels/zeroconf v0.0.0-20220607181113-3dc7461460c6 // indirect
+	github.com/edaniels/zeroconf v1.0.2 // indirect
 	github.com/envoyproxy/go-control-plane v0.10.2-0.20220325020618-49ff273808a1 // indirect
 	github.com/envoyproxy/protoc-gen-validate v0.6.2 // indirect
 	github.com/esimonov/ifshort v1.0.4 // indirect
@@ -332,11 +332,11 @@ require (
 	github.com/yeya24/promlinter v0.2.0 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
 	gitlab.com/bosi/decorder v0.2.3 // indirect
-	go.uber.org/goleak v1.1.12 // indirect
+	go.uber.org/goleak v1.2.0 // indirect
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
 	golang.org/x/exp/typeparams v0.0.0-20220827204233-334a2380cb91 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-	golang.org/x/net v0.0.0-20220809012201-f428fae20770 // indirect
+	golang.org/x/net v0.0.0-20221004154528-8021a29435af // indirect
 	golang.org/x/oauth2 v0.0.0-20220722155238-128564f6959c // indirect
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
 	golang.org/x/sys v0.0.0-20220829200755-d48e67d00261 // indirect
@@ -366,6 +366,6 @@ require (
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 )
 
-replace go.viam.com/api => github.com/Otterverse/api v0.0.0-20220923180042-7bd74157af09
+replace go.viam.com/api => github.com/Otterverse/api v0.0.0-20221004230939-d13d136d86da
 
-replace go.viam.com/utils => github.com/Otterverse/goutils v0.0.4-0.20220924004401-3b0e32a81745
+replace go.viam.com/utils => github.com/Otterverse/goutils v0.0.4-0.20221004223617-c3594808f1d6

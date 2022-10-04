@@ -1,4 +1,5 @@
 // Package vgripper implements versions of the Viam gripper.
+// This is an Experimental package
 package vgripper
 
 import (

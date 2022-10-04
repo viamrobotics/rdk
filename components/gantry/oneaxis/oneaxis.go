@@ -35,7 +35,7 @@ type AttrConfig struct {
 	LimitSwitchPins []string                  `json:"limit_pins,omitempty"`
 	LimitPinEnabled *bool                     `json:"limit_pin_enabled_high,omitempty"`
 	LengthMm        float64                   `json:"length_mm"`
-	MmPerRevolution float64                   `json:"mm_per_revolution,omitempty"`
+	MmPerRevolution float64                   `json:"mm_per_rev,omitempty"`
 	GantryRPM       float64                   `json:"gantry_rpm,omitempty"`
 	Axis            spatial.TranslationConfig `json:"axis"`
 }
@@ -452,7 +452,7 @@ func (g *oneAxis) IsMoving(ctx context.Context) (bool, error) {
 func (g *oneAxis) ModelFrame() referenceframe.Model {
 	if g.model == nil {
 		var errs error
-		m := referenceframe.NewSimpleModel()
+		m := referenceframe.NewSimpleModel("")
 
 		f, err := referenceframe.NewStaticFrame(g.name, spatial.NewZeroPose())
 		errs = multierr.Combine(errs, err)

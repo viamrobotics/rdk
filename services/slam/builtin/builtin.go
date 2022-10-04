@@ -52,7 +52,7 @@ const (
 	minDataRateMs               = 200
 	defaultMapRateSec           = 60
 	cameraValidationIntervalSec = 1.
-	parsePortMaxTimeoutSec      = 30
+	parsePortMaxTimeoutSec      = 60
 	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	// time format for the slam service.
 	slamTimeFormat        = "2006-01-02T15_04_05.0000"
@@ -74,7 +74,7 @@ func SetDialMaxTimeoutSecForTesting(val int) {
 func init() {
 	registry.RegisterService(slam.Subtype, resource.DefaultServiceModel, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuiltIn(ctx, r, c, logger)
+			return NewBuiltIn(ctx, r, c, logger, false)
 		},
 	})
 	cType := config.ServiceType(slam.SubtypeName)
@@ -116,8 +116,15 @@ func RuntimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) (slam.M
 			}
 		}
 	}
-	if slamMode == slam.Rgbd {
-		for _, directoryName := range [2]string{"rgb", "depth"} {
+
+	if slamMode == slam.Rgbd || slamMode == slam.Mono {
+		var directoryNames []string
+		if slamMode == slam.Rgbd {
+			directoryNames = []string{"rgb", "depth"}
+		} else if slamMode == slam.Mono {
+			directoryNames = []string{"rgb"}
+		}
+		for _, directoryName := range directoryNames {
 			directoryPath := filepath.Join(svcConfig.DataDirectory, "data", directoryName)
 			if _, err := os.Stat(directoryPath); os.IsNotExist(err) {
 				logger.Warnf("%v directory does not exist", directoryPath)
@@ -239,7 +246,7 @@ type AttrConfig struct {
 	Sensors          []string          `json:"sensors"`
 	Algorithm        string            `json:"algorithm"`
 	ConfigParams     map[string]string `json:"config_params"`
-	DataRateMs       int               `json:"data_rate_ms"`
+	DataRateMs       int               `json:"data_rate_msec"`
 	MapRateSec       int               `json:"map_rate_sec"`
 	DataDirectory    string            `json:"data_dir"`
 	InputFilePattern string            `json:"input_file_pattern"`
@@ -268,6 +275,11 @@ type builtIn struct {
 	cancelFunc              func()
 	logger                  golog.Logger
 	activeBackgroundWorkers sync.WaitGroup
+
+	bufferSLAMProcessLogs        bool
+	slamProcessLogReader         io.ReadCloser
+	slamProcessLogWriter         io.WriteCloser
+	slamProcessBufferedLogReader bufio.Reader
 }
 
 // configureCameras will check the config to see if any cameras are desired and if so, grab the cameras from
@@ -413,7 +425,7 @@ func (slamSvc *builtIn) GetMap(ctx context.Context, name, mimeType string, cp *r
 }
 
 // NewBuiltIn returns a new slam service for the given robot.
-func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (slam.Service, error) {
+func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger, bufferSLAMProcessLogs bool) (slam.Service, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::New")
 	defer span.End()
 
@@ -466,19 +478,20 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 
 	// SLAM Service Object
 	slamSvc := &builtIn{
-		cameraName:       cameraName,
-		slamLib:          slam.SLAMLibraries[svcConfig.Algorithm],
-		slamMode:         slamMode,
-		slamProcess:      pexec.NewProcessManager(logger),
-		configParams:     svcConfig.ConfigParams,
-		dataDirectory:    svcConfig.DataDirectory,
-		inputFilePattern: svcConfig.InputFilePattern,
-		port:             port,
-		dataRateMs:       dataRate,
-		mapRateSec:       mapRate,
-		camStreams:       camStreams,
-		cancelFunc:       cancelFunc,
-		logger:           logger,
+		cameraName:            cameraName,
+		slamLib:               slam.SLAMLibraries[svcConfig.Algorithm],
+		slamMode:              slamMode,
+		slamProcess:           pexec.NewProcessManager(logger),
+		configParams:          svcConfig.ConfigParams,
+		dataDirectory:         svcConfig.DataDirectory,
+		inputFilePattern:      svcConfig.InputFilePattern,
+		port:                  port,
+		dataRateMs:            dataRate,
+		mapRateSec:            mapRate,
+		camStreams:            camStreams,
+		cancelFunc:            cancelFunc,
+		logger:                logger,
+		bufferSLAMProcessLogs: bufferSLAMProcessLogs,
 	}
 
 	var success bool
@@ -494,7 +507,7 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 		return nil, errors.Wrap(err, "runtime slam service error")
 	}
 
-	slamSvc.StartDataProcess(cancelCtx, cams, camStreams)
+	slamSvc.StartDataProcess(cancelCtx, cams, camStreams, nil)
 
 	if err := slamSvc.StartSLAMProcess(ctx); err != nil {
 		return nil, errors.Wrap(err, "error with slam service slam process")
@@ -519,6 +532,14 @@ func (slamSvc *builtIn) Close() error {
 		}
 	}()
 	slamSvc.cancelFunc()
+	if slamSvc.bufferSLAMProcessLogs {
+		if slamSvc.slamProcessLogReader != nil {
+			slamSvc.slamProcessLogReader.Close()
+		}
+		if slamSvc.slamProcessLogWriter != nil {
+			slamSvc.slamProcessLogWriter.Close()
+		}
+	}
 	if err := slamSvc.StopSLAMProcess(); err != nil {
 		return errors.Wrap(err, "error occurred during closeout of process")
 	}
@@ -541,6 +562,7 @@ func (slamSvc *builtIn) StartDataProcess(
 	cancelCtx context.Context,
 	cams []camera.Camera,
 	camStreams []gostream.VideoStream,
+	c chan int,
 ) {
 	if len(cams) == 0 {
 		return
@@ -585,10 +607,14 @@ func (slamSvc *builtIn) StartDataProcess(
 					case slam.Dense:
 						if _, err := slamSvc.getAndSaveDataDense(cancelCtx, cams); err != nil {
 							slamSvc.logger.Warn(err)
+						} else if c != nil {
+							c <- 1
 						}
 					case slam.Sparse:
 						if _, err := slamSvc.getAndSaveDataSparse(cancelCtx, cams, camStreams); err != nil {
 							slamSvc.logger.Warn(err)
+						} else if c != nil {
+							c <- 1
 						}
 					default:
 						slamSvc.logger.Warnw("warning invalid algorithm specified", "algorithm", slamSvc.slamLib.AlgoType)
@@ -620,6 +646,10 @@ func (slamSvc *builtIn) GetSLAMProcessConfig() pexec.ProcessConfig {
 	}
 }
 
+func (slamSvc *builtIn) GetSLAMProcessBufferedLogReader() bufio.Reader {
+	return slamSvc.slamProcessBufferedLogReader
+}
+
 // startSLAMProcess starts up the SLAM library process by calling the executable binary and giving it the necessary arguments.
 func (slamSvc *builtIn) StartSLAMProcess(ctx context.Context) error {
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::StartSLAMProcess")
@@ -629,8 +659,10 @@ func (slamSvc *builtIn) StartSLAMProcess(ctx context.Context) error {
 
 	var logReader io.ReadCloser
 	var logWriter io.WriteCloser
-	if slamSvc.port == localhost0 {
+	var bufferedLogReader bufio.Reader
+	if slamSvc.port == localhost0 || slamSvc.bufferSLAMProcessLogs {
 		logReader, logWriter = io.Pipe()
+		bufferedLogReader = *bufio.NewReader(logReader)
 		processConfig.LogWriter = logWriter
 	}
 
@@ -648,12 +680,14 @@ func (slamSvc *builtIn) StartSLAMProcess(ctx context.Context) error {
 	if slamSvc.port == localhost0 {
 		timeoutCtx, timeoutCancel := context.WithTimeout(ctx, parsePortMaxTimeoutSec*time.Second)
 		defer timeoutCancel()
-		//nolint:errcheck
-		defer logReader.Close()
-		//nolint:errcheck
-		defer logWriter.Close()
 
-		bufferedLogReader := bufio.NewReader(logReader)
+		if !slamSvc.bufferSLAMProcessLogs {
+			//nolint:errcheck
+			defer logReader.Close()
+			//nolint:errcheck
+			defer logWriter.Close()
+		}
+
 		for {
 			if err := timeoutCtx.Err(); err != nil {
 				return errors.Wrapf(err, "error getting port from slam process")
@@ -675,6 +709,12 @@ func (slamSvc *builtIn) StartSLAMProcess(ctx context.Context) error {
 		}
 	}
 
+	if slamSvc.bufferSLAMProcessLogs {
+		slamSvc.slamProcessLogReader = logReader
+		slamSvc.slamProcessLogWriter = logWriter
+		slamSvc.slamProcessBufferedLogReader = bufferedLogReader
+	}
+
 	return nil
 }
 
@@ -684,6 +724,25 @@ func (slamSvc *builtIn) StopSLAMProcess() error {
 		return errors.Wrap(err, "problem stopping slam process")
 	}
 	return nil
+}
+
+func (slamSvc *builtIn) getLazyPNGImage(ctx context.Context, cam camera.Camera) ([]byte, error) {
+	// We will hint that we want a PNG.
+	// The Camera service server implementation in RDK respects this; others may not.
+	img, _, err := camera.ReadImage(
+		gostream.WithMIMETypeHint(ctx, utils.WithLazyMIMEType(utils.MimeTypePNG)), cam)
+	if err != nil {
+		return nil, err
+	}
+
+	lazyImg, ok := img.(*rimage.LazyEncodedImage)
+	if !ok {
+		return nil, errors.Errorf("expected lazily encoded image, got %T", lazyImg)
+	}
+	if lazyImg.MIMEType() != utils.MimeTypePNG {
+		return nil, errors.Errorf("expected mime type %v, got %v", utils.MimeTypePNG, lazyImg.MIMEType())
+	}
+	return lazyImg.RawData(), nil
 }
 
 // getAndSaveDataSparse implements the data extraction for sparse algos and saving to the directory path (data subfolder) specified in
@@ -701,7 +760,8 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 		if len(camStreams) != 1 {
 			return nil, errors.Errorf("expected 1 camera for mono slam, found %v", len(camStreams))
 		}
-		img, _, err := camStreams[0].Next(ctx)
+
+		image, err := slamSvc.getLazyPNGImage(ctx, cams[0])
 		if err != nil {
 			if err.Error() == opTimeoutErrorMessage {
 				slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
@@ -709,7 +769,10 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			}
 			return nil, err
 		}
-		filenames := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".jpeg", false)
+		filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", slamSvc.slamMode)
+		if err != nil {
+			return nil, err
+		}
 		filename := filenames[0]
 		//nolint:gosec
 		f, err := os.Create(filename)
@@ -717,7 +780,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			return []string{filename}, err
 		}
 		w := bufio.NewWriter(f)
-		if err := jpeg.Encode(w, img, nil); err != nil {
+		if _, err := w.Write(image); err != nil {
 			return []string{filename}, err
 		}
 		if err := w.Flush(); err != nil {
@@ -737,7 +800,10 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			}
 			return nil, err
 		}
-		filenames := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", true)
+		filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", slamSvc.slamMode)
+		if err != nil {
+			return nil, err
+		}
 		for i, filename := range filenames {
 			//nolint:gosec
 			f, err := os.Create(filename)
@@ -786,28 +852,7 @@ func (slamSvc *builtIn) getSimultaneousColorAndDepth(
 		goutils.PanicCapturingGo(func() {
 			defer slamSvc.activeBackgroundWorkers.Done()
 			defer wg.Done()
-			var img image.Image
-			var release func()
-
-			// We will hint that we want a PNG.
-			// The Camera service server implementation in RDK respects this; others may not.
-			img, release, errs[iLoop] = camera.ReadImage(
-				gostream.WithMIMETypeHint(ctx, utils.WithLazyMIMEType(utils.MimeTypePNG)), cams[iLoop])
-			if errs[iLoop] != nil {
-				return
-			}
-			defer release()
-
-			lazyImg, ok := img.(*rimage.LazyEncodedImage)
-			if ok {
-				if lazyImg.MIMEType() == utils.MimeTypePNG {
-					images[iLoop] = lazyImg.RawData()
-					return
-				}
-				errs[iLoop] = errors.Errorf("expected mime type %v, got %v", utils.MimeTypePNG, lazyImg.MIMEType())
-				return
-			}
-			errs[iLoop] = errors.Errorf("expected lazily encoded image, got %T", lazyImg)
+			images[iLoop], errs[iLoop] = slamSvc.getLazyPNGImage(ctx, cams[iLoop])
 		})
 	}
 	wg.Wait()
@@ -847,7 +892,10 @@ func (slamSvc *builtIn) getAndSaveDataDense(ctx context.Context, cams []camera.C
 	case slam.Rgbd, slam.Mono:
 		return "", errors.Errorf("bad slamMode %v specified for this algorithm", slamSvc.slamMode)
 	}
-	filenames := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, fileType, false)
+	filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, fileType, slamSvc.slamMode)
+	if err != nil {
+		return "", err
+	}
 	filename := filenames[0]
 	//nolint:gosec
 	f, err := os.Create(filename)
@@ -868,17 +916,24 @@ func (slamSvc *builtIn) getAndSaveDataDense(ctx context.Context, cams []camera.C
 
 // Creates a file for camera data with the specified sensor name and timestamp written into the filename.
 // For RGBD cameras, two filenames are created with the same timestamp in different directories.
-func createTimestampFilenames(cameraName, dataDirectory, fileType string, rgbd bool) []string {
+func createTimestampFilenames(cameraName, dataDirectory, fileType string, slamMode slam.Mode) ([]string, error) {
 	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	timeStamp := time.Now()
 
-	if rgbd {
+	switch slamMode {
+	case slam.Rgbd:
 		colorFilename := filepath.Join(dataDirectory, "data", "rgb", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
 		depthFilename := filepath.Join(dataDirectory, "data", "depth", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
-		return []string{colorFilename, depthFilename}
+		return []string{colorFilename, depthFilename}, nil
+	case slam.Mono:
+		colorFilename := filepath.Join(dataDirectory, "data", "rgb", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
+		return []string{colorFilename}, nil
+	case slam.Dim2d, slam.Dim3d:
+		filename := filepath.Join(dataDirectory, "data", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
+		return []string{filename}, nil
+	default:
+		return nil, errors.Errorf("Invalid slam mode: %v", slamMode)
 	}
-	filename := filepath.Join(dataDirectory, "data", cameraName+"_data_"+timeStamp.UTC().Format(slamTimeFormat)+fileType)
-	return []string{filename}
 }
 
 // Converts a dictionary to a string for so that it can be loaded into an arg for the slam process.

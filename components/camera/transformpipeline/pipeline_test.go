@@ -25,7 +25,7 @@ func TestTransformPipelineColor(t *testing.T) {
 		Source: "source",
 		Pipeline: []Transformation{
 			{Type: "rotate", Attributes: config.AttributeMap{}},
-			{Type: "resize", Attributes: config.AttributeMap{"height": 200, "width": 100}},
+			{Type: "resize", Attributes: config.AttributeMap{"height_px": 200, "width_px": 100}},
 		},
 	}
 	r := &inject.Robot{}
@@ -73,7 +73,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 		Source: "source",
 		Pipeline: []Transformation{
 			{Type: "rotate", Attributes: config.AttributeMap{}},
-			{Type: "resize", Attributes: config.AttributeMap{"height": 300, "width": 400}},
+			{Type: "resize", Attributes: config.AttributeMap{"height_px": 300, "width_px": 400}},
 		},
 	}
 	r := &inject.Robot{}
@@ -115,7 +115,7 @@ func TestTransformPipelineDepth2(t *testing.T) {
 		Pipeline: []Transformation{
 			{Type: "depth_preprocess", Attributes: config.AttributeMap{}},
 			{Type: "rotate", Attributes: config.AttributeMap{}},
-			{Type: "resize", Attributes: config.AttributeMap{"height": 200, "width": 100}},
+			{Type: "resize", Attributes: config.AttributeMap{"height_px": 200, "width_px": 100}},
 			{Type: "depth_to_pretty", Attributes: config.AttributeMap{}},
 		},
 	}
@@ -127,8 +127,8 @@ func TestTransformPipelineDepth2(t *testing.T) {
 		Pipeline: []Transformation{
 			{Type: "depth_preprocess", Attributes: config.AttributeMap{}},
 			{Type: "rotate", Attributes: config.AttributeMap{}},
-			{Type: "resize", Attributes: config.AttributeMap{"height": 300, "width": 400}},
-			{Type: "depth_edges", Attributes: config.AttributeMap{"high_threshold": 0.85, "low_threshold": 0.3, "blur_radius": 3.0}},
+			{Type: "resize", Attributes: config.AttributeMap{"height_px": 300, "width_px": 400}},
+			{Type: "depth_edges", Attributes: config.AttributeMap{"high_threshold_pct": 0.85, "low_threshold_pct": 0.3, "blur_radius_px": 3.0}},
 		},
 	}
 	r := &inject.Robot{}
@@ -211,7 +211,7 @@ func TestPipeIntoPipe(t *testing.T) {
 		},
 		Source: "transform2",
 		Pipeline: []Transformation{
-			{Type: "resize", Attributes: config.AttributeMap{"height": 200, "width": 100}},
+			{Type: "resize", Attributes: config.AttributeMap{"height_px": 200, "width_px": 100}},
 		},
 	}
 	transformWrong := &transformConfig{
@@ -220,7 +220,7 @@ func TestPipeIntoPipe(t *testing.T) {
 		},
 		Source: "transform2",
 		Pipeline: []Transformation{
-			{Type: "resize", Attributes: config.AttributeMap{"height": 200, "width": 100}},
+			{Type: "resize", Attributes: config.AttributeMap{"height_px": 200, "width_px": 100}},
 		},
 	}
 

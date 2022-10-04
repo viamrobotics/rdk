@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -268,7 +267,7 @@ func (g *reconfigurableGantry) reconfigure(ctx context.Context, newGantry resour
 		return utils.NewUnexpectedTypeError(g, newGantry)
 	}
 	if err := viamutils.TryClose(ctx, g.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 	g.actual = actual.actual
 	return nil
@@ -311,7 +310,7 @@ func (g *reconfigurableLocalGantry) Reconfigure(ctx context.Context, newGantry r
 		return utils.NewUnexpectedTypeError(g, newGantry)
 	}
 	if err := viamutils.TryClose(ctx, g.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 
 	g.actual = gantry.actual

@@ -13,7 +13,6 @@ import (
 
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -43,7 +42,6 @@ func init() {
 		Reconfigurable: WrapWithReconfigurable,
 		MaxInstance:    resource.DefaultMaxInstance,
 	})
-	resource.AddDefaultService(Named(resource.DefaultServiceName))
 }
 
 // A Readings ties both the sensor name and its reading together.
@@ -150,7 +148,7 @@ func (svc *reconfigurableSensors) Reconfigure(ctx context.Context, newSvc resour
 		return utils.NewUnexpectedTypeError(svc, newSvc)
 	}
 	if err := goutils.TryClose(ctx, svc.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 	svc.actual = rSvc.actual
 	return nil
