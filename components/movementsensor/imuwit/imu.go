@@ -29,14 +29,14 @@ const model = "imu-wit"
 
 // AttrConfig is used for converting a witmotion IMU MovementSensor config attributes.
 type AttrConfig struct {
-	Port     string `json:"port"`
-	BaudRate int    `json:"baud_rate,omitempty"`
+	Port     string `json:"serial_path"`
+	BaudRate int    `json:"serial_baud_rate,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (cfg *AttrConfig) Validate(path string) error {
 	if cfg.Port == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "port")
+		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 	return nil
 }
