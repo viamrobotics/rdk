@@ -34,7 +34,7 @@ func TestColorDetector(t *testing.T) {
 	inp.Name = "will_fail"
 	inp.Parameters["hue_tolerance_pct"] = 4.0 // value out of range
 	err = registerColorDetector(ctx, reg, inp, testlog)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "tolerance must be between")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "hue_tolerance_pct must be between")
 
 	// with error - nil entry
 	err = registerColorDetector(ctx, reg, nil, testlog)

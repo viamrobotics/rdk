@@ -109,6 +109,7 @@ func TestClient(t *testing.T) {
 			Parameters: config.AttributeMap{
 				"detect_color":      "#112233",
 				"hue_tolerance_pct": 0.9,
+				"value_cutoff_pct":  0.2,
 				"segment_size_px":   3333333,
 			},
 		}
