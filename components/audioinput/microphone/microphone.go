@@ -54,8 +54,8 @@ func init() {
 
 // Attrs is the attribute struct for microphones.
 type Attrs struct {
-	Path        string `json:"path"`
-	PathPattern string `json:"path_pattern"`
+	Path        string `json:"audio_path"`
+	PathPattern string `json:"audio_path_pattern"`
 	Debug       bool   `json:"debug"`
 }
 
