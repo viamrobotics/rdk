@@ -17,7 +17,7 @@ import (
 
 func makeTestFS(t *testing.T) *SolvableFrameSystem {
 	t.Helper()
-	logger := golog.NewDevelopmentLogger("test")
+	logger := golog.NewDebugLogger("test")
 	fs := frame.NewEmptySimpleFrameSystem("test")
 
 	urOffset, err := frame.NewStaticFrame("urOffset", spatial.NewPoseFromPoint(r3.Vector{100, 100, 200}))
