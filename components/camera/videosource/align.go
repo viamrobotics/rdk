@@ -143,9 +143,9 @@ type alignAttrs struct {
 	Depth              string      `json:"depth_camera_name"`
 	Height             int         `json:"height_px"`
 	Width              int         `json:"width_px"`
-	IntrinsicExtrinsic interface{} `json:"intrinsic_extrinsic"`
-	Homography         interface{} `json:"homography"`
-	Warp               interface{} `json:"warp"`
+	IntrinsicExtrinsic interface{} `json:"intrinsic_extrinsic,omitempty"`
+	Homography         interface{} `json:"homography,omitempty"`
+	Warp               interface{} `json:"warp,omitempty"`
 }
 
 // alignColorDepth takes a color and depth image source and aligns them together.
