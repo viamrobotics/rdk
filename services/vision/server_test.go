@@ -119,9 +119,10 @@ func TestServerAddDetector(t *testing.T) {
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
 	params, err := protoutils.StructToStructPb(config.AttributeMap{
-		"detect_color":    "#112233",
-		"tolerance_pct":   0.4,
-		"segment_size_px": 200,
+		"detect_color":      "#112233",
+		"hue_tolerance_pct": 0.4,
+		"value_cutoff_pct":  0.2,
+		"segment_size_px":   200,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	// success
@@ -233,7 +234,7 @@ func TestServerGetDetections(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp2.Detections, test.ShouldNotBeNil)
 	test.That(t, resp2.Detections[0].ClassName, test.ShouldResemble, "17")
-	test.That(t, resp2.Detections[0].Confidence, test.ShouldBeGreaterThan, 0.79)
+	test.That(t, resp2.Detections[0].Confidence, test.ShouldBeGreaterThan, 0.78)
 	test.That(t, resp2.Detections[1].ClassName, test.ShouldResemble, "17")
 	test.That(t, resp2.Detections[1].Confidence, test.ShouldBeGreaterThan, 0.73)
 }

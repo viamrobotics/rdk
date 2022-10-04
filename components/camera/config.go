@@ -25,8 +25,8 @@ func NewUnsupportedStreamError(s StreamType) error {
 
 // AttrConfig is exported to be used as an attribute map for settings common to all camera types.
 type AttrConfig struct {
-	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
-	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters"`
+	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
+	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Stream               string                             `json:"stream"`
 	Debug                bool                               `json:"debug"`
 }

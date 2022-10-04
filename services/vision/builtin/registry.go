@@ -9,6 +9,7 @@ import (
 	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/vision/classification"
@@ -209,26 +210,27 @@ func (mm modelMap) RegisterVisModel(name string, m *registeredModel, logger golo
 func registerNewVisModels(ctx context.Context, mm modelMap, attrs *vision.Attributes, logger golog.Logger) error {
 	_, span := trace.StartSpan(ctx, "service::vision::registerNewVisModels")
 	defer span.End()
+	var err error
 	for _, attr := range attrs.ModelRegistry {
 		logger.Debugf("adding vision model %q of type %q", attr.Name, attr.Type)
 		switch vision.VisModelType(attr.Type) {
 		case TFLiteDetector:
-			return registerTfliteDetector(ctx, mm, &attr, logger)
+			multierr.AppendInto(&err, registerTfliteDetector(ctx, mm, &attr, logger))
 		case TFLiteClassifier:
-			return registerTfliteClassifier(ctx, mm, &attr, logger)
+			multierr.AppendInto(&err, registerTfliteClassifier(ctx, mm, &attr, logger))
 		case TFDetector:
-			return newVisModelTypeNotImplemented(attr.Type)
+			multierr.AppendInto(&err, newVisModelTypeNotImplemented(attr.Type))
 		case TFClassifier:
-			return newVisModelTypeNotImplemented(attr.Type)
+			multierr.AppendInto(&err, newVisModelTypeNotImplemented(attr.Type))
 		case ColorDetector:
-			return registerColorDetector(ctx, mm, &attr, logger)
+			multierr.AppendInto(&err, registerColorDetector(ctx, mm, &attr, logger))
 		case RCSegmenter:
-			return registerRCSegmenter(ctx, mm, &attr, logger)
+			multierr.AppendInto(&err, registerRCSegmenter(ctx, mm, &attr, logger))
 		case DetectorSegmenter:
-			return registerSegmenterFromDetector(ctx, mm, &attr, logger)
+			multierr.AppendInto(&err, registerSegmenterFromDetector(ctx, mm, &attr, logger))
 		default:
-			return newVisModelTypeNotImplemented(attr.Type)
+			multierr.AppendInto(&err, newVisModelTypeNotImplemented(attr.Type))
 		}
 	}
-	return nil
+	return err
 }
