@@ -58,7 +58,7 @@ func NewSerialGPSNMEA(ctx context.Context, attr *AttrConfig, logger golog.Logger
 	baudRate := attr.SerialAttrConfig.SerialBaudRate
 	if baudRate == 0 {
 		baudRate = 9600
-		logger.Info("SerialNMEAMovementSensor: baud_rate using default 9600")
+		logger.Info("SerialNMEAMovementSensor: serial_baud_rate using default 9600")
 	}
 	correctionBaudRate := attr.SerialAttrConfig.SerialCorrectionBaudRate
 	if correctionBaudRate == 0 {

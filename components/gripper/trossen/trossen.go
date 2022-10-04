@@ -62,8 +62,8 @@ type Gripper struct {
 
 // newGripper TODO.
 func newGripper(attributes config.AttributeMap, logger golog.Logger) (gripper.LocalGripper, error) {
-	usbPort := attributes.String("usb_port")
-	jServo, err := findServo(usbPort, attributes.String("baud_rate"), logger)
+	usbPort := attributes.String("serial_path")
+	jServo, err := findServo(usbPort, attributes.String("serial_baud_rate"), logger)
 	if err != nil {
 		return nil, err
 	}
