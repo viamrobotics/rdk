@@ -213,7 +213,7 @@ func (g *PmtkI2CNMEAMovementSensor) LinearVelocity(ctx context.Context) (r3.Vect
 func (g *PmtkI2CNMEAMovementSensor) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return spatialmath.AngularVelocity{}, g.lastError
+	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
 
 // CompassHeading not supported.
@@ -227,7 +227,7 @@ func (g *PmtkI2CNMEAMovementSensor) CompassHeading(ctx context.Context) (float64
 func (g *PmtkI2CNMEAMovementSensor) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return nil, g.lastError
+	return nil, movementsensor.ErrMethodUnimplementedOrientation
 }
 
 // Properties what can I do!

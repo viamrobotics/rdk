@@ -299,15 +299,15 @@ func (vn *vectornav) CompassHeading(ctx context.Context) (float64, error) {
 }
 
 func (vn *vectornav) LinearVelocity(ctx context.Context) (r3.Vector, error) {
-	return r3.Vector{}, nil
+	return r3.Vector{}, movementsensor.ErrMethodUnimplementedLinearVelocity
 }
 
 func (vn *vectornav) Position(ctx context.Context) (*geo.Point, float64, error) {
-	return nil, 0, nil
+	return nil, 0, movementsensor.ErrMethodUnimplementedPosition
 }
 
 func (vn *vectornav) Accuracy(ctx context.Context) (map[string]float32, error) {
-	return map[string]float32{}, nil
+	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
 func (vn *vectornav) GetMagnetometer(ctx context.Context) (r3.Vector, error) {
@@ -562,8 +562,9 @@ func (vn *vectornav) compensateDVBias(ctx context.Context, smpSize uint) error {
 }
 
 func (vn *vectornav) Close() {
-	vn.logger.Debug("closing vecnav")
+	vn.logger.Debug("closing vecnav imu")
 	vn.cancelFunc()
 	vn.busClosed = true
 	vn.activeBackgroundWorkers.Wait()
+	vn.logger.Debug("closed vecnav imu")
 }

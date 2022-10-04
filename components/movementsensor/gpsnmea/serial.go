@@ -13,12 +13,15 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/spatialmath"
 )
+
+var errNilLocation = errors.New("nil gps location, check nmea message parsing")
 
 // SerialNMEAMovementSensor allows the use of any MovementSensor chip that communicates over serial.
 type SerialNMEAMovementSensor struct {
@@ -66,7 +69,6 @@ func NewSerialGPSNMEA(ctx context.Context, attr *AttrConfig, logger golog.Logger
 	if disableNmea {
 		logger.Info("SerialNMEAMovementSensor: NMEA reading disabled")
 	}
-
 	options := serial.OpenOptions{
 		PortName:        serialPath,
 		BaudRate:        uint(baudRate),
@@ -92,20 +94,18 @@ func NewSerialGPSNMEA(ctx context.Context, attr *AttrConfig, logger golog.Logger
 		baudRate:           uint(baudRate),
 		correctionBaudRate: uint(correctionBaudRate),
 		disableNmea:        disableNmea,
-		data:               gpsData{},
 	}
 
 	if err := g.Start(ctx); err != nil {
-		return nil, err
+		g.logger.Errorf("Did not create nmea gps with err %#v", err.Error())
 	}
 
-	return g, g.lastError
+	return g, err
 }
 
 func (g *SerialNMEAMovementSensor) setLastError(err error) {
 	g.errMu.Lock()
 	defer g.errMu.Unlock()
-
 	g.lastError = err
 }
 
@@ -134,7 +134,7 @@ func (g *SerialNMEAMovementSensor) Start(ctx context.Context) error {
 				err = g.data.parseAndUpdate(line)
 				g.mu.Unlock()
 				if err != nil {
-					g.logger.Debugf("can't parse nmea %s : %s", line, err)
+					g.logger.Warnf("can't parse nmea sentence: %#v", err)
 				}
 			}
 		}
@@ -152,6 +152,9 @@ func (g *SerialNMEAMovementSensor) GetCorrectionInfo() (string, uint) {
 func (g *SerialNMEAMovementSensor) Position(ctx context.Context) (*geo.Point, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+	if g.data.location == nil {
+		return geo.NewPoint(0, 0), 0, errNilLocation
+	}
 	return g.data.location, g.data.alt, g.lastError
 }
 
@@ -159,47 +162,47 @@ func (g *SerialNMEAMovementSensor) Position(ctx context.Context) (*geo.Point, fl
 func (g *SerialNMEAMovementSensor) Accuracy(ctx context.Context) (map[string]float32, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return map[string]float32{"hDOP": float32(g.data.hDOP), "vDOP": float32(g.data.vDOP)}, g.lastError
+	return map[string]float32{"hDOP": float32(g.data.hDOP), "vDOP": float32(g.data.vDOP)}, nil
 }
 
 // LinearVelocity linear velocity.
 func (g *SerialNMEAMovementSensor) LinearVelocity(ctx context.Context) (r3.Vector, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return r3.Vector{X: 0, Y: g.data.speed, Z: 0}, g.lastError
+	return r3.Vector{X: 0, Y: g.data.speed, Z: 0}, nil
 }
 
 // AngularVelocity angularvelocity.
 func (g *SerialNMEAMovementSensor) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return spatialmath.AngularVelocity{}, g.lastError
+	return spatialmath.AngularVelocity{}, movementsensor.ErrMethodUnimplementedAngularVelocity
 }
 
 // Orientation orientation.
 func (g *SerialNMEAMovementSensor) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
-	return nil, g.lastError
+	return nil, movementsensor.ErrMethodUnimplementedOrientation
 }
 
 // CompassHeading 0->360.
 func (g *SerialNMEAMovementSensor) CompassHeading(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return 0, g.lastError
+	return 0, movementsensor.ErrMethodUnimplementedCompassHeading
 }
 
 // ReadFix returns Fix quality of MovementSensor measurements.
 func (g *SerialNMEAMovementSensor) ReadFix(ctx context.Context) (int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.data.fixQuality, g.lastError
+	return g.data.fixQuality, nil
 }
 
 // Readings will use return all of the MovementSensor Readings.
 func (g *SerialNMEAMovementSensor) Readings(ctx context.Context) (map[string]interface{}, error) {
 	readings, err := movementsensor.Readings(ctx, g)
 	if err != nil {
-		return nil, err
+		return nil, g.lastError
 	}
 
 	fix, err := g.ReadFix(ctx)
@@ -224,7 +227,7 @@ func (g *SerialNMEAMovementSensor) Properties(ctx context.Context) (*movementsen
 func (g *SerialNMEAMovementSensor) Close() error {
 	g.logger.Debug("Closing SerialNMEAMovementSensor")
 	g.cancelFunc()
-	g.activeBackgroundWorkers.Wait()
+	defer g.activeBackgroundWorkers.Wait()
 
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -235,7 +238,7 @@ func (g *SerialNMEAMovementSensor) Close() error {
 		g.dev = nil
 		g.logger.Debug("SerialNMEAMovementSensor Closed")
 	}
-	return g.lastError
+	return nil
 }
 
 // toPoint converts a nmea.GLL to a geo.Point.
