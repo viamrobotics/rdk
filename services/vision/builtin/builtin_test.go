@@ -41,6 +41,7 @@ func TestCloseService(t *testing.T) {
 		Parameters: config.AttributeMap{
 			"detect_color":     "#112233",
 			"tolerance_px":     0.4,
+			"value_cutoff_pct": 0.2,
 			"segment_size_pct": 100,
 		},
 	}
