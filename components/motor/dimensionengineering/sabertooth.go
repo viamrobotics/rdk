@@ -47,10 +47,11 @@ type controller struct {
 
 // Motor is a single axis/motor/component instance.
 type Motor struct {
-	c       *controller
-	Channel int
-	jogging bool
-	opMgr   operation.SingleOperationManager
+	c       *controller                      // A reference to the actual controller that needs to be commanded for the motor to run
+	Channel int                              // which channel the motor is connected to on the controller
+	jogging bool                             // Simply indicates if the RDK _thinks_ the motor is moving, because this controller has no feedback, this may not reflect reality
+	opMgr   operation.SingleOperationManager // A manager to ensure only a single operation is happening at any given time since commands could overlap on the serial port
+	dirFlip bool                             // dirFlip means that the motor is wired "backwards" from what we expect forward/backward to mean, so we need to "flip" the direction sent by control
 }
 
 // GoFor Not supported.
@@ -65,11 +66,11 @@ func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bo
 
 // Config adds DimensionEngineering-specific config options.
 type Config struct {
-	SerialDevice string `json:"serial_device"` // path to /dev/ttyXXXX file
-	Channel      int    `json:"channel"`       // 1/2
-	// TestChan is a fake "serial" path for test use only
-	TestChan chan []byte `json:"-,omitempty"`
-	Address  int         `json:"address"` // 128-135
+	TestChan      chan []byte `json:"-,omitempty"`        // TestChan is a fake "serial" path for test use only
+	SerialDevice  string      `json:"serial_device"`      // path to /dev/ttyXXXX file
+	Channel       int         `json:"channel"`            // Valid values are 1/2
+	Address       int         `json:"address"`            // Valid values are 128-135
+	DirectionFlip bool        `json:"dir_flip,omitempty"` // Flip the direction of the signal sent to the controller. Due to wiring/motor orientation, "forward" on the controller may not represent "forward" on the robot
 }
 
 // Validate ensures all parts of the config are valid.
@@ -164,6 +165,7 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 	m := &Motor{
 		c:       ctrl,
 		Channel: c.Channel,
+		dirFlip: c.DirectionFlip,
 	}
 
 	if err := m.configure(c); err != nil {
@@ -287,9 +289,19 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	// Jog
 	var cmd commandCode
 	if powerPct < 0 {
-		cmd = singleBackwards
+		// If dirFlip is set, we actually want to reverse the command
+		if m.dirFlip {
+			cmd = singleForward
+		} else {
+			cmd = singleBackwards
+		}
 	} else {
-		cmd = singleForward
+		// If dirFlip is set, we actually want to reverse the command
+		if m.dirFlip {
+			cmd = singleBackwards
+		} else {
+			cmd = singleForward
+		}
 	}
 	c, err := newCommand(m.c.address, cmd, m.Channel, byte(int(rawSpeed)))
 	if err != nil {
