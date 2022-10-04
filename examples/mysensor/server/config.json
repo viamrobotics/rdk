@@ -1,6 +1,6 @@
 {
     "network": {
-        "bind_address": "localhost:8080"
+        "bind_address": "localhost:8081"
     },
     "components": [
         {
