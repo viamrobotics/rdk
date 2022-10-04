@@ -133,7 +133,7 @@ func TestMobile2DFrame(t *testing.T) {
 }
 
 func TestGeometries(t *testing.T) {
-	bc, err := spatial.NewBoxCreator(r3.Vector{1, 1, 1}, spatial.NewZeroPose())
+	bc, err := spatial.NewBoxCreator(r3.Vector{1, 1, 1}, spatial.NewZeroPose(), "")
 	test.That(t, err, test.ShouldBeNil)
 	pose := spatial.NewPoseFromPoint(r3.Vector{0, 10, 0})
 	expectedBox := bc.NewGeometry(pose)

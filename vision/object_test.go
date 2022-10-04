@@ -30,7 +30,7 @@ func TestObjectCreation(t *testing.T) {
 	obj, err = NewObject(pc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, obj.PointCloud, test.ShouldResemble, pc)
-	expectedBox, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{0.5, 0.5, 0}), r3.Vector{1, 1, 0})
+	expectedBox, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{0.5, 0.5, 0}), r3.Vector{1, 1, 0}, "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, obj.Geometry.AlmostEqual(expectedBox), test.ShouldBeTrue)
 }
