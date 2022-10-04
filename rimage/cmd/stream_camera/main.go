@@ -21,7 +21,7 @@ func main() {
 
 var (
 	defaultPort = 5555
-	logger      = golog.NewDevelopmentLogger("stream_camera")
+	logger      = golog.NewDebugLogger("stream_camera")
 )
 
 // Arguments for the command.

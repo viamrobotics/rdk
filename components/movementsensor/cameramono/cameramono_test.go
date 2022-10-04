@@ -91,7 +91,7 @@ func TestInit(t *testing.T) {
 	err = conf.Validate("")
 	test.That(t, err, test.ShouldBeNil)
 
-	logger := golog.NewDevelopmentLogger("test")
+	logger := golog.NewDebugLogger("test")
 	_, err = newCameraMono(nil, config.Component{}, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "AttrConfig")
 	goodC := config.Component{ConvertedAttributes: conf}

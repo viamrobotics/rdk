@@ -2457,7 +2457,7 @@ func TestStatusServiceUpdate(t *testing.T) {
 }
 
 func TestRemoteRobotsGold(t *testing.T) {
-	loggerR := golog.NewDevelopmentLogger("remote")
+	loggerR := golog.NewDebugLogger("remote")
 	cfg, err := config.Read(context.Background(), "data/fake.json", loggerR)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -2507,7 +2507,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 			},
 		},
 	}
-	logger := golog.NewDevelopmentLogger("local")
+	logger := golog.NewDebugLogger("local")
 	r, err := New(ctx, localConfig, logger)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), r), test.ShouldBeNil)
