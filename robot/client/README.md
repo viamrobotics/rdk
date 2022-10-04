@@ -55,12 +55,14 @@ You can then query resources and also grab a resource by its name.
   	logger.Info(robot.ResourceNames())
 
 	// grab a motor by its name and query for its position
-	m1 := motor.FromRobot(robot, "motor1")
-	position, err := m1.Position(context.Background())
+	m1, err := motor.FromRobot(robot, "motor1")
+	if err != nil {
+		logger.Fatal(err)
+	}
+	position, err := m1.Position(context.Background(), map[string]interface{}{})
 	if err != nil {
 		logger.Error(err)
 	}
-	logger.Info(position)
 ```
 
 Remember to close the client at the end!
