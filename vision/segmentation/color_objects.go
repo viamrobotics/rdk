@@ -12,17 +12,19 @@ import (
 
 // ColorObjectsConfig specifies the necessary parameters for the color detection and transformation to 3D objects.
 type ColorObjectsConfig struct {
-	Tolerance      float64 `json:"tolerance_pct"`
-	Color          string  `json:"detect_color"` // form #RRGGBB
-	MeanK          int     `json:"mean_k"`       // used for StatisticalFilter
-	Sigma          float64 `json:"sigma"`        // used for StatisticalFilter
-	MinSegmentSize int     `json:"min_points_in_segment"`
+	HueTolerance     float64 `json:"hue_tolerance_pct"`
+	SaturationCutoff float64 `json:"saturation_cutoff_pct,omitempty"`
+	ValueCutoff      float64 `json:"value_cutoff_pct,omitempty"`
+	Color            string  `json:"detect_color"` // form #RRGGBB
+	MeanK            int     `json:"mean_k"`       // used for StatisticalFilter
+	Sigma            float64 `json:"sigma"`        // used for StatisticalFilter
+	MinSegmentSize   int     `json:"min_points_in_segment"`
 }
 
 // CheckValid checks to see in the input values are valid.
 func (csc *ColorObjectsConfig) CheckValid() error {
-	if csc.Tolerance < 0.0 || csc.Tolerance > 1.0 {
-		return errors.Errorf("tolerance must be between 0.0 and 1.0, got %v", csc.Tolerance)
+	if csc.HueTolerance < 0.0 || csc.HueTolerance > 1.0 {
+		return errors.Errorf("tolerance must be between 0.0 and 1.0, got %v", csc.HueTolerance)
 	}
 	var r, g, b uint8
 	n, err := fmt.Sscanf(csc.Color, "#%02x%02x%02x", &r, &g, &b)
@@ -61,7 +63,9 @@ func ColorObjects(params config.AttributeMap) (Segmenter, error) {
 	// get info from config to build color detector
 	detCfg := &objectdetection.ColorDetectorConfig{
 		SegmentSize:       cfg.MinSegmentSize,
-		Tolerance:         cfg.Tolerance,
+		HueTolerance:      cfg.HueTolerance,
+		SaturationCutoff:  cfg.SaturationCutoff,
+		ValueCutoff:       cfg.ValueCutoff,
 		DetectColorString: cfg.Color,
 	}
 	detector, err := objectdetection.NewColorDetector(detCfg)
