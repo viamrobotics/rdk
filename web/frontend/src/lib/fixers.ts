@@ -60,12 +60,12 @@ export const fixBoardStatus = (old: { analogs: unknown[]; digital_interrupts: un
 export const fixGantryStatus = (old: {
   is_moving: boolean
   lengths_mm: number[]
-  positions_mm: unknown[]
+  positions_mm: number[]
 }) => {
   const newStatus: {
     parts: {
       axis: number,
-      pos: unknown,
+      pos: number,
       length: number
     }[]
     is_moving: boolean

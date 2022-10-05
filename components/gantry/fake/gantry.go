@@ -72,7 +72,7 @@ func (g *Gantry) IsMoving(ctx context.Context) (bool, error) {
 
 // ModelFrame returns a Gantry frame.
 func (g *Gantry) ModelFrame() referenceframe.Model {
-	m := referenceframe.NewSimpleModel()
+	m := referenceframe.NewSimpleModel("")
 	f, err := referenceframe.NewTranslationalFrame(g.name, g.axis, referenceframe.Limit{0, g.lengthMeters})
 	if err != nil {
 		panic(fmt.Errorf("error creating frame: %w", err))

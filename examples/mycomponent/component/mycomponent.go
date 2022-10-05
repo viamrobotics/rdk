@@ -17,7 +17,6 @@ import (
 	pb "go.viam.com/rdk/examples/mycomponent/proto/api/component/mycomponent/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -185,7 +184,7 @@ func (mc *reconfigurableMyComponent) Reconfigure(ctx context.Context, newMyCompo
 		return utils.NewUnexpectedTypeError(mc, newMyComponenet)
 	}
 	if err := goutils.TryClose(ctx, mc.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 	mc.actual = actual.actual
 	return nil

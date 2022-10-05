@@ -148,7 +148,7 @@ const armHome = () => {
 };
 
 const armModifyAll = () => {
-  const arm = props.rawStatus!;
+  const arm = props.status!;
   const newStatus: ArmStatus = {
     pos_pieces: [],
     joint_pieces: [],

@@ -27,3 +27,35 @@ jobs:
     uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  eslint:
+    # Ignore adding a new label not Deploy
+    if: contains(fromJson('["opened", "synchronize", "reopened"]'), github.event.action) || contains(github.event.pull_request.labels.*.name, 'Deploy')
+    name: ESLint
+    timeout-minutes: 5
+    runs-on: [self-hosted, x64]
+    container:
+      image: ghcr.io/viamrobotics/canon:amd64-cache
+      options: --platform linux/amd64
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install modules & generate protos
+      run: make buf-web
+    - name: Run ESLint
+      run: npm run lint --prefix web/frontend
+
+  typecheck:
+    # Ignore adding a new label not Deploy
+    if: contains(fromJson('["opened", "synchronize", "reopened"]'), github.event.action) || contains(github.event.pull_request.labels.*.name, 'Deploy')
+    name: Typescript
+    timeout-minutes: 5
+    runs-on: [self-hosted, x64]
+    container:
+      image: ghcr.io/viamrobotics/canon:amd64-cache
+      options: --platform linux/amd64
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install modules & generate protos
+      run: make buf-web
+    - name: Run Typecheck
+      run: npm run typecheck --prefix web/frontend

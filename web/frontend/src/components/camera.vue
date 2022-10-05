@@ -3,6 +3,7 @@
 import { grpc } from '@improbable-eng/grpc-web';
 import { ref } from 'vue';
 import { normalizeRemoteName, type Resource } from '../lib/resource';
+import { displayError } from '../lib/error';
 import cameraApi from '../gen/proto/api/component/camera/v1/camera_pb.esm';
 import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
@@ -15,7 +16,6 @@ interface Props {
 }
 
 interface Emits {
-  (event: 'download-screenshot'): void
   (event: 'download-raw-data'): void
   (event: 'toggle-camera', camera: boolean): void
   (event: 'selected-camera-view', value: string): void
@@ -25,8 +25,8 @@ interface Emits {
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
-let pcdExpanded = $ref(false);
-let pointcloud = $ref<Uint8Array | undefined>();
+const pcdExpanded = $ref(false);
+const pointcloud = $ref<Uint8Array | undefined>();
 
 const camera = ref(false);
 const selectedValue = ref('live');
@@ -44,25 +44,19 @@ const refreshCamera = () => {
   emit('refresh-camera', selectedValue.value);
 };
 
-const renderPCD = () => {
-  const request = new cameraApi.GetPointCloudRequest();
-  request.setName(props.cameraName);
-  request.setMimeType('pointcloud/pcd');
-  window.cameraService.getPointCloud(request, new grpc.Metadata(), (error, response) => {
-    if (error) {
-      toast.error(`Error getting point cloud: ${error}`);
-      return;
+const exportScreenshot = (cameraName: string) => {
+  const req = new cameraApi.RenderFrameRequest();
+  req.setName(cameraName);
+  req.setMimeType('image/jpeg');
+
+  window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
+    if (err) {
+      return displayError(err);
     }
 
-    pointcloud = response!.getPointCloud_asU8();
+    const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
+    window.open(URL.createObjectURL(blob), '_blank');
   });
-};
-
-const togglePCDExpand = () => {
-  pcdExpanded = !pcdExpanded;
-  if (pcdExpanded) {
-    renderPCD();
-  }
 };
 
 </script>
@@ -144,7 +138,7 @@ const togglePCDExpand = () => {
                   v-if="camera"
                   icon="refresh"
                   label="Refresh"
-                  @click="refreshCamera()"
+                  @click="refreshCamera"
                 />
               </div>
               <div class="pr-2 pt-7">
@@ -152,7 +146,7 @@ const togglePCDExpand = () => {
                   v-if="camera"
                   icon="camera"
                   label="Export Screenshot"
-                  @click="emit('download-screenshot')"
+                  @click="exportScreenshot"
                 />
               </div>
             </div>
@@ -167,7 +161,7 @@ const togglePCDExpand = () => {
           <div class="flex items-center gap-2">
             <v-switch
               :value="pcdExpanded ? 'on' : 'off'"
-              @input="togglePCDExpand()"
+              @input="toggleExpand"
             />
             <span class="pr-0.5 text-xs">Point Cloud Data</span>
             <InfoButton :info-rows="['When turned on, point cloud will be recalculated']" />

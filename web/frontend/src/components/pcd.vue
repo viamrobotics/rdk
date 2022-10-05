@@ -263,15 +263,17 @@ const update = (cloud: Uint8Array) => {
   const points = loader.parse(cloud.buffer, '');
   points.name = 'points';
   const positions = points.geometry.attributes.position.array;
-  const colors = points.geometry.attributes.color.array;
+
+  // TODO (hackday): colors is not consistently returned, if not just render all points as blue
+  // eslint-disable-next-line unicorn/prefer-spread
+  const colors = points.geometry.attributes.color?.array ?? Array.from(positions).flatMap(() => [0.3, 0.5, 0.7]);
+
   const count = positions.length / 3;
   const material = new THREE.MeshBasicMaterial();
   const geometry = new THREE.BoxGeometry(0.005, 0.005, 0.005);
   mesh = new THREE.InstancedMesh(geometry, material, count);
   mesh.position.set(0.01, 0.01, 0.01);
   mesh.name = 'points';
-
-  console.log(positions.length, colors.length);
 
   for (let i = 0, j = 0; i < count; i += 1, j += 3) {
     matrix.setPosition(positions[j + 0], positions[j + 1], positions[j + 2]);
@@ -513,7 +515,7 @@ const handlePointsResize = (event: CustomEvent) => {
 
   sphere.scale.set(scale, scale, scale);
 
-  points.instanceMatrix.needsUpdate = true;
+  mesh.instanceMatrix.needsUpdate = true;
 };
 
 const init = (pointcloud: Uint8Array) => {

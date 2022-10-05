@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -37,7 +36,6 @@ func init() {
 		Reconfigurable: WrapWithReconfigurable,
 		MaxInstance:    resource.DefaultMaxInstance,
 	})
-	resource.AddDefaultService(Named(resource.DefaultServiceName))
 }
 
 // Service defines what a Data Manager Service should expose to the users.
@@ -135,7 +133,7 @@ func (svc *reconfigurableDataManager) Reconfigure(ctx context.Context, newSvc re
 		return utils.NewUnexpectedTypeError(svc, newSvc)
 	}
 	if err := goutils.TryClose(ctx, svc.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 	svc.actual = rSvc.actual
 	return nil

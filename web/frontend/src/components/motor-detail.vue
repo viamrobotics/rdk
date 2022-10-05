@@ -1,52 +1,42 @@
 
 <script setup lang="ts">
 
-import { ref } from 'vue';
-import type { Status } from '../gen/proto/api/component/motor/v1/motor_pb.esm';
+import { grpc } from '@improbable-eng/grpc-web';
+import type Motor from '../gen/proto/api/component/motor/v1/motor_pb.esm';
+import motorApi from '../gen/proto/api/component/motor/v1/motor_pb.esm';
+import { displayError } from '../lib/error';
+import { rcLogConditionally } from '../lib/log';
 import InfoButton from './info-button.vue';
 
 interface Props {
-  motorName: string
-  crumbs: string[]
-  motorStatus: Status.AsObject
+  name: string
+  status: Motor.Status.AsObject
 }
 
-interface Emits {
-  (event: 'motor-run', data: {
-    direction: number,
-    position: number,
-    rpm: number,
-    power: number,
-    type: string,
-    speed: number,
-    revolutions: number,
-  }): void
-  (event: 'motor-stop'): void
-}
+const props = defineProps<Props>();
 
-defineProps<Props>();
-const emit = defineEmits<Emits>();
+type MovementTypes = 'go' | 'goFor' | 'goTo';
 
-const movementType = ref('Go');
-const direction = ref<-1 | 1>(1);
-const position = ref(0);
-const rpm = ref(0);
-const power = ref(25);
-const type = ref('go');
-const speed = ref(0);
-const revolutions = ref(0);
+const position = $ref(0);
+const rpm = $ref(0);
+const power = $ref(25);
+const revolutions = $ref(0);
+
+let movementType = $ref('Go');
+let direction = $ref<-1 | 1>(1);
+let type = $ref<MovementTypes>('go');
 
 const setMovementType = (value: string) => {
-  movementType.value = value;
+  movementType = value;
   switch (value) {
     case 'Go':
-      type.value = 'go';
+      type = 'go';
       break;
     case 'Go For':
-      type.value = 'goFor';
+      type = 'goFor';
       break;
     case 'Go To':
-      type.value = 'goTo';
+      type = 'goTo';
       break;
   }
 };
@@ -54,58 +44,93 @@ const setMovementType = (value: string) => {
 const setDirection = (value: string) => {
   switch (value) {
     case 'Forwards':
-      direction.value = 1;
+      direction = 1;
       break;
     case 'Backwards':
-      direction.value = -1;
+      direction = -1;
       break;
     default:
-      direction.value = 1;
+      direction = 1;
   }
 };
 
+const setPower = (powerPct: number) => {
+  const req = new motorApi.SetPowerRequest();
+  req.setName(props.name);
+  req.setPowerPct(powerPct);
+
+  rcLogConditionally(req);
+  window.motorService.setPower(req, new grpc.Metadata(), displayError);
+};
+
+const goFor = (rpm: number, revolutions: number) => {
+  const req = new motorApi.GoForRequest();
+  req.setName(props.name);
+  req.setRpm(rpm);
+  req.setRevolutions(revolutions);
+
+  rcLogConditionally(req);
+  window.motorService.goFor(req, new grpc.Metadata(), displayError);
+};
+
+const goTo = (rpm: number, positionRevolutions: number) => {
+  const req = new motorApi.GoToRequest();
+  req.setName(props.name);
+  req.setRpm(rpm);
+  req.setPositionRevolutions(positionRevolutions);
+
+  rcLogConditionally(req);
+  window.motorService.goTo(req, new grpc.Metadata(), displayError);
+};
+
 const motorRun = () => {
-  emit('motor-run', {
-    direction: direction.value,
-    position: position.value,
-    rpm: rpm.value,
-    power: power.value,
-    type: type.value,
-    speed: speed.value,
-    revolutions: revolutions.value,
-  });
+  switch (type) {
+    case 'go':
+      setPower(power * direction / 100);
+      break;
+    case 'goFor':
+      goFor(rpm * direction, revolutions);
+      break;
+    case 'goTo':
+      goTo(rpm, position);
+      break;
+  }
 };
 
 const motorStop = () => {
-  emit('motor-stop');
+  const req = new motorApi.StopRequest();
+  req.setName(props.name);
+
+  rcLogConditionally(req);
+  window.motorService.stop(req, new grpc.Metadata(), displayError);
 };
 
 </script>
 
 <template>
   <v-collapse
-    :title="motorName"
+    :title="name"
     class="motor"
   >
     <v-breadcrumbs
       slot="title"
-      :crumbs="crumbs.join(',')"
+      crumbs="motor"
     />
     <div
       slot="header"
       class="flex items-center justify-between gap-2"
     >
       <v-badge
-        v-if="motorStatus.positionReporting"
-        :label="`Position ${motorStatus.position}`"
+        v-if="status.positionReporting"
+        :label="`Position ${status.position}`"
       />
       <v-badge
-        v-if="motorStatus.isPowered"
+        v-if="status.isPowered"
         variant="green"
         label="Running"
       />
       <v-badge
-        v-else-if="!motorStatus.isPowered"
+        v-else-if="!status.isPowered"
         variant="gray"
         label="Idle"
       />
@@ -125,7 +150,7 @@ const motorStop = () => {
           <v-radio
             label="Set Power"
             :options="
-              motorStatus.positionReporting
+              status.positionReporting
                 ? 'Go, Go For, Go To'
                 : 'Go'
             "
@@ -224,7 +249,7 @@ const motorStop = () => {
             icon="play-circle-filled"
             variant="success"
             label="RUN"
-            @click="motorRun()"
+            @click="motorRun"
           />
         </div>
       </div>

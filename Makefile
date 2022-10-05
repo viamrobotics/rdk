@@ -5,7 +5,7 @@ TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
-LDFLAGS = -ldflags "$(shell etc/tag_version.sh) -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
+LDFLAGS = -ldflags "$(shell etc/set_plt.sh) $(shell etc/tag_version.sh) -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
 BUILD_TAGS=dynamic
 GO_BUILD_TAGS = -tags $(BUILD_TAGS)
 LINT_BUILD_TAGS = --build-tags $(BUILD_TAGS)
@@ -74,6 +74,9 @@ test-pi:
 test-e2e:
 	go build $(LDFLAGS) -o bin/test-e2e/server web/cmd/server/main.go
 	./etc/e2e.sh
+
+test-integration:
+	cd services/slam/builtin && sudo --preserve-env=APPIMAGE_EXTRACT_AND_RUN go test -v -run TestOrbslamIntegration
 
 server:
 	go build $(GO_BUILD_TAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go

@@ -1,15 +1,11 @@
 <!-- eslint-disable id-length -->
 <script setup lang="ts">
 
-import { ref, onMounted, watch, onUnmounted } from 'vue';
+import { grpc } from '@improbable-eng/grpc-web';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import InputController from '../gen/proto/api/component/inputcontroller/v1/input_controller_pb.esm';
-
-interface Emits {
-  (event: 'execute', req: unknown): void
-}
-
-const emit = defineEmits<Emits>();
+import { displayError } from '../lib/error';
 
 const gamepad = ref(navigator.getGamepads()[0]);
 const gamepadName = ref('Waiting for gamepad...');
@@ -47,7 +43,7 @@ const sendEvent = (newEvent: InputController.Event) => {
     const req = new InputController.TriggerEventRequest();
     req.setController('WebGamepad');
     req.setEvent(newEvent);
-    emit('execute', req);
+    window.inputControllerService.triggerEvent(req, new grpc.Metadata(), displayError);
   }
 };
 
@@ -59,16 +55,16 @@ const connectEvent = (con: boolean) => {
     return;
   }
 
-  for (const key of Object.keys(curStates)) {
+  for (const ctrl of Object.keys(curStates)) {
     const newEvent = new InputController.Event();
     newEvent.setTime(Timestamp.fromDate(new Date()));
     newEvent.setEvent(con ? 'Connect' : 'Disconnect');
     newEvent.setValue(0);
 
-    if ((/X|Y|Z$/u).test(key)) {
-      newEvent.setControl(`Absolute${key}`);
+    if ((/X|Y|Z$/u).test(ctrl)) {
+      newEvent.setControl(`Absolute${ctrl}`);
     } else {
-      newEvent.setControl(`Button${key}`);
+      newEvent.setControl(`Button${ctrl}`);
     }
 
     sendEvent(newEvent);
@@ -193,7 +189,7 @@ watch(() => enabled, () => {
   >
     <v-breadcrumbs
       slot="title"
-      :crumbs="['input_controller'].join(',')"
+      crumbs="input_controller"
     />
     <div slot="header">
       <span
