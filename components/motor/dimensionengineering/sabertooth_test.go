@@ -46,9 +46,10 @@ func TestSabertoothMotor(t *testing.T) {
 	// These are the setup register writes
 	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	checkTx(t, resChan, c, []byte{0x80, 0x00, 0x00, 0x00})
-
 	defer utils.TryClose(ctx, m1)
+
+	// This should be the stop command
+	checkTx(t, resChan, c, []byte{0x80, 0x00, 0x00, 0x00})
 
 	motor1, ok := m1.(motor.Motor)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -89,9 +90,9 @@ func TestSabertoothMotor(t *testing.T) {
 
 	m2, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor2", ConvertedAttributes: &mc2}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	checkTx(t, resChan, c, []byte{0x80, 0x04, 0x00, 0x04})
-
 	defer utils.TryClose(ctx, m2)
+
+	checkTx(t, resChan, c, []byte{0x80, 0x04, 0x00, 0x04})
 
 	motor2, ok := m2.(motor.Motor)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -144,9 +145,9 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 	// These are the setup register writes
 	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	checkTx(t, resChan, c, []byte{0x80, 0x00, 0x00, 0x00})
-
 	defer utils.TryClose(ctx, m1)
+
+	checkTx(t, resChan, c, []byte{0x80, 0x00, 0x00, 0x00})
 
 	motor1, ok := m1.(motor.Motor)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -181,9 +182,9 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 
 	m2, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor2", ConvertedAttributes: &mc2}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	checkTx(t, resChan, c, []byte{0x80, 0x04, 0x00, 0x04})
-
 	defer utils.TryClose(ctx, m2)
+
+	checkTx(t, resChan, c, []byte{0x80, 0x04, 0x00, 0x04})
 
 	motor2, ok := m2.(motor.Motor)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -213,4 +214,36 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 		test.That(t, motor2.SetPower(ctx, 0, nil), test.ShouldBeNil)
 		checkTx(t, resChan, c, []byte{0x80, 0x04, 0x00, 0x04})
 	})
+}
+
+func TestSabertoothRampConfig(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	c := make(chan []byte, 1024)
+	resChan := make(chan string, 1024)
+	deps := make(registry.Dependencies)
+
+	mc1 := dimensionengineering.Config{
+		SerialDevice: "testchan",
+		Channel:      1,
+		TestChan:     c,
+		Address:      128,
+		RampValue:    100,
+	}
+
+	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
+	test.That(t, motorReg, test.ShouldNotBeNil)
+
+	// These are the setup register writes
+	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer utils.TryClose(ctx, m1)
+
+	checkTx(t, resChan, c, []byte{0x80, 0x00, 0x00, 0x00})
+	checkTx(t, resChan, c, []byte{0x80, 0x10, 0x64, 0x74})
+
+	motor1, ok := m1.(motor.Motor)
+	test.That(t, ok, test.ShouldBeTrue)
+	_, ok = motor1.(motor.LocalMotor)
+	test.That(t, ok, test.ShouldBeTrue)
 }

@@ -66,11 +66,12 @@ func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bo
 
 // Config adds DimensionEngineering-specific config options.
 type Config struct {
-	TestChan      chan []byte `json:"-,omitempty"`        // TestChan is a fake "serial" path for test use only
-	SerialDevice  string      `json:"serial_device"`      // path to /dev/ttyXXXX file
-	Channel       int         `json:"channel"`            // Valid values are 1/2
-	Address       int         `json:"address"`            // Valid values are 128-135
-	DirectionFlip bool        `json:"dir_flip,omitempty"` // Flip the direction of the signal sent to the controller. Due to wiring/motor orientation, "forward" on the controller may not represent "forward" on the robot
+	TestChan      chan []byte `json:"-,omitempty"`          // TestChan is a fake "serial" path for test use only
+	SerialDevice  string      `json:"serial_device"`        // path to /dev/ttyXXXX file
+	Channel       int         `json:"channel"`              // Valid values are 1/2
+	Address       int         `json:"address"`              // Valid values are 128-135
+	DirectionFlip bool        `json:"dir_flip,omitempty"`   // Flip the direction of the signal sent to the controller. Due to wiring/motor orientation, "forward" on the controller may not represent "forward" on the robot
+	RampValue     int         `json:"ramp_value,omitempty"` // A value to control how quickly the controller ramps to a particular setpoint
 }
 
 // Validate ensures all parts of the config are valid.
@@ -170,6 +171,18 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 
 	if err := m.configure(c); err != nil {
 		return nil, err
+	}
+
+	if c.RampValue > 0 {
+		setRampCmd, err := newCommand(c.Address, setRamping, c.Channel, byte(c.RampValue))
+		if err != nil {
+			return nil, err
+		}
+
+		err = m.c.sendCmd(setRampCmd)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return m, nil
@@ -413,6 +426,9 @@ func newCommand(controllerAddress int, motorMode commandCode, channel int, data 
 		opcode = opMultiDriveForward
 	case multiDrive:
 		opcode = opMultiDrive
+	case setRamping:
+		opcode = opRamping
+	case setDeadband:
 	case multiTurnRight:
 	case multiTurnLeft:
 	case multiTurn:

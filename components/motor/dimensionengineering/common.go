@@ -19,6 +19,8 @@ const (
 	multiTurnLeft   commandCode = 6
 	multiTurnRight  commandCode = 7
 	multiTurn       commandCode = 8
+	setRamping      commandCode = 20
+	setDeadband     commandCode = 21
 
 	// Serial level op-codes.
 	opMotor1Forward       opCode = 0x00
@@ -31,12 +33,12 @@ const (
 	opMotor2Drive         opCode = 0x07
 	opMultiDriveForward   opCode = 0x08
 	opMultiDriveBackwards opCode = 0x09
-	opMultiDriveRight     opCode = 0x10
-	opMultiDriveLeft      opCode = 0x11
-	opMultiDrive          opCode = 0x12
-	opMultiTurn           opCode = 0x13
-	opSerialTimeout       opCode = 0x14
-	opSerialBaudRate      opCode = 0x15
-	opRamping             opCode = 0x16
-	opDeadband            opCode = 0x17
+	opMultiDriveRight     opCode = 0x0a
+	opMultiDriveLeft      opCode = 0x0b
+	opMultiDrive          opCode = 0x0c
+	opMultiTurn           opCode = 0x0d
+	opSerialTimeout       opCode = 0x0e
+	opSerialBaudRate      opCode = 0x0f
+	opRamping             opCode = 0x10
+	opDeadband            opCode = 0x11
 )
