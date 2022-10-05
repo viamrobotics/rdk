@@ -142,8 +142,8 @@ func getProperties(d driver.Driver) (_ []prop.Media, err error) {
 type WebcamAttrs struct {
 	*camera.AttrConfig
 	Format      string `json:"format"`
-	Path        string `json:"path"`
-	PathPattern string `json:"path_pattern"`
+	Path        string `json:"video_path"`
+	PathPattern string `json:"video_path_pattern"`
 	Width       int    `json:"width_px"`
 	Height      int    `json:"height_px"`
 }
