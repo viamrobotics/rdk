@@ -118,7 +118,7 @@ type Config struct {
 	FromCommand bool `json:"-"`
 }
 
-// Ensure ensures all parts of the config are valid and sorts components based on what they depend on.
+// Ensure ensures all parts of the config are valid.
 func (c *Config) Ensure(fromCloud bool) error {
 	if c.Cloud != nil {
 		if err := c.Cloud.Validate("cloud", fromCloud); err != nil {
@@ -138,14 +138,6 @@ func (c *Config) Ensure(fromCloud bool) error {
 			return errors.Errorf("error validating component %s: %s", c.Components[idx].Name, err)
 		}
 		c.Components[idx].ImplicitDependsOn = dependsOn
-	}
-
-	if len(c.Components) > 0 {
-		srtCmps, err := SortComponents(c.Components)
-		if err != nil {
-			return err
-		}
-		c.Components = srtCmps
 	}
 
 	for idx := 0; idx < len(c.Processes); idx++ {
