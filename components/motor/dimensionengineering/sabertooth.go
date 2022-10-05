@@ -47,11 +47,17 @@ type controller struct {
 
 // Motor is a single axis/motor/component instance.
 type Motor struct {
-	c       *controller                      // A reference to the actual controller that needs to be commanded for the motor to run
-	Channel int                              // which channel the motor is connected to on the controller
-	jogging bool                             // Simply indicates if the RDK _thinks_ the motor is moving, because this controller has no feedback, this may not reflect reality
-	opMgr   operation.SingleOperationManager // A manager to ensure only a single operation is happening at any given time since commands could overlap on the serial port
-	dirFlip bool                             // dirFlip means that the motor is wired "backwards" from what we expect forward/backward to mean, so we need to "flip" the direction sent by control
+	// A reference to the actual controller that needs to be commanded for the motor to run
+	c *controller
+	// which channel the motor is connected to on the controller
+	Channel int
+	// Simply indicates if the RDK _thinks_ the motor is moving, because this controller has no feedback, this may not reflect reality
+	jogging bool
+	// A manager to ensure only a single operation is happening at any given time since commands could overlap on the serial port
+	opMgr operation.SingleOperationManager
+	// dirFlip means that the motor is wired "backwards" from what we expect forward/backward to mean,
+	// so we need to "flip" the direction sent by control
+	dirFlip bool
 }
 
 // GoFor Not supported.
@@ -66,12 +72,19 @@ func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bo
 
 // Config adds DimensionEngineering-specific config options.
 type Config struct {
-	TestChan      chan []byte `json:"-,omitempty"`          // TestChan is a fake "serial" path for test use only
-	SerialDevice  string      `json:"serial_device"`        // path to /dev/ttyXXXX file
-	Channel       int         `json:"channel"`              // Valid values are 1/2
-	Address       int         `json:"address"`              // Valid values are 128-135
-	DirectionFlip bool        `json:"dir_flip,omitempty"`   // Flip the direction of the signal sent to the controller. Due to wiring/motor orientation, "forward" on the controller may not represent "forward" on the robot
-	RampValue     int         `json:"ramp_value,omitempty"` // A value to control how quickly the controller ramps to a particular setpoint
+	// TestChan is a fake "serial" path for test use only
+	TestChan chan []byte `json:"-,omitempty"`
+	// path to /dev/ttyXXXX file
+	SerialDevice string `json:"serial_device"`
+	// Valid values are 1/2
+	Channel int `json:"channel"`
+	// Valid values are 128-135
+	Address int `json:"address"`
+	// Flip the direction of the signal sent to the controller.
+	// Due to wiring/motor orientation, "forward" on the controller may not represent "forward" on the robot
+	DirectionFlip bool `json:"dir_flip,omitempty"`
+	// A value to control how quickly the controller ramps to a particular setpoint
+	RampValue int `json:"ramp_value,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
