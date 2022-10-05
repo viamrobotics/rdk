@@ -8,7 +8,11 @@ import type { Credentials } from '@viamrobotics/rpc';
 import { toast } from './lib/toast';
 import { displayError } from './lib/error';
 import { addResizeListeners } from './lib/resize';
-import robotApi, { type Status, type Operation, type StreamStatusResponse } from './gen/proto/api/robot/v1/robot_pb.esm';
+import robotApi, {
+  type Status,
+  type Operation,
+  type StreamStatusResponse,
+} from './gen/proto/api/robot/v1/robot_pb.esm';
 import type { ResponseStream } from './gen/proto/stream/v1/stream_pb_service.esm';
 import commonApi, { type ResourceName } from './gen/proto/api/common/v1/common_pb.esm';
 import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
@@ -86,15 +90,6 @@ let connectionManager = $ref<{
   isConnected(): boolean;
 }>(null!);
 
-onMounted(async () => {
-  await waitForClientAndStart();
-
-  connectionManager = createConnectionManager();
-  connectionManager.start();
-
-  addResizeListeners();
-});
-
 const handleError = (message: string, error: unknown, onceKey: string) => {
   if (onceKey) {
     if (errors[onceKey]) {
@@ -108,7 +103,7 @@ const handleError = (message: string, error: unknown, onceKey: string) => {
   console.error(message, { error });
 };
 
-const handleCallErrors = (statuses: { resources: boolean; ops: boolean }, errors: unknown) => {
+const handleCallErrors = (statuses: { resources: boolean; ops: boolean }, newErrors: unknown) => {
   const errorsList = document.createElement('ul');
   errorsList.classList.add('list-disc', 'pl-4');
 
@@ -131,9 +126,243 @@ const handleCallErrors = (statuses: { resources: boolean; ops: boolean }, errors
 
   handleError(
     `Error fetching the following: ${errorsList.outerHTML}`,
-    errors,
+    newErrors,
     'connection'
   );
+};
+
+const stringToResourceName = (nameStr: string) => {
+  const nameParts = nameStr.split('/');
+  let name = '';
+
+  if (nameParts.length === 2) {
+    name = nameParts[1];
+  }
+
+  const subtypeParts = nameParts[0].split(':');
+  if (subtypeParts.length > 3) {
+    throw new Error('more than 2 colons in resource name string');
+  }
+
+  if (subtypeParts.length < 3) {
+    throw new Error('less than 2 colons in resource name string');
+  }
+
+  return {
+    namespace: subtypeParts[0],
+    type: subtypeParts[1],
+    subtype: subtypeParts[2],
+    name,
+  };
+};
+
+const querySensors = () => {
+  const req = new sensorsApi.GetSensorsRequest();
+  req.setName('builtin');
+  window.sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
+    if (err) {
+      return displayError(err);
+    }
+    sensorNames = resp!.toObject().sensorNamesList;
+  });
+};
+
+const fixRawStatus = (resource: Resource, statusToFix: unknown) => {
+  switch (resourceNameToSubtypeString(resource)) {
+
+    /*
+     * TODO (APP-146): generate these using constants
+     * TODO these types need to be fixed.
+     */
+    case 'rdk:component:arm':
+      return fixArmStatus(statusToFix as never);
+    case 'rdk:component:board':
+      return fixBoardStatus(statusToFix as never);
+    case 'rdk:component:gantry':
+      return fixGantryStatus(statusToFix as never);
+    case 'rdk:component:input_controller':
+      return fixInputStatus(statusToFix as never);
+    case 'rdk:component:motor':
+      return fixMotorStatus(statusToFix as never);
+    case 'rdk:component:servo':
+      return fixServoStatus(statusToFix as never);
+  }
+
+  return statusToFix;
+};
+
+const updateStatus = (grpcStatuses: robotApi.Status[]) => {
+  for (const grpcStatus of grpcStatuses) {
+    const nameObj = grpcStatus.getName()!.toObject();
+    const statusJs = grpcStatus.getStatus()!.toJavaScript();
+
+    try {
+      const fixed = fixRawStatus(nameObj, statusJs);
+      const name = resourceNameToString(nameObj);
+      rawStatus[name] = statusJs as unknown as Status;
+      status[name] = fixed as unknown as Status;
+    } catch (error) {
+      toast.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`, error);
+    }
+  }
+};
+
+const checkLastStatus = () => {
+  const checkIntervalMillis = 3000;
+  if (Date.now() - lastStatusTS > checkIntervalMillis) {
+    // eslint-disable-next-line no-use-before-define
+    restartStatusStream();
+    return;
+  }
+  setTimeout(checkLastStatus, checkIntervalMillis);
+};
+
+const restartStatusStream = async () => {
+  if (statusStream) {
+    statusStream.cancel();
+    try {
+      console.log('reconnecting');
+      await window.connect();
+    } catch (error) {
+      console.error('failed to reconnect; retrying:', error);
+      setTimeout(() => restartStatusStream(), 1000);
+    }
+  }
+
+  let newResources: Resource[] = [];
+
+  // get all relevant resources
+  for (const subtype of relevantSubtypesForStatus) {
+    newResources = [...newResources, ...filterResources(newResources, 'rdk', 'component', subtype)];
+  }
+
+  const names = newResources.map((name) => {
+    const resourceName = new commonApi.ResourceName();
+    resourceName.setNamespace(name.namespace);
+    resourceName.setType(name.type);
+    resourceName.setSubtype(name.subtype);
+    resourceName.setName(name.name);
+    return resourceName;
+  });
+
+  const streamReq = new robotApi.StreamStatusRequest();
+  streamReq.setResourceNamesList(names);
+  // 500ms
+  streamReq.setEvery(new Duration().setNanos(500_000_000));
+
+  statusStream = window.robotService.streamStatus(streamReq);
+  let firstData = true;
+
+  statusStream.on('data', (response) => {
+    lastStatusTS = Date.now();
+    updateStatus(response.getStatusList());
+    if (firstData) {
+      firstData = false;
+      checkLastStatus();
+    }
+  });
+
+  statusStream.on('status', (newStatus) => {
+    console.log('error streaming robot status');
+    console.log(newStatus);
+    console.log(newStatus.code, ' ', newStatus.details);
+  });
+
+  statusStream.on('end', () => {
+    console.log('done streaming robot status');
+    setTimeout(() => restartStatusStream(), 1000);
+  });
+};
+
+// query metadata service every 0.5s
+const queryMetadata = () => {
+  return new Promise((resolve, reject) => {
+    let resourcesChanged = false;
+    let shouldRestartStatusStream = false;
+
+    window.robotService.resourceNames(new robotApi.ResourceNamesRequest(), new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+
+      if (!resp) {
+        reject(new Error('An unexpected issue occured.'));
+        return;
+      }
+
+      const { resourcesList } = resp.toObject();
+
+      // if resource list has changed, flag that
+      const differences = new Set(resources.map((name) => resourceNameToString(name)));
+      const resourceSet = new Set(resourcesList.map((name) => resourceNameToString(name)));
+
+      for (const elem of resourceSet) {
+        if (differences.has(elem)) {
+          differences.delete(elem);
+        } else {
+          differences.add(elem);
+        }
+      }
+
+      if (differences.size > 0) {
+        resourcesChanged = true;
+
+        // restart status stream if resource difference includes a resource we care about
+        for (const elem of differences) {
+          const resource = stringToResourceName(elem);
+          if (
+            resource.namespace === 'rdk' &&
+            resource.type === 'component' &&
+            relevantSubtypesForStatus.includes(resource.subtype)
+          ) {
+            shouldRestartStatusStream = true;
+            break;
+          }
+        }
+      }
+
+      resources = resourcesList;
+      if (resourcesChanged === true) {
+        querySensors();
+        if (shouldRestartStatusStream === true) {
+          restartStatusStream();
+        }
+      }
+      resolve(resources);
+    });
+  });
+};
+
+const loadCurrentOps = () => {
+  return new Promise((resolve, reject) => {
+    const req = new robotApi.GetOperationsRequest();
+
+    window.robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+
+      if (!resp) {
+        reject(new Error('An unexpected issue occurred.'));
+        return;
+      }
+
+      const list = resp.toObject().operationsList;
+      currentOps = [];
+
+      const now = Date.now();
+      for (const op of list) {
+        currentOps.push({
+          op,
+          elapsed: op.started ? now - (op.started.seconds * 1000) : -1,
+        });
+      }
+
+      resolve(currentOps);
+    });
+  });
 };
 
 const createConnectionManager = () => {
@@ -145,8 +374,15 @@ const createConnectionManager = () => {
   let interval = -1;
   let connectionRestablished = false;
 
+  const isConnected = () => {
+    return (
+      statuses.resources &&
+      statuses.ops
+    );
+  };
+
   const makeCalls = async () => {
-    const errors = [];
+    const newErrors = [];
 
     try {
       await queryMetadata();
@@ -158,7 +394,7 @@ const createConnectionManager = () => {
       statuses.resources = true;
     } catch (error) {
       statuses.resources = false;
-      errors.push(error);
+      newErrors.push(error);
     }
 
     try {
@@ -171,7 +407,7 @@ const createConnectionManager = () => {
       statuses.ops = true;
     } catch (error) {
       statuses.ops = false;
-      errors.push(error);
+      newErrors.push(error);
     }
 
     if (isConnected()) {
@@ -179,20 +415,13 @@ const createConnectionManager = () => {
         toast.success('Connection established');
         connectionRestablished = false;
       }
-      
+
       errorMessage = '';
       return;
     }
 
-    handleCallErrors(statuses, errors);
+    handleCallErrors(statuses, newErrors);
     errorMessage = 'Connection error, attempting to reconnect ...';
-  };
-
-  const isConnected = () => {
-    return (
-      statuses.resources && 
-      statuses.ops
-    );
   };
 
   const stop = () => {
@@ -212,52 +441,6 @@ const createConnectionManager = () => {
     isConnected,
   };
 };
-  
-const fixRawStatus = (resource: Resource, status: unknown) => {
-  switch (resourceNameToSubtypeString(resource)) {
-  // TODO (APP-146): generate these using constants
-  // TODO these types need to be fixed.
-    case 'rdk:component:arm':
-      return fixArmStatus(status as never);
-    case 'rdk:component:board':
-      return fixBoardStatus(status as never);
-    case 'rdk:component:gantry':
-      return fixGantryStatus(status as never);
-    case 'rdk:component:input_controller':
-      return fixInputStatus(status as never);
-    case 'rdk:component:motor':
-      return fixMotorStatus(status as never);
-    case 'rdk:component:servo':
-      return fixServoStatus(status as never);
-  }
-
-  return status;
-};
-
-const stringToResourceName = (nameStr: string) => {
-  const nameParts = nameStr.split('/');
-  let name = '';
-
-  if (nameParts.length === 2) {
-    name = nameParts[1];
-  }
-
-  const subtypeParts = nameParts[0].split(':');
-  if (subtypeParts.length > 3) {
-    throw 'more than 2 colons in resource name string';
-  }
-
-  if (subtypeParts.length < 3) {
-    throw 'less than 2 colons in resource name string';
-  }
-
-  return {
-    namespace: subtypeParts[0],
-    type: subtypeParts[1],
-    subtype: subtypeParts[2],
-    name,
-  };
-};
 
 const resourceStatusByName = (resource: Resource) => {
   return status[resourceNameToString(resource)];
@@ -273,33 +456,58 @@ const hasWebGamepad = () => {
     elem.namespace === 'rdk' &&
     elem.type === 'component' &&
     elem.subtype === 'input_controller' &&
-    elem.name === 'WebGamepad'
-  );
+    elem.name === 'WebGamepad');
 };
 
 const filteredInputControllerList = () => {
-  // TODO (APP-146): replace these with constants
-  // filters out WebGamepad
+
+  /*
+   * TODO (APP-146): replace these with constants
+   * filters out WebGamepad
+   */
   return resources.filter((elem) =>
     elem.namespace === 'rdk' &&
     elem.type === 'component' &&
     elem.subtype === 'input_controller' &&
     elem.name !== 'WebGamepad' &&
-    resourceStatusByName(elem)
-  );
+    resourceStatusByName(elem));
 };
 
-const viewCameraFrame = (cameraName: string, time: string) => {
-  window.clearInterval(cameraFrameIntervalId);
-  if (time === 'manual') {
-    viewCamera(cameraName, false);
-    viewManualFrame(cameraName);
-  } else if (time === 'live') {
-    viewCamera(cameraName, true);
-  } else {
-    viewCamera(cameraName, false);
-    viewIntervalFrame(cameraName, time);
+const viewCamera = (name: string, isOn: boolean) => {
+  const streamName = normalizeRemoteName(name);
+  const streamContainer = document.querySelector(`#stream-${streamName}`);
+
+  if (isOn) {
+    const req = new streamApi.AddStreamRequest();
+    req.setName(name);
+    window.streamService.addStream(req, new grpc.Metadata(), (err) => {
+      if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
+        streamContainer.querySelectorAll('img')[0].remove();
+      }
+
+      if (err) {
+        toast.error('No live camera device found.');
+        displayError(err);
+      }
+    });
+    document.querySelector(`#stream-preview-${name}`)?.removeAttribute('hidden');
+    return;
   }
+
+  document.querySelector(`#stream-preview-${name}`)?.setAttribute('hidden', 'true');
+
+  const req = new streamApi.RemoveStreamRequest();
+  req.setName(name);
+  window.streamService.removeStream(req, new grpc.Metadata(), (err) => {
+    if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
+      streamContainer.querySelectorAll('img')[0].remove();
+    }
+
+    if (err) {
+      toast.error('No live camera device found.');
+      displayError(err);
+    }
+  });
 };
 
 const viewManualFrame = (cameraName: string) => {
@@ -353,151 +561,25 @@ const viewIntervalFrame = (cameraName: string, time: string) => {
   }, Number(time) * 1000);
 };
 
+const viewCameraFrame = (cameraName: string, time: string) => {
+  window.clearInterval(cameraFrameIntervalId);
+  if (time === 'manual') {
+    viewCamera(cameraName, false);
+    viewManualFrame(cameraName);
+  } else if (time === 'live') {
+    viewCamera(cameraName, true);
+  } else {
+    viewCamera(cameraName, false);
+    viewIntervalFrame(cameraName, time);
+  }
+};
+
 const nonEmpty = (object: object) => {
   return Object.keys(object).length > 0;
 };
 
-const viewCamera = (name: string, isOn: boolean) => {
-  const streamName = normalizeRemoteName(name);
-  const streamContainer = document.querySelector(`#stream-${streamName}`);
-
-  if (isOn) {
-    const req = new streamApi.AddStreamRequest();
-    req.setName(name);
-    window.streamService.addStream(req, new grpc.Metadata(), (err) => {
-      if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
-        streamContainer.querySelectorAll('img')[0].remove();
-      }
-
-      if (err) {
-        toast.error('No live camera device found.');
-        displayError(err);
-      }
-    });
-    document.querySelector(`#stream-preview-${name}`)?.removeAttribute('hidden');
-    return;
-  }
-
-  document.querySelector(`#stream-preview-${name}`)?.setAttribute('hidden', 'true');
-
-  const req = new streamApi.RemoveStreamRequest();
-  req.setName(name);
-  window.streamService.removeStream(req, new grpc.Metadata(), (err) => {
-    if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
-      streamContainer.querySelectorAll('img')[0].remove();
-    }
-
-    if (err) {
-      toast.error('No live camera device found.');
-      displayError(err);
-    }
-  });
-};
-
 const isWebRtcEnabled = () => {
   return window.webrtcEnabled;
-};
-
-// query metadata service every 0.5s
-const queryMetadata = () => {
-  return new Promise((resolve, reject) => {
-    let resourcesChanged = false;
-    let shouldRestartStatusStream = false;
-
-    window.robotService.resourceNames(new robotApi.ResourceNamesRequest(), new grpc.Metadata(), (err, resp) => {
-      if (err) {
-        reject(err);
-        return;
-      }
-
-      if (!resp) {
-        reject(null);
-        return;
-      }
-
-      const { resourcesList } = resp.toObject();
-
-      // if resource list has changed, flag that
-      const differences = new Set(resources.map((name) => resourceNameToString(name)));
-      const resourceSet = new Set(resourcesList.map((name) => resourceNameToString(name)));
-
-      for (const elem of resourceSet) {
-        if (differences.has(elem)) {
-          differences.delete(elem);
-        } else {
-          differences.add(elem);
-        }
-      }
-
-      if (differences.size > 0) {
-        resourcesChanged = true;
-
-        // restart status stream if resource difference includes a resource we care about
-        for (const elem of differences) {
-          const resource = stringToResourceName(elem);
-          if (
-            resource.namespace === 'rdk' &&
-            resource.type === 'component' &&
-            relevantSubtypesForStatus.includes(resource.subtype)
-          ) {
-            shouldRestartStatusStream = true;
-            break;
-          }
-        }
-      }
-      
-      resources = resourcesList;
-      if (resourcesChanged === true) {
-        querySensors();
-        if (shouldRestartStatusStream === true) {
-          restartStatusStream();
-        }
-      }
-      resolve(resources);
-    });
-  });
-};
-
-const querySensors = () => {
-  const req = new sensorsApi.GetSensorsRequest();
-  req.setName('builtin');
-  window.sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
-    if (err) {
-      return displayError(err);
-    }
-    sensorNames = resp!.toObject().sensorNamesList;
-  });
-};
-
-const loadCurrentOps = () => {
-  return new Promise((resolve, reject) => {  
-    const req = new robotApi.GetOperationsRequest();
-
-    window.robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
-      if (err) {
-        reject(err);
-        return;
-      }
-
-      if (!resp) {
-        reject(null);
-        return;
-      }
-
-      const list = resp.toObject().operationsList;
-      currentOps = [];
-
-      const now = Date.now();
-      for (const op of list) {
-        currentOps.push({
-          op,
-          elapsed: op.started ? now - (op.started.seconds * 1000) : -1,
-        });
-      }
-
-      resolve(currentOps);
-    });
-  });
 };
 
 const doConnect = async (authEntity: string, creds: Credentials, onError?: () => Promise<void>) => {
@@ -533,92 +615,20 @@ const waitForClientAndStart = async () => {
   }
 };
 
-const updateStatus = (grpcStatuses: robotApi.Status[]) => {
-  for (const grpcStatus of grpcStatuses) {
-    const nameObj = grpcStatus.getName()!.toObject();
-    const statusJs = grpcStatus.getStatus()!.toJavaScript();
-
-    try {
-      const fixed = fixRawStatus(nameObj, statusJs);
-      const name = resourceNameToString(nameObj);
-      rawStatus[name] = statusJs as unknown as Status;
-      status[name] = fixed as unknown as Status;
-    } catch (error) {
-      toast.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`, error);
-    }
-  }
-};
-
-const restartStatusStream = async () => {
-  if (statusStream) {
-    statusStream.cancel();
-    try {
-      console.log('reconnecting');
-      await window.connect();
-    } catch (error) {
-      console.error('failed to reconnect; retrying:', error);
-      setTimeout(() => restartStatusStream(), 1000);
-    }
-  }
-
-  let resources: Resource[] = [];
-
-  // get all relevant resources
-  for (const subtype of relevantSubtypesForStatus) {
-    resources = [...resources, ...filterResources(resources, 'rdk', 'component', subtype)];
-  }
-
-  const names = resources.map((name) => {
-    const resourceName = new commonApi.ResourceName();
-    resourceName.setNamespace(name.namespace);
-    resourceName.setType(name.type);
-    resourceName.setSubtype(name.subtype);
-    resourceName.setName(name.name);
-    return resourceName;
-  });
-
-  const streamReq = new robotApi.StreamStatusRequest();
-  streamReq.setResourceNamesList(names);
-  streamReq.setEvery(new Duration().setNanos(500_000_000)); // 500ms
-
-  statusStream = window.robotService.streamStatus(streamReq);
-  let firstData = true;
-
-  statusStream.on('data', (response) => {
-    lastStatusTS = Date.now();
-    updateStatus(response.getStatusList());
-    if (firstData) {
-      firstData = false;
-      checkLastStatus();
-    }
-  });
-
-  statusStream.on('status', (status) => {
-    console.log('error streaming robot status');
-    console.log(status);
-    console.log(status.code, ' ', status.details);
-  });
-
-  statusStream.on('end', () => {
-    console.log('done streaming robot status');
-    setTimeout(() => restartStatusStream(), 1000);
-  });
-};
-
-const checkLastStatus = () => {
-  const checkIntervalMillis = 3000;
-  if (Date.now() - lastStatusTS > checkIntervalMillis) {
-    restartStatusStream();
-    return;
-  }
-  setTimeout(checkLastStatus, checkIntervalMillis);
-};
-
 const handleSelectCamera = (event: string, cameras: Resource[]) => {
   for (const camera of cameras) {
     viewCamera(camera.name, event.includes(camera.name));
   }
 };
+
+onMounted(async () => {
+  await waitForClientAndStart();
+
+  connectionManager = createConnectionManager();
+  connectionManager.start();
+
+  addResizeListeners();
+});
 
 </script>
 
@@ -650,7 +660,10 @@ const handleSelectCamera = (event: string, cameras: Resource[]) => {
         <input
           ref="passwordInput"
           :disabled="disableAuthElements"
-          class="mb-2 block w-full appearance-none border p-2 text-gray-700 transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none"
+          class="
+            mb-2 block w-full appearance-none border p-2 text-gray-700
+            transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
+          "
           type="password"
           @keyup.enter="doLogin(authType)"
         >
@@ -662,7 +675,7 @@ const handleSelectCamera = (event: string, cameras: Resource[]) => {
       </div>
     </template>
   </div>
-  
+
   <div class="flex flex-col gap-4 p-3">
     <div
       v-if="errorMessage"
@@ -723,8 +736,8 @@ const handleSelectCamera = (event: string, cameras: Resource[]) => {
     <!-- ******* MOTOR *******  -->
     <Motor
       v-for="motor in filterRdkComponentsWithStatus(resources, status, 'motor')"
-      :key="motor.name" 
-      :name="motor.name" 
+      :key="motor.name"
+      :name="motor.name"
       :status="resourceStatusByName(motor)"
     />
 
