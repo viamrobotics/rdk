@@ -192,12 +192,11 @@ func TestConfigEnsure(t *testing.T) {
 	c5 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c5", DependsOn: []string{"c2", "c4"}}
 	c6 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c6"}
 	c7 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c7", DependsOn: []string{"c6", "c4"}}
-	unsortedComponents := config.Config{
+	components := config.Config{
 		Components: []config.Component{c7, c6, c5, c3, c4, c1, c2},
 	}
-	err = unsortedComponents.Ensure(false)
+	err = components.Ensure(false)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, unsortedComponents.Components, test.ShouldResemble, []config.Component{c6, c1, c2, c3, c4, c7, c5})
 
 	invalidProcesses := config.Config{
 		Processes: []pexec.ProcessConfig{{}},
