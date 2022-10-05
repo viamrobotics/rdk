@@ -9,6 +9,7 @@ import (
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -19,6 +20,10 @@ func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: ticksCount.String(),
+	}, newTicksCountCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "encoder".
