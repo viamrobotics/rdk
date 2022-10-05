@@ -48,4 +48,5 @@
     "gen/proto",
     "tests/unit"
   ],
+  "references": [{ "path": "./tsconfig.node.json" }]
 }
