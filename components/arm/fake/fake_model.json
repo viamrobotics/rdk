@@ -12,12 +12,26 @@
             "orientation": {
                 "type": "ov_degrees",
                 "value": {
-                    "x": 1.0,
+                    "x": 0.0,
                     "y": 0.0,
-                    "z": 0.0,
+                    "z": 1.0,
                     "th": 0.0
                 }
             }
+        }
+    ],
+    "joints": [
+        {
+            "id": "shoulder_pan_joint",
+            "type": "revolute",
+            "parent": "base_link",
+            "axis": {
+                "x": 0,
+                "y": 0,
+                "z": 1
+            },
+            "max": 360,
+            "min": -360
         }
     ]
 }

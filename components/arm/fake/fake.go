@@ -89,7 +89,7 @@ func NewArm(ctx context.Context, cfg config.Component, logger golog.Logger) (arm
 	return &Arm{
 		Name:     cfg.Name,
 		position: &commonpb.Pose{},
-		joints:   &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0, 0}},
+		joints:   &pb.JointPositions{Values: make([]float64, len(model.DoF()))},
 		mp:       mp,
 		model:    model,
 	}, nil
@@ -141,11 +141,11 @@ func (a *Arm) MoveToPosition(
 // MoveToJointPositions sets the joints.
 func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions, extra map[string]interface{}) error {
 	inputs := a.model.InputFromProtobuf(joints)
-	_, err := a.model.Transform(inputs)
+	pos, err := a.model.Transform(inputs)
 	if err != nil {
 		return err
 	}
-
+	_ = pos
 	copy(a.joints.Values, joints.Values)
 	return nil
 }
