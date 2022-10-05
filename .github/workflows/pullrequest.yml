@@ -58,4 +58,4 @@ jobs:
     - name: Install modules & generate protos
       run: make buf-web
     - name: Run Typecheck
-      run: npm run typecheck --prefix web/frontend
+      run: npm run check --prefix web/frontend
