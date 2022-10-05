@@ -108,25 +108,31 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
     webRTCConn.peerConnection.ontrack = (event) => {
       const { kind } = event.track;
       const mediaElement = document.createElement(kind) as HTMLAudioElement | HTMLVideoElement;
-      mediaElement.srcObject = event.streams[0];
+      mediaElement.srcObject = event.streams[0]!;
       mediaElement.autoplay = true;
+
       if (mediaElement instanceof HTMLVideoElement) {
         mediaElement.playsInline = true;
         mediaElement.controls = false;
       } else {
         mediaElement.controls = true;
       }
-      let streamName = event.streams[0].id;
+
+      let streamName = event.streams[0]!.id;
       streamName = normalizeRemoteName(streamName);
+
       const streamContainer = document.querySelector(`#stream-${streamName}`);
-      if (streamContainer && streamContainer.querySelectorAll(kind).length > 0) {
-        streamContainer.querySelectorAll(kind)[0].remove();
+      if (streamContainer) {
+        const child = streamContainer.querySelector(kind);
+        child?.remove();
       }
+
       if (streamContainer) {
         streamContainer.append(mediaElement);
       }
+
       const mediaElementPreview = document.createElement(kind) as HTMLAudioElement | HTMLVideoElement;
-      mediaElementPreview.srcObject = event.streams[0];
+      mediaElementPreview.srcObject = event.streams[0]!;
       mediaElementPreview.autoplay = true;
       if (mediaElementPreview instanceof HTMLVideoElement) {
         mediaElementPreview.playsInline = true;
@@ -134,10 +140,13 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
       } else {
         mediaElementPreview.controls = true;
       }
+
       const streamPreviewContainer = document.querySelector(`#stream-preview-${streamName}`);
-      if (streamPreviewContainer && streamPreviewContainer.querySelectorAll(kind).length > 0) {
-        streamPreviewContainer.querySelectorAll(kind)[0].remove();
+      if (streamPreviewContainer) {
+        const child = streamPreviewContainer.querySelector(kind);
+        child?.remove();
       }
+
       if (streamPreviewContainer) {
         streamPreviewContainer.append(mediaElementPreview);
       }

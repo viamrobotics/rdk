@@ -56,7 +56,7 @@ const stop = () => {
 
 const armModifyAllDoEndPosition = () => {
   const newPose = new commonApi.Pose();
-  const newPieces = toggle[props.name].pos_pieces;
+  const newPieces = toggle[props.name]!.pos_pieces;
 
   for (const newPiece of newPieces) {
     const [, getterSetter] = newPiece.endPosition;
@@ -80,10 +80,10 @@ const armModifyAllDoJoint = () => {
   const arm = props.rawStatus!;
   const newPositionDegs = new armApi.JointPositions();
   const newList = arm.joint_positions.values;
-  const newPieces = toggle[props.name].joint_pieces;
+  const newPieces = toggle[props.name]!.joint_pieces;
 
   for (let i = 0; i < newPieces.length && i < newList.length; i += 1) {
-    newList[newPieces[i].joint] = newPieces[i].jointValue;
+    newList[newPieces[i]!.joint] = newPieces[i]!.jointValue;
   }
 
   newPositionDegs.setValuesList(newList);
@@ -156,15 +156,15 @@ const armModifyAll = () => {
 
   for (let i = 0; i < arm.pos_pieces.length; i += 1) {
     newStatus.pos_pieces.push({
-      endPosition: arm.pos_pieces[i].endPosition,
-      endPositionValue: roundTo2Decimals(arm.pos_pieces[i].endPositionValue),
+      endPosition: arm.pos_pieces[i]!.endPosition,
+      endPositionValue: roundTo2Decimals(arm.pos_pieces[i]!.endPositionValue),
     });
   }
 
   for (let i = 0; i < arm.joint_pieces.length; i += 1) {
     newStatus.joint_pieces.push({
-      joint: arm.joint_pieces[i].joint,
-      jointValue: roundTo2Decimals(arm.joint_pieces[i].jointValue),
+      joint: arm.joint_pieces[i]!.joint,
+      jointValue: roundTo2Decimals(arm.joint_pieces[i]!.jointValue),
     });
   }
 
@@ -203,7 +203,7 @@ const armModifyAll = () => {
         </h3>
         <div class="inline-grid grid-cols-2 gap-1 pb-1">
           <template
-            v-for="cc in toggle[name].pos_pieces"
+            v-for="cc in toggle[name]!.pos_pieces"
             :key="cc.endPosition[0]"
           >
             <label class="py-1 pr-2 text-right">{{ cc.endPosition[1] }}</label>
@@ -236,7 +236,7 @@ const armModifyAll = () => {
         </h3>
         <div class="grid grid-cols-2 gap-1 pb-1">
           <template
-            v-for="bb in toggle[name].joint_pieces"
+            v-for="bb in toggle[name]!.joint_pieces"
             :key="bb.joint"
           >
             <label class="py-1 pr-2 text-right">Joint {{ bb.joint }}</label>
@@ -279,19 +279,19 @@ const armModifyAll = () => {
             </h4>
             <v-button
               label="--"
-              @click="armEndPositionInc(aa.endPosition[1], -10)"
+              @click="armEndPositionInc(aa.endPosition[1]!, -10)"
             />
             <v-button
               label="-"
-              @click="armEndPositionInc(aa.endPosition[1], -1)"
+              @click="armEndPositionInc(aa.endPosition[1]!, -1)"
             />
             <v-button
               label="+"
-              @click="armEndPositionInc(aa.endPosition[1], 1)"
+              @click="armEndPositionInc(aa.endPosition[1]!, 1)"
             />
             <v-button
               label="++"
-              @click="armEndPositionInc(aa.endPosition[1], 10)"
+              @click="armEndPositionInc(aa.endPosition[1]!, 10)"
             />
             <h4 class="py-1">
               {{ aa.endPositionValue.toFixed(2) }}

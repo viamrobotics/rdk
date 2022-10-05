@@ -22,6 +22,7 @@
     "vitest": "^0.18.0",
     "vue": "^3.2.39",
     "vue-toast-notification": "^3.0.4",
+    "vue-tsc": "^0.40.13",
     "vue3-popper": "^1.5.0"
   },
   "devDependencies": {

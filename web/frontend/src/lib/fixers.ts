@@ -33,7 +33,7 @@ export const fixArmStatus = (old: {
     newStatus.pos_pieces.push(
       {
         endPosition: fieldSetter,
-        endPositionValue: old.end_position[endPositionField] || 0,
+        endPositionValue: old.end_position[endPositionField!] || 0,
       }
     );
   }
@@ -81,8 +81,8 @@ export const fixGantryStatus = (old: {
   for (let i = 0; i < old.lengths_mm.length; i += 1) {
     newStatus.parts.push({
       axis: i,
-      pos: old.positions_mm[i],
-      length: old.lengths_mm[i],
+      pos: old.positions_mm[i]!,
+      length: old.lengths_mm[i]!,
     });
   }
 

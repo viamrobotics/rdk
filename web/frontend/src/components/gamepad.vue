@@ -142,25 +142,25 @@ const tick = () => {
     prevStates = { ...prevStates, ...curStates };
     gamepadConnected.value = gamepad.value.connected;
 
-    curStates.X = gamepad.value.axes[0];
-    curStates.Y = gamepad.value.axes[1];
-    curStates.RX = gamepad.value.axes[2];
-    curStates.RY = gamepad.value.axes[3];
-    curStates.Z = gamepad.value.buttons[6].value;
-    curStates.RZ = gamepad.value.buttons[7].value;
-    curStates.Hat0X = (gamepad.value.buttons[14].value * -1) + gamepad.value.buttons[15].value;
-    curStates.Hat0Y = (gamepad.value.buttons[12].value * -1) + gamepad.value.buttons[13].value;
-    curStates.South = gamepad.value.buttons[0].value;
-    curStates.East = gamepad.value.buttons[1].value;
-    curStates.West = gamepad.value.buttons[2].value;
-    curStates.North = gamepad.value.buttons[3].value;
-    curStates.LT = gamepad.value.buttons[4].value;
-    curStates.RT = gamepad.value.buttons[5].value;
-    curStates.Select = gamepad.value.buttons[8].value;
-    curStates.Start = gamepad.value.buttons[9].value;
-    curStates.LThumb = gamepad.value.buttons[10].value;
-    curStates.RThumb = gamepad.value.buttons[11].value;
-    curStates.Menu = gamepad.value.buttons[16].value;
+    curStates.X = gamepad.value.axes[0]!;
+    curStates.Y = gamepad.value.axes[1]!;
+    curStates.RX = gamepad.value.axes[2]!;
+    curStates.RY = gamepad.value.axes[3]!;
+    curStates.Z = gamepad.value.buttons[6]!.value;
+    curStates.RZ = gamepad.value.buttons[7]!.value;
+    curStates.Hat0X = (gamepad.value.buttons[14]!.value * -1) + gamepad.value.buttons[15]!.value;
+    curStates.Hat0Y = (gamepad.value.buttons[12]!.value * -1) + gamepad.value.buttons[13]!.value;
+    curStates.South = gamepad.value.buttons[0]!.value;
+    curStates.East = gamepad.value.buttons[1]!.value;
+    curStates.West = gamepad.value.buttons[2]!.value;
+    curStates.North = gamepad.value.buttons[3]!.value;
+    curStates.LT = gamepad.value.buttons[4]!.value;
+    curStates.RT = gamepad.value.buttons[5]!.value;
+    curStates.Select = gamepad.value.buttons[8]!.value;
+    curStates.Start = gamepad.value.buttons[9]!.value;
+    curStates.LThumb = gamepad.value.buttons[10]!.value;
+    curStates.RThumb = gamepad.value.buttons[11]!.value;
+    curStates.Menu = gamepad.value.buttons[16]!.value;
   }
 
   processEvents();

@@ -54,9 +54,15 @@ const getReadings = (inputNames: SensorName[]) => {
         rr[key] = value.toJavaScript() as Reading;
       }
 
+      // @ts-expect-error @TODO This typing needs to be fixed
       sensorReadings[resourceNameToString(item.getName()!.toObject())] = rr;
     }
   });
+};
+
+const getData = (sensorName: SensorName) => {
+  // @ts-expect-error @TODO This typing needs to be fixed
+  return sensorReadings[resourceNameToString(sensorName)];
 };
 
 </script>
@@ -99,7 +105,7 @@ const getReadings = (inputNames: SensorName[]) => {
           <td class="border border-black p-2">
             <table style="font-size:.7em; text-align: left;">
               <tr
-                v-for="(sensorValue, sensorField) in sensorReadings[resourceNameToString(sensorName)]"
+                v-for="(sensorValue, sensorField) in getData(sensorName)"
                 :key="sensorField"
               >
                 <th>{{ sensorField }}</th>

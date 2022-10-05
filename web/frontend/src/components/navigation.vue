@@ -3,7 +3,7 @@
 import { ref, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
-import jspb from 'google-protobuf';
+import type jspb from 'google-protobuf';
 import { toast } from '../lib/toast';
 import { filterResources, type Resource } from '../lib/resource';
 import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
@@ -69,24 +69,27 @@ const setNavigationMode = (mode: 'manual' | 'waypoint') => {
 };
 
 const setNavigationLocation = () => {
-  const posSplit = location.value.split(',');
-  if (posSplit.length !== 2) {
+  const [latStr, lngStr] = location.value.split(',');
+  if (latStr === undefined || lngStr === undefined) {
     return;
   }
-  const lat = Number.parseFloat(posSplit[0]);
-  const lng = Number.parseFloat(posSplit[1]);
+
+  const lat = Number.parseFloat(latStr);
+  const lng = Number.parseFloat(lngStr);
 
   // TODO: Not sure how this works (if it does), robotApi has no ResourceRunCommandRequest method
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const req = new (robotApi as any).ResourceRunCommandRequest();
   let gpsName = '';
-  const gpses = filterResources(props.resources ?? [], 'rdk', 'component', 'gps');
-  if (gpses.length > 0) {
-    gpsName = gpses[0].name;
+  const [gps] = filterResources(props.resources ?? [], 'rdk', 'component', 'gps');
+
+  if (gps) {
+    gpsName = gps.name;
   } else {
     toast.error('no gps device found');
     return;
   }
+
   req.setName(props.name);
   req.setResourceName(gpsName);
   req.setCommandName('set_location');
@@ -156,7 +159,7 @@ const initNavigation = async () => {
         const posStr = JSON.stringify(pos);
 
         if (knownWaypoints[posStr]) {
-          currentWaypoints[posStr] = knownWaypoints[posStr];
+          currentWaypoints[posStr] = knownWaypoints[posStr]!;
           continue;
         }
 
@@ -186,7 +189,7 @@ const initNavigation = async () => {
       const waypointsToDelete = Object.keys(knownWaypoints).filter((elem) => !(elem in currentWaypoints));
 
       for (const key of waypointsToDelete) {
-        const marker = knownWaypoints[key];
+        const marker = knownWaypoints[key]!;
         marker.setMap(null);
         delete knownWaypoints[key];
       }
@@ -229,7 +232,8 @@ const initNavigation = async () => {
 
 const loadMaps = () => {
   if (document.querySelector('#google-maps')) {
-    return initNavigation();
+    initNavigation();
+    return;
   }
 
   const key = googleApiKey.value;

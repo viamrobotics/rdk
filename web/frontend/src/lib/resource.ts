@@ -1,4 +1,5 @@
 export interface Resource {
+  resources: Resource[] | undefined;
   name: string
   type: string
   subtype: string

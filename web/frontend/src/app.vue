@@ -132,14 +132,14 @@ const handleCallErrors = (statuses: { resources: boolean; ops: boolean }, newErr
 };
 
 const stringToResourceName = (nameStr: string) => {
-  const nameParts = nameStr.split('/');
+  const [prefix, suffix] = nameStr.split('/');
   let name = '';
 
-  if (nameParts.length === 2) {
-    name = nameParts[1];
+  if (suffix) {
+    name = suffix;
   }
 
-  const subtypeParts = nameParts[0].split(':');
+  const subtypeParts = prefix!.split(':');
   if (subtypeParts.length > 3) {
     throw new Error('more than 2 colons in resource name string');
   }
@@ -197,11 +197,14 @@ const updateStatus = (grpcStatuses: robotApi.Status[]) => {
     const statusJs = grpcStatus.getStatus()!.toJavaScript();
 
     try {
+      // @ts-expect-error @TODO type needs to be fixed
       const fixed = fixRawStatus(nameObj, statusJs);
+      // @ts-expect-error @TODO type needs to be fixed
       const name = resourceNameToString(nameObj);
       rawStatus[name] = statusJs as unknown as Status;
       status[name] = fixed as unknown as Status;
     } catch (error) {
+      // @ts-expect-error @TODO type needs to be fixed
       toast.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`, error);
     }
   }
@@ -295,6 +298,7 @@ const queryMetadata = () => {
 
       // if resource list has changed, flag that
       const differences = new Set(resources.map((name) => resourceNameToString(name)));
+      // @ts-expect-error @TODO this is incorrectly typed.
       const resourceSet = new Set(resourcesList.map((name) => resourceNameToString(name)));
 
       for (const elem of resourceSet) {
@@ -314,7 +318,7 @@ const queryMetadata = () => {
           if (
             resource.namespace === 'rdk' &&
             resource.type === 'component' &&
-            relevantSubtypesForStatus.includes(resource.subtype)
+            relevantSubtypesForStatus.includes(resource.subtype!)
           ) {
             shouldRestartStatusStream = true;
             break;
@@ -322,6 +326,7 @@ const queryMetadata = () => {
         }
       }
 
+      // @ts-expect-error @TODO type needs to be fixed
       resources = resourcesList;
       if (resourcesChanged === true) {
         querySensors();
@@ -481,8 +486,8 @@ const viewCamera = (name: string, isOn: boolean) => {
     const req = new streamApi.AddStreamRequest();
     req.setName(name);
     window.streamService.addStream(req, new grpc.Metadata(), (err) => {
-      if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
-        streamContainer.querySelectorAll('img')[0].remove();
+      if (streamContainer) {
+        streamContainer.querySelector('img')?.remove();
       }
 
       if (err) {
@@ -499,8 +504,8 @@ const viewCamera = (name: string, isOn: boolean) => {
   const req = new streamApi.RemoveStreamRequest();
   req.setName(name);
   window.streamService.removeStream(req, new grpc.Metadata(), (err) => {
-    if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
-      streamContainer.querySelectorAll('img')[0].remove();
+    if (streamContainer) {
+      streamContainer.querySelector('img')?.remove();
     }
 
     if (err) {
@@ -522,12 +527,11 @@ const viewManualFrame = (cameraName: string) => {
 
     const streamName = normalizeRemoteName(cameraName);
     const streamContainer = document.querySelector(`#stream-${streamName}`);
-    if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
-      streamContainer.querySelectorAll('video')[0].remove();
+    if (streamContainer) {
+      streamContainer.querySelector('video')?.remove();
+      streamContainer.querySelector('img')?.remove();
     }
-    if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
-      streamContainer.querySelectorAll('img')[0].remove();
-    }
+
     const image = new Image();
     const blob = new Blob([resp!.getData_asU8()], { type: mimeType });
     image.src = URL.createObjectURL(blob);
@@ -547,12 +551,11 @@ const viewIntervalFrame = (cameraName: string, time: string) => {
 
       const streamName = normalizeRemoteName(cameraName);
       const streamContainer = document.querySelector(`#stream-${streamName}`);
-      if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
-        streamContainer.querySelectorAll('video')[0].remove();
+      if (streamContainer) {
+        streamContainer.querySelector('video')?.remove();
+        streamContainer.querySelector('img')?.remove();
       }
-      if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
-        streamContainer.querySelectorAll('img')[0].remove();
-      }
+
       const image = new Image();
       const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
       image.src = URL.createObjectURL(blob);
@@ -713,8 +716,8 @@ onMounted(async () => {
       v-for="arm in filterResources(resources, 'rdk', 'component', 'arm')"
       :key="arm.name"
       :name="arm.name"
-      :status="resourceStatusByName(arm)"
-      :raw-status="rawResourceStatusByName(arm)"
+      :status="(resourceStatusByName(arm) as any)"
+      :raw-status="(rawResourceStatusByName(arm) as any)"
     />
 
     <!-- ******* GRIPPER *******  -->
@@ -729,8 +732,8 @@ onMounted(async () => {
       v-for="servo in filterRdkComponentsWithStatus(resources, status, 'servo')"
       :key="servo.name"
       :name="servo.name"
-      :status="resourceStatusByName(servo)"
-      :raw-status="rawResourceStatusByName(servo)"
+      :status="(resourceStatusByName(servo) as any)"
+      :raw-status="(rawResourceStatusByName(servo) as any)"
     />
 
     <!-- ******* MOTOR *******  -->
@@ -738,7 +741,7 @@ onMounted(async () => {
       v-for="motor in filterRdkComponentsWithStatus(resources, status, 'motor')"
       :key="motor.name"
       :name="motor.name"
-      :status="resourceStatusByName(motor)"
+      :status="(resourceStatusByName(motor) as any)"
     />
 
     <!-- ******* INPUT VIEW *******  -->
@@ -746,7 +749,7 @@ onMounted(async () => {
       v-for="controller in filteredInputControllerList()"
       :key="controller.name"
       :name="controller.name"
-      :status="resourceStatusByName(controller)"
+      :status="(resourceStatusByName(controller) as any)"
       class="input"
     />
 
@@ -760,7 +763,7 @@ onMounted(async () => {
       v-for="board in filterRdkComponentsWithStatus(resources, status, 'board')"
       :key="board.name"
       :name="board.name"
-      :status="resourceStatusByName(board)"
+      :status="(resourceStatusByName(board) as any)"
     />
 
     <!-- ******* CAMERAS *******  -->
@@ -786,7 +789,7 @@ onMounted(async () => {
     <!-- ******* SENSORS ******* -->
     <Sensors
       v-if="nonEmpty(sensorNames)"
-      :name="filterResources(resources, 'rdk', 'service', 'sensors')[0]?.name"
+      :name="filterResources(resources, 'rdk', 'service', 'sensors')[0]!.name"
       :sensor-names="sensorNames"
     />
 

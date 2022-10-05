@@ -14,7 +14,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
 import { filterResources, type Resource } from '../lib/resource';
 import { toast } from '../lib/toast';
-import { PointCloudObject, RectangularPrism } from '../gen/proto/api/common/v1/common_pb';
+import type { PointCloudObject, RectangularPrism } from '../gen/proto/api/common/v1/common_pb';
 import motionApi from '../gen/proto/api/service/motion/v1/motion_pb.esm';
 import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
 // import visionApi, { type TypedParameter } from '../gen/proto/api/service/vision/v1/vision_pb.esm';
@@ -262,7 +262,7 @@ const update = (cloud: Uint8Array) => {
 
   const points = loader.parse(cloud.buffer, '');
   points.name = 'points';
-  const positions = points.geometry.attributes.position.array;
+  const positions = points.geometry.attributes.position!.array;
 
   // TODO (hackday): colors is not consistently returned, if not just render all points as blue
   // eslint-disable-next-line unicorn/prefer-spread
@@ -276,11 +276,11 @@ const update = (cloud: Uint8Array) => {
   mesh.name = 'points';
 
   for (let i = 0, j = 0; i < count; i += 1, j += 3) {
-    matrix.setPosition(positions[j + 0], positions[j + 1], positions[j + 2]);
+    matrix.setPosition(positions[j + 0]!, positions[j + 1]!, positions[j + 2]!);
     mesh.setMatrixAt(i, matrix);
 
     if (colors) {
-      color.setRGB(colors[j + 0], colors[j + 1], colors[j + 2]);
+      color.setRGB(colors[j + 0]!, colors[j + 1]!, colors[j + 2]!);
       mesh.setColorAt(i, color);
     }
   }
@@ -310,8 +310,8 @@ const loadSegment = (index: number) => {
   }
 
   const pointcloud = segment.getPointCloud_asU8();
-  const center = segment.getGeometries()!.getGeometriesList()[0].getCenter()!;
-  const box = segment.getGeometries()!.getGeometriesList()[0].getBox()!;
+  const center = segment.getGeometries()!.getGeometriesList()[0]!.getCenter()!;
+  const box = segment.getGeometries()!.getGeometriesList()[0]!.getBox()!;
 
   const point = new THREE.Vector3(
     center.getX(),
@@ -332,8 +332,8 @@ const loadBoundingBox = (index: number) => {
     return toast.error('Segment cannot be found.');
   }
 
-  const center = segment.getGeometries()!.getGeometriesList()[0].getCenter()!;
-  const box = segment.getGeometries()!.getGeometriesList()[0].getBox();
+  const center = segment.getGeometries()!.getGeometriesList()[0]!.getCenter()!;
+  const box = segment.getGeometries()!.getGeometriesList()[0]!.getBox();
 
   const point = new THREE.Vector3(
     center.getX(),
@@ -351,7 +351,7 @@ const loadPoint = (index: number) => {
     return toast.error('Segment cannot be found.');
   }
 
-  const center = segment.getGeometries()!.getGeometriesList()[0].getCenter()!;
+  const center = segment.getGeometries()!.getGeometriesList()[0]!.getCenter()!;
 
   const point = new THREE.Vector3(
     center.getX(),
@@ -753,7 +753,7 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
               Select Object
             </option>
             <option
-              v-for="(seg, index) in objects"
+              v-for="(_seg, index) in objects"
               :key="index"
               :value="index"
             >
