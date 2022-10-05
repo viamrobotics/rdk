@@ -6,6 +6,8 @@ import (
 
 	"github.com/adrianmo/go-nmea"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 )
 
 const (
@@ -25,6 +27,10 @@ type gpsData struct {
 	fixQuality int
 }
 
+func errInvalidFix(sentenceType, badFix, goodFix string) error {
+	return errors.Errorf("type %q sentence fix is not valid have: %q  want %q", sentenceType, badFix, goodFix)
+}
+
 // parseAndUpdate will attempt to parse a line to an NMEA sentence, and if valid, will try to update the given struct
 // with the values for that line. Nothing will be updated if there is not a valid gps fix.
 func (g *gpsData) parseAndUpdate(line string) error {
@@ -36,9 +42,10 @@ func (g *gpsData) parseAndUpdate(line string) error {
 		line = line[ind:]
 	}
 
+	var errs error
 	s, err := nmea.Parse(line)
 	if err != nil {
-		return err
+		return multierr.Combine(errs, err)
 	}
 	// Most receivers support at least the following sentence types: GSV, RMC, GSA, GGA, GLL, VTG, GNS
 	if gsv, ok := s.(nmea.GSV); ok {
@@ -50,6 +57,7 @@ func (g *gpsData) parseAndUpdate(line string) error {
 			g.valid = true
 		} else if rmc.Validity == "V" {
 			g.valid = false
+			errs = multierr.Combine(errs, errInvalidFix(rmc.Type, rmc.Validity, "A"))
 		}
 		if g.valid {
 			g.speed = rmc.Speed * knotsToMmPerSec
@@ -61,6 +69,7 @@ func (g *gpsData) parseAndUpdate(line string) error {
 		case "1":
 			// No fix
 			g.valid = false
+			errs = multierr.Combine(errs, errInvalidFix(gsa.Type, gsa.FixType, "1 or 2"))
 		case "2":
 			// 2d fix, valid lat/lon but invalid alt
 			g.valid = true
@@ -82,6 +91,7 @@ func (g *gpsData) parseAndUpdate(line string) error {
 		}
 		if gga.FixQuality == "0" {
 			g.valid = false
+			errs = multierr.Combine(errs, errInvalidFix(gga.Type, gga.FixQuality, "1 to 6"))
 		} else {
 			g.valid = true
 			g.location = geo.NewPoint(gga.Latitude, gga.Longitude)
@@ -101,6 +111,7 @@ func (g *gpsData) parseAndUpdate(line string) error {
 		for _, mode := range gns.Mode {
 			if mode == "N" {
 				g.valid = false
+				errs = multierr.Combine(errs, errInvalidFix(gns.Type, mode, " A, D, P, R, F, E, M or S"))
 			}
 		}
 		if g.valid {
@@ -109,6 +120,12 @@ func (g *gpsData) parseAndUpdate(line string) error {
 			g.hDOP = gns.HDOP
 			g.alt = gns.Altitude
 		}
+	}
+
+	if g.location == nil {
+		g.location = geo.NewPoint(0, 0)
+		errs = multierr.Combine(errs, errors.New("no location parsed for nmea gps, using default value of lat:0, long: 0"))
+		return errs
 	}
 	return nil
 }
