@@ -3,6 +3,7 @@ package movementsensor
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -130,32 +131,32 @@ func Readings(ctx context.Context, g MovementSensor) (map[string]interface{}, er
 	readings := map[string]interface{}{}
 
 	pos, altitide, err := g.Position(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrMethodUnimplementedPosition) {
 		return nil, err
 	}
 	readings["position"] = pos
 	readings["altitide"] = altitide
 
 	vel, err := g.LinearVelocity(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrMethodUnimplementedLinearVelocity) {
 		return nil, err
 	}
 	readings["linear_velocity"] = vel
 
 	avel, err := g.AngularVelocity(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrMethodUnimplementedAngularVelocity) {
 		return nil, err
 	}
 	readings["angular_velocity"] = avel
 
 	compass, err := g.CompassHeading(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrMethodUnimplementedCompassHeading) {
 		return nil, err
 	}
 	readings["compass"] = compass
 
 	ori, err := g.Orientation(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrMethodUnimplementedOrientation) {
 		return nil, err
 	}
 	readings["orientation"] = ori

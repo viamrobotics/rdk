@@ -40,8 +40,9 @@ func TestCloseService(t *testing.T) {
 		Type: "color_detector",
 		Parameters: config.AttributeMap{
 			"detect_color":     "#112233",
-			"tolerance_px":     0.4,
-			"segment_size_pct": 100,
+			"hue_tolerance_pct": 0.4,
+			"value_cutoff_pct":  0.2,
+			"segment_size_px":   100,
 		},
 	}
 	err := srv.AddDetector(ctx, cfg)

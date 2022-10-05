@@ -145,11 +145,15 @@ func TestFunctions(t *testing.T) {
 
 	acc, err := tCo.Accuracy(tCo.cancelCtx)
 	test.That(t, acc, test.ShouldResemble, map[string]float32{})
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err,
+		test.ShouldResemble,
+		movementsensor.ErrMethodUnimplementedAccuracy)
 
 	ch, err := tCo.CompassHeading(tCo.cancelCtx)
 	test.That(t, ch, test.ShouldEqual, 0)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err,
+		test.ShouldResemble,
+		movementsensor.ErrMethodUnimplementedCompassHeading)
 
 	read, err := tCo.Readings(tCo.cancelCtx)
 	test.That(t, read["linear_velocity"], test.ShouldResemble, r3.Vector{X: 40, Y: 50, Z: 60})

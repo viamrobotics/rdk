@@ -107,9 +107,10 @@ func TestClient(t *testing.T) {
 			Name: "new_detector",
 			Type: "color_detector",
 			Parameters: config.AttributeMap{
-				"detect_color":    "#112233",
-				"tolerance_pct":   0.9,
-				"segment_size_px": 3333333,
+				"detect_color":      "#112233",
+				"hue_tolerance_pct": 0.9,
+				"value_cutoff_pct":  0.2,
+				"segment_size_px":   3333333,
 			},
 		}
 		// success
@@ -171,7 +172,7 @@ func TestClient(t *testing.T) {
 
 		test.That(t, dets, test.ShouldNotBeNil)
 		test.That(t, dets[0].Label(), test.ShouldResemble, "17")
-		test.That(t, dets[0].Score(), test.ShouldBeGreaterThan, 0.79)
+		test.That(t, dets[0].Score(), test.ShouldBeGreaterThan, 0.78)
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
