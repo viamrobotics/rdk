@@ -90,7 +90,7 @@ func TestServerSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, img, test.ShouldResemble, rimage.ConvertImage(imgDecode))
 
-	lazyCtx := gostream.WithMIMETypeHint(context.Background(), utils.WithLazyMIMEType(utils.MimeTypePNG))
+	lazyCtx := gostream.WithMIMETypeHint(context.Background(), utils.MimeTypePNG)
 	img, release, err = camera.ReadImage(
 		lazyCtx,
 		cam,
@@ -98,8 +98,7 @@ func TestServerSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer release()
 
-	lazyPng := rimage.NewLazyEncodedImage(expectedColorBytes, utils.MimeTypePNG, -1, -1)
-	test.That(t, img, test.ShouldResemble, lazyPng)
+	test.That(t, img, test.ShouldResemble, rimage.ConvertImage(imgDecode))
 
 	stream, err := cam.Stream(lazyCtx)
 	test.That(t, err, test.ShouldBeNil)
@@ -109,7 +108,7 @@ func TestServerSource(t *testing.T) {
 	defer release()
 	test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
 
-	test.That(t, img, test.ShouldResemble, lazyPng)
+	test.That(t, img, test.ShouldResemble, rimage.ConvertImage(imgDecode))
 
 	img, release, err = camera.ReadImage(
 		gostream.WithMIMETypeHint(context.Background(), utils.MimeTypePNG),
@@ -121,7 +120,7 @@ func TestServerSource(t *testing.T) {
 	test.That(t, img, test.ShouldResemble, rimage.ConvertImage(expectedColor))
 
 	img, release, err = camera.ReadImage(
-		gostream.WithMIMETypeHint(context.Background(), "idk"),
+		gostream.WithMIMETypeHint(context.Background(), ""),
 		cam,
 	)
 	test.That(t, err, test.ShouldBeNil)

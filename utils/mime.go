@@ -1,17 +1,14 @@
 package utils
 
 import (
-	"fmt"
-	"strings"
+	"github.com/pkg/errors"
+	rutils "go.viam.com/utils"
 )
 
 const (
-	// MimeTypeRawRGBA is for go's internal image.NRGBA64. The data has no headers, so you must
-	// assume that the bytes can be read directly into the image.NRGBA64 struct.
+	// MimeTypeRawRGBA is for go's internal image.NRGBA. This uses the custom header as
+	// explained in the comments for rimage.DecodeImage and rimage.EncodeImage.
 	MimeTypeRawRGBA = "image/vnd.viam.rgba"
-
-	// MimeTypeRawRGBALazy is a lazy MimeTypeRawRGBA.
-	MimeTypeRawRGBALazy = MimeTypeRawRGBA + "+" + MimeTypeSuffixLazy
 
 	// MimeTypeJPEG is regular jpgs.
 	MimeTypeJPEG = "image/jpeg"
@@ -25,9 +22,6 @@ const (
 	// MimeTypeQOI is for .qoi "Quite OK Image" for lossless, fast encoding/decoding.
 	MimeTypeQOI = "image/qoi"
 
-	// MimeTypeSuffixLazy is used to indicate a lazy loading of data.
-	MimeTypeSuffixLazy = "lazy"
-
 	// MimeTypeTabular used to indicate tabular data, this is used mainly for filtering data.
 	MimeTypeTabular = "x-application/tabular"
 
@@ -35,17 +29,27 @@ const (
 	MimeTypeDefault = "application/octet-stream"
 )
 
-// WithLazyMIMEType attaches the lazy suffix to a MIME.
-func WithLazyMIMEType(mimeType string) string {
-	return fmt.Sprintf("%s+%s", mimeType, MimeTypeSuffixLazy)
+// SupportedMimeTypes is a set of the currently supported MIME types.
+var SupportedMimeTypes rutils.StringSet = rutils.NewStringSet(
+	MimeTypeRawRGBA,
+	MimeTypeJPEG,
+	MimeTypePCD,
+	MimeTypePNG,
+	MimeTypeQOI,
+	MimeTypeTabular,
+)
+
+// CheckSupportedMimeType checks whether a requested MIME type is
+// supported.
+func CheckSupportedMimeType(mimeType string) error {
+	if _, ok := SupportedMimeTypes[mimeType]; !ok {
+		return NewUnrecognizedMimeTypeError(mimeType)
+	}
+	return nil
 }
 
-const lazyMIMESuffixCheck = "+" + MimeTypeSuffixLazy
-
-// CheckLazyMIMEType checks the lazy suffix of a MIME.
-func CheckLazyMIMEType(mimeType string) (string, bool) {
-	if strings.Count(mimeType, lazyMIMESuffixCheck) == 1 && strings.HasSuffix(mimeType, lazyMIMESuffixCheck) {
-		return strings.TrimSuffix(mimeType, lazyMIMESuffixCheck), true
-	}
-	return mimeType, false
+// NewUnrecognizedMimeTypeError returns an error signifying that a MIME type
+// is unrecognized or unsupported.
+func NewUnrecognizedMimeTypeError(mimeType string) error {
+	return errors.Errorf("Unrecognized mime type: %s", mimeType)
 }

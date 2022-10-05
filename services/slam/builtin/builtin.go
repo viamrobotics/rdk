@@ -729,20 +729,18 @@ func (slamSvc *builtIn) StopSLAMProcess() error {
 func (slamSvc *builtIn) getLazyPNGImage(ctx context.Context, cam camera.Camera) ([]byte, func(), error) {
 	// We will hint that we want a PNG.
 	// The Camera service server implementation in RDK respects this; others may not.
-	img, release, err := camera.ReadImage(
-		gostream.WithMIMETypeHint(ctx, utils.WithLazyMIMEType(utils.MimeTypePNG)), cam)
+	readImgCtx := gostream.WithMIMETypeHint(ctx, utils.MimeTypePNG)
+	readImgCtx = rimage.ContextWithLazyDecode(readImgCtx)
+	img, release, err := camera.ReadImage(readImgCtx, cam)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	lazyImg, ok := img.(*rimage.LazyEncodedImage)
-	if !ok {
-		return nil, nil, errors.Errorf("expected lazily encoded image, got %T", lazyImg)
+	encodedBytes, err := rimage.EncodeImage(ctx, img, utils.MimeTypePNG)
+	if err != nil {
+		return nil, nil, err
 	}
-	if lazyImg.MIMEType() != utils.MimeTypePNG {
-		return nil, nil, errors.Errorf("expected mime type %v, got %v", utils.MimeTypePNG, lazyImg.MIMEType())
-	}
-	return lazyImg.RawData(), release, nil
+	return encodedBytes, release, nil
 }
 
 // getAndSaveDataSparse implements the data extraction for sparse algos and saving to the directory path (data subfolder) specified in

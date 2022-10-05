@@ -38,15 +38,6 @@ func TestDecodeImage(t *testing.T) {
 
 	var buf bytes.Buffer
 	test.That(t, png.Encode(&buf, img), test.ShouldBeNil)
-
-	t.Run("lazy", func(t *testing.T) {
-		decoded, err := DecodeImage(context.Background(), buf.Bytes(), utils.WithLazyMIMEType(utils.MimeTypePNG), 4, 8)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, decoded, test.ShouldHaveSameTypeAs, &LazyEncodedImage{})
-		decodedLazy := decoded.(*LazyEncodedImage)
-		test.That(t, decodedLazy.RawData(), test.ShouldResemble, buf.Bytes())
-		test.That(t, decodedLazy.Bounds(), test.ShouldResemble, img.Bounds())
-	})
 }
 
 func TestEncodeImage(t *testing.T) {
@@ -58,28 +49,22 @@ func TestEncodeImage(t *testing.T) {
 
 	var bufJPEG bytes.Buffer
 	test.That(t, jpeg.Encode(&bufJPEG, img, nil), test.ShouldBeNil)
+}
 
-	t.Run("lazy", func(t *testing.T) {
-		// fast
-		lazyImg := NewLazyEncodedImage(buf.Bytes(), "hehe", 4, 8)
-		encoded, err := EncodeImage(context.Background(), lazyImg, "hehe")
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, encoded, test.ShouldResemble, buf.Bytes())
+func TestRawRGBAEncodingDecoding(t *testing.T) {
+	img := image.NewNRGBA(image.Rect(0, 0, 4, 8))
+	img.Set(3, 3, Red)
 
-		lazyImg = NewLazyEncodedImage(buf.Bytes(), "hehe", 4, 8)
-		encoded, err = EncodeImage(context.Background(), lazyImg, utils.WithLazyMIMEType("hehe"))
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, encoded, test.ShouldResemble, buf.Bytes())
+	encodedImgBytes, err := EncodeImage(context.Background(), img, utils.MimeTypeRawRGBA)
+	test.That(t, err, test.ShouldBeNil)
 
-		// slower
-		lazyImg = NewLazyEncodedImage(buf.Bytes(), utils.MimeTypePNG, 4, 8)
-		encoded, err = EncodeImage(context.Background(), lazyImg, utils.MimeTypeJPEG)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, encoded, test.ShouldResemble, bufJPEG.Bytes())
-
-		lazyImg = NewLazyEncodedImage(buf.Bytes(), utils.MimeTypePNG, 4, 8)
-		encoded, err = EncodeImage(context.Background(), lazyImg, utils.WithLazyMIMEType(utils.MimeTypeJPEG))
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, encoded, test.ShouldResemble, bufJPEG.Bytes())
-	})
+	decodedImg, err := DecodeImage(context.Background(), encodedImgBytes, utils.MimeTypeRawRGBA, false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, decodedImg.Bounds(), test.ShouldResemble, img.Bounds())
+	imgR, imgG, imgB, imgA := img.At(3, 3).RGBA()
+	decodedImgR, decodedImgG, decodedImgB, decodedImgA := decodedImg.At(3, 3).RGBA()
+	test.That(t, imgR, test.ShouldResemble, decodedImgR)
+	test.That(t, imgG, test.ShouldResemble, decodedImgG)
+	test.That(t, imgB, test.ShouldResemble, decodedImgB)
+	test.That(t, imgA, test.ShouldResemble, decodedImgA)
 }

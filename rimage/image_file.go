@@ -3,6 +3,7 @@ package rimage
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"image"
 	"image/color"
 	"image/draw"
@@ -21,6 +22,15 @@ import (
 
 	ut "go.viam.com/rdk/utils"
 )
+
+// RGBABitmapMagicNumber represents the magic number for our custom header
+// for raw RGBA data. See the comments in DecodeImage and EncodeImage for
+// more information.
+var RGBABitmapMagicNumber = []byte("RGBA")
+
+// RawRGBAHeaderLength is the length of our custom header for raw RGBA data
+// in bytes.
+const RawRGBAHeaderLength = 12
 
 // readImageFromFile extracts the RGB, Z16, or raw depth data from an image file.
 func readImageFromFile(path string) (image.Image, error) {
@@ -160,34 +170,21 @@ func SaveImage(pic image.Image, loc string) error {
 
 // DecodeImage takes an image buffer and decodes it, using the mimeType
 // and the dimensions, to return the image.
-func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string, width, height int) (image.Image, error) {
-	return decodeImage(ctx, imgBytes, mimeType, width, height, true)
-}
-
-// decodeImage decodes an image based on its data and MIME type. If checkLazy is true
-// and the MIME type has a lazy suffix, we will not fully decode the image and instead
-// return an intermediate (lazy), not yet decoded image type.
-func decodeImage(
-	ctx context.Context,
-	imgBytes []byte,
-	mimeType string,
-	width, height int,
-	checkLazy bool,
-) (image.Image, error) {
+func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string, returnLazy bool) (image.Image, error) {
 	_, span := trace.StartSpan(ctx, "rimage::DecodeImage::"+mimeType)
 	defer span.End()
 
-	if checkLazy {
-		actualType, isLazy := ut.CheckLazyMIMEType(mimeType)
-		if isLazy {
-			return NewLazyEncodedImage(imgBytes, actualType, width, height), nil
-		}
+	if returnLazy {
+		return NewLazyEncodedImage(imgBytes, mimeType), nil
 	}
 
 	switch mimeType {
 	case ut.MimeTypeRawRGBA:
-		img := image.NewNRGBA64(image.Rect(0, 0, width, height))
-		img.Pix = imgBytes
+		header := imgBytes[:RawRGBAHeaderLength]
+		width := binary.BigEndian.Uint32(header[4:8])
+		height := binary.BigEndian.Uint32(header[8:12])
+		img := image.NewNRGBA(image.Rect(0, 0, int(width), int(height)))
+		img.Pix = imgBytes[RawRGBAHeaderLength:]
 		return img, nil
 	case ut.MimeTypeJPEG:
 		img, err := jpeg.Decode(bytes.NewReader(imgBytes))
@@ -199,7 +196,7 @@ func decodeImage(
 		img, err := qoi.Decode(bytes.NewReader(imgBytes))
 		return img, err
 	default:
-		return nil, errors.Errorf("do not how to decode MimeType %s", mimeType)
+		return nil, errors.Errorf("do not know how to decode MimeType %s", mimeType)
 	}
 }
 
@@ -209,19 +206,34 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 	_, span := trace.StartSpan(ctx, "rimage::EncodeImage::"+mimeType)
 	defer span.End()
 
-	actualOutMIME, _ := ut.CheckLazyMIMEType(mimeType)
-	if lazy, ok := img.(*LazyEncodedImage); ok && lazy.MIMEType() == actualOutMIME {
-		// fast path - zero copy
-		return lazy.RawData(), nil
+	if lazyImg, ok := img.(*LazyEncodedImage); ok {
+		return lazyImg.imgBytes, nil
 	}
 
 	var buf bytes.Buffer
 	bounds := img.Bounds()
-	switch actualOutMIME {
+	switch mimeType {
 	case ut.MimeTypeRawRGBA:
-		imgCopy := image.NewNRGBA64(bounds)
-		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
-		buf.Write(imgCopy.Pix)
+		// Here we create a custom header to prepend to Raw RGBA data. Credit to
+		// Ben Zotto for inventing this formulation
+		// https://bzotto.medium.com/introducing-the-rgba-bitmap-file-format-4a8a94329e2c
+		buf.Write(RGBABitmapMagicNumber)
+		widthBytes := make([]byte, 4)
+		heightBytes := make([]byte, 4)
+		binary.BigEndian.PutUint32(widthBytes, uint32(bounds.Dx()))
+		binary.BigEndian.PutUint32(heightBytes, uint32(bounds.Dy()))
+		buf.Write(widthBytes)
+		buf.Write(heightBytes)
+		imgStruct, ok := img.(*image.NRGBA)
+		if !ok {
+			_, ok := img.(*Image)
+			if !ok {
+				return nil, errors.Errorf("underlying struct for image not NRGBA or rimage.Image, detected %T", img)
+			}
+			imgStruct = image.NewNRGBA(bounds)
+			draw.Draw(imgStruct, bounds, img, bounds.Min, draw.Src)
+		}
+		buf.Write(imgStruct.Pix)
 	case ut.MimeTypePNG:
 		if err := png.Encode(&buf, img); err != nil {
 			return nil, err
@@ -235,7 +247,7 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 			return nil, err
 		}
 	default:
-		return nil, errors.Errorf("do not know how to encode %q", actualOutMIME)
+		return nil, errors.Errorf("do not know how to encode %q", mimeType)
 	}
 
 	return buf.Bytes(), nil
