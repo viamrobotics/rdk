@@ -23,6 +23,7 @@ import (
 	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"gonum.org/v1/gonum/num/quat"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -38,6 +39,7 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
@@ -368,7 +370,19 @@ func (slamSvc *builtIn) Position(ctx context.Context, name string) (*referencefr
 		return nil, errors.Wrap(err, "error getting SLAM position")
 	}
 
-	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
+	pInFrame := referenceframe.ProtobufToPoseInFrame(resp.Pose)
+
+	// TODO DATA-531: Remove extraction and conversion of quaternion from the extra field in the response once the Rust SDK
+	// is available and the desired math can be implemented on the orbSLAM side
+	extra := resp.Extra.AsMap()
+
+	if val, ok := extra["quat"]; ok {
+		q := val.(map[string]float64)
+		ori := spatialmath.QuatToOV(quat.Number{Real: q["o_x"], Imag: q["o_y"], Jmag: q["o_z"], Kmag: q["o_theta"]})
+		newPose := spatialmath.NewPoseFromOrientation(pInFrame.Pose().Point(), ori)
+		pInFrame = referenceframe.NewPoseInFrame(pInFrame.FrameName(), newPose)
+	}
+	return pInFrame, nil
 }
 
 // GetMap forwards the request for map data to the slam library's gRPC service. Once a response is received it is unpacked
