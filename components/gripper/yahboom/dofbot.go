@@ -54,7 +54,7 @@ func init() {
 func newGripper(deps registry.Dependencies, config config.Component) (gripper.LocalGripper, error) {
 	attr, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
-		return nil, utils.NewUnexpectedTypeError(AttrConfig{}, config.ConvertedAttributes)
+		return nil, utils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
 	}
 	armName := attr.Arm
 	if armName == "" {

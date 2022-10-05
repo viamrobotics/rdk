@@ -50,7 +50,7 @@ func init() {
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			attr, ok := config.ConvertedAttributes.(*AttrConfig)
 			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(AttrConfig{}, config.ConvertedAttributes)
+				return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
 			}
 			return newGripper(attr, logger)
 		},
@@ -66,7 +66,7 @@ func init() {
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			attr, ok := config.ConvertedAttributes.(*AttrConfig)
 			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(AttrConfig{}, config.ConvertedAttributes)
+				return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
 			}
 			return newGripper(attr, logger)
 		},

@@ -90,7 +90,7 @@ type softGripper struct {
 func newGripper(b board.Board, cfg config.Component, logger golog.Logger) (gripper.LocalGripper, error) {
 	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(AttrConfig{}, cfg.ConvertedAttributes)
+		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
 	}
 
 	psi, ok := b.AnalogReaderByName("psi")

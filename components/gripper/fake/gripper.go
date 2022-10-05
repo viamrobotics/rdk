@@ -21,8 +21,7 @@ var gripperjson []byte
 const modelname = "fake"
 
 // AttrConfig is the config for a trossen gripper.
-type AttrConfig struct {
-}
+type AttrConfig struct{}
 
 // Validate ensures all parts of the config are valid.
 func (config *AttrConfig) Validate(path string) error {
