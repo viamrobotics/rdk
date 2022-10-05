@@ -182,10 +182,13 @@ func setupInjectRobot() *inject.Robot {
 				if err != nil {
 					return nil, err
 				}
-				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
+				img, err := rimage.DecodeImage(ctx, imgBytes, rdkutils.MimeTypePNG, true)
+				if err != nil {
+					return nil, err
+				}
 				return gostream.NewEmbeddedVideoStreamFromReader(
 					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-						return lazy, func() {}, nil
+						return img, func() {}, nil
 					}),
 				), nil
 			}
@@ -205,10 +208,13 @@ func setupInjectRobot() *inject.Robot {
 				if err != nil {
 					return nil, err
 				}
-				lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
+				img, err := rimage.DecodeImage(ctx, imgBytes, rdkutils.MimeTypePNG, true)
+				if err != nil {
+					return nil, err
+				}
 				return gostream.NewEmbeddedVideoStreamFromReader(
 					gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-						return lazy, func() {}, nil
+						return img, func() {}, nil
 					}),
 				), nil
 			}
@@ -273,10 +279,13 @@ func setupInjectRobot() *inject.Robot {
 					if err != nil {
 						return nil, err
 					}
-					lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
+					img, err := rimage.DecodeImage(ctx, imgBytes, rdkutils.MimeTypePNG, true)
+					if err != nil {
+						return nil, err
+					}
 					return gostream.NewEmbeddedVideoStreamFromReader(
 						gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-							return lazy, func() {}, nil
+							return img, func() {}, nil
 						}),
 					), nil
 				default:
@@ -312,10 +321,13 @@ func setupInjectRobot() *inject.Robot {
 					if err != nil {
 						return nil, err
 					}
-					lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
+					img, err := rimage.DecodeImage(ctx, imgBytes, rdkutils.MimeTypePNG, true)
+					if err != nil {
+						return nil, err
+					}
 					return gostream.NewEmbeddedVideoStreamFromReader(
 						gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-							return lazy, func() {}, nil
+							return img, func() {}, nil
 						}),
 					), nil
 				default:
@@ -747,10 +759,13 @@ func TestORBSLAMDataProcess(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			lazy := rimage.NewLazyEncodedImage(imgBytes, rdkutils.MimeTypePNG, -1, -1)
+			img, err := rimage.DecodeImage(ctx, imgBytes, rdkutils.MimeTypePNG, true)
+			if err != nil {
+				return nil, err
+			}
 			return gostream.NewEmbeddedVideoStreamFromReader(
 				gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
-					return lazy, func() {}, nil
+					return img, func() {}, nil
 				}),
 			), nil
 		}

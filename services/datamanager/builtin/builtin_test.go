@@ -96,7 +96,7 @@ func getInjectedRobotWithCamera(t *testing.T) *inject.Robot {
 	r := &inject.Robot{}
 	rs := map[resource.Name]interface{}{}
 
-	img := image.NewNRGBA64(image.Rect(0, 0, 4, 4))
+	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
 	injectCamera := &inject.Camera{}
 	var imageReleasedMu sync.Mutex
 	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {

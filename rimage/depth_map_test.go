@@ -318,20 +318,9 @@ func TestDepthColorModel(t *testing.T) {
 	convGray = dm.ColorModel().Convert(maxGray)
 	test.That(t, convGray, test.ShouldHaveSameTypeAs, gray)
 	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, maxGray.Y)
-	// conversion from color
-	rgba := color.NRGBA64{6168, 6168, 6168, math.MaxUint16}
-	convGray = dm.ColorModel().Convert(rgba)
-	test.That(t, convGray, test.ShouldHaveSameTypeAs, gray)
-	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, 6168)
 	// 8 bit color gets copied into the next byte
 	rgba8 := color.NRGBA{24, 24, 24, math.MaxUint8}
 	convGray = dm.ColorModel().Convert(rgba8)
 	test.That(t, convGray, test.ShouldHaveSameTypeAs, gray)
 	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, 6168)
-	// when color is not equal in all channels, gray16 calculation is given by the JFIF specification (a weighted average).
-	// see golang's color.gray16Model for details.
-	rgba = color.NRGBA64{6168, 0, 0, math.MaxUint16}
-	convGray = dm.ColorModel().Convert(rgba)
-	test.That(t, convGray, test.ShouldHaveSameTypeAs, gray)
-	test.That(t, convGray.(color.Gray16).Y, test.ShouldEqual, 1844)
 }

@@ -1,7 +1,6 @@
 package rimage
 
 import (
-	"context"
 	"image"
 	"image/color"
 	"image/png"
@@ -117,28 +116,21 @@ func (dm *DepthMap) SubImage(r image.Rectangle) *DepthMap {
 // or if it can be converted into one.
 func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
 	switch ii := img.(type) {
-	case *LazyEncodedImage:
-		decoded, err := decodeImage(
-			context.Background(), ii.RawData(), ii.MIMEType(), ii.Bounds().Dx(), ii.Bounds().Dy(), false)
-		if err != nil {
-			return nil, err
-		}
-		return ConvertImageToDepthMap(decoded)
 	case *DepthMap:
 		return ii, nil
 	case *imageWithDepth:
 		return ii.Depth, nil
 	case *image.Gray16:
 		return gray16ToDepthMap(ii), nil
-	case *image.NRGBA64:
-		return nrgba64ToDepthMap(ii), nil
+	case *image.NRGBA:
+		return nrgbaToDepthMap(ii), nil
 	default:
 		return nil, errors.Errorf("don't know how to make DepthMap from %T", img)
 	}
 }
 
-// nrgba64ToDepthMap creates a Depthmap from an image.NRGBA64.
-func nrgba64ToDepthMap(img *image.NRGBA64) *DepthMap {
+// nrgba64ToDepthMap creates a Depthmap from an image.NRGBA.
+func nrgbaToDepthMap(img *image.NRGBA) *DepthMap {
 	bounds := img.Bounds()
 	width, height := bounds.Dx(), bounds.Dy()
 	dm := NewEmptyDepthMap(width, height)
