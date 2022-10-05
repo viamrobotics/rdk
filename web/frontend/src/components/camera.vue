@@ -25,8 +25,8 @@ interface Emits {
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
-const pcdExpanded = $ref(false);
-const pointcloud = $ref<Uint8Array | undefined>();
+let pcdExpanded = $ref(false);
+let pointcloud = $ref<Uint8Array | undefined>();
 
 const camera = ref(false);
 const selectedValue = ref('live');
@@ -34,6 +34,26 @@ const selectedValue = ref('live');
 const toggleExpand = () => {
   camera.value = !camera.value;
   emit('toggle-camera', camera.value);
+};
+
+const renderPCD = () => {
+  const request = new cameraApi.GetPointCloudRequest();
+  request.setName(props.cameraName);
+  request.setMimeType('pointcloud/pcd');
+  window.cameraService.getPointCloud(request, new grpc.Metadata(), (error, response) => {
+    if (error) {
+      toast.error(`Error getting point cloud: ${error}`);
+      return;
+    }
+    pointcloud = response!.getPointCloud_asU8();
+  });
+};
+
+const togglePCDExpand = () => {
+  pcdExpanded = !pcdExpanded;
+  if (pcdExpanded) {
+    renderPCD();
+  }
 };
 
 const selectCameraView = () => {
@@ -77,7 +97,7 @@ const exportScreenshot = (cameraName: string) => {
             <v-switch
               id="camera"
               :value="camera ? 'on' : 'off'"
-              @input="toggleExpand()"
+              @input="toggleExpand"
             />
             <span class="pr-2 text-xs">View Camera</span>
           </div>
@@ -99,7 +119,7 @@ const exportScreenshot = (cameraName: string) => {
                       px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none
                     "
                     aria-label="Default select example"
-                    @change="selectCameraView()"
+                    @change="selectCameraView"
                   >
                     <option value="manual">
                       Manual Refresh
@@ -161,7 +181,7 @@ const exportScreenshot = (cameraName: string) => {
           <div class="flex items-center gap-2">
             <v-switch
               :value="pcdExpanded ? 'on' : 'off'"
-              @input="toggleExpand"
+              @input="togglePCDExpand"
             />
             <span class="pr-0.5 text-xs">Point Cloud Data</span>
             <InfoButton :info-rows="['When turned on, point cloud will be recalculated']" />
