@@ -41,7 +41,7 @@ func main() {
 		},
 		Before: func(c *cli.Context) error {
 			if c.Bool("debug") {
-				logger = golog.NewDebugLogger("cli")
+				logger = golog.NewDevelopmentLogger("cli")
 			} else {
 				logger = zap.NewNop().Sugar()
 			}
