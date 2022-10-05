@@ -42,7 +42,7 @@ const servoStop = () => {
         <h3 class="mb-1 text-sm">
           Angle: {{ servoAngle }}
         </h3>
-           
+
         <div class="flex gap-1.5">
           <v-button
             label="-10"

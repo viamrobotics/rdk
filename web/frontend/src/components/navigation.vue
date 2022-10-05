@@ -6,15 +6,10 @@ import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import jspb from 'google-protobuf';
 import { toast } from '../lib/toast';
 import { filterResources, type Resource } from '../lib/resource';
-
 import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
 import robotApi from '../gen/proto/api/robot/v1/robot_pb.esm';
 import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
-import navigationApi, {
-  type GetLocationResponse,
-  type GetWaypointsResponse,
-  type Waypoint,
-} from '../gen/proto/api/service/navigation/v1/navigation_pb.esm';
+import navigationApi, { type Waypoint } from '../gen/proto/api/service/navigation/v1/navigation_pb.esm';
 
 interface Props {
   resources?: Resource[]
@@ -36,6 +31,27 @@ const googleApiKey = ref('');
 const location = ref('');
 const res = ref();
 const container = ref<HTMLElement>();
+
+const grpcCallback = (error: ServiceError | null, response: jspb.Message | Struct | null, stringify = true) => {
+  if (error) {
+    toast.error(error);
+    return;
+  }
+  if (stringify) {
+    try {
+      if (response === null) {
+        res.value = null;
+        return;
+      }
+
+      res.value = (response as Struct).toJavaScript
+        ? JSON.stringify((response as Struct).toJavaScript())
+        : JSON.stringify(response.toObject());
+    } catch {
+      toast.error(error);
+    }
+  }
+};
 
 const setNavigationMode = (mode: 'manual' | 'waypoint') => {
   let pbMode: 0 | 1 | 2 = navigationApi.Mode.MODE_UNSPECIFIED;
@@ -84,36 +100,6 @@ const setNavigationLocation = () => {
   window.genericService.doCommand(req, new grpc.Metadata(), grpcCallback);
 };
 
-const grpcCallback = (error: ServiceError | null, response: jspb.Message | Struct | null, stringify = true) => {
-  if (error) {
-    toast.error(error);
-    return;
-  }
-  if (stringify) {
-    try {
-      if (response === null) {
-        return res.value = null;
-      }
-
-      res.value = (response as Struct).toJavaScript ? JSON.stringify((response as Struct).toJavaScript()) : JSON.stringify(response.toObject());
-    } catch {
-      toast.error(error);
-    }
-  }
-};
-
-const loadMaps = () => {
-  if (document.querySelector('#google-maps')) {
-    return initNavigation();
-  }
-
-  const script = document.createElement('script');
-  script.id = 'google-maps';
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${googleApiKey.value}&callback=googleMapsInit&libraries=&v=weekly`;
-  script.async = true;
-  document.head.append(script);
-};
-
 const initNavigation = async () => {
   await mapReady;
 
@@ -145,7 +131,7 @@ const initNavigation = async () => {
     const req = new navigationApi.GetWaypointsRequest();
     req.setName(props.name);
 
-    window.navigationService.getWaypoints(req, new grpc.Metadata(), (err: ServiceError | null, resp: GetWaypointsResponse | null) => {
+    window.navigationService.getWaypoints(req, new grpc.Metadata(), (err, resp) => {
       grpcCallback(err, resp, false);
 
       if (err) {
@@ -174,10 +160,12 @@ const initNavigation = async () => {
           continue;
         }
 
+        localLabelCounter += 1;
+
         const marker = new window.google.maps.Marker({
           position: pos,
           map,
-          label: `${localLabelCounter++}`,
+          label: `${localLabelCounter}`,
         });
 
         currentWaypoints[posStr] = marker;
@@ -188,10 +176,10 @@ const initNavigation = async () => {
         });
 
         marker.addListener('dblclick', () => {
-          const req = new navigationApi.RemoveWaypointRequest();
-          req.setName(props.name);
-          req.setId(waypoint.getId());
-          window.navigationService.removeWaypoint(req, new grpc.Metadata(), grpcCallback);
+          const waypointRequest = new navigationApi.RemoveWaypointRequest();
+          waypointRequest.setName(props.name);
+          waypointRequest.setId(waypoint.getId());
+          window.navigationService.removeWaypoint(waypointRequest, new grpc.Metadata(), grpcCallback);
         });
       }
 
@@ -215,7 +203,7 @@ const initNavigation = async () => {
     const req = new navigationApi.GetLocationRequest();
 
     req.setName(props.name);
-    window.navigationService.getLocation(req, new grpc.Metadata(), (err: ServiceError | null, resp: GetLocationResponse | null) => {
+    window.navigationService.getLocation(req, new grpc.Metadata(), (err, resp) => {
       grpcCallback(err, resp, false);
 
       if (err) {
@@ -239,6 +227,19 @@ const initNavigation = async () => {
   updateLocation();
 };
 
+const loadMaps = () => {
+  if (document.querySelector('#google-maps')) {
+    return initNavigation();
+  }
+
+  const key = googleApiKey.value;
+  const script = document.createElement('script');
+  script.id = 'google-maps';
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&callback=googleMapsInit&libraries=&v=weekly`;
+  script.async = true;
+  document.head.append(script);
+};
+
 window.googleMapsInit = () => {
   console.log('google maps is ready');
   googleMapsInitResolve();
@@ -253,6 +254,7 @@ const initNavigationView = () => {
 onUnmounted(() => {
   clearTimeout(updateTimerId);
 });
+
 </script>
 
 <template>

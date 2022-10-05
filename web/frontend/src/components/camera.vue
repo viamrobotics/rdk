@@ -44,13 +44,6 @@ const refreshCamera = () => {
   emit('refresh-camera', selectedValue.value);
 };
 
-const togglePCDExpand = () => {
-  pcdExpanded = !pcdExpanded;
-  if (pcdExpanded) {
-    renderPCD();
-  }
-};
-
 const renderPCD = () => {
   const request = new cameraApi.GetPointCloudRequest();
   request.setName(props.cameraName);
@@ -63,6 +56,13 @@ const renderPCD = () => {
 
     pointcloud = response!.getPointCloud_asU8();
   });
+};
+
+const togglePCDExpand = () => {
+  pcdExpanded = !pcdExpanded;
+  if (pcdExpanded) {
+    renderPCD();
+  }
 };
 
 </script>
@@ -87,7 +87,7 @@ const renderPCD = () => {
             />
             <span class="pr-2 text-xs">View Camera</span>
           </div>
-          
+
           <div class="float-right pb-4">
             <div class="flex">
               <div
@@ -100,7 +100,10 @@ const renderPCD = () => {
                 <div class="relative">
                   <select
                     v-model="selectedValue"
-                    class="m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
+                    class="
+                      m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding
+                      px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none
+                    "
                     aria-label="Default select example"
                     @change="selectCameraView()"
                   >

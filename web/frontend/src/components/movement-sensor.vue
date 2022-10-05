@@ -130,7 +130,7 @@ defineProps<Props>();
             </tr>
           </table>
         </div>
-              
+
         <div
           v-if="data.properties.angularVelocitySupported"
           class="mr-4 w-1/4"

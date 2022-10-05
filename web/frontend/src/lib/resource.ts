@@ -9,8 +9,8 @@ export const normalizeRemoteName = (name: string) => {
   return name.replace(':', '-');
 };
 
-const sortByName = (a: Resource, b: Resource) => {
-  return a.name > b.name ? 1 : -1;
+const sortByName = (item1: Resource, item2: Resource) => {
+  return item1.name > item2.name ? 1 : -1;
 };
 
 export const resourceNameToSubtypeString = (resource: Resource) => {
@@ -49,14 +49,17 @@ export const filterResources = (resources: Resource[], namespace: string, type: 
   return results.sort(sortByName);
 };
 
-export const filterRdkComponentsWithStatus = (resources: Resource[], status: Record<string, unknown>, subtype: string) => {
+export const filterRdkComponentsWithStatus = (
+  resources: Resource[],
+  status: Record<string, unknown>,
+  subtype: string
+) => {
   return resources
     .filter((resource) =>
       resource.namespace === 'rdk' &&
       resource.type === 'component' &&
       resource.subtype === subtype &&
-      status[resourceNameToString(resource)]
-    ).sort(sortByName);
+      status[resourceNameToString(resource)]).sort(sortByName);
 };
 
 export const filterResourcesWithNames = (resources: Resource[]) => {

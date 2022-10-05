@@ -26,7 +26,7 @@ interface Reading {
   lng: number
 }
 
-const sensorReadings = $ref<Record<string, Reading>>({});
+const sensorReadings = $ref<Record<string, Record<string, Reading>>>({});
 
 const getReadings = (inputNames: SensorName[]) => {
   const req = new sensorsApi.GetReadingsRequest();
@@ -50,10 +50,10 @@ const getReadings = (inputNames: SensorName[]) => {
       const readings = item.getReadingsMap();
       const rr: Record<string, Reading> = {};
 
-      for (const [k, v] of readings.entries()) {
-        rr[k] = v.toJavaScript() as Reading;
+      for (const [key, value] of readings.entries()) {
+        rr[key] = value.toJavaScript() as Reading;
       }
-      
+
       sensorReadings[resourceNameToString(item.getName()!.toObject())] = rr;
     }
   });
