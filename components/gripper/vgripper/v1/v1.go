@@ -53,7 +53,7 @@ func init() {
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			attr, ok := config.ConvertedAttributes.(*AttrConfig)
 			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(AttrConfig{}, config.ConvertedAttributes)
+				return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
 			}
 			b, err := board.FromDependencies(deps, attr.Board)
 			if err != nil {
@@ -111,7 +111,7 @@ func newGripperV1(
 ) (gripper.LocalGripper, error) {
 	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
 	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(AttrConfig{}, cfg.ConvertedAttributes)
+		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
 	}
 	pressureLimit := attr.PressureLimit
 	if pressureLimit == 0 {

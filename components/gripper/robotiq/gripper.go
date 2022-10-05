@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -29,10 +30,22 @@ type AttrConfig struct {
 	Host string `json:"host"`
 }
 
+// Validate ensures all parts of the config are valid.
+func (cfg *AttrConfig) Validate(path string) error {
+	if cfg.Host == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "host")
+	}
+	return nil
+}
+
 func init() {
 	registry.RegisterComponent(gripper.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newGripper(ctx, config.ConvertedAttributes.(*AttrConfig).Host, logger)
+			attr, ok := config.ConvertedAttributes.(*AttrConfig)
+			if !ok {
+				return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+			}
+			return newGripper(ctx, attr.Host, logger)
 		},
 	})
 
