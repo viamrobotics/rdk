@@ -70,7 +70,7 @@ func (config *Config) Validate(path string) error {
 
 func getSerialConfig(cfg *Config) (slib.OpenOptions, error) {
 	options := slib.OpenOptions{
-		PortName:        cfg.Attributes.String("port"),
+		PortName:        cfg.Attributes.String("serial_path"),
 		BaudRate:        230400,
 		DataBits:        8,
 		StopBits:        1,

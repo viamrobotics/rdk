@@ -23,8 +23,8 @@ const modelname = "roboclaw"
 
 // AttrConfig is used for converting motor config attributes.
 type AttrConfig struct {
-	SerialPort       string `json:"serial_port"`
-	Baud             int    `json:"baud_rate"`
+	SerialPath       string `json:"serial_path"`
+	SerialBaud       int    `json:"serial_baud_rate"`
 	Number           int    `json:"number_of_motors"` // this is 1 or 2
 	Address          int    `json:"address,omitempty"`
 	TicksPerRotation int    `json:"ticks_per_rotation,omitempty"`
@@ -35,12 +35,12 @@ func (config *AttrConfig) Validate(path string) error {
 	if config.Number < 1 || config.Number > 2 {
 		return config.wrongNumberError()
 	}
-	if config.SerialPort == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "serial_port")
+	if config.SerialPath == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 
-	if config.Baud <= 0 {
-		return utils.NewConfigValidationFieldRequiredError(path, "baud")
+	if config.SerialBaud <= 0 {
+		return utils.NewConfigValidationFieldRequiredError(path, "serial_baud_rate")
 	}
 
 	return nil
@@ -78,18 +78,18 @@ func getOrCreateConnection(deps registry.Dependencies, config *AttrConfig) (*rob
 		if !ok {
 			continue
 		}
-		if m.conf.SerialPort != config.SerialPort {
+		if m.conf.SerialPath != config.SerialPath {
 			continue
 		}
-		if m.conf.Baud != config.Baud {
+		if m.conf.SerialBaud != config.SerialBaud {
 			return nil, errors.New("cannot have multiple roboclaw motors with different baud")
 		}
 		return m.conn, nil
 	}
 
-	c := &roboclaw.Config{Name: config.SerialPort, Retries: 3}
-	if config.Baud > 0 {
-		c.Baud = config.Baud
+	c := &roboclaw.Config{Name: config.SerialPath, Retries: 3}
+	if config.SerialBaud > 0 {
+		c.Baud = config.SerialBaud
 	}
 	return roboclaw.Init(c)
 }
