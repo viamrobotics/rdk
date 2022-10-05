@@ -673,6 +673,10 @@ func (manager *resourceManager) updateResources(
 	manager.configLock.Lock()
 	defer manager.configLock.Unlock()
 	var allErrs error
+	for _, r := range config.Added.Remotes {
+		rName := fromRemoteNameToRemoteNodeName(r.Name)
+		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, r, []string{}, fn))
+	}
 	for _, c := range config.Added.Components {
 		rName := c.ResourceName()
 		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, c, c.Dependencies(), fn))
@@ -681,7 +685,7 @@ func (manager *resourceManager) updateResources(
 		rName := s.ResourceName()
 		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, s, []string{}, fn))
 	}
-	for _, r := range config.Added.Remotes {
+	for _, r := range config.Modified.Remotes {
 		rName := fromRemoteNameToRemoteNodeName(r.Name)
 		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, r, []string{}, fn))
 	}
@@ -692,10 +696,6 @@ func (manager *resourceManager) updateResources(
 	for _, s := range config.Modified.Services {
 		rName := s.ResourceName()
 		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, s, []string{}, fn))
-	}
-	for _, r := range config.Modified.Remotes {
-		rName := fromRemoteNameToRemoteNodeName(r.Name)
-		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, r, []string{}, fn))
 	}
 	// processes are not added into the resource tree as they belong to a process manager
 	if err := cleanAppImageEnv(); err != nil {
