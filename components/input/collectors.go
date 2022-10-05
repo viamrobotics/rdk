@@ -15,8 +15,7 @@ const (
 )
 
 func (m method) String() string {
-	switch m {
-	case controls:
+	if m == controls {
 		return "Controls"
 	}
 	return "Unknown"

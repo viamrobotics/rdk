@@ -15,8 +15,7 @@ const (
 )
 
 func (m method) String() string {
-	switch m {
-	case position:
+	if m == position {
 		return "Position"
 	}
 	return "Unknown"

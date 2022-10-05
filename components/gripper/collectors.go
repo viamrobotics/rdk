@@ -3,8 +3,9 @@ package gripper
 import (
 	"context"
 
-	"go.viam.com/rdk/data"
 	"google.golang.org/protobuf/types/known/anypb"
+
+	"go.viam.com/rdk/data"
 )
 
 type method int64
@@ -14,8 +15,7 @@ const (
 )
 
 func (m method) String() string {
-	switch m {
-	case grab:
+	if m == grab {
 		return "Grab"
 	}
 	return "Unknown"
