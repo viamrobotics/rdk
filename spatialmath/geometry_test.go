@@ -23,7 +23,11 @@ func TestGeometrySerialization(t *testing.T) {
 		config  GeometryConfig
 		success bool
 	}{
-		{"box", GeometryConfig{Type: "box", X: 1, Y: 1, Z: 1, TranslationOffset: translation, OrientationOffset: orientation, Label: "box"}, true},
+		{
+			"box",
+			GeometryConfig{Type: "box", X: 1, Y: 1, Z: 1, TranslationOffset: translation, OrientationOffset: orientation, Label: "box"},
+			true,
+		},
 		{"box bad dims", GeometryConfig{Type: "box", X: 1, Y: 0, Z: 1}, false},
 		{"infer box", GeometryConfig{X: 1, Y: 1, Z: 1, Label: "infer box"}, true},
 		{"sphere", GeometryConfig{Type: "sphere", R: 1, TranslationOffset: translation, OrientationOffset: orientation, Label: "sphere"}, true},
