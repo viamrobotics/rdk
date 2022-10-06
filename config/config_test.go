@@ -192,12 +192,11 @@ func TestConfigEnsure(t *testing.T) {
 	c5 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c5", DependsOn: []string{"c2", "c4"}}
 	c6 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c6"}
 	c7 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c7", DependsOn: []string{"c6", "c4"}}
-	unsortedComponents := config.Config{
+	components := config.Config{
 		Components: []config.Component{c7, c6, c5, c3, c4, c1, c2},
 	}
-	err = unsortedComponents.Ensure(false)
+	err = components.Ensure(false)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, unsortedComponents.Components, test.ShouldResemble, []config.Component{c6, c1, c2, c3, c4, c7, c5})
 
 	invalidProcesses := config.Config{
 		Processes: []pexec.ProcessConfig{{}},
@@ -351,108 +350,6 @@ func TestCopyOnlyPublicFields(t *testing.T) {
 		test.That(t, cfgCopy.Cloud.TLSCertificate, test.ShouldEqual, cfg.Cloud.TLSCertificate)
 		test.That(t, cfgCopy.Network.TLSConfig, test.ShouldBeNil)
 	})
-}
-
-func TestConfigSortComponents(t *testing.T) {
-	c1 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c1"}
-	c2 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c2", DependsOn: []string{"c1"}}
-	c3 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c3", DependsOn: []string{"c1", "c2"}}
-	c4 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c4", DependsOn: []string{"c1", "c3"}}
-	c5 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c5", DependsOn: []string{"c2", "c4"}}
-	c6 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c6"}
-	c7 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c7", DependsOn: []string{"c6", "c4"}}
-	c8 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c8", DependsOn: []string{"c6"}}
-
-	circularC1 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c1", DependsOn: []string{"c2"}}
-	circularC2 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c2", DependsOn: []string{"c3"}}
-	circularC3 := config.Component{Namespace: resource.ResourceNamespaceRDK, Name: "c3", DependsOn: []string{"c1"}}
-	for _, tc := range []struct {
-		Name       string
-		Components []config.Component
-		Expected   []config.Component
-		Err        string
-	}{
-		{
-			"empty",
-			[]config.Component{},
-			[]config.Component{},
-			"",
-		},
-		{
-			"no change",
-			[]config.Component{c1, c2},
-			[]config.Component{c1, c2},
-			"",
-		},
-		{
-			"simple",
-			[]config.Component{c2, c1},
-			[]config.Component{c1, c2},
-			"",
-		},
-		{
-			"another simple",
-			[]config.Component{c3, c2, c1},
-			[]config.Component{c1, c2, c3},
-			"",
-		},
-		{
-			"complex",
-			[]config.Component{c2, c3, c1},
-			[]config.Component{c1, c2, c3},
-			"",
-		},
-		{
-			"more complex",
-			[]config.Component{c7, c6, c5, c3, c4, c1, c2},
-			[]config.Component{c6, c1, c2, c3, c4, c7, c5},
-			"",
-		},
-		{
-			"duplicate name",
-			[]config.Component{c1, c1},
-			nil,
-			"not unique",
-		},
-		// TODO(RSDK-427): this check just raises a warning if a dependency is missing.
-		// We cannot actually make the check fail since it will always fail for remote
-		// dependencies.
-		{
-			"dependency not found",
-			[]config.Component{c2},
-			[]config.Component{c2},
-			"",
-		},
-		{
-			"circular dependency",
-			[]config.Component{circularC1, c2},
-			nil,
-			"circular dependency detected in component list between c1, c2",
-		},
-		{
-			"circular dependency 2",
-			[]config.Component{circularC1, circularC2, circularC3},
-			nil,
-			"circular dependency detected in component list between c1, c2, c3",
-		},
-		{
-			"circular dependency 3",
-			[]config.Component{c6, c4, circularC1, c8, circularC2, circularC3},
-			nil,
-			"circular dependency detected in component list between c1, c2, c3",
-		},
-	} {
-		t.Run(tc.Name, func(t *testing.T) {
-			sorted, err := config.SortComponents(tc.Components)
-			if tc.Err == "" {
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, sorted, test.ShouldResemble, tc.Expected)
-			} else {
-				test.That(t, sorted, test.ShouldBeNil)
-				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
-			}
-		})
-	}
 }
 
 func TestNewTLSConfig(t *testing.T) {
