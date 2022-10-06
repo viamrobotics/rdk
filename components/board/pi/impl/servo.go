@@ -48,6 +48,7 @@ func init() {
 				}
 
 				theServo := &piPigpioServo{pin: C.uint(bcom)}
+				theServo.opMgr.OldStop = theServo
 				if attr.Min > 0 {
 					theServo.min = uint8(attr.Min)
 				}

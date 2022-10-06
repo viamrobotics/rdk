@@ -54,6 +54,7 @@ func createBoat(deps registry.Dependencies, config *boatConfig, logger golog.Log
 	}
 
 	theBoat := &boat{cfg: config, logger: logger}
+	theBoat.opMgr.Stop = theBoat
 
 	for _, mc := range config.Motors {
 		m, err := motor.FromDependencies(deps, mc.Name)

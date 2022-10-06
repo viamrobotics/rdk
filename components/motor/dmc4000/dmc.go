@@ -166,6 +166,7 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 		MaxAcceleration:  c.MaxAcceleration,
 		HomeRPM:          c.HomeRPM,
 	}
+	m.opMgr.Stop = m
 
 	if m.MaxRPM <= 0 {
 		m.MaxRPM = 1000 // arbitrary high value

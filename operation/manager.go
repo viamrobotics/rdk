@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"go.viam.com/rdk/resource"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/resource"
 )
 
 // SingleOperationManager ensures only 1 operation is happening a time
@@ -65,21 +66,29 @@ func (sm *SingleOperationManager) New(ctx context.Context) (context.Context, fun
 		<-ctx.Done()
 		// check if there is another operation running
 		// if not call Stop on stop
-		utils.Logger.Error("Here I go killing again")
-		if !sm.OpRunning() {
-			sm.mu.Lock()
-			if sm.Stop != nil {
+		sm.mu.Lock()
+		if sm.currentOp == theOp {
+			sm.currentOp = nil
+		}
+		if sm.currentOp == nil {
+			switch {
+			case sm.Stop != nil:
 				utils.Logger.Error("Stop called")
 				err := sm.Stop.Stop(context.Background(), map[string]interface{}{})
-				utils.Logger.Error(err)
-			} else if sm.OldStop != nil {
+				if err != nil {
+					utils.Logger.Error(err)
+				}
+			case sm.OldStop != nil:
 				utils.Logger.Error("old Stop")
-				sm.OldStop.Stop(context.Background())
-			} else {
+				err := sm.OldStop.Stop(context.Background())
+				if err != nil {
+					utils.Logger.Error(err)
+				}
+			default:
 				utils.Logger.Error("Stop not implemented for component")
 			}
-			sm.mu.Unlock()
 		}
+		sm.mu.Unlock()
 	}()
 
 	return theOp.ctx, func() {

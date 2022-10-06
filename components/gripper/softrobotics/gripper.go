@@ -118,6 +118,7 @@ func newGripper(b board.Board, cfg config.Component, logger golog.Logger) (gripp
 		pinPower: pinPower,
 		logger:   logger,
 	}
+	theGripper.opMgr.OldStop = theGripper
 
 	if theGripper.psi == nil {
 		return nil, errors.New("no psi analog reader")

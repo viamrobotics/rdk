@@ -175,6 +175,7 @@ func CreateLimoBase(ctx context.Context, config *Config, logger golog.Logger) (b
 		maxInnerAngle:      .48869, // 28 degrees in radians
 		rightAngleScale:    1.64,
 	}
+	base.opMgr.Stop = base
 
 	base.stateMutex.Lock()
 	if !base.state.controlThreadStarted {

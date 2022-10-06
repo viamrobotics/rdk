@@ -324,6 +324,7 @@ func CreateWheeledBase(
 		wheelCircumferenceMm: config.WheelCircumferenceMM,
 		spinSlipFactor:       config.SpinSlipFactor,
 	}
+	base.opMgr.Stop = base
 
 	if base.spinSlipFactor == 0 {
 		base.spinSlipFactor = 1

@@ -147,6 +147,7 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 		model:                   model,
 		robot:                   r,
 	}
+	newArm.opMgr.Stop = newArm
 
 	onData := make(chan struct{})
 	var onDataOnce sync.Once
