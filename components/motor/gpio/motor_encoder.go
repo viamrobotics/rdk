@@ -118,6 +118,7 @@ func newEncodedMotor(
 		startedRPMMonitorMu:     &sync.Mutex{},
 		rampRate:                motorConfig.RampRate,
 		maxPowerPct:             motorConfig.MaxPowerPct,
+		opMgr:                   operation.SingleOperationManager{Stop: localReal},
 		logger:                  logger,
 		loop:                    nil,
 	}
