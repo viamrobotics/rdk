@@ -16,20 +16,33 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 //go:embed arm_model.json
 var armikModelJSON []byte
 
+const modelnameIK = "fake_ik"
+
 func init() {
-	registry.RegisterComponent(arm.Subtype, "fake_ik", registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			if config.Attributes.Bool("fail_new", false) {
+	registry.RegisterComponent(arm.Subtype, modelnameIK, registry.Component{
+		Constructor: func(ctx context.Context, _ registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
+			attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
+			if !ok {
+				return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
+			}
+			if !attr.FailNew {
 				return nil, errors.New("whoops")
 			}
-			return NewArmIK(ctx, config, logger)
+			return NewArmIK(ctx, cfg, logger)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &AttrConfig{})
 }
 
 // NewArmIK returns a new fake arm.

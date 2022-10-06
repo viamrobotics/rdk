@@ -16,20 +16,43 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 //go:embed static_arm_model.json
 var armModelJSON []byte
 
+const modelname = "fake"
+
+// AttrConfig is the config for a fake arm.
+type AttrConfig struct {
+	FailNew bool `json:"fail_new"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *AttrConfig) Validate(path string) error {
+	return nil
+}
+
 func init() {
-	registry.RegisterComponent(arm.Subtype, "fake", registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			if config.Attributes.Bool("fail_new", false) {
+	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
+		Constructor: func(ctx context.Context, _ registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
+			attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
+			if !ok {
+				return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
+			}
+			if !attr.FailNew {
 				return nil, errors.New("whoops")
 			}
-			return NewArm(config)
+			return NewArmIK(ctx, cfg, logger)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &AttrConfig{})
 }
 
 // NewArm returns a new fake arm.
