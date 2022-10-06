@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var logger = golog.NewDevelopmentLogger("mysensor")
+var logger = golog.NewDebugLogger("mysensor")
 
 // registering the component model on init is how we make sure the new model is picked up and usable.
 func init() {
