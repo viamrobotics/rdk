@@ -47,6 +47,7 @@ func TestNumato1(t *testing.T) {
 		&Config{
 			Attributes: config.AttributeMap{"pins": 128},
 			Analogs:    []board.AnalogConfig{{Name: "foo", Pin: "01"}},
+			Pins:       []int{1, 2},
 		},
 		logger,
 	)
