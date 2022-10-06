@@ -14,7 +14,7 @@ func main() {
 	logger := golog.NewDebugLogger("client")
 	robot, err := client.New(
 		context.Background(),
-		"localhost:8080",
+		"localhost:8081",
 		logger,
 	)
 	if err != nil {
