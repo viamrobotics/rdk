@@ -74,7 +74,7 @@ func (dtp *depthToPretty) PointCloud(ctx context.Context) (pointcloud.PointCloud
 	return dtp.intrinsicParameters.RGBDToPointCloud(rimage.ConvertImage(col), dm)
 }
 
-// overlayAttrs are the attributes for an overlay transform
+// overlayAttrs are the attributes for an overlay transform.
 type overlayAttrs struct {
 	IntrinsicParams *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
 }
@@ -85,7 +85,12 @@ type overlaySource struct {
 	intrinsicParameters *transform.PinholeCameraIntrinsics
 }
 
-func newOverlayTransform(ctx context.Context, src gostream.VideoSource, am config.AttributeMap) (gostream.VideoSource, error) {
+func newOverlayTransform(
+	ctx context.Context,
+	src gostream.VideoSource,
+	stream camera.StreamType,
+	am config.AttributeMap,
+) (gostream.VideoSource, error) {
 	conf, err := config.TransformAttributeMapToStruct(&(overlayAttrs{}), am)
 	if err != nil {
 		return nil, err
@@ -94,15 +99,15 @@ func newOverlayTransform(ctx context.Context, src gostream.VideoSource, am confi
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(attrs, conf)
 	}
-	if attrs.Fx <= 0. || attrs.Fy <= 0. {
-		return nil, errors.New("cannot do overlay with intrinsics (Fx,Fy) = (%v, %v)", attrs.Fx, attrs.Fy)
+	if attrs.IntrinsicParams.Fx <= 0. || attrs.IntrinsicParams.Fy <= 0. {
+		return nil, errors.Errorf("cannot do overlay with intrinsics (Fx,Fy) = (%v, %v)", attrs.IntrinsicParams.Fx, attrs.IntrinsicParams.Fy)
 	}
 	reader := &overlaySource{src, attrs.IntrinsicParams}
 	return camera.NewFromReader(
 		ctx,
 		reader,
 		&transform.PinholeCameraModel{reader.intrinsicParameters, nil},
-		camera.StreamType(attrs.Stream),
+		stream,
 	)
 }
 
