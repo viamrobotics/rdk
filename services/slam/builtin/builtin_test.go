@@ -702,11 +702,11 @@ func TestCartographerDataProcess(t *testing.T) {
 		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, nil)
 
 		time.Sleep(time.Millisecond * time.Duration(validDataRateMS*2))
-		cancelFunc()
 
 		allObs := obs.All()
 		latestLoggedEntry := allObs[len(allObs)-1]
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "bad_lidar")
+		cancelFunc()
 	})
 
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
@@ -792,11 +792,11 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, nil)
 
 		time.Sleep(time.Millisecond * time.Duration(validDataRateMS*2))
-		cancelFunc()
 
 		obsAll := obs.All()
 		latestLoggedEntry := obsAll[len(obsAll)-1]
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "bad_camera")
+		cancelFunc()
 	})
 
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
