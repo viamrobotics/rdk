@@ -18,7 +18,7 @@ import (
 	_ "go.viam.com/rdk/robot/impl"
 )
 
-var logger = golog.NewDevelopmentLogger("dump_resources")
+var logger = golog.NewDebugLogger("dump_resources")
 
 // Arguments for the command.
 type Arguments struct{}
