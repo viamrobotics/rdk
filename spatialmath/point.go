@@ -11,22 +11,24 @@ import (
 // PointCreator implements the GeometryCreator interface for point structs.
 type pointCreator struct {
 	offset Pose
+	label  string
 }
 
 // point is a collision geometry that represents a single point in 3D space that occupies no geometry.
 type point struct {
-	pose Pose
+	pose  Pose
+	label string
 }
 
 // NewPointCreator instantiates a PointCreator class, which allows instantiating point geometries given only a pose which is applied
 // at the specified offset from the pose. These pointers have dimensions given by the provided halfSize vector.
-func NewPointCreator(offset Pose) GeometryCreator {
-	return &pointCreator{offset}
+func NewPointCreator(offset Pose, label string) GeometryCreator {
+	return &pointCreator{offset, label}
 }
 
 // NewGeometry instantiates a new point from a PointCreator class.
 func (pc *pointCreator) NewGeometry(pose Pose) Geometry {
-	return &point{Compose(pc.offset, pose)}
+	return &point{Compose(pc.offset, pose), pc.label}
 }
 
 func (pc *pointCreator) Offset() Pose {
@@ -42,8 +44,13 @@ func (pc *pointCreator) MarshalJSON() ([]byte, error) {
 }
 
 // NewPoint instantiates a new point Geometry.
-func NewPoint(pt r3.Vector) Geometry {
-	return &point{NewPoseFromPoint(pt)}
+func NewPoint(pt r3.Vector, label string) Geometry {
+	return &point{NewPoseFromPoint(pt), label}
+}
+
+// Label returns the labels of the point.
+func (pt *point) Label() string {
+	return pt.label
 }
 
 // Pose returns the pose of the point.
@@ -67,7 +74,7 @@ func (pt *point) AlmostEqual(g Geometry) bool {
 
 // Transform premultiplies the point pose with a transform, allowing the point to be moved in space.
 func (pt *point) Transform(toPremultiply Pose) Geometry {
-	return &point{Compose(toPremultiply, pt.pose)}
+	return &point{Compose(toPremultiply, pt.pose), pt.label}
 }
 
 // ToProto converts the point to a Geometry proto message.
