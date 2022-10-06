@@ -80,6 +80,7 @@ func newMultiAxis(
 		name:   config.Name,
 		logger: logger,
 	}
+	mAx.opMgr.Stop = mAx
 
 	for _, s := range conf.SubAxes {
 		subAx, err := gantry.FromDependencies(deps, s)

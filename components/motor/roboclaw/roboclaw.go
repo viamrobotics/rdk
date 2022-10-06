@@ -116,8 +116,10 @@ func newRoboClaw(deps registry.Dependencies, config config.Component, logger gol
 	if err != nil {
 		return nil, err
 	}
+	robotClaw := &roboclawMotor{conn: c, conf: motorConfig, addr: uint8(motorConfig.Address), logger: logger}
+	robotClaw.opMgr.Stop = robotClaw
 
-	return &roboclawMotor{conn: c, conf: motorConfig, addr: uint8(motorConfig.Address), logger: logger}, nil
+	return robotClaw, nil
 }
 
 var _ = motor.LocalMotor(&roboclawMotor{})

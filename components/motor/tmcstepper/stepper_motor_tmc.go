@@ -168,6 +168,7 @@ func NewMotor(ctx context.Context, deps registry.Dependencies, c TMC5072Config, 
 		fClk:        baseClk / c.CalFactor,
 		logger:      logger,
 	}
+	m.opMgr.Stop = m
 
 	rawMaxAcc := m.rpmsToA(m.maxAcc)
 

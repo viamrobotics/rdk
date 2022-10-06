@@ -118,11 +118,10 @@ func newEncodedMotor(
 		startedRPMMonitorMu:     &sync.Mutex{},
 		rampRate:                motorConfig.RampRate,
 		maxPowerPct:             motorConfig.MaxPowerPct,
-		opMgr:                   operation.SingleOperationManager{Stop: localReal},
 		logger:                  logger,
 		loop:                    nil,
 	}
-
+	em.opMgr.Stop = em
 	if len(motorConfig.ControlLoop.Blocks) != 0 {
 		cLoop, err := control.NewLoop(logger, motorConfig.ControlLoop, em)
 		if err != nil {

@@ -170,6 +170,7 @@ func newOneAxis(ctx context.Context, deps registry.Dependencies, config config.C
 		rpm:             conf.GantryRPM,
 		axis:            r3.Vector(conf.Axis),
 	}
+	oAx.opMgr.Stop = oAx
 
 	switch len(oAx.limitSwitchPins) {
 	case 1:

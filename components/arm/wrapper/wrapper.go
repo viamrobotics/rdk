@@ -61,13 +61,15 @@ func NewWrapperArm(cfg config.Component, r robot.Robot, logger golog.Logger) (ar
 	if err != nil {
 		return nil, err
 	}
-	return &Arm{
+	arm := &Arm{
 		Name:   cfg.Name,
 		model:  model,
 		actual: wrappedArm,
 		logger: logger,
 		robot:  r,
-	}, nil
+	}
+	arm.opMgr.Stop = arm
+	return arm, nil
 }
 
 // ModelFrame returns the dynamic frame of the model.

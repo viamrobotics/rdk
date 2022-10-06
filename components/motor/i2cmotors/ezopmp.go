@@ -123,6 +123,7 @@ func NewMotor(ctx context.Context, deps registry.Dependencies, c *AttrConfig, lo
 		logger:      logger,
 		maxPowerPct: 1.0,
 	}
+	m.opMgr.Stop = m
 
 	flowRate, err := m.findMaxFlowRate(ctx)
 	if err != nil {

@@ -375,6 +375,7 @@ func NewEva(ctx context.Context, r robot.Robot, cfg config.Component, logger gol
 		robot:     r,
 		frameJSON: evamodeljson,
 	}
+	e.opMgr.Stop = e
 
 	name, err := e.apiName(ctx)
 	if err != nil {

@@ -164,8 +164,7 @@ func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger, json []byt
 	if err != nil {
 		return nil, err
 	}
-
-	return &Arm{
+	arm := &Arm{
 		Joints: map[string][]*servo.Servo{
 			"Waist":       {servos[0]},
 			"Shoulder":    {servos[1], servos[2]},
@@ -178,7 +177,9 @@ func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger, json []byt
 		logger:   logger,
 		robot:    r,
 		model:    model,
-	}, nil
+	}
+	arm.opMgr.Stop = arm
+	return arm, nil
 }
 
 // EndPosition computes and returns the current cartesian position.
