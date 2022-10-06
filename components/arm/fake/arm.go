@@ -41,7 +41,7 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
 			}
-			if !attr.FailNew {
+			if attr.FailNew {
 				return nil, errors.New("whoops")
 			}
 			return NewArmIK(ctx, cfg, logger)
