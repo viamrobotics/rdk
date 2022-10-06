@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 //go:embed static_arm_model.json
@@ -31,19 +30,15 @@ type AttrConfig struct {
 
 // Validate ensures all parts of the config are valid.
 func (config *AttrConfig) Validate(path string) error {
+	if config.FailNew {
+		return errors.New("whoops")
+	}
 	return nil
 }
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
-			attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
-			}
-			if attr.FailNew {
-				return nil, errors.New("whoops")
-			}
 			return NewArmIK(ctx, cfg, logger)
 		},
 	})
