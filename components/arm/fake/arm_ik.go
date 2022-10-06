@@ -6,7 +6,6 @@ import (
 	_ "embed"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
@@ -21,15 +20,20 @@ import (
 //go:embed arm_model.json
 var armikModelJSON []byte
 
+const modelnameIK = "fake_ik"
+
 func init() {
-	registry.RegisterComponent(arm.Subtype, "fake_ik", registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			if config.Attributes.Bool("fail_new", false) {
-				return nil, errors.New("whoops")
-			}
-			return NewArmIK(ctx, config, logger)
+	registry.RegisterComponent(arm.Subtype, modelnameIK, registry.Component{
+		Constructor: func(ctx context.Context, _ registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
+			return NewArmIK(ctx, cfg, logger)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, modelnameIK,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &AttrConfig{})
 }
 
 // NewArmIK returns a new fake arm.
