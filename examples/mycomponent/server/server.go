@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var logger = golog.NewDevelopmentLogger("mycomponent")
+var logger = golog.NewDebugLogger("mycomponent")
 
 func main() {
 	goutils.ContextualMain(mainWithArgs, logger)
