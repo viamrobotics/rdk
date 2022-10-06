@@ -46,7 +46,10 @@ func TestGoFor(t *testing.T) {
 	}
 
 	m.Encoder.Start(ctx)
-	err := m.GoFor(ctx, 60, 1, nil)
+
+	err := m.GoFor(ctx, 0, 1, nil)
+	test.That(t, err, test.ShouldBeError, motor.NewZeroRPMError())
+	err = m.GoFor(ctx, 60, 1, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
