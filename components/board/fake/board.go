@@ -16,9 +16,20 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var _ = board.LocalBoard(&Board{})
+
+// AttrConfig is the config for a fake board.
+type AttrConfig struct {
+	FailNew bool `json:"fail_new"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *AttrConfig) Validate(path string) error {
+	return nil
+}
 
 const modelName = "fake"
 
@@ -29,13 +40,17 @@ func init() {
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			_ registry.Dependencies,
-			config config.Component,
+			cfg config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			if config.Attributes.Bool("fail_new", false) {
+			attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
+			if !ok {
+				return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
+			}
+			if !attr.FailNew {
 				return nil, errors.New("whoops")
 			}
-			return NewBoard(ctx, config, logger)
+			return NewBoard(ctx, cfg, logger)
 		}})
 	config.RegisterComponentAttributeMapConverter(
 		board.SubtypeName,
