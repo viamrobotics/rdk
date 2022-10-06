@@ -378,10 +378,24 @@ func (slamSvc *builtIn) Position(ctx context.Context, name string) (*referencefr
 
 	if val, ok := extra["quat"]; ok {
 		q := val.(map[string]float64)
-		ori := spatialmath.QuatToOV(quat.Number{Real: q["o_x"], Imag: q["o_y"], Jmag: q["o_z"], Kmag: q["o_theta"]})
+
+		valTheta, ok1 := q["o_theta"]
+		valX, ok2 := q["o_x"]
+		valY, ok3 := q["o_y"]
+		valZ, ok4 := q["o_z"]
+
+		if !ok1 || !ok2 || !ok3 || !ok4 {
+			slamSvc.logger.Warnf("quaternion transfer detected but formatting was incorrect, %v, skipping transform", q)
+			return pInFrame, nil
+		}
+
+		ori := spatialmath.QuatToOV(quat.Number{Real: valTheta, Imag: valX, Jmag: valY, Kmag: valZ})
 		newPose := spatialmath.NewPoseFromOrientation(pInFrame.Pose().Point(), ori)
 		pInFrame = referenceframe.NewPoseInFrame(pInFrame.FrameName(), newPose)
+	} else {
+		slamSvc.logger.Debug("no viable data detected in extra")
 	}
+
 	return pInFrame, nil
 }
 
