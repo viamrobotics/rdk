@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"go.viam.com/rdk/resource"
 	"go.viam.com/utils"
 )
 
@@ -14,13 +15,15 @@ import (
 type SingleOperationManager struct {
 	mu        sync.Mutex
 	currentOp *anOp
+	Stop      resource.Stoppable
+	OldStop   resource.OldStoppable
 }
 
 // CancelRunning cancel's a current operation unless it's mine.
 func (sm *SingleOperationManager) CancelRunning(ctx context.Context) {
-	if ctx.Value(somCtxKeySingleOp) != nil {
-		return
-	}
+	// if ctx.Value(somCtxKeySingleOp) != nil {
+	// 	return
+	// }
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	sm.cancelInLock(ctx)
@@ -57,6 +60,27 @@ func (sm *SingleOperationManager) New(ctx context.Context) (context.Context, fun
 	theOp.waitCh = make(chan bool)
 	sm.currentOp = theOp
 	sm.mu.Unlock()
+
+	go func() {
+		<-ctx.Done()
+		// check if there is another operation running
+		// if not call Stop on stop
+		utils.Logger.Error("Here I go killing again")
+		if !sm.OpRunning() {
+			sm.mu.Lock()
+			if sm.Stop != nil {
+				utils.Logger.Error("Stop called")
+				err := sm.Stop.Stop(context.Background(), map[string]interface{}{})
+				utils.Logger.Error(err)
+			} else if sm.OldStop != nil {
+				utils.Logger.Error("old Stop")
+				sm.OldStop.Stop(context.Background())
+			} else {
+				utils.Logger.Error("Stop not implemented for component")
+			}
+			sm.mu.Unlock()
+		}
+	}()
 
 	return theOp.ctx, func() {
 		if !theOp.closed {
@@ -131,6 +155,14 @@ func (sm *SingleOperationManager) cancelInLock(ctx context.Context) {
 
 	op.cancelFunc()
 	<-op.waitCh
+
+	// if sm.Stop != nil {
+	// 	sm.Stop.Stop(context.Background(), map[string]interface{}{})
+	// } else if sm.OldStop != nil {
+	// 	sm.OldStop.Stop(context.Background())
+	// } else {
+	// 	utils.Logger.Error("Stop not implemented for component")
+	// }
 
 	sm.currentOp = nil
 }
