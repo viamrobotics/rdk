@@ -218,7 +218,7 @@ func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (poin
 					savedDualQuat := spatialmath.NewZeroPose()
 					pcSrc.Iterate(numLoops, loop, func(p r3.Vector, d pointcloud.Data) bool {
 						if jpcs.sourceNames[iCopy] != jpcs.targetName {
-							spatialmath.ResetPoseDQTransalation(savedDualQuat, p)
+							spatialmath.ResetPoseDQTranslation(savedDualQuat, p)
 							newPose := spatialmath.Compose(theTransform.(*referenceframe.PoseInFrame).Pose(), savedDualQuat)
 							p = newPose.Point()
 						}
