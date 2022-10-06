@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var _ = board.LocalBoard(&Board{})
@@ -54,6 +53,10 @@ func (config *Config) Validate(path string) error {
 		}
 	}
 
+	if config.FailNew {
+		return errors.New("whoops")
+	}
+
 	return nil
 }
 
@@ -69,13 +72,6 @@ func init() {
 			cfg config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			attr, ok := cfg.ConvertedAttributes.(*Config)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
-			}
-			if attr.FailNew {
-				return nil, errors.New("whoops, fail_new")
-			}
 			return NewBoard(ctx, cfg, logger)
 		}})
 
