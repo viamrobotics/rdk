@@ -39,7 +39,7 @@ func (config *AttrConfig) Validate(path string) error {
 func init() {
 	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
-			return NewArmIK(ctx, cfg, logger)
+			return NewArm(cfg)
 		},
 	})
 
