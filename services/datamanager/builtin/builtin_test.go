@@ -783,7 +783,7 @@ func TestAdditionalParamsInConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(captureWaitTime)
 
-	filesInCamDir, err := readDir(t, captureDir+"/camera/c1/Next")
+	filesInCamDir, err := readDir(t, captureDir+"/camera/c1/ReadImage")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInCamDir), test.ShouldEqual, 1)
 	info, err := filesInCamDir[0].Info()
