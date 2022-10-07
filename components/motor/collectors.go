@@ -18,7 +18,7 @@ const (
 func (m method) String() string {
 	switch m {
 	case position:
-		return "GetPosition"
+		return "Position"
 	case isPowered:
 		return "IsPowered"
 	}

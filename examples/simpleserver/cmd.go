@@ -16,7 +16,7 @@ import (
 	"go.viam.com/rdk/robot/web"
 )
 
-var logger = golog.NewDevelopmentLogger("simpleserver")
+var logger = golog.NewDebugLogger("simpleserver")
 
 func main() {
 	utils.ContextualMain(mainWithArgs, logger)
