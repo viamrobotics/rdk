@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"os"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -14,8 +13,11 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
+	myC "go.viam.com/rdk/examples/mycomponent/component"
+	myCpb "go.viam.com/rdk/examples/mycomponent/proto/api/component/mycomponent/v1"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/subtype"
 
 	goutils "go.viam.com/utils"
 )
@@ -46,6 +48,7 @@ type server struct {
 	mu sync.Mutex
 	components map[string]*myComponent
 	mod *module.Module
+	subServ subtype.Service
 	pbgeneric.UnimplementedGenericServiceServer
 }
 
@@ -55,7 +58,18 @@ func (s *server) AddComponent(ctx context.Context, cfg *config.Component, depLis
 	logger.Debugf("Config: %+v", cfg)
 	logger.Debugf("Deps: %+v", depList)
 
+		logger.Debugf("SMURF200: %+v %+v", cfg.Model, myC.Model)
 
+	if cfg.Model == myC.Model {
+		c := myC.NewMyComponent(nil, *cfg, logger)
+		m := make(map[resource.Name]interface{})
+		m[resource.NameFromSubtype(myC.ResourceSubtype, cfg.Name)] = c
+		err := s.subServ.Replace(m)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
 	mName, err := resource.NewFromString("rdk:component:motor/" + cfg.Attributes.String("motor"))
 	if err != nil {
 		return err
@@ -120,17 +134,36 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
+	if len(args) < 2 {
+		return errors.New("need socket path as command line argument")
+	}
+	socketPath := args[1]
+
+	sub, err := subtype.New(make(map[resource.Name]interface{}))
+	if err != nil {
+		return err
+	}
 	server := &server{
 		components: make(map[string]*myComponent),
-		mod: module.NewModule(os.Args[1], logger),
+		mod: module.NewModule(socketPath, logger),
+		subServ: sub,
 	}
 	model, err := resource.NewModelFromString("acme:rocket:skates")
 	if err != nil {
 		return err
 	}
-	server.mod.RegisterModel(generic.Subtype, model)
+
+	server.mod.RegisterModel(resource.RPCSubtype{
+		Subtype: generic.Subtype,
+		SvcName: pbgeneric.GenericService_ServiceDesc.ServiceName,
+	}, model)
+	server.mod.RegisterModel(resource.RPCSubtype{
+		Subtype: myC.ResourceSubtype,
+		SvcName: myCpb.MyComponentService_ServiceDesc.ServiceName,
+	}, myC.Model)
 	server.mod.RegisterAddComponent(server.AddComponent)
 	pbgeneric.RegisterGenericServiceServer(server.mod.GRPCServer(), server)
+	myCpb.RegisterMyComponentServiceServer(server.mod.GRPCServer(), myC.NewServer(server.subServ))
 
 	err = server.mod.Start()
 	defer server.mod.Close()

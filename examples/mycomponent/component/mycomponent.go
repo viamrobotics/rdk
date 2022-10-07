@@ -23,13 +23,13 @@ import (
 )
 
 var (
-	resourceSubtype = resource.NewSubtype(
+	ResourceSubtype = resource.NewSubtype(
 		"acme",
 		resource.ResourceTypeComponent,
 		resource.SubtypeName("mycomponent"),
 	)
 
-	model = resource.NewModel(
+	Model = resource.NewModel(
 		resource.Namespace("acme"),
 		resource.ModelFamilyName("myfamily"),
 		resource.ModelName("myActualComponent"),
@@ -38,24 +38,24 @@ var (
 
 // Named is a helper for getting the named MyComponent's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NameFromSubtype(resourceSubtype, name)
+	return resource.NameFromSubtype(ResourceSubtype, name)
 }
 
 func init() {
-	registry.RegisterResourceSubtype(resourceSubtype, registry.ResourceSubtype{
+	registry.RegisterResourceSubtype(ResourceSubtype, registry.ResourceSubtype{
 		Reconfigurable: wrapWithReconfigurable,
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
 				&pb.MyComponentService_ServiceDesc,
-				newServer(subtypeSvc),
+				NewServer(subtypeSvc),
 				pb.RegisterMyComponentServiceHandlerFromEndpoint,
 			)
 		},
 		RegisterRPCLiteService: func(ctx context.Context, grpcServer *grpc.Server, subtypeSvc subtype.Service) error {
 			grpcServer.RegisterService(
 				&pb.MyComponentService_ServiceDesc,
-				newServer(subtypeSvc),
+				NewServer(subtypeSvc),
 			)
 			return nil
 		},
@@ -65,14 +65,14 @@ func init() {
 		},
 	})
 
-	registry.RegisterComponent(resourceSubtype, model, registry.Component{
+	registry.RegisterComponent(ResourceSubtype, Model, registry.Component{
 		Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newMyComponent(deps, config, logger), nil
+			return NewMyComponent(deps, config, logger), nil
 		},
 	})
 }
@@ -83,7 +83,7 @@ type myActualComponent struct {
 	logger golog.Logger
 }
 
-func newMyComponent(
+func NewMyComponent(
 	deps registry.Dependencies,
 	config config.Component,
 	logger golog.Logger,
@@ -213,7 +213,7 @@ type subtypeServer struct {
 	s subtype.Service
 }
 
-func newServer(s subtype.Service) pb.MyComponentServiceServer {
+func NewServer(s subtype.Service) pb.MyComponentServiceServer {
 	return &subtypeServer{s: s}
 }
 

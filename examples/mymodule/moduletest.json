@@ -21,7 +21,13 @@
 			"type": "motor",
 			"name": "wheels",
 			"model": "rdk:builtin:fake"
-		}
+		},
+    {
+        "model": "acme:myfamily:myActualComponent",
+        "name": "comp1",
+        "namespace": "acme",
+        "type": "mycomponent"
+    }
 	],
   "network": {
     "bind_address": ":8080"

@@ -288,7 +288,7 @@ func (manager *resourceManager) ResourceRPCSubtypes() []resource.RPCSubtype {
 			continue
 		}
 
-		if st.RPCServiceDesc != nil {
+		if st.ReflectRPCServiceDesc != nil {
 			types[k.Subtype] = st.ReflectRPCServiceDesc
 		}
 	}

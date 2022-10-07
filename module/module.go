@@ -8,14 +8,22 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/fullstorydev/grpcurl"
+	"github.com/jhump/protoreflect/desc"
+	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	pb "go.viam.com/api/module/v1"
+	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 )
@@ -25,14 +33,23 @@ type (
 	AddComponentFunc func(ctx context.Context, cfg *config.Component, depList []string) error
 
 	// HandlerMap is the format for api->model pairs that the module will service.
-	HandlerMap map[resource.Subtype][]resource.Model
+	// Ex: rdk:component:motor -> [acme:marine:thruster, acme:marine:outboard].
+	HandlerMap map[resource.RPCSubtype][]resource.Model
 )
 
-// ToProto converts the HandlerMap to a protobuf reprsentation.
+// ToProto converts the HandlerMap to a protobuf representation.
 func (h HandlerMap) ToProto() *pb.HandlerMap {
 	pMap := &pb.HandlerMap{}
-	for api, models := range h {
-		handler := &pb.HandlerDefinition{Api: api.String()}
+	for s, models := range h {
+		subtype := &robotpb.ResourceRPCSubtype{
+			Subtype: protoutils.ResourceNameToProto(resource.Name{
+				Subtype: s.Subtype,
+				Name:    "",
+			}),
+			ProtoService: s.SvcName,
+		}
+
+		handler := &pb.HandlerDefinition{Subtype: subtype}
 		for _, m := range models {
 			handler.Models = append(handler.Models, m.String())
 		}
@@ -42,19 +59,35 @@ func (h HandlerMap) ToProto() *pb.HandlerMap {
 }
 
 // NewHandlerMapFromProto converts protobuf to HandlerMap.
-func NewHandlerMapFromProto(pMap *pb.HandlerMap) (HandlerMap, error) {
+func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn *grpc.ClientConn) (HandlerMap, error) {
 	hMap := make(HandlerMap)
+	refClient := grpcreflect.NewClient(ctx, reflectpb.NewServerReflectionClient(conn))
+	defer refClient.Reset()
+	reflSource := grpcurl.DescriptorSourceFromServer(ctx, refClient)
+
+	var errs error
 	for _, h := range pMap.GetHandlers() {
-		api, err := resource.NewSubtypeFromString(h.Api)
+		api := protoutils.ResourceNameFromProto(h.Subtype.Subtype).Subtype
+
+		symDesc, err := reflSource.FindSymbol(h.Subtype.ProtoService)
 		if err != nil {
-			return nil, err
+			errs = multierr.Combine(errs, err)
+			continue
+		}
+		svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
+		if !ok {
+			return nil, errors.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
+		}
+		subtype := &resource.RPCSubtype{
+			Subtype: api,
+			Desc:    svcDesc,
 		}
 		for _, m := range h.Models {
 			model, err := resource.NewModelFromString(m)
 			if err != nil {
 				return nil, err
 			}
-			hMap[api] = append(hMap[api], model)
+			hMap[*subtype] = append(hMap[*subtype], model)
 		}
 	}
 	return hMap, nil
@@ -70,7 +103,11 @@ func (s *modserver) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyR
 	s.module.mu.Lock()
 	defer s.module.mu.Unlock()
 	s.module.parentAddr = req.GetParentAddress()
-	return &pb.ReadyResponse{Ready: s.module.ready, Handlermap: s.module.handlers.ToProto()}, nil
+
+	return &pb.ReadyResponse{
+		Ready:      s.module.ready,
+		Handlermap: s.module.handlers.ToProto(),
+	}, nil
 }
 
 // AddComponent receives the component configuration from the parent.
@@ -154,7 +191,7 @@ func (m *Module) RegisterAddComponent(componentFunc AddComponentFunc) {
 }
 
 // RegisterModel registers the list of api/model pairs this module will service.
-func (m *Module) RegisterModel(api resource.Subtype, model resource.Model) {
+func (m *Module) RegisterModel(api resource.RPCSubtype, model resource.Model) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.handlers[api] = append(m.handlers[api], model)
@@ -189,5 +226,6 @@ func NewModule(address string, logger *zap.SugaredLogger) *Module {
 	m.modServer = &modserver{module: m}
 
 	pb.RegisterModuleServiceServer(m.grpcServer, m.modServer)
+	reflection.Register(m.grpcServer)
 	return m
 }

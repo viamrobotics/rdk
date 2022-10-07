@@ -130,6 +130,7 @@ type ResourceSubtype struct {
 	RPCServiceDesc         *grpc.ServiceDesc
 	ReflectRPCServiceDesc  *desc.ServiceDescriptor `copy:"shallow"`
 	RPCClient              CreateRPCClient
+	Foreign                bool // SMURF really needed?
 
 	// MaxInstance sets a limit on the number of this subtype allowed on a robot.
 	// If MaxInstance is not set then it will default to 0 and there will be no limit.
@@ -178,7 +179,7 @@ func RegisterResourceSubtype(subtype resource.Subtype, creator ResourceSubtype) 
 	if old {
 		panic(errors.Errorf("trying to register two of the same resource subtype: %s", subtype))
 	}
-	if creator.Reconfigurable == nil && creator.Status == nil && creator.RegisterRPCService == nil && creator.RPCClient == nil {
+	if creator.Reconfigurable == nil && creator.Status == nil && creator.RegisterRPCService == nil && creator.RPCClient == nil && !creator.Foreign {
 		panic(errors.Errorf("cannot register a nil constructor for subtype: %s", subtype))
 	}
 	if creator.RegisterRPCService != nil && creator.RPCServiceDesc == nil {

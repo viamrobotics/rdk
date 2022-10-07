@@ -457,7 +457,7 @@ func newWithResources(
 		return nil, err
 	}
 
-	modMgr, err := manager.NewManager(cfg.Modules, r, logger)
+	modMgr, err := manager.NewManager(r)
 	if err != nil {
 		return nil, err
 	}

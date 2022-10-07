@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"go.viam.com/rdk/config"
+	rdkgrpc "go.viam.com/rdk/grpc"
 	modlib "go.viam.com/rdk/module"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -26,30 +27,22 @@ import (
 )
 
 // NewManager returns a Manager.
-func NewManager(cfgs []config.Module, myRobot robot.LocalRobot, logger golog.Logger) (*Manager, error) {
+func NewManager(r robot.LocalRobot) (*Manager, error) {
 	mgr := &Manager{
 		mu:         sync.RWMutex{},
-		logger:     logger,
+		logger:     r.Logger(),
 		modules:    map[string]*module{},
 		serviceMap: map[resource.Name]rpc.ClientConn{},
-		r:          myRobot,
+		r:          r,
 	}
-
-	// for _, mod := range cfgs {
-	// 	err := mgr.AddModule(mod)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// }
-
 	return mgr, nil
 }
 
 type module struct {
 	name    string
 	process pexec.ManagedProcess
-	handles map[resource.Subtype][]resource.Model
-	conn    rpc.ClientConn
+	handles modlib.HandlerMap
+	conn    *grpc.ClientConn
 	client  pb.ModuleServiceClient
 	addr    string
 }
@@ -135,16 +128,25 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 	if err != nil {
 		return err
 	}
-	mod.handles, err = checkReady(ctx, mod.client, parentAddr)
+	err = mod.checkReady(ctx, parentAddr)
 	if err != nil {
 		return errors.WithMessage(err, "error while waiting for module to start"+mod.name)
 	}
 
 	for api, models := range mod.handles {
-		switch api.Type.ResourceType {
+		known := registry.RegisteredResourceSubtypes()
+		_, ok := known[api.Subtype]
+		if !ok {
+			registry.RegisterResourceSubtype(api.Subtype, registry.ResourceSubtype{
+				ReflectRPCServiceDesc: api.Desc,
+				Foreign:               true,
+			})
+		}
+
+		switch api.Subtype.ResourceType {
 		case resource.ResourceTypeComponent:
 			for _, model := range models {
-				registry.RegisterComponent(api, model, registry.Component{
+				registry.RegisterComponent(api.Subtype, model, registry.Component{
 					Constructor: func(ctx context.Context, deps registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
 						return mgr.AddComponent(ctx, cfg, depsToNames(deps))
 					},
@@ -152,7 +154,7 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 			}
 		case resource.ResourceTypeService:
 			for _, model := range models {
-				registry.RegisterService(api, model, registry.Service{
+				registry.RegisterService(api.Subtype, model, registry.Service{
 					Constructor: func(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Logger) (interface{}, error) {
 						return mgr.AddService(ctx, cfg)
 					},
@@ -161,7 +163,7 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 		case resource.TypeName("logic"):
 			mgr.logger.Warn("modular logic not yet supported")
 		default:
-			mgr.logger.Errorf("invalid module type: %s", api.Type)
+			mgr.logger.Errorf("invalid module type: %s", api.Subtype.Type)
 		}
 	}
 
@@ -171,12 +173,20 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 // AddComponent tells a component module to configure a new component.
 func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component, deps []string) (interface{}, error) {
 	for _, module := range mgr.modules {
-		models, ok := module.handles[cfg.ResourceName().Subtype]
+		var api resource.RPCSubtype
+		var ok bool
+		for a := range module.handles {
+			if a.Subtype == cfg.ResourceName().Subtype {
+				api = a
+				ok = true
+				break
+			}
+		}
 		if !ok {
 			continue
 		}
 
-		for _, model := range models {
+		for _, model := range module.handles[api] {
 			if cfg.Model == model {
 				cfgProto, err := config.ComponentConfigToProto(&cfg)
 				if err != nil {
@@ -189,6 +199,10 @@ func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component, deps
 				mgr.serviceMap[cfg.ResourceName()] = module.conn
 
 				c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
+				if c == nil || c.RPCClient == nil {
+					mgr.logger.Warnf("no known grpc client for modular resource %s", cfg.ResourceName())
+					return rdkgrpc.NewForeignResource(cfg.ResourceName(), module.conn), nil
+				}
 				nameR := cfg.ResourceName().ShortName()
 				resourceClient := c.RPCClient(ctx, module.conn, nameR, mgr.logger)
 				if c.Reconfigurable == nil {
@@ -215,19 +229,20 @@ func depsToNames(deps registry.Dependencies) []string {
 	return depStrings
 }
 
-func checkReady(ctx context.Context, client pb.ModuleServiceClient, addr string) (modlib.HandlerMap, error) {
+func (m *module) checkReady(ctx context.Context, addr string) error {
 	ctxTimeout, cancelFunc := context.WithTimeout(ctx, time.Second*10)
 	defer cancelFunc()
 	for {
 		// TODO (@Otterverse) test if this actually fails on context.Done()
 		req := &pb.ReadyRequest{ParentAddress: addr}
-		resp, err := client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
+		resp, err := m.client.Ready(ctxTimeout, req, grpc_retry.WithMax(5000))
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		if resp.Ready {
-			return modlib.NewHandlerMapFromProto(resp.Handlermap)
+			m.handles, err = modlib.NewHandlerMapFromProto(ctx, resp.Handlermap, m.conn)
+			return err
 		}
 	}
 }
