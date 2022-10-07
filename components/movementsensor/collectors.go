@@ -8,8 +8,6 @@ import (
 	"go.viam.com/rdk/data"
 )
 
-type method int64
-
 // TODO: add tests for this file.
 
 func assertMovementSensor(resource interface{}) (MovementSensor, error) {
