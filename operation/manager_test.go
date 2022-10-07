@@ -111,8 +111,11 @@ func TestSingleOperationManager(t *testing.T) {
 		count := int64(0)
 		fakeMotor := &mockMotor{Name: "testMotor"}
 		som.Stop = fakeMotor
-		ctx = context.Background()
-		err := som.WaitForSuccess(
+		ctx := context.Background()
+
+		ctx, cancel := context.WithCancel(ctx)
+
+		som.WaitForSuccess(
 			ctx,
 			time.Millisecond,
 			func(ctx context.Context) (bool, error) {
@@ -122,20 +125,35 @@ func TestSingleOperationManager(t *testing.T) {
 				return false, nil
 			},
 		)
-		ctx.Done()
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ctx.Err(), test.ShouldBeNil)
-		test.That(t, fakeMotor.stopCount, test.ShouldEqual, 1)
+		cancel()
+		time.Sleep(1000 * time.Millisecond)
+		defer test.That(t, fakeMotor.stopCount, test.ShouldEqual, 1)
+		test.That(t, ctx.Err(), test.ShouldNotBeNil)
 	})
 
 	t.Run("Cancel, ensure stop old stop", func(t *testing.T) {
+		count := int64(0)
 		fakeMotor := &mockMotorOld{Name: "testMotorOld"}
+		som.Stop = nil
 		som.OldStop = fakeMotor
-		ctx, done := som.New(context.Background())
-		done()
+		ctx := context.Background()
 
-		test.That(t, ctx.Err(), test.ShouldBeNil)
-		test.That(t, fakeMotor.stopCount, test.ShouldEqual, 1)
+		ctx, cancel := context.WithCancel(ctx)
+
+		som.WaitForSuccess(
+			ctx,
+			time.Millisecond,
+			func(ctx context.Context) (bool, error) {
+				if atomic.AddInt64(&count, 1) == 5 {
+					return true, nil
+				}
+				return false, nil
+			},
+		)
+		cancel()
+		time.Sleep(1000 * time.Millisecond)
+		defer test.That(t, fakeMotor.stopCount, test.ShouldEqual, 1)
+		test.That(t, ctx.Err(), test.ShouldNotBeNil)
 	})
 }
 
