@@ -79,6 +79,7 @@ do_linux(){
 	export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 	export CC=gcc-11
 	export CXX=g++-11
+	export PATH="$PATH:$(ruby -e 'puts Gem.user_dir')/bin"
 	EOS
 
 	do_brew
@@ -102,6 +103,7 @@ do_darwin(){
 		export CGO_LDFLAGS=-L/opt/homebrew/lib
 		export CGO_CFLAGS=-I/opt/homebrew/include
 		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
+		export PATH="$PATH:$(ruby -e 'puts Gem.user_dir')/bin"
 		EOS
 
   	else # assuming x86_64, but untested
@@ -110,6 +112,7 @@ do_darwin(){
 		eval "\$(/usr/local/bin/brew shellenv)"
 		export LIBRARY_PATH=/usr/local/lib
 		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
+		export PATH="$PATH:$(ruby -e 'puts Gem.user_dir')/bin"
 		EOS
 
 	fi
@@ -151,6 +154,8 @@ check_gcloud_auth(){
 do_brew(){
 	# Install brew
 	brew --version > /dev/null 2>&1 || bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || exit 1
+
+	gem install license_finder --conservative
 
 	# Has to be after the install so the brew eval can run
 	source ~/.viamdevrc

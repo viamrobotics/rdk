@@ -126,7 +126,7 @@ func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 	defaultFileExt := ""
 	switch dataType {
 	case v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		return ".csv"
+		return ".dat"
 	case v1.DataType_DATA_TYPE_FILE:
 		return defaultFileExt
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR:

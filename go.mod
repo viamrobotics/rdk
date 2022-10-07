@@ -18,7 +18,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
 	github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742
-	github.com/edaniels/golog v0.0.0-20220930140416-6e52e83a97fc
+	github.com/edaniels/golog v0.0.0-20221004200432-5f6b7167aca8
 	github.com/edaniels/gostream v0.0.0-20220930164525-b071849c1ad1
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
@@ -73,7 +73,7 @@ require (
 	go.viam.com/api v0.0.0-20221003205706-3eb84cff2681
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
-	go.viam.com/utils v0.0.6-0.20220930162826-7802059812f8
+	go.viam.com/utils v0.0.6-0.20221006163705-ee9434884679
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
 	gonum.org/v1/gonum v0.11.0

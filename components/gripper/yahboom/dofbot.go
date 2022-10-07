@@ -9,6 +9,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	gutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/yahboom"
@@ -21,16 +22,41 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+const modelname = "yahboom-dofbot"
+
+// AttrConfig is the config for a dofbot gripper.
+type AttrConfig struct {
+	Arm string `json:"arm"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *AttrConfig) Validate(path string) error {
+	if config.Arm == "" {
+		return gutils.NewConfigValidationFieldRequiredError(path, "arm")
+	}
+	return nil
+}
+
 func init() {
-	registry.RegisterComponent(gripper.Subtype, "yahboom-dofbot", registry.Component{
+	registry.RegisterComponent(gripper.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newGripper(deps, config)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(gripper.SubtypeName, modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &AttrConfig{})
 }
 
 func newGripper(deps registry.Dependencies, config config.Component) (gripper.LocalGripper, error) {
-	armName := config.Attributes.String("arm")
+	attr, ok := config.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, utils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+	}
+	armName := attr.Arm
 	if armName == "" {
 		return nil, errors.New("yahboom-dofbot gripper needs an arm")
 	}

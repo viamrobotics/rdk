@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	componentpb "go.viam.com/api/component/arm/v1"
-	gutils "go.viam.com/utils"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/board"
@@ -26,6 +26,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 //go:embed dofbot.json
@@ -66,12 +67,38 @@ func (jc jointConfig) toHw(degrees float64) int {
 	return hw
 }
 
+// AttrConfig is the config for a yahboom arm.
+type AttrConfig struct {
+	Board string `json:"board"`
+	I2C   string `json:"i2c"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *AttrConfig) Validate(path string) error {
+	if config.Board == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+
+	if config.I2C == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "i2c")
+	}
+	return nil
+}
+
+const modelname = "yahboom-dofbot"
+
 func init() {
-	registry.RegisterComponent(arm.Subtype, "yahboom-dofbot", registry.Component{
+	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return newDofBot(ctx, r, config, logger)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &AttrConfig{})
 }
 
 // Dofbot implements a yahboom dofbot arm.
@@ -89,18 +116,23 @@ type Dofbot struct {
 func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	var err error
 
+	attr, ok := config.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+	}
+
 	a := Dofbot{}
 	a.logger = logger
 
-	b, err := board.FromRobot(r, config.Attributes.String("board"))
+	b, err := board.FromRobot(r, attr.Board)
 	if err != nil {
 		return nil, err
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
-		return nil, fmt.Errorf("board %s is not local", config.Attributes.String("board"))
+		return nil, fmt.Errorf("board %s is not local", attr.Board)
 	}
-	i2c, ok := localB.I2CByName(config.Attributes.String("i2c"))
+	i2c, ok := localB.I2CByName(attr.I2C)
 	if !ok {
 		return nil, fmt.Errorf("no i2c for yahboom-dofbot arm %s", config.Name)
 	}
@@ -330,7 +362,7 @@ func (a *Dofbot) Grab(ctx context.Context) (bool, error) {
 	}
 
 	// wait a moment to get moving
-	if !gutils.SelectContextOrWait(ctx, 200*time.Millisecond) {
+	if !utils.SelectContextOrWait(ctx, 200*time.Millisecond) {
 		return false, ctx.Err()
 	}
 
@@ -349,7 +381,7 @@ func (a *Dofbot) Grab(ctx context.Context) (bool, error) {
 		}
 		last = current
 
-		if !gutils.SelectContextOrWait(ctx, 20*time.Millisecond) {
+		if !utils.SelectContextOrWait(ctx, 20*time.Millisecond) {
 			return false, ctx.Err()
 		}
 	}
