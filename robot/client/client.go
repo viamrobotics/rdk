@@ -75,6 +75,15 @@ type RobotClient struct {
 // context can be used to cancel the operation.
 func New(ctx context.Context, address string, logger golog.Logger, opts ...RobotClientOption) (*RobotClient, error) {
 	var rOpts robotClientOpts
+
+	rOpts.dialOptions = append(
+		rOpts.dialOptions,
+		// TODO: add method to go.viam.com/utils
+		rpc.WithUnaryClientInterceptor(operation.UnaryClientInterceptor),
+		// TODO: add method to go.viam.com/utils
+		rpc.WithStreamClientInterceptor(operation.StreamClientInterceptor),
+	)
+
 	for _, opt := range opts {
 		opt.apply(&rOpts)
 	}

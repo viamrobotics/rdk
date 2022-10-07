@@ -88,6 +88,11 @@ func (m *Manager) add(op *Operation) {
 	m.ops[op.ID.String()] = op
 }
 
+// TODO: remove this and metadata helpers to this module instead
+func (m *Manager) Add(op *Operation) {
+	m.add(op)
+}
+
 // All returns all running operations.
 func (m *Manager) All() []*Operation {
 	m.lock.Lock()
@@ -127,6 +132,31 @@ func (m *Manager) Create(ctx context.Context, method string, args interface{}) (
 
 	op := &Operation{
 		ID:        uuid.New(),
+		Method:    method,
+		Arguments: args,
+		Started:   time.Now(),
+		myManager: m,
+	}
+	ctx = context.WithValue(ctx, opidKey, op)
+	ctx, op.cancel = context.WithCancel(ctx)
+	m.add(op)
+
+	return ctx, func() { op.cleanup() }
+}
+
+func (m *Manager) createWithID(ctx context.Context, id uuid.UUID, method string, args interface{}) (context.Context, func()) {
+	if ctx.Value(opidKey) != nil {
+		panic("operations cannot be nested")
+	}
+
+	for _, val := range methodPrefixesToFilter {
+		if strings.HasPrefix(method, val) {
+			return ctx, func() {}
+		}
+	}
+
+	op := &Operation{
+		ID:        id,
 		Method:    method,
 		Arguments: args,
 		Started:   time.Now(),
