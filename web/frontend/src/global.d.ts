@@ -1,4 +1,4 @@
-/* eslint-disable spaced-comment */
+/* eslint-disable spaced-comment, multiline-comment-style */
 /// <reference types="@types/google.maps" />
 /// <reference types="@cypress" />
 /// <reference types="vite/client" />
@@ -34,21 +34,26 @@ declare global {
     genericService: import('./gen/proto/api/component/generic/v1/generic_pb_service.esm').GenericServiceClient;
     gripperService: import('./gen/proto/api/component/gripper/v1/gripper_pb_service.esm').GripperServiceClient;
     gpsService: import('./gen/proto/api/component/gps/v1/gps_pb_service.esm').GPSServiceClient;
-    inputControllerService: import('./gen/proto/api/component/inputcontroller/v1/input_controller_pb_service.esm').InputControllerServiceClient;
-    movementsensorService: import('./gen/proto/api/component/movementsensor/v1/movementsensor_pb_service.esm').MovementSensorServiceClient;
+    inputControllerService: import('./gen/proto/api/component/inputcontroller/v1/input_controller_pb_service.esm')
+    .InputControllerServiceClient;
+    movementsensorService: import('./gen/proto/api/component/movementsensor/v1/movementsensor_pb_service.esm')
+    .MovementSensorServiceClient;
     motorService: import('./gen/proto/api/component/motor/v1/motor_pb_service.esm').MotorServiceClient;
-    navigationService: import('./gen/proto/api/service/navigation/v1/navigation_pb_service.esm').NavigationServiceClient;
+    navigationService: import('./gen/proto/api/service/navigation/v1/navigation_pb_service.esm')
+    .NavigationServiceClient;
     motionService: import('./gen/proto/api/service/motion/v1/motion_pb_service.esm').MotionServiceClient;
     visionService: import('./gen/proto/api/service/vision/v1/vision_pb_service.esm').VisionServiceClient;
     sensorsService: import('./gen/proto/api/service/sensors/v1/sensors_pb_service.esm').SensorsServiceClient;
     servoService: import('./gen/proto/api/component/servo/v1/servo_pb_service.esm').ServoServiceClient;
-    slamService: import('./gen/proto/api/service/slam/v1/slam_pb_service.esm').SLAMServiceClient;            
+    slamService: import('./gen/proto/api/service/slam/v1/slam_pb_service.esm').SLAMServiceClient;
 
     // Google
     googleMapsInit: () => void;
 
-    // Our variables. @TODO: Remove most if not all of these. Do not add more.
-    // This is an anti-pattern.
+    /*
+     * Our variables. @TODO: Remove most if not all of these. Do not add more.
+     * This is an anti-pattern.
+     */
     bakedAuth: {
       authEntity: string;
       creds: import('@viamrobotics/rpc/src/dial').Credentials;

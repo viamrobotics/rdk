@@ -2,7 +2,9 @@
 
 import { onMounted, onUnmounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
-import movementsensorApi, { type GetPropertiesResponse } from '../gen/proto/api/component/movementsensor/v1/movementsensor_pb.esm';
+import movementsensorApi, {
+  type GetPropertiesResponse,
+} from '../gen/proto/api/component/movementsensor/v1/movementsensor_pb.esm';
 import type { GeoPoint, Orientation, Vector3 } from '../gen/proto/api/common/v1/common_pb.esm';
 import { displayError } from '../lib/error';
 
@@ -102,11 +104,11 @@ const refresh = async () => {
     });
   }
 
-  refreshId = setTimeout(refresh, 500);
+  refreshId = window.setTimeout(refresh, 500);
 };
 
 onMounted(() => {
-  refreshId = setTimeout(refresh, 500);
+  refreshId = window.setTimeout(refresh, 500);
 });
 
 onUnmounted(() => {
@@ -206,7 +208,7 @@ onUnmounted(() => {
             </tr>
           </table>
         </div>
-              
+
         <div
           v-if="properties.angularVelocitySupported"
           class="mr-4 w-1/4"

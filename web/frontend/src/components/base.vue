@@ -35,20 +35,11 @@ const movementType = ref<MovementTypes>('Continuous');
 const direction = ref<Directions>('Forwards');
 const spinType = ref<SpinTypes>('Clockwise');
 const increment = ref(1000);
-const speed = ref(200); // straight mm/s
-const spinSpeed = ref(90); // spin deg/s
+// straight mm/s
+const speed = ref(200);
+// deg/s
+const spinSpeed = ref(90);
 const angle = ref(0);
-
-const handleTabSelect = (tab: Tabs) => {
-  selectedItem.value = tab;
-
-  if (tab === 'Keyboard') {
-    viewPreviewCamera(props.name, true);
-  } else {
-    viewPreviewCamera(props.name, false);
-    resetDiscreteState();
-  }
-};
 
 const resetDiscreteState = () => {
   movementMode.value = 'Straight';
@@ -73,6 +64,52 @@ const setDirection = (dir: Directions) => {
   direction.value = dir;
 };
 
+const handleBaseActionStop = (name: string) => {
+  const req = new baseApi.StopRequest();
+  req.setName(name);
+  window.baseService.stop(req, new grpc.Metadata(), displayError);
+};
+
+const baseKeyboardCtl = (name: string, controls: Record<string, boolean>) => {
+  if (Object.values(controls).every((item) => item === false)) {
+    handleBaseActionStop(name);
+    return;
+  }
+
+  const inputs = computeKeyboardBaseControls(controls);
+  const linear = new commonApi.Vector3();
+  const angular = new commonApi.Vector3();
+  linear.setY(inputs.linear);
+  angular.setZ(inputs.angular);
+  BaseControlHelper.setPower(name, linear, angular, displayError);
+};
+
+const handleBaseStraight = (name: string, event: {
+  distance: number
+  speed: number
+  direction: number
+  movementType: MovementTypes
+}) => {
+  if (event.movementType === 'Continuous') {
+    const linear = new commonApi.Vector3();
+    linear.setY(event.speed * event.direction);
+
+    BaseControlHelper.setVelocity(
+      name,
+      linear,
+      new commonApi.Vector3(),
+      displayError
+    );
+  } else {
+    BaseControlHelper.moveStraight(
+      name,
+      event.distance,
+      event.speed * event.direction,
+      displayError
+    );
+  }
+};
+
 const baseRun = () => {
   if (movementMode.value === 'Spin') {
     BaseControlHelper.spin(
@@ -93,52 +130,6 @@ const baseRun = () => {
   }
 };
 
-const baseKeyboardCtl = (name: string, controls: Record<string, boolean>) => {
-  if (Object.values(controls).every((item) => item === false)) {
-    handleBaseActionStop(name);
-    return;
-  }
-
-  const inputs = computeKeyboardBaseControls(controls);
-  const linear = new commonApi.Vector3();
-  const angular = new commonApi.Vector3();
-  linear.setY(inputs.linear);
-  angular.setZ(inputs.angular);
-  BaseControlHelper.setPower(name, linear, angular, displayError);
-};
-
-const handleBaseActionStop = (name: string) => {
-  const req = new baseApi.StopRequest();
-  req.setName(name);
-  window.baseService.stop(req, new grpc.Metadata(), displayError);
-};
-
-const handleBaseStraight = (name: string, event: {
-  distance: number
-  speed: number
-  direction: number
-  movementType: MovementTypes
-}) => {
-  if (event.movementType === 'Continuous') {
-    const linear = new commonApi.Vector3();
-    linear.setY(event.speed * event.direction);
-
-    BaseControlHelper.setVelocity(
-      name,
-      linear, // linear
-      new commonApi.Vector3(), // angular
-      displayError
-    );
-  } else {
-    BaseControlHelper.moveStraight(
-      name,
-      event.distance,
-      event.speed * event.direction,
-      displayError
-    );
-  }
-};
-
 const viewPreviewCamera = (name: string, isOn: boolean) => {
   if (isOn) {
     const req = new streamApi.AddStreamRequest();
@@ -152,9 +143,21 @@ const viewPreviewCamera = (name: string, isOn: boolean) => {
   window.streamService.removeStream(req, new grpc.Metadata(), displayError);
 };
 
+const handleTabSelect = (tab: Tabs) => {
+  selectedItem.value = tab;
+
+  if (tab === 'Keyboard') {
+    viewPreviewCamera(props.name, true);
+  } else {
+    viewPreviewCamera(props.name, false);
+    resetDiscreteState();
+  }
+};
+
 const handleSelectCamera = (event: string) => {
   emit('showcamera', event);
 };
+
 </script>
 
 <template>
