@@ -27,20 +27,20 @@ export const fixArmStatus = (old: {
     ['o_y', 'OY'],
     ['o_z', 'OZ'],
   ];
-  
+
   for (const fieldSetter of fieldSetters) {
-    const endPositionField = fieldSetter[0];
+    const [endPositionField] = fieldSetter;
     newStatus.pos_pieces.push(
-      { 
+      {
         endPosition: fieldSetter,
-        endPositionValue: old.end_position[endPositionField] || 0,
+        endPositionValue: old.end_position[endPositionField!] || 0,
       }
     );
   }
 
-  for (let j = 0; j < old.joint_positions.values.length; j++) {
+  for (let j = 0; j < old.joint_positions.values.length; j += 1) {
     newStatus.joint_pieces.push(
-      { 
+      {
         joint: j,
         jointValue: old.joint_positions.values[j] || 0,
       }
@@ -75,14 +75,14 @@ export const fixGantryStatus = (old: {
   };
 
   if (old.lengths_mm.length !== old.positions_mm.length) {
-    throw 'gantry lists different lengths';
+    throw new Error('gantry lists different lengths');
   }
 
-  for (let i = 0; i < old.lengths_mm.length; i++) {
+  for (let i = 0; i < old.lengths_mm.length; i += 1) {
     newStatus.parts.push({
       axis: i,
-      pos: old.positions_mm[i],
-      length: old.lengths_mm[i],
+      pos: old.positions_mm[i]!,
+      length: old.lengths_mm[i]!,
     });
   }
 

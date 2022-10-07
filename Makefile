@@ -52,8 +52,11 @@ lint-go: tool-install
 	export pkgs="`go list $(GO_BUILD_TAGS) -f '{{.Dir}}' ./... | grep -v /proto/`" && echo "$$pkgs" | xargs go vet $(GO_BUILD_TAGS) -vettool=$(TOOL_BIN)/combined
 	GOGC=50 $(TOOL_BIN)/golangci-lint run $(LINT_BUILD_TAGS) -v --fix --config=./etc/.golangci.yaml
 
-lint-web: buf-web
-	cd web/frontend && npm ci --audit=false && npm run rollup && npm run lint
+lint-web:
+	npm run lint --prefix web/frontend
+
+typecheck-web:
+	npm run typecheck --prefix web/frontend
 
 cover:
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
@@ -63,8 +66,8 @@ test: test-go test-web
 test-go:
 	./etc/test.sh
 
-test-web: build-web
-	cd web/frontend && npm run test:unit
+test-web:
+	npm run test:unit --prefix web/frontend
 
 # test.short skips tests requiring external hardware (motors/servos)
 test-pi:
