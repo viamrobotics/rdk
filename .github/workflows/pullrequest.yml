@@ -30,7 +30,7 @@ jobs:
 
   eslint:
     # Ignore adding a new label not Deploy
-    if: contains(fromJson('["opened", "synchronize", "reopened"]'), github.event.action) || contains(github.event.pull_request.labels.*.name, 'Deploy')
+    if: contains(fromJson('["opened", "synchronize", "reopened"]'), github.event.action)
     name: ESLint
     timeout-minutes: 5
     runs-on: [self-hosted, x64]
@@ -46,7 +46,7 @@ jobs:
 
   typecheck:
     # Ignore adding a new label not Deploy
-    if: contains(fromJson('["opened", "synchronize", "reopened"]'), github.event.action) || contains(github.event.pull_request.labels.*.name, 'Deploy')
+    if: contains(fromJson('["opened", "synchronize", "reopened"]'), github.event.action)
     name: Typescript
     timeout-minutes: 5
     runs-on: [self-hosted, x64]
