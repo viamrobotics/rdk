@@ -13,7 +13,7 @@ import (
 )
 
 func TestGainConfig(t *testing.T) {
-	logger := golog.NewDevelopmentLogger("gain")
+	logger := golog.NewDebugLogger("gain")
 	for _, c := range []struct {
 		conf BlockConfig
 		err  string
@@ -66,7 +66,7 @@ func TestGainConfig(t *testing.T) {
 
 func TestGainNext(t *testing.T) {
 	ctx := context.Background()
-	logger := golog.NewDevelopmentLogger("gain")
+	logger := golog.NewDebugLogger("gain")
 	c := BlockConfig{
 		Name: "Gain1",
 		Type: "gain",

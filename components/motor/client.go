@@ -6,10 +6,10 @@ import (
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/motor/v1"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/protoutils"
 )
 
 // client implements MotorServiceClient.

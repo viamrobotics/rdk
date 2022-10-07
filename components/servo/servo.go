@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -36,6 +37,10 @@ func init() {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: position.String(),
+	}, newPositionCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "servo".

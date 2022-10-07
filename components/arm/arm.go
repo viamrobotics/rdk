@@ -53,7 +53,7 @@ func init() {
 	}, newEndPositionCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    SubtypeName,
-		MethodName: getJointPositions.String(),
+		MethodName: jointPositions.String(),
 	}, newJointPositionsCollector)
 }
 

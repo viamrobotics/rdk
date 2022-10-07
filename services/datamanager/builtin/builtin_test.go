@@ -52,7 +52,7 @@ var (
 
 	syncIntervalMins   = 0.0041 // 250ms
 	captureDir         = "/tmp/capture"
-	armDir             = captureDir + "/arm/arm1/GetEndPosition"
+	armDir             = captureDir + "/arm/arm1/EndPosition"
 	emptyFileBytesSize = 30 // size of leading metadata message
 )
 
@@ -166,7 +166,7 @@ func TestNewDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Check that a collector wrote to file.
-	armDir := captureDir + "/arm/arm1/GetEndPosition"
+	armDir := captureDir + "/arm/arm1/EndPosition"
 	filesInArmDir, err := readDir(t, armDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
@@ -216,7 +216,7 @@ func TestCaptureDisabled(t *testing.T) {
 	time.Sleep(captureWaitTime)
 
 	// Verify that the collector wrote to its file.
-	armDir := captureDir + "/arm/arm1/GetEndPosition"
+	armDir := captureDir + "/arm/arm1/EndPosition"
 	filesInArmDir, err := readDir(t, armDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
@@ -263,7 +263,7 @@ func TestNewRemoteDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Verify that the local and remote collectors wrote to their files.
-	localArmDir := captureDir + "/arm/localArm/GetEndPosition"
+	localArmDir := captureDir + "/arm/localArm/EndPosition"
 	filesInLocalArmDir, err := readDir(t, localArmDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInLocalArmDir), test.ShouldEqual, 1)
@@ -271,7 +271,7 @@ func TestNewRemoteDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, info.Size(), test.ShouldBeGreaterThan, 0)
 
-	remoteArmDir := captureDir + "/arm/remoteArm/GetEndPosition"
+	remoteArmDir := captureDir + "/arm/remoteArm/EndPosition"
 	filesInRemoteArmDir, err := readDir(t, remoteArmDir)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInRemoteArmDir), test.ShouldEqual, 1)
@@ -623,7 +623,7 @@ func TestScheduledSync(t *testing.T) {
 
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
-	armDir := captureDir + "/arm/arm1/GetEndPosition"
+	armDir := captureDir + "/arm/arm1/EndPosition"
 
 	// Clear the capture dir after we're done.
 	defer resetFolder(t, armDir)
@@ -674,7 +674,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 
 	// Make the captureDir where we're logging data for our arm.
 	captureDir := "/tmp/capture"
-	armDir := captureDir + "/arm/arm1/GetEndPosition"
+	armDir := captureDir + "/arm/arm1/EndPosition"
 	defer resetFolder(t, armDir)
 
 	// Initialize the data manager and update it with our config.
@@ -783,7 +783,7 @@ func TestAdditionalParamsInConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(captureWaitTime)
 
-	filesInCamDir, err := readDir(t, captureDir+"/camera/c1/Next")
+	filesInCamDir, err := readDir(t, captureDir+"/camera/c1/ReadImage")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(filesInCamDir), test.ShouldEqual, 1)
 	info, err := filesInCamDir[0].Info()

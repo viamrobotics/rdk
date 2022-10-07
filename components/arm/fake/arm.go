@@ -21,15 +21,33 @@ import (
 //go:embed static_arm_model.json
 var armModelJSON []byte
 
+const modelname = "fake"
+
+// AttrConfig is the config for a fake arm.
+type AttrConfig struct {
+	FailNew bool `json:"fail_new"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *AttrConfig) Validate(path string) error {
+	if config.FailNew {
+		return errors.New("whoops")
+	}
+	return nil
+}
+
 func init() {
-	registry.RegisterComponent(arm.Subtype, "fake", registry.Component{
-		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			if config.Attributes.Bool("fail_new", false) {
-				return nil, errors.New("whoops")
-			}
-			return NewArm(config)
+	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
+		Constructor: func(ctx context.Context, _ registry.Dependencies, cfg config.Component, logger golog.Logger) (interface{}, error) {
+			return NewArm(cfg)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &AttrConfig{})
 }
 
 // NewArm returns a new fake arm.

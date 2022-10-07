@@ -7,7 +7,6 @@ import (
 	_ "embed"
 	"fmt"
 	"math"
-	"strconv"
 	"sync"
 	"time"
 
@@ -29,6 +28,12 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	rdkutils "go.viam.com/rdk/utils"
+)
+
+const (
+	modelNameWX250s = "trossen-wx250s"
+	modelNameVX300s = "trossen-vx300s"
 )
 
 // SleepAngles are the angles we go to to prepare to turn off torque.
@@ -92,8 +97,8 @@ func getPortMutex(port string) *sync.Mutex {
 // AttrConfig is used for converting Arm config attributes.
 type AttrConfig struct {
 	UsbPort       string `json:"serial_path"`
-	BaudRate      string `json:"serial_baud_rate"`
-	ArmServoCount string `json:"arm_servo_count"`
+	BaudRate      int    `json:"serial_baud_rate"`
+	ArmServoCount int    `json:"arm_servo_count"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -101,10 +106,10 @@ func (config *AttrConfig) Validate(path string) error {
 	if len(config.UsbPort) == 0 {
 		return errors.New("expected nonempty serial_path")
 	}
-	if len(config.BaudRate) == 0 {
+	if config.BaudRate == 0 {
 		return errors.New("expected nonempty serial_baud_rate")
 	}
-	if len(config.ArmServoCount) == 0 {
+	if config.ArmServoCount == 0 {
 		return errors.New("expected nonempty arm_servo_count")
 	}
 
@@ -118,23 +123,39 @@ var wx250smodeljson []byte
 var vx300smodeljson []byte
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, "trossen-wx250s", registry.Component{
+	registry.RegisterComponent(arm.Subtype, modelNameWX250s, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewArm(r, config, logger, wx250smodeljson)
 		},
 	})
-	registry.RegisterComponent(arm.Subtype, "trossen-vx300s", registry.Component{
+
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, modelNameWX250s,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &AttrConfig{})
+
+	registry.RegisterComponent(arm.Subtype, modelNameVX300s, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewArm(r, config, logger, vx300smodeljson)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, modelNameVX300s,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &AttrConfig{})
 }
 
 // NewArm returns an instance of Arm given a model json.
 func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger, json []byte) (arm.LocalArm, error) {
-	attributes := cfg.Attributes
-	usbPort := attributes.String("serial_path")
-	servos, err := findServos(usbPort, attributes.String("serial_baud_rate"), attributes.String("arm_servo_count"))
+	attributes, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(attributes, cfg.ConvertedAttributes)
+	}
+	usbPort := attributes.UsbPort
+	servos, err := findServos(usbPort, attributes.BaudRate, attributes.ArmServoCount)
 	if err != nil {
 		return nil, err
 	}
@@ -501,14 +522,12 @@ func setServoDefaults(newServo *servo.Servo) error {
 
 // findServos finds the specified number of Dynamixel servos on the specified USB port
 // we are going to hardcode some USB parameters that we will literally never want to change.
-func findServos(usbPort, baudRateStr, armServoCountStr string) ([]*servo.Servo, error) {
-	baudRate, err := strconv.Atoi(baudRateStr)
-	if err != nil {
-		return nil, errors.Wrap(err, "mangled baudrate")
+func findServos(usbPort string, baudRate, armServoCount int) ([]*servo.Servo, error) {
+	if baudRate == 0 {
+		return nil, errors.New("non-zero serial_baud_rate expected")
 	}
-	armServoCount, err := strconv.Atoi(armServoCountStr)
-	if err != nil {
-		return nil, errors.Wrap(err, "mangled servo count")
+	if armServoCount == 0 {
+		return nil, errors.New("non-zero arm_servo_coun expected")
 	}
 
 	options := serial.OpenOptions{

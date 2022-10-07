@@ -58,6 +58,11 @@ func MergePointCloudsWithColor(clusters []PointCloud) (PointCloud, error) {
 
 // BoundingBoxFromPointCloud returns a Geometry object that encompasses all the points in the given point cloud.
 func BoundingBoxFromPointCloud(cloud PointCloud) (spatialmath.Geometry, error) {
+	return BoundingBoxFromPointCloudWithLabel(cloud, "")
+}
+
+// BoundingBoxFromPointCloudWithLabel returns a Geometry object that encompasses all the points in the given point cloud.
+func BoundingBoxFromPointCloudWithLabel(cloud PointCloud, label string) (spatialmath.Geometry, error) {
 	if cloud.Size() == 0 {
 		return nil, nil
 	}
@@ -78,7 +83,7 @@ func BoundingBoxFromPointCloud(cloud PointCloud) (spatialmath.Geometry, error) {
 	mean := r3.Vector{x / n, y / n, z / n}
 
 	// calculate the dimensions of the bounding box formed by finding the dimensions of each axes' extrema
-	return spatialmath.NewBox(spatialmath.NewPoseFromPoint(mean), dims)
+	return spatialmath.NewBox(spatialmath.NewPoseFromPoint(mean), dims, label)
 }
 
 // PrunePointClouds removes point clouds from a slice if the point cloud has less than nMin points.

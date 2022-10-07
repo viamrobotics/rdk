@@ -25,6 +25,7 @@ type Geometry interface {
 	CollidesWith(Geometry) (bool, error)
 	DistanceFrom(Geometry) (float64, error)
 	EncompassedBy(Geometry) (bool, error)
+	Label() string
 }
 
 // GeometryType defines what geometry creator representations are known.
@@ -42,7 +43,7 @@ const (
 type GeometryConfig struct {
 	Type GeometryType `json:"type"`
 
-	// parameters used for defining a box's rectangular cross section
+	// parameters used for defining a box's rectangular cross-section
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 	Z float64 `json:"z"`
@@ -53,6 +54,8 @@ type GeometryConfig struct {
 	// define an offset to position the geometry
 	TranslationOffset TranslationConfig `json:"translation"`
 	OrientationOffset OrientationConfig `json:"orientation"`
+
+	Label string
 }
 
 // NewGeometryConfig creates a config for a Geometry from an offset Pose.
@@ -64,11 +67,14 @@ func NewGeometryConfig(gc GeometryCreator) (*GeometryConfig, error) {
 		config.X = gc.(*boxCreator).halfSize.X * 2
 		config.Y = gc.(*boxCreator).halfSize.Y * 2
 		config.Z = gc.(*boxCreator).halfSize.Z * 2
+		config.Label = gc.(*boxCreator).label
 	case *sphereCreator:
 		config.Type = SphereType
 		config.R = gc.(*sphereCreator).radius
+		config.Label = gc.(*sphereCreator).label
 	case *pointCreator:
 		config.Type = PointType
+		config.Label = gc.(*pointCreator).label
 	default:
 		return nil, fmt.Errorf("%w %s", ErrGeometryTypeUnsupported, fmt.Sprintf("%T", gcType))
 	}
@@ -95,17 +101,17 @@ func (config *GeometryConfig) ParseConfig() (GeometryCreator, error) {
 	// build GeometryCreator depending on specified type
 	switch config.Type {
 	case BoxType:
-		return NewBoxCreator(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset)
+		return NewBoxCreator(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset, config.Label)
 	case SphereType:
-		return NewSphereCreator(config.R, offset)
+		return NewSphereCreator(config.R, offset, config.Label)
 	case PointType:
-		return NewPointCreator(offset), nil
+		return NewPointCreator(offset, config.Label), nil
 	case UnknownType:
 		// no type specified, iterate through supported types and try to infer intent
-		if creator, err := NewBoxCreator(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset); err == nil {
+		if creator, err := NewBoxCreator(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset, config.Label); err == nil {
 			return creator, nil
 		}
-		if creator, err := NewSphereCreator(config.R, offset); err == nil {
+		if creator, err := NewSphereCreator(config.R, offset, config.Label); err == nil {
 			return creator, nil
 		}
 		// never try to infer point geometry if nothing is specified
@@ -113,17 +119,17 @@ func (config *GeometryConfig) ParseConfig() (GeometryCreator, error) {
 	return nil, fmt.Errorf("%w %s", ErrGeometryTypeUnsupported, string(config.Type))
 }
 
-// NewGeometryFromProto instatiates a new Geometry from a protobuf Geometry message.
+// NewGeometryFromProto instantiates a new Geometry from a protobuf Geometry message.
 func NewGeometryFromProto(geometry *commonpb.Geometry) (Geometry, error) {
 	pose := NewPoseFromProtobuf(geometry.Center)
 	if box := geometry.GetBox().GetDimsMm(); box != nil {
-		return NewBox(pose, r3.Vector{X: box.X, Y: box.Y, Z: box.Z})
+		return NewBox(pose, r3.Vector{X: box.X, Y: box.Y, Z: box.Z}, geometry.Label)
 	}
 	if sphere := geometry.GetSphere(); sphere != nil {
 		if sphere.RadiusMm == 0 {
-			return NewPoint(pose.Point()), nil
+			return NewPoint(pose.Point(), geometry.Label), nil
 		}
-		return NewSphere(pose.Point(), sphere.RadiusMm)
+		return NewSphere(pose.Point(), sphere.RadiusMm, geometry.Label)
 	}
 	return nil, ErrGeometryTypeUnsupported
 }

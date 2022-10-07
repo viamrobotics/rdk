@@ -11,11 +11,11 @@ import (
 	pb "go.viam.com/api/service/vision/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/camera"
 	_ "go.viam.com/rdk/components/camera/register"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
