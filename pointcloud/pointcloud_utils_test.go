@@ -49,12 +49,13 @@ func TestBoundingBoxFromPointCloud(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		expectedBox, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(c.expectedCenter), c.expectedDims)
+		expectedBox, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(c.expectedCenter), c.expectedDims, "")
 		test.That(t, err, test.ShouldBeNil)
-		box, err := BoundingBoxFromPointCloud(c.pc)
+		box, err := BoundingBoxFromPointCloudWithLabel(c.pc, "box")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, box, test.ShouldNotBeNil)
 		test.That(t, box.AlmostEqual(expectedBox), test.ShouldBeTrue)
+		test.That(t, box.Label(), test.ShouldEqual, "box")
 	}
 }
 

@@ -14,26 +14,28 @@ import (
 type boxCreator struct {
 	halfSize r3.Vector
 	pointCreator
+	label string
 }
 
 // box is a collision geometry that represents a 3D rectangular prism, it has a pose and half size that fully define it.
 type box struct {
 	pose     Pose
 	halfSize [3]float64
+	label    string
 }
 
 // NewBoxCreator instantiates a BoxCreator class, which allows instantiating boxes given only a pose which is applied
 // at the specified offset from the pose. These boxes have dimensions given by the provided halfSize vector.
-func NewBoxCreator(dims r3.Vector, offset Pose) (GeometryCreator, error) {
+func NewBoxCreator(dims r3.Vector, offset Pose, label string) (GeometryCreator, error) {
 	if dims.X <= 0 || dims.Y <= 0 || dims.Z <= 0 {
 		return nil, newBadGeometryDimensionsError(&box{})
 	}
-	return &boxCreator{dims.Mul(0.5), pointCreator{offset}}, nil
+	return &boxCreator{dims.Mul(0.5), pointCreator{offset, label}, label}, nil
 }
 
 // NewGeometry instantiates a new box from a BoxCreator class.
 func (bc *boxCreator) NewGeometry(pose Pose) Geometry {
-	return &box{Compose(bc.offset, pose), [3]float64{bc.halfSize.X, bc.halfSize.Y, bc.halfSize.Z}}
+	return &box{Compose(bc.offset, pose), [3]float64{bc.halfSize.X, bc.halfSize.Y, bc.halfSize.Z}, bc.label}
 }
 
 func (bc *boxCreator) MarshalJSON() ([]byte, error) {
@@ -45,11 +47,16 @@ func (bc *boxCreator) MarshalJSON() ([]byte, error) {
 }
 
 // NewBox instantiates a new box Geometry.
-func NewBox(pose Pose, dims r3.Vector) (Geometry, error) {
+func NewBox(pose Pose, dims r3.Vector, label string) (Geometry, error) {
 	if dims.X < 0 || dims.Y < 0 || dims.Z < 0 {
 		return nil, newBadGeometryDimensionsError(&box{})
 	}
-	return &box{pose, [3]float64{0.5 * dims.X, 0.5 * dims.Y, 0.5 * dims.Z}}, nil
+	return &box{pose, [3]float64{0.5 * dims.X, 0.5 * dims.Y, 0.5 * dims.Z}, label}, nil
+}
+
+// Label returns the label of the box.
+func (b *box) Label() string {
+	return b.label
 }
 
 // Pose returns the pose of the box.
@@ -87,10 +94,10 @@ func (b *box) AlmostEqual(g Geometry) bool {
 
 // Transform premultiplies the box pose with a transform, allowing the box to be moved in space.
 func (b *box) Transform(toPremultiply Pose) Geometry {
-	return &box{Compose(toPremultiply, b.pose), b.halfSize}
+	return &box{Compose(toPremultiply, b.pose), b.halfSize, b.label}
 }
 
-// ToProto converts the box to a Geometry proto message.
+// ToProtobuf converts the box to a Geometry proto message.
 func (b *box) ToProtobuf() *commonpb.Geometry {
 	return &commonpb.Geometry{
 		Center: PoseToProtobuf(b.pose),
@@ -101,6 +108,7 @@ func (b *box) ToProtobuf() *commonpb.Geometry {
 				Z: 2 * b.halfSize[2],
 			}},
 		},
+		Label: b.label,
 	}
 }
 
@@ -118,7 +126,6 @@ func (b *box) CollidesWith(g Geometry) (bool, error) {
 	return true, newCollisionTypeUnsupportedError(b, g)
 }
 
-// CollidesWith checks if the given box collides with the given geometry and returns true if it does.
 func (b *box) DistanceFrom(g Geometry) (float64, error) {
 	if other, ok := g.(*box); ok {
 		return boxVsBoxDistance(b, other), nil
