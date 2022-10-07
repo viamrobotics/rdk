@@ -51,18 +51,7 @@ export const filterResources = (resources: Resource[], namespace: string, type: 
 };
 
 export const filterNonRemoteResources = (resources: Resource[], namespace: string, type: string, subtype: string) => {
-  const results = [];
-  for (const resource of resources) {
-    if (
-      resource.namespace === namespace &&
-      resource.type === type &&
-      resource.subtype === subtype &&
-      !resource.name.includes(":")
-    ) {
-      results.push(resource);
-    }
-  }
-  return results.sort(sortByName);
+  return filterResources(resources, namespace, type, subtype).filter(resource => !resource.name.includes(':'));
 };
 
 export const filterRdkComponentsWithStatus = (
