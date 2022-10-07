@@ -32,10 +32,6 @@
     "forceConsistentCasingInFileNames": true,
     "importsNotUsedAsValues": "error",
     "sourceMap": true,
-    "baseUrl": "./",
-    "paths": {
-      "@/*": ["src/*"],
-    },
     "lib": [
       "ESNext",
       "DOM",
@@ -43,10 +39,6 @@
       "scripthost"
     ]
   },
-  "exclude": [
-    "node_modules",
-    "gen/proto",
-    "tests/unit"
-  ],
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.vue"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

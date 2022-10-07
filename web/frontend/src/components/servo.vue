@@ -26,10 +26,18 @@ const move = (amount: number) => {
   const oldAngle = servo.positionDeg ?? 0;
   const angle = oldAngle + amount;
 
+  console.log(props.name, angle);
+
   const req = new servoApi.MoveRequest();
   req.setName(props.name);
   req.setAngleDeg(angle);
-  window.servoService.move(req, new grpc.Metadata(), displayError);
+  window.servoService.move(req, new grpc.Metadata(), (error, response) => {
+    if (error) {
+      return displayError(error);
+    }
+
+    console.log(response);
+  });
 };
 
 </script>

@@ -42,7 +42,7 @@ jobs:
     - name: Install modules & generate protos
       run: make buf-web
     - name: Run ESLint
-      run: npm run lint --prefix web/frontend
+      run: make lint-web
 
   typecheck:
     # Ignore adding a new label not Deploy
@@ -58,4 +58,4 @@ jobs:
     - name: Install modules & generate protos
       run: make buf-web
     - name: Run Typecheck
-      run: npm run check --prefix web/frontend
+      run: make typecheck-web
