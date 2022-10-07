@@ -14,26 +14,28 @@ import (
 type sphereCreator struct {
 	radius float64
 	pointCreator
+	label string
 }
 
 // sphere is a collision geometry that represents a sphere, it has a pose and a radius that fully define it.
 type sphere struct {
 	pose   Pose
 	radius float64
+	label  string
 }
 
 // NewSphereCreator instantiates a SphereCreator class, which allows instantiating spheres given only a pose which is applied
 // at the specified offset from the pose. These spheres have a radius specified by the radius argument.
-func NewSphereCreator(radius float64, offset Pose) (GeometryCreator, error) {
+func NewSphereCreator(radius float64, offset Pose, label string) (GeometryCreator, error) {
 	if radius <= 0 {
 		return nil, newBadGeometryDimensionsError(&sphere{})
 	}
-	return &sphereCreator{radius, pointCreator{offset}}, nil
+	return &sphereCreator{radius, pointCreator{offset, label}, label}, nil
 }
 
 // NewGeometry instantiates a new sphere from a SphereCreator class.
 func (sc *sphereCreator) NewGeometry(pose Pose) Geometry {
-	return &sphere{Compose(sc.offset, pose), sc.radius}
+	return &sphere{Compose(sc.offset, pose), sc.radius, sc.label}
 }
 
 func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
@@ -47,11 +49,16 @@ func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
 }
 
 // NewSphere instantiates a new sphere Geometry.
-func NewSphere(pt r3.Vector, radius float64) (Geometry, error) {
+func NewSphere(pt r3.Vector, radius float64, label string) (Geometry, error) {
 	if radius < 0 {
 		return nil, newBadGeometryDimensionsError(&sphere{})
 	}
-	return &sphere{NewPoseFromPoint(pt), radius}, nil
+	return &sphere{NewPoseFromPoint(pt), radius, label}, nil
+}
+
+// Label returns the label of the sphere.
+func (s *sphere) Label() string {
+	return s.label
 }
 
 // Pose returns the pose of the sphere.
@@ -76,7 +83,7 @@ func (s *sphere) AlmostEqual(g Geometry) bool {
 
 // Transform premultiplies the sphere pose with a transform, allowing the sphere to be moved in space.
 func (s *sphere) Transform(toPremultiply Pose) Geometry {
-	return &sphere{Compose(toPremultiply, s.pose), s.radius}
+	return &sphere{Compose(toPremultiply, s.pose), s.radius, s.label}
 }
 
 // ToProto converts the sphere to a Geometry proto message.

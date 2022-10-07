@@ -47,7 +47,7 @@ func TestCheckCollisions(t *testing.T) {
 	//      - a collision between two internal geometries
 	//      - a collision between an internal and external geometry
 	//      - no collision between two external geometries
-	bc1, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, spatial.NewZeroPose())
+	bc1, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, spatial.NewZeroPose(), "")
 	test.That(t, err, test.ShouldBeNil)
 	robot := make(map[string]spatial.Geometry)
 	robot["robotCube000"] = bc1.NewGeometry(spatial.NewZeroPose())

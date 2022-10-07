@@ -20,31 +20,14 @@ import (
 
 var _ = board.LocalBoard(&Board{})
 
-const modelName = "fake"
-
-func init() {
-	registry.RegisterComponent(
-		board.Subtype,
-		modelName,
-		registry.Component{Constructor: func(
-			ctx context.Context,
-			_ registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			if config.Attributes.Bool("fail_new", false) {
-				return nil, errors.New("whoops")
-			}
-			return NewBoard(ctx, config, logger)
-		}})
-	config.RegisterComponentAttributeMapConverter(
-		board.SubtypeName,
-		modelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&Config{})
+// A Config describes the configuration of an arduino board and all of its connected parts.
+type Config struct {
+	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
+	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
+	Analogs           []board.AnalogConfig           `json:"analogs,omitempty"`
+	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
+	Attributes        config.AttributeMap            `json:"attributes,omitempty"`
+	FailNew           bool                           `json:"fail_new"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -69,16 +52,37 @@ func (config *Config) Validate(path string) error {
 			return err
 		}
 	}
+
+	if config.FailNew {
+		return errors.New("whoops")
+	}
+
 	return nil
 }
 
-// A Config describes the configuration of a board and all of its connected parts.
-type Config struct {
-	I2Cs              []board.I2CConfig              `json:"i2cs,omitempty"`
-	SPIs              []board.SPIConfig              `json:"spis,omitempty"`
-	Analogs           []board.AnalogConfig           `json:"analogs,omitempty"`
-	DigitalInterrupts []board.DigitalInterruptConfig `json:"digital_interrupts,omitempty"`
-	Attributes        config.AttributeMap            `json:"attributes,omitempty"`
+const modelName = "fake"
+
+func init() {
+	registry.RegisterComponent(
+		board.Subtype,
+		modelName,
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			_ registry.Dependencies,
+			cfg config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return NewBoard(ctx, cfg, logger)
+		}})
+
+	config.RegisterComponentAttributeMapConverter(
+		board.SubtypeName,
+		modelName,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&Config{})
 }
 
 // NewBoard returns a new fake board.

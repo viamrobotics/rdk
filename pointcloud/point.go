@@ -62,7 +62,7 @@ type Data interface {
 	// Note(erd): we should try to remove this in favor of immutability.
 	SetValue(v int) Data
 
-	// Value returns the intesity value, or 0 if it doesn't exist
+	// Intensity returns the intensity value, or 0 if it doesn't exist
 	Intensity() uint16
 
 	// SetIntensity sets the intensity on the point.

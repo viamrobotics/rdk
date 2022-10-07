@@ -72,7 +72,7 @@ To use this custom server as part of a larger robot, you’ll want to add it as 
     ]
 ```
 
-And to ensure that the custom server starts up with the rest of the robot, you can run the custom server binary as a process.
+And to ensure that the custom server starts up with the rest of the robot, you can run the custom server binary as a process as part of the robot config.
 
 ```
     "processes": [

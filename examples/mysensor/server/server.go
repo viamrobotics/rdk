@@ -11,10 +11,11 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
-	"go.viam.com/rdk/utils"
+	weboptions "go.viam.com/rdk/robot/web/options"
 )
 
 var logger = golog.NewDebugLogger("mysensor")
@@ -59,16 +60,17 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
-	// we set the config here, but it can also be a commandline argument if so desired.
-	cfg, err := config.Read(ctx, utils.ResolveFile("./examples/mysensor/server/config.json"), logger)
-	if err != nil {
-		return err
-	}
-	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
+	s := &mySensor{Name: "sensor1"}
+
+	myRobot, err := robotimpl.RobotFromResources(ctx, map[resource.Name]interface{}{sensor.Named("sensor1"): s}, logger)
 	if err != nil {
 		return err
 	}
 	defer myRobot.Close(ctx)
+	o := weboptions.New()
+	// the default bind address is localhost:8080, specifying a different bind address to avoid collisions.
+	o.Network.BindAddress = "localhost:8081"
 
-	return web.RunWebWithConfig(ctx, myRobot, cfg, logger)
+	// runs the web server on the robot and blocks until the program is stopped.
+	return web.RunWeb(ctx, myRobot, o, logger)
 }
