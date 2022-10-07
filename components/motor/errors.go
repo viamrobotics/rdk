@@ -19,3 +19,7 @@ func NewResetZeroPositionUnsupportedError(motorName string) error {
 func NewFeatureUnsupportedError(feature Feature, motorName string) error {
 	return errors.Errorf("motor named %s must support feature motor.%s", motorName, feature)
 }
+
+func NewZeroRPMError() error {
+	return errors.New("Cannot move motor at 0 RPM")
+}
