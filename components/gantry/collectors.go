@@ -18,9 +18,9 @@ const (
 func (m method) String() string {
 	switch m {
 	case position:
-		return "GetPosition"
+		return "Position"
 	case lengths:
-		return "GetLengths"
+		return "Lengths"
 	}
 	return "Unknown"
 }

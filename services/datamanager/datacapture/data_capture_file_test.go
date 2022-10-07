@@ -28,7 +28,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			componentType:    "arm",
 			componentName:    "arm1",
 			componentModel:   "eva",
-			method:           "GetEndPosition",
+			method:           "EndPosition",
 			additionalParams: make(map[string]string),
 			dataType:         v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			fileExtension:    ".dat",
