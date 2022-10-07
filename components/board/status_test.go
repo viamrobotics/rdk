@@ -6,8 +6,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
-
-	"go.viam.com/rdk/protoutils"
+	"go.viam.com/utils/protoutils"
 )
 
 func TestStatusValid(t *testing.T) {

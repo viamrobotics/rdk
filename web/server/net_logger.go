@@ -17,12 +17,12 @@ import (
 	"go.uber.org/zap/zapcore"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/protoutils"
 )
 
 const (

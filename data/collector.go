@@ -16,10 +16,10 @@ import (
 	"go.opencensus.io/trace"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
 
