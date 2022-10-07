@@ -1,4 +1,5 @@
 // Package builtin implements simultaneous localization and mapping
+// This is an Experimental package
 package builtin
 
 import (
@@ -741,7 +742,7 @@ func (slamSvc *builtIn) getLazyPNGImage(ctx context.Context, cam camera.Camera) 
 		}
 		return lazyImg.RawData(), release, nil
 	}
-	
+
 	if ycbcrImg, ok := img.(*image.YCbCr); ok {
 		pngImage, err := rimage.EncodeImage(ctx, ycbcrImg, utils.MimeTypePNG)
 		if err != nil {

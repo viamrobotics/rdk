@@ -1,4 +1,5 @@
 // Package slam implements simultaneous localization and mapping
+// This is an Experimental package
 package slam
 
 // TODO 05/12/2022: Both type and constants will be deprecated when data ingestion via GRPC is available
@@ -32,6 +33,7 @@ var SLAMLibraries = map[string]LibraryMetadata{
 }
 
 // Define currently implemented slam libraries.
+// DISCLAIMER: Cartographer is not yet integrated with RDK.
 var cartographerMetadata = LibraryMetadata{
 	AlgoName:       "cartographer",
 	AlgoType:       Dense,
