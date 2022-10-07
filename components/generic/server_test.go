@@ -7,9 +7,9 @@ import (
 
 	pb "go.viam.com/api/component/generic/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"

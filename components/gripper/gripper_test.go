@@ -7,10 +7,10 @@ import (
 	"github.com/mitchellh/mapstructure"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
