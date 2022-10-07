@@ -107,4 +107,56 @@ func TestSingleOperationManager(t *testing.T) {
 		som.CancelRunning(ctx)
 		test.That(t, ctx.Err(), test.ShouldNotBeNil)
 	})
+	t.Run("Cancel, ensure stop", func(t *testing.T) {
+		count := int64(0)
+		fakeMotor := &mockMotor{Name: "testMotor"}
+		som.Stop = fakeMotor
+		ctx = context.Background()
+		err := som.WaitForSuccess(
+			ctx,
+			time.Millisecond,
+			func(ctx context.Context) (bool, error) {
+				if atomic.AddInt64(&count, 1) == 5 {
+					return true, nil
+				}
+				return false, nil
+			},
+		)
+		ctx.Done()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, ctx.Err(), test.ShouldBeNil)
+		test.That(t, fakeMotor.stopCount, test.ShouldEqual, 1)
+	})
+
+	t.Run("Cancel, ensure stop old stop", func(t *testing.T) {
+		fakeMotor := &mockMotorOld{Name: "testMotorOld"}
+		som.OldStop = fakeMotor
+		ctx, done := som.New(context.Background())
+		done()
+
+		test.That(t, ctx.Err(), test.ShouldBeNil)
+		test.That(t, fakeMotor.stopCount, test.ShouldEqual, 1)
+	})
+}
+
+func (m *mockMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
+	m.stopCount++
+	m.extra = extra
+	return nil
+}
+
+type mockMotor struct {
+	Name      string
+	stopCount int
+	extra     map[string]interface{}
+}
+
+func (m *mockMotorOld) Stop(ctx context.Context) error {
+	m.stopCount++
+	return nil
+}
+
+type mockMotorOld struct {
+	Name      string
+	stopCount int
 }

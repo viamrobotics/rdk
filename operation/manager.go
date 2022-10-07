@@ -22,9 +22,9 @@ type SingleOperationManager struct {
 
 // CancelRunning cancel's a current operation unless it's mine.
 func (sm *SingleOperationManager) CancelRunning(ctx context.Context) {
-	// if ctx.Value(somCtxKeySingleOp) != nil {
-	// 	return
-	// }
+	if ctx.Value(somCtxKeySingleOp) != nil {
+		return
+	}
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	sm.cancelInLock(ctx)
@@ -73,13 +73,13 @@ func (sm *SingleOperationManager) New(ctx context.Context) (context.Context, fun
 		if sm.currentOp == nil {
 			switch {
 			case sm.Stop != nil:
-				utils.Logger.Error("Stop called")
+				utils.Logger.Warn("Stop called")
 				err := sm.Stop.Stop(context.Background(), map[string]interface{}{})
 				if err != nil {
 					utils.Logger.Error(err)
 				}
 			case sm.OldStop != nil:
-				utils.Logger.Error("old Stop")
+				utils.Logger.Warn("old Stop called")
 				err := sm.OldStop.Stop(context.Background())
 				if err != nil {
 					utils.Logger.Error(err)
@@ -164,14 +164,6 @@ func (sm *SingleOperationManager) cancelInLock(ctx context.Context) {
 
 	op.cancelFunc()
 	<-op.waitCh
-
-	// if sm.Stop != nil {
-	// 	sm.Stop.Stop(context.Background(), map[string]interface{}{})
-	// } else if sm.OldStop != nil {
-	// 	sm.OldStop.Stop(context.Background())
-	// } else {
-	// 	utils.Logger.Error("Stop not implemented for component")
-	// }
 
 	sm.currentOp = nil
 }
