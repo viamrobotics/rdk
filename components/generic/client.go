@@ -6,9 +6,8 @@ import (
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/generic/v1"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
-
-	"go.viam.com/rdk/protoutils"
 )
 
 // client implements GenericServiceClient.
