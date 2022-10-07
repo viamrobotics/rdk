@@ -13,6 +13,7 @@ import (
 	armpb "go.viam.com/api/component/arm/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
+	vprotoutils "go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -433,7 +434,7 @@ func TestServerGetStatus(t *testing.T) {
 			streamErr = server.StreamStatus(&pb.StreamStatusRequest{Every: durationpb.New(dur)}, streamServer)
 			close(done)
 		}()
-		expectedStatus, err := protoutils.StructToStructPb(map[string]interface{}{})
+		expectedStatus, err := vprotoutils.StructToStructPb(map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 		var messages []*pb.StreamStatusResponse
 		messages = append(messages, <-messageCh)
