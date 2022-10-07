@@ -43,9 +43,24 @@ func init() {
 		},
 	})
 
-	registerCollector("GetPosition", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
+	registerCollector("Position", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
 		p, _, err := ms.Position(ctx)
 		return p, err
+	})
+	registerCollector("LinearVelocity", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
+		v, err := ms.LinearVelocity(ctx)
+		return v, err
+	})
+	registerCollector("AngularVelocity", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
+		v, err := ms.AngularVelocity(ctx)
+		return v, err
+	})
+	registerCollector("CompassHeading", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
+		type Heading struct {
+			Heading float64
+		}
+		h, err := ms.CompassHeading(ctx)
+		return Heading{Heading: h}, err
 	})
 }
 
