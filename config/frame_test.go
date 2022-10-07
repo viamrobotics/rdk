@@ -30,7 +30,7 @@ func TestFrame(t *testing.T) {
 	frame := Frame{}
 	err = json.Unmarshal(testMap["test"], &frame)
 	test.That(t, err, test.ShouldBeNil)
-	bc, err := spatial.NewBoxCreator(r3.Vector{1, 2, 3}, spatial.NewPoseFromPoint(r3.Vector{4, 5, 6}))
+	bc, err := spatial.NewBoxCreator(r3.Vector{1, 2, 3}, spatial.NewPoseFromPoint(r3.Vector{4, 5, 6}), "")
 	test.That(t, err, test.ShouldBeNil)
 	exp := Frame{
 		Parent:      "world",
