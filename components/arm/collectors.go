@@ -12,14 +12,14 @@ type method int64
 
 const (
 	endPosition method = iota
-	getJointPositions
+	jointPositions
 )
 
 func (m method) String() string {
 	switch m {
 	case endPosition:
 		return "EndPosition"
-	case getJointPositions:
+	case jointPositions:
 		return "JointPositions"
 	}
 	return "Unknown"
@@ -50,7 +50,7 @@ func newJointPositionsCollector(resource interface{}, params data.CollectorParam
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		v, err := arm.JointPositions(ctx, nil)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, getJointPositions.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, jointPositions.String(), err)
 		}
 		return v, nil
 	})
