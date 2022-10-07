@@ -19,15 +19,15 @@ type method int64
 
 const (
 	nextPointCloud method = iota
-	next           method = iota
+	readImage      method = iota
 )
 
 func (m method) String() string {
 	switch m {
 	case nextPointCloud:
 		return "NextPointCloud"
-	case next:
-		return "Next"
+	case readImage:
+		return "ReadImage"
 	}
 	return "Unknown"
 }
@@ -61,7 +61,7 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 	return data.NewCollector(cFunc, params)
 }
 
-func newNextCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newReadImageCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	camera, err := assertCamera(resource)
 	if err != nil {
 		return nil, err
@@ -78,12 +78,12 @@ func newNextCollector(resource interface{}, params data.CollectorParams) (data.C
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::Next")
+		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
 		defer span.End()
 
 		img, release, err := ReadImage(ctx, camera)
 		if err != nil {
-			return nil, data.FailedToReadErr(params.ComponentName, next.String(), err)
+			return nil, data.FailedToReadErr(params.ComponentName, readImage.String(), err)
 		}
 		defer func() {
 			if release != nil {
