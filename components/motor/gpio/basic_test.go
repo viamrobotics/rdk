@@ -95,9 +95,7 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, true)
 		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .5)
 
-		// It's only okay to have 0 RPM if you want to move 0 revolutions.
-		test.That(t, m.GoFor(ctx, 0, 0, nil), test.ShouldBeNil)
-		test.That(t, m.GoFor(ctx, 0, 1, nil), test.ShouldBeError, errors.New("rpm must be nonzero for motor to move"))
+		test.That(t, m.GoFor(ctx, 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
 
 		test.That(t, m.Stop(ctx, nil), test.ShouldBeNil)
 	})
