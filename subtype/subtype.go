@@ -14,6 +14,8 @@ import (
 type Service interface {
 	Resource(name string) interface{}
 	Replace(resources map[resource.Name]interface{}) error
+	Add(name resource.Name, iface interface{}) error
+	Remove(name resource.Name) error
 }
 
 type subtypeSvc struct {
@@ -67,5 +69,45 @@ func (s *subtypeSvc) Replace(r map[resource.Name]interface{}) error {
 	}
 	s.resources = resources
 	s.shortNames = shortNames
+	return nil
+}
+
+func (s *subtypeSvc) Add(n resource.Name, iface interface{}) error {
+	if s.Resource(n.ShortName()) != nil {
+		return errors.Errorf("resource %s already exists", n)
+	}
+
+	if n.Name == "" {
+		return errors.Errorf("empty name used for resource: %s", n)
+	}
+	name := n.ShortName()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.resources[name] = iface
+	shortcut := name[strings.LastIndexAny(name, ":")+1:]
+	if _, ok := s.shortNames[shortcut]; ok {
+		s.shortNames[shortcut] = ""
+	} else {
+		s.shortNames[shortcut] = name
+	}
+	return nil
+}
+
+func (s *subtypeSvc) Remove(n resource.Name) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	name := n.ShortName()
+	_, ok := s.resources[name]
+	if ok {
+		delete(s.resources, name)
+	}
+
+	shortcut := name[strings.LastIndexAny(name, ":")+1:]
+	_, ok = s.shortNames[shortcut]
+	if ok {
+		delete(s.resources, shortcut)
+	}
 	return nil
 }

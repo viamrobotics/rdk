@@ -14,7 +14,6 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/utils/pexec"
-	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -29,11 +28,10 @@ import (
 // NewManager returns a Manager.
 func NewManager(r robot.LocalRobot) (*Manager, error) {
 	mgr := &Manager{
-		mu:         sync.RWMutex{},
-		logger:     r.Logger(),
-		modules:    map[string]*module{},
-		serviceMap: map[resource.Name]rpc.ClientConn{},
-		r:          r,
+		mu:      sync.RWMutex{},
+		logger:  r.Logger(),
+		modules: map[string]*module{},
+		r:       r,
 	}
 	return mgr, nil
 }
@@ -49,11 +47,10 @@ type module struct {
 
 // Manager is the root structure for the module system.
 type Manager struct {
-	mu         sync.RWMutex
-	logger     golog.Logger
-	modules    map[string]*module
-	serviceMap map[resource.Name]rpc.ClientConn
-	r          robot.LocalRobot
+	mu      sync.RWMutex
+	logger  golog.Logger
+	modules map[string]*module
+	r       robot.LocalRobot
 }
 
 // Stop signals logic modules to stop operation and release resources.
@@ -134,13 +131,9 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 	}
 
 	for api, models := range mod.handles {
-		known := registry.RegisteredResourceSubtypes()
-		_, ok := known[api.Subtype]
-		if !ok {
-			registry.RegisterResourceSubtype(api.Subtype, registry.ResourceSubtype{
-				ReflectRPCServiceDesc: api.Desc,
-				Foreign:               true,
-			})
+		known := registry.ResourceSubtypeLookup(api.Subtype)
+		if known == nil {
+			registry.RegisterResourceSubtype(api.Subtype, registry.ResourceSubtype{ReflectRPCServiceDesc: api.Desc})
 		}
 
 		switch api.Subtype.ResourceType {
@@ -196,7 +189,6 @@ func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component, deps
 				if err != nil {
 					return nil, err
 				}
-				mgr.serviceMap[cfg.ResourceName()] = module.conn
 
 				c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
 				if c == nil || c.RPCClient == nil {

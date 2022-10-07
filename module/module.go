@@ -5,6 +5,7 @@ import (
 	"context"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -24,18 +25,15 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
+	"go.viam.com/rdk/subtype"
 )
 
-type (
-	// AddComponentFunc is the signature of a function to register that will handle new configs.
-	AddComponentFunc func(ctx context.Context, cfg *config.Component, depList []string) error
-
-	// HandlerMap is the format for api->model pairs that the module will service.
-	// Ex: rdk:component:motor -> [acme:marine:thruster, acme:marine:outboard].
-	HandlerMap map[resource.RPCSubtype][]resource.Model
-)
+// HandlerMap is the format for api->model pairs that the module will service.
+// Ex: rdk:component:motor -> [acme:marine:thruster, acme:marine:outboard].
+type HandlerMap map[resource.RPCSubtype][]resource.Model
 
 // ToProto converts the HandlerMap to a protobuf representation.
 func (h HandlerMap) ToProto() *pb.HandlerMap {
@@ -93,40 +91,9 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn *grpc
 	return hMap, nil
 }
 
-type modserver struct {
-	module *Module
-	pb.UnimplementedModuleServiceServer
-}
-
-// Ready receives the parent address and reports api/model combos the module is ready to service.
-func (s *modserver) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResponse, error) {
-	s.module.mu.Lock()
-	defer s.module.mu.Unlock()
-	s.module.parentAddr = req.GetParentAddress()
-
-	return &pb.ReadyResponse{
-		Ready:      s.module.ready,
-		Handlermap: s.module.handlers.ToProto(),
-	}, nil
-}
-
-// AddComponent receives the component configuration from the parent.
-func (s *modserver) AddComponent(ctx context.Context, req *pb.AddComponentRequest) (*pb.AddComponentResponse, error) {
-	if s.module.addComponent == nil {
-		return nil, errors.WithStack(errors.New("no AddComponentFunc registered"))
-	}
-
-	cfg, err := config.ComponentConfigFromProto(req.Config)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.AddComponentResponse{}, s.module.addComponent(ctx, cfg, req.Dependencies)
-}
-
 // Module represents an external resource module that services components/services.
 type Module struct {
 	parent                  *client.RobotClient
-	modServer               *modserver
 	grpcServer              *grpc.Server
 	logger                  *zap.SugaredLogger
 	mu                      sync.Mutex
@@ -134,26 +101,37 @@ type Module struct {
 	addr                    string
 	parentAddr              string
 	activeBackgroundWorkers sync.WaitGroup
-	addComponent            AddComponentFunc
 	handlers                HandlerMap
+	services                map[resource.Subtype]subtype.Service
+	pb.UnimplementedModuleServiceServer
 }
 
-// SetReady can be set to false if the module is not ready (ex. waiting on hardware).
-func (m *Module) SetReady(ready bool) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.ready = ready
-}
-
-// GRPCServer returns the underlying grpc.Server instance for the module.
-func (m *Module) GRPCServer() *grpc.Server {
-	return m.grpcServer
+// NewModule returns the basic module framework/structure.
+func NewModule(address string, logger *zap.SugaredLogger) *Module {
+	m := &Module{
+		logger:     logger,
+		addr:       address,
+		grpcServer: grpc.NewServer(),
+		ready:      true,
+		handlers:   make(HandlerMap),
+		services:   make(map[resource.Subtype]subtype.Service),
+	}
+	m.buildHandlerMap()
+	pb.RegisterModuleServiceServer(m.grpcServer, m)
+	reflection.Register(m.grpcServer)
+	return m
 }
 
 // Start starts the module service and grpc server.
-func (m *Module) Start() error {
+func (m *Module) Start(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	err := m.initSubtypeServices(ctx)
+	if err != nil {
+		return err
+	}
+
 	oldMask := syscall.Umask(0o077)
 	lis, err := net.Listen("unix", m.addr)
 	syscall.Umask(oldMask)
@@ -182,19 +160,9 @@ func (m *Module) Close() {
 	m.activeBackgroundWorkers.Wait()
 }
 
-// RegisterAddComponent allows a module to register a function to be called when the parent
-// asks it to handle a new component.
-func (m *Module) RegisterAddComponent(componentFunc AddComponentFunc) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.addComponent = componentFunc
-}
-
-// RegisterModel registers the list of api/model pairs this module will service.
-func (m *Module) RegisterModel(api resource.RPCSubtype, model resource.Model) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.handlers[api] = append(m.handlers[api], model)
+// GRPCServer returns the underlying grpc.Server instance for the module.
+func (m *Module) GRPCServer() *grpc.Server {
+	return m.grpcServer
 }
 
 // GetParentComponent returns a component from the parent robot by name.
@@ -213,19 +181,122 @@ func (m *Module) GetParentComponent(ctx context.Context, name resource.Name) (in
 	return m.parent.ResourceByName(name)
 }
 
-// NewModule returns the basic module framework/structure.
-func NewModule(address string, logger *zap.SugaredLogger) *Module {
-	m := &Module{
-		logger:     logger,
-		addr:       address,
-		grpcServer: grpc.NewServer(),
-		ready:      true,
-		handlers:   make(HandlerMap),
+// SetReady can be set to false if the module is not ready (ex. waiting on hardware).
+func (m *Module) SetReady(ready bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.ready = ready
+}
+
+// Ready receives the parent address and reports api/model combos the module is ready to service.
+func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResponse, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.parentAddr = req.GetParentAddress()
+
+	return &pb.ReadyResponse{
+		Ready:      m.ready,
+		Handlermap: m.handlers.ToProto(),
+	}, nil
+}
+
+// AddComponent receives the component configuration from the parent.
+func (m *Module) AddComponent(ctx context.Context, req *pb.AddComponentRequest) (*pb.AddComponentResponse, error) {
+	cfg, err := config.ComponentConfigFromProto(req.Config)
+	if err != nil {
+		return nil, err
 	}
 
-	m.modServer = &modserver{module: m}
+	deps := make(registry.Dependencies)
 
-	pb.RegisterModuleServiceServer(m.grpcServer, m.modServer)
-	reflection.Register(m.grpcServer)
-	return m
+	for _, c := range req.Dependencies {
+		name, err := resource.NewFromString(c)
+		if err != nil {
+			return nil, err
+		}
+		c, err := m.GetParentComponent(ctx, name)
+		if err != nil {
+			return nil, err
+		}
+		deps[name] = c
+	}
+
+	creator := registry.ComponentLookup(cfg.ResourceName().Subtype, cfg.Model)
+	if creator != nil && creator.Constructor != nil {
+		comp, err := creator.Constructor(ctx, deps, *cfg, m.logger)
+		if err != nil {
+			return nil, err
+		}
+
+		wrapped := comp
+		c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
+		if c != nil && c.Reconfigurable != nil {
+			wrapped, err = c.Reconfigurable(comp)
+			if err != nil {
+				return nil, multierr.Combine(err, utils.TryClose(ctx, comp))
+			}
+		}
+
+		subSvc, ok := m.services[cfg.ResourceName().Subtype]
+		if !ok {
+			return nil, errors.Errorf("module can't service api: %s", cfg.ResourceName().Subtype)
+		}
+
+		err = subSvc.Add(cfg.ResourceName(), wrapped)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &pb.AddComponentResponse{}, nil
+}
+
+func (m *Module) initSubtypeServices(ctx context.Context) error {
+	for s, rs := range registry.RegisteredResourceSubtypes() {
+		subSvc, ok := m.services[s]
+		if !ok {
+			newSvc, err := subtype.New(make(map[resource.Name]interface{}))
+			if err != nil {
+				return err
+			}
+			subSvc = newSvc
+			m.services[s] = newSvc
+		}
+
+		if rs.RegisterRPCLiteService != nil {
+			if err := rs.RegisterRPCLiteService(ctx, m.grpcServer, subSvc); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (m *Module) buildHandlerMap() {
+	for c := range registry.RegisteredComponents() {
+		split := strings.Split(c, "/")
+		m.logger.Debugf("SMURF %+v", split)
+		st, err := resource.NewSubtypeFromString(split[0])
+		if err != nil {
+			m.logger.Error(err)
+			continue
+		}
+		model, err := resource.NewModelFromString(split[1])
+		if err != nil {
+			m.logger.Error(err)
+			continue
+		}
+		creator := registry.ResourceSubtypeLookup(st)
+		if creator.ReflectRPCServiceDesc == nil {
+			m.logger.Errorf("rpc subtype %s doesn't contain a valid ReflectRPCServiceDesc", st)
+			continue
+		}
+		rpcST := resource.RPCSubtype{
+			Subtype: st,
+			SvcName: creator.RPCServiceDesc.ServiceName,
+			Desc:    creator.ReflectRPCServiceDesc,
+		}
+		m.handlers[rpcST] = append(m.handlers[rpcST], model)
+	}
+	m.logger.Debugf("SMURF %+v", m.handlers)
 }
