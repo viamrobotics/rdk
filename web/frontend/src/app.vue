@@ -158,8 +158,11 @@ const stringToResourceName = (nameStr: string) => {
 };
 
 const querySensors = () => {
+  const sensorsName = filterNonRemoteResources(resources, 'rdk', 'service', 'sensors')[0]?.name;
+  if (sensorsName === undefined) {
+    return;
+  }
   const req = new sensorsApi.GetSensorsRequest();
-  const sensorsName = filterNonRemoteResources(resources, 'rdk', 'service', 'sensors')[0].name;
   req.setName(sensorsName);
   window.sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
     if (err) {
