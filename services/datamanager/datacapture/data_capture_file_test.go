@@ -1,13 +1,13 @@
 package datacapture
 
 import (
-	"go.viam.com/rdk/protoutils"
-	"go.viam.com/test"
 	"testing"
 
 	v1 "go.viam.com/api/app/datasync/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/test"
 )
 
 func TestBuildCaptureMetadata(t *testing.T) {
