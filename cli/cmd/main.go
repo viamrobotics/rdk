@@ -576,6 +576,14 @@ func main() {
 									)
 								},
 							},
+							// TODO: implement
+							{
+								Name:  "data",
+								Usage: "download synced data",
+								Action: func(c *cli.Context) error {
+									return nil
+								},
+							},
 						},
 					},
 				},

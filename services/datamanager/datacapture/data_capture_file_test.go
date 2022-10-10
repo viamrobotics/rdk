@@ -24,14 +24,14 @@ func TestBuildCaptureMetadata(t *testing.T) {
 		tags             []string
 	}{
 		{
-			name:             "Metadata for arm positions stored in a tabular .csv file",
+			name:             "Metadata for arm positions stored in a length delimited proto file",
 			componentType:    "arm",
 			componentName:    "arm1",
 			componentModel:   "eva",
 			method:           "GetEndPosition",
 			additionalParams: make(map[string]string),
 			dataType:         v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			fileExtension:    ".csv",
+			fileExtension:    ".dat",
 			tags:             []string{"tagA", "tagB"},
 		},
 		{
