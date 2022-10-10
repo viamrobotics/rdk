@@ -477,7 +477,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		}
 
 		if len(allComponentAttributes) == 0 {
-			svc.logger.Warn("no components with data_manager service configuration")
+			svc.logger.Info("no components with data_manager service configuration")
 		}
 	}
 
