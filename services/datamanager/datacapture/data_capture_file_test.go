@@ -1,12 +1,11 @@
 package datacapture
 
 import (
+	"go.viam.com/rdk/protoutils"
+	"go.viam.com/test"
 	"testing"
 
 	v1 "go.viam.com/api/app/datasync/v1"
-	"go.viam.com/test"
-
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
@@ -70,24 +69,25 @@ func TestBuildCaptureMetadata(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		t.Log(tc.name)
-		actualMetadata, err := BuildCaptureMetadata(
-			tc.componentType, tc.componentName, tc.componentModel, tc.method, tc.additionalParams, tc.tags)
-		test.That(t, err, test.ShouldEqual, nil)
+		t.Run(tc.name, func(t *testing.T) {
+			actualMetadata, err := BuildCaptureMetadata(
+				tc.componentType, tc.componentName, tc.componentModel, tc.method, tc.additionalParams, tc.tags)
+			test.That(t, err, test.ShouldEqual, nil)
 
-		methodParams, err := protoutils.ConvertStringMapToAnyPBMap(tc.additionalParams)
-		test.That(t, err, test.ShouldEqual, nil)
+			methodParams, err := protoutils.ConvertStringMapToAnyPBMap(tc.additionalParams)
+			test.That(t, err, test.ShouldEqual, nil)
 
-		expectedMetadata := v1.DataCaptureMetadata{
-			ComponentType:    string(tc.componentType),
-			ComponentName:    tc.componentName,
-			ComponentModel:   tc.componentModel,
-			MethodName:       tc.method,
-			Type:             tc.dataType,
-			MethodParameters: methodParams,
-			FileExtension:    tc.fileExtension,
-			Tags:             tc.tags,
-		}
-		test.That(t, actualMetadata.String(), test.ShouldEqual, expectedMetadata.String())
+			expectedMetadata := v1.DataCaptureMetadata{
+				ComponentType:    string(tc.componentType),
+				ComponentName:    tc.componentName,
+				ComponentModel:   tc.componentModel,
+				MethodName:       tc.method,
+				Type:             tc.dataType,
+				MethodParameters: methodParams,
+				FileExtension:    tc.fileExtension,
+				Tags:             tc.tags,
+			}
+			test.That(t, actualMetadata.String(), test.ShouldEqual, expectedMetadata.String())
+		})
 	}
 }
