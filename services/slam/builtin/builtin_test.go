@@ -715,6 +715,9 @@ func TestCartographerDataProcess(t *testing.T) {
 }
 
 func TestORBSLAMDataProcess(t *testing.T) {
+	// TODO(DATA-549): Re-enable test.
+	t.Skip()
+
 	name, err := createTempFolderArchitecture()
 	test.That(t, err, test.ShouldBeNil)
 
