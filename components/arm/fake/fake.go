@@ -31,20 +31,28 @@ var fakeModelJSON []byte
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
+	FailNew  bool   `json:"fail_new"`
 	ArmModel string `json:"arm-model"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *AttrConfig) Validate(path string) error {
+	if config.FailNew {
+		return errors.New("whoops")
+	}
+	return nil
 }
 
 func init() {
 	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			if config.Attributes.Bool("fail_new", false) {
-				return nil, errors.New("whoops")
-			}
-			return NewArm(ctx, config, logger)
+			return NewArm(config, logger)
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, ModelName,
+	config.RegisterComponentAttributeMapConverter(
+		arm.SubtypeName,
+		ModelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -54,14 +62,14 @@ func init() {
 }
 
 // NewArm returns a new fake arm.
-func NewArm(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
+func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	var model referenceframe.Model
 	var err error
 	if cfg.ConvertedAttributes != nil {
 		switch cfg.ConvertedAttributes.(*AttrConfig).ArmModel {
-		case xarm.ModelName(6):
+		case xarm.ModelName6DOF:
 			model, err = xarm.Model(6, cfg.Name)
-		case xarm.ModelName(7):
+		case xarm.ModelName7DOF:
 			model, err = xarm.Model(7, cfg.Name)
 		case ur.ModelName:
 			model, err = ur.Model(cfg.Name)

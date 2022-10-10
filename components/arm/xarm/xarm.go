@@ -9,7 +9,6 @@ import (
 	"math"
 	"net"
 	"runtime"
-	"strconv"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -58,10 +57,11 @@ var xArm6modeljson []byte
 //go:embed xarm7_kinematics.json
 var xArm7modeljson []byte
 
-// ModelName is a function used to get the string used to refer to the xarm model of specified dof.
-func ModelName(dof int) string {
-	return "xArm" + strconv.Itoa(dof)
-}
+// ModelName6DOF is a function used to get the string used to refer to the xarm model of 6 dof.
+const ModelName6DOF = "xArm6"
+
+// ModelName7DOF is a function used to get the string used to refer to the xarm model of 7 dof.
+const ModelName7DOF = "xArm7"
 
 // Model returns the kinematics model of the xarm arm, also has all Frame information.
 func Model(dof int, name string) (referenceframe.Model, error) {
@@ -76,24 +76,34 @@ func Model(dof int, name string) (referenceframe.Model, error) {
 }
 
 func init() {
-	registerXArm := func(dof int) {
-		registry.RegisterComponent(arm.Subtype, ModelName(dof), registry.Component{
-			RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-				return NewxArm(ctx, r, config, logger, dof)
-			},
-		})
+	// xArm6
+	registry.RegisterComponent(arm.Subtype, ModelName6DOF, registry.Component{
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewxArm(ctx, r, config, logger, 6)
+		},
+	})
 
-		config.RegisterComponentAttributeMapConverter(arm.SubtypeName, ModelName(dof),
-			func(attributes config.AttributeMap) (interface{}, error) {
-				var conf AttrConfig
-				return config.TransformAttributeMapToStruct(&conf, attributes)
-			},
-			&AttrConfig{},
-		)
-	}
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, ModelName6DOF,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&AttrConfig{},
+	)
 
-	registerXArm(6)
-	registerXArm(7)
+	// xArm7
+	registry.RegisterComponent(arm.Subtype, ModelName7DOF, registry.Component{
+		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+			return NewxArm(ctx, r, config, logger, 7)
+		},
+	})
+	config.RegisterComponentAttributeMapConverter(arm.SubtypeName, ModelName7DOF,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&AttrConfig{},
+	)
 }
 
 // NewxArm returns a new xArm with the specified dof.
