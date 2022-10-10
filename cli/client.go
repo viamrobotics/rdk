@@ -5,11 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"google.golang.org/protobuf/encoding/protojson"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -19,6 +21,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	datapb "go.viam.com/api/app/data/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -49,6 +52,9 @@ type AppClient struct {
 	// caches
 	orgs *[]*apppb.Organization
 	locs *[]*apppb.Location
+
+	// Added in this PR
+	dataClient datapb.DataServiceClient
 }
 
 func checkBaseURL(c *cli.Context) (*url.URL, []rpc.DialOption, error) {
@@ -138,6 +144,7 @@ func (c *AppClient) ensureLoggedIn() error {
 	}
 
 	c.client = apppb.NewAppServiceClient(conn)
+	c.dataClient = datapb.NewDataServiceClient(conn)
 	return nil
 }
 
@@ -538,6 +545,70 @@ func (c *AppClient) TailRobotPartLogs(orgStr, locStr, robotStr, partStr string, 
 		}
 		c.printRobotPartLogsInternal(resp.Logs, indent)
 	}
+}
+
+/**
+TODO:
+- Add datamanagement service client
+- Add flags for each possible query param
+- Add flag for output directory
+- Basically just provide means of passing all params taken by BinaryDataByFilter and TabularDataByFilter
+-
+*/
+
+// BinaryData writes the requested data to the passed directory.
+func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
+	if err := c.ensureLoggedIn(); err != nil {
+		return err
+	}
+
+	// Make dst/data and dst/metadata directory.
+	// TODO: perms?
+	if err := os.MkdirAll(filepath.Join(dst, "data"), os.ModePerm); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(dst, "metadata"), os.ModePerm); err != nil {
+		return err
+	}
+
+	for {
+		skip := 0
+		// Make BinartDataByFilter request with binary=true
+		resp, err := c.dataClient.BinaryDataByFilter(context.Background(), &datapb.BinaryDataByFilterRequest{
+			DataRequest: &datapb.DataRequest{
+				Filter: filter,
+				Skip:   skip,
+				Limit:  1,
+			},
+			IncludeBinary: true,
+			CountOnly:     false,
+		})
+		// TODO: what error indicates none left?
+		if err != nil {
+			return err
+		}
+		mds := resp.GetMetadata()
+		if len(mds) != 1 {
+			return errors.Errorf("expected a single response, received %d", len(mds))
+		}
+		md := mds[0]
+		mdJsonBytes, err := protojson.Marshal(md)
+		if err != nil {
+			return err
+		}
+
+		// TODO: Write json bytes to file.
+		data := resp.GetData()
+		if len(data) != 1 {
+			return errors.Errorf("expected a single response, received %d", len(data))
+		}
+		datum := data[0]
+		binaryBytes := datum.GetBinary()
+
+		// TODO: write image bytes to file
+	}
+
+	return nil
 }
 
 func (c *AppClient) prepareDial(
