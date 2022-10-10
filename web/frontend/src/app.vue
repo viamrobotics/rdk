@@ -500,11 +500,11 @@ const viewCamera = (name: string, isOn: boolean) => {
         displayError(err);
       }
     });
-    document.querySelector(`#stream-preview-${name}`)?.removeAttribute('hidden');
+    document.querySelector(`#stream-preview-${streamName}`)?.removeAttribute('hidden');
     return;
   }
 
-  document.querySelector(`#stream-preview-${name}`)?.setAttribute('hidden', 'true');
+  document.querySelector(`#stream-preview-${streamName}`)?.setAttribute('hidden', 'true');
 
   const req = new streamApi.RemoveStreamRequest();
   req.setName(name);
