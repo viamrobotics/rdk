@@ -138,6 +138,8 @@ func TestLinearlyActuatedRotationalFrame(t *testing.T) {
 func TestMobile2DFrame(t *testing.T) {
 	expLimit := []Limit{{-10, 10}, {-10, 10}}
 	frame, err := NewMobile2DFrame("test", expLimit)
+	test.That(t, err, test.ShouldBeNil)
+
 	// expected output
 	expPose := spatial.NewPoseFromPoint(r3.Vector{3, 5, 0})
 	// get expected transform back
@@ -175,7 +177,7 @@ func TestGeometries(t *testing.T) {
 	rf, err := NewRotationalFrame("", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6})
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err = rf.Geometries([]Input{})
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldContainSubstring)
 	test.That(t, geometries, test.ShouldBeNil)
 
 	// test creating a new mobile frame with a geometry

@@ -22,6 +22,7 @@ func NewIncorrectInputLengthError(actual, expected int) error {
 	return errors.Errorf("number of inputs does not match frame DoF, expected %d but got %d", expected, actual)
 }
 
+// NewFrameMethodUnsupportedError returns an error when the frame type does not support the given function.
 func NewFrameMethodUnsupportedError(function string, frame Frame) error {
 	return errors.Errorf("function %s unsupported for frame type %T", function, frame)
 }

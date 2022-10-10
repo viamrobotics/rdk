@@ -20,7 +20,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// comparisonDelta is the amount two floats can differ before they are considered different
+// comparisonDelta is the amount two floats can differ before they are considered different.
 const comparisonDelta = 1e-5
 
 // OOBErrString is a string that all OOB errors should contain, so that they can be checked for distinct from other Transform errors.
@@ -419,7 +419,7 @@ type linearlyActuatedRotationalFrame struct {
 	a, b float64
 }
 
-// NewLinearlyActuatedRotationalFrame creates a frame that represents a robot mechanism where a linear actuator is used to acheive
+// NewLinearlyActuatedRotationalFrame creates a frame that represents a robot mechanism where a linear actuator is used to achieve
 // rotational motion about a passive hinge.  This configuration forms a triangle (visualized below) where the linear actuator length is
 // side c, and the offset along the robot links from the rotation is given by a and b, with a being the length along the link previous in
 // the kinematic chain. The transformation given by this frame maps c to theta, which is the angle between a and b

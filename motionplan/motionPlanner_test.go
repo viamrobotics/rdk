@@ -172,7 +172,7 @@ func simple2DMap() (*planConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	model, err := frame.NewMobile2DFrame("mobile-base", limits, physicalGeometry)
+	model, err := frame.NewMobile2DFrameWithGeometry("mobile-base", limits, physicalGeometry)
 	if err != nil {
 		return nil, err
 	}
