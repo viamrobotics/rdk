@@ -110,7 +110,7 @@ onClickOutside(root, () => {
   >
     <div
       class="flex gap-2 pb-4"
-      @click="toggleKeyboard()"
+      @click="toggleKeyboard"
     >
       <v-switch
         class="pr-4"
