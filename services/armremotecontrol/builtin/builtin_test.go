@@ -66,10 +66,14 @@ func TestArmRemoteControl(t *testing.T) {
 		case input.Subtype:
 			return fakeController, nil
 		case arm.Subtype:
-			return fakearm.NewArm(ctx, config.Component{
-				Name:                arm.Subtype.String(),
-				ConvertedAttributes: &fakearm.AttrConfig{ArmModel: xarm.ModelName(6)},
-			}, logger)
+			return fakearm.NewArm(
+				ctx,
+				config.Component{
+					Name:                arm.Subtype.String(),
+					ConvertedAttributes: &fakearm.AttrConfig{ArmModel: xarm.ModelName(6)},
+				},
+				logger,
+			)
 		}
 		return nil, rdkutils.NewResourceNotFoundError(name)
 	}
