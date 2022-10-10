@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // ModelConfig represents all supported fields in a kinematics JSON file.
@@ -117,7 +118,8 @@ func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 
 			// Link part of DH param
 			linkID := dh.ID
-			pose := spatial.NewPoseFromDH(dh.A, dh.D, dh.Alpha)
+
+			pose := spatial.NewPoseFromDH(utils.DegToRad(dh.A), utils.DegToRad(dh.D), dh.Alpha)
 			parentMap[linkID] = jointID
 			geometryCreator, err := dh.Geometry.ParseConfig()
 			if err == nil {
