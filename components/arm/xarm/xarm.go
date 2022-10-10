@@ -64,7 +64,7 @@ const ModelName6DOF = "xArm6"
 const ModelName7DOF = "xArm7"
 
 // Model returns the kinematics model of the xarm arm, also has all Frame information.
-func Model(dof int, name string) (referenceframe.Model, error) {
+func Model(name string, dof int) (referenceframe.Model, error) {
 	switch dof {
 	case 6:
 		return referenceframe.UnmarshalModelJSON(xArm6modeljson, name)
@@ -129,7 +129,7 @@ func NewxArm(ctx context.Context, r robot.Robot, cfg config.Component, logger go
 		return nil, err
 	}
 
-	model, err := Model(dof, cfg.Name)
+	model, err := Model(cfg.Name, dof)
 	if err != nil {
 		return nil, err
 	}
