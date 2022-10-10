@@ -20,6 +20,8 @@ func NewFeatureUnsupportedError(feature Feature, motorName string) error {
 	return errors.Errorf("motor named %s must support feature motor.%s", motorName, feature)
 }
 
+// NewZeroRPMError returns an error representing a request to move a motor at
+// zero speed (i.e., moving the motor without moving the motor).
 func NewZeroRPMError() error {
 	return errors.New("Cannot move motor at 0 RPM")
 }
