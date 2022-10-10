@@ -16,20 +16,16 @@ const stop = () => {
   window.gripperService.stop(request, new grpc.Metadata(), displayError);
 };
 
-const action = (action: string) => {
-  let req;
-  switch (action) {
-    case 'open':
-      req = new gripperApi.OpenRequest();
-      req.setName(props.name);
-      window.gripperService.open(req, new grpc.Metadata(), displayError);
-      break;
-    case 'grab':
-      req = new gripperApi.GrabRequest();
-      req.setName(props.name);
-      window.gripperService.grab(req, new grpc.Metadata(), displayError);
-      break;
-  }
+const open = () => {
+  const request = new gripperApi.OpenRequest();
+  request.setName(props.name);
+  window.gripperService.open(request, new grpc.Metadata(), displayError);
+};
+
+const grab = () => {
+  const request = new gripperApi.GrabRequest();
+  request.setName(props.name);
+  window.gripperService.grab(request, new grpc.Metadata(), displayError);
 };
 
 </script>
@@ -57,11 +53,11 @@ const action = (action: string) => {
     <div class="flex gap-2 border border-t-0 border-black p-4">
       <v-button
         label="Open"
-        @click="action('open')"
+        @click="open"
       />
       <v-button
         label="Grab"
-        @click="action('grab')"
+        @click="grab"
       />
     </div>
   </v-collapse>

@@ -19,8 +19,8 @@ const props = defineProps<Props>();
 
 const increment = (axis: number, amount: number) => {
   const pos: number[] = [];
-  for (let i = 0; i < props.status.parts.length; i++) {
-    pos[i] = props.status.parts[i].pos;
+  for (let i = 0; i < props.status.parts.length; i += 1) {
+    pos[i] = props.status.parts[i]!.pos;
   }
   pos[axis] += amount;
 
@@ -35,7 +35,7 @@ const stop = () => {
   request.setName(props.name);
   window.gantryService.stop(request, new grpc.Metadata(), displayError);
 };
-  
+
 </script>
 
 <template>

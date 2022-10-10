@@ -1,3 +1,4 @@
+<!-- eslint-disable multiline-comment-style -->
 <script setup lang="ts">
 
 /**
@@ -11,13 +12,12 @@ import * as THREE from 'three';
 import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls';
-import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import { filterResources, type Resource } from '../lib/resource';
 import { toast } from '../lib/toast';
-import { PointCloudObject, RectangularPrism } from '../gen/proto/api/common/v1/common_pb';
+import type { PointCloudObject, RectangularPrism } from '../gen/proto/api/common/v1/common_pb';
 import motionApi from '../gen/proto/api/service/motion/v1/motion_pb.esm';
 import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
-import visionApi, { type TypedParameter } from '../gen/proto/api/service/vision/v1/vision_pb.esm';
+// import visionApi, { type TypedParameter } from '../gen/proto/api/service/vision/v1/vision_pb.esm';
 import InfoButton from './info-button.vue';
 
 interface Props {
@@ -35,10 +35,10 @@ let displayGrid = true;
 
 let transformEnabled = $ref(false);
 const download = $ref<HTMLLinkElement>();
-let segmenterParameterNames = $ref<TypedParameter[]>();
-let objects = $ref<PointCloudObject[]>([]);
-let segmenterNames = $ref<string[]>([]);
-let segmenterParameters = $ref<Record<string, number>>({});
+// let segmenterParameterNames = $ref<TypedParameter[]>();
+const objects = $ref<PointCloudObject[]>([]);
+const segmenterNames = $ref<string[]>([]);
+// let segmenterParameters = $ref<Record<string, number>>({});
 
 const click = $ref(new THREE.Vector3());
 
@@ -46,9 +46,7 @@ const selectedObject = $ref('');
 const selectedSegmenter = $ref('');
 
 const distanceFromCamera = $computed(() => Math.round(
-  Math.sqrt(
-    Math.pow(click.x, 2) + Math.pow(click.y, 2) + Math.pow(click.z, 2)
-  )
+  Math.sqrt((click.x ** 2) + (click.y ** 2) + (click.z ** 2))
 ) || 0);
 
 const loader = new PCDLoader();
@@ -79,6 +77,9 @@ transformControls.addEventListener('dragging-changed', (event) => {
   controls.enabled = !event.value;
 });
 
+const color = new THREE.Color();
+let mesh: THREE.InstancedMesh;
+
 const matrix = new THREE.Matrix4();
 const vec3 = new THREE.Vector3();
 const sphereGeometry = new THREE.SphereGeometry(0.01, 16, 16);
@@ -100,29 +101,26 @@ const gridMaterial = gridHelper.material as THREE.MeshBasicMaterial;
 gridMaterial.color.set('black');
 
 const getSegmenterParameters = () => {
-  const req = new visionApi.GetSegmenterParametersRequest();
-  // We are deliberately just getting the first vision service to ensure this will not break.
-  // May want to allow for more services in the future
-  const [vision] = filterResources(props.resources, 'rdk', 'service', 'vision');
+  // const req = new visionApi.GetSegmenterParametersRequest();
 
-  req.setName(vision.name);
-  req.setSegmenterName(selectedSegmenter);
-  
-  window.visionService.getSegmenterParameters(req, new grpc.Metadata(), (error, response) => {
-    if (error) {
-      toast.error(`Error getting segmenter parameters: ${error}`);
-      return;
-    }
+  // /*
+  //  * We are deliberately just getting the first vision service to ensure this will not break.
+  //  * May want to allow for more services in the future
+  //  */
+  // const [vision] = filterResources(props.resources, 'rdk', 'service', 'vision');
 
-    segmenterParameterNames = response!.getSegmenterParametersList();
-    segmenterParameters = {};
-  });
-};
+  // req.setName(vision.name);
+  // req.setSegmenterName(selectedSegmenter);
 
-const animate = () => {
-  resizeRendererToDisplaySize();
-  renderer.render(scene, camera);
-  controls.update();
+  // window.visionService.getSegmenterParameters(req, new grpc.Metadata(), (error, response) => {
+  //   if (error) {
+  //     toast.error(`Error getting segmenter parameters: ${error}`);
+  //     return;
+  //   }
+
+  //   segmenterParameterNames = response!.getSegmenterParametersList();
+  //   segmenterParameters = {};
+  // });
 };
 
 const resizeRendererToDisplaySize = () => {
@@ -139,6 +137,12 @@ const resizeRendererToDisplaySize = () => {
   }
 };
 
+const animate = () => {
+  resizeRendererToDisplaySize();
+  renderer.render(scene, camera);
+  controls.update();
+};
+
 const setPoint = (point: THREE.Vector3) => {
   click.x = Math.round(point.x * 1000);
   click.y = Math.round(point.y * 1000);
@@ -146,132 +150,84 @@ const setPoint = (point: THREE.Vector3) => {
   sphere.position.copy(point);
 };
 
-const parameterType = (type: string) => {
-  if (type === 'int' || type === 'float64') {
-    return 'number';
-  } else if (type === 'string' || type === 'char') {
-    return 'text';
-  }
-  return '';
-};
+// const parameterType = (type: string) => {
+//   if (type === 'int' || type === 'float64') {
+//     return 'number';
+//   } else if (type === 'string' || type === 'char') {
+//     return 'text';
+//   }
+//   return '';
+// };
 
 const findSegments = () => {
-  const req = new visionApi.GetObjectPointCloudsRequest();
+  // const req = new visionApi.GetObjectPointCloudsRequest();
 
-  // We are deliberately just getting the first vision service to ensure this will not break.
-  // May want to allow for more services in the future
-  const [vision] = filterResources(props.resources, 'rdk', 'service', 'vision');
-  
-  req.setName(vision.name);
-  req.setCameraName(props.cameraName!);
-  req.setSegmenterName(selectedSegmenter);
-  req.setParameters(Struct.fromJavaScript(segmenterParameters));
-  req.setMimeType('pointcloud/pcd');
+  // /*
+  //  * We are deliberately just getting the first vision service to ensure this will not break.
+  //  * May want to allow for more services in the future
+  //  */
+  // const [vision] = filterResources(props.resources, 'rdk', 'service', 'vision');
 
-  window.visionService.getObjectPointClouds(req, new grpc.Metadata(), (error, response) => {
-    if (error) {
-      toast.error(`Error getting segments: ${error}`);
-      return;
-    }
+  // req.setName(vision.name);
+  // req.setCameraName(props.cameraName!);
+  // req.setSegmenterName(selectedSegmenter);
+  // // req.setParameters(Struct.fromJavaScript(segmenterParameters));
+  // req.setMimeType('pointcloud/pcd');
 
-    objects = response!.getObjectsList();
+  // window.visionService.getObjectPointClouds(req, new grpc.Metadata(), (error, response) => {
+  //   if (error) {
+  //     toast.error(`Error getting segments: ${error}`);
+  //     return;
+  //   }
 
-    if (objects.length === 0) {
-      toast.info('Found no segments.');
-    }
-  });
+  //   objects = response!.getObjectsList();
+
+  //   if (objects.length === 0) {
+  //     toast.info('Found no segments.');
+  //   }
+  // });
 };
 
 const getSegmenterNames = () => {
-  // radius_clustering_segmenter
-  // detector_segmenter
-  // window.visionService.getModelParameterSchema()
-  // -> returns json.schema
 
-  // take input values and send them to:
-  // window.visionService.addSegmenter()
-  // now you have a segmenter
+  /*
+   * radius_clustering_segmenter
+   * detector_segmenter
+   * window.visionService.getModelParameterSchema()
+   * -> returns json.schema
+   */
 
-  // now you can inspect what segmenters are available
-  // window.visionService.getSegmenterNames()
+  /*
+   * take input values and send them to:
+   * window.visionService.addSegmenter()
+   * now you have a segmenter
+   */
+
+  /*
+   * now you can inspect what segmenters are available
+   * window.visionService.getSegmenterNames()
+   */
 
   // getObjectPointClouds
 
-  const request = new visionApi.GetSegmenterNamesRequest();
-  // We are deliberately just getting the first vision service to ensure this will not break.
-  // May want to allow for more services in the future
-  const [vision] = filterResources(props.resources, 'rdk', 'service', 'vision');
+  // const request = new visionApi.GetSegmenterNamesRequest();
 
-  request.setName(vision.name);
+  // /*
+  //  * We are deliberately just getting the first vision service to ensure this will not break.
+  //  * May want to allow for more services in the future
+  //  */
+  // const [vision] = filterResources(props.resources, 'rdk', 'service', 'vision');
 
-  window.visionService.getSegmenterNames(request, new grpc.Metadata(), (error, response) => {
-    if (error) {
-      toast.error(`Error getting segmenter names: ${error}`);
-      return;
-    }
+  // request.setName(vision.name);
 
-    segmenterNames = response!.getSegmenterNamesList();
-  });
-};
+  // window.visionService.getSegmenterNames(request, new grpc.Metadata(), (error, response) => {
+  //   if (error) {
+  //     toast.error(`Error getting segmenter names: ${error}`);
+  //     return;
+  //   }
 
-const loadSegment = (index: number) => {
-  const segment = objects[index]!;
-
-  if (!segment) {
-    toast.error('Segment cannot be found.');
-  }
-
-  const pointcloud = segment.getPointCloud_asU8();
-  const center = segment.getGeometries()!.getGeometriesList()[0].getCenter()!;
-  const box = segment.getGeometries()!.getGeometriesList()[0].getBox()!;
-
-  const point = new THREE.Vector3(
-    center.getX(),
-    center.getY(),
-    center.getZ()
-  ).multiplyScalar(1 / 1000);
-
-  setPoint(point);
-
-  setBoundingBox(box, point);
-  update(pointcloud);
-};
-
-const loadBoundingBox = (index: number) => {
-  const segment = objects[index];
-
-  if (!segment) {
-    return toast.error('Segment cannot be found.');
-  }
-
-  const center = segment.getGeometries()!.getGeometriesList()[0].getCenter()!;
-  const box = segment.getGeometries()!.getGeometriesList()[0].getBox();
-
-  const point = new THREE.Vector3(
-    center.getX(),
-    center.getY(),
-    center.getZ()
-  ).multiplyScalar(1 / 1000);
-
-  setBoundingBox(box!, point);
-};
-
-const loadPoint = (index: number) => {
-  const segment = objects[index];
-
-  if (!segment) {
-    return toast.error('Segment cannot be found.');
-  }
-
-  const center = segment.getGeometries()!.getGeometriesList()[0].getCenter()!;
-  
-  const point = new THREE.Vector3(
-    center.getX(),
-    center.getY(),
-    center.getZ()
-  ).multiplyScalar(1 / 1000);
-
-  setPoint(point);
+  //   segmenterNames = response!.getSegmenterNamesList();
+  // });
 };
 
 const setBoundingBox = (box: RectangularPrism, centerPoint: THREE.Vector3) => {
@@ -296,13 +252,123 @@ const setBoundingBox = (box: RectangularPrism, centerPoint: THREE.Vector3) => {
   scene.add(cube);
 };
 
+const update = (cloud: Uint8Array) => {
+  // dispose old resources
+  if (mesh) {
+    scene.remove(mesh);
+    mesh.geometry.dispose();
+    (mesh.material as THREE.MeshBasicMaterial).dispose();
+  }
+
+  const points = loader.parse(cloud.buffer, '');
+  points.name = 'points';
+  const positions = points.geometry.attributes.position!.array;
+
+  // TODO (hackday): colors is not consistently returned, if not just render all points as blue
+  // eslint-disable-next-line unicorn/prefer-spread
+  const colors = points.geometry.attributes.color?.array ?? Array.from(positions).flatMap(() => [0.3, 0.5, 0.7]);
+
+  const count = positions.length / 3;
+  const material = new THREE.MeshBasicMaterial();
+  const geometry = new THREE.BoxGeometry(0.005, 0.005, 0.005);
+  mesh = new THREE.InstancedMesh(geometry, material, count);
+  mesh.position.set(0.01, 0.01, 0.01);
+  mesh.name = 'points';
+
+  for (let i = 0, j = 0; i < count; i += 1, j += 3) {
+    matrix.setPosition(positions[j + 0]!, positions[j + 1]!, positions[j + 2]!);
+    mesh.setMatrixAt(i, matrix);
+
+    if (colors) {
+      color.setRGB(colors[j + 0]!, colors[j + 1]!, colors[j + 2]!);
+      mesh.setColorAt(i, color);
+    }
+  }
+
+  if (mesh.instanceColor) {
+    mesh.instanceColor.needsUpdate = true;
+  }
+
+  mesh.instanceMatrix.needsUpdate = true;
+
+  scene.add(mesh);
+  camera.position.set(0.5, 0.5, 1);
+  camera.lookAt(0, 0, 0);
+
+  transformControls.attach(mesh);
+
+  if (cube) {
+    scene.add(cube);
+  }
+};
+
+const loadSegment = (index: number) => {
+  const segment = objects[index]!;
+
+  if (!segment) {
+    toast.error('Segment cannot be found.');
+  }
+
+  const pointcloud = segment.getPointCloud_asU8();
+  const center = segment.getGeometries()!.getGeometriesList()[0]!.getCenter()!;
+  const box = segment.getGeometries()!.getGeometriesList()[0]!.getBox()!;
+
+  const point = new THREE.Vector3(
+    center.getX(),
+    center.getY(),
+    center.getZ()
+  ).multiplyScalar(1 / 1000);
+
+  setPoint(point);
+
+  setBoundingBox(box, point);
+  update(pointcloud);
+};
+
+const loadBoundingBox = (index: number) => {
+  const segment = objects[index];
+
+  if (!segment) {
+    return toast.error('Segment cannot be found.');
+  }
+
+  const center = segment.getGeometries()!.getGeometriesList()[0]!.getCenter()!;
+  const box = segment.getGeometries()!.getGeometriesList()[0]!.getBox();
+
+  const point = new THREE.Vector3(
+    center.getX(),
+    center.getY(),
+    center.getZ()
+  ).multiplyScalar(1 / 1000);
+
+  setBoundingBox(box!, point);
+};
+
+const loadPoint = (index: number) => {
+  const segment = objects[index];
+
+  if (!segment) {
+    return toast.error('Segment cannot be found.');
+  }
+
+  const center = segment.getGeometries()!.getGeometriesList()[0]!.getCenter()!;
+
+  const point = new THREE.Vector3(
+    center.getX(),
+    center.getY(),
+    center.getZ()
+  ).multiplyScalar(1 / 1000);
+
+  setPoint(point);
+};
+
 const getMouseNormalizedDeviceCoordinates = (event: MouseEvent) => {
   const canvas = renderer.domElement;
   const rect = canvas.getBoundingClientRect();
 
   return {
-    x: ((event.clientX - rect.left) / canvas.width * devicePixelRatio) * 2 - 1,
-    y: -((event.clientY - rect.top) / canvas.height * devicePixelRatio) * 2 + 1,
+    x: (((event.clientX - rect.left) / canvas.width * devicePixelRatio) * 2) - 1,
+    y: (-((event.clientY - rect.top) / canvas.height * devicePixelRatio) * 2) + 1,
   };
 };
 
@@ -336,15 +402,15 @@ const handleCanvasMouseUp = (event: MouseEvent) => {
   raycaster.setFromCamera(mouse, camera);
 
   const [intersect] = raycaster.intersectObjects([scene.getObjectByName('points')!]);
-  const mesh = scene.getObjectByName('points') as THREE.InstancedMesh;
+  const points = scene.getObjectByName('points') as THREE.InstancedMesh;
 
-  if (intersect?.instanceId !== undefined) {
-    mesh.getMatrixAt(intersect.instanceId, matrix);
-    vec3.setFromMatrixPosition(matrix);
-    setPoint(vec3);
-  } else {
-    toast.info('No point intersected.');
+  if (intersect?.instanceId === undefined) {
+    return toast.info('No point intersected.');
   }
+
+  points.getMatrixAt(intersect.instanceId, matrix);
+  vec3.setFromMatrixPosition(matrix);
+  setPoint(vec3);
 };
 
 const handleMove = () => {
@@ -354,8 +420,10 @@ const handleMove = () => {
     return toast.error('No gripper component detected.');
   }
 
-  // We are deliberately just getting the first motion service to ensure this will not break.
-  // May want to allow for more services in the future
+  /*
+   * We are deliberately just getting the first motion service to ensure this will not break.
+   * May want to allow for more services in the future
+   */
   const [motion] = filterResources(props.resources, 'rdk', 'service', 'motion');
 
   if (motion === undefined) {
@@ -434,75 +502,20 @@ const handleTransformModeChange = (event: CustomEvent) => {
 };
 
 const handlePointsResize = (event: CustomEvent) => {
-  const mesh = scene.getObjectByName('points') as THREE.InstancedMesh;
+  const points = scene.getObjectByName('points') as THREE.InstancedMesh;
   const scale = event.detail.value;
-  
-  for (let i = 0; i < mesh.count; i += 1) {
-    mesh.getMatrixAt(i, matrix);
+
+  for (let i = 0; i < points.count; i += 1) {
+    points.getMatrixAt(i, matrix);
     vec3.setFromMatrixPosition(matrix);
     matrix.makeScale(scale, scale, scale);
     matrix.setPosition(vec3);
-    mesh.setMatrixAt(i, matrix);
+    points.setMatrixAt(i, matrix);
   }
 
   sphere.scale.set(scale, scale, scale);
 
   mesh.instanceMatrix.needsUpdate = true;
-};
-
-const color = new THREE.Color();
-let mesh: THREE.InstancedMesh;
-
-const update = (cloud: Uint8Array) => {
-  // dispose old resources
-  if (mesh) {
-    scene.remove(mesh);
-    mesh.geometry.dispose();
-    (mesh.material as THREE.MeshBasicMaterial).dispose();
-  }
-
-  const points = loader.parse(cloud.buffer, '');
-  points.name = 'points';
-  const positions = points.geometry.attributes.position.array;
-
-  // TODO (hackday): colors is not consistently returned, if not just render all points as blue
-  // eslint-disable-next-line unicorn/prefer-spread
-  const colors = points.geometry.attributes.color?.array ?? Array.from(positions).flatMap(() => [0.3, 0.5, 0.7]);
-
-  const count = positions.length / 3;
-  const material = new THREE.MeshBasicMaterial();
-  const geometry = new THREE.BoxGeometry(0.005, 0.005, 0.005);
-  mesh = new THREE.InstancedMesh(geometry, material, count);
-  mesh.position.set(0.01, 0.01, 0.01);
-  mesh.name = 'points';
-
-  console.log(positions.length, colors.length);
-
-  for (let i = 0, j = 0; i < count; i += 1, j += 3) {
-    matrix.setPosition(positions[j + 0], positions[j + 1], positions[j + 2]);
-    mesh.setMatrixAt(i, matrix);
-
-    if (colors) {
-      color.setRGB(colors[j + 0], colors[j + 1], colors[j + 2]);
-      mesh.setColorAt(i, color);
-    }
-  }
-
-  if (mesh.instanceColor) {
-    mesh.instanceColor.needsUpdate = true;
-  }
-
-  mesh.instanceMatrix.needsUpdate = true;
-
-  scene.add(mesh);
-  camera.position.set(0.5, 0.5, 1);
-  camera.lookAt(0, 0, 0);
-
-  transformControls.attach(mesh);
-
-  if (cube) {
-    scene.add(cube);
-  }
 };
 
 const init = (pointcloud: Uint8Array) => {
@@ -625,7 +638,10 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
         <select
           v-model="selectedSegmenter"
           placeholder="Choose"
-          class="m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
+          class="
+            m-0 w-full appearance-none border border-solid border-black bg-white
+            bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none
+          "
           aria-label="Select segmenter"
           @change="getSegmenterParameters"
         >
@@ -653,7 +669,7 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
         </div>
       </div>
 
-      <div class="flex items-end gap-4">
+      <!-- <div class="flex items-end gap-4">
         <v-input
           v-for="param in segmenterParameterNames"
           :key="param.getName()"
@@ -664,7 +680,7 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
             segmenterParameters[param.getName()] = Number(event.detail.value)
           }"
         />
-      </div>
+      </div> -->
 
       <v-button
         :disabled="selectedSegmenter === ''"
@@ -722,7 +738,10 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
           </p>
           <select
             v-model="selectedObject"
-            class="m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
+            class="
+              m-0 w-full appearance-none border border-solid border-black bg-white
+              bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none
+            "
             :class="['py-2 pl-2']"
             @change="handleSelectObject(($event.currentTarget as HTMLSelectElement).value)"
           >
@@ -734,7 +753,7 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
               Select Object
             </option>
             <option
-              v-for="(seg, index) in objects"
+              v-for="(_seg, index) in objects"
               :key="index"
               :value="index"
             >

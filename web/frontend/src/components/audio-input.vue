@@ -17,7 +17,7 @@ const audioInput = ref(false);
 
 const toggleExpand = () => {
   audioInput.value = !audioInput.value;
-  
+
   const isOn = audioInput.value;
 
   if (isOn) {
