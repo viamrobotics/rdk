@@ -133,7 +133,7 @@ func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 		if methodName == nextPointCloud {
 			return ".pcd"
 		}
-		if methodName == ReadImage {
+		if methodName == readImage {
 			// TODO: Add explicit file extensions for all mime types.
 			switch parameters["mime_type"] {
 			case utils.MimeTypeJPEG:
