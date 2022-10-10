@@ -6,12 +6,13 @@ import (
 	"image/color"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
 )
 
 func TestComposed(t *testing.T) {
