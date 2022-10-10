@@ -316,7 +316,16 @@ func protoToObjects(pco []*commonpb.PointCloudObject) ([]*vision.Object, error) 
 		if err != nil {
 			return nil, err
 		}
-		objects[i], err = vision.NewObject(pc)
+		// Sets the label to the first non-empty label of any geometry; defaults to the empty string.
+		label := func() string {
+			for _, g := range o.Geometries.GetGeometries() {
+				if g.GetLabel() != "" {
+					return g.GetLabel()
+				}
+			}
+			return ""
+		}()
+		objects[i], err = vision.NewObjectWithLabel(pc, label)
 		if err != nil {
 			return nil, err
 		}
