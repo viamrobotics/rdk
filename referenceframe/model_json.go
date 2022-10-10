@@ -2,7 +2,6 @@ package referenceframe
 
 import (
 	"encoding/json"
-	"math"
 	"os"
 
 	"github.com/golang/geo/r3"
@@ -94,7 +93,7 @@ func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 			switch joint.Type {
 			case "revolute":
 				transforms[joint.ID], err = NewRotationalFrame(joint.ID, joint.Axis.ParseConfig(),
-					Limit{Min: joint.Min * math.Pi / 180, Max: joint.Max * math.Pi / 180})
+					Limit{Min: utils.DegToRad(joint.Min), Max: utils.DegToRad(joint.Max)})
 			case "prismatic":
 				transforms[joint.ID], err = NewTranslationalFrame(joint.ID, r3.Vector(joint.Axis),
 					Limit{Min: joint.Min, Max: joint.Max})
@@ -105,21 +104,21 @@ func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 				return nil, err
 			}
 		}
+
 	case "DH":
 		for _, dh := range config.DHParams {
 			// Joint part of DH param
 			jointID := dh.ID + "_j"
 			parentMap[jointID] = dh.Parent
 			transforms[jointID], err = NewRotationalFrame(jointID, spatial.R4AA{RX: 0, RY: 0, RZ: 1},
-				Limit{Min: dh.Min * math.Pi / 180, Max: dh.Max * math.Pi / 180})
+				Limit{Min: utils.DegToRad(dh.Min), Max: utils.DegToRad(dh.Max)})
 			if err != nil {
 				return nil, err
 			}
 
 			// Link part of DH param
 			linkID := dh.ID
-
-			pose := spatial.NewPoseFromDH(utils.DegToRad(dh.A), utils.DegToRad(dh.D), dh.Alpha)
+			pose := spatial.NewPoseFromDH(dh.A, dh.D, utils.DegToRad(dh.Alpha))
 			parentMap[linkID] = jointID
 			geometryCreator, err := dh.Geometry.ParseConfig()
 			if err == nil {
