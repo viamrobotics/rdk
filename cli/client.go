@@ -571,8 +571,9 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		return err
 	}
 
+	// TODO: parallelize
 	for {
-		skip := 0
+		skip := int64(0)
 		// Make BinartDataByFilter request with binary=true
 		resp, err := c.dataClient.BinaryDataByFilter(context.Background(), &datapb.BinaryDataByFilterRequest{
 			DataRequest: &datapb.DataRequest{
@@ -585,7 +586,8 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		})
 		// TODO: what error indicates none left?
 		if err != nil {
-			return err
+			fmt.Println(err.Error())
+			break
 		}
 		mds := resp.GetMetadata()
 		if len(mds) != 1 {
@@ -597,15 +599,31 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 			return err
 		}
 
-		// TODO: Write json bytes to file.
+		// TODO: add fileID to response
 		data := resp.GetData()
 		if len(data) != 1 {
 			return errors.Errorf("expected a single response, received %d", len(data))
 		}
 		datum := data[0]
-		binaryBytes := datum.GetBinary()
+		jsonFile, err := os.Open(filepath.Join(dst, "metadata", datum.GetId()))
+		if err != nil {
+			return err
+		}
+		if _, err := jsonFile.Write(mdJsonBytes); err != nil {
+			return err
+		}
 
-		// TODO: write image bytes to file
+		// TODO: gunzip
+		binaryBytes := datum.GetBinary()
+		// TODO: map mime type to file extension
+		dataFile, err := os.Open(filepath.Join(dst, "data", datum.GetId()+md.GetMimeType()))
+		if err != nil {
+			return err
+		}
+		if _, err := dataFile.Write(binaryBytes); err != nil {
+			return err
+		}
+		skip++
 	}
 
 	return nil
