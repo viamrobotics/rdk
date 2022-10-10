@@ -39,9 +39,9 @@ Example with a dummy configuration: `go run web/cmd/server/main.go -config etc/c
 
 Multiple SDKs are available for writing client applications that interface with the Viam RDK.
 
-* Go: Provided by this repository [here](https://github.com/viamrobotics/rdk/tree/main/robot/client). Docs can be found [here] (https://pkg.go.dev/go.viam.com/rdk/robot/client)
+* Go: Provided by this repository [here](https://github.com/viamrobotics/rdk/tree/main/robot/client). Documentation can be found [here](https://pkg.go.dev/go.viam.com/rdk/robot/client)
 * Python: [Docs](https://python.viam.dev), [Repository](https://github.com/viamrobotics/viam-python-sdk)
-* Rust: https://github.com/viamrobotics/viam-rust-sdk
+* Rust: [Repository](https://github.com/viamrobotics/viam-rust-sdk)
 
 ## Development
 

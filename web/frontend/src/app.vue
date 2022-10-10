@@ -8,7 +8,11 @@ import type { Credentials } from '@viamrobotics/rpc';
 import { toast } from './lib/toast';
 import { displayError } from './lib/error';
 import { addResizeListeners } from './lib/resize';
-import robotApi, { type Status, type Operation, type StreamStatusResponse } from './gen/proto/api/robot/v1/robot_pb.esm';
+import robotApi, {
+  type Status,
+  type Operation,
+  type StreamStatusResponse,
+} from './gen/proto/api/robot/v1/robot_pb.esm';
 import type { ResponseStream } from './gen/proto/stream/v1/stream_pb_service.esm';
 import commonApi, { type ResourceName } from './gen/proto/api/common/v1/common_pb.esm';
 import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
@@ -86,15 +90,6 @@ let connectionManager = $ref<{
   isConnected(): boolean;
 }>(null!);
 
-onMounted(async () => {
-  await waitForClientAndStart();
-
-  connectionManager = createConnectionManager();
-  connectionManager.start();
-
-  addResizeListeners();
-});
-
 const handleError = (message: string, error: unknown, onceKey: string) => {
   if (onceKey) {
     if (errors[onceKey]) {
@@ -108,7 +103,7 @@ const handleError = (message: string, error: unknown, onceKey: string) => {
   console.error(message, { error });
 };
 
-const handleCallErrors = (statuses: { resources: boolean; ops: boolean }, errors: unknown) => {
+const handleCallErrors = (statuses: { resources: boolean; ops: boolean }, newErrors: unknown) => {
   const errorsList = document.createElement('ul');
   errorsList.classList.add('list-disc', 'pl-4');
 
@@ -131,124 +126,26 @@ const handleCallErrors = (statuses: { resources: boolean; ops: boolean }, errors
 
   handleError(
     `Error fetching the following: ${errorsList.outerHTML}`,
-    errors,
+    newErrors,
     'connection'
   );
 };
 
-const createConnectionManager = () => {
-  const statuses = {
-    resources: true,
-    ops: true,
-  };
-
-  let interval = -1;
-  let connectionRestablished = false;
-
-  const makeCalls = async () => {
-    const errors = [];
-
-    try {
-      await queryMetadata();
-
-      if (!statuses.resources) {
-        connectionRestablished = true;
-      }
-
-      statuses.resources = true;
-    } catch (error) {
-      statuses.resources = false;
-      errors.push(error);
-    }
-
-    try {
-      await loadCurrentOps();
-
-      if (!statuses.ops) {
-        connectionRestablished = true;
-      }
-
-      statuses.ops = true;
-    } catch (error) {
-      statuses.ops = false;
-      errors.push(error);
-    }
-
-    if (isConnected()) {
-      if (connectionRestablished) {
-        toast.success('Connection established');
-        connectionRestablished = false;
-      }
-      
-      errorMessage = '';
-      return;
-    }
-
-    handleCallErrors(statuses, errors);
-    errorMessage = 'Connection error, attempting to reconnect ...';
-  };
-
-  const isConnected = () => {
-    return (
-      statuses.resources && 
-      statuses.ops
-    );
-  };
-
-  const stop = () => {
-    window.clearInterval(interval);
-  };
-
-  const start = () => {
-    stop();
-    interval = window.setInterval(makeCalls, 500);
-  };
-
-  return {
-    statuses,
-    interval,
-    stop,
-    start,
-    isConnected,
-  };
-};
-  
-const fixRawStatus = (resource: Resource, status: unknown) => {
-  switch (resourceNameToSubtypeString(resource)) {
-  // TODO (APP-146): generate these using constants
-  // TODO these types need to be fixed.
-    case 'rdk:component:arm':
-      return fixArmStatus(status as never);
-    case 'rdk:component:board':
-      return fixBoardStatus(status as never);
-    case 'rdk:component:gantry':
-      return fixGantryStatus(status as never);
-    case 'rdk:component:input_controller':
-      return fixInputStatus(status as never);
-    case 'rdk:component:motor':
-      return fixMotorStatus(status as never);
-    case 'rdk:component:servo':
-      return fixServoStatus(status as never);
-  }
-
-  return status;
-};
-
 const stringToResourceName = (nameStr: string) => {
-  const nameParts = nameStr.split('/');
+  const [prefix, suffix] = nameStr.split('/');
   let name = '';
 
-  if (nameParts.length === 2) {
-    name = nameParts[1];
+  if (suffix) {
+    name = suffix;
   }
 
-  const subtypeParts = nameParts[0].split(':');
+  const subtypeParts = prefix!.split(':');
   if (subtypeParts.length > 3) {
-    throw 'more than 2 colons in resource name string';
+    throw new Error('more than 2 colons in resource name string');
   }
 
   if (subtypeParts.length < 3) {
-    throw 'less than 2 colons in resource name string';
+    throw new Error('less than 2 colons in resource name string');
   }
 
   return {
@@ -259,143 +156,125 @@ const stringToResourceName = (nameStr: string) => {
   };
 };
 
-const resourceStatusByName = (resource: Resource) => {
-  return status[resourceNameToString(resource)];
-};
-
-const rawResourceStatusByName = (resource: Resource) => {
-  return rawStatus[resourceNameToString(resource)];
-};
-
-const hasWebGamepad = () => {
-  // TODO (APP-146): replace these with constants
-  return resources.some((elem) =>
-    elem.namespace === 'rdk' &&
-    elem.type === 'component' &&
-    elem.subtype === 'input_controller' &&
-    elem.name === 'WebGamepad'
-  );
-};
-
-const filteredInputControllerList = () => {
-  // TODO (APP-146): replace these with constants
-  // filters out WebGamepad
-  return resources.filter((elem) =>
-    elem.namespace === 'rdk' &&
-    elem.type === 'component' &&
-    elem.subtype === 'input_controller' &&
-    elem.name !== 'WebGamepad' &&
-    resourceStatusByName(elem)
-  );
-};
-
-const viewCameraFrame = (cameraName: string, time: string) => {
-  window.clearInterval(cameraFrameIntervalId);
-  if (time === 'manual') {
-    viewCamera(cameraName, false);
-    viewManualFrame(cameraName);
-  } else if (time === 'live') {
-    viewCamera(cameraName, true);
-  } else {
-    viewCamera(cameraName, false);
-    viewIntervalFrame(cameraName, time);
-  }
-};
-
-const viewManualFrame = (cameraName: string) => {
-  const req = new cameraApi.RenderFrameRequest();
-  req.setName(cameraName);
-  const mimeType = 'image/jpeg';
-  req.setMimeType(mimeType);
-  window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
+const querySensors = () => {
+  const req = new sensorsApi.GetSensorsRequest();
+  req.setName('builtin');
+  window.sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
     if (err) {
       return displayError(err);
     }
-
-    const streamName = normalizeRemoteName(cameraName);
-    const streamContainer = document.querySelector(`#stream-${streamName}`);
-    if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
-      streamContainer.querySelectorAll('video')[0].remove();
-    }
-    if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
-      streamContainer.querySelectorAll('img')[0].remove();
-    }
-    const image = new Image();
-    const blob = new Blob([resp!.getData_asU8()], { type: mimeType });
-    image.src = URL.createObjectURL(blob);
-    streamContainer!.append(image);
+    sensorNames = resp!.toObject().sensorNamesList;
   });
 };
 
-const viewIntervalFrame = (cameraName: string, time: string) => {
-  cameraFrameIntervalId = window.setInterval(() => {
-    const req = new cameraApi.RenderFrameRequest();
-    req.setName(cameraName);
-    req.setMimeType('image/jpeg');
-    window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
-      if (err) {
-        return displayError(err);
-      }
+const fixRawStatus = (resource: Resource, statusToFix: unknown) => {
+  switch (resourceNameToSubtypeString(resource)) {
 
-      const streamName = normalizeRemoteName(cameraName);
-      const streamContainer = document.querySelector(`#stream-${streamName}`);
-      if (streamContainer && streamContainer.querySelectorAll('video').length > 0) {
-        streamContainer.querySelectorAll('video')[0].remove();
-      }
-      if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
-        streamContainer.querySelectorAll('img')[0].remove();
-      }
-      const image = new Image();
-      const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
-      image.src = URL.createObjectURL(blob);
-      streamContainer!.append(image);
-    });
-  }, Number(time) * 1000);
-};
-
-const nonEmpty = (object: object) => {
-  return Object.keys(object).length > 0;
-};
-
-const viewCamera = (name: string, isOn: boolean) => {
-  const streamName = normalizeRemoteName(name);
-  const streamContainer = document.querySelector(`#stream-${streamName}`);
-
-  if (isOn) {
-    const req = new streamApi.AddStreamRequest();
-    req.setName(name);
-    window.streamService.addStream(req, new grpc.Metadata(), (err) => {
-      if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
-        streamContainer.querySelectorAll('img')[0].remove();
-      }
-
-      if (err) {
-        toast.error('No live camera device found.');
-        displayError(err);
-      }
-    });
-    document.querySelector(`#stream-preview-${name}`)?.removeAttribute('hidden');
-    return;
+    /*
+     * TODO (APP-146): generate these using constants
+     * TODO these types need to be fixed.
+     */
+    case 'rdk:component:arm':
+      return fixArmStatus(statusToFix as never);
+    case 'rdk:component:board':
+      return fixBoardStatus(statusToFix as never);
+    case 'rdk:component:gantry':
+      return fixGantryStatus(statusToFix as never);
+    case 'rdk:component:input_controller':
+      return fixInputStatus(statusToFix as never);
+    case 'rdk:component:motor':
+      return fixMotorStatus(statusToFix as never);
+    case 'rdk:component:servo':
+      return fixServoStatus(statusToFix as never);
   }
 
-  document.querySelector(`#stream-preview-${name}`)?.setAttribute('hidden', 'true');
-
-  const req = new streamApi.RemoveStreamRequest();
-  req.setName(name);
-  window.streamService.removeStream(req, new grpc.Metadata(), (err) => {
-    if (streamContainer && streamContainer.querySelectorAll('img').length > 0) {
-      streamContainer.querySelectorAll('img')[0].remove();
-    }
-
-    if (err) {
-      toast.error('No live camera device found.');
-      displayError(err);
-    }
-  });
+  return statusToFix;
 };
 
-const isWebRtcEnabled = () => {
-  return window.webrtcEnabled;
+const updateStatus = (grpcStatuses: robotApi.Status[]) => {
+  for (const grpcStatus of grpcStatuses) {
+    const nameObj = grpcStatus.getName()!.toObject();
+    const statusJs = grpcStatus.getStatus()!.toJavaScript();
+
+    try {
+      // @ts-expect-error @TODO type needs to be fixed
+      const fixed = fixRawStatus(nameObj, statusJs);
+      // @ts-expect-error @TODO type needs to be fixed
+      const name = resourceNameToString(nameObj);
+      rawStatus[name] = statusJs as unknown as Status;
+      status[name] = fixed as unknown as Status;
+    } catch (error) {
+      // @ts-expect-error @TODO type needs to be fixed
+      toast.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`, error);
+    }
+  }
+};
+
+const checkLastStatus = () => {
+  const checkIntervalMillis = 3000;
+  if (Date.now() - lastStatusTS > checkIntervalMillis) {
+    // eslint-disable-next-line no-use-before-define
+    restartStatusStream();
+    return;
+  }
+  setTimeout(checkLastStatus, checkIntervalMillis);
+};
+
+const restartStatusStream = async () => {
+  if (statusStream) {
+    statusStream.cancel();
+    try {
+      console.log('reconnecting');
+      await window.connect();
+    } catch (error) {
+      console.error('failed to reconnect; retrying:', error);
+      setTimeout(() => restartStatusStream(), 1000);
+    }
+  }
+
+  let newResources: Resource[] = [];
+
+  // get all relevant resources
+  for (const subtype of relevantSubtypesForStatus) {
+    newResources = [...newResources, ...filterResources(newResources, 'rdk', 'component', subtype)];
+  }
+
+  const names = newResources.map((name) => {
+    const resourceName = new commonApi.ResourceName();
+    resourceName.setNamespace(name.namespace);
+    resourceName.setType(name.type);
+    resourceName.setSubtype(name.subtype);
+    resourceName.setName(name.name);
+    return resourceName;
+  });
+
+  const streamReq = new robotApi.StreamStatusRequest();
+  streamReq.setResourceNamesList(names);
+  // 500ms
+  streamReq.setEvery(new Duration().setNanos(500_000_000));
+
+  statusStream = window.robotService.streamStatus(streamReq);
+  let firstData = true;
+
+  statusStream.on('data', (response) => {
+    lastStatusTS = Date.now();
+    updateStatus(response.getStatusList());
+    if (firstData) {
+      firstData = false;
+      checkLastStatus();
+    }
+  });
+
+  statusStream.on('status', (newStatus) => {
+    console.log('error streaming robot status');
+    console.log(newStatus);
+    console.log(newStatus.code, ' ', newStatus.details);
+  });
+
+  statusStream.on('end', () => {
+    console.log('done streaming robot status');
+    setTimeout(() => restartStatusStream(), 1000);
+  });
 };
 
 // query metadata service every 0.5s
@@ -411,7 +290,7 @@ const queryMetadata = () => {
       }
 
       if (!resp) {
-        reject(null);
+        reject(new Error('An unexpected issue occured.'));
         return;
       }
 
@@ -419,6 +298,7 @@ const queryMetadata = () => {
 
       // if resource list has changed, flag that
       const differences = new Set(resources.map((name) => resourceNameToString(name)));
+      // @ts-expect-error @TODO this is incorrectly typed.
       const resourceSet = new Set(resourcesList.map((name) => resourceNameToString(name)));
 
       for (const elem of resourceSet) {
@@ -438,14 +318,15 @@ const queryMetadata = () => {
           if (
             resource.namespace === 'rdk' &&
             resource.type === 'component' &&
-            relevantSubtypesForStatus.includes(resource.subtype)
+            relevantSubtypesForStatus.includes(resource.subtype!)
           ) {
             shouldRestartStatusStream = true;
             break;
           }
         }
       }
-      
+
+      // @ts-expect-error @TODO type needs to be fixed
       resources = resourcesList;
       if (resourcesChanged === true) {
         querySensors();
@@ -458,19 +339,8 @@ const queryMetadata = () => {
   });
 };
 
-const querySensors = () => {
-  const req = new sensorsApi.GetSensorsRequest();
-  req.setName('builtin');
-  window.sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
-    if (err) {
-      return displayError(err);
-    }
-    sensorNames = resp!.toObject().sensorNamesList;
-  });
-};
-
 const loadCurrentOps = () => {
-  return new Promise((resolve, reject) => {  
+  return new Promise((resolve, reject) => {
     const req = new robotApi.GetOperationsRequest();
 
     window.robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
@@ -480,7 +350,7 @@ const loadCurrentOps = () => {
       }
 
       if (!resp) {
-        reject(null);
+        reject(new Error('An unexpected issue occurred.'));
         return;
       }
 
@@ -498,6 +368,221 @@ const loadCurrentOps = () => {
       resolve(currentOps);
     });
   });
+};
+
+const createConnectionManager = () => {
+  const statuses = {
+    resources: true,
+    ops: true,
+  };
+
+  let interval = -1;
+  let connectionRestablished = false;
+
+  const isConnected = () => {
+    return (
+      statuses.resources &&
+      statuses.ops
+    );
+  };
+
+  const makeCalls = async () => {
+    const newErrors = [];
+
+    try {
+      await queryMetadata();
+
+      if (!statuses.resources) {
+        connectionRestablished = true;
+      }
+
+      statuses.resources = true;
+    } catch (error) {
+      statuses.resources = false;
+      newErrors.push(error);
+    }
+
+    try {
+      await loadCurrentOps();
+
+      if (!statuses.ops) {
+        connectionRestablished = true;
+      }
+
+      statuses.ops = true;
+    } catch (error) {
+      statuses.ops = false;
+      newErrors.push(error);
+    }
+
+    if (isConnected()) {
+      if (connectionRestablished) {
+        toast.success('Connection established');
+        connectionRestablished = false;
+      }
+
+      errorMessage = '';
+      return;
+    }
+
+    handleCallErrors(statuses, newErrors);
+    errorMessage = 'Connection error, attempting to reconnect ...';
+  };
+
+  const stop = () => {
+    window.clearInterval(interval);
+  };
+
+  const start = () => {
+    stop();
+    interval = window.setInterval(makeCalls, 500);
+  };
+
+  return {
+    statuses,
+    interval,
+    stop,
+    start,
+    isConnected,
+  };
+};
+
+const resourceStatusByName = (resource: Resource) => {
+  return status[resourceNameToString(resource)];
+};
+
+const rawResourceStatusByName = (resource: Resource) => {
+  return rawStatus[resourceNameToString(resource)];
+};
+
+const hasWebGamepad = () => {
+  // TODO (APP-146): replace these with constants
+  return resources.some((elem) =>
+    elem.namespace === 'rdk' &&
+    elem.type === 'component' &&
+    elem.subtype === 'input_controller' &&
+    elem.name === 'WebGamepad');
+};
+
+const filteredInputControllerList = () => {
+
+  /*
+   * TODO (APP-146): replace these with constants
+   * filters out WebGamepad
+   */
+  return resources.filter((elem) =>
+    elem.namespace === 'rdk' &&
+    elem.type === 'component' &&
+    elem.subtype === 'input_controller' &&
+    elem.name !== 'WebGamepad' &&
+    resourceStatusByName(elem));
+};
+
+const viewCamera = (name: string, isOn: boolean) => {
+  const streamName = normalizeRemoteName(name);
+  const streamContainer = document.querySelector(`#stream-${streamName}`);
+
+  if (isOn) {
+    const req = new streamApi.AddStreamRequest();
+    req.setName(name);
+    window.streamService.addStream(req, new grpc.Metadata(), (err) => {
+      if (streamContainer) {
+        streamContainer.querySelector('img')?.remove();
+      }
+
+      if (err) {
+        toast.error('No live camera device found.');
+        displayError(err);
+      }
+    });
+    document.querySelector(`#stream-preview-${name}`)?.removeAttribute('hidden');
+    return;
+  }
+
+  document.querySelector(`#stream-preview-${name}`)?.setAttribute('hidden', 'true');
+
+  const req = new streamApi.RemoveStreamRequest();
+  req.setName(name);
+  window.streamService.removeStream(req, new grpc.Metadata(), (err) => {
+    if (streamContainer) {
+      streamContainer.querySelector('img')?.remove();
+    }
+
+    if (err) {
+      toast.error('No live camera device found.');
+      displayError(err);
+    }
+  });
+};
+
+const viewManualFrame = (cameraName: string) => {
+  const req = new cameraApi.RenderFrameRequest();
+  req.setName(cameraName);
+  const mimeType = 'image/jpeg';
+  req.setMimeType(mimeType);
+  window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
+    if (err) {
+      return displayError(err);
+    }
+
+    const streamName = normalizeRemoteName(cameraName);
+    const streamContainer = document.querySelector(`#stream-${streamName}`);
+    if (streamContainer) {
+      streamContainer.querySelector('video')?.remove();
+      streamContainer.querySelector('img')?.remove();
+    }
+
+    const image = new Image();
+    const blob = new Blob([resp!.getData_asU8()], { type: mimeType });
+    image.src = URL.createObjectURL(blob);
+    streamContainer!.append(image);
+  });
+};
+
+const viewIntervalFrame = (cameraName: string, time: string) => {
+  cameraFrameIntervalId = window.setInterval(() => {
+    const req = new cameraApi.RenderFrameRequest();
+    req.setName(cameraName);
+    req.setMimeType('image/jpeg');
+    window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
+      if (err) {
+        return displayError(err);
+      }
+
+      const streamName = normalizeRemoteName(cameraName);
+      const streamContainer = document.querySelector(`#stream-${streamName}`);
+      if (streamContainer) {
+        streamContainer.querySelector('video')?.remove();
+        streamContainer.querySelector('img')?.remove();
+      }
+
+      const image = new Image();
+      const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
+      image.src = URL.createObjectURL(blob);
+      streamContainer!.append(image);
+    });
+  }, Number(time) * 1000);
+};
+
+const viewCameraFrame = (cameraName: string, time: string) => {
+  window.clearInterval(cameraFrameIntervalId);
+  if (time === 'manual') {
+    viewCamera(cameraName, false);
+    viewManualFrame(cameraName);
+  } else if (time === 'live') {
+    viewCamera(cameraName, true);
+  } else {
+    viewCamera(cameraName, false);
+    viewIntervalFrame(cameraName, time);
+  }
+};
+
+const nonEmpty = (object: object) => {
+  return Object.keys(object).length > 0;
+};
+
+const isWebRtcEnabled = () => {
+  return window.webrtcEnabled;
 };
 
 const doConnect = async (authEntity: string, creds: Credentials, onError?: () => Promise<void>) => {
@@ -533,92 +618,20 @@ const waitForClientAndStart = async () => {
   }
 };
 
-const updateStatus = (grpcStatuses: robotApi.Status[]) => {
-  for (const grpcStatus of grpcStatuses) {
-    const nameObj = grpcStatus.getName()!.toObject();
-    const statusJs = grpcStatus.getStatus()!.toJavaScript();
-
-    try {
-      const fixed = fixRawStatus(nameObj, statusJs);
-      const name = resourceNameToString(nameObj);
-      rawStatus[name] = statusJs as unknown as Status;
-      status[name] = fixed as unknown as Status;
-    } catch (error) {
-      toast.error(`Couldn't fix status for ${resourceNameToString(nameObj)}`, error);
-    }
-  }
-};
-
-const restartStatusStream = async () => {
-  if (statusStream) {
-    statusStream.cancel();
-    try {
-      console.log('reconnecting');
-      await window.connect();
-    } catch (error) {
-      console.error('failed to reconnect; retrying:', error);
-      setTimeout(() => restartStatusStream(), 1000);
-    }
-  }
-
-  let resources: Resource[] = [];
-
-  // get all relevant resources
-  for (const subtype of relevantSubtypesForStatus) {
-    resources = [...resources, ...filterResources(resources, 'rdk', 'component', subtype)];
-  }
-
-  const names = resources.map((name) => {
-    const resourceName = new commonApi.ResourceName();
-    resourceName.setNamespace(name.namespace);
-    resourceName.setType(name.type);
-    resourceName.setSubtype(name.subtype);
-    resourceName.setName(name.name);
-    return resourceName;
-  });
-
-  const streamReq = new robotApi.StreamStatusRequest();
-  streamReq.setResourceNamesList(names);
-  streamReq.setEvery(new Duration().setNanos(500_000_000)); // 500ms
-
-  statusStream = window.robotService.streamStatus(streamReq);
-  let firstData = true;
-
-  statusStream.on('data', (response) => {
-    lastStatusTS = Date.now();
-    updateStatus(response.getStatusList());
-    if (firstData) {
-      firstData = false;
-      checkLastStatus();
-    }
-  });
-
-  statusStream.on('status', (status) => {
-    console.log('error streaming robot status');
-    console.log(status);
-    console.log(status.code, ' ', status.details);
-  });
-
-  statusStream.on('end', () => {
-    console.log('done streaming robot status');
-    setTimeout(() => restartStatusStream(), 1000);
-  });
-};
-
-const checkLastStatus = () => {
-  const checkIntervalMillis = 3000;
-  if (Date.now() - lastStatusTS > checkIntervalMillis) {
-    restartStatusStream();
-    return;
-  }
-  setTimeout(checkLastStatus, checkIntervalMillis);
-};
-
 const handleSelectCamera = (event: string, cameras: Resource[]) => {
   for (const camera of cameras) {
     viewCamera(camera.name, event.includes(camera.name));
   }
 };
+
+onMounted(async () => {
+  await waitForClientAndStart();
+
+  connectionManager = createConnectionManager();
+  connectionManager.start();
+
+  addResizeListeners();
+});
 
 </script>
 
@@ -650,7 +663,10 @@ const handleSelectCamera = (event: string, cameras: Resource[]) => {
         <input
           ref="passwordInput"
           :disabled="disableAuthElements"
-          class="mb-2 block w-full appearance-none border p-2 text-gray-700 transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none"
+          class="
+            mb-2 block w-full appearance-none border p-2 text-gray-700
+            transition-colors duration-150 ease-in-out placeholder:text-gray-400 focus:outline-none
+          "
           type="password"
           @keyup.enter="doLogin(authType)"
         >
@@ -662,7 +678,7 @@ const handleSelectCamera = (event: string, cameras: Resource[]) => {
       </div>
     </template>
   </div>
-  
+
   <div class="flex flex-col gap-4 p-3">
     <div
       v-if="errorMessage"
@@ -700,8 +716,8 @@ const handleSelectCamera = (event: string, cameras: Resource[]) => {
       v-for="arm in filterResources(resources, 'rdk', 'component', 'arm')"
       :key="arm.name"
       :name="arm.name"
-      :status="resourceStatusByName(arm)"
-      :raw-status="rawResourceStatusByName(arm)"
+      :status="(resourceStatusByName(arm) as any)"
+      :raw-status="(rawResourceStatusByName(arm) as any)"
     />
 
     <!-- ******* GRIPPER *******  -->
@@ -716,16 +732,16 @@ const handleSelectCamera = (event: string, cameras: Resource[]) => {
       v-for="servo in filterRdkComponentsWithStatus(resources, status, 'servo')"
       :key="servo.name"
       :name="servo.name"
-      :status="resourceStatusByName(servo)"
-      :raw-status="rawResourceStatusByName(servo)"
+      :status="(resourceStatusByName(servo) as any)"
+      :raw-status="(rawResourceStatusByName(servo) as any)"
     />
 
     <!-- ******* MOTOR *******  -->
     <Motor
       v-for="motor in filterRdkComponentsWithStatus(resources, status, 'motor')"
-      :key="motor.name" 
-      :name="motor.name" 
-      :status="resourceStatusByName(motor)"
+      :key="motor.name"
+      :name="motor.name"
+      :status="(resourceStatusByName(motor) as any)"
     />
 
     <!-- ******* INPUT VIEW *******  -->
@@ -733,7 +749,7 @@ const handleSelectCamera = (event: string, cameras: Resource[]) => {
       v-for="controller in filteredInputControllerList()"
       :key="controller.name"
       :name="controller.name"
-      :status="resourceStatusByName(controller)"
+      :status="(resourceStatusByName(controller) as any)"
       class="input"
     />
 
@@ -747,7 +763,7 @@ const handleSelectCamera = (event: string, cameras: Resource[]) => {
       v-for="board in filterRdkComponentsWithStatus(resources, status, 'board')"
       :key="board.name"
       :name="board.name"
-      :status="resourceStatusByName(board)"
+      :status="(resourceStatusByName(board) as any)"
     />
 
     <!-- ******* CAMERAS *******  -->
@@ -773,7 +789,7 @@ const handleSelectCamera = (event: string, cameras: Resource[]) => {
     <!-- ******* SENSORS ******* -->
     <Sensors
       v-if="nonEmpty(sensorNames)"
-      :name="filterResources(resources, 'rdk', 'service', 'sensors')[0]?.name"
+      :name="filterResources(resources, 'rdk', 'service', 'sensors')[0]!.name"
       :sensor-names="sensorNames"
     />
 

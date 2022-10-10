@@ -1,7 +1,8 @@
+<!-- eslint-disable id-length -->
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import InputController from '../gen/proto/api/component/inputcontroller/v1/input_controller_pb.esm';
 import { displayError } from '../lib/error';
@@ -11,10 +12,6 @@ const gamepadName = ref('Waiting for gamepad...');
 const gamepadConnected = ref(false);
 const gamepadConnectedPrev = ref(false);
 const enabled = ref(false);
-
-watch(() => enabled, () => {
-  connectEvent(enabled.value);
-});
 
 const curStates: Record<string, number> = {
   X: Number.NaN,
@@ -38,55 +35,15 @@ const curStates: Record<string, number> = {
   Menu: Number.NaN,
 };
 
+let handle = -1;
 let prevStates: Record<string, number> = {};
 
-onMounted(() => {
-  prevStates = { ...prevStates, ...curStates };
-  tick();
-});
-
-const processEvents = () => {
-  if (gamepadConnected.value === false) {
-    for (const ctrl in curStates) {
-      curStates[ctrl] = Number.NaN;
-    }
-    if (gamepadConnectedPrev.value === true) {
-      connectEvent(false);
-      gamepadConnectedPrev.value = false;
-    }
-    return;
-  } else if (gamepadConnectedPrev.value === false) {
-    connectEvent(true);
-    gamepadConnectedPrev.value = true;
-  }
-
-  for (const ctrl in curStates) {
-    if (
-      curStates[ctrl] === prevStates[ctrl] ||
-      (Number.isNaN(curStates[ctrl]) &&
-        Number.isNaN(prevStates[ctrl]))
-    ) {
-      continue;
-    }
-    const newEvent = new InputController.Event();
-    newEvent.setTime(Timestamp.fromDate(new Date()));
-    if (/X|Y|Z$/.test(ctrl)) {
-      newEvent.setControl(`Absolute${ctrl}`);
-      newEvent.setEvent('PositionChangeAbs');
-    } else {
-      newEvent.setControl(`Button${ctrl}`);
-      newEvent.setEvent(
-        curStates[ctrl] ? 'ButtonPress' : 'ButtonRelease'
-      );
-    }
-
-    if (Number.isNaN(curStates[ctrl])) {
-      newEvent.setEvent('Disconnect');
-      newEvent.setValue(0);
-    } else {
-      newEvent.setValue(curStates[ctrl]);
-    }
-    sendEvent(newEvent);
+const sendEvent = (newEvent: InputController.Event) => {
+  if (enabled.value) {
+    const req = new InputController.TriggerEventRequest();
+    req.setController('WebGamepad');
+    req.setEvent(newEvent);
+    window.inputControllerService.triggerEvent(req, new grpc.Metadata(), displayError);
   }
 };
 
@@ -98,13 +55,13 @@ const connectEvent = (con: boolean) => {
     return;
   }
 
-  for (const ctrl in curStates) {
+  for (const ctrl of Object.keys(curStates)) {
     const newEvent = new InputController.Event();
     newEvent.setTime(Timestamp.fromDate(new Date()));
     newEvent.setEvent(con ? 'Connect' : 'Disconnect');
     newEvent.setValue(0);
 
-    if (/X|Y|Z$/.test(ctrl)) {
+    if ((/X|Y|Z$/u).test(ctrl)) {
       newEvent.setControl(`Absolute${ctrl}`);
     } else {
       newEvent.setControl(`Button${ctrl}`);
@@ -114,25 +71,63 @@ const connectEvent = (con: boolean) => {
   }
 };
 
-const sendEvent = (newEvent: InputController.Event) => {
-  if (enabled.value) {
-    const req = new InputController.TriggerEventRequest();
-    req.setController('WebGamepad');
-    req.setEvent(newEvent);
-    window.inputControllerService.triggerEvent(req, new grpc.Metadata(), displayError);
+const processEvents = () => {
+  if (gamepadConnected.value === false) {
+    for (const key of Object.keys(curStates)) {
+      curStates[key] = Number.NaN;
+    }
+
+    if (gamepadConnectedPrev.value === true) {
+      connectEvent(false);
+      gamepadConnectedPrev.value = false;
+    }
+    return;
+  } else if (gamepadConnectedPrev.value === false) {
+    connectEvent(true);
+    gamepadConnectedPrev.value = true;
+  }
+
+  for (const [key, value] of Object.entries(curStates)) {
+    if (
+      value === prevStates[key] ||
+      (Number.isNaN(value) &&
+        Number.isNaN(prevStates[key]))
+    ) {
+      continue;
+    }
+    const newEvent = new InputController.Event();
+    newEvent.setTime(Timestamp.fromDate(new Date()));
+    if ((/X|Y|Z$/u).test(key)) {
+      newEvent.setControl(`Absolute${key}`);
+      newEvent.setEvent('PositionChangeAbs');
+    } else {
+      newEvent.setControl(`Button${key}`);
+      newEvent.setEvent(
+        value ? 'ButtonPress' : 'ButtonRelease'
+      );
+    }
+
+    if (Number.isNaN(value)) {
+      newEvent.setEvent('Disconnect');
+      newEvent.setValue(0);
+    } else {
+      newEvent.setValue(value);
+    }
+    sendEvent(newEvent);
   }
 };
 
 const tick = () => {
   let gamepadFound = false;
   const pads = navigator.getGamepads();
-  for (const g of pads) {
-    if (g) {
-      gamepad.value = g;
+  for (const pad of pads) {
+    if (pad) {
+      gamepad.value = pad;
       gamepadFound = true;
       break;
     }
   }
+
   if (gamepadFound === false) {
     gamepadName.value = 'Waiting for gamepad...';
     gamepadConnected.value = false;
@@ -141,36 +136,49 @@ const tick = () => {
 
   if (gamepad.value) {
     gamepadName.value = gamepad.value.mapping === 'standard'
-      ? gamepad.value.id.replace(/ \(standard .*\)/i, '')
+      ? gamepad.value.id.replace(/ \(standard .*\)/iu, '')
       : gamepad.value.id;
 
     prevStates = { ...prevStates, ...curStates };
     gamepadConnected.value = gamepad.value.connected;
 
-    curStates.X = gamepad.value.axes[0];
-    curStates.Y = gamepad.value.axes[1];
-    curStates.RX = gamepad.value.axes[2];
-    curStates.RY = gamepad.value.axes[3];
-    curStates.Z = gamepad.value.buttons[6].value;
-    curStates.RZ = gamepad.value.buttons[7].value;
-    curStates.Hat0X = gamepad.value.buttons[14].value * -1 + gamepad.value.buttons[15].value;
-    curStates.Hat0Y = gamepad.value.buttons[12].value * -1 + gamepad.value.buttons[13].value;
-    curStates.South = gamepad.value.buttons[0].value;
-    curStates.East = gamepad.value.buttons[1].value;
-    curStates.West = gamepad.value.buttons[2].value;
-    curStates.North = gamepad.value.buttons[3].value;
-    curStates.LT = gamepad.value.buttons[4].value;
-    curStates.RT = gamepad.value.buttons[5].value;
-    curStates.Select = gamepad.value.buttons[8].value;
-    curStates.Start = gamepad.value.buttons[9].value;
-    curStates.LThumb = gamepad.value.buttons[10].value;
-    curStates.RThumb = gamepad.value.buttons[11].value;
-    curStates.Menu = gamepad.value.buttons[16].value;
+    curStates.X = gamepad.value.axes[0]!;
+    curStates.Y = gamepad.value.axes[1]!;
+    curStates.RX = gamepad.value.axes[2]!;
+    curStates.RY = gamepad.value.axes[3]!;
+    curStates.Z = gamepad.value.buttons[6]!.value;
+    curStates.RZ = gamepad.value.buttons[7]!.value;
+    curStates.Hat0X = (gamepad.value.buttons[14]!.value * -1) + gamepad.value.buttons[15]!.value;
+    curStates.Hat0Y = (gamepad.value.buttons[12]!.value * -1) + gamepad.value.buttons[13]!.value;
+    curStates.South = gamepad.value.buttons[0]!.value;
+    curStates.East = gamepad.value.buttons[1]!.value;
+    curStates.West = gamepad.value.buttons[2]!.value;
+    curStates.North = gamepad.value.buttons[3]!.value;
+    curStates.LT = gamepad.value.buttons[4]!.value;
+    curStates.RT = gamepad.value.buttons[5]!.value;
+    curStates.Select = gamepad.value.buttons[8]!.value;
+    curStates.Start = gamepad.value.buttons[9]!.value;
+    curStates.LThumb = gamepad.value.buttons[10]!.value;
+    curStates.RThumb = gamepad.value.buttons[11]!.value;
+    curStates.Menu = gamepad.value.buttons[16]!.value;
   }
 
   processEvents();
-  window.requestAnimationFrame(tick);
+  handle = window.requestAnimationFrame(tick);
 };
+
+onMounted(() => {
+  prevStates = { ...prevStates, ...curStates };
+  tick();
+});
+
+onUnmounted(() => {
+  cancelAnimationFrame(handle);
+});
+
+watch(() => enabled, () => {
+  connectEvent(enabled.value);
+});
 
 </script>
 
@@ -193,7 +201,7 @@ const tick = () => {
         class="rounded-full bg-gray-200 px-3 py-0.5 text-xs text-gray-800"
       >Disconnected</span>
     </div>
-    
+
     <div class="h-full w-full border border-t-0 border-black p-4">
       <div class="flex flex-row">
         <label class="subtitle mr-2">Connection</label>
@@ -203,7 +211,7 @@ const tick = () => {
         />
       </div>
 
-      <div 
+      <div
         v-if="gamepadConnected"
         class="flex h-full w-full flex-row justify-between gap-2"
       >
