@@ -111,8 +111,8 @@ func Discover(ctx context.Context, getDrivers func() []driver.Driver) (*pb.Webca
 
 		for _, prop := range props {
 			pbProp := &pb.Property{
-				Width:       int32(prop.Video.Width),
-				Height:      int32(prop.Video.Height),
+				WidthPx:     int32(prop.Video.Width),
+				HeightPx:    int32(prop.Video.Height),
 				FrameFormat: string(prop.Video.FrameFormat),
 			}
 			wc.Properties = append(wc.Properties, pbProp)
@@ -142,8 +142,8 @@ func getProperties(d driver.Driver) (_ []prop.Media, err error) {
 type WebcamAttrs struct {
 	*camera.AttrConfig
 	Format      string `json:"format"`
-	Path        string `json:"path"`
-	PathPattern string `json:"path_pattern"`
+	Path        string `json:"video_path"`
+	PathPattern string `json:"video_path_pattern"`
 	Width       int    `json:"width_px"`
 	Height      int    `json:"height_px"`
 }

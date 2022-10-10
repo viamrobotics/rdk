@@ -5,7 +5,7 @@ import { nextTick } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import type { Resource } from '../lib/resource';
 import slamApi from '../gen/proto/api/service/slam/v1/slam_pb.esm';
-import { toast } from '../lib/toast';
+import { displayError } from '../lib/error';
 import PCD from './pcd.vue';
 
 interface Props {
@@ -14,7 +14,7 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-  
+
 let showImage = $ref(false);
 let showPCD = $ref(false);
 const selectedImageValue = $ref('manual');
@@ -24,35 +24,40 @@ let pointcloud = $ref<Uint8Array | undefined>();
 
 let slamImageIntervalId = -1;
 let slamPCDIntervalId = -1;
-  
-const toggleImageExpand = () => {
-  showImage = !showImage;
-  updateSLAMImageRefreshFrequency(props.name, showImage ? selectedImageValue : 'off');
-};
-  
-const togglePCDExpand = () => {
-  showPCD = !showPCD;
-  updateSLAMPCDRefreshFrequency(props.name, showPCD ? selectedPCDValue : 'off');
+
+const viewSLAMPCDMap = (name: string) => {
+  nextTick(() => {
+    const req = new slamApi.GetMapRequest();
+    req.setName(name);
+    req.setMimeType('pointcloud/pcd');
+
+    window.slamService.getMap(req, new grpc.Metadata(), (error, response) => {
+      if (error) {
+        return displayError(error);
+      }
+      const pcObject = response!.getPointCloud()!;
+      pointcloud = pcObject.getPointCloud_asU8();
+    });
+  });
 };
 
-const selectSLAMImageRefreshFrequency = () => {
-  updateSLAMImageRefreshFrequency(props.name, selectedImageValue);
-};
-  
-const selectSLAMPCDRefreshFrequency = () => {
-  updateSLAMPCDRefreshFrequency(props.name, selectedPCDValue);
-};
-  
-const refreshImageMap = () => {
-  updateSLAMImageRefreshFrequency(props.name, selectedImageValue);
-};
-  
-const refreshPCDMap = () => {
-  updateSLAMPCDRefreshFrequency(props.name, selectedPCDValue);
+const viewSLAMImageMap = (name: string) => {
+  const req = new slamApi.GetMapRequest();
+  req.setName(name);
+  req.setMimeType('image/jpeg');
+  req.setIncludeRobotMarker(true);
+  window.slamService.getMap(req, new grpc.Metadata(), (error, response) => {
+    if (error) {
+      return displayError(error);
+    }
+    const blob = new Blob([response!.getImage_asU8()], { type: 'image/jpeg' });
+    imageMap = URL.createObjectURL(blob);
+  });
 };
 
 const updateSLAMImageRefreshFrequency = (name: string, time: 'manual' | 'off' | string) => {
   window.clearInterval(slamImageIntervalId);
+
   if (time === 'manual') {
     viewSLAMImageMap(name);
   } else if (time === 'off') {
@@ -65,22 +70,9 @@ const updateSLAMImageRefreshFrequency = (name: string, time: 'manual' | 'off' | 
   }
 };
 
-const viewSLAMImageMap = (name: string) => {
-  const req = new slamApi.GetMapRequest();
-  req.setName(name);
-  req.setMimeType('image/jpeg');
-  req.setIncludeRobotMarker(true);
-  window.slamService.getMap(req, new grpc.Metadata(), (error, response) => {
-    if (error) {
-      return toast.error(`${error}`);
-    }
-    const blob = new Blob([response!.getImage_asU8()], { type: 'image/jpeg' });
-    imageMap = URL.createObjectURL(blob);
-  });
-};
-
 const updateSLAMPCDRefreshFrequency = (name: string, time: 'manual' | 'off' | string) => {
   clearInterval(slamPCDIntervalId);
+
   if (time === 'manual') {
     viewSLAMPCDMap(name);
   } else if (time === 'off') {
@@ -93,24 +85,34 @@ const updateSLAMPCDRefreshFrequency = (name: string, time: 'manual' | 'off' | st
   }
 };
 
-const viewSLAMPCDMap = (name: string) => {
-  nextTick(() => {
-    const req = new slamApi.GetMapRequest();
-    req.setName(name);
-    req.setMimeType('pointcloud/pcd');
-
-    window.slamService.getMap(req, new grpc.Metadata(), (error, response) => {
-      if (error) {
-        return toast.error(`${error}`);
-      }
-      const pcObject = response!.getPointCloud()!;
-      pointcloud = pcObject.getPointCloud_asU8();
-    });
-  });
+const toggleImageExpand = () => {
+  showImage = !showImage;
+  updateSLAMImageRefreshFrequency(props.name, showImage ? selectedImageValue : 'off');
 };
-  
+
+const togglePCDExpand = () => {
+  showPCD = !showPCD;
+  updateSLAMPCDRefreshFrequency(props.name, showPCD ? selectedPCDValue : 'off');
+};
+
+const selectSLAMImageRefreshFrequency = () => {
+  updateSLAMImageRefreshFrequency(props.name, selectedImageValue);
+};
+
+const selectSLAMPCDRefreshFrequency = () => {
+  updateSLAMPCDRefreshFrequency(props.name, selectedPCDValue);
+};
+
+const refreshImageMap = () => {
+  updateSLAMImageRefreshFrequency(props.name, selectedImageValue);
+};
+
+const refreshPCDMap = () => {
+  updateSLAMPCDRefreshFrequency(props.name, selectedPCDValue);
+};
+
 </script>
-  
+
 <template>
   <v-collapse
     :title="props.name"
@@ -143,7 +145,10 @@ const viewSLAMPCDMap = (name: string) => {
                 <div class="relative">
                   <select
                     v-model="selectedImageValue"
-                    class="m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
+                    class="
+                      m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5
+                      text-xs font-normal text-gray-700 focus:outline-none
+                    "
                     aria-label="Default select example"
                     @change="selectSLAMImageRefreshFrequency()"
                   >
@@ -213,7 +218,10 @@ const viewSLAMPCDMap = (name: string) => {
                 <div class="relative">
                   <select
                     v-model="selectedPCDValue"
-                    class="m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
+                    class="
+                      m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5
+                      text-xs font-normal text-gray-700 focus:outline-none
+                    "
                     aria-label="Default select example"
                     @change="selectSLAMPCDRefreshFrequency()"
                   >

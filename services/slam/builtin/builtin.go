@@ -1,4 +1,5 @@
 // Package builtin implements simultaneous localization and mapping
+// This is an Experimental package
 package builtin
 
 import (
@@ -726,23 +727,31 @@ func (slamSvc *builtIn) StopSLAMProcess() error {
 	return nil
 }
 
-func (slamSvc *builtIn) getLazyPNGImage(ctx context.Context, cam camera.Camera) ([]byte, error) {
+func (slamSvc *builtIn) getLazyPNGImage(ctx context.Context, cam camera.Camera) ([]byte, func(), error) {
 	// We will hint that we want a PNG.
 	// The Camera service server implementation in RDK respects this; others may not.
-	img, _, err := camera.ReadImage(
+	img, release, err := camera.ReadImage(
 		gostream.WithMIMETypeHint(ctx, utils.WithLazyMIMEType(utils.MimeTypePNG)), cam)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	lazyImg, ok := img.(*rimage.LazyEncodedImage)
-	if !ok {
-		return nil, errors.Errorf("expected lazily encoded image, got %T", lazyImg)
+	if lazyImg, ok := img.(*rimage.LazyEncodedImage); ok {
+		if lazyImg.MIMEType() != utils.MimeTypePNG {
+			return nil, nil, errors.Errorf("expected mime type %v, got %T", utils.MimeTypePNG, img)
+		}
+		return lazyImg.RawData(), release, nil
 	}
-	if lazyImg.MIMEType() != utils.MimeTypePNG {
-		return nil, errors.Errorf("expected mime type %v, got %v", utils.MimeTypePNG, lazyImg.MIMEType())
+
+	if ycbcrImg, ok := img.(*image.YCbCr); ok {
+		pngImage, err := rimage.EncodeImage(ctx, ycbcrImg, utils.MimeTypePNG)
+		if err != nil {
+			return nil, nil, err
+		}
+		return pngImage, release, nil
 	}
-	return lazyImg.RawData(), nil
+
+	return nil, nil, errors.Errorf("expected lazily encoded image or ycbcrImg, got %T", img)
 }
 
 // getAndSaveDataSparse implements the data extraction for sparse algos and saving to the directory path (data subfolder) specified in
@@ -761,7 +770,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			return nil, errors.Errorf("expected 1 camera for mono slam, found %v", len(camStreams))
 		}
 
-		image, err := slamSvc.getLazyPNGImage(ctx, cams[0])
+		image, release, err := slamSvc.getLazyPNGImage(ctx, cams[0])
 		if err != nil {
 			if err.Error() == opTimeoutErrorMessage {
 				slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
@@ -769,6 +778,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			}
 			return nil, err
 		}
+		defer release()
 		filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", slamSvc.slamMode)
 		if err != nil {
 			return nil, err
@@ -792,7 +802,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			return nil, errors.Errorf("expected 2 cameras for Rgbd slam, found %v", len(cams))
 		}
 
-		images, err := slamSvc.getSimultaneousColorAndDepth(ctx, cams)
+		images, releaseFuncs, err := slamSvc.getSimultaneousColorAndDepth(ctx, cams)
 		if err != nil {
 			if err.Error() == opTimeoutErrorMessage {
 				slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
@@ -800,6 +810,8 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			}
 			return nil, err
 		}
+		defer releaseFuncs[0]()
+		defer releaseFuncs[1]()
 		filenames, err := createTimestampFilenames(slamSvc.cameraName, slamSvc.dataDirectory, ".png", slamSvc.slamMode)
 		if err != nil {
 			return nil, err
@@ -833,9 +845,10 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 func (slamSvc *builtIn) getSimultaneousColorAndDepth(
 	ctx context.Context,
 	cams []camera.Camera,
-) ([2][]byte, error) {
+) ([2][]byte, [2]func(), error) {
 	var wg sync.WaitGroup
 	var images [2][]byte
+	var releaseFuncs [2]func()
 	var errs [2]error
 
 	for i := 0; i < 2; i++ {
@@ -846,24 +859,24 @@ func (slamSvc *builtIn) getSimultaneousColorAndDepth(
 				slamSvc.logger.Errorw("unexpected error in SLAM service", "error", err)
 			}
 			slamSvc.activeBackgroundWorkers.Done()
-			return images, err
+			return images, releaseFuncs, err
 		}
 		iLoop := i
 		goutils.PanicCapturingGo(func() {
 			defer slamSvc.activeBackgroundWorkers.Done()
 			defer wg.Done()
-			images[iLoop], errs[iLoop] = slamSvc.getLazyPNGImage(ctx, cams[iLoop])
+			images[iLoop], releaseFuncs[iLoop], errs[iLoop] = slamSvc.getLazyPNGImage(ctx, cams[iLoop])
 		})
 	}
 	wg.Wait()
 
 	for _, err := range errs {
 		if err != nil {
-			return images, err
+			return images, releaseFuncs, err
 		}
 	}
 
-	return images, nil
+	return images, releaseFuncs, nil
 }
 
 // getAndSaveDataDense implements the data extraction for dense algos and saving to the directory path (data subfolder) specified in
