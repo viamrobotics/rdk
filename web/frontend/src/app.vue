@@ -13,14 +13,12 @@ import robotApi, {
   type Operation,
   type StreamStatusResponse,
 } from './gen/proto/api/robot/v1/robot_pb.esm';
-import type { ResponseStream } from './gen/proto/stream/v1/stream_pb_service.esm';
+import type { ResponseStream, ServiceError } from './gen/proto/stream/v1/stream_pb_service.esm';
 import commonApi, { type ResourceName } from './gen/proto/api/common/v1/common_pb.esm';
 import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
 import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
-import streamApi from './gen/proto/stream/v1/stream_pb.esm';
 
 import {
-  normalizeRemoteName,
   resourceNameToSubtypeString,
   resourceNameToString,
   filterResources,
@@ -56,6 +54,7 @@ import {
   fixMotorStatus,
   fixServoStatus,
 } from './lib/fixers';
+import { addStream, removeStream } from './lib/stream';
 
 const relevantSubtypesForStatus = [
   'arm',
@@ -80,6 +79,7 @@ let currentOps = $ref<{ op: Operation.AsObject, elapsed: number }[]>([]);
 let sensorNames = $ref<ResourceName.AsObject[]>([]);
 let resources = $ref<Resource[]>([]);
 let errorMessage = $ref('');
+let activePreviews = $ref<string[]>([]);
 let connectionManager = $ref<{
   statuses: {
     resources: boolean;
@@ -483,41 +483,39 @@ const filteredInputControllerList = () => {
     resourceStatusByName(elem));
 };
 
-const viewCamera = (name: string, isOn: boolean) => {
-  const streamName = normalizeRemoteName(name);
-  const streamContainer = document.querySelector(`#stream-${streamName}`);
+const viewCamera = async (name: string, isOn: boolean) => {
+  const streamContainers = document.querySelectorAll(`[data-stream="${name}"]`);
 
   if (isOn) {
-    const req = new streamApi.AddStreamRequest();
-    req.setName(name);
-    window.streamService.addStream(req, new grpc.Metadata(), (err) => {
-      if (streamContainer) {
-        streamContainer.querySelector('img')?.remove();
+    try {
+      await addStream(name);
+      for (const container of streamContainers) {
+        container.querySelector('img')?.remove();
       }
 
-      if (err) {
-        toast.error('No live camera device found.');
-        displayError(err);
+      const previews = document.querySelectorAll(`[data-stream-preview="${name}"]`);
+      for (const preview of previews) {
+        preview.removeAttribute('hidden');
       }
-    });
-    document.querySelector(`#stream-preview-${streamName}`)?.removeAttribute('hidden');
+    } catch (error) {
+      displayError(error as ServiceError);
+    }
+
     return;
   }
 
-  document.querySelector(`#stream-preview-${streamName}`)?.setAttribute('hidden', 'true');
-
-  const req = new streamApi.RemoveStreamRequest();
-  req.setName(name);
-  window.streamService.removeStream(req, new grpc.Metadata(), (err) => {
-    if (streamContainer) {
-      streamContainer.querySelector('img')?.remove();
+  try {
+    const previews = document.querySelectorAll(`[data-stream-preview="${name}"]`);
+    for (const preview of previews) {
+      preview.setAttribute('hidden', 'true');
     }
-
-    if (err) {
-      toast.error('No live camera device found.');
-      displayError(err);
+    await removeStream(name);
+    for (const container of streamContainers) {
+      container.querySelector('img')?.remove();
     }
-  });
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
 };
 
 const viewManualFrame = (cameraName: string) => {
@@ -530,17 +528,15 @@ const viewManualFrame = (cameraName: string) => {
       return displayError(err);
     }
 
-    const streamName = normalizeRemoteName(cameraName);
-    const streamContainer = document.querySelector(`#stream-${streamName}`);
-    if (streamContainer) {
+    const streamContainers = document.querySelectorAll(`[data-stream="${cameraName}"]`);
+    for (const streamContainer of streamContainers) {
       streamContainer.querySelector('video')?.remove();
       streamContainer.querySelector('img')?.remove();
+      const image = new Image();
+      const blob = new Blob([resp!.getData_asU8()], { type: mimeType });
+      image.src = URL.createObjectURL(blob);
+      streamContainer.append(image);
     }
-
-    const image = new Image();
-    const blob = new Blob([resp!.getData_asU8()], { type: mimeType });
-    image.src = URL.createObjectURL(blob);
-    streamContainer!.append(image);
   });
 };
 
@@ -554,17 +550,15 @@ const viewIntervalFrame = (cameraName: string, time: string) => {
         return displayError(err);
       }
 
-      const streamName = normalizeRemoteName(cameraName);
-      const streamContainer = document.querySelector(`#stream-${streamName}`);
-      if (streamContainer) {
+      const streamContainers = document.querySelectorAll(`[data-stream="${cameraName}"]`);
+      for (const streamContainer of streamContainers) {
         streamContainer.querySelector('video')?.remove();
         streamContainer.querySelector('img')?.remove();
+        const image = new Image();
+        const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
+        image.src = URL.createObjectURL(blob);
+        streamContainer.append(image);
       }
-
-      const image = new Image();
-      const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
-      image.src = URL.createObjectURL(blob);
-      streamContainer!.append(image);
     });
   }, Number(time) * 1000);
 };
@@ -623,10 +617,16 @@ const waitForClientAndStart = async () => {
   }
 };
 
-const handleSelectCamera = (event: string, cameras: Resource[]) => {
-  for (const camera of cameras) {
-    viewCamera(camera.name, event.includes(camera.name));
+const handleSelectCamera = async (event: string) => {
+  if (event === '') {
+    await Promise.all(activePreviews.map((preview) => viewCamera(preview, false)));
+    activePreviews = [];
+    return;
   }
+
+  const previews = event.split(',');
+  await Promise.all(previews.map((preview) => viewCamera(preview, !activePreviews.includes(preview))));
+  activePreviews = previews;
 };
 
 onMounted(async () => {
@@ -698,7 +698,7 @@ onMounted(async () => {
       :key="base.name"
       :name="base.name"
       :resources="resources"
-      @showcamera="handleSelectCamera($event, filterResources(resources, 'rdk', 'component', 'camera'))"
+      @showcamera="handleSelectCamera($event)"
     />
 
     <!-- ******* GANTRY *******  -->
