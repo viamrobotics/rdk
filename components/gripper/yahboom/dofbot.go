@@ -70,7 +70,7 @@ func newGripper(deps registry.Dependencies, config config.Component) (gripper.Lo
 		return nil, fmt.Errorf("yahboom-dofbot gripper got not a dofbot arm, got %T", myArm)
 	}
 	g := &dofGripper{dofArm: dofArm}
-	g.opMgr.OldStop = g
+	g.opMgr.SetOldStop(g)
 
 	return g, nil
 }

@@ -175,7 +175,7 @@ func CreateLimoBase(ctx context.Context, config *Config, logger golog.Logger) (b
 		maxInnerAngle:      .48869, // 28 degrees in radians
 		rightAngleScale:    1.64,
 	}
-	base.opMgr.Stop = base
+	base.opMgr.SetStop(base)
 
 	base.stateMutex.Lock()
 	if !base.state.controlThreadStarted {
@@ -247,7 +247,9 @@ func (base *limoBase) controlThreadLoop(ctx context.Context) error {
 	case DIFFERENTIAL.String():
 		err = base.setMotionCommand(base.state.velocityLinearGoal.Y, -base.state.velocityAngularGoal.Z, 0, 0)
 	case ACKERMANN.String():
+		base.stateMutex.Lock()
 		r := base.state.velocityLinearGoal.Y / base.state.velocityAngularGoal.Z
+		base.stateMutex.Unlock()
 		if math.Abs(r) < float64(base.width)/2.0 {
 			// Note: Do we need a tolerance comparison here? Don't think so, as velocityLinearGoal.Y should always be exactly zero
 			// when we expect it to be.

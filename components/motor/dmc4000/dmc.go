@@ -166,7 +166,7 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 		MaxAcceleration:  c.MaxAcceleration,
 		HomeRPM:          c.HomeRPM,
 	}
-	m.opMgr.Stop = m
+	m.opMgr.SetStop(m)
 
 	if m.MaxRPM <= 0 {
 		m.MaxRPM = 1000 // arbitrary high value
@@ -605,18 +605,18 @@ func (m *Motor) Position(ctx context.Context, extra map[string]interface{}) (flo
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
 func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
-	m.c.mu.Lock()
-	defer m.c.mu.Unlock()
-
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	m.jogging = false
-	_, err := m.c.sendCmd(fmt.Sprintf("ST%s", m.Axis))
-	if err != nil {
+	if err := func() error {
+		m.c.mu.Lock()
+		defer m.c.mu.Unlock()
+		m.jogging = false
+		_, err := m.c.sendCmd(fmt.Sprintf("ST%s", m.Axis))
+		return err
+	}(); err != nil {
 		return err
 	}
-
 	return m.opMgr.WaitForSuccess(
 		ctx,
 		time.Millisecond*10,

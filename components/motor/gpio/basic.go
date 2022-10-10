@@ -41,7 +41,7 @@ func NewMotor(b board.Board, mc Config, logger golog.Logger) (motor.Motor, error
 		dirFlip:     mc.DirectionFlip,
 		logger:      logger,
 	}
-	m.opMgr.Stop = m
+	m.opMgr.SetStop(m)
 	if mc.Pins.A != "" {
 		a, err := b.GPIOPinByName(mc.Pins.A)
 		if err != nil {

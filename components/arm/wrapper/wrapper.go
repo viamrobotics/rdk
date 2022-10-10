@@ -68,7 +68,7 @@ func NewWrapperArm(cfg config.Component, r robot.Robot, logger golog.Logger) (ar
 		logger: logger,
 		robot:  r,
 	}
-	arm.opMgr.Stop = arm
+	arm.opMgr.SetStop(arm)
 	return arm, nil
 }
 

@@ -148,7 +148,7 @@ func newGripperV1(
 		logger:          logger,
 		model:           model,
 	}
-	vg.opMgr.OldStop = vg
+	vg.opMgr.SetOldStop(vg)
 
 	if vg.motor == nil {
 		return nil, errors.New("gripper needs a motor named 'g'")
