@@ -88,7 +88,7 @@ const getData = (sensorName: SensorName) => {
             <v-button
               group
               label="Get All Readings"
-              @click="getReadings"
+              @click="getReadings(sensorNames)"
             />
           </th>
         </tr>

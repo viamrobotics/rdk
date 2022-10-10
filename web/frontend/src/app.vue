@@ -24,6 +24,7 @@ import {
   resourceNameToSubtypeString,
   resourceNameToString,
   filterResources,
+  filterNonRemoteResources,
   filterRdkComponentsWithStatus,
   filterResourcesWithNames,
   type Resource,
@@ -157,8 +158,12 @@ const stringToResourceName = (nameStr: string) => {
 };
 
 const querySensors = () => {
+  const sensorsName = filterNonRemoteResources(resources, 'rdk', 'service', 'sensors')[0]?.name;
+  if (sensorsName === undefined) {
+    return;
+  }
   const req = new sensorsApi.GetSensorsRequest();
-  req.setName('builtin');
+  req.setName(sensorsName);
   window.sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
     if (err) {
       return displayError(err);
@@ -789,7 +794,7 @@ onMounted(async () => {
     <!-- ******* SENSORS ******* -->
     <Sensors
       v-if="nonEmpty(sensorNames)"
-      :name="filterResources(resources, 'rdk', 'service', 'sensors')[0]!.name"
+      :name="filterNonRemoteResources(resources, 'rdk', 'service', 'sensors')[0]!.name"
       :sensor-names="sensorNames"
     />
 
