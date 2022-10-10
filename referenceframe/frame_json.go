@@ -40,7 +40,7 @@ func (config FrameMapConfig) ParseConfig() (Frame, error) {
 		}
 		transform, err := decodePose(pose)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding transform (%v) %w", config["transform"], err)
+			return nil, err
 		}
 		return NewStaticFrame(name, transform)
 	case "translational":
@@ -49,36 +49,46 @@ func (config FrameMapConfig) ParseConfig() (Frame, error) {
 		if err != nil {
 			return nil, err
 		}
-		var limit []Limit
-		err = mapstructure.Decode(config["limit"], &limit)
+		limits, err := decodeLimits(config)
 		if err != nil {
 			return nil, err
 		}
-		return NewTranslationalFrame(name, transAxis, limit[0])
+		return NewTranslationalFrame(name, transAxis, limits[0])
 	case "rotational":
-		rotAxis, ok := config["rotAxis"].(map[string]interface{})
-		if !ok {
-			return nil, utils.NewUnexpectedTypeError(rotAxis, config["rotAxis"])
-		}
-		var axis spatial.R4AA
-		axis.RX, ok = rotAxis["X"].(float64)
-		if !ok {
-			return nil, utils.NewUnexpectedTypeError(axis.RX, rotAxis["X"])
-		}
-		axis.RY, ok = rotAxis["Y"].(float64)
-		if !ok {
-			return nil, utils.NewUnexpectedTypeError(axis.RY, rotAxis["Y"])
-		}
-		axis.RZ, ok = rotAxis["Z"].(float64)
-		if !ok {
-			return nil, utils.NewUnexpectedTypeError(axis.RZ, rotAxis["Z"])
-		}
-		var limit []Limit
-		err := mapstructure.Decode(config["limit"], &limit)
+		axis, err := decodeAxis(config)
 		if err != nil {
 			return nil, err
 		}
-		return NewRotationalFrame(name, axis, limit[0])
+		limits, err := decodeLimits(config)
+		if err != nil {
+			return nil, err
+		}
+		return NewRotationalFrame(name, axis, limits[0])
+	case "linearly-actuated-rotational":
+		axis, err := decodeAxis(config)
+		if err != nil {
+			return nil, err
+		}
+		limits, err := decodeLimits(config)
+		if err != nil {
+			return nil, err
+		}
+		var a, b float64
+		err = mapstructure.Decode(config["a"], &a)
+		if err != nil {
+			return nil, err
+		}
+		err = mapstructure.Decode(config["b"], &b)
+		if err != nil {
+			return nil, err
+		}
+		return NewLinearlyActuatedRotationalFrame(name, axis, limits[0], a, b)
+	case "mobile2D":
+		limits, err := decodeLimits(config)
+		if err != nil {
+			return nil, err
+		}
+		return NewMobile2DFrame(name, limits)
 	default:
 		return nil, fmt.Errorf("no frame type: [%v]", config["type"])
 	}
@@ -109,9 +119,39 @@ func decodePose(config FrameMapConfig) (spatial.Pose, error) {
 		return nil, err
 	}
 
-	orientation, err := (&spatial.OrientationConfig{spatial.OrientationType(oType), jsonValue}).ParseConfig()
+	orientation, err := (&spatial.OrientationConfig{Type: spatial.OrientationType(oType), Value: jsonValue}).ParseConfig()
 	if err != nil {
 		return nil, err
 	}
 	return spatial.NewPoseFromOrientation(point, orientation), nil
+}
+
+func decodeAxis(config FrameMapConfig) (spatial.R4AA, error) {
+	rotAxis, ok := config["rotAxis"].(map[string]interface{})
+	if !ok {
+		return spatial.R4AA{}, utils.NewUnexpectedTypeError(rotAxis, config["rotAxis"])
+	}
+	var axis spatial.R4AA
+	axis.RX, ok = rotAxis["X"].(float64)
+	if !ok {
+		return spatial.R4AA{}, utils.NewUnexpectedTypeError(axis.RX, rotAxis["X"])
+	}
+	axis.RY, ok = rotAxis["Y"].(float64)
+	if !ok {
+		return spatial.R4AA{}, utils.NewUnexpectedTypeError(axis.RY, rotAxis["Y"])
+	}
+	axis.RZ, ok = rotAxis["Z"].(float64)
+	if !ok {
+		return spatial.R4AA{}, utils.NewUnexpectedTypeError(axis.RZ, rotAxis["Z"])
+	}
+	return axis, nil
+}
+
+func decodeLimits(config FrameMapConfig) ([]Limit, error) {
+	var limit []Limit
+	err := mapstructure.Decode(config["limit"], &limit)
+	if err != nil {
+		return []Limit{}, err
+	}
+	return limit, nil
 }

@@ -109,7 +109,7 @@ func TestRevoluteFrame(t *testing.T) {
 	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
 }
 
-func TestMappedFrame(t *testing.T) {
+func TestLinearlyActuatedRotationalFrame(t *testing.T) {
 	// mapping function for a three bar linkage frame.  Theta is the output, and is opposite side c on a triangle, with sides a, b, c
 	// side c is the actuated side and corresponds to a linear actuator
 	// sides a and b are the distances the linear actuator is mounted away from the vertex corresponding with theta
@@ -137,7 +137,7 @@ func TestMappedFrame(t *testing.T) {
 
 func TestMobile2DFrame(t *testing.T) {
 	expLimit := []Limit{{-10, 10}, {-10, 10}}
-	frame := &mobile2DFrame{&baseFrame{"test", expLimit}, nil}
+	frame, err := NewMobile2DFrame("test", expLimit)
 	// expected output
 	expPose := spatial.NewPoseFromPoint(r3.Vector{3, 5, 0})
 	// get expected transform back
@@ -179,7 +179,7 @@ func TestGeometries(t *testing.T) {
 	test.That(t, geometries, test.ShouldBeNil)
 
 	// test creating a new mobile frame with a geometry
-	mf, err := NewMobile2DFrame("", []Limit{{-10, 10}, {-10, 10}}, bc)
+	mf, err := NewMobile2DFrameWithGeometry("", []Limit{{-10, 10}, {-10, 10}}, bc)
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err = mf.Geometries(FloatsToInputs([]float64{0, 10}))
 	test.That(t, err, test.ShouldBeNil)
@@ -201,56 +201,40 @@ func TestGeometries(t *testing.T) {
 	test.That(t, expectedBox.AlmostEqual(geometries.Geometries()[""]), test.ShouldBeTrue)
 }
 
-func TestSerializationStatic(t *testing.T) {
-	f, err := NewStaticFrame("foo", spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.R4AA{math.Pi / 2, 4, 5, 6}))
-	test.That(t, err, test.ShouldBeNil)
-
-	data, err := f.MarshalJSON()
-	test.That(t, err, test.ShouldBeNil)
-
-	f2, err := UnmarshalFrameJSON(data)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
-}
-
-func TestSerializationTranslation(t *testing.T) {
-	f, err := NewTranslationalFrame("foo", r3.Vector{1, 0, 0}, Limit{1, 2})
-	test.That(t, err, test.ShouldBeNil)
-
-	data, err := f.MarshalJSON()
-	test.That(t, err, test.ShouldBeNil)
-
-	f2, err := UnmarshalFrameJSON(data)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
-	test.That(t, f2, test.ShouldResemble, f)
-}
-
-func TestSerializationRotations(t *testing.T) {
-	f, err := NewRotationalFrame("foo", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6})
-	test.That(t, err, test.ShouldBeNil)
-
-	data, err := f.MarshalJSON()
-	test.That(t, err, test.ShouldBeNil)
-
-	f2, err := UnmarshalFrameJSON(data)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, f.AlmostEquals(f2), test.ShouldBeTrue)
-	test.That(t, f2, test.ShouldResemble, f)
+func TestSerialization(t *testing.T) {
+	makeTestFrame := func(frame Frame, err error) Frame {
+		return frame
+	}
+	testCases := []struct {
+		name  string
+		frame Frame
+	}{
+		{"static", makeTestFrame(NewStaticFrame("foo", spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.R4AA{math.Pi / 2, 4, 5, 6})))},
+		{"translational", makeTestFrame(NewTranslationalFrame("foo", r3.Vector{1, 0, 0}, Limit{1, 2}))},
+		{"rotational", makeTestFrame(NewRotationalFrame("foo", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6}))},
+		{"larf", makeTestFrame(NewLinearlyActuatedRotationalFrame("foo", spatial.R4AA{RZ: 1}, Limit{Min: 2, Max: 6}, 3, 4))},
+		{"mobile2D", makeTestFrame(NewMobile2DFrame("foo", []Limit{{-10, 10}, {-10, 10}}))},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			data, err := testCase.frame.MarshalJSON()
+			test.That(t, err, test.ShouldBeNil)
+			f2, err := UnmarshalFrameJSON(data)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, testCase.frame.AlmostEquals(f2), test.ShouldBeTrue)
+		})
+	}
 }
 
 func TestRandomFrameInputs(t *testing.T) {
-	frame, _ := NewMobile2DFrame("", []Limit{{-10, 10}, {-10, 10}}, nil)
+	frame, _ := NewMobile2DFrame("", []Limit{{-10, 10}, {-10, 10}})
 	seed := rand.New(rand.NewSource(23))
 	for i := 0; i < 100; i++ {
 		_, err := frame.Transform(RandomFrameInputs(frame, seed))
 		test.That(t, err, test.ShouldBeNil)
 	}
 
-	limitedFrame, _ := NewMobile2DFrame("", []Limit{{-2, 2}, {-2, 2}}, nil)
+	limitedFrame, _ := NewMobile2DFrame("", []Limit{{-2, 2}, {-2, 2}})
 	for i := 0; i < 100; i++ {
 		_, err := limitedFrame.Transform(RestrictedRandomFrameInputs(frame, seed, .2))
 		test.That(t, err, test.ShouldBeNil)

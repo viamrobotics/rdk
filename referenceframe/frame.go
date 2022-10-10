@@ -456,8 +456,8 @@ func (larf *linearlyActuatedRotationalFrame) Transform(input []Input) (spatial.P
 		return nil, errors.Errorf("could not transform linearly actuated rotational frame with input %f", input[0].Value)
 	}
 	return spatial.NewPoseFromOrientation(
-		r3.Vector{0, 0, 0},
-		&spatial.R4AA{math.Acos(cosTheta), larf.rotAxis.X, larf.rotAxis.Y, larf.rotAxis.Z},
+		r3.Vector{},
+		&spatial.R4AA{Theta: math.Acos(cosTheta), RX: larf.rotAxis.X, RY: larf.rotAxis.Y, RZ: larf.rotAxis.Z},
 	), err
 }
 
@@ -489,7 +489,14 @@ type mobile2DFrame struct {
 // NewMobile2DFrame instantiates a frame that can translate in the x and y dimensions and will always remain on the plane Z=0
 // This frame will have a name, limits (representing the bounds the frame is allowed to translate within) and a geometryCreator
 // defined by the arguments passed into this function.
-func NewMobile2DFrame(name string, limits []Limit, geometryCreator spatial.GeometryCreator) (Frame, error) {
+func NewMobile2DFrame(name string, limits []Limit) (Frame, error) {
+	return NewMobile2DFrameWithGeometry(name, limits, nil)
+}
+
+// NewMobile2DFrameWithGeometry instantiates a frame that can translate in the x and y dimensions and will always remain on the plane Z=0
+// This frame will have a name, limits (representing the bounds the frame is allowed to translate within) and a geometryCreator
+// defined by the arguments passed into this function.
+func NewMobile2DFrameWithGeometry(name string, limits []Limit, geometryCreator spatial.GeometryCreator) (Frame, error) {
 	if len(limits) != 2 {
 		return nil, fmt.Errorf("cannot create a %d dof mobile frame, only support 2 dimensions currently", len(limits))
 	}
@@ -524,6 +531,6 @@ func (mf *mobile2DFrame) MarshalJSON() ([]byte, error) {
 }
 
 func (mf *mobile2DFrame) AlmostEquals(otherFrame Frame) bool {
-	other, ok := otherFrame.(*rotationalFrame)
+	other, ok := otherFrame.(*mobile2DFrame)
 	return ok && mf.baseFrame.AlmostEquals(other.baseFrame)
 }
