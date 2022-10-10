@@ -68,9 +68,9 @@ func NewArm(cfg config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	if cfg.ConvertedAttributes != nil {
 		switch cfg.ConvertedAttributes.(*AttrConfig).ArmModel {
 		case xarm.ModelName6DOF:
-			model, err = xarm.Model(6, cfg.Name)
+			model, err = xarm.Model(cfg.Name, 6)
 		case xarm.ModelName7DOF:
-			model, err = xarm.Model(7, cfg.Name)
+			model, err = xarm.Model(cfg.Name, 7)
 		case ur.ModelName:
 			model, err = ur.Model(cfg.Name)
 		case yahboom.ModelName:
