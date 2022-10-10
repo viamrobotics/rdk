@@ -21,7 +21,7 @@ import (
 // FileExt defines the file extension for Viam data capture files.
 const (
 	FileExt        = ".capture"
-	next           = "Next"
+	readImage      = "ReadImage"
 	nextPointCloud = "NextPointCloud"
 )
 
@@ -56,7 +56,7 @@ func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, me
 		return nil, err
 	}
 
-	dataType := getDataType(string(compType), method)
+	dataType := getDataType(method)
 	return &v1.DataCaptureMetadata{
 		ComponentType:    string(compType),
 		ComponentName:    compName,
@@ -112,9 +112,9 @@ func getFileTimestampName() string {
 
 // TODO DATA-246: Implement this in some more robust, programmatic way.
 // TODO: support GetImage. This is why image stuff isn't working.
-func getDataType(_, methodName string) v1.DataType {
+func getDataType(methodName string) v1.DataType {
 	switch methodName {
-	case nextPointCloud, next:
+	case nextPointCloud, readImage:
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
 	default:
 		return v1.DataType_DATA_TYPE_TABULAR_SENSOR
@@ -133,7 +133,7 @@ func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 		if methodName == nextPointCloud {
 			return ".pcd"
 		}
-		if methodName == next {
+		if methodName == readImage {
 			// TODO: Add explicit file extensions for all mime types.
 			switch parameters["mime_type"] {
 			case utils.MimeTypeJPEG:
