@@ -117,7 +117,7 @@ func newRoboClaw(deps registry.Dependencies, config config.Component, logger gol
 		return nil, err
 	}
 	robotClaw := &roboclawMotor{conn: c, conf: motorConfig, addr: uint8(motorConfig.Address), logger: logger}
-	robotClaw.opMgr.Stop = robotClaw
+	robotClaw.opMgr.SetStop(robotClaw)
 
 	return robotClaw, nil
 }

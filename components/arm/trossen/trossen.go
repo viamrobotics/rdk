@@ -178,7 +178,7 @@ func NewArm(r robot.Robot, cfg config.Component, logger golog.Logger, json []byt
 		robot:    r,
 		model:    model,
 	}
-	arm.opMgr.Stop = arm
+	arm.opMgr.SetStop(arm)
 	return arm, nil
 }
 

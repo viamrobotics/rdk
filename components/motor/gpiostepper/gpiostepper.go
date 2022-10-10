@@ -89,7 +89,7 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc Config, logger golog.
 		stepperDelay:     mc.StepperDelay,
 		logger:           logger,
 	}
-	m.opMgr.Stop = m
+	m.opMgr.SetStop(m)
 
 	if mc.Pins.EnablePinHigh != "" {
 		enablePinHigh, err := b.GPIOPinByName(mc.Pins.EnablePinHigh)

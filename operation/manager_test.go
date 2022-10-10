@@ -108,52 +108,51 @@ func TestSingleOperationManager(t *testing.T) {
 		test.That(t, ctx.Err(), test.ShouldNotBeNil)
 	})
 	t.Run("Cancel, ensure stop", func(t *testing.T) {
-		count := int64(0)
 		fakeMotor := &mockMotor{Name: "testMotor"}
-		som.Stop = fakeMotor
+		som.SetStop(fakeMotor)
 		ctx := context.Background()
-
 		ctx, cancel := context.WithCancel(ctx)
 
-		som.WaitForSuccess(
-			ctx,
-			time.Millisecond,
-			func(ctx context.Context) (bool, error) {
-				if atomic.AddInt64(&count, 1) == 5 {
-					return true, nil
-				}
-				return false, nil
-			},
-		)
+		ctx, finished := som.New(ctx)
 		cancel()
-		time.Sleep(1000 * time.Millisecond)
+		finished()
 		defer test.That(t, fakeMotor.stopCount, test.ShouldEqual, 1)
 		test.That(t, ctx.Err(), test.ShouldNotBeNil)
 	})
 
 	t.Run("Cancel, ensure stop old stop", func(t *testing.T) {
-		count := int64(0)
 		fakeMotor := &mockMotorOld{Name: "testMotorOld"}
-		som.Stop = nil
-		som.OldStop = fakeMotor
-		ctx := context.Background()
+		som.SetStop(nil)
 
+		som.SetOldStop(fakeMotor)
+		ctx := context.Background()
 		ctx, cancel := context.WithCancel(ctx)
 
-		som.WaitForSuccess(
+		ctx, finished := som.New(ctx)
+		cancel()
+		finished()
+		defer test.That(t, fakeMotor.stopCount, test.ShouldEqual, 1)
+		test.That(t, ctx.Err(), test.ShouldNotBeNil)
+	})
+	t.Run("ensure op that complete doesnt called stop", func(t *testing.T) {
+		count := int64(0)
+		fakeMotor := &mockMotor{Name: "testMotor"}
+		som.SetStop(fakeMotor)
+		ctx := context.Background()
+
+		err := som.WaitForSuccess(
 			ctx,
 			time.Millisecond,
 			func(ctx context.Context) (bool, error) {
 				if atomic.AddInt64(&count, 1) == 5 {
-					return true, nil
+					return false, errors.New("blah")
 				}
 				return false, nil
 			},
 		)
-		cancel()
-		time.Sleep(1000 * time.Millisecond)
-		defer test.That(t, fakeMotor.stopCount, test.ShouldEqual, 1)
-		test.That(t, ctx.Err(), test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+		defer test.That(t, fakeMotor.stopCount, test.ShouldEqual, 0)
+		test.That(t, ctx.Err(), test.ShouldBeNil)
 	})
 }
 

@@ -16,8 +16,8 @@ import (
 type SingleOperationManager struct {
 	mu        sync.Mutex
 	currentOp *anOp
-	Stop      resource.Stoppable
-	OldStop   resource.OldStoppable
+	stop      resource.Stoppable
+	oldStop   resource.OldStoppable
 }
 
 // CancelRunning cancel's a current operation unless it's mine.
@@ -55,6 +55,7 @@ func (sm *SingleOperationManager) New(ctx context.Context) (context.Context, fun
 
 	theOp := &anOp{}
 
+	stopCtx := context.WithValue(context.TODO(), somCtxKeySingleOp, theOp)
 	ctx = context.WithValue(ctx, somCtxKeySingleOp, theOp)
 
 	theOp.ctx, theOp.cancelFunc = context.WithCancel(ctx)
@@ -62,25 +63,37 @@ func (sm *SingleOperationManager) New(ctx context.Context) (context.Context, fun
 	sm.currentOp = theOp
 	sm.mu.Unlock()
 
+	opSuccessful := make(chan struct{})
+	stopperDone := make(chan struct{})
+
 	go func() {
-		<-ctx.Done()
+		defer func() { close(stopperDone) }()
+
+		select {
+		case <-opSuccessful:
+			if ctx.Err() == nil {
+				return
+			}
+		case <-ctx.Done():
+		}
 		// check if there is another operation running
 		// if not call Stop on stop
 		sm.mu.Lock()
+		defer sm.mu.Unlock()
 		if sm.currentOp == theOp {
 			sm.currentOp = nil
 		}
 		if sm.currentOp == nil {
 			switch {
-			case sm.Stop != nil:
+			case sm.stop != nil:
 				utils.Logger.Warn("Stop called")
-				err := sm.Stop.Stop(context.Background(), map[string]interface{}{})
+				err := sm.stop.Stop(stopCtx, map[string]interface{}{})
 				if err != nil {
 					utils.Logger.Error(err)
 				}
-			case sm.OldStop != nil:
+			case sm.oldStop != nil:
 				utils.Logger.Warn("old Stop called")
-				err := sm.OldStop.Stop(context.Background())
+				err := sm.oldStop.Stop(stopCtx)
 				if err != nil {
 					utils.Logger.Error(err)
 				}
@@ -88,14 +101,17 @@ func (sm *SingleOperationManager) New(ctx context.Context) (context.Context, fun
 				utils.Logger.Error("Stop not implemented for component")
 			}
 		}
-		sm.mu.Unlock()
 	}()
 
 	return theOp.ctx, func() {
+		theOp.cancelFunc()
+		close(opSuccessful)
+
 		if !theOp.closed {
 			close(theOp.waitCh)
 			theOp.closed = true
 		}
+		<-stopperDone
 		sm.mu.Lock()
 		if theOp == sm.currentOp {
 			sm.currentOp = nil
@@ -111,6 +127,20 @@ func (sm *SingleOperationManager) NewTimedWaitOp(ctx context.Context, dur time.D
 	defer finish()
 
 	return utils.SelectContextOrWait(ctx, dur)
+}
+
+
+func (sm *SingleOperationManager) SetStop(stopper resource.Stoppable) {
+	sm.mu.Lock()
+	sm.stop = stopper
+	sm.mu.Unlock()
+}
+
+
+func (sm *SingleOperationManager) SetOldStop(stopper resource.OldStoppable) {
+	sm.mu.Lock()
+	sm.oldStop = stopper
+	sm.mu.Unlock()
 }
 
 // IsPoweredInterface is a utility so can wait on IsPowered easily.
