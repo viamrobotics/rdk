@@ -15,6 +15,7 @@ type ColorDetectorConfig struct {
 	SaturationCutoff  float64 `json:"saturation_cutoff_pct,omitempty"`
 	ValueCutoff       float64 `json:"value_cutoff_pct,omitempty"`
 	DetectColorString string  `json:"detect_color"` // hex string "#RRGGBB"
+	Label             string  `json:"label,omitempty"`
 }
 
 // NewColorDetector is a detector that identifies objects based on color.
@@ -68,7 +69,11 @@ func NewColorDetector(cfg *ColorDetectorConfig) (Detector, error) {
 		}
 		valid = makeValidColorFunction(loValid, hiValid, sat, val)
 	}
-	cd := connectedComponentDetector{valid, hueToString(hue)}
+	label := cfg.Label
+	if label == "" {
+		label = hueToString(hue)
+	}
+	cd := connectedComponentDetector{valid, label}
 	// define the filter
 	segmentSize := 5000 // default value
 	if cfg.SegmentSize != 0 {
