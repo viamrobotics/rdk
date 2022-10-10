@@ -460,8 +460,12 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 	}
 
 	var mapRate int
-	if svcConfig.MapRateSec <= -1 {
-		mapRate = defaultMapRateSec
+	if svcConfig.MapRateSec <= 0 {
+		if svcConfig.MapRateSec == -1 {
+			svcConfig.MapRateSec = 0
+		} else {
+			mapRate = defaultMapRateSec
+		}
 	} else {
 		mapRate = svcConfig.MapRateSec
 	}
