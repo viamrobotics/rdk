@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	logger := golog.NewDevelopmentLogger("client")
+	logger := golog.NewDebugLogger("client")
 	robot, err := client.New(
 		context.Background(),
 		"localhost:8080",

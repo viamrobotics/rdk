@@ -68,24 +68,59 @@ var allProductData = map[vlp16.ProductID]productConfig{
 	},
 }
 
+// AttrConfig is the config for a veldoyne LIDAR.
+type AttrConfig struct {
+	Port  int `json:"port"`
+	TTLMS int `json:"ttl_ms"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *AttrConfig) Validate(path string) error {
+	if config.Port == 0 {
+		return gutils.NewConfigValidationFieldRequiredError(path, "port")
+	}
+
+	if config.TTLMS == 0 {
+		return gutils.NewConfigValidationFieldRequiredError(path, "ttl_ms")
+	}
+	return nil
+}
+
+const modelname = "velodyne"
+
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
-		"velodyne",
+		modelname,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			_ registry.Dependencies,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			port := config.Attributes.Int("port", 2368)
-			ttl := config.Attributes.Int("ttl_ms", 0)
+			attr, ok := config.ConvertedAttributes.(*AttrConfig)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+			}
+
+			port := attr.Port
+			if port == 0 {
+				port = 2368
+			}
+
+			ttl := attr.TTLMS
 			if ttl == 0 {
 				return nil, errors.New("need to specify a ttl")
 			}
 
 			return New(ctx, logger, port, ttl)
 		}})
+
+	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &AttrConfig{})
 }
 
 type client struct {

@@ -5,10 +5,10 @@ import (
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"

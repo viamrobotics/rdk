@@ -9,7 +9,7 @@ export default defineConfig({
       template: {
         compilerOptions: {
           // treat all tags with a dash as custom elements
-          isCustomElement: (tag) => tag.startsWith('v-'),
+          isCustomElement: (tag) => tag.includes('-'),
         },
       },
     }),
@@ -18,7 +18,7 @@ export default defineConfig({
     minify: 'terser',
     rollupOptions: {
       input: {
-        control: './src/main.js',
+        control: './src/main.ts',
         api: './src/api.ts',
       },
       output: {

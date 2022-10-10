@@ -3,6 +3,7 @@
 import { grpc } from '@improbable-eng/grpc-web';
 import { ref } from 'vue';
 import { normalizeRemoteName, type Resource } from '../lib/resource';
+import { displayError } from '../lib/error';
 import cameraApi from '../gen/proto/api/component/camera/v1/camera_pb.esm';
 import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
@@ -15,7 +16,6 @@ interface Props {
 }
 
 interface Emits {
-  (event: 'download-screenshot'): void
   (event: 'download-raw-data'): void
   (event: 'toggle-camera', camera: boolean): void
   (event: 'selected-camera-view', value: string): void
@@ -36,21 +36,6 @@ const toggleExpand = () => {
   emit('toggle-camera', camera.value);
 };
 
-const selectCameraView = () => {
-  emit('selected-camera-view', selectedValue.value);
-};
-
-const refreshCamera = () => {
-  emit('refresh-camera', selectedValue.value);
-};
-
-const togglePCDExpand = () => {
-  pcdExpanded = !pcdExpanded;
-  if (pcdExpanded) {
-    renderPCD();
-  }
-};
-
 const renderPCD = () => {
   const request = new cameraApi.GetPointCloudRequest();
   request.setName(props.cameraName);
@@ -60,8 +45,37 @@ const renderPCD = () => {
       toast.error(`Error getting point cloud: ${error}`);
       return;
     }
-
     pointcloud = response!.getPointCloud_asU8();
+  });
+};
+
+const togglePCDExpand = () => {
+  pcdExpanded = !pcdExpanded;
+  if (pcdExpanded) {
+    renderPCD();
+  }
+};
+
+const selectCameraView = () => {
+  emit('selected-camera-view', selectedValue.value);
+};
+
+const refreshCamera = () => {
+  emit('refresh-camera', selectedValue.value);
+};
+
+const exportScreenshot = (cameraName: string) => {
+  const req = new cameraApi.RenderFrameRequest();
+  req.setName(cameraName);
+  req.setMimeType('image/jpeg');
+
+  window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
+    if (err) {
+      return displayError(err);
+    }
+
+    const blob = new Blob([resp!.getData_asU8()], { type: 'image/jpeg' });
+    window.open(URL.createObjectURL(blob), '_blank');
   });
 };
 
@@ -83,11 +97,11 @@ const renderPCD = () => {
             <v-switch
               id="camera"
               :value="camera ? 'on' : 'off'"
-              @input="toggleExpand()"
+              @input="toggleExpand"
             />
             <span class="pr-2 text-xs">View Camera</span>
           </div>
-          
+
           <div class="float-right pb-4">
             <div class="flex">
               <div
@@ -100,9 +114,12 @@ const renderPCD = () => {
                 <div class="relative">
                   <select
                     v-model="selectedValue"
-                    class="m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none"
+                    class="
+                      m-0 w-full appearance-none border border-solid border-black bg-white bg-clip-padding
+                      px-3 py-1.5 text-xs font-normal text-gray-700 focus:outline-none
+                    "
                     aria-label="Default select example"
-                    @change="selectCameraView()"
+                    @change="selectCameraView"
                   >
                     <option value="manual">
                       Manual Refresh
@@ -141,7 +158,7 @@ const renderPCD = () => {
                   v-if="camera"
                   icon="refresh"
                   label="Refresh"
-                  @click="refreshCamera()"
+                  @click="refreshCamera"
                 />
               </div>
               <div class="pr-2 pt-7">
@@ -149,7 +166,7 @@ const renderPCD = () => {
                   v-if="camera"
                   icon="camera"
                   label="Export Screenshot"
-                  @click="emit('download-screenshot')"
+                  @click="exportScreenshot"
                 />
               </div>
             </div>
@@ -164,7 +181,7 @@ const renderPCD = () => {
           <div class="flex items-center gap-2">
             <v-switch
               :value="pcdExpanded ? 'on' : 'off'"
-              @input="togglePCDExpand()"
+              @input="togglePCDExpand"
             />
             <span class="pr-0.5 text-xs">Point Cloud Data</span>
             <InfoButton :info-rows="['When turned on, point cloud will be recalculated']" />
