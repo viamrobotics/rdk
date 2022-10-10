@@ -129,14 +129,14 @@ func (sm *SingleOperationManager) NewTimedWaitOp(ctx context.Context, dur time.D
 	return utils.SelectContextOrWait(ctx, dur)
 }
 
-
+// SetStop is the setter for the stop value.
 func (sm *SingleOperationManager) SetStop(stopper resource.Stoppable) {
 	sm.mu.Lock()
 	sm.stop = stopper
 	sm.mu.Unlock()
 }
 
-
+// SetOldStop is the setter for the oldstop value.
 func (sm *SingleOperationManager) SetOldStop(stopper resource.OldStoppable) {
 	sm.mu.Lock()
 	sm.oldStop = stopper
