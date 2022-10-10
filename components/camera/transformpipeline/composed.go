@@ -99,8 +99,11 @@ func newOverlayTransform(
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(attrs, conf)
 	}
+	if attrs.IntrinsicParams == nil {
+		return nil, transform.ErrNoIntrinsics
+	}
 	if attrs.IntrinsicParams.Fx <= 0. || attrs.IntrinsicParams.Fy <= 0. {
-		return nil, errors.Errorf("cannot do overlay with intrinsics (Fx,Fy) = (%v, %v)", attrs.IntrinsicParams.Fx, attrs.IntrinsicParams.Fy)
+		return nil, errors.Wrapf(transform.ErrNoIntrinsics, "cannot do overlay with intrinsics (Fx,Fy) = (%v, %v)", attrs.IntrinsicParams.Fx, attrs.IntrinsicParams.Fy)
 	}
 	reader := &overlaySource{src, attrs.IntrinsicParams}
 	return camera.NewFromReader(
