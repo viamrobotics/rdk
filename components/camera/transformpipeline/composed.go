@@ -103,10 +103,18 @@ func newOverlayTransform(
 		return nil, transform.ErrNoIntrinsics
 	}
 	if attrs.IntrinsicParams.Height <= 0. || attrs.IntrinsicParams.Width <= 0. {
-		return nil, errors.Wrapf(transform.ErrNoIntrinsics, "cannot do overlay with intrinsics (width,height) = (%v, %v)", attrs.IntrinsicParams.Width, attrs.IntrinsicParams.Height)
+		return nil, errors.Wrapf(
+			transform.ErrNoIntrinsics,
+			"cannot do overlay with intrinsics (width,height) = (%v, %v)",
+			attrs.IntrinsicParams.Width, attrs.IntrinsicParams.Height,
+		)
 	}
 	if attrs.IntrinsicParams.Fx <= 0. || attrs.IntrinsicParams.Fy <= 0. {
-		return nil, errors.Wrapf(transform.ErrNoIntrinsics, "cannot do overlay with intrinsics (Fx,Fy) = (%v, %v)", attrs.IntrinsicParams.Fx, attrs.IntrinsicParams.Fy)
+		return nil, errors.Wrapf(
+			transform.ErrNoIntrinsics,
+			"cannot do overlay with intrinsics (Fx,Fy) = (%v, %v)",
+			attrs.IntrinsicParams.Fx, attrs.IntrinsicParams.Fy,
+		)
 	}
 	reader := &overlaySource{src, attrs.IntrinsicParams}
 	return camera.NewFromReader(
