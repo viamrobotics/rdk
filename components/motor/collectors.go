@@ -58,7 +58,7 @@ func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (d
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		v, err := motor.IsPowered(ctx, nil)
+		v, _, err := motor.IsPowered(ctx, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, isPowered.String(), err)
 		}
