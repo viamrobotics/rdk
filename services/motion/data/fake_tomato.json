@@ -25,7 +25,10 @@
         {
             "name": "a",
             "type": "arm",
-            "model": "fake_ik",
+            "model": "fake",
+            "attributes": {
+                "arm-model": "ur5e"
+            },
             "frame": {
                 "parent": "ga"
             }
