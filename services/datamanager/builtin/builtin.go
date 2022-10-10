@@ -472,6 +472,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	} else {
 		allComponentAttributes, err = buildDataCaptureConfigs(cfg)
 		if err != nil {
+			svc.logger.Warn(err.Error())
 			return err
 		}
 
