@@ -5,6 +5,7 @@ import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from '@mdi/js';
 import Icon from './icon.vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { displayError } from '../lib/error';
+import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
 
 interface Emits {
   (event: 'keyboard-ctl', pressedKeys: Record<string, boolean>): void
@@ -87,7 +88,7 @@ const stopBase = (name: string) => {
   window.baseService.stop(req, new grpc.Metadata(), displayError);
 };
 
-const toggleKeyboard = (name) => {
+const toggleKeyboard = (name: string) => {
   if (isActive) {
     removeKeyboardListeners();
     stopBase(name);
