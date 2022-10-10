@@ -82,16 +82,16 @@ const removeKeyboardListeners = () => {
   window.removeEventListener('keyup', onUseKeyboardNav);
 };
 
-const stopBase = (name: string) => {
+const stopBase = () => {
   const req = new baseApi.StopRequest();
-  req.setName(name);
+  req.setName(props.name);
   window.baseService.stop(req, new grpc.Metadata(), displayError);
 };
 
-const toggleKeyboard = (name: string) => {
+const toggleKeyboard = () => {
   if (isActive) {
     removeKeyboardListeners();
-    stopBase(name);
+    stopBase();
   } else {
     addKeyboardListeners();
   }
@@ -110,7 +110,7 @@ onClickOutside(root, () => {
   >
     <div
       class="flex gap-2 pb-4"
-      @click="toggleKeyboard(props.name)"
+      @click="toggleKeyboard()"
     >
       <v-switch
         class="pr-4"
