@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
+	datapb "go.viam.com/api/app/data/v1"
 	"log"
 	"os"
 	"time"
@@ -580,7 +581,101 @@ func main() {
 							{
 								Name:  "data",
 								Usage: "download synced data",
+								Flags: []cli.Flag{
+									&cli.StringSliceFlag{
+										Name:     "destination",
+										Required: true,
+									},
+									&cli.StringFlag{
+										Name:     "organization",
+										Required: false,
+									},
+									&cli.StringFlag{
+										Name:     "location",
+										Required: false,
+									},
+									&cli.StringFlag{
+										Name:     "robot_id",
+										Required: false,
+									},
+									&cli.StringFlag{
+										Name:     "part_id",
+										Required: false,
+									},
+									&cli.StringFlag{
+										Name:     "robot_name",
+										Required: false,
+									},
+									&cli.StringFlag{
+										Name:     "part_name",
+										Required: false,
+									},
+									&cli.StringFlag{
+										Name:     "component_type",
+										Required: false,
+									},
+									&cli.StringFlag{
+										Name:     "component_model",
+										Required: false,
+									},
+									&cli.StringFlag{
+										Name:     "component_name",
+										Required: false,
+									},
+									&cli.StringFlag{
+										Name:     "method",
+										Required: false,
+									},
+									&cli.StringSliceFlag{
+										Name:     "mime_type",
+										Required: false,
+									},
+									// TODO: interval
+								},
 								Action: func(c *cli.Context) error {
+									filter := &datapb.Filter{}
+									if c.String("organization") != "" {
+										filter.OrgId = c.String("organization")
+									}
+									if c.String("location") != "" {
+										filter.LocationId = c.String("location")
+									}
+									if c.String("robot_id") != "" {
+										filter.RobotId = c.String("robot_id")
+									}
+									if c.String("part_id") != "" {
+										filter.PartId = c.String("part_id")
+									}
+									if c.String("robot_name") != "" {
+										filter.RobotName = c.String("robot_name")
+									}
+									if c.String("part_name") != "" {
+										filter.PartName = c.String("part_name")
+									}
+									if c.String("component_type") != "" {
+										filter.ComponentType = c.String("component_type")
+									}
+									if c.String("component_model") != "" {
+										filter.ComponentModel = c.String("component_model")
+									}
+									if c.String("component_name") != "" {
+										filter.ComponentName = c.String("component_name")
+									}
+									if c.String("method") != "" {
+										filter.Method = c.String("method")
+									}
+									if c.String("mime_types") != "" {
+										filter.MimeType = c.StringSlice("mime_types")
+									}
+
+									client, err := rdkcli.NewAppClient(c)
+									if err != nil {
+										return err
+									}
+									if err := client.BinaryData(c.String("destination"), filter); err != nil {
+										return err
+									}
+
 									return nil
 								},
 							},
