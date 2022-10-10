@@ -91,8 +91,9 @@ type Motor interface {
 	// Stop turns the power to the motor off immediately, without any gradual step down.
 	Stop(ctx context.Context, extra map[string]interface{}) error
 
-	// IsPowered returns whether or not the motor is currently on.
-	IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error)
+	// IsPowered returns whether or not the motor is currently on, and the percent power (between 0
+	// and 1, if the motor is off then the percent power will be 0).
+	IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error)
 
 	generic.Generic
 }
@@ -176,7 +177,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 	if !ok {
 		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
-	isPowered, err := motor.IsPowered(ctx, nil)
+	isPowered, _, err := motor.IsPowered(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +263,7 @@ func (r *reconfigurableMotor) Stop(ctx context.Context, extra map[string]interfa
 	return r.actual.Stop(ctx, extra)
 }
 
-func (r *reconfigurableMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (r *reconfigurableMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.IsPowered(ctx, extra)
