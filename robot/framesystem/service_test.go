@@ -28,11 +28,12 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-var blankPos map[string][]referenceframe.Input
-
 func TestFrameSystemFromConfig(t *testing.T) {
 	// use robot/impl/data/fake.json as config input
 	emptyIn := []referenceframe.Input{}
+	zeroIn := []referenceframe.Input{{Value: 0.0}}
+	blankPos := make(map[string][]referenceframe.Input)
+	blankPos["pieceArm"] = zeroIn
 	logger := golog.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -94,7 +95,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 
 	t.Log("pieceArm")
 	test.That(t, fs.Frame("pieceArm"), test.ShouldNotBeNil)
-	pose, err := fs.Frame("pieceArm").Transform(emptyIn)
+	pose, err := fs.Frame("pieceArm").Transform(zeroIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{500, 0, 300})
 
@@ -145,19 +146,19 @@ func TestFrameSystemFromConfig(t *testing.T) {
 
 	// There is a point at (1500, 500, 1300) in the world referenceframe. See if it transforms correctly in each referenceframe.
 	worldPose := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{1500, 500, 1300}))
-	armPt := r3.Vector{0, 0, 500}
+	armPt := r3.Vector{500, 0, 0}
 	tf, err := fs.Transform(blankPos, worldPose, "pieceArm")
 	test.That(t, err, test.ShouldBeNil)
 	transformPose, _ := tf.(*referenceframe.PoseInFrame)
 	pointAlmostEqual(t, transformPose.Pose().Point(), armPt)
 
-	sensorPt := r3.Vector{0, 0, 500}
+	sensorPt := r3.Vector{500, 0, 0}
 	tf, err = fs.Transform(blankPos, worldPose, "movement_sensor2")
 	test.That(t, err, test.ShouldBeNil)
 	transformPose, _ = tf.(*referenceframe.PoseInFrame)
 	pointAlmostEqual(t, transformPose.Pose().Point(), sensorPt)
 
-	gripperPt := r3.Vector{0, 0, 300}
+	gripperPt := r3.Vector{500, 0, -200}
 	tf, err = fs.Transform(blankPos, worldPose, "pieceGripper")
 	test.That(t, err, test.ShouldBeNil)
 	transformPose, _ = tf.(*referenceframe.PoseInFrame)

@@ -463,21 +463,22 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 
 	toggledCaptureOff := (svc.captureDisabled != svcConfig.CaptureDisabled) && svcConfig.CaptureDisabled
 	svc.captureDisabled = svcConfig.CaptureDisabled
+	var allComponentAttributes []dataCaptureConfig
+
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if toggledCaptureOff {
 		svc.closeCollectors()
 		svc.collectors = make(map[componentMethodMetadata]collectorAndConfig)
-		return nil
-	}
+	} else {
+		allComponentAttributes, err = buildDataCaptureConfigs(cfg)
+		if err != nil {
+			svc.logger.Warn(err.Error())
+			return err
+		}
 
-	allComponentAttributes, err := buildDataCaptureConfigs(cfg)
-	if err != nil {
-		return err
-	}
-
-	if len(allComponentAttributes) == 0 {
-		svc.logger.Warn("Could not find any components with data_manager service configuration")
-		return nil
+		if len(allComponentAttributes) == 0 {
+			svc.logger.Info("no components with data_manager service configuration")
+		}
 	}
 
 	toggledSync := svc.syncDisabled != svcConfig.ScheduledSyncDisabled

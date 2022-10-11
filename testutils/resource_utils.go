@@ -21,7 +21,7 @@ func NewResourceNameSet(resourceNames ...resource.Name) map[resource.Name]struct
 func ExtractNames(values ...resource.Name) []string {
 	var names []string
 	for _, n := range values {
-		names = append(names, n.Name)
+		names = append(names, n.ShortName())
 	}
 	return names
 }

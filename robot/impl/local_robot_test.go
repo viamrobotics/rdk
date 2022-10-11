@@ -256,8 +256,8 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, len(statuses), test.ShouldEqual, 3)
 
 	armStatus := &armpb.Status{
-		EndPosition:    &commonpb.Pose{},
-		JointPositions: &armpb.JointPositions{Values: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+		EndPosition:    &commonpb.Pose{X: 500, Z: 300, OZ: 1},
+		JointPositions: &armpb.JointPositions{Values: []float64{0.0}},
 	}
 	convMap := &armpb.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -500,8 +500,8 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, len(statuses), test.ShouldEqual, 2)
 
 			armStatus := &armpb.Status{
-				EndPosition:    &commonpb.Pose{},
-				JointPositions: &armpb.JointPositions{Values: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+				EndPosition:    &commonpb.Pose{X: 500, Z: 300, OZ: 1},
+				JointPositions: &armpb.JointPositions{Values: []float64{0.0}},
 			}
 			convMap := &armpb.Status{}
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -689,8 +689,8 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, len(statuses), test.ShouldEqual, 1)
 
 	armStatus := &armpb.Status{
-		EndPosition:    &commonpb.Pose{},
-		JointPositions: &armpb.JointPositions{Values: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}},
+		EndPosition:    &commonpb.Pose{X: 500, Z: 300, OZ: 1},
+		JointPositions: &armpb.JointPositions{Values: []float64{0.0}},
 	}
 	convMap := &armpb.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -1306,7 +1306,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	r0Arm, ok := r0arm1.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
-	tPos := referenceframe.JointPositionsFromRadians([]float64{10.0})
+	tPos := referenceframe.JointPositionsFromRadians([]float64{math.Pi})
 	err = r0Arm.MoveToJointPositions(context.Background(), tPos, nil)
 	test.That(t, err, test.ShouldBeNil)
 	p0Arm1, err := r0Arm.JointPositions(context.Background(), nil)
