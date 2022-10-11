@@ -62,7 +62,7 @@ func testPositionAndMap(t *testing.T, svc slam.Service) {
 	// Typical values are around (-0.001, 0.001, -0.007)
 	t.Logf("Position point: (%v, %v, %v)",
 		position.Pose().Point().X, position.Pose().Point().Y, position.Pose().Point().Z)
-	// Typical values are around (0.002, 0.972, 0.231), theta=0.002
+	// Typical values are around (0.630, -0.746, 0.216), theta=0.002
 	t.Logf("Position orientation: RX: %v, RY: %v, RZ: %v, Theta: %v",
 		position.Pose().Orientation().AxisAngles().RX,
 		position.Pose().Orientation().AxisAngles().RY,
