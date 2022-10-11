@@ -24,7 +24,6 @@ import (
 	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
-	"gonum.org/v1/gonum/num/quat"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -381,21 +380,17 @@ func (slamSvc *builtIn) Position(ctx context.Context, name string) (*referencefr
 	if val, ok := extra["quat"]; ok {
 		q := val.(map[string]interface{})
 
-		valReal, ok1 := q["real"]
-		valIMag, ok2 := q["imag"]
-		valJMag, ok3 := q["jmag"]
-		valKMag, ok4 := q["kmag"]
+		valReal, ok1 := q["real"].(float64)
+		valIMag, ok2 := q["imag"].(float64)
+		valJMag, ok3 := q["jmag"].(float64)
+		valKMag, ok4 := q["kmag"].(float64)
 
 		if !ok1 || !ok2 || !ok3 || !ok4 {
 			slamSvc.logger.Debugf("quaternion given, but invalid format detected, %v, skipping quaternion transform", q)
 			return pInFrame, nil
 		}
-		ori := spatialmath.QuatToOV(quat.Number{
-			Real: valReal.(float64),
-			Imag: valIMag.(float64),
-			Jmag: valJMag.(float64),
-			Kmag: valKMag.(float64)})
-		newPose := spatialmath.NewPoseFromOrientation(pInFrame.Pose().Point(), ori)
+		newPose := spatialmath.NewPoseFromOrientation(pInFrame.Pose().Point(),
+			&spatialmath.Quaternion{Real: valReal, Imag: valIMag, Jmag: valJMag, Kmag: valKMag})
 		pInFrame = referenceframe.NewPoseInFrame(pInFrame.FrameName(), newPose)
 	}
 
