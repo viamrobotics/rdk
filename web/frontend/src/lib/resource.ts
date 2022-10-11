@@ -6,10 +6,6 @@ export interface Resource {
   namespace: string
 }
 
-export const normalizeRemoteName = (name: string) => {
-  return name.replace(':', '-');
-};
-
 const sortByName = (item1: Resource, item2: Resource) => {
   return item1.name > item2.name ? 1 : -1;
 };

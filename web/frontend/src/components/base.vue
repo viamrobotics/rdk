@@ -4,11 +4,12 @@ import { ref } from 'vue';
 import { computeKeyboardBaseControls, BaseControlHelper } from '../rc/control_helpers';
 import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
 import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
-import streamApi from '../gen/proto/stream/v1/stream_pb.esm';
 import { toast } from '../lib/toast';
 import { filterResources, type Resource } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput from './keyboard-input.vue';
+import { addStream, removeStream } from '../lib/stream';
+import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
 
 interface Props {
   name: string;
@@ -130,17 +131,21 @@ const baseRun = () => {
   }
 };
 
-const viewPreviewCamera = (name: string, isOn: boolean) => {
+const viewPreviewCamera = async (name: string, isOn: boolean) => {
   if (isOn) {
-    const req = new streamApi.AddStreamRequest();
-    req.setName(name);
-    window.streamService.addStream(req, new grpc.Metadata(), displayError);
+    try {
+      await addStream(name);
+    } catch (error) {
+      displayError(error as ServiceError);
+    }
     return;
   }
 
-  const req = new streamApi.RemoveStreamRequest();
-  req.setName(name);
-  window.streamService.removeStream(req, new grpc.Metadata(), displayError);
+  try {
+    await removeStream(name);
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
 };
 
 const handleTabSelect = (tab: Tabs) => {
@@ -216,7 +221,7 @@ const handleSelectCamera = (event: string) => {
             >
               <div
                 v-if="basecamera"
-                :id="`stream-preview-${basecamera.name}`"
+                :data-stream-preview="basecamera.name"
                 class="mb-4 border border-white"
               />
             </template>
