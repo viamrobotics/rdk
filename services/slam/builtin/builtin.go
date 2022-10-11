@@ -373,27 +373,30 @@ func (slamSvc *builtIn) Position(ctx context.Context, name string) (*referencefr
 
 	pInFrame := referenceframe.ProtobufToPoseInFrame(resp.Pose)
 
-	// TODO DATA-531: Remove extraction and conversion of quaternion from the extra field in the response once the Rust SDK
-	// is available and the desired math can be implemented on the orbSLAM side
+	// TODO DATA-531: https://viam.atlassian.net/jira/software/c/projects/DATA/boards/30?modal=detail&selectedIssue=DATA-531
+	// Remove extraction and conversion of quaternion from the extra field in the response once the Rust
+	// spatial math library is available and the desired math can be implemented on the orbSLAM side
 	extra := resp.Extra.AsMap()
 
 	if val, ok := extra["quat"]; ok {
 		q := val.(map[string]interface{})
 
-		valTheta, ok1 := q["otheta"]
-		valX, ok2 := q["ox"]
-		valY, ok3 := q["oy"]
-		valZ, ok4 := q["oz"]
+		valReal, ok1 := q["real"]
+		valIMag, ok2 := q["imag"]
+		valJMag, ok3 := q["jmag"]
+		valKMag, ok4 := q["kmag"]
 
 		if !ok1 || !ok2 || !ok3 || !ok4 {
-			slamSvc.logger.Warnf("invalid format for quaternion returned, %v, skipping quaternion transform", q)
+			slamSvc.logger.Debugf("quaternion given, but invalid format detected, %v, skipping quaternion transform", q)
 			return pInFrame, nil
 		}
-		slamSvc.logger.Infof("valid format for quaternion returned, %v, performing quaternion transform", q)
-		ori := spatialmath.QuatToOV(quat.Number{Real: valTheta.(float64), Imag: valX.(float64), Jmag: valY.(float64), Kmag: valZ.(float64)})
+		ori := spatialmath.QuatToOV(quat.Number{
+			Real: valReal.(float64),
+			Imag: valIMag.(float64),
+			Jmag: valJMag.(float64),
+			Kmag: valKMag.(float64)})
 		newPose := spatialmath.NewPoseFromOrientation(pInFrame.Pose().Point(), ori)
 		pInFrame = referenceframe.NewPoseInFrame(pInFrame.FrameName(), newPose)
-
 	}
 
 	return pInFrame, nil
