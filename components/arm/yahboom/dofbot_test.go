@@ -25,7 +25,7 @@ func TestDofBotIK(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	model, err := dofbotModel("test")
+	model, err := Model("test")
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := motionplan.NewCBiRRTMotionPlanner(model, 4, logger)
 	test.That(t, err, test.ShouldBeNil)
