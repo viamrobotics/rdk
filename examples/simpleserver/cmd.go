@@ -24,7 +24,7 @@ func main() {
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	arm1Name := arm.Named("arm1")
-	arm1, err := fake.NewArm(config.Component{Name: arm1Name.Name})
+	arm1, err := fake.NewArm(config.Component{Name: arm1Name.Name}, logger)
 	if err != nil {
 		return err
 	}

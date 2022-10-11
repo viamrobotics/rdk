@@ -314,7 +314,7 @@ func TestGetPose(t *testing.T) {
 	test.That(t, pose.Pose().Orientation().AxisAngles().RX, test.ShouldEqual, 0)
 	test.That(t, pose.Pose().Orientation().AxisAngles().RY, test.ShouldEqual, -1)
 	test.That(t, pose.Pose().Orientation().AxisAngles().RZ, test.ShouldEqual, 0)
-	test.That(t, pose.Pose().Orientation().AxisAngles().Theta, test.ShouldAlmostEqual, math.Pi/2)
+	test.That(t, pose.Pose().Orientation().AxisAngles().Theta, test.ShouldAlmostEqual, math.Pi)
 
 	transformMsgs = []*commonpb.Transform{
 		{

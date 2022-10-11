@@ -39,7 +39,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			componentType:    "camera",
 			componentName:    "cam1",
 			componentModel:   "webcam",
-			method:           "Next",
+			method:           readImage,
 			additionalParams: map[string]string{"mime_type": utils.MimeTypeJPEG},
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			fileExtension:    ".jpeg",
@@ -50,7 +50,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			componentType:    "camera",
 			componentName:    "cam1",
 			componentModel:   "velodyne",
-			method:           "Next",
+			method:           readImage,
 			additionalParams: map[string]string{"mime_type": utils.MimeTypePCD},
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			fileExtension:    ".pcd",
@@ -61,7 +61,7 @@ func TestBuildCaptureMetadata(t *testing.T) {
 			componentType:    "camera",
 			componentName:    "cam1",
 			componentModel:   "velodyne",
-			method:           "NextPointCloud",
+			method:           nextPointCloud,
 			additionalParams: make(map[string]string),
 			dataType:         v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			fileExtension:    ".pcd",
@@ -70,24 +70,25 @@ func TestBuildCaptureMetadata(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		t.Log(tc.name)
-		actualMetadata, err := BuildCaptureMetadata(
-			tc.componentType, tc.componentName, tc.componentModel, tc.method, tc.additionalParams, tc.tags)
-		test.That(t, err, test.ShouldEqual, nil)
+		t.Run(tc.name, func(t *testing.T) {
+			actualMetadata, err := BuildCaptureMetadata(
+				tc.componentType, tc.componentName, tc.componentModel, tc.method, tc.additionalParams, tc.tags)
+			test.That(t, err, test.ShouldEqual, nil)
 
-		methodParams, err := protoutils.ConvertStringMapToAnyPBMap(tc.additionalParams)
-		test.That(t, err, test.ShouldEqual, nil)
+			methodParams, err := protoutils.ConvertStringMapToAnyPBMap(tc.additionalParams)
+			test.That(t, err, test.ShouldEqual, nil)
 
-		expectedMetadata := v1.DataCaptureMetadata{
-			ComponentType:    string(tc.componentType),
-			ComponentName:    tc.componentName,
-			ComponentModel:   tc.componentModel,
-			MethodName:       tc.method,
-			Type:             tc.dataType,
-			MethodParameters: methodParams,
-			FileExtension:    tc.fileExtension,
-			Tags:             tc.tags,
-		}
-		test.That(t, actualMetadata.String(), test.ShouldEqual, expectedMetadata.String())
+			expectedMetadata := v1.DataCaptureMetadata{
+				ComponentType:    string(tc.componentType),
+				ComponentName:    tc.componentName,
+				ComponentModel:   tc.componentModel,
+				MethodName:       tc.method,
+				Type:             tc.dataType,
+				MethodParameters: methodParams,
+				FileExtension:    tc.fileExtension,
+				Tags:             tc.tags,
+			}
+			test.That(t, actualMetadata.String(), test.ShouldEqual, expectedMetadata.String())
+		})
 	}
 }
