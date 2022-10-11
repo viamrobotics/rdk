@@ -2,7 +2,6 @@ package gpiostepper
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"testing"
 
@@ -146,7 +145,6 @@ func Test1(t *testing.T) {
 		ctx := context.Background()
 		var wg sync.WaitGroup
 		ctx, cancel := context.WithCancel(ctx)
-		fmt.Print(m.targetStepsPerSecond)
 		wg.Add(1)
 		go func() {
 			m.GoFor(ctx, 100, 100, map[string]interface{}{})
