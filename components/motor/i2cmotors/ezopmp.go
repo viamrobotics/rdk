@@ -285,7 +285,15 @@ func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[st
 	if err := m.writeRegWithCheck(ctx, command); err != nil {
 		return err
 	}
-	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m)
+
+	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m); err != nil {
+		if errStop := m.Stop(ctx, map[string]interface{}{}); errStop != nil {
+			m.logger.Error("Error stopping the motor")
+			return errStop
+		}
+		return err
+	}
+	return nil
 }
 
 // GoTo uses the Dose Over Time Command in the EZO-PMP datasheet
@@ -303,7 +311,15 @@ func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin, mins float64, extra map[str
 	if err := m.writeRegWithCheck(ctx, command); err != nil {
 		return err
 	}
-	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m)
+	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m); err != nil {
+		if errStop := m.Stop(ctx, map[string]interface{}{}); errStop != nil {
+			m.logger.Error("Error stopping the motor")
+			return errStop
+		}
+		return err
+	}
+
+	return nil
 }
 
 // ResetZeroPosition clears the amount of volume that has been dispensed.
