@@ -1,9 +1,8 @@
-// Package component implements MyComponent.
-package component
+// Package gizmoapi implements the acme:component:gizmo API.
+package gizmoapi
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"sync"
 
@@ -14,26 +13,17 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/config"
-	pb "go.viam.com/rdk/examples/mycomponent/proto/api/component/mycomponent/v1"
+	pb "go.viam.com/rdk/examples/customcomponents/proto/api/component/gizmo/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
 
-var (
-	ResourceSubtype = resource.NewSubtype(
-		"acme",
-		resource.ResourceTypeComponent,
-		resource.SubtypeName("mycomponent"),
-	)
-
-	Model = resource.NewModel(
-		resource.Namespace("acme"),
-		resource.ModelFamilyName("myfamily"),
-		resource.ModelName("myActualComponent"),
-	)
+var ResourceSubtype = resource.NewSubtype(
+	resource.Namespace("acme"),
+	resource.ResourceTypeComponent,
+	resource.SubtypeName("gizmo"),
 )
 
 // Named is a helper for getting the named MyComponent's typed resource name.
@@ -47,83 +37,28 @@ func init() {
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
-				&pb.MyComponentService_ServiceDesc,
+				&pb.GizmoService_ServiceDesc,
 				NewServer(subtypeSvc),
-				pb.RegisterMyComponentServiceHandlerFromEndpoint,
+				pb.RegisterGizmoServiceHandlerFromEndpoint,
 			)
 		},
 		RegisterRPCLiteService: func(ctx context.Context, grpcServer *grpc.Server, subtypeSvc subtype.Service) error {
 			grpcServer.RegisterService(
-				&pb.MyComponentService_ServiceDesc,
+				&pb.GizmoService_ServiceDesc,
 				NewServer(subtypeSvc),
 			)
 			return nil
 		},
-		RPCServiceDesc: &pb.MyComponentService_ServiceDesc,
+		RPCServiceDesc: &pb.GizmoService_ServiceDesc,
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return newClientFromConn(conn, name, logger)
 		},
 	})
 
-	registry.RegisterComponent(ResourceSubtype, Model, registry.Component{
-		Constructor: func(
-			ctx context.Context,
-			deps registry.Dependencies,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			return NewMyComponent(deps, config, logger), nil
-		},
-	})
 }
 
-type myActualComponent struct {
-	deps   registry.Dependencies
-	config config.Component
-	logger golog.Logger
-}
-
-func NewMyComponent(
-	deps registry.Dependencies,
-	config config.Component,
-	logger golog.Logger,
-) MyComponent {
-	return &myActualComponent{deps, config, logger}
-}
-
-func (mc *myActualComponent) DoOne(ctx context.Context, arg1 string) (bool, error) {
-	return arg1 == "arg1", nil
-}
-
-func (mc *myActualComponent) DoOneClientStream(ctx context.Context, arg1 []string) (bool, error) {
-	if len(arg1) == 0 {
-		return false, nil
-	}
-	ret := true
-	for _, arg := range arg1 {
-		ret = ret && arg == "arg1"
-	}
-	return ret, nil
-}
-
-func (mc *myActualComponent) DoOneServerStream(ctx context.Context, arg1 string) ([]bool, error) {
-	return []bool{arg1 == "arg1", false, true, false}, nil
-}
-
-func (mc *myActualComponent) DoOneBiDiStream(ctx context.Context, arg1 []string) ([]bool, error) {
-	var rets []bool
-	for _, arg := range arg1 {
-		rets = append(rets, arg == "arg1")
-	}
-	return rets, nil
-}
-
-func (mc *myActualComponent) DoTwo(ctx context.Context, arg1 bool) (string, error) {
-	return fmt.Sprintf("arg1=%t", arg1), nil
-}
-
-// MyComponent is simple.
-type MyComponent interface {
+// Gizmo defines the Go interface for the component (should match the protobuf methods.)
+type Gizmo interface {
 	DoOne(ctx context.Context, arg1 string) (bool, error)
 	DoOneClientStream(ctx context.Context, arg1 []string) (bool, error)
 	DoOneServerStream(ctx context.Context, arg1 string) ([]bool, error)
@@ -133,115 +68,115 @@ type MyComponent interface {
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
 func NewUnimplementedInterfaceError(actual interface{}) error {
-	return utils.NewUnimplementedInterfaceError((MyComponent)(nil), actual)
+	return utils.NewUnimplementedInterfaceError((Gizmo)(nil), actual)
 }
 
 func wrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	mc, ok := r.(MyComponent)
+	mc, ok := r.(Gizmo)
 	if !ok {
 		return nil, NewUnimplementedInterfaceError(r)
 	}
-	if reconfigurable, ok := mc.(*reconfigurableMyComponent); ok {
+	if reconfigurable, ok := mc.(*reconfigurableGizmo); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableMyComponent{actual: mc}, nil
+	return &reconfigurableGizmo{actual: mc}, nil
 }
 
 var (
-	_ = MyComponent(&reconfigurableMyComponent{})
-	_ = resource.Reconfigurable(&reconfigurableMyComponent{})
+	_ = Gizmo(&reconfigurableGizmo{})
+	_ = resource.Reconfigurable(&reconfigurableGizmo{})
 )
 
-type reconfigurableMyComponent struct {
+type reconfigurableGizmo struct {
 	mu     sync.RWMutex
-	actual MyComponent
+	actual Gizmo
 }
 
-func (mc *reconfigurableMyComponent) ProxyFor() interface{} {
-	mc.mu.RLock()
-	defer mc.mu.RUnlock()
-	return mc.actual
+func (g *reconfigurableGizmo) ProxyFor() interface{} {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual
 }
 
-func (mc *reconfigurableMyComponent) DoOne(ctx context.Context, arg1 string) (bool, error) {
-	mc.mu.RLock()
-	defer mc.mu.RUnlock()
-	return mc.actual.DoOne(ctx, arg1)
+func (g *reconfigurableGizmo) DoOne(ctx context.Context, arg1 string) (bool, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.DoOne(ctx, arg1)
 }
 
-func (mc *reconfigurableMyComponent) DoOneClientStream(ctx context.Context, arg1 []string) (bool, error) {
-	mc.mu.RLock()
-	defer mc.mu.RUnlock()
-	return mc.actual.DoOneClientStream(ctx, arg1)
+func (g *reconfigurableGizmo) DoOneClientStream(ctx context.Context, arg1 []string) (bool, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.DoOneClientStream(ctx, arg1)
 }
 
-func (mc *reconfigurableMyComponent) DoOneServerStream(ctx context.Context, arg1 string) ([]bool, error) {
-	mc.mu.RLock()
-	defer mc.mu.RUnlock()
-	return mc.actual.DoOneServerStream(ctx, arg1)
+func (g *reconfigurableGizmo) DoOneServerStream(ctx context.Context, arg1 string) ([]bool, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.DoOneServerStream(ctx, arg1)
 }
 
-func (mc *reconfigurableMyComponent) DoOneBiDiStream(ctx context.Context, arg1 []string) ([]bool, error) {
-	mc.mu.RLock()
-	defer mc.mu.RUnlock()
-	return mc.actual.DoOneBiDiStream(ctx, arg1)
+func (g *reconfigurableGizmo) DoOneBiDiStream(ctx context.Context, arg1 []string) ([]bool, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.DoOneBiDiStream(ctx, arg1)
 }
 
-func (mc *reconfigurableMyComponent) DoTwo(ctx context.Context, arg1 bool) (string, error) {
-	mc.mu.RLock()
-	defer mc.mu.RUnlock()
-	return mc.actual.DoTwo(ctx, arg1)
+func (g *reconfigurableGizmo) DoTwo(ctx context.Context, arg1 bool) (string, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.actual.DoTwo(ctx, arg1)
 }
 
-func (mc *reconfigurableMyComponent) Reconfigure(ctx context.Context, newMyComponenet resource.Reconfigurable) error {
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
-	actual, ok := newMyComponenet.(*reconfigurableMyComponent)
+func (g *reconfigurableGizmo) Reconfigure(ctx context.Context, newMyComponenet resource.Reconfigurable) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	actual, ok := newMyComponenet.(*reconfigurableGizmo)
 	if !ok {
-		return utils.NewUnexpectedTypeError(mc, newMyComponenet)
+		return utils.NewUnexpectedTypeError(g, newMyComponenet)
 	}
-	if err := goutils.TryClose(ctx, mc.actual); err != nil {
+	if err := goutils.TryClose(ctx, g.actual); err != nil {
 		golog.Global().Errorw("error closing old", "error", err)
 	}
-	mc.actual = actual.actual
+	g.actual = actual.actual
 	return nil
 }
 
-// subtypeServer implements the MyComponent from gripper.proto.
+// subtypeServer implements the Gizmo RPC service from gripper.proto.
 type subtypeServer struct {
-	pb.UnimplementedMyComponentServiceServer
+	pb.UnimplementedGizmoServiceServer
 	s subtype.Service
 }
 
-func NewServer(s subtype.Service) pb.MyComponentServiceServer {
+func NewServer(s subtype.Service) pb.GizmoServiceServer {
 	return &subtypeServer{s: s}
 }
 
-func (s *subtypeServer) getMyComponent(name string) (MyComponent, error) {
+func (s *subtypeServer) getMyComponent(name string) (Gizmo, error) {
 	resource := s.s.Resource(name)
 	if resource == nil {
-		return nil, errors.Errorf("no MyComponent with name (%s)", name)
+		return nil, errors.Errorf("no Gizmo with name (%s)", name)
 	}
-	mc, ok := resource.(MyComponent)
+	g, ok := resource.(Gizmo)
 	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not a MyComponent", name)
+		return nil, errors.Errorf("resource with name (%s) is not a Gizmo", name)
 	}
-	return mc, nil
+	return g, nil
 }
 
 func (s *subtypeServer) DoOne(ctx context.Context, req *pb.DoOneRequest) (*pb.DoOneResponse, error) {
-	mc, err := s.getMyComponent(req.Name)
+	g, err := s.getMyComponent(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := mc.DoOne(ctx, req.Arg1)
+	resp, err := g.DoOne(ctx, req.Arg1)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.DoOneResponse{Ret1: resp}, nil
 }
 
-func (s *subtypeServer) DoOneClientStream(server pb.MyComponentService_DoOneClientStreamServer) error {
+func (s *subtypeServer) DoOneClientStream(server pb.GizmoService_DoOneClientStreamServer) error {
 	var name string
 	var args []string
 	for {
@@ -259,23 +194,23 @@ func (s *subtypeServer) DoOneClientStream(server pb.MyComponentService_DoOneClie
 			return errors.New("unexpected")
 		}
 	}
-	mc, err := s.getMyComponent(name)
+	g, err := s.getMyComponent(name)
 	if err != nil {
 		return err
 	}
-	resp, err := mc.DoOneClientStream(server.Context(), args)
+	resp, err := g.DoOneClientStream(server.Context(), args)
 	if err != nil {
 		return err
 	}
 	return server.SendAndClose(&pb.DoOneClientStreamResponse{Ret1: resp})
 }
 
-func (s *subtypeServer) DoOneServerStream(req *pb.DoOneServerStreamRequest, stream pb.MyComponentService_DoOneServerStreamServer) error {
-	mc, err := s.getMyComponent(req.Name)
+func (s *subtypeServer) DoOneServerStream(req *pb.DoOneServerStreamRequest, stream pb.GizmoService_DoOneServerStreamServer) error {
+	g, err := s.getMyComponent(req.Name)
 	if err != nil {
 		return err
 	}
-	resp, err := mc.DoOneServerStream(stream.Context(), req.Arg1)
+	resp, err := g.DoOneServerStream(stream.Context(), req.Arg1)
 	if err != nil {
 		return err
 	}
@@ -289,7 +224,7 @@ func (s *subtypeServer) DoOneServerStream(req *pb.DoOneServerStreamRequest, stre
 	return nil
 }
 
-func (s *subtypeServer) DoOneBiDiStream(server pb.MyComponentService_DoOneBiDiStreamServer) error {
+func (s *subtypeServer) DoOneBiDiStream(server pb.GizmoService_DoOneBiDiStreamServer) error {
 	var name string
 	var args []string
 	for {
@@ -307,11 +242,11 @@ func (s *subtypeServer) DoOneBiDiStream(server pb.MyComponentService_DoOneBiDiSt
 			return errors.New("unexpected")
 		}
 	}
-	mc, err := s.getMyComponent(name)
+	g, err := s.getMyComponent(name)
 	if err != nil {
 		return err
 	}
-	resp, err := mc.DoOneBiDiStream(server.Context(), args)
+	resp, err := g.DoOneBiDiStream(server.Context(), args)
 	if err != nil {
 		return err
 	}
@@ -324,24 +259,24 @@ func (s *subtypeServer) DoOneBiDiStream(server pb.MyComponentService_DoOneBiDiSt
 }
 
 func (s *subtypeServer) DoTwo(ctx context.Context, req *pb.DoTwoRequest) (*pb.DoTwoResponse, error) {
-	mc, err := s.getMyComponent(req.Name)
+	g, err := s.getMyComponent(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := mc.DoTwo(ctx, req.Arg1)
+	resp, err := g.DoTwo(ctx, req.Arg1)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.DoTwoResponse{Ret1: resp}, nil
 }
 
-func newClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) MyComponent {
+func newClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) Gizmo {
 	sc := newSvcClientFromConn(conn, logger)
 	return clientFromSvcClient(sc, name)
 }
 
 func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
-	client := pb.NewMyComponentServiceClient(conn)
+	client := pb.NewGizmoServiceClient(conn)
 	sc := &serviceClient{
 		conn:   conn,
 		client: client,
@@ -352,7 +287,7 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 
 type serviceClient struct {
 	conn   rpc.ClientConn
-	client pb.MyComponentServiceClient
+	client pb.GizmoServiceClient
 	logger golog.Logger
 }
 
@@ -362,7 +297,7 @@ type client struct {
 	name string
 }
 
-func clientFromSvcClient(sc *serviceClient, name string) MyComponent {
+func clientFromSvcClient(sc *serviceClient, name string) Gizmo {
 	return &client{sc, name}
 }
 

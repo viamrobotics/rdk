@@ -1,4 +1,4 @@
-package mycomponent_test
+package customcomponents_test
 
 import (
 	"context"
@@ -13,13 +13,14 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
-	myc "go.viam.com/rdk/examples/mycomponent/component"
+	"go.viam.com/rdk/examples/customcomponents/gizmoapi"
+	_ "go.viam.com/rdk/examples/customcomponents/mygizmo"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/utils"
 )
 
-func TestMyComponent(t *testing.T) {
+func TestGizmo(t *testing.T) {
 	port1, err := goutils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
 	addr1 := fmt.Sprintf("localhost:%d", port1)
@@ -29,9 +30,9 @@ func TestMyComponent(t *testing.T) {
 	addr2 := fmt.Sprintf("localhost:%d", port2)
 
 	ctx := context.Background()
-	logger := golog.NewDevelopmentLogger("mycomponent.server")
+	logger := golog.NewDevelopmentLogger("gizmo.server")
 
-	cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/mycomponent/server/config.json"), logger)
+	cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/customcomponents/server/config.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 	r0, err := robotimpl.New(ctx, cfgServer, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -68,7 +69,7 @@ func TestMyComponent(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	goutils.SelectContextOrWait(context.Background(), 30*time.Second)
 
-	logger = golog.NewDevelopmentLogger("mycomponent.client")
+	logger = golog.NewDevelopmentLogger("gizmo.client")
 	remoteConfig := &config.Config{
 		Remotes: []config.Remote{
 			{
@@ -82,24 +83,24 @@ func TestMyComponent(t *testing.T) {
 		test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 	}()
 	test.That(t, err, test.ShouldBeNil)
-	res, err := r2.ResourceByName(myc.Named("comp1"))
+	res, err := r2.ResourceByName(gizmoapi.Named("gizmo1"))
 	test.That(t, err, test.ShouldBeNil)
-	comp1, ok := res.(myc.MyComponent)
+	gizmo1, ok := res.(gizmoapi.Gizmo)
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err = comp1.DoOne(context.Background(), "hello")
+	_, err = gizmo1.DoOne(context.Background(), "hello")
 	test.That(t, err, test.ShouldBeNil)
-	_, err = comp1.DoOneClientStream(context.Background(), []string{"hello", "arg1", "foo"})
+	_, err = gizmo1.DoOneClientStream(context.Background(), []string{"hello", "arg1", "foo"})
 	test.That(t, err, test.ShouldBeNil)
-	_, err = comp1.DoOneServerStream(context.Background(), "hello")
+	_, err = gizmo1.DoOneServerStream(context.Background(), "hello")
 	test.That(t, err, test.ShouldBeNil)
-	_, err = comp1.DoOneBiDiStream(context.Background(), []string{"hello", "arg1", "foo"})
+	_, err = gizmo1.DoOneBiDiStream(context.Background(), []string{"hello", "arg1", "foo"})
 	test.That(t, err, test.ShouldBeNil)
-	_, err = comp1.DoOneBiDiStream(context.Background(), []string{"arg1", "arg1", "arg1"})
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = r2.ResourceByName(myc.Named("remoteA:robot1:comp1"))
+	_, err = gizmo1.DoOneBiDiStream(context.Background(), []string{"arg1", "arg1", "arg1"})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = r2.ResourceByName(myc.Named("remoteA:comp1"))
+	_, err = r2.ResourceByName(gizmoapi.Named("remoteA:robot1:gizmo1"))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = r2.ResourceByName(gizmoapi.Named("remoteA:gizmo1"))
 	test.That(t, err, test.ShouldNotBeNil)
 }

@@ -1,15 +1,15 @@
 syntax = "proto3";
 
-package proto.api.component.mycomponent.v1;
+package proto.api.component.gizmo.v1;
 
 import "google/api/annotations.proto";
 
-option go_package = "go.acme.com/proto/api/component/mycomponent/v1";
+option go_package = "go.acme.com/proto/api/component/gizmo/v1";
 
-service MyComponentService {
+service gizmoService {
   rpc DoOne(DoOneRequest) returns (DoOneResponse) {
     option (google.api.http) = {
-      post: "/acme/api/v1/component/mycomponent/{name}/do_one"
+      post: "/acme/api/v1/component/gizmo/{name}/do_one"
     };
   }
 
@@ -21,7 +21,7 @@ service MyComponentService {
 
   rpc DoTwo(DoTwoRequest) returns (DoTwoResponse) {
     option (google.api.http) = {
-      post: "/acme/api/v1/component/mycomponent/{name}/do_two"
+      post: "/acme/api/v1/component/gizmo/{name}/do_two"
     };
   }
 }

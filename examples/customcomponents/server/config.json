@@ -4,10 +4,10 @@
     },
     "components": [
         {
-            "model": "acme:myfamily:myActualComponent",
-            "name": "comp1",
+            "model": "acme:demo:mygizmo",
+            "name": "gizmo1",
             "namespace": "acme",
-            "type": "mycomponent"
+            "type": "gizmo"
         }
     ]
 }

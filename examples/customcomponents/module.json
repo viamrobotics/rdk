@@ -1,0 +1,42 @@
+{
+	"modules": [
+		{
+			"name": "AcmeModule",
+			"path": "examples/customcomponents/module/module"
+		}
+	],
+	"components": [
+		{
+			"namespace": "rdk",
+			"type": "motor",
+			"name": "motor1",
+			"model": "rdk:builtin:fake"
+		},
+		{
+			"namespace": "rdk",
+			"type": "motor",
+			"name": "motor2",
+			"model": "rdk:builtin:fake"
+		},
+    {
+        "model": "acme:demo:mygizmo",
+        "name": "gizmo1",
+        "namespace": "acme",
+        "type": "gizmo"
+    },
+		{
+			"namespace": "rdk",
+			"type": "base",
+			"name": "shimmy",
+			"model": "acme:demo:mybase",
+			"depends_on": ["motor1", "motor2"],
+			"attributes": {
+				"motorL": "motor1",
+				"motorR": "motor2"
+			}
+		}
+	],
+  "network": {
+    "bind_address": ":8080"
+  }
+}

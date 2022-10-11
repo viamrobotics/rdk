@@ -7,7 +7,8 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	_ "go.viam.com/rdk/examples/mycomponent/component"
+	_ "go.viam.com/rdk/examples/customcomponents/mygizmo"
+	_ "go.viam.com/rdk/examples/customcomponents/mybase"
 	"go.viam.com/rdk/module"
 
 	"go.viam.com/utils"

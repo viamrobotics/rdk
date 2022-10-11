@@ -1,4 +1,4 @@
-// Package main tests out a MyComponent client.
+// Package main tests out a Gizmo client.
 package main
 
 import (
@@ -6,7 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 
-	myc "go.viam.com/rdk/examples/mycomponent/component"
+	"go.viam.com/rdk/examples/customcomponents/gizmoapi"
 	"go.viam.com/rdk/robot/client"
 )
 
@@ -21,11 +21,11 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	res, err := robot.ResourceByName(myc.Named("comp1"))
+	res, err := robot.ResourceByName(gizmoapi.Named("gizmo1"))
 	if err != nil {
 		logger.Fatal(err)
 	}
-	comp1 := res.(myc.MyComponent)
+	comp1 := res.(gizmoapi.Gizmo)
 	ret1, err := comp1.DoOne(context.Background(), "hello")
 	if err != nil {
 		logger.Fatal(err)

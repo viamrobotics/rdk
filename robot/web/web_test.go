@@ -24,7 +24,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
-	mycomppb "go.viam.com/rdk/examples/mycomponent/proto/api/component/mycomponent/v1"
+	gizmopb "go.viam.com/rdk/examples/customcomponents/proto/api/component/gizmo/v1"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -675,8 +675,8 @@ func TestForeignResource(t *testing.T) {
 	conn, err := rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	myCompClient := mycomppb.NewMyComponentServiceClient(conn)
-	_, err = myCompClient.DoOne(ctx, &mycomppb.DoOneRequest{Name: "thing1", Arg1: "hello"})
+	myCompClient := gizmopb.NewGizmoServiceClient(conn)
+	_, err = myCompClient.DoOne(ctx, &gizmopb.DoOneRequest{Name: "thing1", Arg1: "hello"})
 	test.That(t, err, test.ShouldNotBeNil)
 	errStatus, ok := status.FromError(err)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -686,7 +686,7 @@ func TestForeignResource(t *testing.T) {
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	remoteServer := grpc.NewServer()
-	mycomppb.RegisterMyComponentServiceServer(remoteServer, &myCompServer{})
+	gizmopb.RegisterGizmoServiceServer(remoteServer, &myCompServer{})
 
 	listenerR, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
@@ -705,7 +705,7 @@ func TestForeignResource(t *testing.T) {
 
 	foreignRes := rgrpc.NewForeignResource(resName, remoteConn)
 
-	svcDesc, err := grpcreflect.LoadServiceDescriptor(&mycomppb.MyComponentService_ServiceDesc)
+	svcDesc, err := grpcreflect.LoadServiceDescriptor(&gizmopb.GizmoService_ServiceDesc)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectRobot := &inject.Robot{}
@@ -729,13 +729,13 @@ func TestForeignResource(t *testing.T) {
 	conn, err = rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	myCompClient = mycomppb.NewMyComponentServiceClient(conn)
+	myCompClient = gizmopb.NewGizmoServiceClient(conn)
 
 	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
 		return nil
 	}
 
-	_, err = myCompClient.DoOne(ctx, &mycomppb.DoOneRequest{Name: "thing1", Arg1: "hello"})
+	_, err = myCompClient.DoOne(ctx, &gizmopb.DoOneRequest{Name: "thing1", Arg1: "hello"})
 	test.That(t, err, test.ShouldNotBeNil)
 	errStatus, ok = status.FromError(err)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -750,7 +750,7 @@ func TestForeignResource(t *testing.T) {
 		}
 	}
 
-	resp, err := myCompClient.DoOne(ctx, &mycomppb.DoOneRequest{Name: "thing1", Arg1: "hello"})
+	resp, err := myCompClient.DoOne(ctx, &gizmopb.DoOneRequest{Name: "thing1", Arg1: "hello"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Ret1, test.ShouldBeTrue)
 
@@ -760,9 +760,9 @@ func TestForeignResource(t *testing.T) {
 }
 
 type myCompServer struct {
-	mycomppb.UnimplementedMyComponentServiceServer
+	gizmopb.UnimplementedGizmoServiceServer
 }
 
-func (s *myCompServer) DoOne(ctx context.Context, req *mycomppb.DoOneRequest) (*mycomppb.DoOneResponse, error) {
-	return &mycomppb.DoOneResponse{Ret1: req.Arg1 == "hello"}, nil
+func (s *myCompServer) DoOne(ctx context.Context, req *gizmopb.DoOneRequest) (*gizmopb.DoOneResponse, error) {
+	return &gizmopb.DoOneResponse{Ret1: req.Arg1 == "hello"}, nil
 }
