@@ -260,7 +260,15 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 	if revolutions == 0 {
 		return nil
 	}
-	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m)
+	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m); err != nil {
+		if errStop := m.Stop(ctx, map[string]interface{}{}); errStop != nil {
+			m.logger.Error("Error stopping the motor")
+			return errStop
+		}
+		return err
+	}
+
+	return nil
 }
 
 func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float64) error {
