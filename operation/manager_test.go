@@ -134,7 +134,7 @@ func TestSingleOperationManager(t *testing.T) {
 		defer test.That(t, fakeMotor.stopCount, test.ShouldEqual, 1)
 		test.That(t, ctx.Err(), test.ShouldNotBeNil)
 	})
-	t.Run("ensure op that complete doesnt called stop", func(t *testing.T) {
+	t.Run("ensure op that completes successfully does not call stop", func(t *testing.T) {
 		count := int64(0)
 		fakeMotor := &mockMotor{Name: "testMotor"}
 		som.SetStop(fakeMotor)
