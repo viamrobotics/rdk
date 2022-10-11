@@ -6,10 +6,6 @@ export interface Resource {
   namespace: string
 }
 
-export const normalizeRemoteName = (name: string) => {
-  return name.replace(':', '-');
-};
-
 const sortByName = (item1: Resource, item2: Resource) => {
   return item1.name > item2.name ? 1 : -1;
 };
@@ -48,6 +44,10 @@ export const filterResources = (resources: Resource[], namespace: string, type: 
   }
 
   return results.sort(sortByName);
+};
+
+export const filterNonRemoteResources = (resources: Resource[], namespace: string, type: string, subtype: string) => {
+  return filterResources(resources, namespace, type, subtype).filter((resource) => !resource.name.includes(':'));
 };
 
 export const filterRdkComponentsWithStatus = (

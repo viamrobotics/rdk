@@ -29,10 +29,14 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+// ModelName is the string used to refer to the yahboom model.
+const ModelName = "yahboom-dofbot"
+
 //go:embed dofbot.json
 var modeljson []byte
 
-func dofbotModel(name string) (referenceframe.Model, error) {
+// Model returns the kinematics model of the yahboom arm, also has all Frame information.
+func Model(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(modeljson, name)
 }
 
@@ -88,9 +92,9 @@ func (config *AttrConfig) Validate(path string) error {
 const modelname = "yahboom-dofbot"
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
+	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newDofBot(ctx, r, config, logger)
+			return NewDofBot(ctx, r, config, logger)
 		},
 	})
 
@@ -113,7 +117,8 @@ type Dofbot struct {
 	opMgr  operation.SingleOperationManager
 }
 
-func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.LocalArm, error) {
+// NewDofBot is a constructor to create a new dofbot arm.
+func NewDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.LocalArm, error) {
 	var err error
 
 	attr, ok := config.ConvertedAttributes.(*AttrConfig)
@@ -141,7 +146,7 @@ func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logg
 		return nil, err
 	}
 
-	a.model, err = dofbotModel(config.Name)
+	a.model, err = Model(config.Name)
 	if err != nil {
 		return nil, err
 	}
