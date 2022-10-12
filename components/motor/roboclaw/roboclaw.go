@@ -169,10 +169,7 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 		return err
 	}
 	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m); err != nil {
-		if errStop := m.Stop(ctx, map[string]interface{}{}); errStop != nil {
-			return multierr.Combine(errStop, err)
-		}
-		return err
+		return multierr.Combine(err, m.Stop(ctx, map[string]interface{}{}))
 	}
 	return nil
 }

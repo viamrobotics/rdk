@@ -288,10 +288,7 @@ func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[st
 	}
 
 	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m); err != nil {
-		if errStop := m.Stop(ctx, map[string]interface{}{}); errStop != nil {
-			return multierr.Combine(errStop, err)
-		}
-		return err
+		return multierr.Combine(err, m.Stop(ctx, map[string]interface{}{}))
 	}
 	return nil
 }
