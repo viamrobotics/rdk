@@ -633,13 +633,15 @@ func (slamSvc *builtIn) StartDataProcess(
 					case slam.Dense:
 						if _, err := slamSvc.getAndSaveDataDense(cancelCtx, cams); err != nil {
 							slamSvc.logger.Warn(err)
-						} else if c != nil {
+						}
+						if c != nil {
 							c <- 1
 						}
 					case slam.Sparse:
 						if _, err := slamSvc.getAndSaveDataSparse(cancelCtx, cams, camStreams); err != nil {
 							slamSvc.logger.Warn(err)
-						} else if c != nil {
+						}
+						if c != nil {
 							c <- 1
 						}
 					default:
