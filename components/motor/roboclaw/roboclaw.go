@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/CPRT/roboclaw"
@@ -136,6 +137,9 @@ type roboclawMotor struct {
 
 func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
+
+	powerPct = math.min(powerPct, 1.0)
+	powerPct = math.max(powerPct, 0.0)
 
 	switch m.conf.Number {
 	case 1:
