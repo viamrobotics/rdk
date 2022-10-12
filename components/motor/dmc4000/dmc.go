@@ -61,6 +61,7 @@ type Motor struct {
 	HomeRPM          float64
 	jogging          bool
 	opMgr            operation.SingleOperationManager
+	powerPct         float64
 }
 
 // Config adds DMC-specific config options.
@@ -165,6 +166,7 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 		MaxRPM:           c.MaxRPM,
 		MaxAcceleration:  c.MaxAcceleration,
 		HomeRPM:          c.HomeRPM,
+		powerPct:         0.0,
 	}
 
 	if m.MaxRPM <= 0 {
@@ -457,6 +459,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	if math.Abs(powerPct) < 0.001 {
 		return m.Stop(ctx, extra)
 	}
+	m.powerPct = powerPct
 	return m.Jog(ctx, powerPct*m.MaxRPM)
 }
 
@@ -641,8 +644,9 @@ func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
 }
 
 // IsPowered returns whether or not the motor is currently moving.
-func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
-	return m.IsMoving(ctx)
+func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+	on, err := m.IsMoving(ctx)
+	return on, m.powerPct, err
 }
 
 // Must be run inside a lock.
