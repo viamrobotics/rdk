@@ -26,7 +26,7 @@ var interp = referenceframe.FloatsToInputs([]float64{
 // This should test a simple linear motion.
 func TestSimpleLinearMotion(t *testing.T) {
 	nSolutions := 5
-	inputSteps := []*node{}
+	inputSteps := []node{}
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "")
@@ -44,17 +44,17 @@ func TestSimpleLinearMotion(t *testing.T) {
 		Z:  120.5,
 		OY: -1,
 	}
-	corners := map[*node]bool{}
+	corners := map[node]bool{}
 
 	solutions, err := getSolutions(ctx, opt, cbirrt.solver, pos, home7, mp.Frame())
 	test.That(t, err, test.ShouldBeNil)
 
-	near1 := &node{q: home7}
-	seedMap := make(map[*node]*node)
+	near1 := &basicNode{q: home7}
+	seedMap := make(map[node]node)
 	seedMap[near1] = nil
 	target := interp
 
-	goalMap := make(map[*node]*node)
+	goalMap := make(map[node]node)
 
 	if len(solutions) < nSolutions {
 		nSolutions = len(solutions)
@@ -69,12 +69,12 @@ func TestSimpleLinearMotion(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
-	seedReached := cbirrt.constrainedExtend(ctx, cOpt, seedMap, near1, &node{q: target})
+	seedReached := cbirrt.constrainedExtend(ctx, cOpt, seedMap, near1, &basicNode{q: target})
 	// Find the nearest point in goalMap to the furthest point reached in seedMap
-	near2 := nn.nearestNeighbor(ctx, opt, seedReached.q, goalMap)
+	near2 := nn.nearestNeighbor(ctx, opt, seedReached.Q(), goalMap)
 	// extend goalMap towards the point in seedMap
 	goalReached := cbirrt.constrainedExtend(ctx, cOpt, goalMap, near2, seedReached)
-	_, dist := opt.DistanceFunc(&ConstraintInput{StartInput: seedReached.q, EndInput: goalReached.q})
+	_, dist := opt.DistanceFunc(&ConstraintInput{StartInput: seedReached.Q(), EndInput: goalReached.Q()})
 	test.That(t, dist < cOpt.JointSolveDist, test.ShouldBeTrue)
 
 	corners[seedReached] = true

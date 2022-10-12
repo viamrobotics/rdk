@@ -16,10 +16,10 @@ import (
 	"go.uber.org/atomic"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 

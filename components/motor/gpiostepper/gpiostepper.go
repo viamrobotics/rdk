@@ -36,7 +36,7 @@ type PinConfig struct {
 type Config struct {
 	Pins             PinConfig `json:"pins"`
 	BoardName        string    `json:"board"`
-	StepperDelay     uint      `json:"stepper_delay,omitempty"` // When using stepper motors, the time to remain high
+	StepperDelay     uint      `json:"stepper_delay_usec,omitempty"` // When using stepper motors, the time to remain high
 	TicksPerRotation int       `json:"ticks_per_rotation"`
 }
 
@@ -249,6 +249,10 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 // can be assigned negative values to move in a backwards direction. Note: if both are negative
 // the motor will spin in the forward direction.
 func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+	if rpm == 0 {
+		return motor.NewZeroRPMError()
+	}
+
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 

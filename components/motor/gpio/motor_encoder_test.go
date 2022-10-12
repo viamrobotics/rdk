@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/components/motor"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/rlog"
 )
 
 func nowNanosTest() uint64 {
@@ -82,6 +81,10 @@ func TestMotorEncoder1(t *testing.T) {
 	t.Run("encoded motor testing Stop", func(t *testing.T) {
 		test.That(t, _motor.Stop(context.Background(), nil), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 0)
+	})
+
+	t.Run("encoded motor cannot go at 0 RPM", func(t *testing.T) {
+		test.That(t, _motor.GoFor(context.Background(), 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
 	})
 
 	t.Run("encoded motor testing SetPower interrupt GoFor", func(t *testing.T) {
@@ -551,7 +554,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 	})
 
 	t.Run("wrap motor with single encoder", func(t *testing.T) {
-		b, err := fakeboard.NewBoard(context.Background(), config.Component{ConvertedAttributes: &fakeboard.Config{}}, rlog.Logger)
+		b, err := fakeboard.NewBoard(context.Background(), config.Component{ConvertedAttributes: &fakeboard.Config{}}, logger)
 		test.That(t, err, test.ShouldBeNil)
 		fakeMotor := &fakemotor.Motor{}
 		b.Digitals["a"] = &board.BasicDigitalInterrupt{}
@@ -577,7 +580,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 	})
 
 	t.Run("wrap motor with hall encoder", func(t *testing.T) {
-		b, err := fakeboard.NewBoard(context.Background(), config.Component{ConvertedAttributes: &fakeboard.Config{}}, rlog.Logger)
+		b, err := fakeboard.NewBoard(context.Background(), config.Component{ConvertedAttributes: &fakeboard.Config{}}, logger)
 		test.That(t, err, test.ShouldBeNil)
 		fakeMotor := &fakemotor.Motor{}
 		b.Digitals["a"] = &board.BasicDigitalInterrupt{}

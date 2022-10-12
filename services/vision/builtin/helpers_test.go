@@ -63,9 +63,9 @@ func buildRobotWithFakeCamera(t *testing.T) (robot.Robot, error) {
 		Type:  camera.SubtypeName,
 		Model: "file",
 		Attributes: config.AttributeMap{
-			"color":   artifact.MustPath("vision/objectdetection/detection_test.jpg"),
-			"depth":   "",
-			"aligned": false,
+			"color_file_path": artifact.MustPath("vision/objectdetection/detection_test.jpg"),
+			"depth_file_path": "",
+			"aligned":         false,
 		},
 	}
 	cameraComp2 := config.Component{
@@ -73,9 +73,9 @@ func buildRobotWithFakeCamera(t *testing.T) (robot.Robot, error) {
 		Type:  camera.SubtypeName,
 		Model: "file",
 		Attributes: config.AttributeMap{
-			"color":   artifact.MustPath("vision/tflite/lion.jpeg"),
-			"depth":   "",
-			"aligned": false,
+			"color_file_path": artifact.MustPath("vision/tflite/lion.jpeg"),
+			"depth_file_path": "",
+			"aligned":         false,
 		},
 	}
 
@@ -100,9 +100,9 @@ func buildRobotWithFakeCamera(t *testing.T) (robot.Robot, error) {
 		Name: "detect_red",
 		Type: string(builtin.ColorDetector),
 		Parameters: config.AttributeMap{
-			"detect_color": "#C9131F", // look for red
-			"tolerance":    0.05,
-			"segment_size": 1000,
+			"detect_color":      "#C9131F", // look for red
+			"hue_tolerance_pct": 0.05,
+			"segment_size_px":   1000,
 		},
 	}
 	err = srv.AddDetector(context.Background(), detConf)
@@ -123,9 +123,9 @@ var testPointCloud = []r3.Vector{
 
 func makeExpectedBoxes(t *testing.T) []spatialmath.Geometry {
 	t.Helper()
-	box1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: -5, Y: -5, Z: 5}), r3.Vector{X: 0, Y: 0, Z: 2})
+	box1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: -5, Y: -5, Z: 5}), r3.Vector{X: 0, Y: 0, Z: 2}, "")
 	test.That(t, err, test.ShouldBeNil)
-	box2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: 5, Y: 5, Z: 5}), r3.Vector{X: 0, Y: 0, Z: 2})
+	box2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: 5, Y: 5, Z: 5}), r3.Vector{X: 0, Y: 0, Z: 2}, "")
 	test.That(t, err, test.ShouldBeNil)
 	return []spatialmath.Geometry{box1, box2}
 }

@@ -508,7 +508,7 @@ func TestManagerAdd(t *testing.T) {
 	) ([]*viz.Object, error) {
 		return []*viz.Object{viz.NewEmptyObject()}, nil
 	}
-	objectSegResName := vision.Named(resource.DefaultServiceName)
+	objectSegResName := vision.Named(resource.DefaultModelName)
 	manager.addResource(objectSegResName, injectVisionService)
 	objectSegmentationService, err := manager.ResourceByName(objectSegResName)
 	test.That(t, err, test.ShouldBeNil)
@@ -735,9 +735,6 @@ func TestManagerNewComponent(t *testing.T) {
 		return resource.Name{}, false
 	}), test.ShouldBeNil)
 	robotForRemote.config.Components[8].DependsOn = append(robotForRemote.config.Components[8].DependsOn, "arm3")
-	_, err = config.SortComponents(robotForRemote.config.Components)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldEqual, "circular dependency detected in component list between arm3, board3")
 
 	diff = &config.Diff{
 		Added: &config.Config{},

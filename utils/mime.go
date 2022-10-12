@@ -27,6 +27,12 @@ const (
 
 	// MimeTypeSuffixLazy is used to indicate a lazy loading of data.
 	MimeTypeSuffixLazy = "lazy"
+
+	// MimeTypeTabular used to indicate tabular data, this is used mainly for filtering data.
+	MimeTypeTabular = "x-application/tabular"
+
+	// MimeTypeDefault used if mimetype cannot be inferred.
+	MimeTypeDefault = "application/octet-stream"
 )
 
 // WithLazyMIMEType attaches the lazy suffix to a MIME.

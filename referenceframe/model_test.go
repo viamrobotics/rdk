@@ -19,20 +19,19 @@ func TestModelLoading(t *testing.T) {
 	simpleM, ok := m.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	test.That(t, simpleM.OperationalDoF(), test.ShouldEqual, 1)
 	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
 
-	isValid := IsConfigurationValid(simpleM, []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
-	test.That(t, isValid, test.ShouldBeTrue)
-	isValid = IsConfigurationValid(simpleM, []float64{0.1, 0.1, 0.1, 0.1, 0.1, 99.1})
-	test.That(t, isValid, test.ShouldBeFalse)
+	err = simpleM.validInputs(FloatsToInputs([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}))
+	test.That(t, err, test.ShouldBeNil)
+	err = simpleM.validInputs(FloatsToInputs([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 99.1}))
+	test.That(t, err, test.ShouldNotBeNil)
 
 	orig := []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}
 	orig[5] += math.Pi * 2
 	orig[4] -= math.Pi * 4
 
 	randpos := GenerateRandomConfiguration(m, rand.New(rand.NewSource(1)))
-	test.That(t, IsConfigurationValid(simpleM, randpos), test.ShouldBeTrue)
+	test.That(t, simpleM.validInputs(FloatsToInputs(randpos)), test.ShouldBeNil)
 
 	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_kinematics.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
@@ -87,7 +86,7 @@ func TestIncorrectInputs(t *testing.T) {
 func TestModelGeometries(t *testing.T) {
 	// build a test model
 	offset := spatial.NewPoseFromPoint(r3.Vector{0, 0, 10})
-	bc, err := spatial.NewBoxCreator(r3.Vector{1, 1, 1}, offset)
+	bc, err := spatial.NewBoxCreator(r3.Vector{1, 1, 1}, offset, "")
 	test.That(t, err, test.ShouldBeNil)
 	// m, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/model_test.json"), "")
 	frame1, err := NewStaticFrameWithGeometry("link1", offset, bc)
@@ -96,7 +95,7 @@ func TestModelGeometries(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	frame3, err := NewStaticFrameWithGeometry("link2", offset, bc)
 	test.That(t, err, test.ShouldBeNil)
-	m := &SimpleModel{name: "test", OrdTransforms: []Frame{frame1, frame2, frame3}}
+	m := &SimpleModel{baseFrame: &baseFrame{name: "test"}, OrdTransforms: []Frame{frame1, frame2, frame3}}
 
 	// test zero pose of model
 	inputs := make([]Input, len(m.DoF()))

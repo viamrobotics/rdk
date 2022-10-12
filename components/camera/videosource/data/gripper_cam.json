@@ -6,7 +6,7 @@
             "model": "webcam",
             "attributes": {
                 "path_pattern": "video0",
-                "width": 1024
+                "width_px": 1024
             }
         },
         {
@@ -34,8 +34,8 @@
             "model": "resize",
             "attributes": {
                 "source": "depth-pretty-awkward",
-                "width": 448,
-                "height": 342
+                "width_px": 448,
+                "height_px": 342
             }
         },
         {
@@ -44,13 +44,13 @@
             "model": "align_color_depth",
             "attributes": {
                 "debug": false,
-                "color": "color",
-                "depth": "depth",
-                "height": 768,
-                "width": 1024,
-                "camera_parameters": {
-                    "height": 768,
-                    "width": 1024,
+                "color_camera_name": "color",
+                "depth_camera_name": "depth",
+                "height_px": 768,
+                "width_px": 1024,
+                "intrinsic_parameters": {
+                    "height_px": 768,
+                    "width_px": 1024,
                     "fx": 821.32642889,
                     "fy": 821.68607359,
                     "ppx": 494.95941428,
@@ -64,9 +64,9 @@
                     }
                 },
                 "homography": {
-                    "color": {
-                        "height": 768,
-                        "width": 1024,
+                    "color_intrinsics": {
+                        "height_px": 768,
+                        "width_px": 1024,
                         "fx": 821.32642889,
                         "fy": 821.68607359,
                         "ppx": 494.95941428,
@@ -94,9 +94,9 @@
                     "rotate_depth": -90
                 },
                 "intrinsic_extrinsic": {
-                    "color": {
-                        "height": 768,
-                        "width": 1024,
+                    "color_intrinsics": {
+                        "height_px": 768,
+                        "width_px": 1024,
                         "fx": 821.32642889,
                         "fy": 821.68607359,
                         "ppx": 494.95941428,
@@ -109,9 +109,9 @@
                             "tp2": 0.19969297
                         }
                     },
-                    "depth": {
-                        "height": 171,
-                        "width": 224,
+                    "depth_intrinsics": {
+                        "height_px": 171,
+                        "width_px": 224,
                         "fx": 216.583,
                         "fy": 216.583,
                         "ppx": 116.385,
@@ -125,7 +125,7 @@
                         }
                     },
                     "extrinsics_depth_to_color": {
-                        "rotation": [
+                        "rotation_rads": [
                             1.0,
                             0.0,
                             0.0,
@@ -136,7 +136,7 @@
                             0.0,
                             1.0
                         ],
-                        "translation": [
+                        "translation_mm": [
                             0.0,
                             0.0,
                             0.0

@@ -374,12 +374,6 @@ func TestDiffConfigHeterogenousTypes(t *testing.T) {
 		Expected  string
 	}{
 		{
-			"component type",
-			"data/diff_config_1.json",
-			"data/diff_config_1_component_type.json",
-			"cannot modify type of existing component",
-		},
-		{
 			"component model",
 			"data/diff_config_1.json",
 			"data/diff_config_1_component_model.json",

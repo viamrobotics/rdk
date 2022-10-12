@@ -5,16 +5,17 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	fakearm "go.viam.com/rdk/components/arm/fake"
+	"go.viam.com/rdk/components/arm/xarm"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -54,6 +55,7 @@ func buildCfg(dof int) *ServiceConfig {
 
 func TestArmRemoteControl(t *testing.T) {
 	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
 	cfg := buildCfg(6)
 
 	fakeRobot := &inject.Robot{}
@@ -64,7 +66,13 @@ func TestArmRemoteControl(t *testing.T) {
 		case input.Subtype:
 			return fakeController, nil
 		case arm.Subtype:
-			return fakearm.NewArmIK(ctx, config.Component{Name: "arm"}, rlog.Logger)
+			return fakearm.NewArm(
+				config.Component{
+					Name:                arm.Subtype.String(),
+					ConvertedAttributes: &fakearm.AttrConfig{ArmModel: xarm.ModelName6DOF},
+				},
+				logger,
+			)
 		}
 		return nil, rdkutils.NewResourceNotFoundError(name)
 	}
@@ -91,7 +99,7 @@ func TestArmRemoteControl(t *testing.T) {
 			Type:                "arm_remote_control",
 			ConvertedAttributes: cfg,
 		},
-		rlog.Logger)
+		logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	svc, ok := tmpSvc.(*builtIn)
@@ -111,7 +119,7 @@ func TestArmRemoteControl(t *testing.T) {
 			Type:                "arm_remote_control",
 			ConvertedAttributes: cfg,
 		},
-		rlog.Logger)
+		logger)
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:input_controller/\" not found"))
 
 	// Arm import failure
@@ -128,7 +136,7 @@ func TestArmRemoteControl(t *testing.T) {
 			Type:                "arm_remote_control",
 			ConvertedAttributes: cfg,
 		},
-		rlog.Logger)
+		logger)
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:arm/\" not found"))
 
 	// Start checks

@@ -33,8 +33,8 @@ type AttrConfig struct {
 
 // SerialAttrConfig is used for converting Serial NMEA MovementSensor config attributes.
 type SerialAttrConfig struct {
-	SerialPath               string `json:"path"`
-	SerialBaudRate           int    `json:"baud_rate,omitempty"`
+	SerialPath               string `json:"serial_path"`
+	SerialBaudRate           int    `json:"serial_baud_rate,omitempty"`
 	SerialCorrectionPath     string `json:"serial_correction_path,omitempty"`
 	SerialCorrectionBaudRate int    `json:"serial_correction_baud_rate,omitempty"`
 }
@@ -48,7 +48,7 @@ type I2CAttrConfig struct {
 
 // Validate ensures all parts of the config are valid.
 func (cfg *AttrConfig) Validate(path string) error {
-	if cfg.Board == "" {
+	if cfg.Board == "" && cfg.ConnectionType == i2cStr {
 		return utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 

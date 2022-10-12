@@ -29,7 +29,9 @@ func (s *simpleSource) Read(ctx context.Context) (image.Image, func(), error) {
 func main() {
 	imgPtr := flag.String("img", "", "path to image to apply simple detection to")
 	urlPtr := flag.String("url", "", "url to image source to apply simple detection to")
-	threshPtr := flag.Float64("thresh", .1, "the tolerance around the selected color")
+	threshPtr := flag.Float64("thresh", .1, "the hue tolerance around the selected color")
+	satPtr := flag.Float64("sat", .1, "the minimum saturation cutoff")
+	valPtr := flag.Float64("val", .1, "the minimum value cutoff")
 	sizePtr := flag.Int("size", 500, "minimum size of a detection")
 	streamPtr := flag.String("stream", "color", "type of url stream")
 	colorPtr := flag.String("color", "#416C1C", "color as a hex string")
@@ -47,7 +49,7 @@ func main() {
 		if err != nil {
 			logger.Fatal(err)
 		}
-		pipeline(cam, *threshPtr, *sizePtr, *colorPtr, logger)
+		pipeline(cam, *threshPtr, *satPtr, *valPtr, *sizePtr, *colorPtr, logger)
 	} else {
 		cfg := &videosource.ServerAttrs{
 			URL: *urlPtr,
@@ -59,16 +61,18 @@ func main() {
 		if err != nil {
 			logger.Fatal(err)
 		}
-		pipeline(src, *threshPtr, *sizePtr, *colorPtr, logger)
+		pipeline(src, *threshPtr, *satPtr, *valPtr, *sizePtr, *colorPtr, logger)
 	}
 	logger.Info("Done")
 	os.Exit(0)
 }
 
-func pipeline(src gostream.VideoSource, tol float64, size int, colorString string, logger golog.Logger) {
+func pipeline(src gostream.VideoSource, tol, sat, val float64, size int, colorString string, logger golog.Logger) {
 	detCfg := &objectdetection.ColorDetectorConfig{
 		SegmentSize:       size,
-		Tolerance:         tol,
+		HueTolerance:      tol,
+		SaturationCutoff:  sat,
+		ValueCutoff:       val,
 		DetectColorString: colorString,
 	}
 	// create detector

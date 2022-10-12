@@ -58,8 +58,8 @@ func (rs *rotateSource) Close(ctx context.Context) error {
 
 // resizeAttrs are the attributes for a resize transform.
 type resizeAttrs struct {
-	Height int `json:"height"`
-	Width  int `json:"width"`
+	Height int `json:"height_px"`
+	Width  int `json:"width_px"`
 }
 
 type resizeSource struct {

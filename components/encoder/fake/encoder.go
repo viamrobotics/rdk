@@ -45,7 +45,7 @@ func init() {
 
 // AttrConfig describes the configuration of a fake encoder.
 type AttrConfig struct {
-	UpdateRate int64 `json:"update_rate"`
+	UpdateRate int64 `json:"update_rate_msec"`
 }
 
 // Validate ensures all parts of a config is valid.

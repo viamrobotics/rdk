@@ -125,8 +125,8 @@ func (fss *SolvableFrameSystem) SetPlannerGen(mpFunc func(frame.Frame, int, golo
 // Frame interface so that it can be passed to inverse kinematics.
 type solverFrame struct {
 	name       string
-	completeFs *SolvableFrameSystem
-	movingFs   frame.FrameSystem
+	fss        *SolvableFrameSystem
+	movingGeom []string      // List of names of all frames that could move, used for collision detection
 	frames     []frame.Frame // all frames directly between and including solveFrame and goalFrame. Order not important.
 	solveFrame frame.Frame
 	goalFrame  frame.Frame
@@ -143,7 +143,7 @@ func newSolverFrame(
 	goalFrameName string,
 	seedMap map[string][]frame.Input,
 ) (*solverFrame, error) {
-	var movingFs frame.FrameSystem
+	var movingGeom []string
 	var frames []frame.Frame
 	worldRooted := false
 
@@ -163,23 +163,54 @@ func newSolverFrame(
 	}
 	solveFrame := solveFrameList[0]
 
+	movingGeomNames := func(frameList []frame.Frame) ([]string, error) {
+		// Find first moving frame
+		var moveF frame.Frame
+		for i := len(frameList) - 1; i >= 0; i-- {
+			if len(frameList[i].DoF()) != 0 {
+				moveF = frameList[i]
+				break
+			}
+		}
+		if moveF == nil {
+			return []string{}, nil
+		}
+		movingFs, err := fss.FrameSystemSubset(moveF)
+		if err != nil {
+			return nil, err
+		}
+		return movingFs.FrameNames(), nil
+	}
+
 	// find pivot frame between goal and solve frames
 	pivotFrame, err := findPivotFrame(solveFrameList, goalFrameList)
 	if err != nil {
 		return nil, err
 	}
 	if pivotFrame.Name() == frame.World {
-		movingFs = fss
 		frames = uniqInPlaceSlice(append(solveFrameList, goalFrameList...))
+		movingGeom, err = movingGeomNames(solveFrameList)
+		if err != nil {
+			return nil, err
+		}
+		movingGeom2, err := movingGeomNames(goalFrameList)
+		if err != nil {
+			return nil, err
+		}
+		movingGeom = append(movingGeom, movingGeom2...)
 	} else {
-		// Get minimal set of frames from solve frame to goal frame
 		dof := 0
+		var solveMovingList []frame.Frame
+		var goalMovingList []frame.Frame
+
+		// Get minimal set of frames from solve frame to goal frame
 		for _, frame := range solveFrameList {
 			if frame == pivotFrame {
 				break
 			}
 			dof += len(frame.DoF())
 			frames = append(frames, frame)
+			solveMovingList = append(solveMovingList, frame)
 		}
 		for _, frame := range goalFrameList {
 			if frame == pivotFrame {
@@ -187,19 +218,28 @@ func newSolverFrame(
 			}
 			dof += len(frame.DoF())
 			frames = append(frames, frame)
+			goalMovingList = append(goalMovingList, frame)
 		}
 
 		// If shortest path has 0 dof (e.g. a camera attached to a gripper), translate goal to world frame
 		if dof == 0 {
 			worldRooted = true
-			movingFs = fss
 			frames = solveFrameList
-		} else {
-			// Get all child nodes of pivot node
-			movingFs, err = fss.FrameSystemSubset(pivotFrame)
+			movingGeom, err = movingGeomNames(solveFrameList)
 			if err != nil {
 				return nil, err
 			}
+		} else {
+			// Get all child nodes of pivot node
+			movingGeom, err = movingGeomNames(solveMovingList)
+			if err != nil {
+				return nil, err
+			}
+			movingGeom2, err := movingGeomNames(goalMovingList)
+			if err != nil {
+				return nil, err
+			}
+			movingGeom = append(movingGeom, movingGeom2...)
 		}
 	}
 
@@ -214,8 +254,8 @@ func newSolverFrame(
 
 	return &solverFrame{
 		name:        solveFrame.Name() + "_" + goalFrame.Name(),
-		completeFs:  fss,
-		movingFs:    movingFs,
+		fss:         fss,
+		movingGeom:  movingGeom,
 		frames:      frames,
 		solveFrame:  solveFrame,
 		goalFrame:   goalFrame,
@@ -224,13 +264,17 @@ func newSolverFrame(
 	}, nil
 }
 
+// planSingleWaypoint will solve the solver frame to one individual pose. If you have multiple waypoints to hit, call this multiple times.
 func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 	seedMap map[string][]frame.Input,
 	goalPos spatial.Pose,
 	worldState *commonpb.WorldState,
 	motionConfig map[string]interface{},
 ) ([][]frame.Input, error) {
-	seed := sf.mapToSlice(seedMap)
+	seed, err := sf.mapToSlice(seedMap)
+	if err != nil {
+		return nil, err
+	}
 	seedPos, err := sf.Transform(seed)
 	if err != nil {
 		return nil, err
@@ -238,10 +282,10 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 
 	// Build planner
 	var planner MotionPlanner
-	if sf.completeFs.mpFunc != nil {
-		planner, err = sf.completeFs.mpFunc(sf, runtime.NumCPU()/2, sf.completeFs.logger)
+	if sf.fss.mpFunc != nil {
+		planner, err = sf.fss.mpFunc(sf, runtime.NumCPU()/2, sf.fss.logger)
 	} else {
-		planner, err = NewCBiRRTMotionPlanner(sf, runtime.NumCPU()/2, sf.completeFs.logger)
+		planner, err = NewCBiRRTMotionPlanner(sf, runtime.NumCPU()/2, sf.fss.logger)
 	}
 	if err != nil {
 		return nil, err
@@ -249,15 +293,15 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 
 	// If we are world rooted, translate the goal pose into the world frame
 	if sf.worldRooted {
-		tf, err := sf.completeFs.Transform(seedMap, frame.NewPoseInFrame(sf.goalFrame.Name(), goalPos), frame.World)
+		tf, err := sf.fss.Transform(seedMap, frame.NewPoseInFrame(sf.goalFrame.Name(), goalPos), frame.World)
 		if err != nil {
 			return nil, err
 		}
 		goalPos = tf.(*frame.PoseInFrame).Pose()
 	}
 
-	goals := []spatial.Pose{goalPos}
-	opts := []*PlannerOptions{}
+	var goals []spatial.Pose
+	var opts []*PlannerOptions
 
 	// linear motion profile has known intermediate points, so solving can be broken up and sped up
 	if profile, ok := motionConfig["motion_profile"]; ok && profile == LinearMotionProfile {
@@ -266,14 +310,13 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 			pathStepSize = defaultPathStepSize
 		}
 		numSteps := GetSteps(seedPos, goalPos, pathStepSize)
-		goals = make([]spatial.Pose, 0, numSteps)
 
 		from := seedPos
 		for i := 1; i < numSteps; i++ {
 			by := float64(i) / float64(numSteps)
 			to := spatial.Interpolate(seedPos, goalPos, by)
 			goals = append(goals, to)
-			opt, err := plannerSetupFromMoveRequest(from, to, sf, sf.completeFs, seedMap, worldState, motionConfig)
+			opt, err := plannerSetupFromMoveRequest(from, to, sf, sf.fss, seedMap, worldState, motionConfig)
 			if err != nil {
 				return nil, err
 			}
@@ -281,19 +324,14 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 
 			from = to
 		}
-		goals = append(goals, goalPos)
-		opt, err := plannerSetupFromMoveRequest(from, goalPos, sf, sf.completeFs, seedMap, worldState, motionConfig)
-		if err != nil {
-			return nil, err
-		}
-		opts = append(opts, opt)
-	} else {
-		opt, err := plannerSetupFromMoveRequest(seedPos, goalPos, sf, sf.completeFs, seedMap, worldState, motionConfig)
-		if err != nil {
-			return nil, err
-		}
-		opts = append(opts, opt)
+		seedPos = from
 	}
+	goals = append(goals, goalPos)
+	opt, err := plannerSetupFromMoveRequest(seedPos, goalPos, sf, sf.fss, seedMap, worldState, motionConfig)
+	if err != nil {
+		return nil, err
+	}
+	opts = append(opts, opt)
 
 	resultSlices, err := runPlannerWithWaypoints(ctx, planner, goals, seed, opts, 0)
 	if err != nil {
@@ -317,7 +355,7 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	if sf.worldRooted {
 		solveName = frame.World
 	}
-	tf, err := sf.movingFs.Transform(sf.sliceToMap(inputs), pf, solveName)
+	tf, err := sf.fss.Transform(sf.sliceToMap(inputs), pf, solveName)
 	if err != nil {
 		return nil, err
 	}
@@ -359,8 +397,8 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 	var errAll error
 	inputMap := sf.sliceToMap(inputs)
 	sfGeometries := make(map[string]spatial.Geometry)
-	for _, fName := range sf.movingFs.FrameNames() {
-		f := sf.movingFs.Frame(fName)
+	for _, fName := range sf.movingGeom {
+		f := sf.fss.Frame(fName)
 		if f == nil {
 			return nil, frame.NewFrameMissingError(fName)
 		}
@@ -375,7 +413,7 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (*frame.GeometriesInFram
 			continue
 		}
 		var tf frame.Transformable
-		tf, err = sf.completeFs.Transform(inputMap, gf, frame.World)
+		tf, err = sf.fss.Transform(inputMap, gf, frame.World)
 		if err != nil {
 			return nil, err
 		}
@@ -397,12 +435,16 @@ func (sf *solverFrame) DoF() []frame.Limit {
 
 // mapToSlice will flatten a map of inputs into a slice suitable for input to inverse kinematics, by concatenating
 // the inputs together in the order of the frames in sf.frames.
-func (sf *solverFrame) mapToSlice(inputMap map[string][]frame.Input) []frame.Input {
+func (sf *solverFrame) mapToSlice(inputMap map[string][]frame.Input) ([]frame.Input, error) {
 	var inputs []frame.Input
-	for _, frame := range sf.frames {
-		inputs = append(inputs, inputMap[frame.Name()]...)
+	for _, f := range sf.frames {
+		input, err := frame.GetFrameInputs(f, inputMap)
+		if err != nil {
+			return nil, err
+		}
+		inputs = append(inputs, input...)
 	}
-	return inputs
+	return inputs, nil
 }
 
 func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.Input {

@@ -67,7 +67,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	dataRateMs := 200
 	attrCfgGood := &builtin.AttrConfig{
 		Algorithm: "fake_orbslamv3",
-		Sensors:   []string{"good_camera"},
+		Sensors:   []string{"good_color_camera"},
 		ConfigParams: map[string]string{
 			"mode":              "mono",
 			"orb_n_features":    "1000",
@@ -101,7 +101,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		grpcServer := setupTestGRPCServer(attrCfgGood.Port)
-		svc, err := createSLAMService(t, attrCfgGood, logger, true)
+		svc, err := createSLAMService(t, attrCfgGood, logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
@@ -127,7 +127,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 
 		//save a fake map for the next map using the previous timestamp
 		fakeMap = filepath.Join(name, "map", attrCfgGood.Sensors[0]+"_data_"+yamlFileTimeStampGood)
-		test.That(t, orbslam.SaveMapLoc, test.ShouldEqual, fakeMap)
+		test.That(t, orbslam.SaveMapLoc, test.ShouldEqual, "\""+fakeMap+"\"")
 		outfile, err := os.Create(fakeMap + ".osa")
 		test.That(t, err, test.ShouldBeNil)
 		err = outfile.Close()
@@ -138,7 +138,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
 		grpcServer := setupTestGRPCServer(attrCfgGood.Port)
-		svc, err := createSLAMService(t, attrCfgGood, logger, true)
+		svc, err := createSLAMService(t, attrCfgGood, logger, false, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
@@ -156,11 +156,11 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		orbslam := builtin.ORBsettings{}
 		err = yaml.Unmarshal(yamlData, &orbslam)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, orbslam.LoadMapLoc, test.ShouldEqual, fakeMap)
+		test.That(t, orbslam.LoadMapLoc, test.ShouldEqual, "\""+fakeMap+"\"")
 
 		// compare timestamps, saveTimeStamp should be more recent than oldTimeStamp
 		saveTimestampLoc := strings.Index(orbslam.SaveMapLoc, "_data_") + len("_data_")
-		saveTimeStamp, err := time.Parse(slamTimeFormat, orbslam.SaveMapLoc[saveTimestampLoc:])
+		saveTimeStamp, err := time.Parse(slamTimeFormat, orbslam.SaveMapLoc[saveTimestampLoc:len(orbslam.SaveMapLoc)-1])
 		test.That(t, err, test.ShouldBeNil)
 		oldTimeStamp, err := time.Parse(slamTimeFormat, fakeMapTimestamp)
 		test.That(t, err, test.ShouldBeNil)
@@ -170,7 +170,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 	t.Run("New orbslamv3 service with camera that errors from bad intrinsics", func(t *testing.T) {
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfgBadCam, logger, false)
+		_, err := createSLAMService(t, attrCfgBadCam, logger, false, false)
 
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			transform.NewNoIntrinsicsError(fmt.Sprintf("Invalid size (%#v, %#v)", 0, 0)).Error())
@@ -180,7 +180,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		// check if a param is empty
 		attrCfgBadParam1 := &builtin.AttrConfig{
 			Algorithm: "fake_orbslamv3",
-			Sensors:   []string{"good_camera"},
+			Sensors:   []string{"good_color_camera"},
 			ConfigParams: map[string]string{
 				"mode":              "mono",
 				"orb_n_features":    "",
@@ -195,12 +195,12 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		}
 		// Create slam service
 		logger := golog.NewTestLogger(t)
-		_, err := createSLAMService(t, attrCfgBadParam1, logger, false)
+		_, err := createSLAMService(t, attrCfgBadParam1, logger, false, false)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "Parameter orb_n_features has an invalid definition")
 
 		attrCfgBadParam2 := &builtin.AttrConfig{
 			Algorithm: "fake_orbslamv3",
-			Sensors:   []string{"good_camera"},
+			Sensors:   []string{"good_color_camera"},
 			ConfigParams: map[string]string{
 				"mode":              "mono",
 				"orb_n_features":    "1000",
@@ -213,7 +213,7 @@ func TestOrbslamYAMLNew(t *testing.T) {
 			DataRateMs:    dataRateMs,
 			Port:          "localhost:4445",
 		}
-		_, err = createSLAMService(t, attrCfgBadParam2, logger, false)
+		_, err = createSLAMService(t, attrCfgBadParam2, logger, false, false)
 
 		test.That(t, err.Error(), test.ShouldContainSubstring, "Parameter orb_scale_factor has an invalid definition")
 	})

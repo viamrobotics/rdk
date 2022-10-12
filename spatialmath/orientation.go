@@ -15,7 +15,7 @@ type Orientation interface {
 	RotationMatrix() *RotationMatrix
 }
 
-// NewZeroOrientation returns an orientatation which signifies no rotation.
+// NewZeroOrientation returns an orientation which signifies no rotation.
 func NewZeroOrientation() Orientation {
 	return &Quaternion{1, 0, 0, 0}
 }

@@ -19,7 +19,7 @@ import (
 func TestIKTolerances(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("motionplan/testjson/varm.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testjson/varm.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := NewCBiRRTMotionPlanner(m, nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -81,7 +81,7 @@ func TestConstraintPath(t *testing.T) {
 }
 
 func TestLineFollow(t *testing.T) {
-	logger := golog.NewDevelopmentLogger("armplay")
+	logger := golog.NewDebugLogger("armplay")
 
 	p1 := spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:  440,
@@ -178,18 +178,19 @@ func TestLineFollow(t *testing.T) {
 }
 
 func TestCollisionConstraint(t *testing.T) {
+	zeroPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	cases := []struct {
 		input    []frame.Input
 		expected bool
 	}{
-		{frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}), true},
+		{zeroPos, true},
 		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 0, 0}), true},
 		{frame.FloatsToInputs([]float64{math.Pi, 0, 0, 0, 0, 0}), false},
 		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 2, 0}), false},
 	}
 
 	// define external obstacles
-	bc, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, spatial.NewZeroPose())
+	bc, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, spatial.NewZeroPose(), "")
 	test.That(t, err, test.ShouldBeNil)
 	obstacles := make(map[string]spatial.Geometry)
 	obstacles["obstacle1"] = bc.NewGeometry(spatial.NewZeroPose())
@@ -199,7 +200,7 @@ func TestCollisionConstraint(t *testing.T) {
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	handler.AddConstraint("collision", NewCollisionConstraint(model, obstacles, map[string]spatial.Geometry{}))
+	handler.AddConstraint("collision", NewCollisionConstraint(model, zeroPos, obstacles, map[string]spatial.Geometry{}))
 
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {

@@ -5,7 +5,7 @@ TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
-LDFLAGS = -ldflags "$(shell etc/tag_version.sh) -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
+LDFLAGS = -ldflags "$(shell etc/set_plt.sh) $(shell etc/tag_version.sh) -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
 BUILD_TAGS=dynamic
 GO_BUILD_TAGS = -tags $(BUILD_TAGS)
 LINT_BUILD_TAGS = --build-tags $(BUILD_TAGS)
@@ -52,8 +52,11 @@ lint-go: tool-install
 	export pkgs="`go list $(GO_BUILD_TAGS) -f '{{.Dir}}' ./... | grep -v /proto/`" && echo "$$pkgs" | xargs go vet $(GO_BUILD_TAGS) -vettool=$(TOOL_BIN)/combined
 	GOGC=50 $(TOOL_BIN)/golangci-lint run $(LINT_BUILD_TAGS) -v --fix --config=./etc/.golangci.yaml
 
-lint-web: buf-web
-	cd web/frontend && npm ci --audit=false && npm run rollup && npm run lint
+lint-web:
+	npm run lint --prefix web/frontend
+
+typecheck-web:
+	npm run typecheck --prefix web/frontend
 
 cover:
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
@@ -63,8 +66,8 @@ test: test-go test-web
 test-go:
 	./etc/test.sh
 
-test-web: build-web
-	cd web/frontend && npm run test:unit
+test-web:
+	npm run test:unit --prefix web/frontend
 
 # test.short skips tests requiring external hardware (motors/servos)
 test-pi:
@@ -74,6 +77,9 @@ test-pi:
 test-e2e:
 	go build $(LDFLAGS) -o bin/test-e2e/server web/cmd/server/main.go
 	./etc/e2e.sh
+
+test-integration:
+	cd services/slam/builtin && sudo --preserve-env=APPIMAGE_EXTRACT_AND_RUN go test -v -run TestOrbslamIntegration
 
 server:
 	go build $(GO_BUILD_TAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go

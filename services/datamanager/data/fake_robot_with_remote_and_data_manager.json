@@ -14,7 +14,7 @@
                     "attributes": {
                         "capture_methods": [
                             {
-                                "method": "GetEndPosition",
+                                "method": "EndPosition",
                                 "capture_frequency_hz": 100,
                                 "tags": [
                                     "a",
@@ -31,6 +31,7 @@
         {
             "name": "data_manager1",
             "type": "data_manager",
+            "model": "builtin",
             "attributes": {
                 "capture_dir": "/tmp/capture"
             }
@@ -48,7 +49,7 @@
                         "capture_methods": [
                             {
                                 "name": "rdk:component:arm/remoteArm",
-                                "method": "GetEndPosition",
+                                "method": "EndPosition",
                                 "capture_frequency_hz": 100
                             }
                         ]

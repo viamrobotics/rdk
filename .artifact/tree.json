@@ -2881,7 +2881,7 @@
       }
     }
   },
-  "components": {
+  "component": {
     "camera": {
       "ffmpeg": {
         "testsrc.mpg": {
@@ -2893,6 +2893,22 @@
         "vision.json": {
           "hash": "6a08f5990ff4e77de7265facc1518a67",
           "size": 84
+        }
+      }
+    }
+  },
+  "components": {
+    "camera": {
+      "ffmpeg": {
+        "testsrc.mpg": {
+          "hash": "3db8bb7ff7845790c0a770dc19b7dd46",
+          "size": 13914
+        }
+      },
+      "transformpipeline": {
+        "vision.json": {
+          "hash": "6d5137a207e8fa9a5638314db62b30ff",
+          "size": 24
         }
       }
     }
@@ -50543,6 +50559,376 @@
       }
     }
   },
+  "slam": {
+    "ORBvoc.txt": {
+      "hash": "8ecf7ccd4c22d4606783db10a26018c4",
+      "size": 145250924
+    },
+    "mock_camera_short": {
+      "depth": {
+        "0.png": {
+          "hash": "b90597969c3b50dd417fbb05431de614",
+          "size": 360006
+        },
+        "1.png": {
+          "hash": "b90597969c3b50dd417fbb05431de614",
+          "size": 360006
+        },
+        "10.png": {
+          "hash": "92cb0b9692f2f94ec80122ba43a6ebcc",
+          "size": 439245
+        },
+        "11.png": {
+          "hash": "92cb0b9692f2f94ec80122ba43a6ebcc",
+          "size": 439245
+        },
+        "12.png": {
+          "hash": "ed29d23093d165c1cf1000c60b44e851",
+          "size": 384791
+        },
+        "13.png": {
+          "hash": "ed29d23093d165c1cf1000c60b44e851",
+          "size": 384791
+        },
+        "14.png": {
+          "hash": "ed29d23093d165c1cf1000c60b44e851",
+          "size": 384791
+        },
+        "15.png": {
+          "hash": "ed29d23093d165c1cf1000c60b44e851",
+          "size": 384791
+        },
+        "16.png": {
+          "hash": "ed29d23093d165c1cf1000c60b44e851",
+          "size": 384791
+        },
+        "17.png": {
+          "hash": "ed29d23093d165c1cf1000c60b44e851",
+          "size": 384791
+        },
+        "18.png": {
+          "hash": "ed29d23093d165c1cf1000c60b44e851",
+          "size": 384791
+        },
+        "19.png": {
+          "hash": "ed29d23093d165c1cf1000c60b44e851",
+          "size": 384791
+        },
+        "2.png": {
+          "hash": "b90597969c3b50dd417fbb05431de614",
+          "size": 360006
+        },
+        "20.png": {
+          "hash": "ed29d23093d165c1cf1000c60b44e851",
+          "size": 384791
+        },
+        "21.png": {
+          "hash": "ed29d23093d165c1cf1000c60b44e851",
+          "size": 384791
+        },
+        "22.png": {
+          "hash": "ed29d23093d165c1cf1000c60b44e851",
+          "size": 384791
+        },
+        "23.png": {
+          "hash": "ed29d23093d165c1cf1000c60b44e851",
+          "size": 384791
+        },
+        "24.png": {
+          "hash": "ed29d23093d165c1cf1000c60b44e851",
+          "size": 384791
+        },
+        "25.png": {
+          "hash": "ed29d23093d165c1cf1000c60b44e851",
+          "size": 384791
+        },
+        "26.png": {
+          "hash": "ed29d23093d165c1cf1000c60b44e851",
+          "size": 384791
+        },
+        "27.png": {
+          "hash": "ed29d23093d165c1cf1000c60b44e851",
+          "size": 384791
+        },
+        "28.png": {
+          "hash": "ed29d23093d165c1cf1000c60b44e851",
+          "size": 384791
+        },
+        "3.png": {
+          "hash": "b90597969c3b50dd417fbb05431de614",
+          "size": 360006
+        },
+        "4.png": {
+          "hash": "b90597969c3b50dd417fbb05431de614",
+          "size": 360006
+        },
+        "5.png": {
+          "hash": "b90597969c3b50dd417fbb05431de614",
+          "size": 360006
+        },
+        "6.png": {
+          "hash": "92cb0b9692f2f94ec80122ba43a6ebcc",
+          "size": 439245
+        },
+        "7.png": {
+          "hash": "92cb0b9692f2f94ec80122ba43a6ebcc",
+          "size": 439245
+        },
+        "8.png": {
+          "hash": "92cb0b9692f2f94ec80122ba43a6ebcc",
+          "size": 439245
+        },
+        "9.png": {
+          "hash": "92cb0b9692f2f94ec80122ba43a6ebcc",
+          "size": 439245
+        }
+      },
+      "rgb": {
+        "0.png": {
+          "hash": "256193b07563c08b0cca0569f264749e",
+          "size": 1797977
+        },
+        "1.png": {
+          "hash": "256193b07563c08b0cca0569f264749e",
+          "size": 1797977
+        },
+        "10.png": {
+          "hash": "256193b07563c08b0cca0569f264749e",
+          "size": 1797977
+        },
+        "11.png": {
+          "hash": "e1d292c8575d40ddb9dda1639fc17118",
+          "size": 1801849
+        },
+        "12.png": {
+          "hash": "e1d292c8575d40ddb9dda1639fc17118",
+          "size": 1801849
+        },
+        "13.png": {
+          "hash": "e1d292c8575d40ddb9dda1639fc17118",
+          "size": 1801849
+        },
+        "14.png": {
+          "hash": "e1d292c8575d40ddb9dda1639fc17118",
+          "size": 1801849
+        },
+        "15.png": {
+          "hash": "e1d292c8575d40ddb9dda1639fc17118",
+          "size": 1801849
+        },
+        "16.png": {
+          "hash": "e1d292c8575d40ddb9dda1639fc17118",
+          "size": 1801849
+        },
+        "17.png": {
+          "hash": "e1d292c8575d40ddb9dda1639fc17118",
+          "size": 1801849
+        },
+        "18.png": {
+          "hash": "e1d292c8575d40ddb9dda1639fc17118",
+          "size": 1801849
+        },
+        "19.png": {
+          "hash": "e1d292c8575d40ddb9dda1639fc17118",
+          "size": 1801849
+        },
+        "2.png": {
+          "hash": "256193b07563c08b0cca0569f264749e",
+          "size": 1797977
+        },
+        "20.png": {
+          "hash": "e1d292c8575d40ddb9dda1639fc17118",
+          "size": 1801849
+        },
+        "21.png": {
+          "hash": "e1d292c8575d40ddb9dda1639fc17118",
+          "size": 1801849
+        },
+        "22.png": {
+          "hash": "e1d292c8575d40ddb9dda1639fc17118",
+          "size": 1801849
+        },
+        "23.png": {
+          "hash": "e1d292c8575d40ddb9dda1639fc17118",
+          "size": 1801849
+        },
+        "24.png": {
+          "hash": "e1d292c8575d40ddb9dda1639fc17118",
+          "size": 1801849
+        },
+        "25.png": {
+          "hash": "e1d292c8575d40ddb9dda1639fc17118",
+          "size": 1801849
+        },
+        "26.png": {
+          "hash": "e1d292c8575d40ddb9dda1639fc17118",
+          "size": 1801849
+        },
+        "27.png": {
+          "hash": "e1d292c8575d40ddb9dda1639fc17118",
+          "size": 1801849
+        },
+        "28.png": {
+          "hash": "e1d292c8575d40ddb9dda1639fc17118",
+          "size": 1801849
+        },
+        "3.png": {
+          "hash": "256193b07563c08b0cca0569f264749e",
+          "size": 1797977
+        },
+        "4.png": {
+          "hash": "256193b07563c08b0cca0569f264749e",
+          "size": 1797977
+        },
+        "5.png": {
+          "hash": "256193b07563c08b0cca0569f264749e",
+          "size": 1797977
+        },
+        "6.png": {
+          "hash": "256193b07563c08b0cca0569f264749e",
+          "size": 1797977
+        },
+        "7.png": {
+          "hash": "256193b07563c08b0cca0569f264749e",
+          "size": 1797977
+        },
+        "8.png": {
+          "hash": "256193b07563c08b0cca0569f264749e",
+          "size": 1797977
+        },
+        "9.png": {
+          "hash": "256193b07563c08b0cca0569f264749e",
+          "size": 1797977
+        }
+      }
+    },
+    "temp_mock_camera": {
+      "color": {
+        "0.png": {
+          "hash": "d6a4ad2b5d0a07cb42ce0a968bdd2d1e",
+          "size": 1074038
+        },
+        "1.png": {
+          "hash": "bf162ae919b499fb2a31c1c0651bc7e7",
+          "size": 1110424
+        },
+        "10.png": {
+          "hash": "7ecd6687e8af2f741b74fd6d61e5b94f",
+          "size": 1262970
+        },
+        "11.png": {
+          "hash": "e49a10305cd6444d65a2e259e092dcf3",
+          "size": 1320711
+        },
+        "12.png": {
+          "hash": "ccc96509aecebfcad460f66a8980ea9b",
+          "size": 1383680
+        },
+        "13.png": {
+          "hash": "a54e3cad45855001accb0f3e90cc4901",
+          "size": 1232388
+        },
+        "14.png": {
+          "hash": "2d0fcc43e04cfa64533f066f08286c8c",
+          "size": 1319859
+        },
+        "2.png": {
+          "hash": "561f98f2fdb955118c396071cb768711",
+          "size": 1113264
+        },
+        "3.png": {
+          "hash": "0b1245610799dfc255a39c7b28592839",
+          "size": 1126246
+        },
+        "4.png": {
+          "hash": "f87169c5c85b32e255f59aa50856ff27",
+          "size": 1126679
+        },
+        "5.png": {
+          "hash": "769088a8ebdbb1ce2979b64808ac707d",
+          "size": 1108197
+        },
+        "6.png": {
+          "hash": "fcc66c01f0f1cb5c200d0b3a67d0991e",
+          "size": 1118615
+        },
+        "7.png": {
+          "hash": "f81538daa0836653b935b97c99a60142",
+          "size": 1094447
+        },
+        "8.png": {
+          "hash": "9668c21a11b5abedb1254770dafb959d",
+          "size": 1246588
+        },
+        "9.png": {
+          "hash": "5e6afad5bf9912b1d69ed06d357f0b36",
+          "size": 1269381
+        }
+      },
+      "depth": {
+        "0.png": {
+          "hash": "e49b03a3e9fe6a9e41d67e3308a70120",
+          "size": 245153
+        },
+        "1.png": {
+          "hash": "34e0a2ae549be6f507b8f4e27f31f2e2",
+          "size": 345685
+        },
+        "10.png": {
+          "hash": "65517158a4175157ab3636e1ef9ac90d",
+          "size": 500936
+        },
+        "11.png": {
+          "hash": "593e152cea83f14e1c4b4cec78e0b33b",
+          "size": 528680
+        },
+        "12.png": {
+          "hash": "0abc4c2361127eb343572390c8d9f35c",
+          "size": 528095
+        },
+        "13.png": {
+          "hash": "3f28b21a7206a6e6cc109fd2b03d432b",
+          "size": 526535
+        },
+        "14.png": {
+          "hash": "f5142f9dbe12b339f8b4a0b92abe22f9",
+          "size": 485705
+        },
+        "2.png": {
+          "hash": "34e0a2ae549be6f507b8f4e27f31f2e2",
+          "size": 345685
+        },
+        "3.png": {
+          "hash": "2a3b9d6fa3177270c8be3fc48f12b6e9",
+          "size": 480005
+        },
+        "4.png": {
+          "hash": "59765705cd3ff8331b908f5a2f2b7d20",
+          "size": 479413
+        },
+        "5.png": {
+          "hash": "bbb525470e857878207ce030a0d78b26",
+          "size": 479728
+        },
+        "6.png": {
+          "hash": "ed4df21dd6036b0cda823de71dd81c53",
+          "size": 513825
+        },
+        "7.png": {
+          "hash": "b37632c463e4a4a78b3bcd172a215ea5",
+          "size": 511135
+        },
+        "8.png": {
+          "hash": "95683c3b3c6a93282c3d06fabcd149ed",
+          "size": 503015
+        },
+        "9.png": {
+          "hash": "fcac230bb47d1617838e48fe3ca10f56",
+          "size": 505238
+        }
+      }
+    }
+  },
   "transform": {
     "align-test-1615761793.png": {
       "hash": "64d2f7a2dd5e27e860c369ceded374c5",
@@ -50810,8 +51196,8 @@
         "size": 274770
       },
       "vo_config.json": {
-        "hash": "ee9f92157fe9c6febc70acc22e43fa24",
-        "size": 747
+        "hash": "40fd7f28d1caa2bb5387d09bff4214e2",
+        "size": 771
       }
     },
     "segmentation": {

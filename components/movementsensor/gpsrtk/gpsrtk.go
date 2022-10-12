@@ -1,6 +1,6 @@
 // Package gpsrtk defines a gps and an rtk correction source
 // which sends rtcm data to a child gps
-// Experimental package
+// This is an Experimental package
 package gpsrtk
 
 import (
@@ -631,6 +631,7 @@ func (g *RTKMovementSensor) Readings(ctx context.Context) (map[string]interface{
 
 // Close shuts down the RTKMOVEMENTSENSOR.
 func (g *RTKMovementSensor) Close() error {
+	g.logger.Debug("closing rtk gps")
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
 
@@ -660,5 +661,6 @@ func (g *RTKMovementSensor) Close() error {
 		g.ntripClient.Stream = nil
 	}
 
+	g.logger.Debug("closed rtk gps")
 	return g.lastError
 }

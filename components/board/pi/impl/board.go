@@ -28,7 +28,6 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/rlog"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -65,12 +64,13 @@ type piPigpio struct {
 	interrupts    map[string]board.DigitalInterrupt
 	interruptsHW  map[uint]board.DigitalInterrupt
 	logger        golog.Logger
+	isClosed      bool
 }
 
 var (
-	initOnce   bool
-	instanceMu sync.Mutex
-	instances  = map[*piPigpio]struct{}{}
+	pigpioInitialized bool
+	instanceMu        sync.Mutex
+	instances         = map[*piPigpio]struct{}{}
 )
 
 // NewPigpio makes a new pigpio based Board using the given config.
@@ -84,25 +84,25 @@ func NewPigpio(ctx context.Context, cfg *commonsysfs.Config, logger golog.Logger
 	}
 
 	// setup
-	piInstance := &piPigpio{cfg: cfg, logger: logger}
+	piInstance := &piPigpio{cfg: cfg, logger: logger, isClosed: false}
 
 	instanceMu.Lock()
-	if !initOnce {
-		resCode = C.gpioInitialise()
-		if resCode < 0 {
-			instanceMu.Unlock()
-			// failed to init, check for common causes
-			_, err := os.Stat("/sys/bus/platform/drivers/raspberrypi-firmware")
-			if err != nil {
-				return nil, errors.New("not running on a pi")
-			}
-			if os.Getuid() != 0 {
-				return nil, errors.New("not running as root, try sudo")
-			}
-			return nil, errors.Errorf("gpioInitialise failed with code: %d", resCode)
+	logger.Info("initializing pigpio C library")
+	resCode = C.gpioInitialise()
+	if resCode < 0 {
+		pigpioInitialized = false
+		instanceMu.Unlock()
+		// failed to init, check for common causes
+		_, err := os.Stat("/sys/bus/platform/drivers/raspberrypi-firmware")
+		if err != nil {
+			return nil, errors.New("not running on a pi")
 		}
-		initOnce = true
+		if os.Getuid() != 0 {
+			return nil, errors.New("not running as root, try sudo")
+		}
+		return nil, errors.Errorf("gpioInitialise failed with code: %d", resCode)
 	}
+	pigpioInitialized = true
 
 	initGood := false
 	defer func() {
@@ -521,17 +521,29 @@ func (pi *piPigpio) ModelAttributes() board.ModelAttributes {
 // Close attempts to close all parts of the board cleanly.
 func (pi *piPigpio) Close(ctx context.Context) error {
 	var terminate bool
+	// Prevent duplicate calls to Close a board as this may overlap with
+	// the reinitialization of the board
+	pi.mu.Lock()
+	if pi.isClosed {
+		pi.logger.Info("Duplicate call to close pi board detected, skipping")
+		pi.mu.Unlock()
+		return nil
+	}
+	pi.mu.Unlock()
 	instanceMu.Lock()
 	if len(instances) == 1 {
 		terminate = true
 	}
 	delete(instances, pi)
-	instanceMu.Unlock()
 
 	if terminate {
+		pigpioInitialized = false
+		instanceMu.Unlock()
 		// This has to happen outside of the lock to avoid a deadlock with interrupts.
 		C.gpioTerminate()
 		pi.logger.Debug("Pi GPIO terminated properly.")
+	} else {
+		instanceMu.Unlock()
 	}
 
 	var err error
@@ -550,6 +562,9 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	for _, interruptHW := range pi.interruptsHW {
 		err = multierr.Combine(err, utils.TryClose(ctx, interruptHW))
 	}
+	pi.mu.Lock()
+	pi.isClosed = true
+	pi.mu.Unlock()
 	return err
 }
 
@@ -576,7 +591,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 	for instance := range instances {
 		i := instance.interruptsHW[uint(gpio)]
 		if i == nil {
-			rlog.Logger.Infof("no DigitalInterrupt configured for gpio %d", gpio)
+			golog.Global().Infof("no DigitalInterrupt configured for gpio %d", gpio)
 			continue
 		}
 		high := true
