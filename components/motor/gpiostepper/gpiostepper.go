@@ -264,8 +264,9 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 	if revolutions == 0 {
 		return nil
 	}
-	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m); err != nil {
-		return multierr.Combine(err, m.Stop(ctx, map[string]interface{}{}))
+
+	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop); err != nil {
+		return err
 	}
 
 	return nil

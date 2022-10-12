@@ -9,7 +9,6 @@ import (
 
 	"github.com/CPRT/roboclaw"
 	"github.com/edaniels/golog"
-	"go.uber.org/multierr"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
@@ -172,8 +171,8 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 	if err != nil {
 		return err
 	}
-	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m); err != nil {
-		return multierr.Combine(err, m.Stop(ctx, map[string]interface{}{}))
+	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop); err != nil {
+		return err
 	}
 	return nil
 }
