@@ -30,16 +30,16 @@ const (
 )
 
 // RegisteredTransformSchemas is a map of all available transform schemas, used for populating fields in the front-end.
-var RegisteredTransformSchemas = map[transformType]*jsonschema.Schema{
-	transformTypeIdentity:        jsonschema.Reflect(&emptyAttrs{}),
-	transformTypeRotate:          jsonschema.Reflect(&emptyAttrs{}),
-	transformTypeResize:          jsonschema.Reflect(&resizeAttrs{}),
-	transformTypeDepthPretty:     jsonschema.Reflect(&emptyAttrs{}),
-	transformTypeOverlay:         jsonschema.Reflect(&overlayAttrs{}),
-	transformTypeUndistort:       jsonschema.Reflect(&undistortConfig{}),
-	transformTypeDetections:      jsonschema.Reflect(&detectorAttrs{}),
-	transformTypeDepthEdges:      jsonschema.Reflect(&depthEdgesAttrs{}),
-	transformTypeDepthPreprocess: jsonschema.Reflect(&emptyAttrs{}),
+var RegisteredTransformSchemas = map[string]*jsonschema.Schema{
+	string(transformTypeIdentity):        jsonschema.Reflect(&emptyAttrs{}),
+	string(transformTypeRotate):          jsonschema.Reflect(&emptyAttrs{}),
+	string(transformTypeResize):          jsonschema.Reflect(&resizeAttrs{}),
+	string(transformTypeDepthPretty):     jsonschema.Reflect(&emptyAttrs{}),
+	string(transformTypeOverlay):         jsonschema.Reflect(&overlayAttrs{}),
+	string(transformTypeUndistort):       jsonschema.Reflect(&undistortConfig{}),
+	string(transformTypeDetections):      jsonschema.Reflect(&detectorAttrs{}),
+	string(transformTypeDepthEdges):      jsonschema.Reflect(&depthEdgesAttrs{}),
+	string(transformTypeDepthPreprocess): jsonschema.Reflect(&emptyAttrs{}),
 }
 
 // Transformation states the type of transformation and the attributes that are specific to the given type.
@@ -48,7 +48,7 @@ type Transformation struct {
 	Attributes config.AttributeMap `json:"attributes"`
 }
 
-// emptyAttrs is for transforms that have no attribute fields
+// emptyAttrs is for transforms that have no attribute fields.
 type emptyAttrs struct{}
 
 // buildTransform uses the Transformation config to build the desired transform ImageSource.
