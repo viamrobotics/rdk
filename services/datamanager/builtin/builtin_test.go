@@ -157,6 +157,7 @@ func TestNewDataManager(t *testing.T) {
 	// Empty config at initialization.
 	captureDir := "/tmp/capture"
 	defer resetFolder(t, captureDir)
+	resetFolder(t, captureDir)
 	err := dmsvc.Update(context.Background(), testCfg)
 	test.That(t, err, test.ShouldBeNil)
 	captureTime := time.Millisecond * 100
