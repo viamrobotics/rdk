@@ -23,12 +23,12 @@ const rotation = computed(() => {
   return `rotate(${props.rotate} 12 12)`;
 });
 
-const iconSize = () => {
-  return isNumeric(String(props.size)) ? `${props.size}px` : props.size;
+const isNumeric = (value: string) => {
+  return (/^-{0,1}\d+$/u).test(value);
 };
 
-const isNumeric = (value: string) => {
-  return /^-{0,1}\d+$/.test(value);
+const iconSize = () => {
+  return isNumeric(String(props.size)) ? `${props.size}px` : props.size;
 };
 
 </script>

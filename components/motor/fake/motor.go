@@ -224,6 +224,9 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	if m.MaxRPM == 0 {
 		return errors.New("not supported, define max_rpm attribute != 0")
 	}
+	if rpm == 0 {
+		return motor.NewZeroRPMError()
+	}
 
 	powerPct, waitDur, dir := goForMath(m.MaxRPM, rpm, revolutions)
 

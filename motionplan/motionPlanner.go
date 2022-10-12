@@ -86,24 +86,54 @@ func (mp *planner) checkPath(planOpts *PlannerOptions, seedInputs, target []fram
 	return ok
 }
 
-// needed to wrap slices so we can use them as map keys.
-type node struct {
+// node interface is used to wrap a configuration for planning purposes.
+type node interface {
+	// return the configuration associated with the node
+	Q() []frame.Input
+}
+
+type basicNode struct {
 	q []frame.Input
-	// TODO(rb): do not add extra fields to this parameter, if the need arises
+}
+
+func (n *basicNode) Q() []frame.Input {
+	return n.q
+}
+
+type costNode struct {
+	node
 	cost float64
 }
 
-type nodePair struct{ a, b *node }
+func newCostNode(q []frame.Input, cost float64) *costNode {
+	return &costNode{&basicNode{q: q}, cost}
+}
+
+// nodePair groups together nodes in a tuple
+// TODO(rb): in the future we might think about making this into a list of nodes.
+type nodePair struct{ a, b node }
+
+func (np *nodePair) sumCosts() float64 {
+	a, aok := np.a.(*costNode)
+	if !aok {
+		return 0
+	}
+	b, bok := np.b.(*costNode)
+	if !bok {
+		return 0
+	}
+	return a.cost + b.cost
+}
 
 type planReturn struct {
-	steps []*node
+	steps []node
 	err   error
 }
 
 func (plan *planReturn) toInputs() [][]frame.Input {
 	inputs := make([][]frame.Input, 0, len(plan.steps))
 	for _, step := range plan.steps {
-		inputs = append(inputs, step.q)
+		inputs = append(inputs, step.Q())
 	}
 	return inputs
 }
@@ -188,7 +218,7 @@ func runPlannerWithWaypoints(ctx context.Context,
 	if cbert, ok := planner.(*cBiRRTMotionPlanner); ok {
 		// cBiRRT supports solution look-ahead for parallel waypoint solving
 		// TODO(pl): other planners will support lookaheads, so this should be made to be an interface
-		endpointPreview := make(chan *node, 1)
+		endpointPreview := make(chan node, 1)
 		solutionChan := make(chan *planReturn, 1)
 		utils.PanicCapturingGo(func() {
 			// TODO(rb) fix me
@@ -213,7 +243,7 @@ func runPlannerWithWaypoints(ctx context.Context,
 				if iter+1 < len(goals) {
 					// In this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it.
-					remainingSteps, err = runPlannerWithWaypoints(ctx, planner, goals, nextSeed.q, opts, iter+1)
+					remainingSteps, err = runPlannerWithWaypoints(ctx, planner, goals, nextSeed.Q(), opts, iter+1)
 					if err != nil {
 						return nil, err
 					}
@@ -248,7 +278,7 @@ func runPlannerWithWaypoints(ctx context.Context,
 						ctx,
 						planner,
 						goals,
-						finalSteps.steps[len(finalSteps.steps)-1].q,
+						finalSteps.steps[len(finalSteps.steps)-1].Q(),
 						opts,
 						iter+1,
 					)
@@ -303,7 +333,7 @@ func getSolutions(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []frame.Input,
 	f frame.Frame,
-) ([]*node, error) {
+) ([]*costNode, error) {
 	// Linter doesn't properly handle loop labels
 	nSolutions := planOpts.MaxSolutions
 	if nSolutions == 0 {
@@ -394,16 +424,16 @@ IK:
 	}
 	sort.Float64s(keys)
 
-	orderedSolutions := make([]*node, 0)
+	orderedSolutions := make([]*costNode, 0)
 	for _, key := range keys {
-		orderedSolutions = append(orderedSolutions, &node{q: solutions[key], cost: key})
+		orderedSolutions = append(orderedSolutions, newCostNode(solutions[key], key))
 	}
 	return orderedSolutions, nil
 }
 
-func extractPath(startMap, goalMap map[*node]*node, pair *nodePair) []*node {
+func extractPath(startMap, goalMap map[node]node, pair *nodePair) []node {
 	// need to figure out which of the two nodes is in the start map
-	var startReached, goalReached *node
+	var startReached, goalReached node
 	if _, ok := startMap[pair.a]; ok {
 		startReached, goalReached = pair.a, pair.b
 	} else {
@@ -411,7 +441,7 @@ func extractPath(startMap, goalMap map[*node]*node, pair *nodePair) []*node {
 	}
 
 	// extract the path to the seed
-	path := make([]*node, 0)
+	path := make([]node, 0)
 	for startReached != nil {
 		path = append(path, startReached)
 		startReached = startMap[startReached]
@@ -433,17 +463,14 @@ func extractPath(startMap, goalMap map[*node]*node, pair *nodePair) []*node {
 	return path
 }
 
-func shortestPath(startMap, goalMap map[*node]*node, nodePairs []*nodePair) *planReturn {
+func shortestPath(startMap, goalMap map[node]node, nodePairs []*nodePair) *planReturn {
 	if len(nodePairs) == 0 {
 		return &planReturn{err: errPlannerFailed}
 	}
-	pairCost := func(pair *nodePair) float64 {
-		return pair.a.cost + pair.b.cost
-	}
 	minIdx := 0
-	minDist := pairCost(nodePairs[0])
+	minDist := nodePairs[0].sumCosts()
 	for i := 1; i < len(nodePairs); i++ {
-		if dist := pairCost(nodePairs[i]); dist < minDist {
+		if dist := nodePairs[i].sumCosts(); dist < minDist {
 			minDist = dist
 			minIdx = i
 		}

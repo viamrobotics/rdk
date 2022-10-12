@@ -135,7 +135,7 @@ func TestPlanningWithGripper(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(ur5e, fs.World())
 	test.That(t, err, test.ShouldBeNil)
-	bc, _ := spatial.NewBoxCreator(r3.Vector{200, 200, 200}, spatial.NewPoseFromPoint(r3.Vector{Z: 75}))
+	bc, _ := spatial.NewBoxCreator(r3.Vector{200, 200, 200}, spatial.NewPoseFromPoint(r3.Vector{Z: 75}), "")
 	gripper, err := frame.NewStaticFrameWithGeometry("gripper", spatial.NewPoseFromPoint(r3.Vector{Z: 150}), bc)
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(gripper, ur5e)
@@ -168,7 +168,7 @@ func TestPlanningWithGripper(t *testing.T) {
 func simple2DMap() (*planConfig, error) {
 	// build model
 	limits := []frame.Limit{{Min: -100, Max: 100}, {Min: -100, Max: 100}}
-	physicalGeometry, err := spatial.NewBoxCreator(r3.Vector{X: 10, Y: 10, Z: 10}, spatial.NewZeroPose())
+	physicalGeometry, err := spatial.NewBoxCreator(r3.Vector{X: 10, Y: 10, Z: 10}, spatial.NewZeroPose(), "")
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +178,7 @@ func simple2DMap() (*planConfig, error) {
 	}
 
 	// obstacles
-	box, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{0, 50, 0}), r3.Vector{80, 80, 1})
+	box, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{0, 50, 0}), r3.Vector{80, 80, 1}, "")
 	if err != nil {
 		return nil, err
 	}
@@ -192,10 +192,11 @@ func simple2DMap() (*planConfig, error) {
 		}
 		return geometryMap
 	}
-	opt.AddConstraint("collision", NewCollisionConstraint(model, toMap([]spatial.Geometry{box}), nil))
+	startInput := frame.FloatsToInputs([]float64{-90., 90.})
+	opt.AddConstraint("collision", NewCollisionConstraint(model, startInput, toMap([]spatial.Geometry{box}), nil))
 
 	return &planConfig{
-		Start:      frame.FloatsToInputs([]float64{-90., 90.}),
+		Start:      startInput,
 		Goal:       spatial.PoseToProtobuf(spatial.NewPoseFromPoint(r3.Vector{X: 90, Y: 90, Z: 0})),
 		RobotFrame: model,
 		Options:    opt,
@@ -211,7 +212,7 @@ func simpleXArmMotion() (*planConfig, error) {
 
 	// setup planner options
 	opt := NewBasicPlannerOptions()
-	opt.AddConstraint("collision", NewCollisionConstraint(xarm, nil, nil))
+	opt.AddConstraint("collision", NewCollisionConstraint(xarm, home7, nil, nil))
 
 	return &planConfig{
 		Start:      home7,
@@ -230,7 +231,7 @@ func simpleUR5eMotion() (*planConfig, error) {
 
 	// setup planner options
 	opt := NewBasicPlannerOptions()
-	opt.AddConstraint("collision", NewCollisionConstraint(ur5e, nil, nil))
+	opt.AddConstraint("collision", NewCollisionConstraint(ur5e, home6, nil, nil))
 
 	return &planConfig{
 		Start:      home6,

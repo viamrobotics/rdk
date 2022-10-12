@@ -22,7 +22,7 @@ type motorConfig struct {
 	Name         string
 	XOffsetMM    float64 `json:"x_offset_mm"`
 	YOffsetMM    float64 `json:"y_offset_mm"`
-	AngleDegrees float64 `json:"angle"` // 0 is thrusting forward, 90 is thrusting to starboard, or positive x
+	AngleDegrees float64 `json:"angle_degs"` // 0 is thrusting forward, 90 is thrusting to starboard, or positive x
 	Weight       float64
 }
 

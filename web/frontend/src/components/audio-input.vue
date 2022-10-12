@@ -1,35 +1,47 @@
 <script setup lang="ts">
 
 import { ref } from 'vue';
-import { normalizeRemoteName } from '../lib/resource';
+import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
+import { displayError } from '../lib/error';
+import { addStream, removeStream } from '../lib/stream';
 
 interface Props {
-  streamName: string
+  name: string
   crumbs: string[]
-}
-
-interface Emits {
-  (event: 'toggle-input', isOn: boolean): void
 }
 
 const props = defineProps<Props>();
 
-const emit = defineEmits<Emits>();
-
 const audioInput = ref(false);
 
-const toggleExpand = () => {
+const toggleExpand = async () => {
   audioInput.value = !audioInput.value;
-  emit('toggle-input', audioInput.value);
+
+  const isOn = audioInput.value;
+
+  if (isOn) {
+    try {
+      await addStream(props.name);
+    } catch (error) {
+      displayError(error as ServiceError);
+    }
+    return;
+  }
+
+  try {
+    await removeStream(props.name);
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
 };
 
 </script>
 
 <template>
-  <v-collapse :title="streamName">
+  <v-collapse :title="name">
     <v-breadcrumbs
       slot="title"
-      :crumbs="crumbs.join(',')"
+      crumbs="audio_input"
     />
     <div class="h-auto border-x border-b border-black p-2">
       <div class="container mx-auto">
@@ -38,14 +50,14 @@ const toggleExpand = () => {
             <v-switch
               id="audio-input"
               :value="audioInput ? 'on' : 'off'"
-              @input="toggleExpand()"
+              @input="toggleExpand"
             />
             <span class="pr-2">Listen</span>
           </div>
 
           <div
             v-if="audioInput"
-            :id="`stream-${normalizeRemoteName(props.streamName)}`"
+            :data-stream="props.name"
             class="clear-both h-fit transition-all duration-300 ease-in-out"
           />
         </div>

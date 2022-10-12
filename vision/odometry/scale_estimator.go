@@ -15,7 +15,7 @@ import (
 
 // ScaleEstimatorConfig contains the parameters that are necessary for scale estimation.
 type ScaleEstimatorConfig struct {
-	ThresholdNormalAngle float64 `json:"th_normal_angle"`
+	ThresholdNormalAngle float64 `json:"th_normal_angle_rads"`
 	ThresholdPlaneInlier float64 `json:"th_plane_inlier"`
 }
 

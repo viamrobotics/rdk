@@ -27,9 +27,9 @@ type PinConfig struct {
 // TMC5072Config describes the configuration of a motor.
 type TMC5072Config struct {
 	Pins             PinConfig `json:"pins"`
-	BoardName        string    `json:"board"`                      // used to get encoders
-	MaxRPM           float64   `json:"max_rpm,omitempty"`          // RPM
-	MaxAcceleration  float64   `json:"max_acceleration,omitempty"` // RPM per second
+	BoardName        string    `json:"board"` // used to get encoders
+	MaxRPM           float64   `json:"max_rpm,omitempty"`
+	MaxAcceleration  float64   `json:"max_acceleration_rpm_per_sec,omitempty"`
 	TicksPerRotation int       `json:"ticks_per_rotation"`
 	SPIBus           string    `json:"spi_bus"`
 	ChipSelect       string    `json:"chip_select"`
@@ -407,6 +407,10 @@ func (m *Motor) doJog(ctx context.Context, rpm float64) error {
 // Both the RPM and the revolutions can be assigned negative values to move in a backwards direction.
 // Note: if both are negative the motor will spin in the forward direction.
 func (m *Motor) GoFor(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
+	if rpm == 0 {
+		return motor.NewZeroRPMError()
+	}
+
 	curPos, err := m.Position(ctx, extra)
 	if err != nil {
 		return err

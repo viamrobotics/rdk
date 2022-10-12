@@ -3,6 +3,7 @@ package movementsensor
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -16,7 +17,6 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
@@ -43,9 +43,28 @@ func init() {
 		},
 	})
 
-	registerCollector("GetPosition", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
+	registerCollector("Position", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
+		type Position struct {
+			Lat float64
+			Lng float64
+		}
 		p, _, err := ms.Position(ctx)
-		return p, err
+		return Position{Lat: p.Lat(), Lng: p.Lng()}, err
+	})
+	registerCollector("LinearVelocity", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
+		v, err := ms.LinearVelocity(ctx)
+		return v, err
+	})
+	registerCollector("AngularVelocity", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
+		v, err := ms.AngularVelocity(ctx)
+		return v, err
+	})
+	registerCollector("CompassHeading", func(ctx context.Context, ms MovementSensor) (interface{}, error) {
+		type Heading struct {
+			Heading float64
+		}
+		h, err := ms.CompassHeading(ctx)
+		return Heading{Heading: h}, err
 	})
 }
 
@@ -131,32 +150,32 @@ func Readings(ctx context.Context, g MovementSensor) (map[string]interface{}, er
 	readings := map[string]interface{}{}
 
 	pos, altitide, err := g.Position(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrMethodUnimplementedPosition) {
 		return nil, err
 	}
 	readings["position"] = pos
 	readings["altitide"] = altitide
 
 	vel, err := g.LinearVelocity(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrMethodUnimplementedLinearVelocity) {
 		return nil, err
 	}
 	readings["linear_velocity"] = vel
 
 	avel, err := g.AngularVelocity(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrMethodUnimplementedAngularVelocity) {
 		return nil, err
 	}
 	readings["angular_velocity"] = avel
 
 	compass, err := g.CompassHeading(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrMethodUnimplementedCompassHeading) {
 		return nil, err
 	}
 	readings["compass"] = compass
 
 	ori, err := g.Orientation(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrMethodUnimplementedOrientation) {
 		return nil, err
 	}
 	readings["orientation"] = ori
@@ -247,7 +266,7 @@ func (r *reconfigurableMovementSensor) reconfigure(ctx context.Context, newMovem
 		return utils.NewUnexpectedTypeError(r, newMovementSensor)
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
+		golog.Global().Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
 	return nil

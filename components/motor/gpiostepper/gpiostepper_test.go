@@ -164,5 +164,11 @@ func Test1(t *testing.T) {
 		test.That(t, pos, test.ShouldBeGreaterThan, 2)
 		test.That(t, pos, test.ShouldBeLessThan, 202)
 	})
+
+	t.Run("motor testing with 0 rpm", func(t *testing.T) {
+		err = m.GoFor(ctx, 0, 1, nil)
+		test.That(t, err, test.ShouldBeError, motor.NewZeroRPMError())
+	})
+
 	cancel()
 }

@@ -5,6 +5,7 @@ import (
 	"image"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/test"
@@ -15,7 +16,6 @@ import (
 	"go.viam.com/rdk/components/camera/videosource"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rlog"
 )
 
 var outDir string
@@ -26,7 +26,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	rlog.Logger.Debugf("out dir: %q", outDir)
+	golog.Global().Debugf("out dir: %q", outDir)
 }
 
 //nolint:dupl
@@ -35,8 +35,8 @@ func TestResizeColor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	am := config.AttributeMap{
-		"height": 200,
-		"width":  300,
+		"height_px": 200,
+		"width_px":  300,
 	}
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
 	out, _, err := camera.ReadImage(context.Background(), source)
@@ -60,8 +60,8 @@ func TestResizeDepth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	am := config.AttributeMap{
-		"height": 400,
-		"width":  600,
+		"height_px": 400,
+		"width_px":  600,
 	}
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: img}, prop.Video{})
 	out, _, err := camera.ReadImage(context.Background(), source)

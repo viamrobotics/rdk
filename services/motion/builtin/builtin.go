@@ -28,6 +28,7 @@ func init() {
 			return NewBuiltIn(ctx, r, c, logger)
 		},
 	})
+	resource.AddDefaultService(motion.Named(resource.DefaultModelName))
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.

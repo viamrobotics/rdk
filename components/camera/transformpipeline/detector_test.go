@@ -53,8 +53,8 @@ func buildRobotWithFakeCamera(logger golog.Logger) (robot.Robot, error) {
 		Type:  camera.SubtypeName,
 		Model: "file",
 		Attributes: config.AttributeMap{
-			"color": artifact.MustPath("vision/objectdetection/detection_test.jpg"),
-			"depth": "",
+			"color_file_path": artifact.MustPath("vision/objectdetection/detection_test.jpg"),
+			"depth_file_path": "",
 		},
 	}
 	cfg.Components = append(cfg.Components, cameraComp)
@@ -127,9 +127,9 @@ func TestColorDetectionSource(t *testing.T) {
 		Name: "detector_color",
 		Type: "color_detector",
 		Parameters: config.AttributeMap{
-			"detect_color": "#4F3815",
-			"tolerance":    0.013,
-			"segment_size": 15000,
+			"detect_color":      "#4F3815",
+			"hue_tolerance_pct": 0.013,
+			"segment_size_px":   15000,
 		},
 	}
 	err = srv.AddDetector(context.Background(), detConf)
@@ -185,7 +185,7 @@ func TestTFLiteDetectionSource(t *testing.T) {
 }
 
 func BenchmarkColorDetectionSource(b *testing.B) {
-	logger := golog.NewDevelopmentLogger("benchmark-color")
+	logger := golog.NewDebugLogger("benchmark-color")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -201,9 +201,9 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 		Name: "detector_color",
 		Type: "color_detector",
 		Parameters: config.AttributeMap{
-			"detect_color": "#4F3815",
-			"tolerance":    0.055556,
-			"segment_size": 15000,
+			"detect_color":      "#4F3815",
+			"hue_tolerance_pct": 0.055556,
+			"segment_size_px":   15000,
 		},
 	}
 	err = srv.AddDetector(context.Background(), detConf)
@@ -221,7 +221,7 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 }
 
 func BenchmarkTFLiteDetectionSource(b *testing.B) {
-	logger := golog.NewDevelopmentLogger("benchmark-tflite")
+	logger := golog.NewDebugLogger("benchmark-tflite")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

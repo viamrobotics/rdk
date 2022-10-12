@@ -1,3 +1,4 @@
+//go:build !arm
 // Package builtin is the service that allows you to access various computer vision algorithms
 // (like detection, segmentation, tracking, etc) that usually only require a camera or image input.
 package builtin
@@ -25,7 +26,6 @@ import (
 
 func init() {
 	registry.RegisterService(vision.Subtype, resource.DefaultModelName, registry.Service{
-		MaxInstance: resource.DefaultMaxInstance,
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return NewBuiltIn(ctx, r, c, logger)
 		},
@@ -37,6 +37,7 @@ func init() {
 	},
 		&vision.Attributes{},
 	)
+	resource.AddDefaultService(vision.Named(resource.DefaultModelName))
 }
 
 // RadiusClusteringSegmenter is  the name of a segmenter that finds well separated objects on a flat plane.
