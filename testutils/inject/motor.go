@@ -17,7 +17,7 @@ type Motor struct {
 	PositionFunc          func(ctx context.Context, extra map[string]interface{}) (float64, error)
 	PropertiesFunc        func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error)
 	StopFunc              func(ctx context.Context, extra map[string]interface{}) error
-	IsPoweredFunc         func(ctx context.Context, extra map[string]interface{}) (bool, error)
+	IsPoweredFunc         func(ctx context.Context, extra map[string]interface{}) (bool, float64, error)
 }
 
 // SetPower calls the injected Power or the real version.
@@ -77,7 +77,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 }
 
 // IsPowered calls the injected IsPowered or the real version.
-func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	if m.IsPoweredFunc == nil {
 		return m.Motor.IsPowered(ctx, extra)
 	}
