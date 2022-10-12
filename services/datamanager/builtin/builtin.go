@@ -364,10 +364,9 @@ func (svc *builtIn) Sync(_ context.Context) error {
 }
 
 func (svc *builtIn) syncDataCaptureFiles() error {
-	svc.lock.Lock()
-	defer svc.lock.Unlock()
 	oldFiles := make([]string, 0, len(svc.collectors))
-	for _, collector := range svc.collectors {
+	currCollectors := svc.collectors
+	for _, collector := range currCollectors {
 		// Create new target and set it.
 		attributes := collector.Attributes
 		captureMetadata, err := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
@@ -378,7 +377,7 @@ func (svc *builtIn) syncDataCaptureFiles() error {
 
 		nextTarget, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
 		if err != nil {
-			svc.logger.Errorw("failed to create new data capture file", "error", err)
+			return err
 		}
 		oldFiles = append(oldFiles, collector.Collector.GetTarget().Name())
 		collector.Collector.SetTarget(nextTarget)
