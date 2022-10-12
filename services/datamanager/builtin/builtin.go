@@ -390,10 +390,13 @@ func (svc *builtIn) syncDataCaptureFiles() error {
 
 func (svc *builtIn) buildAdditionalSyncPaths() []string {
 	svc.lock.Lock()
-	defer svc.lock.Unlock()
+	currAdditionalSyncPaths := svc.additionalSyncPaths
+	waitAfterLastModified := svc.waitAfterLastModifiedSecs
+	svc.lock.Unlock()
+
 	var filepathsToSync []string
 	// Loop through additional sync paths and add files from each to the syncer.
-	for _, asp := range svc.additionalSyncPaths {
+	for _, asp := range currAdditionalSyncPaths {
 		// Check that additional sync paths directories exist. If not, create directories accordingly.
 		if _, err := os.Stat(asp); errors.Is(err, os.ErrNotExist) {
 			err := os.Mkdir(asp, os.ModePerm)
@@ -411,9 +414,9 @@ func (svc *builtIn) buildAdditionalSyncPaths() []string {
 				if info.IsDir() {
 					return nil
 				}
-				// If a file was modified within the past svc.waitAfterLastModifiedSecs seconds, do not sync it (data
+				// If a file was modified within the past waitAfterLastModifiedSecs seconds, do not sync it (data
 				// may still be being written).
-				if diff := now.Sub(info.ModTime()); diff < (time.Duration(svc.waitAfterLastModifiedSecs) * time.Second) {
+				if diff := now.Sub(info.ModTime()); diff < (time.Duration(waitAfterLastModified) * time.Second) {
 					return nil
 				}
 				filepathsToSync = append(filepathsToSync, path)
