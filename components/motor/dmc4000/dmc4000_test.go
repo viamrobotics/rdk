@@ -511,8 +511,9 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		on, err := _motor.IsPowered(ctx, nil)
+		on, powerPct, err := _motor.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, false)
+		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
 
 		// On - TE != 0
@@ -527,8 +528,9 @@ func TestDMC4000Motor(t *testing.T) {
 				" 5\r\n:",
 			},
 		)
-		on, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = _motor.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
 
 		// On - StopCodes = sepecial cases
@@ -541,8 +543,9 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		on, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = _motor.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
 
 		txMu.Lock()
@@ -554,8 +557,9 @@ func TestDMC4000Motor(t *testing.T) {
 				" 30\r\n:",
 			},
 		)
-		on, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = _motor.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
 
 		txMu.Lock()
@@ -567,8 +571,9 @@ func TestDMC4000Motor(t *testing.T) {
 				" 50\r\n:",
 			},
 		)
-		on, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = _motor.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
 
 		txMu.Lock()
@@ -580,8 +585,9 @@ func TestDMC4000Motor(t *testing.T) {
 				" 60\r\n:",
 			},
 		)
-		on, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = _motor.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
 
 		txMu.Lock()
@@ -593,8 +599,9 @@ func TestDMC4000Motor(t *testing.T) {
 				" 100\r\n:",
 			},
 		)
-		on, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = _motor.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
 		waitTx(t, resChan)
 	})
