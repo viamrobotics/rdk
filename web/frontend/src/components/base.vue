@@ -131,20 +131,35 @@ const baseRun = () => {
   }
 };
 
-const viewPreviewCamera = async (name: string, isOn: boolean) => {
-  if (isOn) {
-    try {
-      await addStream(name);
-    } catch (error) {
-      displayError(error as ServiceError);
-    }
-    return;
-  }
+let videoStreamStates = new Map<string, boolean>();
 
-  try {
-    await removeStream(name);
-  } catch (error) {
-    displayError(error as ServiceError);
+for (var value of filterResources(props.resources, 'rdk', 'component', 'camera')) {
+  videoStreamStates.set(value.name, false);
+}
+
+const viewPreviewCamera = async (name: string) => {
+  for (let [key, value] of videoStreamStates) {
+    const streamContainers = document.querySelectorAll(`[data-stream="${key}"]`);
+
+    if (name.includes(key) && value === false) {
+      try {
+        if (!streamContainers.length) {
+          await addStream(key);
+        }
+        videoStreamStates.set(key, true);
+      } catch (error) {
+        displayError(error as ServiceError);
+      }
+    } else if (!name.includes(key) && value === true) {
+      try {
+        if (!streamContainers.length) {
+          await removeStream(key);
+        }
+        videoStreamStates.set(key, false);
+      } catch (error) {
+        displayError(error as ServiceError);
+      }
+    }
   }
 };
 
@@ -152,9 +167,9 @@ const handleTabSelect = (tab: Tabs) => {
   selectedItem.value = tab;
 
   if (tab === 'Keyboard') {
-    viewPreviewCamera(props.name, true);
+    // viewPreviewCamera(props.name, true);
   } else {
-    viewPreviewCamera(props.name, false);
+    // viewPreviewCamera(props.name, false);
     resetDiscreteState();
   }
 };
@@ -212,7 +227,7 @@ const handleSelectCamera = (event: string) => {
                   .map(({ name }) => name)
                   .join(',')
               "
-              @input="handleSelectCamera($event.detail.value)"
+              @input="viewPreviewCamera($event.detail.value)"
             />
             <template
               v-for="basecamera in filterResources(
@@ -226,7 +241,7 @@ const handleSelectCamera = (event: string) => {
               <div
                 v-if="basecamera"
                 :data-stream-preview="basecamera.name"
-                class="mb-4 border border-white"
+                :class="{ 'hidden': !videoStreamStates.get(basecamera.name) }"
               />
             </template>
           </div>
