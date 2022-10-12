@@ -209,8 +209,8 @@ func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (poin
 
 			var wg sync.WaitGroup
 			const numLoops = 8
-			wg.Add(numLoops)
 			for loop := 0; loop < numLoops; loop++ {
+				wg.Add(1)
 				f := func(loop int) {
 					defer wg.Done()
 					const batchSize = 500
