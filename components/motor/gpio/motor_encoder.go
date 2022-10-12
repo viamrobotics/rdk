@@ -11,7 +11,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/encoder"
@@ -450,8 +449,8 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		return err
 	}
 
-	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m); err != nil {
-		return multierr.Combine(err, m.Stop(ctx, map[string]interface{}{}))
+	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop); err != nil {
+		return err
 	}
 
 	return nil

@@ -13,7 +13,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
@@ -290,8 +289,8 @@ func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[st
 		return err
 	}
 
-	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m); err != nil {
-		return multierr.Combine(err, m.Stop(ctx, map[string]interface{}{}))
+	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop); err != nil {
+		return err
 	}
 	return nil
 }
@@ -311,11 +310,7 @@ func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin, mins float64, extra map[str
 	if err := m.writeRegWithCheck(ctx, command); err != nil {
 		return err
 	}
-	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m); err != nil {
-		if errStop := m.Stop(ctx, map[string]interface{}{}); errStop != nil {
-			m.logger.Error("Error stopping the motor")
-			return errStop
-		}
+	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop); err != nil {
 		return err
 	}
 

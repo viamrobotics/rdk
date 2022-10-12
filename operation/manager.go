@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 )
 
@@ -86,13 +87,19 @@ type IsPoweredInterface interface {
 }
 
 // WaitTillNotPowered waits until IsPowered returns false.
-func (sm *SingleOperationManager) WaitTillNotPowered(ctx context.Context, pollTime time.Duration, powered IsPoweredInterface) error {
+func (sm *SingleOperationManager) WaitTillNotPowered(ctx context.Context, pollTime time.Duration, powered IsPoweredInterface,
+	stop func(context.Context, map[string]interface{}) error,
+) error {
 	return sm.WaitForSuccess(
 		ctx,
 		pollTime,
 		func(ctx context.Context) (bool, error) {
+			var errStop error
 			res, err := powered.IsPowered(ctx, nil)
-			return !res, err
+			if err != nil {
+				errStop = stop(ctx, map[string]interface{}{})
+			}
+			return !res, multierr.Combine(err, errStop)
 		},
 	)
 }
