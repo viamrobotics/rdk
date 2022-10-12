@@ -133,9 +133,13 @@ const baseRun = () => {
 
 let videoStreamStates = new Map<string, boolean>();
 
-for (var value of filterResources(props.resources, 'rdk', 'component', 'camera')) {
-  videoStreamStates.set(value.name, false);
+const resetStreamState = () => {
+  for (var value of filterResources(props.resources, 'rdk', 'component', 'camera')) {
+    videoStreamStates.set(value.name, false);
+  }
 }
+
+resetStreamState();
 
 const viewPreviewCamera = async (name: string) => {
   for (let [key, value] of videoStreamStates) {
@@ -167,15 +171,11 @@ const handleTabSelect = (tab: Tabs) => {
   selectedItem.value = tab;
 
   if (tab === 'Keyboard') {
-    // viewPreviewCamera(props.name, true);
+    viewPreviewCamera('');
   } else {
-    // viewPreviewCamera(props.name, false);
+    viewPreviewCamera('');
     resetDiscreteState();
   }
-};
-
-const handleSelectCamera = (event: string) => {
-  emit('showcamera', event);
 };
 
 </script>
