@@ -451,6 +451,9 @@ func (m *Motor) posToSteps(pos float64) int32 {
 // SetPower instructs the motor to go in a specific direction at a percentage
 // of power between -1 and 1. Scaled to MaxRPM.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+	powerPct = math.Min(powerPct, 1.0)
+	powerPct = math.Max(powerPct, -1.0)
+
 	if math.Abs(powerPct) < 0.001 {
 		return m.Stop(ctx, extra)
 	}
