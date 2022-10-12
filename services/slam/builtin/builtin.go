@@ -636,6 +636,7 @@ func (slamSvc *builtIn) StartDataProcess(
 						}
 						if c != nil {
 							c <- 1
+							c = nil
 						}
 					case slam.Sparse:
 						if _, err := slamSvc.getAndSaveDataSparse(cancelCtx, cams, camStreams); err != nil {
@@ -643,6 +644,7 @@ func (slamSvc *builtIn) StartDataProcess(
 						}
 						if c != nil {
 							c <- 1
+							c = nil
 						}
 					default:
 						slamSvc.logger.Warnw("warning invalid algorithm specified", "algorithm", slamSvc.slamLib.AlgoType)
