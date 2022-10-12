@@ -103,6 +103,7 @@ type Motor interface {
 	IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error)
 
 	generic.Generic
+	resource.MovingCheckable
 }
 
 // A LocalMotor is a motor that supports additional features provided by RDK
@@ -114,8 +115,6 @@ type LocalMotor interface {
 	// Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
 	// Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
 	GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
-
-	resource.MovingCheckable
 }
 
 // Named is a helper for getting the named Motor's typed resource name.
@@ -180,7 +179,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // CreateStatus creates a status from the motor.
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
-	motor, ok := resource.(LocalMotor)
+	motor, ok := resource.(Motor)
 	if !ok {
 		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
@@ -298,6 +297,12 @@ func (r *reconfigurableMotor) reconfigure(ctx context.Context, newMotor resource
 	}
 	r.actual = actual.actual
 	return nil
+}
+
+func (r *reconfigurableMotor) IsMoving(ctx context.Context) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.IsMoving(ctx)
 }
 
 type reconfigurableLocalMotor struct {

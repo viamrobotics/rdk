@@ -69,13 +69,12 @@ type Servo interface {
 	Stop(ctx context.Context) error
 
 	generic.Generic
+	resource.MovingCheckable
 }
 
 // A LocalServo represents a Servo that can report whether it is moving or not.
 type LocalServo interface {
 	Servo
-
-	resource.MovingCheckable
 }
 
 // Named is a helper for getting the named Servo's typed resource name.
@@ -120,7 +119,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // CreateStatus creates a status from the servo.
 func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
-	servo, ok := resource.(LocalServo)
+	servo, ok := resource.(Servo)
 	if !ok {
 		return nil, NewUnimplementedLocalInterfaceError(resource)
 	}
@@ -175,6 +174,12 @@ func (r *reconfigurableServo) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return viamutils.TryClose(ctx, r.actual)
+}
+
+func (r *reconfigurableServo) IsMoving(ctx context.Context) (bool, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.IsMoving(ctx)
 }
 
 func (r *reconfigurableServo) Reconfigure(ctx context.Context, newServo resource.Reconfigurable) error {

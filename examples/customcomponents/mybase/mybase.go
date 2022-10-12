@@ -3,8 +3,7 @@ package mybase
 
 import (
 	"context"
-	"sync"
-	"time"
+	"math"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -15,15 +14,17 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )
 
-var Model = resource.NewModel(
-	resource.Namespace("acme"),
-	resource.ModelFamilyName("demo"),
-	resource.ModelName("mybase"),
+var (
+	Model = resource.NewModel(
+		resource.Namespace("acme"),
+		resource.ModelFamilyName("demo"),
+		resource.ModelName("mybase"),
+	)
+ 	errUnimplemented = errors.New("unimplemented")
 )
 
 func init() {
@@ -60,77 +61,40 @@ func newBase(ctx context.Context, deps registry.Dependencies, config config.Comp
 
 type MyBase struct {
 	generic.Unimplemented
-	mu      sync.Mutex
 	left    motor.Motor
 	right   motor.Motor
-	opMgr   operation.SingleOperationManager
 	logger  golog.Logger
 }
 
 func (base *MyBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
-	base.logger.Debug("SMURF AHEAD")
-	return base.SetPower(ctx, r3.Vector{X: mmPerSec}, r3.Vector{}, extra)
+	return errUnimplemented
 }
 
 func (base *MyBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-	base.logger.Debug("SMURF SPIN")
-	var err error
-	if angleDeg < 0 {
-		multierr.Combine(err, base.left.SetPower(ctx, -1, extra))
-		multierr.Combine(err, base.right.SetPower(ctx, 1, extra))		
-	}else{
-		multierr.Combine(err, base.left.SetPower(ctx, 1, extra))
-		multierr.Combine(err, base.right.SetPower(ctx,-1, extra))		
-	}
-
-	if err != nil {
-		return multierr.Combine(err, base.Stop(ctx, nil))
-	}
-	return nil
+	return errUnimplemented
 }
 
 func (base *MyBase) SetVelocity(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
-	base.logger.Debug("SMURF VELOCITY")
-	return base.SetPower(ctx, linear, angular, extra)
+	return errUnimplemented
 }
 
 func (base *MyBase) SetPower(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
-	move, _ := base.left.IsPowered(ctx, nil)
-	base.logger.Debug("SMURF POWER PRE %v", move)
-	base.opMgr.CancelRunning(ctx)
-
-	if linear.X < 0.01 { return base.Stop(ctx, nil)}
-
-	// Send motor commands
-	var err error
-	multierr.Combine(err, base.left.SetPower(ctx, linear.X, extra))
-	multierr.Combine(err, base.right.SetPower(ctx, linear.X, extra))
-
-	time.Sleep(time.Second)
-	move, _ = base.left.IsPowered(ctx, nil)
-	base.logger.Debug("SMURF POWER POST %v", move)
-
-	if err != nil {
-		return multierr.Combine(err, base.Stop(ctx, nil))
-	}
-
-	return nil
+	base.logger.Debugf("SetPower Linear: %.2f Angular: %.2f", linear.Y, angular.Z)
+	if linear.Y < 0.01 && angular.Z < 0.01 { return base.Stop(ctx, extra)}
+	sum := math.Abs(linear.Y) + math.Abs(angular.Z)
+	err1 := base.left.SetPower(ctx, (linear.Y - angular.Z)/sum, extra)
+	err2 := base.right.SetPower(ctx, (linear.Y + angular.Z)/sum, extra)
+	return multierr.Combine(err1, err2)
 }
 
 func (base *MyBase) Stop(ctx context.Context, extra map[string]interface{}) error {
-	move, _ := base.left.IsPowered(ctx, nil)
-	base.logger.Debug("SMURF STOP PRE %v", move)
-	var err error
-	for _, m := range []motor.Motor{base.left, base.right} {
-		err = multierr.Combine(err, m.Stop(ctx, extra))
-	}
-	move, _ = base.left.IsPowered(ctx, nil)
-	base.logger.Debug("SMURF STOP POST %v", move)
-	return err
+	base.logger.Debug("Stop")
+	err1 := base.left.Stop(ctx, extra)
+	err2 := base.right.Stop(ctx, extra)
+	return multierr.Combine(err1, err2)
 }
 
 func (base *MyBase) IsMoving(ctx context.Context) (bool, error) {
-	base.logger.Debug("SMURF ISMOVING")
 	for _, m := range []motor.Motor{base.left, base.right} {
 		isMoving, err := m.IsPowered(ctx, nil)
 		if err != nil {
@@ -144,12 +108,5 @@ func (base *MyBase) IsMoving(ctx context.Context) (bool, error) {
 }
 
 func (base *MyBase) Close(ctx context.Context) error {
-	base.logger.Debug("SMURF CLOSE")
 	return base.Stop(ctx, nil)
 }
-
-func (base *MyBase) Width(ctx context.Context) (int, error) {
-	base.logger.Debug("SMURF WIDTH")
-	return 42, nil
-}
-

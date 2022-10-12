@@ -170,3 +170,16 @@ func (server *subtypeServer) ResetZeroPosition(
 
 	return &pb.ResetZeroPositionResponse{}, motor.ResetZeroPosition(ctx, req.GetOffset(), req.Extra.AsMap())
 }
+
+// IsMoving queries of a component is in motion.
+func (server *subtypeServer) IsMoving(ctx context.Context, req *pb.IsMovingRequest) (*pb.IsMovingResponse, error) {
+	base, err := server.getMotor(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	moving, err := base.IsMoving(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.IsMovingResponse{IsMoving: moving}, nil
+}
