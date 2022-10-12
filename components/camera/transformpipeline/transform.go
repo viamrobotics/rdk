@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/edaniels/gostream"
+	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
@@ -28,11 +29,27 @@ const (
 	transformTypeDepthPreprocess = transformType("depth_preprocess")
 )
 
+// RegisteredTransformSchemas is a map of all available transform schemas, used for populating fields in the front-end.
+var RegisteredTransformSchemas = map[transformType]*jsonschema.Schema{
+	transformTypeIdentity:        jsonschema.Reflect(&emptyAttrs{}),
+	transformTypeRotate:          jsonschema.Reflect(&emptyAttrs{}),
+	transformTypeResize:          jsonschema.Reflect(&resizeAttrs{}),
+	transformTypeDepthPretty:     jsonschema.Reflect(&emptyAttrs{}),
+	transformTypeOverlay:         jsonschema.Reflect(&overlayAttrs{}),
+	transformTypeUndistort:       jsonschema.Reflect(&undistortConfig{}),
+	transformTypeDetections:      jsonschema.Reflect(&detectorAttrs{}),
+	transformTypeDepthEdges:      jsonschema.Reflect(&depthEdgesAttrs{}),
+	transformTypeDepthPreprocess: jsonschema.Reflect(&emptyAttrs{}),
+}
+
 // Transformation states the type of transformation and the attributes that are specific to the given type.
 type Transformation struct {
 	Type       string              `json:"type"`
 	Attributes config.AttributeMap `json:"attributes"`
 }
+
+// emptyAttrs is for transforms that have no attribute fields
+type emptyAttrs struct{}
 
 // buildTransform uses the Transformation config to build the desired transform ImageSource.
 func buildTransform(
