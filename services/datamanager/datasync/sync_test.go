@@ -1,6 +1,7 @@
 package datasync
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -508,6 +509,9 @@ func TestPartialUpload(t *testing.T) {
 			// Build all expected messages from before the Upload was cancelled.
 			expMsgs = buildSensorDataUploadRequests(tc.expSentBeforeRetry, tc.dataType, captureFile.Name())
 			actMsgs = mockService.getUploadRequests()
+			for _, ur := range actMsgs {
+				fmt.Println(ur.String())
+			}
 			compareTabularUploadRequests(t, actMsgs, expMsgs)
 
 			// Validate progress file exists and has correct value.
@@ -541,6 +545,9 @@ func TestPartialUpload(t *testing.T) {
 
 			// Validate client sent mockService the upload requests we would expect after resuming upload.
 			expMsgs = buildSensorDataUploadRequests(tc.expSentAfterRetry, tc.dataType, captureFile.Name())
+			for _, ur := range mockService.getUploadRequests() {
+				fmt.Println(ur.String())
+			}
 			compareTabularUploadRequests(t, mockService.getUploadRequests(), expMsgs)
 
 			// Validate progress file does not exist.

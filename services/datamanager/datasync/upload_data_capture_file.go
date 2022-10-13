@@ -15,18 +15,9 @@ import (
 )
 
 func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.DataSyncServiceClient,
-	partID string, f *datacapture.File,
-) error {
+	partID string, f *datacapture.File) error {
 	fmt.Println("called upload data capture file")
 	stream, err := client.Upload(ctx)
-	if err != nil {
-		return err
-	}
-
-	err = initDataCaptureUpload(f, pt)
-	if errors.Is(err, io.EOF) {
-		return nil
-	}
 	if err != nil {
 		return err
 	}
@@ -47,6 +38,14 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		MethodParameters: captureMD.GetMethodParameters(),
 		FileExtension:    captureMD.GetFileExtension(),
 		Tags:             captureMD.GetTags(),
+	}
+
+	err = initDataCaptureUpload(f, pt)
+	if errors.Is(err, io.EOF) {
+		return nil
+	}
+	if err != nil {
+		return err
 	}
 
 	// Send metadata upload request.
