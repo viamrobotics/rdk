@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 )
 
 func TestPiHardware(t *testing.T) {
@@ -141,7 +142,7 @@ func TestPiHardware(t *testing.T) {
 	motorReg := registry.ComponentLookup(motor.Subtype, picommon.ModelName)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
-	encoderReg := registry.ComponentLookup(encoder.Subtype, "encoder")
+	encoderReg := registry.ComponentLookup(encoder.Subtype, resource.NewDefaultModel("encoder"))
 	test.That(t, encoderReg, test.ShouldNotBeNil)
 
 	deps := make(registry.Dependencies)
