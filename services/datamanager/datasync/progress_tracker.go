@@ -78,12 +78,7 @@ func (pt *progressTracker) updateProgress(f *datacapture.File, requestsWritten i
 		return err
 	}
 
-	progressFilePath := pt.getProgressFilePath(f)
-	err = os.WriteFile(progressFilePath, []byte(strconv.Itoa(i+requestsWritten)), os.FileMode(0o777))
-	if err != nil {
-		return err
-	}
-	return nil
+	return os.WriteFile(pt.getProgressFilePath(f), []byte(strconv.Itoa(i+requestsWritten)), os.FileMode(0o777))
 }
 
 func (pt *progressTracker) getProgressFilePath(f *datacapture.File) string {
