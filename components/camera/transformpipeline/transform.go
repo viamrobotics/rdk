@@ -35,7 +35,7 @@ var RegisteredTransformConfigs = map[string]interface{}{
 	string(transformTypeResize):          &resizeAttrs{},
 	string(transformTypeDepthPretty):     &emptyAttrs{},
 	string(transformTypeOverlay):         &overlayAttrs{},
-	string(transformTypeUndistort):       &undistortConfig{},
+	string(transformTypeUndistort):       &undistortAttrs{},
 	string(transformTypeDetections):      &detectorAttrs{},
 	string(transformTypeDepthEdges):      &depthEdgesAttrs{},
 	string(transformTypeDepthPreprocess): &emptyAttrs{},
