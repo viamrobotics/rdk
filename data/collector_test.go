@@ -47,24 +47,23 @@ var (
 	fakeVal                 = &anypb.Any{}
 )
 
-// func TestNewCollector(t *testing.T) {
-//	// If missing parameters should return an error.
-//	c1, err1 := NewCollector(nil, CollectorParams{})
-//
-//	test.That(t, c1, test.ShouldBeNil)
-//	test.That(t, err1, test.ShouldNotBeNil)
-//
-//	// If not missing parameters, should not return an error.
-//	tmp, _ := datacapture.NewFile()os.CreateTemp("", "whatever")
-//	c2, err2 := NewCollector(nil, CollectorParams{
-//		ComponentName: "name",
-//		Logger:        golog.NewTestLogger(t),
-//		Target:        target1,
-//	})
-//
-//	test.That(t, c2, test.ShouldNotBeNil)
-//	test.That(t, err2, test.ShouldBeNil)
-//}
+func TestNewCollector(t *testing.T) {
+	// If missing parameters should return an error.
+	c1, err1 := NewCollector(nil, CollectorParams{})
+
+	test.That(t, c1, test.ShouldBeNil)
+	test.That(t, err1, test.ShouldNotBeNil)
+
+	// If not missing parameters, should not return an error.
+	c2, err2 := NewCollector(nil, CollectorParams{
+		ComponentName: "name",
+		Logger:        golog.NewTestLogger(t),
+		Target:        &datacapture.File{},
+	})
+
+	test.That(t, c2, test.ShouldNotBeNil)
+	test.That(t, err2, test.ShouldBeNil)
+}
 
 // Test that SensorData is written correctly and can be read, and that interval is respected and that capture()
 // is called floor(time_passed/interval) times in the ticker (interval >= 2ms) case.

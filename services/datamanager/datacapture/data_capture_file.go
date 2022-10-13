@@ -49,6 +49,11 @@ func ReadFile(f *os.File) (*File, error) {
 		return nil, err
 	}
 
+	r := &v1.DataCaptureMetadata{}
+	if _, err := pbutil.ReadDelimited(f, r); err != nil {
+		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read DataCaptureMetadata from %s", f.Name()))
+	}
+
 	ret := File{
 		path:   f.Name(),
 		lock:   &sync.Mutex{},
@@ -56,6 +61,7 @@ func ReadFile(f *os.File) (*File, error) {
 		writer: bufio.NewWriter(f),
 		size:   finfo.Size(),
 	}
+
 	return &ret, nil
 }
 
@@ -68,7 +74,7 @@ func NewFile(captureDir string, md *v1.DataCaptureMetadata) (*File, error) {
 	}
 	fileName := filepath.Join(fileDir, getFileTimestampName()) + FileExt
 	//nolint:gosec
-	f, err := os.Create(fileName)
+	f, err := os.OpenFile(fileName, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o700)
 	if err != nil {
 		return nil, err
 	}
@@ -150,11 +156,15 @@ func (f *File) WriteNext(data *v1.SensorData) error {
 
 // Sync flushes any buffered writes to disk.
 func (f *File) Sync() error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
 	return f.writer.Flush()
 }
 
 // Size returns the size of the file.
 func (f *File) Size() int64 {
+	f.lock.Lock()
+	defer f.lock.Unlock()
 	return f.size
 }
 
@@ -165,6 +175,11 @@ func (f *File) GetPath() string {
 
 // Close closes the file.
 func (f *File) Close() error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if err := f.writer.Flush(); err != nil {
+		return err
+	}
 	return f.file.Close()
 }
 
@@ -227,7 +242,7 @@ func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 	defaultFileExt := ""
 	switch dataType {
 	case v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		return ".csv"
+		return ".dat"
 	case v1.DataType_DATA_TYPE_FILE:
 		return defaultFileExt
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR:
