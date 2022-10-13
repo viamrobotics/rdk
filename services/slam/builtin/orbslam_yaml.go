@@ -85,7 +85,7 @@ func (slamSvc *builtIn) orbCamMaker(camProperties *transform.PinholeCameraModel)
 	if orbslam.Stereob, err = slamSvc.orbConfigToFloat("stereo_b", 0.0745); err != nil {
 		return nil, err
 	}
-	tmp, err := slamSvc.orbConfigToInt("rgb_flag", 1)
+	tmp, err := slamSvc.orbConfigToInt("rgb_flag", 0)
 	if err != nil {
 		return nil, err
 	}
