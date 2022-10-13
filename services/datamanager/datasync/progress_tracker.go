@@ -1,14 +1,15 @@
 package datasync
 
 import (
-	"fmt"
-	"github.com/pkg/errors"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
+
+	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 var viamProgressDotDir = filepath.Join(os.Getenv("HOME"), ".viam", "progress")
@@ -40,9 +41,9 @@ func (pt *progressTracker) unmark(k string) {
 
 func (pt *progressTracker) getProgress(f *datacapture.File) (int, error) {
 	progressFilePath := pt.getProgressFilePath(f)
+	//nolint:gosec
 	bs, err := ioutil.ReadFile(progressFilePath)
 	if errors.Is(err, os.ErrNotExist) {
-		fmt.Println("creating progress file")
 		return 0, pt.createProgressFile(f)
 	}
 	if err != nil {
@@ -62,11 +63,8 @@ func bytesToInt(bs []byte) (int, error) {
 func (pt *progressTracker) createProgressFile(f *datacapture.File) error {
 	err := os.WriteFile(pt.getProgressFilePath(f), []byte("0"), os.FileMode(0o777))
 	if err != nil {
-		fmt.Println("didnt create progress file")
-		fmt.Println(err)
 		return err
 	}
-	fmt.Println("created progress file")
 	return nil
 }
 

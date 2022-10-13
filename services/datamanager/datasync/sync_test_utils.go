@@ -2,7 +2,6 @@ package datasync
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -234,14 +233,10 @@ func getMockService() *mockDataSyncServiceServer {
 func (m mockDataSyncServiceServer) getUploadRequests() []*v1.UploadRequest {
 	(*m.lock).Lock()
 	defer (*m.lock).Unlock()
-	//for _, ur := range *m.uploadRequests {
-	//	fmt.Println(ur.String())
-	//}
 	return *m.uploadRequests
 }
 
 func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer) error {
-	fmt.Println("receivved upload call")
 	defer m.callCount.Add(1)
 	if m.callCount.Load() < m.failUntilIndex {
 		return m.errorToReturn
@@ -257,11 +252,8 @@ func (m mockDataSyncServiceServer) Upload(stream v1.DataSyncService_UploadServer
 			break
 		}
 		if err != nil {
-			fmt.Println("error receveing ur")
-			fmt.Println(err)
 			return err
 		}
-		fmt.Println("received ur")
 
 		// Append UploadRequest to list of recorded requests.
 		(*m.lock).Lock()

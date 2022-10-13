@@ -1,7 +1,6 @@
 package data
 
 import (
-	"go.viam.com/rdk/services/datamanager/datacapture"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -10,6 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 // CollectorConstructor contains a function for constructing an instance of a Collector.

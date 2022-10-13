@@ -3,7 +3,6 @@ package data
 import (
 	"context"
 	"fmt"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 	"io"
 	"os"
 	"testing"
@@ -17,6 +16,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 type structReading struct {
@@ -46,7 +47,7 @@ var (
 	fakeVal                 = &anypb.Any{}
 )
 
-//func TestNewCollector(t *testing.T) {
+// func TestNewCollector(t *testing.T) {
 //	// If missing parameters should return an error.
 //	c1, err1 := NewCollector(nil, CollectorParams{})
 //
@@ -271,15 +272,13 @@ func TestCtxCancelledLoggedAsDebug(t *testing.T) {
 }
 
 func validateReadings(t *testing.T, filePath string, n int) {
-	//t.Helper()
+	t.Helper()
 	file, err := os.Open(filePath)
 	test.That(t, err, test.ShouldBeNil)
-	f, err := datacapture.NewFileFromFile(file)
+	f, err := datacapture.ReadFile(file)
 	test.That(t, err, test.ShouldBeNil)
-	fmt.Println(n)
 	_, _ = f.ReadMetadata()
 	for i := 0; i < n; i++ {
-		fmt.Println(i)
 		read, err := f.ReadNext()
 		if err != nil {
 			t.Fatalf("failed to read SensorData from file: %v", err)
