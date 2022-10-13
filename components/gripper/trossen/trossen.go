@@ -3,7 +3,6 @@ package trossen
 
 import (
 	"context"
-	"strconv"
 	"sync"
 	"time"
 
@@ -21,25 +20,64 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var (
-	modelname250 = resource.NewDefaultModel("trossen-wx250s")
-	modelname300 = resource.NewDefaultModel("trossen-vx300s")
+	modelNameWX250s = resource.NewDefaultModel("trossen-wx250s")
+	modelNameVX300s = resource.NewDefaultModel("trossen-vx300s")
 )
 
+// AttrConfig is the config for a trossen gripper.
+type AttrConfig struct {
+	SerialPath string `json:"serial_path"`
+	BaudRate   int    `json:"serial_baud_rate"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *AttrConfig) Validate(path string) error {
+	if config.SerialPath == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
+	}
+
+	if config.BaudRate == 0 {
+		return utils.NewConfigValidationFieldRequiredError(path, "baud_rate")
+	}
+	return nil
+}
+
 func init() {
-	registry.RegisterComponent(gripper.Subtype, modelname250, registry.Component{
+	registry.RegisterComponent(gripper.Subtype, modelNameWX250s, registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newGripper(config.Attributes, logger)
+			attr, ok := config.ConvertedAttributes.(*AttrConfig)
+			if !ok {
+				return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+			}
+			return newGripper(attr, logger)
 		},
 	})
 
-	registry.RegisterComponent(gripper.Subtype, modelname300, registry.Component{
+	config.RegisterComponentAttributeMapConverter(gripper.Subtype, modelNameWX250s,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &AttrConfig{})
+
+	registry.RegisterComponent(gripper.Subtype, modelNameVX300s, registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newGripper(config.Attributes, logger)
+			attr, ok := config.ConvertedAttributes.(*AttrConfig)
+			if !ok {
+				return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+			}
+			return newGripper(attr, logger)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(gripper.Subtype, modelNameVX300s,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &AttrConfig{})
 }
 
 var (
@@ -67,9 +105,10 @@ type Gripper struct {
 }
 
 // newGripper TODO.
-func newGripper(attributes config.AttributeMap, logger golog.Logger) (gripper.LocalGripper, error) {
-	usbPort := attributes.String("serial_path")
-	jServo, err := findServo(usbPort, attributes.String("serial_baud_rate"), logger)
+func newGripper(attributes *AttrConfig, logger golog.Logger) (gripper.LocalGripper, error) {
+	usbPort := attributes.SerialPath
+
+	jServo, err := findServo(usbPort, attributes.BaudRate, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -169,13 +208,8 @@ func (g *Gripper) ModelFrame() referenceframe.Model {
 
 // findServo finds the gripper numbered Dynamixel servo on the specified USB port
 // we are going to hardcode some USB parameters that we will literally never want to change.
-func findServo(usbPort, baudRateStr string, logger golog.Logger) (*servo.Servo, error) {
+func findServo(usbPort string, baudRate int, logger golog.Logger) (*servo.Servo, error) {
 	GripperServoNum := 9
-	baudRate, err := strconv.Atoi(baudRateStr)
-	if err != nil {
-		logger.Errorf("Mangled baudrate: %v\n", err)
-		return nil, err
-	}
 	options := serial.OpenOptions{
 		PortName:              usbPort,
 		BaudRate:              uint(baudRate),

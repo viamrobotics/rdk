@@ -23,7 +23,7 @@ import (
 	"go.viam.com/rdk/vision/segmentation"
 )
 
-var logger = golog.NewDevelopmentLogger("rosbag_parser")
+var logger = golog.NewDebugLogger("rosbag_parser")
 
 // Arguments for the rosbag parser.
 type Arguments struct {

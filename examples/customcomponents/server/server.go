@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/robot/web"
 )
 
-var logger = golog.NewDevelopmentLogger("gizmoserver")
+var logger = golog.NewDebugLogger("gizmoserver")
 
 func main() {
 	goutils.ContextualMain(mainWithArgs, logger)

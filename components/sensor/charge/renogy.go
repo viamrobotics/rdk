@@ -32,8 +32,8 @@ var modelname = resource.NewDefaultModel("renogy")
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
-	Path     string `json:"path"`
-	Baud     int    `json:"baud"`
+	Path     string `json:"serial_path"`
+	Baud     int    `json:"serial_baud_rate"`
 	ModbusID byte   `json:"modbus_id"`
 }
 

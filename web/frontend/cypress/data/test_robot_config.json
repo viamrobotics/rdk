@@ -60,7 +60,19 @@
             }
         },
         {
-            "name": "test_motor",
+            "name": "test_motor_left",
+            "type": "motor",
+            "model": "fake",
+            "attributes": {
+                "pins": {
+                    "a": "1",
+                    "b": "2",
+                    "pwm": "3"
+                }
+            }
+        },
+        {
+            "name": "test_motor_right",
             "type": "motor",
             "model": "fake",
             "attributes": {

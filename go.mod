@@ -71,10 +71,10 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.23.0
-	go.viam.com/api v0.0.0-20221003205706-3eb84cff2681
+	go.viam.com/api v0.0.0-20221005213245-5d188f969297
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
-	go.viam.com/utils v0.0.6-0.20221004221920-50405c53c370
+	go.viam.com/utils v0.0.6-0.20221007203851-d4ebf5ac4bd5
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
 	gonum.org/v1/gonum v0.11.0
@@ -366,8 +366,8 @@ require (
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 )
 
-replace go.viam.com/api => github.com/Otterverse/api v0.0.0-20221012002620-638f46cc706e
+replace go.viam.com/api => github.com/Otterverse/api v0.0.0-20221013170953-793f5a555c55
 
 // replace go.viam.com/api => ../api
 
-replace go.viam.com/utils => github.com/Otterverse/goutils v0.0.4-0.20221004223617-c3594808f1d6
+replace go.viam.com/utils => github.com/Otterverse/goutils v0.0.4-0.20221013165952-2b737320f2fc

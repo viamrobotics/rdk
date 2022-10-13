@@ -150,7 +150,7 @@ func testPointCloudBoundingBox(t *testing.T, cloud pc.PointCloud, center, dims r
 	} else {
 		test.That(t, box, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeNil)
-		boxExpected, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(center), dims)
+		boxExpected, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(center), dims, "")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, box.AlmostEqual(boxExpected), test.ShouldBeTrue)
 	}

@@ -10,54 +10,65 @@ module.exports = {
     parser: '@typescript-eslint/parser',
     ecmaVersion: 'latest',
     sourceType: 'module',
-    ecmaFeatures: { jsx: true },
   },
   plugins: [
     'vue',
     '@typescript-eslint',
     'unicorn',
-    'import',
     'tailwindcss',
   ],
   extends: [
-    'eslint:recommended',
     'plugin:@typescript-eslint/recommended',
-    'plugin:import/recommended',
-    'plugin:import/typescript',
+    'eslint:all',
     'plugin:unicorn/recommended',
     'plugin:tailwindcss/recommended',
     'plugin:vue/vue3-essential',
     'plugin:vue/vue3-strongly-recommended',
     'plugin:vue/vue3-recommended',
   ],
+  ignorePatterns: ['**/node_modules/**', '*.json', '**/protos/**'],
   rules: {
-    // Spacing and code style
     // https://github.com/eslint/eslint/issues/13956
     indent: 'off',
-    'arrow-spacing': 'error',
-    'block-spacing': 'error',
-    'comma-spacing': 'error',
-    'computed-property-spacing': 'error',
-    'func-call-spacing': 'error',
-    'key-spacing': 'error',
-    'keyword-spacing': 'error',
-    'rest-spread-spacing': 'error',
-    'semi-spacing': 'error',
-    'array-bracket-spacing': 'error',
-    'space-before-blocks': 'error',
-    'space-in-parens': 'error',
-    'space-infix-ops': 'error',
-    'space-unary-ops': 'error',
-    'spaced-comment': 'error',
-    'template-curly-spacing': 'error',
+    'array-element-newline': ['error', 'consistent'],
+    'arrow-body-style': 'off',
+    camelcase: ['error', { properties: 'never' }],
+    'capitalized-comments': 'off',
+    'consistent-return': 'off',
+    'default-case': 'off',
+    'dot-location': ['error', 'property'],
+    'function-call-argument-newline': ['error', 'consistent'],
+    'function-paren-newline': ['error', 'consistent'],
+    'id-length': ['error', { exceptions: ['_', 'x', 'y', 'z', 'w', 'i', 'j', 'k'] }],
+    'init-declarations': 'off',
+    'implicit-arrow-linebreak': 'off',
+    'lines-around-commen': 'off',
+    'max-len': ['error', { code: 120 }],
+    'max-lines': 'off',
+    'max-lines-per-function': 'off',
+    'max-params': 'off',
+    'max-statements': 'off',
+    'multiline-ternary': ['error', 'always-multiline'],
+    'prefer-destructuring': [
+      'error', {
+        AssignmentExpression: { array: false, object: false },
+        VariableDeclarator: { array: true, object: true },
+      },
+    ],
+    'sort-keys': 'off',
+    'sort-imports': 'off',
     'object-curly-spacing': ['error', 'always'],
+    'object-property-newline': ['error', { allowAllPropertiesOnSameLine: true }],
+    'no-continue': 'off',
+    'no-extra-parens': 'off',
+    'no-magic-numbers': 'off',
     'no-multiple-empty-lines': ['error', { max: 1 }],
-    'no-multi-spaces': 'error',
-    'eol-last': 'error',
-    'brace-style': 'error',
-    'semi-style': 'error',
-    'dot-notation': 'error',
-    'nonblock-statement-body-position': 'error',
+    'no-ternary': 'off',
+    'no-undefined': 'off',
+    // Eventually we want to re-enable, so that people comment jira tickets instead of TODO.
+    'no-warning-comments': 'off',
+    'padded-blocks': 'off',
+    'vue/no-deprecated-slot-attribute': 'off',
     quotes: ['error', 'single', { avoidEscape: true }],
     semi: ['error', 'always'],
     'comma-dangle': [
@@ -71,12 +82,12 @@ module.exports = {
       },
     ],
 
-    // Typescript catches these issues, and ESLint isn't smart enough to understand
-    // Vue's macros like 'defineProps()', so we'll turn these off for now
+    /**
+     * Typescript catches these issues, and ESLint isn't smart enough to understand
+     * Vue's macros like 'defineProps()', so we'll turn these off for now
+     */
     'no-undef': 'off',
     'no-unused-vars': 'off',
-    'prefer-object-spread': 'error',
-    'prefer-template': 'error',
     'quote-props': ['error', 'as-needed'],
     'no-console': process.env.NODE_ENV === 'production' ? 'error' : 'off',
     'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off',
@@ -102,39 +113,15 @@ module.exports = {
     yoda: 'error',
     'no-implicit-coercion': 'error',
     'no-unneeded-ternary': 'error',
-    'no-useless-return': 'error',
     'no-var': 'error',
     'object-shorthand': ['error', 'properties'],
     'prefer-arrow-callback': 'error',
     'prefer-const': 'error',
 
     // Vue
-    'vue/no-deprecated-slot-attribute': 'off',
-    'vue/require-default-prop': 'off',
     'vue/multi-word-component-names': 'off',
-    'vue/no-undef-components': ['error', { ignorePatterns: ['v-'] }],
-
-    // Import
-    'import/no-unresolved': 'error',
-    'import/named': 'error',
-    'import/default': 'error',
-    'import/namespace': 'error',
-    'import/no-absolute-path': 'error',
-    'import/no-webpack-loader-syntax': 'error',
-    'import/no-self-import': 'error',
-    'import/no-cycle': 'error',
-    'import/no-useless-path-segments': 'error',
-    'import/order': 'error',
-    'import/export': 'error',
-    'import/first': 'error',
-    'import/extensions': [
-      'error',
-      'ignorePackages',
-      {
-        js: 'never',
-        ts: 'never',
-      },
-    ],
+    'vue/no-undef-components': ['error', { ignorePatterns: ['-'] }],
+    'vue/require-default-prop': 'off',
 
     // Unicorn
     'unicorn/no-empty-file': 'off',
@@ -164,11 +151,28 @@ module.exports = {
     '@typescript-eslint/ban-ts-comment': 'warn',
   },
   settings: {
+    'import/extensions': ['.vue'],
+    'import/parsers': {
+      '@typescript-eslint/parser': ['.ts', '.js'],
+    },
     'import/resolver': {
-      node: {
-        extensions: ['.js', '.ts', '.vue'],
+      typescript: {
+        alwaysTryTypes: true,
+        project: './tsconfig.json',
+      },
+      'eslint-import-resolver-custom-alias': {
+        alias: {
+          '@': './frontend/src',
+        },
+        extensions: ['.ts', '.js', '.vue'],
       },
     },
   },
-  ignorePatterns: ['**/cypress/**', '**/node_modules/**', '*.json', '**/protos/**'],
+  // User ts parser for typescript files
+  overrides: [
+    {
+      files: ['*.ts'],
+      parser: '@typescript-eslint/parser',
+    },
+  ],
 };

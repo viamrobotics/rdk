@@ -7,7 +7,9 @@ import { CameraServiceClient } from './gen/proto/api/component/camera/v1/camera_
 import { GantryServiceClient } from './gen/proto/api/component/gantry/v1/gantry_pb_service.esm';
 import { GenericServiceClient } from './gen/proto/api/component/generic/v1/generic_pb_service.esm';
 import { GripperServiceClient } from './gen/proto/api/component/gripper/v1/gripper_pb_service.esm';
-import { InputControllerServiceClient } from './gen/proto/api/component/inputcontroller/v1/input_controller_pb_service.esm';
+import {
+  InputControllerServiceClient,
+} from './gen/proto/api/component/inputcontroller/v1/input_controller_pb_service.esm';
 import { MotorServiceClient } from './gen/proto/api/component/motor/v1/motor_pb_service.esm';
 import { MovementSensorServiceClient } from './gen/proto/api/component/movementsensor/v1/movementsensor_pb_service.esm';
 import { ServoServiceClient } from './gen/proto/api/component/servo/v1/servo_pb_service.esm';
@@ -18,7 +20,6 @@ import { SensorsServiceClient } from './gen/proto/api/service/sensors/v1/sensors
 import { SLAMServiceClient } from './gen/proto/api/service/slam/v1/slam_pb_service.esm';
 import { VisionServiceClient } from './gen/proto/api/service/vision/v1/vision_pb_service.esm';
 import { StreamServiceClient } from './gen/proto/stream/v1/stream_pb_service.esm';
-import { normalizeRemoteName } from './lib/resource';
 
 import commonApi from './gen/proto/api/common/v1/common_pb.esm';
 import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
@@ -82,7 +83,7 @@ if (window.webrtcAdditionalICEServers) {
 
 const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
   let transportFactory;
-  const opts: DialOptions = { 
+  const opts: DialOptions = {
     authEntity,
     credentials: creds,
     webrtcOptions: {
@@ -95,7 +96,7 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
   // save authEntity, creds
   savedAuthEntity = authEntity;
   savedCreds = creds;
-  
+
   if (window.webrtcEnabled) {
     opts.webrtcOptions!.signalingAuthEntity = opts.authEntity;
     opts.webrtcOptions!.signalingCredentials = opts.credentials;
@@ -104,40 +105,41 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
     transportFactory = webRTCConn.transportFactory;
 
     webRTCConn.peerConnection.ontrack = (event) => {
-      const kind = event.track.kind;
-      const mediaElement = document.createElement(kind) as HTMLAudioElement | HTMLVideoElement;
-      mediaElement.srcObject = event.streams[0];
-      mediaElement.autoplay = true;
-      if (mediaElement instanceof HTMLVideoElement) {
-        mediaElement.playsInline = true;        
-        mediaElement.controls = false;
-      } else {
-        mediaElement.controls = true;
-      }
-      let streamName = event.streams[0].id;
-      streamName = normalizeRemoteName(streamName);
-      const streamContainer = document.querySelector(`#stream-${streamName}`);
-      if (streamContainer && streamContainer.querySelectorAll(kind).length > 0) {
-        streamContainer.querySelectorAll(kind)[0].remove();
-      }
-      if (streamContainer) {
+      const { kind } = event.track;
+
+      const streamName = event.streams[0]!.id;
+      const streamContainers = document.querySelectorAll(`[data-stream="${streamName}"]`);
+
+      for (const streamContainer of streamContainers) {
+        const mediaElement = document.createElement(kind) as HTMLAudioElement | HTMLVideoElement;
+        mediaElement.srcObject = event.streams[0]!;
+        mediaElement.autoplay = true;
+        if (mediaElement instanceof HTMLVideoElement) {
+          mediaElement.playsInline = true;
+          mediaElement.controls = false;
+        } else {
+          mediaElement.controls = true;
+        }
+
+        const child = streamContainer.querySelector(kind);
+        child?.remove();
         streamContainer.append(mediaElement);
       }
-      const mediaElementPreview = document.createElement(kind) as HTMLAudioElement | HTMLVideoElement;
-      mediaElementPreview.srcObject = event.streams[0];
-      mediaElementPreview.autoplay = true;
-      if (mediaElementPreview instanceof HTMLVideoElement) {
-        mediaElementPreview.playsInline = true;        
-        mediaElementPreview.controls = false;
-      } else {
-        mediaElementPreview.controls = true;
-      }
-      const streamPreviewContainer = document.querySelector(`#stream-preview-${streamName}`);
-      if (streamPreviewContainer && streamPreviewContainer.querySelectorAll(kind).length > 0) {
-        streamPreviewContainer.querySelectorAll(kind)[0].remove();
-      }
-      if (streamPreviewContainer) {
-        streamPreviewContainer.append(mediaElementPreview);
+
+      const streamPreviewContainers = document.querySelectorAll(`[data-stream-preview="${streamName}"]`);
+      for (const streamContainer of streamPreviewContainers) {
+        const mediaElementPreview = document.createElement(kind) as HTMLAudioElement | HTMLVideoElement;
+        mediaElementPreview.srcObject = event.streams[0]!;
+        mediaElementPreview.autoplay = true;
+        if (mediaElementPreview instanceof HTMLVideoElement) {
+          mediaElementPreview.playsInline = true;
+          mediaElementPreview.controls = false;
+        } else {
+          mediaElementPreview.controls = true;
+        }
+        const child = streamContainer.querySelector(kind);
+        child?.remove();
+        streamContainer.append(mediaElementPreview);
       }
     };
   } else {

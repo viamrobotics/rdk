@@ -26,7 +26,7 @@ To connect to a robot as a client, you should instantiate a client.
 	)
 
 	func main() {
-		logger := golog.NewDevelopmentLogger("client")
+		logger := golog.NewDebugLogger("client")
 		// this instantiates a robot client that is connected to the robot at <address>
 		robot, err := client.New(
 			context.Background(),

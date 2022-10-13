@@ -1,15 +1,14 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import type Servo from '../gen/proto/api/component/servo/v1/servo_pb.esm';
-import servoApi from '../gen/proto/api/component/servo/v1/servo_pb.esm';
+import servoApi, { type Status } from '../gen/proto/api/component/servo/v1/servo_pb.esm';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 
 interface Props {
   name: string
-  status: Servo.Status.AsObject
-  rawStatus: Servo.Status.AsObject
+  status: Status.AsObject
+  rawStatus: Status.AsObject
 }
 
 const props = defineProps<Props>();
@@ -27,10 +26,18 @@ const move = (amount: number) => {
   const oldAngle = servo.positionDeg ?? 0;
   const angle = oldAngle + amount;
 
+  console.log(props.name, angle);
+
   const req = new servoApi.MoveRequest();
   req.setName(props.name);
   req.setAngleDeg(angle);
-  window.servoService.move(req, new grpc.Metadata(), displayError);
+  window.servoService.move(req, new grpc.Metadata(), (error, response) => {
+    if (error) {
+      return displayError(error);
+    }
+
+    console.log(response);
+  });
 };
 
 </script>
@@ -56,7 +63,7 @@ const move = (amount: number) => {
         <h3 class="mb-1 text-sm">
           Angle: {{ status.positionDeg }}
         </h3>
-           
+
         <div class="flex gap-1.5">
           <v-button
             label="-10"

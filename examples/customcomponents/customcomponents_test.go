@@ -30,7 +30,7 @@ func TestGizmo(t *testing.T) {
 	addr2 := fmt.Sprintf("localhost:%d", port2)
 
 	ctx := context.Background()
-	logger := golog.NewDevelopmentLogger("gizmo.server")
+	logger := golog.NewDebugLogger("gizmo.server")
 
 	cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/customcomponents/server/config.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -50,7 +50,7 @@ func TestGizmo(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = tmpConf.Sync()
 	test.That(t, err, test.ShouldBeNil)
-	logger = golog.NewDevelopmentLogger("process.inter")
+	logger = golog.NewDebugLogger("process.inter")
 	pmgr := pexec.NewProcessManager(logger)
 	pCfg := pexec.ProcessConfig{
 		ID:      "Intermediate",
@@ -69,7 +69,7 @@ func TestGizmo(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	goutils.SelectContextOrWait(context.Background(), 30*time.Second)
 
-	logger = golog.NewDevelopmentLogger("gizmo.client")
+	logger = golog.NewDebugLogger("gizmo.client")
 	remoteConfig := &config.Config{
 		Remotes: []config.Remote{
 			{

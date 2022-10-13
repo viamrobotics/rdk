@@ -15,7 +15,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -672,7 +671,7 @@ func TestCartographerDataProcess(t *testing.T) {
 		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		c := make(chan int)
+		c := make(chan int, 100)
 		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
 
 		<-c
@@ -699,13 +698,13 @@ func TestCartographerDataProcess(t *testing.T) {
 		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, nil)
+		c := make(chan int, 100)
+		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
 
-		time.Sleep(time.Millisecond * time.Duration(validDataRateMS*2))
-		cancelFunc()
-
+		<-c
 		allObs := obs.All()
 		latestLoggedEntry := allObs[len(allObs)-1]
+		cancelFunc()
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "bad_lidar")
 	})
 
@@ -765,7 +764,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
-		c := make(chan int)
+		c := make(chan int, 100)
 		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
 
 		<-c
@@ -789,13 +788,13 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, nil)
+		c := make(chan int, 100)
+		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
 
-		time.Sleep(time.Millisecond * time.Duration(validDataRateMS*2))
-		cancelFunc()
-
+		<-c
 		obsAll := obs.All()
 		latestLoggedEntry := obsAll[len(obsAll)-1]
+		cancelFunc()
 		test.That(t, fmt.Sprint(latestLoggedEntry), test.ShouldContainSubstring, "bad_camera")
 	})
 

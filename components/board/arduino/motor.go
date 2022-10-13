@@ -192,6 +192,10 @@ func (m *arduinoMotor) SetPower(ctx context.Context, powerPct float64, extra map
 // GoFor instructs the motor to go in a specific direction for a specific amount of
 // revolutions at a given speed in revolutions per minute.
 func (m *arduinoMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+	if rpm == 0 {
+		return motor.NewZeroRPMError()
+	}
+
 	ticks := int(math.Abs(revolutions) * float64(m.cfg.TicksPerRotation))
 	ticksPerSecond := int(math.Abs(rpm) * float64(m.cfg.TicksPerRotation) / 60.0)
 

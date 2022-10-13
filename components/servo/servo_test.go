@@ -9,10 +9,10 @@ import (
 	pb "go.viam.com/api/component/servo/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/servo"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"

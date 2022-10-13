@@ -11,7 +11,7 @@ interface ArmStatus {
     endPosition: string
     endPositionValue: number
   }[]
-  
+
   joint_pieces: {
     joint: number
     jointValue: number
@@ -56,10 +56,10 @@ const stop = () => {
 
 const armModifyAllDoEndPosition = () => {
   const newPose = new commonApi.Pose();
-  const newPieces = toggle[props.name].pos_pieces;
+  const newPieces = toggle[props.name]!.pos_pieces;
 
   for (const newPiece of newPieces) {
-    const getterSetter = newPiece.endPosition[1];
+    const [, getterSetter] = newPiece.endPosition;
     const setter = `set${getterSetter}` as SetterKeys;
     newPose[setter](newPiece.endPositionValue);
   }
@@ -80,10 +80,10 @@ const armModifyAllDoJoint = () => {
   const arm = props.rawStatus!;
   const newPositionDegs = new armApi.JointPositions();
   const newList = arm.joint_positions.values;
-  const newPieces = toggle[props.name].joint_pieces;
+  const newPieces = toggle[props.name]!.joint_pieces;
 
-  for (let i = 0; i < newPieces.length && i < newList.length; i++) {
-    newList[newPieces[i].joint] = newPieces[i].jointValue;
+  for (let i = 0; i < newPieces.length && i < newList.length; i += 1) {
+    newList[newPieces[i]!.joint] = newPieces[i]!.jointValue;
   }
 
   newPositionDegs.setValuesList(newList);
@@ -102,7 +102,7 @@ const armEndPositionInc = (getterSetter: string, amount: number) => {
   const newPose = new commonApi.Pose();
 
   for (const fieldSetter of fieldSetters) {
-    const endPositionField = fieldSetter[0];
+    const [endPositionField] = fieldSetter;
     const endPositionValue = old[endPositionField] || 0;
     const setter = `set${fieldSetter[1]}` as SetterKeys;
     newPose[setter](endPositionValue);
@@ -135,7 +135,7 @@ const armHome = () => {
   const newPositionDegs = new armApi.JointPositions();
   const newList = arm.joint_positions.values;
 
-  for (let i = 0; i < newList.length; i++) {
+  for (let i = 0; i < newList.length; i += 1) {
     newList[i] = 0;
   }
 
@@ -149,26 +149,26 @@ const armHome = () => {
 
 const armModifyAll = () => {
   const arm = props.status!;
-  const n: ArmStatus = {
+  const newStatus: ArmStatus = {
     pos_pieces: [],
     joint_pieces: [],
   };
 
-  for (let i = 0; i < arm.pos_pieces.length; i++) {
-    n.pos_pieces.push({
-      endPosition: arm.pos_pieces[i].endPosition,
-      endPositionValue: roundTo2Decimals(arm.pos_pieces[i].endPositionValue),
+  for (let i = 0; i < arm.pos_pieces.length; i += 1) {
+    newStatus.pos_pieces.push({
+      endPosition: arm.pos_pieces[i]!.endPosition,
+      endPositionValue: roundTo2Decimals(arm.pos_pieces[i]!.endPositionValue),
     });
   }
 
-  for (let i = 0; i < arm.joint_pieces.length; i++) {
-    n.joint_pieces.push({
-      joint: arm.joint_pieces[i].joint,
-      jointValue: roundTo2Decimals(arm.joint_pieces[i].jointValue),
+  for (let i = 0; i < arm.joint_pieces.length; i += 1) {
+    newStatus.joint_pieces.push({
+      joint: arm.joint_pieces[i]!.joint,
+      jointValue: roundTo2Decimals(arm.joint_pieces[i]!.jointValue),
     });
   }
 
-  toggle[props.name] = n;
+  toggle[props.name] = newStatus;
 };
 
 </script>
@@ -203,7 +203,7 @@ const armModifyAll = () => {
         </h3>
         <div class="inline-grid grid-cols-2 gap-1 pb-1">
           <template
-            v-for="cc in toggle[name].pos_pieces"
+            v-for="cc in toggle[name]!.pos_pieces"
             :key="cc.endPosition[0]"
           >
             <label class="py-1 pr-2 text-right">{{ cc.endPosition[1] }}</label>
@@ -236,7 +236,7 @@ const armModifyAll = () => {
         </h3>
         <div class="grid grid-cols-2 gap-1 pb-1">
           <template
-            v-for="bb in toggle[name].joint_pieces"
+            v-for="bb in toggle[name]!.joint_pieces"
             :key="bb.joint"
           >
             <label class="py-1 pr-2 text-right">Joint {{ bb.joint }}</label>
@@ -279,19 +279,19 @@ const armModifyAll = () => {
             </h4>
             <v-button
               label="--"
-              @click="armEndPositionInc(aa.endPosition[1], -10)"
+              @click="armEndPositionInc(aa.endPosition[1]!, -10)"
             />
             <v-button
               label="-"
-              @click="armEndPositionInc(aa.endPosition[1], -1)"
+              @click="armEndPositionInc(aa.endPosition[1]!, -1)"
             />
             <v-button
               label="+"
-              @click="armEndPositionInc(aa.endPosition[1], 1)"
+              @click="armEndPositionInc(aa.endPosition[1]!, 1)"
             />
             <v-button
               label="++"
-              @click="armEndPositionInc(aa.endPosition[1], 10)"
+              @click="armEndPositionInc(aa.endPosition[1]!, 10)"
             />
             <h4 class="py-1">
               {{ aa.endPositionValue.toFixed(2) }}

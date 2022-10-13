@@ -31,7 +31,8 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
-var modelname = resource.NewDefaultModel("ur5e")
+// ModelName is the resource model.
+var ModelName = resource.NewDefaultModel("ur5e")
 
 // AttrConfig is used for converting config attributes.
 type AttrConfig struct {
@@ -46,13 +47,13 @@ var ur5modeljson []byte
 var ur5DHmodeljson []byte
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
+	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
 		RobotConstructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return URArmConnect(ctx, r, config, logger)
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(arm.Subtype, modelname,
+	config.RegisterComponentAttributeMapConverter(arm.Subtype, ModelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -60,8 +61,8 @@ func init() {
 		&AttrConfig{})
 }
 
-// Ur5eModel() returns the kinematics model of the xArm, also has all Frame information.
-func ur5eModel(name string) (referenceframe.Model, error) {
+// Model returns the kinematics model of the ur arm, also has all Frame information.
+func Model(name string) (referenceframe.Model, error) {
 	return referenceframe.UnmarshalModelJSON(ur5modeljson, name)
 }
 
@@ -122,7 +123,7 @@ func URArmConnect(ctx context.Context, r robot.Robot, cfg config.Component, logg
 		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
 	}
 
-	model, err := ur5eModel(cfg.Name)
+	model, err := Model(cfg.Name)
 	if err != nil {
 		return nil, err
 	}

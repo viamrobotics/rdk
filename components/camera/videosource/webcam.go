@@ -143,8 +143,8 @@ func getProperties(d driver.Driver) (_ []prop.Media, err error) {
 type WebcamAttrs struct {
 	*camera.AttrConfig
 	Format      string `json:"format"`
-	Path        string `json:"path"`
-	PathPattern string `json:"path_pattern"`
+	Path        string `json:"video_path"`
+	PathPattern string `json:"video_path_pattern"`
 	Width       int    `json:"width_px"`
 	Height      int    `json:"height_px"`
 }
@@ -206,7 +206,7 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 	constraints := makeConstraints(attrs, debug, logger)
 
 	if attrs.Path != "" {
-		return tryWebcamOpen(ctx, attrs, attrs.Path, constraints, logger)
+		return tryWebcamOpen(ctx, attrs, attrs.Path, false, constraints)
 	}
 
 	var pattern *regexp.Regexp
@@ -230,7 +230,7 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 			continue
 		}
 
-		s, err := tryWebcamOpen(ctx, attrs, label, constraints, logger)
+		s, err := tryWebcamOpen(ctx, attrs, label, true, constraints)
 		if err == nil {
 			if debug {
 				logger.Debug("\t USING")
@@ -249,10 +249,10 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 func tryWebcamOpen(ctx context.Context,
 	attrs *WebcamAttrs,
 	path string,
+	fromLabel bool,
 	constraints mediadevices.MediaStreamConstraints,
-	logger golog.Logger,
 ) (camera.Camera, error) {
-	source, err := getNamedVideoSource(path, constraints, logger)
+	source, err := getNamedVideoSource(path, fromLabel, constraints)
 	if err != nil {
 		return nil, err
 	}
@@ -275,16 +275,14 @@ func tryWebcamOpen(ctx context.Context,
 // evaluation fails, it will try to use the path name as provided.
 func getNamedVideoSource(
 	path string,
+	fromLabel bool,
 	constraints mediadevices.MediaStreamConstraints,
-	logger golog.Logger,
 ) (gostream.MediaSource[image.Image], error) {
-	resolvedPath, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		logger.Warnw(
-			"error evaluating symlink for path - will use path as provided instead",
-			"path", path, "error", err,
-		)
-		return gostream.GetNamedVideoSource(path, constraints)
+	if !fromLabel {
+		resolvedPath, err := filepath.EvalSymlinks(path)
+		if err == nil {
+			path = resolvedPath
+		}
 	}
-	return gostream.GetNamedVideoSource(filepath.Base(resolvedPath), constraints)
+	return gostream.GetNamedVideoSource(filepath.Base(path), constraints)
 }

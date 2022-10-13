@@ -19,8 +19,18 @@ import (
 //go:embed gripper_model.json
 var gripperjson []byte
 
+var modelname = resource.NewDefaultModel("fake")
+
+// AttrConfig is the config for a trossen gripper.
+type AttrConfig struct{}
+
+// Validate ensures all parts of the config are valid.
+func (config *AttrConfig) Validate(path string) error {
+	return nil
+}
+
 func init() {
-	registry.RegisterComponent(gripper.Subtype, resource.NewDefaultModel("fake"), registry.Component{
+	registry.RegisterComponent(gripper.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context, _ registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 			model, err := referenceframe.UnmarshalModelJSON(gripperjson, "")
 			if err != nil {
@@ -32,6 +42,12 @@ func init() {
 			return g, nil
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(gripper.Subtype, modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &AttrConfig{})
 }
 
 // Gripper is a fake gripper that can simply read and set properties.

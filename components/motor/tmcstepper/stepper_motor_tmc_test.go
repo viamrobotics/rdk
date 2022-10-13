@@ -430,6 +430,10 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, _motor.GoFor(ctx, -50.0, -6.6, nil), test.ShouldBeNil)
 	})
 
+	t.Run("motor GoFor with zero rpm", func(t *testing.T) {
+		test.That(t, _motor.GoFor(ctx, 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
+	})
+
 	t.Run("motor is on testing", func(t *testing.T) {
 		// Off
 		go checkRx(t, c,

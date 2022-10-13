@@ -365,9 +365,13 @@ func (svc *builtIn) Sync(_ context.Context) error {
 
 func (svc *builtIn) syncDataCaptureFiles() error {
 	svc.lock.Lock()
-	defer svc.lock.Unlock()
 	oldFiles := make([]string, 0, len(svc.collectors))
-	for _, collector := range svc.collectors {
+	currCollectors := make(map[componentMethodMetadata]collectorAndConfig)
+	for k, v := range svc.collectors {
+		currCollectors[k] = v
+	}
+	svc.lock.Unlock()
+	for _, collector := range currCollectors {
 		// Create new target and set it.
 		attributes := collector.Attributes
 		captureMetadata, err := datacapture.BuildCaptureMetadata(attributes.Type, attributes.Name,
@@ -378,7 +382,7 @@ func (svc *builtIn) syncDataCaptureFiles() error {
 
 		nextTarget, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
 		if err != nil {
-			svc.logger.Errorw("failed to create new data capture file", "error", err)
+			return err
 		}
 		oldFiles = append(oldFiles, collector.Collector.GetTarget().Name())
 		collector.Collector.SetTarget(nextTarget)
@@ -389,10 +393,13 @@ func (svc *builtIn) syncDataCaptureFiles() error {
 
 func (svc *builtIn) buildAdditionalSyncPaths() []string {
 	svc.lock.Lock()
-	defer svc.lock.Unlock()
+	currAdditionalSyncPaths := svc.additionalSyncPaths
+	waitAfterLastModified := svc.waitAfterLastModifiedSecs
+	svc.lock.Unlock()
+
 	var filepathsToSync []string
 	// Loop through additional sync paths and add files from each to the syncer.
-	for _, asp := range svc.additionalSyncPaths {
+	for _, asp := range currAdditionalSyncPaths {
 		// Check that additional sync paths directories exist. If not, create directories accordingly.
 		if _, err := os.Stat(asp); errors.Is(err, os.ErrNotExist) {
 			err := os.Mkdir(asp, os.ModePerm)
@@ -410,9 +417,9 @@ func (svc *builtIn) buildAdditionalSyncPaths() []string {
 				if info.IsDir() {
 					return nil
 				}
-				// If a file was modified within the past svc.waitAfterLastModifiedSecs seconds, do not sync it (data
+				// If a file was modified within the past waitAfterLastModifiedSecs seconds, do not sync it (data
 				// may still be being written).
-				if diff := now.Sub(info.ModTime()); diff < (time.Duration(svc.waitAfterLastModifiedSecs) * time.Second) {
+				if diff := now.Sub(info.ModTime()); diff < (time.Duration(waitAfterLastModified) * time.Second) {
 					return nil
 				}
 				filepathsToSync = append(filepathsToSync, path)
@@ -463,21 +470,22 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 
 	toggledCaptureOff := (svc.captureDisabled != svcConfig.CaptureDisabled) && svcConfig.CaptureDisabled
 	svc.captureDisabled = svcConfig.CaptureDisabled
+	var allComponentAttributes []dataCaptureConfig
+
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if toggledCaptureOff {
 		svc.closeCollectors()
 		svc.collectors = make(map[componentMethodMetadata]collectorAndConfig)
-		return nil
-	}
+	} else {
+		allComponentAttributes, err = buildDataCaptureConfigs(cfg)
+		if err != nil {
+			svc.logger.Warn(err.Error())
+			return err
+		}
 
-	allComponentAttributes, err := buildDataCaptureConfigs(cfg)
-	if err != nil {
-		return err
-	}
-
-	if len(allComponentAttributes) == 0 {
-		svc.logger.Warn("Could not find any components with data_manager service configuration")
-		return nil
+		if len(allComponentAttributes) == 0 {
+			svc.logger.Info("no components with data_manager service configuration")
+		}
 	}
 
 	toggledSync := svc.syncDisabled != svcConfig.ScheduledSyncDisabled
