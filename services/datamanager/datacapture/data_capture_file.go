@@ -74,8 +74,9 @@ func NewFile(captureDir string, md *v1.DataCaptureMetadata) (*File, error) {
 	}
 	fileName := filepath.Join(fileDir, getFileTimestampName()) + FileExt
 	//nolint:gosec
-	f, err := os.OpenFile(fileName, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o700)
+	f, err := os.OpenFile(fileName, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0o700)
 	if err != nil {
+		fmt.Println("error")
 		return nil, err
 	}
 
