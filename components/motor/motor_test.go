@@ -461,11 +461,11 @@ func TestExtra(t *testing.T) {
 }
 
 var (
-	position  = 5.5
-	features  = map[motor.Feature]bool{motor.PositionReporting: true}
-	isPowered = true
+	position     = 5.5
+	features     = map[motor.Feature]bool{motor.PositionReporting: true}
+	isPowered    = true
 	mockPowerPct = 1.0
-	isMoving  = true
+	isMoving     = true
 )
 
 type mock struct {

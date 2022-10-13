@@ -34,7 +34,7 @@ func TestClient(t *testing.T) {
 	failingMotor := &inject.Motor{}
 
 	var actualExtra map[string]interface{}
-	var actualPowerPct float64 = 0.0
+	var actualPowerPct float64
 
 	workingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 		actualExtra = extra
@@ -154,7 +154,9 @@ func TestClient(t *testing.T) {
 		err = workingMotorClient.Stop(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		isOn, powerPct, err := workingMotorClient.IsPowered(context.Background(), map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
+		isOn, powerPct, err := workingMotorClient.IsPowered(
+			context.Background(),
+			map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
 		test.That(t, isOn, test.ShouldBeTrue)
 		test.That(t, powerPct, test.ShouldEqual, 42.0)
 		test.That(t, err, test.ShouldBeNil)
