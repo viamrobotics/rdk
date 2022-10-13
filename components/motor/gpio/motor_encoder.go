@@ -449,11 +449,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 		return err
 	}
 
-	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop); err != nil {
-		return err
-	}
-
-	return nil
+	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
 func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float64) error {

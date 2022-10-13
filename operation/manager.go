@@ -89,17 +89,23 @@ type IsPoweredInterface interface {
 // WaitTillNotPowered waits until IsPowered returns false.
 func (sm *SingleOperationManager) WaitTillNotPowered(ctx context.Context, pollTime time.Duration, powered IsPoweredInterface,
 	stop func(context.Context, map[string]interface{}) error,
-) error {
+) (err error) {
+	// Defers a function that will stop and clean up if the context errors
+	defer func(ctx context.Context) {
+		var errStop error
+		if ctx.Err() != nil {
+			errStop = stop(ctx, map[string]interface{}{})
+		}
+		err = multierr.Combine(ctx.Err(), errStop)
+	}(ctx)
 	return sm.WaitForSuccess(
 		ctx,
 		pollTime,
-		func(ctx context.Context) (bool, error) {
-			var errStop error
-			res, err := powered.IsPowered(ctx, nil)
+		func(ctx context.Context) (res bool, err error) {
+			res, err = powered.IsPowered(ctx, nil)
 			if err != nil {
-				errStop = stop(ctx, map[string]interface{}{})
 			}
-			return !res, multierr.Combine(err, errStop)
+			return !res, err
 		},
 	)
 }
