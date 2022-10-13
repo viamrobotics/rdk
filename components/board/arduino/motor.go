@@ -247,7 +247,7 @@ func (m *arduinoMotor) Stop(ctx context.Context, extra map[string]interface{}) e
 	return err
 }
 
-// IsPowered returns whether or not the motor is currently on, plus the power level
+// IsPowered returns whether or not the motor is currently on, plus the power level.
 func (m *arduinoMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	isOn, err := m.IsMoving(ctx)
 	return isOn, m.powerPct, err
