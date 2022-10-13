@@ -2,6 +2,8 @@
 package cli
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -558,7 +560,10 @@ TODO:
 
 // BinaryData writes the requested data to the passed directory.
 func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
+	fmt.Println(filter.String())
+	fmt.Println("Calling BinaryData")
 	if err := c.ensureLoggedIn(); err != nil {
+		fmt.Println("not logged in :(")
 		return err
 	}
 
@@ -572,8 +577,9 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 	}
 
 	// TODO: parallelize
+	skip := int64(0)
 	for {
-		skip := int64(0)
+		fmt.Println(skip)
 		// Make BinartDataByFilter request with binary=true
 		resp, err := c.dataClient.BinaryDataByFilter(context.Background(), &datapb.BinaryDataByFilterRequest{
 			DataRequest: &datapb.DataRequest{
@@ -599,13 +605,14 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 			return err
 		}
 
-		// TODO: add fileID to response
+		// TODO: I think we might want to add file name to response for arbitrary files, or at least include it in
+		//       the metadata. Until then, just do file id for those too.
 		data := resp.GetData()
 		if len(data) != 1 {
 			return errors.Errorf("expected a single response, received %d", len(data))
 		}
 		datum := data[0]
-		jsonFile, err := os.Open(filepath.Join(dst, "metadata", datum.GetId()))
+		jsonFile, err := os.Create(filepath.Join(dst, "metadata", datum.GetId()))
 		if err != nil {
 			return err
 		}
@@ -613,14 +620,16 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 			return err
 		}
 
-		// TODO: gunzip
-		binaryBytes := datum.GetBinary()
-		// TODO: map mime type to file extension
-		dataFile, err := os.Open(filepath.Join(dst, "data", datum.GetId()+md.GetMimeType()))
+		gzippedBytes := datum.GetBinary()
+		r, err := gzip.NewReader(bytes.NewBuffer(gzippedBytes))
 		if err != nil {
 			return err
 		}
-		if _, err := dataFile.Write(binaryBytes); err != nil {
+
+		// TODO: map mime type to file extension
+		// TODO: We need to store file extension too. In sync we map from ext -> mime type, so this is already available.
+		dataFile, err := os.Create(filepath.Join(dst, "data", datum.GetId()+md.GetFileExt()))
+		if _, err := io.Copy(dataFile, r); err != nil {
 			return err
 		}
 		skip++

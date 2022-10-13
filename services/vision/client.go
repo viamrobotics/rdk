@@ -12,10 +12,10 @@ import (
 	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/vision/v1"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -316,7 +316,16 @@ func protoToObjects(pco []*commonpb.PointCloudObject) ([]*vision.Object, error) 
 		if err != nil {
 			return nil, err
 		}
-		objects[i], err = vision.NewObject(pc)
+		// Sets the label to the first non-empty label of any geometry; defaults to the empty string.
+		label := func() string {
+			for _, g := range o.Geometries.GetGeometries() {
+				if g.GetLabel() != "" {
+					return g.GetLabel()
+				}
+			}
+			return ""
+		}()
+		objects[i], err = vision.NewObjectWithLabel(pc, label)
 		if err != nil {
 			return nil, err
 		}

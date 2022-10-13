@@ -22,7 +22,7 @@ func TestPoseInFrame(t *testing.T) {
 
 func TestGeometriesInFrame(t *testing.T) {
 	pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
-	geometry, err := spatial.NewBox(pose, r3.Vector{4, 5, 6})
+	geometry, err := spatial.NewBox(pose, r3.Vector{4, 5, 6}, "")
 	geometryMap := make(map[string]spatial.Geometry)
 	geometryMap[""] = geometry
 	test.That(t, err, test.ShouldBeNil)

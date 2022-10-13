@@ -18,7 +18,7 @@ export default defineConfig({
     minify: 'terser',
     rollupOptions: {
       input: {
-        control: './src/main.js',
+        control: './src/main.ts',
         api: './src/api.ts',
       },
       output: {

@@ -95,6 +95,8 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, true)
 		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .5)
 
+		test.That(t, m.GoFor(ctx, 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
+
 		test.That(t, m.Stop(ctx, nil), test.ShouldBeNil)
 	})
 

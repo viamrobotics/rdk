@@ -15,7 +15,7 @@ import (
 )
 
 // Epsilon represents the acceptable discrepancy between two floats
-// representing spatial coordinates wherin the coordinates should be
+// representing spatial coordinates wherein the coordinates should be
 // considered equivalent.
 const Epsilon = 1e-8
 
@@ -179,11 +179,11 @@ func (d *distancePose) Orientation() Orientation {
 	return (*Quaternion)(&d.orientation)
 }
 
-// ResetPoseDQTransalation takes a Pose that must be a dualQuaternion and reset's it's translation.
-func ResetPoseDQTransalation(p Pose, v r3.Vector) {
+// ResetPoseDQTranslation takes a Pose that must be a dualQuaternion and reset's it's translation.
+func ResetPoseDQTranslation(p Pose, v r3.Vector) {
 	q, ok := p.(*dualQuaternion)
 	if !ok {
-		panic("ResetPoseDQTransalation has to be passed a dual quaternion")
+		panic("ResetPoseDQTranslation has to be passed a dual quaternion")
 	}
 	q.SetTranslation(v)
 }

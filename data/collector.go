@@ -14,12 +14,12 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	"go.viam.com/api/app/datasync/v1"
+	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
 
