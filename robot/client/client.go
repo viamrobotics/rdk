@@ -107,6 +107,18 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	} else {
 		refreshTime = *rOpts.refreshEvery
 	}
+	var checkConnectedTime time.Duration
+	if rOpts.refreshEvery == nil {
+		checkConnectedTime = 10 * time.Second
+	} else {
+		checkConnectedTime = *rOpts.checkConnectedEvery
+	}
+	var reconnectTime time.Duration
+	if rOpts.refreshEvery == nil {
+		reconnectTime = 10 * time.Second
+	} else {
+		reconnectTime = *rOpts.refreshEvery
+	}
 
 	if refreshTime > 0 {
 		rc.activeBackgroundWorkers.Add(1)
@@ -115,10 +127,10 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		}, rc.activeBackgroundWorkers.Done)
 	}
 
-	if rOpts.checkConnectedEvery != 0 {
+	if checkConnectedTime != 0 {
 		rc.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
-			rc.checkConnection(closeCtx, rOpts.checkConnectedEvery, rOpts.reconnectEvery)
+			rc.checkConnection(closeCtx, checkConnectedTime, reconnectTime)
 		}, rc.activeBackgroundWorkers.Done)
 	}
 
@@ -251,17 +263,11 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 		}
 		if !rc.connected {
 			rc.Logger().Debugw("trying to reconnect to remote at address", "address", rc.address)
-			for attempt := 0; attempt < 3; attempt++ {
-				if err := rc.connect(ctx); err != nil {
-					if attempt == 2 {
-						rc.Logger().Debugw("failed to reconnect remote", "error", err, "address", rc.address)
-					}
-					continue
-				} else {
-					rc.Logger().Debugw("successfully reconnected remote at address", "address", rc.address)
-					break
-				}
+			if err := rc.connect(ctx); err != nil {
+				rc.Logger().Debugw("failed to reconnect remote", "error", err, "address", rc.address)
+				continue
 			}
+			rc.Logger().Debugw("successfully reconnected remote at address", "address", rc.address)
 		} else {
 			check := func() error {
 				timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -324,14 +330,10 @@ func (rc *RobotClient) Close(ctx context.Context) error {
 }
 
 func (rc *RobotClient) checkConnected() error {
-	for attempt := 0; attempt < 3; attempt++ {
-		if !rc.connected {
-			continue
-		} else {
-			return nil
-		}
+	if !rc.connected {
+		return errors.Errorf("not connected to remote robot at %s", rc.address)
 	}
-	return errors.Errorf("not connected to remote robot at %s", rc.address)
+	return nil
 }
 
 // RefreshEvery refreshes the robot on the interval given by every until the
