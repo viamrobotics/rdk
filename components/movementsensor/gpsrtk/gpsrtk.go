@@ -68,7 +68,7 @@ type I2CAttrConfig struct {
 	I2CBaudRate int    `json:"i2c_baud_rate,omitempty"`
 }
 
-// ValidateRTK ensures all parts of the config are valid.
+// Validate ensures all parts of the config are valid.
 func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	var deps []string
 	switch cfg.CorrectionSource {

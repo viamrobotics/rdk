@@ -42,6 +42,7 @@ type Config struct {
 	TicksPerRotation int            `json:"ticks_per_rotation,omitempty"`
 }
 
+// Validate ensures all parts of the config are valid.
 func (config *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
@@ -51,10 +52,8 @@ func (config *Config) Validate(path string) ([]string, error) {
 	deps = append(deps, config.BoardName)
 	if config.Encoder != "" {
 		deps = append(deps, config.Encoder)
-	} else {
-		if config.MaxRPM <= 0 {
-			return nil, errors.New("unencoded motors requires a non-nul positive max_rpm ")
-		}
+	} else if config.MaxRPM <= 0 {
+		return nil, errors.New("unencoded motors requires a non-nul positive max_rpm ")
 	}
 	return deps, nil
 }

@@ -40,6 +40,7 @@ type Config struct {
 	TicksPerRotation int       `json:"ticks_per_rotation"`
 }
 
+// Validate ensures all parts of the config are valid.
 func (config *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if config.BoardName == "" {

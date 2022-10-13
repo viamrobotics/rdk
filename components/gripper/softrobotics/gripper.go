@@ -48,7 +48,8 @@ func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	}
 
 	if cfg.AnalogReader != "psi" {
-		return nil, utils.NewConfigValidationError(path, errors.Errorf("analog_reader %s on board must be created and called 'psi'", cfg.AnalogReader))
+		return nil, utils.NewConfigValidationError(path,
+			errors.Errorf("analog_reader %s on board must be created and called 'psi'", cfg.AnalogReader))
 	}
 	deps = append(deps, cfg.Board)
 	return deps, nil

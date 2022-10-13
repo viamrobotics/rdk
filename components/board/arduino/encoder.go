@@ -91,6 +91,7 @@ type EncoderConfig struct {
 	MotorName string      `json:"motor_name"`
 }
 
+// Validate ensures all parts of the config are valid.
 func (cfg *EncoderConfig) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.BoardName == "" {
