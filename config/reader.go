@@ -420,7 +420,7 @@ func readFromCloud(
 	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, cloudCfg, shouldReadFromCache, logger)
 	if err != nil {
 		if !cached {
-			err = errors.Wrapf(err, "error getting cloud config, please make sure the RDK config located in %v is valid", originalCfg.ConfigFilePath)
+			err = errors.Wrap(err, "error getting cloud config")
 		}
 		return nil, err
 	}
