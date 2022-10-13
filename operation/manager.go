@@ -103,8 +103,6 @@ func (sm *SingleOperationManager) WaitTillNotPowered(ctx context.Context, pollTi
 		pollTime,
 		func(ctx context.Context) (res bool, err error) {
 			res, err = powered.IsPowered(ctx, nil)
-			if err != nil {
-			}
 			return !res, err
 		},
 	)
