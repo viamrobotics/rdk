@@ -8,6 +8,7 @@ import (
 	"io"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
@@ -52,22 +53,19 @@ type Motor struct {
 	// which channel the motor is connected to on the controller
 	Channel int
 	// Simply indicates if the RDK _thinks_ the motor is moving, because this controller has no feedback, this may not reflect reality
-	jogging bool
-	// A manager to ensure only a single operation is happening at any given time since commands could overlap on the serial port
-	opMgr operation.SingleOperationManager
+	isOn bool
 	// dirFlip means that the motor is wired "backwards" from what we expect forward/backward to mean,
 	// so we need to "flip" the direction sent by control
 	dirFlip bool
-}
+	// the minimum power that can be set for the motor to prevent stalls
+	minPowerPct float64
+	// the maximum power that can be set for the motor
+	maxPowerPct float64
+	// the freewheel RPM of the motor
+	maxRPM float64
 
-// GoFor Not supported.
-func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	return errors.New("not supported")
-}
-
-// IsPowered returns if the motor is currently on or off.
-func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
-	return m.jogging, nil
+	// A manager to ensure only a single operation is happening at any given time since commands could overlap on the serial port
+	opMgr operation.SingleOperationManager
 }
 
 // Config adds DimensionEngineering-specific config options.
@@ -75,7 +73,9 @@ type Config struct {
 	// TestChan is a fake "serial" path for test use only
 	TestChan chan []byte `json:"-,omitempty"`
 	// path to /dev/ttyXXXX file
-	SerialDevice string `json:"serial_device"`
+	SerialPath string `json:"serial_path"`
+	// The baud rate of the controller
+	BaudRate int `json:"serial_baud_rate,omitempty"`
 	// Valid values are 1/2
 	Channel int `json:"channel"`
 	// Valid values are 128-135
@@ -85,18 +85,37 @@ type Config struct {
 	DirectionFlip bool `json:"dir_flip,omitempty"`
 	// A value to control how quickly the controller ramps to a particular setpoint
 	RampValue int `json:"ramp_value,omitempty"`
+	// The maximum freewheel rotational velocity of the motor after the final drive (maximum effective wheel speed)
+	MaxRPM float64 `json:"max_rpm,omitempty"`
+	// The name of the encoder used for this motor
+	Encoder string `json:"encoder,omitempty"`
+	// The lowest power percentage to allow for this motor. This is used to prevent motor stalls and overheating. Default is 0.0
+	MinPowerPct float64 `json:"min_power_pct,omitempty"`
+	// The max power percentage to allow for this motor. Default is 0.0
+	MaxPowerPct float64 `json:"max_power_pct,omitempty"`
+	// The number of ticks per rotation of this motor from the encoder
+	TicksPerRotation int `json:"ticks_per_rotation,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (cfg *Config) Validate(path string) error {
-	if cfg.SerialDevice == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "serial_device")
+	if cfg.SerialPath == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
 	if cfg.Channel < 1 || cfg.Channel > 2 {
-		return utils.NewConfigValidationFieldRequiredError(path, "channel")
+		return utils.NewConfigValidationError(path, errors.New("invalid channel, acceptable values are 1 and 2"))
 	}
 	if cfg.Address < 128 || cfg.Address > 135 {
-		return utils.NewConfigValidationFieldRequiredError(path, "address")
+		return utils.NewConfigValidationError(path, errors.New("invalid address, acceptable values are 128 thru 135"))
+	}
+	if cfg.BaudRate != 2400 && cfg.BaudRate != 9600 && cfg.BaudRate != 19200 && cfg.BaudRate != 38400 && cfg.BaudRate != 115200 {
+		return utils.NewConfigValidationError(path, errors.New("invalid baud_rate, acceptable values are 2400, 9600, 19200, 38400, 115200"))
+	}
+	if cfg.MinPowerPct < 0.0 || cfg.MinPowerPct > cfg.MaxPowerPct {
+		return utils.NewConfigValidationError(path, errors.New("invalid min_power_pct, acceptable values are 0 to max_power_pct"))
+	}
+	if cfg.MaxPowerPct > 100.0 {
+		return utils.NewConfigValidationError(path, errors.New("invalid max_power_pct, acceptable values are min_power_pct to 100.0"))
 	}
 
 	return nil
@@ -134,9 +153,44 @@ func init() {
 	)
 }
 
+func newController(c *Config, logger golog.Logger) (*controller, error) {
+	if c.Address < 128 || c.Address > 135 {
+		return nil, errors.New("address is out of range. valid addresses are 127 to 135")
+	}
+	ctrl := new(controller)
+	ctrl.activeAxes = make(map[int]bool)
+	ctrl.serialDevice = c.SerialPath
+	ctrl.logger = logger
+	ctrl.address = c.Address
+
+	if c.TestChan != nil {
+		ctrl.testChan = c.TestChan
+	} else {
+		serialOptions := serial.OpenOptions{
+			PortName:          c.SerialPath,
+			BaudRate:          9600,
+			DataBits:          8,
+			StopBits:          1,
+			MinimumReadSize:   1,
+			RTSCTSFlowControl: true,
+		}
+
+		port, err := serial.Open(serialOptions)
+		if err != nil {
+			return nil, err
+		}
+		ctrl.port = port
+	}
+
+	ctrl.activeAxes[1] = false
+	ctrl.activeAxes[2] = false
+
+	return ctrl, nil
+}
+
 // NewMotor returns a Sabertooth driven motor.
 func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalMotor, error) {
-	if c.SerialDevice == "" {
+	if c.SerialPath == "" {
 		devs := usb.Search(usbFilter, func(vendorID, productID int) bool {
 			if vendorID == 0x403 && productID == 0x6001 {
 				return true
@@ -145,20 +199,20 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 		})
 
 		if len(devs) > 0 {
-			c.SerialDevice = devs[0].Path
+			c.SerialPath = devs[0].Path
 		} else {
 			return nil, errors.New("couldn't find Sabertooth serial connection")
 		}
 	}
 
 	globalMu.Lock()
-	ctrl, ok := controllers[c.SerialDevice]
+	ctrl, ok := controllers[c.SerialPath]
 	if !ok {
 		newCtrl, err := newController(c, logger)
 		if err != nil {
 			return nil, err
 		}
-		controllers[c.SerialDevice] = newCtrl
+		controllers[c.SerialPath] = newCtrl
 		ctrl = newCtrl
 	}
 	globalMu.Unlock()
@@ -176,10 +230,23 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 	}
 	ctrl.activeAxes[c.Channel] = true
 
+	// We don't need to convert MinPowerPct because unset it will be 0, which is a safe default
+	minPowerPct := c.MinPowerPct
+
+	// Convert the MaxPowerPct to a default of 100, or whatever the user supplies
+	var maxPowerPct float64
+	if c.MaxPowerPct != 0.0 {
+		maxPowerPct = c.MaxPowerPct
+	} else {
+		maxPowerPct = 100.0
+	}
+
 	m := &Motor{
-		c:       ctrl,
-		Channel: c.Channel,
-		dirFlip: c.DirectionFlip,
+		c:           ctrl,
+		Channel:     c.Channel,
+		dirFlip:     c.DirectionFlip,
+		minPowerPct: minPowerPct,
+		maxPowerPct: maxPowerPct,
 	}
 
 	if err := m.configure(c); err != nil {
@@ -199,6 +266,11 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 	}
 
 	return m, nil
+}
+
+// IsPowered returns if the motor is currently on or off.
+func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	return m.isOn, nil
 }
 
 // Close stops the motor and marks the axis inactive.
@@ -233,41 +305,6 @@ func (m *Motor) Close() {
 	delete(controllers, m.c.serialDevice)
 }
 
-func newController(c *Config, logger golog.Logger) (*controller, error) {
-	if c.Address < 128 || c.Address > 135 {
-		return nil, errors.New("address is out of range. valid addresses are 127 to 135")
-	}
-	ctrl := new(controller)
-	ctrl.activeAxes = make(map[int]bool)
-	ctrl.serialDevice = c.SerialDevice
-	ctrl.logger = logger
-	ctrl.address = c.Address
-
-	if c.TestChan != nil {
-		ctrl.testChan = c.TestChan
-	} else {
-		serialOptions := serial.OpenOptions{
-			PortName:          c.SerialDevice,
-			BaudRate:          9600,
-			DataBits:          8,
-			StopBits:          1,
-			MinimumReadSize:   1,
-			RTSCTSFlowControl: true,
-		}
-
-		port, err := serial.Open(serialOptions)
-		if err != nil {
-			return nil, err
-		}
-		ctrl.port = port
-	}
-
-	ctrl.activeAxes[1] = false
-	ctrl.activeAxes[2] = false
-
-	return ctrl, nil
-}
-
 // Must be run inside a lock.
 func (m *Motor) configure(c *Config) error {
 	// Turn off the motor with opMixedDrive and a value of 64 (stop)
@@ -293,7 +330,7 @@ func (c *controller) sendCmd(cmd *command) error {
 // SetPower instructs the motor to go in a specific direction at a percentage
 // of power between -1 and 1. Scaled to MaxRPM.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	if math.Abs(powerPct) < 0.001 {
+	if math.Abs(powerPct) < m.minPowerPct {
 		return m.Stop(ctx, extra)
 	}
 	if powerPct > 1 {
@@ -305,7 +342,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	m.opMgr.CancelRunning(ctx)
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
-	m.jogging = true
+	m.isOn = true
 
 	rawSpeed := powerPct * maxSpeed
 	if math.Signbit(rawSpeed) {
@@ -335,6 +372,30 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	}
 	err = m.c.sendCmd(c)
 	return err
+}
+
+// GoFor moves an inputted number of revolutions at the given rpm, no encoder is present
+// for this so power is determined via a linear relationship with the maxRPM and the distance
+// traveled is a time based estimation based on desired RPM.
+func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+	if m.maxRPM == 0 {
+		return errors.New("not supported, define max_rpm attribute != 0")
+	}
+
+	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
+	err := m.SetPower(ctx, powerPct, extra)
+	if err != nil {
+		return err
+	}
+
+	if revolutions == 0 {
+		return nil
+	}
+
+	if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
+		return m.Stop(ctx, extra)
+	}
+	return nil
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
@@ -367,7 +428,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	_, done := m.opMgr.New(ctx)
 	defer done()
 
-	m.jogging = false
+	m.isOn = false
 	cmd, err := newCommand(m.c.address, singleForward, m.Channel, 0)
 	if err != nil {
 		return err
@@ -379,7 +440,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 
 // IsMoving returns whether the motor is currently moving.
 func (m *Motor) IsMoving(ctx context.Context) (bool, error) {
-	return m.jogging, nil
+	return m.isOn, nil
 }
 
 // DoCommand executes additional commands beyond the Motor{} interface.
@@ -460,4 +521,25 @@ func newCommand(controllerAddress int, motorMode commandCode, channel int, data 
 
 func (c *command) ToPacket() []byte {
 	return []byte{c.Address, c.Op, c.Data, c.Checksum}
+}
+
+// If revolutions is 0, the returned wait duration will be 0 representing that
+// the motor should run indefinitely.
+func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
+	// need to do this so time is reasonable
+	if rpm > maxRPM {
+		rpm = maxRPM
+	} else if rpm < -1*maxRPM {
+		rpm = -1 * maxRPM
+	}
+
+	if revolutions == 0 {
+		powerPct := rpm / maxRPM
+		return powerPct, 0
+	}
+
+	dir := rpm * revolutions / math.Abs(revolutions*rpm)
+	powerPct := math.Abs(rpm) / maxRPM * dir
+	waitDur := time.Duration(math.Abs(revolutions/rpm)*60*1000) * time.Millisecond
+	return powerPct, waitDur
 }

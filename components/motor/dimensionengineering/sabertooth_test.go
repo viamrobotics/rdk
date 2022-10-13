@@ -33,7 +33,7 @@ func TestSabertoothMotor(t *testing.T) {
 	deps := make(registry.Dependencies)
 
 	mc1 := dimensionengineering.Config{
-		SerialDevice:  "testchan",
+		SerialPath:    "testchan",
 		Channel:       1,
 		TestChan:      c,
 		Address:       128,
@@ -81,7 +81,7 @@ func TestSabertoothMotor(t *testing.T) {
 	})
 
 	mc2 := dimensionengineering.Config{
-		SerialDevice:  "testchan",
+		SerialPath:    "testchan",
 		Channel:       2,
 		TestChan:      c,
 		Address:       128,
@@ -132,7 +132,7 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 	deps := make(registry.Dependencies)
 
 	mc1 := dimensionengineering.Config{
-		SerialDevice:  "testchan",
+		SerialPath:    "testchan",
 		Channel:       1,
 		TestChan:      c,
 		Address:       128,
@@ -157,7 +157,7 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 	t.Run("motor SetPower testing", func(t *testing.T) {
 		// Test 0 (aka "stop")
 		test.That(t, motor1.SetPower(ctx, 0, nil), test.ShouldBeNil)
-		checkTx(t, resChan, c, []byte{0x80, 0x00, 0x00, 0x00})
+		checkTx(t, resChan, c, []byte{0x80, 0x01, 0x00, 0x01})
 
 		// Test 0.5 of max power
 		test.That(t, motor1.SetPower(ctx, 0.5, nil), test.ShouldBeNil)
@@ -169,11 +169,11 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 
 		// Test 0 (aka "stop")
 		test.That(t, motor1.SetPower(ctx, 0, nil), test.ShouldBeNil)
-		checkTx(t, resChan, c, []byte{0x80, 0x00, 0x00, 0x00})
+		checkTx(t, resChan, c, []byte{0x80, 0x01, 0x00, 0x01})
 	})
 
 	mc2 := dimensionengineering.Config{
-		SerialDevice:  "testchan",
+		SerialPath:    "testchan",
 		Channel:       2,
 		TestChan:      c,
 		Address:       128,
@@ -200,7 +200,7 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 	t.Run("motor SetPower testing", func(t *testing.T) {
 		// Test 0 (aka "stop")
 		test.That(t, motor2.SetPower(ctx, 0, nil), test.ShouldBeNil)
-		checkTx(t, resChan, c, []byte{0x80, 0x04, 0x00, 0x04})
+		checkTx(t, resChan, c, []byte{0x80, 0x05, 0x00, 0x05})
 
 		// Test 0.5 of max power
 		test.That(t, motor2.SetPower(ctx, 0.5, nil), test.ShouldBeNil)
@@ -212,7 +212,7 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 
 		// Test 0 (aka "stop")
 		test.That(t, motor2.SetPower(ctx, 0, nil), test.ShouldBeNil)
-		checkTx(t, resChan, c, []byte{0x80, 0x04, 0x00, 0x04})
+		checkTx(t, resChan, c, []byte{0x80, 0x05, 0x00, 0x05})
 	})
 }
 
@@ -224,11 +224,11 @@ func TestSabertoothRampConfig(t *testing.T) {
 	deps := make(registry.Dependencies)
 
 	mc1 := dimensionengineering.Config{
-		SerialDevice: "testchan",
-		Channel:      1,
-		TestChan:     c,
-		Address:      128,
-		RampValue:    100,
+		SerialPath: "testchan",
+		Channel:    1,
+		TestChan:   c,
+		Address:    128,
+		RampValue:  100,
 	}
 
 	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
@@ -246,4 +246,29 @@ func TestSabertoothRampConfig(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = motor1.(motor.LocalMotor)
 	test.That(t, ok, test.ShouldBeTrue)
+}
+
+func TestSabertoothAddressMapping(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	c := make(chan []byte, 1024)
+	resChan := make(chan string, 1024)
+	deps := make(registry.Dependencies)
+
+	mc1 := dimensionengineering.Config{
+		SerialPath: "testchan",
+		Channel:    1,
+		TestChan:   c,
+		Address:    129,
+	}
+
+	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
+	test.That(t, motorReg, test.ShouldNotBeNil)
+
+	// These are the setup register writes
+	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer utils.TryClose(ctx, m1)
+
+	checkTx(t, resChan, c, []byte{0x81, 0x00, 0x00, 0x01})
 }
