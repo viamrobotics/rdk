@@ -91,10 +91,6 @@ func goToProto(v interface{}) (*structpb.Value, error) {
 		}
 	}
 
-	v, err := toInterface(v)
-	if err != nil {
-		return nil, err
-	}
 	return structpb.NewValue(v)
 }
 

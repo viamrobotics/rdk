@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
+	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/protoutils"
@@ -41,7 +42,7 @@ func (c *client) Move(
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
-	ext, err := protoutils.StructToStructPb(extra)
+	ext, err := vprotoutils.StructToStructPb(extra)
 	if err != nil {
 		return false, err
 	}
@@ -65,7 +66,7 @@ func (c *client) MoveSingleComponent(
 	worldState *commonpb.WorldState,
 	extra map[string]interface{},
 ) (bool, error) {
-	ext, err := protoutils.StructToStructPb(extra)
+	ext, err := vprotoutils.StructToStructPb(extra)
 	if err != nil {
 		return false, err
 	}
@@ -89,7 +90,7 @@ func (c *client) GetPose(
 	supplementalTransforms []*commonpb.Transform,
 	extra map[string]interface{},
 ) (*referenceframe.PoseInFrame, error) {
-	ext, err := protoutils.StructToStructPb(extra)
+	ext, err := vprotoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}

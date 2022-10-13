@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 //go:embed vgripper_model.json
@@ -29,17 +30,44 @@ var vgripperv1json []byte
 // modelName is used to register the gripper to a model name.
 const modelName = "viam-v1"
 
+// AttrConfig is the config for a viam gripper.
+type AttrConfig struct {
+	Board         string `json:"board"`
+	PressureLimit int    `json:"pressure_limit"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *AttrConfig) Validate(path string) error {
+	if config.Board == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+
+	if config.PressureLimit == 0 {
+		return utils.NewConfigValidationFieldRequiredError(path, "pressure_limit")
+	}
+	return nil
+}
+
 func init() {
 	registry.RegisterComponent(gripper.Subtype, modelName, registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
-			const boardName = "local"
-			b, err := board.FromDependencies(deps, boardName)
+			attr, ok := config.ConvertedAttributes.(*AttrConfig)
+			if !ok {
+				return nil, rdkutils.NewUnexpectedTypeError(attr, config.ConvertedAttributes)
+			}
+			b, err := board.FromDependencies(deps, attr.Board)
 			if err != nil {
 				return nil, err
 			}
 			return newGripperV1(ctx, deps, b, config, logger)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(gripper.SubtypeName, modelName,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &AttrConfig{})
 }
 
 // TODO.
@@ -81,7 +109,14 @@ func newGripperV1(
 	cfg config.Component,
 	logger golog.Logger,
 ) (gripper.LocalGripper, error) {
-	pressureLimit := cfg.Attributes.Int("pressure_limit", 800)
+	attr, ok := cfg.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(attr, cfg.ConvertedAttributes)
+	}
+	pressureLimit := attr.PressureLimit
+	if pressureLimit == 0 {
+		pressureLimit = 800
+	}
 	_motor, err := motor.FromDependencies(deps, "g")
 	if err != nil {
 		return nil, err

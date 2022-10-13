@@ -13,7 +13,7 @@ import (
 
 func TestDubinsRRT(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	robotGeometry, err := spatial.NewBoxCreator(r3.Vector{X: 1, Y: 1, Z: 1}, spatial.NewZeroPose())
+	robotGeometry, err := spatial.NewBoxCreator(r3.Vector{X: 1, Y: 1, Z: 1}, spatial.NewZeroPose(), "")
 	test.That(t, err, test.ShouldEqual, nil)
 	limits := []frame.Limit{{Min: -10, Max: 10}, {Min: -10, Max: 10}}
 
@@ -56,7 +56,8 @@ func TestDubinsRRT(t *testing.T) {
 	obstacleGeometries := map[string]spatial.Geometry{}
 	box, err := spatial.NewBox(spatial.NewPoseFromPoint(
 		r3.Vector{X: 5, Y: 0, Z: 0}), // Center of box
-		r3.Vector{X: 1, Y: 20, Z: 1}) // Dimensions of box
+		r3.Vector{X: 1, Y: 20, Z: 1}, // Dimensions of box
+		"")
 	test.That(t, err, test.ShouldEqual, nil)
 	obstacleGeometries["1"] = box
 	test.That(t, testDubin(obstacleGeometries), test.ShouldBeFalse)

@@ -2,15 +2,14 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import type Motor from '../gen/proto/api/component/motor/v1/motor_pb.esm';
-import motorApi from '../gen/proto/api/component/motor/v1/motor_pb.esm';
+import motorApi, { type Status } from '../gen/proto/api/component/motor/v1/motor_pb.esm';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import InfoButton from './info-button.vue';
 
 interface Props {
   name: string
-  status: Motor.Status.AsObject
+  status: Status.AsObject
 }
 
 const props = defineProps<Props>();
@@ -54,7 +53,8 @@ const setDirection = (value: string) => {
   }
 };
 
-const setPower = (powerPct: number) => {
+const setPower = () => {
+  const powerPct = power * direction / 100;
   const req = new motorApi.SetPowerRequest();
   req.setName(props.name);
   req.setPowerPct(powerPct);
@@ -63,21 +63,21 @@ const setPower = (powerPct: number) => {
   window.motorService.setPower(req, new grpc.Metadata(), displayError);
 };
 
-const goFor = (rpm: number, revolutions: number) => {
+const goFor = () => {
   const req = new motorApi.GoForRequest();
   req.setName(props.name);
-  req.setRpm(rpm);
+  req.setRpm(rpm * direction);
   req.setRevolutions(revolutions);
 
   rcLogConditionally(req);
   window.motorService.goFor(req, new grpc.Metadata(), displayError);
 };
 
-const goTo = (rpm: number, positionRevolutions: number) => {
+const goTo = () => {
   const req = new motorApi.GoToRequest();
   req.setName(props.name);
   req.setRpm(rpm);
-  req.setPositionRevolutions(positionRevolutions);
+  req.setPositionRevolutions(position);
 
   rcLogConditionally(req);
   window.motorService.goTo(req, new grpc.Metadata(), displayError);
@@ -86,14 +86,11 @@ const goTo = (rpm: number, positionRevolutions: number) => {
 const motorRun = () => {
   switch (type) {
     case 'go':
-      setPower(power * direction / 100);
-      break;
+      return setPower();
     case 'goFor':
-      goFor(rpm * direction, revolutions);
-      break;
+      return goFor();
     case 'goTo':
-      goTo(rpm, position);
-      break;
+      return goTo();
   }
 };
 

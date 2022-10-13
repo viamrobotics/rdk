@@ -1,32 +1,32 @@
 <script setup lang="ts">
 
-import { ref } from 'vue';
 import { onClickOutside } from '@vueuse/core';
 import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from '@mdi/js';
 import Icon from './icon.vue';
+import { grpc } from '@improbable-eng/grpc-web';
+import { displayError } from '../lib/error';
+import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
 
 interface Emits {
   (event: 'keyboard-ctl', pressedKeys: Record<string, boolean>): void
 }
 
+interface Props {
+  name: string;
+}
+
 const emit = defineEmits<Emits>();
+const props = defineProps<Props>();
 
-const pressedKeysMap = {
-  w: 'forward',
-  s: 'backward',
-  a: 'left',
-  d: 'right',
-} as const;
-
-const pressedKeys = ref({
+const pressedKeys = $ref({
   forward: false,
   left: false,
   backward: false,
   right: false,
 });
 
-const root = ref();
-const isActive = ref(false);
+const root = $ref<HTMLElement>();
+let isActive = $ref(false);
 
 const keyLetters = {
   forward: 'W',
@@ -44,40 +44,57 @@ const keyIcons = {
 
 const keysLayout = [['forward'], ['left', 'backward', 'right']] as const;
 
-const setKeyPressed = (key: keyof typeof pressedKeys.value, value = true) => {
-  pressedKeys.value[key] = value;
-  emit('keyboard-ctl', pressedKeys.value);
+const setKeyPressed = (key: 'forward' | 'left' | 'backward' | 'right', value = true) => {
+  pressedKeys[key] = value;
+  emit('keyboard-ctl', pressedKeys);
 };
 
 const onUseKeyboardNav = (event: KeyboardEvent) => {
-  const key = pressedKeysMap[event.key as 'w' | 's' | 'a' | 'd'];
-
-  if (!key) {
-    return; 
-  }
-
-  setKeyPressed(key, event.type === 'keydown');
   event.preventDefault();
-};
 
-const toggleKeyboard = () => {
-  if (isActive.value) {
-    removeKeyboardListeners();
-  } else {
-    addKeyboardListeners();
+  const down = event.type === 'keydown';
+
+  switch (event.key.toLowerCase()) {
+    case 'arrowleft':
+    case 'a':
+      return setKeyPressed('left', down);
+    case 'arrowright':
+    case 'd':
+      return setKeyPressed('right', down);
+    case 'arrowup':
+    case 'w':
+      return setKeyPressed('forward', down);
+    case 'arrowdown':
+    case 's':
+      return setKeyPressed('backward', down);
   }
 };
 
 const addKeyboardListeners = () => {
-  isActive.value = true;
+  isActive = true;
   window.addEventListener('keydown', onUseKeyboardNav, false);
   window.addEventListener('keyup', onUseKeyboardNav, false);
 };
 
 const removeKeyboardListeners = () => {
-  isActive.value = false;
+  isActive = false;
   window.removeEventListener('keydown', onUseKeyboardNav);
   window.removeEventListener('keyup', onUseKeyboardNav);
+};
+
+const stopBase = () => {
+  const req = new baseApi.StopRequest();
+  req.setName(props.name);
+  window.baseService.stop(req, new grpc.Metadata(), displayError);
+};
+
+const toggleKeyboard = () => {
+  if (isActive) {
+    removeKeyboardListeners();
+    stopBase();
+  } else {
+    addKeyboardListeners();
+  }
 };
 
 onClickOutside(root, () => {

@@ -1,5 +1,5 @@
 # This file is NOT optimized for human-readability - please use the
-# `license_finder` program to read and edit it: <TODO: add link to README instructions>
+# `license_finder` program to read and edit it: https://github.com/viamrobotics/rdk#license-check
 ---
 - - :permit
   - MIT
@@ -116,26 +116,12 @@
     :license_links: https://github.com/gonum/plot/blob/c2b63591159b9dceb2cbf953702691d2a2fe7a6d/LICENSE
     :versions: []
     :when: 2022-08-15 15:56:25.026774237 Z
-- - :ignore
-  - github.com/tonyOreglia/glee
-  - :who:
-    :why:
-      'TODO(RSDK-579): temporarily ignoring to pass CI - need to find what license
-      this library uses'
-    :versions: []
-    :when: 2022-08-29 22:18:31.897842380 Z
 - - :permit
   - Creative Commons Attribution 4.0 International Public License
   - :who:
     :why:
     :versions: []
     :when: 2022-08-29 22:26:18.925886068 Z
-- - :ignore
-  - go.viam.com/api
-  - :who:
-    :why: this is our library
-    :versions: []
-    :when: 2022-08-30 15:13:46.282776672 Z
 - - :permit
   - GPLv3
   - :who:
@@ -155,22 +141,20 @@
   - :who:
     :why: https://github.com/goburrow/modbus/blob/606c02f4eef527a1d4cf7d8733d5fd7ba34f91d8/LICENSE
     :versions: []
-    :when: 2022-08-30 15:40:18.342840322 Z
-- - :ignore
+    :when: 2022-09-14 16:27:17.872831000 Z
+- - :approve
   - github.com/ziutek/mymysql
   - :who:
-    :why:
-      'TODO(RSDK-580): temporarily ignoring to pass CI - it has an unnamed license
-      that looks like New BSD'
+    :why: license language is compatible with AGPL
     :versions: []
-    :when: 2022-08-30 15:57:05.777568049 Z
+    :when: 2022-09-14 16:27:17.872831000 Z
     :license_links: https://github.com/ziutek/mymysql/blob/fffb8880277462abe6f4526dbd69a1982f9437b6/LICENSE
-- - :ignore
+- - :license
   - github.com/golang/freetype
+  - GPLv2+
   - :who:
-    :why:
-      'TODO(RSDK-581): temporarily ignoring to pass CI - it permits one of two
-      licenses. See ticket for details.'
+    :why: we are allowed to choose one of two licenses (freetype or GPL version 2
+      or higher) - we are choosing the latter
     :versions: []
     :when: 2022-08-30 16:08:52.919938114 Z
     :license_links: https://github.com/golang/freetype/blob/e2365dfdc4a05e4b8299a783240d4a7d5a65d4e4/LICENSE
@@ -226,3 +210,9 @@
     :license_links: 'https://github.com/viamrobotics/evdev/blob/5a415229fba9557cca9bfedc7ba89cb48f28fab0/LICENSE'
     :versions: []
     :when: 2022-08-31 20:13:08.147340927 Z
+- - :permit
+  - GPLv2+
+  - :who:
+    :why:
+    :versions: []
+    :when: 2022-09-16 15:13:54.129990412 Z

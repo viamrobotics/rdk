@@ -4,11 +4,12 @@ import { ref } from 'vue';
 import { computeKeyboardBaseControls, BaseControlHelper } from '../rc/control_helpers';
 import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
 import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
-import streamApi from '../gen/proto/stream/v1/stream_pb.esm';
 import { toast } from '../lib/toast';
 import { filterResources, type Resource } from '../lib/resource';
 import { displayError } from '../lib/error';
 import KeyboardInput from './keyboard-input.vue';
+import { addStream, removeStream } from '../lib/stream';
+import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
 
 interface Props {
   name: string;
@@ -35,20 +36,11 @@ const movementType = ref<MovementTypes>('Continuous');
 const direction = ref<Directions>('Forwards');
 const spinType = ref<SpinTypes>('Clockwise');
 const increment = ref(1000);
-const speed = ref(200); // straight mm/s
-const spinSpeed = ref(90); // spin deg/s
+// straight mm/s
+const speed = ref(200);
+// deg/s
+const spinSpeed = ref(90);
 const angle = ref(0);
-
-const handleTabSelect = (tab: Tabs) => {
-  selectedItem.value = tab;
-
-  if (tab === 'Keyboard') {
-    viewPreviewCamera(props.name, true);
-  } else {
-    viewPreviewCamera(props.name, false);
-    resetDiscreteState();
-  }
-};
 
 const resetDiscreteState = () => {
   movementMode.value = 'Straight';
@@ -73,6 +65,52 @@ const setDirection = (dir: Directions) => {
   direction.value = dir;
 };
 
+const handleBaseActionStop = (name: string) => {
+  const req = new baseApi.StopRequest();
+  req.setName(name);
+  window.baseService.stop(req, new grpc.Metadata(), displayError);
+};
+
+const baseKeyboardCtl = (name: string, controls: Record<string, boolean>) => {
+  if (Object.values(controls).every((item) => item === false)) {
+    handleBaseActionStop(name);
+    return;
+  }
+
+  const inputs = computeKeyboardBaseControls(controls);
+  const linear = new commonApi.Vector3();
+  const angular = new commonApi.Vector3();
+  linear.setY(inputs.linear);
+  angular.setZ(inputs.angular);
+  BaseControlHelper.setPower(name, linear, angular, displayError);
+};
+
+const handleBaseStraight = (name: string, event: {
+  distance: number
+  speed: number
+  direction: number
+  movementType: MovementTypes
+}) => {
+  if (event.movementType === 'Continuous') {
+    const linear = new commonApi.Vector3();
+    linear.setY(event.speed * event.direction);
+
+    BaseControlHelper.setVelocity(
+      name,
+      linear,
+      new commonApi.Vector3(),
+      displayError
+    );
+  } else {
+    BaseControlHelper.moveStraight(
+      name,
+      event.distance,
+      event.speed * event.direction,
+      displayError
+    );
+  }
+};
+
 const baseRun = () => {
   if (movementMode.value === 'Spin') {
     BaseControlHelper.spin(
@@ -93,68 +131,38 @@ const baseRun = () => {
   }
 };
 
-const baseKeyboardCtl = (name: string, controls: Record<string, boolean>) => {
-  if (Object.values(controls).every((item) => item === false)) {
-    handleBaseActionStop(name);
-    return;
-  }
-
-  const inputs = computeKeyboardBaseControls(controls);
-  const linear = new commonApi.Vector3();
-  const angular = new commonApi.Vector3();
-  linear.setY(inputs.linear);
-  angular.setZ(inputs.angular);
-  BaseControlHelper.setPower(name, linear, angular, displayError);
-};
-
-const handleBaseActionStop = (name: string) => {
-  const req = new baseApi.StopRequest();
-  req.setName(name);
-  window.baseService.stop(req, new grpc.Metadata(), displayError);
-};
-
-const handleBaseStraight = (name: string, event: {
-  distance: number
-  speed: number
-  direction: number
-  movementType: MovementTypes
-}) => {
-  if (event.movementType === 'Continuous') {
-    const linear = new commonApi.Vector3();
-    linear.setY(event.speed * event.direction);
-
-    BaseControlHelper.setVelocity(
-      name,
-      linear, // linear
-      new commonApi.Vector3(), // angular
-      displayError
-    );
-  } else {
-    BaseControlHelper.moveStraight(
-      name,
-      event.distance,
-      event.speed * event.direction,
-      displayError
-    );
-  }
-};
-
-const viewPreviewCamera = (name: string, isOn: boolean) => {
+const viewPreviewCamera = async (name: string, isOn: boolean) => {
   if (isOn) {
-    const req = new streamApi.AddStreamRequest();
-    req.setName(name);
-    window.streamService.addStream(req, new grpc.Metadata(), displayError);
+    try {
+      await addStream(name);
+    } catch (error) {
+      displayError(error as ServiceError);
+    }
     return;
   }
 
-  const req = new streamApi.RemoveStreamRequest();
-  req.setName(name);
-  window.streamService.removeStream(req, new grpc.Metadata(), displayError);
+  try {
+    await removeStream(name);
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
+};
+
+const handleTabSelect = (tab: Tabs) => {
+  selectedItem.value = tab;
+
+  if (tab === 'Keyboard') {
+    viewPreviewCamera(props.name, true);
+  } else {
+    viewPreviewCamera(props.name, false);
+    resetDiscreteState();
+  }
 };
 
 const handleSelectCamera = (event: string) => {
   emit('showcamera', event);
 };
+
 </script>
 
 <template>
@@ -188,7 +196,10 @@ const handleSelectCamera = (event: string) => {
       >
         <div class="grid grid-cols-2">
           <div class="mt-2">
-            <KeyboardInput @keyboard-ctl="baseKeyboardCtl(name, $event)" />
+            <KeyboardInput
+              :name="name"
+              @keyboard-ctl="baseKeyboardCtl(name, $event)"
+            />
           </div>
           <div v-if="filterResources(resources, 'rdk', 'component', 'camera')">
             <v-select
@@ -213,7 +224,7 @@ const handleSelectCamera = (event: string) => {
             >
               <div
                 v-if="basecamera"
-                :id="`stream-preview-${basecamera.name}`"
+                :data-stream-preview="basecamera.name"
                 class="mb-4 border border-white"
               />
             </template>

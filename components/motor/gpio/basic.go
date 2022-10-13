@@ -129,10 +129,10 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 
 	if math.Abs(powerPct) <= 0.001 {
 		if m.EnablePinLow != nil {
-			errs = m.EnablePinLow.Set(ctx, true, extra)
+			errs = multierr.Combine(errs, m.EnablePinLow.Set(ctx, true, extra))
 		}
 		if m.EnablePinHigh != nil {
-			errs = m.EnablePinHigh.Set(ctx, false, extra)
+			errs = multierr.Combine(errs, m.EnablePinHigh.Set(ctx, false, extra))
 		}
 
 		if m.A != nil && m.B != nil {
@@ -252,6 +252,9 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	if m.maxRPM == 0 {
 		return errors.New("not supported, define max_rpm attribute != 0")
+	}
+	if rpm == 0 {
+		return motor.NewZeroRPMError()
 	}
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)

@@ -120,7 +120,7 @@ func AllResourcesByName(r Robot, name string) []interface{} {
 	all := []interface{}{}
 
 	for _, n := range r.ResourceNames() {
-		if n.Name == name {
+		if n.ShortName() == name {
 			r, err := r.ResourceByName(n)
 			if err != nil {
 				panic("this should be impossible")

@@ -185,7 +185,7 @@ func TestTFLiteDetectionSource(t *testing.T) {
 }
 
 func BenchmarkColorDetectionSource(b *testing.B) {
-	logger := golog.NewDevelopmentLogger("benchmark-color")
+	logger := golog.NewDebugLogger("benchmark-color")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -221,7 +221,7 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 }
 
 func BenchmarkTFLiteDetectionSource(b *testing.B) {
-	logger := golog.NewDevelopmentLogger("benchmark-tflite")
+	logger := golog.NewDebugLogger("benchmark-tflite")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

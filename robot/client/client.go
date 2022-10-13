@@ -17,6 +17,7 @@ import (
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
@@ -26,7 +27,7 @@ import (
 	"go.viam.com/rdk/discovery"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/protoutils"
+	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -424,7 +425,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 				return nil, nil, errors.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
 			}
 			resTypes = append(resTypes, resource.RPCSubtype{
-				Subtype: protoutils.ResourceNameFromProto(resSubtype.Subtype).Subtype,
+				Subtype: rprotoutils.ResourceNameFromProto(resSubtype.Subtype).Subtype,
 				Desc:    svcDesc,
 			})
 		}
@@ -437,7 +438,7 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 	resources := make([]resource.Name, 0, len(resp.Resources))
 
 	for _, name := range resp.Resources {
-		newName := protoutils.ResourceNameFromProto(name)
+		newName := rprotoutils.ResourceNameFromProto(name)
 		resources = append(resources, newName)
 	}
 
@@ -628,7 +629,7 @@ func (rc *RobotClient) TransformPose(
 func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
 	names := make([]*commonpb.ResourceName, 0, len(resourceNames))
 	for _, name := range resourceNames {
-		names = append(names, protoutils.ResourceNameToProto(name))
+		names = append(names, rprotoutils.ResourceNameToProto(name))
 	}
 
 	resp, err := rc.client.GetStatus(ctx, &pb.GetStatusRequest{ResourceNames: names})
@@ -640,7 +641,7 @@ func (rc *RobotClient) Status(ctx context.Context, resourceNames []resource.Name
 	for _, status := range resp.Status {
 		statuses = append(
 			statuses, robot.Status{
-				Name:   protoutils.ResourceNameFromProto(status.Name),
+				Name:   rprotoutils.ResourceNameFromProto(status.Name),
 				Status: status.Status.AsMap(),
 			})
 	}
@@ -657,7 +658,7 @@ func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[
 			continue
 		}
 		p := &pb.StopExtraParameters{
-			Name:   protoutils.ResourceNameToProto(name),
+			Name:   rprotoutils.ResourceNameToProto(name),
 			Params: param,
 		}
 		e = append(e, p)

@@ -19,6 +19,7 @@ type ColorObjectsConfig struct {
 	MeanK            int     `json:"mean_k"`       // used for StatisticalFilter
 	Sigma            float64 `json:"sigma"`        // used for StatisticalFilter
 	MinSegmentSize   int     `json:"min_points_in_segment"`
+	Label            string  `json:"label,omitempty"`
 }
 
 // CheckValid checks to see in the input values are valid.
@@ -67,6 +68,7 @@ func ColorObjects(params config.AttributeMap) (Segmenter, error) {
 		SaturationCutoff:  cfg.SaturationCutoff,
 		ValueCutoff:       cfg.ValueCutoff,
 		DetectColorString: cfg.Color,
+		Label:             cfg.Label,
 	}
 	detector, err := objectdetection.NewColorDetector(detCfg)
 	if err != nil {

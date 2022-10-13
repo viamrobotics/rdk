@@ -246,9 +246,10 @@ func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
 		}
 	} else {
 		md = &v1.UploadMetadata{
-			PartId:   partID,
-			Type:     v1.DataType_DATA_TYPE_FILE,
-			FileName: filepath.Base(f.Name()),
+			PartId:        partID,
+			Type:          v1.DataType_DATA_TYPE_FILE,
+			FileName:      filepath.Base(f.Name()),
+			FileExtension: filepath.Ext(f.Name()),
 		}
 	}
 	return md, nil

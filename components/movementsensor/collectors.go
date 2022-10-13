@@ -8,26 +8,6 @@ import (
 	"go.viam.com/rdk/data"
 )
 
-type method int64
-
-const (
-	readLocation method = iota
-	readAltitude method = iota
-	readSpeed    method = iota
-)
-
-func (m method) String() string {
-	switch m {
-	case readLocation:
-		return "ReadLocation"
-	case readAltitude:
-		return "ReadAltitude"
-	case readSpeed:
-		return "ReadSpeed"
-	}
-	return "Unknown"
-}
-
 // TODO: add tests for this file.
 
 func assertMovementSensor(resource interface{}) (MovementSensor, error) {

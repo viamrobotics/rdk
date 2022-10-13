@@ -99,6 +99,7 @@ func (rm *RotationMatrix) Mul(v r3.Vector) r3.Vector {
 }
 
 // MatMul returns the product of one matrix A applied to B as AB  = C
+//
 //nolint:dupl
 func MatMul(a, b RotationMatrix) *RotationMatrix {
 	mat := [9]float64{
@@ -116,6 +117,7 @@ func MatMul(a, b RotationMatrix) *RotationMatrix {
 }
 
 // LeftMatMul returns the right side multiplication a matrix A by matrix B, AB.
+//
 //nolint:dupl
 func (rm *RotationMatrix) LeftMatMul(lmm RotationMatrix) *RotationMatrix {
 	mat := [9]float64{
@@ -133,6 +135,7 @@ func (rm *RotationMatrix) LeftMatMul(lmm RotationMatrix) *RotationMatrix {
 }
 
 // RightMatMul returns the left side multiplication a matrix A by matrix B, BA
+//
 //nolint:dupl
 func (rm *RotationMatrix) RightMatMul(rmm RotationMatrix) *RotationMatrix {
 	mat := [9]float64{

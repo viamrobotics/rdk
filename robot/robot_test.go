@@ -19,7 +19,7 @@ import (
 var (
 	button1 = resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.SubtypeName("button"), "arm1")
 
-	armNames    = []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
+	armNames    = []resource.Name{arm.Named("arm1"), arm.Named("arm2"), arm.Named("remote:arm1")}
 	buttonNames = []resource.Name{button1}
 	sensorNames = []resource.Name{sensor.Named("sensor1")}
 )
@@ -48,6 +48,9 @@ func TestAllResourcesByName(t *testing.T) {
 
 	resources := robot.AllResourcesByName(r, "arm1")
 	test.That(t, resources, test.ShouldResemble, []interface{}{"here", "here"})
+
+	resources = robot.AllResourcesByName(r, "remote:arm1")
+	test.That(t, resources, test.ShouldResemble, []interface{}{"here"})
 
 	test.That(t, func() { robot.AllResourcesByName(r, "arm2") }, test.ShouldPanic)
 

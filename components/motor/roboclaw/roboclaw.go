@@ -148,6 +148,10 @@ func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra ma
 }
 
 func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+	if rpm == 0 {
+		return motor.NewZeroRPMError()
+	}
+
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 

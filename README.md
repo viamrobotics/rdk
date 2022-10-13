@@ -39,9 +39,9 @@ Example with a dummy configuration: `go run web/cmd/server/main.go -config etc/c
 
 Multiple SDKs are available for writing client applications that interface with the Viam RDK.
 
-* Go: Provided by this repository [here](https://github.com/viamrobotics/rdk/tree/main/robot/client). Docs can be found [here] (https://pkg.go.dev/go.viam.com/rdk/robot/client)
+* Go: Provided by this repository [here](https://github.com/viamrobotics/rdk/tree/main/robot/client). Documentation can be found [here](https://pkg.go.dev/go.viam.com/rdk/robot/client)
 * Python: [Docs](https://python.viam.dev), [Repository](https://github.com/viamrobotics/viam-python-sdk)
-* Rust: https://github.com/viamrobotics/viam-rust-sdk
+* Rust: [Repository](https://github.com/viamrobotics/viam-rust-sdk)
 
 ## Development
 
@@ -65,6 +65,11 @@ The API is defined with Protocol Buffers/gRPC which can be found at https://gith
 To start the client development environment, first run the same `go run` command mentioned in Building and Using, but with the environmental variable `ENV=development` (e.g. `ENV=development go run web/cmd/server/main.go -debug -config etc/configs/fake.json`). 
 
 Then navigate to `web/frontend` and run `npm start` in a new terminal tab. Visit `localhost:8080` to view the app, not `localhost:5173`. The latter is a hot module replacement server that rebuilds frontend asset changes.
+
+### License check
+
+We run [LicenseFinder](https://github.com/pivotal/LicenseFinder) in CI to verify 3rd-party libraries have approved software licenses.
+If you add a 3rd-party library to this project, please run `make license` to verify that it can be used.
 
 ## License
 Copyright 2021-2022 Viam Inc.

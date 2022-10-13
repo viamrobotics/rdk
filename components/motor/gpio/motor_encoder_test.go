@@ -83,6 +83,10 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 0)
 	})
 
+	t.Run("encoded motor cannot go at 0 RPM", func(t *testing.T) {
+		test.That(t, _motor.GoFor(context.Background(), 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
+	})
+
 	t.Run("encoded motor testing SetPower interrupt GoFor", func(t *testing.T) {
 		test.That(t, _motor.goForInternal(context.Background(), 1000, 1), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)

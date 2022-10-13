@@ -37,6 +37,7 @@ var errNoBoard = errors.New("no numato boards found")
 type Config struct {
 	Analogs    []board.AnalogConfig `json:"analogs,omitempty"`
 	Attributes config.AttributeMap  `json:"attributes,omitempty"`
+	Pins       int                  `json:"pins"`
 }
 
 func init() {
@@ -361,7 +362,7 @@ func (ar *analogReader) Read(ctx context.Context, extra map[string]interface{}) 
 }
 
 func connect(ctx context.Context, conf *Config, logger golog.Logger) (board.LocalBoard, error) {
-	pins := conf.Attributes.Int("pins", 0)
+	pins := conf.Pins
 	if pins <= 0 {
 		return nil, errors.New("numato board needs pins set in attributes")
 	}

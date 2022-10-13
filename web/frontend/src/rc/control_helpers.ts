@@ -1,8 +1,8 @@
 /*
-* This file contains gRPC helper functions for the Remote Control page.
-* These helpers will be deprecated by a future node SDK.
-* Feel free to add any missing gRPC method wrappers.
-*/
+ * This file contains gRPC helper functions for the Remote Control page.
+ * These helpers will be deprecated by a future node SDK.
+ * Feel free to add any missing gRPC method wrappers.
+ */
 
 import { grpc } from '@improbable-eng/grpc-web';
 import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
@@ -16,27 +16,27 @@ type Callback = (error: ServiceError | null, responseMessage: unknown | null) =>
 
 // Base control helpers
 export const BaseControlHelper = {
-  moveStraight(name: string, distance_mm: number, speed_mm_s: number, cb: Callback) {
+  moveStraight (name: string, distanceMM: number, speedMMS: number, cb: Callback) {
     const req = new baseApi.MoveStraightRequest();
     req.setName(name);
-    req.setMmPerSec(speed_mm_s);
-    req.setDistanceMm(distance_mm);
+    req.setMmPerSec(speedMMS);
+    req.setDistanceMm(distanceMM);
 
     rcLogConditionally(req);
     window.baseService.moveStraight(req, new grpc.Metadata(), cb);
   },
 
-  spin(name: string, angle_deg: number, speed_deg_s: number, cb: Callback) {
+  spin (name: string, angleDeg: number, speedDegS: number, cb: Callback) {
     const req = new baseApi.SpinRequest();
     req.setName(name);
-    req.setAngleDeg(angle_deg);
-    req.setDegsPerSec(speed_deg_s);
+    req.setAngleDeg(angleDeg);
+    req.setDegsPerSec(speedDegS);
 
     rcLogConditionally(req);
     window.baseService.spin(req, new grpc.Metadata(), cb);
   },
 
-  setPower(name: string, linearVector: Vector3, angularVector: Vector3, cb: Callback) {
+  setPower (name: string, linearVector: Vector3, angularVector: Vector3, cb: Callback) {
     const req = new baseApi.SetPowerRequest();
     req.setName(name);
     req.setLinear(linearVector);
@@ -46,7 +46,7 @@ export const BaseControlHelper = {
     window.baseService.setPower(req, new grpc.Metadata(), cb);
   },
 
-  setVelocity(name: string, linearVector: Vector3, angularVector: Vector3, cb: Callback) {
+  setVelocity (name: string, linearVector: Vector3, angularVector: Vector3, cb: Callback) {
     const req = new baseApi.SetVelocityRequest();
     req.setName(name);
     req.setLinear(linearVector);
@@ -58,10 +58,10 @@ export const BaseControlHelper = {
 };
 
 /*
-* Base keyboard control calculations.
-* Input: State of keys. e.g. {straight : true, backward : false, right : false, left: false}
-* Output: linearY and angularZ throttle
-*/
+ * Base keyboard control calculations.
+ * Input: State of keys. e.g. {straight : true, backward : false, right : false, left: false}
+ * Output: linearY and angularZ throttle
+ */
 export const computeKeyboardBaseControls = (keysPressed: Record<string, boolean>) => {
   let linear = 0;
   let angular = 0;
@@ -70,13 +70,13 @@ export const computeKeyboardBaseControls = (keysPressed: Record<string, boolean>
     linear = 1;
   } else if (keysPressed.backward) {
     linear = -1;
-  } 
-    
+  }
+
   if (keysPressed.right) {
     angular = -1;
   } else if (keysPressed.left) {
     angular = 1;
-  } 
-    
+  }
+
   return { linear, angular };
 };
