@@ -1,8 +1,9 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import gantryApi from '../gen/proto/api/component/gantry/v1/gantry_pb.esm';
 import { displayError } from '../lib/error';
+import { gantryApi, createGantryService, type GantryServiceClient } from '../api';
+import { onMounted } from 'vue';
 
 interface Props {
   name: string
@@ -17,6 +18,8 @@ interface Props {
 
 const props = defineProps<Props>();
 
+let gantryService: GantryServiceClient;
+
 const increment = (axis: number, amount: number) => {
   const pos: number[] = [];
   for (let i = 0; i < props.status.parts.length; i += 1) {
@@ -27,14 +30,18 @@ const increment = (axis: number, amount: number) => {
   const req = new gantryApi.MoveToPositionRequest();
   req.setName(props.name);
   req.setPositionsMmList(pos);
-  window.gantryService.moveToPosition(req, new grpc.Metadata(), displayError);
+  gantryService.moveToPosition(req, new grpc.Metadata(), displayError);
 };
 
 const stop = () => {
   const request = new gantryApi.StopRequest();
   request.setName(props.name);
-  window.gantryService.stop(request, new grpc.Metadata(), displayError);
+  gantryService.stop(request, new grpc.Metadata(), displayError);
 };
+
+onMounted(() => {
+  gantryService = createGantryService();
+});
 
 </script>
 

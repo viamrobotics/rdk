@@ -14,9 +14,20 @@ import robotApi, {
   type StreamStatusResponse,
 } from './gen/proto/api/robot/v1/robot_pb.esm';
 import type { ResponseStream, ServiceError } from './gen/proto/stream/v1/stream_pb_service.esm';
-import commonApi, { type ResourceName } from './gen/proto/api/common/v1/common_pb.esm';
-import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
-import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
+
+import {
+  cameraApi,
+  commonApi,
+  sensorsApi,
+  createSensorsService,
+  type SensorsServiceClient,
+  createRobotService,
+  type RobotServiceClient,
+  createCameraService,
+  type CameraServiceClient,
+  createStreamService,
+  type StreamServiceClient,
+} from './api';
 
 import {
   resourceNameToSubtypeString,
@@ -71,12 +82,17 @@ const rawStatus = $ref<Record<string, Status>>({});
 const status = $ref<Record<string, Status>>({});
 const errors = $ref<Record<string, boolean>>({});
 
+let sensorsService: SensorsServiceClient;
+let robotService: RobotServiceClient;
+let cameraService: CameraServiceClient;
+let streamService: StreamServiceClient;
+
 let statusStream: ResponseStream<StreamStatusResponse>;
 let lastStatusTS = Date.now();
 let disableAuthElements = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
 let currentOps = $ref<{ op: Operation.AsObject, elapsed: number }[]>([]);
-let sensorNames = $ref<ResourceName.AsObject[]>([]);
+let sensorNames = $ref<commonApi.ResourceName.AsObject[]>([]);
 let resources = $ref<Resource[]>([]);
 let errorMessage = $ref('');
 let activePreviews = $ref<string[]>([]);
@@ -164,7 +180,7 @@ const querySensors = () => {
   }
   const req = new sensorsApi.GetSensorsRequest();
   req.setName(sensorsName);
-  window.sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
+  sensorsService.getSensors(req, new grpc.Metadata(), (err, resp) => {
     if (err) {
       return displayError(err);
     }
@@ -258,7 +274,7 @@ const restartStatusStream = async () => {
   // 500ms
   streamReq.setEvery(new Duration().setNanos(500_000_000));
 
-  statusStream = window.robotService.streamStatus(streamReq);
+  statusStream = robotService.streamStatus(streamReq);
   let firstData = true;
 
   statusStream.on('data', (response) => {
@@ -288,7 +304,7 @@ const queryMetadata = () => {
     let resourcesChanged = false;
     let shouldRestartStatusStream = false;
 
-    window.robotService.resourceNames(new robotApi.ResourceNamesRequest(), new grpc.Metadata(), (err, resp) => {
+    robotService.resourceNames(new robotApi.ResourceNamesRequest(), new grpc.Metadata(), (err, resp) => {
       if (err) {
         reject(err);
         return;
@@ -348,7 +364,7 @@ const loadCurrentOps = () => {
   return new Promise((resolve, reject) => {
     const req = new robotApi.GetOperationsRequest();
 
-    window.robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
+    robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         reject(err);
         return;
@@ -488,7 +504,7 @@ const viewCamera = async (name: string, isOn: boolean) => {
 
   if (isOn) {
     try {
-      await addStream(name);
+      await addStream(name, streamService);
       for (const container of streamContainers) {
         container.querySelector('img')?.remove();
       }
@@ -509,7 +525,7 @@ const viewCamera = async (name: string, isOn: boolean) => {
     for (const preview of previews) {
       preview.setAttribute('hidden', 'true');
     }
-    await removeStream(name);
+    await removeStream(name, streamService);
     for (const container of streamContainers) {
       container.querySelector('img')?.remove();
     }
@@ -523,7 +539,7 @@ const viewManualFrame = (cameraName: string) => {
   req.setName(cameraName);
   const mimeType = 'image/jpeg';
   req.setMimeType(mimeType);
-  window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
+  cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
     if (err) {
       return displayError(err);
     }
@@ -545,7 +561,7 @@ const viewIntervalFrame = (cameraName: string, time: string) => {
     const req = new cameraApi.RenderFrameRequest();
     req.setName(cameraName);
     req.setMimeType('image/jpeg');
-    window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
+    cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         return displayError(err);
       }
@@ -632,6 +648,11 @@ const handleSelectCamera = async (event: string) => {
 onMounted(async () => {
   await waitForClientAndStart();
 
+  cameraService = createCameraService();
+  sensorsService = createSensorsService();
+  robotService = createRobotService();
+  streamService = createStreamService();
+
   connectionManager = createConnectionManager();
   connectionManager.start();
 
@@ -652,11 +673,7 @@ onMounted(async () => {
       id="connecting"
       class="border-greendark hidden border-l-4 bg-gray-100 px-4 py-3"
     >
-      Connecting via <template v-if="isWebRtcEnabled()">
-        WebRTC
-      </template><template v-else>
-        gRPC
-      </template>...
+      Connecting via {{ isWebRtcEnabled() ? 'WebRTC' : 'gRPC' }}...
     </div>
 
     <template

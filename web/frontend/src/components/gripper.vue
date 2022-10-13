@@ -1,8 +1,9 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import gripperApi from '../gen/proto/api/component/gripper/v1/gripper_pb.esm';
 import { displayError } from '../lib/error';
+import { gripperApi, createGripperService, GripperServiceClient } from '../api';
+import { onMounted } from 'vue';
 
 interface Props {
   name: string
@@ -10,23 +11,29 @@ interface Props {
 
 const props = defineProps<Props>();
 
+let gripperService: GripperServiceClient;
+
 const stop = () => {
   const request = new gripperApi.StopRequest();
   request.setName(props.name);
-  window.gripperService.stop(request, new grpc.Metadata(), displayError);
+  gripperService.stop(request, new grpc.Metadata(), displayError);
 };
 
 const open = () => {
   const request = new gripperApi.OpenRequest();
   request.setName(props.name);
-  window.gripperService.open(request, new grpc.Metadata(), displayError);
+  gripperService.open(request, new grpc.Metadata(), displayError);
 };
 
 const grab = () => {
   const request = new gripperApi.GrabRequest();
   request.setName(props.name);
-  window.gripperService.grab(request, new grpc.Metadata(), displayError);
+  gripperService.grab(request, new grpc.Metadata(), displayError);
 };
+
+onMounted(() => {
+  gripperService = createGripperService();
+});
 
 </script>
 

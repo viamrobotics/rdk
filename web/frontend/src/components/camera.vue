@@ -1,13 +1,13 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { ref } from 'vue';
+import { onMounted } from 'vue';
 import type { Resource } from '../lib/resource';
 import { displayError } from '../lib/error';
-import cameraApi from '../gen/proto/api/component/camera/v1/camera_pb.esm';
 import { toast } from '../lib/toast';
 import InfoButton from './info-button.vue';
 import PCD from './pcd.vue';
+import { cameraApi, createCameraService, type CameraServiceClient } from '../api';
 
 interface Props {
   cameraName: string
@@ -25,22 +25,23 @@ interface Emits {
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
+let cameraService: CameraServiceClient;
+
 let pcdExpanded = $ref(false);
 let pointcloud = $ref<Uint8Array | undefined>();
-
-const camera = ref(false);
-const selectedValue = ref('live');
+let camera = $ref(false);
+const selectedValue = $ref('live');
 
 const toggleExpand = () => {
-  camera.value = !camera.value;
-  emit('toggle-camera', camera.value);
+  camera = !camera;
+  emit('toggle-camera', camera);
 };
 
 const renderPCD = () => {
   const request = new cameraApi.GetPointCloudRequest();
   request.setName(props.cameraName);
   request.setMimeType('pointcloud/pcd');
-  window.cameraService.getPointCloud(request, new grpc.Metadata(), (error, response) => {
+  cameraService.getPointCloud(request, new grpc.Metadata(), (error, response) => {
     if (error) {
       toast.error(`Error getting point cloud: ${error}`);
       return;
@@ -57,11 +58,11 @@ const togglePCDExpand = () => {
 };
 
 const selectCameraView = () => {
-  emit('selected-camera-view', selectedValue.value);
+  emit('selected-camera-view', selectedValue);
 };
 
 const refreshCamera = () => {
-  emit('refresh-camera', selectedValue.value);
+  emit('refresh-camera', selectedValue);
 };
 
 const exportScreenshot = (cameraName: string) => {
@@ -69,7 +70,7 @@ const exportScreenshot = (cameraName: string) => {
   req.setName(cameraName);
   req.setMimeType('image/jpeg');
 
-  window.cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
+  cameraService.renderFrame(req, new grpc.Metadata(), (err, resp) => {
     if (err) {
       return displayError(err);
     }
@@ -78,6 +79,10 @@ const exportScreenshot = (cameraName: string) => {
     window.open(URL.createObjectURL(blob), '_blank');
   });
 };
+
+onMounted(() => {
+  cameraService = createCameraService();
+});
 
 </script>
 

@@ -6,6 +6,9 @@ import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import InputController from '../gen/proto/api/component/inputcontroller/v1/input_controller_pb.esm';
 import { displayError } from '../lib/error';
+import { createInputControllerService, type InputControllerServiceClient } from '../api';
+
+let inputControllerService: InputControllerServiceClient;
 
 const gamepad = ref(navigator.getGamepads()[0]);
 const gamepadName = ref('Waiting for gamepad...');
@@ -43,7 +46,7 @@ const sendEvent = (newEvent: InputController.Event) => {
     const req = new InputController.TriggerEventRequest();
     req.setController('WebGamepad');
     req.setEvent(newEvent);
-    window.inputControllerService.triggerEvent(req, new grpc.Metadata(), displayError);
+    inputControllerService.triggerEvent(req, new grpc.Metadata(), displayError);
   }
 };
 
@@ -168,6 +171,7 @@ const tick = () => {
 };
 
 onMounted(() => {
+  inputControllerService = createInputControllerService();
   prevStates = { ...prevStates, ...curStates };
   tick();
 });
@@ -195,11 +199,15 @@ watch(() => enabled, () => {
       <span
         v-if="gamepadConnected && enabled"
         class="rounded-full bg-green-500 px-3 py-0.5 text-xs text-white"
-      >Connected</span>
+      >
+        Connected
+      </span>
       <span
         v-else
         class="rounded-full bg-gray-200 px-3 py-0.5 text-xs text-gray-800"
-      >Disconnected</span>
+      >
+        Disconnected
+      </span>
     </div>
 
     <div class="h-full w-full border border-t-0 border-black p-4">

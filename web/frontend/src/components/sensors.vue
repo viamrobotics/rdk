@@ -1,10 +1,10 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import sensorsApi from '../gen/proto/api/service/sensors/v1/sensors_pb.esm';
-import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
 import { toast } from '../lib/toast';
 import { resourceNameToString } from '../lib/resource';
+import { sensorsApi, commonApi, createSensorsService, type SensorsServiceClient } from '../api';
+import { onMounted } from 'vue';
 
 interface SensorName {
   name: string
@@ -18,13 +18,15 @@ interface Props {
   sensorNames: SensorName[]
 }
 
-const props = defineProps<Props>();
-
 interface Reading {
   _type: string
   lat: number
   lng: number
 }
+
+const props = defineProps<Props>();
+
+let sensorsService: SensorsServiceClient;
 
 const sensorReadings = $ref<Record<string, Record<string, Reading>>>({});
 
@@ -41,7 +43,7 @@ const getReadings = (inputNames: SensorName[]) => {
   req.setName(props.name);
   req.setSensorNamesList(names);
 
-  window.sensorsService.getReadings(req, new grpc.Metadata(), (error, response) => {
+  sensorsService.getReadings(req, new grpc.Metadata(), (error, response) => {
     if (error) {
       return toast.error(error.message);
     }
@@ -64,6 +66,10 @@ const getData = (sensorName: SensorName) => {
   // @ts-expect-error @TODO This typing needs to be fixed
   return sensorReadings[resourceNameToString(sensorName)];
 };
+
+onMounted(() => {
+  sensorsService = createSensorsService();
+});
 
 </script>
 

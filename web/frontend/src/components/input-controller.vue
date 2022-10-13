@@ -33,6 +33,8 @@ const controlOrder = [
   'ButtonEStop',
 ];
 
+const controls: string[][] = [];
+
 const connected = computed(() => {
   for (const { event } of props.status.eventsList) {
     if (event !== 'Disconnect') {
@@ -51,8 +53,6 @@ const getValue = (controlMatch: string) => {
 
   return '';
 };
-
-const controls: string[][] = [];
 
 for (const ctrl of controlOrder) {
   const value = getValue(ctrl);

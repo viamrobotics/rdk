@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import { ref, onUnmounted } from 'vue';
+import { ref, onUnmounted, onMounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import type jspb from 'google-protobuf';
@@ -9,7 +9,13 @@ import { filterResources, type Resource } from '../lib/resource';
 import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
 import robotApi from '../gen/proto/api/robot/v1/robot_pb.esm';
 import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
-import navigationApi, { type Waypoint } from '../gen/proto/api/service/navigation/v1/navigation_pb.esm';
+import {
+  navigationApi,
+  createNavigationService,
+  type NavigationServiceClient,
+  createGenericService,
+  type GenericServiceClient,
+} from '../api';
 
 interface Props {
   resources?: Resource[]
@@ -17,6 +23,9 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+
+let navigationService: NavigationServiceClient;
+let genericService: GenericServiceClient;
 
 let googleMapsInitResolve: () => void;
 const mapReady = new Promise<void>((resolve) => {
@@ -65,7 +74,7 @@ const setNavigationMode = (mode: 'manual' | 'waypoint') => {
   const req = new navigationApi.SetModeRequest();
   req.setName(props.name);
   req.setMode(pbMode);
-  window.navigationService.setMode(req, new grpc.Metadata(), grpcCallback);
+  navigationService.setMode(req, new grpc.Metadata(), grpcCallback);
 };
 
 const setNavigationLocation = () => {
@@ -100,7 +109,7 @@ const setNavigationLocation = () => {
     })
   );
 
-  window.genericService.doCommand(req, new grpc.Metadata(), grpcCallback);
+  genericService.doCommand(req, new grpc.Metadata(), grpcCallback);
 };
 
 const initNavigation = async () => {
@@ -123,7 +132,7 @@ const initNavigation = async () => {
     req.setName(props.name);
     req.setLocation(point);
 
-    window.navigationService.addWaypoint(req, new grpc.Metadata(), grpcCallback);
+    navigationService.addWaypoint(req, new grpc.Metadata(), grpcCallback);
   });
 
   let centered = false;
@@ -134,7 +143,7 @@ const initNavigation = async () => {
     const req = new navigationApi.GetWaypointsRequest();
     req.setName(props.name);
 
-    window.navigationService.getWaypoints(req, new grpc.Metadata(), (err, resp) => {
+    navigationService.getWaypoints(req, new grpc.Metadata(), (err, resp) => {
       grpcCallback(err, resp, false);
 
       if (err) {
@@ -142,7 +151,7 @@ const initNavigation = async () => {
         return;
       }
 
-      let waypoints: Waypoint[] = [];
+      let waypoints: navigationApi.Waypoint[] = [];
 
       if (resp) {
         waypoints = resp.getWaypointsList();
@@ -178,11 +187,12 @@ const initNavigation = async () => {
           console.log('clicked on marker', pos);
         });
 
+        // eslint-disable-next-line no-loop-func
         marker.addListener('dblclick', () => {
           const waypointRequest = new navigationApi.RemoveWaypointRequest();
           waypointRequest.setName(props.name);
           waypointRequest.setId(waypoint.getId());
-          window.navigationService.removeWaypoint(waypointRequest, new grpc.Metadata(), grpcCallback);
+          navigationService.removeWaypoint(waypointRequest, new grpc.Metadata(), grpcCallback);
         });
       }
 
@@ -206,7 +216,7 @@ const initNavigation = async () => {
     const req = new navigationApi.GetLocationRequest();
 
     req.setName(props.name);
-    window.navigationService.getLocation(req, new grpc.Metadata(), (err, resp) => {
+    navigationService.getLocation(req, new grpc.Metadata(), (err, resp) => {
       grpcCallback(err, resp, false);
 
       if (err) {
@@ -254,6 +264,11 @@ const initNavigationView = () => {
   loadMaps();
   initNavigation();
 };
+
+onMounted(() => {
+  genericService = createGenericService();
+  navigationService = createNavigationService();
+});
 
 onUnmounted(() => {
   clearTimeout(updateTimerId);

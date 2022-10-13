@@ -2,17 +2,20 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import motorApi, { type Status } from '../gen/proto/api/component/motor/v1/motor_pb.esm';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
 import InfoButton from './info-button.vue';
+import { motorApi, createMotorService, type MotorServiceClient } from '../api';
+import { onMounted } from 'vue';
 
 interface Props {
   name: string
-  status: Status.AsObject
+  status: motorApi.Status.AsObject
 }
 
 const props = defineProps<Props>();
+
+let motorService: MotorServiceClient;
 
 type MovementTypes = 'go' | 'goFor' | 'goTo';
 
@@ -60,7 +63,7 @@ const setPower = () => {
   req.setPowerPct(powerPct);
 
   rcLogConditionally(req);
-  window.motorService.setPower(req, new grpc.Metadata(), displayError);
+  motorService.setPower(req, new grpc.Metadata(), displayError);
 };
 
 const goFor = () => {
@@ -70,7 +73,7 @@ const goFor = () => {
   req.setRevolutions(revolutions);
 
   rcLogConditionally(req);
-  window.motorService.goFor(req, new grpc.Metadata(), displayError);
+  motorService.goFor(req, new grpc.Metadata(), displayError);
 };
 
 const goTo = () => {
@@ -80,7 +83,7 @@ const goTo = () => {
   req.setPositionRevolutions(position);
 
   rcLogConditionally(req);
-  window.motorService.goTo(req, new grpc.Metadata(), displayError);
+  motorService.goTo(req, new grpc.Metadata(), displayError);
 };
 
 const motorRun = () => {
@@ -99,8 +102,12 @@ const motorStop = () => {
   req.setName(props.name);
 
   rcLogConditionally(req);
-  window.motorService.stop(req, new grpc.Metadata(), displayError);
+  motorService.stop(req, new grpc.Metadata(), displayError);
 };
+
+onMounted(() => {
+  motorService = createMotorService();
+});
 
 </script>
 

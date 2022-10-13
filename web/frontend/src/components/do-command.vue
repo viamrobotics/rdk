@@ -1,10 +1,10 @@
 <script setup lang="ts">
 
-import { computed, ref } from 'vue';
+import { onMounted } from 'vue';
 import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import type { Resource } from '../lib/resource';
-import genericApi from '../gen/proto/api/component/generic/v1/generic_pb.esm';
 import { toast } from '../lib/toast';
+import { genericApi, createGenericService, type GenericServiceClient } from '../api';
 
 interface Props {
   resources: Resource[]
@@ -12,12 +12,14 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const resources = computed(() => props.resources);
+let genericService: GenericServiceClient;
 
-const selectedComponent = ref();
-const input = ref();
-const output = ref();
-const executing = ref(false);
+const resources = $computed(() => props.resources);
+
+const selectedComponent = $ref('');
+const input = $ref('');
+let output = $ref('');
+let executing = $ref(false);
 
 const doCommand = (name: string, command: string) => {
   const request = new genericApi.DoCommandRequest();
@@ -25,25 +27,30 @@ const doCommand = (name: string, command: string) => {
   request.setName(name);
   request.setCommand(Struct.fromJavaScript(JSON.parse(command)));
 
-  executing.value = true;
+  executing = true;
 
-  window.genericService.doCommand(request, (error, response) => {
+  genericService.doCommand(request, (error, response) => {
     if (error) {
       toast.error(`Error executing command on ${name}: ${error}`);
-      executing.value = false;
+      executing = false;
       return;
     }
 
     if (!response) {
       toast.error(`Invalid response when executing command on ${name}`);
-      executing.value = false;
+      executing = false;
       return;
     }
 
-    output.value = JSON.stringify(response?.getResult()?.toObject(), null, '\t');
-    executing.value = false;
+    output = JSON.stringify(response?.getResult()?.toObject(), null, '\t');
+    executing = false;
   });
 };
+
+onMounted(() => {
+  genericService = createGenericService();
+});
+
 </script>
 
 <template>

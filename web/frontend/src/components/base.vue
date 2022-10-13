@@ -1,15 +1,17 @@
 <script setup lang="ts">
+
 import { grpc } from '@improbable-eng/grpc-web';
-import { ref } from 'vue';
-import { computeKeyboardBaseControls, BaseControlHelper } from '../rc/control_helpers';
+import { onMounted } from 'vue';
 import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
 import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
 import { toast } from '../lib/toast';
 import { filterResources, type Resource } from '../lib/resource';
 import { displayError } from '../lib/error';
+import { rcLogConditionally } from '../lib/log';
 import KeyboardInput from './keyboard-input.vue';
 import { addStream, removeStream } from '../lib/stream';
 import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
+import { type BaseServiceClient, type StreamServiceClient, createBaseService, createStreamService } from '../api';
 
 interface Props {
   name: string;
@@ -30,45 +32,72 @@ interface Emits {
 
 const emit = defineEmits<Emits>();
 
-const selectedItem = ref<Tabs>('Keyboard');
-const movementMode = ref<MovementModes>('Straight');
-const movementType = ref<MovementTypes>('Continuous');
-const direction = ref<Directions>('Forwards');
-const spinType = ref<SpinTypes>('Clockwise');
-const increment = ref(1000);
+let baseService: BaseServiceClient;
+let streamService: StreamServiceClient;
+
+let selectedItem = $ref<Tabs>('Keyboard');
+let movementMode = $ref<MovementModes>('Straight');
+let movementType = $ref<MovementTypes>('Continuous');
+let direction = $ref<Directions>('Forwards');
+let spinType = $ref<SpinTypes>('Clockwise');
+const increment = $ref(1000);
 // straight mm/s
-const speed = ref(200);
+const speed = $ref(200);
 // deg/s
-const spinSpeed = ref(90);
-const angle = ref(0);
+const spinSpeed = $ref(90);
+const angle = $ref(0);
 
 const resetDiscreteState = () => {
-  movementMode.value = 'Straight';
-  movementType.value = 'Continuous';
-  direction.value = 'Forwards';
-  spinType.value = 'Clockwise';
+  movementMode = 'Straight';
+  movementType = 'Continuous';
+  direction = 'Forwards';
+  spinType = 'Clockwise';
 };
 
 const setMovementMode = (mode: MovementModes) => {
-  movementMode.value = mode;
+  movementMode = mode;
 };
 
 const setMovementType = (type: MovementTypes) => {
-  movementType.value = type;
+  movementType = type;
 };
 
 const setSpinType = (type: SpinTypes) => {
-  spinType.value = type;
+  spinType = type;
 };
 
 const setDirection = (dir: Directions) => {
-  direction.value = dir;
+  direction = dir;
 };
 
 const handleBaseActionStop = (name: string) => {
   const req = new baseApi.StopRequest();
   req.setName(name);
-  window.baseService.stop(req, new grpc.Metadata(), displayError);
+  baseService.stop(req, new grpc.Metadata(), displayError);
+};
+
+/*
+ * Base keyboard control calculations.
+ * Input: State of keys. e.g. {straight : true, backward : false, right : false, left: false}
+ * Output: linearY and angularZ throttle
+ */
+const computeKeyboardBaseControls = (keysPressed: Record<string, boolean>) => {
+  let linear = 0;
+  let angular = 0;
+
+  if (keysPressed.forward) {
+    linear = 1;
+  } else if (keysPressed.backward) {
+    linear = -1;
+  }
+
+  if (keysPressed.right) {
+    angular = -1;
+  } else if (keysPressed.left) {
+    angular = 1;
+  }
+
+  return { linear, angular };
 };
 
 const baseKeyboardCtl = (name: string, controls: Record<string, boolean>) => {
@@ -82,7 +111,14 @@ const baseKeyboardCtl = (name: string, controls: Record<string, boolean>) => {
   const angular = new commonApi.Vector3();
   linear.setY(inputs.linear);
   angular.setZ(inputs.angular);
-  BaseControlHelper.setPower(name, linear, angular, displayError);
+
+  const req = new baseApi.SetPowerRequest();
+  req.setName(name);
+  req.setLinear(linear);
+  req.setAngular(angular);
+
+  rcLogConditionally(req);
+  baseService.setPower(req, new grpc.Metadata(), displayError);
 };
 
 const handleBaseStraight = (name: string, event: {
@@ -95,46 +131,54 @@ const handleBaseStraight = (name: string, event: {
     const linear = new commonApi.Vector3();
     linear.setY(event.speed * event.direction);
 
-    BaseControlHelper.setVelocity(
-      name,
-      linear,
-      new commonApi.Vector3(),
-      displayError
-    );
-  } else {
-    BaseControlHelper.moveStraight(
-      name,
-      event.distance,
-      event.speed * event.direction,
-      displayError
-    );
+    const req = new baseApi.SetVelocityRequest();
+    req.setName(name);
+    req.setLinear(linear);
+    req.setAngular(new commonApi.Vector3());
+
+    rcLogConditionally(req);
+    baseService.setVelocity(req, new grpc.Metadata(), displayError);
+    return;
   }
+
+  const req = new baseApi.MoveStraightRequest();
+  req.setName(name);
+  req.setMmPerSec(event.speed * event.direction);
+  req.setDistanceMm(event.distance);
+
+  rcLogConditionally(req);
+  baseService.moveStraight(req, new grpc.Metadata(), displayError);
 };
 
 const baseRun = () => {
-  if (movementMode.value === 'Spin') {
-    BaseControlHelper.spin(
-      props.name,
-      angle.value * (spinType.value === 'Clockwise' ? -1 : 1),
-      spinSpeed.value,
-      displayError
-    );
-  } else if (movementMode.value === 'Straight') {
-    handleBaseStraight(props.name, {
-      movementType: movementType.value,
-      direction: direction.value === 'Forwards' ? 1 : -1,
-      speed: speed.value,
-      distance: increment.value,
-    });
-  } else {
-    toast.error(`Unrecognized discrete movement mode: ${movementMode.value}`);
+  if (movementMode === 'Spin') {
+    const req = new baseApi.SpinRequest();
+    req.setName(props.name);
+    req.setAngleDeg(angle * (spinType === 'Clockwise' ? -1 : 1));
+    req.setDegsPerSec(spinSpeed);
+
+    rcLogConditionally(req);
+    baseService.spin(req, new grpc.Metadata(), displayError);
+    return;
   }
+
+  if (movementMode === 'Straight') {
+    handleBaseStraight(props.name, {
+      movementType,
+      direction: direction === 'Forwards' ? 1 : -1,
+      speed,
+      distance: increment,
+    });
+    return;
+  }
+
+  toast.error(`Unrecognized discrete movement mode: ${movementMode}`);
 };
 
 const viewPreviewCamera = async (name: string, isOn: boolean) => {
   if (isOn) {
     try {
-      await addStream(name);
+      await addStream(name, streamService);
     } catch (error) {
       displayError(error as ServiceError);
     }
@@ -142,14 +186,14 @@ const viewPreviewCamera = async (name: string, isOn: boolean) => {
   }
 
   try {
-    await removeStream(name);
+    await removeStream(name, streamService);
   } catch (error) {
     displayError(error as ServiceError);
   }
 };
 
 const handleTabSelect = (tab: Tabs) => {
-  selectedItem.value = tab;
+  selectedItem = tab;
 
   if (tab === 'Keyboard') {
     viewPreviewCamera(props.name, true);
@@ -162,6 +206,11 @@ const handleTabSelect = (tab: Tabs) => {
 const handleSelectCamera = (event: string) => {
   emit('showcamera', event);
 };
+
+onMounted(() => {
+  baseService = createBaseService();
+  streamService = createStreamService();
+});
 
 </script>
 

@@ -1,12 +1,12 @@
 
 <script setup lang="ts">
 
-import { nextTick } from 'vue';
+import { nextTick, onMounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import type { Resource } from '../lib/resource';
-import slamApi from '../gen/proto/api/service/slam/v1/slam_pb.esm';
 import { displayError } from '../lib/error';
 import PCD from './pcd.vue';
+import { slamApi, createSlamService, type SLAMServiceClient } from '../api';
 
 interface Props {
   name: string
@@ -14,6 +14,8 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+
+let slamService: SLAMServiceClient;
 
 let showImage = $ref(false);
 let showPCD = $ref(false);
@@ -31,7 +33,7 @@ const viewSLAMPCDMap = (name: string) => {
     req.setName(name);
     req.setMimeType('pointcloud/pcd');
 
-    window.slamService.getMap(req, new grpc.Metadata(), (error, response) => {
+    slamService.getMap(req, new grpc.Metadata(), (error, response) => {
       if (error) {
         return displayError(error);
       }
@@ -46,7 +48,8 @@ const viewSLAMImageMap = (name: string) => {
   req.setName(name);
   req.setMimeType('image/jpeg');
   req.setIncludeRobotMarker(true);
-  window.slamService.getMap(req, new grpc.Metadata(), (error, response) => {
+
+  slamService.getMap(req, new grpc.Metadata(), (error, response) => {
     if (error) {
       return displayError(error);
     }
@@ -110,6 +113,10 @@ const refreshImageMap = () => {
 const refreshPCDMap = () => {
   updateSLAMPCDRefreshFrequency(props.name, selectedPCDValue);
 };
+
+onMounted(() => {
+  slamService = createSlamService();
+});
 
 </script>
 

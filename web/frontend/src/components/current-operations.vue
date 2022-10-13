@@ -1,23 +1,30 @@
 <script setup lang="ts">
 
+import { onMounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
-import robotApi, { type Operation } from '../gen/proto/api/robot/v1/robot_pb.esm';
 import { displayError } from '../lib/error';
+import { createRobotService, robotApi, type RobotServiceClient } from '../api';
 
 interface Props {
   operations: {
-    op: Operation.AsObject
+    op: robotApi.Operation.AsObject
     elapsed: number
   }[]
 }
 
 defineProps<Props>();
 
+let robotService: RobotServiceClient;
+
 const killOperation = (id: string) => {
   const req = new robotApi.CancelOperationRequest();
   req.setId(id);
-  window.robotService.cancelOperation(req, new grpc.Metadata(), displayError);
+  robotService.cancelOperation(req, new grpc.Metadata(), displayError);
 };
+
+onMounted(() => {
+  robotService = createRobotService();
+});
 
 </script>
 

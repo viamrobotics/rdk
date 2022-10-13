@@ -1,9 +1,10 @@
 <script setup lang="ts">
 
-import { ref } from 'vue';
+import { onMounted } from 'vue';
 import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
 import { displayError } from '../lib/error';
 import { addStream, removeStream } from '../lib/stream';
+import { type StreamServiceClient, createStreamService } from '../api';
 
 interface Props {
   name: string
@@ -12,16 +13,16 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const audioInput = ref(false);
+let streamService: StreamServiceClient;
+
+let isOn = $ref(false);
 
 const toggleExpand = async () => {
-  audioInput.value = !audioInput.value;
-
-  const isOn = audioInput.value;
+  isOn = !isOn;
 
   if (isOn) {
     try {
-      await addStream(props.name);
+      await addStream(props.name, streamService);
     } catch (error) {
       displayError(error as ServiceError);
     }
@@ -29,11 +30,15 @@ const toggleExpand = async () => {
   }
 
   try {
-    await removeStream(props.name);
+    await removeStream(props.name, streamService);
   } catch (error) {
     displayError(error as ServiceError);
   }
 };
+
+onMounted(() => {
+  streamService = createStreamService();
+});
 
 </script>
 
@@ -49,14 +54,14 @@ const toggleExpand = async () => {
           <div class="flex items-center gap-2">
             <v-switch
               id="audio-input"
-              :value="audioInput ? 'on' : 'off'"
+              :value="isOn ? 'on' : 'off'"
               @input="toggleExpand"
             />
             <span class="pr-2">Listen</span>
           </div>
 
           <div
-            v-if="audioInput"
+            v-if="isOn"
             :data-stream="props.name"
             class="clear-both h-fit transition-all duration-300 ease-in-out"
           />

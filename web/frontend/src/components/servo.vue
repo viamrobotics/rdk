@@ -1,24 +1,27 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import servoApi, { type Status } from '../gen/proto/api/component/servo/v1/servo_pb.esm';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
+import { servoApi, createServoService, ServoServiceClient } from '../api';
+import { onMounted } from 'vue';
 
 interface Props {
   name: string
-  status: Status.AsObject
-  rawStatus: Status.AsObject
+  status: servoApi.Status.AsObject
+  rawStatus: servoApi.Status.AsObject
 }
 
 const props = defineProps<Props>();
+
+let servoService: ServoServiceClient;
 
 const stop = () => {
   const req = new servoApi.StopRequest();
   req.setName(props.name);
 
   rcLogConditionally(req);
-  window.servoService.stop(req, new grpc.Metadata(), displayError);
+  servoService.stop(req, new grpc.Metadata(), displayError);
 };
 
 const move = (amount: number) => {
@@ -26,12 +29,10 @@ const move = (amount: number) => {
   const oldAngle = servo.positionDeg ?? 0;
   const angle = oldAngle + amount;
 
-  console.log(props.name, angle);
-
   const req = new servoApi.MoveRequest();
   req.setName(props.name);
   req.setAngleDeg(angle);
-  window.servoService.move(req, new grpc.Metadata(), (error, response) => {
+  servoService.move(req, new grpc.Metadata(), (error, response) => {
     if (error) {
       return displayError(error);
     }
@@ -39,6 +40,10 @@ const move = (amount: number) => {
     console.log(response);
   });
 };
+
+onMounted(() => {
+  servoService = createServoService();
+});
 
 </script>
 

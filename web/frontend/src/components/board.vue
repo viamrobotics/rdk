@@ -1,10 +1,11 @@
 <script setup lang="ts">
 
+import { onMounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { toast } from '../lib/toast';
 import { displayError } from '../lib/error';
 import { rcLogConditionally } from '../lib/log';
-import boardApi from '../gen/proto/api/component/board/v1/board_pb.esm';
+import { boardApi, createBoardService, type BoardServiceClient } from '../api';
 
 interface Props {
   name: string
@@ -15,6 +16,8 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+
+let boardService: BoardServiceClient;
 
 const getPin = $ref('');
 const setPin = $ref('');
@@ -30,7 +33,7 @@ const getGPIO = () => {
   req.setPin(getPin);
 
   rcLogConditionally(req);
-  window.boardService.getGPIO(req, new grpc.Metadata(), (error, response) => {
+  boardService.getGPIO(req, new grpc.Metadata(), (error, response) => {
     if (error) {
       toast.error(error.message);
       return;
@@ -49,7 +52,7 @@ const setGPIO = () => {
   req.setHigh(setLevel === 'high');
 
   rcLogConditionally(req);
-  window.boardService.setGPIO(req, new grpc.Metadata(), displayError);
+  boardService.setGPIO(req, new grpc.Metadata(), displayError);
 };
 
 const getPWM = () => {
@@ -58,7 +61,7 @@ const getPWM = () => {
   req.setPin(getPin);
 
   rcLogConditionally(req);
-  window.boardService.pWM(req, new grpc.Metadata(), (error, response) => {
+  boardService.pWM(req, new grpc.Metadata(), (error, response) => {
     if (error) {
       toast.error(error.message);
       return;
@@ -76,7 +79,7 @@ const setPWM = () => {
   req.setDutyCyclePct(Number.parseFloat(pwm) / 100);
 
   rcLogConditionally(req);
-  window.boardService.setPWM(req, new grpc.Metadata(), displayError);
+  boardService.setPWM(req, new grpc.Metadata(), displayError);
 };
 
 const getPWMFrequency = () => {
@@ -85,7 +88,7 @@ const getPWMFrequency = () => {
   req.setPin(getPin);
 
   rcLogConditionally(req);
-  window.boardService.pWMFrequency(req, new grpc.Metadata(), (error, response) => {
+  boardService.pWMFrequency(req, new grpc.Metadata(), (error, response) => {
     if (error) {
       toast.error(error.message);
       return;
@@ -103,8 +106,12 @@ const setPWMFrequency = () => {
   req.setFrequencyHz(Number.parseFloat(pwmFrequency));
 
   rcLogConditionally(req);
-  window.boardService.setPWMFrequency(req, new grpc.Metadata(), displayError);
+  boardService.setPWMFrequency(req, new grpc.Metadata(), displayError);
 };
+
+onMounted(() => {
+  boardService = createBoardService();
+});
 
 </script>
 
