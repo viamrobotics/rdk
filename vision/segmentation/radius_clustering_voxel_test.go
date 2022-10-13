@@ -51,7 +51,7 @@ func TestVoxelSegmentMeans(t *testing.T) {
 	}
 
 	// Do voxel segmentation
-	expected_label := "test_label"
+	expectedLabel := "test_label"
 	voxObjConfig := config.AttributeMap{
 		"voxel_size":            1.0,
 		"lambda":                0.1,
@@ -62,12 +62,12 @@ func TestVoxelSegmentMeans(t *testing.T) {
 		"angle_threshold":       30,
 		"cosine_threshold":      0.1,
 		"distance_threshold":    0.1,
-		"label":                 expected_label,
+		"label":                 expectedLabel,
 	}
 
 	segmenter, err := segmentation.NewRadiusClusteringFromVoxels(voxObjConfig)
 	test.That(t, err, test.ShouldBeNil)
 	voxSegments, err := segmenter(context.Background(), cam)
 	test.That(t, err, test.ShouldBeNil)
-	testSegmentation(t, voxSegments, expected_label)
+	testSegmentation(t, voxSegments, expectedLabel)
 }
