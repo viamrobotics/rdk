@@ -144,16 +144,14 @@ func (slamSvc *builtIn) orbGenYAML(ctx context.Context, cam camera.Camera) error
 		return err
 	}
 
-	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
-	timeStampNow := time.Now().UTC().Format(slamTimeFormat)
-
 	// Check for maps in the specified directory and add map to yaml config
 	loadMapTimeStamp, loadMapName, err := slamSvc.checkMaps()
 	if err != nil {
 		slamSvc.logger.Debugf("Error occurred while parsing %s for maps, building map from scratch", slamSvc.dataDirectory)
 	}
 	if loadMapTimeStamp == "" {
-		loadMapTimeStamp = timeStampNow
+		// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
+		loadMapTimeStamp = time.Now().UTC().Format(slamTimeFormat)
 	} else {
 		orbslam.LoadMapLoc = "\"" + loadMapName + "\""
 	}
