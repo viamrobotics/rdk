@@ -270,6 +270,9 @@ func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64, extra map[strin
 // GoFor sets a constant flow rate
 // mLPerMin = rpm, mins = revolutions.
 func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[string]interface{}) error {
+	if mLPerMin == 0 {
+		return motor.NewZeroRPMError() // Not strictly RPMs, but same idea
+	}
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 

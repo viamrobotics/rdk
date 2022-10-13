@@ -108,5 +108,11 @@
                 "base": "test_base"
             }
         }
+    ],
+    "remotes": [
+        {
+            "name": "remote_robot",
+            "address": "localhost:8081"
+        }
     ]
 }
