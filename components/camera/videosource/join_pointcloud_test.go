@@ -34,7 +34,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	logger := golog.NewTestLogger(t)
 	cam1 := &inject.Camera{}
 	cam1.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		pc1 := pointcloud.New()
+		pc1 := pointcloud.NewWithPrealloc(1)
 		err := pc1.Set(pointcloud.NewVector(1, 0, 0), pointcloud.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)
 		return pc1, nil
@@ -47,7 +47,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	}
 	cam2 := &inject.Camera{}
 	cam2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		pc2 := pointcloud.New()
+		pc2 := pointcloud.NewWithPrealloc(1)
 		err := pc2.Set(pointcloud.NewVector(0, 1, 0), pointcloud.NewColoredData(color.NRGBA{0, 255, 0, 255}))
 		test.That(t, err, test.ShouldBeNil)
 		return pc2, nil
@@ -60,7 +60,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	}
 	cam3 := &inject.Camera{}
 	cam3.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		pc3 := pointcloud.New()
+		pc3 := pointcloud.NewWithPrealloc(1)
 		err := pc3.Set(pointcloud.NewVector(0, 0, 1), pointcloud.NewColoredData(color.NRGBA{0, 0, 255, 255}))
 		test.That(t, err, test.ShouldBeNil)
 		return pc3, nil
@@ -303,6 +303,9 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	cam3.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc3, nil
 	}
+	cam3.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
+	}
 
 	cam4 := &inject.Camera{}
 	pc4, err := makePointCloudFromArtifact(t, "pointcloud/bun045.pcd", 0)
@@ -313,6 +316,9 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	cam4.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc4, nil
 	}
+	cam4.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
+	}
 
 	cam5 := &inject.Camera{}
 	pc5, err := makePointCloudFromArtifact(t, "pointcloud/bun090.pcd", 0)
@@ -322,6 +328,9 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 
 	cam5.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc5, nil
+	}
+	cam5.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
 	}
 
 	base1 := &inject.Base{}
