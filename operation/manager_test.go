@@ -172,7 +172,7 @@ type mock struct {
 }
 
 func (m *mock) stop(ctx context.Context, extra map[string]interface{}) error {
-	m.stopCount += 1
+	m.stopCount++
 	return nil
 }
 
