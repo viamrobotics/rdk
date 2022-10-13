@@ -36,7 +36,7 @@ func (rcc *RadiusClusteringVoxelConfig) CheckValid() error {
 	if rcc.Lambda <= 0 {
 		return errors.Errorf("lambda must be greater than 0, got %v", rcc.Lambda)
 	}
-	radiusClustering := RadiusClusteringConfig{rcc.MinPtsInPlane, rcc.MinPtsInSegment, rcc.ClusteringRadiusMm, 50.0, ""}
+	radiusClustering := RadiusClusteringConfig{rcc.MinPtsInPlane, rcc.MinPtsInSegment, rcc.ClusteringRadiusMm, 50.0, rcc.Label}
 	err := radiusClustering.CheckValid()
 	if err != nil {
 		return err
