@@ -43,6 +43,15 @@ func (slamSvc *builtIn) orbCamMaker(camProperties *transform.PinholeCameraModel)
 		FPSCamera:   int16(slamSvc.dataRateMs),
 		FileVersion: fileVersion,
 	}
+	if slamSvc.dataRateMs <= 0 {
+		// dataRateMs is always expected to be positive, since 0 gets reset to the default, and all other
+		// values lower than the default are rejected
+		return nil, errors.Errorf("orbslam yaml generation expected dataRateMs greater than 0, got %d", slamSvc.dataRateMs)
+	}
+	orbslam.FPSCamera = int16(1000 / slamSvc.dataRateMs)
+	if orbslam.FPSCamera == 0 {
+		orbslam.FPSCamera = 1
+	}
 	distortion, ok := camProperties.Distortion.(*transform.BrownConrady)
 	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError(distortion, camProperties.Distortion)

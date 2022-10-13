@@ -3,12 +3,20 @@
 import { onClickOutside } from '@vueuse/core';
 import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from '@mdi/js';
 import Icon from './icon.vue';
+import { grpc } from '@improbable-eng/grpc-web';
+import { displayError } from '../lib/error';
+import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
 
 interface Emits {
   (event: 'keyboard-ctl', pressedKeys: Record<string, boolean>): void
 }
 
+interface Props {
+  name: string;
+}
+
 const emit = defineEmits<Emits>();
+const props = defineProps<Props>();
 
 const pressedKeys = $ref({
   forward: false,
@@ -74,9 +82,16 @@ const removeKeyboardListeners = () => {
   window.removeEventListener('keyup', onUseKeyboardNav);
 };
 
+const stopBase = () => {
+  const req = new baseApi.StopRequest();
+  req.setName(props.name);
+  window.baseService.stop(req, new grpc.Metadata(), displayError);
+};
+
 const toggleKeyboard = () => {
   if (isActive) {
     removeKeyboardListeners();
+    stopBase();
   } else {
     addKeyboardListeners();
   }

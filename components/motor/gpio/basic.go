@@ -129,10 +129,10 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 
 	if math.Abs(powerPct) <= 0.001 {
 		if m.EnablePinLow != nil {
-			errs = m.EnablePinLow.Set(ctx, true, extra)
+			errs = multierr.Combine(errs, m.EnablePinLow.Set(ctx, true, extra))
 		}
 		if m.EnablePinHigh != nil {
-			errs = m.EnablePinHigh.Set(ctx, false, extra)
+			errs = multierr.Combine(errs, m.EnablePinHigh.Set(ctx, false, extra))
 		}
 
 		if m.A != nil && m.B != nil {
