@@ -76,7 +76,6 @@ func NewFile(captureDir string, md *v1.DataCaptureMetadata) (*File, error) {
 	//nolint:gosec
 	f, err := os.OpenFile(fileName, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0o700)
 	if err != nil {
-		fmt.Println("error")
 		return nil, err
 	}
 
