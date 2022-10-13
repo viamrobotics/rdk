@@ -251,11 +251,17 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 		}
 		if !rc.connected {
 			rc.Logger().Debugw("trying to reconnect to remote at address", "address", rc.address)
-			if err := rc.connect(ctx); err != nil {
-				rc.Logger().Debugw("failed to reconnect remote", "error", err, "address", rc.address)
-				continue
+			for attempt := 0; attempt < 3; attempt++ {
+				if err := rc.connect(ctx); err != nil {
+					if attempt == 2 {
+						rc.Logger().Debugw("failed to reconnect remote", "error", err, "address", rc.address)
+					}
+					continue
+				} else {
+					rc.Logger().Debugw("successfully reconnected remote at address", "address", rc.address)
+					break
+				}
 			}
-			rc.Logger().Debugw("successfully reconnected remote at address", "address", rc.address)
 		} else {
 			check := func() error {
 				timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -318,10 +324,14 @@ func (rc *RobotClient) Close(ctx context.Context) error {
 }
 
 func (rc *RobotClient) checkConnected() error {
-	if !rc.connected {
-		return errors.Errorf("not connected to remote robot at %s", rc.address)
+	for attempt := 0; attempt < 3; attempt++ {
+		if !rc.connected {
+			continue
+		} else {
+			return nil
+		}
 	}
-	return nil
+	return errors.Errorf("not connected to remote robot at %s", rc.address)
 }
 
 // RefreshEvery refreshes the robot on the interval given by every until the
