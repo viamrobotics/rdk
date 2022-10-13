@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/edaniels/gostream"
-	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
@@ -29,17 +28,17 @@ const (
 	transformTypeDepthPreprocess = transformType("depth_preprocess")
 )
 
-// RegisteredTransformSchemas is a map of all available transform schemas, used for populating fields in the front-end.
-var RegisteredTransformSchemas = map[string]*jsonschema.Schema{
-	string(transformTypeIdentity):        jsonschema.Reflect(&emptyAttrs{}),
-	string(transformTypeRotate):          jsonschema.Reflect(&emptyAttrs{}),
-	string(transformTypeResize):          jsonschema.Reflect(&resizeAttrs{}),
-	string(transformTypeDepthPretty):     jsonschema.Reflect(&emptyAttrs{}),
-	string(transformTypeOverlay):         jsonschema.Reflect(&overlayAttrs{}),
-	string(transformTypeUndistort):       jsonschema.Reflect(&undistortConfig{}),
-	string(transformTypeDetections):      jsonschema.Reflect(&detectorAttrs{}),
-	string(transformTypeDepthEdges):      jsonschema.Reflect(&depthEdgesAttrs{}),
-	string(transformTypeDepthPreprocess): jsonschema.Reflect(&emptyAttrs{}),
+// RegisteredTransformConfigs is a map of all available transform configs, used for populating fields in the front-end.
+var RegisteredTransformConfigs = map[string]interface{}{
+	string(transformTypeIdentity):        &emptyAttrs{},
+	string(transformTypeRotate):          &emptyAttrs{},
+	string(transformTypeResize):          &resizeAttrs{},
+	string(transformTypeDepthPretty):     &emptyAttrs{},
+	string(transformTypeOverlay):         &overlayAttrs{},
+	string(transformTypeUndistort):       &undistortConfig{},
+	string(transformTypeDetections):      &detectorAttrs{},
+	string(transformTypeDepthEdges):      &depthEdgesAttrs{},
+	string(transformTypeDepthPreprocess): &emptyAttrs{},
 }
 
 // Transformation states the type of transformation and the attributes that are specific to the given type.
