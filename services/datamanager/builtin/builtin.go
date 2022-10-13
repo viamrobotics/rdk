@@ -219,7 +219,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		// If the attributes have not changed, keep the current collector and update the target capture file if needed.
 		if reflect.DeepEqual(previousAttributes, attributes) {
 			if updateCaptureDir {
-				targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
+				targetFile, err := datacapture.NewFile(svc.captureDir, captureMetadata)
 				if err != nil {
 					return nil, err
 				}

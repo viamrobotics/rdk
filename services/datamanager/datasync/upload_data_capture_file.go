@@ -2,8 +2,8 @@ package datasync
 
 import (
 	"context"
+	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"sync"
 
@@ -15,13 +15,15 @@ import (
 )
 
 func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.DataSyncServiceClient,
-	md *v1.UploadMetadata, f *os.File,
+	partID string, f *datacapture.File,
 ) error {
+	fmt.Println("called upload data capture file")
 	stream, err := client.Upload(ctx)
 	if err != nil {
 		return err
 	}
-	err = initDataCaptureUpload(ctx, f, pt, f.Name())
+
+	err = initDataCaptureUpload(f, pt)
 	if errors.Is(err, io.EOF) {
 		return nil
 	}
@@ -29,7 +31,23 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		return err
 	}
 
-	progressFileName := filepath.Join(pt.progressDir, filepath.Base(f.Name()))
+	captureMD, err := f.ReadMetadata()
+	if err != nil {
+		return err
+	}
+
+	md := &v1.UploadMetadata{
+		PartId:           partID,
+		ComponentType:    captureMD.GetComponentType(),
+		ComponentName:    captureMD.GetComponentName(),
+		ComponentModel:   captureMD.GetComponentModel(),
+		MethodName:       captureMD.GetMethodName(),
+		Type:             captureMD.GetType(),
+		FileName:         filepath.Base(f.GetPath()),
+		MethodParameters: captureMD.GetMethodParameters(),
+		FileExtension:    captureMD.GetFileExtension(),
+		Tags:             captureMD.GetTags(),
+	}
 
 	// Send metadata upload request.
 	req := &v1.UploadRequest{
@@ -52,7 +70,7 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	activeBackgroundWorkers.Add(1)
 	goutils.PanicCapturingGo(func() {
 		defer activeBackgroundWorkers.Done()
-		err := recvStream(cancelCtx, stream, pt, progressFileName)
+		err := recvStream(cancelCtx, stream, pt, f)
 		if err != nil {
 			errChannel <- err
 			cancelFn()
@@ -78,57 +96,40 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 	}
 
 	// Upload is complete, delete the corresponding progress file on disk.
-	if err := pt.deleteProgressFile(progressFileName); err != nil {
+	if err := pt.deleteProgressFile(f); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func initDataCaptureUpload(ctx context.Context, f *os.File, pt progressTracker, dcFileName string) error {
-	finfo, err := f.Stat()
-	if err != nil {
-		return err
-	}
+func initDataCaptureUpload(f *datacapture.File, pt progressTracker) error {
 	// Get file progress to see if upload has been attempted. If yes, resume from upload progress point and if not,
 	// create an upload progress file.
-	progressFilePath := filepath.Join(pt.progressDir, filepath.Base(dcFileName))
-	progressIndex, err := pt.getProgressFileIndex(progressFilePath)
-	if errors.Is(err, os.ErrNotExist) {
-		if err := pt.createProgressFile(progressFilePath); err != nil {
-			return err
-		}
-		return nil
-	}
+	progressIndex, err := pt.getProgress(f)
 	if err != nil {
 		return err
 	}
+	fmt.Println("prgress Index")
+	fmt.Println(progressIndex)
 
 	// Sets the next file pointer to the next sensordata message that needs to be uploaded.
 	for i := 0; i < progressIndex; i++ {
-		if _, err := getNextSensorUploadRequest(ctx, f); err != nil {
+		if _, err := f.ReadNext(); err != nil {
 			return err
 		}
 	}
 
-	// Check remaining data capture file contents so we know whether to continue upload process.
-	currentOffset, err := f.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return err
-	}
-	if currentOffset == finfo.Size() {
-		return io.EOF
-	}
 	return nil
 }
 
-func getNextSensorUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequest, error) {
+func getNextSensorUploadRequest(ctx context.Context, f *datacapture.File) (*v1.UploadRequest, error) {
 	select {
 	case <-ctx.Done():
 		return nil, context.Canceled
 	default:
 		// Get the next sensor data reading from file, check for an error.
-		next, err := datacapture.ReadNextSensorData(f)
+		next, err := f.ReadNext()
 		if err != nil {
 			return nil, err
 		}
@@ -141,7 +142,7 @@ func getNextSensorUploadRequest(ctx context.Context, f *os.File) (*v1.UploadRequ
 	}
 }
 
-func sendNextUploadRequest(ctx context.Context, f *os.File, stream v1.DataSyncService_UploadClient) error {
+func sendNextUploadRequest(ctx context.Context, f *datacapture.File, stream v1.DataSyncService_UploadClient) error {
 	select {
 	case <-ctx.Done():
 		return context.Canceled
@@ -160,7 +161,7 @@ func sendNextUploadRequest(ctx context.Context, f *os.File, stream v1.DataSyncSe
 }
 
 func recvStream(ctx context.Context, stream v1.DataSyncService_UploadClient,
-	pt progressTracker, progressFile string,
+	pt progressTracker, f *datacapture.File,
 ) error {
 	for {
 		recvChannel := make(chan error)
@@ -171,7 +172,7 @@ func recvStream(ctx context.Context, stream v1.DataSyncService_UploadClient,
 				recvChannel <- err
 				return
 			}
-			if err := pt.updateProgressFileIndex(progressFile, int(ur.GetRequestsWritten())); err != nil {
+			if err := pt.updateProgress(f, int(ur.GetRequestsWritten())); err != nil {
 				recvChannel <- err
 				return
 			}
@@ -192,11 +193,11 @@ func recvStream(ctx context.Context, stream v1.DataSyncService_UploadClient,
 }
 
 func sendStream(ctx context.Context, stream v1.DataSyncService_UploadClient,
-	captureFile *os.File,
+	f *datacapture.File,
 ) error {
 	// Loop until there is no more content to be read from file.
 	for {
-		err := sendNextUploadRequest(ctx, captureFile, stream)
+		err := sendNextUploadRequest(ctx, f, stream)
 		if errors.Is(err, io.EOF) {
 			break
 		}

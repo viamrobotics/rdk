@@ -2,9 +2,11 @@
 package datacapture
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
@@ -25,8 +27,36 @@ const (
 	nextPointCloud = "NextPointCloud"
 )
 
-// CreateDataCaptureFile creates a timestamped file within the given capture directory.
-func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.File, error) {
+type File struct {
+	path   string
+	lock   *sync.Mutex
+	file   *os.File
+	writer *bufio.Writer
+	size   int64
+}
+
+func NewFileFromFile(f *os.File) (*File, error) {
+	if !IsDataCaptureFile(f) {
+		return nil, errors.New(fmt.Sprintf("%s is not a data capture file", f.Name()))
+	}
+	finfo, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	ret := File{
+		path:   f.Name(),
+		lock:   &sync.Mutex{},
+		file:   f,
+		writer: bufio.NewWriter(f),
+		size:   finfo.Size(),
+	}
+	return &ret, nil
+}
+
+func NewFile(captureDir string, md *v1.DataCaptureMetadata) (*File, error) {
+	fmt.Println("making new file")
+
 	// First create directories and the file in it.
 	fileDir := filepath.Join(captureDir, md.GetComponentType(), md.GetComponentName(), md.GetMethodName())
 	if err := os.MkdirAll(fileDir, 0o700); err != nil {
@@ -40,10 +70,90 @@ func CreateDataCaptureFile(captureDir string, md *v1.DataCaptureMetadata) (*os.F
 	}
 
 	// Then write first metadata message to the file.
-	if _, err := pbutil.WriteDelimited(f, md); err != nil {
+	n, err := pbutil.WriteDelimited(f, md)
+	if err != nil {
 		return nil, err
 	}
-	return f, nil
+	return &File{
+		path:   f.Name(),
+		writer: bufio.NewWriter(f),
+		file:   f,
+		size:   int64(n),
+		lock:   &sync.Mutex{},
+	}, nil
+}
+
+func (f *File) ReadMetadata() (*v1.DataCaptureMetadata, error) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if _, err := f.file.Seek(0, 0); err != nil {
+		return nil, err
+	}
+
+	r := &v1.DataCaptureMetadata{}
+	if _, err := pbutil.ReadDelimited(f.file, r); err != nil {
+		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read DataCaptureMetadata from %s", f.file.Name()))
+	}
+
+	if r.GetType() == v1.DataType_DATA_TYPE_UNSPECIFIED {
+		return nil, errors.Errorf("file %s does not contain valid metadata", f.file.Name())
+	}
+
+	return r, nil
+}
+
+// TODO: reading meytadata resets file pointer. So if you read a bunch, then read metadata, then read again, you'll start
+//       from the beginning. That shouldn't be the case. Account for this; should probably keep state on lastReadIndex
+//       and currIndex
+func (f *File) ReadNext() (*v1.SensorData, error) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	r := v1.SensorData{}
+	if _, err := pbutil.ReadDelimited(f.file, &r); err != nil {
+		return nil, err
+	}
+
+	return &r, nil
+}
+
+func (f *File) WriteNext(data *v1.SensorData) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	n, err := pbutil.WriteDelimited(f.writer, data)
+	if err != nil {
+		return err
+	}
+	f.size += int64(n)
+	return nil
+}
+
+func (f *File) Sync() error {
+	return f.writer.Flush()
+}
+
+func (f *File) Size() int64 {
+	return f.size
+}
+
+func (f *File) GetPath() string {
+	return f.path
+}
+
+func (f *File) Close() error {
+	return f.file.Close()
+}
+
+func (f *File) Delete() error {
+	fmt.Println("deleting")
+	fmt.Println(f.path)
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	if err := f.file.Close(); err != nil {
+		return err
+	}
+	return os.Remove(f.file.Name())
 }
 
 // BuildCaptureMetadata builds a DataCaptureMetadata object and returns error if
@@ -56,7 +166,7 @@ func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, me
 		return nil, err
 	}
 
-	dataType := getDataType(method)
+	dataType := getDataType(string(compType), method)
 	return &v1.DataCaptureMetadata{
 		ComponentType:    string(compType),
 		ComponentName:    compName,
@@ -69,39 +179,9 @@ func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, me
 	}, nil
 }
 
-// ReadDataCaptureMetadata reads the DataCaptureMetadata from the beginning of the capture file.
-func ReadDataCaptureMetadata(f *os.File) (*v1.DataCaptureMetadata, error) {
-	if _, err := f.Seek(0, 0); err != nil {
-		return nil, err
-	}
-
-	r := &v1.DataCaptureMetadata{}
-	if _, err := pbutil.ReadDelimited(f, r); err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read DataCaptureMetadata from %s", f.Name()))
-	}
-
-	if r.GetType() == v1.DataType_DATA_TYPE_UNSPECIFIED {
-		return nil, errors.Errorf("file %s does not contain valid metadata", f.Name())
-	}
-
-	return r, nil
-}
-
 // IsDataCaptureFile returns whether or not f is a data capture file.
 func IsDataCaptureFile(f *os.File) bool {
 	return filepath.Ext(f.Name()) == FileExt
-}
-
-// ReadNextSensorData reads sensorData sequentially from a data capture file. It assumes the file offset is already
-// pointing at the beginning of series of SensorData in the file. This is accomplished by first calling
-// ReadDataCaptureMetadata.
-func ReadNextSensorData(f *os.File) (*v1.SensorData, error) {
-	r := &v1.SensorData{}
-	if _, err := pbutil.ReadDelimited(f, r); err != nil {
-		return nil, err
-	}
-
-	return r, nil
 }
 
 // Create a filename based on the current time.
@@ -111,8 +191,7 @@ func getFileTimestampName() string {
 }
 
 // TODO DATA-246: Implement this in some more robust, programmatic way.
-// TODO: support GetImage. This is why image stuff isn't working.
-func getDataType(methodName string) v1.DataType {
+func getDataType(_, methodName string) v1.DataType {
 	switch methodName {
 	case nextPointCloud, readImage:
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR
@@ -126,7 +205,7 @@ func GetFileExt(dataType v1.DataType, methodName string, parameters map[string]s
 	defaultFileExt := ""
 	switch dataType {
 	case v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		return ".dat"
+		return ".csv"
 	case v1.DataType_DATA_TYPE_FILE:
 		return defaultFileExt
 	case v1.DataType_DATA_TYPE_BINARY_SENSOR:
