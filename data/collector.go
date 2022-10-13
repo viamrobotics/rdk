@@ -5,7 +5,6 @@ package data
 import (
 	"context"
 	"fmt"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 	"sync"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 // The cutoff at which if interval < cutoff, a sleep based capture func is used instead of a ticker.
@@ -258,7 +258,6 @@ func NewCollector(capturer Capturer, params CollectorParams) (Collector, error) 
 
 func (c *collector) write() error {
 	for msg := range c.queue {
-		fmt.Println("writing")
 		if err := c.appendMessage(msg); err != nil {
 			return err
 		}
@@ -270,8 +269,6 @@ func (c *collector) appendMessage(msg *v1.SensorData) error {
 	if err := c.target.WriteNext(msg); err != nil {
 		return err
 	}
-	fmt.Println("wrote")
-	fmt.Println(msg.String())
 	return nil
 }
 

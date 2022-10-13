@@ -1,7 +1,6 @@
 package datasync
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -115,61 +114,61 @@ func TestSensorUploadTabular(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		t.Log(tc.name)
+		t.Run(tc.name, func(t *testing.T) {
+			// Create temp data capture file.
+			tf, err := createTmpDataCaptureFile()
+			if err != nil {
+				t.Errorf("%s cannot create temporary file to be used for sensorUpload/fileUpload testing: %v", tc.name, err)
+			}
+			defer os.Remove(tf.Name())
 
-		// Create temp data capture file.
-		tf, err := createTmpDataCaptureFile()
-		if err != nil {
-			t.Errorf("%s cannot create temporary file to be used for sensorUpload/fileUpload testing: %v", tc.name, err)
-		}
-		defer os.Remove(tf.Name())
-
-		// First write metadata to file.
-		captureMetadata := v1.DataCaptureMetadata{
-			ComponentType:    componentType,
-			ComponentName:    componentName,
-			ComponentModel:   componentModel,
-			MethodName:       methodName,
-			Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			MethodParameters: nil,
-			FileExtension:    datacapture.GetFileExt(v1.DataType_DATA_TYPE_TABULAR_SENSOR, methodName, nil),
-			Tags:             tags,
-		}
-		if _, err := pbutil.WriteDelimited(tf, &captureMetadata); err != nil {
-			t.Errorf("%s cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v",
-				tc.name, err)
-		}
-
-		// Write the data from the test cases into the files to prepare them for reading by the fileUpload function
-		for i := range tc.toSend {
-			if _, err := pbutil.WriteDelimited(tf, tc.toSend[i]); err != nil {
+			// First write metadata to file.
+			captureMetadata := v1.DataCaptureMetadata{
+				ComponentType:    componentType,
+				ComponentName:    componentName,
+				ComponentModel:   componentModel,
+				MethodName:       methodName,
+				Type:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+				MethodParameters: nil,
+				FileExtension:    datacapture.GetFileExt(v1.DataType_DATA_TYPE_TABULAR_SENSOR, methodName, nil),
+				Tags:             tags,
+			}
+			if _, err := pbutil.WriteDelimited(tf, &captureMetadata); err != nil {
 				t.Errorf("%s cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v",
 					tc.name, err)
 			}
-		}
 
-		// Register mock datasync service with a mock server.
-		logger, _ := golog.NewObservedTestLogger(t)
-		mockService := getMockService()
-		rpcServer := buildAndStartLocalServer(t, logger, mockService)
-		defer func() {
-			err := rpcServer.Stop()
+			// Write the data from the test cases into the files to prepare them for reading by the fileUpload function
+			for i := range tc.toSend {
+				if _, err := pbutil.WriteDelimited(tf, tc.toSend[i]); err != nil {
+					t.Errorf("%s cannot write protobuf struct to temporary file as part of setup for sensorUpload testing: %v",
+						tc.name, err)
+				}
+			}
+
+			// Register mock datasync service with a mock server.
+			logger, _ := golog.NewObservedTestLogger(t)
+			mockService := getMockService()
+			rpcServer := buildAndStartLocalServer(t, logger, mockService)
+			defer func() {
+				err := rpcServer.Stop()
+				test.That(t, err, test.ShouldBeNil)
+			}()
+
+			conn, err := getLocalServerConn(rpcServer, logger)
 			test.That(t, err, test.ShouldBeNil)
-		}()
+			client := NewClient(conn)
+			sut, err := NewManager(logger, partID, client, conn)
+			test.That(t, err, test.ShouldBeNil)
+			sut.Sync([]string{tf.Name()})
+			time.Sleep(syncWaitTime)
+			sut.Close()
 
-		conn, err := getLocalServerConn(rpcServer, logger)
-		test.That(t, err, test.ShouldBeNil)
-		client := NewClient(conn)
-		sut, err := NewManager(logger, partID, client, conn)
-		test.That(t, err, test.ShouldBeNil)
-		sut.Sync([]string{tf.Name()})
-		time.Sleep(syncWaitTime)
-		sut.Close()
-
-		// Validate the client sent the expected messages.
-		expectedMsgs := buildSensorDataUploadRequests(tc.toSend, v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			filepath.Base(tf.Name()))
-		compareTabularUploadRequests(t, mockService.getUploadRequests(), expectedMsgs)
+			// Validate the client sent the expected messages.
+			expectedMsgs := buildSensorDataUploadRequests(tc.toSend, v1.DataType_DATA_TYPE_TABULAR_SENSOR,
+				filepath.Base(tf.Name()))
+			compareTabularUploadRequests(t, mockService.getUploadRequests(), expectedMsgs)
+		})
 	}
 }
 
@@ -309,7 +308,7 @@ func TestUploadsOnce(t *testing.T) {
 
 func TestUploadExponentialRetry(t *testing.T) {
 	// TODO: RSDK-565. Make this work. Bidi broke it.
-	//t.Skip()
+
 	// Set retry related global vars to faster values for test.
 	initialWaitTimeMillis.Store(50)
 	maxRetryInterval = time.Millisecond * 150
@@ -379,7 +378,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 
 func TestPartialUpload(t *testing.T) {
 	// TODO: RSDK-640. Make this work. Bidi broke it.
-	//t.Skip()
+
 	initialWaitTimeMillis.Store(1000 * 60)
 	msg1 := []byte("viam")
 	msg2 := []byte("robotics")
@@ -509,9 +508,6 @@ func TestPartialUpload(t *testing.T) {
 			// Build all expected messages from before the Upload was cancelled.
 			expMsgs = buildSensorDataUploadRequests(tc.expSentBeforeRetry, tc.dataType, captureFile.Name())
 			actMsgs = mockService.getUploadRequests()
-			for _, ur := range actMsgs {
-				fmt.Println(ur.String())
-			}
 			compareTabularUploadRequests(t, actMsgs, expMsgs)
 
 			// Validate progress file exists and has correct value.
@@ -545,9 +541,6 @@ func TestPartialUpload(t *testing.T) {
 
 			// Validate client sent mockService the upload requests we would expect after resuming upload.
 			expMsgs = buildSensorDataUploadRequests(tc.expSentAfterRetry, tc.dataType, captureFile.Name())
-			for _, ur := range mockService.getUploadRequests() {
-				fmt.Println(ur.String())
-			}
 			compareTabularUploadRequests(t, mockService.getUploadRequests(), expMsgs)
 
 			// Validate progress file does not exist.

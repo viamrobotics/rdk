@@ -2,7 +2,6 @@ package datasync
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"path/filepath"
 	"sync"
@@ -15,8 +14,8 @@ import (
 )
 
 func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.DataSyncServiceClient,
-	partID string, f *datacapture.File) error {
-	fmt.Println("called upload data capture file")
+	partID string, f *datacapture.File,
+) error {
 	stream, err := client.Upload(ctx)
 	if err != nil {
 		return err
@@ -109,8 +108,6 @@ func initDataCaptureUpload(f *datacapture.File, pt progressTracker) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("prgress Index")
-	fmt.Println(progressIndex)
 
 	// Sets the next file pointer to the next sensordata message that needs to be uploaded.
 	for i := 0; i < progressIndex; i++ {

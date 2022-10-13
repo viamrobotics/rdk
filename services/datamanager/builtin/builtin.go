@@ -262,7 +262,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
-	targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
+	targetFile, err := datacapture.NewFile(svc.captureDir, captureMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -380,11 +380,11 @@ func (svc *builtIn) syncDataCaptureFiles() error {
 			return err
 		}
 
-		nextTarget, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
+		nextTarget, err := datacapture.NewFile(svc.captureDir, captureMetadata)
 		if err != nil {
 			return err
 		}
-		oldFiles = append(oldFiles, collector.Collector.GetTarget().Name())
+		oldFiles = append(oldFiles, collector.Collector.GetTarget().GetPath())
 		collector.Collector.SetTarget(nextTarget)
 	}
 	svc.syncer.Sync(oldFiles)

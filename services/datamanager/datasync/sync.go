@@ -3,8 +3,6 @@ package datasync
 
 import (
 	"context"
-	"fmt"
-	"go.viam.com/rdk/services/datamanager/datacapture"
 	"os"
 	"sync"
 	"time"
@@ -19,6 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -123,7 +122,6 @@ func (s *syncer) Close() {
 
 func (s *syncer) upload(ctx context.Context, path string) {
 	if s.progressTracker.inProgress(path) {
-		fmt.Println("already in progress")
 		return
 	}
 
@@ -227,9 +225,8 @@ func getNextWait(lastWait time.Duration) time.Duration {
 }
 
 func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncServiceClient, f *os.File, partID string) error {
-	fmt.Println("am uploading file")
 	if datacapture.IsDataCaptureFile(f) {
-		dcFile, err := datacapture.NewFileFromFile(f)
+		dcFile, err := datacapture.ReadFile(f)
 		if err != nil {
 			return err
 		}

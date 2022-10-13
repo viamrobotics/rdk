@@ -4,6 +4,7 @@ package datacapture
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -27,6 +28,9 @@ const (
 	nextPointCloud = "NextPointCloud"
 )
 
+// File is the data structure containing data captured by collectors. It is backed by a file on disk containing
+// length delimited protobuf messages, where the first message is the CaptureMetadata for the file, and ensuing
+// messages contain the captured metadata.
 type File struct {
 	path   string
 	lock   *sync.Mutex
@@ -35,9 +39,10 @@ type File struct {
 	size   int64
 }
 
-func NewFileFromFile(f *os.File) (*File, error) {
+// ReadFile creates a File struct from a passed os.File previously constructed using NewFile.
+func ReadFile(f *os.File) (*File, error) {
 	if !IsDataCaptureFile(f) {
-		return nil, errors.New(fmt.Sprintf("%s is not a data capture file", f.Name()))
+		return nil, errors.Errorf("%s is not a data capture file", f.Name())
 	}
 	finfo, err := f.Stat()
 	if err != nil {
@@ -54,9 +59,8 @@ func NewFileFromFile(f *os.File) (*File, error) {
 	return &ret, nil
 }
 
+// NewFile creates a new File with the specified md in the specified directory.
 func NewFile(captureDir string, md *v1.DataCaptureMetadata) (*File, error) {
-	fmt.Println("making new file")
-
 	// First create directories and the file in it.
 	fileDir := filepath.Join(captureDir, md.GetComponentType(), md.GetComponentName(), md.GetMethodName())
 	if err := os.MkdirAll(fileDir, 0o700); err != nil {
@@ -83,9 +87,16 @@ func NewFile(captureDir string, md *v1.DataCaptureMetadata) (*File, error) {
 	}, nil
 }
 
+// ReadMetadata reads and returns the metadata in f.
 func (f *File) ReadMetadata() (*v1.DataCaptureMetadata, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
+	currOffset, err := f.file.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return nil, err
+	}
+
+	// Reset file pointer to 0, so we're reading the first message in the file.
 	if _, err := f.file.Seek(0, 0); err != nil {
 		return nil, err
 	}
@@ -99,12 +110,19 @@ func (f *File) ReadMetadata() (*v1.DataCaptureMetadata, error) {
 		return nil, errors.Errorf("file %s does not contain valid metadata", f.file.Name())
 	}
 
+	// If we were already iterating through SensorData, return the offset to the last index of the SensorData.
+	// If had not called ReadNext yet, leave file pointer at end of metadata message. This ensures ReadNext
+	// will return the first sensor data, not the initial metadata message.
+	if currOffset != 0 {
+		if _, err := f.file.Seek(currOffset, 0); err != nil {
+			return nil, err
+		}
+	}
+
 	return r, nil
 }
 
-// TODO: reading meytadata resets file pointer. So if you read a bunch, then read metadata, then read again, you'll start
-//       from the beginning. That shouldn't be the case. Account for this; should probably keep state on lastReadIndex
-//       and currIndex
+// ReadNext returns the next SensorData reading.
 func (f *File) ReadNext() (*v1.SensorData, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
@@ -117,6 +135,7 @@ func (f *File) ReadNext() (*v1.SensorData, error) {
 	return &r, nil
 }
 
+// WriteNext writes the next SensorData reading.
 func (f *File) WriteNext(data *v1.SensorData) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
@@ -129,25 +148,28 @@ func (f *File) WriteNext(data *v1.SensorData) error {
 	return nil
 }
 
+// Sync flushes any buffered writes to disk.
 func (f *File) Sync() error {
 	return f.writer.Flush()
 }
 
+// Size returns the size of the file.
 func (f *File) Size() int64 {
 	return f.size
 }
 
+// GetPath returns the path of the underlying os.File.
 func (f *File) GetPath() string {
 	return f.path
 }
 
+// Close closes the file.
 func (f *File) Close() error {
 	return f.file.Close()
 }
 
+// Delete deletes the file.
 func (f *File) Delete() error {
-	fmt.Println("deleting")
-	fmt.Println(f.path)
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	if err := f.file.Close(); err != nil {
