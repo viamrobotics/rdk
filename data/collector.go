@@ -62,10 +62,10 @@ type collector struct {
 func (c *collector) SetTarget(file *datacapture.File) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	c.target = file
-	if err := file.Sync(); err != nil {
+	if err := c.target.Sync(); err != nil {
 		c.logger.Errorw("failed to flush file to disk", "error", err)
 	}
+	c.target = file
 }
 
 // GetTarget returns the file being written to by the collector.
@@ -266,6 +266,8 @@ func (c *collector) write() error {
 }
 
 func (c *collector) appendMessage(msg *v1.SensorData) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if err := c.target.WriteNext(msg); err != nil {
 		return err
 	}
