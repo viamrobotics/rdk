@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -77,11 +78,12 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		}
 	}
 
+	stream := gostream.NewEmbeddedVideoStream(camera)
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
 		defer span.End()
 
-		img, release, err := ReadImage(ctx, camera)
+		img, release, err := stream.Next(ctx)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, readImage.String(), err)
 		}

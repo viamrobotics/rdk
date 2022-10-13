@@ -1,10 +1,9 @@
 <script setup lang="ts">
 
-import { grpc } from '@improbable-eng/grpc-web';
 import { ref } from 'vue';
-import streamApi from '../gen/proto/stream/v1/stream_pb.esm';
+import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
 import { displayError } from '../lib/error';
-import { normalizeRemoteName } from '../lib/resource';
+import { addStream, removeStream } from '../lib/stream';
 
 interface Props {
   name: string
@@ -15,21 +14,25 @@ const props = defineProps<Props>();
 
 const audioInput = ref(false);
 
-const toggleExpand = () => {
+const toggleExpand = async () => {
   audioInput.value = !audioInput.value;
 
   const isOn = audioInput.value;
 
   if (isOn) {
-    const req = new streamApi.AddStreamRequest();
-    req.setName(props.name);
-    window.streamService.addStream(req, new grpc.Metadata(), displayError);
+    try {
+      await addStream(props.name);
+    } catch (error) {
+      displayError(error as ServiceError);
+    }
     return;
   }
 
-  const req = new streamApi.RemoveStreamRequest();
-  req.setName(props.name);
-  window.streamService.removeStream(req, new grpc.Metadata(), displayError);
+  try {
+    await removeStream(props.name);
+  } catch (error) {
+    displayError(error as ServiceError);
+  }
 };
 
 </script>
@@ -54,7 +57,7 @@ const toggleExpand = () => {
 
           <div
             v-if="audioInput"
-            :id="`stream-${normalizeRemoteName(props.name)}`"
+            :data-stream="props.name"
             class="clear-both h-fit transition-all duration-300 ease-in-out"
           />
         </div>

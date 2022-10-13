@@ -2,7 +2,7 @@
 
 import { grpc } from '@improbable-eng/grpc-web';
 import { ref } from 'vue';
-import { normalizeRemoteName, type Resource } from '../lib/resource';
+import type { Resource } from '../lib/resource';
 import { displayError } from '../lib/error';
 import cameraApi from '../gen/proto/api/component/camera/v1/camera_pb.esm';
 import { toast } from '../lib/toast';
@@ -173,7 +173,7 @@ const exportScreenshot = (cameraName: string) => {
           </div>
           <div
             v-if="camera"
-            :id="`stream-${normalizeRemoteName(props.cameraName)}`"
+            :data-stream="props.cameraName"
             class="clear-both h-fit transition-all duration-300 ease-in-out"
           />
         </div>

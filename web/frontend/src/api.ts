@@ -20,7 +20,6 @@ import { SensorsServiceClient } from './gen/proto/api/service/sensors/v1/sensors
 import { SLAMServiceClient } from './gen/proto/api/service/slam/v1/slam_pb_service.esm';
 import { VisionServiceClient } from './gen/proto/api/service/vision/v1/vision_pb_service.esm';
 import { StreamServiceClient } from './gen/proto/stream/v1/stream_pb_service.esm';
-import { normalizeRemoteName } from './lib/resource';
 
 import commonApi from './gen/proto/api/common/v1/common_pb.esm';
 import armApi from './gen/proto/api/component/arm/v1/arm_pb.esm';
@@ -107,48 +106,40 @@ const connect = async (authEntity = savedAuthEntity, creds = savedCreds) => {
 
     webRTCConn.peerConnection.ontrack = (event) => {
       const { kind } = event.track;
-      const mediaElement = document.createElement(kind) as HTMLAudioElement | HTMLVideoElement;
-      mediaElement.srcObject = event.streams[0]!;
-      mediaElement.autoplay = true;
 
-      if (mediaElement instanceof HTMLVideoElement) {
-        mediaElement.playsInline = true;
-        mediaElement.controls = false;
-      } else {
-        mediaElement.controls = true;
-      }
+      const streamName = event.streams[0]!.id;
+      const streamContainers = document.querySelectorAll(`[data-stream="${streamName}"]`);
 
-      let streamName = event.streams[0]!.id;
-      streamName = normalizeRemoteName(streamName);
+      for (const streamContainer of streamContainers) {
+        const mediaElement = document.createElement(kind) as HTMLAudioElement | HTMLVideoElement;
+        mediaElement.srcObject = event.streams[0]!;
+        mediaElement.autoplay = true;
+        if (mediaElement instanceof HTMLVideoElement) {
+          mediaElement.playsInline = true;
+          mediaElement.controls = false;
+        } else {
+          mediaElement.controls = true;
+        }
 
-      const streamContainer = document.querySelector(`#stream-${streamName}`);
-      if (streamContainer) {
         const child = streamContainer.querySelector(kind);
         child?.remove();
-      }
-
-      if (streamContainer) {
         streamContainer.append(mediaElement);
       }
 
-      const mediaElementPreview = document.createElement(kind) as HTMLAudioElement | HTMLVideoElement;
-      mediaElementPreview.srcObject = event.streams[0]!;
-      mediaElementPreview.autoplay = true;
-      if (mediaElementPreview instanceof HTMLVideoElement) {
-        mediaElementPreview.playsInline = true;
-        mediaElementPreview.controls = false;
-      } else {
-        mediaElementPreview.controls = true;
-      }
-
-      const streamPreviewContainer = document.querySelector(`#stream-preview-${streamName}`);
-      if (streamPreviewContainer) {
-        const child = streamPreviewContainer.querySelector(kind);
+      const streamPreviewContainers = document.querySelectorAll(`[data-stream-preview="${streamName}"]`);
+      for (const streamContainer of streamPreviewContainers) {
+        const mediaElementPreview = document.createElement(kind) as HTMLAudioElement | HTMLVideoElement;
+        mediaElementPreview.srcObject = event.streams[0]!;
+        mediaElementPreview.autoplay = true;
+        if (mediaElementPreview instanceof HTMLVideoElement) {
+          mediaElementPreview.playsInline = true;
+          mediaElementPreview.controls = false;
+        } else {
+          mediaElementPreview.controls = true;
+        }
+        const child = streamContainer.querySelector(kind);
         child?.remove();
-      }
-
-      if (streamPreviewContainer) {
-        streamPreviewContainer.append(mediaElementPreview);
+        streamContainer.append(mediaElementPreview);
       }
     };
   } else {

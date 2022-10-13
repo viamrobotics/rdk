@@ -17,14 +17,14 @@ func TestParseJSONFile(t *testing.T) {
 		"components/arm/trossen/trossen_wx250s_kinematics.json",
 		"components/arm/trossen/trossen_wx250s_test.json",
 		"components/arm/universalrobots/ur5e_DH.json",
-		"motionplan/testjson/varm.json",
+		"referenceframe/testjson/varm.json",
 	}
 
 	badFiles := []string{
-		"kinematics/testjson/kinematicsloop.json",
-		"kinematics/testjson/worldjoint.json",
-		"kinematics/testjson/worldlink.json",
-		"kinematics/testjson/worldDH.json",
+		"referenceframe/testjson/kinematicsloop.json",
+		"referenceframe/testjson/worldjoint.json",
+		"referenceframe/testjson/worldlink.json",
+		"referenceframe/testjson/worldDH.json",
 	}
 
 	for _, f := range goodFiles {

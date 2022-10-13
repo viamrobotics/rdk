@@ -459,6 +459,10 @@ func TestDMC4000Motor(t *testing.T) {
 		waitTx(t, resChan)
 	})
 
+	t.Run("motor GoFor with 0 RPM", func(t *testing.T) {
+		test.That(t, _motor.GoFor(ctx, 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
+	})
+
 	t.Run("motor GoFor after jogging", func(t *testing.T) {
 		// Test 0.5 of max power
 		txMu.Lock()
