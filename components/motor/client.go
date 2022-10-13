@@ -128,12 +128,12 @@ func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 func (c *client) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return false, 0, err
+		return false, 0.0, err
 	}
 	req := &pb.IsPoweredRequest{Name: c.name, Extra: ext}
 	resp, err := c.client.IsPowered(ctx, req)
 	if err != nil {
-		return false, 0, err
+		return false, 0.0, err
 	}
 	return resp.GetIsOn(), resp.GetPowerPct(), nil
 }
