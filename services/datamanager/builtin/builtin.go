@@ -366,7 +366,10 @@ func (svc *builtIn) Sync(_ context.Context) error {
 func (svc *builtIn) syncDataCaptureFiles() error {
 	svc.lock.Lock()
 	oldFiles := make([]string, 0, len(svc.collectors))
-	currCollectors := svc.collectors
+	currCollectors := make(map[componentMethodMetadata]collectorAndConfig)
+	for k, v := range svc.collectors {
+		currCollectors[k] = v
+	}
 	svc.lock.Unlock()
 	for _, collector := range currCollectors {
 		// Create new target and set it.
