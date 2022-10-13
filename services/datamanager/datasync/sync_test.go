@@ -511,6 +511,7 @@ func TestPartialUpload(t *testing.T) {
 			compareTabularUploadRequests(t, actMsgs, expMsgs)
 
 			// Validate progress file exists and has correct value.
+			// TODO: directly testing this is a big abstraction leak
 			progressFile := filepath.Join(viamProgressDotDir, filepath.Base(captureFile.Name()))
 			defer os.Remove(progressFile)
 			_, err = os.Stat(progressFile)
