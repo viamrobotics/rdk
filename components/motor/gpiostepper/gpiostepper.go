@@ -385,9 +385,19 @@ func (m *gpioStepper) stop() {
 	m.targetStepsPerSecond = 0
 }
 
-// IsPowered returns whether or not the motor is currently on.
-func (m *gpioStepper) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
-	return m.IsMoving(ctx)
+// IsPowered returns whether or not the motor is currently on. It also returns the percent power
+// that the motor has, but stepper motors only have this set to 0% or 100%, so it's a little
+// redundant.
+func (m *gpioStepper) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+	on, err := m.IsMoving(ctx)
+	if err != nil {
+		return on, 0.0, err
+	}
+	percent := 0.0
+	if on {
+		percent = 1.0
+	}
+	return on, percent, err
 }
 
 func (m *gpioStepper) enable(ctx context.Context, on bool) error {
