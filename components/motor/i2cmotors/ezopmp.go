@@ -289,10 +289,7 @@ func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[st
 		return err
 	}
 
-	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop); err != nil {
-		return err
-	}
-	return nil
+	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
 // GoTo uses the Dose Over Time Command in the EZO-PMP datasheet
@@ -310,11 +307,7 @@ func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin, mins float64, extra map[str
 	if err := m.writeRegWithCheck(ctx, command); err != nil {
 		return err
 	}
-	if err := m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop); err != nil {
-		return err
-	}
-
-	return nil
+	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
 // ResetZeroPosition clears the amount of volume that has been dispensed.

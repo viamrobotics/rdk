@@ -107,4 +107,79 @@ func TestSingleOperationManager(t *testing.T) {
 		som.CancelRunning(ctx)
 		test.That(t, ctx.Err(), test.ShouldNotBeNil)
 	})
+	t.Run("Ensure stop called on cancelled context", func(t *testing.T) {
+		ctx, done := som.New(context.Background())
+		mock := &mock{stopCount: 0}
+		defer done()
+		ctx, cancel := context.WithCancel(ctx)
+		var wg sync.WaitGroup
+
+		wg.Add(1)
+
+		go func() {
+			som.WaitTillNotPowered(ctx, 5*time.Second, mock, mock.stop)
+			wg.Done()
+		}()
+
+		cancel()
+		wg.Wait()
+		test.That(t, ctx.Err(), test.ShouldNotBeNil)
+		test.That(t, mock.stopCount, test.ShouldEqual, 1)
+	})
+	t.Run("Ensure error contains stop error", func(t *testing.T) {
+		ctx := context.Background()
+		mock := &mock{stopCount: 0}
+		ctx, cancel := context.WithCancel(ctx)
+		var wg sync.WaitGroup
+
+		wg.Add(1)
+		var errRet error
+		go func(errRet *error) {
+			*errRet = som.WaitTillNotPowered(ctx, 5*time.Second, mock, mock.stopFail)
+			wg.Done()
+		}(&errRet)
+
+		cancel()
+		wg.Wait()
+		test.That(t, errRet.Error(), test.ShouldEqual, "context canceled; Stop failed")
+	})
+	t.Run("Ensure stop not called on old context when new context is spawned", func(t *testing.T) {
+		ctx, done := som.New(context.Background())
+		mock := &mock{stopCount: 0}
+		defer done()
+		// ctx, _ = context.WithCancel(ctx)
+		var wg sync.WaitGroup
+
+		wg.Add(1)
+
+		go func() {
+			som.WaitTillNotPowered(ctx, 5*time.Second, mock, mock.stop)
+			wg.Done()
+		}()
+		ctx2 := context.Background()
+		ctx2, _ = context.WithCancel(ctx2)
+		go som.New(ctx2)
+		done()
+		// cancel()
+		wg.Wait()
+		// test.That(t, ctx.Err(), test.ShouldNotBeNil)
+		test.That(t, mock.stopCount, test.ShouldEqual, 0)
+	})
+}
+
+type mock struct {
+	stopCount int
+}
+
+func (m *mock) stop(ctx context.Context, extra map[string]interface{}) error {
+	m.stopCount += 1
+	return nil
+}
+
+func (m *mock) stopFail(ctx context.Context, extra map[string]interface{}) error {
+	return errors.New("Stop failed")
+}
+
+func (m *mock) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	return false, nil
 }
