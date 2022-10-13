@@ -881,6 +881,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		{"-data_dir=" + name},
 		{"-input_file_pattern=10:200:1"},
 		{"-port=localhost:4445"},
+		{"--aix-auto-update"},
 	}
 
 	for i, s := range cmd {
