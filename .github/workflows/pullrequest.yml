@@ -16,9 +16,11 @@ on:
 
 jobs:
   test:
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    # TODO(erd): undo
+    uses: viamrobotics/rdk/.github/workflows/test.yml@ana
     secrets:
       ARTIFACT_READ_ONLY_GCP_CREDENTIALS: ${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}
+      MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
   # This lets people add an "appimage" tag to have appimages built for the PR
   appimage:

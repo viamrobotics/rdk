@@ -23,7 +23,8 @@ func TestResourceType(t *testing.T) {
 			"",
 			resource.ResourceTypeComponent,
 			resource.Type{ResourceType: resource.ResourceTypeComponent},
-			"namespace field for resource missing or invalid",
+			// # TODO(erd): undo to invalid
+			"namespace field for resource missing or invalida",
 		},
 		{
 			"missing type",
