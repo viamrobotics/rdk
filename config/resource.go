@@ -317,11 +317,11 @@ func (config *Service) Validate(path string) error {
 	}
 	// If services do not have a name use the name builtin
 	if config.Name == "" {
-		golog.Global().Warnw("no name given, defaulting name to builtin")
+		golog.Global().Debug("no name given, defaulting name to builtin")
 		config.Name = resource.DefaultModelName
 	}
 	if config.Model == "" {
-		golog.Global().Warnw("no model given; using default")
+		golog.Global().Debug("no model given; using default")
 		config.Model = resource.DefaultModelName
 	}
 	if config.Namespace == "" {
