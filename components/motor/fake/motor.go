@@ -41,6 +41,14 @@ type Config struct {
 	TicksPerRotation int       `json:"ticks_per_rotation,omitempty"`
 }
 
+func (cfg *Config) Validate(path string) ([]string, error) {
+	var deps []string
+	if cfg.BoardName != "" {
+		deps = append(deps, cfg.BoardName)
+	}
+	return deps, nil
+}
+
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {

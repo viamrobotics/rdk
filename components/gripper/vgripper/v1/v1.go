@@ -37,15 +37,17 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) error {
+func (config *AttrConfig) Validate(path string) ([]string, error) {
+	var deps []string
 	if config.Board == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 
 	if config.PressureLimit == 0 {
-		return utils.NewConfigValidationFieldRequiredError(path, "pressure_limit")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "pressure_limit")
 	}
-	return nil
+	deps = append(deps, config.Board)
+	return deps, nil
 }
 
 func init() {

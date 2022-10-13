@@ -42,6 +42,23 @@ type Config struct {
 	TicksPerRotation int            `json:"ticks_per_rotation,omitempty"`
 }
 
+func (config *Config) Validate(path string) ([]string, error) {
+	var deps []string
+
+	if config.BoardName == "" {
+		return nil, errors.New("motor requires a board")
+	}
+	deps = append(deps, config.BoardName)
+	if config.Encoder != "" {
+		deps = append(deps, config.Encoder)
+	} else {
+		if config.MaxRPM <= 0 {
+			return nil, errors.New("unencoded motors requires a non-nul positive max_rpm ")
+		}
+	}
+	return deps, nil
+}
+
 // init registers a pi motor based on pigpio.
 func init() {
 	comp := registry.Component{
