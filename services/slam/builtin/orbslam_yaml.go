@@ -119,7 +119,6 @@ type ORBsettings struct {
 	StereoThDepth  float64 `yaml:"Stereo.ThDepth"`
 	DepthMapFactor float64 `yaml:"RGBD.DepthMapFactor"`
 	FPSCamera      int16   `yaml:"Camera.fps"`
-	SaveMapLoc     string  `yaml:"System.SaveAtlasToFile"`
 	LoadMapLoc     string  `yaml:"System.LoadAtlasFromFile"`
 }
 
@@ -147,9 +146,6 @@ func (slamSvc *builtIn) orbGenYAML(ctx context.Context, cam camera.Camera) error
 
 	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	timeStampNow := time.Now().UTC().Format(slamTimeFormat)
-	saveMapName := filepath.Join(slamSvc.dataDirectory, "map", slamSvc.cameraName+"_data_"+timeStampNow)
-	// timestamp to save at end of run
-	orbslam.SaveMapLoc = "\"" + saveMapName + "\""
 
 	// Check for maps in the specified directory and add map to yaml config
 	loadMapTimeStamp, loadMapName, err := slamSvc.checkMaps()
