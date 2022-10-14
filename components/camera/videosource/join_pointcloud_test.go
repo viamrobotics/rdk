@@ -157,6 +157,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+	t.Logf("contents: %#v", pc)
 	test.That(t, pc.Size(), test.ShouldEqual, 3)
 
 	data, got := pc.At(101, 0, 0)
@@ -171,9 +172,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 	test.That(t, got, test.ShouldBeTrue)
 	test.That(t, data.Color(), test.ShouldResemble, &color.NRGBA{0, 0, 255, 255})
 
-	stream, err := joinedCam.Stream(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	img, _, err := stream.Next(context.Background())
+	img, _, err := camera.ReadImage(context.Background(), joinedCam)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, img.Bounds(), test.ShouldResemble, image.Rect(0, 0, 1, 100))
 	test.That(t, joinedCam.Close(context.Background()), test.ShouldBeNil)
@@ -189,6 +188,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pc, err = joinedCam2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+	t.Logf("contents: %#v", pc)
 	test.That(t, pc.Size(), test.ShouldEqual, 3)
 
 	data, got = pc.At(1, 0, 0)
@@ -203,9 +203,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 	test.That(t, got, test.ShouldBeTrue)
 	test.That(t, data.Color(), test.ShouldResemble, &color.NRGBA{0, 0, 255, 255})
 
-	stream, err = joinedCam2.Stream(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	img, _, err = stream.Next(context.Background())
+	img, _, err = camera.ReadImage(context.Background(), joinedCam2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, img.Bounds(), test.ShouldResemble, image.Rect(0, 0, 1, 100))
 	test.That(t, joinedCam2.Close(context.Background()), test.ShouldBeNil)
