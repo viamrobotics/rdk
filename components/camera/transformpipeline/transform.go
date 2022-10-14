@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/edaniels/gostream"
+	"github.com/invopop/jsonschema"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/camera"
@@ -28,17 +29,17 @@ const (
 	transformTypeDepthPreprocess = transformType("depth_preprocess")
 )
 
-// RegisteredTransformConfigs is a map of all available transform configs, used for populating fields in the front-end.
-var RegisteredTransformConfigs = map[string]interface{}{
-	string(transformTypeIdentity):        &emptyAttrs{},
-	string(transformTypeRotate):          &emptyAttrs{},
-	string(transformTypeResize):          &resizeAttrs{},
-	string(transformTypeDepthPretty):     &emptyAttrs{},
-	string(transformTypeOverlay):         &overlayAttrs{},
-	string(transformTypeUndistort):       &undistortAttrs{},
-	string(transformTypeDetections):      &detectorAttrs{},
-	string(transformTypeDepthEdges):      &depthEdgesAttrs{},
-	string(transformTypeDepthPreprocess): &emptyAttrs{},
+// registeredTransformConfigs is a map of all available transform configs, used for populating fields in the front-end.
+var registeredTransformConfigs = map[transformType]interface{}{
+	transformTypeIdentity:        &emptyAttrs{},
+	transformTypeRotate:          &emptyAttrs{},
+	transformTypeResize:          &resizeAttrs{},
+	transformTypeDepthPretty:     &emptyAttrs{},
+	transformTypeOverlay:         &overlayAttrs{},
+	transformTypeUndistort:       &undistortAttrs{},
+	transformTypeDetections:      &detectorAttrs{},
+	transformTypeDepthEdges:      &depthEdgesAttrs{},
+	transformTypeDepthPreprocess: &emptyAttrs{},
 }
 
 // Transformation states the type of transformation and the attributes that are specific to the given type.
@@ -49,6 +50,24 @@ type Transformation struct {
 
 // emptyAttrs is for transforms that have no attribute fields.
 type emptyAttrs struct{}
+
+// JSONSchema defines the schema for each of the possible transforms in the pipeline.
+func (tr *Transformation) JSONSchema() *jsonschema.Schema {
+	schemas := make([]*jsonschema.Schema, 0, len(registeredTransformConfigs))
+	for transformType, transformStruct := range registeredTransformConfigs {
+		tempStruct := struct {
+			Type       string      `json:"type"`
+			Attributes interface{} `json:"attributes"`
+		}{
+			Type:       string(transformType),
+			Attributes: transformStruct,
+		}
+		schemas = append(schemas, jsonschema.Reflect(tempStruct))
+	}
+	return &jsonschema.Schema{
+		OneOf: schemas,
+	}
+}
 
 // buildTransform uses the Transformation config to build the desired transform ImageSource.
 func buildTransform(
