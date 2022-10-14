@@ -50802,6 +50802,70 @@
         }
       }
     },
+    "mock_mono_camera": {
+      "rgb": {
+        "0.png": {
+          "hash": "c4dc7ae86a546684f3c9cbe0e47acf55",
+          "size": 834386
+        },
+        "1.png": {
+          "hash": "c4dc7ae86a546684f3c9cbe0e47acf55",
+          "size": 834386
+        },
+        "10.png": {
+          "hash": "97cb4afc22754e0433303ae8b44d380f",
+          "size": 813831
+        },
+        "11.png": {
+          "hash": "f87b5643a7b58bc4cdf231ab096038b7",
+          "size": 833993
+        },
+        "12.png": {
+          "hash": "f87b5643a7b58bc4cdf231ab096038b7",
+          "size": 833993
+        },
+        "13.png": {
+          "hash": "c40ec042eb926ed5e012c0a505b0453d",
+          "size": 787645
+        },
+        "14.png": {
+          "hash": "87f3db7908d0455ffe3b2a51093abe16",
+          "size": 824040
+        },
+        "2.png": {
+          "hash": "c4dc7ae86a546684f3c9cbe0e47acf55",
+          "size": 834386
+        },
+        "3.png": {
+          "hash": "c4dc7ae86a546684f3c9cbe0e47acf55",
+          "size": 834386
+        },
+        "4.png": {
+          "hash": "f87b5643a7b58bc4cdf231ab096038b7",
+          "size": 833993
+        },
+        "5.png": {
+          "hash": "f87b5643a7b58bc4cdf231ab096038b7",
+          "size": 833993
+        },
+        "6.png": {
+          "hash": "d17c07b754a6c274915a94a2dd978c02",
+          "size": 819850
+        },
+        "7.png": {
+          "hash": "87f3db7908d0455ffe3b2a51093abe16",
+          "size": 824040
+        },
+        "8.png": {
+          "hash": "c40ec042eb926ed5e012c0a505b0453d",
+          "size": 787645
+        },
+        "9.png": {
+          "hash": "97cb4afc22754e0433303ae8b44d380f",
+          "size": 813831
+        }
+      }
+    },
     "temp_mock_camera": {
       "color": {
         "0.png": {
