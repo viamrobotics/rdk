@@ -27,12 +27,11 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 	fmt.Println(filter.String())
 	fmt.Println("Calling BinaryData")
 	if err := c.ensureLoggedIn(); err != nil {
-		fmt.Println("not logged in :(")
 		return err
 	}
 
 	// Make dst/data and dst/metadata directory.
-	// TODO: perms?
+	// TODO: Should we use more limited perms?
 	if err := os.MkdirAll(filepath.Join(dst, "data"), os.ModePerm); err != nil {
 		return err
 	}
@@ -40,11 +39,8 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		return err
 	}
 
-	// TODO: parallelize
 	skip := int64(0)
 	for {
-		fmt.Println(skip)
-		// Make BinartDataByFilter request with binary=true
 		resp, err := c.dataClient.BinaryDataByFilter(context.Background(), &datapb.BinaryDataByFilterRequest{
 			DataRequest: &datapb.DataRequest{
 				Filter: filter,
@@ -54,31 +50,28 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 			IncludeBinary: true,
 			CountOnly:     false,
 		})
-		// TODO: what error indicates none left?
+		// TODO: Make sure EOF is properly interpreted. Iirc rpc errors aren't properly parsed by errors.Is.
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
-			fmt.Println(fmt.Sprintf("encountered error %v", err))
 			return err
 		}
 		mds := resp.GetMetadata()
 		if len(mds) != 1 {
 			return errors.Errorf("expected a single response, received %d", len(mds))
 		}
-		md := mds[0]
-		mdJsonBytes, err := protojson.Marshal(md)
-		if err != nil {
-			return err
-		}
-
-		// TODO: I think we might want to add file name to response for arbitrary files, or at least include it in
-		//       the metadata. Until then, just do file id for those too.
 		data := resp.GetData()
 		if len(data) != 1 {
 			return errors.Errorf("expected a single response, received %d", len(data))
 		}
+
+		md := mds[0]
 		datum := data[0]
+		mdJsonBytes, err := protojson.Marshal(md)
+		if err != nil {
+			return err
+		}
 		jsonFile, err := os.Create(filepath.Join(dst, "metadata", datum.GetId()+".json"))
 		if err != nil {
 			return err
@@ -87,27 +80,28 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 			return err
 		}
 
+		// TODO: Include file name in metadata.
+
 		gzippedBytes := datum.GetBinary()
 		r, err := gzip.NewReader(bytes.NewBuffer(gzippedBytes))
 		if err != nil {
 			return err
 		}
 
-		// TODO: map mime type to file extension
 		// TODO: We need to store file extension too. In sync we map from ext -> mime type, so this is already available.
-		fmt.Println(md.GetFileExt())
-		fmt.Println(md.GetFileName())
-		fmt.Println(md.GetMimeType())
+		//       Or maybe we can just get this from file name.
 		ext, err := mimeTypeToFileExt(md.GetMimeType())
 		if err != nil {
-			fmt.Println(err)
+			return err
 		}
-		fmt.Println(ext)
+
 		dataFile, err := os.Create(filepath.Join(dst, "data", datum.GetId()+ext))
 		if _, err := io.Copy(dataFile, r); err != nil {
 			return err
 		}
-		r.Close()
+		if err := r.Close(); err != nil {
+			return err
+		}
 		skip++
 	}
 
@@ -115,10 +109,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 }
 
 func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
-	fmt.Println(filter.String())
-	fmt.Println("Calling BinaryData")
 	if err := c.ensureLoggedIn(); err != nil {
-		fmt.Println("not logged in :(")
 		return err
 	}
 
@@ -130,28 +121,19 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 		return err
 	}
 
-	// TODO: parallelize
-	skip := int64(0)
-	fmt.Println(skip)
-	// Make BinartDataByFilter request with binary=true
 	resp, err := c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
 		DataRequest: &datapb.DataRequest{
 			Filter: filter,
-			Skip:   skip,
-			// TODO: for now don't worry about limit. Just do everything in one request.
-			//Limit:  1000,
+			// TODO: For now don't worry about skip/limit. Just do everything in one request. Can implement batching when
+			//       tabular is implemented.
 		},
 		CountOnly: false,
 	})
-	// TODO: what error indicates none left?
-	//if errors.Is(err, io.EOF) {
-	//	return nil
-	//}
 	if err != nil {
-		fmt.Println(fmt.Sprintf("encountered error %v", err))
 		return err
 	}
 	mds := resp.GetMetadata()
+
 	for i, md := range mds {
 		mdJsonBytes, err := protojson.Marshal(md)
 		if err != nil {
@@ -166,9 +148,8 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 		}
 	}
 
-	// TODO: I think we might want to add file name to response for arbitrary files, or at least include it in
-	//       the metadata. Until then, just do file id for those too.
 	data := resp.GetData()
+	// TODO: Use textpb insted of ndjson.
 	dataFile, err := os.Create(filepath.Join(dst, "data", "data"+".ndjson"))
 	w := bufio.NewWriter(dataFile)
 	defer w.Flush()
@@ -183,6 +164,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 		m["TimeRequested"] = datum.GetTimeRequested()
 		m["TimeReceived"] = datum.GetTimeReceived()
 		j, err := json.Marshal(m)
+		// TODO: wrap errors
 		if err != nil {
 			fmt.Println(fmt.Sprintf("error marshaling json response %v", err))
 			return err
