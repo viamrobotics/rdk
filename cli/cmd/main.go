@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	datapb "go.viam.com/api/app/data/v1"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"log"
 	"os"
 	"time"
@@ -195,6 +196,10 @@ func main() {
 						Name:     "destination",
 						Required: true,
 					},
+					&cli.StringFlag{
+						Name:     "type",
+						Required: true,
+					},
 					&cli.StringSliceFlag{
 						Name:     "orgs",
 						Required: false,
@@ -239,7 +244,16 @@ func main() {
 						Name:     "mime_types",
 						Required: false,
 					},
-					// TODO: interval
+					&cli.TimestampFlag{
+						Name:     "start",
+						Layout:   "2006-01-02T15:04:05",
+						Required: false,
+					},
+					&cli.TimestampFlag{
+						Name:     "end",
+						Layout:   "2006-01-02T15:04:05",
+						Required: false,
+					},
 				},
 				Action: func(c *cli.Context) error {
 					filter := &datapb.Filter{}
@@ -277,13 +291,39 @@ func main() {
 						filter.MimeType = c.StringSlice("mime_types")
 					}
 
+					var start *timestamppb.Timestamp
+					var end *timestamppb.Timestamp
+					if c.Timestamp("start") != nil {
+						start = timestamppb.New(*c.Timestamp("start"))
+					}
+					if c.Timestamp("end") != nil {
+						end = timestamppb.New(*c.Timestamp("start")),
+					}
+					if start != nil || end != nil {
+						filter.Interval = &datapb.CaptureInterval{
+							Start: start,
+							End:   end,
+						}
+					}
+
 					fmt.Println("Building app client")
 					client, err := rdkcli.NewAppClient(c)
 					if err != nil {
 						return err
 					}
-					if err := client.BinaryData(c.String("destination"), filter); err != nil {
-						return err
+
+					dataType := c.String("type")
+					switch dataType {
+					case "binary":
+						if err := client.BinaryData(c.String("destination"), filter); err != nil {
+							return err
+						}
+					case "tabular":
+						if err := client.TabularData(c.String("destination"), filter); err != nil {
+							return err
+						}
+					default:
+						fmt.Println("must enter valid data type: tabular or binary")
 					}
 
 					return nil
