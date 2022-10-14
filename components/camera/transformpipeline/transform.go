@@ -52,17 +52,13 @@ type Transformation struct {
 type emptyAttrs struct{}
 
 // JSONSchema defines the schema for each of the possible transforms in the pipeline.
-func (tr *Transformation) JSONSchema() *jsonschema.Schema {
+// converts each struct into a map[string]interface and then reflects it into a JSON schema.
+func (Transformation) JSONSchema() *jsonschema.Schema {
 	schemas := make([]*jsonschema.Schema, 0, len(registeredTransformConfigs))
 	for transformType, transformStruct := range registeredTransformConfigs {
-		tempStruct := struct {
-			Type       string      `json:"type"`
-			Attributes interface{} `json:"attributes"`
-		}{
-			Type:       string(transformType),
-			Attributes: transformStruct,
-		}
-		schemas = append(schemas, jsonschema.Reflect(tempStruct))
+		transformSchema := jsonschema.Reflect(transformStruct)
+		transformSchema.Type = string(transformType)
+		schemas = append(schemas, transformSchema)
 	}
 	return &jsonschema.Schema{
 		OneOf: schemas,
