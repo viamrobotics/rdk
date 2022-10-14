@@ -24,8 +24,6 @@ const (
 
 // BinaryData writes the requested data to the passed directory.
 func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
-	fmt.Println(filter.String())
-	fmt.Println("Calling BinaryData")
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -137,46 +135,42 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 	for i, md := range mds {
 		mdJsonBytes, err := protojson.Marshal(md)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error marshaling metadata")
 		}
-		jsonFile, err := os.Create(filepath.Join(dst, "metadata", strconv.Itoa(i)+".json"))
+		mdFile, err := os.Create(filepath.Join(dst, "metadata", strconv.Itoa(i)+".json"))
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "error creating metadata file %s", mdFile.Name())
 		}
-		if _, err := jsonFile.Write(mdJsonBytes); err != nil {
-			return err
+		if _, err := mdFile.Write(mdJsonBytes); err != nil {
+			return errors.Wrapf(err, "error writing metadata file %s", mdFile.Name())
+		}
+		if err := mdFile.Close(); err != nil {
+			return errors.Wrapf(err, "error closing metadata file %s", mdFile.Name())
 		}
 	}
 
 	data := resp.GetData()
-	// TODO: Use textpb insted of ndjson.
+	// TODO: Use textpb insted of ndjson, and save multiple files.
 	dataFile, err := os.Create(filepath.Join(dst, "data", "data"+".ndjson"))
 	w := bufio.NewWriter(dataFile)
 	for _, datum := range data {
 		// Write everything as json for now.
 		d := datum.GetData()
 		if d == nil {
-			fmt.Println("received empty tabular data")
+			// TODO: This should never happen. Should this notify user? Error? Or just skip?
+			fmt.Println("Received empty tabular data")
 			continue
 		}
 		m := d.AsMap()
 		m["TimeRequested"] = datum.GetTimeRequested()
 		m["TimeReceived"] = datum.GetTimeReceived()
 		j, err := json.Marshal(m)
-		// TODO: wrap errors
 		if err != nil {
-			fmt.Println(fmt.Sprintf("error marshaling json response %v", err))
-			return err
+			return errors.Wrap(err, "error marshaling json response")
 		}
-		_, err = w.Write(j)
+		_, err = w.Write(append(j, []byte("\n")...))
 		if err != nil {
-			fmt.Println(fmt.Sprintf("error writing json to file %v", err))
-			return err
-		}
-		_, err = w.Write([]byte("\n"))
-		if err != nil {
-			fmt.Println(fmt.Sprintf("error writing json to file %v", err))
-			return err
+			return errors.Wrapf(err, "error writing reading to file %s", dataFile.Name())
 		}
 	}
 

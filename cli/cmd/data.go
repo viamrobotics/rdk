@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	datapb "go.viam.com/api/app/data/v1"
@@ -83,7 +82,6 @@ func DataCommand(c *cli.Context) error {
 		}
 	}
 
-	fmt.Println("Building app client")
 	client, err := rdkcli.NewAppClient(c)
 	if err != nil {
 		return err
