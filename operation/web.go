@@ -58,7 +58,7 @@ func (m *Manager) UnaryServerInterceptor(
 	if !ok {
 		return nil, errors.New("failed to pull metadata from context")
 	}
-	opid, err := getOrCreateFromMetadata(meta)
+	opid, err := GetOrCreateFromMetadata(meta)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func (m *Manager) StreamServerInterceptor(
 	if !ok {
 		return errors.New("failed to pull metadata from context")
 	}
-	opid, err := getOrCreateFromMetadata(meta)
+	opid, err := GetOrCreateFromMetadata(meta)
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func (m *Manager) StreamServerInterceptor(
 
 // getOrCreateFromMetadata returns an operation id from metadata, or generates a random
 // UUID if the metadata does not contain any.
-func getOrCreateFromMetadata(meta metadata.MD) (uuid.UUID, error) {
+func GetOrCreateFromMetadata(meta metadata.MD) (uuid.UUID, error) {
 	values := meta.Get(opidMetadataKey)
 	switch len(values) {
 	case 0:
