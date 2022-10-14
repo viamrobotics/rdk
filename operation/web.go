@@ -22,8 +22,7 @@ func UnaryClientInterceptor(
 	invoker googlegrpc.UnaryInvoker,
 	opts ...googlegrpc.CallOption,
 ) error {
-	if op := Get(ctx); op != nil {
-		// TODO: error if stringify fails?
+	if op := Get(ctx); op != nil && op.ID.String() != "" {
 		ctx = metadata.AppendToOutgoingContext(ctx, opidMetadataKey, op.ID.String())
 	}
 	return invoker(ctx, method, req, reply, cc, opts...)
@@ -39,8 +38,7 @@ func StreamClientInterceptor(
 	streamer googlegrpc.Streamer,
 	opts ...googlegrpc.CallOption,
 ) (googlegrpc.ClientStream, error) {
-	if op := Get(ctx); op != nil {
-		// TODO: error if stringify fails?
+	if op := Get(ctx); op != nil && op.ID.String() != "" {
 		ctx = metadata.AppendToOutgoingContext(ctx, opidMetadataKey, op.ID.String())
 	}
 	return streamer(ctx, desc, cc, method, opts...)
