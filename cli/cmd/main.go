@@ -4,6 +4,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
+	datapb "go.viam.com/api/app/data/v1"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"log"
 	"os"
 	"time"
@@ -13,6 +16,25 @@ import (
 	"go.uber.org/zap"
 
 	rdkcli "go.viam.com/rdk/cli"
+)
+
+const (
+	// Flags
+	dataFlagDestination    = "destination"
+	dataFlagType           = "type"
+	dataFlagOrgs           = "orgs"
+	dataFlagLocation       = "location"
+	dataFlagRobotID        = "robot_id"
+	dataFlagPartID         = "part_id"
+	dataFlagRobotName      = "robot_name"
+	dataFlagPartName       = "part_name"
+	dataFlagComponentType  = "component_type"
+	dataFlagComponentModel = "component_model"
+	dataFlagComponentName  = "component_name"
+	dataFlagMethod         = "method"
+	dataFlagMimeTypes      = "mime_types"
+	dataFlagStart          = "start"
+	dataFlagEnd            = "end"
 )
 
 func main() {
@@ -193,64 +215,77 @@ func main() {
 					&cli.StringFlag{
 						Name:     dataFlagDestination,
 						Required: true,
+						Usage:    "output directory for downloaded data",
 					},
 					&cli.StringFlag{
 						Name:     dataFlagType,
 						Required: true,
+						Usage:    "data type to be downloaded: either binary or tabular",
 					},
 					&cli.StringSliceFlag{
 						Name:     dataFlagOrgs,
 						Required: false,
+						Usage:    "org filter",
 					},
 					&cli.StringFlag{
 						Name:     dataFlagLocation,
 						Required: false,
+						Usage:    "location filter",
 					},
 					&cli.StringFlag{
 						Name:     dataFlagRobotID,
 						Required: false,
+						Usage:    "robot_id filter",
 					},
 					&cli.StringFlag{
 						Name:     dataFlagPartID,
 						Required: false,
+						Usage:    "part_id filter",
 					},
 					&cli.StringFlag{
 						Name:     dataFlagRobotName,
 						Required: false,
+						Usage:    "robot_name filter",
 					},
 					&cli.StringFlag{
 						Name:     dataFlagPartName,
 						Required: false,
+						Usage:    "part_name filter",
 					},
 					&cli.StringFlag{
 						Name:     dataFlagComponentType,
 						Required: false,
+						Usage:    "component_type filter",
 					},
 					&cli.StringFlag{
 						Name:     dataFlagComponentModel,
 						Required: false,
+						Usage:    "component model filter",
 					},
 					&cli.StringFlag{
 						Name:     dataFlagComponentName,
 						Required: false,
+						Usage:    "component name filter",
 					},
 					&cli.StringFlag{
 						Name:     dataFlagMethod,
 						Required: false,
+						Usage:    "method filter",
 					},
 					&cli.StringSliceFlag{
 						Name:     dataFlagMimeTypes,
 						Required: false,
+						Usage:    "mime_types filter",
 					},
-					&cli.TimestampFlag{
+					&cli.StringFlag{
 						Name:     dataFlagStart,
-						Layout:   "2006-01-02T15:04:05",
 						Required: false,
+						Usage:    "ISO-8601 timestamp indicating the start of the interval filter",
 					},
-					&cli.TimestampFlag{
+					&cli.StringFlag{
 						Name:     dataFlagEnd,
-						Layout:   "2006-01-02T15:04:05",
 						Required: false,
+						Usage:    "ISO-8601 timestamp indicating the end of the interval filter",
 					},
 				},
 				Action: func(c *cli.Context) error {
@@ -658,4 +693,90 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func DataCommand(c *cli.Context) error {
+	if c.String(dataFlagType) != "binary" && c.String(dataFlagType) != "tabular" {
+		return errors.Errorf("type must be binary or tabular, got %s", c.String("type"))
+	}
+
+	filter := &datapb.Filter{}
+	if c.StringSlice(dataFlagOrgs) != nil {
+		filter.OrgIds = c.StringSlice(dataFlagOrgs)
+	}
+	if c.String(dataFlagLocation) != "" {
+		filter.LocationId = c.String(dataFlagLocation)
+	}
+	if c.String(dataFlagRobotID) != "" {
+		filter.RobotId = c.String(dataFlagRobotID)
+	}
+	if c.String(dataFlagPartID) != "" {
+		filter.PartId = c.String(dataFlagPartID)
+	}
+	if c.String(dataFlagRobotName) != "" {
+		filter.RobotName = c.String(dataFlagRobotName)
+	}
+	if c.String(dataFlagPartName) != "" {
+		filter.PartName = c.String(dataFlagPartName)
+	}
+	if c.String(dataFlagComponentType) != "" {
+		filter.ComponentType = c.String(dataFlagComponentType)
+	}
+	if c.String(dataFlagComponentModel) != "" {
+		filter.ComponentModel = c.String(dataFlagComponentModel)
+	}
+	if c.String(dataFlagComponentName) != "" {
+		filter.ComponentName = c.String(dataFlagComponentName)
+	}
+	if c.String(dataFlagMethod) != "" {
+		filter.Method = c.String(dataFlagMethod)
+	}
+	if len(c.StringSlice(dataFlagMimeTypes)) != 0 {
+		filter.MimeType = c.StringSlice(dataFlagMimeTypes)
+	}
+
+	var start *timestamppb.Timestamp
+	var end *timestamppb.Timestamp
+	timeLayout := "2006-01-02T15:04:05.000Z"
+	if c.String(dataFlagStart) != "" {
+		t, err := time.Parse(timeLayout, c.String(dataFlagStart))
+		if err != nil {
+			return errors.Wrap(err, "error parsing start flag")
+		}
+		start = timestamppb.New(t)
+	}
+	if c.String(dataFlagEnd) != "" {
+		t, err := time.Parse(timeLayout, c.String(dataFlagEnd))
+		if err != nil {
+			return errors.Wrap(err, "error parsing start flag")
+		}
+		end = timestamppb.New(t)
+	}
+	if start != nil || end != nil {
+		filter.Interval = &datapb.CaptureInterval{
+			Start: start,
+			End:   end,
+		}
+	}
+
+	client, err := rdkcli.NewAppClient(c)
+	if err != nil {
+		return err
+	}
+
+	dataType := c.String(dataFlagType)
+	switch dataType {
+	case dataFlagType:
+		if err := client.BinaryData(c.String(dataFlagDestination), filter); err != nil {
+			return err
+		}
+	case "tabular":
+		if err := client.TabularData(c.String("destination"), filter); err != nil {
+			return err
+		}
+	default:
+		return errors.Errorf("invalid data type %s", dataType)
+	}
+
+	return nil
 }
