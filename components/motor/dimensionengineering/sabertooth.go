@@ -14,7 +14,6 @@ import (
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/mitchellh/mapstructure"
 	utils "go.viam.com/utils"
-	"go.viam.com/utils/usb"
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
@@ -32,7 +31,6 @@ const (
 var (
 	globalMu    sync.Mutex
 	controllers map[string]*controller
-	usbFilter   = usb.SearchFilter{}
 )
 
 // controller is common across all Sabertooth motor instances sharing a controller.
