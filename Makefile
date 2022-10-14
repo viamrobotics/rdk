@@ -36,7 +36,8 @@ tool-install:
 		github.com/golangci/golangci-lint/cmd/golangci-lint \
 		github.com/AlekSi/gocov-xml \
 		github.com/axw/gocov/gocov \
-		github.com/bufbuild/buf/cmd/buf
+		github.com/bufbuild/buf/cmd/buf \
+		gotest.tools/gotestsum
 
 buf: buf-web
 
@@ -58,13 +59,13 @@ lint-web:
 typecheck-web:
 	npm run typecheck --prefix web/frontend
 
-cover:
+cover: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
 
 test: test-go test-web
 
-test-go:
-	./etc/test.sh
+test-go: tool-install
+	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh
 
 test-web:
 	npm run test:unit --prefix web/frontend
