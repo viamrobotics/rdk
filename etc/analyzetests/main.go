@@ -53,7 +53,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}()
 
 	gitSHA, _ := os.LookupEnv("GITHUB_SHA")
-	var gitHubRunID, gitHubJobID int64
+	var gitHubRunID, gitHubRunNumber, gitHubRunAttempt int64
 	gitHubRunIDStr, ok := os.LookupEnv("GITHUB_RUN_ID")
 	if ok {
 		var err error
@@ -62,10 +62,18 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			return err
 		}
 	}
-	gitHubJobIDStr, ok := os.LookupEnv("GITHUB_JOB")
+	gitHubRunNumberStr, ok := os.LookupEnv("GITHUB_RUN_NUMBER")
 	if ok {
 		var err error
-		gitHubJobID, err = strconv.ParseInt(gitHubJobIDStr, 10, 64)
+		gitHubRunNumber, err = strconv.ParseInt(gitHubRunNumberStr, 10, 64)
+		if err != nil {
+			return err
+		}
+	}
+	gitHubRunAttemptStr, ok := os.LookupEnv("GITHUB_RUN_ATTEMPT")
+	if ok {
+		var err error
+		gitHubRunAttempt, err = strconv.ParseInt(gitHubRunAttemptStr, 10, 64)
 		if err != nil {
 			return err
 		}
@@ -75,16 +83,17 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	parseTest := func(status string, tc testjson.TestCase) testResult {
 		root, sub := tc.Test.Split()
 		return testResult{
-			CreatedAt:   createdAt,
-			GitSHA:      gitSHA,
-			GitHubRunID: gitHubRunID,
-			GitHubJobID: gitHubJobID,
-			Status:      status,
-			Package:     tc.Package,
-			Test:        tc.Test.Name(),
-			RootTest:    root,
-			SubTest:     sub,
-			Elapsed:     tc.Elapsed.Milliseconds(),
+			CreatedAt:        createdAt,
+			GitSHA:           gitSHA,
+			GitHubRunID:      gitHubRunID,
+			GitHubRunNumber:  gitHubRunNumber,
+			GitHubRunAttempt: gitHubRunAttempt,
+			Status:           status,
+			Package:          tc.Package,
+			Test:             tc.Test.Name(),
+			RootTest:         root,
+			SubTest:          sub,
+			Elapsed:          tc.Elapsed.Milliseconds(),
 		}
 	}
 	parseTests := func(status string, tcs []testjson.TestCase) []testResult {
@@ -119,14 +128,15 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 }
 
 type testResult struct {
-	CreatedAt   time.Time `bson:"created_at"`
-	GitSHA      string    `bson:"git_sha,omitempty"`
-	GitHubRunID int64     `bson:"github_run_id,omitempty"`
-	GitHubJobID int64     `bson:"github_job_id,omitempty"`
-	Status      string    `bson:"status"`
-	Package     string    `bson:"package"`
-	Test        string    `bson:"test"`
-	RootTest    string    `bson:"root_test"`
-	SubTest     string    `bson:"sub_test,omitempty"`
-	Elapsed     int64     `bson:"elapsed,omitempty"`
+	CreatedAt        time.Time `bson:"created_at"`
+	GitSHA           string    `bson:"git_sha,omitempty"`
+	GitHubRunID      int64     `bson:"github_run_id,omitempty"`
+	GitHubRunNumber  int64     `bson:"github_run_number,omitempty"`
+	GitHubRunAttempt int64     `bson:"github_run_attempt,omitempty"`
+	Status           string    `bson:"status"`
+	Package          string    `bson:"package"`
+	Test             string    `bson:"test"`
+	RootTest         string    `bson:"root_test"`
+	SubTest          string    `bson:"sub_test,omitempty"`
+	Elapsed          int64     `bson:"elapsed,omitempty"`
 }
