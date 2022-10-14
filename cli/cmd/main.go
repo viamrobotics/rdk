@@ -280,12 +280,13 @@ func main() {
 					&cli.StringFlag{
 						Name:     dataFlagStart,
 						Required: false,
-						Usage:    "ISO-8601 timestamp indicating the start of the interval filter",
+						// TODO: Do we store it as UTC?
+						Usage: "ISO-8601 UTC timestamp indicating the start of the interval filter",
 					},
 					&cli.StringFlag{
 						Name:     dataFlagEnd,
 						Required: false,
-						Usage:    "ISO-8601 timestamp indicating the end of the interval filter",
+						Usage:    "ISO-8601 UTC timestamp indicating the end of the interval filter",
 					},
 				},
 				Action: func(c *cli.Context) error {
@@ -737,7 +738,7 @@ func DataCommand(c *cli.Context) error {
 
 	var start *timestamppb.Timestamp
 	var end *timestamppb.Timestamp
-	timeLayout := "2006-01-02T15:04:05.000Z"
+	timeLayout := "2000-01-01T00:00:00.000"
 	if c.String(dataFlagStart) != "" {
 		t, err := time.Parse(timeLayout, c.String(dataFlagStart))
 		if err != nil {
@@ -766,7 +767,7 @@ func DataCommand(c *cli.Context) error {
 
 	dataType := c.String(dataFlagType)
 	switch dataType {
-	case dataFlagType:
+	case "binary":
 		if err := client.BinaryData(c.String(dataFlagDestination), filter); err != nil {
 			return err
 		}
