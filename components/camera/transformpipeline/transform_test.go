@@ -14,8 +14,8 @@ func TestJSONSchema(t *testing.T) {
 	schema := jsonschema.Reflect(tr)
 	jsonBytes, err := json.MarshalIndent(schema, "", "  ")
 	test.That(t, err, test.ShouldBeNil)
-	jsonString := fmt.Sprintf("%s", jsonBytes)
-	for transformName, _ := range registeredTransformConfigs {
+	jsonString := string(jsonBytes)
+	for transformName := range registeredTransformConfigs {
 		test.That(t, jsonString, test.ShouldContainSubstring, fmt.Sprintf("\"type\": \"%s\"", transformName))
 	}
 }
