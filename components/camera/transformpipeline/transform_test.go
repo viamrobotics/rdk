@@ -18,4 +18,6 @@ func TestJSONSchema(t *testing.T) {
 	for transformName := range registeredTransformConfigs {
 		test.That(t, jsonString, test.ShouldContainSubstring, fmt.Sprintf("\"type\": \"%s\"", transformName))
 	}
+	t.Logf(jsonString)
+	test.That(t, false, test.ShouldBeTrue)
 }

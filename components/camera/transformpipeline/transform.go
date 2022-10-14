@@ -51,8 +51,7 @@ type Transformation struct {
 // emptyAttrs is for transforms that have no attribute fields.
 type emptyAttrs struct{}
 
-// JSONSchema defines the schema for each of the possible transforms in the pipeline.
-// converts each struct into a map[string]interface and then reflects it into a JSON schema.
+// JSONSchema defines the schema for each of the possible transforms in the pipeline in a OneOf.
 func (Transformation) JSONSchema() *jsonschema.Schema {
 	schemas := make([]*jsonschema.Schema, 0, len(registeredTransformConfigs))
 	for transformType, transformStruct := range registeredTransformConfigs {
