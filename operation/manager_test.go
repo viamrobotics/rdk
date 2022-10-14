@@ -126,7 +126,7 @@ func TestSingleOperationManager(t *testing.T) {
 		test.That(t, ctx.Err(), test.ShouldNotBeNil)
 		test.That(t, mock.stopCount, test.ShouldEqual, 1)
 	})
-	t.Run("Ensure error contains stop error", func(t *testing.T) {
+	t.Run("Ensure error contains stop and cancel errors", func(t *testing.T) {
 		ctx := context.Background()
 		mock := &mock{stopCount: 0}
 		ctx, cancel := context.WithCancel(ctx)
@@ -156,13 +156,9 @@ func TestSingleOperationManager(t *testing.T) {
 			som.WaitTillNotPowered(ctx, 5*time.Second, mock, mock.stop)
 			wg.Done()
 		}()
-		ctx2 := context.Background()
-		ctx2, _ = context.WithCancel(ctx2)
-		go som.New(ctx2)
-		done()
-		// cancel()
+		som.New(context.Background())
 		wg.Wait()
-		// test.That(t, ctx.Err(), test.ShouldNotBeNil)
+		test.That(t, ctx.Err(), test.ShouldNotBeNil)
 		test.That(t, mock.stopCount, test.ShouldEqual, 0)
 	})
 }
