@@ -127,7 +127,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		}, rc.activeBackgroundWorkers.Done)
 	}
 
-	if checkConnectedTime != 0 {
+	if checkConnectedTime > 0 && reconnectTime > 0 {
 		rc.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
 			rc.checkConnection(closeCtx, checkConnectedTime, reconnectTime)
