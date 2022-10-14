@@ -125,7 +125,7 @@ func (cfg *Config) Validate(path string) error {
 	if cfg.MinPowerPct < 0.0 || cfg.MinPowerPct > cfg.MaxPowerPct {
 		return utils.NewConfigValidationError(path, errors.New("invalid min_power_pct, acceptable values are 0 to max_power_pct"))
 	}
-	if cfg.MaxPowerPct > 100.0 {
+	if cfg.MaxPowerPct > 1.0 {
 		return utils.NewConfigValidationError(path, errors.New("invalid max_power_pct, acceptable values are min_power_pct to 100.0"))
 	}
 
@@ -179,7 +179,7 @@ func newController(c *Config, logger golog.Logger) (*controller, error) {
 	} else {
 		serialOptions := serial.OpenOptions{
 			PortName:          c.SerialPath,
-			BaudRate:          9600,
+			BaudRate:          uint(c.BaudRate),
 			DataBits:          8,
 			StopBits:          1,
 			MinimumReadSize:   1,
@@ -201,21 +201,6 @@ func newController(c *Config, logger golog.Logger) (*controller, error) {
 
 // NewMotor returns a Sabertooth driven motor.
 func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalMotor, error) {
-	if c.SerialPath == "" {
-		devs := usb.Search(usbFilter, func(vendorID, productID int) bool {
-			if vendorID == 0x403 && productID == 0x6001 {
-				return true
-			}
-			return false
-		})
-
-		if len(devs) > 0 {
-			c.SerialPath = devs[0].Path
-		} else {
-			return nil, errors.New("couldn't find Sabertooth serial connection")
-		}
-	}
-
 	globalMu.Lock()
 	ctrl, ok := controllers[c.SerialPath]
 	if !ok {
