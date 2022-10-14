@@ -38,11 +38,12 @@ import (
 // The AppClient provides all the CLI command functionality needed to talk
 // to the app service but not directly to robot parts.
 type AppClient struct {
-	c       *cli.Context
-	conf    *Config
-	client  apppb.AppServiceClient
-	baseURL *url.URL
-	rpcOpts []rpc.DialOption
+	c          *cli.Context
+	conf       *Config
+	client     apppb.AppServiceClient
+	dataClient datapb.DataServiceClient
+	baseURL    *url.URL
+	rpcOpts    []rpc.DialOption
 
 	selectedOrg *apppb.Organization
 	selectedLoc *apppb.Location
@@ -50,9 +51,6 @@ type AppClient struct {
 	// caches
 	orgs *[]*apppb.Organization
 	locs *[]*apppb.Location
-
-	// Added in this PR
-	dataClient datapb.DataServiceClient
 }
 
 func checkBaseURL(c *cli.Context) (*url.URL, []rpc.DialOption, error) {
