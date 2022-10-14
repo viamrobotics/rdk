@@ -612,7 +612,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 			return errors.Errorf("expected a single response, received %d", len(data))
 		}
 		datum := data[0]
-		jsonFile, err := os.Create(filepath.Join(dst, "metadata", datum.GetId()))
+		jsonFile, err := os.Create(filepath.Join(dst, "metadata", datum.GetId()+".json"))
 		if err != nil {
 			return err
 		}
@@ -628,14 +628,36 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 
 		// TODO: map mime type to file extension
 		// TODO: We need to store file extension too. In sync we map from ext -> mime type, so this is already available.
-		dataFile, err := os.Create(filepath.Join(dst, "data", datum.GetId()+md.GetFileExt()))
+		fmt.Println(md.GetFileExt())
+		fmt.Println(md.GetFileName())
+		fmt.Println(md.GetMimeType())
+		ext, err := mimeTypeToFileExt(md.GetMimeType())
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println(ext)
+		dataFile, err := os.Create(filepath.Join(dst, "data", datum.GetId()+ext))
 		if _, err := io.Copy(dataFile, r); err != nil {
 			return err
 		}
+		r.Close()
 		skip++
 	}
 
 	return nil
+}
+
+func mimeTypeToFileExt(mime string) (string, error) {
+	switch mime {
+	case rdkutils.MimeTypePCD:
+		return ".pcd", nil
+	case rdkutils.MimeTypeJPEG:
+		return ".jpg", nil
+	case rdkutils.MimeTypePNG:
+		return ".png", nil
+	default:
+		return "", errors.Errorf("could not determine file extension for mime type %s", mime)
+	}
 }
 
 func (c *AppClient) prepareDial(

@@ -236,7 +236,7 @@ func main() {
 						Required: false,
 					},
 					&cli.StringSliceFlag{
-						Name:     "mime_type",
+						Name:     "mime_types",
 						Required: false,
 					},
 					// TODO: interval
@@ -273,7 +273,7 @@ func main() {
 					if c.String("method") != "" {
 						filter.Method = c.String("method")
 					}
-					if c.String("mime_types") != "" {
+					if len(c.StringSlice("mime_types")) != 0 {
 						filter.MimeType = c.StringSlice("mime_types")
 					}
 
