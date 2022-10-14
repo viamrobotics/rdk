@@ -70,31 +70,42 @@ type Motor struct {
 
 // Config adds DimensionEngineering-specific config options.
 type Config struct {
-	// TestChan is a fake "serial" path for test use only
-	TestChan chan []byte `json:"-,omitempty"`
 	// path to /dev/ttyXXXX file
 	SerialPath string `json:"serial_path"`
+
 	// The baud rate of the controller
 	BaudRate int `json:"serial_baud_rate,omitempty"`
-	// Valid values are 1/2
-	Channel int `json:"channel"`
+
 	// Valid values are 128-135
-	Address int `json:"address"`
+	SerialAddress int `json:"serial_address"`
+
+	// Valid values are 1/2
+	MotorChannel int `json:"motor_channel"`
+
 	// Flip the direction of the signal sent to the controller.
 	// Due to wiring/motor orientation, "forward" on the controller may not represent "forward" on the robot
 	DirectionFlip bool `json:"dir_flip,omitempty"`
+
 	// A value to control how quickly the controller ramps to a particular setpoint
-	RampValue int `json:"ramp_value,omitempty"`
+	RampValue int `json:"controller_ramp_value,omitempty"`
+
 	// The maximum freewheel rotational velocity of the motor after the final drive (maximum effective wheel speed)
 	MaxRPM float64 `json:"max_rpm,omitempty"`
+
 	// The name of the encoder used for this motor
 	Encoder string `json:"encoder,omitempty"`
+
 	// The lowest power percentage to allow for this motor. This is used to prevent motor stalls and overheating. Default is 0.0
 	MinPowerPct float64 `json:"min_power_pct,omitempty"`
+
 	// The max power percentage to allow for this motor. Default is 0.0
 	MaxPowerPct float64 `json:"max_power_pct,omitempty"`
+
 	// The number of ticks per rotation of this motor from the encoder
 	TicksPerRotation int `json:"ticks_per_rotation,omitempty"`
+
+	// TestChan is a fake "serial" path for test use only
+	TestChan chan []byte `json:"-,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -102,10 +113,10 @@ func (cfg *Config) Validate(path string) error {
 	if cfg.SerialPath == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
-	if cfg.Channel < 1 || cfg.Channel > 2 {
+	if cfg.MotorChannel < 1 || cfg.MotorChannel > 2 {
 		return utils.NewConfigValidationError(path, errors.New("invalid channel, acceptable values are 1 and 2"))
 	}
-	if cfg.Address < 128 || cfg.Address > 135 {
+	if cfg.SerialAddress < 128 || cfg.SerialAddress > 135 {
 		return utils.NewConfigValidationError(path, errors.New("invalid address, acceptable values are 128 thru 135"))
 	}
 	if cfg.BaudRate != 2400 && cfg.BaudRate != 9600 && cfg.BaudRate != 19200 && cfg.BaudRate != 38400 && cfg.BaudRate != 115200 {
@@ -154,14 +165,14 @@ func init() {
 }
 
 func newController(c *Config, logger golog.Logger) (*controller, error) {
-	if c.Address < 128 || c.Address > 135 {
+	if c.SerialAddress < 128 || c.SerialAddress > 135 {
 		return nil, errors.New("address is out of range. valid addresses are 127 to 135")
 	}
 	ctrl := new(controller)
 	ctrl.activeAxes = make(map[int]bool)
 	ctrl.serialDevice = c.SerialPath
 	ctrl.logger = logger
-	ctrl.address = c.Address
+	ctrl.address = c.SerialAddress
 
 	if c.TestChan != nil {
 		ctrl.testChan = c.TestChan
@@ -221,14 +232,14 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 	defer ctrl.mu.Unlock()
 
 	// is on a known/supported amplifier only when map entry exists
-	claimed, ok := ctrl.activeAxes[c.Channel]
+	claimed, ok := ctrl.activeAxes[c.MotorChannel]
 	if !ok {
-		return nil, fmt.Errorf("invalid Sabertooth motor axis: %d", c.Channel)
+		return nil, fmt.Errorf("invalid Sabertooth motor axis: %d", c.MotorChannel)
 	}
 	if claimed {
-		return nil, fmt.Errorf("axis %d is already in use", c.Channel)
+		return nil, fmt.Errorf("axis %d is already in use", c.MotorChannel)
 	}
-	ctrl.activeAxes[c.Channel] = true
+	ctrl.activeAxes[c.MotorChannel] = true
 
 	// We don't need to convert MinPowerPct because unset it will be 0, which is a safe default
 	minPowerPct := c.MinPowerPct
@@ -243,7 +254,7 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 
 	m := &Motor{
 		c:           ctrl,
-		Channel:     c.Channel,
+		Channel:     c.MotorChannel,
 		dirFlip:     c.DirectionFlip,
 		minPowerPct: minPowerPct,
 		maxPowerPct: maxPowerPct,
@@ -254,7 +265,7 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 	}
 
 	if c.RampValue > 0 {
-		setRampCmd, err := newCommand(c.Address, setRamping, c.Channel, byte(c.RampValue))
+		setRampCmd, err := newCommand(c.SerialAddress, setRamping, c.MotorChannel, byte(c.RampValue))
 		if err != nil {
 			return nil, err
 		}
@@ -308,7 +319,7 @@ func (m *Motor) Close() {
 // Must be run inside a lock.
 func (m *Motor) configure(c *Config) error {
 	// Turn off the motor with opMixedDrive and a value of 64 (stop)
-	cmd, err := newCommand(m.c.address, singleForward, c.Channel, 0x00)
+	cmd, err := newCommand(m.c.address, singleForward, c.MotorChannel, 0x00)
 	if err != nil {
 		return err
 	}

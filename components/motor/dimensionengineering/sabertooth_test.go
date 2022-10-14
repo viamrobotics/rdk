@@ -34,9 +34,9 @@ func TestSabertoothMotor(t *testing.T) {
 
 	mc1 := dimensionengineering.Config{
 		SerialPath:    "testchan",
-		Channel:       1,
+		MotorChannel:  1,
 		TestChan:      c,
-		Address:       128,
+		SerialAddress: 128,
 		DirectionFlip: false,
 	}
 
@@ -82,9 +82,9 @@ func TestSabertoothMotor(t *testing.T) {
 
 	mc2 := dimensionengineering.Config{
 		SerialPath:    "testchan",
-		Channel:       2,
+		MotorChannel:  2,
 		TestChan:      c,
-		Address:       128,
+		SerialAddress: 128,
 		DirectionFlip: false,
 	}
 
@@ -133,9 +133,9 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 
 	mc1 := dimensionengineering.Config{
 		SerialPath:    "testchan",
-		Channel:       1,
+		MotorChannel:  1,
 		TestChan:      c,
-		Address:       128,
+		SerialAddress: 128,
 		DirectionFlip: true,
 	}
 
@@ -174,9 +174,9 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 
 	mc2 := dimensionengineering.Config{
 		SerialPath:    "testchan",
-		Channel:       2,
+		MotorChannel:  2,
 		TestChan:      c,
-		Address:       128,
+		SerialAddress: 128,
 		DirectionFlip: true,
 	}
 
@@ -224,11 +224,11 @@ func TestSabertoothRampConfig(t *testing.T) {
 	deps := make(registry.Dependencies)
 
 	mc1 := dimensionengineering.Config{
-		SerialPath: "testchan",
-		Channel:    1,
-		TestChan:   c,
-		Address:    128,
-		RampValue:  100,
+		SerialPath:    "testchan",
+		MotorChannel:  1,
+		TestChan:      c,
+		SerialAddress: 128,
+		RampValue:     100,
 	}
 
 	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
@@ -256,10 +256,10 @@ func TestSabertoothAddressMapping(t *testing.T) {
 	deps := make(registry.Dependencies)
 
 	mc1 := dimensionengineering.Config{
-		SerialPath: "testchan",
-		Channel:    1,
-		TestChan:   c,
-		Address:    129,
+		SerialPath:    "testchan",
+		MotorChannel:  1,
+		TestChan:      c,
+		SerialAddress: 129,
 	}
 
 	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
