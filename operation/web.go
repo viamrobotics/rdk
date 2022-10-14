@@ -27,7 +27,6 @@ func UnaryClientInterceptor(
 		ctx = metadata.AppendToOutgoingContext(ctx, opidMetadataKey, op.ID.String())
 	}
 	return invoker(ctx, method, req, reply, cc, opts...)
-	// TODO: should we something if the server provides a new opid?
 }
 
 // StreamClientInterceptor adds the operation id from the current context (if any) to the
@@ -45,7 +44,6 @@ func StreamClientInterceptor(
 		ctx = metadata.AppendToOutgoingContext(ctx, opidMetadataKey, op.ID.String())
 	}
 	return streamer(ctx, desc, cc, method, opts...)
-	// TODO: should we something if the server provides a new opid?
 }
 
 func (m *Manager) UnaryServerInterceptor(
@@ -93,7 +91,7 @@ func (m *Manager) StreamServerInterceptor(
 	return handler(srv, &ssStreamContextWrapper{ss, ctx})
 }
 
-// getOrCreateFromMetadata returns an operation id from metadata, or generates a random
+// GetOrCreateFromMetadata returns an operation id from metadata, or generates a random
 // UUID if the metadata does not contain any.
 func GetOrCreateFromMetadata(meta metadata.MD) (uuid.UUID, error) {
 	values := meta.Get(opidMetadataKey)
