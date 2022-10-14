@@ -76,7 +76,11 @@ test-pi:
 
 test-e2e:
 	go build $(LDFLAGS) -o bin/test-e2e/server web/cmd/server/main.go
-	./etc/e2e.sh
+	./etc/e2e.sh -o 'run'
+
+open-cypress-ui:
+	go build $(LDFLAGS) -o bin/test-e2e/server web/cmd/server/main.go
+	./etc/e2e.sh -o 'open'
 
 test-integration:
 	cd services/slam/builtin && sudo --preserve-env=APPIMAGE_EXTRACT_AND_RUN go test -v -run TestOrbslamIntegration
