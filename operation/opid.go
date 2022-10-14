@@ -36,7 +36,7 @@ func (o *Operation) Cancel() {
 	o.cancel()
 }
 
-// HasLabel returns true if this oepration has a speficic label.
+// HasLabel returns true if this operation has a specific label.
 func (o *Operation) HasLabel(label string) bool {
 	for _, l := range o.labels {
 		if l == label {
@@ -86,11 +86,6 @@ func (m *Manager) add(op *Operation) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.ops[op.ID.String()] = op
-}
-
-// TODO: remove this and metadata helpers to this module instead
-func (m *Manager) Add(op *Operation) {
-	m.add(op)
 }
 
 // All returns all running operations.
