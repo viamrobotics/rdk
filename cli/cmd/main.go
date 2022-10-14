@@ -4,8 +4,6 @@ package main
 import (
 	"context"
 	"fmt"
-	datapb "go.viam.com/api/app/data/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"log"
 	"os"
 	"time"
@@ -193,140 +191,70 @@ func main() {
 				Usage: "download synced data",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
-						Name:     "destination",
+						Name:     dataFlagDestination,
 						Required: true,
 					},
 					&cli.StringFlag{
-						Name:     "type",
+						Name:     dataFlagType,
 						Required: true,
 					},
 					&cli.StringSliceFlag{
-						Name:     "orgs",
+						Name:     dataFlagOrgs,
 						Required: false,
 					},
 					&cli.StringFlag{
-						Name:     "location",
+						Name:     dataFlagLocation,
 						Required: false,
 					},
 					&cli.StringFlag{
-						Name:     "robot_id",
+						Name:     dataFlagRobotID,
 						Required: false,
 					},
 					&cli.StringFlag{
-						Name:     "part_id",
+						Name:     dataFlagPartID,
 						Required: false,
 					},
 					&cli.StringFlag{
-						Name:     "robot_name",
+						Name:     dataFlagRobotName,
 						Required: false,
 					},
 					&cli.StringFlag{
-						Name:     "part_name",
+						Name:     dataFlagPartName,
 						Required: false,
 					},
 					&cli.StringFlag{
-						Name:     "component_type",
+						Name:     dataFlagComponentType,
 						Required: false,
 					},
 					&cli.StringFlag{
-						Name:     "component_model",
+						Name:     dataFlagComponentModel,
 						Required: false,
 					},
 					&cli.StringFlag{
-						Name:     "component_name",
+						Name:     dataFlagComponentName,
 						Required: false,
 					},
 					&cli.StringFlag{
-						Name:     "method",
+						Name:     dataFlagMethod,
 						Required: false,
 					},
 					&cli.StringSliceFlag{
-						Name:     "mime_types",
+						Name:     dataFlagMimeTypes,
 						Required: false,
 					},
 					&cli.TimestampFlag{
-						Name:     "start",
+						Name:     dataFlagStart,
 						Layout:   "2006-01-02T15:04:05",
 						Required: false,
 					},
 					&cli.TimestampFlag{
-						Name:     "end",
+						Name:     dataFlagEnd,
 						Layout:   "2006-01-02T15:04:05",
 						Required: false,
 					},
 				},
 				Action: func(c *cli.Context) error {
-					filter := &datapb.Filter{}
-					if c.String("organization") != "" {
-						filter.OrgIds = c.StringSlice("organization")
-					}
-					if c.String("location") != "" {
-						filter.LocationId = c.String("location")
-					}
-					if c.String("robot_id") != "" {
-						filter.RobotId = c.String("robot_id")
-					}
-					if c.String("part_id") != "" {
-						filter.PartId = c.String("part_id")
-					}
-					if c.String("robot_name") != "" {
-						filter.RobotName = c.String("robot_name")
-					}
-					if c.String("part_name") != "" {
-						filter.PartName = c.String("part_name")
-					}
-					if c.String("component_type") != "" {
-						filter.ComponentType = c.String("component_type")
-					}
-					if c.String("component_model") != "" {
-						filter.ComponentModel = c.String("component_model")
-					}
-					if c.String("component_name") != "" {
-						filter.ComponentName = c.String("component_name")
-					}
-					if c.String("method") != "" {
-						filter.Method = c.String("method")
-					}
-					if len(c.StringSlice("mime_types")) != 0 {
-						filter.MimeType = c.StringSlice("mime_types")
-					}
-
-					var start *timestamppb.Timestamp
-					var end *timestamppb.Timestamp
-					if c.Timestamp("start") != nil {
-						start = timestamppb.New(*c.Timestamp("start"))
-					}
-					if c.Timestamp("end") != nil {
-						end = timestamppb.New(*c.Timestamp("start"))
-					}
-					if start != nil || end != nil {
-						filter.Interval = &datapb.CaptureInterval{
-							Start: start,
-							End:   end,
-						}
-					}
-
-					fmt.Println("Building app client")
-					client, err := rdkcli.NewAppClient(c)
-					if err != nil {
-						return err
-					}
-
-					dataType := c.String("type")
-					switch dataType {
-					case "binary":
-						if err := client.BinaryData(c.String("destination"), filter); err != nil {
-							return err
-						}
-					case "tabular":
-						if err := client.TabularData(c.String("destination"), filter); err != nil {
-							return err
-						}
-					default:
-						fmt.Println("must enter valid data type: tabular or binary")
-					}
-
-					return nil
+					return DataCommand(c)
 				},
 			},
 			{
