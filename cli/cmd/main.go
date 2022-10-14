@@ -187,7 +187,7 @@ func main() {
 					},
 				},
 			},
-			// TODO: implement
+			// TODO: Add help stuff.
 			{
 				Name:  "data",
 				Usage: "download synced data",
@@ -297,7 +297,7 @@ func main() {
 						start = timestamppb.New(*c.Timestamp("start"))
 					}
 					if c.Timestamp("end") != nil {
-						end = timestamppb.New(*c.Timestamp("start")),
+						end = timestamppb.New(*c.Timestamp("start"))
 					}
 					if start != nil || end != nil {
 						filter.Interval = &datapb.CaptureInterval{
