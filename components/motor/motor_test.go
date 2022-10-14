@@ -154,7 +154,7 @@ func TestCreateStatus(t *testing.T) {
 
 	injectMotor := &inject.LocalMotor{}
 	injectMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
-		return status.IsPowered, 2.0 /* TODO: update this if it gets used */, nil
+		return status.IsPowered, 1.0, nil
 	}
 	injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 		return map[motor.Feature]bool{motor.PositionReporting: status.PositionReporting}, nil
