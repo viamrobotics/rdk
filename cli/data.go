@@ -30,12 +30,12 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		return err
 	}
 
-	// Make dst/data and dst/metadata directory.
 	// TODO: Should we use more limited perms?
-	if err := os.MkdirAll(filepath.Join(dst, "data"), os.ModePerm); err != nil {
+	// TODO: Probably shouldn't re-download files we already have? Maybe we actually should have an exlclude_ids field
+	if err := os.MkdirAll(filepath.Join(dst, dataDir), os.ModePerm); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Join(dst, "metadata"), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Join(dst, metadataDir), os.ModePerm); err != nil {
 		return err
 	}
 
@@ -152,7 +152,6 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 	// TODO: Use textpb insted of ndjson.
 	dataFile, err := os.Create(filepath.Join(dst, "data", "data"+".ndjson"))
 	w := bufio.NewWriter(dataFile)
-	defer w.Flush()
 	for _, datum := range data {
 		// Write everything as json for now.
 		d := datum.GetData()
@@ -179,6 +178,10 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 			fmt.Println(fmt.Sprintf("error writing json to file %v", err))
 			return err
 		}
+	}
+
+	if err := w.Flush(); err != nil {
+		return errors.Wrapf(err, "error flushing writer for %s", dataFile.Name())
 	}
 
 	return nil
