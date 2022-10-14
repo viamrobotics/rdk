@@ -141,9 +141,10 @@ func TestPower(t *testing.T) {
 	dir := m.Direction()
 	test.That(t, dir, test.ShouldEqual, 1)
 
-	isPowered, err := m.IsPowered(ctx, nil)
+	isPowered, powerPctReported, err := m.IsPowered(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, isPowered, test.ShouldEqual, true)
+	test.That(t, powerPctReported, test.ShouldEqual, powerPct)
 
 	isMoving, err := m.IsMoving(ctx)
 	test.That(t, err, test.ShouldBeNil)

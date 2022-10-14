@@ -495,7 +495,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 
 	m.state.desiredRPM = rpm
 	m.state.regulated = true
-	isOn, err := m.IsPowered(ctx, nil)
+	isOn, _, err := m.IsPowered(ctx, nil)
 	if err != nil {
 		m.stateMu.Unlock()
 		return err
@@ -532,8 +532,8 @@ func (m *EncodedMotor) IsMoving(ctx context.Context) (bool, error) {
 	return m.real.IsMoving(ctx)
 }
 
-// IsPowered returns if the motor is on or not.
-func (m *EncodedMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
+// IsPowered returns if the motor is on or not, and the power level it's set to.
+func (m *EncodedMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	return m.real.IsPowered(ctx, extra)
 }
 

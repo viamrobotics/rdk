@@ -100,6 +100,7 @@ type Motor struct {
 	pwmFreq                  uint
 	minPowerPct              float64
 	maxPowerPct              float64
+	powerPct                 float64
 	maxRPM                   float64
 	dirFlip                  bool
 
@@ -128,6 +129,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
 
 	if math.Abs(powerPct) <= 0.001 {
+		m.powerPct = 0.0
 		if m.EnablePinLow != nil {
 			errs = multierr.Combine(errs, m.EnablePinLow.Set(ctx, true, extra))
 		}
@@ -178,6 +180,7 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 	}
 
 	powerPct = math.Max(math.Abs(powerPct), m.minPowerPct)
+	m.powerPct = powerPct
 	return multierr.Combine(
 		errs,
 		pwmPin.SetPWMFreq(ctx, m.pwmFreq, extra),
@@ -274,8 +277,8 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 }
 
 // IsPowered returns if the motor is currently on or off.
-func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
-	return m.on, nil
+func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+	return m.on, m.powerPct, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down, by setting the appropriate pins to low states.
