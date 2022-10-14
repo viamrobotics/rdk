@@ -48,7 +48,7 @@ func (sm *SingleOperationManager) New(ctx context.Context) (context.Context, fun
 	sm.mu.Lock()
 
 	// first cancel any old operation
-	sm.cancelInLock(ctx)
+	sm.cancelNew(ctx)
 
 	theOp := &anOp{}
 
@@ -94,7 +94,13 @@ func (sm *SingleOperationManager) WaitTillNotPowered(ctx context.Context, pollTi
 	defer func(ctx context.Context) {
 		var errStop error
 		if ctx.Err() != nil {
-			errStop = stop(ctx, map[string]interface{}{})
+			sm.mu.Lock()
+			oldOp := sm.currentOp == ctx.Value(somCtxKeySingleOp)
+			sm.mu.Unlock()
+
+			if oldOp || sm.currentOp == nil {
+				errStop = stop(ctx, map[string]interface{}{})
+			}
 		}
 		err = multierr.Combine(ctx.Err(), errStop)
 	}(ctx)
@@ -142,6 +148,19 @@ func (sm *SingleOperationManager) cancelInLock(ctx context.Context) {
 
 	op.cancelFunc()
 	<-op.waitCh
+
+	sm.currentOp = nil
+}
+
+func (sm *SingleOperationManager) cancelNew(ctx context.Context) {
+	myOp := ctx.Value(somCtxKeySingleOp)
+	op := sm.currentOp
+
+	if op == nil || myOp == op {
+		return
+	}
+
+	op.cancelFunc()
 
 	sm.currentOp = nil
 }
