@@ -29,17 +29,63 @@ const (
 	transformTypeDepthPreprocess = transformType("depth_preprocess")
 )
 
+// emptyAttrs is for transforms that have no attribute fields.
+type emptyAttrs struct{}
+
+// transformRegistration holds pertinent information regarding the available transforms.
+type transformRegistration struct {
+	name        string
+	retType     interface{}
+	description string
+}
+
 // registeredTransformConfigs is a map of all available transform configs, used for populating fields in the front-end.
-var registeredTransformConfigs = map[transformType]interface{}{
-	transformTypeIdentity:        &emptyAttrs{},
-	transformTypeRotate:          &emptyAttrs{},
-	transformTypeResize:          &resizeAttrs{},
-	transformTypeDepthPretty:     &emptyAttrs{},
-	transformTypeOverlay:         &overlayAttrs{},
-	transformTypeUndistort:       &undistortAttrs{},
-	transformTypeDetections:      &detectorAttrs{},
-	transformTypeDepthEdges:      &depthEdgesAttrs{},
-	transformTypeDepthPreprocess: &emptyAttrs{},
+var registeredTransformConfigs = map[transformType]*transformRegistration{
+	transformTypeIdentity: &transformRegistration{
+		string(transformTypeIdentity),
+		&emptyAttrs{},
+		"Does nothing to the image. Can use this to duplicate camera sources, or change the source's stream or parameters.",
+	},
+	transformTypeRotate: &transformRegistration{
+		string(transformTypeRotate),
+		&emptyAttrs{},
+		"Rotate the image by 180 degrees. Used when the camera is installed upside down, or to correct for pinhole projections.",
+	},
+	transformTypeResize: &transformRegistration{
+		string(transformTypeResize),
+		&resizeAttrs{},
+		"Resizes the image to the specified height and width",
+	},
+	transformTypeDepthPretty: &transformRegistration{
+		string(transformTypeDepthPretty),
+		&emptyAttrs{},
+		"Turns a depth image source into a colorful image, with blue indicating distant points and red indicating nearby points.",
+	},
+	transformTypeOverlay: &transformRegistration{
+		string(transformTypeOverlay),
+		&overlayAttrs{},
+		"Projects a point cloud to a 2D RGB and Depth image, and overlays the two images. Used to debug the RGB+D alignment.",
+	},
+	transformTypeUndistort: &transformRegistration{
+		string(transformTypeUndistort),
+		&undistortAttrs{},
+		"Uses intrinsics and modified Brown-Conrady parameters to undistort the source image.",
+	},
+	transformTypeDetections: &transformRegistration{
+		string(transformTypeDetections),
+		&detectorAttrs{},
+		"Overlays object detections on the image. Can use any detector registered in the vision service.",
+	},
+	transformTypeDepthEdges: &transformRegistration{
+		string(transformTypeDepthEdges),
+		&depthEdgesAttrs{},
+		"Applies a Canny edge detector to find edges. Only works on cameras that produce depth maps.",
+	},
+	transformTypeDepthPreprocess: &transformRegistration{
+		string(transformTypeDepthPreprocess),
+		&emptyAttrs{},
+		"Applies some basic hole-filling and edge smoothing to a depth map.",
+	},
 }
 
 // Transformation states the type of transformation and the attributes that are specific to the given type.
@@ -48,15 +94,13 @@ type Transformation struct {
 	Attributes config.AttributeMap `json:"attributes"`
 }
 
-// emptyAttrs is for transforms that have no attribute fields.
-type emptyAttrs struct{}
-
 // JSONSchema defines the schema for each of the possible transforms in the pipeline in a OneOf.
 func (Transformation) JSONSchema() *jsonschema.Schema {
 	schemas := make([]*jsonschema.Schema, 0, len(registeredTransformConfigs))
-	for transformType, transformStruct := range registeredTransformConfigs {
-		transformSchema := jsonschema.Reflect(transformStruct)
-		transformSchema.Type = string(transformType)
+	for _, transformReg := range registeredTransformConfigs {
+		transformSchema := jsonschema.Reflect(transformReg.retType)
+		transformSchema.Type = transformReg.name
+		transformSchema.Description = transformReg.description
 		schemas = append(schemas, transformSchema)
 	}
 	return &jsonschema.Schema{
