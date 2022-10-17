@@ -85,6 +85,7 @@ type Ezopmp struct {
 	maxReadBits int
 	logger      golog.Logger
 	maxPowerPct float64
+	powerPct    float64
 	maxFlowRate float64
 	opMgr       operation.SingleOperationManager
 	generic.Unimplemented
@@ -122,6 +123,7 @@ func NewMotor(ctx context.Context, deps registry.Dependencies, c *AttrConfig, lo
 		maxReadBits: *c.MaxReadBits,
 		logger:      logger,
 		maxPowerPct: 1.0,
+		powerPct:    0.0,
 	}
 
 	flowRate, err := m.findMaxFlowRate(ctx)
@@ -249,6 +251,7 @@ func (m *Ezopmp) SetPower(ctx context.Context, powerPct float64, extra map[strin
 
 	powerPct = math.Min(powerPct, m.maxPowerPct)
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
+	m.powerPct = powerPct
 
 	var command []byte
 	if powerPct == 0 {
@@ -347,32 +350,33 @@ func (m *Ezopmp) Stop(ctx context.Context, extra map[string]interface{}) error {
 
 // IsMoving returns whether or not the motor is currently moving.
 func (m *Ezopmp) IsMoving(ctx context.Context) (bool, error) {
-	return m.IsPowered(ctx, nil)
+	on, _, err := m.IsPowered(ctx, nil)
+	return on, err
 }
 
-// IsPowered returns whether or not the motor is currently on.
-func (m *Ezopmp) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
+// IsPowered returns whether or not the motor is currently on, and how much power it's getting.
+func (m *Ezopmp) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	command := []byte(dispenseStatus)
 	writeErr := m.writeReg(ctx, command)
 	if writeErr != nil {
-		return false, writeErr
+		return false, 0, writeErr
 	}
 	val, err := m.readReg(ctx)
 	if err != nil {
-		return false, err
+		return false, 0, err
 	}
 
 	splitMsg := strings.Split(string(val), ",")
 
 	pumpStatus, err := strconv.ParseFloat(splitMsg[2], 64)
 	if err != nil {
-		return false, err
+		return false, 0, err
 	}
 
 	if pumpStatus == 1 || pumpStatus == -1 {
-		return true, nil
+		return true, m.powerPct, nil
 	}
-	return false, nil
+	return false, 0.0, nil
 }
 
 // GoTillStop is unimplemented.

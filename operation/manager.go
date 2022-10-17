@@ -80,9 +80,11 @@ func (sm *SingleOperationManager) NewTimedWaitOp(ctx context.Context, dur time.D
 	return utils.SelectContextOrWait(ctx, dur)
 }
 
-// IsPoweredInterface is a utility so can wait on IsPowered easily.
+// IsPoweredInterface is a utility so can wait on IsPowered easily. It returns whether it is
+// powered, the power percent (between 0 and 1, or between -1 and 1 for motors that support
+// negative power), and any error that occurred while obtaining these.
 type IsPoweredInterface interface {
-	IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error)
+	IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error)
 }
 
 // WaitTillNotPowered waits until IsPowered returns false.
@@ -91,7 +93,7 @@ func (sm *SingleOperationManager) WaitTillNotPowered(ctx context.Context, pollTi
 		ctx,
 		pollTime,
 		func(ctx context.Context) (bool, error) {
-			res, err := powered.IsPowered(ctx, nil)
+			res, _, err := powered.IsPowered(ctx, nil)
 			return !res, err
 		},
 	)

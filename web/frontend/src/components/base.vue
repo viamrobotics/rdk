@@ -173,6 +173,7 @@ const handleSelectCamera = (event: string) => {
     <v-breadcrumbs
       slot="title"
       crumbs="base"
+      @mouseenter="() => { /* APP-618 */ }"
     />
 
     <v-button
