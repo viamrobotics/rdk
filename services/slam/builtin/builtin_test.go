@@ -671,7 +671,7 @@ func TestCartographerDataProcess(t *testing.T) {
 		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		c := make(chan int)
+		c := make(chan int, 100)
 		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
 
 		<-c
@@ -698,7 +698,7 @@ func TestCartographerDataProcess(t *testing.T) {
 		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		c := make(chan int)
+		c := make(chan int, 100)
 		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
 
 		<-c
@@ -764,7 +764,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
-		c := make(chan int)
+		c := make(chan int, 100)
 		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
 
 		<-c
@@ -788,7 +788,7 @@ func TestORBSLAMDataProcess(t *testing.T) {
 		}()
 
 		cancelCtx, cancelFunc := context.WithCancel(context.Background())
-		c := make(chan int)
+		c := make(chan int, 100)
 		slamSvc.StartDataProcess(cancelCtx, cams, camStreams, c)
 
 		<-c
@@ -881,6 +881,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		{"-data_dir=" + name},
 		{"-input_file_pattern=10:200:1"},
 		{"-port=localhost:4445"},
+		{"--aix-auto-update"},
 	}
 
 	for i, s := range cmd {
