@@ -122,6 +122,8 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 }
 
 func TestJoinPointCloudNaive(t *testing.T) {
+	t.Skip("DATA-565: temporarily skip flaky test")
+
 	r := makeFakeRobot(t)
 	time.Sleep(500 * time.Millisecond)
 	// PoV from base1
