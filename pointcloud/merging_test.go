@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"context"
 	"image/color"
 	"testing"
 
@@ -9,33 +10,65 @@ import (
 	"go.viam.com/test"
 )
 
-func makeThreeCloudsWithOffsets(t *testing) []PointCloudWithOffset {
-	pc1 := pointcloud.NewWithPrealloc(1)
-	err := pc1.Set(pointcloud.NewVector(1, 0, 0), pointcloud.NewColoredData(color.NRGBA{255, 0, 0, 255}))
+func makeThreeCloudsWithOffsets(t *testing.T) []PointCloudWithOffsetFunc {
+	pc1 := NewWithPrealloc(1)
+	err := pc1.Set(NewVector(1, 0, 0), NewColoredData(color.NRGBA{255, 0, 0, 255}))
 	test.That(t, err, test.ShouldBeNil)
-	pc2 := pointcloud.NewWithPrealloc(1)
-	err := pc2.Set(pointcloud.NewVector(0, 1, 0), pointcloud.NewColoredData(color.NRGBA{0, 255, 0, 255}))
+	pc2 := NewWithPrealloc(1)
+	err = pc2.Set(NewVector(0, 1, 0), NewColoredData(color.NRGBA{0, 255, 0, 255}))
 	test.That(t, err, test.ShouldBeNil)
-	pc3 := pointcloud.NewWithPrealloc(1)
-	err := pc3.Set(pointcloud.NewVector(0, 0, 1), pointcloud.NewColoredData(color.NRGBA{0, 0, 255, 255}))
+	pc3 := NewWithPrealloc(1)
+	err = pc3.Set(NewVector(0, 0, 1), NewColoredData(color.NRGBA{0, 0, 255, 255}))
 	test.That(t, err, test.ShouldBeNil)
 	pose1 := spatialmath.NewPoseFromPoint(r3.Vector{100, 0, 0})
 	pose2 := spatialmath.NewPoseFromPoint(r3.Vector{100, 0, 100})
 	pose3 := spatialmath.NewPoseFromPoint(r3.Vector{100, 100, 100})
-	return []PointCloudWithOffset{{pc1, pose1}, {pc2, pose2}, {pc3, pose3}}
+	func1 := func(context context.Context) (PointCloud, spatialmath.Pose, error) {
+		return pc1, pose1, nil
+	}
+	func2 := func(context context.Context) (PointCloud, spatialmath.Pose, error) {
+		return pc2, pose2, nil
+	}
+	func3 := func(context context.Context) (PointCloud, spatialmath.Pose, error) {
+		return pc3, pose3, nil
+	}
+	return []PointCloudWithOffsetFunc{func1, func2, func3}
 }
 
 func TestMergePoints1(t *testing.T) {
 	clouds := makeClouds(t)
-	cloudsWithOffset := make([]PointCloudWithOffset, 0, len(clouds))
+	cloudsWithOffset := make([]PointCloudWithOffsetFunc, 0, len(clouds))
 	for _, cloud := range clouds {
 		cloudCopy := cloud
-		cloudsWithOffset = append(cloudsWithOffset, PointCloudWithOffset{cloudCopy, nil})
+		cloudFunc := func(ctx context.Context) (PointCloud, spatialmath.Pose, error) {
+			return cloudCopy, nil, nil
+		}
+		cloudsWithOffset = append(cloudsWithOffset, cloudFunc)
 	}
-	mergedCloud, err := MergePointClouds(cloudsWithOffset)
+	mergedCloud, err := MergePointClouds(context.Background(), cloudsWithOffset)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, CloudContains(mergedCloud, 0, 0, 0), test.ShouldBeTrue)
 	test.That(t, CloudContains(mergedCloud, 30, 0, 0), test.ShouldBeTrue)
+}
+
+func TestMergePoints2(t *testing.T) {
+	clouds := makeThreeCloudsWithOffsets(t)
+	pc, err := MergePointClouds(context.Background(), clouds)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pc, test.ShouldNotBeNil)
+	test.That(t, pc.Size(), test.ShouldEqual, 3)
+
+	data, got := pc.At(101, 0, 0)
+	test.That(t, got, test.ShouldBeTrue)
+	test.That(t, data.Color(), test.ShouldResemble, &color.NRGBA{255, 0, 0, 255})
+
+	data, got = pc.At(100, 1, 100)
+	test.That(t, got, test.ShouldBeTrue)
+	test.That(t, data.Color(), test.ShouldResemble, &color.NRGBA{0, 255, 0, 255})
+
+	data, got = pc.At(100, 100, 101)
+	test.That(t, got, test.ShouldBeTrue)
+	test.That(t, data.Color(), test.ShouldResemble, &color.NRGBA{0, 0, 255, 255})
 }
 
 func TestMergePointsWithColor(t *testing.T) {

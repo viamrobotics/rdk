@@ -1,7 +1,9 @@
 package pointcloud
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"image/color"
 	"sync"
 	"sync/atomic"
@@ -14,32 +16,29 @@ import (
 	"go.viam.com/utils"
 )
 
-// PointCloudWithOffset has an optional offset that gets applied to every point within the point cloud.
-type PointCloudWithOffset struct {
-	PointCloud
-	Offset spatialmath.Pose
-}
+// PointCloudWithOffsetFunc is a function that returns a PointCloudWithOffset
+type PointCloudWithOffsetFunc func(context context.Context) (PointCloud, spatialmath.Pose, error)
 
 // MergePointClouds takes a slice of points clouds with optional offsets and adds all their points to one point cloud.
-func MergePointClouds(clouds []PointCloudWithOffset) (PointCloud, error) {
-	if len(clouds) == 0 {
+func MergePointClouds(ctx context.Context, cloudFuncs []PointCloudWithOffsetFunc) (PointCloud, error) {
+	if len(cloudFuncs) == 0 {
 		return nil, errors.New("no point clouds to merge")
 	}
-	if len(clouds) == 1 && clouds[0].Offset == nil {
-		return clouds[0], nil
-	}
 	finalPoints := make(chan []PointAndData, 50)
-	activeReaders := int32(len(clouds))
-	for i, pc := range clouds {
+	activeReaders := int32(len(cloudFuncs))
+	for i, pcSrc := range cloudFuncs {
 		iCopy := i
-		pcCopy := pc
 		utils.PanicCapturingGo(func() {
-			ctx, span := trace.StartSpan(ctx, "pointcloud::MergePointClouds::Cloud"+string(i))
+			_, span := trace.StartSpan(ctx, "pointcloud::MergePointClouds::Cloud"+fmt.Sprint(iCopy))
 			defer span.End()
 
 			defer func() {
 				atomic.AddInt32(&activeReaders, -1)
 			}()
+			pc, offset, err := pcSrc(ctx)
+			if err != nil {
+				panic(err) // TODO(erh) is there something better to do?
+			}
 			var wg sync.WaitGroup
 			const numLoops = 8
 			for loop := 0; loop < numLoops; loop++ {
@@ -49,10 +48,10 @@ func MergePointClouds(clouds []PointCloudWithOffset) (PointCloud, error) {
 					const batchSize = 500
 					batch := make([]PointAndData, 0, batchSize)
 					savedDualQuat := spatialmath.NewZeroPose()
-					pcSrc.Iterate(numLoops, loop, func(p r3.Vector, d Data) bool {
-						if pcCopy.Offset != nil {
+					pc.Iterate(numLoops, loop, func(p r3.Vector, d Data) bool {
+						if offset != nil {
 							spatialmath.ResetPoseDQTranslation(savedDualQuat, p)
-							newPose := spatialmath.Compose(pcCopy.Offset, savedDualQuat)
+							newPose := spatialmath.Compose(offset, savedDualQuat)
 							p = newPose.Point()
 						}
 						batch = append(batch, PointAndData{P: p, D: d})
@@ -71,6 +70,7 @@ func MergePointClouds(clouds []PointCloudWithOffset) (PointCloud, error) {
 		})
 	}
 	var pcTo PointCloud
+	var err error
 
 	dataLastTime := false
 	for dataLastTime || atomic.LoadInt32(&activeReaders) > 0 {
@@ -79,9 +79,9 @@ func MergePointClouds(clouds []PointCloudWithOffset) (PointCloud, error) {
 			for _, p := range ps {
 				if pcTo == nil {
 					if p.D == nil {
-						pcTo = NewAppendOnlyOnlyPointsPointCloud(len(clouds) * 640 * 800)
+						pcTo = NewAppendOnlyOnlyPointsPointCloud(len(cloudFuncs) * 640 * 800)
 					} else {
-						pcTo = NewWithPrealloc(len(clouds) * 640 * 800)
+						pcTo = NewWithPrealloc(len(cloudFuncs) * 640 * 800)
 					}
 				}
 
