@@ -28,6 +28,7 @@ func MergePointClouds(ctx context.Context, cloudFuncs []PointCloudWithOffsetFunc
 	activeReaders := int32(len(cloudFuncs))
 	for i, pcSrc := range cloudFuncs {
 		iCopy := i
+		pcSrcCopy := pcSrc
 		utils.PanicCapturingGo(func() {
 			_, span := trace.StartSpan(ctx, "pointcloud::MergePointClouds::Cloud"+fmt.Sprint(iCopy))
 			defer span.End()
@@ -35,7 +36,7 @@ func MergePointClouds(ctx context.Context, cloudFuncs []PointCloudWithOffsetFunc
 			defer func() {
 				atomic.AddInt32(&activeReaders, -1)
 			}()
-			pc, offset, err := pcSrc(ctx)
+			pc, offset, err := pcSrcCopy(ctx)
 			if err != nil {
 				panic(err) // TODO(erh) is there something better to do?
 			}
