@@ -508,3 +508,51 @@ func EdgeHysteresisFiltering(mag *mat.Dense, low, high float64) (*image.Gray, er
 	}
 	return edges, nil
 }
+
+// ImageToYCbCrForTesting converts an image to YCbCr. It is only to be used for testing.
+func ImageToYCbCrForTesting(dst *image.YCbCr, src image.Image) {
+	if dst == nil {
+		panic("dst can't be nil")
+	}
+
+	yuvImg, ok := src.(*image.YCbCr)
+	if ok {
+		*dst = *yuvImg
+		return
+	}
+
+	bounds := src.Bounds()
+	dy := bounds.Dy()
+	dx := bounds.Dx()
+	flat := dy * dx
+
+	if len(dst.Y)+len(dst.Cb)+len(dst.Cr) < 3*flat {
+		i0 := 1 * flat
+		i1 := 2 * flat
+		i2 := 3 * flat
+		if cap(dst.Y) < i2 {
+			dst.Y = make([]uint8, i2)
+		}
+		dst.Y = dst.Y[:i0]
+		dst.Cb = dst.Y[i0:i1]
+		dst.Cr = dst.Y[i1:i2]
+	}
+	dst.SubsampleRatio = image.YCbCrSubsampleRatio444
+	dst.YStride = dx
+	dst.CStride = dx
+	dst.Rect = bounds
+
+	i := 0
+	for yi := 0; yi < dy; yi++ {
+		for xi := 0; xi < dx; xi++ {
+			// TODO(erh): probably try to get the alpha value with something like
+			// https://en.wikipedia.org/wiki/Alpha_compositing
+			r, g, b, _ := src.At(xi, yi).RGBA()
+			yy, cb, cr := color.RGBToYCbCr(uint8(r/256), uint8(g/256), uint8(b/256))
+			dst.Y[i] = yy
+			dst.Cb[i] = cb
+			dst.Cr[i] = cr
+			i++
+		}
+	}
+}
