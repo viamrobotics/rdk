@@ -57,7 +57,7 @@ const (
 	parsePortMaxTimeoutSec      = 60
 	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	// time format for the slam service.
-	slamTimeFormat        = "2006-01-02T15_04_05.0000"
+	slamTimeFormat        = time.RFC3339Nano
 	opTimeoutErrorMessage = "bad scan: OpTimeout"
 	localhost0            = "localhost:0"
 )

@@ -23,7 +23,7 @@ import (
 
 const (
 	yamlFilePrefixBytes = "%YAML:1.0\n"
-	slamTimeFormat      = "2006-01-02T15_04_05.0000"
+	slamTimeFormat      = time.RFC3339Nano
 )
 
 // function to search a SLAM data dir for a .yaml file. returns the timestamp and filepath.
