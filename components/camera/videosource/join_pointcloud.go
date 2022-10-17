@@ -194,6 +194,9 @@ func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (poin
 			if err != nil {
 				return nil, nil, err
 			}
+			if pc == nil {
+				return nil, nil, errors.Errorf("camera %q returned a nil point cloud", jpcs.sourceNames[iCopy])
+			}
 			return pc, framePose, nil
 		}
 		cloudFuncs[iCopy] = pcSrc
