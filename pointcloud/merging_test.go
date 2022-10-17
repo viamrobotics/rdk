@@ -6,11 +6,13 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
-func makeThreeCloudsWithOffsets(t *testing.T) []PointCloudWithOffsetFunc {
+func makeThreeCloudsWithOffsets(t *testing.T) []CloudAndOffsetFunc {
+	t.Helper()
 	pc1 := NewWithPrealloc(1)
 	err := pc1.Set(NewVector(1, 0, 0), NewColoredData(color.NRGBA{255, 0, 0, 255}))
 	test.That(t, err, test.ShouldBeNil)
@@ -32,12 +34,12 @@ func makeThreeCloudsWithOffsets(t *testing.T) []PointCloudWithOffsetFunc {
 	func3 := func(context context.Context) (PointCloud, spatialmath.Pose, error) {
 		return pc3, pose3, nil
 	}
-	return []PointCloudWithOffsetFunc{func1, func2, func3}
+	return []CloudAndOffsetFunc{func1, func2, func3}
 }
 
 func TestMergePoints1(t *testing.T) {
 	clouds := makeClouds(t)
-	cloudsWithOffset := make([]PointCloudWithOffsetFunc, 0, len(clouds))
+	cloudsWithOffset := make([]CloudAndOffsetFunc, 0, len(clouds))
 	for _, cloud := range clouds {
 		cloudCopy := cloud
 		cloudFunc := func(ctx context.Context) (PointCloud, spatialmath.Pose, error) {
