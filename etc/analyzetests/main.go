@@ -79,7 +79,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		}
 	}
 
-	_, isPullRequest := os.LookupEnv("GITHUB_BASE_REF")
+	baseRef, ok := os.LookupEnv("GITHUB_BASE_REF")
+	isPullRequest := ok && baseRef != ""
 
 	createdAt := time.Now()
 	parseTest := func(status string, tc testjson.TestCase) testResult {
