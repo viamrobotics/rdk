@@ -181,16 +181,20 @@ func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (poin
 		pcSrc := func(ctx context.Context) (pointcloud.PointCloud, spatialmath.Pose, error) {
 			ctx, span := trace.StartSpan(ctx, "camera::joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[iCopy]+"-NextPointCloud")
 			defer span.End()
-			sourceFrame := referenceframe.NewPoseInFrame(jpcs.sourceNames[iCopy], spatialmath.NewZeroPose())
-			theTransform, err := fs.Transform(inputs, sourceFrame, jpcs.targetName)
-			if err != nil {
-				return nil, nil, err
+			var framePose spatialmath.Pose
+			if jpcs.sourceNames[iCopy] != jpcs.targetName {
+				sourceFrame := referenceframe.NewPoseInFrame(jpcs.sourceNames[iCopy], spatialmath.NewZeroPose())
+				theTransform, err := fs.Transform(inputs, sourceFrame, jpcs.targetName)
+				if err != nil {
+					return nil, nil, err
+				}
+				framePose = theTransform.(*referenceframe.PoseInFrame).Pose()
 			}
 			pc, err := camCopy.NextPointCloud(ctx)
 			if err != nil {
 				return nil, nil, err
 			}
-			return pc, theTransform.(*referenceframe.PoseInFrame).Pose(), nil
+			return pc, framePose, nil
 		}
 		cloudFuncs[i] = pcSrc
 	}
