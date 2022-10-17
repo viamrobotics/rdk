@@ -6,9 +6,8 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
-	"go.viam.com/test"
-
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/test"
 )
 
 func makeThreeCloudsWithOffsets(t *testing.T) []CloudAndOffsetFunc {
@@ -49,6 +48,7 @@ func TestMergePoints1(t *testing.T) {
 	}
 	mergedCloud, err := MergePointClouds(context.Background(), cloudsWithOffset)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mergedCloud, test.ShouldNotBeNil)
 	test.That(t, mergedCloud.Size(), test.ShouldEqual, 9)
 }
 
