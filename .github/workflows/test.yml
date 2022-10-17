@@ -6,10 +6,13 @@ on:
     secrets:
       ARTIFACT_READ_ONLY_GCP_CREDENTIALS:
         required: true
+      MONGODB_TEST_OUTPUT_URI:
+        required: true
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
   GOOGLE_APPLICATION_CREDENTIALS_FILENAME: "google-credentials.json"
+  MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
 jobs:
   build_and_test:
@@ -60,7 +63,7 @@ jobs:
     - name: Test
       if: matrix.platform == 'linux/amd64'
       run: |
-        sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS -u testbot bash -lc 'make cover test-web'
+        sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS,MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT -u testbot bash -lc 'make cover test-web'
 
     - name: Code Coverage Summary Report
       if: matrix.platform == 'linux/amd64'

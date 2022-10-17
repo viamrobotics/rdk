@@ -46,6 +46,7 @@ const stop = () => {
     <v-breadcrumbs
       slot="title"
       crumbs="gantry"
+      @mouseenter="() => { /* APP-618 */ }"
     />
     <div
       slot="header"

@@ -48,9 +48,12 @@ func NewPoint(pt r3.Vector, label string) Geometry {
 	return &point{NewPoseFromPoint(pt), label}
 }
 
-// Label returns the labels of the point.
+// Label returns the labels of this point.
 func (pt *point) Label() string {
-	return pt.label
+	if pt != nil {
+		return pt.label
+	}
+	return ""
 }
 
 // Pose returns the pose of the point.

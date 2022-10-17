@@ -54,9 +54,12 @@ func NewBox(pose Pose, dims r3.Vector, label string) (Geometry, error) {
 	return &box{pose, [3]float64{0.5 * dims.X, 0.5 * dims.Y, 0.5 * dims.Z}, label}, nil
 }
 
-// Label returns the label of the box.
+// Label returns the label of this box.
 func (b *box) Label() string {
-	return b.label
+	if b != nil {
+		return b.label
+	}
+	return ""
 }
 
 // Pose returns the pose of the box.

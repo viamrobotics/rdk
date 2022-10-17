@@ -19,6 +19,7 @@ type RadiusClusteringConfig struct {
 	MinPtsInSegment    int     `json:"min_points_in_segment"`
 	ClusteringRadiusMm float64 `json:"clustering_radius_mm"`
 	MeanKFiltering     int     `json:"mean_k_filtering"`
+	Label              string  `json:"label,omitempty"`
 }
 
 // CheckValid checks to see in the input values are valid.
@@ -93,7 +94,7 @@ func (rcc *RadiusClusteringConfig) RadiusClustering(ctx context.Context, c camer
 	if err != nil {
 		return nil, err
 	}
-	objects, err := NewSegmentsFromSlice(segments)
+	objects, err := NewSegmentsFromSlice(segments, rcc.Label)
 	if err != nil {
 		return nil, err
 	}
