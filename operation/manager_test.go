@@ -176,6 +176,6 @@ func (m *mock) stopFail(ctx context.Context, extra map[string]interface{}) error
 	return errors.New("Stop failed")
 }
 
-func (m *mock) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
-	return false, nil
+func (m *mock) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+	return false, 0, nil
 }
