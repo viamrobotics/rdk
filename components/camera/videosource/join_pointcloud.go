@@ -403,6 +403,7 @@ func (jpcs *joinPointCloudSource) Read(ctx context.Context) (image.Image, func()
 	if err != nil {
 		return nil, nil, err
 	}
+	jpcs.logger.Debugf("number of points: %d", pc.Size())
 	img, dm, err := proj.PointCloudToRGBD(pc)
 	if err != nil {
 		return nil, nil, err
