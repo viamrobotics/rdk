@@ -52,6 +52,11 @@
             "model": "fake"
         },
         {
+            "name": "test_audio",
+            "type": "audio_input",
+            "model": "fake"
+        },
+        {
             "name": "test_servo",
             "type": "servo",
             "model": "fake",

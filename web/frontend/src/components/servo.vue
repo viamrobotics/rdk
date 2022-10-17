@@ -51,6 +51,7 @@ const move = (amount: number) => {
       <v-breadcrumbs
         slot="title"
         crumbs="servo"
+        @mouseenter="() => { /* APP-618 */ }"
       />
       <v-button
         slot="header"

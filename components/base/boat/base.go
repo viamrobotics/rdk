@@ -288,7 +288,7 @@ func (b *boat) Width(ctx context.Context) (int, error) {
 
 func (b *boat) IsMoving(ctx context.Context) (bool, error) {
 	for _, m := range b.motors {
-		isMoving, err := m.IsPowered(ctx, nil)
+		isMoving, _, err := m.IsPowered(ctx, nil)
 		if err != nil {
 			return false, err
 		}

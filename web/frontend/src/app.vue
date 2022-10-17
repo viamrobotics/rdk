@@ -776,7 +776,6 @@ onMounted(async () => {
       v-for="camera in filterResources(resources, 'rdk', 'component', 'camera')"
       :key="camera.name"
       :camera-name="camera.name"
-      :crumbs="[camera.name]"
       :resources="resources"
       @toggle-camera="isOn => { viewCamera(camera.name, isOn) }"
       @refresh-camera="t => { viewCameraFrame(camera.name, t) }"
@@ -803,7 +802,6 @@ onMounted(async () => {
       v-for="audioInput in filterResources(resources, 'rdk', 'component', 'audio_input')"
       :key="audioInput.name"
       :name="audioInput.name"
-      :crumbs="[audioInput.name]"
     />
 
     <!-- ******* SLAM *******  -->

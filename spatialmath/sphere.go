@@ -56,9 +56,12 @@ func NewSphere(pt r3.Vector, radius float64, label string) (Geometry, error) {
 	return &sphere{NewPoseFromPoint(pt), radius, label}, nil
 }
 
-// Label returns the label of the sphere.
+// Label returns the label of this sphere.
 func (s *sphere) Label() string {
-	return s.label
+	if s != nil {
+		return s.label
+	}
+	return ""
 }
 
 // Pose returns the pose of the sphere.

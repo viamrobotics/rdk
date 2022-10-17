@@ -34,9 +34,11 @@ func TestClient(t *testing.T) {
 	failingMotor := &inject.Motor{}
 
 	var actualExtra map[string]interface{}
+	var actualPowerPct float64
 
 	workingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 		actualExtra = extra
+		actualPowerPct = powerPct
 		return nil
 	}
 	workingMotor.GoForFunc = func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error {
@@ -65,9 +67,9 @@ func TestClient(t *testing.T) {
 		actualExtra = extra
 		return nil
 	}
-	workingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	workingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 		actualExtra = extra
-		return true, nil
+		return true, actualPowerPct, nil
 	}
 
 	failingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
@@ -91,8 +93,8 @@ func TestClient(t *testing.T) {
 	failingMotor.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return errors.New("stop failed")
 	}
-	failingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
-		return false, errors.New("is on unavailable")
+	failingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+		return false, 0.0, errors.New("is on unavailable")
 	}
 
 	resourceMap := map[resource.Name]interface{}{
@@ -152,8 +154,11 @@ func TestClient(t *testing.T) {
 		err = workingMotorClient.Stop(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		isOn, err := workingMotorClient.IsPowered(context.Background(), map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
+		isOn, powerPct, err := workingMotorClient.IsPowered(
+			context.Background(),
+			map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
 		test.That(t, isOn, test.ShouldBeTrue)
+		test.That(t, powerPct, test.ShouldEqual, 42.0)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, actualExtra, test.ShouldResemble, map[string]interface{}{"foo": "bar", "baz": []interface{}{1., 2., 3.}})
 
@@ -187,8 +192,9 @@ func TestClient(t *testing.T) {
 		test.That(t, features, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		isOn, err := failingMotorClient.IsPowered(context.Background(), nil)
+		isOn, powerPct, err := failingMotorClient.IsPowered(context.Background(), nil)
 		test.That(t, isOn, test.ShouldBeFalse)
+		test.That(t, powerPct, test.ShouldEqual, 0.0)
 		test.That(t, err, test.ShouldNotBeNil)
 
 		err = failingMotorClient.Stop(context.Background(), nil)
@@ -219,8 +225,9 @@ func TestClient(t *testing.T) {
 		err = workingMotorDialedClient.Stop(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		isOn, err := workingMotorDialedClient.IsPowered(context.Background(), nil)
+		isOn, powerPct, err := workingMotorDialedClient.IsPowered(context.Background(), nil)
 		test.That(t, isOn, test.ShouldBeTrue)
+		test.That(t, powerPct, test.ShouldEqual, 42.0)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, utils.TryClose(context.Background(), workingMotorDialedClient), test.ShouldBeNil)
@@ -239,8 +246,9 @@ func TestClient(t *testing.T) {
 		test.That(t, features, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		isOn, err := failingMotorDialedClient.IsPowered(context.Background(), nil)
+		isOn, powerPct, err := failingMotorDialedClient.IsPowered(context.Background(), nil)
 		test.That(t, isOn, test.ShouldBeFalse)
+		test.That(t, powerPct, test.ShouldEqual, 0.0)
 		test.That(t, err, test.ShouldNotBeNil)
 
 		test.That(t, utils.TryClose(context.Background(), failingMotorDialedClient), test.ShouldBeNil)

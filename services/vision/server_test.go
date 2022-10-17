@@ -292,11 +292,13 @@ func TestServerAddRemoveSegmenter(t *testing.T) {
 }
 
 func TestServerSegmentationGetObjects(t *testing.T) {
+	expectedLabel := "test_label"
 	params := config.AttributeMap{
 		"min_points_in_plane":   100,
 		"min_points_in_segment": 3,
 		"clustering_radius_mm":  5.,
 		"mean_k_filtering":      10.,
+		"label":                 expectedLabel,
 	}
 	segmenter, err := segmentation.NewRadiusClustering(params)
 	test.That(t, err, test.ShouldBeNil)
@@ -342,6 +344,7 @@ func TestServerSegmentationGetObjects(t *testing.T) {
 		box, err := spatialmath.NewGeometryFromProto(object.Geometries.Geometries[0])
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
+		test.That(t, box.Label(), test.ShouldEqual, expectedLabel)
 	}
 }
 

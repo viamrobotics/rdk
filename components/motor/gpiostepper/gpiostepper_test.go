@@ -57,24 +57,27 @@ func Test1(t *testing.T) {
 	})
 
 	t.Run("motor test isOn functionality", func(t *testing.T) {
-		on, err := m.IsPowered(ctx, nil)
+		on, powerPct, err := m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, false)
+		test.That(t, powerPct, test.ShouldEqual, 0.0)
 	})
 
 	t.Run("motor testing with positive rpm and positive revolutions", func(t *testing.T) {
 		err = m.goForInternal(ctx, 100, 2)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := m.IsPowered(ctx, nil)
+		on, powerPct, err := m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, powerPct, test.ShouldEqual, 1.0)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, err = m.IsPowered(ctx, nil)
+			on, powerPct, err = m.IsPowered(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldEqual, false)
+			test.That(tb, powerPct, test.ShouldEqual, 0.0)
 		})
 
 		pos, err := m.Position(ctx, nil)
@@ -86,15 +89,17 @@ func Test1(t *testing.T) {
 		err = m.goForInternal(ctx, -100, 2)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := m.IsPowered(ctx, nil)
+		on, powerPct, err := m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, powerPct, test.ShouldEqual, 1.0)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, err = m.IsPowered(ctx, nil)
+			on, powerPct, err = m.IsPowered(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldEqual, false)
+			test.That(tb, powerPct, test.ShouldEqual, 0.0)
 		})
 
 		pos, err := m.Position(ctx, nil)
@@ -106,15 +111,17 @@ func Test1(t *testing.T) {
 		err = m.goForInternal(ctx, 100, -2)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := m.IsPowered(ctx, nil)
+		on, powerPct, err := m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, powerPct, test.ShouldEqual, 1.0)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, err = m.IsPowered(ctx, nil)
+			on, powerPct, err = m.IsPowered(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldEqual, false)
+			test.That(tb, powerPct, test.ShouldEqual, 0.0)
 		})
 
 		pos, err := m.Position(ctx, nil)
@@ -126,15 +133,17 @@ func Test1(t *testing.T) {
 		err = m.goForInternal(ctx, -100, -2)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := m.IsPowered(ctx, nil)
+		on, powerPct, err := m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, powerPct, test.ShouldEqual, 1.0)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, err = m.IsPowered(ctx, nil)
+			on, powerPct, err = m.IsPowered(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldEqual, false)
+			test.That(tb, powerPct, test.ShouldEqual, 0.0)
 		})
 
 		pos, err := m.Position(ctx, nil)
@@ -161,9 +170,10 @@ func Test1(t *testing.T) {
 		err = m.goForInternal(ctx, 100, 200)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := m.IsPowered(ctx, nil)
+		on, powerPct, err := m.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, powerPct, test.ShouldEqual, 1.0)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
