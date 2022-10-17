@@ -370,6 +370,14 @@ const loadCurrentOps = () => {
         });
       }
 
+      currentOps.sort((op1, op2) => {
+        if (op1.elapsed === -1 || op2.elapsed === -1) {
+          // move op with null start time to the back of the list
+          return op2.elapsed - op1.elapsed;
+        }
+        return op1.elapsed - op2.elapsed;
+      });
+
       resolve(currentOps);
     });
   });
