@@ -157,11 +157,6 @@ func TestJoinPointCloudNaive(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	t.Logf("contents: %#v", pc)
-	pc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-		t.Logf("point: %v, data: %v", p, d)
-		return true
-	})
 	test.That(t, pc.Size(), test.ShouldEqual, 3)
 
 	data, got := pc.At(101, 0, 0)
@@ -192,11 +187,6 @@ func TestJoinPointCloudNaive(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pc, err = joinedCam2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	t.Logf("contents: %#v", pc)
-	pc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
-		t.Logf("point: %v, data: %v", p, d)
-		return true
-	})
 	test.That(t, pc.Size(), test.ShouldEqual, 3)
 
 	data, got = pc.At(1, 0, 0)
@@ -461,8 +451,6 @@ func TestTwinPointCloudICP(t *testing.T) {
 	filename := "test_twin_" + time.Now().Format(time.RFC3339) + "*.pcd"
 	file, err := os.CreateTemp("/tmp", filename)
 	pointcloud.ToPCD(pc, file, pointcloud.PCDBinary)
-
-	utils.Logger.Debugf("Number of points: %d", pc.Size())
 
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc, test.ShouldNotBeNil)

@@ -47,8 +47,7 @@ func TestMergePoints1(t *testing.T) {
 	}
 	mergedCloud, err := MergePointClouds(context.Background(), cloudsWithOffset)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, CloudContains(mergedCloud, 0, 0, 0), test.ShouldBeTrue)
-	test.That(t, CloudContains(mergedCloud, 30, 0, 0), test.ShouldBeTrue)
+	test.That(t, mergedCloud.Size(), test.ShouldEqual, 9)
 }
 
 func TestMergePoints2(t *testing.T) {
@@ -56,6 +55,10 @@ func TestMergePoints2(t *testing.T) {
 	pc, err := MergePointClouds(context.Background(), clouds)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc, test.ShouldNotBeNil)
+	pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		t.Logf("point: %v, data: %v", p, d)
+		return true
+	})
 	test.That(t, pc.Size(), test.ShouldEqual, 3)
 
 	data, got := pc.At(101, 0, 0)
