@@ -148,7 +148,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 	test.That(t, pc3.Size(), test.ShouldEqual, 1)
 	// PoV from base1
 	attrs := &JoinAttrs{
-		AttrConfig:    &camera.AttrConfig{},
+		AttrConfig:    &camera.AttrConfig{Debug: true},
 		SourceCameras: []string{"cam1", "cam2", "cam3"},
 		TargetFrame:   "base1",
 		MergeMethod:   "naive",
@@ -183,7 +183,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 
 	// PoV from cam1
 	attrs2 := &JoinAttrs{
-		AttrConfig:    &camera.AttrConfig{},
+		AttrConfig:    &camera.AttrConfig{Debug: true},
 		SourceCameras: []string{"cam1", "cam2", "cam3"},
 		TargetFrame:   "cam1",
 		MergeMethod:   "naive",
@@ -423,6 +423,7 @@ func TestFixedPointCloudICP(t *testing.T) {
 	attrs := &JoinAttrs{
 		AttrConfig: &camera.AttrConfig{
 			Stream: "",
+			Debug:  true,
 		},
 		SourceCameras: []string{"cam1", "cam2"},
 		TargetFrame:   "base1",
@@ -446,6 +447,7 @@ func TestTwinPointCloudICP(t *testing.T) {
 	attrs := &JoinAttrs{
 		AttrConfig: &camera.AttrConfig{
 			Stream: "",
+			Debug:  true,
 		},
 		SourceCameras: []string{"cam3", "cam4"},
 		TargetFrame:   "cam3",
@@ -475,6 +477,7 @@ func TestMultiPointCloudICP(t *testing.T) {
 	attrs := &JoinAttrs{
 		AttrConfig: &camera.AttrConfig{
 			Stream: "",
+			Debug:  true,
 		},
 		SourceCameras: []string{"cam3", "cam4", "cam5"},
 		TargetFrame:   "cam3",
