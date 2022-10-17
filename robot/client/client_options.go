@@ -15,12 +15,12 @@ type robotClientOpts struct {
 	refreshEvery *time.Duration
 
 	// checkConnectedEvery is how often to check connection to the
-	// robot. If <0, it will not be refreshed automatically, if unset,
+	// robot. If <=0, it will not be refreshed automatically, if unset,
 	// it will automatically refresh every 10s
 	checkConnectedEvery *time.Duration
 
 	// reconnectEvery is how often to try reconnecting the
-	// robot. If <0, it will not be refreshed automatically, if unset,
+	// robot. If <=0, it will not be refreshed automatically, if unset,
 	// it will automatically refresh every 10s
 	reconnectEvery *time.Duration
 

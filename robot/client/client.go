@@ -108,16 +108,16 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		refreshTime = *rOpts.refreshEvery
 	}
 	var checkConnectedTime time.Duration
-	if rOpts.refreshEvery == nil {
+	if rOpts.checkConnectedEvery == nil {
 		checkConnectedTime = 10 * time.Second
 	} else {
 		checkConnectedTime = *rOpts.checkConnectedEvery
 	}
 	var reconnectTime time.Duration
-	if rOpts.refreshEvery == nil {
+	if rOpts.reconnectEvery == nil {
 		reconnectTime = 10 * time.Second
 	} else {
-		reconnectTime = *rOpts.refreshEvery
+		reconnectTime = *rOpts.reconnectEvery
 	}
 
 	if refreshTime > 0 {
