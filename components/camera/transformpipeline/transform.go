@@ -49,7 +49,7 @@ var registeredTransformConfigs = map[transformType]*transformRegistration{
 	transformTypeRotate: {
 		string(transformTypeRotate),
 		&emptyAttrs{},
-		"Rotate the image by 180 degrees. Used when the camera is installed upside down, or to correct for pinhole projections.",
+		"Rotate the image by 180 degrees. Used when the camera is installed upside down.",
 	},
 	transformTypeResize: {
 		string(transformTypeResize),
