@@ -12,6 +12,7 @@ describe('should load the page', () => {
     cy.contains('h2', 'test_motor_right').should('exist');
     cy.contains('h2', 'test_input').should('exist');
     cy.contains('h2', 'WebGamepad').should('exist');
+    cy.contains('h2', 'test_audio').should('exist');
     cy.contains('h2', 'test_board').should('exist');
     cy.contains('h2', 'test_camera').should('exist');
     cy.contains('h2', 'test_navigation').should('exist');

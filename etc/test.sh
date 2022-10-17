@@ -18,9 +18,9 @@ else
 	TIMEOUT="-timeout 40m"
 fi
 
-go test -tags=no_skip $RACE $COVER1 `go list ./... | grep -Ev "go.viam.com/rdk/(vision|rimage)"` &
+gotestsum --jsonfile json.log -- -tags=no_skip $RACE $COVER1 `go list ./... | grep -Ev "go.viam.com/rdk/(vision|rimage)"` &
 PID1=$!
-go test -tags=no_skip $TIMEOUT $COVER2 go.viam.com/rdk/vision/... go.viam.com/rdk/rimage/... &
+gotestsum --jsonfile json2.log -- -tags=no_skip $TIMEOUT $COVER2 go.viam.com/rdk/vision/... go.viam.com/rdk/rimage/... &
 PID2=$!
 
 trap "kill -9 $PID1 $PID2" INT
@@ -28,6 +28,8 @@ trap "kill -9 $PID1 $PID2" INT
 FAIL=0
 wait $PID1 || let "FAIL+=1"
 wait $PID2 || let "FAIL+=2"
+
+cat json.log json2.log | go run ./etc/analyzetests/main.go
 
 if [ "$FAIL" != "0" ]; then
 	exit $FAIL
