@@ -11,7 +11,6 @@ import PCD from './pcd.vue';
 
 interface Props {
   cameraName: string
-  crumbs: string[]
   resources: Resource[]
 }
 
@@ -88,7 +87,8 @@ const exportScreenshot = (cameraName: string) => {
   >
     <v-breadcrumbs
       slot="title"
-      :crumbs="crumbs.join(',')"
+      crumbs="camera"
+      @mouseenter="() => { /* APP-618 */ }"
     />
     <div class="h-auto border-x border-b border-black p-2">
       <div class="container mx-auto">

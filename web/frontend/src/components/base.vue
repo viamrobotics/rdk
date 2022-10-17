@@ -173,6 +173,7 @@ const handleSelectCamera = (event: string) => {
     <v-breadcrumbs
       slot="title"
       crumbs="base"
+      @mouseenter="() => { /* APP-618 */ }"
     />
 
     <v-button
@@ -196,7 +197,10 @@ const handleSelectCamera = (event: string) => {
       >
         <div class="grid grid-cols-2">
           <div class="mt-2">
-            <KeyboardInput @keyboard-ctl="baseKeyboardCtl(name, $event)" />
+            <KeyboardInput
+              :name="name"
+              @keyboard-ctl="baseKeyboardCtl(name, $event)"
+            />
           </div>
           <div v-if="filterResources(resources, 'rdk', 'component', 'camera')">
             <v-select

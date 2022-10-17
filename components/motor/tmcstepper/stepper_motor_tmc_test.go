@@ -446,8 +446,9 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 4, 0},
 			},
 		)
-		on, err := _motor.IsPowered(ctx, nil)
+		on, powerPct, err := _motor.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, false)
+		test.That(t, powerPct, test.ShouldEqual, -0.25)
 		test.That(t, err, test.ShouldBeNil)
 
 		// On
@@ -461,8 +462,9 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 0, 0},
 			},
 		)
-		on, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = _motor.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, powerPct, test.ShouldEqual, -0.25)
 		test.That(t, err, test.ShouldBeNil)
 	})
 

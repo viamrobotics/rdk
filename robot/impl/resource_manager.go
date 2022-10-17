@@ -349,6 +349,8 @@ func (manager *resourceManager) completeConfig(
 	manager.configLock.Lock()
 	defer manager.configLock.Unlock()
 	rS := manager.resources.ReverseTopologicalSort()
+
+	svcs := make([]resource.Name, 0)
 	for _, r := range rS {
 		iface, ok := manager.resources.Node(r)
 		if !ok || iface == nil {
@@ -358,7 +360,7 @@ func (manager *resourceManager) completeConfig(
 		if !ok {
 			continue
 		}
-		manager.logger.Infow("we are now handling the resource ", "resource", r)
+		manager.logger.Debugw("we are now handling the resource", "resource", r)
 		if c, ok := wrap.config.(config.Component); ok {
 			iface, err := manager.processComponent(ctx, r, c, wrap.real, robot)
 			if err != nil {
@@ -366,13 +368,10 @@ func (manager *resourceManager) completeConfig(
 				continue
 			}
 			manager.resources.AddNode(r, iface)
-		} else if s, ok := wrap.config.(config.Service); ok {
-			iface, err := manager.processService(ctx, s, wrap.real, robot)
-			if err != nil {
-				manager.logger.Errorw("error building service", "error", err)
-				continue
-			}
-			manager.resources.AddNode(r, iface)
+		} else if _, ok := wrap.config.(config.Service); ok {
+			// RSDK-507: Handle services like normal again when dependencies are added to services.
+			manager.logger.Debugw("resource is a service, skipping until the end", "resource", r)
+			svcs = append(svcs, r)
 		} else if rc, ok := wrap.config.(config.Remote); ok {
 			rr, err := manager.processRemote(ctx, rc)
 			if err != nil {
@@ -392,6 +391,29 @@ func (manager *resourceManager) completeConfig(
 				}
 			})
 		}
+	}
+
+	// RSDK-507: Remove this block when dependencies are added to services.
+	for _, r := range svcs {
+		manager.logger.Debugw("we are now actually handling the service resource", "resource", r)
+		iface, ok := manager.resources.Node(r)
+		if !ok || iface == nil {
+			continue
+		}
+		wrap, ok := iface.(*resourcePlaceholder)
+		if !ok {
+			continue
+		}
+		s, ok := wrap.config.(config.Service)
+		if !ok {
+			manager.logger.Errorw("service config is not a service config", "resource", r)
+		}
+		iface, err := manager.processService(ctx, s, wrap.real, robot)
+		if err != nil {
+			manager.logger.Errorw("error building service", "error", err)
+			continue
+		}
+		manager.resources.AddNode(r, iface)
 	}
 }
 

@@ -7,7 +7,6 @@ import { addStream, removeStream } from '../lib/stream';
 
 interface Props {
   name: string
-  crumbs: string[]
 }
 
 const props = defineProps<Props>();
@@ -42,6 +41,7 @@ const toggleExpand = async () => {
     <v-breadcrumbs
       slot="title"
       crumbs="audio_input"
+      @mouseenter="() => { /* APP-618 */ }"
     />
     <div class="h-auto border-x border-b border-black p-2">
       <div class="container mx-auto">
