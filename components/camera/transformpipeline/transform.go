@@ -41,47 +41,47 @@ type transformRegistration struct {
 
 // registeredTransformConfigs is a map of all available transform configs, used for populating fields in the front-end.
 var registeredTransformConfigs = map[transformType]*transformRegistration{
-	transformTypeIdentity: &transformRegistration{
+	transformTypeIdentity: {
 		string(transformTypeIdentity),
 		&emptyAttrs{},
 		"Does nothing to the image. Can use this to duplicate camera sources, or change the source's stream or parameters.",
 	},
-	transformTypeRotate: &transformRegistration{
+	transformTypeRotate: {
 		string(transformTypeRotate),
 		&emptyAttrs{},
 		"Rotate the image by 180 degrees. Used when the camera is installed upside down, or to correct for pinhole projections.",
 	},
-	transformTypeResize: &transformRegistration{
+	transformTypeResize: {
 		string(transformTypeResize),
 		&resizeAttrs{},
 		"Resizes the image to the specified height and width",
 	},
-	transformTypeDepthPretty: &transformRegistration{
+	transformTypeDepthPretty: {
 		string(transformTypeDepthPretty),
 		&emptyAttrs{},
 		"Turns a depth image source into a colorful image, with blue indicating distant points and red indicating nearby points.",
 	},
-	transformTypeOverlay: &transformRegistration{
+	transformTypeOverlay: {
 		string(transformTypeOverlay),
 		&overlayAttrs{},
 		"Projects a point cloud to a 2D RGB and Depth image, and overlays the two images. Used to debug the RGB+D alignment.",
 	},
-	transformTypeUndistort: &transformRegistration{
+	transformTypeUndistort: {
 		string(transformTypeUndistort),
 		&undistortAttrs{},
 		"Uses intrinsics and modified Brown-Conrady parameters to undistort the source image.",
 	},
-	transformTypeDetections: &transformRegistration{
+	transformTypeDetections: {
 		string(transformTypeDetections),
 		&detectorAttrs{},
 		"Overlays object detections on the image. Can use any detector registered in the vision service.",
 	},
-	transformTypeDepthEdges: &transformRegistration{
+	transformTypeDepthEdges: {
 		string(transformTypeDepthEdges),
 		&depthEdgesAttrs{},
 		"Applies a Canny edge detector to find edges. Only works on cameras that produce depth maps.",
 	},
-	transformTypeDepthPreprocess: &transformRegistration{
+	transformTypeDepthPreprocess: {
 		string(transformTypeDepthPreprocess),
 		&emptyAttrs{},
 		"Applies some basic hole-filling and edge smoothing to a depth map.",
