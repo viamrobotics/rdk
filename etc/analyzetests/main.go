@@ -79,21 +79,24 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		}
 	}
 
+	_, isPullRequest := os.LookupEnv("GITHUB_BASE_REF")
+
 	createdAt := time.Now()
 	parseTest := func(status string, tc testjson.TestCase) testResult {
 		root, sub := tc.Test.Split()
 		return testResult{
-			CreatedAt:        createdAt,
-			GitSHA:           gitSHA,
-			GitHubRunID:      gitHubRunID,
-			GitHubRunNumber:  gitHubRunNumber,
-			GitHubRunAttempt: gitHubRunAttempt,
-			Status:           status,
-			Package:          tc.Package,
-			Test:             tc.Test.Name(),
-			RootTest:         root,
-			SubTest:          sub,
-			Elapsed:          tc.Elapsed.Milliseconds(),
+			CreatedAt:           createdAt,
+			GitSHA:              gitSHA,
+			GitHubRunID:         gitHubRunID,
+			GitHubRunNumber:     gitHubRunNumber,
+			GitHubRunAttempt:    gitHubRunAttempt,
+			GitHubIsPullRequest: isPullRequest,
+			Status:              status,
+			Package:             tc.Package,
+			Test:                tc.Test.Name(),
+			RootTest:            root,
+			SubTest:             sub,
+			Elapsed:             tc.Elapsed.Milliseconds(),
 		}
 	}
 	parseTests := func(status string, tcs []testjson.TestCase) []testResult {
@@ -128,15 +131,16 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 }
 
 type testResult struct {
-	CreatedAt        time.Time `bson:"created_at"`
-	GitSHA           string    `bson:"git_sha,omitempty"`
-	GitHubRunID      int64     `bson:"github_run_id,omitempty"`
-	GitHubRunNumber  int64     `bson:"github_run_number,omitempty"`
-	GitHubRunAttempt int64     `bson:"github_run_attempt,omitempty"`
-	Status           string    `bson:"status"`
-	Package          string    `bson:"package"`
-	Test             string    `bson:"test"`
-	RootTest         string    `bson:"root_test"`
-	SubTest          string    `bson:"sub_test,omitempty"`
-	Elapsed          int64     `bson:"elapsed,omitempty"`
+	CreatedAt           time.Time `bson:"created_at"`
+	GitSHA              string    `bson:"git_sha,omitempty"`
+	GitHubRunID         int64     `bson:"github_run_id,omitempty"`
+	GitHubRunNumber     int64     `bson:"github_run_number,omitempty"`
+	GitHubRunAttempt    int64     `bson:"github_run_attempt,omitempty"`
+	GitHubIsPullRequest bool      `bson:"github_is_pull_request"`
+	Status              string    `bson:"status"`
+	Package             string    `bson:"package"`
+	Test                string    `bson:"test"`
+	RootTest            string    `bson:"root_test"`
+	SubTest             string    `bson:"sub_test,omitempty"`
+	Elapsed             int64     `bson:"elapsed,omitempty"`
 }
