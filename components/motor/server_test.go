@@ -175,20 +175,21 @@ func TestServerIsOn(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
-		return false, errors.New("could not determine if motor is on")
+	failingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+		return false, 0.0, errors.New("could not determine if motor is on")
 	}
 	req = pb.IsPoweredRequest{Name: failMotorName}
 	resp, err = motorServer.IsPowered(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
-		return true, nil
+	workingMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+		return true, 1.0, nil
 	}
 	req = pb.IsPoweredRequest{Name: testMotorName}
 	resp, err = motorServer.IsPowered(context.Background(), &req)
 	test.That(t, resp.GetIsOn(), test.ShouldBeTrue)
+	test.That(t, resp.GetPowerPct(), test.ShouldEqual, 1.0)
 	test.That(t, err, test.ShouldBeNil)
 }
 

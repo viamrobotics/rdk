@@ -70,7 +70,7 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.23.0
-	go.viam.com/api v0.0.0-20221005213245-5d188f969297
+	go.viam.com/api v0.1.2-0.20221012153305-0001bbc7a700
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
 	go.viam.com/utils v0.0.6-0.20221007203851-d4ebf5ac4bd5
@@ -84,6 +84,7 @@ require (
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/src-d/go-billy.v4 v4.3.2
 	gopkg.in/yaml.v2 v2.4.0
+	gotest.tools/gotestsum v1.8.2
 	periph.io/x/conn/v3 v3.6.10
 	periph.io/x/host/v3 v3.7.2
 )
@@ -140,6 +141,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/denis-tingaikin/go-header v0.4.3 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
+	github.com/dnephin/pflag v1.0.7 // indirect
 	github.com/edaniels/zeroconf v1.0.2 // indirect
 	github.com/envoyproxy/go-control-plane v0.10.2-0.20220325020618-49ff273808a1 // indirect
 	github.com/envoyproxy/protoc-gen-validate v0.6.2 // indirect
@@ -188,6 +190,7 @@ require (
 	github.com/gonum/lapack v0.0.0-20181123203213-e4cdc5a0bff9 // indirect
 	github.com/gonum/matrix v0.0.0-20181209220409-c518dec07be9 // indirect
 	github.com/gonuts/binary v0.2.0 // indirect
+	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.1.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.4.0 // indirect
 	github.com/googleapis/go-type-adapters v1.0.0 // indirect

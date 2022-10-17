@@ -138,7 +138,7 @@ func configureMotorForBoard(
 		m, err = gpio.NewEncodedMotor(
 			config,
 			*motorConfig,
-			&arduinoMotor{generic.Unimplemented{}, b, *motorConfig, config.Name, true},
+			&arduinoMotor{generic.Unimplemented{}, b, *motorConfig, config.Name, true, 0.0},
 			e,
 			b.logger,
 		)
@@ -146,7 +146,7 @@ func configureMotorForBoard(
 			return nil, err
 		}
 	} else {
-		m = &arduinoMotor{generic.Unimplemented{}, b, *motorConfig, config.Name, false}
+		m = &arduinoMotor{generic.Unimplemented{}, b, *motorConfig, config.Name, false, 0.0}
 	}
 
 	if motorConfig.Pins.PWM != "-1" && motorConfig.PWMFreq > 0 {
@@ -177,6 +177,7 @@ type arduinoMotor struct {
 	cfg               gpio.Config
 	name              string
 	positionReporting bool
+	powerPct          float64
 }
 
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
@@ -185,6 +186,7 @@ func (m *arduinoMotor) SetPower(ctx context.Context, powerPct float64, extra map
 		return m.Stop(ctx, extra)
 	}
 
+	m.powerPct = powerPct
 	_, err := m.b.runCommand(fmt.Sprintf("motor-power %s %d", m.name, int(255.0*math.Abs(powerPct))))
 	return err
 }
@@ -240,13 +242,15 @@ func (m *arduinoMotor) Properties(ctx context.Context, extra map[string]interfac
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
 func (m *arduinoMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
+	m.powerPct = 0.0
 	_, err := m.b.runCommand("motor-off " + m.name)
 	return err
 }
 
-// IsPowered returns whether or not the motor is currently on.
-func (m *arduinoMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
-	return m.IsMoving(ctx)
+// IsPowered returns whether or not the motor is currently on, plus the power level.
+func (m *arduinoMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+	isOn, err := m.IsMoving(ctx)
+	return isOn, m.powerPct, err
 }
 
 // IsMoving returns whether or not the motor is currently moving.

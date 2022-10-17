@@ -68,23 +68,26 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma, con
 		if err != nil {
 			return nil, err
 		}
-		// TODO(bhaney): Is there a way to just project the detection boxes themselves?
-		pcs, err := detectionsToPointClouds(dets, confidenceThresh, img, dm, proj)
-		if err != nil {
-			return nil, err
-		}
-		// filter the point clouds to get rid of outlier points
-		objects := make([]*vision.Object, 0, len(pcs))
-		for _, pc := range pcs {
-			filtered, err := filter(pc)
+
+		objects := make([]*vision.Object, 0, len(dets))
+		for _, d := range dets {
+			if d.Score() < confidenceThresh {
+				continue
+			}
+			// TODO(bhaney): Is there a way to just project the detection boxes themselves?
+			pc, err := detectionToPointCloud(d, img, dm, proj)
+			if err != nil {
+				return nil, err
+			}
+			pc, err = filter(pc)
 			if err != nil {
 				return nil, err
 			}
 			// if object was filtered away, skip it
-			if filtered.Size() == 0 {
+			if pc.Size() == 0 {
 				continue
 			}
-			obj, err := vision.NewObject(filtered)
+			obj, err := vision.NewObjectWithLabel(pc, d.Label())
 			if err != nil {
 				return nil, err
 			}
@@ -95,28 +98,18 @@ func DetectionSegmenter(detector objectdetection.Detector, meanK int, sigma, con
 	return seg, nil
 }
 
-// detectionsToPointClouds turns 2D detections into 3D point clodus using the intrinsic camera projection parameters and the image.
-func detectionsToPointClouds(
-	dets []objectdetection.Detection,
-	confidenceThresh float64,
+func detectionToPointCloud(
+	d objectdetection.Detection,
 	im *rimage.Image, dm *rimage.DepthMap,
 	proj transform.Projector,
-) ([]pointcloud.PointCloud, error) {
-	// project 2D detections to 3D pointclouds
-	pcs := make([]pointcloud.PointCloud, 0, len(dets))
-	for _, d := range dets {
-		if d.Score() < confidenceThresh {
-			continue
-		}
-		bb := d.BoundingBox()
-		if bb == nil {
-			return nil, errors.New("detection bounding box cannot be nil")
-		}
-		pc, err := proj.RGBDToPointCloud(im, dm, *bb)
-		if err != nil {
-			return nil, err
-		}
-		pcs = append(pcs, pc)
+) (pointcloud.PointCloud, error) {
+	bb := d.BoundingBox()
+	if bb == nil {
+		return nil, errors.New("detection bounding box cannot be nil")
 	}
-	return pcs, nil
+	pc, err := proj.RGBDToPointCloud(im, dm, *bb)
+	if err != nil {
+		return nil, err
+	}
+	return pc, nil
 }

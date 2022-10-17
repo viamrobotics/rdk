@@ -112,6 +112,7 @@ const motorStop = () => {
     <v-breadcrumbs
       slot="title"
       crumbs="motor"
+      @mouseenter="() => { /* APP-618 */ }"
     />
     <div
       slot="header"

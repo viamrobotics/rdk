@@ -10,24 +10,25 @@ import (
 	gutils "go.viam.com/utils"
 )
 
+// This test may be flaky due to timing-based tests.
 func TestRunInParallel(t *testing.T) {
-	wait100ms := func(ctx context.Context) error {
-		gutils.SelectContextOrWait(ctx, 100*time.Millisecond)
+	wait200ms := func(ctx context.Context) error {
+		gutils.SelectContextOrWait(ctx, 200*time.Millisecond)
 		return ctx.Err()
 	}
 
-	elapsed, err := RunInParallel(context.Background(), []SimpleFunc{wait100ms, wait100ms})
+	elapsed, err := RunInParallel(context.Background(), []SimpleFunc{wait200ms, wait200ms})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, elapsed, test.ShouldBeLessThan, 120*time.Millisecond)
-	test.That(t, elapsed, test.ShouldBeGreaterThan, 90*time.Millisecond)
+	test.That(t, elapsed, test.ShouldBeLessThan, 300*time.Millisecond)
+	test.That(t, elapsed, test.ShouldBeGreaterThan, 180*time.Millisecond)
 
 	errFunc := func(ctx context.Context) error {
 		return errors.New("bad")
 	}
 
-	elapsed, err = RunInParallel(context.Background(), []SimpleFunc{wait100ms, wait100ms, errFunc})
+	elapsed, err = RunInParallel(context.Background(), []SimpleFunc{wait200ms, wait200ms, errFunc})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, elapsed, test.ShouldBeLessThan, 20*time.Millisecond)
+	test.That(t, elapsed, test.ShouldBeLessThan, 50*time.Millisecond)
 
 	panicFunc := func(ctx context.Context) error {
 		panic(1)
