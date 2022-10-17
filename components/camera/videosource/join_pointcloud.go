@@ -174,7 +174,7 @@ func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (poin
 	if err != nil {
 		return nil, err
 	}
-	cloudFuncs := make([]pointcloud.PointCloudWithOffsetFunc, len(jpcs.sourceCameras))
+	cloudFuncs := make([]pointcloud.CloudAndOffsetFunc, len(jpcs.sourceCameras))
 	for i, cam := range jpcs.sourceCameras {
 		iCopy := i
 		camCopy := cam
@@ -196,7 +196,7 @@ func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (poin
 			}
 			return pc, framePose, nil
 		}
-		cloudFuncs[i] = pcSrc
+		cloudFuncs[iCopy] = pcSrc
 	}
 
 	return pointcloud.MergePointClouds(ctx, cloudFuncs)

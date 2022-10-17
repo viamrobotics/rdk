@@ -12,15 +12,16 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/lucasb-eyer/go-colorful"
 	"go.opencensus.io/trace"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
-// PointCloudWithOffsetFunc is a function that returns a PointCloudWithOffset
-type PointCloudWithOffsetFunc func(context context.Context) (PointCloud, spatialmath.Pose, error)
+// CloudAndOffsetFunc is a function that returns a PointCloud with a pose that represents an offset to be applied to every point.
+type CloudAndOffsetFunc func(context context.Context) (PointCloud, spatialmath.Pose, error)
 
 // MergePointClouds takes a slice of points clouds with optional offsets and adds all their points to one point cloud.
-func MergePointClouds(ctx context.Context, cloudFuncs []PointCloudWithOffsetFunc) (PointCloud, error) {
+func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc) (PointCloud, error) {
 	if len(cloudFuncs) == 0 {
 		return nil, errors.New("no point clouds to merge")
 	}
@@ -103,7 +104,6 @@ func MergePointClouds(ctx context.Context, cloudFuncs []PointCloudWithOffsetFunc
 	}
 
 	return pcTo, nil
-
 }
 
 // MergePointCloudsWithColor creates a union of point clouds from the slice of point clouds, giving
