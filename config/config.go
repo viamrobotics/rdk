@@ -128,6 +128,7 @@ type Remote struct {
 	Insecure                bool                         `json:"insecure"`
 	ConnectionCheckInterval time.Duration                `json:"connection_check_interval,omitempty"`
 	ReconnectInterval       time.Duration                `json:"reconnect_interval,omitempty"`
+	RefreshInterval         time.Duration                `json:"refresh_interval,omitempty"`
 	ServiceConfig           []ResourceLevelServiceConfig `json:"service_config"`
 
 	// Secret is a helper for a robot location secret.
