@@ -48,7 +48,7 @@ func (sm *SingleOperationManager) New(ctx context.Context) (context.Context, fun
 	sm.mu.Lock()
 
 	// first cancel any old operation
-	sm.cancelNew(ctx)
+	sm.cancelInLock(ctx)
 
 	theOp := &anOp{}
 
@@ -141,20 +141,6 @@ func (sm *SingleOperationManager) WaitForSuccess(
 }
 
 func (sm *SingleOperationManager) cancelInLock(ctx context.Context) {
-	myOp := ctx.Value(somCtxKeySingleOp)
-	op := sm.currentOp
-
-	if op == nil || myOp == op {
-		return
-	}
-
-	op.cancelFunc()
-	<-op.waitCh
-
-	sm.currentOp = nil
-}
-
-func (sm *SingleOperationManager) cancelNew(ctx context.Context) {
 	myOp := ctx.Value(somCtxKeySingleOp)
 	op := sm.currentOp
 
