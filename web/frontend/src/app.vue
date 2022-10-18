@@ -72,6 +72,7 @@ const status = $ref<Record<string, Status>>({});
 const errors = $ref<Record<string, boolean>>({});
 
 let statusStream: ResponseStream<StreamStatusResponse>;
+let baseCameraState = new Map<string, boolean>();
 let lastStatusTS = Date.now();
 let disableAuthElements = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
@@ -610,8 +611,6 @@ const waitForClientAndStart = async () => {
     await doConnect(window.bakedAuth.authEntity, window.bakedAuth.creds, waitForClientAndStart);
   }
 };
-
-let baseCameraState = new Map<string, boolean>();
 
 const updatedBaseCameraState = (e: Map<string, boolean>) => {
   baseCameraState = e;
