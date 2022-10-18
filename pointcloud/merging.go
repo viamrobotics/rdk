@@ -107,6 +107,9 @@ func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, logg
 	for i := 0; i < lastBatches; i++ {
 		lastPoints := <-finalPoints
 		logger.Debugf("number of points in batch %d: %d", i, len(lastPoints))
+		if len(lastPoints) == 0 {
+			continue
+		}
 		for _, p := range lastPoints {
 			myErr := pcTo.Set(p.P, p.D)
 			if myErr != nil {
