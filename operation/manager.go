@@ -2,6 +2,7 @@ package operation
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -55,13 +56,11 @@ func (sm *SingleOperationManager) New(ctx context.Context) (context.Context, fun
 	ctx = context.WithValue(ctx, somCtxKeySingleOp, theOp)
 
 	theOp.ctx, theOp.cancelFunc = context.WithCancel(ctx)
-	theOp.waitCh = make(chan bool)
 	sm.currentOp = theOp
 	sm.mu.Unlock()
 
 	return theOp.ctx, func() {
 		if !theOp.closed {
-			close(theOp.waitCh)
 			theOp.closed = true
 		}
 		sm.mu.Lock()
@@ -95,7 +94,7 @@ func (sm *SingleOperationManager) WaitTillNotPowered(ctx context.Context, pollTi
 	// Defers a function that will stop and clean up if the context errors
 	defer func(ctx context.Context) {
 		var errStop error
-		if ctx.Err() != nil {
+		if errors.Is(ctx.Err(), context.Canceled) {
 			sm.mu.Lock()
 			oldOp := sm.currentOp == ctx.Value(somCtxKeySingleOp)
 			sm.mu.Unlock()
@@ -156,6 +155,5 @@ func (sm *SingleOperationManager) cancelInLock(ctx context.Context) {
 type anOp struct {
 	ctx        context.Context
 	cancelFunc context.CancelFunc
-	waitCh     chan bool
 	closed     bool
 }
