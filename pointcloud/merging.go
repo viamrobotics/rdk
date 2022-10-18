@@ -75,7 +75,7 @@ func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, logg
 	var pcTo PointCloud
 	var err error
 
-	dataLastTime := false // there was data in the channel in the previous loop, so continue reading.
+	dataLastTime := false // if there was data in the channel in the previous loop, continue reading.
 	for dataLastTime || atomic.LoadInt32(&activeReaders) > 0 {
 		select {
 		case ps := <-finalPoints:
