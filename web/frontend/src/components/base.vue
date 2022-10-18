@@ -145,13 +145,13 @@ const baseRun = () => {
 
 const viewPreviewCamera = async (name: string) => {
   for (let [key, value] of videoStreamStates) {
-    const streamContainers = document.querySelectorAll(`[data-stream="${key}"]`);
+    const streamContainers = document.querySelector(`[data-stream="${key}"]`);
 
     // Only turn on if state is off
     if (name.includes(key) && value === false) {
       try {
         // Only add stream if other components have not already
-        if (!streamContainers.length) {
+        if (streamContainers?.classList.contains('hidden')) {
           await addStream(key);
         }
         videoStreamStates.set(key, true);
@@ -163,7 +163,7 @@ const viewPreviewCamera = async (name: string) => {
     } else if (!name.includes(key) && value === true) {
       try {
         // Only remove stream if other components are not using the stream
-        if (!streamContainers.length) {
+        if (!streamContainers?.classList.contains('hidden')) {
           await removeStream(key);
         }
         videoStreamStates.set(key, false);
