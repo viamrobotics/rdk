@@ -43,6 +43,9 @@ func StreamClientInterceptor(
 	return streamer(ctx, desc, cc, method, opts...)
 }
 
+// UnaryServerInterceptor creates a new operation in the current context before passing
+// it to the unary response handler. If the incoming RPC metadata contains an operation
+// ID, the new operation will have the same ID.
 func (m *Manager) UnaryServerInterceptor(
 	ctx context.Context,
 	req interface{},
@@ -63,6 +66,9 @@ func (m *Manager) UnaryServerInterceptor(
 	return handler(ctx, req)
 }
 
+// StreamServerInterceptor creates a new operation in the current context before passing
+// it to the stream response handler. If the incoming RPC metadata contains an operation
+// ID, the new operation will have the same ID.
 func (m *Manager) StreamServerInterceptor(
 	srv interface{},
 	ss grpc.ServerStream,
