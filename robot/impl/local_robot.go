@@ -711,9 +711,6 @@ func dialRobotClient(ctx context.Context,
 	if config.ReconnectInterval != 0 {
 		rOpts = append(rOpts, client.WithReconnectEvery(config.ReconnectInterval))
 	}
-	if config.RefreshInterval != 0 {
-		rOpts = append(rOpts, client.WithRefreshEvery(config.RefreshInterval))
-	}
 
 	robotClient, err := client.New(
 		ctx,
