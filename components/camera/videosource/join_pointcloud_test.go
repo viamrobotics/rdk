@@ -124,28 +124,6 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 func TestJoinPointCloudNaive(t *testing.T) {
 	r := makeFakeRobot(t)
 	defer utils.TryClose(context.Background(), r)
-	// check if all three pointclouds return a point
-	// cam1
-	cam1, err := camera.FromRobot(r, "cam1")
-	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(context.Background(), cam1)
-	pc1, err := cam1.NextPointCloud(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pc1.Size(), test.ShouldEqual, 1)
-	// cam2
-	cam2, err := camera.FromRobot(r, "cam2")
-	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(context.Background(), cam2)
-	pc2, err := cam2.NextPointCloud(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pc2.Size(), test.ShouldEqual, 1)
-	// cam3
-	cam3, err := camera.FromRobot(r, "cam3")
-	test.That(t, err, test.ShouldBeNil)
-	defer utils.TryClose(context.Background(), cam3)
-	pc3, err := cam3.NextPointCloud(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pc3.Size(), test.ShouldEqual, 1)
 	// PoV from base1
 	attrs := &JoinAttrs{
 		AttrConfig:    &camera.AttrConfig{Debug: true},
