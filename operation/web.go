@@ -5,7 +5,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -60,8 +59,7 @@ func (m *Manager) UnaryServerInterceptor(
 	}
 	ctx, done := m.createWithID(ctx, opid, info.FullMethod, nil)
 	defer done()
-	meta.Set(opidMetadataKey, opid.String())
-	googlegrpc.SendHeader(ctx, meta)
+
 	return handler(ctx, req)
 }
 
@@ -71,7 +69,6 @@ func (m *Manager) StreamServerInterceptor(
 	info *googlegrpc.StreamServerInfo,
 	handler googlegrpc.StreamHandler,
 ) error {
-	// check metadata for opids
 	ctx := ss.Context()
 	meta, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
@@ -83,8 +80,6 @@ func (m *Manager) StreamServerInterceptor(
 	}
 	ctx, done := m.createWithID(ctx, opid, info.FullMethod, nil)
 	defer done()
-	meta.Set(opidMetadataKey, opid.String())
-	ss.SendHeader(meta)
 
 	return handler(srv, &ssStreamContextWrapper{ss, ctx})
 }
