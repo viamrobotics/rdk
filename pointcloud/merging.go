@@ -77,11 +77,12 @@ func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, logg
 
 	firstRead := true     // if all readers finish before loop starts, will prematurely exit, so read at least once.
 	dataLastTime := false // there was data in the channel in the previous loop, so continue reading.
-	lastRead := false     // read one more time in case all active readers finished while loop was waiting for data.
-	for firstRead || lastRead || dataLastTime || atomic.LoadInt32(&activeReaders) > 0 {
+	for firstRead || dataLastTime || atomic.LoadInt32(&activeReaders) > 0 {
 		firstRead = false
+		logger.Debugf("number of batches in channel: %d", len(finalPoints))
 		select {
 		case ps := <-finalPoints:
+			logger.Debugf("number of pts in batch: %d", len(ps))
 			for _, p := range ps {
 				if pcTo == nil {
 					if p.D == nil {
@@ -97,17 +98,24 @@ func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, logg
 				}
 			}
 			dataLastTime = true
-			lastRead = false
 		case <-time.After(5 * time.Millisecond):
 			dataLastTime = false
-			if lastRead {
-				break // this is the 2nd time waiting for data.
-			}
-			if atomic.LoadInt32(&activeReaders) == 0 {
-				lastRead = true
-			}
 			continue
 		}
+	}
+	// one last read to flush out any potential last data
+	select {
+	case lastPoints, ok := <-finalPoints:
+		if ok {
+			logger.Debugf("in last points, number of last points: %d", len(lastPoints))
+			for _, p := range lastPoints {
+				myErr := pcTo.Set(p.P, p.D)
+				if myErr != nil {
+					err = myErr
+				}
+			}
+		}
+	default: // break out, no more points to read
 	}
 
 	if err != nil {
