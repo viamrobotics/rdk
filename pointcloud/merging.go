@@ -101,10 +101,10 @@ func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, logg
 	}
 	// one last read to flush out any potential last data- sometimes there is still data in finalPoints.
 	lastBatches := len(finalPoints)
-	logger.Debugf("number of last batches: %d", lastBatches)
+	logger.Debugf("merge points clouds: number of last batches: %d", lastBatches)
 	for i := 0; i < lastBatches; i++ {
 		lastPoints := <-finalPoints
-		logger.Debugf("number of points in batch %d: %d", i, len(lastPoints))
+		logger.Debugf("merge point clouds: number of points in batch %d: %d", i, len(lastPoints))
 		if len(lastPoints) == 0 {
 			continue
 		}
