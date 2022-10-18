@@ -25,7 +25,7 @@ type SpinTypes = 'Clockwise' | 'Counterclockwise'
 type Directions = 'Forwards' | 'Backwards'
 
 interface Emits {
-  (event: 'showcamera', value: string): void
+  (event: 'base-camera-state', value: Map<string, boolean>): void
 }
 
 const emit = defineEmits<Emits>();
@@ -145,21 +145,27 @@ const viewPreviewCamera = async (name: string) => {
   for (let [key, value] of videoStreamStates) {
     const streamContainers = document.querySelectorAll(`[data-stream="${key}"]`);
 
+    // Only turn on if state is off
     if (name.includes(key) && value === false) {
       try {
+        // Only add stream if other components have not already
         if (!streamContainers.length) {
           await addStream(key);
         }
         videoStreamStates.set(key, true);
+        emit('base-camera-state', videoStreamStates);
       } catch (error) {
         displayError(error as ServiceError);
       }
+    // Only turn off if state is on
     } else if (!name.includes(key) && value === true) {
       try {
+        // Only remove stream if other components are not using the stream
         if (!streamContainers.length) {
           await removeStream(key);
         }
         videoStreamStates.set(key, false);
+        emit('base-camera-state', videoStreamStates);
       } catch (error) {
         displayError(error as ServiceError);
       }
