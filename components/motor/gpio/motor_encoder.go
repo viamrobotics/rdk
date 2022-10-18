@@ -439,6 +439,9 @@ func (m *EncodedMotor) computeRamp(oldPower, newPower float64) float64 {
 // Both the RPM and the revolutions can be assigned negative values to move in a backwards direction.
 // Note: if both are negative the motor will spin in the forward direction.
 func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+	if rpm == 0 {
+		return motor.NewZeroRPMError()
+	}
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -492,7 +495,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 
 	m.state.desiredRPM = rpm
 	m.state.regulated = true
-	isOn, err := m.IsPowered(ctx, nil)
+	isOn, _, err := m.IsPowered(ctx, nil)
 	if err != nil {
 		m.stateMu.Unlock()
 		return err
@@ -529,8 +532,8 @@ func (m *EncodedMotor) IsMoving(ctx context.Context) (bool, error) {
 	return m.real.IsMoving(ctx)
 }
 
-// IsPowered returns if the motor is on or not.
-func (m *EncodedMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
+// IsPowered returns if the motor is on or not, and the power level it's set to.
+func (m *EncodedMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	return m.real.IsPowered(ctx, extra)
 }
 

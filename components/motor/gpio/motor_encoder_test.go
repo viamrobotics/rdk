@@ -56,9 +56,10 @@ func TestMotorEncoder1(t *testing.T) {
 	}()
 
 	t.Run("encoded motor testing the basics", func(t *testing.T) {
-		isOn, err := _motor.IsPowered(context.Background(), nil)
+		isOn, powerPct, err := _motor.IsPowered(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isOn, test.ShouldBeFalse)
+		test.That(t, powerPct, test.ShouldEqual, 0.0)
 		features, err := _motor.Properties(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
@@ -81,6 +82,10 @@ func TestMotorEncoder1(t *testing.T) {
 	t.Run("encoded motor testing Stop", func(t *testing.T) {
 		test.That(t, _motor.Stop(context.Background(), nil), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 0)
+	})
+
+	t.Run("encoded motor cannot go at 0 RPM", func(t *testing.T) {
+		test.That(t, _motor.GoFor(context.Background(), 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
 	})
 
 	t.Run("encoded motor testing SetPower interrupt GoFor", func(t *testing.T) {

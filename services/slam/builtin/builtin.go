@@ -1,4 +1,5 @@
 // Package builtin implements simultaneous localization and mapping
+// This is an Experimental package
 package builtin
 
 import (
@@ -38,6 +39,7 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/slam"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
@@ -368,7 +370,31 @@ func (slamSvc *builtIn) Position(ctx context.Context, name string) (*referencefr
 		return nil, errors.Wrap(err, "error getting SLAM position")
 	}
 
-	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
+	pInFrame := referenceframe.ProtobufToPoseInFrame(resp.Pose)
+
+	// TODO DATA-531: https://viam.atlassian.net/jira/software/c/projects/DATA/boards/30?modal=detail&selectedIssue=DATA-531
+	// Remove extraction and conversion of quaternion from the extra field in the response once the Rust
+	// spatial math library is available and the desired math can be implemented on the orbSLAM side
+	extra := resp.Extra.AsMap()
+
+	if val, ok := extra["quat"]; ok {
+		q := val.(map[string]interface{})
+
+		valReal, ok1 := q["real"].(float64)
+		valIMag, ok2 := q["imag"].(float64)
+		valJMag, ok3 := q["jmag"].(float64)
+		valKMag, ok4 := q["kmag"].(float64)
+
+		if !ok1 || !ok2 || !ok3 || !ok4 {
+			slamSvc.logger.Debugf("quaternion given, but invalid format detected, %v, skipping quaternion transform", q)
+			return pInFrame, nil
+		}
+		newPose := spatialmath.NewPoseFromOrientation(pInFrame.Pose().Point(),
+			&spatialmath.Quaternion{Real: valReal, Imag: valIMag, Jmag: valJMag, Kmag: valKMag})
+		pInFrame = referenceframe.NewPoseInFrame(pInFrame.FrameName(), newPose)
+	}
+
+	return pInFrame, nil
 }
 
 // GetMap forwards the request for map data to the slam library's gRPC service. Once a response is received it is unpacked
@@ -607,13 +633,15 @@ func (slamSvc *builtIn) StartDataProcess(
 					case slam.Dense:
 						if _, err := slamSvc.getAndSaveDataDense(cancelCtx, cams); err != nil {
 							slamSvc.logger.Warn(err)
-						} else if c != nil {
+						}
+						if c != nil {
 							c <- 1
 						}
 					case slam.Sparse:
 						if _, err := slamSvc.getAndSaveDataSparse(cancelCtx, cams, camStreams); err != nil {
 							slamSvc.logger.Warn(err)
-						} else if c != nil {
+						}
+						if c != nil {
 							c <- 1
 						}
 					default:
@@ -636,6 +664,7 @@ func (slamSvc *builtIn) GetSLAMProcessConfig() pexec.ProcessConfig {
 	args = append(args, "-data_dir="+slamSvc.dataDirectory)
 	args = append(args, "-input_file_pattern="+slamSvc.inputFilePattern)
 	args = append(args, "-port="+slamSvc.port)
+	args = append(args, "--aix-auto-update")
 
 	return pexec.ProcessConfig{
 		ID:      "slam_" + slamSvc.slamLib.AlgoName,
@@ -726,7 +755,7 @@ func (slamSvc *builtIn) StopSLAMProcess() error {
 	return nil
 }
 
-func (slamSvc *builtIn) getLazyPNGImage(ctx context.Context, cam camera.Camera) ([]byte, func(), error) {
+func (slamSvc *builtIn) getPNGImage(ctx context.Context, cam camera.Camera) ([]byte, func(), error) {
 	// We will hint that we want a PNG.
 	// The Camera service server implementation in RDK respects this; others may not.
 	readImgCtx := gostream.WithMIMETypeHint(ctx, utils.WithLazyMIMEType(utils.MimeTypePNG))
@@ -734,12 +763,22 @@ func (slamSvc *builtIn) getLazyPNGImage(ctx context.Context, cam camera.Camera) 
 	if err != nil {
 		return nil, nil, err
 	}
-
-	encodedBytes, err := rimage.EncodeImage(ctx, img, utils.MimeTypePNG)
-	if err != nil {
-		return nil, nil, err
+	if lazyImg, ok := img.(*rimage.LazyEncodedImage); ok {
+		if lazyImg.MIMEType() != utils.MimeTypePNG {
+			return nil, nil, errors.Errorf("expected mime type %v, got %T", utils.MimeTypePNG, img)
+		}
+		return lazyImg.RawData(), release, nil
 	}
-	return encodedBytes, release, nil
+
+	if ycbcrImg, ok := img.(*image.YCbCr); ok {
+		pngImage, err := rimage.EncodeImage(ctx, ycbcrImg, utils.MimeTypePNG)
+		if err != nil {
+			return nil, nil, err
+		}
+		return pngImage, release, nil
+	}
+
+	return nil, nil, errors.Errorf("expected lazily encoded image or ycbcrImg, got %T", img)
 }
 
 // getAndSaveDataSparse implements the data extraction for sparse algos and saving to the directory path (data subfolder) specified in
@@ -758,7 +797,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			return nil, errors.Errorf("expected 1 camera for mono slam, found %v", len(camStreams))
 		}
 
-		image, release, err := slamSvc.getLazyPNGImage(ctx, cams[0])
+		image, release, err := slamSvc.getPNGImage(ctx, cams[0])
 		if err != nil {
 			if err.Error() == opTimeoutErrorMessage {
 				slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
@@ -853,7 +892,7 @@ func (slamSvc *builtIn) getSimultaneousColorAndDepth(
 		goutils.PanicCapturingGo(func() {
 			defer slamSvc.activeBackgroundWorkers.Done()
 			defer wg.Done()
-			images[iLoop], releaseFuncs[iLoop], errs[iLoop] = slamSvc.getLazyPNGImage(ctx, cams[iLoop])
+			images[iLoop], releaseFuncs[iLoop], errs[iLoop] = slamSvc.getPNGImage(ctx, cams[iLoop])
 		})
 	}
 	wg.Wait()

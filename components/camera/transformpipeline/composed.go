@@ -10,9 +10,11 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // depthToPretty takes a depth image and turns into a colorful image, with blue being
@@ -72,26 +74,61 @@ func (dtp *depthToPretty) PointCloud(ctx context.Context) (pointcloud.PointCloud
 	return dtp.intrinsicParameters.RGBDToPointCloud(rimage.ConvertImage(col), dm)
 }
 
-// overlaySource overlays the depth and color 2D images in order to debug the alignment of the two images.
-type overlaySource struct {
-	src                    gostream.VideoSource
-	srcIntrinsicParameters *transform.PinholeCameraIntrinsics
+// overlayAttrs are the attributes for an overlay transform.
+type overlayAttrs struct {
+	IntrinsicParams *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters"`
 }
 
-func newOverlayTransform(ctx context.Context, src gostream.VideoSource, attrs *camera.AttrConfig) (gostream.VideoSource, error) {
-	reader := &overlaySource{src, attrs.CameraParameters}
+// overlaySource overlays the depth and color 2D images in order to debug the alignment of the two images.
+type overlaySource struct {
+	src                 gostream.VideoSource
+	intrinsicParameters *transform.PinholeCameraIntrinsics
+}
+
+func newOverlayTransform(
+	ctx context.Context,
+	src gostream.VideoSource,
+	stream camera.StreamType,
+	am config.AttributeMap,
+) (gostream.VideoSource, error) {
+	conf, err := config.TransformAttributeMapToStruct(&(overlayAttrs{}), am)
+	if err != nil {
+		return nil, err
+	}
+	attrs, ok := conf.(*overlayAttrs)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(attrs, conf)
+	}
+	if attrs.IntrinsicParams == nil {
+		return nil, transform.ErrNoIntrinsics
+	}
+	if attrs.IntrinsicParams.Height <= 0. || attrs.IntrinsicParams.Width <= 0. {
+		return nil, errors.Wrapf(
+			transform.ErrNoIntrinsics,
+			"cannot do overlay with intrinsics (width,height) = (%v, %v)",
+			attrs.IntrinsicParams.Width, attrs.IntrinsicParams.Height,
+		)
+	}
+	if attrs.IntrinsicParams.Fx <= 0. || attrs.IntrinsicParams.Fy <= 0. {
+		return nil, errors.Wrapf(
+			transform.ErrNoIntrinsics,
+			"cannot do overlay with intrinsics (Fx,Fy) = (%v, %v)",
+			attrs.IntrinsicParams.Fx, attrs.IntrinsicParams.Fy,
+		)
+	}
+	reader := &overlaySource{src, attrs.IntrinsicParams}
 	return camera.NewFromReader(
 		ctx,
 		reader,
-		&transform.PinholeCameraModel{reader.srcIntrinsicParameters, nil},
-		camera.StreamType(attrs.Stream),
+		&transform.PinholeCameraModel{reader.intrinsicParameters, nil},
+		stream,
 	)
 }
 
 func (os *overlaySource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::overlay::Read")
 	defer span.End()
-	if os.srcIntrinsicParameters == nil {
+	if os.intrinsicParameters == nil {
 		return nil, nil, transform.ErrNoIntrinsics
 	}
 	srcPointCloud, ok := os.src.(camera.PointCloudSource)
@@ -102,7 +139,7 @@ func (os *overlaySource) Read(ctx context.Context) (image.Image, func(), error) 
 	if err != nil {
 		return nil, nil, err
 	}
-	col, dm, err := os.srcIntrinsicParameters.PointCloudToRGBD(pc)
+	col, dm, err := os.intrinsicParameters.PointCloudToRGBD(pc)
 	if err != nil {
 		return nil, nil, err
 	}

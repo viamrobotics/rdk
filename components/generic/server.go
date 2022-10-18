@@ -6,8 +6,8 @@ import (
 
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/generic/v1"
+	"go.viam.com/utils/protoutils"
 
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/subtype"
 )
 

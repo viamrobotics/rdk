@@ -12,6 +12,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
+	vprotoutils "go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -81,7 +82,7 @@ func convertInterfaceToStruct(i interface{}) (*structpb.Struct, error) {
 	if i == nil {
 		return &structpb.Struct{}, nil
 	}
-	return protoutils.StructToStructPb(i)
+	return vprotoutils.StructToStructPb(i)
 }
 
 // CancelOperation kills an operations.
@@ -151,7 +152,7 @@ func (s *Server) DiscoverComponents(ctx context.Context, req *pb.DiscoverCompone
 
 	pbDiscoveries := make([]*pb.Discovery, 0, len(discoveries))
 	for _, discovery := range discoveries {
-		pbResults, err := protoutils.StructToStructPb(discovery.Results)
+		pbResults, err := vprotoutils.StructToStructPb(discovery.Results)
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from discovery for %q", discovery.Query)
 		}
@@ -215,7 +216,7 @@ func (s *Server) GetStatus(ctx context.Context, req *pb.GetStatusRequest) (*pb.G
 
 	statusesP := make([]*pb.Status, 0, len(statuses))
 	for _, status := range statuses {
-		statusP, err := protoutils.StructToStructPb(status.Status)
+		statusP, err := vprotoutils.StructToStructPb(status.Status)
 		if err != nil {
 			return nil, err
 		}

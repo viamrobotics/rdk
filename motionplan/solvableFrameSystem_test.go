@@ -17,7 +17,7 @@ import (
 
 func makeTestFS(t *testing.T) *SolvableFrameSystem {
 	t.Helper()
-	logger := golog.NewDevelopmentLogger("test")
+	logger := golog.NewDebugLogger("test")
 	fs := frame.NewEmptySimpleFrameSystem("test")
 
 	urOffset, err := frame.NewStaticFrame("urOffset", spatial.NewPoseFromPoint(r3.Vector{100, 100, 200}))
@@ -49,7 +49,7 @@ func makeTestFS(t *testing.T) *SolvableFrameSystem {
 	fs.AddFrame(urCamera, modelUR5e)
 
 	// Add static frame for the gripper
-	bc, _ := spatial.NewBoxCreator(r3.Vector{200, 200, 200}, spatial.NewPoseFromPoint(r3.Vector{Z: 100}))
+	bc, _ := spatial.NewBoxCreator(r3.Vector{200, 200, 200}, spatial.NewPoseFromPoint(r3.Vector{Z: 100}), "")
 	xArmVgripper, err := frame.NewStaticFrameWithGeometry("xArmVgripper", spatial.NewPoseFromPoint(r3.Vector{Z: 200}), bc)
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(xArmVgripper, modelXarm)
@@ -58,8 +58,6 @@ func makeTestFS(t *testing.T) *SolvableFrameSystem {
 }
 
 func TestFrameSystemSolver(t *testing.T) {
-	// TODO(RSDK-653) - stop skipping this
-	t.Skip()
 	solver := makeTestFS(t)
 	positions := frame.StartPositions(solver)
 	pointXarmGripper := spatial.NewPoseFromPoint(r3.Vector{157., -50, -288})
@@ -170,7 +168,7 @@ func TestMovementWithGripper(t *testing.T) {
 	test.That(t, solution, test.ShouldNotBeNil)
 
 	// plan around the obstacle with the gripper
-	obstacle, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{300, 0, -400}), r3.Vector{50, 500, 500})
+	obstacle, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{300, 0, -400}), r3.Vector{50, 500, 500}, "")
 	test.That(t, err, test.ShouldBeNil)
 	geometries := make(map[string]spatial.Geometry)
 	geometries["obstacle"] = obstacle
