@@ -115,28 +115,7 @@ func (m *Manager) FindString(id string) *Operation {
 
 // Create puts an operation on this context.
 func (m *Manager) Create(ctx context.Context, method string, args interface{}) (context.Context, func()) {
-	if ctx.Value(opidKey) != nil {
-		panic("operations cannot be nested")
-	}
-
-	for _, val := range methodPrefixesToFilter {
-		if strings.HasPrefix(method, val) {
-			return ctx, func() {}
-		}
-	}
-
-	op := &Operation{
-		ID:        uuid.New(),
-		Method:    method,
-		Arguments: args,
-		Started:   time.Now(),
-		myManager: m,
-	}
-	ctx = context.WithValue(ctx, opidKey, op)
-	ctx, op.cancel = context.WithCancel(ctx)
-	m.add(op)
-
-	return ctx, func() { op.cleanup() }
+	return m.createWithID(ctx, uuid.New(), method, args)
 }
 
 func (m *Manager) createWithID(ctx context.Context, id uuid.UUID, method string, args interface{}) (context.Context, func()) {
