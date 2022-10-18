@@ -71,15 +71,18 @@ func readColorURL(ctx context.Context, client http.Client, url string) (image.Im
 
 	requestedMime := gostream.MIMETypeHint(ctx, "")
 	actualMime, isLazy := utils.CheckLazyMIMEType(requestedMime)
+	detectedMimeType := http.DetectContentType(colorData)
 	if isLazy {
-		usedMimeType := http.DetectContentType(colorData)
-		if actualMime != "" && actualMime != usedMimeType {
+		if actualMime != "" && actualMime != detectedMimeType {
 			return nil, errors.Errorf(
 				"mime type requested (%q) for lazy decode not returned (got %q)",
-				actualMime, usedMimeType,
+				actualMime, detectedMimeType,
 			)
 		}
-		return rimage.NewLazyEncodedImage(colorData, usedMimeType), nil
+		return rimage.NewLazyEncodedImage(colorData, detectedMimeType), nil
+	}
+	if actualMime == "" {
+		actualMime = detectedMimeType
 	}
 
 	img, err := rimage.DecodeImage(ctx, colorData, actualMime)

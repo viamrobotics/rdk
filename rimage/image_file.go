@@ -214,7 +214,7 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 
 	var buf bytes.Buffer
 	bounds := img.Bounds()
-	switch mimeType {
+	switch actualOutMIME {
 	case ut.MimeTypeRawRGBA:
 		// Here we create a custom header to prepend to Raw RGBA data. Credit to
 		// Ben Zotto for inventing this formulation
