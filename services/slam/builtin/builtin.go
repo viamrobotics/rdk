@@ -664,7 +664,7 @@ func (slamSvc *builtIn) GetSLAMProcessConfig() pexec.ProcessConfig {
 	args = append(args, "-data_dir="+slamSvc.dataDirectory)
 	args = append(args, "-input_file_pattern="+slamSvc.inputFilePattern)
 	args = append(args, "-port="+slamSvc.port)
-	args = append(args, "--aix-auto-update")
+	args = append(args, "-aix-auto-update=1")
 
 	return pexec.ProcessConfig{
 		ID:      "slam_" + slamSvc.slamLib.AlgoName,
