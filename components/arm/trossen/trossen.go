@@ -36,6 +36,14 @@ const (
 	modelNameVX300s = "trossen-vx300s"
 )
 
+const (
+	// ModelNameWX250S is the string used to refer to the wx250s arm model.
+	ModelNameWX250S = "wx250s"
+
+	// ModelNameVX300S is the string used to refer to the vx300s arm model.
+	ModelNameVX300S = "vx300s"
+)
+
 // SleepAngles are the angles we go to to prepare to turn off torque.
 var SleepAngles = map[string]float64{
 	"Waist":       2048,

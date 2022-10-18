@@ -19,7 +19,7 @@ import (
 func TestIKTolerances(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("motionplan/testjson/varm.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("referenceframe/testjson/varm.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := NewCBiRRTMotionPlanner(m, nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -81,7 +81,7 @@ func TestConstraintPath(t *testing.T) {
 }
 
 func TestLineFollow(t *testing.T) {
-	logger := golog.NewDevelopmentLogger("armplay")
+	logger := golog.NewDebugLogger("armplay")
 
 	p1 := spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:  440,
@@ -190,7 +190,7 @@ func TestCollisionConstraint(t *testing.T) {
 	}
 
 	// define external obstacles
-	bc, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, spatial.NewZeroPose())
+	bc, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, spatial.NewZeroPose(), "")
 	test.That(t, err, test.ShouldBeNil)
 	obstacles := make(map[string]spatial.Geometry)
 	obstacles["obstacle1"] = bc.NewGeometry(spatial.NewZeroPose())

@@ -49,7 +49,7 @@ func buildTransform(
 	case transformTypeDepthPretty:
 		return newDepthToPrettyTransform(ctx, source, cfg.AttrConfig)
 	case transformTypeOverlay:
-		return newOverlayTransform(ctx, source, cfg.AttrConfig)
+		return newOverlayTransform(ctx, source, stream, tr.Attributes)
 	case transformTypeUndistort:
 		return newUndistortTransform(ctx, source, stream, tr.Attributes)
 	case transformTypeDetections:

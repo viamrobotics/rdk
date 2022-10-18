@@ -35,6 +35,8 @@ node_modules/
 docs/
 
 # Test data
+json.log
+json2.log
 coverage.txt
 coverage2.txt
 coverage.xml

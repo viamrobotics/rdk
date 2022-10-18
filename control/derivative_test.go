@@ -14,7 +14,7 @@ import (
 )
 
 func TestDerivativeConfig(t *testing.T) {
-	logger := golog.NewDevelopmentLogger("derivative")
+	logger := golog.NewDebugLogger("derivative")
 	for _, c := range []struct {
 		conf BlockConfig
 		err  string
@@ -79,7 +79,7 @@ func TestDerivativeConfig(t *testing.T) {
 
 func TestDerivativeNext(t *testing.T) {
 	const iter int = 3000
-	logger := golog.NewDevelopmentLogger("derivative")
+	logger := golog.NewDebugLogger("derivative")
 	ctx := context.Background()
 	cfg := BlockConfig{
 		Name: "Derive1",

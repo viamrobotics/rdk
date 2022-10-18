@@ -459,6 +459,10 @@ func TestDMC4000Motor(t *testing.T) {
 		waitTx(t, resChan)
 	})
 
+	t.Run("motor GoFor with 0 RPM", func(t *testing.T) {
+		test.That(t, _motor.GoFor(ctx, 0, 1, nil), test.ShouldBeError, motor.NewZeroRPMError())
+	})
+
 	t.Run("motor GoFor after jogging", func(t *testing.T) {
 		// Test 0.5 of max power
 		txMu.Lock()
@@ -507,8 +511,9 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		on, err := _motor.IsPowered(ctx, nil)
+		on, powerPct, err := _motor.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, false)
+		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
 
 		// On - TE != 0
@@ -523,8 +528,9 @@ func TestDMC4000Motor(t *testing.T) {
 				" 5\r\n:",
 			},
 		)
-		on, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = _motor.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
 
 		// On - StopCodes = sepecial cases
@@ -537,8 +543,9 @@ func TestDMC4000Motor(t *testing.T) {
 				" 0\r\n:",
 			},
 		)
-		on, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = _motor.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
 
 		txMu.Lock()
@@ -550,8 +557,9 @@ func TestDMC4000Motor(t *testing.T) {
 				" 30\r\n:",
 			},
 		)
-		on, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = _motor.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
 
 		txMu.Lock()
@@ -563,8 +571,9 @@ func TestDMC4000Motor(t *testing.T) {
 				" 50\r\n:",
 			},
 		)
-		on, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = _motor.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
 
 		txMu.Lock()
@@ -576,8 +585,9 @@ func TestDMC4000Motor(t *testing.T) {
 				" 60\r\n:",
 			},
 		)
-		on, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = _motor.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
 
 		txMu.Lock()
@@ -589,8 +599,9 @@ func TestDMC4000Motor(t *testing.T) {
 				" 100\r\n:",
 			},
 		)
-		on, err = _motor.IsPowered(ctx, nil)
+		on, powerPct, err = _motor.IsPowered(ctx, nil)
 		test.That(t, on, test.ShouldEqual, true)
+		test.That(t, powerPct, test.ShouldEqual, 0.5)
 		test.That(t, err, test.ShouldBeNil)
 		waitTx(t, resChan)
 	})

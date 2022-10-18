@@ -10,7 +10,7 @@
                     "attributes": {
                         "capture_methods": [
                             {
-                                "method": "Next",
+                                "method": "ReadImage",
                                 "capture_frequency_hz": 100,
                                 "additional_params": {
                                     "mime_type": "image/jpeg"

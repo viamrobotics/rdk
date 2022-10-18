@@ -39,7 +39,7 @@ func TestConfigRobot(t *testing.T) {
 
 	// test that gripper geometry is being added correctly
 	component := cfg.FindComponent("pieceGripper")
-	bc, _ := spatialmath.NewBoxCreator(r3.Vector{1, 2, 3}, spatialmath.NewPoseFromPoint(r3.Vector{4, 5, 6}))
+	bc, _ := spatialmath.NewBoxCreator(r3.Vector{1, 2, 3}, spatialmath.NewPoseFromPoint(r3.Vector{4, 5, 6}), "")
 	test.That(t, component.Frame.Geometry, test.ShouldResemble, bc)
 }
 

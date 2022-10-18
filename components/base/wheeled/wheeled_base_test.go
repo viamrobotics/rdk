@@ -79,9 +79,10 @@ func TestWheelBaseMath(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(context.Background(), nil)
+			isOn, powerPct, err := m.IsPowered(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
+			test.That(t, powerPct, test.ShouldEqual, 0.0)
 		}
 	})
 
@@ -93,9 +94,10 @@ func TestWheelBaseMath(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(context.Background(), nil)
+			isOn, powerPct, err := m.IsPowered(context.Background(), nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
+			test.That(t, powerPct, test.ShouldEqual, 0.0)
 		}
 	})
 
@@ -105,26 +107,29 @@ func TestWheelBaseMath(t *testing.T) {
 
 		err = base.allMotors[0].SetPower(ctx, 1, nil)
 		test.That(t, err, test.ShouldBeNil)
-		isOn, err := base.allMotors[0].IsPowered(ctx, nil)
+		isOn, powerPct, err := base.allMotors[0].IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isOn, test.ShouldBeTrue)
+		test.That(t, powerPct, test.ShouldEqual, 1.0)
 
 		err = base.WaitForMotorsToStop(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx, nil)
+			isOn, powerPct, err := m.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
+			test.That(t, powerPct, test.ShouldEqual, 0.0)
 		}
 
 		err = base.WaitForMotorsToStop(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx, nil)
+			isOn, powerPct, err := m.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
+			test.That(t, powerPct, test.ShouldEqual, 0.0)
 		}
 	})
 
@@ -142,9 +147,10 @@ func TestWheelBaseMath(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx, nil)
+			isOn, powerPct, err := m.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
+			test.That(t, powerPct, test.ShouldEqual, 0.0)
 		}
 	})
 	// Spin tests
@@ -178,9 +184,10 @@ func TestWheelBaseMath(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx, nil)
+			isOn, powerPct, err := m.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
+			test.That(t, powerPct, test.ShouldEqual, 0.0)
 		}
 	})
 

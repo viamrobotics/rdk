@@ -10,11 +10,11 @@ import (
 	pb "go.viam.com/api/component/inputcontroller/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/input"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"

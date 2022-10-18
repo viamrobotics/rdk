@@ -244,11 +244,13 @@ func TestFullClientServerLoop(t *testing.T) {
 	client := vision.NewClientFromConn(context.Background(), conn, testVisionServiceName, logger)
 
 	test.That(t, err, test.ShouldBeNil)
+	expectedLabel := "test_label"
 	params := config.AttributeMap{
 		"min_points_in_plane":   100,
 		"min_points_in_segment": 3,
 		"clustering_radius_mm":  5.,
 		"mean_k_filtering":      10.,
+		"label":                 expectedLabel,
 	}
 	err = client.AddSegmenter(
 		context.Background(),
@@ -262,10 +264,11 @@ func TestFullClientServerLoop(t *testing.T) {
 
 	expectedBoxes := makeExpectedBoxes(t)
 	for _, seg := range segs {
-		box, err := pointcloud.BoundingBoxFromPointCloud(seg)
+		box, err := pointcloud.BoundingBoxFromPointCloudWithLabel(seg, seg.Geometry.Label())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, box, test.ShouldNotBeNil)
 		test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
+		test.That(t, box.Label(), test.ShouldEqual, expectedLabel)
 	}
 
 	test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)

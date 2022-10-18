@@ -18,6 +18,7 @@ const props = defineProps<Props>();
 
 const getPin = $ref('');
 const setPin = $ref('');
+const setLevel = $ref('');
 const pwm = $ref('');
 const pwmFrequency = $ref('');
 
@@ -45,7 +46,7 @@ const setGPIO = () => {
   const req = new boardApi.SetGPIORequest();
   req.setName(props.name);
   req.setPin(setPin);
-  req.setHigh(setPin === 'high');
+  req.setHigh(setLevel === 'high');
 
   rcLogConditionally(req);
   window.boardService.setGPIO(req, new grpc.Metadata(), displayError);
@@ -115,6 +116,7 @@ const setPWMFrequency = () => {
     <v-breadcrumbs
       slot="title"
       crumbs="board"
+      @mouseenter="() => { /* APP-618 */ }"
     />
     <div class="border border-t-0 border-black p-4">
       <h3 class="mb-2">
@@ -196,7 +198,7 @@ const setPWMFrequency = () => {
                 label="Pin"
               />
               <select
-                v-model="setPin"
+                v-model="setLevel"
                 class="mr-2 h-[30px] border border-black bg-white text-sm"
               >
                 <option>low</option>

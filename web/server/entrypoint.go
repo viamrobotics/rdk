@@ -54,7 +54,7 @@ func RunServer(ctx context.Context, args []string, _ golog.Logger) (err error) {
 	// Replace logger with logger based on flags.
 	var logConfig zap.Config
 	if argsParsed.Debug {
-		logConfig = golog.NewDevelopmentLoggerConfig()
+		logConfig = golog.NewDebugLoggerConfig()
 	} else {
 		logConfig = golog.NewProductionLoggerConfig()
 	}
