@@ -54,13 +54,6 @@ onMounted(() => {
   resetStreamState();
 })
 
-const resetDiscreteState = () => {
-  movementMode.value = 'Straight';
-  movementType.value = 'Continuous';
-  direction.value = 'Forwards';
-  spinType.value = 'Clockwise';
-};
-
 const setMovementMode = (mode: MovementModes) => {
   movementMode.value = mode;
 };
@@ -163,7 +156,7 @@ const viewPreviewCamera = async (name: string) => {
     } else if (!name.includes(key) && value === true) {
       try {
         // Only remove stream if other components are not using the stream
-        if (!streamContainers?.classList.contains('hidden')) {
+        if (streamContainers?.classList.contains('hidden')) {
           await removeStream(key);
         }
         videoStreamStates.set(key, false);
@@ -177,13 +170,6 @@ const viewPreviewCamera = async (name: string) => {
 
 const handleTabSelect = (tab: Tabs) => {
   selectedItem.value = tab;
-
-  if (tab === 'Keyboard') {
-    viewPreviewCamera('');
-  } else {
-    viewPreviewCamera('');
-    resetDiscreteState();
-  }
 };
 
 </script>
