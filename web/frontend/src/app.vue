@@ -502,15 +502,15 @@ const viewCamera = async (name: string, isOn: boolean) => {
     }
 
     return;
-  }
-
-  try {
-    // only remove stream if base camera is not active
-    if (!baseCameraState.get(name)) {
-      await removeStream(name);
+  } else {
+    try {
+      // only remove stream if base camera is not active
+      if (!baseCameraState.get(name)) {
+        await removeStream(name);
+      }
+    } catch (error) {
+      displayError(error as ServiceError);
     }
-  } catch (error) {
-    displayError(error as ServiceError);
   }
 };
 
