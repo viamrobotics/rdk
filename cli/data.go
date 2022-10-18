@@ -24,6 +24,8 @@ const (
 
 // BinaryData writes the requested data to the passed directory.
 func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
+	fmt.Println(filter.OrgIds)
+
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
@@ -88,10 +90,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 
 		// TODO: We need to store file extension too. In sync we map from ext -> mime type, so this is already available.
 		//       Or maybe we can just get this from file name.
-		ext, err := mimeTypeToFileExt(md.GetMimeType())
-		if err != nil {
-			return err
-		}
+		ext := mimeTypeToFileExt(md.GetMimeType())
 
 		dataFile, err := os.Create(filepath.Join(dst, "data", datum.GetId()+ext))
 		if _, err := io.Copy(dataFile, r); err != nil {
@@ -181,15 +180,15 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 	return nil
 }
 
-func mimeTypeToFileExt(mime string) (string, error) {
+func mimeTypeToFileExt(mime string) string {
 	switch mime {
 	case rdkutils.MimeTypePCD:
-		return ".pcd", nil
+		return ".pcd"
 	case rdkutils.MimeTypeJPEG:
-		return ".jpg", nil
+		return ".jpg"
 	case rdkutils.MimeTypePNG:
-		return ".png", nil
+		return ".png"
 	default:
-		return "", errors.Errorf("could not determine file extension for mime type %s", mime)
+		return ".dat"
 	}
 }
