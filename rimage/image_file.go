@@ -170,10 +170,10 @@ func SaveImage(pic image.Image, loc string) error {
 
 // DecodeImage takes an image buffer and decodes it, using the mimeType
 // and the dimensions, to return the image.
-func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string, returnLazy bool) (image.Image, error) {
+func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string) (image.Image, error) {
 	_, span := trace.StartSpan(ctx, "rimage::DecodeImage::"+mimeType)
 	defer span.End()
-
+	mimeType, returnLazy := ut.CheckLazyMIMEType(mimeType)
 	if returnLazy {
 		return NewLazyEncodedImage(imgBytes, mimeType), nil
 	}
@@ -206,8 +206,10 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 	_, span := trace.StartSpan(ctx, "rimage::EncodeImage::"+mimeType)
 	defer span.End()
 
-	if lazyImg, ok := img.(*LazyEncodedImage); ok {
-		return lazyImg.imgBytes, nil
+	actualOutMIME, _ := ut.CheckLazyMIMEType(mimeType)
+
+	if lazy, ok := img.(*LazyEncodedImage); ok && lazy.MIMEType() == actualOutMIME {
+		return lazy.imgBytes, nil
 	}
 
 	var buf bytes.Buffer

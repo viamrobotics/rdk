@@ -53,9 +53,8 @@ func (s *subtypeServer) GetImage(
 		return nil, err
 	}
 
-	err = utils.CheckSupportedMimeType(req.MimeType)
-	if err != nil {
-		return nil, err
+	if req.MimeType == "" {
+		req.MimeType = utils.MimeTypeRawRGBALazy
 	}
 
 	img, release, err := ReadImage(gostream.WithMIMETypeHint(ctx, req.MimeType), cam)
@@ -68,8 +67,9 @@ func (s *subtypeServer) GetImage(
 		}
 	}()
 
+	actualMIME, _ := utils.CheckLazyMIMEType(req.MimeType)
 	resp := pb.GetImageResponse{
-		MimeType: req.MimeType,
+		MimeType: actualMIME,
 	}
 	outBytes, err := rimage.EncodeImage(ctx, img, req.MimeType)
 	if err != nil {

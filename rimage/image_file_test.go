@@ -38,6 +38,15 @@ func TestDecodeImage(t *testing.T) {
 
 	var buf bytes.Buffer
 	test.That(t, png.Encode(&buf, img), test.ShouldBeNil)
+
+	t.Run("lazy", func(t *testing.T) {
+		decoded, err := DecodeImage(context.Background(), buf.Bytes(), utils.WithLazyMIMEType(utils.MimeTypePNG))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, decoded, test.ShouldHaveSameTypeAs, &LazyEncodedImage{})
+		decodedLazy := decoded.(*LazyEncodedImage)
+		test.That(t, decodedLazy.RawData(), test.ShouldResemble, buf.Bytes())
+		test.That(t, decodedLazy.Bounds(), test.ShouldResemble, img.Bounds())
+	})
 }
 
 func TestEncodeImage(t *testing.T) {
@@ -58,7 +67,7 @@ func TestRawRGBAEncodingDecoding(t *testing.T) {
 	encodedImgBytes, err := EncodeImage(context.Background(), img, utils.MimeTypeRawRGBA)
 	test.That(t, err, test.ShouldBeNil)
 
-	decodedImg, err := DecodeImage(context.Background(), encodedImgBytes, utils.MimeTypeRawRGBA, false)
+	decodedImg, err := DecodeImage(context.Background(), encodedImgBytes, utils.MimeTypeRawRGBA)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, decodedImg.Bounds(), test.ShouldResemble, img.Bounds())
 	imgR, imgG, imgB, imgA := img.At(3, 3).RGBA()

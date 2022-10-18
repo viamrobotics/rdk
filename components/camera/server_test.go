@@ -187,7 +187,7 @@ func TestServer(t *testing.T) {
 			MimeType: "image/who",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, utils.NewUnrecognizedMimeTypeError("image/who"))
+		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid mime type")
 
 		// depth camera
 		imageReleasedMu.Lock()
@@ -207,7 +207,6 @@ func TestServer(t *testing.T) {
 			context.Background(),
 			resp.Image,
 			resp.MimeType,
-			false,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		dm, err := rimage.ConvertImageToDepthMap(decodedDepth)
@@ -267,7 +266,7 @@ func TestServer(t *testing.T) {
 			MimeType: "image/who",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, utils.NewUnrecognizedMimeTypeError("image/who"))
+		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid mime type")
 
 		_, err = cameraServer.RenderFrame(context.Background(), &pb.RenderFrameRequest{Name: failCameraName, MimeType: utils.MimeTypeRawRGBA})
 		test.That(t, err, test.ShouldNotBeNil)

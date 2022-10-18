@@ -129,7 +129,7 @@ func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
 	}
 }
 
-// nrgba64ToDepthMap creates a Depthmap from an image.NRGBA.
+// nrgbaToDepthMap creates a Depthmap from an image.NRGBA.
 func nrgbaToDepthMap(img *image.NRGBA) *DepthMap {
 	bounds := img.Bounds()
 	width, height := bounds.Dx(), bounds.Dy()

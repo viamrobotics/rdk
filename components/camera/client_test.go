@@ -156,17 +156,11 @@ func TestClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		camera1Client := camera.NewClientFromConn(context.Background(), conn, testCameraName, logger)
-		pngCtx := gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypePNG)
-		frame, _, err := camera.ReadImage(pngCtx, camera1Client)
+		frame, _, err := camera.ReadImage(context.Background(), camera1Client)
 		test.That(t, err, test.ShouldBeNil)
 		compVal, _, err := rimage.CompareImages(img, frame)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
-		pngCtx = rimage.ContextWithLazyDecode(pngCtx)
-		frame, _, err = camera.ReadImage(pngCtx, camera1Client)
-		test.That(t, err, test.ShouldBeNil)
-		_, isLazy := frame.(*rimage.LazyEncodedImage)
-		test.That(t, isLazy, test.ShouldBeTrue)
 		imageReleasedMu.Lock()
 		test.That(t, imageReleased, test.ShouldBeTrue)
 		imageReleasedMu.Unlock()
@@ -273,4 +267,71 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conn1.Close(), test.ShouldBeNil)
 	test.That(t, conn2.Close(), test.ShouldBeNil)
+}
+
+func TestClientLazyImage(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+
+	injectCamera := &inject.Camera{}
+	img := image.NewNRGBA64(image.Rect(0, 0, 4, 8))
+
+	var imgBuf bytes.Buffer
+	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
+	imgPng, err := png.Decode(bytes.NewReader(imgBuf.Bytes()))
+	test.That(t, err, test.ShouldBeNil)
+
+	injectCamera.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+		return gostream.NewEmbeddedVideoStreamFromReader(gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+			mimeType, _ := rutils.CheckLazyMIMEType(gostream.MIMETypeHint(ctx, rutils.MimeTypeRawRGBA))
+			switch mimeType {
+			case rutils.MimeTypePNG:
+				return imgPng, func() {}, nil
+			default:
+				return nil, nil, errors.New("invalid mime type")
+			}
+		})), nil
+	}
+
+	resources := map[resource.Name]interface{}{
+		camera.Named(testCameraName): injectCamera,
+	}
+	cameraSvc, err := subtype.New(resources)
+	test.That(t, err, test.ShouldBeNil)
+	resourceSubtype := registry.ResourceSubtypeLookup(camera.Subtype)
+	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, cameraSvc)
+
+	generic.RegisterService(rpcServer, cameraSvc)
+
+	go rpcServer.Serve(listener1)
+	defer rpcServer.Stop()
+
+	conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	camera1Client := camera.NewClientFromConn(context.Background(), conn, testCameraName, logger)
+
+	ctx := gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypePNG)
+	frame, _, err := camera.ReadImage(ctx, camera1Client)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, frame, test.ShouldNotHaveSameTypeAs, &rimage.LazyEncodedImage{})
+	compVal, _, err := rimage.CompareImages(img, frame)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
+
+	ctx = gostream.WithMIMETypeHint(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG))
+	frame, _, err = camera.ReadImage(ctx, camera1Client)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, frame, test.ShouldHaveSameTypeAs, &rimage.LazyEncodedImage{})
+	frameLazy := frame.(*rimage.LazyEncodedImage)
+	test.That(t, frameLazy.RawData(), test.ShouldResemble, imgBuf.Bytes())
+
+	test.That(t, frameLazy.MIMEType(), test.ShouldEqual, rutils.MimeTypePNG)
+	compVal, _, err = rimage.CompareImages(img, frame)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
+
+	test.That(t, conn.Close(), test.ShouldBeNil)
 }

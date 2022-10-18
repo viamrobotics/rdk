@@ -41,15 +41,6 @@ func ContextWithLazyDecode(ctx context.Context) context.Context {
 	return context.WithValue(ctx, LazyDecodeSetting, true)
 }
 
-// IsLazyDecodingOn determines from context whether the LazyDecodeSetting
-// has been turned on.
-func IsLazyDecodingOn(ctx context.Context) bool {
-	if val, ok := ctx.Value(LazyDecodeSetting).(bool); ok {
-		return val
-	}
-	return false
-}
-
 func (lei *LazyEncodedImage) decode() {
 	lei.decodeOnce.Do(func() {
 		defer func() {
@@ -61,7 +52,6 @@ func (lei *LazyEncodedImage) decode() {
 			context.Background(),
 			lei.imgBytes,
 			lei.mimeType,
-			false,
 		)
 	})
 	if lei.decodeErr != nil {
