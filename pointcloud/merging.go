@@ -75,10 +75,8 @@ func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, logg
 	var pcTo PointCloud
 	var err error
 
-	firstRead := true     // if all readers finish before loop starts, will prematurely exit, so read at least once.
 	dataLastTime := false // there was data in the channel in the previous loop, so continue reading.
-	for firstRead || dataLastTime || atomic.LoadInt32(&activeReaders) > 0 {
-		firstRead = false
+	for dataLastTime || atomic.LoadInt32(&activeReaders) > 0 {
 		select {
 		case ps := <-finalPoints:
 			for _, p := range ps {
