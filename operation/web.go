@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -17,9 +17,9 @@ func UnaryClientInterceptor(
 	ctx context.Context,
 	method string,
 	req, reply interface{},
-	cc *googlegrpc.ClientConn,
-	invoker googlegrpc.UnaryInvoker,
-	opts ...googlegrpc.CallOption,
+	cc *grpc.ClientConn,
+	invoker grpc.UnaryInvoker,
+	opts ...grpc.CallOption,
 ) error {
 	if op := Get(ctx); op != nil && op.ID.String() != "" {
 		ctx = metadata.AppendToOutgoingContext(ctx, opidMetadataKey, op.ID.String())
@@ -31,12 +31,12 @@ func UnaryClientInterceptor(
 // outgoing streaming RPC metadata.
 func StreamClientInterceptor(
 	ctx context.Context,
-	desc *googlegrpc.StreamDesc,
-	cc *googlegrpc.ClientConn,
+	desc *grpc.StreamDesc,
+	cc *grpc.ClientConn,
 	method string,
-	streamer googlegrpc.Streamer,
-	opts ...googlegrpc.CallOption,
-) (googlegrpc.ClientStream, error) {
+	streamer grpc.Streamer,
+	opts ...grpc.CallOption,
+) (grpc.ClientStream, error) {
 	if op := Get(ctx); op != nil && op.ID.String() != "" {
 		ctx = metadata.AppendToOutgoingContext(ctx, opidMetadataKey, op.ID.String())
 	}
@@ -46,8 +46,8 @@ func StreamClientInterceptor(
 func (m *Manager) UnaryServerInterceptor(
 	ctx context.Context,
 	req interface{},
-	info *googlegrpc.UnaryServerInfo,
-	handler googlegrpc.UnaryHandler,
+	info *grpc.UnaryServerInfo,
+	handler grpc.UnaryHandler,
 ) (interface{}, error) {
 	meta, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
@@ -65,9 +65,9 @@ func (m *Manager) UnaryServerInterceptor(
 
 func (m *Manager) StreamServerInterceptor(
 	srv interface{},
-	ss googlegrpc.ServerStream,
-	info *googlegrpc.StreamServerInfo,
-	handler googlegrpc.StreamHandler,
+	ss grpc.ServerStream,
+	info *grpc.StreamServerInfo,
+	handler grpc.StreamHandler,
 ) error {
 	ctx := ss.Context()
 	meta, ok := metadata.FromIncomingContext(ctx)
@@ -103,7 +103,7 @@ func GetOrCreateFromMetadata(meta metadata.MD) (uuid.UUID, error) {
 }
 
 type ssStreamContextWrapper struct {
-	googlegrpc.ServerStream
+	grpc.ServerStream
 	ctx context.Context
 }
 
