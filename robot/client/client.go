@@ -78,9 +78,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 
 	rOpts.dialOptions = append(
 		rOpts.dialOptions,
-		// TODO: add method to go.viam.com/utils
 		rpc.WithUnaryClientInterceptor(operation.UnaryClientInterceptor),
-		// TODO: add method to go.viam.com/utils
 		rpc.WithStreamClientInterceptor(operation.StreamClientInterceptor),
 	)
 
