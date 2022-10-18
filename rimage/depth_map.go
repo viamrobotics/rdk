@@ -122,26 +122,9 @@ func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
 		return ii.Depth, nil
 	case *image.Gray16:
 		return gray16ToDepthMap(ii), nil
-	case *image.NRGBA:
-		return nrgbaToDepthMap(ii), nil
 	default:
 		return nil, errors.Errorf("don't know how to make DepthMap from %T", img)
 	}
-}
-
-// nrgbaToDepthMap creates a Depthmap from an image.NRGBA.
-func nrgbaToDepthMap(img *image.NRGBA) *DepthMap {
-	bounds := img.Bounds()
-	width, height := bounds.Dx(), bounds.Dy()
-	dm := NewEmptyDepthMap(width, height)
-	for x := 0; x < width; x++ {
-		for y := 0; y < height; y++ {
-			c := img.At(x, y)
-			z := color.Gray16Model.Convert(c).(color.Gray16).Y
-			dm.Set(x, y, Depth(z))
-		}
-	}
-	return dm
 }
 
 // gray16ToDepthMap creates a DepthMap from an image.Gray16.

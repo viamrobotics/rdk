@@ -228,10 +228,6 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 		buf.Write(heightBytes)
 		imgStruct, ok := img.(*image.NRGBA)
 		if !ok {
-			_, ok := img.(*Image)
-			if !ok {
-				return nil, errors.Errorf("underlying struct for image not NRGBA or rimage.Image, detected %T", img)
-			}
 			imgStruct = image.NewNRGBA(bounds)
 			draw.Draw(imgStruct, bounds, img, bounds.Min, draw.Src)
 		}
