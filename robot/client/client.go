@@ -115,7 +115,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	}
 	var reconnectTime time.Duration
 	if rOpts.reconnectEvery == nil {
-		reconnectTime = 10 * time.Second
+		reconnectTime = 1 * time.Second
 	} else {
 		reconnectTime = *rOpts.reconnectEvery
 	}

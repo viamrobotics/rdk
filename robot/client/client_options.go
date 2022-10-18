@@ -10,7 +10,7 @@ import (
 // values passed to NewClient.
 type robotClientOpts struct {
 	// refreshEvery is how often to refresh the status/parts of the
-	// robot. If <0, it will not be refreshed automatically, if unset,
+	// robot. If <=0, it will not be refreshed automatically, if unset,
 	// it will automatically refresh every 10s
 	refreshEvery *time.Duration
 
@@ -21,7 +21,7 @@ type robotClientOpts struct {
 
 	// reconnectEvery is how often to try reconnecting the
 	// robot. If <=0, it will not be refreshed automatically, if unset,
-	// it will automatically refresh every 10s
+	// it will automatically refresh every 1s
 	reconnectEvery *time.Duration
 
 	// dialOptions are options using for clients dialing gRPC servers.
