@@ -79,10 +79,8 @@ func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, logg
 	dataLastTime := false // there was data in the channel in the previous loop, so continue reading.
 	for firstRead || dataLastTime || atomic.LoadInt32(&activeReaders) > 0 {
 		firstRead = false
-		logger.Debugf("number of batches in channel: %d", len(finalPoints))
 		select {
 		case ps := <-finalPoints:
-			logger.Debugf("number of pts in batch: %d", len(ps))
 			for _, p := range ps {
 				if pcTo == nil {
 					if p.D == nil {
@@ -107,7 +105,6 @@ func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, logg
 	select {
 	case lastPoints, ok := <-finalPoints:
 		if ok {
-			logger.Debugf("in last points, number of last points: %d", len(lastPoints))
 			for _, p := range lastPoints {
 				myErr := pcTo.Set(p.P, p.D)
 				if myErr != nil {
