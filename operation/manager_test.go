@@ -147,7 +147,6 @@ func TestSingleOperationManager(t *testing.T) {
 		ctx, done := som.New(context.Background())
 		mock := &mock{stopCount: 0}
 		defer done()
-		// ctx, _ = context.WithCancel(ctx)
 		var wg sync.WaitGroup
 
 		wg.Add(1)
