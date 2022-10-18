@@ -28,10 +28,11 @@ export default defineConfig({
       output: {
         entryFileNames: '[name].js',
         chunkFileNames: (chunk) => {
-          const module = chunk.modules[Object.keys(chunk.modules).find((key) => key.includes(chunk.name))];
-          const hash = MD5.hex(module.code);
+          // eslint-disable-next-line unicorn/no-array-reduce
+          const code = Object.keys(chunk.modules).reduce((prev, key) => `${prev}${chunk.modules[key].code}`, '');
+          const hash = MD5.hex(code);
 
-          return `assets/${chunk.name}.${hash}.js`;
+          return `assets/chunks.${hash}.js`;
         },
         assetFileNames: '[name].[ext]',
       },
