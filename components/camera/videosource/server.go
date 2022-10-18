@@ -137,7 +137,7 @@ func (ds *dualServerSource) Read(ctx context.Context) (image.Image, func(), erro
 		img, err := readColorURL(ctx, ds.client, ds.ColorURL)
 		return img, func() {}, err
 	case camera.DepthStream:
-		depth, err := readDepthURL(ctx, ds.client, ds.DepthURL)
+		depth, err := readDepthURL(ctx, ds.client, ds.DepthURL, false)
 		return depth, func() {}, err
 	default:
 		return nil, nil, camera.NewUnsupportedStreamError(ds.Stream)
@@ -170,7 +170,7 @@ func (ds *dualServerSource) NextPointCloud(ctx context.Context) (pointcloud.Poin
 		defer ds.activeBackgroundWorkers.Done()
 		var err error
 		var depthImg image.Image
-		depthImg, err = readDepthURL(ctx, ds.client, ds.DepthURL)
+		depthImg, err = readDepthURL(ctx, ds.client, ds.DepthURL, true)
 		depth = depthImg.(*rimage.DepthMap)
 		if err != nil {
 			panic(err)
@@ -215,7 +215,7 @@ func (s *serverSource) Read(ctx context.Context) (image.Image, func(), error) {
 		img, err := readColorURL(ctx, s.client, s.URL)
 		return img, func() {}, err
 	case camera.DepthStream:
-		depth, err := readDepthURL(ctx, s.client, s.URL)
+		depth, err := readDepthURL(ctx, s.client, s.URL, false)
 		return depth, func() {}, err
 	default:
 		return nil, nil, camera.NewUnsupportedStreamError(s.stream)
@@ -230,7 +230,7 @@ func (s *serverSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 		return nil, transform.NewNoIntrinsicsError("single serverSource has nil intrinsic_parameters")
 	}
 	if s.stream == camera.DepthStream {
-		depth, err := readDepthURL(ctx, s.client, s.URL)
+		depth, err := readDepthURL(ctx, s.client, s.URL, true)
 		if err != nil {
 			return nil, err
 		}

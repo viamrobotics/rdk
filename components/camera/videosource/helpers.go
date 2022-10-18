@@ -18,11 +18,12 @@ import (
 func checkMimeType(ctx context.Context, data []byte) (string, error) {
 	usedMimeType := http.DetectContentType(data)
 	requestedMime := gostream.MIMETypeHint(ctx, "")
-	if requestedMime == utils.MimeTypeRawRGBA {
+	actualMime, _ := utils.CheckLazyMIMEType(requestedMime)
+	if actualMime == utils.MimeTypeRawRGBA {
 		if usedMimeType != utils.MimeTypeDefault {
 			return "", errors.Errorf(
 				"attempted to decode data using %s format as raw rgba data, "+
-					"raw rgba data must encoded with our custom header",
+					"raw rgba data must be encoded with our custom header",
 				usedMimeType,
 			)
 		}
@@ -68,28 +69,40 @@ func readColorURL(ctx context.Context, client http.Client, url string) (image.Im
 		return nil, errors.Wrap(err, "couldn't ready color url")
 	}
 
-	mimeType, err := checkMimeType(ctx, colorData)
-	if err != nil {
-		return nil, err
+	requestedMime := gostream.MIMETypeHint(ctx, "")
+	actualMime, isLazy := utils.CheckLazyMIMEType(requestedMime)
+	if isLazy {
+		usedMimeType := http.DetectContentType(colorData)
+		if actualMime != "" && actualMime != usedMimeType {
+			return nil, errors.Errorf(
+				"mime type requested (%q) for lazy decode not returned (got %q)",
+				actualMime, usedMimeType,
+			)
+		}
+		return rimage.NewLazyEncodedImage(colorData, usedMimeType), nil
 	}
 
-	img, err := rimage.DecodeImage(ctx, colorData, mimeType, rimage.IsLazyDecodingOn(ctx))
+	img, err := rimage.DecodeImage(ctx, colorData, actualMime)
 	if err != nil {
 		return nil, err
 	}
 	return rimage.ConvertImage(img), nil
 }
 
-func readDepthURL(ctx context.Context, client http.Client, url string) (image.Image, error) {
+func readDepthURL(ctx context.Context, client http.Client, url string, immediate bool) (image.Image, error) {
 	depthData, err := readyBytesFromURL(ctx, client, url)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't ready depth url")
 	}
 	mimeType, err := checkMimeType(ctx, depthData)
+	actualMimeType, isLazy := utils.CheckLazyMIMEType(mimeType)
+	if !immediate && isLazy {
+		return rimage.NewLazyEncodedImage(depthData, actualMimeType), nil
+	}
 	if err != nil {
 		return nil, err
 	}
-	img, err := rimage.DecodeImage(ctx, depthData, mimeType, rimage.IsLazyDecodingOn(ctx))
+	img, err := rimage.DecodeImage(ctx, depthData, mimeType)
 	if err != nil {
 		return nil, err
 	}

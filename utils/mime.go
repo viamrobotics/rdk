@@ -1,14 +1,22 @@
 package utils
 
 import (
-	"github.com/pkg/errors"
+	"fmt"
+	"strings"
+
 	rutils "go.viam.com/utils"
 )
 
 const (
+	// MimeTypeSuffixLazy is used to indicate a lazy loading of data.
+	MimeTypeSuffixLazy = "lazy"
+
 	// MimeTypeRawRGBA is for go's internal image.NRGBA. This uses the custom header as
 	// explained in the comments for rimage.DecodeImage and rimage.EncodeImage.
 	MimeTypeRawRGBA = "image/vnd.viam.rgba"
+
+	// MimeTypeRawRGBALazy is a lazy MimeTypeRawRGBA.
+	MimeTypeRawRGBALazy = MimeTypeRawRGBA + "+" + MimeTypeSuffixLazy
 
 	// MimeTypeJPEG is regular jpgs.
 	MimeTypeJPEG = "image/jpeg"
@@ -39,17 +47,17 @@ var SupportedMimeTypes rutils.StringSet = rutils.NewStringSet(
 	MimeTypeTabular,
 )
 
-// CheckSupportedMimeType checks whether a requested MIME type is
-// supported.
-func CheckSupportedMimeType(mimeType string) error {
-	if _, ok := SupportedMimeTypes[mimeType]; !ok {
-		return NewUnrecognizedMimeTypeError(mimeType)
-	}
-	return nil
+// WithLazyMIMEType attaches the lazy suffix to a MIME.
+func WithLazyMIMEType(mimeType string) string {
+	return fmt.Sprintf("%s+%s", mimeType, MimeTypeSuffixLazy)
 }
 
-// NewUnrecognizedMimeTypeError returns an error signifying that a MIME type
-// is unrecognized or unsupported.
-func NewUnrecognizedMimeTypeError(mimeType string) error {
-	return errors.Errorf("Unrecognized mime type: %s", mimeType)
+const lazyMIMESuffixCheck = "+" + MimeTypeSuffixLazy
+
+// CheckLazyMIMEType checks the lazy suffix of a MIME.
+func CheckLazyMIMEType(mimeType string) (string, bool) {
+	if strings.Count(mimeType, lazyMIMESuffixCheck) == 1 && strings.HasSuffix(mimeType, lazyMIMESuffixCheck) {
+		return strings.TrimSuffix(mimeType, lazyMIMESuffixCheck), true
+	}
+	return mimeType, false
 }

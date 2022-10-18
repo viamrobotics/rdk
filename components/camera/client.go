@@ -51,6 +51,7 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Read")
 	defer span.End()
 	mimeType := gostream.MIMETypeHint(ctx, utils.MimeTypeRawRGBA)
+	actualType, _ := utils.CheckLazyMIMEType(mimeType)
 	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
 		Name:     c.name,
 		MimeType: mimeType,
@@ -58,10 +59,10 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if mimeType != resp.MimeType {
+	if actualType != resp.MimeType {
 		c.logger.Debugw("got different MIME type than what was asked for", "sent", mimeType, "received", resp.MimeType)
 	}
-	img, err := rimage.DecodeImage(ctx, resp.Image, mimeType, rimage.IsLazyDecodingOn(ctx))
+	img, err := rimage.DecodeImage(ctx, resp.Image, resp.MimeType)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -72,11 +73,8 @@ func (c *client) Stream(
 	ctx context.Context,
 	errHandlers ...gostream.ErrorHandler,
 ) (gostream.VideoStream, error) {
-	cancelCtxWithMIME := gostream.WithMIMETypeHint(c.cancelCtx, gostream.MIMETypeHint(ctx, utils.MimeTypeRawRGBA))
+	cancelCtxWithMIME := gostream.WithMIMETypeHint(c.cancelCtx, gostream.MIMETypeHint(ctx, utils.MimeTypeRawRGBALazy))
 	streamCtx, stream, frameCh := gostream.NewMediaStreamForChannel[image.Image](cancelCtxWithMIME)
-	if rimage.IsLazyDecodingOn(ctx) {
-		streamCtx = rimage.ContextWithLazyDecode(streamCtx)
-	}
 
 	c.mu.Lock()
 	if err := c.cancelCtx.Err(); err != nil {
