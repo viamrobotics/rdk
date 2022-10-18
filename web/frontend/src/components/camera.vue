@@ -172,8 +172,8 @@ const exportScreenshot = (cameraName: string) => {
             </div>
           </div>
           <div
-            v-if="camera"
             :data-stream="props.cameraName"
+            :class="{ 'hidden': !camera }"
             class="clear-both h-fit transition-all duration-300 ease-in-out"
           />
         </div>

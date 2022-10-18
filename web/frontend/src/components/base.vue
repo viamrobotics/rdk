@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { grpc } from '@improbable-eng/grpc-web';
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { computeKeyboardBaseControls, BaseControlHelper } from '../rc/control_helpers';
 import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
 import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
@@ -41,6 +41,18 @@ const speed = ref(200);
 // deg/s
 const spinSpeed = ref(90);
 const angle = ref(0);
+
+let videoStreamStates = new Map<string, boolean>();
+
+const resetStreamState = () => {
+  for (var value of filterResources(props.resources, 'rdk', 'component', 'camera')) {
+    videoStreamStates.set(value.name, false);
+  }
+}
+
+onMounted(() => {
+  resetStreamState();
+})
 
 const resetDiscreteState = () => {
   movementMode.value = 'Straight';
@@ -131,16 +143,6 @@ const baseRun = () => {
   }
 };
 
-let videoStreamStates = new Map<string, boolean>();
-
-const resetStreamState = () => {
-  for (var value of filterResources(props.resources, 'rdk', 'component', 'camera')) {
-    videoStreamStates.set(value.name, false);
-  }
-}
-
-resetStreamState();
-
 const viewPreviewCamera = async (name: string) => {
   for (let [key, value] of videoStreamStates) {
     const streamContainers = document.querySelectorAll(`[data-stream="${key}"]`);
@@ -217,7 +219,7 @@ const handleTabSelect = (tab: Tabs) => {
         class="h-auto p-4"
       >
         <div class="grid grid-cols-2">
-          <div class="mt-2">
+          <div>
             <KeyboardInput
               :name="name"
               @keyboard-ctl="baseKeyboardCtl(name, $event)"
@@ -228,6 +230,7 @@ const handleTabSelect = (tab: Tabs) => {
               class="mb-4"
               variant="multiple"
               placeholder="Select Cameras"
+              aria-label="Select Cameras"
               :options="
                 filterResources(resources, 'rdk', 'component', 'camera')
                   .map(({ name }) => name)

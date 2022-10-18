@@ -617,6 +617,7 @@ let baseCameraState = new Map<string, boolean>();
 
 const updatedBaseCameraState = (e: Map<string, boolean>) => {
   baseCameraState = e;
+  console.log('baseCameraState', baseCameraState);
 };
 
 onMounted(async () => {
