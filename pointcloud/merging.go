@@ -97,12 +97,15 @@ func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, logg
 				}
 			}
 			dataLastTime = true
+			lastRead = false
 		case <-time.After(5 * time.Millisecond):
 			dataLastTime = false
 			if lastRead {
 				break // this is the 2nd time waiting for data.
 			}
-			lastRead = true
+			if atomic.LoadInt32(&activeReaders) == 0 {
+				lastRead = true
+			}
 			continue
 		}
 	}
