@@ -703,22 +703,20 @@ func dialRobotClient(ctx context.Context,
 	logger golog.Logger,
 	dialOpts ...rpc.DialOption,
 ) (*client.RobotClient, error) {
-	connectionCheckInterval := config.ConnectionCheckInterval
-	if connectionCheckInterval == 0 {
-		connectionCheckInterval = 10 * time.Second
+	rOpts := []client.RobotClientOption{client.WithDialOptions(dialOpts...)}
+
+	if config.ConnectionCheckInterval != 0 {
+		rOpts = append(rOpts, client.WithCheckConnectedEvery(config.ConnectionCheckInterval))
 	}
-	reconnectInterval := config.ReconnectInterval
-	if reconnectInterval == 0 {
-		reconnectInterval = 1 * time.Second
+	if config.ReconnectInterval != 0 {
+		rOpts = append(rOpts, client.WithReconnectEvery(config.ReconnectInterval))
 	}
 
 	robotClient, err := client.New(
 		ctx,
 		config.Address,
 		logger,
-		client.WithDialOptions(dialOpts...),
-		client.WithCheckConnectedEvery(connectionCheckInterval),
-		client.WithReconnectEvery(reconnectInterval),
+		rOpts...,
 	)
 	if err != nil {
 		return nil, err
