@@ -202,7 +202,7 @@ func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (poin
 		cloudFuncs[iCopy] = pcSrc
 	}
 
-	return pointcloud.MergePointClouds(ctx, cloudFuncs)
+	return pointcloud.MergePointClouds(ctx, cloudFuncs, jpcs.logger)
 }
 
 func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -336,7 +336,7 @@ func (jpcs *joinPointCloudSource) Read(ctx context.Context) (image.Image, func()
 	if err != nil {
 		return nil, nil, err
 	}
-	if jpcs.debug {
+	if jpcs.debug && pc != nil {
 		jpcs.logger.Debugf("joinPointCloudSource Read: number of points in pointcloud: %d", pc.Size())
 	}
 	img, dm, err := proj.PointCloudToRGBD(pc)

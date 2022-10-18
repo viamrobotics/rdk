@@ -157,6 +157,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pc, test.ShouldNotBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 3)
 
 	data, got := pc.At(101, 0, 0)
@@ -187,6 +188,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pc, err = joinedCam2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pc, test.ShouldNotBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 3)
 
 	data, got = pc.At(1, 0, 0)

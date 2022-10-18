@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
@@ -38,6 +39,7 @@ func makeThreeCloudsWithOffsets(t *testing.T) []CloudAndOffsetFunc {
 }
 
 func TestMergePoints1(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	clouds := makeClouds(t)
 	cloudsWithOffset := make([]CloudAndOffsetFunc, 0, len(clouds))
 	for _, cloud := range clouds {
@@ -47,15 +49,16 @@ func TestMergePoints1(t *testing.T) {
 		}
 		cloudsWithOffset = append(cloudsWithOffset, cloudFunc)
 	}
-	mergedCloud, err := MergePointClouds(context.Background(), cloudsWithOffset)
+	mergedCloud, err := MergePointClouds(context.Background(), cloudsWithOffset, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, mergedCloud, test.ShouldNotBeNil)
 	test.That(t, mergedCloud.Size(), test.ShouldEqual, 9)
 }
 
 func TestMergePoints2(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	clouds := makeThreeCloudsWithOffsets(t)
-	pc, err := MergePointClouds(context.Background(), clouds)
+	pc, err := MergePointClouds(context.Background(), clouds, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc, test.ShouldNotBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 3)

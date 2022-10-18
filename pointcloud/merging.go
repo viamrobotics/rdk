@@ -9,19 +9,19 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/lucasb-eyer/go-colorful"
 	"go.opencensus.io/trace"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/utils"
 )
 
 // CloudAndOffsetFunc is a function that returns a PointCloud with a pose that represents an offset to be applied to every point.
 type CloudAndOffsetFunc func(context context.Context) (PointCloud, spatialmath.Pose, error)
 
 // MergePointClouds takes a slice of points clouds with optional offsets and adds all their points to one point cloud.
-func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc) (PointCloud, error) {
+func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc, logger golog.Logger) (PointCloud, error) {
 	if len(cloudFuncs) == 0 {
 		return nil, errors.New("no point clouds to merge")
 	}
@@ -74,10 +74,15 @@ func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc) (Poi
 	var pcTo PointCloud
 	var err error
 
-	dataLastTime := false
-	for dataLastTime || atomic.LoadInt32(&activeReaders) > 0 {
+	firstRead := true     // if all readers finish before loop starts, will prematurely exit, so read at least once.
+	dataLastTime := false // there was data in the channel in the previous loop, so continue reading.
+	lastRead := false     // read one more time in case all active readers finished while loop was waiting for data.
+	for firstRead || lastRead || dataLastTime || atomic.LoadInt32(&activeReaders) > 0 {
+		firstRead = false
+		logger.Debugf("number of batches in channel: %d\n", len(finalPoints))
 		select {
 		case ps := <-finalPoints:
+			logger.Debugf("number of points in batch: %d\n", len(ps))
 			for _, p := range ps {
 				if pcTo == nil {
 					if p.D == nil {
@@ -95,6 +100,10 @@ func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc) (Poi
 			dataLastTime = true
 		case <-time.After(5 * time.Millisecond):
 			dataLastTime = false
+			if lastRead {
+				break // this is the 2nd time waiting for data.
+			}
+			lastRead = true
 			continue
 		}
 	}
@@ -104,6 +113,7 @@ func MergePointClouds(ctx context.Context, cloudFuncs []CloudAndOffsetFunc) (Poi
 	}
 
 	return pcTo, nil
+
 }
 
 // MergePointCloudsWithColor creates a union of point clouds from the slice of point clouds, giving
