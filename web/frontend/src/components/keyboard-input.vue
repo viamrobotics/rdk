@@ -109,16 +109,14 @@ onClickOutside(root, () => {
     class="h-23 flex w-full flex-col items-center"
   >
     <div
-      class="flex gap-2 pb-4"
+      class="flex w-48 gap-2 pb-4"
       @click="toggleKeyboard"
     >
       <v-switch
+        :label="isActive ? 'Keyboard Enabled' : 'Keyboard Disabled'"
         class="pr-4"
         :value="isActive ? 'on' : 'off'"
       />
-      <h3>
-        Keyboard {{ isActive ? 'active' : 'disabled' }}
-      </h3>
     </div>
     <div
       v-for="(lineKeys, index) in keysLayout"

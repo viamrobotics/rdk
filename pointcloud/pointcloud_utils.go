@@ -1,60 +1,14 @@
 package pointcloud
 
 import (
-	"image/color"
 	"math"
 
 	"github.com/golang/geo/r3"
-	"github.com/lucasb-eyer/go-colorful"
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/stat"
 
 	"go.viam.com/rdk/spatialmath"
 )
-
-// MergePointClouds takes a slice of points clouds and adds all their points to one point cloud.
-func MergePointClouds(clouds []PointCloud) (PointCloud, error) {
-	if len(clouds) == 0 {
-		return nil, errors.New("no point clouds to merge")
-	}
-	if len(clouds) == 1 {
-		return clouds[0], nil
-	}
-	merged := New()
-	var err error
-	for _, c := range clouds {
-		c.Iterate(0, 0, func(pt r3.Vector, d Data) bool {
-			err = merged.Set(pt, d)
-			return err == nil
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-	return merged, nil
-}
-
-// MergePointCloudsWithColor creates a union of point clouds from the slice of point clouds, giving
-// each element of the slice a unique color.
-func MergePointCloudsWithColor(clusters []PointCloud) (PointCloud, error) {
-	var err error
-	palette := colorful.FastWarmPalette(len(clusters))
-	colorSegmentation := New()
-	for i, cluster := range clusters {
-		col, ok := color.NRGBAModel.Convert(palette[i]).(color.NRGBA)
-		if !ok {
-			panic("impossible")
-		}
-		cluster.Iterate(0, 0, func(v r3.Vector, d Data) bool {
-			err = colorSegmentation.Set(v, NewColoredData(col))
-			return err == nil
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-	return colorSegmentation, nil
-}
 
 // BoundingBoxFromPointCloud returns a Geometry object that encompasses all the points in the given point cloud.
 func BoundingBoxFromPointCloud(cloud PointCloud) (spatialmath.Geometry, error) {

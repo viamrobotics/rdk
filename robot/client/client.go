@@ -107,6 +107,18 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	} else {
 		refreshTime = *rOpts.refreshEvery
 	}
+	var checkConnectedTime time.Duration
+	if rOpts.checkConnectedEvery == nil {
+		checkConnectedTime = 10 * time.Second
+	} else {
+		checkConnectedTime = *rOpts.checkConnectedEvery
+	}
+	var reconnectTime time.Duration
+	if rOpts.reconnectEvery == nil {
+		reconnectTime = 1 * time.Second
+	} else {
+		reconnectTime = *rOpts.reconnectEvery
+	}
 
 	if refreshTime > 0 {
 		rc.activeBackgroundWorkers.Add(1)
@@ -115,10 +127,10 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		}, rc.activeBackgroundWorkers.Done)
 	}
 
-	if rOpts.checkConnectedEvery != 0 {
+	if checkConnectedTime > 0 && reconnectTime > 0 {
 		rc.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
-			rc.checkConnection(closeCtx, rOpts.checkConnectedEvery, rOpts.reconnectEvery)
+			rc.checkConnection(closeCtx, checkConnectedTime, reconnectTime)
 		}, rc.activeBackgroundWorkers.Done)
 	}
 
