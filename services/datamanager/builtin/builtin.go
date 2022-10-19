@@ -307,7 +307,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	return &componentMetadata, nil
 }
 
-//getCollectorFromConfig returns the collector that is referenced based on specific config atrributes
+// getCollectorFromConfig returns the collector and metadata that is referenced based on specific config atrributes
 func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.Collector, *componentMethodMetadata, error) {
 	// Create component/method metadata to check if the collector exists.
 	metadata := data.MethodMetadata{
