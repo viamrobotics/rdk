@@ -37,11 +37,11 @@ func getRPMSleepDebug() (time.Duration, bool) {
 // SetRPMSleepDebug is for testing only.
 func SetRPMSleepDebug(dur time.Duration, debug bool) func() {
 	_rpmDebugMu.Lock()
+	defer _rpmDebugMu.Unlock()
 	prevRPMSleep := _rpmSleep
 	prevRPMDebug := _rpmDebug
 	_rpmSleep = dur
 	_rpmDebug = debug
-	_rpmDebugMu.Unlock()
 	return func() {
 		SetRPMSleepDebug(prevRPMSleep, prevRPMDebug)
 	}
@@ -245,8 +245,8 @@ func (m *EncodedMotor) IsRegulated() bool {
 // SetRegulated sets if the motor should be regulated.
 func (m *EncodedMotor) SetRegulated(b bool) {
 	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
 	m.state.regulated = b
-	m.stateMu.Unlock()
 }
 
 func (m *EncodedMotor) fixPowerPct(powerPct float64) float64 {
@@ -467,14 +467,13 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 
 	if revolutions == 0 {
 		m.stateMu.Lock()
+		defer m.stateMu.Unlock()
 		oldRpm := m.state.desiredRPM
 		m.state.desiredRPM = rpm
 		if math.Abs(oldRpm) > 0.001 && d == m.directionMovingInLock() {
-			m.stateMu.Unlock()
 			return nil
 		}
 		err := m.setPower(ctx, float64(d)*.06, true) // power of 6% is random
-		m.stateMu.Unlock()
 		return err
 	}
 
@@ -486,10 +485,10 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	}
 
 	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
 	if d == 1 || d == -1 {
 		m.state.setPoint = pos + d*numTicks
 	} else {
-		m.stateMu.Unlock()
 		panic("impossible")
 	}
 
@@ -497,19 +496,15 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	m.state.regulated = true
 	isOn, _, err := m.IsPowered(ctx, nil)
 	if err != nil {
-		m.stateMu.Unlock()
 		return err
 	}
 	if !isOn {
 		// if we're off we start slow, otherwise we just set the desired rpm
 		err := m.setPower(ctx, float64(d)*0.03, true)
 		if err != nil {
-			m.stateMu.Unlock()
 			return err
 		}
 	}
-	m.stateMu.Unlock()
-
 	return nil
 }
 
