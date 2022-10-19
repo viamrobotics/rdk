@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	rdkutils "go.viam.com/rdk/utils"
+	"go.viam.com/utils"
 )
 
 func init() {
@@ -146,6 +147,19 @@ type alignAttrs struct {
 	IntrinsicExtrinsic interface{} `json:"intrinsic_extrinsic,omitempty"`
 	Homography         interface{} `json:"homography,omitempty"`
 	Warp               interface{} `json:"warp,omitempty"`
+}
+
+func (cfg *alignAttrs) Validate(path string) ([]string, error) {
+	var deps []string
+	if cfg.Color == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "color_camera_name")
+	}
+	deps = append(deps, cfg.Color)
+	if cfg.Depth == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "depth_camera_name")
+	}
+	deps = append(deps, cfg.Depth)
+	return deps, nil
 }
 
 // alignColorDepth takes a color and depth image source and aligns them together.
