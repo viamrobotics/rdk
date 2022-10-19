@@ -134,6 +134,8 @@ func newTestDataManager(t *testing.T, localArmKey, remoteArmKey string) internal
 		}
 	}
 
+	// this arm should also have a collectors since it's using the data manager service
+
 	svc, err := NewBuiltIn(context.Background(), r, cfgService, logger)
 	if err != nil {
 		t.Log(err)
@@ -956,4 +958,162 @@ func getTestModelManagerConstructor(t *testing.T, server rpc.Server, zipFileName
 		client := model.NewClient(conn)
 		return model.NewManager(logger, cfg.Cloud.ID, client, conn, &mockClient{zipFileName: zipFileName})
 	}
+}
+
+func TestDataCapture(t *testing.T) {
+	tests := []struct {
+		name                 string
+		initialDisableStatus bool
+		newDisableStatus     bool
+	}{
+		{
+			"Config with data capture disabled should capture nothing.",
+			true,
+			true,
+		},
+		{
+			"Config with data capture enabled should capture data.",
+			false,
+			false,
+		},
+		{
+			"Disabling data capture should cause it to stop.",
+			false,
+			true,
+		},
+		{
+			"Enabling data capture should cause it to begin.",
+			true,
+			false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpDir, err := ioutil.TempDir("", "")
+			defer os.RemoveAll(tmpDir)
+			test.That(t, err, test.ShouldBeNil)
+
+			rpcServer, _ := buildAndStartLocalServer(t)
+			defer func() {
+				err := rpcServer.Stop()
+				test.That(t, err, test.ShouldBeNil)
+			}()
+			dmsvc := newTestDataManager(t, "arm1", "")
+			dmsvc.SetSyncerConstructor(getTestSyncerConstructor(t, rpcServer))
+			testCfg := setupConfig(t, configPath)
+			svcConfig, ok, err := getServiceConfig(testCfg)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ok, test.ShouldBeTrue)
+			svcConfig.CaptureDisabled = tc.initialDisableStatus
+			svcConfig.ScheduledSyncDisabled = false
+			svcConfig.CaptureDir = tmpDir
+			err = dmsvc.Update(context.Background(), testCfg)
+			test.That(t, err, test.ShouldBeNil)
+
+			// let run for a second
+			time.Sleep(captureWaitTime)
+
+			// Check if data has been captured (or not) as we'd expect.
+			initialCaptureFiles := getAllFiles(tmpDir)
+			initialCaptureFilesSize := getTotalFileSize(initialCaptureFiles)
+			if !tc.initialDisableStatus {
+				// TODO: check contents
+				test.That(t, len(initialCaptureFiles), test.ShouldBeGreaterThan, 0)
+				test.That(t, initialCaptureFilesSize, test.ShouldBeGreaterThan, 0)
+			} else {
+				test.That(t, len(initialCaptureFiles), test.ShouldEqual, 0)
+				test.That(t, initialCaptureFilesSize, test.ShouldEqual, 0)
+			}
+
+			// change status
+			svcConfig.CaptureDisabled = tc.newDisableStatus
+			err = dmsvc.Update(context.Background(), testCfg)
+			test.That(t, err, test.ShouldBeNil)
+
+			// let run for a second
+			time.Sleep(captureWaitTime)
+			midCaptureFiles := getAllFiles(tmpDir)
+			midCaptureFilesSize := getTotalFileSize(midCaptureFiles)
+			// Let run for a second, if still on, more data should have been captured, flush data here.
+			time.Sleep(captureWaitTime)
+			updatedCaptureFiles := getAllFiles(tmpDir)
+			updatedCaptureFilesSize := getTotalFileSize(updatedCaptureFiles)
+			if !tc.newDisableStatus && tc.initialDisableStatus {
+				test.That(t, len(updatedCaptureFiles), test.ShouldBeGreaterThan, len(initialCaptureFiles))
+			} else if !tc.newDisableStatus && !tc.initialDisableStatus {
+				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, len(initialCaptureFiles))
+			} else {
+				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, len(initialCaptureFiles))
+				test.That(t, updatedCaptureFilesSize, test.ShouldEqual, midCaptureFilesSize)
+			}
+			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
+		})
+	}
+}
+
+// func TestSync(t *testing.T) {
+// 	tests := []struct {
+// 		name                 string
+// 		initialDisableStatus bool
+// 		newDisableStatus     bool
+// 		alreadyCapturedData  bool
+// 	}{
+// 		{
+// 			"Config with sync disabled should sync nothing.",
+// 			false,
+// 			false,
+// 			false,
+// 		},
+// 		{
+// 			"Config with sync enabled should sync data.",
+// 			false,
+// 			false,
+// 			false,
+// 		},
+// 		{
+// 			"Disabling sync should cause it to stop.",
+// 			false,
+// 			false,
+// 			false,
+// 		},
+// 		{
+// 			"Enabling sync should cause it to begin.",
+// 			false,
+// 			false,
+// 			false,
+// 		},
+// 		{
+// 			"Already captured data should be synced at start up.",
+// 			false,
+// 			false,
+// 			false,
+// 		},
+// 	}
+// 	for _, tc := range tests {
+
+// 	}
+// }
+
+func getAllFiles(dir string) []os.FileInfo {
+	var files []os.FileInfo
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		files = append(files, info)
+		return nil
+	})
+	return files
+}
+
+func getTotalFileSize(files []os.FileInfo) int64 {
+	var totalFileSize int64 = 0
+	for _, f := range files {
+		totalFileSize += f.Size()
+	}
+	return totalFileSize
 }
