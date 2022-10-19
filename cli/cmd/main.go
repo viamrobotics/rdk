@@ -21,8 +21,8 @@ import (
 const (
 	// Flags
 	dataFlagDestination    = "destination"
-	dataFlagType           = "type"
-	dataFlagOrgs           = "orgs"
+	dataFlagDataType       = "data_type"
+	dataFlagOrgIDs         = "org_ids"
 	dataFlagLocation       = "location"
 	dataFlagRobotID        = "robot_id"
 	dataFlagPartID         = "part_id"
@@ -35,6 +35,9 @@ const (
 	dataFlagMimeTypes      = "mime_types"
 	dataFlagStart          = "start"
 	dataFlagEnd            = "end"
+
+	dataTypeBinary  = "binary"
+	dataTypeTabular = "tabular"
 )
 
 func main() {
@@ -207,7 +210,6 @@ func main() {
 					},
 				},
 			},
-			// TODO: Add help stuff.
 			{
 				Name:  "data",
 				Usage: "download synced data",
@@ -218,12 +220,12 @@ func main() {
 						Usage:    "output directory for downloaded data",
 					},
 					&cli.StringFlag{
-						Name:     dataFlagType,
+						Name:     dataFlagDataType,
 						Required: true,
 						Usage:    "data type to be downloaded: either binary or tabular",
 					},
 					&cli.StringSliceFlag{
-						Name:     dataFlagOrgs,
+						Name:     dataFlagOrgIDs,
 						Required: false,
 						Usage:    "org filter",
 					},
@@ -260,12 +262,12 @@ func main() {
 					&cli.StringFlag{
 						Name:     dataFlagComponentModel,
 						Required: false,
-						Usage:    "component model filter",
+						Usage:    "component_model filter",
 					},
 					&cli.StringFlag{
 						Name:     dataFlagComponentName,
 						Required: false,
-						Usage:    "component name filter",
+						Usage:    "component_name filter",
 					},
 					&cli.StringFlag{
 						Name:     dataFlagMethod,
@@ -280,13 +282,12 @@ func main() {
 					&cli.StringFlag{
 						Name:     dataFlagStart,
 						Required: false,
-						// TODO: Do we store it as UTC?
-						Usage: "ISO-8601 UTC timestamp indicating the start of the interval filter",
+						Usage:    "ISO-8601 timestamp indicating the start of the interval filter",
 					},
 					&cli.StringFlag{
 						Name:     dataFlagEnd,
 						Required: false,
-						Usage:    "ISO-8601 UTC timestamp indicating the end of the interval filter",
+						Usage:    "ISO-8601 timestamp indicating the end of the interval filter",
 					},
 				},
 				Action: func(c *cli.Context) error {
@@ -697,13 +698,13 @@ func main() {
 }
 
 func DataCommand(c *cli.Context) error {
-	if c.String(dataFlagType) != "binary" && c.String(dataFlagType) != "tabular" {
+	if c.String(dataFlagDataType) != dataTypeBinary && c.String(dataFlagDataType) != dataTypeTabular {
 		return errors.Errorf("type must be binary or tabular, got %s", c.String("type"))
 	}
 
 	filter := &datapb.Filter{}
-	if c.StringSlice(dataFlagOrgs) != nil {
-		filter.OrgIds = c.StringSlice(dataFlagOrgs)
+	if c.StringSlice(dataFlagOrgIDs) != nil {
+		filter.OrgIds = c.StringSlice(dataFlagOrgIDs)
 	}
 	if c.String(dataFlagLocation) != "" {
 		filter.LocationId = c.String(dataFlagLocation)
@@ -738,7 +739,7 @@ func DataCommand(c *cli.Context) error {
 
 	var start *timestamppb.Timestamp
 	var end *timestamppb.Timestamp
-	timeLayout := "2000-01-01T00:00:00.000"
+	timeLayout := time.RFC3339
 	if c.String(dataFlagStart) != "" {
 		t, err := time.Parse(timeLayout, c.String(dataFlagStart))
 		if err != nil {
@@ -749,7 +750,7 @@ func DataCommand(c *cli.Context) error {
 	if c.String(dataFlagEnd) != "" {
 		t, err := time.Parse(timeLayout, c.String(dataFlagEnd))
 		if err != nil {
-			return errors.Wrap(err, "error parsing start flag")
+			return errors.Wrap(err, "error parsing end flag")
 		}
 		end = timestamppb.New(t)
 	}
@@ -765,14 +766,14 @@ func DataCommand(c *cli.Context) error {
 		return err
 	}
 
-	dataType := c.String(dataFlagType)
+	dataType := c.String(dataFlagDataType)
 	switch dataType {
-	case "binary":
+	case dataTypeBinary:
 		if err := client.BinaryData(c.String(dataFlagDestination), filter); err != nil {
 			return err
 		}
-	case "tabular":
-		if err := client.TabularData(c.String("destination"), filter); err != nil {
+	case dataTypeTabular:
+		if err := client.TabularData(c.String(dataFlagDestination), filter); err != nil {
 			return err
 		}
 	default:
