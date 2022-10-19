@@ -95,9 +95,9 @@ const exportScreenshot = (cameraName: string) => {
         <div class="pt-4">
           <div class="flex items-center gap-2">
             <v-switch
+              id="camera"
               :label="camera ? 'Hide Camera' : 'View Camera'"
               :aria-label="camera ? 'Hide Camera' : 'View Camera'"
-              id="camera"
               :value="camera ? 'on' : 'off'"
               @input="toggleExpand"
             />
@@ -180,7 +180,7 @@ const exportScreenshot = (cameraName: string) => {
           />
         </div>
         <div class="pt-4">
-          <div class="flex align-top items-center gap-2">
+          <div class="flex items-center gap-2 align-top">
             <v-switch
               :label="pcdExpanded ? 'Hide Point Cloud Data' : 'View Point Cloud Data'"
               :value="pcdExpanded ? 'on' : 'off'"

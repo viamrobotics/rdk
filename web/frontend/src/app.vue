@@ -612,8 +612,8 @@ const waitForClientAndStart = async () => {
   }
 };
 
-const updatedBaseCameraState = (e: Map<string, boolean>) => {
-  baseCameraState = e;
+const updatedBaseCameraState = (event: Map<string, boolean>) => {
+  baseCameraState = event;
 };
 
 onMounted(async () => {
