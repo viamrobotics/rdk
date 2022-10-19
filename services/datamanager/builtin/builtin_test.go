@@ -134,8 +134,6 @@ func newTestDataManager(t *testing.T, localArmKey, remoteArmKey string) internal
 		}
 	}
 
-	// this arm should also have a collectors since it's using the data manager service
-
 	svc, err := NewBuiltIn(context.Background(), r, cfgService, logger)
 	if err != nil {
 		t.Log(err)
@@ -962,9 +960,9 @@ func getTestModelManagerConstructor(t *testing.T, server rpc.Server, zipFileName
 
 func TestDataCapture(t *testing.T) {
 	tests := []struct {
-		name                 string
-		initialDisableStatus bool
-		newDisableStatus     bool
+		name                  string
+		initialDisabledStatus bool
+		newDisabledStatus     bool
 	}{
 		{
 			"Config with data capture disabled should capture nothing.",
@@ -1005,7 +1003,7 @@ func TestDataCapture(t *testing.T) {
 			svcConfig, ok, err := getServiceConfig(testCfg)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, ok, test.ShouldBeTrue)
-			svcConfig.CaptureDisabled = tc.initialDisableStatus
+			svcConfig.CaptureDisabled = tc.initialDisabledStatus
 			svcConfig.ScheduledSyncDisabled = false
 			svcConfig.CaptureDir = tmpDir
 			err = dmsvc.Update(context.Background(), testCfg)
@@ -1017,7 +1015,7 @@ func TestDataCapture(t *testing.T) {
 			// Check if data has been captured (or not) as we'd expect.
 			initialCaptureFiles := getAllFiles(tmpDir)
 			initialCaptureFilesSize := getTotalFileSize(initialCaptureFiles)
-			if !tc.initialDisableStatus {
+			if !tc.initialDisabledStatus {
 				// TODO: check contents
 				test.That(t, len(initialCaptureFiles), test.ShouldBeGreaterThan, 0)
 				test.That(t, initialCaptureFilesSize, test.ShouldBeGreaterThan, 0)
@@ -1027,7 +1025,7 @@ func TestDataCapture(t *testing.T) {
 			}
 
 			// change status
-			svcConfig.CaptureDisabled = tc.newDisableStatus
+			svcConfig.CaptureDisabled = tc.newDisabledStatus
 			err = dmsvc.Update(context.Background(), testCfg)
 			test.That(t, err, test.ShouldBeNil)
 
@@ -1039,9 +1037,9 @@ func TestDataCapture(t *testing.T) {
 			time.Sleep(captureWaitTime)
 			updatedCaptureFiles := getAllFiles(tmpDir)
 			updatedCaptureFilesSize := getTotalFileSize(updatedCaptureFiles)
-			if !tc.newDisableStatus && tc.initialDisableStatus {
+			if !tc.newDisabledStatus && tc.initialDisabledStatus {
 				test.That(t, len(updatedCaptureFiles), test.ShouldBeGreaterThan, len(initialCaptureFiles))
-			} else if !tc.newDisableStatus && !tc.initialDisableStatus {
+			} else if !tc.newDisabledStatus && !tc.initialDisabledStatus {
 				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, len(initialCaptureFiles))
 			} else {
 				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, len(initialCaptureFiles))
@@ -1051,49 +1049,6 @@ func TestDataCapture(t *testing.T) {
 		})
 	}
 }
-
-// func TestSync(t *testing.T) {
-// 	tests := []struct {
-// 		name                 string
-// 		initialDisableStatus bool
-// 		newDisableStatus     bool
-// 		alreadyCapturedData  bool
-// 	}{
-// 		{
-// 			"Config with sync disabled should sync nothing.",
-// 			false,
-// 			false,
-// 			false,
-// 		},
-// 		{
-// 			"Config with sync enabled should sync data.",
-// 			false,
-// 			false,
-// 			false,
-// 		},
-// 		{
-// 			"Disabling sync should cause it to stop.",
-// 			false,
-// 			false,
-// 			false,
-// 		},
-// 		{
-// 			"Enabling sync should cause it to begin.",
-// 			false,
-// 			false,
-// 			false,
-// 		},
-// 		{
-// 			"Already captured data should be synced at start up.",
-// 			false,
-// 			false,
-// 			false,
-// 		},
-// 	}
-// 	for _, tc := range tests {
-
-// 	}
-// }
 
 func getAllFiles(dir string) []os.FileInfo {
 	var files []os.FileInfo
