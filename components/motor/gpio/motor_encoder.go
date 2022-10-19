@@ -468,9 +468,10 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	revolutions = math.Abs(revolutions)
 	rpm = math.Abs(rpm) * float64(d)
 
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+
 	if revolutions == 0 {
-		m.stateMu.Lock()
-		defer m.stateMu.Unlock()
 		oldRpm := m.state.desiredRPM
 		m.state.desiredRPM = rpm
 		if math.Abs(oldRpm) > 0.001 && d == m.directionMovingInLock() {
@@ -487,8 +488,6 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 		return err
 	}
 
-	m.stateMu.Lock()
-	defer m.stateMu.Unlock()
 	if d == 1 || d == -1 {
 		m.state.setPoint = pos + d*numTicks
 	} else {
