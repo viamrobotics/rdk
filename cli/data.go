@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
-	rdkutils "go.viam.com/rdk/utils"
 	"google.golang.org/protobuf/encoding/protojson"
 	"io"
 	"os"
@@ -24,19 +23,12 @@ const (
 
 // BinaryData writes the requested data to the passed directory.
 func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
-	fmt.Println(filter.OrgIds)
-
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
 	}
 
-	// TODO: Should we use more limited perms?
-	// TODO: Probably shouldn't re-download files we already have? Maybe we actually should have an exlclude_ids field
-	if err := os.MkdirAll(filepath.Join(dst, dataDir), os.ModePerm); err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Join(dst, metadataDir), os.ModePerm); err != nil {
-		return err
+	if err := makeDestinationDirs(dst); err != nil {
+		return errors.Wrapf(err, "error creating destination directories")
 	}
 
 	skip := int64(0)
@@ -57,21 +49,24 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		if err != nil {
 			return err
 		}
+		// TODO: change api to make metadata and data 1:1 so don't need to merge datum level metadata and capturemetadata
 		mds := resp.GetMetadata()
 		if len(mds) != 1 {
-			return errors.Errorf("expected a single response, received %d", len(mds))
+			return errors.Errorf("expected a single metadata response, received %d", len(mds))
 		}
 		data := resp.GetData()
 		if len(data) != 1 {
-			return errors.Errorf("expected a single response, received %d", len(data))
+			return errors.Errorf("expected a single data response, received %d", len(data))
 		}
 
 		md := mds[0]
 		datum := data[0]
+
 		mdJsonBytes, err := protojson.Marshal(md)
 		if err != nil {
 			return err
 		}
+
 		jsonFile, err := os.Create(filepath.Join(dst, "metadata", datum.GetId()+".json"))
 		if err != nil {
 			return err
@@ -80,19 +75,13 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 			return err
 		}
 
-		// TODO: Include file name in metadata.
-
 		gzippedBytes := datum.GetBinary()
 		r, err := gzip.NewReader(bytes.NewBuffer(gzippedBytes))
 		if err != nil {
 			return err
 		}
 
-		// TODO: We need to store file extension too. In sync we map from ext -> mime type, so this is already available.
-		//       Or maybe we can just get this from file name.
-		ext := mimeTypeToFileExt(md.GetMimeType())
-
-		dataFile, err := os.Create(filepath.Join(dst, "data", datum.GetId()+ext))
+		dataFile, err := os.Create(filepath.Join(dst, "data", datum.GetId()+md.GetFileExt()))
 		if _, err := io.Copy(dataFile, r); err != nil {
 			return err
 		}
@@ -110,12 +99,8 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 		return err
 	}
 
-	// Make dst/data and dst/metadata directory.
-	if err := os.MkdirAll(filepath.Join(dst, dataDir), os.ModePerm); err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Join(dst, metadataDir), os.ModePerm); err != nil {
-		return err
+	if err := makeDestinationDirs(dst); err != nil {
+		return errors.Wrapf(err, "error creating destination directories")
 	}
 
 	resp, err := c.dataClient.TabularDataByFilter(context.Background(), &datapb.TabularDataByFilterRequest{
@@ -163,6 +148,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 		m := d.AsMap()
 		m["TimeRequested"] = datum.GetTimeRequested()
 		m["TimeReceived"] = datum.GetTimeReceived()
+		m["MetadataIndex"] = datum.GetMetadataIndex()
 		j, err := json.Marshal(m)
 		if err != nil {
 			return errors.Wrap(err, "error marshaling json response")
@@ -180,15 +166,12 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 	return nil
 }
 
-func mimeTypeToFileExt(mime string) string {
-	switch mime {
-	case rdkutils.MimeTypePCD:
-		return ".pcd"
-	case rdkutils.MimeTypeJPEG:
-		return ".jpg"
-	case rdkutils.MimeTypePNG:
-		return ".png"
-	default:
-		return ".dat"
+func makeDestinationDirs(dst string) error {
+	if err := os.MkdirAll(filepath.Join(dst, dataDir), os.ModePerm); err != nil {
+		return err
 	}
+	if err := os.MkdirAll(filepath.Join(dst, metadataDir), os.ModePerm); err != nil {
+		return err
+	}
+	return nil
 }
