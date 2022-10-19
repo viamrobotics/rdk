@@ -584,7 +584,7 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 		m.stateMu.RLock()
 		curRPM := m.state.currentRPM
 		m.stateMu.RUnlock()
-		if math.Abs(curRPM) >= math.Abs(rpm)/10 {
+		if math.Abs(curRPM) >= math.Abs(rpm) / 10 {
 			rpmCount++
 		} else {
 			rpmCount = 0
@@ -610,7 +610,7 @@ func (m *EncodedMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc fun
 		curRPM := m.state.currentRPM
 		m.stateMu.RUnlock()
 
-		if math.Abs(curRPM) <= math.Abs(rpm)/10 {
+		if math.Abs(curRPM) <= math.Abs(rpm) / 10 {
 			rpmCount++
 		} else {
 			rpmCount = 0
