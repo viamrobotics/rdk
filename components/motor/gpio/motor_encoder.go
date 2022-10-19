@@ -428,6 +428,7 @@ func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime in
 		}
 		// If the underlying motor has dirflip set, it will go in the opposite direction from what
 		// we want. Make sure to ignore dirFlip if we're aiming for a specific encoder value.
+		//newPowerPct = -newPowerPct // no reason for this other than empirical evidence!?
 		err := m.setPower(m.cancelCtx, newPowerPct, true, map[string]interface{}{"ignoreDirFlip": true})
 		if err != nil {
 			m.logger.Warnf("rpm regulator cannot set power %s", err)
