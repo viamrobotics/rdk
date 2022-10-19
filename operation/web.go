@@ -52,18 +52,8 @@ func (m *Manager) UnaryServerInterceptor(
 	info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
 ) (interface{}, error) {
-	meta, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		m.logger.Warnw("failed to pull metadata from context", "method", info.FullMethod)
-		return handler(ctx, req)
-	}
-	opid, err := GetOrCreateFromMetadata(meta)
-	if err != nil {
-		return nil, err
-	}
-	ctx, done := m.createWithID(ctx, opid, info.FullMethod, nil)
+	ctx, done := m.CreateFromIncomingContext(ctx, info.FullMethod)
 	defer done()
-
 	return handler(ctx, req)
 }
 
@@ -76,20 +66,24 @@ func (m *Manager) StreamServerInterceptor(
 	info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler,
 ) error {
-	ctx := ss.Context()
+	ctx, done := m.CreateFromIncomingContext(ss.Context(), info.FullMethod)
+	defer done()
+	return handler(srv, &ssStreamContextWrapper{ss, ctx})
+}
+
+// CreateFromIncomingContext creates a new operation from an incoming context.
+func (m *Manager) CreateFromIncomingContext(ctx context.Context, method string) (context.Context, func()) {
 	meta, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		m.logger.Warnw("failed to pull metadata from context", "method", info.FullMethod)
-		return handler(srv, &ssStreamContextWrapper{ss, ctx})
+		m.logger.Warnw("failed to pull metadata from context", "method", method)
+		return m.Create(ctx, method, nil)
 	}
 	opid, err := GetOrCreateFromMetadata(meta)
 	if err != nil {
-		return err
+		m.logger.Warnw("failed to create operation id from metadata", "error", err)
+		return m.Create(ctx, method, nil)
 	}
-	ctx, done := m.createWithID(ctx, opid, info.FullMethod, nil)
-	defer done()
-
-	return handler(srv, &ssStreamContextWrapper{ss, ctx})
+	return m.createWithID(ctx, opid, method, nil)
 }
 
 // GetOrCreateFromMetadata returns an operation id from metadata, or generates a random
