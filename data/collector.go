@@ -81,7 +81,7 @@ func (c *collector) GetTarget() *os.File {
 }
 
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
-// leaking goroutines. Close() can only be called once; attempting to Close an already closed Collector will panic.
+// leaking goroutines.
 func (c *collector) Close() {
 	if c.closed {
 		return
