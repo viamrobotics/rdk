@@ -392,7 +392,7 @@ func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime in
 
 	if math.Abs(currentRPM) <= 0.001 {
 		if math.Abs(lastPowerPct) < 0.01 {
-			newPowerPct = .01 * sign(desiredRPM)
+			newPowerPct = .01 * float64(sign(desiredRPM))
 		} else {
 			newPowerPct = m.computeRamp(lastPowerPct, lastPowerPct*2)
 		}
