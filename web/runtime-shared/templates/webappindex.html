@@ -14,7 +14,7 @@
       window.supportedAuthTypes = {{ .SupportedAuthTypes }} || [];
     </script>
 
-    </head>{{ if .External }}
+    {{ if .External }}
     <link rel="preload" href="/static/rdk/prime.css?v={{ .Version }}" as="style">
     <link rel="stylesheet" href="/static/rdk/main.css?v={{ .Version }}" />
     <script type="module">window.PRIME_CONFIG = { base: '/static/rdk' }</script>
