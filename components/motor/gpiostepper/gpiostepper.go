@@ -44,7 +44,7 @@ type Config struct {
 func (config *Config) Validate(path string) ([]string, error) {
 	var deps []string
 	if config.BoardName == "" {
-		return nil, errors.New("expected board name in config for stepper motor")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, config.BoardName)
 	return deps, nil

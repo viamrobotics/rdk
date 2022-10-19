@@ -59,8 +59,11 @@ func WrapMotorWithEncoder(
 	if e == nil {
 		return m, nil
 	}
+	if mc.TicksPerRotation < 0 {
+		return nil, utils.NewConfigValidationError("", errors.New("ticks_per_rotation should be positive or zero"))
+	}
 
-	if mc.TicksPerRotation <= 0 {
+	if mc.TicksPerRotation == 0 {
 		mc.TicksPerRotation = 1
 	}
 

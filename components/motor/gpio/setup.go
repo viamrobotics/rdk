@@ -5,6 +5,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	vutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
@@ -47,13 +48,15 @@ func (config *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if config.BoardName == "" {
-		return nil, errors.New("motor requires a board")
+		return nil, vutils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, config.BoardName)
+
+	// If an encoder is present the max_rpm field is optional, in the absence of an encoder the field is required
 	if config.Encoder != "" {
 		deps = append(deps, config.Encoder)
 	} else if config.MaxRPM <= 0 {
-		return nil, errors.New("unencoded motors requires a non-nul positive max_rpm ")
+		return nil, vutils.NewConfigValidationFieldRequiredError(path, "max_rpm")
 	}
 	return deps, nil
 }
