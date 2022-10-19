@@ -214,12 +214,15 @@ func (m *EncodedMotor) DirectionMoving() int64 {
 	return m.directionMovingInLock()
 }
 
-func (m *EncodedMotor) directionMovingInLock() int64 {
-	if !math.Signbit(m.state.lastPowerPct) {
-		return 1
+func sign(x float64) int64 { // A quick helper function
+	if math.Signbit(x) {
+		return -1
 	}
+	return 1
+}
 
-	return -1
+func (m *EncodedMotor) directionMovingInLock() int64 {
+	return sign(m.state.lastPowerPct)
 }
 
 // Properties returns the status of whether the motor supports certain optional features.
@@ -351,7 +354,7 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 	}
 
 	if m.state.regulated {
-		ticksLeft = (m.state.setPoint - pos) * int64(m.state.lastPowerPct/math.Abs(m.state.lastPowerPct))
+		ticksLeft = (m.state.setPoint - pos) * sign(m.state.lastPowerPct)
 		rotationsLeft := float64(ticksLeft) / float64(m.cfg.TicksPerRotation)
 		if rotationsLeft <= 0 {
 			err := m.off(m.cancelCtx)
@@ -389,7 +392,7 @@ func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime in
 
 	if math.Abs(currentRPM) <= 0.001 {
 		if math.Abs(lastPowerPct) < 0.01 {
-			newPowerPct = .01 * desiredRPM / math.Abs(desiredRPM)
+			newPowerPct = .01 * sign(desiredRPM)
 		} else {
 			newPowerPct = m.computeRamp(lastPowerPct, lastPowerPct*2)
 		}
