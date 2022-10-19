@@ -43,16 +43,24 @@ const spinSpeed = ref(90);
 const angle = ref(0);
 
 let videoStreamStates = new Map<string, boolean>();
+const selectCameras = ref('')
 
-const resetStreamState = () => {
+const initStreamState = () => {
   for (var value of filterResources(props.resources, 'rdk', 'component', 'camera')) {
     videoStreamStates.set(value.name, false);
   }
 }
 
 onMounted(() => {
-  resetStreamState();
+  initStreamState();
 })
+
+const resetDiscreteState = () => {
+  movementMode.value = 'Straight';
+  movementType.value = 'Continuous';
+  direction.value = 'Forwards';
+  spinType.value = 'Clockwise';
+};
 
 const setMovementMode = (mode: MovementModes) => {
   movementMode.value = mode;
@@ -170,6 +178,15 @@ const viewPreviewCamera = async (name: string) => {
 
 const handleTabSelect = (tab: Tabs) => {
   selectedItem.value = tab;
+  
+  // deselect options from select cameras select
+  // TODO: handle better with xstate and reactivate on return
+  selectCameras.value = '';
+  viewPreviewCamera(selectCameras.value);  
+
+  if (tab === 'Discrete') {
+    resetDiscreteState();
+  }
 };
 
 </script>
@@ -217,6 +234,7 @@ const handleTabSelect = (tab: Tabs) => {
               variant="multiple"
               placeholder="Select Cameras"
               aria-label="Select Cameras"
+              v-model="selectCameras"
               :options="
                 filterResources(resources, 'rdk', 'component', 'camera')
                   .map(({ name }) => name)
