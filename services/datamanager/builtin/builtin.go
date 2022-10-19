@@ -492,7 +492,6 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	}
 
 	toggledCaptureOff := (svc.captureDisabled != svcConfig.CaptureDisabled) && svcConfig.CaptureDisabled
-	// toggledCaptureOn := (svc.captureDisabled != svcConfig.CaptureDisabled) && !svcConfig.CaptureDisabled
 	svc.captureDisabled = svcConfig.CaptureDisabled
 	var allComponentAttributes []dataCaptureConfig
 
@@ -526,7 +525,6 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 		if err := svc.initOrUpdateSyncer(ctx, 0, cfg); err != nil {
 			return err
 		}
-		// so if toggled sync off, then I want to STOP existing collectors
 	} else if toggledSyncOn || (svcConfig.SyncIntervalMins != svc.syncIntervalMins) ||
 		!reflect.DeepEqual(svcConfig.AdditionalSyncPaths, svc.additionalSyncPaths) {
 		// If the sync config has changed, update the syncer.
@@ -554,7 +552,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 			// if disabled, make sure that it is closed, so it doesn't keep collecting data.
 			collector, md, err := svc.getCollectorFromConfig(attributes)
 			if err != nil {
-				svc.logger.Errorw("collector ", attributes.Name, " was not found", "error", err)
+				svc.logger.Errorw("collector ", attributes.Name, " was not found", "info", err)
 			} else {
 				collector.Close()
 				delete(svc.collectors, *md)
