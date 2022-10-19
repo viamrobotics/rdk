@@ -89,7 +89,7 @@ func TestServer(t *testing.T) {
 			imageReleasedMu.Lock()
 			imageReleased = true
 			imageReleasedMu.Unlock()
-			mimeType := gostream.MIMETypeHint(ctx, utils.MimeTypeRawRGBA)
+			mimeType, _ := utils.CheckLazyMIMEType(gostream.MIMETypeHint(ctx, utils.MimeTypeRawRGBA))
 			switch mimeType {
 			case "", utils.MimeTypeRawRGBA:
 				return img, func() {}, nil
