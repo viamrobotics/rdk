@@ -47,6 +47,8 @@ declare global {
     servoService: import('./gen/proto/api/component/servo/v1/servo_pb_service.esm').ServoServiceClient;
     slamService: import('./gen/proto/api/service/slam/v1/slam_pb_service.esm').SLAMServiceClient;
 
+    fetchCameraDiscoveries: import('./lib/discovery').fetchCameraDiscoveries
+
     // Google
     googleMapsInit: () => void;
 
