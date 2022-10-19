@@ -1,5 +1,5 @@
-describe('should interact with base', () => {
-  it('passes', () => {
+describe('base', () => {
+  it('should be interactive', () => {
     cy.visit('/');
 
     // Open base
