@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 )
 
@@ -66,14 +67,15 @@ func (o *Operation) cleanup() {
 }
 
 // NewManager creates a new manager for holding Operations.
-func NewManager() *Manager {
-	return &Manager{ops: map[string]*Operation{}}
+func NewManager(logger golog.Logger) *Manager {
+	return &Manager{ops: map[string]*Operation{}, logger: logger}
 }
 
 // Manager holds Operations.
 type Manager struct {
-	ops  map[string]*Operation
-	lock sync.Mutex
+	ops    map[string]*Operation
+	lock   sync.Mutex
+	logger golog.Logger
 }
 
 func (m *Manager) remove(id uuid.UUID) {
