@@ -257,20 +257,21 @@ func (m *EncodedMotor) fixPowerPct(powerPct float64) float64 {
 
 // SetPower sets the power of the motor to the given percentage value between 0 and 1.
 func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+	fmt.Println("setting power to %f", powerPct)
 	m.opMgr.CancelRunning(ctx)
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
-	return m.setPower(ctx, powerPct, false)
+	return m.setPower(ctx, powerPct, false, extra)
 }
 
 // setPower assumes the state lock is held.
-func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal bool) error {
+func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal bool, extra map[string]interface{}) error {
 	if !internal {
 		m.state.desiredRPM = 0    // if we're setting power externally, don't control RPM
 		m.state.regulated = false // user wants direct control, so we stop trying to control the world
 	}
 	m.state.lastPowerPct = m.fixPowerPct(powerPct)
-	return m.real.SetPower(ctx, m.state.lastPowerPct, nil)
+	return m.real.SetPower(ctx, m.state.lastPowerPct, extra)
 }
 
 // RPMMonitorStart starts the RPM monitor.
@@ -353,7 +354,10 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 	if m.state.regulated {
 		ticksLeft = (m.state.setPoint - pos) * int64(m.state.lastPowerPct/math.Abs(m.state.lastPowerPct))
 		rotationsLeft := float64(ticksLeft) / float64(m.cfg.TicksPerRotation)
-		if rotationsLeft <= 0 {
+		fmt.Println("setPoint: ", m.state.setPoint, ", pos: ", pos, ", ticksLeft: ", ticksLeft,
+	                ", rotationsLeft: ", rotationsLeft)
+		if math.Abs(rotationsLeft) <= 0.03 {
+			fmt.Println("turning off motor in rpmMonitorPass")
 			err := m.off(m.cancelCtx)
 			if err != nil {
 				m.logger.Warnf("error turning motor off from after hit set point: %v", err)
@@ -361,6 +365,7 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 		} else {
 			desiredRPM := m.state.desiredRPM
 			timeLeftSeconds := 60.0 * rotationsLeft / desiredRPM
+			fmt.Println("desiredRPM: ", desiredRPM, ", timeLeftSeconds: ", timeLeftSeconds)
 
 			if timeLeftSeconds > 0 {
 				if timeLeftSeconds < .5 {
@@ -370,6 +375,7 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 					desiredRPM /= 2
 				}
 			}
+			fmt.Println("final desiredRPM: ", desiredRPM)
 			m.rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime, desiredRPM, rotationsLeft, rpmDebug)
 		}
 	}
@@ -389,6 +395,7 @@ func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime in
 
 	if math.Abs(currentRPM) <= 0.001 {
 		if math.Abs(lastPowerPct) < 0.01 {
+			fmt.Println("Setting newPowerPct to 0.01! currentRPM is ", currentRPM, " and lastPowerPct is ", lastPowerPct)
 			newPowerPct = .01 * desiredRPM / math.Abs(desiredRPM)
 		} else {
 			newPowerPct = m.computeRamp(lastPowerPct, lastPowerPct*2)
@@ -399,6 +406,7 @@ func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime in
 		dOverC = math.Max(dOverC, -2)
 
 		neededPowerPct := lastPowerPct * dOverC
+		fmt.Println("rpmMonitorPassSetRpmInLock: neededPowerPct started at ", neededPowerPct)
 
 		if !math.Signbit(neededPowerPct) {
 			neededPowerPct = math.Max(neededPowerPct, 0.01)
@@ -407,8 +415,10 @@ func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime in
 			neededPowerPct = math.Min(neededPowerPct, -0.01)
 			neededPowerPct = math.Max(neededPowerPct, -1)
 		}
+		fmt.Println("rpmMonitorPassSetRpmInLock: neededPowerPct endedup at ", neededPowerPct)
 
 		newPowerPct = m.computeRamp(lastPowerPct, neededPowerPct)
+		fmt.Println("rpmMonitorPassSetRpmInLock: newPowerPct is ", neededPowerPct)
 	}
 
 	if newPowerPct != lastPowerPct {
@@ -416,7 +426,9 @@ func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime in
 			m.logger.Debugf("current rpm: %0.1f desiredRPM: %0.1f power: %0.1f -> %0.1f rot2go: %0.1f",
 				currentRPM, desiredRPM, lastPowerPct*100, newPowerPct*100, rotationsLeft)
 		}
-		err := m.setPower(m.cancelCtx, newPowerPct, true)
+		// If the underlying motor has dirflip set, it will go in the opposite direction from what
+		// we want. Make sure to ignore dirFlip if we're aiming for a specific encoder value.
+		err := m.setPower(m.cancelCtx, newPowerPct, true, map[string]interface{}{"ignoreDirFlip": true})
 		if err != nil {
 			m.logger.Warnf("rpm regulator cannot set power %s", err)
 		}
@@ -439,6 +451,7 @@ func (m *EncodedMotor) computeRamp(oldPower, newPower float64) float64 {
 // Both the RPM and the revolutions can be assigned negative values to move in a backwards direction.
 // Note: if both are negative the motor will spin in the forward direction.
 func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+	fmt.Println("received a GoFor!")
 	if rpm == 0 {
 		return motor.NewZeroRPMError()
 	}
@@ -473,7 +486,8 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 			m.stateMu.Unlock()
 			return nil
 		}
-		err := m.setPower(ctx, float64(d)*.06, true) // power of 6% is random
+		err := m.setPower(ctx, float64(d)*.06, true, nil) // power of 6% is random
+		fmt.Println("turning on motor in goForInternal")
 		m.stateMu.Unlock()
 		return err
 	}
@@ -488,6 +502,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	m.stateMu.Lock()
 	if d == 1 || d == -1 {
 		m.state.setPoint = pos + d*numTicks
+		fmt.Println("m.state.setPoint is now ", m.state.setPoint)
 	} else {
 		m.stateMu.Unlock()
 		panic("impossible")
@@ -502,7 +517,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	}
 	if !isOn {
 		// if we're off we start slow, otherwise we just set the desired rpm
-		err := m.setPower(ctx, float64(d)*0.03, true)
+		err := m.setPower(ctx, float64(d)*0.03, true, nil)
 		if err != nil {
 			m.stateMu.Unlock()
 			return err

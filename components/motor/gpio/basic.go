@@ -2,6 +2,7 @@ package gpio
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -159,19 +160,20 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 		errs = multierr.Combine(errs, m.EnablePinHigh.Set(ctx, true, extra))
 	}
 
+	_, shouldIgnoreDirFlip := extra["ignoreDirFlip"]
 	var pwmPin board.GPIOPin
 	switch {
 	case m.PWM != nil:
 		pwmPin = m.PWM
 	case powerPct >= 0.001:
 		pwmPin = m.B
-		if m.dirFlip {
+		if m.dirFlip && !shouldIgnoreDirFlip {
 			pwmPin = m.A
 		}
 		powerPct = 1.0 - math.Abs(powerPct) // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
 	case powerPct <= -0.001:
 		pwmPin = m.A
-		if m.dirFlip {
+		if m.dirFlip && !shouldIgnoreDirFlip {
 			pwmPin = m.B
 		}
 		powerPct = 1.0 - math.Abs(powerPct) // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
@@ -191,15 +193,18 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 // SetPower instructs the motor to operate at an rpm, where the sign of the rpm
 // indicates direction.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+	fmt.Println("Basic.SetPower being set to ", powerPct)
 	m.opMgr.CancelRunning(ctx)
 
 	if math.Abs(powerPct) <= 0.01 {
 		return m.Stop(ctx, extra)
 	}
 
+	_, shouldIgnoreDirFlip := extra["ignoreDirFlip"]
+
 	if m.Direction != nil {
 		x := !math.Signbit(powerPct)
-		if m.dirFlip {
+		if m.dirFlip && !shouldIgnoreDirFlip {
 			x = !x
 		}
 		return multierr.Combine(
@@ -210,7 +215,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	if m.A != nil && m.B != nil {
 		a := m.A
 		b := m.B
-		if m.dirFlip {
+		if m.dirFlip && !shouldIgnoreDirFlip {
 			a = m.B
 			b = m.A
 		}
