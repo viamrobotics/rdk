@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { grpc } from '@improbable-eng/grpc-web';
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { computeKeyboardBaseControls, BaseControlHelper } from '../rc/control_helpers';
 import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
 import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
@@ -25,7 +25,7 @@ type SpinTypes = 'Clockwise' | 'Counterclockwise'
 type Directions = 'Forwards' | 'Backwards'
 
 interface Emits {
-  (event: 'showcamera', value: string): void
+  (event: 'base-camera-state', value: Map<string, boolean>): void
 }
 
 const emit = defineEmits<Emits>();
@@ -41,6 +41,19 @@ const speed = ref(200);
 // deg/s
 const spinSpeed = ref(90);
 const angle = ref(0);
+
+const videoStreamStates = new Map<string, boolean>();
+const selectCameras = ref('');
+
+const initStreamState = () => {
+  for (const value of filterResources(props.resources, 'rdk', 'component', 'camera')) {
+    videoStreamStates.set(value.name, false);
+  }
+};
+
+onMounted(() => {
+  initStreamState();
+});
 
 const resetDiscreteState = () => {
   movementMode.value = 'Straight';
@@ -131,36 +144,51 @@ const baseRun = () => {
   }
 };
 
-const viewPreviewCamera = async (name: string, isOn: boolean) => {
-  if (isOn) {
-    try {
-      await addStream(name);
-    } catch (error) {
-      displayError(error as ServiceError);
-    }
-    return;
-  }
+const viewPreviewCamera = (name: string) => {
+  for (const [key, value] of videoStreamStates) {
+    const streamContainers = document.querySelector(`[data-stream="${key}"]`);
 
-  try {
-    await removeStream(name);
-  } catch (error) {
-    displayError(error as ServiceError);
+    // Only turn on if state is off
+    if (name.includes(key) && value === false) {
+      try {
+        // Only add stream if other components have not already
+        if (streamContainers?.classList.contains('hidden')) {
+          addStream(key);
+        }
+        videoStreamStates.set(key, true);
+        emit('base-camera-state', videoStreamStates);
+      } catch (error) {
+        displayError(error as ServiceError);
+      }
+    // Only turn off if state is on
+    } else if (!name.includes(key) && value === true) {
+      try {
+        // Only remove stream if other components are not using the stream
+        if (streamContainers?.classList.contains('hidden')) {
+          removeStream(key);
+        }
+        videoStreamStates.set(key, false);
+        emit('base-camera-state', videoStreamStates);
+      } catch (error) {
+        displayError(error as ServiceError);
+      }
+    }
   }
 };
 
 const handleTabSelect = (tab: Tabs) => {
   selectedItem.value = tab;
 
-  if (tab === 'Keyboard') {
-    viewPreviewCamera(props.name, true);
-  } else {
-    viewPreviewCamera(props.name, false);
+  /*
+   * deselect options from select cameras select
+   * TODO: handle better with xstate and reactivate on return
+   */
+  selectCameras.value = '';
+  viewPreviewCamera(selectCameras.value);
+
+  if (tab === 'Discrete') {
     resetDiscreteState();
   }
-};
-
-const handleSelectCamera = (event: string) => {
-  emit('showcamera', event);
 };
 
 </script>
@@ -196,7 +224,7 @@ const handleSelectCamera = (event: string) => {
         class="h-auto p-4"
       >
         <div class="grid grid-cols-2">
-          <div class="mt-2">
+          <div>
             <KeyboardInput
               :name="name"
               @keyboard-ctl="baseKeyboardCtl(name, $event)"
@@ -204,15 +232,17 @@ const handleSelectCamera = (event: string) => {
           </div>
           <div v-if="filterResources(resources, 'rdk', 'component', 'camera')">
             <v-select
+              v-model="selectCameras"
               class="mb-4"
               variant="multiple"
               placeholder="Select Cameras"
+              aria-label="Select Cameras"
               :options="
                 filterResources(resources, 'rdk', 'component', 'camera')
                   .map(({ name }) => name)
                   .join(',')
               "
-              @input="handleSelectCamera($event.detail.value)"
+              @input="viewPreviewCamera($event.detail.value)"
             />
             <template
               v-for="basecamera in filterResources(
@@ -226,7 +256,7 @@ const handleSelectCamera = (event: string) => {
               <div
                 v-if="basecamera"
                 :data-stream-preview="basecamera.name"
-                class="mb-4 border border-white"
+                :class="{ 'hidden': !videoStreamStates.get(basecamera.name) }"
               />
             </template>
           </div>
