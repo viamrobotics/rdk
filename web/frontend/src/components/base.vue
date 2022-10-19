@@ -42,18 +42,18 @@ const speed = ref(200);
 const spinSpeed = ref(90);
 const angle = ref(0);
 
-let videoStreamStates = new Map<string, boolean>();
-const selectCameras = ref('')
+const videoStreamStates = new Map<string, boolean>();
+const selectCameras = ref('');
 
 const initStreamState = () => {
-  for (var value of filterResources(props.resources, 'rdk', 'component', 'camera')) {
+  for (const value of filterResources(props.resources, 'rdk', 'component', 'camera')) {
     videoStreamStates.set(value.name, false);
   }
-}
+};
 
 onMounted(() => {
   initStreamState();
-})
+});
 
 const resetDiscreteState = () => {
   movementMode.value = 'Straight';
@@ -144,8 +144,8 @@ const baseRun = () => {
   }
 };
 
-const viewPreviewCamera = async (name: string) => {
-  for (let [key, value] of videoStreamStates) {
+const viewPreviewCamera = (name: string) => {
+  for (const [key, value] of videoStreamStates) {
     const streamContainers = document.querySelector(`[data-stream="${key}"]`);
 
     // Only turn on if state is off
@@ -153,7 +153,7 @@ const viewPreviewCamera = async (name: string) => {
       try {
         // Only add stream if other components have not already
         if (streamContainers?.classList.contains('hidden')) {
-          await addStream(key);
+          addStream(key);
         }
         videoStreamStates.set(key, true);
         emit('base-camera-state', videoStreamStates);
@@ -165,7 +165,7 @@ const viewPreviewCamera = async (name: string) => {
       try {
         // Only remove stream if other components are not using the stream
         if (streamContainers?.classList.contains('hidden')) {
-          await removeStream(key);
+          removeStream(key);
         }
         videoStreamStates.set(key, false);
         emit('base-camera-state', videoStreamStates);
@@ -178,11 +178,13 @@ const viewPreviewCamera = async (name: string) => {
 
 const handleTabSelect = (tab: Tabs) => {
   selectedItem.value = tab;
-  
-  // deselect options from select cameras select
-  // TODO: handle better with xstate and reactivate on return
+
+  /*
+   * deselect options from select cameras select
+   * TODO: handle better with xstate and reactivate on return
+   */
   selectCameras.value = '';
-  viewPreviewCamera(selectCameras.value);  
+  viewPreviewCamera(selectCameras.value);
 
   if (tab === 'Discrete') {
     resetDiscreteState();
@@ -230,11 +232,11 @@ const handleTabSelect = (tab: Tabs) => {
           </div>
           <div v-if="filterResources(resources, 'rdk', 'component', 'camera')">
             <v-select
+              v-model="selectCameras"
               class="mb-4"
               variant="multiple"
               placeholder="Select Cameras"
               aria-label="Select Cameras"
-              v-model="selectCameras"
               :options="
                 filterResources(resources, 'rdk', 'component', 'camera')
                   .map(({ name }) => name)
