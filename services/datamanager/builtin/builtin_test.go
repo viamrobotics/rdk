@@ -1033,15 +1033,18 @@ func TestDataCapture(t *testing.T) {
 			time.Sleep(captureWaitTime)
 			midCaptureFiles := getAllFiles(tmpDir)
 			midCaptureFilesSize := getTotalFileSize(midCaptureFiles)
-			// Let run for a second, if still on, more data should have been captured, flush data here.
+
 			time.Sleep(captureWaitTime)
 			updatedCaptureFiles := getAllFiles(tmpDir)
 			updatedCaptureFilesSize := getTotalFileSize(updatedCaptureFiles)
-			if !tc.newDisabledStatus && tc.initialDisabledStatus {
+			if tc.initialDisabledStatus && !tc.newDisabledStatus {
+				// capture disabled then enabled
 				test.That(t, len(updatedCaptureFiles), test.ShouldBeGreaterThan, len(initialCaptureFiles))
-			} else if !tc.newDisabledStatus && !tc.initialDisabledStatus {
+			} else if !tc.initialDisabledStatus && !tc.newDisabledStatus {
+				// capture always enabled
 				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, len(initialCaptureFiles))
 			} else {
+				// capture ends disabled
 				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, len(initialCaptureFiles))
 				test.That(t, updatedCaptureFilesSize, test.ShouldEqual, midCaptureFilesSize)
 			}
