@@ -1535,7 +1535,7 @@ func TestClientOperationIntercept(t *testing.T) {
 
 	ctx := context.Background()
 	var fakeArgs interface{}
-	fakeManager := operation.NewManager()
+	fakeManager := operation.NewManager(logger)
 	ctx, done := fakeManager.Create(ctx, "fake", fakeArgs)
 	defer done()
 	fakeOp := operation.Get(ctx)

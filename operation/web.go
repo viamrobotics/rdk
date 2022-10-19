@@ -54,7 +54,8 @@ func (m *Manager) UnaryServerInterceptor(
 ) (interface{}, error) {
 	meta, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return nil, errors.New("failed to pull metadata from context")
+		m.logger.Warnw("failed to pull metadata from context", "method", info.FullMethod)
+		return handler(ctx, req)
 	}
 	opid, err := GetOrCreateFromMetadata(meta)
 	if err != nil {
@@ -78,7 +79,8 @@ func (m *Manager) StreamServerInterceptor(
 	ctx := ss.Context()
 	meta, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return errors.New("failed to pull metadata from context")
+		m.logger.Warnw("failed to pull metadata from context", "method", info.FullMethod)
+		return handler(srv, &ssStreamContextWrapper{ss, ctx})
 	}
 	opid, err := GetOrCreateFromMetadata(meta)
 	if err != nil {
