@@ -29,18 +29,6 @@ func NewLazyEncodedImage(imgBytes []byte, mimeType string) image.Image {
 	}
 }
 
-type decodeSetting byte
-
-// LazyDecodeSetting is a key on context that can be used to determine
-// whether decoding should be deferred.
-const LazyDecodeSetting decodeSetting = iota
-
-// ContextWithLazyDecode provides a context that indicates to readers
-// that any decoding should instead return a LazyEncodedImage.
-func ContextWithLazyDecode(ctx context.Context) context.Context {
-	return context.WithValue(ctx, LazyDecodeSetting, true)
-}
-
 func (lei *LazyEncodedImage) decode() {
 	lei.decodeOnce.Do(func() {
 		defer func() {
