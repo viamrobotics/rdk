@@ -6,15 +6,11 @@ import (
 	"image"
 	"math"
 	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
@@ -178,98 +174,35 @@ func (jpcs *joinPointCloudSource) NextPointCloudNaive(ctx context.Context) (poin
 	if err != nil {
 		return nil, err
 	}
-
-	finalPoints := make(chan []pointcloud.PointAndData, 50)
-	activeReaders := int32(len(jpcs.sourceCameras))
-
+	cloudFuncs := make([]pointcloud.CloudAndOffsetFunc, len(jpcs.sourceCameras))
 	for i, cam := range jpcs.sourceCameras {
 		iCopy := i
 		camCopy := cam
-		utils.PanicCapturingGo(func() {
-			ctx, span := trace.StartSpan(ctx, "camera::joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[iCopy])
+		pcSrc := func(ctx context.Context) (pointcloud.PointCloud, spatialmath.Pose, error) {
+			ctx, span := trace.StartSpan(ctx, "camera::joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[iCopy]+"-NextPointCloud")
 			defer span.End()
-
-			defer func() {
-				atomic.AddInt32(&activeReaders, -1)
-			}()
-			pcSrc, err := func() (pointcloud.PointCloud, error) {
-				ctx, span := trace.StartSpan(ctx, "camera::joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[iCopy]+"-NextPointCloud")
-				defer span.End()
-				return camCopy.NextPointCloud(ctx)
-			}()
+			var framePose spatialmath.Pose
+			if jpcs.sourceNames[iCopy] != jpcs.targetName {
+				sourceFrame := referenceframe.NewPoseInFrame(jpcs.sourceNames[iCopy], spatialmath.NewZeroPose())
+				theTransform, err := fs.Transform(inputs, sourceFrame, jpcs.targetName)
+				if err != nil {
+					return nil, nil, err
+				}
+				framePose = theTransform.(*referenceframe.PoseInFrame).Pose()
+			}
+			pc, err := camCopy.NextPointCloud(ctx)
 			if err != nil {
-				panic(err) // TODO(erh) is there something better to do?
+				return nil, nil, err
 			}
-
-			sourceFrame := referenceframe.NewPoseInFrame(jpcs.sourceNames[iCopy], spatialmath.NewZeroPose())
-			theTransform, err := fs.Transform(inputs, sourceFrame, jpcs.targetName)
-			if err != nil {
-				panic(err) // TODO(erh) is there something better to do?
+			if pc == nil {
+				return nil, nil, errors.Errorf("camera %q returned a nil point cloud", jpcs.sourceNames[iCopy])
 			}
-
-			var wg sync.WaitGroup
-			const numLoops = 8
-			wg.Add(numLoops)
-			for loop := 0; loop < numLoops; loop++ {
-				f := func(loop int) {
-					defer wg.Done()
-					const batchSize = 500
-					batch := make([]pointcloud.PointAndData, 0, batchSize)
-					savedDualQuat := spatialmath.NewZeroPose()
-					pcSrc.Iterate(numLoops, loop, func(p r3.Vector, d pointcloud.Data) bool {
-						if jpcs.sourceNames[iCopy] != jpcs.targetName {
-							spatialmath.ResetPoseDQTranslation(savedDualQuat, p)
-							newPose := spatialmath.Compose(theTransform.(*referenceframe.PoseInFrame).Pose(), savedDualQuat)
-							p = newPose.Point()
-						}
-						batch = append(batch, pointcloud.PointAndData{P: p, D: d})
-						if len(batch) > batchSize {
-							finalPoints <- batch
-							batch = make([]pointcloud.PointAndData, 0, batchSize)
-						}
-						return true
-					})
-					finalPoints <- batch
-				}
-				loopCopy := loop
-				utils.PanicCapturingGo(func() { f(loopCopy) })
-			}
-			wg.Wait()
-		})
-	}
-
-	var pcTo pointcloud.PointCloud
-
-	dataLastTime := false
-	for dataLastTime || atomic.LoadInt32(&activeReaders) > 0 {
-		select {
-		case ps := <-finalPoints:
-			for _, p := range ps {
-				if pcTo == nil {
-					if p.D == nil {
-						pcTo = pointcloud.NewAppendOnlyOnlyPointsPointCloud(len(jpcs.sourceNames) * 640 * 800)
-					} else {
-						pcTo = pointcloud.NewWithPrealloc(len(jpcs.sourceNames) * 640 * 800)
-					}
-				}
-
-				myErr := pcTo.Set(p.P, p.D)
-				if myErr != nil {
-					err = myErr
-				}
-			}
-			dataLastTime = true
-		case <-time.After(5 * time.Millisecond):
-			dataLastTime = false
-			continue
+			return pc, framePose, nil
 		}
+		cloudFuncs[iCopy] = pcSrc
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	return pcTo, nil
+	return pointcloud.MergePointClouds(ctx, cloudFuncs, jpcs.logger)
 }
 
 func (jpcs *joinPointCloudSource) NextPointCloudICP(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -402,6 +335,9 @@ func (jpcs *joinPointCloudSource) Read(ctx context.Context) (image.Image, func()
 	pc, err := jpcs.NextPointCloud(ctx)
 	if err != nil {
 		return nil, nil, err
+	}
+	if jpcs.debug && pc != nil {
+		jpcs.logger.Debugf("joinPointCloudSource Read: number of points in pointcloud: %d", pc.Size())
 	}
 	img, dm, err := proj.PointCloudToRGBD(pc)
 	if err != nil {
