@@ -6,7 +6,6 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -67,7 +66,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 			return err
 		}
 
-		jsonFile, err := os.Create(filepath.Join(dst, "metadata", datum.GetId()+".json"))
+		jsonFile, err := os.Create(filepath.Join(dst, "metadata", md.GetId()+".json"))
 		if err != nil {
 			return err
 		}
@@ -141,8 +140,6 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 		// Write everything as json for now.
 		d := datum.GetData()
 		if d == nil {
-			// TODO: This should never happen. Should this notify user? Error? Or just skip?
-			fmt.Println("Received empty tabular data")
 			continue
 		}
 		m := d.AsMap()
