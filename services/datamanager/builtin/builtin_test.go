@@ -1003,8 +1003,9 @@ func TestDataCapture(t *testing.T) {
 			svcConfig, ok, err := getServiceConfig(testCfg)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, ok, test.ShouldBeTrue)
+
 			svcConfig.CaptureDisabled = tc.initialDisabledStatus
-			svcConfig.ScheduledSyncDisabled = false
+			svcConfig.ScheduledSyncDisabled = true
 			svcConfig.CaptureDir = tmpDir
 			err = dmsvc.Update(context.Background(), testCfg)
 			test.That(t, err, test.ShouldBeNil)
@@ -1016,7 +1017,6 @@ func TestDataCapture(t *testing.T) {
 			initialCaptureFiles := getAllFiles(tmpDir)
 			initialCaptureFilesSize := getTotalFileSize(initialCaptureFiles)
 			if !tc.initialDisabledStatus {
-				// TODO: check contents
 				test.That(t, len(initialCaptureFiles), test.ShouldBeGreaterThan, 0)
 				test.That(t, initialCaptureFilesSize, test.ShouldBeGreaterThan, 0)
 			} else {
@@ -1031,22 +1031,14 @@ func TestDataCapture(t *testing.T) {
 
 			// let run for a second
 			time.Sleep(captureWaitTime)
-			midCaptureFiles := getAllFiles(tmpDir)
-			midCaptureFilesSize := getTotalFileSize(midCaptureFiles)
 
 			time.Sleep(captureWaitTime)
 			updatedCaptureFiles := getAllFiles(tmpDir)
-			updatedCaptureFilesSize := getTotalFileSize(updatedCaptureFiles)
 			if tc.initialDisabledStatus && !tc.newDisabledStatus {
 				// capture disabled then enabled
 				test.That(t, len(updatedCaptureFiles), test.ShouldBeGreaterThan, len(initialCaptureFiles))
-			} else if !tc.initialDisabledStatus && !tc.newDisabledStatus {
-				// capture always enabled
-				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, len(initialCaptureFiles))
 			} else {
-				// capture ends disabled
 				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, len(initialCaptureFiles))
-				test.That(t, updatedCaptureFilesSize, test.ShouldEqual, midCaptureFilesSize)
 			}
 			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
 		})
