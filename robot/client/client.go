@@ -15,6 +15,7 @@ import (
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/protoutils"
@@ -25,7 +26,6 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
-	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -33,6 +33,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	framesystemparts "go.viam.com/rdk/robot/framesystem/parts"
+	googlegrpc "google.golang.org/grpc"
 )
 
 var (
@@ -71,6 +72,36 @@ type RobotClient struct {
 	closeContext context.Context
 }
 
+func (rc *RobotClient) handleUnaryDisconnect(
+	ctx context.Context,
+	method string,
+	req, reply interface{},
+	cc *googlegrpc.ClientConn,
+	invoker googlegrpc.UnaryInvoker,
+	opts ...googlegrpc.CallOption,
+) error {
+	if err := rc.checkConnected(); err != nil {
+		return status.Errorf(codes.Unavailable, err.Error())
+	}
+
+	return invoker(ctx, method, req, reply, cc, opts...)
+}
+
+func (rc *RobotClient) handleStreamDisconnect(
+	ctx context.Context,
+	desc *googlegrpc.StreamDesc,
+	cc *googlegrpc.ClientConn,
+	method string,
+	streamer googlegrpc.Streamer,
+	opts ...googlegrpc.CallOption,
+) (googlegrpc.ClientStream, error) {
+	if err := rc.checkConnected(); err != nil {
+		return nil, status.Errorf(codes.Unavailable, err.Error())
+	}
+
+	return streamer(ctx, desc, cc, method, opts...)
+}
+
 // New constructs a new RobotClient that is served at the given address. The given
 // context can be used to cancel the operation.
 func New(ctx context.Context, address string, logger golog.Logger, opts ...RobotClientOption) (*RobotClient, error) {
@@ -99,9 +130,16 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		resourceClients:         make(map[resource.Name]interface{}),
 		remoteNameMap:           make(map[resource.Name]resource.Name),
 	}
+
 	if err := rc.connect(ctx); err != nil {
 		return nil, err
 	}
+
+	// rOpts.dialOptions = append(
+	// 	rOpts.dialOptions,
+	// 	rpc.WithUnaryClientInterceptor(rc.handleUnaryDisconnect),
+	// 	rpc.WithStreamClientInterceptor(rc.handleStreamDisconnect),
+	// )
 
 	// refresh once to hydrate the robot.
 	if err := rc.Refresh(ctx); err != nil {
