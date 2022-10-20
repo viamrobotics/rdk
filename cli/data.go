@@ -48,25 +48,18 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		if err != nil {
 			return err
 		}
-		// TODO: change api to make metadata and data 1:1 so don't need to merge datum level metadata and capturemetadata
-		mds := resp.GetMetadata()
-		if len(mds) != 1 {
-			return errors.Errorf("expected a single metadata response, received %d", len(mds))
-		}
 		data := resp.GetData()
 		if len(data) != 1 {
 			return errors.Errorf("expected a single data response, received %d", len(data))
 		}
 
-		md := mds[0]
 		datum := data[0]
-
-		mdJsonBytes, err := protojson.Marshal(md)
+		mdJsonBytes, err := protojson.Marshal(datum.GetMetadata())
 		if err != nil {
 			return err
 		}
 
-		jsonFile, err := os.Create(filepath.Join(dst, "metadata", md.GetId()+".json"))
+		jsonFile, err := os.Create(filepath.Join(dst, "metadata", datum.GetMetadata().GetId()+".json"))
 		if err != nil {
 			return err
 		}
@@ -80,7 +73,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 			return err
 		}
 
-		dataFile, err := os.Create(filepath.Join(dst, "data", datum.GetId()+md.GetFileExt()))
+		dataFile, err := os.Create(filepath.Join(dst, "data", datum.GetMetadata().GetId()+datum.GetMetadata().GetFileExt()))
 		if _, err := io.Copy(dataFile, r); err != nil {
 			return err
 		}
