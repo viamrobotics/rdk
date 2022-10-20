@@ -36,6 +36,7 @@ import (
 	gotestutils "go.viam.com/utils/testutils"
 	"gonum.org/v1/gonum/num/quat"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 
 	"go.viam.com/rdk/components/arm"
@@ -51,6 +52,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
 	rgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -1510,6 +1512,50 @@ func TestRemoteClientDuplicate(t *testing.T) {
 	pos, err := resource1.(arm.Arm).EndPosition(context.Background(), nil)
 	test.That(t, err.Error(), test.ShouldEqual, "rpc error: code = Unknown desc = no arm with name (arm1)")
 	test.That(t, pos, test.ShouldBeNil)
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestClientOperationIntercept(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener1, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+
+	injectRobot := &inject.Robot{
+		ResourceNamesFunc:       func() []resource.Name { return []resource.Name{} },
+		ResourceRPCSubtypesFunc: func() []resource.RPCSubtype { return nil },
+	}
+
+	gServer := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener1)
+	defer gServer.Stop()
+
+	ctx := context.Background()
+	var fakeArgs interface{}
+	fakeManager := operation.NewManager(logger)
+	ctx, done := fakeManager.Create(ctx, "fake", fakeArgs)
+	defer done()
+	fakeOp := operation.Get(ctx)
+	test.That(t, fakeOp, test.ShouldNotBeNil)
+
+	client, err := New(ctx, listener1.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	injectRobot.StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+		meta, ok := metadata.FromIncomingContext(ctx)
+		test.That(t, ok, test.ShouldBeTrue)
+		receivedOpID, err := operation.GetOrCreateFromMetadata(meta)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, receivedOpID.String(), test.ShouldEqual, fakeOp.ID.String())
+		return []robot.Status{}, nil
+	}
+
+	resp, err := client.Status(ctx, []resource.Name{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(resp), test.ShouldEqual, 0)
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
