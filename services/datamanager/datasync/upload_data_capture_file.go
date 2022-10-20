@@ -21,10 +21,7 @@ func uploadDataCaptureFile(ctx context.Context, pt progressTracker, client v1.Da
 		return err
 	}
 
-	captureMD, err := f.ReadMetadata()
-	if err != nil {
-		return err
-	}
+	captureMD := f.ReadMetadata()
 
 	md := &v1.UploadMetadata{
 		PartId:           partID,

@@ -276,7 +276,6 @@ func validateReadings(t *testing.T, filePath string, n int) {
 	test.That(t, err, test.ShouldBeNil)
 	f, err := datacapture.ReadFile(file)
 	test.That(t, err, test.ShouldBeNil)
-	_, _ = f.ReadMetadata()
 	for i := 0; i < n; i++ {
 		read, err := f.ReadNext()
 		if err != nil {

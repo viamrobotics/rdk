@@ -182,8 +182,7 @@ func TestNewDataManager(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	f, err := datacapture.ReadFile(file)
 	test.That(t, err, test.ShouldBeNil)
-	md, err := f.ReadMetadata()
-	test.That(t, err, test.ShouldBeNil)
+	md := f.ReadMetadata()
 	test.That(t, md.Tags[0], test.ShouldEqual, "a")
 	test.That(t, md.Tags[1], test.ShouldEqual, "b")
 

@@ -4,7 +4,6 @@ package datacapture
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -32,11 +31,12 @@ const (
 // length delimited protobuf messages, where the first message is the CaptureMetadata for the file, and ensuing
 // messages contain the captured metadata.
 type File struct {
-	path   string
-	lock   *sync.Mutex
-	file   *os.File
-	writer *bufio.Writer
-	size   int64
+	path     string
+	lock     *sync.Mutex
+	file     *os.File
+	writer   *bufio.Writer
+	size     int64
+	metadata *v1.DataCaptureMetadata
 }
 
 // ReadFile creates a File struct from a passed os.File previously constructed using NewFile.
@@ -49,17 +49,18 @@ func ReadFile(f *os.File) (*File, error) {
 		return nil, err
 	}
 
-	r := &v1.DataCaptureMetadata{}
-	if _, err := pbutil.ReadDelimited(f, r); err != nil {
+	md := &v1.DataCaptureMetadata{}
+	if _, err := pbutil.ReadDelimited(f, md); err != nil {
 		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read DataCaptureMetadata from %s", f.Name()))
 	}
 
 	ret := File{
-		path:   f.Name(),
-		lock:   &sync.Mutex{},
-		file:   f,
-		writer: bufio.NewWriter(f),
-		size:   finfo.Size(),
+		path:     f.Name(),
+		lock:     &sync.Mutex{},
+		file:     f,
+		writer:   bufio.NewWriter(f),
+		size:     finfo.Size(),
+		metadata: md,
 	}
 
 	return &ret, nil
@@ -94,38 +95,8 @@ func NewFile(captureDir string, md *v1.DataCaptureMetadata) (*File, error) {
 }
 
 // ReadMetadata reads and returns the metadata in f.
-func (f *File) ReadMetadata() (*v1.DataCaptureMetadata, error) {
-	f.lock.Lock()
-	defer f.lock.Unlock()
-	currOffset, err := f.file.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return nil, err
-	}
-
-	// Reset file pointer to 0, so we're reading the first message in the file.
-	if _, err := f.file.Seek(0, 0); err != nil {
-		return nil, err
-	}
-
-	r := &v1.DataCaptureMetadata{}
-	if _, err := pbutil.ReadDelimited(f.file, r); err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read DataCaptureMetadata from %s", f.file.Name()))
-	}
-
-	if r.GetType() == v1.DataType_DATA_TYPE_UNSPECIFIED {
-		return nil, errors.Errorf("file %s does not contain valid metadata", f.file.Name())
-	}
-
-	// If we were already iterating through SensorData, return the offset to the last index of the SensorData.
-	// If had not called ReadNext yet, leave file pointer at end of metadata message. This ensures ReadNext
-	// will return the first sensor data, not the initial metadata message.
-	if currOffset != 0 {
-		if _, err := f.file.Seek(currOffset, 0); err != nil {
-			return nil, err
-		}
-	}
-
-	return r, nil
+func (f *File) ReadMetadata() *v1.DataCaptureMetadata {
+	return f.metadata
 }
 
 // ReadNext returns the next SensorData reading.
