@@ -327,7 +327,7 @@ func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.C
 		return collector, &componentMetadata, nil
 	}
 
-	return nil, nil, errors.Errorf("no collector was found with config %s", attributes)
+	return nil, nil, errors.Errorf("no collector was found with config %v", attributes)
 }
 
 func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, cfg *config.Config) error {
