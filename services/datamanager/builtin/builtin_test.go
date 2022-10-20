@@ -196,57 +196,6 @@ func TestNewDataManager(t *testing.T) {
 	test.That(t, oldSize, test.ShouldEqual, newSize)
 }
 
-func TestCaptureDisabled(t *testing.T) {
-	// Empty config at initialization.
-	captureDir := "/tmp/capture"
-	dmsvc := newTestDataManager(t, "arm1", "")
-	// Set capture parameters in Update.
-	testCfg := setupConfig(t, configPath)
-	dmCfg, err := getDataManagerConfig(testCfg)
-	test.That(t, err, test.ShouldBeNil)
-
-	defer resetFolder(t, captureDir)
-	err = dmsvc.Update(context.Background(), testCfg)
-	test.That(t, err, test.ShouldBeNil)
-	time.Sleep(captureWaitTime)
-
-	// Call Update with a disabled capture and give the collector time to write to file.
-	dmCfg.CaptureDisabled = true
-	err = dmsvc.Update(context.Background(), testCfg)
-	test.That(t, err, test.ShouldBeNil)
-	time.Sleep(captureWaitTime)
-
-	// Verify that the collector wrote to its file.
-	armDir := captureDir + "/arm/arm1/EndPosition"
-	filesInArmDir, err := readDir(t, armDir)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(filesInArmDir), test.ShouldEqual, 1)
-	info, err := filesInArmDir[0].Info()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, info.Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
-
-	// Re-enable capture.
-	dmCfg.CaptureDisabled = false
-	err = dmsvc.Update(context.Background(), testCfg)
-	test.That(t, err, test.ShouldBeNil)
-	time.Sleep(captureWaitTime)
-
-	// Close service.
-	err = dmsvc.Close(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-
-	// Verify that started collection began in a new file when it was re-enabled.
-	filesInArmDir, err = readDir(t, armDir)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(filesInArmDir), test.ShouldEqual, 2)
-
-	// Verify that something different was written to both files.
-	test.That(t, filesInArmDir[0], test.ShouldNotEqual, filesInArmDir[1])
-	info, err = filesInArmDir[1].Info()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, info.Size(), test.ShouldBeGreaterThan, emptyFileBytesSize)
-}
-
 func TestNewRemoteDataManager(t *testing.T) {
 	// Empty config at initialization.
 	captureDir := "/tmp/capture"
