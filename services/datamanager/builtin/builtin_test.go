@@ -959,7 +959,7 @@ func TestDataCapture(t *testing.T) {
 			err = dmsvc.Update(context.Background(), testCfg)
 			test.That(t, err, test.ShouldBeNil)
 
-			// let run for a second
+			// let run for a moment
 			time.Sleep(captureWaitTime)
 
 			// Check if data has been captured (or not) as we'd expect.
@@ -979,7 +979,7 @@ func TestDataCapture(t *testing.T) {
 			err = dmsvc.Update(context.Background(), testCfg)
 			test.That(t, err, test.ShouldBeNil)
 
-			// let run for a second
+			// let run for a moment
 			time.Sleep(captureWaitTime)
 			midCaptureFiles := getAllFiles(tmpDir)
 			midCaptureFilesSize := getTotalFileSize(midCaptureFiles)
