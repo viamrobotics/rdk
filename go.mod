@@ -2,8 +2,6 @@ module go.viam.com/rdk
 
 go 1.18
 
-replace go.viam.com/api => /Users/aaroncasas/code/api
-
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
 	github.com/CPRT/roboclaw v0.0.0-20190825181223-76871438befc
@@ -72,7 +70,7 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.23.0
-	go.viam.com/api v0.1.3-0.20221018164547-edd8f6fe3f79
+	go.viam.com/api v0.1.3-0.20221020191126-5944baa72eb4
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
 	go.viam.com/utils v0.0.6-0.20221007203851-d4ebf5ac4bd5
