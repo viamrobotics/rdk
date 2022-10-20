@@ -1016,6 +1016,7 @@ func TestDataCapture(t *testing.T) {
 			// Check if data has been captured (or not) as we'd expect.
 			initialCaptureFiles := getAllFiles(tmpDir)
 			initialCaptureFilesSize := getTotalFileSize(initialCaptureFiles)
+
 			if !tc.initialDisabledStatus {
 				test.That(t, len(initialCaptureFiles), test.ShouldBeGreaterThan, 0)
 				test.That(t, initialCaptureFilesSize, test.ShouldBeGreaterThan, 0)
@@ -1031,14 +1032,23 @@ func TestDataCapture(t *testing.T) {
 
 			// let run for a second
 			time.Sleep(captureWaitTime)
+			midCaptureFiles := getAllFiles(tmpDir)
+			midCaptureFilesSize := getTotalFileSize(midCaptureFiles)
 
 			time.Sleep(captureWaitTime)
+
 			updatedCaptureFiles := getAllFiles(tmpDir)
+			updatedCaptureFilesSize := getTotalFileSize(updatedCaptureFiles)
 			if tc.initialDisabledStatus && !tc.newDisabledStatus {
 				// capture disabled then enabled
 				test.That(t, len(updatedCaptureFiles), test.ShouldBeGreaterThan, len(initialCaptureFiles))
-			} else {
+			} else if !tc.initialDisabledStatus && !tc.newDisabledStatus {
+				// capture always enabled
 				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, len(initialCaptureFiles))
+			} else {
+				// capture starts disabled/enabled and ends disabled
+				test.That(t, len(updatedCaptureFiles), test.ShouldEqual, len(initialCaptureFiles))
+				test.That(t, updatedCaptureFilesSize, test.ShouldEqual, midCaptureFilesSize)
 			}
 			test.That(t, dmsvc.Close(context.Background()), test.ShouldBeNil)
 		})
