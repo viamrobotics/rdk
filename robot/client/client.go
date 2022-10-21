@@ -72,6 +72,10 @@ type RobotClient struct {
 	closeContext context.Context
 }
 
+func needsConnectionCheck(method string) bool {
+	return !strings.Contains(method, "proto.rpc.webrtc.v1.SignalingService")
+}
+
 func (rc *RobotClient) handleUnaryDisconnect(
 	ctx context.Context,
 	method string,
@@ -80,10 +84,12 @@ func (rc *RobotClient) handleUnaryDisconnect(
 	invoker googlegrpc.UnaryInvoker,
 	opts ...googlegrpc.CallOption,
 ) error {
-	if err := rc.checkConnected(); err != nil {
-		return status.Errorf(codes.Unavailable, err.Error())
+	rc.Logger().Infow(">>> checking connection!!", "method", method)
+	if needsConnectionCheck(method) {
+		if err := rc.checkConnected(); err != nil {
+			return status.Errorf(codes.Unavailable, err.Error())
+		}
 	}
-
 	return invoker(ctx, method, req, reply, cc, opts...)
 }
 
@@ -95,10 +101,12 @@ func (rc *RobotClient) handleStreamDisconnect(
 	streamer googlegrpc.Streamer,
 	opts ...googlegrpc.CallOption,
 ) (googlegrpc.ClientStream, error) {
-	if err := rc.checkConnected(); err != nil {
-		return nil, status.Errorf(codes.Unavailable, err.Error())
+	rc.Logger().Infow(">>> checking connection!!", "method", method)
+	if needsConnectionCheck(method) {
+		if err := rc.checkConnected(); err != nil {
+			return nil, status.Errorf(codes.Unavailable, err.Error())
+		}
 	}
-
 	return streamer(ctx, desc, cc, method, opts...)
 }
 
@@ -131,15 +139,15 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		remoteNameMap:           make(map[resource.Name]resource.Name),
 	}
 
+	rc.dialOptions = append(
+		rc.dialOptions,
+		rpc.WithUnaryClientInterceptor(rc.handleUnaryDisconnect),
+		rpc.WithStreamClientInterceptor(rc.handleStreamDisconnect),
+	)
+
 	if err := rc.connect(ctx); err != nil {
 		return nil, err
 	}
-
-	// rOpts.dialOptions = append(
-	// 	rOpts.dialOptions,
-	// 	rpc.WithUnaryClientInterceptor(rc.handleUnaryDisconnect),
-	// 	rpc.WithStreamClientInterceptor(rc.handleStreamDisconnect),
-	// )
 
 	// refresh once to hydrate the robot.
 	if err := rc.Refresh(ctx); err != nil {
