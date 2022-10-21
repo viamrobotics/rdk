@@ -106,13 +106,6 @@ func (s *Source) Read(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, err
 	}
 
-	for res == nil {
-		res, err = s.NextResult(ctx)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
 	duration := time.Since(start)
 	fps := 1. / duration.Seconds()
 	ovImg, err := Overlay(res.OriginalImage, res.Detections)
