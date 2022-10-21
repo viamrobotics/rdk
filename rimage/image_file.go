@@ -31,7 +31,7 @@ import (
 var RGBABitmapMagicNumber = []byte("RGBA")
 
 // RawRGBAHeaderLength is the length of our custom header for raw RGBA data
-// in bytes. See above as to why
+// in bytes. See above as to why.
 const RawRGBAHeaderLength = 12
 
 // readImageFromFile extracts the RGB, Z16, or raw depth data from an image file.

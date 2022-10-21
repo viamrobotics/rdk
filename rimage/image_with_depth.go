@@ -189,7 +189,7 @@ func newImageWithDepth(ctx context.Context, colorFN, depthFN string, isAligned b
 		return nil, errors.Wrapf(err, "cannot read color file (%s)", colorFN)
 	}
 
-	dm, err := NewDepthMapFromFile(context.Background(), depthFN)
+	dm, err := NewDepthMapFromFile(ctx, depthFN)
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot read depth file (%s)", depthFN)
 	}

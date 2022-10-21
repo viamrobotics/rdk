@@ -29,7 +29,7 @@ func init() {
 	golog.Global().Debugf("out dir: %q", outDir)
 }
 
-//nolint:dupl
+
 func TestResizeColor(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
 	test.That(t, err, test.ShouldBeNil)
@@ -54,7 +54,7 @@ func TestResizeColor(t *testing.T) {
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
-//nolint:dupl
+
 func TestResizeDepth(t *testing.T) {
 	img, err := rimage.NewDepthMapFromFile(
 		context.Background(), artifact.MustPath("rimage/board1_gray.png"))
@@ -145,7 +145,7 @@ func TestRotateDepthSource(t *testing.T) {
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
-//nolint:dupl
+
 func BenchmarkColorRotate(b *testing.B) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
 	test.That(b, err, test.ShouldBeNil)
@@ -165,7 +165,7 @@ func BenchmarkColorRotate(b *testing.B) {
 	test.That(b, source.Close(context.Background()), test.ShouldBeNil)
 }
 
-//nolint:dupl
+
 func BenchmarkDepthRotate(b *testing.B) {
 	img, err := rimage.NewDepthMapFromFile(
 		context.Background(), artifact.MustPath("rimage/board1.dat.gz"))

@@ -144,7 +144,10 @@ func TestDepthRotate90(t *testing.T) {
 }
 
 func TestToGray16Picture(t *testing.T) {
-	iwd, err := newImageWithDepth(context.Background(), artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
+	iwd, err := newImageWithDepth(
+		context.Background(),
+		artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false,
+	)
 	test.That(t, err, test.ShouldBeNil)
 	gimg := iwd.Depth.ToGray16Picture()
 
@@ -280,7 +283,10 @@ func TestDepthMapStats(t *testing.T) {
 }
 
 func TestDepthMap_ConvertDepthMapToLuminanceFloat(t *testing.T) {
-	iwd, err := newImageWithDepth(context.Background(), artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
+	iwd, err := newImageWithDepth(
+		context.Background(),
+		artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false,
+	)
 	test.That(t, err, test.ShouldBeNil)
 	fimg := iwd.Depth.ConvertDepthMapToLuminanceFloat()
 	nRows, nCols := fimg.Dims()
