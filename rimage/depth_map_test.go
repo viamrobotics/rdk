@@ -3,6 +3,7 @@ package rimage
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"image"
 	"image/color"
 	"image/png"
@@ -49,7 +50,7 @@ func TestRawDepthMap(t *testing.T) {
 }
 
 func TestDepthMap(t *testing.T) {
-	m, err := NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
+	m, err := NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, m.Width(), test.ShouldEqual, 1280)
@@ -63,7 +64,7 @@ func TestDepthMap(t *testing.T) {
 
 	img, _, err := image.Decode(bufio.NewReader(&buf))
 	test.That(t, err, test.ShouldBeNil)
-	m, err = ConvertImageToDepthMap(img)
+	m, err = ConvertImageToDepthMap(context.Background(), img)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Width(), test.ShouldEqual, 1280)
 	test.That(t, m.Height(), test.ShouldEqual, 720)
@@ -75,7 +76,7 @@ func TestDepthMap(t *testing.T) {
 	err = WriteImageToFile(fn, m)
 	test.That(t, err, test.ShouldBeNil)
 
-	m, err = NewDepthMapFromFile(fn)
+	m, err = NewDepthMapFromFile(context.Background(), fn)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Width(), test.ShouldEqual, 1280)
 	test.That(t, m.Height(), test.ShouldEqual, 720)
@@ -84,7 +85,7 @@ func TestDepthMap(t *testing.T) {
 }
 
 func TestCloneDepthMap(t *testing.T) {
-	m, err := NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
+	m, err := NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	mm := m.Clone()
@@ -143,7 +144,7 @@ func TestDepthRotate90(t *testing.T) {
 }
 
 func TestToGray16Picture(t *testing.T) {
-	iwd, err := newImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
+	iwd, err := newImageWithDepth(context.Background(), artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
 	gimg := iwd.Depth.ToGray16Picture()
 
@@ -279,7 +280,7 @@ func TestDepthMapStats(t *testing.T) {
 }
 
 func TestDepthMap_ConvertDepthMapToLuminanceFloat(t *testing.T) {
-	iwd, err := newImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
+	iwd, err := newImageWithDepth(context.Background(), artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
 	fimg := iwd.Depth.ConvertDepthMapToLuminanceFloat()
 	nRows, nCols := fimg.Dims()

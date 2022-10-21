@@ -3,8 +3,6 @@ package utils
 import (
 	"fmt"
 	"strings"
-
-	rutils "go.viam.com/utils"
 )
 
 const (
@@ -35,16 +33,6 @@ const (
 
 	// MimeTypeDefault used if mimetype cannot be inferred.
 	MimeTypeDefault = "application/octet-stream"
-)
-
-// SupportedMimeTypes is a set of the currently supported MIME types.
-var SupportedMimeTypes rutils.StringSet = rutils.NewStringSet(
-	MimeTypeRawRGBA,
-	MimeTypeJPEG,
-	MimeTypePCD,
-	MimeTypePNG,
-	MimeTypeQOI,
-	MimeTypeTabular,
 )
 
 // WithLazyMIMEType attaches the lazy suffix to a MIME.

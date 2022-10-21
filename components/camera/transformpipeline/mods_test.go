@@ -56,7 +56,8 @@ func TestResizeColor(t *testing.T) {
 
 //nolint:dupl
 func TestResizeDepth(t *testing.T) {
-	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray.png"))
+	img, err := rimage.NewDepthMapFromFile(
+		context.Background(), artifact.MustPath("rimage/board1_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	am := config.AttributeMap{
@@ -112,7 +113,8 @@ func TestRotateColorSource(t *testing.T) {
 }
 
 func TestRotateDepthSource(t *testing.T) {
-	pc, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1.dat.gz"))
+	pc, err := rimage.NewDepthMapFromFile(
+		context.Background(), artifact.MustPath("rimage/board1.dat.gz"))
 	test.That(t, err, test.ShouldBeNil)
 
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: pc}, prop.Video{})
@@ -126,7 +128,7 @@ func TestRotateDepthSource(t *testing.T) {
 	err = rimage.WriteImageToFile(outDir+"/test_rotate_depth_source.png", rawImage)
 	test.That(t, err, test.ShouldBeNil)
 
-	dm, err := rimage.ConvertImageToDepthMap(rawImage)
+	dm, err := rimage.ConvertImageToDepthMap(context.Background(), rawImage)
 	test.That(t, err, test.ShouldBeNil)
 
 	for x := 0; x < pc.Width(); x++ {
@@ -165,7 +167,8 @@ func BenchmarkColorRotate(b *testing.B) {
 
 //nolint:dupl
 func BenchmarkDepthRotate(b *testing.B) {
-	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1.dat.gz"))
+	img, err := rimage.NewDepthMapFromFile(
+		context.Background(), artifact.MustPath("rimage/board1.dat.gz"))
 	test.That(b, err, test.ShouldBeNil)
 
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: img}, prop.Video{})

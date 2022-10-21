@@ -78,7 +78,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 	}
 	r := &inject.Robot{}
 
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray.png"))
+	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board1_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: dm}, prop.Video{})
 	cam, err := camera.NewFromSource(context.Background(), source, nil, camera.DepthStream)
@@ -133,7 +133,7 @@ func TestTransformPipelineDepth2(t *testing.T) {
 	}
 	r := &inject.Robot{}
 
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray.png"))
+	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board1_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: dm}, prop.Video{})
 	// first depth transform
