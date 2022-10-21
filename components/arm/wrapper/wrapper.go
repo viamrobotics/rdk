@@ -28,6 +28,7 @@ type AttrConfig struct {
 	ArmName   string `json:"arm-name"`
 }
 
+// Validate ensures all parts of the config are valid.
 func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	var deps []string
 	if cfg.ArmName == "" {
