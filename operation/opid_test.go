@@ -4,12 +4,15 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 )
 
 func TestBasic(t *testing.T) {
 	ctx := context.Background()
-	h := NewManager()
+
+	logger := golog.NewTestLogger(t)
+	h := NewManager(logger)
 	o := Get(ctx)
 	test.That(t, o, test.ShouldBeNil)
 

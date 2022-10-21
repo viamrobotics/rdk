@@ -2,6 +2,7 @@ package gpiostepper
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -148,6 +149,21 @@ func Test1(t *testing.T) {
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0)
+	})
+	t.Run("Ensure stop called when gofor is interrupted", func(t *testing.T) {
+		ctx := context.Background()
+		var wg sync.WaitGroup
+		ctx, cancel := context.WithCancel(ctx)
+		wg.Add(1)
+		go func() {
+			m.GoFor(ctx, 100, 100, map[string]interface{}{})
+			wg.Done()
+		}()
+		cancel()
+		wg.Wait()
+
+		test.That(t, ctx.Err(), test.ShouldNotBeNil)
+		test.That(t, m.targetStepsPerSecond, test.ShouldEqual, 0)
 	})
 
 	t.Run("motor testing with large # of revolutions", func(t *testing.T) {

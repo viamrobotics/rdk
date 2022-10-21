@@ -2,9 +2,11 @@ package operation
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 )
 
@@ -54,13 +56,11 @@ func (sm *SingleOperationManager) New(ctx context.Context) (context.Context, fun
 	ctx = context.WithValue(ctx, somCtxKeySingleOp, theOp)
 
 	theOp.ctx, theOp.cancelFunc = context.WithCancel(ctx)
-	theOp.waitCh = make(chan bool)
 	sm.currentOp = theOp
 	sm.mu.Unlock()
 
 	return theOp.ctx, func() {
 		if !theOp.closed {
-			close(theOp.waitCh)
 			theOp.closed = true
 		}
 		sm.mu.Lock()
@@ -88,12 +88,28 @@ type IsPoweredInterface interface {
 }
 
 // WaitTillNotPowered waits until IsPowered returns false.
-func (sm *SingleOperationManager) WaitTillNotPowered(ctx context.Context, pollTime time.Duration, powered IsPoweredInterface) error {
+func (sm *SingleOperationManager) WaitTillNotPowered(ctx context.Context, pollTime time.Duration, powered IsPoweredInterface,
+	stop func(context.Context, map[string]interface{}) error,
+) (err error) {
+	// Defers a function that will stop and clean up if the context errors
+	defer func(ctx context.Context) {
+		var errStop error
+		if errors.Is(ctx.Err(), context.Canceled) {
+			sm.mu.Lock()
+			oldOp := sm.currentOp == ctx.Value(somCtxKeySingleOp)
+			sm.mu.Unlock()
+
+			if oldOp || sm.currentOp == nil {
+				errStop = stop(ctx, map[string]interface{}{})
+			}
+		}
+		err = multierr.Combine(ctx.Err(), errStop)
+	}(ctx)
 	return sm.WaitForSuccess(
 		ctx,
 		pollTime,
-		func(ctx context.Context) (bool, error) {
-			res, _, err := powered.IsPowered(ctx, nil)
+		func(ctx context.Context) (res bool, err error) {
+			res, _, err = powered.IsPowered(ctx, nil)
 			return !res, err
 		},
 	)
@@ -132,7 +148,6 @@ func (sm *SingleOperationManager) cancelInLock(ctx context.Context) {
 	}
 
 	op.cancelFunc()
-	<-op.waitCh
 
 	sm.currentOp = nil
 }
@@ -140,6 +155,5 @@ func (sm *SingleOperationManager) cancelInLock(ctx context.Context) {
 type anOp struct {
 	ctx        context.Context
 	cancelFunc context.CancelFunc
-	waitCh     chan bool
 	closed     bool
 }
