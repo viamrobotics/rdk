@@ -16,10 +16,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-func NewMIMETypeNotProvidedError() error {
-	return errors.New("no MIME type set in context")
-}
-
 func checkMimeType(ctx context.Context, data []byte) (string, error) {
 	detectedMimeType := http.DetectContentType(data)
 	requestedMime := gostream.MIMETypeHint(ctx, "")
