@@ -36,15 +36,18 @@ func (config *Config) Validate(path string) ([]string, error) {
 	var deps []string
 
 	if config.WidthMM == 0 {
-		return nil, errors.New("need a width_mm for a wheeled base")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "width_mm")
 	}
 
 	if config.WheelCircumferenceMM == 0 {
-		return nil, errors.New("need a wheel_circumference_mm for a wheeled base")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "wheel_circumference_mm")
 	}
 
-	if len(config.Left) == 0 || len(config.Right) == 0 {
-		return nil, errors.New("need left and right motors")
+	if len(config.Left) == 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "left")
+	}
+	if len(config.Right) == 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "right")
 	}
 
 	if len(config.Left) != len(config.Right) {
