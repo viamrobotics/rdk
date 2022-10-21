@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+
 	// registers all components.
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
@@ -1443,7 +1444,15 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 	test.That(t, r, test.ShouldNotBeNil)
 
 	noBase, err := r.ResourceByName(base.Named("fake0"))
-	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(base.Named("fake0")))
+	test.That(
+		t,
+		err,
+		test.ShouldBeError,
+		rutils.NewResourceGetError(
+			base.Named("fake0"),
+			errors.New("component build error: unknown component type: rdk:component:base and/or model: random"),
+		),
+	)
 	test.That(t, noBase, test.ShouldBeNil)
 
 	noSvc, err := r.ResourceByName(datamanager.Named("fake1"))
