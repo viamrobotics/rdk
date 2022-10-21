@@ -136,6 +136,6 @@ func (s *Source) NextResult(ctx context.Context) (*Result, error) {
 	case result := <-s.pipelineOutput:
 		return result, result.Err
 	case <-time.After(WaitForMs * time.Millisecond):
-		return nil, errors.New("nothing on channel after 2 seconds")
+		return nil, errors.Errorf("nothing on channel after %v ms", WaitForMs)
 	}
 }

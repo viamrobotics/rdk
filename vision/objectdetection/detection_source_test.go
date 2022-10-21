@@ -21,9 +21,6 @@ func TestDetectionSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	src, err := camera.NewFromReader(context.Background(), &videosource.StaticSource{ColorImg: sourceImg}, nil, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
-	outImg, _, err := camera.ReadImage(context.Background(), src)
-	test.That(t, outImg, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeNil)
 
 	// make the preprocessing function
 	p, err := objectdetection.RemoveColorChannel("b")
