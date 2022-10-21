@@ -60,7 +60,7 @@ func (h *segmentTestHelper) Process(
 	t.Helper()
 	var err error
 	im := rimage.ConvertImage(img)
-	dm, err := rimage.ConvertImageToDepthMap(img2)
+	dm, err := rimage.ConvertImageToDepthMap(context.Background(), img2)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)
@@ -166,7 +166,7 @@ func (h *gripperPlaneTestHelper) Process(
 	t.Helper()
 	var err error
 	im := rimage.ConvertImage(img)
-	dm, err := rimage.ConvertImageToDepthMap(img2)
+	dm, err := rimage.ConvertImageToDepthMap(context.Background(), img2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)
 

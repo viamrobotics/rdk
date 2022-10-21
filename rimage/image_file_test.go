@@ -58,6 +58,19 @@ func TestEncodeImage(t *testing.T) {
 
 	var bufJPEG bytes.Buffer
 	test.That(t, jpeg.Encode(&bufJPEG, img, nil), test.ShouldBeNil)
+
+	t.Run("lazy", func(t *testing.T) {
+		// fast
+		lazyImg := NewLazyEncodedImage(buf.Bytes(), "hehe")
+		encoded, err := EncodeImage(context.Background(), lazyImg, "hehe")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, encoded, test.ShouldResemble, buf.Bytes())
+
+		lazyImg = NewLazyEncodedImage(buf.Bytes(), "hehe")
+		encoded, err = EncodeImage(context.Background(), lazyImg, utils.WithLazyMIMEType("hehe"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, encoded, test.ShouldResemble, buf.Bytes())
+	})
 }
 
 func TestRawRGBAEncodingDecoding(t *testing.T) {

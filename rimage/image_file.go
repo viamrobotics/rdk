@@ -24,12 +24,14 @@ import (
 )
 
 // RGBABitmapMagicNumber represents the magic number for our custom header
-// for raw RGBA data. See the comments in DecodeImage and EncodeImage for
-// more information.
+// for raw RGBA data. The header is composed of this magic number followed by
+// a 4-bit line of the width as a uint32 number and another for the height. Credit to
+// Ben Zotto for inventing this formulation
+// https://bzotto.medium.com/introducing-the-rgba-bitmap-file-format-4a8a94329e2c
 var RGBABitmapMagicNumber = []byte("RGBA")
 
 // RawRGBAHeaderLength is the length of our custom header for raw RGBA data
-// in bytes.
+// in bytes. See above as to why
 const RawRGBAHeaderLength = 12
 
 // readImageFromFile extracts the RGB, Z16, or raw depth data from an image file.
@@ -63,12 +65,12 @@ func NewImageFromFile(fn string) (*Image, error) {
 }
 
 // NewDepthMapFromFile extract the depth map from a Z16 image file or a .dat image file.
-func NewDepthMapFromFile(fn string) (*DepthMap, error) {
+func NewDepthMapFromFile(ctx context.Context, fn string) (*DepthMap, error) {
 	img, err := readImageFromFile(fn)
 	if err != nil {
 		return nil, err
 	}
-	return ConvertImageToDepthMap(img)
+	return ConvertImageToDepthMap(ctx, img)
 }
 
 // WriteImageToFile writes the given image to a file at the supplied path.
@@ -245,7 +247,7 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 			return nil, err
 		}
 	default:
-		return nil, errors.Errorf("do not know how to encode %q", mimeType)
+		return nil, errors.Errorf("do not know how to encode %q", actualOutMIME)
 	}
 
 	return buf.Bytes(), nil

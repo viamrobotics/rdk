@@ -283,7 +283,8 @@ type simpleSource struct {
 }
 
 func (s *simpleSource) Read(ctx context.Context) (image.Image, func(), error) {
-	img, err := rimage.NewDepthMapFromFile(artifact.MustPath(s.filePath + ".dat.gz"))
+	img, err := rimage.NewDepthMapFromFile(
+		context.Background(), artifact.MustPath(s.filePath+".dat.gz"))
 	return img, func() {}, err
 }
 
@@ -292,7 +293,8 @@ type simpleSourceWithPCD struct {
 }
 
 func (s *simpleSourceWithPCD) Read(ctx context.Context) (image.Image, func(), error) {
-	img, err := rimage.NewDepthMapFromFile(artifact.MustPath(s.filePath + ".dat.gz"))
+	img, err := rimage.NewDepthMapFromFile(
+		context.Background(), artifact.MustPath(s.filePath+".dat.gz"))
 	return img, func() {}, err
 }
 
@@ -409,7 +411,7 @@ func TestCameraWithNoProjector(t *testing.T) {
 	test.That(t, got, test.ShouldBeTrue)
 
 	img, _, err := camera.ReadImage(
-		gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypePNG),
+		gostream.WithMIMETypeHint(context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG)),
 		noProj2)
 	test.That(t, err, test.ShouldBeNil)
 

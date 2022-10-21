@@ -45,7 +45,7 @@ func createTestRouter(t *testing.T) (*http.ServeMux, image.Image, []byte, image.
 	router := http.NewServeMux()
 	// expected depth image from raw data
 	depthDatPath := artifact.MustPath("rimage/board1.dat.gz")
-	expectedDepth, err := rimage.NewDepthMapFromFile(depthDatPath)
+	expectedDepth, err := rimage.NewDepthMapFromFile(context.Background(), depthDatPath)
 	test.That(t, err, test.ShouldBeNil)
 	router.HandleFunc("/color.png", handleColor)
 	router.HandleFunc("/depth.png", handleDepth)
@@ -90,7 +90,7 @@ func TestServerSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, img, test.ShouldResemble, rimage.ConvertImage(imgDecode))
 
-	lazyCtx := gostream.WithMIMETypeHint(context.Background(), utils.MimeTypePNG)
+	lazyCtx := gostream.WithMIMETypeHint(context.Background(), utils.WithLazyMIMEType(utils.MimeTypePNG))
 	img, release, err = camera.ReadImage(
 		lazyCtx,
 		cam,
@@ -98,7 +98,8 @@ func TestServerSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer release()
 
-	test.That(t, img, test.ShouldResemble, rimage.ConvertImage(imgDecode))
+	lazyPng := rimage.NewLazyEncodedImage(expectedColorBytes, utils.MimeTypePNG)
+	test.That(t, img, test.ShouldResemble, lazyPng)
 
 	stream, err := cam.Stream(lazyCtx)
 	test.That(t, err, test.ShouldBeNil)
@@ -107,8 +108,7 @@ func TestServerSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer release()
 	test.That(t, stream.Close(context.Background()), test.ShouldBeNil)
-
-	test.That(t, img, test.ShouldResemble, rimage.ConvertImage(imgDecode))
+	test.That(t, img, test.ShouldResemble, lazyPng)
 
 	img, release, err = camera.ReadImage(
 		gostream.WithMIMETypeHint(context.Background(), utils.MimeTypePNG),

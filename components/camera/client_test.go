@@ -195,10 +195,11 @@ func TestClient(t *testing.T) {
 		cameraDepthClient, ok := client.(camera.Camera)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		frame, _, err := camera.ReadImage(
-			gostream.WithMIMETypeHint(context.Background(), rutils.MimeTypePNG), cameraDepthClient)
+		ctx := gostream.WithMIMETypeHint(
+			context.Background(), rutils.WithLazyMIMEType(rutils.MimeTypePNG))
+		frame, _, err := camera.ReadImage(ctx, cameraDepthClient)
 		test.That(t, err, test.ShouldBeNil)
-		dm, err := rimage.ConvertImageToDepthMap(frame)
+		dm, err := rimage.ConvertImageToDepthMap(context.Background(), frame)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dm, test.ShouldResemble, depthImg)
 		imageReleasedMu.Lock()

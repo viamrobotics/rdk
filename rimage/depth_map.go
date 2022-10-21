@@ -1,6 +1,7 @@
 package rimage
 
 import (
+	"context"
 	"image"
 	"image/color"
 	"image/png"
@@ -114,8 +115,15 @@ func (dm *DepthMap) SubImage(r image.Rectangle) *DepthMap {
 
 // ConvertImageToDepthMap takes an image and figures out if it's already a DepthMap
 // or if it can be converted into one.
-func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
+func ConvertImageToDepthMap(ctx context.Context, img image.Image) (*DepthMap, error) {
 	switch ii := img.(type) {
+	case *LazyEncodedImage:
+		lazyImg, _ := img.(*LazyEncodedImage)
+		decodedImg, err := DecodeImage(ctx, lazyImg.RawData(), lazyImg.MIMEType())
+		if err != nil {
+			return nil, err
+		}
+		return ConvertImageToDepthMap(ctx, decodedImg)
 	case *DepthMap:
 		return ii, nil
 	case *imageWithDepth:

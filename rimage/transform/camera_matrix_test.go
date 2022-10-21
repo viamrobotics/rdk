@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"context"
 	"image"
 	"os"
 	"testing"
@@ -28,7 +29,7 @@ func init() {
 func TestPC1(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
+	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// get camera matrix parameters
@@ -56,7 +57,7 @@ func TestPC1(t *testing.T) {
 func TestCameraMatrixTo3D(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board2.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board2_gray.png"))
+	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board2_gray.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// get and set camera matrix parameters

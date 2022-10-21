@@ -19,7 +19,7 @@ func TestColorObjects(t *testing.T) {
 	// create camera
 	img, err := rimage.NewImageFromFile(artifact.MustPath("segmentation/aligned_intel/color/desktop2.png"))
 	test.That(t, err, test.ShouldBeNil)
-	dm, err := rimage.NewDepthMapFromFile(artifact.MustPath("segmentation/aligned_intel/depth/desktop2.png"))
+	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("segmentation/aligned_intel/depth/desktop2.png"))
 	test.That(t, err, test.ShouldBeNil)
 	params, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(intel515ParamsPath)
 	test.That(t, err, test.ShouldBeNil)

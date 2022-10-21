@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
@@ -15,16 +16,20 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+func NewMIMETypeNotProvidedError() error {
+	return errors.New("no MIME type set in context")
+}
+
 func checkMimeType(ctx context.Context, data []byte) (string, error) {
-	usedMimeType := http.DetectContentType(data)
+	detectedMimeType := http.DetectContentType(data)
 	requestedMime := gostream.MIMETypeHint(ctx, "")
 	actualMime, _ := utils.CheckLazyMIMEType(requestedMime)
 	if actualMime == utils.MimeTypeRawRGBA {
-		if usedMimeType != utils.MimeTypeDefault {
+		if detectedMimeType != utils.MimeTypeDefault {
 			return "", errors.Errorf(
 				"attempted to decode data using %s format as raw rgba data, "+
-					"raw rgba data must be encoded with our custom header",
-				usedMimeType,
+					" raw rgba data must be encoded with our custom header",
+				detectedMimeType,
 			)
 		}
 		formatMatch := bytes.Compare(data[:4], rimage.RGBABitmapMagicNumber)
@@ -32,9 +37,19 @@ func checkMimeType(ctx context.Context, data []byte) (string, error) {
 			return "", errors.New(
 				"attempted to decode raw rgba data, but data was not encoded with the expected header format")
 		}
+	} else if actualMime != "" && actualMime != detectedMimeType {
+		return "", errors.Errorf(
+			"mime type requested (%q) for lazy decode not returned (got %q)",
+			actualMime, detectedMimeType,
+		)
 	}
+	// in the event a MIME type was not specified, we want to use the type in
+	// which the data was originally encoded, or failing that, provide the same
+	// default ("application/octet-stream") as other standard libraries
 	if requestedMime == "" {
-		requestedMime = usedMimeType
+		golog.Global().Debugf(
+			"no MIME type specified, defaulting to detected type %s", detectedMimeType)
+		requestedMime = detectedMimeType
 	}
 	return requestedMime, nil
 }
@@ -69,20 +84,13 @@ func readColorURL(ctx context.Context, client http.Client, url string) (image.Im
 		return nil, errors.Wrap(err, "couldn't ready color url")
 	}
 
-	requestedMime := gostream.MIMETypeHint(ctx, "")
-	actualMime, isLazy := utils.CheckLazyMIMEType(requestedMime)
-	detectedMimeType := http.DetectContentType(colorData)
-	if isLazy {
-		if actualMime != "" && actualMime != detectedMimeType {
-			return nil, errors.Errorf(
-				"mime type requested (%q) for lazy decode not returned (got %q)",
-				actualMime, detectedMimeType,
-			)
-		}
-		return rimage.NewLazyEncodedImage(colorData, detectedMimeType), nil
+	mimeType, err := checkMimeType(ctx, colorData)
+	if err != nil {
+		return nil, err
 	}
-	if actualMime == "" {
-		actualMime = detectedMimeType
+	actualMime, isLazy := utils.CheckLazyMIMEType(mimeType)
+	if isLazy {
+		return rimage.NewLazyEncodedImage(colorData, actualMime), nil
 	}
 
 	img, err := rimage.DecodeImage(ctx, colorData, actualMime)
@@ -98,16 +106,16 @@ func readDepthURL(ctx context.Context, client http.Client, url string, immediate
 		return nil, errors.Wrap(err, "couldn't ready depth url")
 	}
 	mimeType, err := checkMimeType(ctx, depthData)
+	if err != nil {
+		return nil, err
+	}
 	actualMimeType, isLazy := utils.CheckLazyMIMEType(mimeType)
 	if !immediate && isLazy {
 		return rimage.NewLazyEncodedImage(depthData, actualMimeType), nil
-	}
-	if err != nil {
-		return nil, err
 	}
 	img, err := rimage.DecodeImage(ctx, depthData, mimeType)
 	if err != nil {
 		return nil, err
 	}
-	return rimage.ConvertImageToDepthMap(img)
+	return rimage.ConvertImageToDepthMap(ctx, img)
 }
