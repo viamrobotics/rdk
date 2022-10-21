@@ -75,7 +75,6 @@ func TestDetectionSource(t *testing.T) {
 		test.That(t, ovImg.GetXY(998, 564), test.ShouldResemble, rimage.Red)
 		test.That(t, src.Close(context.Background()), test.ShouldBeNil)
 	}
-
 }
 
 func TestEmptyDetection(t *testing.T) {

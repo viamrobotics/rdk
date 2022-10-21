@@ -32,7 +32,7 @@ type Source struct {
 	cancelFunc              func()
 }
 
-// waitForMs tells us the number of milliseconds to wait on the channel for
+// WaitForMs tells us the number of milliseconds to wait on the channel for.
 const WaitForMs = 2000
 
 // NewSource builds the pipeline from an input VideoSource and Detector.
@@ -138,5 +138,4 @@ func (s *Source) NextResult(ctx context.Context) (*Result, error) {
 	case <-time.After(WaitForMs * time.Millisecond):
 		return nil, errors.New("nothing on channel after 2 seconds")
 	}
-
 }
