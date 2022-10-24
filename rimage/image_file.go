@@ -9,6 +9,7 @@ import (
 	"image/draw"
 	"image/jpeg"
 	"image/png"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,6 +34,45 @@ var RGBABitmapMagicNumber = []byte("RGBA")
 // RawRGBAHeaderLength is the length of our custom header for raw RGBA data
 // in bytes. See above as to why.
 const RawRGBAHeaderLength = 12
+
+func init() {
+	// Here we register the custom format above so that we can simply use image.Decode
+	// so long as the raw RGBA data has the appropriate header
+	image.RegisterFormat("vnd.viam.rgba", string(RGBABitmapMagicNumber),
+		func(r io.Reader) (image.Image, error) {
+			headerBytes := make([]byte, RawRGBAHeaderLength)
+			_, err := r.Read(headerBytes)
+			if err != nil {
+				return nil, err
+			}
+			header := headerBytes[:RawRGBAHeaderLength]
+			width := int(binary.BigEndian.Uint32(header[4:8]))
+			height := int(binary.BigEndian.Uint32(header[8:12]))
+			img := image.NewNRGBA(image.Rect(0, 0, width, height))
+			imgBytes := make([]byte, width*height*4)
+			if err != nil {
+				return nil, err
+			}
+			img.Pix = imgBytes
+			return img, nil
+		},
+		func(r io.Reader) (image.Config, error) {
+			imgBytes := make([]byte, RawRGBAHeaderLength)
+			_, err := r.Read(imgBytes)
+			if err != nil {
+				return image.Config{}, err
+			}
+			header := imgBytes[:RawRGBAHeaderLength]
+			width := binary.BigEndian.Uint32(header[4:8])
+			height := binary.BigEndian.Uint32(header[8:12])
+			return image.Config{
+				ColorModel: color.RGBAModel,
+				Width:      int(width),
+				Height:     int(height),
+			}, nil
+		},
+	)
+}
 
 // readImageFromFile extracts the RGB, Z16, or raw depth data from an image file.
 func readImageFromFile(path string) (image.Image, error) {
@@ -180,26 +220,18 @@ func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string) (image.I
 		return NewLazyEncodedImage(imgBytes, mimeType), nil
 	}
 
-	switch mimeType {
-	case ut.MimeTypeRawRGBA:
-		header := imgBytes[:RawRGBAHeaderLength]
-		width := binary.BigEndian.Uint32(header[4:8])
-		height := binary.BigEndian.Uint32(header[8:12])
-		img := image.NewNRGBA(image.Rect(0, 0, int(width), int(height)))
-		img.Pix = imgBytes[RawRGBAHeaderLength:]
-		return img, nil
-	case ut.MimeTypeJPEG:
-		img, err := jpeg.Decode(bytes.NewReader(imgBytes))
-		return img, err
-	case ut.MimeTypePNG:
-		img, err := png.Decode(bytes.NewReader(imgBytes))
-		return img, err
-	case ut.MimeTypeQOI:
-		img, err := qoi.Decode(bytes.NewReader(imgBytes))
-		return img, err
-	default:
-		return nil, errors.Errorf("do not know how to decode MimeType %s", mimeType)
+	img, usedMimeType, err := image.Decode(bytes.NewReader(imgBytes))
+	if err != nil {
+		return nil, err
 	}
+	if ("image/" + usedMimeType) != mimeType {
+		return nil, errors.Errorf(
+			"requested MIME type of %s but image format was actually %s",
+			mimeType,
+			usedMimeType,
+		)
+	}
+	return img, nil
 }
 
 // EncodeImage takes an image and mimeType as input and encodes it into a
