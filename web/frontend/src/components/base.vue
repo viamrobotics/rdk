@@ -201,7 +201,6 @@ const handleTabSelect = (tab: Tabs) => {
     <v-breadcrumbs
       slot="title"
       crumbs="base"
-      @mouseenter="() => { /* APP-618 */ }"
     />
 
     <v-button
