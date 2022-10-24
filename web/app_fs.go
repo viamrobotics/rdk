@@ -1,4 +1,4 @@
-// Package web contains the root of a web server.
+// Package web contains the root of a web server. kk
 package web
 
 import "embed"
