@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -523,7 +524,7 @@ func (manager *resourceManager) RemoteByName(name string) (robot.Robot, bool) {
 			if ph, ok := iface.(*resourcePlaceholder); ok {
 				manager.logger.Errorw("remote not available", "remote", name, "err", ph.err)
 			} else {
-				manager.logger.Errorw("tried to access remote but its not a robot interface", "remote", name, "type", iface)
+				manager.logger.Errorw("tried to access remote but its not a robot interface", "remote", name, "type", reflect.TypeOf(iface))
 			}
 		}
 		return part, ok
@@ -574,7 +575,7 @@ func (manager *resourceManager) markChildrenForUpdate(ctx context.Context, rName
 		wrapper := &resourcePlaceholder{
 			real:   nil,
 			config: originalConfig,
-			err:    errors.New("resource marked for update"),
+			err:    errors.New("resource not updated yet"),
 		}
 		manager.resources.AddNode(x, wrapper)
 	}
@@ -641,7 +642,7 @@ func (manager *resourceManager) wrapResource(name resource.Name, config interfac
 		wrapper = &resourcePlaceholder{
 			real:   part,
 			config: config,
-			err:    errors.New("resource being initialized"),
+			err:    errors.New("resource not initialized yet"),
 		}
 	}
 	// the first thing we need to do is seek if the resource name already exists as an unknownType, if so
