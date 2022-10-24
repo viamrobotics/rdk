@@ -18,7 +18,7 @@ jobs:
         uses: jamessingleton/is-organization-member@1.0.1
         with:
           organization: viamrobotics
-          username: ${{ github.actor }}
+          username: ${{ github.event.sender.login }}
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Always remove label
         uses: andymckay/labeler@1.0.4
