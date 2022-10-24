@@ -16,6 +16,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -77,6 +78,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	createdAt := time.Now()
 
 	covResults := map[string]coverageResult{}
+	rawResults := map[string]*funcOutputResult{}
 	for _, data := range profileDatas[1:] {
 		newData := append([]byte("mode: "), data...)
 		results, err := funcOutput(bytes.NewReader(newData))
@@ -111,7 +113,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 				GitHubIsPullRequest: isPullRequest,
 				Package:             pkgName,
 				LineCoveragePct:     pctCovered,
+				LinesCovered:        result.covered,
+				LinesTotal:          result.total,
 			}
+			resultCopy := *result
+			rawResults[pkgName] = &resultCopy
 		}
 	}
 
@@ -146,9 +152,93 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		resultsIfc = append(resultsIfc, res)
 	}
 
+	var totalCovered, totalLines int64
+	for _, rawResult := range rawResults {
+		totalCovered += rawResult.covered
+		totalLines += rawResult.total
+	}
+	summaryResult := coverageResult{
+		CreatedAt:           createdAt,
+		GitSHA:              gitSHA,
+		GitBranch:           branchName,
+		GitHubRunID:         gitHubRunID,
+		GitHubRunNumber:     gitHubRunNumber,
+		GitHubRunAttempt:    gitHubRunAttempt,
+		GitHubIsPullRequest: isPullRequest,
+		LineCoveragePct:     percent(totalCovered, totalLines),
+		LinesCovered:        totalCovered,
+		LinesTotal:          totalLines,
+	}
+	resultsIfc = append(resultsIfc, summaryResult)
+
 	coll := client.Database("coverage").Collection("results")
-	_, err = coll.InsertMany(context.Background(), resultsIfc)
-	return err
+	if _, err := coll.InsertMany(context.Background(), resultsIfc); err != nil {
+		return err
+	}
+
+	mdOutput := generateMarkdownOutput(summaryResult, covResults, generateBadge(summaryResult))
+	//nolint:gosec
+	return os.WriteFile("code-coverage-results.md", []byte(mdOutput), 0o644)
+}
+
+func generateBadge(summary coverageResult) string {
+	var color string
+	switch {
+	case summary.LineCoveragePct < lowerThreshold:
+		color = "critical"
+	case summary.LineCoveragePct < upperThreshold:
+		color = "yellow"
+	default:
+		color = "success"
+	}
+	return fmt.Sprintf("https://img.shields.io/badge/Code%%20Coverage-%.0f%%25-%s?style=flat", summary.LineCoveragePct, color)
+}
+
+const (
+	lowerThreshold = 50
+	upperThreshold = 70
+)
+
+func generateHealthIndicator(rate float64) string {
+	switch {
+	case rate < lowerThreshold:
+		return "❌"
+	case rate < upperThreshold:
+		return "➖"
+	default:
+		return "✅"
+	}
+}
+
+// based off of https://github.com/irongut/CodeCoverageSummary
+func generateMarkdownOutput(
+	summary coverageResult,
+	results map[string]coverageResult,
+	badgeURL string,
+) string {
+	var builder strings.Builder
+
+	builder.WriteString(fmt.Sprintf("![Code Coverage](%s)\n\n", badgeURL))
+
+	builder.WriteString("Package | Line Rate | Health\n")
+	builder.WriteString("-------- | --------- | ------\n")
+
+	pkgNames := make([]string, 0, len(results))
+	for pkgName := range results {
+		pkgNames = append(pkgNames, pkgName)
+	}
+	sort.Strings(pkgNames)
+
+	for _, pkgName := range pkgNames {
+		result := results[pkgName]
+		builder.WriteString(fmt.Sprintf("%s | %.0f%% | %s\n",
+			pkgName, result.LineCoveragePct, generateHealthIndicator(result.LineCoveragePct)))
+	}
+
+	builder.WriteString(fmt.Sprintf("**Summary** | **%.0f%%** (%d / %d)", summary.LineCoveragePct, summary.LinesCovered, summary.LinesTotal))
+	builder.WriteString(fmt.Sprintf(" | %s\n", generateHealthIndicator(summary.LineCoveragePct)))
+
+	return builder.String()
 }
 
 type funcOutputResult struct {
@@ -362,5 +452,7 @@ type coverageResult struct {
 	GitHubRunAttempt    int64     `bson:"github_run_attempt,omitempty"`
 	GitHubIsPullRequest bool      `bson:"github_is_pull_request"`
 	LineCoveragePct     float64   `bson:"line_coverage_pct"`
-	Package             string    `bson:"package"`
+	LinesCovered        int64     `bson:"lines_covered"`
+	LinesTotal          int64     `bson:"lines_total"`
+	Package             string    `bson:"package,omitempty"`
 }
