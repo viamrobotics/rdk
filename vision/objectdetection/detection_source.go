@@ -32,6 +32,9 @@ type Source struct {
 	cancelFunc              func()
 }
 
+// WaitForMs tells us the number of milliseconds to wait on the channel for.
+const WaitForMs = 2000
+
 // NewSource builds the pipeline from an input VideoSource and Detector.
 func NewSource(src gostream.VideoSource, det Detector) (*Source, error) {
 	// fill optional functions with identity operators
@@ -75,6 +78,7 @@ func (s *Source) backgroundWorker(stream gostream.VideoStream, det Detector) {
 				Release:       release,
 				Err:           err,
 			}
+
 			select {
 			case <-s.cancelCtx.Done():
 				return
@@ -96,10 +100,12 @@ func (s *Source) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "vision::objectdetection::Source::Read")
 	defer span.End()
 	start := time.Now()
+
 	res, err := s.NextResult(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	duration := time.Since(start)
 	fps := 1. / duration.Seconds()
 	ovImg, err := Overlay(res.OriginalImage, res.Detections)
@@ -114,6 +120,7 @@ func (s *Source) Read(ctx context.Context) (image.Image, func(), error) {
 func (s *Source) NextResult(ctx context.Context) (*Result, error) {
 	ctx, span := trace.StartSpan(ctx, "vision::objectdetection::Source::NextResult")
 	defer span.End()
+
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -121,5 +128,7 @@ func (s *Source) NextResult(ctx context.Context) (*Result, error) {
 		return nil, s.cancelCtx.Err()
 	case result := <-s.pipelineOutput:
 		return result, result.Err
+	case <-time.After(WaitForMs * time.Millisecond):
+		return nil, errors.Errorf("nothing on channel after %v ms", WaitForMs)
 	}
 }

@@ -384,7 +384,7 @@ func newWithResources(
 			},
 			logger,
 		),
-		operations:                 operation.NewManager(),
+		operations:                 operation.NewManager(logger),
 		logger:                     logger,
 		remotesChanged:             make(chan string),
 		activeBackgroundWorkers:    &sync.WaitGroup{},

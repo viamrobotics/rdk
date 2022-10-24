@@ -72,6 +72,7 @@ const status = $ref<Record<string, Status>>({});
 const errors = $ref<Record<string, boolean>>({});
 
 let statusStream: ResponseStream<StreamStatusResponse>;
+let baseCameraState = new Map<string, boolean>();
 let lastStatusTS = Date.now();
 let disableAuthElements = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
@@ -79,7 +80,6 @@ let currentOps = $ref<{ op: Operation.AsObject, elapsed: number }[]>([]);
 let sensorNames = $ref<ResourceName.AsObject[]>([]);
 let resources = $ref<Resource[]>([]);
 let errorMessage = $ref('');
-let activePreviews = $ref<string[]>([]);
 let connectionManager = $ref<{
   statuses: {
     resources: boolean;
@@ -492,37 +492,24 @@ const filteredInputControllerList = () => {
 };
 
 const viewCamera = async (name: string, isOn: boolean) => {
-  const streamContainers = document.querySelectorAll(`[data-stream="${name}"]`);
-
   if (isOn) {
     try {
-      await addStream(name);
-      for (const container of streamContainers) {
-        container.querySelector('img')?.remove();
-      }
-
-      const previews = document.querySelectorAll(`[data-stream-preview="${name}"]`);
-      for (const preview of previews) {
-        preview.removeAttribute('hidden');
+      // only add stream if base camera is not active
+      if (!baseCameraState.get(name)) {
+        await addStream(name);
       }
     } catch (error) {
       displayError(error as ServiceError);
     }
-
-    return;
-  }
-
-  try {
-    const previews = document.querySelectorAll(`[data-stream-preview="${name}"]`);
-    for (const preview of previews) {
-      preview.setAttribute('hidden', 'true');
+  } else {
+    try {
+      // only remove stream if base camera is not active
+      if (!baseCameraState.get(name)) {
+        await removeStream(name);
+      }
+    } catch (error) {
+      displayError(error as ServiceError);
     }
-    await removeStream(name);
-    for (const container of streamContainers) {
-      container.querySelector('img')?.remove();
-    }
-  } catch (error) {
-    displayError(error as ServiceError);
   }
 };
 
@@ -625,16 +612,8 @@ const waitForClientAndStart = async () => {
   }
 };
 
-const handleSelectCamera = async (event: string) => {
-  if (event === '') {
-    await Promise.all(activePreviews.map((preview) => viewCamera(preview, false)));
-    activePreviews = [];
-    return;
-  }
-
-  const previews = event.split(',');
-  await Promise.all(previews.map((preview) => viewCamera(preview, !activePreviews.includes(preview))));
-  activePreviews = previews;
+const updatedBaseCameraState = (event: Map<string, boolean>) => {
+  baseCameraState = event;
 };
 
 onMounted(async () => {
@@ -706,7 +685,7 @@ onMounted(async () => {
       :key="base.name"
       :name="base.name"
       :resources="resources"
-      @showcamera="handleSelectCamera($event)"
+      @base-camera-state="updatedBaseCameraState($event)"
     />
 
     <!-- ******* GANTRY *******  -->

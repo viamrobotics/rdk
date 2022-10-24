@@ -17,6 +17,35 @@
                 "x": 0,
                 "y": 0,
                 "z": 267
+            },
+            "geometry": {
+                "x": 110,
+                "y": 110,
+                "z": 320,
+                "translation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 160
+                }
+            }
+        },
+        {
+            "id": "base_arm_link",
+            "parent": "shoulder",
+            "translation": {
+                "x": 0,
+                "y": 0,
+                "z": 200
+            },
+            "geometry": {
+                "x": 110,
+                "y": 190,
+                "z": 220,
+                "translation": {
+                    "x": 0,
+                    "y": 30,
+                    "z": 100
+                }
             }
         },
         {
@@ -25,7 +54,26 @@
             "translation": {
                 "x": 52.5,
                 "y": 0,
-                "z": 293
+                "z": 93
+            },
+            "geometry": {
+                "x": 100,
+                "y": 130,
+                "z": 180,
+                "translation": {
+                    "x": 0,
+                    "y": -10,
+                    "z": 46.5
+                },
+                "orientation": {
+                    "type": "ov_degrees",
+                    "value": {
+                        "x": 0.707106,
+                        "y": 0,
+                        "z": 0.707106,
+                        "th": 0
+                    }
+                }
             }
         },
         {
@@ -34,16 +82,64 @@
             "translation": {
                 "x": 77.5,
                 "y": 0,
-                "z": -342.5
+                "z": -172.5
+            },
+            "geometry": {
+                "x": 100,
+                "y": 150,
+                "z": 250,
+                "translation": {
+                    "x": 0,
+                    "y": -37.5,
+                    "z": 86.25
+                },
+                "orientation": {
+                    "type": "ov_degrees",
+                    "value": {
+                        "x": 0.707106,
+                        "y": 0,
+                        "z": -0.707106,
+                        "th": 0
+                    }
+                }
             }
         },
         {
             "id": "lower_forearm",
+            "parent": "forearm_rot",
+            "translation": {
+                "x": 0,
+                "y": 0,
+                "z": -170
+            },
+            "geometry": {
+                "x": 100,
+                "y": 150,
+                "z": 210,
+                "translation": {
+                    "x": 10,
+                    "y": -25,
+                    "z": -85
+                }
+            }
+        },
+        {
+            "id": "wrist_link",
             "parent": "wrist",
             "translation": {
                 "x": 76,
                 "y": 0,
                 "z": -97
+            },
+            "geometry": {
+                "x": 150,
+                "y": 100,
+                "z": 135,
+                "translation": {
+                    "x": 75,
+                    "y": 0,
+                    "z": -67.5
+                }
             }
         },
         {
@@ -93,7 +189,7 @@
         {
             "id": "upper_arm_rot",
             "type": "revolute",
-            "parent": "shoulder",
+            "parent": "base_arm_link",
             "axis": {
                 "x": 0,
                 "y": 0,
@@ -129,7 +225,7 @@
         {
             "id": "wrist",
             "type": "revolute",
-            "parent": "forearm_rot",
+            "parent": "lower_forearm",
             "axis": {
                 "x": 0,
                 "y": 1,
@@ -141,7 +237,7 @@
         {
             "id": "gripper_rot",
             "type": "revolute",
-            "parent": "lower_forearm",
+            "parent": "wrist_link",
             "axis": {
                 "x": 0,
                 "y": 0,

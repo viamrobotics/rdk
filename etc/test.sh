@@ -35,6 +35,8 @@ if [ "$FAIL" != "0" ]; then
 	exit $FAIL
 fi
 
+cat coverage.txt coverage2.txt | go run ./etc/analyzecoverage/main.go
+
 if [[ "$1" == "cover" ]]; then
 	sed '1d' coverage2.txt >> coverage.txt
 	gocov convert coverage.txt | gocov-xml > coverage.xml
