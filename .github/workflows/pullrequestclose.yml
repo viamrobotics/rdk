@@ -1,7 +1,7 @@
 name: Pull Request Close
 
 concurrency: 
-  group: pullrequest-${{ github.head_ref }}
+  group: pullrequest-untrusted-${{ github.head_ref }}
   cancel-in-progress: true
 
 on:
