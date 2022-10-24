@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/navigation"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -32,8 +31,8 @@ const (
 
 func init() {
 	registry.RegisterService(navigation.Subtype, resource.DefaultModelName, registry.Service{
-		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuiltIn(ctx, r, c, logger)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
+			return NewBuiltIn(ctx, deps, c, logger)
 		},
 	},
 	)
@@ -61,16 +60,16 @@ type Config struct {
 }
 
 // NewBuiltIn returns a new navigation service for the given robot.
-func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (navigation.Service, error) {
+func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger) (navigation.Service, error) {
 	svcConfig, ok := config.ConvertedAttributes.(*Config)
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
-	base1, err := base.FromRobot(r, svcConfig.BaseName)
+	base1, err := base.FromDependencies(deps, svcConfig.BaseName)
 	if err != nil {
 		return nil, err
 	}
-	movementSensor, err := movementsensor.FromRobot(r, svcConfig.MovementSensorName)
+	movementSensor, err := movementsensor.FromDependencies(deps, svcConfig.MovementSensorName)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +100,6 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	navSvc := &builtIn{
-		r:                r,
 		store:            store,
 		base:             base1,
 		movementSensor:   movementSensor,
@@ -116,7 +114,6 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 
 type builtIn struct {
 	mu    sync.RWMutex
-	r     robot.Robot
 	store navigation.NavStore
 	mode  navigation.Mode
 

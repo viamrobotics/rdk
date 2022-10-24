@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/baseremotecontrol"
 	"go.viam.com/rdk/utils"
 )
@@ -36,8 +35,8 @@ const (
 
 func init() {
 	registry.RegisterService(baseremotecontrol.Subtype, resource.DefaultModelName, registry.Service{
-		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuiltIn(ctx, r, c, logger)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
+			return NewBuiltIn(ctx, deps, c, logger)
 		},
 	})
 	cType := config.ServiceType(SubtypeName)
@@ -78,16 +77,16 @@ type builtIn struct {
 }
 
 // NewDefault returns a new remote control service for the given robot.
-func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (baseremotecontrol.Service, error) {
+func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger) (baseremotecontrol.Service, error) {
 	svcConfig, ok := config.ConvertedAttributes.(*Config)
 	if !ok {
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
-	base1, err := base.FromRobot(r, svcConfig.BaseName)
+	base1, err := base.FromDependencies(deps, svcConfig.BaseName)
 	if err != nil {
 		return nil, err
 	}
-	controller, err := input.FromRobot(r, svcConfig.InputControllerName)
+	controller, err := input.FromDependencies(deps, svcConfig.InputControllerName)
 	if err != nil {
 		return nil, err
 	}

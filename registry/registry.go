@@ -23,8 +23,11 @@ import (
 )
 
 type (
-	// A CreateService creates a service from a given config.
-	CreateService func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error)
+	// A CreateServiceWithRobot creates a resource from a robot and a given config.
+	CreateServiceWithRobot func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error)
+
+	// A CreateService creates a resource from a collection of dependencies and a given config.
+	CreateService func(ctx context.Context, deps Dependencies, config config.Service, logger golog.Logger) (interface{}, error)
 )
 
 // RegDebugInfo represents some runtime information about the registration used
@@ -38,6 +41,7 @@ type Service struct {
 	RegDebugInfo
 	Constructor           CreateService
 	AttributeMapConverter config.AttributeMapConverter
+	RobotConstructor      CreateServiceWithRobot
 }
 
 func getCallerName() string {

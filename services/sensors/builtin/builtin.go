@@ -12,21 +12,20 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/sensors"
 )
 
 func init() {
 	registry.RegisterService(sensors.Subtype, resource.DefaultModelName, registry.Service{
-		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuiltIn(ctx, r, c, logger)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
+			return NewBuiltIn(ctx, deps, c, logger)
 		},
 	})
 	resource.AddDefaultService(sensors.Named(resource.DefaultModelName))
 }
 
 // NewBuiltIn returns a new default sensor service for the given robot.
-func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (sensors.Service, error) {
+func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger) (sensors.Service, error) {
 	s := &builtIn{
 		sensors: map[resource.Name]sensor.Sensor{},
 		logger:  logger,

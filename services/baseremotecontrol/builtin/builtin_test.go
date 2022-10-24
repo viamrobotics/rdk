@@ -14,27 +14,25 @@ import (
 	fakebase "go.viam.com/rdk/components/base/fake"
 	"go.viam.com/rdk/components/input"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/testutils/inject"
-	rutils "go.viam.com/rdk/utils"
 )
 
 func TestBaseRemoteControl(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-
-	fakeRobot := &inject.Robot{}
-	fakeController := &inject.InputController{}
-
-	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		switch name.Subtype {
-		case input.Subtype:
-			return fakeController, nil
-		case base.Subtype:
-			return &fakebase.Base{}, nil
-		}
-		return nil, rutils.NewResourceNotFoundError(name)
+	deps := make(registry.Dependencies)
+	cfg := &Config{
+		BaseName:            "baseTest",
+		InputControllerName: "inputTest",
+		ControlModeName:     "",
 	}
+
+	fakeController := &inject.InputController{}
+	fakeBase := &fakebase.Base{}
+
+	deps[input.Named(cfg.InputControllerName)] = fakeController
+	deps[base.Named(cfg.BaseName)] = fakeBase
 
 	fakeController.RegisterControlCallbackFunc = func(
 		ctx context.Context,
@@ -45,15 +43,9 @@ func TestBaseRemoteControl(t *testing.T) {
 		return nil
 	}
 
-	cfg := &Config{
-		BaseName:            "",
-		InputControllerName: "",
-		ControlModeName:     "",
-	}
-
 	// New base_remote_control check
 	cfg.ControlModeName = "joystickControl"
-	tmpSvc, err := NewBuiltIn(ctx, fakeRobot,
+	tmpSvc, err := NewBuiltIn(ctx, deps,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -65,7 +57,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	cfg.ControlModeName = "triggerSpeedControl"
-	tmpSvc1, err := NewBuiltIn(ctx, fakeRobot,
+	tmpSvc1, err := NewBuiltIn(ctx, deps,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -77,7 +69,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	cfg.ControlModeName = "arrowControl"
-	tmpSvc2, err := NewBuiltIn(ctx, fakeRobot,
+	tmpSvc2, err := NewBuiltIn(ctx, deps,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -89,7 +81,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	cfg.ControlModeName = "buttonControl"
-	tmpSvc3, err := NewBuiltIn(ctx, fakeRobot,
+	tmpSvc3, err := NewBuiltIn(ctx, deps,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -101,7 +93,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	cfg.ControlModeName = "fail"
-	tmpSvc4, err := NewBuiltIn(ctx, fakeRobot,
+	tmpSvc4, err := NewBuiltIn(ctx, deps,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
@@ -113,38 +105,43 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Controller import failure
-	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		if name.Subtype == base.Subtype {
-			return &fakebase.Base{}, nil
-		}
-		return nil, rutils.NewResourceNotFoundError(name)
-	}
+	delete(deps, input.Named(cfg.InputControllerName))
+	deps[base.Named(cfg.BaseName)] = fakeBase
 
-	_, err = NewBuiltIn(ctx, fakeRobot,
+	_, err = NewBuiltIn(ctx, deps,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
 			ConvertedAttributes: cfg,
 		},
 		logger)
-	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:input_controller/\" not found"))
+	test.That(t, err, test.ShouldBeError, errors.New("\"inputTest\" missing from dependencies"))
 
 	// Base import failure
-	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		if name.Subtype == input.Subtype {
-			return fakeController, nil
-		}
-		return nil, rutils.NewResourceNotFoundError(name)
-	}
+	deps[input.Named(cfg.InputControllerName)] = fakeController
+	delete(deps, base.Named(cfg.BaseName))
 
-	_, err = NewBuiltIn(ctx, fakeRobot,
+	_, err = NewBuiltIn(ctx, deps,
 		config.Service{
 			Name:                "base_remote_control",
 			Type:                "base_remote_control",
 			ConvertedAttributes: cfg,
 		},
 		logger)
-	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:base/\" not found"))
+	test.That(t, err, test.ShouldBeError, errors.New("\"baseTest\" missing from dependencies"))
+
+	//  Deps exist but are incorrect component
+	deps[input.Named(cfg.InputControllerName)] = fakeController
+	deps[base.Named(cfg.BaseName)] = fakeController
+	_, err = NewBuiltIn(ctx, deps,
+		config.Service{
+			Name:                "base_remote_control",
+			Type:                "base_remote_control",
+			ConvertedAttributes: cfg,
+		},
+		logger)
+	test.That(t, err, test.ShouldBeError,
+		errors.New("dependency \"baseTest\" should an implementation of <nil> but it was a *inject.InputController"))
 
 	// Start checks
 	err = svc.start(ctx)
