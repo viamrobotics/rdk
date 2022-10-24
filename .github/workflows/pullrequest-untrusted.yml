@@ -1,0 +1,35 @@
+name: Pull Request Update
+
+concurrency: 
+  group: pullrequest-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  pull_request_target:
+    branches: [ 'main' ]
+    types: [ labeled ]
+
+# To test workflow updates you need to work in a branch directly on viamrobotics/rdk
+# and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
+# Don't forget to tag back to @main before merge.
+
+jobs:
+  test:
+    if: |
+      github.event_name == 'workflow_dispatch' || 
+      (github.event_name == 'pull_request_target' && github.event.label.name == 'safe to test' && contains(github.event.pull_request.labels.*.name, 'safe to test'))
+    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    secrets:
+      ARTIFACT_READ_ONLY_GCP_CREDENTIALS: ${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}
+      MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
+
+  # This lets people add an "appimage" tag to have appimages built for the PR
+  appimage:
+    needs: test
+    if: |
+      contains(github.event.pull_request.labels.*.name, 'appimage') && (github.event_name == 'workflow_dispatch' || 
+      (github.event_name == 'pull_request_target' && github.event.label.name == 'safe to test' && contains(github.event.pull_request.labels.*.name, 'safe to test')))
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
