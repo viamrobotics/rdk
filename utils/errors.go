@@ -11,9 +11,9 @@ func NewResourceNotFoundError(name resource.Name) error {
 	return errors.Errorf("resource %q not found", name)
 }
 
-// NewResourceGetError is used when a resource could not be retrieved because it did not start up properly.
-func NewResourceGetError(name resource.Name, err error) error {
-	return errors.Wrapf(err, "failed to get resource %q", name)
+// NewResourceNotAvailableError is used when a resource is not available because of some error.
+func NewResourceNotAvailableError(name resource.Name, err error) error {
+	return errors.Wrapf(err, "resource %q not available", name)
 }
 
 // NewRemoteResourceClashError is used when you are more than one resource with the same name exist.

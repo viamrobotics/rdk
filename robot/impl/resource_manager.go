@@ -521,7 +521,7 @@ func (manager *resourceManager) RemoteByName(name string) (robot.Robot, bool) {
 		part, ok := iface.(robot.Robot)
 		if !ok {
 			if ph, ok := iface.(*resourcePlaceholder); ok {
-				manager.logger.Errorw("failed to get remote", "remote", name, "err", ph.err)
+				manager.logger.Errorw("remote not available", "remote", name, "err", ph.err)
 			} else {
 				manager.logger.Errorw("tried to access remote but its not a robot interface", "remote", name, "type", iface)
 			}
@@ -768,7 +768,7 @@ func (manager *resourceManager) ResourceByName(name resource.Name) (interface{},
 		if !ok {
 			return robotPart, nil
 		}
-		return nil, rutils.NewResourceGetError(name, ph.err)
+		return nil, rutils.NewResourceNotAvailableError(name, ph.err)
 	}
 	// if we haven't found a resource of this name then we are going to look into remote resources to find it.
 	if !ok && !name.ContainsRemoteNames() {
