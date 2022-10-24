@@ -65,20 +65,6 @@ jobs:
       run: |
         sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS,MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_BASE_REF,GITHUB_REF_NAME -u testbot bash -lc 'make cover test-web'
 
-    - name: Code Coverage Summary Report
-      if: matrix.platform == 'linux/amd64'
-      uses: edaniels/CodeCoverageSummary@v1.2.3
-      with:
-        filename: coverage.xml
-        badge: true
-        fail_below_min: false
-        format: markdown
-        hide_branch_rate: true
-        hide_complexity: true
-        indicators: true
-        output: both
-        thresholds: '50 70'
-
     # Now that RDK is public, can't directly comment without token having full read/write access
     # pullrequestcomment.yml will trigger seperately and post the actual comments
 
