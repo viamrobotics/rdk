@@ -72,9 +72,11 @@ func (c *Config) Ensure(fromCloud bool) error {
 	}
 
 	for idx := 0; idx < len(c.Services); idx++ {
-		if err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx)); err != nil {
+		dependsOn, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx))
+		if err != nil {
 			return err
 		}
+		c.Services[idx].ImplicitDependsOn = dependsOn
 	}
 
 	if err := c.Network.Validate("network"); err != nil {
