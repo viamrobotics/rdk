@@ -1,7 +1,7 @@
 name: Pull Request Update
 
 concurrency: 
-  group: pullrequest-${{ github.head_ref }}
+  group: pullrequest-trusted-${{ github.head_ref }}
   cancel-in-progress: true
 
 on:
@@ -15,7 +15,6 @@ on:
 
 jobs:
   eslint:
-    # Ignore adding a new label not Deploy
     timeout-minutes: 5
     runs-on: [self-hosted, x64]
     container:
