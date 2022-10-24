@@ -18,9 +18,9 @@ else
 	TIMEOUT="-timeout 40m"
 fi
 
-gotestsum --jsonfile json.log -- -tags=no_skip $RACE $COVER1 `go list ./... | grep -Ev "go.viam.com/rdk/(vision|rimage)"` &
+gotestsum --jsonfile json.log -- -tags=no_skip $RACE $COVER1 go.viam.com/rdk/components/base/... &
 PID1=$!
-gotestsum --jsonfile json2.log -- -tags=no_skip $TIMEOUT $COVER2 go.viam.com/rdk/vision/... go.viam.com/rdk/rimage/... &
+gotestsum --jsonfile json2.log -- -tags=no_skip $TIMEOUT $COVER2 go.viam.com/rdk/components/arm/... &
 PID2=$!
 
 trap "kill -9 $PID1 $PID2" INT
