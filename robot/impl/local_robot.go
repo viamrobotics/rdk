@@ -494,7 +494,7 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	// If service model/type not found then print list of valid models they can choose from
 	if f == nil {
 		validModels := registry.FindValidServiceModels(rName)
-		return nil, errors.Errorf("unknown service subtype: %s and/or model: %s use one of the following valid models: %s",
+		return nil, errors.Errorf("unknown service type: %s and/or model: %s use one of the following valid models: %s",
 			rName.Subtype, config.Model, strings.Join(validModels, ", "))
 	}
 
@@ -537,7 +537,7 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	rName := config.ResourceName()
 	f := registry.ComponentLookup(rName.Subtype, config.Model)
 	if f == nil {
-		return nil, errors.Errorf("unknown component subtype: %s and/or model: %s", rName.Subtype, config.Model)
+		return nil, errors.Errorf("unknown component type: %s and/or model: %s", rName.Subtype, config.Model)
 	}
 
 	deps, err := r.getDependencies(rName)
@@ -554,7 +554,7 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	}
 
 	if err != nil {
-		return nil, errors.Errorf("error building resource %s/%s/%s: %s", config.Model, rName.Subtype, config.Name, err)
+		return nil, err
 	}
 
 	c := registry.ResourceSubtypeLookup(rName.Subtype)
@@ -571,7 +571,6 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 func (r *localRobot) updateDefaultServices(ctx context.Context) {
 	resources := map[resource.Name]interface{}{}
 	for _, n := range r.ResourceNames() {
-		// TODO(RSDK-333) if not found, could mean a name clash or a remote service
 		res, err := r.ResourceByName(n)
 		if err != nil {
 			r.Logger().Debugw("not found while grabbing all resources during default svc refresh", "resource", res, "error", err)
