@@ -61,7 +61,7 @@ func RegisterService(subtype resource.Subtype, model string, creator Service) {
 	if old {
 		panic(errors.Errorf("trying to register two services with same subtype:%s, model:%s", subtype, model))
 	}
-	if creator.Constructor == nil {
+	if creator.Constructor == nil && creator.RobotConstructor == nil {
 		panic(errors.Errorf("cannot register a nil constructor for subtype: %s", subtype))
 	}
 	serviceRegistry[qName] = creator
