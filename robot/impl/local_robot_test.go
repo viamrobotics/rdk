@@ -1448,7 +1448,7 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 		t,
 		err,
 		test.ShouldBeError,
-		rutils.NewResourceGetError(
+		rutils.NewResourceNotAvailableError(
 			base.Named("fake0"),
 			errors.New("component build error: unknown component type: rdk:component:base and/or model: random"),
 		),
