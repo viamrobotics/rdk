@@ -90,6 +90,7 @@ const toggleKeyboard = (nowActive: boolean) => {
   }
 
   isActive = nowActive;
+  emit('toggle', isActive);
 };
 
 const handlePointerDown = (key: Keys) => {
