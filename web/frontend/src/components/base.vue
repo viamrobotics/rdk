@@ -142,8 +142,6 @@ const handleKeyUp = (key: Keys) => {
   } else {
     stop();
   }
-
-  stop();
 };
 
 const handleBaseStraight = (name: string, event: {
