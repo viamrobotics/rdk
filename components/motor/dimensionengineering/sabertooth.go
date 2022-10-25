@@ -111,7 +111,7 @@ func (cfg *Config) Validate(path string) error {
 	if cfg.SerialPath == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
-	if cfg.MotorChannel < 1 || cfg.MotorChannel > 2 {
+	if cfg.MotorChannel != 1 && cfg.MotorChannel != 2 {
 		return utils.NewConfigValidationError(path, errors.New("invalid channel, acceptable values are 1 and 2"))
 	}
 	if cfg.SerialAddress < 128 || cfg.SerialAddress > 135 {
@@ -163,9 +163,6 @@ func init() {
 }
 
 func newController(c *Config, logger golog.Logger) (*controller, error) {
-	if c.SerialAddress < 128 || c.SerialAddress > 135 {
-		return nil, errors.New("address is out of range. valid addresses are 127 to 135")
-	}
 	ctrl := new(controller)
 	ctrl.activeAxes = make(map[int]bool)
 	ctrl.serialDevice = c.SerialPath
@@ -200,6 +197,7 @@ func newController(c *Config, logger golog.Logger) (*controller, error) {
 // NewMotor returns a Sabertooth driven motor.
 func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalMotor, error) {
 	globalMu.Lock()
+	defer globalMu.Unlock()
 	ctrl, ok := controllers[c.SerialPath]
 	if !ok {
 		newCtrl, err := newController(c, logger)
@@ -209,7 +207,6 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 		controllers[c.SerialPath] = newCtrl
 		ctrl = newCtrl
 	}
-	globalMu.Unlock()
 
 	ctrl.mu.Lock()
 	defer ctrl.mu.Unlock()
@@ -232,7 +229,7 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 	if c.MaxPowerPct != 0.0 {
 		maxPowerPct = c.MaxPowerPct
 	} else {
-		maxPowerPct = 100.0
+		maxPowerPct = 1.0
 	}
 
 	m := &Motor{
@@ -270,8 +267,10 @@ func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bo
 // Close stops the motor and marks the axis inactive.
 func (m *Motor) Close() {
 	m.c.mu.Lock()
+	defer m.c.mu.Unlock()
+
 	active := m.c.activeAxes[m.Channel]
-	m.c.mu.Unlock()
+
 	if !active {
 		return
 	}
@@ -291,7 +290,7 @@ func (m *Motor) Close() {
 	if m.c.port != nil {
 		err = m.c.port.Close()
 		if err != nil {
-			m.c.logger.Error(err)
+			m.c.logger.Error(fmt.Errorf("error closing serial connection: %v", err))
 		}
 	}
 	globalMu.Lock()
@@ -322,7 +321,7 @@ func (c *controller) sendCmd(cmd *command) error {
 }
 
 // SetPower instructs the motor to go in a specific direction at a percentage
-// of power between -1 and 1. Scaled to MaxRPM.
+// of power between -1 and 1.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	if math.Abs(powerPct) < m.minPowerPct {
 		return m.Stop(ctx, extra)
@@ -373,7 +372,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 // traveled is a time based estimation based on desired RPM.
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
 	if m.maxRPM == 0 {
-		return errors.New("not supported, define max_rpm attribute != 0")
+		return motor.NewZeroRPMError()
 	}
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
@@ -501,7 +500,7 @@ func newCommand(controllerAddress int, motorMode commandCode, channel int, data 
 	case multiTurnLeft:
 	case multiTurn:
 	default:
-		return nil, errors.New("opcode not implemented")
+		return nil, fmt.Errorf("opcode %x not implemented", opcode)
 	}
 	sum := byte(controllerAddress) + byte(opcode) + data
 	checksum := sum & 0x7F

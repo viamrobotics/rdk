@@ -96,7 +96,7 @@ func TestSabertoothMotor(t *testing.T) {
 
 	motor2, ok := m2.(motor.Motor)
 	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = motor1.(motor.LocalMotor)
+	_, ok = motor2.(motor.LocalMotor)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
@@ -188,7 +188,7 @@ func TestSabertoothMotorDirectionFlip(t *testing.T) {
 
 	motor2, ok := m2.(motor.Motor)
 	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = motor1.(motor.LocalMotor)
+	_, ok = motor2.(motor.LocalMotor)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("motor supports position reporting", func(t *testing.T) {
