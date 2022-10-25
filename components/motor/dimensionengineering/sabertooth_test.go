@@ -3,7 +3,6 @@ package dimensionengineering_test
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -410,7 +409,6 @@ func TestMultipleInvalidParameters(t *testing.T) {
 
 	// These are the setup register writes
 	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
-	fmt.Printf("%v", err)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid channel")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid address")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid baud_rate")
