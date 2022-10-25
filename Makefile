@@ -37,7 +37,8 @@ tool-install:
 		github.com/AlekSi/gocov-xml \
 		github.com/axw/gocov/gocov \
 		github.com/bufbuild/buf/cmd/buf \
-		gotest.tools/gotestsum
+		gotest.tools/gotestsum \
+		github.com/rhysd/actionlint/cmd/actionlint
 
 buf: buf-web
 
@@ -48,6 +49,7 @@ buf-web: tool-install
 	npm run rollup --prefix web/frontend
 
 lint: lint-go
+	PATH=$(PATH_WITH_TOOLS) actionlint
 
 lint-go: tool-install
 	export pkgs="`go list $(GO_BUILD_TAGS) -f '{{.Dir}}' ./... | grep -v /proto/`" && echo "$$pkgs" | xargs go vet $(GO_BUILD_TAGS) -vettool=$(TOOL_BIN)/combined
