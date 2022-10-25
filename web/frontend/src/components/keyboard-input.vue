@@ -1,108 +1,109 @@
+<!-- eslint-disable id-length -->
 <script setup lang="ts">
 
+export type Keys = 'w' | 'a' | 's' | 'd'
+
 import { onClickOutside } from '@vueuse/core';
-import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from '@mdi/js';
+import { mdiArrowUp as w, mdiRestore as a, mdiReload as d, mdiArrowDown as s } from '@mdi/js';
 import Icon from './icon.vue';
-import { grpc } from '@improbable-eng/grpc-web';
-import { displayError } from '../lib/error';
-import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
+import { onUnmounted } from 'vue';
 
 interface Emits {
-  (event: 'keyboard-ctl', pressedKeys: Record<string, boolean>): void
-}
-
-interface Props {
-  name: string;
+  (event: 'keydown', key: Keys): void
+  (event: 'keyup', key: Keys): void
+  (event: 'toggle', active: boolean): void
 }
 
 const emit = defineEmits<Emits>();
-const props = defineProps<Props>();
+
+const keyIcons = { w, a, s, d };
+const root = $ref<HTMLElement>();
 
 const pressedKeys = $ref({
-  forward: false,
-  left: false,
-  backward: false,
-  right: false,
+  w: false,
+  a: false,
+  s: false,
+  d: false,
 });
 
-const root = $ref<HTMLElement>();
 let isActive = $ref(false);
 
-const keyLetters = {
-  forward: 'W',
-  left: 'A',
-  backward: 'S',
-  right: 'D',
+const keysLayout = [['w'], ['a', 's', 'd']] as const;
+
+const normalizeKey = (key: string): Keys | null => {
+  return ({
+    w: 'w',
+    a: 'a',
+    s: 's',
+    d: 'd',
+    arrowup: 'w',
+    arrowleft: 'a',
+    arrowdown: 's',
+    arrowright: 'd',
+  } as Record<string, Keys>)[key.toLowerCase()] ?? null;
 };
 
-const keyIcons = {
-  forward: mdiArrowUp,
-  left: mdiRestore,
-  backward: mdiArrowDown,
-  right: mdiReload,
+const emitKeyDown = (key: Keys) => {
+  if (!isActive) {
+    // eslint-disable-next-line no-use-before-define
+    toggleKeyboard(true);
+  }
+  pressedKeys[key] = true;
+  emit('keydown', key);
 };
 
-const keysLayout = [['forward'], ['left', 'backward', 'right']] as const;
-
-const setKeyPressed = (key: 'forward' | 'left' | 'backward' | 'right', value = true) => {
-  pressedKeys[key] = value;
-  emit('keyboard-ctl', pressedKeys);
+const emitKeyUp = (key: Keys) => {
+  pressedKeys[key] = false;
+  emit('keyup', key);
 };
 
-const onUseKeyboardNav = (event: KeyboardEvent) => {
+const handleKeyDown = (event: KeyboardEvent) => {
   event.preventDefault();
+  event.stopPropagation();
 
-  const down = event.type === 'keydown';
+  const key = normalizeKey(event.key);
 
-  switch (event.key.toLowerCase()) {
-    case 'arrowleft':
-    case 'a': {
-      return setKeyPressed('left', down);
-    }
-    case 'arrowright':
-    case 'd': {
-      return setKeyPressed('right', down);
-    }
-    case 'arrowup':
-    case 'w': {
-      return setKeyPressed('forward', down);
-    }
-    case 'arrowdown':
-    case 's': {
-      return setKeyPressed('backward', down);
-    }
+  if (key === null || pressedKeys[key]) {
+    return;
+  }
+
+  emitKeyDown(key);
+};
+
+const handleKeyUp = (event: KeyboardEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const key = normalizeKey(event.key);
+  if (key !== null) {
+    emitKeyUp(key);
   }
 };
 
-const addKeyboardListeners = () => {
-  isActive = true;
-  window.addEventListener('keydown', onUseKeyboardNav, false);
-  window.addEventListener('keyup', onUseKeyboardNav, false);
-};
-
-const removeKeyboardListeners = () => {
-  isActive = false;
-  window.removeEventListener('keydown', onUseKeyboardNav);
-  window.removeEventListener('keyup', onUseKeyboardNav);
-};
-
-const stopBase = () => {
-  const req = new baseApi.StopRequest();
-  req.setName(props.name);
-  window.baseService.stop(req, new grpc.Metadata(), displayError);
-};
-
-const toggleKeyboard = () => {
-  if (isActive) {
-    removeKeyboardListeners();
-    stopBase();
+const toggleKeyboard = (nowActive: boolean) => {
+  if (nowActive) {
+    window.addEventListener('keydown', handleKeyDown, false);
+    window.addEventListener('keyup', handleKeyUp, false);
   } else {
-    addKeyboardListeners();
+    window.removeEventListener('keydown', handleKeyDown);
+    window.removeEventListener('keyup', handleKeyUp);
   }
+
+  isActive = nowActive;
+  emit('toggle', isActive);
 };
 
-onClickOutside(root, () => {
-  removeKeyboardListeners();
+const handlePointerDown = (key: Keys) => {
+  emitKeyDown(key);
+  window.addEventListener('pointerup', () => emitKeyUp(key), { once: true });
+};
+
+onClickOutside($$(root), () => {
+  toggleKeyboard(false);
+});
+
+onUnmounted(() => {
+  toggleKeyboard(false);
 });
 
 </script>
@@ -112,14 +113,12 @@ onClickOutside(root, () => {
     ref="root"
     class="h-23 flex w-full flex-col items-center"
   >
-    <div
-      class="flex w-48 gap-2 pb-4"
-      @click="toggleKeyboard"
-    >
+    <div class="flex w-48 gap-2 pb-4">
       <v-switch
         :label="isActive ? 'Keyboard Enabled' : 'Keyboard Disabled'"
         class="pr-4"
         :value="isActive ? 'on' : 'off'"
+        @input="toggleKeyboard($event.target.value === 'on')"
       />
     </div>
     <div
@@ -130,28 +129,16 @@ onClickOutside(root, () => {
       <button
         v-for="key in lineKeys"
         :key="key"
-        class="flex items-center gap-1.5 border border-gray-500 bg-white px-3 py-1"
+        class="flex items-center gap-1.5 border border-gray-500 px-3 py-1 outline-none"
         :class="{
-          'bg-gray-200 text-gray-800 keyboard-button-pressed': pressedKeys[key],
-          'keyboard-button-not-pressed': !pressedKeys[key],
+          'bg-gray-200 text-gray-800': pressedKeys[key],
+          'bg-white': !pressedKeys[key],
         }"
-        @pointerdown="setKeyPressed(key, true)"
-        @pointerup="setKeyPressed(key, false)"
+        @pointerdown="handlePointerDown(key)"
       >
-        {{ keyLetters[key] }}
+        {{ key.toUpperCase() }}
         <Icon :path="keyIcons[key]" />
       </button>
     </div>
   </div>
 </template>
-
-<style>
-
-.keyboard-button-not-pressed:focus {
-  background-color: white;
-}
-.keyboard-button-pressed:focus {
-  background-color: rgba(228, 228, 231, 1);
-}
-
-</style>
