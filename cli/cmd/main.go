@@ -40,11 +40,6 @@ const (
 	dataTypeTabular = "tabular"
 )
 
-var usageText = fmt.Sprintf("viam data <%s> <%s> [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
-	dataFlagDestination, dataFlagDataType, dataFlagOrgIDs, dataFlagLocation, dataFlagRobotID, dataFlagRobotName,
-	dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentModel, dataFlagComponentName,
-	dataFlagStart, dataFlagEnd)
-
 func main() {
 	var logger golog.Logger
 
@@ -216,9 +211,12 @@ func main() {
 				},
 			},
 			{
-				Name:      "data",
-				Usage:     "download data from Viam cloud",
-				UsageText: usageText,
+				Name:  "data",
+				Usage: "download data from Viam cloud",
+				UsageText: fmt.Sprintf("viam data <%s> <%s> [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s] [%s]",
+					dataFlagDestination, dataFlagDataType, dataFlagOrgIDs, dataFlagLocation, dataFlagRobotID, dataFlagRobotName,
+					dataFlagPartID, dataFlagPartName, dataFlagComponentType, dataFlagComponentModel, dataFlagComponentName,
+					dataFlagStart, dataFlagEnd, dataFlagMethod, dataFlagMimeTypes),
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:     dataFlagDestination,
