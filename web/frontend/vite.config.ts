@@ -1,5 +1,8 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import Hashes from 'jshashes';
+
+const MD5 = new Hashes.MD5();
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -16,6 +19,7 @@ export default defineConfig({
   ],
   build: {
     minify: 'terser',
+    sourcemap: true,
     rollupOptions: {
       input: {
         control: './src/main.ts',
@@ -23,10 +27,18 @@ export default defineConfig({
       },
       output: {
         entryFileNames: '[name].js',
+        chunkFileNames: (chunk) => {
+          // eslint-disable-next-line unicorn/no-array-reduce
+          const code = Object.keys(chunk.modules).reduce((prev, key) => `${prev}${chunk.modules[key].code}`, '');
+          const hash = MD5.hex(code);
+
+          return `assets/chunks.${hash}.js`;
+        },
         assetFileNames: '[name].[ext]',
       },
     },
     outDir: '../runtime-shared/static',
+    emptyOutDir: true,
   },
   server: {
     port: 5174,

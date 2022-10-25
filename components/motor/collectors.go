@@ -49,6 +49,7 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 // Powered wraps the returned IsPowered value.
 type Powered struct {
 	IsPowered bool
+	PowerPct  float64
 }
 
 func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
@@ -58,11 +59,11 @@ func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (d
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (interface{}, error) {
-		v, err := motor.IsPowered(ctx, nil)
+		v, powerPct, err := motor.IsPowered(ctx, nil)
 		if err != nil {
 			return nil, data.FailedToReadErr(params.ComponentName, isPowered.String(), err)
 		}
-		return Powered{IsPowered: v}, nil
+		return Powered{IsPowered: v, PowerPct: powerPct}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }

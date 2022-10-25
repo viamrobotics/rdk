@@ -3,7 +3,6 @@ package datasync
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -155,7 +154,7 @@ func buildFileDataUploadRequests(bs [][]byte, fileName string) []*v1.UploadReque
 // createTmpDataCaptureFile creates a data capture file, which is defined as a file with the dataCaptureFileExt as its
 // file extension.
 func createTmpDataCaptureFile() (file *os.File, err error) {
-	tf, err := ioutil.TempFile("", "")
+	tf, err := os.CreateTemp("", "")
 	if err != nil {
 		return nil, err
 	}

@@ -1,7 +1,6 @@
 package datasync
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -60,7 +59,7 @@ func (pt *progressTracker) updateProgressFileIndex(path string, requestsWritten 
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(path, []byte(strconv.Itoa(i+requestsWritten)), os.FileMode(0o777))
+	err = os.WriteFile(path, []byte(strconv.Itoa(i+requestsWritten)), os.FileMode(0o777))
 	if err != nil {
 		return err
 	}
@@ -70,7 +69,7 @@ func (pt *progressTracker) updateProgressFileIndex(path string, requestsWritten 
 // Returns the index of next sensordata message to upload.
 func (pt *progressTracker) getProgressFileIndex(path string) (int, error) {
 	//nolint:gosec
-	bs, err := ioutil.ReadFile(path)
+	bs, err := os.ReadFile(path)
 	if err != nil {
 		return 0, err
 	}

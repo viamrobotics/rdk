@@ -1,7 +1,6 @@
 package datasync
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -61,7 +60,7 @@ func TestFileUpload(t *testing.T) {
 
 			// Create temp file to be used as examples of reading data from the files into buffers
 			// (and finally to have that data be uploaded) to the cloud.
-			tf, err := ioutil.TempFile("", "")
+			tf, err := os.CreateTemp("", "")
 			test.That(t, err, test.ShouldBeNil)
 			defer os.Remove(tf.Name())
 
@@ -276,8 +275,8 @@ func TestUploadsOnce(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Put a couple files in captureDir.
-	file1, _ := ioutil.TempFile("", "whatever")
-	file2, _ := ioutil.TempFile("", "whatever2")
+	file1, _ := os.CreateTemp("", "whatever")
+	file2, _ := os.CreateTemp("", "whatever2")
 
 	// Immediately try to Sync same files many times.
 	for i := 1; i < 10; i++ {
@@ -357,7 +356,7 @@ func TestUploadExponentialRetry(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			// Start file sync.
-			file1, _ := ioutil.TempFile("", "whatever")
+			file1, _ := os.CreateTemp("", "whatever")
 			defer os.Remove(file1.Name())
 			_, _ = file1.Write([]byte("this is some amount of content greater than 10"))
 			sut.Sync([]string{file1.Name()})
@@ -515,7 +514,7 @@ func TestPartialUpload(t *testing.T) {
 			defer os.Remove(progressFile)
 			_, err = os.Stat(progressFile)
 			test.That(t, err, test.ShouldBeNil)
-			bs, err := ioutil.ReadFile(progressFile)
+			bs, err := os.ReadFile(progressFile)
 			test.That(t, err, test.ShouldBeNil)
 			i, err := strconv.Atoi(string(bs))
 			test.That(t, err, test.ShouldBeNil)

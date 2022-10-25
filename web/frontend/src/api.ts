@@ -38,6 +38,8 @@ import servoApi from './gen/proto/api/component/servo/v1/servo_pb.esm';
 import streamApi from './gen/proto/stream/v1/stream_pb.esm';
 import visionApi from './gen/proto/api/service/vision/v1/vision_pb.esm';
 
+import { fetchCameraDiscoveries } from './lib/discovery';
+
 /**
  * Every window variable on this page is being currently used by the blockly page in App.
  * Once we switch blockly to using import / export we should remove / clean up these window variables.
@@ -65,6 +67,7 @@ window.visionApi = visionApi;
  * remove / clean up these window variables.
  */
 window.robotApi = robotApi;
+window.fetchCameraDiscoveries = fetchCameraDiscoveries;
 
 let savedAuthEntity: string;
 let savedCreds: Credentials;

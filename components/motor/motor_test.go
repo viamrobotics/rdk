@@ -153,8 +153,8 @@ func TestCreateStatus(t *testing.T) {
 	status := &pb.Status{IsPowered: true, PositionReporting: true, Position: 7.7, IsMoving: true}
 
 	injectMotor := &inject.LocalMotor{}
-	injectMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
-		return status.IsPowered, nil
+	injectMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+		return status.IsPowered, 1.0, nil
 	}
 	injectMotor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (map[motor.Feature]bool, error) {
 		return map[motor.Feature]bool{motor.PositionReporting: status.PositionReporting}, nil
@@ -218,8 +218,8 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on IsPowered", func(t *testing.T) {
 		errFail := errors.New("can't get is powered")
-		injectMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
-			return false, errFail
+		injectMotor.IsPoweredFunc = func(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+			return false, 0.0, errFail
 		}
 		_, err = motor.CreateStatus(context.Background(), injectMotor)
 		test.That(t, err, test.ShouldBeError, errFail)
@@ -422,7 +422,7 @@ func TestIsPowered(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.poweredCount, test.ShouldEqual, 0)
-	isPowered1, err := reconfMotor1.(motor.Motor).IsPowered(context.Background(), nil)
+	isPowered1, _, err := reconfMotor1.(motor.Motor).IsPowered(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, isPowered1, test.ShouldEqual, isPowered)
 	test.That(t, actualMotor1.poweredCount, test.ShouldEqual, 1)
@@ -461,10 +461,11 @@ func TestExtra(t *testing.T) {
 }
 
 var (
-	position  = 5.5
-	features  = map[motor.Feature]bool{motor.PositionReporting: true}
-	isPowered = true
-	isMoving  = true
+	position     = 5.5
+	features     = map[motor.Feature]bool{motor.PositionReporting: true}
+	isPowered    = true
+	mockPowerPct = 1.0
+	isMoving     = true
 )
 
 type mock struct {
@@ -485,6 +486,7 @@ type mock struct {
 func (m *mock) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	m.powerCount++
 	m.extra = extra
+	mockPowerPct = powerPct
 	return nil
 }
 
@@ -523,10 +525,10 @@ func (m *mock) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return nil
 }
 
-func (m *mock) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (m *mock) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	m.poweredCount++
 	m.extra = extra
-	return isPowered, nil
+	return isPowered, mockPowerPct, nil
 }
 
 func (m *mock) Close() { m.reconfCount++ }
