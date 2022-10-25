@@ -3,6 +3,7 @@ package dimensionengineering_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -271,4 +272,149 @@ func TestSabertoothAddressMapping(t *testing.T) {
 	defer utils.TryClose(ctx, m1)
 
 	checkTx(t, resChan, c, []byte{0x81, 0x00, 0x00, 0x01})
+}
+
+func TestInvalidMotorChannel(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	c := make(chan []byte, 1024)
+	deps := make(registry.Dependencies)
+
+	mc1 := dimensionengineering.Config{
+		SerialPath:    "testchan",
+		MotorChannel:  3,
+		TestChan:      c,
+		SerialAddress: 129,
+	}
+
+	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
+	test.That(t, motorReg, test.ShouldNotBeNil)
+
+	// These are the setup register writes
+	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid channel")
+	defer utils.TryClose(ctx, m1)
+}
+
+func TestInvalidBaudRate(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	c := make(chan []byte, 1024)
+	deps := make(registry.Dependencies)
+
+	mc1 := dimensionengineering.Config{
+		SerialPath:    "testchan",
+		MotorChannel:  1,
+		TestChan:      c,
+		SerialAddress: 129,
+		BaudRate:      1,
+	}
+
+	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
+	test.That(t, motorReg, test.ShouldNotBeNil)
+
+	// These are the setup register writes
+	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid baud_rate")
+	defer utils.TryClose(ctx, m1)
+}
+
+func TestInvalidSerialAddress(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	c := make(chan []byte, 1024)
+	deps := make(registry.Dependencies)
+
+	mc1 := dimensionengineering.Config{
+		SerialPath:    "testchan",
+		MotorChannel:  1,
+		TestChan:      c,
+		SerialAddress: 140,
+	}
+
+	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
+	test.That(t, motorReg, test.ShouldNotBeNil)
+
+	// These are the setup register writes
+	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid address")
+	defer utils.TryClose(ctx, m1)
+}
+
+func TestInvalidMinPowerPct(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	c := make(chan []byte, 1024)
+	deps := make(registry.Dependencies)
+
+	mc1 := dimensionengineering.Config{
+		SerialPath:    "testchan",
+		MotorChannel:  1,
+		TestChan:      c,
+		SerialAddress: 129,
+		MinPowerPct:   0.7,
+		MaxPowerPct:   0.5,
+	}
+
+	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
+	test.That(t, motorReg, test.ShouldNotBeNil)
+
+	// These are the setup register writes
+	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid min_power_pct")
+	defer utils.TryClose(ctx, m1)
+}
+
+func TestInvalidMaxPowerPct(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	c := make(chan []byte, 1024)
+	deps := make(registry.Dependencies)
+
+	mc1 := dimensionengineering.Config{
+		SerialPath:    "testchan",
+		MotorChannel:  1,
+		TestChan:      c,
+		SerialAddress: 129,
+		MinPowerPct:   0.7,
+		MaxPowerPct:   1.5,
+	}
+
+	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
+	test.That(t, motorReg, test.ShouldNotBeNil)
+
+	// These are the setup register writes
+	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid max_power_pct")
+	defer utils.TryClose(ctx, m1)
+}
+
+func TestMultipleInvalidParameters(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+	c := make(chan []byte, 1024)
+	deps := make(registry.Dependencies)
+
+	mc1 := dimensionengineering.Config{
+		SerialPath:    "testchan",
+		MotorChannel:  3,
+		TestChan:      c,
+		BaudRate:      10,
+		SerialAddress: 140,
+		MinPowerPct:   1.7,
+		MaxPowerPct:   1.5,
+	}
+
+	motorReg := registry.ComponentLookup(motor.Subtype, "de-sabertooth")
+	test.That(t, motorReg, test.ShouldNotBeNil)
+
+	// These are the setup register writes
+	m1, err := motorReg.Constructor(context.Background(), deps, config.Component{Name: "motor1", ConvertedAttributes: &mc1}, logger)
+	fmt.Printf("%v", err)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid channel")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid address")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid baud_rate")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid min_power_pct")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid max_power_pct")
+	defer utils.TryClose(ctx, m1)
 }
