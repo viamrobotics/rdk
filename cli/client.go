@@ -19,6 +19,7 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	datapb "go.viam.com/api/app/data/v1"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -37,11 +38,12 @@ import (
 // The AppClient provides all the CLI command functionality needed to talk
 // to the app service but not directly to robot parts.
 type AppClient struct {
-	c       *cli.Context
-	conf    *Config
-	client  apppb.AppServiceClient
-	baseURL *url.URL
-	rpcOpts []rpc.DialOption
+	c          *cli.Context
+	conf       *Config
+	client     apppb.AppServiceClient
+	dataClient datapb.DataServiceClient
+	baseURL    *url.URL
+	rpcOpts    []rpc.DialOption
 
 	selectedOrg *apppb.Organization
 	selectedLoc *apppb.Location
@@ -138,6 +140,7 @@ func (c *AppClient) ensureLoggedIn() error {
 	}
 
 	c.client = apppb.NewAppServiceClient(conn)
+	c.dataClient = datapb.NewDataServiceClient(conn)
 	return nil
 }
 
