@@ -2,30 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@font-face {
-  font-family: Space Mono;
-  src: url('static/fonts/space-mono.woff2') format('woff2');
-}
-
-@font-face {
-  font-family: Space Mono;
-  src: url('static/fonts/space-mono-bold.woff2') format('woff2');
-  font-weight: bold;
-}
-
-@font-face {
-  font-family: Space Mono;
-  src: url('static/fonts/space-mono-bold-italic.woff2') format('woff2');
-  font-weight: bold;
-  font-style: italic;
-}
-
-@font-face {
-  font-family: Space Mono;
-  src: url('static/fonts/space-mono-italic.woff2') format('woff2');
-  font-style: italic;
-}
-
 * {
   font-family: Space Mono, monospace;
 }

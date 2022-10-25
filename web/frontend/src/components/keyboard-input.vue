@@ -3,12 +3,20 @@
 import { onClickOutside } from '@vueuse/core';
 import { mdiRestore, mdiReload, mdiArrowUp, mdiArrowDown } from '@mdi/js';
 import Icon from './icon.vue';
+import { grpc } from '@improbable-eng/grpc-web';
+import { displayError } from '../lib/error';
+import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
 
 interface Emits {
   (event: 'keyboard-ctl', pressedKeys: Record<string, boolean>): void
 }
 
+interface Props {
+  name: string;
+}
+
 const emit = defineEmits<Emits>();
+const props = defineProps<Props>();
 
 const pressedKeys = $ref({
   forward: false,
@@ -48,17 +56,21 @@ const onUseKeyboardNav = (event: KeyboardEvent) => {
 
   switch (event.key.toLowerCase()) {
     case 'arrowleft':
-    case 'a':
+    case 'a': {
       return setKeyPressed('left', down);
+    }
     case 'arrowright':
-    case 'd':
+    case 'd': {
       return setKeyPressed('right', down);
+    }
     case 'arrowup':
-    case 'w':
+    case 'w': {
       return setKeyPressed('forward', down);
+    }
     case 'arrowdown':
-    case 's':
+    case 's': {
       return setKeyPressed('backward', down);
+    }
   }
 };
 
@@ -74,9 +86,16 @@ const removeKeyboardListeners = () => {
   window.removeEventListener('keyup', onUseKeyboardNav);
 };
 
+const stopBase = () => {
+  const req = new baseApi.StopRequest();
+  req.setName(props.name);
+  window.baseService.stop(req, new grpc.Metadata(), displayError);
+};
+
 const toggleKeyboard = () => {
   if (isActive) {
     removeKeyboardListeners();
+    stopBase();
   } else {
     addKeyboardListeners();
   }
@@ -94,16 +113,14 @@ onClickOutside(root, () => {
     class="h-23 flex w-full flex-col items-center"
   >
     <div
-      class="flex gap-2 pb-4"
+      class="flex w-48 gap-2 pb-4"
       @click="toggleKeyboard"
     >
       <v-switch
+        :label="isActive ? 'Keyboard Enabled' : 'Keyboard Disabled'"
         class="pr-4"
         :value="isActive ? 'on' : 'off'"
       />
-      <h3>
-        Keyboard {{ isActive ? 'active' : 'disabled' }}
-      </h3>
     </div>
     <div
       v-for="(lineKeys, index) in keysLayout"

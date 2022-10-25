@@ -143,7 +143,6 @@ func TestOrbslamYAMLNew(t *testing.T) {
 
 		//save a fake map for the next map using the previous timestamp
 		fakeMap = filepath.Join(name, "map", attrCfgGood.Sensors[0]+"_data_"+yamlFileTimeStampGood)
-		test.That(t, orbslam.SaveMapLoc, test.ShouldEqual, "\""+fakeMap+"\"")
 		outfile, err := os.Create(fakeMap + ".osa")
 		test.That(t, err, test.ShouldBeNil)
 		err = outfile.Close()
@@ -173,14 +172,6 @@ func TestOrbslamYAMLNew(t *testing.T) {
 		err = yaml.Unmarshal(yamlData, &orbslam)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, orbslam.LoadMapLoc, test.ShouldEqual, "\""+fakeMap+"\"")
-
-		// compare timestamps, saveTimeStamp should be more recent than oldTimeStamp
-		saveTimestampLoc := strings.Index(orbslam.SaveMapLoc, "_data_") + len("_data_")
-		saveTimeStamp, err := time.Parse(slamTimeFormat, orbslam.SaveMapLoc[saveTimestampLoc:len(orbslam.SaveMapLoc)-1])
-		test.That(t, err, test.ShouldBeNil)
-		oldTimeStamp, err := time.Parse(slamTimeFormat, fakeMapTimestamp)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, saveTimeStamp.After(oldTimeStamp), test.ShouldBeTrue)
 	})
 
 	t.Run("New orbslamv3 service with high dataRateMs", func(t *testing.T) {

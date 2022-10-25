@@ -25,6 +25,7 @@ type RadiusClusteringVoxelConfig struct {
 	AngleThresh        float64 `json:"angle_threshold_degs"`
 	CosineThresh       float64 `json:"cosine_threshold"` // between -1 and 1, the value after evaluating Cosine(theta)
 	DistanceThresh     float64 `json:"distance_threshold_mm"`
+	Label              string  `json:"label,omitempty"`
 }
 
 // CheckValid checks to see in the input values are valid.
@@ -35,7 +36,7 @@ func (rcc *RadiusClusteringVoxelConfig) CheckValid() error {
 	if rcc.Lambda <= 0 {
 		return errors.Errorf("lambda must be greater than 0, got %v", rcc.Lambda)
 	}
-	radiusClustering := RadiusClusteringConfig{rcc.MinPtsInPlane, rcc.MinPtsInSegment, rcc.ClusteringRadiusMm, 50.0}
+	radiusClustering := RadiusClusteringConfig{rcc.MinPtsInPlane, rcc.MinPtsInSegment, rcc.ClusteringRadiusMm, 50.0, rcc.Label}
 	err := radiusClustering.CheckValid()
 	if err != nil {
 		return err
@@ -104,7 +105,7 @@ func (rcc *RadiusClusteringVoxelConfig) RadiusClusteringVoxels(ctx context.Conte
 		return nil, err
 	}
 	objects = pc.PrunePointClouds(objects, rcc.MinPtsInSegment)
-	segments, err := NewSegmentsFromSlice(objects)
+	segments, err := NewSegmentsFromSlice(objects, rcc.Label)
 	if err != nil {
 		return nil, err
 	}

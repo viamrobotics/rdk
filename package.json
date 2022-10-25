@@ -1,6 +1,6 @@
 {
     "name": "rdk",
     "devDependencies": {
-      "ts-protoc-gen": "0.15.0"
+        "ts-protoc-gen": "0.15.0"
     }
-  }
+}

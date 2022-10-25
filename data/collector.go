@@ -56,6 +56,7 @@ type collector struct {
 	cancelCtx         context.Context
 	cancel            context.CancelFunc
 	capturer          Capturer
+	closed            bool
 }
 
 // SetTarget updates the file being written to by the collector.
@@ -76,8 +77,11 @@ func (c *collector) GetTarget() *datacapture.File {
 }
 
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
-// leaking goroutines. Close() can only be called once; attempting to Close an already closed Collector will panic.
+// leaking goroutines.
 func (c *collector) Close() {
+	if c.closed {
+		return
+	}
 	c.cancel()
 	c.backgroundWorkers.Wait()
 	c.lock.Lock()
@@ -85,6 +89,7 @@ func (c *collector) Close() {
 	if err := c.target.Sync(); err != nil {
 		c.logger.Errorw("failed to flush target to disk", "error", err)
 	}
+	c.closed = true
 }
 
 // Collect starts the Collector, causing it to run c.capturer.Capture every c.interval, and write the results to
@@ -105,6 +110,7 @@ func (c *collector) Collect() {
 			c.logger.Errorw(fmt.Sprintf("failed to write to file %s", c.target.GetPath()), "error", err)
 		}
 	})
+	c.closed = false
 }
 
 // Go's time.Ticker has inconsistent performance with durations of below 1ms [0], so we use a time.Sleep based approach
@@ -253,6 +259,7 @@ func NewCollector(capturer Capturer, params CollectorParams) (Collector, error) 
 		cancel:            cancelFunc,
 		backgroundWorkers: sync.WaitGroup{},
 		capturer:          capturer,
+		closed:            false,
 	}, nil
 }
 
