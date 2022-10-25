@@ -182,31 +182,31 @@ func newController(c *Config, logger golog.Logger) (*controller, error) {
 	return ctrl, nil
 }
 
-func (c *Config) populateDefaults() {
-	if c.BaudRate == 0 {
-		c.BaudRate = 9600
+func (cfg *Config) populateDefaults() {
+	if cfg.BaudRate == 0 {
+		cfg.BaudRate = 9600
 	}
 
-	if c.MaxPowerPct == 0.0 {
-		c.MaxPowerPct = 1.0
+	if cfg.MaxPowerPct == 0.0 {
+		cfg.MaxPowerPct = 1.0
 	}
 }
 
-func (c *Config) validateValues() error {
+func (cfg *Config) validateValues() error {
 	errs := make([]string, 0)
-	if c.MotorChannel != 1 && c.MotorChannel != 2 {
-		errs = append(errs, fmt.Sprintf("invalid channel %v, acceptable values are 1 and 2", c.MotorChannel))
+	if cfg.MotorChannel != 1 && cfg.MotorChannel != 2 {
+		errs = append(errs, fmt.Sprintf("invalid channel %v, acceptable values are 1 and 2", cfg.MotorChannel))
 	}
-	if c.SerialAddress < 128 || c.SerialAddress > 135 {
+	if cfg.SerialAddress < 128 || cfg.SerialAddress > 135 {
 		errs = append(errs, "invalid address, acceptable values are 128 thru 135")
 	}
-	if c.BaudRate != 2400 && c.BaudRate != 9600 && c.BaudRate != 19200 && c.BaudRate != 38400 && c.BaudRate != 115200 {
+	if cfg.BaudRate != 2400 && cfg.BaudRate != 9600 && cfg.BaudRate != 19200 && cfg.BaudRate != 38400 && cfg.BaudRate != 115200 {
 		errs = append(errs, "invalid baud_rate, acceptable values are 2400, 9600, 19200, 38400, 115200")
 	}
-	if c.MinPowerPct < 0.0 || c.MinPowerPct > c.MaxPowerPct {
+	if cfg.MinPowerPct < 0.0 || cfg.MinPowerPct > cfg.MaxPowerPct {
 		errs = append(errs, "invalid min_power_pct, acceptable values are 0 to max_power_pct")
 	}
-	if c.MaxPowerPct > 1.0 {
+	if cfg.MaxPowerPct > 1.0 {
 		errs = append(errs, "invalid max_power_pct, acceptable values are min_power_pct to 100.0")
 	}
 	if len(errs) > 0 {
@@ -225,7 +225,6 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 
 	// Validate the actual config values make sense
 	err := c.validateValues()
-
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +306,7 @@ func (m *Motor) Close() {
 	if m.c.port != nil {
 		err = m.c.port.Close()
 		if err != nil {
-			m.c.logger.Error(fmt.Errorf("error closing serial connection: %v", err))
+			m.c.logger.Error(fmt.Errorf("error closing serial connection: %w", err))
 		}
 	}
 	globalMu.Lock()
