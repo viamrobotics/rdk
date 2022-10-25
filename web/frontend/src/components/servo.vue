@@ -35,8 +35,6 @@ const move = (amount: number) => {
     if (error) {
       return displayError(error);
     }
-
-    console.log(response);
   });
 };
 
