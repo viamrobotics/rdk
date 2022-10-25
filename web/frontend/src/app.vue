@@ -179,18 +179,24 @@ const fixRawStatus = (resource: Resource, statusToFix: unknown) => {
      * TODO (APP-146): generate these using constants
      * TODO these types need to be fixed.
      */
-    case 'rdk:component:arm':
+    case 'rdk:component:arm': {
       return fixArmStatus(statusToFix as never);
-    case 'rdk:component:board':
+    }
+    case 'rdk:component:board': {
       return fixBoardStatus(statusToFix as never);
-    case 'rdk:component:gantry':
+    }
+    case 'rdk:component:gantry': {
       return fixGantryStatus(statusToFix as never);
-    case 'rdk:component:input_controller':
+    }
+    case 'rdk:component:input_controller': {
       return fixInputStatus(statusToFix as never);
-    case 'rdk:component:motor':
+    }
+    case 'rdk:component:motor': {
       return fixMotorStatus(statusToFix as never);
-    case 'rdk:component:servo':
+    }
+    case 'rdk:component:servo': {
       return fixServoStatus(statusToFix as never);
+    }
   }
 
   return statusToFix;
