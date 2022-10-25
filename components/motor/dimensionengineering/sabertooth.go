@@ -52,6 +52,8 @@ type Motor struct {
 	Channel int
 	// Simply indicates if the RDK _thinks_ the motor is moving, because this controller has no feedback, this may not reflect reality
 	isOn bool
+	// The current power setting the RDK _thinks_ the motor is running, because this controller has no feedback, this may not reflect reality
+	currentPowerPct float64
 	// dirFlip means that the motor is wired "backwards" from what we expect forward/backward to mean,
 	// so we need to "flip" the direction sent by control
 	dirFlip bool
@@ -260,20 +262,17 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 }
 
 // IsPowered returns if the motor is currently on or off.
-func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
-	return m.isOn, nil
+func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+	return m.isOn, m.currentPowerPct, nil
 }
 
 // Close stops the motor and marks the axis inactive.
 func (m *Motor) Close() {
-	m.c.mu.Lock()
-	defer m.c.mu.Unlock()
-
-	active := m.c.activeAxes[m.Channel]
-
+	active := m.isAxisActive()
 	if !active {
 		return
 	}
+
 	err := m.Stop(context.Background(), nil)
 	if err != nil {
 		m.c.logger.Error(err)
@@ -296,6 +295,12 @@ func (m *Motor) Close() {
 	globalMu.Lock()
 	defer globalMu.Unlock()
 	delete(controllers, m.c.serialDevice)
+}
+
+func (m *Motor) isAxisActive() bool {
+	m.c.mu.Lock()
+	defer m.c.mu.Unlock()
+	return m.c.activeAxes[m.Channel]
 }
 
 // Must be run inside a lock.
@@ -336,6 +341,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 	m.isOn = true
+	m.currentPowerPct = powerPct
 
 	rawSpeed := powerPct * maxSpeed
 	if math.Signbit(rawSpeed) {
@@ -400,7 +406,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, position float64, extra map[strin
 
 // GoTillStop moves a motor until stopped by the controller (due to switch or function) or stopFunc.
 func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return motor.NewGoTillStopUnsupportedError("(name unavailable)")
+	return motor.NewGoTillStopUnsupportedError(fmt.Sprintf("Channel %d on Sabertooth %d", m.Channel, m.c.address))
 }
 
 // ResetZeroPosition defines the current position to be zero (+/- offset).
@@ -422,6 +428,7 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	defer done()
 
 	m.isOn = false
+	m.currentPowerPct = 0.0
 	cmd, err := newCommand(m.c.address, singleForward, m.Channel, 0)
 	if err != nil {
 		return err
