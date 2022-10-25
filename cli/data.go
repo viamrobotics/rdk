@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -30,8 +31,10 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		return errors.Wrapf(err, "error creating destination directories")
 	}
 
+	fmt.Println(filter.String())
 	skip := int64(0)
 	for {
+		fmt.Println("on image " + strconv.Itoa(int(skip)))
 		resp, err := c.dataClient.BinaryDataByFilter(context.Background(), &datapb.BinaryDataByFilterRequest{
 			DataRequest: &datapb.DataRequest{
 				Filter: filter,
@@ -41,16 +44,19 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 			IncludeBinary: true,
 			CountOnly:     false,
 		})
-		// TODO: Make sure EOF is properly interpreted. Iirc rpc errors aren't properly parsed by errors.Is.
-		if errors.Is(err, io.EOF) {
-			break
-		}
+
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "received error from server")
 		}
 		data := resp.GetData()
+
+		// If no data is returned, there is no more data.
+		if len(data) == 0 {
+			break
+		}
+
 		if len(data) != 1 {
-			return errors.Errorf("expected a single data response, received %d", len(data))
+			return errors.Errorf("expected a single response, received %d", len(data))
 		}
 
 		datum := data[0]
@@ -126,7 +132,7 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 	}
 
 	data := resp.GetData()
-	// TODO: Use textpb insted of ndjson, and save multiple files.
+	// TODO: [DATA-640] Support export in additional formats.
 	dataFile, err := os.Create(filepath.Join(dst, "data", "data"+".ndjson"))
 	w := bufio.NewWriter(dataFile)
 	for _, datum := range data {
@@ -157,10 +163,10 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 }
 
 func makeDestinationDirs(dst string) error {
-	if err := os.MkdirAll(filepath.Join(dst, dataDir), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Join(dst, dataDir), 0o700); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Join(dst, metadataDir), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Join(dst, metadataDir), 0o700); err != nil {
 		return err
 	}
 	return nil
