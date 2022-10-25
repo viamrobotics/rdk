@@ -5,6 +5,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	vutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
@@ -40,6 +41,22 @@ type Config struct {
 	RampRate         float64        `json:"ramp_rate_rpm_per_sec,omitempty"` // how fast to ramp power to motor when using rpm control
 	MaxRPM           float64        `json:"max_rpm,omitempty"`
 	TicksPerRotation int            `json:"ticks_per_rotation,omitempty"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) ([]string, error) {
+	var deps []string
+
+	if config.BoardName == "" {
+		return nil, vutils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+	deps = append(deps, config.BoardName)
+
+	// If an encoder is present the max_rpm field is optional, in the absence of an encoder the field is required
+	if config.Encoder != "" {
+		deps = append(deps, config.Encoder)
+	}
+	return deps, nil
 }
 
 // init registers a pi motor based on pigpio.
