@@ -7,13 +7,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	datapb "go.viam.com/api/app/data/v1"
-	"google.golang.org/protobuf/encoding/protojson"
 	"io"
 	"os"
 	"path/filepath"
 	"strconv"
+
+	"github.com/pkg/errors"
+	datapb "go.viam.com/api/app/data/v1"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 const (
@@ -21,7 +22,7 @@ const (
 	metadataDir = "metadata"
 )
 
-// BinaryData writes the requested data to the passed directory.
+// BinaryData downloads binary data matching filter to dst.
 func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
@@ -31,10 +32,8 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		return errors.Wrapf(err, "error creating destination directories")
 	}
 
-	fmt.Println(filter.String())
 	skip := int64(0)
 	for {
-		fmt.Println("on image " + strconv.Itoa(int(skip)))
 		resp, err := c.dataClient.BinaryDataByFilter(context.Background(), &datapb.BinaryDataByFilterRequest{
 			DataRequest: &datapb.DataRequest{
 				Filter: filter,
@@ -44,7 +43,6 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 			IncludeBinary: true,
 			CountOnly:     false,
 		})
-
 		if err != nil {
 			return errors.Wrapf(err, "received error from server")
 		}
@@ -60,16 +58,17 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		}
 
 		datum := data[0]
-		mdJsonBytes, err := protojson.Marshal(datum.GetMetadata())
+		mdJSONBytes, err := protojson.Marshal(datum.GetMetadata())
 		if err != nil {
 			return err
 		}
 
+		//nolint:gosec
 		jsonFile, err := os.Create(filepath.Join(dst, "metadata", datum.GetMetadata().GetId()+".json"))
 		if err != nil {
 			return err
 		}
-		if _, err := jsonFile.Write(mdJsonBytes); err != nil {
+		if _, err := jsonFile.Write(mdJSONBytes); err != nil {
 			return err
 		}
 
@@ -79,7 +78,12 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 			return err
 		}
 
+		//nolint:gosec
 		dataFile, err := os.Create(filepath.Join(dst, "data", datum.GetMetadata().GetId()+datum.GetMetadata().GetFileExt()))
+		if err != nil {
+			return errors.Wrapf(err, fmt.Sprintf("error creating file for file %s", datum.GetMetadata().GetId()))
+		}
+		//nolint:gosec
 		if _, err := io.Copy(dataFile, r); err != nil {
 			return err
 		}
@@ -92,6 +96,7 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 	return nil
 }
 
+// TabularData downloads binary data matching filter to dst.
 func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 	if err := c.ensureLoggedIn(); err != nil {
 		return err
@@ -115,15 +120,16 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 	mds := resp.GetMetadata()
 
 	for i, md := range mds {
-		mdJsonBytes, err := protojson.Marshal(md)
+		mdJSONBytes, err := protojson.Marshal(md)
 		if err != nil {
 			return errors.Wrap(err, "error marshaling metadata")
 		}
+		//nolint:gosec
 		mdFile, err := os.Create(filepath.Join(dst, "metadata", strconv.Itoa(i)+".json"))
 		if err != nil {
-			return errors.Wrapf(err, "error creating metadata file %s", mdFile.Name())
+			return errors.Wrapf(err, fmt.Sprintf("error creating metadata file for metadata index %d", i))
 		}
-		if _, err := mdFile.Write(mdJsonBytes); err != nil {
+		if _, err := mdFile.Write(mdJSONBytes); err != nil {
 			return errors.Wrapf(err, "error writing metadata file %s", mdFile.Name())
 		}
 		if err := mdFile.Close(); err != nil {
@@ -133,7 +139,11 @@ func (c *AppClient) TabularData(dst string, filter *datapb.Filter) error {
 
 	data := resp.GetData()
 	// TODO: [DATA-640] Support export in additional formats.
+	//nolint:gosec
 	dataFile, err := os.Create(filepath.Join(dst, "data", "data"+".ndjson"))
+	if err != nil {
+		return errors.Wrapf(err, "error creating data file")
+	}
 	w := bufio.NewWriter(dataFile)
 	for _, datum := range data {
 		// Write everything as json for now.

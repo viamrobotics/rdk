@@ -4,22 +4,22 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
-	datapb "go.viam.com/api/app/data/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"log"
 	"os"
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
+	datapb "go.viam.com/api/app/data/v1"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	rdkcli "go.viam.com/rdk/cli"
 )
 
 const (
-	// Flags
+	// Flags.
 	dataFlagDestination    = "destination"
 	dataFlagDataType       = "data_type"
 	dataFlagOrgIDs         = "org_ids"
@@ -296,9 +296,7 @@ func main() {
 						Usage:    "ISO-8601 timestamp indicating the end of the interval filter",
 					},
 				},
-				Action: func(c *cli.Context) error {
-					return DataCommand(c)
-				},
+				Action: DataCommand,
 			},
 			{
 				Name:  "robots",
@@ -703,6 +701,7 @@ func main() {
 	}
 }
 
+// DataCommand runs the data command for downloading data from the Viam cloud.
 func DataCommand(c *cli.Context) error {
 	if c.String(dataFlagDataType) != dataTypeBinary && c.String(dataFlagDataType) != dataTypeTabular {
 		return errors.Errorf("type must be binary or tabular, got %s", c.String("type"))
