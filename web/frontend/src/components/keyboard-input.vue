@@ -56,17 +56,21 @@ const onUseKeyboardNav = (event: KeyboardEvent) => {
 
   switch (event.key.toLowerCase()) {
     case 'arrowleft':
-    case 'a':
+    case 'a': {
       return setKeyPressed('left', down);
+    }
     case 'arrowright':
-    case 'd':
+    case 'd': {
       return setKeyPressed('right', down);
+    }
     case 'arrowup':
-    case 'w':
+    case 'w': {
       return setKeyPressed('forward', down);
+    }
     case 'arrowdown':
-    case 's':
+    case 's': {
       return setKeyPressed('backward', down);
+    }
   }
 };
 
