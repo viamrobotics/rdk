@@ -103,7 +103,7 @@ do_darwin(){
 		export CGO_LDFLAGS=-L/opt/homebrew/lib
 		export CGO_CFLAGS=-I/opt/homebrew/include
 		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-		export PATH="$PATH:$(ruby -e 'puts Gem.user_dir')/bin"
+		export PATH="\$PATH:\$(ruby -e 'puts Gem.user_dir')/bin"
 		EOS
 
   	else # assuming x86_64, but untested
@@ -112,7 +112,7 @@ do_darwin(){
 		eval "\$(/usr/local/bin/brew shellenv)"
 		export LIBRARY_PATH=/usr/local/lib
 		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-		export PATH="$PATH:$(ruby -e 'puts Gem.user_dir')/bin"
+		export PATH="\$PATH:\$(ruby -e 'puts Gem.user_dir')/bin"
 		EOS
 
 	fi

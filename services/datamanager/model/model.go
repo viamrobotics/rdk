@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -221,7 +220,7 @@ func downloadFile(cancelCtx context.Context, client httpClient, filepath, url st
 		return err
 	}
 
-	return ioutil.WriteFile(out.Name(), bodyBytes, os.ModePerm)
+	return os.WriteFile(out.Name(), bodyBytes, os.ModePerm)
 }
 
 // unzipSource unzips all files inside a zip file.

@@ -12,12 +12,17 @@ type Object struct {
 	Geometry spatialmath.Geometry
 }
 
-// NewObject calculates the metadata for an input pointcloud.
+// NewObject creates a new vision.Object from a point cloud with an empty label.
 func NewObject(cloud pc.PointCloud) (*Object, error) {
+	return NewObjectWithLabel(cloud, "")
+}
+
+// NewObjectWithLabel creates a new vision.Object from a point cloud with the given label.
+func NewObjectWithLabel(cloud pc.PointCloud, label string) (*Object, error) {
 	if cloud == nil {
 		return NewEmptyObject(), nil
 	}
-	box, err := pc.BoundingBoxFromPointCloud(cloud)
+	box, err := pc.BoundingBoxFromPointCloudWithLabel(cloud, label)
 	if err != nil {
 		return nil, err
 	}

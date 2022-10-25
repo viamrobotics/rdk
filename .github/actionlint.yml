@@ -1,0 +1,4 @@
+self-hosted-runner:
+  labels:
+    - qemu-host
+    - pi4

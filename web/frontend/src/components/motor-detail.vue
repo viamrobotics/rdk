@@ -28,28 +28,34 @@ let type = $ref<MovementTypes>('go');
 const setMovementType = (value: string) => {
   movementType = value;
   switch (value) {
-    case 'Go':
+    case 'Go': {
       type = 'go';
       break;
-    case 'Go For':
+    }
+    case 'Go For': {
       type = 'goFor';
       break;
-    case 'Go To':
+    }
+    case 'Go To': {
       type = 'goTo';
       break;
+    }
   }
 };
 
 const setDirection = (value: string) => {
   switch (value) {
-    case 'Forwards':
+    case 'Forwards': {
       direction = 1;
       break;
-    case 'Backwards':
+    }
+    case 'Backwards': {
       direction = -1;
       break;
-    default:
+    }
+    default: {
       direction = 1;
+    }
   }
 };
 
@@ -85,12 +91,15 @@ const goTo = () => {
 
 const motorRun = () => {
   switch (type) {
-    case 'go':
+    case 'go': {
       return setPower();
-    case 'goFor':
+    }
+    case 'goFor': {
       return goFor();
-    case 'goTo':
+    }
+    case 'goTo': {
       return goTo();
+    }
   }
 };
 

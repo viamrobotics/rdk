@@ -72,6 +72,7 @@ const status = $ref<Record<string, Status>>({});
 const errors = $ref<Record<string, boolean>>({});
 
 let statusStream: ResponseStream<StreamStatusResponse>;
+let baseCameraState = new Map<string, boolean>();
 let lastStatusTS = Date.now();
 let disableAuthElements = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
@@ -79,7 +80,6 @@ let currentOps = $ref<{ op: Operation.AsObject, elapsed: number }[]>([]);
 let sensorNames = $ref<ResourceName.AsObject[]>([]);
 let resources = $ref<Resource[]>([]);
 let errorMessage = $ref('');
-let activePreviews = $ref<string[]>([]);
 let connectionManager = $ref<{
   statuses: {
     resources: boolean;
@@ -179,18 +179,24 @@ const fixRawStatus = (resource: Resource, statusToFix: unknown) => {
      * TODO (APP-146): generate these using constants
      * TODO these types need to be fixed.
      */
-    case 'rdk:component:arm':
+    case 'rdk:component:arm': {
       return fixArmStatus(statusToFix as never);
-    case 'rdk:component:board':
+    }
+    case 'rdk:component:board': {
       return fixBoardStatus(statusToFix as never);
-    case 'rdk:component:gantry':
+    }
+    case 'rdk:component:gantry': {
       return fixGantryStatus(statusToFix as never);
-    case 'rdk:component:input_controller':
+    }
+    case 'rdk:component:input_controller': {
       return fixInputStatus(statusToFix as never);
-    case 'rdk:component:motor':
+    }
+    case 'rdk:component:motor': {
       return fixMotorStatus(statusToFix as never);
-    case 'rdk:component:servo':
+    }
+    case 'rdk:component:servo': {
       return fixServoStatus(statusToFix as never);
+    }
   }
 
   return statusToFix;
@@ -370,6 +376,14 @@ const loadCurrentOps = () => {
         });
       }
 
+      currentOps.sort((op1, op2) => {
+        if (op1.elapsed === -1 || op2.elapsed === -1) {
+          // move op with null start time to the back of the list
+          return op2.elapsed - op1.elapsed;
+        }
+        return op1.elapsed - op2.elapsed;
+      });
+
       resolve(currentOps);
     });
   });
@@ -484,37 +498,24 @@ const filteredInputControllerList = () => {
 };
 
 const viewCamera = async (name: string, isOn: boolean) => {
-  const streamContainers = document.querySelectorAll(`[data-stream="${name}"]`);
-
   if (isOn) {
     try {
-      await addStream(name);
-      for (const container of streamContainers) {
-        container.querySelector('img')?.remove();
-      }
-
-      const previews = document.querySelectorAll(`[data-stream-preview="${name}"]`);
-      for (const preview of previews) {
-        preview.removeAttribute('hidden');
+      // only add stream if base camera is not active
+      if (!baseCameraState.get(name)) {
+        await addStream(name);
       }
     } catch (error) {
       displayError(error as ServiceError);
     }
-
-    return;
-  }
-
-  try {
-    const previews = document.querySelectorAll(`[data-stream-preview="${name}"]`);
-    for (const preview of previews) {
-      preview.setAttribute('hidden', 'true');
+  } else {
+    try {
+      // only remove stream if base camera is not active
+      if (!baseCameraState.get(name)) {
+        await removeStream(name);
+      }
+    } catch (error) {
+      displayError(error as ServiceError);
     }
-    await removeStream(name);
-    for (const container of streamContainers) {
-      container.querySelector('img')?.remove();
-    }
-  } catch (error) {
-    displayError(error as ServiceError);
   }
 };
 
@@ -617,16 +618,8 @@ const waitForClientAndStart = async () => {
   }
 };
 
-const handleSelectCamera = async (event: string) => {
-  if (event === '') {
-    await Promise.all(activePreviews.map((preview) => viewCamera(preview, false)));
-    activePreviews = [];
-    return;
-  }
-
-  const previews = event.split(',');
-  await Promise.all(previews.map((preview) => viewCamera(preview, !activePreviews.includes(preview))));
-  activePreviews = previews;
+const updatedBaseCameraState = (event: Map<string, boolean>) => {
+  baseCameraState = event;
 };
 
 onMounted(async () => {
@@ -698,7 +691,7 @@ onMounted(async () => {
       :key="base.name"
       :name="base.name"
       :resources="resources"
-      @showcamera="handleSelectCamera($event)"
+      @base-camera-state="updatedBaseCameraState($event)"
     />
 
     <!-- ******* GANTRY *******  -->
@@ -776,7 +769,6 @@ onMounted(async () => {
       v-for="camera in filterResources(resources, 'rdk', 'component', 'camera')"
       :key="camera.name"
       :camera-name="camera.name"
-      :crumbs="[camera.name]"
       :resources="resources"
       @toggle-camera="isOn => { viewCamera(camera.name, isOn) }"
       @refresh-camera="t => { viewCameraFrame(camera.name, t) }"
@@ -803,7 +795,6 @@ onMounted(async () => {
       v-for="audioInput in filterResources(resources, 'rdk', 'component', 'audio_input')"
       :key="audioInput.name"
       :name="audioInput.name"
-      :crumbs="[audioInput.name]"
     />
 
     <!-- ******* SLAM *******  -->

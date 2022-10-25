@@ -268,7 +268,7 @@ onUnmounted(() => {
   >
     <v-breadcrumbs
       slot="title"
-      :crumbs="['navigation'].join(',')"
+      crumbs="navigation"
     />
     <div class="flex flex-col gap-2 border border-t-0 border-black p-4">
       <div class="flex h-full w-full flex-row items-end gap-2">

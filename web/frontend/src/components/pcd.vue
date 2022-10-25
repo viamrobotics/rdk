@@ -465,12 +465,15 @@ const handleCenter = () => {
 
 const handleSelectObject = (selection: string) => {
   switch (selection) {
-    case 'Center Point':
+    case 'Center Point': {
       return loadSegment(0);
-    case 'Bounding Box':
+    }
+    case 'Bounding Box': {
       return loadBoundingBox(1);
-    case 'Cropped':
+    }
+    case 'Cropped': {
       return loadPoint(2);
+    }
   }
 };
 

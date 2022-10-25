@@ -31,9 +31,17 @@ jobs:
       date: ${{ steps.build_test_app.outputs.date }}
 
     steps:
-    - name: Checkout Code
+    - name: Check out main branch code
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       uses: actions/checkout@v2
-      with: 
+      with:
+        fetch-depth: 2
+
+    - name: Check out PR branch code
+      if: github.event_name == 'pull_request_target'
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 2
 
     - name: Clean
