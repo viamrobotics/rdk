@@ -51,7 +51,7 @@ func (config *Config) Validate(path string) ([]string, error) {
 	}
 
 	if len(config.Left) != len(config.Right) {
-		return nil, fmt.Errorf("left and right need to have the same number of motors, not %d vs %d", len(config.Left), len(config.Right))
+		return nil, utils.NewConfigValidationError(path,fmt.Errorf("left and right need to have the same number of motors, not %d vs %d", len(config.Left), len(config.Right)))
 	}
 
 	deps = append(deps, config.Left...)
