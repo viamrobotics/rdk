@@ -72,6 +72,21 @@ type RobotClient struct {
 	closeContext context.Context
 }
 
+func handleFake(logger golog.Logger) googlegrpc.UnaryClientInterceptor {
+	return func(
+		ctx context.Context,
+		method string,
+		req, reply interface{},
+		cc *googlegrpc.ClientConn,
+		invoker googlegrpc.UnaryInvoker,
+		opts ...googlegrpc.CallOption,
+	) error {
+		logger.Infow(">>> fake interceptor", "method", method)
+		// return invoker(ctx, method, req, reply, cc, opts...)
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+}
+
 func needsConnectionCheck(method string) bool {
 	return !strings.Contains(method, "proto.rpc.webrtc.v1.SignalingService")
 }
@@ -119,6 +134,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		rOpts.dialOptions,
 		rpc.WithUnaryClientInterceptor(operation.UnaryClientInterceptor),
 		rpc.WithStreamClientInterceptor(operation.StreamClientInterceptor),
+		rpc.WithUnaryClientInterceptor(handleFake(logger)),
 	)
 
 	for _, opt := range opts {
