@@ -40,7 +40,7 @@ func init() {
 
 // Service defines what a Data Manager Service should expose to the users.
 type Service interface {
-	Sync(ctx context.Context) error
+	Sync(ctx context.Context, extra map[string]interface{}) error
 }
 
 var (
@@ -65,7 +65,6 @@ var Subtype = resource.NewSubtype(
 )
 
 // Named is a helper for getting the named datamanager's typed resource name.
-// RSDK-347 Implements datamanager's Named.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
@@ -102,10 +101,10 @@ type reconfigurableDataManager struct {
 	actual Service
 }
 
-func (svc *reconfigurableDataManager) Sync(ctx context.Context) error {
+func (svc *reconfigurableDataManager) Sync(ctx context.Context, extra map[string]interface{}) error {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.Sync(ctx)
+	return svc.actual.Sync(ctx, extra)
 }
 
 func (svc *reconfigurableDataManager) Close(ctx context.Context) error {
