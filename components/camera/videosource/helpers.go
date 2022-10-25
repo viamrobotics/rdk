@@ -84,6 +84,9 @@ func readColorURL(ctx context.Context, client http.Client, url string) (image.Im
 		return nil, err
 	}
 	img, err := rimage.DecodeImage(ctx, colorData, mimeType)
+	if _, isLazy := utils.CheckLazyMIMEType(mimeType); isLazy {
+		return img, nil
+	}
 	if err != nil {
 		return nil, err
 	}
