@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strings"
 	"sync"
 	"time"
 
@@ -113,21 +114,6 @@ func (cfg *Config) Validate(path string) error {
 	if cfg.SerialPath == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "serial_path")
 	}
-	if cfg.MotorChannel != 1 && cfg.MotorChannel != 2 {
-		return utils.NewConfigValidationError(path, errors.New("invalid channel, acceptable values are 1 and 2"))
-	}
-	if cfg.SerialAddress < 128 || cfg.SerialAddress > 135 {
-		return utils.NewConfigValidationError(path, errors.New("invalid address, acceptable values are 128 thru 135"))
-	}
-	if cfg.BaudRate != 2400 && cfg.BaudRate != 9600 && cfg.BaudRate != 19200 && cfg.BaudRate != 38400 && cfg.BaudRate != 115200 {
-		return utils.NewConfigValidationError(path, errors.New("invalid baud_rate, acceptable values are 2400, 9600, 19200, 38400, 115200"))
-	}
-	if cfg.MinPowerPct < 0.0 || cfg.MinPowerPct > cfg.MaxPowerPct {
-		return utils.NewConfigValidationError(path, errors.New("invalid min_power_pct, acceptable values are 0 to max_power_pct"))
-	}
-	if cfg.MaxPowerPct > 1.0 {
-		return utils.NewConfigValidationError(path, errors.New("invalid max_power_pct, acceptable values are min_power_pct to 100.0"))
-	}
 
 	return nil
 }
@@ -196,10 +182,53 @@ func newController(c *Config, logger golog.Logger) (*controller, error) {
 	return ctrl, nil
 }
 
+func (c *Config) populateDefaults() {
+	if c.BaudRate == 0 {
+		c.BaudRate = 9600
+	}
+
+	if c.MaxPowerPct == 0.0 {
+		c.MaxPowerPct = 1.0
+	}
+}
+
+func (c *Config) validateValues() error {
+	errs := make([]string, 0)
+	if c.MotorChannel != 1 && c.MotorChannel != 2 {
+		errs = append(errs, fmt.Sprintf("invalid channel %v, acceptable values are 1 and 2", c.MotorChannel))
+	}
+	if c.SerialAddress < 128 || c.SerialAddress > 135 {
+		errs = append(errs, "invalid address, acceptable values are 128 thru 135")
+	}
+	if c.BaudRate != 2400 && c.BaudRate != 9600 && c.BaudRate != 19200 && c.BaudRate != 38400 && c.BaudRate != 115200 {
+		errs = append(errs, "invalid baud_rate, acceptable values are 2400, 9600, 19200, 38400, 115200")
+	}
+	if c.MinPowerPct < 0.0 || c.MinPowerPct > c.MaxPowerPct {
+		errs = append(errs, "invalid min_power_pct, acceptable values are 0 to max_power_pct")
+	}
+	if c.MaxPowerPct > 1.0 {
+		errs = append(errs, "invalid max_power_pct, acceptable values are min_power_pct to 100.0")
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("error validating sabertooth controller config: %s", strings.Join(errs, "\r\n"))
+	}
+	return nil
+}
+
 // NewMotor returns a Sabertooth driven motor.
 func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalMotor, error) {
 	globalMu.Lock()
 	defer globalMu.Unlock()
+
+	// populate the default values into the config
+	c.populateDefaults()
+
+	// Validate the actual config values make sense
+	err := c.validateValues()
+
+	if err != nil {
+		return nil, err
+	}
 	ctrl, ok := controllers[c.SerialPath]
 	if !ok {
 		newCtrl, err := newController(c, logger)
@@ -223,23 +252,12 @@ func NewMotor(ctx context.Context, c *Config, logger golog.Logger) (motor.LocalM
 	}
 	ctrl.activeAxes[c.MotorChannel] = true
 
-	// We don't need to convert MinPowerPct because unset it will be 0, which is a safe default
-	minPowerPct := c.MinPowerPct
-
-	// Convert the MaxPowerPct to a default of 100, or whatever the user supplies
-	var maxPowerPct float64
-	if c.MaxPowerPct != 0.0 {
-		maxPowerPct = c.MaxPowerPct
-	} else {
-		maxPowerPct = 1.0
-	}
-
 	m := &Motor{
 		c:           ctrl,
 		Channel:     c.MotorChannel,
 		dirFlip:     c.DirectionFlip,
-		minPowerPct: minPowerPct,
-		maxPowerPct: maxPowerPct,
+		minPowerPct: c.MinPowerPct,
+		maxPowerPct: c.MaxPowerPct,
 	}
 
 	if err := m.configure(c); err != nil {
