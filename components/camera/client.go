@@ -61,8 +61,10 @@ func (c *client) Read(ctx context.Context) (image.Image, func(), error) {
 	}
 	if actualType != resp.MimeType {
 		c.logger.Debugw("got different MIME type than what was asked for", "sent", mimeType, "received", resp.MimeType)
+	} else {
+		resp.MimeType = mimeType
 	}
-	img, err := rimage.DecodeImage(ctx, resp.Image, mimeType)
+	img, err := rimage.DecodeImage(ctx, resp.Image, resp.MimeType)
 	if err != nil {
 		return nil, nil, err
 	}
