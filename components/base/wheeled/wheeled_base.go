@@ -226,7 +226,7 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 		anyOff := false
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsPowered(ctx, nil)
+			isOn, _, err := m.IsPowered(ctx, nil)
 			if err != nil {
 				return err
 			}
@@ -258,7 +258,7 @@ func (base *wheeledBase) Stop(ctx context.Context, extra map[string]interface{})
 
 func (base *wheeledBase) IsMoving(ctx context.Context) (bool, error) {
 	for _, m := range base.allMotors {
-		isMoving, err := m.IsPowered(ctx, nil)
+		isMoving, _, err := m.IsPowered(ctx, nil)
 		if err != nil {
 			return false, err
 		}

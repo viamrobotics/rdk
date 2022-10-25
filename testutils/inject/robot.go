@@ -119,7 +119,7 @@ func (r *Robot) OperationManager() *operation.Manager {
 	defer r.opsLock.Unlock()
 
 	if r.ops == nil {
-		r.ops = operation.NewManager()
+		r.ops = operation.NewManager(r.Logger())
 	}
 	return r.ops
 }

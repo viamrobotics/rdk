@@ -343,11 +343,11 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return nil
 }
 
-// IsPowered returns if the motor is pretending to be on or not.
-func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
+// IsPowered returns if the motor is pretending to be on or not, and its power level.
+func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return math.Abs(m.powerPct) >= 0.005, nil
+	return math.Abs(m.powerPct) >= 0.005, m.powerPct, nil
 }
 
 // IsMoving returns if the motor is pretending to be moving or not.

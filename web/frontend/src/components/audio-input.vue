@@ -7,7 +7,6 @@ import { addStream, removeStream } from '../lib/stream';
 
 interface Props {
   name: string
-  crumbs: string[]
 }
 
 const props = defineProps<Props>();

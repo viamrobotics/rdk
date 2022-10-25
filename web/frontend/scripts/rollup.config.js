@@ -1,7 +1,7 @@
 /**
  * This file exists because protobuf cannot generate es modules, only commonjs...
  * but the rest of the world has moved on to es modules.
- * If in the future the first statement here becomes false, then please instead generate 
+ * If in the future the first statement here becomes false, then please instead generate
  * es modules and get rid of this.
  */
 
@@ -9,7 +9,7 @@ import commonjs from '@rollup/plugin-commonjs';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import copy from 'rollup-plugin-copy';
 import alias from '@rollup/plugin-alias';
- 
+
 const dir = './src/gen/proto';
 const format = 'es';
 const files = [
@@ -51,7 +51,7 @@ const files = [
   'stream/v1/stream_pb',
   'stream/v1/stream_pb_service',
 ];
- 
+
 const plugins = [
   nodeResolve(),
   commonjs(),
@@ -64,7 +64,7 @@ const plugins = [
     ],
   }),
 ];
- 
+
 export default files.map((file) => ({
   input: `${dir}/${file}.js`,
   output: {
@@ -74,11 +74,13 @@ export default files.map((file) => ({
   plugins: [
     ...plugins,
     copy({
-      targets: [{
-        src: `${dir}/${file}.d.ts`,
-        dest: dir,
-        rename: () => `${file}.esm.d.ts`,
-      }],
+      targets: [
+        {
+          src: `${dir}/${file}.d.ts`,
+          dest: dir,
+          rename: () => `${file}.esm.d.ts`,
+        },
+      ],
     }),
   ],
 }));

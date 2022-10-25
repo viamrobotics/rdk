@@ -134,11 +134,11 @@ func (server *subtypeServer) IsPowered(
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
 
-	isOn, err := motor.IsPowered(ctx, req.Extra.AsMap())
+	isOn, powerPct, err := motor.IsPowered(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
-	return &pb.IsPoweredResponse{IsOn: isOn}, nil
+	return &pb.IsPoweredResponse{IsOn: isOn, PowerPct: powerPct}, nil
 }
 
 // GoTo requests the motor of the underlying robot to go a specific position.
