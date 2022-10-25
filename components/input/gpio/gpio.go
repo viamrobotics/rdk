@@ -35,7 +35,7 @@ func (config *Config) Validate(path string) ([]string, error) {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	if len(config.Axes) == 0 && len(config.Buttons) == 0 {
-		return nil, utils.NewConfigValidationFieldRequiredError(path, "buttons/axes")
+		return nil, utils.NewConfigValidationError(path, errors.New("buttons and axes cannot be both empty"))
 	}
 	deps = append(deps, config.Board)
 	return deps, nil
