@@ -10,6 +10,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,19 +41,15 @@ func init() {
 	// so long as the raw RGBA data has the appropriate header
 	image.RegisterFormat("vnd.viam.rgba", string(RGBABitmapMagicNumber),
 		func(r io.Reader) (image.Image, error) {
-			headerBytes := make([]byte, RawRGBAHeaderLength)
-			_, err := r.Read(headerBytes)
+			rawBytes, err := ioutil.ReadAll(r)
 			if err != nil {
 				return nil, err
 			}
-			header := headerBytes[:RawRGBAHeaderLength]
+			header := rawBytes[:RawRGBAHeaderLength]
 			width := int(binary.BigEndian.Uint32(header[4:8]))
 			height := int(binary.BigEndian.Uint32(header[8:12]))
 			img := image.NewNRGBA(image.Rect(0, 0, width, height))
-			imgBytes := make([]byte, width*height*4)
-			if err != nil {
-				return nil, err
-			}
+			imgBytes := rawBytes[RawRGBAHeaderLength:]
 			img.Pix = imgBytes
 			return img, nil
 		},
@@ -260,11 +257,8 @@ func EncodeImage(ctx context.Context, img image.Image, mimeType string) ([]byte,
 		binary.BigEndian.PutUint32(heightBytes, uint32(bounds.Dy()))
 		buf.Write(widthBytes)
 		buf.Write(heightBytes)
-		imgStruct, ok := img.(*image.NRGBA)
-		if !ok {
-			imgStruct = image.NewNRGBA(bounds)
-			draw.Draw(imgStruct, bounds, img, bounds.Min, draw.Src)
-		}
+		imgStruct := image.NewNRGBA(bounds)
+		draw.Draw(imgStruct, bounds, img, bounds.Min, draw.Src)
 		buf.Write(imgStruct.Pix)
 	case ut.MimeTypePNG:
 		if err := png.Encode(&buf, img); err != nil {
