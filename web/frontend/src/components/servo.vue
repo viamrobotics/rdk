@@ -32,7 +32,7 @@ const move = (amount: number) => {
   const req = new servoApi.MoveRequest();
   req.setName(props.name);
   req.setAngleDeg(angle);
-  window.servoService.move(req, new grpc.Metadata(), (error, response) => {
+  window.servoService.move(req, new grpc.Metadata(), (error) => {
     if (error) {
       return displayError(error);
     }
