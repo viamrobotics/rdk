@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	rdkutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/encoder"
@@ -88,6 +89,16 @@ type EncoderConfig struct {
 	Pins      EncoderPins `json:"pins"`
 	BoardName string      `json:"board"`
 	MotorName string      `json:"motor_name"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (cfg *EncoderConfig) Validate(path string) ([]string, error) {
+	var deps []string
+	if cfg.BoardName == "" {
+		return nil, rdkutils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+	deps = append(deps, cfg.BoardName)
+	return deps, nil
 }
 
 // TicksCount returns number of ticks since last zeroing.
