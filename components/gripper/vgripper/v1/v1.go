@@ -37,15 +37,17 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) error {
+func (config *AttrConfig) Validate(path string) ([]string, error) {
+	var deps []string
 	if config.Board == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 
 	if config.PressureLimit == 0 {
-		return utils.NewConfigValidationFieldRequiredError(path, "pressure_limit")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "pressure_limit")
 	}
-	return nil
+	deps = append(deps, config.Board)
+	return deps, nil
 }
 
 func init() {
@@ -373,7 +375,7 @@ func (vg *gripperV1) Open(ctx context.Context) error {
 			return vg.stopAfterError(ctx, ctx.Err())
 		}
 		// If motor went all the way to open
-		isOn, err := vg.motor.IsPowered(ctx, nil)
+		isOn, _, err := vg.motor.IsPowered(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -430,7 +432,7 @@ func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
 			return false, vg.stopAfterError(ctx, ctx.Err())
 		}
 		// If motor went all the way to closed
-		isOn, err := vg.motor.IsPowered(ctx, nil)
+		isOn, _, err := vg.motor.IsPowered(ctx, nil)
 		if err != nil {
 			return false, vg.stopAfterError(ctx, err)
 		}

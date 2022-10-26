@@ -3,6 +3,7 @@ package gpio
 import (
 	"context"
 	"math"
+	"sync"
 	"testing"
 	"time"
 
@@ -56,9 +57,10 @@ func TestMotorEncoder1(t *testing.T) {
 	}()
 
 	t.Run("encoded motor testing the basics", func(t *testing.T) {
-		isOn, err := _motor.IsPowered(context.Background(), nil)
+		isOn, powerPct, err := _motor.IsPowered(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isOn, test.ShouldBeFalse)
+		test.That(t, powerPct, test.ShouldEqual, 0.0)
 		features, err := _motor.Properties(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
@@ -242,6 +244,21 @@ func TestMotorEncoder1(t *testing.T) {
 		})
 
 		test.That(t, _motor.Stop(context.Background(), nil), test.ShouldBeNil)
+	})
+	t.Run("Ensure stop called when gofor is interrupted", func(t *testing.T) {
+		ctx := context.Background()
+		var wg sync.WaitGroup
+		ctx, cancel := context.WithCancel(ctx)
+		wg.Add(1)
+		go func() {
+			_motor.GoFor(ctx, 100, 100, map[string]interface{}{})
+			wg.Done()
+		}()
+		cancel()
+		wg.Wait()
+
+		test.That(t, ctx.Err(), test.ShouldNotBeNil)
+		test.That(t, _motor.state.desiredRPM, test.ShouldEqual, 0)
 	})
 }
 

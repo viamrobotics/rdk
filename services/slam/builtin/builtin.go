@@ -754,7 +754,7 @@ func (slamSvc *builtIn) StopSLAMProcess() error {
 	return nil
 }
 
-func (slamSvc *builtIn) getLazyPNGImage(ctx context.Context, cam camera.Camera) ([]byte, func(), error) {
+func (slamSvc *builtIn) getPNGImage(ctx context.Context, cam camera.Camera) ([]byte, func(), error) {
 	// We will hint that we want a PNG.
 	// The Camera service server implementation in RDK respects this; others may not.
 	img, release, err := camera.ReadImage(
@@ -797,7 +797,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			return nil, errors.Errorf("expected 1 camera for mono slam, found %v", len(camStreams))
 		}
 
-		image, release, err := slamSvc.getLazyPNGImage(ctx, cams[0])
+		image, release, err := slamSvc.getPNGImage(ctx, cams[0])
 		if err != nil {
 			if err.Error() == opTimeoutErrorMessage {
 				slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
@@ -892,7 +892,7 @@ func (slamSvc *builtIn) getSimultaneousColorAndDepth(
 		goutils.PanicCapturingGo(func() {
 			defer slamSvc.activeBackgroundWorkers.Done()
 			defer wg.Done()
-			images[iLoop], releaseFuncs[iLoop], errs[iLoop] = slamSvc.getLazyPNGImage(ctx, cams[iLoop])
+			images[iLoop], releaseFuncs[iLoop], errs[iLoop] = slamSvc.getPNGImage(ctx, cams[iLoop])
 		})
 	}
 	wg.Wait()

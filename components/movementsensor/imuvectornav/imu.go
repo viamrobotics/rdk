@@ -30,32 +30,33 @@ type AttrConfig struct {
 	SPI   string `json:"spi"`
 	Speed *int   `json:"spi_baud_rate"`
 	Pfreq *int   `json:"polling_freq_hz"`
-	CSPin string `json:"cs_pin"`
+	CSPin string `json:"chip_select_pin"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) error {
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+	var deps []string
 	if cfg.Board == "" {
-		return rdkutils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, rdkutils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 
 	if cfg.SPI == "" {
-		return rdkutils.NewConfigValidationFieldRequiredError(path, "spi")
+		return nil, rdkutils.NewConfigValidationFieldRequiredError(path, "spi")
 	}
 
 	if cfg.Speed == nil {
-		return rdkutils.NewConfigValidationFieldRequiredError(path, "spi_baud_rate")
+		return nil, rdkutils.NewConfigValidationFieldRequiredError(path, "spi_baud_rate")
 	}
 
 	if cfg.Pfreq == nil {
-		return rdkutils.NewConfigValidationFieldRequiredError(path, "polling_freq_hz")
+		return nil, rdkutils.NewConfigValidationFieldRequiredError(path, "polling_freq_hz")
 	}
 
 	if cfg.CSPin == "" {
-		return rdkutils.NewConfigValidationFieldRequiredError(path, "cs_pin (chip select pin)")
+		return nil, rdkutils.NewConfigValidationFieldRequiredError(path, "cs_pin (chip select pin)")
 	}
-
-	return nil
+	deps = append(deps, cfg.Board)
+	return deps, nil
 }
 
 func init() {
