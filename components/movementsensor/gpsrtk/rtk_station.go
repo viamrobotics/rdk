@@ -50,41 +50,43 @@ const (
 )
 
 // Validate ensures all parts of the config are valid.
-func (cfg *StationConfig) Validate(path string) error {
+func (cfg *StationConfig) Validate(path string) ([]string, error) {
+	var deps []string
 	if cfg.CorrectionSource == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "correction_source")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "correction_source")
 	}
 
 	if cfg.CorrectionSource != serialStr && cfg.CorrectionSource != ntripStr && cfg.CorrectionSource != i2cStr {
-		return errors.New("only serial, I2C, and ntrip are supported correction sources")
+		return nil, errors.New("only serial, I2C, and ntrip are supported correction sources")
 	}
 
 	// not ntrip, using serial or i2c for correction source
 	if cfg.SurveyIn == timeMode {
 		if cfg.RequiredAccuracy == 0 {
-			return utils.NewConfigValidationFieldRequiredError(path, "required_accuracy")
+			return nil, utils.NewConfigValidationFieldRequiredError(path, "required_accuracy")
 		}
 		if cfg.RequiredTime == 0 {
-			return utils.NewConfigValidationFieldRequiredError(path, "required_time")
+			return nil, utils.NewConfigValidationFieldRequiredError(path, "required_time")
 		}
 	}
 
 	switch cfg.CorrectionSource {
 	case ntripStr:
-		return cfg.NtripAttrConfig.ValidateNtrip(path)
+		return nil, cfg.NtripAttrConfig.ValidateNtrip(path)
 	case i2cStr:
 		if cfg.Board == "" {
-			return utils.NewConfigValidationFieldRequiredError(path, "board")
+			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 		}
-		return cfg.I2CAttrConfig.ValidateI2C(path)
+		deps = append(deps, cfg.Board)
+		return deps, cfg.I2CAttrConfig.ValidateI2C(path)
 	case serialStr:
 		if cfg.SerialAttrConfig.SerialCorrectionPath == "" {
-			return utils.NewConfigValidationFieldRequiredError(path, "serial_correction_path")
+			return nil, utils.NewConfigValidationFieldRequiredError(path, "serial_correction_path")
 		}
 	default:
-		return utils.NewConfigValidationFieldRequiredError(path, "correction_source")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "correction_source")
 	}
-	return nil
+	return deps, nil
 }
 
 const stationModel = "rtk-station"

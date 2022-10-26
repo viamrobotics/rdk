@@ -4,7 +4,6 @@ package datasync
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -225,55 +224,14 @@ func getNextWait(lastWait time.Duration) time.Duration {
 	return nextWait
 }
 
-func getMetadata(f *os.File, partID string) (*v1.UploadMetadata, error) {
-	var md *v1.UploadMetadata
-	if datacapture.IsDataCaptureFile(f) {
-		captureMD, err := datacapture.ReadDataCaptureMetadata(f)
-		if err != nil {
-			return nil, err
-		}
-		md = &v1.UploadMetadata{
-			PartId:           partID,
-			ComponentType:    captureMD.GetComponentType(),
-			ComponentName:    captureMD.GetComponentName(),
-			ComponentModel:   captureMD.GetComponentModel(),
-			MethodName:       captureMD.GetMethodName(),
-			Type:             captureMD.GetType(),
-			FileName:         filepath.Base(f.Name()),
-			MethodParameters: captureMD.GetMethodParameters(),
-			FileExtension:    captureMD.GetFileExtension(),
-			Tags:             captureMD.GetTags(),
-		}
-	} else {
-		md = &v1.UploadMetadata{
-			PartId:        partID,
-			Type:          v1.DataType_DATA_TYPE_FILE,
-			FileName:      filepath.Base(f.Name()),
-			FileExtension: filepath.Ext(f.Name()),
-		}
-	}
-	return md, nil
-}
-
 func (s *syncer) uploadFile(ctx context.Context, client v1.DataSyncServiceClient, f *os.File, partID string) error {
-	// Resets file pointer to ensure we are reading from beginning of file.
-	if _, err := f.Seek(0, 0); err != nil {
-		return err
+	if datacapture.IsDataCaptureFile(f) {
+		dcFile, err := datacapture.ReadFile(f)
+		if err != nil {
+			return err
+		}
+		return uploadDataCaptureFile(ctx, s.progressTracker, client, partID, dcFile)
 	}
 
-	md, err := getMetadata(f, partID)
-	if err != nil {
-		return err
-	}
-
-	switch md.GetType() {
-	case v1.DataType_DATA_TYPE_BINARY_SENSOR, v1.DataType_DATA_TYPE_TABULAR_SENSOR:
-		return uploadDataCaptureFile(ctx, s.progressTracker, client, md, f)
-	case v1.DataType_DATA_TYPE_FILE:
-		return uploadArbitraryFile(ctx, client, md, f)
-	case v1.DataType_DATA_TYPE_UNSPECIFIED:
-		return errors.New("no data type specified in upload metadata")
-	default:
-		return errors.New("no data type specified in upload metadata")
-	}
+	return uploadArbitraryFile(ctx, client, partID, f)
 }

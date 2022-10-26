@@ -32,24 +32,27 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) error {
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+	var deps []string
 	if cfg.Board == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	if cfg.Open == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "open")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "open")
 	}
 	if cfg.Close == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "close")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "close")
 	}
 	if cfg.Power == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "power")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "power")
 	}
 
 	if cfg.AnalogReader != "psi" {
-		return utils.NewConfigValidationError(path, errors.Errorf("analog_reader %s on board must be created and called 'psi'", cfg.AnalogReader))
+		return nil, utils.NewConfigValidationError(path,
+			errors.Errorf("analog_reader %s on board must be created and called 'psi'", cfg.AnalogReader))
 	}
-	return nil
+	deps = append(deps, cfg.Board)
+	return deps, nil
 }
 
 func init() {

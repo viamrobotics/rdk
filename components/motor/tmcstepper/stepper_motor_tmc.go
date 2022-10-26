@@ -42,6 +42,28 @@ type TMC5072Config struct {
 	HoldDelay        int32     `json:"hold_delay,omitempty"`   // 0=instant powerdown, 1-15=delay * 2^18 clocks, 6 default
 }
 
+// Validate ensures all parts of the config are valid.
+func (config *TMC5072Config) Validate(path string) ([]string, error) {
+	var deps []string
+	if config.BoardName == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+	if config.SPIBus == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "spi_bus")
+	}
+	if config.ChipSelect == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "chip_select")
+	}
+	if config.Index <= 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "index")
+	}
+	if config.TicksPerRotation <= 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
+	}
+	deps = append(deps, config.BoardName)
+	return deps, nil
+}
+
 const (
 	modelname = "TMC5072"
 )

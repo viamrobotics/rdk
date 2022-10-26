@@ -30,19 +30,19 @@ func setupDependencies(t *testing.T) registry.Dependencies {
 
 func TestValidate(t *testing.T) {
 	fakecfg := &AttrConfig{}
-	err := fakecfg.Validate("path")
+	_, err := fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"path\": \"board\" is required")
 
 	fakecfg.Board = board1
-	err = fakecfg.Validate("path")
+	_, err = fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"path\": \"trigger pin\" is required")
 
 	fakecfg.TriggerPin = triggerPin
-	err = fakecfg.Validate("path")
+	_, err = fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "error validating \"path\": \"echo interrupt pin\" is required")
 
 	fakecfg.EchoInterrupt = echoInterrupt
-	err = fakecfg.Validate("path")
+	_, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 }
 

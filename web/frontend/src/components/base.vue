@@ -1,19 +1,27 @@
 <script setup lang="ts">
+
 import { grpc } from '@improbable-eng/grpc-web';
 import { ref, onMounted } from 'vue';
-import { computeKeyboardBaseControls, BaseControlHelper } from '../rc/control_helpers';
 import baseApi from '../gen/proto/api/component/base/v1/base_pb.esm';
 import commonApi from '../gen/proto/api/common/v1/common_pb.esm';
-import { toast } from '../lib/toast';
 import { filterResources, type Resource } from '../lib/resource';
 import { displayError } from '../lib/error';
-import KeyboardInput from './keyboard-input.vue';
+import KeyboardInput, { type Keys } from './keyboard-input.vue';
 import { addStream, removeStream } from '../lib/stream';
+import { rcLogConditionally } from '../lib/log';
 import type { ServiceError } from '../gen/proto/stream/v1/stream_pb_service.esm';
 
 interface Props {
   name: string;
   resources: Resource[];
+}
+
+// eslint-disable-next-line no-shadow
+const enum Keymap {
+  LEFT = 'a',
+  RIGHT = 'd',
+  FORWARD = 'w',
+  BACKWARD = 's'
 }
 
 const props = defineProps<Props>();
@@ -45,15 +53,13 @@ const angle = ref(0);
 const videoStreamStates = new Map<string, boolean>();
 const selectCameras = ref('');
 
+const pressed = new Set<Keys>();
+
 const initStreamState = () => {
   for (const value of filterResources(props.resources, 'rdk', 'component', 'camera')) {
     videoStreamStates.set(value.name, false);
   }
 };
-
-onMounted(() => {
-  initStreamState();
-});
 
 const resetDiscreteState = () => {
   movementMode.value = 'Straight';
@@ -78,24 +84,64 @@ const setDirection = (dir: Directions) => {
   direction.value = dir;
 };
 
-const handleBaseActionStop = (name: string) => {
+const stop = () => {
   const req = new baseApi.StopRequest();
-  req.setName(name);
+  req.setName(props.name);
   window.baseService.stop(req, new grpc.Metadata(), displayError);
 };
 
-const baseKeyboardCtl = (name: string, controls: Record<string, boolean>) => {
-  if (Object.values(controls).every((item) => item === false)) {
-    handleBaseActionStop(name);
-    return;
+const digestInput = () => {
+  let linearValue = 0;
+  let angularValue = 0;
+
+  for (const item of pressed) {
+    switch (item) {
+      case Keymap.FORWARD: {
+        linearValue += 1;
+        break;
+      }
+      case Keymap.BACKWARD: {
+        linearValue -= 1;
+        break;
+      }
+      case Keymap.LEFT: {
+        angularValue += 1;
+        break;
+      }
+      case Keymap.RIGHT: {
+        angularValue -= 1;
+        break;
+      }
+    }
   }
 
-  const inputs = computeKeyboardBaseControls(controls);
   const linear = new commonApi.Vector3();
   const angular = new commonApi.Vector3();
-  linear.setY(inputs.linear);
-  angular.setZ(inputs.angular);
-  BaseControlHelper.setPower(name, linear, angular, displayError);
+  linear.setY(linearValue);
+  angular.setZ(angularValue);
+
+  const req = new baseApi.SetPowerRequest();
+  req.setName(props.name);
+  req.setLinear(linear);
+  req.setAngular(angular);
+
+  rcLogConditionally(req);
+  window.baseService.setPower(req, new grpc.Metadata(), displayError);
+};
+
+const handleKeyDown = (key: Keys) => {
+  pressed.add(key);
+  digestInput();
+};
+
+const handleKeyUp = (key: Keys) => {
+  pressed.delete(key);
+
+  if (pressed.size > 0) {
+    digestInput();
+  } else {
+    stop();
+  }
 };
 
 const handleBaseStraight = (name: string, event: {
@@ -108,39 +154,44 @@ const handleBaseStraight = (name: string, event: {
     const linear = new commonApi.Vector3();
     linear.setY(event.speed * event.direction);
 
-    BaseControlHelper.setVelocity(
-      name,
-      linear,
-      new commonApi.Vector3(),
-      displayError
-    );
+    const req = new baseApi.SetVelocityRequest();
+    req.setName(name);
+    req.setLinear(linear);
+    req.setAngular(new commonApi.Vector3());
+
+    rcLogConditionally(req);
+    window.baseService.setVelocity(req, new grpc.Metadata(), displayError);
   } else {
-    BaseControlHelper.moveStraight(
-      name,
-      event.distance,
-      event.speed * event.direction,
-      displayError
-    );
+    const req = new baseApi.MoveStraightRequest();
+    req.setName(name);
+    req.setMmPerSec(event.speed * event.direction);
+    req.setDistanceMm(event.distance);
+
+    rcLogConditionally(req);
+    window.baseService.moveStraight(req, new grpc.Metadata(), displayError);
   }
 };
 
 const baseRun = () => {
   if (movementMode.value === 'Spin') {
-    BaseControlHelper.spin(
-      props.name,
-      angle.value * (spinType.value === 'Clockwise' ? -1 : 1),
-      spinSpeed.value,
-      displayError
-    );
+
+    const req = new baseApi.SpinRequest();
+    req.setName(props.name);
+    req.setAngleDeg(angle.value * (spinType.value === 'Clockwise' ? -1 : 1));
+    req.setDegsPerSec(spinSpeed.value);
+
+    rcLogConditionally(req);
+    window.baseService.spin(req, new grpc.Metadata(), displayError);
+
   } else if (movementMode.value === 'Straight') {
+
     handleBaseStraight(props.name, {
       movementType: movementType.value,
       direction: direction.value === 'Forwards' ? 1 : -1,
       speed: speed.value,
       distance: increment.value,
     });
-  } else {
-    toast.error(`Unrecognized discrete movement mode: ${movementMode.value}`);
+
   }
 };
 
@@ -191,6 +242,10 @@ const handleTabSelect = (tab: Tabs) => {
   }
 };
 
+onMounted(() => {
+  initStreamState();
+});
+
 </script>
 
 <template>
@@ -208,7 +263,7 @@ const handleTabSelect = (tab: Tabs) => {
       variant="danger"
       icon="stop-circle"
       label="STOP"
-      @click="handleBaseActionStop(name)"
+      @click="stop"
     />
 
     <div class="border border-t-0 border-black pt-2">
@@ -223,12 +278,11 @@ const handleTabSelect = (tab: Tabs) => {
         class="h-auto p-4"
       >
         <div class="grid grid-cols-2">
-          <div>
-            <KeyboardInput
-              :name="name"
-              @keyboard-ctl="baseKeyboardCtl(name, $event)"
-            />
-          </div>
+          <KeyboardInput
+            @keydown="handleKeyDown"
+            @keyup="handleKeyUp"
+            @toggle="(active: boolean) => !active && stop()"
+          />
           <div v-if="filterResources(resources, 'rdk', 'component', 'camera')">
             <v-select
               v-model="selectCameras"

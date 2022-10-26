@@ -32,24 +32,26 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) error {
+func (config *AttrConfig) Validate(path string) ([]string, error) {
+	var deps []string
 	if config.BoardName == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 
 	if config.BusName == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "bus_name")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "bus_name")
 	}
 
 	if config.I2CAddress == nil {
-		return utils.NewConfigValidationFieldRequiredError(path, "i2c_address")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_address")
 	}
 
 	if config.MaxReadBits == nil {
-		return utils.NewConfigValidationFieldRequiredError(path, "max_read_bits")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "max_read_bits")
 	}
 
-	return nil
+	deps = append(deps, config.BoardName)
+	return deps, nil
 }
 
 const modelName = "ezopmp"

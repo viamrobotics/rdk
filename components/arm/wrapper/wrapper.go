@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/generic"
@@ -25,6 +26,16 @@ const ModelName = "wrapper_arm"
 type AttrConfig struct {
 	ModelPath string `json:"model-path"`
 	ArmName   string `json:"arm-name"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+	var deps []string
+	if cfg.ArmName == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "arm-name")
+	}
+	deps = append(deps, cfg.ArmName)
+	return deps, nil
 }
 
 func init() {
