@@ -11,6 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
@@ -68,6 +69,16 @@ type JoinAttrs struct {
 	MergeMethod   string   `json:"merge_method"`
 	// Closeness defines how close 2 points should be together to be considered the same point when merged.
 	Closeness float64 `json:"closeness_mm"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (cfg *JoinAttrs) Validate(path string) ([]string, error) {
+	var deps []string
+	if len(cfg.SourceCameras) == 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "source_cameras")
+	}
+	deps = append(deps, cfg.SourceCameras...)
+	return deps, nil
 }
 
 type (
