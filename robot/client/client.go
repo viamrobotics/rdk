@@ -76,11 +76,13 @@ func needsConnectionCheck(method string) bool {
 	return !strings.Contains(method, "proto.rpc.webrtc.v1.SignalingService")
 }
 
+const readWriteOnClosedPipeErrorMsg = "read/write on closed pipe"
+
 func isRWOnClosedPipeError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), "read/write on closed pipe")
+	return strings.Contains(err.Error(), readWriteOnClosedPipeErrorMsg)
 }
 
 func (rc *RobotClient) notConnectedToRemoteError() error {

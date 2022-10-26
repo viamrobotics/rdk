@@ -742,7 +742,7 @@ func TestClientDisconnectError(t *testing.T) {
 			handler grpc.UnaryHandler,
 		) (interface{}, error) {
 			if strings.HasSuffix(info.FullMethod, "RobotService/GetStatus") {
-				return nil, status.Errorf(codes.Unknown, "read/write on closed pipe")
+				return nil, status.Errorf(codes.Unknown, readWriteOnClosedPipeErrorMsg)
 			}
 			var resp interface{}
 			return resp, nil
