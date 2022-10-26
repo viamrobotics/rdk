@@ -29,7 +29,7 @@ const (
 
 // File is the data structure containing data captured by collectors. It is backed by a file on disk containing
 // length delimited protobuf messages, where the first message is the CaptureMetadata for the file, and ensuing
-// messages contain the captured metadata.
+// messages contain the captured data.
 type File struct {
 	path     string
 	lock     *sync.Mutex
@@ -161,7 +161,7 @@ func (f *File) Delete() error {
 	if err := f.file.Close(); err != nil {
 		return err
 	}
-	return os.Remove(f.file.Name())
+	return os.Remove(f.GetPath())
 }
 
 // BuildCaptureMetadata builds a DataCaptureMetadata object and returns error if
@@ -174,7 +174,7 @@ func BuildCaptureMetadata(compType resource.SubtypeName, compName, compModel, me
 		return nil, err
 	}
 
-	dataType := getDataType(string(compType), method)
+	dataType := getDataType(method)
 	return &v1.DataCaptureMetadata{
 		ComponentType:    string(compType),
 		ComponentName:    compName,
@@ -199,7 +199,7 @@ func getFileTimestampName() string {
 }
 
 // TODO DATA-246: Implement this in some more robust, programmatic way.
-func getDataType(_, methodName string) v1.DataType {
+func getDataType(methodName string) v1.DataType {
 	switch methodName {
 	case nextPointCloud, readImage:
 		return v1.DataType_DATA_TYPE_BINARY_SENSOR

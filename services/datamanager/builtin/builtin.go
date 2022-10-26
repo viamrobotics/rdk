@@ -595,8 +595,8 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 				if err != nil {
 					svc.logger.Errorw("data capture files failed to sync", "error", err)
 				}
-				// TODO: deadlock where we're in this case when Close is called, which acquires svc.lock,
-				//       which prevents this call from ever acquiring the lock/finishing
+				// TODO DATA-660: There's a risk of deadlock where we're in this case when Close is called, which
+				//                acquires svc.lock, which prevents this call from ever acquiring the lock/finishing.
 				svc.syncAdditionalSyncPaths()
 			}
 		}
