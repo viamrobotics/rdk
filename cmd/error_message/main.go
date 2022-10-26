@@ -3,7 +3,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os/exec"
 
 	"strconv"
@@ -70,18 +69,15 @@ func main() {
 	go startLocalServer(logger)
 
 	// start client
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second)
 	robot, err := client.New(ctx, "localhost:8080", logger)
 	if err != nil {
 		logger.Error(err)
 		return
 	}
 	defer robot.Close(ctx)
-	logger.Info("Resources:")
-	logger.Info(robot.ResourceNames())
 
 	a, err := arm.FromRobot(robot, "remote:arm")
-	fmt.Printf(">>> arm has type: %t\n", a)
 	if err != nil {
 		logger.Error(err)
 		return
