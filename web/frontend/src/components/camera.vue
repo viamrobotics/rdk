@@ -88,7 +88,6 @@ const exportScreenshot = (cameraName: string) => {
     <v-breadcrumbs
       slot="title"
       crumbs="camera"
-      @mouseenter="() => { /* APP-618 */ }"
     />
     <div class="h-auto border-x border-b border-black p-2">
       <div class="container mx-auto">
@@ -167,14 +166,14 @@ const exportScreenshot = (cameraName: string) => {
                   v-if="camera"
                   icon="camera"
                   label="Export Screenshot"
-                  @click="exportScreenshot"
+                  @click="exportScreenshot(cameraName)"
                 />
               </div>
             </div>
           </div>
           <div
-            :aria-label="`${props.cameraName} camera stream`"
-            :data-stream="props.cameraName"
+            :aria-label="`${cameraName} camera stream`"
+            :data-stream="cameraName"
             :class="{ 'hidden': !camera }"
             class="clear-both h-fit transition-all duration-300 ease-in-out"
           />

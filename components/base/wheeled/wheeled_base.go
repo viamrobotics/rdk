@@ -22,6 +22,46 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+// Config is how you configure a wheeled base.
+type Config struct {
+	WidthMM              int      `json:"width_mm"`
+	WheelCircumferenceMM int      `json:"wheel_circumference_mm"`
+	SpinSlipFactor       float64  `json:"spin_slip_factor,omitempty"`
+	Left                 []string `json:"left"`
+	Right                []string `json:"right"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) ([]string, error) {
+	var deps []string
+
+	if config.WidthMM == 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "width_mm")
+	}
+
+	if config.WheelCircumferenceMM == 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "wheel_circumference_mm")
+	}
+
+	if len(config.Left) == 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "left")
+	}
+	if len(config.Right) == 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "right")
+	}
+
+	if len(config.Left) != len(config.Right) {
+		return nil, utils.NewConfigValidationError(path,
+			fmt.Errorf("left and right need to have the same number of motors, not %d vs %d",
+				len(config.Left), len(config.Right)))
+	}
+
+	deps = append(deps, config.Left...)
+	deps = append(deps, config.Right...)
+
+	return deps, nil
+}
+
 func init() {
 	wheeledBaseComp := registry.Component{
 		Constructor: func(
@@ -275,41 +315,6 @@ func (base *wheeledBase) Close(ctx context.Context) error {
 
 func (base *wheeledBase) Width(ctx context.Context) (int, error) {
 	return base.widthMm, nil
-}
-
-// Config is how you configure a wheeled base.
-type Config struct {
-	WidthMM              int      `json:"width_mm"`
-	WheelCircumferenceMM int      `json:"wheel_circumference_mm"`
-	SpinSlipFactor       float64  `json:"spin_slip_factor,omitempty"`
-	Left                 []string `json:"left"`
-	Right                []string `json:"right"`
-}
-
-// Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) ([]string, error) {
-	var deps []string
-
-	if config.WidthMM == 0 {
-		return nil, errors.New("need a width_mm for a wheeled base")
-	}
-
-	if config.WheelCircumferenceMM == 0 {
-		return nil, errors.New("need a wheel_circumference_mm for a wheeled base")
-	}
-
-	if len(config.Left) == 0 || len(config.Right) == 0 {
-		return nil, errors.New("need left and right motors")
-	}
-
-	if len(config.Left) != len(config.Right) {
-		return nil, fmt.Errorf("left and right need to have the same number of motors, not %d vs %d", len(config.Left), len(config.Right))
-	}
-
-	deps = append(deps, config.Left...)
-	deps = append(deps, config.Right...)
-
-	return deps, nil
 }
 
 // CreateWheeledBase returns a new wheeled base defined by the given config.

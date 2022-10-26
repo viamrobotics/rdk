@@ -59,13 +59,12 @@ func WrapMotorWithEncoder(
 	if e == nil {
 		return m, nil
 	}
-
-	if mc.MaxRPM <= 0 {
-		return nil, errors.Errorf("need a positive MaxRPM for motor (%s)", c.Name)
+	if mc.TicksPerRotation < 0 {
+		return nil, utils.NewConfigValidationError("", errors.New("ticks_per_rotation should be positive or zero"))
 	}
 
-	if mc.TicksPerRotation <= 0 {
-		return nil, errors.Errorf("need a positive TicksPerRotation for motor (%s)", c.Name)
+	if mc.TicksPerRotation == 0 {
+		mc.TicksPerRotation = 1
 	}
 
 	mm, err := newEncodedMotor(c, mc, m, e, logger)

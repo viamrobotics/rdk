@@ -21,6 +21,26 @@ import (
 
 const modelName = "gpio"
 
+// Config is the overall config.
+type Config struct {
+	Board   string                  `json:"board"`
+	Buttons map[string]ButtonConfig `json:"buttons"`
+	Axes    map[string]AxisConfig   `json:"axes"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) ([]string, error) {
+	var deps []string
+	if config.Board == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+	if len(config.Axes) == 0 && len(config.Buttons) == 0 {
+		return nil, utils.NewConfigValidationError(path, errors.New("buttons and axes cannot be both empty"))
+	}
+	deps = append(deps, config.Board)
+	return deps, nil
+}
+
 func init() {
 	registry.RegisterComponent(input.Subtype, modelName, registry.Component{Constructor: NewGPIOController})
 
@@ -70,13 +90,6 @@ func NewGPIOController(ctx context.Context, deps registry.Dependencies, config c
 	c.sendConnectionStatus(ctx, true)
 
 	return &c, nil
-}
-
-// Config is the overall config.
-type Config struct {
-	Board   string                  `json:"board"`
-	Buttons map[string]ButtonConfig `json:"buttons"`
-	Axes    map[string]AxisConfig   `json:"axes"`
 }
 
 // AxisConfig is a subconfig for axes.

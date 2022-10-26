@@ -219,7 +219,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		// If the attributes have not changed, keep the current collector and update the target capture file if needed.
 		if reflect.DeepEqual(previousAttributes, attributes) {
 			if updateCaptureDir {
-				targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
+				targetFile, err := datacapture.NewFile(svc.captureDir, captureMetadata)
 				if err != nil {
 					return nil, err
 				}
@@ -262,7 +262,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
-	targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
+	targetFile, err := datacapture.NewFile(svc.captureDir, captureMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -403,11 +403,11 @@ func (svc *builtIn) syncDataCaptureFiles() error {
 			return err
 		}
 
-		nextTarget, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
+		nextTarget, err := datacapture.NewFile(svc.captureDir, captureMetadata)
 		if err != nil {
 			return err
 		}
-		oldFiles = append(oldFiles, collector.Collector.GetTarget().Name())
+		oldFiles = append(oldFiles, collector.Collector.GetTarget().GetPath())
 		collector.Collector.SetTarget(nextTarget)
 	}
 	svc.syncer.Sync(oldFiles)
@@ -595,6 +595,8 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 				if err != nil {
 					svc.logger.Errorw("data capture files failed to sync", "error", err)
 				}
+				// TODO DATA-660: There's a risk of deadlock where we're in this case when Close is called, which
+				//                acquires svc.lock, which prevents this call from ever acquiring the lock/finishing.
 				svc.syncAdditionalSyncPaths()
 			}
 		}
