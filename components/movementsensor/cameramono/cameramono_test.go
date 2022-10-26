@@ -46,10 +46,10 @@ var tCo = &cameramono{
 func TestInit(t *testing.T) {
 	camName := "cam"
 	conf := &AttrConfig{}
-	err := conf.Validate("")
+	_, err := conf.Validate("")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "single camera")
 	conf.Camera = camName
-	err = conf.Validate("")
+	_, err = conf.Validate("")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "motion_estimation_config")
 
 	conf.MotionConfig = &odometry.MotionEstimationConfig{
@@ -88,7 +88,7 @@ func TestInit(t *testing.T) {
 		},
 		CamHeightGround: 0.1,
 	}
-	err = conf.Validate("")
+	_, err = conf.Validate("")
 	test.That(t, err, test.ShouldBeNil)
 
 	logger := golog.NewDebugLogger("test")

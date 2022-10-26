@@ -125,7 +125,6 @@ onUnmounted(() => {
     <v-breadcrumbs
       slot="title"
       crumbs="movement_sensor"
-      @mouseenter="() => { /* APP-618 */ }"
     />
     <div class="flex border border-t-0 border-black p-4">
       <template v-if="properties">

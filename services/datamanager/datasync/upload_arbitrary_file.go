@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -11,12 +12,18 @@ import (
 	goutils "go.viam.com/utils"
 )
 
-func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, md *v1.UploadMetadata,
+func uploadArbitraryFile(ctx context.Context, client v1.DataSyncServiceClient, partID string,
 	f *os.File,
 ) error {
 	stream, err := client.Upload(ctx)
 	if err != nil {
 		return err
+	}
+
+	md := &v1.UploadMetadata{
+		PartId:   partID,
+		Type:     v1.DataType_DATA_TYPE_FILE,
+		FileName: filepath.Base(f.Name()),
 	}
 
 	// Send metadata upload request.

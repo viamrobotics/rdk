@@ -116,7 +116,6 @@ const setPWMFrequency = () => {
     <v-breadcrumbs
       slot="title"
       crumbs="board"
-      @mouseenter="() => { /* APP-618 */ }"
     />
     <div class="border border-t-0 border-black p-4">
       <h3 class="mb-2">

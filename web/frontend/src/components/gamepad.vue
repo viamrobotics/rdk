@@ -190,7 +190,6 @@ watch(() => enabled, () => {
     <v-breadcrumbs
       slot="title"
       crumbs="input_controller"
-      @mouseenter="() => { /* APP-618 */ }"
     />
     <div slot="header">
       <span

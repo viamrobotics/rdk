@@ -30,11 +30,13 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) error {
+func (config *AttrConfig) Validate(path string) ([]string, error) {
+	var deps []string
 	if config.Arm == "" {
-		return gutils.NewConfigValidationFieldRequiredError(path, "arm")
+		return nil, gutils.NewConfigValidationFieldRequiredError(path, "arm")
 	}
-	return nil
+	deps = append(deps, config.Arm)
+	return deps, nil
 }
 
 func init() {

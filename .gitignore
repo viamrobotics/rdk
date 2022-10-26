@@ -41,6 +41,7 @@ coverage.txt
 coverage2.txt
 coverage.xml
 profile*.pdf
+code-coverage-results.md
 
 *~
 *#
