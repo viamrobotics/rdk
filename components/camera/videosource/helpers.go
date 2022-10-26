@@ -20,7 +20,7 @@ import (
 // process and attempts to detect the MIME type of the data from its header.
 // If there was a MIME type requested, it ensures that it matches the one
 // deduced from the data before returning the requested MIME type.
-// If no MIME type has been requested, it returns the one detected by http.DetectContentType
+// If no MIME type has been requested, it returns the one detected by http.DetectContentType.
 func getMIMETypeFromData(ctx context.Context, data []byte) (string, error) {
 	detectedMimeType := http.DetectContentType(data)
 	requestedMime := gostream.MIMETypeHint(ctx, "")
