@@ -24,7 +24,7 @@ import (
 func getMIMETypeFromData(ctx context.Context, data []byte) (string, error) {
 	detectedMimeType := http.DetectContentType(data)
 	requestedMime := gostream.MIMETypeHint(ctx, "")
-	actualMime, _ := utils.CheckLazyMIMEType(requestedMime)
+	actualMime, isLazy := utils.CheckLazyMIMEType(requestedMime)
 	if actualMime == utils.MimeTypeRawRGBA {
 		if detectedMimeType != utils.MimeTypeDefault {
 			return "", errors.Errorf(
@@ -38,7 +38,7 @@ func getMIMETypeFromData(ctx context.Context, data []byte) (string, error) {
 			return "", errors.New(
 				"attempted to decode raw rgba data, but data was not encoded with the expected header format")
 		}
-	} else if actualMime != "" && actualMime != detectedMimeType {
+	} else if isLazy && (actualMime != "") && (actualMime != detectedMimeType) {
 		return "", errors.Errorf(
 			"mime type requested (%q) for lazy decode not returned (got %q)",
 			actualMime, detectedMimeType,
