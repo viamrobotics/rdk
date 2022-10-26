@@ -7,6 +7,7 @@ import (
 	"image/png"
 	"math"
 	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -36,8 +37,10 @@ import (
 	gotestutils "go.viam.com/utils/testutils"
 	"gonum.org/v1/gonum/num/quat"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
@@ -724,6 +727,53 @@ func TestClientDisconnect(t *testing.T) {
 	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 0)
 	_, err = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeError, client.checkConnected())
+}
+
+func TestClientDisconnectError(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+
+	withInterceptor := grpc.ChainUnaryInterceptor(
+		func(
+			ctx context.Context,
+			req interface{},
+			info *grpc.UnaryServerInfo,
+			handler grpc.UnaryHandler,
+		) (interface{}, error) {
+			if strings.HasSuffix(info.FullMethod, "RobotService/GetStatus") {
+				return nil, status.Errorf(codes.Unknown, "read/write on closed pipe")
+			}
+			var resp interface{}
+			return resp, nil
+		},
+	)
+	gServer := grpc.NewServer(withInterceptor)
+
+	injectRobot := &inject.Robot{}
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+	injectRobot.StatusFunc = func(ctx context.Context, rs []resource.Name) ([]robot.Status, error) {
+		return []robot.Status{}, nil
+	}
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+
+	test.That(t, err, test.ShouldBeNil)
+
+	client, err := New(
+		context.Background(),
+		listener.Addr().String(),
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = client.Status(context.Background(), []resource.Name{})
+	test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+	}()
+	gServer.Stop()
 }
 
 type mockType struct {
