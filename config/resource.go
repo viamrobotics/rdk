@@ -290,13 +290,25 @@ func ParseServiceFlag(flag string) (Service, error) {
 	for _, part := range serviceParts {
 		keyVal := strings.SplitN(part, "=", 2)
 		if len(keyVal) != 2 {
-			return Service{}, errors.New("wrong service format; use type=name,attr=key:value")
+			return Service{}, errors.New("wrong service format; use type=name,depends_on=name1|name2,attr=key:value")
 		}
 		switch keyVal[0] {
 		case "name":
 			svc.Name = keyVal[1]
 		case "type":
 			svc.Type = ServiceType(keyVal[1])
+		case "model":
+			svc.Model = keyVal[1]
+		case "depends_on":
+			split := strings.Split(keyVal[1], "|")
+
+			var dependsOn []string
+			for _, s := range split {
+				if s != "" {
+					dependsOn = append(dependsOn, s)
+				}
+			}
+			svc.DependsOn = dependsOn
 		case "attr":
 			if svc.Attributes == nil {
 				svc.Attributes = AttributeMap{}
