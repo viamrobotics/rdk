@@ -3,14 +3,12 @@ package datasync
 import (
 	"context"
 	"io"
-	"os"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -60,16 +58,6 @@ func toProto(r interface{}) *structpb.Struct {
 		return nil
 	}
 	return msg
-}
-
-func writeSensorData(f *os.File, sds []*v1.SensorData) error {
-	for _, sd := range sds {
-		_, err := pbutil.WriteDelimited(f, sd)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func createBinarySensorData(toWrite [][]byte) []*v1.SensorData {
@@ -149,23 +137,6 @@ func buildFileDataUploadRequests(bs [][]byte, fileName string) []*v1.UploadReque
 		})
 	}
 	return expMsgs
-}
-
-// createTmpDataCaptureFile creates a data capture file, which is defined as a file with the dataCaptureFileExt as its
-// file extension.
-func createTmpDataCaptureFile() (file *os.File, err error) {
-	tf, err := os.CreateTemp("", "")
-	if err != nil {
-		return nil, err
-	}
-	if err = os.Rename(tf.Name(), tf.Name()+datacapture.FileExt); err != nil {
-		return nil, err
-	}
-	ret, err := os.OpenFile(tf.Name()+datacapture.FileExt, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
-	if err != nil {
-		return nil, err
-	}
-	return ret, nil
 }
 
 //nolint:thelper
