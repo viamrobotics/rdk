@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"image"
 	"image/png"
+	"io"
 	"testing"
 
 	"go.viam.com/test"
@@ -35,9 +36,9 @@ func TestLazyEncodedImage(t *testing.T) {
 
 	test.That(t, imgLazy.(*LazyEncodedImage).MIMEType(), test.ShouldEqual, utils.MimeTypePNG)
 	test.That(t, func() { imgLazy.Bounds() }, test.ShouldPanic)
-	test.That(t, func() { imgLazy.ColorModel() }, test.ShouldPanicWith, image.ErrFormat)
-	test.That(t, func() { NewColorFromColor(imgLazy.At(0, 0)) }, test.ShouldPanicWith, image.ErrFormat)
-	test.That(t, func() { NewColorFromColor(imgLazy.At(4, 4)) }, test.ShouldPanicWith, image.ErrFormat)
+	test.That(t, func() { imgLazy.ColorModel() }, test.ShouldPanicWith, io.ErrUnexpectedEOF)
+	test.That(t, func() { NewColorFromColor(imgLazy.At(0, 0)) }, test.ShouldPanicWith, io.ErrUnexpectedEOF)
+	test.That(t, func() { NewColorFromColor(imgLazy.At(4, 4)) }, test.ShouldPanicWith, io.ErrUnexpectedEOF)
 
 	imgLazy = NewLazyEncodedImage([]byte{1, 2, 3}, "weeeee")
 

@@ -10,7 +10,6 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,9 +40,12 @@ func init() {
 	// so long as the raw RGBA data has the appropriate header
 	image.RegisterFormat("vnd.viam.rgba", string(RGBABitmapMagicNumber),
 		func(r io.Reader) (image.Image, error) {
-			rawBytes, err := ioutil.ReadAll(r)
+			rawBytes, err := io.ReadAll(r)
 			if err != nil {
 				return nil, err
+			}
+			if len(rawBytes) < RawRGBAHeaderLength {
+				return nil, io.EOF
 			}
 			header := rawBytes[:RawRGBAHeaderLength]
 			width := int(binary.BigEndian.Uint32(header[4:8]))
@@ -55,7 +57,7 @@ func init() {
 		},
 		func(r io.Reader) (image.Config, error) {
 			imgBytes := make([]byte, RawRGBAHeaderLength)
-			_, err := r.Read(imgBytes)
+			_, err := io.ReadFull(r, imgBytes)
 			if err != nil {
 				return image.Config{}, err
 			}
@@ -217,11 +219,25 @@ func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string) (image.I
 		return NewLazyEncodedImage(imgBytes, mimeType), nil
 	}
 
-	img, _, err := image.Decode(bytes.NewReader(imgBytes))
-	if err != nil {
-		return nil, err
+	switch mimeType {
+	case ut.MimeTypeRawRGBA:
+		img, _, err := image.Decode(bytes.NewReader(imgBytes))
+		if err != nil {
+			return nil, err
+		}
+		return img, nil
+	case ut.MimeTypeJPEG:
+		img, err := jpeg.Decode(bytes.NewReader(imgBytes))
+		return img, err
+	case ut.MimeTypePNG:
+		img, err := png.Decode(bytes.NewReader(imgBytes))
+		return img, err
+	case ut.MimeTypeQOI:
+		img, err := qoi.Decode(bytes.NewReader(imgBytes))
+		return img, err
+	default:
+		return nil, errors.Errorf("do not how to decode MimeType %s", mimeType)
 	}
-	return img, nil
 }
 
 // EncodeImage takes an image and mimeType as input and encodes it into a
