@@ -93,6 +93,7 @@ var testService = Service{
 	Name:      "some-name",
 	Namespace: "some-namespace",
 	Type:      "some-type",
+	Model:     resource.NewDefaultModel("some-model"),
 	Attributes: AttributeMap{
 		"attr1": 1,
 	},

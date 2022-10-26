@@ -7,13 +7,14 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	_ "go.viam.com/rdk/examples/customcomponents/mygizmo"
-	_ "go.viam.com/rdk/examples/customcomponents/mybase"
+	_ "go.viam.com/rdk/examples/customresources/mybase"
+	_ "go.viam.com/rdk/examples/customresources/mygizmo"
+	_ "go.viam.com/rdk/examples/customresources/mynavigation"
+	_ "go.viam.com/rdk/examples/customresources/mysum"
 	"go.viam.com/rdk/module"
 
 	"go.viam.com/utils"
 )
-
 
 var logger = NewLogger()
 

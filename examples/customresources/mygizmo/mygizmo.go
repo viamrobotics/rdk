@@ -8,7 +8,7 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/examples/customcomponents/gizmoapi"
+	"go.viam.com/rdk/examples/customresources/gizmoapi"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 )

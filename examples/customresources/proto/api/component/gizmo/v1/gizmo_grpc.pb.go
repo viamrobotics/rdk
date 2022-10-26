@@ -39,7 +39,7 @@ func NewGizmoServiceClient(cc grpc.ClientConnInterface) GizmoServiceClient {
 
 func (c *gizmoServiceClient) DoOne(ctx context.Context, in *DoOneRequest, opts ...grpc.CallOption) (*DoOneResponse, error) {
 	out := new(DoOneResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.gizmo.v1.gizmoService/DoOne", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/acme.component.gizmo.v1.GizmoService/DoOne", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func (c *gizmoServiceClient) DoOne(ctx context.Context, in *DoOneRequest, opts .
 }
 
 func (c *gizmoServiceClient) DoOneClientStream(ctx context.Context, opts ...grpc.CallOption) (GizmoService_DoOneClientStreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &GizmoService_ServiceDesc.Streams[0], "/proto.api.component.gizmo.v1.gizmoService/DoOneClientStream", opts...)
+	stream, err := c.cc.NewStream(ctx, &GizmoService_ServiceDesc.Streams[0], "/acme.component.gizmo.v1.GizmoService/DoOneClientStream", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func (x *gizmoServiceDoOneClientStreamClient) CloseAndRecv() (*DoOneClientStream
 }
 
 func (c *gizmoServiceClient) DoOneServerStream(ctx context.Context, in *DoOneServerStreamRequest, opts ...grpc.CallOption) (GizmoService_DoOneServerStreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &GizmoService_ServiceDesc.Streams[1], "/proto.api.component.gizmo.v1.gizmoService/DoOneServerStream", opts...)
+	stream, err := c.cc.NewStream(ctx, &GizmoService_ServiceDesc.Streams[1], "/acme.component.gizmo.v1.GizmoService/DoOneServerStream", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func (x *gizmoServiceDoOneServerStreamClient) Recv() (*DoOneServerStreamResponse
 }
 
 func (c *gizmoServiceClient) DoOneBiDiStream(ctx context.Context, opts ...grpc.CallOption) (GizmoService_DoOneBiDiStreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &GizmoService_ServiceDesc.Streams[2], "/proto.api.component.gizmo.v1.gizmoService/DoOneBiDiStream", opts...)
+	stream, err := c.cc.NewStream(ctx, &GizmoService_ServiceDesc.Streams[2], "/acme.component.gizmo.v1.GizmoService/DoOneBiDiStream", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,7 @@ func (x *gizmoServiceDoOneBiDiStreamClient) Recv() (*DoOneBiDiStreamResponse, er
 
 func (c *gizmoServiceClient) DoTwo(ctx context.Context, in *DoTwoRequest, opts ...grpc.CallOption) (*DoTwoResponse, error) {
 	out := new(DoTwoResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.gizmo.v1.gizmoService/DoTwo", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/acme.component.gizmo.v1.GizmoService/DoTwo", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +206,7 @@ func _GizmoService_DoOne_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.gizmo.v1.gizmoService/DoOne",
+		FullMethod: "/acme.component.gizmo.v1.GizmoService/DoOne",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(GizmoServiceServer).DoOne(ctx, req.(*DoOneRequest))
@@ -297,7 +297,7 @@ func _GizmoService_DoTwo_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.gizmo.v1.gizmoService/DoTwo",
+		FullMethod: "/acme.component.gizmo.v1.GizmoService/DoTwo",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(GizmoServiceServer).DoTwo(ctx, req.(*DoTwoRequest))
@@ -309,7 +309,7 @@ func _GizmoService_DoTwo_Handler(srv interface{}, ctx context.Context, dec func(
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var GizmoService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "proto.api.component.gizmo.v1.gizmoService",
+	ServiceName: "acme.component.gizmo.v1.GizmoService",
 	HandlerType: (*GizmoServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

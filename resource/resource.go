@@ -16,10 +16,8 @@ import (
 type (
 	// Namespace identifies the namespaces robot resources can live in.
 	Namespace string
-
 	// TypeName identifies the resource types that robot resources can be.
 	TypeName string
-
 	// SubtypeName identifies the resources subtypes that robot resources can be.
 	SubtypeName string
 	// RemoteName identifies the remote the resource is attached to.

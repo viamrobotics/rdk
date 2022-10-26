@@ -63,6 +63,7 @@ type ComponentAttributeMapConverterRegistration struct {
 // for a model of a type of service.
 type ServiceAttributeMapConverterRegistration struct {
 	SvcType ServiceType
+	Model   resource.Model
 	Conv    AttributeMapConverter
 	RetType interface{} // the shape of what is converted to
 }
@@ -136,11 +137,19 @@ func TransformAttributeMapToStruct(to interface{}, attributes AttributeMap) (int
 }
 
 // RegisterServiceAttributeMapConverter associates a service type with a way to convert all attributes.
-func RegisterServiceAttributeMapConverter(svcType ServiceType, conv AttributeMapConverter, retType interface{}) {
+func RegisterServiceAttributeMapConverter(
+	svcType ServiceType,
+	model resource.Model,
+	conv AttributeMapConverter,
+	retType interface{},
+) {
 	if retType == nil {
 		panic("retType should not be nil")
 	}
-	serviceAttributeMapConverters = append(serviceAttributeMapConverters, ServiceAttributeMapConverterRegistration{svcType, conv, retType})
+	serviceAttributeMapConverters = append(
+		serviceAttributeMapConverters,
+		ServiceAttributeMapConverterRegistration{svcType, model, conv, retType},
+	)
 }
 
 // RegisteredComponentAttributeConverters returns a copy of the registered component attribute converters.
@@ -188,9 +197,9 @@ func findMapConverter(subtype resource.Subtype, model resource.Model) AttributeM
 	return nil
 }
 
-func findServiceMapConverter(svcType ServiceType) AttributeMapConverter {
+func findServiceMapConverter(svcType ServiceType, model resource.Model) AttributeMapConverter {
 	for _, r := range serviceAttributeMapConverters {
-		if r.SvcType == svcType {
+		if r.SvcType == svcType && r.Model == model {
 			return r.Conv
 		}
 	}
@@ -654,7 +663,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool) (*Config, error) {
 	}
 
 	for idx, c := range cfg.Services {
-		conv := findServiceMapConverter(c.Type)
+		conv := findServiceMapConverter(c.Type, c.Model)
 		if conv == nil {
 			continue
 		}

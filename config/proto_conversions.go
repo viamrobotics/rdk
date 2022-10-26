@@ -144,6 +144,7 @@ func ServiceConfigToProto(service *Service) (*pb.ServiceConfig, error) {
 		Name:       service.Name,
 		Namespace:  string(service.Namespace),
 		Type:       string(service.Type),
+		Model:      service.Model.String(),
 		Attributes: attributes,
 	}
 
@@ -152,10 +153,16 @@ func ServiceConfigToProto(service *Service) (*pb.ServiceConfig, error) {
 
 // ServiceConfigFromProto creates Service from proto equivalent.
 func ServiceConfigFromProto(proto *pb.ServiceConfig) (*Service, error) {
+	model, err := resource.NewModelFromString(proto.GetModel())
+	if err != nil {
+		return nil, err
+	}
+
 	service := Service{
 		Name:       proto.GetName(),
 		Namespace:  resource.Namespace(proto.GetNamespace()),
 		Type:       ServiceType(proto.GetType()),
+		Model:      model,
 		Attributes: proto.GetAttributes().AsMap(),
 	}
 

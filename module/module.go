@@ -251,6 +251,43 @@ func (m *Module) AddComponent(ctx context.Context, req *pb.AddComponentRequest) 
 	return &pb.AddComponentResponse{}, nil
 }
 
+// AddService receives the service configuration from the parent.
+func (m *Module) AddService(ctx context.Context, req *pb.AddServiceRequest) (*pb.AddServiceResponse, error) {
+	cfg, err := config.ServiceConfigFromProto(req.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	creator := registry.ServiceLookup(cfg.ResourceName().Subtype, cfg.Model)
+	if creator != nil && creator.Constructor != nil {
+		comp, err := creator.Constructor(ctx, m.parent, *cfg, m.logger)
+		if err != nil {
+			return nil, err
+		}
+
+		wrapped := comp
+		c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
+		if c != nil && c.Reconfigurable != nil {
+			wrapped, err = c.Reconfigurable(comp)
+			if err != nil {
+				return nil, multierr.Combine(err, utils.TryClose(ctx, comp))
+			}
+		}
+
+		subSvc, ok := m.services[cfg.ResourceName().Subtype]
+		if !ok {
+			return nil, errors.Errorf("module can't service api: %s", cfg.ResourceName().Subtype)
+		}
+
+		err = subSvc.Add(cfg.ResourceName(), wrapped)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &pb.AddServiceResponse{}, nil
+}
+
 func (m *Module) initSubtypeServices(ctx context.Context) error {
 	for s, rs := range registry.RegisteredResourceSubtypes() {
 		subSvc, ok := m.services[s]
@@ -273,9 +310,16 @@ func (m *Module) initSubtypeServices(ctx context.Context) error {
 }
 
 func (m *Module) buildHandlerMap() {
+	var res []string
 	for c := range registry.RegisteredComponents() {
-		split := strings.Split(c, "/")
-		m.logger.Debugf("SMURF %+v", split)
+		res = append(res, c)
+	}
+	for s := range registry.RegisteredServices() {
+		res = append(res, s)
+	}
+
+	for _, r := range res {
+		split := strings.Split(r, "/")
 		st, err := resource.NewSubtypeFromString(split[0])
 		if err != nil {
 			m.logger.Error(err)
@@ -298,5 +342,4 @@ func (m *Module) buildHandlerMap() {
 		}
 		m.handlers[rpcST] = append(m.handlers[rpcST], model)
 	}
-	m.logger.Debugf("SMURF %+v", m.handlers)
 }

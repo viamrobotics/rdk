@@ -209,8 +209,45 @@ func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component, deps
 
 // AddService tells a service module to configure a new service.
 func (mgr *Manager) AddService(ctx context.Context, cfg config.Service) (interface{}, error) {
-	// TODO (@Otterverse) add service support
-	return nil, errors.New("service handling not yet implemented")
+	for _, module := range mgr.modules {
+		var api resource.RPCSubtype
+		var ok bool
+		for a := range module.handles {
+			if a.Subtype == cfg.ResourceName().Subtype {
+				api = a
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			continue
+		}
+		for _, model := range module.handles[api] {
+			if cfg.Model == model {
+				cfgProto, err := config.ServiceConfigToProto(&cfg)
+				if err != nil {
+					return nil, err
+				}
+				_, err = module.client.AddService(ctx, &pb.AddServiceRequest{Config: cfgProto})
+				if err != nil {
+					return nil, err
+				}
+
+				c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
+				if c == nil || c.RPCClient == nil {
+					mgr.logger.Warnf("no known grpc client for modular resource %s", cfg.ResourceName())
+					return rdkgrpc.NewForeignResource(cfg.ResourceName(), module.conn), nil
+				}
+				nameR := cfg.ResourceName().ShortName()
+				resourceClient := c.RPCClient(ctx, module.conn, nameR, mgr.logger)
+				if c.Reconfigurable == nil {
+					return resourceClient, nil
+				}
+				return c.Reconfigurable(resourceClient)
+			}
+		}
+	}
+	return nil, errors.Errorf("no module registered to serve resource api %s and model %s", cfg.ResourceName().Subtype, cfg.Model)
 }
 
 func depsToNames(deps registry.Dependencies) []string {

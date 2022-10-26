@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/generic"
-	pb "go.viam.com/rdk/examples/customcomponents/proto/api/component/gizmo/v1"
+	pb "go.viam.com/rdk/examples/customresources/proto/api/component/gizmo/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"

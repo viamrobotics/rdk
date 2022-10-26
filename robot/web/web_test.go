@@ -24,7 +24,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
-	gizmopb "go.viam.com/rdk/examples/customcomponents/proto/api/component/gizmo/v1"
+	gizmopb "go.viam.com/rdk/examples/customresources/proto/api/component/gizmo/v1"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"

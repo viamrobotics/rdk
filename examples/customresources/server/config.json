@@ -1,0 +1,40 @@
+{
+    "network": {
+        "bind_address": "localhost:8081"
+    },
+    "services": [
+        {
+            "namespace": "rdk",
+            "type": "navigation",
+            "name": "denali",
+            "model": "acme:demo:mynavigation",
+            "attributes": {
+                "lat": 63.0691739667009,
+                "long": -151.00698515692034
+            }
+        },
+        {
+            "namespace": "acme",
+            "type": "summation",
+            "name": "adder",
+            "model": "acme:demo:mysum"
+        },
+        {
+            "namespace": "acme",
+            "type": "summation",
+            "name": "subtractor",
+            "model": "acme:demo:mysum",
+            "attributes": {
+                "subtract": true
+            }
+        }
+    ],
+    "components": [
+        {
+            "model": "acme:demo:mygizmo",
+            "name": "gizmo1",
+            "namespace": "acme",
+            "type": "gizmo"
+        }
+    ]
+}

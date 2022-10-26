@@ -297,7 +297,7 @@ func RegisterGizmoServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gizmo.v1.GizmoService/DoOne", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_one"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoOne", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_one"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -343,7 +343,7 @@ func RegisterGizmoServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gizmo.v1.GizmoService/DoTwo", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_two"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoTwo", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_two"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -407,7 +407,7 @@ func RegisterGizmoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gizmo.v1.GizmoService/DoOne", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_one"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoOne", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_one"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -429,7 +429,7 @@ func RegisterGizmoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gizmo.v1.GizmoService/DoOneClientStream", runtime.WithHTTPPathPattern("/proto.api.component.gizmo.v1.gizmoService/DoOneClientStream"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoOneClientStream", runtime.WithHTTPPathPattern("/acme.component.gizmo.v1.GizmoService/DoOneClientStream"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -451,7 +451,7 @@ func RegisterGizmoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gizmo.v1.GizmoService/DoOneServerStream", runtime.WithHTTPPathPattern("/proto.api.component.gizmo.v1.gizmoService/DoOneServerStream"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoOneServerStream", runtime.WithHTTPPathPattern("/acme.component.gizmo.v1.GizmoService/DoOneServerStream"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -473,7 +473,7 @@ func RegisterGizmoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gizmo.v1.GizmoService/DoOneBiDiStream", runtime.WithHTTPPathPattern("/proto.api.component.gizmo.v1.gizmoService/DoOneBiDiStream"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoOneBiDiStream", runtime.WithHTTPPathPattern("/acme.component.gizmo.v1.GizmoService/DoOneBiDiStream"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -495,7 +495,7 @@ func RegisterGizmoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gizmo.v1.GizmoService/DoTwo", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_two"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/acme.component.gizmo.v1.GizmoService/DoTwo", runtime.WithHTTPPathPattern("/acme/api/v1/component/gizmo/{name}/do_two"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -517,11 +517,11 @@ func RegisterGizmoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 var (
 	pattern_GizmoService_DoOne_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"acme", "api", "v1", "component", "gizmo", "name", "do_one"}, ""))
 
-	pattern_GizmoService_DoOneClientStream_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"proto.api.component.gizmo.v1.gizmoService", "DoOneClientStream"}, ""))
+	pattern_GizmoService_DoOneClientStream_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"acme.component.gizmo.v1.GizmoService", "DoOneClientStream"}, ""))
 
-	pattern_GizmoService_DoOneServerStream_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"proto.api.component.gizmo.v1.gizmoService", "DoOneServerStream"}, ""))
+	pattern_GizmoService_DoOneServerStream_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"acme.component.gizmo.v1.GizmoService", "DoOneServerStream"}, ""))
 
-	pattern_GizmoService_DoOneBiDiStream_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"proto.api.component.gizmo.v1.gizmoService", "DoOneBiDiStream"}, ""))
+	pattern_GizmoService_DoOneBiDiStream_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"acme.component.gizmo.v1.GizmoService", "DoOneBiDiStream"}, ""))
 
 	pattern_GizmoService_DoTwo_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"acme", "api", "v1", "component", "gizmo", "name", "do_two"}, ""))
 )

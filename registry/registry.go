@@ -37,8 +37,7 @@ type RegDebugInfo struct {
 // Service stores a Service constructor (mandatory) and an attribute converter.
 type Service struct {
 	RegDebugInfo
-	Constructor           CreateService
-	AttributeMapConverter config.AttributeMapConverter
+	Constructor CreateService
 }
 
 func getCallerName() string {

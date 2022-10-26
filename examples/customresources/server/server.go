@@ -9,7 +9,9 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
-	_ "go.viam.com/rdk/examples/customcomponents/mygizmo"
+	_ "go.viam.com/rdk/examples/customresources/mygizmo"
+	_ "go.viam.com/rdk/examples/customresources/mynavigation"
+	_ "go.viam.com/rdk/examples/customresources/mysum"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
 )

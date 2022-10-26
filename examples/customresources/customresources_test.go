@@ -1,4 +1,4 @@
-package customcomponents_test
+package customresources_test
 
 import (
 	"context"
@@ -13,8 +13,8 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/examples/customcomponents/gizmoapi"
-	_ "go.viam.com/rdk/examples/customcomponents/mygizmo"
+	"go.viam.com/rdk/examples/customresources/gizmoapi"
+	_ "go.viam.com/rdk/examples/customresources/mygizmo"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/utils"
@@ -32,7 +32,7 @@ func TestGizmo(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewDebugLogger("gizmo.server")
 
-	cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/customcomponents/server/config.json"), logger)
+	cfgServer, err := config.Read(ctx, utils.ResolveFile("./examples/customresources/server/config.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 	r0, err := robotimpl.New(ctx, cfgServer, logger)
 	test.That(t, err, test.ShouldBeNil)
