@@ -217,16 +217,9 @@ func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string) (image.I
 		return NewLazyEncodedImage(imgBytes, mimeType), nil
 	}
 
-	img, usedMimeType, err := image.Decode(bytes.NewReader(imgBytes))
+	img, _, err := image.Decode(bytes.NewReader(imgBytes))
 	if err != nil {
 		return nil, err
-	}
-	if ("image/" + usedMimeType) != mimeType {
-		return nil, errors.Errorf(
-			"requested MIME type of %s but image format was actually %s",
-			mimeType,
-			usedMimeType,
-		)
 	}
 	return img, nil
 }

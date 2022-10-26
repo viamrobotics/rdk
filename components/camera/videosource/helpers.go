@@ -16,7 +16,12 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-func checkMimeType(ctx context.Context, data []byte) (string, error) {
+// getMIMETypeFromData uses context to determine a MIME type requested by a parent
+// process and attempts to detect the MIME type of the data from its header.
+// If there was a MIME type requested, it ensures that it matches the one
+// deduced from the data before returning the requested MIME type.
+// If no MIME type has been requested, it returns the one detected by http.DetectContentType
+func getMIMETypeFromData(ctx context.Context, data []byte) (string, error) {
 	detectedMimeType := http.DetectContentType(data)
 	requestedMime := gostream.MIMETypeHint(ctx, "")
 	actualMime, _ := utils.CheckLazyMIMEType(requestedMime)
@@ -79,16 +84,16 @@ func readColorURL(ctx context.Context, client http.Client, url string) (image.Im
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't ready color url")
 	}
-	mimeType, err := checkMimeType(ctx, colorData)
+	mimeType, err := getMIMETypeFromData(ctx, colorData)
 	if err != nil {
 		return nil, err
 	}
 	img, err := rimage.DecodeImage(ctx, colorData, mimeType)
-	if _, isLazy := utils.CheckLazyMIMEType(mimeType); isLazy {
-		return img, nil
-	}
 	if err != nil {
 		return nil, err
+	}
+	if _, isLazy := utils.CheckLazyMIMEType(mimeType); isLazy {
+		return img, nil
 	}
 	return rimage.ConvertImage(img), nil
 }
@@ -98,17 +103,17 @@ func readDepthURL(ctx context.Context, client http.Client, url string, immediate
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't ready depth url")
 	}
-	mimeType, err := checkMimeType(ctx, depthData)
+	mimeType, err := getMIMETypeFromData(ctx, depthData)
 	if err != nil {
 		return nil, err
-	}
-	actualMimeType, isLazy := utils.CheckLazyMIMEType(mimeType)
-	if !immediate && isLazy {
-		return rimage.NewLazyEncodedImage(depthData, actualMimeType), nil
 	}
 	img, err := rimage.DecodeImage(ctx, depthData, mimeType)
 	if err != nil {
 		return nil, err
+	}
+	_, isLazy := utils.CheckLazyMIMEType(mimeType)
+	if !immediate && isLazy {
+		return img, nil
 	}
 	return rimage.ConvertImageToDepthMap(ctx, img)
 }
