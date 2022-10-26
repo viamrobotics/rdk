@@ -180,7 +180,9 @@ func TestNewDataManager(t *testing.T) {
 	captureFileName := filesInArmDir[0].Name()
 	file, err := os.Open(armDir + "/" + captureFileName)
 	test.That(t, err, test.ShouldBeNil)
-	md, err := datacapture.ReadDataCaptureMetadata(file)
+	f, err := datacapture.ReadFile(file)
+	test.That(t, err, test.ShouldBeNil)
+	md := f.ReadMetadata()
 	test.That(t, md.Tags[0], test.ShouldEqual, "a")
 	test.That(t, md.Tags[1], test.ShouldEqual, "b")
 

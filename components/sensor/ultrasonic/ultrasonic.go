@@ -28,17 +28,19 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) error {
+func (config *AttrConfig) Validate(path string) ([]string, error) {
+	var deps []string
 	if len(config.Board) == 0 {
-		return rdkutils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, rdkutils.NewConfigValidationFieldRequiredError(path, "board")
 	}
+	deps = append(deps, config.Board)
 	if len(config.TriggerPin) == 0 {
-		return rdkutils.NewConfigValidationFieldRequiredError(path, "trigger pin")
+		return nil, rdkutils.NewConfigValidationFieldRequiredError(path, "trigger pin")
 	}
 	if len(config.EchoInterrupt) == 0 {
-		return rdkutils.NewConfigValidationFieldRequiredError(path, "echo interrupt pin")
+		return nil, rdkutils.NewConfigValidationFieldRequiredError(path, "echo interrupt pin")
 	}
-	return nil
+	return deps, nil
 }
 
 func init() {

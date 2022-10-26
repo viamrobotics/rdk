@@ -55,9 +55,8 @@ const (
 	defaultMapRateSec           = 60
 	cameraValidationIntervalSec = 1.
 	parsePortMaxTimeoutSec      = 60
-	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	// time format for the slam service.
-	slamTimeFormat        = "2006-01-02T15_04_05.0000"
+	slamTimeFormat        = time.RFC3339Nano
 	opTimeoutErrorMessage = "bad scan: OpTimeout"
 	localhost0            = "localhost:0"
 )
@@ -958,7 +957,6 @@ func (slamSvc *builtIn) getAndSaveDataDense(ctx context.Context, cams []camera.C
 // Creates a file for camera data with the specified sensor name and timestamp written into the filename.
 // For RGBD cameras, two filenames are created with the same timestamp in different directories.
 func createTimestampFilenames(cameraName, dataDirectory, fileType string, slamMode slam.Mode) ([]string, error) {
-	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	timeStamp := time.Now()
 
 	switch slamMode {

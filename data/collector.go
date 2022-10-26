@@ -3,15 +3,12 @@
 package data
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -21,6 +18,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 // The cutoff at which if interval < cutoff, a sleep based capture func is used instead of a ticker.
@@ -41,8 +39,8 @@ func (cf CaptureFunc) Capture(ctx context.Context, params map[string]*anypb.Any)
 
 // Collector collects data to some target.
 type Collector interface {
-	SetTarget(file *os.File)
-	GetTarget() *os.File
+	SetTarget(file *datacapture.File)
+	GetTarget() *datacapture.File
 	Close()
 	Collect()
 }
@@ -53,8 +51,7 @@ type collector struct {
 	params            map[string]*anypb.Any
 	lock              *sync.Mutex
 	logger            golog.Logger
-	target            *os.File
-	writer            *bufio.Writer
+	target            *datacapture.File
 	backgroundWorkers sync.WaitGroup
 	cancelCtx         context.Context
 	cancel            context.CancelFunc
@@ -63,18 +60,17 @@ type collector struct {
 }
 
 // SetTarget updates the file being written to by the collector.
-func (c *collector) SetTarget(file *os.File) {
+func (c *collector) SetTarget(file *datacapture.File) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	c.target = file
-	if err := c.writer.Flush(); err != nil {
-		c.logger.Errorw("failed to flush writer to disk", "error", err)
+	if err := c.target.Sync(); err != nil {
+		c.logger.Errorw("failed to flush file to disk", "error", err)
 	}
-	c.writer = bufio.NewWriter(file)
+	c.target = file
 }
 
 // GetTarget returns the file being written to by the collector.
-func (c *collector) GetTarget() *os.File {
+func (c *collector) GetTarget() *datacapture.File {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	return c.target
@@ -90,8 +86,8 @@ func (c *collector) Close() {
 	c.backgroundWorkers.Wait()
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	if err := c.writer.Flush(); err != nil {
-		c.logger.Errorw("failed to flush writer to disk", "error", err)
+	if err := c.target.Sync(); err != nil {
+		c.logger.Errorw("failed to flush target to disk", "error", err)
 	}
 	c.closed = true
 }
@@ -111,7 +107,7 @@ func (c *collector) Collect() {
 	utils.PanicCapturingGo(func() {
 		defer c.backgroundWorkers.Done()
 		if err := c.write(); err != nil {
-			c.logger.Errorw(fmt.Sprintf("failed to write to file %s", c.target.Name()), "error", err)
+			c.logger.Errorw(fmt.Sprintf("failed to write to file %s", c.target.GetPath()), "error", err)
 		}
 	})
 	c.closed = false
@@ -259,7 +255,6 @@ func NewCollector(capturer Capturer, params CollectorParams) (Collector, error) 
 		lock:              &sync.Mutex{},
 		logger:            params.Logger,
 		target:            params.Target,
-		writer:            bufio.NewWriterSize(params.Target, params.BufferSize),
 		cancelCtx:         cancelCtx,
 		cancel:            cancelFunc,
 		backgroundWorkers: sync.WaitGroup{},
@@ -280,8 +275,7 @@ func (c *collector) write() error {
 func (c *collector) appendMessage(msg *v1.SensorData) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	_, err := pbutil.WriteDelimited(c.writer, msg)
-	if err != nil {
+	if err := c.target.WriteNext(msg); err != nil {
 		return err
 	}
 	return nil
