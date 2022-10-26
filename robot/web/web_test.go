@@ -43,7 +43,7 @@ var pos = &commonpb.Pose{X: 1, Y: 2, Z: 3}
 
 func TestWebStart(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	ctx, injectRobot := setupRobotCtx()
+	ctx, injectRobot := setupRobotCtx(t)
 
 	svc := web.New(ctx, injectRobot, logger)
 
@@ -69,7 +69,7 @@ func TestWebStart(t *testing.T) {
 
 func TestWebStartOptions(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	ctx, injectRobot := setupRobotCtx()
+	ctx, injectRobot := setupRobotCtx(t)
 
 	svc := web.New(ctx, injectRobot, logger)
 
@@ -99,7 +99,7 @@ func TestWebStartOptions(t *testing.T) {
 
 func TestWebWithAuth(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	ctx, injectRobot := setupRobotCtx()
+	ctx, injectRobot := setupRobotCtx(t)
 
 	for _, tc := range []struct {
 		Case       string
@@ -248,7 +248,7 @@ func TestWebWithAuth(t *testing.T) {
 
 func TestWebWithTLSAuth(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	ctx, injectRobot := setupRobotCtx()
+	ctx, injectRobot := setupRobotCtx(t)
 
 	svc := web.New(ctx, injectRobot, logger)
 
@@ -403,7 +403,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 
 func TestWebWithBadAuthHandlers(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	ctx, injectRobot := setupRobotCtx()
+	ctx, injectRobot := setupRobotCtx(t)
 
 	svc := web.New(ctx, injectRobot, logger)
 
@@ -438,7 +438,7 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 
 func TestWebUpdate(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	ctx, robot := setupRobotCtx()
+	ctx, robot := setupRobotCtx(t)
 
 	svc := web.New(ctx, robot, logger)
 
@@ -480,7 +480,7 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, utils.TryClose(context.Background(), aClient), test.ShouldBeNil)
 
 	// now start it with the arm already in it
-	ctx, robot2 := setupRobotCtx()
+	ctx, robot2 := setupRobotCtx(t)
 	robot2.(*inject.Robot).ResourceNamesFunc = func() []resource.Name { return resources }
 	robot2.(*inject.Robot).ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		return injectArm, nil
@@ -556,6 +556,7 @@ func TestWebWithStreams(t *testing.T) {
 
 	// Start service
 	logger := golog.NewTestLogger(t)
+	robot.LoggerFunc = func() golog.Logger { return logger }
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	svc := web.New(ctx, robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
 	err := svc.Start(ctx, options)
@@ -609,6 +610,7 @@ func TestWebAddFirstStream(t *testing.T) {
 
 	// Start service
 	logger := golog.NewTestLogger(t)
+	robot.LoggerFunc = func() golog.Logger { return logger }
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	svc := web.New(ctx, robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
 	err := svc.Start(ctx, options)
@@ -646,7 +648,9 @@ func TestWebAddFirstStream(t *testing.T) {
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
-func setupRobotCtx() (context.Context, robot.Robot) {
+func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
+	t.Helper()
+
 	injectArm := &inject.Arm{}
 	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return pos, nil
@@ -658,13 +662,14 @@ func setupRobotCtx() (context.Context, robot.Robot) {
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		return injectArm, nil
 	}
+	injectRobot.LoggerFunc = func() golog.Logger { return golog.NewTestLogger(t) }
 
 	return context.Background(), injectRobot
 }
 
 func TestForeignResource(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	ctx, robot := setupRobotCtx()
+	ctx, robot := setupRobotCtx(t)
 
 	svc := web.New(ctx, robot, logger)
 
@@ -709,6 +714,7 @@ func TestForeignResource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	injectRobot := &inject.Robot{}
+	injectRobot.LoggerFunc = func() golog.Logger { return logger }
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return &config.Config{}, nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{

@@ -33,10 +33,10 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	t.Helper()
 	logger := golog.NewTestLogger(t)
 	cam1 := &inject.Camera{}
-	pc1 := pointcloud.New()
-	err := pc1.Set(pointcloud.NewVector(1, 0, 0), pointcloud.NewColoredData(color.NRGBA{255, 0, 0, 255}))
-	test.That(t, err, test.ShouldBeNil)
 	cam1.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		pc1 := pointcloud.NewWithPrealloc(1)
+		err := pc1.Set(pointcloud.NewVector(1, 0, 0), pointcloud.NewColoredData(color.NRGBA{255, 0, 0, 255}))
+		test.That(t, err, test.ShouldBeNil)
 		return pc1, nil
 	}
 	cam1.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
@@ -46,10 +46,10 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	cam2 := &inject.Camera{}
-	pc2 := pointcloud.New()
-	err = pc2.Set(pointcloud.NewVector(0, 1, 0), pointcloud.NewColoredData(color.NRGBA{0, 255, 0, 255}))
-	test.That(t, err, test.ShouldBeNil)
 	cam2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		pc2 := pointcloud.NewWithPrealloc(1)
+		err := pc2.Set(pointcloud.NewVector(0, 1, 0), pointcloud.NewColoredData(color.NRGBA{0, 255, 0, 255}))
+		test.That(t, err, test.ShouldBeNil)
 		return pc2, nil
 	}
 	cam2.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
@@ -59,10 +59,10 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 		return nil, transform.NewNoIntrinsicsError("")
 	}
 	cam3 := &inject.Camera{}
-	pc3 := pointcloud.New()
-	err = pc3.Set(pointcloud.NewVector(0, 0, 1), pointcloud.NewColoredData(color.NRGBA{0, 0, 255, 255}))
-	test.That(t, err, test.ShouldBeNil)
 	cam3.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		pc3 := pointcloud.NewWithPrealloc(1)
+		err := pc3.Set(pointcloud.NewVector(0, 0, 1), pointcloud.NewColoredData(color.NRGBA{0, 0, 255, 255}))
+		test.That(t, err, test.ShouldBeNil)
 		return pc3, nil
 	}
 	cam3.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
@@ -123,10 +123,10 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 
 func TestJoinPointCloudNaive(t *testing.T) {
 	r := makeFakeRobot(t)
-	time.Sleep(500 * time.Millisecond)
+	defer utils.TryClose(context.Background(), r)
 	// PoV from base1
 	attrs := &JoinAttrs{
-		AttrConfig:    &camera.AttrConfig{},
+		AttrConfig:    &camera.AttrConfig{Debug: true},
 		SourceCameras: []string{"cam1", "cam2", "cam3"},
 		TargetFrame:   "base1",
 		MergeMethod:   "naive",
@@ -135,6 +135,7 @@ func TestJoinPointCloudNaive(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pc, test.ShouldNotBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 3)
 
 	data, got := pc.At(101, 0, 0)
@@ -155,16 +156,17 @@ func TestJoinPointCloudNaive(t *testing.T) {
 	test.That(t, joinedCam.Close(context.Background()), test.ShouldBeNil)
 
 	// PoV from cam1
-	attrs = &JoinAttrs{
-		AttrConfig:    &camera.AttrConfig{},
+	attrs2 := &JoinAttrs{
+		AttrConfig:    &camera.AttrConfig{Debug: true},
 		SourceCameras: []string{"cam1", "cam2", "cam3"},
 		TargetFrame:   "cam1",
 		MergeMethod:   "naive",
 	}
-	joinedCam, err = newJoinPointCloudSource(context.Background(), r, utils.Logger, attrs)
+	joinedCam2, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, attrs2)
 	test.That(t, err, test.ShouldBeNil)
-	pc, err = joinedCam.NextPointCloud(context.Background())
+	pc, err = joinedCam2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pc, test.ShouldNotBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 3)
 
 	data, got = pc.At(1, 0, 0)
@@ -179,10 +181,10 @@ func TestJoinPointCloudNaive(t *testing.T) {
 	test.That(t, got, test.ShouldBeTrue)
 	test.That(t, data.Color(), test.ShouldResemble, &color.NRGBA{0, 0, 255, 255})
 
-	img, _, err = camera.ReadImage(context.Background(), joinedCam)
+	img, _, err = camera.ReadImage(context.Background(), joinedCam2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, img.Bounds(), test.ShouldResemble, image.Rect(0, 0, 1, 100))
-	test.That(t, joinedCam.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, joinedCam2.Close(context.Background()), test.ShouldBeNil)
 }
 
 func makePointCloudFromArtifact(t *testing.T, artifactPath string, numPoints int) (pointcloud.PointCloud, error) {
@@ -281,6 +283,9 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	cam3.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc3, nil
 	}
+	cam3.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
+	}
 
 	cam4 := &inject.Camera{}
 	pc4, err := makePointCloudFromArtifact(t, "pointcloud/bun045.pcd", 0)
@@ -291,6 +296,9 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 	cam4.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc4, nil
 	}
+	cam4.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
+	}
 
 	cam5 := &inject.Camera{}
 	pc5, err := makePointCloudFromArtifact(t, "pointcloud/bun090.pcd", 0)
@@ -300,6 +308,9 @@ func makeFakeRobotICP(t *testing.T) (robot.Robot, error) {
 
 	cam5.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pc5, nil
+	}
+	cam5.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+		return camera.Properties{}, nil
 	}
 
 	base1 := &inject.Base{}
@@ -382,6 +393,7 @@ func TestFixedPointCloudICP(t *testing.T) {
 	attrs := &JoinAttrs{
 		AttrConfig: &camera.AttrConfig{
 			Stream: "",
+			Debug:  true,
 		},
 		SourceCameras: []string{"cam1", "cam2"},
 		TargetFrame:   "base1",
@@ -390,6 +402,7 @@ func TestFixedPointCloudICP(t *testing.T) {
 	}
 	joinedCam, err := newJoinPointCloudSource(ctx, r, utils.Logger, attrs)
 	test.That(t, err, test.ShouldBeNil)
+	defer utils.TryClose(context.Background(), joinedCam)
 	pc, err := joinedCam.NextPointCloud(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 100)
@@ -404,6 +417,7 @@ func TestTwinPointCloudICP(t *testing.T) {
 	attrs := &JoinAttrs{
 		AttrConfig: &camera.AttrConfig{
 			Stream: "",
+			Debug:  true,
 		},
 		SourceCameras: []string{"cam3", "cam4"},
 		TargetFrame:   "cam3",
@@ -411,13 +425,12 @@ func TestTwinPointCloudICP(t *testing.T) {
 	}
 	joinedCam, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, attrs)
 	test.That(t, err, test.ShouldBeNil)
+	defer utils.TryClose(context.Background(), joinedCam)
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	filename := "test_twin_" + time.Now().Format(time.RFC3339) + "*.pcd"
 	file, err := os.CreateTemp("/tmp", filename)
 	pointcloud.ToPCD(pc, file, pointcloud.PCDBinary)
-
-	utils.Logger.Debugf("Number of points: %d", pc.Size())
 
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc, test.ShouldNotBeNil)
@@ -432,6 +445,7 @@ func TestMultiPointCloudICP(t *testing.T) {
 	attrs := &JoinAttrs{
 		AttrConfig: &camera.AttrConfig{
 			Stream: "",
+			Debug:  true,
 		},
 		SourceCameras: []string{"cam3", "cam4", "cam5"},
 		TargetFrame:   "cam3",
@@ -439,6 +453,7 @@ func TestMultiPointCloudICP(t *testing.T) {
 	}
 	joinedCam, err := newJoinPointCloudSource(context.Background(), r, utils.Logger, attrs)
 	test.That(t, err, test.ShouldBeNil)
+	defer utils.TryClose(context.Background(), joinedCam)
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
