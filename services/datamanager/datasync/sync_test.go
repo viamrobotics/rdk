@@ -1,9 +1,9 @@
 package datasync
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
@@ -133,8 +133,8 @@ func TestSensorUploadTabular(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			// Write the data from the test cases into the files to prepare them for reading by the fileUpload function
-			for i := range tc.toSend {
-				err := f.WriteNext(tc.toSend[i])
+			for _, msg := range tc.toSend {
+				err := f.WriteNext(msg)
 				test.That(t, err, test.ShouldBeNil)
 			}
 			err = f.Sync()
@@ -213,8 +213,8 @@ func TestSensorUploadBinary(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			// Write the data from the test cases into the files to prepare them for reading by the sensorUpload function.
-			for i := range tc.toSend {
-				err := f.WriteNext(tc.toSend[i])
+			for _, msg := range tc.toSend {
+				err := f.WriteNext(msg)
 				test.That(t, err, test.ShouldBeNil)
 			}
 			err = f.Sync()
@@ -237,10 +237,9 @@ func TestSensorUploadBinary(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			sut.Sync([]string{f.GetPath()})
 
-			// Create []v1.UploadRequest object from test case input 'expData []*structpb.Struct'.
 			expectedMsgs := buildSensorDataUploadRequests(tc.toSend, v1.DataType_DATA_TYPE_BINARY_SENSOR, filepath.Base(f.GetPath()))
 
-			// The mc.sent value should be the same as the expectedMsgs value.
+			// The UploadRequests received by our mock service should be the same as the expectedMsgs value.
 			time.Sleep(syncWaitTime)
 			sut.Close()
 			compareTabularUploadRequests(t, mockService.getUploadRequests(), expectedMsgs)
@@ -453,8 +452,8 @@ func TestPartialUpload(t *testing.T) {
 			f, err := datacapture.NewFile(tmpDir, &captureMetadata)
 			test.That(t, err, test.ShouldBeNil)
 
-			for i := range tc.toSend {
-				err := f.WriteNext(tc.toSend[i])
+			for _, msg := range tc.toSend {
+				err := f.WriteNext(msg)
 				test.That(t, err, test.ShouldBeNil)
 			}
 			err = f.Sync()
@@ -506,18 +505,6 @@ func TestPartialUpload(t *testing.T) {
 			actMsgs = mockService.getUploadRequests()
 			compareTabularUploadRequests(t, actMsgs, expMsgs)
 
-			// Validate progress file exists and has correct value.
-			// TODO: directly testing this is a big abstraction leak
-			progressFile := filepath.Join(viamProgressDotDir, filepath.Base(f.GetPath()))
-			defer os.Remove(progressFile)
-			_, err = os.Stat(progressFile)
-			test.That(t, err, test.ShouldBeNil)
-			bs, err := os.ReadFile(progressFile)
-			test.That(t, err, test.ShouldBeNil)
-			i, err := strconv.Atoi(string(bs))
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, i, test.ShouldEqual, tc.ackEveryNSensorDatas)
-
 			// Restart the client and server and attempt to sync again.
 			mockService = getMockService()
 			mockService.messagesPerAck = tc.ackEveryNSensorDatas
@@ -540,8 +527,9 @@ func TestPartialUpload(t *testing.T) {
 			compareTabularUploadRequests(t, mockService.getUploadRequests(), expMsgs)
 
 			// Validate progress file does not exist.
-			_, err = os.Stat(progressFile)
-			test.That(t, err, test.ShouldNotBeNil)
+			files, err := ioutil.ReadDir(viamProgressDotDir)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(files), test.ShouldEqual, 0)
 
 			// Validate data capture file does not exist.
 			_, err = os.Stat(f.GetPath())
