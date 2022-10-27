@@ -11,6 +11,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"path"
@@ -22,6 +23,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -75,6 +77,36 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 	branchName, _ := os.LookupEnv("GITHUB_REF_NAME")
 
+	mongoURI, ok := os.LookupEnv("MONGODB_TEST_OUTPUT_URI")
+	if !ok || mongoURI == "" {
+		logger.Warn("no MongoDB URI found; skipping")
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	client, err := mongo.NewClient(options.Client().ApplyURI(mongoURI))
+	if err != nil {
+		return err
+	}
+	if err := client.Connect(ctx); err != nil {
+		return err
+	}
+	if err := client.Ping(ctx, readpref.Primary()); err != nil {
+		return multierr.Combine(err, client.Disconnect(ctx))
+	}
+	defer func() {
+		utils.UncheckedError(client.Disconnect(ctx))
+	}()
+
+	coll := client.Database("coverage").Collection("results")
+
+	var closestPastResults *closetMergeBaseResults
+	var closestPastResultsErr error
+	if isPullRequest {
+		closestPastResults, closestPastResultsErr = findClosestMergeBaseResults(ctx, coll, branchName, baseRef)
+	}
+
 	createdAt := time.Now()
 
 	covResults := map[string]coverageResult{}
@@ -121,28 +153,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		}
 	}
 
-	mongoURI, ok := os.LookupEnv("MONGODB_TEST_OUTPUT_URI")
-	if !ok || mongoURI == "" {
-		logger.Warn("no MongoDB URI found; skipping")
-		return nil
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	client, err := mongo.NewClient(options.Client().ApplyURI(mongoURI))
-	if err != nil {
-		return err
-	}
-	if err := client.Connect(ctx); err != nil {
-		return err
-	}
-	if err := client.Ping(ctx, readpref.Primary()); err != nil {
-		return multierr.Combine(err, client.Disconnect(ctx))
-	}
-	defer func() {
-		utils.UncheckedError(client.Disconnect(ctx))
-	}()
-
 	if len(covResults) == 0 {
 		return nil
 	}
@@ -171,12 +181,16 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}
 	resultsIfc = append(resultsIfc, summaryResult)
 
-	coll := client.Database("coverage").Collection("results")
-	if _, err := coll.InsertMany(context.Background(), resultsIfc); err != nil {
-		return err
+	if _, err := coll.InsertMany(ctx, resultsIfc); err != nil {
+		logger.Errorw("error storing coverage results", "error", err)
 	}
 
-	mdOutput := generateMarkdownOutput(summaryResult, covResults, generateBadge(summaryResult))
+	mdOutput := generateMarkdownOutput(
+		overallResults{covResults, summaryResult},
+		generateBadge(summaryResult),
+		closestPastResults,
+		closestPastResultsErr,
+	)
 	//nolint:gosec
 	return os.WriteFile("code-coverage-results.md", []byte(mdOutput), 0o644)
 }
@@ -212,31 +226,73 @@ func generateHealthIndicator(rate float64) string {
 
 // based off of https://github.com/irongut/CodeCoverageSummary
 func generateMarkdownOutput(
-	summary coverageResult,
-	results map[string]coverageResult,
+	results overallResults,
 	badgeURL string,
+	closestPastResults *closetMergeBaseResults,
+	closestPastResultsErr error,
 ) string {
 	var builder strings.Builder
 
 	builder.WriteString(fmt.Sprintf("![Code Coverage](%s)\n\n", badgeURL))
 
-	builder.WriteString("Package | Line Rate | Health\n")
-	builder.WriteString("-------- | --------- | ------\n")
+	if closestPastResultsErr != nil {
+		builder.WriteString(fmt.Sprintf("*Note: %s*\n", closestPastResultsErr))
+	}
+	var canDelta bool
+	if closestPastResults != nil {
+		canDelta = len(closestPastResults.results.packages) != 0
+		if !canDelta {
+			builder.WriteString("*Note: no suitable past coverage found to compare against*\n")
+		}
+	}
 
-	pkgNames := make([]string, 0, len(results))
-	for pkgName := range results {
+	builder.WriteString("Package | Line Rate")
+	if canDelta {
+		builder.WriteString(" | Delta")
+	}
+	builder.WriteString(" | Health\n")
+	builder.WriteString("-------- | ---------")
+	if canDelta {
+		builder.WriteString(" | ------")
+	}
+	builder.WriteString(" | ------\n")
+
+	pkgNames := make([]string, 0, len(results.packages))
+	for pkgName := range results.packages {
 		pkgNames = append(pkgNames, pkgName)
 	}
 	sort.Strings(pkgNames)
 
+	getDelta := func(now, past coverageResult) string {
+		delta := now.LineCoveragePct - past.LineCoveragePct
+		var deltaSign string
+		if !(delta == 0 || math.Signbit(delta)) {
+			deltaSign = "+"
+		}
+		return fmt.Sprintf("%s%.0f%%", deltaSign, delta)
+	}
 	for _, pkgName := range pkgNames {
-		result := results[pkgName]
-		builder.WriteString(fmt.Sprintf("%s | %.0f%% | %s\n",
-			pkgName, result.LineCoveragePct, generateHealthIndicator(result.LineCoveragePct)))
+		result := results.packages[pkgName]
+		builder.WriteString(fmt.Sprintf("%s | %.0f%%", pkgName, result.LineCoveragePct))
+		if canDelta {
+			if pastResult, ok := closestPastResults.results.packages[pkgName]; ok {
+				builder.WriteString(fmt.Sprintf(" | %s", getDelta(result, pastResult)))
+			} else {
+				builder.WriteString(" | N/A")
+			}
+		}
+		builder.WriteString(fmt.Sprintf(" | %s\n", generateHealthIndicator(result.LineCoveragePct)))
 	}
 
-	builder.WriteString(fmt.Sprintf("**Summary** | **%.0f%%** (%d / %d)", summary.LineCoveragePct, summary.LinesCovered, summary.LinesTotal))
-	builder.WriteString(fmt.Sprintf(" | %s\n", generateHealthIndicator(summary.LineCoveragePct)))
+	builder.WriteString(fmt.Sprintf(
+		"**Summary** | **%.0f%%** (%d / %d)",
+		results.summary.LineCoveragePct,
+		results.summary.LinesCovered,
+		results.summary.LinesTotal))
+	if canDelta {
+		builder.WriteString(fmt.Sprintf(" | %s", getDelta(results.summary, closestPastResults.results.summary)))
+	}
+	builder.WriteString(fmt.Sprintf(" | %s\n", generateHealthIndicator(results.summary.LineCoveragePct)))
 
 	return builder.String()
 }
@@ -455,4 +511,133 @@ type coverageResult struct {
 	LinesCovered        int64     `bson:"lines_covered"`
 	LinesTotal          int64     `bson:"lines_total"`
 	Package             string    `bson:"package,omitempty"`
+}
+
+type overallResults struct {
+	packages map[string]coverageResult
+	summary  coverageResult
+}
+
+type closetMergeBaseResults struct {
+	base    string
+	results overallResults
+}
+
+func checkForResults(ctx context.Context, coll *mongo.Collection, gitSha string) []coverageResult {
+	resultCount, err := coll.CountDocuments(ctx, bson.D{
+		{"git_sha", gitSha},
+	})
+	if err != nil {
+		logger.Errorw("failed to find coverage for merge base", "git_sha", gitSha, "error", err)
+	}
+	if resultCount == 0 {
+		return nil
+	}
+
+	cur, err := coll.Find(ctx, bson.D{
+		{"git_sha", gitSha},
+	})
+	if err != nil {
+		logger.Errorw("failed to find coverage for merge base", "git_sha", gitSha, "error", err)
+	}
+	var results []coverageResult
+	if err := cur.All(ctx, &results); err != nil {
+		logger.Errorw("failed to find coverage for merge base", "git_sha", gitSha, "error", err)
+	}
+	return results
+}
+
+func findClosestMergeBaseResults(
+	ctx context.Context,
+	coll *mongo.Collection,
+	branchName string,
+	baseRef string,
+) (*closetMergeBaseResults, error) {
+	revParse := func(base string, back int) (string, error) {
+		//nolint:gosec
+		cmd := exec.Command("git", "rev-parse", fmt.Sprintf("%s~%d", base, back))
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			if len(out) != 0 {
+				return "", fmt.Errorf("%s: %w", string(out), err)
+			}
+			return "", err
+		}
+		return strings.TrimSuffix(string(out), "\n"), nil
+	}
+
+	// look back for results
+
+	cmd := exec.Command("git", "merge-base", branchName, baseRef)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if len(out) != 0 {
+			return nil, fmt.Errorf("%s: %w", string(out), err)
+		}
+		return nil, err
+	}
+	possibleMergeBaseRoot := strings.TrimSuffix(string(out), "\n")
+	possibleMergeBaseCurr := possibleMergeBaseRoot
+
+	var mergeBase string
+	var mergeBaseResults []coverageResult
+	mergeBaseCovResults := map[string]coverageResult{}
+	var mergeBaseSummaryResult coverageResult
+
+	var mergeBaseErr error
+	for i := 0; i < 5; i++ {
+		if i != 0 {
+			var err error
+			possibleMergeBaseCurr, err = revParse(possibleMergeBaseRoot, i)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		mergeBaseResults = checkForResults(ctx, coll, possibleMergeBaseCurr)
+		if len(mergeBaseResults) == 0 {
+			continue
+		}
+		mergeBase = possibleMergeBaseCurr
+		if i != 0 {
+			mergeBaseErr = fmt.Errorf(
+				"merge base coverage results not available, comparing against closest %s~%d=(%s) instead",
+				possibleMergeBaseRoot, i, mergeBase)
+		}
+		break
+	}
+
+	if mergeBase == "" {
+		// last resort, try the HEAD at this point in time of base ref
+		baseHead, err := revParse(baseRef, 0)
+		if err != nil {
+			return nil, err
+		}
+		mergeBaseResults = checkForResults(ctx, coll, baseHead)
+		if len(mergeBaseResults) != 0 {
+			mergeBase = baseHead
+			mergeBaseErr = fmt.Errorf(
+				"merge base coverage results not available, using HEAD(%s)=%s as no other closest candidate was found",
+				baseRef, baseHead)
+		} else {
+			return nil, errors.New("failed to find any suitable merge base to compare against")
+		}
+	}
+
+	// dedupe
+	for _, result := range mergeBaseResults {
+		resultCopy := result
+		if result.Package == "" {
+			mergeBaseSummaryResult = resultCopy
+			continue
+		}
+		mergeBaseCovResults[result.Package] = resultCopy
+	}
+	return &closetMergeBaseResults{
+		base: mergeBase,
+		results: overallResults{
+			packages: mergeBaseCovResults,
+			summary:  mergeBaseSummaryResult,
+		},
+	}, mergeBaseErr
 }
