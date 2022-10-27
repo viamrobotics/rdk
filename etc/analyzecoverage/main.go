@@ -45,7 +45,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}
 	profileDatas := bytes.Split(profileDataAll, []byte("mode: "))
 
-	gitSHA, _ := os.LookupEnv("GITHUB_SHA")
+	gitSHA, _ := os.LookupEnv("GITHUB_HEAD_SHA")
 	var gitHubRunID, gitHubRunNumber, gitHubRunAttempt int64
 	gitHubRunIDStr, ok := os.LookupEnv("GITHUB_RUN_ID")
 	if ok {
@@ -72,10 +72,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		}
 	}
 
-	baseRef, ok := os.LookupEnv("GITHUB_BASE_REF")
+	baseRef, ok := os.LookupEnv("GITHUB_PR_BASE_REF")
 	isPullRequest := ok && baseRef != ""
+	baseSha, _ := os.LookupEnv("GITHUB_PR_BASE_SHA")
 
-	branchName, _ := os.LookupEnv("GITHUB_REF_NAME")
+	branchName, _ := os.LookupEnv("GITHUB_HEAD_REF")
 
 	mongoURI, ok := os.LookupEnv("MONGODB_TEST_OUTPUT_URI")
 	if !ok || mongoURI == "" {
@@ -104,7 +105,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	var closestPastResults *closetMergeBaseResults
 	var closestPastResultsErr error
 	if isPullRequest {
-		closestPastResults, closestPastResultsErr = findClosestMergeBaseResults(ctx, coll, branchName, baseRef)
+		closestPastResults, closestPastResultsErr = findClosestMergeBaseResults(
+			ctx, coll, branchName, gitSHA, baseRef, baseSha)
 	}
 
 	createdAt := time.Now()
@@ -551,7 +553,9 @@ func findClosestMergeBaseResults(
 	ctx context.Context,
 	coll *mongo.Collection,
 	branchName string,
+	branchSha string,
 	baseRef string,
+	baseSha string,
 ) (*closetMergeBaseResults, error) {
 	revParse := func(base string, back int) (string, error) {
 		checkRef := fmt.Sprintf("%s~%d", base, back)
@@ -568,11 +572,18 @@ func findClosestMergeBaseResults(
 	}
 
 	// look back for results
-	cmd := exec.Command("git", "merge-base", branchName, baseRef)
+	cmd := exec.Command("git", "merge-base", branchSha, baseSha)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if len(out) != 0 {
-			return nil, fmt.Errorf("error running git merge-base %s %s: %s", branchName, baseRef, string(out))
+			return nil, fmt.Errorf(
+				"error running git merge-base %s(%s) %s(%s): %s",
+				branchName,
+				branchSha,
+				baseRef,
+				baseSha,
+				string(out),
+			)
 		}
 		return nil, err
 	}
@@ -609,16 +620,12 @@ func findClosestMergeBaseResults(
 
 	if mergeBase == "" {
 		// last resort, try the HEAD at this point in time of base ref
-		baseHead, err := revParse(baseRef, 0)
-		if err != nil {
-			return nil, err
-		}
-		mergeBaseResults = checkForResults(ctx, coll, baseHead)
+		mergeBaseResults = checkForResults(ctx, coll, baseSha)
 		if len(mergeBaseResults) != 0 {
-			mergeBase = baseHead
+			mergeBase = baseSha
 			mergeBaseErr = fmt.Errorf(
 				"merge base coverage results not available, using HEAD(%s)=%s as no other closest candidate was found",
-				baseRef, baseHead)
+				baseRef, baseSha)
 		} else {
 			return nil, errors.New("failed to find any suitable merge base to compare against")
 		}
