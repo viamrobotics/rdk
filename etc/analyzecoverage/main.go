@@ -554,12 +554,13 @@ func findClosestMergeBaseResults(
 	baseRef string,
 ) (*closetMergeBaseResults, error) {
 	revParse := func(base string, back int) (string, error) {
+		checkRef := fmt.Sprintf("%s~%d", base, back)
 		//nolint:gosec
-		cmd := exec.Command("git", "rev-parse", fmt.Sprintf("%s~%d", base, back))
+		cmd := exec.Command("git", "rev-parse", checkRef)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			if len(out) != 0 {
-				return "", fmt.Errorf("%s: %w", string(out), err)
+				return "", fmt.Errorf("error running git rev-parse %s: %s", checkRef, string(out))
 			}
 			return "", err
 		}
@@ -567,12 +568,11 @@ func findClosestMergeBaseResults(
 	}
 
 	// look back for results
-
 	cmd := exec.Command("git", "merge-base", branchName, baseRef)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if len(out) != 0 {
-			return nil, fmt.Errorf("%s: %w", string(out), err)
+			return nil, fmt.Errorf("error running git merge-base %s %s: %s", branchName, baseRef, string(out))
 		}
 		return nil, err
 	}

@@ -46,7 +46,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         ref: ${{ github.event.pull_request.head.sha }}
-        fetch-depth: 2
+        fetch-depth: 0 # 0 so we can analyze history for coverage
 
     - name: Create GCP Credential File from secret
       run: |
