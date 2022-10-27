@@ -66,7 +66,7 @@ func newMicrophoneSource(attrs *Attrs, logger golog.Logger) (audioinput.AudioInp
 	debug := attrs.Debug
 
 	if attrs.Path != "" {
-		return tryMicrophoneOpen(attrs.Path, gostream.DefaultConstraints)
+		return tryMicrophoneOpen(attrs.Path, gostream.DefaultConstraints, logger)
 	}
 
 	var pattern *regexp.Regexp
@@ -90,7 +90,7 @@ func newMicrophoneSource(attrs *Attrs, logger golog.Logger) (audioinput.AudioInp
 			continue
 		}
 
-		s, err := tryMicrophoneOpen(label, gostream.DefaultConstraints)
+		s, err := tryMicrophoneOpen(label, gostream.DefaultConstraints, logger)
 		if err == nil {
 			if debug {
 				logger.Debug("\t USING")
@@ -109,8 +109,9 @@ func newMicrophoneSource(attrs *Attrs, logger golog.Logger) (audioinput.AudioInp
 func tryMicrophoneOpen(
 	path string,
 	constraints mediadevices.MediaStreamConstraints,
+	logger golog.Logger,
 ) (audioinput.AudioInput, error) {
-	source, err := gostream.GetNamedAudioSource(filepath.Base(path), constraints)
+	source, err := gostream.GetNamedAudioSource(filepath.Base(path), constraints, logger)
 	if err != nil {
 		return nil, err
 	}
