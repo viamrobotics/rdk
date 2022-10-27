@@ -16,11 +16,11 @@ import (
 )
 
 func newServer(resourceMap map[resource.Name]interface{}) (pb.DataManagerServiceServer, error) {
-	omSvc, err := subtype.New(resourceMap)
+	dmSvc, err := subtype.New(resourceMap)
 	if err != nil {
 		return nil, err
 	}
-	return datamanager.NewServer(omSvc), nil
+	return datamanager.NewServer(dmSvc), nil
 }
 
 func TestServerSync(t *testing.T) {
