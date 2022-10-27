@@ -181,7 +181,6 @@ const armModifyAll = () => {
     <v-breadcrumbs
       slot="title"
       crumbs="arm"
-      @mouseenter="() => { /* APP-618 */ }"
     />
     <div
       slot="header"

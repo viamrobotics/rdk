@@ -32,24 +32,26 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) error {
+func (config *AttrConfig) Validate(path string) ([]string, error) {
+	var deps []string
 	if config.BoardName == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 
 	if config.BusName == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "bus_name")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "bus_name")
 	}
 
 	if config.I2CAddress == nil {
-		return utils.NewConfigValidationFieldRequiredError(path, "i2c_address")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_address")
 	}
 
 	if config.MaxReadBits == nil {
-		return utils.NewConfigValidationFieldRequiredError(path, "max_read_bits")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "max_read_bits")
 	}
 
-	return nil
+	deps = append(deps, config.BoardName)
+	return deps, nil
 }
 
 const modelName = "ezopmp"
@@ -291,7 +293,8 @@ func (m *Ezopmp) GoFor(ctx context.Context, mLPerMin, mins float64, extra map[st
 	if err := m.writeRegWithCheck(ctx, command); err != nil {
 		return err
 	}
-	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m)
+
+	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
 // GoTo uses the Dose Over Time Command in the EZO-PMP datasheet
@@ -309,7 +312,7 @@ func (m *Ezopmp) GoTo(ctx context.Context, mLPerMin, mins float64, extra map[str
 	if err := m.writeRegWithCheck(ctx, command); err != nil {
 		return err
 	}
-	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m)
+	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
 // ResetZeroPosition clears the amount of volume that has been dispensed.

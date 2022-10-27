@@ -88,14 +88,16 @@ type AttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *AttrConfig) Validate(path string) error {
+func (config *AttrConfig) Validate(path string) ([]string, error) {
+	var deps []string
 	if len(config.Board) == 0 {
-		return utils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
+	deps = append(deps, config.Board)
 	if len(config.I2CBus) == 0 {
-		return utils.NewConfigValidationFieldRequiredError(path, "i2c bus")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c bus")
 	}
-	return nil
+	return deps, nil
 }
 
 func init() {

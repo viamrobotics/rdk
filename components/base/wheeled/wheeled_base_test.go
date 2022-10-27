@@ -323,22 +323,22 @@ func TestValidate(t *testing.T) {
 	cfg := &Config{}
 	deps, err := cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "need a width_mm for a wheeled base")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "\"width_mm\" is required")
 
 	cfg.WidthMM = 100
 	deps, err = cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "need a wheel_circumference_mm for a wheeled base")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "\"wheel_circumference_mm\" is required")
 
 	cfg.WheelCircumferenceMM = 1000
 	deps, err = cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "need left and right motors")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "\"left\" is required")
 
 	cfg.Left = []string{"fl-m", "bl-m"}
 	deps, err = cfg.Validate("path")
 	test.That(t, deps, test.ShouldBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "need left and right motors")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "\"right\" is required")
 
 	cfg.Right = []string{"fr-m"}
 	deps, err = cfg.Validate("path")

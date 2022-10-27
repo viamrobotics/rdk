@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/google/uuid"
 )
 
@@ -36,7 +37,7 @@ func (o *Operation) Cancel() {
 	o.cancel()
 }
 
-// HasLabel returns true if this oepration has a speficic label.
+// HasLabel returns true if this operation has a specific label.
 func (o *Operation) HasLabel(label string) bool {
 	for _, l := range o.labels {
 		if l == label {
@@ -66,14 +67,15 @@ func (o *Operation) cleanup() {
 }
 
 // NewManager creates a new manager for holding Operations.
-func NewManager() *Manager {
-	return &Manager{ops: map[string]*Operation{}}
+func NewManager(logger golog.Logger) *Manager {
+	return &Manager{ops: map[string]*Operation{}, logger: logger}
 }
 
 // Manager holds Operations.
 type Manager struct {
-	ops  map[string]*Operation
-	lock sync.Mutex
+	ops    map[string]*Operation
+	lock   sync.Mutex
+	logger golog.Logger
 }
 
 func (m *Manager) remove(id uuid.UUID) {
@@ -115,6 +117,10 @@ func (m *Manager) FindString(id string) *Operation {
 
 // Create puts an operation on this context.
 func (m *Manager) Create(ctx context.Context, method string, args interface{}) (context.Context, func()) {
+	return m.createWithID(ctx, uuid.New(), method, args)
+}
+
+func (m *Manager) createWithID(ctx context.Context, id uuid.UUID, method string, args interface{}) (context.Context, func()) {
 	if ctx.Value(opidKey) != nil {
 		panic("operations cannot be nested")
 	}
@@ -126,7 +132,7 @@ func (m *Manager) Create(ctx context.Context, method string, args interface{}) (
 	}
 
 	op := &Operation{
-		ID:        uuid.New(),
+		ID:        id,
 		Method:    method,
 		Arguments: args,
 		Started:   time.Now(),

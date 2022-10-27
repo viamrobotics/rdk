@@ -47,25 +47,27 @@ type I2CAttrConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) error {
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
+	var deps []string
 	if cfg.Board == "" && cfg.ConnectionType == i2cStr {
-		return utils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 
 	if cfg.ConnectionType == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "connection_type")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "connection_type")
 	}
 
 	switch cfg.ConnectionType {
 	case i2cStr:
 		if cfg.Board == "" {
-			return utils.NewConfigValidationFieldRequiredError(path, "board")
+			return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 		}
-		return cfg.I2CAttrConfig.ValidateI2C(path)
+		deps = append(deps, cfg.Board)
+		return deps, cfg.I2CAttrConfig.ValidateI2C(path)
 	case serialStr:
-		return cfg.SerialAttrConfig.ValidateSerial(path)
+		return nil, cfg.SerialAttrConfig.ValidateSerial(path)
 	default:
-		return utils.NewConfigValidationFieldRequiredError(path, "connection_type")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "connection_type")
 	}
 }
 

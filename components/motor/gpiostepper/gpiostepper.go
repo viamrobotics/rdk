@@ -40,6 +40,16 @@ type Config struct {
 	TicksPerRotation int       `json:"ticks_per_rotation"`
 }
 
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) ([]string, error) {
+	var deps []string
+	if config.BoardName == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+	deps = append(deps, config.BoardName)
+	return deps, nil
+}
+
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
@@ -264,7 +274,8 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 	if revolutions == 0 {
 		return nil
 	}
-	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m)
+
+	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
 func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float64) error {

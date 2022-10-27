@@ -43,36 +43,36 @@ func TestValidate(t *testing.T) {
 		NtripAttrConfig:  &NtripAttrConfig{},
 	}
 	path := "path"
-	err := fakecfg.Validate(path)
+	_, err := fakecfg.Validate(path)
 	test.That(t, err, test.ShouldBeError,
 		utils.NewConfigValidationFieldRequiredError(path, "correction_source"))
 
 	fakecfg.CorrectionSource = "notvalid"
-	err = fakecfg.Validate("path")
+	_, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeError, "only serial, I2C, and ntrip are supported correction sources")
 
 	// ntrip
 	fakecfg.CorrectionSource = "ntrip"
-	err = fakecfg.Validate(path)
+	_, err = fakecfg.Validate(path)
 	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr"))
 
 	fakecfg.NtripAttrConfig.NtripAddr = "some-ntrip-address"
 	fakecfg.NtripPath = "some-ntrip-path"
-	err = fakecfg.Validate("path")
+	_, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 
 	// serial
 	fakecfg.CorrectionSource = "serial"
-	err = fakecfg.Validate(path)
+	_, err = fakecfg.Validate(path)
 	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "serial_correction_path"))
 
 	fakecfg.SerialAttrConfig.SerialCorrectionPath = "some-serial-path"
-	err = fakecfg.Validate("path")
+	_, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 
 	// I2C
 	fakecfg.CorrectionSource = "I2C"
-	err = fakecfg.Validate("path")
+	_, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeError, utils.NewConfigValidationFieldRequiredError(path, "board"))
 }
 

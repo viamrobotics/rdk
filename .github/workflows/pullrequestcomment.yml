@@ -14,7 +14,7 @@ jobs:
       image: ghcr.io/viamrobotics/canon:amd64-cache
       options: --platform linux/amd64
     timeout-minutes: 5
-    if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.workflow_run.event == 'pull_request_target' && github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Download Code Coverage
         uses: dawidd6/action-download-artifact@v2

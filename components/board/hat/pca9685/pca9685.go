@@ -27,6 +27,32 @@ var (
 	_ = board.GPIOPin(&gpioPin{})
 )
 
+// Config describes a PCA9685 board attached to some other board via I2C.
+type Config struct {
+	BoardName  string `json:"board_name"`
+	I2CName    string `json:"i2c_name"`
+	I2CAddress *int   `json:"i2c_address"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) ([]string, error) {
+	var deps []string
+	if config.BoardName == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board_name")
+	}
+	if config.I2CName == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "i2c_name")
+	}
+	if config.I2CAddress == nil {
+		config.I2CAddress = &defaultAddr
+	}
+	if *config.I2CAddress < 0 || *config.I2CAddress > 255 {
+		return nil, utils.NewConfigValidationError(path, errors.New("i2c_address must be an unsigned byte"))
+	}
+	deps = append(deps, config.BoardName)
+	return deps, nil
+}
+
 func init() {
 	registry.RegisterComponent(
 		board.Subtype,
@@ -66,30 +92,6 @@ func init() {
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
 		&Config{})
-}
-
-// Config describes a PCA9685 board attached to some other board via I2C.
-type Config struct {
-	BoardName  string `json:"board_name"`
-	I2CName    string `json:"i2c_name"`
-	I2CAddress *int   `json:"i2c_address"`
-}
-
-// Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) error {
-	if config.BoardName == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "board_name")
-	}
-	if config.I2CName == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "i2c_name")
-	}
-	if config.I2CAddress == nil {
-		config.I2CAddress = &defaultAddr
-	}
-	if *config.I2CAddress < 0 || *config.I2CAddress > 255 {
-		return utils.NewConfigValidationError(path, errors.New("i2c_address must be an unsigned byte"))
-	}
-	return nil
 }
 
 // PCA9685 is a general purpose 16-channel 12-bit PWM controller.

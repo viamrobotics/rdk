@@ -38,7 +38,6 @@ const grab = () => {
     <v-breadcrumbs
       slot="title"
       crumbs="gripper"
-      @mouseenter="() => { /* APP-618 */ }"
     />
     <div
       slot="header"
