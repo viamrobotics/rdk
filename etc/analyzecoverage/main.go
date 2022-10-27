@@ -274,7 +274,7 @@ func generateMarkdownOutput(
 		if !(delta == 0 || math.Signbit(delta)) {
 			deltaSign = "+"
 		}
-		return fmt.Sprintf("%s%.0f%%", deltaSign, delta)
+		return fmt.Sprintf("%s%.2f%%", deltaSign, delta)
 	}
 	for _, pkgName := range pkgNames {
 		result := results.packages[pkgName]
