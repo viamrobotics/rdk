@@ -205,7 +205,7 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 	constraints := makeConstraints(attrs, debug, logger)
 
 	if attrs.Path != "" {
-		return tryWebcamOpen(ctx, attrs, attrs.Path, false, constraints)
+		return tryWebcamOpen(ctx, attrs, attrs.Path, false, constraints, logger)
 	}
 
 	var pattern *regexp.Regexp
@@ -229,7 +229,7 @@ func NewWebcamSource(ctx context.Context, attrs *WebcamAttrs, logger golog.Logge
 			continue
 		}
 
-		s, err := tryWebcamOpen(ctx, attrs, label, true, constraints)
+		s, err := tryWebcamOpen(ctx, attrs, label, true, constraints, logger)
 		if err == nil {
 			if debug {
 				logger.Debug("\t USING")
@@ -250,8 +250,9 @@ func tryWebcamOpen(ctx context.Context,
 	path string,
 	fromLabel bool,
 	constraints mediadevices.MediaStreamConstraints,
+	logger golog.Logger,
 ) (camera.Camera, error) {
-	source, err := getNamedVideoSource(path, fromLabel, constraints)
+	source, err := getNamedVideoSource(path, fromLabel, constraints, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -276,6 +277,7 @@ func getNamedVideoSource(
 	path string,
 	fromLabel bool,
 	constraints mediadevices.MediaStreamConstraints,
+	logger golog.Logger,
 ) (gostream.MediaSource[image.Image], error) {
 	if !fromLabel {
 		resolvedPath, err := filepath.EvalSymlinks(path)
@@ -283,5 +285,5 @@ func getNamedVideoSource(
 			path = resolvedPath
 		}
 	}
-	return gostream.GetNamedVideoSource(filepath.Base(path), constraints)
+	return gostream.GetNamedVideoSource(filepath.Base(path), constraints, logger)
 }

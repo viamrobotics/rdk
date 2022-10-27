@@ -33,12 +33,11 @@ var SLAMLibraries = map[string]LibraryMetadata{
 }
 
 // Define currently implemented slam libraries.
-// DISCLAIMER: Cartographer is not yet integrated with RDK.
 var cartographerMetadata = LibraryMetadata{
 	AlgoName:       "cartographer",
 	AlgoType:       Dense,
 	SlamMode:       map[string]Mode{"2d": Dim2d},
-	BinaryLocation: "",
+	BinaryLocation: "carto_grpc_server",
 }
 
 var orbslamv3Metadata = LibraryMetadata{

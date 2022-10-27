@@ -4,6 +4,7 @@ import (
 	"context"
 	"image"
 	"testing"
+	"time"
 
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
@@ -20,6 +21,7 @@ func TestDetectionSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	src, err := camera.NewFromReader(context.Background(), &videosource.StaticSource{ColorImg: sourceImg}, nil, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
+
 	// make the preprocessing function
 	p, err := objectdetection.RemoveColorChannel("b")
 	test.That(t, err, test.ShouldBeNil)
@@ -39,21 +41,37 @@ func TestDetectionSource(t *testing.T) {
 	defer pipeline.Close()
 
 	// compare with expected bounding boxes
+	start := time.Now()
 	res, err := pipeline.NextResult(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	bbs := res.Detections
-	test.That(t, bbs, test.ShouldHaveLength, 1)
-	test.That(t, bbs[0].Score(), test.ShouldEqual, 1.0)
-	test.That(t, bbs[0].Label(), test.ShouldEqual, "orange")
-	test.That(t, bbs[0].BoundingBox(), test.ShouldResemble, &image.Rectangle{image.Point{848, 424}, image.Point{999, 565}})
+	tt := time.Now()
+	elapsed := tt.Sub(start)
+	if elapsed > objectdetection.WaitForMs*time.Millisecond {
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, res, test.ShouldBeNil)
+	} else {
+		test.That(t, err, test.ShouldBeNil)
+		bbs := res.Detections
+		test.That(t, bbs, test.ShouldHaveLength, 1)
+		test.That(t, bbs[0].Score(), test.ShouldEqual, 1.0)
+		test.That(t, bbs[0].Label(), test.ShouldEqual, "orange")
+		test.That(t, bbs[0].BoundingBox(), test.ShouldResemble, &image.Rectangle{image.Point{848, 424}, image.Point{999, 565}})
+	}
 
 	// overlay the image and see if it is red where you expect
+	start = time.Now()
 	img, _, err := pipeline.Read(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	ovImg := rimage.ConvertImage(img)
-	test.That(t, ovImg.GetXY(848, 424), test.ShouldResemble, rimage.Red)
-	test.That(t, ovImg.GetXY(998, 564), test.ShouldResemble, rimage.Red)
-	test.That(t, src.Close(context.Background()), test.ShouldBeNil)
+	tt = time.Now()
+	elapsed = tt.Sub(start)
+	if elapsed > objectdetection.WaitForMs*time.Millisecond {
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, img, test.ShouldBeNil)
+	} else {
+		test.That(t, err, test.ShouldBeNil)
+		ovImg := rimage.ConvertImage(img)
+		test.That(t, ovImg.GetXY(848, 424), test.ShouldResemble, rimage.Red)
+		test.That(t, ovImg.GetXY(998, 564), test.ShouldResemble, rimage.Red)
+		test.That(t, src.Close(context.Background()), test.ShouldBeNil)
+	}
 }
 
 func TestEmptyDetection(t *testing.T) {
