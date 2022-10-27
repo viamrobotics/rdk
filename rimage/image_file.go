@@ -26,7 +26,7 @@ import (
 
 // RGBABitmapMagicNumber represents the magic number for our custom header
 // for raw RGBA data. The header is composed of this magic number followed by
-// a 4-bit line of the width as a uint32 number and another for the height. Credit to
+// a 4-byte line of the width as a uint32 number and another for the height. Credit to
 // Ben Zotto for inventing this formulation
 // https://bzotto.medium.com/introducing-the-rgba-bitmap-file-format-4a8a94329e2c
 var RGBABitmapMagicNumber = []byte("RGBA")
