@@ -45,7 +45,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}
 	profileDatas := bytes.Split(profileDataAll, []byte("mode: "))
 
-	gitSHA, _ := os.LookupEnv("GITHUB_HEAD_SHA")
+	gitSHA, _ := os.LookupEnv("GITHUB_X_HEAD_SHA")
 	repository, _ := os.LookupEnv("GITHUB_REPOSITORY")
 	var gitHubRunID, gitHubRunNumber, gitHubRunAttempt int64
 	gitHubRunIDStr, ok := os.LookupEnv("GITHUB_RUN_ID")
@@ -73,11 +73,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		}
 	}
 
-	baseRef, ok := os.LookupEnv("GITHUB_PR_BASE_REF")
+	baseRef, ok := os.LookupEnv("GITHUB_X_PR_BASE_REF")
 	isPullRequest := ok && baseRef != ""
-	baseSha, _ := os.LookupEnv("GITHUB_PR_BASE_SHA")
+	baseSha, _ := os.LookupEnv("GITHUB_X_PR_BASE_SHA")
 
-	branchName, _ := os.LookupEnv("GITHUB_HEAD_REF")
+	branchName, _ := os.LookupEnv("GITHUB_X_HEAD_REF")
 
 	mongoURI, ok := os.LookupEnv("MONGODB_TEST_OUTPUT_URI")
 	if !ok || mongoURI == "" {
@@ -175,6 +175,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		CreatedAt:           createdAt,
 		GitSHA:              gitSHA,
 		GitBranch:           branchName,
+		GitHubRepository:    repository,
 		GitHubRunID:         gitHubRunID,
 		GitHubRunNumber:     gitHubRunNumber,
 		GitHubRunAttempt:    gitHubRunAttempt,
