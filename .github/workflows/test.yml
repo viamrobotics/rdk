@@ -48,6 +48,12 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 0 # 0 so we can analyze history for coverage
 
+    - name: TEST
+      run: |
+        env
+        echo $GITHUB_BASE_REF $GITHUB_REF_NAME
+        echo ${{ github.event.pull_request.head.sha }} ${{ github.event.pull_request.base.sha }}
+
     - name: Create GCP Credential File from secret
       run: |
         GOOGLE_APPLICATION_CREDENTIALS=`pwd`/${GOOGLE_APPLICATION_CREDENTIALS_FILENAME}
