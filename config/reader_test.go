@@ -84,6 +84,10 @@ func TestShouldCheckForCert(t *testing.T) {
 		LocalFQDN:        "localFqdn",
 		TLSCertificate:   "cert",
 		TLSPrivateKey:    "key",
+		LocationSecrets: []LocationSecret{
+			{ID: "id1", Secret: "secret1"},
+			{ID: "id2", Secret: "secret2"},
+		},
 	}
 	cloud2 := cloud1
 	test.That(t, shouldCheckForCert(&cloud1, &cloud2), test.ShouldBeFalse)
@@ -93,6 +97,13 @@ func TestShouldCheckForCert(t *testing.T) {
 
 	cloud2 = cloud1
 	cloud2.LocationSecret = "something else"
+	test.That(t, shouldCheckForCert(&cloud1, &cloud2), test.ShouldBeTrue)
+
+	cloud2 = cloud1
+	cloud2.LocationSecrets = []LocationSecret{
+		{ID: "id1", Secret: "secret1"},
+		{ID: "id2", Secret: "secret3"},
+	}
 	test.That(t, shouldCheckForCert(&cloud1, &cloud2), test.ShouldBeTrue)
 }
 
