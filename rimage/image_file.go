@@ -218,26 +218,11 @@ func DecodeImage(ctx context.Context, imgBytes []byte, mimeType string) (image.I
 	if returnLazy {
 		return NewLazyEncodedImage(imgBytes, mimeType), nil
 	}
-
-	switch mimeType {
-	case ut.MimeTypeRawRGBA:
-		img, _, err := image.Decode(bytes.NewReader(imgBytes))
-		if err != nil {
-			return nil, err
-		}
-		return img, nil
-	case ut.MimeTypeJPEG:
-		img, err := jpeg.Decode(bytes.NewReader(imgBytes))
-		return img, err
-	case ut.MimeTypePNG:
-		img, err := png.Decode(bytes.NewReader(imgBytes))
-		return img, err
-	case ut.MimeTypeQOI:
-		img, err := qoi.Decode(bytes.NewReader(imgBytes))
-		return img, err
-	default:
-		return nil, errors.Errorf("do not how to decode MimeType %s", mimeType)
+	img, _, err := image.Decode(bytes.NewReader(imgBytes))
+	if err != nil {
+		return nil, err
 	}
+	return img, nil
 }
 
 // EncodeImage takes an image and mimeType as input and encodes it into a
