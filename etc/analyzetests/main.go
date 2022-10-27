@@ -52,7 +52,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		utils.UncheckedError(client.Disconnect(ctx))
 	}()
 
-	gitSHA, _ := os.LookupEnv("GITHUB_SHA")
+	gitSHA, _ := os.LookupEnv("GITHUB_HEAD_SHA")
 	var gitHubRunID, gitHubRunNumber, gitHubRunAttempt int64
 	gitHubRunIDStr, ok := os.LookupEnv("GITHUB_RUN_ID")
 	if ok {
@@ -79,10 +79,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		}
 	}
 
-	baseRef, ok := os.LookupEnv("GITHUB_BASE_REF")
+	baseRef, ok := os.LookupEnv("GITHUB_PR_BASE_REF")
 	isPullRequest := ok && baseRef != ""
 
-	branchName, _ := os.LookupEnv("GITHUB_REF_NAME")
+	branchName, _ := os.LookupEnv("GITHUB_HEAD_REF")
 
 	createdAt := time.Now()
 	parseTest := func(status string, tc testjson.TestCase) testResult {

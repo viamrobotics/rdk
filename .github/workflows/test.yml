@@ -48,6 +48,20 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 0 # 0 so we can analyze history for coverage
 
+    - name: Set main env vars
+      if: github.event_name != 'pull_request_target'
+      run: |
+        echo "GITHUB_HEAD_SHA=${GIT_SHA}" >> $GITHUB_ENV
+        echo "GITHUB_HEAD_REF=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+
+    - name: Set PR env vars
+      if: github.event_name == 'pull_request_target'
+      run: |
+        echo "GITHUB_HEAD_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
+        echo "GITHUB_HEAD_REF=${{ github.event.pull_request.head.label }}" >> $GITHUB_ENV
+        echo "GITHUB_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
+        echo "GITHUB_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
+
     - name: Create GCP Credential File from secret
       run: |
         GOOGLE_APPLICATION_CREDENTIALS=`pwd`/${GOOGLE_APPLICATION_CREDENTIALS_FILENAME}
@@ -71,7 +85,8 @@ jobs:
     - name: Test
       if: matrix.platform == 'linux/amd64'
       run: |
-        sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS,MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_BASE_REF,GITHUB_REF_NAME -u testbot bash -lc 'make cover test-web'
+        export ${{ github.event.pull_request.head.sha }}
+        sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS,MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_PR_BASE_SHA,GITHUB_PR_BASE_REF,GITHUB_HEAD_REF,GITHUB_HEAD_SHA -u testbot bash -lc 'make cover test-web'
 
     # Now that RDK is public, can't directly comment without token having full read/write access
     # pullrequestcomment.yml will trigger seperately and post the actual comments
