@@ -241,13 +241,13 @@ func generateMarkdownOutput(
 	builder.WriteString(fmt.Sprintf("![Code Coverage](%s)\n\n", badgeURL))
 
 	if closestPastResultsErr != nil {
-		builder.WriteString(fmt.Sprintf("*Note: %s*\n", closestPastResultsErr))
+		builder.WriteString(fmt.Sprintf("**Note: %s**\n", closestPastResultsErr))
 	}
 	var canDelta bool
 	if closestPastResults != nil {
 		canDelta = len(closestPastResults.results.packages) != 0
 		if !canDelta {
-			builder.WriteString("*Note: no suitable past coverage found to compare against*\n")
+			builder.WriteString("**Note: no suitable past coverage found to compare against**\n")
 		}
 	}
 
@@ -274,7 +274,11 @@ func generateMarkdownOutput(
 		if !(delta == 0 || math.Signbit(delta)) {
 			deltaSign = "+"
 		}
-		return fmt.Sprintf("%s%.2f%%", deltaSign, delta)
+		deltaStr := fmt.Sprintf("%s%.2f%%", deltaSign, delta)
+		if math.Abs(delta) > 5 {
+			deltaStr = fmt.Sprintf("**%s**", deltaStr)
+		}
+		return deltaStr
 	}
 	for _, pkgName := range pkgNames {
 		result := results.packages[pkgName]
