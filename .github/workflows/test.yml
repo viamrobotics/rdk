@@ -56,9 +56,11 @@ jobs:
 
     - name: Set PR env vars
       if: github.event_name == 'pull_request_target'
+      env:
+        GITHUB_HEAD_REF_SAN: ${{ github.event.pull_request.head.label }}
       run: |
         echo "GITHUB_HEAD_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
-        echo "GITHUB_HEAD_REF=${{ github.event.pull_request.head.label }}" >> $GITHUB_ENV
+        echo "GITHUB_HEAD_REF=${GITHUB_HEAD_REF_SAN}" >> $GITHUB_ENV
         echo "GITHUB_PR_BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
         echo "GITHUB_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
 
@@ -86,7 +88,7 @@ jobs:
       if: matrix.platform == 'linux/amd64'
       run: |
         export ${{ github.event.pull_request.head.sha }}
-        sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS,MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_PR_BASE_SHA,GITHUB_PR_BASE_REF,GITHUB_HEAD_REF,GITHUB_HEAD_SHA -u testbot bash -lc 'make cover test-web'
+        sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS,MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_PR_BASE_SHA,GITHUB_PR_BASE_REF,GITHUB_HEAD_REF,GITHUB_HEAD_SHA,GITHUB_REPOSITORY -u testbot bash -lc 'make cover test-web'
 
     # Now that RDK is public, can't directly comment without token having full read/write access
     # pullrequestcomment.yml will trigger seperately and post the actual comments

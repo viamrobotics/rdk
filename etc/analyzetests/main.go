@@ -53,6 +53,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}()
 
 	gitSHA, _ := os.LookupEnv("GITHUB_HEAD_SHA")
+	repository, _ := os.LookupEnv("GITHUB_REPOSITORY")
 	var gitHubRunID, gitHubRunNumber, gitHubRunAttempt int64
 	gitHubRunIDStr, ok := os.LookupEnv("GITHUB_RUN_ID")
 	if ok {
@@ -91,6 +92,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			CreatedAt:           createdAt,
 			GitSHA:              gitSHA,
 			GitBranch:           branchName,
+			GitHubRepository:    repository,
 			GitHubRunID:         gitHubRunID,
 			GitHubRunNumber:     gitHubRunNumber,
 			GitHubRunAttempt:    gitHubRunAttempt,
@@ -138,6 +140,7 @@ type testResult struct {
 	CreatedAt           time.Time `bson:"created_at"`
 	GitSHA              string    `bson:"git_sha,omitempty"`
 	GitBranch           string    `bson:"git_branch"`
+	GitHubRepository    string    `bson:"github_repository"`
 	GitHubRunID         int64     `bson:"github_run_id,omitempty"`
 	GitHubRunNumber     int64     `bson:"github_run_number,omitempty"`
 	GitHubRunAttempt    int64     `bson:"github_run_attempt,omitempty"`
