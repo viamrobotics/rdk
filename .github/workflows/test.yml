@@ -51,7 +51,7 @@ jobs:
     - name: Set main env vars
       if: github.event_name != 'pull_request_target'
       run: |
-        echo "GITHUB_HEAD_SHA=${GIT_SHA}" >> $GITHUB_ENV
+        echo "GITHUB_HEAD_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
         echo "GITHUB_HEAD_REF=${GITHUB_REF_NAME}" >> $GITHUB_ENV
 
     - name: Set PR env vars
