@@ -55,6 +55,8 @@ func (config *Config) Validate(path string) ([]string, error) {
 	// If an encoder is present the max_rpm field is optional, in the absence of an encoder the field is required
 	if config.Encoder != "" {
 		deps = append(deps, config.Encoder)
+	} else if config.MaxRPM <= 0 {
+		return nil, vutils.NewConfigValidationFieldRequiredError(path, "max_rpm")
 	}
 	return deps, nil
 }
