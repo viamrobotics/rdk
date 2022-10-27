@@ -31,56 +31,56 @@ func init() {
 
 //nolint:dupl
 func TestResizeColor(t *testing.T) {
-	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
+	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	am := config.AttributeMap{
-		"height_px": 200,
-		"width_px":  300,
+		"height_px": 20,
+		"width_px":  30,
 	}
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
 	out, _, err := camera.ReadImage(context.Background(), source)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 1280)
-	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 720)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 128)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 72)
 
 	rs, err := newResizeTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	out, _, err = camera.ReadImage(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 300)
-	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 200)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 30)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 20)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 //nolint:dupl
 func TestResizeDepth(t *testing.T) {
-	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray.png"))
+	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	am := config.AttributeMap{
-		"height_px": 400,
-		"width_px":  600,
+		"height_px": 40,
+		"width_px":  60,
 	}
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: img}, prop.Video{})
 	out, _, err := camera.ReadImage(context.Background(), source)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 1280)
-	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 720)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 128)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 72)
 
 	rs, err := newResizeTransform(context.Background(), source, camera.DepthStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	out, _, err = camera.ReadImage(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 600)
-	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 400)
+	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 60)
+	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 40)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestRotateColorSource(t *testing.T) {
-	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
+	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
@@ -112,7 +112,7 @@ func TestRotateColorSource(t *testing.T) {
 }
 
 func TestRotateDepthSource(t *testing.T) {
-	pc, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1.dat.gz"))
+	pc, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: pc}, prop.Video{})
