@@ -270,6 +270,9 @@ func generateMarkdownOutput(
 
 	getDelta := func(now, past coverageResult) string {
 		delta := now.LineCoveragePct - past.LineCoveragePct
+		if math.Abs(delta) < 1e-2 {
+			delta = 0
+		}
 		var deltaSign string
 		if !(delta == 0 || math.Signbit(delta)) {
 			deltaSign = "+"
