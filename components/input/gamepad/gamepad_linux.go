@@ -169,7 +169,7 @@ func (g *gamepad) eventDispatcher(ctx context.Context) {
 				info := g.dev.AbsoluteTypes()[eventIn.Type.(evdev.AbsoluteType)]
 
 				var scaledPos float64
-                //nolint:exhaustive
+				//nolint:exhaustive
 				switch thisAxis {
 				case input.AbsolutePedalAccelerator, input.AbsolutePedalBrake, input.AbsolutePedalClutch:
 					// Scale pedals 1.0 to 0
