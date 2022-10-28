@@ -221,9 +221,9 @@ var GamepadMappings = map[string]Mapping{
 	"Logitech G920 Driving Force Racing Wheel": {
 		Axes: map[evdev.AbsoluteType]input.Control{
 			0:  input.AbsoluteX,
-			1:  input.AbsoluteY,
-			2:  input.AbsoluteZ,
-			5:  input.AbsoluteRZ,
+			1:  input.AbsolutePedalAccelerator,
+			2:  input.AbsolutePedalBrake,
+			5:  input.AbsolutePedalClutch,
 			16: input.AbsoluteHat0X,
 			17: input.AbsoluteHat0Y,
 		},
