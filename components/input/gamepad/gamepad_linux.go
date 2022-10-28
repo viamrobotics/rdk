@@ -169,16 +169,17 @@ func (g *gamepad) eventDispatcher(ctx context.Context) {
 				info := g.dev.AbsoluteTypes()[eventIn.Type.(evdev.AbsoluteType)]
 
 				var scaledPos float64
-				if thisAxis == input.AbsolutePedalAccelerator || thisAxis == input.AbsolutePedalBrake || thisAxis == input.AbsolutePedalClutch {
-					// Scale pedals 1.0 to 0
-					// We invert the values because resting state is the high value and we'd like it to be zero.
-					scaledPos = 1 - scaleAxis(eventIn.Event.Value, info.Min, info.Max, 0, 1.0)
-				} else if thisAxis == input.AbsoluteZ || thisAxis == input.AbsoluteRZ {
-					// Scale triggers 0.0 to 1.0
-					scaledPos = scaleAxis(eventIn.Event.Value, info.Min, info.Max, 0, 1.0)
-				} else {
-					// Scale normal axes -1.0 to 1.0
-					scaledPos = scaleAxis(eventIn.Event.Value, info.Min, info.Max, -1.0, 1.0)
+				switch thisAxis {
+					case input.AbsolutePedalAccelerator, input.AbsolutePedalBrake, input.AbsolutePedalClutch:
+						// Scale pedals 1.0 to 0
+						// We invert the values because resting state is the high value and we'd like it to be zero.
+						scaledPos = 1 - scaleAxis(eventIn.Event.Value, info.Min, info.Max, 0, 1.0)
+					case input.AbsoluteZ, input.AbsoluteRZ:
+						// Scale triggers 0.0 to 1.0
+						scaledPos = scaleAxis(eventIn.Event.Value, info.Min, info.Max, 0, 1.0)
+					default:
+						// Scale normal axes -1.0 to 1.0
+						scaledPos = scaleAxis(eventIn.Event.Value, info.Min, info.Max, -1.0, 1.0)
 				}
 
 				// Use evDev provided deadzone
