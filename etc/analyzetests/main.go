@@ -52,7 +52,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		utils.UncheckedError(client.Disconnect(ctx))
 	}()
 
-	gitSHA, _ := os.LookupEnv("GITHUB_SHA")
+	gitSHA, _ := os.LookupEnv("GITHUB_X_HEAD_SHA")
+	repository, _ := os.LookupEnv("GITHUB_REPOSITORY")
 	var gitHubRunID, gitHubRunNumber, gitHubRunAttempt int64
 	gitHubRunIDStr, ok := os.LookupEnv("GITHUB_RUN_ID")
 	if ok {
@@ -79,10 +80,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		}
 	}
 
-	baseRef, ok := os.LookupEnv("GITHUB_BASE_REF")
+	baseRef, ok := os.LookupEnv("GITHUB_X_PR_BASE_REF")
 	isPullRequest := ok && baseRef != ""
 
-	branchName, _ := os.LookupEnv("GITHUB_REF_NAME")
+	branchName, _ := os.LookupEnv("GITHUB_X_HEAD_REF")
 
 	createdAt := time.Now()
 	parseTest := func(status string, tc testjson.TestCase) testResult {
@@ -91,6 +92,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			CreatedAt:           createdAt,
 			GitSHA:              gitSHA,
 			GitBranch:           branchName,
+			GitHubRepository:    repository,
 			GitHubRunID:         gitHubRunID,
 			GitHubRunNumber:     gitHubRunNumber,
 			GitHubRunAttempt:    gitHubRunAttempt,
@@ -138,6 +140,7 @@ type testResult struct {
 	CreatedAt           time.Time `bson:"created_at"`
 	GitSHA              string    `bson:"git_sha,omitempty"`
 	GitBranch           string    `bson:"git_branch"`
+	GitHubRepository    string    `bson:"github_repository"`
 	GitHubRunID         int64     `bson:"github_run_id,omitempty"`
 	GitHubRunNumber     int64     `bson:"github_run_number,omitempty"`
 	GitHubRunAttempt    int64     `bson:"github_run_attempt,omitempty"`
