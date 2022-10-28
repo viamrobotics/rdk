@@ -61,7 +61,6 @@ type adxl345 struct {
 	bus        board.I2C
 	i2cAddress byte
 	mu         sync.Mutex
-
 	logger     golog.Logger
 }
 
