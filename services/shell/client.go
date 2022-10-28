@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/service/shell/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 )
 
@@ -31,7 +32,11 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return c
 }
 
-func (c *client) Shell(ctx context.Context) (chan<- string, <-chan Output, error) {
+func (c *client) Shell(ctx context.Context, extra map[string]interface{}) (chan<- string, <-chan Output, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, nil, err
+	}
 	client, err := c.client.Shell(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -51,6 +56,7 @@ func (c *client) Shell(ctx context.Context) (chan<- string, <-chan Output, error
 					if err := client.Send(&pb.ShellRequest{
 						Name:   c.name,
 						DataIn: dataIn,
+						Extra:  ext,
 					}); err != nil {
 						c.logger.Errorw("error sending data", "error", err)
 						return

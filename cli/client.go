@@ -725,7 +725,7 @@ func (c *AppClient) StartRobotPartShell(
 		return nil
 	}
 
-	input, output, err := shellSvc.Shell(c.c.Context)
+	input, output, err := shellSvc.Shell(c.c.Context, map[string]interface{}{})
 	if err != nil {
 		fmt.Fprintln(c.c.App.ErrWriter, err)
 		cli.OsExiter(1)

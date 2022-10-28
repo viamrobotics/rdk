@@ -40,7 +40,7 @@ type builtIn struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func (svc *builtIn) Shell(ctx context.Context) (chan<- string, <-chan shell.Output, error) {
+func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (chan<- string, <-chan shell.Output, error) {
 	if runtime.GOOS == "windows" {
 		return nil, nil, errors.New("shell not supported on windows yet; sorry")
 	}
