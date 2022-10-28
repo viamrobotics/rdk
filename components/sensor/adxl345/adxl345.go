@@ -1,5 +1,8 @@
 package adxl345
 
+// The manual for this chip is available at:
+// https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf
+
 // TODO: remove unused imports
 import (
 	"context"
