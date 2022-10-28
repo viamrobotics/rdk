@@ -31,8 +31,8 @@ const (
 
 // Config is used for converting config attributes.
 type Config struct {
-	DevFile       string `json:"dev_file"`
-	AutoReconnect bool   `json:"auto_reconnect"`
+	DevFile       string `json:"dev_file,omitempty"`
+	AutoReconnect bool   `json:"auto_reconnect,omitempty"`
 }
 
 func init() {
