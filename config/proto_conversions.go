@@ -140,7 +140,7 @@ func ServiceConfigToProto(service *Service) (*pb.ServiceConfig, error) {
 		Namespace:  string(service.Namespace),
 		Type:       string(service.Type),
 		Attributes: attributes,
-		// DependsOn:  service.DependsOn,
+		DependsOn:  service.DependsOn,
 	}
 
 	return &proto, nil
@@ -153,7 +153,7 @@ func ServiceConfigFromProto(proto *pb.ServiceConfig) (*Service, error) {
 		Namespace:  resource.Namespace(proto.GetNamespace()),
 		Type:       ServiceType(proto.GetType()),
 		Attributes: proto.GetAttributes().AsMap(),
-		// DependsOn:  proto.GetDependsOn(),
+		DependsOn:  proto.GetDependsOn(),
 	}
 
 	return &service, nil

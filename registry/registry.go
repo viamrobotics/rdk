@@ -41,7 +41,8 @@ type Service struct {
 	RegDebugInfo
 	Constructor           CreateService
 	AttributeMapConverter config.AttributeMapConverter
-	RobotConstructor      CreateServiceWithRobot
+	// This is a legacy constructor for default services
+	RobotConstructor CreateServiceWithRobot
 }
 
 func getCallerName() string {
