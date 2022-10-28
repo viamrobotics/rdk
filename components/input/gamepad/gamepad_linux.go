@@ -172,6 +172,9 @@ func (g *gamepad) eventDispatcher(ctx context.Context) {
 				if thisAxis == input.AbsoluteZ || thisAxis == input.AbsoluteRZ {
 					// Scale triggers 0.0 to 1.0
 					scaledPos = scaleAxis(eventIn.Event.Value, info.Min, info.Max, 0, 1.0)
+				} else if g.Model == "Logitech G920 Driving Force Racing Wheel" && thisAxis == input.AbsoluteY {
+					// The Logitech G920 Driving Force Racing Wheel has AbsoluteY mapped to a pedal, which scales from 0 to 1.0
+					scaledPos = scaleAxis(eventIn.Event.Value, info.Min, info.Max, 0, 1.0)
 				} else {
 					// Scale normal axes -1.0 to 1.0
 					scaledPos = scaleAxis(eventIn.Event.Value, info.Min, info.Max, -1.0, 1.0)
