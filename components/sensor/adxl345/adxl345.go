@@ -161,8 +161,8 @@ func (adxl *adxl345) writeByte(register byte, value byte, ctx context.Context) e
 }
 
 // A helper function: takes 2 bytes and reinterprets them as a little-endian signed integer.
-func toSignedValue(data []byte) int16 {
-	return int16(binary.LittleEndian.Uint16(data))
+func toSignedValue(data []byte) int {
+	return int(int16(binary.LittleEndian.Uint16(data)))
 }
 
 func (adxl *adxl345) Readings(ctx context.Context) (map[string]interface{}, error) {
