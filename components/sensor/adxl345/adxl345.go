@@ -105,8 +105,8 @@ func NewAdxl345(
 		                          address, cfg.BusId, cfg.BoardName, err.Error())
 	}
 	if deviceId != 0xE5 {
-		return nil, errors.Errorf("unexpected I2C device instead of ADXL345: deviceID '%d'",
-		                          deviceId)
+		return nil, errors.Errorf("unexpected I2C device instead of ADXL345 at address %d: deviceID '%d'",
+		                          address, deviceId)
 	}
 
 	// The chip starts out in standby mode. Set it to measurement mode so we can get data from it.
