@@ -168,6 +168,8 @@ func toSignedValue(data []byte) int16 {
 }
 
 func (adxl *adxl345) Readings(ctx context.Context) (map[string]interface{}, error) {
+	adxl.mu.Lock()
+    defer adxl.mu.Unlock()
 	// The registers holding the data are 0x32 through 0x37: two bytes each for X, Y, and Z.
 	rawData, err = adxl.readBlock(0x32, 6, ctx)
 	if err != nil {
@@ -181,11 +183,15 @@ func (adxl *adxl345) Readings(ctx context.Context) (map[string]interface{}, erro
 }
 
 func (u *adxl345) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	adxl.mu.Lock()
+    defer adxl.mu.Unlock()
 	// TODO: implement this.
 	return nil, nil
 }
 
 func (adxl *adxl345) Close() {
+	adxl.mu.Lock()
+    defer adxl.mu.Unlock()
 	// Put the chip into standby mode by setting the Power Control register (0x2D) to 0.
 	err := adxl.writeByte(0x2D, 0x00, nil)
 	if err != nil {
