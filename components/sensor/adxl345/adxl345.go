@@ -22,14 +22,17 @@ const modelName = "adxl345"
 
 type AttrConfig struct {
 	BoardName              string `json:"board"`
-	BusId                  string `json: "bus_id"`
-	UseAlternateI2CAddress bool   `json: "use_alternate_i2c_address"`
+	BusId                  string `json:"bus_id"`
+	UseAlternateI2CAddress bool   `json:"use_alternate_i2c_address"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (cfg *AttrConfig) Validate(path string) error {
 	if cfg.BoardName == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+	if cfg.BusId == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "bus_id")
 	}
 	return nil
 }
