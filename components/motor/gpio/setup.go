@@ -38,7 +38,7 @@ type Config struct {
 	DirectionFlip    bool           `json:"dir_flip,omitempty"`              // Flip the direction of the signal sent if there is a Dir pin
 	ControlLoop      control.Config `json:"control_config,omitempty"`        // Optional control loop
 	Encoder          string         `json:"encoder,omitempty"`               // name of encoder
-	RampRate         float64        `json:"ramp_rate_rpm_per_sec,omitempty"` // how fast to ramp power to motor when using rpm control
+	RampRate         float64        `json:"ramp_rate,omitempty"` // how fast to ramp power to motor when using rpm control
 	MaxRPM           float64        `json:"max_rpm,omitempty"`
 	TicksPerRotation int            `json:"ticks_per_rotation,omitempty"`
 }
