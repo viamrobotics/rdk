@@ -58,7 +58,6 @@ func init() {
 }
 
 type adxl345 struct {
-	b          board.Board
 	bus        board.I2C
 	i2cAddress byte
 	mu         sync.Mutex
@@ -94,7 +93,6 @@ func NewAdxl345(
 	}
 
 	sensor := &adxl345{
-		b: b,
 		bus: bus,
 		i2cAddress: address,
 		logger: logger,
