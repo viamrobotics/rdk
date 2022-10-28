@@ -169,8 +169,15 @@ func (adxl *adxl345) writeByte(register byte, value byte, ctx context.Context) e
 }
 
 func (adxl *adxl345) Readings(ctx context.Context) (map[string]interface{}, error) {
-	// TODO: implement this one, too.
-	return nil, nil
+	rawData, err = adxl.readBlock(0x32, 6, ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	x := toSignedValue(rawData[0:2])
+	y := toSignedValue(rawData[2:4])
+	z := toSignedValue(rawData[4:6])
+	return map[string]interface{}{"x": x, "y": y, "z": z}, nil
 }
 
 func (u *adxl345) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
