@@ -102,11 +102,11 @@ func NewAdxl345(
 	// back the device ID (0xE5).
 	deviceId, err := sensor.readByte(0, ctx)
 	if err != nil {
-		return nil, errors.Errorf("can't read from I2C address {} on bus {} of board {}: '{}'",
+		return nil, errors.Errorf("can't read from I2C address %d on bus %d of board %s: '%s'",
 		                          address, cfg.BusId, cfg.BoardName, err.Error())
 	}
 	if deviceId != 0xE5 {
-		return nil, errors.Errorf("unexpected I2C device instead of ADXL345: deviceID '{}'",
+		return nil, errors.Errorf("unexpected I2C device instead of ADXL345: deviceID '%d'",
 		                          deviceId)
 	}
 
