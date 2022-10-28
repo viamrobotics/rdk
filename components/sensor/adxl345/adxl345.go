@@ -3,25 +3,19 @@ package adxl345
 // The manual for this chip is available at:
 // https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf
 
-// TODO: remove unused imports
 import (
 	"context"
 	"encoding/binary"
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
-	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/board"
-	//"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/spatialmath"
-	//rutils "go.viam.com/rdk/utils"
 )
 
 const modelName = "adxl345"
@@ -41,7 +35,7 @@ func (cfg *AttrConfig) Validate(path string) error {
 }
 
 func init() {
-	registry.RegisterComponent(movementsensor.Subtype, modelName, registry.Component{
+	registry.RegisterComponent(sensor.Subtype, modelName, registry.Component{
 		Constructor: func(
 			ctx context.Context,
 			deps registry.Dependencies,
@@ -52,7 +46,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(movementsensor.SubtypeName, modelName,
+	config.RegisterComponentAttributeMapConverter(sensor.SubtypeName, modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var attr AttrConfig
 			return config.TransformAttributeMapToStruct(&attr, attributes)
@@ -73,7 +67,7 @@ func NewAdxl345(
 	deps registry.Dependencies,
 	rawConfig config.Component,
 	logger golog.Logger,
-) (movementsensor.MovementSensor, error) {
+) (sensor.Sensor, error) {
 	cfg := rawConfig.ConvertedAttributes.(*AttrConfig)
 	b, err := board.FromDependencies(deps, cfg.BoardName)
 	if err != nil {
@@ -172,7 +166,7 @@ func (adxl *adxl345) Readings(ctx context.Context) (map[string]interface{}, erro
 	adxl.mu.Lock()
     defer adxl.mu.Unlock()
 	// The registers holding the data are 0x32 through 0x37: two bytes each for X, Y, and Z.
-	rawData, err = adxl.readBlock(0x32, 6, ctx)
+	rawData, err := adxl.readBlock(0x32, 6, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +177,7 @@ func (adxl *adxl345) Readings(ctx context.Context) (map[string]interface{}, erro
 	return map[string]interface{}{"x": x, "y": y, "z": z}, nil
 }
 
-func (u *adxl345) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (adxl *adxl345) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	adxl.mu.Lock()
     defer adxl.mu.Unlock()
 	// TODO: implement this.
