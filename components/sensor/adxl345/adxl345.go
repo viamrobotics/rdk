@@ -122,12 +122,6 @@ func NewAdxl345(
 	return sensor, nil
 }
 
-func toSignedValue(data []byte) int16 {
-	// The registers on the chip are laid out as little-endian: the first register is the less
-	// significant byte.
-	return int16(binary.LittleEndian.Uint16(data))
-}
-
 func (adxl *adxl345) readByte(register byte, ctx context.Context) (byte, error) {
 	result, err := adxl.readBlock(register, 1, ctx)
 	if err != nil {
@@ -166,6 +160,11 @@ func (adxl *adxl345) writeByte(register byte, value byte, ctx context.Context) e
 	}()
 
 	return handle.WriteByteData(ctx, register, value)
+}
+
+// A helper function: takes 2 bytes and reinterprets them as a little-endian signed integer.
+func toSignedValue(data []byte) int16 {
+	return int16(binary.LittleEndian.Uint16(data))
 }
 
 func (adxl *adxl345) Readings(ctx context.Context) (map[string]interface{}, error) {
