@@ -168,6 +168,7 @@ func toSignedValue(data []byte) int16 {
 }
 
 func (adxl *adxl345) Readings(ctx context.Context) (map[string]interface{}, error) {
+	// The registers holding the data are 0x32 through 0x37: two bytes each for X, Y, and Z.
 	rawData, err = adxl.readBlock(0x32, 6, ctx)
 	if err != nil {
 		return nil, err
