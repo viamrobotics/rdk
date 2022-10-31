@@ -146,7 +146,7 @@ func (adxl *adxl345) readBlock(register byte, length uint8, ctx context.Context)
 	return results, err
 }
 
-func (adxl *adxl345) writeByte(register byte, value byte, ctx context.Context) error {
+func (adxl *adxl345) writeByte(register, value byte, ctx context.Context) error {
 	handle, err := adxl.bus.OpenHandle(adxl.i2cAddress)
 	if err != nil {
 		return err
