@@ -127,7 +127,7 @@ func (adxl *adxl345) readByte(register byte, ctx context.Context) (byte, error) 
 	return result[0], err
 }
 
-func (adxl *adxl345) readBlock(register byte, length int, ctx context.Context) ([]byte, error) {
+func (adxl *adxl345) readBlock(register byte, length uint8, ctx context.Context) ([]byte, error) {
 	handle, err := adxl.bus.OpenHandle(adxl.i2cAddress)
 	if err != nil {
 		return nil, err
@@ -139,8 +139,7 @@ func (adxl *adxl345) readBlock(register byte, length int, ctx context.Context) (
 		}
 	}()
 
-	results := make([]byte, length)
-	results, err = handle.Read(ctx, length)
+	results, err := handle.ReadBlockData(ctx, register, length)
 	return results, err
 }
 

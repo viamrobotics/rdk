@@ -88,6 +88,15 @@ func (s *piPigpioI2CHandle) WriteWordData(ctx context.Context, register byte, da
 	return nil
 }
 
+func (s *piPigpioI2CHandle) ReadBlockData(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
+	data := make([]byte, numBytes)
+	response := C.i2cReadI2CBlockData(s.handle, C.uint(register), data, numBytes)
+	if response < 0 {
+		return nil, errors.Errorf("error in ReadBlockData (%d)", response)
+	}
+	return data, nil
+}
+
 func (s *piPigpioI2C) OpenHandle(addr byte) (board.I2CHandle, error) {
 	handle := &piPigpioI2CHandle{bus: s}
 
