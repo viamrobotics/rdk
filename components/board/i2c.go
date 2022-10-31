@@ -22,6 +22,8 @@ type I2CHandle interface {
 	ReadWordData(ctx context.Context, register byte) (uint16, error)
 	WriteWordData(ctx context.Context, register byte, data uint16) error
 
+	ReadBlockData(ctx context.Context, register byte, numBytes uint8) ([]byte, error)
+
 	// Close closes the handle and releases the lock on the bus.
 	Close() error
 }
