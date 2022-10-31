@@ -3,6 +3,7 @@ package client
 
 import (
 	"context"
+	"io"
 	"strings"
 	"sync"
 	"time"
@@ -72,27 +73,22 @@ type RobotClient struct {
 	closeContext context.Context
 }
 
-var exemptMethods = []string{
-	"proto.rpc.webrtc.v1.SignalingService",
-	"proto.rpc.v1.AuthService/Authenticate",
+var exemptFromConnectionCheck = map[string]bool{
+	"/proto.rpc.webrtc.v1.SignalingService/Call":                 true,
+	"/proto.rpc.webrtc.v1.SignalingService/CallUpdate":           true,
+	"/proto.rpc.webrtc.v1.SignalingService/OptionalWebRTCConfig": true,
+	"/proto.rpc.v1.AuthService/Authenticate":                     true,
 }
 
 func needsConnectionCheck(method string) bool {
-	for _, exempt := range exemptMethods {
-		if strings.Contains(method, exempt) {
-			return false
-		}
-	}
-	return true
+	return !exemptFromConnectionCheck[method]
 }
 
-const readWriteOnClosedPipeErrorMsg = "read/write on closed pipe"
-
-func isRWOnClosedPipeError(err error) bool {
+func isClosedPipeError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), readWriteOnClosedPipeErrorMsg)
+	return strings.Contains(err.Error(), io.ErrClosedPipe.Error())
 }
 
 func (rc *RobotClient) notConnectedToRemoteError() error {
@@ -108,18 +104,16 @@ func (rc *RobotClient) handleUnaryDisconnect(
 	opts ...googlegrpc.CallOption,
 ) error {
 	if needsConnectionCheck(method) {
-		rc.Logger().Debugw("checking remote connection", "method", method)
 		if err := rc.checkConnected(); err != nil {
-			rc.Logger().Debugw("connection is DOWN", "method", method)
+			rc.Logger().Debugw("connection is down, skipping method call", "method", method)
 			return status.Errorf(codes.Unavailable, err.Error())
 		}
-		rc.Logger().Debugw("connection is UP", "method", method)
 	}
 
 	err := invoker(ctx, method, req, reply, cc, opts...)
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
-	if isRWOnClosedPipeError(err) {
+	if isClosedPipeError(err) {
 		return status.Errorf(codes.Unavailable, rc.notConnectedToRemoteError().Error())
 	}
 	return err
@@ -133,19 +127,17 @@ func (rc *RobotClient) handleStreamDisconnect(
 	streamer googlegrpc.Streamer,
 	opts ...googlegrpc.CallOption,
 ) (googlegrpc.ClientStream, error) {
-	rc.Logger().Debugw("checking remote connection", "method", method)
 	if needsConnectionCheck(method) {
 		if err := rc.checkConnected(); err != nil {
-			rc.Logger().Debugw("connection is DOWN", "method", method)
+			rc.Logger().Debugw("connection is down, skipping method call", "method", method)
 			return nil, status.Errorf(codes.Unavailable, err.Error())
 		}
-		rc.Logger().Debugw("connection is UP", "method", method)
 	}
 
 	cs, err := streamer(ctx, desc, cc, method, opts...)
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
-	if isRWOnClosedPipeError(err) {
+	if isClosedPipeError(err) {
 		return nil, status.Errorf(codes.Unavailable, rc.notConnectedToRemoteError().Error())
 	}
 	return cs, err
@@ -174,6 +166,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		remoteNameMap:           make(map[resource.Name]resource.Name),
 	}
 
+	// interceptors are applied in order from first to last
 	rc.dialOptions = append(
 		rc.dialOptions,
 		// error handling
@@ -375,7 +368,7 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 				if err != nil {
 					outerError = err
 					// if pipe is closed, we know for sure we lost connection
-					if isRWOnClosedPipeError(err) {
+					if isClosedPipeError(err) {
 						break
 					} else {
 						// otherwise retry
