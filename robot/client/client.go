@@ -72,8 +72,18 @@ type RobotClient struct {
 	closeContext context.Context
 }
 
+var exemptMethods = []string{
+	"proto.rpc.webrtc.v1.SignalingService",
+	"proto.rpc.v1.AuthService/Authenticate",
+}
+
 func needsConnectionCheck(method string) bool {
-	return !strings.Contains(method, "proto.rpc.webrtc.v1.SignalingService")
+	for _, exempt := range exemptMethods {
+		if strings.Contains(method, exempt) {
+			return false
+		}
+	}
+	return true
 }
 
 const readWriteOnClosedPipeErrorMsg = "read/write on closed pipe"
