@@ -731,12 +731,13 @@ func TestClientDisconnect(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, client.checkConnected())
 }
 
-func TestClientDisconnectError(t *testing.T) {
+func TestClientUnaryDisconnectHandler(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 
-	withInterceptor := grpc.ChainUnaryInterceptor(
+	var unaryStatusCallReceived bool
+	justOneUnaryStatusCall := grpc.ChainUnaryInterceptor(
 		func(
 			ctx context.Context,
 			req interface{},
@@ -744,16 +745,18 @@ func TestClientDisconnectError(t *testing.T) {
 			handler grpc.UnaryHandler,
 		) (interface{}, error) {
 			if strings.HasSuffix(info.FullMethod, "RobotService/GetStatus") {
-				return nil, status.Errorf(codes.Unknown, io.ErrClosedPipe.Error())
+				if unaryStatusCallReceived {
+					return nil, status.Errorf(codes.Unknown, io.ErrClosedPipe.Error())
+				}
+				unaryStatusCallReceived = true
 			}
 			var resp interface{}
 			return resp, nil
 		},
 	)
-	gServer := grpc.NewServer(withInterceptor)
+	gServer := grpc.NewServer(justOneUnaryStatusCall)
 
 	injectRobot := &inject.Robot{}
-	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
 	injectRobot.StatusFunc = func(ctx context.Context, rs []resource.Name) ([]robot.Status, error) {
 		return []robot.Status{}, nil
 	}
@@ -761,18 +764,109 @@ func TestClientDisconnectError(t *testing.T) {
 
 	go gServer.Serve(listener)
 
+	client, err := New(context.Background(), listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	client, err := New(
-		context.Background(),
-		listener.Addr().String(),
-		logger,
+	t.Run("unary call to connected remote", func(t *testing.T) {
+		t.Helper()
+
+		client.connected = false
+		_, err = client.Status(context.Background(), []resource.Name{})
+		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
+		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
+		test.That(t, unaryStatusCallReceived, test.ShouldBeFalse)
+		client.connected = true
+	})
+
+	t.Run("unary call to disconnected remote", func(t *testing.T) {
+		t.Helper()
+
+		_, err = client.Status(context.Background(), []resource.Name{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, unaryStatusCallReceived, test.ShouldBeTrue)
+	})
+
+	t.Run("unary call to undetected disconnected remote", func(t *testing.T) {
+		test.That(t, unaryStatusCallReceived, test.ShouldBeTrue)
+		_, err = client.Status(context.Background(), []resource.Name{})
+		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
+		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
+	})
+
+	defer func() {
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+	}()
+	gServer.Stop()
+}
+
+func TestClientStreamDisconnectHandler(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+
+	var streamStatusCallReceived bool
+	interceptStreamStatusCall := grpc.ChainStreamInterceptor(
+		func(
+			srv interface{},
+			ss grpc.ServerStream,
+			info *grpc.StreamServerInfo,
+			handler grpc.StreamHandler,
+		) error {
+			if strings.HasSuffix(info.FullMethod, "RobotService/StreamStatus") {
+				streamStatusCallReceived = true
+			}
+			return handler(srv, ss)
+		},
 	)
+
+	gServer := grpc.NewServer(interceptStreamStatusCall)
+
+	injectRobot := &inject.Robot{}
+	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype { return nil }
+	injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
+	injectRobot.StatusFunc = func(ctx context.Context, rs []resource.Name) ([]robot.Status, error) {
+		return []robot.Status{}, nil
+	}
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = client.Status(context.Background(), []resource.Name{})
-	test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
-	test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
+	t.Run("stream call to disconnected remote", func(t *testing.T) {
+		t.Helper()
+
+		client.connected = false
+		_, err = client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
+		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
+		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
+		test.That(t, streamStatusCallReceived, test.ShouldBeFalse)
+		client.connected = true
+	})
+
+	t.Run("stream call to connected remote", func(t *testing.T) {
+		t.Helper()
+
+		ssc, err := client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
+		test.That(t, err, test.ShouldBeNil)
+		ssc.Recv()
+		test.That(t, streamStatusCallReceived, test.ShouldBeTrue)
+	})
+
+	t.Run("receive call from stream of disconnected remote", func(t *testing.T) {
+		t.Helper()
+
+		ssc, err := client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
+		test.That(t, err, test.ShouldBeNil)
+
+		client.connected = false
+		_, err = ssc.Recv()
+		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
+		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
+		client.connected = true
+	})
+
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	}()

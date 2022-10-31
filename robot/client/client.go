@@ -119,6 +119,26 @@ func (rc *RobotClient) handleUnaryDisconnect(
 	return err
 }
 
+type handleDisconnectClientStream struct {
+	googlegrpc.ClientStream
+	*RobotClient
+}
+
+func (cs *handleDisconnectClientStream) RecvMsg(m interface{}) error {
+	if err := cs.RobotClient.checkConnected(); err != nil {
+		return status.Errorf(codes.Unavailable, err.Error())
+	}
+
+	// we might lose connection before our background check detects it - in this case we
+	// should still surface a helpful error message.
+	err := cs.ClientStream.RecvMsg(m)
+	if isClosedPipeError(err) {
+		return status.Errorf(codes.Unavailable, cs.RobotClient.notConnectedToRemoteError().Error())
+	}
+
+	return err
+}
+
 func (rc *RobotClient) handleStreamDisconnect(
 	ctx context.Context,
 	desc *googlegrpc.StreamDesc,
@@ -140,7 +160,8 @@ func (rc *RobotClient) handleStreamDisconnect(
 	if isClosedPipeError(err) {
 		return nil, status.Errorf(codes.Unavailable, rc.notConnectedToRemoteError().Error())
 	}
-	return cs, err
+
+	return &handleDisconnectClientStream{cs, rc}, err
 }
 
 // New constructs a new RobotClient that is served at the given address. The given
