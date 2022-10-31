@@ -1,7 +1,8 @@
-package adxl345
-
-// The manual for this chip is available at:
+// Package adxl345 implements the Sensor interface for the ADXL345 accelerometer attached to the
+// I2C bus of the robot (the chip supports communicating over SPI as well, but this package does
+// not support that interface). The manual for this chip is available at:
 // https://www.analog.com/media/en/technical-documentation/data-sheets/adxl345.pdf
+package adxl345
 
 import (
 	"context"
@@ -21,9 +22,10 @@ import (
 
 const modelName = "adxl345"
 
+// AttrConfig is a description of how to find an ADXL345 accelerometer on the robot.
 type AttrConfig struct {
 	BoardName              string `json:"board"`
-	BusId                  string `json:"bus_id"`
+	BusID                  string `json:"bus_id"`
 	UseAlternateI2CAddress bool   `json:"use_alternate_i2c_address"`
 }
 
@@ -32,7 +34,7 @@ func (cfg *AttrConfig) Validate(path string) error {
 	if cfg.BoardName == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
-	if cfg.BusId == "" {
+	if cfg.BusID == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "bus_id")
 	}
 	return nil
@@ -67,6 +69,7 @@ type adxl345 struct {
 	generic.Unimplemented // Implements DoCommand with an ErrUnimplemented response
 }
 
+// NewAdxl345 is a constructor to create a new object representing an ADXL345 accelerometer.
 func NewAdxl345(
 	ctx context.Context,
 	deps registry.Dependencies,
@@ -82,9 +85,9 @@ func NewAdxl345(
 	if !ok {
 		return nil, errors.Errorf("board %s is not local", cfg.BoardName)
 	}
-	bus, ok := localB.I2CByName(cfg.BusId)
+	bus, ok := localB.I2CByName(cfg.BusID)
 	if !ok {
-		return nil, errors.Errorf("can't find I2C bus '%s' for ADXL345 sensor", cfg.BusId)
+		return nil, errors.Errorf("can't find I2C bus '%s' for ADXL345 sensor", cfg.BusID)
 	}
 
 	var address byte
@@ -102,35 +105,35 @@ func NewAdxl345(
 
 	// To check that we're able to talk to the chip, we should be able to read register 0 and get
 	// back the device ID (0xE5).
-	deviceId, err := sensor.readByte(0, ctx)
+	deviceID, err := sensor.readByte(ctx, 0)
 	if err != nil {
-		return nil, errors.Errorf("can't read from I2C address %d on bus %d of board %s: '%s'",
-			address, cfg.BusId, cfg.BoardName, err.Error())
+		return nil, errors.Errorf("can't read from I2C address %d on bus %s of board %s: '%s'",
+			address, cfg.BusID, cfg.BoardName, err.Error())
 	}
-	if deviceId != 0xE5 {
+	if deviceID != 0xE5 {
 		return nil, errors.Errorf("unexpected I2C device instead of ADXL345 at address %d: deviceID '%d'",
-			address, deviceId)
+			address, deviceID)
 	}
 
 	// The chip starts out in standby mode. Set it to measurement mode so we can get data from it.
 	// To do this, we set the Power Control register (0x2D) to turn on the 8's bit.
-	err = sensor.writeByte(0x2D, 0x08, ctx)
+	err = sensor.writeByte(ctx, 0x2D, 0x08)
 	if err != nil {
-		return nil, errors.Errorf("unable to put ADXL345 into measurement mode: '{}'", err.Error())
+		return nil, errors.Errorf("unable to put ADXL345 into measurement mode: '%s'", err.Error())
 	}
 
 	return sensor, nil
 }
 
-func (adxl *adxl345) readByte(register byte, ctx context.Context) (byte, error) {
-	result, err := adxl.readBlock(register, 1, ctx)
+func (adxl *adxl345) readByte(ctx context.Context, register byte) (byte, error) {
+	result, err := adxl.readBlock(ctx, register, 1)
 	if err != nil {
 		return 0, err
 	}
 	return result[0], err
 }
 
-func (adxl *adxl345) readBlock(register byte, length uint8, ctx context.Context) ([]byte, error) {
+func (adxl *adxl345) readBlock(ctx context.Context, register byte, length uint8) ([]byte, error) {
 	handle, err := adxl.bus.OpenHandle(adxl.i2cAddress)
 	if err != nil {
 		return nil, err
@@ -146,7 +149,7 @@ func (adxl *adxl345) readBlock(register byte, length uint8, ctx context.Context)
 	return results, err
 }
 
-func (adxl *adxl345) writeByte(register, value byte, ctx context.Context) error {
+func (adxl *adxl345) writeByte(ctx context.Context, register, value byte) error {
 	handle, err := adxl.bus.OpenHandle(adxl.i2cAddress)
 	if err != nil {
 		return err
@@ -170,7 +173,7 @@ func (adxl *adxl345) Readings(ctx context.Context) (map[string]interface{}, erro
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
 	// The registers holding the data are 0x32 through 0x37: two bytes each for X, Y, and Z.
-	rawData, err := adxl.readBlock(0x32, 6, ctx)
+	rawData, err := adxl.readBlock(ctx, 0x32, 6)
 	if err != nil {
 		return nil, err
 	}
@@ -181,11 +184,12 @@ func (adxl *adxl345) Readings(ctx context.Context) (map[string]interface{}, erro
 	return map[string]interface{}{"x": x, "y": y, "z": z}, nil
 }
 
+// Puts the chip into standby mode.
 func (adxl *adxl345) Close() {
 	adxl.mu.Lock()
 	defer adxl.mu.Unlock()
 	// Put the chip into standby mode by setting the Power Control register (0x2D) to 0.
-	err := adxl.writeByte(0x2D, 0x00, nil)
+	err := adxl.writeByte(context.TODO(), 0x2D, 0x00)
 	if err != nil {
 		adxl.logger.Error(err)
 	}
