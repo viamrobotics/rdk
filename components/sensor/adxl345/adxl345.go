@@ -9,8 +9,8 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/utils"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/generic"
@@ -95,9 +95,9 @@ func NewAdxl345(
 	}
 
 	sensor := &adxl345{
-		bus: bus,
+		bus:        bus,
 		i2cAddress: address,
-		logger: logger,
+		logger:     logger,
 	}
 
 	// To check that we're able to talk to the chip, we should be able to read register 0 and get
@@ -105,17 +105,17 @@ func NewAdxl345(
 	deviceId, err := sensor.readByte(0, ctx)
 	if err != nil {
 		return nil, errors.Errorf("can't read from I2C address %d on bus %d of board %s: '%s'",
-		                          address, cfg.BusId, cfg.BoardName, err.Error())
+			address, cfg.BusId, cfg.BoardName, err.Error())
 	}
 	if deviceId != 0xE5 {
 		return nil, errors.Errorf("unexpected I2C device instead of ADXL345 at address %d: deviceID '%d'",
-		                          address, deviceId)
+			address, deviceId)
 	}
 
 	// The chip starts out in standby mode. Set it to measurement mode so we can get data from it.
 	// To do this, we set the Power Control register (0x2D) to turn on the 8's bit.
 	err = sensor.writeByte(0x2D, 0x08, ctx)
-	if (err != nil) {
+	if err != nil {
 		return nil, errors.Errorf("unable to put ADXL345 into measurement mode: '{}'", err.Error())
 	}
 
