@@ -3,8 +3,10 @@ package client
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"image/png"
+	"io"
 	"math"
 	"net"
 	"strings"
@@ -742,7 +744,7 @@ func TestClientDisconnectError(t *testing.T) {
 			handler grpc.UnaryHandler,
 		) (interface{}, error) {
 			if strings.HasSuffix(info.FullMethod, "RobotService/GetStatus") {
-				return nil, status.Errorf(codes.Unknown, readWriteOnClosedPipeErrorMsg)
+				return nil, status.Errorf(codes.Unknown, io.ErrClosedPipe.Error())
 			}
 			var resp interface{}
 			return resp, nil
@@ -770,6 +772,7 @@ func TestClientDisconnectError(t *testing.T) {
 
 	_, err = client.Status(context.Background(), []resource.Name{})
 	test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
+	test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	}()
