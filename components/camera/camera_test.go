@@ -301,10 +301,10 @@ func (s *simpleSourceWithPCD) NextPointCloud(ctx context.Context) (pointcloud.Po
 }
 
 func TestNewCamera(t *testing.T) {
-	intrinsics1 := &transform.PinholeCameraIntrinsics{Width: 1280, Height: 720}
+	intrinsics1 := &transform.PinholeCameraIntrinsics{Width: 128, Height: 72}
 	intrinsics2 := &transform.PinholeCameraIntrinsics{Width: 100, Height: 100}
-	videoSrc := &simpleSource{"rimage/board1"}
-	videoSrcPCD := &simpleSourceWithPCD{"rimage/board1"}
+	videoSrc := &simpleSource{"rimage/board1_small"}
+	videoSrcPCD := &simpleSourceWithPCD{"rimage/board1_small"}
 
 	// no camera
 	_, err := camera.NewFromReader(context.Background(), nil, nil, camera.UnspecifiedStream)
