@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -62,6 +63,8 @@ type adxl345 struct {
 	i2cAddress byte
 	mu         sync.Mutex
 	logger     golog.Logger
+
+	generic.Unimplemented // Implements DoCommand with an ErrUnimplemented response
 }
 
 func NewAdxl345(
@@ -176,13 +179,6 @@ func (adxl *adxl345) Readings(ctx context.Context) (map[string]interface{}, erro
 	y := toSignedValue(rawData[2:4])
 	z := toSignedValue(rawData[4:6])
 	return map[string]interface{}{"x": x, "y": y, "z": z}, nil
-}
-
-func (adxl *adxl345) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	adxl.mu.Lock()
-	defer adxl.mu.Unlock()
-	// TODO: implement this.
-	return nil, nil
 }
 
 func (adxl *adxl345) Close() {
