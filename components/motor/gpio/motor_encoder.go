@@ -504,11 +504,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 		return err
 	}
 
-	if d == 1 || d == -1 {
-		m.state.setPoint = pos + d*numTicks
-	} else {
-		panic("impossible")
-	}
+	m.state.setPoint = pos + d*numTicks
 
 	m.state.desiredRPM = rpm
 	m.state.regulated = true
