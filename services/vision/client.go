@@ -43,10 +43,21 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return c
 }
 
-func (c *client) GetModelParameterSchema(ctx context.Context, modelType VisModelType) (*jsonschema.Schema, error) {
+func (c *client) GetModelParameterSchema(
+	ctx context.Context,
+	modelType VisModelType,
+	extra map[string]interface{},
+) (*jsonschema.Schema, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::GetModelParameterSchema")
 	defer span.End()
-	resp, err := c.client.GetModelParameterSchema(ctx, &pb.GetModelParameterSchemaRequest{Name: c.name, ModelType: string(modelType)})
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetModelParameterSchema(
+		ctx,
+		&pb.GetModelParameterSchemaRequest{Name: c.name, ModelType: string(modelType), Extra: ext},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -58,20 +69,28 @@ func (c *client) GetModelParameterSchema(ctx context.Context, modelType VisModel
 	return outp, nil
 }
 
-func (c *client) DetectorNames(ctx context.Context) ([]string, error) {
+func (c *client) DetectorNames(ctx context.Context, extra map[string]interface{}) ([]string, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::DetectorNames")
 	defer span.End()
-	resp, err := c.client.GetDetectorNames(ctx, &pb.GetDetectorNamesRequest{Name: c.name})
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetDetectorNames(ctx, &pb.GetDetectorNamesRequest{Name: c.name, Extra: ext})
 	if err != nil {
 		return nil, err
 	}
 	return resp.DetectorNames, nil
 }
 
-func (c *client) AddDetector(ctx context.Context, cfg VisModelConfig) error {
+func (c *client) AddDetector(ctx context.Context, cfg VisModelConfig, extra map[string]interface{}) error {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::AddDetector")
 	defer span.End()
 	params, err := protoutils.StructToStructPb(cfg.Parameters)
+	if err != nil {
+		return err
+	}
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
@@ -80,6 +99,7 @@ func (c *client) AddDetector(ctx context.Context, cfg VisModelConfig) error {
 		DetectorName:       cfg.Name,
 		DetectorModelType:  cfg.Type,
 		DetectorParameters: params,
+		Extra:              ext,
 	})
 	if err != nil {
 		return err
@@ -87,12 +107,17 @@ func (c *client) AddDetector(ctx context.Context, cfg VisModelConfig) error {
 	return nil
 }
 
-func (c *client) RemoveDetector(ctx context.Context, detectorName string) error {
+func (c *client) RemoveDetector(ctx context.Context, detectorName string, extra map[string]interface{}) error {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::RemoveDetector")
 	defer span.End()
-	_, err := c.client.RemoveDetector(ctx, &pb.RemoveDetectorRequest{
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.RemoveDetector(ctx, &pb.RemoveDetectorRequest{
 		Name:         c.name,
 		DetectorName: detectorName,
+		Extra:        ext,
 	})
 	if err != nil {
 		return err
@@ -100,13 +125,22 @@ func (c *client) RemoveDetector(ctx context.Context, detectorName string) error 
 	return nil
 }
 
-func (c *client) DetectionsFromCamera(ctx context.Context, cameraName, detectorName string) ([]objdet.Detection, error) {
+func (c *client) DetectionsFromCamera(
+	ctx context.Context,
+	cameraName, detectorName string,
+	extra map[string]interface{},
+) ([]objdet.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::DetectionsFromCamera")
 	defer span.End()
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.client.GetDetectionsFromCamera(ctx, &pb.GetDetectionsFromCameraRequest{
 		Name:         c.name,
 		CameraName:   cameraName,
 		DetectorName: detectorName,
+		Extra:        ext,
 	})
 	if err != nil {
 		return nil, err
@@ -123,12 +157,16 @@ func (c *client) DetectionsFromCamera(ctx context.Context, cameraName, detectorN
 	return detections, nil
 }
 
-func (c *client) Detections(ctx context.Context, img image.Image, detectorName string,
+func (c *client) Detections(ctx context.Context, img image.Image, detectorName string, extra map[string]interface{},
 ) ([]objdet.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::Detections")
 	defer span.End()
 	mimeType := utils.MimeTypeRawRGBA
 	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+	if err != nil {
+		return nil, err
+	}
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}
@@ -139,6 +177,7 @@ func (c *client) Detections(ctx context.Context, img image.Image, detectorName s
 		Height:       int64(img.Bounds().Dy()),
 		MimeType:     mimeType,
 		DetectorName: detectorName,
+		Extra:        ext,
 	})
 	if err != nil {
 		return nil, err
@@ -155,20 +194,28 @@ func (c *client) Detections(ctx context.Context, img image.Image, detectorName s
 	return detections, nil
 }
 
-func (c *client) ClassifierNames(ctx context.Context) ([]string, error) {
+func (c *client) ClassifierNames(ctx context.Context, extra map[string]interface{}) ([]string, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::ClassifierNames")
 	defer span.End()
-	resp, err := c.client.GetClassifierNames(ctx, &pb.GetClassifierNamesRequest{Name: c.name})
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetClassifierNames(ctx, &pb.GetClassifierNamesRequest{Name: c.name, Extra: ext})
 	if err != nil {
 		return nil, err
 	}
 	return resp.ClassifierNames, nil
 }
 
-func (c *client) AddClassifier(ctx context.Context, cfg VisModelConfig) error {
+func (c *client) AddClassifier(ctx context.Context, cfg VisModelConfig, extra map[string]interface{}) error {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::AddClassifier")
 	defer span.End()
 	params, err := protoutils.StructToStructPb(cfg.Parameters)
+	if err != nil {
+		return err
+	}
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
@@ -177,6 +224,7 @@ func (c *client) AddClassifier(ctx context.Context, cfg VisModelConfig) error {
 		ClassifierName:       cfg.Name,
 		ClassifierModelType:  cfg.Type,
 		ClassifierParameters: params,
+		Extra:                ext,
 	})
 	if err != nil {
 		return err
@@ -184,12 +232,17 @@ func (c *client) AddClassifier(ctx context.Context, cfg VisModelConfig) error {
 	return nil
 }
 
-func (c *client) RemoveClassifier(ctx context.Context, classifierName string) error {
+func (c *client) RemoveClassifier(ctx context.Context, classifierName string, extra map[string]interface{}) error {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::RemoveClassifier")
 	defer span.End()
-	_, err := c.client.RemoveClassifier(ctx, &pb.RemoveClassifierRequest{
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.RemoveClassifier(ctx, &pb.RemoveClassifierRequest{
 		Name:           c.name,
 		ClassifierName: classifierName,
+		Extra:          ext,
 	})
 	if err != nil {
 		return err
@@ -198,15 +251,20 @@ func (c *client) RemoveClassifier(ctx context.Context, classifierName string) er
 }
 
 func (c *client) ClassificationsFromCamera(ctx context.Context, cameraName,
-	classifierName string, n int,
+	classifierName string, n int, extra map[string]interface{},
 ) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::ClassificationsFromCamera")
 	defer span.End()
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.client.GetClassificationsFromCamera(ctx, &pb.GetClassificationsFromCameraRequest{
 		Name:           c.name,
 		CameraName:     cameraName,
 		ClassifierName: classifierName,
 		N:              int32(n),
+		Extra:          ext,
 	})
 	if err != nil {
 		return nil, err
@@ -220,12 +278,16 @@ func (c *client) ClassificationsFromCamera(ctx context.Context, cameraName,
 }
 
 func (c *client) Classifications(ctx context.Context, img image.Image,
-	classifierName string, n int,
+	classifierName string, n int, extra map[string]interface{},
 ) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::Classifications")
 	defer span.End()
 	mimeType := utils.MimeTypeRawRGBA
 	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+	if err != nil {
+		return nil, err
+	}
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}
@@ -237,6 +299,7 @@ func (c *client) Classifications(ctx context.Context, img image.Image,
 		MimeType:       mimeType,
 		ClassifierName: classifierName,
 		N:              int32(n),
+		Extra:          ext,
 	})
 	if err != nil {
 		return nil, err
@@ -249,18 +312,26 @@ func (c *client) Classifications(ctx context.Context, img image.Image,
 	return classifications, nil
 }
 
-func (c *client) SegmenterNames(ctx context.Context) ([]string, error) {
-	resp, err := c.client.GetSegmenterNames(ctx, &pb.GetSegmenterNamesRequest{Name: c.name})
+func (c *client) SegmenterNames(ctx context.Context, extra map[string]interface{}) ([]string, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetSegmenterNames(ctx, &pb.GetSegmenterNamesRequest{Name: c.name, Extra: ext})
 	if err != nil {
 		return nil, err
 	}
 	return resp.SegmenterNames, nil
 }
 
-func (c *client) AddSegmenter(ctx context.Context, cfg VisModelConfig) error {
+func (c *client) AddSegmenter(ctx context.Context, cfg VisModelConfig, extra map[string]interface{}) error {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::AddSegmenter")
 	defer span.End()
 	params, err := protoutils.StructToStructPb(cfg.Parameters)
+	if err != nil {
+		return err
+	}
+	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
@@ -269,6 +340,7 @@ func (c *client) AddSegmenter(ctx context.Context, cfg VisModelConfig) error {
 		SegmenterName:       cfg.Name,
 		SegmenterModelType:  cfg.Type,
 		SegmenterParameters: params,
+		Extra:               ext,
 	})
 	if err != nil {
 		return err
@@ -276,12 +348,17 @@ func (c *client) AddSegmenter(ctx context.Context, cfg VisModelConfig) error {
 	return nil
 }
 
-func (c *client) RemoveSegmenter(ctx context.Context, segmenterName string) error {
+func (c *client) RemoveSegmenter(ctx context.Context, segmenterName string, extra map[string]interface{}) error {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::RemoveSegmenter")
 	defer span.End()
-	_, err := c.client.RemoveSegmenter(ctx, &pb.RemoveSegmenterRequest{
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.RemoveSegmenter(ctx, &pb.RemoveSegmenterRequest{
 		Name:          c.name,
 		SegmenterName: segmenterName,
+		Extra:         ext,
 	})
 	if err != nil {
 		return err
@@ -291,13 +368,18 @@ func (c *client) RemoveSegmenter(ctx context.Context, segmenterName string) erro
 
 func (c *client) GetObjectPointClouds(ctx context.Context,
 	cameraName string,
-	segmenterName string,
+	segmenterName string, extra map[string]interface{},
 ) ([]*vision.Object, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.client.GetObjectPointClouds(ctx, &pb.GetObjectPointCloudsRequest{
 		Name:          c.name,
 		CameraName:    cameraName,
 		SegmenterName: segmenterName,
 		MimeType:      utils.MimeTypePCD,
+		Extra:         ext,
 	})
 	if err != nil {
 		return nil, err

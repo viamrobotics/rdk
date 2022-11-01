@@ -56,15 +56,15 @@ func TestVisionServerFailures(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, vision.NewUnimplementedInterfaceError("string"))
 
 	// correct server
-	injectODS := &inject.VisionService{}
+	injectVS := &inject.VisionService{}
 	m = map[resource.Name]interface{}{
-		vision.Named(testVisionServiceName): injectODS,
+		vision.Named(testVisionServiceName): injectVS,
 	}
 	server, err = newServer(m)
 	test.That(t, err, test.ShouldBeNil)
 	// error
 	passedErr := errors.New("fake error")
-	injectODS.GetDetectorNamesFunc = func(ctx context.Context) ([]string, error) {
+	injectVS.GetDetectorNamesFunc = func(ctx context.Context, extra map[string]interface{}) ([]string, error) {
 		return nil, passedErr
 	}
 	_, err = server.GetDetectorNames(context.Background(), nameRequest)
@@ -93,22 +93,28 @@ func TestServerGetParameterSchema(t *testing.T) {
 }
 
 func TestServerGetDetectorNames(t *testing.T) {
-	injectODS := &inject.VisionService{}
+	injectVS := &inject.VisionService{}
 	m := map[resource.Name]interface{}{
-		vision.Named(testVisionServiceName): injectODS,
+		vision.Named(testVisionServiceName): injectVS,
 	}
 	server, err := newServer(m)
 	test.That(t, err, test.ShouldBeNil)
 
 	// returns response
 	expSlice := []string{"test name"}
-	injectODS.GetDetectorNamesFunc = func(ctx context.Context) ([]string, error) {
+	var extraOptions map[string]interface{}
+	injectVS.GetDetectorNamesFunc = func(ctx context.Context, extra map[string]interface{}) ([]string, error) {
+		extraOptions = extra
 		return expSlice, nil
 	}
-	nameRequest := &pb.GetDetectorNamesRequest{Name: testVisionServiceName}
+	extra := map[string]interface{}{"foo": "GetDetectorNames"}
+	ext, err := protoutils.StructToStructPb(extra)
+	test.That(t, err, test.ShouldBeNil)
+	nameRequest := &pb.GetDetectorNamesRequest{Name: testVisionServiceName, Extra: ext}
 	resp, err := server.GetDetectorNames(context.Background(), nameRequest)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetDetectorNames(), test.ShouldResemble, expSlice)
+	test.That(t, extraOptions, test.ShouldResemble, extra)
 }
 
 func TestServerAddDetector(t *testing.T) {
@@ -307,8 +313,10 @@ func TestServerSegmentationGetObjects(t *testing.T) {
 	cam, err := camera.NewFromReader(context.Background(), _cam, nil, camera.ColorStream)
 	test.That(t, err, test.ShouldBeNil)
 	injectVision := &inject.VisionService{}
-	injectVision.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName, segmenterName string,
+	var extraOptions map[string]interface{}
+	injectVision.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName, segmenterName string, extra map[string]interface{},
 	) ([]*viz.Object, error) {
+		extraOptions = extra
 		if segmenterName == RadiusClusteringSegmenter {
 			return segmenter(ctx, cam)
 		}
@@ -328,16 +336,22 @@ func TestServerSegmentationGetObjects(t *testing.T) {
 		MimeType:      utils.MimeTypePCD,
 	})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no segmenter with name")
+	test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
 
 	// successful request
+	extra := map[string]interface{}{"foo": "GetObjectPointClouds"}
+	ext, err := protoutils.StructToStructPb(extra)
+	test.That(t, err, test.ShouldBeNil)
 	segs, err := server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
 		Name:          testVisionServiceName,
 		CameraName:    "fakeCamera",
 		SegmenterName: RadiusClusteringSegmenter,
 		MimeType:      utils.MimeTypePCD,
+		Extra:         ext,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(segs.Objects), test.ShouldEqual, 2)
+	test.That(t, extraOptions, test.ShouldResemble, extra)
 
 	expectedBoxes := makeExpectedBoxes(t)
 	for _, object := range segs.Objects {
