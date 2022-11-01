@@ -390,7 +390,6 @@ func (m *EncodedMotor) computeRPM(pos, lastPos, now, lastTime int64) float64 {
 
 func (m *EncodedMotor) computeNewPowerPct(currentRPM, desiredRPM float64) float64 {
 	lastPowerPct := m.state.lastPowerPct
-	var newPowerPct float64
 	if math.Abs(currentRPM) <= 0.001 {
 		if math.Abs(lastPowerPct) < 0.01 {
 			// We began stopped. Set the power to a low setting so we can get started.
