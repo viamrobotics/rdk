@@ -4,6 +4,7 @@ package mysum
 import (
 	"context"
 	"errors"
+	"sync"
 
 	"go.uber.org/zap"
 
@@ -27,6 +28,7 @@ func init() {
 }
 
 type mySum struct {
+	mu sync.Mutex
 	subtract bool
 }
 
@@ -47,4 +49,11 @@ func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
 		}
 	}
 	return ret, nil
+}
+
+func (m *mySum)	Reconfigure(ctx context.Context, cfg config.Service) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.subtract = cfg.Attributes.Bool("subtract", false)
+	return nil
 }

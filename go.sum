@@ -123,8 +123,8 @@ github.com/OpenPeeDeeP/depguard v1.1.1 h1:TSUznLjvp/4IUP+OQ0t/4jF4QUyxIcVX8YnghZ
 github.com/OpenPeeDeeP/depguard v1.1.1/go.mod h1:JtAMzWkmFEzDPyAd+W0NHl1lvpQKTvT9jnRVsohBKpc=
 github.com/Otterverse/api v0.0.0-20221026011404-13cf96754de1 h1:hKFJ/XaUIwkg2VSU9YNhhCHOXn9rIwcxJy2L1gDyXY4=
 github.com/Otterverse/api v0.0.0-20221026011404-13cf96754de1/go.mod h1:GszZtg1xX/3/rrdjp8jvWAZIeFfCreXwN+LdpHNX+Ek=
-github.com/Otterverse/goutils v0.0.4-0.20221013165952-2b737320f2fc h1:YjZm2V+lK5wIUh3j32vLw5TsEsfDqMatyfkscir26Vk=
-github.com/Otterverse/goutils v0.0.4-0.20221013165952-2b737320f2fc/go.mod h1:j9R2UR+DC6ghHQ+I1V60KM0Es0eK4eANeigXHCpPMAg=
+github.com/Otterverse/goutils v0.0.4-0.20221026232417-d16b7e2ef21d h1:cIYdW6akImwBooTdtTbhOt0/WLH3qK6gB+sXqtHlNZ8=
+github.com/Otterverse/goutils v0.0.4-0.20221026232417-d16b7e2ef21d/go.mod h1:j9R2UR+DC6ghHQ+I1V60KM0Es0eK4eANeigXHCpPMAg=
 github.com/Shopify/sarama v1.19.0/go.mod h1:FVkBWblsNy7DGZRfXLU0O9RCGt5g3g3yEuWXgklEdEo=
 github.com/Shopify/toxiproxy v2.1.4+incompatible/go.mod h1:OXgGpZ6Cli1/URJOF1DMxUHB2q5Ap20/P/eIdh4G0pI=
 github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d/go.mod h1:3eOhrUMpNV+6aFIbp5/iudMxNCF27Vw2OZgy4xEx0Fg=

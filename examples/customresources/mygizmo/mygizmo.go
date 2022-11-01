@@ -4,6 +4,7 @@ package mygizmo
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/edaniels/golog"
 
@@ -33,9 +34,8 @@ func init() {
 }
 
 type myActualGizmo struct {
-	deps   registry.Dependencies
-	config config.Component
-	logger golog.Logger
+	mu sync.Mutex
+	myArg string
 }
 
 func NewMyGizmo(
@@ -43,7 +43,7 @@ func NewMyGizmo(
 	config config.Component,
 	logger golog.Logger,
 ) gizmoapi.Gizmo {
-	return &myActualGizmo{deps, config, logger}
+	return &myActualGizmo{myArg: config.Attributes.String("arg1")}
 }
 
 func (g *myActualGizmo) DoOne(ctx context.Context, arg1 string) (bool, error) {
@@ -75,4 +75,11 @@ func (g *myActualGizmo) DoOneBiDiStream(ctx context.Context, arg1 []string) ([]b
 
 func (g *myActualGizmo) DoTwo(ctx context.Context, arg1 bool) (string, error) {
 	return fmt.Sprintf("arg1=%t", arg1), nil
+}
+
+func (g *myActualGizmo)	Reconfigure(ctx context.Context, cfg config.Component, deps registry.Dependencies) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.myArg = cfg.Attributes.String("arg1")
+	return nil
 }

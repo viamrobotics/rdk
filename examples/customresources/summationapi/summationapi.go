@@ -92,12 +92,12 @@ func (g *reconfigurableSummation) ProxyFor() interface{} {
 	return g.actual
 }
 
-func (g *reconfigurableSummation) Reconfigure(ctx context.Context, newMyComponenet resource.Reconfigurable) error {
+func (g *reconfigurableSummation) Reconfigure(ctx context.Context, newMyComponent resource.Reconfigurable) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	actual, ok := newMyComponenet.(*reconfigurableSummation)
+	actual, ok := newMyComponent.(*reconfigurableSummation)
 	if !ok {
-		return utils.NewUnexpectedTypeError(g, newMyComponenet)
+		return utils.NewUnexpectedTypeError(g, newMyComponent)
 	}
 	if err := goutils.TryClose(ctx, g.actual); err != nil {
 		golog.Global().Errorw("error closing old", "error", err)

@@ -274,3 +274,15 @@ func FindValidServiceModels(rName resource.Name) []resource.Model {
 	}
 	return validModels
 }
+
+// ReconfigurableComponent is implemented when component/service of a robot is reconfigurable.
+type ReconfigurableComponent interface {
+	// Reconfigure reconfigures the resource
+	Reconfigure(ctx context.Context, cfg config.Component, deps Dependencies) error
+}
+
+// ReconfigurableService is implemented when component/service of a robot is reconfigurable.
+type ReconfigurableService interface {
+	// Reconfigure reconfigures the resource
+	Reconfigure(ctx context.Context, cfg config.Service) error
+}

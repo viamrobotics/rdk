@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
+	modif "go.viam.com/rdk/module/modmanager/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -107,9 +108,8 @@ type LocalRobot interface {
 	// WebAddress returns the address of the web service.
 	LiteAddress() (string, error)
 
-	// TODO (@Otterverse) Break the import loop to expose this.
 	// ModuleManager returns the module manager the robot is using.
-	// ModuleManager() *manager.Manager
+	ModuleManager() modif.ModuleManager
 }
 
 // A RemoteRobot is a Robot that was created through a connection.

@@ -11,10 +11,10 @@ run-remote:
 	go run server/server.go -config server/config.json
 
 run-parent:
-	cd ../../ && go run web/cmd/server/main.go -config examples/customcomponents/remote.json
+	cd ../../ && go run web/cmd/server/main.go -config examples/customresources/remote.json
 
 run-module: module
-	cd ../../ && go run web/cmd/server/main.go -config examples/customcomponents/module.json
+	cd ../../ && go run web/cmd/server/main.go -config examples/customresources/module.json
 
 run-client:
 	go run client/client.go

@@ -2,7 +2,7 @@
 	"modules": [
 		{
 			"name": "AcmeModule",
-			"path": "examples/customcomponents/module/module"
+			"path": "examples/customresources/module/module"
 		}
 	],
 	"services": [
@@ -59,7 +59,21 @@
 			"depends_on": ["motor1", "motor2"],
 			"attributes": {
 				"motorL": "motor1",
-				"motorR": "motor2"
+				"motorR": "motor2",
+				"Test": 3
+			}
+		},
+		{
+			"namespace": "rdk",
+			"type": "base",
+			"name": "normal",
+			"model": "wheeled",
+			"depends_on": ["motor1", "motor2"],
+			"attributes": {
+				"left": ["motor1"],
+				"right": ["motor2"],
+				"width_mm": 54,
+				"wheel_circumference_mm": 55
 			}
 		}
 	],

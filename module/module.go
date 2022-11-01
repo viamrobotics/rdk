@@ -18,7 +18,6 @@ import (
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
@@ -88,7 +87,7 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn *grpc
 			hMap[*subtype] = append(hMap[*subtype], model)
 		}
 	}
-	return hMap, nil
+	return hMap, errs
 }
 
 // Module represents an external resource module that services components/services.
@@ -169,10 +168,8 @@ func (m *Module) GRPCServer() *grpc.Server {
 func (m *Module) GetParentComponent(ctx context.Context, name resource.Name) (interface{}, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.logger.Infof("Address: %s", m.parentAddr)
 	if m.parent == nil {
-		rc, err := client.New(ctx, "unix://"+m.parentAddr, m.logger,
-			client.WithDialOptions(rpc.WithForceDirectGRPC(), rpc.WithInsecure()))
+		rc, err := client.New(ctx, "unix://"+m.parentAddr, m.logger)
 		if err != nil {
 			return nil, err
 		}
@@ -229,11 +226,16 @@ func (m *Module) AddComponent(ctx context.Context, req *pb.AddComponentRequest) 
 		}
 
 		wrapped := comp
-		c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
-		if c != nil && c.Reconfigurable != nil {
-			wrapped, err = c.Reconfigurable(comp)
-			if err != nil {
-				return nil, multierr.Combine(err, utils.TryClose(ctx, comp))
+		c, ok := comp.(registry.ReconfigurableComponent)
+		if ok {
+			wrapped = c
+		} else {
+			c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
+			if c != nil && c.Reconfigurable != nil {
+				wrapped, err = c.Reconfigurable(comp)
+				if err != nil {
+					return nil, multierr.Combine(err, utils.TryClose(ctx, comp))
+				}
 			}
 		}
 
@@ -251,6 +253,59 @@ func (m *Module) AddComponent(ctx context.Context, req *pb.AddComponentRequest) 
 	return &pb.AddComponentResponse{}, nil
 }
 
+// ReconfigureComponent receives the component configuration from the parent.
+func (m *Module) ReconfigureComponent(ctx context.Context, req *pb.ReconfigureComponentRequest) (*pb.ReconfigureComponentResponse, error) {
+	cfg, err := config.ComponentConfigFromProto(req.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	svc, ok := m.services[cfg.ResourceName().Subtype]
+	if !ok {
+		return &pb.ReconfigureComponentResponse{}, errors.Errorf("no component service for %+v", cfg.ResourceName())
+	}
+	comp := svc.Resource(cfg.ResourceName().Name)
+
+	deps := make(registry.Dependencies)
+	for _, c := range req.Dependencies {
+		name, err := resource.NewFromString(c)
+		if err != nil {
+			return nil, err
+		}
+		c, err := m.GetParentComponent(ctx, name)
+		if err != nil {
+			return nil, err
+		}
+		deps[name] = c
+	}
+
+	rc, ok := comp.(registry.ReconfigurableComponent)
+	if ok {
+		return &pb.ReconfigureComponentResponse{}, rc.Reconfigure(ctx, *cfg, deps)
+	}
+
+	wrappedOld, ok := comp.(resource.Reconfigurable)
+	if ok {
+		creator := registry.ComponentLookup(cfg.ResourceName().Subtype, cfg.Model)
+		if creator != nil && creator.Constructor != nil {
+			ns, err := creator.Constructor(ctx, deps, *cfg, m.logger)
+			if err != nil {
+				return &pb.ReconfigureComponentResponse{}, err
+			}
+
+			c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
+			if c != nil && c.Reconfigurable != nil {
+				wrappedNew, err := c.Reconfigurable(ns)
+				if err != nil {
+					return nil, multierr.Combine(err, utils.TryClose(ctx, ns))
+				}
+				return &pb.ReconfigureComponentResponse{}, wrappedOld.Reconfigure(ctx, wrappedNew)
+			}
+		}
+	}
+	return &pb.ReconfigureComponentResponse{}, errors.Errorf("resource is not reconfigurable %+v", cfg)
+}
+
 // AddService receives the service configuration from the parent.
 func (m *Module) AddService(ctx context.Context, req *pb.AddServiceRequest) (*pb.AddServiceResponse, error) {
 	cfg, err := config.ServiceConfigFromProto(req.Config)
@@ -266,11 +321,16 @@ func (m *Module) AddService(ctx context.Context, req *pb.AddServiceRequest) (*pb
 		}
 
 		wrapped := comp
-		c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
-		if c != nil && c.Reconfigurable != nil {
-			wrapped, err = c.Reconfigurable(comp)
-			if err != nil {
-				return nil, multierr.Combine(err, utils.TryClose(ctx, comp))
+		c, ok := comp.(registry.ReconfigurableService)
+		if ok {
+			wrapped = c
+		} else {
+			c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
+			if c != nil && c.Reconfigurable != nil {
+				wrapped, err = c.Reconfigurable(comp)
+				if err != nil {
+					return nil, multierr.Combine(err, utils.TryClose(ctx, comp))
+				}
 			}
 		}
 
@@ -286,6 +346,45 @@ func (m *Module) AddService(ctx context.Context, req *pb.AddServiceRequest) (*pb
 	}
 
 	return &pb.AddServiceResponse{}, nil
+}
+
+// ReconfigureService receives the service configuration from the parent.
+func (m *Module) ReconfigureService(ctx context.Context, req *pb.ReconfigureServiceRequest) (*pb.ReconfigureServiceResponse, error) {
+	cfg, err := config.ServiceConfigFromProto(req.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	svc, ok := m.services[cfg.ResourceName().Subtype]
+	if !ok {
+		return &pb.ReconfigureServiceResponse{}, errors.Errorf("no grpc service for %+v", cfg.ResourceName())
+	}
+	s := svc.Resource(cfg.ResourceName().Name)
+	rs, ok := s.(registry.ReconfigurableService)
+	if ok {
+		return &pb.ReconfigureServiceResponse{}, rs.Reconfigure(ctx, *cfg)
+	}
+
+	wrappedOld, ok := s.(resource.Reconfigurable)
+	if ok {
+		creator := registry.ServiceLookup(cfg.ResourceName().Subtype, cfg.Model)
+		if creator != nil && creator.Constructor != nil {
+			ns, err := creator.Constructor(ctx, m.parent, *cfg, m.logger)
+			if err != nil {
+				return &pb.ReconfigureServiceResponse{}, err
+			}
+
+			c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
+			if c != nil && c.Reconfigurable != nil {
+				wrappedNew, err := c.Reconfigurable(ns)
+				if err != nil {
+					return nil, multierr.Combine(err, utils.TryClose(ctx, ns))
+				}
+				return &pb.ReconfigureServiceResponse{}, wrappedOld.Reconfigure(ctx, wrappedNew)
+			}
+		}
+	}
+	return &pb.ReconfigureServiceResponse{}, errors.Errorf("resource is not reconfigurable %+v", cfg)
 }
 
 func (m *Module) initSubtypeServices(ctx context.Context) error {

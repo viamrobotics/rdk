@@ -20,7 +20,8 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/discovery"
-	"go.viam.com/rdk/module/manager"
+	"go.viam.com/rdk/module/modmanager"
+	modif "go.viam.com/rdk/module/modmanager/modmaninterface"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -50,7 +51,7 @@ type localRobot struct {
 	manager    *resourceManager
 	config     *config.Config
 	operations *operation.Manager
-	modules    *manager.Manager
+	modules    modif.ModuleManager
 	logger     golog.Logger
 
 	// services internal to a localRobot. Currently just web, more to come.
@@ -133,15 +134,13 @@ func (r *localRobot) OperationManager() *operation.Manager {
 }
 
 // ModuleManager returns the module manager for the robot.
-func (r *localRobot) ModuleManager() *manager.Manager {
+func (r *localRobot) ModuleManager() modif.ModuleManager {
 	return r.modules
 }
 
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
-	// Signal logic and service modules to stop before components are closed.
-	err := r.modules.Stop(ctx)
-
+	var err error
 	for _, svc := range r.internalServices {
 		err = multierr.Combine(err, goutils.TryClose(ctx, svc))
 	}
@@ -457,7 +456,7 @@ func newWithResources(
 		return nil, err
 	}
 
-	modMgr, err := manager.NewManager(r)
+	modMgr, err := modmanager.NewManager(r)
 	if err != nil {
 		return nil, err
 	}
