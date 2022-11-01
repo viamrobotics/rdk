@@ -80,8 +80,8 @@ var exemptFromConnectionCheck = map[string]bool{
 	"/proto.rpc.v1.AuthService/Authenticate":                     true,
 }
 
-func needsConnectionCheck(method string) bool {
-	return !exemptFromConnectionCheck[method]
+func skipConnectionCheck(method string) bool {
+	return exemptFromConnectionCheck[method]
 }
 
 func isClosedPipeError(err error) bool {
@@ -103,11 +103,13 @@ func (rc *RobotClient) handleUnaryDisconnect(
 	invoker googlegrpc.UnaryInvoker,
 	opts ...googlegrpc.CallOption,
 ) error {
-	if needsConnectionCheck(method) {
-		if err := rc.checkConnected(); err != nil {
-			rc.Logger().Debugw("connection is down, skipping method call", "method", method)
-			return status.Errorf(codes.Unavailable, err.Error())
-		}
+	if skipConnectionCheck(method) {
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
+
+	if err := rc.checkConnected(); err != nil {
+		rc.Logger().Debugw("connection is down, skipping method call", "method", method)
+		return status.Errorf(codes.Unavailable, err.Error())
 	}
 
 	err := invoker(ctx, method, req, reply, cc, opts...)
@@ -147,11 +149,13 @@ func (rc *RobotClient) handleStreamDisconnect(
 	streamer googlegrpc.Streamer,
 	opts ...googlegrpc.CallOption,
 ) (googlegrpc.ClientStream, error) {
-	if needsConnectionCheck(method) {
-		if err := rc.checkConnected(); err != nil {
-			rc.Logger().Debugw("connection is down, skipping method call", "method", method)
-			return nil, status.Errorf(codes.Unavailable, err.Error())
-		}
+	if skipConnectionCheck(method) {
+		return streamer(ctx, desc, cc, method, opts...)
+	}
+
+	if err := rc.checkConnected(); err != nil {
+		rc.Logger().Debugw("connection is down, skipping method call", "method", method)
+		return nil, status.Errorf(codes.Unavailable, err.Error())
 	}
 
 	cs, err := streamer(ctx, desc, cc, method, opts...)
@@ -160,7 +164,6 @@ func (rc *RobotClient) handleStreamDisconnect(
 	if isClosedPipeError(err) {
 		return nil, status.Errorf(codes.Unavailable, rc.notConnectedToRemoteError().Error())
 	}
-
 	return &handleDisconnectClientStream{cs, rc}, err
 }
 
