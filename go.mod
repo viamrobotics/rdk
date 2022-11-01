@@ -19,7 +19,7 @@ require (
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
 	github.com/edaniels/golinters v0.0.5-0.20220906153528-641155550742
 	github.com/edaniels/golog v0.0.0-20221004200432-5f6b7167aca8
-	github.com/edaniels/gostream v0.0.0-20221027194112-2e3e57f11045
+	github.com/edaniels/gostream v0.0.0-20221031223426-4a7101f5c8fd
 	github.com/edaniels/lidario v0.0.0-20220607182921-5879aa7b96dd
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
@@ -66,7 +66,7 @@ require (
 	github.com/xfmoulet/qoi v0.2.0
 	go-hep.org/x/hep v0.31.1
 	go.einride.tech/vlp16 v0.7.0
-	go.mongodb.org/mongo-driver v1.10.1
+	go.mongodb.org/mongo-driver v1.10.0-prerelease.0.20221031215941-4a22ce6d689a
 	go.opencensus.io v0.23.0
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.8.0
@@ -74,7 +74,7 @@ require (
 	go.viam.com/api v0.1.3-0.20221020191126-5944baa72eb4
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
-	go.viam.com/utils v0.1.1-0.20221018163750-1e19aa44e6b2
+	go.viam.com/utils v0.1.3-0.20221031222728-28b27f2ed84e
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
 	golang.org/x/tools v0.1.12

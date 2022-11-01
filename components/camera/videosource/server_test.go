@@ -24,9 +24,9 @@ import (
 func createTestRouter(t *testing.T) (*http.ServeMux, image.Image, []byte, image.Image) {
 	t.Helper()
 	// get color image
-	colorPath := artifact.MustPath("rimage/board1.png")
+	colorPath := artifact.MustPath("rimage/board1_small.png")
 	// get depth image
-	depthPath := artifact.MustPath("rimage/board1_gray.png")
+	depthPath := artifact.MustPath("rimage/board1_gray_small.png")
 	// get color bytes
 	colorBytes, err := os.ReadFile(colorPath) // get png bytes
 	test.That(t, err, test.ShouldBeNil)
@@ -44,7 +44,7 @@ func createTestRouter(t *testing.T) (*http.ServeMux, image.Image, []byte, image.
 	}
 	router := http.NewServeMux()
 	// expected depth image from raw data
-	depthDatPath := artifact.MustPath("rimage/board1.dat.gz")
+	depthDatPath := artifact.MustPath("rimage/board1_gray_small.png")
 	expectedDepth, err := rimage.NewDepthMapFromFile(depthDatPath)
 	test.That(t, err, test.ShouldBeNil)
 	router.HandleFunc("/color.png", handleColor)
@@ -60,12 +60,12 @@ func TestServerSource(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	// intrinsics for the image
 	intrinsics := &transform.PinholeCameraIntrinsics{
-		Width:  1024,
-		Height: 768,
+		Width:  128,
+		Height: 72,
 		Fx:     821.32642889,
 		Fy:     821.68607359,
-		Ppx:    494.95941428,
-		Ppy:    370.70529534,
+		Ppx:    49.495941428,
+		Ppy:    37.070529534,
 	}
 	// create mock server
 	router, expectedColor, expectedColorBytes, expectedDepth := createTestRouter(t)
@@ -149,7 +149,7 @@ func TestServerSource(t *testing.T) {
 	test.That(t, img2, test.ShouldResemble, expectedDepth)
 	pc, err := cam2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pc.Size(), test.ShouldEqual, 921600)
+	test.That(t, pc.Size(), test.ShouldEqual, 128*72)
 	test.That(t, cam2.Close(context.Background()), test.ShouldBeNil)
 }
 
@@ -159,12 +159,12 @@ func TestDualServerSource(t *testing.T) {
 	defer svr.Close()
 	// intrinsics for the image
 	intrinsics := &transform.PinholeCameraIntrinsics{
-		Width:  1024,
-		Height: 768,
+		Width:  128,
+		Height: 72,
 		Fx:     821.32642889,
 		Fy:     821.68607359,
-		Ppx:    494.95941428,
-		Ppy:    370.70529534,
+		Ppx:    49.495941428,
+		Ppy:    37.070529534,
 	}
 	// create camera with a color stream
 	attrs1 := dualServerAttrs{
