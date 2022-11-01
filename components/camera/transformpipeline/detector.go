@@ -66,7 +66,7 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get next source image: %w", err)
 	}
-	dets, err := srv.Detections(ctx, img, ds.detectorName)
+	dets, err := srv.Detections(ctx, img, ds.detectorName, map[string]interface{}{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get detections: %w", err)
 	}
