@@ -400,8 +400,6 @@ func (m *EncodedMotor) computeNewPowerPct(currentRPM, desiredRPM float64) float6
 		return m.computeRamp(lastPowerPct, lastPowerPct*2)
 	}
 
-	// TODO: if dOverC is negative, we want to travel in the opposite direction. Do we need to do
-	// something special for that?
 	dOverC := desiredRPM / currentRPM
 	dOverC = math.Min(dOverC, 2)
 	dOverC = math.Max(dOverC, -2)
