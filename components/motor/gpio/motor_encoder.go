@@ -428,16 +428,17 @@ func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(currentRPM, desiredRPM, rotati
 	m.state.currentRPM = currentRPM
 
 	newPowerPct := m.computeNewPowerPct(currentRPM, desiredRPM)
+	if newPowerPct == lastPowerPct {
+		return // No changes to power are needed right now
+	}
 
-	if newPowerPct != lastPowerPct {
-		if rpmDebug {
-			m.logger.Debugf("current rpm: %0.1f desiredRPM: %0.1f power: %0.1f -> %0.1f rot2go: %0.1f",
-				currentRPM, desiredRPM, lastPowerPct*100, newPowerPct*100, rotationsLeft)
-		}
-		err := m.setPower(m.cancelCtx, newPowerPct, true)
-		if err != nil {
-			m.logger.Warnf("rpm regulator cannot set power %s", err)
-		}
+	if rpmDebug {
+		m.logger.Debugf("current rpm: %0.1f desiredRPM: %0.1f power: %0.1f -> %0.1f rot2go: %0.1f",
+			currentRPM, desiredRPM, lastPowerPct*100, newPowerPct*100, rotationsLeft)
+	}
+	err := m.setPower(m.cancelCtx, newPowerPct, true)
+	if err != nil {
+		m.logger.Warnf("rpm regulator cannot set power %s", err)
 	}
 }
 
