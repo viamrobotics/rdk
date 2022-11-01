@@ -393,22 +393,29 @@ func (m *EncodedMotor) computeNewPowerPct(currentRPM, desiredRPM float64) float6
 	var newPowerPct float64
 	if math.Abs(currentRPM) <= 0.001 {
 		if math.Abs(lastPowerPct) < 0.01 {
+			// We began stopped. Set the power to a low setting so we can get started.
 			return .01 * float64(sign(desiredRPM))
 		} else {
+			// We've been putting power to the motor, but it's not moving yet. Try increasing the
+			// power to it, and we'll start moving soon.
 			return m.computeRamp(lastPowerPct, lastPowerPct*2)
 		}
 	}
 
+	// TODO: if dOverC is negative, we want to travel in the opposite direction. Do we need to do
+	// something special for that?
 	dOverC := desiredRPM / currentRPM
 	dOverC = math.Min(dOverC, 2)
 	dOverC = math.Max(dOverC, -2)
 
+	// The last power percent resulted in the last RPM measurement. To get to the desired RPM,
+	// multiply by their ratio.
 	neededPowerPct := lastPowerPct * dOverC
 
-	if !math.Signbit(neededPowerPct) {
+	if !math.Signbit(neededPowerPct) { // neededPowerPct is positive
 		neededPowerPct = math.Max(neededPowerPct, 0.01)
 		neededPowerPct = math.Min(neededPowerPct, 1)
-	} else {
+	} else { // neededPowerPct is negative
 		neededPowerPct = math.Min(neededPowerPct, -0.01)
 		neededPowerPct = math.Max(neededPowerPct, -1)
 	}
