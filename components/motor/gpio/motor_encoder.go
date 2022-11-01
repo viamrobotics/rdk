@@ -488,8 +488,10 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	defer m.stateMu.Unlock()
 
 	if revolutions == 0 {
+		// Moving 0 revolutions is a special value meaning "move forever."
 		oldRpm := m.state.desiredRPM
 		m.state.desiredRPM = rpm
+		m.state.regulated = true
 		if math.Abs(oldRpm) > 0.001 && d == m.directionMovingInLock() {
 			return nil
 		}
