@@ -393,28 +393,27 @@ func (m *EncodedMotor) computeNewPowerPct(currentRPM, desiredRPM float64) float6
 	var newPowerPct float64
 	if math.Abs(currentRPM) <= 0.001 {
 		if math.Abs(lastPowerPct) < 0.01 {
-			newPowerPct = .01 * float64(sign(desiredRPM))
+			return .01 * float64(sign(desiredRPM))
 		} else {
-			newPowerPct = m.computeRamp(lastPowerPct, lastPowerPct*2)
+			return m.computeRamp(lastPowerPct, lastPowerPct*2)
 		}
-	} else {
-		dOverC := desiredRPM / currentRPM
-		dOverC = math.Min(dOverC, 2)
-		dOverC = math.Max(dOverC, -2)
-
-		neededPowerPct := lastPowerPct * dOverC
-
-		if !math.Signbit(neededPowerPct) {
-			neededPowerPct = math.Max(neededPowerPct, 0.01)
-			neededPowerPct = math.Min(neededPowerPct, 1)
-		} else {
-			neededPowerPct = math.Min(neededPowerPct, -0.01)
-			neededPowerPct = math.Max(neededPowerPct, -1)
-		}
-
-		newPowerPct = m.computeRamp(lastPowerPct, neededPowerPct)
 	}
-	return newPowerPct
+
+	dOverC := desiredRPM / currentRPM
+	dOverC = math.Min(dOverC, 2)
+	dOverC = math.Max(dOverC, -2)
+
+	neededPowerPct := lastPowerPct * dOverC
+
+	if !math.Signbit(neededPowerPct) {
+		neededPowerPct = math.Max(neededPowerPct, 0.01)
+		neededPowerPct = math.Min(neededPowerPct, 1)
+	} else {
+		neededPowerPct = math.Min(neededPowerPct, -0.01)
+		neededPowerPct = math.Max(neededPowerPct, -1)
+	}
+
+	return m.computeRamp(lastPowerPct, neededPowerPct)
 }
 
 func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(currentRPM, desiredRPM, rotationsLeft float64, rpmDebug bool) {
