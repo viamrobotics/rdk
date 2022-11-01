@@ -388,12 +388,9 @@ func (m *EncodedMotor) computeRPM(pos, lastPos, now, lastTime int64) float64 {
 	return rotations / minutes
 }
 
-func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(currentRPM, desiredRPM, rotationsLeft float64, rpmDebug bool) {
+func (m *EncodedMotor) computeNewPowerPct(currentRPM, desiredRPM float64) float64 {
 	lastPowerPct := m.state.lastPowerPct
-	m.state.currentRPM = currentRPM
-
 	var newPowerPct float64
-
 	if math.Abs(currentRPM) <= 0.001 {
 		if math.Abs(lastPowerPct) < 0.01 {
 			newPowerPct = .01 * float64(sign(desiredRPM))
@@ -417,6 +414,14 @@ func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(currentRPM, desiredRPM, rotati
 
 		newPowerPct = m.computeRamp(lastPowerPct, neededPowerPct)
 	}
+	return newPowerPct
+}
+
+func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(currentRPM, desiredRPM, rotationsLeft float64, rpmDebug bool) {
+	lastPowerPct := m.state.lastPowerPct
+	m.state.currentRPM = currentRPM
+
+	newPowerPct := m.computeNewPowerPct(currentRPM, desiredRPM)
 
 	if newPowerPct != lastPowerPct {
 		if rpmDebug {
