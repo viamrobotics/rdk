@@ -764,7 +764,14 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 
 	go gServer.Serve(listener)
 
-	client, err := New(context.Background(), listener.Addr().String(), logger)
+	never := -1 * time.Second
+	client, err := New(
+		context.Background(),
+		listener.Addr().String(),
+		logger,
+		WithCheckConnectedEvery(never),
+		WithReconnectEvery(never),
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("unary call to connected remote", func(t *testing.T) {
@@ -831,7 +838,14 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 
 	go gServer.Serve(listener)
 
-	client, err := New(context.Background(), listener.Addr().String(), logger)
+	never := -1 * time.Second
+	client, err := New(
+		context.Background(),
+		listener.Addr().String(),
+		logger,
+		WithCheckConnectedEvery(never),
+		WithReconnectEvery(never),
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("stream call to disconnected remote", func(t *testing.T) {
