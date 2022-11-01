@@ -377,6 +377,15 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 	}
 }
 
+func (m *EncodedMotor) computeRPM(pos, lastPos, now, lastTime int64) float64 {
+	minutes := float64(now-lastTime) / (1e9 * 60)
+	if minutes == 0 {
+		return 0.0
+	}
+	rotations := float64(pos-lastPos) / float64(m.cfg.TicksPerRotation)
+	return rotations / minutes
+}
+
 func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime int64, desiredRPM, rotationsLeft float64, rpmDebug bool) {
 	lastPowerPct := m.state.lastPowerPct
 	rotations := float64(pos-lastPos) / float64(m.cfg.TicksPerRotation)
