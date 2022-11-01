@@ -85,7 +85,7 @@ func TestCartographerIntegration(t *testing.T) {
 
 	// Release point cloud, since cartographer looks for the second most recent point cloud
 	cartographerIntLidarReleasePointCloudChan <- 1
-	// Wait for cartographer to finish processing point clouds
+	// Wait for cartographer to finish processing data
 	logReader := svc.(internal.Service).GetSLAMProcessBufferedLogReader()
 	for i := 0; i < numCartographerPointClouds-2; i++ {
 		t.Logf("Find log line for point cloud %v", i)
@@ -93,7 +93,7 @@ func TestCartographerIntegration(t *testing.T) {
 		for {
 			line, err := logReader.ReadString('\n')
 			test.That(t, err, test.ShouldBeNil)
-			if strings.Contains(line, "Passed image to SLAM") {
+			if strings.Contains(line, "Passed sensor data to SLAM") {
 				break
 			}
 		}
@@ -106,7 +106,7 @@ func TestCartographerIntegration(t *testing.T) {
 	// Don't clear out the directory, since we will re-use the data for the next run
 	closeOutSLAMService(t, "")
 
-	// Delete the last point cloud, so that offline mode runs on the same set of images
+	// Delete the last point cloud, so that offline mode runs on the same data
 	files, err := ioutil.ReadDir(name + "/data/")
 	test.That(t, err, test.ShouldBeNil)
 	lastFileName := files[len(files)-1].Name()
@@ -129,12 +129,12 @@ func TestCartographerIntegration(t *testing.T) {
 	svc, err = createSLAMService(t, attrCfg, golog.NewTestLogger(t), true, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Wait for cartographer to finish processing images
+	// Wait for cartographer to finish processing data
 	logReader = svc.(internal.Service).GetSLAMProcessBufferedLogReader()
 	for {
 		line, err := logReader.ReadString('\n')
 		test.That(t, err, test.ShouldBeNil)
-		if strings.Contains(line, "Finished processing offline images") {
+		if strings.Contains(line, "Finished processing offline data") {
 			break
 		}
 	}

@@ -63,7 +63,7 @@ func releaseImages(t *testing.T, mode slam.Mode) {
 
 // Checks that we can get position and map, and that there are more than zero map points.
 // Doesn't check precise values due to variations in orbslam results.
-func testPositionAndMap(t *testing.T, svc slam.Service) {
+func testOrbslamPositionAndMap(t *testing.T, svc slam.Service) {
 	t.Helper()
 
 	position, err := svc.Position(context.Background(), "test")
@@ -154,7 +154,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testPositionAndMap(t, svc)
+	testOrbslamPositionAndMap(t, svc)
 
 	// Close out slam service
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
@@ -215,7 +215,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		test.That(t, strings.Contains(line, "Fail to track local map!"), test.ShouldBeFalse)
 	}
 
-	testPositionAndMap(t, svc)
+	testOrbslamPositionAndMap(t, svc)
 
 	// Wait for the final map to be saved
 	for {
@@ -287,7 +287,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		}
 	}
 
-	testPositionAndMap(t, svc)
+	testOrbslamPositionAndMap(t, svc)
 
 	// Close out slam service
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)

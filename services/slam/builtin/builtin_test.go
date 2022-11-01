@@ -42,14 +42,16 @@ import (
 )
 
 const (
-	validDataRateMS = 200
+	validDataRateMS            = 200
+	numCartographerPointClouds = 15
 )
 
 var (
-	orbslamIntCameraMutex             sync.Mutex
-	orbslamIntCameraReleaseImagesChan chan int = make(chan int, 2)
-	orbslamIntWebcamReleaseImageChan  chan int = make(chan int, 1)
-	orbslamIntSynchronizeCamerasChan  chan int = make(chan int)
+	orbslamIntCameraMutex                     sync.Mutex
+	orbslamIntCameraReleaseImagesChan         chan int = make(chan int, 2)
+	orbslamIntWebcamReleaseImageChan          chan int = make(chan int, 1)
+	orbslamIntSynchronizeCamerasChan          chan int = make(chan int)
+	cartographerIntLidarReleasePointCloudChan chan int = make(chan int, 1)
 )
 
 func getNumOrbslamImages(mode slam.Mode) int {
@@ -387,6 +389,38 @@ func setupInjectRobot() *inject.Robot {
 				default:
 					return nil, errors.Errorf("Webcam not ready to return image %v", index)
 				}
+			}
+			return cam, nil
+		case camera.Named("cartographer_int_lidar"):
+			var index uint64
+			cam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+				select {
+				case <-cartographerIntLidarReleasePointCloudChan:
+					i := atomic.AddUint64(&index, 1) - 1
+					if i >= numCartographerPointClouds {
+						return nil, errors.New("No more cartographer point clouds")
+					}
+					file, err := os.Open(artifact.MustPath("slam/mock_lidar/" + strconv.FormatUint(i, 10) + ".pcd"))
+					if err != nil {
+						return nil, err
+					}
+					pointCloud, err := pointcloud.ReadPCD(file)
+					if err != nil {
+						return nil, err
+					}
+					return pointCloud, nil
+				default:
+					return nil, errors.Errorf("Lidar not ready to return point cloud %v", index)
+				}
+			}
+			cam.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.VideoStream, error) {
+				return nil, errors.New("lidar not camera")
+			}
+			cam.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
+				return nil, transform.NewNoIntrinsicsError("")
+			}
+			cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+				return camera.Properties{}, nil
 			}
 			return cam, nil
 		default:
