@@ -1,3 +1,4 @@
+// Package types exists to facility a refactor - TODO remove
 package types
 
 // ExtraParams is a key-value map of unstructured additional arguments.
