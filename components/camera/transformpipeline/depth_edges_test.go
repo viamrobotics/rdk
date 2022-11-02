@@ -32,7 +32,7 @@ func debugVideoTransformOrSkip(t *testing.T) {
 }
 
 func TestDepthSource(t *testing.T) {
-	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray.png"))
+	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := &videosource.StaticSource{DepthImg: img}
 	am := config.AttributeMap{

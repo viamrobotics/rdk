@@ -3774,6 +3774,14 @@
       "hash": "25993f4c19eec20d5acb8b10b6d3ef66",
       "size": 96058
     },
+    "board1_gray_small.png": {
+      "hash": "6ff4c7ef1b9ed8e0f3e62ae1c9a31bae",
+      "size": 10062
+    },
+    "board1_small.png": {
+      "hash": "d7cdfc43775a95eb9a37f655fc9b2932",
+      "size": 31201
+    },
     "board2.dat.gz": {
       "hash": "e5ba35b11cc8bf0c25cd997751b00b51",
       "size": 151788
@@ -3785,6 +3793,14 @@
     "board2_gray.png": {
       "hash": "3e62dc2c62bbd4f5e198fb1c4e82f9a9",
       "size": 92327
+    },
+    "board2_gray_small.png": {
+      "hash": "362b8abe03fa4ad0a5d3cfc2e2deedfd",
+      "size": 10756
+    },
+    "board2_small.png": {
+      "hash": "234d75ca63901fc11677239760fb33e9",
+      "size": 31333
     },
     "canny1.png": {
       "hash": "2484495f4ffaec93f87c4bfb52a5613a",
