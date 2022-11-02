@@ -106,7 +106,10 @@ func TestCartographerIntegration(t *testing.T) {
 	// Don't clear out the directory, since we will re-use the data for the next run
 	closeOutSLAMService(t, "")
 
-	// Delete the last point cloud, so that offline mode runs on the same data
+	// Delete the last .pcd file in the data directory, so that offline mode runs on the
+	// same data as online mode. (Online mode will not read the last .pcd file, since it
+	// always processes the second-most-recent .pcd file, in case the most-recent .pcd
+	// file is currently being written.)
 	files, err := ioutil.ReadDir(name + "/data/")
 	test.That(t, err, test.ShouldBeNil)
 	lastFileName := files[len(files)-1].Name()
