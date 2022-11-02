@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/bep/debounce"
 	"github.com/edaniels/golog"
 	"github.com/fsnotify/fsnotify"
 	"go.viam.com/utils"
@@ -123,6 +124,7 @@ func newFSWatcher(ctx context.Context, configPath string, logger golog.Logger) (
 	cancelCtx, cancel := context.WithCancel(ctx)
 	var lastRd []byte
 	utils.ManagedGo(func() {
+		debounced := debounce.New(time.Millisecond * 500)
 		for {
 			if cancelCtx.Err() != nil {
 				return
@@ -132,26 +134,28 @@ func newFSWatcher(ctx context.Context, configPath string, logger golog.Logger) (
 				return
 			case event := <-fsWatcher.Events:
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					//nolint:gosec
-					rd, err := os.ReadFile(configPath)
-					if err != nil {
-						logger.Errorw("error reading config file after write", "error", err)
-						continue
-					}
-					if bytes.Equal(rd, lastRd) {
-						continue
-					}
-					lastRd = rd
-					newConfig, err := FromReader(cancelCtx, configPath, bytes.NewReader(rd), logger)
-					if err != nil {
-						logger.Errorw("error reading config after write", "error", err)
-						continue
-					}
-					select {
-					case <-cancelCtx.Done():
-						return
-					case configCh <- newConfig:
-					}
+					debounced(func() {
+						//nolint:gosec
+						rd, err := os.ReadFile(configPath)
+						if err != nil {
+							logger.Errorw("error reading config file after write", "error", err)
+							return
+						}
+						if bytes.Equal(rd, lastRd) {
+							return
+						}
+						lastRd = rd
+						newConfig, err := FromReader(cancelCtx, configPath, bytes.NewReader(rd), logger)
+						if err != nil {
+							logger.Errorw("error reading config after write", "error", err)
+							return
+						}
+						select {
+						case <-cancelCtx.Done():
+							return
+						case configCh <- newConfig:
+						}
+					})
 				}
 			}
 		}

@@ -33,30 +33,37 @@ func init() {
 
 func newBase(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
 	b := &MyBase{logger: logger}
+	err := b.Reconfigure(config, deps)
+	return b, err
+}
+
+func (base *MyBase) Reconfigure(cfg config.Component, deps registry.Dependencies) error {
+	base.left = nil
+	base.right = nil
 	for n, d := range deps {
 		switch n.Name {
-		case config.Attributes.String("motorL"):
+		case cfg.Attributes.String("motorL"):
 			m, ok := d.(motor.Motor)
 			if !ok {
-				return nil, errors.Errorf("resource %s is not a motor", n.Name)
+				return errors.Errorf("resource %s is not a motor", n.Name)
 			}
-			b.left = m
-		case config.Attributes.String("motorR"):
+			base.left = m
+		case cfg.Attributes.String("motorR"):
 			m, ok := d.(motor.Motor)
 			if !ok {
-				return nil, errors.Errorf("resource %s is not a motor", n.Name)
+				return errors.Errorf("resource %s is not a motor", n.Name)
 			}
-			b.right = m
+			base.right = m
 		default:
 			continue
 		}
 	}
 
-	if b.left == nil || b.right == nil {
-		return nil, errors.New("motorL and motorR must both be in depends_on")
+	if base.left == nil || base.right == nil {
+		return errors.New("motorL and motorR must both be in depends_on")
 	}
 
-	return b, nil
+	return nil
 }
 
 type MyBase struct {

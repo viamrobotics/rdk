@@ -5,6 +5,7 @@ This example demonstrates several ways viam-server can be extended with custom r
 
 ### gizmoapi
 Custom (component) api/protocol called "Gizmo" (acme:component:gizmo).
+Note that this is split into two files. The content of wrapper.go is only needed to support reconfiguration during standalone (non-modular) use.
 
 ### mygizmo
 A specific model (acme:demo:mygizmo) that implements the Gizmo API.
@@ -43,3 +44,8 @@ This contains the protobuf files for the custom APIs. Only the .proto files are 
 ### Modular Resource
 * Start the server with `make run-module` Note: this automatically compiles the module itself first, which can be done manually with `make module`.
 * Run the client `make run-client`.
+
+## Reconfiguration
+Reconfiguration should work live, especially for the modular method. Simply edit the module.json file while the server is running and save. The server should detect the changes and update accordingly. You can try adjusting the coordinates for the mynavigation service, flip the "subtract" value of the mysum service, or change the name of "arg1" in mygizmo, then reun the client to see that it's changed things.
+
+Additionally, you can comment out the "Reconfigure()" method in either mygizmo, mynavigation, or mysum to see how reconfiguration becomes replacement. If a resource doesn't support direct reconfiguration, it will automatically be recreated with the new config and replaced instead. (The mybase component works like this by default.)

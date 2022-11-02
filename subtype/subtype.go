@@ -16,6 +16,7 @@ type Service interface {
 	Replace(resources map[resource.Name]interface{}) error
 	Add(name resource.Name, iface interface{}) error
 	Remove(name resource.Name) error
+	ReplaceOne(n resource.Name, iface interface{}) error
 }
 
 type subtypeSvc struct {
@@ -73,7 +74,30 @@ func (s *subtypeSvc) Replace(r map[resource.Name]interface{}) error {
 }
 
 func (s *subtypeSvc) Add(n resource.Name, iface interface{}) error {
-	if s.Resource(n.ShortName()) != nil {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.doAdd(n, iface)
+}
+
+func (s *subtypeSvc) Remove(n resource.Name) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.doRemove(n)
+}
+
+func (s *subtypeSvc) ReplaceOne(n resource.Name, iface interface{}) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	err := s.doRemove(n)
+	if err != nil {
+		return err
+	}
+	return s.doAdd(n, iface)
+}
+
+func (s *subtypeSvc) doAdd(n resource.Name, iface interface{}) error {
+	_, exists := s.resources[n.ShortName()]
+	if exists {
 		return errors.Errorf("resource %s already exists", n)
 	}
 
@@ -81,8 +105,6 @@ func (s *subtypeSvc) Add(n resource.Name, iface interface{}) error {
 		return errors.Errorf("empty name used for resource: %s", n)
 	}
 	name := n.ShortName()
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	s.resources[name] = iface
 	shortcut := name[strings.LastIndexAny(name, ":")+1:]
@@ -94,10 +116,7 @@ func (s *subtypeSvc) Add(n resource.Name, iface interface{}) error {
 	return nil
 }
 
-func (s *subtypeSvc) Remove(n resource.Name) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+func (s *subtypeSvc) doRemove(n resource.Name) error {
 	name := n.ShortName()
 	_, ok := s.resources[name]
 	if ok {

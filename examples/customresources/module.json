@@ -45,12 +45,15 @@
 			"name": "motor2",
 			"model": "rdk:builtin:fake"
 		},
-    {
-        "model": "acme:demo:mygizmo",
-        "name": "gizmo1",
-        "namespace": "acme",
-        "type": "gizmo"
-    },
+		{
+			"model": "acme:demo:mygizmo",
+			"name": "gizmo1",
+			"namespace": "acme",
+			"type": "gizmo",
+			"attributes": {
+				"arg1": "arg1"
+			}
+		},
 		{
 			"namespace": "rdk",
 			"type": "base",
@@ -59,25 +62,11 @@
 			"depends_on": ["motor1", "motor2"],
 			"attributes": {
 				"motorL": "motor1",
-				"motorR": "motor2",
-				"Test": 3
-			}
-		},
-		{
-			"namespace": "rdk",
-			"type": "base",
-			"name": "normal",
-			"model": "wheeled",
-			"depends_on": ["motor1", "motor2"],
-			"attributes": {
-				"left": ["motor1"],
-				"right": ["motor2"],
-				"width_mm": 54,
-				"wheel_circumference_mm": 55
+				"motorR": "motor2"
 			}
 		}
 	],
-  "network": {
-    "bind_address": ":8080"
-  }
+	"network": {
+		"bind_address": ":8080"
+	}
 }

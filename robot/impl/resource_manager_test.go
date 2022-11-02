@@ -872,7 +872,7 @@ func TestManagerFilterFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	checkEmpty(filtered)
 
-	test.That(t, manager.Close(ctx), test.ShouldBeNil)
+	test.That(t, manager.Close(ctx, &localRobot{}), test.ShouldBeNil)
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
@@ -969,7 +969,7 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		utils.NewStringSet("2"),
 	)
 
-	test.That(t, manager.Close(ctx), test.ShouldBeNil)
+	test.That(t, manager.Close(ctx, &localRobot{}), test.ShouldBeNil)
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
@@ -1103,7 +1103,7 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		utils.NewStringSet("2"),
 	)
 
-	test.That(t, manager.Close(ctx), test.ShouldBeNil)
+	test.That(t, manager.Close(ctx, &localRobot{}), test.ShouldBeNil)
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
@@ -1320,7 +1320,7 @@ func TestManagerFilterFromConfig(t *testing.T) {
 		test.ShouldResemble,
 		utils.NewStringSet("1", "2"),
 	)
-	test.That(t, manager.Close(ctx), test.ShouldBeNil)
+	test.That(t, manager.Close(ctx, &localRobot{}), test.ShouldBeNil)
 	cancel()
 }
 

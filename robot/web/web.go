@@ -190,6 +190,9 @@ type Service interface {
 	// Start starts the web server
 	Start(context.Context, weboptions.Options) error
 
+	// Stop stops the main web service (but leaves lite running.)
+	Stop()
+
 	// Start starts the web server
 	StartLite(context.Context) error
 
@@ -392,6 +395,16 @@ func (svc *webService) updateResources(resources map[resource.Name]interface{}) 
 	}
 
 	return nil
+}
+
+// Stop stops the main web service prior to actually closing (it leaves the lite service running.)
+func (svc *webService) Stop() {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	if svc.cancelFunc != nil {
+		svc.cancelFunc()
+		svc.cancelFunc = nil
+	}
 }
 
 // Close closes a webService via calls to its Cancel func.

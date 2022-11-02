@@ -38,7 +38,7 @@ func newNav(ctx context.Context, r robot.Robot, cfg config.Service, logger golog
 }
 
 type navSvc struct {
-	mu sync.Mutex
+	mu sync.RWMutex
 	loc *geo.Point
 	logger golog.Logger
 	waypoints []navigation.Waypoint
@@ -53,12 +53,14 @@ func (svc *navSvc) SetMode(ctx context.Context, mode navigation.Mode) error {
 }
 
 func (svc *navSvc) Location(ctx context.Context) (*geo.Point, error) {
+	svc.mu.RLock()
+	svc.mu.RUnlock()
 	return svc.loc, nil
 }
 
 func (svc *navSvc) Waypoints(ctx context.Context) ([]navigation.Waypoint, error) {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
 	wpsCopy := make([]navigation.Waypoint, len(svc.waypoints))
 	copy(wpsCopy, svc.waypoints)
 	return wpsCopy, nil
@@ -82,5 +84,15 @@ func (svc *navSvc) RemoveWaypoint(ctx context.Context, id primitive.ObjectID) er
 		newWps = append(newWps, wp)
 	}
 	svc.waypoints = newWps
+	return nil
+}
+
+func (svc *navSvc) Reconfigure(ctx context.Context, cfg config.Service) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	svc.loc = geo.NewPoint(
+			cfg.Attributes.Float64("lat", -48.876667),
+			cfg.Attributes.Float64("long", -123.393333),
+	)
 	return nil
 }

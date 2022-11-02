@@ -140,11 +140,16 @@ func (r *localRobot) ModuleManager() modif.ModuleManager {
 
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
-	var err error
-	for _, svc := range r.internalServices {
+	web, err := r.webService()
+	if err == nil {
+		web.Stop()
+	}
+	for s, svc := range r.internalServices {
+		if s == "web" {
+			continue
+		}
 		err = multierr.Combine(err, goutils.TryClose(ctx, svc))
 	}
-
 	if r.cancelBackgroundWorkers != nil {
 		close(r.remotesChanged)
 		r.cancelBackgroundWorkers()
@@ -155,11 +160,13 @@ func (r *localRobot) Close(ctx context.Context) error {
 		close(r.triggerConfig)
 	}
 	r.activeBackgroundWorkers.Wait()
-	return multierr.Combine(
+	err = multierr.Combine(
 		err,
-		r.manager.Close(ctx),
+		r.manager.Close(ctx, r),
 		r.modules.Close(ctx),
 	)
+
+	return multierr.Combine(err, goutils.TryClose(ctx, web))
 }
 
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
@@ -859,7 +866,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		allErrs = multierr.Combine(allErrs, err)
 	}
 	r.config = newConfig
-	allErrs = multierr.Combine(allErrs, filtered.Close(ctx))
+	allErrs = multierr.Combine(allErrs, filtered.Close(ctx, r))
 	// Third we attempt to complete the config (see function for details)
 	r.manager.completeConfig(ctx, r)
 	r.updateDefaultServices(ctx)

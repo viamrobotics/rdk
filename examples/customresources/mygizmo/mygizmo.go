@@ -47,7 +47,7 @@ func NewMyGizmo(
 }
 
 func (g *myActualGizmo) DoOne(ctx context.Context, arg1 string) (bool, error) {
-	return arg1 == "arg1", nil
+	return arg1 == g.myArg, nil
 }
 
 func (g *myActualGizmo) DoOneClientStream(ctx context.Context, arg1 []string) (bool, error) {
@@ -56,19 +56,19 @@ func (g *myActualGizmo) DoOneClientStream(ctx context.Context, arg1 []string) (b
 	}
 	ret := true
 	for _, arg := range arg1 {
-		ret = ret && arg == "arg1"
+		ret = ret && arg == g.myArg
 	}
 	return ret, nil
 }
 
 func (g *myActualGizmo) DoOneServerStream(ctx context.Context, arg1 string) ([]bool, error) {
-	return []bool{arg1 == "arg1", false, true, false}, nil
+	return []bool{arg1 == g.myArg, false, true, false}, nil
 }
 
 func (g *myActualGizmo) DoOneBiDiStream(ctx context.Context, arg1 []string) ([]bool, error) {
 	var rets []bool
 	for _, arg := range arg1 {
-		rets = append(rets, arg == "arg1")
+		rets = append(rets, arg == g.myArg)
 	}
 	return rets, nil
 }

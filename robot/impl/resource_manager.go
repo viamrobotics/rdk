@@ -322,7 +322,7 @@ func (manager *resourceManager) mergeResourceRPCSubtypesWithRemote(r robot.Robot
 }
 
 // Close attempts to close/stop all parts.
-func (manager *resourceManager) Close(ctx context.Context) error {
+func (manager *resourceManager) Close(ctx context.Context, r *localRobot) error {
 	var allErrs error
 	if err := manager.processManager.Stop(); err != nil {
 		allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error stopping process manager"))
@@ -335,10 +335,14 @@ func (manager *resourceManager) Close(ctx context.Context) error {
 			continue
 		}
 
-		// SMURF TODO close modular resources properly.
-
 		if err := utils.TryClose(ctx, iface); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing resource"))
+		}
+
+		if r.modules != nil && r.modules.IsModularResource(x) {
+			if err := r.modules.RemoveResource(ctx, x); err != nil {
+				allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error removing modular resource"))
+			}
 		}
 	}
 	return allErrs

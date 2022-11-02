@@ -30,8 +30,9 @@ func NewManager(r robot.LocalRobot) (modif.ModuleManager, error) {
 	mgr := &Manager{
 		mu:      sync.RWMutex{},
 		logger:  r.Logger(),
-		modules: map[string]*module{},
+		modules: make(map[string]*module),
 		r:       r,
+		rMap:    make(map[resource.Name]*module),
 	}
 	return mgr, nil
 }
@@ -51,10 +52,13 @@ type Manager struct {
 	logger  golog.Logger
 	modules map[string]*module
 	r       robot.LocalRobot
+	rMap    map[resource.Name]*module
 }
 
 // Close terminates module connections and processes.
 func (mgr *Manager) Close(ctx context.Context) error {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
 	var err error
 	for _, mod := range mgr.modules {
 		err = multierr.Combine(
@@ -148,6 +152,8 @@ func (mgr *Manager) AddModule(ctx context.Context, cfg config.Module) error {
 
 // AddComponent tells a component module to configure a new component.
 func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component, deps []string) (interface{}, error) {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
 	module := mgr.getComponentModule(cfg)
 	if module == nil {
 		return nil, errors.Errorf("no module registered to serve resource api %s and model %s", cfg.ResourceName().Subtype, cfg.Model)
@@ -161,6 +167,7 @@ func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component, deps
 	if err != nil {
 		return nil, err
 	}
+	mgr.rMap[cfg.ResourceName()] = module
 
 	c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
 	if c == nil || c.RPCClient == nil {
@@ -168,15 +175,13 @@ func (mgr *Manager) AddComponent(ctx context.Context, cfg config.Component, deps
 		return rdkgrpc.NewForeignResource(cfg.ResourceName(), module.conn), nil
 	}
 	nameR := cfg.ResourceName().ShortName()
-	resourceClient := c.RPCClient(ctx, module.conn, nameR, mgr.logger)
-	if c.Reconfigurable == nil {
-		return resourceClient, nil
-	}
-	return c.Reconfigurable(resourceClient)
+	return c.RPCClient(ctx, module.conn, nameR, mgr.logger), nil
 }
 
 // AddService tells a service module to configure a new service.
 func (mgr *Manager) AddService(ctx context.Context, cfg config.Service) (interface{}, error) {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
 	for _, module := range mgr.modules {
 		var api resource.RPCSubtype
 		var ok bool
@@ -200,6 +205,7 @@ func (mgr *Manager) AddService(ctx context.Context, cfg config.Service) (interfa
 				if err != nil {
 					return nil, err
 				}
+				mgr.rMap[cfg.ResourceName()] = module
 
 				c := registry.ResourceSubtypeLookup(cfg.ResourceName().Subtype)
 				if c == nil || c.RPCClient == nil {
@@ -207,11 +213,7 @@ func (mgr *Manager) AddService(ctx context.Context, cfg config.Service) (interfa
 					return rdkgrpc.NewForeignResource(cfg.ResourceName(), module.conn), nil
 				}
 				nameR := cfg.ResourceName().ShortName()
-				resourceClient := c.RPCClient(ctx, module.conn, nameR, mgr.logger)
-				if c.Reconfigurable == nil {
-					return resourceClient, nil
-				}
-				return c.Reconfigurable(resourceClient)
+				return c.RPCClient(ctx, module.conn, nameR, mgr.logger), nil
 			}
 		}
 	}
@@ -220,11 +222,15 @@ func (mgr *Manager) AddService(ctx context.Context, cfg config.Service) (interfa
 
 // IsModularComponent returns true if a component would be handled by a module.
 func (mgr *Manager) IsModularComponent(cfg config.Component) bool {
+	mgr.mu.RLock()
+	defer mgr.mu.RUnlock()
 	return mgr.getComponentModule(cfg) != nil
 }
 
 // ReconfigureComponent updates/reconfigures a modular component with a new configuration.
 func (mgr *Manager) ReconfigureComponent(ctx context.Context, cfg config.Component, deps []string) error {
+	mgr.mu.RLock()
+	defer mgr.mu.RUnlock()
 	module := mgr.getComponentModule(cfg)
 	if module == nil {
 		return errors.Errorf("no module registered to serve resource api %s and model %s", cfg.ResourceName().Subtype, cfg.Model)
@@ -244,11 +250,15 @@ func (mgr *Manager) ReconfigureComponent(ctx context.Context, cfg config.Compone
 
 // IsModularService returns true if a service would be handled by a module.
 func (mgr *Manager) IsModularService(cfg config.Service) bool {
+	mgr.mu.RLock()
+	defer mgr.mu.RUnlock()
 	return mgr.getServiceModule(cfg) != nil
 }
 
 // ReconfigureService updates/reconfigures a modular service with a new configuration.
 func (mgr *Manager) ReconfigureService(ctx context.Context, cfg config.Service) error {
+	mgr.mu.RLock()
+	defer mgr.mu.RUnlock()
 	module := mgr.getServiceModule(cfg)
 	if module == nil {
 		return errors.Errorf("no module registered to serve resource api %s and model %s", cfg.ResourceName().Subtype, cfg.Model)
@@ -264,6 +274,27 @@ func (mgr *Manager) ReconfigureService(ctx context.Context, cfg config.Service) 
 	}
 
 	return nil
+}
+
+// IsModularResource returns true if a component is handled by a module.
+func (mgr *Manager) IsModularResource(name resource.Name) bool {
+	mgr.mu.RLock()
+	defer mgr.mu.RUnlock()
+	_, ok := mgr.rMap[name]
+	return ok
+}
+
+// RemoveResource requests the removal of a resource from a module.
+func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) error {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
+	module, ok := mgr.rMap[name]
+	if !ok {
+		return errors.Errorf("resource %+v not found in module", name)
+	}
+
+	_, err := module.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
+	return err
 }
 
 func (mgr *Manager) getComponentModule(cfg config.Component) *module {
