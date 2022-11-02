@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/types"
 )
 
 func init() {
@@ -152,7 +153,7 @@ func (b *boat) startVelocityThread() error {
 }
 
 func (b *boat) velocityThreadLoop(ctx context.Context) error {
-	av, err := b.imu.AngularVelocity(ctx)
+	av, err := b.imu.AngularVelocity(ctx, types.ZeroExtraParams())
 	if err != nil {
 		return err
 	}
