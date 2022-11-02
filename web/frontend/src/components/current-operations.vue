@@ -26,7 +26,7 @@ const killOperation = (id: string) => {
     title="Current Operations"
     class="operations"
   >
-    <div class="border border-t-0 border-black p-4">
+    <div class="overflow-auto border border-t-0 border-black p-4">
       <table class="w-full table-auto border border-black">
         <tr>
           <th class="border border-black p-2">
