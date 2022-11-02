@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/types"
 	"go.viam.com/rdk/utils"
 )
 
@@ -248,10 +249,10 @@ func (r *reconfigurableMovementSensor) Accuracy(ctx context.Context) (map[string
 	return r.actual.Accuracy(ctx)
 }
 
-func (r *reconfigurableMovementSensor) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (r *reconfigurableMovementSensor) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Readings(ctx)
+	return r.actual.Readings(ctx, extra)
 }
 
 func (r *reconfigurableMovementSensor) Reconfigure(ctx context.Context, newMovementSensor resource.Reconfigurable) error {

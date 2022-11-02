@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/types"
 )
 
 const (
@@ -105,7 +106,7 @@ type Sensor struct {
 }
 
 // Readings returns the calculated distance.
-func (s *Sensor) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (s *Sensor) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
 	if err := s.triggerPin.Set(ctx, true, nil); err != nil {
 		return nil, errors.Wrap(err, "ultrasonic cannot set trigger pin to high")
 	}

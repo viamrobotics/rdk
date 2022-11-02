@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/types"
 )
 
 // Sensor is an injected sensor.
@@ -14,9 +15,9 @@ type Sensor struct {
 }
 
 // Readings calls the injected Readings or the real version.
-func (s *Sensor) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (s *Sensor) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
 	if s.ReadingsFunc == nil {
-		return s.Sensor.Readings(ctx)
+		return s.Sensor.Readings(ctx, extra)
 	}
 	return s.ReadingsFunc(ctx)
 }

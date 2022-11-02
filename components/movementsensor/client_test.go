@@ -25,6 +25,7 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/types"
 )
 
 func TestClient(t *testing.T) {
@@ -115,7 +116,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, vel1.Y, test.ShouldAlmostEqual, speed)
 
-		rs1, err := gps1Client.Readings(context.Background())
+		rs1, err := gps1Client.Readings(context.Background(), types.ZeroExtraParams())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(rs1), test.ShouldEqual, len(rs))
 
@@ -143,7 +144,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get angular velocity")
 
-		_, err = gps2Client.(sensor.Sensor).Readings(context.Background())
+		_, err = gps2Client.(sensor.Sensor).Readings(context.Background(), types.ZeroExtraParams())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get location")
 

@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/types"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -236,7 +237,7 @@ func TestReadings(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings1, test.ShouldResemble, allReadings)
 
-	result, err := reconfMovementSensor1.(sensor.Sensor).Readings(context.Background())
+	result, err := reconfMovementSensor1.(sensor.Sensor).Readings(context.Background(), types.ZeroExtraParams())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, readings1)
 
@@ -299,7 +300,7 @@ func (m *mock) CompassHeading(ctx context.Context) (float64, error) {
 	return compass, nil
 }
 
-func (m *mock) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (m *mock) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
 	return movementsensor.Readings(ctx, m)
 }
 

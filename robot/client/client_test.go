@@ -69,6 +69,7 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/types"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -343,7 +344,7 @@ func TestStatusClient(t *testing.T) {
 
 	sensorDevice, err := sensor.FromRobot(client, "sensor1")
 	test.That(t, err, test.ShouldBeNil)
-	_, err = sensorDevice.Readings(context.Background())
+	_, err = sensorDevice.Readings(context.Background(), types.ZeroExtraParams())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
 

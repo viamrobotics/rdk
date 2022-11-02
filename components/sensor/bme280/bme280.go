@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/types"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -216,7 +217,7 @@ type bme280 struct {
 }
 
 // Readings returns a list containing single item (current temperature).
-func (s *bme280) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (s *bme280) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
 	handle, err := s.bus.OpenHandle(s.addr)
 	if err != nil {
 		s.logger.Errorf("can't open bme280 i2c %s", err)
