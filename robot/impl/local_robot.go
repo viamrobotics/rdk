@@ -502,7 +502,6 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 	if err != nil {
 		return nil, err
 	}
-
 	c := registry.ResourceSubtypeLookup(rName.Subtype)
 
 	// If MaxInstance equals zero then there is not limit on the number of services
@@ -775,6 +774,18 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 				return c.ResourceName(), true
 			}
 		}
+		for _, s := range r.config.Services {
+			if s.Name == name {
+				return s.ResourceName(), true
+			}
+		}
+		// then look into what was added
+		for _, s := range diff.Added.Services {
+			if s.Name == name {
+				return s.ResourceName(), true
+			}
+		}
+
 		// we are trying to locate a resource that is set as a dependency but do not exist yet
 		r.logger.Debugw("processing unknown  resource", "name", name)
 		return resource.NameFromSubtype(unknownSubtype, name), true
