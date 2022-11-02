@@ -161,7 +161,10 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	// Don't clear out the directory, since we will re-use the config and data for the next run
 	closeOutSLAMService(t, "")
 
-	// Delete the last image or image pair, so that offline mode runs on the same set of images
+	// Delete the last image (or image pair) in the data directory, so that offline mode runs on
+	// the same data as online mode. (Online mode will not read the last image (or image pair),
+	// since it always processes the second-most-recent image (or image pair), in case the
+	// most-recent image (or image pair) is currently being written.)
 	var directories []string
 	switch mode {
 	case slam.Mono:
