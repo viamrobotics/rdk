@@ -68,7 +68,7 @@ type BodyToPoseInFrame map[string]*referenceframe.PoseInFrame
 // environment and provide their respective poses in space. These poses are
 // given in the context of the PoseTracker's frame of reference.
 type PoseTracker interface {
-	Poses(ctx context.Context, bodyNames []string) (BodyToPoseInFrame, error)
+	Poses(ctx context.Context, bodyNames []string, extra map[string]interface{}) (BodyToPoseInFrame, error)
 
 	sensor.Sensor
 	generic.Generic
@@ -94,7 +94,7 @@ func FromRobot(r robot.Robot, name string) (PoseTracker, error) {
 
 // Readings is a helper for getting all readings from a PoseTracker.
 func Readings(ctx context.Context, poseTracker PoseTracker) (map[string]interface{}, error) {
-	poseLookup, err := poseTracker.Poses(ctx, []string{})
+	poseLookup, err := poseTracker.Poses(ctx, []string{}, map[string]interface{}{})
 	if err != nil {
 		return nil, err
 	}
@@ -124,11 +124,11 @@ func (r *reconfigurablePoseTracker) DoCommand(ctx context.Context, cmd map[strin
 }
 
 func (r *reconfigurablePoseTracker) Poses(
-	ctx context.Context, bodyNames []string,
+	ctx context.Context, bodyNames []string, extra map[string]interface{},
 ) (BodyToPoseInFrame, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Poses(ctx, bodyNames)
+	return r.actual.Poses(ctx, bodyNames, extra)
 }
 
 // Readings returns the PoseTrack readings.

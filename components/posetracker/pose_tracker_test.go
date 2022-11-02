@@ -137,9 +137,11 @@ type mock struct {
 	posetracker.PoseTracker
 	Name        string
 	reconfCount int
+	extra       map[string]interface{}
 }
 
-func (m *mock) Poses(ctx context.Context, bodyNames []string) (posetracker.BodyToPoseInFrame, error) {
+func (m *mock) Poses(ctx context.Context, bodyNames []string, extra map[string]interface{}) (posetracker.BodyToPoseInFrame, error) {
+	m.extra = extra
 	return posetracker.BodyToPoseInFrame{
 		"body1": referenceframe.NewPoseInFrame("world", spatialmath.NewZeroPose()),
 		"body2": referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromOrientation(
@@ -181,7 +183,7 @@ func TestReconfigurablePoseTracker(t *testing.T) {
 			&spatialmath.R4AA{Theta: math.Pi, RX: 0, RY: 0, RZ: 1},
 		)),
 	}
-	poses, err := reconfPT1.(posetracker.PoseTracker).Poses(context.Background(), []string{})
+	poses, err := reconfPT1.(posetracker.PoseTracker).Poses(context.Background(), []string{}, map[string]interface{}{})
 	test.That(t, poses, test.ShouldResemble, expectedPoses)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -214,4 +216,15 @@ func TestClose(t *testing.T) {
 	test.That(t, actualPT.reconfCount, test.ShouldEqual, 0)
 	test.That(t, viamutils.TryClose(context.Background(), reconfPT), test.ShouldBeNil)
 	test.That(t, actualPT.reconfCount, test.ShouldEqual, 1)
+}
+
+func TestExtraOptions(t *testing.T) {
+	actualPT := &mock{Name: workingPTName}
+	reconfPT, err := posetracker.WrapWithReconfigurable(actualPT)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, actualPT.extra, test.ShouldEqual, nil)
+
+	_, _ = reconfPT.(posetracker.PoseTracker).Poses(context.Background(), []string{}, map[string]interface{}{"foo": "bar"})
+	test.That(t, actualPT.extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 }
