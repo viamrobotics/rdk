@@ -524,6 +524,10 @@ func TestDiffSanitize(t *testing.T) {
 		ID:             "1",
 		Secret:         "hello",
 		LocationSecret: "world",
+		LocationSecrets: []config.LocationSecret{
+			{ID: "id1", Secret: "sec1"},
+			{ID: "id2", Secret: "sec2"},
+		},
 		TLSCertificate: "foo",
 		TLSPrivateKey:  "bar",
 	}
@@ -593,6 +597,8 @@ func TestDiffSanitize(t *testing.T) {
 	test.That(t, diffStr, test.ShouldContainSubstring, cloud1.ID)
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.Secret)
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.LocationSecret)
+	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.LocationSecrets[0].Secret)
+	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.LocationSecrets[1].Secret)
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.TLSCertificate)
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.TLSPrivateKey)
 	for _, hdlr := range auth1.Handlers {
