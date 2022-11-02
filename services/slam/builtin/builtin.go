@@ -479,13 +479,19 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 	var dataRate int
 	if svcConfig.DataRateMs == 0 {
 		dataRate = defaultDataRateMs
+		logger.Debugf("invalid or empty data_rate_secs given, setting to default of %d", defaultDataRateMs)
 	} else {
 		dataRate = svcConfig.DataRateMs
 	}
 
 	mapRate := defaultMapRateSec
 	if svcConfig.MapRateSec != nil && *svcConfig.MapRateSec >= 0 {
+		if *svcConfig.MapRateSec >= 0 {
+			logger.Info("setting slam system to localization mode")
+		}
 		mapRate = *svcConfig.MapRateSec
+	} else {
+		logger.Debugf("invalid or empty map_rate_secs given, setting to default of %d", defaultMapRateSec)
 	}
 
 	camStreams := make([]gostream.VideoStream, 0, len(cams))
