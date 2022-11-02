@@ -245,7 +245,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	// Test online mode using the map generated in the offline test
 	t.Log("Testing online mode with saved map")
 
-	mapRate = -1
+	mapRate = 9999
 
 	attrCfg = &builtin.AttrConfig{
 		Algorithm: "orbslamv3",
