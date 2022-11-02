@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
+	"go.viam.com/rdk/types"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -169,7 +170,9 @@ func (svc *builtIn) startWaypoint() error {
 				return
 			}
 
-			currentLoc, _, err := svc.movementSensor.Position(svc.cancelCtx)
+			// TODO: once https://github.com/viamrobotics/rdk/pull/1545 is merged,
+			// we should pass in extra parameters passed into this function here.
+			currentLoc, _, err := svc.movementSensor.Position(svc.cancelCtx, types.ZeroExtraParams())
 			if err != nil {
 				svc.logger.Errorw("failed to get gps location", "error", err)
 				continue
@@ -247,7 +250,9 @@ func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) 
 	if svc.movementSensor == nil {
 		return nil, errors.New("no way to get location")
 	}
-	loc, _, err := svc.movementSensor.Position(ctx)
+	// TODO: once https://github.com/viamrobotics/rdk/pull/1545 is merged,
+	// we should pass in extra parameters passed into this function here.
+	loc, _, err := svc.movementSensor.Position(ctx, types.ZeroExtraParams())
 	return loc, err
 }
 
