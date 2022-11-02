@@ -20,6 +20,10 @@ import (
 	"go.viam.com/utils/artifact"
 )
 
+var (
+	mapRate = 1 // reconfigurable for testing
+)
+
 // Creates the vocabulary file required by the orbslam binary.
 func createVocabularyFile(name string) error {
 	source, err := os.Open(artifact.MustPath("slam/ORBvoc.txt"))
@@ -128,7 +132,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		DataDirectory: name,
 		// Even though we don't use the maps saved in this run, indicate in the config that
 		// we want to save maps because the same yaml config gets used for the next run.
-		MapRateSec: 1,
+		MapRateSec: &mapRate,
 	}
 
 	// Release camera image(s) for service validation
@@ -200,7 +204,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 			"debug":             "true",
 		},
 		DataDirectory: name,
-		MapRateSec:    1,
+		MapRateSec:    &mapRate,
 	}
 
 	// Create slam service using a real orbslam binary
@@ -241,6 +245,8 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	// Test online mode using the map generated in the offline test
 	t.Log("Testing online mode with saved map")
 
+	mapRate = -1
+
 	attrCfg = &builtin.AttrConfig{
 		Algorithm: "orbslamv3",
 		Sensors:   sensors,
@@ -254,7 +260,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 			"debug":             "true",
 		},
 		DataDirectory: name,
-		MapRateSec:    -1,
+		MapRateSec:    &mapRate,
 	}
 
 	// Release camera image(s) for service validation
