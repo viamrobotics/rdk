@@ -60,7 +60,8 @@ func Named(name string) resource.Name {
 
 // An AudioInput represents anything that can capture audio.
 type AudioInput interface {
-	gostream.AudioSource
+	Stream(ctx context.Context, extra map[string]interface{}, errHandlers ...ErrorHandler) (gostream.AudioStream, error)
+	Close(ctx context.Context) error
 	gostream.AudioPropertyProvider
 	generic.Generic
 }
@@ -171,6 +172,7 @@ type audioSource struct {
 
 func (as *audioSource) Stream(
 	ctx context.Context,
+	extra map[string]interface{},
 	errHandlers ...gostream.ErrorHandler,
 ) (gostream.AudioStream, error) {
 	return as.as.Stream(ctx, errHandlers...)
