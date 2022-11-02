@@ -347,8 +347,10 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 
 	var ticksLeft int64
 
+	currentRPM := m.computeRPM(pos, lastPos, now, lastTime)
+
 	if !m.state.regulated && math.Abs(m.state.desiredRPM) > 0.001 {
-		m.rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime, m.state.desiredRPM, -1, rpmDebug)
+		m.rpmMonitorPassSetRpmInLock(currentRPM, m.state.desiredRPM, -1, rpmDebug)
 		return
 	}
 
@@ -372,56 +374,68 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 					desiredRPM /= 2
 				}
 			}
-			m.rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime, desiredRPM, rotationsLeft, rpmDebug)
+			m.rpmMonitorPassSetRpmInLock(currentRPM, desiredRPM, rotationsLeft, rpmDebug)
 		}
 	}
 }
 
-func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime int64, desiredRPM, rotationsLeft float64, rpmDebug bool) {
-	lastPowerPct := m.state.lastPowerPct
-	rotations := float64(pos-lastPos) / float64(m.cfg.TicksPerRotation)
+func (m *EncodedMotor) computeRPM(pos, lastPos, now, lastTime int64) float64 {
 	minutes := float64(now-lastTime) / (1e9 * 60)
-	currentRPM := rotations / minutes
 	if minutes == 0 {
-		currentRPM = 0
+		return 0.0
 	}
-	m.state.currentRPM = currentRPM
+	rotations := float64(pos-lastPos) / float64(m.cfg.TicksPerRotation)
+	return rotations / minutes
+}
 
-	var newPowerPct float64
-
+func (m *EncodedMotor) computeNewPowerPct(currentRPM, desiredRPM float64) float64 {
+	lastPowerPct := m.state.lastPowerPct
 	if math.Abs(currentRPM) <= 0.001 {
 		if math.Abs(lastPowerPct) < 0.01 {
-			newPowerPct = .01 * float64(sign(desiredRPM))
-		} else {
-			newPowerPct = m.computeRamp(lastPowerPct, lastPowerPct*2)
+			// We began stopped. Set the power to a low setting so we can get started.
+			return .01 * float64(sign(desiredRPM))
 		}
-	} else {
-		dOverC := desiredRPM / currentRPM
-		dOverC = math.Min(dOverC, 2)
-		dOverC = math.Max(dOverC, -2)
-
-		neededPowerPct := lastPowerPct * dOverC
-
-		if !math.Signbit(neededPowerPct) {
-			neededPowerPct = math.Max(neededPowerPct, 0.01)
-			neededPowerPct = math.Min(neededPowerPct, 1)
-		} else {
-			neededPowerPct = math.Min(neededPowerPct, -0.01)
-			neededPowerPct = math.Max(neededPowerPct, -1)
-		}
-
-		newPowerPct = m.computeRamp(lastPowerPct, neededPowerPct)
+		// We've been putting power to the motor, but it's not moving yet. Try increasing the power
+		// to it, and we'll start moving soon.
+		return m.computeRamp(lastPowerPct, lastPowerPct*2)
 	}
 
-	if newPowerPct != lastPowerPct {
-		if rpmDebug {
-			m.logger.Debugf("current rpm: %0.1f desiredRPM: %0.1f power: %0.1f -> %0.1f rot2go: %0.1f",
-				currentRPM, desiredRPM, lastPowerPct*100, newPowerPct*100, rotationsLeft)
-		}
-		err := m.setPower(m.cancelCtx, newPowerPct, true)
-		if err != nil {
-			m.logger.Warnf("rpm regulator cannot set power %s", err)
-		}
+	dOverC := desiredRPM / currentRPM
+	dOverC = math.Min(dOverC, 2)
+	dOverC = math.Max(dOverC, -2)
+
+	// The last power percent resulted in the last RPM measurement. To get to the desired RPM,
+	// multiply by their ratio.
+	neededPowerPct := lastPowerPct * dOverC
+
+	// Bound neededPowerPct between 0.01 and 1 in the positive or negative direction.
+	if !math.Signbit(neededPowerPct) { // neededPowerPct is positive
+		neededPowerPct = math.Max(neededPowerPct, 0.01)
+		neededPowerPct = math.Min(neededPowerPct, 1)
+	} else { // neededPowerPct is negative
+		neededPowerPct = math.Min(neededPowerPct, -0.01)
+		neededPowerPct = math.Max(neededPowerPct, -1)
+	}
+
+	return m.computeRamp(lastPowerPct, neededPowerPct)
+}
+
+func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(currentRPM, desiredRPM, rotationsLeft float64, rpmDebug bool) {
+	lastPowerPct := m.state.lastPowerPct
+	m.state.currentRPM = currentRPM
+
+	newPowerPct := m.computeNewPowerPct(currentRPM, desiredRPM)
+	if newPowerPct == lastPowerPct {
+		return // No changes to power are needed right now
+	}
+
+	if rpmDebug {
+		m.logger.Debugf("current rpm: %0.1f desiredRPM: %0.1f power: %0.1f -> %0.1f rot2go: %0.1f",
+			currentRPM, desiredRPM, lastPowerPct*100, newPowerPct*100, rotationsLeft)
+	}
+	err := m.setPower(m.cancelCtx, newPowerPct, true)
+	if err != nil {
+		m.logger.Warnf("rpm regulator cannot set power %s", err)
 	}
 }
 
@@ -471,6 +485,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	defer m.stateMu.Unlock()
 
 	if revolutions == 0 {
+		// Moving 0 revolutions is a special value meaning "move forever."
 		oldRpm := m.state.desiredRPM
 		m.state.desiredRPM = rpm
 		if math.Abs(oldRpm) > 0.001 && d == m.directionMovingInLock() {
@@ -487,11 +502,7 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 		return err
 	}
 
-	if d == 1 || d == -1 {
-		m.state.setPoint = pos + d*numTicks
-	} else {
-		panic("impossible")
-	}
+	m.state.setPoint = pos + d*numTicks
 
 	m.state.desiredRPM = rpm
 	m.state.regulated = true

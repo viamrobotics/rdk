@@ -50580,6 +50580,14 @@
       "hash": "8ecf7ccd4c22d4606783db10a26018c4",
       "size": 145250924
     },
+    "locating_in_map.lua": {
+      "hash": "94180b8051257132b0e6eaab763c303a",
+      "size": 1017
+    },
+    "mapping_new_map.lua": {
+      "hash": "8156d4670834d97e5d226c8488ef6f85",
+      "size": 939
+    },
     "mock_camera_short": {
       "depth": {
         "0.png": {
@@ -50818,6 +50826,68 @@
         }
       }
     },
+    "mock_lidar": {
+      "0.pcd": {
+        "hash": "ff60d0b3ae61004a1ba2031eb7c6b832",
+        "size": 39791
+      },
+      "1.pcd": {
+        "hash": "db5bd806efd2bbb61c161d7c609395f9",
+        "size": 39772
+      },
+      "10.pcd": {
+        "hash": "ae63f9547ae2811edbad8fe09249dc41",
+        "size": 39848
+      },
+      "11.pcd": {
+        "hash": "b63f819b53bf30461513e20fec59d370",
+        "size": 40302
+      },
+      "12.pcd": {
+        "hash": "d5b1504da753c256648bf12cc290c449",
+        "size": 39988
+      },
+      "13.pcd": {
+        "hash": "3a928b03dbe1f805e2865ae1c8824058",
+        "size": 40042
+      },
+      "14.pcd": {
+        "hash": "dc0e197912d86ae4222eae2875482885",
+        "size": 40270
+      },
+      "2.pcd": {
+        "hash": "2a13f11e8e855f9b4c03acdee8cc64f9",
+        "size": 40001
+      },
+      "3.pcd": {
+        "hash": "12556c1a825b34f835b65c13dd037bc9",
+        "size": 40060
+      },
+      "4.pcd": {
+        "hash": "f56068feb87e1f6e9b4e9ee3da1bf2a9",
+        "size": 39755
+      },
+      "5.pcd": {
+        "hash": "c0b725cf8a6aeebd0f03fb2c7d8d6c80",
+        "size": 39754
+      },
+      "6.pcd": {
+        "hash": "a0f6bd9c9732a84a0be19fbc49c03dfe",
+        "size": 39720
+      },
+      "7.pcd": {
+        "hash": "c716a579022d25f6f92c8a80659a420c",
+        "size": 39947
+      },
+      "8.pcd": {
+        "hash": "0f990165d2b1a9b6fed12dae7580c898",
+        "size": 39989
+      },
+      "9.pcd": {
+        "hash": "9b30a870e4ffb599b5213165a5cb44cb",
+        "size": 39853
+      }
+    },
     "mock_mono_camera": {
       "rgb": {
         "0.png": {
@@ -50881,6 +50951,10 @@
           "size": 813831
         }
       }
+    },
+    "updating_a_map.lua": {
+      "hash": "2b044a23bdc0f4da1b78a9fd0c727497",
+      "size": 1082
     }
   },
   "transform": {
