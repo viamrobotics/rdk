@@ -25,6 +25,7 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/types"
 	"go.viam.com/rdk/vision/keypoints"
 	"go.viam.com/rdk/vision/odometry"
 )
@@ -155,7 +156,7 @@ func TestFunctions(t *testing.T) {
 		test.ShouldResemble,
 		movementsensor.ErrMethodUnimplementedCompassHeading)
 
-	read, err := tCo.Readings(tCo.cancelCtx)
+	read, err := tCo.Readings(tCo.cancelCtx, types.ZeroExtraParams())
 	test.That(t, read["linear_velocity"], test.ShouldResemble, r3.Vector{X: 40, Y: 50, Z: 60})
 	test.That(t, err, test.ShouldBeNil)
 

@@ -7,9 +7,11 @@ import (
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/sensor/v1"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/types"
 )
 
 // client implements SensorServiceClient.
@@ -31,9 +33,14 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (c *client) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
+	ext, err := structpb.NewStruct(extra)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.client.GetReadings(ctx, &pb.GetReadingsRequest{
-		Name: c.name,
+		Name:  c.name,
+		Extra: ext,
 	})
 	if err != nil {
 		return nil, err

@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/types"
 )
 
 var globalMu sync.Mutex
@@ -106,7 +107,7 @@ type Sensor struct {
 }
 
 // Readings returns a list containing single item (current temperature).
-func (s *Sensor) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (s *Sensor) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
 	readings, err := s.GetControllerOutput(ctx)
 	if err != nil {
 		return nil, err

@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/types"
 )
 
 const modelname = "fake"
@@ -85,7 +86,7 @@ func (f *MovementSensor) Accuracy(ctx context.Context) (map[string]float32, erro
 }
 
 // Readings gets the readings of a fake movementsensor.
-func (f *MovementSensor) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (f *MovementSensor) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
 	return movementsensor.Readings(ctx, f)
 }
 

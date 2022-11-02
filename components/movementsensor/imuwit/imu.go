@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/types"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -121,7 +122,7 @@ func (imu *wit) Accuracy(ctx context.Context) (map[string]float32, error) {
 	return map[string]float32{}, movementsensor.ErrMethodUnimplementedAccuracy
 }
 
-func (imu *wit) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (imu *wit) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
 	readings, err := movementsensor.Readings(ctx, imu)
 	if err != nil {
 		return nil, err

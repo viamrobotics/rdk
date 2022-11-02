@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/types"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -61,7 +62,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
 
-	result, err := s.Readings(context.Background())
+	result, err := s.Readings(context.Background(), types.ZeroExtraParams())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, map[string]interface{}{"a": reading})
 
@@ -147,7 +148,7 @@ func TestReconfigurableSensor(t *testing.T) {
 
 	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 0)
 	test.That(t, actualSensor2.readingsCount, test.ShouldEqual, 0)
-	result, err := reconfSensor1.(sensor.Sensor).Readings(context.Background())
+	result, err := reconfSensor1.(sensor.Sensor).Readings(context.Background(), types.ZeroExtraParams())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, map[string]interface{}{"a": reading})
 	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 0)
@@ -163,7 +164,7 @@ func TestReadings(t *testing.T) {
 	reconfSensor1, _ := sensor.WrapWithReconfigurable(actualSensor1)
 
 	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 0)
-	result, err := reconfSensor1.(sensor.Sensor).Readings(context.Background())
+	result, err := reconfSensor1.(sensor.Sensor).Readings(context.Background(), types.ZeroExtraParams())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, map[string]interface{}{"a": reading})
 	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 1)

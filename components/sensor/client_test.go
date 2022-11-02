@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/types"
 )
 
 func TestClient(t *testing.T) {
@@ -74,7 +75,7 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
-		rs1, err := sensor1Client.Readings(context.Background())
+		rs1, err := sensor1Client.Readings(context.Background(), types.ZeroExtraParams())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
 
@@ -89,7 +90,7 @@ func TestClient(t *testing.T) {
 		sensor2Client, ok := client.(sensor.Sensor)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		_, err = sensor2Client.Readings(context.Background())
+		_, err = sensor2Client.Readings(context.Background(), types.ZeroExtraParams())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get readings")
 
