@@ -248,7 +248,7 @@ type AttrConfig struct {
 	Algorithm        string            `json:"algorithm"`
 	ConfigParams     map[string]string `json:"config_params"`
 	DataRateMs       int               `json:"data_rate_msec"`
-	MapRateSec       int               `json:"map_rate_sec"`
+	MapRateSec       *int              `json:"map_rate_sec"`
 	DataDirectory    string            `json:"data_dir"`
 	InputFilePattern string            `json:"input_file_pattern"`
 	Port             string            `json:"port"`
@@ -483,15 +483,9 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 		dataRate = svcConfig.DataRateMs
 	}
 
-	var mapRate int
-	if svcConfig.MapRateSec <= 0 {
-		if svcConfig.MapRateSec == -1 {
-			mapRate = 0
-		} else {
-			mapRate = defaultMapRateSec
-		}
-	} else {
-		mapRate = svcConfig.MapRateSec
+	mapRate := defaultMapRateSec
+	if svcConfig.MapRateSec != nil && *svcConfig.MapRateSec >= 0 {
+		mapRate = *svcConfig.MapRateSec
 	}
 
 	camStreams := make([]gostream.VideoStream, 0, len(cams))
