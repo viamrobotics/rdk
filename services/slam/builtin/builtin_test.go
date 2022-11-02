@@ -436,7 +436,7 @@ func createSLAMService(t *testing.T, attrCfg *builtin.AttrConfig, logger golog.L
 	t.Helper()
 
 	ctx := context.Background()
-	cfgService := config.Service{Name: "test", Type: "slam"}
+	cfgService := config.Service{Name: "test", Type: "slam", DependsOn: attrCfg.Sensors}
 	cfgService.ConvertedAttributes = attrCfg
 
 	deps := setupDeps(attrCfg)
