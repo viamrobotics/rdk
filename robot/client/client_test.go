@@ -746,7 +746,7 @@ func TestClientUnaryDisconnectHandler(t *testing.T) {
 		) (interface{}, error) {
 			if strings.HasSuffix(info.FullMethod, "RobotService/GetStatus") {
 				if unaryStatusCallReceived {
-					return nil, status.Errorf(codes.Unknown, io.ErrClosedPipe.Error())
+					return nil, status.Error(codes.Unknown, io.ErrClosedPipe.Error())
 				}
 				unaryStatusCallReceived = true
 			}
