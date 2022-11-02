@@ -469,10 +469,16 @@ func AuthConfigFromProto(proto *pb.AuthConfig) (*AuthConfig, error) {
 
 // CloudConfigToProto converts Cloud to proto equivalent.
 func CloudConfigToProto(cloud *Cloud) (*pb.CloudConfig, error) {
+	locationSecrets, err := mapSliceWithErrors(cloud.LocationSecrets, locationSecretToProto)
+	if err != nil {
+		return nil, err
+	}
+
 	return &pb.CloudConfig{
 		Id:                cloud.ID,
 		Secret:            cloud.Secret,
 		LocationSecret:    cloud.LocationSecret,
+		LocationSecrets:   locationSecrets,
 		ManagedBy:         cloud.ManagedBy,
 		Fqdn:              cloud.FQDN,
 		LocalFqdn:         cloud.LocalFQDN,
@@ -483,16 +489,31 @@ func CloudConfigToProto(cloud *Cloud) (*pb.CloudConfig, error) {
 
 // CloudConfigFromProto creates Cloud from proto equivalent.
 func CloudConfigFromProto(proto *pb.CloudConfig) (*Cloud, error) {
+	locationSecrets, err := mapSliceWithErrors(proto.LocationSecrets, locationSecretFromProto)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Cloud{
-		ID:                proto.GetId(),
-		Secret:            proto.GetSecret(),
+		ID:     proto.GetId(),
+		Secret: proto.GetSecret(),
+		//nolint:staticcheck
 		LocationSecret:    proto.GetLocationSecret(),
+		LocationSecrets:   locationSecrets,
 		ManagedBy:         proto.GetManagedBy(),
 		FQDN:              proto.GetFqdn(),
 		LocalFQDN:         proto.GetLocalFqdn(),
 		SignalingAddress:  proto.GetSignalingAddress(),
 		SignalingInsecure: proto.GetSignalingInsecure(),
 	}, nil
+}
+
+func locationSecretToProto(secret LocationSecret) (*pb.LocationSecret, error) {
+	return &pb.LocationSecret{Id: secret.ID, Secret: secret.Secret}, nil
+}
+
+func locationSecretFromProto(secret *pb.LocationSecret) (LocationSecret, error) {
+	return LocationSecret{ID: secret.Id, Secret: secret.Secret}, nil
 }
 
 func authHandlerConfigToProto(handler AuthHandlerConfig) (*pb.AuthHandlerConfig, error) {
