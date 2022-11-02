@@ -910,12 +910,14 @@ func TestGetMapAndPosition(t *testing.T) {
 
 	createFakeSLAMLibraries()
 
+	mapRate := 200
+
 	attrCfg := &builtin.AttrConfig{
 		Algorithm:        "fake_orbslamv3",
 		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
-		MapRateSec:       200,
+		MapRateSec:       &(mapRate),
 		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:4445",
@@ -952,12 +954,14 @@ func TestSLAMProcessSuccess(t *testing.T) {
 
 	createFakeSLAMLibraries()
 
+	mapRate := 200
+
 	attrCfg := &builtin.AttrConfig{
 		Algorithm:        "fake_orbslamv3",
 		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
-		MapRateSec:       200,
+		MapRateSec:       &mapRate,
 		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:4445",
@@ -1003,12 +1007,14 @@ func TestSLAMProcessFail(t *testing.T) {
 
 	createFakeSLAMLibraries()
 
+	mapRate := 200
+
 	attrCfg := &builtin.AttrConfig{
 		Algorithm:        "fake_orbslamv3",
 		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
-		MapRateSec:       200,
+		MapRateSec:       &mapRate,
 		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:4445",
@@ -1055,12 +1061,14 @@ func TestGRPCConnection(t *testing.T) {
 
 	createFakeSLAMLibraries()
 
+	mapRate := 200
+
 	attrCfg := &builtin.AttrConfig{
 		Algorithm:        "fake_orbslamv3",
 		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
-		MapRateSec:       200,
+		MapRateSec:       &mapRate,
 		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:-1",
