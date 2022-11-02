@@ -109,14 +109,14 @@ func (rc *RobotClient) handleUnaryDisconnect(
 
 	if err := rc.checkConnected(); err != nil {
 		rc.Logger().Debugw("connection is down, skipping method call", "method", method)
-		return status.Errorf(codes.Unavailable, err.Error())
+		return status.Error(codes.Unavailable, err.Error())
 	}
 
 	err := invoker(ctx, method, req, reply, cc, opts...)
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
 	if isClosedPipeError(err) {
-		return status.Errorf(codes.Unavailable, rc.notConnectedToRemoteError().Error())
+		return status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
 	}
 	return err
 }
@@ -128,14 +128,14 @@ type handleDisconnectClientStream struct {
 
 func (cs *handleDisconnectClientStream) RecvMsg(m interface{}) error {
 	if err := cs.RobotClient.checkConnected(); err != nil {
-		return status.Errorf(codes.Unavailable, err.Error())
+		return status.Error(codes.Unavailable, err.Error())
 	}
 
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
 	err := cs.ClientStream.RecvMsg(m)
 	if isClosedPipeError(err) {
-		return status.Errorf(codes.Unavailable, cs.RobotClient.notConnectedToRemoteError().Error())
+		return status.Error(codes.Unavailable, cs.RobotClient.notConnectedToRemoteError().Error())
 	}
 
 	return err
@@ -155,14 +155,14 @@ func (rc *RobotClient) handleStreamDisconnect(
 
 	if err := rc.checkConnected(); err != nil {
 		rc.Logger().Debugw("connection is down, skipping method call", "method", method)
-		return nil, status.Errorf(codes.Unavailable, err.Error())
+		return nil, status.Error(codes.Unavailable, err.Error())
 	}
 
 	cs, err := streamer(ctx, desc, cc, method, opts...)
 	// we might lose connection before our background check detects it - in this case we
 	// should still surface a helpful error message.
 	if isClosedPipeError(err) {
-		return nil, status.Errorf(codes.Unavailable, rc.notConnectedToRemoteError().Error())
+		return nil, status.Error(codes.Unavailable, rc.notConnectedToRemoteError().Error())
 	}
 	return &handleDisconnectClientStream{cs, rc}, err
 }
