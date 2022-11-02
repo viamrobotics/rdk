@@ -1,7 +1,6 @@
 package datasync
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -114,7 +113,7 @@ func TestSensorUploadTabular(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create temp data capture file.
-			tmpDir, err := ioutil.TempDir("", "")
+			tmpDir, err := os.MkdirTemp("", "")
 			test.That(t, err, test.ShouldBeNil)
 			defer os.RemoveAll(tmpDir)
 			// First write metadata to file.
@@ -195,7 +194,7 @@ func TestSensorUploadBinary(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create temp file to be used as examples of reading data from the files into buffers and finally to have
 			// that data be uploaded to the cloud
-			tmpDir, err := ioutil.TempDir("", "")
+			tmpDir, err := os.MkdirTemp("", "")
 			test.That(t, err, test.ShouldBeNil)
 			defer os.RemoveAll(tmpDir)
 			// First write metadata to file.
@@ -435,7 +434,7 @@ func TestPartialUpload(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			tmpDir, err := ioutil.TempDir("", "")
+			tmpDir, err := os.MkdirTemp("", "")
 			test.That(t, err, test.ShouldBeNil)
 			defer os.RemoveAll(tmpDir)
 			// First write metadata to file.
@@ -527,7 +526,7 @@ func TestPartialUpload(t *testing.T) {
 			compareTabularUploadRequests(t, mockService.getUploadRequests(), expMsgs)
 
 			// Validate progress file does not exist.
-			files, err := ioutil.ReadDir(viamProgressDotDir)
+			files, err := os.ReadDir(viamProgressDotDir)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(files), test.ShouldEqual, 0)
 
