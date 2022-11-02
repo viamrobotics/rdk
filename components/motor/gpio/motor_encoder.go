@@ -408,6 +408,7 @@ func (m *EncodedMotor) computeNewPowerPct(currentRPM, desiredRPM float64) float6
 	// multiply by their ratio.
 	neededPowerPct := lastPowerPct * dOverC
 
+	// Bound neededPowerPct between 0.01 and 1 in the positive or negative direction.
 	if !math.Signbit(neededPowerPct) { // neededPowerPct is positive
 		neededPowerPct = math.Max(neededPowerPct, 0.01)
 		neededPowerPct = math.Min(neededPowerPct, 1)
@@ -487,7 +488,6 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 		// Moving 0 revolutions is a special value meaning "move forever."
 		oldRpm := m.state.desiredRPM
 		m.state.desiredRPM = rpm
-		m.state.regulated = true
 		if math.Abs(oldRpm) > 0.001 && d == m.directionMovingInLock() {
 			return nil
 		}
