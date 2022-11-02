@@ -20,10 +20,6 @@ import (
 	"go.viam.com/utils/artifact"
 )
 
-var (
-	mapRate = 1 // reconfigurable for testing
-)
-
 // Creates the vocabulary file required by the orbslam binary.
 func createVocabularyFile(name string) error {
 	source, err := os.Open(artifact.MustPath("slam/ORBvoc.txt"))
@@ -117,6 +113,8 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		t.FailNow()
 	}
 
+	mapRate := 1
+
 	attrCfg := &builtin.AttrConfig{
 		Algorithm: "orbslamv3",
 		Sensors:   sensors,
@@ -190,6 +188,8 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 
 	// Test offline mode using the config and data generated in the online test
 	t.Log("Testing offline mode")
+
+	mapRate = 1
 
 	attrCfg = &builtin.AttrConfig{
 		Algorithm: "orbslamv3",
