@@ -45,6 +45,28 @@ type TMC5072Config struct {
 
 var modelname = resource.NewDefaultModel("TMC5072")
 
+// Validate ensures all parts of the config are valid.
+func (config *TMC5072Config) Validate(path string) ([]string, error) {
+	var deps []string
+	if config.BoardName == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+	if config.SPIBus == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "spi_bus")
+	}
+	if config.ChipSelect == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "chip_select")
+	}
+	if config.Index <= 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "index")
+	}
+	if config.TicksPerRotation <= 0 {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
+	}
+	deps = append(deps, config.BoardName)
+	return deps, nil
+}
+
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
@@ -83,6 +105,7 @@ type Motor struct {
 	fClk        float64
 	logger      golog.Logger
 	opMgr       operation.SingleOperationManager
+	powerPct    float64
 }
 
 // TMC5072 Values.
@@ -381,6 +404,7 @@ func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (m
 // maxRPM supplied by powerPct (between -1 and 1).
 func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
+	m.powerPct = powerPct
 	return m.doJog(ctx, powerPct*m.maxRPM)
 }
 
@@ -471,8 +495,9 @@ func (m *Motor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extr
 }
 
 // IsPowered returns true if the motor is currently moving.
-func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
-	return m.IsMoving(ctx)
+func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+	on, err := m.IsMoving(ctx)
+	return on, m.powerPct, err
 }
 
 // IsStopped returns true if the motor is NOT moving.
@@ -614,7 +639,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 // ResetZeroPosition sets the current position of the motor specified by the request
 // (adjusted by a given offset) to be its new zero position.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	on, err := m.IsPowered(ctx, extra)
+	on, _, err := m.IsPowered(ctx, extra)
 	if err != nil {
 		return err
 	} else if on {

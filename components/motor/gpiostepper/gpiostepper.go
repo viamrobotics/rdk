@@ -41,6 +41,16 @@ type Config struct {
 	TicksPerRotation int       `json:"ticks_per_rotation"`
 }
 
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) ([]string, error) {
+	var deps []string
+	if config.BoardName == "" {
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+	deps = append(deps, config.BoardName)
+	return deps, nil
+}
+
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
@@ -265,7 +275,8 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 	if revolutions == 0 {
 		return nil
 	}
-	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m)
+
+	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
 func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float64) error {
@@ -386,9 +397,19 @@ func (m *gpioStepper) stop() {
 	m.targetStepsPerSecond = 0
 }
 
-// IsPowered returns whether or not the motor is currently on.
-func (m *gpioStepper) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
-	return m.IsMoving(ctx)
+// IsPowered returns whether or not the motor is currently on. It also returns the percent power
+// that the motor has, but stepper motors only have this set to 0% or 100%, so it's a little
+// redundant.
+func (m *gpioStepper) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
+	on, err := m.IsMoving(ctx)
+	if err != nil {
+		return on, 0.0, err
+	}
+	percent := 0.0
+	if on {
+		percent = 1.0
+	}
+	return on, percent, err
 }
 
 func (m *gpioStepper) enable(ctx context.Context, on bool) error {

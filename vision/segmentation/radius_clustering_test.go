@@ -43,6 +43,7 @@ func TestPixelSegmentation(t *testing.T) {
 		return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger)
 	}
 	// do segmentation
+	expectedLabel := "test_label"
 	objConfig := config.AttributeMap{
 		"min_points_in_plane":   50000,
 		"min_points_in_segment": 500,
@@ -50,12 +51,13 @@ func TestPixelSegmentation(t *testing.T) {
 		"mean_k_filtering":      50.0,
 		"extra_uneeded_param":   4444,
 		"another_extra_one":     "hey",
+		"label":                 expectedLabel,
 	}
 	segmenter, err := segmentation.NewRadiusClustering(objConfig)
 	test.That(t, err, test.ShouldBeNil)
 	segments, err := segmenter(context.Background(), injectCamera)
 	test.That(t, err, test.ShouldBeNil)
-	testSegmentation(t, segments)
+	testSegmentation(t, segments, expectedLabel)
 	// do segmentation with no mean k filtering
 	objConfig = config.AttributeMap{
 		"min_points_in_plane":   50000,
@@ -64,19 +66,20 @@ func TestPixelSegmentation(t *testing.T) {
 		"mean_k_filtering":      -1.,
 		"extra_uneeded_param":   4444,
 		"another_extra_one":     "hey",
+		"label":                 expectedLabel,
 	}
 	segmenter, err = segmentation.NewRadiusClustering(objConfig)
 	test.That(t, err, test.ShouldBeNil)
 	segments, err = segmenter(context.Background(), injectCamera)
 	test.That(t, err, test.ShouldBeNil)
-	testSegmentation(t, segments)
+	testSegmentation(t, segments, expectedLabel)
 }
 
-func testSegmentation(t *testing.T, segments []*vision.Object) {
+func testSegmentation(t *testing.T, segments []*vision.Object, expectedLabel string) {
 	t.Helper()
 	test.That(t, len(segments), test.ShouldBeGreaterThan, 0)
 	for _, seg := range segments {
-		box, err := pc.BoundingBoxFromPointCloud(seg)
+		box, err := pc.BoundingBoxFromPointCloudWithLabel(seg, seg.Geometry.Label())
 		if seg.Size() == 0 {
 			test.That(t, box, test.ShouldBeNil)
 			test.That(t, err, test.ShouldNotBeNil)
@@ -85,5 +88,6 @@ func testSegmentation(t *testing.T, segments []*vision.Object) {
 		test.That(t, box, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, box.AlmostEqual(seg.Geometry), test.ShouldBeTrue)
+		test.That(t, box.Label(), test.ShouldEqual, expectedLabel)
 	}
 }

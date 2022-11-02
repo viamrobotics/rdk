@@ -55,9 +55,8 @@ const (
 	defaultMapRateSec           = 60
 	cameraValidationIntervalSec = 1.
 	parsePortMaxTimeoutSec      = 60
-	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	// time format for the slam service.
-	slamTimeFormat        = "2006-01-02T15_04_05.0000"
+	slamTimeFormat        = time.RFC3339Nano
 	opTimeoutErrorMessage = "bad scan: OpTimeout"
 	localhost0            = "localhost:0"
 )
@@ -664,6 +663,7 @@ func (slamSvc *builtIn) GetSLAMProcessConfig() pexec.ProcessConfig {
 	args = append(args, "-data_dir="+slamSvc.dataDirectory)
 	args = append(args, "-input_file_pattern="+slamSvc.inputFilePattern)
 	args = append(args, "-port="+slamSvc.port)
+	args = append(args, "--aix-auto-update")
 
 	return pexec.ProcessConfig{
 		ID:      "slam_" + slamSvc.slamLib.AlgoName,
@@ -754,7 +754,7 @@ func (slamSvc *builtIn) StopSLAMProcess() error {
 	return nil
 }
 
-func (slamSvc *builtIn) getLazyPNGImage(ctx context.Context, cam camera.Camera) ([]byte, func(), error) {
+func (slamSvc *builtIn) getPNGImage(ctx context.Context, cam camera.Camera) ([]byte, func(), error) {
 	// We will hint that we want a PNG.
 	// The Camera service server implementation in RDK respects this; others may not.
 	img, release, err := camera.ReadImage(
@@ -797,7 +797,7 @@ func (slamSvc *builtIn) getAndSaveDataSparse(
 			return nil, errors.Errorf("expected 1 camera for mono slam, found %v", len(camStreams))
 		}
 
-		image, release, err := slamSvc.getLazyPNGImage(ctx, cams[0])
+		image, release, err := slamSvc.getPNGImage(ctx, cams[0])
 		if err != nil {
 			if err.Error() == opTimeoutErrorMessage {
 				slamSvc.logger.Warnw("Skipping this scan due to error", "error", err)
@@ -892,7 +892,7 @@ func (slamSvc *builtIn) getSimultaneousColorAndDepth(
 		goutils.PanicCapturingGo(func() {
 			defer slamSvc.activeBackgroundWorkers.Done()
 			defer wg.Done()
-			images[iLoop], releaseFuncs[iLoop], errs[iLoop] = slamSvc.getLazyPNGImage(ctx, cams[iLoop])
+			images[iLoop], releaseFuncs[iLoop], errs[iLoop] = slamSvc.getPNGImage(ctx, cams[iLoop])
 		})
 	}
 	wg.Wait()
@@ -957,7 +957,6 @@ func (slamSvc *builtIn) getAndSaveDataDense(ctx context.Context, cams []camera.C
 // Creates a file for camera data with the specified sensor name and timestamp written into the filename.
 // For RGBD cameras, two filenames are created with the same timestamp in different directories.
 func createTimestampFilenames(cameraName, dataDirectory, fileType string, slamMode slam.Mode) ([]string, error) {
-	// TODO change time format to .Format(time.RFC3339Nano) https://viam.atlassian.net/browse/DATA-277
 	timeStamp := time.Now()
 
 	switch slamMode {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -53,6 +54,7 @@ type resourceManager struct {
 type resourcePlaceholder struct {
 	real   interface{}
 	config interface{}
+	err    error
 }
 
 type resourceManagerOptions struct {
@@ -357,6 +359,8 @@ func (manager *resourceManager) completeConfig(
 	manager.configLock.Lock()
 	defer manager.configLock.Unlock()
 	rS := manager.resources.ReverseTopologicalSort()
+
+	svcs := make([]resource.Name, 0)
 	for _, r := range rS {
 		iface, ok := manager.resources.Node(r)
 		if !ok || iface == nil {
@@ -366,25 +370,24 @@ func (manager *resourceManager) completeConfig(
 		if !ok {
 			continue
 		}
-		manager.logger.Infow("we are now handling the resource ", "resource", r)
+		manager.logger.Debugw("we are now handling the resource", "resource", r)
 		if c, ok := wrap.config.(config.Component); ok {
 			iface, err := manager.processComponent(ctx, r, c, wrap.real, robot)
 			if err != nil {
-				manager.logger.Errorw("error building component", "error", err)
+				manager.logger.Errorw("error building component", "resource", c.ResourceName(), "model", c.Model, "error", err)
+				wrap.err = errors.Wrap(err, "component build error")
 				continue
 			}
 			manager.resources.AddNode(r, iface)
-		} else if s, ok := wrap.config.(config.Service); ok {
-			iface, err := manager.processService(ctx, s, wrap.real, robot)
-			if err != nil {
-				manager.logger.Errorw("error building service", "error", err)
-				continue
-			}
-			manager.resources.AddNode(r, iface)
+		} else if _, ok := wrap.config.(config.Service); ok {
+			// RSDK-507: Handle services like normal again when dependencies are added to services.
+			manager.logger.Debugw("resource is a service, skipping until the end", "resource", r)
+			svcs = append(svcs, r)
 		} else if rc, ok := wrap.config.(config.Remote); ok {
 			rr, err := manager.processRemote(ctx, rc)
 			if err != nil {
-				manager.logger.Errorw("error connecting to remote", "error", err)
+				manager.logger.Errorw("error connecting to remote", "remote", rc.Name, "error", err)
+				wrap.err = errors.Wrap(err, "remote connection error")
 				continue
 			}
 			manager.addRemote(ctx, rr, rc, robot)
@@ -400,6 +403,32 @@ func (manager *resourceManager) completeConfig(
 				}
 			})
 		}
+	}
+
+	// RSDK-507: Remove this block when dependencies are added to services.
+	for _, r := range svcs {
+		manager.logger.Debugw("we are now actually handling the service resource", "resource", r)
+		iface, ok := manager.resources.Node(r)
+		if !ok || iface == nil {
+			continue
+		}
+		wrap, ok := iface.(*resourcePlaceholder)
+		if !ok {
+			continue
+		}
+		s, ok := wrap.config.(config.Service)
+		if !ok {
+			err := errors.New("service config is not a service config")
+			manager.logger.Errorw(err.Error(), "resource", r)
+			wrap.err = errors.Wrap(err, "service build error")
+		}
+		iface, err := manager.processService(ctx, s, wrap.real, robot)
+		if err != nil {
+			manager.logger.Errorw("error building service", "resource", s.ResourceName(), "model", s.Model, "error", err)
+			wrap.err = errors.Wrap(err, "service build error")
+			continue
+		}
+		manager.resources.AddNode(r, iface)
 	}
 }
 
@@ -487,7 +516,7 @@ func (manager *resourceManager) processRemote(ctx context.Context,
 				err = errors.New("must use Config.AllowInsecureCreds to connect to a non-TLS secured robot")
 			}
 		}
-		return nil, errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
+		return nil, errors.Errorf("couldn't connect to robot remote (%s): %s", config.Address, err)
 	}
 	manager.logger.Debugw("connected now to remote", "remote", config.Name)
 	return robotClient, nil
@@ -500,7 +529,11 @@ func (manager *resourceManager) RemoteByName(name string) (robot.Robot, bool) {
 	if iface, ok := manager.resources.Node(rName); ok {
 		part, ok := iface.(robot.Robot)
 		if !ok {
-			manager.logger.Errorw("tried to access remote but its not a robot interface", "remote_name", name, "type", iface)
+			if ph, ok := iface.(*resourcePlaceholder); ok {
+				manager.logger.Errorw("remote not available", "remote", name, "err", ph.err)
+			} else {
+				manager.logger.Errorw("tried to access remote but its not a robot interface", "remote", name, "type", reflect.TypeOf(iface))
+			}
 		}
 		return part, ok
 	}
@@ -555,6 +588,7 @@ func (manager *resourceManager) markChildrenForUpdate(ctx context.Context, rName
 		wrapper := &resourcePlaceholder{
 			real:   nil,
 			config: originalConfig,
+			err:    errors.New("resource not updated yet"),
 		}
 		manager.resources.AddNode(x, wrapper)
 	}
@@ -633,6 +667,7 @@ func (manager *resourceManager) wrapResource(name resource.Name, config interfac
 		wrapper = &resourcePlaceholder{
 			real:   part,
 			config: config,
+			err:    errors.New("resource not initialized yet"),
 		}
 	}
 	// the first thing we need to do is seek if the resource name already exists as an unknownType, if so
@@ -688,7 +723,7 @@ func (manager *resourceManager) wrapResource(name resource.Name, config interfac
 }
 
 // updateResourceGraph using the difference between current config
-// and next we create resource wrappers to be consumed ny completeConfig later on
+// and next we create resource wrappers to be consumed by completeConfig later on
 // Ideally at the end of this function we should have a complete graph representation of the configuration.
 func (manager *resourceManager) updateResources(
 	ctx context.Context,
@@ -755,9 +790,11 @@ func (manager *resourceManager) updateResources(
 func (manager *resourceManager) ResourceByName(name resource.Name) (interface{}, error) {
 	robotPart, ok := manager.resources.Node(name)
 	if ok && robotPart != nil {
-		if _, ok = robotPart.(*resourcePlaceholder); !ok {
+		ph, ok := robotPart.(*resourcePlaceholder)
+		if !ok {
 			return robotPart, nil
 		}
+		return nil, rutils.NewResourceNotAvailableError(name, ph.err)
 	}
 	// if we haven't found a resource of this name then we are going to look into remote resources to find it.
 	if !ok && !name.ContainsRemoteNames() {

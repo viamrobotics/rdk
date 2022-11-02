@@ -23,20 +23,19 @@ const stop = () => {
 
 const move = (amount: number) => {
   const servo = props.rawStatus;
-  const oldAngle = servo.positionDeg ?? 0;
-  const angle = oldAngle + amount;
 
-  console.log(props.name, angle);
+  // @ts-expect-error @TODO Proto is incorrectly typing this. It expects servo.positionDeg
+  const oldAngle = servo.position_deg ?? 0;
+
+  const angle = oldAngle + amount;
 
   const req = new servoApi.MoveRequest();
   req.setName(props.name);
   req.setAngleDeg(angle);
-  window.servoService.move(req, new grpc.Metadata(), (error, response) => {
+  window.servoService.move(req, new grpc.Metadata(), (error) => {
     if (error) {
       return displayError(error);
     }
-
-    console.log(response);
   });
 };
 

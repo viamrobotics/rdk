@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/CPRT/roboclaw"
@@ -132,16 +133,23 @@ type roboclawMotor struct {
 	logger golog.Logger
 	opMgr  operation.SingleOperationManager
 
+	powerPct float64
+
 	generic.Unimplemented
 }
 
 func (m *roboclawMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
 
+	powerPct = math.Min(powerPct, 1.0)
+	powerPct = math.Max(powerPct, 0.0)
+
 	switch m.conf.Number {
 	case 1:
+		m.powerPct = powerPct
 		return m.conn.DutyM1(m.addr, int16(powerPct*32767))
 	case 2:
+		m.powerPct = powerPct
 		return m.conn.DutyM2(m.addr, int16(powerPct*32767))
 	default:
 		return m.conf.wrongNumberError()
@@ -172,7 +180,7 @@ func (m *roboclawMotor) GoFor(ctx context.Context, rpm, revolutions float64, ext
 	if err != nil {
 		return err
 	}
-	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m)
+	return m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop)
 }
 
 func (m *roboclawMotor) GoTo(ctx context.Context, rpm, positionRevolutions float64, extra map[string]interface{}) error {
@@ -224,21 +232,22 @@ func (m *roboclawMotor) Stop(ctx context.Context, extra map[string]interface{}) 
 }
 
 func (m *roboclawMotor) IsMoving(ctx context.Context) (bool, error) {
-	return m.IsPowered(ctx, nil)
+	on, _, err := m.IsPowered(ctx, nil)
+	return on, err
 }
 
-func (m *roboclawMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
+func (m *roboclawMotor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	pow1, pow2, err := m.conn.ReadPWMs(m.addr)
 	if err != nil {
-		return false, err
+		return false, 0.0, err
 	}
 	switch m.conf.Number {
 	case 1:
-		return pow1 == 0, nil
+		return pow1 == 0, m.powerPct, nil
 	case 2:
-		return pow2 == 0, nil
+		return pow2 == 0, m.powerPct, nil
 	default:
-		return false, m.conf.wrongNumberError()
+		return false, 0.0, m.conf.wrongNumberError()
 	}
 }
 

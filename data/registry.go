@@ -1,7 +1,6 @@
 package data
 
 import (
-	"os"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -10,6 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/datamanager/datacapture"
 )
 
 // CollectorConstructor contains a function for constructing an instance of a Collector.
@@ -20,7 +20,7 @@ type CollectorParams struct {
 	ComponentName string
 	Interval      time.Duration
 	MethodParams  map[string]*anypb.Any
-	Target        *os.File
+	Target        *datacapture.File
 	QueueSize     int
 	BufferSize    int
 	Logger        golog.Logger

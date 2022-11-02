@@ -32,12 +32,14 @@ func TestColorObjects(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	// create config
+	expectedLabel := "test_label"
 	cfg := config.AttributeMap{
 		"hue_tolerance_pct":     0.025,
 		"detect_color":          "#6D2814",
 		"mean_k":                50,
 		"sigma":                 1.5,
 		"min_points_in_segment": 1000,
+		"label":                 expectedLabel,
 	}
 	// run segmenter
 	segmenter, err := segmentation.ColorObjects(cfg)
@@ -45,6 +47,7 @@ func TestColorObjects(t *testing.T) {
 	objects, err := segmenter(context.Background(), cam)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, objects, test.ShouldHaveLength, 1)
+	test.That(t, objects[0].Geometry.Label(), test.ShouldEqual, expectedLabel)
 	// create config with no mean_k filtering
 	cfg = config.AttributeMap{
 		"hue_tolerance_pct":     0.025,
@@ -52,6 +55,7 @@ func TestColorObjects(t *testing.T) {
 		"mean_k":                -1,
 		"sigma":                 1.5,
 		"min_points_in_segment": 1000,
+		"label":                 expectedLabel,
 	}
 	// run segmenter
 	segmenter, err = segmentation.ColorObjects(cfg)
@@ -59,6 +63,7 @@ func TestColorObjects(t *testing.T) {
 	objects, err = segmenter(context.Background(), cam)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, objects, test.ShouldHaveLength, 1)
+	test.That(t, objects[0].Geometry.Label(), test.ShouldEqual, expectedLabel)
 }
 
 func TestColorObjectsValidate(t *testing.T) {

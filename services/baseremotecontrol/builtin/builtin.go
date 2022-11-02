@@ -61,9 +61,9 @@ type controlMode uint8
 type Config struct {
 	BaseName            string  `json:"base"`
 	InputControllerName string  `json:"input_controller"`
-	ControlModeName     string  `json:"control_mode"`
-	MaxAngularVelocity  float64 `json:"max_angular_deg_per_sec"`
-	MaxLinearVelocity   float64 `json:"max_linear_mm_per_sec"`
+	ControlModeName     string  `json:"control_mode,omitempty"`
+	MaxAngularVelocity  float64 `json:"max_angular_deg_per_sec,omitempty"`
+	MaxLinearVelocity   float64 `json:"max_linear_mm_per_sec,omitempty"`
 }
 
 // builtIn is the structure of the remote service.

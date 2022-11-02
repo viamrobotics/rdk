@@ -25,17 +25,17 @@ var (
 func TestValidateRTK(t *testing.T) {
 	path := "path"
 	fakecfg := &AttrConfig{NtripAttrConfig: &NtripAttrConfig{}}
-	err := fakecfg.ValidateRTK(path)
+	_, err := fakecfg.Validate(path)
 	test.That(t, err, test.ShouldBeError,
 		utils.NewConfigValidationFieldRequiredError(path, "correction_source"))
 
 	fakecfg.CorrectionSource = "ntrip"
-	err = fakecfg.ValidateRTK(path)
+	_, err = fakecfg.Validate(path)
 	test.That(t, err, test.ShouldBeError,
 		utils.NewConfigValidationFieldRequiredError(path, "ntrip_addr"))
 
 	fakecfg.NtripAttrConfig.NtripAddr = "http://fakeurl"
-	err = fakecfg.ValidateRTK(path)
+	_, err = fakecfg.Validate(path)
 	test.That(
 		t,
 		err,
@@ -44,7 +44,7 @@ func TestValidateRTK(t *testing.T) {
 	)
 
 	fakecfg.NtripAttrConfig.NtripPath = "some-ntrip-path"
-	err = fakecfg.ValidateRTK("path")
+	_, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 }
 

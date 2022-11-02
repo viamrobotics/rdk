@@ -19,8 +19,8 @@ import (
 
 // not the real intrinsic parameters of the image, only for testing purposes.
 var undistortTestParams = &transform.PinholeCameraIntrinsics{
-	Width:  1280,
-	Height: 720,
+	Width:  128,
+	Height: 72,
 	Fx:     1.,
 	Fy:     1.,
 	Ppx:    0.,
@@ -36,7 +36,7 @@ var undistortTestBC = &transform.BrownConrady{
 }
 
 func TestUndistortSetup(t *testing.T) {
-	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
+	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
 
@@ -68,7 +68,7 @@ func TestUndistortSetup(t *testing.T) {
 }
 
 func TestUndistortImage(t *testing.T) {
-	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
+	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := gostream.NewVideoSource(&videosource.StaticSource{ColorImg: img}, prop.Video{})
 
@@ -99,7 +99,7 @@ func TestUndistortImage(t *testing.T) {
 }
 
 func TestUndistortDepthMap(t *testing.T) {
-	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray.png"))
+	img, err := rimage.NewDepthMapFromFile(artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 	source := gostream.NewVideoSource(&videosource.StaticSource{DepthImg: img}, prop.Video{})
 

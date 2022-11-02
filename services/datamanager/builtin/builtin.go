@@ -219,7 +219,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 		// If the attributes have not changed, keep the current collector and update the target capture file if needed.
 		if reflect.DeepEqual(previousAttributes, attributes) {
 			if updateCaptureDir {
-				targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
+				targetFile, err := datacapture.NewFile(svc.captureDir, captureMetadata)
 				if err != nil {
 					return nil, err
 				}
@@ -262,7 +262,7 @@ func (svc *builtIn) initializeOrUpdateCollector(
 
 	// Parameters to initialize collector.
 	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
-	targetFile, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
+	targetFile, err := datacapture.NewFile(svc.captureDir, captureMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -305,6 +305,29 @@ func (svc *builtIn) initializeOrUpdateCollector(
 	collector.Collect()
 
 	return &componentMetadata, nil
+}
+
+// getCollectorFromConfig returns the collector and metadata that is referenced based on specific config atrributes
+func (svc *builtIn) getCollectorFromConfig(attributes dataCaptureConfig) (data.Collector, *componentMethodMetadata, error) {
+	// Create component/method metadata to check if the collector exists.
+	metadata := data.MethodMetadata{
+		Subtype:    attributes.Type,
+		MethodName: attributes.Method,
+	}
+
+	componentMetadata := componentMethodMetadata{
+		ComponentName:  attributes.Name,
+		ComponentModel: attributes.Model,
+		MethodParams:   fmt.Sprintf("%v", attributes.AdditionalParams),
+		MethodMetadata: metadata,
+	}
+
+	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
+		collector := storedCollectorParams.Collector
+		return collector, &componentMetadata, nil
+	}
+
+	return nil, nil, errors.Errorf("no collector was found with config %v", attributes)
 }
 
 func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, cfg *config.Config) error {
@@ -380,11 +403,11 @@ func (svc *builtIn) syncDataCaptureFiles() error {
 			return err
 		}
 
-		nextTarget, err := datacapture.CreateDataCaptureFile(svc.captureDir, captureMetadata)
+		nextTarget, err := datacapture.NewFile(svc.captureDir, captureMetadata)
 		if err != nil {
 			return err
 		}
-		oldFiles = append(oldFiles, collector.Collector.GetTarget().Name())
+		oldFiles = append(oldFiles, collector.Collector.GetTarget().GetPath())
 		collector.Collector.SetTarget(nextTarget)
 	}
 	svc.syncer.Sync(oldFiles)
@@ -517,13 +540,22 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	// Initialize or add a collector based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
 	for _, attributes := range allComponentAttributes {
-		if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 {
+		if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 && !svc.captureDisabled {
 			componentMetadata, err := svc.initializeOrUpdateCollector(
 				attributes, updateCaptureDir)
 			if err != nil {
 				svc.logger.Errorw("failed to initialize or update collector", "error", err)
 			} else {
 				newCollectorMetadata[*componentMetadata] = true
+			}
+		} else if attributes.Disabled {
+			// if disabled, make sure that it is closed, so it doesn't keep collecting data.
+			collector, md, err := svc.getCollectorFromConfig(attributes)
+			if err != nil {
+				svc.logger.Errorw("collector ", attributes.Name, " was not found", "info", err)
+			} else {
+				collector.Close()
+				delete(svc.collectors, *md)
 			}
 		}
 	}
@@ -563,6 +595,8 @@ func (svc *builtIn) uploadData(cancelCtx context.Context, intervalMins float64) 
 				if err != nil {
 					svc.logger.Errorw("data capture files failed to sync", "error", err)
 				}
+				// TODO DATA-660: There's a risk of deadlock where we're in this case when Close is called, which
+				//                acquires svc.lock, which prevents this call from ever acquiring the lock/finishing.
 				svc.syncAdditionalSyncPaths()
 			}
 		}

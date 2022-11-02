@@ -42,6 +42,15 @@ type Config struct {
 	TicksPerRotation int       `json:"ticks_per_rotation,omitempty"`
 }
 
+// Validate ensures all parts of the config are valid.
+func (cfg *Config) Validate(path string) ([]string, error) {
+	var deps []string
+	if cfg.BoardName != "" {
+		deps = append(deps, cfg.BoardName)
+	}
+	return deps, nil
+}
+
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, deps registry.Dependencies, config config.Component, logger golog.Logger) (interface{}, error) {
@@ -344,11 +353,11 @@ func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return nil
 }
 
-// IsPowered returns if the motor is pretending to be on or not.
-func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, error) {
+// IsPowered returns if the motor is pretending to be on or not, and its power level.
+func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return math.Abs(m.powerPct) >= 0.005, nil
+	return math.Abs(m.powerPct) >= 0.005, m.powerPct, nil
 }
 
 // IsMoving returns if the motor is pretending to be moving or not.

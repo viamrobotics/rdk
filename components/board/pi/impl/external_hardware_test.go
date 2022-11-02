@@ -184,9 +184,10 @@ func TestPiHardware(t *testing.T) {
 		// 15 rpm is about what we can get from 5v. 2 rotations should take 8 seconds
 		err = motor1.GoFor(ctx, 15, 2, nil)
 		test.That(t, err, test.ShouldBeNil)
-		on, err := motor1.IsPowered(ctx, nil)
+		on, powerPct, err := motor1.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
+		test.That(t, powerPct, test.ShouldEqual, 1.0)
 
 		encA, ok := p.DigitalInterruptByName("a")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -195,7 +196,7 @@ func TestPiHardware(t *testing.T) {
 
 		loops := 0
 		for {
-			on, err := motor1.IsPowered(ctx, nil)
+			on, _, err := motor1.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			if !on {
 				break
@@ -225,9 +226,10 @@ func TestPiHardware(t *testing.T) {
 		err := motor1.GoFor(ctx, -15, 2, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := motor1.IsPowered(ctx, nil)
+		on, powerPct, err := motor1.IsPowered(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
+		test.That(t, powerPct, test.ShouldEqual, 1.0)
 
 		encA, ok := p.DigitalInterruptByName("a")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -236,7 +238,7 @@ func TestPiHardware(t *testing.T) {
 
 		loops := 0
 		for {
-			on, err := motor1.IsPowered(ctx, nil)
+			on, _, err := motor1.IsPowered(ctx, nil)
 			test.That(t, err, test.ShouldBeNil)
 			if !on {
 				break

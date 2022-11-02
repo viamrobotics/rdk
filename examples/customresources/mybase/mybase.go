@@ -103,7 +103,7 @@ func (base *MyBase) Stop(ctx context.Context, extra map[string]interface{}) erro
 
 func (base *MyBase) IsMoving(ctx context.Context) (bool, error) {
 	for _, m := range []motor.Motor{base.left, base.right} {
-		isMoving, err := m.IsPowered(ctx, nil)
+		isMoving, _, err := m.IsPowered(ctx, nil)
 		if err != nil {
 			return false, err
 		}
