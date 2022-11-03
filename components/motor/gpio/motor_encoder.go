@@ -497,7 +497,6 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 }
 
 func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float64) error {
-	m.logger.Debugf("received a goFor with rpm %0.1f, revolutions %0.1f and flip %d", rpm, revolutions, m.flip)
 	m.RPMMonitorStart()
 
 	var d int64 = 1
@@ -530,9 +529,13 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	if err != nil {
 		return err
 	}
-
 	m.state.setPoint = pos + d*numTicks*m.flip
-	m.logger.Debugf("setpoint %d", m.state.setPoint)
+
+	_, rpmDebug := getRPMSleepDebug()
+	if rpmDebug {
+		m.logger.Debugf("received a goFor with rpm %0.1f, revolutions %0.1f and flip %d", rpm, revolutions, m.flip)
+		m.logger.Debugf("setpoint %d", m.state.setPoint)
+	}
 
 	m.state.desiredRPM = rpm
 	m.state.regulated = true
