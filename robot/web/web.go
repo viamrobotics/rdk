@@ -788,13 +788,18 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 					rpc.MakeSimpleMultiAuthHandler(authEntities, apiKeys),
 				))
 			case rutils.CredentialsTypeRobotLocationSecret:
-				secret := handler.Config.String("secret")
-				if secret == "" {
-					return nil, errors.Errorf("%q handler requires non-empty secret", handler.Type)
+				locationSecrets := handler.Config.StringSlice("secrets")
+				if len(locationSecrets) == 0 {
+					secret := handler.Config.String("secret")
+					if secret == "" {
+						return nil, errors.Errorf("%q handler requires non-empty secret", handler.Type)
+					}
+					locationSecrets = []string{secret}
 				}
+
 				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(
 					handler.Type,
-					rpc.MakeSimpleAuthHandler(authEntities, secret),
+					rpc.MakeSimpleMultiAuthHandler(authEntities, locationSecrets),
 				))
 			default:
 				return nil, errors.Errorf("do not know how to handle auth for %q", handler.Type)

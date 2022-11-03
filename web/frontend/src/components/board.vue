@@ -117,7 +117,7 @@ const setPWMFrequency = () => {
       slot="title"
       crumbs="board"
     />
-    <div class="border border-t-0 border-black p-4">
+    <div class="overflow-auto border border-t-0 border-black p-4">
       <h3 class="mb-2">
         Analogs
       </h3>

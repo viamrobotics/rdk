@@ -57,6 +57,9 @@ scene.add(ambientLight);
 const camera = new THREE.PerspectiveCamera(
   75, window.innerWidth / window.innerHeight, 0.01, 2000
 );
+camera.position.set(0.5, 0.5, 1);
+camera.lookAt(0, 0, 0);
+
 const renderer = new THREE.WebGLRenderer({
   powerPreference: 'high-performance',
   antialias: true,
@@ -272,7 +275,6 @@ const update = (cloud: Uint8Array) => {
   const material = new THREE.MeshBasicMaterial();
   const geometry = new THREE.BoxGeometry(0.005, 0.005, 0.005);
   mesh = new THREE.InstancedMesh(geometry, material, count);
-  mesh.position.set(0.01, 0.01, 0.01);
   mesh.name = 'points';
 
   for (let i = 0, j = 0; i < count; i += 1, j += 3) {
@@ -292,9 +294,6 @@ const update = (cloud: Uint8Array) => {
   mesh.instanceMatrix.needsUpdate = true;
 
   scene.add(mesh);
-  camera.position.set(0.5, 0.5, 1);
-  camera.lookAt(0, 0, 0);
-
   transformControls.attach(mesh);
 
   if (cube) {

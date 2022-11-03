@@ -78,9 +78,9 @@ func TestVoxelPlaneSegmentationOnePlane(t *testing.T) {
 }
 
 func TestVoxelPlaneSegmentationCube(t *testing.T) {
-	nPoints := 800000
+	nPoints := 10000
 	pc := GenerateCubeTestData(nPoints)
-	vg := NewVoxelGridFromPointCloud(pc, 0.1, 0.01)
+	vg := NewVoxelGridFromPointCloud(pc, 0.5, 0.01)
 	vg.SegmentPlanesRegionGrowing(0.7, 25, 0.1, 1.0)
 	pcOut, err := vg.ConvertToPointCloudWithValue()
 	test.That(t, err, test.ShouldBeNil)

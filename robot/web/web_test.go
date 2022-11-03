@@ -119,7 +119,7 @@ func TestWebWithAuth(t *testing.T) {
 			options.FQDN = tc.EntityName
 			options.LocalFQDN = primitive.NewObjectID().Hex()
 			apiKey := "sosecret"
-			locationSecret := "locsosecret"
+			locationSecrets := []string{"locsosecret", "locsec2"}
 			options.Auth.Handlers = []config.AuthHandlerConfig{
 				{
 					Type: rpc.CredentialsTypeAPIKey,
@@ -130,7 +130,7 @@ func TestWebWithAuth(t *testing.T) {
 				{
 					Type: rutils.CredentialsTypeRobotLocationSecret,
 					Config: config.AttributeMap{
-						"secret": locationSecret,
+						"secrets": locationSecrets,
 					},
 				},
 			}
@@ -159,7 +159,7 @@ func TestWebWithAuth(t *testing.T) {
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials("wrong", rpc.Credentials{
 						Type:    rutils.CredentialsTypeRobotLocationSecret,
-						Payload: locationSecret,
+						Payload: locationSecrets[0],
 					}),
 				)
 				test.That(t, err, test.ShouldNotBeNil)
@@ -190,7 +190,24 @@ func TestWebWithAuth(t *testing.T) {
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials(entityName, rpc.Credentials{
 						Type:    rutils.CredentialsTypeRobotLocationSecret,
-						Payload: locationSecret,
+						Payload: locationSecrets[0],
+					}),
+				)
+				test.That(t, err, test.ShouldBeNil)
+				arm1 = arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
+
+				arm1Position, err = arm1.EndPosition(ctx, nil)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, arm1Position, test.ShouldResemble, pos)
+
+				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
+				test.That(t, conn.Close(), test.ShouldBeNil)
+
+				conn, err = rgrpc.Dial(context.Background(), addr, logger,
+					rpc.WithAllowInsecureWithCredentialsDowngrade(),
+					rpc.WithEntityCredentials(entityName, rpc.Credentials{
+						Type:    rutils.CredentialsTypeRobotLocationSecret,
+						Payload: locationSecrets[1],
 					}),
 				)
 				test.That(t, err, test.ShouldBeNil)
@@ -225,7 +242,7 @@ func TestWebWithAuth(t *testing.T) {
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithCredentials(rpc.Credentials{
 						Type:    rutils.CredentialsTypeRobotLocationSecret,
-						Payload: locationSecret,
+						Payload: locationSecrets[0],
 					}),
 				)
 				test.That(t, err, test.ShouldBeNil)

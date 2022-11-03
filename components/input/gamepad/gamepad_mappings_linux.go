@@ -217,4 +217,28 @@ var GamepadMappings = map[string]Mapping{
 			316: input.ButtonMenu,
 		},
 	},
+	// Logitech G920/G29 Wheel
+	"Logitech G920 Driving Force Racing Wheel": {
+		Axes: map[evdev.AbsoluteType]input.Control{
+			0:  input.AbsoluteX,
+			1:  input.AbsolutePedalAccelerator,
+			2:  input.AbsolutePedalBrake,
+			5:  input.AbsolutePedalClutch,
+			16: input.AbsoluteHat0X,
+			17: input.AbsoluteHat0Y,
+		},
+		Buttons: map[evdev.KeyType]input.Control{
+			288: input.ButtonSouth,
+			289: input.ButtonEast,
+			291: input.ButtonNorth,
+			290: input.ButtonWest,
+			293: input.ButtonLT,
+			292: input.ButtonRT,
+			295: input.ButtonSelect,
+			294: input.ButtonStart,
+			297: input.ButtonLThumb,
+			296: input.ButtonRThumb,
+			298: input.ButtonMenu,
+		},
+	},
 }
