@@ -39,6 +39,7 @@ type Config struct {
 	Encoder          string    `json:"encoder,omitempty"`
 	MaxRPM           float64   `json:"max_rpm,omitempty"`
 	TicksPerRotation int       `json:"ticks_per_rotation,omitempty"`
+	DirectionFlip    bool      `json:"direction_flip"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -89,6 +90,10 @@ func init() {
 				} else {
 					m.PositionReporting = false
 				}
+				m.DirFlip = 1
+				if mcfg.DirectionFlip {
+					m.DirFlip = -1
+				}
 			}
 			return m, nil
 		},
@@ -119,6 +124,7 @@ type Motor struct {
 	Logger            golog.Logger
 	Encoder           *fakeencoder.Encoder
 	MaxRPM            float64
+	DirFlip           int
 	opMgr             operation.SingleOperationManager
 	TicksPerRotation  int
 	generic.Echo
@@ -181,6 +187,9 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 
 func (m *Motor) setPowerPct(powerPct float64) {
 	m.powerPct = powerPct
+	if m.DirFlip == -1 {
+		m.powerPct *= -1
+	}
 }
 
 // PowerPct returns the set power percentage.
