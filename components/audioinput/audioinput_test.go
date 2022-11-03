@@ -76,7 +76,7 @@ func TestFromDependencies(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	audioData1, _, err := gostream.ReadAudio(context.Background(), res)
+	audioData1, _, err := audioinput.ReadAudio(context.Background(), res, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, audioData, test.ShouldResemble, audioData1)
 	test.That(t, res.Close(context.Background()), test.ShouldBeNil)
@@ -97,7 +97,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	audioData1, _, err := gostream.ReadAudio(context.Background(), res)
+	audioData1, _, err := audioinput.ReadAudio(context.Background(), res, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, audioData, test.ShouldResemble, audioData1)
 	test.That(t, res.Close(context.Background()), test.ShouldBeNil)
@@ -177,7 +177,7 @@ func TestReconfigurableAudioInput(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualaudioInput1.reconfCount, test.ShouldEqual, 0)
 
-	stream, err := reconfaudioInput1.(audioinput.AudioInput).Stream(context.Background())
+	stream, err := reconfaudioInput1.(audioinput.AudioInput).Stream(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	nextImg, _, err := stream.Next(context.Background())
@@ -195,7 +195,7 @@ func TestReconfigurableAudioInput(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, nextImg, test.ShouldResemble, audioData)
 
-	audioData1, _, err := gostream.ReadAudio(context.Background(), reconfaudioInput1.(audioinput.AudioInput))
+	audioData1, _, err := audioinput.ReadAudio(context.Background(), reconfaudioInput1.(audioinput.AudioInput), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, audioData, test.ShouldResemble, audioData1)
 	test.That(t, actualaudioInput1.nextCount, test.ShouldEqual, 1)
@@ -254,7 +254,11 @@ func (ms *mockStream) Close(ctx context.Context) error {
 	return nil
 }
 
-func (m *mock) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.AudioStream, error) {
+func (m *mock) Stream(
+	ctx context.Context,
+	extra map[string]interface{},
+	errHandlers ...gostream.ErrorHandler,
+) (gostream.AudioStream, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return &mockStream{m: m}, nil
@@ -290,7 +294,7 @@ func TestNewAudioInput(t *testing.T) {
 	audioInput1, err := audioinput.NewFromReader(audioSrc, prop.Audio{})
 	test.That(t, err, test.ShouldBeNil)
 
-	audioData1, _, err := gostream.ReadAudio(context.Background(), audioInput1)
+	audioData1, _, err := audioinput.ReadAudio(context.Background(), audioInput1, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, audioData, test.ShouldResemble, audioData1)
 

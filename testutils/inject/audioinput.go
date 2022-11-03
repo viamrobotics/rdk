@@ -16,29 +16,31 @@ type AudioInput struct {
 	DoFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	StreamFunc func(
 		ctx context.Context,
+		extra map[string]interface{},
 		errHandlers ...gostream.ErrorHandler,
 	) (gostream.AudioStream, error)
-	MediaPropertiesFunc func(ctx context.Context) (prop.Audio, error)
+	MediaPropertiesFunc func(ctx context.Context, extra map[string]interface{}) (prop.Audio, error)
 	CloseFunc           func(ctx context.Context) error
 }
 
 // Stream calls the injected Stream or the real version.
 func (ai *AudioInput) Stream(
 	ctx context.Context,
+	extra map[string]interface{},
 	errHandlers ...gostream.ErrorHandler,
 ) (gostream.AudioStream, error) {
 	if ai.StreamFunc == nil {
-		return ai.AudioInput.Stream(ctx, errHandlers...)
+		return ai.AudioInput.Stream(ctx, extra, errHandlers...)
 	}
-	return ai.StreamFunc(ctx, errHandlers...)
+	return ai.StreamFunc(ctx, extra, errHandlers...)
 }
 
 // MediaProperties calls the injected MediaProperties or the real version.
-func (ai *AudioInput) MediaProperties(ctx context.Context) (prop.Audio, error) {
+func (ai *AudioInput) MediaProperties(ctx context.Context, extra map[string]interface{}) (prop.Audio, error) {
 	if ai.MediaPropertiesFunc == nil {
-		return ai.AudioInput.MediaProperties(ctx)
+		return ai.AudioInput.MediaProperties(ctx, extra)
 	}
-	return ai.MediaPropertiesFunc(ctx)
+	return ai.MediaPropertiesFunc(ctx, extra)
 }
 
 // Close calls the injected Close or the real version.
