@@ -483,17 +483,18 @@ func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logge
 	var dataRate int
 	if svcConfig.DataRateMs == 0 {
 		dataRate = defaultDataRateMs
-		logger.Debugf("no data_rate_msec given, setting to default of %d", defaultDataRateMs)
+		logger.Debugf("no data_rate_msec given, setting to default value of %d", defaultDataRateMs)
 	} else {
 		dataRate = svcConfig.DataRateMs
 	}
 
 	var mapRate int
 	if svcConfig.MapRateSec == nil {
-		logger.Debugf("no map_rate_secs given, setting to default of %d", defaultMapRateSec)
+		logger.Debugf("no map_rate_secs given, setting to default value of %d", defaultMapRateSec)
 		mapRate = defaultMapRateSec
 	} else if *svcConfig.MapRateSec == 0 {
 		logger.Info("setting slam system to localization mode")
+		mapRate = 0
 	} else {
 		mapRate = *svcConfig.MapRateSec
 	}
