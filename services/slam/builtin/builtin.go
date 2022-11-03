@@ -452,15 +452,14 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 	if err != nil {
 		return nil, errors.Wrap(err, "runtime slam config error")
 	}
-	var cameraName string
+	cameraName := ""
+	var cam camera.Camera
 	if len(svcConfig.Sensors) > 0 {
 		cameraName = svcConfig.Sensors[0]
-	} else {
-		return nil, errors.Errorf("error getting camera %v for slam service", cameraName)
-	}
-	cam, err := camera.FromDependencies(deps, cameraName)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error getting camera %v for slam service", cameraName)
+		cam, err = camera.FromDependencies(deps, cameraName)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error getting camera %v for slam service", cameraName)
+		}
 	}
 	var depthCam camera.Camera
 	if len(svcConfig.Sensors) > 1 {
