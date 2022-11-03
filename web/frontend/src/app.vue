@@ -5,6 +5,7 @@ import { onMounted } from 'vue';
 import { grpc } from '@improbable-eng/grpc-web';
 import { Duration } from 'google-protobuf/google/protobuf/duration_pb';
 import type { Credentials } from '@viamrobotics/rpc';
+import { ConnectionClosedError } from '@viamrobotics/rpc';
 import { toast } from './lib/toast';
 import { displayError } from './lib/error';
 import { addResizeListeners } from './lib/resize';
@@ -71,21 +72,22 @@ const rawStatus = $ref<Record<string, Status>>({});
 const status = $ref<Record<string, Status>>({});
 const errors = $ref<Record<string, boolean>>({});
 
-let statusStream: ResponseStream<StreamStatusResponse>;
+let statusStream: ResponseStream<StreamStatusResponse> | null = null;
 let baseCameraState = new Map<string, boolean>();
-let lastStatusTS = Date.now();
+let lastStatusTS: number | null = null;
 let disableAuthElements = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
 let currentOps = $ref<{ op: Operation.AsObject, elapsed: number }[]>([]);
 let sensorNames = $ref<ResourceName.AsObject[]>([]);
 let resources = $ref<Resource[]>([]);
+let resourcesOnce = false;
 let errorMessage = $ref('');
 let connectionManager = $ref<{
   statuses: {
     resources: boolean;
     ops: boolean;
   };
-  interval: number;
+  timeout: number;
   stop(): void;
   start(): void;
   isConnected(): boolean;
@@ -221,26 +223,10 @@ const updateStatus = (grpcStatuses: robotApi.Status[]) => {
   }
 };
 
-const checkLastStatus = () => {
-  const checkIntervalMillis = 3000;
-  if (Date.now() - lastStatusTS > checkIntervalMillis) {
-    // eslint-disable-next-line no-use-before-define
-    restartStatusStream();
-    return;
-  }
-  setTimeout(checkLastStatus, checkIntervalMillis);
-};
-
-const restartStatusStream = async () => {
+const restartStatusStream = () => {
   if (statusStream) {
     statusStream.cancel();
-    try {
-      console.log('reconnecting');
-      await window.connect();
-    } catch (error) {
-      console.error('failed to reconnect; retrying:', error);
-      setTimeout(() => restartStatusStream(), 1000);
-    }
+    statusStream = null;
   }
 
   let newResources: Resource[] = [];
@@ -265,26 +251,22 @@ const restartStatusStream = async () => {
   streamReq.setEvery(new Duration().setNanos(500_000_000));
 
   statusStream = window.robotService.streamStatus(streamReq);
-  let firstData = true;
 
   statusStream.on('data', (response) => {
     lastStatusTS = Date.now();
     updateStatus(response.getStatusList());
-    if (firstData) {
-      firstData = false;
-      checkLastStatus();
-    }
   });
 
   statusStream.on('status', (newStatus) => {
     console.log('error streaming robot status');
     console.log(newStatus);
     console.log(newStatus.code, ' ', newStatus.details);
+    statusStream = null;
   });
 
   statusStream.on('end', () => {
     console.log('done streaming robot status');
-    setTimeout(() => restartStatusStream(), 1000);
+    statusStream = null;
   });
 };
 
@@ -292,7 +274,7 @@ const restartStatusStream = async () => {
 const queryMetadata = () => {
   return new Promise((resolve, reject) => {
     let resourcesChanged = false;
-    let shouldRestartStatusStream = false;
+    let shouldRestartStatusStream = !(resourcesOnce && statusStream);
 
     window.robotService.resourceNames(new robotApi.ResourceNamesRequest(), new grpc.Metadata(), (err, resp) => {
       if (err) {
@@ -339,19 +321,20 @@ const queryMetadata = () => {
 
       // @ts-expect-error @TODO type needs to be fixed
       resources = resourcesList;
+      resourcesOnce = true;
       if (resourcesChanged === true) {
         querySensors();
-        if (shouldRestartStatusStream === true) {
-          restartStatusStream();
-        }
+      }
+      if (shouldRestartStatusStream === true) {
+        restartStatusStream();
       }
       resolve(resources);
     });
   });
 };
 
-const loadCurrentOps = () => {
-  return new Promise((resolve, reject) => {
+const fetchCurrentOps = () => {
+  return new Promise<Operation.AsObject[]>((resolve, reject) => {
     const req = new robotApi.GetOperationsRequest();
 
     window.robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
@@ -366,100 +349,133 @@ const loadCurrentOps = () => {
       }
 
       const list = resp.toObject().operationsList;
-      currentOps = [];
-
-      const now = Date.now();
-      for (const op of list) {
-        currentOps.push({
-          op,
-          elapsed: op.started ? now - (op.started.seconds * 1000) : -1,
-        });
-      }
-
-      currentOps.sort((op1, op2) => {
-        if (op1.elapsed === -1 || op2.elapsed === -1) {
-          // move op with null start time to the back of the list
-          return op2.elapsed - op1.elapsed;
-        }
-        return op1.elapsed - op2.elapsed;
-      });
-
-      resolve(currentOps);
+      resolve(list);
     });
   });
 };
 
+const loadCurrentOps = async () => {
+  const list = await fetchCurrentOps();
+  currentOps = [];
+
+  const now = Date.now();
+  for (const op of list) {
+    currentOps.push({
+      op,
+      elapsed: op.started ? now - (op.started.seconds * 1000) : -1,
+    });
+  }
+
+  currentOps.sort((op1, op2) => {
+    if (op1.elapsed === -1 || op2.elapsed === -1) {
+      // move op with null start time to the back of the list
+      return op2.elapsed - op1.elapsed;
+    }
+    return op1.elapsed - op2.elapsed;
+  });
+
+  return currentOps;
+};
+
 const createConnectionManager = () => {
+  lastStatusTS = Date.now();
+  const checkIntervalMillis = 3000;
   const statuses = {
-    resources: true,
-    ops: true,
+    resources: false,
+    ops: false,
   };
 
-  let interval = -1;
+  let timeout = -1;
   let connectionRestablished = false;
 
   const isConnected = () => {
     return (
       statuses.resources &&
-      statuses.ops
+      statuses.ops &&
+      Date.now() - lastStatusTS! <= checkIntervalMillis
     );
   };
 
-  const makeCalls = async () => {
-    const newErrors = [];
-
+  const manageLoop = async () => {
     try {
-      await queryMetadata();
+      const newErrors = [];
 
-      if (!statuses.resources) {
-        connectionRestablished = true;
+      try {
+        await queryMetadata();
+
+        if (!statuses.resources) {
+          connectionRestablished = true;
+        }
+
+        statuses.resources = true;
+      } catch (error) {
+        if (error instanceof ConnectionClosedError) {
+          statuses.resources = false;
+        }
+        newErrors.push(error);
       }
 
-      statuses.resources = true;
-    } catch (error) {
-      statuses.resources = false;
-      newErrors.push(error);
-    }
+      try {
+        await loadCurrentOps();
 
-    try {
-      await loadCurrentOps();
+        if (!statuses.ops) {
+          connectionRestablished = true;
+        }
 
-      if (!statuses.ops) {
-        connectionRestablished = true;
+        statuses.ops = true;
+      } catch (error) {
+        if (error instanceof ConnectionClosedError) {
+          statuses.ops = false;
+        }
+        newErrors.push(error);
       }
 
-      statuses.ops = true;
-    } catch (error) {
-      statuses.ops = false;
-      newErrors.push(error);
-    }
+      if (isConnected()) {
+        if (connectionRestablished) {
+          toast.success('Connection established');
+          connectionRestablished = false;
+        }
 
-    if (isConnected()) {
-      if (connectionRestablished) {
-        toast.success('Connection established');
-        connectionRestablished = false;
+        errorMessage = '';
+        return;
       }
 
-      errorMessage = '';
-      return;
-    }
+      handleCallErrors(statuses, newErrors);
+      errorMessage = 'Connection error, attempting to reconnect ...';
 
-    handleCallErrors(statuses, newErrors);
-    errorMessage = 'Connection error, attempting to reconnect ...';
+      try {
+        console.log('reconnecting');
+
+        // reset status/stream state
+        if (statusStream) {
+          statusStream.cancel();
+          statusStream = null;
+        }
+        resourcesOnce = false;
+
+        await window.connect();
+        await fetchCurrentOps();
+        lastStatusTS = Date.now();
+      } catch (error) {
+        console.error('failed to reconnect; retrying:', error);
+      }
+    } finally {
+      timeout = window.setTimeout(manageLoop, 500);
+    }
   };
 
   const stop = () => {
-    window.clearInterval(interval);
+    window.clearTimeout(timeout);
   };
 
   const start = () => {
     stop();
-    interval = window.setInterval(makeCalls, 500);
+    manageLoop();
   };
 
   return {
     statuses,
-    interval,
+    timeout,
     stop,
     start,
     isConnected,
