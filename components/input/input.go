@@ -131,6 +131,11 @@ const (
 	ButtonMenu   Control = "ButtonMenu"
 	ButtonRecord Control = "ButtonRecord"
 	ButtonEStop  Control = "ButtonEStop"
+
+	// Pedals.
+	AbsolutePedalAccelerator Control = "AbsolutePedalAccelerator"
+	AbsolutePedalBrake       Control = "AbsolutePedalBrake"
+	AbsolutePedalClutch      Control = "AbsolutePedalClutch"
 )
 
 // Event is passed to the registered ControlFunction or returned by State().
