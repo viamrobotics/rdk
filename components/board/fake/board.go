@@ -335,6 +335,11 @@ func (h *I2CHandle) ReadBlockData(ctx context.Context, register byte, numBytes u
 	return nil, errors.New("finish me")
 }
 
+// WriteBlockData writes the given bytes to the i2c channel.
+func (h *I2CHandle) WriteBlockData(ctx context.Context, register byte, numBytes uint8, data []byte) error {
+	return errors.New("finish me")
+}
+
 // Close releases access to the bus.
 func (h *I2CHandle) Close() error {
 	h.bus.mu.Unlock()
