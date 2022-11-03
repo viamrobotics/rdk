@@ -72,9 +72,9 @@ const rawStatus = $ref<Record<string, Status>>({});
 const status = $ref<Record<string, Status>>({});
 const errors = $ref<Record<string, boolean>>({});
 
-let statusStream: ResponseStream<StreamStatusResponse>;
+let statusStream: ResponseStream<StreamStatusResponse> | null = null;
 let baseCameraState = new Map<string, boolean>();
-let lastStatusTS = undefined;
+let lastStatusTS: number | null = null;
 let disableAuthElements = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
 let currentOps = $ref<{ op: Operation.AsObject, elapsed: number }[]>([]);
@@ -87,7 +87,7 @@ let connectionManager = $ref<{
     resources: boolean;
     ops: boolean;
   };
-  interval: number;
+  timeout: number;
   stop(): void;
   start(): void;
   isConnected(): boolean;
@@ -223,10 +223,10 @@ const updateStatus = (grpcStatuses: robotApi.Status[]) => {
   }
 };
 
-const restartStatusStream = async () => {
+const restartStatusStream = () => {
   if (statusStream) {
     statusStream.cancel();
-    statusStream = undefined;
+    statusStream = null;
   }
 
   let newResources: Resource[] = [];
@@ -261,12 +261,12 @@ const restartStatusStream = async () => {
     console.log('error streaming robot status');
     console.log(newStatus);
     console.log(newStatus.code, ' ', newStatus.details);
-    statusStream = undefined;
+    statusStream = null;
   });
 
   statusStream.on('end', () => {
     console.log('done streaming robot status');
-    statusStream = undefined;
+    statusStream = null;
   });
 };
 
@@ -334,7 +334,7 @@ const queryMetadata = () => {
 };
 
 const fetchCurrentOps = () => {
-  return new Promise((resolve, reject) => {
+  return new Promise<Operation.AsObject[]>((resolve, reject) => {
     const req = new robotApi.GetOperationsRequest();
 
     window.robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
@@ -392,7 +392,7 @@ const createConnectionManager = () => {
     return (
       statuses.resources &&
       statuses.ops &&
-      Date.now() - lastStatusTS <= checkIntervalMillis
+      Date.now() - lastStatusTS! <= checkIntervalMillis
     );
   };
 
@@ -430,7 +430,6 @@ const createConnectionManager = () => {
         newErrors.push(error);
       }
 
-
       if (isConnected()) {
         if (connectionRestablished) {
           toast.success('Connection established');
@@ -450,7 +449,7 @@ const createConnectionManager = () => {
         // reset status/stream state
         if (statusStream) {
           statusStream.cancel();
-          statusStream = undefined;
+          statusStream = null;
         }
         resourcesOnce = false;
 
