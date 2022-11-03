@@ -72,7 +72,7 @@ func (s *subtypeServer) Chunks(req *pb.ChunksRequest, server pb.AudioInputServic
 		return err
 	}
 
-	chunkStream, err := audioInput.Stream(server.Context())
+	chunkStream, err := audioInput.Stream(server.Context(), req.Extra.AsMap())
 	if err != nil {
 		return err
 	}
@@ -185,7 +185,7 @@ func (s *subtypeServer) Properties(
 		return nil, err
 	}
 
-	props, err := audioInput.MediaProperties(ctx)
+	props, err := audioInput.MediaProperties(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +215,7 @@ func (s *subtypeServer) Record(
 		return nil, err
 	}
 
-	chunkStream, err := audioInput.Stream(ctx)
+	chunkStream, err := audioInput.Stream(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}

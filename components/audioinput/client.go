@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/audioinput/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
@@ -45,7 +46,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 }
 
 func (c *client) Read(ctx context.Context) (wave.Audio, func(), error) {
-	stream, err := c.Stream(ctx)
+	stream, err := c.Stream(ctx, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -59,13 +60,19 @@ func (c *client) Read(ctx context.Context) (wave.Audio, func(), error) {
 
 func (c *client) Stream(
 	ctx context.Context,
+	extra map[string]interface{},
 	errHandlers ...gostream.ErrorHandler,
 ) (gostream.AudioStream, error) {
 	streamCtx, stream, chunkCh := gostream.NewMediaStreamForChannel[wave.Audio](c.cancelCtx)
 
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
 	chunksClient, err := c.client.Chunks(ctx, &pb.ChunksRequest{
 		Name:         c.name,
 		SampleFormat: pb.SampleFormat_SAMPLE_FORMAT_FLOAT32_INTERLEAVED,
+		Extra:        ext,
 	})
 	if err != nil {
 		return nil, err
@@ -150,9 +157,14 @@ func (c *client) Stream(
 	return stream, nil
 }
 
-func (c *client) MediaProperties(ctx context.Context) (prop.Audio, error) {
+func (c *client) MediaProperties(ctx context.Context, extra map[string]interface{}) (prop.Audio, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return prop.Audio{}, err
+	}
 	resp, err := c.client.Properties(ctx, &pb.PropertiesRequest{
-		Name: c.name,
+		Name:  c.name,
+		Extra: ext,
 	})
 	if err != nil {
 		return prop.Audio{}, err

@@ -60,10 +60,48 @@ func Named(name string) resource.Name {
 
 // An AudioInput represents anything that can capture audio.
 type AudioInput interface {
-	Stream(ctx context.Context, extra map[string]interface{}, errHandlers ...ErrorHandler) (gostream.AudioStream, error)
+	Stream(ctx context.Context, extra map[string]interface{}, errHandlers ...gostream.ErrorHandler) (gostream.AudioStream, error)
+	MediaProperties(ctx context.Context, extra map[string]interface{}) (prop.Audio, error)
 	Close(ctx context.Context) error
-	gostream.AudioPropertyProvider
 	generic.Generic
+}
+
+// ReadAudio returns the next audio chunk from a given AudioInput.
+func ReadAudio(ctx context.Context, source AudioInput, extra map[string]interface{}) (wave.Audio, func(), error) {
+	stream, err := source.Stream(ctx, extra)
+	var zero wave.Audio
+	if err != nil {
+		return zero, nil, err
+	}
+	defer func() {
+		viamutils.UncheckedError(stream.Close(ctx))
+	}()
+	return stream.Next(ctx)
+}
+
+// NewGostreamWrapper wraps an AudioInput within gostream's AudioSource methods.
+func NewGostreamWrapper(ai AudioInput) gostream.AudioSource {
+	return &gostreamWrapper{ai}
+}
+
+// GostreamWrapper turns AudioInput's methods into the methods that fulfills gostream's AudioSource.
+type gostreamWrapper struct {
+	ai AudioInput
+}
+
+// Stream calls the underlying AudioInput Stream.
+func (gw *gostreamWrapper) Stream(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.AudioStream, error) {
+	return gw.ai.Stream(ctx, nil, errHandlers...)
+}
+
+// MediaProperties calls the underlying AudioInput MediaProperties.
+func (gw *gostreamWrapper) MediaProperties(ctx context.Context) (prop.Audio, error) {
+	return gw.ai.MediaProperties(ctx, nil)
+}
+
+// Close calls the underlying AudioInput Close.
+func (gw *gostreamWrapper) Close(ctx context.Context) error {
+	return gw.ai.Close(ctx)
 }
 
 // NewUnimplementedInterfaceError is used when there is a failed interface check.
@@ -178,7 +216,7 @@ func (as *audioSource) Stream(
 	return as.as.Stream(ctx, errHandlers...)
 }
 
-func (as *audioSource) MediaProperties(ctx context.Context) (prop.Audio, error) {
+func (as *audioSource) MediaProperties(ctx context.Context, extra map[string]interface{}) (prop.Audio, error) {
 	return as.prov.MediaProperties(ctx)
 }
 
@@ -209,6 +247,7 @@ func (i *reconfigurableAudioInput) ProxyFor() interface{} {
 
 func (i *reconfigurableAudioInput) Stream(
 	ctx context.Context,
+	extra map[string]interface{},
 	errHandlers ...gostream.ErrorHandler,
 ) (gostream.AudioStream, error) {
 	i.mu.RLock()
@@ -216,6 +255,7 @@ func (i *reconfigurableAudioInput) Stream(
 
 	stream := &reconfigurableAudioStream{
 		i:           i,
+		extra:       extra,
 		errHandlers: errHandlers,
 		cancelCtx:   i.cancelCtx,
 	}
@@ -231,6 +271,7 @@ func (i *reconfigurableAudioInput) Stream(
 type reconfigurableAudioStream struct {
 	mu          sync.Mutex
 	i           *reconfigurableAudioInput
+	extra       map[string]interface{}
 	errHandlers []gostream.ErrorHandler
 	stream      gostream.AudioStream
 	cancelCtx   context.Context
@@ -238,7 +279,7 @@ type reconfigurableAudioStream struct {
 
 func (as *reconfigurableAudioStream) init(ctx context.Context) error {
 	var err error
-	as.stream, err = as.i.actual.Stream(ctx, as.errHandlers...)
+	as.stream, err = as.i.actual.Stream(ctx, as.extra, as.errHandlers...)
 	return err
 }
 
@@ -268,10 +309,10 @@ func (as *reconfigurableAudioStream) Close(ctx context.Context) error {
 	return as.stream.Close(ctx)
 }
 
-func (i *reconfigurableAudioInput) MediaProperties(ctx context.Context) (prop.Audio, error) {
+func (i *reconfigurableAudioInput) MediaProperties(ctx context.Context, extra map[string]interface{}) (prop.Audio, error) {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
-	return i.actual.MediaProperties(ctx)
+	return i.actual.MediaProperties(ctx, extra)
 }
 
 func (i *reconfigurableAudioInput) Close(ctx context.Context) error {

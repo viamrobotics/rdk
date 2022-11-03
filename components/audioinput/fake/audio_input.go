@@ -61,7 +61,7 @@ func init() {
 				Latency:       time.Millisecond * latencyMillis,
 			})
 			input.AudioSource = as
-			return audioinput.NewFromSource(input)
+			return audioinput.NewFromSource(input.AudioSource)
 		}})
 }
 
@@ -83,6 +83,14 @@ const (
 	samplingRate  = 48000
 	channelCount  = 1
 )
+
+func (i *audioInput) Stream(
+	ctx context.Context,
+	extra map[string]interface{},
+	errHandlers ...gostream.ErrorHandler,
+) (gostream.AudioStream, error) {
+	return i.AudioSource.Stream(ctx, errHandlers...)
+}
 
 func (i *audioInput) Read(ctx context.Context) (wave.Audio, func(), error) {
 	select {
@@ -127,7 +135,7 @@ func (i *audioInput) Read(ctx context.Context) (wave.Audio, func(), error) {
 	return chunk, func() {}, nil
 }
 
-func (i *audioInput) MediaProperties(_ context.Context) (prop.Audio, error) {
+func (i *audioInput) MediaProperties(_ context.Context, _ map[string]interface{}) (prop.Audio, error) {
 	return prop.Audio{
 		ChannelCount:  channelCount,
 		SampleRate:    samplingRate,

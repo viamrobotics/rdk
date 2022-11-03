@@ -43,7 +43,11 @@ func TestClient(t *testing.T) {
 	injectAudioInput := &inject.AudioInput{}
 
 	// good audio input
-	injectAudioInput.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.AudioStream, error) {
+	injectAudioInput.StreamFunc = func(
+		ctx context.Context,
+		extra map[string]interface{},
+		errHandlers ...gostream.ErrorHandler,
+	) (gostream.AudioStream, error) {
 		return gostream.NewEmbeddedAudioStreamFromReader(gostream.AudioReaderFunc(func(ctx context.Context) (wave.Audio, func(), error) {
 			return audioData, func() {}, nil
 		})), nil
@@ -55,12 +59,16 @@ func TestClient(t *testing.T) {
 		IsInterleaved: true,
 		Latency:       5,
 	}
-	injectAudioInput.MediaPropertiesFunc = func(ctx context.Context) (prop.Audio, error) {
+	injectAudioInput.MediaPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (prop.Audio, error) {
 		return expectedProps, nil
 	}
 	// bad audio input
 	injectAudioInput2 := &inject.AudioInput{}
-	injectAudioInput2.StreamFunc = func(ctx context.Context, errHandlers ...gostream.ErrorHandler) (gostream.AudioStream, error) {
+	injectAudioInput2.StreamFunc = func(
+		ctx context.Context,
+		extra map[string]interface{},
+		errHandlers ...gostream.ErrorHandler,
+	) (gostream.AudioStream, error) {
 		return nil, errors.New("can't generate stream")
 	}
 
@@ -91,7 +99,7 @@ func TestClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		audioInput1Client := audioinput.NewClientFromConn(context.Background(), conn, testAudioInputName, logger)
-		chunk, _, err := gostream.ReadAudio(context.Background(), audioInput1Client)
+		chunk, _, err := audioinput.ReadAudio(context.Background(), audioInput1Client, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		audioData := wave.NewFloat32Interleaved(chunk.ChunkInfo())
@@ -104,7 +112,7 @@ func TestClient(t *testing.T) {
 
 		test.That(t, chunk, test.ShouldResemble, audioData)
 
-		props, err := audioInput1Client.MediaProperties(context.Background())
+		props, err := audioInput1Client.MediaProperties(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, props, test.ShouldResemble, expectedProps)
 
@@ -125,7 +133,7 @@ func TestClient(t *testing.T) {
 		audioInput2Client, ok := client.(audioinput.AudioInput)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		_, _, err = gostream.ReadAudio(context.Background(), audioInput2Client)
+		_, _, err = audioinput.ReadAudio(context.Background(), audioInput2Client, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate stream")
 

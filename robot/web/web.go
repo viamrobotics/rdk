@@ -176,7 +176,7 @@ func allAudioSourcesToDisplay(theRobot robot.Robot) map[string]gostream.AudioSou
 			continue
 		}
 
-		sources[name] = input
+		sources[name] = audioinput.NewGostreamWrapper(input)
 	}
 
 	return sources
