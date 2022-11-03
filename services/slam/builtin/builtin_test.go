@@ -52,6 +52,7 @@ var (
 	orbslamIntWebcamReleaseImageChan          chan int = make(chan int, 1)
 	orbslamIntSynchronizeCamerasChan          chan int = make(chan int)
 	cartographerIntLidarReleasePointCloudChan chan int = make(chan int, 1)
+	validMapRate                                       = 200
 )
 
 func getNumOrbslamImages(mode slam.Mode) int {
@@ -915,7 +916,7 @@ func TestGetMapAndPosition(t *testing.T) {
 		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
-		MapRateSec:       200,
+		MapRateSec:       &validMapRate,
 		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:4445",
@@ -957,7 +958,7 @@ func TestSLAMProcessSuccess(t *testing.T) {
 		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
-		MapRateSec:       200,
+		MapRateSec:       &validMapRate,
 		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:4445",
@@ -1008,7 +1009,7 @@ func TestSLAMProcessFail(t *testing.T) {
 		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
-		MapRateSec:       200,
+		MapRateSec:       &validMapRate,
 		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:4445",
@@ -1060,7 +1061,7 @@ func TestGRPCConnection(t *testing.T) {
 		Sensors:          []string{"good_color_camera"},
 		ConfigParams:     map[string]string{"mode": "mono", "test_param": "viam"},
 		DataDirectory:    name,
-		MapRateSec:       200,
+		MapRateSec:       &validMapRate,
 		DataRateMs:       validDataRateMS,
 		InputFilePattern: "10:200:1",
 		Port:             "localhost:-1",
