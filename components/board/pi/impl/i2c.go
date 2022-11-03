@@ -90,7 +90,7 @@ func (s *piPigpioI2CHandle) WriteWordData(ctx context.Context, register byte, da
 
 func (s *piPigpioI2CHandle) ReadBlockData(ctx context.Context, register byte, numBytes uint8) ([]byte, error) {
 	if numBytes > 32 { // A limitation from the underlying pigpio.h library
-		return nil, errors.Errorf("Cannot read more than 32 bytes from I2C")
+		return nil, errors.New("Cannot read more than 32 bytes from I2C")
 	}
 
 	data := make([]byte, numBytes)
@@ -104,7 +104,7 @@ func (s *piPigpioI2CHandle) ReadBlockData(ctx context.Context, register byte, nu
 
 func (s *piPigpioI2CHandle) WriteBlockData(ctx context.Context, register byte, numBytes uint8, data []byte) error {
 	if numBytes > 32 { // A limitation from the underlying pigpio.h library
-		return errors.Errorf("Cannot write more than 32 bytes from I2C")
+		return errors.New("Cannot write more than 32 bytes from I2C")
 	}
 
 	response := C.i2cWriteI2CBlockData(
