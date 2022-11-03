@@ -179,7 +179,7 @@ type EncodedMotor struct {
 	// .01 would ramp very slowly, 1 would ramp instantaneously
 	rampRate    float64
 	maxPowerPct float64
-	flip        int64
+	flip        int64 // defaults to 1, becomes -1 if the motor config has a true DirectionFLip bool
 
 	rpmMonitorCalls int64
 	logger          golog.Logger
