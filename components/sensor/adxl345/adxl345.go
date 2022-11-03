@@ -29,15 +29,18 @@ type AttrConfig struct {
 	UseAlternateI2CAddress bool   `json:"use_alternate_i2c_address"`
 }
 
-// Validate ensures all parts of the config are valid.
-func (cfg *AttrConfig) Validate(path string) error {
+// Validate ensures all parts of the config are valid, and then returns the list of things we
+// depend on.
+func (cfg *AttrConfig) Validate(path string) ([]string, error) {
 	if cfg.BoardName == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	if cfg.BusID == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "bus_id")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "bus_id")
 	}
-	return nil
+	var deps []string
+	deps = append(deps, cfg.BoardName)
+	return deps, nil
 }
 
 func init() {
