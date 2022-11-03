@@ -173,7 +173,11 @@ func RuntimeConfigValidation(svcConfig *AttrConfig, logger golog.Logger) (slam.M
 	}
 
 	if svcConfig.DataRateMs != 0 && svcConfig.DataRateMs < minDataRateMs {
-		return "", errors.Errorf("cannot specify data_rate_ms less than %v", minDataRateMs)
+		return "", errors.Errorf("cannot specify data_rate_msec less than %v", minDataRateMs)
+	}
+
+	if svcConfig.MapRateSec != nil && *svcConfig.MapRateSec < 0 {
+		return "", errors.New("cannot specify map_rate_sec less than zero")
 	}
 
 	return slamMode, nil
@@ -249,7 +253,7 @@ type AttrConfig struct {
 	Algorithm        string            `json:"algorithm"`
 	ConfigParams     map[string]string `json:"config_params"`
 	DataRateMs       int               `json:"data_rate_msec"`
-	MapRateSec       int               `json:"map_rate_sec"`
+	MapRateSec       *int              `json:"map_rate_sec"`
 	DataDirectory    string            `json:"data_dir"`
 	InputFilePattern string            `json:"input_file_pattern"`
 	Port             string            `json:"port"`
@@ -501,19 +505,20 @@ func NewBuiltIn(
 	var dataRate int
 	if svcConfig.DataRateMs == 0 {
 		dataRate = defaultDataRateMs
+		logger.Debugf("no data_rate_msec given, setting to default value of %d", defaultDataRateMs)
 	} else {
 		dataRate = svcConfig.DataRateMs
 	}
 
 	var mapRate int
-	if svcConfig.MapRateSec <= 0 {
-		if svcConfig.MapRateSec == -1 {
-			mapRate = 0
-		} else {
-			mapRate = defaultMapRateSec
-		}
+	if svcConfig.MapRateSec == nil {
+		logger.Debugf("no map_rate_secs given, setting to default value of %d", defaultMapRateSec)
+		mapRate = defaultMapRateSec
+	} else if *svcConfig.MapRateSec == 0 {
+		logger.Info("setting slam system to localization mode")
+		mapRate = 0
 	} else {
-		mapRate = svcConfig.MapRateSec
+		mapRate = *svcConfig.MapRateSec
 	}
 
 	camStreams := make([]gostream.VideoStream, 0, len(cams))

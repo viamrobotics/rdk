@@ -134,9 +134,13 @@ var testAuthConfig = AuthConfig{
 }
 
 var testCloudConfig = Cloud{
-	ID:                "some-id",
-	Secret:            "some-secret",
-	LocationSecret:    "other-secret",
+	ID:             "some-id",
+	Secret:         "some-secret",
+	LocationSecret: "other-secret",
+	LocationSecrets: []LocationSecret{
+		{ID: "id1", Secret: "abc1"},
+		{ID: "id2", Secret: "abc2"},
+	},
 	ManagedBy:         "managed-by",
 	FQDN:              "some.fqdn",
 	LocalFQDN:         "local.fqdn",

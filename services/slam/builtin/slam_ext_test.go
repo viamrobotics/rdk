@@ -74,7 +74,7 @@ func TestConfigValidation(t *testing.T) {
 		cfg := getValidConfig(name1)
 		cfg.DataRateMs = 10
 		_, err = builtin.RuntimeConfigValidation(cfg, logger)
-		test.That(t, err, test.ShouldBeError, errors.New("cannot specify data_rate_ms less than 200"))
+		test.That(t, err, test.ShouldBeError, errors.New("cannot specify data_rate_msec less than 200"))
 	})
 }
 

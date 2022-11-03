@@ -1,7 +1,6 @@
 package datasync
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -42,7 +41,7 @@ func (pt *progressTracker) unmark(k string) {
 func (pt *progressTracker) getProgress(f *datacapture.File) (int, error) {
 	progressFilePath := pt.getProgressFilePath(f)
 	//nolint:gosec
-	bs, err := ioutil.ReadFile(progressFilePath)
+	bs, err := os.ReadFile(progressFilePath)
 	if errors.Is(err, os.ErrNotExist) {
 		return 0, pt.createProgressFile(f)
 	}
