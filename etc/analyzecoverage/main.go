@@ -45,7 +45,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}
 	profileDatas := bytes.Split(profileDataAll, []byte("mode: "))
 
-	gitSHA, _ := os.LookupEnv("GITHUB_HEAD_SHA")
+	gitSHA, _ := os.LookupEnv("GITHUB_X_HEAD_SHA")
+	repository, _ := os.LookupEnv("GITHUB_REPOSITORY")
 	var gitHubRunID, gitHubRunNumber, gitHubRunAttempt int64
 	gitHubRunIDStr, ok := os.LookupEnv("GITHUB_RUN_ID")
 	if ok {
@@ -72,11 +73,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		}
 	}
 
-	baseRef, ok := os.LookupEnv("GITHUB_PR_BASE_REF")
+	baseRef, ok := os.LookupEnv("GITHUB_X_PR_BASE_REF")
 	isPullRequest := ok && baseRef != ""
-	baseSha, _ := os.LookupEnv("GITHUB_PR_BASE_SHA")
+	baseSha, _ := os.LookupEnv("GITHUB_X_PR_BASE_SHA")
 
-	branchName, _ := os.LookupEnv("GITHUB_HEAD_REF")
+	branchName, _ := os.LookupEnv("GITHUB_X_HEAD_REF")
 
 	mongoURI, ok := os.LookupEnv("MONGODB_TEST_OUTPUT_URI")
 	if !ok || mongoURI == "" {
@@ -141,6 +142,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 				CreatedAt:           createdAt,
 				GitSHA:              gitSHA,
 				GitBranch:           branchName,
+				GitHubRepository:    repository,
 				GitHubRunID:         gitHubRunID,
 				GitHubRunNumber:     gitHubRunNumber,
 				GitHubRunAttempt:    gitHubRunAttempt,
@@ -173,6 +175,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		CreatedAt:           createdAt,
 		GitSHA:              gitSHA,
 		GitBranch:           branchName,
+		GitHubRepository:    repository,
 		GitHubRunID:         gitHubRunID,
 		GitHubRunNumber:     gitHubRunNumber,
 		GitHubRunAttempt:    gitHubRunAttempt,
@@ -238,13 +241,13 @@ func generateMarkdownOutput(
 	builder.WriteString(fmt.Sprintf("![Code Coverage](%s)\n\n", badgeURL))
 
 	if closestPastResultsErr != nil {
-		builder.WriteString(fmt.Sprintf("*Note: %s*\n", closestPastResultsErr))
+		builder.WriteString(fmt.Sprintf("**Note: %s**\n", closestPastResultsErr))
 	}
 	var canDelta bool
 	if closestPastResults != nil {
 		canDelta = len(closestPastResults.results.packages) != 0
 		if !canDelta {
-			builder.WriteString("*Note: no suitable past coverage found to compare against*\n")
+			builder.WriteString("**Note: no suitable past coverage found to compare against**\n")
 		}
 	}
 
@@ -267,11 +270,18 @@ func generateMarkdownOutput(
 
 	getDelta := func(now, past coverageResult) string {
 		delta := now.LineCoveragePct - past.LineCoveragePct
+		if math.Abs(delta) < 1e-2 {
+			delta = 0
+		}
 		var deltaSign string
 		if !(delta == 0 || math.Signbit(delta)) {
 			deltaSign = "+"
 		}
-		return fmt.Sprintf("%s%.0f%%", deltaSign, delta)
+		deltaStr := fmt.Sprintf("%s%.2f%%", deltaSign, delta)
+		if math.Abs(delta) > 5 {
+			deltaStr = fmt.Sprintf("**%s**", deltaStr)
+		}
+		return deltaStr
 	}
 	for _, pkgName := range pkgNames {
 		result := results.packages[pkgName]
@@ -505,6 +515,7 @@ type coverageResult struct {
 	CreatedAt           time.Time `bson:"created_at"`
 	GitSHA              string    `bson:"git_sha,omitempty"`
 	GitBranch           string    `bson:"git_branch"`
+	GitHubRepository    string    `bson:"github_repository"`
 	GitHubRunID         int64     `bson:"github_run_id,omitempty"`
 	GitHubRunNumber     int64     `bson:"github_run_number,omitempty"`
 	GitHubRunAttempt    int64     `bson:"github_run_attempt,omitempty"`
