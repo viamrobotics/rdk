@@ -486,7 +486,7 @@ func TestGeneralNew(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		grpcServer := setupTestGRPCServer(attrCfg.Port)
 		svc, err := createSLAMService(t, attrCfg, logger, false, true)
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
 
 		grpcServer.Stop()
 		test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
