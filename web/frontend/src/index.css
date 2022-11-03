@@ -3,7 +3,6 @@
 @tailwind utilities;
 
 * {
-  font-family: Space Mono, monospace;
 }
 
 body, table {

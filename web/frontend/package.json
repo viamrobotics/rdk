@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "license": "Apache-2.0",
   "dependencies": {
-    "@fontsource/space-mono": "^4.5.10",
     "@improbable-eng/grpc-web": "^0.13.0",
     "@mdi/js": "^6.9.96",
     "@rollup/plugin-alias": "^4.0.2",
