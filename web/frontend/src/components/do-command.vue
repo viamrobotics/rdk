@@ -5,6 +5,7 @@ import { Struct } from 'google-protobuf/google/protobuf/struct_pb';
 import type { Resource } from '../lib/resource';
 import genericApi from '../gen/proto/api/component/generic/v1/generic_pb.esm';
 import { toast } from '../lib/toast';
+import { resourceNameToString } from '../lib/resource';
 
 interface Props {
   resources: Resource[]
@@ -20,8 +21,11 @@ const output = ref();
 const executing = ref(false);
 
 const doCommand = (name: string, command: string) => {
+  console.log("name is", name, command)
+  if (!name || !command) {
+    return;
+  }
   const request = new genericApi.DoCommandRequest();
-
   request.setName(name);
   request.setCommand(Struct.fromJavaScript(JSON.parse(command)));
 
@@ -44,6 +48,25 @@ const doCommand = (name: string, command: string) => {
     executing.value = false;
   });
 };
+
+const namesToPrettySelect = (resources: Resource[]): string => {
+  let simple = new Map<string, number>();
+
+  for (let resource of resources) {
+    if (!simple[resource.name]) {
+      simple[resource.name] = 0;
+    }
+    simple[resource.name]++;
+  }
+
+  return resources.map(res => {
+    if (simple[res.name] == 1) {
+      return res.name;
+    }
+    return resourceNameToString(res);
+  }).join();
+}
+
 </script>
 
 <template>
@@ -54,8 +77,8 @@ const doCommand = (name: string, command: string) => {
     <div class="h-full w-full border border-t-0 border-black p-4">
       <v-select
         label="Selected Component"
-        placeholder="Null"
-        :options="resources.map(({ name }) => name).join()"
+        placeholder="Select a component"
+        :options="namesToPrettySelect(resources)"
         :value="selectedComponent"
         :disabled="executing ? 'true' : 'false'"
         @input="selectedComponent = $event.detail.value"
