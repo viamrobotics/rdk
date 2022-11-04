@@ -261,8 +261,6 @@ type builtIn struct {
 	slamProcess     pexec.ProcessManager
 	clientAlgo      pb.SLAMServiceClient
 	clientAlgoClose func() error
-	cam             camera.Camera
-	depthCam        camera.Camera
 
 	configParams     map[string]string
 	dataDirectory    string
@@ -287,11 +285,16 @@ type builtIn struct {
 // configureCameras will check the config to see if any cameras are desired and if so, grab the cameras from
 // the robot. We assume there are at most two cameras and that we only require intrinsics from the first one.
 // Returns the name of the first camera.
-func configureCameras(ctx context.Context, svcConfig *AttrConfig, cam camera.Camera,
-	depthCam camera.Camera, logger golog.Logger) ([]camera.Camera, error) {
+func configureCameras(ctx context.Context, svcConfig *AttrConfig, deps registry.Dependencies, logger golog.Logger) (string, []camera.Camera, error) {
 	if len(svcConfig.Sensors) > 0 {
 		logger.Debug("Running in live mode")
 		cams := make([]camera.Camera, 0, len(svcConfig.Sensors))
+		// The first camera is expected to be RGB or LIDAR.
+		cameraName := svcConfig.Sensors[0]
+		cam, err := camera.FromDependencies(deps, cameraName)
+		if err != nil {
+			return "", nil, errors.Wrapf(err, "error getting camera %v for slam service", cameraName)
+		}
 		proj, err := cam.Projector(ctx)
 		if err != nil {
 			if len(svcConfig.Sensors) == 1 {
@@ -299,17 +302,17 @@ func configureCameras(ctx context.Context, svcConfig *AttrConfig, cam camera.Cam
 				// so no error should occur here, just inform the user
 				logger.Debug("No camera features found, user possibly using LiDAR")
 			} else {
-				return nil, errors.Wrap(err,
+				return "", nil, errors.Wrap(err,
 					"Unable to get camera features for first camera, make sure the color camera is listed first")
 			}
 		} else {
 			intrinsics, ok := proj.(*transform.PinholeCameraIntrinsics)
 			if !ok {
-				return nil, transform.NewNoIntrinsicsError("Intrinsics do not exist")
+				return "", nil, transform.NewNoIntrinsicsError("Intrinsics do not exist")
 			}
 			err = intrinsics.CheckValid()
 			if err != nil {
-				return nil, err
+				return "", nil, err
 			}
 		}
 		cams = append(cams, cam)
@@ -318,13 +321,17 @@ func configureCameras(ctx context.Context, svcConfig *AttrConfig, cam camera.Cam
 		if len(svcConfig.Sensors) > 1 {
 			depthCameraName := svcConfig.Sensors[1]
 			logger.Debugf("Two cameras found for slam service, assuming %v is for color and %v is for depth",
-				svcConfig.Sensors[0], depthCameraName)
+				cameraName, depthCameraName)
+			depthCam, err := camera.FromDependencies(deps, depthCameraName)
+			if err != nil {
+				return "", nil, errors.Wrapf(err, "error getting camera %v for slam service", depthCameraName)
+			}
 			cams = append(cams, depthCam)
 		}
 
-		return cams, nil
+		return cameraName, cams, nil
 	}
-	return nil, nil
+	return "", nil, nil
 }
 
 // setupGRPCConnection uses the defined port to create a GRPC client for communicating with the SLAM algorithms.
@@ -448,30 +455,15 @@ func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.S
 	if !ok {
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
+
+	cameraName, cams, err := configureCameras(ctx, svcConfig, deps, logger)
+	if err != nil {
+		return nil, errors.Wrap(err, "configuring camera error")
+	}
+
 	slamMode, err := RuntimeConfigValidation(svcConfig, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "runtime slam config error")
-	}
-	cameraName := ""
-	var cam camera.Camera
-	if len(svcConfig.Sensors) > 0 {
-		cameraName = svcConfig.Sensors[0]
-		cam, err = camera.FromDependencies(deps, cameraName)
-		if err != nil {
-			return nil, errors.Wrapf(err, "error getting camera %v for slam service", cameraName)
-		}
-	}
-	var depthCam camera.Camera
-	if len(svcConfig.Sensors) > 1 {
-		depthCam, err = camera.FromDependencies(deps, svcConfig.Sensors[1])
-		if err != nil {
-			return nil, errors.Wrapf(err, "error getting depth camera %v for slam service", svcConfig.Sensors[1])
-		}
-	}
-
-	cams, err := configureCameras(ctx, svcConfig, cam, depthCam, logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "configuring camera error")
 	}
 
 	var port string

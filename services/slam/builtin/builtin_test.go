@@ -505,7 +505,7 @@ func TestGeneralNew(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		_, err := createSLAMService(t, attrCfg, logger, false, false)
 		test.That(t, err, test.ShouldBeError,
-			errors.New("error getting camera gibberish for slam service: \"gibberish\" missing from dependencies"))
+			errors.New("configuring camera error: error getting camera gibberish for slam service: \"gibberish\" missing from dependencies"))
 
 	})
 
