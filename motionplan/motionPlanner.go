@@ -335,6 +335,7 @@ func getSolutions(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []frame.Input,
 	f frame.Frame,
+	rseed int,
 ) ([]*costNode, error) {
 	// Linter doesn't properly handle loop labels
 	nSolutions := planOpts.MaxSolutions
@@ -358,7 +359,7 @@ func getSolutions(ctx context.Context,
 	// Spawn the IK solver to generate solutions until done
 	utils.PanicCapturingGo(func() {
 		defer close(ikErr)
-		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goalPos, seed, planOpts.metric)
+		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goalPos, seed, planOpts.metric, rseed)
 	})
 
 	solutions := map[float64][]frame.Input{}

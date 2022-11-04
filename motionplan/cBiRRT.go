@@ -28,7 +28,6 @@ const (
 	// Number of iterations to run before beginning to accept randomly seeded locations.
 	defaultIterBeforeRand = 50
 	
-	
 	defaultTimeout = 160.0
 )
 
@@ -184,7 +183,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 
 		// get many potential end goals from IK solver
 		iktime := time.Now()
-		solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame())
+		solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
 		if err != nil {
 			fmt.Println("err", err)
 			solutionChan <- &planReturn{err: err}
@@ -446,7 +445,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	solutionGen := make(chan []referenceframe.Input, 1)
 	// Spawn the IK solver to generate solutions until done
 	nloptCnt++
-	err = mp.fastGradDescent.Solve(ctx, solutionGen, goalPos, target, algOpts.planOpts.pathDist)
+	err = mp.fastGradDescent.Solve(ctx, solutionGen, goalPos, target, algOpts.planOpts.pathDist, mp.randseed.Int())
 	// We should have zero or one solutions
 	var solved []referenceframe.Input
 	descent += time.Since(start)
@@ -499,9 +498,9 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 		}
 		// Pick two random non-adjacent indices, excepting the ends
 		//nolint:gosec
-		j := 2 + rand.Intn(len(inputSteps)-3)
+		j := 2 + mp.randseed.Intn(len(inputSteps)-3)
 		//nolint:gosec
-		i := rand.Intn(j) + 1
+		i := mp.randseed.Intn(j) + 1
 
 		ok, hitCorners := smoothable(inputSteps, i, j, corners)
 		if !ok {

@@ -70,7 +70,7 @@ func (mp *rrtConnectMotionPlanner) planRunner(ctx context.Context,
 	algOpts := newRRTOptions(planOpts)
 
 	// get many potential end goals from IK solver
-	solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame())
+	solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
 	if err != nil {
 		solutionChan <- &planReturn{err: err}
 		return

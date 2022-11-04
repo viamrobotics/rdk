@@ -122,7 +122,7 @@ func (mp *rrtStarConnectMotionPlanner) planRunner(ctx context.Context,
 	}
 
 	// get many potential end goals from IK solver
-	solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame())
+	solutions, err := getSolutions(ctx, planOpts, mp.solver, goal, seed, mp.Frame(), mp.randseed.Int())
 	if err != nil {
 		solutionChan <- &planReturn{err: err}
 		return

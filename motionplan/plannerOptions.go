@@ -163,7 +163,6 @@ func plannerSetupFromMoveRequest(
 		try2["motion_profile"] = "pseudolinear"
 		try2["plan_iter"] = fbIter
 		try2["timeout"] = 1.0
-		try2["threshold"] = 0.4
 		try2Opt, err := plannerSetupFromMoveRequest(from, to, f, fs, seedMap, worldState, try2)
 		if err != nil {
 			return nil, err
