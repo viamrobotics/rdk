@@ -36,19 +36,21 @@ func TestServer(t *testing.T) {
 	var gripperOpen string
 
 	success1 := true
-	injectGripper.OpenFunc = func(ctx context.Context) error {
+	injectGripper.OpenFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		gripperOpen = testGripperName
 		return nil
 	}
-	injectGripper.GrabFunc = func(ctx context.Context) (bool, error) { return success1, nil }
-	injectGripper.StopFunc = func(ctx context.Context) error { return nil }
+	injectGripper.GrabFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) { return success1, nil }
+	injectGripper.StopFunc = func(ctx context.Context, extra map[string]interface{}) error { return nil }
 
-	injectGripper2.OpenFunc = func(ctx context.Context) error {
+	injectGripper2.OpenFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		gripperOpen = testGripperName2
 		return errors.New("can't open")
 	}
-	injectGripper2.GrabFunc = func(ctx context.Context) (bool, error) { return false, errors.New("can't grab") }
-	injectGripper2.StopFunc = func(ctx context.Context) error {
+	injectGripper2.GrabFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+		return false, errors.New("can't grab")
+	}
+	injectGripper2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return gripper.ErrStopUnimplemented
 	}
 

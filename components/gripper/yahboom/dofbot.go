@@ -83,19 +83,19 @@ type dofGripper struct {
 	opMgr operation.SingleOperationManager
 }
 
-func (g *dofGripper) Open(ctx context.Context) error {
+func (g *dofGripper) Open(ctx context.Context, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 	return g.dofArm.Open(ctx)
 }
 
-func (g *dofGripper) Grab(ctx context.Context) (bool, error) {
+func (g *dofGripper) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 	return g.dofArm.Grab(ctx)
 }
 
-func (g *dofGripper) Stop(ctx context.Context) error {
+func (g *dofGripper) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// RSDK-388: Implement Stop for gripper
 	ctx, done := g.opMgr.New(ctx)
 	defer done()

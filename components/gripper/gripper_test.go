@@ -64,7 +64,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	result, err := res.Grab(context.Background())
+	result, err := res.Grab(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, grabbed)
 
@@ -222,7 +222,7 @@ func TestReconfigurableGripper(t *testing.T) {
 
 	test.That(t, actualGripper1.grabCount, test.ShouldEqual, 0)
 	test.That(t, actualGripper2.grabCount, test.ShouldEqual, 0)
-	result, err := reconfGripper1.(gripper.Gripper).Grab(context.Background())
+	result, err := reconfGripper1.(gripper.Gripper).Grab(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, grabbed)
 	test.That(t, actualGripper1.grabCount, test.ShouldEqual, 0)
@@ -262,7 +262,7 @@ func TestStop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualGripper1.stopCount, test.ShouldEqual, 0)
-	test.That(t, reconfGripper1.(gripper.Gripper).Stop(context.Background()), test.ShouldBeNil)
+	test.That(t, reconfGripper1.(gripper.Gripper).Stop(context.Background(), map[string]interface{}{}), test.ShouldBeNil)
 	test.That(t, actualGripper1.stopCount, test.ShouldEqual, 1)
 }
 
@@ -284,12 +284,12 @@ type mockLocal struct {
 	reconfCount int
 }
 
-func (m *mockLocal) Grab(ctx context.Context) (bool, error) {
+func (m *mockLocal) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	m.grabCount++
 	return grabbed, nil
 }
 
-func (m *mockLocal) Stop(ctx context.Context) error {
+func (m *mockLocal) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.stopCount++
 	return nil
 }
