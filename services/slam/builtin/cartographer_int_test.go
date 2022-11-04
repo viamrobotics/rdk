@@ -2,7 +2,6 @@ package builtin_test
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -121,7 +120,6 @@ func TestCartographerIntegration(t *testing.T) {
 	files, err = ioutil.ReadDir(name + "/map/")
 	test.That(t, err, test.ShouldBeNil)
 	for _, file := range files {
-		fmt.Println("deleting file: ", file)
 		test.That(t, os.Remove(name+"/map/"+file.Name()), test.ShouldBeNil)
 	}
 
