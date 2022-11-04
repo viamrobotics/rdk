@@ -1,6 +1,6 @@
 module go.viam.com/rdk
 
-go 1.18
+go 1.19
 
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
@@ -71,10 +71,10 @@ require (
 	go.uber.org/atomic v1.10.0
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.23.0
-	go.viam.com/api v0.1.4
+	go.viam.com/api v0.1.5-0.20221104220238-fa20e43bb186
 	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
 	go.viam.com/test v1.1.1-0.20220909204145-f61b7c01c33e
-	go.viam.com/utils v0.1.3-0.20221104183111-b76f756ce25c
+	go.viam.com/utils v0.1.3-0.20221104221342-270a72ceb090
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
 	golang.org/x/tools v0.1.12

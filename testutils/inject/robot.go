@@ -22,6 +22,7 @@ import (
 // Robot is an injected robot.
 type Robot struct {
 	robot.LocalRobot
+	Mu                      sync.RWMutex // Ugly, has to be manually locked if a test means to swap funcs on an in-use robot.
 	DiscoverComponentsFunc  func(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error)
 	RemoteByNameFunc        func(name string) (robot.Robot, bool)
 	ResourceByNameFunc      func(name resource.Name) (interface{}, error)
@@ -67,6 +68,8 @@ func (r *Robot) MockResourcesFromMap(rs map[resource.Name]interface{}) {
 
 // RemoteByName calls the injected RemoteByName or the real version.
 func (r *Robot) RemoteByName(name string) (robot.Robot, bool) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
 	if r.RemoteByNameFunc == nil {
 		return r.LocalRobot.RemoteByName(name)
 	}
@@ -75,6 +78,8 @@ func (r *Robot) RemoteByName(name string) (robot.Robot, bool) {
 
 // ResourceByName calls the injected ResourceByName or the real version.
 func (r *Robot) ResourceByName(name resource.Name) (interface{}, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
 	if r.ResourceByNameFunc == nil {
 		return r.LocalRobot.ResourceByName(name)
 	}
@@ -83,6 +88,8 @@ func (r *Robot) ResourceByName(name resource.Name) (interface{}, error) {
 
 // RemoteNames calls the injected RemoteNames or the real version.
 func (r *Robot) RemoteNames() []string {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
 	if r.RemoteNamesFunc == nil {
 		return r.LocalRobot.RemoteNames()
 	}
@@ -91,6 +98,8 @@ func (r *Robot) RemoteNames() []string {
 
 // ResourceNames calls the injected ResourceNames or the real version.
 func (r *Robot) ResourceNames() []resource.Name {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
 	if r.ResourceNamesFunc == nil {
 		return r.LocalRobot.ResourceNames()
 	}
@@ -99,6 +108,8 @@ func (r *Robot) ResourceNames() []resource.Name {
 
 // ResourceRPCSubtypes returns a list of all known resource RPC subtypes.
 func (r *Robot) ResourceRPCSubtypes() []resource.RPCSubtype {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
 	if r.ResourceRPCSubtypesFunc == nil {
 		return r.LocalRobot.ResourceRPCSubtypes()
 	}
@@ -107,6 +118,8 @@ func (r *Robot) ResourceRPCSubtypes() []resource.RPCSubtype {
 
 // ProcessManager calls the injected ProcessManager or the real version.
 func (r *Robot) ProcessManager() pexec.ProcessManager {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
 	if r.ProcessManagerFunc == nil {
 		return r.LocalRobot.ProcessManager()
 	}
@@ -115,6 +128,8 @@ func (r *Robot) ProcessManager() pexec.ProcessManager {
 
 // OperationManager calls the injected OperationManager or the real version.
 func (r *Robot) OperationManager() *operation.Manager {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
 	r.opsLock.Lock()
 	defer r.opsLock.Unlock()
 
@@ -126,6 +141,8 @@ func (r *Robot) OperationManager() *operation.Manager {
 
 // Config calls the injected Config or the real version.
 func (r *Robot) Config(ctx context.Context) (*config.Config, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
 	if r.ConfigFunc == nil {
 		return r.LocalRobot.Config(ctx)
 	}
@@ -134,6 +151,8 @@ func (r *Robot) Config(ctx context.Context) (*config.Config, error) {
 
 // Logger calls the injected Logger or the real version.
 func (r *Robot) Logger() golog.Logger {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
 	if r.LoggerFunc == nil {
 		return r.LocalRobot.Logger()
 	}
@@ -142,6 +161,8 @@ func (r *Robot) Logger() golog.Logger {
 
 // Close calls the injected Close or the real version.
 func (r *Robot) Close(ctx context.Context) error {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
 	if r.CloseFunc == nil {
 		return utils.TryClose(ctx, r.LocalRobot)
 	}
@@ -150,6 +171,8 @@ func (r *Robot) Close(ctx context.Context) error {
 
 // StopAll calls the injected StopAll or the real version.
 func (r *Robot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
 	if r.StopAllFunc == nil {
 		return r.LocalRobot.StopAll(ctx, extra)
 	}
@@ -158,6 +181,8 @@ func (r *Robot) StopAll(ctx context.Context, extra map[resource.Name]map[string]
 
 // Refresh calls the injected Refresh or the real version.
 func (r *Robot) Refresh(ctx context.Context) error {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
 	if r.RefreshFunc == nil {
 		if refresher, ok := r.LocalRobot.(robot.Refresher); ok {
 			return refresher.Refresh(ctx)
@@ -169,6 +194,8 @@ func (r *Robot) Refresh(ctx context.Context) error {
 
 // DiscoverComponents call the injected DiscoverComponents or the real one.
 func (r *Robot) DiscoverComponents(ctx context.Context, keys []discovery.Query) ([]discovery.Discovery, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
 	if r.DiscoverComponentsFunc == nil {
 		return r.LocalRobot.DiscoverComponents(ctx, keys)
 	}
@@ -177,6 +204,8 @@ func (r *Robot) DiscoverComponents(ctx context.Context, keys []discovery.Query) 
 
 // FrameSystemConfig calls the injected FrameSystemConfig or the real version.
 func (r *Robot) FrameSystemConfig(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystemparts.Parts, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
 	if r.FrameSystemConfigFunc == nil {
 		return r.LocalRobot.FrameSystemConfig(ctx, additionalTransforms)
 	}
@@ -191,6 +220,8 @@ func (r *Robot) TransformPose(
 	dst string,
 	additionalTransforms []*commonpb.Transform,
 ) (*referenceframe.PoseInFrame, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
 	if r.TransformPoseFunc == nil {
 		return r.LocalRobot.TransformPose(ctx, pose, dst, additionalTransforms)
 	}
@@ -199,6 +230,8 @@ func (r *Robot) TransformPose(
 
 // Status call the injected Status or the real one.
 func (r *Robot) Status(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
 	if r.StatusFunc == nil {
 		return r.LocalRobot.Status(ctx, resourceNames)
 	}

@@ -32,12 +32,10 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		return errors.Wrapf(err, "error creating destination directories")
 	}
 
-	skip := int64(0)
 	for {
 		resp, err := c.dataClient.BinaryDataByFilter(context.Background(), &datapb.BinaryDataByFilterRequest{
 			DataRequest: &datapb.DataRequest{
 				Filter: filter,
-				Skip:   skip,
 				Limit:  1,
 			},
 			IncludeBinary: true,
@@ -90,7 +88,6 @@ func (c *AppClient) BinaryData(dst string, filter *datapb.Filter) error {
 		if err := r.Close(); err != nil {
 			return err
 		}
-		skip++
 	}
 
 	return nil
