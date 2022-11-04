@@ -178,7 +178,7 @@ func (ms *builtIn) GetPose(
 	return ms.r.TransformPose(
 		ctx,
 		referenceframe.NewPoseInFrame(
-			componentName.Name,
+			componentName.ShortName(),
 			spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
 		),
 		destinationFrame,
