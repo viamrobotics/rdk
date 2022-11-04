@@ -113,6 +113,8 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		t.FailNow()
 	}
 
+	mapRate := 1
+
 	attrCfg := &builtin.AttrConfig{
 		Algorithm: "orbslamv3",
 		Sensors:   sensors,
@@ -128,7 +130,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 		DataDirectory: name,
 		// Even though we don't use the maps saved in this run, indicate in the config that
 		// we want to save maps because the same yaml config gets used for the next run.
-		MapRateSec: 1,
+		MapRateSec: &mapRate,
 	}
 
 	// Release camera image(s) for service validation
@@ -187,6 +189,8 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	// Test offline mode using the config and data generated in the online test
 	t.Log("Testing offline mode")
 
+	mapRate = 1
+
 	attrCfg = &builtin.AttrConfig{
 		Algorithm: "orbslamv3",
 		Sensors:   []string{},
@@ -200,7 +204,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 			"debug":             "true",
 		},
 		DataDirectory: name,
-		MapRateSec:    1,
+		MapRateSec:    &mapRate,
 	}
 
 	// Create slam service using a real orbslam binary
@@ -241,6 +245,8 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 	// Test online mode using the map generated in the offline test
 	t.Log("Testing online mode with saved map")
 
+	mapRate = 9999
+
 	attrCfg = &builtin.AttrConfig{
 		Algorithm: "orbslamv3",
 		Sensors:   sensors,
@@ -254,7 +260,7 @@ func integrationTestHelper(t *testing.T, mode slam.Mode) {
 			"debug":             "true",
 		},
 		DataDirectory: name,
-		MapRateSec:    -1,
+		MapRateSec:    &mapRate,
 	}
 
 	// Release camera image(s) for service validation

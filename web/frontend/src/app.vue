@@ -25,7 +25,7 @@ import {
   filterResources,
   filterNonRemoteResources,
   filterRdkComponentsWithStatus,
-  filterResourcesWithNames,
+  filterComponentsWithNames,
   type Resource,
 } from './lib/resource';
 
@@ -822,7 +822,7 @@ onMounted(async () => {
     />
 
     <!-- ******* DO ******* -->
-    <DoCommand :resources="filterResourcesWithNames(resources)" />
+    <DoCommand :resources="filterComponentsWithNames(resources)" />
 
     <!-- ******* CURRENT OPERATIONS ******* -->
     <CurrentOperations
