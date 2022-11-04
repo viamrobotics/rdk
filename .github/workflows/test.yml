@@ -9,7 +9,6 @@ on:
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
-  GOOGLE_APPLICATION_CREDENTIALS_FILENAME: "google-credentials.json"
   MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
 jobs:
@@ -79,7 +78,7 @@ jobs:
     - name: Test
       if: matrix.platform == 'linux/amd64'
       run: |
-        sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS,MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -u testbot bash -lc 'make cover test-web'
+        sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -u testbot bash -lc 'make cover test-web'
 
     # Now that RDK is public, can't directly comment without token having full read/write access
     # pullrequestcomment.yml will trigger seperately and post the actual comments
@@ -170,7 +169,7 @@ jobs:
       - name: Run e2e Tests
         run: |
           chown -R testbot .
-          sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS -u testbot bash -lc 'make build-web test-e2e'
+          sudo -u testbot bash -lc 'make build-web test-e2e'
 
   test_integration:
     name: Integration Tests Passing
@@ -200,4 +199,4 @@ jobs:
 
     - name: Run integration tests
       run: |
-        sudo --preserve-env=GOOGLE_APPLICATION_CREDENTIALS -u testbot bash -lc 'export APPIMAGE_EXTRACT_AND_RUN=1 && make test-integration'
+        sudo -u testbot bash -lc 'export APPIMAGE_EXTRACT_AND_RUN=1 && make test-integration'
