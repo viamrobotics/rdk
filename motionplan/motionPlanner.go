@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -183,6 +184,7 @@ func PlanWaypoints(ctx context.Context,
 	if len(dst) == 0 {
 		return nil, errors.New("no destinations passed to PlanWaypoints")
 	}
+	fmt.Println(seedMap, dst, f, worldState, planningOpts)
 
 	return solvableFS.SolveWaypointsWithOptions(ctx, seedMap, dst, f.Name(), worldState, planningOpts)
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"fmt"
 
 	commonpb "go.viam.com/api/common/v1"
 
@@ -90,6 +91,16 @@ func plannerSetupFromMoveRequest(
 		}
 	}
 
+	// convert map to json, then to a struct, overwriting present defaults
+	jsonString, err := json.Marshal(planningOpts)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(jsonString, opt)
+	if err != nil {
+		return nil, err
+	}
+
 	switch motionProfile {
 	case LinearMotionProfile:
 		// Linear constraints
@@ -129,16 +140,52 @@ func plannerSetupFromMoveRequest(
 	default:
 		// TODO(pl): once RRT* is workable, use here. Also, update to try pseudolinear first, and fall back to orientation, then to free
 		// if unsuccessful
-	}
-
-	// convert map to json, then to a struct, overwriting present defaults
-	jsonString, err := json.Marshal(planningOpts)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(jsonString, opt)
-	if err != nil {
-		return nil, err
+		
+		// set up deep copy for fallback
+		try1 := deepIshCopyMap(planningOpts)
+		try1["motion_profile"] = "linear"
+		fbIter, ok := planningOpts["fallback_iter"].(float64)
+		fmt.Println(planningOpts, fbIter)
+		if !ok {
+			// Default
+			fbIter = 200
+		}
+		
+		
+		try1["plan_iter"] = fbIter
+		try1["timeout"] = 2.0
+		//~ try1Opt, err := plannerSetupFromMoveRequest(from, to, f, fs, seedMap, worldState, try1)
+		//~ if err != nil {
+			//~ return nil, err
+		//~ }
+		
+		try2 := deepIshCopyMap(planningOpts)
+		try2["motion_profile"] = "pseudolinear"
+		try2["plan_iter"] = fbIter
+		try2["timeout"] = 1.0
+		try2["threshold"] = 0.4
+		try2Opt, err := plannerSetupFromMoveRequest(from, to, f, fs, seedMap, worldState, try2)
+		if err != nil {
+			return nil, err
+		}
+		
+		try3 := deepIshCopyMap(planningOpts)
+		try3["motion_profile"] = "orientation"
+		try3["plan_iter"] = fbIter
+		try3["timeout"] = 2.0
+		try3Opt, err := plannerSetupFromMoveRequest(from, to, f, fs, seedMap, worldState, try3)
+		if err != nil {
+			return nil, err
+		}
+		
+		
+		
+		//~ try1Opt.Fallback = opt
+		//~ try1Opt.Fallback = try2Opt
+		try2Opt.Fallback = opt
+		//~ try2Opt.Fallback = try3Opt
+		try3Opt.Fallback = opt
+		opt = try2Opt
 	}
 	return opt, nil
 }
@@ -182,6 +229,8 @@ type PlannerOptions struct {
 	// Function to use to measure distance between two inputs
 	// TODO(rb): this should really become a Metric once we change the way the constraint system works, its awkward to return 2 values here
 	DistanceFunc Constraint
+	
+	Fallback *PlannerOptions
 }
 
 // SetMetric sets the distance metric for the solver.
@@ -202,4 +251,13 @@ func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
 // SetMinScore specifies the IK stopping score for the planner.
 func (p *PlannerOptions) SetMinScore(minScore float64) {
 	p.MinScore = minScore
+}
+
+// Copy any atomic values
+func deepIshCopyMap(opt map[string]interface{}) map[string]interface{} {
+	optCopy := map[string]interface{}{}
+	for k, v := range opt {
+		optCopy[k] = v
+	}
+	return optCopy
 }

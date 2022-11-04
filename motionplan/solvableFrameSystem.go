@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"runtime"
 
 	"github.com/edaniels/golog"
@@ -279,14 +280,22 @@ func (sf *solverFrame) planSingleWaypoint(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	
 
 	// Build planner
 	var planner MotionPlanner
-	if sf.fss.mpFunc != nil {
-		planner, err = sf.fss.mpFunc(sf, runtime.NumCPU()/2, sf.fss.logger)
-	} else {
+	//~ if sf.fss.mpFunc != nil {
+		//~ planner, err = sf.fss.mpFunc(sf, runtime.NumCPU()/2, sf.fss.logger)
+	//~ } else {
+	
+	if seed, ok := motionConfig["rseed"].(int); ok {
+		fmt.Println("seeding")
+		planner, err = NewCBiRRTMotionPlannerWithSeed(sf, runtime.NumCPU()/2, rand.New(rand.NewSource(int64(seed))), sf.fss.logger)
+	}else{
+		print("not ok", motionConfig["rseed"])
 		planner, err = NewCBiRRTMotionPlanner(sf, runtime.NumCPU()/2, sf.fss.logger)
 	}
+	//~ }
 	if err != nil {
 		return nil, err
 	}

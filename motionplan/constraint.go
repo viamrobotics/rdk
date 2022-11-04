@@ -4,6 +4,8 @@ import (
 	"errors"
 	"math"
 	"strconv"
+	"time"
+	//~ "sync"
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
@@ -22,6 +24,18 @@ type ConstraintInput struct {
 	EndInput   []referenceframe.Input
 	Frame      referenceframe.Frame
 }
+
+var rt = map[string]time.Duration{
+	"makegeom1": time.Duration(0),
+	"makegeom2": time.Duration(0),
+	"makesys": time.Duration(0),
+	"collide": time.Duration(0),
+	"cginit": time.Duration(0),
+	"cg0": time.Duration(0),
+	"cg1": time.Duration(0),
+	"cg2": time.Duration(0),
+}
+//~ var mu sync.Mutex
 
 // Constraint defines functions able to determine whether or not a given position is valid.
 // TODO (pl): Determine how Gradient should fit into this
@@ -113,9 +127,20 @@ func (c *constraintHandler) Constraints() []string {
 // CheckConstraints will check a given input against all constraints.
 func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, float64) {
 	score := 0.
+	//~ mu.Lock()
+	//~ defer mu.Unlock()
+	
+	for name, cFunc := range c.constraints {
+		_ = name
+		
 
-	for _, cFunc := range c.constraints {
+		
+		//~ if _, ok := rt[name]; !ok {
+			//~ rt[name] = time.Duration(0)
+		//~ }
+		//~ start := time.Now()
 		pass, cScore := cFunc(cInput)
+		//~ rt[name] += time.Since(start)
 		if !pass {
 			return false, math.Inf(1)
 		}
@@ -153,19 +178,31 @@ func NewCollisionConstraint(
 	}
 
 	constraint := func(cInput *ConstraintInput) (bool, float64) {
+			//~ mu.Lock()
+		//~ defer mu.Unlock()
+		//~ start := time.Now()
 		internal, err := cInput.Frame.Geometries(cInput.StartInput)
+		//~ rt["makegeom1"] += time.Since(start)
 		if err != nil && internal == nil {
 			return false, 0
 		}
+		//~ start = time.Now()
 		internalEntities, err := NewObjectCollisionEntities(internal.Geometries())
+		//~ rt["makegeom2"] += time.Since(start)
 		if err != nil {
 			return false, 0
 		}
+		
+		//~ start = time.Now()
 		cg, err := NewCollisionSystemFromReference(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities}, zeroCG)
+		//~ rt["makesys"] += time.Since(start)
 		if err != nil {
 			return false, 0
 		}
+		
+		//~ start = time.Now()
 		collisions := cg.Collisions()
+		//~ rt["collide"] += time.Since(start)
 		if len(collisions) > 0 {
 			return false, 0
 		}

@@ -3,6 +3,8 @@ package motionplan
 import (
 	"fmt"
 	"math"
+	//~ "time"
+	//~ "strconv"
 
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -239,13 +241,17 @@ func NewCollisionSystemFromReference(
 	reference *CollisionSystem,
 ) (*CollisionSystem, error) {
 	cs := &CollisionSystem{make([]*collisionGraph, 0)}
+	//~ start := time.Now()
 	graph, err := newCollisionGraph(key, key, reference)
+	//~ rt["cginit"] += time.Since(start)
 	if err != nil {
 		return nil, err
 	}
 	cs.graphs = append(cs.graphs, graph)
 	for i := range optional {
+		//~ start = time.Now()
 		graph, err = newCollisionGraph(key, optional[i], reference)
+		//~ rt["cg"+ strconv.Itoa(i)] += time.Since(start)
 		if err != nil {
 			return nil, err
 		}

@@ -199,14 +199,14 @@ func boxVsBoxCollision(a, b *box) bool {
 	rmA := a.pose.Orientation().RotationMatrix()
 	rmB := b.pose.Orientation().RotationMatrix()
 	for i := 0; i < 3; i++ {
-		if separatingAxisTest(positionDelta, rmA.Row(i), a, b) > 0 {
+		if separatingAxisTest(positionDelta, rmA.Row(i), a, b, rmA, rmB) > 0 {
 			return false
 		}
-		if separatingAxisTest(positionDelta, rmB.Row(i), a, b) > 0 {
+		if separatingAxisTest(positionDelta, rmB.Row(i), a, b, rmA, rmB) > 0 {
 			return false
 		}
 		for j := 0; j < 3; j++ {
-			if separatingAxisTest(positionDelta, rmA.Row(i).Cross(rmB.Row(j)), a, b) > 0 {
+			if separatingAxisTest(positionDelta, rmA.Row(i).Cross(rmB.Row(j)), a, b, rmA, rmB) > 0 {
 				return false
 			}
 		}
@@ -225,6 +225,20 @@ func boxVsBoxCollision(a, b *box) bool {
 //
 //	https://dyn4j.org/2010/01/sat/#sat-nointer
 func boxVsBoxDistance(a, b *box) float64 {
+	
+	centerDist := b.pose.Point().Sub(a.pose.Point()).Norm()
+	
+	diagDist := math.Sqrt(
+		a.halfSize[0] * a.halfSize[0] +
+		a.halfSize[1] * a.halfSize[1] +
+		a.halfSize[2] * a.halfSize[2]) + math.Sqrt(
+		b.halfSize[0] * b.halfSize[0] +
+		b.halfSize[1] * b.halfSize[1] +
+		b.halfSize[2] * b.halfSize[2])
+	if centerDist > diagDist {
+		return centerDist - diagDist
+	}
+	
 	positionDelta := PoseDelta(a.pose, b.pose).Point()
 	rmA := a.pose.Orientation().RotationMatrix()
 	rmB := b.pose.Orientation().RotationMatrix()
@@ -233,13 +247,13 @@ func boxVsBoxDistance(a, b *box) float64 {
 	max := math.Inf(-1)
 	for i := 0; i < 3; i++ {
 		// project onto face of box A
-		separation := separatingAxisTest(positionDelta, rmA.Row(i), a, b)
+		separation := separatingAxisTest(positionDelta, rmA.Row(i), a, b, rmA, rmB)
 		if separation > max {
 			max = separation
 		}
 
 		// project onto face of box B
-		separation = separatingAxisTest(positionDelta, rmB.Row(i), a, b)
+		separation = separatingAxisTest(positionDelta, rmB.Row(i), a, b, rmA, rmB)
 		if separation > max {
 			max = separation
 		}
@@ -250,7 +264,7 @@ func boxVsBoxDistance(a, b *box) float64 {
 
 			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
 			if crossProductPlane.Norm() != 0 {
-				separation = separatingAxisTest(positionDelta, crossProductPlane, a, b)
+				separation = separatingAxisTest(positionDelta, crossProductPlane, a, b, rmA, rmB)
 				if separation > max {
 					max = separation
 				}
@@ -288,9 +302,9 @@ func boxInSphere(b *box, s *sphere) bool {
 //	https://gamedev.stackexchange.com/questions/25397/obb-vs-obb-collision-detection
 //	https://www.cs.bgu.ac.il/~vgp192/wiki.files/Separating%20Axis%20Theorem%20for%20Oriented%20Bounding%20Boxes.pdf
 //	https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
-func separatingAxisTest(positionDelta, plane r3.Vector, a, b *box) float64 {
-	rmA := a.pose.Orientation().RotationMatrix()
-	rmB := b.pose.Orientation().RotationMatrix()
+func separatingAxisTest(positionDelta, plane r3.Vector, a, b *box, rmA, rmB *RotationMatrix) float64 {
+	//~ rmA := a.pose.Orientation().RotationMatrix()
+	//~ rmB := b.pose.Orientation().RotationMatrix()
 	sum := math.Abs(positionDelta.Dot(plane))
 	for i := 0; i < 3; i++ {
 		sum -= math.Abs(rmA.Row(i).Mul(a.halfSize[i]).Dot(plane))

@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"strconv"
 	"testing"
+	"fmt"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -15,6 +17,7 @@ import (
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
+	//~ "github.com/viamrobotics/visualization"
 )
 
 var (
@@ -94,6 +97,170 @@ func TestConstrainedMotion(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestScene1(t *testing.T) {
+	start := time.Now()
+	tlogger := golog.NewTestLogger(t)
+	sceneFS := frame.NewEmptySimpleFrameSystem("")
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/universalrobots/ur5e.json"), "arm")
+	test.That(t, err, test.ShouldBeNil)
+	sceneFS.AddFrame(model, sceneFS.World())
+	startInput := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
+	startPose, _ := model.Transform(startInput)
+	goalPt := startPose.Point()
+	goalPt.X += 100
+	goalPt.Y += 100
+	ws := &commonpb.WorldState{}
+	
+	option := map[string]interface{}{}
+	
+	goal := spatial.NewPoseFromOrientation(goalPt, startPose.Orientation())
+	
+	i := 3
+	option["rseed"] = i
+	fmt.Println("setup", time.Since(start))
+	ptime := time.Now()
+	_, err = PlanMotion(
+		context.Background(),
+		tlogger,
+		frame.NewPoseInFrame("world", goal),
+		sceneFS.Frame("arm"),
+		frame.StartPositions(sceneFS),
+		sceneFS,
+		ws,
+		option,
+	)
+	fmt.Println("plan", time.Since(ptime))
+	test.That(t, err, test.ShouldBeNil)
+}
+
+// scene4: a xarm6 moving to the other side of an obstacle that obstructs its path
+func TestScene4(t *testing.T) {
+	tlogger := golog.NewTestLogger(t)
+	sceneFS := frame.NewEmptySimpleFrameSystem("")
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm6_kinematics.json"), "arm")
+	sceneFS.AddFrame(model, sceneFS.World())
+	
+	test.That(t, err, test.ShouldBeNil)
+	startInput := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
+	startPose, _ := model.Transform(startInput)
+	goalPt := startPose.Point()
+	goalPt.X += 300
+	testPt := startPose.Point()
+	testPt.X += 150
+	testPose := spatial.NewPoseFromOrientation(testPt, startPose.Orientation())
+	ws := &commonpb.WorldState{
+		Obstacles: []*commonpb.GeometriesInFrame{
+			{
+				ReferenceFrame: "world",
+				Geometries: []*commonpb.Geometry{
+					{
+						Center: spatial.PoseToProtobuf(testPose),
+						GeometryType: &commonpb.Geometry_Box{
+							Box: &commonpb.RectangularPrism{DimsMm: &commonpb.Vector3{
+								X: 20,
+								Y: 2000,
+								Z: 60,
+							}},
+						},
+					},
+				},
+			},
+		},
+	}
+	
+	option := map[string]interface{}{}
+	
+	goal := spatial.NewPoseFromOrientation(goalPt, startPose.Orientation())
+	
+	i := 3000
+	option["rseed"] = i
+	
+	_, err = PlanMotion(
+		context.Background(),
+		tlogger,
+		frame.NewPoseInFrame("world", goal),
+		sceneFS.Frame("arm"),
+		frame.StartPositions(sceneFS),
+		sceneFS,
+		ws,
+		option,
+	)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestScene5(t *testing.T) {
+	tlogger := golog.NewTestLogger(t)
+	sceneFS := frame.NewEmptySimpleFrameSystem("")
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/xarm/xarm7_kinematics.json"), "arm")
+	sceneFS.AddFrame(model, sceneFS.World())
+	
+	startInput := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0, 0})
+	startPose, _ := model.Transform(startInput)
+	goalPt := startPose.Point()
+	goalPt.X += 400
+	wallPose := spatial.NewPoseFromPoint(r3.Vector{0, -200, 0})
+	obs1Pose := spatial.NewPoseFromPoint(r3.Vector{300, 0, 0})
+	obs2Pose := spatial.NewPoseFromPoint(r3.Vector{300, 0, 500})
+	ws := &commonpb.WorldState{
+		Obstacles: []*commonpb.GeometriesInFrame{
+			{
+				ReferenceFrame: "world",
+				Geometries: []*commonpb.Geometry{
+					{
+						Center: spatial.PoseToProtobuf(wallPose),
+						GeometryType: &commonpb.Geometry_Box{
+							Box: &commonpb.RectangularPrism{DimsMm: &commonpb.Vector3{
+								X: 2000,
+								Y: 50,
+								Z: 2000,
+							}},
+						},
+					},
+					{
+						Center: spatial.PoseToProtobuf(obs1Pose),
+						GeometryType: &commonpb.Geometry_Box{
+							Box: &commonpb.RectangularPrism{DimsMm: &commonpb.Vector3{
+								X: 50,
+								Y: 1250,
+								Z: 200,
+							}},
+						},
+					},
+					{
+						Center: spatial.PoseToProtobuf(obs2Pose),
+						GeometryType: &commonpb.Geometry_Box{
+							Box: &commonpb.RectangularPrism{DimsMm: &commonpb.Vector3{
+								X: 50,
+								Y: 1250,
+								Z: 200,
+							}},
+						},
+					},
+				},
+			},
+		},
+	}
+	
+	option := map[string]interface{}{}
+	
+	goal := spatial.NewPoseFromOrientation(goalPt, startPose.Orientation())
+	
+	i := 3
+	option["rseed"] = i
+	
+	_, err = PlanMotion(
+		context.Background(),
+		tlogger,
+		frame.NewPoseInFrame("world", goal),
+		sceneFS.Frame("arm"),
+		frame.StartPositions(sceneFS),
+		sceneFS,
+		ws,
+		option,
+	)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 // TestConstrainedArmMotion tests a simple linear motion on a longer path, with a no-spill constraint.

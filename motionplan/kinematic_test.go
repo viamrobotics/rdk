@@ -29,6 +29,15 @@ func poseToSlice(p *commonpb.Pose) []float64 {
 	return []float64{p.X, p.Y, p.Z, p.Theta, p.OX, p.OY, p.OZ}
 }
 
+func BenchmarkFK(b *testing.B) {
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/trossen/trossen_wx250s_test.json"), "")
+	test.That(b, err, test.ShouldBeNil)
+	for n := 0; n < b.N; n++ {
+		_, err := ComputePosition(m, &pb.JointPositions{Values: []float64{0, 0, 0, 0, 0}})
+		test.That(b, err, test.ShouldBeNil)
+	}
+}
+
 // This should test forward kinematics functions.
 func TestForwardKinematics(t *testing.T) {
 	// Test fake 5DOF arm to confirm kinematics works with non-6dof arms
