@@ -83,7 +83,7 @@ do_linux(){
 	export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 	export CC=gcc-11
 	export CXX=g++-11
-	export PATH="$PATH:$(ruby -e 'puts Gem.user_dir')/bin"
+	export PATH="\$PATH:\$(ruby -e 'puts Gem.user_dir')/bin"
 	EOS
 
 	do_brew
