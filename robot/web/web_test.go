@@ -754,9 +754,11 @@ func TestForeignResource(t *testing.T) {
 
 	myCompClient = mycomppb.NewMyComponentServiceClient(conn)
 
+	injectRobot.Mu.Lock()
 	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
 		return nil
 	}
+	injectRobot.Mu.Unlock()
 
 	_, err = myCompClient.DoOne(ctx, &mycomppb.DoOneRequest{Name: "thing1", Arg1: "hello"})
 	test.That(t, err, test.ShouldNotBeNil)
@@ -764,6 +766,7 @@ func TestForeignResource(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, errStatus.Code(), test.ShouldEqual, codes.Unimplemented)
 
+	injectRobot.Mu.Lock()
 	injectRobot.ResourceRPCSubtypesFunc = func() []resource.RPCSubtype {
 		return []resource.RPCSubtype{
 			{
@@ -772,6 +775,7 @@ func TestForeignResource(t *testing.T) {
 			},
 		}
 	}
+	injectRobot.Mu.Unlock()
 
 	resp, err := myCompClient.DoOne(ctx, &mycomppb.DoOneRequest{Name: "thing1", Arg1: "hello"})
 	test.That(t, err, test.ShouldBeNil)

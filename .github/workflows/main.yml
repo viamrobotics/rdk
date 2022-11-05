@@ -20,7 +20,6 @@ jobs:
   test:
     uses: viamrobotics/rdk/.github/workflows/test.yml@main
     secrets:
-      ARTIFACT_READ_ONLY_GCP_CREDENTIALS: ${{ secrets.ARTIFACT_READ_ONLY_GCP_CREDENTIALS }}
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
   appimage:

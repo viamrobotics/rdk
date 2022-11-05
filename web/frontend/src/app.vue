@@ -91,6 +91,7 @@ let connectionManager = $ref<{
   stop(): void;
   start(): void;
   isConnected(): boolean;
+  rtt: number;
 }>(null!);
 
 const handleError = (message: string, error: unknown, onceKey: string) => {
@@ -247,7 +248,6 @@ const restartStatusStream = () => {
 
   const streamReq = new robotApi.StreamStatusRequest();
   streamReq.setResourceNamesList(names);
-  // 500ms
   streamReq.setEvery(new Duration().setNanos(500_000_000));
 
   statusStream = window.robotService.streamStatus(streamReq);
@@ -337,11 +337,13 @@ const fetchCurrentOps = () => {
   return new Promise<Operation.AsObject[]>((resolve, reject) => {
     const req = new robotApi.GetOperationsRequest();
 
+    const now = Date.now();
     window.robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         reject(err);
         return;
       }
+      connectionManager.rtt = Math.max(Date.now() - now, 0);
 
       if (!resp) {
         reject(new Error('An unexpected issue occurred.'));
@@ -387,6 +389,7 @@ const createConnectionManager = () => {
 
   let timeout = -1;
   let connectionRestablished = false;
+  const rtt = 0;
 
   const isConnected = () => {
     return (
@@ -479,6 +482,7 @@ const createConnectionManager = () => {
     stop,
     start,
     isConnected,
+    rtt,
   };
 };
 
@@ -827,6 +831,7 @@ onMounted(async () => {
     <!-- ******* CURRENT OPERATIONS ******* -->
     <CurrentOperations
       :operations="currentOps"
+      :connection-manager="connectionManager"
     />
   </div>
 </template>

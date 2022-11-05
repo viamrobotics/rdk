@@ -21,7 +21,6 @@ const output = ref();
 const executing = ref(false);
 
 const doCommand = (name: string, command: string) => {
-  console.log("name is", name, command)
   if (!name || !command) {
     return;
   }
@@ -49,23 +48,23 @@ const doCommand = (name: string, command: string) => {
   });
 };
 
-const namesToPrettySelect = (resources: Resource[]): string => {
-  let simple = new Map<string, number>();
+const namesToPrettySelect = (resourcesToPretty: Resource[]): string => {
+  const simple = new Map<string, number>();
 
-  for (let resource of resources) {
-    if (!simple[resource.name]) {
-      simple[resource.name] = 0;
+  for (const resource of resourcesToPretty) {
+    if (!simple.has(resource.name)) {
+      simple.set(resource.name, 0);
     }
-    simple[resource.name]++;
+    simple.set(resource.name, simple.get(resource.name)! + 1);
   }
 
-  return resources.map(res => {
-    if (simple[res.name] == 1) {
+  return resourcesToPretty.map((res) => {
+    if (simple.get(res.name) === 1) {
       return res.name;
     }
     return resourceNameToString(res);
-  }).join();
-}
+  }).join(',');
+};
 
 </script>
 
