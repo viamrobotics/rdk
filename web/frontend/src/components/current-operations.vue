@@ -12,7 +12,9 @@ interface Props {
 
   connectionManager: {
     rtt: number;
-  }
+  },
+
+  sessionOps: Set<string>
 }
 
 defineProps<Props>();
@@ -77,13 +79,16 @@ const killOperation = (id: string) => {
           :key="op.id"
         >
           <td class="border border-black p-2">
-            {{ op.id }}
+            {{ op.id }} <span
+              v-if="sessionOps.has(op.id)"
+              class="font-bold"
+            >(this session)</span>
           </td>
           <td class="border border-black p-2">
             {{ op.method }}
           </td>
           <td class="border border-black p-2">
-            {{ elapsed }}ms
+            {{ elapsed }} ms
           </td>
           <td class="border border-black p-2 text-center">
             <v-button

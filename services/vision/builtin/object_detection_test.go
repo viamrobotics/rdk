@@ -16,7 +16,7 @@ import (
 
 func TestGetDetectorNames(t *testing.T) {
 	srv, r := createService(t, "../data/fake.json")
-	names, err := srv.DetectorNames(context.Background())
+	names, err := srv.DetectorNames(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	t.Logf("names %v", names)
 	test.That(t, names, test.ShouldContain, "detector_3")
@@ -28,7 +28,7 @@ func TestDetections(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	srv, err := vision.FirstFromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
-	dets, err := srv.DetectionsFromCamera(context.Background(), "fake_cam", "detect_red")
+	dets, err := srv.DetectionsFromCamera(context.Background(), "fake_cam", "detect_red", map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dets, test.ShouldHaveLength, 1)
 	test.That(t, dets[0].Label(), test.ShouldEqual, "red")
@@ -37,9 +37,9 @@ func TestDetections(t *testing.T) {
 	test.That(t, box.Min, test.ShouldResemble, image.Point{110, 288})
 	test.That(t, box.Max, test.ShouldResemble, image.Point{183, 349})
 	// errors
-	_, err = srv.DetectionsFromCamera(context.Background(), "fake_cam", "detect_blue")
+	_, err = srv.DetectionsFromCamera(context.Background(), "fake_cam", "detect_blue", map[string]interface{}{})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no such vision model with name")
-	_, err = srv.DetectionsFromCamera(context.Background(), "real_cam", "detect_red")
+	_, err = srv.DetectionsFromCamera(context.Background(), "real_cam", "detect_red", map[string]interface{}{})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "\"rdk:component:camera/real_cam\" not found")
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
@@ -67,42 +67,42 @@ func TestAddRemoveDetector(t *testing.T) {
 		},
 	}
 
-	err := srv.AddDetector(context.Background(), cfg)
+	err := srv.AddDetector(context.Background(), cfg, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	names, err := srv.DetectorNames(context.Background())
+	names, err := srv.DetectorNames(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, names, test.ShouldContain, "test")
 	// check if associated segmenter was added
-	namesSeg, err := srv.SegmenterNames(context.Background())
+	namesSeg, err := srv.SegmenterNames(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, namesSeg, test.ShouldContain, "test_segmenter")
 	// failure
 	cfg.Name = "will_fail"
 	cfg.Type = "wrong_type"
-	err = srv.AddDetector(context.Background(), cfg)
+	err = srv.AddDetector(context.Background(), cfg, map[string]interface{}{})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "is not implemented")
-	names, err = srv.DetectorNames(context.Background())
+	names, err = srv.DetectorNames(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, names, test.ShouldContain, "test")
 	test.That(t, names, test.ShouldNotContain, "will_fail")
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	// test new Detections directly on image
-	err = srv.AddDetector(context.Background(), cfg2)
+	err = srv.AddDetector(context.Background(), cfg2, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	img, _ := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
-	dets, err := srv.Detections(context.Background(), img, "testdetector")
+	dets, err := srv.Detections(context.Background(), img, "testdetector", map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dets, test.ShouldNotBeNil)
 	test.That(t, dets[0].Label(), test.ShouldResemble, "17")
 	test.That(t, dets[0].Score(), test.ShouldBeGreaterThan, 0.78)
 	// remove detector
-	err = srv.RemoveDetector(context.Background(), "test")
+	err = srv.RemoveDetector(context.Background(), "test", map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	names, err = srv.DetectorNames(context.Background())
+	names, err = srv.DetectorNames(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, names, test.ShouldNotContain, "test")
 	// check if associated segmenter was removed
-	namesSeg, err = srv.SegmenterNames(context.Background())
+	namesSeg, err = srv.SegmenterNames(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, namesSeg, test.ShouldNotContain, "test_segmenter")
 }

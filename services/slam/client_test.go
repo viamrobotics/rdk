@@ -52,13 +52,18 @@ func TestClientWorkingService(t *testing.T) {
 
 	workingSLAMService := &inject.SLAMService{}
 
-	workingSLAMService.PositionFunc = func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
+	var extraOptions map[string]interface{}
+	workingSLAMService.PositionFunc = func(
+		ctx context.Context, name string, extra map[string]interface{},
+	) (*referenceframe.PoseInFrame, error) {
+		extraOptions = extra
 		return pSucc, nil
 	}
 
 	workingSLAMService.GetMapFunc = func(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
-		include bool,
+		include bool, extra map[string]interface{},
 	) (string, image.Image, *vision.Object, error) {
+		extraOptions = extra
 		if mimeType == utils.MimeTypePCD {
 			return mimeType, nil, pcSucc, nil
 		}
@@ -88,22 +93,34 @@ func TestClientWorkingService(t *testing.T) {
 
 		workingSLAMClient := slam.NewClientFromConn(context.Background(), conn, slam.Named(nameSucc).String(), logger)
 		// test get position
-		pInFrame, err := workingSLAMClient.Position(context.Background(), nameSucc)
+		extra := map[string]interface{}{"foo": "Position"}
+		pInFrame, err := workingSLAMClient.Position(context.Background(), nameSucc, extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pInFrame.FrameName(), test.ShouldEqual, pSucc.FrameName())
+		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		// test get map
-		mimeType, im, pc, err := workingSLAMClient.GetMap(context.Background(), nameSucc, utils.MimeTypePCD, pSucc, true)
+		extra = map[string]interface{}{"foo": "GetMap"}
+		mimeType, im, pc, err := workingSLAMClient.GetMap(context.Background(), nameSucc, utils.MimeTypePCD, pSucc, true, extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mimeType, test.ShouldEqual, utils.MimeTypePCD)
 		test.That(t, im, test.ShouldBeNil)
 		test.That(t, pc.PointCloud, test.ShouldNotBeNil)
+		test.That(t, extraOptions, test.ShouldResemble, extra)
 
-		mimeType, im, pc, err = workingSLAMClient.GetMap(context.Background(), nameSucc, utils.MimeTypeJPEG, pSucc, true)
+		mimeType, im, pc, err = workingSLAMClient.GetMap(
+			context.Background(),
+			nameSucc,
+			utils.MimeTypeJPEG,
+			pSucc,
+			true,
+			map[string]interface{}{},
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mimeType, test.ShouldEqual, utils.MimeTypeJPEG)
 		test.That(t, im, test.ShouldNotBeNil)
 		test.That(t, pc.PointCloud, test.ShouldBeNil)
+		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -114,16 +131,20 @@ func TestClientWorkingService(t *testing.T) {
 		workingDialedClient := slam.NewClientFromConn(context.Background(), conn, nameSucc, logger)
 
 		// test get position
-		pInFrame, err := workingDialedClient.Position(context.Background(), nameSucc)
+		extra := map[string]interface{}{"foo": "Position"}
+		pInFrame, err := workingDialedClient.Position(context.Background(), nameSucc, extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pInFrame.FrameName(), test.ShouldEqual, pSucc.FrameName())
+		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		// test get map
-		mimeType, im, pc, err := workingDialedClient.GetMap(context.Background(), nameSucc, utils.MimeTypePCD, pSucc, true)
+		extra = map[string]interface{}{"foo": "GetMap"}
+		mimeType, im, pc, err := workingDialedClient.GetMap(context.Background(), nameSucc, utils.MimeTypePCD, pSucc, true, extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mimeType, test.ShouldEqual, utils.MimeTypePCD)
 		test.That(t, im, test.ShouldBeNil)
 		test.That(t, pc, test.ShouldNotBeNil)
+		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -136,9 +157,11 @@ func TestClientWorkingService(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		// test get position
-		p, err := workingDialedClient.Position(context.Background(), nameSucc)
+		extra := map[string]interface{}{"foo": "Position"}
+		p, err := workingDialedClient.Position(context.Background(), nameSucc, extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, p.FrameName(), test.ShouldEqual, pSucc.FrameName())
+		test.That(t, extraOptions, test.ShouldResemble, extra)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }
@@ -161,12 +184,14 @@ func TestClientFailingService(t *testing.T) {
 
 	failingSLAMService := &inject.SLAMService{}
 
-	failingSLAMService.PositionFunc = func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
+	failingSLAMService.PositionFunc = func(
+		ctx context.Context, name string, extra map[string]interface{},
+	) (*referenceframe.PoseInFrame, error) {
 		return pFail, errors.New("failure to get position")
 	}
 
 	failingSLAMService.GetMapFunc = func(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
-		include bool,
+		include bool, extra map[string]interface{},
 	) (string, image.Image, *vision.Object, error) {
 		return mimeType, imFail, pcFail, errors.New("failure to get map")
 	}
@@ -188,12 +213,19 @@ func TestClientFailingService(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// test get position
-		p, err := failingSLAMClient.Position(context.Background(), nameFail)
+		p, err := failingSLAMClient.Position(context.Background(), nameFail, map[string]interface{}{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, p, test.ShouldBeNil)
 
 		// test get map
-		mimeType, im, pc, err := failingSLAMClient.GetMap(context.Background(), nameFail, utils.MimeTypeJPEG, pFail, true)
+		mimeType, im, pc, err := failingSLAMClient.GetMap(
+			context.Background(),
+			nameFail,
+			utils.MimeTypeJPEG,
+			pFail,
+			true,
+			map[string]interface{}{},
+		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, mimeType, test.ShouldEqual, "")
 		test.That(t, im, test.ShouldBeNil)

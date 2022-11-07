@@ -51,7 +51,7 @@ func (server *subtypeServer) GetModelParameterSchema(
 	if err != nil {
 		return nil, err
 	}
-	params, err := svc.GetModelParameterSchema(ctx, VisModelType(req.ModelType))
+	params, err := svc.GetModelParameterSchema(ctx, VisModelType(req.ModelType), req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (server *subtypeServer) GetDetectorNames(
 	if err != nil {
 		return nil, err
 	}
-	names, err := svc.DetectorNames(ctx)
+	names, err := svc.DetectorNames(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func (server *subtypeServer) AddDetector(
 		Type:       req.DetectorModelType,
 		Parameters: params,
 	}
-	err = svc.AddDetector(ctx, cfg)
+	err = svc.AddDetector(ctx, cfg, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (server *subtypeServer) RemoveDetector(
 	if err != nil {
 		return nil, err
 	}
-	err = svc.RemoveDetector(ctx, req.DetectorName)
+	err = svc.RemoveDetector(ctx, req.DetectorName, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (server *subtypeServer) GetDetections(
 	if err != nil {
 		return nil, err
 	}
-	detections, err := svc.Detections(ctx, img, req.DetectorName)
+	detections, err := svc.Detections(ctx, img, req.DetectorName, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +176,7 @@ func (server *subtypeServer) GetDetectionsFromCamera(
 	if err != nil {
 		return nil, err
 	}
-	detections, err := svc.DetectionsFromCamera(ctx, req.CameraName, req.DetectorName)
+	detections, err := svc.DetectionsFromCamera(ctx, req.CameraName, req.DetectorName, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +215,7 @@ func (server *subtypeServer) GetClassifierNames(
 	if err != nil {
 		return nil, err
 	}
-	names, err := svc.ClassifierNames(ctx)
+	names, err := svc.ClassifierNames(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +240,7 @@ func (server *subtypeServer) AddClassifier(
 		Type:       req.ClassifierModelType,
 		Parameters: params,
 	}
-	err = svc.AddClassifier(ctx, cfg)
+	err = svc.AddClassifier(ctx, cfg, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +257,7 @@ func (server *subtypeServer) RemoveClassifier(
 	if err != nil {
 		return nil, err
 	}
-	err = svc.RemoveDetector(ctx, req.ClassifierName)
+	err = svc.RemoveDetector(ctx, req.ClassifierName, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +278,7 @@ func (server *subtypeServer) GetClassifications(
 	if err != nil {
 		return nil, err
 	}
-	classifications, err := svc.Classifications(ctx, img, req.ClassifierName, int(req.N))
+	classifications, err := svc.Classifications(ctx, img, req.ClassifierName, int(req.N), req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +305,7 @@ func (server *subtypeServer) GetClassificationsFromCamera(
 	if err != nil {
 		return nil, err
 	}
-	classifications, err := svc.ClassificationsFromCamera(ctx, req.CameraName, req.ClassifierName, int(req.N))
+	classifications, err := svc.ClassificationsFromCamera(ctx, req.CameraName, req.ClassifierName, int(req.N), req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +330,7 @@ func (server *subtypeServer) GetSegmenterNames(
 	if err != nil {
 		return nil, err
 	}
-	names, err := svc.SegmenterNames(ctx)
+	names, err := svc.SegmenterNames(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -355,7 +355,7 @@ func (server *subtypeServer) AddSegmenter(
 		Type:       req.SegmenterModelType,
 		Parameters: params,
 	}
-	err = svc.AddSegmenter(ctx, cfg)
+	err = svc.AddSegmenter(ctx, cfg, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -372,7 +372,7 @@ func (server *subtypeServer) RemoveSegmenter(
 	if err != nil {
 		return nil, err
 	}
-	err = svc.RemoveSegmenter(ctx, req.SegmenterName)
+	err = svc.RemoveSegmenter(ctx, req.SegmenterName, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -389,7 +389,7 @@ func (server *subtypeServer) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	objects, err := svc.GetObjectPointClouds(ctx, req.CameraName, req.SegmenterName)
+	objects, err := svc.GetObjectPointClouds(ctx, req.CameraName, req.SegmenterName, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
