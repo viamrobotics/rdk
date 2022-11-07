@@ -9,18 +9,18 @@ export interface Resource {
 const sortByName = (item1: Resource, item2: Resource) => {
   if (item1.name > item2.name) {
     return 1;
-  } else if (item1.name > item2.name) {
-    return -1
+  } else if (item1.name < item2.name) {
+    return -1;
   }
   if (item1.subtype > item2.subtype) {
     return 1;
-  } else if (item1.subtype > item2.subtype) {
-    return -1
+  } else if (item1.subtype < item2.subtype) {
+    return -1;
   }
   if (item1.type > item2.type) {
     return 1;
-  } else if (item1.type > item2.type) {
-    return -1
+  } else if (item1.type < item2.type) {
+    return -1;
   }
   return item1.namespace > item2.namespace ? 1 : -1;
 };
