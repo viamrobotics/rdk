@@ -427,7 +427,7 @@ func setupDeps(attr *builtin.AttrConfig) registry.Dependencies {
 			}
 			deps[camera.Named(sensor)] = cam
 		default:
-			deps[camera.Named(sensor)] = cam
+			continue
 		}
 	}
 	return deps
