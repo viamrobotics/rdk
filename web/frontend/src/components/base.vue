@@ -318,7 +318,7 @@ onMounted(() => {
       </div>
       <div
         v-if="selectedItem === 'Discrete'"
-        class="flex flex-wrap h-auto p-4"
+        class="flex gap-4 p-4"
       >
         <div class="mb-4 grow">
           <v-radio
