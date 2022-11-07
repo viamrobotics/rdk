@@ -74,7 +74,6 @@ const errors = $ref<Record<string, boolean>>({});
 
 let statusStream: ResponseStream<StreamStatusResponse> | null = null;
 let baseCameraState = new Map<string, boolean>();
-let lastStatusTS: number | null = null;
 let disableAuthElements = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
 let currentOps = $ref<{ op: Operation.AsObject, elapsed: number }[]>([]);
@@ -82,6 +81,10 @@ let sensorNames = $ref<ResourceName.AsObject[]>([]);
 let resources = $ref<Resource[]>([]);
 let resourcesOnce = false;
 let errorMessage = $ref('');
+let connectedFirstTimeResolve: (value: void) => void;
+const connectedFirstTime = new Promise<void>((resolve) => {
+  connectedFirstTimeResolve = resolve;
+});
 let connectionManager = $ref<{
   statuses: {
     resources: boolean;
@@ -253,19 +256,16 @@ const restartStatusStream = () => {
   statusStream = window.robotService.streamStatus(streamReq);
 
   statusStream.on('data', (response) => {
-    lastStatusTS = Date.now();
     updateStatus(response.getStatusList());
   });
 
   statusStream.on('status', (newStatus) => {
-    console.log('error streaming robot status');
-    console.log(newStatus);
-    console.log(newStatus.code, ' ', newStatus.details);
+    console.error('error streaming robot status', newStatus, newStatus.code, ' ', newStatus.details);
     statusStream = null;
   });
 
   statusStream.on('end', () => {
-    console.log('done streaming robot status');
+    console.error('done streaming robot status');
     statusStream = null;
   });
 };
@@ -380,8 +380,6 @@ const loadCurrentOps = async () => {
 };
 
 const createConnectionManager = () => {
-  lastStatusTS = Date.now();
-  const checkIntervalMillis = 3000;
   const statuses = {
     resources: false,
     ops: false,
@@ -392,11 +390,7 @@ const createConnectionManager = () => {
   const rtt = 0;
 
   const isConnected = () => {
-    return (
-      statuses.resources &&
-      statuses.ops &&
-      Date.now() - lastStatusTS! <= checkIntervalMillis
-    );
+    return statuses.resources && statuses.ops;
   };
 
   const manageLoop = async () => {
@@ -418,19 +412,21 @@ const createConnectionManager = () => {
         newErrors.push(error);
       }
 
-      try {
-        await loadCurrentOps();
+      if (statuses.resources) {
+        try {
+          await loadCurrentOps();
 
-        if (!statuses.ops) {
-          connectionRestablished = true;
-        }
+          if (!statuses.ops) {
+            connectionRestablished = true;
+          }
 
-        statuses.ops = true;
-      } catch (error) {
-        if (error instanceof ConnectionClosedError) {
-          statuses.ops = false;
+          statuses.ops = true;
+        } catch (error) {
+          if (error instanceof ConnectionClosedError) {
+            statuses.ops = false;
+          }
+          newErrors.push(error);
         }
-        newErrors.push(error);
       }
 
       if (isConnected()) {
@@ -444,7 +440,7 @@ const createConnectionManager = () => {
       }
 
       handleCallErrors(statuses, newErrors);
-      errorMessage = 'Connection error, attempting to reconnect ...';
+      errorMessage = 'Connection lost, attempting to reconnect ...';
 
       try {
         console.log('reconnecting');
@@ -458,7 +454,7 @@ const createConnectionManager = () => {
 
         await window.connect();
         await fetchCurrentOps();
-        lastStatusTS = Date.now();
+        console.log('reconnected');
       } catch (error) {
         console.error('failed to reconnect; retrying:', error);
       }
@@ -485,6 +481,7 @@ const createConnectionManager = () => {
     rtt,
   };
 };
+connectionManager = createConnectionManager();
 
 const resourceStatusByName = (resource: Resource) => {
   return status[resourceNameToString(resource)];
@@ -605,16 +602,19 @@ const isWebRtcEnabled = () => {
   return window.webrtcEnabled;
 };
 
-const doConnect = async (authEntity: string, creds: Credentials, onError?: () => Promise<void>) => {
+const doConnect = async (authEntity: string, creds: Credentials, onError?: () => void) => {
   console.debug('connecting');
   document.querySelector('#connecting')!.classList.remove('hidden');
 
   try {
     await window.connect(authEntity, creds);
   } catch (error) {
-    toast.error(`failed to connect: ${error}`);
+    console.error('failed to connect:', error);
     if (onError) {
+      toast.error('failed to connect; retrying');
       setTimeout(onError, 1000);
+    } else {
+      toast.error('failed to connect');
     }
     return;
   }
@@ -622,8 +622,7 @@ const doConnect = async (authEntity: string, creds: Credentials, onError?: () =>
   console.debug('connected');
   document.querySelector('#pre-app')!.classList.add('hidden');
   disableAuthElements = false;
-
-  return true;
+  connectedFirstTimeResolve();
 };
 
 const doLogin = (authType: string) => {
@@ -632,9 +631,9 @@ const doLogin = (authType: string) => {
   doConnect('', creds);
 };
 
-const waitForClientAndStart = async () => {
+const initConnect = () => {
   if (window.supportedAuthTypes.length === 0) {
-    await doConnect(window.bakedAuth.authEntity, window.bakedAuth.creds, waitForClientAndStart);
+    doConnect(window.bakedAuth.authEntity, window.bakedAuth.creds, initConnect);
   }
 };
 
@@ -643,9 +642,9 @@ const updatedBaseCameraState = (event: Map<string, boolean>) => {
 };
 
 onMounted(async () => {
-  await waitForClientAndStart();
+  initConnect();
+  await connectedFirstTime;
 
-  connectionManager = createConnectionManager();
   connectionManager.start();
 
   addResizeListeners();
