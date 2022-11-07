@@ -56,7 +56,7 @@ const (
 	cameraValidationIntervalSec = 1.
 	parsePortMaxTimeoutSec      = 60
 	// time format for the slam service.
-	slamTimeFormat        = time.RFC3339Nano
+	slamTimeFormat        = "2006-01-02T15:04:05.0000Z"
 	opTimeoutErrorMessage = "bad scan: OpTimeout"
 	localhost0            = "localhost:0"
 )
