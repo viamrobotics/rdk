@@ -76,6 +76,7 @@ const errors = $ref<Record<string, boolean>>({});
 let statusStream: grpc.Request | null = null;
 let statusStreamOpID: string | undefined;
 let baseCameraState = new Map<string, boolean>();
+let lastStatusTS: number | null = null;
 let disableAuthElements = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
 let currentOps = $ref<{ op: Operation.AsObject, elapsed: number }[]>([]);
@@ -281,6 +282,7 @@ const restartStatusStream = () => {
       }
     },
     onMessage: (response) => {
+      lastStatusTS = Date.now();
       updateStatus((response as StreamStatusResponse).getStatusList());
     },
     onEnd: (endStatus, endStatusMessage, trailers) => {
@@ -399,7 +401,12 @@ const loadCurrentOps = async () => {
   return currentOps;
 };
 
+const isWebRtcEnabled = () => {
+  return window.webrtcEnabled;
+};
+
 const createConnectionManager = () => {
+  const checkIntervalMillis = 10_000;
   const statuses = {
     resources: false,
     ops: false,
@@ -410,7 +417,12 @@ const createConnectionManager = () => {
   const rtt = 0;
 
   const isConnected = () => {
-    return statuses.resources && statuses.ops;
+    return (
+      statuses.resources &&
+      statuses.ops &&
+      // check status on interval if direct grpc
+      (isWebRtcEnabled() || (Date.now() - lastStatusTS! <= checkIntervalMillis))
+    );
   };
 
   const manageLoop = async () => {
@@ -474,6 +486,7 @@ const createConnectionManager = () => {
 
         await window.connect();
         await fetchCurrentOps();
+        lastStatusTS = Date.now();
         console.log('reconnected');
       } catch (error) {
         console.error('failed to reconnect; retrying:', error);
@@ -489,6 +502,7 @@ const createConnectionManager = () => {
 
   const start = () => {
     stop();
+    lastStatusTS = Date.now();
     manageLoop();
   };
 
@@ -616,10 +630,6 @@ const viewCameraFrame = (cameraName: string, time: string) => {
 
 const nonEmpty = (object: object) => {
   return Object.keys(object).length > 0;
-};
-
-const isWebRtcEnabled = () => {
-  return window.webrtcEnabled;
 };
 
 const doConnect = async (authEntity: string, creds: Credentials, onError?: () => void) => {
