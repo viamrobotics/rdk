@@ -26,7 +26,12 @@ type depthToPretty struct {
 	intrinsicParameters *transform.PinholeCameraIntrinsics
 }
 
-func newDepthToPrettyTransform(ctx context.Context, source gostream.VideoSource, stream camera.StreamType, cameraParams *transform.PinholeCameraIntrinsics) (gostream.VideoSource, error) {
+func newDepthToPrettyTransform(
+	ctx context.Context,
+	source gostream.VideoSource,
+	stream camera.StreamType,
+	cameraParams *transform.PinholeCameraIntrinsics,
+) (gostream.VideoSource, error) {
 	depthStream := gostream.NewEmbeddedVideoStream(source)
 	reader := &depthToPretty{
 		depthStream:         depthStream,
