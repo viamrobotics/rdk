@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -54,6 +55,9 @@ func (m *Manager) UnaryServerInterceptor(
 ) (interface{}, error) {
 	ctx, done := m.CreateFromIncomingContext(ctx, info.FullMethod)
 	defer done()
+	if op := Get(ctx); op != nil && op.ID.String() != "" {
+		utils.UncheckedError(grpc.SetHeader(ctx, metadata.MD{opidMetadataKey: []string{op.ID.String()}}))
+	}
 	return handler(ctx, req)
 }
 
@@ -68,6 +72,9 @@ func (m *Manager) StreamServerInterceptor(
 ) error {
 	ctx, done := m.CreateFromIncomingContext(ss.Context(), info.FullMethod)
 	defer done()
+	if op := Get(ctx); op != nil && op.ID.String() != "" {
+		utils.UncheckedError(ss.SetHeader(metadata.MD{opidMetadataKey: []string{op.ID.String()}}))
+	}
 	return handler(srv, &ssStreamContextWrapper{ss, ctx})
 }
 

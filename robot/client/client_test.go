@@ -925,8 +925,6 @@ func TestClientReconnect(t *testing.T) {
 		return []resource.Name{arm.Named("arm1"), thing1Name}
 	}
 
-	go gServer.Serve(listener)
-
 	injectArm := &inject.Arm{}
 	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (*commonpb.Pose, error) {
 		return pose1, nil
@@ -935,6 +933,8 @@ func TestClientReconnect(t *testing.T) {
 	armSvc2, err := subtype.New(map[resource.Name]interface{}{arm.Named("arm1"): injectArm})
 	test.That(t, err, test.ShouldBeNil)
 	armpb.RegisterArmServiceServer(gServer, arm.NewServer(armSvc2))
+
+	go gServer.Serve(listener)
 
 	dur := 100 * time.Millisecond
 	client, err := New(
