@@ -365,6 +365,5 @@ const armModifyAll = () => {
         </div>
       </div>
     </div>
-
   </v-collapse>
 </template>
