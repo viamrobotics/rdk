@@ -2,7 +2,6 @@ package videosource
 
 import (
 	"context"
-	"image"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -46,10 +45,6 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, model,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
-			if err != nil {
-				return nil, err
-			}
 			var conf WebcamAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
 			if err != nil {
@@ -59,7 +54,6 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(result, attrs)
 			}
-			result.AttrConfig = cameraAttrs
 			return result, nil
 		}, &WebcamAttrs{})
 
@@ -140,12 +134,15 @@ func getProperties(d driver.Driver) (_ []prop.Media, err error) {
 
 // WebcamAttrs is the attribute struct for webcams.
 type WebcamAttrs struct {
-	*camera.AttrConfig
-	Format      string `json:"format"`
-	Path        string `json:"video_path"`
-	PathPattern string `json:"video_path_pattern"`
-	Width       int    `json:"width_px"`
-	Height      int    `json:"height_px"`
+	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
+	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
+	Stream               string                             `json:"stream"`
+	Debug                bool                               `json:"debug,omitempty"`
+	Format               string                             `json:"format"`
+	Path                 string                             `json:"video_path"`
+	PathPattern          string                             `json:"video_path_pattern"`
+	Width                int                                `json:"width_px"`
+	Height               int                                `json:"height_px"`
 }
 
 func makeConstraints(attrs *WebcamAttrs, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
@@ -256,16 +253,10 @@ func tryWebcamOpen(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	var intrinsics *transform.PinholeCameraIntrinsics
-	var distortion transform.Distorter
-	if attrs.AttrConfig != nil {
-		intrinsics = attrs.AttrConfig.CameraParameters
-		distortion = attrs.AttrConfig.DistortionParameters
-	}
 	return camera.NewFromSource(
 		ctx,
 		source,
-		&transform.PinholeCameraModel{intrinsics, distortion},
+		&transform.PinholeCameraModel{attrs.CameraParameters, attrs.DistortionParameters},
 		camera.StreamType(attrs.Stream),
 	)
 }
@@ -278,7 +269,7 @@ func getNamedVideoSource(
 	fromLabel bool,
 	constraints mediadevices.MediaStreamConstraints,
 	logger golog.Logger,
-) (gostream.MediaSource[image.Image], error) {
+) (gostream.MediaSource, error) {
 	if !fromLabel {
 		resolvedPath, err := filepath.EvalSymlinks(path)
 		if err == nil {
