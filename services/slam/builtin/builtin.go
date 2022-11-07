@@ -38,7 +38,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -75,8 +74,8 @@ func SetDialMaxTimeoutSecForTesting(val int) {
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
 func init() {
 	registry.RegisterService(slam.Subtype, resource.DefaultModelName, registry.Service{
-		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
-			return NewBuiltIn(ctx, r, c, logger, false)
+		Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
+			return NewBuiltIn(ctx, deps, c, logger, false)
 		},
 	})
 	cType := config.ServiceType(slam.SubtypeName)
@@ -291,18 +290,16 @@ type builtIn struct {
 // configureCameras will check the config to see if any cameras are desired and if so, grab the cameras from
 // the robot. We assume there are at most two cameras and that we only require intrinsics from the first one.
 // Returns the name of the first camera.
-func configureCameras(ctx context.Context, svcConfig *AttrConfig, r robot.Robot, logger golog.Logger) (string, []camera.Camera, error) {
+func configureCameras(ctx context.Context, svcConfig *AttrConfig, deps registry.Dependencies, logger golog.Logger) (string, []camera.Camera, error) {
 	if len(svcConfig.Sensors) > 0 {
 		logger.Debug("Running in live mode")
 		cams := make([]camera.Camera, 0, len(svcConfig.Sensors))
-
 		// The first camera is expected to be RGB or LIDAR.
 		cameraName := svcConfig.Sensors[0]
-		cam, err := camera.FromRobot(r, cameraName)
+		cam, err := camera.FromDependencies(deps, cameraName)
 		if err != nil {
 			return "", nil, errors.Wrapf(err, "error getting camera %v for slam service", cameraName)
 		}
-
 		proj, err := cam.Projector(ctx)
 		if err != nil {
 			if len(svcConfig.Sensors) == 1 {
@@ -330,7 +327,7 @@ func configureCameras(ctx context.Context, svcConfig *AttrConfig, r robot.Robot,
 			depthCameraName := svcConfig.Sensors[1]
 			logger.Debugf("Two cameras found for slam service, assuming %v is for color and %v is for depth",
 				cameraName, depthCameraName)
-			depthCam, err := camera.FromRobot(r, depthCameraName)
+			depthCam, err := camera.FromDependencies(deps, depthCameraName)
 			if err != nil {
 				return "", nil, errors.Wrapf(err, "error getting camera %v for slam service", depthCameraName)
 			}
@@ -470,13 +467,7 @@ func (slamSvc *builtIn) GetMap(
 }
 
 // NewBuiltIn returns a new slam service for the given robot.
-func NewBuiltIn(
-	ctx context.Context,
-	r robot.Robot,
-	config config.Service,
-	logger golog.Logger,
-	bufferSLAMProcessLogs bool,
-) (slam.Service, error) {
+func NewBuiltIn(ctx context.Context, deps registry.Dependencies, config config.Service, logger golog.Logger, bufferSLAMProcessLogs bool) (slam.Service, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::New")
 	defer span.End()
 
@@ -485,7 +476,7 @@ func NewBuiltIn(
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
 
-	cameraName, cams, err := configureCameras(ctx, svcConfig, r, logger)
+	cameraName, cams, err := configureCameras(ctx, svcConfig, deps, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "configuring camera error")
 	}

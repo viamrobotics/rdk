@@ -274,7 +274,8 @@ func TestParseComponentFlag(t *testing.T) {
 func TestServiceValidate(t *testing.T) {
 	t.Run("config invalid", func(t *testing.T) {
 		var emptyConfig config.Service
-		err := emptyConfig.Validate("path")
+		deps, err := emptyConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, `"type" is required`)
 	})
@@ -284,7 +285,9 @@ func TestServiceValidate(t *testing.T) {
 			Name: "frame1",
 			Type: "frame_system",
 		}
-		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+		deps, err := validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("ConvertedAttributes", func(t *testing.T) {
@@ -294,7 +297,8 @@ func TestServiceValidate(t *testing.T) {
 				Type:                "frame_system",
 				ConvertedAttributes: &testutils.FakeConvertedAttributes{Thing: ""},
 			}
-			err := invalidConfig.Validate("path")
+			deps, err := invalidConfig.Validate("path")
+			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, `"Thing" is required`)
 		})
@@ -307,7 +311,8 @@ func TestServiceValidate(t *testing.T) {
 					Thing: "i am a thing!",
 				},
 			}
-			err := invalidConfig.Validate("path")
+			deps, err := invalidConfig.Validate("path")
+			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 		})
 	})
@@ -319,7 +324,7 @@ func TestServiceValidate(t *testing.T) {
 				Type:       "frame_system",
 				Attributes: config.AttributeMap{"attr": &testutils.FakeConvertedAttributes{Thing: ""}},
 			}
-			err := invalidConfig.Validate("path")
+			_, err := invalidConfig.Validate("path")
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, `"Thing" is required`)
 		})
@@ -335,7 +340,7 @@ func TestServiceValidate(t *testing.T) {
 					"attr2": "boop",
 				},
 			}
-			err := invalidConfig.Validate("path")
+			_, err := invalidConfig.Validate("path")
 			test.That(t, err, test.ShouldBeNil)
 		})
 	})
@@ -345,7 +350,9 @@ func TestServiceValidate(t *testing.T) {
 			Name: "foo",
 			Type: "thingy",
 		}
-		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+		deps, err := validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, validConfig.Namespace, test.ShouldEqual, resource.ResourceNamespaceRDK)
 	})
 
@@ -354,7 +361,8 @@ func TestServiceValidate(t *testing.T) {
 			Name: "",
 			Type: "thingy",
 		}
-		err := testConfig.Validate("path")
+		deps, err := testConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, testConfig.Name, test.ShouldEqual, resource.DefaultModelName)
 	})
@@ -365,7 +373,9 @@ func TestServiceValidate(t *testing.T) {
 			Name:      "foo",
 			Type:      "thingy",
 		}
-		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+		deps, err := validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, validConfig.Namespace, test.ShouldEqual, "acme")
 	})
 
@@ -375,7 +385,7 @@ func TestServiceValidate(t *testing.T) {
 			Name:      "fo:o",
 			Type:      "thingy",
 		}
-		err := invalidConfig.Validate("path")
+		_, err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
 	})
@@ -386,7 +396,7 @@ func TestServiceValidate(t *testing.T) {
 			Name:      "foo",
 			Type:      "thingy",
 		}
-		err := invalidConfig.Validate("path")
+		_, err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
 	})
@@ -397,7 +407,9 @@ func TestServiceValidate(t *testing.T) {
 			Name:      "foo",
 			Type:      "thingy",
 		}
-		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+		deps, err := validConfig.Validate("path")
+		test.That(t, deps, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, validConfig.Model, test.ShouldEqual, "builtin")
 	})
 }

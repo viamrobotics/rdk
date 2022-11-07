@@ -17,13 +17,12 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/shell"
 )
 
 func init() {
 	registry.RegisterService(shell.Subtype, resource.DefaultModelName, registry.Service{
-		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, dep registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
 			return NewBuiltIn(logger)
 		},
 	},
