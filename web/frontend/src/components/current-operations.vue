@@ -88,7 +88,7 @@ const killOperation = (id: string) => {
             {{ op.method }}
           </td>
           <td class="border border-black p-2">
-            {{ elapsed }}ms
+            {{ elapsed }} ms
           </td>
           <td class="border border-black p-2 text-center">
             <v-button
