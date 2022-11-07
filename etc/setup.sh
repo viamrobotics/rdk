@@ -33,8 +33,12 @@ do_bullseye(){
 	apt-get install -y -t $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports golang-go
 
 	# Raspberry Pi support
+	grep -q Raspberry /proc/cpuinfo && apt-get install -y wiringpi libpigpio-dev && exit
+
+	# Other arm64 (bring in pi repo at low priority for build support)
 	test "$(uname -m)" != "aarch64" || curl -fsSL https://archive.raspberrypi.org/debian/raspberrypi.gpg.key | gpg --yes --dearmor -o /usr/share/keyrings/raspberrypi.gpg
 	test "$(uname -m)" != "aarch64" || echo "deb [signed-by=/usr/share/keyrings/raspberrypi.gpg] http://archive.raspberrypi.org/debian/ $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/raspi.list
+	test "$(uname -m)" != "aarch64" || echo -e "Package: *\nPin: origin archive.raspberrypi.org\nPin-Priority: 1" > /etc/apt/preferences.d/raspi-low-prio
 	test "$(uname -m)" != "aarch64" || ( apt-get update && apt-get install -y wiringpi libpigpio-dev && apt-get clean )
 	EOS
 
@@ -79,7 +83,7 @@ do_linux(){
 	export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 	export CC=gcc-11
 	export CXX=g++-11
-	export PATH="$PATH:$(ruby -e 'puts Gem.user_dir')/bin"
+	export PATH="\$PATH:\$(ruby -e 'puts Gem.user_dir')/bin"
 	EOS
 
 	do_brew
@@ -164,20 +168,20 @@ do_brew(){
 	# viam tap
 	tap  "viamrobotics/brews"
 
+	# pinned
+	brew "gcc@11"
+	brew "go@1.19"
+	brew "node@18"
+	brew "protobuf@3"
+
 	# unpinned
 	brew "nlopt"
 	brew "x264"
 	brew "opus"
 	brew "protoc-gen-grpc-web"
 	brew "pkg-config"
-	brew "tensorflowlite"
 	brew "ffmpeg"
-
-	# pinned
-	brew "gcc@11"
-	brew "go@1.18"
-	brew "node@18"
-	brew "protobuf@3"
+	brew "tensorflowlite" # Needs to be last
 
 	EOS
 
@@ -186,7 +190,7 @@ do_brew(){
 	fi
 
 	brew unlink "gcc" "go" "node" "protobuf"
-	brew link --overwrite "gcc@11" "go@1.18" "node@18" "protobuf@3" || exit 1
+	brew link --overwrite "gcc@11" "go@1.19" "node@18" "protobuf@3" || exit 1
 
 	echo "Brew installed software versions..."
 	brew list --version

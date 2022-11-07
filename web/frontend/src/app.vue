@@ -10,11 +10,12 @@ import { toast } from './lib/toast';
 import { displayError } from './lib/error';
 import { addResizeListeners } from './lib/resize';
 import robotApi, {
-  type Status,
   type Operation,
+  type Status,
   type StreamStatusResponse,
 } from './gen/proto/api/robot/v1/robot_pb.esm';
-import type { ResponseStream, ServiceError } from './gen/proto/stream/v1/stream_pb_service.esm';
+import { RobotService } from './gen/proto/api/robot/v1/robot_pb_service.esm';
+import type { ServiceError } from './gen/proto/stream/v1/stream_pb_service.esm';
 import commonApi, { type ResourceName } from './gen/proto/api/common/v1/common_pb.esm';
 import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
 import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
@@ -72,7 +73,8 @@ const rawStatus = $ref<Record<string, Status>>({});
 const status = $ref<Record<string, Status>>({});
 const errors = $ref<Record<string, boolean>>({});
 
-let statusStream: ResponseStream<StreamStatusResponse> | null = null;
+let statusStream: grpc.Request | null = null;
+let statusStreamOpID: string | undefined;
 let baseCameraState = new Map<string, boolean>();
 let lastStatusTS: number | null = null;
 let disableAuthElements = $ref(false);
@@ -82,6 +84,10 @@ let sensorNames = $ref<ResourceName.AsObject[]>([]);
 let resources = $ref<Resource[]>([]);
 let resourcesOnce = false;
 let errorMessage = $ref('');
+let connectedFirstTimeResolve: (value: void) => void;
+const connectedFirstTime = new Promise<void>((resolve) => {
+  connectedFirstTimeResolve = resolve;
+});
 let connectionManager = $ref<{
   statuses: {
     resources: boolean;
@@ -91,7 +97,9 @@ let connectionManager = $ref<{
   stop(): void;
   start(): void;
   isConnected(): boolean;
+  rtt: number;
 }>(null!);
+const sessionOps = new Set<string>();
 
 const handleError = (message: string, error: unknown, onceKey: string) => {
   if (onceKey) {
@@ -225,8 +233,12 @@ const updateStatus = (grpcStatuses: robotApi.Status[]) => {
 
 const restartStatusStream = () => {
   if (statusStream) {
-    statusStream.cancel();
+    statusStream.close();
     statusStream = null;
+    if (statusStreamOpID) {
+      sessionOps.delete(statusStreamOpID);
+      statusStreamOpID = undefined;
+    }
   }
 
   let newResources: Resource[] = [];
@@ -247,26 +259,36 @@ const restartStatusStream = () => {
 
   const streamReq = new robotApi.StreamStatusRequest();
   streamReq.setResourceNamesList(names);
-  // 500ms
   streamReq.setEvery(new Duration().setNanos(500_000_000));
 
-  statusStream = window.robotService.streamStatus(streamReq);
+  interface svcWithOpts {
+    options: {
+      transport: grpc.TransportFactory;
+      debug: boolean;
+    };
+  }
 
-  statusStream.on('data', (response) => {
-    lastStatusTS = Date.now();
-    updateStatus(response.getStatusList());
-  });
-
-  statusStream.on('status', (newStatus) => {
-    console.log('error streaming robot status');
-    console.log(newStatus);
-    console.log(newStatus.code, ' ', newStatus.details);
-    statusStream = null;
-  });
-
-  statusStream.on('end', () => {
-    console.log('done streaming robot status');
-    statusStream = null;
+  const robotSvcWithOpts = window.robotService as unknown as svcWithOpts;
+  statusStream = grpc.invoke(RobotService.StreamStatus, {
+    request: streamReq,
+    host: window.robotService.serviceHost,
+    transport: robotSvcWithOpts.options.transport,
+    debug: robotSvcWithOpts.options.debug,
+    onHeaders: (headers: grpc.Metadata) => {
+      if (headers.headersMap.opid && headers.headersMap.opid.length > 0) {
+        const [opID] = headers.headersMap.opid;
+        sessionOps.add(opID!);
+        statusStreamOpID = opID;
+      }
+    },
+    onMessage: (response) => {
+      lastStatusTS = Date.now();
+      updateStatus((response as StreamStatusResponse).getStatusList());
+    },
+    onEnd: (endStatus, endStatusMessage, trailers) => {
+      console.error('error streaming robot status', endStatus, ' ', endStatusMessage, ' ', trailers);
+      statusStream = null;
+    },
   });
 };
 
@@ -337,11 +359,13 @@ const fetchCurrentOps = () => {
   return new Promise<Operation.AsObject[]>((resolve, reject) => {
     const req = new robotApi.GetOperationsRequest();
 
+    const now = Date.now();
     window.robotService.getOperations(req, new grpc.Metadata(), (err, resp) => {
       if (err) {
         reject(err);
         return;
       }
+      connectionManager.rtt = Math.max(Date.now() - now, 0);
 
       if (!resp) {
         reject(new Error('An unexpected issue occurred.'));
@@ -377,9 +401,12 @@ const loadCurrentOps = async () => {
   return currentOps;
 };
 
+const isWebRtcEnabled = () => {
+  return window.webrtcEnabled;
+};
+
 const createConnectionManager = () => {
-  lastStatusTS = Date.now();
-  const checkIntervalMillis = 3000;
+  const checkIntervalMillis = 10_000;
   const statuses = {
     resources: false,
     ops: false,
@@ -387,12 +414,14 @@ const createConnectionManager = () => {
 
   let timeout = -1;
   let connectionRestablished = false;
+  const rtt = 0;
 
   const isConnected = () => {
     return (
       statuses.resources &&
       statuses.ops &&
-      Date.now() - lastStatusTS! <= checkIntervalMillis
+      // check status on interval if direct grpc
+      (isWebRtcEnabled() || (Date.now() - lastStatusTS! <= checkIntervalMillis))
     );
   };
 
@@ -415,19 +444,21 @@ const createConnectionManager = () => {
         newErrors.push(error);
       }
 
-      try {
-        await loadCurrentOps();
+      if (statuses.resources) {
+        try {
+          await loadCurrentOps();
 
-        if (!statuses.ops) {
-          connectionRestablished = true;
-        }
+          if (!statuses.ops) {
+            connectionRestablished = true;
+          }
 
-        statuses.ops = true;
-      } catch (error) {
-        if (error instanceof ConnectionClosedError) {
-          statuses.ops = false;
+          statuses.ops = true;
+        } catch (error) {
+          if (error instanceof ConnectionClosedError) {
+            statuses.ops = false;
+          }
+          newErrors.push(error);
         }
-        newErrors.push(error);
       }
 
       if (isConnected()) {
@@ -441,14 +472,14 @@ const createConnectionManager = () => {
       }
 
       handleCallErrors(statuses, newErrors);
-      errorMessage = 'Connection error, attempting to reconnect ...';
+      errorMessage = 'Connection lost, attempting to reconnect ...';
 
       try {
         console.log('reconnecting');
 
         // reset status/stream state
         if (statusStream) {
-          statusStream.cancel();
+          statusStream.close();
           statusStream = null;
         }
         resourcesOnce = false;
@@ -456,6 +487,7 @@ const createConnectionManager = () => {
         await window.connect();
         await fetchCurrentOps();
         lastStatusTS = Date.now();
+        console.log('reconnected');
       } catch (error) {
         console.error('failed to reconnect; retrying:', error);
       }
@@ -470,6 +502,7 @@ const createConnectionManager = () => {
 
   const start = () => {
     stop();
+    lastStatusTS = Date.now();
     manageLoop();
   };
 
@@ -479,8 +512,10 @@ const createConnectionManager = () => {
     stop,
     start,
     isConnected,
+    rtt,
   };
 };
+connectionManager = createConnectionManager();
 
 const resourceStatusByName = (resource: Resource) => {
   return status[resourceNameToString(resource)];
@@ -597,20 +632,19 @@ const nonEmpty = (object: object) => {
   return Object.keys(object).length > 0;
 };
 
-const isWebRtcEnabled = () => {
-  return window.webrtcEnabled;
-};
-
-const doConnect = async (authEntity: string, creds: Credentials, onError?: () => Promise<void>) => {
+const doConnect = async (authEntity: string, creds: Credentials, onError?: () => void) => {
   console.debug('connecting');
   document.querySelector('#connecting')!.classList.remove('hidden');
 
   try {
     await window.connect(authEntity, creds);
   } catch (error) {
-    toast.error(`failed to connect: ${error}`);
+    console.error('failed to connect:', error);
     if (onError) {
+      toast.error('failed to connect; retrying');
       setTimeout(onError, 1000);
+    } else {
+      toast.error('failed to connect');
     }
     return;
   }
@@ -618,8 +652,7 @@ const doConnect = async (authEntity: string, creds: Credentials, onError?: () =>
   console.debug('connected');
   document.querySelector('#pre-app')!.classList.add('hidden');
   disableAuthElements = false;
-
-  return true;
+  connectedFirstTimeResolve();
 };
 
 const doLogin = (authType: string) => {
@@ -628,9 +661,9 @@ const doLogin = (authType: string) => {
   doConnect('', creds);
 };
 
-const waitForClientAndStart = async () => {
+const initConnect = () => {
   if (window.supportedAuthTypes.length === 0) {
-    await doConnect(window.bakedAuth.authEntity, window.bakedAuth.creds, waitForClientAndStart);
+    doConnect(window.bakedAuth.authEntity, window.bakedAuth.creds, initConnect);
   }
 };
 
@@ -639,9 +672,9 @@ const updatedBaseCameraState = (event: Map<string, boolean>) => {
 };
 
 onMounted(async () => {
-  await waitForClientAndStart();
+  initConnect();
+  await connectedFirstTime;
 
-  connectionManager = createConnectionManager();
   connectionManager.start();
 
   addResizeListeners();
@@ -827,6 +860,8 @@ onMounted(async () => {
     <!-- ******* CURRENT OPERATIONS ******* -->
     <CurrentOperations
       :operations="currentOps"
+      :connection-manager="connectionManager"
+      :session-ops="sessionOps"
     />
   </div>
 </template>
