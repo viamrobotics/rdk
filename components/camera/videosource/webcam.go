@@ -2,10 +2,10 @@ package videosource
 
 import (
 	"context"
+	"image"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"image"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
