@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"image"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -269,7 +270,7 @@ func getNamedVideoSource(
 	fromLabel bool,
 	constraints mediadevices.MediaStreamConstraints,
 	logger golog.Logger,
-) (gostream.MediaSource, error) {
+) (gostream.MediaSource[image.Image], error) {
 	if !fromLabel {
 		resolvedPath, err := filepath.EvalSymlinks(path)
 		if err == nil {
