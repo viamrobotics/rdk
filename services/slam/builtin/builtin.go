@@ -24,6 +24,7 @@ import (
 	"go.opencensus.io/trace"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -362,11 +363,15 @@ func setupGRPCConnection(ctx context.Context, port string, logger golog.Logger) 
 
 // Position forwards the request for positional data to the slam library's gRPC service. Once a response is received,
 // it is unpacked into a PoseInFrame.
-func (slamSvc *builtIn) Position(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
+func (slamSvc *builtIn) Position(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::Position")
 	defer span.End()
 
-	req := &pb.GetPositionRequest{Name: name}
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	req := &pb.GetPositionRequest{Name: name, Extra: ext}
 
 	resp, err := slamSvc.clientAlgo.GetPosition(ctx, req)
 	if err != nil {
@@ -378,9 +383,9 @@ func (slamSvc *builtIn) Position(ctx context.Context, name string) (*referencefr
 	// TODO DATA-531: https://viam.atlassian.net/jira/software/c/projects/DATA/boards/30?modal=detail&selectedIssue=DATA-531
 	// Remove extraction and conversion of quaternion from the extra field in the response once the Rust
 	// spatial math library is available and the desired math can be implemented on the orbSLAM side
-	extra := resp.Extra.AsMap()
+	returnedExt := resp.Extra.AsMap()
 
-	if val, ok := extra["quat"]; ok {
+	if val, ok := returnedExt["quat"]; ok {
 		q := val.(map[string]interface{})
 
 		valReal, ok1 := q["real"].(float64)
@@ -402,7 +407,13 @@ func (slamSvc *builtIn) Position(ctx context.Context, name string) (*referencefr
 
 // GetMap forwards the request for map data to the slam library's gRPC service. Once a response is received it is unpacked
 // into a mimeType and either a vision.Object or image.Image.
-func (slamSvc *builtIn) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame, include bool) (
+func (slamSvc *builtIn) GetMap(
+	ctx context.Context,
+	name, mimeType string,
+	cp *referenceframe.PoseInFrame,
+	include bool,
+	extra map[string]interface{},
+) (
 	string, image.Image, *vision.Object, error,
 ) {
 	ctx, span := trace.StartSpan(ctx, "slam::builtIn::GetMap")
@@ -413,11 +424,16 @@ func (slamSvc *builtIn) GetMap(ctx context.Context, name, mimeType string, cp *r
 		cameraPosition = referenceframe.PoseInFrameToProtobuf(cp).Pose
 	}
 
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return "", nil, nil, err
+	}
 	req := &pb.GetMapRequest{
 		Name:               name,
 		MimeType:           mimeType,
 		CameraPosition:     cameraPosition,
 		IncludeRobotMarker: include,
+		Extra:              ext,
 	}
 
 	var imData image.Image
@@ -454,7 +470,13 @@ func (slamSvc *builtIn) GetMap(ctx context.Context, name, mimeType string, cp *r
 }
 
 // NewBuiltIn returns a new slam service for the given robot.
-func NewBuiltIn(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger, bufferSLAMProcessLogs bool) (slam.Service, error) {
+func NewBuiltIn(
+	ctx context.Context,
+	r robot.Robot,
+	config config.Service,
+	logger golog.Logger,
+	bufferSLAMProcessLogs bool,
+) (slam.Service, error) {
 	ctx, span := trace.StartSpan(ctx, "slam::slamService::New")
 	defer span.End()
 

@@ -431,7 +431,13 @@ func setupInjectRobot() *inject.Robot {
 	return r
 }
 
-func createSLAMService(t *testing.T, attrCfg *builtin.AttrConfig, logger golog.Logger, bufferSLAMProcessLogs bool, success bool) (slam.Service, error) {
+func createSLAMService(
+	t *testing.T,
+	attrCfg *builtin.AttrConfig,
+	logger golog.Logger,
+	bufferSLAMProcessLogs bool,
+	success bool,
+) (slam.Service, error) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -928,14 +934,14 @@ func TestGetMapAndPosition(t *testing.T) {
 	svc, err := createSLAMService(t, attrCfg, logger, false, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	p, err := svc.Position(context.Background(), "hi")
+	p, err := svc.Position(context.Background(), "hi", map[string]interface{}{})
 	test.That(t, p, test.ShouldBeNil)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "error getting SLAM position")
 
 	pose := spatial.NewPoseFromOrientation(r3.Vector{1, 2, 3}, &spatial.OrientationVector{math.Pi / 2, 0, 0, -1})
 	cp := referenceframe.NewPoseInFrame("frame", pose)
 
-	mimeType, im, pc, err := svc.GetMap(context.Background(), "hi", rdkutils.MimeTypePCD, cp, true)
+	mimeType, im, pc, err := svc.GetMap(context.Background(), "hi", rdkutils.MimeTypePCD, cp, true, map[string]interface{}{})
 	test.That(t, mimeType, test.ShouldResemble, "")
 	test.That(t, im, test.ShouldBeNil)
 	test.That(t, pc, test.ShouldBeNil)

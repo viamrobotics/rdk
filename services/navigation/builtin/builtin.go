@@ -131,13 +131,13 @@ type builtIn struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func (svc *builtIn) Mode(ctx context.Context) (navigation.Mode, error) {
+func (svc *builtIn) Mode(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.mode, nil
 }
 
-func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode) error {
+func (svc *builtIn) SetMode(ctx context.Context, mode navigation.Mode, extra map[string]interface{}) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	if svc.mode == mode {
@@ -246,7 +246,7 @@ func (svc *builtIn) waypointDirectionAndDistanceToGo(ctx context.Context, curren
 	return fixAngle(currentLoc.BearingTo(goal)), currentLoc.GreatCircleDistance(goal), nil
 }
 
-func (svc *builtIn) Location(ctx context.Context) (*geo.Point, error) {
+func (svc *builtIn) Location(ctx context.Context, extra map[string]interface{}) (*geo.Point, error) {
 	if svc.movementSensor == nil {
 		return nil, errors.New("no way to get location")
 	}
@@ -254,7 +254,7 @@ func (svc *builtIn) Location(ctx context.Context) (*geo.Point, error) {
 	return loc, err
 }
 
-func (svc *builtIn) Waypoints(ctx context.Context) ([]navigation.Waypoint, error) {
+func (svc *builtIn) Waypoints(ctx context.Context, extra map[string]interface{}) ([]navigation.Waypoint, error) {
 	wps, err := svc.store.Waypoints(ctx)
 	if err != nil {
 		return nil, err
@@ -264,12 +264,12 @@ func (svc *builtIn) Waypoints(ctx context.Context) ([]navigation.Waypoint, error
 	return wpsCopy, nil
 }
 
-func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point) error {
+func (svc *builtIn) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
 	_, err := svc.store.AddWaypoint(ctx, point)
 	return err
 }
 
-func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error {
+func (svc *builtIn) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
 	return svc.store.RemoveWaypoint(ctx, id)
 }
 

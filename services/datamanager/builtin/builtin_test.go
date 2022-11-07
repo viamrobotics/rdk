@@ -527,7 +527,7 @@ func TestManualSync(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Run and upload files.
-	err = dmsvc.Sync(context.Background())
+	err = dmsvc.Sync(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(syncWaitTime)
 
@@ -538,7 +538,7 @@ func TestManualSync(t *testing.T) {
 
 	// Sync again and verify it synced the second data capture file, but also validate that it didn't attempt to resync
 	// any files that were previously synced.
-	err = dmsvc.Sync(context.Background())
+	err = dmsvc.Sync(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(syncWaitTime)
 	_ = dmsvc.Close(context.TODO())
@@ -638,7 +638,7 @@ func TestManualAndScheduledSync(t *testing.T) {
 
 	// Perform a manual and scheduled syncDataCaptureFiles at approximately the same time, then close the svc.
 	time.Sleep(time.Millisecond * 250)
-	err = dmsvc.Sync(context.TODO())
+	err = dmsvc.Sync(context.TODO(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	time.Sleep(syncWaitTime)
 	_ = dmsvc.Close(context.TODO())
