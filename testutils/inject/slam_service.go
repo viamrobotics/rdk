@@ -12,25 +12,31 @@ import (
 // SLAMService represents a fake instance of a slam service.
 type SLAMService struct {
 	slam.Service
-	PositionFunc func(ctx context.Context, name string) (*referenceframe.PoseInFrame, error)
+	PositionFunc func(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error)
 	GetMapFunc   func(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame,
-		include bool) (string, image.Image, *vision.Object, error)
+		include bool, extra map[string]interface{}) (string, image.Image, *vision.Object, error)
 }
 
 // Position calls the injected PositionFunc or the real version.
-func (slamSvc *SLAMService) Position(ctx context.Context, name string) (*referenceframe.PoseInFrame, error) {
+func (slamSvc *SLAMService) Position(ctx context.Context, name string, extra map[string]interface{}) (*referenceframe.PoseInFrame, error) {
 	if slamSvc.PositionFunc == nil {
-		return slamSvc.Service.Position(ctx, name)
+		return slamSvc.Service.Position(ctx, name, extra)
 	}
-	return slamSvc.PositionFunc(ctx, name)
+	return slamSvc.PositionFunc(ctx, name, extra)
 }
 
 // GetMap calls the injected GetMapFunc or the real version.
-func (slamSvc *SLAMService) GetMap(ctx context.Context, name, mimeType string, cp *referenceframe.PoseInFrame, include bool) (
+func (slamSvc *SLAMService) GetMap(
+	ctx context.Context,
+	name, mimeType string,
+	cp *referenceframe.PoseInFrame,
+	include bool,
+	extra map[string]interface{},
+) (
 	string, image.Image, *vision.Object, error,
 ) {
 	if slamSvc.GetMapFunc == nil {
-		return slamSvc.Service.GetMap(ctx, name, mimeType, cp, include)
+		return slamSvc.Service.GetMap(ctx, name, mimeType, cp, include, extra)
 	}
-	return slamSvc.GetMapFunc(ctx, name, mimeType, cp, include)
+	return slamSvc.GetMapFunc(ctx, name, mimeType, cp, include, extra)
 }

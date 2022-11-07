@@ -10,15 +10,18 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream/codec/x264"
 	streampb "github.com/edaniels/gostream/proto/stream/v1"
+	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	commonpb "go.viam.com/api/common/v1"
+	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/arm"
@@ -792,4 +795,62 @@ type myCompServer struct {
 
 func (s *myCompServer) DoOne(ctx context.Context, req *mycomppb.DoOneRequest) (*mycomppb.DoOneResponse, error) {
 	return &mycomppb.DoOneResponse{Ret1: req.Arg1 == "hello"}, nil
+}
+
+func TestRawClientOperation(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx, iRobot := setupRobotCtx(t)
+
+	svc := web.New(ctx, iRobot, logger)
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	iRobot.(*inject.Robot).StatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]robot.Status, error) {
+		return []robot.Status{}, nil
+	}
+
+	checkOpID := func(md metadata.MD) {
+		t.Helper()
+		test.That(t, md["opid"], test.ShouldHaveLength, 1)
+		_, err = uuid.Parse(md["opid"][0])
+		test.That(t, err, test.ShouldBeNil)
+	}
+
+	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
+	test.That(t, err, test.ShouldBeNil)
+	client := robotpb.NewRobotServiceClient(conn)
+
+	var hdr metadata.MD
+	_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{}, grpc.Header(&hdr))
+	test.That(t, err, test.ShouldBeNil)
+	checkOpID(hdr)
+
+	streamClient, err := client.StreamStatus(ctx, &robotpb.StreamStatusRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	md, err := streamClient.Header()
+	test.That(t, err, test.ShouldBeNil)
+	checkOpID(md)
+	test.That(t, conn.Close(), test.ShouldBeNil)
+
+	conn, err = rgrpc.Dial(context.Background(), addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	client = robotpb.NewRobotServiceClient(conn)
+
+	hdr = metadata.MD{}
+	trailers := metadata.MD{} // won't do anything but helps test goutils
+	_, err = client.GetStatus(ctx, &robotpb.GetStatusRequest{}, grpc.Header(&hdr), grpc.Trailer(&trailers))
+	test.That(t, err, test.ShouldBeNil)
+	checkOpID(hdr)
+
+	streamClient, err = client.StreamStatus(ctx, &robotpb.StreamStatusRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	md, err = streamClient.Header()
+	test.That(t, err, test.ShouldBeNil)
+	checkOpID(md)
+	test.That(t, conn.Close(), test.ShouldBeNil)
+
+	test.That(t, utils.TryClose(ctx, svc), test.ShouldBeNil)
 }

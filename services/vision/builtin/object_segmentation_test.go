@@ -46,7 +46,7 @@ func TestObjectSegmentationFailures(t *testing.T) {
 	obs, err := builtin.NewBuiltIn(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", "")
+	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", "", map[string]interface{}{})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// fails since camera cannot generate point clouds (no depth in image)
@@ -79,9 +79,13 @@ func TestObjectSegmentationFailures(t *testing.T) {
 		"mean_k_filtering":      10.,
 	}
 
-	err = obs.AddSegmenter(context.Background(), vision.VisModelConfig{builtin.RadiusClusteringSegmenter, string(builtin.RCSegmenter), params})
+	err = obs.AddSegmenter(
+		context.Background(),
+		vision.VisModelConfig{builtin.RadiusClusteringSegmenter, string(builtin.RCSegmenter), params},
+		map[string]interface{}{},
+	)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", builtin.RadiusClusteringSegmenter)
+	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", builtin.RadiusClusteringSegmenter, map[string]interface{}{})
 	test.That(t, errors.Is(err, transform.ErrNoIntrinsics), test.ShouldBeTrue)
 }
 
@@ -116,16 +120,20 @@ func TestGetObjectPointClouds(t *testing.T) {
 		"clustering_radius_mm":  5.,
 		"mean_k_filtering":      10.,
 	}
-	err = obs.AddSegmenter(context.Background(), vision.VisModelConfig{builtin.RadiusClusteringSegmenter, string(builtin.RCSegmenter), params})
+	err = obs.AddSegmenter(
+		context.Background(),
+		vision.VisModelConfig{builtin.RadiusClusteringSegmenter, string(builtin.RCSegmenter), params},
+		map[string]interface{}{},
+	)
 	test.That(t, err, test.ShouldBeNil)
 
 	// see if it ws registered
-	segmenterNames, err := obs.SegmenterNames(context.Background())
+	segmenterNames, err := obs.SegmenterNames(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, segmenterNames, test.ShouldContain, builtin.RadiusClusteringSegmenter)
 
 	// successfully get object point clouds
-	segs, err := obs.GetObjectPointClouds(context.Background(), "fakeCamera", builtin.RadiusClusteringSegmenter)
+	segs, err := obs.GetObjectPointClouds(context.Background(), "fakeCamera", builtin.RadiusClusteringSegmenter, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(segs), test.ShouldEqual, 2)
 
@@ -138,9 +146,9 @@ func TestGetObjectPointClouds(t *testing.T) {
 	}
 
 	// remove segmenter from service
-	err = obs.RemoveSegmenter(context.Background(), builtin.RadiusClusteringSegmenter)
+	err = obs.RemoveSegmenter(context.Background(), builtin.RadiusClusteringSegmenter, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	segmenterNames, err = obs.SegmenterNames(context.Background())
+	segmenterNames, err = obs.SegmenterNames(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, segmenterNames, test.ShouldHaveLength, 0)
 }
@@ -161,7 +169,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc, test.ShouldNotBeNil)
 
-	result, err := svc.GetObjectPointClouds(context.Background(), "", "")
+	result, err := svc.GetObjectPointClouds(context.Background(), "", "", map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldHaveLength, 2)
 	test.That(t, svc1.timesCalled, test.ShouldEqual, 1)
@@ -193,6 +201,7 @@ type mock struct {
 func (m *mock) GetObjectPointClouds(ctx context.Context,
 	cameraName string,
 	segmenterName string,
+	extra map[string]interface{},
 ) ([]*viz.Object, error) {
 	m.timesCalled++
 	return []*viz.Object{viz.NewEmptyObject(), viz.NewEmptyObject()}, nil
@@ -254,11 +263,11 @@ func TestFullClientServerLoop(t *testing.T) {
 	}
 	err = client.AddSegmenter(
 		context.Background(),
-		vision.VisModelConfig{builtin.RadiusClusteringSegmenter, string(builtin.RCSegmenter), params},
+		vision.VisModelConfig{builtin.RadiusClusteringSegmenter, string(builtin.RCSegmenter), params}, map[string]interface{}{},
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	segs, err := client.GetObjectPointClouds(context.Background(), "fakeCamera", builtin.RadiusClusteringSegmenter)
+	segs, err := client.GetObjectPointClouds(context.Background(), "fakeCamera", builtin.RadiusClusteringSegmenter, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(segs), test.ShouldEqual, 2)
 

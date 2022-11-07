@@ -354,6 +354,7 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 	var ticksLeft int64
 
 	currentRPM := m.computeRPM(pos, lastPos, now, lastTime)
+	m.state.currentRPM = currentRPM
 
 	if !m.state.regulated && math.Abs(m.state.desiredRPM) > 0.001 {
 		m.rpmMonitorPassSetRpmInLock(currentRPM, m.state.desiredRPM, -1, rpmDebug)
@@ -361,14 +362,21 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 	}
 
 	if m.state.regulated {
-		ticksLeft = (m.state.setPoint - pos) * sign(m.state.lastPowerPct)
+		// correctly set the ticksLeft accounting for power supplied to the motor and the expected direction of the motor
+		ticksLeft = (m.state.setPoint - pos) * sign(m.state.lastPowerPct) * m.flip
 		rotationsLeft := float64(ticksLeft) / float64(m.cfg.TicksPerRotation)
-		if rotationsLeft <= 0 {
+		if rpmDebug {
+			m.logger.Debugf("ticksLeft %d rotationsLeft %.2f", ticksLeft, rotationsLeft)
+		}
+		if rotationsLeft <= 0 { // if we have reached goal or overshot, turn off
+			if rpmDebug {
+				m.logger.Debugf("rot %.2f, stopping motor", rotationsLeft)
+			}
 			err := m.off(m.cancelCtx)
 			if err != nil {
 				m.logger.Warnf("error turning motor off from after hit set point: %v", err)
 			}
-		} else {
+		} else { // halve and quarter rpm values based on seconds remaining in move
 			desiredRPM := m.state.desiredRPM
 			timeLeftSeconds := 60.0 * rotationsLeft / desiredRPM
 
@@ -380,6 +388,11 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 					desiredRPM /= 2
 				}
 			}
+
+			if rpmDebug {
+				m.logger.Debugf("rotationsLeft %.2f timeLeft %.2f", rotationsLeft, timeLeftSeconds)
+			}
+
 			m.rpmMonitorPassSetRpmInLock(currentRPM, desiredRPM, rotationsLeft, rpmDebug)
 		}
 	}
@@ -406,7 +419,7 @@ func (m *EncodedMotor) computeNewPowerPct(currentRPM, desiredRPM float64) float6
 		return m.computeRamp(lastPowerPct, lastPowerPct*2)
 	}
 
-	dOverC := desiredRPM / currentRPM
+	dOverC := desiredRPM / currentRPM * float64(m.flip)
 	dOverC = math.Min(dOverC, 2)
 	dOverC = math.Max(dOverC, -2)
 
@@ -428,17 +441,22 @@ func (m *EncodedMotor) computeNewPowerPct(currentRPM, desiredRPM float64) float6
 
 func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(currentRPM, desiredRPM, rotationsLeft float64, rpmDebug bool) {
 	lastPowerPct := m.state.lastPowerPct
-	m.state.currentRPM = currentRPM
 
 	newPowerPct := m.computeNewPowerPct(currentRPM, desiredRPM)
-	if newPowerPct == lastPowerPct {
-		return // No changes to power are needed right now
+	if newPowerPct == lastPowerPct { // No changes to power are needed right now
+		if rpmDebug {
+			m.logger.Debugf("newPowerPct %.2f equals lastPowerPct %.2f", newPowerPct, lastPowerPct)
+		}
+		return
 	}
 
 	if rpmDebug {
-		m.logger.Debugf("current rpm: %0.1f desiredRPM: %0.1f power: %0.1f -> %0.1f rot2go: %0.1f",
+		m.logger.Debugf("currentRPM: %0.1f desiredRPM: %0.1f lastPowerPct -> newPowerPct: %0.1f -> %0.1f rotations left: %0.1f",
 			currentRPM, desiredRPM, lastPowerPct*100, newPowerPct*100, rotationsLeft)
+		m.logger.Debugf("setting newPowerPct to %.2f", newPowerPct)
 	}
+
+	// Otherwise, we change power to the new computed power percentage
 	err := m.setPower(m.cancelCtx, newPowerPct, true)
 	if err != nil {
 		m.logger.Warnf("rpm regulator cannot set power %s", err)
@@ -464,6 +482,11 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 	if rpm == 0 {
 		return motor.NewZeroRPMError()
 	}
+
+	rpm *= float64(m.flip)
+
+	m.state.lastPowerPct = 0 // clear any leftover state from last time
+
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
@@ -507,8 +530,13 @@ func (m *EncodedMotor) goForInternal(ctx context.Context, rpm, revolutions float
 	if err != nil {
 		return err
 	}
+	m.state.setPoint = pos + d*numTicks*m.flip
 
-	m.state.setPoint = pos + d*numTicks
+	_, rpmDebug := getRPMSleepDebug()
+	if rpmDebug {
+		m.logger.Debugf("received a goFor with rpm %0.1f, revolutions %0.1f and flip %d", rpm, revolutions, m.flip)
+		m.logger.Debugf("setpoint %d", m.state.setPoint)
+	}
 
 	m.state.desiredRPM = rpm
 	m.state.regulated = true

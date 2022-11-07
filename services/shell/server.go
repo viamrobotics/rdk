@@ -43,7 +43,7 @@ func (server *subtypeServer) Shell(srv pb.ShellService_ShellServer) (retErr erro
 	if err != nil {
 		return err
 	}
-	input, output, err := svc.Shell(srv.Context())
+	input, output, err := svc.Shell(srv.Context(), req.Extra.AsMap())
 	if err != nil {
 		return err
 	}
