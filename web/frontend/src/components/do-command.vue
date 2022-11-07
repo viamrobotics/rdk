@@ -80,8 +80,8 @@ const namesToPrettySelect = (resourcesToPretty: Resource[]): string => {
         :options="namesToPrettySelect(resources)"
         :value="selectedComponent"
         :disabled="executing ? 'true' : 'false'"
-        @input="selectedComponent = $event.detail.value"
         class="mb-4"
+        @input="selectedComponent = $event.detail.value"
       />
       <div class="flex flex-wrap h-full w-full flex-row gap-2">
         <div class="h-full w-full">
