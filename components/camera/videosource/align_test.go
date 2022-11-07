@@ -41,9 +41,8 @@ func TestAlignTypeError(t *testing.T) {
 	depthCam, err := camera.NewFromReader(context.Background(), depthSrc, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
 	attrs := &alignAttrs{
-		AttrConfig: &camera.AttrConfig{},
-		Width:      100,
-		Height:     200,
+		Width:  100,
+		Height: 200,
 	}
 	// test Warp error
 	attrs.Warp = []float64{4.5, 6.}

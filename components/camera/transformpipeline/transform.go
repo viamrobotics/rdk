@@ -47,7 +47,7 @@ func buildTransform(
 	case transformTypeResize:
 		return newResizeTransform(ctx, source, stream, tr.Attributes)
 	case transformTypeDepthPretty:
-		return newDepthToPrettyTransform(ctx, source, cfg.AttrConfig)
+		return newDepthToPrettyTransform(ctx, source, stream, cfg.CameraParameters)
 	case transformTypeOverlay:
 		return newOverlayTransform(ctx, source, stream, tr.Attributes)
 	case transformTypeUndistort:

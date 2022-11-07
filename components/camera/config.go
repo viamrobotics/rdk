@@ -28,7 +28,7 @@ type AttrConfig struct {
 	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
 	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
 	Stream               string                             `json:"stream"`
-	Debug                bool                               `json:"debug"`
+	Debug                bool                               `json:"debug,omitempty"`
 }
 
 // CommonCameraAttributes extracts the common camera attributes.
