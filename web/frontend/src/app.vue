@@ -10,11 +10,12 @@ import { toast } from './lib/toast';
 import { displayError } from './lib/error';
 import { addResizeListeners } from './lib/resize';
 import robotApi, {
-  type Status,
   type Operation,
+  type Status,
   type StreamStatusResponse,
 } from './gen/proto/api/robot/v1/robot_pb.esm';
-import type { ResponseStream, ServiceError } from './gen/proto/stream/v1/stream_pb_service.esm';
+import { RobotService } from './gen/proto/api/robot/v1/robot_pb_service.esm';
+import type { ServiceError } from './gen/proto/stream/v1/stream_pb_service.esm';
 import commonApi, { type ResourceName } from './gen/proto/api/common/v1/common_pb.esm';
 import cameraApi from './gen/proto/api/component/camera/v1/camera_pb.esm';
 import sensorsApi from './gen/proto/api/service/sensors/v1/sensors_pb.esm';
@@ -72,7 +73,8 @@ const rawStatus = $ref<Record<string, Status>>({});
 const status = $ref<Record<string, Status>>({});
 const errors = $ref<Record<string, boolean>>({});
 
-let statusStream: ResponseStream<StreamStatusResponse> | null = null;
+let statusStream: grpc.Request | null = null;
+let statusStreamOpID: string | undefined;
 let baseCameraState = new Map<string, boolean>();
 let disableAuthElements = $ref(false);
 let cameraFrameIntervalId = $ref(-1);
@@ -96,6 +98,7 @@ let connectionManager = $ref<{
   isConnected(): boolean;
   rtt: number;
 }>(null!);
+const sessionOps = new Set<string>();
 
 const handleError = (message: string, error: unknown, onceKey: string) => {
   if (onceKey) {
@@ -229,8 +232,12 @@ const updateStatus = (grpcStatuses: robotApi.Status[]) => {
 
 const restartStatusStream = () => {
   if (statusStream) {
-    statusStream.cancel();
+    statusStream.close();
     statusStream = null;
+    if (statusStreamOpID) {
+      sessionOps.delete(statusStreamOpID);
+      statusStreamOpID = undefined;
+    }
   }
 
   let newResources: Resource[] = [];
@@ -253,20 +260,33 @@ const restartStatusStream = () => {
   streamReq.setResourceNamesList(names);
   streamReq.setEvery(new Duration().setNanos(500_000_000));
 
-  statusStream = window.robotService.streamStatus(streamReq);
+  interface svcWithOpts {
+    options: {
+      transport: grpc.TransportFactory;
+      debug: boolean;
+    };
+  }
 
-  statusStream.on('data', (response) => {
-    updateStatus(response.getStatusList());
-  });
-
-  statusStream.on('status', (newStatus) => {
-    console.error('error streaming robot status', newStatus, newStatus.code, ' ', newStatus.details);
-    statusStream = null;
-  });
-
-  statusStream.on('end', () => {
-    console.error('done streaming robot status');
-    statusStream = null;
+  const robotSvcWithOpts = window.robotService as unknown as svcWithOpts;
+  statusStream = grpc.invoke(RobotService.StreamStatus, {
+    request: streamReq,
+    host: window.robotService.serviceHost,
+    transport: robotSvcWithOpts.options.transport,
+    debug: robotSvcWithOpts.options.debug,
+    onHeaders: (headers: grpc.Metadata) => {
+      if (headers.headersMap.opid && headers.headersMap.opid.length > 0) {
+        const [opID] = headers.headersMap.opid;
+        sessionOps.add(opID!);
+        statusStreamOpID = opID;
+      }
+    },
+    onMessage: (response) => {
+      updateStatus((response as StreamStatusResponse).getStatusList());
+    },
+    onEnd: (endStatus, endStatusMessage, trailers) => {
+      console.error('error streaming robot status', endStatus, ' ', endStatusMessage, ' ', trailers);
+      statusStream = null;
+    },
   });
 };
 
@@ -447,7 +467,7 @@ const createConnectionManager = () => {
 
         // reset status/stream state
         if (statusStream) {
-          statusStream.cancel();
+          statusStream.close();
           statusStream = null;
         }
         resourcesOnce = false;
@@ -831,6 +851,7 @@ onMounted(async () => {
     <CurrentOperations
       :operations="currentOps"
       :connection-manager="connectionManager"
+      :session-ops="sessionOps"
     />
   </div>
 </template>
