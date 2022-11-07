@@ -27,26 +27,16 @@ func init() {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			videoSrc := &fileSource{attrs.Color, attrs.Depth, attrs.CameraParameters}
-			var intrinsics *transform.PinholeCameraIntrinsics
-			var distortion transform.Distorter
-			if attrs.AttrConfig != nil {
-				intrinsics = attrs.AttrConfig.CameraParameters
-				distortion = attrs.AttrConfig.DistortionParameters
-			}
 			return camera.NewFromReader(
 				ctx,
 				videoSrc,
-				&transform.PinholeCameraModel{intrinsics, distortion},
+				&transform.PinholeCameraModel{attrs.CameraParameters, attrs.DistortionParameters},
 				camera.StreamType(attrs.Stream),
 			)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(camera.SubtypeName, "file",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
-			if err != nil {
-				return nil, err
-			}
 			var conf fileSourceAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
 			if err != nil {
@@ -56,7 +46,6 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(result, attrs)
 			}
-			result.AttrConfig = cameraAttrs
 			return result, nil
 		},
 		&fileSourceAttrs{})
@@ -71,9 +60,12 @@ type fileSource struct {
 
 // fileSourceAttrs is the attribute struct for fileSource.
 type fileSourceAttrs struct {
-	*camera.AttrConfig
-	Color string `json:"color_file_path"`
-	Depth string `json:"depth_file_path"`
+	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
+	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
+	Stream               string                             `json:"stream"`
+	Debug                bool                               `json:"debug,omitempty"`
+	Color                string                             `json:"color_file_path"`
+	Depth                string                             `json:"depth_file_path"`
 }
 
 // Read returns just the RGB image if it is present, or the depth map if the RGB image is not present.
