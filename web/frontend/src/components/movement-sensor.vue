@@ -126,11 +126,11 @@ onUnmounted(() => {
       slot="title"
       crumbs="movement_sensor"
     />
-    <div class="flex border border-t-0 border-black p-4">
+    <div class="flex flex-wrap gap-4 border border-t-0 border-black p-4">
       <template v-if="properties">
         <div
           v-if="properties.positionSupported"
-          class="overflow-auto mr-4 w-1/4"
+          class="overflow-auto"
         >
           <h3 class="mb-1">
             Position
@@ -161,14 +161,17 @@ onUnmounted(() => {
               </td>
             </tr>
           </table>
-          <a :href="`https://www.google.com/maps/search/${coordinate?.latitude},${coordinate?.longitude}`">
+          <a
+            class="underline text-[#045681]"
+            :href="`https://www.google.com/maps/search/${coordinate?.latitude},${coordinate?.longitude}`"
+          >
             google maps
           </a>
         </div>
 
         <div
           v-if="properties.orientationSupported"
-          class="overflow-auto mr-4 w-1/4"
+          class="overflow-auto"
         >
           <h3 class="mb-1">
             Orientation (degrees)
@@ -211,7 +214,7 @@ onUnmounted(() => {
 
         <div
           v-if="properties.angularVelocitySupported"
-          class="overflow-auto mr-4 w-1/4"
+          class="overflow-auto"
         >
           <h3 class="mb-1">
             Angular Velocity (degrees/second)
@@ -246,7 +249,7 @@ onUnmounted(() => {
 
         <div
           v-if="properties.linearVelocitySupported"
-          class="overflow-auto mr-4 w-1/4"
+          class="overflow-auto"
         >
           <h3 class="mb-1">
             Linear Velocity
@@ -281,7 +284,7 @@ onUnmounted(() => {
 
         <div
           v-if="properties.compassHeadingSupported"
-          class="overflow-auto mr-4 w-1/4"
+          class="overflow-auto"
         >
           <h3 class="mb-1">
             Compass Heading
