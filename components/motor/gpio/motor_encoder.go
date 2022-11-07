@@ -366,7 +366,7 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 		ticksLeft = (m.state.setPoint - pos) * sign(m.state.lastPowerPct) * m.flip
 		rotationsLeft := float64(ticksLeft) / float64(m.cfg.TicksPerRotation)
 		if rpmDebug {
-			m.logger.Debugf("ticksLeft %d power %.2f", ticksLeft, rotationsLeft)
+			m.logger.Debugf("ticksLeft %d rotationsLeft %.2f", ticksLeft, rotationsLeft)
 		}
 		if rotationsLeft <= 0 { // if we have reached goal or overshot, turn off
 			if rpmDebug {
@@ -390,7 +390,7 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 			}
 
 			if rpmDebug {
-				m.logger.Debugf("rot2go %.2f timeLef %.2f", rotationsLeft, timeLeftSeconds)
+				m.logger.Debugf("rotationsLeft %.2f timeLeft %.2f", rotationsLeft, timeLeftSeconds)
 			}
 
 			m.rpmMonitorPassSetRpmInLock(currentRPM, desiredRPM, rotationsLeft, rpmDebug)
@@ -451,7 +451,7 @@ func (m *EncodedMotor) rpmMonitorPassSetRpmInLock(currentRPM, desiredRPM, rotati
 	}
 
 	if rpmDebug {
-		m.logger.Debugf("current rpm: %0.1f desiredRPM: %0.1f power: %0.1f -> %0.1f rot2go: %0.1f",
+		m.logger.Debugf("currentRPM: %0.1f desiredRPM: %0.1f lastPowerPct -> newPowerPct: %0.1f -> %0.1f rotations left: %0.1f",
 			currentRPM, desiredRPM, lastPowerPct*100, newPowerPct*100, rotationsLeft)
 		m.logger.Debugf("setting newPowerPct to %.2f", newPowerPct)
 	}
@@ -485,7 +485,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 
 	rpm *= float64(m.flip)
 
-	m.state.lastPowerPct = 0 // ensures power starts at zero for each new movement call
+	m.state.lastPowerPct = 0 // clear any leftover state from last time
 
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
