@@ -85,7 +85,7 @@ func (ms *builtIn) Move(
 	output, err := solver.SolveWaypointsWithOptions(ctx,
 		fsInputs,
 		[]*referenceframe.PoseInFrame{goalPose},
-		componentName.Name,
+		componentName.ShortName(),
 		worldState,
 		[]map[string]interface{}{extra},
 	)
@@ -123,18 +123,18 @@ func (ms *builtIn) MoveSingleComponent(
 	operation.CancelOtherWithLabel(ctx, "motion-service")
 	logger := ms.r.Logger()
 
-	components := robot.AllResourcesByName(ms.r, componentName.Name)
+	components := robot.AllResourcesByName(ms.r, componentName.ShortName())
 	if len(components) != 1 {
-		return false, fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), componentName.Name)
+		return false, fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), componentName.ShortName())
 	}
 	movableArm, ok := components[0].(arm.Arm)
 	if !ok {
-		return false, fmt.Errorf("%v(%T) is not an Arm and cannot MoveToPosition with a Pose", componentName.Name, components[0])
+		return false, fmt.Errorf("%v(%T) is not an Arm and cannot MoveToPosition with a Pose", componentName.ShortName(), components[0])
 	}
 
 	// get destination pose in frame of movable component
 	goalPose := destination.Pose()
-	if destination.FrameName() != componentName.Name {
+	if destination.FrameName() != componentName.ShortName() {
 		logger.Debugf("goal given in frame of %q", destination.FrameName())
 
 		frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r, worldState.GetTransforms())
@@ -149,7 +149,7 @@ func (ms *builtIn) MoveSingleComponent(
 		logger.Debugf("frame system inputs: %v", fsInputs)
 
 		// re-evaluate goalPose to be in the frame we're going to move in
-		tf, err := frameSys.Transform(fsInputs, destination, componentName.Name+"_origin")
+		tf, err := frameSys.Transform(fsInputs, destination, componentName.ShortName()+"_origin")
 		if err != nil {
 			return false, err
 		}
@@ -178,7 +178,7 @@ func (ms *builtIn) GetPose(
 	return ms.r.TransformPose(
 		ctx,
 		referenceframe.NewPoseInFrame(
-			componentName.Name,
+			componentName.ShortName(),
 			spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
 		),
 		destinationFrame,
