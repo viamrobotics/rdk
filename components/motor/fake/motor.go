@@ -187,9 +187,6 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 
 func (m *Motor) setPowerPct(powerPct float64) {
 	m.powerPct = powerPct
-	// if m.DirFlip {
-	// 	m.powerPct *= -1
-	// }
 }
 
 // PowerPct returns the set power percentage.
