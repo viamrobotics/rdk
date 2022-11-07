@@ -362,7 +362,8 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 	}
 
 	if m.state.regulated {
-		ticksLeft = (m.state.setPoint - pos) * sign(m.state.lastPowerPct) * m.flip // should always be positive
+		// correctly set the ticksLeft accounting for power supplied to the motor and the expected direction of the motor
+		ticksLeft = (m.state.setPoint - pos) * sign(m.state.lastPowerPct) * m.flip
 		rotationsLeft := float64(ticksLeft) / float64(m.cfg.TicksPerRotation)
 		if rpmDebug {
 			m.logger.Debugf("ticksLeft %d power %.2f", ticksLeft, rotationsLeft)
@@ -375,7 +376,7 @@ func (m *EncodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebu
 			if err != nil {
 				m.logger.Warnf("error turning motor off from after hit set point: %v", err)
 			}
-		} else { // halve and quarter rpm values based on seconds remainign in move
+		} else { // halve and quarter rpm values based on seconds remaining in move
 			desiredRPM := m.state.desiredRPM
 			timeLeftSeconds := 60.0 * rotationsLeft / desiredRPM
 
@@ -484,7 +485,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm, revolutions float64, extr
 
 	rpm *= float64(m.flip)
 
-	m.state.lastPowerPct = 0 // set power to zero when GoFor is called
+	m.state.lastPowerPct = 0 // ensures power starts at zero for each new movement call
 
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
