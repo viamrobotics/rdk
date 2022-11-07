@@ -46,7 +46,7 @@ func createLuaFiles(name string) error {
 func testCartographerPositionAndMap(t *testing.T, svc slam.Service) {
 	t.Helper()
 
-	actualMIME, _, pointcloud, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false)
+	actualMIME, _, pointcloud, err := svc.GetMap(context.Background(), "test", "pointcloud/pcd", nil, false, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualMIME, test.ShouldResemble, "pointcloud/pcd")
 	test.That(t, pointcloud.Size(), test.ShouldBeGreaterThanOrEqualTo, 100)

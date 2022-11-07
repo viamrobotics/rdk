@@ -43,7 +43,7 @@ func (server *subtypeServer) GetMode(ctx context.Context, req *pb.GetModeRequest
 	if err != nil {
 		return nil, err
 	}
-	mode, err := svc.Mode(ctx)
+	mode, err := svc.Mode(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -68,11 +68,11 @@ func (server *subtypeServer) SetMode(ctx context.Context, req *pb.SetModeRequest
 	}
 	switch req.Mode {
 	case pb.Mode_MODE_MANUAL:
-		if err := svc.SetMode(ctx, ModeManual); err != nil {
+		if err := svc.SetMode(ctx, ModeManual, req.Extra.AsMap()); err != nil {
 			return nil, err
 		}
 	case pb.Mode_MODE_WAYPOINT:
-		if err := svc.SetMode(ctx, ModeWaypoint); err != nil {
+		if err := svc.SetMode(ctx, ModeWaypoint, req.Extra.AsMap()); err != nil {
 			return nil, err
 		}
 	case pb.Mode_MODE_UNSPECIFIED:
@@ -90,7 +90,7 @@ func (server *subtypeServer) GetLocation(ctx context.Context, req *pb.GetLocatio
 	if err != nil {
 		return nil, err
 	}
-	loc, err := svc.Location(ctx)
+	loc, err := svc.Location(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (server *subtypeServer) GetWaypoints(ctx context.Context, req *pb.GetWaypoi
 	if err != nil {
 		return nil, err
 	}
-	waypoints, err := svc.Waypoints(ctx)
+	waypoints, err := svc.Waypoints(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (server *subtypeServer) AddWaypoint(ctx context.Context, req *pb.AddWaypoin
 		return nil, err
 	}
 	point := geo.NewPoint(req.Location.Latitude, req.Location.Longitude)
-	if err = svc.AddWaypoint(ctx, point); err != nil {
+	if err = svc.AddWaypoint(ctx, point, req.Extra.AsMap()); err != nil {
 		return nil, err
 	}
 	return &pb.AddWaypointResponse{}, nil
@@ -147,7 +147,7 @@ func (server *subtypeServer) RemoveWaypoint(ctx context.Context, req *pb.RemoveW
 	if err != nil {
 		return nil, err
 	}
-	if err = svc.RemoveWaypoint(ctx, id); err != nil {
+	if err = svc.RemoveWaypoint(ctx, id, req.Extra.AsMap()); err != nil {
 		return nil, err
 	}
 	return &pb.RemoveWaypointResponse{}, nil
