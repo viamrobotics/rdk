@@ -117,11 +117,7 @@ func TestCartographerIntegration(t *testing.T) {
 
 	// Remove maps so that testing in offline mode will run in mapping mode,
 	// as opposed to updating mode.
-	files, err = ioutil.ReadDir(name + "/map/")
-	test.That(t, err, test.ShouldBeNil)
-	for _, file := range files {
-		test.That(t, os.Remove(name+"/map/"+file.Name()), test.ShouldBeNil)
-	}
+	test.That(t, os.RemoveAll(name+"/map/*"), test.ShouldBeNil)
 
 	// Test offline mode using the data generated in the online test
 	t.Log("Testing offline mode")
