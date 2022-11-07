@@ -36,9 +36,8 @@ const killOperation = (id: string) => {
       <template
         v-if="connectionManager"
       >
-        <div
-          class="flex flex-row-reverse mb-4"
-        >
+        <div class="flex justify-end mb-4">
+          <label>RTT:</label>
           <v-badge
             v-if="connectionManager.rtt < 50"
             variant="green"
@@ -54,11 +53,8 @@ const killOperation = (id: string) => {
             variant="red"
             :label="connectionManager.rtt + ' ms'"
           />
-          <label>
-            RTT:
-          </label>
         </div>
-        
+
         <div class="overflow-auto">
           <table class="w-full table-auto border border-black">
             <tr>

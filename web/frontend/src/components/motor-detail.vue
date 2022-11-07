@@ -160,8 +160,8 @@ const motorStop = () => {
               : 'Go'
           "
           :selected="movementType"
-          @input="setMovementType($event.detail.value)"
           class="mb-4"
+          @input="setMovementType($event.detail.value)"
         />
         <div class="flex flex-wrap gap-4 mb-4">
           <div
