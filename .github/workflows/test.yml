@@ -34,13 +34,13 @@ jobs:
     steps:
     - name: Check out main branch code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 2
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 0 # 0 so we can analyze history for coverage
@@ -115,13 +115,13 @@ jobs:
 
     - name: Check out main branch code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 2
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 2
@@ -151,13 +151,13 @@ jobs:
     steps:
       - name: Check out main branch code
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 2
 
       - name: Check out PR branch code
         if: github.event_name == 'pull_request_target'
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 2
@@ -181,13 +181,13 @@ jobs:
     steps:
     - name: Check out main branch code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 2
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 2
