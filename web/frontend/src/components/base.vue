@@ -318,16 +318,16 @@ onMounted(() => {
       </div>
       <div
         v-if="selectedItem === 'Discrete'"
-        class="flex h-auto p-4"
+        class="flex flex-wrap h-auto p-4"
       >
-        <div class="grow">
+        <div class="mb-4 grow">
           <v-radio
             label="Movement Mode"
             options="Straight, Spin"
             :selected="movementMode"
             @input="setMovementMode($event.detail.value)"
           />
-          <div class="flex items-center gap-2 pt-4">
+          <div class="flex flex-wrap items-center gap-2 pt-4">
             <v-radio
               v-if="movementMode === 'Straight'"
               label="Movement Type"
