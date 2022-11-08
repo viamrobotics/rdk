@@ -73,11 +73,9 @@ func TestServerSource(t *testing.T) {
 	defer svr.Close()
 	// create color camera
 	attrs := ServerAttrs{
-		URL: svr.URL + "/color.png",
-		AttrConfig: &camera.AttrConfig{
-			CameraParameters: intrinsics,
-			Stream:           "color",
-		},
+		URL:              svr.URL + "/color.png",
+		CameraParameters: intrinsics,
+		Stream:           "color",
 	}
 	cam, err := NewServerSource(context.Background(), &attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -135,11 +133,9 @@ func TestServerSource(t *testing.T) {
 
 	// create depth camera
 	attrs2 := ServerAttrs{
-		URL: svr.URL + "/depth.png",
-		AttrConfig: &camera.AttrConfig{
-			CameraParameters: intrinsics,
-			Stream:           "depth",
-		},
+		URL:              svr.URL + "/depth.png",
+		CameraParameters: intrinsics,
+		Stream:           "depth",
 	}
 	cam2, err := NewServerSource(context.Background(), &attrs2, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -168,12 +164,10 @@ func TestDualServerSource(t *testing.T) {
 	}
 	// create camera with a color stream
 	attrs1 := dualServerAttrs{
-		Color: svr.URL + "/color.png",
-		Depth: svr.URL + "/depth.png",
-		AttrConfig: &camera.AttrConfig{
-			CameraParameters: intrinsics,
-			Stream:           "color",
-		},
+		Color:            svr.URL + "/color.png",
+		Depth:            svr.URL + "/depth.png",
+		CameraParameters: intrinsics,
+		Stream:           "color",
 	}
 	cam1, err := newDualServerSource(context.Background(), &attrs1)
 	test.That(t, err, test.ShouldBeNil)
@@ -192,12 +186,10 @@ func TestDualServerSource(t *testing.T) {
 
 	// create camera with a depth stream
 	attrs2 := dualServerAttrs{
-		Color: svr.URL + "/color.png",
-		Depth: svr.URL + "/depth.png",
-		AttrConfig: &camera.AttrConfig{
-			CameraParameters: intrinsics,
-			Stream:           "depth",
-		},
+		Color:            svr.URL + "/color.png",
+		Depth:            svr.URL + "/depth.png",
+		CameraParameters: intrinsics,
+		Stream:           "depth",
 	}
 	cam2, err := newDualServerSource(context.Background(), &attrs2)
 	test.That(t, err, test.ShouldBeNil)
