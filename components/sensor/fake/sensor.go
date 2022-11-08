@@ -11,7 +11,6 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/types"
 )
 
 func init() {
@@ -40,7 +39,7 @@ type Sensor struct {
 }
 
 // Readings always returns the set values.
-func (s *Sensor) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
+func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return map[string]interface{}{"a": 1, "b": 2, "c": 3}, nil

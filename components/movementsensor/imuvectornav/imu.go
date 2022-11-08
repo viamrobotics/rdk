@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/types"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -325,7 +324,7 @@ func (vn *vectornav) Properties(ctx context.Context) (*movementsensor.Properties
 	}, nil
 }
 
-func (vn *vectornav) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
+func (vn *vectornav) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	return movementsensor.Readings(ctx, vn)
 }
 

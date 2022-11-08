@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/types"
 )
 
 // client implements SensorServiceClient.
@@ -33,7 +32,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	}
 }
 
-func (c *client) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
+func (c *client) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
 		return nil, err

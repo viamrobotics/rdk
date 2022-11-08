@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/types"
 
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robot/web"
@@ -52,7 +51,7 @@ type mySensor struct {
 }
 
 // Readings always returns "hello world".
-func (s *mySensor) Readings(ctx context.Context, _ types.ExtraParams) (map[string]interface{}, error) {
+func (s *mySensor) Readings(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
 	return map[string]interface{}{"hello": "world"}, nil
 }
 

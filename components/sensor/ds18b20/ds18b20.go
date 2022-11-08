@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/types"
 )
 
 const (
@@ -85,7 +84,7 @@ func (s *Sensor) ReadTemperatureCelsius(ctx context.Context) (float64, error) {
 }
 
 // Readings returns a list containing single item (current temperature).
-func (s *Sensor) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
+func (s *Sensor) Readings(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
 	temp, err := s.ReadTemperatureCelsius(ctx)
 	if err != nil {
 		return nil, err
