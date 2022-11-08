@@ -7,6 +7,7 @@ import (
 
 	pb "go.viam.com/api/component/posetracker/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/posetracker"
 	"go.viam.com/rdk/referenceframe"
@@ -45,16 +46,18 @@ func TestGetPoses(t *testing.T) {
 	ptServer, workingPT, failingPT, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	workingPT.PosesFunc = func(ctx context.Context, bodyNames []string) (
+	var extraOptions map[string]interface{}
+	workingPT.PosesFunc = func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (
 		posetracker.BodyToPoseInFrame, error,
 	) {
+		extraOptions = extra
 		zeroPose := spatialmath.NewZeroPose()
 		return posetracker.BodyToPoseInFrame{
 			bodyName: referenceframe.NewPoseInFrame(bodyFrame, zeroPose),
 		}, nil
 	}
 	poseFailureErr := errors.New("failure to get poses")
-	failingPT.PosesFunc = func(ctx context.Context, bodyNames []string) (
+	failingPT.PosesFunc = func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (
 		posetracker.BodyToPoseInFrame, error,
 	) {
 		return nil, poseFailureErr
@@ -78,16 +81,20 @@ func TestGetPoses(t *testing.T) {
 		test.That(t, resp, test.ShouldBeNil)
 	})
 
+	ext, err := protoutils.StructToStructPb(map[string]interface{}{"foo": "GetPosesRequest"})
+	test.That(t, err, test.ShouldBeNil)
 	req := pb.GetPosesRequest{
-		Name: workingPTName, BodyNames: []string{bodyName},
+		Name: workingPTName, BodyNames: []string{bodyName}, Extra: ext,
 	}
 	req2 := pb.GetPosesRequest{
 		Name: workingPTName,
 	}
 	resp1, err := ptServer.GetPoses(context.Background(), &req)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "GetPosesRequest"})
 	resp2, err := ptServer.GetPoses(context.Background(), &req2)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{})
 
 	workingTestCases := []struct {
 		testStr string
