@@ -540,6 +540,7 @@ func (svc *builtIn) Update(ctx context.Context, cfg *config.Config) error {
 	// Initialize or add a collector based on changes to the component configurations.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
 	for _, attributes := range allComponentAttributes {
+		// if enabled and hz > 0 and capture enabled
 		if !attributes.Disabled && attributes.CaptureFrequencyHz > 0 && !svc.captureDisabled {
 			componentMetadata, err := svc.initializeOrUpdateCollector(
 				attributes, updateCaptureDir)
