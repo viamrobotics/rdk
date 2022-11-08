@@ -5,6 +5,7 @@ import (
 
 	"github.com/edaniels/golog"
 	pb "go.viam.com/api/component/posetracker/v1"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/generic"
@@ -31,11 +32,16 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 }
 
 func (c *client) Poses(
-	ctx context.Context, bodyNames []string,
+	ctx context.Context, bodyNames []string, extra map[string]interface{},
 ) (BodyToPoseInFrame, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
 	req := &pb.GetPosesRequest{
 		Name:      c.name,
 		BodyNames: bodyNames,
+		Extra:     ext,
 	}
 	resp, err := c.client.GetPoses(ctx, req)
 	if err != nil {
