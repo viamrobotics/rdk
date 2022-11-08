@@ -31,23 +31,33 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	var gripperOpen string
+	var extraOptions map[string]interface{}
 
 	grabbed1 := true
 	injectGripper := &inject.Gripper{}
-	injectGripper.OpenFunc = func(ctx context.Context) error {
+	injectGripper.OpenFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		extraOptions = extra
 		gripperOpen = testGripperName
 		return nil
 	}
-	injectGripper.GrabFunc = func(ctx context.Context) (bool, error) { return grabbed1, nil }
-	injectGripper.StopFunc = func(ctx context.Context) error { return nil }
+	injectGripper.GrabFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+		extraOptions = extra
+		return grabbed1, nil
+	}
+	injectGripper.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
+		extraOptions = extra
+		return nil
+	}
 
 	injectGripper2 := &inject.Gripper{}
-	injectGripper2.OpenFunc = func(ctx context.Context) error {
+	injectGripper2.OpenFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		gripperOpen = failGripperName
 		return errors.New("can't open")
 	}
-	injectGripper2.GrabFunc = func(ctx context.Context) (bool, error) { return false, errors.New("can't grab") }
-	injectGripper2.StopFunc = func(ctx context.Context) error {
+	injectGripper2.GrabFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
+		return false, errors.New("can't grab")
+	}
+	injectGripper2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return gripper.ErrStopUnimplemented
 	}
 
@@ -85,15 +95,21 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["command"], test.ShouldEqual, generic.TestCommand["command"])
 		test.That(t, resp["data"], test.ShouldEqual, generic.TestCommand["data"])
 
-		err = gripper1Client.Open(context.Background())
+		extra := map[string]interface{}{"foo": "Open"}
+		err = gripper1Client.Open(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, extraOptions, test.ShouldResemble, extra)
 		test.That(t, gripperOpen, test.ShouldEqual, testGripperName)
 
-		grabbed, err := gripper1Client.Grab(context.Background())
+		extra = map[string]interface{}{"foo": "Grab"}
+		grabbed, err := gripper1Client.Grab(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, extraOptions, test.ShouldResemble, extra)
 		test.That(t, grabbed, test.ShouldEqual, grabbed1)
 
-		test.That(t, gripper1Client.Stop(context.Background()), test.ShouldBeNil)
+		extra = map[string]interface{}{"foo": "Stop"}
+		test.That(t, gripper1Client.Stop(context.Background(), extra), test.ShouldBeNil)
+		test.That(t, extraOptions, test.ShouldResemble, extra)
 
 		test.That(t, utils.TryClose(context.Background(), gripper1Client), test.ShouldBeNil)
 
@@ -107,17 +123,18 @@ func TestClient(t *testing.T) {
 		gripper2Client, ok := client.(gripper.Gripper)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		err = gripper2Client.Open(context.Background())
+		extra := map[string]interface{}{}
+		err = gripper2Client.Open(context.Background(), extra)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't open")
 		test.That(t, gripperOpen, test.ShouldEqual, failGripperName)
 
-		grabbed, err := gripper2Client.Grab(context.Background())
+		grabbed, err := gripper2Client.Grab(context.Background(), extra)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't grab")
 		test.That(t, grabbed, test.ShouldEqual, false)
 
-		err = gripper2Client.Stop(context.Background())
+		err = gripper2Client.Stop(context.Background(), extra)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, gripper.ErrStopUnimplemented.Error())
 

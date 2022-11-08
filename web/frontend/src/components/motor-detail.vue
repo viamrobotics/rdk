@@ -236,10 +236,10 @@ const motorStop = () => {
               :selected="direction === 1 ? 'Forwards' : 'Backwards'"
               @input="setDirection($event.detail.value)"
             />
-            <div class="min-w-[400px] pl-6">
+            <div class="w-80">
               <v-slider
                 id="power"
-                class="pt-2"
+                class="ml-2 pt-2 max-w-xs"
                 :min="0"
                 :max="100"
                 :step="1"

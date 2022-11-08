@@ -127,7 +127,7 @@ func (g *Gripper) GetMoveLock() *sync.Mutex {
 }
 
 // Open TODO.
-func (g *Gripper) Open(ctx context.Context) error {
+func (g *Gripper) Open(ctx context.Context, extra map[string]interface{}) error {
 	ctx, done := g.opMgr.New(ctx)
 	defer done()
 	g.moveLock.Lock()
@@ -158,7 +158,7 @@ func (g *Gripper) Open(ctx context.Context) error {
 }
 
 // Grab TODO.
-func (g *Gripper) Grab(ctx context.Context) (bool, error) {
+func (g *Gripper) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	_, done := g.opMgr.New(ctx)
 	defer done()
 	g.moveLock.Lock()
@@ -185,7 +185,7 @@ func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 }
 
 // Stop is unimplemented for Gripper.
-func (g *Gripper) Stop(ctx context.Context) error {
+func (g *Gripper) Stop(ctx context.Context, extra map[string]interface{}) error {
 	// RSDK-388: Implement Stop
 	return gripper.ErrStopUnimplemented
 }

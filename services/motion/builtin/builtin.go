@@ -24,7 +24,7 @@ import (
 
 func init() {
 	registry.RegisterService(motion.Subtype, resource.DefaultModelName, registry.Service{
-		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
+		RobotConstructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return NewBuiltIn(ctx, r, c, logger)
 		},
 	})

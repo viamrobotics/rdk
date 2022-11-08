@@ -581,8 +581,8 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
       @mouseup="handleCanvasMouseUp"
     />
 
-    <div class="relative flex w-full items-center justify-between gap-12">
-      <div class="w-40">
+    <div class="relative flex flex-wrap w-full items-center justify-between gap-12">
+      <div class="w-full pl-4 pt-2 max-w-xs">
         <v-slider
           label="Points Scaling"
           min="0.1"
@@ -695,7 +695,7 @@ watch(() => props.pointcloud, (updated?: Uint8Array) => {
       <div class="pb-1 text-xs">
         Selected Point Position
       </div>
-      <div class="flex gap-3">
+      <div class="flex flex-wrap gap-3">
         <v-input
           readonly
           label="X"

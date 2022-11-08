@@ -119,11 +119,11 @@ func (config *Component) Validate(path string) ([]string, error) {
 		// default namespace.
 		config.Namespace = resource.ResourceNamespaceRDK
 	}
-	if err := resource.ContainsReservedCharacter(string(config.Namespace)); err != nil {
-		return nil, err
-	}
 	if config.Name == "" {
 		return nil, utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	if err := resource.ContainsReservedCharacter(string(config.Namespace)); err != nil {
+		return nil, err
 	}
 	if err := resource.ContainsReservedCharacter(config.Name); err != nil {
 		return nil, err
@@ -223,12 +223,16 @@ type ServiceType string
 
 // A Service describes the configuration of a service.
 type Service struct {
-	Name                string             `json:"name"`
-	Model               string             `json:"model"`
-	Namespace           resource.Namespace `json:"namespace"`
-	Type                ServiceType        `json:"type"`
-	Attributes          AttributeMap       `json:"attributes"`
-	ConvertedAttributes interface{}        `json:"-"`
+	Name string `json:"name"`
+
+	Namespace resource.Namespace `json:"namespace"`
+	Type      ServiceType        `json:"type"`
+	Model     string             `json:"model"`
+	DependsOn []string           `json:"depends_on"`
+
+	Attributes          AttributeMap `json:"attributes"`
+	ConvertedAttributes interface{}  `json:"-"`
+	ImplicitDependsOn   []string     `json:"-"`
 }
 
 // Ensure Service conforms to flag.Value.
@@ -286,13 +290,25 @@ func ParseServiceFlag(flag string) (Service, error) {
 	for _, part := range serviceParts {
 		keyVal := strings.SplitN(part, "=", 2)
 		if len(keyVal) != 2 {
-			return Service{}, errors.New("wrong service format; use type=name,attr=key:value")
+			return Service{}, errors.New("wrong service format; use type=name,depends_on=name1|name2,attr=key:value")
 		}
 		switch keyVal[0] {
 		case "name":
 			svc.Name = keyVal[1]
 		case "type":
 			svc.Type = ServiceType(keyVal[1])
+		case "model":
+			svc.Model = keyVal[1]
+		case "depends_on":
+			split := strings.Split(keyVal[1], "|")
+
+			var dependsOn []string
+			for _, s := range split {
+				if s != "" {
+					dependsOn = append(dependsOn, s)
+				}
+			}
+			svc.DependsOn = dependsOn
 		case "attr":
 			if svc.Attributes == nil {
 				svc.Attributes = AttributeMap{}
@@ -311,9 +327,9 @@ func ParseServiceFlag(flag string) (Service, error) {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *Service) Validate(path string) error {
+func (config *Service) Validate(path string) ([]string, error) {
 	if config.Type == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "type")
+		return nil, utils.NewConfigValidationFieldRequiredError(path, "type")
 	}
 	// If services do not have a name use the name builtin
 	if config.Name == "" {
@@ -330,24 +346,58 @@ func (config *Service) Validate(path string) error {
 		config.Namespace = resource.ResourceNamespaceRDK
 	}
 	if err := resource.ContainsReservedCharacter(string(config.Namespace)); err != nil {
-		return err
+		return nil, err
 	}
 	if err := resource.ContainsReservedCharacter(config.Name); err != nil {
-		return err
+		return nil, err
 	}
+	var deps []string
 	for key, value := range config.Attributes {
-		v, ok := value.(validator)
-		if !ok {
+		switch v := value.(type) {
+		case validator:
+			if err := v.Validate(fmt.Sprintf("%s.%s", path, key)); err != nil {
+				return nil, err
+			}
+		case dependencyValidator:
+			validatedDeps, err := v.Validate(fmt.Sprintf("%s.%s", path, key))
+			if err != nil {
+				return nil, err
+			}
+			deps = append(deps, validatedDeps...)
+		default:
 			continue
 		}
-		if err := v.Validate(fmt.Sprintf("%s.%s", path, key)); err != nil {
-			return err
-		}
 	}
-	if v, ok := config.ConvertedAttributes.(validator); ok {
+	switch v := config.ConvertedAttributes.(type) {
+	case validator:
 		if err := v.Validate(path); err != nil {
-			return err
+			return nil, err
+		}
+	case dependencyValidator:
+		validatedDeps, err := v.Validate(path)
+		if err != nil {
+			return nil, err
+		}
+		deps = append(deps, validatedDeps...)
+	}
+	return deps, nil
+}
+
+// Dependencies returns the deduplicated union of user-defined and implicit dependencies.
+func (config *Service) Dependencies() []string {
+	result := make([]string, 0, len(config.DependsOn)+len(config.ImplicitDependsOn))
+	seen := make(map[string]struct{})
+	appendUniq := func(dep string) {
+		if _, ok := seen[dep]; !ok {
+			seen[dep] = struct{}{}
+			result = append(result, dep)
 		}
 	}
-	return nil
+	for _, dep := range config.DependsOn {
+		appendUniq(dep)
+	}
+	for _, dep := range config.ImplicitDependsOn {
+		appendUniq(dep)
+	}
+	return result
 }

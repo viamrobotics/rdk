@@ -88,7 +88,7 @@ const namesToPrettySelect = (resourcesToPretty: Resource[]): string => {
           <p class="text-large">
             Input
           </p>
-          <div class="h-[250px] w-full border border-black p-2">
+          <div class="h-[250px] w-full max-w-full border border-black p-2">
             <v-code-editor
               language="json"
               value="{}"

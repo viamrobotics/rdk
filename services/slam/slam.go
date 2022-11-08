@@ -67,8 +67,15 @@ var (
 
 // Service describes the functions that are available to the service.
 type Service interface {
-	Position(context.Context, string) (*referenceframe.PoseInFrame, error)
-	GetMap(context.Context, string, string, *referenceframe.PoseInFrame, bool) (string, image.Image, *vision.Object, error)
+	Position(context.Context, string, map[string]interface{}) (*referenceframe.PoseInFrame, error)
+	GetMap(
+		context.Context,
+		string,
+		string,
+		*referenceframe.PoseInFrame,
+		bool,
+		map[string]interface{},
+	) (string, image.Image, *vision.Object, error)
 }
 
 type reconfigurableSlam struct {
@@ -76,10 +83,14 @@ type reconfigurableSlam struct {
 	actual Service
 }
 
-func (svc *reconfigurableSlam) Position(ctx context.Context, val string) (*referenceframe.PoseInFrame, error) {
+func (svc *reconfigurableSlam) Position(
+	ctx context.Context,
+	val string,
+	extra map[string]interface{},
+) (*referenceframe.PoseInFrame, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.Position(ctx, val)
+	return svc.actual.Position(ctx, val, extra)
 }
 
 func (svc *reconfigurableSlam) GetMap(ctx context.Context,
@@ -87,10 +98,11 @@ func (svc *reconfigurableSlam) GetMap(ctx context.Context,
 	mimeType string,
 	cp *referenceframe.PoseInFrame,
 	include bool,
+	extra map[string]interface{},
 ) (string, image.Image, *vision.Object, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.GetMap(ctx, name, mimeType, cp, include)
+	return svc.actual.GetMap(ctx, name, mimeType, cp, include, extra)
 }
 
 func (svc *reconfigurableSlam) Close(ctx context.Context) error {

@@ -161,12 +161,12 @@ func TestStatusClient(t *testing.T) {
 
 	injectGripper := &inject.Gripper{}
 	var gripperOpenCalled bool
-	injectGripper.OpenFunc = func(ctx context.Context) error {
+	injectGripper.OpenFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		gripperOpenCalled = true
 		return nil
 	}
 	var gripperGrabCalled bool
-	injectGripper.GrabFunc = func(ctx context.Context) (bool, error) {
+	injectGripper.GrabFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		gripperGrabCalled = true
 		return true, nil
 	}
@@ -325,10 +325,10 @@ func TestStatusClient(t *testing.T) {
 
 	gripper1, err := gripper.FromRobot(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
-	err = gripper1.Open(context.Background())
+	err = gripper1.Open(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
-	_, err = gripper1.Grab(context.Background())
+	_, err = gripper1.Grab(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
 
@@ -417,7 +417,7 @@ func TestStatusClient(t *testing.T) {
 
 	gripper1, err = gripper.FromRobot(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
-	err = gripper1.Open(context.Background())
+	err = gripper1.Open(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gripperOpenCalled, test.ShouldBeTrue)
 	test.That(t, gripperGrabCalled, test.ShouldBeFalse)

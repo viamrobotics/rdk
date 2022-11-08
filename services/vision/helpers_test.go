@@ -106,7 +106,7 @@ func buildRobotWithFakeCamera(t *testing.T) (robot.Robot, error) {
 			"segment_size_px":   1000,
 		},
 	}
-	err = srv.AddDetector(context.Background(), detConf)
+	err = srv.AddDetector(context.Background(), detConf, map[string]interface{}{})
 	if err != nil {
 		return nil, err
 	}

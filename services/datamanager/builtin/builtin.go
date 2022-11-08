@@ -31,7 +31,7 @@ import (
 
 func init() {
 	registry.RegisterService(datamanager.Subtype, resource.DefaultModelName, registry.Service{
-		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
+		RobotConstructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return NewBuiltIn(ctx, r, c, logger)
 		},
 	})
@@ -342,7 +342,7 @@ func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, 
 	svc.cancelSyncBackgroundRoutine()
 
 	// Kick off syncer if we're running it.
-	if intervalMins > 0 {
+	if intervalMins > 0 && !svc.syncDisabled {
 		syncer, err := svc.syncerConstructor(svc.logger, cfg)
 		if err != nil {
 			return errors.Wrap(err, "failed to initialize new syncer")
@@ -374,7 +374,7 @@ func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, 
 }
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
-func (svc *builtIn) Sync(_ context.Context) error {
+func (svc *builtIn) Sync(_ context.Context, extra map[string]interface{}) error {
 	if svc.syncer == nil {
 		return errors.New("called Sync on data manager service with nil syncer")
 	}

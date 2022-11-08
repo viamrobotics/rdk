@@ -505,6 +505,7 @@ func TestManagerAdd(t *testing.T) {
 	injectVisionService.GetObjectPointCloudsFunc = func(
 		ctx context.Context,
 		cameraName, segmenterName string,
+		extra map[string]interface{},
 	) ([]*viz.Object, error) {
 		return []*viz.Object{viz.NewEmptyObject()}, nil
 	}
@@ -1623,7 +1624,7 @@ func TestUpdateConfig(t *testing.T) {
 	})
 
 	registry.RegisterService(Subtype, resource.DefaultModelName, registry.Service{
-		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
+		Constructor: func(ctx context.Context, deps registry.Dependencies, c config.Service, logger golog.Logger) (interface{}, error) {
 			return &mock{}, nil
 		},
 	})

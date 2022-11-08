@@ -44,8 +44,8 @@ type Readings struct {
 
 // A Service centralizes all sensors into one place.
 type Service interface {
-	Sensors(ctx context.Context) ([]resource.Name, error)
-	Readings(ctx context.Context, sensorNames []resource.Name) ([]Readings, error)
+	Sensors(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error)
+	Readings(ctx context.Context, sensorNames []resource.Name, extra map[string]interface{}) ([]Readings, error)
 }
 
 var (
@@ -113,16 +113,20 @@ func (svc *reconfigurableSensors) Update(ctx context.Context, resources map[reso
 	return svc.actual.(resource.Updateable).Update(ctx, resources)
 }
 
-func (svc *reconfigurableSensors) Sensors(ctx context.Context) ([]resource.Name, error) {
+func (svc *reconfigurableSensors) Sensors(ctx context.Context, extra map[string]interface{}) ([]resource.Name, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.Sensors(ctx)
+	return svc.actual.Sensors(ctx, extra)
 }
 
-func (svc *reconfigurableSensors) Readings(ctx context.Context, sensorNames []resource.Name) ([]Readings, error) {
+func (svc *reconfigurableSensors) Readings(
+	ctx context.Context,
+	sensorNames []resource.Name,
+	extra map[string]interface{},
+) ([]Readings, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.actual.Readings(ctx, sensorNames)
+	return svc.actual.Readings(ctx, sensorNames, extra)
 }
 
 func (svc *reconfigurableSensors) Close(ctx context.Context) error {
