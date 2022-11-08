@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/types"
 )
 
 func newServer() (pb.SensorServiceServer, *inject.Sensor, *inject.Sensor, error) {
