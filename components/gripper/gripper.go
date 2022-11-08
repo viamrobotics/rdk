@@ -61,15 +61,15 @@ func Named(name string) resource.Name {
 type Gripper interface {
 	// Open opens the gripper.
 	// This will block until done or a new operation cancels this one
-	Open(ctx context.Context) error
+	Open(ctx context.Context, extra map[string]interface{}) error
 
 	// Grab makes the gripper grab.
 	// returns true if we grabbed something.
 	// This will block until done or a new operation cancels this one
-	Grab(ctx context.Context) (bool, error)
+	Grab(ctx context.Context, extra map[string]interface{}) (bool, error)
 
 	// Stop stops the gripper. It is assumed the gripper stops immediately.
-	Stop(ctx context.Context) error
+	Stop(ctx context.Context, extra map[string]interface{}) error
 
 	generic.Generic
 	referenceframe.ModelFramer
@@ -171,22 +171,22 @@ func (g *reconfigurableGripper) DoCommand(ctx context.Context, cmd map[string]in
 	return g.actual.DoCommand(ctx, cmd)
 }
 
-func (g *reconfigurableGripper) Open(ctx context.Context) error {
+func (g *reconfigurableGripper) Open(ctx context.Context, extra map[string]interface{}) error {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.actual.Open(ctx)
+	return g.actual.Open(ctx, extra)
 }
 
-func (g *reconfigurableGripper) Grab(ctx context.Context) (bool, error) {
+func (g *reconfigurableGripper) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.actual.Grab(ctx)
+	return g.actual.Grab(ctx, extra)
 }
 
-func (g *reconfigurableGripper) Stop(ctx context.Context) error {
+func (g *reconfigurableGripper) Stop(ctx context.Context, extra map[string]interface{}) error {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.actual.Stop(ctx)
+	return g.actual.Stop(ctx, extra)
 }
 
 // Reconfigure reconfigures the resource.
