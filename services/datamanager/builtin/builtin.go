@@ -342,7 +342,7 @@ func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, 
 	svc.cancelSyncBackgroundRoutine()
 
 	// Kick off syncer if we're running it.
-	if intervalMins > 0 {
+	if intervalMins > 0 && !svc.syncDisabled {
 		syncer, err := svc.syncerConstructor(svc.logger, cfg)
 		if err != nil {
 			return errors.Wrap(err, "failed to initialize new syncer")
