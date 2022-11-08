@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors"
-	"go.viam.com/rdk/types"
 )
 
 func init() {
@@ -74,9 +73,7 @@ func (s *builtIn) Readings(ctx context.Context, sensorNames []resource.Name, ext
 		if !ok {
 			return nil, errors.Errorf("resource %q not a registered sensor", name)
 		}
-		// TODO: once https://github.com/viamrobotics/rdk/pull/1545 is merged,
-		// we should pass in extra parameters passed into this function here.
-		reading, err := sensor.Readings(ctx, types.ZeroExtraParams())
+		reading, err := sensor.Readings(ctx, extra)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get reading from %q", name)
 		}
