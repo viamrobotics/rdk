@@ -33,11 +33,15 @@ func TestClient(t *testing.T) {
 
 	rs := map[string]interface{}{"a": 1.1, "b": 2.2}
 
+	var extraCap types.ExtraParams
 	injectSensor := &inject.Sensor{}
-	injectSensor.ReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) { return rs, nil }
+	injectSensor.ReadingsFunc = func(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
+		extraCap = extra
+		return rs, nil
+	}
 
 	injectSensor2 := &inject.Sensor{}
-	injectSensor2.ReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
+	injectSensor2.ReadingsFunc = func(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
 		return nil, errors.New("can't get readings")
 	}
 
@@ -78,6 +82,13 @@ func TestClient(t *testing.T) {
 		rs1, err := sensor1Client.Readings(context.Background(), types.ZeroExtraParams())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
+		test.That(t, extraCap, test.ShouldResemble, types.ZeroExtraParams())
+
+		// With extra params
+		rs1, err = sensor1Client.Readings(context.Background(), types.OneExtraParam("foo", "bar"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, rs1, test.ShouldResemble, rs)
+		test.That(t, extraCap, test.ShouldResemble, types.OneExtraParam("foo", "bar"))
 
 		test.That(t, utils.TryClose(context.Background(), sensor1Client), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
