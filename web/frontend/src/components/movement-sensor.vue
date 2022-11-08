@@ -130,7 +130,7 @@ onUnmounted(() => {
       <template v-if="properties">
         <div
           v-if="properties.positionSupported"
-          class="mr-4 w-1/4"
+          class="overflow-auto mr-4 w-1/4"
         >
           <h3 class="mb-1">
             Position
@@ -168,7 +168,7 @@ onUnmounted(() => {
 
         <div
           v-if="properties.orientationSupported"
-          class="mr-4 w-1/4"
+          class="overflow-auto mr-4 w-1/4"
         >
           <h3 class="mb-1">
             Orientation (degrees)
@@ -211,7 +211,7 @@ onUnmounted(() => {
 
         <div
           v-if="properties.angularVelocitySupported"
-          class="mr-4 w-1/4"
+          class="overflow-auto mr-4 w-1/4"
         >
           <h3 class="mb-1">
             Angular Velocity (degrees/second)
@@ -246,7 +246,7 @@ onUnmounted(() => {
 
         <div
           v-if="properties.linearVelocitySupported"
-          class="mr-4 w-1/4"
+          class="overflow-auto mr-4 w-1/4"
         >
           <h3 class="mb-1">
             Linear Velocity
@@ -281,7 +281,7 @@ onUnmounted(() => {
 
         <div
           v-if="properties.compassHeadingSupported"
-          class="mr-4 w-1/4"
+          class="overflow-auto mr-4 w-1/4"
         >
           <h3 class="mb-1">
             Compass Heading

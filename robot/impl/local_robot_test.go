@@ -969,17 +969,17 @@ func TestSensorsService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	sensorNames := []resource.Name{movementsensor.Named("movement_sensor1"), movementsensor.Named("movement_sensor2")}
-	foundSensors, err := svc.Sensors(context.Background())
+	foundSensors, err := svc.Sensors(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rtestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rtestutils.NewResourceNameSet(sensorNames...))
 
-	readings, err := svc.Readings(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")})
+	readings, err := svc.Readings(context.Background(), []resource.Name{movementsensor.Named("movement_sensor1")}, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(readings), test.ShouldEqual, 1)
 	test.That(t, readings[0].Name, test.ShouldResemble, movementsensor.Named("movement_sensor1"))
 	test.That(t, len(readings[0].Readings), test.ShouldBeGreaterThan, 3)
 
-	readings, err = svc.Readings(context.Background(), sensorNames)
+	readings, err = svc.Readings(context.Background(), sensorNames, map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(readings), test.ShouldEqual, 2)
 

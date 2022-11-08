@@ -498,6 +498,10 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 			rName.Subtype, config.Model, strings.Join(validModels, ", "))
 	}
 
+	deps, err := r.getDependencies(rName)
+	if err != nil {
+		return nil, err
+	}
 	c := registry.ResourceSubtypeLookup(rName.Subtype)
 
 	// If MaxInstance equals zero then there is not limit on the number of services
@@ -506,9 +510,17 @@ func (r *localRobot) newService(ctx context.Context, config config.Service) (int
 			return nil, err
 		}
 	}
-	svc, err := f.Constructor(ctx, r, config, r.logger)
-	if err != nil {
-		return nil, err
+	var svc interface{}
+	if f.Constructor != nil {
+		svc, err = f.Constructor(ctx, deps, config, r.logger)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		svc, err = f.RobotConstructor(ctx, r, config, r.logger)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if c == nil || c.Reconfigurable == nil {
@@ -762,6 +774,18 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 				return c.ResourceName(), true
 			}
 		}
+		for _, s := range r.config.Services {
+			if s.Name == name {
+				return s.ResourceName(), true
+			}
+		}
+		// then look into what was added
+		for _, s := range diff.Added.Services {
+			if s.Name == name {
+				return s.ResourceName(), true
+			}
+		}
+
 		// we are trying to locate a resource that is set as a dependency but do not exist yet
 		r.logger.Debugw("processing unknown  resource", "name", name)
 		return resource.NameFromSubtype(unknownSubtype, name), true

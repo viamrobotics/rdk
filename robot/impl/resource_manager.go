@@ -352,7 +352,6 @@ func (manager *resourceManager) completeConfig(
 	defer manager.configLock.Unlock()
 	rS := manager.resources.ReverseTopologicalSort()
 
-	svcs := make([]resource.Name, 0)
 	for _, r := range rS {
 		iface, ok := manager.resources.Node(r)
 		if !ok || iface == nil {
@@ -371,10 +370,14 @@ func (manager *resourceManager) completeConfig(
 				continue
 			}
 			manager.resources.AddNode(r, iface)
-		} else if _, ok := wrap.config.(config.Service); ok {
-			// RSDK-507: Handle services like normal again when dependencies are added to services.
-			manager.logger.Debugw("resource is a service, skipping until the end", "resource", r)
-			svcs = append(svcs, r)
+		} else if s, ok := wrap.config.(config.Service); ok {
+			iface, err := manager.processService(ctx, s, wrap.real, robot)
+			if err != nil {
+				manager.logger.Errorw("error building service", "resource", s.ResourceName(), "model", s.Model, "error", err)
+				wrap.err = errors.Wrap(err, "service build error")
+				continue
+			}
+			manager.resources.AddNode(r, iface)
 		} else if rc, ok := wrap.config.(config.Remote); ok {
 			rr, err := manager.processRemote(ctx, rc)
 			if err != nil {
@@ -394,33 +397,10 @@ func (manager *resourceManager) completeConfig(
 				case robot.remotesChanged <- rName:
 				}
 			})
-		}
-	}
-
-	// RSDK-507: Remove this block when dependencies are added to services.
-	for _, r := range svcs {
-		manager.logger.Debugw("we are now actually handling the service resource", "resource", r)
-		iface, ok := manager.resources.Node(r)
-		if !ok || iface == nil {
-			continue
-		}
-		wrap, ok := iface.(*resourcePlaceholder)
-		if !ok {
-			continue
-		}
-		s, ok := wrap.config.(config.Service)
-		if !ok {
-			err := errors.New("service config is not a service config")
+		} else {
+			err := errors.New("config is not a component, service, or remote config")
 			manager.logger.Errorw(err.Error(), "resource", r)
-			wrap.err = errors.Wrap(err, "service build error")
 		}
-		iface, err := manager.processService(ctx, s, wrap.real, robot)
-		if err != nil {
-			manager.logger.Errorw("error building service", "resource", s.ResourceName(), "model", s.Model, "error", err)
-			wrap.err = errors.Wrap(err, "service build error")
-			continue
-		}
-		manager.resources.AddNode(r, iface)
 	}
 }
 
@@ -714,7 +694,7 @@ func (manager *resourceManager) updateResources(
 	}
 	for _, s := range config.Added.Services {
 		rName := s.ResourceName()
-		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, s, []string{}, fn))
+		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, s, s.Dependencies(), fn))
 	}
 	for _, r := range config.Added.Remotes {
 		rName := fromRemoteNameToRemoteNodeName(r.Name)
@@ -726,7 +706,7 @@ func (manager *resourceManager) updateResources(
 	}
 	for _, s := range config.Modified.Services {
 		rName := s.ResourceName()
-		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, s, []string{}, fn))
+		allErrs = multierr.Combine(allErrs, manager.wrapResource(rName, s, s.Dependencies(), fn))
 	}
 	for _, r := range config.Modified.Remotes {
 		rName := fromRemoteNameToRemoteNodeName(r.Name)

@@ -38,10 +38,7 @@ func (server *subtypeServer) Sync(ctx context.Context, req *pb.SyncRequest) (*pb
 	if err != nil {
 		return nil, err
 	}
-	err = svc.Sync(
-		ctx,
-	)
-	if err != nil {
+	if err := svc.Sync(ctx, req.Extra.AsMap()); err != nil {
 		return nil, err
 	}
 	return &pb.SyncResponse{}, nil
