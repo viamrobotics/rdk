@@ -159,7 +159,7 @@ const setPWMFrequency = () => {
             Get
           </th>
           <td class="border border-black p-2">
-            <div class="flex items-end gap-2">
+            <div class="flex flex-wrap items-end gap-2">
               <v-input
                 label="Pin"
                 type="integer"
@@ -189,7 +189,7 @@ const setPWMFrequency = () => {
             Set
           </th>
           <td class="p-2">
-            <div class="flex items-end gap-2">
+            <div class="flex flex-wrap items-end gap-2">
               <v-input
                 v-model="setPin"
                 type="integer"
