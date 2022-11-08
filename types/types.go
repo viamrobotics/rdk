@@ -8,3 +8,10 @@ type ExtraParams = map[string]interface{}
 func ZeroExtraParams() ExtraParams {
 	return make(ExtraParams)
 }
+
+// OneExtraParam returns a map with one entry.
+func OneExtraParam(key string, value string) ExtraParams {
+	extra := ZeroExtraParams()
+	extra[key] = value
+	return extra
+}
