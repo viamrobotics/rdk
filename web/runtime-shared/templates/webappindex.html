@@ -6,12 +6,12 @@
     <title>Viam RDK</title>
     <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
     <script type="module">
-      window.webrtcEnabled = {{ .WebRTCEnabled }}
-      window.webrtcHost = {{ .WebRTCHost }}
-      window.webrtcSignalingAddress = {{ .WebRTCSignalingAddress }}
-      window.webrtcAdditionalICEServers = {{ .WebRTCAdditionalICEServers }}
-      window.bakedAuth = {{ .BakedAuth }} || {};
-      window.supportedAuthTypes = {{ .SupportedAuthTypes }} || [];
+  window.webrtcEnabled =  true 
+  window.webrtcHost = "test-main-8.b5qxymeq0i.viam.cloud"
+  window.webrtcSignalingAddress = "https://app.viam.com:443"
+  window.webrtcAdditionalICEServers = [{"credential":"5npcFqIBJmq1O8TbsLFjKwRAvcDBgo85zczbNFhzwD8=","urls":"turn:global.turn.twilio.com:3478?transport=udp","username":"543d3e2bfddec306e61c94c8a200e168e68e11b09d03ebbaffd4dcf4e1d3aa6b"}]
+  window.bakedAuth =  {"authEntity": window.webrtcHost, "creds": {"type": "robot-location-secret", "payload": "07u8pz83bdalqhezjx6y9yy7w0jnkx7o6apm0revvl7l7e34"}}
+  window.supportedAuthTypes =  null  || [];
     </script>
 
     {{ if .External }}

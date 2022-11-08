@@ -63,10 +63,13 @@ func init() {
 
 // JoinAttrs is the attribute struct for joinPointCloudSource.
 type JoinAttrs struct {
-	*camera.AttrConfig
-	TargetFrame   string   `json:"target_frame"`
-	SourceCameras []string `json:"source_cameras"`
-	MergeMethod   string   `json:"merge_method"`
+	CameraParameters     *transform.PinholeCameraIntrinsics `json:"intrinsic_parameters,omitempty"`
+	DistortionParameters *transform.BrownConrady            `json:"distortion_parameters,omitempty"`
+	Stream               string                             `json:"stream"`
+	Debug                bool                               `json:"debug,omitempty"`
+	TargetFrame          string                             `json:"target_frame"`
+	SourceCameras        []string                           `json:"source_cameras"`
+	MergeMethod          string                             `json:"merge_method"`
 	// Closeness defines how close 2 points should be together to be considered the same point when merged.
 	Closeness float64 `json:"closeness_mm"`
 }
