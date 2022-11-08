@@ -33,6 +33,8 @@
             "type": "data_manager",
             "model": "builtin",
             "attributes": {
+                "sync_disabled": false,
+                "capture_disabled": false,
                 "sync_interval_mins": 0,
                 "capture_dir": "/tmp/capture"
             }
