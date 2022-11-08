@@ -2,18 +2,17 @@
 <script setup lang="ts">
 
 import { grpc } from '@improbable-eng/grpc-web';
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { onMounted, onUnmounted, watch } from 'vue';
 import { Timestamp } from 'google-protobuf/google/protobuf/timestamp_pb';
 import InputController from '../gen/proto/api/component/inputcontroller/v1/input_controller_pb.esm';
 import { displayError } from '../lib/error';
 
-const gamepad = ref(navigator.getGamepads()[0]);
-const gamepadName = ref('Waiting for gamepad...');
-const gamepadConnected = ref(false);
-const gamepadConnectedPrev = ref(false);
-const enabled = ref(false);
+let gamepad = $ref<Gamepad | null>(null);
+let gamepadConnected = $ref(false);
+let gamepadConnectedPrev = $ref(false);
+const enabled = $ref(false);
 
-const curStates: Record<string, number> = {
+const curStates = $ref<Record<string, number>>({
   X: Number.NaN,
   Y: Number.NaN,
   RX: Number.NaN,
@@ -33,13 +32,13 @@ const curStates: Record<string, number> = {
   Select: Number.NaN,
   Start: Number.NaN,
   Menu: Number.NaN,
-};
+});
 
 let handle = -1;
 let prevStates: Record<string, number> = {};
 
 const sendEvent = (newEvent: InputController.Event) => {
-  if (enabled.value) {
+  if (enabled) {
     const req = new InputController.TriggerEventRequest();
     req.setController('WebGamepad');
     req.setEvent(newEvent);
@@ -49,8 +48,8 @@ const sendEvent = (newEvent: InputController.Event) => {
 
 const connectEvent = (con: boolean) => {
   if (
-    (con === true && gamepadConnected.value === false) ||
-    (con === false && gamepadConnectedPrev.value === false)
+    (con === true && gamepadConnected === false) ||
+    (con === false && gamepadConnectedPrev === false)
   ) {
     return;
   }
@@ -72,19 +71,19 @@ const connectEvent = (con: boolean) => {
 };
 
 const processEvents = () => {
-  if (gamepadConnected.value === false) {
+  if (gamepadConnected === false) {
     for (const key of Object.keys(curStates)) {
       curStates[key] = Number.NaN;
     }
 
-    if (gamepadConnectedPrev.value === true) {
+    if (gamepadConnectedPrev === true) {
       connectEvent(false);
-      gamepadConnectedPrev.value = false;
+      gamepadConnectedPrev = false;
     }
     return;
-  } else if (gamepadConnectedPrev.value === false) {
+  } else if (gamepadConnectedPrev === false) {
     connectEvent(true);
-    gamepadConnectedPrev.value = true;
+    gamepadConnectedPrev = true;
   }
 
   for (const [key, value] of Object.entries(curStates)) {
@@ -122,45 +121,40 @@ const tick = () => {
   const pads = navigator.getGamepads();
   for (const pad of pads) {
     if (pad) {
-      gamepad.value = pad;
+      gamepad = pad;
       gamepadFound = true;
       break;
     }
   }
 
   if (gamepadFound === false) {
-    gamepadName.value = 'Waiting for gamepad...';
-    gamepadConnected.value = false;
-    gamepad.value = null;
+    gamepadConnected = false;
+    gamepad = null;
   }
 
-  if (gamepad.value) {
-    gamepadName.value = gamepad.value.mapping === 'standard'
-      ? gamepad.value.id.replace(/ \(standard .*\)/iu, '')
-      : gamepad.value.id;
-
+  if (gamepad) {
     prevStates = { ...prevStates, ...curStates };
-    gamepadConnected.value = gamepad.value.connected;
+    gamepadConnected = gamepad.connected;
 
-    curStates.X = gamepad.value.axes[0]!;
-    curStates.Y = gamepad.value.axes[1]!;
-    curStates.RX = gamepad.value.axes[2]!;
-    curStates.RY = gamepad.value.axes[3]!;
-    curStates.Z = gamepad.value.buttons[6]!.value;
-    curStates.RZ = gamepad.value.buttons[7]!.value;
-    curStates.Hat0X = (gamepad.value.buttons[14]!.value * -1) + gamepad.value.buttons[15]!.value;
-    curStates.Hat0Y = (gamepad.value.buttons[12]!.value * -1) + gamepad.value.buttons[13]!.value;
-    curStates.South = gamepad.value.buttons[0]!.value;
-    curStates.East = gamepad.value.buttons[1]!.value;
-    curStates.West = gamepad.value.buttons[2]!.value;
-    curStates.North = gamepad.value.buttons[3]!.value;
-    curStates.LT = gamepad.value.buttons[4]!.value;
-    curStates.RT = gamepad.value.buttons[5]!.value;
-    curStates.Select = gamepad.value.buttons[8]!.value;
-    curStates.Start = gamepad.value.buttons[9]!.value;
-    curStates.LThumb = gamepad.value.buttons[10]!.value;
-    curStates.RThumb = gamepad.value.buttons[11]!.value;
-    curStates.Menu = gamepad.value.buttons[16]!.value;
+    curStates.X = gamepad.axes[0]!;
+    curStates.Y = gamepad.axes[1]!;
+    curStates.RX = gamepad.axes[2]!;
+    curStates.RY = gamepad.axes[3]!;
+    curStates.Z = gamepad.buttons[6]!.value;
+    curStates.RZ = gamepad.buttons[7]!.value;
+    curStates.Hat0X = (gamepad.buttons[14]!.value * -1) + gamepad.buttons[15]!.value;
+    curStates.Hat0Y = (gamepad.buttons[12]!.value * -1) + gamepad.buttons[13]!.value;
+    curStates.South = gamepad.buttons[0]!.value;
+    curStates.East = gamepad.buttons[1]!.value;
+    curStates.West = gamepad.buttons[2]!.value;
+    curStates.North = gamepad.buttons[3]!.value;
+    curStates.LT = gamepad.buttons[4]!.value;
+    curStates.RT = gamepad.buttons[5]!.value;
+    curStates.Select = gamepad.buttons[8]!.value;
+    curStates.Start = gamepad.buttons[9]!.value;
+    curStates.LThumb = gamepad.buttons[10]!.value;
+    curStates.RThumb = gamepad.buttons[11]!.value;
+    curStates.Menu = gamepad.buttons[16]!.value;
   }
 
   processEvents();
@@ -177,7 +171,7 @@ onUnmounted(() => {
 });
 
 watch(() => enabled, () => {
-  connectEvent(enabled.value);
+  connectEvent(enabled);
 });
 
 </script>
@@ -204,7 +198,7 @@ watch(() => enabled, () => {
 
     <div class="h-full w-full border border-t-0 border-black p-4">
       <div class="flex flex-row">
-        <label class="subtitle mr-2">Connection</label>
+        <label class="subtitle mr-2">Enabled</label>
         <v-switch
           :value="enabled ? 'on' : 'off'"
           @input="enabled = !enabled"
@@ -216,14 +210,14 @@ watch(() => enabled, () => {
         class="flex h-full w-full flex-row justify-between gap-2"
       >
         <div
-          v-for="(value, name) of curStates"
+          v-for="(value, name) in curStates"
           :key="name"
           class="ml-0 flex w-[8ex] flex-col text-center"
         >
           <p class="subtitle m-0">
             {{ name }}
           </p>
-          {{ /X|Y|Z$/.test(name) ? value.toFixed(4) : value.toFixed(0) }}
+          {{ /X|Y|Z$/.test(name.toString()) ? value!.toFixed(4) : value!.toFixed() }}
         </div>
       </div>
     </div>
