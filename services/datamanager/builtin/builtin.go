@@ -14,6 +14,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
@@ -93,6 +94,7 @@ type Config struct {
 type builtIn struct {
 	r                         robot.Robot
 	logger                    golog.Logger
+	syncLogger                golog.Logger
 	captureDir                string
 	captureDisabled           bool
 	collectors                map[componentMethodMetadata]collectorAndConfig
@@ -115,11 +117,20 @@ var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
 // NewBuiltIn returns a new data manager service for the given robot.
 func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger) (datamanager.Service, error) {
+	var syncLogger golog.Logger
+	productionLogger, err := zap.NewProduction()
+	if err != nil {
+		syncLogger = logger
+	} else {
+		syncLogger = productionLogger.Sugar()
+	}
+
 	// Set syncIntervalMins = -1 as we rely on initOrUpdateSyncer to instantiate a syncer
 	// on first call to Update, even if syncIntervalMins value is 0, and the default value for int64 is 0.
 	dataManagerSvc := &builtIn{
 		r:                         r,
 		logger:                    logger,
+		syncLogger:                syncLogger,
 		captureDir:                viamCaptureDotDir,
 		collectors:                make(map[componentMethodMetadata]collectorAndConfig),
 		backgroundWorkers:         sync.WaitGroup{},
