@@ -118,9 +118,11 @@ var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 // NewBuiltIn returns a new data manager service for the given robot.
 func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger) (datamanager.Service, error) {
 	var syncLogger golog.Logger
+	// Attempt to create a production logger to utilize its sampling defaults since syncer can spam failure logs
+	// if many collectors or exponential retries fail.
 	productionLogger, err := zap.NewProduction()
 	if err != nil {
-		syncLogger = logger
+		syncLogger = logger // Default to the provided logger.
 	} else {
 		syncLogger = productionLogger.Sugar()
 	}
@@ -354,7 +356,7 @@ func (svc *builtIn) initOrUpdateSyncer(_ context.Context, intervalMins float64, 
 
 	// Kick off syncer if we're running it.
 	if intervalMins > 0 && !svc.syncDisabled {
-		syncer, err := svc.syncerConstructor(svc.logger, cfg)
+		syncer, err := svc.syncerConstructor(svc.syncLogger, cfg)
 		if err != nil {
 			return errors.Wrap(err, "failed to initialize new syncer")
 		}
