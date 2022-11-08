@@ -170,6 +170,18 @@ func TestReadings(t *testing.T) {
 	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 1)
 }
 
+func TestReadingsWithExtraParams(t *testing.T) {
+	actualSensor1 := &mock{Name: testSensorName}
+	reconfSensor1, _ := sensor.WrapWithReconfigurable(actualSensor1)
+
+	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 0)
+	result, err := reconfSensor1.(sensor.Sensor).Readings(context.Background(), types.OneExtraParam("foo", "bar"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, map[string]interface{}{"a": reading})
+	test.That(t, actualSensor1.extraCap, test.ShouldResemble, types.OneExtraParam("foo", "bar"))
+	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 1)
+}
+
 func TestClose(t *testing.T) {
 	actualSensor1 := &mock{Name: testSensorName}
 	reconfSensor1, _ := sensor.WrapWithReconfigurable(actualSensor1)
@@ -186,10 +198,12 @@ type mock struct {
 	Name          string
 	readingsCount int
 	reconfCount   int
+	extraCap      types.ExtraParams
 }
 
-func (m *mock) Readings(ctx context.Context) (map[string]interface{}, error) {
+func (m *mock) Readings(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
 	m.readingsCount++
+	m.extraCap = extra
 	return map[string]interface{}{"a": reading}, nil
 }
 

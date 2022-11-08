@@ -7,12 +7,14 @@ import (
 
 	pb "go.viam.com/api/component/sensor/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/types"
 )
 
 func newServer() (pb.SensorServiceServer, *inject.Sensor, *inject.Sensor, error) {
@@ -36,9 +38,13 @@ func TestServer(t *testing.T) {
 
 	rs := map[string]interface{}{"a": 1.1, "b": 2.2}
 
-	injectSensor.ReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) { return rs, nil }
+	var extraCap types.ExtraParams
+	injectSensor.ReadingsFunc = func(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
+		extraCap = extra
+		return rs, nil
+	}
 
-	injectSensor2.ReadingsFunc = func(ctx context.Context) (map[string]interface{}, error) {
+	injectSensor2.ReadingsFunc = func(ctx context.Context, extra types.ExtraParams) (map[string]interface{}, error) {
 		return nil, errors.New("can't get readings")
 	}
 
@@ -49,9 +55,13 @@ func TestServer(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			expected[k] = vv
 		}
-		resp, err := sensorServer.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: testSensorName})
+		extra, err := protoutils.StructToStructPb(types.OneExtraParam("foo", "bar"))
+		test.That(t, err, test.ShouldBeNil)
+
+		resp, err := sensorServer.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: testSensorName, Extra: extra})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Readings, test.ShouldResemble, expected)
+		test.That(t, extraCap, test.ShouldResemble, types.OneExtraParam("foo", "bar"))
 
 		_, err = sensorServer.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: failSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
