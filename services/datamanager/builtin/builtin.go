@@ -118,8 +118,8 @@ var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 // NewBuiltIn returns a new data manager service for the given robot.
 func NewBuiltIn(_ context.Context, r robot.Robot, _ config.Service, logger golog.Logger) (datamanager.Service, error) {
 	var syncLogger golog.Logger
-	// Attempt to create a production logger to utilize its sampling defaults since syncer can spam failure logs
-	// if many collectors or exponential retries fail.
+	// Create a production logger for its smart sampling defaults, since if many collectors or upload retries
+	// fail at once, the syncer will otherwise spam logs.
 	productionLogger, err := zap.NewProduction()
 	if err != nil {
 		syncLogger = logger // Default to the provided logger.
